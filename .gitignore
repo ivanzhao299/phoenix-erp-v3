@@ -1,0 +1,43 @@
+# Phoenix ERP V3 — .gitignore
+
+# Node
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+**/dist/
+build/
+**/build/
+.next/
+**/.next/
+tsconfig.build.tsbuildinfo
+**/tsconfig.build.tsbuildinfo
+
+# Runtime / logs
+.logs/
+.claude/
+coverage/
+**/coverage/
+*.log
+
+# Environment files (敏感)
+.env
+.env.local
+.env.*.local
+.env.docker
+
+# OS files
+.DS_Store
+Thumbs.db
+.smbdelete*
+**/.smbdelete*
+
+# IDE
+.vscode/
+.idea/
+
+# 本地归档 / 大文件
+_archive/
+**/_archive/
+*.sql.gz

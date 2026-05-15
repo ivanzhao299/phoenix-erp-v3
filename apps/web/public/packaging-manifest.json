@@ -1,0 +1,15 @@
+{
+  "name": "Phoenix ERP — 包装终端",
+  "short_name": "包装终端",
+  "description": "金凤凰 ERP 包装作业终端，KIOSK 全屏模式",
+  "start_url": "/packaging/terminal",
+  "scope": "/packaging/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "theme_color": "#0f172a",
+  "background_color": "#0f172a",
+  "icons": [
+    { "src": "/favicon.ico", "sizes": "any", "type": "image/x-icon" }
+  ]
+}

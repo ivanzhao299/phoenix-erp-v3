@@ -1,0 +1,186 @@
+'use client';
+import { useState, useEffect, useCallback } from 'react';
+import PageHeader from '@/components/PageHeader';
+import DataTable from '@/components/DataTable';
+import StatusBadge from '@/components/StatusBadge';
+import RightDrawer from '@/components/RightDrawer';
+import { useCrud } from '@/hooks/useCrud';
+import { usePermission } from '@/hooks/usePermission';
+import { Plus, Edit2 } from 'lucide-react';
+import s from '@/components/ui/admin-ui.module.css';
+
+const STATUS_CONF: Record<string, { status: string; label: string }> = {
+  inWithdrawal: { status:'warning', label:'停药期内' },
+  cleared:      { status:'success', label:'停药期已过' },
+  using:        { status:'info',    label:'用药中' },
+};
+const EMPTY_FORM = { batchNo:'', farmHouse:'', medicine:'土霉素', disease:'', startDate:'', daysUsed:'5', withdrawDays:'7', dose:'100mg/kg饲料' };
+const todayStr = () => new Date().toISOString().slice(0,10);
+
+export default function MedicinePage() {
+  const { can } = usePermission();
+  const [filter, setFilter]       = useState('all');
+  const [showDrawer, setShowDrawer] = useState(false);
+  const [editId, setEditId]       = useState<number | null>(null);
+  const [form, setForm]           = useState({ ...EMPTY_FORM });
+  const [records, setRecords]     = useState<any[]>([]);
+  const [flockOptions, setFlockOptions] = useState<{ code: string; label: string }[]>([]);
+  const [flockMap, setFlockMap]   = useState<Record<string, { house_code: string; farm_code: string }>>({});
+
+  const { fetchRecords, createRecord, updateRecord } = useCrud('brd_medications');
+  const { fetchRecords: fetchFlocks } = useCrud('brd_flocks');
+
+  useEffect(() => {
+    fetchFlocks().then((flocks: any) => {
+      if (!flocks?.length) return;
+      setFlockOptions(flocks.map((f: any) => ({ code: f.flock_no, label: `${f.flock_no}${f.house_code?' · '+f.house_code:''}` })));
+      const map: Record<string, any> = {};
+      flocks.forEach((f: any) => { if (f.flock_no) map[f.flock_no] = { house_code: f.house_code||'', farm_code: f.farm_code||'' }; });
+      setFlockMap(map);
+      setForm(p => ({ ...p, farmHouse: p.farmHouse || flocks[0].flock_no }));
+    });
+  }, []);
+
+  const loadData = useCallback(async () => {
+    const data = await fetchRecords();
+    // B6: 前端时区双算 bug — 旧版 new Date(d.clear_date) 受浏览器时区影响，
+    //     后端 cron 走字符串比较（YYYY-MM-DD），跨日界点两边显示不一致。
+    //     改用纯字符串比较（YYYY-MM-DD 字典序即时间序），与后端 cron 对齐。
+    const todayStr = new Date().toISOString().slice(0, 10);
+    setRecords(((data||[]) as any[]).map((d: any) => {
+      const clearStr = d.clear_date ? String(d.clear_date).slice(0, 10) : '';
+      const endStr   = d.end_date   ? String(d.end_date).slice(0, 10)   : '';
+      let computedStatus = d.status || 'using';
+      if (clearStr) {
+        if (todayStr > clearStr)              computedStatus = 'cleared';
+        else if (endStr && todayStr > endStr) computedStatus = 'inWithdrawal';
+        else                                  computedStatus = 'using';
+      }
+      return { id:d.id, batchNo:d.batch_no||'未知', farmHouse:d.farm_house||d.farmHouse||'—', medicine:d.medicine, disease:d.disease, startDate:d.start_date, endDate:d.end_date, daysUsed:d.days_used, withdrawDays:d.withdraw_days, clearDate:d.clear_date, dose:d.dose, executor:d.executor, status:computedStatus, _raw:d };
+    }));
+  }, [fetchRecords]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const handleEdit = (row: any) => {
+    const r = row._raw || {};
+    setEditId(row.id);
+    setForm({ batchNo:r.batch_no||'', farmHouse:r.farm_house||'', medicine:r.medicine||'土霉素', disease:r.disease||'', startDate:r.start_date||'', daysUsed:r.days_used!=null?String(r.days_used):'5', withdrawDays:r.withdraw_days!=null?String(r.withdraw_days):'7', dose:r.dose||'100mg/kg饲料' });
+    setShowDrawer(true);
+  };
+
+  const handleSubmit = async () => {
+    const sDate = form.startDate ? new Date(form.startDate) : new Date(); // ✅ 避免 new Date("") Invalid Date
+    const eDate = new Date(sDate.getTime() + (Number(form.daysUsed)-1) * 86400000);
+    const cDate = new Date(eDate.getTime() + Number(form.withdrawDays) * 86400000);
+    const fi = flockMap[form.batchNo || form.farmHouse] || {};
+    const payload = {
+      flock_no:      form.batchNo  || form.farmHouse,
+      batch_no:      form.batchNo  || form.farmHouse,
+      farm_house:    fi.house_code || form.farmHouse,
+      house_code:    fi.house_code || null,
+      farm_code:     fi.farm_code  || null,
+      medicine:      form.medicine,
+      disease:       form.disease,
+      start_date:    sDate.toISOString().slice(0,10),
+      end_date:      eDate.toISOString().slice(0,10),
+      days_used:     Number(form.daysUsed),
+      withdraw_days: Number(form.withdrawDays),
+      clear_date:    cDate.toISOString().slice(0,10),
+      dose:          form.dose,
+    };
+    const userStr = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_user') : '{}';
+    const user = userStr ? JSON.parse(userStr) : {};
+    const executorName = user.realNameZh || user.username || '未知兽医';
+
+    const ok = editId
+      ? await updateRecord(editId, payload, 'id', '用药记录更新成功！')
+      : await createRecord({ ...payload, executor: executorName, status:'using' }, '用药记录创建成功！');
+    if (ok) { setShowDrawer(false); setEditId(null); setForm({ ...EMPTY_FORM, farmHouse:flockOptions[0]?.code||'' }); loadData(); }
+  };
+
+  const filterKeys = ['all','using','inWithdrawal','cleared'];
+  const filterLabels: Record<string, string> = { all:'全部', using:'用药中', inWithdrawal:'停药期内', cleared:'已解禁' };
+  const data = filter==='all' ? records : records.filter(r => r.status===filter);
+  const today = todayStr();
+
+  const KPI_CARDS = [
+    { label:'停药期内批次', val:`${records.filter(r => r.status==='inWithdrawal').length} 个`, color:'#f59e0b' },
+    { label:'今日到期解禁', val:`${records.filter(r => r.clearDate===today).length} 个`,       color:'#22c55e' },
+    { label:'累计用药记录', val:`${records.length} 条`,                                        color:'var(--color-primary)' },
+  ];
+
+  const columns = [
+    { key:'batchNo',      title:'鸡群批次', width:'120px' },
+    { key:'farmHouse',    title:'鸡舍' },
+    { key:'medicine',     title:'药品名称', width:'100px' },
+    { key:'disease',      title:'治疗疾病', width:'90px'  },
+    { key:'startDate',    title:'开始日期', width:'100px' },
+    { key:'endDate',      title:'结束日期', width:'100px' },
+    { key:'daysUsed',     title:'用药天数', width:'80px',  render: (v: any) => `${v}天` },
+    { key:'withdrawDays', title:'停药期',   width:'80px',  render: (v: any) => `${v}天` },
+    { key:'clearDate',    title:'解禁日期', width:'100px', render: (v: any, row: any) => <span style={{ fontWeight:600, color: row.status==='inWithdrawal'?'var(--status-danger)':'var(--status-success)' }}>{v}</span> },
+    { key:'status',       title:'状态',     width:'110px', render: (v: any) => { const st=STATUS_CONF[v]||{status:'default',label:v}; return <StatusBadge status={st.status} label={st.label} />; } },
+    { key:'executor',     title:'兽医',     width:'70px'  },
+    { key:'actions',      title:'操作',     width:'70px',  render: (_: any, row: any) => can(['ROLE_VET','ROLE_FARM_MGR','ROLE_ADMIN']) ? (
+      <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>
+    ) : null },
+  ];
+
+  return (
+    <div className="animate-fade-in">
+      <PageHeader title="用药记录" subtitle="记录所有鸡群用药情况及停药期管理" breadcrumb={['养殖管理','用药记录']}
+        actions={can(['ROLE_VET','ROLE_FARM_MGR','ROLE_ADMIN']) && (
+          <button type="button" className={s.btnPrimary}
+            onClick={() => { setEditId(null); setForm({ ...EMPTY_FORM, farmHouse:flockOptions[0]?.code||'' }); setShowDrawer(true); }}>
+            <Plus size={15} />新增用药记录
+          </button>
+        )} />
+
+      <div className={s.statsRow} style={{ gridTemplateColumns:'repeat(3,1fr)' }}>
+        {KPI_CARDS.map(c => (
+          <div key={c.label} className={s.statCard} style={{ borderLeftColor: c.color }}>
+            <div className={s.statValue} style={{ color: c.color }}>{c.val}</div>
+            <div className={s.statLabel}>{c.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <DataTable columns={columns} data={data} searchPlaceholder="搜索批次药品" searchKeys={['batchNo','farmHouse','medicine']} rowKey="id"
+        filters={<div style={{ display:'flex', gap:6 }}>
+          {filterKeys.map(f => <button type="button" key={f} className={filter===f ? s.tabPillActive : s.tabPill} onClick={() => setFilter(f)}>{filterLabels[f]}</button>)}
+        </div>} />
+
+      <RightDrawer isOpen={showDrawer} onClose={() => { setShowDrawer(false); setEditId(null); }} title={editId?'编辑用药记录':'新增用药记录'} width="400px">
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          <div className={s.field}>
+            <label className={s.lbl}>对应鸡群批次</label>
+            <select value={form.farmHouse} onChange={e => setForm({ ...form, batchNo:e.target.value, farmHouse:e.target.value })} className={s.inp}>
+              {flockOptions.map(o => <option key={o.code} value={o.code}>{o.label}</option>)}
+            </select>
+          </div>
+          <div className={s.fieldRow}>
+            <div><label className={s.lbl}>药品名称</label><input value={form.medicine} onChange={e => setForm({ ...form, medicine:e.target.value })} placeholder="如土霉素" className={s.inp} /></div>
+            <div><label className={s.lbl}>治疗疾病</label><input value={form.disease} onChange={e => setForm({ ...form, disease:e.target.value })} placeholder="如大肠杆菌" className={s.inp} /></div>
+          </div>
+          <div className={s.field}>
+            <label className={s.lbl}>开始用药日期</label>
+            <input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate:e.target.value })} className={s.inp} />
+          </div>
+          <div className={s.fieldRow}>
+            <div><label className={s.lbl}>连用天数</label><input type="number" onFocus={e=>e.currentTarget.select()} value={form.daysUsed} onChange={e => setForm({ ...form, daysUsed:e.target.value })} className={s.inp} /></div>
+            <div><label className={s.lbl}>停药休药期（天）</label><input type="number" onFocus={e=>e.currentTarget.select()} value={form.withdrawDays} onChange={e => setForm({ ...form, withdrawDays:e.target.value })} className={s.inp} /></div>
+          </div>
+          <div className={s.field}>
+            <label className={s.lbl}>规定剂量</label>
+            <input value={form.dose} onChange={e => setForm({ ...form, dose:e.target.value })} placeholder="如100mg/kg饲料" className={s.inp} />
+          </div>
+          <div style={{ display:'flex', gap:10, marginTop:6 }}>
+            <button type="button" className={s.btnSecondary} style={{ flex:1 }} onClick={() => { setShowDrawer(false); setEditId(null); }}>取消</button>
+            <button type="button" className={s.btnPrimary} style={{ flex:2 }} onClick={handleSubmit}>{editId?'保存修改':'新增用药'}</button>
+          </div>
+        </div>
+      </RightDrawer>
+    </div>
+  );
+}

@@ -1,0 +1,135 @@
+/* ── Phoenix Sidebar CSS ───────────────────────────────────── */
+
+.sidebar {
+  position: absolute;
+  top: 0; left: 0; height: 100%;
+  z-index: 10001;
+  background: var(--bg-sidebar);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 220ms ease, box-shadow 220ms ease;
+  flex-shrink: 0;
+}
+
+/* ── Logo ── */
+.logoArea {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 10px 12px;
+  border-bottom: 1px solid var(--border-dark);
+  flex-shrink: 0;
+  min-height: 58px;
+}
+.logoIcon { font-size: 22px; flex-shrink: 0; }
+.logoText { overflow: hidden; }
+.brandName { font-size: 12px; font-weight: 800; color: #E91E63; white-space: nowrap; line-height: 1.2; }
+.brandSub  { font-size: 10px; color: var(--text-on-dark-muted); margin-top: 2px; white-space: nowrap; }
+
+/* ── User ── */
+.userArea {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border-dark);
+  flex-shrink: 0;
+}
+.avatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1F3864, #1e3a8a);
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; flex-shrink: 0;
+}
+.userInfo { overflow: hidden; flex: 1; }
+.userName { font-size: 12px; font-weight: 700; color: var(--text-on-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.userRole { font-size: 10px; color: var(--text-on-dark-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Nav ── */
+.nav { flex: 1; padding: 6px 0; overflow-y: auto; overflow-x: hidden; }
+
+/* Rail mode (collapsed) */
+.railItem {
+  display: flex; align-items: center; justify-content: center;
+  padding: 11px 0;   /* 旧版原定值 */
+  cursor: pointer;
+  color: var(--text-on-dark-muted);
+  border-left: 3px solid transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  min-height: 40px;
+}
+.railItem:hover { background: rgba(255,255,255,0.06); color: white; }
+.railActive {
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
+  background: rgba(255,255,255,0.1);
+}
+
+/* Group header — expanded mode */
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 14px;  /* 旧版原定値 */
+  cursor: pointer;
+  color: var(--text-on-dark-muted);
+  font-size: 12.5px;  /* 旧版原定値 */
+  font-weight: 400;
+  border-left: 3px solid transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  text-decoration: none;
+  min-height: 38px;
+}
+.groupHeader:hover { background: rgba(255,255,255,0.05); color: white; }
+.groupActive {
+  background: rgba(255,255,255,0.1) !important;
+  border-left-color: var(--color-accent);
+  color: var(--color-accent) !important;
+  font-weight: 700;
+}
+.menuIconSvg { flex-shrink: 0; opacity: 0.75; color: inherit; transition: opacity 0.15s; }
+.groupActive .menuIconSvg { opacity: 1; }
+.menuLabel { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12.5px; }
+.chevron { font-size: 11px; opacity: 0.5; flex-shrink: 0; display:flex; align-items:center; }
+
+/* Sub items */
+.subItem {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px 7px 42px;  /* 旧版原定値 */
+  font-size: 12px;              /* 旧版原定値 */
+  color: var(--text-on-dark-muted);
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  text-decoration: none;
+}
+.subItem:hover { color: white; background: rgba(255,255,255,0.04); }
+.subActive {
+  color: white !important;
+  font-weight: 700;
+  background: rgba(255,255,255,0.12) !important;
+  border-left-color: var(--color-accent);
+}
+.subIconSvg { opacity: 0.5; flex-shrink: 0; color: inherit; transition: opacity 0.15s; }
+.subActive .subIconSvg { opacity: 1; color: var(--color-accent); }
+
+/* Profile link */
+.profileLink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-dark);
+  color: var(--text-on-dark-muted);
+  font-size: 11.5px;
+  text-decoration: none;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.profileLink:hover { background: rgba(255,255,255,0.05); color: white; }

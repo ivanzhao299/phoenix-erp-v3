@@ -1,0 +1,143 @@
+/* ── Phoenix Admin Shell ─────────────────────────────────────── */
+
+.shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg-page);   /* 修复：--bg-base → --bg-page */
+  position: relative;
+}
+
+/* ── Main area ─────────────────────────────────────────────────── */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ── Header ─────────────────────────────────────────────────────── */
+.header {
+  height: 56px;
+  flex-shrink: 0;
+  background: var(--bg-card);   /* 修复：--bg-surface → --bg-card */
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px 0 14px;
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Pin button */
+.pinBtn {
+  background: transparent;       /* 修复：不依赖浏览器默认 */
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  color: var(--text-secondary);  /* 修复：--text-muted → --text-secondary */
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.18s var(--ease), color 0.18s var(--ease); /* 修复：--transition-fast */
+  display: flex;
+  align-items: center;
+}
+.pinBtn:hover { border-color: var(--color-accent); color: var(--color-accent); }
+.pinActive { color: var(--color-accent) !important; border-color: var(--color-accent) !important; }
+
+/* Page title */
+.pageTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin: 0;
+}
+
+/* Select wrapper (language & theme) */
+.selectWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.headerSelect {
+  padding: 5px 26px 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);    /* 修复：--bg-surface → --bg-card */
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  appearance: none;
+  outline: none;
+  transition: border-color 0.18s var(--ease);  /* 修复：--transition-fast */
+}
+.headerSelect:hover { border-color: var(--color-accent); }
+.selectIcon {
+  position: absolute;
+  right: 7px;
+  pointer-events: none;
+  color: var(--text-secondary);  /* 修复：--text-muted → --text-secondary */
+}
+
+/* User chip */
+.userChip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.headerAvatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1F3864, #1e3a8a);
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+  flex-shrink: 0;
+}
+.headerName { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.2; }
+.headerRole { font-size: 10px; color: var(--text-secondary); }  /* 修复：--text-muted */
+
+/* ── 退出按钮 — 关键修复 ────────────────────────────────────────── */
+.logoutBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border);
+  background: transparent;       /* 修复：显式设置，避免浏览器白色默认值 */
+  color: var(--text-secondary);  /* 修复：--text-muted → --text-secondary */
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.18s var(--ease), color 0.18s var(--ease); /* 修复 */
+}
+.logoutBtn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: rgba(239,68,68,0.05);
+}
+
+/* ── Content area ─────────────────────────────────────────────── */
+.content {
+  flex: 1;
+  padding: 20px 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}

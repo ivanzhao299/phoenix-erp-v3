@@ -1,0 +1,56 @@
+# ═══════════════════════════════════════════════════════════════
+#  Phoenix ERP V3 — Docker Compose stack
+#  本地/单机部署：API + Postgres，一条 `docker compose up -d` 起步
+#  生产部署：建议拆 db 用托管 PG，本文件可作为模板
+# ═══════════════════════════════════════════════════════════════
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: phoenix-v3-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-phoenix_v3}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-phoenix_v3_pass}
+      POSTGRES_DB: ${DB_NAME:-phoenix_erp}
+    volumes:
+      - phoenix_pg_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-phoenix_v3} -d ${DB_NAME:-phoenix_erp}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: phoenix-v3-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-phoenix_v3}
+      DB_PASSWORD: ${DB_PASSWORD:-phoenix_v3_pass}
+      DB_NAME: ${DB_NAME:-phoenix_erp}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET 必须设置，长度≥32}
+      JWT_SECRET_PREV: ${JWT_SECRET_PREV:-}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      PORT: 3100
+    ports:
+      - "${API_PORT:-3100}:3100"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3100/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  phoenix_pg_data:
+    name: phoenix_pg_data

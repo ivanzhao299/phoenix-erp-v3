@@ -1,0 +1,9 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+allowBuilds:
+  '@nestjs/core': true
+  bcrypt: true
+  sharp: true
+  sqlite3: set this to true or false
+  unrs-resolver: true

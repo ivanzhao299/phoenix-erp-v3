@@ -1,0 +1,94 @@
+/* ══ Phoenix ERP — V2 Style Overview (强化版) ══════════════════ */
+
+/* KPI 数字区（无卡片，直接大数字 + 标签）*/
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0;
+  margin-bottom: 40px;
+  padding: 8px 0;
+}
+.kpiCard {
+  padding: 16px 24px;
+  text-align: left;
+}
+.kpiValue {
+  font-size: 2.6rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -1px;
+}
+.kpiLabel {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+/* 快捷入口卡片 */
+.quickGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+.quickCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #dde3ed;
+  border-radius: 12px;
+  padding: 28px 16px;
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(31, 56, 100, 0.08);
+  transition: box-shadow 0.18s, transform 0.14s, border-color 0.18s;
+  cursor: pointer;
+  min-height: 130px;
+}
+.quickCard:hover {
+  box-shadow: 0 6px 20px rgba(31, 56, 100, 0.14);
+  transform: translateY(-3px);
+  border-color: #1F3864;
+}
+.quickIcon {
+  color: #1F3864;
+}
+.quickLabel {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1a2440;
+  text-align: center;
+}
+.quickDesc {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  font-family: monospace;
+  text-align: center;
+}
+
+/* 骨架屏 */
+.skeleton {
+  background: #e2e8f0;
+  border-radius: 8px;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0%,100% { opacity: 0.5; }
+  50%      { opacity: 1;   }
+}
+
+/* Dark theme 覆盖 */
+[data-theme="dark"] .quickCard {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+[data-theme="dark"] .quickCard:hover {
+  border-color: #E91E63;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+}
+[data-theme="dark"] .quickIcon { color: #94a3b8; }
+[data-theme="dark"] .quickLabel { color: #f1f5f9; }
+[data-theme="dark"] .skeleton { background: #334155; }

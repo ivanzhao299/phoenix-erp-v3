@@ -1,0 +1,107 @@
+/* ── RightDrawer V3 — 与全局主题完全对齐 ────────────────────────── */
+
+/* Z-index hierarchy (V3 standard):
+   Sidebar      → 10001
+   RightDrawer  → 10100  ← overlay + panel
+   ConfirmDialog→ 10200
+*/
+
+/* ── Overlay ─────────────────────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.48);
+  z-index: 10100;
+  display: flex;
+  justify-content: flex-end;
+  will-change: opacity;
+  /* transition 通过 inline style 控制 */
+}
+
+/* ── Drawer Panel ───────────────────────────────────────────────── */
+.drawer {
+  height: 100%;
+  background: var(--bg-card);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -12px 0 48px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  will-change: transform;
+}
+
+/* ── Header ──────────────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  /* 毛玻璃效果增强 header 质感 */
+  background: var(--bg-muted);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  /* 左侧装饰线 — 与 formSection 一致 */
+  padding-left: 12px;
+  border-left: 3px solid var(--color-primary);
+}
+
+/* 关闭按钮 */
+.closeBtn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: transparent;            /* 修复：显式 transparent */
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s var(--ease), border-color 0.15s var(--ease), color 0.15s var(--ease);
+  flex-shrink: 0;
+}
+.closeBtn:hover {
+  background: var(--bg-muted);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+/* ── Body ────────────────────────────────────────────────────────── */
+.body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+  /* 自定义滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.body::-webkit-scrollbar { width: 4px; }
+.body::-webkit-scrollbar-track { background: transparent; }
+.body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-muted);
+  flex-shrink: 0;
+}

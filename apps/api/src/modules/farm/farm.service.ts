@@ -1,0 +1,226 @@
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { InjectEntityManager } from '@nestjs/typeorm';
+import { EntityManager } from 'typeorm';
+
+/**
+ * FarmService — 养殖中心业务服务
+ *
+ * V3 重构（A1+A2+A4+A6+B4 合并修复）：
+ *   - A6: 移除 FarmDailyEntity 死代码（entity 指向不存在的 biz_farm_daily 表，3 个旧路由全死）
+ *   - A1: brd_daily_logs UNIQUE(log_date, house_code) 与"多班次"业务模型冲突 →
+ *         INSERT 用 ON CONFLICT (log_date, house_code, shift) DO UPDATE
+ *         (前提：migration 已把 UNIQUE 扩到含 shift)
+ *   - A2: current_qty 双扣 → 提交/更新都重新按"当日总死淘"计算，不再用 diff
+ *   - A4: 无 PRD-EGG 批次时不再抛 400 阻塞日报，改为告警 + ledger 跳过
+ *   - B4: 动态字段名拼接加白名单校验，杜绝 SQL 注入
+ */
+
+// brd_daily_logs 允许写入的列（白名单 — 任何前端伪造的列名都会被丢弃）
+const ALLOWED_DAILY_COLS = new Set([
+  'flock_no', 'log_date', 'shift', 'feed_consumed', 'water_consumed',
+  'mortality_qty', 'eggs_produced', 'bad_eggs', 'temp', 'humidity',
+  'note', 'operator', 'farm_code', 'house_code', 'egg_count',
+  'updated_at', 'farm_name', 'dirty_eggs', 'broken_eggs',
+]);
+
+@Injectable()
+export class FarmService {
+  constructor(
+    @InjectEntityManager()
+    private readonly entityManager: EntityManager,
+  ) {}
+
+  /** 把任意 body 过滤为只剩白名单列；用于动态 SQL 拼接前的安全防线 */
+  private sanitize(body: Record<string, unknown>): { fields: string[]; values: unknown[] } {
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    for (const [k, v] of Object.entries(body)) {
+      if (ALLOWED_DAILY_COLS.has(k)) {
+        fields.push(k);
+        values.push(v);
+      }
+    }
+    return { fields, values };
+  }
+
+  async submitBreedingDailyLog(body: any) {
+    const eggs = Number(body.eggs_produced) || 0;
+    const mortality = Number(body.mortality_qty) || 0;
+    const flock_no = body.flock_no || body.house_code;
+
+    if (eggs < 0 || mortality < 0) {
+      throw new BadRequestException('产蛋数和死淘数不能为负数！');
+    }
+
+    return await this.entityManager.transaction(async (manager) => {
+      const { fields, values } = this.sanitize(body);
+      if (fields.length === 0) {
+        throw new BadRequestException('提交数据为空或全部字段非法');
+      }
+      const placeholders = fields.map((_, i) => `$${i + 1}`).join(',');
+      const quotedFields = fields.map(f => `"${f}"`).join(',');
+
+      // A1: ON CONFLICT 兜底 — 同一 (log_date, house_code, shift) 重复提交不再 23505 失败
+      // 用 EXCLUDED 表示新值；保留 id 自增
+      const updateCols = fields
+        .filter(f => f !== 'flock_no' && f !== 'log_date' && f !== 'house_code' && f !== 'shift')
+        .map(f => `"${f}" = EXCLUDED."${f}"`)
+        .join(',');
+      const conflictClause = updateCols
+        ? `ON CONFLICT (log_date, house_code, shift) DO UPDATE SET ${updateCols}`
+        : `ON CONFLICT DO NOTHING`;
+
+      await manager.query(
+        `INSERT INTO "brd_daily_logs" (${quotedFields}) VALUES (${placeholders}) ${conflictClause}`,
+        values,
+      );
+
+      // A2: 业务钩子 — 按"当日总死淘"重算 current_qty，避免 diff 双扣
+      if (flock_no && (mortality > 0 || eggs > 0)) {
+        const sum = await manager.query(
+          `SELECT
+             COALESCE(SUM(mortality_qty), 0) AS total_mortality,
+             COALESCE(SUM(eggs_produced), 0) AS total_eggs
+           FROM brd_daily_logs
+           WHERE log_date = $1 AND (flock_no = $2 OR house_code = $2)`,
+          [body.log_date, flock_no],
+        );
+        const totalMortalityToday = Number(sum[0]?.total_mortality ?? 0);
+        const totalEggsToday = Number(sum[0]?.total_eggs ?? 0);
+
+        const flocks = await manager.query(
+          `SELECT current_qty, initial_qty FROM "brd_flocks" WHERE flock_no = $1 OR house_code = $1`,
+          [flock_no],
+        );
+        if (flocks.length > 0) {
+          const initialQty = Number(flocks[0].initial_qty) || Number(flocks[0].current_qty) || 0;
+          const newCurrentQty = Math.max(0, initialQty - totalMortalityToday);
+          const layRate = newCurrentQty > 0
+            ? ((totalEggsToday / newCurrentQty) * 100).toFixed(2)
+            : '0.00';
+          await manager.query(
+            `UPDATE "brd_flocks" SET current_qty = $1, current_lay_rate = $2 WHERE flock_no = $3 OR house_code = $3`,
+            [newCurrentQty, layRate, flock_no],
+          );
+        }
+      }
+
+      // A4: inv_ledger 记账 — 无 PRD-EGG 批次时不阻塞日报，只记 warning
+      if (eggs > 0) {
+        try {
+          const batches = await manager.query(
+            `SELECT batch_no FROM inv_batches WHERE product_code LIKE 'PRD-EGG%' ORDER BY created_at DESC LIMIT 1`,
+          );
+          if (batches.length > 0) {
+            await manager.query(
+              `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
+               VALUES ($1, 'FARM_IN', $2::int, $3, 'FACTORY', $4, $5)`,
+              [batches[0].batch_no, eggs, body.operator || 'SYS', flock_no || '', `日报产蛋入账 ${eggs}枚`],
+            );
+          } else {
+            console.warn(
+              '[FarmService][WARN] 无可用 PRD-EGG 批次，产蛋入账已跳过；请仓储部门新建批次后补账',
+              { flock_no, eggs, log_date: body.log_date },
+            );
+          }
+        } catch (e: any) {
+          console.warn('[FarmService][WARN] inv_ledger 记账失败（不阻塞日报）:', e?.message);
+        }
+      }
+
+      return { code: 200, msg: '日报提交成功' };
+    });
+  }
+
+  async updateBreedingDailyLog(id: number, body: any) {
+    const eggs = Number(body.eggs_produced) || 0;
+    const mortality = Number(body.mortality_qty) || 0;
+    const flock_no = body.flock_no || body.house_code;
+
+    if (eggs < 0 || mortality < 0) {
+      throw new BadRequestException('产蛋数和死淘数不能为负数！');
+    }
+
+    return await this.entityManager.transaction(async (manager) => {
+      const oldRecords = await manager.query(
+        `SELECT eggs_produced, mortality_qty, log_date, flock_no, house_code
+         FROM brd_daily_logs WHERE id = $1`,
+        [id],
+      );
+      if (oldRecords.length === 0) {
+        throw new NotFoundException('Daily log not found');
+      }
+      const old = oldRecords[0];
+      const oldEggs = Number(old.eggs_produced) || 0;
+
+      const { fields, values } = this.sanitize(body);
+      if (fields.length === 0) {
+        throw new BadRequestException('更新数据为空或全部字段非法');
+      }
+      const setClauses = fields.map((f, i) => `"${f}" = $${i + 1}`).join(',');
+      values.push(id);
+      await manager.query(
+        `UPDATE "brd_daily_logs" SET ${setClauses} WHERE id = $${fields.length + 1}`,
+        values,
+      );
+
+      // A2: 重新按当日总和覆写 current_qty
+      const effectiveFlockNo = flock_no || old.flock_no || old.house_code;
+      const logDate = body.log_date || old.log_date;
+      if (effectiveFlockNo && logDate) {
+        const sum = await manager.query(
+          `SELECT COALESCE(SUM(mortality_qty),0) AS total_mortality,
+                  COALESCE(SUM(eggs_produced),0) AS total_eggs
+           FROM brd_daily_logs
+           WHERE log_date = $1 AND (flock_no = $2 OR house_code = $2)`,
+          [logDate, effectiveFlockNo],
+        );
+        const totalMortality = Number(sum[0]?.total_mortality ?? 0);
+        const totalEggs = Number(sum[0]?.total_eggs ?? 0);
+        const flocks = await manager.query(
+          `SELECT current_qty, initial_qty FROM brd_flocks WHERE flock_no = $1 OR house_code = $1`,
+          [effectiveFlockNo],
+        );
+        if (flocks.length > 0) {
+          const initialQty = Number(flocks[0].initial_qty) || Number(flocks[0].current_qty) || 0;
+          const newQty = Math.max(0, initialQty - totalMortality);
+          const layRate = newQty > 0 ? ((totalEggs / newQty) * 100).toFixed(2) : '0.00';
+          await manager.query(
+            `UPDATE brd_flocks SET current_qty = $1, current_lay_rate = $2 WHERE flock_no = $3 OR house_code = $3`,
+            [newQty, layRate, effectiveFlockNo],
+          );
+        }
+      }
+
+      // A4: 库存差额冲销 — 无批次时降级 warning
+      const eggsDiff = eggs - oldEggs;
+      if (eggsDiff !== 0) {
+        try {
+          const batches = await manager.query(
+            `SELECT batch_no FROM inv_batches WHERE product_code LIKE 'PRD-EGG%' ORDER BY created_at DESC LIMIT 1`,
+          );
+          if (batches.length > 0) {
+            await manager.query(
+              `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
+               VALUES ($1, $2, $3::int, $4, 'FACTORY', $5, $6)`,
+              [
+                batches[0].batch_no,
+                eggsDiff > 0 ? 'FARM_IN' : 'FARM_REVERSED',
+                Math.abs(eggsDiff),
+                body.operator || 'SYS',
+                effectiveFlockNo || '',
+                `日报修改差额 ${eggsDiff > 0 ? '+' : ''}${eggsDiff}`,
+              ],
+            );
+          } else {
+            console.warn('[FarmService][WARN] 修改差额记账跳过，无 PRD-EGG 批次');
+          }
+        } catch (e: any) {
+          console.warn('[FarmService][WARN] inv_ledger 差额记账失败:', e?.message);
+        }
+      }
+
+      return { code: 200, msg: '日报更新成功' };
+    });
+  }
+}

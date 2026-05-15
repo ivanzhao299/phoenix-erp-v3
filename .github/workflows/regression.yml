@@ -1,0 +1,182 @@
+name: V3 Regression Suite
+
+on:
+  push:
+    branches: [v3-admin, main]
+  pull_request:
+    branches: [v3-admin, main]
+  workflow_dispatch: {}
+
+env:
+  DB_HOST: 127.0.0.1
+  DB_PORT: 5432
+  DB_USER: phoenix_v3
+  DB_PASSWORD: phoenix_v3_pass
+  DB_NAME: phoenix_erp
+  JWT_SECRET: ci_test_secret_minlen_32_characters_xx
+  JWT_SECRET_PREV: ""
+  NODE_ENV: test
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: phoenix_v3
+          POSTGRES_PASSWORD: phoenix_v3_pass
+          POSTGRES_DB: phoenix_erp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql client + jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client jq
+          # 让脚本里的硬编码 psql 路径在 CI 上也能找到
+          sudo mkdir -p /Applications/Postgres.app/Contents/Versions/18/bin
+          sudo ln -sf $(which psql) /Applications/Postgres.app/Contents/Versions/18/bin/psql
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check API
+        working-directory: apps/api
+        run: pnpm exec tsc --noEmit
+
+      - name: Build API
+        working-directory: apps/api
+        run: pnpm build
+
+      - name: Start API (background)
+        working-directory: apps/api
+        env:
+          PORT: 3100
+        run: |
+          nohup node dist/main > /tmp/api.log 2>&1 &
+          echo $! > /tmp/api.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:3100/api/health >/dev/null; then
+              echo "API ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to start" >&2
+          tail -100 /tmp/api.log >&2
+          exit 1
+
+      - name: Module regression — system
+        working-directory: apps/api
+        run: pnpm test:regr:system
+
+      - name: Module regression — breeding
+        working-directory: apps/api
+        run: pnpm test:regr:breeding
+
+      - name: Module regression — packaging
+        working-directory: apps/api
+        run: pnpm test:regr:packaging
+
+      - name: Module regression — wms
+        working-directory: apps/api
+        run: pnpm test:regr:wms
+
+      - name: Module regression — pos-store
+        working-directory: apps/api
+        run: pnpm test:regr:pos-store
+
+      - name: Module regression — order
+        working-directory: apps/api
+        run: pnpm test:regr:order
+
+      - name: Module regression — finance
+        working-directory: apps/api
+        run: pnpm test:regr:finance
+
+      - name: Module regression — quality
+        working-directory: apps/api
+        run: pnpm test:regr:quality
+
+      - name: Module regression — pda
+        working-directory: apps/api
+        run: pnpm test:regr:pda
+
+      - name: Module regression — bi
+        working-directory: apps/api
+        run: pnpm test:regr:bi
+
+      - name: E2E order flow
+        working-directory: apps/api
+        run: pnpm test:e2e
+
+      - name: Dump API log on failure
+        if: failure()
+        run: |
+          echo "=== API log (last 200 lines) ==="
+          tail -200 /tmp/api.log || true
+
+      # ── 失败告警 ──────────────────────────────────────────────────
+      # 在 repo Settings → Secrets 配置：
+      #   ALERT_WEBHOOK_URL   — 飞书/钉钉/Slack incoming webhook
+      #   ALERT_WEBHOOK_TYPE  — feishu / dingtalk / slack（默认 slack）
+      # 若都未配置，本步骤静默跳过
+      - name: Send failure alert to webhook
+        if: failure() && env.ALERT_WEBHOOK_URL != ''
+        env:
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+          ALERT_WEBHOOK_TYPE: ${{ secrets.ALERT_WEBHOOK_TYPE || 'slack' }}
+          GH_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GH_BRANCH: ${{ github.ref_name }}
+          GH_SHA: ${{ github.sha }}
+          GH_ACTOR: ${{ github.actor }}
+        run: |
+          TITLE="🚨 Phoenix ERP V3 CI Regression FAILED"
+          MSG="branch=\`$GH_BRANCH\` sha=\`${GH_SHA:0:8}\` actor=\`$GH_ACTOR\`\n查看：$GH_RUN_URL"
+
+          case "$ALERT_WEBHOOK_TYPE" in
+            feishu)
+              curl -sS -X POST "$ALERT_WEBHOOK_URL" \
+                -H 'Content-Type: application/json' \
+                -d "{\"msg_type\":\"text\",\"content\":{\"text\":\"$TITLE\n$MSG\"}}" || true
+              ;;
+            dingtalk)
+              curl -sS -X POST "$ALERT_WEBHOOK_URL" \
+                -H 'Content-Type: application/json' \
+                -d "{\"msgtype\":\"text\",\"text\":{\"content\":\"$TITLE\n$MSG\"}}" || true
+              ;;
+            slack|*)
+              curl -sS -X POST "$ALERT_WEBHOOK_URL" \
+                -H 'Content-Type: application/json' \
+                -d "{\"text\":\"*$TITLE*\n$MSG\"}" || true
+              ;;
+          esac
+
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -f /tmp/api.pid ]; then
+            kill -9 $(cat /tmp/api.pid) 2>/dev/null || true
+          fi

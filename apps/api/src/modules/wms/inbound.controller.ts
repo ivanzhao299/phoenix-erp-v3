@@ -1,0 +1,33 @@
+import { Controller, Get, Post, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { WmsService } from './wms.service';
+import { RequireMenu, MenuGuard } from '../../common/guards/menu.guard';
+
+@Controller('api/inbound')
+@UseGuards(MenuGuard)
+export class InboundController {
+  constructor(private readonly wmsService: WmsService) {}
+
+  @Get('dashboard')
+  @RequireMenu('MENU_WMS_INBOUND', 'V')
+  async getDashboard() {
+    return await this.wmsService.getInboundDashboard();
+  }
+
+  @Get('pending')
+  @RequireMenu('MENU_WMS_INBOUND', 'V')
+  async getPending() {
+    return await this.wmsService.getPendingInbound();
+  }
+
+  @Get('task/:task_no')
+  @RequireMenu('MENU_WMS_INBOUND', 'V')
+  async getTask(@Param('task_no') taskNo: string) {
+    return await this.wmsService.getInboundTask(taskNo);
+  }
+
+  @Post('confirm')
+  @RequireMenu('MENU_WMS_INBOUND', 'C')
+  async confirmInbound(@Body() body: any, @Req() req: any) {
+    return await this.wmsService.confirmInbound(body, req.user);
+  }
+}

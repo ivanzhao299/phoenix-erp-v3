@@ -1,0 +1,16 @@
+{
+  "name": "金凤凰 ERP — Phoenix ERP V3",
+  "short_name": "凤凰 ERP",
+  "description": "Phoenix ERP V3 — 鸡蛋供应链管理系统",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#f59e0b",
+  "background_color": "#0f172a",
+  "lang": "zh-CN",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "/favicon.ico", "sizes": "any", "type": "image/x-icon", "purpose": "any" }
+  ]
+}

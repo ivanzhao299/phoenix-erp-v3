@@ -1,0 +1,112 @@
+/* ── CrudForm V3 — 与 admin-ui.module.css 主题对齐 ─────────────── */
+
+.form { display: flex; flex-direction: column; gap: 0; height: 100%; }
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 14px;
+  flex: 1;
+}
+
+.fieldGroup { display: flex; flex-direction: column; gap: 5px; }
+.fullSpan { grid-column: 1 / -1; }
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex; align-items: center; gap: 3px;
+  letter-spacing: 0.01em;
+}
+.required { color: var(--status-danger); font-size: 13px; }
+
+/* ── 输入控件 ── */
+.input {
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);   /* V3：统一用 md */
+  background: var(--bg-muted);
+  color: var(--text-primary);
+  font-size: 13px;
+  width: 100%;
+  transition: border-color 0.18s var(--ease), box-shadow 0.18s var(--ease);
+  outline: none;
+}
+.input:focus {
+  border-color: var(--color-primary);      /* V3：主色，非 accent */
+  box-shadow: 0 0 0 3px rgba(31,56,100,0.12);
+}
+.hasError { border-color: var(--status-danger) !important; }
+
+.textarea {
+  height: auto;
+  padding: 8px 10px;
+  resize: vertical;
+  min-height: 80px;
+}
+
+select.input { cursor: pointer; }
+
+.readonlyValue {
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+}
+
+.errorMsg {
+  font-size: 11px;
+  color: var(--status-danger);
+  margin-top: 2px;
+}
+
+/* ── 按钮区 ── */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  margin-top: 20px;
+}
+
+.btnCancel {
+  padding: 8px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;              /* 修复：显式 transparent，避免浏览器白色默认 */
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.18s var(--ease), color 0.18s var(--ease);
+}
+.btnCancel:hover:not(:disabled) {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+.btnCancel:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btnSubmit {
+  padding: 8px 24px;
+  background: linear-gradient(135deg, var(--color-primary) 0%, #2563eb 100%); /* V3：主色渐变 */
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.18s var(--ease), box-shadow 0.18s var(--ease);
+  box-shadow: 0 2px 8px rgba(31,56,100,0.25);
+}
+.btnSubmit:hover:not(:disabled) {
+  opacity: 0.88;
+  box-shadow: 0 4px 16px rgba(31,56,100,0.35);
+}
+.btnSubmit:disabled { opacity: 0.5; cursor: not-allowed; }

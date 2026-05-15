@@ -1,0 +1,63 @@
+import {
+  Entity, Column, PrimaryGeneratedColumn,
+  CreateDateColumn, UpdateDateColumn,
+} from 'typeorm';
+
+/**
+ * V3 采购单主表 — prc_purchase_orders
+ * 与前端 useCrud('prc_purchase_orders') 对齐
+ * 状态流: DRAFT → PENDING_APPROVAL → APPROVED → PARTIAL_RECEIVED → COMPLETED | CANCELLED
+ */
+@Entity('prc_purchase_orders')
+export class PurchaseOrderEntity {
+  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
+  id: string;
+
+  @Column({ type: 'varchar', length: 64, unique: true })
+  po_no: string;
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  supplier_code: string;
+
+  @Column({ type: 'varchar', length: 256, nullable: true })
+  supplier_name: string;
+
+  @Column({ type: 'varchar', length: 256, nullable: true })
+  subject: string;          // 采购主题/摘要
+
+  @Column({ type: 'decimal', precision: 18, scale: 2, default: 0 })
+  total_amount: number;
+
+  @Column({ type: 'varchar', length: 8, default: 'LAK' })
+  currency_code: string;
+
+  @Column({ type: 'varchar', length: 32, default: 'DRAFT' })
+  status: string;
+
+  @Column({ type: 'int', default: 0 })
+  plan_qty: number;
+
+  @Column({ type: 'int', default: 0 })
+  received_qty: number;
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  store_code: string;
+
+  @Column({ type: 'date', nullable: true })
+  expected_date: string;    // 预计到货日期
+
+  @Column({ type: 'text', nullable: true })
+  remark: string;
+
+  @Column({ type: 'bigint', nullable: true })
+  created_by: string;
+
+  @Column({ type: 'bigint', nullable: true })
+  approved_by: string;
+
+  @CreateDateColumn()
+  created_at: Date;
+
+  @UpdateDateColumn()
+  updated_at: Date;
+}
