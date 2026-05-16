@@ -1,13 +1,13 @@
 "use client";
-import { useState, useEffect, FormEvent, useRef } from "react";
+import { useState, useEffect, FormEvent, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBrand } from "@/contexts/BrandContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Shield, User, Lock, AlertTriangle, Globe, ChevronDown, ChevronUp, Info } from "lucide-react";
 
 const LAST_USER_KEY = "phoenix_last_username";   // 记忆上次登录的账户名（不存密码）
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const IS_DEV   = process.env.NODE_ENV !== "production";
 
 // ── 快捷测试账号（仅开发环境） ──────────────────────────────────────────────
@@ -29,6 +29,12 @@ const TEST_GROUPS = IS_DEV ? [
     { u: "test_log",  p: "123456", label: "🚛 物流调度", sub: "ROLE_LOG_MGR" },
     { u: "test_buyer",p: "123456", label: "🛒 采购专员", sub: "ROLE_PRC_BUYER" },
   ]},
+  { label: "🖥️ 现场作业台（Terminal自动跳转）", color: { bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.3)", text: "#d97706" }, accounts: [
+    { u: "test_pkg_op",  p: "123456", label: "📦 包装操作员",  sub: "ROLE_PKG_OPERATOR"    },
+    { u: "test_qc",      p: "123456", label: "🔍 质检员",      sub: "ROLE_QC_INSPECTOR"    },
+    { u: "test_wh_clk",  p: "123456", label: "🏭 仓管员",      sub: "ROLE_WH_CLERK"        },
+    { u: "test_sup",     p: "123456", label: "👷 班组长",      sub: "ROLE_LINE_SUPERVISOR" },
+  ]},
   { label: "销售 & 订货", color: { bg: "rgba(168,85,247,0.08)", border: "rgba(168,85,247,0.25)", text: "#9333ea" }, accounts: [
     { u: "test_sales_rep", p: "123456", label: "💼 业务员",   sub: "ROLE_SALES_REP" },
     { u: "test_sales_mgr", p: "123456", label: "📊 销售主管", sub: "ROLE_SALES_MGR" },
@@ -42,6 +48,14 @@ const TEST_GROUPS = IS_DEV ? [
   ]},
 ] : [];
 
+// 现场作业角色 → 自动进入 Terminal（无感跳转）
+const TERMINAL_ROLES = new Set([
+  "ROLE_PKG_OPERATOR",    // 包装操作员
+  "ROLE_QC_INSPECTOR",    // 质检员
+  "ROLE_WH_CLERK",        // 仓管员
+  "ROLE_LINE_SUPERVISOR", // 班组长
+]);
+
 // 角色 → 首页映射
 const ROLE_HOME: Record<string,string> = {
   ROLE_ADMIN: "/dashboard", ROLE_CEO: "/dashboard", ROLE_FARM_MGR: "/breeding",
@@ -49,11 +63,18 @@ const ROLE_HOME: Record<string,string> = {
   ROLE_WMS_MGR: "/warehouse", ROLE_PKG_MGR: "/packaging", ROLE_LOG_MGR: "/transport",
   ROLE_STORE_MGR: "/store", ROLE_CASHIER: "/pos", ROLE_SALES_REP: "/order",
   ROLE_FIN_CFO: "/finance", ROLE_FIN_ACCT: "/finance",
+  // 现场作业角色 → Terminal 作业台
+  ROLE_PKG_OPERATOR:    "/terminal/packaging/dashboard",
+  ROLE_QC_INSPECTOR:    "/terminal/packaging/dashboard",
+  ROLE_WH_CLERK:        "/terminal/packaging/dashboard",
+  ROLE_LINE_SUPERVISOR: "/terminal/packaging/dashboard",
 };
 
-export default function LoginPage() {
+function LoginInner() {
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
   const { login } = useAuth();
   const { brand } = useBrand();
+  const { t, lang, setAppLanguage } = useLanguage();
   const router = useRouter();
   const sp = useSearchParams();
   const [username, setUsername]           = useState("");
@@ -74,10 +95,10 @@ export default function LoginPage() {
       setTimeout(() => passwordRef.current?.focus(), 60);
     }
     const reason = sp.get("reason");
-    if (reason === "expired") setNotice("登录已过期，请重新登录以继续");
-    else if (reason === "perms_changed") setNotice("权限刚刚更新，请重新登录");
-    else if (reason === "logout") setNotice("您已安全退出");
-  }, [sp]);
+    if (reason === "expired") setNotice(t('ui.登录已过期', '登录已过期，请重新登录以继续'));
+    else if (reason === "perms_changed") setNotice(t('ui.权限已更新', '权限刚刚更新，请重新登录'));
+    else if (reason === "logout") setNotice(t('ui.已安全退出', '您已安全退出'));
+  }, [sp, t]);
 
   const doLogin = async (u: string, p: string) => {
     setLoading(true); setError("");
@@ -89,7 +110,7 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok || data.code !== 200) {
-        setError(data.msg || data.message || "账户或密码错误");
+        setError(data.msg || data.message || t('ui.账户或密码错误', '账户或密码错误'));
         return;
       }
       const info = data.user_info;
@@ -105,7 +126,7 @@ export default function LoginPage() {
       const dest = ROLE_HOME[info?.role] || "/dashboard";
       router.replace(dest);
     } catch {
-      setError("网络连接失败，请重试");
+      setError(t('ui.网络连接失败', '网络连接失败，请重试'));
     } finally {
       setLoading(false);
     }
@@ -173,14 +194,21 @@ export default function LoginPage() {
 
       {/* ── 右侧表单区 ─────────────────────────────────────────────────── */}
       <div style={{ width:440, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:48, position:"relative" }}>
-        {/* 语言切换（占位，V3 暂用 zh） */}
-        <div style={{ position:"absolute", top:24, right:24, display:"flex", alignItems:"center", gap:6, fontSize:12, color:"rgba(255,255,255,0.3)" }}>
-          <Globe size={13}/> 中文
+        {/* 语言切换 */}
+        <div style={{ position:"absolute", top:24, right:24, display:"flex", alignItems:"center", gap:4 }}>
+          {(['zh','lo','en'] as const).map(l => (
+            <button key={l} type="button" onClick={() => setAppLanguage(l)}
+              style={{ fontSize:11, padding:"3px 8px", borderRadius:6, border:"1px solid rgba(255,255,255,0.12)",
+                background: lang===l ? "rgba(245,158,11,0.2)" : "transparent",
+                color: lang===l ? "#f59e0b" : "rgba(255,255,255,0.3)", cursor:"pointer", fontWeight: lang===l ? 700 : 400 }}>
+              {l==='zh'?'中文':l==='lo'?'ລາວ':'EN'}
+            </button>
+          ))}
         </div>
 
         <div style={{ width:"100%" }}>
-          <h1 style={{ fontSize:22, fontWeight:800, color:"white", marginBottom:6 }}>欢迎回来</h1>
-          <p style={{ fontSize:13, color:"rgba(255,255,255,0.3)", marginBottom:36 }}>登录 Phoenix 企业管理平台</p>
+          <h1 style={{ fontSize:22, fontWeight:800, color:"white", marginBottom:6 }}>{t('ui.欢迎回来', '欢迎回来')}</h1>
+          <p style={{ fontSize:13, color:"rgba(255,255,255,0.3)", marginBottom:36 }}>{t('ui.登录Phoenix平台', '登录 Phoenix 企业管理平台')}</p>
 
           {error && (
             <div style={{ marginBottom:20, padding:14, background:"#fee2e2", border:"1px solid rgba(239,68,68,0.3)", borderRadius:10, color:"#dc2626", fontSize:13, display:"flex", alignItems:"center", gap:8 }}>
@@ -197,29 +225,29 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit}>
             {/* 账号 */}
             <div style={{ marginBottom:16 }}>
-              <label style={{ display:"block", marginBottom:6, color:"rgba(255,255,255,0.4)", fontSize:12, fontWeight:600, letterSpacing:"0.5px" }}>账户名</label>
+              <label style={{ display:"block", marginBottom:6, color:"rgba(255,255,255,0.4)", fontSize:12, fontWeight:600, letterSpacing:"0.5px" }}>{t('ui.账户名', '账户名')}</label>
               <div style={{ position:"relative" }}>
                 <User size={16} color="#555" style={{ position:"absolute", left:14, top:14 }}/>
                 <input value={username} onChange={e=>{ setUsername(e.target.value); setError(""); }}
-                  type="text" placeholder="输入账户名" autoComplete="username" required
+                  type="text" placeholder={t('ui.输入账户名', '输入账户名')} autoComplete="username" required
                   style={{ width:"100%", padding:"13px 14px 13px 40px", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:10, color:"white", outline:"none", fontSize:14, boxSizing:"border-box" }}/>
               </div>
             </div>
 
             {/* 密码 */}
             <div style={{ marginBottom:28 }}>
-              <label style={{ display:"block", marginBottom:6, color:"rgba(255,255,255,0.4)", fontSize:12, fontWeight:600, letterSpacing:"0.5px" }}>密码</label>
+              <label style={{ display:"block", marginBottom:6, color:"rgba(255,255,255,0.4)", fontSize:12, fontWeight:600, letterSpacing:"0.5px" }}>{t('ui.密码', '密码')}</label>
               <div style={{ position:"relative" }}>
                 <Lock size={16} color="#555" style={{ position:"absolute", left:14, top:14 }}/>
                 <input ref={passwordRef} value={password} onChange={e=>{ setPassword(e.target.value); setError(""); setNotice(""); }}
-                  type="password" placeholder="输入密码" autoComplete="current-password" required
+                  type="password" placeholder={t('ui.输入密码', '输入密码')} autoComplete="current-password" required
                   style={{ width:"100%", padding:"13px 14px 13px 40px", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:10, color:"white", outline:"none", fontSize:14, boxSizing:"border-box" }}/>
               </div>
             </div>
 
             <button id="submit-btn" type="submit" disabled={loading}
               style={{ width:"100%", padding:15, background:"linear-gradient(135deg,#f59e0b,#d97706)", color:"white", border:"none", borderRadius:10, fontSize:15, fontWeight:800, cursor:loading?"not-allowed":"pointer", boxShadow:"0 8px 24px rgba(245,158,11,0.3)", opacity:loading?0.7:1, letterSpacing:"0.5px" }}>
-              {loading ? "登录中..." : "登  录"}
+              {loading ? t('ui.登录中', '登录中...') : t('ui.登录', '登  录')}
             </button>
           </form>
 
@@ -229,5 +257,19 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  // 整个文件已声明 'use client'，无需 Suspense 保护 useSearchParams；
+  // 保留外层 div 作为 fallback 壳，消除 SSR hydration mismatch
+  return (
+    <Suspense
+      fallback={
+        <div style={{ minHeight: "100vh", display: "flex", background: "#070b14" }} />
+      }
+    >
+      <LoginInner />
+    </Suspense>
   );
 }

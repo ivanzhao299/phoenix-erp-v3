@@ -4234,5 +4234,10 @@
   "ui.传感器": "Sensors",
   "ui.数据正常": "Data normal",
   "ui.数据延迟": "Data delayed",
-  "ui.数据陈旧": "Data stale"
+  "ui.数据陈旧": "Data stale",
+  "ui.登录已过期": "Session expired. Please log in again.",
+  "ui.权限已更新": "Permissions updated. Please log in again.",
+  "ui.已安全退出": "You have been signed out safely.",
+  "ui.网络连接失败": "Network error. Please try again.",
+  "ui.登录Phoenix平台": "Sign in to Phoenix ERP"
 }
