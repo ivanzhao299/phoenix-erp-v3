@@ -9,6 +9,7 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useDialog } from "@/contexts/DialogContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import styles from "@/components/ui/admin-ui.module.css";
 
 const API = "";
@@ -29,17 +30,6 @@ const PROVINCES = [
   "赛宋奔省Xaysomboun","云南省中国特区",
 ];
 
-const SUB_NAV = [
-  { label:"养殖场总览", path:"/breeding", active:true, icon:<Home size={16}/> },
-  { label:"鸡舍管理",   path:"/breeding/henhouse",  icon:<Layers size={16}/> },
-  { label:"鸡群档案",   path:"/breeding/flock",     icon:<Users size={16}/> },
-  { label:"日生产日报", path:"/breeding/daily",     icon:<ClipboardList size={16}/> },
-  { label:"免疫计划",   path:"/breeding/immune",    icon:<BookOpen size={16}/> },
-  { label:"用药记录",   path:"/breeding/medicine",  icon:<Droplets size={16}/> },
-  { label:"停药期预警", path:"/breeding/medicine",   icon:<AlertTriangle size={16}/> },
-  // { label:"养殖分析", path:"/breeding/analysis", icon:<BarChart2 size={16}/> }, // TODO: 功能待开发
-];
-
 interface Farm {
   id: string; name: string; location: string;
   houses: number; totalBirds: number; layingRate: string | number;
@@ -55,6 +45,17 @@ export default function BreedingPage() {
   const router = useRouter();
   const toast = useToast();
   const dialog = useDialog();
+  const { t } = useLanguage();
+
+  const SUB_NAV = [
+    { label:t('ui.养殖场总览','养殖场总览'), path:"/breeding", active:true, icon:<Home size={16}/> },
+    { label:t('ui.鸡舍管理','鸡舍管理'),   path:"/breeding/henhouse",  icon:<Layers size={16}/> },
+    { label:t('ui.鸡群档案','鸡群档案'),   path:"/breeding/flock",     icon:<Users size={16}/> },
+    { label:t('ui.日生产日报','日生产日报'), path:"/breeding/daily",     icon:<ClipboardList size={16}/> },
+    { label:t('ui.免疫计划','免疫计划'),   path:"/breeding/immune",    icon:<BookOpen size={16}/> },
+    { label:t('ui.用药记录','用药记录'),   path:"/breeding/medicine",  icon:<Droplets size={16}/> },
+    { label:t('ui.停药期预警','停药期预警'), path:"/breeding/medicine",   icon:<AlertTriangle size={16}/> },
+  ];
 
   const [farms,       setFarms]       = useState<Farm[]>([]);
   const [alerts,      setAlerts]      = useState<AlertItem[]>([]);
@@ -104,7 +105,6 @@ export default function BreedingPage() {
     const wEggs  = weekLogs.reduce((s: number, l: Record<string,unknown>) => s+(Number(l.eggs_produced)||0),0);
     const wDeath = weekLogs.reduce((s: number, l: Record<string,unknown>) => s+(Number(l.mortality_qty)||0),0);
     const wFeed  = weekLogs.reduce((s: number, l: Record<string,unknown>) => s+(Number(l.feed_consumed)||0),0);
-    // P0-1 fix: brd_vaccinations 用 actual_date 表示已执行
     const immuneDone  = immune.filter((i: Record<string,unknown>) => i.actual_date && (i.plan_date as string)>=weekAgo).length;
     const immuneTotal = immune.filter((i: Record<string,unknown>) => (i.plan_date as string)>=weekAgo).length;
     setWeekSummary({ eggs:wEggs, mortality:wDeath, feedRatio:wEggs>0?(wFeed/wEggs*1000).toFixed(2):"—", immuneDone, immuneTotal });
@@ -124,15 +124,12 @@ export default function BreedingPage() {
         const qty = farmCapMap[fc] || 0;
         const eggs = farmEggMap[fc] || 0;
         const rate = qty > 0 ? (eggs / qty * 100).toFixed(1) : "—";
-        // ✅ DB 列名是 location 和 capacity
         const location = (d.location as string) || "—";
         return {
           id: fc,
           name: (d.farm_name || d.name || fc) as string,
           location,
           houses: Number(d.houses) || 0,
-          // C2: 显示实际在栏（farmCapMap 已是按 flock.current_qty 汇总到 farm_code），
-          //     之前用 d.capacity 是设计容量而非存栏，KPI 误导
           totalBirds: qty || Number(d.capacity) || 0,
           layingRate: rate,
           status: (qty > 0 && Number(rate) < 88) || d.status === "WARNING" ? "warning" : "normal",
@@ -147,8 +144,8 @@ export default function BreedingPage() {
       const endDate = new Date((m.clear_date || m.end_date || m.withdrawDate) as string);
       const daysLeft = Math.ceil((endDate.getTime()-todayTs.getTime())/86400000);
       if(daysLeft>=0&&daysLeft<=5)
-        alertList.push({ id:"wd-"+m.id, type:daysLeft<=2?"danger":"warning", label:"停药期预警",
-          msg:`${m.farm_house||m.house_code||"鸡舍"} ${m.medicine||m.drug_name||"药物"} 停药期还剩 ${daysLeft} 天`, time:"系统" });
+        alertList.push({ id:"wd-"+m.id, type:daysLeft<=2?"danger":"warning", label:t('ui.停药期预警','停药期预警'),
+          msg:`${m.farm_house||m.house_code||t('ui.鸡舍','鸡舍')} ${m.medicine||m.drug_name||t('ui.药物','药物')} ${t('ui.停药期还剩','停药期还剩')} ${daysLeft} ${t('ui.天','天')}`, time:t('ui.系统','系统') });
     });
     const ydLogs = logs.filter((l: Record<string,unknown>) => l.log_date===ydStr);
     const ydMap: Record<string,{eggs:number;cap:number}> = {};
@@ -163,16 +160,15 @@ export default function BreedingPage() {
       const ydD=ydMap[farm.id];
       const ydR=ydD&&ydD.cap>0?ydD.eggs/ydD.cap*100:null;
       if(todayR!==null&&ydR!==null&&(ydR-todayR)>2)
-        alertList.push({ id:"lr-"+farm.id, type:"warning", label:"产蛋率下降",
-          msg:`${farm.name} 产蛋率较昨日下降 ${(ydR-todayR).toFixed(1)}%`, time:"实时" });
+        alertList.push({ id:"lr-"+farm.id, type:"warning", label:t('ui.产蛋率下降','产蛋率下降'),
+          msg:`${farm.name} ${t('ui.产蛋率较昨日下降','产蛋率较昨日下降')} ${(ydR-todayR).toFixed(1)}%`, time:t('ui.实时','实时') });
     });
-    // P0-1 fix: brd_vaccinations 无 actual_date = 待执行
     immune.filter((i: Record<string,unknown>)=>i.plan_date===today&&!i.actual_date).forEach((i: Record<string,unknown>)=>{
-      alertList.push({ id:"im-"+i.id, type:"info", label:"免疫计划",
-        msg:`${i.farm_house||i.house_code||i.flock_no||"鸡群"} 今日应执行 ${i.vaccine||i.vaccine_name||"疫苗"} 免疫`, time:"计划" });
+      alertList.push({ id:"im-"+i.id, type:"info", label:t('ui.免疫计划','免疫计划'),
+        msg:`${i.farm_house||i.house_code||i.flock_no||t('ui.鸡群','鸡群')} ${t('ui.今日应执行','今日应执行')} ${i.vaccine||i.vaccine_name||t('ui.疫苗','疫苗')} ${t('ui.免疫','免疫')}`, time:t('ui.计划','计划') });
     });
     if(alertList.length===0&&logs.length>0)
-      alertList.push({ id:"ok", type:"info", label:"系统正常", msg:"当前无待处理预警事项", time:"实时" });
+      alertList.push({ id:"ok", type:"info", label:t('ui.系统正常','系统正常'), msg:t('ui.当前无待处理预警事项','当前无待处理预警事项'), time:t('ui.实时','实时') });
     setAlerts(alertList.slice(0,6));
 
     // Device stats
@@ -227,11 +223,10 @@ export default function BreedingPage() {
     try {
       const token = sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "";
       const hdrAuth = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-    // ✅ 字段与 DB 实际列名对齐: location, capacity（max_capacity 已于 2026-05-10 删除）
       const payload = {
         farm_name: form.name,
         location:  form.location,
-        houses:    parseInt(form.houses)   || 0,  // 规划栋数（auto-repair 会自动建列）
+        houses:    parseInt(form.houses)   || 0,
         capacity:  parseInt(form.capacity) || 0,
         status:    "ACTIVE",
       };
@@ -240,19 +235,19 @@ export default function BreedingPage() {
           method: "PUT", headers: hdrAuth, body: JSON.stringify(payload),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        toast.success("养殖场档案已更新！");
+        toast.success(t('ui.养殖场档案已更新！','养殖场档案已更新！'));
       } else {
         const farmCode = "F" + Date.now().toString().slice(-6).padStart(6, "0");
         const res = await fetch("/api/crud/brd_farms", {
           method: "POST", headers: hdrAuth, body: JSON.stringify({ ...payload, farm_code: farmCode }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        toast.success("新建养殖场档案成功！");
+        toast.success(t('ui.新建养殖场档案成功！','新建养殖场档案成功！'));
       }
       setDrawerOpen(false);
       loadData();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "操作失败，请检查登录状态");
+      toast.error(err instanceof Error ? err.message : t('ui.操作失败，请检查登录状态','操作失败，请检查登录状态'));
     } finally {
       setSaving(false);
     }
@@ -262,7 +257,6 @@ export default function BreedingPage() {
     e.stopPropagation();
     const token = sessionStorage.getItem("phoenix_token")||localStorage.getItem("phoenix_token")||"";
 
-    // A5: 删除前先检查是否还有子鸡舍 — 直接删 brd_farms 会留下孤儿 brd_houses/brd_flocks/brd_daily_logs
     try {
       const childRes = await fetch(`/api/crud/brd_houses?farm_code=${encodeURIComponent(farm.id)}&limit=1`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -271,45 +265,44 @@ export default function BreedingPage() {
       const childRows = (childJson?.data ?? childJson ?? []) as unknown[];
       if (Array.isArray(childRows) && childRows.length > 0) {
         await dialog.showAlert({
-          title: "无法删除",
-          message: `养殖场「${farm.name}」下仍有鸡舍存在，请先解散所有鸡舍后再删除场区`,
+          title: t('ui.无法删除','无法删除'),
+          message: `${t('ui.养殖场','养殖场')}「${farm.name}」${t('ui.下仍有鸡舍存在，请先解散所有鸡舍后再删除场区','下仍有鸡舍存在，请先解散所有鸡舍后再删除场区')}`,
           type: "warning",
           icon: "🚫",
         });
         return;
       }
     } catch {
-      // 子表查询失败不阻塞主流程，但用户应被告知
       console.warn("[handleDelete] child-check 查询失败，继续删除可能产生孤儿数据");
     }
 
-    const ok = await dialog.showConfirm({ title:"确认解散", message:`确认拆除空管区：${farm.name} 吗？`, type:"danger", confirmLabel:"确认解散" });
+    const ok = await dialog.showConfirm({ title:t('ui.确认解散','确认解散'), message:`${t('ui.确认拆除空管区：','确认拆除空管区：')}${farm.name} ${t('ui.吗？','吗？')}`, type:"danger", confirmLabel:t('ui.确认解散','确认解散') });
     if(!ok) return;
     try {
       const res = await fetch(`/api/crud/brd_farms/${farm.id}`, {method:"DELETE", headers:{Authorization:`Bearer ${token}`}});
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      toast.success("养殖场已删除");
+      toast.success(t('ui.养殖场已删除','养殖场已删除'));
       loadData();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "删除失败");
+      toast.error(err instanceof Error ? err.message : t('ui.删除失败','删除失败'));
     }
   };
 
   const totalBirds = farms.reduce((s,f)=>s+(Number(f.totalBirds)||0),0);
-  const withdrawalCount = alerts.filter(a=>a.label==="停药期预警").length;
-  const immuneCount     = alerts.filter(a=>a.label==="免疫计划").length;
+  const withdrawalCount = alerts.filter(a=>a.label===t('ui.停药期预警','停药期预警')).length;
+  const immuneCount     = alerts.filter(a=>a.label===t('ui.免疫计划','免疫计划')).length;
 
   const statusColor = (type: string) => ({ danger:"#dc2626", warning:"#f59e0b", info:"#3b82f6", success:"#22c55e" }[type]||"#94a3b8");
 
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="养殖生产中心"
-        subtitle="实时监控所有养殖场运营状态"
-        breadcrumb={["总部门户","养殖生产中心"]}
+        title={t('ui.养殖生产中心','养殖生产中心')}
+        subtitle={t('ui.实时监控所有养殖场运营状态','实时监控所有养殖场运营状态')}
+        breadcrumb={[t('ui.总部门户','总部门户'),t('ui.养殖生产中心','养殖生产中心')]}
         actions={
           <button type="button" onClick={openCreate} className={styles.btnPrimary}>
-            <Plus size={14}/> 新增养殖场
+            <Plus size={14}/> {t('ui.新增养殖场','新增养殖场')}
           </button>
         }
       />
@@ -317,7 +310,6 @@ export default function BreedingPage() {
       {/* Sub-nav pills */}
       <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:24 }}>
         {SUB_NAV.map(item => (
-          // key 用 label：两个 tab 都指向 /breeding/medicine（用药记录 / 停药期预警，同页内 anchor 切换），不能用 path 当 key
           <button key={item.label} onClick={()=>router.push(item.path)}
             className={item.active ? styles.btnPrimary : styles.btnSecondary}
             style={{ display:"flex", alignItems:"center", gap:6 }}>
@@ -329,12 +321,12 @@ export default function BreedingPage() {
       {/* KPI Cards */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))", gap:16, marginBottom:24 }}>
         {[
-          { title:"存栏总数",   value:totalBirds.toLocaleString(),    unit:"羽",  accent:"var(--color-primary)",  icon:<Users size={22}/> },
-          { title:"今日产蛋",   value:todayEggs.toLocaleString(),     unit:"枚",  accent:"#f59e0b",               icon:<Home size={22}/> },
-          { title:"有效养殖场", value:String(farms.length),           unit:"个",  accent:"var(--status-success,#22c55e)", icon:<BarChart2 size={22}/> },
-          { title:"今日死淘",   value:todayDeaths.toLocaleString(),   unit:"羽",  accent:"#dc2626",               icon:<AlertTriangle size={22}/> },
-          { title:"停药期预警", value:String(withdrawalCount),        unit:"批",  accent:"#7c3aed",               icon:<Droplets size={22}/> },
-          { title:"今日免疫任务",value:String(immuneCount),           unit:"项",  accent:"#059669",               icon:<ClipboardList size={22}/> },
+          { title:t('ui.存栏总数','存栏总数'),   value:totalBirds.toLocaleString(),    unit:t('ui.羽','羽'),  accent:"var(--color-primary)",  icon:<Users size={22}/> },
+          { title:t('ui.今日产蛋','今日产蛋'),   value:todayEggs.toLocaleString(),     unit:t('ui.枚','枚'),  accent:"#f59e0b",               icon:<Home size={22}/> },
+          { title:t('ui.有效养殖场','有效养殖场'), value:String(farms.length),           unit:t('ui.个','个'),  accent:"var(--status-success,#22c55e)", icon:<BarChart2 size={22}/> },
+          { title:t('ui.今日死淘','今日死淘'),   value:todayDeaths.toLocaleString(),   unit:t('ui.羽','羽'),  accent:"#dc2626",               icon:<AlertTriangle size={22}/> },
+          { title:t('ui.停药期预警','停药期预警'), value:String(withdrawalCount),        unit:t('ui.批','批'),  accent:"#7c3aed",               icon:<Droplets size={22}/> },
+          { title:t('ui.今日免疫任务','今日免疫任务'),value:String(immuneCount),         unit:t('ui.项','项'),  accent:"#059669",               icon:<ClipboardList size={22}/> },
         ].map(c=>(
           <div key={c.title} style={{ background:"var(--bg-card)", borderRadius:"var(--radius-lg)", padding:20,
             boxShadow:"var(--shadow-sm)", border:"1px solid var(--border)", borderLeft:`4px solid ${c.accent}` }}>
@@ -355,24 +347,24 @@ export default function BreedingPage() {
         <div style={{ background:"var(--bg-card)", borderRadius:"var(--radius-lg)", padding:20,
           boxShadow:"var(--shadow-sm)", border:"1px solid var(--border)", borderLeft:"4px solid #0891b2", position:"relative" }}>
           <button onClick={()=>router.push("/breeding/device-alerts")}
-            title="进入环境预警中心"
+            title={t('ui.进入环境预警中心','进入环境预警中心')}
             style={{ position:"absolute", top:12, right:12, background:"none", border:"none",
               cursor:"pointer", color:"var(--text-secondary)", padding:4, borderRadius:4 }}>
             <ArrowUpRight size={15}/>
           </button>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
             <div>
-              <p style={{ fontSize:13, color:"var(--text-secondary)", fontWeight:500, marginBottom:12 }}>环境设备</p>
+              <p style={{ fontSize:13, color:"var(--text-secondary)", fontWeight:500, marginBottom:12 }}>{t('ui.环境设备','环境设备')}</p>
               <div style={{ display:"flex", gap:20 }}>
                 <div>
                   <div style={{ fontSize:28, fontWeight:700, lineHeight:1,
                     color: deviceStats.openAlerts>0?"#ea580c":"var(--text-primary)" }}>{deviceStats.openAlerts}</div>
-                  <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:4 }}>未处理告警</div>
+                  <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:4 }}>{t('ui.未处理告警','未处理告警')}</div>
                 </div>
                 <div>
                   <div style={{ fontSize:28, fontWeight:700, lineHeight:1,
                     color: deviceStats.offlineDevices>0?"#dc2626":"var(--text-primary)" }}>{deviceStats.offlineDevices}</div>
-                  <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:4 }}>离线设备</div>
+                  <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:4 }}>{t('ui.离线设备','离线设备')}</div>
                 </div>
               </div>
             </div>
@@ -388,16 +380,15 @@ export default function BreedingPage() {
       <div style={{ display:"grid", gridTemplateColumns:"1fr 340px", gap:20 }}>
         {/* Farm list */}
         <div>
-          <h3 style={{ fontSize:15, fontWeight:700, marginBottom:12, color:"var(--color-primary)" }}>养殖场一览</h3>
+          <h3 style={{ fontSize:15, fontWeight:700, marginBottom:12, color:"var(--color-primary)" }}>{t('ui.养殖场一览','养殖场一览')}</h3>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
             {farms.length===0 && (
               <div style={{ padding:"32px", textAlign:"center", color:"var(--text-secondary)", background:"var(--bg-card)",
                 border:"1px solid var(--border)", borderRadius:"var(--radius-lg)" }}>
-                暂无养殖场数据，点击右上角「新增养殖场」开始
+                {t('ui.暂无养殖场数据，点击右上角「新增养殖场」开始','暂无养殖场数据，点击右上角「新增养殖场」开始')}
               </div>
             )}
             {farms.map(farm => (
-              // ✅ 修复：移除整行硬编码跳转 /breeding/flock，改为仅显示卡片（编辑/删除通过按钮操作）
               <div key={farm.id}
                 style={{ background: "var(--bg-card)", borderRadius: "var(--radius-lg)", padding: "18px 20px",
                   border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 16,
@@ -414,11 +405,11 @@ export default function BreedingPage() {
                       background: farm.status==="warning"?"#fef2f2":"#f0fdf4",
                       color: farm.status==="warning"?"#dc2626":"#16a34a",
                       border:`1px solid ${farm.status==="warning"?"#fca5a5":"#86efac"}` }}>
-                      {farm.status==="warning"?"需关注":"正常"}
+                      {farm.status==="warning"?t('ui.需关注','需关注'):t('ui.正常','正常')}
                     </span>
                   </div>
                   <div style={{ fontSize:12, color:"var(--text-secondary)" }}>
-                    {farm.location} · {farm.houses}栋鸡舍 · 存栏 {Number(farm.totalBirds).toLocaleString()} 羽
+                    {farm.location} · {farm.houses}{t('ui.栋鸡舍','栋鸡舍')} · {t('ui.存栏','存栏')} {Number(farm.totalBirds).toLocaleString()} {t('ui.羽','羽')}
                   </div>
                   {farmEnvMap[farm.id]&&(farmEnvMap[farm.id].temp!=null||farmEnvMap[farm.id].hum!=null)&&(
                     <div style={{ display:"flex", gap:8, marginTop:8, fontSize:11, fontWeight:600 }}>
@@ -432,7 +423,7 @@ export default function BreedingPage() {
                   <div style={{ fontSize:22, fontWeight:700, color: typeof farm.layingRate === "string" && isNaN(Number(farm.layingRate)) ? "var(--text-secondary)" : Number(farm.layingRate)<88?"#dc2626":"#16a34a" }}>
                     {farm.layingRate}%
                   </div>
-                  <div style={{ fontSize:11, color:"var(--text-secondary)" }}>产蛋率</div>
+                  <div style={{ fontSize:11, color:"var(--text-secondary)" }}>{t('ui.产蛋率','产蛋率')}</div>
                 </div>
                 <div style={{ display:"flex", flexDirection:"column", gap:6, flexShrink:0, marginLeft:10 }}>
                   <button type="button" onClick={e=>openEdit(e,farm)} className={styles.btnSecondary}
@@ -451,7 +442,7 @@ export default function BreedingPage() {
 
         {/* Alerts + weekly summary */}
         <div>
-          <h3 style={{ fontSize:15, fontWeight:700, marginBottom:12, color:"var(--color-primary)" }}>今日预警任务</h3>
+          <h3 style={{ fontSize:15, fontWeight:700, marginBottom:12, color:"var(--color-primary)" }}>{t('ui.今日预警任务','今日预警任务')}</h3>
           <div style={{ background:"var(--bg-card)", borderRadius:"var(--radius-lg)", border:"1px solid var(--border)", overflow:"hidden" }}>
             {alerts.map((a,i)=>(
               <div key={a.id} style={{ padding:"14px 16px",
@@ -471,12 +462,12 @@ export default function BreedingPage() {
           <div style={{ marginTop:16, background:"var(--bg-card)", borderRadius:"var(--radius-lg)",
             border:"1px solid var(--border)", padding:16 }}>
             <h4 style={{ fontSize:13, fontWeight:700, marginBottom:12, color:"var(--text-secondary)",
-              textTransform:"uppercase", letterSpacing:"0.5px" }}>本周汇总</h4>
+              textTransform:"uppercase", letterSpacing:"0.5px" }}>{t('ui.本周汇总','本周汇总')}</h4>
             {[
-              { label:"累计产蛋", val: weekSummary.eggs>0?weekSummary.eggs.toLocaleString()+" 枚":"—",  color:"var(--color-primary)" },
-              { label:"死淘累计", val: weekSummary.mortality>0?weekSummary.mortality.toLocaleString()+" 羽":"0 羽", color:"#dc2626" },
-              { label:"料蛋比均", val: String(weekSummary.feedRatio)||"—",                              color:"#16a34a" },
-              { label:"完成免疫", val: weekSummary.immuneTotal>0?`${weekSummary.immuneDone} / ${weekSummary.immuneTotal} 项`:"暂无计划", color:"#f59e0b" },
+              { label:t('ui.累计产蛋','累计产蛋'), val: weekSummary.eggs>0?weekSummary.eggs.toLocaleString()+` ${t('ui.枚','枚')}`:"—",  color:"var(--color-primary)" },
+              { label:t('ui.死淘累计','死淘累计'), val: weekSummary.mortality>0?weekSummary.mortality.toLocaleString()+` ${t('ui.羽','羽')}`:t('ui.0 羽','0 羽'), color:"#dc2626" },
+              { label:t('ui.料蛋比均','料蛋比均'), val: String(weekSummary.feedRatio)||"—",                              color:"#16a34a" },
+              { label:t('ui.完成免疫','完成免疫'), val: weekSummary.immuneTotal>0?`${weekSummary.immuneDone} / ${weekSummary.immuneTotal} ${t('ui.项','项')}`:t('ui.暂无计划','暂无计划'), color:"#f59e0b" },
             ].map(item=>(
               <div key={item.label} style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
                 <span style={{ fontSize:13, color:"var(--text-secondary)" }}>{item.label}</span>
@@ -488,13 +479,13 @@ export default function BreedingPage() {
       </div>
 
       {/* Create/Edit Drawer */}
-      <RightDrawer open={drawerOpen} title={editId?"编辑养殖场档案":"新增养殖场档案"} onClose={()=>setDrawerOpen(false)}>
+      <RightDrawer open={drawerOpen} title={editId?t('ui.编辑养殖场档案','编辑养殖场档案'):t('ui.新增养殖场档案','新增养殖场档案')} onClose={()=>setDrawerOpen(false)}>
         <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
           <div>
-            <label style={{ display:"block", fontSize:13, fontWeight:600, marginBottom:8 }}>所属大区省份</label>
+            <label style={{ display:"block", fontSize:13, fontWeight:600, marginBottom:8 }}>{t('ui.所属大区省份','所属大区省份')}</label>
             <input list="province-list" value={form.location}
               onChange={e=>setForm({...form,location:e.target.value})}
-              placeholder="请下拉选择或手工输入任意州省份"
+              placeholder={t('ui.请下拉选择或手工输入任意州省份','请下拉选择或手工输入任意州省份')}
               style={{ width:"100%", padding:"10px 14px", border:"1px solid var(--border)",
                 borderRadius:"var(--radius-md)", background:"var(--bg-page)", color:"var(--text-primary)",
                 fontSize:14, outline:"none", boxSizing:"border-box" }}/>
@@ -503,16 +494,16 @@ export default function BreedingPage() {
             </datalist>
           </div>
           <div>
-            <label style={{ display:"block", fontSize:13, fontWeight:600, marginBottom:8 }}>新场项目代号名称</label>
+            <label style={{ display:"block", fontSize:13, fontWeight:600, marginBottom:8 }}>{t('ui.新场项目代号名称','新场项目代号名称')}</label>
             <input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}
-              placeholder="例 凤凰五场"
+              placeholder={t('ui.例 凤凰五场','例 凤凰五场')}
               style={{ width:"100%", padding:"10px 14px", border:"1px solid var(--border)",
                 borderRadius:"var(--radius-md)", background:"var(--bg-page)", color:"var(--text-primary)",
                 fontSize:14, outline:"none", boxSizing:"border-box" }}/>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
             <div>
-              <label style={{ display:"block", fontSize:13, fontWeight:600, marginBottom:8 }}>规划栋数</label>
+              <label style={{ display:"block", fontSize:13, fontWeight:600, marginBottom:8 }}>{t('ui.规划栋数','规划栋数')}</label>
               <input type="number" value={form.houses} onChange={e=>setForm({...form,houses:e.target.value})}
                 onFocus={e=>e.target.select()}
                 placeholder="0"
@@ -521,7 +512,7 @@ export default function BreedingPage() {
                   fontSize:14, outline:"none", boxSizing:"border-box" }}/>
             </div>
             <div>
-              <label style={{ display:"block", fontSize:13, fontWeight:600, marginBottom:8 }}>总设计容量（羽）</label>
+              <label style={{ display:"block", fontSize:13, fontWeight:600, marginBottom:8 }}>{t('ui.总设计容量（羽）','总设计容量（羽）')}</label>
               <input type="number" value={form.capacity} onChange={e=>setForm({...form,capacity:e.target.value})}
                 onFocus={e=>e.target.select()}
                 placeholder="0"
@@ -532,10 +523,10 @@ export default function BreedingPage() {
           </div>
           <div style={{ marginTop:4, display:"flex", gap:12 }}>
             <button type="button" onClick={()=>setDrawerOpen(false)} className={styles.btnSecondary} style={{ flex:1 }}>
-              取消
+              {t('common.cancel','取消')}
             </button>
             <button type="button" onClick={handleSave} disabled={saving} className={styles.btnPrimary} style={{ flex:2 }}>
-              {saving?"保存中...":(editId?"保存修改":"确认并建档")}
+              {saving?t('ui.保存中...','保存中...'):(editId?t('ui.保存修改','保存修改'):t('ui.确认并建档','确认并建档'))}
             </button>
           </div>
         </div>
@@ -543,4 +534,3 @@ export default function BreedingPage() {
     </div>
   );
 }
-
