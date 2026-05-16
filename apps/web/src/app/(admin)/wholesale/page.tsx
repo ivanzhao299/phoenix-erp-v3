@@ -5,8 +5,10 @@ import PageHeader from "@/components/PageHeader";
 import Link from "next/link";
 import { FileText, Truck, Award } from "lucide-react";
 import styles from "./wholesale.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function WholesaleOverviewPage() {
+  const { t } = useLanguage();
   const [stats, setStats] = useState<Record<string,number>>({ contracts: 0, shipments: 0 });
   const [loading, setLoading] = useState(true);
 
@@ -23,19 +25,19 @@ export default function WholesaleOverviewPage() {
   }, []);
 
   const KPIs = [
-    { label: "合同总数", value: stats.contracts, color: "#3b82f6" },
-    { label: "发货记录数", value: stats.shipments, color: "#22c55e" },
+    { label: t("ui.合同总数", "合同总数"),   value: stats.contracts, color: "#3b82f6" },
+    { label: t("ui.发货记录数", "发货记录数"), value: stats.shipments, color: "#22c55e" },
   ];
 
   const QUICK = [
-    { path: "/wholesale/contracts", Icon: FileText, label: "批发合同", desc: "ws_contracts" },
-    { path: "/wholesale/shipments", Icon: Truck, label: "发货记录", desc: "ws_shipments" },
-    { path: "/b2b/distributor-grading", Icon: Award, label: "经销商分级", desc: "chn_distributor_grading" },
+    { path: "/wholesale/contracts", Icon: FileText, label: t("ui.批发合同", "批发合同"), desc: "ws_contracts" },
+    { path: "/wholesale/shipments", Icon: Truck,    label: t("ui.发货记录", "发货记录"), desc: "ws_shipments" },
+    { path: "/b2b/distributor-grading", Icon: Award, label: t("ui.经销商分级", "经销商分级"), desc: "chn_distributor_grading" },
   ];
 
   return (
     <div>
-      <PageHeader title="批发管理" subtitle="批发合同与履约发货记录（ws_contracts + ws_shipments）" />
+      <PageHeader title={t("ui.批发管理", "批发管理")} subtitle={t("ui.批发合同与履约发货记录", "批发合同与履约发货记录（ws_contracts + ws_shipments）")} />
       <div className={styles.kpiGrid}>
         {KPIs.map(k => (
           <div key={k.label} className={styles.kpiCard}>

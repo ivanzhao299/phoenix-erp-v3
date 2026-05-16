@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
 import { RefreshCw, WifiOff, AlertTriangle, ChevronRight, Clock, Activity } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import s from '@/components/ui/admin-ui.module.css';
 
 const API = '/api/v3/iot/devices';
@@ -18,20 +19,19 @@ const STATUS_DOT: Record<string, { bg:string; border:string; dot:string }> = {
   critical: { bg:'#fee2e2', border:'#fca5a5', dot:'#ef4444' },
   no_data:  { bg:'#f8fafc', border:'#e2e8f0', dot:'#94a3b8' },
 };
-const STATUS_LABEL: Record<string,string> = { normal:'正常', standby:'待机', warning:'预警', critical:'告警', no_data:'无数据' };
 
 // ── 数据新鲜度配置 ──────────────────────────────────────────────────────
-const FRESH: Record<string, { label:string; color:string; bg:string }> = {
-  normal:  { label:'实时', color:'var(--status-success)', bg:'color-mix(in srgb,var(--status-success) 15%,transparent)' },
-  delayed: { label:'延迟', color:'var(--status-warning)', bg:'color-mix(in srgb,var(--status-warning) 15%,transparent)' },
-  stale:   { label:'陈旧', color:'var(--status-danger)',  bg:'color-mix(in srgb,var(--status-danger)  15%,transparent)' },
-  no_data: { label:'无数据', color:'var(--text-secondary)', bg:'color-mix(in srgb,var(--text-secondary) 10%,transparent)' },
+const FRESH: Record<string, { color:string; bg:string }> = {
+  normal:  { color:'var(--status-success)', bg:'color-mix(in srgb,var(--status-success) 15%,transparent)' },
+  delayed: { color:'var(--status-warning)', bg:'color-mix(in srgb,var(--status-warning) 15%,transparent)' },
+  stale:   { color:'var(--status-danger)',  bg:'color-mix(in srgb,var(--status-danger)  15%,transparent)' },
+  no_data: { color:'var(--text-secondary)', bg:'color-mix(in srgb,var(--text-secondary) 10%,transparent)' },
 };
 
 // ── 系统状态点子组件（颜色由传感器状态决定，保留 inline）───────────────
-function SystemDot({ sys }: { sys: any }) {
+function SystemDot({ sys, statusLabel }: { sys: any; statusLabel: string }) {
   const c = STATUS_DOT[sys.status] || STATUS_DOT.no_data;
-  const tip = sys.alarmCount > 0 ? `${sys.name}：${sys.alarmCount} 项告警` : `${sys.name}：${STATUS_LABEL[sys.status]||sys.status}`;
+  const tip = sys.alarmCount > 0 ? `${sys.name}：${sys.alarmCount} 项告警` : `${sys.name}：${statusLabel}`;
   return (
     <div title={tip} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
       <div style={{ width:10, height:10, borderRadius:'50%', backgroundColor:c.dot, boxShadow: sys.status==='critical'?`0 0 6px ${c.dot}`:'none' }} />
@@ -41,7 +41,7 @@ function SystemDot({ sys }: { sys: any }) {
 }
 
 // ── 鸡舍卡片（颜色由告警/数据鲜度决定，保留 inline）────────────────────
-function HouseCard({ house, onClick }: { house: any; onClick: () => void }) {
+function HouseCard({ house, onClick, freshLabel, noBatchLabel }: { house: any; onClick: () => void; freshLabel: string; noBatchLabel: string }) {
   const fr = FRESH[house.dataFreshness] || FRESH.no_data;
   const hasAlarm = house.alarmCount > 0;
 
@@ -54,17 +54,17 @@ function HouseCard({ house, onClick }: { house: any; onClick: () => void }) {
         <div>
           <div style={{ fontWeight:800, fontSize:14, lineHeight:1.2 }}>{house.houseName}</div>
           <div style={{ fontSize:10, color:'var(--text-secondary)', marginTop:1 }}>
-            {house.houseCode} · {house.flockNo ? `批次 ${house.flockNo}` : '暂无批次'}
+            {house.houseCode} · {house.flockNo ? `批次 ${house.flockNo}` : noBatchLabel}
           </div>
         </div>
         <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4 }}>
           <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-            <span style={{ fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:10, backgroundColor:fr.bg, color:fr.color }}>● {fr.label}</span>
+            <span style={{ fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:10, backgroundColor:fr.bg, color:fr.color }}>● {freshLabel}</span>
             {hasAlarm && <span style={{ fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:10, backgroundColor:'color-mix(in srgb,var(--status-danger) 15%,transparent)', color:'var(--status-danger)' }}>⚠ {house.alarmCount}</span>}
           </div>
           {house.hasData && (
             <div style={{ display:'flex', gap:8 }}>
-              {(house.systems||[]).map((sys: any) => <SystemDot key={sys.code} sys={sys} />)}
+              {(house.systems||[]).map((sys: any) => <SystemDot key={sys.code} sys={sys} statusLabel={sys.status} />)}
             </div>
           )}
         </div>
@@ -110,12 +110,28 @@ function HouseCard({ house, onClick }: { house: any; onClick: () => void }) {
 export default function DeviceOverviewPage() {
   const router = useRouter();
   const toast = useToast();
+  const { t } = useLanguage();
   const [data,        setData]        = useState<any>(null);
   const [loading,     setLoading]     = useState(true);
   const [syncing,     setSyncing]     = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(() => typeof window!=='undefined' && localStorage.getItem('phx_device_autoRefresh')==='true');
   const [lastSync,    setLastSync]    = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval>|null>(null);
+
+  const STATUS_LABEL: Record<string,string> = {
+    normal:  t('status.normal', '正常'),
+    standby: t('ui.待机', '待机'),
+    warning: t('status.warning', '预警'),
+    critical: t('ui.告警', '告警'),
+    no_data: t('ui.无数据', '无数据'),
+  };
+
+  const FRESH_LABEL: Record<string, string> = {
+    normal:  t('ui.实时', '实时'),
+    delayed: t('ui.延迟', '延迟'),
+    stale:   t('ui.陈旧', '陈旧'),
+    no_data: t('ui.无数据', '无数据'),
+  };
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -155,15 +171,15 @@ export default function DeviceOverviewPage() {
   const alarms = data?.recentAlarms || [];
 
   const kpiCards = [
-    { label:'接入鸡舍',   value:`${sum.activeHouses||0}`, sub:`共 ${sum.totalHouses||0} 栋`,            cardCls: s.statCardPrimary, valCls: "" },
-    { label:'当前告警',   value:`${sum.totalAlarms||0}`,  sub:`${sum.alarmHouses||0} 栋有告警`,          cardCls:(sum.totalAlarms||0)>0 ? s.statCardDanger : s.statCardSuccess, valCls:(sum.totalAlarms||0)>0 ? s.textDanger : s.textSuccess },
-    { label:'在线传感器', value:`${sum.onlineSensorCnt||0}`, sub:`共 ${sum.totalSensorCnt||0} 个（温湿度/气体）`, cardCls: s.statCardPrimary, valCls: "" },
-    { label:'运行中设备', value:`${sum.onlineDeviceCnt||0}`, sub:`共 ${sum.totalDeviceCnt||0} 台（风机/加热等）`, cardCls: s.statCardSuccess, valCls: s.textSuccess },
+    { label: t('ui.接入鸡舍', '接入鸡舍'),   value:`${sum.activeHouses||0}`, sub:`共 ${sum.totalHouses||0} 栋`,            cardCls: s.statCardPrimary, valCls: "" },
+    { label: t('ui.当前告警', '当前告警'),   value:`${sum.totalAlarms||0}`,  sub:`${sum.alarmHouses||0} 栋有告警`,          cardCls:(sum.totalAlarms||0)>0 ? s.statCardDanger : s.statCardSuccess, valCls:(sum.totalAlarms||0)>0 ? s.textDanger : s.textSuccess },
+    { label: t('ui.在线传感器', '在线传感器'), value:`${sum.onlineSensorCnt||0}`, sub:`共 ${sum.totalSensorCnt||0} 个（温湿度/气体）`, cardCls: s.statCardPrimary, valCls: "" },
+    { label: t('ui.运行中设备', '运行中设备'), value:`${sum.onlineDeviceCnt||0}`, sub:`共 ${sum.totalDeviceCnt||0} 台（风机/加热等）`, cardCls: s.statCardSuccess, valCls: s.textSuccess },
   ];
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title="设备监控总览" subtitle={`${sum.activeHouses||0} 栋已接入 · ${sum.totalAlarms||0} 个活跃告警`} breadcrumb={['养殖生产中心','设备监控总览']}
+      <PageHeader title={t('ui.设备监控总览', '设备监控总览')} subtitle={`${sum.activeHouses||0} 栋已接入 · ${sum.totalAlarms||0} 个活跃告警`} breadcrumb={[t('ui.养殖生产中心', '养殖生产中心'), t('ui.设备监控总览', '设备监控总览')]}
         actions={
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
             {/* 自动刷新开关：label 只做布局，s.toggle 只包裹 input+track */}
@@ -174,12 +190,12 @@ export default function DeviceOverviewPage() {
                 <input type="checkbox" className={s.toggleInput} checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} />
                 <span className={s.toggleTrack} />
               </span>
-              自动刷新
+              {t('ui.自动刷新', '自动刷新')}
             </label>
             {lastSync && <span style={{ fontSize:11, color:'var(--text-secondary)' }}><Clock size={10} style={{ marginRight:2 }}/>{lastSync}</span>}
             <button type="button" className={s.btnPrimary} onClick={handleSync} disabled={syncing}
               style={{ opacity: syncing ? 0.7 : 1, cursor: syncing ? 'not-allowed' : 'pointer' }}>
-              <RefreshCw size={14} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }}/>{syncing?'采集中...':'手动采集'}
+              <RefreshCw size={14} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }}/>{syncing ? t('ui.采集中', '采集中...') : t('ui.手动采集', '手动采集')}
             </button>
           </div>
         } />
@@ -197,8 +213,13 @@ export default function DeviceOverviewPage() {
 
       {/* 5大系统图例 */}
       <div style={{ display:'flex', gap:16, alignItems:'center', marginBottom:14, padding:'8px 12px', backgroundColor:'var(--bg-card)', borderRadius:'var(--radius-sm)', border:'1px solid var(--border)', flexWrap:'wrap' }}>
-        <span style={{ fontSize:11, fontWeight:700, color:'var(--text-secondary)' }}>系统健康点：</span>
-        {[{label:'正常',dot:'#22c55e'},{label:'预警',dot:'#f59e0b'},{label:'告警',dot:'#ef4444'},{label:'无数据',dot:'#94a3b8'}].map(l => (
+        <span style={{ fontSize:11, fontWeight:700, color:'var(--text-secondary)' }}>{t('ui.系统健康点', '系统健康点：')}</span>
+        {[
+          { label: t('status.normal', '正常'), dot:'#22c55e' },
+          { label: t('status.warning', '预警'), dot:'#f59e0b' },
+          { label: t('ui.告警', '告警'), dot:'#ef4444' },
+          { label: t('ui.无数据', '无数据'), dot:'#94a3b8' },
+        ].map(l => (
           <span key={l.label} style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, color:'var(--text-secondary)' }}>
             <span style={{ width:8, height:8, borderRadius:'50%', backgroundColor:l.dot, display:'inline-block' }}/>{l.label}
           </span>
@@ -214,13 +235,19 @@ export default function DeviceOverviewPage() {
       ) : houses.length > 0 ? (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:14, marginBottom:24 }}>
           {houses.map((h: any) => (
-            <HouseCard key={h.houseCode} house={h} onClick={() => router.push(`/breeding/device/${h.houseCode}`)} />
+            <HouseCard
+              key={h.houseCode}
+              house={h}
+              onClick={() => router.push(`/breeding/device/${h.houseCode}`)}
+              freshLabel={FRESH_LABEL[h.dataFreshness] || h.dataFreshness}
+              noBatchLabel={t('ui.暂无批次', '暂无批次')}
+            />
           ))}
         </div>
       ) : (
         <div style={{ padding:60, textAlign:'center', color:'var(--text-secondary)', backgroundColor:'var(--bg-card)', borderRadius:'var(--radius-md)', border:'1px solid var(--border)', marginBottom:24 }}>
-          <Activity size={32} style={{ marginBottom:12, opacity:0.4 }}/><div style={{ fontWeight:700, marginBottom:6 }}>暂无已映射鸡舍</div>
-          <div style={{ fontSize:13 }}>请先在「运维管理」页面完成鸡舍映射</div>
+          <Activity size={32} style={{ marginBottom:12, opacity:0.4 }}/><div style={{ fontWeight:700, marginBottom:6 }}>{t('ui.暂无已映射鸡舍', '暂无已映射鸡舍')}</div>
+          <div style={{ fontSize:13 }}>{t('ui.请先在运维管理页面完成鸡舍映射', '请先在「运维管理」页面完成鸡舍映射')}</div>
         </div>
       )}
 
@@ -228,10 +255,10 @@ export default function DeviceOverviewPage() {
       {alarms.length > 0 && (
         <div style={{ backgroundColor:'color-mix(in srgb,var(--status-danger) 5%,var(--bg-card))', border:'1px solid color-mix(in srgb,var(--status-danger) 50%,transparent)', borderRadius:'var(--radius-md)', padding:16 }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-            <div style={{ fontWeight:700, fontSize:13, display:'flex', alignItems:'center', gap:6, color:'var(--status-danger)' }}><AlertTriangle size={14}/> 全场活跃告警</div>
+            <div style={{ fontWeight:700, fontSize:13, display:'flex', alignItems:'center', gap:6, color:'var(--status-danger)' }}><AlertTriangle size={14}/> {t('ui.全场活跃告警', '全场活跃告警')}</div>
             <button type="button" className={s.btnGhost} style={{ fontSize:11, padding:'2px 8px' }}
               onClick={() => router.push('/breeding/device-alerts')}>
-              全部告警 <ChevronRight size={12}/>
+              {t('ui.全部告警', '全部告警')} <ChevronRight size={12}/>
             </button>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:6 }}>

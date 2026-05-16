@@ -5,8 +5,10 @@ import PageHeader from "@/components/PageHeader";
 import Link from "next/link";
 import { Users, ShoppingCart, Award } from "lucide-react";
 import styles from "./b2b.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function B2BOverviewPage() {
+  const { t } = useLanguage();
   const [stats, setStats] = useState<Record<string,number>>({ customers: 0, orders: 0 });
   const [loading, setLoading] = useState(true);
 
@@ -23,19 +25,19 @@ export default function B2BOverviewPage() {
   }, []);
 
   const KPIs = [
-    { label: "B2B 客户数", value: stats.customers, color: "#3b82f6" },
-    { label: "B2B 订单数", value: stats.orders, color: "#22c55e" },
+    { label: t("ui.B2B客户数", "B2B 客户数"), value: stats.customers, color: "#3b82f6" },
+    { label: t("ui.B2B订单数", "B2B 订单数"), value: stats.orders, color: "#22c55e" },
   ];
 
   const QUICK = [
-    { path: "/b2b/customers", Icon: Users, label: "B2B 客户", desc: "b2b_customers" },
-    { path: "/b2b/orders", Icon: ShoppingCart, label: "B2B 订单", desc: "b2b_orders" },
-    { path: "/b2b/distributor-grading", Icon: Award, label: "经销商分级", desc: "chn_distributor_grading" },
+    { path: "/b2b/customers", Icon: Users, label: t("ui.B2B客户", "B2B 客户"), desc: "b2b_customers" },
+    { path: "/b2b/orders", Icon: ShoppingCart, label: t("ui.B2B订单", "B2B 订单"), desc: "b2b_orders" },
+    { path: "/b2b/distributor-grading", Icon: Award, label: t("ui.经销商分级", "经销商分级"), desc: "chn_distributor_grading" },
   ];
 
   return (
     <div>
-      <PageHeader title="B2B 分销" subtitle="批发分销管理中心（b2b_customers + b2b_orders）" />
+      <PageHeader title={t("ui.B2B分销", "B2B 分销")} subtitle={t("ui.批发分销管理中心", "批发分销管理中心（b2b_customers + b2b_orders）")} />
       <div className={styles.kpiGrid}>
         {KPIs.map(k => (
           <div key={k.label} className={styles.kpiCard}>

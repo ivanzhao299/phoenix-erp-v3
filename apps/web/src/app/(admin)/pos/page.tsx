@@ -5,8 +5,10 @@ import PageHeader from "@/components/PageHeader";
 import Link from "next/link";
 import { ShoppingBag } from "lucide-react";
 import styles from "./pos.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function PosOverviewPage() {
+  const { t } = useLanguage();
   const [stats, setStats] = useState<Record<string,number>>({ sales: 0 });
   const [loading, setLoading] = useState(true);
 
@@ -21,16 +23,16 @@ export default function PosOverviewPage() {
   }, []);
 
   const KPIs = [
-    { label: "销售单总数", value: stats.sales, color: "#3b82f6" },
+    { label: t("ui.销售单总数", "销售单总数"), value: stats.sales, color: "#3b82f6" },
   ];
 
   const QUICK = [
-    { path: "/pos/sales", Icon: ShoppingBag, label: "销售单管理", desc: "pos_sales" },
+    { path: "/pos/sales", Icon: ShoppingBag, label: t("ui.销售单管理", "销售单管理"), desc: "pos_sales" },
   ];
 
   return (
     <div>
-      <PageHeader title="POS 销售" subtitle="门店 POS 收银销售管理（pos_sales）" />
+      <PageHeader title={t("ui.POS销售", "POS 销售")} subtitle={t("ui.门店POS收银销售管理", "门店 POS 收银销售管理（pos_sales）")} />
       <div className={styles.kpiGrid}>
         {KPIs.map(k => (
           <div key={k.label} className={styles.kpiCard}>

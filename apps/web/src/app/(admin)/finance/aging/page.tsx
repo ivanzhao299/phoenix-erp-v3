@@ -6,30 +6,34 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const TABLE = "fin_transactions";
-const TITLE = "账龄分析";
-
-const COLUMNS = [
-    { key: "trans_no", title: "交易单号" },
-    { key: "amount", title: "金额" },
-    { key: "trans_type", title: "类型" },
-    { key: "pay_method", title: "支付方式" },
-    { key: "status", title: "状态" },
-    { key: "created_at", title: "日期" },
-];
-
-const FIELDS: FormField[] = [
-    { key: "trans_no", label: "交易单号", type: "readonly" },
-    { key: "invoice_no", label: "关联发票号", type: "text" },
-    { key: "amount", label: "金额", type: "number", required: true },
-    { key: "trans_type", label: "类型", type: "select", required: true, options: [{ label: "收款", value: "CREDIT" }, { label: "付款", value: "DEBIT" }] },
-    { key: "pay_method", label: "支付方式", type: "select", options: [{ label: "现金", value: "CASH" }, { label: "转账", value: "TRANSFER" }, { label: "线上支付", value: "ONLINE" }] },
-    { key: "pay_date", label: "支付日期", type: "date" },
-    { key: "remark", label: "备注", type: "textarea" },
-];
 
 export default function 账龄分析Page() {
+  const { t } = useLanguage();
+
+  const COLUMNS = [
+    { key: "trans_no",   title: t("ui.交易单号", "交易单号") },
+    { key: "amount",     title: t("common.amount", "金额") },
+    { key: "trans_type", title: t("ui.类型", "类型") },
+    { key: "pay_method", title: t("ui.支付方式", "支付方式") },
+    { key: "status",     title: t("common.status", "状态") },
+    { key: "created_at", title: t("common.date", "日期") },
+  ];
+
+  const FIELDS: FormField[] = [
+    { key: "trans_no",   label: t("ui.交易单号", "交易单号"),   type: "readonly" },
+    { key: "invoice_no", label: t("ui.关联发票号", "关联发票号"), type: "text" },
+    { key: "amount",     label: t("common.amount", "金额"),     type: "number", required: true },
+    { key: "trans_type", label: t("ui.类型", "类型"),           type: "select", required: true,
+      options: [{ label: t("ui.收款", "收款"), value: "CREDIT" }, { label: t("ui.付款", "付款"), value: "DEBIT" }] },
+    { key: "pay_method", label: t("ui.支付方式", "支付方式"),   type: "select",
+      options: [{ label: t("ui.现金", "现金"), value: "CASH" }, { label: t("ui.转账", "转账"), value: "TRANSFER" }, { label: t("ui.线上支付", "线上支付"), value: "ONLINE" }] },
+    { key: "pay_date",   label: t("ui.支付日期", "支付日期"),   type: "date" },
+    { key: "remark",     label: t("common.remark", "备注"),     type: "textarea" },
+  ];
+
   const [drawerOpen, setDrawerOpen]     = useState(false);
   const [editing, setEditing]           = useState<Record<string, unknown> | null>(null);
   const [saving, setSaving]             = useState(false);
@@ -70,9 +74,11 @@ export default function 账龄分析Page() {
     refresh();
   }, [deleteTarget, refresh]);
 
+  const TITLE = t("ui.账龄分析", "账龄分析");
+
   return (
     <div>
-      <PageHeader title={TITLE} subtitle="按账期维度分析应收款项逾期情况（表：fin_transactions）" />
+      <PageHeader title={TITLE} subtitle={t("ui.按账期维度分析应收款项逾期情况", "按账期维度分析应收款项逾期情况（表：fin_transactions）")} />
       <DataTable
         table={TABLE}
         columns={COLUMNS as any}
@@ -82,7 +88,7 @@ export default function 账龄分析Page() {
         showActions
         refreshKey={refreshKey}
       />
-      <RightDrawer open={drawerOpen} title={editing ? `编辑${TITLE}` : `新增${TITLE}`} onClose={closeDrawer}>
+      <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑账龄分析", `编辑${TITLE}`) : t("ui.新增账龄分析", `新增${TITLE}`)} onClose={closeDrawer}>
         <CrudForm
           fields={FIELDS}
           initialValues={editing ?? {}}
@@ -93,8 +99,8 @@ export default function 账龄分析Page() {
       </RightDrawer>
       <ConfirmDialog
         open={confirmOpen}
-        title="确认删除"
-        message="删除后不可恢复，确认继续？"
+        title={t("ui.确认删除", "确认删除")}
+        message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}
         onConfirm={confirmDelete}
         onCancel={() => setConfirmOpen(false)}
       />

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import styles from "./page-header.module.css";
 
 interface PageHeaderProps {
@@ -22,17 +23,17 @@ export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
 }
 
 // ── Status Badge ─────────────────────────────────────────────
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  ACTIVE:   { label: "启用", color: "#22c55e" },
-  INACTIVE: { label: "停用", color: "#64748b" },
-  PENDING:  { label: "待处理", color: "#f59e0b" },
-  OPEN:     { label: "进行中", color: "#3b82f6" },
-  CLOSED:   { label: "已关闭", color: "#64748b" },
-  DONE:     { label: "完成", color: "#22c55e" },
-  ERROR:    { label: "异常", color: "#ef4444" },
-};
-
 export function StatusBadge({ value }: { value: string }) {
+  const { t } = useLanguage();
+  const STATUS_MAP: Record<string, { label: string; color: string }> = {
+    ACTIVE:   { label: t('status.active',   '启用'), color: "#22c55e" },
+    INACTIVE: { label: t('status.inactive', '停用'), color: "#64748b" },
+    PENDING:  { label: t('status.pending',  '待处理'), color: "#f59e0b" },
+    OPEN:     { label: t('ui.进行中',        '进行中'), color: "#3b82f6" },
+    CLOSED:   { label: t('status.closed',   '已关闭'), color: "#64748b" },
+    DONE:     { label: t('status.done',     '完成'), color: "#22c55e" },
+    ERROR:    { label: t('ui.异常',         '异常'), color: "#ef4444" },
+  };
   const info = STATUS_MAP[value] ?? { label: value, color: "#94a3b8" };
   return (
     <span style={{

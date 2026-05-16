@@ -8,17 +8,12 @@ import { useCrud } from '@/hooks/useCrud';
 import { useDictOptions } from '@/hooks/useDictOptions';
 import { usePermission } from '@/hooks/usePermission';
 import { useToast } from '@/contexts/ToastContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Plus, CheckCircle, AlertTriangle, Edit2 } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 
 // A3 + C5: 状态枚举统一大写（V2 残留有小写 done/pending/overdue/scheduled 混存，已由
 // generic-crud.service.ts boot migration UPPER 统一）
-const STATUS_CONF: Record<string, { status: string; label: string }> = {
-  DONE:      { status:'success', label:'已完成' },
-  PENDING:   { status:'info',    label:'待执行' },
-  OVERDUE:   { status:'danger',  label:'逾期未执行' },
-  SCHEDULED: { status:'default', label:'已计划' },
-};
 const normStatus = (s: string) => String(s || '').toUpperCase();
 const DOSE_BY_METHOD: Record<string, string> = {
   '滴鼻点眼':'2 drops/bird', '饮水':'1 dose/bird (diluted)',
@@ -28,11 +23,19 @@ const EMPTY_FORM = { batchNo:'', farmHouse:'', vaccine:'', planDate:'', method:'
 
 export default function ImmunePage() {
   const toast = useToast();
+  const { t } = useLanguage();
   const { can } = usePermission();
   const [filter, setFilter] = useState('all');
   const [showDrawer, setShowDrawer] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
+
+  const STATUS_CONF: Record<string, { status: string; label: string }> = {
+    DONE:      { status:'success', label: t('status.done', '已完成') },
+    PENDING:   { status:'info',    label: t('ui.待执行', '待执行') },
+    OVERDUE:   { status:'danger',  label: t('ui.逾期未执行', '逾期未执行') },
+    SCHEDULED: { status:'default', label: t('ui.已计划', '已计划') },
+  };
 
   const { fetchRecords, createRecord, updateRecord } = useCrud('brd_vaccinations');
   const { fetchRecords: fetchHouses } = useCrud('brd_houses');
@@ -78,9 +81,9 @@ export default function ImmunePage() {
       else if (planDate < today)   status = 'OVERDUE';
       else if (planDate <= soon)   status = 'PENDING';
       else                         status = 'SCHEDULED';
-      return { id:d.id, batchNo:d.flock_no||'未知', farmHouse:d.farm_house||d.house_code||'', vaccine:d.vaccine||d.vaccine_name, vaccineBatchNo:d.vaccine_batch_no||'', flockCount:d.flock_count||'', planDate:d.plan_date, nextDueDate:d.next_due_date||'', actualDate:d.actual_date, method:d.method||'', dose:d.dose||'', executor:d.executor||'', status };
+      return { id:d.id, batchNo:d.flock_no||t('ui.未知', '未知'), farmHouse:d.farm_house||d.house_code||'', vaccine:d.vaccine||d.vaccine_name, vaccineBatchNo:d.vaccine_batch_no||'', flockCount:d.flock_count||'', planDate:d.plan_date, nextDueDate:d.next_due_date||'', actualDate:d.actual_date, method:d.method||'', dose:d.dose||'', executor:d.executor||'', status };
     }));
-  }, [fetchRecords]);
+  }, [fetchRecords, t]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -88,7 +91,7 @@ export default function ImmunePage() {
     const today = new Date().toISOString().slice(0,10);
     let user: any = {};
     try { user = JSON.parse(sessionStorage.getItem('phoenix_user')||'{}'); } catch {}
-    const ok = await updateRecord(row.id, { status:'DONE', actual_date:today, executor: user.realNameZh||user.username||'' }, 'id', '保存成功');
+    const ok = await updateRecord(row.id, { status:'DONE', actual_date:today, executor: user.realNameZh||user.username||'' }, 'id', t('ui.保存成功', '保存成功'));
     if (ok) loadData();
   };
 
@@ -99,9 +102,9 @@ export default function ImmunePage() {
   };
 
   const handleSubmit = async () => {
-    if (!form.batchNo)  { toast.error('请选择对应鸡群批次'); return; }
-    if (!form.planDate) { toast.error('请选择计划免疫日期'); return; }
-    if (form.flockCount && Number(form.flockCount) <= 0) { toast.error('免疫头数必须大于 0'); return; }
+    if (!form.batchNo)  { toast.error(t('ui.请选择对应鸡群批次', '请选择对应鸡群批次')); return; }
+    if (!form.planDate) { toast.error(t('ui.请选择计划免疫日期', '请选择计划免疫日期')); return; }
+    if (form.flockCount && Number(form.flockCount) <= 0) { toast.error(t('ui.免疫头数必须大于0', '免疫头数必须大于 0')); return; }
     const fi = flockMap[form.batchNo] || {};
     const payload = {
       flock_no: form.batchNo, farm_house: form.farmHouse || fi.house_code || null,
@@ -112,8 +115,8 @@ export default function ImmunePage() {
       method: form.method, dose: form.dose,
     };
     const ok = editId
-      ? await updateRecord(editId, payload, 'id', '免疫计划更新成功！')
-      : await createRecord({ ...payload, actual_date:null, executor:'', status:'pending' }, '免疫计划制定成功！');
+      ? await updateRecord(editId, payload, 'id', t('ui.免疫计划更新成功', '免疫计划更新成功！'))
+      : await createRecord({ ...payload, actual_date:null, executor:'', status:'pending' }, t('ui.免疫计划制定成功', '免疫计划制定成功！'));
     if (ok) {
       setShowDrawer(false); setEditId(null);
       setForm({ ...EMPTY_FORM, batchNo:flockOptions[0]?.code||'', vaccine:vaccineOpts[0]||'', method:vaccMethodOpts[0]||'', dose:DOSE_BY_METHOD[vaccMethodOpts[0]]||'' });
@@ -123,7 +126,13 @@ export default function ImmunePage() {
 
   // A3 + C5: 统一大写枚举
   const filterKeys = ['all','PENDING','OVERDUE','SCHEDULED','DONE'];
-  const filterLabels: Record<string, string> = { all:'全部', PENDING:'待执行', OVERDUE:'逾期', SCHEDULED:'已计划', DONE:'已完成' };
+  const filterLabels: Record<string, string> = {
+    all:       t('common.total', '全部'),
+    PENDING:   t('ui.待执行', '待执行'),
+    OVERDUE:   t('ui.逾期', '逾期'),
+    SCHEDULED: t('ui.已计划', '已计划'),
+    DONE:      t('status.done', '已完成'),
+  };
   const filteredData = filter==='all' ? plans : plans.filter(p => normStatus(p.status)===filter);
   const overdueCnt   = plans.filter(p => normStatus(p.status)==='OVERDUE').length;
   const pendingCnt   = plans.filter(p => normStatus(p.status)==='PENDING').length;
@@ -131,23 +140,23 @@ export default function ImmunePage() {
   const doneCnt      = plans.filter(p => normStatus(p.status)==='DONE').length;
 
   const columns = [
-    { key:'batchNo',        title:'鸡群批次', width:'120px' },
-    { key:'farmHouse',      title:'鸡舍',     width:'100px' },
-    { key:'vaccine',        title:'疫苗名称' },
-    { key:'vaccineBatchNo', title:'疫苗批号', width:'130px', render: (v: any) => v ? <span style={{ fontFamily:'monospace', fontSize:12, color:'var(--color-primary)' }}>{v}</span> : <span style={{ color:'var(--text-secondary)' }}>—</span> },
-    { key:'flockCount',     title:'免疫头数', width:'90px',  render: (v: any) => v ? `${v} 只` : '—' },
-    { key:'planDate',       title:'计划日期', width:'100px' },
-    { key:'nextDueDate',    title:'下次免疫', width:'100px', render: (v: any) => v || '—' },
-    { key:'actualDate',     title:'执行日期', width:'100px', render: (v: any) => v || '—' },
-    { key:'method',         title:'接种方式', width:'90px'  },
-    { key:'dose',           title:'剂量',     width:'90px'  },
-    { key:'executor',       title:'执行人',   width:'80px'  },
-    { key:'status',         title:'状态',     width:'110px', render: (v: any) => { const st = STATUS_CONF[normStatus(v)]||{ status:'default', label:v }; return <StatusBadge status={st.status} label={st.label} />; } },
-    { key:'actions',        title:'操作',     width:'120px', render: (_: any, row: any) => (
+    { key:'batchNo',        title: t('ui.鸡群批次', '鸡群批次'), width:'120px' },
+    { key:'farmHouse',      title: t('ui.鸡舍', '鸡舍'),         width:'100px' },
+    { key:'vaccine',        title: t('ui.疫苗名称', '疫苗名称') },
+    { key:'vaccineBatchNo', title: t('ui.疫苗批号', '疫苗批号'), width:'130px', render: (v: any) => v ? <span style={{ fontFamily:'monospace', fontSize:12, color:'var(--color-primary)' }}>{v}</span> : <span style={{ color:'var(--text-secondary)' }}>—</span> },
+    { key:'flockCount',     title: t('ui.免疫头数', '免疫头数'), width:'90px',  render: (v: any) => v ? `${v} 只` : '—' },
+    { key:'planDate',       title: t('ui.计划日期', '计划日期'), width:'100px' },
+    { key:'nextDueDate',    title: t('ui.下次免疫', '下次免疫'), width:'100px', render: (v: any) => v || '—' },
+    { key:'actualDate',     title: t('ui.执行日期', '执行日期'), width:'100px', render: (v: any) => v || '—' },
+    { key:'method',         title: t('ui.接种方式', '接种方式'), width:'90px'  },
+    { key:'dose',           title: t('ui.剂量', '剂量'),         width:'90px'  },
+    { key:'executor',       title: t('ui.执行人', '执行人'),     width:'80px'  },
+    { key:'status',         title: t('common.status', '状态'),   width:'110px', render: (v: any) => { const st = STATUS_CONF[normStatus(v)]||{ status:'default', label:v }; return <StatusBadge status={st.status} label={st.label} />; } },
+    { key:'actions',        title: t('common.operation', '操作'), width:'120px', render: (_: any, row: any) => (
       <div className={s.tableActions}>
         {can(['ROLE_VET','ROLE_ADMIN']) && row.status==='pending' && (
           <button type="button" className={`${s.btn} ${s.btnSm}`} style={{ background:'var(--status-success)', color:'#fff', border:'none' }}
-            onClick={() => handleRecordVaccine(row)}><CheckCircle size={12} />执行</button>
+            onClick={() => handleRecordVaccine(row)}><CheckCircle size={12} />{t('ui.执行', '执行')}</button>
         )}
         {can(['ROLE_VET','ROLE_FARM_MGR','ROLE_ADMIN']) && (
           <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>
@@ -157,25 +166,25 @@ export default function ImmunePage() {
   ];
 
   const KPI_CARDS = [
-    { label:'计划总数',   val:`${plans.length}项`,  color:'var(--color-primary)' },
-    { label:'待执行',     val:`${pendingCnt}项`,    color:'var(--color-primary)' },
-    { label:'逾期未执行', val:`${overdueCnt}项`,    color:'var(--status-danger)' },
-    { label:'已完成',     val:`${doneCnt}项`,       color:'var(--status-success)' },
+    { label: t('ui.计划总数', '计划总数'),   val:`${plans.length}项`,  color:'var(--color-primary)' },
+    { label: t('ui.待执行', '待执行'),        val:`${pendingCnt}项`,    color:'var(--color-primary)' },
+    { label: t('ui.逾期未执行', '逾期未执行'), val:`${overdueCnt}项`,   color:'var(--status-danger)' },
+    { label: t('status.done', '已完成'),      val:`${doneCnt}项`,       color:'var(--status-success)' },
   ];
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title="免疫计划" subtitle="管理所有鸡群的疫苗免疫计划与执行记录" breadcrumb={['养殖管理','免疫计划']}
+      <PageHeader title={t('ui.免疫计划', '免疫计划')} subtitle={t('ui.管理所有鸡群的疫苗免疫计划与执行记录', '管理所有鸡群的疫苗免疫计划与执行记录')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.免疫计划', '免疫计划')]}
         actions={can(['ROLE_VET','ROLE_FARM_MGR','ROLE_ADMIN']) && (
           <button type="button" className={s.btnPrimary}
             onClick={() => { setEditId(null); setForm({ ...EMPTY_FORM, batchNo:flockOptions[0]?.code||'', farmHouse:flockMap[flockOptions[0]?.code||'']?.house_code||'', vaccine:vaccineOpts[0]||'', method:vaccMethodOpts[0]||'', dose:DOSE_BY_METHOD[vaccMethodOpts[0]]||'' }); setShowDrawer(true); }}>
-            <Plus size={15} />新增免疫计划
+            <Plus size={15} />{t('ui.新增免疫计划', '新增免疫计划')}
           </button>
         )} />
 
       {overdueCnt > 0 && (
         <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', backgroundColor:'color-mix(in srgb,var(--status-danger) 12%,transparent)', border:'1px solid color-mix(in srgb,var(--status-danger) 40%,transparent)', borderRadius:'var(--radius-md)', marginBottom:16, color:'#991b1b', fontSize:13, fontWeight:600 }}>
-          <AlertTriangle size={16} />注意：有 {overdueCnt} 项免疫计划已逾期未执行，请尽快安排！
+          <AlertTriangle size={16} />{t('ui.注意有免疫计划逾期', `注意：有 ${overdueCnt} 项免疫计划已逾期未执行，请尽快安排！`)}
         </div>
       )}
 
@@ -188,68 +197,68 @@ export default function ImmunePage() {
         ))}
       </div>
 
-      <DataTable columns={columns} data={filteredData} searchPlaceholder="搜索批次疫苗名称" searchKeys={['batchNo','farmHouse','vaccine']} rowKey="id"
+      <DataTable columns={columns} data={filteredData} searchPlaceholder={t('ui.搜索批次疫苗名称', '搜索批次疫苗名称')} searchKeys={['batchNo','farmHouse','vaccine']} rowKey="id"
         filters={<div style={{ display:'flex', gap:6 }}>
           {filterKeys.map(f => <button type="button" key={f} className={filter===f ? s.tabPillActive : s.tabPill} onClick={() => setFilter(f)}>
             {filterLabels[f]}{f==='scheduled'&&scheduledCnt>0&&<span style={{ marginLeft:4, fontSize:11 }}>({scheduledCnt})</span>}
           </button>)}
         </div>} />
 
-      <RightDrawer isOpen={showDrawer} onClose={() => { setShowDrawer(false); setEditId(null); }} title={editId?'编辑免疫计划':'新增免疫计划'} width="420px">
+      <RightDrawer isOpen={showDrawer} onClose={() => { setShowDrawer(false); setEditId(null); }} title={editId ? t('ui.编辑免疫计划', '编辑免疫计划') : t('ui.新增免疫计划', '新增免疫计划')} width="420px">
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           <div className={s.field}>
-            <label className={s.lbl}>对应鸡群批次 <span style={{ color:'var(--status-danger)' }}>*</span></label>
+            <label className={s.lbl}>{t('ui.对应鸡群批次', '对应鸡群批次')} <span style={{ color:'var(--status-danger)' }}>*</span></label>
             <select value={form.batchNo} onChange={e => { const fi = flockMap[e.target.value]||{}; setForm(p => ({ ...p, batchNo:e.target.value, farmHouse:fi.house_code||p.farmHouse })); }} className={s.inp}>
-              <option value="">请选择鸡群</option>
+              <option value="">{t('ui.请选择鸡群', '请选择鸡群')}</option>
               {flockOptions.map(o => <option key={o.code} value={o.code}>{o.label}</option>)}
             </select>
           </div>
           <div className={s.field}>
-            <label className={s.lbl}>所在鸡舍 <span style={{ fontWeight:400, fontSize:11, color:'var(--color-primary)', marginLeft:6 }}>（随鸡群自动填入）</span></label>
+            <label className={s.lbl}>{t('ui.所在鸡舍', '所在鸡舍')} <span style={{ fontWeight:400, fontSize:11, color:'var(--color-primary)', marginLeft:6 }}>{t('ui.随鸡群自动填入', '（随鸡群自动填入）')}</span></label>
             <select value={form.farmHouse} onChange={e => setForm(p => ({ ...p, farmHouse:e.target.value }))} className={s.inp}>
-              <option value="">— 自动联动或手动选择 —</option>
+              <option value="">{t('ui.自动联动或手动选择', '— 自动联动或手动选择 —')}</option>
               {houseOptions.map(o => <option key={o.code} value={o.code}>{o.label}</option>)}
             </select>
           </div>
           <div className={s.field}>
-            <label className={s.lbl}>疫苗名称</label>
+            <label className={s.lbl}>{t('ui.疫苗名称', '疫苗名称')}</label>
             <select value={form.vaccine} onChange={e => setForm(p => ({ ...p, vaccine:e.target.value }))} className={s.inp}>
               {vaccineOpts.map(v => <option key={v} value={v}>{v}</option>)}
             </select>
           </div>
           <div className={s.field}>
-            <label className={s.lbl}>计划免疫日期 <span style={{ color:'var(--status-danger)' }}>*</span></label>
+            <label className={s.lbl}>{t('ui.计划免疫日期', '计划免疫日期')} <span style={{ color:'var(--status-danger)' }}>*</span></label>
             <input type="date" value={form.planDate} onChange={e => setForm(p => ({ ...p, planDate:e.target.value }))} className={s.inp} />
           </div>
           <div className={s.fieldRow}>
             <div>
-              <label className={s.lbl}>接种方式</label>
+              <label className={s.lbl}>{t('ui.接种方式', '接种方式')}</label>
               <select value={form.method} onChange={e => { const m=e.target.value; setForm(p => ({ ...p, method:m, dose:DOSE_BY_METHOD[m]||p.dose||'' })); }} className={s.inp}>
                 {vaccMethodOpts.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
             </div>
             <div>
-              <label className={s.lbl}>规定剂量 <span style={{ fontWeight:400, fontSize:11, color:'var(--color-primary)' }}>（可更改）</span></label>
+              <label className={s.lbl}>{t('ui.规定剂量', '规定剂量')} <span style={{ fontWeight:400, fontSize:11, color:'var(--color-primary)' }}>{t('ui.可更改', '（可更改）')}</span></label>
               <input value={form.dose} onChange={e => setForm(p => ({ ...p, dose:e.target.value }))} placeholder={DOSE_BY_METHOD[form.method]||'如0.5ml/只'} className={s.inp} />
             </div>
           </div>
           <div className={s.fieldRow}>
             <div>
-              <label className={s.lbl}>疫苗批号 <span style={{ fontSize:11, color:'var(--color-primary)', fontWeight:400 }}>（质量追溯）</span></label>
+              <label className={s.lbl}>{t('ui.疫苗批号', '疫苗批号')} <span style={{ fontSize:11, color:'var(--color-primary)', fontWeight:400 }}>{t('ui.质量追溯', '（质量追溯）')}</span></label>
               <input value={form.vaccineBatchNo} onChange={e => setForm(p => ({ ...p, vaccineBatchNo:e.target.value }))} placeholder="如VAC-2026-001" className={s.inp} style={{ fontFamily:'monospace' }} />
             </div>
             <div>
-              <label className={s.lbl}>免疫头数（只）</label>
+              <label className={s.lbl}>{t('ui.免疫头数只', '免疫头数（只）')}</label>
               <input type="number" onFocus={e=>e.currentTarget.select()} min="1" value={form.flockCount} onChange={e => setForm(p => ({ ...p, flockCount:String(Math.max(0,Math.floor(Number(e.target.value)||0))||'') }))} placeholder="如5000" className={s.inp} />
             </div>
           </div>
           <div className={s.field}>
-            <label className={s.lbl}>下次免疫日期</label>
+            <label className={s.lbl}>{t('ui.下次免疫日期', '下次免疫日期')}</label>
             <input type="date" value={form.nextDueDate} onChange={e => setForm(p => ({ ...p, nextDueDate:e.target.value }))} className={s.inp} />
           </div>
           <div style={{ display:'flex', gap:10, marginTop:6 }}>
-            <button type="button" className={s.btnSecondary} style={{ flex:1 }} onClick={() => { setShowDrawer(false); setEditId(null); }}>取消</button>
-            <button type="button" className={s.btnPrimary} style={{ flex:2 }} onClick={handleSubmit}>{editId?'保存修改':'建立计划'}</button>
+            <button type="button" className={s.btnSecondary} style={{ flex:1 }} onClick={() => { setShowDrawer(false); setEditId(null); }}>{t('common.cancel', '取消')}</button>
+            <button type="button" className={s.btnPrimary} style={{ flex:2 }} onClick={handleSubmit}>{editId ? t('ui.保存修改', '保存修改') : t('ui.建立计划', '建立计划')}</button>
           </div>
         </div>
       </RightDrawer>

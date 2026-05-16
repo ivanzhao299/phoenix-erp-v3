@@ -243,8 +243,8 @@ export default function HouseDetailPage() {
                     background: color, borderRadius: 2, transition: 'width 0.4s' }}/>
                 </div>
               )}
-              {sys.summaryMetrics?.slice(0, 2).map((m: any) => (
-                <div key={m.code} style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11 }}>
+              {sys.summaryMetrics?.slice(0, 2).map((m: any, mi: number) => (
+                <div key={m.code ?? m.name ?? mi} style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11 }}>
                   <span style={{ color: 'var(--text-secondary)' }}>{m.title || m.name}</span>
                   <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
                     {m.value != null ? `${Number(m.value).toFixed(1)} ${m.unit || ''}` : '—'}
