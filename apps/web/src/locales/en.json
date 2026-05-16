@@ -4245,5 +4245,14 @@
   "ui.星号角色为主角色点击角色旁星号切换": "★ 为主角色，点击角色旁 ★ 切换",
   "ui.可为用户分配多个角色权限取各角色并集主角色用于显示": "可为用户分配多个角色，权限取各角色并集。主角色（★）用于显示",
   "ui.未分配角色": "未分配角色",
-  "ui.搜索姓名账号角色": "搜索姓名、账号、角色…"
+  "ui.搜索姓名账号角色": "搜索姓名、账号、角色…",
+  "ui.进入环境预警中心": "Enter Environment Alerts",
+  "ui.总部门户": "HQ Portal",
+  "ui.操作失败请检查登录状态": "Operation failed, check login status",
+  "ui.下仍有鸡舍存在请先解散": "still has houses. Remove all houses before deleting the farm.",
+  "ui.无法删除": "Cannot Delete",
+  "ui.确认解散": "Confirm Removal",
+  "ui.确认拆除空管区": "Confirm removal of: ",
+  "ui.养殖场已删除": "Farm deleted",
+  "ui.请下拉选择或手工输入": "Select or type any province"
 }
