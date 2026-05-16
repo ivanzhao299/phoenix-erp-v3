@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, memo } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import styles from "./crudForm.module.css";
 
 export type FieldType = "text" | "number" | "select" | "date" | "datetime" | "textarea" | "readonly";
@@ -42,8 +43,11 @@ export const CrudForm = memo(function CrudForm({
   onSubmit,
   onCancel,
   loading,
-  submitLabel = "保存",
+  submitLabel: _submitLabel,
 }: CrudFormProps) {
+  const { t } = useLanguage();
+  const submitLabel = _submitLabel ?? t('common.save', '保存');
+
   const [values, setValues] = useState<Record<string, unknown>>(
     () => buildInitValues(fields, initialValues)
   );
@@ -72,7 +76,7 @@ export const CrudForm = memo(function CrudForm({
     const errs: Record<string, string> = {};
     fields.forEach(f => {
       if (f.required && !values[f.key] && values[f.key] !== 0) {
-        errs[f.key] = `${f.label}不能为空`;
+        errs[f.key] = `${f.label}${t('ui.不能为空', '不能为空')}`;
       }
     });
     setErrors(errs);
@@ -129,7 +133,7 @@ export const CrudForm = memo(function CrudForm({
                 value={String(values[field.key] ?? "")}
                 onChange={e => set(field.key, e.target.value)}
               >
-                <option value="">— 请选择 —</option>
+                <option value="">{t('ui.请选择', '— 请选择 —')}</option>
                 {field.options?.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
@@ -157,10 +161,10 @@ export const CrudForm = memo(function CrudForm({
 
       <div className={styles.actions}>
         <button type="button" className={styles.btnCancel} onClick={onCancel} disabled={isLoading}>
-          取消
+          {t('common.cancel', '取消')}
         </button>
         <button type="submit" className={styles.btnSubmit} disabled={isLoading}>
-          {isLoading ? "保存中..." : submitLabel}
+          {isLoading ? t('ui.保存中', '保存中...') : submitLabel}
         </button>
       </div>
     </form>

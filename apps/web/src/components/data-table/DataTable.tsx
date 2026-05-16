@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Pencil, Trash2, Plus, RefreshCw } from "lucide-react";
 import { crudApi } from "@/lib/api-client";
+import { useLanguage } from "@/contexts/LanguageContext";
 import type { PaginationParams } from "@/types";
 import styles from "./data-table.module.css";
 
@@ -42,11 +43,14 @@ export function DataTable<T = Record<string, unknown>>({
   onDelete,
   rowKey = "id",
   pageSize = 20,
-  emptyText = "暂无数据",
+  emptyText: _emptyText,
   showActions = false,
-  newLabel = "新增",
+  newLabel: _newLabel,
   refreshKey = 0,
 }: DataTableProps<T>) {
+  const { t } = useLanguage();
+  const emptyText = _emptyText ?? t('common.no_data', '暂无数据');
+  const newLabel  = _newLabel  ?? t('common.new',     '新增');
   const [data, setData]       = useState<T[]>([]);
   const [total, setTotal]     = useState(0);
   const [page, setPage]       = useState(1);
@@ -76,7 +80,7 @@ export function DataTable<T = Record<string, unknown>>({
         setTotal(res.total ?? 0);
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "加载失败";
+      const msg = e instanceof Error ? e.message : t('ui.加载失败', '加载失败');
       const isEmptyState = msg.includes("does not exist") ||
         msg.includes("relation") || msg.includes("404") ||
         msg.includes("403") || msg.includes("not found");
@@ -98,7 +102,7 @@ export function DataTable<T = Record<string, unknown>>({
   const allColumns: Column<T>[] = showActions
     ? [...columns, {
         key: "__actions__",
-        title: "操作",
+        title: t('common.operation', '操作'),
         width: 100,
         align: "center" as const,
         render: (_: unknown, row: T) => (
@@ -106,7 +110,7 @@ export function DataTable<T = Record<string, unknown>>({
             {onEdit && (
               <button
                 className={styles.editBtn}
-                title="编辑"
+                title={t('common.edit', '编辑')}
                 onClick={e => { e.stopPropagation(); onEdit(row); }}
               >
                 <Pencil size={13} />
@@ -115,7 +119,7 @@ export function DataTable<T = Record<string, unknown>>({
             {onDelete && (
               <button
                 className={styles.deleteBtn}
-                title="删除"
+                title={t('common.delete', '删除')}
                 onClick={e => { e.stopPropagation(); onDelete(row); }}
               >
                 <Trash2 size={13} />
@@ -130,9 +134,9 @@ export function DataTable<T = Record<string, unknown>>({
     <div className={styles.wrap}>
       {/* Toolbar */}
       <div className={styles.toolbar}>
-        <span className={styles.totalInfo}>共 <b>{total}</b> 条记录</span>
+        <span className={styles.totalInfo}>{t('ui.共', '共')} <b>{total}</b> {t('ui.条记录', '条记录')}</span>
         <div className={styles.toolbarRight}>
-          <button className={styles.refreshBtn} onClick={load} title="刷新">
+          <button className={styles.refreshBtn} onClick={load} title={t('common.refresh', '刷新')}>
             <RefreshCw size={14} />
           </button>
           {onNew && (
@@ -194,9 +198,9 @@ export function DataTable<T = Record<string, unknown>>({
       {/* Pagination */}
       {totalPages > 1 && (
         <div className={styles.pagination}>
-          <button className={styles.pageBtn} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>上一页</button>
+          <button className={styles.pageBtn} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('ui.上一页', '上一页')}</button>
           <span className={styles.pageCurrent}>{page} / {totalPages}</span>
-          <button className={styles.pageBtn} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>下一页</button>
+          <button className={styles.pageBtn} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('ui.下一页', '下一页')}</button>
         </div>
       )}
     </div>
