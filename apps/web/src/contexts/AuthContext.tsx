@@ -18,6 +18,37 @@ const parseJwtPayload = (token: string) => {
   } catch { return null; }
 };
 
+// ── 权限字符串解析器 ──────────────────────────────────────────────────────────
+// JWT permissions 格式: ["MENU_CODE:V,C,E", ...]  或 ["*"]（超管）
+//
+// hasMenuPerm(permissions, "MENU_FOO")          → 是否持有该菜单（含任意权限码）
+// hasMenuPerm(permissions, "MENU_FOO", "E")     → 是否持有编辑权限
+// hasMenuPerm(permissions, "MENU_FOO", "V,C")   → 是否同时持有 V 和 C
+
+export function hasMenuPerm(
+  permissions: string[],
+  menuCode: string,
+  permCodes?: string,   // 逗号分隔的权限码，如 "V" / "V,C" / "A"
+): boolean {
+  if (!permissions || permissions.length === 0) return false;
+  // 超管通配
+  if (permissions.includes('*')) return true;
+
+  // 找到该菜单对应的 entry，格式 "MENU_CODE:V,C,E"
+  const entry = permissions.find(p => p.startsWith(menuCode + ':'));
+  if (!entry) return false;
+
+  // 没有指定权限码 → 只要有该菜单的任何权限即为 true
+  if (!permCodes) return true;
+
+  // 解析持有的权限集
+  const granted = new Set(entry.split(':')[1]?.split(',').map(s => s.trim()) ?? []);
+
+  // 检查所有要求的权限码
+  const required = permCodes.split(',').map(s => s.trim()).filter(Boolean);
+  return required.every(c => granted.has(c));
+}
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser]       = useState<any>(null);
   const [token, setToken]     = useState<string | null>(null);
@@ -45,6 +76,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else {
           setToken(storedToken);
           setUser(JSON.parse(storedUser));
+          // 恢复中间件 cookie（SPA 刷新后 sessionStorage 仍有效，同步给 cookie）
+          try {
+            const payload2 = parseJwtPayload(storedToken);
+            if (payload2?.exp) {
+              const maxAge = Math.max(0, payload2.exp - Math.floor(Date.now() / 1000));
+              document.cookie = `phoenix_access_token=${storedToken}; path=/; max-age=${maxAge}; SameSite=Lax`;
+            }
+          } catch { /* ignore */ }
         }
       } catch { sessionStorage.removeItem('phoenix_token'); sessionStorage.removeItem('phoenix_user'); }
     }
@@ -71,11 +110,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => { clearTimeout(idleTimer); events.forEach(e => window.removeEventListener(e, resetTimer)); };
   }, [token]);
 
+  /** 从 JWT payload 解析过期时间，写入中间件可读的 cookie */
+  const _setCookieToken = (tokenStr: string) => {
+    try {
+      const payload = parseJwtPayload(tokenStr);
+      const maxAge = payload?.exp
+        ? Math.max(0, payload.exp - Math.floor(Date.now() / 1000))
+        : 86400;
+      // SameSite=Lax；无 HttpOnly（Edge middleware 通过 request.cookies 读取）
+      document.cookie = `phoenix_access_token=${tokenStr}; path=/; max-age=${maxAge}; SameSite=Lax`;
+    } catch { /* ignore */ }
+  };
+
   const login = useCallback((tokenStr: string, userInfo: any) => {
     sessionStorage.setItem('phoenix_token', tokenStr);
     sessionStorage.setItem('phoenix_user', JSON.stringify(userInfo));
     sessionStorage.setItem('phoenix_lang', userInfo.lang || 'zh');
     sessionStorage.setItem('phoenix_session_version', SESSION_VERSION);
+    _setCookieToken(tokenStr);
     setToken(tokenStr);
     setUser(userInfo);
   }, []);
@@ -83,6 +135,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = useCallback((reason?: 'expired' | 'perms_changed' | 'logout') => {
     sessionStorage.removeItem('phoenix_token');
     sessionStorage.removeItem('phoenix_user');
+    // 清除中间件 cookie
+    document.cookie = 'phoenix_access_token=; path=/; max-age=0; SameSite=Lax';
     setToken(null);
     setUser(null);
     const isMobile = window.location.pathname.startsWith('/mobile');
@@ -94,7 +148,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onExpired = (e: Event) => {
-      // 避免登录页/已登出场景重复触发
       if (window.location.pathname.includes('/login')) return;
       const detail = (e as CustomEvent<{ reason?: 'expired' | 'perms_changed' }>).detail;
       logout(detail?.reason || 'expired');
@@ -105,45 +158,57 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const isLoggedIn = !!token && !!user;
 
-  const ROLE_MENU_MATRIX: Record<string, string[]> = {
-    MENU_FINANCE:    ['ROLE_ADMIN','ROLE_FIN_CFO','ROLE_FIN_ACCT','ROLE_FIN_AR','ROLE_CEO','ROLE_REGION_MGR','ROLE_AUDITOR'],
-    MENU_FIN_CLOSE:  ['ROLE_ADMIN','ROLE_FIN_CFO','ROLE_FIN_ACCT','ROLE_STORE_MGR','ROLE_CASHIER','ROLE_REGION_MGR'],
-    MENU_PROCUREMENT:['ROLE_ADMIN','ROLE_PRC_BUYER','ROLE_FARM_MGR','ROLE_FIN_ACCT','ROLE_FIN_CFO','ROLE_CEO'],
-    MENU_SYSTEM:     ['ROLE_ADMIN','ROLE_SYSOPS','ROLE_HR_ADMIN'],
-    MENU_USERS:      ['ROLE_ADMIN','ROLE_SYSOPS','ROLE_HR_ADMIN'],
-    MENU_ANALYTICS:  ['ROLE_ADMIN','ROLE_CEO','ROLE_FIN_CFO','ROLE_REGION_MGR','ROLE_FARM_MGR','ROLE_AUDITOR'],
-    MENU_BREEDING:   ['ROLE_ADMIN','ROLE_FARM_MGR','ROLE_BREEDER','ROLE_VET','ROLE_CEO','ROLE_REGION_MGR'],
-    MENU_IOT:        ['ROLE_ADMIN','ROLE_FARM_MGR','ROLE_BREEDER','ROLE_CEO','ROLE_REGION_MGR','ROLE_SYSOPS'],
-    MENU_INVENTORY:  ['ROLE_ADMIN','ROLE_WMS_MGR','ROLE_FARM_MGR','ROLE_FIN_ACCT','ROLE_CEO','ROLE_REGION_MGR'],
-    MENU_WMS:        ['ROLE_ADMIN','ROLE_WMS_MGR','ROLE_FARM_MGR','ROLE_REGION_MGR'],
-    MENU_STORE:      ['ROLE_ADMIN','ROLE_STORE_MGR','ROLE_CASHIER','ROLE_REGION_MGR','ROLE_FIN_ACCT'],
-    MENU_POS:        ['ROLE_ADMIN','ROLE_STORE_MGR','ROLE_CASHIER','ROLE_REGION_MGR'],
-    MENU_PACKAGING:  ['ROLE_ADMIN','ROLE_FARM_MGR','ROLE_BREEDER','ROLE_WMS_MGR'],
-    MENU_APPROVAL:   ['ROLE_ADMIN','ROLE_CEO','ROLE_REGION_MGR','ROLE_FARM_MGR','ROLE_FIN_CFO','ROLE_AUDITOR'],
-    MENU_LOGISTICS:  ['ROLE_ADMIN','ROLE_LOGISTICS_MGR','ROLE_DRIVER','ROLE_REGION_MGR'],
-    MENU_CRM:        ['ROLE_ADMIN','ROLE_STORE_MGR','ROLE_CASHIER','ROLE_REGION_MGR'],
-    MENU_QA:         ['ROLE_ADMIN','ROLE_FARM_MGR','ROLE_VET','ROLE_REGION_MGR','ROLE_CEO','ROLE_AUDITOR'],
-    MENU_ORDERS:     ['ROLE_ADMIN','ROLE_STORE_MGR','ROLE_CASHIER','ROLE_SALES_REP','ROLE_REGION_MGR','ROLE_FIN_ACCT'],
-  };
-
-  const hasPermission = useCallback((permId?: string) => {
+  /**
+   * hasPermission(menuCode?, permCode?)
+   *
+   * 统一权限检查，优先使用 JWT 中的 permissions 数组（服务端已按 3 路源合并）。
+   * ROLE_ADMIN（或 permissions 含 '*'）直接返回 true。
+   *
+   * @param menuCode  菜单码，如 "MENU_FARM_DATA"；为 null/undefined 表示只要求登录
+   * @param permCode  权限码，如 "V"/"C"/"E"/"D"/"A"/"X"；省略时只检查菜单可访问性
+   */
+  const hasPermission = useCallback((menuCode?: string | null, permCode?: string) => {
     if (!user) return false;
-    const perms = Array.isArray(user.permissions) ? user.permissions : [];
-    if (perms.includes('*') || user.role === 'ROLE_ADMIN') return true;
-    if (!permId) return true;
-    const userRoles = Array.isArray(user.roles) ? user.roles : (user.role ? [user.role] : []);
-    if (userRoles.includes('ROLE_ADMIN')) return true;
-    const allowedRoles = ROLE_MENU_MATRIX[permId];
-    if (!allowedRoles) return true;
-    return userRoles.some((r: string) => allowedRoles.includes(r));
+
+    // 超管硬件绕过
+    const userRoles: string[] = Array.isArray(user.roles) ? user.roles : (user.role ? [user.role] : []);
+    if (userRoles.includes('ROLE_ADMIN') || user.role === 'ROLE_ADMIN') return true;
+
+    // 无需菜单权限（仅登录即可访问）
+    if (!menuCode) return true;
+
+    // ── 主路径：使用 JWT permissions 数组（服务端 3 路源合并结果）──
+    const perms: string[] = Array.isArray(user.permissions) ? user.permissions : [];
+    if (perms.includes('*')) return true;  // 理论上超管已在上方拦截，冗余保险
+
+    return hasMenuPerm(perms, menuCode, permCode);
   }, [user]);
 
+  /**
+   * hasRole(...roleCodes)
+   * 检查用户是否拥有指定角色之一（ROLE_ADMIN 无条件返回 true）
+   */
   const hasRole = useCallback((...roleCodes: string[]) => {
     if (!user) return false;
     const userRoles = Array.isArray(user.roles) ? user.roles : (user.role ? [user.role] : []);
     if (userRoles.includes('ROLE_ADMIN')) return true;
     return roleCodes.some(r => userRoles.includes(r));
   }, [user]);
+
+  /**
+   * canView(menuCode)    — 快捷方法
+   * canCreate(menuCode)  — 快捷方法
+   * canEdit(menuCode)    — 快捷方法
+   * canDelete(menuCode)  — 快捷方法
+   * canApprove(menuCode) — 快捷方法
+   * canExport(menuCode)  — 快捷方法
+   */
+  const canView    = useCallback((m: string) => hasPermission(m, 'V'), [hasPermission]);
+  const canCreate  = useCallback((m: string) => hasPermission(m, 'C'), [hasPermission]);
+  const canEdit    = useCallback((m: string) => hasPermission(m, 'E'), [hasPermission]);
+  const canDelete  = useCallback((m: string) => hasPermission(m, 'D'), [hasPermission]);
+  const canApprove = useCallback((m: string) => hasPermission(m, 'A'), [hasPermission]);
+  const canExport  = useCallback((m: string) => hasPermission(m, 'X'), [hasPermission]);
 
   // Token 自动刷新（每 5 分钟）
   useEffect(() => {
@@ -171,7 +236,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [token]);
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoggedIn, loading, login, logout, hasPermission, hasRole }}>
+    <AuthContext.Provider value={{
+      user, token, isLoggedIn, loading,
+      login, logout,
+      hasPermission, hasRole,
+      canView, canCreate, canEdit, canDelete, canApprove, canExport,
+    }}>
       {children}
     </AuthContext.Provider>
   );

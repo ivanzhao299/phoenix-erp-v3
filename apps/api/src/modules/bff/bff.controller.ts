@@ -317,41 +317,197 @@ export class DashboardBffController {
   }
 }
 
-// ── Users ─────────────────────────────────────────────────────────────────────
+// ── Users (增强版：支持多角色分配) ───────────────────────────────────────────
 @Controller('api/users')
 @UseGuards(AuthGuard('jwt'))
 export class UsersBffController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
+  /** GET /api/users — 用户列表（含所有角色信息）*/
   @Get()
   async getUsers() {
     try {
       const data = await this.em.query(
-        `SELECT u.user_id AS id, u.username, u.real_name, u.store_code, u.status, u.locale,
-                COALESCE(
-                  (SELECT json_agg(r.role_code) FROM sys_user_role ur JOIN sys_role r ON ur.role_id = r.role_id WHERE ur.user_id = u.user_id),
-                  '[]'::json
-                ) AS roles
-         FROM sys_user u ORDER BY u.created_at DESC`,
+        `SELECT
+           u.user_id AS id, u.username, u.real_name AS real_name_zh, u.store_code,
+           CASE WHEN u.status = 1 THEN 'ACTIVE' ELSE 'FROZEN' END AS status,
+           u.locale, u.email, u.phone,
+           COALESCE(
+             (SELECT r.role_code FROM sys_user_role ur
+              JOIN sys_role r ON ur.role_id = r.role_id
+              WHERE ur.user_id = u.user_id AND ur.is_primary = true LIMIT 1),
+             (SELECT r.role_code FROM sys_user_role ur
+              JOIN sys_role r ON ur.role_id = r.role_id
+              WHERE ur.user_id = u.user_id LIMIT 1)
+           ) AS role,
+           COALESCE(
+             (SELECT r.role_name_zh FROM sys_user_role ur
+              JOIN sys_role r ON ur.role_id = r.role_id
+              WHERE ur.user_id = u.user_id AND ur.is_primary = true LIMIT 1),
+             (SELECT r.role_name_zh FROM sys_user_role ur
+              JOIN sys_role r ON ur.role_id = r.role_id
+              WHERE ur.user_id = u.user_id LIMIT 1)
+           ) AS role_name_zh,
+           COALESCE(
+             (SELECT json_agg(json_build_object(
+               'role_code', r.role_code,
+               'role_name_zh', r.role_name_zh,
+               'approval_level', r.approval_level,
+               'is_primary', ur.is_primary
+             ) ORDER BY r.approval_level DESC, r.role_code)
+              FROM sys_user_role ur JOIN sys_role r ON ur.role_id = r.role_id
+              WHERE ur.user_id = u.user_id),
+             '[]'::json
+           ) AS roles_detail
+         FROM sys_user u
+         ORDER BY u.created_at DESC`,
       );
-      return { code: 200, data };
-    } catch { return { code: 200, data: [] }; }
+      // 返回角色字典供前端下拉
+      const roles = await this.em.query(
+        `SELECT role_code, role_name_zh, role_name_lo, role_type, approval_level, description
+         FROM sys_role ORDER BY approval_level DESC, role_code`,
+      );
+      return { code: 200, data, roles };
+    } catch (e: any) { return { code: 200, data: [], roles: [], error: e?.message }; }
   }
 
+  /** POST /api/users — 新建用户（含初始角色）*/
+  @Post()
+  async createUser(@Body() body: any, @Req() req: any) {
+    const { username, real_name_zh, role, store_code, password, user_type } = body || {};
+    if (!username || !real_name_zh) return { code: 400, msg: '用户名和姓名为必填项' };
+    if (!password || password.length < 8) return { code: 400, msg: '密码至少 8 位' };
+    try {
+      const bcrypt = await import('bcrypt');
+      const password_hash = await bcrypt.hash(password, 10);
+      const inserted = await this.em.query(
+        `INSERT INTO sys_user (username, password_hash, real_name, store_code, status, locale, note, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, 1, 'zh-CN', $5, now(), now()) RETURNING user_id`,
+        [username, password_hash, real_name_zh, store_code || 'ALL', user_type === 'TEST' ? 'TEST' : null],
+      );
+      const userId = inserted[0]?.user_id;
+      if (role && userId) {
+        const roleRow = await this.em.query(`SELECT role_id FROM sys_role WHERE role_code = $1`, [role]);
+        if (roleRow[0]) {
+          await this.em.query(
+            `INSERT INTO sys_user_role (user_id, role_id, is_primary, granted_at) VALUES ($1, $2, true, now())
+             ON CONFLICT (user_id, role_id) DO UPDATE SET is_primary = true`,
+            [userId, roleRow[0].role_id],
+          );
+        }
+      }
+      return { code: 200, msg: `用户 ${username} 创建成功`, data: { id: userId } };
+    } catch (e: any) {
+      if (e?.code === '23505') return { code: 409, msg: `用户名 "${username}" 已存在` };
+      return { code: 500, msg: e?.message || '创建失败' };
+    }
+  }
+
+  /** PUT /api/users/:id — 更新基本信息 */
   @Put(':id')
   async updateUser(@Param('id') id: string, @Body() body: any) {
     try {
-      const fields = [];
+      const fields: string[] = [];
       const params: any[] = [];
       let idx = 1;
-      if (body.real_name)  { fields.push(`real_name=$${idx++}`);  params.push(body.real_name); }
-      if (body.status !== undefined) { fields.push(`status=$${idx++}`); params.push(body.status); }
-      if (body.store_code) { fields.push(`store_code=$${idx++}`); params.push(body.store_code); }
+      if (body.real_name_zh !== undefined) { fields.push(`real_name=$${idx++}`);  params.push(body.real_name_zh); }
+      if (body.real_name    !== undefined) { fields.push(`real_name=$${idx++}`);  params.push(body.real_name); }
+      if (body.store_code   !== undefined) { fields.push(`store_code=$${idx++}`); params.push(body.store_code || 'ALL'); }
+      if (body.locale       !== undefined) { fields.push(`locale=$${idx++}`);     params.push(body.locale); }
       if (!fields.length) return { code: 400, msg: '无更新内容' };
       params.push(id);
-      await this.em.query(`UPDATE sys_user SET ${fields.join(',')} WHERE user_id=$${idx}`, params);
-      return { code: 200, msg: '用户已更新' };
-    } catch (e: any) { return { code: 500, msg: e.message }; }
+      await this.em.query(`UPDATE sys_user SET ${fields.join(', ')}, updated_at=now() WHERE user_id=$${idx}`, params);
+      return { code: 200, msg: '用户信息已更新' };
+    } catch (e: any) { return { code: 500, msg: e?.message }; }
+  }
+
+  /** PUT /api/users/:id/status — 启用/冻结 */
+  @Put(':id/status')
+  async setStatus(@Param('id') id: string, @Body() body: any) {
+    try {
+      const s = String(body?.status || '').toUpperCase();
+      const statusInt = s === 'ACTIVE' ? 1 : s === 'FROZEN' || s === 'INACTIVE' ? 0 : null;
+      if (statusInt === null) return { code: 400, msg: '无效状态 (ACTIVE/FROZEN)' };
+      await this.em.query(`UPDATE sys_user SET status=$1, updated_at=now() WHERE user_id=$2`, [statusInt, id]);
+      return { code: 200, msg: '状态已更新' };
+    } catch (e: any) { return { code: 500, msg: e?.message }; }
+  }
+
+  /** PUT /api/users/:id/role — 设置主角色（保留已有副角色）*/
+  @Put(':id/role')
+  async setRole(@Param('id') id: string, @Body() body: any) {
+    const { role } = body || {};
+    if (!role) return { code: 400, msg: 'role 必填' };
+    try {
+      const roleRow = await this.em.query(`SELECT role_id FROM sys_role WHERE role_code=$1`, [role]);
+      if (!roleRow[0]) return { code: 400, msg: `角色 ${role} 不存在` };
+      const roleId = roleRow[0].role_id;
+      // 清除旧 primary，再设新 primary
+      await this.em.query(`UPDATE sys_user_role SET is_primary=false WHERE user_id=$1`, [id]);
+      await this.em.query(
+        `INSERT INTO sys_user_role (user_id, role_id, is_primary, granted_at)
+         VALUES ($1, $2, true, now())
+         ON CONFLICT (user_id, role_id) DO UPDATE SET is_primary=true`,
+        [id, roleId],
+      );
+      await this.em.query(`UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1, updated_at=now() WHERE user_id=$1`, [id]);
+      return { code: 200, msg: '主角色已更新' };
+    } catch (e: any) { return { code: 500, msg: e?.message }; }
+  }
+
+  /** PUT /api/users/:id/roles — 全量设置用户角色列表（多角色）*/
+  @Put(':id/roles')
+  async setRoles(@Param('id') id: string, @Body() body: any) {
+    // body: { roles: [{ role_code, is_primary }] }
+    const { roles } = body || {};
+    if (!Array.isArray(roles)) return { code: 400, msg: 'roles 必须是数组' };
+    try {
+      // 获取角色 ID 映射
+      const allRoles = await this.em.query(`SELECT role_id, role_code FROM sys_role`);
+      const codeToId = new Map(allRoles.map((r: any) => [r.role_code, r.role_id]));
+
+      // 确保至多一个 primary
+      const hasPrimary = roles.some((r: any) => r.is_primary);
+      const resolved = roles.map((r: any, i: number) => ({
+        role_code: r.role_code,
+        role_id:   codeToId.get(r.role_code),
+        is_primary: hasPrimary ? !!r.is_primary : i === 0,
+      })).filter((r: any) => r.role_id);
+
+      // 事务：删旧 → 插新
+      await this.em.transaction(async (mgr) => {
+        await mgr.query(`DELETE FROM sys_user_role WHERE user_id=$1`, [id]);
+        for (const r of resolved) {
+          await mgr.query(
+            `INSERT INTO sys_user_role (user_id, role_id, is_primary, granted_at) VALUES ($1, $2, $3, now())`,
+            [id, r.role_id, r.is_primary],
+          );
+        }
+        // 触发权限刷新
+        await mgr.query(
+          `UPDATE sys_user SET perms_version=COALESCE(perms_version,0)+1, updated_at=now() WHERE user_id=$1`,
+          [id],
+        );
+      });
+      return { code: 200, msg: '角色已更新', data: { count: resolved.length } };
+    } catch (e: any) { return { code: 500, msg: e?.message }; }
+  }
+
+  /** PUT /api/users/:id/password — 重置密码 */
+  @Put(':id/password')
+  async resetPassword(@Param('id') id: string, @Body() body: any) {
+    const { password } = body || {};
+    if (!password || password.length < 8) return { code: 400, msg: '密码至少 8 位' };
+    try {
+      const bcrypt = await import('bcrypt');
+      const hash = await bcrypt.hash(password, 10);
+      const res = await this.em.query(
+        `UPDATE sys_user SET password_hash=$1, updated_at=now() WHERE user_id=$2 RETURNING user_id`,
+        [hash, id],
+      );
+      if (!res[0]) return { code: 404, msg: '用户不存在' };
+      return { code: 200, msg: '密码已重置' };
+    } catch (e: any) { return { code: 500, msg: e?.message }; }
   }
 }
 
@@ -360,6 +516,113 @@ export class UsersBffController {
 @UseGuards(AuthGuard('jwt'))
 export class AnalyticsBffController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
+
+  // ═══ BI 驾驶舱一次聚合接口（替代前端 5 次裸 CRUD）═══════════════════════
+  @Get('dashboard')
+  async getDashboard() {
+    const safe = async <T,>(p: Promise<T>, fb: T): Promise<T> => {
+      try { return await p; } catch { return fb; }
+    };
+    const today = new Date().toISOString().slice(0, 10);
+    const in14  = new Date(Date.now() + 14 * 86400_000).toISOString().slice(0, 10);
+
+    const [
+      [eggsRow],
+      [inRow],
+      [outRow],
+      [stockRow],
+      [pendingRow],
+      [expiryRow],
+      [mortalityRow],
+      productionTrend,
+      outboundTrend,
+      expiryBatches,
+      pendingOrders,
+    ] = await Promise.all([
+      // 近 30 天集蛋总量
+      safe(this.em.query(
+        `SELECT COALESCE(SUM(COALESCE(egg_count,eggs_produced,0)),0)::bigint AS total
+           FROM brd_daily_logs WHERE log_date >= CURRENT_DATE - INTERVAL '30 days'`
+      ), [{ total: 0 }]),
+      // 今日入库数量
+      safe(this.em.query(
+        `SELECT COALESCE(SUM(qty),0)::bigint AS total FROM wms_inbound
+           WHERE DATE(created_at) = $1`, [today]
+      ), [{ total: 0 }]),
+      // 今日出库数量
+      safe(this.em.query(
+        `SELECT COALESCE(SUM(qty),0)::bigint AS total FROM wms_outbound
+           WHERE DATE(created_at) = $1`, [today]
+      ), [{ total: 0 }]),
+      // 库存批次数（有货）
+      safe(this.em.query(
+        `SELECT COUNT(*)::int AS total FROM inv_batches WHERE qty_available > 0`
+      ), [{ total: 0 }]),
+      // 待审批订单
+      safe(this.em.query(
+        `SELECT COUNT(*)::int AS total FROM ord_orders WHERE status = 'pending'`
+      ), [{ total: 0 }]),
+      // 临期批次数（14天内）
+      safe(this.em.query(
+        `SELECT COUNT(*)::int AS total FROM inv_batches
+           WHERE expire_date BETWEEN $1 AND $2 AND qty_available > 0`, [today, in14]
+      ), [{ total: 0 }]),
+      // 近 30 天死淘
+      safe(this.em.query(
+        `SELECT COALESCE(SUM(COALESCE(mortality_qty,0)),0)::int AS total
+           FROM brd_daily_logs WHERE log_date >= CURRENT_DATE - INTERVAL '30 days'`
+      ), [{ total: 0 }]),
+      // 近 7 天集蛋趋势
+      safe(this.em.query(
+        `SELECT log_date::text AS date,
+                COALESCE(SUM(COALESCE(egg_count,eggs_produced,0)),0)::bigint AS value
+           FROM brd_daily_logs
+           WHERE log_date >= CURRENT_DATE - INTERVAL '7 days'
+           GROUP BY log_date ORDER BY log_date`
+      ), []),
+      // 近 7 天出库趋势
+      safe(this.em.query(
+        `SELECT DATE(created_at)::text AS date,
+                COALESCE(SUM(qty),0)::bigint AS value
+           FROM wms_outbound
+           WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
+           GROUP BY DATE(created_at) ORDER BY date`
+      ), []),
+      // 临期批次明细（最多 10 条）
+      safe(this.em.query(
+        `SELECT sku_code, qty_available, expire_date::text AS expire_date
+           FROM inv_batches
+           WHERE expire_date BETWEEN $1 AND $2 AND qty_available > 0
+           ORDER BY expire_date LIMIT 10`, [today, in14]
+      ), []),
+      // 待审批订单明细（最多 10 条）
+      safe(this.em.query(
+        `SELECT customer_name, total_amount FROM ord_orders
+           WHERE status = 'pending' ORDER BY created_at DESC LIMIT 10`
+      ), []),
+    ]);
+
+    return {
+      code: 200,
+      data: {
+        kpis: {
+          eggs_30d:          Number(eggsRow?.total    || 0),
+          today_inbound_qty: Number(inRow?.total      || 0),
+          today_outbound_qty:Number(outRow?.total     || 0),
+          stock_batches:     Number(stockRow?.total   || 0),
+          pending_orders:    Number(pendingRow?.total || 0),
+          expiry_batches:    Number(expiryRow?.total  || 0),
+        },
+        production_trend: productionTrend,
+        outbound_trend:   outboundTrend,
+        alerts: {
+          expiry_batches:  expiryBatches,
+          pending_orders:  pendingOrders,
+          mortality_30d:   Number(mortalityRow?.total || 0),
+        },
+      },
+    };
+  }
 
   @Get('overview')
   async getOverview() {
@@ -563,295 +826,518 @@ export class WholesaleBffController {
   }
 }
 
-// ── Packaging ─────────────────────────────────────────────────────────────────
-// V3 包装模块 BFF — 对齐 V2 packaging.js 全部功能
-// 接口前缀：/api/packaging
-@Controller('api/packaging')
+// ── Packaging Terminal BFF ─────────────────────────────────────────────────────
+// Terminal 作业台专用接口，区别于 PC 端的 PackagingBffController
+// 接口前缀：/api/packaging/terminal
+@Controller('api/packaging/terminal')
 @UseGuards(AuthGuard('jwt'))
-export class PackagingBffController {
+export class PackagingTerminalBffController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
-  /** 品级配置：优先 sys_dict.PKG_EGG_GRADE，兜底硬编码（V2 同款） */
-  @Get('grade-config')
-  async getGradeConfig() {
-    try {
-      const rows = await this.em.query(
-        `SELECT dict_label_zh, config_json FROM sys_dict
-         WHERE dict_type = 'PKG_EGG_GRADE' AND status = 'ACTIVE'
-         ORDER BY sort_no ASC`,
-      ).catch(() => []);
-      if (rows && rows.length > 0) {
-        const grades = rows.map((r: any) => {
-          let cfg: any = {};
-          try { cfg = JSON.parse(r.config_json || '{}'); } catch { cfg = {}; }
-          const code = cfg.code || r.dict_label_zh?.replace(/[\s(（].*/,'').trim().slice(0,8) || '';
-          return { code, nameZh: cfg.nameZh || r.dict_label_zh, weightRange: cfg.weightRange || '—',
-                   saleable: cfg.saleable !== undefined ? cfg.saleable : true,
-                   productCode: cfg.productCode || `PRD-EGG-${code}` };
-        });
-        return { code: 200, data: grades };
-      }
-    } catch { /* fallthrough */ }
-    return { code: 200, data: [
-      { code: 'AAA', nameZh: 'AAA级',  weightRange: '≥ 70g',   saleable: true,  productCode: 'PRD-EGG-AAA' },
-      { code: 'AA',  nameZh: 'AA级',   weightRange: '65-69g',  saleable: true,  productCode: 'PRD-EGG-AA'  },
-      { code: 'A',   nameZh: 'A级',    weightRange: '60-64g',  saleable: true,  productCode: 'PRD-EGG-A'   },
-      { code: 'B',   nameZh: 'B级',    weightRange: '55-59g',  saleable: true,  productCode: 'PRD-EGG-B'   },
-      { code: 'C',   nameZh: '微型蛋', weightRange: '< 55g',   saleable: true,  productCode: 'PRD-EGG-C'   },
-      { code: 'X',   nameZh: '破损蛋', weightRange: '任意重量',saleable: false, productCode: 'PRD-EGG-X'   },
-    ]};
+  private get today() { return new Date().toISOString().slice(0, 10); }
+
+  private safe = async <T,>(p: Promise<T>, fb: T): Promise<T> => {
+    try { return await p; } catch { return fb; }
+  };
+
+  // ── Terminal 全局上下文 ────────────────────────────────────────────────────
+  @Get('context')
+  async getContext(@Req() req: any) {
+    const userId = req.user?.id || req.user?.user_id;
+    const today = this.today;
+
+    const [shift] = await this.safe(
+      this.em.query(
+        `SELECT * FROM pkg_work_shifts WHERE production_date = $1 AND status = 'OPEN' ORDER BY opened_at DESC LIMIT 1`,
+        [today],
+      ),
+      [],
+    );
+
+    const [sourceBatch] = await this.safe(
+      this.em.query(
+        `SELECT * FROM pkg_source_batches WHERE production_date = $1 AND batch_status NOT IN ('WAREHOUSED','SCRAPPED','CANCELLED')
+         ORDER BY created_at DESC LIMIT 1`,
+        [today],
+      ),
+      [],
+    );
+
+    const openExceptions = await this.safe(
+      this.em.query(
+        `SELECT COUNT(*)::int AS cnt FROM pkg_exceptions WHERE status NOT IN ('CLOSED','CANCELLED') AND DATE(created_at) = $1`,
+        [today],
+      ),
+      [{ cnt: 0 }],
+    );
+
+    return {
+      code: 200,
+      data: {
+        currentShift: shift || null,
+        currentSourceBatch: sourceBatch || null,
+        openExceptionCount: Number(openExceptions[0]?.cnt) || 0,
+        devices: [
+          { deviceId: 'scanner-01', deviceType: 'SCANNER',     label: '扫码枪',    status: 'UNKNOWN' },
+          { deviceId: 'printer-01', deviceType: 'PRINTER',     label: '标签打印机', status: 'UNKNOWN' },
+          { deviceId: 'scale-01',   deviceType: 'SCALE',       label: '电子秤',    status: 'UNKNOWN' },
+          { deviceId: 'grader-01',  deviceType: 'GRADER',      label: '分级机',    status: 'UNKNOWN' },
+          { deviceId: 'agent-01',   deviceType: 'LOCAL_AGENT', label: '本地采集',  status: 'UNKNOWN' },
+        ],
+      },
+    };
   }
 
-  /** 包装规格配置：sys_dict.PKG_PACK_SPEC */
-  @Get('pack-spec-config')
-  async getPackSpecConfig() {
-    try {
-      const rows = await this.em.query(
-        `SELECT dict_label_zh, config_json FROM sys_dict
-         WHERE dict_type = 'PKG_PACK_SPEC' AND status = 'ACTIVE'
-         ORDER BY sort_no ASC`,
-      ).catch(() => []);
-      if (rows && rows.length > 0) {
-        const specs = rows.map((r: any) => {
-          let cfg: any = {};
-          try { cfg = JSON.parse(r.config_json || '{}'); } catch { cfg = {}; }
-          const m = (r.dict_label_zh || '').match(/(\d+)枚/);
-          return { name: cfg.name || r.dict_label_zh, qty: cfg.capacity || (m ? Number(m[1]) : 0), unit: cfg.unit || '枚/托' };
-        });
-        return { code: 200, data: specs };
-      }
-    } catch { /* fallthrough */ }
-    return { code: 200, data: [
-      { name: '30枚/托', qty: 30, unit: '枚/托' }, { name: '20枚/托', qty: 20, unit: '枚/托' },
-      { name: '6枚/盒',  qty: 6,  unit: '枚/盒' }, { name: '10枚/盒', qty: 10, unit: '枚/盒' },
-      { name: '12枚/袋', qty: 12, unit: '枚/袋' },
-    ]};
+  // ── 班次管理 ───────────────────────────────────────────────────────────────
+  @Get('shifts/today')
+  async getTodayShifts() {
+    const rows = await this.safe(
+      this.em.query(
+        `SELECT * FROM pkg_work_shifts WHERE production_date = $1 ORDER BY opened_at DESC`,
+        [this.today],
+      ),
+      [],
+    );
+    return { code: 200, data: rows };
   }
 
-  /** 操作员列表（包装+养殖角色） */
-  @Get('operators')
-  async getOperators() {
-    try {
-      const data = await this.em.query(
-        `SELECT user_id AS id, username, real_name FROM sys_user WHERE status='ACTIVE' ORDER BY real_name`,
-      ).catch(() => []);
-      return { code: 200, data };
-    } catch { return { code: 200, data: [] }; }
+  @Post('shifts/open')
+  async openShift(@Body() body: any, @Req() req: any) {
+    const today = this.today;
+    const shiftCode = `SH-${today.replace(/-/g, '')}-${Date.now().toString().slice(-4)}`;
+    const operatorId = req.user?.id || req.user?.user_id;
+    const operatorName = req.user?.name || req.user?.username || '';
+
+    // 检查今日是否已有开放班次
+    const [existing] = await this.safe(
+      this.em.query(
+        `SELECT id FROM pkg_work_shifts WHERE production_date = $1 AND status = 'OPEN' LIMIT 1`,
+        [today],
+      ),
+      [],
+    );
+    if (existing) return { code: 400, msg: '今日已有开放班次，请先交班' };
+
+    await this.em.query(
+      `INSERT INTO pkg_work_shifts
+       (shift_code, production_date, site_id, line_id, operator_id, operator_name,
+        supervisor_name, status, hygiene_check, device_check, opened_at, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,'OPEN',$8,$9,NOW(),NOW())`,
+      [
+        shiftCode, today,
+        body.siteId || 'site-01',
+        body.lineId || body.line_id || 'line-01',
+        operatorId,
+        operatorName,
+        body.supervisorName || body.supervisor_name || '',
+        body.hygieneCheckResult ?? true,
+        body.deviceCheckResult ?? true,
+      ],
+    ).catch((e: any) => { throw new Error(e.message); });
+
+    const [shift] = await this.em.query(
+      `SELECT * FROM pkg_work_shifts WHERE shift_code = $1`, [shiftCode],
+    );
+    return { code: 200, msg: '开班成功', data: shift };
   }
 
-  /** 班次列表 */
-  @Get('shifts')
-  async getShifts(@Query() q: any) {
-    try {
-      const limit = Math.min(parseInt(q.limit) || 50, 200);
-      const data = await this.em.query(
-        `SELECT * FROM pkg_shifts ORDER BY shift_date DESC, created_at DESC LIMIT $1`, [limit],
-      ).catch(() => []);
-      return { code: 200, data, total: data.length };
-    } catch { return { code: 200, data: [], total: 0 }; }
+  @Post('shifts/:id/close')
+  async closeShift(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    await this.em.query(
+      `UPDATE pkg_work_shifts SET status='CLOSED', closed_at=NOW(), variance_reason=$1, updated_at=NOW()
+       WHERE id=$2`,
+      [body.varianceReason || '', id],
+    ).catch((e: any) => { throw new Error(e.message); });
+    return { code: 200, msg: '交班成功' };
   }
 
+  // ── 来源批次 ───────────────────────────────────────────────────────────────
+  @Get('source-batches/today')
+  async getTodaySourceBatches() {
+    const rows = await this.safe(
+      this.em.query(
+        `SELECT * FROM pkg_source_batches WHERE production_date = $1 ORDER BY created_at DESC`,
+        [this.today],
+      ),
+      [],
+    );
+    return { code: 200, data: rows };
+  }
+
+  @Get('source-batches/pending')
+  async getPendingSourceBatches() {
+    // 来源 A：wms_inbound 已完成、尚未被 pkg_source_batches 引用的批次
+    const fromWms = await this.safe(
+      this.em.query(
+        `SELECT wi.id::text, wi.inbound_no AS batch_code, wi.inbound_no AS code,
+                wi.house_code, wi.shift_no,
+                wi.collect_date AS lay_date, wi.qty AS expected_qty,
+                wi.weight_kg AS expected_weight,
+                'PENDING_RECEIVE' AS batch_status
+         FROM wms_inbound wi
+         WHERE wi.status = 'COMPLETED'
+           AND NOT EXISTS (
+             SELECT 1 FROM pkg_source_batches psb WHERE psb.source_inbound_no = wi.inbound_no
+           )
+         ORDER BY wi.created_at DESC LIMIT 20`,
+      ),
+      [],
+    );
+    // 来源 B：pkg_source_batches 中状态为 PENDING_RECEIVE 的批次（测试/手工录入）
+    const fromPkg = await this.safe(
+      this.em.query(
+        `SELECT id::text, batch_code, batch_code AS code,
+                house_code, flock_code, lay_date,
+                expected_qty, expected_weight, container_count,
+                batch_status
+         FROM pkg_source_batches
+         WHERE batch_status = 'PENDING_RECEIVE'
+         ORDER BY created_at DESC LIMIT 20`,
+      ),
+      [],
+    );
+    return { code: 200, data: [...fromPkg, ...fromWms] };
+  }
+
+  @Post('source-batches/receive')
+  async receiveBatch(@Body() body: any, @Req() req: any) {
+    const today = this.today;
+    const batchCode = body.batchCode || body.code;
+    const operatorId = req.user?.id || req.user?.user_id;
+
+    // 检查是否已接收（仅检查 status != PENDING_RECEIVE 的记录，避免误判种子数据）
+    const [existing] = await this.safe(
+      this.em.query(
+        `SELECT id FROM pkg_source_batches WHERE batch_code = $1 AND batch_status != 'PENDING_RECEIVE'`,
+        [batchCode],
+      ),
+      [],
+    );
+    if (existing) throw new Error(`批次 ${batchCode} 已接收，不可重复接收`);
+
+    // 如果已有 PENDING_RECEIVE 记录（种子/手工），直接 UPDATE；否则 INSERT
+    const [pendingRow] = await this.safe(
+      this.em.query(
+        `SELECT id FROM pkg_source_batches WHERE batch_code = $1 AND batch_status = 'PENDING_RECEIVE'`,
+        [batchCode],
+      ),
+      [],
+    );
+
+    if (pendingRow) {
+      await this.em.query(
+        `UPDATE pkg_source_batches
+         SET batch_status='RECEIVED', received_qty=$1, received_weight=$2,
+             container_count=$3, variance_reason=$4, received_by=$5, updated_at=NOW()
+         WHERE id=$6`,
+        [
+          body.receivedQty || body.received_qty || 0,
+          body.receivedWeight || body.received_weight || 0,
+          body.containerCount || body.container_count || 0,
+          body.varianceReason || body.variance_reason || '',
+          operatorId,
+          pendingRow.id,
+        ],
+      );
+    } else {
+    await this.em.query(
+      `INSERT INTO pkg_source_batches
+       (batch_code, source_inbound_no, production_date, house_code, flock_code,
+        lay_date, expected_qty, received_qty, expected_weight, received_weight,
+        container_count, variance_reason, received_by, batch_status, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'RECEIVED',NOW(),NOW())`,
+      [
+        batchCode,
+        body.sourceInboundNo || batchCode,
+        today,
+        body.houseCode || body.house_code || '',
+        body.flockCode || body.flock_code || '',
+        body.layDate || body.lay_date || today,
+        body.expectedQty || body.expected_qty || 0,
+        body.receivedQty || body.received_qty || 0,
+        body.expectedWeight || body.expected_weight || 0,
+        body.receivedWeight || body.received_weight || 0,
+        body.containerCount || body.container_count || 0,
+        body.varianceReason || body.variance_reason || '',
+        operatorId,
+      ],
+    ).catch((e: any) => { throw new Error(e.message); });
+    } // end else (INSERT branch)
+
+    const [batch] = await this.em.query(
+      `SELECT * FROM pkg_source_batches WHERE batch_code = $1`, [batchCode],
+    );
+
+    // 写审计日志
+    await this.safe(this.em.query(
+      `INSERT INTO pkg_audit_logs (entity_type, entity_id, action, after_data, operator_id, created_at)
+       VALUES ('SOURCE_BATCH', $1, 'RECEIVE', $2, $3, NOW())`,
+      [batchCode, JSON.stringify(batch), operatorId],
+    ), null);
+
+    return { code: 200, msg: '接收成功', data: batch };
+  }
+
+  // ── 首检 ───────────────────────────────────────────────────────────────────
+  @Post('qc/first-inspection')
+  async submitQCInspection(@Body() body: any, @Req() req: any) {
+    const inspectorId = req.user?.id || req.user?.user_id;
+    const inspectorName = req.user?.name || req.user?.username || '';
+
+    await this.em.query(
+      `INSERT INTO pkg_qc_inspections
+       (source_batch_id, sample_qty, broken_qty, dirty_qty, leaking_qty,
+        abnormal_shape_qty, floor_egg_qty, average_weight,
+        shell_cleanliness_ok, odor_ok, container_cleanliness_ok,
+        qc_result, comment, inspector_id, inspector_name, inspected_at, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NOW(),NOW())`,
+      [
+        body.sourceBatchId || body.source_batch_id,
+        body.sampleQty || body.sample_qty || 0,
+        body.brokenQty || body.broken_qty || 0,
+        body.dirtyQty || body.dirty_qty || 0,
+        body.leakingQty || body.leaking_qty || 0,
+        body.abnormalShapeQty || body.abnormal_shape_qty || 0,
+        body.floorEggQty || body.floor_egg_qty || 0,
+        body.averageWeight || body.average_weight || null,
+        body.shellCleanlinessResult ?? body.shellOk ?? true,
+        body.odorResult ?? body.odorOk ?? true,
+        body.containerCleanlinessResult ?? body.containerOk ?? true,
+        body.result || body.qcResult || 'PENDING',
+        body.comment || '',
+        inspectorId,
+        inspectorName,
+      ],
+    ).catch((e: any) => { throw new Error(e.message); });
+
+    // 更新来源批次状态
+    const qcResult = body.result || body.qcResult || 'PENDING';
+    let newStatus = 'PENDING_QC';
+    if (['PASSED', 'CONDITIONAL_RELEASE'].includes(qcResult)) newStatus = 'QC_PASSED';
+    else if (qcResult === 'ON_HOLD') newStatus = 'QC_ON_HOLD';
+    else if (qcResult === 'REJECTED' || qcResult === 'SCRAPPED') newStatus = 'SCRAPPED';
+
+    await this.safe(this.em.query(
+      `UPDATE pkg_source_batches SET batch_status=$1, qc_result=$2, updated_at=NOW()
+       WHERE batch_code=$3 OR id::text=$3`,
+      [newStatus, qcResult, body.sourceBatchId || body.source_batch_id],
+    ), null);
+
+    return { code: 200, msg: '首检结论已提交', data: { qcResult, newStatus } };
+  }
+
+  // ── 异常 ────────────────────────────────────────────────────────────────────
+  @Get('exceptions/today')
+  async getTodayExceptions() {
+    const rows = await this.safe(
+      this.em.query(
+        `SELECT * FROM pkg_exceptions WHERE DATE(created_at) = $1 ORDER BY created_at DESC`,
+        [this.today],
+      ),
+      [],
+    );
+    return { code: 200, data: rows };
+  }
+
+  @Post('exceptions')
+  async reportException(@Body() body: any, @Req() req: any) {
+    const reportedBy = req.user?.name || req.user?.username || '';
+    const reporterId = req.user?.id || req.user?.user_id;
+
+    await this.em.query(
+      `INSERT INTO pkg_exceptions
+       (exception_type, severity, related_batch_id, quantity, description,
+        reported_by, status, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,'REPORTED',NOW(),NOW())`,
+      [
+        body.type || body.exception_type || 'OTHER',
+        body.severity || 'MEDIUM',
+        body.relatedBatchId || body.related_batch_id || body.batchId || '',
+        body.quantity || 0,
+        body.description || '',
+        reportedBy,
+      ],
+    ).catch((e: any) => { throw new Error(e.message); });
+
+    return { code: 200, msg: '异常已上报' };
+  }
+
+  // ── 标签打印日志 ────────────────────────────────────────────────────────────
+  @Post('labels/print-log')
+  async recordPrintLog(@Body() body: any, @Req() req: any) {
+    const printedBy = req.user?.name || req.user?.username || '';
+
+    await this.em.query(
+      `INSERT INTO pkg_label_print_logs
+       (box_code, packaging_batch_id, print_type, printer_id,
+        printed_by, reprint_reason, print_status, printed_at, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,'PRINTED',NOW(),NOW())`,
+      [
+        body.boxCode || body.box_code || '',
+        body.packagingBatchId || body.packaging_batch_id || '',
+        body.printType || body.print_type || 'NORMAL',
+        body.printerId || body.printer_id || 'printer-01',
+        printedBy,
+        body.reprintReason || body.reprint_reason || '',
+      ],
+    ).catch((e: any) => { throw new Error(e.message); });
+
+    return { code: 200, msg: '打印记录已保存' };
+  }
+
+  // ── 交班日报汇总 ────────────────────────────────────────────────────────────
+  @Get('reports/shift-summary')
+  async getShiftSummary(@Query('date') date: string, @Query('shiftId') shiftId: string) {
+    const targetDate = date || this.today;
+
+    const [shiftRow] = await this.safe(
+      this.em.query(
+        `SELECT * FROM pkg_work_shifts WHERE production_date = $1 ORDER BY opened_at DESC LIMIT 1`,
+        [targetDate],
+      ),
+      [],
+    );
+
+    const [recvRow] = await this.safe(
+      this.em.query(
+        `SELECT COALESCE(SUM(received_qty),0)::int AS qty, COALESCE(SUM(received_weight),0)::float AS weight
+         FROM pkg_source_batches WHERE production_date=$1`,
+        [targetDate],
+      ),
+      [{ qty: 0, weight: 0 }],
+    );
+
+    const [exceptRow] = await this.safe(
+      this.em.query(
+        `SELECT
+           COUNT(*) FILTER (WHERE status NOT IN ('CLOSED','CANCELLED'))::int AS open_count,
+           COUNT(*) FILTER (WHERE status IN ('CLOSED','CANCELLED'))::int AS closed_count
+         FROM pkg_exceptions WHERE DATE(created_at) = $1`,
+        [targetDate],
+      ),
+      [{ open_count: 0, closed_count: 0 }],
+    );
+
+    return {
+      code: 200,
+      data: {
+        shift: shiftRow || null,
+        receivedQty: Number(recvRow[0]?.qty) || 0,
+        receivedWeight: Number(recvRow[0]?.weight) || 0,
+        openExceptionCount: Number(exceptRow[0]?.open_count) || 0,
+        closedExceptionCount: Number(exceptRow[0]?.closed_count) || 0,
+      },
+    };
+  }
+
+  @Post('grading/submit')
+  async submitGrading(@Body() body: Record<string, any>) {
+    const today = new Date().toISOString().slice(0, 10);
+    const productionDate = body.productionDate || today;
+    const code = `GRD-${productionDate.replace(/-/g, '')}-${Date.now().toString().slice(-6)}`;
+    const outputs = body.outputs as Record<string, number> || {};
+    const totalOutput = Object.values(outputs).reduce((a: number, b: number) => a + (b as number), 0);
+    await this.safe(
+      this.em.query(
+        `INSERT INTO pkg_grading_records
+         (code, shift_id, source_batch_code, production_date, outputs_json, total_output, created_at)
+         VALUES ($1,$2,$3,$4,$5::jsonb,$6,NOW())
+         ON CONFLICT (code) DO NOTHING`,
+        [code, body.shiftId || null, body.sourceBatchCode || null, productionDate,
+         JSON.stringify(outputs), totalOutput],
+      ),
+      null,
+    );
+    return { code: 200, data: { code } };
+  }
+
+  @Post('packing/submit')
+  async submitPacking(@Body() body: Record<string, any>) {
+    const today = new Date().toISOString().slice(0, 10);
+    const productionDate = body.productionDate || today;
+    const code = `PKG-${productionDate.replace(/-/g, '')}-${Date.now().toString().slice(-6)}`;
+    const batches = (body.batches as any[]) || [];
+    const totalBoxes = batches.reduce((a: number, b: any) => a + (b.boxes || 0), 0);
+    const totalEggs  = batches.reduce((a: number, b: any) => a + (b.eggs  || 0), 0);
+    await this.safe(
+      this.em.query(
+        `INSERT INTO pkg_packing_records
+         (code, grading_code, production_date, batches_json, total_boxes, total_eggs, created_at)
+         VALUES ($1,$2,$3,$4::jsonb,$5,$6,NOW())
+         ON CONFLICT (code) DO NOTHING`,
+        [code, body.gradingCode || null, productionDate,
+         JSON.stringify(batches), totalBoxes, totalEggs],
+      ),
+      null,
+    );
+    return { code: 200, data: { code, totalBoxes, totalEggs } };
+  }
+
+  @Post('warehouse/confirm')
+  async confirmHandover(@Body() body: Record<string, any>) {
+    const today = new Date().toISOString().slice(0, 10);
+    const productionDate = body.productionDate || today;
+    const code = `WH-${productionDate.replace(/-/g, '')}-${Date.now().toString().slice(-6)}`;
+    const boxes = (body.boxes as string[]) || [];
+    await this.safe(
+      this.em.query(
+        `INSERT INTO pkg_handover_records
+         (code, shift_id, packing_code, boxes_json, box_count, pallet_code, location, receiver, production_date, created_at)
+         VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,NOW())
+         ON CONFLICT (code) DO NOTHING`,
+        [code, body.shiftId || null, body.packingCode || null,
+         JSON.stringify(boxes), boxes.length,
+         body.palletCode || '', body.location || '', body.receiver || '',
+         productionDate],
+      ),
+      null,
+    );
+    return { code: 200, data: { code } };
+  }
+
+  // ── 数据字典查询 ─────────────────────────────────────────────────────────────
   /**
-   * 班次完成 — 三步联动（对齐 V2 shifts/:id/complete）
-   * 1. 更新班次状态  2. 写日报  3. 建鲜蛋批次+流水  4. 建GRADE分级任务
+   * GET /api/packaging/terminal/dicts?types=PKG_EGG_GRADE,PKG_PACK_SPEC
+   * 批量获取指定字典类型的条目，供终端页面替换硬编码枚举
    */
-  @Post('shifts/:id/complete')
-  async completeShift(@Param('id') id: string, @Body() body: any, @Req() req: any) {
-    const operator = req.user?.username || 'SYS';
-    const qty    = Number(body.eggs_collected);
-    const badQty = Number(body.dirty_eggs || 0) + Number(body.broken_eggs || 0);
-    const goodQty = Math.max(0, qty - badQty);
-    if (!qty || qty <= 0) return { code: 400, msg: '集蛋数量必须大于 0' };
-    if (badQty > qty)    return { code: 400, msg: `脏蛋+破损 ${badQty} 超过总量 ${qty}` };
-    try {
-      const [shift] = await this.em.query(`SELECT * FROM pkg_shifts WHERE id=$1`, [id]).catch(() => [null]);
-      if (!shift) return { code: 404, msg: '班次不存在' };
-      if (shift.status === 'DONE') return { code: 400, msg: '该班次已完成，请勿重复提交' };
-      const houseCode  = shift.house_code  || 'UNKNOWN';
-      const shiftTime  = shift.shift_time  || shift.shift_name || '早班';
-      const shiftDate  = shift.shift_date  || new Date().toISOString().slice(0,10);
-      const batchNo    = `EGG-${shiftDate.replace(/-/g,'')}-${houseCode}-${Date.now().toString().slice(-5)}`;
-      const taskNo     = `GRADE-${shiftDate.replace(/-/g,'')}-${houseCode}-${Date.now().toString().slice(-5)}`;
-      const expireDate = new Date(Date.now() + 7*86400*1000).toISOString().slice(0,10);
-      await this.em.query(
-        `UPDATE pkg_shifts SET status='DONE',eggs_collected=$1,bad_eggs=$2,dirty_eggs=$3,broken_eggs=$4,completed_time=NOW(),updated_at=NOW() WHERE id=$5`,
-        [qty, badQty, Number(body.dirty_eggs||0), Number(body.broken_eggs||0), id]);
-      await this.em.query(
-        `INSERT INTO brd_daily_logs(flock_no,log_date,shift,eggs_produced,bad_eggs,feed_consumed,water_consumed,mortality_qty,operator,note)
-         VALUES($1,$2,$3,$4,$5,0,0,0,$6,$7) ON CONFLICT DO NOTHING`,
-        [houseCode, shiftDate, shiftTime, qty, badQty, operator, `集蛋台自动写入|合格:${goodQty}枚`]).catch(()=>{});
-      await this.em.query(
-        `INSERT INTO inv_batches(batch_no,product_code,product_name_zh,qty,qty_available,produce_date,expire_date,status,warehouse_code)
-         VALUES($1,'PRD-EGG-RAW','鲜蛋原料（未分级）',$2,$3,$4,$5,'AVAILABLE','WMS-MAIN') ON CONFLICT DO NOTHING`,
-        [batchNo, goodQty, goodQty, shiftDate, expireDate]).catch(()=>{});
-      await this.em.query(
-        `INSERT INTO inv_ledger(batch_no,change_type,qty_change,operator,ref_no,note)
-         VALUES($1,'EGG_IN',$2,$3,$4,$5)`,
-        [batchNo, goodQty, operator, `SHIFT-${id}`, `集蛋入库|鸡舍:${houseCode}|${shiftTime}|合格:${goodQty}破损:${badQty}`]).catch(()=>{});
-      await this.em.query(
-        `INSERT INTO pkg_tasks(task_no,batch_no,source_item,plan_qty,packed_qty,status,start_time,updated_at)
-         VALUES($1,$2,$3,$4,0,'IN_PROGRESS',NOW(),NOW()) ON CONFLICT DO NOTHING`,
-        [taskNo, batchNo, `${houseCode}·${shiftTime}`, goodQty]).catch(()=>{});
-      return { code: 200, msg: `集蛋提交成功！合格蛋 ${goodQty} 枚已入库`, batch_no: batchNo, task_no: taskNo, good_eggs: goodQty };
-    } catch (e: any) { return { code: 500, msg: e.message }; }
-  }
-
-  /** 分级任务列表（GRADE- 前缀） */
-  @Get('grading-tasks')
-  async getGradingTasks(@Query() q: any) {
-    try {
-      const params: any[] = [];
-      let where = `task_no LIKE 'GRADE-%'`;
-      if (q.date && q.date !== 'all') { where += ` AND DATE(start_time)=$${params.length+1}`; params.push(q.date); }
-      if (q.status && q.status !== 'all') {
-        if (q.status === 'pending') { where += ` AND status IN ('IN_PROGRESS','PENDING')`; }
-        else { where += ` AND status=$${params.length+1}`; params.push(q.status.toUpperCase()); }
-      }
-      const data = await this.em.query(
-        `SELECT task_no,batch_no,source_item,plan_qty,packed_qty,status,
-                grade_results,discrepancy_qty,breakage_qty,anomaly_reason,start_time,updated_at
-         FROM pkg_tasks WHERE ${where} ORDER BY start_time DESC LIMIT 100`, params,
-      ).catch(() => []);
-      return { code: 200, data };
-    } catch { return { code: 200, data: [] }; }
-  }
-
-  /**
-   * 分级提交 — 完整库存联动（对齐 V2 tasks/:task_no/grade）
-   * 1.更新任务  2.各等级建批次+GRADED_IN流水  3.核减原料+GRADED_OUT流水  4.自动建PKG包装任务
-   */
-  @Post('tasks/:task_no/grade')
-  async submitGrading(@Param('task_no') taskNo: string, @Body() body: any, @Req() req: any) {
-    const { grade_results, anomaly_reason } = body;
-    const operator = req.user?.username || 'SYS';
-    if (!grade_results || typeof grade_results !== 'object') return { code: 400, msg: '缺少分级结果数据' };
-    const entries = Object.entries(grade_results as Record<string,unknown>);
-    if (entries.some(([,v]) => Number(v) < 0)) return { code: 400, msg: '数量不能为负数' };
-    const grandTotal: number = entries.reduce((s, [,v]) => s + (Number(v) || 0), 0);
-    if (grandTotal === 0) return { code: 400, msg: '分级总量不能为 0' };
-    try {
-      const [task] = await this.em.query(`SELECT * FROM pkg_tasks WHERE task_no=$1`, [taskNo]).catch(() => [null]);
-      if (!task) return { code: 404, msg: '分级任务不存在' };
-      if (task.status === 'DONE') return { code: 400, msg: '该任务已完成，请勿重复提交' };
-      const rawBatchNo   = task.batch_no;
-      const today        = new Date().toISOString().slice(0,10);
-      const expireDate   = new Date(Date.now() + 7*86400*1000).toISOString().slice(0,10);
-      const discrepancy  = (Number(task.plan_qty)||0) - grandTotal;
-      const gradedBatches: any[] = [];
-      await this.em.query(
-        `UPDATE pkg_tasks SET status='DONE',packed_qty=$1,grade_results=$2,discrepancy_qty=$3,anomaly_reason=$4,updated_at=NOW() WHERE task_no=$5`,
-        [grandTotal, JSON.stringify(grade_results), discrepancy, anomaly_reason||'', taskNo]);
-      for (const [grade, qty] of entries) {
-        const numQty = Number(qty)||0; if (numQty <= 0) continue;
-        const gradeBatchNo = `${rawBatchNo}-${grade}`;
-        await this.em.query(
-          `INSERT INTO inv_batches(batch_no,product_code,product_name_zh,qty,qty_available,produce_date,expire_date,status,warehouse_code)
-           VALUES($1,$2,$3,$4,$5,$6,$7,'AVAILABLE','WMS-MAIN') ON CONFLICT DO NOTHING`,
-          [gradeBatchNo,`PRD-EGG-${grade}`,`${grade}级鲜蛋`,numQty,numQty,today,expireDate]).catch(()=>{});
-        await this.em.query(
-          `INSERT INTO inv_ledger(batch_no,change_type,qty_change,operator,ref_no,note)
-           VALUES($1,'GRADED_IN',$2,$3,$4,$5)`,
-          [gradeBatchNo,numQty,operator,taskNo,`分级入库|${grade}级|来源:${rawBatchNo}|${numQty}枚`]).catch(()=>{});
-        const pkgTaskNo = `PKG-${grade}-${Date.now().toString().slice(-8)}-${Math.floor(Math.random()*100)}`;
-        await this.em.query(
-          `INSERT INTO pkg_tasks(task_no,batch_no,source_item,plan_qty,packed_qty,status,start_time,updated_at)
-           VALUES($1,$2,$3,$4,0,'PENDING',NOW(),NOW()) ON CONFLICT DO NOTHING`,
-          [pkgTaskNo,gradeBatchNo,`${task.source_item||taskNo}·${grade}分级`,numQty]).catch(()=>{});
-        gradedBatches.push({ grade, qty: numQty, batch_no: gradeBatchNo, pkg_task_no: pkgTaskNo });
-      }
-      if (rawBatchNo && grandTotal > 0) {
-        await this.em.query(
-          `UPDATE inv_batches SET qty_available=GREATEST(0,qty_available-$1) WHERE batch_no=$2`,
-          [grandTotal, rawBatchNo]).catch(()=>{});
-        await this.em.query(
-          `INSERT INTO inv_ledger(batch_no,change_type,qty_change,operator,ref_no,note)
-           VALUES($1,'GRADED_OUT',$2,$3,$4,$5)`,
-          [rawBatchNo,grandTotal,operator,taskNo,`分级消耗原料|任务:${taskNo}|合计:${grandTotal}枚`]).catch(()=>{});
-      }
-      return { code: 200, msg: `分级完成！共 ${grandTotal} 枚已分级入库`, task_no: taskNo, total_graded: grandTotal, grade_batches: gradedBatches };
-    } catch (e: any) { return { code: 500, msg: e.message }; }
-  }
-
-  /** 包装完成结单（扣库存+建wms_inbound+处理尾数） */
-  @Post('tasks/:task_no/pack-complete')
-  async packComplete(@Param('task_no') taskNo: string, @Body() body: any, @Req() req: any) {
-    const operator = req.user?.username || 'SYS';
-    const qty = Number(body.packed_qty);
-    if (!qty || qty <= 0) return { code: 400, msg: '实封数量不能为空或零' };
-    try {
-      const [task] = await this.em.query(`SELECT * FROM pkg_tasks WHERE task_no=$1`, [taskNo]).catch(() => [null]);
-      if (!task) return { code: 404, msg: '包装任务不存在' };
-      const remainQty = Number(body.remainder_qty)||0;
-      const remainAction = body.remainder_action || 'KEEP';
-      const newStatus = (remainQty <= 0 || remainAction === 'MERGE') ? 'COMPLETED' : 'IN_PROGRESS';
-      const inboundNo = `WMS-IN-${Date.now().toString().slice(-10)}`;
-      await this.em.query(
-        `UPDATE pkg_tasks SET status=$1,packed_qty=packed_qty+$2,remainder_qty=$3,pack_type=$4,updated_at=NOW() WHERE task_no=$5`,
-        [newStatus,qty,remainQty,body.pack_spec||task.pack_type,taskNo]);
-      await this.em.query(
-        `INSERT INTO wms_inbound(inbound_no,type,warehouse_code,qty,source,operator,ref_no,date,status)
-         VALUES($1,'PKG_INBOUND','WMS-MAIN',$2,$3,$4,$5,$6,'PENDING') ON CONFLICT DO NOTHING`,
-        [inboundNo,qty,task.batch_no||taskNo,operator,taskNo,new Date().toISOString().slice(0,10)]).catch(()=>{});
-      await this.em.query(
-        `INSERT INTO inv_ledger(batch_no,change_type,qty_change,operator,ref_no,note)
-         VALUES($1,'PKG_OUT',$2,$3,$4,$5)`,
-        [task.batch_no,-qty,operator,taskNo,`包装出库|规格:${body.pack_spec}|尾数处理:${remainAction}`]).catch(()=>{});
-      return { code: 200, msg: remainQty>0 ? `尾数 ${remainQty} 枚已留存` : '包装结单成功，已生成入库任务', task_no: taskNo, inbound_no: inboundNo, remainder_qty: remainQty };
-    } catch (e: any) { return { code: 500, msg: e.message }; }
-  }
-
-  /** 合拼尾数（按等级聚合清零，对齐 V2 merge-remainder） */
-  @Post('tasks/merge-remainder')
-  async mergeRemainder(@Body() body: any) {
-    const { grade } = body;
-    if (!grade) return { code: 400, msg: 'grade 不能为空' };
-    try {
-      const tasks = await this.em.query(
-        `SELECT id,task_no,remainder_qty FROM pkg_tasks
-         WHERE status='COMPLETED' AND remainder_qty>0 AND task_no LIKE $1 ORDER BY updated_at ASC`,
-        [`PKG-${grade}-%`]).catch(() => []);
-      if (!tasks.length) return { code: 200, merged_qty: 0, msg: '无尾数可合拼', source_tasks: [] };
-      const mergedQty = tasks.reduce((s: number, t: any) => s + (Number(t.remainder_qty)||0), 0);
-      for (const t of tasks) await this.em.query(`UPDATE pkg_tasks SET remainder_qty=0,updated_at=NOW() WHERE id=$1`, [t.id]);
-      return { code: 200, merged_qty: mergedQty, source_tasks: tasks.map((t: any) => t.task_no), msg: `已合拼 ${mergedQty} 枚尾数` };
-    } catch (e: any) { return { code: 500, msg: e.message }; }
-  }
-
-  /** 包装日报 */
-  @Get('daily-report')
-  async getDailyReport(@Query('date') date?: string) {
-    const d = date || new Date().toISOString().slice(0,10);
-    try {
-      const [summary] = await this.em.query(
-        `SELECT COUNT(*) AS total_tasks, COALESCE(SUM(packed_qty),0) AS total_packed, COALESCE(SUM(plan_qty),0) AS total_plan
-         FROM pkg_tasks WHERE DATE(start_time)=$1 AND status='COMPLETED'`, [d]).catch(() => [{}]);
-      const byGrade = await this.em.query(
-        `SELECT COALESCE(sku_code,source_item,'未分级') AS grade,
-                COALESCE(SUM(packed_qty),0) AS qty, COUNT(*) AS tasks
-         FROM pkg_tasks WHERE DATE(start_time)=$1 AND status='COMPLETED'
-         GROUP BY COALESCE(sku_code,source_item,'未分级') ORDER BY qty DESC`, [d]).catch(() => []);
-      return { code: 200, data: { date: d, summary, by_grade: byGrade } };
-    } catch { return { code: 200, data: { date: d, summary: {}, by_grade: [] } }; }
-  }
-
-  /** 补填异常原因（管理员事后更正） */
-  @Post('tasks/:task_no/anomaly-reason')
-  async patchAnomalyReason(@Param('task_no') taskNo: string, @Body() body: any) {
-    if (!body.anomaly_reason?.trim()) return { code: 400, msg: '请填写异常原因' };
-    try {
-      await this.em.query(`UPDATE pkg_tasks SET anomaly_reason=$1,updated_at=NOW() WHERE task_no=$2`, [body.anomaly_reason.trim(), taskNo]);
-      return { code: 200, msg: '异常原因已补填', task_no: taskNo };
-    } catch (e: any) { return { code: 500, msg: e.message }; }
-  }
-
-  /** 标签信息（批次+生产日期+零售价，供标签打印页） */
-  @Get('tasks/:task_no/label-info')
-  async getLabelInfo(@Param('task_no') taskNo: string) {
-    try {
-      const [task] = await this.em.query(`SELECT * FROM pkg_tasks WHERE task_no=$1`, [taskNo]).catch(() => [null]);
-      if (!task) return { code: 404, msg: '任务不存在' };
-      const [batch] = await this.em.query(`SELECT produce_date,expire_date FROM inv_batches WHERE batch_no=$1 LIMIT 1`, [task.batch_no]).catch(() => [null]);
-      return { code: 200, data: { task_no: task.task_no, batch_no: task.batch_no, sku_code: task.sku_code||task.source_item, pack_type: task.pack_type, packed_qty: task.packed_qty, plan_qty: task.plan_qty, produce_date: batch?.produce_date||new Date().toISOString().slice(0,10), expire_date: batch?.expire_date||null } };
-    } catch (e: any) { return { code: 500, msg: e.message }; }
+  @Get('dicts')
+  async getDicts(@Query('types') typesParam: string) {
+    const allowedTypes = [
+      'PKG_EGG_GRADE', 'PKG_EGG_DEFECT', 'PKG_PACK_SPEC', 'PKG_ANOMALY_REASON',
+      'PKG_PRESORT_STANDARD', 'PKG_SHIFT', 'PKG_CUSTOM_LABEL',
+      'PKG_QC_RESULT',
+      'QC_INSPECT_TYPE', 'QC_INSPECT_CATEGORY', 'QC_NC_SOURCE',
+      'PRD_PRODUCT_GRADE', 'PRD_PRODUCT_TYPE',
+    ];
+    const requested = (typesParam || '').split(',').map(t => t.trim()).filter(t => allowedTypes.includes(t));
+    if (requested.length === 0) {
+      return { code: 200, data: {} };
+    }
+    const placeholders = requested.map((_, i) => `$${i + 1}`).join(',');
+    const rows = await this.safe(
+      this.em.query(
+        `SELECT dict_type, dict_code, dict_label_zh, dict_label_en, sort_no, config_json, status
+         FROM sys_dict
+         WHERE dict_type IN (${placeholders}) AND (status IS NULL OR status = 'ACTIVE')
+         ORDER BY dict_type, sort_no NULLS LAST, dict_code`,
+        requested,
+      ),
+      [] as any[],
+    );
+    // 按 dict_type 分组返回
+    const result: Record<string, any[]> = {};
+    for (const row of rows) {
+      if (!result[row.dict_type]) result[row.dict_type] = [];
+      let cfg: any = {};
+      try { cfg = row.config_json ? (typeof row.config_json === 'string' ? JSON.parse(row.config_json) : row.config_json) : {}; } catch {}
+      result[row.dict_type].push({
+        code:    row.dict_code,
+        label:   row.dict_label_zh,
+        labelEn: row.dict_label_en,
+        sortNo:  row.sort_no,
+        ...cfg,
+      });
+    }
+    return { code: 200, data: result };
   }
 }
