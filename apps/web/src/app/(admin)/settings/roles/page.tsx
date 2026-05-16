@@ -20,6 +20,7 @@ import PageHeader from "@/components/PageHeader";
 import RightDrawer from "@/components/RightDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Shield, Plus, Trash2, Edit2, Save, Copy, Grid, AlertTriangle, Users, Lock, X,
 } from "lucide-react";
@@ -104,6 +105,7 @@ const apiPut = (path: string, body: any) =>
 // ─────────────────────────────────────────────────────────────────────────
 export default function RoleManagementPage() {
   const toast = useToast();
+  const { t } = useLanguage();
 
   // 主数据
   const [roles, setRoles] = useState<RoleRow[]>([]);
@@ -170,7 +172,7 @@ export default function RoleManagementPage() {
       });
       setUserCountByRole(st.data?.user_count_by_role || {});
     } catch (e: any) {
-      toast.error("加载失败: " + (e.message || e));
+      toast.error(t("ui.加载失败","加载失败") + ": " + (e.message || e));
     } finally {
       setLoading(false);
     }
@@ -202,9 +204,9 @@ export default function RoleManagementPage() {
   // ── role_code 校验 ───────────────────────────────────────────────────
   const validateCode = useCallback((code: string) => {
     if (editCode) return ""; // 编辑模式 code 不可改
-    if (!code.startsWith("ROLE_")) return "必须以 ROLE_ 开头";
-    if (!ROLE_CODE_RE.test(code)) return "格式：ROLE_ + 大写字母/数字/下划线";
-    if (roles.some((r) => r.role_code === code)) return "该角色代码已存在";
+    if (!code.startsWith("ROLE_")) return t("ui.必须以ROLE_开头","必须以 ROLE_ 开头");
+    if (!ROLE_CODE_RE.test(code)) return t("ui.格式ROLE_大写字母数字下划线","格式：ROLE_ + 大写字母/数字/下划线");
+    if (roles.some((r) => r.role_code === code)) return t("ui.该角色代码已存在","该角色代码已存在");
     return "";
   }, [editCode, roles]);
 
@@ -241,7 +243,7 @@ export default function RoleManagementPage() {
       }
       setPerms(p);
     } catch (e: any) {
-      toast.error("加载角色权限失败: " + e.message);
+      toast.error(t("ui.加载角色权限失败","加载角色权限失败") + ": " + e.message);
       setPerms({});
     }
     setCodeError("");
@@ -252,11 +254,11 @@ export default function RoleManagementPage() {
     setEditCode(null);
     setForm({
       role_code: "ROLE_",
-      role_name_zh: role.role_name_zh + " 副本",
+      role_name_zh: role.role_name_zh + " " + t("ui.副本","副本"),
       role_name_lo: role.role_name_lo || "",
       role_type: role.role_type,
       approval_level: role.approval_level,
-      description: `（复制自 ${role.role_code}）${role.description || ""}`,
+      description: `（${t("ui.复制自","复制自")} ${role.role_code}）${role.description || ""}`,
     });
     try {
       const r = await apiGet(`/api/permissions/role/${role.role_code}/perms`);
@@ -269,7 +271,7 @@ export default function RoleManagementPage() {
     } catch {
       setPerms({});
     }
-    setCodeError("请填入新的角色代码");
+    setCodeError(t("ui.请填入新的角色代码","请填入新的角色代码"));
     setShowDrawer(true);
   };
 
@@ -327,11 +329,11 @@ export default function RoleManagementPage() {
       const err = validateCode(form.role_code);
       if (err) { toast.error(err); return; }
     }
-    if (!form.role_name_zh.trim()) { toast.error("角色中文名称必填"); return; }
+    if (!form.role_name_zh.trim()) { toast.error(t("ui.角色中文名称必填","角色中文名称必填")); return; }
 
     // BLOCK 级别冲突硬阻止
     if (hasBlockingConflict) {
-      toast.error("存在 BLOCK 级岗位分离冲突，无法保存。请先取消冲突菜单的权限。");
+      toast.error(t("ui.存在BLOCK级岗位分离冲突无法保存请先取消冲突菜单的权限","存在 BLOCK 级岗位分离冲突，无法保存。请先取消冲突菜单的权限。"));
       return;
     }
 
@@ -350,7 +352,7 @@ export default function RoleManagementPage() {
         await apiPut(`/api/crud/sys_role/${editCode}?pk=role_code`, roleBody);
       } else {
         const r = await apiPost("/api/crud/sys_role", roleBody);
-        if (r.code && r.code !== 200) throw new Error(r.msg || "角色保存失败");
+        if (r.code && r.code !== 200) throw new Error(r.msg || t("ui.角色保存失败","角色保存失败"));
       }
 
       // 2) 批量覆盖三元组到 sys_role_menu_permission
@@ -361,13 +363,13 @@ export default function RoleManagementPage() {
           perm_codes: Array.from(set).join(","),
         }));
       const setR = await apiPut(`/api/permissions/role/${roleBody.role_code}/perms`, { perms: permsPayload });
-      if (setR.code && setR.code !== 200) throw new Error(setR.msg || "权限保存失败");
+      if (setR.code && setR.code !== 200) throw new Error(setR.msg || t("ui.权限保存失败","权限保存失败"));
 
-      toast.success(editCode ? "角色与权限已更新" : "角色已创建");
+      toast.success(editCode ? t("ui.角色与权限已更新","角色与权限已更新") : t("ui.角色已创建","角色已创建"));
       setShowDrawer(false);
       loadAll();
     } catch (e: any) {
-      toast.error(e.message || "保存失败");
+      toast.error(e.message || t("ui.保存失败","保存失败"));
     } finally {
       setLoading(false);
     }
@@ -377,7 +379,7 @@ export default function RoleManagementPage() {
   const handleDelete = async () => {
     if (!confirmDel) return;
     if (confirmDel.role_code === "ROLE_ADMIN") {
-      toast.error("超管角色不可删除");
+      toast.error(t("ui.超管角色不可删除","超管角色不可删除"));
       setConfirmDel(null);
       return;
     }
@@ -386,11 +388,11 @@ export default function RoleManagementPage() {
         method: "DELETE", headers: hdr(),
       }).then((x) => x.json());
       if (r.code && r.code !== 200) throw new Error(r.msg);
-      toast.success("已删除");
+      toast.success(t("ui.已删除","已删除"));
       setConfirmDel(null);
       loadAll();
     } catch (e: any) {
-      toast.error("删除失败: " + e.message);
+      toast.error(t("ui.删除失败","删除失败") + ": " + e.message);
     }
   };
 
@@ -406,16 +408,16 @@ export default function RoleManagementPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
       <PageHeader
-        title="角色与权限管理"
-        subtitle="V3 RBAC：角色 × 菜单 × CRUD 三元组（V/C/E/D/A/X），含岗位分离红线"
-        breadcrumb={["系统设置", "角色与权限"]}
+        title={t("ui.角色与权限管理","角色与权限管理")}
+        subtitle={t("ui.V3RBAC角色菜单CRUD三元组含岗位分离红线","V3 RBAC：角色 × 菜单 × CRUD 三元组（V/C/E/D/A/X），含岗位分离红线")}
+        breadcrumb={[t("ui.系统设置","系统设置"), t("ui.角色与权限","角色与权限")]}
         actions={
           <div style={{ display: "flex", gap: "8px" }}>
             <button className={s.btnSecondary} onClick={openMatrix}>
-              <Grid size={14} /> 权限矩阵全景
+              <Grid size={14} /> {t("ui.权限矩阵全景","权限矩阵全景")}
             </button>
             <button className={s.btnPrimaryGrad} onClick={openNew}>
-              <Plus size={14} /> 新建角色
+              <Plus size={14} /> {t("ui.新建角色","新建角色")}
             </button>
           </div>
         }
@@ -423,10 +425,10 @@ export default function RoleManagementPage() {
 
       {/* 顶部统计胶囊 */}
       <div className={s.statsRow}>
-        <StatPill label="角色总数"     value={stats.role_count}      color="var(--color-primary)" icon={<Shield size={14} />} />
-        <StatPill label="菜单定义"     value={stats.menu_count}      color="#10b981" icon={<Grid size={14} />} />
-        <StatPill label="敏感菜单"     value={stats.sensitive_count} color="#ef4444" icon={<Lock size={14} />} />
-        <StatPill label="岗位分离规则" value={stats.conflict_count}  color="#f59e0b" icon={<AlertTriangle size={14} />} />
+        <StatPill label={t("ui.角色总数","角色总数")}     value={stats.role_count}      color="var(--color-primary)" icon={<Shield size={14} />} />
+        <StatPill label={t("ui.菜单定义","菜单定义")}     value={stats.menu_count}      color="#10b981" icon={<Grid size={14} />} />
+        <StatPill label={t("ui.敏感菜单","敏感菜单")}     value={stats.sensitive_count} color="#ef4444" icon={<Lock size={14} />} />
+        <StatPill label={t("ui.岗位分离规则","岗位分离规则")} value={stats.conflict_count}  color="#f59e0b" icon={<AlertTriangle size={14} />} />
       </div>
 
       {/* 角色卡片列表 */}
@@ -453,14 +455,14 @@ export default function RoleManagementPage() {
                     {role.role_code} · L{role.approval_level} · {role.role_type}
                   </div>
                   <div style={{ fontSize: 12, color: userCnt > 0 ? "var(--color-primary)" : "var(--text-secondary)", marginTop: 4, display: "flex", alignItems: "center", gap: 4, fontWeight: userCnt > 0 ? 600 : 400 }}>
-                    <Users size={11} /> 绑定 {userCnt} 个用户
+                    <Users size={11} /> {t("ui.绑定","绑定")} {userCnt} {t("ui.个用户","个用户")}
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 4 }}>
-                  <button className={s.btnIcon} title="复制" onClick={() => openCopy(role)}><Copy size={13} /></button>
-                  <button className={s.btnIcon} title="编辑" onClick={() => openEdit(role)}><Edit2 size={13} /></button>
+                  <button className={s.btnIcon} title={t("ui.复制","复制")} onClick={() => openCopy(role)}><Copy size={13} /></button>
+                  <button className={s.btnIcon} title={t("common.edit","编辑")} onClick={() => openEdit(role)}><Edit2 size={13} /></button>
                   {!isAdmin && (
-                    <button className={s.btnIcon} title="删除" onClick={() => setConfirmDel(role)} style={{ color: "var(--color-danger)" }}>
+                    <button className={s.btnIcon} title={t("common.delete","删除")} onClick={() => setConfirmDel(role)} style={{ color: "var(--color-danger)" }}>
                       <Trash2 size={13} />
                     </button>
                   )}
@@ -468,7 +470,7 @@ export default function RoleManagementPage() {
               </div>
               <div className={s.cardBody}>
                 <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5, margin: 0 }}>
-                  {role.description || "（暂无说明）"}
+                  {role.description || `（${t("ui.暂无说明","暂无说明")}）`}
                 </p>
               </div>
             </div>
@@ -477,11 +479,11 @@ export default function RoleManagementPage() {
       </div>
 
       {/* ── 编辑/新建 抽屉 ───────────────────────────────────────────── */}
-      <RightDrawer isOpen={showDrawer} onClose={() => setShowDrawer(false)} title={editCode ? `编辑：${editCode}` : "新建角色"} width="620px">
+      <RightDrawer isOpen={showDrawer} onClose={() => setShowDrawer(false)} title={editCode ? `${t("common.edit","编辑")}：${editCode}` : t("ui.新建角色","新建角色")} width="620px">
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {/* role_code */}
           <div className={s.field}>
-            <label className={s.lbl}>角色代码 *</label>
+            <label className={s.lbl}>{t("ui.角色代码","角色代码")} *</label>
             <input
               className={s.inp}
               disabled={!!editCode}
@@ -499,18 +501,18 @@ export default function RoleManagementPage() {
               </div>
             )}
             {!editCode && !codeError && form.role_code !== "ROLE_" && (
-              <div style={{ fontSize: 11, color: "var(--color-success)", marginTop: 4 }}>✓ 格式正确</div>
+              <div style={{ fontSize: 11, color: "var(--color-success)", marginTop: 4 }}>✓ {t("ui.格式正确","格式正确")}</div>
             )}
           </div>
 
           {/* name */}
           <div className={s.fieldRow}>
             <div>
-              <label className={s.lbl}>中文名 *</label>
+              <label className={s.lbl}>{t("ui.中文名","中文名")} *</label>
               <input className={s.inp} value={form.role_name_zh} onChange={(e) => setForm({ ...form, role_name_zh: e.target.value })} />
             </div>
             <div>
-              <label className={s.lbl}>老挝语名</label>
+              <label className={s.lbl}>{t("ui.老挝语名","老挝语名")}</label>
               <input className={s.inp} value={form.role_name_lo} onChange={(e) => setForm({ ...form, role_name_lo: e.target.value })} />
             </div>
           </div>
@@ -518,7 +520,7 @@ export default function RoleManagementPage() {
           {/* role_type / approval_level */}
           <div className={s.fieldRow}>
             <div>
-              <label className={s.lbl}>角色业务域</label>
+              <label className={s.lbl}>{t("ui.角色业务域","角色业务域")}</label>
               <select className={s.inp} value={form.role_type} onChange={(e) => setForm({ ...form, role_type: e.target.value })}>
                 {["SYSTEM","DECISION","FINANCE","MANAGEMENT","PRODUCTION","QUALITY","PACKAGING","WAREHOUSE","LOGISTICS","COMMON","PROCUREMENT","STORE","SALES","EXTERNAL"].map((t) => (
                   <option key={t} value={t}>{t}</option>
@@ -526,15 +528,15 @@ export default function RoleManagementPage() {
               </select>
             </div>
             <div>
-              <label className={s.lbl}>审批级别 0-99</label>
+              <label className={s.lbl}>{t("ui.审批级别0-99","审批级别 0-99")}</label>
               <input className={s.inp} type="number" min={0} max={99} value={form.approval_level} onChange={(e) => setForm({ ...form, approval_level: Number(e.target.value) || 0 })} />
             </div>
           </div>
 
           {/* description */}
           <div className={s.field}>
-            <label className={s.lbl}>角色说明</label>
-            <textarea className={s.textarea} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="描述该角色的职能边界" />
+            <label className={s.lbl}>{t("ui.角色说明","角色说明")}</label>
+            <textarea className={s.textarea} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={t("ui.描述该角色的职能边界","描述该角色的职能边界")} />
           </div>
 
           {/* 冲突警告区 */}
@@ -545,8 +547,8 @@ export default function RoleManagementPage() {
               border: `1px solid ${hasBlockingConflict ? "#fca5a5" : "#fcd34d"}`,
             }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: hasBlockingConflict ? "#b91c1c" : "#92400e", display: "flex", alignItems: "center", gap: 4, marginBottom: 6 }}>
-                <AlertTriangle size={12} /> 检测到 {currentConflicts.length} 项岗位分离冲突
-                {hasBlockingConflict && <span style={{ marginLeft: 8, padding: "1px 6px", background: "#dc2626", color: "white", borderRadius: 4, fontSize: 10 }}>BLOCK 硬阻止</span>}
+                <AlertTriangle size={12} /> {t("ui.检测到","检测到")} {currentConflicts.length} {t("ui.项岗位分离冲突","项岗位分离冲突")}
+                {hasBlockingConflict && <span style={{ marginLeft: 8, padding: "1px 6px", background: "#dc2626", color: "white", borderRadius: 4, fontSize: 10 }}>BLOCK {t("ui.硬阻止","硬阻止")}</span>}
               </div>
               {currentConflicts.map((c) => (
                 <div key={c.id} style={{ fontSize: 11, color: hasBlockingConflict ? "#7f1d1d" : "#78350f", lineHeight: 1.5 }}>
@@ -559,15 +561,15 @@ export default function RoleManagementPage() {
           {/* 权限矩阵 - 按 domain 分组 */}
           <div className={s.field}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <label className={s.lbl} style={{ margin: 0 }}>菜单 × CRUD 权限</label>
+              <label className={s.lbl} style={{ margin: 0 }}>{t("ui.菜单CRUD权限","菜单 × CRUD 权限")}</label>
               <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "rgba(99,102,241,0.1)", color: "var(--color-primary)", fontWeight: 600 }}>
-                已配 {Object.keys(perms).length} / {allMenus.length} 菜单
-                {sensitiveCount > 0 && <span style={{ color: "#ef4444", marginLeft: 6 }}>· {sensitiveCount} 敏感</span>}
+                {t("ui.已配","已配")} {Object.keys(perms).length} / {allMenus.length} {t("ui.菜单","菜单")}
+                {sensitiveCount > 0 && <span style={{ color: "#ef4444", marginLeft: 6 }}>· {sensitiveCount} {t("ui.敏感","敏感")}</span>}
               </span>
             </div>
 
             {menuGroups.length === 0 && (
-              <div style={{ fontSize: 12, color: "var(--text-secondary)", padding: 12 }}>菜单加载中...</div>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", padding: 12 }}>{t("ui.菜单加载中","菜单加载中...")}</div>
             )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -587,7 +589,7 @@ export default function RoleManagementPage() {
                         background: "transparent", color: group.domain_color,
                         cursor: "pointer", fontWeight: 600,
                       }}>
-                      一键授「查看」
+                      {t("ui.一键授查看","一键授「查看」")}
                     </button>
                   </div>
                   <div style={{ padding: 8, display: "flex", flexDirection: "column", gap: 4 }}>
@@ -633,7 +635,7 @@ export default function RoleManagementPage() {
                               color: PERM_CODE_ORDER.every((c) => set.has(c)) ? "white" : "var(--text-secondary)",
                               cursor: "pointer", fontWeight: 600,
                             }}>
-                            全选
+                            {t("ui.全选","全选")}
                           </button>
                         </div>
                       );
@@ -646,14 +648,14 @@ export default function RoleManagementPage() {
 
           {/* 保存按钮 */}
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <button className={s.btnSecondary} style={{ flex: 1 }} onClick={() => setShowDrawer(false)}>取消</button>
+            <button className={s.btnSecondary} style={{ flex: 1 }} onClick={() => setShowDrawer(false)}>{t("common.cancel","取消")}</button>
             <button
               className={s.btnPrimaryGrad}
               style={{ flex: 2 }}
               onClick={handleSubmit}
               disabled={loading || (!editCode && !!codeError) || hasBlockingConflict}
             >
-              <Save size={14} /> {loading ? "保存中…" : (hasBlockingConflict ? "存在 BLOCK 冲突 - 无法保存" : (currentConflicts.length > 0 ? "保存（含 WARN 冲突）" : "保存"))}
+              <Save size={14} /> {loading ? t("ui.保存中","保存中…") : (hasBlockingConflict ? t("ui.存在BLOCK冲突无法保存","存在 BLOCK 冲突 - 无法保存") : (currentConflicts.length > 0 ? t("ui.保存含WARN冲突","保存（含 WARN 冲突）") : t("common.save","保存")))}
             </button>
           </div>
         </div>
@@ -673,13 +675,13 @@ export default function RoleManagementPage() {
           }}>
             <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div className={s.cardTitle} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Grid size={18} /> 角色 × 菜单 × CRUD 矩阵全景 — {matrixData?.matrix?.length || 0} 角色 × {matrixData?.menus?.length || 0} 菜单
+                <Grid size={18} /> {t("ui.角色菜单CRUD矩阵全景","角色 × 菜单 × CRUD 矩阵全景")} — {matrixData?.matrix?.length || 0} {t("ui.角色","角色")} × {matrixData?.menus?.length || 0} {t("ui.菜单","菜单")}
               </div>
               <button className={s.btnIcon} onClick={() => setShowMatrix(false)}><X size={16} /></button>
             </div>
             <div style={{ flex: 1, overflow: "auto" }}>
               {!matrixData ? (
-                <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>加载中...</div>
+                <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>{t("common.loading","加载中...")}</div>
               ) : (
                 <table className={s.table} style={{ minWidth: "100%", fontSize: 10 }}>
                   <thead style={{ position: "sticky", top: 0, background: "var(--bg-surface)", zIndex: 5 }}>
@@ -687,7 +689,7 @@ export default function RoleManagementPage() {
                       <th style={{
                         padding: "8px 10px", borderBottom: "2px solid var(--border-color)", borderRight: "1px solid var(--border-color)",
                         textAlign: "left", position: "sticky", left: 0, background: "var(--bg-surface)", zIndex: 6, minWidth: 180,
-                      }}>角色 ↓ / 菜单 →</th>
+                      }}>{t("ui.角色↓菜单→","角色 ↓ / 菜单 →")}</th>
                       {matrixData.menus.map((m) => (
                         <th key={m.menu_code} title={m.menu_code} style={{
                           padding: "6px 4px", borderBottom: "2px solid var(--border-color)",
@@ -734,18 +736,18 @@ export default function RoleManagementPage() {
       {/* ── 删除确认 ─────────────────────────────────────────────────── */}
       <ConfirmDialog
         open={!!confirmDel}
-        title={`删除角色：${confirmDel?.role_name_zh || ""}`}
+        title={`${t("common.delete","删除")}${t("ui.角色","角色")}：${confirmDel?.role_name_zh || ""}`}
         message={
           confirmDel
             ? `${(userCountByRole[confirmDel.role_code] || 0) > 0
-                ? `⚠️ 该角色仍有 ${userCountByRole[confirmDel.role_code]} 个用户绑定！删除后这些用户将失去对应权限。建议先转移用户角色。\n\n`
-                : ""}确认删除角色 [${confirmDel.role_code}]?`
+                ? `⚠️ ${t("ui.该角色仍有","该角色仍有")} ${userCountByRole[confirmDel.role_code]} ${t("ui.个用户绑定删除后这些用户将失去对应权限建议先转移用户角色","个用户绑定！删除后这些用户将失去对应权限。建议先转移用户角色。")}\n\n`
+                : ""}${t("ui.确认删除角色","确认删除角色")} [${confirmDel.role_code}]?`
             : ""
         }
         confirmLabel={
           confirmDel && (userCountByRole[confirmDel.role_code] || 0) > 0
-            ? `仍然删除（影响 ${userCountByRole[confirmDel.role_code]} 个用户）`
-            : "确认删除"
+            ? `${t("ui.仍然删除影响","仍然删除（影响")} ${userCountByRole[confirmDel.role_code]} ${t("ui.个用户","个用户")}）`
+            : t("ui.确认删除","确认删除")
         }
         onConfirm={handleDelete}
         onCancel={() => setConfirmDel(null)}

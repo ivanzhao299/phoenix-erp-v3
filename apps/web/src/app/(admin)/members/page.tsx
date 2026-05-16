@@ -5,8 +5,10 @@ import PageHeader from "@/components/PageHeader";
 import Link from "next/link";
 import { LayoutDashboard, Users, Tag, Megaphone } from "lucide-react";
 import styles from "./members.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function MembersDashboard() {
+  const { t } = useLanguage();
   const [stats, setStats] = useState<Record<string,number>>({  });
   const [loading, setLoading] = useState(true);
 
@@ -25,21 +27,21 @@ export default function MembersDashboard() {
   }, []);
 
   const KPIs = [
-    { label: "会员总数", value: stats.members, color: "#3b82f6" },
-    { label: "优惠券数", value: stats.coupons, color: "#f59e0b" },
-    { label: "营销活动数", value: stats.activities, color: "#22c55e" },
+    { label: t("ui.会员总数","会员总数"), value: stats.members, color: "#3b82f6" },
+    { label: t("ui.优惠券数","优惠券数"), value: stats.coupons, color: "#f59e0b" },
+    { label: t("ui.营销活动数","营销活动数"), value: stats.activities, color: "#22c55e" },
   ];
 
   const QUICK = [
-    { path: "/members", Icon: LayoutDashboard, label: "会员总览", desc: "crm_members" },
-    { path: "/members/list", Icon: Users, label: "会员档案", desc: "crm_members" },
-    { path: "/members/coupons", Icon: Tag, label: "优惠券", desc: "crm_coupons" },
-    { path: "/members/activity", Icon: Megaphone, label: "营销活动", desc: "crm_activities" },
+    { path: "/members", Icon: LayoutDashboard, label: t("ui.会员总览","会员总览"), desc: "crm_members" },
+    { path: "/members/list", Icon: Users, label: t("ui.会员档案","会员档案"), desc: "crm_members" },
+    { path: "/members/coupons", Icon: Tag, label: t("ui.优惠券","优惠券"), desc: "crm_coupons" },
+    { path: "/members/activity", Icon: Megaphone, label: t("ui.营销活动","营销活动"), desc: "crm_activities" },
   ];
 
   return (
     <div>
-      <PageHeader title="会员营销" subtitle="积分、优惠券与营销活动管理" />
+      <PageHeader title={t("ui.会员营销","会员营销")} subtitle={t("ui.积分优惠券与营销活动管理","积分、优惠券与营销活动管理")} />
       <div className={styles.kpiGrid}>
         {KPIs.map(k => (
           <div key={k.label} className={styles.kpiCard}>
