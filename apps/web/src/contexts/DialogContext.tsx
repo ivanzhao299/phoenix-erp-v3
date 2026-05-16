@@ -34,8 +34,8 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
           title={state.title}
           subtitle={state.subtitle}
           message={state.message}
-          cancelLabel={state.cancelLabel || '取消'}
-          confirmLabel={state.confirmLabel || '确认'}
+          cancelLabel={state.cancelLabel}
+          confirmLabel={state.confirmLabel}
           hideCancel={state.hideCancel}
           onCancel={() => _close(false)}
           onConfirm={() => _close(true)}
