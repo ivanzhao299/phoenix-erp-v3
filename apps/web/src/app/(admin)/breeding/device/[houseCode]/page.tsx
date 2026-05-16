@@ -4,26 +4,15 @@ import { useParams, useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
 import { ArrowLeft, RefreshCw, AlertTriangle, Thermometer, Droplets, Wind, Activity, Zap, Cpu, Clock } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const tok = () => typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') || '' : '';
 const hdr = () => ({ Authorization: `Bearer ${tok()}` });
 const API = '/api/farm-device/cabins';
 
-// ── 5大系统配置 ────────────────────────────────────────────────
-const SYSTEMS: Record<string, { name: string; icon: React.ReactNode; color: string }> = {
-  HVAC:    { name: '环境调控', icon: <Thermometer size={16}/>, color: '#0ea5e9' },
-  CONTROL: { name: '控制设备', icon: <Zap size={16}/>,         color: '#8b5cf6' },
-  FEED:    { name: '饲喂系统', icon: <Activity size={16}/>,    color: '#f59e0b' },
-  WATER:   { name: '饮水系统', icon: <Droplets size={16}/>,    color: '#22c55e' },
-  EXEC:    { name: '执行设备', icon: <Cpu size={16}/>,         color: '#ef4444' },
-};
-
 const STATUS_COLOR: Record<string, string> = {
   normal: '#22c55e', warning: '#f59e0b', critical: '#ef4444',
   no_data: '#94a3b8', standby: '#94a3b8',
-};
-const STATUS_LABEL: Record<string, string> = {
-  normal: '正常', warning: '预警', critical: '告警', no_data: '无数据', standby: '待机',
 };
 
 // ── 迷你 SVG 折线图 ────────────────────────────────────────────
@@ -44,8 +33,8 @@ function MiniChart({ points, color }: { points: number[]; color: string }) {
 }
 
 // ── 传感器指标大卡 ─────────────────────────────────────────────
-function MetricCard({ title, value, unit, status, trend }: {
-  title: string; value: number | null; unit: string; status: string; trend?: number[];
+function MetricCard({ title, value, unit, status, trend, statusLabel }: {
+  title: string; value: number | null; unit: string; status: string; trend?: number[]; statusLabel: string;
 }) {
   const color = STATUS_COLOR[status] || '#94a3b8';
   return (
@@ -59,7 +48,7 @@ function MetricCard({ title, value, unit, status, trend }: {
       </div>
       <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, fontWeight: 700,
-          background: `${color}20`, color }}>{STATUS_LABEL[status] || status}</span>
+          background: `${color}20`, color }}>{statusLabel}</span>
         {trend && trend.length > 1 && <MiniChart points={trend} color={color}/>}
       </div>
     </div>
@@ -69,7 +58,25 @@ function MetricCard({ title, value, unit, status, trend }: {
 export default function HouseDetailPage() {
   const { houseCode } = useParams<{ houseCode: string }>();
   const router = useRouter();
+  const { t } = useLanguage();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── 5大系统配置 ────────────────────────────────────────────────
+  const SYSTEMS: Record<string, { name: string; icon: React.ReactNode; color: string }> = {
+    HVAC:    { name: t('ui.环境调控', '环境调控'), icon: <Thermometer size={16}/>, color: '#0ea5e9' },
+    CONTROL: { name: t('ui.控制设备', '控制设备'), icon: <Zap size={16}/>,         color: '#8b5cf6' },
+    FEED:    { name: t('ui.饲喂系统', '饲喂系统'), icon: <Activity size={16}/>,    color: '#f59e0b' },
+    WATER:   { name: t('ui.饮水系统', '饮水系统'), icon: <Droplets size={16}/>,    color: '#22c55e' },
+    EXEC:    { name: t('ui.执行设备', '执行设备'), icon: <Cpu size={16}/>,         color: '#ef4444' },
+  };
+
+  const STATUS_LABEL: Record<string, string> = {
+    normal:  t('status.normal',  '正常'),
+    warning: t('status.warning', '预警'),
+    critical:t('status.critical','告警'),
+    no_data: t('status.no_data', '无数据'),
+    standby: t('status.standby', '待机'),
+  };
 
   const [overview,  setOverview]  = useState<any>(null);
   const [systems,   setSystems]   = useState<any[]>([]);
@@ -122,18 +129,20 @@ export default function HouseDetailPage() {
 
   // 主要4个环境指标
   const envMetrics = [
-    { code: '2001', title: '舍内温度', unit: '℃' },
-    { code: '2083', title: '相对湿度', unit: '%'  },
-    { code: '2002', title: 'CO₂浓度', unit: 'ppm'},
-    { code: '2003', title: '氨气浓度', unit: 'ppm'},
+    { code: '2001', title: t('ui.舍内温度', '舍内温度'), unit: '℃' },
+    { code: '2083', title: t('ui.相对湿度', '相对湿度'), unit: '%'  },
+    { code: '2002', title: t('ui.CO₂浓度', 'CO₂浓度'), unit: 'ppm'},
+    { code: '2003', title: t('ui.氨气浓度', '氨气浓度'), unit: 'ppm'},
   ];
 
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title={`${houseCode} — 鸡舍实时监控`}
-        subtitle={overview?.header?.houseName ? `${overview.header.houseName} · 批次 ${overview.header.flockNo || '暂无'}` : '正在加载...'}
-        breadcrumb={['养殖管理', '设备监控总览', houseCode]}
+        title={`${houseCode} — ${t('ui.鸡舍实时监控', '鸡舍实时监控')}`}
+        subtitle={overview?.header?.houseName
+          ? `${overview.header.houseName} · ${t('ui.批次', '批次')} ${overview.header.flockNo || t('common.none', '暂无')}`
+          : t('common.loading', '正在加载...')}
+        breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.设备监控总览', '设备监控总览'), houseCode]}
         actions={
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)', cursor: 'pointer' }}>
@@ -141,14 +150,14 @@ export default function HouseDetailPage() {
                 <input type="checkbox" className={s.toggleInput} checked={autoRef} onChange={e => setAutoRef(e.target.checked)}/>
                 <span className={s.toggleTrack}/>
               </span>
-              自动刷新
+              {t('ui.自动刷新', '自动刷新')}
             </label>
             {lastUpdate && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}><Clock size={10} style={{ marginRight: 2 }}/>{lastUpdate}</span>}
             <button type="button" className={s.btnSecondary} onClick={load} disabled={loading}>
-              <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}/> 刷新
+              <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}/> {t('common.refresh', '刷新')}
             </button>
             <button type="button" className={s.btnSecondary} onClick={() => router.back()}>
-              <ArrowLeft size={13}/> 返回总览
+              <ArrowLeft size={13}/> {t('ui.返回总览', '返回总览')}
             </button>
           </div>
         }
@@ -161,7 +170,7 @@ export default function HouseDetailPage() {
           border: '1px solid color-mix(in srgb,var(--status-danger) 40%,transparent)',
           borderRadius: 'var(--radius-md)', color: 'var(--status-danger)', fontSize: 13, fontWeight: 600 }}>
           <AlertTriangle size={16}/>
-          当前有 {alarms.length} 个活跃告警，请及时处理！
+          {t('ui.当前有', '当前有')} {alarms.length} {t('ui.个活跃告警请及时处理', '个活跃告警，请及时处理！')}
           <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: 'var(--text-secondary)' }}>
             {alarms.map((a: any) => a.alarmName).slice(0, 3).join(' · ')}{alarms.length > 3 ? ' ...' : ''}
           </span>
@@ -169,7 +178,7 @@ export default function HouseDetailPage() {
       )}
 
       {/* ── 实时环境指标（4大卡片）── */}
-      <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 12 }}>📡 实时环境</h3>
+      <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 12 }}>📡 {t('ui.实时环境', '实时环境')}</h3>
       {loading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 14, marginBottom: 24 }}>
           {[1,2,3,4].map(i => <div key={i} className={s.shimmer} style={{ height: 110, borderRadius: 'var(--radius-lg)' }}/>)}
@@ -182,6 +191,7 @@ export default function HouseDetailPage() {
               <MetricCard key={m.code} title={m.title}
                 value={kpi?.value ?? null} unit={m.unit}
                 status={kpi?.status || 'no_data'}
+                statusLabel={STATUS_LABEL[kpi?.status || 'no_data'] || kpi?.status || 'no_data'}
                 trend={trends[m.code]}
               />
             );
@@ -192,11 +202,11 @@ export default function HouseDetailPage() {
       {/* ── 耗料 & 饮水 ── */}
       {(getKpi('2488') || getKpi('2484')) && (
         <>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 12 }}>⚙️ 今日生产数据</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 12 }}>⚙️ {t('ui.今日生产数据', '今日生产数据')}</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14, marginBottom: 24 }}>
             {[
-              { code: '2488', title: '今日耗料', unit: 'kg', color: '#f59e0b' },
-              { code: '2484', title: '今日饮水', unit: 'T',  color: '#22c55e' },
+              { code: '2488', title: t('ui.今日耗料', '今日耗料'), unit: 'kg', color: '#f59e0b' },
+              { code: '2484', title: t('ui.今日饮水', '今日饮水'), unit: 'T',  color: '#22c55e' },
             ].map(m => {
               const kpi = getKpi(m.code);
               if (!kpi) return null;
@@ -216,7 +226,7 @@ export default function HouseDetailPage() {
       )}
 
       {/* ── 5大系统状态 ── */}
-      <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 12 }}>🛠 系统运行状态</h3>
+      <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 12 }}>🛠 {t('ui.系统运行状态', '系统运行状态')}</h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12, marginBottom: 24 }}>
         {loading ? [1,2,3,4,5].map(i => (
           <div key={i} className={s.shimmer} style={{ height: 100, borderRadius: 'var(--radius-md)' }}/>
@@ -235,7 +245,7 @@ export default function HouseDetailPage() {
                   background: `${color}20`, color }}>{STATUS_LABEL[sys.status] || sys.status}</span>
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                传感器 {sys.sensorCount || 0} 个 · 告警 {sys.alarmCount || 0} 项
+                {t('ui.传感器', '传感器')} {sys.sensorCount || 0} {t('ui.个', '个')} · {t('ui.告警', '告警')} {sys.alarmCount || 0} {t('ui.项', '项')}
               </div>
               {sys.onlineRate != null && (
                 <div style={{ marginTop: 8, height: 4, background: 'var(--bg-muted)', borderRadius: 2 }}>
@@ -257,7 +267,7 @@ export default function HouseDetailPage() {
           <div style={{ gridColumn: '1/-1', padding: 32, textAlign: 'center',
             color: 'var(--text-secondary)', background: 'var(--bg-card)',
             border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-            <Wind size={28} style={{ marginBottom: 8, opacity: 0.4 }}/><br/>暂无系统数据
+            <Wind size={28} style={{ marginBottom: 8, opacity: 0.4 }}/><br/>{t('common.noData', '暂无系统数据')}
           </div>
         )}
       </div>
@@ -266,12 +276,19 @@ export default function HouseDetailPage() {
       {alarms.length > 0 && (
         <>
           <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--status-danger)', marginBottom: 12 }}>
-            <AlertTriangle size={14} style={{ marginRight: 6, verticalAlign: 'middle' }}/>活跃告警明细
+            <AlertTriangle size={14} style={{ marginRight: 6, verticalAlign: 'middle' }}/>{t('ui.活跃告警明细', '活跃告警明细')}
           </h3>
           <div className={s.card} style={{ marginBottom: 24, overflow: 'hidden' }}>
             <table className={s.table}>
               <thead>
-                <tr>{['系统','告警项目','当前值','阈值','触发时间','状态'].map(h => <th key={h}>{h}</th>)}</tr>
+                <tr>{[
+                  t('ui.系统', '系统'),
+                  t('ui.告警项目', '告警项目'),
+                  t('ui.当前值', '当前值'),
+                  t('ui.阈值', '阈值'),
+                  t('ui.触发时间', '触发时间'),
+                  t('common.status', '状态'),
+                ].map(h => <th key={h}>{h}</th>)}</tr>
               </thead>
               <tbody>
                 {alarms.map((a: any) => (
@@ -290,7 +307,9 @@ export default function HouseDetailPage() {
                     </td>
                     <td>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
-                        background: '#fef2f2', color: 'var(--status-danger)', border: '1px solid #fca5a5' }}>告警中</span>
+                        background: '#fef2f2', color: 'var(--status-danger)', border: '1px solid #fca5a5' }}>
+                        {t('status.alarming', '告警中')}
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -303,11 +322,17 @@ export default function HouseDetailPage() {
       {/* ── 全部传感器读数 ── */}
       {kpis.length > 0 && (
         <>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 12 }}>📊 传感器读数一览</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 12 }}>📊 {t('ui.传感器读数一览', '传感器读数一览')}</h3>
           <div className={s.card} style={{ marginBottom: 24, overflow: 'hidden' }}>
             <table className={s.table}>
               <thead>
-                <tr>{['传感器名称','当前值','单位','状态','数据新鲜度'].map(h => <th key={h}>{h}</th>)}</tr>
+                <tr>{[
+                  t('ui.传感器名称', '传感器名称'),
+                  t('ui.当前值', '当前值'),
+                  t('ui.单位', '单位'),
+                  t('common.status', '状态'),
+                  t('ui.数据新鲜度', '数据新鲜度'),
+                ].map(h => <th key={h}>{h}</th>)}</tr>
               </thead>
               <tbody>
                 {kpis.map((k: any) => {
@@ -322,8 +347,8 @@ export default function HouseDetailPage() {
                           background: `${color}20`, color }}>{STATUS_LABEL[k.status] || k.status}</span>
                       </td>
                       <td style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                        {overview?.dataFreshness === 'normal' ? '✅ 实时' :
-                         overview?.dataFreshness === 'delayed' ? '⚠️ 延迟' : '❌ 陈旧'}
+                        {overview?.dataFreshness === 'normal'  ? `✅ ${t('ui.实时', '实时')}` :
+                         overview?.dataFreshness === 'delayed' ? `⚠️ ${t('ui.延迟', '延迟')}` : `❌ ${t('ui.陈旧', '陈旧')}`}
                       </td>
                     </tr>
                   );
@@ -337,19 +362,19 @@ export default function HouseDetailPage() {
       {/* ── 历史趋势小图 ── */}
       {Object.keys(trends).length > 0 && (
         <>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 12 }}>📈 过去24小时趋势</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 12 }}>📈 {t('ui.过去24小时趋势', '过去24小时趋势')}</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 14, marginBottom: 24 }}>
             {envMetrics.filter(m => trends[m.code]?.length > 1).map(m => (
               <div key={m.code} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)',
                 borderRadius: 'var(--radius-lg)', padding: '16px 20px' }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 12 }}>
-                  {m.title}（最近 {trends[m.code].length} 个采样点）
+                  {m.title}（{t('ui.最近', '最近')} {trends[m.code].length} {t('ui.个采样点', '个采样点')}）
                 </div>
                 <MiniChart points={trends[m.code]} color={STATUS_COLOR[getKpi(m.code)?.status || 'no_data']}/>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 11, color: 'var(--text-secondary)' }}>
-                  <span>最低 {Math.min(...trends[m.code]).toFixed(1)} {m.unit}</span>
-                  <span>最高 {Math.max(...trends[m.code]).toFixed(1)} {m.unit}</span>
-                  <span>均值 {(trends[m.code].reduce((a,b)=>a+b,0)/trends[m.code].length).toFixed(1)} {m.unit}</span>
+                  <span>{t('ui.最低', '最低')} {Math.min(...trends[m.code]).toFixed(1)} {m.unit}</span>
+                  <span>{t('ui.最高', '最高')} {Math.max(...trends[m.code]).toFixed(1)} {m.unit}</span>
+                  <span>{t('ui.均值', '均值')} {(trends[m.code].reduce((a,b)=>a+b,0)/trends[m.code].length).toFixed(1)} {m.unit}</span>
                 </div>
               </div>
             ))}
@@ -362,8 +387,8 @@ export default function HouseDetailPage() {
         <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-secondary)',
           background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
           <Activity size={36} style={{ marginBottom: 12, opacity: 0.35 }}/>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>鸡舍 {houseCode} 暂无设备数据</div>
-          <div style={{ fontSize: 13 }}>该鸡舍可能未完成设备映射，请前往「运维管理」配置</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>{t('ui.鸡舍', '鸡舍')} {houseCode} {t('common.noData', '暂无设备数据')}</div>
+          <div style={{ fontSize: 13 }}>{t('ui.该鸡舍可能未完成设备映射请前往运维管理配置', '该鸡舍可能未完成设备映射，请前往「运维管理」配置')}</div>
         </div>
       )}
     </div>
