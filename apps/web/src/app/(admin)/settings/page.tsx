@@ -6,59 +6,61 @@ import {
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
-
-const SETTINGS_GROUPS = [
-  {
-    title: "基础管理",
-    color: "#3b82f6",
-    items: [
-      { path:"/settings/profile",      icon:<User size={20}/>,         title:"个人中心",     desc:"修改个人资料与登录密码" },
-      { path:"/settings/users",        icon:<User size={20}/>,         title:"用户管理",     desc:"新增、冻结与调配系统账号" },
-      { path:"/settings/roles",        icon:<Shield size={20}/>,       title:"角色权限",     desc:"配置角色及菜单访问权限" },
-      { path:"/settings/organizations",icon:<Globe size={20}/>,        title:"组织架构",     desc:"公司·部门·员工层级管理" },
-    ],
-  },
-  {
-    title: "主数据与业务配置",
-    color: "#10b981",
-    items: [
-      { path:"/settings/products",     icon:<Package size={20}/>,      title:"商品档案",     desc:"鲜蛋品级·规格·SKU双语维护" },
-      { path:"/settings/dict",         icon:<Database size={20}/>,     title:"数据字典",     desc:"枚举值·单位·税率基础参数" },
-      { path:"/settings/master-data",  icon:<FileText size={20}/>,     title:"主数据配置",   desc:"物料·供应商基础数据同步" },
-      { path:"/settings/store-stock",  icon:<ClipboardList size={20}/>,title:"门店库存配置", desc:"门店 SKU 分配与安全库存" },
-    ],
-  },
-  {
-    title: "系统与安全",
-    color: "#8b5cf6",
-    items: [
-      { path:"/settings/security",     icon:<Lock size={20}/>,         title:"安全策略",     desc:"登录限制·会话超时·日志" },
-      { path:"/settings/audit-log",    icon:<Activity size={20}/>,     title:"审计日志",     desc:"全量操作日志追踪查询" },
-      { path:"/settings/approval-flows",icon:<GitMerge size={20}/>,   title:"审批流配置",   desc:"单据金额阈值与审批角色链" },
-      { path:"/settings/permissions",  icon:<Shield size={20}/>,       title:"权限管理",     desc:"细粒度功能权限控制" },
-    ],
-  },
-  {
-    title: "终端与初始化",
-    color: "#f59e0b",
-    items: [
-      { path:"/settings/pos-config",   icon:<Smartphone size={20}/>,   title:"POS 终端",     desc:"门店收银设备参数配置" },
-      { path:"/settings/pda-terminals",icon:<Smartphone size={20}/>,   title:"PDA 终端",     desc:"工业 PDA 设备注册管理" },
-      { path:"/settings/brand",        icon:<Settings size={20}/>,     title:"品牌设置",     desc:"系统名称·Logo·主题色" },
-      { path:"/settings/system-init",  icon:<Database size={20}/>,     title:"系统初始化",   desc:"⚠️ 超管专用：初始化基础数据" },
-    ],
-  },
-];
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function SettingsPage() {
   const router = useRouter();
+  const { t } = useLanguage();
+
+  const SETTINGS_GROUPS = [
+    {
+      title: t('ui.基础管理', '基础管理'),
+      color: "#3b82f6",
+      items: [
+        { path:"/settings/profile",      icon:<User size={20}/>,         title:t('ui.个人中心', '个人中心'),     desc:t('ui.修改个人资料与登录密码', '修改个人资料与登录密码') },
+        { path:"/settings/users",        icon:<User size={20}/>,         title:t('ui.用户管理', '用户管理'),     desc:t('ui.新增冻结与调配系统账号', '新增、冻结与调配系统账号') },
+        { path:"/settings/roles",        icon:<Shield size={20}/>,       title:t('ui.角色权限', '角色权限'),     desc:t('ui.配置角色及菜单访问权限', '配置角色及菜单访问权限') },
+        { path:"/settings/organizations",icon:<Globe size={20}/>,        title:t('ui.组织架构', '组织架构'),     desc:t('ui.公司部门员工层级管理', '公司·部门·员工层级管理') },
+      ],
+    },
+    {
+      title: t('ui.主数据与业务配置', '主数据与业务配置'),
+      color: "#10b981",
+      items: [
+        { path:"/settings/products",     icon:<Package size={20}/>,      title:t('ui.商品档案', '商品档案'),     desc:t('ui.鲜蛋品级规格SKU双语维护', '鲜蛋品级·规格·SKU双语维护') },
+        { path:"/settings/dict",         icon:<Database size={20}/>,     title:t('ui.数据字典', '数据字典'),     desc:t('ui.枚举值单位税率基础参数', '枚举值·单位·税率基础参数') },
+        { path:"/settings/master-data",  icon:<FileText size={20}/>,     title:t('ui.主数据配置', '主数据配置'),   desc:t('ui.物料供应商基础数据同步', '物料·供应商基础数据同步') },
+        { path:"/settings/store-stock",  icon:<ClipboardList size={20}/>,title:t('ui.门店库存配置', '门店库存配置'), desc:t('ui.门店SKU分配与安全库存', '门店 SKU 分配与安全库存') },
+      ],
+    },
+    {
+      title: t('ui.系统与安全', '系统与安全'),
+      color: "#8b5cf6",
+      items: [
+        { path:"/settings/security",     icon:<Lock size={20}/>,         title:t('ui.安全策略', '安全策略'),     desc:t('ui.登录限制会话超时日志', '登录限制·会话超时·日志') },
+        { path:"/settings/audit-log",    icon:<Activity size={20}/>,     title:t('ui.审计日志', '审计日志'),     desc:t('ui.全量操作日志追踪查询', '全量操作日志追踪查询') },
+        { path:"/settings/approval-flows",icon:<GitMerge size={20}/>,   title:t('ui.审批流配置', '审批流配置'),   desc:t('ui.单据金额阈值与审批角色链', '单据金额阈值与审批角色链') },
+        { path:"/settings/permissions",  icon:<Shield size={20}/>,       title:t('ui.权限管理', '权限管理'),     desc:t('ui.细粒度功能权限控制', '细粒度功能权限控制') },
+      ],
+    },
+    {
+      title: t('ui.终端与初始化', '终端与初始化'),
+      color: "#f59e0b",
+      items: [
+        { path:"/settings/pos-config",   icon:<Smartphone size={20}/>,   title:t('ui.POS终端', 'POS 终端'),     desc:t('ui.门店收银设备参数配置', '门店收银设备参数配置') },
+        { path:"/settings/pda-terminals",icon:<Smartphone size={20}/>,   title:t('ui.PDA终端', 'PDA 终端'),     desc:t('ui.工业PDA设备注册管理', '工业 PDA 设备注册管理') },
+        { path:"/settings/brand",        icon:<Settings size={20}/>,     title:t('ui.品牌设置', '品牌设置'),     desc:t('ui.系统名称Logo主题色', '系统名称·Logo·主题色') },
+        { path:"/settings/system-init",  icon:<Database size={20}/>,     title:t('ui.系统初始化', '系统初始化'),   desc:t('ui.超管专用初始化基础数据', '⚠️ 超管专用：初始化基础数据') },
+      ],
+    },
+  ];
 
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="系统设置"
-        subtitle="用户·角色·数据字典·安全策略·终端管理"
-        breadcrumb={["系统设置"]}
+        title={t('ui.系统设置', '系统设置')}
+        subtitle={t('ui.用户角色数据字典安全策略终端管理', '用户·角色·数据字典·安全策略·终端管理')}
+        breadcrumb={[t('ui.系统设置', '系统设置')]}
       />
 
       <div style={{ display:"flex", flexDirection:"column", gap:28 }}>

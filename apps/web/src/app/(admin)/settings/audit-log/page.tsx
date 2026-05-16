@@ -2,33 +2,12 @@
 import { useEffect, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
 import { History, User, Clock, RefreshCw, Search, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const tok = () => (typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : "");
 const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${tok()}` });
 
 const PAGE_SIZE = 50;
-
-const ACTION_META: Record<string, { label: string; color: string; bg: string }> = {
-  APPROVED:  { label: "已审批", color: "#16a34a", bg: "#dcfce7" },
-  REJECTED:  { label: "已驳回", color: "#dc2626", bg: "#fee2e2" },
-  SUBMIT:    { label: "已提交", color: "#2563eb", bg: "#dbeafe" },
-  CANCELLED: { label: "已撤回", color: "#d97706", bg: "#fef3c7" },
-  CREATE:    { label: "新建",   color: "#7c3aed", bg: "#ede9fe" },
-  UPDATE:    { label: "修改",   color: "#0891b2", bg: "#cffafe" },
-  DELETE:    { label: "删除",   color: "#dc2626", bg: "#fee2e2" },
-  LOGIN:     { label: "登录",   color: "#16a34a", bg: "#dcfce7" },
-};
-
-const DOC_TYPE_MAP: Record<string, string> = {
-  ORDER:       "销售订单",   PURCHASE:    "采购单",
-  INBOUND:     "入库单",     OUTBOUND:    "出库单",
-  GRADING:     "分级任务",   BATCH:       "包装批次",
-  USER:        "用户账号",   ROLE:        "角色权限",
-  DICT:        "数据字典",   ORG:         "组织架构",
-  PRODUCT:     "商品主数据", TRANSFER:    "调拨单",
-  STOCKTAKE:   "盘点单",     CREDIT:      "信用台账",
-  RECEIVABLE:  "应收账款",   PAYABLE:     "应付账款",
-};
 
 interface LogItem {
   id: number; doc_type: string; doc_id: number;
@@ -38,6 +17,30 @@ interface LogItem {
 }
 
 export default function AuditLogPage() {
+  const { t } = useLanguage();
+
+  const ACTION_META: Record<string, { label: string; color: string; bg: string }> = {
+    APPROVED:  { label: t('status.approved', '已审批'), color: "#16a34a", bg: "#dcfce7" },
+    REJECTED:  { label: t('status.rejected', '已驳回'), color: "#dc2626", bg: "#fee2e2" },
+    SUBMIT:    { label: t('ui.已提交', '已提交'), color: "#2563eb", bg: "#dbeafe" },
+    CANCELLED: { label: t('status.cancelled', '已撤回'), color: "#d97706", bg: "#fef3c7" },
+    CREATE:    { label: t('ui.新建', '新建'),   color: "#7c3aed", bg: "#ede9fe" },
+    UPDATE:    { label: t('ui.修改', '修改'),   color: "#0891b2", bg: "#cffafe" },
+    DELETE:    { label: t('common.delete', '删除'),   color: "#dc2626", bg: "#fee2e2" },
+    LOGIN:     { label: t('ui.登录', '登录'),   color: "#16a34a", bg: "#dcfce7" },
+  };
+
+  const DOC_TYPE_MAP: Record<string, string> = {
+    ORDER:       t('ui.销售订单', '销售订单'),   PURCHASE:    t('ui.采购单', '采购单'),
+    INBOUND:     t('ui.入库单', '入库单'),     OUTBOUND:    t('ui.出库单', '出库单'),
+    GRADING:     t('ui.分级任务', '分级任务'),   BATCH:       t('ui.包装批次', '包装批次'),
+    USER:        t('ui.用户账号', '用户账号'),   ROLE:        t('ui.角色权限', '角色权限'),
+    DICT:        t('ui.数据字典', '数据字典'),   ORG:         t('ui.组织架构', '组织架构'),
+    PRODUCT:     t('ui.商品主数据', '商品主数据'), TRANSFER:    t('ui.调拨单', '调拨单'),
+    STOCKTAKE:   t('ui.盘点单', '盘点单'),     CREDIT:      t('ui.信用台账', '信用台账'),
+    RECEIVABLE:  t('ui.应收账款', '应收账款'),   PAYABLE:     t('ui.应付账款', '应付账款'),
+  };
+
   const [logs,      setLogs]      = useState<LogItem[]>([]);
   const [total,     setTotal]     = useState(0);
   const [page,      setPage]      = useState(1);
@@ -77,16 +80,16 @@ export default function AuditLogPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="审计日志"
-        subtitle="系统操作轨迹与审批行为全量记录，支持按操作类型、日期范围查询"
-        breadcrumb={["系统设置", "审计日志"]}
+        title={t('ui.审计日志', '审计日志')}
+        subtitle={t('ui.系统操作轨迹与审批行为全量记录支持按操作类型日期范围查询', '系统操作轨迹与审批行为全量记录，支持按操作类型、日期范围查询')}
+        breadcrumb={[t('ui.系统设置', '系统设置'), t('ui.审计日志', '审计日志')]}
         actions={
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" onClick={() => load(page)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}>
-              <RefreshCw size={13}/> 刷新
+              <RefreshCw size={13}/> {t('common.refresh', '刷新')}
             </button>
-            <button type="button" onClick={() => alert("导出功能开发中")} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", cursor: "pointer", fontSize: 13, color: "var(--text-secondary)" }}>
-              <Download size={13}/> 导出
+            <button type="button" onClick={() => alert(t('ui.导出功能开发中', '导出功能开发中'))} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", cursor: "pointer", fontSize: 13, color: "var(--text-secondary)" }}>
+              <Download size={13}/> {t('common.export', '导出')}
             </button>
           </div>
         }
@@ -95,31 +98,31 @@ export default function AuditLogPage() {
       {/* 搜索与筛选栏 */}
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "16px 20px", marginBottom: 16, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
         <div style={{ flex: 1, minWidth: 180 }}>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>关键词搜索</label>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>{t('ui.关键词搜索', '关键词搜索')}</label>
           <div style={{ position: "relative" }}>
             <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" }}/>
             <input value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSearch()}
-              placeholder="单据类型 / 操作人…"
+              placeholder={t('ui.单据类型操作人', '单据类型 / 操作人…')}
               style={{ width: "100%", padding: "8px 10px 8px 30px", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13, background: "var(--bg-page)", color: "var(--text-primary)", boxSizing: "border-box" }}/>
           </div>
         </div>
         <div style={{ minWidth: 140 }}>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>开始日期</label>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>{t('ui.开始日期', '开始日期')}</label>
           <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
             style={{ padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13, background: "var(--bg-page)", color: "var(--text-primary)", width: "100%" }}/>
         </div>
         <div style={{ minWidth: 140 }}>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>结束日期</label>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>{t('ui.结束日期', '结束日期')}</label>
           <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
             style={{ padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13, background: "var(--bg-page)", color: "var(--text-primary)", width: "100%" }}/>
         </div>
         <button onClick={handleSearch} style={{ padding: "8px 20px", background: "var(--color-primary)", color: "white", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", height: 36 }}>
-          查询
+          {t('common.search', '查询')}
         </button>
         {(search || dateFrom || dateTo) && (
           <button onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); setTimeout(() => load(1), 0); }}
             style={{ padding: "8px 14px", border: "1px solid var(--border)", background: "var(--bg-page)", borderRadius: 8, fontSize: 13, cursor: "pointer", color: "var(--text-secondary)", height: 36 }}>
-            重置
+            {t('ui.重置', '重置')}
           </button>
         )}
       </div>
@@ -127,7 +130,7 @@ export default function AuditLogPage() {
       {/* 操作类型 Tab */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <button onClick={() => setActionFilter("ALL")} style={{ padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "1.5px solid", background: actionFilter === "ALL" ? "var(--color-primary)" : "var(--bg-card)", color: actionFilter === "ALL" ? "white" : "var(--text-secondary)", borderColor: actionFilter === "ALL" ? "var(--color-primary)" : "var(--border)" }}>
-          全部
+          {t('ui.全部', '全部')}
         </button>
         {Object.entries(ACTION_META).map(([k, m]) => (
           <button key={k} onClick={() => setActionFilter(k)} style={{ padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: `1.5px solid ${actionFilter === k ? m.color : "var(--border)"}`, background: actionFilter === k ? m.bg : "var(--bg-card)", color: actionFilter === k ? m.color : "var(--text-secondary)" }}>
@@ -138,18 +141,18 @@ export default function AuditLogPage() {
 
       {/* 日志表格 */}
       {loading ? (
-        <div style={{ padding: 60, textAlign: "center", color: "var(--text-secondary)" }}>加载中...</div>
+        <div style={{ padding: 60, textAlign: "center", color: "var(--text-secondary)" }}>{t('common.loading', '加载中...')}</div>
       ) : logs.length === 0 ? (
         <div style={{ padding: 60, textAlign: "center", color: "var(--text-secondary)", background: "var(--bg-card)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border)" }}>
           <History size={40} style={{ opacity: 0.2, display: "block", margin: "0 auto 12px" }}/>
-          暂无符合条件的审计记录
+          {t('ui.暂无符合条件的审计记录', '暂无符合条件的审计记录')}
         </div>
       ) : (
         <div style={{ background: "var(--bg-card)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border)", overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: "var(--bg-page)" }}>
-                {["操作类型", "单据类型", "单据号", "操作者", "备注", "时间"].map(h => (
+                {[t('ui.操作类型', '操作类型'), t('ui.单据类型', '单据类型'), t('ui.单据号', '单据号'), t('ui.操作者', '操作者'), t('common.remark', '备注'), t('ui.时间', '时间')].map(h => (
                   <th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-secondary)", fontWeight: 600, borderBottom: "1px solid var(--border)", fontSize: 12 }}>{h}</th>
                 ))}
               </tr>
@@ -196,19 +199,19 @@ export default function AuditLogPage() {
 
       {/* 分页 */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16 }}>
-        <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>共 {total} 条记录</span>
+        <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{t('common.total', '共')} {total} {t('ui.条记录', '条记录')}</span>
         {totalPages > 1 && (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button onClick={() => load(Math.max(1, page - 1))} disabled={page <= 1}
               style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-card)", cursor: page <= 1 ? "not-allowed" : "pointer", opacity: page <= 1 ? 0.4 : 1, display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
-              <ChevronLeft size={14}/> 上一页
+              <ChevronLeft size={14}/> {t('ui.上一页', '上一页')}
             </button>
             <span style={{ fontSize: 13, color: "var(--text-secondary)", padding: "0 8px" }}>
-              第 {page} / {totalPages} 页
+              {t('ui.第页共页', '第')} {page} / {totalPages} {t('ui.页', '页')}
             </span>
             <button onClick={() => load(page + 1)} disabled={page >= totalPages}
               style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-card)", cursor: page >= totalPages ? "not-allowed" : "pointer", opacity: page >= totalPages ? 0.4 : 1, display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
-              下一页 <ChevronRight size={14}/>
+              {t('ui.下一页', '下一页')} <ChevronRight size={14}/>
             </button>
           </div>
         )}

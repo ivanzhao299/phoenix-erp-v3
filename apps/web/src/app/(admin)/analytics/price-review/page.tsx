@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from "react";
 import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ✅ V3 表: ord_prices（合同价格表）
 // 价格执行复盘 = 对比 ord_prices（合同价）与 ord_order_items（实际成交价）
@@ -27,6 +28,7 @@ interface OrderItem {
 }
 
 export default function PriceReviewPage() {
+  const { t } = useLanguage();
   const [prices, setPrices]     = useState<PriceRecord[]>([]);
   const [items, setItems]       = useState<OrderItem[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -57,16 +59,16 @@ export default function PriceReviewPage() {
   return (
     <div>
       <PageHeader
-        title="价格执行复盘"
-        subtitle="对比实际成交价（ord_order_items）与合同价（ord_prices），识别低于底价的风险订单"
+        title={t('ui.价格执行复盘', '价格执行复盘')}
+        subtitle={t('ui.对比实际成交价与合同价', '对比实际成交价（ord_order_items）与合同价（ord_prices），识别低于底价的风险订单')}
       />
 
       {/* KPI 摘要 */}
       <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
         {[
-          { label: "合同价档位", value: prices.length,        color: "#3b82f6" },
-          { label: "分析订单行", value: review.length,        color: "#22c55e" },
-          { label: "低于底价",   value: belowFloorCount,      color: belowFloorCount > 0 ? "#ef4444" : "#22c55e" },
+          { label: t('ui.合同价档位', '合同价档位'), value: prices.length,        color: "#3b82f6" },
+          { label: t('ui.分析订单行', '分析订单行'), value: review.length,        color: "#22c55e" },
+          { label: t('ui.低于底价', '低于底价'),   value: belowFloorCount,      color: belowFloorCount > 0 ? "#ef4444" : "#22c55e" },
         ].map(k => (
           <div key={k.label} style={{
             background: "var(--bg-surface)", border: "1px solid var(--bg-surface)",
@@ -83,16 +85,16 @@ export default function PriceReviewPage() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid var(--bg-surface)" }}>
-              {["订单号","品级编码","实际单价","合同单价","底价","差额","状态"].map(h => (
+              {[t('ui.订单号', '订单号'), t('ui.品级编码', '品级编码'), t('ui.实际单价', '实际单价'), t('ui.合同单价', '合同单价'), t('ui.底价', '底价'), t('ui.差额', '差额'), t('common.status', '状态')].map(h => (
                 <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 600 }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>加载中...</td></tr>
+              <tr><td colSpan={7} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>{t('common.loading', '加载中...')}</td></tr>
             ) : review.length === 0 ? (
-              <tr><td colSpan={7} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>暂无可对比数据（需先维护合同价档位）</td></tr>
+              <tr><td colSpan={7} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>{t('ui.暂无可对比数据', '暂无可对比数据（需先维护合同价档位）')}</td></tr>
             ) : review.map((r, i) => (
               <tr key={i} style={{ borderBottom: "1px solid var(--bg-surface)", background: r!.belowFloor ? "rgba(239,68,68,0.06)" : "transparent" }}>
                 <td style={{ padding: "10px 16px", fontSize: "0.85rem" }}>{r!.order_no}</td>
@@ -106,8 +108,8 @@ export default function PriceReviewPage() {
                 </td>
                 <td style={{ padding: "10px 16px" }}>
                   {r!.belowFloor
-                    ? <span style={{ fontSize: "0.72rem", background: "#ef4444", color: "#fff", padding: "2px 8px", borderRadius: 4, fontWeight: 700 }}>低于底价</span>
-                    : <span style={{ fontSize: "0.72rem", color: "#22c55e" }}>正常</span>}
+                    ? <span style={{ fontSize: "0.72rem", background: "#ef4444", color: "#fff", padding: "2px 8px", borderRadius: 4, fontWeight: 700 }}>{t('ui.低于底价', '低于底价')}</span>
+                    : <span style={{ fontSize: "0.72rem", color: "#22c55e" }}>{t('status.normal', '正常')}</span>}
                 </td>
               </tr>
             ))}

@@ -7,23 +7,26 @@ import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import s from "@/components/ui/admin-ui.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
+
 const STATUS_CLS: Record<string,string> = {"PENDING":s.badgeWarning, "APPROVED":s.badgeInfo, "DONE":s.badgeSuccess, "REJECTED":s.badgeDanger};
 
 
 // ✅ V3 表: store_replenish_req
 const TABLE = "store_replenish_req";
-const COLUMNS = [{ key: "store_code", title: "门店", width: 100 },
-    { key: "sku_code", title: "品级", width: 110 },
-    { key: "qty", title: "申请数量", width: 80 },
-    { key: "status", title: "状态", width: 90}];
-const FIELDS: FormField[] = [
-  { key: "store_code", label: "门店编码", type: "text", required: true },
-  { key: "sku_code", label: "品级编码", type: "text", required: true },
-  { key: "qty", label: "申请数量", type: "number", required: true },
-  { key: "remark", label: "备注", type: "textarea" },
-  { key: "status", label: "状态", type: "select", options: [{ label: "待处理", value: "PENDING"}, { label: "已审批", value: "APPROVED" }, { label: "已配送", value: "DELIVERED" }, { label: "已取消", value: "CANCELLED" }] },
-];
 export default function Page() {
+  const { t } = useLanguage();
+  const COLUMNS = [{ key: "store_code", title: t('ui.门店', '门店'), width: 100 },
+      { key: "sku_code", title: t('ui.品级', '品级'), width: 110 },
+      { key: "qty", title: t('ui.申请数量', '申请数量'), width: 80 },
+      { key: "status", title: t('common.status', '状态'), width: 90}];
+  const FIELDS: FormField[] = [
+    { key: "store_code", label: t('ui.门店编码', '门店编码'), type: "text", required: true },
+    { key: "sku_code", label: t('ui.品级编码', '品级编码'), type: "text", required: true },
+    { key: "qty", label: t('ui.申请数量', '申请数量'), type: "number", required: true },
+    { key: "remark", label: t('common.remark', '备注'), type: "textarea" },
+    { key: "status", label: t('common.status', '状态'), type: "select", options: [{ label: t('status.pending', '待处理'), value: "PENDING"}, { label: t('status.approved', '已审批'), value: "APPROVED" }, { label: t('ui.已配送', '已配送'), value: "DELIVERED" }, { label: t('status.cancelled', '已取消'), value: "CANCELLED" }] },
+  ];
   const [o,sO]=useState(false);const [e,sE]=useState<Record<string,unknown>|null>(null);
   const [sv,sSv]=useState(false);const [rk,sRk]=useState(0);
   const [co,sCo]=useState(false);const [dt,sDt]=useState<Record<string,unknown>|null>(null);
@@ -36,11 +39,11 @@ export default function Page() {
   const cDel=useCallback(async()=>{if(!dt?.id)return;await crudApi.delete(TABLE,dt.id as number);sCo(false);rf();},[dt,rf]);
   return(<div>
     <PageHeader
-        breadcrumb={["门店管理","补货申请"]} title="补货申请" subtitle="管理门店补货申请（表：store_replenish_req）" />
+        breadcrumb={[t('ui.门店管理', '门店管理'), t('ui.补货申请', '补货申请')]} title={t('ui.补货申请', '补货申请')} subtitle={t('ui.管理门店补货申请', '管理门店补货申请（表：store_replenish_req）')} />
     <DataTable table={TABLE} columns={COLUMNS as any} onNew={oN} onEdit={oE as any} onDelete={del as any} showActions refreshKey={rk} />
-    <RightDrawer open={o} title={e?"编辑补货申请":"新增补货申请"} onClose={cl}>
+    <RightDrawer open={o} title={e?t('ui.编辑补货申请', '编辑补货申请'):t('ui.新增补货申请', '新增补货申请')} onClose={cl}>
       <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
     </RightDrawer>
-    <ConfirmDialog open={co} title="确认删除" message="删除后不可恢复？" onConfirm={cDel} onCancel={()=>sCo(false)} />
+    <ConfirmDialog open={co} title={t('common.confirm', '确认删除')} message={t('ui.删除后不可恢复', '删除后不可恢复？')} onConfirm={cDel} onCancel={()=>sCo(false)} />
   </div>);
 }

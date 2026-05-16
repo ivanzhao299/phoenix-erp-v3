@@ -6,29 +6,32 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const TABLE = "inv_batches";
-const TITLE = "库存周转";
 
-const COLUMNS = [
-    { key: "batch_no", title: "批次号" },
-    { key: "sku_code", title: "品级" },
-    { key: "qty", title: "库存量" },
-    { key: "grading_date", title: "入库日期" },
-    { key: "house_code", title: "来源鸡舍" },
-    { key: "status", title: "状态" },
-];
+export default function InventoryAnalyticsPage() {
+  const { t } = useLanguage();
+  const TITLE = t('ui.库存周转', '库存周转');
 
-const FIELDS: FormField[] = [
-    { key: "batch_no", label: "批次号", type: "text", required: true },
-    { key: "sku_code", label: "品级", type: "text" },
-    { key: "qty", label: "数量", type: "number" },
-    { key: "grading_date", label: "分级日期", type: "date" },
-    { key: "house_code", label: "来源鸡舍", type: "text" },
-    { key: "status", label: "状态", type: "select", options: [{ label: "在库", value: "AVAILABLE" }, { label: "已锁定", value: "LOCKED" }, { label: "已出库", value: "OUTBOUND" }] },
-];
+  const COLUMNS = [
+      { key: "batch_no", title: t('ui.批次号', '批次号') },
+      { key: "sku_code", title: t('ui.品级', '品级') },
+      { key: "qty", title: t('ui.库存量', '库存量') },
+      { key: "grading_date", title: t('ui.入库日期', '入库日期') },
+      { key: "house_code", title: t('ui.来源鸡舍', '来源鸡舍') },
+      { key: "status", title: t('common.status', '状态') },
+  ];
 
-export default function 库存周转Page() {
+  const FIELDS: FormField[] = [
+      { key: "batch_no", label: t('ui.批次号', '批次号'), type: "text", required: true },
+      { key: "sku_code", label: t('ui.品级', '品级'), type: "text" },
+      { key: "qty", label: t('ui.数量', '数量'), type: "number" },
+      { key: "grading_date", label: t('ui.分级日期', '分级日期'), type: "date" },
+      { key: "house_code", label: t('ui.来源鸡舍', '来源鸡舍'), type: "text" },
+      { key: "status", label: t('common.status', '状态'), type: "select", options: [{ label: t('ui.在库', '在库'), value: "AVAILABLE" }, { label: t('ui.已锁定', '已锁定'), value: "LOCKED" }, { label: t('ui.已出库', '已出库'), value: "OUTBOUND" }] },
+  ];
+
   const [drawerOpen, setDrawerOpen]     = useState(false);
   const [editing, setEditing]           = useState<Record<string, unknown> | null>(null);
   const [saving, setSaving]             = useState(false);
@@ -71,7 +74,7 @@ export default function 库存周转Page() {
 
   return (
     <div>
-      <PageHeader title={TITLE} subtitle="分析库存批次周转率和积压情况（表：inv_batches）" />
+      <PageHeader title={TITLE} subtitle={t('ui.分析库存批次周转率', '分析库存批次周转率和积压情况（表：inv_batches）')} />
       <DataTable
         table={TABLE}
         columns={COLUMNS as any}
@@ -81,7 +84,7 @@ export default function 库存周转Page() {
         showActions
         refreshKey={refreshKey}
       />
-      <RightDrawer open={drawerOpen} title={editing ? `编辑${TITLE}` : `新增${TITLE}`} onClose={closeDrawer}>
+      <RightDrawer open={drawerOpen} title={editing ? `${t('common.edit', '编辑')}${TITLE}` : `${t('common.new', '新增')}${TITLE}`} onClose={closeDrawer}>
         <CrudForm
           fields={FIELDS}
           initialValues={editing ?? {}}
@@ -92,8 +95,8 @@ export default function 库存周转Page() {
       </RightDrawer>
       <ConfirmDialog
         open={confirmOpen}
-        title="确认删除"
-        message="删除后不可恢复，确认继续？"
+        title={t('common.confirm', '确认删除')}
+        message={t('ui.删除后不可恢复确认继续', '删除后不可恢复，确认继续？')}
         onConfirm={confirmDelete}
         onCancel={() => setConfirmOpen(false)}
       />
