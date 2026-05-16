@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface RightDrawerProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ interface RightDrawerProps {
 export default function RightDrawer({
   isOpen, onClose, title, children, width = '480px', footer,
 }: RightDrawerProps) {
+  const { t } = useLanguage();
   const savedScroll = useRef(0);
 
   useEffect(() => {
@@ -115,8 +117,8 @@ export default function RightDrawer({
           </h3>
           <button
             onClick={onClose}
-            title="关闭"
-            aria-label="关闭抽屉"
+            title={t('ui.关闭', '关闭')}
+            aria-label={t('ui.关闭抽屉', '关闭抽屉')}
             style={{
               width: 30, height: 30,
               display: 'flex', alignItems: 'center', justifyContent: 'center',

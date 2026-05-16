@@ -2,6 +2,7 @@
 import { useEffect, useRef, memo, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import styles from "./rightDrawer.module.css";
 
 interface RightDrawerProps {
@@ -19,6 +20,7 @@ interface RightDrawerProps {
 export const RightDrawer = memo(function RightDrawer({
   open, title, width = 520, onClose, children, footer,
 }: RightDrawerProps) {
+  const { t } = useLanguage();
   const drawerRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -75,7 +77,7 @@ export const RightDrawer = memo(function RightDrawer({
         {/* Header */}
         <div className={styles.header}>
           <h3 className={styles.title}>{title}</h3>
-          <button className={styles.closeBtn} onClick={onClose} title="关闭" aria-label="关闭抽屉">
+          <button className={styles.closeBtn} onClick={onClose} title={t('ui.关闭', '关闭')} aria-label={t('ui.关闭抽屉', '关闭抽屉')}>
             <X size={18} />
           </button>
         </div>

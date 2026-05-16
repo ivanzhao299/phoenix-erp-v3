@@ -4219,5 +4219,7 @@
   "terminal.logout": "Log out",
   "terminal.long_press_hint": "Click to toggle logout",
   "ui.不能为空": "is required",
-  "ui.共": "Total"
+  "ui.共": "Total",
+  "ui.关闭": "Close",
+  "ui.关闭抽屉": "Close drawer"
 }

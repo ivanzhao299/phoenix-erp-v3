@@ -2,6 +2,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const LIGHT_THEMES: Record<string, any> = {
   confirm: { headerBg:'linear-gradient(135deg,#1f6feb 0%,#6366f1 100%)', accentColor:'#1f6feb', confirmBg:'linear-gradient(135deg,#1f6feb 0%,#6366f1 100%)', confirmShadow:'rgba(31,111,235,0.35)', confirmColor:'#fff' },
@@ -33,11 +34,15 @@ interface PhoenixDialogProps {
   hideCancel?: boolean;
 }
 
-function PhoenixDialog({ isOpen, type='confirm', icon, title, subtitle, message, children, cancelLabel='取消', confirmLabel='确认', onCancel, onConfirm, hideCancel=false }: PhoenixDialogProps) {
+function PhoenixDialog({ isOpen, type='confirm', icon, title, subtitle, message, children, cancelLabel: _cancelLabel, confirmLabel: _confirmLabel, onCancel, onConfirm, hideCancel=false }: PhoenixDialogProps) {
+  const { t } = useLanguage();
+  const cancelLabel  = _cancelLabel  ?? t('common.cancel',  '取消');
+  const confirmLabel = _confirmLabel ?? t('common.confirm', '确认');
+
   if (!isOpen || typeof document === 'undefined') return null;
   const { themeMode } = useTheme() || { themeMode: 'light' };
   const isDark = themeMode === 'dark' || (themeMode === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  const t = isDark ? (DARK_THEMES[type] || DARK_THEMES.confirm) : (LIGHT_THEMES[type] || LIGHT_THEMES.confirm);
+  const themeVariant = isDark ? (DARK_THEMES[type] || DARK_THEMES.confirm) : (LIGHT_THEMES[type] || LIGHT_THEMES.confirm);
 
   const dialog = (
     <div onClick={e => { if (e.target === e.currentTarget && onCancel) onCancel(); }} style={{
@@ -50,20 +55,20 @@ function PhoenixDialog({ isOpen, type='confirm', icon, title, subtitle, message,
         boxShadow: isDark ? '0 32px 80px rgba(0,0,0,0.7),0 0 0 1px rgba(255,255,255,0.06)' : '0 32px 80px rgba(0,0,0,0.2),0 0 0 1px rgba(0,0,0,0.06)',
         overflow:'hidden', display:'flex', flexDirection:'column' }}>
         {/* Header */}
-        <div style={{ background:t.headerBg, borderLeft: isDark ? t.headerBorder : 'none', padding:'26px 32px 22px',
+        <div style={{ background:themeVariant.headerBg, borderLeft: isDark ? themeVariant.headerBorder : 'none', padding:'26px 32px 22px',
           display:'flex', alignItems:'flex-start', gap:'16px', flexShrink:0,
           borderBottom: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(255,255,255,0.2)' }}>
           {icon && (
             <span style={{ fontSize: isDark?'36px':'44px', lineHeight:1, flexShrink:0, marginTop:'2px',
               ...(isDark ? { width:'52px', height:'52px', display:'flex', alignItems:'center', justifyContent:'center',
-                backgroundColor:`color-mix(in srgb, ${t.accentColor} 18%, transparent)`,
-                borderRadius:'14px', border:`1px solid color-mix(in srgb, ${t.accentColor} 30%, transparent)` } : {}) }}>
+                backgroundColor:`color-mix(in srgb, ${themeVariant.accentColor} 18%, transparent)`,
+                borderRadius:'14px', border:`1px solid color-mix(in srgb, ${themeVariant.accentColor} 30%, transparent)` } : {}) }}>
               {icon}
             </span>
           )}
           <div style={{ paddingTop: icon && isDark ? '6px' : 0 }}>
-            <div style={{ fontSize:'20px', fontWeight:'800', color: isDark ? t.titleColor : '#fff', letterSpacing:'-0.3px', lineHeight:1.3 }}>{title}</div>
-            {subtitle && <div style={{ fontSize:'13px', color: isDark ? `color-mix(in srgb,${t.titleColor} 70%,transparent)` : 'rgba(255,255,255,0.82)', marginTop:'5px', lineHeight:1.5 }}>{subtitle}</div>}
+            <div style={{ fontSize:'20px', fontWeight:'800', color: isDark ? themeVariant.titleColor : '#fff', letterSpacing:'-0.3px', lineHeight:1.3 }}>{title}</div>
+            {subtitle && <div style={{ fontSize:'13px', color: isDark ? `color-mix(in srgb,${themeVariant.titleColor} 70%,transparent)` : 'rgba(255,255,255,0.82)', marginTop:'5px', lineHeight:1.5 }}>{subtitle}</div>}
           </div>
         </div>
         {/* Body */}
@@ -83,8 +88,8 @@ function PhoenixDialog({ isOpen, type='confirm', icon, title, subtitle, message,
             </button>
           )}
           <button onClick={onConfirm} style={{ flex: hideCancel ? 1 : 1.6, padding:'13px', fontSize:'14px', fontWeight:'700',
-            border:'none', borderRadius:'10px', background:t.confirmBg, color:t.confirmColor,
-            cursor:'pointer', boxShadow:`0 4px 16px ${t.confirmShadow}`, transition:'all 0.15s', letterSpacing:'0.2px' }}
+            border:'none', borderRadius:'10px', background:themeVariant.confirmBg, color:themeVariant.confirmColor,
+            cursor:'pointer', boxShadow:`0 4px 16px ${themeVariant.confirmShadow}`, transition:'all 0.15s', letterSpacing:'0.2px' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity='0.88'; (e.currentTarget as HTMLElement).style.transform='translateY(-1px)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity='1'; (e.currentTarget as HTMLElement).style.transform='translateY(0)'; }}>
             {confirmLabel}
