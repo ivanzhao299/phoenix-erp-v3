@@ -6,34 +6,49 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ✅ V3 表: log_exceptions
 // 实际字段: id, wave_no, store_code, type, description, severity, status
 const TABLE = "log_exceptions";
 
-const COLUMNS = [
-  { key: "wave_no",     title: "波次单号" },
-  { key: "store_code",  title: "门店编码" },
-  { key: "type",        title: "异常类型" },
-  { key: "severity",    title: "严重程度" },
-  { key: "status",      title: "处理状态" },
-  { key: "description", title: "描述" },
-];
-
-const FIELDS: FormField[] = [
-  { key: "wave_no",     label: "关联波次单号", type: "text",   required: true },
-  { key: "store_code",  label: "门店编码",     type: "text",   required: false },
-  { key: "type",        label: "异常类型",     type: "select", required: true,
-    options: [{ label: "短缺", value: "SHORTAGE" }, { label: "破损", value: "BREAKAGE" },
-              { label: "延误", value: "DELAY" },    { label: "其他", value: "OTHER" }] },
-  { key: "severity",    label: "严重程度",     type: "select", required: false,
-    options: [{ label: "低", value: "LOW" }, { label: "中", value: "MEDIUM" }, { label: "高", value: "HIGH" }] },
-  { key: "status",      label: "处理状态",     type: "select", required: false,
-    options: [{ label: "待处理", value: "OPEN" }, { label: "处理中", value: "IN_PROGRESS" }, { label: "已关闭", value: "CLOSED" }] },
-  { key: "description", label: "异常描述",     type: "textarea", required: false, span: 2 },
-];
-
 export default function LogExceptionsPage() {
+  const { t } = useLanguage();
+
+  const COLUMNS = [
+    { key: "wave_no",     title: t("ui.波次单号", "波次单号") },
+    { key: "store_code",  title: t("ui.门店编码", "门店编码") },
+    { key: "type",        title: t("ui.异常类型", "异常类型") },
+    { key: "severity",    title: t("ui.严重程度", "严重程度") },
+    { key: "status",      title: t("ui.处理状态", "处理状态") },
+    { key: "description", title: t("ui.描述", "描述") },
+  ];
+
+  const FIELDS: FormField[] = [
+    { key: "wave_no",     label: t("ui.关联波次单号", "关联波次单号"), type: "text",   required: true },
+    { key: "store_code",  label: t("ui.门店编码", "门店编码"),     type: "text",   required: false },
+    { key: "type",        label: t("ui.异常类型", "异常类型"),     type: "select", required: true,
+      options: [
+        { label: t("ui.短缺", "短缺"), value: "SHORTAGE" },
+        { label: t("ui.破损", "破损"), value: "BREAKAGE" },
+        { label: t("ui.延误", "延误"), value: "DELAY"    },
+        { label: t("ui.其他", "其他"), value: "OTHER"    },
+      ] },
+    { key: "severity",    label: t("ui.严重程度", "严重程度"),     type: "select", required: false,
+      options: [
+        { label: t("ui.低", "低"), value: "LOW"    },
+        { label: t("ui.中", "中"), value: "MEDIUM" },
+        { label: t("ui.高", "高"), value: "HIGH"   },
+      ] },
+    { key: "status",      label: t("ui.处理状态", "处理状态"),     type: "select", required: false,
+      options: [
+        { label: t("status.pending", "待处理"),  value: "OPEN"        },
+        { label: t("ui.处理中", "处理中"),       value: "IN_PROGRESS" },
+        { label: t("ui.已关闭", "已关闭"),       value: "CLOSED"      },
+      ] },
+    { key: "description", label: t("ui.异常描述", "异常描述"),     type: "textarea", required: false, span: 2 },
+  ];
+
   const [drawerOpen, setDrawerOpen]     = useState(false);
   const [editing, setEditing]           = useState<Record<string, unknown> | null>(null);
   const [saving, setSaving]             = useState(false);
@@ -64,14 +79,14 @@ export default function LogExceptionsPage() {
 
   return (
     <div>
-      <PageHeader title="物流异常" subtitle="记录配送波次中的物流异常事件（表：log_exceptions）" />
+      <PageHeader title={t("ui.物流异常", "物流异常")} subtitle={t("ui.记录配送波次中的物流异常事件", "记录配送波次中的物流异常事件（表：log_exceptions）")} />
       <DataTable table={TABLE} columns={COLUMNS as any} onNew={openNew} onEdit={openEdit as any}
         onDelete={handleDelete as any} showActions refreshKey={refreshKey} />
-      <RightDrawer open={drawerOpen} title={editing ? "编辑异常记录" : "新增异常记录"} onClose={closeDrawer}>
+      <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑异常记录", "编辑异常记录") : t("ui.新增异常记录", "新增异常记录")} onClose={closeDrawer}>
         <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave}
           onCancel={closeDrawer} loading={saving} />
       </RightDrawer>
-      <ConfirmDialog open={confirmOpen} title="确认删除" message="删除后不可恢复，确认继续？"
+      <ConfirmDialog open={confirmOpen} title={t("common.confirm", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}
         onConfirm={confirmDelete} onCancel={() => setConfirmOpen(false)} />
     </div>
   );

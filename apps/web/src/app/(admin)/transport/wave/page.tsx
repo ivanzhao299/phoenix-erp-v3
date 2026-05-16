@@ -6,29 +6,37 @@ import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import PageHeader from "@/components/PageHeader";
 import { crudApi } from "@/lib/api-client";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const TABLE = "log_dispatch";
 type Row = Record<string, unknown>;
 
-const COLS: Column<Row>[] = [
-  { key: "wave_no",    title: "波次号",  width: 150 },
-  { key: "vehicle_no", title: "车牌号",  width: 110 },
-  { key: "driver_id",  title: "司机",    width: 90  },
-  { key: "plan_date",  title: "计划日期", width: 110 },
-  { key: "stores",     title: "门店列表", width: 200 },
-  { key: "status",     title: "状态",    width: 90, align: "center" as const },
-];
-const FIELDS: FormField[] = [
-  { key: "wave_no",    label: "波次号",   type: "text" as const, required: true },
-  { key: "vehicle_no", label: "车牌号",   type: "text" as const },
-  { key: "driver_id",  label: "司机编号", type: "text" as const },
-  { key: "plan_date",  label: "计划日期", type: "date" as const },
-  { key: "stores",     label: "门店列表(逗号分隔)", type: "textarea" as const, span: 2 as const },
-  { key: "status", label: "状态", type: "select" as const, defaultValue: "PENDING",
-    options: [{label:"待出发",value:"PENDING"},{label:"配送中",value:"IN_TRANSIT"},{label:"已完成",value:"COMPLETED"},{label:"已取消",value:"CANCELLED"}] },
-];
-
 export default function Page() {
+  const { t } = useLanguage();
+
+  const COLS: Column<Row>[] = [
+    { key: "wave_no",    title: t("ui.波次号", "波次号"),  width: 150 },
+    { key: "vehicle_no", title: t("ui.车牌号", "车牌号"),  width: 110 },
+    { key: "driver_id",  title: t("ui.司机", "司机"),    width: 90  },
+    { key: "plan_date",  title: t("common.date", "计划日期"), width: 110 },
+    { key: "stores",     title: t("ui.门店列表", "门店列表"), width: 200 },
+    { key: "status",     title: t("common.status", "状态"),    width: 90, align: "center" as const },
+  ];
+  const FIELDS: FormField[] = [
+    { key: "wave_no",    label: t("ui.波次号", "波次号"),   type: "text" as const, required: true },
+    { key: "vehicle_no", label: t("ui.车牌号", "车牌号"),   type: "text" as const },
+    { key: "driver_id",  label: t("ui.司机编号", "司机编号"), type: "text" as const },
+    { key: "plan_date",  label: t("common.date", "计划日期"), type: "date" as const },
+    { key: "stores",     label: t("ui.门店列表逗号分隔", "门店列表(逗号分隔)"), type: "textarea" as const, span: 2 as const },
+    { key: "status", label: t("common.status", "状态"), type: "select" as const, defaultValue: "PENDING",
+      options: [
+        { label: t("ui.待出发", "待出发"),  value: "PENDING"    },
+        { label: t("ui.配送中", "配送中"),  value: "IN_TRANSIT" },
+        { label: t("status.done", "已完成"), value: "COMPLETED"  },
+        { label: t("status.cancelled", "已取消"), value: "CANCELLED"  },
+      ] },
+  ];
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editRow, setEditRow]       = useState<Row | null>(null);
   const [deleteRow, setDeleteRow]   = useState<Row | null>(null);
@@ -57,7 +65,7 @@ export default function Page() {
 
   return (
     <div>
-      <PageHeader title="配送波次" subtitle="管理每次配送的车辆、司机和门店波次计划" />
+      <PageHeader title={t("ui.配送波次", "配送波次")} subtitle={t("ui.管理每次配送的车辆司机和门店波次计划", "管理每次配送的车辆、司机和门店波次计划")} />
       <DataTable<Row>
         table={TABLE}
         columns={COLS}
@@ -67,7 +75,7 @@ export default function Page() {
         onDelete={r => setDeleteRow(r)}
         refreshKey={refreshKey}
       />
-      <RightDrawer open={drawerOpen} title={editRow ? "编辑" : "新增"} onClose={close}>
+      <RightDrawer open={drawerOpen} title={editRow ? t("common.edit", "编辑") : t("common.new", "新增")} onClose={close}>
         <CrudForm
           fields={FIELDS}
           initialValues={(editRow as unknown as Record<string,unknown>) ?? undefined}
@@ -78,9 +86,9 @@ export default function Page() {
       </RightDrawer>
       <ConfirmDialog
         open={!!deleteRow}
-        title="确认删除"
-        message="确定删除该记录？"
-        confirmLabel="删除"
+        title={t("common.confirm", "确认删除")}
+        message={t("ui.确定删除该记录", "确定删除该记录？")}
+        confirmLabel={t("common.delete", "删除")}
         danger
         loading={deleting}
         onConfirm={handleDelete}

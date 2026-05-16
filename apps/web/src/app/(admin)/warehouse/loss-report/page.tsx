@@ -8,6 +8,7 @@ import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Plus, CheckCircle } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ✅ V3 报损管理页面 (对应 V2: LossReport.jsx)
 // 数据来源: wms_stocktake 表 (复用，loss_no 前缀区分)
@@ -21,31 +22,33 @@ const getRole = () => {
 };
 const isApprover = () => ["ROLE_ADMIN", "ROLE_WMS_MGR", "ROLE_FIN_CFO", "ROLE_FIN_ACCT"].includes(getRole());
 
-// ✅ 状态 → 全局 badge CSS 类
-const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
-  DRAFT:    { cls: s.badgeNeutral, label: "草稿"   },
-  DONE:     { cls: s.badgeWarning, label: "待审批" },
-  APPROVED: { cls: s.badgeSuccess, label: "已审批" },
-};
-
 type Row = Record<string, unknown>;
 
-const FIELDS: FormField[] = [
-  { key: "take_no",        label: "报损单号",   type: "text",   placeholder: "留空自动生成 LR-XXXXXX" },
-  { key: "warehouse_code", label: "对应批次/库区", type: "text", required: true },
-  { key: "zone_code",      label: "报损品目",   type: "text"   },
-  { key: "diff_qty",       label: "报损数量",   type: "number", required: true },
-  { key: "book_qty",       label: "损失估值(LAK)", type: "number" },
-  { key: "actual_qty",     label: "实盘账面量", type: "number" },
-  { key: "operator",       label: "报损人",     type: "text"   },
-  { key: "status", label: "状态", type: "select", options: [
-    { label: "草稿",   value: "DRAFT"    },
-    { label: "待审批", value: "DONE"     },
-    { label: "已审批", value: "APPROVED" },
-  ]},
-];
-
 export default function LossReportPage() {
+  const { t } = useLanguage();
+
+  // ✅ 状态 → 全局 badge CSS 类
+  const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
+    DRAFT:    { cls: s.badgeNeutral, label: t("ui.草稿", "草稿")   },
+    DONE:     { cls: s.badgeWarning, label: t("ui.待审批", "待审批") },
+    APPROVED: { cls: s.badgeSuccess, label: t("status.approved", "已审批") },
+  };
+
+  const FIELDS: FormField[] = [
+    { key: "take_no",        label: t("ui.报损单号", "报损单号"),   type: "text",   placeholder: t("ui.留空自动生成LR", "留空自动生成 LR-XXXXXX") },
+    { key: "warehouse_code", label: t("ui.对应批次库区", "对应批次/库区"), type: "text", required: true },
+    { key: "zone_code",      label: t("ui.报损品目", "报损品目"),   type: "text"   },
+    { key: "diff_qty",       label: t("ui.报损数量", "报损数量"),   type: "number", required: true },
+    { key: "book_qty",       label: t("ui.损失估值LAK", "损失估值(LAK)"), type: "number" },
+    { key: "actual_qty",     label: t("ui.实盘账面量", "实盘账面量"), type: "number" },
+    { key: "operator",       label: t("ui.报损人", "报损人"),     type: "text"   },
+    { key: "status", label: t("common.status", "状态"), type: "select", options: [
+      { label: t("ui.草稿", "草稿"),   value: "DRAFT"    },
+      { label: t("ui.待审批", "待审批"), value: "DONE"     },
+      { label: t("status.approved", "已审批"), value: "APPROVED" },
+    ]},
+  ];
+
   const [drawerOpen,    setDrawerOpen]    = useState(false);
   const [editing,       setEditing]       = useState<Row | null>(null);
   const [saving,        setSaving]        = useState(false);
@@ -101,30 +104,30 @@ export default function LossReportPage() {
   const totalLoss    = lossRows.reduce((s, r) => s + Math.abs(Number(r.diff_qty ?? 0)), 0);
 
   const COLUMNS: Column<Row>[] = [
-    { key: "take_no",        title: "报损单号",    width: 160 },
-    { key: "zone_code",      title: "报损品目",    width: 120 },
-    { key: "warehouse_code", title: "批次/库区",   width: 130 },
-    { key: "diff_qty",       title: "报损数量",    width: 90, align: "right",
+    { key: "take_no",        title: t("ui.报损单号", "报损单号"),    width: 160 },
+    { key: "zone_code",      title: t("ui.报损品目", "报损品目"),    width: 120 },
+    { key: "warehouse_code", title: t("ui.批次库区", "批次/库区"),   width: 130 },
+    { key: "diff_qty",       title: t("ui.报损数量", "报损数量"),    width: 90, align: "right",
       render: v => <b className={s.textDanger}>{String(v ?? 0)}</b> },
-    { key: "book_qty",       title: "损失估值(LAK)", width: 110, align: "right",
+    { key: "book_qty",       title: t("ui.损失估值LAK", "损失估值(LAK)"), width: 110, align: "right",
       render: v => <span className={s.textDanger} style={{ fontWeight: 700 }}>{v ? Number(v).toLocaleString() : "—"}</span> },
-    { key: "operator",       title: "报损人",      width: 90  },
-    { key: "status",         title: "状态",        width: 90, align: "center",
+    { key: "operator",       title: t("ui.报损人", "报损人"),      width: 90  },
+    { key: "status",         title: t("common.status", "状态"),        width: 90, align: "center",
       render: v => {
         const cfg = STATUS_BADGE[String(v)] ?? { cls: s.badgeNeutral, label: String(v ?? "—") };
         return <span className={`${s.badge} ${cfg.cls}`}>{cfg.label}</span>;
       }},
-    { key: "_actions",       title: "操作",        width: 140, align: "center",
+    { key: "_actions",       title: t("common.operation", "操作"),        width: 140, align: "center",
       render: (_, row) => (
         <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
           {isApprover() && row.status === "DONE" && (
             <button type="button" className={`${s.btnSuccess} ${s.btnSm}`} onClick={() => handleApprove(row)}>
-              <CheckCircle size={11} />审批
+              <CheckCircle size={11} />{t("ui.审批", "审批")}
             </button>
           )}
-          <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => openEdit(row)}>编辑</button>
+          <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>
           {isApprover() && (
-            <button type="button" className={`${s.btnDanger} ${s.btnSm}`} onClick={() => handleDelete(row)}>删除</button>
+            <button type="button" className={`${s.btnDanger} ${s.btnSm}`} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>
           )}
         </div>
       )
@@ -134,12 +137,12 @@ export default function LossReportPage() {
   return (
     <div>
       <PageHeader
-        title="报损管理"
-        subtitle="库存损耗记录与审批管理（表：wms_stocktake · LR- 前缀）"
-        breadcrumb={["仓储管理", "报损管理"]}
+        title={t("ui.报损管理", "报损管理")}
+        subtitle={t("ui.库存损耗记录与审批管理", "库存损耗记录与审批管理（表：wms_stocktake · LR- 前缀）")}
+        breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.报损管理", "报损管理")]}
         actions={
           <button type="button" className={s.btnPrimary} onClick={openNew}>
-            <Plus size={14} />新建报损单
+            <Plus size={14} />{t("ui.新建报损单", "新建报损单")}
           </button>
         }
       />
@@ -147,10 +150,10 @@ export default function LossReportPage() {
       {/* KPI 统计 */}
       <div className={s.statsRow} style={{ marginBottom: 20 }}>
         {[
-          { label: "系统拦截/阻挡", val: "0",                               cardCls: s.statCardDanger,  valCls: s.textDanger  },
-          { label: "总报损批次",    val: `${lossRows.length} 批`,       cardCls: s.statCardWarning, valCls: s.textWarning },
-          { label: "待审批",        val: `${pendingCount} 单`,          cardCls: s.statCardInfo,    valCls: s.textInfo    },
-          { label: "累计报损量",    val: `${totalLoss.toLocaleString()} 枚`, cardCls: s.statCardPurple,  valCls: s.textPurple  },
+          { label: t("ui.系统拦截阻挡", "系统拦截/阻挡"), val: "0",                               cardCls: s.statCardDanger,  valCls: s.textDanger  },
+          { label: t("ui.总报损批次", "总报损批次"),    val: `${lossRows.length} ${t("ui.批", "批")}`,       cardCls: s.statCardWarning, valCls: s.textWarning },
+          { label: t("ui.待审批", "待审批"),        val: `${pendingCount} ${t("ui.单", "单")}`,          cardCls: s.statCardInfo,    valCls: s.textInfo    },
+          { label: t("ui.累计报损量", "累计报损量"),    val: `${totalLoss.toLocaleString()} ${t("ui.枚", "枚")}`, cardCls: s.statCardPurple,  valCls: s.textPurple  },
         ].map(c => (
           <div key={c.label} className={`${s.statCard} ${c.cardCls}`}>
             <div className={`${s.statValue} ${c.valCls}`}>{c.val}</div>
@@ -168,18 +171,18 @@ export default function LossReportPage() {
         onDelete={handleDelete as any}
         showActions={false}
         refreshKey={refreshKey}
-        emptyText="暂无报损记录，点击「新建报损单」开始记录"
+        emptyText={t("ui.暂无报损记录点击新建报损单开始记录", "暂无报损记录，点击「新建报损单」开始记录")}
         pageSize={30}
       />
 
-      <RightDrawer open={drawerOpen} title={editing ? "编辑报损单" : "新建报损单"} onClose={closeDrawer}>
+      <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑报损单", "编辑报损单") : t("ui.新建报损单", "新建报损单")} onClose={closeDrawer}>
         <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
       </RightDrawer>
 
-      <ConfirmDialog open={confirmOpen} title="确认删除" message="删除后不可恢复，确认继续？"
+      <ConfirmDialog open={confirmOpen} title={t("common.confirm", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}
         onConfirm={confirmDelete} onCancel={() => setConfirmOpen(false)} />
-      <ConfirmDialog open={approveOpen} title="确认审批报损单"
-        message={`确认审批通过报损单「${approveTarget?.take_no ?? ""}」？这将影响账面资产！`}
+      <ConfirmDialog open={approveOpen} title={t("ui.确认审批报损单", "确认审批报损单")}
+        message={`${t("ui.确认审批通过报损单", "确认审批通过报损单")}「${approveTarget?.take_no ?? ""}」？${t("ui.这将影响账面资产", "这将影响账面资产！")}`}
         onConfirm={confirmApprove} onCancel={() => setApproveOpen(false)} />
     </div>
   );

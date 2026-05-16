@@ -6,27 +6,33 @@ import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import PageHeader from "@/components/PageHeader";
 import { crudApi } from "@/lib/api-client";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const TABLE = "log_routes";
 type Row = Record<string, unknown>;
 
-const COLS: Column<Row>[] = [
-  { key: "route_code",  title: "路线编号", width: 120 },
-  { key: "name",        title: "路线名称", width: 160 },
-  { key: "stores",      title: "覆盖门店", width: 200 },
-  { key: "distance_km", title: "距离(km)", width: 100, align: "right" as const },
-  { key: "status",      title: "状态",    width: 90, align: "center" as const },
-];
-const FIELDS: FormField[] = [
-  { key: "route_code",  label: "路线编号", type: "text" as const, required: true },
-  { key: "name",        label: "路线名称", type: "text" as const, required: true },
-  { key: "stores",      label: "门店列表(逗号分隔)", type: "textarea" as const, span: 2 as const },
-  { key: "distance_km", label: "距离(km)", type: "number" as const, defaultValue: 0 },
-  { key: "status", label: "状态", type: "select" as const, defaultValue: "ACTIVE",
-    options: [{label:"启用",value:"ACTIVE"},{label:"停用",value:"INACTIVE"}] },
-];
-
 export default function Page() {
+  const { t } = useLanguage();
+
+  const COLS: Column<Row>[] = [
+    { key: "route_code",  title: t("ui.路线编号", "路线编号"), width: 120 },
+    { key: "name",        title: t("ui.路线名称", "路线名称"), width: 160 },
+    { key: "stores",      title: t("ui.覆盖门店", "覆盖门店"), width: 200 },
+    { key: "distance_km", title: t("ui.距离km", "距离(km)"), width: 100, align: "right" as const },
+    { key: "status",      title: t("common.status", "状态"),    width: 90, align: "center" as const },
+  ];
+  const FIELDS: FormField[] = [
+    { key: "route_code",  label: t("ui.路线编号", "路线编号"), type: "text" as const, required: true },
+    { key: "name",        label: t("ui.路线名称", "路线名称"), type: "text" as const, required: true },
+    { key: "stores",      label: t("ui.门店列表逗号分隔", "门店列表(逗号分隔)"), type: "textarea" as const, span: 2 as const },
+    { key: "distance_km", label: t("ui.距离km", "距离(km)"), type: "number" as const, defaultValue: 0 },
+    { key: "status", label: t("common.status", "状态"), type: "select" as const, defaultValue: "ACTIVE",
+      options: [
+        { label: t("status.active", "启用"),   value: "ACTIVE"   },
+        { label: t("status.inactive", "停用"), value: "INACTIVE" },
+      ] },
+  ];
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editRow, setEditRow]       = useState<Row | null>(null);
   const [deleteRow, setDeleteRow]   = useState<Row | null>(null);
@@ -55,7 +61,7 @@ export default function Page() {
 
   return (
     <div>
-      <PageHeader title="配送跟踪" subtitle="查看配送路线规划和门店到达情况" />
+      <PageHeader title={t("ui.配送跟踪", "配送跟踪")} subtitle={t("ui.查看配送路线规划和门店到达情况", "查看配送路线规划和门店到达情况")} />
       <DataTable<Row>
         table={TABLE}
         columns={COLS}
@@ -65,7 +71,7 @@ export default function Page() {
         onDelete={r => setDeleteRow(r)}
         refreshKey={refreshKey}
       />
-      <RightDrawer open={drawerOpen} title={editRow ? "编辑" : "新增"} onClose={close}>
+      <RightDrawer open={drawerOpen} title={editRow ? t("common.edit", "编辑") : t("common.new", "新增")} onClose={close}>
         <CrudForm
           fields={FIELDS}
           initialValues={(editRow as unknown as Record<string,unknown>) ?? undefined}
@@ -76,9 +82,9 @@ export default function Page() {
       </RightDrawer>
       <ConfirmDialog
         open={!!deleteRow}
-        title="确认删除"
-        message="确定删除该记录？"
-        confirmLabel="删除"
+        title={t("common.confirm", "确认删除")}
+        message={t("ui.确定删除该记录", "确定删除该记录？")}
+        confirmLabel={t("common.delete", "删除")}
         danger
         loading={deleting}
         onConfirm={handleDelete}

@@ -8,6 +8,7 @@ import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Plus, Download, CheckCircle, RefreshCw } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ✅ V3 表: wms_stocktake
 // 字段: take_no, warehouse_code, zone_code, book_qty, actual_qty, diff_qty, operator, status, date
@@ -21,55 +22,36 @@ const getRole = () => {
 };
 const isApprover = () => ["ROLE_ADMIN", "ROLE_WMS_MGR", "ROLE_FIN_CFO"].includes(getRole());
 
-// ✅ 状态 → 全局 badge CSS 类
-const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
-  DRAFT:       { cls: s.badgeNeutral,  label: "草稿"   },
-  IN_PROGRESS: { cls: s.badgeInfo,     label: "盘点中" },
-  DONE:        { cls: s.badgeWarning,  label: "待审核" },
-  APPROVED:    { cls: s.badgeSuccess,  label: "已审核" },
-};
-
 type Row = Record<string, unknown>;
 
-// B2: wms_stocktake 真实列 stocktake_no / sys_qty / act_qty / diff_qty / item / warehouse_code / auditor
-const FIELDS: FormField[] = [
-  { key: "stocktake_no",   label: "盘点单号",  type: "text",   placeholder: "留空自动生成 ST-XXXXXX" },
-  { key: "warehouse_code", label: "仓库编码",  type: "text",   required: true },
-  { key: "item",           label: "盘点品目",  type: "text"   },
-  { key: "sys_qty",        label: "账面数量",  type: "number" },
-  { key: "act_qty",        label: "实际数量",  type: "number" },
-  { key: "diff_qty",       label: "差异数量",  type: "number" },
-  { key: "auditor",        label: "盘点员",    type: "text"   },
-  { key: "status", label: "状态", type: "select", options: [
-    { label: "草稿",   value: "DRAFT"       },
-    { label: "盘点中", value: "IN_PROGRESS" },
-    { label: "待审核", value: "DONE"        },
-    { label: "已审核", value: "APPROVED"    },
-  ]},
-];
-
-// CSV 导出
-function exportCSV(rows: Row[]) {
-  const headers = ["盘点单号", "仓库", "库区", "账面量", "实际量", "差异量", "差异率%", "状态", "盘点员"];
-  const lines = rows.map(r => {
-    const book   = Number(r.sys_qty ?? 0);
-    const actual = Number(r.act_qty ?? 0);
-    const diff   = Number(r.diff_qty ?? 0);
-    const rate   = book > 0 ? (Math.abs(diff) / book * 100).toFixed(2) : "0.00";
-    const status = STATUS_BADGE[String(r.status)]?.label ?? String(r.status ?? "");
-    return [r.stocktake_no, r.warehouse_code, r.item ?? "", book, actual, diff, rate, status, r.auditor ?? ""].join(",");
-  });
-  const csv  = [headers.join(","), ...lines].join("\n");
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
-  a.download = `盘点记录_${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 export default function StocktakePage() {
+  const { t } = useLanguage();
+
+  // ✅ 状态 → 全局 badge CSS 类
+  const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
+    DRAFT:       { cls: s.badgeNeutral,  label: t("ui.草稿", "草稿")   },
+    IN_PROGRESS: { cls: s.badgeInfo,     label: t("ui.盘点中", "盘点中") },
+    DONE:        { cls: s.badgeWarning,  label: t("ui.待审核", "待审核") },
+    APPROVED:    { cls: s.badgeSuccess,  label: t("status.approved", "已审核") },
+  };
+
+  // B2: wms_stocktake 真实列 stocktake_no / sys_qty / act_qty / diff_qty / item / warehouse_code / auditor
+  const FIELDS: FormField[] = [
+    { key: "stocktake_no",   label: t("ui.盘点单号", "盘点单号"),  type: "text",   placeholder: t("ui.留空自动生成ST", "留空自动生成 ST-XXXXXX") },
+    { key: "warehouse_code", label: t("ui.仓库编码", "仓库编码"),  type: "text",   required: true },
+    { key: "item",           label: t("ui.盘点品目", "盘点品目"),  type: "text"   },
+    { key: "sys_qty",        label: t("ui.账面数量", "账面数量"),  type: "number" },
+    { key: "act_qty",        label: t("ui.实际数量", "实际数量"),  type: "number" },
+    { key: "diff_qty",       label: t("ui.差异数量", "差异数量"),  type: "number" },
+    { key: "auditor",        label: t("ui.盘点员", "盘点员"),    type: "text"   },
+    { key: "status", label: t("common.status", "状态"), type: "select", options: [
+      { label: t("ui.草稿", "草稿"),   value: "DRAFT"       },
+      { label: t("ui.盘点中", "盘点中"), value: "IN_PROGRESS" },
+      { label: t("ui.待审核", "待审核"), value: "DONE"        },
+      { label: t("status.approved", "已审核"), value: "APPROVED"    },
+    ]},
+  ];
+
   const [drawerOpen,    setDrawerOpen]    = useState(false);
   const [editing,       setEditing]       = useState<Row | null>(null);
   const [saving,        setSaving]        = useState(false);
@@ -91,6 +73,37 @@ export default function StocktakePage() {
   const openNew     = useCallback(() => { setEditing(null); setDrawerOpen(true); }, []);
   const openEdit    = useCallback((row: Row) => { setEditing(row); setDrawerOpen(true); }, []);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+
+  // CSV 导出
+  function exportCSV(rows: Row[]) {
+    const headers = [
+      t("ui.盘点单号", "盘点单号"),
+      t("ui.仓库", "仓库"),
+      t("ui.库区", "库区"),
+      t("ui.账面量", "账面量"),
+      t("ui.实际量", "实际量"),
+      t("ui.差异量", "差异量"),
+      t("ui.差异率%", "差异率%"),
+      t("common.status", "状态"),
+      t("ui.盘点员", "盘点员"),
+    ];
+    const lines = rows.map(r => {
+      const book   = Number(r.sys_qty ?? 0);
+      const actual = Number(r.act_qty ?? 0);
+      const diff   = Number(r.diff_qty ?? 0);
+      const rate   = book > 0 ? (Math.abs(diff) / book * 100).toFixed(2) : "0.00";
+      const status = STATUS_BADGE[String(r.status)]?.label ?? String(r.status ?? "");
+      return [r.stocktake_no, r.warehouse_code, r.item ?? "", book, actual, diff, rate, status, r.auditor ?? ""].join(",");
+    });
+    const csv  = [headers.join(","), ...lines].join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `盘点记录_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   const handleSave = useCallback(async (values: Row) => {
     setSaving(true);
@@ -131,18 +144,18 @@ export default function StocktakePage() {
   const totalDiff = allRows.reduce((s, r) => s + Math.abs(Number(r.diff_qty ?? 0)), 0);
 
   const COLUMNS: Column<Row>[] = [
-    { key: "stocktake_no",   title: "盘点单号", width: 160 },
-    { key: "warehouse_code", title: "仓库",     width: 110 },
-    { key: "item",           title: "品目",     width: 100 },
-    { key: "sys_qty",        title: "账面量",   width: 80, align: "right" },
-    { key: "act_qty",        title: "实际量",   width: 80, align: "right" },
-    { key: "diff_qty",       title: "差异量",   width: 80, align: "right",
+    { key: "stocktake_no",   title: t("ui.盘点单号", "盘点单号"), width: 160 },
+    { key: "warehouse_code", title: t("ui.仓库", "仓库"),     width: 110 },
+    { key: "item",           title: t("ui.品目", "品目"),     width: 100 },
+    { key: "sys_qty",        title: t("ui.账面量", "账面量"),   width: 80, align: "right" },
+    { key: "act_qty",        title: t("ui.实际量", "实际量"),   width: 80, align: "right" },
+    { key: "diff_qty",       title: t("ui.差异量", "差异量"),   width: 80, align: "right",
       render: v => {
         const n = Number(v ?? 0);
         const cls = n === 0 ? s.textSuccess : n > 0 ? s.textInfo : s.textDanger;
         return <b className={cls}>{n === 0 ? "—" : (n > 0 ? `+${n}` : String(n))}</b>;
       }},
-    { key: "_rate",          title: "差异率",   width: 80, align: "center",
+    { key: "_rate",          title: t("ui.差异率", "差异率"),   width: 80, align: "center",
       render: (_, row) => {
         const book = Number(row.sys_qty ?? 0);
         const diff = Number(row.diff_qty ?? 0);
@@ -154,22 +167,22 @@ export default function StocktakePage() {
           {rate.toFixed(2)}%{isHigh ? " ⚠️" : ""}
         </span>;
       }},
-    { key: "status",         title: "状态",     width: 90, align: "center",
+    { key: "status",         title: t("common.status", "状态"),     width: 90, align: "center",
       render: v => {
         const cfg = STATUS_BADGE[String(v)] ?? { cls: s.badgeNeutral, label: String(v ?? "—") };
         return <span className={`${s.badge} ${cfg.cls}`}>{cfg.label}</span>;
       }},
-    { key: "operator",       title: "盘点员",   width: 90  },
-    { key: "_actions",       title: "操作",     width: 130, align: "center",
+    { key: "operator",       title: t("ui.盘点员", "盘点员"),   width: 90  },
+    { key: "_actions",       title: t("common.operation", "操作"),     width: 130, align: "center",
       render: (_, row) => (
         <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-          <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => openEdit(row)}>编辑</button>
+          <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>
           {isApprover() && row.status === "DONE" && (
             <button type="button" className={`${s.btnSuccess} ${s.btnSm}`} onClick={() => handleApprove(row)}>
-              <CheckCircle size={11} />审批
+              <CheckCircle size={11} />{t("ui.审批", "审批")}
             </button>
           )}
-          <button type="button" className={`${s.btnDanger} ${s.btnSm}`} onClick={() => handleDelete(row)}>删除</button>
+          <button type="button" className={`${s.btnDanger} ${s.btnSm}`} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>
         </div>
       )
     },
@@ -178,19 +191,19 @@ export default function StocktakePage() {
   return (
     <div>
       <PageHeader
-        title="盘点管理"
-        subtitle="库存盘点作业 · 差异追踪 · 审批确认（表：wms_stocktake）"
-        breadcrumb={["仓储管理", "盘点管理"]}
+        title={t("ui.盘点管理", "盘点管理")}
+        subtitle={t("ui.库存盘点作业差异追踪审批确认", "库存盘点作业 · 差异追踪 · 审批确认（表：wms_stocktake）")}
+        breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.盘点管理", "盘点管理")]}
         actions={
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" className={s.btnSecondary} onClick={() => exportCSV(allRows)} disabled={allRows.length === 0}>
-              <Download size={14} />导出 CSV
+              <Download size={14} />{t("common.export", "导出")} CSV
             </button>
             <button type="button" className={s.btnSecondary} onClick={refresh}>
-              <RefreshCw size={14} />刷新
+              <RefreshCw size={14} />{t("common.refresh", "刷新")}
             </button>
             <button type="button" className={s.btnPrimary} onClick={openNew}>
-              <Plus size={14} />新建盘点单
+              <Plus size={14} />{t("ui.新建盘点单", "新建盘点单")}
             </button>
           </div>
         }
@@ -200,20 +213,20 @@ export default function StocktakePage() {
       <div className={s.statsRow} style={{ marginBottom: 20 }}>
         <div className={`${s.statCard} ${s.statCardPrimary}`}>
           <div className={s.statValue}>—</div>
-          <div className={s.statLabel}>历史盘点次数</div>
+          <div className={s.statLabel}>{t("ui.历史盘点次数", "历史盘点次数")}</div>
         </div>
         <div className={`${s.statCard} ${s.statCardWarning}`}>
           <div className={`${s.statValue} ${s.textWarning}`}>{pending}</div>
-          <div className={s.statLabel}>待审批</div>
+          <div className={s.statLabel}>{t("ui.待审批", "待审批")}</div>
         </div>
         <div className={`${s.statCard} ${s.statCardDanger}`}>
           <div className={`${s.statValue} ${s.textDanger}`}>{highRisk}</div>
-          <div className={s.statLabel}>高风险(&gt;5%)</div>
+          <div className={s.statLabel}>{t("ui.高风险5%", "高风险(>5%)")}</div>
         </div>
         <div className={`${s.statCard} ${s.statCardInfo}`}>
           <div className={`${s.statValue} ${s.textInfo}`}>{totalDiff.toLocaleString()}</div>
-          <div className={s.statLabel}>累计差异量</div>
-          <div className={s.statSub}>枚</div>
+          <div className={s.statLabel}>{t("ui.累计差异量", "累计差异量")}</div>
+          <div className={s.statSub}>{t("ui.枚", "枚")}</div>
         </div>
       </div>
 
@@ -225,18 +238,18 @@ export default function StocktakePage() {
         onDelete={handleDelete as any}
         showActions={false}
         refreshKey={refreshKey}
-        emptyText="暂无盘点记录"
+        emptyText={t("ui.暂无盘点记录", "暂无盘点记录")}
         pageSize={30}
       />
 
-      <RightDrawer open={drawerOpen} title={editing ? "编辑盘点单" : "新建盘点单"} onClose={closeDrawer}>
+      <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑盘点单", "编辑盘点单") : t("ui.新建盘点单", "新建盘点单")} onClose={closeDrawer}>
         <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
       </RightDrawer>
 
-      <ConfirmDialog open={confirmOpen} title="确认删除" message="删除后不可恢复，确认继续？"
+      <ConfirmDialog open={confirmOpen} title={t("common.confirm", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}
         onConfirm={confirmDelete} onCancel={() => setConfirmOpen(false)} />
-      <ConfirmDialog open={approveOpen} title="确认审批通过"
-        message={`确认审批盘点单「${approveTarget?.take_no ?? ""}」？可能影响账面库存数据。`}
+      <ConfirmDialog open={approveOpen} title={t("ui.确认审批通过", "确认审批通过")}
+        message={`${t("ui.确认审批盘点单", "确认审批盘点单")}「${approveTarget?.take_no ?? ""}」？${t("ui.可能影响账面库存数据", "可能影响账面库存数据")}`}
         onConfirm={confirmApprove} onCancel={() => setApproveOpen(false)} />
     </div>
   );
