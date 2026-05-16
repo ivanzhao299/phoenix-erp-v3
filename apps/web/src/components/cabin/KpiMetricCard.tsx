@@ -1,4 +1,5 @@
 'use client';
+import { useLanguage } from '@/contexts/LanguageContext';
 const STATUS: Record<string, { bg:string; border:string; val:string; badge:string; badgeBg:string }> = {
   normal:   { bg:'var(--bg-card)',  border:'var(--border)', val:'var(--text-primary)', badge:'var(--status-success)', badgeBg:'color-mix(in srgb,var(--status-success) 15%,transparent)' },
   warning:  { bg:'color-mix(in srgb,var(--status-warning) 10%,var(--bg-card))', border:'color-mix(in srgb,var(--status-warning) 50%,transparent)', val:'var(--status-warning)', badge:'var(--status-warning)', badgeBg:'color-mix(in srgb,var(--status-warning) 20%,transparent)' },
@@ -10,6 +11,7 @@ interface Kpi { code: string; title: string; value: number | null; unit: string;
 interface Props { kpi: Kpi; onClick?: () => void; selected?: boolean; }
 
 export default function KpiMetricCard({ kpi, onClick, selected }: Props) {
+  const { t } = useLanguage();
   const s = STATUS[kpi?.status] || STATUS.normal;
   const val = kpi?.value;
   const display = val != null && val !== 0 ? Number(val).toFixed(1) : '—';
@@ -24,7 +26,7 @@ export default function KpiMetricCard({ kpi, onClick, selected }: Props) {
           <div style={{ fontSize:11, fontWeight:600, color: selected?'rgba(255,255,255,0.7)':'var(--text-secondary)' }}>{kpi?.title}</div>
           {!selected && kpi?.status && kpi.status !== 'normal' && (
             <span style={{ fontSize:10, fontWeight:700, padding:'2px 6px', borderRadius:10, backgroundColor:s.badgeBg, color:s.badge }}>
-              {kpi.status==='critical'?'告警':kpi.status==='warning'?'预警':'离线'}
+              {kpi.status==='critical'?t('ui.告警','告警'):kpi.status==='warning'?t('ui.预警','预警'):t('ui.离线','离线')}
             </span>
           )}
         </div>
@@ -34,7 +36,7 @@ export default function KpiMetricCard({ kpi, onClick, selected }: Props) {
         </div>
         {kpi?.compareTarget != null && val != null && (
           <div style={{ fontSize:10, marginTop:4, color: selected?'rgba(255,255,255,0.5)':'var(--text-secondary)' }}>
-            目标 {kpi.compareTarget} · 偏差 {(val - kpi.compareTarget).toFixed(1)}{kpi.unit}
+            {t('ui.目标', '目标')} {kpi.compareTarget} · {t('ui.偏差', '偏差')} {(val - kpi.compareTarget).toFixed(1)}{kpi.unit}
           </div>
         )}
       </div>
