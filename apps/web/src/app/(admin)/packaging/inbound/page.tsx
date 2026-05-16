@@ -7,34 +7,10 @@ import PageHeader from "@/components/PageHeader";
 import { crudApi } from "@/lib/api-client";
 import { Plus, RefreshCw, Package, Scale, Home, Calendar } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const TABLE = "wms_inbound";
 type Row = Record<string, unknown>;
-
-const STATUS_MAP: Record<string, { label: string; cls: string }> = {
-  PENDING:   { label: "待入库", cls: s.badgeWarning },
-  COMPLETED: { label: "已完成", cls: s.badgeSuccess },
-  CANCELLED: { label: "已取消", cls: s.badgeNeutral },
-};
-
-const COLS: Column<Row>[] = [
-  { key: "inbound_no",    title: "入库单号",   width: 170 },
-  { key: "house_code",    title: "来源鸡舍",   width: 110 },
-  { key: "shift_no",      title: "班次号",     width: 130 },
-  { key: "collect_date",  title: "集蛋日期",   width: 110,
-    render: v => v ? String(v).slice(0, 10) : "—" },
-  { key: "qty",           title: "数量(枚)",   width: 100, align: "right",
-    render: v => <strong>{Number(v || 0).toLocaleString()}</strong> },
-  { key: "weight_kg",     title: "重量(kg)",   width: 100, align: "right",
-    render: v => v ? Number(v).toFixed(2) : "—" },
-  { key: "warehouse",     title: "入库仓库",   width: 110 },
-  { key: "operator",      title: "作业员",     width: 90 },
-  { key: "status",        title: "状态",       width: 90, align: "center",
-    render: v => {
-      const m = STATUS_MAP[String(v)] ?? { label: String(v), cls: s.badgeNeutral };
-      return <span className={`${s.badge} ${m.cls}`}>{m.label}</span>;
-    }},
-];
 
 interface FormState {
   inbound_no: string; house_code: string; shift_no: string;
@@ -48,6 +24,33 @@ const EMPTY: FormState = {
 };
 
 export default function InboundPage() {
+  const { t } = useLanguage();
+
+  const STATUS_MAP: Record<string, { label: string; cls: string }> = {
+    PENDING:   { label: t("ui.待入库", "待入库"),  cls: s.badgeWarning },
+    COMPLETED: { label: t("ui.已完成", "已完成"),  cls: s.badgeSuccess },
+    CANCELLED: { label: t("ui.已取消", "已取消"),  cls: s.badgeNeutral },
+  };
+
+  const COLS: Column<Row>[] = [
+    { key: "inbound_no",   title: t("ui.入库单号", "入库单号"),  width: 170 },
+    { key: "house_code",   title: t("ui.来源鸡舍", "来源鸡舍"),  width: 110 },
+    { key: "shift_no",     title: t("ui.班次号",   "班次号"),    width: 130 },
+    { key: "collect_date", title: t("ui.集蛋日期", "集蛋日期"),  width: 110,
+      render: v => v ? String(v).slice(0, 10) : "—" },
+    { key: "qty",          title: t("ui.数量枚",   "数量(枚)"),  width: 100, align: "right",
+      render: v => <strong>{Number(v || 0).toLocaleString()}</strong> },
+    { key: "weight_kg",    title: t("ui.重量kg",   "重量(kg)"),  width: 100, align: "right",
+      render: v => v ? Number(v).toFixed(2) : "—" },
+    { key: "warehouse",    title: t("ui.入库仓库", "入库仓库"),  width: 110 },
+    { key: "operator",     title: t("ui.作业员",   "作业员"),    width: 90 },
+    { key: "status",       title: t("common.status", "状态"),    width: 90, align: "center",
+      render: v => {
+        const m = STATUS_MAP[String(v)] ?? { label: String(v), cls: s.badgeNeutral };
+        return <span className={`${s.badge} ${m.cls}`}>{m.label}</span>;
+      }},
+  ];
+
   const [open, setOpen]         = useState(false);
   const [editRow, setEditRow]   = useState<Row | null>(null);
   const [delRow, setDelRow]     = useState<Row | null>(null);
@@ -121,9 +124,9 @@ export default function InboundPage() {
 
   const validate = () => {
     const e: Partial<FormState> = {};
-    if (!form.house_code) e.house_code = "请选择来源鸡舍";
-    if (!form.qty || isNaN(Number(form.qty)) || Number(form.qty) <= 0) e.qty = "请输入有效数量";
-    if (!form.collect_date) e.collect_date = "请选择集蛋日期";
+    if (!form.house_code) e.house_code = t("ui.请选择来源鸡舍", "请选择来源鸡舍");
+    if (!form.qty || isNaN(Number(form.qty)) || Number(form.qty) <= 0) e.qty = t("ui.请输入有效数量", "请输入有效数量");
+    if (!form.collect_date) e.collect_date = t("ui.请选择集蛋日期", "请选择集蛋日期");
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -165,12 +168,12 @@ export default function InboundPage() {
   return (
     <div>
       <PageHeader
-        title="集蛋入库"
-        subtitle="登记每批集蛋入库记录，关联鸡舍、班次和库位"
-        breadcrumb={["包装中心", "集蛋入库"]}
+        title={t("ui.集蛋入库", "集蛋入库")}
+        subtitle={t("ui.集蛋入库副标题", "登记每批集蛋入库记录，关联鸡舍、班次和库位")}
+        breadcrumb={[t("ui.包装中心", "包装中心"), t("ui.集蛋入库", "集蛋入库")]}
         actions={
           <button type="button" className={s.btnPrimaryGrad} onClick={openNew}>
-            <Plus size={14} /> 新建入库单
+            <Plus size={14} /> {t("ui.新建入库单", "新建入库单")}
           </button>
         }
       />
@@ -178,9 +181,9 @@ export default function InboundPage() {
       {/* 统计条 */}
       <div className={s.statsRow} style={{ marginBottom: 16 }}>
         {[
-          { icon: <Package size={16}/>, label: "今日入库批次", value: stats.today },
-          { icon: <Scale size={16}/>,   label: "待确认",       value: stats.pending },
-          { icon: <Home size={16}/>,    label: "来源鸡舍数",   value: stats.houses },
+          { icon: <Package size={16}/>, label: t("ui.今日入库批次", "今日入库批次"), value: stats.today },
+          { icon: <Scale size={16}/>,   label: t("ui.待确认",       "待确认"),       value: stats.pending },
+          { icon: <Home size={16}/>,    label: t("ui.来源鸡舍数",   "来源鸡舍数"),   value: stats.houses },
         ].map(c => (
           <div key={c.label} className={s.statCard}>
             <div className={s.statLabel} style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -199,82 +202,82 @@ export default function InboundPage() {
         onEdit={openEdit}
         onDelete={r => setDelRow(r)}
         refreshKey={rk}
-        emptyText="暂无入库记录"
+        emptyText={t("ui.暂无入库记录", "暂无入库记录")}
         pageSize={30}
       />
 
       {/* 新建/编辑抽屉 */}
       <RightDrawer
         open={open}
-        title={editRow ? "编辑入库单" : "新建入库单"}
+        title={editRow ? t("ui.编辑入库单", "编辑入库单") : t("ui.新建入库单", "新建入库单")}
         onClose={close}
         footer={
           <div className={s.drawerFooter}>
-            <button className={s.btnSecondary} onClick={close}>取消</button>
+            <button className={s.btnSecondary} onClick={close}>{t("common.cancel", "取消")}</button>
             <button className={s.btnPrimaryGrad} onClick={handleSubmit} disabled={saving}>
-              {saving ? <><RefreshCw size={14} className="spin" /> 保存中...</> : "确认入库"}
+              {saving ? <><RefreshCw size={14} className="spin" /> {t("common.saving", "保存中...")}</> : t("ui.确认入库", "确认入库")}
             </button>
           </div>
         }
       >
-        <div className={s.formSection}><Calendar size={13}/><span>基本信息</span></div>
+        <div className={s.formSection}><Calendar size={13}/><span>{t("ui.基本信息", "基本信息")}</span></div>
         <div className={s.fieldRow}>
           <div>
-            <label className={s.lbl}>集蛋日期 <span style={{ color: "var(--status-danger)" }}>*</span></label>
+            <label className={s.lbl}>{t("ui.集蛋日期", "集蛋日期")} <span style={{ color: "var(--status-danger)" }}>*</span></label>
             <input type="date" className={s.inp} value={form.collect_date}
               onChange={e => set("collect_date", e.target.value)} />
             {errors.collect_date && <div style={{ color: "var(--status-danger)", fontSize: 11, marginTop: 3 }}>{errors.collect_date}</div>}
           </div>
           <div>
-            <label className={s.lbl}>班次号</label>
-            <input className={s.inp} placeholder="如：SHIFT-20260512-AM" value={form.shift_no}
+            <label className={s.lbl}>{t("ui.班次号", "班次号")}</label>
+            <input className={s.inp} placeholder={t("ui.班次号示例", "如：SHIFT-20260512-AM")} value={form.shift_no}
               onChange={e => set("shift_no", e.target.value)} />
           </div>
         </div>
 
         <div className={s.field}>
-          <label className={s.lbl}>来源鸡舍 <span style={{ color: "var(--status-danger)" }}>*</span></label>
+          <label className={s.lbl}>{t("ui.来源鸡舍", "来源鸡舍")} <span style={{ color: "var(--status-danger)" }}>*</span></label>
           <select className={s.inp} value={form.house_code} onChange={e => set("house_code", e.target.value)}>
-            <option value="">— 请选择鸡舍 —</option>
+            <option value="">{t("ui.请选择鸡舍", "— 请选择鸡舍 —")}</option>
             {houses.map(h => <option key={h.code} value={h.code}>{h.name}</option>)}
-            {houses.length === 0 && <option disabled>（暂无鸡舍数据，可手填编码）</option>}
+            {houses.length === 0 && <option disabled>{t("ui.暂无鸡舍数据", "（暂无鸡舍数据，可手填编码）")}</option>}
           </select>
           {houses.length === 0 && (
-            <input className={s.inp} style={{ marginTop: 6 }} placeholder="手动输入鸡舍编码（如 H01）"
+            <input className={s.inp} style={{ marginTop: 6 }} placeholder={t("ui.手动输入鸡舍编码", "手动输入鸡舍编码（如 H01）")}
               value={form.house_code} onChange={e => set("house_code", e.target.value)} />
           )}
           {errors.house_code && <div style={{ color: "var(--status-danger)", fontSize: 11, marginTop: 3 }}>{errors.house_code}</div>}
         </div>
 
-        <div className={s.formSection}><Scale size={13}/><span>数量与重量</span></div>
+        <div className={s.formSection}><Scale size={13}/><span>{t("ui.数量与重量", "数量与重量")}</span></div>
         <div className={s.fieldRow}>
           <div>
-            <label className={s.lbl}>入库数量（枚）<span style={{ color: "var(--status-danger)" }}>*</span></label>
+            <label className={s.lbl}>{t("ui.入库数量枚", "入库数量（枚）")}<span style={{ color: "var(--status-danger)" }}>*</span></label>
             <input type="number" className={s.inp} placeholder="0" min="0" value={form.qty}
               onChange={e => set("qty", e.target.value)} />
             {errors.qty && <div style={{ color: "var(--status-danger)", fontSize: 11, marginTop: 3 }}>{errors.qty}</div>}
           </div>
           <div>
-            <label className={s.lbl}>重量（kg）</label>
+            <label className={s.lbl}>{t("ui.重量kg", "重量（kg）")}</label>
             <input type="number" className={s.inp} placeholder="0.00" min="0" step="0.01" value={form.weight_kg}
               onChange={e => set("weight_kg", e.target.value)} />
           </div>
         </div>
 
-        <div className={s.formSection}><Home size={13}/><span>仓储信息</span></div>
+        <div className={s.formSection}><Home size={13}/><span>{t("ui.仓储信息", "仓储信息")}</span></div>
         <div className={s.fieldRow}>
           <div>
-            <label className={s.lbl}>入库仓库</label>
+            <label className={s.lbl}>{t("ui.入库仓库", "入库仓库")}</label>
             <select className={s.inp} value={form.warehouse} onChange={e => set("warehouse", e.target.value)}>
-              <option value="">— 请选择 —</option>
+              <option value="">{t("ui.请选择", "— 请选择 —")}</option>
               {warehouses.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
-              {warehouses.length === 0 && <option value={form.warehouse}>{form.warehouse || "加载中…"}</option>}
+              {warehouses.length === 0 && <option value={form.warehouse}>{form.warehouse || t("common.loading", "加载中…")}</option>}
             </select>
           </div>
           <div>
-            <label className={s.lbl}>作业员</label>
+            <label className={s.lbl}>{t("ui.作业员", "作业员")}</label>
             <select className={s.inp} value={form.operator} onChange={e => set("operator", e.target.value)}>
-              <option value="">— 请选择 —</option>
+              <option value="">{t("ui.请选择", "— 请选择 —")}</option>
               {operators.map(op => <option key={op.username} value={op.username}>{op.real_name_zh}</option>)}
               {operators.length === 0 && form.operator && <option value={form.operator}>{form.operator}</option>}
             </select>
@@ -283,32 +286,32 @@ export default function InboundPage() {
 
         <div className={s.fieldRow}>
           <div>
-            <label className={s.lbl}>入库单号（留空自动生成）</label>
-            <input className={s.inp} placeholder="系统自动生成" value={form.inbound_no}
+            <label className={s.lbl}>{t("ui.入库单号留空自动生成", "入库单号（留空自动生成）")}</label>
+            <input className={s.inp} placeholder={t("ui.系统自动生成", "系统自动生成")} value={form.inbound_no}
               onChange={e => set("inbound_no", e.target.value)} />
           </div>
           <div>
-            <label className={s.lbl}>状态</label>
+            <label className={s.lbl}>{t("common.status", "状态")}</label>
             <select className={s.inp} value={form.status} onChange={e => set("status", e.target.value)}>
-              <option value="PENDING">待入库</option>
-              <option value="COMPLETED">已入库</option>
-              <option value="CANCELLED">已取消</option>
+              <option value="PENDING">{t("ui.待入库", "待入库")}</option>
+              <option value="COMPLETED">{t("ui.已入库", "已入库")}</option>
+              <option value="CANCELLED">{t("ui.已取消", "已取消")}</option>
             </select>
           </div>
         </div>
 
         <div className={s.field}>
-          <label className={s.lbl}>备注</label>
-          <textarea className={`${s.inp} ${s.textarea}`} placeholder="可选：异常说明、特殊情况记录..."
+          <label className={s.lbl}>{t("common.remark", "备注")}</label>
+          <textarea className={`${s.inp} ${s.textarea}`} placeholder={t("ui.异常说明特殊情况记录", "可选：异常说明、特殊情况记录...")}
             value={form.remark} onChange={e => set("remark", e.target.value)} rows={3} />
         </div>
       </RightDrawer>
 
       <ConfirmDialog
         open={!!delRow}
-        title="确认删除入库单"
-        message={`确定删除入库单「${delRow?.inbound_no || delRow?.id}」？此操作不可撤销。`}
-        confirmLabel="确认删除"
+        title={t("ui.确认删除入库单", "确认删除入库单")}
+        message={`${t("ui.确定删除入库单", "确定删除入库单")}「${delRow?.inbound_no || delRow?.id}」？${t("ui.此操作不可撤销", "此操作不可撤销。")}`}
+        confirmLabel={t("common.confirmDelete", "确认删除")}
         danger
         loading={deleting}
         onConfirm={handleDelete}

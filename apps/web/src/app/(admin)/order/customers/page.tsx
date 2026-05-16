@@ -4,6 +4,7 @@ import { Plus, Users, RefreshCw, TrendingUp, Search, DollarSign } from "lucide-r
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
 
 // V2 对照：TIER_COLORS
@@ -32,6 +33,7 @@ const DEF_FORM: Form = {
 
 export default function CustomersPage() {
   const toast = useToast();
+  const { t } = useLanguage();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading]     = useState(false);
   const [search, setSearch]       = useState("");
@@ -80,7 +82,7 @@ export default function CustomersPage() {
   }
 
   const save = async () => {
-    if (!form.customer_name) { toast.error("请填写客户名称"); return; }
+    if (!form.customer_name) { toast.error(t("ui.请填写客户名称", "请填写客户名称")); return; }
     setSaving(true);
     try {
       const payload = { ...form, credit_limit:Number(form.credit_limit)||0, account_period:Number(form.account_period)||30 };
@@ -89,37 +91,37 @@ export default function CustomersPage() {
       } else {
         await fetch("/api/crud/ord_customers",{ method:"POST",headers:hdr,body:JSON.stringify(payload) });
       }
-      toast.success(editing?"客户信息已更新":"客户已新增");
+      toast.success(editing?t("ui.客户信息已更新", "客户信息已更新"):t("ui.客户已新增", "客户已新增"));
       setDrawerOpen(false); setEditing(null); load();
-    } catch { toast.error("操作失败"); } finally { setSaving(false); }
+    } catch { toast.error(t("ui.操作失败", "操作失败")); } finally { setSaving(false); }
   };
 
   const freeze = async (id:number, current:string) => {
     const next = current==="active"?"frozen":"active";
     await fetch(`/api/crud/ord_customers/${id}`,{ method:"PUT",headers:hdr,body:JSON.stringify({status:next}) });
-    toast.success(next==="active"?"已解冻":"已冻结"); load();
+    toast.success(next==="active"?t("ui.已解冻", "已解冻"):t("ui.已冻结", "已冻结")); load();
   };
 
   const kpis = [
-    { label:"客户总数",   value:String(customers.length), unit:"户", accent:"var(--color-primary)", icon:<Users size={18}/> },
-    { label:"B2B 客户",  value:String(b2bCount),          unit:"户", accent:"#3b82f6",             icon:<TrendingUp size={18}/> },
-    { label:"信用额度总额",value:`¥${totalCredit.toLocaleString()}`,  accent:"#10b981", icon:<DollarSign size={18}/> },
-    { label:"已用额度",   value:`¥${totalUsed.toLocaleString()}`,     accent:"#f59e0b", icon:<DollarSign size={18}/> },
+    { label:t("ui.客户总数", "客户总数"),   value:String(customers.length), unit:t("ui.户", "户"), accent:"var(--color-primary)", icon:<Users size={18}/> },
+    { label:t("ui.B2B客户", "B2B 客户"),  value:String(b2bCount),          unit:t("ui.户", "户"), accent:"#3b82f6",             icon:<TrendingUp size={18}/> },
+    { label:t("ui.信用额度总额", "信用额度总额"),value:`¥${totalCredit.toLocaleString()}`,  accent:"#10b981", icon:<DollarSign size={18}/> },
+    { label:t("ui.已用额度", "已用额度"),   value:`¥${totalUsed.toLocaleString()}`,     accent:"#f59e0b", icon:<DollarSign size={18}/> },
   ];
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title="客户管理" subtitle={`管理 B2B 客户档案·信用额度·账期 · 共 ${customers.length} 个客户`}
-        breadcrumb={["销售","客户管理"]}
+      <PageHeader title={t("ui.客户管理", "客户管理")} subtitle={`${t("ui.客户管理副标题", "管理 B2B 客户档案·信用额度·账期")} · ${t("ui.共", "共")} ${customers.length} ${t("ui.个客户", "个客户")}`}
+        breadcrumb={[t("ui.销售", "销售"), t("ui.客户管理", "客户管理")]}
         actions={
           <div style={{ display:"flex",gap:8 }}>
             <button type="button" className={s.btnSecondary} onClick={load} disabled={loading}
               style={{ display:"flex",alignItems:"center",gap:6 }}>
-              <RefreshCw size={14} style={{ animation:loading?"spin 1s linear infinite":"none" }}/> 刷新
+              <RefreshCw size={14} style={{ animation:loading?"spin 1s linear infinite":"none" }}/> {t("common.refresh", "刷新")}
             </button>
             <button type="button" className={s.btnPrimary} onClick={openNew}
               style={{ display:"flex",alignItems:"center",gap:6 }}>
-              <Plus size={14}/> 新增客户
+              <Plus size={14}/> {t("ui.新增客户", "新增客户")}
             </button>
           </div>
         }/>
@@ -135,7 +137,7 @@ export default function CustomersPage() {
       </div>
 
       {/* 搜索 */}
-      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="搜索客户名称 / 编码 / 联系人…"
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t("ui.搜索客户名称编码联系人", "搜索客户名称 / 编码 / 联系人…")}
         style={{ width:"100%",boxSizing:"border-box",padding:"9px 14px",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:14,outline:"none",marginBottom:14 }}/>
 
       {/* 表格 */}
@@ -143,14 +145,14 @@ export default function CustomersPage() {
         <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
           <thead>
             <tr style={{ background:"var(--bg-page)",borderBottom:"1px solid var(--border)" }}>
-              {["客户编码","客户名称","等级","信用额度","已用额度","账期","联系人","状态","操作"].map(h=>(
+              {[t("ui.客户编码","客户编码"),t("ui.客户名称","客户名称"),t("ui.等级","等级"),t("ui.信用额度","信用额度"),t("ui.已用额度","已用额度"),t("ui.账期","账期"),t("ui.联系人","联系人"),t("common.status","状态"),t("common.operation","操作")].map(h=>(
                 <th key={h} style={{ padding:"9px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"var(--text-secondary)",whiteSpace:"nowrap" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {loading&&<tr><td colSpan={9} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>加载中…</td></tr>}
-            {!loading&&filtered.length===0&&<tr><td colSpan={9} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>暂无客户记录</td></tr>}
+            {loading&&<tr><td colSpan={9} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>{t("common.loading", "加载中…")}</td></tr>}
+            {!loading&&filtered.length===0&&<tr><td colSpan={9} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>{t("ui.暂无客户记录", "暂无客户记录")}</td></tr>}
             {!loading&&filtered.map((c,i)=>{
               const tier = TIER_STYLE[c.tier||"C"]||TIER_STYLE.C;
               const isActive = (c.status||"active")==="active";
@@ -164,7 +166,7 @@ export default function CustomersPage() {
                     </button>
                   </td>
                   <td style={{ padding:"9px 12px" }}>
-                    <span style={{ fontWeight:800,fontSize:12,color:tier.color,background:tier.bg,borderRadius:6,padding:"3px 10px" }}>{c.tier||"C"}级</span>
+                    <span style={{ fontWeight:800,fontSize:12,color:tier.color,background:tier.bg,borderRadius:6,padding:"3px 10px" }}>{c.tier||"C"}{t("ui.级", "级")}</span>
                   </td>
                   <td style={{ padding:"9px 12px",fontWeight:600 }}>¥{Number(c.credit_limit||0).toLocaleString()}</td>
                   <td style={{ padding:"9px 12px" }}>
@@ -177,15 +179,15 @@ export default function CustomersPage() {
                       </div>}
                     </div>
                   </td>
-                  <td style={{ padding:"9px 12px",color:"var(--text-secondary)" }}>{c.account_period||30}天</td>
+                  <td style={{ padding:"9px 12px",color:"var(--text-secondary)" }}>{c.account_period||30}{t("ui.天", "天")}</td>
                   <td style={{ padding:"9px 12px" }}>{c.contact_name||"—"}</td>
                   <td style={{ padding:"9px 12px" }}>
-                    <span className={`${s.badge} ${isActive?s.badgeSuccess:s.badgeDanger}`}>{isActive?"正常":"已冻结"}</span>
+                    <span className={`${s.badge} ${isActive?s.badgeSuccess:s.badgeDanger}`}>{isActive?t("status.normal","正常"):t("ui.已冻结","已冻结")}</span>
                   </td>
                   <td style={{ padding:"9px 12px",display:"flex",gap:6,flexWrap:"wrap" }}>
-                    <button className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(c)}>编辑</button>
+                    <button className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(c)}>{t("common.edit","编辑")}</button>
                     <button className={isActive?s.btnDanger:s.btnSuccess} style={{ padding:"4px 8px",fontSize:11 }}
-                      onClick={()=>freeze(c.id, c.status||"active")}>{isActive?"冻结":"解冻"}</button>
+                      onClick={()=>freeze(c.id, c.status||"active")}>{isActive?t("ui.冻结","冻结"):t("ui.解冻","解冻")}</button>
                   </td>
                 </tr>
               );
@@ -195,16 +197,16 @@ export default function CustomersPage() {
       </div>
 
       {/* 编辑 / 新增 Drawer */}
-      <RightDrawer open={drawerOpen} title={editing?"编辑客户档案":"新增客户"} onClose={()=>{setDrawerOpen(false);setEditing(null);}}>
+      <RightDrawer open={drawerOpen} title={editing?t("ui.编辑客户档案","编辑客户档案"):t("ui.新增客户","新增客户")} onClose={()=>{setDrawerOpen(false);setEditing(null);}}>
         <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
           {/* 基本信息 */}
           {([
-            {k:"customer_code",l:"客户编码",t:"text",req:true,hint:"自动生成，可手动修改"},
-            {k:"customer_name",l:"客户名称",t:"text",req:true},
-            {k:"contact_name",l:"联系人",t:"text"},
-            {k:"contact_phone",l:"联系电话",t:"tel"},
-            {k:"delivery_addr",l:"收货地址",t:"text"},
-            {k:"sales_rep",l:"绑定业务员账号",t:"text",hint:"填写系统登录账号"},
+            {k:"customer_code",l:t("ui.客户编码","客户编码"),t:"text",req:true,hint:t("ui.自动生成可手动修改","自动生成，可手动修改")},
+            {k:"customer_name",l:t("ui.客户名称","客户名称"),t:"text",req:true},
+            {k:"contact_name",l:t("ui.联系人","联系人"),t:"text"},
+            {k:"contact_phone",l:t("ui.联系电话","联系电话"),t:"tel"},
+            {k:"delivery_addr",l:t("ui.收货地址","收货地址"),t:"text"},
+            {k:"sales_rep",l:t("ui.绑定业务员账号","绑定业务员账号"),t:"text",hint:t("ui.填写系统登录账号","填写系统登录账号")},
           ] as {k:string;l:string;t:string;req?:boolean;hint?:string}[]).map(f=>(
             <div key={f.k}>
               <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>
@@ -218,49 +220,49 @@ export default function CustomersPage() {
           {/* 等级 / 信用 */}
           <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
             <div>
-              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>客户等级</label>
+              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.客户等级","客户等级")}</label>
               <select value={form.tier} onChange={e=>setForm(p=>({...p,tier:e.target.value}))}
                 style={{ width:"100%",padding:"9px 12px",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:14,outline:"none" }}>
-                <option value="A">A 级（VIP）</option>
-                <option value="B">B 级（优质）</option>
-                <option value="C">C 级（普通）</option>
+                <option value="A">A {t("ui.级VIP","级（VIP）")}</option>
+                <option value="B">B {t("ui.级优质","级（优质）")}</option>
+                <option value="C">C {t("ui.级普通","级（普通）")}</option>
               </select>
             </div>
             <div>
-              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>客户类型</label>
+              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.客户类型","客户类型")}</label>
               <select value={form.customer_type} onChange={e=>setForm(p=>({...p,customer_type:e.target.value}))}
                 style={{ width:"100%",padding:"9px 12px",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:14,outline:"none" }}>
-                <option value="B2B">B2B 大客户</option>
-                <option value="RETAIL">零售门店</option>
-                <option value="WHOLESALE">批发商</option>
+                <option value="B2B">{t("ui.B2B大客户","B2B 大客户")}</option>
+                <option value="RETAIL">{t("ui.零售门店","零售门店")}</option>
+                <option value="WHOLESALE">{t("ui.批发商","批发商")}</option>
               </select>
             </div>
           </div>
           <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
             <div>
-              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>信用额度（¥）</label>
+              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.信用额度","信用额度")}（¥）</label>
               <input type="number" value={form.credit_limit} onChange={e=>setForm(p=>({...p,credit_limit:e.target.value}))}
                 style={{ width:"100%",padding:"9px 12px",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:14,outline:"none",boxSizing:"border-box" }}/>
             </div>
             <div>
-              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>账期（天）</label>
+              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.账期","账期")}（{t("ui.天","天")}）</label>
               <input type="number" value={form.account_period} onChange={e=>setForm(p=>({...p,account_period:e.target.value}))}
                 style={{ width:"100%",padding:"9px 12px",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:14,outline:"none",boxSizing:"border-box" }}/>
             </div>
           </div>
           {editing&&(
             <div>
-              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>状态</label>
+              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("common.status","状态")}</label>
               <select value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))}
                 style={{ width:"100%",padding:"9px 12px",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:14,outline:"none" }}>
-                <option value="active">正常</option>
-                <option value="frozen">已冻结</option>
+                <option value="active">{t("status.normal","正常")}</option>
+                <option value="frozen">{t("ui.已冻结","已冻结")}</option>
               </select>
             </div>
           )}
           <div style={{ display:"flex",gap:10,paddingTop:8 }}>
-            <button type="button" className={s.btnSecondary} style={{ flex:1 }} onClick={()=>{setDrawerOpen(false);setEditing(null);}}>取消</button>
-            <button type="button" className={s.btnPrimary} style={{ flex:2 }} disabled={saving} onClick={save}>{saving?"保存中…":"保存客户"}</button>
+            <button type="button" className={s.btnSecondary} style={{ flex:1 }} onClick={()=>{setDrawerOpen(false);setEditing(null);}}>{t("common.cancel","取消")}</button>
+            <button type="button" className={s.btnPrimary} style={{ flex:2 }} disabled={saving} onClick={save}>{saving?t("ui.保存中","保存中…"):t("ui.保存客户","保存客户")}</button>
           </div>
         </div>
       </RightDrawer>

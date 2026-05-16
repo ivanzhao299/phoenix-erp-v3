@@ -1,21 +1,15 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Plus, RefreshCw, Package, CheckCircle } from "lucide-react";
+import { Plus, RefreshCw, CheckCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
 
 // V3 表: wms_inbound + wms_inbound_items
-// wms_inbound:  id, task_no, source_po_no, source_type, warehouse_code, supplier_code,
-//               total_amount, currency_code, status(PENDING/PROCESSING/COMPLETED/CANCELLED),
-//               store_code, operator_id, confirmed_at, remark, created_by, created_at, updated_at
-// wms_inbound_items: id, task_no, line_no, product_code, spec_code, batch_no,
-//                    expire_date, planned_qty, actual_qty, unit, unit_cost, location_code, created_at
 
 const STATUS_CLS: Record<string,string>   = { PENDING:"badgeWarning", PROCESSING:"badgeInfo", COMPLETED:"badgeSuccess", CANCELLED:"badgeDanger" };
-const STATUS_LABEL: Record<string,string> = { PENDING:"待验收", PROCESSING:"验收中", COMPLETED:"已完成", CANCELLED:"已取消" };
-const SOURCE_LABEL: Record<string,string> = { PURCHASE:"采购入库", TRANSFER:"调拨入库", RETURN:"退货入库" };
 
 interface Inbound {
   id:number; task_no:string; source_po_no?:string; source_type?:string;
@@ -38,6 +32,11 @@ const DEF_ITEM: ItemForm = { product_code:"", spec_code:"", batch_no:"", expire_
 
 export default function ArrivalPage() {
   const toast = useToast();
+  const { t } = useLanguage();
+
+  const STATUS_LABEL: Record<string,string> = { PENDING:t("ui.待验收","待验收"), PROCESSING:t("ui.验收中","验收中"), COMPLETED:t("status.done","已完成"), CANCELLED:t("status.cancelled","已取消") };
+  const SOURCE_LABEL: Record<string,string> = { PURCHASE:t("ui.采购入库","采购入库"), TRANSFER:t("ui.调拨入库","调拨入库"), RETURN:t("ui.退货入库","退货入库") };
+
   const [list, setList]         = useState<Inbound[]>([]);
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState("");
@@ -94,20 +93,18 @@ export default function ArrivalPage() {
 
   async function confirm(row: Inbound) {
     await fetch(`/api/crud/wms_inbound/${row.id}`,{ method:"PUT",headers:hdr,body:JSON.stringify({ status:"COMPLETED",confirmed_at:new Date().toISOString() }) });
-    toast.success(`入库任务 ${row.task_no} 已完成确认`); load();
+    toast.success(`${t("ui.入库任务","入库任务")} ${row.task_no} ${t("ui.已完成确认","已完成确认")}`); load();
   }
 
   const addItemRow = () => setFormItems(p=>[...p,{ ...DEF_ITEM }]);
   const setItemF = (i:number, k:keyof ItemForm, v:string) => setFormItems(p=>p.map((r,idx)=>idx===i?{...r,[k]:v}:r));
 
   const save = async () => {
-    if (!form.warehouse_code) { toast.error("仓库编码为必填项"); return; }
+    if (!form.warehouse_code) { toast.error(t("ui.仓库编码为必填项","仓库编码为必填项")); return; }
     setSaving(true);
     try {
       const res = await fetch("/api/crud/wms_inbound",{ method:"POST",headers:hdr,body:JSON.stringify(form) });
       const created = await res.json();
-      const inbId = created?.data?.id || created?.id;
-      // 写入明细行
       for (let i=0; i<formItems.length; i++) {
         const fi = formItems[i];
         if (!fi.product_code) continue;
@@ -118,9 +115,9 @@ export default function ArrivalPage() {
           unit:fi.unit||"个", unit_cost:Number(fi.unit_cost)||0, location_code:fi.location_code,
         })});
       }
-      toast.success("入库任务已创建");
+      toast.success(t("ui.入库任务已创建","入库任务已创建"));
       setDrawerOpen(false); load();
-    } catch { toast.error("创建失败"); } finally { setSaving(false); }
+    } catch { toast.error(t("ui.创建失败","创建失败")); } finally { setSaving(false); }
   };
 
   const setF = (k:keyof Form,v:string) => setForm(p=>({...p,[k]:v}));
@@ -129,14 +126,14 @@ export default function ArrivalPage() {
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title="到货收货" subtitle="采购入库验收·三单比对·收货确认" breadcrumb={["采购管理","到货收货"]}
+      <PageHeader title={t("ui.到货收货","到货收货")} subtitle={t("ui.到货收货副标题","采购入库验收·三单比对·收货确认")} breadcrumb={[t("ui.采购管理","采购管理"),t("ui.到货收货","到货收货")]}
         actions={
           <div style={{ display:"flex",gap:8 }}>
             <button type="button" className={s.btnSecondary} onClick={load} disabled={loading} style={{ display:"flex",alignItems:"center",gap:6 }}>
-              <RefreshCw size={14}/> 刷新
+              <RefreshCw size={14}/> {t("common.refresh","刷新")}
             </button>
             <button type="button" className={s.btnPrimary} onClick={openNew} style={{ display:"flex",alignItems:"center",gap:6 }}>
-              <Plus size={14}/> 新建入库任务
+              <Plus size={14}/> {t("ui.新建入库任务","新建入库任务")}
             </button>
           </div>
         }/>
@@ -144,10 +141,10 @@ export default function ArrivalPage() {
       {/* KPI */}
       <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:16 }}>
         {[
-          { label:"待验收",  value:pendingCnt,                accent:"#f59e0b" },
-          { label:"验收中",  value:processingCnt,             accent:"#3b82f6" },
-          { label:"已完成",  value:completedCnt,              accent:"#10b981" },
-          { label:"货值合计",value:`¥${totalAmt.toLocaleString()}`,accent:"var(--color-primary)" },
+          { label:t("ui.待验收","待验收"),  value:pendingCnt,                accent:"#f59e0b" },
+          { label:t("ui.验收中","验收中"),  value:processingCnt,             accent:"#3b82f6" },
+          { label:t("status.done","已完成"),  value:completedCnt,              accent:"#10b981" },
+          { label:t("ui.货值合计","货值合计"),value:`¥${totalAmt.toLocaleString()}`,accent:"var(--color-primary)" },
         ].map(k=>(
           <div key={k.label} style={{ background:"var(--bg-card)",border:"1px solid var(--border)",borderLeft:`3px solid ${k.accent}`,borderRadius:"var(--radius-md)",padding:"10px 16px" }}>
             <div style={{ fontSize:11,color:k.accent,fontWeight:700,marginBottom:4 }}>{k.label}</div>
@@ -158,10 +155,10 @@ export default function ArrivalPage() {
 
       {/* 过滤 */}
       <div style={{ display:"flex",gap:10,marginBottom:14 }}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="搜索任务号 / 关联采购单 / 供应商…"
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t("ui.搜索任务号关联采购单供应商","搜索任务号 / 关联采购单 / 供应商…")}
           style={{ flex:1,...inp,padding:"9px 14px" }}/>
         <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} style={{ ...inp,width:140 }}>
-          <option value="">全部状态</option>
+          <option value="">{t("ui.全部状态","全部状态")}</option>
           {Object.entries(STATUS_LABEL).map(([v,l])=><option key={v} value={v}>{l}</option>)}
         </select>
       </div>
@@ -171,14 +168,14 @@ export default function ArrivalPage() {
         <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
           <thead>
             <tr style={{ background:"var(--bg-page)",borderBottom:"1px solid var(--border)" }}>
-              {["任务号","关联采购单","来源类型","仓库","供应商","货值","状态","创建时间","操作"].map(h=>(
+              {[t("ui.任务号","任务号"),t("ui.关联采购单","关联采购单"),t("ui.来源类型","来源类型"),t("ui.仓库","仓库"),t("ui.供应商","供应商"),t("ui.货值","货值"),t("common.status","状态"),t("common.date","创建时间"),t("common.operation","操作")].map(h=>(
                 <th key={h} style={{ padding:"9px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"var(--text-secondary)",whiteSpace:"nowrap" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {loading&&<tr><td colSpan={9} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>加载中…</td></tr>}
-            {!loading&&filtered.length===0&&<tr><td colSpan={9} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>暂无入库记录</td></tr>}
+            {loading&&<tr><td colSpan={9} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>{t("common.loading","加载中…")}</td></tr>}
+            {!loading&&filtered.length===0&&<tr><td colSpan={9} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>{t("ui.暂无入库记录","暂无入库记录")}</td></tr>}
             {!loading&&filtered.map((row,i)=>{
               const st = row.status?.toUpperCase()||"PENDING";
               return (
@@ -196,8 +193,8 @@ export default function ArrivalPage() {
                   <td style={{ padding:"9px 12px" }}><span className={`${s.badge} ${s[STATUS_CLS[st]||'badgeNeutral']}`}>{STATUS_LABEL[st]||st}</span></td>
                   <td style={{ padding:"9px 12px",fontSize:11,color:"var(--text-secondary)" }}>{row.created_at?.slice(0,10)||"—"}</td>
                   <td style={{ padding:"9px 12px",display:"flex",gap:6 }}>
-                    <button className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openDetail(row)}>详情</button>
-                    {st==="PENDING"&&<button className={s.btnSuccess} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>confirm(row)}><CheckCircle size={11}/> 确认收货</button>}
+                    <button className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openDetail(row)}>{t("common.detail","详情")}</button>
+                    {st==="PENDING"&&<button className={s.btnSuccess} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>confirm(row)}><CheckCircle size={11}/> {t("ui.确认收货","确认收货")}</button>}
                   </td>
                 </tr>
               );
@@ -207,20 +204,20 @@ export default function ArrivalPage() {
       </div>
 
       {/* 抽屉：详情 or 新建 */}
-      <RightDrawer open={drawerOpen} title={detailRow?`入库单详情 — ${detailRow.task_no}`:"新建入库任务"} onClose={()=>{ setDrawerOpen(false); setDetailRow(null); setEditing(null); }}>
+      <RightDrawer open={drawerOpen} title={detailRow?`${t("ui.入库单详情","入库单详情")} — ${detailRow.task_no}`:t("ui.新建入库任务","新建入库任务")} onClose={()=>{ setDrawerOpen(false); setDetailRow(null); setEditing(null); }}>
         {detailRow ? (
           <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
             {/* 基本信息 */}
             {[
-              ["任务号",     detailRow.task_no, true],
-              ["关联采购单", detailRow.source_po_no||"—", true],
-              ["来源类型",   SOURCE_LABEL[detailRow.source_type||"PURCHASE"]||detailRow.source_type],
-              ["仓库编码",   detailRow.warehouse_code],
-              ["供应商",     detailRow.supplier_code],
-              ["货值",       `${detailRow.currency_code||"LAK"} ${Number(detailRow.total_amount||0).toLocaleString()}`],
-              ["备注",       detailRow.remark||"—"],
-              ["创建时间",   detailRow.created_at?.slice(0,16)],
-              ["确认时间",   detailRow.confirmed_at?.slice(0,16)||"—"],
+              [t("ui.任务号","任务号"),     detailRow.task_no, true],
+              [t("ui.关联采购单","关联采购单"), detailRow.source_po_no||"—", true],
+              [t("ui.来源类型","来源类型"),   SOURCE_LABEL[detailRow.source_type||"PURCHASE"]||detailRow.source_type],
+              [t("ui.仓库编码","仓库编码"),   detailRow.warehouse_code],
+              [t("ui.供应商","供应商"),     detailRow.supplier_code],
+              [t("ui.货值","货值"),       `${detailRow.currency_code||"LAK"} ${Number(detailRow.total_amount||0).toLocaleString()}`],
+              [t("common.remark","备注"),       detailRow.remark||"—"],
+              [t("common.date","创建时间"),   detailRow.created_at?.slice(0,16)],
+              [t("ui.确认时间","确认时间"),   detailRow.confirmed_at?.slice(0,16)||"—"],
             ].map(([l,v,m])=>(
               <div key={String(l)} style={{ display:"flex",gap:10 }}>
                 <span style={{ width:80,fontSize:12,color:"var(--text-secondary)",flexShrink:0 }}>{l}</span>
@@ -228,19 +225,19 @@ export default function ArrivalPage() {
               </div>
             ))}
             <div style={{ display:"flex",gap:10 }}>
-              <span style={{ width:80,fontSize:12,color:"var(--text-secondary)" }}>状态</span>
+              <span style={{ width:80,fontSize:12,color:"var(--text-secondary)" }}>{t("common.status","状态")}</span>
               <span className={`${s.badge} ${s[STATUS_CLS[(detailRow.status||"").toUpperCase()]||'badgeNeutral']}`}>{STATUS_LABEL[(detailRow.status||"").toUpperCase()]||detailRow.status}</span>
             </div>
 
             {/* 明细行 */}
-            <div style={{ fontWeight:700,fontSize:13,marginTop:10,borderBottom:"1px solid var(--border)",paddingBottom:6 }}>收货明细</div>
-            {itemsLoading&&<div style={{ color:"var(--text-secondary)",fontSize:13 }}>加载明细…</div>}
-            {!itemsLoading&&items.length===0&&<div style={{ color:"var(--text-secondary)",fontSize:13 }}>暂无明细</div>}
+            <div style={{ fontWeight:700,fontSize:13,marginTop:10,borderBottom:"1px solid var(--border)",paddingBottom:6 }}>{t("ui.收货明细","收货明细")}</div>
+            {itemsLoading&&<div style={{ color:"var(--text-secondary)",fontSize:13 }}>{t("ui.加载明细","加载明细…")}</div>}
+            {!itemsLoading&&items.length===0&&<div style={{ color:"var(--text-secondary)",fontSize:13 }}>{t("ui.暂无明细","暂无明细")}</div>}
             {!itemsLoading&&items.map((it,idx)=>(
               <div key={it.id} style={{ background:"var(--bg-page)",borderRadius:"var(--radius-md)",padding:"10px 12px",border:"1px solid var(--border)" }}>
-                <div style={{ fontWeight:700,fontSize:12,marginBottom:6 }}>第 {it.line_no||idx+1} 行 — {it.product_code}</div>
+                <div style={{ fontWeight:700,fontSize:12,marginBottom:6 }}>{t("ui.第","第")} {it.line_no||idx+1} {t("ui.行","行")} — {it.product_code}</div>
                 <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,fontSize:12,color:"var(--text-secondary)" }}>
-                  {[["规格",it.spec_code],["批次",it.batch_no],["效期",it.expire_date?.slice(0,10)],["计划数",it.planned_qty],["实收数",it.actual_qty],["单位",it.unit],["单价",it.unit_cost],["库位",it.location_code]].map(([k,v])=>(
+                  {[[t("ui.规格","规格"),it.spec_code],[t("ui.批次","批次"),it.batch_no],[t("ui.效期","效期"),it.expire_date?.slice(0,10)],[t("ui.计划数","计划数"),it.planned_qty],[t("ui.实收数","实收数"),it.actual_qty],[t("ui.单位","单位"),it.unit],[t("ui.单价","单价"),it.unit_cost],[t("ui.库位","库位"),it.location_code]].map(([k,v])=>(
                     <div key={String(k)}><span style={{ color:"var(--text-muted)" }}>{k}：</span>{String(v||"—")}</div>
                   ))}
                 </div>
@@ -248,7 +245,7 @@ export default function ArrivalPage() {
             ))}
             {detailRow.status?.toUpperCase()==="PENDING"&&(
               <button type="button" className={s.btnSuccess} style={{ marginTop:8 }} onClick={()=>{ confirm(detailRow); setDrawerOpen(false); }}>
-                <CheckCircle size={13}/> 确认全部收货
+                <CheckCircle size={13}/> {t("ui.确认全部收货","确认全部收货")}
               </button>
             )}
           </div>
@@ -256,21 +253,21 @@ export default function ArrivalPage() {
           <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
             <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
               <div>
-                <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>任务号（自动）</label>
+                <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.任务号自动","任务号（自动）")}</label>
                 <input value={form.task_no} readOnly style={{ ...inp,background:"var(--bg-page)",color:"var(--text-secondary)",fontFamily:"monospace",fontSize:12 }}/>
               </div>
               <div>
-                <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>来源类型</label>
+                <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.来源类型","来源类型")}</label>
                 <select value={form.source_type} onChange={e=>setF("source_type",e.target.value)} style={{ ...inp }}>
                   {Object.entries(SOURCE_LABEL).map(([v,l])=><option key={v} value={v}>{l}</option>)}
                 </select>
               </div>
             </div>
             {[
-              { k:"source_po_no",  l:"关联采购单号" },
-              { k:"warehouse_code",l:"仓库编码", req:true },
-              { k:"supplier_code", l:"供应商编码" },
-              { k:"total_amount",  l:"货值金额", t:"number" },
+              { k:"source_po_no",  l:t("ui.关联采购单号","关联采购单号") },
+              { k:"warehouse_code",l:t("ui.仓库编码","仓库编码"), req:true },
+              { k:"supplier_code", l:t("ui.供应商编码","供应商编码") },
+              { k:"total_amount",  l:t("ui.货值金额","货值金额"), t:"number" },
             ].map(f=>(
               <div key={f.k}>
                 <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{f.l}{f.req&&<span className={s.textDanger}> *</span>}</label>
@@ -278,26 +275,26 @@ export default function ArrivalPage() {
               </div>
             ))}
             <div>
-              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>备注</label>
+              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("common.remark","备注")}</label>
               <textarea value={form.remark} onChange={e=>setF("remark",e.target.value)} rows={2} style={{ ...inp,resize:"vertical" }}/>
             </div>
 
             {/* 明细行 */}
-            <div style={{ fontWeight:700,fontSize:13,marginTop:6,borderBottom:"1px solid var(--border)",paddingBottom:6 }}>收货明细行</div>
+            <div style={{ fontWeight:700,fontSize:13,marginTop:6,borderBottom:"1px solid var(--border)",paddingBottom:6 }}>{t("ui.收货明细行","收货明细行")}</div>
             {formItems.map((fi,idx)=>(
               <div key={idx} style={{ background:"var(--bg-page)",borderRadius:"var(--radius-md)",padding:"10px 12px",border:"1px solid var(--border)" }}>
-                <div style={{ fontSize:12,fontWeight:700,marginBottom:6 }}>第 {idx+1} 行</div>
+                <div style={{ fontSize:12,fontWeight:700,marginBottom:6 }}>{t("ui.第","第")} {idx+1} {t("ui.行","行")}</div>
                 <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:8 }}>
                   {[
-                    { k:"product_code",l:"产品编码",req:true },
-                    { k:"spec_code",   l:"规格" },
-                    { k:"batch_no",    l:"批次号" },
-                    { k:"expire_date", l:"效期",t:"date" },
-                    { k:"planned_qty", l:"计划数量",t:"number" },
-                    { k:"actual_qty",  l:"实收数量",t:"number" },
-                    { k:"unit",        l:"单位" },
-                    { k:"unit_cost",   l:"单价",t:"number" },
-                    { k:"location_code",l:"库位编码" },
+                    { k:"product_code",l:t("ui.产品编码","产品编码"),req:true },
+                    { k:"spec_code",   l:t("ui.规格","规格") },
+                    { k:"batch_no",    l:t("ui.批次号","批次号") },
+                    { k:"expire_date", l:t("ui.效期","效期"),t:"date" },
+                    { k:"planned_qty", l:t("ui.计划数量","计划数量"),t:"number" },
+                    { k:"actual_qty",  l:t("ui.实收数量","实收数量"),t:"number" },
+                    { k:"unit",        l:t("ui.单位","单位") },
+                    { k:"unit_cost",   l:t("ui.单价","单价"),t:"number" },
+                    { k:"location_code",l:t("ui.库位编码","库位编码") },
                   ].map(f=>(
                     <div key={f.k}>
                       <label style={{ fontSize:11,color:"var(--text-secondary)",display:"block",marginBottom:2 }}>{f.l}</label>
@@ -307,10 +304,10 @@ export default function ArrivalPage() {
                 </div>
               </div>
             ))}
-            <button type="button" className={s.btnSecondary} onClick={addItemRow}>+ 添加明细行</button>
+            <button type="button" className={s.btnSecondary} onClick={addItemRow}>+ {t("ui.添加明细行","添加明细行")}</button>
             <div style={{ display:"flex",gap:10,paddingTop:8 }}>
-              <button type="button" className={s.btnSecondary} style={{ flex:1 }} onClick={()=>{ setDrawerOpen(false); }}>取消</button>
-              <button type="button" className={s.btnPrimary} style={{ flex:2 }} disabled={saving} onClick={save}>{saving?"保存中…":"创建入库任务"}</button>
+              <button type="button" className={s.btnSecondary} style={{ flex:1 }} onClick={()=>{ setDrawerOpen(false); }}>{t("common.cancel","取消")}</button>
+              <button type="button" className={s.btnPrimary} style={{ flex:2 }} disabled={saving} onClick={save}>{saving?t("ui.保存中","保存中…"):t("ui.创建入库任务","创建入库任务")}</button>
             </div>
           </div>
         )}

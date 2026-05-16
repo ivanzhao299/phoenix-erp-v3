@@ -4,6 +4,7 @@ import { RefreshCw, ShieldAlert, CheckCircle, XCircle, AlertTriangle } from "luc
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
 
 interface Order {
@@ -13,15 +14,9 @@ interface Order {
   need_period_approval: boolean; is_urgent: number; status: string;
 }
 
-const APPROVAL_FLAGS = [
-  { key: "need_price_approval",  label: "低价审批",  cls: s.badgeWarning },
-  { key: "need_credit_approval", label: "信用审批",  cls: s.badgeDanger  },
-  { key: "need_period_approval", label: "账期审批",  cls: s.badgeInfo    },
-  { key: "is_urgent",            label: "⚡ 加急单", cls: s.badgeWarning },
-];
-
 export default function ApprovalPage() {
   const toast = useToast();
+  const { t } = useLanguage();
   const [orders,  setOrders]  = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Order | null>(null);
@@ -29,6 +24,13 @@ export default function ApprovalPage() {
   const [reason,   setReason]   = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const APPROVAL_FLAGS = [
+    { key: "need_price_approval",  label: t("ui.低价审批", "低价审批"),  cls: s.badgeWarning },
+    { key: "need_credit_approval", label: t("ui.信用审批", "信用审批"),  cls: s.badgeDanger  },
+    { key: "need_period_approval", label: t("ui.账期审批", "账期审批"),  cls: s.badgeInfo    },
+    { key: "is_urgent",            label: t("ui.加急单", "⚡ 加急单"),   cls: s.badgeWarning },
+  ];
 
   const token = typeof window !== "undefined"
     ? (sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "")
@@ -56,17 +58,11 @@ export default function ApprovalPage() {
     setSelected(order); setAction(act); setReason(""); setDrawerOpen(true);
   };
 
-  const user = typeof window !== "undefined"
-    ? JSON.parse(sessionStorage.getItem("phoenix_user") || localStorage.getItem("phoenix_user") || "{}")
-    : {};
-
   const submitApproval = async () => {
     if (!selected) return;
-    if (action === "reject" && !reason.trim()) { toast.error("请填写拒绝原因"); return; }
+    if (action === "reject" && !reason.trim()) { toast.error(t("ui.请填写拒绝原因", "请填写拒绝原因")); return; }
     setSubmitting(true);
     try {
-      // A2: 改调 /api/orders/:order_no/transition — 真业务路径
-      //     service 内部: 状态机校验 + 信用额度释放 + 审批日志 + APPROVED 时联动 WMS
       const targetStatus = action === "approve" ? "APPROVED" : "REJECTED";
       const r = await fetch(`/api/orders/${encodeURIComponent(selected.order_no)}/transition`, {
         method: "POST", headers: hdr(),
@@ -74,25 +70,25 @@ export default function ApprovalPage() {
       });
       const j = await r.json().catch(() => ({}));
       if (j?.code === 200) {
-        toast.success(action === "approve" ? "订单已批准（已联动 WMS）" : "订单已拒绝");
+        toast.success(action === "approve" ? t("ui.订单已批准联动WMS", "订单已批准（已联动 WMS）") : t("ui.订单已拒绝", "订单已拒绝"));
         setDrawerOpen(false);
         loadData();
       } else {
-        toast.error(j?.msg || "操作失败");
+        toast.error(j?.msg || t("common.operation", "操作") + t("ui.失败", "失败"));
       }
-    } catch { toast.error("操作失败，请重试"); } finally { setSubmitting(false); }
+    } catch { toast.error(t("ui.操作失败请重试", "操作失败，请重试")); } finally { setSubmitting(false); }
   };
 
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="订单审批"
-        subtitle={`${orders.length} 张待审批订单`}
-        breadcrumb={["销售", "订单审批"]}
+        title={t("ui.订单审批", "订单审批")}
+        subtitle={`${orders.length} ${t("ui.张待审批订单", "张待审批订单")}`}
+        breadcrumb={[t("ui.销售", "销售"), t("ui.订单审批", "订单审批")]}
         actions={
           <button type="button" className={s.btnSecondary} onClick={loadData} disabled={loading}
             style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }}/> 刷新
+            <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }}/> {t("common.refresh", "刷新")}
           </button>
         }
       />
@@ -101,8 +97,8 @@ export default function ApprovalPage() {
       {!loading && orders.length === 0 && (
         <div style={{ textAlign:"center", padding:"60px 20px", color:"var(--text-secondary)" }}>
           <CheckCircle size={48} style={{ marginBottom:12, opacity:0.3 }}/>
-          <div style={{ fontSize:16, fontWeight:600 }}>暂无待审批订单</div>
-          <div style={{ fontSize:13, marginTop:6 }}>所有订单均已处理完毕</div>
+          <div style={{ fontSize:16, fontWeight:600 }}>{t("ui.暂无待审批订单", "暂无待审批订单")}</div>
+          <div style={{ fontSize:13, marginTop:6 }}>{t("ui.所有订单均已处理完毕", "所有订单均已处理完毕")}</div>
         </div>
       )}
 
@@ -118,12 +114,12 @@ export default function ApprovalPage() {
                 <span style={{ fontWeight:700, fontSize:15, fontFamily:"monospace" }}>{order.order_no}</span>
               </div>
               <div style={{ fontSize:13, color:"var(--text-secondary)", marginBottom:10 }}>
-                客户：<strong style={{ color:"var(--text-primary)" }}>{order.customer_name || order.customer_code}</strong>
+                {t("ui.客户", "客户")}：<strong style={{ color:"var(--text-primary)" }}>{order.customer_name || order.customer_code}</strong>
                 &nbsp;·&nbsp;
-                金额：<strong className={s.textInfo}>
-                  {order.total_amount ? `${Number(order.total_amount).toLocaleString()} LAK` : "待录入"}
+                {t("common.amount", "金额")}：<strong className={s.textInfo}>
+                  {order.total_amount ? `${Number(order.total_amount).toLocaleString()} LAK` : t("ui.待录入", "待录入")}
                 </strong>
-                &nbsp;·&nbsp;业务员：{order.sales_rep || "—"}
+                &nbsp;·&nbsp;{t("ui.业务员", "业务员")}：{order.sales_rep || "—"}
               </div>
 
               {/* 触发标志 badges */}
@@ -137,8 +133,8 @@ export default function ApprovalPage() {
               </div>
 
               <div style={{ fontSize:12, color:"var(--text-secondary)" }}>
-                期望交期：{order.expected_date || "未填写"}
-                &nbsp;·&nbsp;备注：{order.remark || "—"}
+                {t("ui.期望交期", "期望交期")}：{order.expected_date || t("ui.未填写", "未填写")}
+                &nbsp;·&nbsp;{t("common.remark", "备注")}：{order.remark || "—"}
               </div>
             </div>
 
@@ -147,12 +143,12 @@ export default function ApprovalPage() {
               <button type="button" className={s.btnSuccess}
                 style={{ display:"flex", alignItems:"center", gap:6, padding:"10px 18px" }}
                 onClick={() => openApproval(order, "approve")}>
-                <CheckCircle size={14}/> 批准
+                <CheckCircle size={14}/> {t("ui.批准", "批准")}
               </button>
               <button type="button" className={s.btnDanger}
                 style={{ display:"flex", alignItems:"center", gap:6, padding:"10px 18px" }}
                 onClick={() => openApproval(order, "reject")}>
-                <XCircle size={14}/> 拒绝
+                <XCircle size={14}/> {t("ui.拒绝", "拒绝")}
               </button>
             </div>
           </div>
@@ -160,7 +156,7 @@ export default function ApprovalPage() {
       </div>
 
       {/* 审批 Drawer */}
-      <RightDrawer open={drawerOpen} title={`${action === "approve" ? "批准" : "拒绝"}订单`}
+      <RightDrawer open={drawerOpen} title={`${action === "approve" ? t("ui.批准", "批准") : t("ui.拒绝", "拒绝")}${t("ui.订单", "订单")}`}
         onClose={() => setDrawerOpen(false)}>
         {selected && (
           <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
@@ -175,10 +171,10 @@ export default function ApprovalPage() {
 
             <div>
               <label style={{ fontSize:13, color:"var(--text-secondary)", display:"block", marginBottom:6 }}>
-                {action === "reject" ? "拒绝原因（必填）" : "批准备注（选填）"}
+                {action === "reject" ? t("ui.拒绝原因必填", "拒绝原因（必填）") : t("ui.批准备注选填", "批准备注（选填）")}
               </label>
               <textarea value={reason} onChange={e => setReason(e.target.value)} rows={4}
-                placeholder={action === "reject" ? "请填写拒绝原因，将通知业务员..." : "填写批准附言..."}
+                placeholder={action === "reject" ? t("ui.请填写拒绝原因将通知业务员", "请填写拒绝原因，将通知业务员...") : t("ui.填写批准附言", "填写批准附言...")}
                 style={{ width:"100%", padding:10, background:"var(--bg-card)", border:"1px solid var(--border)",
                   borderRadius:"var(--radius-md)", color:"var(--text-primary)", fontSize:14,
                   outline:"none", resize:"vertical", boxSizing:"border-box" }}/>
@@ -186,13 +182,13 @@ export default function ApprovalPage() {
 
             <div style={{ display:"flex", gap:10 }}>
               <button type="button" className={s.btnSecondary} style={{ flex:1 }}
-                onClick={() => setDrawerOpen(false)}>取消</button>
+                onClick={() => setDrawerOpen(false)}>{t("common.cancel", "取消")}</button>
               <button type="button"
                 className={action === "approve" ? s.btnSuccess : s.btnDanger}
                 style={{ flex:2 }}
                 disabled={submitting || (action === "reject" && !reason.trim())}
                 onClick={submitApproval}>
-                {submitting ? "处理中…" : `确认${action === "approve" ? "批准" : "拒绝"}`}
+                {submitting ? t("ui.处理中", "处理中…") : `${t("common.confirm", "确认")}${action === "approve" ? t("ui.批准", "批准") : t("ui.拒绝", "拒绝")}`}
               </button>
             </div>
           </div>

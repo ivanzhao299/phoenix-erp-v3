@@ -6,23 +6,24 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // V3 包装专用表：pkg_exceptions
 // 字段: id, nc_no, issue_type, severity, batch_no, store_code, description, action_taken, status
 const TABLE = "pkg_exceptions";
 
-
-const COLUMNS = [
-  { key: "nc_no",       title: "不合格品单号" },
-  { key: "issue_type",  title: "异常类型" },
-  { key: "batch_no",    title: "关联批次" },
-  { key: "severity",    title: "严重级别" },
-  { key: "status",      title: "处置状态" },
-  { key: "action_taken",title: "处置措施" },
-];
-
-
 export default function PackagingExceptionsPage() {
+  const { t } = useLanguage();
+
+  const COLUMNS = [
+    { key: "nc_no",        title: t("ui.不合格品单号", "不合格品单号") },
+    { key: "issue_type",   title: t("ui.异常类型",     "异常类型") },
+    { key: "batch_no",     title: t("ui.关联批次",     "关联批次") },
+    { key: "severity",     title: t("ui.严重级别",     "严重级别") },
+    { key: "status",       title: t("ui.处置状态",     "处置状态") },
+    { key: "action_taken", title: t("ui.处置措施",     "处置措施") },
+  ];
+
   const [drawerOpen, setDrawerOpen]     = useState(false);
   const [editing, setEditing]           = useState<Record<string, unknown> | null>(null);
   const [saving, setSaving]             = useState(false);
@@ -30,9 +31,12 @@ export default function PackagingExceptionsPage() {
   const [confirmOpen, setConfirmOpen]   = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Record<string, unknown> | null>(null);
   const [issueTypeOpts, setIssueTypeOpts] = useState<{ label: string; value: string }[]>([
-    { label: "破损蛋", value: "BROKEN" }, { label: "脏蛋", value: "DIRTY" },
-    { label: "超规格", value: "OVERSIZE" }, { label: "不足规格", value: "UNDERSIZE" },
-    { label: "卫生不达标", value: "HYGIENE" }, { label: "其他", value: "OTHER" },
+    { label: t("ui.破损蛋",   "破损蛋"),   value: "BROKEN" },
+    { label: t("ui.脏蛋",     "脏蛋"),     value: "DIRTY" },
+    { label: t("ui.超规格",   "超规格"),   value: "OVERSIZE" },
+    { label: t("ui.不足规格", "不足规格"), value: "UNDERSIZE" },
+    { label: t("ui.卫生不达标","卫生不达标"),value: "HYGIENE" },
+    { label: t("ui.其他",     "其他"),     value: "OTHER" },
   ]);
 
   useEffect(() => {
@@ -46,18 +50,30 @@ export default function PackagingExceptionsPage() {
 
   // 动态构建 FIELDS（依赖 issueTypeOpts）
   const FIELDS: FormField[] = [
-    { key: "nc_no",        label: "异常单号",     type: "text",     required: false, placeholder: "留空自动生成" },
-    { key: "issue_type",   label: "异常类型",     type: "select",   required: true, options: issueTypeOpts },
-    { key: "severity",     label: "严重级别",     type: "select",   required: false,
-      options: [{ label: "低", value: "LOW" }, { label: "中", value: "MEDIUM" }, { label: "高", value: "HIGH" }] },
-    { key: "batch_no",     label: "关联批次号",   type: "text",     required: false },
-    { key: "store_code",   label: "发现门店",     type: "text",     required: false },
-    { key: "description",  label: "异常描述",     type: "textarea", required: false, span: 2 },
-    { key: "action_taken", label: "处置措施",     type: "select",   required: false,
-      options: [{ label: "报废", value: "SCRAP" }, { label: "降级使用", value: "DOWNGRADE" },
-                { label: "退回", value: "RETURN" }, { label: "待定", value: "PENDING" }] },
-    { key: "status",       label: "处置状态",     type: "select",   required: false,
-      options: [{ label: "待处置", value: "OPEN" }, { label: "处置中", value: "IN_PROGRESS" }, { label: "已关闭", value: "CLOSED" }] },
+    { key: "nc_no",        label: t("ui.异常单号",   "异常单号"),   type: "text",     required: false, placeholder: t("ui.留空自动生成", "留空自动生成") },
+    { key: "issue_type",   label: t("ui.异常类型",   "异常类型"),   type: "select",   required: true, options: issueTypeOpts },
+    { key: "severity",     label: t("ui.严重级别",   "严重级别"),   type: "select",   required: false,
+      options: [
+        { label: t("ui.低", "低"), value: "LOW" },
+        { label: t("ui.中", "中"), value: "MEDIUM" },
+        { label: t("ui.高", "高"), value: "HIGH" },
+      ] },
+    { key: "batch_no",     label: t("ui.关联批次号", "关联批次号"), type: "text",     required: false },
+    { key: "store_code",   label: t("ui.发现门店",   "发现门店"),   type: "text",     required: false },
+    { key: "description",  label: t("ui.异常描述",   "异常描述"),   type: "textarea", required: false, span: 2 },
+    { key: "action_taken", label: t("ui.处置措施",   "处置措施"),   type: "select",   required: false,
+      options: [
+        { label: t("ui.报废",     "报废"),     value: "SCRAP" },
+        { label: t("ui.降级使用", "降级使用"), value: "DOWNGRADE" },
+        { label: t("ui.退回",     "退回"),     value: "RETURN" },
+        { label: t("ui.待定",     "待定"),     value: "PENDING" },
+      ] },
+    { key: "status",       label: t("ui.处置状态",   "处置状态"),   type: "select",   required: false,
+      options: [
+        { label: t("ui.待处置", "待处置"), value: "OPEN" },
+        { label: t("ui.处置中", "处置中"), value: "IN_PROGRESS" },
+        { label: t("ui.已关闭", "已关闭"), value: "CLOSED" },
+      ] },
   ];
 
   const refresh     = useCallback(() => setRefreshKey(k => k + 1), []);
@@ -83,14 +99,17 @@ export default function PackagingExceptionsPage() {
 
   return (
     <div>
-      <PageHeader title="异常品处理" subtitle="记录包装过程中的异常蛋品及处置措施（表：pkg_exceptions）" />
+      <PageHeader
+        title={t("ui.异常品处理", "异常品处理")}
+        subtitle={t("ui.异常品处理副标题", "记录包装过程中的异常蛋品及处置措施（表：pkg_exceptions）")}
+      />
       <DataTable table={TABLE} columns={COLUMNS as any} onNew={openNew} onEdit={openEdit as any}
         onDelete={handleDelete as any} showActions refreshKey={refreshKey} />
-      <RightDrawer open={drawerOpen} title={editing ? "编辑异常记录" : "新增异常记录"} onClose={closeDrawer}>
+      <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑异常记录", "编辑异常记录") : t("ui.新增异常记录", "新增异常记录")} onClose={closeDrawer}>
         <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave}
           onCancel={closeDrawer} loading={saving} />
       </RightDrawer>
-      <ConfirmDialog open={confirmOpen} title="确认删除" message="删除后不可恢复，确认继续？"
+      <ConfirmDialog open={confirmOpen} title={t("common.confirmDelete", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}
         onConfirm={confirmDelete} onCancel={() => setConfirmOpen(false)} />
     </div>
   );

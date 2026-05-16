@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
 import { AlertTriangle, Home, RefreshCw } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ✅ 环境预警页面
 // 数据来源: GET /api/v3/iot/devices/all-summary（IoT 专用模块）
@@ -28,6 +29,8 @@ interface Summary {
 }
 
 export default function DeviceAlertsPage() {
+  const { t } = useLanguage();
+
   const [alarms,     setAlarms]     = useState<AlarmItem[]>([]);
   const [summary,    setSummary]    = useState<Summary | null>(null);
   const [loading,    setLoading]    = useState(true);
@@ -70,35 +73,35 @@ export default function DeviceAlertsPage() {
 
   useEffect(() => {
     fetchAlarms();
-    const t = setInterval(fetchAlarms, 30000);
-    return () => clearInterval(t);
+    const timer = setInterval(fetchAlarms, 30000);
+    return () => clearInterval(timer);
   }, [fetchAlarms]);
 
   const hasAlarm = (summary?.totalAlarms ?? alarms.length) > 0;
 
   const KPI_CARDS = [
     {
-      label: '活跃告警',
+      label: t("ui.活跃告警",   "活跃告警"),
       val:   loading ? '—' : String(summary?.totalAlarms ?? alarms.length),
-      sub:   `${summary?.alarmHouses ?? 0} 栋鸡舍有告警`,
+      sub:   `${summary?.alarmHouses ?? 0} ${t("ui.栋鸡舍有告警", "栋鸡舍有告警")}`,
       color: hasAlarm ? '#ef4444' : '#22c55e',
     },
     {
-      label: '已接入鸡舍',
+      label: t("ui.已接入鸡舍", "已接入鸡舍"),
       val:   loading ? '—' : String(summary?.totalHouses ?? '—'),
-      sub:   `${summary?.activeHouses ?? 0} 栋有实时数据`,
+      sub:   `${summary?.activeHouses ?? 0} ${t("ui.栋有实时数据", "栋有实时数据")}`,
       color: 'var(--color-primary)',
     },
     {
-      label: '在线传感器',
+      label: t("ui.在线传感器", "在线传感器"),
       val:   loading ? '—' : String(summary?.onlineSensorCnt ?? '—'),
-      sub:   `共 ${summary?.totalSensorCnt ?? 0} 个监测点`,
+      sub:   `${t("ui.共", "共")} ${summary?.totalSensorCnt ?? 0} ${t("ui.个监测点", "个监测点")}`,
       color: 'var(--color-primary)',
     },
     {
-      label: '系统状态',
-      val:   hasAlarm ? '⚠ 异常' : '✓ 正常',
-      sub:   lastUpdate ? `更新于 ${lastUpdate.toLocaleTimeString('zh-CN')}` : '—',
+      label: t("ui.系统状态",   "系统状态"),
+      val:   hasAlarm ? `⚠ ${t("ui.异常", "异常")}` : `✓ ${t("ui.正常", "正常")}`,
+      sub:   lastUpdate ? `${t("ui.更新于", "更新于")} ${lastUpdate.toLocaleTimeString('zh-CN')}` : '—',
       color: hasAlarm ? '#ef4444' : '#22c55e',
     },
   ];
@@ -106,13 +109,13 @@ export default function DeviceAlertsPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="环境预警"
-        subtitle="实时环境异常告警列表（每 30 秒自动刷新）"
-        breadcrumb={['养殖管理', '环境预警']}
+        title={t("ui.环境预警", "环境预警")}
+        subtitle={t("ui.环境预警副标题", "实时环境异常告警列表（每 30 秒自动刷新）")}
+        breadcrumb={[t("ui.养殖管理", "养殖管理"), t("ui.环境预警", "环境预警")]}
         actions={
           <button type="button" className={s.btnSecondary} onClick={fetchAlarms} disabled={loading}>
             <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-            刷新
+            {t("common.refresh", "刷新")}
           </button>
         }
       />
@@ -132,16 +135,16 @@ export default function DeviceAlertsPage() {
       {error && (
         <div style={{ background:"rgba(239,68,68,0.1)", border:"1px solid #ef4444", borderRadius:10, padding:16, marginBottom:20, color:"#ef4444", display:'flex', alignItems:'center', gap:8 }}>
           <AlertTriangle size={16} />
-          IoT 数据获取失败：{error}
+          {t("ui.IoT数据获取失败", "IoT 数据获取失败")}：{error}
         </div>
       )}
 
       {/* 告警列表 */}
       {loading ? (
-        <div style={{ textAlign:"center", padding:60, color:"var(--text-secondary)" }}>加载告警数据中...</div>
+        <div style={{ textAlign:"center", padding:60, color:"var(--text-secondary)" }}>{t("ui.加载告警数据中", "加载告警数据中...")}</div>
       ) : alarms.length === 0 ? (
         <div style={{ textAlign:"center", padding:60, color:"#22c55e", fontSize:15, fontWeight:600 }}>
-          ✅ 当前所有鸡舍环境指标正常，无告警
+          ✅ {t("ui.当前所有鸡舍环境指标正常无告警", "当前所有鸡舍环境指标正常，无告警")}
         </div>
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
@@ -167,7 +170,7 @@ export default function DeviceAlertsPage() {
                 </div>
               </div>
               <span style={{ fontSize:"0.75rem", padding:"3px 10px", borderRadius:6, background:"rgba(239,68,68,0.15)", color:"#ef4444", fontWeight:700 }}>
-                超出阈值
+                {t("ui.超出阈值", "超出阈值")}
               </span>
             </div>
           ))}
