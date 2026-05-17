@@ -345,6 +345,12 @@ export class WorkflowService implements OnModuleInit {
         form: (formResult.data as any)?.form,
         formVersion: (formResult.data as any)?.version,
         created,
+        links: {
+          start: `/workflow/start?code=${encodeURIComponent(definitionCode)}`,
+          designer: `/workflow/designer/${definitionId}`,
+          definitions: '/workflow/definitions',
+          formDesigner: `/workflow/form-designer/${Number((formResult.data as any)?.form?.id || 0)}`,
+        },
       },
     };
   }
@@ -561,6 +567,10 @@ export class WorkflowService implements OnModuleInit {
         version: versionRows[0],
         created,
         fields,
+        links: {
+          designer: `/workflow/form-designer/${formId}`,
+          forms: '/workflow/forms',
+        },
       },
     };
   }

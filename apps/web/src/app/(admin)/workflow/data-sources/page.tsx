@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi } from "@/lib/workflow-api";
@@ -28,6 +29,13 @@ type FieldSuggestion = {
   required?: boolean;
   reason?: string;
 };
+type GeneratedLinkSet = {
+  title: string;
+  start?: string;
+  designer?: string;
+  formDesigner?: string;
+  list?: string;
+};
 type HealthState = {
   status: "idle" | "checking" | "ok" | "empty" | "error";
   count?: number;
@@ -42,6 +50,7 @@ export default function WorkflowDataSourcesPage() {
   const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [suggestionCode, setSuggestionCode] = useState("");
   const [fieldSuggestions, setFieldSuggestions] = useState<FieldSuggestion[]>([]);
+  const [generatedLinks, setGeneratedLinks] = useState<GeneratedLinkSet | null>(null);
   const [health, setHealth] = useState<Record<string, HealthState>>({});
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
@@ -133,6 +142,7 @@ export default function WorkflowDataSourcesPage() {
     setBusy(true);
     setMsg("");
     setError("");
+    setGeneratedLinks(null);
     try {
       await workflowApi.syncDefaultDataSources();
       const next = await load();
@@ -226,7 +236,13 @@ export default function WorkflowDataSourcesPage() {
       });
       const data = res.data || {};
       const form = data.form as { id?: number; name?: string } | undefined;
+      const links = data.links as { designer?: string; forms?: string } | undefined;
       setMsg(`已生成表单：${String(form?.name || selectedCatalog.name)}，可进入表单定义继续设计/发布。`);
+      setGeneratedLinks({
+        title: "表单已生成",
+        formDesigner: links?.designer || (form?.id ? `/workflow/form-designer/${form.id}` : undefined),
+        list: links?.forms || "/workflow/forms",
+      });
       await loadFieldSuggestions(selectedCatalog.code);
     } catch (err) {
       setError(err instanceof Error ? friendlyError(err.message) : "生成表单失败");
@@ -239,6 +255,7 @@ export default function WorkflowDataSourcesPage() {
     setBusy(true);
     setMsg("");
     setError("");
+    setGeneratedLinks(null);
     try {
       const res = await workflowApi.createDefinitionFromDataSource({
         sourceCode: selectedCatalog.code,
@@ -248,7 +265,15 @@ export default function WorkflowDataSourcesPage() {
       });
       const data = res.data || {};
       const definition = data.definition as { id?: number; name?: string } | undefined;
+      const links = data.links as { start?: string; designer?: string; formDesigner?: string; definitions?: string } | undefined;
       setMsg(`已生成流程：${String(definition?.name || selectedCatalog.name)}，用户可在流程发起页选择使用。`);
+      setGeneratedLinks({
+        title: "流程包已生成",
+        start: links?.start || (definition ? `/workflow/start?code=${selectedCatalog.code}_AUTO_WORKFLOW` : undefined),
+        designer: links?.designer || (definition?.id ? `/workflow/designer/${definition.id}` : undefined),
+        formDesigner: links?.formDesigner,
+        list: links?.definitions || "/workflow/definitions",
+      });
       await loadFieldSuggestions(selectedCatalog.code);
     } catch (err) {
       setError(err instanceof Error ? friendlyError(err.message) : "生成流程失败");
@@ -382,6 +407,7 @@ export default function WorkflowDataSourcesPage() {
             ) : null}
           </div>
           {msg ? <div className={s.successBanner}>{msg}</div> : null}
+          {generatedLinks ? <GeneratedLinks links={generatedLinks} /> : null}
           {error ? <div className={s.errorBanner}>{error}</div> : null}
         </div>
       </section>
@@ -448,6 +474,20 @@ export default function WorkflowDataSourcesPage() {
           ) : null}
         </div>
       </section>
+    </div>
+  );
+}
+
+function GeneratedLinks({ links }: { links: GeneratedLinkSet }) {
+  return (
+    <div style={generatedLinksStyle}>
+      <strong>{links.title}</strong>
+      <div style={generatedLinkActionsStyle}>
+        {links.start ? <Link className={s.btnPrimary} href={links.start}>立即发起</Link> : null}
+        {links.designer ? <Link className={s.btnSecondary} href={links.designer}>流程设计器</Link> : null}
+        {links.formDesigner ? <Link className={s.btnSecondary} href={links.formDesigner}>表单设计器</Link> : null}
+        {links.list ? <Link className={s.btnSecondary} href={links.list}>查看列表</Link> : null}
+      </div>
     </div>
   );
 }
@@ -542,3 +582,5 @@ const catalogDetailStyle: React.CSSProperties = { alignContent: "start", border:
 const fieldMapStyle: React.CSSProperties = { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 };
 const actionsStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 14 };
 const previewBoxStyle: React.CSSProperties = { marginTop: 14, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 14, background: "var(--bg-page)" };
+const generatedLinksStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 10, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)" };
+const generatedLinkActionsStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" };
