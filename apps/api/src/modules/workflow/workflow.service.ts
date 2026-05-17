@@ -713,12 +713,77 @@ export class WorkflowService implements OnModuleInit {
     return this.getInstance(id, user);
   }
 
+  async urgeInstance(id: number, body: any, user: WorkflowUser) {
+    const rows = await this.em.query(`SELECT * FROM wf_instance WHERE id=$1`, [id]);
+    const instance = rows[0];
+    if (!instance) throw new NotFoundException('workflow instance not found');
+    if (instance.status !== 'RUNNING') throw new BadRequestException('only RUNNING instance can be urged');
+    if (!this.isAdmin(user) && Number(instance.starter_id) !== Number(user.userId)) {
+      throw new ForbiddenException('only starter or admin can urge instance');
+    }
+    const tasks = await this.em.query(
+      `SELECT id, node_id, node_name, assignee_user_id, assignee_role_code
+       FROM wf_task
+       WHERE instance_id=$1 AND status='TODO'
+       ORDER BY created_at ASC, id ASC`,
+      [id],
+    );
+    if (tasks.length === 0) throw new BadRequestException('instance has no active task to urge');
+    const comment = String(body?.comment || '请尽快处理该流程。').slice(0, 500);
+    await this.writeAction(id, null, 'URGE', user, instance.current_node_id, instance.current_node_id, {
+      comment,
+      targetTaskIds: tasks.map((task: any) => task.id),
+      targetNodes: tasks.map((task: any) => task.node_name || task.node_id).filter(Boolean),
+    });
+    return { code: 200, data: { success: true, urgedTaskCount: tasks.length } };
+  }
+
   async listTodo(user: WorkflowUser, query: QueryDto) {
     return this.listTasks(user, query, 'TODO');
   }
 
   async listDone(user: WorkflowUser, query: QueryDto) {
     return this.listTasks(user, query, 'DONE');
+  }
+
+  async listMonitorTasks(user: WorkflowUser, query: QueryDto) {
+    const { limit, offset } = this.page(query);
+    const roles = this.userRoles(user);
+    const rows = await this.em.query(
+      `SELECT t.*, i.title, i.instance_no, i.status AS instance_status, i.started_at, i.starter_id, i.starter_name,
+              d.name AS definition_name,
+              u.real_name AS assignee_user_name,
+              r.role_name_zh AS assignee_role_name,
+              EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - t.created_at)) / 3600 AS waiting_hours,
+              (t.due_at IS NOT NULL AND t.due_at < CURRENT_TIMESTAMP) AS overdue,
+              COALESCE(a.urge_count, 0) AS urge_count,
+              a.last_urged_at
+       FROM wf_task t
+       JOIN wf_instance i ON i.id=t.instance_id
+       LEFT JOIN wf_definition d ON d.id=i.definition_id
+       LEFT JOIN sys_user u ON u.user_id=t.assignee_user_id
+       LEFT JOIN sys_role r ON r.role_code=t.assignee_role_code
+       LEFT JOIN (
+         SELECT instance_id,
+                COUNT(*) FILTER (WHERE action='URGE')::int AS urge_count,
+                MAX(created_at) FILTER (WHERE action='URGE') AS last_urged_at
+         FROM wf_task_action
+         GROUP BY instance_id
+       ) a ON a.instance_id=i.id
+       WHERE t.status='TODO'
+         AND ($1::boolean OR i.starter_id=$2 OR t.assignee_user_id=$2 OR t.assignee_role_code = ANY($3::text[]) OR EXISTS (
+           SELECT 1 FROM wf_cc_task c
+           WHERE c.instance_id=i.id
+             AND (c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[]))
+         ))
+       ORDER BY (t.due_at IS NOT NULL AND t.due_at < CURRENT_TIMESTAMP) DESC,
+                t.due_at ASC NULLS LAST,
+                t.created_at ASC,
+                t.id ASC
+       LIMIT $4 OFFSET $5`,
+      [this.isAdmin(user), user.userId || 0, roles, limit, offset],
+    );
+    return { code: 200, data: rows, total: rows.length };
   }
 
   async listCcTasks(user: WorkflowUser, query: QueryDto) {
@@ -745,7 +810,7 @@ export class WorkflowService implements OnModuleInit {
   async getTaskSummary(user: WorkflowUser) {
     const roles = this.userRoles(user);
     const isAdmin = this.isAdmin(user);
-    const [todoRows, ccRows, runningRows, startedRows] = await Promise.all([
+    const [todoRows, ccRows, overdueRows, runningRows, startedRows] = await Promise.all([
       this.em.query(
         `SELECT COUNT(*)::int AS count
          FROM wf_task t
@@ -758,6 +823,15 @@ export class WorkflowService implements OnModuleInit {
          FROM wf_cc_task c
          WHERE c.read_at IS NULL
            AND ($1::boolean OR c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[]))`,
+        [isAdmin, user.userId || 0, roles],
+      ),
+      this.em.query(
+        `SELECT COUNT(*)::int AS count
+         FROM wf_task t
+         WHERE t.status='TODO'
+           AND t.due_at IS NOT NULL
+           AND t.due_at < CURRENT_TIMESTAMP
+           AND ($1::boolean OR t.assignee_user_id=$2 OR t.assignee_role_code = ANY($3::text[]))`,
         [isAdmin, user.userId || 0, roles],
       ),
       this.em.query(
@@ -787,6 +861,7 @@ export class WorkflowService implements OnModuleInit {
       data: {
         todo: Number(todoRows[0]?.count || 0),
         ccUnread: Number(ccRows[0]?.count || 0),
+        overdueTodo: Number(overdueRows[0]?.count || 0),
         running: Number(runningRows[0]?.count || 0),
         startedRunning: Number(startedRows[0]?.count || 0),
       },

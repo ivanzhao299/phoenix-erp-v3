@@ -26,4 +26,9 @@ export class WorkflowRuntimeController {
   cancel(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.workflow.cancelInstance(Number(id), body, req.user);
   }
+
+  @Post('instances/:id/urge')
+  urge(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    return this.workflow.urgeInstance(Number(id), body, req.user);
+  }
 }

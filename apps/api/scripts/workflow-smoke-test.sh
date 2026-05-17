@@ -102,7 +102,13 @@ INSTANCE_ID=$(printf '%s' "$START" | json_get data.id)
 [ -n "$INSTANCE_ID" ] || fail "发起响应缺少 instance id：$START"
 ok "发起成功 instance=$INSTANCE_ID"
 
-say "12) 查询待办并审批通过"
+say "12) 查询督办列表并发送催办"
+MONITOR=$(api GET /api/workflow/tasks/monitor) || fail "督办列表查询失败"
+printf '%s' "$MONITOR" | grep -q '"code":200' || fail "督办列表响应异常：$MONITOR"
+api POST "/api/workflow/instances/$INSTANCE_ID/urge" '{"comment":"Smoke 催办：请尽快处理"}' >/dev/null || fail "实例催办失败"
+ok "督办和催办通过"
+
+say "13) 查询待办并审批通过"
 TODO=$(api GET /api/workflow/tasks/todo) || fail "待办查询失败"
 TASK_ID=$(printf '%s' "$TODO" | node -e "let s='';process.stdin.on('data',c=>s+=c);process.stdin.on('end',()=>{const d=JSON.parse(s);const row=(d.data||[]).find(x=>String(x.instance_id)===process.argv[1]);process.stdout.write(row?String(row.id):'');})" "$INSTANCE_ID")
 [ -n "$TASK_ID" ] || fail "未找到新实例待办：$TODO"
@@ -110,7 +116,7 @@ api POST "/api/workflow/tasks/$TASK_ID/comment" '{"comment":"Smoke 补充意见"
 api POST "/api/workflow/tasks/$TASK_ID/approve" '{"comment":"Smoke 审批通过"}' >/dev/null || fail "审批通过失败"
 ok "待办审批通过"
 
-say "13) 查询工作台摘要和抄送箱"
+say "14) 查询工作台摘要和抄送箱"
 SUMMARY=$(api GET /api/workflow/tasks/summary) || fail "工作台摘要查询失败"
 TODO_COUNT=$(printf '%s' "$SUMMARY" | json_get data.todo)
 [ -n "$TODO_COUNT" ] || fail "工作台摘要缺少 todo：$SUMMARY"
@@ -119,7 +125,7 @@ CC_CODE=$(printf '%s' "$CC" | json_get code)
 [ "$CC_CODE" = "200" ] || fail "抄送箱响应异常：$CC"
 ok "工作台摘要和抄送箱通过"
 
-say "14) 查询实例状态"
+say "15) 查询实例状态"
 INSTANCE=$(api GET "/api/workflow/instances/$INSTANCE_ID") || fail "实例查询失败"
 STATUS=$(printf '%s' "$INSTANCE" | json_get data.status)
 [ -n "$STATUS" ] || fail "实例响应缺少状态：$INSTANCE"

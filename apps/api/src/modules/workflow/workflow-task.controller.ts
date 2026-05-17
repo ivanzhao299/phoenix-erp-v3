@@ -27,6 +27,11 @@ export class WorkflowTaskController {
     return this.workflow.getTaskSummary(req.user);
   }
 
+  @Get('monitor')
+  monitor(@Query() query: any, @Req() req: any) {
+    return this.workflow.listMonitorTasks(req.user, query);
+  }
+
   @Post('cc/:id/read')
   readCc(@Param('id') id: string, @Req() req: any) {
     return this.workflow.markCcRead(Number(id), req.user);

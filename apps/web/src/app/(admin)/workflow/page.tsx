@@ -25,6 +25,7 @@ const adminLinks = [
   ["流程定义", "/workflow/definitions", "管理员维护审批节点、条件和发布版本"],
   ["表单定义", "/workflow/forms", "管理员维护可视化表单和字段"],
   ["数据源", "/workflow/data-sources", "管理员维护表单下拉和引用数据"],
+  ["流程督办", "/workflow/monitor", "查看流转卡点、超时任务和催办记录"],
 ];
 
 export default function WorkflowHomePage() {
@@ -65,7 +66,7 @@ export default function WorkflowHomePage() {
         <div className={s.cardBody} style={metricGridStyle}>
           <Metric label="待我处理" value={summary?.todo ?? 0} href="/workflow/tasks/todo" tone="primary" />
           <Metric label="未读知会" value={summary?.ccUnread ?? 0} href="/workflow/tasks/cc" tone="warning" />
-          <Metric label="流转中" value={summary?.running ?? 0} href="/workflow/instances?status=RUNNING" />
+          <Metric label="超时待办" value={summary?.overdueTodo ?? 0} href="/workflow/monitor" tone="danger" />
           <Metric label="我发起审批中" value={summary?.startedRunning ?? 0} href="/workflow/instances?status=RUNNING" />
         </div>
       </section>
@@ -101,11 +102,11 @@ export default function WorkflowHomePage() {
   );
 }
 
-function Metric({ label, value, href, tone }: { label: string; value: number; href: string; tone?: "primary" | "warning" }) {
+function Metric({ label, value, href, tone }: { label: string; value: number; href: string; tone?: "primary" | "warning" | "danger" }) {
   return (
     <Link href={href} style={metricStyle}>
       <span>{label}</span>
-      <strong style={tone === "primary" ? metricPrimaryValueStyle : tone === "warning" ? metricWarningValueStyle : metricValueStyle}>{value}</strong>
+      <strong style={tone === "primary" ? metricPrimaryValueStyle : tone === "warning" ? metricWarningValueStyle : tone === "danger" ? metricDangerValueStyle : metricValueStyle}>{value}</strong>
     </Link>
   );
 }
@@ -123,6 +124,7 @@ const metricStyle: React.CSSProperties = { minHeight: 82, padding: 14, border: "
 const metricValueStyle: React.CSSProperties = { fontSize: 26, lineHeight: 1, color: "var(--text-primary)" };
 const metricPrimaryValueStyle: React.CSSProperties = { ...metricValueStyle, color: "var(--color-primary)" };
 const metricWarningValueStyle: React.CSSProperties = { ...metricValueStyle, color: "var(--status-warning)" };
+const metricDangerValueStyle: React.CSSProperties = { ...metricValueStyle, color: "var(--status-danger)" };
 const cardStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",

@@ -108,8 +108,19 @@ export interface WorkflowCcTask {
 export interface WorkflowTaskSummary {
   todo: number;
   ccUnread: number;
+  overdueTodo: number;
   running: number;
   startedRunning: number;
+}
+
+export interface WorkflowMonitorTask extends WorkflowTask {
+  starter_id?: number;
+  assignee_user_name?: string;
+  assignee_role_name?: string;
+  waiting_hours?: string | number;
+  overdue?: boolean;
+  urge_count?: number;
+  last_urged_at?: string;
 }
 
 export interface WorkflowInstance {
@@ -170,11 +181,14 @@ export const workflowApi = {
   instance: (id: number) => req<WorkflowOne<WorkflowInstance>>(`/instances/${id}`),
   cancelInstance: (id: number, comment = "") =>
     req<WorkflowOne<WorkflowInstance>>(`/instances/${id}/cancel`, { method: "POST", body: JSON.stringify({ comment }) }),
+  urgeInstance: (id: number, comment = "") =>
+    req<WorkflowOne<{ success: boolean; urgedTaskCount: number }>>(`/instances/${id}/urge`, { method: "POST", body: JSON.stringify({ comment }) }),
 
   todo: () => req<WorkflowList<WorkflowTask>>("/tasks/todo"),
   done: () => req<WorkflowList<WorkflowTask>>("/tasks/done"),
   cc: () => req<WorkflowList<WorkflowCcTask>>("/tasks/cc"),
   taskSummary: () => req<WorkflowOne<WorkflowTaskSummary>>("/tasks/summary"),
+  monitorTasks: () => req<WorkflowList<WorkflowMonitorTask>>("/tasks/monitor"),
   markCcRead: (id: number) =>
     req<WorkflowOne<WorkflowCcTask>>(`/tasks/cc/${id}/read`, { method: "POST", body: JSON.stringify({}) }),
   approve: (id: number, comment: string) =>
