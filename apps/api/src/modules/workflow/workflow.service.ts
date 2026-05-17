@@ -593,6 +593,28 @@ export class WorkflowService implements OnModuleInit {
     return { code: 200, data: rows, total: rows.length };
   }
 
+  async suggestDataSourceFields(code: string, user: WorkflowUser) {
+    this.requireAdmin(user);
+    this.assertCode(code);
+    const source = await this.findDataSourceByCode(code);
+    const refreshed = await this.refreshDataSourceRow(source);
+    const metadata = refreshed.metadata_json || {};
+    const fields = this.buildFieldSuggestions(refreshed, metadata);
+    return {
+      code: 200,
+      data: {
+        source: {
+          code: refreshed.code,
+          name: refreshed.name,
+          source_type: refreshed.source_type,
+          last_synced_at: refreshed.last_synced_at,
+        },
+        metadata,
+        fields,
+      },
+    };
+  }
+
   async createDataSource(body: any, user: WorkflowUser) {
     this.requireAdmin(user);
     this.assertCode(body.code);
@@ -1017,6 +1039,129 @@ export class WorkflowService implements OnModuleInit {
       statusField ? [activeValues] : [],
     );
     return Number(rows[0]?.count || 0);
+  }
+
+  private buildFieldSuggestions(source: any, metadata: any) {
+    if (source.source_type === 'STATIC') {
+      return [{
+        key: this.suggestFieldKey(source.code),
+        label: source.name,
+        type: 'select',
+        required: false,
+        reason: '固定选项可直接作为下拉控件',
+      }];
+    }
+
+    if (source.source_type === 'DICT') {
+      return [{
+        key: this.suggestFieldKey(source.code),
+        label: source.name,
+        type: 'select',
+        dataSource: source.code,
+        required: false,
+        reason: '系统字典可作为审批表单里的标准下拉项',
+      }];
+    }
+
+    if (source.source_type !== 'TABLE' || metadata?.available === false) return [];
+
+    const columns = Array.isArray(metadata?.columns) ? metadata.columns : [];
+    const valueField = String(metadata?.valueField || '').trim();
+    const labelField = String(metadata?.labelField || '').trim();
+    const statusField = String(metadata?.statusField || '').trim();
+    const suggestions: any[] = [];
+
+    if (valueField) {
+      suggestions.push({
+        key: this.suggestFieldKey(valueField),
+        label: this.suggestFieldLabel(valueField, source.name),
+        type: 'reference',
+        dataSource: source.code,
+        required: false,
+        reason: '主引用字段会实时读取该数据源最新记录',
+      });
+    }
+
+    for (const column of columns) {
+      const key = String(column?.key || '').trim();
+      if (!key || key === valueField || key === labelField || key === statusField) continue;
+      if (this.isTechnicalColumn(key)) continue;
+      suggestions.push({
+        key: this.suggestFieldKey(key),
+        label: this.suggestFieldLabel(key),
+        type: this.suggestFieldType(key, String(column?.type || '')),
+        required: column?.nullable === false && !this.isOptionalBusinessColumn(key),
+        reason: '由数据表字段自动发现，可按需加入自定义表单',
+      });
+    }
+
+    return suggestions.slice(0, 24);
+  }
+
+  private suggestFieldKey(key: string) {
+    return String(key || 'field')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'field';
+  }
+
+  private suggestFieldLabel(key: string, fallback?: string) {
+    const dict: Record<string, string> = {
+      user_id: '用户',
+      username: '账号',
+      real_name: '姓名',
+      real_name_zh: '姓名',
+      role_code: '角色',
+      role_name_zh: '角色名称',
+      org_code: '组织',
+      org_name: '组织名称',
+      store_code: '门店',
+      store_name: '门店名称',
+      product_code: '商品/物料',
+      product_name: '商品名称',
+      warehouse_code: '仓库',
+      warehouse_name: '仓库名称',
+      supplier_code: '供应商',
+      supplier_name: '供应商名称',
+      customer_code: '客户',
+      customer_name: '客户名称',
+      amount: '金额',
+      quantity: '数量',
+      remark: '备注',
+      description: '说明',
+    };
+    return dict[key] || fallback || key.split('_').filter(Boolean).map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+  }
+
+  private suggestFieldType(key: string, dbType: string): FormFieldType {
+    const lowerKey = key.toLowerCase();
+    const lowerType = dbType.toLowerCase();
+    if (lowerKey.includes('amount') || lowerKey.includes('price') || lowerKey.includes('cost') || lowerKey.includes('total')) return 'amount';
+    if (lowerType.includes('timestamp') || lowerKey.endsWith('_at') || lowerKey.includes('time')) return 'datetime';
+    if (lowerType.includes('date')) return 'date';
+    if (lowerType.includes('int') || lowerType.includes('numeric') || lowerType.includes('decimal') || lowerType.includes('double') || lowerType.includes('real')) return 'number';
+    if (lowerType.includes('text') || lowerKey.includes('remark') || lowerKey.includes('description') || lowerKey.includes('note')) return 'textarea';
+    return 'text';
+  }
+
+  private isTechnicalColumn(key: string) {
+    return [
+      'id',
+      'password',
+      'password_hash',
+      'salt',
+      'created_at',
+      'updated_at',
+      'deleted_at',
+      'created_by',
+      'updated_by',
+      'perms_version',
+    ].includes(key);
+  }
+
+  private isOptionalBusinessColumn(key: string) {
+    return key.includes('remark') || key.includes('description') || key.includes('note') || key.includes('memo');
   }
 
   private async assertInstanceVisible(instanceId: number, user: WorkflowUser) {

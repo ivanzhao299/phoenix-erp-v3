@@ -20,6 +20,14 @@ type DataSourceMetadata = {
   labelField?: string;
   statusField?: string;
 };
+type FieldSuggestion = {
+  key?: string;
+  label?: string;
+  type?: string;
+  dataSource?: string;
+  required?: boolean;
+  reason?: string;
+};
 type HealthState = {
   status: "idle" | "checking" | "ok" | "empty" | "error";
   count?: number;
@@ -32,6 +40,8 @@ export default function WorkflowDataSourcesPage() {
   const [selectedCode, setSelectedCode] = useState(WORKFLOW_DATA_CATALOG[0].code);
   const [previewCode, setPreviewCode] = useState("");
   const [preview, setPreview] = useState<PreviewRow[]>([]);
+  const [suggestionCode, setSuggestionCode] = useState("");
+  const [fieldSuggestions, setFieldSuggestions] = useState<FieldSuggestion[]>([]);
   const [health, setHealth] = useState<Record<string, HealthState>>({});
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
@@ -188,6 +198,22 @@ export default function WorkflowDataSourcesPage() {
     }
   }
 
+  async function loadFieldSuggestions(code: string) {
+    setSuggestionCode(code);
+    setError("");
+    try {
+      const res = await workflowApi.dataSourceFieldSuggestions(code);
+      const data = res.data || {};
+      setFieldSuggestions((Array.isArray(data.fields) ? data.fields : []) as FieldSuggestion[]);
+      if (data.metadata) {
+        setRows(prev => prev.map(row => String(row.code) === code ? { ...row, metadata_json: data.metadata } : row));
+      }
+    } catch (err) {
+      setFieldSuggestions([]);
+      setError(err instanceof Error ? friendlyError(err.message) : "生成字段建议失败");
+    }
+  }
+
   return (
     <div>
       <PageHeader title="工作流数据源" subtitle="把用户、角色、组织和业务资料包装成表单可用的动态引用控件" breadcrumb={["工作流", "数据源"]} />
@@ -296,6 +322,11 @@ export default function WorkflowDataSourcesPage() {
                 预览 {selectedCatalog.name}
               </button>
             ) : null}
+            {existingCodes.has(selectedCatalog.code) ? (
+              <button className={s.btnSecondary} disabled={busy} onClick={() => loadFieldSuggestions(selectedCatalog.code)}>
+                生成字段建议
+              </button>
+            ) : null}
           </div>
           {msg ? <div className={s.successBanner}>{msg}</div> : null}
           {error ? <div className={s.errorBanner}>{error}</div> : null}
@@ -338,6 +369,28 @@ export default function WorkflowDataSourcesPage() {
                   ))}</tbody>
                 </table>
               ) : <div className={s.emptyState}><div className={s.emptyStateText}>暂无预览数据。</div></div>}
+            </div>
+          ) : null}
+          {suggestionCode ? (
+            <div style={previewBoxStyle}>
+              <strong className={s.cardTitle}>{suggestionCode} 字段建议</strong>
+              <p className={s.modalDesc} style={{ margin: "6px 0 10px" }}>
+                系统根据数据源字段自动推断表单控件类型；后续可接入表单设计器一键导入。
+              </p>
+              {fieldSuggestions.length ? (
+                <table className={s.table}>
+                  <thead><tr><th>字段</th><th>显示名</th><th>控件类型</th><th>规则</th><th>建议原因</th></tr></thead>
+                  <tbody>{fieldSuggestions.map(field => (
+                    <tr key={`${String(field.key)}-${String(field.type)}`}>
+                      <td>{String(field.key || "-")}</td>
+                      <td>{String(field.label || "-")}</td>
+                      <td>{fieldTypeText(String(field.type || ""))}</td>
+                      <td>{field.required ? "必填" : "可选"}{field.dataSource ? ` · ${field.dataSource}` : ""}</td>
+                      <td>{String(field.reason || "-")}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              ) : <div className={s.emptyState}><div className={s.emptyStateText}>暂无可生成的字段建议。</div></div>}
             </div>
           ) : null}
         </div>
@@ -401,6 +454,21 @@ function sourceTypeText(type: string) {
   if (type === "DICT") return "系统字典";
   if (type === "STATIC") return "固定选项";
   return type;
+}
+
+function fieldTypeText(type: string) {
+  const dict: Record<string, string> = {
+    reference: "引用选择",
+    select: "下拉选择",
+    text: "单行文本",
+    textarea: "多行文本",
+    number: "数字",
+    amount: "金额",
+    date: "日期",
+    datetime: "日期时间",
+    readonly: "只读",
+  };
+  return dict[type] || type || "-";
 }
 
 function friendlyError(message: string) {

@@ -129,6 +129,8 @@ export const workflowApi = {
     req<WorkflowList<Record<string, unknown>>>("/data-sources/sync-defaults", { method: "POST", body: JSON.stringify({}) }),
   refreshDataSourceMetadata: () =>
     req<WorkflowList<Record<string, unknown>>>("/data-sources/refresh-metadata", { method: "POST", body: JSON.stringify({}) }),
+  dataSourceFieldSuggestions: (code: string) =>
+    req<WorkflowOne<Record<string, unknown>>>(`/data-sources/${encodeURIComponent(code)}/field-suggestions`),
   previewDataSource: (data: Record<string, unknown>) =>
     req<WorkflowList<Record<string, unknown>>>("/data-sources/preview", { method: "POST", body: JSON.stringify(data) }),
 
