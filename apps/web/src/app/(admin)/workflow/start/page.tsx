@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { FormRenderer } from "@/components/workflow/FormRenderer";
+import { WorkflowDataView } from "@/components/workflow/WorkflowDataView";
 import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowDefinition } from "@/lib/workflow-api";
 import { dataSourceLabel } from "@/lib/workflow-data-catalog";
@@ -36,6 +37,7 @@ export default function WorkflowStartPage() {
   const [submitting, setSubmitting] = useState(false);
   const [smartFilling, setSmartFilling] = useState(false);
   const [error, setError] = useState("");
+  const [step, setStep] = useState<"select" | "fill" | "confirm">(smartRequested ? "fill" : "select");
 
   const selected = useMemo(
     () => defs.find(item => item.id === selectedId) || null,
@@ -71,10 +73,11 @@ export default function WorkflowStartPage() {
           setSelectedId(target.id);
           setTitle(target.name);
           setCategory(categoryText(target.category));
+          if (smartRequested || requestedCode) setStep("fill");
         }
       })
       .catch(err => setError(err instanceof Error ? err.message : "流程加载失败"));
-  }, [requestedCode]);
+  }, [requestedCode, smartRequested]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -110,22 +113,34 @@ export default function WorkflowStartPage() {
     setGraph(null);
     setFormData({});
     setError("");
+    setStep("fill");
   }
 
-  async function submit() {
+  function validateDraft() {
     if (!selectedId) {
       setError("请选择要发起的流程。");
-      return;
+      setStep("select");
+      return false;
     }
     if (!title.trim()) {
       setError("请填写申请标题。");
-      return;
+      return false;
     }
     const missing = (schema?.fields || []).filter(field => field.required && isEmpty(formData[field.key]));
     if (missing.length > 0) {
       setError(`请填写必填项：${missing.map(field => field.label).join("、")}`);
-      return;
+      return false;
     }
+    setError("");
+    return true;
+  }
+
+  function goConfirm() {
+    if (validateDraft()) setStep("confirm");
+  }
+
+  async function submit() {
+    if (!validateDraft()) return;
 
     setSubmitting(true);
     setError("");
@@ -195,6 +210,21 @@ export default function WorkflowStartPage() {
         </div>
       ) : null}
 
+      <div style={wizardStyle}>
+        <button type="button" style={step === "select" ? activeStepStyle : stepStyle} onClick={() => setStep("select")}>
+          <strong>1 选择流程</strong>
+          <span>按业务场景找到要办的事</span>
+        </button>
+        <button type="button" style={step === "fill" ? activeStepStyle : stepStyle} disabled={!selected} onClick={() => selected && setStep("fill")}>
+          <strong>2 填写资料</strong>
+          <span>{progressText}</span>
+        </button>
+        <button type="button" style={step === "confirm" ? activeStepStyle : stepStyle} disabled={!selected} onClick={goConfirm}>
+          <strong>3 确认提交</strong>
+          <span>检查审批路径和申请内容</span>
+        </button>
+      </div>
+
       <div style={layoutStyle}>
         <section className={s.card}>
           <div className={s.cardBody}>
@@ -232,6 +262,7 @@ export default function WorkflowStartPage() {
                 >
                   <strong>{def.name}</strong>
                   <span>{categoryText(def.category)} · {def.description || "已配置审批流程"}</span>
+                  <small>{def.id === selectedId ? "当前选择 · 下一步填写资料" : "选择这个流程"}</small>
                 </button>
               ))}
               {defs.length === 0 ? (
@@ -255,8 +286,8 @@ export default function WorkflowStartPage() {
           <div className={s.cardBody}>
             <div style={sectionHeaderStyle}>
               <div>
-                <h3 className={s.cardTitle}>{selected ? selected.name : "申请内容"}</h3>
-                <p className={s.modalDesc} style={{ margin: "4px 0 0" }}>{selected ? selected.description || "填写信息后提交审批" : "先从左侧选择流程"}</p>
+                <h3 className={s.cardTitle}>{stepTitle(step, selected?.name)}</h3>
+                <p className={s.modalDesc} style={{ margin: "4px 0 0" }}>{stepDesc(step, selected?.description)}</p>
               </div>
               <div style={toolbarActionsStyle}>
                 {selected ? <span className={`${s.badge} ${schema ? s.badgeSuccess : s.badgeWarning}`}>{schema ? progressText : "通用说明"}</span> : null}
@@ -264,7 +295,14 @@ export default function WorkflowStartPage() {
               </div>
             </div>
 
-            {selected && schema ? (
+            {step === "select" ? (
+              <div className={s.emptyState}>
+                <div className={s.emptyStateText}>先从左侧选择一个要发起的业务流程。</div>
+                <div className={s.emptyStateHint}>选择后系统会加载表单、审批路径和数据依赖。</div>
+              </div>
+            ) : null}
+
+            {step === "fill" && selected && schema ? (
               <div style={smartPanelStyle}>
                 <div>
                   <strong>智能填单助手</strong>
@@ -282,7 +320,7 @@ export default function WorkflowStartPage() {
               </div>
             ) : null}
 
-            {selected ? (
+            {step === "fill" && selected ? (
               <div style={readinessPanelStyle}>
                 <div style={readinessCardStyle}>
                   <span className={s.badge}>审批路径</span>
@@ -313,37 +351,75 @@ export default function WorkflowStartPage() {
               </div>
             ) : null}
 
-            <label className={s.field}>
-              <span className={s.lbl}>申请标题</span>
-              <input className={s.inp} value={title} onChange={e=>setTitle(e.target.value)} placeholder="例如：5月门店物料采购申请" />
-            </label>
+            {step === "fill" ? (
+              <>
+                <label className={s.field}>
+                  <span className={s.lbl}>申请标题</span>
+                  <input className={s.inp} value={title} onChange={e=>setTitle(e.target.value)} placeholder="例如：5月门店物料采购申请" />
+                </label>
 
-            {selected ? (
-              <div className={s.infoBanner}>
-                {schema ? "该流程已绑定业务表单，提交后会自动进入审批节点。" : "该流程暂未绑定专用表单，系统会以申请说明作为审批内容。"}
-              </div>
+                {selected ? (
+                  <div className={s.infoBanner}>
+                    {schema ? "该流程已绑定业务表单，提交后会自动进入审批节点。" : "该流程暂未绑定专用表单，系统会以申请说明作为审批内容。"}
+                  </div>
+                ) : null}
+
+                {loading ? (
+                  <div className={s.emptyState}><div className={s.emptyStateText}>正在加载表单...</div></div>
+                ) : schema ? (
+                  <div style={{ marginBottom: 14 }}>
+                    <FormRenderer schema={schema} value={formData} onChange={setFormData} />
+                  </div>
+                ) : (
+                  <label className={s.field}>
+                    <span className={s.lbl}>申请说明</span>
+                    <textarea className={s.textarea} value={note} onChange={e=>setNote(e.target.value)} placeholder="这个流程暂未绑定专用表单，可先填写申请说明。" />
+                  </label>
+                )}
+              </>
             ) : null}
 
-            {loading ? (
-              <div className={s.emptyState}><div className={s.emptyStateText}>正在加载表单...</div></div>
-            ) : schema ? (
-              <div style={{ marginBottom: 14 }}>
-                <FormRenderer schema={schema} value={formData} onChange={setFormData} />
+            {step === "confirm" && selected ? (
+              <div style={confirmStackStyle}>
+                <div style={confirmPanelStyle}>
+                  <span className={s.badge}>提交前确认</span>
+                  <strong>{title || selected.name}</strong>
+                  <span>{selected.name} · {approvalPath.length ? `${approvalPath.length} 个审批节点` : "提交后自动归档"}</span>
+                </div>
+                <div style={readinessPanelStyle}>
+                  <div style={readinessCardStyle}>
+                    <span className={s.badge}>审批路径</span>
+                    <strong>{approvalPath.length ? "按以下节点流转" : "无人工审批节点"}</strong>
+                    <div style={pathStyle}>
+                      {(approvalPath.length ? approvalPath : ["提交后自动归档"]).map((item, index) => (
+                        <span key={`${item}-${index}`} style={pathChipStyle}>{item}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={readinessCardStyle}>
+                    <span className={s.badge}>资料状态</span>
+                    <strong>{missingRequired.length ? "仍有缺失" : "资料完整"}</strong>
+                    <span style={hintStyle}>{missingRequired.length ? missingRequired.map(field => field.label).join("、") : "必填资料已通过检查，可以提交。"}</span>
+                  </div>
+                </div>
+                <WorkflowDataView data={schema ? formData : { note }} schema={schema} />
               </div>
-            ) : (
-              <label className={s.field}>
-                <span className={s.lbl}>申请说明</span>
-                <textarea className={s.textarea} value={note} onChange={e=>setNote(e.target.value)} placeholder="这个流程暂未绑定专用表单，可先填写申请说明。" />
-              </label>
-            )}
+            ) : null}
 
             {error ? <div className={s.errorBanner}>{error}</div> : null}
 
             <div style={footerStyle}>
               <Link href="/workflow/tasks/todo" className={s.btnSecondary}>我的待办</Link>
-              <button className={s.btnPrimary} disabled={!selectedId || submitting} onClick={submit}>
-                {submitting ? "提交中..." : "提交申请"}
-              </button>
+              {step === "select" ? <button className={s.btnPrimary} disabled={!selected} onClick={() => selected && setStep("fill")}>下一步：填写资料</button> : null}
+              {step === "fill" ? <button className={s.btnPrimary} disabled={!selectedId || submitting} onClick={goConfirm}>下一步：确认提交</button> : null}
+              {step === "confirm" ? (
+                <>
+                  <button className={s.btnSecondary} disabled={submitting} onClick={() => setStep("fill")}>返回修改</button>
+                  <button className={s.btnPrimary} disabled={!selectedId || submitting} onClick={submit}>
+                    {submitting ? "提交中..." : "确认提交"}
+                  </button>
+                </>
+              ) : null}
             </div>
           </div>
         </section>
@@ -395,6 +471,18 @@ function buildApprovalPath(graph: RuntimeGraph | null) {
     return `${node.name || "审批"}${roles}`;
   });
   return nodes.filter(node => node.type && !["start", "end"].includes(node.type)).map(node => node.name || node.id);
+}
+
+function stepTitle(step: "select" | "fill" | "confirm", name?: string) {
+  if (step === "select") return "选择要办理的流程";
+  if (step === "confirm") return "确认后提交审批";
+  return name || "填写申请资料";
+}
+
+function stepDesc(step: "select" | "fill" | "confirm", description?: string) {
+  if (step === "select") return "先按业务场景选择流程，系统会自动加载对应表单和审批路径。";
+  if (step === "confirm") return "提交前最后核对申请内容、审批路径和必填资料。";
+  return description || "填写信息后提交审批";
 }
 
 async function smartFieldValue(field: NonNullable<RuntimeSchema["fields"]>[number], def: WorkflowDefinition) {
@@ -477,6 +565,9 @@ function formatCompactDate(date: Date) {
 
 const layoutStyle: React.CSSProperties = { display:"grid", gridTemplateColumns:"320px minmax(0, 1fr)", gap:12, alignItems:"start" };
 const smartEntryBannerStyle: React.CSSProperties = { display:"flex", alignItems:"center", justifyContent:"space-between", gap:14, padding:14, border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-card)", marginBottom:12 };
+const wizardStyle: React.CSSProperties = { display:"grid", gridTemplateColumns:"repeat(3, minmax(0, 1fr))", gap:10, marginBottom:12 };
+const stepStyle: React.CSSProperties = { display:"grid", gap:5, minHeight:72, textAlign:"left", padding:12, border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-page)", color:"var(--text-secondary)", cursor:"pointer" };
+const activeStepStyle: React.CSSProperties = { ...stepStyle, borderColor:"var(--color-primary)", background:"var(--bg-card)", color:"var(--text-primary)" };
 const sectionHeaderStyle: React.CSSProperties = { display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginBottom:14 };
 const filterStackStyle: React.CSSProperties = { display:"grid", gap:10, marginBottom:12 };
 const tabsStyle: React.CSSProperties = { display:"flex", gap:6, flexWrap:"wrap" };
@@ -488,6 +579,8 @@ const readinessCardStyle: React.CSSProperties = { display:"grid", gap:7, alignCo
 const hintStyle: React.CSSProperties = { color:"var(--text-secondary)", fontSize:12, lineHeight:1.6 };
 const pathStyle: React.CSSProperties = { display:"flex", flexWrap:"wrap", gap:6 };
 const pathChipStyle: React.CSSProperties = { padding:"4px 8px", border:"1px solid var(--border)", borderRadius:"999px", background:"var(--bg-card)", color:"var(--text-secondary)", fontSize:12 };
+const confirmStackStyle: React.CSSProperties = { display:"grid", gap:14, marginBottom:14 };
+const confirmPanelStyle: React.CSSProperties = { display:"grid", gap:7, padding:14, border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-page)", color:"var(--text-primary)" };
 const flowListStyle: React.CSSProperties = { display:"grid", gap:8 };
 const flowStyle: React.CSSProperties = { textAlign:"left", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-card)", color:"var(--text-primary)", padding:12, cursor:"pointer", display:"grid", gap:6 };
 const selectedFlowStyle: React.CSSProperties = { ...flowStyle, borderColor:"var(--color-primary)", background:"var(--bg-muted)" };
