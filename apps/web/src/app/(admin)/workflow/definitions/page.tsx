@@ -6,27 +6,9 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowDefinition } from "@/lib/workflow-api";
+import { WORKFLOW_TEMPLATES, type WorkflowTemplate } from "@/lib/workflow-templates";
 
-type FlowTemplate = {
-  key: string;
-  name: string;
-  category: string;
-  description: string;
-  code: string;
-};
-
-const FLOW_TEMPLATES: FlowTemplate[] = [
-  { key: "expense", name: "费用报销审批", category: "财务", code: "EXPENSE_APPROVAL", description: "员工提交费用报销，部门负责人和财务复核后归档。" },
-  { key: "purchase", name: "采购申请审批", category: "采购", code: "PURCHASE_APPROVAL", description: "采购需求提交后，由部门、采购、财务逐级审批。" },
-  { key: "payment", name: "付款申请审批", category: "财务", code: "PAYMENT_APPROVAL", description: "供应商付款、预付款、尾款支付的审批流程。" },
-  { key: "contract", name: "合同审批流程", category: "合同", code: "CONTRACT_APPROVAL", description: "合同起草、法务/财务复核、负责人审批后生效。" },
-  { key: "leave", name: "请假申请审批", category: "人事", code: "LEAVE_APPROVAL", description: "员工请假提交，直属主管审批，人事备案。" },
-  { key: "stock_adjust", name: "库存调整审批", category: "仓储", code: "STOCK_ADJUST_APPROVAL", description: "库存盘盈盘亏、调账、报损等调整事项审批。" },
-  { key: "quality_exception", name: "质量异常处理", category: "品控", code: "QUALITY_EXCEPTION_APPROVAL", description: "质量异常上报、责任确认、处理方案审批和关闭。" },
-  { key: "store_discount", name: "门店折扣审批", category: "门店", code: "STORE_DISCOUNT_APPROVAL", description: "门店临时折扣、促销让利、特殊价格审批。" },
-  { key: "farm_medicine", name: "养殖用药审批", category: "养殖", code: "FARM_MEDICINE_APPROVAL", description: "养殖场用药、疫苗、防疫处理等关键事项审批。" },
-  { key: "logistics_exception", name: "运输异常处理", category: "物流", code: "LOGISTICS_EXCEPTION_APPROVAL", description: "运输延误、破损、温控异常、补偿方案等处理审批。" },
-];
+const FLOW_TEMPLATES = WORKFLOW_TEMPLATES;
 
 const CATEGORY_OPTIONS = ["财务", "采购", "合同", "人事", "仓储", "品控", "门店", "养殖", "物流", "通用"];
 
@@ -49,7 +31,7 @@ export default function WorkflowDefinitionsPage() {
   const load = () => workflowApi.definitions().then(res => setRows(res.data || []));
   useEffect(() => { load(); }, []);
 
-  function openFromTemplate(nextTemplate = FLOW_TEMPLATES[0]) {
+  function openFromTemplate(nextTemplate: WorkflowTemplate = FLOW_TEMPLATES[0]) {
     setSource(null);
     setSelectedTemplate(nextTemplate.key);
     setForm({
@@ -104,11 +86,25 @@ export default function WorkflowDefinitionsPage() {
     try {
       if (source) await workflowApi.cloneDefinition(source.id, payload);
       else {
+        const formCode = makeUniqueCode(template.formCode);
+        const createdForm = await workflowApi.createForm({
+          code: formCode,
+          name: template.formName,
+          category: payload.category,
+          description: template.formDescription,
+        });
+        const formVersion = await workflowApi.publishForm(createdForm.data.id, { schema_json: { fields: template.fields } });
+        const formVersionId = Number((formVersion.data as { id?: number }).id);
+        if (!formVersionId) throw new Error("表单版本发布失败，请稍后重试。");
         const created = await workflowApi.createDefinition(payload);
-        await workflowApi.publishDefinition(created.data.id, { graph_json: buildTemplateGraph(payload.name, payload.category) });
+        await workflowApi.publishDefinition(created.data.id, {
+          graph_json: buildTemplateGraph(payload.name, template),
+          form_version_id: formVersionId,
+        });
       }
       setDrawerOpen(false);
       setSource(null);
+      setNotice(source ? "已复制流程，可进入设计器继续调整。" : "已创建并发布流程及配套表单，用户现在可以直接发起。");
       await load();
     } catch (err) {
       setError(err instanceof Error ? friendlyError(err.message) : "创建流程失败");
@@ -291,20 +287,25 @@ function categoryText(category?: string) {
   return category ? map[category] || category : "-";
 }
 
-function buildTemplateGraph(flowName: string, category: string) {
-  const role = approvalRole(category);
+function buildTemplateGraph(flowName: string, template: WorkflowTemplate) {
+  const approvals = template.approvals.length > 0
+    ? template.approvals
+    : [{ id: "biz_approval", name: `${template.category || "业务"}审批`, role: approvalRole(template.category) }];
+  const nodes = [
+    { id: "start", type: "start", name: "提交申请", x: 80, y: 140 },
+    ...approvals.map((approval, index) => ({
+      id: approval.id,
+      type: "approval",
+      name: approval.name,
+      x: 320 + index * 240,
+      y: 140,
+      config: { assigneeType: "ROLE", roles: [approval.role] },
+    })),
+    { id: "end", type: "end", name: `${flowName}完成`, x: 320 + approvals.length * 240, y: 140 },
+  ];
   return {
-    nodes: [
-      { id: "start", type: "start", name: "提交申请", x: 80, y: 140 },
-      { id: "dept_approval", type: "approval", name: "部门负责人审批", x: 320, y: 140, config: { assigneeType: "STARTER" } },
-      { id: "biz_approval", type: "approval", name: `${category || "业务"}审批`, x: 560, y: 140, config: { assigneeType: "ROLE", roles: [role] } },
-      { id: "end", type: "end", name: `${flowName}完成`, x: 800, y: 140 },
-    ],
-    edges: [
-      { from: "start", to: "dept_approval" },
-      { from: "dept_approval", to: "biz_approval" },
-      { from: "biz_approval", to: "end" },
-    ],
+    nodes,
+    edges: nodes.slice(0, -1).map((node, index) => ({ from: node.id, to: nodes[index + 1].id })),
   };
 }
 
@@ -323,16 +324,8 @@ function approvalRole(category: string) {
   return map[category] || "ROLE_SYSOPS";
 }
 
-const panelStyle: React.CSSProperties = { background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:16, marginBottom:12 };
-const toolbarStyle: React.CSSProperties = { ...panelStyle, display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 };
 const toolbarActionsStyle: React.CSSProperties = { display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" };
-const titleStyle: React.CSSProperties = { margin: "0 0 6px", fontSize: 16 };
 const hintStyle: React.CSSProperties = { margin:0, color:"var(--text-secondary)", fontSize:13, lineHeight:1.6 };
-const buttonStyle: React.CSSProperties = { height:36, padding:"0 16px", border:0, borderRadius:"var(--radius-md)", background:"var(--color-primary)", color:"#fff", fontWeight:700, cursor:"pointer" };
-const secondaryButtonStyle: React.CSSProperties = { height:36, padding:"0 16px", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-card)", color:"var(--text-primary)", fontWeight:600, cursor:"pointer" };
-const noticeStyle: React.CSSProperties = { border:"1px solid rgba(16,185,129,0.35)", background:"rgba(16,185,129,0.08)", color:"var(--text-primary)", borderRadius:"var(--radius-md)", padding:"10px 12px", fontSize:13, marginBottom:12 };
-const errorBannerStyle: React.CSSProperties = { border:"1px solid rgba(239,68,68,0.35)", background:"rgba(239,68,68,0.08)", color:"var(--color-danger)", borderRadius:"var(--radius-md)", padding:"10px 12px", fontSize:13, marginBottom:12 };
-const tableStyle: React.CSSProperties = { width:"100%", borderCollapse:"collapse" };
 const codeStyle: React.CSSProperties = { marginTop:4, color:"var(--text-secondary)", fontSize:12 };
 const actionStyle: React.CSSProperties = { display:"flex", gap:12, alignItems:"center", flexWrap:"wrap" };
 const linkButtonStyle: React.CSSProperties = { border:0, background:"transparent", color:"var(--color-primary)", cursor:"pointer", padding:0 };
@@ -343,8 +336,6 @@ const templateStyle: React.CSSProperties = { minHeight:74, textAlign:"left", bor
 const selectedTemplateStyle: React.CSSProperties = { ...templateStyle, borderColor:"var(--color-primary)", background:"var(--bg-muted)" };
 const selectedSourceStyle: React.CSSProperties = { border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:12, display:"grid", gap:6, background:"var(--bg-muted)" };
 const labelStyle: React.CSSProperties = { display:"grid", gap:6, marginBottom:12, fontSize:13, color:"var(--text-secondary)" };
-const inputStyle: React.CSSProperties = { height:38, border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-muted)", padding:"0 10px", color:"var(--text-primary)" };
-const textareaStyle: React.CSSProperties = { ...inputStyle, minHeight:82, padding:"10px", resize:"vertical" };
 const advancedStyle: React.CSSProperties = { border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:12 };
 const errorStyle: React.CSSProperties = { color:"var(--color-danger)", fontSize:13 };
 const footerStyle: React.CSSProperties = { display:"flex", justifyContent:"flex-end", gap:10 };

@@ -6,27 +6,16 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowForm } from "@/lib/workflow-api";
+import { WORKFLOW_TEMPLATES } from "@/lib/workflow-templates";
 
-type FormTemplate = {
-  key: string;
-  name: string;
-  category: string;
-  code: string;
-  description: string;
-};
-
-const FORM_TEMPLATES: FormTemplate[] = [
-  { key: "expense", name: "费用报销单", category: "财务", code: "EXPENSE_FORM", description: "包含报销金额、费用类型、事由、附件等常用字段。" },
-  { key: "purchase", name: "采购申请单", category: "采购", code: "PURCHASE_REQUEST_FORM", description: "包含采购物料、数量、预算、供应商建议和到货时间。" },
-  { key: "payment", name: "付款申请单", category: "财务", code: "PAYMENT_REQUEST_FORM", description: "包含收款方、付款金额、合同/发票、付款原因。" },
-  { key: "contract", name: "合同审批单", category: "合同", code: "CONTRACT_REVIEW_FORM", description: "包含合同主体、金额、期限、风险说明和附件。" },
-  { key: "leave", name: "请假申请单", category: "人事", code: "LEAVE_REQUEST_FORM", description: "包含假期类型、开始时间、结束时间、请假原因。" },
-  { key: "stock_adjust", name: "库存调整单", category: "仓储", code: "STOCK_ADJUST_FORM", description: "包含仓库、物料、批次、调整数量、调整原因。" },
-  { key: "quality_exception", name: "质量异常单", category: "品控", code: "QUALITY_EXCEPTION_FORM", description: "包含异常类型、批次、问题描述、处理建议和责任部门。" },
-  { key: "store_discount", name: "门店折扣申请单", category: "门店", code: "STORE_DISCOUNT_FORM", description: "包含门店、折扣类型、让利金额、活动周期和原因。" },
-  { key: "farm_medicine", name: "养殖用药申请单", category: "养殖", code: "FARM_MEDICINE_FORM", description: "包含养殖场、药品、批次、用药对象、剂量和兽医意见。" },
-  { key: "logistics_exception", name: "运输异常处理单", category: "物流", code: "LOGISTICS_EXCEPTION_FORM", description: "包含运单、异常类型、损失金额、责任方和处理方案。" },
-];
+const FORM_TEMPLATES = WORKFLOW_TEMPLATES.map(template => ({
+  key: template.key,
+  name: template.formName,
+  category: template.category,
+  code: template.formCode,
+  description: template.formDescription,
+  fields: template.fields,
+}));
 
 const CATEGORY_OPTIONS = ["财务", "采购", "合同", "人事", "仓储", "品控", "门店", "养殖", "物流", "通用"];
 
@@ -85,7 +74,8 @@ export default function WorkflowFormsPage() {
     setError("");
     setLoading(true);
     try {
-      await workflowApi.createForm(payload);
+      const created = await workflowApi.createForm(payload);
+      await workflowApi.publishForm(created.data.id, { schema_json: { fields: template.fields } });
       setDrawerOpen(false);
       await load();
     } catch (err) {
@@ -135,7 +125,7 @@ export default function WorkflowFormsPage() {
         footer={
           <div style={footerStyle}>
             <button className={s.btnSecondary} onClick={() => setDrawerOpen(false)}>取消</button>
-            <button className={s.btnPrimary} disabled={loading} onClick={create}>{loading ? "创建中..." : "创建表单"}</button>
+            <button className={s.btnPrimary} disabled={loading} onClick={create}>{loading ? "创建中..." : "创建并发布表单"}</button>
           </div>
         }
       >
@@ -155,6 +145,7 @@ export default function WorkflowFormsPage() {
                 </button>
               ))}
             </div>
+            <p style={hintStyle}>选择模板后会自动带出字段并发布为可用版本，后续仍可进入设计器微调。</p>
           </section>
 
           <section>
@@ -234,13 +225,7 @@ function categoryText(category?: string) {
   return category ? map[category] || category : "-";
 }
 
-const panelStyle: React.CSSProperties = { background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:16, marginBottom:12 };
-const toolbarStyle: React.CSSProperties = { ...panelStyle, display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 };
-const titleStyle: React.CSSProperties = { margin: "0 0 6px", fontSize: 16 };
 const hintStyle: React.CSSProperties = { margin:0, color:"var(--text-secondary)", fontSize:13, lineHeight:1.6 };
-const buttonStyle: React.CSSProperties = { height:36, padding:"0 16px", border:0, borderRadius:"var(--radius-md)", background:"var(--color-primary)", color:"#fff", fontWeight:700, cursor:"pointer" };
-const secondaryButtonStyle: React.CSSProperties = { height:36, padding:"0 16px", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-card)", color:"var(--text-primary)", fontWeight:600, cursor:"pointer" };
-const tableStyle: React.CSSProperties = { width:"100%", borderCollapse:"collapse" };
 const codeStyle: React.CSSProperties = { marginTop:4, color:"var(--text-secondary)", fontSize:12 };
 const drawerStackStyle: React.CSSProperties = { display:"grid", gap:20 };
 const sectionTitleStyle: React.CSSProperties = { margin:"0 0 10px", fontSize:14 };
@@ -248,8 +233,6 @@ const templateGridStyle: React.CSSProperties = { display:"grid", gridTemplateCol
 const templateStyle: React.CSSProperties = { minHeight:74, textAlign:"left", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-card)", padding:12, cursor:"pointer", display:"grid", gap:6, color:"var(--text-primary)" };
 const selectedTemplateStyle: React.CSSProperties = { ...templateStyle, borderColor:"var(--color-primary)", background:"var(--bg-muted)" };
 const labelStyle: React.CSSProperties = { display:"grid", gap:6, marginBottom:12, fontSize:13, color:"var(--text-secondary)" };
-const inputStyle: React.CSSProperties = { height:38, border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-muted)", padding:"0 10px", color:"var(--text-primary)" };
-const textareaStyle: React.CSSProperties = { ...inputStyle, minHeight:82, padding:"10px", resize:"vertical" };
 const advancedStyle: React.CSSProperties = { border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:12 };
 const errorStyle: React.CSSProperties = { color:"var(--color-danger)", fontSize:13 };
 const footerStyle: React.CSSProperties = { display:"flex", justifyContent:"flex-end", gap:10 };
