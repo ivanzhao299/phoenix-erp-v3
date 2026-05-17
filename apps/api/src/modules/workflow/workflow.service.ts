@@ -782,9 +782,11 @@ export class WorkflowService implements OnModuleInit {
   private async listTasks(user: WorkflowUser, query: QueryDto, status: TaskStatus) {
     const { limit, offset } = this.page(query);
     const rows = await this.em.query(
-      `SELECT t.*, i.title, i.instance_no, i.status AS instance_status, i.started_at, i.starter_name
+      `SELECT t.*, i.title, i.instance_no, i.status AS instance_status, i.started_at, i.starter_name,
+              i.form_data_json, d.name AS definition_name
        FROM wf_task t
        JOIN wf_instance i ON i.id=t.instance_id
+       LEFT JOIN wf_definition d ON d.id=i.definition_id
        WHERE t.status=$1
          AND ($2::boolean OR t.assignee_user_id=$3 OR t.assignee_role_code = ANY($4::text[]))
        ORDER BY t.created_at DESC, t.id DESC LIMIT $5 OFFSET $6`,

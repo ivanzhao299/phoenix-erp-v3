@@ -58,8 +58,16 @@ export interface WorkflowTask {
   instance_id: number;
   node_name: string;
   status: string;
+  action_result?: string;
   title: string;
+  instance_no?: string;
+  instance_status?: string;
+  definition_name?: string;
   starter_name: string;
+  assignee_role_code?: string;
+  due_at?: string;
+  completed_at?: string;
+  form_data_json?: Record<string, unknown>;
   created_at: string;
 }
 
@@ -70,7 +78,7 @@ export interface WorkflowInstance {
   status: string;
   starter_name: string;
   form_data_json?: Record<string, unknown>;
-  tasks?: Record<string, unknown>[];
+  tasks?: WorkflowTask[];
   actions?: Record<string, unknown>[];
   created_at: string;
 }
