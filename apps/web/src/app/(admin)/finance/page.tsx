@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { DollarSign, TrendingUp, TrendingDown, BarChart2, AlertTriangle, RefreshCw } from "lucide-react";
+import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -30,9 +31,9 @@ export default function FinancePage() {
   const load = () => {
     setLoading(true);
     Promise.all([
-      fetch("/api/crud/fin_transactions?type=AR&limit=200").then(r=>r.json()).catch(()=>({data:[]})),
-      fetch("/api/crud/fin_transactions?type=AP&limit=200").then(r=>r.json()).catch(()=>({data:[]})),
-      fetch("/api/crud/ord_orders?limit=200").then(r=>r.json()).catch(()=>({data:[]})),
+      crudApi.list<ARRow>("fin_transactions", { type:"AR", limit:200 } as never).catch(()=>({ data:[] as ARRow[] })),
+      crudApi.list<APRow>("fin_transactions", { type:"AP", limit:200 } as never).catch(()=>({ data:[] as APRow[] })),
+      crudApi.list<Order>("ord_orders", { limit:200 } as never).catch(()=>({ data:[] as Order[] })),
     ]).then(([arD, apD, orD]) => {
       setAr(arD.data||[]); setAp(apD.data||[]); setOrders(orD.data||[]);
     }).finally(() => setLoading(false));

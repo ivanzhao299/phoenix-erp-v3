@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import { DollarSign, TrendingUp, AlertTriangle, CheckCircle, RefreshCw, Plus } from "lucide-react";
+import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
@@ -8,10 +9,10 @@ import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const STATUS_CLS: Record<string,string> = {
-  paid:"badgeSuccess", PAID:"badgeSuccess",
-  pending:"badgeNeutral", PENDING:"badgeNeutral",
-  overdue:"badgeDanger", OVERDUE:"badgeDanger",
-  partial:"badgeWarning", PARTIAL:"badgeWarning",
+  PAID:"badgeSuccess",
+  PENDING:"badgeNeutral",
+  OVERDUE:"badgeDanger",
+  PARTIAL:"badgeWarning",
 };
 
 interface ARRow { id:number; invoice_no?:string; order_no?:string; customer_or_supplier?:string; amount?:number; paid_amount?:number; due_date?:string; status?:string; created_at?:string; }
@@ -37,24 +38,25 @@ export default function ReceivablesPage() {
   const hdr = { Authorization:`Bearer ${token}`, "Content-Type":"application/json" };
 
   const STATUS_LABEL: Record<string,string> = {
-    paid:t('status.paid','已收款'),PAID:t('status.paid','已收款'),
-    pending:t('ui.未到期','未到期'),PENDING:t('ui.未到期','未到期'),
-    overdue:t('status.overdue','已逾期'),OVERDUE:t('status.overdue','已逾期'),
-    partial:t('status.partial','部分收款'),PARTIAL:t('status.partial','部分收款'),
+    PAID:t('status.paid','已收款'),
+    PENDING:t('ui.未到期','未到期'),
+    OVERDUE:t('status.overdue','已逾期'),
+    PARTIAL:t('status.partial','部分收款'),
   };
 
   const load = () => {
     setLoading(true);
-    fetch("/api/crud/fin_transactions?type=AR&limit=300").then(r=>r.json())
-      .then(d => setData(d.data||[])).catch(()=>{}).finally(()=>setLoading(false));
+    crudApi.list<ARRow>("fin_transactions", { type:"AR", limit:300 } as never)
+      .then(res => setData(res.data||[])).catch(()=>{}).finally(()=>setLoading(false));
   };
   useEffect(()=>{ load(); },[]);
 
   const today = new Date().toISOString().slice(0,10);
 
   const rows = useMemo(() => data.map(r => {
-    const isOverdue = r.due_date && r.due_date < today && (r.status||"").toLowerCase() !== "paid";
-    return { ...r, _status: isOverdue ? "overdue" : (r.status||"pending").toLowerCase() };
+    const isOverdue = r.due_date && r.due_date < today && (r.status||"").toUpperCase() !== "PAID";
+    const _status = isOverdue ? "OVERDUE" : (r.status||"PENDING").toUpperCase();
+    return { ...r, _status };
   }), [data, today]);
 
   const filtered = useMemo(() => rows.filter(r =>
@@ -62,8 +64,8 @@ export default function ReceivablesPage() {
   ), [rows, search]);
 
   const totalAmt   = rows.reduce((s,r)=>s+(Number(r.amount)||0),0);
-  const paidAmt    = rows.filter(r=>r._status==="paid").reduce((s,r)=>s+(Number(r.paid_amount||r.amount)||0),0);
-  const overdueAmt = rows.filter(r=>r._status==="overdue").reduce((s,r)=>s+(Number(r.amount)||0),0);
+  const paidAmt    = rows.filter(r=>r._status==="PAID").reduce((s,r)=>s+(Number(r.paid_amount||r.amount)||0),0);
+  const overdueAmt = rows.filter(r=>r._status==="OVERDUE").reduce((s,r)=>s+(Number(r.amount)||0),0);
   const collectRate= totalAmt > 0 ? ((paidAmt/totalAmt)*100).toFixed(1) : "0.0";
 
   const createAR = async () => {
@@ -79,7 +81,7 @@ export default function ReceivablesPage() {
           due_date: newForm.due_date || null,
           invoice_no: newForm.invoice_no || null,
           note: newForm.note || null,
-          status: "pending",
+          status: "PENDING",
           paid_amount: 0,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -95,7 +97,7 @@ export default function ReceivablesPage() {
     try {
       await fetch(`/api/crud/fin_transactions/${selected.id}`, {
         method:"PUT", headers:hdr,
-        body: JSON.stringify({ paid_amount: Number(payAmt), status:"paid", updated_at:new Date().toISOString() }),
+        body: JSON.stringify({ paid_amount: Number(payAmt), status:"PAID", updated_at:new Date().toISOString() }),
       });
       toast.success(t('ui.收款已记录', '收款已记录')); setDrawerOpen(false); load();
     } catch { toast.error(t('ui.操作失败', '操作失败')); } finally { setSaving(false); }
@@ -158,7 +160,7 @@ export default function ReceivablesPage() {
                   <span className={`${s.badge} ${s[STATUS_CLS[r._status!]??'badgeNeutral']}`}>{STATUS_LABEL[r._status!]||r._status}</span>
                 </td>
                 <td style={{ padding:"9px 14px" }}>
-                  {r._status!=="paid"&&(
+                  {r._status!=="PAID"&&(
                     <button className={s.btnSuccess} style={{ padding:"4px 10px",fontSize:12 }}
                       onClick={()=>{ setSelected(r); setPayAmt(String(r.amount||"")); setDrawerOpen(true); }}>
                       {t('ui.录收款', '录收款')}

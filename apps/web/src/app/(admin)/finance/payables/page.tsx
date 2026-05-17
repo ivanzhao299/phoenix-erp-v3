@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import { DollarSign, Clock, CheckCircle, AlertTriangle, RefreshCw, Plus } from "lucide-react";
+import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
@@ -8,9 +9,9 @@ import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const STATUS_CLS: Record<string,string> = {
-  PAID:"badgeSuccess",paid:"badgeSuccess",
-  PENDING:"badgeNeutral",pending:"badgeNeutral",
-  OVERDUE:"badgeDanger",overdue:"badgeDanger",
+  PAID:"badgeSuccess",
+  PENDING:"badgeNeutral",
+  OVERDUE:"badgeDanger",
 };
 
 interface APRow { id:number; invoice_no?:string; customer_or_supplier?:string; amount?:number; paid_amount?:number; due_date?:string; status?:string; created_at?:string; }
@@ -28,9 +29,9 @@ export default function PayablesPage() {
   const [saving, setSaving]         = useState(false);
 
   const STATUS_LABEL: Record<string,string> = {
-    PAID:t('ui.已结清','已结清'),paid:t('ui.已结清','已结清'),
-    PENDING:t('ui.待支付','待支付'),pending:t('ui.待支付','待支付'),
-    OVERDUE:t('status.overdue','已逾期'),overdue:t('status.overdue','已逾期'),
+    PAID:t('ui.已结清','已结清'),
+    PENDING:t('ui.待支付','待支付'),
+    OVERDUE:t('status.overdue','已逾期'),
   };
 
   const token = typeof window !== "undefined"
@@ -39,8 +40,8 @@ export default function PayablesPage() {
 
   const load = () => {
     setLoading(true);
-    fetch("/api/crud/fin_transactions?type=AP&limit=300").then(r=>r.json())
-      .then(d=>setData(d.data||[])).catch(()=>{}).finally(()=>setLoading(false));
+    crudApi.list<APRow>("fin_transactions", { type:"AP", limit:300 } as never)
+      .then(res=>setData(res.data||[])).catch(()=>{}).finally(()=>setLoading(false));
   };
   useEffect(()=>{ load(); },[]);
 
