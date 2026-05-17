@@ -78,6 +78,7 @@ export interface WorkflowTask {
   definition_name?: string;
   starter_name: string;
   assignee_role_code?: string;
+  assignee_user_id?: number;
   due_at?: string;
   completed_at?: string;
   form_data_json?: Record<string, unknown>;
@@ -91,11 +92,14 @@ export interface WorkflowInstance {
   title: string;
   status: string;
   business_type?: string;
+  current_node_id?: string;
   starter_name: string;
   form_data_json?: Record<string, unknown>;
   form_schema_json?: WorkflowFormSchema;
   tasks?: WorkflowTask[];
   actions?: Record<string, unknown>[];
+  started_at?: string;
+  ended_at?: string;
   created_at: string;
 }
 
