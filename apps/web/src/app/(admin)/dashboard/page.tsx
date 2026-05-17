@@ -16,7 +16,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_BASE || '';
-    fetch(`${base}/api/dashboard/kpi`)
+    const tok = typeof window !== 'undefined'
+      ? (sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token') || '') : '';
+    fetch(`${base}/api/dashboard/kpi`, tok ? { headers: { Authorization: `Bearer ${tok}` } } : {})
       .then(r => r.ok ? r.json() : null)
       .then(json => {
         if (json?.code === 200) setInitialData(json.data);

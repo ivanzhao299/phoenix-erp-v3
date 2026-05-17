@@ -2,10 +2,8 @@
 import PageHeader from "@/components/PageHeader";
 import { Database, TrendingUp, ShieldCheck, Box } from "lucide-react";
 import Link from "next/link";
-import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-const STATUS_CLS: Record<string,string> = {"active":s.badgeSuccess, "inactive":s.badgeNeutral};
 
 export default function MasterDataConfigPage() {
   const { t } = useLanguage();

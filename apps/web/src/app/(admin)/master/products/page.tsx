@@ -10,7 +10,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-const STATUS_CLS: Record<string,string> = {"active":s.badgeSuccess, "ACTIVE":s.badgeSuccess, "inactive":s.badgeNeutral};
+const STATUS_CLS: Record<string,string> = {"ACTIVE":s.badgeSuccess, "DISCONTINUED":s.badgeNeutral, "INACTIVE":s.badgeNeutral};
 
 // ✅ V3 表: mst_products
 const TABLE = "mst_products";

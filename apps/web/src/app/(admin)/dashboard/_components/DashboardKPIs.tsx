@@ -114,8 +114,9 @@ export default function DashboardKPIs({ initialData }: Props) {
     }
   }, []);
 
-  // 60s auto-refresh
+  // 挂载立即刷新，之后每 60s 轮询
   useEffect(() => {
+    fetchKpi();
     const t = setInterval(fetchKpi, 60_000);
     return () => clearInterval(t);
   }, [fetchKpi]);
