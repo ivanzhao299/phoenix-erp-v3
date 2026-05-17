@@ -90,13 +90,13 @@ export default function DailyPage() {
         if (byCode['2484']?.value) hint.waterL   = Number(byCode['2484'].value * 1000).toFixed(0);
         if (Object.keys(hint).length) {
           setDeviceHint(hint);
-          setRows(prev => prev.map((r, i) => i !== 0 ? r : {
+          setRows(prev => prev.map(r => ({
             ...r,
             temp:     (!r.temp     && hint.temp)     ? hint.temp     : r.temp,
             humidity: (!r.humidity && hint.humidity) ? hint.humidity : r.humidity,
             feedKg:   (!r.feedKg   && hint.feedKg)   ? hint.feedKg   : r.feedKg,
             waterL:   (!r.waterL   && hint.waterL)   ? hint.waterL   : r.waterL,
-          }));
+          })));
         } else { setDeviceHint(null); }
       }).catch(() => setDeviceHint(null));
   }, [selectedHouse]);
@@ -274,7 +274,7 @@ export default function DailyPage() {
               {deviceHint.humidity && <span>{t('ui.湿度','湿度')} {deviceHint.humidity}%</span>}
               {deviceHint.feedKg   && <span>{t('ui.耗料','耗料')} {deviceHint.feedKg}kg</span>}
               {deviceHint.waterL   && <span>{t('ui.用水','用水')} {deviceHint.waterL}L</span>}
-              <span style={{ color:'var(--text-secondary)', fontSize:11 }}>（{t('ui.已自动预填早班，可手动修改','已自动预填早班，可手动修改')}）</span>
+              <span style={{ color:'var(--text-secondary)', fontSize:11 }}>（{t('ui.已自动预填所有班次，可手动修改','已自动预填所有班次，可手动修改')}）</span>
             </div>
           )}
           <div style={{ marginLeft:'auto', display:'flex', gap:24 }}>

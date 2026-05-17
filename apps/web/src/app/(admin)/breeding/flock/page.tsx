@@ -12,8 +12,8 @@ import { Plus, Edit2, Trash2 } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 
 const emptyForm = () => ({
-  farmCode:'', house:'', breed:'海兰褐', source:'中国总部繁育基地',
-  placementAge:'1', cost:'3.5', inDate:'', qty:'', targetWeeks:'80',
+  farmCode:'', house:'', breed:'', source:'',
+  placementAge:'1', cost:'0', inDate:'', qty:'', targetWeeks:'80',
   eliminationDate:'', peakLayRate:'', feedConvRatio:'', flockStatus:'GROWING',
 });
 
@@ -43,7 +43,7 @@ export default function FlockPage() {
   const [flocks, setFlocks]             = useState<any[]>([]);
   const [farms, setFarms]               = useState<any[]>([]);
   const [houses, setHouses]             = useState<any[]>([]);
-  const [breedOptions, setBreedOptions] = useState(['海兰褐','罗曼粉','京红一号']);
+  const [breedOptions, setBreedOptions] = useState<string[]>([]);
 
   const { fetchRecords, createRecord, updateRecord, deleteRecord } = useCrud('brd_flocks');
   const { fetchRecords: fetchFarms }  = useCrud('brd_farms');
@@ -71,7 +71,10 @@ export default function FlockPage() {
     fetchHouses().then((r: any) => setHouses(r || []));
     fetchDict({ limit: 1000 }).then((d: any) => {
       const opts = (d||[]).filter((x: any) => x.dict_type==='BRD_BREED_TYPE' && x.status==='ACTIVE').map((x: any) => x.dict_label_zh);
-      if (opts.length) setBreedOptions(opts);
+      if (opts.length) {
+        setBreedOptions(opts);
+        setForm(p => ({ ...p, breed: p.breed || opts[0] }));
+      }
     });
   }, [load]);
 
@@ -79,8 +82,8 @@ export default function FlockPage() {
     const r = row._raw || {};
     setEditId(row.id);
     setForm({
-      farmCode: r.farm_code||'', house: r.house_code||'', breed: r.breed_type||'海兰褐',
-      source: r.source_farm||r.farm_name||'中国总部繁育基地',
+      farmCode: r.farm_code||'', house: r.house_code||'', breed: r.breed_type||breedOptions[0]||'',
+      source: r.source_farm||'',
       placementAge: r.placement_age!=null?String(r.placement_age):'1',
       cost: r.cost!=null?String(r.cost):'0', inDate: r.start_date||'',
       qty: r.current_qty!=null?String(r.current_qty):'', targetWeeks: r.target_weeks!=null?String(r.target_weeks):'80',
@@ -107,6 +110,10 @@ export default function FlockPage() {
   };
 
   const handleSubmit = async () => {
+    if (form.eliminationDate && form.inDate && form.eliminationDate <= form.inDate) {
+      await showAlert({ icon:'⚠️', type:'warning', title:t('ui.日期错误','日期错误'), message:t('ui.淘汰日期必须晚于进雏日期','预计淘汰日期必须晚于进雏入栏日期') });
+      return;
+    }
     const payload = {
       farm_code: form.farmCode,
       farm_name: farms.find((f: any) => f.farm_code===form.farmCode)?.farm_name || form.farmCode,
@@ -140,6 +147,8 @@ export default function FlockPage() {
     { key:'quantity',   title:t('ui.存栏量','存栏量'),  width:'90px',  render: (v: any) => `${Number(v).toLocaleString()}${t('ui.羽','羽')}` },
     { key:'layingRate', title:t('ui.产蛋率','产蛋率'),  width:'80px',  render: (v: any) => typeof v === 'number' ? <span style={{ fontWeight:700, color: v>=90?'var(--status-success)':v>=85?'var(--status-warning)':'var(--status-danger)' }}>{v}%</span> : <span style={{color:'var(--text-secondary)'}}>—</span> },
     { key:'feedRatio',  title:t('ui.料蛋比','料蛋比'),  width:'80px',  render: (v: any) => typeof v === 'number' ? <span style={{ color: v<=2.35?'var(--status-success)':'var(--status-warning)' }}>{v}</span> : '—' },
+    { key:'targetWeeks',     title:t('ui.目标周数','目标周数'),  width:'80px',  render: (v: any, row: any) => { const tw = v ?? row._raw?.target_weeks; return tw ? `${tw}${t('ui.周','周')}` : '—'; } },
+    { key:'eliminationDate', title:t('ui.预计淘汰日','预计淘汰日'), width:'100px', render: (_: any, row: any) => row._raw?.elimination_date || '—' },
     { key:'status',     title:t('common.status','状态'),    width:'100px', render: (v: any) => { const st = STATUS_MAP[v]||{status:'default',label:v}; return <StatusBadge status={st.status} label={st.label} />; } },
     { key:'actions',    title:t('common.operation','操作'),    width:'100px', render: (_: any, row: any) => can(['ROLE_FARM_MGR','ROLE_ADMIN']) ? (
       <div className={s.tableActions}>

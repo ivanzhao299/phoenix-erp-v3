@@ -6,6 +6,7 @@ import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import RightDrawer from '@/components/RightDrawer';
 import { useCrud } from '@/hooks/useCrud';
+import { useDictOptions } from '@/hooks/useDictOptions';
 import { usePermission } from '@/hooks/usePermission';
 import { useToast } from '@/contexts/ToastContext';
 import { useDialog } from '@/contexts/DialogContext';
@@ -13,9 +14,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Plus, Edit2, Trash2, Activity } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 
-const HOUSE_TYPES_KEYS = ['密闭式', '开放式', '半开放'] as const;
-type HouseTypeKey = typeof HOUSE_TYPES_KEYS[number];
-const emptyForm = () => ({ farmName: '', code: '', name: '', type: '密闭式' as HouseTypeKey, capacity: '' });
+const HOUSE_TYPE_FALLBACK = ['密闭式', '开放式', '半开放']; // TODO: seed BRD_HOUSE_TYPE dict in backend
+const emptyForm = () => ({ farmName: '', code: '', name: '', type: '', capacity: '' });
 
 export default function HenHousePage() {
   const router = useRouter();
@@ -36,6 +36,8 @@ export default function HenHousePage() {
   const { fetchRecords, createRecord, updateRecord, deleteRecord } = useCrud('brd_houses');
   const { fetchRecords: fetchFarms }  = useCrud('brd_farms');
   const { fetchRecords: fetchFlocks } = useCrud('brd_flocks');
+  const { options: houseTypeOptsRaw } = useDictOptions('BRD_HOUSE_TYPE');
+  const houseTypes = houseTypeOptsRaw.length ? houseTypeOptsRaw : HOUSE_TYPE_FALLBACK;
 
   const loadData = useCallback(async () => {
     const [houses, flocks] = await Promise.all([fetchRecords(), fetchFlocks()]);
@@ -85,7 +87,7 @@ export default function HenHousePage() {
 
   const handleEdit = (row: any) => {
     setEditId(row.id); setEditRow(row);
-    setForm({ farmName: row.farmName || '', code: row.code || '', name: row.name || '', type: row.type || HOUSE_TYPES_KEYS[0], capacity: row.capacity != null ? String(row.capacity) : '' });
+    setForm({ farmName: row.farmName || '', code: row.code || '', name: row.name || '', type: row.type || houseTypes[0] || '', capacity: row.capacity != null ? String(row.capacity) : '' });
     setShowDrawer(true);
   };
 
@@ -202,11 +204,11 @@ export default function HenHousePage() {
           </div>
           <div className={s.field}>
             <label className={s.lbl}>{t('ui.鸡舍类型','鸡舍类型')}</label>
-            <div style={{ display:'flex', gap:12 }}>
-              {HOUSE_TYPES_KEYS.map(type => (
+            <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
+              {houseTypes.map(type => (
                 <label key={type} style={{ display:'flex', alignItems:'center', gap:6, fontSize:14, cursor:'pointer' }}>
-                  <input type="radio" name="houseType" value={type} checked={form.type===type} onChange={e => setForm({...form,type:e.target.value as HouseTypeKey})} />
-                  {type === '密闭式' ? t('ui.密闭式','密闭式') : type === '开放式' ? t('ui.开放式','开放式') : t('ui.半开放','半开放')}
+                  <input type="radio" name="houseType" value={type} checked={form.type===type} onChange={e => setForm({...form,type:e.target.value})} />
+                  {type}
                 </label>
               ))}
             </div>

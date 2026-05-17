@@ -28,6 +28,9 @@ interface Summary {
   totalSensorCnt:  number;
 }
 
+const severityColor = (sev: string) =>
+  sev === 'warning' ? '#f59e0b' : sev === 'normal' ? '#22c55e' : '#ef4444';
+
 export default function DeviceAlertsPage() {
   const { t } = useLanguage();
 
@@ -148,32 +151,38 @@ export default function DeviceAlertsPage() {
         </div>
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          {alarms.map((a, i) => (
-            <div key={i} style={{
-              background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.25)",
-              borderRadius:10, padding:"14px 18px", display:"flex", alignItems:"center", gap:16,
-            }}>
-              <div style={{ width:38, height:38, borderRadius:"50%", background:"rgba(239,68,68,0.15)",
-                display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                <AlertTriangle size={18} style={{ color:"#ef4444" }} />
-              </div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontWeight:700, color:"var(--text-primary)", marginBottom:4 }}>
-                  {a.property_name}
-                  <span style={{ fontSize:"1.1rem", fontWeight:800, color:"#ef4444", marginLeft:12 }}>
-                    {a.value != null ? Number(a.value).toFixed(1) : "—"} {a.unit}
-                  </span>
+          {alarms.map((a, i) => {
+            const sc = severityColor(a.severity);
+            return (
+              <div key={i} style={{
+                background:`color-mix(in srgb,${sc} 6%,transparent)`,
+                border:`1px solid color-mix(in srgb,${sc} 25%,transparent)`,
+                borderRadius:10, padding:"14px 18px", display:"flex", alignItems:"center", gap:16,
+              }}>
+                <div style={{ width:38, height:38, borderRadius:"50%",
+                  background:`color-mix(in srgb,${sc} 15%,transparent)`,
+                  display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  <AlertTriangle size={18} style={{ color:sc }} />
                 </div>
-                <div style={{ fontSize:"0.8rem", color:"var(--text-secondary)", display:"flex", gap:16 }}>
-                  <span style={{ display:"flex", alignItems:"center", gap:4 }}><Home size={12} /> {a.house_code}</span>
-                  {a.category && <span>{a.category}</span>}
+                <div style={{ flex:1 }}>
+                  <div style={{ fontWeight:700, color:"var(--text-primary)", marginBottom:4 }}>
+                    {a.property_name}
+                    <span style={{ fontSize:"1.1rem", fontWeight:800, color:sc, marginLeft:12 }}>
+                      {a.value != null ? Number(a.value).toFixed(1) : "—"} {a.unit}
+                    </span>
+                  </div>
+                  <div style={{ fontSize:"0.8rem", color:"var(--text-secondary)", display:"flex", gap:16 }}>
+                    <span style={{ display:"flex", alignItems:"center", gap:4 }}><Home size={12} /> {a.house_code}</span>
+                    {a.category && <span>{a.category}</span>}
+                  </div>
                 </div>
+                <span style={{ fontSize:"0.75rem", padding:"3px 10px", borderRadius:6,
+                  background:`color-mix(in srgb,${sc} 15%,transparent)`, color:sc, fontWeight:700 }}>
+                  {t("ui.超出阈值", "超出阈值")}
+                </span>
               </div>
-              <span style={{ fontSize:"0.75rem", padding:"3px 10px", borderRadius:6, background:"rgba(239,68,68,0.15)", color:"#ef4444", fontWeight:700 }}>
-                {t("ui.超出阈值", "超出阈值")}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

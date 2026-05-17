@@ -10,7 +10,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Plus, Edit2 } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 
-const EMPTY_FORM = { batchNo:'', farmHouse:'', medicine:'土霉素', disease:'', startDate:'', daysUsed:'5', withdrawDays:'7', dose:'100mg/kg饲料' };
+const EMPTY_FORM = { batchNo:'', farmHouse:'', medicine:'', disease:'', startDate:'', daysUsed:'5', withdrawDays:'7', dose:'' };
 const todayStr = () => new Date().toISOString().slice(0,10);
 
 export default function MedicinePage() {
@@ -69,7 +69,7 @@ export default function MedicinePage() {
   const handleEdit = (row: any) => {
     const r = row._raw || {};
     setEditId(row.id);
-    setForm({ batchNo:r.batch_no||'', farmHouse:r.farm_house||'', medicine:r.medicine||'土霉素', disease:r.disease||'', startDate:r.start_date||'', daysUsed:r.days_used!=null?String(r.days_used):'5', withdrawDays:r.withdraw_days!=null?String(r.withdraw_days):'7', dose:r.dose||'100mg/kg饲料' });
+    setForm({ batchNo:r.batch_no||'', farmHouse:r.farm_house||'', medicine:r.medicine||'', disease:r.disease||'', startDate:r.start_date||'', daysUsed:r.days_used!=null?String(r.days_used):'5', withdrawDays:r.withdraw_days!=null?String(r.withdraw_days):'7', dose:r.dose||'' });
     setShowDrawer(true);
   };
 
@@ -126,8 +126,8 @@ export default function MedicinePage() {
     { key:'disease',      title: t('ui.治疗疾病', '治疗疾病'), width:'90px'  },
     { key:'startDate',    title: t('ui.开始日期', '开始日期'), width:'100px' },
     { key:'endDate',      title: t('ui.结束日期', '结束日期'), width:'100px' },
-    { key:'daysUsed',     title: t('ui.用药天数', '用药天数'), width:'80px',  render: (v: any) => `${v}天` },
-    { key:'withdrawDays', title: t('ui.停药期', '停药期'),     width:'80px',  render: (v: any) => `${v}天` },
+    { key:'daysUsed',     title: t('ui.用药天数', '用药天数'), width:'80px',  render: (v: any) => `${v} ${t('ui.天','天')}` },
+    { key:'withdrawDays', title: t('ui.停药期', '停药期'),     width:'80px',  render: (v: any) => `${v} ${t('ui.天','天')}` },
     { key:'clearDate',    title: t('ui.解禁日期', '解禁日期'), width:'100px', render: (v: any, row: any) => <span style={{ fontWeight:600, color: row.status==='inWithdrawal'?'var(--status-danger)':'var(--status-success)' }}>{v}</span> },
     { key:'status',       title: t('common.status', '状态'),   width:'110px', render: (v: any) => { const st=STATUS_CONF[v]||{status:'default',label:v}; return <StatusBadge status={st.status} label={st.label} />; } },
     { key:'executor',     title: t('ui.兽医', '兽医'),         width:'70px'  },

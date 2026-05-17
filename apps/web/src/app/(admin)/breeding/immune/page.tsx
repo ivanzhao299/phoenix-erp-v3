@@ -116,7 +116,7 @@ export default function ImmunePage() {
     };
     const ok = editId
       ? await updateRecord(editId, payload, 'id', t('ui.免疫计划更新成功', '免疫计划更新成功！'))
-      : await createRecord({ ...payload, actual_date:null, executor:'', status:'pending' }, t('ui.免疫计划制定成功', '免疫计划制定成功！'));
+      : await createRecord({ ...payload, actual_date:null, executor:'', status:'PENDING' }, t('ui.免疫计划制定成功', '免疫计划制定成功！'));
     if (ok) {
       setShowDrawer(false); setEditId(null);
       setForm({ ...EMPTY_FORM, batchNo:flockOptions[0]?.code||'', vaccine:vaccineOpts[0]||'', method:vaccMethodOpts[0]||'', dose:DOSE_BY_METHOD[vaccMethodOpts[0]]||'' });
@@ -144,7 +144,7 @@ export default function ImmunePage() {
     { key:'farmHouse',      title: t('ui.鸡舍', '鸡舍'),         width:'100px' },
     { key:'vaccine',        title: t('ui.疫苗名称', '疫苗名称') },
     { key:'vaccineBatchNo', title: t('ui.疫苗批号', '疫苗批号'), width:'130px', render: (v: any) => v ? <span style={{ fontFamily:'monospace', fontSize:12, color:'var(--color-primary)' }}>{v}</span> : <span style={{ color:'var(--text-secondary)' }}>—</span> },
-    { key:'flockCount',     title: t('ui.免疫头数', '免疫头数'), width:'90px',  render: (v: any) => v ? `${v} 只` : '—' },
+    { key:'flockCount',     title: t('ui.免疫头数', '免疫头数'), width:'90px',  render: (v: any) => v ? `${v} ${t('ui.只','只')}` : '—' },
     { key:'planDate',       title: t('ui.计划日期', '计划日期'), width:'100px' },
     { key:'nextDueDate',    title: t('ui.下次免疫', '下次免疫'), width:'100px', render: (v: any) => v || '—' },
     { key:'actualDate',     title: t('ui.执行日期', '执行日期'), width:'100px', render: (v: any) => v || '—' },
@@ -154,7 +154,7 @@ export default function ImmunePage() {
     { key:'status',         title: t('common.status', '状态'),   width:'110px', render: (v: any) => { const st = STATUS_CONF[normStatus(v)]||{ status:'default', label:v }; return <StatusBadge status={st.status} label={st.label} />; } },
     { key:'actions',        title: t('common.operation', '操作'), width:'120px', render: (_: any, row: any) => (
       <div className={s.tableActions}>
-        {can(['ROLE_VET','ROLE_ADMIN']) && row.status==='pending' && (
+        {can(['ROLE_VET','ROLE_ADMIN']) && normStatus(row.status)==='PENDING' && (
           <button type="button" className={`${s.btn} ${s.btnSm}`} style={{ background:'var(--status-success)', color:'#fff', border:'none' }}
             onClick={() => handleRecordVaccine(row)}><CheckCircle size={12} />{t('ui.执行', '执行')}</button>
         )}

@@ -23,12 +23,15 @@ async function apiFetch(path: string) {
   return r.json();
 }
 
-const PROVINCES = [
+// 产蛋率低于此值视为异常（业务规则，非动态配置）
+const WARN_LAY_RATE_PCT = 88;
+
+const LAOS_PROVINCES = [
   "万象直辖市VientianePref","万象省VientianeProv","琅勃拉邦省LuangPrabang",
   "沙湾拿吉省Savannakhet","占巴塞省Champasak","波乔省Bokeo",
   "南塔省LuangNamtha","乌多姆赛省Oudomxay","甘蒙省Khammouane",
   "赛宋奔省Xaysomboun","云南省中国特区",
-];
+]; // TODO: 待后端补充 SYS_PROVINCE dict 类型后改为 API 动态加载
 
 interface Farm {
   id: string; name: string; location: string;
@@ -132,7 +135,7 @@ export default function BreedingPage() {
           houses: Number(d.houses) || 0,
           totalBirds: qty || Number(d.capacity) || 0,
           layingRate: rate,
-          status: (qty > 0 && Number(rate) < 88) || d.status === "WARNING" ? "warning" : "normal",
+          status: (qty > 0 && Number(rate) < WARN_LAY_RATE_PCT) || d.status === "WARNING" ? "warning" : "normal",
         };
       });
     setFarms(mapped);
@@ -274,7 +277,13 @@ export default function BreedingPage() {
         return;
       }
     } catch {
-      console.warn("[handleDelete] child-check 查询失败，继续删除可能产生孤儿数据");
+      await dialog.showAlert({
+        title: t('ui.无法验证子记录', '无法验证子记录'),
+        message: t('ui.子记录检查失败删除已取消', '子记录检查失败，删除已取消以防止数据孤立，请稍后重试'),
+        type: "warning",
+        icon: "⚠️",
+      });
+      return;
     }
 
     const ok = await dialog.showConfirm({ title:t('ui.确认解散','确认解散'), message:`${t('ui.确认拆除空管区','确认拆除空管区：')}${farm.name}?`, type:"danger", confirmLabel:t('ui.确认解散','确认解散') });
@@ -421,7 +430,7 @@ export default function BreedingPage() {
                   )}
                 </div>
                 <div style={{ textAlign:"right", flexShrink:0 }}>
-                  <div style={{ fontSize:22, fontWeight:700, color: typeof farm.layingRate === "string" && isNaN(Number(farm.layingRate)) ? "var(--text-secondary)" : Number(farm.layingRate)<88?"#dc2626":"#16a34a" }}>
+                  <div style={{ fontSize:22, fontWeight:700, color: typeof farm.layingRate === "string" && isNaN(Number(farm.layingRate)) ? "var(--text-secondary)" : Number(farm.layingRate)<WARN_LAY_RATE_PCT?"#dc2626":"#16a34a" }}>
                     {farm.layingRate}%
                   </div>
                   <div style={{ fontSize:11, color:"var(--text-secondary)" }}>{t('ui.产蛋率','产蛋率')}</div>
@@ -491,7 +500,7 @@ export default function BreedingPage() {
                 borderRadius:"var(--radius-md)", background:"var(--bg-page)", color:"var(--text-primary)",
                 fontSize:14, outline:"none", boxSizing:"border-box" }}/>
             <datalist id="province-list">
-              {PROVINCES.map(p=><option key={p} value={p}/>)}
+              {LAOS_PROVINCES.map(p=><option key={p} value={p}/>)}
             </datalist>
           </div>
           <div>
