@@ -7,27 +7,19 @@ import { packagingApi } from '@/lib/packaging-api';
 import { T } from '@/styles/terminal-theme';
 
 
-const FALLBACK_BOXES = [
-  { code:'BOX-20260516-001', grade:'A大码', qty:30 },
-  { code:'BOX-20260516-002', grade:'A大码', qty:30 },
-  { code:'BOX-20260516-003', grade:'A中码', qty:30 },
-  { code:'BOX-20260516-004', grade:'A中码', qty:30 },
-];
-
 export default function WarehouseHandoverPage() {
   const router = useRouter();
   const { t } = useLanguage();
   const { ctx } = useTerminalContext();
 
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const PENDING_BOXES = (ctx.packingBatches || []).flatMap((batch, bi) =>
+  const pendingBoxes = (ctx.packingBatches || []).flatMap((batch, bi) =>
     Array.from({ length: batch.boxes }, (_, j) => ({
       code: `BOX-${today}-${String(bi * 100 + j + 1).padStart(3, '0')}`,
       grade: batch.grade,
       qty: batch.eggs / batch.boxes,
     }))
   );
-  const pendingBoxes = PENDING_BOXES.length > 0 ? PENDING_BOXES : FALLBACK_BOXES;
   const [scanInput, setScanInput] = useState('');
   const [scanned, setScanned] = useState<string[]>([]);
   const [palletCode, setPalletCode] = useState('');
@@ -81,6 +73,18 @@ export default function WarehouseHandoverPage() {
     setTimeout(() => router.push('/terminal/packaging/shift-close'), 2000);
     setSubmitting(false);
   };
+
+  if (pendingBoxes.length === 0) return (
+    <div style={{ height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:T.BG, gap:16 }}>
+      <div style={{ fontSize:48 }}>📦</div>
+      <div style={{ fontSize:18, fontWeight:700, color:T.TXT }}>{t('ui.暂无待入库包装批次', '暂无待入库包装批次')}</div>
+      <div style={{ fontSize:13, color:T.MUT }}>{t('ui.请先完成包装作业', '请先完成包装作业')}</div>
+      <button onClick={() => router.push('/terminal/packaging/packing')}
+        style={{ marginTop:8, padding:'12px 28px', borderRadius:10, background:T.ACC, color:'#0f172a', border:'none', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+        → {t('terminal.packing', '前往包装')}
+      </button>
+    </div>
+  );
 
   if (done) return (
     <div style={{ height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:T.BG, gap:16 }}>

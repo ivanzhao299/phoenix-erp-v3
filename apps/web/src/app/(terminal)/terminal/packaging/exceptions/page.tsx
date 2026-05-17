@@ -3,9 +3,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { packagingApi } from '@/lib/packaging-api';
-import { MOCK_EXCEPTIONS } from '@/lib/packaging-mock';
 import { EXCEPTION_TYPE_LABEL } from '@/types/packaging-terminal';
 import type { ExceptionType, ExceptionTicket } from '@/types/packaging-terminal';
+import { useTerminalContext } from '@/hooks/useTerminalContext';
 import { usePackagingDicts, buildQuickTypes, FALLBACK_DICTS } from '@/hooks/usePackagingDicts';
 import { T } from '@/styles/terminal-theme';
 
@@ -15,6 +15,7 @@ const SEV_COLORS = { LOW:'#22c55e', MEDIUM:'#f59e0b', HIGH:'#f97316', CRITICAL:'
 export default function ExceptionsPage() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { ctx } = useTerminalContext();
   // ── 从数据字典加载异常快捷类型 ─────────────────────────────────────────────
   const { dicts } = usePackagingDicts(['PKG_ANOMALY_REASON']);
   const QUICK_TYPES = buildQuickTypes(
@@ -36,14 +37,14 @@ export default function ExceptionsPage() {
   useEffect(() => {
     packagingApi.getTodayExceptions()
       .then(data => setTickets((Array.isArray(data) ? data : []) as ExceptionTicket[]))
-      .catch(() => setTickets(MOCK_EXCEPTIONS as ExceptionTicket[]))
+      .catch(() => setTickets([]))
       .finally(() => setTicketsLoading(false));
   }, []);
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     type:'' as ExceptionType|'', severity:'MEDIUM' as 'LOW'|'MEDIUM'|'HIGH'|'CRITICAL',
-    quantity:'', description:'', batchId:'SB-20260516-001',
+    quantity:'', description:'', batchId: ctx.currentSourceBatch?.code || '',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -62,7 +63,7 @@ export default function ExceptionsPage() {
       });
       setTickets(prev=>[result as ExceptionTicket, ...prev]);
       setShowForm(false);
-      setForm({ type:'', severity:'MEDIUM', quantity:'', description:'', batchId:'SB-20260516-001' });
+      setForm({ type:'', severity:'MEDIUM', quantity:'', description:'', batchId: ctx.currentSourceBatch?.code || '' });
     } finally { setSubmitting(false); }
   };
 
