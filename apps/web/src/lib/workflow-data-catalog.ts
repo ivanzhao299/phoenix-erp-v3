@@ -8,12 +8,60 @@ export type WorkflowDataCatalogItem = {
   description: string;
   valueField: string;
   labelField: string;
+  valueFields?: string[];
+  labelFields?: string[];
   table?: string;
   dict_type?: string;
   fields: Array<{ key: string; label: string; usage: string }>;
 };
 
 export const WORKFLOW_DATA_CATALOG: WorkflowDataCatalogItem[] = [
+  {
+    code: "SYS_USERS",
+    name: "系统用户",
+    objectName: "用户",
+    source_type: "TABLE",
+    table: "sys_user",
+    valueField: "user_id",
+    labelField: "real_name",
+    valueFields: ["user_id", "id"],
+    labelFields: ["real_name", "real_name_zh", "username"],
+    description: "用于指定审批人、转交处理人、抄送人等用户选择；后台新增用户后自动可选。",
+    fields: [
+      { key: "user_id", label: "用户ID", usage: "作为提交值" },
+      { key: "real_name", label: "用户姓名", usage: "作为页面显示" },
+    ],
+  },
+  {
+    code: "SYS_ROLES",
+    name: "系统角色",
+    objectName: "角色",
+    source_type: "TABLE",
+    table: "sys_role",
+    valueField: "role_code",
+    labelField: "role_name_zh",
+    description: "用于审批节点、转交和权限相关选择；后台新增角色后自动可选。",
+    fields: [
+      { key: "role_code", label: "角色编码", usage: "作为提交值" },
+      { key: "role_name_zh", label: "角色名称", usage: "作为页面显示" },
+    ],
+  },
+  {
+    code: "SYS_ORGS",
+    name: "组织部门",
+    objectName: "组织/部门",
+    source_type: "TABLE",
+    table: "sys_orgs",
+    valueField: "org_code",
+    labelField: "org_name",
+    valueFields: ["org_code", "id"],
+    labelFields: ["org_name"],
+    description: "用于部门负责人、发起人所属部门、组织范围等动态审批规则。",
+    fields: [
+      { key: "org_code", label: "组织编码", usage: "作为提交值" },
+      { key: "org_name", label: "组织名称", usage: "作为页面显示" },
+    ],
+  },
   {
     code: "MST_STORES",
     name: "门店列表",
@@ -117,7 +165,13 @@ export const WORKFLOW_DATA_CATALOG: WorkflowDataCatalogItem[] = [
 export function dataSourceConfig(item: WorkflowDataCatalogItem) {
   if (item.source_type === "DICT") return { dict_type: item.dict_type };
   if (item.source_type === "TABLE") {
-    return { table: item.table, valueField: item.valueField, labelField: item.labelField };
+    return {
+      table: item.table,
+      valueField: item.valueField,
+      labelField: item.labelField,
+      valueFields: item.valueFields,
+      labelFields: item.labelFields,
+    };
   }
   return { options: [] };
 }

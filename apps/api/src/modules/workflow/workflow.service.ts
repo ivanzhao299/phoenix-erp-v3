@@ -252,6 +252,7 @@ export class WorkflowService implements OnModuleInit {
 
   async generateIndustryTemplates(user: WorkflowUser) {
     this.requireAdmin(user);
+    await this.ensureDefaultDataSources();
     const result = await this.seedIndustryTemplates(user.userId || null);
     return { code: 200, data: result };
   }
@@ -625,8 +626,8 @@ export class WorkflowService implements OnModuleInit {
     }
     if (source.source_type === 'TABLE') {
       const table = String(config.table || '');
-      const valueField = String(config.valueField || 'id');
-      const labelField = String(config.labelField || valueField);
+      const valueField = await this.pickExistingColumn(table, config.valueFields || [config.valueField || 'id']);
+      const labelField = await this.pickExistingColumn(table, config.labelFields || [config.labelField || valueField]);
       this.assertIdentifier(table);
       this.assertIdentifier(valueField);
       this.assertIdentifier(labelField);
@@ -838,6 +839,23 @@ export class WorkflowService implements OnModuleInit {
     const rows = await this.em.query(`SELECT * FROM wf_data_source WHERE code=$1 AND status='ACTIVE'`, [code]);
     if (!rows[0]) throw new NotFoundException('workflow data source not found');
     return rows[0];
+  }
+
+  private async pickExistingColumn(table: string, candidates: any[]) {
+    this.assertIdentifier(table);
+    const normalized = (Array.isArray(candidates) ? candidates : [candidates])
+      .map(item => String(item || '').trim())
+      .filter(Boolean);
+    if (normalized.length === 0) throw new BadRequestException('data source column required');
+    normalized.forEach(item => this.assertIdentifier(item));
+    const rows = await this.em.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = $1`,
+      [table],
+    );
+    const existing = new Set(rows.map((row: any) => String(row.column_name)));
+    const picked = normalized.find(item => existing.has(item));
+    if (!picked) throw new BadRequestException(`data source column not found for table ${table}`);
+    return picked;
   }
 
   private async assertInstanceVisible(instanceId: number, user: WorkflowUser) {
@@ -1064,19 +1082,26 @@ export class WorkflowService implements OnModuleInit {
   }
 
   private async seedDefaults() {
-    const dsCount = await this.em.query(`SELECT COUNT(*)::int AS count FROM wf_data_source`);
-    if (Number(dsCount[0]?.count || 0) === 0) {
-      await this.em.query(
-        `INSERT INTO wf_data_source (code, name, source_type, config_json)
-         VALUES
-           ('SYS_DICT_APPROVAL','审批字典','DICT','{"dict_type":"APPROVAL"}'::jsonb),
-           ('MST_STORES','门店列表','TABLE','{"table":"mst_stores","valueField":"store_code","labelField":"store_name"}'::jsonb),
-           ('MST_PRODUCTS','产品列表','TABLE','{"table":"mst_products","valueField":"product_code","labelField":"product_name"}'::jsonb)
-         ON CONFLICT (code) DO NOTHING`,
-      );
-    }
-
+    await this.ensureDefaultDataSources();
     await this.seedIndustryTemplates(null);
+  }
+
+  private async ensureDefaultDataSources() {
+    await this.em.query(
+      `INSERT INTO wf_data_source (code, name, source_type, config_json)
+       VALUES
+         ('SYS_USERS','系统用户','TABLE','{"table":"sys_user","valueField":"user_id","labelField":"real_name","valueFields":["user_id","id"],"labelFields":["real_name","real_name_zh","username"]}'::jsonb),
+         ('SYS_ROLES','系统角色','TABLE','{"table":"sys_role","valueField":"role_code","labelField":"role_name_zh"}'::jsonb),
+         ('SYS_ORGS','组织部门','TABLE','{"table":"sys_orgs","valueField":"org_code","labelField":"org_name","valueFields":["org_code","id"],"labelFields":["org_name"]}'::jsonb),
+         ('SYS_DICT_APPROVAL','审批字典','DICT','{"dict_type":"APPROVAL"}'::jsonb),
+         ('MST_STORES','门店列表','TABLE','{"table":"mst_stores","valueField":"store_code","labelField":"store_name"}'::jsonb),
+         ('MST_PRODUCTS','产品列表','TABLE','{"table":"mst_products","valueField":"product_code","labelField":"product_name"}'::jsonb),
+         ('WMS_WAREHOUSES','仓库列表','TABLE','{"table":"wms_warehouses","valueField":"warehouse_code","labelField":"warehouse_name_zh"}'::jsonb),
+         ('PRC_SUPPLIERS','供应商列表','TABLE','{"table":"prc_suppliers","valueField":"supplier_code","labelField":"supplier_name"}'::jsonb),
+         ('ORD_CUSTOMERS','客户列表','TABLE','{"table":"ord_customers","valueField":"customer_code","labelField":"customer_name"}'::jsonb),
+         ('B2B_CUSTOMERS','B2B客户列表','TABLE','{"table":"b2b_customers","valueField":"customer_code","labelField":"customer_name"}'::jsonb)
+       ON CONFLICT (code) DO NOTHING`,
+    );
   }
 
   private async seedIndustryTemplates(userId: number | null) {
