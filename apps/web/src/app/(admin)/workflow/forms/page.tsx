@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
+import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowForm } from "@/lib/workflow-api";
 
 type FormTemplate = {
@@ -98,16 +99,18 @@ export default function WorkflowFormsPage() {
     <div>
       <PageHeader title="表单定义" subtitle="维护常用业务表单，新增时优先从模板复制再微调字段" breadcrumb={["工作流", "表单定义"]} />
 
-      <section style={toolbarStyle}>
-        <div>
-          <h3 style={titleStyle}>表单列表</h3>
-          <p style={hintStyle}>表单用于承载流程里的基础数据，发布后可绑定到审批流程。</p>
+      <section className={s.card} style={{ marginBottom: 12 }}>
+        <div className={s.cardBody} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 }}>
+          <div>
+            <h3 className={s.cardTitle}>表单列表</h3>
+            <p className={s.modalDesc} style={{ margin: "4px 0 0" }}>表单用于承载流程里的基础数据，发布后可绑定到审批流程。</p>
+          </div>
+          <button className={s.btnPrimary} onClick={() => openFromTemplate()}>新增表单</button>
         </div>
-        <button style={buttonStyle} onClick={() => openFromTemplate()}>新增表单</button>
       </section>
 
-      <section style={panelStyle}>
-        <table style={tableStyle}>
+      <section className={s.card}>
+        <table className={s.table}>
           <thead><tr><th>表单名称</th><th>分类</th><th>状态</th><th>版本</th><th>操作</th></tr></thead>
           <tbody>{rows.map(row => (
             <tr key={row.id}>
@@ -116,7 +119,7 @@ export default function WorkflowFormsPage() {
                 <div style={codeStyle}>{row.code}</div>
               </td>
               <td>{categoryText(row.category)}</td>
-              <td>{statusText(row.status)}</td>
+              <td><span className={statusBadgeClass(row.status)}>{statusText(row.status)}</span></td>
               <td>{row.current_version_id || "-"}</td>
               <td><Link href={`/workflow/form-designer/${row.id}`}>设计/发布</Link></td>
             </tr>
@@ -131,8 +134,8 @@ export default function WorkflowFormsPage() {
         onClose={() => setDrawerOpen(false)}
         footer={
           <div style={footerStyle}>
-            <button style={secondaryButtonStyle} onClick={() => setDrawerOpen(false)}>取消</button>
-            <button style={buttonStyle} disabled={loading} onClick={create}>{loading ? "创建中..." : "创建表单"}</button>
+            <button className={s.btnSecondary} onClick={() => setDrawerOpen(false)}>取消</button>
+            <button className={s.btnPrimary} disabled={loading} onClick={create}>{loading ? "创建中..." : "创建表单"}</button>
           </div>
         }
       >
@@ -158,17 +161,17 @@ export default function WorkflowFormsPage() {
             <h4 style={sectionTitleStyle}>基础信息</h4>
             <label style={labelStyle}>
               表单名称
-              <input style={inputStyle} value={form.name} onChange={e=>setForm({...form, name:e.target.value})} />
+              <input className={s.inp} value={form.name} onChange={e=>setForm({...form, name:e.target.value})} />
             </label>
             <label style={labelStyle}>
               业务分类
-              <select style={inputStyle} value={form.category} onChange={e=>setForm({...form, category:e.target.value})}>
+              <select className={s.inp} value={form.category} onChange={e=>setForm({...form, category:e.target.value})}>
                 {CATEGORY_OPTIONS.map(item => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
             <label style={labelStyle}>
               适用说明
-              <textarea style={textareaStyle} value={form.description} onChange={e=>setForm({...form, description:e.target.value})} />
+              <textarea className={s.textarea} value={form.description} onChange={e=>setForm({...form, description:e.target.value})} />
             </label>
           </section>
 
@@ -176,7 +179,7 @@ export default function WorkflowFormsPage() {
             <summary>高级设置</summary>
             <label style={labelStyle}>
               系统编码
-              <input style={inputStyle} value={form.code} onChange={e=>setForm({...form, code:normalizeCode(e.target.value)})} />
+              <input className={s.inp} value={form.code} onChange={e=>setForm({...form, code:normalizeCode(e.target.value)})} />
             </label>
             <p style={hintStyle}>系统编码用于接口和数据存储，页面会自动生成，通常不需要修改。</p>
           </details>
@@ -207,6 +210,12 @@ function statusText(status: string) {
   if (status === "ACTIVE") return "已启用";
   if (status === "DISABLED") return "已停用";
   return "草稿";
+}
+
+function statusBadgeClass(status: string) {
+  if (status === "ACTIVE") return `${s.badge} ${s.badgeSuccess}`;
+  if (status === "DISABLED") return `${s.badge} ${s.badgeDanger}`;
+  return `${s.badge} ${s.badgeNeutral}`;
 }
 
 function categoryText(category?: string) {

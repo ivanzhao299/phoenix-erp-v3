@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
+import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowDefinition } from "@/lib/workflow-api";
 
 type FlowTemplate = {
@@ -136,23 +137,25 @@ export default function WorkflowDefinitionsPage() {
     <div>
       <PageHeader title="流程定义" subtitle="日常查看和维护已定义流程，少量新增可从模板或现有流程复制" breadcrumb={["工作流", "流程定义"]} />
 
-      <section style={toolbarStyle}>
-        <div>
-          <h3 style={titleStyle}>流程列表</h3>
-          <p style={hintStyle}>大多数流程应先由管理员统一定义，业务人员只需要发起和审批。</p>
-        </div>
-        <div style={toolbarActionsStyle}>
-          <button style={secondaryButtonStyle} disabled={generating} onClick={generateIndustryTemplates}>
-            {generating ? "生成中..." : "AI生成行业模板"}
-          </button>
-          <button style={buttonStyle} onClick={() => openFromTemplate()}>新增流程</button>
+      <section className={s.card} style={{ marginBottom: 12 }}>
+        <div className={s.cardBody} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 }}>
+          <div>
+            <h3 className={s.cardTitle}>流程列表</h3>
+            <p className={s.modalDesc} style={{ margin: "4px 0 0" }}>大多数流程应先由管理员统一定义，业务人员只需要发起和审批。</p>
+          </div>
+          <div style={toolbarActionsStyle}>
+            <button className={s.btnSecondary} disabled={generating} onClick={generateIndustryTemplates}>
+              {generating ? "生成中..." : "AI生成行业模板"}
+            </button>
+            <button className={s.btnPrimary} onClick={() => openFromTemplate()}>新增流程</button>
+          </div>
         </div>
       </section>
-      {notice ? <div style={noticeStyle}>{notice}</div> : null}
-      {error && !drawerOpen ? <div style={errorBannerStyle}>{error}</div> : null}
+      {notice ? <div className={s.successBanner}>{notice}</div> : null}
+      {error && !drawerOpen ? <div className={s.errorBanner}>{error}</div> : null}
 
-      <section style={panelStyle}>
-        <table style={tableStyle}>
+      <section className={s.card}>
+        <table className={s.table}>
           <thead><tr><th>流程名称</th><th>分类</th><th>状态</th><th>版本</th><th>操作</th></tr></thead>
           <tbody>{rows.map(row => (
             <tr key={row.id}>
@@ -161,7 +164,7 @@ export default function WorkflowDefinitionsPage() {
                 <div style={codeStyle}>{row.code}</div>
               </td>
               <td>{categoryText(row.category)}</td>
-              <td>{statusText(row.status)}</td>
+              <td><span className={statusBadgeClass(row.status)}>{statusText(row.status)}</span></td>
               <td>{row.current_version_id || "-"}</td>
               <td>
                 <div style={actionStyle}>
@@ -181,8 +184,8 @@ export default function WorkflowDefinitionsPage() {
         onClose={() => setDrawerOpen(false)}
         footer={
           <div style={footerStyle}>
-            <button style={secondaryButtonStyle} onClick={() => setDrawerOpen(false)}>取消</button>
-            <button style={buttonStyle} disabled={loading} onClick={create}>{loading ? "创建中..." : "创建流程"}</button>
+            <button className={s.btnSecondary} onClick={() => setDrawerOpen(false)}>取消</button>
+            <button className={s.btnPrimary} disabled={loading} onClick={create}>{loading ? "创建中..." : "创建流程"}</button>
           </div>
         }
       >
@@ -215,17 +218,17 @@ export default function WorkflowDefinitionsPage() {
             <h4 style={sectionTitleStyle}>基础信息</h4>
             <label style={labelStyle}>
               流程名称
-              <input style={inputStyle} value={form.name} onChange={e=>setForm({...form, name:e.target.value})} />
+              <input className={s.inp} value={form.name} onChange={e=>setForm({...form, name:e.target.value})} />
             </label>
             <label style={labelStyle}>
               业务分类
-              <select style={inputStyle} value={form.category} onChange={e=>setForm({...form, category:e.target.value})}>
+              <select className={s.inp} value={form.category} onChange={e=>setForm({...form, category:e.target.value})}>
                 {CATEGORY_OPTIONS.map(item => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
             <label style={labelStyle}>
               适用说明
-              <textarea style={textareaStyle} value={form.description} onChange={e=>setForm({...form, description:e.target.value})} />
+              <textarea className={s.textarea} value={form.description} onChange={e=>setForm({...form, description:e.target.value})} />
             </label>
           </section>
 
@@ -233,7 +236,7 @@ export default function WorkflowDefinitionsPage() {
             <summary>高级设置</summary>
             <label style={labelStyle}>
               系统编码
-              <input style={inputStyle} value={form.code} onChange={e=>setForm({...form, code:normalizeCode(e.target.value)})} />
+              <input className={s.inp} value={form.code} onChange={e=>setForm({...form, code:normalizeCode(e.target.value)})} />
             </label>
             <p style={hintStyle}>系统编码用于接口和数据存储，页面会自动生成，通常不需要修改。</p>
           </details>
@@ -264,6 +267,12 @@ function statusText(status: string) {
   if (status === "ACTIVE") return "已启用";
   if (status === "DISABLED") return "已停用";
   return "草稿";
+}
+
+function statusBadgeClass(status: string) {
+  if (status === "ACTIVE") return `${s.badge} ${s.badgeSuccess}`;
+  if (status === "DISABLED") return `${s.badge} ${s.badgeDanger}`;
+  return `${s.badge} ${s.badgeNeutral}`;
 }
 
 function categoryText(category?: string) {
