@@ -214,6 +214,27 @@ export default function WorkflowDataSourcesPage() {
     }
   }
 
+  async function createFormFromSelectedSource() {
+    setBusy(true);
+    setMsg("");
+    setError("");
+    try {
+      const res = await workflowApi.createFormFromDataSource({
+        sourceCode: selectedCatalog.code,
+        name: `${selectedCatalog.name}自动表单`,
+        category: "通用",
+      });
+      const data = res.data || {};
+      const form = data.form as { id?: number; name?: string } | undefined;
+      setMsg(`已生成表单：${String(form?.name || selectedCatalog.name)}，可进入表单定义继续设计/发布。`);
+      await loadFieldSuggestions(selectedCatalog.code);
+    } catch (err) {
+      setError(err instanceof Error ? friendlyError(err.message) : "生成表单失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div>
       <PageHeader title="工作流数据源" subtitle="把用户、角色、组织和业务资料包装成表单可用的动态引用控件" breadcrumb={["工作流", "数据源"]} />
@@ -325,6 +346,11 @@ export default function WorkflowDataSourcesPage() {
             {existingCodes.has(selectedCatalog.code) ? (
               <button className={s.btnSecondary} disabled={busy} onClick={() => loadFieldSuggestions(selectedCatalog.code)}>
                 生成字段建议
+              </button>
+            ) : null}
+            {existingCodes.has(selectedCatalog.code) ? (
+              <button className={s.btnPrimary} disabled={busy} onClick={createFormFromSelectedSource}>
+                生成表单
               </button>
             ) : null}
           </div>

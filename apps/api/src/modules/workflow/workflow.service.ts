@@ -393,6 +393,88 @@ export class WorkflowService implements OnModuleInit {
     return { code: 200, data: rows[0] };
   }
 
+  async createFormFromDataSource(body: any, user: WorkflowUser) {
+    this.requireAdmin(user);
+    const sourceCode = String(body?.sourceCode || body?.source_code || '').trim().toUpperCase();
+    this.assertCode(sourceCode);
+    const source = await this.findDataSourceByCode(sourceCode);
+    const refreshed = await this.refreshDataSourceForUse(source);
+    const metadata = refreshed.metadata_json || {};
+    const fields = this.buildFieldSuggestions(refreshed, metadata);
+    if (fields.length === 0) throw new BadRequestException('no field suggestions available for data source');
+
+    const code = body?.code ? String(body.code).trim().toUpperCase() : `${sourceCode}_AUTO_FORM`;
+    this.assertCode(code);
+    const name = String(body?.name || `${refreshed.name}自动表单`).trim();
+    if (!name) throw new BadRequestException('name required');
+    const description = body?.description || `由工作流数据源 ${refreshed.name} 自动生成，可进入表单设计器继续微调。`;
+    const category = body?.category || '通用';
+    const schema = this.normalizeFormSchema({
+      fields: fields.map((field: any) => ({
+        key: field.key,
+        label: field.label,
+        type: field.type,
+        dataSource: field.dataSource,
+        required: Boolean(field.required),
+        span: field.type === 'textarea' ? 2 : 1,
+      })),
+      sourceDataSource: sourceCode,
+      generatedAt: new Date().toISOString(),
+    });
+
+    const existing = await this.em.query(
+      `SELECT id, current_version_id FROM wf_form_definition WHERE code=$1 LIMIT 1`,
+      [code],
+    );
+    let formId = existing[0]?.id;
+    let created = false;
+    if (!formId) {
+      const formRows = await this.em.query(
+        `INSERT INTO wf_form_definition (code, name, description, category, status, created_by, updated_at)
+         VALUES ($1,$2,$3,$4,'ACTIVE',$5,CURRENT_TIMESTAMP)
+         RETURNING *`,
+        [code, name, description, category, user.userId || null],
+      );
+      formId = formRows[0].id;
+      created = true;
+    } else {
+      await this.em.query(
+        `UPDATE wf_form_definition
+         SET name=$2, description=$3, category=$4, status='ACTIVE', updated_at=CURRENT_TIMESTAMP
+         WHERE id=$1`,
+        [formId, name, description, category],
+      );
+    }
+
+    const latest = await this.em.query(
+      `SELECT COALESCE(MAX(version_no),0)::int AS version_no FROM wf_form_version WHERE form_id=$1`,
+      [formId],
+    );
+    const versionNo = Number(latest[0]?.version_no || 0) + 1;
+    const versionRows = await this.em.query(
+      `INSERT INTO wf_form_version (form_id, version_no, status, schema_json, published_by, published_at)
+       VALUES ($1,$2,'PUBLISHED',$3::jsonb,$4,CURRENT_TIMESTAMP)
+       RETURNING *`,
+      [formId, versionNo, JSON.stringify(schema), user.userId || null],
+    );
+    const formRows = await this.em.query(
+      `UPDATE wf_form_definition
+       SET current_version_id=$2, updated_at=CURRENT_TIMESTAMP
+       WHERE id=$1 RETURNING *`,
+      [formId, versionRows[0].id],
+    );
+
+    return {
+      code: 200,
+      data: {
+        form: formRows[0],
+        version: versionRows[0],
+        created,
+        fields,
+      },
+    };
+  }
+
   async getForm(id: number) {
     const rows = await this.em.query(`SELECT * FROM wf_form_definition WHERE id=$1`, [id]);
     if (!rows[0]) throw new NotFoundException('workflow form not found');
@@ -597,7 +679,7 @@ export class WorkflowService implements OnModuleInit {
     this.requireAdmin(user);
     this.assertCode(code);
     const source = await this.findDataSourceByCode(code);
-    const refreshed = await this.refreshDataSourceRow(source);
+    const refreshed = await this.refreshDataSourceForUse(source);
     const metadata = refreshed.metadata_json || {};
     const fields = this.buildFieldSuggestions(refreshed, metadata);
     return {
@@ -948,6 +1030,15 @@ export class WorkflowService implements OnModuleInit {
       [row.id, JSON.stringify(metadata)],
     );
     return rows[0] || { ...row, metadata_json: metadata };
+  }
+
+  private async refreshDataSourceForUse(source: any) {
+    const refreshed = await this.refreshDataSourceRow(source);
+    const merged = refreshed?.code ? refreshed : { ...source, ...(refreshed || {}) };
+    if (!merged.metadata_json || Object.keys(merged.metadata_json || {}).length === 0) {
+      merged.metadata_json = await this.buildDataSourceMetadata(merged);
+    }
+    return merged;
   }
 
   private async buildDataSourceMetadata(source: any) {

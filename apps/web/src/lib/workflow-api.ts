@@ -118,6 +118,8 @@ export const workflowApi = {
   forms: () => req<WorkflowList<WorkflowForm>>("/forms"),
   createForm: (data: Record<string, unknown>) =>
     req<WorkflowOne<WorkflowForm>>("/forms", { method: "POST", body: JSON.stringify(data) }),
+  createFormFromDataSource: (data: Record<string, unknown>) =>
+    req<WorkflowOne<Record<string, unknown>>>("/forms/from-data-source", { method: "POST", body: JSON.stringify(data) }),
   publishForm: (id: number, data: Record<string, unknown>) =>
     req<WorkflowOne<Record<string, unknown>>>(`/forms/${id}/publish`, { method: "POST", body: JSON.stringify(data) }),
   formDesigner: (id: number) => req<WorkflowOne<Record<string, unknown>>>(`/forms/${id}/designer`),
