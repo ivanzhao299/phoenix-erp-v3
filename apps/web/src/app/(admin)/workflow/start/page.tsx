@@ -12,6 +12,10 @@ import { dataSourceLabel } from "@/lib/workflow-data-catalog";
 type RuntimeSchema = {
   fields?: Array<{ key: string; label: string; type: string; required?: boolean; [key: string]: unknown }>;
 };
+type RuntimeGraph = {
+  nodes?: Array<{ id: string; name?: string; type?: string; config?: { roles?: string[]; assigneeType?: string } }>;
+  edges?: Array<{ from: string; to: string }>;
+};
 
 export default function WorkflowStartPage() {
   const router = useRouter();
@@ -27,6 +31,7 @@ export default function WorkflowStartPage() {
   const [note, setNote] = useState("");
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [schema, setSchema] = useState<RuntimeSchema | null>(null);
+  const [graph, setGraph] = useState<RuntimeGraph | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [smartFilling, setSmartFilling] = useState(false);
@@ -52,6 +57,9 @@ export default function WorkflowStartPage() {
   const completedRequired = requiredFields.filter(field => !isEmpty(formData[field.key])).length;
   const progressText = requiredFields.length ? `${completedRequired}/${requiredFields.length} 必填已完成` : "无必填项";
   const smartSummary = useMemo(() => buildSmartSummary(schema), [schema]);
+  const approvalPath = useMemo(() => buildApprovalPath(graph), [graph]);
+  const dataSourceFields = useMemo(() => (schema?.fields || []).filter(field => field.type === "reference" && field.dataSource), [schema]);
+  const missingRequired = useMemo(() => requiredFields.filter(field => isEmpty(formData[field.key])), [formData, requiredFields]);
 
   useEffect(() => {
     workflowApi.definitions()
@@ -79,7 +87,9 @@ export default function WorkflowStartPage() {
         const res = await workflowApi.definitionDesigner(selectedId);
         if (!alive) return;
         const formSchema = res.data.form_schema_json as RuntimeSchema | undefined;
+        const graphJson = res.data.graph_json as RuntimeGraph | undefined;
         setSchema(formSchema && Array.isArray(formSchema.fields) ? formSchema : null);
+        setGraph(graphJson && Array.isArray(graphJson.nodes) ? graphJson : null);
         setFormData({});
       } catch {
         if (alive) setSchema(null);
@@ -97,6 +107,7 @@ export default function WorkflowStartPage() {
     setTitle(def.name);
     setNote("");
     setSchema(null);
+    setGraph(null);
     setFormData({});
     setError("");
   }
@@ -271,6 +282,37 @@ export default function WorkflowStartPage() {
               </div>
             ) : null}
 
+            {selected ? (
+              <div style={readinessPanelStyle}>
+                <div style={readinessCardStyle}>
+                  <span className={s.badge}>审批路径</span>
+                  <strong>{approvalPath.length ? `${approvalPath.length} 个审批节点` : "暂无审批节点"}</strong>
+                  <div style={pathStyle}>
+                    {(approvalPath.length ? approvalPath : ["提交后自动归档"]).map((item, index) => (
+                      <span key={`${item}-${index}`} style={pathChipStyle}>{item}</span>
+                    ))}
+                  </div>
+                </div>
+                <div style={readinessCardStyle}>
+                  <span className={s.badge}>资料清单</span>
+                  <strong>{schema?.fields?.length || 0} 个字段 · {requiredFields.length} 个必填</strong>
+                  <span style={hintStyle}>{missingRequired.length ? `还缺：${missingRequired.map(field => field.label).join("、")}` : "必填资料已准备完整"}</span>
+                </div>
+                <div style={readinessCardStyle}>
+                  <span className={s.badge}>数据来源</span>
+                  <strong>{dataSourceFields.length ? `${dataSourceFields.length} 个数据库字段` : "无数据库字段"}</strong>
+                  <span style={hintStyle}>
+                    {dataSourceFields.length ? dataSourceFields.map(field => `${field.label}：${dataSourceLabel(String(field.dataSource || ""))}`).join("；") : "该表单主要依赖人工填写"}
+                  </span>
+                </div>
+                <div style={readinessCardStyle}>
+                  <span className={s.badge}>发起建议</span>
+                  <strong>{missingRequired.length ? "先补齐必填资料" : "可以提交审批"}</strong>
+                  <span style={hintStyle}>{schema ? "提交后系统会按审批路径自动生成待办。" : "建议管理员先绑定专用表单。"}</span>
+                </div>
+              </div>
+            ) : null}
+
             <label className={s.field}>
               <span className={s.lbl}>申请标题</span>
               <input className={s.inp} value={title} onChange={e=>setTitle(e.target.value)} placeholder="例如：5月门店物料采购申请" />
@@ -343,6 +385,16 @@ function buildSmartSummary(schema: RuntimeSchema | null) {
   const required = fields.filter(field => field.required);
   if (references.length) return `${required.length} 个必填 · ${references.map(field => dataSourceLabel(String(field.dataSource || ""))).join("、")}`;
   return `${required.length} 个必填 · ${fields.length} 个字段`;
+}
+
+function buildApprovalPath(graph: RuntimeGraph | null) {
+  const nodes = graph?.nodes || [];
+  const approvals = nodes.filter(node => node.type === "approval");
+  if (approvals.length) return approvals.map(node => {
+    const roles = node.config?.roles?.length ? `（${node.config.roles.join("、")}）` : "";
+    return `${node.name || "审批"}${roles}`;
+  });
+  return nodes.filter(node => node.type && !["start", "end"].includes(node.type)).map(node => node.name || node.id);
 }
 
 async function smartFieldValue(field: NonNullable<RuntimeSchema["fields"]>[number], def: WorkflowDefinition) {
@@ -431,6 +483,11 @@ const tabsStyle: React.CSSProperties = { display:"flex", gap:6, flexWrap:"wrap" 
 const toolbarActionsStyle: React.CSSProperties = { display:"flex", alignItems:"center", gap:10, flexWrap:"wrap", justifyContent:"flex-end" };
 const smartPanelStyle: React.CSSProperties = { display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, padding:12, border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-page)", marginBottom:14 };
 const smartMetaStyle: React.CSSProperties = { display:"flex", alignItems:"center", justifyContent:"flex-end", flexWrap:"wrap", gap:8 };
+const readinessPanelStyle: React.CSSProperties = { display:"grid", gridTemplateColumns:"repeat(2, minmax(0, 1fr))", gap:10, marginBottom:14 };
+const readinessCardStyle: React.CSSProperties = { display:"grid", gap:7, alignContent:"start", minHeight:118, padding:12, border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-page)", color:"var(--text-primary)" };
+const hintStyle: React.CSSProperties = { color:"var(--text-secondary)", fontSize:12, lineHeight:1.6 };
+const pathStyle: React.CSSProperties = { display:"flex", flexWrap:"wrap", gap:6 };
+const pathChipStyle: React.CSSProperties = { padding:"4px 8px", border:"1px solid var(--border)", borderRadius:"999px", background:"var(--bg-card)", color:"var(--text-secondary)", fontSize:12 };
 const flowListStyle: React.CSSProperties = { display:"grid", gap:8 };
 const flowStyle: React.CSSProperties = { textAlign:"left", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-card)", color:"var(--text-primary)", padding:12, cursor:"pointer", display:"grid", gap:6 };
 const selectedFlowStyle: React.CSSProperties = { ...flowStyle, borderColor:"var(--color-primary)", background:"var(--bg-muted)" };
