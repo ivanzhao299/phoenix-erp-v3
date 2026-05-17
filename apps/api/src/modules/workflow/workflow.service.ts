@@ -11,6 +11,7 @@ import { EntityManager } from 'typeorm';
 type WorkflowStatus = 'RUNNING' | 'APPROVED' | 'REJECTED' | 'CANCELED';
 type TaskStatus = 'TODO' | 'DONE' | 'CANCELED';
 type NodeType = 'start' | 'approval' | 'condition' | 'cc' | 'end';
+type FormFieldType = 'text' | 'textarea' | 'number' | 'amount' | 'date' | 'datetime' | 'select' | 'radio' | 'checkbox' | 'reference' | 'readonly';
 
 interface WorkflowUser {
   userId?: number;
@@ -25,6 +26,8 @@ interface GraphNode {
   id: string;
   type: NodeType;
   name?: string;
+  x?: number;
+  y?: number;
   config?: Record<string, any>;
 }
 
@@ -65,6 +68,9 @@ interface QueryDto {
 }
 
 const ADMIN_ROLES = new Set(['ROLE_ADMIN', 'ROLE_SYSOPS']);
+const NODE_TYPES = new Set<NodeType>(['start', 'approval', 'condition', 'cc', 'end']);
+const CONDITION_OPERATORS = new Set<ConditionRule['operator']>(['==', '!=', '>', '>=', '<', '<=', 'in', 'notIn', 'contains']);
+const FORM_FIELD_TYPES = new Set<FormFieldType>(['text', 'textarea', 'number', 'amount', 'date', 'datetime', 'select', 'radio', 'checkbox', 'reference', 'readonly']);
 
 @Injectable()
 export class WorkflowService implements OnModuleInit {
@@ -370,7 +376,9 @@ export class WorkflowService implements OnModuleInit {
     const definition = await this.findActiveDefinition(body);
     const version = await this.findDefinitionVersion(definition.current_version_id);
     const graph = this.normalizeGraph(version.graph_json);
-    const formData = body.form_data || {};
+    const formData = version.form_version_id
+      ? await this.validateFormData(version.form_version_id, body.form_data || {})
+      : (body.form_data || {});
     const variables = { ...formData, ...(body.variables || {}) };
     const starterName = user.realNameZh || user.username || `USER_${user.userId || 0}`;
     const instanceNo = `WF${Date.now()}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
@@ -735,6 +743,12 @@ export class WorkflowService implements OnModuleInit {
     if (!rows[0]) throw new NotFoundException('workflow form version not found');
   }
 
+  private async findFormVersion(id: number) {
+    const rows = await this.em.query(`SELECT * FROM wf_form_version WHERE id=$1`, [id]);
+    if (!rows[0]) throw new NotFoundException('workflow form version not found');
+    return rows[0];
+  }
+
   private async findTask(id: number) {
     const rows = await this.em.query(`SELECT * FROM wf_task WHERE id=$1`, [id]);
     if (!rows[0]) throw new NotFoundException('workflow task not found');
@@ -810,27 +824,131 @@ export class WorkflowService implements OnModuleInit {
   }
 
   private normalizeGraph(input: any): WorkflowGraph {
-    const graph = typeof input === 'string' ? JSON.parse(input) : input;
+    const graph = this.parseJsonInput(input, 'graph');
     const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
     const edges = Array.isArray(graph.edges) ? graph.edges : [];
     if (nodes.length === 0) throw new BadRequestException('graph.nodes required');
-    if (!nodes.some((n: GraphNode) => n.type === 'start')) throw new BadRequestException('graph missing start node');
+    const nodeIds = new Set<string>();
+    let startCount = 0;
+    let endCount = 0;
     for (const node of nodes) {
       if (!node.id || !node.type) throw new BadRequestException('node id/type required');
-      if (!['start', 'approval', 'condition', 'cc', 'end'].includes(node.type)) {
+      if (!this.isCodeLike(node.id)) throw new BadRequestException(`invalid node id: ${node.id}`);
+      if (nodeIds.has(node.id)) throw new BadRequestException(`duplicate node id: ${node.id}`);
+      nodeIds.add(node.id);
+      if (!NODE_TYPES.has(node.type)) {
         throw new BadRequestException(`unsupported node type: ${node.type}`);
       }
+      if (node.type === 'start') startCount++;
+      if (node.type === 'end') endCount++;
+      if (node.type === 'approval') {
+        this.assertAssignableNode(node);
+      }
     }
+    if (startCount !== 1) throw new BadRequestException('graph must contain exactly one start node');
+    if (endCount < 1) throw new BadRequestException('graph missing end node');
+    if (edges.length === 0) throw new BadRequestException('graph.edges required');
     for (const edge of edges) {
       if (!edge.from || !edge.to) throw new BadRequestException('edge from/to required');
+      if (!nodeIds.has(edge.from)) throw new BadRequestException(`edge.from references unknown node: ${edge.from}`);
+      if (!nodeIds.has(edge.to)) throw new BadRequestException(`edge.to references unknown node: ${edge.to}`);
+      if (edge.condition) this.assertCondition(edge.condition);
     }
     return { nodes, edges };
   }
 
   private normalizeFormSchema(input: any) {
-    const schema = typeof input === 'string' ? JSON.parse(input) : input;
+    const schema = this.parseJsonInput(input, 'schema');
     if (!Array.isArray(schema.fields)) throw new BadRequestException('schema.fields required');
-    return schema;
+    const keys = new Set<string>();
+    const fields = schema.fields.map((field: any, idx: number) => {
+      if (!field || typeof field !== 'object') throw new BadRequestException(`schema.fields[${idx}] must be an object`);
+      if (!field.key || !this.isCodeLike(field.key)) throw new BadRequestException(`invalid field key at index ${idx}`);
+      if (keys.has(field.key)) throw new BadRequestException(`duplicate field key: ${field.key}`);
+      keys.add(field.key);
+      if (!field.label) throw new BadRequestException(`field ${field.key} missing label`);
+      if (!FORM_FIELD_TYPES.has(field.type)) throw new BadRequestException(`field ${field.key} has unsupported type: ${field.type}`);
+      if ((field.type === 'select' || field.type === 'radio') && field.options !== undefined && !Array.isArray(field.options)) {
+        throw new BadRequestException(`field ${field.key} options must be an array`);
+      }
+      if (field.type === 'reference' && !field.dataSource) {
+        throw new BadRequestException(`reference field ${field.key} requires dataSource`);
+      }
+      return {
+        ...field,
+        required: Boolean(field.required),
+        span: field.span === 2 ? 2 : 1,
+      };
+    });
+    return { ...schema, fields };
+  }
+
+  private async validateFormData(formVersionId: number, formData: Record<string, any>) {
+    const version = await this.findFormVersion(formVersionId);
+    const schema = this.normalizeFormSchema(version.schema_json);
+    const out: Record<string, any> = { ...formData };
+    for (const field of schema.fields) {
+      const value = formData[field.key];
+      const empty = value === undefined || value === null || value === '';
+      if (field.required && empty) {
+        throw new BadRequestException(`field ${field.label || field.key} is required`);
+      }
+      if (empty) continue;
+      if (field.type === 'number' || field.type === 'amount') {
+        const n = Number(value);
+        if (!Number.isFinite(n)) throw new BadRequestException(`field ${field.label || field.key} must be a number`);
+        out[field.key] = n;
+      } else if (field.type === 'checkbox') {
+        out[field.key] = value === true || value === 'true' || value === 1 || value === '1';
+      } else if (field.type === 'select' || field.type === 'radio') {
+        const options = Array.isArray(field.options) ? field.options : [];
+        if (options.length > 0) {
+          const allowed = options.map((opt: any) => String(opt.value));
+          if (!allowed.includes(String(value))) {
+            throw new BadRequestException(`field ${field.label || field.key} has invalid option`);
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  private assertAssignableNode(node: GraphNode) {
+    const config = node.config || {};
+    const assigneeType = String(config.assigneeType || config.assignee_type || 'STARTER');
+    if (!['ROLE', 'USER', 'STARTER'].includes(assigneeType)) {
+      throw new BadRequestException(`node ${node.id} has invalid assigneeType`);
+    }
+    if (assigneeType === 'ROLE') {
+      const roles = Array.isArray(config.roles) ? config.roles : [config.role || config.assignee_role_code].filter(Boolean);
+      if (roles.length === 0) throw new BadRequestException(`approval node ${node.id} requires at least one role`);
+    }
+    if (assigneeType === 'USER') {
+      const users = Array.isArray(config.users) ? config.users : [config.userId || config.assignee_user_id].filter(Boolean);
+      if (users.length === 0) throw new BadRequestException(`approval node ${node.id} requires at least one user`);
+      if (!users.every((uid: any) => Number.isInteger(Number(uid)) && Number(uid) > 0)) {
+        throw new BadRequestException(`approval node ${node.id} has invalid user id`);
+      }
+    }
+  }
+
+  private assertCondition(condition: ConditionRule) {
+    if (!condition.field || !this.isCodeLike(condition.field)) throw new BadRequestException('condition.field invalid');
+    if (!CONDITION_OPERATORS.has(condition.operator)) throw new BadRequestException(`condition.operator unsupported: ${condition.operator}`);
+    if ((condition.operator === 'in' || condition.operator === 'notIn') && !Array.isArray(condition.value)) {
+      const value = String(condition.value ?? '').trim();
+      if (!value) throw new BadRequestException(`${condition.operator} condition requires a value list`);
+      condition.value = value.split(',').map(v => v.trim()).filter(Boolean);
+    }
+  }
+
+  private parseJsonInput(input: any, label: string) {
+    if (typeof input !== 'string') return input || {};
+    try {
+      return JSON.parse(input);
+    } catch {
+      throw new BadRequestException(`${label} must be valid JSON`);
+    }
   }
 
   private page(query: QueryDto) {
@@ -847,6 +965,10 @@ export class WorkflowService implements OnModuleInit {
 
   private assertIdentifier(value: string) {
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value)) throw new BadRequestException('invalid identifier');
+  }
+
+  private isCodeLike(value: string) {
+    return /^[a-zA-Z_][a-zA-Z0-9_:-]*$/.test(String(value || ''));
   }
 
   private requireAdmin(user: WorkflowUser) {
