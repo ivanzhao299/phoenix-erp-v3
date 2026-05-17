@@ -40,10 +40,10 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    // 速率限制：每个 IP 每分钟最多 120 次请求（全局默认）
+    // 速率限制：每个 IP 每分钟最多 600 次请求（全局默认；管理后台页面同时发起多个 API 请求）
     // 登录接口使用更严格的 @Throttle({ login: ... }) 装饰器覆盖
     ThrottlerModule.forRoot([
-      { name: 'global', ttl: 60_000,  limit: 120 },
+      { name: 'global', ttl: 60_000,  limit: 600 },
       { name: 'login',  ttl: 900_000, limit: 10  }, // 15分钟内最多10次
     ]),
     ClsModule.forRoot({

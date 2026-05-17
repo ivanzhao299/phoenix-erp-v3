@@ -17,6 +17,16 @@ export class WorkflowDefinitionController {
     return this.workflow.createDefinition(body, req.user);
   }
 
+  @Post('industry-templates/generate')
+  generateIndustryTemplates(@Req() req: any) {
+    return this.workflow.generateIndustryTemplates(req.user);
+  }
+
+  @Post(':id/clone')
+  clone(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    return this.workflow.cloneDefinition(Number(id), body, req.user);
+  }
+
   @Get(':id')
   get(@Param('id') id: string) {
     return this.workflow.getDefinition(Number(id));

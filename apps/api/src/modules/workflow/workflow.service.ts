@@ -67,6 +67,18 @@ interface QueryDto {
   category?: string;
 }
 
+interface IndustryWorkflowTemplate {
+  code: string;
+  name: string;
+  category: string;
+  description: string;
+  formCode: string;
+  formName: string;
+  formDescription: string;
+  fields: Array<Record<string, any>>;
+  approvals: Array<{ id: string; name: string; role: string }>;
+}
+
 const ADMIN_ROLES = new Set(['ROLE_ADMIN', 'ROLE_SYSOPS']);
 const NODE_TYPES = new Set<NodeType>(['start', 'approval', 'condition', 'cc', 'end']);
 const CONDITION_OPERATORS = new Set<ConditionRule['operator']>(['==', '!=', '>', '>=', '<', '<=', 'in', 'notIn', 'contains']);
@@ -236,6 +248,64 @@ export class WorkflowService implements OnModuleInit {
       [body.code, body.name, body.description || null, body.category || null, user.userId || null],
     );
     return { code: 200, data: rows[0] };
+  }
+
+  async generateIndustryTemplates(user: WorkflowUser) {
+    this.requireAdmin(user);
+    const result = await this.seedIndustryTemplates(user.userId || null);
+    return { code: 200, data: result };
+  }
+
+  async cloneDefinition(id: number, body: any, user: WorkflowUser) {
+    this.requireAdmin(user);
+    this.assertCode(body.code);
+    if (!body.name) throw new BadRequestException('name required');
+
+    const sourceRows = await this.em.query(
+      `SELECT d.*, v.graph_json, v.form_version_id
+       FROM wf_definition d
+       LEFT JOIN wf_definition_version v ON v.id = d.current_version_id
+       WHERE d.id=$1`,
+      [id],
+    );
+    const source = sourceRows[0];
+    if (!source) throw new NotFoundException('workflow definition not found');
+
+    const createdRows = await this.em.query(
+      `INSERT INTO wf_definition (code, name, description, category, created_by, updated_at)
+       VALUES ($1,$2,$3,$4,$5,CURRENT_TIMESTAMP)
+       RETURNING *`,
+      [
+        body.code,
+        body.name,
+        body.description || source.description || null,
+        body.category || source.category || null,
+        user.userId || null,
+      ],
+    );
+    const created = createdRows[0];
+
+    if (source.graph_json) {
+      const versionRows = await this.em.query(
+        `INSERT INTO wf_definition_version
+           (definition_id, version_no, status, graph_json, form_version_id, published_by, published_at)
+         VALUES ($1,1,'DRAFT',$2::jsonb,$3,$4,CURRENT_TIMESTAMP)
+         RETURNING *`,
+        [
+          created.id,
+          JSON.stringify(source.graph_json),
+          source.form_version_id || null,
+          user.userId || null,
+        ],
+      );
+      await this.em.query(
+        `UPDATE wf_definition SET current_version_id=$2, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
+        [created.id, versionRows[0].id],
+      );
+      created.current_version_id = versionRows[0].id;
+    }
+
+    return { code: 200, data: created };
   }
 
   async getDefinition(id: number) {
@@ -997,54 +1067,198 @@ export class WorkflowService implements OnModuleInit {
       );
     }
 
-    const defCount = await this.em.query(`SELECT COUNT(*)::int AS count FROM wf_definition WHERE code='EXPENSE_APPROVAL'`);
-    if (Number(defCount[0]?.count || 0) > 0) return;
+    await this.seedIndustryTemplates(null);
+  }
 
-    const form = await this.em.query(
-      `INSERT INTO wf_form_definition (code, name, description, category)
-       VALUES ('EXPENSE_FORM','费用报销表单','工作流默认示例表单','FINANCE')
-       ON CONFLICT (code) DO UPDATE SET updated_at=CURRENT_TIMESTAMP
-       RETURNING id`,
-    );
-    const formId = form[0].id;
-    const formVersion = await this.em.query(
-      `INSERT INTO wf_form_version (form_id, version_no, status, schema_json, published_at)
-       VALUES ($1,1,'PUBLISHED',$2::jsonb,CURRENT_TIMESTAMP)
-       ON CONFLICT (form_id, version_no) DO UPDATE SET schema_json=EXCLUDED.schema_json
-       RETURNING id`,
-      [formId, JSON.stringify({
-        fields: [
-          { key: 'amount', label: '申请金额', type: 'amount', required: true },
-          { key: 'reason', label: '报销事由', type: 'textarea', required: true },
-          { key: 'store_code', label: '门店', type: 'reference', dataSource: 'MST_STORES' },
-        ],
-      })],
-    );
-    await this.em.query(`UPDATE wf_form_definition SET status='ACTIVE', current_version_id=$2 WHERE id=$1`, [formId, formVersion[0].id]);
+  private async seedIndustryTemplates(userId: number | null) {
+    let createdDefinitions = 0;
+    let createdForms = 0;
+    let skippedDefinitions = 0;
+    let skippedForms = 0;
 
-    const def = await this.em.query(
-      `INSERT INTO wf_definition (code, name, description, category, status)
-       VALUES ('EXPENSE_APPROVAL','费用报销审批','默认示例：发起人提交后由财务角色审批','FINANCE','ACTIVE')
-       RETURNING id`,
-    );
-    const graph: WorkflowGraph = {
-      nodes: [
-        { id: 'start', type: 'start', name: '开始' },
-        { id: 'fin_approval', type: 'approval', name: '财务审批', config: { assigneeType: 'ROLE', roles: ['ROLE_FIN_ACCT'] } },
-        { id: 'end', type: 'end', name: '结束' },
-      ],
-      edges: [
-        { from: 'start', to: 'fin_approval' },
-        { from: 'fin_approval', to: 'end' },
-      ],
+    for (const item of this.industryTemplates()) {
+      const formResult = await this.ensureTemplateForm(item, userId);
+      if (formResult.created) createdForms++;
+      else skippedForms++;
+
+      const exists = await this.em.query(`SELECT id FROM wf_definition WHERE code=$1 LIMIT 1`, [item.code]);
+      if (exists[0]) {
+        skippedDefinitions++;
+        continue;
+      }
+
+      const defRows = await this.em.query(
+        `INSERT INTO wf_definition (code, name, description, category, status, created_by, updated_at)
+         VALUES ($1,$2,$3,$4,'ACTIVE',$5,CURRENT_TIMESTAMP)
+         RETURNING id`,
+        [item.code, item.name, item.description, item.category, userId],
+      );
+      const graph = this.templateGraph(item);
+      const versionRows = await this.em.query(
+        `INSERT INTO wf_definition_version
+           (definition_id, version_no, status, graph_json, form_version_id, published_by, published_at)
+         VALUES ($1,1,'PUBLISHED',$2::jsonb,$3,$4,CURRENT_TIMESTAMP)
+         RETURNING id`,
+        [defRows[0].id, JSON.stringify(graph), formResult.versionId, userId],
+      );
+      await this.em.query(
+        `UPDATE wf_definition SET current_version_id=$2, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
+        [defRows[0].id, versionRows[0].id],
+      );
+      createdDefinitions++;
+    }
+
+    return {
+      total: this.industryTemplates().length,
+      createdDefinitions,
+      skippedDefinitions,
+      createdForms,
+      skippedForms,
     };
-    const version = await this.em.query(
-      `INSERT INTO wf_definition_version
-         (definition_id, version_no, status, graph_json, form_version_id, published_at)
+  }
+
+  private async ensureTemplateForm(item: IndustryWorkflowTemplate, userId: number | null) {
+    const existing = await this.em.query(
+      `SELECT id, current_version_id FROM wf_form_definition WHERE code=$1 LIMIT 1`,
+      [item.formCode],
+    );
+    let formId = existing[0]?.id;
+    let created = false;
+    if (!formId) {
+      const rows = await this.em.query(
+        `INSERT INTO wf_form_definition (code, name, description, category, status, created_by, updated_at)
+         VALUES ($1,$2,$3,$4,'ACTIVE',$5,CURRENT_TIMESTAMP)
+         RETURNING id`,
+        [item.formCode, item.formName, item.formDescription, item.category, userId],
+      );
+      formId = rows[0].id;
+      created = true;
+    }
+
+    if (existing[0]?.current_version_id) return { versionId: existing[0].current_version_id, created };
+
+    const versionRows = await this.em.query(
+      `INSERT INTO wf_form_version (form_id, version_no, status, schema_json, published_by, published_at)
        VALUES ($1,1,'PUBLISHED',$2::jsonb,$3,CURRENT_TIMESTAMP)
        RETURNING id`,
-      [def[0].id, JSON.stringify(graph), formVersion[0].id],
+      [formId, JSON.stringify({ fields: item.fields }), userId],
     );
-    await this.em.query(`UPDATE wf_definition SET current_version_id=$2 WHERE id=$1`, [def[0].id, version[0].id]);
+    await this.em.query(
+      `UPDATE wf_form_definition SET status='ACTIVE', current_version_id=$2, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
+      [formId, versionRows[0].id],
+    );
+    return { versionId: versionRows[0].id, created };
+  }
+
+  private templateGraph(item: IndustryWorkflowTemplate): WorkflowGraph {
+    const nodes: GraphNode[] = [
+      { id: 'start', type: 'start', name: '提交申请', x: 80, y: 160 },
+      ...item.approvals.map((approval, index) => ({
+        id: approval.id,
+        type: 'approval' as NodeType,
+        name: approval.name,
+        x: 320 + index * 240,
+        y: 160,
+        config: { assigneeType: 'ROLE', roles: [approval.role] },
+      })),
+      { id: 'end', type: 'end', name: '流程完成', x: 320 + item.approvals.length * 240, y: 160 },
+    ];
+    const ids = nodes.map(node => node.id);
+    const edges = ids.slice(0, -1).map((id, index) => ({ from: id, to: ids[index + 1] }));
+    return { nodes, edges };
+  }
+
+  private industryTemplates(): IndustryWorkflowTemplate[] {
+    return [
+      this.tpl('EXPENSE_APPROVAL', '费用报销审批', 'FINANCE', '员工费用报销，部门负责人确认后由财务复核付款。', 'EXPENSE_FORM', '费用报销单', [
+        { key: 'amount', label: '申请金额', type: 'amount', required: true },
+        { key: 'expense_type', label: '费用类型', type: 'select', required: true, options: [{ label: '差旅费', value: 'travel' }, { label: '招待费', value: 'entertainment' }, { label: '办公费', value: 'office' }, { label: '其它', value: 'other' }] },
+        { key: 'store_code', label: '所属门店', type: 'reference', dataSource: 'MST_STORES' },
+        { key: 'reason', label: '报销事由', type: 'textarea', required: true, span: 2 },
+      ], [['dept_approval', '部门负责人审批', 'ROLE_SYSOPS'], ['finance_approval', '财务复核', 'ROLE_FIN_ACCT']]),
+      this.tpl('PURCHASE_APPROVAL', '采购申请审批', 'PURCHASE', '物料、设备、耗材采购申请，采购和财务联合审批。', 'PURCHASE_REQUEST_FORM', '采购申请单', [
+        { key: 'product_code', label: '采购物料', type: 'reference', dataSource: 'MST_PRODUCTS', required: true },
+        { key: 'quantity', label: '采购数量', type: 'number', required: true },
+        { key: 'budget_amount', label: '预算金额', type: 'amount', required: true },
+        { key: 'need_date', label: '期望到货日期', type: 'date' },
+        { key: 'reason', label: '采购原因', type: 'textarea', required: true, span: 2 },
+      ], [['dept_approval', '部门负责人审批', 'ROLE_SYSOPS'], ['buyer_review', '采购复核', 'ROLE_PRC_BUYER'], ['finance_review', '财务审批', 'ROLE_FIN_CFO']]),
+      this.tpl('PAYMENT_APPROVAL', '付款申请审批', 'FINANCE', '供应商付款、预付款、尾款支付审批。', 'PAYMENT_REQUEST_FORM', '付款申请单', [
+        { key: 'payee', label: '收款方', type: 'text', required: true },
+        { key: 'amount', label: '付款金额', type: 'amount', required: true },
+        { key: 'payment_type', label: '付款类型', type: 'select', required: true, options: [{ label: '预付款', value: 'advance' }, { label: '到货款', value: 'arrival' }, { label: '尾款', value: 'final' }] },
+        { key: 'invoice_no', label: '发票/合同编号', type: 'text' },
+        { key: 'reason', label: '付款说明', type: 'textarea', required: true, span: 2 },
+      ], [['dept_approval', '部门负责人审批', 'ROLE_SYSOPS'], ['finance_approval', '财务总监审批', 'ROLE_FIN_CFO']]),
+      this.tpl('CONTRACT_APPROVAL', '合同审批流程', 'CONTRACT', '合同签署前的业务、财务、法务/系统管理复核。', 'CONTRACT_REVIEW_FORM', '合同审批单', [
+        { key: 'counterparty', label: '合同相对方', type: 'text', required: true },
+        { key: 'contract_amount', label: '合同金额', type: 'amount', required: true },
+        { key: 'contract_type', label: '合同类型', type: 'select', options: [{ label: '采购合同', value: 'purchase' }, { label: '销售合同', value: 'sales' }, { label: '服务合同', value: 'service' }] },
+        { key: 'effective_date', label: '生效日期', type: 'date' },
+        { key: 'risk_note', label: '风险说明', type: 'textarea', span: 2 },
+      ], [['biz_review', '业务负责人审批', 'ROLE_SYSOPS'], ['finance_review', '财务复核', 'ROLE_FIN_CFO'], ['final_review', '最终确认', 'ROLE_SYSOPS']]),
+      this.tpl('LEAVE_APPROVAL', '请假申请审批', 'HR', '员工请假提交，直属负责人审批并备案。', 'LEAVE_REQUEST_FORM', '请假申请单', [
+        { key: 'leave_type', label: '假期类型', type: 'select', required: true, options: [{ label: '事假', value: 'personal' }, { label: '病假', value: 'sick' }, { label: '年假', value: 'annual' }, { label: '调休', value: 'comp' }] },
+        { key: 'start_time', label: '开始时间', type: 'datetime', required: true },
+        { key: 'end_time', label: '结束时间', type: 'datetime', required: true },
+        { key: 'reason', label: '请假原因', type: 'textarea', required: true, span: 2 },
+      ], [['manager_approval', '负责人审批', 'ROLE_SYSOPS']]),
+      this.tpl('STOCK_ADJUST_APPROVAL', '库存调整审批', 'WMS', '库存盘盈盘亏、调账、报损等调整审批。', 'STOCK_ADJUST_FORM', '库存调整单', [
+        { key: 'warehouse', label: '仓库/门店', type: 'text', required: true },
+        { key: 'product_code', label: '商品/物料', type: 'reference', dataSource: 'MST_PRODUCTS', required: true },
+        { key: 'adjust_qty', label: '调整数量', type: 'number', required: true },
+        { key: 'adjust_type', label: '调整类型', type: 'select', required: true, options: [{ label: '盘盈', value: 'gain' }, { label: '盘亏', value: 'loss' }, { label: '报损', value: 'scrap' }] },
+        { key: 'reason', label: '调整原因', type: 'textarea', required: true, span: 2 },
+      ], [['warehouse_review', '仓储负责人审批', 'ROLE_WMS_MGR'], ['finance_record', '财务备案', 'ROLE_FIN_ACCT']]),
+      this.tpl('QUALITY_EXCEPTION_APPROVAL', '质量异常处理', 'QUALITY', '质量异常上报、责任确认、处理方案审批和关闭。', 'QUALITY_EXCEPTION_FORM', '质量异常单', [
+        { key: 'batch_no', label: '批次号', type: 'text', required: true },
+        { key: 'exception_type', label: '异常类型', type: 'select', required: true, options: [{ label: '破损', value: 'broken' }, { label: '重量异常', value: 'weight' }, { label: '污染', value: 'pollution' }, { label: '其它', value: 'other' }] },
+        { key: 'severity', label: '严重程度', type: 'radio', required: true, options: [{ label: '一般', value: 'normal' }, { label: '严重', value: 'major' }] },
+        { key: 'description', label: '异常描述', type: 'textarea', required: true, span: 2 },
+        { key: 'proposal', label: '处理建议', type: 'textarea', span: 2 },
+      ], [['qa_review', '品控负责人审批', 'ROLE_QA_MGR'], ['biz_confirm', '业务确认', 'ROLE_SYSOPS']]),
+      this.tpl('STORE_DISCOUNT_APPROVAL', '门店折扣审批', 'STORE', '门店临时折扣、促销让利和特殊价格审批。', 'STORE_DISCOUNT_FORM', '门店折扣申请单', [
+        { key: 'store_code', label: '门店', type: 'reference', dataSource: 'MST_STORES', required: true },
+        { key: 'discount_rate', label: '折扣比例', type: 'number', required: true },
+        { key: 'amount_impact', label: '预计影响金额', type: 'amount' },
+        { key: 'reason', label: '申请原因', type: 'textarea', required: true, span: 2 },
+      ], [['store_review', '门店经理审批', 'ROLE_STORE_MGR'], ['sales_review', '销售负责人审批', 'ROLE_SALES_MGR']]),
+      this.tpl('FARM_MEDICINE_APPROVAL', '养殖用药审批', 'FARM', '养殖场用药、疫苗、兽医处置申请审批。', 'FARM_MEDICINE_FORM', '养殖用药申请单', [
+        { key: 'house_no', label: '鸡舍/栏舍', type: 'text', required: true },
+        { key: 'medicine_name', label: '药品/疫苗名称', type: 'text', required: true },
+        { key: 'dosage', label: '用量', type: 'text', required: true },
+        { key: 'use_date', label: '计划使用日期', type: 'date' },
+        { key: 'reason', label: '用药原因', type: 'textarea', required: true, span: 2 },
+      ], [['vet_review', '驻场兽医审批', 'ROLE_VET'], ['farm_review', '养殖场长确认', 'ROLE_FARM_MGR']]),
+      this.tpl('LOGISTICS_EXCEPTION_APPROVAL', '运输异常处理', 'LOGISTICS', '运输延误、破损、签收异常的处理审批。', 'LOGISTICS_EXCEPTION_FORM', '运输异常单', [
+        { key: 'shipment_no', label: '运输单号', type: 'text', required: true },
+        { key: 'exception_type', label: '异常类型', type: 'select', required: true, options: [{ label: '延误', value: 'delay' }, { label: '破损', value: 'damage' }, { label: '拒收', value: 'reject' }, { label: '温控异常', value: 'temperature' }] },
+        { key: 'loss_amount', label: '预估损失', type: 'amount' },
+        { key: 'description', label: '异常说明', type: 'textarea', required: true, span: 2 },
+      ], [['log_review', '物流负责人审批', 'ROLE_LOG_MGR'], ['finance_record', '财务备案', 'ROLE_FIN_ACCT']]),
+    ];
+  }
+
+  private tpl(
+    code: string,
+    name: string,
+    category: string,
+    description: string,
+    formCode: string,
+    formName: string,
+    fields: Array<Record<string, any>>,
+    approvals: Array<[string, string, string]>,
+  ): IndustryWorkflowTemplate {
+    return {
+      code,
+      name,
+      category,
+      description,
+      formCode,
+      formName,
+      formDescription: `${formName}，由系统按行业常用场景自动生成。`,
+      fields,
+      approvals: approvals.map(([id, approvalName, role]) => ({ id, name: approvalName, role })),
+    };
   }
 }
