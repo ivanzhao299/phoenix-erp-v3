@@ -42,6 +42,19 @@ export interface WorkflowDefinition {
   current_version_id?: number;
 }
 
+export interface WorkflowFormField {
+  key: string;
+  label: string;
+  type: string;
+  required?: boolean;
+  dataSource?: string;
+  options?: Array<{ label: string; value: string | number }>;
+}
+
+export interface WorkflowFormSchema {
+  fields?: WorkflowFormField[];
+}
+
 export interface WorkflowForm {
   id: number;
   code: string;
@@ -68,6 +81,7 @@ export interface WorkflowTask {
   due_at?: string;
   completed_at?: string;
   form_data_json?: Record<string, unknown>;
+  form_schema_json?: WorkflowFormSchema;
   created_at: string;
 }
 
@@ -79,6 +93,7 @@ export interface WorkflowInstance {
   business_type?: string;
   starter_name: string;
   form_data_json?: Record<string, unknown>;
+  form_schema_json?: WorkflowFormSchema;
   tasks?: WorkflowTask[];
   actions?: Record<string, unknown>[];
   created_at: string;

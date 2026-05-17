@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
+import { WorkflowDataView } from "@/components/workflow/WorkflowDataView";
 import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowTask } from "@/lib/workflow-api";
 
@@ -171,7 +172,7 @@ export default function WorkflowTodoPage() {
               <ApprovalAssist task={selected} onUseTemplate={setComment} />
 
               <h4 className={s.formSection}>申请内容</h4>
-              <DataView data={selected.form_data_json || {}} />
+              <WorkflowDataView data={selected.form_data_json || {}} schema={selected.form_schema_json} />
 
               <h4 className={s.formSection}>审批意见</h4>
               <p className={s.modalDesc} style={{ margin: "0 0 8px" }}>可以先补充意见，也可以直接通过、驳回或转交给其他处理人。</p>
@@ -276,21 +277,6 @@ function ApprovalAssist({ task, onUseTemplate }: { task: WorkflowTask; onUseTemp
   );
 }
 
-function DataView({ data }: { data: Record<string, unknown> }) {
-  const entries = Object.entries(data).filter(([, value]) => value !== undefined && value !== null && value !== "");
-  if (!entries.length) return <div className={s.emptyState}><div className={s.emptyStateText}>暂无表单数据。</div></div>;
-  return (
-    <div className={s.infoGrid}>
-      {entries.map(([key, value]) => (
-        <div key={key} className={s.infoItem}>
-          <div className={s.infoKey}>{fieldLabel(key)}</div>
-          <div className={s.infoVal}>{formatValue(value)}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function buildApprovalInsight(task: WorkflowTask) {
   const data = task.form_data_json || {};
   const haystack = `${task.definition_name || ""} ${task.title || ""} ${task.node_name || ""}`.toLowerCase();
@@ -355,34 +341,6 @@ function dueInsight(value?: string) {
   if (diffHours < 0) return `已超期 ${Math.abs(diffHours)} 小时`;
   if (diffHours <= 24) return `剩余 ${diffHours} 小时到期`;
   return "";
-}
-
-function fieldLabel(key: string) {
-  const map: Record<string, string> = {
-    amount: "金额",
-    expense_type: "费用类型",
-    store_code: "门店",
-    reason: "申请原因",
-    product_code: "物料/商品",
-    quantity: "数量",
-    budget_amount: "预算金额",
-    need_date: "期望日期",
-    payee: "收款方",
-    payment_type: "付款类型",
-    contract_amount: "合同金额",
-    leave_type: "假期类型",
-    start_time: "开始时间",
-    end_time: "结束时间",
-    exception_type: "异常类型",
-    description: "说明",
-  };
-  return map[key] || key;
-}
-
-function formatValue(value: unknown) {
-  if (Array.isArray(value)) return value.join("、");
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
 }
 
 function statusText(status: string) {

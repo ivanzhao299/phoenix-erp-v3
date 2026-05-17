@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
+import { WorkflowDataView } from "@/components/workflow/WorkflowDataView";
 import { WorkflowTimeline } from "@/components/workflow/WorkflowTimeline";
 import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowInstance } from "@/lib/workflow-api";
@@ -15,8 +16,8 @@ export default function WorkflowInstanceDetailPage() {
   const [canceling, setCanceling] = useState(false);
   const [error, setError] = useState("");
 
-  const load = () => workflowApi.instance(id).then(res => setData(res.data));
-  useEffect(() => { load(); }, [id]);
+  const load = useCallback(() => workflowApi.instance(id).then(res => setData(res.data)), [id]);
+  useEffect(() => { load(); }, [load]);
 
   async function cancel() {
     setCanceling(true);
@@ -70,7 +71,7 @@ export default function WorkflowInstanceDetailPage() {
               ) : null}
 
               <h4 className={s.formSection}>申请内容</h4>
-              <DataView data={data.form_data_json || {}} />
+              <WorkflowDataView data={data.form_data_json || {}} schema={data.form_schema_json} />
 
               <h4 className={s.formSection}>审批任务</h4>
               <table className={s.table}>
@@ -97,57 +98,6 @@ export default function WorkflowInstanceDetailPage() {
       ) : null}
     </div>
   );
-}
-
-function DataView({ data }: { data: Record<string, unknown> }) {
-  const entries = Object.entries(data).filter(([, value]) => value !== undefined && value !== null && value !== "");
-  if (!entries.length) return <div className={s.emptyState}><div className={s.emptyStateText}>暂无表单数据。</div></div>;
-  return (
-    <div className={s.infoGrid}>
-      {entries.map(([key, value]) => (
-        <div key={key} className={s.infoItem}>
-          <div className={s.infoKey}>{fieldLabel(key)}</div>
-          <div className={s.infoVal}>{formatValue(value)}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function fieldLabel(key: string) {
-  const map: Record<string, string> = {
-    amount: "金额",
-    expense_type: "费用类型",
-    store_code: "门店",
-    reason: "申请原因",
-    product_code: "物料/商品",
-    quantity: "数量",
-    budget_amount: "预算金额",
-    need_date: "期望日期",
-    payee: "收款方",
-    payment_type: "付款类型",
-    counterparty: "合同相对方",
-    contract_amount: "合同金额",
-    leave_type: "假期类型",
-    start_time: "开始时间",
-    end_time: "结束时间",
-    warehouse: "仓库/门店",
-    adjust_qty: "调整数量",
-    adjust_type: "调整类型",
-    batch_no: "批次号",
-    exception_type: "异常类型",
-    severity: "严重程度",
-    description: "说明",
-    proposal: "处理建议",
-    shipment_no: "运输单号",
-  };
-  return map[key] || key;
-}
-
-function formatValue(value: unknown) {
-  if (Array.isArray(value)) return value.join("、");
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
 }
 
 function statusText(status: string) {
