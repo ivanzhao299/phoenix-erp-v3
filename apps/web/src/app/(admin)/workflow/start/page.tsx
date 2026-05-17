@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { FormRenderer } from "@/components/workflow/FormRenderer";
 import s from "@/components/ui/admin-ui.module.css";
@@ -15,6 +15,10 @@ type RuntimeSchema = {
 
 export default function WorkflowStartPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedCode = searchParams.get("code") || "";
+  const smartRequested = searchParams.get("smart") === "1";
+  const autoSmartRef = useRef("");
   const [defs, setDefs] = useState<WorkflowDefinition[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [keyword, setKeyword] = useState("");
@@ -53,14 +57,16 @@ export default function WorkflowStartPage() {
     workflowApi.definitions()
       .then(res => {
         const active = (res.data || []).filter(item => item.status === "ACTIVE");
+        const target = active.find(item => item.code === requestedCode) || active[0];
         setDefs(active);
-        if (active[0]) {
-          setSelectedId(active[0].id);
-          setTitle(active[0].name);
+        if (target) {
+          setSelectedId(target.id);
+          setTitle(target.name);
+          setCategory(categoryText(target.category));
         }
       })
       .catch(err => setError(err instanceof Error ? err.message : "流程加载失败"));
-  }, []);
+  }, [requestedCode]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -127,7 +133,7 @@ export default function WorkflowStartPage() {
     }
   }
 
-  async function fillSmartDraft() {
+  const fillSmartDraft = useCallback(async () => {
     if (!selected || !schema?.fields?.length) {
       setError("请先选择一个已绑定表单的流程。");
       return;
@@ -147,7 +153,15 @@ export default function WorkflowStartPage() {
     } finally {
       setSmartFilling(false);
     }
-  }
+  }, [formData, schema, selected, title]);
+
+  useEffect(() => {
+    if (!smartRequested || !selected || !schema?.fields?.length || loading || smartFilling) return;
+    const key = `${selected.id}:${schema.fields.length}`;
+    if (autoSmartRef.current === key) return;
+    autoSmartRef.current = key;
+    void fillSmartDraft();
+  }, [fillSmartDraft, loading, schema, selected, smartFilling, smartRequested]);
 
   function clearDraft() {
     setFormData({});
@@ -158,6 +172,17 @@ export default function WorkflowStartPage() {
   return (
     <div>
       <PageHeader title="发起申请" subtitle="选择一个已启用流程，填写业务表单并提交审批" breadcrumb={["工作流", "发起申请"]} />
+
+      {smartRequested ? (
+        <div style={smartEntryBannerStyle}>
+          <div>
+            <span className={`${s.badge} ${s.badgeSuccess}`}>AI 智能发起</span>
+            <strong>已按常用业务场景进入发起页</strong>
+            <span>系统会自动选择流程并生成草稿，字段值仍可人工修改。</span>
+          </div>
+          <Link href="/workflow" className={s.btnSecondary}>返回工作流中心</Link>
+        </div>
+      ) : null}
 
       <div style={layoutStyle}>
         <section className={s.card}>
@@ -399,6 +424,7 @@ function formatCompactDate(date: Date) {
 }
 
 const layoutStyle: React.CSSProperties = { display:"grid", gridTemplateColumns:"320px minmax(0, 1fr)", gap:12, alignItems:"start" };
+const smartEntryBannerStyle: React.CSSProperties = { display:"flex", alignItems:"center", justifyContent:"space-between", gap:14, padding:14, border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-card)", marginBottom:12 };
 const sectionHeaderStyle: React.CSSProperties = { display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginBottom:14 };
 const filterStackStyle: React.CSSProperties = { display:"grid", gap:10, marginBottom:12 };
 const tabsStyle: React.CSSProperties = { display:"flex", gap:6, flexWrap:"wrap" };

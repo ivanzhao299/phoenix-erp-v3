@@ -4,6 +4,13 @@ import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
 
+const smartScenarios = [
+  ["采购申请", "PURCHASE_APPROVAL", "采购", "自动带出物料、数量、预算和采购原因草稿"],
+  ["费用报销", "EXPENSE_APPROVAL", "财务", "自动生成报销金额、费用类型、门店和事由"],
+  ["库存调整", "STOCK_ADJUST_APPROVAL", "仓储", "自动补齐仓库/物料、调整数量和调整原因"],
+  ["门店折扣", "STORE_DISCOUNT_APPROVAL", "门店", "自动生成门店、折扣比例和申请原因"],
+];
+
 const userLinks = [
   ["发起申请", "/workflow/start", "选择流程，填写表单并提交审批"],
   ["我的待办", "/workflow/tasks/todo", "处理分配给我的审批任务"],
@@ -21,6 +28,29 @@ export default function WorkflowHomePage() {
   return (
     <div>
       <PageHeader title="工作流中心" subtitle="发起申请、处理待办，并由管理员维护流程和表单" breadcrumb={["工作流"]} />
+
+      <section style={aiWorkbenchStyle}>
+        <div style={aiHeaderStyle}>
+          <div>
+            <span className={`${s.badge} ${s.badgeSuccess}`}>AI 自动完成</span>
+            <h3 style={aiTitleStyle}>常用流程一键生成草稿</h3>
+            <p className={s.modalDesc} style={{ margin: 0 }}>
+              从业务场景直接进入发起页，系统会选择对应流程并自动补齐常用表单字段，用户只需要核对和提交。
+            </p>
+          </div>
+          <Link href="/workflow/start?smart=1" className={s.btnPrimary}>进入智能发起</Link>
+        </div>
+        <div style={scenarioGridStyle}>
+          {smartScenarios.map(([label, code, category, desc]) => (
+            <Link key={code} href={`/workflow/start?code=${code}&smart=1`} style={scenarioCardStyle}>
+              <span className={s.badge}>{category}</span>
+              <strong>{label}</strong>
+              <span>{desc}</span>
+              <b>选择并生成草稿</b>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       <section className={s.card} style={sectionStyle}>
         <div className={s.cardBody}>
@@ -53,6 +83,11 @@ export default function WorkflowHomePage() {
   );
 }
 
+const aiWorkbenchStyle: React.CSSProperties = { padding: 18, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", marginBottom: 12 };
+const aiHeaderStyle: React.CSSProperties = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 14 };
+const aiTitleStyle: React.CSSProperties = { margin: "8px 0 6px", fontSize: 22, fontWeight: 900, color: "var(--text-primary)" };
+const scenarioGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 };
+const scenarioCardStyle: React.CSSProperties = { display: "grid", gap: 8, minHeight: 132, padding: 14, border: "1px solid var(--border)", borderRadius: "8px", background: "var(--bg-page)", color: "var(--text-primary)", textDecoration: "none" };
 const sectionStyle: React.CSSProperties = { marginBottom: 12 };
 const titleStyle: React.CSSProperties = { margin: "0 0 12px" };
 const gridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 };
