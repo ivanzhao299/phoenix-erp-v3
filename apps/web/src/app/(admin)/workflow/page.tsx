@@ -22,6 +22,7 @@ const userLinks = [
 ];
 
 const adminLinks = [
+  ["流程搭建", "/workflow/builder", "用向导式工作区快速生成自定义流程"],
   ["流程定义", "/workflow/definitions", "管理员维护审批节点、条件和发布版本"],
   ["表单定义", "/workflow/forms", "管理员维护可视化表单和字段"],
   ["数据源", "/workflow/data-sources", "管理员维护表单下拉和引用数据"],
