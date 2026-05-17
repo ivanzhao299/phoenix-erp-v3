@@ -8,6 +8,18 @@ import { WORKFLOW_DATA_CATALOG, dataSourceConfig } from "@/lib/workflow-data-cat
 
 type DataSourceRow = Record<string, unknown>;
 type PreviewRow = { value?: string | number; label?: string | number };
+type DataSourceMetadata = {
+  available?: boolean;
+  rowCount?: number;
+  columns?: Array<{ key?: string; type?: string; nullable?: boolean }>;
+  missing?: string[];
+  refreshedAt?: string;
+  error?: string;
+  table?: string;
+  valueField?: string;
+  labelField?: string;
+  statusField?: string;
+};
 type HealthState = {
   status: "idle" | "checking" | "ok" | "empty" | "error";
   count?: number;
@@ -30,6 +42,8 @@ export default function WorkflowDataSourcesPage() {
     [selectedCode],
   );
   const existingByCode = useMemo(() => new Map(rows.map(row => [String(row.code), row])), [rows]);
+  const selectedExisting = existingByCode.get(selectedCatalog.code);
+  const selectedMetadata = metadataOf(selectedExisting);
   const existingCodes = useMemo(() => new Set(rows.map(row => String(row.code))), [rows]);
   const missingCount = useMemo(
     () => WORKFLOW_DATA_CATALOG.filter(item => !existingCodes.has(item.code)).length,
@@ -43,6 +57,13 @@ export default function WorkflowDataSourcesPage() {
       error: states.filter(item => item === "error").length,
     };
   }, [health, rows]);
+  const metadataSummary = useMemo(() => {
+    const metas = rows.map(row => metadataOf(row));
+    return {
+      available: metas.filter(meta => meta?.available).length,
+      columns: metas.reduce((sum, meta) => sum + (meta?.columns?.length || 0), 0),
+    };
+  }, [rows]);
 
   const checkRows = useCallback(async (targetRows: DataSourceRow[]) => {
     const activeRows = targetRows.filter(row => String(row.status || "ACTIVE") === "ACTIVE");
@@ -114,6 +135,23 @@ export default function WorkflowDataSourcesPage() {
     }
   }
 
+  async function refreshMetadata() {
+    setBusy(true);
+    setMsg("");
+    setError("");
+    try {
+      const res = await workflowApi.refreshDataSourceMetadata();
+      const next = res.data || [];
+      setRows(next);
+      setMsg("字段元数据已自动刷新，新增字段和缺失字段会在下方列表体现。");
+      await checkRows(next);
+    } catch (err) {
+      setError(err instanceof Error ? friendlyError(err.message) : "刷新字段元数据失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function createFromCatalog() {
     setBusy(true);
     setMsg("");
@@ -171,9 +209,9 @@ export default function WorkflowDataSourcesPage() {
           <div className={s.statSub}>{healthSummary.empty ? `${healthSummary.empty} 个暂无数据` : "真实数据可读取"}</div>
         </div>
         <div className={s.statCard}>
-          <div className={s.statLabel}>异常数据源</div>
-          <div className={s.statValue}>{healthSummary.error}</div>
-          <div className={s.statSub}>表或字段变更会在这里暴露</div>
+          <div className={s.statLabel}>已发现字段</div>
+          <div className={s.statValue}>{metadataSummary.columns}</div>
+          <div className={s.statSub}>{metadataSummary.available} 个数据源元数据正常</div>
         </div>
       </div>
 
@@ -189,6 +227,9 @@ export default function WorkflowDataSourcesPage() {
             <div className={s.toolbarRight}>
               <button className={s.btnSecondary} disabled={busy || rows.length === 0} onClick={() => void checkRows(rows)}>
                 重新巡检
+              </button>
+              <button className={s.btnSecondary} disabled={busy || rows.length === 0} onClick={refreshMetadata}>
+                刷新字段元数据
               </button>
               <button className={s.btnPrimary} disabled={busy} onClick={syncDefaults}>
                 补齐标准数据源
@@ -226,6 +267,8 @@ export default function WorkflowDataSourcesPage() {
               <Info label="数据库表/字典" value={selectedCatalog.table || selectedCatalog.dict_type || "-"} />
               <Info label="启用过滤" value={selectedCatalog.statusFields?.length ? selectedCatalog.statusFields.join(" / ") : "无"} />
               <Info label="当前状态" value={existingByCode.has(selectedCatalog.code) ? "已配置，可在表单设计器使用" : "尚未创建"} />
+              <Info label="自动发现字段" value={selectedMetadata?.columns?.length ? `${selectedMetadata.columns.length} 个` : "-"} />
+              <Info label="最近同步" value={formatTime(selectedExisting?.last_synced_at)} />
             </div>
           </div>
 
@@ -234,6 +277,16 @@ export default function WorkflowDataSourcesPage() {
               <span key={field.key} className={s.tag}>{field.label} · {field.usage}</span>
             ))}
           </div>
+          {selectedMetadata?.columns?.length ? (
+            <div style={fieldMapStyle}>
+              {selectedMetadata.columns.slice(0, 12).map(column => (
+                <span key={String(column.key)} className={s.tag}>
+                  {String(column.key)} · {String(column.type || "字段")}
+                </span>
+              ))}
+              {selectedMetadata.columns.length > 12 ? <span className={s.tag}>+{selectedMetadata.columns.length - 12} 个字段</span> : null}
+            </div>
+          ) : null}
           <div style={actionsStyle}>
             <button className={s.btnSecondary} disabled={busy || existingCodes.has(selectedCatalog.code)} onClick={createFromCatalog}>
               {existingCodes.has(selectedCatalog.code) ? "该对象已创建" : `创建 ${selectedCatalog.name}`}
@@ -253,17 +306,20 @@ export default function WorkflowDataSourcesPage() {
         <div className={s.cardBody}>
           <h3 className={s.cardTitle} style={titleStyle}>已配置数据源</h3>
           <table className={s.table}>
-            <thead><tr><th>编码</th><th>名称</th><th>类型</th><th>状态</th><th>巡检</th><th>样例</th><th>操作</th></tr></thead>
+            <thead><tr><th>编码</th><th>名称</th><th>类型</th><th>状态</th><th>字段</th><th>数据</th><th>最近同步</th><th>样例</th><th>操作</th></tr></thead>
             <tbody>{rows.map(row => {
               const code = String(row.code);
               const state = health[code] || { status: "idle" as const };
+              const metadata = metadataOf(row);
               return (
                 <tr key={String(row.id)}>
                   <td>{code}</td>
                   <td>{String(row.name)}</td>
                   <td>{sourceTypeText(String(row.source_type))}</td>
                   <td><span className={`${s.badge} ${String(row.status || "ACTIVE") === "ACTIVE" ? s.badgeSuccess : s.badgeNeutral}`}>{String(row.status || "ACTIVE")}</span></td>
+                  <td><MetadataBadge metadata={metadata} /></td>
                   <td><HealthBadge state={state} /></td>
+                  <td>{formatTime(row.last_synced_at)}</td>
                   <td>{sampleText(state)}</td>
                   <td><button className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => show(code)}>预览真实数据</button></td>
                 </tr>
@@ -307,10 +363,37 @@ function HealthBadge({ state }: { state: HealthState }) {
   return <span className={`${s.badge} ${s.badgeNeutral}`}>未巡检</span>;
 }
 
+function MetadataBadge({ metadata }: { metadata: DataSourceMetadata | null }) {
+  if (!metadata) return <span className={`${s.badge} ${s.badgeNeutral}`}>待同步</span>;
+  if (metadata.available === false) return <span className={`${s.badge} ${s.badgeDanger}`}>字段异常</span>;
+  return <span className={`${s.badge} ${s.badgeInfo}`}>{metadata.columns?.length || 0} 字段</span>;
+}
+
+function metadataOf(row?: DataSourceRow): DataSourceMetadata | null {
+  const raw = row?.metadata_json;
+  if (!raw) return null;
+  if (typeof raw === "object") return raw as DataSourceMetadata;
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw) as DataSourceMetadata;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 function sampleText(state: HealthState) {
   if (state.status === "error") return state.message || "预览失败";
   if (!state.sample?.length) return "-";
   return state.sample.map(item => String(item.label ?? item.value ?? "")).filter(Boolean).join("、") || "-";
+}
+
+function formatTime(value: unknown) {
+  if (!value) return "-";
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString("zh-CN", { hour12: false });
 }
 
 function sourceTypeText(type: string) {

@@ -207,6 +207,8 @@ export class WorkflowService implements OnModuleInit {
          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
        )`,
+      `ALTER TABLE wf_data_source ADD COLUMN IF NOT EXISTS metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb`,
+      `ALTER TABLE wf_data_source ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMP`,
       `CREATE TABLE IF NOT EXISTS wf_cc_task (
          id SERIAL PRIMARY KEY,
          instance_id INT NOT NULL REFERENCES wf_instance(id) ON DELETE CASCADE,
@@ -567,6 +569,7 @@ export class WorkflowService implements OnModuleInit {
   }
 
   async listDataSources(query: QueryDto) {
+    await this.refreshAllDataSourceMetadata();
     const { limit, offset } = this.page(query);
     const rows = await this.em.query(
       `SELECT * FROM wf_data_source
@@ -579,7 +582,14 @@ export class WorkflowService implements OnModuleInit {
 
   async syncDefaultDataSources(user: WorkflowUser) {
     this.requireAdmin(user);
-    const rows = await this.ensureDefaultDataSources();
+    await this.ensureDefaultDataSources();
+    const rows = await this.refreshAllDataSourceMetadata();
+    return { code: 200, data: rows, total: rows.length };
+  }
+
+  async refreshDataSourceMetadata(user: WorkflowUser) {
+    this.requireAdmin(user);
+    const rows = await this.refreshAllDataSourceMetadata();
     return { code: 200, data: rows, total: rows.length };
   }
 
@@ -593,7 +603,8 @@ export class WorkflowService implements OnModuleInit {
        RETURNING *`,
       [body.code, body.name, body.source_type, JSON.stringify(body.config_json || {}), body.status || 'ACTIVE'],
     );
-    return { code: 200, data: rows[0] };
+    const refreshed = await this.refreshDataSourceRow(rows[0]);
+    return { code: 200, data: refreshed };
   }
 
   async updateDataSource(id: number, body: any, user: WorkflowUser) {
@@ -612,7 +623,8 @@ export class WorkflowService implements OnModuleInit {
       ],
     );
     if (!rows[0]) throw new NotFoundException('workflow data source not found');
-    return { code: 200, data: rows[0] };
+    const refreshed = await this.refreshDataSourceRow(rows[0]);
+    return { code: 200, data: refreshed };
   }
 
   async previewDataSource(body: any) {
@@ -888,6 +900,123 @@ export class WorkflowService implements OnModuleInit {
       .map(item => String(item || '').trim())
       .filter(Boolean);
     return normalized.length ? normalized : ['ACTIVE', 'ENABLED', 'NORMAL', '1', 'true'];
+  }
+
+  private async refreshAllDataSourceMetadata() {
+    const rows = await this.em.query(`SELECT * FROM wf_data_source WHERE status='ACTIVE' ORDER BY id`);
+    const refreshed: any[] = [];
+    for (const row of rows) {
+      refreshed.push(await this.refreshDataSourceRow(row));
+    }
+    return refreshed;
+  }
+
+  private async refreshDataSourceRow(row: any) {
+    if (!row) return row;
+    const metadata = await this.buildDataSourceMetadata(row).catch(err => ({
+      available: false,
+      refreshedAt: new Date().toISOString(),
+      error: err?.message || 'data source metadata refresh failed',
+    }));
+    const rows = await this.em.query(
+      `UPDATE wf_data_source
+       SET metadata_json=$2::jsonb, last_synced_at=CURRENT_TIMESTAMP
+       WHERE id=$1
+       RETURNING *`,
+      [row.id, JSON.stringify(metadata)],
+    );
+    return rows[0] || { ...row, metadata_json: metadata };
+  }
+
+  private async buildDataSourceMetadata(source: any) {
+    const config = source.config_json || {};
+    const base = {
+      available: true,
+      sourceType: source.source_type,
+      refreshedAt: new Date().toISOString(),
+    };
+
+    if (source.source_type === 'STATIC') {
+      const options = Array.isArray(config.options) ? config.options : [];
+      return { ...base, optionCount: options.length };
+    }
+
+    if (source.source_type === 'DICT') {
+      const rows = await this.em.query(
+        `SELECT COUNT(*)::int AS count
+         FROM sys_dict
+         WHERE dict_type=$1 AND COALESCE(status,'ACTIVE')='ACTIVE'`,
+        [config.dict_type],
+      );
+      return { ...base, dictType: config.dict_type || null, rowCount: Number(rows[0]?.count || 0) };
+    }
+
+    if (source.source_type !== 'TABLE') {
+      return { ...base, available: false, error: 'unsupported source_type' };
+    }
+
+    const table = String(config.table || '').trim();
+    this.assertIdentifier(table);
+    const columns = await this.em.query(
+      `SELECT column_name, data_type, is_nullable
+       FROM information_schema.columns
+       WHERE table_schema = current_schema() AND table_name = $1
+       ORDER BY ordinal_position`,
+      [table],
+    );
+    if (columns.length === 0) {
+      return { ...base, available: false, table, tableExists: false, columns: [], error: 'table not found' };
+    }
+
+    const valueField = this.pickColumnName(columns, config.valueFields || [config.valueField || 'id']);
+    const labelField = this.pickColumnName(columns, config.labelFields || [config.labelField || valueField]);
+    const statusField = this.pickColumnName(columns, config.statusFields || [config.statusField || 'status']);
+    const activeValues = this.normalizeActiveValues(config.activeValues);
+    const missing: string[] = [];
+    if (!valueField) missing.push('valueField');
+    if (!labelField) missing.push('labelField');
+
+    const rowCount = missing.length === 0
+      ? await this.countDataSourceRows(table, statusField, activeValues)
+      : 0;
+
+    return {
+      ...base,
+      available: missing.length === 0,
+      table,
+      tableExists: true,
+      valueField,
+      labelField,
+      statusField,
+      activeValues,
+      rowCount,
+      missing,
+      columns: columns.map((column: any) => ({
+        key: String(column.column_name),
+        type: String(column.data_type),
+        nullable: column.is_nullable === 'YES',
+      })),
+    };
+  }
+
+  private pickColumnName(columns: any[], candidates: any[]) {
+    const normalized = (Array.isArray(candidates) ? candidates : [candidates])
+      .map(item => String(item || '').trim())
+      .filter(Boolean);
+    normalized.forEach(item => this.assertIdentifier(item));
+    const existing = new Set(columns.map(column => String(column.column_name)));
+    return normalized.find(item => existing.has(item)) || null;
+  }
+
+  private async countDataSourceRows(table: string, statusField: string | null, activeValues: string[]) {
+    this.assertIdentifier(table);
+    if (statusField) this.assertIdentifier(statusField);
+    const whereSql = statusField ? ` WHERE COALESCE("${statusField}"::text,'ACTIVE') = ANY($1::text[])` : '';
+    const rows = await this.em.query(
+      `SELECT COUNT(*)::int AS count FROM "${table}"${whereSql}`,
+      statusField ? [activeValues] : [],
+    );
+    return Number(rows[0]?.count || 0);
   }
 
   private async assertInstanceVisible(instanceId: number, user: WorkflowUser) {
