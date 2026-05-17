@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
 
-const STATUS_CLS: Record<string,string> = {"active":s.badgeSuccess, "ACTIVE":s.badgeSuccess, "expired":s.badgeNeutral, "EXPIRED":s.badgeNeutral};
+const STATUS_CLS: Record<string,string> = {"ACTIVE":s.badgeSuccess, "EXPIRED":s.badgeNeutral, "INACTIVE":s.badgeNeutral};
 
 const TABLE = "ord_prices";
 
@@ -25,7 +25,7 @@ export default function Page() {
     { key: "floor_price", title: t("ui.底价","底价"), width: 100 },
     { key: "valid_from", title: t("ui.生效日","生效日"), width: 100 },
     { key: "valid_to", title: t("ui.到期日","到期日"), width: 100 },
-    { key: "status", title: t("common.status","状态"), width: 80, render:(v:unknown)=><span className={`${s.badge} ${STATUS_CLS[String(v)]??s.badgeNeutral}`}>{String(v)}</span>},
+    { key: "status", title: t("common.status","状态"), width: 80, render:(v:unknown)=>{ const u=String(v).toUpperCase(); return <span className={`${s.badge} ${STATUS_CLS[u]??s.badgeNeutral}`}>{u}</span>; }},
   ];
   const FIELDS: FormField[] = [
     { key: "price_code", label: t("ui.价格档位编码","价格档位编码"), type: "text", placeholder: t("ui.留空自动生成","留空自动生成") },

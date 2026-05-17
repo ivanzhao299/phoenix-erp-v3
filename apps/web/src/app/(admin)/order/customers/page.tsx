@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Plus, Users, RefreshCw, TrendingUp, Search, DollarSign } from "lucide-react";
+import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
@@ -48,8 +49,8 @@ export default function CustomersPage() {
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch("/api/crud/ord_customers?limit=300")
-      .then(r=>r.json()).then(d=>setCustomers(d.data||[])).catch(()=>{}).finally(()=>setLoading(false));
+    crudApi.list<Customer>("ord_customers", { limit: 300 })
+      .then(res=>setCustomers(res.data||[])).catch(()=>{}).finally(()=>setLoading(false));
   }, []);
   useEffect(() => { load(); }, [load]);
 

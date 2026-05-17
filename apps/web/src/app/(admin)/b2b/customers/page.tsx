@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Plus, RefreshCw, Users, TrendingUp } from "lucide-react";
+import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
@@ -59,8 +60,8 @@ export default function B2BCustomersPage() {
 
   const load = useCallback(()=>{
     setLoading(true);
-    fetch("/api/crud/b2b_customers?limit=300")
-      .then(r=>r.json()).then(d=>setList(d.data||[])).catch(()=>{}).finally(()=>setLoading(false));
+    crudApi.list<B2BCustomer>("b2b_customers", { limit: 300 })
+      .then(res=>setList(res.data||[])).catch(()=>{}).finally(()=>setLoading(false));
   },[]);
   useEffect(()=>{ load(); },[load]);
 

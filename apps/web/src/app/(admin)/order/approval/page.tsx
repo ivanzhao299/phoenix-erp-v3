@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { RefreshCw, ShieldAlert, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
@@ -40,10 +41,9 @@ export default function ApprovalPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const res  = await fetch("/api/crud/ord_orders?limit=200");
-      const data = await res.json();
+      const res  = await crudApi.list<Order>("ord_orders", { limit: 200 });
       // 状态匹配 DRAFT (V3 标准) + pending (V2 兼容)
-      const needApproval = (data.data || []).filter((o: Order) => {
+      const needApproval = (res.data || []).filter((o: Order) => {
         const st = String(o.status || "").toUpperCase();
         return (st === "DRAFT" || st === "PENDING") &&
           (o.need_price_approval || o.need_credit_approval || o.need_period_approval || o.is_urgent);
