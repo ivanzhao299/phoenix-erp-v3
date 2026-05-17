@@ -277,9 +277,11 @@ export class WorkflowService implements OnModuleInit {
 
   async getDesigner(id: number) {
     const rows = await this.em.query(
-      `SELECT d.*, v.id AS version_id, v.version_no, v.graph_json, v.form_version_id
+      `SELECT d.*, v.id AS version_id, v.version_no, v.graph_json, v.form_version_id,
+              fv.schema_json AS form_schema_json
        FROM wf_definition d
        LEFT JOIN wf_definition_version v ON v.id = d.current_version_id
+       LEFT JOIN wf_form_version fv ON fv.id = v.form_version_id
        WHERE d.id=$1`,
       [id],
     );

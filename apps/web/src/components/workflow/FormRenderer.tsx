@@ -10,6 +10,7 @@ type Field = {
   required?: boolean;
   placeholder?: string;
   dataSource?: string;
+  span?: 1 | 2;
   options?: Array<{ label: string; value: string | number }>;
 };
 
@@ -54,12 +55,22 @@ export function FormRenderer({
         };
         const options = field.options || (field.dataSource ? sourceOptions[field.dataSource] : []) || [];
         return (
-          <label key={field.key} style={{ display: "flex", flexDirection: "column", gap: 5, gridColumn: field.type === "textarea" ? "1 / -1" : undefined }}>
+          <label key={field.key} style={{ display: "flex", flexDirection: "column", gap: 5, gridColumn: field.type === "textarea" || field.span === 2 ? "1 / -1" : undefined }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)" }}>
               {field.label}{field.required ? " *" : ""}
             </span>
             {field.type === "textarea" ? (
               <textarea {...common} rows={4} placeholder={field.placeholder} />
+            ) : field.type === "checkbox" ? (
+              <span style={{ ...inputStyle, display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  disabled={readonly}
+                  checked={Boolean(value[field.key])}
+                  onChange={e => set(field.key, e.target.checked)}
+                />
+                是
+              </span>
             ) : field.type === "select" || field.type === "radio" || field.type === "reference" ? (
               <select {...common}>
                 <option value="">请选择</option>
