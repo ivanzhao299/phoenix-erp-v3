@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
+import { workflowApi, type WorkflowTaskSummary } from "@/lib/workflow-api";
 
 const smartScenarios = [
   ["采购申请", "PURCHASE_APPROVAL", "采购", "自动带出物料、数量、预算和采购原因草稿"],
@@ -14,6 +16,7 @@ const smartScenarios = [
 const userLinks = [
   ["发起申请", "/workflow/start", "选择流程，填写表单并提交审批"],
   ["我的待办", "/workflow/tasks/todo", "处理分配给我的审批任务"],
+  ["抄送我的", "/workflow/tasks/cc", "查看抄送给我的流程知会"],
   ["我的已办", "/workflow/tasks/done", "查看已经处理过的审批记录"],
   ["流程实例", "/workflow/instances", "跟踪我发起的流程进度"],
 ];
@@ -25,6 +28,12 @@ const adminLinks = [
 ];
 
 export default function WorkflowHomePage() {
+  const [summary, setSummary] = useState<WorkflowTaskSummary | null>(null);
+
+  useEffect(() => {
+    workflowApi.taskSummary().then(res => setSummary(res.data)).catch(() => {});
+  }, []);
+
   return (
     <div>
       <PageHeader title="工作流中心" subtitle="发起申请、处理待办，并由管理员维护流程和表单" breadcrumb={["工作流"]} />
@@ -49,6 +58,15 @@ export default function WorkflowHomePage() {
               <b>选择并生成草稿</b>
             </Link>
           ))}
+        </div>
+      </section>
+
+      <section className={s.card} style={sectionStyle}>
+        <div className={s.cardBody} style={metricGridStyle}>
+          <Metric label="待我处理" value={summary?.todo ?? 0} href="/workflow/tasks/todo" tone="primary" />
+          <Metric label="未读知会" value={summary?.ccUnread ?? 0} href="/workflow/tasks/cc" tone="warning" />
+          <Metric label="流转中" value={summary?.running ?? 0} href="/workflow/instances?status=RUNNING" />
+          <Metric label="我发起审批中" value={summary?.startedRunning ?? 0} href="/workflow/instances?status=RUNNING" />
         </div>
       </section>
 
@@ -83,6 +101,15 @@ export default function WorkflowHomePage() {
   );
 }
 
+function Metric({ label, value, href, tone }: { label: string; value: number; href: string; tone?: "primary" | "warning" }) {
+  return (
+    <Link href={href} style={metricStyle}>
+      <span>{label}</span>
+      <strong style={tone === "primary" ? metricPrimaryValueStyle : tone === "warning" ? metricWarningValueStyle : metricValueStyle}>{value}</strong>
+    </Link>
+  );
+}
+
 const aiWorkbenchStyle: React.CSSProperties = { padding: 18, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", marginBottom: 12 };
 const aiHeaderStyle: React.CSSProperties = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 14 };
 const aiTitleStyle: React.CSSProperties = { margin: "8px 0 6px", fontSize: 22, fontWeight: 900, color: "var(--text-primary)" };
@@ -91,6 +118,11 @@ const scenarioCardStyle: React.CSSProperties = { display: "grid", gap: 8, minHei
 const sectionStyle: React.CSSProperties = { marginBottom: 12 };
 const titleStyle: React.CSSProperties = { margin: "0 0 12px" };
 const gridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 };
+const metricGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12 };
+const metricStyle: React.CSSProperties = { minHeight: 82, padding: 14, border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-page)", color: "var(--text-secondary)", textDecoration: "none", display: "grid", gap: 6 };
+const metricValueStyle: React.CSSProperties = { fontSize: 26, lineHeight: 1, color: "var(--text-primary)" };
+const metricPrimaryValueStyle: React.CSSProperties = { ...metricValueStyle, color: "var(--color-primary)" };
+const metricWarningValueStyle: React.CSSProperties = { ...metricValueStyle, color: "var(--status-warning)" };
 const cardStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",

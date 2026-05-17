@@ -86,6 +86,32 @@ export interface WorkflowTask {
   created_at: string;
 }
 
+export interface WorkflowCcTask {
+  id: number;
+  instance_id: number;
+  node_id?: string;
+  receiver_user_id?: number;
+  receiver_role_code?: string;
+  receiver_user_name?: string;
+  receiver_role_name?: string;
+  read_at?: string;
+  title: string;
+  instance_no?: string;
+  instance_status?: string;
+  definition_name?: string;
+  starter_name: string;
+  form_data_json?: Record<string, unknown>;
+  form_schema_json?: WorkflowFormSchema;
+  created_at: string;
+}
+
+export interface WorkflowTaskSummary {
+  todo: number;
+  ccUnread: number;
+  running: number;
+  startedRunning: number;
+}
+
 export interface WorkflowInstance {
   id: number;
   instance_no: string;
@@ -147,6 +173,10 @@ export const workflowApi = {
 
   todo: () => req<WorkflowList<WorkflowTask>>("/tasks/todo"),
   done: () => req<WorkflowList<WorkflowTask>>("/tasks/done"),
+  cc: () => req<WorkflowList<WorkflowCcTask>>("/tasks/cc"),
+  taskSummary: () => req<WorkflowOne<WorkflowTaskSummary>>("/tasks/summary"),
+  markCcRead: (id: number) =>
+    req<WorkflowOne<WorkflowCcTask>>(`/tasks/cc/${id}/read`, { method: "POST", body: JSON.stringify({}) }),
   approve: (id: number, comment: string) =>
     req<WorkflowOne<WorkflowInstance>>(`/tasks/${id}/approve`, { method: "POST", body: JSON.stringify({ comment }) }),
   reject: (id: number, comment: string) =>

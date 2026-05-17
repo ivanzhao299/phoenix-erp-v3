@@ -721,6 +721,90 @@ export class WorkflowService implements OnModuleInit {
     return this.listTasks(user, query, 'DONE');
   }
 
+  async listCcTasks(user: WorkflowUser, query: QueryDto) {
+    const { limit, offset } = this.page(query);
+    const roles = this.userRoles(user);
+    const rows = await this.em.query(
+      `SELECT c.*, i.title, i.instance_no, i.status AS instance_status, i.started_at, i.starter_name,
+              i.form_data_json, fv.schema_json AS form_schema_json, d.name AS definition_name,
+              u.real_name AS receiver_user_name, r.role_name_zh AS receiver_role_name
+       FROM wf_cc_task c
+       JOIN wf_instance i ON i.id=c.instance_id
+       LEFT JOIN wf_definition d ON d.id=i.definition_id
+       LEFT JOIN wf_form_version fv ON fv.id=i.form_version_id
+       LEFT JOIN sys_user u ON u.user_id=c.receiver_user_id
+       LEFT JOIN sys_role r ON r.role_code=c.receiver_role_code
+       WHERE $1::boolean OR c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[])
+       ORDER BY COALESCE(c.read_at, TIMESTAMP '1970-01-01') ASC, c.created_at DESC, c.id DESC
+       LIMIT $4 OFFSET $5`,
+      [this.isAdmin(user), user.userId || 0, roles, limit, offset],
+    );
+    return { code: 200, data: rows, total: rows.length };
+  }
+
+  async getTaskSummary(user: WorkflowUser) {
+    const roles = this.userRoles(user);
+    const isAdmin = this.isAdmin(user);
+    const [todoRows, ccRows, runningRows, startedRows] = await Promise.all([
+      this.em.query(
+        `SELECT COUNT(*)::int AS count
+         FROM wf_task t
+         WHERE t.status='TODO'
+           AND ($1::boolean OR t.assignee_user_id=$2 OR t.assignee_role_code = ANY($3::text[]))`,
+        [isAdmin, user.userId || 0, roles],
+      ),
+      this.em.query(
+        `SELECT COUNT(*)::int AS count
+         FROM wf_cc_task c
+         WHERE c.read_at IS NULL
+           AND ($1::boolean OR c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[]))`,
+        [isAdmin, user.userId || 0, roles],
+      ),
+      this.em.query(
+        `SELECT COUNT(*)::int AS count
+         FROM wf_instance i
+         WHERE i.status='RUNNING'
+           AND ($1::boolean OR i.starter_id=$2 OR EXISTS (
+             SELECT 1 FROM wf_task t
+             WHERE t.instance_id=i.id
+               AND (t.assignee_user_id=$2 OR t.assignee_role_code = ANY($3::text[]))
+           ) OR EXISTS (
+             SELECT 1 FROM wf_cc_task c
+             WHERE c.instance_id=i.id
+               AND (c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[]))
+           ))`,
+        [isAdmin, user.userId || 0, roles],
+      ),
+      this.em.query(
+        `SELECT COUNT(*)::int AS count
+         FROM wf_instance
+         WHERE starter_id=$1 AND status='RUNNING'`,
+        [user.userId || 0],
+      ),
+    ]);
+    return {
+      code: 200,
+      data: {
+        todo: Number(todoRows[0]?.count || 0),
+        ccUnread: Number(ccRows[0]?.count || 0),
+        running: Number(runningRows[0]?.count || 0),
+        startedRunning: Number(startedRows[0]?.count || 0),
+      },
+    };
+  }
+
+  async markCcRead(id: number, user: WorkflowUser) {
+    const rows = await this.em.query(`SELECT * FROM wf_cc_task WHERE id=$1`, [id]);
+    const cc = rows[0];
+    if (!cc) throw new NotFoundException('workflow cc task not found');
+    await this.assertCcVisible(cc, user);
+    const updated = await this.em.query(
+      `UPDATE wf_cc_task SET read_at=COALESCE(read_at, CURRENT_TIMESTAMP) WHERE id=$1 RETURNING *`,
+      [id],
+    );
+    return { code: 200, data: updated[0] };
+  }
+
   async approveTask(taskId: number, body: any, user: WorkflowUser) {
     return this.completeTask(taskId, 'APPROVE', body, user);
   }
@@ -1363,10 +1447,21 @@ export class WorkflowService implements OnModuleInit {
          SELECT 1 FROM wf_task t
          WHERE t.instance_id=i.id
            AND (t.assignee_user_id=$2 OR t.assignee_role_code = ANY($3::text[]))
+       ) OR EXISTS (
+         SELECT 1 FROM wf_cc_task c
+         WHERE c.instance_id=i.id
+           AND (c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[]))
        ))`,
       [instanceId, user.userId || 0, this.userRoles(user)],
     );
     if (!rows[0]) throw new ForbiddenException('workflow instance not visible');
+  }
+
+  private async assertCcVisible(cc: any, user: WorkflowUser) {
+    if (this.isAdmin(user)) return;
+    if (Number(cc.receiver_user_id) === Number(user.userId)) return;
+    if (cc.receiver_role_code && this.userRoles(user).includes(cc.receiver_role_code)) return;
+    throw new ForbiddenException('workflow cc task not visible');
   }
 
   private async assertTaskVisible(task: any, user: WorkflowUser) {

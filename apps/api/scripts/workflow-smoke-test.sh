@@ -110,7 +110,16 @@ api POST "/api/workflow/tasks/$TASK_ID/comment" '{"comment":"Smoke 补充意见"
 api POST "/api/workflow/tasks/$TASK_ID/approve" '{"comment":"Smoke 审批通过"}' >/dev/null || fail "审批通过失败"
 ok "待办审批通过"
 
-say "13) 查询实例状态"
+say "13) 查询工作台摘要和抄送箱"
+SUMMARY=$(api GET /api/workflow/tasks/summary) || fail "工作台摘要查询失败"
+TODO_COUNT=$(printf '%s' "$SUMMARY" | json_get data.todo)
+[ -n "$TODO_COUNT" ] || fail "工作台摘要缺少 todo：$SUMMARY"
+CC=$(api GET /api/workflow/tasks/cc) || fail "抄送箱查询失败"
+CC_CODE=$(printf '%s' "$CC" | json_get code)
+[ "$CC_CODE" = "200" ] || fail "抄送箱响应异常：$CC"
+ok "工作台摘要和抄送箱通过"
+
+say "14) 查询实例状态"
 INSTANCE=$(api GET "/api/workflow/instances/$INSTANCE_ID") || fail "实例查询失败"
 STATUS=$(printf '%s' "$INSTANCE" | json_get data.status)
 [ -n "$STATUS" ] || fail "实例响应缺少状态：$INSTANCE"
