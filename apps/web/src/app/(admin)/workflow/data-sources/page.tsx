@@ -235,6 +235,28 @@ export default function WorkflowDataSourcesPage() {
     }
   }
 
+  async function createWorkflowFromSelectedSource() {
+    setBusy(true);
+    setMsg("");
+    setError("");
+    try {
+      const res = await workflowApi.createDefinitionFromDataSource({
+        sourceCode: selectedCatalog.code,
+        name: `${selectedCatalog.name}自动审批流程`,
+        category: "通用",
+        approvalRole: "ROLE_ADMIN",
+      });
+      const data = res.data || {};
+      const definition = data.definition as { id?: number; name?: string } | undefined;
+      setMsg(`已生成流程：${String(definition?.name || selectedCatalog.name)}，用户可在流程发起页选择使用。`);
+      await loadFieldSuggestions(selectedCatalog.code);
+    } catch (err) {
+      setError(err instanceof Error ? friendlyError(err.message) : "生成流程失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div>
       <PageHeader title="工作流数据源" subtitle="把用户、角色、组织和业务资料包装成表单可用的动态引用控件" breadcrumb={["工作流", "数据源"]} />
@@ -351,6 +373,11 @@ export default function WorkflowDataSourcesPage() {
             {existingCodes.has(selectedCatalog.code) ? (
               <button className={s.btnPrimary} disabled={busy} onClick={createFormFromSelectedSource}>
                 生成表单
+              </button>
+            ) : null}
+            {existingCodes.has(selectedCatalog.code) ? (
+              <button className={s.btnPrimary} disabled={busy} onClick={createWorkflowFromSelectedSource}>
+                生成流程
               </button>
             ) : null}
           </div>

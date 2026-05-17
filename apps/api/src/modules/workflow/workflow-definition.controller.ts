@@ -22,6 +22,11 @@ export class WorkflowDefinitionController {
     return this.workflow.generateIndustryTemplates(req.user);
   }
 
+  @Post('from-data-source')
+  createFromDataSource(@Body() body: any, @Req() req: any) {
+    return this.workflow.createDefinitionFromDataSource(body, req.user);
+  }
+
   @Post(':id/clone')
   clone(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.workflow.cloneDefinition(Number(id), body, req.user);

@@ -259,6 +259,96 @@ export class WorkflowService implements OnModuleInit {
     return { code: 200, data: result };
   }
 
+  async createDefinitionFromDataSource(body: any, user: WorkflowUser) {
+    this.requireAdmin(user);
+    const sourceCode = String(body?.sourceCode || body?.source_code || '').trim().toUpperCase();
+    this.assertCode(sourceCode);
+    const definitionCode = body?.code ? String(body.code).trim().toUpperCase() : `${sourceCode}_AUTO_WORKFLOW`;
+    this.assertCode(definitionCode);
+
+    const formResult = await this.createFormFromDataSource({
+      sourceCode,
+      code: body?.formCode || `${sourceCode}_AUTO_FORM`,
+      name: body?.formName || `${body?.name || sourceCode}自动表单`,
+      category: body?.category || '通用',
+      description: body?.formDescription,
+    }, user);
+    const formVersionId = Number((formResult.data as any)?.version?.id);
+    if (!formVersionId) throw new BadRequestException('generated form version missing');
+
+    const name = String(body?.name || `${sourceCode}自动审批流程`).trim();
+    if (!name) throw new BadRequestException('name required');
+    const description = body?.description || `由工作流数据源 ${sourceCode} 自动生成，包含表单和默认审批节点。`;
+    const category = body?.category || '通用';
+    const approvalRole = String(body?.approvalRole || body?.approval_role || 'ROLE_ADMIN').trim().toUpperCase();
+    this.assertCode(approvalRole);
+
+    const existing = await this.em.query(
+      `SELECT id FROM wf_definition WHERE code=$1 LIMIT 1`,
+      [definitionCode],
+    );
+    let definitionId = existing[0]?.id;
+    let created = false;
+    if (!definitionId) {
+      const rows = await this.em.query(
+        `INSERT INTO wf_definition (code, name, description, category, status, created_by, updated_at)
+         VALUES ($1,$2,$3,$4,'ACTIVE',$5,CURRENT_TIMESTAMP)
+         RETURNING *`,
+        [definitionCode, name, description, category, user.userId || null],
+      );
+      definitionId = rows[0].id;
+      created = true;
+    } else {
+      await this.em.query(
+        `UPDATE wf_definition
+         SET name=$2, description=$3, category=$4, status='ACTIVE', updated_at=CURRENT_TIMESTAMP
+         WHERE id=$1`,
+        [definitionId, name, description, category],
+      );
+    }
+
+    const graph = this.templateGraph({
+      code: definitionCode,
+      name,
+      category,
+      description,
+      formCode: String((formResult.data as any)?.form?.code || `${sourceCode}_AUTO_FORM`),
+      formName: String((formResult.data as any)?.form?.name || `${sourceCode}自动表单`),
+      formDescription: description,
+      fields: [],
+      approvals: [{ id: 'auto_approval', name: '管理员审批', role: approvalRole }],
+    });
+    const latest = await this.em.query(
+      `SELECT COALESCE(MAX(version_no),0)::int AS version_no FROM wf_definition_version WHERE definition_id=$1`,
+      [definitionId],
+    );
+    const versionNo = Number(latest[0]?.version_no || 0) + 1;
+    const versionRows = await this.em.query(
+      `INSERT INTO wf_definition_version
+         (definition_id, version_no, status, graph_json, form_version_id, published_by, published_at)
+       VALUES ($1,$2,'PUBLISHED',$3::jsonb,$4,$5,CURRENT_TIMESTAMP)
+       RETURNING *`,
+      [definitionId, versionNo, JSON.stringify(graph), formVersionId, user.userId || null],
+    );
+    const definitionRows = await this.em.query(
+      `UPDATE wf_definition
+       SET current_version_id=$2, updated_at=CURRENT_TIMESTAMP
+       WHERE id=$1 RETURNING *`,
+      [definitionId, versionRows[0].id],
+    );
+
+    return {
+      code: 200,
+      data: {
+        definition: definitionRows[0],
+        version: versionRows[0],
+        form: (formResult.data as any)?.form,
+        formVersion: (formResult.data as any)?.version,
+        created,
+      },
+    };
+  }
+
   async cloneDefinition(id: number, body: any, user: WorkflowUser) {
     this.requireAdmin(user);
     this.assertCode(body.code);

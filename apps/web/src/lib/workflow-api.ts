@@ -109,6 +109,8 @@ export const workflowApi = {
     req<WorkflowOne<WorkflowDefinition>>("/definitions", { method: "POST", body: JSON.stringify(data) }),
   generateIndustryTemplates: () =>
     req<WorkflowOne<Record<string, unknown>>>("/definitions/industry-templates/generate", { method: "POST", body: JSON.stringify({}) }),
+  createDefinitionFromDataSource: (data: Record<string, unknown>) =>
+    req<WorkflowOne<Record<string, unknown>>>("/definitions/from-data-source", { method: "POST", body: JSON.stringify(data) }),
   cloneDefinition: (id: number, data: Record<string, unknown>) =>
     req<WorkflowOne<WorkflowDefinition>>(`/definitions/${id}/clone`, { method: "POST", body: JSON.stringify(data) }),
   publishDefinition: (id: number, data: Record<string, unknown>) =>
