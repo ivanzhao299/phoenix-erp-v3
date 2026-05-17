@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { workflowApi } from "@/lib/workflow-api";
@@ -10,6 +10,8 @@ type WorkflowNode = {
   id: string;
   type: NodeType;
   name: string;
+  x?: number;
+  y?: number;
   config?: {
     assigneeType?: "ROLE" | "USER" | "STARTER";
     roles?: string[];
@@ -29,9 +31,9 @@ type WorkflowEdge = {
 };
 
 const defaultNodes: WorkflowNode[] = [
-  { id: "start", type: "start", name: "开始" },
-  { id: "approval_1", type: "approval", name: "审批", config: { assigneeType: "ROLE", roles: ["ROLE_FIN_ACCT"] } },
-  { id: "end", type: "end", name: "结束" },
+  { id: "start", type: "start", name: "开始", x: 80, y: 150 },
+  { id: "approval_1", type: "approval", name: "审批", x: 310, y: 150, config: { assigneeType: "ROLE", roles: ["ROLE_FIN_ACCT"] } },
+  { id: "end", type: "end", name: "结束", x: 560, y: 150 },
 ];
 const defaultEdges: WorkflowEdge[] = [
   { from: "start", to: "approval_1" },
@@ -52,6 +54,7 @@ export default function WorkflowDesignerPage() {
   const [msg, setMsg] = useState("");
   const [jsonOpen, setJsonOpen] = useState(false);
   const [jsonDraft, setJsonDraft] = useState("");
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     workflowApi.definitionDesigner(id).then(res => {
@@ -80,6 +83,8 @@ export default function WorkflowDesignerPage() {
       id: `${type}_${nodes.length + 1}`,
       type,
       name: type === "approval" ? "审批节点" : type === "condition" ? "条件判断" : type === "cc" ? "抄送" : type,
+      x: 120 + (nodes.length % 3) * 220,
+      y: 80 + Math.floor(nodes.length / 3) * 120,
       config: type === "approval" ? { assigneeType: "ROLE", roles: ["ROLE_FIN_ACCT"] } : {},
     };
     setNodes(prev => [...prev, next]);
@@ -108,6 +113,32 @@ export default function WorkflowDesignerPage() {
   function removeEdge(index: number) {
     setEdges(prev => prev.filter((_, i) => i !== index));
     setSelectedEdge(Math.max(0, index - 1));
+  }
+
+  function moveNode(index: number, x: number, y: number) {
+    setNodes(prev => prev.map((node, i) => i === index ? { ...node, x, y } : node));
+  }
+
+  function beginDrag(index: number, e: React.PointerEvent<HTMLButtonElement>) {
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const node = layoutNode(nodes[index], index);
+    const offsetX = e.clientX - rect.left - node.x;
+    const offsetY = e.clientY - rect.top - node.y;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setSelectedNode(index);
+
+    const onMove = (move: PointerEvent) => {
+      const nextX = Math.max(16, Math.min(rect.width - nodeWidth - 16, move.clientX - rect.left - offsetX));
+      const nextY = Math.max(16, Math.min(rect.height - nodeHeight - 16, move.clientY - rect.top - offsetY));
+      moveNode(index, Math.round(nextX), Math.round(nextY));
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
   }
 
   async function publish() {
@@ -168,6 +199,66 @@ export default function WorkflowDesignerPage() {
             </div>
           </div>
           {msg ? <div style={successStyle}>{msg}</div> : null}
+          <div ref={canvasRef} style={canvasStyle}>
+            <svg style={svgStyle}>
+              <defs>
+                <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+                  <path d="M0,0 L0,6 L9,3 z" fill="var(--color-primary)" />
+                </marker>
+              </defs>
+              {edges.map((edge, index) => {
+                const fromIndex = nodes.findIndex(node => node.id === edge.from);
+                const toIndex = nodes.findIndex(node => node.id === edge.to);
+                if (fromIndex < 0 || toIndex < 0) return null;
+                const from = layoutNode(nodes[fromIndex], fromIndex);
+                const to = layoutNode(nodes[toIndex], toIndex);
+                const startX = from.x + nodeWidth;
+                const startY = from.y + nodeHeight / 2;
+                const endX = to.x;
+                const endY = to.y + nodeHeight / 2;
+                const midX = Math.round((startX + endX) / 2);
+                const path = `M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`;
+                return (
+                  <g key={`${edge.from}-${edge.to}-${index}`} onClick={() => setSelectedEdge(index)} style={{ cursor: "pointer" }}>
+                    <path
+                      d={path}
+                      stroke={selectedEdge === index ? "var(--color-primary)" : "var(--border)"}
+                      strokeWidth={selectedEdge === index ? 3 : 2}
+                      fill="none"
+                      markerEnd="url(#arrow)"
+                    />
+                    {edge.condition ? (
+                      <text x={midX} y={Math.min(startY, endY) - 8} fill="var(--color-primary)" fontSize="11" textAnchor="middle">
+                        {edge.condition.field} {edge.condition.operator} {String(edge.condition.value)}
+                      </text>
+                    ) : null}
+                  </g>
+                );
+              })}
+            </svg>
+            {nodes.map((node, index) => {
+              const pos = layoutNode(node, index);
+              return (
+                <button
+                  key={`${node.id}-${index}`}
+                  type="button"
+                  onPointerDown={e => beginDrag(index, e)}
+                  onClick={() => setSelectedNode(index)}
+                  style={{
+                    ...canvasNodeStyle,
+                    left: pos.x,
+                    top: pos.y,
+                    borderColor: selectedNode === index ? "var(--color-primary)" : nodeColor(node.type),
+                    boxShadow: selectedNode === index ? "0 0 0 3px rgba(31,56,100,0.14)" : "var(--shadow-sm)",
+                  }}
+                >
+                  <span style={{ ...nodeTypePillStyle, background: nodeColor(node.type) }}>{node.type}</span>
+                  <strong>{node.name}</strong>
+                  <span style={{ color: "var(--text-secondary)", fontSize: 11 }}>{node.id}</span>
+                </button>
+              );
+            })}
+          </div>
           <div style={{ display: "grid", gap: 10 }}>
             {edges.map((edge, index) => (
               <button
@@ -277,6 +368,26 @@ function nodeName(id: string, nodes: WorkflowNode[]) {
   return nodes.find(node => node.id === id)?.name || id || "-";
 }
 
+const nodeWidth = 148;
+const nodeHeight = 70;
+
+function layoutNode(node: WorkflowNode, index: number) {
+  return {
+    x: typeof node.x === "number" ? node.x : 80 + (index % 3) * 230,
+    y: typeof node.y === "number" ? node.y : 90 + Math.floor(index / 3) * 120,
+  };
+}
+
+function nodeColor(type: NodeType) {
+  return ({
+    start: "#10b981",
+    approval: "#2563eb",
+    condition: "#f59e0b",
+    cc: "#8b5cf6",
+    end: "#64748b",
+  } satisfies Record<NodeType, string>)[type];
+}
+
 const panelStyle: React.CSSProperties = { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 16 };
 const toolbarStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 };
 const inputStyle: React.CSSProperties = { width: "100%", minHeight: 36, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-muted)", color: "var(--text-primary)", padding: "0 10px", fontSize: 13 };
@@ -288,6 +399,10 @@ const nodeButtonStyle: React.CSSProperties = { display: "flex", flexDirection: "
 const edgeButtonStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 24px 1fr auto", alignItems: "center", gap: 8, minHeight: 46, padding: "8px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-muted)", color: "var(--text-primary)", cursor: "pointer" };
 const arrowStyle: React.CSSProperties = { color: "var(--color-primary)", fontWeight: 900, textAlign: "center" };
 const conditionPillStyle: React.CSSProperties = { fontSize: 11, color: "var(--color-primary)", border: "1px solid var(--border)", borderRadius: 999, padding: "2px 8px" };
+const canvasStyle: React.CSSProperties = { position: "relative", height: 360, marginBottom: 14, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "linear-gradient(90deg, rgba(148,163,184,0.10) 1px, transparent 1px), linear-gradient(rgba(148,163,184,0.10) 1px, transparent 1px)", backgroundSize: "24px 24px", overflow: "hidden" };
+const svgStyle: React.CSSProperties = { position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "auto" };
+const canvasNodeStyle: React.CSSProperties = { position: "absolute", width: nodeWidth, height: nodeHeight, display: "flex", flexDirection: "column", justifyContent: "center", gap: 3, padding: "8px 10px", border: "2px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)", textAlign: "left", cursor: "grab", userSelect: "none", zIndex: 2 };
+const nodeTypePillStyle: React.CSSProperties = { alignSelf: "flex-start", color: "#fff", borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800, textTransform: "uppercase" };
 const successStyle: React.CSSProperties = { marginBottom: 12, color: "var(--status-success)", fontWeight: 700 };
 const labelStyle: React.CSSProperties = { display: "block", marginBottom: 6, color: "var(--text-secondary)", fontSize: 12, fontWeight: 700 };
 const dividerStyle: React.CSSProperties = { border: 0, borderTop: "1px solid var(--border)", margin: "16px 0" };
