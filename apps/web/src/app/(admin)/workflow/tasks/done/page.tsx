@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
+import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowTask } from "@/lib/workflow-api";
 
 export default function WorkflowDonePage() {
@@ -14,17 +15,19 @@ export default function WorkflowDonePage() {
     <div>
       <PageHeader title="我的已办" subtitle="查看已经处理过的审批记录和处理结果" breadcrumb={["工作流", "我的已办"]} />
 
-      <section style={panelStyle}>
-        <div style={sectionHeaderStyle}>
-          <div>
-            <h3 style={titleStyle}>已处理任务</h3>
-            <p style={hintStyle}>共 {rows.length} 条记录</p>
+      <section className={s.card}>
+        <div className={s.cardBody}>
+          <div style={sectionHeaderStyle}>
+            <div>
+              <h3 className={s.cardTitle}>已处理任务</h3>
+              <p className={s.modalDesc} style={{ margin: "4px 0 0" }}>共 {rows.length} 条记录</p>
+            </div>
+            <Link href="/workflow/tasks/todo" className={s.btnSecondary}>回到待办</Link>
           </div>
-          <Link href="/workflow/tasks/todo" style={linkStyle}>回到待办</Link>
         </div>
 
         {rows.length ? (
-          <table style={tableStyle}>
+          <table className={s.table}>
             <thead>
               <tr><th>流程</th><th>节点</th><th>发起人</th><th>处理结果</th><th>处理时间</th><th>操作</th></tr>
             </thead>
@@ -36,14 +39,16 @@ export default function WorkflowDonePage() {
                 </td>
                 <td>{row.node_name}</td>
                 <td>{row.starter_name || "-"}</td>
-                <td><span style={resultStyle(row.action_result)}>{resultText(row.action_result)}</span></td>
+                <td><span className={resultBadgeClass(row.action_result)}>{resultText(row.action_result)}</span></td>
                 <td>{formatDate(row.completed_at || row.created_at)}</td>
                 <td><Link href={`/workflow/instances/${row.instance_id}`}>查看详情</Link></td>
               </tr>
             ))}</tbody>
           </table>
         ) : (
-          <div style={emptyStyle}>还没有已处理的审批任务。</div>
+          <div className={s.emptyState}>
+            <div className={s.emptyStateText}>还没有已处理的审批任务。</div>
+          </div>
         )}
       </section>
     </div>
@@ -62,24 +67,11 @@ function formatDate(value?: string) {
   return String(value).replace("T", " ").slice(0, 16);
 }
 
-function resultStyle(result?: string): React.CSSProperties {
-  const positive = result === "APPROVE";
-  const negative = result === "REJECT" || result === "CANCEL" || result === "CANCELED";
-  return {
-    border:"1px solid var(--border)",
-    borderRadius:999,
-    padding:"4px 10px",
-    color: negative ? "var(--status-danger)" : positive ? "var(--color-primary)" : "var(--text-secondary)",
-    fontSize:12,
-    fontWeight:700,
-  };
+function resultBadgeClass(result?: string) {
+  if (result === "APPROVE") return `${s.badge} ${s.badgeSuccess}`;
+  if (result === "REJECT" || result === "CANCEL" || result === "CANCELED") return `${s.badge} ${s.badgeDanger}`;
+  return `${s.badge} ${s.badgeNeutral}`;
 }
 
-const panelStyle: React.CSSProperties = { background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:16 };
 const sectionHeaderStyle: React.CSSProperties = { display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginBottom:14 };
-const titleStyle: React.CSSProperties = { margin:"0 0 4px", fontSize:16 };
-const hintStyle: React.CSSProperties = { margin:0, color:"var(--text-secondary)", fontSize:13, lineHeight:1.6 };
-const linkStyle: React.CSSProperties = { color:"var(--color-primary)", fontWeight:700, fontSize:13 };
-const tableStyle: React.CSSProperties = { width:"100%", borderCollapse:"collapse" };
 const subTextStyle: React.CSSProperties = { marginTop:4, color:"var(--text-secondary)", fontSize:12 };
-const emptyStyle: React.CSSProperties = { border:"1px dashed var(--border)", borderRadius:"var(--radius-md)", padding:14, color:"var(--text-secondary)", fontSize:13 };

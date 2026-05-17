@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
+import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowForm } from "@/lib/workflow-api";
 
 type NodeType = "start" | "approval" | "condition" | "cc" | "end";
@@ -173,13 +174,13 @@ export default function WorkflowDesignerPage() {
     <div>
       <PageHeader title="流程设计器" subtitle={String(data?.name || "")} breadcrumb={["工作流", "流程设计器"]} />
       <div style={{ display: "grid", gridTemplateColumns: "260px minmax(420px, 1fr) 360px", gap: 12, alignItems: "start" }}>
-        <section style={panelStyle}>
+        <section className={s.card} style={panelStyle}>
           <div style={toolbarStyle}>
-            <strong>节点</strong>
-            <button style={smallButtonStyle} onClick={() => addNode()}>新增</button>
+            <strong className={s.cardTitle}>节点</strong>
+            <button className={`${s.btnPrimary} ${s.btnSm}`} onClick={() => addNode()}>新增</button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 }}>
-            {nodeTypes.map(type => <button key={type} style={ghostButtonStyle} onClick={() => addNode(type)}>{type}</button>)}
+            {nodeTypes.map(type => <button key={type} className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addNode(type)}>{type}</button>)}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {nodes.map((node, index) => (
@@ -195,15 +196,15 @@ export default function WorkflowDesignerPage() {
           </div>
         </section>
 
-        <section style={panelStyle}>
+        <section className={s.card} style={panelStyle}>
           <div style={toolbarStyle}>
-            <strong>流程结构</strong>
+            <strong className={s.cardTitle}>流程结构</strong>
             <div style={{ display: "flex", gap: 8 }}>
-              <button style={ghostButtonStyle} onClick={openJson}>JSON</button>
-              <button style={buttonStyle} onClick={publish}>发布流程版本</button>
+              <button className={s.btnSecondary} onClick={openJson}>JSON</button>
+              <button className={s.btnPrimary} onClick={publish}>发布流程版本</button>
             </div>
           </div>
-          {msg ? <div style={successStyle}>{msg}</div> : null}
+          {msg ? <div className={s.successBanner}>{msg}</div> : null}
           <div ref={canvasRef} style={canvasStyle}>
             <svg style={svgStyle}>
               <defs>
@@ -278,13 +279,13 @@ export default function WorkflowDesignerPage() {
               </button>
             ))}
           </div>
-          <button style={{ ...ghostButtonStyle, marginTop: 12 }} onClick={addEdge}>新增连线</button>
+          <button className={s.btnSecondary} style={{ marginTop: 12 }} onClick={addEdge}>新增连线</button>
         </section>
 
-        <section style={panelStyle}>
-          <strong style={{ display: "block", marginBottom: 12 }}>属性</strong>
-          <label style={labelStyle}>绑定业务表单</label>
-          <select style={inputStyle} value={formVersionId} onChange={e => setFormVersionId(e.target.value)}>
+        <section className={s.card} style={panelStyle}>
+          <strong className={s.cardTitle} style={{ display: "block", marginBottom: 12 }}>属性</strong>
+          <label className={s.lbl}>绑定业务表单</label>
+          <select className={s.inp} value={formVersionId} onChange={e => setFormVersionId(e.target.value)}>
             <option value="">不绑定表单</option>
             {publishableForms.map(form => (
               <option key={form.id} value={String(form.current_version_id)}>
@@ -299,22 +300,22 @@ export default function WorkflowDesignerPage() {
               <Link href={`/workflow/form-designer/${selectedForm.id}`}>查看/调整表单</Link>
             </div>
           ) : (
-            <div style={warnStyle}>未绑定表单时，用户发起申请只能填写通用说明。建议选择一个已发布表单。</div>
+            <div className={s.warnBanner} style={{ marginTop: 10 }}>未绑定表单时，用户发起申请只能填写通用说明。建议选择一个已发布表单。</div>
           )}
 
           <hr style={dividerStyle} />
-          <strong style={{ display: "block", marginBottom: 10 }}>节点属性</strong>
+          <strong className={s.cardTitle} style={{ display: "block", marginBottom: 10 }}>节点属性</strong>
           {currentNode ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <input style={inputStyle} value={currentNode.id} onChange={e => patchNode(selectedNode, { id: e.target.value })} placeholder="节点 ID" />
-              <input style={inputStyle} value={currentNode.name} onChange={e => patchNode(selectedNode, { name: e.target.value })} placeholder="节点名称" />
-              <select style={inputStyle} value={currentNode.type} onChange={e => patchNode(selectedNode, { type: e.target.value as NodeType })}>
+              <input className={s.inp} value={currentNode.id} onChange={e => patchNode(selectedNode, { id: e.target.value })} placeholder="节点 ID" />
+              <input className={s.inp} value={currentNode.name} onChange={e => patchNode(selectedNode, { name: e.target.value })} placeholder="节点名称" />
+              <select className={s.inp} value={currentNode.type} onChange={e => patchNode(selectedNode, { type: e.target.value as NodeType })}>
                 {nodeTypes.map(type => <option key={type} value={type}>{type}</option>)}
               </select>
               {currentNode.type === "approval" || currentNode.type === "cc" ? (
                 <>
                   <select
-                    style={inputStyle}
+                    className={s.inp}
                     value={currentNode.config?.assigneeType || "ROLE"}
                     onChange={e => patchNodeConfig(selectedNode, { assigneeType: e.target.value as "ROLE" | "USER" | "STARTER" })}
                   >
@@ -323,47 +324,47 @@ export default function WorkflowDesignerPage() {
                     <option value="STARTER">发起人</option>
                   </select>
                   <input
-                    style={inputStyle}
+                    className={s.inp}
                     value={(currentNode.config?.roles || []).join(",")}
                     onChange={e => patchNodeConfig(selectedNode, { roles: e.target.value.split(",").map(v => v.trim()).filter(Boolean) })}
                     placeholder="角色，逗号分隔，如 ROLE_FIN_ACCT"
                   />
                   <input
-                    style={inputStyle}
+                    className={s.inp}
                     value={(currentNode.config?.users || []).join(",")}
                     onChange={e => patchNodeConfig(selectedNode, { users: e.target.value.split(",").map(v => Number(v.trim())).filter(Boolean) })}
                     placeholder="用户 ID，逗号分隔"
                   />
                   <input
-                    style={inputStyle}
+                    className={s.inp}
                     value={currentNode.config?.timeoutHours ?? ""}
                     onChange={e => patchNodeConfig(selectedNode, { timeoutHours: e.target.value ? Number(e.target.value) : undefined })}
                     placeholder="超时小时数"
                   />
                 </>
               ) : null}
-              <button style={dangerButtonStyle} onClick={() => removeNode(selectedNode)}>删除节点</button>
+              <button className={s.btnDanger} onClick={() => removeNode(selectedNode)}>删除节点</button>
             </div>
           ) : null}
 
           <hr style={dividerStyle} />
-          <strong style={{ display: "block", marginBottom: 10 }}>连线属性</strong>
+          <strong className={s.cardTitle} style={{ display: "block", marginBottom: 10 }}>连线属性</strong>
           {currentEdge ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <select style={inputStyle} value={currentEdge.from} onChange={e => patchEdge(selectedEdge, { from: e.target.value })}>
+              <select className={s.inp} value={currentEdge.from} onChange={e => patchEdge(selectedEdge, { from: e.target.value })}>
                 {nodes.map(node => <option key={node.id} value={node.id}>{node.name}</option>)}
               </select>
-              <select style={inputStyle} value={currentEdge.to} onChange={e => patchEdge(selectedEdge, { to: e.target.value })}>
+              <select className={s.inp} value={currentEdge.to} onChange={e => patchEdge(selectedEdge, { to: e.target.value })}>
                 {nodes.map(node => <option key={node.id} value={node.id}>{node.name}</option>)}
               </select>
-              <input style={inputStyle} value={currentEdge.label || ""} onChange={e => patchEdge(selectedEdge, { label: e.target.value })} placeholder="连线标签" />
-              <input style={inputStyle} value={currentEdge.condition?.field || ""} onChange={e => patchEdge(selectedEdge, { condition: { ...(currentEdge.condition || { operator: "==", value: "" }), field: e.target.value } })} placeholder="条件字段，如 amount" />
-              <select style={inputStyle} value={currentEdge.condition?.operator || "=="} onChange={e => patchEdge(selectedEdge, { condition: { ...(currentEdge.condition || { field: "", value: "" }), operator: e.target.value as NonNullable<WorkflowEdge["condition"]>["operator"] } })}>
+              <input className={s.inp} value={currentEdge.label || ""} onChange={e => patchEdge(selectedEdge, { label: e.target.value })} placeholder="连线标签" />
+              <input className={s.inp} value={currentEdge.condition?.field || ""} onChange={e => patchEdge(selectedEdge, { condition: { ...(currentEdge.condition || { operator: "==", value: "" }), field: e.target.value } })} placeholder="条件字段，如 amount" />
+              <select className={s.inp} value={currentEdge.condition?.operator || "=="} onChange={e => patchEdge(selectedEdge, { condition: { ...(currentEdge.condition || { field: "", value: "" }), operator: e.target.value as NonNullable<WorkflowEdge["condition"]>["operator"] } })}>
                 {operators.map(op => <option key={op} value={op}>{op}</option>)}
               </select>
-              <input style={inputStyle} value={String(currentEdge.condition?.value ?? "")} onChange={e => patchEdge(selectedEdge, { condition: { ...(currentEdge.condition || { field: "", operator: "==" }), value: e.target.value } })} placeholder="条件值；空表示无条件" />
-              <button style={ghostButtonStyle} onClick={() => patchEdge(selectedEdge, { condition: undefined })}>清除条件</button>
-              <button style={dangerButtonStyle} onClick={() => removeEdge(selectedEdge)}>删除连线</button>
+              <input className={s.inp} value={String(currentEdge.condition?.value ?? "")} onChange={e => patchEdge(selectedEdge, { condition: { ...(currentEdge.condition || { field: "", operator: "==" }), value: e.target.value } })} placeholder="条件值；空表示无条件" />
+              <button className={s.btnSecondary} onClick={() => patchEdge(selectedEdge, { condition: undefined })}>清除条件</button>
+              <button className={s.btnDanger} onClick={() => removeEdge(selectedEdge)}>删除连线</button>
             </div>
           ) : null}
         </section>
@@ -371,13 +372,13 @@ export default function WorkflowDesignerPage() {
 
       {jsonOpen ? (
         <div style={modalMaskStyle}>
-          <div style={modalStyle}>
+          <div className={s.card} style={modalStyle}>
             <div style={toolbarStyle}>
-              <strong>高级 JSON 编辑</strong>
-              <button style={ghostButtonStyle} onClick={() => setJsonOpen(false)}>关闭</button>
+              <strong className={s.cardTitle}>高级 JSON 编辑</strong>
+              <button className={s.btnSecondary} onClick={() => setJsonOpen(false)}>关闭</button>
             </div>
-            <textarea value={jsonDraft} onChange={e => setJsonDraft(e.target.value)} style={textareaStyle} spellCheck={false} />
-            <button style={buttonStyle} onClick={applyJson}>应用 JSON</button>
+            <textarea value={jsonDraft} onChange={e => setJsonDraft(e.target.value)} className={s.textarea} style={textareaStyle} spellCheck={false} />
+            <button className={s.btnPrimary} onClick={applyJson}>应用 JSON</button>
           </div>
         </div>
       ) : null}
@@ -425,13 +426,8 @@ function nodeColor(type: NodeType) {
   } satisfies Record<NodeType, string>)[type];
 }
 
-const panelStyle: React.CSSProperties = { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 16 };
+const panelStyle: React.CSSProperties = { padding: 16 };
 const toolbarStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 };
-const inputStyle: React.CSSProperties = { width: "100%", minHeight: 36, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-muted)", color: "var(--text-primary)", padding: "0 10px", fontSize: 13 };
-const buttonStyle: React.CSSProperties = { height: 34, padding: "0 14px", border: 0, borderRadius: "var(--radius-md)", background: "var(--color-primary)", color: "#fff", fontWeight: 700, cursor: "pointer" };
-const smallButtonStyle: React.CSSProperties = { ...buttonStyle, height: 28, fontSize: 12 };
-const ghostButtonStyle: React.CSSProperties = { minHeight: 30, padding: "0 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "transparent", color: "var(--text-primary)", cursor: "pointer" };
-const dangerButtonStyle: React.CSSProperties = { ...ghostButtonStyle, color: "var(--status-danger)" };
 const nodeButtonStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 2, padding: "9px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-muted)", color: "var(--text-primary)", textAlign: "left", cursor: "pointer" };
 const edgeButtonStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 24px 1fr auto", alignItems: "center", gap: 8, minHeight: 46, padding: "8px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-muted)", color: "var(--text-primary)", cursor: "pointer" };
 const arrowStyle: React.CSSProperties = { color: "var(--color-primary)", fontWeight: 900, textAlign: "center" };
@@ -440,11 +436,8 @@ const canvasStyle: React.CSSProperties = { position: "relative", height: 360, ma
 const svgStyle: React.CSSProperties = { position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "auto" };
 const canvasNodeStyle: React.CSSProperties = { position: "absolute", width: nodeWidth, height: nodeHeight, display: "flex", flexDirection: "column", justifyContent: "center", gap: 3, padding: "8px 10px", border: "2px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)", textAlign: "left", cursor: "grab", userSelect: "none", zIndex: 2 };
 const nodeTypePillStyle: React.CSSProperties = { alignSelf: "flex-start", color: "#fff", borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800, textTransform: "uppercase" };
-const successStyle: React.CSSProperties = { marginBottom: 12, color: "var(--status-success)", fontWeight: 700 };
 const formHintStyle: React.CSSProperties = { marginTop: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 10, display: "grid", gap: 6, color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.6 };
-const warnStyle: React.CSSProperties = { marginTop: 10, border: "1px solid rgba(245,158,11,0.35)", background: "rgba(245,158,11,0.08)", borderRadius: "var(--radius-md)", padding: 10, color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.6 };
-const labelStyle: React.CSSProperties = { display: "block", marginBottom: 6, color: "var(--text-secondary)", fontSize: 12, fontWeight: 700 };
 const dividerStyle: React.CSSProperties = { border: 0, borderTop: "1px solid var(--border)", margin: "16px 0" };
 const modalMaskStyle: React.CSSProperties = { position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 };
-const modalStyle: React.CSSProperties = { width: "min(900px, 92vw)", maxHeight: "88vh", overflow: "auto", background: "var(--bg-card)", borderRadius: "var(--radius-md)", padding: 16, border: "1px solid var(--border)" };
-const textareaStyle: React.CSSProperties = { width: "100%", minHeight: 440, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-muted)", color: "var(--text-primary)", padding: 12, fontFamily: "monospace", fontSize: 13, marginBottom: 12 };
+const modalStyle: React.CSSProperties = { width: "min(900px, 92vw)", maxHeight: "88vh", overflow: "auto", padding: 16 };
+const textareaStyle: React.CSSProperties = { minHeight: 440, fontFamily: "monospace", marginBottom: 12 };

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
+import s from "@/components/ui/admin-ui.module.css";
 import { FormRenderer } from "@/components/workflow/FormRenderer";
 import { workflowApi } from "@/lib/workflow-api";
 
@@ -100,14 +101,14 @@ export default function WorkflowFormDesignerPage() {
     <div>
       <PageHeader title="表单设计器" subtitle={String(data?.name || "")} breadcrumb={["工作流", "表单设计器"]} />
       <div style={{ display: "grid", gridTemplateColumns: "260px minmax(420px, 1fr) 340px", gap: 12, alignItems: "start" }}>
-        <section style={panelStyle}>
+        <section className={s.card} style={panelStyle}>
           <div style={toolbarStyle}>
-            <strong>控件</strong>
-            <button style={smallButtonStyle} onClick={() => addField()}>新增</button>
+            <strong className={s.cardTitle}>控件</strong>
+            <button className={`${s.btnPrimary} ${s.btnSm}`} onClick={() => addField()}>新增</button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 }}>
             {fieldTypes.map(type => (
-              <button key={type} style={ghostButtonStyle} onClick={() => addField(type)}>{type}</button>
+              <button key={type} className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addField(type)}>{type}</button>
             ))}
           </div>
           <strong style={{ display: "block", marginBottom: 8 }}>字段顺序</strong>
@@ -125,31 +126,32 @@ export default function WorkflowFormDesignerPage() {
           </div>
         </section>
 
-        <section style={panelStyle}>
+        <section className={s.card} style={panelStyle}>
           <div style={toolbarStyle}>
-            <strong>运行时预览</strong>
+            <strong className={s.cardTitle}>运行时预览</strong>
             <div style={{ display: "flex", gap: 8 }}>
-              <button style={ghostButtonStyle} onClick={openJson}>JSON</button>
-              <button style={buttonStyle} onClick={publish}>发布表单版本</button>
+              <button className={s.btnSecondary} onClick={openJson}>JSON</button>
+              <button className={s.btnPrimary} onClick={publish}>发布表单版本</button>
             </div>
           </div>
-          {msg ? <div style={successStyle}>{msg}</div> : null}
+          {msg ? <div className={s.successBanner}>{msg}</div> : null}
           <FormRenderer schema={schema} value={preview} onChange={setPreview} />
         </section>
 
-        <section style={panelStyle}>
-          <strong style={{ display: "block", marginBottom: 12 }}>字段属性</strong>
+        <section className={s.card} style={panelStyle}>
+          <strong className={s.cardTitle} style={{ display: "block", marginBottom: 12 }}>字段属性</strong>
           {current ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <input style={inputStyle} value={current.key} onChange={e => patchField(selected, { key: e.target.value })} placeholder="字段 key" />
-              <input style={inputStyle} value={current.label} onChange={e => patchField(selected, { label: e.target.value })} placeholder="字段名称" />
-              <select style={inputStyle} value={current.type} onChange={e => patchField(selected, { type: e.target.value as FieldType })}>
+              <input className={s.inp} value={current.key} onChange={e => patchField(selected, { key: e.target.value })} placeholder="字段 key" />
+              <input className={s.inp} value={current.label} onChange={e => patchField(selected, { label: e.target.value })} placeholder="字段名称" />
+              <select className={s.inp} value={current.type} onChange={e => patchField(selected, { type: e.target.value as FieldType })}>
                 {fieldTypes.map(type => <option key={type} value={type}>{type}</option>)}
               </select>
-              <input style={inputStyle} value={current.placeholder || ""} onChange={e => patchField(selected, { placeholder: e.target.value })} placeholder="占位提示" />
-              <input style={inputStyle} value={current.dataSource || ""} onChange={e => patchField(selected, { dataSource: e.target.value })} placeholder="数据源编码，如 MST_STORES" />
+              <input className={s.inp} value={current.placeholder || ""} onChange={e => patchField(selected, { placeholder: e.target.value })} placeholder="占位提示" />
+              <input className={s.inp} value={current.dataSource || ""} onChange={e => patchField(selected, { dataSource: e.target.value })} placeholder="数据源编码，如 MST_STORES" />
               <textarea
-                style={{ ...inputStyle, minHeight: 90, paddingTop: 8 }}
+                className={s.textarea}
+                style={{ minHeight: 90 }}
                 value={(current.options || []).map(opt => `${opt.label}:${opt.value}`).join("\n")}
                 onChange={e => patchField(selected, {
                   options: e.target.value.split("\n").map(line => line.trim()).filter(Boolean).map(line => {
@@ -162,9 +164,9 @@ export default function WorkflowFormDesignerPage() {
               <label style={checkStyle}><input type="checkbox" checked={Boolean(current.required)} onChange={e => patchField(selected, { required: e.target.checked })} /> 必填</label>
               <label style={checkStyle}><input type="checkbox" checked={current.span === 2} onChange={e => patchField(selected, { span: e.target.checked ? 2 : 1 })} /> 跨两列</label>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                <button style={ghostButtonStyle} onClick={() => moveField(selected, -1)}>上移</button>
-                <button style={ghostButtonStyle} onClick={() => moveField(selected, 1)}>下移</button>
-                <button style={dangerButtonStyle} onClick={() => removeField(selected)}>删除</button>
+                <button className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveField(selected, -1)}>上移</button>
+                <button className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveField(selected, 1)}>下移</button>
+                <button className={`${s.btnDanger} ${s.btnSm}`} onClick={() => removeField(selected)}>删除</button>
               </div>
             </div>
           ) : <div style={{ color: "var(--text-secondary)" }}>暂无字段</div>}
@@ -173,13 +175,13 @@ export default function WorkflowFormDesignerPage() {
 
       {jsonOpen ? (
         <div style={modalMaskStyle}>
-          <div style={modalStyle}>
+          <div className={s.card} style={modalStyle}>
             <div style={toolbarStyle}>
-              <strong>高级 JSON 编辑</strong>
-              <button style={ghostButtonStyle} onClick={() => setJsonOpen(false)}>关闭</button>
+              <strong className={s.cardTitle}>高级 JSON 编辑</strong>
+              <button className={s.btnSecondary} onClick={() => setJsonOpen(false)}>关闭</button>
             </div>
-            <textarea value={jsonDraft} onChange={e => setJsonDraft(e.target.value)} style={textareaStyle} spellCheck={false} />
-            <button style={buttonStyle} onClick={applyJson}>应用 JSON</button>
+            <textarea value={jsonDraft} onChange={e => setJsonDraft(e.target.value)} className={s.textarea} style={textareaStyle} spellCheck={false} />
+            <button className={s.btnPrimary} onClick={applyJson}>应用 JSON</button>
           </div>
         </div>
       ) : null}
@@ -187,16 +189,10 @@ export default function WorkflowFormDesignerPage() {
   );
 }
 
-const panelStyle: React.CSSProperties = { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 16 };
+const panelStyle: React.CSSProperties = { padding: 16 };
 const toolbarStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 };
-const inputStyle: React.CSSProperties = { minHeight: 38, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-muted)", color: "var(--text-primary)", padding: "0 10px", fontSize: 13 };
-const buttonStyle: React.CSSProperties = { height: 34, padding: "0 14px", border: 0, borderRadius: "var(--radius-md)", background: "var(--color-primary)", color: "#fff", fontWeight: 700, cursor: "pointer" };
-const smallButtonStyle: React.CSSProperties = { ...buttonStyle, height: 28, fontSize: 12 };
-const ghostButtonStyle: React.CSSProperties = { minHeight: 30, padding: "0 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "transparent", color: "var(--text-primary)", cursor: "pointer" };
-const dangerButtonStyle: React.CSSProperties = { ...ghostButtonStyle, color: "var(--status-danger)" };
 const fieldButtonStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 8, padding: "9px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-muted)", color: "var(--text-primary)", textAlign: "left", cursor: "pointer" };
-const successStyle: React.CSSProperties = { marginBottom: 12, color: "var(--status-success)", fontWeight: 700 };
 const checkStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, fontSize: 13 };
 const modalMaskStyle: React.CSSProperties = { position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 };
-const modalStyle: React.CSSProperties = { width: "min(900px, 92vw)", maxHeight: "88vh", overflow: "auto", background: "var(--bg-card)", borderRadius: "var(--radius-md)", padding: 16, border: "1px solid var(--border)" };
-const textareaStyle: React.CSSProperties = { width: "100%", minHeight: 440, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-muted)", color: "var(--text-primary)", padding: 12, fontFamily: "monospace", fontSize: 13, marginBottom: 12 };
+const modalStyle: React.CSSProperties = { width: "min(900px, 92vw)", maxHeight: "88vh", overflow: "auto", padding: 16 };
+const textareaStyle: React.CSSProperties = { minHeight: 440, fontFamily: "monospace", marginBottom: 12 };

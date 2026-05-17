@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { WorkflowTimeline } from "@/components/workflow/WorkflowTimeline";
+import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowInstance } from "@/lib/workflow-api";
 
 export default function WorkflowInstanceDetailPage() {
@@ -38,57 +39,59 @@ export default function WorkflowInstanceDetailPage() {
       <PageHeader title="流程详情" subtitle={data?.title || ""} breadcrumb={["工作流", "流程详情"]} />
       {data ? (
         <div style={layoutStyle}>
-          <section style={panelStyle}>
-            <div style={headerStyle}>
-              <div>
-                <h3 style={titleStyle}>{data.title}</h3>
-                <p style={hintStyle}>{data.instance_no} · {data.starter_name || "发起人"}</p>
-              </div>
-              <span style={statusStyle(data.status)}>{statusText(data.status)}</span>
-            </div>
-
-            <div style={actionBarStyle}>
-              <Link href="/workflow/start" style={secondaryButtonStyle}>继续发起</Link>
-              <Link href="/workflow/tasks/todo" style={secondaryButtonStyle}>我的待办</Link>
-              {data.status === "RUNNING" ? (
-                <button style={dangerButtonStyle} disabled={canceling} onClick={cancel}>
-                  {canceling ? "取消中..." : "取消流程"}
-                </button>
-              ) : null}
-            </div>
-            {error ? <div style={errorStyle}>{error}</div> : null}
-
-            {runningTasks.length ? (
-              <div style={currentBoxStyle}>
-                <strong>当前待处理节点</strong>
-                <div style={currentListStyle}>
-                  {runningTasks.map((task, idx) => (
-                    <span key={idx}>{String(task.node_name)}{task.assignee_role_code ? ` · ${String(task.assignee_role_code)}` : ""}</span>
-                  ))}
+          <section className={s.card}>
+            <div className={s.cardBody}>
+              <div style={headerStyle}>
+                <div>
+                  <h3 className={s.cardTitle}>{data.title}</h3>
+                  <p className={s.modalDesc} style={{ margin: "4px 0 0" }}>{data.instance_no} · {data.starter_name || "发起人"}</p>
                 </div>
+                <span className={statusBadgeClass(data.status)}>{statusText(data.status)}</span>
               </div>
-            ) : null}
 
-            <h4 style={blockTitleStyle}>申请内容</h4>
-            <DataView data={data.form_data_json || {}} />
+              <div style={actionBarStyle}>
+                <Link href="/workflow/start" className={s.btnSecondary}>继续发起</Link>
+                <Link href="/workflow/tasks/todo" className={s.btnSecondary}>我的待办</Link>
+                {data.status === "RUNNING" ? (
+                  <button className={s.btnDanger} disabled={canceling} onClick={cancel}>
+                    {canceling ? "取消中..." : "取消流程"}
+                  </button>
+                ) : null}
+              </div>
+              {error ? <div className={s.errorBanner}>{error}</div> : null}
 
-            <h4 style={blockTitleStyle}>审批任务</h4>
-            <table style={tableStyle}>
-              <thead><tr><th>节点</th><th>状态</th><th>结果</th><th>处理时间</th></tr></thead>
-              <tbody>{tasks.map((task, idx) => (
-                <tr key={idx}>
-                  <td>{String(task.node_name || "-")}</td>
-                  <td>{taskStatusText(String(task.status || ""))}</td>
-                  <td>{resultText(String(task.action_result || ""))}</td>
-                  <td>{formatDate(String(task.completed_at || "")) || "-"}</td>
-                </tr>
-              ))}</tbody>
-            </table>
+              {runningTasks.length ? (
+                <div className={s.warnBanner}>
+                  <strong>当前待处理节点</strong>
+                  <span>
+                    {runningTasks.map(task => `${String(task.node_name)}${task.assignee_role_code ? ` · ${String(task.assignee_role_code)}` : ""}`).join("、")}
+                  </span>
+                </div>
+              ) : null}
+
+              <h4 className={s.formSection}>申请内容</h4>
+              <DataView data={data.form_data_json || {}} />
+
+              <h4 className={s.formSection}>审批任务</h4>
+              <table className={s.table}>
+                <thead><tr><th>节点</th><th>状态</th><th>结果</th><th>处理时间</th></tr></thead>
+                <tbody>{tasks.map((task, idx) => (
+                  <tr key={idx}>
+                    <td>{String(task.node_name || "-")}</td>
+                    <td><span className={taskBadgeClass(String(task.status || ""))}>{taskStatusText(String(task.status || ""))}</span></td>
+                    <td>{resultText(String(task.action_result || ""))}</td>
+                    <td>{formatDate(String(task.completed_at || "")) || "-"}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
           </section>
 
-          <section style={panelStyle}>
-            <h3 style={sideTitleStyle}>流程轨迹</h3>
-            <WorkflowTimeline actions={data.actions as Record<string, unknown>[] || []} />
+          <section className={s.card}>
+            <div className={s.cardBody}>
+              <h3 className={s.cardTitle} style={{ marginBottom: 12 }}>流程轨迹</h3>
+              <WorkflowTimeline actions={data.actions as Record<string, unknown>[] || []} />
+            </div>
           </section>
         </div>
       ) : null}
@@ -98,13 +101,13 @@ export default function WorkflowInstanceDetailPage() {
 
 function DataView({ data }: { data: Record<string, unknown> }) {
   const entries = Object.entries(data).filter(([, value]) => value !== undefined && value !== null && value !== "");
-  if (!entries.length) return <div style={emptyStyle}>暂无表单数据。</div>;
+  if (!entries.length) return <div className={s.emptyState}><div className={s.emptyStateText}>暂无表单数据。</div></div>;
   return (
-    <div style={dataGridStyle}>
+    <div className={s.infoGrid}>
       {entries.map(([key, value]) => (
-        <div key={key} style={dataItemStyle}>
-          <span>{fieldLabel(key)}</span>
-          <strong>{formatValue(value)}</strong>
+        <div key={key} className={s.infoItem}>
+          <div className={s.infoKey}>{fieldLabel(key)}</div>
+          <div className={s.infoVal}>{formatValue(value)}</div>
         </div>
       ))}
     </div>
@@ -174,32 +177,20 @@ function formatDate(value?: string) {
   return String(value).replace("T", " ").slice(0, 16);
 }
 
-function statusStyle(status: string): React.CSSProperties {
-  const danger = status === "REJECTED" || status === "CANCELED";
-  return {
-    border:"1px solid var(--border)",
-    borderRadius:999,
-    padding:"5px 12px",
-    color: danger ? "var(--status-danger)" : "var(--color-primary)",
-    fontSize:12,
-    fontWeight:700,
-  };
+function statusBadgeClass(status: string) {
+  if (status === "APPROVED") return `${s.badge} ${s.badgeSuccess}`;
+  if (status === "RUNNING") return `${s.badge} ${s.badgeInfo}`;
+  if (status === "REJECTED" || status === "CANCELED") return `${s.badge} ${s.badgeDanger}`;
+  return `${s.badge} ${s.badgeNeutral}`;
+}
+
+function taskBadgeClass(status: string) {
+  if (status === "DONE") return `${s.badge} ${s.badgeSuccess}`;
+  if (status === "TODO") return `${s.badge} ${s.badgeInfo}`;
+  if (status === "CANCELED") return `${s.badge} ${s.badgeDanger}`;
+  return `${s.badge} ${s.badgeNeutral}`;
 }
 
 const layoutStyle: React.CSSProperties = { display:"grid", gridTemplateColumns:"minmax(0, 1fr) 360px", gap:12, alignItems:"start" };
-const panelStyle: React.CSSProperties = { background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:16 };
 const headerStyle: React.CSSProperties = { display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, marginBottom:12 };
-const titleStyle: React.CSSProperties = { margin:"0 0 4px", fontSize:18 };
-const sideTitleStyle: React.CSSProperties = { margin:"0 0 12px", fontSize:16 };
-const hintStyle: React.CSSProperties = { margin:0, color:"var(--text-secondary)", fontSize:13, lineHeight:1.6 };
 const actionBarStyle: React.CSSProperties = { display:"flex", justifyContent:"flex-end", gap:10, marginBottom:12, flexWrap:"wrap" };
-const currentBoxStyle: React.CSSProperties = { border:"1px solid rgba(245,158,11,0.35)", background:"rgba(245,158,11,0.08)", borderRadius:"var(--radius-md)", padding:12, display:"grid", gap:8, marginBottom:14 };
-const currentListStyle: React.CSSProperties = { display:"flex", gap:8, flexWrap:"wrap", color:"var(--text-secondary)", fontSize:13 };
-const blockTitleStyle: React.CSSProperties = { margin:"18px 0 10px", fontSize:14 };
-const dataGridStyle: React.CSSProperties = { display:"grid", gridTemplateColumns:"repeat(2, minmax(0, 1fr))", gap:10 };
-const dataItemStyle: React.CSSProperties = { border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:10, display:"grid", gap:6, overflow:"hidden" };
-const tableStyle: React.CSSProperties = { width:"100%", borderCollapse:"collapse" };
-const emptyStyle: React.CSSProperties = { border:"1px dashed var(--border)", borderRadius:"var(--radius-md)", padding:14, color:"var(--text-secondary)", fontSize:13 };
-const errorStyle: React.CSSProperties = { color:"var(--color-danger)", fontSize:13, marginBottom:10 };
-const secondaryButtonStyle: React.CSSProperties = { height:34, padding:"0 14px", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-card)", color:"var(--text-primary)", fontWeight:700, display:"inline-flex", alignItems:"center" };
-const dangerButtonStyle: React.CSSProperties = { height:34, padding:"0 14px", border:0, borderRadius:"var(--radius-md)", background:"var(--status-danger)", color:"#fff", fontWeight:700, cursor:"pointer" };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi } from "@/lib/workflow-api";
 
 type Field = {
@@ -51,18 +52,16 @@ export function FormRenderer({
           disabled: readonly,
           value: String(value[field.key] ?? ""),
           onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => set(field.key, e.target.value),
-          style: inputStyle,
+          className: field.type === "textarea" ? s.textarea : s.inp,
         };
         const options = field.options || (field.dataSource ? sourceOptions[field.dataSource] : []) || [];
         return (
-          <label key={field.key} style={{ display: "flex", flexDirection: "column", gap: 5, gridColumn: field.type === "textarea" || field.span === 2 ? "1 / -1" : undefined }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)" }}>
-              {field.label}{field.required ? " *" : ""}
-            </span>
+          <label key={field.key} className={s.field} style={{ gridColumn: field.type === "textarea" || field.span === 2 ? "1 / -1" : undefined, marginBottom: 0 }}>
+            <span className={`${s.lbl} ${field.required ? s.required : ""}`}>{field.label}</span>
             {field.type === "textarea" ? (
               <textarea {...common} rows={4} placeholder={field.placeholder} />
             ) : field.type === "checkbox" ? (
-              <span style={{ ...inputStyle, display: "flex", alignItems: "center", gap: 8 }}>
+              <span className={s.inp} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <input
                   type="checkbox"
                   disabled={readonly}
@@ -77,7 +76,7 @@ export function FormRenderer({
                 {options.map(opt => <option key={String(opt.value)} value={opt.value}>{opt.label}</option>)}
               </select>
             ) : field.type === "readonly" ? (
-              <div style={{ ...inputStyle, display: "flex", alignItems: "center", color: "var(--text-secondary)" }}>{String(value[field.key] ?? "-")}</div>
+              <div className={s.inp} style={{ display: "flex", alignItems: "center", color: "var(--text-secondary)" }}>{String(value[field.key] ?? "-")}</div>
             ) : (
               <input
                 {...common}
@@ -91,13 +90,3 @@ export function FormRenderer({
     </div>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  minHeight: 38,
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius-md)",
-  background: "var(--bg-muted)",
-  color: "var(--text-primary)",
-  padding: "8px 10px",
-  fontSize: 13,
-};

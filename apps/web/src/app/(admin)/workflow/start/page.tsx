@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { FormRenderer } from "@/components/workflow/FormRenderer";
+import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowDefinition } from "@/lib/workflow-api";
 
 type RuntimeSchema = {
@@ -102,65 +103,71 @@ export default function WorkflowStartPage() {
       <PageHeader title="发起申请" subtitle="选择一个已启用流程，填写业务表单并提交审批" breadcrumb={["工作流", "发起申请"]} />
 
       <div style={layoutStyle}>
-        <section style={panelStyle}>
-          <div style={sectionHeaderStyle}>
-            <h3 style={titleStyle}>选择流程</h3>
-            <span style={countStyle}>{defs.length} 个可发起</span>
-          </div>
-          <div style={flowListStyle}>
-            {defs.map(def => (
-              <button
-                key={def.id}
-                type="button"
-                style={def.id === selectedId ? selectedFlowStyle : flowStyle}
-                onClick={() => chooseDefinition(def)}
-              >
-                <strong>{def.name}</strong>
-                <span>{categoryText(def.category)} · {def.description || "已配置审批流程"}</span>
-              </button>
-            ))}
-            {defs.length === 0 ? (
-              <div style={emptyStyle}>
-                暂无可发起流程。请先由管理员到 <Link href="/workflow/definitions">流程定义</Link> 发布流程。
-              </div>
-            ) : null}
+        <section className={s.card}>
+          <div className={s.cardBody}>
+            <div style={sectionHeaderStyle}>
+              <h3 className={s.cardTitle}>选择流程</h3>
+              <span className={`${s.badge} ${s.badgeNeutral}`}>{defs.length} 个可发起</span>
+            </div>
+            <div style={flowListStyle}>
+              {defs.map(def => (
+                <button
+                  key={def.id}
+                  type="button"
+                  style={def.id === selectedId ? selectedFlowStyle : flowStyle}
+                  onClick={() => chooseDefinition(def)}
+                >
+                  <strong>{def.name}</strong>
+                  <span>{categoryText(def.category)} · {def.description || "已配置审批流程"}</span>
+                </button>
+              ))}
+              {defs.length === 0 ? (
+                <div className={s.emptyState}>
+                  <div className={s.emptyStateText}>
+                    暂无可发起流程。请先由管理员到 <Link href="/workflow/definitions">流程定义</Link> 发布流程。
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
         </section>
 
-        <section style={panelStyle}>
-          <div style={sectionHeaderStyle}>
-            <div>
-              <h3 style={titleStyle}>{selected ? selected.name : "申请内容"}</h3>
-              <p style={hintStyle}>{selected ? selected.description || "填写信息后提交审批" : "先从左侧选择流程"}</p>
+        <section className={s.card}>
+          <div className={s.cardBody}>
+            <div style={sectionHeaderStyle}>
+              <div>
+                <h3 className={s.cardTitle}>{selected ? selected.name : "申请内容"}</h3>
+                <p className={s.modalDesc} style={{ margin: "4px 0 0" }}>{selected ? selected.description || "填写信息后提交审批" : "先从左侧选择流程"}</p>
+              </div>
+              <Link href="/workflow/instances" className={s.btnSecondary}>查看我发起的</Link>
             </div>
-            <Link href="/workflow/instances" style={linkStyle}>查看我发起的</Link>
-          </div>
 
-          <label style={labelStyle}>
-            申请标题
-            <input style={inputStyle} value={title} onChange={e=>setTitle(e.target.value)} placeholder="例如：5月门店物料采购申请" />
-          </label>
-
-          {loading ? (
-            <div style={emptyStyle}>正在加载表单...</div>
-          ) : schema ? (
-            <div style={{ marginBottom: 14 }}>
-              <FormRenderer schema={schema} value={formData} onChange={setFormData} />
-            </div>
-          ) : (
-            <label style={labelStyle}>
-              申请说明
-              <textarea style={textareaStyle} value={note} onChange={e=>setNote(e.target.value)} placeholder="这个流程暂未绑定专用表单，可先填写申请说明。" />
+            <label className={s.field}>
+              <span className={s.lbl}>申请标题</span>
+              <input className={s.inp} value={title} onChange={e=>setTitle(e.target.value)} placeholder="例如：5月门店物料采购申请" />
             </label>
-          )}
 
-          {error ? <div style={errorStyle}>{error}</div> : null}
+            {loading ? (
+              <div className={s.emptyState}><div className={s.emptyStateText}>正在加载表单...</div></div>
+            ) : schema ? (
+              <div style={{ marginBottom: 14 }}>
+                <FormRenderer schema={schema} value={formData} onChange={setFormData} />
+              </div>
+            ) : (
+              <label className={s.field}>
+                <span className={s.lbl}>申请说明</span>
+                <textarea className={s.textarea} value={note} onChange={e=>setNote(e.target.value)} placeholder="这个流程暂未绑定专用表单，可先填写申请说明。" />
+              </label>
+            )}
 
-          <div style={footerStyle}>
-            <Link href="/workflow/tasks/todo" style={secondaryButtonStyle}>我的待办</Link>
-            <button style={buttonStyle} disabled={!selectedId || submitting} onClick={submit}>
-              {submitting ? "提交中..." : "提交申请"}
-            </button>
+            {error ? <div className={s.errorBanner}>{error}</div> : null}
+
+            <div style={footerStyle}>
+              <Link href="/workflow/tasks/todo" className={s.btnSecondary}>我的待办</Link>
+              <button className={s.btnPrimary} disabled={!selectedId || submitting} onClick={submit}>
+                {submitting ? "提交中..." : "提交申请"}
+              </button>
+            </div>
           </div>
         </section>
       </div>
@@ -195,20 +202,8 @@ function categoryText(category?: string) {
 }
 
 const layoutStyle: React.CSSProperties = { display:"grid", gridTemplateColumns:"320px minmax(0, 1fr)", gap:12, alignItems:"start" };
-const panelStyle: React.CSSProperties = { background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:16 };
 const sectionHeaderStyle: React.CSSProperties = { display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginBottom:14 };
-const titleStyle: React.CSSProperties = { margin:"0 0 4px", fontSize:16 };
-const hintStyle: React.CSSProperties = { margin:0, color:"var(--text-secondary)", fontSize:13, lineHeight:1.6 };
-const countStyle: React.CSSProperties = { fontSize:12, color:"var(--text-secondary)", border:"1px solid var(--border)", borderRadius:999, padding:"3px 8px" };
 const flowListStyle: React.CSSProperties = { display:"grid", gap:8 };
 const flowStyle: React.CSSProperties = { textAlign:"left", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-card)", color:"var(--text-primary)", padding:12, cursor:"pointer", display:"grid", gap:6 };
 const selectedFlowStyle: React.CSSProperties = { ...flowStyle, borderColor:"var(--color-primary)", background:"var(--bg-muted)" };
-const labelStyle: React.CSSProperties = { display:"grid", gap:6, marginBottom:14, fontSize:13, color:"var(--text-secondary)" };
-const inputStyle: React.CSSProperties = { height:38, border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-muted)", color:"var(--text-primary)", padding:"0 10px" };
-const textareaStyle: React.CSSProperties = { ...inputStyle, minHeight:120, padding:10, resize:"vertical" };
-const emptyStyle: React.CSSProperties = { border:"1px dashed var(--border)", borderRadius:"var(--radius-md)", padding:16, color:"var(--text-secondary)", fontSize:13, lineHeight:1.7 };
-const errorStyle: React.CSSProperties = { color:"var(--color-danger)", fontSize:13, marginBottom:12 };
 const footerStyle: React.CSSProperties = { display:"flex", justifyContent:"flex-end", gap:10 };
-const buttonStyle: React.CSSProperties = { height:36, padding:"0 16px", border:0, borderRadius:"var(--radius-md)", background:"var(--color-primary)", color:"#fff", fontWeight:700, cursor:"pointer" };
-const secondaryButtonStyle: React.CSSProperties = { height:36, padding:"0 16px", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", color:"var(--text-primary)", display:"inline-flex", alignItems:"center", textDecoration:"none" };
-const linkStyle: React.CSSProperties = { color:"var(--color-primary)", fontSize:13 };

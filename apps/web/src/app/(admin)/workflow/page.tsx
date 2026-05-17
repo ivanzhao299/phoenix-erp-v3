@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
+import s from "@/components/ui/admin-ui.module.css";
 
 const userLinks = [
   ["发起申请", "/workflow/start", "选择流程，填写表单并提交审批"],
@@ -21,8 +22,9 @@ export default function WorkflowHomePage() {
     <div>
       <PageHeader title="工作流中心" subtitle="发起申请、处理待办，并由管理员维护流程和表单" breadcrumb={["工作流"]} />
 
-      <section style={panelStyle}>
-        <h3 style={titleStyle}>日常使用</h3>
+      <section className={s.card} style={sectionStyle}>
+        <div className={s.cardBody}>
+        <h3 className={s.cardTitle} style={titleStyle}>日常使用</h3>
         <div style={gridStyle}>
           {userLinks.map(([label, href, desc]) => (
             <Link key={href} href={href} style={cardStyle}>
@@ -31,10 +33,12 @@ export default function WorkflowHomePage() {
             </Link>
           ))}
         </div>
+        </div>
       </section>
 
-      <section style={panelStyle}>
-        <h3 style={titleStyle}>管理员配置</h3>
+      <section className={s.card}>
+        <div className={s.cardBody}>
+        <h3 className={s.cardTitle} style={titleStyle}>管理员配置</h3>
         <div style={gridStyle}>
           {adminLinks.map(([label, href, desc]) => (
             <Link key={href} href={href} style={cardStyle}>
@@ -43,19 +47,14 @@ export default function WorkflowHomePage() {
             </Link>
           ))}
         </div>
+        </div>
       </section>
     </div>
   );
 }
 
-const panelStyle: React.CSSProperties = {
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius-md)",
-  background: "var(--bg-card)",
-  padding: 16,
-  marginBottom: 12,
-};
-const titleStyle: React.CSSProperties = { margin:"0 0 12px", fontSize:16 };
+const sectionStyle: React.CSSProperties = { marginBottom: 12 };
+const titleStyle: React.CSSProperties = { margin: "0 0 12px" };
 const gridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 };
 const cardStyle: React.CSSProperties = {
   display: "flex",
@@ -64,8 +63,8 @@ const cardStyle: React.CSSProperties = {
   minHeight: 92,
   padding: 16,
   border: "1px solid var(--border)",
-  borderRadius: "var(--radius-md)",
-  background: "var(--bg-muted)",
+  borderRadius: "8px",
+  background: "var(--bg-page)",
   color: "var(--text-primary)",
   textDecoration: "none",
 };

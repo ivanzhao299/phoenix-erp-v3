@@ -1,5 +1,7 @@
 "use client";
 
+import s from "@/components/ui/admin-ui.module.css";
+
 export function WorkflowTimeline({ actions = [] }: { actions?: Record<string, unknown>[] }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -12,7 +14,11 @@ export function WorkflowTimeline({ actions = [] }: { actions?: Record<string, un
           {action.comment ? <div style={{ marginTop: 4, fontSize: 13 }}>{String(action.comment)}</div> : null}
         </div>
       ))}
-      {actions.length === 0 ? <div style={{ color: "var(--text-secondary)", fontSize: 13 }}>暂无轨迹</div> : null}
+      {actions.length === 0 ? (
+        <div className={s.emptyState} style={{ padding: "28px 16px" }}>
+          <div className={s.emptyStateText}>暂无轨迹</div>
+        </div>
+      ) : null}
     </div>
   );
 }
