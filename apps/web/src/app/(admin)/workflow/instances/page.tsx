@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
+import { FormRenderer } from "@/components/workflow/FormRenderer";
 import { workflowApi, type WorkflowDefinition, type WorkflowInstance } from "@/lib/workflow-api";
 
 export default function WorkflowInstancesPage() {
@@ -11,6 +12,8 @@ export default function WorkflowInstancesPage() {
   const [definitionId, setDefinitionId] = useState("");
   const [title, setTitle] = useState("");
   const [formData, setFormData] = useState('{"amount":1000,"reason":"测试费用申请"}');
+  const [runtimeData, setRuntimeData] = useState<Record<string, unknown>>({});
+  const [schema, setSchema] = useState<{ fields?: Array<{ key: string; label: string; type: string; [key: string]: unknown }> } | null>(null);
 
   const load = () => Promise.all([
     workflowApi.definitions().then(res => setDefs((res.data || []).filter(d => d.status === "ACTIVE"))),
@@ -18,13 +21,26 @@ export default function WorkflowInstancesPage() {
   ]);
   useEffect(() => { load(); }, []);
 
+  useEffect(() => {
+    if (!definitionId) {
+      setSchema(null);
+      return;
+    }
+    workflowApi.definitionDesigner(Number(definitionId)).then(res => {
+      const formSchema = res.data.form_schema_json as { fields?: Array<{ key: string; label: string; type: string; [key: string]: unknown }> } | undefined;
+      setSchema(formSchema && Array.isArray(formSchema.fields) ? formSchema : null);
+      setRuntimeData({});
+    }).catch(() => setSchema(null));
+  }, [definitionId]);
+
   async function start() {
     await workflowApi.start({
       definition_id: Number(definitionId),
       title,
-      form_data: JSON.parse(formData),
+      form_data: schema ? runtimeData : JSON.parse(formData),
     });
     setTitle("");
+    setRuntimeData({});
     await load();
   }
 
@@ -40,7 +56,13 @@ export default function WorkflowInstancesPage() {
           </select>
           <input style={inputStyle} placeholder="标题" value={title} onChange={e=>setTitle(e.target.value)} />
         </div>
-        <textarea style={textareaStyle} value={formData} onChange={e=>setFormData(e.target.value)} />
+        {schema ? (
+          <div style={{ marginBottom: 12 }}>
+            <FormRenderer schema={schema} value={runtimeData} onChange={setRuntimeData} />
+          </div>
+        ) : (
+          <textarea style={textareaStyle} value={formData} onChange={e=>setFormData(e.target.value)} />
+        )}
         <button style={buttonStyle} disabled={!definitionId} onClick={start}>发起</button>
       </section>
       <section style={panelStyle}>

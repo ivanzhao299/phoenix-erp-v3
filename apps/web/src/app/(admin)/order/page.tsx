@@ -72,7 +72,7 @@ export default function OrderPage() {
     try {
       const [oRes, cRes] = await Promise.all([
         crudApi.list<Order>("ord_orders", { limit: 200 }),
-        crudApi.list("ord_customers", { limit: 100 } as never),
+        crudApi.list<Customer>("ord_customers", { limit: 100 }),
       ]);
       setOrders(oRes.data || []);
       setCustomers(cRes.data || []);
