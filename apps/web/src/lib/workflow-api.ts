@@ -122,4 +122,8 @@ export const workflowApi = {
     req<WorkflowOne<WorkflowInstance>>(`/tasks/${id}/approve`, { method: "POST", body: JSON.stringify({ comment }) }),
   reject: (id: number, comment: string) =>
     req<WorkflowOne<WorkflowInstance>>(`/tasks/${id}/reject`, { method: "POST", body: JSON.stringify({ comment }) }),
+  comment: (id: number, comment: string) =>
+    req<WorkflowOne<{ success: boolean }>>(`/tasks/${id}/comment`, { method: "POST", body: JSON.stringify({ comment }) }),
+  transfer: (id: number, data: Record<string, unknown>) =>
+    req<WorkflowOne<{ success: boolean }>>(`/tasks/${id}/transfer`, { method: "POST", body: JSON.stringify(data) }),
 };

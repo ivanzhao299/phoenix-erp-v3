@@ -10,8 +10,12 @@ export default function WorkflowTodoPage() {
   const [rows, setRows] = useState<WorkflowTask[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [comment, setComment] = useState("");
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferMode, setTransferMode] = useState<"role" | "user">("role");
+  const [transferTarget, setTransferTarget] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   const selected = useMemo(
     () => rows.find(row => row.id === selectedId) || rows[0] || null,
@@ -35,9 +39,61 @@ export default function WorkflowTodoPage() {
       if (type === "approve") await workflowApi.approve(selected.id, comment.trim());
       else await workflowApi.reject(selected.id, comment.trim());
       setComment("");
+      setNotice(type === "approve" ? "已通过审批。" : "已驳回申请。");
       await load();
     } catch (err) {
       setError(err instanceof Error ? friendlyError(err.message) : "处理失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveComment() {
+    if (!selected || !comment.trim()) {
+      setError("请先填写审批意见。");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setNotice("");
+    try {
+      await workflowApi.comment(selected.id, comment.trim());
+      setComment("");
+      setNotice("已补充审批意见。");
+    } catch (err) {
+      setError(err instanceof Error ? friendlyError(err.message) : "保存意见失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function transfer() {
+    if (!selected) return;
+    const target = transferTarget.trim();
+    if (!target) {
+      setError("请填写转交对象。");
+      return;
+    }
+    const userId = Number(target);
+    if (transferMode === "user" && (!Number.isInteger(userId) || userId <= 0)) {
+      setError("用户 ID 必须是大于 0 的数字。");
+      return;
+    }
+    const payload = transferMode === "user"
+      ? { assignee_user_id: userId }
+      : { assignee_role_code: target.toUpperCase() };
+    setLoading(true);
+    setError("");
+    setNotice("");
+    try {
+      await workflowApi.transfer(selected.id, payload);
+      setComment("");
+      setTransferTarget("");
+      setTransferOpen(false);
+      setNotice("任务已转交。");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? friendlyError(err.message) : "转交失败");
     } finally {
       setLoading(false);
     }
@@ -69,6 +125,8 @@ export default function WorkflowTodoPage() {
                       setSelectedId(row.id);
                       setComment("");
                       setError("");
+                      setNotice("");
+                      setTransferOpen(false);
                     }}
                   >
                     <strong>{row.title}</strong>
@@ -105,16 +163,51 @@ export default function WorkflowTodoPage() {
               <DataView data={selected.form_data_json || {}} />
 
               <h4 className={s.formSection}>审批意见</h4>
+              <p className={s.modalDesc} style={{ margin: "0 0 8px" }}>可以先补充意见，也可以直接通过、驳回或转交给其他处理人。</p>
               <textarea
                 className={s.textarea}
                 placeholder="填写审批意见，可留空直接通过"
                 value={comment}
                 onChange={e => setComment(e.target.value)}
               />
+              {notice ? <div className={s.successBanner}>{notice}</div> : null}
               {error ? <div className={s.errorBanner}>{error}</div> : null}
+
+              {transferOpen ? (
+                <div style={transferPanelStyle}>
+                  <div style={transferModeStyle}>
+                    <button
+                      type="button"
+                      className={`${s.tabPill} ${transferMode === "role" ? s.tabPillActive : ""}`}
+                      onClick={() => setTransferMode("role")}
+                    >
+                      转给角色
+                    </button>
+                    <button
+                      type="button"
+                      className={`${s.tabPill} ${transferMode === "user" ? s.tabPillActive : ""}`}
+                      onClick={() => setTransferMode("user")}
+                    >
+                      转给用户
+                    </button>
+                  </div>
+                  <input
+                    className={s.inp}
+                    value={transferTarget}
+                    onChange={e => setTransferTarget(e.target.value)}
+                    placeholder={transferMode === "role" ? "角色编码，如 ROLE_FIN_ACCT" : "用户 ID，如 1001"}
+                  />
+                  <div style={transferActionsStyle}>
+                    <button className={s.btnSecondary} disabled={loading} onClick={() => setTransferOpen(false)}>取消转交</button>
+                    <button className={s.btnPrimary} disabled={loading} onClick={transfer}>{loading ? "转交中..." : "确认转交"}</button>
+                  </div>
+                </div>
+              ) : null}
 
               <div style={footerStyle}>
                 <Link href={`/workflow/instances/${selected.instance_id}`} className={s.btnSecondary}>查看详情</Link>
+                <button className={s.btnSecondary} disabled={loading || !comment.trim()} onClick={saveComment}>补充意见</button>
+                <button className={s.btnSecondary} disabled={loading} onClick={() => setTransferOpen(open => !open)}>转交</button>
                 <button className={s.btnDanger} disabled={loading} onClick={() => act("reject")}>驳回</button>
                 <button className={s.btnPrimary} disabled={loading} onClick={() => act("approve")}>
                   {loading ? "处理中..." : "通过"}
@@ -195,6 +288,7 @@ function formatDate(value?: string) {
 
 function friendlyError(message: string) {
   if (message.includes("forbidden") || message.includes("not visible")) return "你没有处理这条任务的权限。";
+  if (message.includes("assignee_user_id or assignee_role_code required")) return "请填写转交对象。";
   if (message.includes("task is not TODO")) return "这条任务已经被处理，请刷新列表。";
   return message;
 }
@@ -205,4 +299,7 @@ const taskListStyle: React.CSSProperties = { display:"grid", gap:8 };
 const taskStyle: React.CSSProperties = { textAlign:"left", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-card)", color:"var(--text-primary)", padding:12, cursor:"pointer", display:"grid", gap:6 };
 const selectedTaskStyle: React.CSSProperties = { ...taskStyle, borderColor:"var(--color-primary)", background:"var(--bg-muted)" };
 const detailHeaderStyle: React.CSSProperties = { display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginBottom:14 };
-const footerStyle: React.CSSProperties = { display:"flex", justifyContent:"flex-end", gap:10, marginTop:14 };
+const transferPanelStyle: React.CSSProperties = { border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:12, marginTop:12, display:"grid", gap:10, background:"var(--bg-page)" };
+const transferModeStyle: React.CSSProperties = { display:"flex", gap:6, flexWrap:"wrap" };
+const transferActionsStyle: React.CSSProperties = { display:"flex", justifyContent:"flex-end", gap:10 };
+const footerStyle: React.CSSProperties = { display:"flex", justifyContent:"flex-end", gap:10, marginTop:14, flexWrap:"wrap" };
