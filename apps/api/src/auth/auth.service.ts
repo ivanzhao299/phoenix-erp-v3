@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
@@ -41,6 +41,8 @@ function hashPwd(pwd: string, salt: string): string {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(SysUserEntity)
     private readonly userRepo: Repository<SysUserEntity>,
@@ -77,12 +79,17 @@ export class AuthService {
     }
 
     // ── 密码验证 ──────────────────────────────────────────────────────────────
-    // V3 安全要求：生产环境强制 bcrypt 验证；开发环境允许 admin/admin123 快捷登录
     let isPasswordValid = false;
 
-    const isDev = (process.env.NODE_ENV || 'development') !== 'production';
-    if (isDev && username === 'admin' && password === 'admin123') {
-      // DEV-ONLY 快捷通道，生产环境 NODE_ENV=production 时此分支不可达
+    // DEV-ONLY 快捷通道：必须同时满足三个条件才生效，防止生产误启
+    //   1. NODE_ENV 不是 production
+    //   2. 显式设置 ENABLE_DEV_LOGIN=true 环境变量
+    //   3. 用户名 = admin，密码 = admin123
+    const devLoginEnabled =
+      process.env.NODE_ENV !== 'production' &&
+      process.env.ENABLE_DEV_LOGIN === 'true';
+    if (devLoginEnabled && username === 'admin' && password === 'admin123') {
+      this.logger.warn('[DEV] admin quick-login used — disable ENABLE_DEV_LOGIN in staging/prod');
       isPasswordValid = true;
     } else if (user.password_hash) {
       // bcrypt 验证（所有 V3 用户密码以 bcrypt $2b$ 格式存储）
@@ -202,8 +209,7 @@ export class AuthService {
       user_info: payload,
     };
     } catch (err: any) {
-      // 将错误写到 /tmp/auth_err.log 方便诊断
-      require('fs').writeFileSync('/tmp/auth_err.log', String(err?.stack || err));
+      this.logger.error(`[login] failed for user="${username}" — ${err?.message}`, err?.stack);
       throw err;
     }
   }

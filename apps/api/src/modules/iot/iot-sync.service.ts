@@ -78,7 +78,7 @@ export class IotSyncService implements OnModuleInit {
 
     this.accessToken = json.data.accessToken;
     this.expireTime = json.data.expireTime;
-    return this.accessToken;
+    return this.accessToken!;
   }
 
   /**
@@ -373,7 +373,7 @@ export class IotSyncService implements OnModuleInit {
           }
         }
       } catch (err) {
-        this.logger.error('Date shifting failed: ' + err.message);
+        this.logger.error('Date shifting failed: ' + (err as Error).message);
       }
 
       const res = await this.entityManager.query(`SELECT COUNT(*) as c FROM mon_device_realtime_snapshot`);

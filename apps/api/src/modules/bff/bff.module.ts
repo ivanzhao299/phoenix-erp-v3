@@ -6,7 +6,7 @@ import {
   AuditBffController,
   PricingBffController,
   WholesaleBffController,
-  PackagingBffController,
+  PackagingTerminalBffController,
 } from './bff.controller';
 
 /**
@@ -21,7 +21,7 @@ import {
     AuditBffController,
     PricingBffController,
     WholesaleBffController,
-    PackagingBffController,
+    PackagingTerminalBffController,
   ],
 })
 export class BffModule {}

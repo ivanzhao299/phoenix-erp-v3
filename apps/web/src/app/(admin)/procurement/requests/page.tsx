@@ -5,6 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
 
 // V3 表: prc_purchase_orders（status=DRAFT 的即为采购申请）
@@ -58,9 +59,8 @@ export default function RequestsPage() {
 
   const load = useCallback(()=>{
     setLoading(true);
-    fetch("/api/crud/prc_purchase_orders?limit=300")
-      .then(r=>r.json())
-      .then(d=>{ const all = d.data||[]; setList(all.filter((o:Request)=>["DRAFT","PENDING"].includes(o.status?.toUpperCase()||""))); })
+    crudApi.list<Request>("prc_purchase_orders", { limit: 300 })
+      .then(res=>{ const all = res.data||[]; setList(all.filter((o:Request)=>["DRAFT","PENDING"].includes(o.status?.toUpperCase()||""))); })
       .catch(()=>{}).finally(()=>setLoading(false));
   },[]);
   useEffect(()=>{ load(); },[load]);

@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-const STATUS_CLS: Record<string,string> = {"DRAFT":s.badgeWarning, "OPEN":s.badgeWarning, "CLOSED":s.badgeSuccess, "APPROVED":s.badgeSuccess, "done":s.badgeSuccess};
+const STATUS_CLS: Record<string,string> = {"DRAFT":s.badgeWarning, "CLOSED":s.badgeSuccess, "APPROVED":s.badgeSuccess};
 
 // B2: daily_close 真实列 — cash_sales / qr_sales (不是 cash_amount / online_amount)
 //     状态枚举与 store.service.ts:24 对齐 DRAFT / CLOSED / APPROVED

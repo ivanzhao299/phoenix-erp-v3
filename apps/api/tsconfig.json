@@ -11,13 +11,10 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "incremental": true,
-    "strictNullChecks": false,
-    "noImplicitAny": false,
-    "strictBindCallApply": false,
+    "strict": true,
+    "strictPropertyInitialization": false,
     "forceConsistentCasingInFileNames": false,
-    "strict": false,
     "types": ["node", "jest"]
   },
-  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
+  "exclude": ["node_modules", "dist", "**/*.spec.ts", "scripts/**"]
 }
-

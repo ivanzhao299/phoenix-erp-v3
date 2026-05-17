@@ -123,7 +123,10 @@ function LoginInner() {
       });
       // 记忆账户名（无密码），下次回填
       try { localStorage.setItem(LAST_USER_KEY, u.trim()); } catch { /* noop */ }
-      const dest = ROLE_HOME[info?.role] || "/dashboard";
+      // 优先跳回 middleware 附带的 returnUrl，其次走角色首页
+      const returnUrl = sp.get("return");
+      const roleDest  = ROLE_HOME[info?.role] || "/dashboard";
+      const dest      = returnUrl && returnUrl.startsWith("/") ? returnUrl : roleDest;
       router.replace(dest);
     } catch {
       setError(t('ui.网络连接失败', '网络连接失败，请重试'));

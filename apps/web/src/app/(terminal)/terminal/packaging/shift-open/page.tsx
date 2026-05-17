@@ -1,13 +1,12 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
 import { packagingApi } from '@/lib/packaging-api';
+import { T } from '@/styles/terminal-theme';
 
-const BG='#0f172a', CARD='#1e293b', BOR='#334155';
-const ACC='#f59e0b', TXT='#f1f5f9', MUT='#94a3b8', GRN='#22c55e', RED='#ef4444';
 
 const CHECK_ITEMS = [
   { key:'scanner',   label:'扫码枪在线',       icon:'📷' },
@@ -29,18 +28,52 @@ const CHECK_ITEM_KEYS: Record<string, string> = {
   materials: 'ui.空箱蛋托标签等包材已准备',
 };
 
+interface PackLine { code: string; label: string; }
+interface Supervisor { id: number; name: string; }
+
 export default function ShiftOpenPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { t } = useLanguage();
   const ctx = useTerminalContext();
   const [checks, setChecks] = useState<Record<string,boolean>>({});
-  const [line, setLine] = useState('1号包装线');
-  const [supervisor, setSupervisor] = useState(user?.name || '');
+  const [packLines, setPackLines] = useState<PackLine[]>([]);
+  const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
+  const [line, setLine] = useState('');
+  const [supervisor, setSupervisor] = useState('');
   const [offline, setOffline] = useState<string[]>([]);
   const [offlineReason, setOfflineReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    packagingApi.getDicts(['PKG_PACK_LINE']).then(d => {
+      const lines = (d.PKG_PACK_LINE || []).map(i => ({ code: i.code, label: i.label }));
+      setPackLines(lines);
+      if (lines.length > 0 && !line) setLine(lines[0].code);
+    }).catch(() => {
+      // fallback to defaults if dict not yet seeded
+      const fallback = [
+        { code: 'LINE-01', label: '1号包装线' },
+        { code: 'LINE-02', label: '2号包装线' },
+      ];
+      setPackLines(fallback);
+      if (!line) setLine(fallback[0].code);
+    });
+
+    packagingApi.getSupervisors().then(list => {
+      setSupervisors(list);
+      if (list.length > 0 && !supervisor) {
+        // pre-select the logged-in user if they are in the list
+        const match = list.find(s => s.name === user?.name);
+        setSupervisor(match ? match.name : list[0].name);
+      }
+    }).catch(() => {
+      // fallback: allow free-text entry seeded from current user
+      if (!supervisor) setSupervisor(user?.name || '');
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleCheck = (key: string) => {
     setChecks(prev => {
@@ -54,6 +87,8 @@ export default function ShiftOpenPage() {
   const allChecked = CHECK_ITEMS.every(i => checks[i.key]);
   const canSubmit = CHECK_ITEMS.filter(i => !['grader','scale'].includes(i.key)).every(i => checks[i.key]);
 
+  const lineName = packLines.find(l => l.code === line)?.label ?? line;
+
   // 把 API 返回的原始班次对象映射为 WorkShift 格式并写入 context
   const applyShiftToContext = (raw: Record<string, any>) => {
     if (!raw || !ctx?.setShift) return;
@@ -62,9 +97,9 @@ export default function ShiftOpenPage() {
       code:           raw.shift_code ?? raw.code ?? '',
       productionDate: raw.production_date ?? '',
       siteId:         raw.site_id ?? 'site-01',
-      siteName:       raw.site_name ?? '凤凰农业',
+      siteName:       raw.site_name ?? '',
       lineId:         raw.line_id ?? line,
-      lineName:       raw.line_name ?? line,
+      lineName:       raw.line_name ?? lineName,
       operatorIds:    raw.operator_id ? [String(raw.operator_id)] : [],
       operatorNames:  raw.operator_name ? [raw.operator_name] : [],
       supervisorId:   raw.supervisor_id ? String(raw.supervisor_id) : undefined,
@@ -91,7 +126,7 @@ export default function ShiftOpenPage() {
           const existing = Array.isArray(shifts) ? shifts.find((s: any) => s.status === 'OPEN') : null;
           if (existing) raw = existing;
         } else {
-          throw err; // 其他错误继续向上抛
+          throw err;
         }
       }
       if (raw) applyShiftToContext(raw);
@@ -103,60 +138,68 @@ export default function ShiftOpenPage() {
   };
 
   if (done) return (
-    <div style={{ height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:BG, gap:16 }}>
+    <div style={{ height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:T.BG, gap:16 }}>
       <div style={{ fontSize:64 }}>✅</div>
-      <div style={{ fontSize:24, fontWeight:700, color:GRN }}>{t('ui.开班成功', '开班成功')}</div>
-      <div style={{ color:MUT }}>{t('ui.正在返回作业台首页', '正在返回作业台首页...')}</div>
+      <div style={{ fontSize:24, fontWeight:700, color:T.GRN }}>{t('ui.开班成功', '开班成功')}</div>
+      <div style={{ color:T.MUT }}>{t('ui.正在返回作业台首页', '正在返回作业台首页...')}</div>
     </div>
   );
 
   return (
-    <div style={{ height:'100%', display:'flex', flexDirection:'column', background:BG, overflow:'hidden' }}>
+    <div style={{ height:'100%', display:'flex', flexDirection:'column', background:T.BG, overflow:'hidden' }}>
       {/* 页头 */}
-      <div style={{ background:CARD, borderBottom:`1px solid ${BOR}`, padding:'14px 24px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
+      <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'14px 24px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
         <span style={{ fontSize:24 }}>🔓</span>
         <div>
-          <div style={{ fontSize:18, fontWeight:700, color:TXT }}>{t('terminal.shift_open', '开班 / 设备点检')}</div>
-          <div style={{ fontSize:12, color:MUT }}>{t('ui.完成点检后方可开始作业', '完成点检后方可开始作业')}</div>
+          <div style={{ fontSize:18, fontWeight:700, color:T.TXT }}>{t('terminal.shift_open', '开班 / 设备点检')}</div>
+          <div style={{ fontSize:12, color:T.MUT }}>{t('ui.完成点检后方可开始作业', '完成点检后方可开始作业')}</div>
         </div>
       </div>
 
       <div style={{ flex:1, overflow:'auto', padding:24, display:'flex', gap:24 }}>
         {/* 左：班次信息 */}
         <div style={{ width:280, flexShrink:0 }}>
-          <div style={{ background:CARD, borderRadius:12, padding:20, border:`1px solid ${BOR}` }}>
-            <div style={{ fontSize:13, color:MUT, marginBottom:16, fontWeight:600 }}>{t('ui.班次基本信息', '班次基本信息')}</div>
-            {[
-              { label: t('ui.生产日期', '生产日期'), value: new Date().toLocaleDateString('zh-CN') },
-            ].map(item => (
-              <div key={item.label} style={{ marginBottom:12 }}>
-                <div style={{ fontSize:11, color:MUT, marginBottom:4 }}>{item.label}</div>
-                <div style={{ background:'rgba(255,255,255,0.05)', borderRadius:6, padding:'8px 12px', color:TXT, fontSize:14 }}>
-                  {item.value}
-                </div>
-              </div>
-            ))}
+          <div style={{ background:T.CARD, borderRadius:12, padding:20, border:`1px solid ${T.BOR}` }}>
+            <div style={{ fontSize:13, color:T.MUT, marginBottom:16, fontWeight:600 }}>{t('ui.班次基本信息', '班次基本信息')}</div>
             <div style={{ marginBottom:12 }}>
-              <div style={{ fontSize:11, color:MUT, marginBottom:4 }}>{t('ui.产线', '产线')}</div>
-              <select value={line} onChange={e=>setLine(e.target.value)}
-                style={{ width:'100%', background:'#1e293b', border:`1px solid ${BOR}`, borderRadius:6,
-                  padding:'8px 12px', color:TXT, fontSize:14 }}>
-                <option>1号包装线</option><option>2号包装线</option>
+              <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{t('ui.生产日期', '生产日期')}</div>
+              <div style={{ background:'rgba(255,255,255,0.05)', borderRadius:6, padding:'8px 12px', color:T.TXT, fontSize:14 }}>
+                {new Date().toLocaleDateString('zh-CN')}
+              </div>
+            </div>
+            <div style={{ marginBottom:12 }}>
+              <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{t('ui.产线', '产线')}</div>
+              <select value={line} onChange={e => setLine(e.target.value)}
+                style={{ width:'100%', background:'#1e293b', border:`1px solid ${T.BOR}`, borderRadius:6,
+                  padding:'8px 12px', color:T.TXT, fontSize:14 }}>
+                {packLines.map(l => (
+                  <option key={l.code} value={l.code}>{l.label}</option>
+                ))}
               </select>
             </div>
             <div style={{ marginBottom:12 }}>
-              <div style={{ fontSize:11, color:MUT, marginBottom:4 }}>{t('ui.班组长', '班组长')}</div>
-              <input value={supervisor} onChange={e=>setSupervisor(e.target.value)}
-                style={{ width:'100%', background:'#1e293b', border:`1px solid ${BOR}`, borderRadius:6,
-                  padding:'8px 12px', color:TXT, fontSize:14, boxSizing:'border-box' }} />
+              <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{t('ui.班组长', '班组长')}</div>
+              {supervisors.length > 0 ? (
+                <select value={supervisor} onChange={e => setSupervisor(e.target.value)}
+                  style={{ width:'100%', background:'#1e293b', border:`1px solid ${T.BOR}`, borderRadius:6,
+                    padding:'8px 12px', color:T.TXT, fontSize:14 }}>
+                  {supervisors.map(s => (
+                    <option key={s.id} value={s.name}>{s.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <input value={supervisor} onChange={e => setSupervisor(e.target.value)}
+                  style={{ width:'100%', background:'#1e293b', border:`1px solid ${T.BOR}`, borderRadius:6,
+                    padding:'8px 12px', color:T.TXT, fontSize:14, boxSizing:'border-box' }} />
+              )}
             </div>
           </div>
         </div>
 
         {/* 右：点检清单 */}
         <div style={{ flex:1 }}>
-          <div style={{ background:CARD, borderRadius:12, padding:20, border:`1px solid ${BOR}` }}>
-            <div style={{ fontSize:13, color:MUT, marginBottom:16, fontWeight:600 }}>{t('ui.设备与卫生点检', '设备与卫生点检')}</div>
+          <div style={{ background:T.CARD, borderRadius:12, padding:20, border:`1px solid ${T.BOR}` }}>
+            <div style={{ fontSize:13, color:T.MUT, marginBottom:16, fontWeight:600 }}>{t('ui.设备与卫生点检', '设备与卫生点检')}</div>
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               {CHECK_ITEMS.map(item => {
                 const checked = !!checks[item.key];
@@ -165,17 +208,17 @@ export default function ShiftOpenPage() {
                     style={{
                       display:'flex', alignItems:'center', gap:14, padding:'16px 20px',
                       background: checked ? 'rgba(34,197,94,0.08)' : 'rgba(255,255,255,0.03)',
-                      border: `2px solid ${checked ? 'rgba(34,197,94,0.4)' : BOR}`,
+                      border: `2px solid ${checked ? 'rgba(34,197,94,0.4)' : T.BOR}`,
                       borderRadius:10, cursor:'pointer', textAlign:'left', transition:'all 0.15s',
                     }}>
                     <div style={{ width:28, height:28, borderRadius:6,
-                      background: checked ? GRN : BOR,
+                      background: checked ? T.GRN : T.BOR,
                       display:'flex', alignItems:'center', justifyContent:'center',
                       fontSize:16, flexShrink:0, transition:'all 0.15s' }}>
                       {checked ? '✓' : ''}
                     </div>
                     <span style={{ fontSize:18 }}>{item.icon}</span>
-                    <span style={{ fontSize:15, color: checked ? GRN : TXT, fontWeight: checked ? 600 : 400 }}>
+                    <span style={{ fontSize:15, color: checked ? T.GRN : T.TXT, fontWeight: checked ? 600 : 400 }}>
                       {t(CHECK_ITEM_KEYS[item.key], item.label)}
                     </span>
                   </button>
@@ -188,11 +231,11 @@ export default function ShiftOpenPage() {
                 <div style={{ fontSize:12, color:'#fbbf24', marginBottom:6 }}>
                   {t('ui.设备离线请说明原因', '以下设备离线，请说明原因（允许以人工模式继续）：')}
                 </div>
-                <textarea value={offlineReason} onChange={e=>setOfflineReason(e.target.value)}
+                <textarea value={offlineReason} onChange={e => setOfflineReason(e.target.value)}
                   placeholder={t('ui.设备离线原因示例', '例：电子秤故障，已联系维修，本班手工称重...')}
                   rows={3}
                   style={{ width:'100%', background:'rgba(251,191,36,0.05)', border:`1px solid rgba(251,191,36,0.3)`,
-                    borderRadius:8, padding:'10px 12px', color:TXT, fontSize:13,
+                    borderRadius:8, padding:'10px 12px', color:T.TXT, fontSize:13,
                     resize:'none', boxSizing:'border-box' }} />
               </div>
             )}
@@ -201,22 +244,22 @@ export default function ShiftOpenPage() {
       </div>
 
       {/* 底部操作 */}
-      <div style={{ background:CARD, borderTop:`1px solid ${BOR}`, padding:'16px 24px',
+      <div style={{ background:T.CARD, borderTop:`1px solid ${T.BOR}`, padding:'16px 24px',
         display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
-        <div style={{ flex:1, fontSize:13, color: allChecked ? GRN : MUT }}>
+        <div style={{ flex:1, fontSize:13, color: allChecked ? T.GRN : T.MUT }}>
           {allChecked
             ? `✅ ${t('ui.点检完成可以开班', '点检完成，可以开班')}`
             : `${t('ui.还剩', '还剩')} ${CHECK_ITEMS.filter(i=>!checks[i.key]).length} ${t('ui.项未确认', '项未确认')}`}
         </div>
         <button onClick={() => router.push('/terminal/packaging/dashboard')}
-          style={{ padding:'14px 28px', borderRadius:10, border:`1px solid ${BOR}`,
-            background:'transparent', color:MUT, fontSize:15, cursor:'pointer' }}>
+          style={{ padding:'14px 28px', borderRadius:10, border:`1px solid ${T.BOR}`,
+            background:'transparent', color:T.MUT, fontSize:15, cursor:'pointer' }}>
           {t('common.back', '返回')}
         </button>
         <button onClick={handleSubmit} disabled={!canSubmit || submitting}
           style={{ padding:'14px 40px', borderRadius:10, border:'none',
-            background: canSubmit ? ACC : BOR,
-            color: canSubmit ? '#0f172a' : MUT,
+            background: canSubmit ? T.ACC : T.BOR,
+            color: canSubmit ? '#0f172a' : T.MUT,
             fontSize:16, fontWeight:700, cursor: canSubmit ? 'pointer' : 'not-allowed',
             opacity: submitting ? 0.7 : 1, transition:'all 0.15s' }}>
           {submitting ? t('ui.开班中', '开班中...') : t('ui.确认开班', '确认开班')}

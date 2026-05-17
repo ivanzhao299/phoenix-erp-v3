@@ -3,8 +3,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, AlertCircle, Egg, PackageSearch, BatteryWarning, ArrowUpRight, RefreshCw, Wifi, ShieldCheck } from 'lucide-react';
 import styles from './dashboard.module.css';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
-
 const CARD_THEMES = [
   { accent: '#0ea5e9', bg: 'rgba(14,165,233,0.08)',  glow: 'rgba(14,165,233,0.18)' },
   { accent: '#10b981', bg: 'rgba(16,185,129,0.08)',  glow: 'rgba(16,185,129,0.18)' },
@@ -84,6 +82,7 @@ const FALLBACK: KpiData = {
 interface Props { initialData: KpiData; }
 
 export default function DashboardKPIs({ initialData }: Props) {
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
   const [kpi, setKpi]         = useState<KpiData>(initialData);
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);

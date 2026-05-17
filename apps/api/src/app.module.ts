@@ -3,11 +3,13 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ClsModule } from 'nestjs-cls';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD, APP_INTERCEPTOR, APP_FILTER } from '@nestjs/core';
 import { MenuGuard } from './common/guards/menu.guard';
 import { StoreCodeInterceptor } from './common/interceptors/store-code.interceptor';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 import { AuthExceptionFilter } from './common/filters/auth-exception.filter';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { JwtStrategy } from './auth/jwt.strategy';
 import { AuthModule } from './auth/auth.module';
 
@@ -38,6 +40,12 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // 速率限制：每个 IP 每分钟最多 120 次请求（全局默认）
+    // 登录接口使用更严格的 @Throttle({ login: ... }) 装饰器覆盖
+    ThrottlerModule.forRoot([
+      { name: 'global', ttl: 60_000,  limit: 120 },
+      { name: 'login',  ttl: 900_000, limit: 10  }, // 15分钟内最多10次
+    ]),
     ClsModule.forRoot({
       global: true,
       middleware: { mount: true },
@@ -74,17 +82,18 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
   controllers: [DebugController, HealthController],
   providers: [
     JwtStrategy,
-    // 全局挂载拦截器 (移除了 MenuGuard 的全局挂载，改为在 Controller 上与 AuthGuard 配合使用)
+    // 全局速率限制 Guard
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    // 全局挂载拦截器
     {
       provide: APP_INTERCEPTOR,
       useClass: AuditLogInterceptor,
     },
     StoreCodeInterceptor,
-    // 统一 401 响应结构（注入 subcode），让前端按 TOKEN_EXPIRED / PERMS_CHANGED / INVALID_TOKEN 分别处理
-    {
-      provide: APP_FILTER,
-      useClass: AuthExceptionFilter,
-    },
+    // 统一 401 响应结构（注入 subcode）— 先注册，优先处理 UnauthorizedException
+    { provide: APP_FILTER, useClass: AuthExceptionFilter },
+    // 全局兜底：屏蔽堆栈、映射 PG 错误码、统一 500 响应
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
 })
 export class AppModule {}

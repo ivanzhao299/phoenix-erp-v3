@@ -607,8 +607,9 @@ export class WmsService {
       // 复用 wms_stocktake 表存日结记录 (stocktake_no 以 DC- 开头)
       const closedRows = await this.em.query(
         `SELECT stocktake_no AS close_no FROM wms_stocktake
-         WHERE stocktake_no LIKE 'DC-${d.replace(/-/g, '')}-%' AND status = 'APPROVED'
+         WHERE stocktake_no LIKE $1 AND status = 'APPROVED'
          LIMIT 1`,
+        [`DC-${d.replace(/-/g, '')}-%`],
       ).catch(() => []);
       const lastStocktake = await this.em.query(
         `SELECT stocktake_no, date, act_qty, diff_qty FROM wms_stocktake
@@ -639,7 +640,8 @@ export class WmsService {
       // 防重：今日已 APPROVED 日结记录 → 拒绝
       const existing = await this.em.query(
         `SELECT stocktake_no FROM wms_stocktake
-         WHERE stocktake_no LIKE 'DC-${d.replace(/-/g, '')}-%' AND status = 'APPROVED' LIMIT 1`,
+         WHERE stocktake_no LIKE $1 AND status = 'APPROVED' LIMIT 1`,
+        [`DC-${d.replace(/-/g, '')}-%`],
       );
       if (existing.length > 0) {
         return { code: 400, msg: '今日已完成日结，不可重复', data: { close_no: existing[0].stocktake_no } };
@@ -666,9 +668,9 @@ export class WmsService {
     return await this.em.transaction(async (manager) => {
       // loss-report 复用 wms_stocktake 表 + LR- 前缀（前端约定）
       await manager.query(
-        `UPDATE wms_stocktake SET status='APPROVED', auditor=$1, loss_no=$2, updated_at=now()::text
-         WHERE stocktake_no=$3`,
-        [opName, loss_no, loss_no],
+        `UPDATE wms_stocktake SET status='APPROVED', auditor=$1, updated_at=now()::text
+         WHERE stocktake_no=$2`,
+        [opName, loss_no],
       );
 
       if (batch_no) {

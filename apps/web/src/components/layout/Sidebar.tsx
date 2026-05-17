@@ -65,17 +65,14 @@ const MENU: MenuItem[] = [
     { id: "brd-medicine",  path: "/breeding/medicine",     Icon: Pill,           label: "用药记录",     perm: "MENU_FARM_VET" },
     { id: "brd-device",    path: "/breeding/device",       Icon: BarChart2,      label: "设备监控",     perm: "MENU_DEVICE_MONITOR" },
     { id: "brd-alerts",    path: "/breeding/device-alerts",Icon: AlertTriangle,  label: "环境预警",     perm: "MENU_DEVICE_MONITOR" },
+    { id: "brd-device-ops",path: "/breeding/device-ops",  Icon: Network,        label: "设备运维",     perm: "MENU_DEVICE_MONITOR" },
   ]},
   { id: "packaging", Icon: Package, label: "分级包装", perm: null, children: [
-    { id: "pkg-op",         path: "/packaging",                Icon: Egg,          label: "集蛋作业台", perm: "MENU_PKG_OP"  },
-    { id: "pkg-inbound",    path: "/packaging/inbound",        Icon: PackagePlus,  label: "集蛋入库",   perm: "MENU_PKG_MGR" },
-    { id: "pkg-grading",    path: "/packaging/grading",        Icon: Filter,       label: "分级作业",   perm: "MENU_PKG_OP"  },
-    { id: "pkg-packing",    path: "/packaging/packing",        Icon: Package,      label: "包装作业",   perm: "MENU_PKG_OP"  },
-    { id: "pkg-inspect",    path: "/packaging/first-inspection",Icon: ClipboardCheck,label: "首检录入", perm: "MENU_PKG_MGR" },
-    { id: "pkg-label",      path: "/packaging/label-print",    Icon: Tag,          label: "标签打印",   perm: "MENU_PKG_OP"  },
-    { id: "pkg-batch",      path: "/packaging/batch",          Icon: Layers,       label: "批次管理",   perm: "MENU_PKG_MGR" },
-    { id: "pkg-report",     path: "/packaging/daily-report",   Icon: BarChart2,    label: "包装日报",   perm: "MENU_PKG_MGR" },
-    { id: "pkg-except",     path: "/packaging/exceptions",     Icon: FileWarning,  label: "异常处理",   perm: "MENU_PKG_MGR" },
+    { id: "pkg-op",         path: "/packaging",              Icon: Egg,           label: "包装管理",   perm: "MENU_PKG_OP"  },
+    { id: "pkg-inbound",    path: "/packaging/inbound",      Icon: PackagePlus,   label: "集蛋入库",   perm: "MENU_PKG_MGR" },
+    { id: "pkg-batch",      path: "/packaging/batch",        Icon: Layers,        label: "批次管理",   perm: "MENU_PKG_MGR" },
+    { id: "pkg-report",     path: "/packaging/daily-report", Icon: BarChart2,     label: "包装日报",   perm: "MENU_PKG_MGR" },
+    { id: "pkg-except",     path: "/packaging/exceptions",   Icon: FileWarning,   label: "异常处理",   perm: "MENU_PKG_MGR" },
   ]},
   { id: "warehouse", Icon: Archive, label: "仓储库存", perm: null, children: [
     { id: "wh-dash",     path: "/warehouse",              Icon: LayoutDashboard, label: "仓库看板",   perm: "MENU_WMS_VIEW" },
@@ -355,6 +352,33 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
 
               {item.children && (
                 <Accordion open={isOpen}>
+                  {/* Terminal 作业台入口：仅在分级包装分组顶部显示 */}
+                  {item.id === "packaging" && (
+                    <a
+                      href="/terminal/packaging/dashboard"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: "flex", alignItems: "center", gap: 8,
+                        padding: "9px 12px 9px 28px",
+                        margin: "6px 8px 2px",
+                        borderRadius: 8,
+                        background: "linear-gradient(135deg, rgba(245,158,11,0.18), rgba(245,158,11,0.08))",
+                        border: "1px solid rgba(245,158,11,0.35)",
+                        color: "#f59e0b",
+                        textDecoration: "none",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        letterSpacing: 0.3,
+                        cursor: "pointer",
+                        transition: "background 0.15s",
+                      }}
+                      title={t('layout.enter_terminal', '进入包装作业台')}
+                    >
+                      <Zap size={12} />
+                      <span>🖥️ {t('layout.enter_terminal', '进入包装作业台')}</span>
+                    </a>
+                  )}
                   {item.children.map(child => {
                     const active = getActive(child.path);
                     return (
@@ -365,7 +389,7 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
                       >
                         {/* size=13 matches old frontend exactly */}
                         <child.Icon size={13} className={styles.subIconSvg} />
-                        <span>{child.label}</span>
+                        <span>{t('menu.' + child.id, child.label)}</span>
                       </Link>
                     );
                   })}
@@ -378,9 +402,9 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
 
       {/* Bottom */}
       {expanded_ && (
-        <Link href="/settings" className={styles.profileLink}>
+        <Link href="/settings/profile" className={styles.profileLink}>
           <Settings size={13} />
-          <span>个人中心 / 修改密码</span>
+          <span>{t('layout.profile_link', '个人中心 / 修改密码')}</span>
         </Link>
       )}
     </aside>

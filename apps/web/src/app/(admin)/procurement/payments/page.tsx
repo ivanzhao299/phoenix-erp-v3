@@ -5,6 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
 
 // V3 表: fin_transactions (type=AP/PAYMENT)
@@ -52,8 +53,8 @@ export default function PaymentsPage() {
 
   const load = useCallback(()=>{
     setLoading(true);
-    fetch("/api/crud/fin_transactions?limit=300")
-      .then(r=>r.json()).then(d=>setList(d.data||[])).catch(()=>{}).finally(()=>setLoading(false));
+    crudApi.list<Transaction>("fin_transactions", { limit: 300 })
+      .then(res=>setList(res.data||[])).catch(()=>{}).finally(()=>setLoading(false));
   },[]);
   useEffect(()=>{ load(); },[load]);
 

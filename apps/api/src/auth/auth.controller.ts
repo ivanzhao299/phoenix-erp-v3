@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Body, Headers, UnauthorizedException, HttpCode } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 
 /**
@@ -14,6 +15,7 @@ export class AuthController {
    */
   @Post('login')
   @HttpCode(200)
+  @Throttle({ login: { ttl: 900_000, limit: 10 } }) // 15分钟内同一IP最多10次登录尝试
   async login(
     @Body() body: { username: string; password: string },
     @Headers('x-forwarded-for') ip?: string,

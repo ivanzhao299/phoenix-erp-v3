@@ -5,6 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
 
 // V3 表: prc_purchase_orders
@@ -15,7 +16,7 @@ const STATUS_CLS: Record<string,string> = {
 };
 
 const STATUS_FLOW: Record<string,string> = {
-  DRAFT:"CONFIRMED", CONFIRMED:"APPROVED", APPROVED:"ARRIVING", ARRIVING:"RECEIVED",
+  DRAFT:"CONFIRMED", PENDING:"CONFIRMED", CONFIRMED:"APPROVED", APPROVED:"ARRIVING", ARRIVING:"RECEIVED",
 };
 
 interface PO {
@@ -46,7 +47,7 @@ export default function ProcurementOrderPage() {
     APPROVED:t("ui.已批准","已批准"), ARRIVING:t("ui.在途中","在途中"), RECEIVED:t("ui.已收货","已收货"), CANCELLED:t("status.cancelled","已取消"),
   };
   const STATUS_NEXT_LABEL: Record<string,string> = {
-    DRAFT:t("ui.提交确认","提交确认"), CONFIRMED:t("ui.批准","批准"), APPROVED:t("ui.发货在途","发货在途"), ARRIVING:t("ui.确认收货","确认收货"),
+    DRAFT:t("ui.提交确认","提交确认"), PENDING:t("ui.批准确认","批准确认"), CONFIRMED:t("ui.批准","批准"), APPROVED:t("ui.发货在途","发货在途"), ARRIVING:t("ui.确认收货","确认收货"),
   };
 
   const [orders, setOrders]       = useState<PO[]>([]);
@@ -67,8 +68,8 @@ export default function ProcurementOrderPage() {
   const load = useCallback(()=>{
     setLoading(true);
     Promise.all([
-      fetch("/api/crud/prc_purchase_orders?limit=300").then(r=>r.json()),
-      fetch("/api/crud/prc_suppliers?limit=200").then(r=>r.json()),
+      crudApi.list<PO>("prc_purchase_orders", { limit: 300 }),
+      crudApi.list<Supplier>("prc_suppliers", { limit: 200 }),
     ]).then(([od,sd])=>{
       setOrders(od.data||[]);
       setSuppliers(sd.data||[]);

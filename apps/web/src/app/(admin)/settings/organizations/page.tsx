@@ -65,7 +65,20 @@ export default function OrganizationsPage() {
   const [form, setForm] = useState({ org_name: "", org_type: "", parent_id: 0, sort_no: 0, remark: "" });
   const [saving, setSaving] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
-  const [loadMsg, setLoadMsg] = useState<string | null>(null); // 诊断用
+  const [loadMsg, setLoadMsg] = useState<string | null>(null);
+  // 分配人员抽屉
+  const [assignDrawer, setAssignDrawer] = useState(false);
+  const [assignSearch, setAssignSearch] = useState("");
+  const [assigning, setAssigning] = useState<number | null>(null); // userId 正在操作中
+
+  const loadUsers = async () => {
+    try {
+      const r = await fetch("/api/crud/sys_user?limit=500", { headers: hdr() });
+      const d = await r.json();
+      const list: User[] = Array.isArray(d.data) ? d.data : Array.isArray(d) ? d : [];
+      setUsers(list);
+    } catch { /* 静默 */ }
+  };
 
   const load = async () => {
     try {
@@ -101,7 +114,7 @@ export default function OrganizationsPage() {
     } catch { return []; }
   };
 
-  useEffect(() => { load(); loadDicts(); }, []);
+  useEffect(() => { load(); loadDicts(); loadUsers(); }, []);
 
   // 打开新建（顶级）——先确保字典已加载
   const openNew = async () => {
@@ -184,6 +197,39 @@ export default function OrganizationsPage() {
     toast.success(t("ui.已删除","已删除")); load();
   };
 
+  // 将用户分配到当前选中的组织
+  const assignUser = async (userId: number) => {
+    if (!activeId) return;
+    setAssigning(userId);
+    try {
+      const res = await fetch(`/api/crud/sys_user/id/${userId}`, {
+        method: "PUT", headers: hdr(),
+        body: JSON.stringify({ org_id: activeId }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, org_id: activeId } : u));
+      toast.success(t("ui.已分配","已分配到") + "「" + activeOrg?.org_name + "」");
+    } catch (e: any) {
+      toast.error(e?.message || t("ui.操作失败","操作失败"));
+    } finally { setAssigning(null); }
+  };
+
+  // 从当前组织移除用户（清空 org_id）
+  const removeUser = async (userId: number) => {
+    setAssigning(userId);
+    try {
+      const res = await fetch(`/api/crud/sys_user/id/${userId}`, {
+        method: "PUT", headers: hdr(),
+        body: JSON.stringify({ org_id: null }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, org_id: null } : u));
+      toast.success(t("ui.已移除","已从部门移除"));
+    } catch (e: any) {
+      toast.error(e?.message || t("ui.操作失败","操作失败"));
+    } finally { setAssigning(null); }
+  };
+
   const toggleCollapse = (id: number) => {
     setCollapsed(prev => {
       const s = new Set(prev);
@@ -192,16 +238,16 @@ export default function OrganizationsPage() {
     });
   };
 
-  // 递归渲染组织树
+  // 递归渲染组织树 (keyed)
   const buildTree = (parentId = 0, depth = 0): React.ReactNode => {
     const children = orgs.filter(o => (o.parent_id || 0) == parentId);
     if (!children.length) return null;
-    return children.map(org => {
+    return children.map((org, i) => {
       const isActive = activeId === org.id;
       const hasChildren = orgs.some(o => o.parent_id === org.id);
       const isCollapsed = collapsed.has(org.id);
       return (
-        <div key={org.id}>
+        <div key={org.id ?? `tree-${depth}-${i}`}>
           <div
             onClick={() => setActiveId(org.id)}
             style={{
@@ -337,9 +383,10 @@ export default function OrganizationsPage() {
                   <button type="button" onClick={() => openEdit(activeOrg)} style={{ padding: "6px 12px", border: "1px solid var(--border)", background: "var(--bg-page)", borderRadius: "var(--radius-sm)", cursor: "pointer", fontSize: 12, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 4 }}>
                     <Edit3 size={13}/>{t("ui.编辑节点","编辑节点")}
                   </button>
-                  <a href="/settings/users" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text-primary)", textDecoration: "none" }}>
+                  <button type="button" onClick={() => { setAssignSearch(""); setAssignDrawer(true); }}
+                    style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", cursor: "pointer", background: "var(--bg-page)", color: "var(--text-primary)" }}>
                     <Users size={13}/>{t("ui.分配人员","分配人员")}
-                  </a>
+                  </button>
                 </div>
               </div>
               <div style={{ flex: 1, overflowX: "auto" }}>
@@ -347,7 +394,10 @@ export default function OrganizationsPage() {
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 200, color: "var(--text-secondary)", gap: 8 }}>
                     <Users size={32} style={{ opacity: 0.2 }}/>
                     <div style={{ fontSize: 13 }}>{t("ui.该部门暂无人员","该部门暂无人员")}</div>
-                    <a href="/settings/users" style={{ fontSize: 12, color: "var(--color-primary)", textDecoration: "none" }}>{t("ui.前往用户管理页分配","前往用户管理页分配")} →</a>
+                    <button type="button" onClick={() => { setAssignSearch(""); setAssignDrawer(true); }}
+                      style={{ fontSize: 12, color: "var(--color-primary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                      {t("ui.点击分配人员","点击「分配人员」开始添加")} →
+                    </button>
                   </div>
                 ) : (
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -359,8 +409,8 @@ export default function OrganizationsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {members.map(u => (
-                        <tr key={u.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                      {members.map((u, i) => (
+                        <tr key={u.id ?? `m-${i}`} style={{ borderBottom: "1px solid var(--border)" }}>
                           <td style={{ padding: "12px 16px" }}>
                             <div style={{ fontWeight: 700 }}>{u.real_name}</div>
                             <div style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "monospace" }}>{u.username}</div>
@@ -450,8 +500,8 @@ export default function OrganizationsPage() {
                   onChange={e => setForm(p => ({ ...p, parent_id: Number(e.target.value) }))}
                 >
                   <option value={0}>{t("ui.无顶级组织","无（顶级组织）")}</option>
-                  {safeOrgs.filter(o => o.id !== editing?.id).map(o => (
-                    <option key={o.id} value={o.id}>[{o.org_type}] {o.org_name}</option>
+                  {safeOrgs.filter(o => o.id !== editing?.id).map((o, i) => (
+                    <option key={o.id ?? `o-${i}`} value={o.id}>[{o.org_type}] {o.org_name}</option>
                   ))}
                 </select>
                 <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--text-secondary)", fontSize: 11 }}>▼</span>
@@ -511,6 +561,116 @@ export default function OrganizationsPage() {
             </button>
           </div>
         </div>
+      </RightDrawer>
+
+      {/* ── 分配人员抽屉 ────────────────────────────────────── */}
+      <RightDrawer
+        isOpen={assignDrawer}
+        onClose={() => setAssignDrawer(false)}
+        title={`${t("ui.分配人员","分配人员")} — ${activeOrg?.org_name ?? ""}`}
+        width="480px"
+      >
+        {(() => {
+          const keyword = assignSearch.trim().toLowerCase();
+          // 当前部门成员 + 全部用户（按 keyword 过滤）
+          const filtered = safeUsers.filter(u =>
+            !keyword ||
+            u.real_name?.toLowerCase().includes(keyword) ||
+            u.username?.toLowerCase().includes(keyword)
+          );
+          const inOrg  = filtered.filter(u => u.org_id === activeId);
+          const others = filtered.filter(u => u.org_id !== activeId);
+
+          const rowStyle: React.CSSProperties = {
+            display: "flex", alignItems: "center", gap: 10, padding: "10px 0",
+            borderBottom: "1px solid var(--border)",
+          };
+          const avatarStyle = (inCurrent: boolean): React.CSSProperties => ({
+            width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
+            background: inCurrent ? "rgba(var(--color-primary-rgb),0.12)" : "var(--bg-muted)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 13, fontWeight: 700,
+            color: inCurrent ? "var(--color-primary)" : "var(--text-secondary)",
+          });
+
+          const UserRow = ({ u, inCurrent }: { u: User; inCurrent: boolean }) => (
+            <div style={rowStyle}>
+              <div style={avatarStyle(inCurrent)}>
+                {(u.real_name || u.username || "?")[0].toUpperCase()}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>{u.real_name || "—"}</div>
+                <div style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "monospace" }}>
+                  {u.username}
+                  {u.org_id && u.org_id !== activeId && (
+                    <span style={{ marginLeft: 6, color: "#f59e0b" }}>
+                      · {t("ui.现属于","现属于")}：{safeOrgs.find(o => o.id === u.org_id)?.org_name ?? `#${u.org_id}`}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 4, background: "rgba(99,102,241,0.1)", color: "#6366f1", fontWeight: 600, flexShrink: 0 }}>
+                {u.role}
+              </span>
+              {inCurrent ? (
+                <button
+                  type="button"
+                  disabled={assigning === u.id}
+                  onClick={() => removeUser(u.id)}
+                  style={{ flexShrink: 0, padding: "4px 12px", fontSize: 12, border: "1px solid #fca5a5", borderRadius: 6, background: "#fef2f2", color: "#dc2626", cursor: assigning === u.id ? "not-allowed" : "pointer", fontWeight: 600 }}
+                >
+                  {assigning === u.id ? "…" : t("ui.移除","移除")}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={assigning === u.id}
+                  onClick={() => assignUser(u.id)}
+                  style={{ flexShrink: 0, padding: "4px 12px", fontSize: 12, border: "1px solid var(--color-primary)", borderRadius: 6, background: "rgba(var(--color-primary-rgb),0.06)", color: "var(--color-primary)", cursor: assigning === u.id ? "not-allowed" : "pointer", fontWeight: 600 }}
+                >
+                  {assigning === u.id ? "…" : t("ui.分配","分配")}
+                </button>
+              )}
+            </div>
+          );
+
+          return (
+            <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+              {/* 搜索框 */}
+              <input
+                style={{ ...inp, marginBottom: 16 }}
+                placeholder={t("ui.搜索姓名或账号","搜索姓名或账号…")}
+                value={assignSearch}
+                onChange={e => setAssignSearch(e.target.value)}
+                autoFocus
+              />
+
+              <div style={{ flex: 1, overflowY: "auto" }}>
+                {/* 当前部门成员 */}
+                {inOrg.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", letterSpacing: "0.06em", padding: "4px 0 8px", textTransform: "uppercase" }}>
+                      {t("ui.当前部门成员","当前部门成员")} ({inOrg.length})
+                    </div>
+                    {inOrg.map((u, i) => <UserRow key={u.id ?? `in-${i}`} u={u} inCurrent />)}
+                    <div style={{ height: 16 }} />
+                  </>
+                )}
+
+                {/* 其他用户 */}
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", letterSpacing: "0.06em", padding: "4px 0 8px", textTransform: "uppercase" }}>
+                  {t("ui.其他用户","其他用户")} ({others.length})
+                </div>
+                {others.length === 0 && (
+                  <div style={{ color: "var(--text-secondary)", fontSize: 13, padding: "20px 0", textAlign: "center" }}>
+                    {keyword ? t("ui.无匹配结果","无匹配结果") : t("ui.所有用户均已在此部门","所有用户均已在此部门")}
+                  </div>
+                )}
+                {others.map((u, i) => <UserRow key={u.id ?? `oth-${i}`} u={u} inCurrent={false} />)}
+              </div>
+            </div>
+          );
+        })()}
       </RightDrawer>
 
       <style>{`

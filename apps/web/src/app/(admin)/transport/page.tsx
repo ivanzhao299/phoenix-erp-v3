@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Truck, MapPin, CheckCircle, AlertTriangle, RefreshCw, Plus } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
 
 interface Dispatch { id:number; wave_no?:string; vehicle_no?:string; driver_id?:string; plan_date?:string; status?:string; stores?:string; created_at?:string; }
@@ -15,12 +16,14 @@ export default function TransportPage() {
   const [loading, setLoading] = useState(true);
 
   // STATUS_MAP and QUICK moved inside component to use t()
+  // 与 wave/page.tsx、order/loading/page.tsx 保持一致的规范枚举
   const STATUS_MAP: Record<string,{label:string;cls:string}> = {
-    PENDING:    { label: t("status.pending",   "待出发"), cls: s.badgeWarning  },
-    LOADING:    { label: t("ui.装车中",        "装车中"), cls: s.badgeInfo     },
-    DELIVERING: { label: t("ui.配送中",        "配送中"), cls: s.badgeInfo     },
-    DONE:       { label: t("status.done",      "已完成"), cls: s.badgeSuccess  },
-    EXCEPTION:  { label: t("ui.有异常",        "有异常"), cls: s.badgeDanger   },
+    PENDING:    { label: t("status.pending",      "待出发"), cls: s.badgeWarning  },
+    LOADING:    { label: t("ui.装车中",           "装车中"), cls: s.badgeInfo     },
+    DISPATCHED: { label: t("ui.已发运",           "已发运"), cls: s.badgeInfo     },
+    ARRIVED:    { label: t("ui.已到达",           "已到达"), cls: s.badgeSuccess  },
+    CLOSED:     { label: t("ui.已关闭",           "已关闭"), cls: s.badgeNeutral  },
+    CANCELLED:  { label: t("status.cancelled",    "已取消"), cls: s.badgeNeutral  },
   };
 
   const QUICK = [
@@ -34,8 +37,10 @@ export default function TransportPage() {
 
   const load = () => {
     setLoading(true);
-    fetch("/api/crud/log_dispatch?limit=100")
-      .then(r=>r.json()).then(d=>setDispatches(d.data||[])).catch(()=>{}).finally(()=>setLoading(false));
+    crudApi.list<Dispatch>("log_dispatch", { limit: 100 })
+      .then(res => setDispatches(res.data || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   };
 
   useEffect(()=>{ load(); },[]);
@@ -43,9 +48,9 @@ export default function TransportPage() {
   const today = new Date().toISOString().slice(0,10);
   const todayDispatches = useMemo(()=>dispatches.filter(d=>(d.plan_date||d.created_at||"").slice(0,10)===today),[dispatches,today]);
 
-  const delivering = dispatches.filter(d=>d.status==="DELIVERING"||d.status==="LOADING").length;
-  const done       = dispatches.filter(d=>d.status==="DONE").length;
-  const exceptions = dispatches.filter(d=>d.status==="EXCEPTION").length;
+  const delivering = dispatches.filter(d => d.status === "DISPATCHED" || d.status === "LOADING").length;
+  const done       = dispatches.filter(d => d.status === "ARRIVED" || d.status === "CLOSED").length;
+  const exceptions = dispatches.filter(d => d.status === "CANCELLED").length;
 
   const kpis = [
     { label: t("ui.今日波次", "今日波次"), value:loading?"…":String(todayDispatches.length), unit: t("ui.趟", "趟"), accent:"#3b82f6", icon:<Truck size={18}/> },

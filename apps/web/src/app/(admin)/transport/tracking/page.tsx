@@ -61,7 +61,7 @@ export default function Page() {
 
   return (
     <div>
-      <PageHeader title={t("ui.配送跟踪", "配送跟踪")} subtitle={t("ui.查看配送路线规划和门店到达情况", "查看配送路线规划和门店到达情况")} />
+      <PageHeader title={t("ui.配送路线", "配送路线")} subtitle={t("ui.管理配送路线规划及覆盖门店", "管理配送路线规划及覆盖门店（表：log_routes）")} />
       <DataTable<Row>
         table={TABLE}
         columns={COLS}

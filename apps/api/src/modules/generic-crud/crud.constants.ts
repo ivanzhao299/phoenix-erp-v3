@@ -20,7 +20,10 @@ export const ALLOWED_TABLES = [
   'chn_distributor_grading',
   'store_receiving', 'store_receiving_items', 'store_transfers', 'store_replenish_req', 'store_losses', 'store_inventory',
   'pos_sales', 'pos_sale_items', 'daily_close',
-  'pkg_shifts', 'pkg_tasks', 'pkg_exceptions', 'pkg_label_prints', 'pkg_grading_tasks',
+  'pda_terminals',
+  'pkg_exceptions',
+  'pkg_work_shifts', 'pkg_source_batches', 'pkg_qc_inspections', 'pkg_label_print_logs', 'pkg_audit_logs',
+  'pkg_grading_records', 'pkg_packing_records', 'pkg_handover_records',
   'acc_ledger',
   'ws_shipments', 'ws_contracts',
   'ord_customers', 'ord_prices', 'ord_orders', 'ord_order_items', 'ord_approval_log', 'ord_credit_usage',
@@ -77,6 +80,16 @@ export const TABLE_PERM_MAP: Record<string, string[]> = {
   brd_vaccinations: ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_VET'],
   brd_medications:        ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_VET'],
 
+  // 包装 Terminal 作业台表（现场角色可读写）
+  pkg_work_shifts:       ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_PKG_OPERATOR', 'ROLE_LINE_SUPERVISOR'],
+  pkg_source_batches:    ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_PKG_OPERATOR', 'ROLE_QC_INSPECTOR', 'ROLE_LINE_SUPERVISOR', 'ROLE_WH_CLERK'],
+  pkg_qc_inspections:    ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_QC_INSPECTOR', 'ROLE_LINE_SUPERVISOR'],
+  pkg_label_print_logs:  ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_PKG_OPERATOR', 'ROLE_LINE_SUPERVISOR'],
+  pkg_audit_logs:        ['ROLE_ADMIN', 'ROLE_PKG_MGR'],
+  pkg_grading_records:   ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_PKG_OPERATOR', 'ROLE_LINE_SUPERVISOR'],
+  pkg_packing_records:   ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_PKG_OPERATOR', 'ROLE_LINE_SUPERVISOR'],
+  pkg_handover_records:  ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_WH_CLERK', 'ROLE_LINE_SUPERVISOR'],
+
   // 仓储与库存
   wms_warehouses:     ['ROLE_ADMIN', 'ROLE_WMS_MGR', 'ROLE_SYSOPS'],
   wms_locations:      ['ROLE_ADMIN', 'ROLE_WMS_MGR', 'ROLE_SYSOPS'],
@@ -110,9 +123,81 @@ export const TABLE_PERM_MAP: Record<string, string[]> = {
   wms_suppliers:      ['ROLE_ADMIN', 'ROLE_PRC_BUYER', 'ROLE_WMS_MGR'],
 
   // CRM 积分
-  crm_points_ledger:  ['ROLE_ADMIN', 'ROLE_CRM_MGR', 'ROLE_STORE_MGR'],   // 积分台账（余额快照）
-  crm_points_log:     ['ROLE_ADMIN', 'ROLE_CRM_MGR', 'ROLE_STORE_MGR'],   // 积分流水（事件日志）
+  crm_points_ledger:  ['ROLE_ADMIN', 'ROLE_CRM_MGR', 'ROLE_STORE_MGR'],
+  crm_points_log:     ['ROLE_ADMIN', 'ROLE_CRM_MGR', 'ROLE_STORE_MGR'],
 
   // 经销商分级管理
   chn_distributor_grading: ['ROLE_ADMIN', 'ROLE_REGION_MGR', 'ROLE_HEADOFFICE'],
+
+  // ── 以下为补全项（原未配置，默认拒绝策略生效后需显式授权）──────────────────
+
+  // 系统
+  sys_approval_flows:  ['ROLE_ADMIN', 'ROLE_SYSOPS'],
+
+  // 主数据
+  mst_stores:          ['ROLE_ADMIN', 'ROLE_SYSOPS', 'ROLE_REGION_MGR'],
+  mst_products:        ['ROLE_ADMIN', 'ROLE_SYSOPS', 'ROLE_PRC_BUYER', 'ROLE_WMS_MGR'],
+
+  // 仓储补全
+  wms_zones:           ['ROLE_ADMIN', 'ROLE_WMS_MGR', 'ROLE_SYSOPS'],
+  wms_transfer:        ['ROLE_ADMIN', 'ROLE_WMS_MGR', 'ROLE_WMS_OP'],
+  wms_stock_transfers: ['ROLE_ADMIN', 'ROLE_WMS_MGR', 'ROLE_WMS_OP'],
+
+  // 采购补全
+  prc_suppliers:         ['ROLE_ADMIN', 'ROLE_PRC_BUYER', 'ROLE_WMS_MGR'],
+  prc_purchase_requests: ['ROLE_ADMIN', 'ROLE_PRC_BUYER'],
+  prc_returns:           ['ROLE_ADMIN', 'ROLE_PRC_BUYER'],
+  prc_receipts:          ['ROLE_ADMIN', 'ROLE_PRC_BUYER', 'ROLE_WMS_MGR'],
+  prc_supplier_returns:  ['ROLE_ADMIN', 'ROLE_PRC_BUYER'],
+
+  // 物流补全
+  log_receipts:    ['ROLE_ADMIN', 'ROLE_LOGISTICS_MGR'],
+  log_exceptions:  ['ROLE_ADMIN', 'ROLE_LOGISTICS_MGR'],
+
+  // 质量
+  qa_standards:           ['ROLE_ADMIN', 'ROLE_QA_MGR', 'ROLE_QC_INSPECTOR'],
+  qa_inspections:         ['ROLE_ADMIN', 'ROLE_QA_MGR', 'ROLE_QC_INSPECTOR'],
+  qa_inspection_items:    ['ROLE_ADMIN', 'ROLE_QA_MGR', 'ROLE_QC_INSPECTOR'],
+  qa_product_inspections: ['ROLE_ADMIN', 'ROLE_QA_MGR', 'ROLE_QC_INSPECTOR'],
+  qa_non_conformance:     ['ROLE_ADMIN', 'ROLE_QA_MGR', 'ROLE_QC_INSPECTOR'],
+  qa_standards_history:   ['ROLE_ADMIN', 'ROLE_QA_MGR'],
+
+  // 财务补全
+  fin_pay_records: ['ROLE_ADMIN', 'ROLE_FIN_CFO', 'ROLE_FIN_ACCT'],
+
+  // CRM 补全
+  crm_members:      ['ROLE_ADMIN', 'ROLE_CRM_MGR', 'ROLE_STORE_MGR'],
+  crm_levels:       ['ROLE_ADMIN', 'ROLE_CRM_MGR'],
+  crm_coupons:      ['ROLE_ADMIN', 'ROLE_CRM_MGR'],
+  crm_activities:   ['ROLE_ADMIN', 'ROLE_CRM_MGR'],
+  crm_points_rules: ['ROLE_ADMIN', 'ROLE_CRM_MGR'],
+
+  // B2B
+  b2b_customers:  ['ROLE_ADMIN', 'ROLE_REGION_MGR', 'ROLE_HEADOFFICE'],
+  b2b_orders:     ['ROLE_ADMIN', 'ROLE_REGION_MGR', 'ROLE_HEADOFFICE'],
+  b2b_order_items:['ROLE_ADMIN', 'ROLE_REGION_MGR', 'ROLE_HEADOFFICE'],
+
+  // 门店补全
+  store_receiving:       ['ROLE_ADMIN', 'ROLE_STORE_MGR', 'ROLE_WMS_MGR'],
+  store_receiving_items: ['ROLE_ADMIN', 'ROLE_STORE_MGR', 'ROLE_WMS_MGR'],
+  store_transfers:       ['ROLE_ADMIN', 'ROLE_STORE_MGR', 'ROLE_WMS_MGR', 'ROLE_REGION_MGR'],
+  store_replenish_req:   ['ROLE_ADMIN', 'ROLE_STORE_MGR', 'ROLE_REGION_MGR'],
+
+  // PDA终端设备管理
+  pda_terminals: ['ROLE_ADMIN', 'ROLE_SYSOPS'],
+
+  // 包装补全
+  pkg_exceptions: ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_QC_INSPECTOR', 'ROLE_LINE_SUPERVISOR'],
+
+  // 批发/合同
+  ws_shipments: ['ROLE_ADMIN', 'ROLE_LOGISTICS_MGR', 'ROLE_WMS_MGR'],
+  ws_contracts: ['ROLE_ADMIN', 'ROLE_LOGISTICS_MGR', 'ROLE_FIN_CFO'],
+
+  // 订单
+  ord_customers:    ['ROLE_ADMIN', 'ROLE_REGION_MGR', 'ROLE_HEADOFFICE'],
+  ord_prices:       ['ROLE_ADMIN', 'ROLE_REGION_MGR', 'ROLE_FIN_CFO', 'ROLE_HEADOFFICE'],
+  ord_orders:       ['ROLE_ADMIN', 'ROLE_REGION_MGR', 'ROLE_STORE_MGR', 'ROLE_HEADOFFICE'],
+  ord_order_items:  ['ROLE_ADMIN', 'ROLE_REGION_MGR', 'ROLE_STORE_MGR', 'ROLE_HEADOFFICE'],
+  ord_approval_log: ['ROLE_ADMIN', 'ROLE_AUDITOR', 'ROLE_CEO', 'ROLE_REGION_MGR'],
+  ord_credit_usage: ['ROLE_ADMIN', 'ROLE_FIN_CFO', 'ROLE_FIN_AR', 'ROLE_REGION_MGR'],
 };

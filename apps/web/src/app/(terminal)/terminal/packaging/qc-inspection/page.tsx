@@ -6,9 +6,8 @@ import { packagingApi } from '@/lib/packaging-api';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
 import { usePackagingDicts, FALLBACK_DICTS } from '@/hooks/usePackagingDicts';
 import type { QCResult } from '@/types/packaging-terminal';
+import { T } from '@/styles/terminal-theme';
 
-const BG='#0f172a', CARD='#1e293b', BOR='#334155';
-const ACC='#f59e0b', TXT='#f1f5f9', MUT='#94a3b8', GRN='#22c55e', RED='#ef4444';
 
 export default function QCInspectionPage() {
   const router = useRouter();
@@ -69,29 +68,29 @@ export default function QCInspectionPage() {
   if (done) {
     const result = QC_RESULTS.find(r=>r.value===form.qcResult);
     return (
-      <div style={{ height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:BG, gap:16 }}>
+      <div style={{ height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:T.BG, gap:16 }}>
         <div style={{ fontSize:64 }}>{form.qcResult === 'PASSED' ? '✅' : '⚠️'}</div>
         <div style={{ fontSize:24, fontWeight:700, color: result?.color }}>{resultLabel}</div>
-        <div style={{ color:MUT }}>{result?.desc}，{t('ui.正在跳转', '正在跳转...')}</div>
+        <div style={{ color:T.MUT }}>{result?.desc}，{t('ui.正在跳转', '正在跳转...')}</div>
       </div>
     );
   }
 
   return (
-    <div style={{ height:'100%', display:'flex', flexDirection:'column', background:BG, overflow:'hidden' }}>
-      <div style={{ background:CARD, borderBottom:`1px solid ${BOR}`, padding:'14px 24px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
+    <div style={{ height:'100%', display:'flex', flexDirection:'column', background:T.BG, overflow:'hidden' }}>
+      <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'14px 24px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
         <span style={{ fontSize:24 }}>🔍</span>
         <div>
-          <div style={{ fontSize:18, fontWeight:700, color:TXT }}>{t('terminal.qc_inspection', '首检录入')}</div>
-          <div style={{ fontSize:12, color:MUT }}>{t('ui.批次', '批次')} {batch.code} · {'houseName' in batch ? batch.houseName : '--'} · {'layDate' in batch ? batch.layDate : '--'}</div>
+          <div style={{ fontSize:18, fontWeight:700, color:T.TXT }}>{t('terminal.qc_inspection', '首检录入')}</div>
+          <div style={{ fontSize:12, color:T.MUT }}>{t('ui.批次', '批次')} {batch.code} · {'houseName' in batch ? batch.houseName : '--'} · {'layDate' in batch ? batch.layDate : '--'}</div>
         </div>
       </div>
 
       <div style={{ flex:1, overflow:'auto', padding:24, display:'flex', gap:16 }}>
         {/* 左：检验数据 */}
         <div style={{ flex:1, display:'flex', flexDirection:'column', gap:16 }}>
-          <div style={{ background:CARD, borderRadius:12, padding:20, border:`1px solid ${BOR}` }}>
-            <div style={{ fontSize:13, color:MUT, marginBottom:16, fontWeight:600 }}>{t('ui.抽检数量录入', '抽检数量录入')}</div>
+          <div style={{ background:T.CARD, borderRadius:12, padding:20, border:`1px solid ${T.BOR}` }}>
+            <div style={{ fontSize:13, color:T.MUT, marginBottom:16, fontWeight:600 }}>{t('ui.抽检数量录入', '抽检数量录入')}</div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
               {[
                 { key:'sampleQty', label: t('ui.抽检总数枚', '抽检总数（枚）') },
@@ -103,11 +102,11 @@ export default function QCInspectionPage() {
                 { key:'averageWeight', label: t('ui.平均单重g', '平均单重（g）') },
               ].map(f => (
                 <div key={f.key}>
-                  <div style={{ fontSize:11, color:MUT, marginBottom:4 }}>{f.label}</div>
+                  <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{f.label}</div>
                   <input type="number" value={(form as any)[f.key]}
                     onChange={e=>setNum(f.key, e.target.value)}
-                    style={{ width:'100%', background:'rgba(255,255,255,0.05)', border:`1px solid ${BOR}`,
-                      borderRadius:8, padding:'12px 14px', color:TXT, fontSize:18,
+                    style={{ width:'100%', background:'rgba(255,255,255,0.05)', border:`1px solid ${T.BOR}`,
+                      borderRadius:8, padding:'12px 14px', color:T.TXT, fontSize:18,
                       fontWeight:600, boxSizing:'border-box' }} />
                 </div>
               ))}
@@ -115,8 +114,8 @@ export default function QCInspectionPage() {
           </div>
 
           {/* 感官检查 */}
-          <div style={{ background:CARD, borderRadius:12, padding:20, border:`1px solid ${BOR}` }}>
-            <div style={{ fontSize:13, color:MUT, marginBottom:12, fontWeight:600 }}>{t('ui.感官检查', '感官检查')}</div>
+          <div style={{ background:T.CARD, borderRadius:12, padding:20, border:`1px solid ${T.BOR}` }}>
+            <div style={{ fontSize:13, color:T.MUT, marginBottom:12, fontWeight:600 }}>{t('ui.感官检查', '感官检查')}</div>
             <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
               {[
                 { key:'shellOk', label: t('ui.蛋壳清洁', '蛋壳清洁 ✓') },
@@ -125,9 +124,9 @@ export default function QCInspectionPage() {
               ].map(item => (
                 <button key={item.key} onClick={()=>setForm(p=>({...p,[item.key]:!(p as any)[item.key]}))}
                   style={{ padding:'12px 20px', borderRadius:8, cursor:'pointer', transition:'all 0.15s',
-                    border:`2px solid ${(form as any)[item.key] ? GRN : BOR}`,
+                    border:`2px solid ${(form as any)[item.key] ? T.GRN : T.BOR}`,
                     background:(form as any)[item.key] ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.03)',
-                    color:(form as any)[item.key] ? GRN : MUT, fontSize:14 }}>
+                    color:(form as any)[item.key] ? T.GRN : T.MUT, fontSize:14 }}>
                   {item.label}
                 </button>
               ))}
@@ -137,48 +136,48 @@ export default function QCInspectionPage() {
 
         {/* 右：QC结论 */}
         <div style={{ width:320, flexShrink:0, display:'flex', flexDirection:'column', gap:16 }}>
-          <div style={{ background:CARD, borderRadius:12, padding:20, border:`1px solid ${BOR}` }}>
-            <div style={{ fontSize:13, color:MUT, marginBottom:12, fontWeight:600 }}>{t('ui.QC检验结论', 'QC 检验结论')}</div>
+          <div style={{ background:T.CARD, borderRadius:12, padding:20, border:`1px solid ${T.BOR}` }}>
+            <div style={{ fontSize:13, color:T.MUT, marginBottom:12, fontWeight:600 }}>{t('ui.QC检验结论', 'QC 检验结论')}</div>
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {QC_RESULTS.map(r => (
                 <button key={r.value} onClick={()=>setForm(p=>({...p,qcResult:r.value}))}
                   style={{ padding:'14px 16px', borderRadius:10, cursor:'pointer', textAlign:'left',
-                    border:`2px solid ${form.qcResult===r.value ? r.color : BOR}`,
+                    border:`2px solid ${form.qcResult===r.value ? r.color : T.BOR}`,
                     background: form.qcResult===r.value ? `${r.color}15` : 'rgba(255,255,255,0.03)',
                     transition:'all 0.15s' }}>
-                  <div style={{ fontSize:14, fontWeight:600, color: form.qcResult===r.value ? r.color : TXT }}>
+                  <div style={{ fontSize:14, fontWeight:600, color: form.qcResult===r.value ? r.color : T.TXT }}>
                     {r.label}
                   </div>
-                  <div style={{ fontSize:11, color:MUT, marginTop:2 }}>{r.desc}</div>
+                  <div style={{ fontSize:11, color:T.MUT, marginTop:2 }}>{r.desc}</div>
                 </button>
               ))}
             </div>
           </div>
-          <div style={{ background:CARD, borderRadius:12, padding:20, border:`1px solid ${BOR}` }}>
-            <div style={{ fontSize:13, color:MUT, marginBottom:8, fontWeight:600 }}>{t('ui.检验备注', '检验备注')}</div>
+          <div style={{ background:T.CARD, borderRadius:12, padding:20, border:`1px solid ${T.BOR}` }}>
+            <div style={{ fontSize:13, color:T.MUT, marginBottom:8, fontWeight:600 }}>{t('ui.检验备注', '检验备注')}</div>
             <textarea value={form.comment} onChange={e=>setForm(p=>({...p,comment:e.target.value}))}
               placeholder={t('ui.填写检验意见', '填写检验意见...')} rows={4}
-              style={{ width:'100%', background:'rgba(255,255,255,0.05)', border:`1px solid ${BOR}`,
-                borderRadius:8, padding:'10px 12px', color:TXT, fontSize:13,
+              style={{ width:'100%', background:'rgba(255,255,255,0.05)', border:`1px solid ${T.BOR}`,
+                borderRadius:8, padding:'10px 12px', color:T.TXT, fontSize:13,
                 resize:'none', boxSizing:'border-box' }} />
           </div>
         </div>
       </div>
 
-      <div style={{ background:CARD, borderTop:`1px solid ${BOR}`, padding:'16px 24px',
+      <div style={{ background:T.CARD, borderTop:`1px solid ${T.BOR}`, padding:'16px 24px',
         display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
-        <div style={{ flex:1, fontSize:13, color:MUT }}>
+        <div style={{ flex:1, fontSize:13, color:T.MUT }}>
           {form.qcResult
             ? `${t('ui.已选择', '已选择')}：${QC_RESULTS.find(r=>r.value===form.qcResult)?.label}`
             : t('ui.请选择QC检验结论', '请选择 QC 检验结论')}
         </div>
         <button onClick={()=>router.push('/terminal/packaging/dashboard')}
-          style={{ padding:'14px 28px', borderRadius:10, border:`1px solid ${BOR}`,
-            background:'transparent', color:MUT, fontSize:15, cursor:'pointer' }}>{t('common.back', '返回')}</button>
+          style={{ padding:'14px 28px', borderRadius:10, border:`1px solid ${T.BOR}`,
+            background:'transparent', color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('common.back', '返回')}</button>
         <button onClick={handleSubmit} disabled={!form.qcResult || submitting}
           style={{ padding:'14px 40px', borderRadius:10, border:'none',
-            background: form.qcResult ? ACC : BOR,
-            color: form.qcResult ? '#0f172a' : MUT,
+            background: form.qcResult ? T.ACC : T.BOR,
+            color: form.qcResult ? '#0f172a' : T.MUT,
             fontSize:16, fontWeight:700, cursor: form.qcResult ? 'pointer' : 'not-allowed',
             opacity: submitting ? 0.7 : 1 }}>
           {submitting ? t('ui.提交中', '提交中...') : t('ui.提交首检结论', '提交首检结论')}

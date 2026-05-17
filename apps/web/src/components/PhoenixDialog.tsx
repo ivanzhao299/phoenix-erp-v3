@@ -1,22 +1,15 @@
 'use client';
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
-const LIGHT_THEMES: Record<string, any> = {
-  confirm: { headerBg:'linear-gradient(135deg,#1f6feb 0%,#6366f1 100%)', accentColor:'#1f6feb', confirmBg:'linear-gradient(135deg,#1f6feb 0%,#6366f1 100%)', confirmShadow:'rgba(31,111,235,0.35)', confirmColor:'#fff' },
-  warning: { headerBg:'linear-gradient(135deg,#f59e0b 0%,#d97706 100%)', accentColor:'#d97706', confirmBg:'linear-gradient(135deg,#f59e0b 0%,#d97706 100%)', confirmShadow:'rgba(245,158,11,0.35)', confirmColor:'#fff' },
-  danger:  { headerBg:'linear-gradient(135deg,#dc2626 0%,#b91c1c 100%)', accentColor:'#dc2626', confirmBg:'linear-gradient(135deg,#dc2626 0%,#b91c1c 100%)', confirmShadow:'rgba(220,38,38,0.35)', confirmColor:'#fff' },
-  success: { headerBg:'linear-gradient(135deg,#238636 0%,#2ea043 100%)', accentColor:'#238636', confirmBg:'linear-gradient(135deg,#238636 0%,#2ea043 100%)', confirmShadow:'rgba(46,160,67,0.35)', confirmColor:'#fff' },
-  alert:   { headerBg:'linear-gradient(135deg,#1f6feb 0%,#6366f1 100%)', accentColor:'#1f6feb', confirmBg:'linear-gradient(135deg,#1f6feb 0%,#6366f1 100%)', confirmShadow:'rgba(31,111,235,0.35)', confirmColor:'#fff' },
-};
-const DARK_THEMES: Record<string, any> = {
-  confirm: { headerBg:'linear-gradient(135deg,rgba(31,111,235,0.18) 0%,rgba(99,102,241,0.12) 100%)', accentColor:'#60a5fa', headerBorder:'4px solid #3b82f6', titleColor:'#93c5fd', confirmBg:'linear-gradient(135deg,rgba(31,111,235,0.75) 0%,rgba(99,102,241,0.75) 100%)', confirmShadow:'rgba(31,111,235,0.2)', confirmColor:'#e0f2fe' },
-  warning: { headerBg:'linear-gradient(135deg,rgba(245,158,11,0.16) 0%,rgba(217,119,6,0.10) 100%)', accentColor:'#fbbf24', headerBorder:'4px solid #f59e0b', titleColor:'#fcd34d', confirmBg:'linear-gradient(135deg,rgba(245,158,11,0.72) 0%,rgba(217,119,6,0.72) 100%)', confirmShadow:'rgba(245,158,11,0.18)', confirmColor:'#fef3c7' },
-  danger:  { headerBg:'linear-gradient(135deg,rgba(220,38,38,0.16) 0%,rgba(185,28,28,0.10) 100%)', accentColor:'#f87171', headerBorder:'4px solid #dc2626', titleColor:'#fca5a5', confirmBg:'linear-gradient(135deg,rgba(220,38,38,0.72) 0%,rgba(185,28,28,0.72) 100%)', confirmShadow:'rgba(220,38,38,0.18)', confirmColor:'#fee2e2' },
-  success: { headerBg:'linear-gradient(135deg,rgba(35,134,54,0.16) 0%,rgba(46,160,67,0.10) 100%)', accentColor:'#4ade80', headerBorder:'4px solid #22c55e', titleColor:'#86efac', confirmBg:'linear-gradient(135deg,rgba(35,134,54,0.72) 0%,rgba(46,160,67,0.72) 100%)', confirmShadow:'rgba(46,160,67,0.18)', confirmColor:'#d1fae5' },
-  alert:   { headerBg:'linear-gradient(135deg,rgba(31,111,235,0.18) 0%,rgba(99,102,241,0.12) 100%)', accentColor:'#60a5fa', headerBorder:'4px solid #3b82f6', titleColor:'#93c5fd', confirmBg:'linear-gradient(135deg,rgba(31,111,235,0.75) 0%,rgba(99,102,241,0.75) 100%)', confirmShadow:'rgba(31,111,235,0.2)', confirmColor:'#e0f2fe' },
+// ── Per-type color config — no light/dark split needed (CSS vars handle it) ──
+const TYPE_CFG: Record<string, { accent: string; iconBg: string; confirmBg: string; confirmShadow: string }> = {
+  danger:  { accent:'#ef4444', iconBg:'rgba(239,68,68,0.12)',  confirmBg:'linear-gradient(135deg,#ef4444,#b91c1c)', confirmShadow:'rgba(239,68,68,0.28)'  },
+  warning: { accent:'#f59e0b', iconBg:'rgba(245,158,11,0.12)', confirmBg:'linear-gradient(135deg,#f59e0b,#d97706)', confirmShadow:'rgba(245,158,11,0.28)' },
+  success: { accent:'#22c55e', iconBg:'rgba(34,197,94,0.12)',  confirmBg:'linear-gradient(135deg,#22c55e,#16a34a)', confirmShadow:'rgba(34,197,94,0.28)'  },
+  confirm: { accent:'#3b82f6', iconBg:'rgba(59,130,246,0.12)', confirmBg:'linear-gradient(135deg,#3b82f6,#2563eb)', confirmShadow:'rgba(59,130,246,0.28)' },
+  alert:   { accent:'#3b82f6', iconBg:'rgba(59,130,246,0.12)', confirmBg:'linear-gradient(135deg,#3b82f6,#2563eb)', confirmShadow:'rgba(59,130,246,0.28)' },
 };
 
 interface PhoenixDialogProps {
@@ -34,64 +27,133 @@ interface PhoenixDialogProps {
   hideCancel?: boolean;
 }
 
-function PhoenixDialog({ isOpen, type='confirm', icon, title, subtitle, message, children, cancelLabel: _cancelLabel, confirmLabel: _confirmLabel, onCancel, onConfirm, hideCancel=false }: PhoenixDialogProps) {
+function PhoenixDialog({
+  isOpen, type = 'confirm', icon, title, subtitle, message, children,
+  cancelLabel: _cancelLabel, confirmLabel: _confirmLabel,
+  onCancel, onConfirm, hideCancel = false,
+}: PhoenixDialogProps) {
   const { t } = useLanguage();
   const cancelLabel  = _cancelLabel  ?? t('common.cancel',  '取消');
   const confirmLabel = _confirmLabel ?? t('common.confirm', '确认');
 
   if (!isOpen || typeof document === 'undefined') return null;
-  const { themeMode } = useTheme() || { themeMode: 'light' };
-  const isDark = themeMode === 'dark' || (themeMode === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  const themeVariant = isDark ? (DARK_THEMES[type] || DARK_THEMES.confirm) : (LIGHT_THEMES[type] || LIGHT_THEMES.confirm);
+
+  const cfg = TYPE_CFG[type] || TYPE_CFG.confirm;
 
   const dialog = (
-    <div onClick={e => { if (e.target === e.currentTarget && onCancel) onCancel(); }} style={{
-      position:'fixed', inset:0, zIndex:999999,
-      background: isDark ? 'rgba(0,0,0,0.82)' : 'rgba(0,0,0,0.55)',
-      display:'flex', alignItems:'center', justifyContent:'center',
-      backdropFilter:'blur(10px)', fontFamily:"'Inter',-apple-system,sans-serif", padding:'16px',
-    }}>
-      <div style={{ background:'var(--bg-surface)', borderRadius:'20px', width:'520px', maxWidth:'96vw', maxHeight:'90vh',
-        boxShadow: isDark ? '0 32px 80px rgba(0,0,0,0.7),0 0 0 1px rgba(255,255,255,0.06)' : '0 32px 80px rgba(0,0,0,0.2),0 0 0 1px rgba(0,0,0,0.06)',
-        overflow:'hidden', display:'flex', flexDirection:'column' }}>
-        {/* Header */}
-        <div style={{ background:themeVariant.headerBg, borderLeft: isDark ? themeVariant.headerBorder : 'none', padding:'26px 32px 22px',
-          display:'flex', alignItems:'flex-start', gap:'16px', flexShrink:0,
-          borderBottom: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(255,255,255,0.2)' }}>
-          {icon && (
-            <span style={{ fontSize: isDark?'36px':'44px', lineHeight:1, flexShrink:0, marginTop:'2px',
-              ...(isDark ? { width:'52px', height:'52px', display:'flex', alignItems:'center', justifyContent:'center',
-                backgroundColor:`color-mix(in srgb, ${themeVariant.accentColor} 18%, transparent)`,
-                borderRadius:'14px', border:`1px solid color-mix(in srgb, ${themeVariant.accentColor} 30%, transparent)` } : {}) }}>
-              {icon}
-            </span>
-          )}
-          <div style={{ paddingTop: icon && isDark ? '6px' : 0 }}>
-            <div style={{ fontSize:'20px', fontWeight:'800', color: isDark ? themeVariant.titleColor : '#fff', letterSpacing:'-0.3px', lineHeight:1.3 }}>{title}</div>
-            {subtitle && <div style={{ fontSize:'13px', color: isDark ? `color-mix(in srgb,${themeVariant.titleColor} 70%,transparent)` : 'rgba(255,255,255,0.82)', marginTop:'5px', lineHeight:1.5 }}>{subtitle}</div>}
-          </div>
-        </div>
+    <div
+      onClick={e => { if (e.target === e.currentTarget && onCancel) onCancel(); }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 999999,
+        background: 'rgba(0,0,0,0.48)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        backdropFilter: 'blur(6px)',
+        padding: '16px',
+        animation: 'phxFadeIn 0.14s ease',
+      }}
+    >
+      <style>{`
+        @keyframes phxFadeIn { from { opacity:0; } to { opacity:1; } }
+        @keyframes phxScaleIn { from { transform:scale(0.9); opacity:0; } to { transform:scale(1); opacity:1; } }
+      `}</style>
+
+      <div style={{
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border)',
+        borderTop: `3px solid ${cfg.accent}`,
+        borderRadius: '14px',
+        width: '400px',
+        maxWidth: '94vw',
+        maxHeight: '90vh',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.08)',
+        animation: 'phxScaleIn 0.18s cubic-bezier(0.34,1.45,0.64,1)',
+      }}>
+
         {/* Body */}
-        <div style={{ padding:'24px 32px', overflowY:'auto', flex:1 }}>
-          {message && <p style={{ fontSize:'15px', color:'var(--text-main)', lineHeight:'1.75', margin:0, whiteSpace:'pre-line' }}>{message}</p>}
-          {children}
+        <div style={{ padding: '28px 32px 20px', textAlign: 'center', flex: 1, overflowY: 'auto' }}>
+
+          {/* Icon badge */}
+          {icon && (
+            <div style={{
+              width: 52, height: 52, borderRadius: '50%',
+              background: cfg.iconBg,
+              border: `1px solid ${cfg.accent}28`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 16px',
+              fontSize: 24, lineHeight: 1,
+            }}>
+              {icon}
+            </div>
+          )}
+
+          {/* Title */}
+          {title && (
+            <div style={{
+              fontSize: 17, fontWeight: 700, color: 'var(--text-primary)',
+              lineHeight: 1.35, marginBottom: subtitle || message || children ? 6 : 0,
+            }}>
+              {title}
+            </div>
+          )}
+
+          {/* Subtitle */}
+          {subtitle && (
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6, lineHeight: 1.5 }}>
+              {subtitle}
+            </div>
+          )}
+
+          {/* Message */}
+          {message && (
+            <p style={{
+              fontSize: 13.5, color: 'var(--text-secondary)',
+              lineHeight: 1.65, margin: '8px 0 0', whiteSpace: 'pre-line',
+            }}>
+              {message}
+            </p>
+          )}
+
+          {/* Custom content */}
+          {children && <div style={{ marginTop: 16 }}>{children}</div>}
         </div>
+
         {/* Actions */}
-        <div style={{ padding:'12px 32px 26px', display:'flex', gap:'12px', flexShrink:0, borderTop:'1px solid var(--border-color)' }}>
+        <div style={{
+          padding: '16px 32px 24px',
+          display: 'flex', gap: 10, justifyContent: 'center',
+          borderTop: '1px solid var(--border)',
+        }}>
           {!hideCancel && (
-            <button onClick={onCancel} style={{ flex:1, padding:'13px', fontSize:'14px', fontWeight:'600',
-              border:'1.5px solid var(--border-color)', borderRadius:'10px',
-              background:'var(--bg-element)', color:'var(--text-muted)', cursor:'pointer', transition:'all 0.15s' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background='var(--bg-surface)'; (e.currentTarget as HTMLElement).style.color='var(--text-main)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background='var(--bg-element)'; (e.currentTarget as HTMLElement).style.color='var(--text-muted)'; }}>
+            <button
+              onClick={onCancel}
+              style={{
+                padding: '9px 24px', fontSize: 13.5, fontWeight: 500,
+                border: '1px solid var(--border)', borderRadius: 8,
+                background: 'transparent', color: 'var(--text-secondary)',
+                cursor: 'pointer', transition: 'border-color 0.15s, color 0.15s',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--text-primary)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';       (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
+            >
               {cancelLabel}
             </button>
           )}
-          <button onClick={onConfirm} style={{ flex: hideCancel ? 1 : 1.6, padding:'13px', fontSize:'14px', fontWeight:'700',
-            border:'none', borderRadius:'10px', background:themeVariant.confirmBg, color:themeVariant.confirmColor,
-            cursor:'pointer', boxShadow:`0 4px 16px ${themeVariant.confirmShadow}`, transition:'all 0.15s', letterSpacing:'0.2px' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity='0.88'; (e.currentTarget as HTMLElement).style.transform='translateY(-1px)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity='1'; (e.currentTarget as HTMLElement).style.transform='translateY(0)'; }}>
+          <button
+            onClick={onConfirm}
+            style={{
+              padding: '9px 28px', fontSize: 13.5, fontWeight: 600,
+              border: 'none', borderRadius: 8,
+              background: cfg.confirmBg, color: '#fff',
+              cursor: 'pointer',
+              boxShadow: `0 2px 10px ${cfg.confirmShadow}`,
+              transition: 'opacity 0.15s, transform 0.15s, box-shadow 0.15s',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.88'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 16px ${cfg.confirmShadow}`; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1';    (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';   (e.currentTarget as HTMLElement).style.boxShadow = `0 2px 10px ${cfg.confirmShadow}`; }}
+          >
             {confirmLabel}
           </button>
         </div>

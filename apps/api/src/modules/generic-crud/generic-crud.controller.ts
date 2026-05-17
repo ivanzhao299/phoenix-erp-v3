@@ -46,13 +46,14 @@ export class GenericCrudController {
 
     const requiredRoles = TABLE_PERM_MAP[table];
 
-    if (requiredRoles) {
-      const hasAccess = requiredRoles.some((r) => userRoles.includes(r) || userRole === r);
-      if (!hasAccess) {
-        throw new ForbiddenException(
-          `权限不足：您的角色无权访问 [${table}] 表`,
-        );
-      }
+    // 默认拒绝：表未在 TABLE_PERM_MAP 中配置 → 403，防止新增表意外暴露
+    if (!requiredRoles) {
+      throw new ForbiddenException(`权限未配置：表 [${table}] 未在权限矩阵中定义`);
+    }
+
+    const hasAccess = requiredRoles.some((r) => userRoles.includes(r) || userRole === r);
+    if (!hasAccess) {
+      throw new ForbiddenException(`权限不足：您的角色无权访问 [${table}] 表`);
     }
   }
 
@@ -79,7 +80,20 @@ export class GenericCrudController {
   @Get(':table')
   async findAll(@Param('table') table: string, @Query() query: any, @Req() req: any) {
     this.checkTableAccess(table, req, 'GET');
-    const data = await this.crudService.findAll(table, query);
+
+    // 行级租户隔离：非全局角色自动注入 store_code 过滤，防止跨站点数据泄露
+    const userStoreCode: string | undefined = req.user?.storeCode;
+    const isGlobal =
+      !userStoreCode ||
+      userStoreCode === 'ALL' ||
+      (req.user?.permissions || []).includes('*') ||
+      req.user?.username === 'admin';
+
+    const effectiveQuery = isGlobal
+      ? query
+      : { ...query, store_code: userStoreCode };
+
+    const data = await this.crudService.findAll(table, effectiveQuery);
     return { code: 200, data };
   }
 

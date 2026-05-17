@@ -26,7 +26,7 @@ export default function ForwardTracePage() {
       const [bRes, iRes, oRes] = await Promise.all([
         crudApi.list("inv_batches",    { batch_no: batchNo, limit: 1 } as any),
         crudApi.list("qa_inspections", { batch_no: batchNo, limit: 50 } as any),
-        crudApi.list("ord_orders",     { limit: 20 } as any),
+        crudApi.list("ord_orders",     { batch_no: batchNo, limit: 20 } as any),
       ]);
       setResult({
         batch:       ((bRes as any).data ?? [])[0] ?? null,

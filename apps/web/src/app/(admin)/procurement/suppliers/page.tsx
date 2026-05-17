@@ -5,6 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
 
 // V3 表: prc_suppliers
@@ -14,8 +15,8 @@ const TYPE_CLS: Record<string,string> = {
   PACKAGING:"badgeNeutral", OTHER:"badgeNeutral",
 };
 const STATUS_CLS: Record<string,string> = {
-  ACTIVE:"badgeSuccess", active:"badgeSuccess",
-  INACTIVE:"badgeDanger", inactive:"badgeDanger",
+  ACTIVE:"badgeSuccess",
+  INACTIVE:"badgeDanger",
   SUSPENDED:"badgeWarning",
 };
 
@@ -74,8 +75,8 @@ export default function SuppliersPage() {
 
   const load = useCallback(()=>{
     setLoading(true);
-    fetch("/api/crud/prc_suppliers?limit=300")
-      .then(r=>r.json()).then(d=>setList(d.data||[])).catch(()=>{}).finally(()=>setLoading(false));
+    crudApi.list<Supplier>("prc_suppliers", { limit: 300 })
+      .then(res=>setList(res.data||[])).catch(()=>{}).finally(()=>setLoading(false));
   },[]);
   useEffect(()=>{ load(); },[load]);
 

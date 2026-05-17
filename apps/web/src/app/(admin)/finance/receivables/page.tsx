@@ -45,7 +45,7 @@ export default function ReceivablesPage() {
 
   const load = () => {
     setLoading(true);
-    fetch("/api/crud/fin_ar?limit=300").then(r=>r.json())
+    fetch("/api/crud/fin_transactions?type=AR&limit=300").then(r=>r.json())
       .then(d => setData(d.data||[])).catch(()=>{}).finally(()=>setLoading(false));
   };
   useEffect(()=>{ load(); },[]);
@@ -70,9 +70,10 @@ export default function ReceivablesPage() {
     if (!newForm.customer || !newForm.amount) { toast.error(t('ui.请填写客户和金额', '请填写客户和金额')); return; }
     setCreating(true);
     try {
-      await fetch("/api/crud/fin_ar", {
+      await fetch("/api/crud/fin_transactions", {
         method:"POST", headers:hdr,
         body: JSON.stringify({
+          type: "AR",
           customer_or_supplier: newForm.customer,
           amount: Number(newForm.amount),
           due_date: newForm.due_date || null,
@@ -92,7 +93,7 @@ export default function ReceivablesPage() {
     if (!selected||!payAmt) { toast.error(t('ui.请填写收款金额', '请填写收款金额')); return; }
     setSaving(true);
     try {
-      await fetch(`/api/crud/fin_ar/${selected.id}`, {
+      await fetch(`/api/crud/fin_transactions/${selected.id}`, {
         method:"PUT", headers:hdr,
         body: JSON.stringify({ paid_amount: Number(payAmt), status:"paid", updated_at:new Date().toISOString() }),
       });

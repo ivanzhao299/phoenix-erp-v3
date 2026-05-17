@@ -136,7 +136,28 @@ export class MonDeviceService {
         data = await this.entityManager.query(queryAgg, [houseCode, startDateStr, endDateStr, ...properties]);
       }
 
-      return { ok: true, data: { range, startDate: startDateStr, endDate: endDateStr, granularity, series: data } };
+      // Group flat rows by property_code into the { propertyCode, name, unit, points[] } shape
+      // that the frontend MetricCard / MiniChart pipeline expects.
+      const grouped: Record<string, any[]> = {};
+      for (const row of data as any[]) {
+        const code: string = row.property_code;
+        if (!grouped[code]) grouped[code] = [];
+        grouped[code].push(row);
+      }
+      const series = Object.entries(grouped).map(([code, rows]) => ({
+        propertyCode: code,
+        name:         rows[0]?.name_zh   || code,
+        unit:         rows[0]?.unit      || '',
+        thresholdHigh:rows[0]?.threshold_high ?? null,
+        thresholdLow: rows[0]?.threshold_low  ?? null,
+        points: rows.map((r: any) => ({
+          value:       r.value,
+          collectTime: r.collect_time,
+          logDate:     r.log_date,
+        })),
+      }));
+
+      return { ok: true, data: { range, startDate: startDateStr, endDate: endDateStr, granularity, series } };
     } catch (e: any) {
       return { ok: false, error: e.message };
     }
@@ -465,7 +486,7 @@ export class MonDeviceService {
         const t = r.ui_component_type || 'matrix';
         (groupMap[t] = groupMap[t] || []).push({
           code: r.property_code, name: r.name_zh, value: r.value != null ? Number(r.value) : null,
-          unit: r.unit, status: this.alarmStatus(r.is_alarm, r.threshold_high, r.threshold_low, r.value != null ? Number(r.value) : null, r.property_code),
+          unit: r.unit, status: this.alarmStatus(r.is_alarm, r.threshold_high, r.threshold_low, r.value != null ? Number(r.value) : 0, r.property_code),
           metricType: r.metric_type, thresholdHigh: r.threshold_high, thresholdLow: r.threshold_low,
           lastUpdateTime: this.fmtTime(r.collect_time),
         });

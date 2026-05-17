@@ -5,6 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
 
 // B1: pos_sales 真实列 — sale_no / store_code / cashier / member_phone /
@@ -53,8 +54,8 @@ export default function PosSalesPage() {
 
   const load = useCallback(()=>{
     setLoading(true);
-    fetch("/api/crud/pos_sales?limit=500")
-      .then(r=>r.json()).then(d=>setList(d.data||[])).catch(()=>{}).finally(()=>setLoading(false));
+    crudApi.list<Sale>("pos_sales", { limit: 500 })
+      .then(res=>setList(res.data||[])).catch(()=>{}).finally(()=>setLoading(false));
   },[]);
   useEffect(()=>{ load(); },[load]);
 

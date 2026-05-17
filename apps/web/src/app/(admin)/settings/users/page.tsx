@@ -9,7 +9,7 @@ import { usePermission } from "@/hooks/usePermission";
 import {
   Users, Shield, Plus, Lock, Unlock, Key, Edit2, UserCheck,
   FlaskConical, RefreshCw, Search, ChevronUp, ChevronDown,
-  ChevronsUpDown, Star, X as XIcon, Info,
+  ChevronsUpDown, Star, X as XIcon, Info, LayoutGrid, List, ChevronRight,
 } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 
@@ -74,7 +74,7 @@ type SortKey = "username" | "real_name_zh" | "role_name_zh" | "status";
 type SortDir = "asc" | "desc";
 const PAGE_SIZE_OPTIONS = [20, 50, 100];
 
-// ── Role type grouping color ──────────────────────────────────────
+// ── Role type grouping color (for RolePicker) ────────────────────
 const TYPE_COLOR: Record<string, string> = {
   SYSTEM: "#d97706", DECISION: "#7c3aed", FINANCE: "#ec4899",
   MANAGEMENT: "#0ea5e9", PRODUCTION: "#10b981", QUALITY: "#84cc16",
@@ -82,6 +82,26 @@ const TYPE_COLOR: Record<string, string> = {
   PROCUREMENT: "#8b5cf6", STORE: "#3b82f6", SALES: "#06b6d4",
   EXTERNAL: "#64748b", custom: "#94a3b8",
 };
+
+// ── Role type meta (order / label / color / emoji) ────────────────
+const ROLE_TYPE_META: Record<string, { order: number; label: string; color: string; emoji: string }> = {
+  SYSTEM:      { order: 0,  label: "系统管理",  color: "#d97706", emoji: "⚙️" },
+  DECISION:    { order: 1,  label: "决策层",    color: "#7c3aed", emoji: "👑" },
+  FINANCE:     { order: 2,  label: "财务",      color: "#ec4899", emoji: "💰" },
+  MANAGEMENT:  { order: 3,  label: "管理运营",  color: "#0ea5e9", emoji: "📊" },
+  PRODUCTION:  { order: 4,  label: "养殖生产",  color: "#10b981", emoji: "🐔" },
+  QUALITY:     { order: 5,  label: "品控质检",  color: "#84cc16", emoji: "🔬" },
+  PACKAGING:   { order: 6,  label: "包装加工",  color: "#14b8a6", emoji: "📦" },
+  WAREHOUSE:   { order: 7,  label: "仓储物流",  color: "#f59e0b", emoji: "🏭" },
+  LOGISTICS:   { order: 8,  label: "配送运输",  color: "#f97316", emoji: "🚛" },
+  PROCUREMENT: { order: 9,  label: "采购供应",  color: "#8b5cf6", emoji: "🛒" },
+  STORE:       { order: 10, label: "门店零售",  color: "#3b82f6", emoji: "🏪" },
+  SALES:       { order: 11, label: "销售营销",  color: "#06b6d4", emoji: "📈" },
+  EXTERNAL:    { order: 12, label: "外部协作",  color: "#64748b", emoji: "🤝" },
+  custom:      { order: 99, label: "自定义",    color: "#94a3b8", emoji: "🔧" },
+};
+const TYPE_META_FALLBACK = { order: 98, label: "其他",      color: "#94a3b8", emoji: "👤" };
+const NO_ROLE_META       = { order: 97, label: "未分配角色", color: "#ef4444", emoji: "❓" };
 
 // ── Multi-role picker component ─────────────────────────────────
 function RolePicker({ allRoles, selected, onChange }: {
@@ -273,6 +293,10 @@ export default function UserManagementPage() {
   });
   const [selectedRoles, setSelectedRoles] = useState<UserRole[]>([]);
 
+  // ── View mode ─────────────────────────────────────────────────────────────────
+  const [viewMode, setViewMode] = useState<"grouped" | "flat">("grouped");
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -327,6 +351,54 @@ export default function UserManagementPage() {
       ? <ChevronUp   size={12} style={{ color: "var(--color-primary)", marginLeft: 3 }}/>
       : <ChevronDown size={12} style={{ color: "var(--color-primary)", marginLeft: 3 }}/>;
   };
+
+  // ── Role type lookup map ──────────────────────────────────────────────────────
+  const roleTypeMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of allRoles) m.set(r.role_code, r.role_type || "custom");
+    return m;
+  }, [allRoles]);
+
+  // ── Grouped users (by primary role's role_type) ───────────────────────────────
+  const userGroups = useMemo(() => {
+    const groupMap = new Map<string, UserRecord[]>();
+    for (const u of filtered) {
+      const primaryRole = (u.roles_detail || []).find(r => r.is_primary)
+        ?? [...(u.roles_detail || [])].sort((a, b) => b.approval_level - a.approval_level)[0];
+      const type = primaryRole ? (roleTypeMap.get(primaryRole.role_code) || "custom") : "NO_ROLE";
+      if (!groupMap.has(type)) groupMap.set(type, []);
+      groupMap.get(type)!.push(u);
+    }
+    // Sort users within each group: primary role level desc, then name asc
+    for (const [, gUsers] of groupMap) {
+      gUsers.sort((a, b) => {
+        const pa = (a.roles_detail || []).find(r => r.is_primary)
+          ?? [...(a.roles_detail || [])].sort((x, y) => y.approval_level - x.approval_level)[0];
+        const pb = (b.roles_detail || []).find(r => r.is_primary)
+          ?? [...(b.roles_detail || [])].sort((x, y) => y.approval_level - x.approval_level)[0];
+        const la = pa?.approval_level ?? 0;
+        const lb = pb?.approval_level ?? 0;
+        if (lb !== la) return lb - la;
+        return (a.real_name_zh || "").localeCompare(b.real_name_zh || "");
+      });
+    }
+    return Array.from(groupMap.entries())
+      .map(([type, gUsers]) => ({
+        type,
+        meta: type === "NO_ROLE" ? NO_ROLE_META : (ROLE_TYPE_META[type] ?? TYPE_META_FALLBACK),
+        users: gUsers,
+      }))
+      .sort((a, b) => a.meta.order - b.meta.order);
+  }, [filtered, roleTypeMap]);
+
+  const toggleGroup = useCallback((type: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  }, []);
 
   const f = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
@@ -464,6 +536,23 @@ export default function UserManagementPage() {
 
       {/* Toolbar */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+        {/* View mode toggle */}
+        <div style={{ display: "flex", gap: 2, background: "var(--bg-card)", borderRadius: 8,
+          padding: 3, border: "1px solid var(--border)", flexShrink: 0 }}>
+          {([["grouped", <LayoutGrid size={13}/>, t("ui.分组视图", "分组视图")],
+             ["flat",    <List size={13}/>,       t("ui.列表视图", "列表视图")]] as const).map(([mode, icon, label]) => (
+            <button key={mode} type="button" onClick={() => setViewMode(mode as "grouped" | "flat")}
+              title={label}
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px",
+                borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600,
+                background: viewMode === mode ? "var(--color-primary)" : "transparent",
+                color: viewMode === mode ? "#fff" : "var(--text-secondary)",
+                transition: "all 0.15s" }}>
+              {icon} <span>{label}</span>
+            </button>
+          ))}
+        </div>
+
         {/* Type tabs */}
         <div style={{ display: "flex", gap: 6 }}>
           {([["ALL", t("ui.全部", "全部")], ["REAL", "✅ " + t("ui.正式员工", "正式员工")], ["TEST", "🧪 " + t("ui.测试账号", "测试账号")]] as const).map(([key, label]) => (
@@ -518,7 +607,7 @@ export default function UserManagementPage() {
         )}
       </div>
 
-      {/* User table */}
+      {/* User table / grouped view */}
       {loading ? (
         <div className={s.card}>
           {[...Array(5)].map((_, i) => (
@@ -529,7 +618,149 @@ export default function UserManagementPage() {
             </div>
           ))}
         </div>
+      ) : viewMode === "grouped" ? (
+        /* ── Grouped view ─────────────────────────────────────────── */
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {userGroups.length === 0 ? (
+            <div className={s.card}>
+              <div className={s.emptyState}>
+                <Users size={40}/>
+                <div className={s.emptyStateText}>{search || hasActiveFilters ? t("ui.没有匹配的用户", "没有匹配的用户") : t("ui.暂无用户账号", "暂无用户账号")}</div>
+                <div className={s.emptyStateHint}>
+                  {search || hasActiveFilters ? t("ui.尝试修改搜索条件或清除筛选", "尝试修改搜索条件或清除筛选") : t("ui.点击新建用户添加第一个账号", "点击「新建用户」添加第一个账号")}
+                </div>
+              </div>
+            </div>
+          ) : userGroups.map(({ type, meta, users: groupUsers }) => {
+            const collapsed = collapsedGroups.has(type);
+            return (
+              <div key={type} className={s.card}
+                style={{ overflow: "hidden", borderLeft: `3px solid ${meta.color}` }}>
+                {/* Group header */}
+                <div onClick={() => toggleGroup(type)}
+                  style={{ display: "flex", alignItems: "center", gap: 10,
+                    padding: "10px 18px", cursor: "pointer", userSelect: "none",
+                    background: meta.color + "0d",
+                    borderBottom: collapsed ? "none" : "1px solid var(--border)" }}>
+                  <span style={{ fontSize: 18, lineHeight: 1 }}>{meta.emoji}</span>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: meta.color }}>{meta.label}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 9px", borderRadius: 10,
+                    background: meta.color + "22", color: meta.color, border: `1px solid ${meta.color}33` }}>
+                    {groupUsers.length} {t("ui.人", "人")}
+                  </span>
+                  <span style={{ marginLeft: "auto", color: "var(--text-secondary)", display: "flex", alignItems: "center" }}>
+                    {collapsed ? <ChevronRight size={15}/> : <ChevronDown size={15}/>}
+                  </span>
+                </div>
+                {/* Group table */}
+                {!collapsed && (
+                  <table className={s.table}>
+                    <tbody>
+                      {groupUsers.map((u, i) => {
+                        const rolesSorted = [...(u.roles_detail || [])].sort((a, b) => b.approval_level - a.approval_level);
+                        return (
+                          <tr key={u.id} className={`${s.rowEnter} ${s.rowEnterStagger}`}
+                            style={{ "--i": i, background: u.status === "FROZEN" ? "rgba(239,68,68,0.04)" : u.user_type === "TEST" ? "rgba(124,58,237,0.03)" : "transparent" } as any}>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span className={s.code}>{u.username}</span>
+                                <UserTypeBadge type={u.user_type || "REAL"}/>
+                              </div>
+                              <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 3 }}>
+                                ID: {u.id}{u.store_code && u.store_code !== "ALL" ? ` · ${t("ui.门店", "门店")}: ${u.store_code}` : ""}
+                              </div>
+                            </td>
+                            <td style={{ fontWeight: 600 }}>{u.real_name_zh}</td>
+                            <td>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                {rolesSorted.slice(0, 3).map(r => {
+                                  const col = levelColor(r.approval_level);
+                                  return (
+                                    <span key={r.role_code} style={{ fontSize: 11, fontWeight: r.is_primary ? 700 : 400,
+                                      padding: "2px 7px", borderRadius: 10, display: "flex", alignItems: "center", gap: 3,
+                                      background: col + "18", color: col, border: `1px solid ${col}33` }}>
+                                      {r.is_primary && <Star size={9} style={{ fill: col }}/>}
+                                      {r.role_name_zh}
+                                    </span>
+                                  );
+                                })}
+                                {rolesSorted.length > 3 && (
+                                  <span style={{ fontSize: 11, color: "var(--text-secondary)",
+                                    padding: "2px 6px", borderRadius: 10,
+                                    background: "var(--bg-page)", border: "1px solid var(--border)" }}>
+                                    +{rolesSorted.length - 3}
+                                  </span>
+                                )}
+                                {rolesSorted.length === 0 && (
+                                  <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                                    {t("ui.未分配角色", "未分配角色")}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <span className={`${s.dot} ${u.status === "ACTIVE" ? s.dotOnline : s.dotOffline}`}/>
+                                <span className={`${s.badge} ${u.status === "ACTIVE" ? s.badgeSuccess : s.badgeDanger}`}>
+                                  {u.status === "ACTIVE" ? t("status.normal", "正常") : t("ui.已冻结", "已冻结")}
+                                </span>
+                              </div>
+                            </td>
+                            <td>
+                              {u.username === "admin" ? (
+                                <div style={{ textAlign: "right" }}>
+                                  <span className={`${s.badge} ${s.badgeWarning}`}>{t("ui.超管保护", "超管保护")}</span>
+                                </div>
+                              ) : (
+                                <div className={s.tableActions}>
+                                  {canEdit && (
+                                    <button type="button" onClick={() => handleEdit(u)} className={s.btnIcon} title={t("common.edit", "编辑")}>
+                                      <Edit2 size={13}/>
+                                    </button>
+                                  )}
+                                  <button type="button" onClick={() => handleToggle(u)}
+                                    className={`${s.btnSm} ${u.status === "ACTIVE" ? s.btnDanger : s.btnSecondary}`}>
+                                    {u.status === "ACTIVE" ? <><Lock size={11}/>{t("ui.冻结", "冻结")}</> : <><Unlock size={11}/>{t("ui.解冻", "解冻")}</>}
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            );
+          })}
+          {/* Grouped view footer */}
+          {userGroups.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "10px 4px", fontSize: 12, color: "var(--text-secondary)" }}>
+              <span>
+                {t("common.total", "共")} <strong style={{ color: "var(--text-primary)" }}>{filtered.length}</strong> {t("ui.人", "人")} ·{" "}
+                {userGroups.length} {t("ui.个分组", "个分组")}
+              </span>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={() => setCollapsedGroups(new Set())}
+                  style={{ fontSize: 12, padding: "4px 10px", borderRadius: 6, cursor: "pointer",
+                    border: "1px solid var(--border)", background: "var(--bg-card)",
+                    color: "var(--text-secondary)" }}>
+                  {t("ui.全部展开", "全部展开")}
+                </button>
+                <button onClick={() => setCollapsedGroups(new Set(userGroups.map(g => g.type)))}
+                  style={{ fontSize: 12, padding: "4px 10px", borderRadius: 6, cursor: "pointer",
+                    border: "1px solid var(--border)", background: "var(--bg-card)",
+                    color: "var(--text-secondary)" }}>
+                  {t("ui.全部折叠", "全部折叠")}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       ) : (
+        /* ── Flat table view ──────────────────────────────────────── */
         <div className={s.card}>
           <table className={s.table}>
             <thead>
@@ -563,7 +794,6 @@ export default function UserManagementPage() {
                 </td></tr>
               ) : paginated.map((u, i) => {
                 const rolesSorted = [...(u.roles_detail || [])].sort((a, b) => b.approval_level - a.approval_level);
-                const primaryRole = rolesSorted.find(r => r.is_primary) ?? rolesSorted[0];
                 return (
                   <tr key={u.id} className={`${s.rowEnter} ${s.rowEnterStagger}`}
                     style={{ "--i": i, background: u.status === "FROZEN" ? "rgba(239,68,68,0.04)" : u.user_type === "TEST" ? "rgba(124,58,237,0.03)" : "transparent" } as any}>
@@ -578,7 +808,6 @@ export default function UserManagementPage() {
                     </td>
                     <td style={{ fontWeight: 600 }}>{u.real_name_zh}</td>
                     <td>
-                      {/* Multi-role display */}
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                         {rolesSorted.slice(0, 3).map(r => {
                           const col = levelColor(r.approval_level);

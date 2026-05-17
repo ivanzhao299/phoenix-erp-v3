@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { ShoppingBag, Truck, CheckCircle, AlertTriangle, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
 
 const STATUS_CLS: Record<string,string> = {
@@ -42,8 +43,8 @@ export default function ProcurementPage() {
 
   const load = () => {
     setLoading(true);
-    fetch("/api/crud/prc_purchase_orders?limit=200")
-      .then(r=>r.json()).then(d=>setOrders(d.data||[])).catch(()=>{}).finally(()=>setLoading(false));
+    crudApi.list<PO>("prc_purchase_orders", { limit: 200 })
+      .then(res=>setOrders(res.data||[])).catch(()=>{}).finally(()=>setLoading(false));
   };
   useEffect(()=>{ load(); },[]);
 

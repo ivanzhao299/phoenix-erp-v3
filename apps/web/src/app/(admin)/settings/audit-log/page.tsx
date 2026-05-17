@@ -63,7 +63,7 @@ export default function AuditLogPage() {
       if (dateFrom)               params.set("date_from", dateFrom);
       if (dateTo)                 params.set("date_to", dateTo);
 
-      const r    = await fetch(`/api/crud/sys_approval_logs?${params}`, { headers: hdr() });
+      const r    = await fetch(`/api/crud/sys_approval_log?${params}`, { headers: hdr() });
       const data = await r.json();
       setLogs(data.data ?? []);
       setTotal(data.total ?? 0);

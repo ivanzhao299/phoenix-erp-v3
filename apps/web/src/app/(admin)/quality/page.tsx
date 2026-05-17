@@ -7,11 +7,12 @@ import {
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
 
 interface Inspection {
   id: number; inspect_date?: string; created_at?: string;
-  result?: string; batch_no?: string; inspector?: string;
+  result?: string; status?: string; batch_no?: string; inspector?: string;
   item_type?: string; defect_type?: string;
 }
 
@@ -31,16 +32,17 @@ export default function QualityPage() {
   ];
 
   useEffect(() => {
-    fetch("/api/crud/qa_inspections?limit=500")
-      .then(r => r.json())
-      .then(d => setInspections(d.data || []))
+    crudApi.list<Inspection>("qa_inspections", { limit: 500 })
+      .then(res => setInspections(res.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
   const today     = new Date().toISOString().slice(0, 10);
-  const passed    = inspections.filter(i => (i.result || "").toUpperCase().includes("PASS")).length;
-  const failed    = inspections.filter(i => (i.result || "").toUpperCase().includes("FAIL")).length;
+  // qa_inspections stores result in `status` (farm page); qa_product_inspections uses `result`
+  const getResult = (i: Inspection) => (i.result || i.status || "").toUpperCase();
+  const passed    = inspections.filter(i => getResult(i).includes("PASS")).length;
+  const failed    = inspections.filter(i => getResult(i).includes("FAIL")).length;
   const passRate  = inspections.length > 0 ? ((passed / inspections.length) * 100).toFixed(1) : "—";
   const todayCount= inspections.filter(i => (i.inspect_date || i.created_at || "").slice(0,10) === today).length;
 
@@ -52,7 +54,7 @@ export default function QualityPage() {
       if (!m) return;
       if (!monthMap[m]) monthMap[m] = { pass: 0, total: 0 };
       monthMap[m].total++;
-      if ((i.result || "").toUpperCase().includes("PASS")) monthMap[m].pass++;
+      if (getResult(i).includes("PASS")) monthMap[m].pass++;
     });
     return Object.entries(monthMap)
       .sort((a, b) => a[0].localeCompare(b[0]))
@@ -70,6 +72,8 @@ export default function QualityPage() {
         (b.inspect_date||b.created_at||"").localeCompare(a.inspect_date||a.created_at||"")
       ).slice(0, 5)
   , [inspections]);
+
+  const isPassed = (i: Inspection) => getResult(i).includes("PASS");
 
   const kpis = [
     { label: t("ui.本月检验批次", "本月检验批次"), value:loading?"…":inspections.length, unit: t("ui.批", "批"),  accent:"var(--color-primary)", icon:<ClipboardCheck size={20}/> },
@@ -184,7 +188,7 @@ export default function QualityPage() {
               <tr><td colSpan={5} style={{ padding:24, textAlign:"center", color:"var(--text-secondary)" }}>{t("common.no_data", "暂无质检记录")}</td></tr>
             )}
             {!loading && recentInspections.map((ins, i) => {
-              const isPassed = (ins.result || "").toUpperCase().includes("PASS");
+              const passed_ = isPassed(ins);
               return (
                 <tr key={ins.id} style={{ borderBottom:"1px solid var(--border)",
                   background: i%2===0 ? "var(--bg-card)" : "var(--bg-page)" }}>
@@ -197,8 +201,8 @@ export default function QualityPage() {
                     {(ins.inspect_date || ins.created_at || "—").slice(0,10)}
                   </td>
                   <td style={{ padding:"10px 16px" }}>
-                    <span className={`${s.badge} ${isPassed ? s.badgeSuccess : s.badgeDanger}`}>
-                      {isPassed ? t("ui.合格", "合格") : t("ui.不合格", "不合格")}
+                    <span className={`${s.badge} ${passed_ ? s.badgeSuccess : s.badgeDanger}`}>
+                      {passed_ ? t("ui.合格", "合格") : t("ui.不合格", "不合格")}
                     </span>
                   </td>
                 </tr>

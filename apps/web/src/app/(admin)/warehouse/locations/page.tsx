@@ -254,11 +254,11 @@ export default function LocationsPage() {
                 t("ui.库位名称", "库位名称"),
                 t("ui.仓库", "仓库"),
                 t("ui.库区", "库区"),
-                t("ui.排层", "排/层"),
+                t("ui.站点", "站点"),
                 t("ui.容量枚", "容量(枚)"),
                 t("ui.使用率", "使用率"),
                 t("common.status", "状态"),
-                t("common.remark", "备注"),
+                t("ui.站点编码", "站点编码"),
                 t("common.operation", "操作"),
               ].map(h => (
                 <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{h}</th>
@@ -285,7 +285,7 @@ export default function LocationsPage() {
                   <td style={{ padding: "12px 14px", fontSize: 13 }}>{String(row.location_name ?? "—")}</td>
                   <td style={{ padding: "12px 14px", fontSize: 12, color: "var(--text-secondary)" }}>{String(row.warehouse_code ?? "")}</td>
                   <td style={{ padding: "12px 14px", fontSize: 13, fontWeight: 700 }}>{String(row.zone_code ?? "—")}</td>
-                  <td style={{ padding: "12px 14px", fontSize: 12, color: "var(--text-secondary)" }}>{String(row.zone_code ?? "—")}</td>
+                  <td style={{ padding: "12px 14px", fontSize: 12, color: "var(--text-secondary)" }}>{String(row.store_code ?? "—")}</td>
                   <td style={{ padding: "12px 14px", fontSize: 13 }}>{row.capacity_qty ? Number(row.capacity_qty).toLocaleString() : "—"}</td>
                   <td style={{ padding: "12px 14px", minWidth: 110 }}>
                     {OCCUPIED.has(row.status as Status) ? (
@@ -299,7 +299,7 @@ export default function LocationsPage() {
                     </span>
                   </td>
                   <td style={{ padding: "12px 14px", fontSize: 12, color: "var(--text-secondary)", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {String(row.location_name ?? "—")}
+                    {String(row.store_code ?? "—")}
                   </td>
                   <td style={{ padding: "12px 14px" }}>
                     <div style={{ display: "flex", gap: 6 }}>

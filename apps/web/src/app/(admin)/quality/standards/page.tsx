@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
 
-const STATUS_CLS: Record<string,string> = {"active":s.badgeSuccess, "ACTIVE":s.badgeSuccess, "inactive":s.badgeNeutral};
+const STATUS_CLS: Record<string,string> = {"ACTIVE":s.badgeSuccess, "INACTIVE":s.badgeNeutral};
 
 // ✅ V3 表: qa_standards
 const TABLE = "qa_standards";

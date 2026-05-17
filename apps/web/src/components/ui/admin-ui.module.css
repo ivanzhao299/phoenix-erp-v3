@@ -41,7 +41,7 @@
 .inp::placeholder { color: var(--text-disabled); }
 
 /* textarea 高度自适应 */
-.textarea { resize: vertical; min-height: 80px; }
+.textarea { composes: inp; resize: vertical; min-height: 80px; }
 
 /* ══════════════════════════════════════════════════════
    二、表单结构

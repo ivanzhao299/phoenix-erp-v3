@@ -11,10 +11,9 @@ import { usePermission } from '@/hooks/usePermission';
 import { useToast } from '@/contexts/ToastContext';
 import { useDialog } from '@/contexts/DialogContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Plus, Edit2, Trash2, Activity } from 'lucide-react';
+import { Plus, Edit2, Trash2, Activity, Building2, Users, CheckCircle, AlertTriangle } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 
-const HOUSE_TYPE_FALLBACK = ['密闭式', '开放式', '半开放']; // TODO: seed BRD_HOUSE_TYPE dict in backend
 const emptyForm = () => ({ farmName: '', code: '', name: '', type: '', capacity: '' });
 
 export default function HenHousePage() {
@@ -36,8 +35,7 @@ export default function HenHousePage() {
   const { fetchRecords, createRecord, updateRecord, deleteRecord } = useCrud('brd_houses');
   const { fetchRecords: fetchFarms }  = useCrud('brd_farms');
   const { fetchRecords: fetchFlocks } = useCrud('brd_flocks');
-  const { options: houseTypeOptsRaw } = useDictOptions('BRD_HOUSE_TYPE');
-  const houseTypes = houseTypeOptsRaw.length ? houseTypeOptsRaw : HOUSE_TYPE_FALLBACK;
+  const { optionPairs: houseTypeOptions, codeMap: houseTypeMap } = useDictOptions('BRD_HOUSE_TYPE');
 
   const loadData = useCallback(async () => {
     const [houses, flocks] = await Promise.all([fetchRecords(), fetchFlocks()]);
@@ -87,7 +85,7 @@ export default function HenHousePage() {
 
   const handleEdit = (row: any) => {
     setEditId(row.id); setEditRow(row);
-    setForm({ farmName: row.farmName || '', code: row.code || '', name: row.name || '', type: row.type || houseTypes[0] || '', capacity: row.capacity != null ? String(row.capacity) : '' });
+    setForm({ farmName: row.farmName || '', code: row.code || '', name: row.name || '', type: row.type || houseTypeOptions[0]?.value || '', capacity: row.capacity != null ? String(row.capacity) : '' });
     setShowDrawer(true);
   };
 
@@ -117,17 +115,34 @@ export default function HenHousePage() {
   const warnCount    = housesList.filter(h => h.status === 'warning').length;
 
   const columns = [
-    { key: 'code',       title: t('ui.鸡舍编码','鸡舍编码'), width: '110px' },
-    { key: 'farmLabel',  title: t('ui.所属农场','所属农场'), width: '100px' },
-    { key: 'name',       title: t('ui.栋名','栋名'),     width: '70px'  },
-    { key: 'type',       title: t('ui.舍型','舍型'),     width: '80px'  },
-    { key: 'capacity',   title: t('ui.设计容量','设计容量'), width: '90px',  render: (v: any) => `${Number(v).toLocaleString()} ${t('ui.羽','羽')}` },
-    { key: 'current',    title: t('ui.当前存栏','当前存栏'), width: '110px', render: (v: any, row: any) => (
-      <span>{(v||0).toLocaleString()} {t('ui.羽','羽')}{row.capacity>0&&<span style={{ fontSize:11, color:row.isOverload?'var(--status-danger)':'var(--text-secondary)', marginLeft:4, fontWeight:row.isOverload?700:400 }}>({row.occupancyPct}%{row.isOverload?' ⚠️':''})</span>}</span>
+    { key: 'name', title: t('ui.鸡舍','鸡舍'), width: '160px', render: (v: any, row: any) => (
+      <div>
+        <div style={{ fontWeight:600, color:'var(--text-primary)', lineHeight:1.3 }}>{v || '—'}</div>
+        <div style={{ fontSize:11, color:'var(--text-secondary)', marginTop:2, fontFamily:'monospace' }}>{row.code}</div>
+      </div>
     )},
-    { key: 'ageWeeks',   title: t('ui.鸡龄周','鸡龄周'),  width: '80px',  render: (v: any) => v > 0 ? `${v} ${t('ui.周','周')}` : '—' },
-    { key: 'layingRate', title: t('ui.产蛋率','产蛋率'),  width: '80px',  render: (v: any) => v != null ? <span style={{ fontWeight:700, color: v>=90?'var(--status-success)':v>=85?'var(--status-warning)':'var(--status-danger)' }}>{v}%</span> : <span style={{color:'var(--text-secondary)'}}>—</span> },
-    { key: 'status',     title: t('common.status','状态'),    width: '90px',  render: (v: any, row: any) => <StatusBadge status={v==='normal'?'success':'warning'} label={v==='normal'?t('ui.正常','正常'):row.isOverload?t('ui.超载','超载'):t('ui.需关注','需关注')} /> },
+    { key: 'farmLabel',  title: t('ui.所属农场','所属农场'), width: '110px', render: (v: any) => (
+      <span style={{ fontSize:13 }}>{v || '—'}</span>
+    )},
+    { key: 'type',       title: t('ui.舍型','舍型'),     width: '75px',  render: (v: any) => houseTypeMap[v] ?? v ?? '—' },
+    { key: 'capacity',   title: t('ui.设计容量','设计容量'), width: '90px',  render: (v: any) => `${Number(v).toLocaleString()} ${t('ui.羽','羽')}` },
+    { key: 'current',    title: t('ui.当前存栏','当前存栏'), width: '120px', render: (v: any, row: any) => (
+      <div>
+        <div style={{ marginBottom:4 }}>
+          <span style={{ fontWeight:600 }}>{(v||0).toLocaleString()}</span>
+          <span style={{ fontSize:11, color:'var(--text-secondary)', marginLeft:2 }}>{t('ui.羽','羽')}</span>
+          {row.capacity>0 && <span style={{ fontSize:11, color:row.isOverload?'var(--status-danger)':'var(--text-secondary)', marginLeft:5, fontWeight:row.isOverload?700:400 }}>({row.occupancyPct}%{row.isOverload?' ⚠️':''})</span>}
+        </div>
+        {row.capacity>0 && (
+          <div style={{ height:3, background:'var(--border)', borderRadius:2, overflow:'hidden' }}>
+            <div style={{ height:'100%', width:`${Math.min(row.occupancyPct,100)}%`, background: row.isOverload?'#ef4444':row.occupancyPct>90?'#f59e0b':'#22c55e', borderRadius:2, transition:'width 0.4s' }} />
+          </div>
+        )}
+      </div>
+    )},
+    { key: 'ageWeeks',   title: t('ui.鸡龄周','鸡龄周'),  width: '72px',  render: (v: any) => v > 0 ? `${v} ${t('ui.周','周')}` : <span style={{color:'var(--text-secondary)'}}>—</span> },
+    { key: 'layingRate', title: t('ui.产蛋率','产蛋率'),  width: '76px',  render: (v: any) => v != null ? <span style={{ fontWeight:700, color: v>=90?'var(--status-success)':v>=85?'var(--status-warning)':'var(--status-danger)' }}>{v}%</span> : <span style={{color:'var(--text-secondary)'}}>—</span> },
+    { key: 'status',     title: t('common.status','状态'),    width: '88px',  render: (v: any, row: any) => <StatusBadge status={v==='normal'?'success':'warning'} label={v==='normal'?t('ui.正常','正常'):row.isOverload?t('ui.超载','超载'):t('ui.需关注','需关注')} /> },
     { key: 'actions',   title: t('common.operation','操作'),    width: '160px', render: (_: any, row: any) => (
       <div className={s.tableActions}>
         {can(['MENU_DEVICE_MONITOR']) && (
@@ -146,11 +161,12 @@ export default function HenHousePage() {
     )},
   ];
 
+  const hasWarn = warnCount > 0;
   const KPI_CARDS = [
-    { label:t('ui.鸡舍总数','鸡舍总数'), val:`${housesList.length}`, unit:t('ui.栋','栋'), color:'var(--color-primary)' },
-    { label:t('ui.总存栏','总存栏'),   val:totalCurrent.toLocaleString(), unit:t('ui.羽','羽'), color:'var(--color-primary)' },
-    { label:t('ui.正常鸡舍','正常鸡舍'), val:`${normalCount}`, unit:t('ui.栋','栋'), color:'#22c55e' },
-    { label:t('ui.需关注','需关注'),   val:`${warnCount}`,   unit:t('ui.栋','栋'), color:'#f59e0b' },
+    { label:t('ui.鸡舍总数','鸡舍总数'), val:`${housesList.length}`, sub:t('ui.栋已登记','栋已登记'), Icon:Building2, cardCls:s.statCardPrimary, valCls:'', alarmBg:false },
+    { label:t('ui.总存栏','总存栏'),   val:totalCurrent.toLocaleString(), sub:t('ui.羽在栏','羽在栏'), Icon:Users, cardCls:s.statCardPrimary, valCls:'', alarmBg:false },
+    { label:t('ui.正常鸡舍','正常鸡舍'), val:`${normalCount}`, sub:`${t('ui.共','共')} ${housesList.length} ${t('ui.栋正常运行','栋正常运行')}`, Icon:CheckCircle, cardCls:s.statCardSuccess, valCls:s.textSuccess, alarmBg:false },
+    { label:t('ui.需关注','需关注'),   val:`${warnCount}`, sub:hasWarn?t('ui.请检查超载鸡舍','请检查超载鸡舍'):t('ui.全部正常','全部正常'), Icon:AlertTriangle, cardCls:hasWarn?s.statCardDanger:s.statCardSuccess, valCls:hasWarn?s.textDanger:s.textSuccess, alarmBg:hasWarn },
   ];
 
   return (
@@ -166,9 +182,13 @@ export default function HenHousePage() {
       {/* KPI 统计卡片 */}
       <div className={s.statsRow}>
         {KPI_CARDS.map(c => (
-          <div key={c.label} className={s.statCard} style={{ borderLeftColor: c.color }}>
-            <div className={s.statValue} style={{ color: c.color }}>{c.val}<span style={{ fontSize:13, fontWeight:500, marginLeft:3, opacity:0.75 }}>{c.unit}</span></div>
-            <div className={s.statLabel}>{c.label}</div>
+          <div key={c.label} className={`${s.statCard} ${c.cardCls}`} style={c.alarmBg?{background:'rgba(239,68,68,0.05)'}:{}}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6 }}>
+              <div className={`${s.statValue} ${c.valCls}`} style={{ fontSize:28, lineHeight:1, letterSpacing:'-0.5px' }}>{c.val}</div>
+              <c.Icon size={15} style={{ color:'var(--text-secondary)', opacity:0.4, marginTop:3, flexShrink:0 }} />
+            </div>
+            <div className={s.statLabel} style={{ fontSize:12, marginBottom:3 }}>{c.label}</div>
+            <div className={s.statSub} style={{ fontSize:11, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.sub}</div>
           </div>
         ))}
       </div>
@@ -205,10 +225,10 @@ export default function HenHousePage() {
           <div className={s.field}>
             <label className={s.lbl}>{t('ui.鸡舍类型','鸡舍类型')}</label>
             <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
-              {houseTypes.map(type => (
-                <label key={type} style={{ display:'flex', alignItems:'center', gap:6, fontSize:14, cursor:'pointer' }}>
-                  <input type="radio" name="houseType" value={type} checked={form.type===type} onChange={e => setForm({...form,type:e.target.value})} />
-                  {type}
+              {houseTypeOptions.map(opt => (
+                <label key={opt.value} style={{ display:'flex', alignItems:'center', gap:6, fontSize:14, cursor:'pointer' }}>
+                  <input type="radio" name="houseType" value={opt.value} checked={form.type===opt.value} onChange={e => setForm({...form,type:e.target.value})} />
+                  {opt.label}
                 </label>
               ))}
             </div>

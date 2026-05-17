@@ -23,6 +23,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Shield, Plus, Trash2, Edit2, Save, Copy, Grid, AlertTriangle, Users, Lock, X,
+  ChevronDown, ChevronRight,
 } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 
@@ -93,6 +94,45 @@ const PERM_CODE_ORDER: Array<keyof typeof PERM_CODE_META> = ["V", "C", "E", "D",
 // role_code 格式：ROLE_ + 大写/数字/下划线
 const ROLE_CODE_RE = /^ROLE_[A-Z][A-Z0-9_]*$/;
 
+// 各业务域默认角色说明（新建角色时自动填充，可手动修改）
+const ROLE_TYPE_DEFAULT_DESC: Record<string, string> = {
+  SYSTEM:      "系统管理员，负责系统配置、用户权限、组织架构及基础数据维护。拥有最高操作权限，须由专职 IT 人员担任。",
+  DECISION:    "决策层管理角色，拥有全局数据查看与审批权限，负责战略决策与绩效审核，通常不参与日常业务操作。",
+  FINANCE:     "财务管理角色，负责应收应付、成本核算、财务结算及审计合规，须遵守岗位分离原则，不兼任收款与审计。",
+  MANAGEMENT:  "管理层角色，负责跨部门协调、审批流程及运营报表查阅，具备所辖业务域的查看与审批权限。",
+  PRODUCTION:  "生产作业角色，负责养殖生产日报录入、鸡群档案管理及免疫用药记录，数据权限限定于所属养殖场。",
+  QUALITY:     "质检追溯角色，负责场端与成品质检、不合格品处置及品质标准维护，提出人与审批人须分离。",
+  PACKAGING:   "包装作业角色，负责分级包装操作、批次管理及异常处理，作业数据仅限当日班次范围。",
+  WAREHOUSE:   "仓储管理角色，负责出入库操作、库存盘点、调拨及仓库主档管理，不兼任分级统计岗位。",
+  LOGISTICS:   "物流配送角色，负责配货计划制定、配送波次跟踪及到店签收，装车执行与出库复核须双人分离。",
+  COMMON:      "通用业务角色，承担跨部门基础操作，具体权限范围视业务需要分配，适用于兼岗或临时授权场景。",
+  PROCUREMENT: "采购供应角色，负责采购申请、订单跟进、到货收货及供应商档案管理，付款审批须由上级审批人完成。",
+  STORE:       "门店运营角色，负责门店收货验收、库存管理、补货申请及日结操作，权限范围限定于所属门店。",
+  SALES:       "销售营销角色，负责客户档案维护、订单管理、B2B 分销及会员营销活动，不兼任财务审计岗位。",
+  EXTERNAL:    "外部合作角色，权限范围受限，仅可访问指定的协作功能模块，数据可见范围由管理员单独配置。",
+  FIELD:       "一线作业角色，负责现场生产、质检或仓库具体操作，权限范围限定于所属班组或工作站，不具备管理审批权限。",
+};
+
+// ── role_type 分组元数据（展示顺序 / 中文标签 / 颜色）────────────────────
+const ROLE_TYPE_META: Record<string, { label: string; color: string; emoji: string; order: number }> = {
+  SYSTEM:      { label: "系统管理",  color: "#6366f1", emoji: "⚙️",  order: 0 },
+  DECISION:    { label: "决策层",    color: "#d97706", emoji: "🏛️",  order: 1 },
+  MANAGEMENT:  { label: "管理层",    color: "#0ea5e9", emoji: "📋",  order: 2 },
+  FINANCE:     { label: "财务",      color: "#ec4899", emoji: "💰",  order: 3 },
+  PRODUCTION:  { label: "养殖生产",  color: "#10b981", emoji: "🐔",  order: 4 },
+  QUALITY:     { label: "质检追溯",  color: "#84cc16", emoji: "🧪",  order: 5 },
+  PACKAGING:   { label: "包装作业",  color: "#14b8a6", emoji: "📦",  order: 6 },
+  WAREHOUSE:   { label: "仓储",      color: "#f59e0b", emoji: "🏭",  order: 7 },
+  LOGISTICS:   { label: "物流配送",  color: "#f97316", emoji: "🚚",  order: 8 },
+  PROCUREMENT: { label: "采购供应",  color: "#8b5cf6", emoji: "🛒",  order: 9 },
+  STORE:       { label: "门店",      color: "#3b82f6", emoji: "🏪",  order: 10 },
+  SALES:       { label: "销售营销",  color: "#06b6d4", emoji: "📊",  order: 11 },
+  FIELD:       { label: "一线作业",  color: "#64748b", emoji: "🔧",  order: 12 },
+  COMMON:      { label: "通用",      color: "#94a3b8", emoji: "🔗",  order: 13 },
+  EXTERNAL:    { label: "外部合作",  color: "#6b7280", emoji: "🌐",  order: 14 },
+};
+const TYPE_META_FALLBACK = { label: "其他", color: "#94a3b8", emoji: "📁", order: 99 };
+
 // ── API helpers ─────────────────────────────────────────────────────────
 const tok = () => (typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : "");
 const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${tok()}` });
@@ -120,6 +160,35 @@ export default function RoleManagementPage() {
   const [showMatrix, setShowMatrix] = useState(false);
   const [matrixData, setMatrixData] = useState<MatrixData | null>(null);
 
+  // 分组折叠状态（默认全展开）
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const toggleGroup = (type: string) =>
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      next.has(type) ? next.delete(type) : next.add(type);
+      return next;
+    });
+
+  // 按 role_type 分组，组内按 approval_level 降序排列
+  const roleGroups = useMemo(() => {
+    const map = new Map<string, RoleRow[]>();
+    for (const role of roles) {
+      const type = role.role_type || "COMMON";
+      if (!map.has(type)) map.set(type, []);
+      map.get(type)!.push(role);
+    }
+    // 组内按 approval_level 降序，相同则按 role_name_zh 升序
+    for (const arr of map.values()) {
+      arr.sort((a, b) => b.approval_level - a.approval_level || a.role_name_zh.localeCompare(b.role_name_zh));
+    }
+    // 组间按预定义顺序排列，未知类型排末尾
+    return Array.from(map.entries()).sort(([a], [b]) => {
+      const oa = (ROLE_TYPE_META[a] ?? TYPE_META_FALLBACK).order;
+      const ob = (ROLE_TYPE_META[b] ?? TYPE_META_FALLBACK).order;
+      return oa - ob;
+    });
+  }, [roles]);
+
   // 表单
   const [editCode, setEditCode] = useState<string | null>(null);  // 编辑模式时存原 role_code
   const [form, setForm] = useState({
@@ -138,12 +207,14 @@ export default function RoleManagementPage() {
   const [confirmDel, setConfirmDel] = useState<RoleRow | null>(null);
 
   // ── 数据加载 ──────────────────────────────────────────────────────────
+  // 注意：不要把 toast/t 放进依赖数组，它们每次渲染都是新引用，会造成无限循环
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      // 1) 角色列表（走 generic-crud sys_role 表）
+      // 1) 角色列表（generic-crud 返回 { code:200, data: [...] } 或直接数组）
       const r = await apiGet("/api/crud/sys_role");
-      const rows: RoleRow[] = (r.data || r || []).map((d: any) => ({
+      const raw = Array.isArray(r.data) ? r.data : Array.isArray(r) ? r : [];
+      const rows: RoleRow[] = raw.map((d: any) => ({
         role_id: d.role_id,
         role_code: d.role_code,
         role_name_zh: d.role_name_zh,
@@ -154,29 +225,31 @@ export default function RoleManagementPage() {
       }));
       setRoles(rows);
 
-      // 2) 菜单分组（V3 真正的单一真相）
+      // 2) 菜单分组
       const mg = await apiGet("/api/permissions/menus");
-      setMenuGroups(mg.data || []);
+      setMenuGroups(Array.isArray(mg.data) ? mg.data : []);
 
       // 3) 冲突规则
       const cf = await apiGet("/api/permissions/conflicts");
-      setConflicts(cf.data || []);
+      setConflicts(Array.isArray(cf.data) ? cf.data : []);
 
       // 4) 顶部统计
       const st = await apiGet("/api/permissions/stats");
       setStats({
-        role_count: st.data?.role_count || rows.length,
-        menu_count: st.data?.menu_count || 0,
-        sensitive_count: st.data?.sensitive_count || 0,
-        conflict_count: st.data?.conflict_count || 0,
+        role_count: st.data?.role_count ?? rows.length,
+        menu_count: st.data?.menu_count ?? 0,
+        sensitive_count: st.data?.sensitive_count ?? 0,
+        conflict_count: st.data?.conflict_count ?? 0,
       });
-      setUserCountByRole(st.data?.user_count_by_role || {});
+      setUserCountByRole(st.data?.user_count_by_role ?? {});
     } catch (e: any) {
-      toast.error(t("ui.加载失败","加载失败") + ": " + (e.message || e));
+      // 用 setTimeout 避免在渲染阶段触发 state 更新
+      setTimeout(() => toast.error("加载失败: " + (e.message || String(e))), 0);
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -184,22 +257,34 @@ export default function RoleManagementPage() {
   const allMenus = useMemo(() => menuGroups.flatMap((g) => g.menus), [menuGroups]);
 
   // ── 实时冲突检测 ─────────────────────────────────────────────────────
+  // SoD 原则：当且仅当角色对冲突两侧菜单都持有「写操作」权限时才视为冲突。
+  // 单纯的 V（查看）或 X（导出）不构成职责混淆，不触发红线。
+  const WRITE_PERM_CODES = useMemo(() => new Set(['C', 'E', 'D', 'A']), []);
+
   const currentConflicts = useMemo(() => {
-    const grantedCodes = new Set(Object.keys(perms).filter((mc) => perms[mc] && perms[mc].size > 0));
-    return conflicts.filter((c) => grantedCodes.has(c.menu_a) && grantedCodes.has(c.menu_b));
-  }, [perms, conflicts]);
+    // 持有至少一项写权限（C/E/D/A）的菜单集合
+    const writeGranted = new Set(
+      Object.keys(perms).filter((mc) => {
+        const set = perms[mc];
+        return set && set.size > 0 && Array.from(set).some((c) => WRITE_PERM_CODES.has(c));
+      })
+    );
+    return conflicts.filter((c) => writeGranted.has(c.menu_a) && writeGranted.has(c.menu_b));
+  }, [perms, conflicts, WRITE_PERM_CODES]);
 
   const hasBlockingConflict = currentConflicts.some((c) => c.severity === "BLOCK");
 
   // ── 敏感权限计数 ─────────────────────────────────────────────────────
+  // 只有对敏感菜单持有写权限（C/E/D/A）时才计入，纯 View 不算敏感风险
   const sensitiveCount = useMemo(() => {
     const sensSet = new Set(allMenus.filter((m) => m.sensitive).map((m) => m.menu_code));
     let n = 0;
     for (const mc of Object.keys(perms)) {
-      if (sensSet.has(mc) && perms[mc] && perms[mc].size > 0) n++;
+      const set = perms[mc];
+      if (sensSet.has(mc) && set && Array.from(set).some((c) => WRITE_PERM_CODES.has(c))) n++;
     }
     return n;
-  }, [perms, allMenus]);
+  }, [perms, allMenus, WRITE_PERM_CODES]);
 
   // ── role_code 校验 ───────────────────────────────────────────────────
   const validateCode = useCallback((code: string) => {
@@ -217,7 +302,8 @@ export default function RoleManagementPage() {
   // ── 操作 ────────────────────────────────────────────────────────────
   const openNew = () => {
     setEditCode(null);
-    setForm({ role_code: "ROLE_", role_name_zh: "", role_name_lo: "", role_type: "COMMON", approval_level: 1, description: "" });
+    const defaultType = "COMMON";
+    setForm({ role_code: "ROLE_", role_name_zh: "", role_name_lo: "", role_type: defaultType, approval_level: 1, description: ROLE_TYPE_DEFAULT_DESC[defaultType] });
     setPerms({});
     setCodeError("");
     setShowDrawer(true);
@@ -425,54 +511,116 @@ export default function RoleManagementPage() {
 
       {/* 顶部统计胶囊 */}
       <div className={s.statsRow}>
-        <StatPill label={t("ui.角色总数","角色总数")}     value={stats.role_count}      color="var(--color-primary)" icon={<Shield size={14} />} />
-        <StatPill label={t("ui.菜单定义","菜单定义")}     value={stats.menu_count}      color="#10b981" icon={<Grid size={14} />} />
-        <StatPill label={t("ui.敏感菜单","敏感菜单")}     value={stats.sensitive_count} color="#ef4444" icon={<Lock size={14} />} />
-        <StatPill label={t("ui.岗位分离规则","岗位分离规则")} value={stats.conflict_count}  color="#f59e0b" icon={<AlertTriangle size={14} />} />
+        <StatPill label={t("ui.角色总数","角色总数")}     value={stats.role_count}      color="var(--color-primary)" icon={<Shield size={14} />}      tip="系统中已定义的角色数量" />
+        <StatPill label={t("ui.菜单定义","菜单定义")}     value={stats.menu_count}      color="#10b981" icon={<Grid size={14} />}           tip="系统注册的菜单/功能点总数" />
+        <StatPill label={t("ui.敏感菜单","敏感菜单")}     value={stats.sensitive_count} color="#ef4444" icon={<Lock size={14} />}            tip="标记为高风险的菜单数（如财务审计、审批、结算等），仅统计数量，不代表错误" />
+        <StatPill label={t("ui.岗位分离规则","岗位分离规则")} value={stats.conflict_count}  color="#f59e0b" icon={<AlertTriangle size={14} />} tip="SoD 红线规则总数（编辑角色权限时实时校验）；仅当两侧菜单均有写权限时才报错" />
       </div>
 
-      {/* 角色卡片列表 */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "16px" }}>
-        {roles.map((role) => {
-          const userCnt = userCountByRole[role.role_code] || 0;
-          const isAdmin = role.role_code === "ROLE_ADMIN";
+      {/* 角色卡片 — 按 role_type 分组展示 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        {roleGroups.map(([type, groupRoles]) => {
+          const meta = ROLE_TYPE_META[type] ?? TYPE_META_FALLBACK;
+          const collapsed = collapsedGroups.has(type);
+          const totalUsers = groupRoles.reduce((sum, r) => sum + (userCountByRole[r.role_code] || 0), 0);
           return (
-            <div key={role.role_code} className={s.card}>
-              <div className={s.cardHeader} style={{ position: "relative" }}>
-                {isAdmin && (
-                  <div style={{
-                    position: "absolute", top: 8, right: 8, width: 10, height: 10,
-                    background: "#d97706", borderRadius: "50%",
-                    boxShadow: "0 0 0 3px rgba(217,119,6,0.25)",
-                  }} />
+            <div key={type}>
+              {/* 分组标题栏 */}
+              <div
+                onClick={() => toggleGroup(type)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "8px 14px", marginBottom: collapsed ? 0 : 12,
+                  borderRadius: 8, cursor: "pointer", userSelect: "none",
+                  background: `${meta.color}12`,
+                  border: `1px solid ${meta.color}30`,
+                  transition: "background 0.15s",
+                }}
+              >
+                <span style={{ fontSize: 16 }}>{meta.emoji}</span>
+                <span style={{ fontWeight: 700, fontSize: 13, color: meta.color }}>{meta.label}</span>
+                <span style={{
+                  fontSize: 11, padding: "1px 7px", borderRadius: 10,
+                  background: `${meta.color}20`, color: meta.color, fontWeight: 600,
+                }}>
+                  {groupRoles.length} 个角色
+                </span>
+                {totalUsers > 0 && (
+                  <span style={{ fontSize: 11, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 3 }}>
+                    <Users size={10} /> {totalUsers} 人
+                  </span>
                 )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className={s.cardTitle} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <Shield size={16} color={isAdmin ? "#d97706" : "var(--color-primary)"} />
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{role.role_name_zh}</span>
-                  </div>
-                  <div style={{ fontSize: 11, fontFamily: "monospace", color: "var(--text-secondary)", marginTop: 3 }}>
-                    {role.role_code} · L{role.approval_level} · {role.role_type}
-                  </div>
-                  <div style={{ fontSize: 12, color: userCnt > 0 ? "var(--color-primary)" : "var(--text-secondary)", marginTop: 4, display: "flex", alignItems: "center", gap: 4, fontWeight: userCnt > 0 ? 600 : 400 }}>
-                    <Users size={11} /> {t("ui.绑定","绑定")} {userCnt} {t("ui.个用户","个用户")}
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 4 }}>
-                  <button className={s.btnIcon} title={t("ui.复制","复制")} onClick={() => openCopy(role)}><Copy size={13} /></button>
-                  <button className={s.btnIcon} title={t("common.edit","编辑")} onClick={() => openEdit(role)}><Edit2 size={13} /></button>
-                  {!isAdmin && (
-                    <button className={s.btnIcon} title={t("common.delete","删除")} onClick={() => setConfirmDel(role)} style={{ color: "var(--color-danger)" }}>
-                      <Trash2 size={13} />
-                    </button>
-                  )}
-                </div>
+                <span style={{ marginLeft: "auto", color: meta.color, fontSize: 12, opacity: 0.7 }}>
+                  {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                </span>
               </div>
-              <div className={s.cardBody}>
-                <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5, margin: 0 }}>
-                  {role.description || `（${t("ui.暂无说明","暂无说明")}）`}
-                </p>
-              </div>
+
+              {/* 该分组的卡片网格 */}
+              {!collapsed && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
+                  {groupRoles.map((role) => {
+                    const userCnt = userCountByRole[role.role_code] || 0;
+                    const isAdmin = role.role_code === "ROLE_ADMIN";
+                    const desc = role.description?.trim();
+                    const fallback = ROLE_TYPE_DEFAULT_DESC[role.role_type];
+                    return (
+                      <div key={role.role_code} className={s.card} style={{ display: "flex", flexDirection: "column", borderLeft: `3px solid ${meta.color}60` }}>
+                        {/* 卡片头 */}
+                        <div style={{ padding: "12px 14px 0", display: "flex", alignItems: "flex-start", gap: 8, position: "relative" }}>
+                          {isAdmin && (
+                            <div style={{
+                              position: "absolute", top: 6, right: 6, width: 8, height: 8,
+                              background: "#d97706", borderRadius: "50%",
+                              boxShadow: "0 0 0 3px rgba(217,119,6,0.25)",
+                            }} />
+                          )}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div className={s.cardTitle} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}>
+                              <Shield size={13} color={isAdmin ? "#d97706" : meta.color} />
+                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{role.role_name_zh}</span>
+                            </div>
+                            <div style={{ fontSize: 10, fontFamily: "monospace", color: "var(--text-secondary)", marginTop: 2 }}>
+                              {role.role_code} · L{role.approval_level}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
+                            <button className={s.btnIcon} title={t("ui.复制","复制")} onClick={() => openCopy(role)}><Copy size={12} /></button>
+                            <button className={s.btnIcon} title={t("common.edit","编辑")} onClick={() => openEdit(role)}><Edit2 size={12} /></button>
+                            {!isAdmin && (
+                              <button className={s.btnIcon} title={t("common.delete","删除")} onClick={() => setConfirmDel(role)} style={{ color: "var(--color-danger)" }}>
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* 说明文字 */}
+                        <div style={{ padding: "5px 14px 10px", flex: 1 }}>
+                          <p style={{
+                            fontSize: 11, lineHeight: 1.6, margin: 0,
+                            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                            color: "var(--text-secondary)", fontStyle: "italic",
+                          }}>
+                            {desc || fallback || `（${t("ui.暂无说明","暂无说明")}）`}
+                          </p>
+                        </div>
+
+                        {/* 底栏 */}
+                        <div style={{
+                          padding: "6px 14px", borderTop: "1px solid var(--border)",
+                          fontSize: 11, display: "flex", alignItems: "center", gap: 3,
+                          color: userCnt > 0 ? meta.color : "var(--text-secondary)",
+                          fontWeight: userCnt > 0 ? 600 : 400,
+                          background: userCnt > 0 ? `${meta.color}08` : "transparent",
+                        }}>
+                          <Users size={10} /> {t("ui.绑定","绑定")} {userCnt} {t("ui.个用户","个用户")}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}
@@ -521,8 +669,22 @@ export default function RoleManagementPage() {
           <div className={s.fieldRow}>
             <div>
               <label className={s.lbl}>{t("ui.角色业务域","角色业务域")}</label>
-              <select className={s.inp} value={form.role_type} onChange={(e) => setForm({ ...form, role_type: e.target.value })}>
-                {["SYSTEM","DECISION","FINANCE","MANAGEMENT","PRODUCTION","QUALITY","PACKAGING","WAREHOUSE","LOGISTICS","COMMON","PROCUREMENT","STORE","SALES","EXTERNAL"].map((t) => (
+              <select
+                className={s.inp}
+                value={form.role_type}
+                onChange={(e) => {
+                  const newType = e.target.value;
+                  // 若当前说明是旧业务域的默认文本（未手动修改），则自动替换为新域默认说明
+                  const oldDefault = ROLE_TYPE_DEFAULT_DESC[form.role_type] ?? "";
+                  const isUnmodified = !editCode && (form.description === oldDefault || form.description === "");
+                  setForm({
+                    ...form,
+                    role_type: newType,
+                    description: isUnmodified ? (ROLE_TYPE_DEFAULT_DESC[newType] ?? "") : form.description,
+                  });
+                }}
+              >
+                {["SYSTEM","DECISION","FINANCE","MANAGEMENT","PRODUCTION","QUALITY","PACKAGING","WAREHOUSE","LOGISTICS","COMMON","PROCUREMENT","STORE","SALES","EXTERNAL","FIELD"].map((t) => (
                   <option key={t} value={t}>{t}</option>
                 ))}
               </select>
@@ -535,8 +697,42 @@ export default function RoleManagementPage() {
 
           {/* description */}
           <div className={s.field}>
-            <label className={s.lbl}>{t("ui.角色说明","角色说明")}</label>
-            <textarea className={s.textarea} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={t("ui.描述该角色的职能边界","描述该角色的职能边界")} />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <label className={s.lbl} style={{ margin: 0 }}>{t("ui.角色说明","角色说明")}</label>
+              {ROLE_TYPE_DEFAULT_DESC[form.role_type] && form.description !== ROLE_TYPE_DEFAULT_DESC[form.role_type] && (
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, description: ROLE_TYPE_DEFAULT_DESC[form.role_type] })}
+                  style={{
+                    fontSize: 11, padding: "1px 8px", borderRadius: 4, cursor: "pointer",
+                    border: "1px solid var(--border-color)", background: "var(--bg-surface)",
+                    color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 3,
+                  }}
+                  title="恢复为该业务域的默认说明文本"
+                >
+                  ↩ {t("ui.恢复默认","恢复默认")}
+                </button>
+              )}
+            </div>
+            <textarea
+              className={s.textarea}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder={ROLE_TYPE_DEFAULT_DESC[form.role_type] || t("ui.描述该角色的职能边界","描述该角色的职能边界")}
+              style={{ lineHeight: 1.7 }}
+            />
+            {!form.description && ROLE_TYPE_DEFAULT_DESC[form.role_type] && (
+              <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4, lineHeight: 1.5 }}>
+                💡 {t("ui.建议说明","建议说明")}：{ROLE_TYPE_DEFAULT_DESC[form.role_type]}
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, description: ROLE_TYPE_DEFAULT_DESC[form.role_type] })}
+                  style={{ marginLeft: 6, color: "var(--color-primary)", background: "none", border: "none", cursor: "pointer", fontSize: 11, padding: 0, textDecoration: "underline" }}
+                >
+                  {t("ui.一键填入","一键填入")}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* 冲突警告区 */}
@@ -546,25 +742,64 @@ export default function RoleManagementPage() {
               background: hasBlockingConflict ? "#fef2f2" : "#fffbeb",
               border: `1px solid ${hasBlockingConflict ? "#fca5a5" : "#fcd34d"}`,
             }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: hasBlockingConflict ? "#b91c1c" : "#92400e", display: "flex", alignItems: "center", gap: 4, marginBottom: 6 }}>
-                <AlertTriangle size={12} /> {t("ui.检测到","检测到")} {currentConflicts.length} {t("ui.项岗位分离冲突","项岗位分离冲突")}
+              <div style={{ fontSize: 12, fontWeight: 700, color: hasBlockingConflict ? "#b91c1c" : "#92400e", display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                <AlertTriangle size={12} /> {t("ui.检测到","检测到")} {currentConflicts.length} {t("ui.项岗位分离冲突","项岗位分离冲突（双侧均有写权限）")}
                 {hasBlockingConflict && <span style={{ marginLeft: 8, padding: "1px 6px", background: "#dc2626", color: "white", borderRadius: 4, fontSize: 10 }}>BLOCK {t("ui.硬阻止","硬阻止")}</span>}
               </div>
+              <div style={{ fontSize: 10, color: hasBlockingConflict ? "#991b1b" : "#a16207", marginBottom: 6, lineHeight: 1.4 }}>
+                {t("ui.仅当两侧菜单同时持有写操作权限CEDA时触发纯查看V不算冲突","💡 仅当两侧菜单同时持有写操作（C/E/D/A）时触发；纯查看（V）不算冲突")}
+              </div>
               {currentConflicts.map((c) => (
-                <div key={c.id} style={{ fontSize: 11, color: hasBlockingConflict ? "#7f1d1d" : "#78350f", lineHeight: 1.5 }}>
-                  • <code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 4px", borderRadius: 3 }}>{c.menu_a}</code> + <code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 4px", borderRadius: 3 }}>{c.menu_b}</code> [{c.severity}] {c.reason_zh}
+                <div key={c.id} style={{ fontSize: 11, color: hasBlockingConflict ? "#7f1d1d" : "#78350f", lineHeight: 1.6 }}>
+                  • <code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 4px", borderRadius: 3 }}>{c.menu_a}</code>
+                  {" "}+{" "}
+                  <code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 4px", borderRadius: 3 }}>{c.menu_b}</code>
+                  {" "}
+                  <span style={{ padding: "0 4px", borderRadius: 3, background: c.severity === "BLOCK" ? "#fca5a5" : "#fde68a", fontSize: 10, fontWeight: 700 }}>{c.severity}</span>
+                  {" "}{c.reason_zh}
                 </div>
               ))}
+              {hasBlockingConflict && (
+                <div style={{ fontSize: 11, color: "#7f1d1d", marginTop: 6, padding: "4px 8px", background: "#fecaca", borderRadius: 4 }}>
+                  ⚠️ {t("ui.请取消其中一侧菜单的写权限CEDABlock级别冲突不允许保存","请取消其中一侧菜单的写权限（C/E/D/A），BLOCK 级冲突不允许保存。")}
+                </div>
+              )}
             </div>
           )}
 
           {/* 权限矩阵 - 按 domain 分组 */}
           <div className={s.field}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <label className={s.lbl} style={{ margin: 0 }}>{t("ui.菜单CRUD权限","菜单 × CRUD 权限")}</label>
               <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "rgba(99,102,241,0.1)", color: "var(--color-primary)", fontWeight: 600 }}>
                 {t("ui.已配","已配")} {Object.keys(perms).length} / {allMenus.length} {t("ui.菜单","菜单")}
                 {sensitiveCount > 0 && <span style={{ color: "#ef4444", marginLeft: 6 }}>· {sensitiveCount} {t("ui.敏感","敏感")}</span>}
+              </span>
+            </div>
+
+            {/* 权限码图例 */}
+            <div style={{
+              display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10,
+              padding: "6px 10px", borderRadius: 6,
+              background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-color)",
+            }}>
+              {PERM_CODE_ORDER.map((c) => {
+                const meta = PERM_CODE_META[c];
+                return (
+                  <span key={c} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      width: 20, height: 20, borderRadius: 3,
+                      background: meta.color, color: "white",
+                      fontSize: 10, fontWeight: 700,
+                    }}>{c}</span>
+                    <span>{meta.label}</span>
+                    <span style={{ color: "var(--text-secondary)", opacity: 0.5, fontSize: 10 }}>({meta.tip.match(/\((.+)\)/)?.[1] ?? c})</span>
+                  </span>
+                );
+              })}
+              <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--text-secondary)", opacity: 0.6, alignSelf: "center" }}>
+                🔒 = 敏感菜单，建议谨慎授写权限
               </span>
             </div>
 
@@ -758,11 +993,13 @@ export default function RoleManagementPage() {
 }
 
 // ── 顶部统计胶囊 ─────────────────────────────────────────────────────
-function StatPill({ label, value, color, icon }: { label: string; value: number; color: string; icon: React.ReactNode }) {
+function StatPill({ label, value, color, icon, tip }: { label: string; value: number; color: string; icon: React.ReactNode; tip?: string }) {
   return (
-    <div className={s.statCard} style={{ borderLeft: `4px solid ${color}` }}>
+    <div className={s.statCard} style={{ borderLeft: `4px solid ${color}`, cursor: tip ? "help" : "default" }} title={tip}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, color, marginBottom: 4 }}>
-        {icon} <span className={s.statLabel}>{label}</span>
+        {icon}
+        <span className={s.statLabel}>{label}</span>
+        {tip && <span style={{ fontSize: 10, opacity: 0.6, marginLeft: 2 }}>ⓘ</span>}
       </div>
       <div className={s.statValue} style={{ color }}>{value}</div>
     </div>

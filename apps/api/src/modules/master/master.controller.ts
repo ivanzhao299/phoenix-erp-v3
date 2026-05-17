@@ -35,7 +35,7 @@ export class MasterController {
          );
          return { code: 200, data: rows };
       } catch (e2) {
-         throw new InternalServerErrorException(e2.message);
+         throw new InternalServerErrorException((e2 as Error).message);
       }
     }
   }
@@ -48,7 +48,7 @@ export class MasterController {
       );
       return { code: 200, data: rows };
     } catch (e) {
-      throw new InternalServerErrorException(e.message);
+      throw new InternalServerErrorException((e as Error).message);
     }
   }
 }
@@ -72,7 +72,7 @@ export class SystemController implements OnModuleInit {
         )
       `);
     } catch (e) {
-      console.warn('[SystemController] sys_settings 建表失败:', e.message);
+      console.warn('[SystemController] sys_settings 建表失败:', (e as Error).message);
     }
   }
 
@@ -94,7 +94,7 @@ export class SystemController implements OnModuleInit {
       if (rows.length === 0) {
         return { ok: false, data: DEFAULT_BRAND };
       }
-      const data = { ...DEFAULT_BRAND };
+      const data: Record<string, string> = { ...DEFAULT_BRAND };
       for (const r of rows) { data[r.key.replace('brand.', '')] = r.value; }
       return { ok: true, data };
     } catch {
@@ -117,11 +117,11 @@ export class SystemController implements OnModuleInit {
         }
       }
       const rows = await this.em.query(`SELECT key, value FROM sys_settings WHERE key LIKE 'brand.%'`);
-      const data = { ...DEFAULT_BRAND };
+      const data: Record<string, string> = { ...DEFAULT_BRAND };
       for (const r of rows) { data[r.key.replace('brand.', '')] = r.value; }
       return { ok: true, data };
     } catch (e) {
-      throw new InternalServerErrorException(e.message);
+      throw new InternalServerErrorException((e as Error).message);
     }
   }
 }

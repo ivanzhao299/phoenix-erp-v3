@@ -5,6 +5,7 @@ import { ShoppingCart, Package, AlertTriangle, TrendingUp, RefreshCw } from "luc
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { crudApi } from "@/lib/api-client";
 
 // B1 + 子修：pos_sales 真实列 net_amount；store_receiving PK 是 order_no（无 id）；
 //             inv_batches 没有 qty_available（用 qty 替代）
@@ -31,10 +32,11 @@ export default function StorePage() {
   const load = () => {
     setLoading(true);
     Promise.all([
-      fetch("/api/crud/pos_sales?limit=200").then(r=>r.json()).catch(()=>({data:[]})),
-      fetch("/api/crud/store_receiving?limit=100").then(r=>r.json()).catch(()=>({data:[]})),
-      fetch("/api/crud/inv_batches?limit=300").then(r=>r.json()).catch(()=>({data:[]})),
+      crudApi.list<PosSale>("pos_sales", { limit: 200 }),
+      crudApi.list<StoreRecv>("store_receiving", { limit: 100 }),
+      crudApi.list<InvBatch>("inv_batches", { limit: 300 }),
     ]).then(([s,r,b])=>{ setSales(s.data||[]); setReceiving(r.data||[]); setBatches(b.data||[]); })
+      .catch(()=>{})
       .finally(()=>setLoading(false));
   };
 

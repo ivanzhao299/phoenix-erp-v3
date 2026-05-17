@@ -32,7 +32,7 @@ export class ProcurementService {
     po.plan_qty       = dto.plan_qty;
     po.total_amount   = dto.total_amount;
     po.currency_code  = dto.currency_code || (dto.total_amount > 50000 ? 'LAK' : 'CNY');
-    po.expected_date  = dto.expected_date || null;
+    po.expected_date  = dto.expected_date || '';
     po.remark         = dto.remark || '';
     po.store_code     = this.cls.get('user.storeCode') || 'ALL';
     po.created_by     = this.cls.get('user.userId');

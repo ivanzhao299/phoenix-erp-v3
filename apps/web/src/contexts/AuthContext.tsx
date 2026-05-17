@@ -117,7 +117,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const maxAge = payload?.exp
         ? Math.max(0, payload.exp - Math.floor(Date.now() / 1000))
         : 86400;
-      // SameSite=Lax；无 HttpOnly（Edge middleware 通过 request.cookies 读取）
+      // JS-side cookie: middleware reads it server-side via request.cookies
+      // Note: HttpOnly must come from server Set-Cookie — ignored when set via document.cookie
       document.cookie = `phoenix_access_token=${tokenStr}; path=/; max-age=${maxAge}; SameSite=Lax`;
     } catch { /* ignore */ }
   };
@@ -228,7 +229,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const data = await resp.json();
           if (data.code === 200 && data.token) { sessionStorage.setItem('phoenix_token', data.token); setToken(data.token); }
         }
-      } catch { /* 静默失败 */ }
+      } catch (err) {
+        console.warn('[AuthContext] Token 刷新失败，将在下次操作时重新登录', err);
+        // 派发事件让 api-client 的 401 处理流程接管（避免重复跳转逻辑）
+        window.dispatchEvent(new CustomEvent('auth:refresh-failed'));
+      }
     };
     checkAndRefresh();
     const interval = setInterval(checkAndRefresh, REFRESH_CHECK);

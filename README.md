@@ -1,4 +1,4 @@
-# Phoenix ERP V3
+# Phoenix ERP
 
 蛋鸡养殖全链路 ERP 系统 — 养殖 / 包装 / 仓储 / 订单 / POS / 财务 / 质检 / BI
 

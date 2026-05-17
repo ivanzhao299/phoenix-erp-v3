@@ -35,7 +35,7 @@ export default function LossReportPage() {
   };
 
   const FIELDS: FormField[] = [
-    { key: "take_no",        label: t("ui.报损单号", "报损单号"),   type: "text",   placeholder: t("ui.留空自动生成LR", "留空自动生成 LR-XXXXXX") },
+    { key: "stocktake_no",   label: t("ui.报损单号", "报损单号"),   type: "text",   placeholder: t("ui.留空自动生成LR", "留空自动生成 LR-XXXXXX") },
     { key: "warehouse_code", label: t("ui.对应批次库区", "对应批次/库区"), type: "text", required: true },
     { key: "zone_code",      label: t("ui.报损品目", "报损品目"),   type: "text"   },
     { key: "diff_qty",       label: t("ui.报损数量", "报损数量"),   type: "number", required: true },
@@ -76,7 +76,7 @@ export default function LossReportPage() {
     try {
       const payload = editing?.id
         ? values
-        : { ...values, take_no: values.take_no || ("LR-" + Date.now().toString().slice(-6)), status: values.status || "DONE", date: new Date().toISOString().slice(0, 10) };
+        : { ...values, stocktake_no: values.stocktake_no || ("LR-" + Date.now().toString().slice(-6)), status: values.status || "DONE", date: new Date().toISOString().slice(0, 10) };
       editing?.id
         ? await crudApi.update(TABLE, editing.id as number, payload)
         : await crudApi.create(TABLE, payload);
@@ -99,12 +99,12 @@ export default function LossReportPage() {
   }, [approveTarget, refresh]);
 
   // 只显示 LR- 前缀的报损单
-  const lossRows = allRows.filter(r => String(r.take_no ?? "").startsWith("LR-"));
+  const lossRows = allRows.filter(r => String(r.stocktake_no ?? "").startsWith("LR-"));
   const pendingCount = lossRows.filter(r => r.status === "DONE").length;
   const totalLoss    = lossRows.reduce((s, r) => s + Math.abs(Number(r.diff_qty ?? 0)), 0);
 
   const COLUMNS: Column<Row>[] = [
-    { key: "take_no",        title: t("ui.报损单号", "报损单号"),    width: 160 },
+    { key: "stocktake_no",   title: t("ui.报损单号", "报损单号"),    width: 160 },
     { key: "zone_code",      title: t("ui.报损品目", "报损品目"),    width: 120 },
     { key: "warehouse_code", title: t("ui.批次库区", "批次/库区"),   width: 130 },
     { key: "diff_qty",       title: t("ui.报损数量", "报损数量"),    width: 90, align: "right",
@@ -165,7 +165,7 @@ export default function LossReportPage() {
       <DataTable
         table={TABLE}
         columns={COLUMNS}
-        params={{ take_no_prefix: "LR-" } as any}
+        params={{ stocktake_no__like: "LR-%" } as any}
         onNew={openNew}
         onEdit={openEdit as any}
         onDelete={handleDelete as any}
@@ -182,7 +182,7 @@ export default function LossReportPage() {
       <ConfirmDialog open={confirmOpen} title={t("common.confirm", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}
         onConfirm={confirmDelete} onCancel={() => setConfirmOpen(false)} />
       <ConfirmDialog open={approveOpen} title={t("ui.确认审批报损单", "确认审批报损单")}
-        message={`${t("ui.确认审批通过报损单", "确认审批通过报损单")}「${approveTarget?.take_no ?? ""}」？${t("ui.这将影响账面资产", "这将影响账面资产！")}`}
+        message={`${t("ui.确认审批通过报损单", "确认审批通过报损单")}「${approveTarget?.stocktake_no ?? ""}」？${t("ui.这将影响账面资产", "这将影响账面资产！")}`}
         onConfirm={confirmApprove} onCancel={() => setApproveOpen(false)} />
     </div>
   );

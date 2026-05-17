@@ -5,8 +5,15 @@ const ThemeContext = createContext<any>(null);
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [themeMode, setThemeMode] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'system';
-    return localStorage.getItem('phoenix_theme') || 'system';
+    if (typeof window === 'undefined') return 'dark';
+    // 兼容旧 key 'phx_theme'，迁移到统一 key 'phoenix_theme'
+    const legacy = localStorage.getItem('phx_theme');
+    if (legacy === 'dark' || legacy === 'light') {
+      localStorage.setItem('phoenix_theme', legacy);
+      localStorage.removeItem('phx_theme');
+      return legacy;
+    }
+    return localStorage.getItem('phoenix_theme') || 'dark';
   });
 
   useEffect(() => {

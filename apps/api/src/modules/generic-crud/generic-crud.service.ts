@@ -1032,8 +1032,8 @@ export class GenericCrudService implements OnModuleInit {
       }
       console.log('✅ Phase 10E Breeding Data Onboarding completed successfully!');
     } catch (e) {
-      console.error('❌ Failed to execute Phase 10E Onboarding:', e.message);
-      require('fs').writeFileSync('/Users/mac/phoenix ERP/phoenix-erp-v3-nest/init_error.log', e.message);
+      console.error('❌ Failed to execute Phase 10E Onboarding:', (e as Error).message);
+      // error already logged above; do not write to filesystem in server code
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -1095,7 +1095,320 @@ export class GenericCrudService implements OnModuleInit {
 
       console.log('✅ Phase S1: sys_orgs schema & SYS_ORG_LEVEL dict initialized.');
     } catch (e2) {
-      console.warn('⚠️  Phase S1 skipped:', e2.message);
+      console.warn('⚠️  Phase S1 skipped:', (e2 as Error).message);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Phase S2: BRD_HOUSE_TYPE 字典种子 + 规范化 brd_houses.house_type
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      const houseTypeDicts = [
+        { code: 'CLOSED',    zh: '密闭式', lo: 'ປິດ',        en: 'Closed House',    sort: 1 },
+        { code: 'OPEN',      zh: '开放式', lo: 'ເປີດ',       en: 'Open House',      sort: 2 },
+        { code: 'SEMI_OPEN', zh: '半开放', lo: 'ເຄີ່ງເປີດ', en: 'Semi-Open House', sort: 3 },
+        { code: 'LAYER',     zh: '蛋鸡舍', lo: 'ຄອກໄຂ່',    en: 'Layer House',     sort: 4 },
+        { code: 'LAYING',    zh: '蛋鸡舍', lo: 'ຄອກໄຂ່',    en: 'Layer House',     sort: 5 },
+      ];
+      for (const t of houseTypeDicts) {
+        await this.entityManager.query(`
+          INSERT INTO sys_dict (dict_code, dict_type, name, dict_label_zh, dict_label_lo, dict_label_en, sort_no, status)
+          SELECT $1, 'BRD_HOUSE_TYPE', $2, $2, $3, $4, $5, 'ACTIVE'
+          WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE dict_code=$1 AND dict_type='BRD_HOUSE_TYPE')
+        `, [t.code, t.zh, t.lo, t.en, t.sort]).catch(() => {});
+      }
+      // 规范化现有 brd_houses.house_type 为标准英文代码
+      const normalize: [string, string][] = [
+        ['密闭式', 'CLOSED'], ['开放式', 'OPEN'], ['半开放', 'SEMI_OPEN'],
+        ['LAYING', 'LAYER'],  // 旧版 LAYING 统一为 LAYER
+      ];
+      for (const [from, to] of normalize) {
+        await this.entityManager.query(
+          `UPDATE brd_houses SET house_type=$1 WHERE house_type=$2`, [to, from]
+        ).catch(() => {});
+      }
+      console.log('✅ Phase S2: BRD_HOUSE_TYPE dict seeded & brd_houses.house_type normalized.');
+    } catch (e3) {
+      console.warn('⚠️  Phase S2 skipped:', (e3 as Error).message);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Phase T1: Terminal 作业台 — 新建表 + 现场角色 + 测试用户
+    // ═══════════════════════════════════════════════════════════════════════════
+    try {
+      // T1-1: 新建 Terminal 专用表
+      const terminalTableDDLs = [
+        // 班次表
+        `CREATE TABLE IF NOT EXISTS pkg_work_shifts (
+           id            SERIAL PRIMARY KEY,
+           shift_code    VARCHAR(50) UNIQUE NOT NULL,
+           production_date DATE NOT NULL,
+           site_id       VARCHAR(50) DEFAULT 'site-01',
+           line_id       VARCHAR(50) DEFAULT 'line-01',
+           operator_id   INTEGER,
+           operator_name VARCHAR(100),
+           supervisor_name VARCHAR(100),
+           status        VARCHAR(20) DEFAULT 'OPEN',
+           hygiene_check BOOLEAN DEFAULT TRUE,
+           device_check  BOOLEAN DEFAULT TRUE,
+           variance_reason TEXT,
+           opened_at     TIMESTAMP DEFAULT NOW(),
+           closed_at     TIMESTAMP,
+           created_at    TIMESTAMP DEFAULT NOW(),
+           updated_at    TIMESTAMP DEFAULT NOW()
+         )`,
+        // 来源批次接收表
+        `CREATE TABLE IF NOT EXISTS pkg_source_batches (
+           id                SERIAL PRIMARY KEY,
+           batch_code        VARCHAR(80) UNIQUE NOT NULL,
+           source_inbound_no VARCHAR(80),
+           production_date   DATE,
+           house_code        VARCHAR(50),
+           flock_code        VARCHAR(50),
+           lay_date          DATE,
+           expected_qty      INTEGER DEFAULT 0,
+           received_qty      INTEGER DEFAULT 0,
+           expected_weight   NUMERIC(10,2) DEFAULT 0,
+           received_weight   NUMERIC(10,2) DEFAULT 0,
+           container_count   INTEGER DEFAULT 0,
+           variance_reason   TEXT,
+           received_by       INTEGER,
+           batch_status      VARCHAR(30) DEFAULT 'PENDING_RECEIVE',
+           qc_result         VARCHAR(30),
+           created_at        TIMESTAMP DEFAULT NOW(),
+           updated_at        TIMESTAMP DEFAULT NOW()
+         )`,
+        // QC首检记录表
+        `CREATE TABLE IF NOT EXISTS pkg_qc_inspections (
+           id                        SERIAL PRIMARY KEY,
+           source_batch_id           VARCHAR(80),
+           sample_qty                INTEGER DEFAULT 0,
+           broken_qty                INTEGER DEFAULT 0,
+           dirty_qty                 INTEGER DEFAULT 0,
+           leaking_qty               INTEGER DEFAULT 0,
+           abnormal_shape_qty        INTEGER DEFAULT 0,
+           floor_egg_qty             INTEGER DEFAULT 0,
+           average_weight            NUMERIC(8,2),
+           shell_cleanliness_ok      BOOLEAN DEFAULT TRUE,
+           odor_ok                   BOOLEAN DEFAULT TRUE,
+           container_cleanliness_ok  BOOLEAN DEFAULT TRUE,
+           qc_result                 VARCHAR(30) DEFAULT 'PENDING',
+           comment                   TEXT,
+           inspector_id              INTEGER,
+           inspector_name            VARCHAR(100),
+           inspected_at              TIMESTAMP,
+           created_at                TIMESTAMP DEFAULT NOW()
+         )`,
+        // 标签打印日志表
+        `CREATE TABLE IF NOT EXISTS pkg_label_print_logs (
+           id                  SERIAL PRIMARY KEY,
+           box_code            VARCHAR(100),
+           packaging_batch_id  VARCHAR(80),
+           label_template_id   VARCHAR(80),
+           printer_id          VARCHAR(80),
+           print_type          VARCHAR(20) DEFAULT 'NORMAL',
+           print_status        VARCHAR(20) DEFAULT 'PRINTED',
+           printed_by          VARCHAR(100),
+           reprint_reason      TEXT,
+           old_label_code      VARCHAR(100),
+           new_label_code      VARCHAR(100),
+           printed_at          TIMESTAMP DEFAULT NOW(),
+           created_at          TIMESTAMP DEFAULT NOW()
+         )`,
+        // 审计日志表
+        `CREATE TABLE IF NOT EXISTS pkg_audit_logs (
+           id           SERIAL PRIMARY KEY,
+           entity_type  VARCHAR(50),
+           entity_id    VARCHAR(100),
+           action       VARCHAR(50),
+           before_data  TEXT,
+           after_data   TEXT,
+           reason       TEXT,
+           operator_id  INTEGER,
+           terminal_id  VARCHAR(80),
+           created_at   TIMESTAMP DEFAULT NOW()
+         )`,
+        // 分级产出记录表
+        `CREATE TABLE IF NOT EXISTS pkg_grading_records (
+           id                SERIAL PRIMARY KEY,
+           code              VARCHAR(80) UNIQUE NOT NULL,
+           shift_id          INTEGER,
+           source_batch_code VARCHAR(80),
+           production_date   DATE,
+           outputs_json      JSONB DEFAULT '{}',
+           total_output      INTEGER DEFAULT 0,
+           created_at        TIMESTAMP DEFAULT NOW()
+         )`,
+        // 包装记录表
+        `CREATE TABLE IF NOT EXISTS pkg_packing_records (
+           id              SERIAL PRIMARY KEY,
+           code            VARCHAR(80) UNIQUE NOT NULL,
+           grading_code    VARCHAR(80),
+           production_date DATE,
+           batches_json    JSONB DEFAULT '[]',
+           total_boxes     INTEGER DEFAULT 0,
+           total_eggs      INTEGER DEFAULT 0,
+           created_at      TIMESTAMP DEFAULT NOW()
+         )`,
+        // 成品入库交接单
+        `CREATE TABLE IF NOT EXISTS pkg_handover_records (
+           id              SERIAL PRIMARY KEY,
+           code            VARCHAR(80) UNIQUE NOT NULL,
+           shift_id        INTEGER,
+           packing_code    VARCHAR(80),
+           boxes_json      JSONB DEFAULT '[]',
+           box_count       INTEGER DEFAULT 0,
+           pallet_code     VARCHAR(64),
+           location        VARCHAR(128),
+           receiver        VARCHAR(128),
+           production_date DATE,
+           created_at      TIMESTAMP DEFAULT NOW()
+         )`,
+        // pkg_exceptions 补充字段（原表已存在，补字段）
+        `ALTER TABLE pkg_exceptions ADD COLUMN IF NOT EXISTS exception_type VARCHAR(50)`,
+        `ALTER TABLE pkg_exceptions ADD COLUMN IF NOT EXISTS related_batch_id VARCHAR(80)`,
+        `ALTER TABLE pkg_exceptions ADD COLUMN IF NOT EXISTS reported_by VARCHAR(100)`,
+        `ALTER TABLE pkg_exceptions ADD COLUMN IF NOT EXISTS quantity INTEGER DEFAULT 0`,
+      ];
+
+      for (const ddl of terminalTableDDLs) {
+        await this.entityManager.query(ddl).catch((e: any) => {
+          console.warn(`[T1] DDL warn: ${e.message.slice(0,100)}`);
+        });
+      }
+
+      // T1-2: 注册现场角色（幂等）
+      const terminalRoles = [
+        { code: 'ROLE_PKG_OPERATOR',    nameZh: '包装操作员',  nameEn: 'Packaging Operator'  },
+        { code: 'ROLE_QC_INSPECTOR',    nameZh: '质检员',      nameEn: 'QC Inspector'         },
+        { code: 'ROLE_WH_CLERK',        nameZh: '仓管员',      nameEn: 'Warehouse Clerk'      },
+        { code: 'ROLE_LINE_SUPERVISOR', nameZh: '班组长',      nameEn: 'Line Supervisor'      },
+      ];
+      for (const r of terminalRoles) {
+        await this.entityManager.query(`
+          INSERT INTO sys_role (role_code, role_name_zh, role_type, approval_level)
+          VALUES ($1, $2, 'FIELD', 0)
+          ON CONFLICT (role_code) DO NOTHING
+        `, [r.code, r.nameZh]).catch(() => {});
+      }
+
+      // T1-3: 创建测试用户（仅开发环境，生产环境跳过）
+      if (process.env.NODE_ENV !== 'production') {
+        const bcrypt = await import('bcrypt').catch(() => null);
+        if (bcrypt) {
+          const hash = await bcrypt.hash('123456', 10);
+          const testUsers = [
+            { username: 'test_pkg_op',  realName: '测试包装操作员', roleCode: 'ROLE_PKG_OPERATOR'    },
+            { username: 'test_qc',      realName: '测试质检员',     roleCode: 'ROLE_QC_INSPECTOR'    },
+            { username: 'test_wh_clk',  realName: '测试仓管员',     roleCode: 'ROLE_WH_CLERK'        },
+            { username: 'test_sup',     realName: '测试班组长',     roleCode: 'ROLE_LINE_SUPERVISOR' },
+          ];
+          for (const u of testUsers) {
+            // 插入用户
+            await this.entityManager.query(`
+              INSERT INTO sys_user (username, password_hash, real_name, store_code, status, locale, created_at, updated_at)
+              VALUES ($1, $2, $3, 'ALL', 1, 'zh-CN', NOW(), NOW())
+              ON CONFLICT (username) DO NOTHING
+            `, [u.username, hash, u.realName]).catch(() => {});
+
+            // 绑定角色
+            await this.entityManager.query(`
+              INSERT INTO sys_user_role (user_id, role_id, is_primary, created_at)
+              SELECT u.user_id, r.role_id, TRUE, NOW()
+              FROM sys_user u, sys_role r
+              WHERE u.username = $1 AND r.role_code = $2
+                AND NOT EXISTS (
+                  SELECT 1 FROM sys_user_role ur2
+                  WHERE ur2.user_id = u.user_id AND ur2.role_id = r.role_id
+                )
+            `, [u.username, u.roleCode]).catch(() => {});
+          }
+          console.log('✅ Phase T1: Terminal test users seeded.');
+        }
+      }
+
+      console.log('✅ Phase T1: Terminal tables, roles initialized.');
+
+      // T1-4: 每日自动补种今日测试来源批次（仅开发环境，幂等）
+      if (process.env.NODE_ENV !== 'production') {
+        const today = new Date().toISOString().slice(0, 10);
+        const seedBatches = [
+          {
+            code:         `SRC-${today.replace(/-/g, '')}-001`,
+            inboundNo:    `INB-${today.replace(/-/g, '')}-001`,
+            houseCode:    'H-01', flockCode: 'FL-2024-001',
+            expectedQty:  4500,   expectedWeight: 270.0, containerCount: 15,
+          },
+          {
+            code:         `SRC-${today.replace(/-/g, '')}-002`,
+            inboundNo:    `INB-${today.replace(/-/g, '')}-002`,
+            houseCode:    'H-02', flockCode: 'FL-2024-002',
+            expectedQty:  7200,   expectedWeight: 432.0, containerCount: 24,
+          },
+        ];
+        for (const b of seedBatches) {
+          await this.entityManager.query(`
+            INSERT INTO pkg_source_batches
+              (batch_code, source_inbound_no, production_date, house_code, flock_code, lay_date,
+               expected_qty, expected_weight, container_count, batch_status, created_at, updated_at)
+            VALUES ($1,$2,$3,$4,$5,$3,$6,$7,$8,'PENDING_RECEIVE',NOW(),NOW())
+            ON CONFLICT (batch_code) DO NOTHING
+          `, [b.code, b.inboundNo, today, b.houseCode, b.flockCode,
+              b.expectedQty, b.expectedWeight, b.containerCount]).catch(() => {});
+        }
+
+        // 鸡舍基础数据（幂等）—— 实际列名: house_code, house_name, capacity, house_type, status
+        const houses = [
+          { code: 'H-01', name: '1号蛋鸡舍', capacity: 5000 },
+          { code: 'H-02', name: '2号蛋鸡舍', capacity: 8000 },
+          { code: 'H-03', name: '3号蛋鸡舍', capacity: 6000 },
+        ];
+        for (const h of houses) {
+          await this.entityManager.query(`
+            INSERT INTO brd_houses (house_code, house_name, capacity, house_type, status, created_at, updated_at)
+            VALUES ($1,$2,$3,'LAYING','ACTIVE',NOW(),NOW())
+            ON CONFLICT (house_code) DO UPDATE SET status='ACTIVE', updated_at=NOW()
+          `, [h.code, h.name, h.capacity]).catch(() => {});
+        }
+
+        // 鸡群基础数据（幂等）—— 实际列名: flock_no, house_code, breed_type, start_date, current_qty, status
+        const flocks = [
+          { no: 'FL-2024-001', houseCode: 'H-01', breedType: '罗曼褐', startDate: '2024-03-01', qty: 4800 },
+          { no: 'FL-2024-002', houseCode: 'H-02', breedType: '海兰灰', startDate: '2024-02-15', qty: 7600 },
+          { no: 'FL-2024-003', houseCode: 'H-03', breedType: '伊莎褐', startDate: '2024-04-01', qty: 5700 },
+        ];
+        for (const f of flocks) {
+          await this.entityManager.query(`
+            INSERT INTO brd_flocks (flock_no, house_code, breed_type, start_date, initial_qty, current_qty, status)
+            VALUES ($1,$2,$3,$4,$5,$5,'LAYING')
+            ON CONFLICT (flock_no) DO UPDATE SET status='LAYING', current_qty=$5
+          `, [f.no, f.houseCode, f.breedType, f.startDate, f.qty]).catch(() => {});
+        }
+
+        console.log(`✅ Phase T1-4: Today's test source batches seeded (${today}).`);
+      }
+    } catch (eT1: any) {
+      console.warn('⚠️  Phase T1 skipped:', eT1.message);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Phase T2: PKG_PACK_LINE 产线字典种子
+    // ─────────────────────────────────────────────────────────────────────────
+    try {
+      const packLines = [
+        { code: 'LINE-01', label_zh: '1号包装线', label_en: 'Line 1', sort: 1 },
+        { code: 'LINE-02', label_zh: '2号包装线', label_en: 'Line 2', sort: 2 },
+      ];
+      for (const { code, label_zh, label_en, sort } of packLines) {
+        await this.entityManager.query(
+          `INSERT INTO sys_dict (dict_code, dict_type, name, dict_label_zh, dict_label_en, sort_no, status)
+           SELECT $1, 'PKG_PACK_LINE', $2, $2, $3, $4, 'ACTIVE'
+           WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE dict_code=$1 AND dict_type='PKG_PACK_LINE')`,
+          [code, label_zh, label_en, sort],
+        ).catch(() => {});
+      }
+      console.log('✅ Phase T2: PKG_PACK_LINE dict seeded.');
+    } catch (eT2: any) {
+      console.warn('⚠️  Phase T2 skipped:', eT2.message);
     }
   }
 
@@ -1108,8 +1421,19 @@ export class GenericCrudService implements OnModuleInit {
     const queryValues = [];
     let paramIndex = 1;
 
+    const SAFE_KEY = /^[a-zA-Z0-9_]+$/;
     for (const [key, val] of Object.entries(query)) {
       if (['limit', 'offset', 'page', 'sortBy', 'sortDesc', '_t'].includes(key)) continue;
+      // Support LIKE prefix filter: key ending with __like → column = key minus suffix, value used as-is
+      if (key.endsWith('__like')) {
+        const col = key.slice(0, -6);
+        if (!SAFE_KEY.test(col)) continue;
+        whereClauses.push(`"${col}" LIKE $${paramIndex}`);
+        queryValues.push(val);
+        paramIndex++;
+        continue;
+      }
+      if (!SAFE_KEY.test(key)) continue;
       whereClauses.push(`"${key}" = $${paramIndex}`);
       queryValues.push(val);
       paramIndex++;
@@ -1126,7 +1450,7 @@ export class GenericCrudService implements OnModuleInit {
       const rows = await this.entityManager.query(sql, queryValues);
       return rows;
     } catch (e) {
-      throw new InternalServerErrorException(e.message);
+      throw new InternalServerErrorException((e as Error).message);
     }
   }
 
@@ -1146,13 +1470,13 @@ export class GenericCrudService implements OnModuleInit {
         await this.entityManager.query(sql, values);
         return { msg: 'Created successfully' };
       } catch (e) {
-        const missingCol = this.extractMissingColumn(e.message);
+        const missingCol = this.extractMissingColumn((e as Error).message);
         if (missingCol && attempt < 5) {
           await this.ensureColumn(table, missingCol);
           continue; // 自动补列后继续重试
         }
         this.handleConstraintError(e, table);
-        throw new InternalServerErrorException(e.message);
+        throw new InternalServerErrorException((e as Error).message);
       }
     }
     throw new InternalServerErrorException('Max auto-repair retries exceeded');
@@ -1188,14 +1512,14 @@ export class GenericCrudService implements OnModuleInit {
         console.log(`[CRUD Update] ✅ success on attempt ${attempt}`);
         return { msg: 'Updated successfully' };
       } catch (e) {
-        console.error(`[CRUD Update] ❌ attempt ${attempt} failed: ${e.message}`);
-        const missingCol = this.extractMissingColumn(e.message);
+        console.error(`[CRUD Update] ❌ attempt ${attempt} failed: ${(e as Error).message}`);
+        const missingCol = this.extractMissingColumn((e as Error).message);
         if (missingCol && attempt < 5) {
           await this.ensureColumn(table, missingCol);
           continue;
         }
         this.handleConstraintError(e, table);
-        throw new InternalServerErrorException(e.message);
+        throw new InternalServerErrorException((e as Error).message);
       }
     }
     throw new InternalServerErrorException('Max auto-repair retries exceeded');
@@ -1216,9 +1540,9 @@ export class GenericCrudService implements OnModuleInit {
       console.log(`[CRUD Delete] ✅ success`);
       return { msg: 'Deleted successfully' };
     } catch (e) {
-      console.error(`[CRUD Delete] ❌ failed: ${e.message}`);
+      console.error(`[CRUD Delete] ❌ failed: ${(e as Error).message}`);
       this.handleConstraintError(e, table);
-      throw new InternalServerErrorException(e.message);
+      throw new InternalServerErrorException((e as Error).message);
     }
   }
 

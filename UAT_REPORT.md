@@ -1,6 +1,6 @@
 # Phoenix ERP V3 — UAT 测试报告
 
-**生成时间**：Fri May 15 19:57:00 CST 2026
+**生成时间**：Fri May 15 20:56:52 CST 2026
 **测试阶段**：ALL
 
 ## 总览

@@ -41,7 +41,7 @@ export class FarmCronService {
       this.logger.log(`Updated to cleared: ${Array.isArray(res2) ? res2[1] : (res2?.rowCount || 0)} records`);
 
     } catch (e) {
-      this.logger.error('Failed to update medication status', e.stack);
+      this.logger.error('Failed to update medication status', (e as Error).stack);
     }
   }
 }

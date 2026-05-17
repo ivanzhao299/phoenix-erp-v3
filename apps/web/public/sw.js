@@ -11,7 +11,7 @@
 //        非 GET / 跨源    → 透传，不缓存
 //  设计原则：永不缓存敏感 GET（带 Authorization 头的 API 不写缓存）
 // ═══════════════════════════════════════════════════════════════
-const VERSION = 'phoenix-v3-sw-v1';
+const VERSION = 'phoenix-v3-sw-v4';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const OFFLINE_URL = '/offline.html';
@@ -45,11 +45,11 @@ function isSameOriginStatic(url) {
   if (url.origin !== self.location.origin) return false;
   // 排除 API 与 Server Actions / RSC payload
   if (url.pathname.startsWith('/api/')) return false;
-  if (url.pathname.startsWith('/_next/data/')) return false;
-  // 静态资源后缀白名单
+  // 完全排除 /_next/ 路径（Turbopack dev 下 chunk hash 每次重启都变，缓存会导致模块加载崩溃）
+  if (url.pathname.startsWith('/_next/')) return false;
+  // 静态资源后缀白名单（仅缓存 public/ 下的真正静态资源）
   return (
-    url.pathname.startsWith('/_next/static/') ||
-    /\.(css|js|woff2?|ttf|svg|png|jpg|jpeg|gif|webp|ico|json)$/i.test(url.pathname)
+    /\.(css|woff2?|ttf|svg|png|jpg|jpeg|gif|webp|ico)$/i.test(url.pathname)
   );
 }
 

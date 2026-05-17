@@ -45,7 +45,7 @@ export default function Page(){
       : await crudApi.create(TABLE, payload);
     sO(false);rf();}finally{sSv(false);}},[e,rf]);
   const del=useCallback((r:Record<string,unknown>)=>{sDt(r);sCo(true);},[]);
-  const cDel=useCallback(async()=>{if(!dt?.id)return;await crudApi.delete(TABLE,dt.id as number);sCo(false);rf();},[dt,rf]);
+  const cDel=useCallback(async()=>{if(!dt?.order_no)return;await crudApi.delete(TABLE,dt.order_no as never);sCo(false);rf();},[dt,rf]);
   return(<div><PageHeader
         breadcrumb={[t('ui.门店管理', '门店管理'), t('ui.门店收货', '门店收货')]} title={t('ui.收货验收', '收货验收')} subtitle={t('ui.管理门店收货记录', '管理门店收货记录（表：store_receiving）')} />
     <DataTable table={TABLE} columns={COLUMNS as any} onNew={oN} onEdit={oE as any} onDelete={del as any} showActions refreshKey={rk} />

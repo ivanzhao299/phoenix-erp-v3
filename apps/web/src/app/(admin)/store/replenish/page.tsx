@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-const STATUS_CLS: Record<string,string> = {"PENDING":s.badgeWarning, "APPROVED":s.badgeInfo, "DONE":s.badgeSuccess, "REJECTED":s.badgeDanger};
+const STATUS_CLS: Record<string,string> = {"PENDING":s.badgeWarning, "APPROVED":s.badgeInfo, "DELIVERED":s.badgeSuccess, "DONE":s.badgeSuccess, "REJECTED":s.badgeDanger, "CANCELLED":s.badgeNeutral};
 
 
 // ✅ V3 表: store_replenish_req

@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
-import { RefreshCw, WifiOff, AlertTriangle, ChevronRight, Clock, Activity } from 'lucide-react';
+import { RefreshCw, WifiOff, AlertTriangle, ChevronRight, Clock, Activity, Home, Wifi } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import s from '@/components/ui/admin-ui.module.css';
@@ -158,9 +158,12 @@ export default function DeviceOverviewPage() {
       const json = await res.json();
       setLastSync(new Date().toLocaleTimeString('zh-CN'));
       await loadData();
-      if (json.ok) {
-        if (json.records > 0) toast.success(`✅ 采集完成：${json.success} 栋成功，写入 ${json.records} 条真实数据`);
-        else toast.error(`❌ 采集失败：未获取到数据。API 错误：${json.error||'未知'}`);
+      if (json.ok && (json.records ?? 0) > 0) {
+        toast.success(`采集完成：${json.success} 栋成功，写入 ${json.records} 条实时数据`);
+      } else if (json.ok) {
+        toast.warning('采集完成，但未写入新数据，请检查第三方 API 连接状态');
+      } else {
+        toast.error(`采集失败：${json.error || '未知错误'}`);
       }
     } catch(e: any) { toast.error('采集请求失败: ' + e.message); }
     finally { setSyncing(false); }
@@ -170,11 +173,12 @@ export default function DeviceOverviewPage() {
   const houses = data?.houses  || [];
   const alarms = data?.recentAlarms || [];
 
+  const hasAlarm = (sum.totalAlarms || 0) > 0;
   const kpiCards = [
-    { label: t('ui.接入鸡舍', '接入鸡舍'),   value:`${sum.activeHouses||0}`, sub:`共 ${sum.totalHouses||0} 栋`,            cardCls: s.statCardPrimary, valCls: "" },
-    { label: t('ui.当前告警', '当前告警'),   value:`${sum.totalAlarms||0}`,  sub:`${sum.alarmHouses||0} 栋有告警`,          cardCls:(sum.totalAlarms||0)>0 ? s.statCardDanger : s.statCardSuccess, valCls:(sum.totalAlarms||0)>0 ? s.textDanger : s.textSuccess },
-    { label: t('ui.在线传感器', '在线传感器'), value:`${sum.onlineSensorCnt||0}`, sub:`共 ${sum.totalSensorCnt||0} 个（温湿度/气体）`, cardCls: s.statCardPrimary, valCls: "" },
-    { label: t('ui.运行中设备', '运行中设备'), value:`${sum.onlineDeviceCnt||0}`, sub:`共 ${sum.totalDeviceCnt||0} 台（风机/加热等）`, cardCls: s.statCardSuccess, valCls: s.textSuccess },
+    { label: t('ui.接入鸡舍',  '接入鸡舍'),  value:`${sum.activeHouses||0}`,    sub:`共 ${sum.totalHouses||0} 栋已接入`,       Icon: Home,          cardCls: s.statCardPrimary, valCls: "",             alarmBg: false },
+    { label: t('ui.当前告警',  '当前告警'),  value:`${sum.totalAlarms||0}`,     sub:`${sum.alarmHouses||0} 栋鸡舍受影响`,      Icon: AlertTriangle,  cardCls: hasAlarm ? s.statCardDanger : s.statCardSuccess, valCls: hasAlarm ? s.textDanger : s.textSuccess, alarmBg: hasAlarm },
+    { label: t('ui.在线传感器','在线传感器'), value:`${sum.onlineSensorCnt||0}`, sub:`共 ${sum.totalSensorCnt||0} 个监测点`,     Icon: Wifi,          cardCls: s.statCardPrimary, valCls: "",             alarmBg: false },
+    { label: t('ui.运行中设备','运行中设备'), value:`${sum.onlineDeviceCnt||0}`, sub:`共 ${sum.totalDeviceCnt||0} 台（风机/加热）`, Icon: Activity,      cardCls: s.statCardSuccess, valCls: s.textSuccess,  alarmBg: false },
   ];
 
   return (
@@ -203,10 +207,16 @@ export default function DeviceOverviewPage() {
       {/* KPI 卡片 */}
       <div className={s.statsRow} style={{ marginBottom:16 }}>
         {kpiCards.map(c => (
-          <div key={c.label} className={`${s.statCard} ${c.cardCls}`}>
-            <div className={`${s.statValue} ${c.valCls}`}>{c.value}</div>
-            <div className={s.statLabel}>{c.label}</div>
-            <div className={s.statSub}>{c.sub}</div>
+          <div key={c.label} className={`${s.statCard} ${c.cardCls}`}
+            style={c.alarmBg ? { background:'rgba(239,68,68,0.05)' } : {}}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6 }}>
+              <div className={`${s.statValue} ${c.valCls}`} style={{ fontSize:28, lineHeight:1, letterSpacing:'-0.5px' }}>
+                {c.value}
+              </div>
+              <c.Icon size={15} style={{ color:'var(--text-secondary)', opacity:0.45, marginTop:3, flexShrink:0 }} />
+            </div>
+            <div className={s.statLabel} style={{ fontSize:12, marginBottom:3 }}>{c.label}</div>
+            <div className={s.statSub} style={{ fontSize:11, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.sub}</div>
           </div>
         ))}
       </div>

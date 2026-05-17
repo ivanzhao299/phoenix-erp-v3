@@ -1305,7 +1305,7 @@ export class PackagingTerminalBffController {
     const allowedTypes = [
       'PKG_EGG_GRADE', 'PKG_EGG_DEFECT', 'PKG_PACK_SPEC', 'PKG_ANOMALY_REASON',
       'PKG_PRESORT_STANDARD', 'PKG_SHIFT', 'PKG_CUSTOM_LABEL',
-      'PKG_QC_RESULT',
+      'PKG_QC_RESULT', 'PKG_PACK_LINE',
       'QC_INSPECT_TYPE', 'QC_INSPECT_CATEGORY', 'QC_NC_SOURCE',
       'PRD_PRODUCT_GRADE', 'PRD_PRODUCT_TYPE',
     ];
@@ -1339,5 +1339,26 @@ export class PackagingTerminalBffController {
       });
     }
     return { code: 200, data: result };
+  }
+
+  /**
+   * GET /api/packaging/terminal/supervisors
+   * 返回可担任班组长的活跃用户（ROLE_LINE_SUPERVISOR / ROLE_PKG_MGR / ROLE_ADMIN）
+   */
+  @Get('supervisors')
+  async getSupervisors() {
+    const rows = await this.safe(
+      this.em.query(
+        `SELECT DISTINCT u.user_id AS id, u.real_name AS name
+         FROM sys_user u
+         JOIN sys_user_role ur ON ur.user_id = u.user_id
+         JOIN sys_role r ON r.role_id = ur.role_id
+         WHERE u.status = 1
+           AND r.role_code IN ('ROLE_LINE_SUPERVISOR','ROLE_PKG_MGR','ROLE_ADMIN')
+         ORDER BY u.real_name`,
+      ),
+      [] as any[],
+    );
+    return { code: 200, data: rows };
   }
 }

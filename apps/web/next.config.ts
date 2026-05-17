@@ -2,17 +2,17 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
-  // dev 模式 turbopack 根目录 → 必须指向 monorepo 根（pnpm workspace 根）
-  // __dirname = apps/web；../../ = ABC/（workspace root，含所有 packages）
+  // Turbopack root = monorepo 根目录（防止误判到 /Users/mac/package-lock.json）
   turbopack: { root: path.resolve(__dirname, "../..") },
 
   // ✅ 允许 HMR 跨源 (Next 16 开发期跨源保护)
   // 不在白名单的 origin 会拿到首屏 HTML 但 JS hydration / HMR 全部失效, 表现为按钮死、输入框无反应
   allowedDevOrigins: [
     "127.0.0.1", "localhost",
-    "192.168.124.4",  // 本机 LAN IP (那台 MacBook)
+    "192.168.31.5",   // 本机 LAN IP（当前）
+    "192.168.124.4",  // 本机 LAN IP（旧网段）
     "192.168.124.2",  // 审计 iMac LAN IP
-    "192.168.124.1",  // 路由器/其它 LAN 设备 (B2B 平板 / iPhone 测试机等)
+    "192.168.124.1",  // 路由器/其它 LAN 设备
   ],
 
   // ── API 反向代理 ─────────────────────────────────────────────────
@@ -49,13 +49,11 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy",           value: "strict-origin-when-cross-origin" },
         ],
       },
-      // 静态资源长缓存
-      {
+      // 静态资源缓存：仅生产环境设长缓存，开发环境不干预（让 Turbopack 自行管理）
+      ...(process.env.NODE_ENV === "production" ? [{
         source: "/_next/static/(.*)",
-        headers: [
-          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
-        ],
-      },
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      }] : []),
     ];
   },
 

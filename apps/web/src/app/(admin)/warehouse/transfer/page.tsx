@@ -18,6 +18,12 @@ const TABLE = "wms_transfer";
 
 type Row = Record<string, unknown>;
 
+const getRole = () => {
+  try { return JSON.parse(sessionStorage.getItem("phoenix_user") || "{}").role || ""; }
+  catch { return ""; }
+};
+const isManager = () => ["ROLE_ADMIN", "ROLE_WMS_MGR"].includes(getRole());
+
 export default function TransferPage() {
   const { t } = useLanguage();
 
@@ -106,7 +112,10 @@ export default function TransferPage() {
     } finally { setSaving(false); }
   }, [editing, refresh]);
 
-  const handleDelete  = useCallback((row: Row) => { setDeleteTarget(row); setConfirmOpen(true); }, []);
+  const handleDelete  = useCallback((row: Row) => {
+    if (!isManager()) { window.alert(t("ui.权限不足仅管理员可删除调拨单", "权限不足：仅管理员可删除调拨单")); return; }
+    setDeleteTarget(row); setConfirmOpen(true);
+  }, [t]);
   const confirmDelete = useCallback(async () => {
     if (!deleteTarget?.id) return;
     await crudApi.delete(TABLE, deleteTarget.id as number);

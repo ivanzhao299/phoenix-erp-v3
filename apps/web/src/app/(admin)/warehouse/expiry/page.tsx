@@ -81,6 +81,11 @@ export default function ExpiryAlertPage() {
 
   const handleConfirm = useCallback(async () => {
     if (!confirm.item) return;
+    if (confirm.type === 'discount') {
+      // 降价促销：功能未实现，关闭弹窗
+      setConfirm({ open: false, type: 'outbound', item: null });
+      return;
+    }
     if (confirm.type === 'outbound') {
       await crudApi.create("wms_outbound", {
         outbound_no: `FEFO-${Date.now().toString().slice(-6)}`,
@@ -169,7 +174,7 @@ export default function ExpiryAlertPage() {
                   <button type="button" className={s.btnPrimary} onClick={() => setConfirm({ open: true, type: 'outbound', item: a })} style={{ fontSize: 12, padding: '6px 14px' }}>
                     <AlertTriangle size={12} />{t("ui.安排出库", "安排出库")}
                   </button>
-                  <button type="button" className={s.btnSecondary} onClick={() => setConfirm({ open: true, type: 'discount', item: a })} style={{ fontSize: 12, padding: '6px 14px' }}>
+                  <button type="button" className={s.btnSecondary} disabled title={t("ui.降价促销功能待接入促销系统", "降价促销功能待接入促销系统")} style={{ fontSize: 12, padding: '6px 14px', opacity: 0.5, cursor: 'not-allowed' }}>
                     {t("ui.降价促销", "降价促销")}
                   </button>
                 </div>

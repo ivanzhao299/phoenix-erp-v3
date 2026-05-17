@@ -5,12 +5,13 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
 
 const STATUS_CLS: Record<string,string> = {
-  open:"badgeDanger", OPEN:"badgeDanger",
-  closed:"badgeSuccess", CLOSED:"badgeSuccess",
-  PENDING:"badgeWarning", pending:"badgeWarning",
+  OPEN:"badgeDanger",
+  CLOSED:"badgeSuccess",
+  PENDING:"badgeWarning",
 };
 const SEVERITY_CLS: Record<string,string> = {
   HIGH:"badgeDanger",CRITICAL:"badgeDanger",MEDIUM:"badgeWarning",LOW:"badgeNeutral",
@@ -31,9 +32,9 @@ export default function NonconformancePage() {
   const [saving, setSaving]         = useState(false);
 
   const STATUS_LABEL: Record<string,string> = {
-    open:t("status.pending","待处置"),OPEN:t("status.pending","待处置"),
-    closed:t("ui.已关闭","已关闭"),CLOSED:t("ui.已关闭","已关闭"),
-    PENDING:t("status.pending","待处置"),pending:t("status.pending","待处置"),
+    OPEN:    t("status.pending","待处置"),
+    CLOSED:  t("ui.已关闭","已关闭"),
+    PENDING: t("status.pending","待处置"),
   };
 
   const token = typeof window !== "undefined"
@@ -42,13 +43,13 @@ export default function NonconformancePage() {
 
   const load = () => {
     setLoading(true);
-    fetch("/api/crud/qa_non_conformance?limit=200").then(r=>r.json())
-      .then(d=>setData(d.data||[])).catch(()=>{}).finally(()=>setLoading(false));
+    crudApi.list<NCRow>("qa_non_conformance", { limit: 200 })
+      .then(res=>setData(res.data||[])).catch(()=>{}).finally(()=>setLoading(false));
   };
   useEffect(()=>{ load(); },[]);
 
-  const open   = data.filter(r=>(r.status||"").toLowerCase()!=="closed").length;
-  const closed  = data.filter(r=>(r.status||"").toLowerCase()==="closed").length;
+  const open   = data.filter(r=>(r.status||"").toUpperCase()!=="CLOSED").length;
+  const closed  = data.filter(r=>(r.status||"").toUpperCase()==="CLOSED").length;
   const high    = data.filter(r=>r.severity==="HIGH"||r.severity==="CRITICAL").length;
   const today   = new Date().toISOString().slice(0,10);
   const todayNcr= data.filter(r=>(r.created_at||"").slice(0,10)===today).length;

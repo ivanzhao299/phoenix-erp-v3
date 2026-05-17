@@ -1,0 +1,760 @@
+"use client";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import PageHeader from "@/components/PageHeader";
+import { RefreshCw, Link2, Settings, ClipboardList, Wifi, WifiOff } from "lucide-react";
+import s from "@/components/ui/admin-ui.module.css";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useDialog } from "@/contexts/DialogContext";
+
+const API = "/api/farm-device";
+type TabId = "mapping" | "jobs" | "devices" | "dict" | "opslog";
+
+// ── Types ────────────────────────────────────────────────────────────────────
+interface Mapping {
+  id: number;
+  erp_farm_code: string;
+  erp_house_code: string;
+  house_name?: string;
+  vendor_farm_id: string;
+  vendor_house_id: string;
+  vendor_house_name?: string;
+  sync_freq_min: number;
+  status: "ACTIVE" | "INACTIVE";
+  mapped_by?: string;
+  mapped_at?: string;
+}
+interface VendorHouse {
+  vendor_farm_id: string;
+  vendor_farm_name?: string;
+  vendor_house_id: string;
+  vendor_house_name?: string;
+}
+interface ErpHouse { house_code: string; house_name: string; farm_code: string; }
+interface ErpFarm  { farm_code: string; farm_name: string; }
+interface SyncJob {
+  id: number; job_no: string; job_type: string; triggered_by: string;
+  started_at?: string; duration_ms?: number; total_houses?: number;
+  success_count?: number; fail_count?: number; record_count?: number;
+  status: "SUCCESS" | "RUNNING" | "FAILED" | "PARTIAL";
+}
+interface OfflineDevice {
+  id: number; imei: string; device_name?: string; device_type?: string;
+  erp_house_code?: string; status?: string; last_online_at?: string;
+}
+interface PropDict {
+  id: number; property_code: string; name_zh: string; unit?: string;
+  category?: string; threshold_high?: number | null; threshold_low?: number | null;
+  alert_min_duration_cycles?: number; alert_volatility_pct?: number;
+  alarm_enabled: number; trend_enabled: number;
+}
+interface OpsLog {
+  id: number; op_type: string; erp_house_code?: string; operator?: string;
+  detail_json?: string; result: "SUCCESS" | "FAILED"; created_at: string;
+}
+interface AuthStatus { hasToken: boolean; appId?: string; remainMin?: number; }
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function getToken() {
+  if (typeof window === "undefined") return "";
+  return sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "";
+}
+function authHeaders() {
+  return { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` };
+}
+async function apiFetch<T>(url: string, init?: RequestInit): Promise<T | null> {
+  try {
+    const res = await fetch(url, { ...init, headers: { ...authHeaders(), ...(init?.headers ?? {}) } });
+    const d = await res.json();
+    return d;
+  } catch { return null; }
+}
+
+function StatusPill({ active, label }: { active: boolean; label: string }) {
+  return (
+    <span style={{
+      display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700,
+      background: active ? "#dcfce7" : "#f1f5f9", color: active ? "#16a34a" : "#64748b",
+    }}>{label}</span>
+  );
+}
+function JobStatusPill({ status }: { status: string }) {
+  const map: Record<string, [string, string]> = {
+    SUCCESS: ["#dcfce7", "#16a34a"], RUNNING: ["#dbeafe", "#2563eb"],
+    FAILED: ["#fee2e2", "#dc2626"], PARTIAL: ["#fef9c3", "#854d0e"],
+  };
+  const [bg, color] = map[status] || ["#f1f5f9", "#64748b"];
+  return <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700, background: bg, color }}>{status}</span>;
+}
+function fmtDt(v?: string | null) { return v ? new Date(v).toLocaleString("zh-CN") : "—"; }
+
+// ── empty forms ───────────────────────────────────────────────────────────────
+const emptyMapForm = () => ({ erp_farm_code: "", erp_house_code: "", vendor_farm_id: "", vendor_house_id: "" });
+type EditFormState = {
+  erp_farm_code: string; erp_house_code: string; vendor_farm_id: string; vendor_house_id: string;
+  sync_freq_min: number; status: "ACTIVE" | "INACTIVE";
+  alert_config: Record<string, { threshold_high?: number; threshold_low?: number }>;
+};
+const emptyEditForm = (): EditFormState => ({
+  erp_farm_code: "", erp_house_code: "", vendor_farm_id: "", vendor_house_id: "",
+  sync_freq_min: 5, status: "ACTIVE", alert_config: {},
+});
+
+// ── Modal wrapper ─────────────────────────────────────────────────────────────
+function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div onClick={onClose} style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.48)", zIndex: 1000,
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: "var(--bg-card)", borderRadius: 12, padding: 28, width: 540,
+        boxShadow: "0 20px 60px rgba(0,0,0,.28)", maxHeight: "88vh", overflowY: "auto",
+      }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ── Input style ───────────────────────────────────────────────────────────────
+const inp: React.CSSProperties = {
+  width: "100%", padding: "7px 10px", border: "1px solid var(--border)",
+  borderRadius: 6, background: "var(--bg-page)", color: "var(--text-primary)",
+  fontSize: 13, boxSizing: "border-box",
+};
+const inpSm: React.CSSProperties = { ...inp, padding: "5px 8px", fontSize: 12 };
+function Label({ children }: { children: React.ReactNode }) {
+  return <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>{children}</div>;
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
+export default function DeviceOpsPage() {
+  const { t } = useLanguage();
+  const { showAlert, showConfirm } = useDialog();
+
+  const [tab, setTab]                 = useState<TabId>("mapping");
+  const [mappings, setMappings]       = useState<Mapping[]>([]);
+  const [vendorHouses, setVendorHouses] = useState<VendorHouse[]>([]);
+  const [erpHouses, setErpHouses]     = useState<ErpHouse[]>([]);
+  const [erpFarms, setErpFarms]       = useState<ErpFarm[]>([]);
+  const [authStatus, setAuthStatus]   = useState<AuthStatus | null>(null);
+  const [jobs, setJobs]               = useState<SyncJob[]>([]);
+  const [offlineDevices, setOfflineDevices] = useState<OfflineDevice[]>([]);
+  const [propDict, setPropDict]       = useState<PropDict[]>([]);
+  const [opsLog, setOpsLog]           = useState<OpsLog[]>([]);
+  const [loading, setLoading]         = useState(false);
+  const [syncing, setSyncing]         = useState(false);
+  const [search, setSearch]           = useState("");
+
+  // modals
+  const [showMapForm, setShowMapForm] = useState(false);
+  const [mapForm, setMapForm]         = useState(emptyMapForm());
+  const [editRow, setEditRow]         = useState<Mapping | null>(null);
+  const [editForm, setEditForm]       = useState(emptyEditForm());
+  const [dictEditRow, setDictEditRow] = useState<PropDict | null>(null);
+  const [saving, setSaving]           = useState(false);
+
+  // ── Data loaders ─────────────────────────────────────────────────────────
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [mapRes, vhRes, erpHRes, erpFRes, authRes] = await Promise.all([
+        apiFetch<Mapping[]>(`${API}/mappings`),
+        apiFetch<VendorHouse[]>(`${API}/vendor-houses`),
+        apiFetch<{ data?: ErpHouse[] } | ErpHouse[]>("/api/crud/brd_houses?limit=200"),
+        apiFetch<{ data?: ErpFarm[] }  | ErpFarm[]>("/api/crud/brd_farms?limit=50"),
+        apiFetch<AuthStatus>(`${API}/auth/status`),
+      ]);
+      setMappings(Array.isArray(mapRes) ? mapRes : []);
+      setVendorHouses(Array.isArray(vhRes) ? vhRes : []);
+      const hd = erpHRes as any;
+      setErpHouses(Array.isArray(hd?.data) ? hd.data : Array.isArray(hd) ? hd : []);
+      const fd = erpFRes as any;
+      setErpFarms(Array.isArray(fd?.data) ? fd.data : Array.isArray(fd) ? fd : []);
+      if (authRes) setAuthStatus(authRes);
+    } finally { setLoading(false); }
+  }, []);
+
+  const loadJobs    = useCallback(async () => { const d = await apiFetch<SyncJob[]>(`${API}/sync/jobs`); setJobs(Array.isArray(d) ? d : []); }, []);
+  const loadOffline = useCallback(async () => { const d = await apiFetch<OfflineDevice[]>(`${API}/devices/offline`); setOfflineDevices(Array.isArray(d) ? d : []); }, []);
+  const loadDict    = useCallback(async () => { const d = await apiFetch<PropDict[]>(`${API}/property-dict`); setPropDict(Array.isArray(d) ? d : []); }, []);
+  const loadOpsLog  = useCallback(async () => { const d = await apiFetch<OpsLog[]>(`${API}/ops-log?limit=100`); setOpsLog(Array.isArray(d) ? d : []); }, []);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => {
+    if (tab === "jobs")    loadJobs();
+    if (tab === "devices") loadOffline();
+    if (tab === "dict")    loadDict();
+    if (tab === "opslog")  loadOpsLog();
+  }, [tab]); // eslint-disable-line
+
+  // ── Derived lists ────────────────────────────────────────────────────────
+  const vendorFarmIds      = useMemo(() => [...new Set(vendorHouses.map(h => h.vendor_farm_id).filter(Boolean))], [vendorHouses]);
+  const filterHouses       = useMemo(() => erpHouses.filter(h => !mapForm.erp_farm_code  || h.farm_code === mapForm.erp_farm_code), [erpHouses, mapForm.erp_farm_code]);
+  const filterVendorHouses = useMemo(() => vendorHouses.filter(h => !mapForm.vendor_farm_id  || h.vendor_farm_id === mapForm.vendor_farm_id), [vendorHouses, mapForm.vendor_farm_id]);
+  const editFilterHouses   = useMemo(() => erpHouses.filter(h => !editForm.erp_farm_code  || h.farm_code === editForm.erp_farm_code), [erpHouses, editForm.erp_farm_code]);
+  const editVendorHouses   = useMemo(() => vendorHouses.filter(h => !editForm.vendor_farm_id || h.vendor_farm_id === editForm.vendor_farm_id), [vendorHouses, editForm.vendor_farm_id]);
+
+  const filteredMappings = useMemo(() => {
+    if (!search) return mappings;
+    const q = search.toLowerCase();
+    return mappings.filter(m => [m.erp_house_code, m.erp_farm_code, m.vendor_house_id, m.vendor_farm_id, m.house_name, m.vendor_house_name].some(v => v?.toLowerCase().includes(q)));
+  }, [mappings, search]);
+
+  // ── Handlers ─────────────────────────────────────────────────────────────
+  const handleSyncHouses = async () => {
+    setSyncing(true);
+    try {
+      const d = await apiFetch<{ ok: boolean; synced?: number; error?: string }>(`${API}/sync/houses`, { method: "POST" });
+      if (!d) {
+        await showAlert({ icon: "❌", type: "danger", title: t("ui.同步失败", "同步失败"),
+          message: t("crud.err.timeout", "网络连接失败，请检查服务器后重试"), confirmLabel: t("common.ok", "好的") });
+        return;
+      }
+      await showAlert({ icon: d.ok ? "✅" : "❌", type: d.ok ? "success" : "danger",
+        title: d.ok ? t("ui.同步完成", "同步完成") : t("ui.同步失败", "同步失败"),
+        message: d.ok ? `已同步 ${d.synced ?? 0} 条第三方栏舍数据` : (d.error || "第三方 API 返回错误，请检查认证配置"),
+        confirmLabel: t("common.ok", "好的") });
+      if (d.ok) await loadAll();
+    } finally { setSyncing(false); }
+  };
+
+  const handleSaveMapping = async () => {
+    const { erp_farm_code, erp_house_code, vendor_farm_id, vendor_house_id } = mapForm;
+    if (!erp_farm_code || !erp_house_code || !vendor_farm_id || !vendor_house_id) {
+      return showAlert({ icon: "⚠️", type: "warning", title: t("ui.请完整填写所有映射字段", "请完整填写所有映射字段"), message: "", confirmLabel: t("common.ok", "好的") });
+    }
+    setSaving(true);
+    try {
+      const d = await apiFetch<{ ok: boolean; message?: string; error?: string }>(`${API}/mapping`, { method: "POST", body: JSON.stringify(mapForm) });
+      if (d?.ok) {
+        await showAlert({ icon: "✅", type: "success", title: t("ui.映射已保存", "映射已保存"), message: d.message ?? "", confirmLabel: t("common.ok", "好的") });
+        setShowMapForm(false); setMapForm(emptyMapForm()); loadAll();
+      } else {
+        await showAlert({ icon: "❌", type: "danger", title: t("ui.保存失败", "保存失败"), message: d?.error ?? "", confirmLabel: t("common.close", "关闭") });
+      }
+    } finally { setSaving(false); }
+  };
+
+  const handleDeleteMapping = async (row: Mapping) => {
+    const ok = await showConfirm({ icon: "🗑️", type: "danger", title: t("ui.确认删除映射", "确认删除映射"),
+      message: `${row.erp_house_code} ↔ ${row.vendor_house_name || row.vendor_house_id}`,
+      confirmLabel: t("ui.确认删除", "确认删除"), cancelLabel: t("common.cancel", "取消") });
+    if (!ok) return;
+    const d = await apiFetch<{ ok: boolean; msg?: string; error?: string }>(`${API}/mapping/${row.id}`, { method: "DELETE" });
+    await showAlert({ icon: d?.ok ? "✅" : "❌", type: d?.ok ? "success" : "danger",
+      title: d?.ok ? t("ui.已删除", "已删除") : t("ui.删除失败", "删除失败"),
+      message: d?.msg || d?.error || "", confirmLabel: t("common.ok", "好的") });
+    if (d?.ok) loadAll();
+  };
+
+  const handleOpenEdit = async (row: Mapping) => {
+    const d = await apiFetch<{ alert_config?: Record<string, any> }>(`${API}/mapping/${row.id}/alert-config`);
+    setEditForm({
+      erp_farm_code:   row.erp_farm_code  || "",
+      erp_house_code:  row.erp_house_code || "",
+      vendor_farm_id:  row.vendor_farm_id || "",
+      vendor_house_id: row.vendor_house_id || "",
+      sync_freq_min:   row.sync_freq_min  ?? 5,
+      status:          (row.status || "ACTIVE") as "ACTIVE" | "INACTIVE",
+      alert_config:    d?.alert_config   || {},
+    });
+    setEditRow(row);
+    // ensure propDict loaded for alert override section
+    if (propDict.length === 0) loadDict();
+  };
+
+  const handleSaveEdit = async () => {
+    const { erp_farm_code, erp_house_code, vendor_farm_id, vendor_house_id } = editForm;
+    if (!erp_farm_code || !erp_house_code || !vendor_farm_id || !vendor_house_id) {
+      return showAlert({ icon: "⚠️", type: "warning", title: t("ui.请完整填写", "请完整填写必填字段"), message: "", confirmLabel: t("common.ok", "好的") });
+    }
+    if (!editRow) return;
+    setSaving(true);
+    try {
+      const d = await apiFetch<{ ok: boolean; msg?: string; error?: string }>(`${API}/mapping/${editRow.id}`, { method: "PUT", body: JSON.stringify(editForm) });
+      if (d?.ok) {
+        await showAlert({ icon: "✅", type: "success", title: t("ui.保存成功", "保存成功"), message: d.msg ?? "", confirmLabel: t("common.ok", "好的") });
+        setEditRow(null); loadAll();
+      } else {
+        await showAlert({ icon: "❌", type: "danger", title: t("ui.保存失败", "保存失败"), message: d?.error ?? "", confirmLabel: t("common.close", "关闭") });
+      }
+    } finally { setSaving(false); }
+  };
+
+  const handleSaveDictEdit = async () => {
+    if (!dictEditRow) return;
+    setSaving(true);
+    try {
+      const d = await apiFetch<{ ok: boolean; error?: string }>(`${API}/property-dict/${dictEditRow.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          threshold_high: dictEditRow.threshold_high !== undefined && dictEditRow.threshold_high !== null && String(dictEditRow.threshold_high) !== "" ? Number(dictEditRow.threshold_high) : null,
+          threshold_low:  dictEditRow.threshold_low  !== undefined && dictEditRow.threshold_low  !== null && String(dictEditRow.threshold_low)  !== "" ? Number(dictEditRow.threshold_low)  : null,
+          alarm_enabled:  dictEditRow.alarm_enabled ? 1 : 0,
+          trend_enabled:  dictEditRow.trend_enabled ? 1 : 0,
+          alert_min_duration_cycles: Number(dictEditRow.alert_min_duration_cycles) || 3,
+          alert_volatility_pct: Number(dictEditRow.alert_volatility_pct) || 0.2,
+        }),
+      });
+      if (d?.ok) { setDictEditRow(null); loadDict(); }
+      else await showAlert({ icon: "❌", type: "danger", title: t("ui.保存失败", "保存失败"), message: d?.error ?? "", confirmLabel: t("common.close", "关闭") });
+    } finally { setSaving(false); }
+  };
+
+  // ── Tab definitions ───────────────────────────────────────────────────────
+  const TABS: { id: TabId; label: string }[] = [
+    { id: "mapping", label: t("ui.栏舍映射", "栏舍映射") },
+    { id: "jobs",    label: t("ui.采集日志", "采集日志") },
+    { id: "devices", label: t("ui.离线设备", "离线设备") },
+    { id: "dict",    label: t("ui.属性字典", "属性字典") },
+    { id: "opslog",  label: t("ui.运维审计", "运维审计") },
+  ];
+
+  const OP_TYPE_COLORS: Record<string, string> = {
+    MAPPING: "#6366f1", THRESHOLD: "#f59e0b",
+    ALERT_CONFIG: "#ec4899", MANUAL_SYNC: "#22c55e",
+  };
+
+  return (
+    <div className="animate-fade-in">
+      <PageHeader
+        title={t("ui.设备运维中心", "设备运维中心")}
+        subtitle={t("ui.栏舍映射配置", "第三方 IoT 采集映射 · 属性字典 · 运维审计")}
+        breadcrumb={[t("ui.养殖管理", "养殖生产中心"), t("ui.设备运维中心", "设备运维中心")]}
+        actions={
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" className={s.btnSecondary} onClick={handleSyncHouses} disabled={syncing || loading}>
+              <RefreshCw size={13} style={{ animation: syncing ? "spin 1s linear infinite" : "none" }} />
+              {t("ui.同步第三方栏舍", "同步第三方栏舍")}
+            </button>
+            <button type="button" className={s.btnPrimary} onClick={() => { setMapForm(emptyMapForm()); setShowMapForm(true); }}>
+              <Link2 size={13} />
+              {t("ui.新建映射", "新建映射")}
+            </button>
+          </div>
+        }
+      />
+
+      {/* API 认证状态 */}
+      {authStatus && (
+        <div style={{
+          background: authStatus.hasToken ? "color-mix(in srgb,#22c55e 8%,transparent)" : "color-mix(in srgb,#f59e0b 10%,transparent)",
+          border: `1px solid ${authStatus.hasToken ? "#bbf7d0" : "#fde68a"}`,
+          borderRadius: 8, padding: "10px 16px", marginBottom: 16,
+          display: "flex", alignItems: "center", gap: 10, fontSize: 13,
+        }}>
+          {authStatus.hasToken ? <Wifi size={14} style={{ color: "#22c55e" }} /> : <WifiOff size={14} style={{ color: "#f59e0b" }} />}
+          <span style={{ fontWeight: 600 }}>第三方 IoT API：</span>
+          {authStatus.hasToken
+            ? `${t("ui.已认证", "已认证")} · AppID: ${authStatus.appId} · Token 剩余 ${authStatus.remainMin} min`
+            : t("ui.未获取Token", "未获取 Token — 请检查环境变量配置")}
+        </div>
+      )}
+
+      {/* Tab 切换 */}
+      <div style={{ display: "flex", borderBottom: "2px solid var(--border)", marginBottom: 16 }}>
+        {TABS.map(tb => (
+          <button key={tb.id} type="button" onClick={() => { setTab(tb.id); setSearch(""); }}
+            style={{
+              padding: "10px 20px", border: "none", background: "transparent", cursor: "pointer",
+              fontWeight: 600, fontSize: 13, marginBottom: -2,
+              borderBottom: tab === tb.id ? "2px solid var(--color-primary)" : "2px solid transparent",
+              color: tab === tb.id ? "var(--color-primary)" : "var(--text-secondary)",
+            }}>
+            {tb.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Tab: 栏舍映射 ──────────────────────────────────────────────────── */}
+      {tab === "mapping" && (
+        <div className={s.card}>
+          <div className={s.cardHeader} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span className={s.cardTitle}>{t("ui.栏舍映射列表", "栏舍映射列表")} ({filteredMappings.length})</span>
+            <input placeholder={t("ui.搜索", "搜索鸡舍、场区...")} value={search} onChange={e => setSearch(e.target.value)}
+              style={{ ...inp, width: 220 }} />
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table className={s.table}>
+              <thead>
+                <tr>
+                  {[t("ui.ERP场区","ERP场区"), t("ui.ERP鸡舍","ERP鸡舍"), t("ui.鸡舍名称","鸡舍名称"),
+                    t("ui.第三方Farm","第三方Farm"), t("ui.第三方House","第三方House"), t("ui.第三方名称","第三方名称"),
+                    t("ui.采集频率","频率(min)"), t("ui.状态","状态"), t("ui.操作人","操作人"),
+                    t("ui.映射时间","映射时间"), t("ui.操作","操作")].map(h => <th key={h}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={11} style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>{t("common.loading", "加载中...")}</td></tr>
+                ) : filteredMappings.length === 0 ? (
+                  <tr><td colSpan={11} style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>暂无映射记录</td></tr>
+                ) : filteredMappings.map(row => (
+                  <tr key={row.id}>
+                    <td><code style={{ fontSize: 12 }}>{row.erp_farm_code}</code></td>
+                    <td><code style={{ fontSize: 12 }}>{row.erp_house_code}</code></td>
+                    <td>{row.house_name || "—"}</td>
+                    <td style={{ color: "var(--text-secondary)", fontSize: 12 }}>{row.vendor_farm_id}</td>
+                    <td style={{ color: "var(--text-secondary)", fontSize: 12 }}>{row.vendor_house_id}</td>
+                    <td>{row.vendor_house_name || "—"}</td>
+                    <td>{row.sync_freq_min} min</td>
+                    <td><StatusPill active={row.status === "ACTIVE"} label={row.status === "ACTIVE" ? t("ui.启用","启用") : t("ui.禁用","禁用")} /></td>
+                    <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{row.mapped_by || "—"}</td>
+                    <td style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{fmtDt(row.mapped_at)}</td>
+                    <td>
+                      <div className={s.tableActions}>
+                        <button type="button" className={s.btnSecondary} style={{ fontSize: 12, padding: "3px 10px" }} onClick={() => handleOpenEdit(row)}>
+                          {t("ui.修改", "修改")}
+                        </button>
+                        <button type="button" className={s.btnDanger} style={{ fontSize: 12, padding: "3px 10px" }} onClick={() => handleDeleteMapping(row)}>
+                          {t("ui.删除", "删除")}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab: 采集日志 ──────────────────────────────────────────────────── */}
+      {tab === "jobs" && (
+        <div className={s.card}>
+          <div className={s.cardHeader} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span className={s.cardTitle}>{t("ui.采集日志", "同步任务日志")}</span>
+            <button type="button" className={s.btnSecondary} onClick={loadJobs}><RefreshCw size={13} />{t("ui.刷新","刷新")}</button>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table className={s.table}>
+              <thead>
+                <tr>
+                  {[t("ui.任务编号","任务编号"), t("ui.类型","类型"), t("ui.触发方式","触发"), t("ui.开始","开始时间"),
+                    t("ui.耗时","耗时"), t("ui.鸡舍数","鸡舍数"), t("ui.成功","成功"), t("ui.失败","失败"),
+                    t("ui.写入条数","写入数"), t("ui.状态","状态")].map(h => <th key={h}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {jobs.length === 0 ? (
+                  <tr><td colSpan={10} style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>暂无日志</td></tr>
+                ) : jobs.map(row => (
+                  <tr key={row.id}>
+                    <td><code style={{ fontSize: 11 }}>{row.job_no}</code></td>
+                    <td style={{ fontSize: 12 }}>{row.job_type}</td>
+                    <td style={{ fontSize: 12 }}>{row.triggered_by}</td>
+                    <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtDt(row.started_at)}</td>
+                    <td>{row.duration_ms != null ? `${row.duration_ms}ms` : "—"}</td>
+                    <td>{row.total_houses ?? "—"}</td>
+                    <td style={{ color: "#16a34a", fontWeight: 600 }}>{row.success_count ?? "—"}</td>
+                    <td style={{ color: (row.fail_count ?? 0) > 0 ? "#dc2626" : "var(--text-secondary)", fontWeight: 600 }}>{row.fail_count ?? "—"}</td>
+                    <td>{row.record_count ?? "—"}</td>
+                    <td><JobStatusPill status={row.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab: 离线设备 ──────────────────────────────────────────────────── */}
+      {tab === "devices" && (
+        <div className={s.card}>
+          <div className={s.cardHeader} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span className={s.cardTitle}>{t("ui.离线设备", "离线设备")} ({offlineDevices.length})</span>
+            <button type="button" className={s.btnSecondary} onClick={loadOffline}><RefreshCw size={13} />{t("ui.刷新","刷新")}</button>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table className={s.table}>
+              <thead>
+                <tr>
+                  {["IMEI", t("ui.设备名称","设备名称"), t("ui.类型","类型"), t("ui.鸡舍","鸡舍"),
+                    t("ui.状态","状态"), t("ui.最后登录","最后在线")].map(h => <th key={h}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {offlineDevices.length === 0 ? (
+                  <tr><td colSpan={6} style={{ textAlign: "center", padding: 40, color: "#22c55e" }}>✅ 暂无离线设备</td></tr>
+                ) : offlineDevices.map(row => (
+                  <tr key={row.id}>
+                    <td><code style={{ fontSize: 12 }}>{row.imei}</code></td>
+                    <td>{row.device_name || "—"}</td>
+                    <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{row.device_type || "—"}</td>
+                    <td><code style={{ fontSize: 12 }}>{row.erp_house_code || "—"}</code></td>
+                    <td><span style={{ padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700, background: "#fee2e2", color: "#dc2626" }}>{row.status || "离线"}</span></td>
+                    <td style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{fmtDt(row.last_online_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab: 属性字典 ──────────────────────────────────────────────────── */}
+      {tab === "dict" && (
+        <div className={s.card}>
+          <div className={s.cardHeader} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span className={s.cardTitle}>{t("ui.属性字典", "传感器属性字典")} ({propDict.length})</span>
+            <button type="button" className={s.btnSecondary} onClick={loadDict}><RefreshCw size={13} />{t("ui.刷新","刷新")}</button>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table className={s.table}>
+              <thead>
+                <tr>
+                  {[t("ui.编码","编码"), t("ui.中文名","中文名"), t("ui.单位","单位"), t("ui.类别","类别"),
+                    t("ui.上限","上限"), t("ui.下限","下限"), t("ui.消抖次数","消抖次数"),
+                    t("ui.波动","波动阈值%"), t("ui.告警","告警"), t("ui.趋势","趋势图"), t("ui.操作","操作")].map(h => <th key={h}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {propDict.length === 0 ? (
+                  <tr><td colSpan={11} style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>暂无属性</td></tr>
+                ) : propDict.map(row => (
+                  <tr key={row.id}>
+                    <td><code style={{ fontSize: 12, color: "var(--color-primary)" }}>{row.property_code}</code></td>
+                    <td style={{ fontWeight: 600 }}>{row.name_zh}</td>
+                    <td style={{ color: "var(--text-secondary)" }}>{row.unit || "—"}</td>
+                    <td style={{ color: "var(--text-secondary)", fontSize: 12 }}>{row.category || "—"}</td>
+                    <td style={{ color: row.threshold_high != null ? "#dc2626" : "var(--text-secondary)" }}>{row.threshold_high ?? "—"}</td>
+                    <td style={{ color: row.threshold_low  != null ? "#2563eb" : "var(--text-secondary)" }}>{row.threshold_low  ?? "—"}</td>
+                    <td>{(row.alert_min_duration_cycles ?? 3)}次</td>
+                    <td>{Math.round(((row.alert_volatility_pct ?? 0.2)) * 100)}%</td>
+                    <td><span style={{ width: 10, height: 10, borderRadius: "50%", display: "inline-block", background: row.alarm_enabled ? "#16a34a" : "#9ca3af" }} /></td>
+                    <td><span style={{ width: 10, height: 10, borderRadius: "50%", display: "inline-block", background: row.trend_enabled ? "#2563eb" : "#9ca3af" }} /></td>
+                    <td>
+                      <button type="button" className={s.btnSecondary} style={{ fontSize: 11, padding: "3px 8px" }} onClick={() => setDictEditRow({ ...row })}>
+                        {t("ui.编辑","编辑")}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab: 运维审计 ──────────────────────────────────────────────────── */}
+      {tab === "opslog" && (
+        <div className={s.card}>
+          <div className={s.cardHeader} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <ClipboardList size={15} style={{ color: "var(--color-primary)" }} />
+              <span className={s.cardTitle}>{t("ui.运维操作审计日志", "运维操作审计日志")}（最近 100 条）</span>
+            </div>
+            <button type="button" className={s.btnSecondary} onClick={loadOpsLog}><RefreshCw size={13} />{t("ui.刷新","刷新")}</button>
+          </div>
+          {opsLog.length === 0 ? (
+            <div style={{ padding: 60, textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>
+              暂无操作记录。完成映射、阈值或告警配置操作后将在此显示。
+            </div>
+          ) : (
+            <table className={s.table}>
+              <thead>
+                <tr>
+                  {[t("ui.操作类型","操作类型"), t("ui.鸡舍","鸡舍"), t("ui.操作人","操作人"),
+                    t("ui.操作详情","详情"), t("ui.结果","结果"), t("ui.时间","时间")].map(h => <th key={h}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {opsLog.map(row => {
+                  const color = OP_TYPE_COLORS[row.op_type] || "#9ca3af";
+                  let detail = row.detail_json || "";
+                  try { const d = JSON.parse(row.detail_json || "{}"); detail = JSON.stringify(d).slice(0, 80); } catch { /* noop */ }
+                  return (
+                    <tr key={row.id}>
+                      <td>
+                        <span style={{ padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700, background: `${color}18`, color }}>{row.op_type}</span>
+                      </td>
+                      <td><code style={{ fontSize: 11, color: "var(--color-primary)" }}>{row.erp_house_code || "—"}</code></td>
+                      <td style={{ fontWeight: 500 }}>{row.operator || "—"}</td>
+                      <td style={{ maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-secondary)", fontSize: 12 }} title={row.detail_json || ""}>{detail}</td>
+                      <td>
+                        <span style={{ padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700, background: row.result === "SUCCESS" ? "#dcfce7" : "#fee2e2", color: row.result === "SUCCESS" ? "#16a34a" : "#dc2626" }}>
+                          {row.result === "SUCCESS" ? t("ui.成功","成功") : t("ui.失败","失败")}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{fmtDt(row.created_at)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* ── Modal: 新建映射 ───────────────────────────────────────────────── */}
+      {showMapForm && (
+        <Modal onClose={() => { setShowMapForm(false); setMapForm(emptyMapForm()); }}>
+          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 20 }}>{t("ui.新建栏舍映射", "新建栏舍映射")}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+            <div>
+              <Label>{t("ui.ERP场区", "ERP 场区")} *</Label>
+              <select value={mapForm.erp_farm_code} style={inp} onChange={e => setMapForm(f => ({ ...f, erp_farm_code: e.target.value, erp_house_code: "" }))}>
+                <option value="">{t("ui.请选择", "请选择...")}</option>
+                {erpFarms.map(f => <option key={f.farm_code} value={f.farm_code}>{f.farm_name} ({f.farm_code})</option>)}
+              </select>
+            </div>
+            <div>
+              <Label>{t("ui.ERP鸡舍", "ERP 鸡舍")} *</Label>
+              <select value={mapForm.erp_house_code} style={inp} disabled={!mapForm.erp_farm_code} onChange={e => setMapForm(f => ({ ...f, erp_house_code: e.target.value }))}>
+                <option value="">{t("ui.请选择", "请选择...")}</option>
+                {filterHouses.map(h => <option key={h.house_code} value={h.house_code}>{h.house_name} ({h.house_code})</option>)}
+              </select>
+            </div>
+            <div>
+              <Label>{t("ui.第三方Farm", "第三方 Farm")} *</Label>
+              <select value={mapForm.vendor_farm_id} style={inp} onChange={e => setMapForm(f => ({ ...f, vendor_farm_id: e.target.value, vendor_house_id: "" }))}>
+                <option value="">{t("ui.请选择", "请选择...")}</option>
+                {vendorFarmIds.map(id => {
+                  const h = vendorHouses.find(v => v.vendor_farm_id === id);
+                  return <option key={id} value={id}>{h?.vendor_farm_name || id} ({id})</option>;
+                })}
+              </select>
+            </div>
+            <div>
+              <Label>{t("ui.第三方House", "第三方 House")} *</Label>
+              <select value={mapForm.vendor_house_id} style={inp} disabled={!mapForm.vendor_farm_id} onChange={e => setMapForm(f => ({ ...f, vendor_house_id: e.target.value }))}>
+                <option value="">{t("ui.请选择", "请选择...")}</option>
+                {filterVendorHouses.map(h => <option key={h.vendor_house_id} value={h.vendor_house_id}>{h.vendor_house_name} ({h.vendor_house_id})</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ background: "color-mix(in srgb,#f59e0b 10%,transparent)", borderRadius: 6, padding: "10px 12px", fontSize: 12, color: "#92400e", marginBottom: 16 }}>
+            ⚠️ 层级约束：ERP 鸡舍必须属于所选 ERP 场区；第三方 House 必须属于所选第三方 Farm。系统将在保存时验证。
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <button type="button" className={s.btnSecondary} onClick={() => { setShowMapForm(false); setMapForm(emptyMapForm()); }}>{t("common.cancel","取消")}</button>
+            <button type="button" className={s.btnPrimary} disabled={saving} onClick={handleSaveMapping}>{saving ? t("common.saving","保存中...") : t("ui.保存映射","保存映射")}</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Modal: 编辑映射 ───────────────────────────────────────────────── */}
+      {editRow && (
+        <Modal onClose={() => setEditRow(null)}>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 18 }}>{t("ui.修改", "修改映射")}: <code style={{ fontSize: 13 }}>{editRow.erp_house_code}</code></div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+            <div>
+              <Label>{t("ui.ERP场区","ERP 场区")} *</Label>
+              <select value={editForm.erp_farm_code} style={inp} onChange={e => setEditForm(f => ({ ...f, erp_farm_code: e.target.value, erp_house_code: "" }))}>
+                {erpFarms.map(f => <option key={f.farm_code} value={f.farm_code}>{f.farm_name} ({f.farm_code})</option>)}
+              </select>
+            </div>
+            <div>
+              <Label>{t("ui.ERP鸡舍","ERP 鸡舍")} *</Label>
+              <select value={editForm.erp_house_code} style={inp} onChange={e => setEditForm(f => ({ ...f, erp_house_code: e.target.value }))}>
+                <option value="">{t("ui.请选择","请选择...")}</option>
+                {editFilterHouses.map(h => <option key={h.house_code} value={h.house_code}>{h.house_name} ({h.house_code})</option>)}
+              </select>
+            </div>
+            <div>
+              <Label>{t("ui.第三方Farm","第三方 Farm")} *</Label>
+              <select value={editForm.vendor_farm_id} style={inp} onChange={e => setEditForm(f => ({ ...f, vendor_farm_id: e.target.value, vendor_house_id: "" }))}>
+                {vendorFarmIds.map(id => {
+                  const h = vendorHouses.find(v => v.vendor_farm_id === id);
+                  return <option key={id} value={id}>{h?.vendor_farm_name || id} ({id})</option>;
+                })}
+              </select>
+            </div>
+            <div>
+              <Label>{t("ui.第三方House","第三方 House")} *</Label>
+              <select value={editForm.vendor_house_id} style={inp} onChange={e => setEditForm(f => ({ ...f, vendor_house_id: e.target.value }))}>
+                <option value="">{t("ui.请选择","请选择...")}</option>
+                {editVendorHouses.map(h => <option key={h.vendor_house_id} value={h.vendor_house_id}>{h.vendor_house_name} ({h.vendor_house_id})</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}>
+            <div>
+              <Label>{t("ui.采集频率","采集频率 (min)")}</Label>
+              <input type="number" min={1} max={60} value={editForm.sync_freq_min} style={inp} onChange={e => setEditForm(f => ({ ...f, sync_freq_min: Number(e.target.value) }))} />
+            </div>
+            <div>
+              <Label>{t("ui.状态","状态")}</Label>
+              <select value={editForm.status} style={inp} onChange={e => setEditForm(f => ({ ...f, status: e.target.value as "ACTIVE" | "INACTIVE" }))}>
+                <option value="ACTIVE">{t("ui.启用","启用")}</option>
+                <option value="INACTIVE">{t("ui.禁用","禁用")}</option>
+              </select>
+            </div>
+          </div>
+          {/* 告警阈值覆盖 */}
+          {propDict.filter(d => d.alarm_enabled).length > 0 && (
+            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14, marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: "var(--text-secondary)" }}>
+                ⚙️ {t("ui.告警阈值覆盖","告警阈值覆盖")}（留空则使用全局字典值）
+              </div>
+              {propDict.filter(d => d.alarm_enabled).map(d => (
+                <div key={d.property_code} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8, alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{d.name_zh}</div>
+                    <code style={{ fontSize: 11, color: "var(--text-secondary)" }}>{d.property_code}</code>
+                  </div>
+                  <div>
+                    <Label>{t("ui.上限","上限")} (全局: {d.threshold_high ?? "—"})</Label>
+                    <input type="number" step="any" style={inpSm}
+                      value={editForm.alert_config[d.property_code]?.threshold_high ?? ""}
+                      placeholder={String(d.threshold_high ?? "")}
+                      onChange={e => setEditForm(f => ({ ...f, alert_config: { ...f.alert_config, [d.property_code]: { ...(f.alert_config[d.property_code] || {}), threshold_high: e.target.value === "" ? undefined : Number(e.target.value) } } }))} />
+                  </div>
+                  <div>
+                    <Label>{t("ui.下限","下限")} (全局: {d.threshold_low ?? "—"})</Label>
+                    <input type="number" step="any" style={inpSm}
+                      value={editForm.alert_config[d.property_code]?.threshold_low ?? ""}
+                      placeholder={String(d.threshold_low ?? "")}
+                      onChange={e => setEditForm(f => ({ ...f, alert_config: { ...f.alert_config, [d.property_code]: { ...(f.alert_config[d.property_code] || {}), threshold_low: e.target.value === "" ? undefined : Number(e.target.value) } } }))} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <button type="button" className={s.btnSecondary} onClick={() => setEditRow(null)}>{t("common.cancel","取消")}</button>
+            <button type="button" className={s.btnPrimary} disabled={saving} onClick={handleSaveEdit}>{saving ? t("common.saving","保存中...") : t("ui.保存","保存")}</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Modal: 编辑属性字典 ───────────────────────────────────────────── */}
+      {dictEditRow && (
+        <Modal onClose={() => setDictEditRow(null)}>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 18 }}>
+            {t("ui.编辑属性","编辑属性")}: {dictEditRow.name_zh} <code style={{ fontSize: 12 }}>({dictEditRow.property_code})</code>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+            {([
+              ["threshold_high", t("ui.上限","高告警阈值")] as const,
+              ["threshold_low",  t("ui.下限","低告警阈值")] as const,
+              ["alert_min_duration_cycles", t("ui.消抖次数","消抖次数（触发几次才告警）")] as const,
+              ["alert_volatility_pct",      t("ui.波动","波动阈值 (0.2 = 20%)")] as const,
+            ] as [keyof PropDict, string][]).map(([field, label]) => (
+              <div key={field}>
+                <Label>{label}</Label>
+                <input type="number" step="any" style={inp}
+                  value={(dictEditRow as any)[field] ?? ""}
+                  onChange={e => setDictEditRow(r => r ? { ...r, [field]: e.target.value } : r)} />
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 20, marginBottom: 16 }}>
+            {([ ["alarm_enabled", t("ui.告警","启用告警")] , ["trend_enabled", t("ui.趋势","显示在趋势图")] ] as [keyof PropDict, string][]).map(([field, label]) => (
+              <label key={field} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
+                <input type="checkbox" checked={!!(dictEditRow as any)[field]}
+                  onChange={e => setDictEditRow(r => r ? { ...r, [field]: e.target.checked ? 1 : 0 } : r)} />
+                {label}
+              </label>
+            ))}
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <button type="button" className={s.btnSecondary} onClick={() => setDictEditRow(null)}>{t("common.cancel","取消")}</button>
+            <button type="button" className={s.btnPrimary} disabled={saving} onClick={handleSaveDictEdit}>{saving ? t("common.saving","保存中...") : t("ui.保存","保存")}</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}

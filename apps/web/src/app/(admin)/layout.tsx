@@ -4,85 +4,128 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Sidebar } from "@/components/layout/Sidebar";
 import {
   PanelLeftClose, PanelLeftOpen, Sun, Moon, LogOut, Languages
 } from "lucide-react";
 import styles from "./admin.module.css";
 
-// ── Page title from pathname ─────────────────────────────────────
-const TITLE_MAP: Record<string, string> = {
-  "/dashboard": "仪表盘",
-  "/breeding": "养殖场总览",
-  "/breeding/henhouse": "鸡舍管理",
-  "/breeding/flock": "鸡群档案",
-  "/breeding/daily": "日生产日报",
-  "/breeding/immune": "免疫计划",
-  "/breeding/medicine": "用药记录",
-  "/breeding/device": "设备监控",
-  "/breeding/device-alerts": "环境预警",
-  "/packaging": "集蛋作业台",
-  "/packaging/grading": "分级作业",
-  "/packaging/packing": "包装作业",
-  "/packaging/batch": "批次管理",
-  "/packaging/inbound": "集蛋入库",
-  "/packaging/label-print": "标签打印",
-  "/packaging/first-inspection": "首检录入",
-  "/packaging/daily-report": "包装日报",
-  "/packaging/exceptions": "异常处理",
-  "/warehouse": "仓库看板",
-  "/warehouse/inbound": "入库管理",
-  "/warehouse/outbound": "出库管理",
-  "/warehouse/stocktake": "盘点管理",
-  "/warehouse/query": "库存查询",
-  "/transport": "配货计划",
-  "/transport/wave": "配送波次",
-  "/transport/tracking": "配送跟踪",
-  "/transport/receipt": "到店签收",
-  "/store": "门店工作台",
-  "/store/receiving": "收货验收",
-  "/store/inventory": "门店库存",
-  "/store/daily": "门店日结",
-  "/quality": "质检总览",
-  "/quality/farm": "场端质检",
-  "/quality/product": "成品质检",
-  "/quality/nonconformance": "不合格品处置",
-  "/quality/forward": "正向追溯",
-  "/procurement": "采购总览",
-  "/procurement/order": "采购订单",
-  "/procurement/arrival": "到货收货",
-  "/order": "订单中心",
-  "/order/customers": "客户档案",
-  "/order/prices": "合同价格",
-  "/order/approval": "订单审批",
-  "/members": "会员总览",
-  "/members/list": "会员档案",
-  "/members/points": "积分规则",
-  "/members/coupons": "优惠券管理",
-  "/finance": "财务总览",
-  "/finance/receivables": "应收管理",
-  "/finance/payables": "应付管理",
-  "/finance/cost": "成本核算",
-  "/analytics": "BI 驾驶舱",
-  "/analytics/price-review": "价格执行复盘",
-  "/settings": "系统设置",
-  "/settings/users": "用户管理",
-  "/settings/roles": "角色与权限",
-  "/settings/dict": "系统字典",
-  "/settings/health": "系统健康监控",
-  "/settings/organizations": "组织架构管理",
-  "/settings/pda-terminals": "PDA 终端管理",
-  "/settings/pos-config": "POS 终端管理",
-  "/settings/store-stock": "分账库存配置",
-  "/settings/security": "安全策略",
-  "/settings/system-init": "系统初始化",
-  "/settings/master-data": "主数据配置",
-  "/settings/products": "商品主数据",
-  "/settings/audit-log": "审计日志",
-  "/settings/brand": "品牌配置",
-  "/settings/profile": "个人中心",
-  "/settings/permissions": "权限配置",
-  "/settings/approval-flows": "审批流配置",
+// ── Page title: path → locale key → Chinese fallback ─────────────
+// 使用 menu.<childId> 作为 key，与 Sidebar 共享同一翻译源
+const TITLE_KEY_MAP: Record<string, string> = {
+  "/dashboard":                    "menu.dashboard",
+  "/breeding":                     "menu.brd-overview",
+  "/breeding/henhouse":            "menu.brd-house",
+  "/breeding/flock":               "menu.brd-flock",
+  "/breeding/daily":               "menu.brd-daily",
+  "/breeding/immune":              "menu.brd-immune",
+  "/breeding/medicine":            "menu.brd-medicine",
+  "/breeding/device":              "menu.brd-device",
+  "/breeding/device-alerts":       "menu.brd-alerts",
+  "/packaging":                    "menu.pkg-op",
+  "/packaging/grading":            "menu.pkg-op",
+  "/packaging/packing":            "menu.pkg-op",
+  "/packaging/batch":              "menu.pkg-batch",
+  "/packaging/inbound":            "menu.pkg-inbound",
+  "/packaging/label-print":        "menu.pkg-op",
+  "/packaging/first-inspection":   "menu.pkg-op",
+  "/packaging/daily-report":       "menu.pkg-report",
+  "/packaging/exceptions":         "menu.pkg-except",
+  "/warehouse":                    "menu.wh-dash",
+  "/warehouse/inbound":            "menu.wh-in",
+  "/warehouse/outbound":           "menu.wh-out",
+  "/warehouse/transfer":           "menu.wh-transfer",
+  "/warehouse/stocktake":          "menu.wh-stock",
+  "/warehouse/ledger":             "menu.wh-ledger",
+  "/warehouse/query":              "menu.wh-query",
+  "/warehouse/warehouses":         "menu.wh-house",
+  "/warehouse/zones":              "menu.wh-zones",
+  "/warehouse/locations":          "menu.wh-loc",
+  "/warehouse/expiry":             "menu.wh-expiry",
+  "/warehouse/daily-close":        "menu.wh-daily",
+  "/warehouse/loss-report":        "menu.wh-loss",
+  "/transport":                    "menu.tp-plan",
+  "/transport/wave":               "menu.tp-wave",
+  "/transport/tracking":           "menu.tp-track",
+  "/transport/receipt":            "menu.tp-receipt",
+  "/transport/exceptions":         "menu.tp-except",
+  "/transport/vehicles":           "menu.tp-vehicle",
+  "/transport/drivers":            "menu.tp-driver",
+  "/store":                        "menu.st-wb",
+  "/store/receiving":              "menu.st-recv",
+  "/store/inventory":              "menu.st-inv",
+  "/store/replenish":              "menu.st-replenish",
+  "/store/losses":                 "menu.st-loss",
+  "/store/daily":                  "menu.st-daily",
+  "/quality":                      "menu.ql-ov",
+  "/quality/farm":                 "menu.ql-farm",
+  "/quality/product":              "menu.ql-prod",
+  "/quality/nonconformance":       "menu.ql-nc",
+  "/quality/forward":              "menu.ql-fwd",
+  "/quality/backward":             "menu.ql-bwd",
+  "/quality/standards":            "menu.ql-std",
+  "/procurement":                  "menu.pr-ov",
+  "/procurement/requests":         "menu.pr-request",
+  "/procurement/order":            "menu.pr-order",
+  "/procurement/arrival":          "menu.pr-arrival",
+  "/procurement/payments":         "menu.pr-pay",
+  "/procurement/suppliers":        "menu.pr-supplier",
+  "/procurement/reconcile":        "menu.pr-reconcile",
+  "/order":                        "menu.ord-center",
+  "/order/customers":              "menu.ord-cust",
+  "/order/prices":                 "menu.ord-price",
+  "/order/approval":               "menu.ord-approv",
+  "/order/picking":                "menu.ord-pick",
+  "/order/loading":                "menu.ord-load",
+  "/order/credit":                 "menu.ord-credit",
+  "/members":                      "menu.mb-ov",
+  "/members/list":                 "menu.mb-list",
+  "/members/points":               "menu.mb-points",
+  "/members/coupons":              "menu.mb-coupon",
+  "/members/activity":             "menu.mb-act",
+  "/finance":                      "menu.fn-ov",
+  "/finance/receivables":          "menu.fn-recv",
+  "/finance/payables":             "menu.fn-pay",
+  "/finance/payments":             "menu.fn-payments",
+  "/finance/cost":                 "menu.fn-cost",
+  "/finance/aging":                "menu.fn-aging",
+  "/finance/cashflow":             "menu.fn-cashflow",
+  "/analytics":                    "menu.an-bi",
+  "/analytics/price-review":       "menu.an-price",
+  "/analytics/production":         "menu.an-prod",
+  "/analytics/inventory":          "menu.an-inv",
+  "/analytics/feed":               "menu.an-feed",
+  "/b2b":                          "menu.b2b-ov",
+  "/b2b/customers":                "menu.b2b-cust",
+  "/b2b/orders":                   "menu.b2b-orders",
+  "/b2b/distributor-grading":      "menu.b2b-grade",
+  "/pos":                          "menu.pos-ov",
+  "/pos/sales":                    "menu.pos-sales",
+  "/wholesale":                    "menu.ws-ov",
+  "/wholesale/contracts":          "menu.ws-contracts",
+  "/wholesale/shipments":          "menu.ws-shipments",
+  "/master/farms":                 "menu.md-farms",
+  "/master/products":              "menu.md-products",
+  "/master/stores":                "menu.md-stores",
+  "/settings":                     "menu.settings",
+  "/settings/users":               "menu.stg-users",
+  "/settings/roles":               "menu.stg-roles",
+  "/settings/organizations":       "menu.stg-orgs",
+  "/settings/dict":                "menu.stg-dict",
+  "/settings/products":            "menu.stg-products",
+  "/settings/master-data":         "menu.stg-master",
+  "/settings/approval-flows":      "menu.stg-approvals",
+  "/settings/permissions":         "menu.stg-perms",
+  "/settings/pda-terminals":       "menu.stg-pda",
+  "/settings/pos-config":          "menu.stg-pos",
+  "/settings/store-stock":         "menu.stg-stock-cfg",
+  "/settings/security":            "menu.stg-security",
+  "/settings/health":              "menu.stg-health",
+  "/settings/audit-log":           "menu.stg-audit",
+  "/settings/system-init":         "menu.stg-init",
+  "/settings/brand":               "menu.stg-brand",
+  "/settings/profile":             "menu.stg-profile",
 };
 
 const RAIL_W = "56px";
@@ -102,32 +145,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const expanded = pinned || hovered;
 
-  // Theme
-  const [theme, setTheme] = useState<"dark" | "light">(() => {
-    if (typeof window === "undefined") return "light";
-    return (localStorage.getItem("phx_theme") as "dark" | "light") || "light";
-  });
+  // ✅ 主题 — 统一用 ThemeContext，不在此维护私有 state
+  const { themeMode, toggleTheme } = useTheme();
+  const theme = themeMode === "dark" ? "dark" : "light";
 
   // ✅ 语言 — 直接用 LanguageContext，不再维护私有 state
-  const { lang, setAppLanguage } = useLanguage();
-
-  // 首次加载时应用主题（并清理可能残留的旧值）
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("phx_theme", theme);
-  }, [theme]);
-
-  // 强制把 <html> 的 data-theme 初始化为 "light" （覆盖任何浏览器缓存）
-  useEffect(() => {
-    const stored = localStorage.getItem("phx_theme");
-    // 如果没有存储值，或存储值是旧格式/无效值，重置为 light
-    if (!stored || (stored !== "light" && stored !== "dark")) {
-      localStorage.setItem("phx_theme", "light");
-      document.documentElement.setAttribute("data-theme", "light");
-      setTheme("light");
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { lang, setAppLanguage, t } = useLanguage();
 
   // Persist pin
   const togglePin = useCallback(() => {
@@ -153,7 +176,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!user) return null;
 
-  const pageTitle = TITLE_MAP[pathname] ?? "Phoenix ERP";
+  const titleKey = TITLE_KEY_MAP[pathname];
+  const pageTitle = titleKey ? t(titleKey, pathname.split("/").pop() ?? "Phoenix ERP") : "Phoenix ERP";
   const avatarChar = user.name?.[0]?.toUpperCase() ?? "A";
 
   const handleLogout = () => {
@@ -183,7 +207,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <button
               className={`${styles.pinBtn} ${pinned ? styles.pinActive : ""}`}
               onClick={togglePin}
-              title={pinned ? "收起侧边栏（图标轨道模式）" : "固定展开侧边栏"}
+              title={pinned ? t('layout.collapse_sidebar', '收起侧边栏') : t('layout.pin_sidebar', '固定展开侧边栏')}
             >
               {pinned
                 ? <PanelLeftClose size={15} />
@@ -211,11 +235,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className={styles.selectWrap}>
               <select
                 value={theme}
-                onChange={e => setTheme(e.target.value as "dark" | "light")}
+                onChange={e => toggleTheme(e.target.value as "dark" | "light")}
                 className={styles.headerSelect}
               >
-                <option value="dark">🌙 深色</option>
-                <option value="light">☀️ 浅色</option>
+                <option value="dark">🌙 {t('layout.dark_mode', '深色')}</option>
+                <option value="light">☀️ {t('layout.light_mode', '浅色')}</option>
               </select>
               {theme === "dark"
                 ? <Moon size={13} className={styles.selectIcon} />
@@ -234,7 +258,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* Logout with lucide icon */}
             <button className={styles.logoutBtn} onClick={handleLogout}>
               <LogOut size={13} />
-              <span>退出</span>
+              <span>{t('layout.logout', '退出')}</span>
             </button>
           </div>
         </header>

@@ -39,7 +39,7 @@ export default function PayablesPage() {
 
   const load = () => {
     setLoading(true);
-    fetch("/api/crud/fin_ap?limit=300").then(r=>r.json())
+    fetch("/api/crud/fin_transactions?type=AP&limit=300").then(r=>r.json())
       .then(d=>setData(d.data||[])).catch(()=>{}).finally(()=>setLoading(false));
   };
   useEffect(()=>{ load(); },[]);
@@ -70,9 +70,9 @@ export default function PayablesPage() {
         status: Number(form.paid_amount)>= Number(form.amount) ? "PAID" : "PENDING",
       };
       if (editing?.id) {
-        await fetch(`/api/crud/fin_ap/${editing.id}`,{ method:"PUT",headers:hdr,body:JSON.stringify(payload) });
+        await fetch(`/api/crud/fin_transactions/${editing.id}`,{ method:"PUT",headers:hdr,body:JSON.stringify(payload) });
       } else {
-        await fetch("/api/crud/fin_ap",{ method:"POST",headers:hdr,body:JSON.stringify(payload) });
+        await fetch("/api/crud/fin_transactions",{ method:"POST",headers:hdr,body:JSON.stringify({ ...payload, type:"AP" }) });
       }
       toast.success(editing ? t('ui.应付已更新','应付已更新') : t('ui.应付已新增','应付已新增'));
       setDrawerOpen(false); setEditing(null); setForm(DEF_FORM); load();

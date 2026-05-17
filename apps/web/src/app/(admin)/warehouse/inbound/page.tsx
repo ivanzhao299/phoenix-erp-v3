@@ -108,7 +108,7 @@ export default function InboundPage() {
   const handleApprove  = useCallback((row: Row) => { setApproveTarget(row); setApproveOpen(true); }, []);
   const confirmApprove = useCallback(async () => {
     if (!approveTarget?.id) return;
-    await crudApi.update(TABLE, approveTarget.id as number, { status: "DONE" });
+    await crudApi.update(TABLE, approveTarget.id as number, { status: "COMPLETED" });
     setApproveOpen(false); refresh();
   }, [approveTarget, refresh]);
 

@@ -249,7 +249,7 @@ export default function StocktakePage() {
       <ConfirmDialog open={confirmOpen} title={t("common.confirm", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}
         onConfirm={confirmDelete} onCancel={() => setConfirmOpen(false)} />
       <ConfirmDialog open={approveOpen} title={t("ui.确认审批通过", "确认审批通过")}
-        message={`${t("ui.确认审批盘点单", "确认审批盘点单")}「${approveTarget?.take_no ?? ""}」？${t("ui.可能影响账面库存数据", "可能影响账面库存数据")}`}
+        message={`${t("ui.确认审批盘点单", "确认审批盘点单")}「${approveTarget?.stocktake_no ?? ""}」？${t("ui.可能影响账面库存数据", "可能影响账面库存数据")}`}
         onConfirm={confirmApprove} onCancel={() => setApproveOpen(false)} />
     </div>
   );

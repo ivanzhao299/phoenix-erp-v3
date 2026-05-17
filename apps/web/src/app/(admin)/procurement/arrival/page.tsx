@@ -5,6 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
 
 // V3 表: wms_inbound + wms_inbound_items
@@ -55,8 +56,8 @@ export default function ArrivalPage() {
 
   const load = useCallback(()=>{
     setLoading(true);
-    fetch("/api/crud/wms_inbound?limit=300")
-      .then(r=>r.json()).then(d=>setList(d.data||[])).catch(()=>{}).finally(()=>setLoading(false));
+    crudApi.list<Inbound>("wms_inbound", { limit: 300 })
+      .then(res=>setList(res.data||[])).catch(()=>{}).finally(()=>setLoading(false));
   },[]);
   useEffect(()=>{ load(); },[load]);
 
@@ -73,9 +74,8 @@ export default function ArrivalPage() {
   async function loadItems(taskNo: string) {
     setItemsLoading(true);
     try {
-      const r = await fetch(`/api/crud/wms_inbound_items?task_no=${encodeURIComponent(taskNo)}&limit=50`);
-      const d = await r.json();
-      setItems(d.data||[]);
+      const res = await crudApi.list<InboundItem>("wms_inbound_items", { task_no: taskNo, limit: 50 } as never);
+      setItems(res.data||[]);
     } catch { setItems([]); } finally { setItemsLoading(false); }
   }
 

@@ -38,7 +38,7 @@ export class ApprovalService {
     const amountInCNY = this.currencyService.convertTo(req.amount, req.currencyCode, 'CNY');
 
     // 匹配最严格的规则（即能够涵盖该金额的最高规则）
-    let matchedRule: ApprovalRuleEntity = null;
+    let matchedRule: ApprovalRuleEntity | null = null;
     for (const rule of rules) {
       // 假设 rule.currency_code 都是 CNY 进行比对
       if (amountInCNY >= rule.amount_min && (rule.amount_max === null || amountInCNY <= rule.amount_max)) {

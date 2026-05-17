@@ -50,7 +50,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKeyProvider: (_req, rawToken, done) => {
+      secretOrKeyProvider: (_req: any, rawToken: any, done: any) => {
         // 先尝试主 secret；失败则用旧 secret（如配置）。
         // passport-jwt 会用 done(null, key) 提供的 key 调 jsonwebtoken.verify。
         // 我们这里只决定用哪个 key — 真正的多 key 试错由下面的 try/catch 完成。
