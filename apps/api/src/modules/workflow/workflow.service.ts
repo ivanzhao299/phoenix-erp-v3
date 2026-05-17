@@ -683,6 +683,98 @@ export class WorkflowService implements OnModuleInit {
     return { code: 200, data: rows, total: rows.length };
   }
 
+  async getAnalytics(user: WorkflowUser, query: QueryDto & { days?: string | number }) {
+    this.requireAdmin(user);
+    const days = Math.min(Math.max(Number(query.days || 30), 1), 365);
+    const windowSql = `i.started_at >= CURRENT_TIMESTAMP - ($1::int * INTERVAL '1 day')`;
+    const [summaryRows, statusRows, definitionRows, bottleneckRows, trendRows] = await Promise.all([
+      this.em.query(
+        `SELECT
+           COUNT(*)::int AS total,
+           COUNT(*) FILTER (WHERE i.status='RUNNING')::int AS running,
+           COUNT(*) FILTER (WHERE i.status='APPROVED')::int AS approved,
+           COUNT(*) FILTER (WHERE i.status='REJECTED')::int AS rejected,
+           COUNT(*) FILTER (WHERE i.status='CANCELED')::int AS canceled,
+           COUNT(*) FILTER (WHERE i.started_at::date=CURRENT_DATE)::int AS started_today,
+           COUNT(*) FILTER (WHERE i.ended_at::date=CURRENT_DATE)::int AS completed_today,
+           COALESCE(AVG(EXTRACT(EPOCH FROM (i.ended_at - i.started_at)) / 3600) FILTER (WHERE i.ended_at IS NOT NULL), 0)::float AS avg_complete_hours
+         FROM wf_instance i
+         WHERE ${windowSql}`,
+        [days],
+      ),
+      this.em.query(
+        `SELECT i.status, COUNT(*)::int AS count
+         FROM wf_instance i
+         WHERE ${windowSql}
+         GROUP BY i.status
+         ORDER BY count DESC`,
+        [days],
+      ),
+      this.em.query(
+        `SELECT d.id AS definition_id, d.name AS definition_name, d.category,
+                COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE i.status='RUNNING')::int AS running,
+                COUNT(*) FILTER (WHERE i.status='APPROVED')::int AS approved,
+                COALESCE(AVG(EXTRACT(EPOCH FROM (i.ended_at - i.started_at)) / 3600) FILTER (WHERE i.ended_at IS NOT NULL), 0)::float AS avg_complete_hours
+         FROM wf_instance i
+         LEFT JOIN wf_definition d ON d.id=i.definition_id
+         WHERE ${windowSql}
+         GROUP BY d.id, d.name, d.category
+         ORDER BY total DESC, running DESC
+         LIMIT 8`,
+        [days],
+      ),
+      this.em.query(
+        `SELECT t.node_id, COALESCE(t.node_name, t.node_id) AS node_name,
+                COUNT(*)::int AS todo_count,
+                COUNT(*) FILTER (WHERE t.due_at IS NOT NULL AND t.due_at < CURRENT_TIMESTAMP)::int AS overdue_count,
+                COALESCE(AVG(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - t.created_at)) / 3600), 0)::float AS avg_waiting_hours
+         FROM wf_task t
+         JOIN wf_instance i ON i.id=t.instance_id
+         WHERE t.status='TODO' AND ${windowSql}
+         GROUP BY t.node_id, t.node_name
+         ORDER BY overdue_count DESC, avg_waiting_hours DESC, todo_count DESC
+         LIMIT 8`,
+        [days],
+      ),
+      this.em.query(
+        `SELECT i.started_at::date AS day,
+                COUNT(*)::int AS started,
+                COUNT(*) FILTER (WHERE i.status='APPROVED')::int AS approved,
+                COUNT(*) FILTER (WHERE i.status='REJECTED')::int AS rejected
+         FROM wf_instance i
+         WHERE ${windowSql}
+         GROUP BY i.started_at::date
+         ORDER BY day ASC`,
+        [days],
+      ),
+    ]);
+    const summary = summaryRows[0] || {};
+    const finished = Number(summary.approved || 0) + Number(summary.rejected || 0) + Number(summary.canceled || 0);
+    const approved = Number(summary.approved || 0);
+    return {
+      code: 200,
+      data: {
+        days,
+        summary: {
+          total: Number(summary.total || 0),
+          running: Number(summary.running || 0),
+          approved,
+          rejected: Number(summary.rejected || 0),
+          canceled: Number(summary.canceled || 0),
+          startedToday: Number(summary.started_today || 0),
+          completedToday: Number(summary.completed_today || 0),
+          avgCompleteHours: Number(summary.avg_complete_hours || 0),
+          approvalRate: finished > 0 ? approved / finished : 0,
+        },
+        statuses: statusRows,
+        definitions: definitionRows,
+        bottlenecks: bottleneckRows,
+        trend: trendRows,
+      },
+    };
+  }
+
   async getInstance(id: number, user: WorkflowUser) {
     const rows = await this.em.query(
       `SELECT i.*, fv.schema_json AS form_schema_json

@@ -26,6 +26,7 @@ const adminLinks = [
   ["表单定义", "/workflow/forms", "管理员维护可视化表单和字段"],
   ["数据源", "/workflow/data-sources", "管理员维护表单下拉和引用数据"],
   ["流程督办", "/workflow/monitor", "查看流转卡点、超时任务和催办记录"],
+  ["流程驾驶舱", "/workflow/analytics", "查看流程效率、通过率和瓶颈分析"],
 ];
 
 export default function WorkflowHomePage() {

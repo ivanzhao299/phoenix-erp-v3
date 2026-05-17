@@ -123,6 +123,39 @@ export interface WorkflowMonitorTask extends WorkflowTask {
   last_urged_at?: string;
 }
 
+export interface WorkflowAnalytics {
+  days: number;
+  summary: {
+    total: number;
+    running: number;
+    approved: number;
+    rejected: number;
+    canceled: number;
+    startedToday: number;
+    completedToday: number;
+    avgCompleteHours: number;
+    approvalRate: number;
+  };
+  statuses: Array<{ status: string; count: number }>;
+  definitions: Array<{
+    definition_id?: number;
+    definition_name?: string;
+    category?: string;
+    total: number;
+    running: number;
+    approved: number;
+    avg_complete_hours: number;
+  }>;
+  bottlenecks: Array<{
+    node_id?: string;
+    node_name?: string;
+    todo_count: number;
+    overdue_count: number;
+    avg_waiting_hours: number;
+  }>;
+  trend: Array<{ day: string; started: number; approved: number; rejected: number }>;
+}
+
 export interface WorkflowInstance {
   id: number;
   instance_no: string;
@@ -177,6 +210,7 @@ export const workflowApi = {
 
   start: (data: Record<string, unknown>) =>
     req<WorkflowOne<WorkflowInstance>>("/start", { method: "POST", body: JSON.stringify(data) }),
+  analytics: (days = 30) => req<WorkflowOne<WorkflowAnalytics>>(`/analytics?days=${encodeURIComponent(String(days))}`),
   instances: (status?: string) => req<WorkflowList<WorkflowInstance>>(`/instances${status ? `?status=${encodeURIComponent(status)}` : ""}`),
   instance: (id: number) => req<WorkflowOne<WorkflowInstance>>(`/instances/${id}`),
   cancelInstance: (id: number, comment = "") =>

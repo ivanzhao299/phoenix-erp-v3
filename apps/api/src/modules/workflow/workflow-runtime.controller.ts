@@ -17,6 +17,11 @@ export class WorkflowRuntimeController {
     return this.workflow.listInstances(query, req.user);
   }
 
+  @Get('analytics')
+  analytics(@Query() query: any, @Req() req: any) {
+    return this.workflow.getAnalytics(req.user, query);
+  }
+
   @Get('instances/:id')
   getInstance(@Param('id') id: string, @Req() req: any) {
     return this.workflow.getInstance(Number(id), req.user);
