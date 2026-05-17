@@ -32,6 +32,7 @@ import { BffModule } from './modules/bff/bff.module';
 // [V3 RBAC 完善] 角色权限矩阵专用模块
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { QualityModule } from './modules/quality/quality.module';
+import { WorkflowModule } from './modules/workflow/workflow.module';
 
 
 @Module({
@@ -68,6 +69,7 @@ import { QualityModule } from './modules/quality/quality.module';
     BffModule,
     PermissionsModule,
     QualityModule,
+    WorkflowModule,
   ],
   controllers: [DebugController, HealthController],
   providers: [
