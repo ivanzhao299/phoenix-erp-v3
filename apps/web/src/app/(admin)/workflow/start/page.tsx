@@ -16,6 +16,8 @@ export default function WorkflowStartPage() {
   const router = useRouter();
   const [defs, setDefs] = useState<WorkflowDefinition[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [keyword, setKeyword] = useState("");
+  const [category, setCategory] = useState("全部");
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
   const [formData, setFormData] = useState<Record<string, unknown>>({});
@@ -28,6 +30,21 @@ export default function WorkflowStartPage() {
     () => defs.find(item => item.id === selectedId) || null,
     [defs, selectedId],
   );
+  const categories = useMemo(() => {
+    const names = defs.map(item => categoryText(item.category));
+    return ["全部", ...Array.from(new Set(names))];
+  }, [defs]);
+  const filteredDefs = useMemo(() => {
+    const word = keyword.trim().toLowerCase();
+    return defs.filter(def => {
+      const matchedCategory = category === "全部" || categoryText(def.category) === category;
+      const haystack = `${def.name} ${def.code} ${def.description || ""} ${categoryText(def.category)}`.toLowerCase();
+      return matchedCategory && (!word || haystack.includes(word));
+    });
+  }, [category, defs, keyword]);
+  const requiredFields = useMemo(() => (schema?.fields || []).filter(field => field.required), [schema]);
+  const completedRequired = requiredFields.filter(field => !isEmpty(formData[field.key])).length;
+  const progressText = requiredFields.length ? `${completedRequired}/${requiredFields.length} 必填已完成` : "无必填项";
 
   useEffect(() => {
     workflowApi.definitions()
@@ -109,8 +126,28 @@ export default function WorkflowStartPage() {
               <h3 className={s.cardTitle}>选择流程</h3>
               <span className={`${s.badge} ${s.badgeNeutral}`}>{defs.length} 个可发起</span>
             </div>
+            <div style={filterStackStyle}>
+              <input
+                className={s.inp}
+                value={keyword}
+                onChange={e => setKeyword(e.target.value)}
+                placeholder="搜索流程名称、编码或业务场景"
+              />
+              <div style={tabsStyle}>
+                {categories.map(item => (
+                  <button
+                    key={item}
+                    type="button"
+                    className={`${s.tabPill} ${item === category ? s.tabPillActive : ""}`}
+                    onClick={() => setCategory(item)}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div style={flowListStyle}>
-              {defs.map(def => (
+              {filteredDefs.map(def => (
                 <button
                   key={def.id}
                   type="button"
@@ -128,6 +165,12 @@ export default function WorkflowStartPage() {
                   </div>
                 </div>
               ) : null}
+              {defs.length > 0 && filteredDefs.length === 0 ? (
+                <div className={s.emptyState}>
+                  <div className={s.emptyStateText}>没有找到匹配流程。</div>
+                  <div className={s.emptyStateHint}>换一个关键词或分类试试。</div>
+                </div>
+              ) : null}
             </div>
           </div>
         </section>
@@ -139,13 +182,22 @@ export default function WorkflowStartPage() {
                 <h3 className={s.cardTitle}>{selected ? selected.name : "申请内容"}</h3>
                 <p className={s.modalDesc} style={{ margin: "4px 0 0" }}>{selected ? selected.description || "填写信息后提交审批" : "先从左侧选择流程"}</p>
               </div>
-              <Link href="/workflow/instances" className={s.btnSecondary}>查看我发起的</Link>
+              <div style={toolbarActionsStyle}>
+                {selected ? <span className={`${s.badge} ${schema ? s.badgeSuccess : s.badgeWarning}`}>{schema ? progressText : "通用说明"}</span> : null}
+                <Link href="/workflow/instances" className={s.btnSecondary}>查看我发起的</Link>
+              </div>
             </div>
 
             <label className={s.field}>
               <span className={s.lbl}>申请标题</span>
               <input className={s.inp} value={title} onChange={e=>setTitle(e.target.value)} placeholder="例如：5月门店物料采购申请" />
             </label>
+
+            {selected ? (
+              <div className={s.infoBanner}>
+                {schema ? "该流程已绑定业务表单，提交后会自动进入审批节点。" : "该流程暂未绑定专用表单，系统会以申请说明作为审批内容。"}
+              </div>
+            ) : null}
 
             {loading ? (
               <div className={s.emptyState}><div className={s.emptyStateText}>正在加载表单...</div></div>
@@ -203,6 +255,9 @@ function categoryText(category?: string) {
 
 const layoutStyle: React.CSSProperties = { display:"grid", gridTemplateColumns:"320px minmax(0, 1fr)", gap:12, alignItems:"start" };
 const sectionHeaderStyle: React.CSSProperties = { display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginBottom:14 };
+const filterStackStyle: React.CSSProperties = { display:"grid", gap:10, marginBottom:12 };
+const tabsStyle: React.CSSProperties = { display:"flex", gap:6, flexWrap:"wrap" };
+const toolbarActionsStyle: React.CSSProperties = { display:"flex", alignItems:"center", gap:10, flexWrap:"wrap", justifyContent:"flex-end" };
 const flowListStyle: React.CSSProperties = { display:"grid", gap:8 };
 const flowStyle: React.CSSProperties = { textAlign:"left", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-card)", color:"var(--text-primary)", padding:12, cursor:"pointer", display:"grid", gap:6 };
 const selectedFlowStyle: React.CSSProperties = { ...flowStyle, borderColor:"var(--color-primary)", background:"var(--bg-muted)" };
