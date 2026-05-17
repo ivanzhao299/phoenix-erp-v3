@@ -10,6 +10,8 @@ export type WorkflowDataCatalogItem = {
   labelField: string;
   valueFields?: string[];
   labelFields?: string[];
+  statusFields?: string[];
+  activeValues?: string[];
   table?: string;
   dict_type?: string;
   fields: Array<{ key: string; label: string; usage: string }>;
@@ -26,6 +28,8 @@ export const WORKFLOW_DATA_CATALOG: WorkflowDataCatalogItem[] = [
     labelField: "real_name",
     valueFields: ["user_id", "id"],
     labelFields: ["real_name", "real_name_zh", "username"],
+    statusFields: ["status"],
+    activeValues: ["1", "ACTIVE", "ENABLED", "true"],
     description: "用于指定审批人、转交处理人、抄送人等用户选择；后台新增用户后自动可选。",
     fields: [
       { key: "user_id", label: "用户ID", usage: "作为提交值" },
@@ -40,6 +44,8 @@ export const WORKFLOW_DATA_CATALOG: WorkflowDataCatalogItem[] = [
     table: "sys_role",
     valueField: "role_code",
     labelField: "role_name_zh",
+    statusFields: ["status"],
+    activeValues: ["1", "ACTIVE", "ENABLED", "true"],
     description: "用于审批节点、转交和权限相关选择；后台新增角色后自动可选。",
     fields: [
       { key: "role_code", label: "角色编码", usage: "作为提交值" },
@@ -56,6 +62,8 @@ export const WORKFLOW_DATA_CATALOG: WorkflowDataCatalogItem[] = [
     labelField: "org_name",
     valueFields: ["org_code", "id"],
     labelFields: ["org_name"],
+    statusFields: ["status"],
+    activeValues: ["1", "ACTIVE", "ENABLED", "true"],
     description: "用于部门负责人、发起人所属部门、组织范围等动态审批规则。",
     fields: [
       { key: "org_code", label: "组织编码", usage: "作为提交值" },
@@ -171,6 +179,8 @@ export function dataSourceConfig(item: WorkflowDataCatalogItem) {
       labelField: item.labelField,
       valueFields: item.valueFields,
       labelFields: item.labelFields,
+      statusFields: item.statusFields,
+      activeValues: item.activeValues,
     };
   }
   return { options: [] };

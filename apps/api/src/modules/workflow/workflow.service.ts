@@ -577,6 +577,12 @@ export class WorkflowService implements OnModuleInit {
     return { code: 200, data: rows, total: rows.length };
   }
 
+  async syncDefaultDataSources(user: WorkflowUser) {
+    this.requireAdmin(user);
+    const rows = await this.ensureDefaultDataSources();
+    return { code: 200, data: rows, total: rows.length };
+  }
+
   async createDataSource(body: any, user: WorkflowUser) {
     this.requireAdmin(user);
     this.assertCode(body.code);
@@ -628,11 +634,15 @@ export class WorkflowService implements OnModuleInit {
       const table = String(config.table || '');
       const valueField = await this.pickExistingColumn(table, config.valueFields || [config.valueField || 'id']);
       const labelField = await this.pickExistingColumn(table, config.labelFields || [config.labelField || valueField]);
+      const statusField = await this.pickOptionalExistingColumn(table, config.statusFields || [config.statusField || 'status']);
+      const activeValues = this.normalizeActiveValues(config.activeValues);
       this.assertIdentifier(table);
       this.assertIdentifier(valueField);
       this.assertIdentifier(labelField);
+      const whereSql = statusField ? ` WHERE COALESCE("${statusField}"::text,'ACTIVE') = ANY($1::text[])` : '';
       const rows = await this.em.query(
-        `SELECT "${valueField}" AS value, "${labelField}" AS label FROM "${table}" LIMIT 200`,
+        `SELECT "${valueField}" AS value, "${labelField}" AS label FROM "${table}"${whereSql} LIMIT 200`,
+        statusField ? [activeValues] : [],
       );
       return { code: 200, data: rows };
     }
@@ -856,6 +866,28 @@ export class WorkflowService implements OnModuleInit {
     const picked = normalized.find(item => existing.has(item));
     if (!picked) throw new BadRequestException(`data source column not found for table ${table}`);
     return picked;
+  }
+
+  private async pickOptionalExistingColumn(table: string, candidates: any[]) {
+    this.assertIdentifier(table);
+    const normalized = (Array.isArray(candidates) ? candidates : [candidates])
+      .map(item => String(item || '').trim())
+      .filter(Boolean);
+    if (normalized.length === 0) return null;
+    normalized.forEach(item => this.assertIdentifier(item));
+    const rows = await this.em.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = $1`,
+      [table],
+    );
+    const existing = new Set(rows.map((row: any) => String(row.column_name)));
+    return normalized.find(item => existing.has(item)) || null;
+  }
+
+  private normalizeActiveValues(values: any) {
+    const normalized = (Array.isArray(values) ? values : ['ACTIVE', 'ENABLED', 'NORMAL', '1', 'true'])
+      .map(item => String(item || '').trim())
+      .filter(Boolean);
+    return normalized.length ? normalized : ['ACTIVE', 'ENABLED', 'NORMAL', '1', 'true'];
   }
 
   private async assertInstanceVisible(instanceId: number, user: WorkflowUser) {
@@ -1087,12 +1119,12 @@ export class WorkflowService implements OnModuleInit {
   }
 
   private async ensureDefaultDataSources() {
-    await this.em.query(
+    return this.em.query(
       `INSERT INTO wf_data_source (code, name, source_type, config_json)
        VALUES
-         ('SYS_USERS','系统用户','TABLE','{"table":"sys_user","valueField":"user_id","labelField":"real_name","valueFields":["user_id","id"],"labelFields":["real_name","real_name_zh","username"]}'::jsonb),
-         ('SYS_ROLES','系统角色','TABLE','{"table":"sys_role","valueField":"role_code","labelField":"role_name_zh"}'::jsonb),
-         ('SYS_ORGS','组织部门','TABLE','{"table":"sys_orgs","valueField":"org_code","labelField":"org_name","valueFields":["org_code","id"],"labelFields":["org_name"]}'::jsonb),
+         ('SYS_USERS','系统用户','TABLE','{"table":"sys_user","valueField":"user_id","labelField":"real_name","valueFields":["user_id","id"],"labelFields":["real_name","real_name_zh","username"],"statusFields":["status"],"activeValues":["1","ACTIVE","ENABLED","true"]}'::jsonb),
+         ('SYS_ROLES','系统角色','TABLE','{"table":"sys_role","valueField":"role_code","labelField":"role_name_zh","statusFields":["status"],"activeValues":["1","ACTIVE","ENABLED","true"]}'::jsonb),
+         ('SYS_ORGS','组织部门','TABLE','{"table":"sys_orgs","valueField":"org_code","labelField":"org_name","valueFields":["org_code","id"],"labelFields":["org_name"],"statusFields":["status"],"activeValues":["1","ACTIVE","ENABLED","true"]}'::jsonb),
          ('SYS_DICT_APPROVAL','审批字典','DICT','{"dict_type":"APPROVAL"}'::jsonb),
          ('MST_STORES','门店列表','TABLE','{"table":"mst_stores","valueField":"store_code","labelField":"store_name"}'::jsonb),
          ('MST_PRODUCTS','产品列表','TABLE','{"table":"mst_products","valueField":"product_code","labelField":"product_name"}'::jsonb),
@@ -1100,7 +1132,12 @@ export class WorkflowService implements OnModuleInit {
          ('PRC_SUPPLIERS','供应商列表','TABLE','{"table":"prc_suppliers","valueField":"supplier_code","labelField":"supplier_name"}'::jsonb),
          ('ORD_CUSTOMERS','客户列表','TABLE','{"table":"ord_customers","valueField":"customer_code","labelField":"customer_name"}'::jsonb),
          ('B2B_CUSTOMERS','B2B客户列表','TABLE','{"table":"b2b_customers","valueField":"customer_code","labelField":"customer_name"}'::jsonb)
-       ON CONFLICT (code) DO NOTHING`,
+       ON CONFLICT (code) DO UPDATE
+       SET name=EXCLUDED.name,
+           source_type=EXCLUDED.source_type,
+           config_json=EXCLUDED.config_json || wf_data_source.config_json,
+           updated_at=CURRENT_TIMESTAMP
+       RETURNING code, name, source_type, status, config_json`,
     );
   }
 

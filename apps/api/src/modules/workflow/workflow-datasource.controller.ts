@@ -17,6 +17,11 @@ export class WorkflowDatasourceController {
     return this.workflow.createDataSource(body, req.user);
   }
 
+  @Post('sync-defaults')
+  syncDefaults(@Req() req: any) {
+    return this.workflow.syncDefaultDataSources(req.user);
+  }
+
   @Put(':id')
   update(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.workflow.updateDataSource(Number(id), body, req.user);

@@ -125,6 +125,8 @@ export const workflowApi = {
   dataSources: () => req<WorkflowList<Record<string, unknown>>>("/data-sources"),
   createDataSource: (data: Record<string, unknown>) =>
     req<WorkflowOne<Record<string, unknown>>>("/data-sources", { method: "POST", body: JSON.stringify(data) }),
+  syncDefaultDataSources: () =>
+    req<WorkflowList<Record<string, unknown>>>("/data-sources/sync-defaults", { method: "POST", body: JSON.stringify({}) }),
   previewDataSource: (data: Record<string, unknown>) =>
     req<WorkflowList<Record<string, unknown>>>("/data-sources/preview", { method: "POST", body: JSON.stringify(data) }),
 
