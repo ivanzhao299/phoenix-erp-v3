@@ -76,6 +76,7 @@ export interface WorkflowInstance {
   instance_no: string;
   title: string;
   status: string;
+  business_type?: string;
   starter_name: string;
   form_data_json?: Record<string, unknown>;
   tasks?: WorkflowTask[];
@@ -110,7 +111,7 @@ export const workflowApi = {
 
   start: (data: Record<string, unknown>) =>
     req<WorkflowOne<WorkflowInstance>>("/start", { method: "POST", body: JSON.stringify(data) }),
-  instances: () => req<WorkflowList<WorkflowInstance>>("/instances"),
+  instances: (status?: string) => req<WorkflowList<WorkflowInstance>>(`/instances${status ? `?status=${encodeURIComponent(status)}` : ""}`),
   instance: (id: number) => req<WorkflowOne<WorkflowInstance>>(`/instances/${id}`),
   cancelInstance: (id: number, comment = "") =>
     req<WorkflowOne<WorkflowInstance>>(`/instances/${id}/cancel`, { method: "POST", body: JSON.stringify({ comment }) }),

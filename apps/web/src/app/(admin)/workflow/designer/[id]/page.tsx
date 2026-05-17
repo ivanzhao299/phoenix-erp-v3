@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
-import { workflowApi } from "@/lib/workflow-api";
+import { workflowApi, type WorkflowForm } from "@/lib/workflow-api";
 
 type NodeType = "start" | "approval" | "condition" | "cc" | "end";
 type WorkflowNode = {
@@ -48,6 +49,7 @@ export default function WorkflowDesignerPage() {
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [nodes, setNodes] = useState<WorkflowNode[]>(defaultNodes);
   const [edges, setEdges] = useState<WorkflowEdge[]>(defaultEdges);
+  const [forms, setForms] = useState<WorkflowForm[]>([]);
   const [selectedNode, setSelectedNode] = useState(1);
   const [selectedEdge, setSelectedEdge] = useState(0);
   const [formVersionId, setFormVersionId] = useState("");
@@ -57,18 +59,21 @@ export default function WorkflowDesignerPage() {
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    workflowApi.definitionDesigner(id).then(res => {
+    Promise.all([workflowApi.definitionDesigner(id), workflowApi.forms()]).then(([res, formRes]) => {
       setData(res.data);
       const graph = res.data.graph_json as { nodes?: WorkflowNode[]; edges?: WorkflowEdge[] } | undefined;
       if (Array.isArray(graph?.nodes)) setNodes(graph.nodes);
       if (Array.isArray(graph?.edges)) setEdges(graph.edges);
       if (res.data.form_version_id) setFormVersionId(String(res.data.form_version_id));
+      setForms(formRes.data || []);
     });
   }, [id]);
 
   const graph = useMemo(() => ({ nodes, edges }), [nodes, edges]);
   const currentNode = nodes[selectedNode] || nodes[0];
   const currentEdge = edges[selectedEdge] || edges[0];
+  const publishableForms = forms.filter(form => form.current_version_id);
+  const selectedForm = publishableForms.find(form => String(form.current_version_id) === formVersionId);
 
   function patchNode(index: number, patch: Partial<WorkflowNode>) {
     setNodes(prev => prev.map((node, i) => i === index ? { ...node, ...patch } : node));
@@ -278,8 +283,24 @@ export default function WorkflowDesignerPage() {
 
         <section style={panelStyle}>
           <strong style={{ display: "block", marginBottom: 12 }}>属性</strong>
-          <label style={labelStyle}>绑定表单版本 ID</label>
-          <input style={inputStyle} value={formVersionId} onChange={e => setFormVersionId(e.target.value)} placeholder="例如 1" />
+          <label style={labelStyle}>绑定业务表单</label>
+          <select style={inputStyle} value={formVersionId} onChange={e => setFormVersionId(e.target.value)}>
+            <option value="">不绑定表单</option>
+            {publishableForms.map(form => (
+              <option key={form.id} value={String(form.current_version_id)}>
+                {form.name} · {categoryText(form.category)} · V{form.current_version_id}
+              </option>
+            ))}
+          </select>
+          {selectedForm ? (
+            <div style={formHintStyle}>
+              <strong>{selectedForm.name}</strong>
+              <span>{selectedForm.description || "用户发起时会按此表单填写申请内容。"}</span>
+              <Link href={`/workflow/form-designer/${selectedForm.id}`}>查看/调整表单</Link>
+            </div>
+          ) : (
+            <div style={warnStyle}>未绑定表单时，用户发起申请只能填写通用说明。建议选择一个已发布表单。</div>
+          )}
 
           <hr style={dividerStyle} />
           <strong style={{ display: "block", marginBottom: 10 }}>节点属性</strong>
@@ -368,6 +389,22 @@ function nodeName(id: string, nodes: WorkflowNode[]) {
   return nodes.find(node => node.id === id)?.name || id || "-";
 }
 
+function categoryText(category?: string) {
+  const map: Record<string, string> = {
+    FINANCE: "财务",
+    PURCHASE: "采购",
+    CONTRACT: "合同",
+    HR: "人事",
+    WMS: "仓储",
+    QUALITY: "品控",
+    STORE: "门店",
+    FARM: "养殖",
+    LOGISTICS: "物流",
+    GENERAL: "通用",
+  };
+  return category ? map[category] || category : "通用";
+}
+
 const nodeWidth = 148;
 const nodeHeight = 70;
 
@@ -404,6 +441,8 @@ const svgStyle: React.CSSProperties = { position: "absolute", inset: 0, width: "
 const canvasNodeStyle: React.CSSProperties = { position: "absolute", width: nodeWidth, height: nodeHeight, display: "flex", flexDirection: "column", justifyContent: "center", gap: 3, padding: "8px 10px", border: "2px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)", textAlign: "left", cursor: "grab", userSelect: "none", zIndex: 2 };
 const nodeTypePillStyle: React.CSSProperties = { alignSelf: "flex-start", color: "#fff", borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800, textTransform: "uppercase" };
 const successStyle: React.CSSProperties = { marginBottom: 12, color: "var(--status-success)", fontWeight: 700 };
+const formHintStyle: React.CSSProperties = { marginTop: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 10, display: "grid", gap: 6, color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.6 };
+const warnStyle: React.CSSProperties = { marginTop: 10, border: "1px solid rgba(245,158,11,0.35)", background: "rgba(245,158,11,0.08)", borderRadius: "var(--radius-md)", padding: 10, color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.6 };
 const labelStyle: React.CSSProperties = { display: "block", marginBottom: 6, color: "var(--text-secondary)", fontSize: 12, fontWeight: 700 };
 const dividerStyle: React.CSSProperties = { border: 0, borderTop: "1px solid var(--border)", margin: "16px 0" };
 const modalMaskStyle: React.CSSProperties = { position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 };
