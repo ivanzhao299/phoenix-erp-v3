@@ -80,7 +80,7 @@ export default function SourceReceivePage() {
         expectedWeight: (batch as any).expectedWeight || (batch as any).expected_weight,
       });
       setDone(true);
-      setTimeout(() => router.push('/terminal/packaging/qc-inspection'), 1500);
+      setTimeout(() => router.push('/terminal/packaging/grading'), 1500);
     } finally { setSubmitting(false); }
   };
 
@@ -88,7 +88,7 @@ export default function SourceReceivePage() {
     <div style={{ height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:T.BG, gap:16 }}>
       <div style={{ fontSize:64 }}>✅</div>
       <div style={{ fontSize:24, fontWeight:700, color:T.GRN }}>{t('ui.接收成功', '接收成功')}</div>
-      <div style={{ color:T.MUT }}>{t('ui.批次状态已更新为待首检跳转中', '批次状态已更新为「待首检」，跳转中...')}</div>
+      <div style={{ color:T.MUT }}>{t('ui.批次接收完成跳转分级', '批次接收完成，跳转分级...')}</div>
     </div>
   );
 
