@@ -79,6 +79,7 @@ export default function WorkflowDesignerPage() {
   const [formVersionId, setFormVersionId] = useState("");
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
+  const [rehearsalData, setRehearsalData] = useState<Record<string, string>>({});
   const [jsonOpen, setJsonOpen] = useState(false);
   const [jsonDraft, setJsonDraft] = useState("");
 
@@ -103,6 +104,7 @@ export default function WorkflowDesignerPage() {
   const selectedForm = publishableForms.find(form => String(form.current_version_id) === formVersionId);
   const fieldOptions = formSchema?.fields || [];
   const previewLines = useMemo(() => buildPreview(nodes, edges), [nodes, edges]);
+  const rehearsal = useMemo(() => rehearseWorkflow(nodes, edges, rehearsalData), [edges, nodes, rehearsalData]);
 
   function patchNode(index: number, patch: Partial<WorkflowNode>) {
     setNodes(prev => prev.map((node, i) => i === index ? { ...node, ...patch } : node));
@@ -207,6 +209,9 @@ export default function WorkflowDesignerPage() {
   return (
     <div>
       <PageHeader title="流程搭建器" subtitle={String(data?.name || "")} breadcrumb={["工作流", "流程设计器"]} />
+      <div className={s.infoBanner}>
+        当前阶段已加入本地彩排：不写入数据库、不产生真实审批任务，只根据表单测试数据模拟流程走向。
+      </div>
       <div style={layoutStyle}>
         <section className={s.card} style={panelStyle}>
           <div style={toolbarStyle}>
@@ -275,6 +280,49 @@ export default function WorkflowDesignerPage() {
             <ol style={summaryListStyle}>
               {previewLines.map(line => <li key={line}>{line}</li>)}
             </ol>
+          </div>
+
+          <div className={s.card} style={previewSummaryStyle}>
+            <div style={edgeHeaderStyle}>
+              <div>
+                <strong className={s.cardTitle}>流程彩排</strong>
+                <p className={s.modalDesc} style={{ margin: "4px 0 0" }}>输入一组测试数据，系统会模拟会走到哪些步骤。</p>
+              </div>
+              <span className={`${s.badge} ${rehearsal.warnings.length ? s.badgeWarning : s.badgeSuccess}`}>
+                {rehearsal.warnings.length ? "需要检查" : "彩排通过"}
+              </span>
+            </div>
+            {fieldOptions.length ? (
+              <div style={rehearsalGridStyle}>
+                {fieldOptions.map(field => (
+                  <label key={field.key} className={s.field} style={{ marginBottom: 0 }}>
+                    <span className={s.lbl}>{field.label}</span>
+                    <input
+                      className={s.inp}
+                      value={rehearsalData[field.key] || ""}
+                      onChange={e => setRehearsalData(prev => ({ ...prev, [field.key]: e.target.value }))}
+                      placeholder={field.required ? "必填测试值" : "测试值"}
+                    />
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <div className={s.warnBanner}>当前流程没有可读取的表单字段；绑定并发布表单后可按字段彩排条件分支。</div>
+            )}
+            {rehearsal.warnings.length ? (
+              <div className={s.warnBanner} style={{ marginTop: 12 }}>
+                {rehearsal.warnings.join("；")}
+              </div>
+            ) : null}
+            <div style={rehearsalPathStyle}>
+              {rehearsal.steps.map((item, index) => (
+                <div key={`${item.node.id}-${index}`} style={rehearsalStepStyle}>
+                  <span className={nodeBadgeClass(item.node.type)}>{stepTypeText(item.node.type)}</span>
+                  <strong>{item.node.name}</strong>
+                  <small>{item.reason}</small>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div style={edgeHeaderStyle}>
@@ -477,6 +525,70 @@ function buildPreview(nodes: WorkflowNode[], edges: WorkflowEdge[]) {
   return lines;
 }
 
+function rehearseWorkflow(nodes: WorkflowNode[], edges: WorkflowEdge[], data: Record<string, string>) {
+  const warnings: string[] = [];
+  const steps: Array<{ node: WorkflowNode; reason: string }> = [];
+  const start = nodes.find(node => node.type === "start") || nodes[0];
+  let current = start;
+  const seen = new Set<string>();
+
+  while (current && !seen.has(current.id) && steps.length < 30) {
+    steps.push({ node: current, reason: rehearsalReason(current) });
+    seen.add(current.id);
+    if (current.type === "end") break;
+
+    const candidates = edges.filter(edge => edge.from === current.id);
+    if (!candidates.length) {
+      warnings.push(`步骤「${current.name}」没有后续规则`);
+      break;
+    }
+    const matched = candidates.find(edge => edge.condition && evaluateCondition(edge.condition, data));
+    const fallback = candidates.find(edge => !edge.condition);
+    const nextEdge = matched || fallback || candidates[0];
+    if (nextEdge.condition && !matched) {
+      warnings.push(`条件「${conditionText(nextEdge.condition, [])}」未命中，彩排使用第一条可用规则`);
+    }
+    const next = nodes.find(node => node.id === nextEdge.to);
+    if (!next) {
+      warnings.push(`规则指向的步骤「${nextEdge.to}」不存在`);
+      break;
+    }
+    current = next;
+  }
+
+  if (current && seen.has(current.id) && current.type !== "end") warnings.push("彩排检测到流程循环，请检查规则。");
+  if (!steps.some(step => step.node.type === "approval")) warnings.push("彩排路径没有经过审批步骤。");
+  return { steps, warnings };
+}
+
+function rehearsalReason(node: WorkflowNode) {
+  if (node.type === "start") return "模拟提交申请";
+  if (node.type === "approval") return `等待 ${assigneeText(node)} 审批`;
+  if (node.type === "condition") return "根据测试数据判断下一步";
+  if (node.type === "cc") return `抄送给 ${assigneeText(node)}`;
+  return "流程结束";
+}
+
+function evaluateCondition(condition: NonNullable<WorkflowEdge["condition"]>, data: Record<string, string>) {
+  const leftRaw = data[condition.field];
+  const rightRaw = condition.value;
+  const leftNumber = Number(leftRaw);
+  const rightNumber = Number(rightRaw);
+  const bothNumbers = Number.isFinite(leftNumber) && Number.isFinite(rightNumber) && String(leftRaw).trim() !== "";
+  const left = bothNumbers ? leftNumber : String(leftRaw ?? "");
+  const right = bothNumbers ? rightNumber : String(rightRaw ?? "");
+  if (condition.operator === "==") return left === right;
+  if (condition.operator === "!=") return left !== right;
+  if (condition.operator === ">") return bothNumbers ? leftNumber > rightNumber : String(left) > String(right);
+  if (condition.operator === ">=") return bothNumbers ? leftNumber >= rightNumber : String(left) >= String(right);
+  if (condition.operator === "<") return bothNumbers ? leftNumber < rightNumber : String(left) < String(right);
+  if (condition.operator === "<=") return bothNumbers ? leftNumber <= rightNumber : String(left) <= String(right);
+  if (condition.operator === "contains") return String(left).includes(String(right));
+  if (condition.operator === "in") return Array.isArray(condition.value) ? condition.value.map(String).includes(String(left)) : String(condition.value).split(",").map(v => v.trim()).includes(String(left));
+  if (condition.operator === "notIn") return Array.isArray(condition.value) ? !condition.value.map(String).includes(String(left)) : !String(condition.value).split(",").map(v => v.trim()).includes(String(left));
+  return false;
+}
+
 function previewText(node: WorkflowNode) {
   if (node.type === "start") return "员工提交申请并填写表单。";
   if (node.type === "approval") return `由「${assigneeText(node)}」处理「${node.name}」。`;
@@ -552,6 +664,9 @@ const previewCardStyle: React.CSSProperties = { minWidth: 160, minHeight: 94, di
 const arrowStyle: React.CSSProperties = { color: "var(--color-primary)", fontWeight: 900, fontSize: 18 };
 const previewSummaryStyle: React.CSSProperties = { padding: 14, marginBottom: 14, background: "var(--bg-page)" };
 const summaryListStyle: React.CSSProperties = { margin: "10px 0 0", paddingLeft: 18, color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.8 };
+const rehearsalGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 };
+const rehearsalPathStyle: React.CSSProperties = { display: "grid", gap: 8, marginTop: 12 };
+const rehearsalStepStyle: React.CSSProperties = { display: "grid", gap: 5, padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)" };
 const edgeHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 10 };
 const edgeListStyle: React.CSSProperties = { display: "grid", gap: 8 };
 const edgeButtonStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 24px 1fr", gap: 8, alignItems: "center", padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)", color: "var(--text-primary)", cursor: "pointer", textAlign: "left" };
