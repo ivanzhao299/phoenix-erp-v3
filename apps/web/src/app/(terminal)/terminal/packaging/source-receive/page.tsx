@@ -72,14 +72,10 @@ export default function EggCollectionPage() {
     setNumPadField('total');
   };
 
-  const handleNumPadConfirm = (val: string) => {
+  const handleNumPadChange = (val: string) => {
     if (numPadField === 'total')   setTotalQty(val);
     if (numPadField === 'dirty')   setDirtyQty(val);
     if (numPadField === 'cracked') setCrackedQty(val);
-    // auto-advance to next field
-    const order: NumField[] = ['total', 'dirty', 'cracked'];
-    const idx = order.indexOf(numPadField);
-    if (idx < order.length - 1) setNumPadField(order[idx + 1]);
   };
 
   const handleSubmit = async () => {
@@ -339,8 +335,7 @@ export default function EggCollectionPage() {
             initialValue={numpadInitial}
             accentColor={activeAccent}
             disabled={!selectedHouse}
-            onConfirm={handleNumPadConfirm}
-            confirmLabel={t('common.confirm', '确认') + ' →'}
+            onChange={handleNumPadChange}
           />
         </div>
       </div>

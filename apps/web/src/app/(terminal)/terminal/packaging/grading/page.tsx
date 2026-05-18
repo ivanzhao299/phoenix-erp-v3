@@ -319,14 +319,9 @@ export default function GradingPage() {
                 key={editKey}
                 initialValue={numpadInitial}
                 accentColor={selectedColor}
-                onConfirm={val => {
+                onChange={val => {
                   setOutputs(p => ({ ...p, [editKey]: Math.max(0, parseInt(val) || 0) }));
-                  // auto-advance to next grade
-                  const allKeys = [...saleableItems, ...defectItems].map(d => (d.terminalCode as string) || d.code);
-                  const idx = allKeys.indexOf(editKey);
-                  if (idx >= 0 && idx < allKeys.length - 1) setEditKey(allKeys[idx + 1]);
                 }}
-                confirmLabel={t('common.confirm', '确认') + ' →'}
               />
             </>
           ) : (
