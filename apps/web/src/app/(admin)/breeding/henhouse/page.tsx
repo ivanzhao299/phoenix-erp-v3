@@ -92,13 +92,13 @@ export default function HenHousePage() {
       .catch(() => {});
   }, [loadData]);
 
-  const handleEdit = (row: any) => {
-    setEditId(row.id); setEditRow(row);
+  const handleEdit = (row: HouseCard) => {
+    setEditId(String(row.id)); setEditRow(row);
     setForm({ farmName: row.farmName || '', code: row.code || '', name: row.name || '', type: row.type || houseTypeOptions[0]?.value || '', capacity: row.capacity != null ? String(row.capacity) : '' });
     setShowDrawer(true);
   };
 
-  const handleDelete = async (row: any) => {
+  const handleDelete = async (row: HouseCard) => {
     if (Number(row.current || 0) > 0) { toast.error(`${t('ui.该鸡舍仍有','该鸡舍仍有')} ${Number(row.current).toLocaleString()} ${t('ui.羽在栏鸡群，无法删除。请先办理鸡群出栏。','羽在栏鸡群，无法删除。请先办理鸡群出栏。')}`); return; }
     const ok = await showConfirm({ icon:'🗑️', type:'danger', title:t('ui.确认解散','确认解散'), message:`${t('ui.确认拆除鸡舍','确认拆除鸡舍')}: ${row.name}（${row.code}）`, confirmLabel:t('ui.确认解散','确认解散') });
     if (ok) { const ok2 = await deleteRecord(row.id, 'house_code', t('ui.鸡舍删除成功','鸡舍删除成功')); if (ok2) loadData(); }
@@ -124,7 +124,7 @@ export default function HenHousePage() {
   const warnCount    = housesList.filter(h => h.status === 'warning').length;
 
   const columns = [
-    { key: 'name', title: t('ui.鸡舍','鸡舍'), width: '160px', render: (v: any, row: any) => (
+    { key: 'name', title: t('ui.鸡舍','鸡舍'), width: '160px', render: (v: any, row: HouseCard) => (
       <div>
         <div style={{ fontWeight:600, color:'var(--text-primary)', lineHeight:1.3 }}>{v || '—'}</div>
         <div style={{ fontSize:11, color:'var(--text-secondary)', marginTop:2, fontFamily:'monospace' }}>{row.code}</div>
@@ -135,7 +135,7 @@ export default function HenHousePage() {
     )},
     { key: 'type',       title: t('ui.舍型','舍型'),     width: '75px',  render: (v: any) => houseTypeMap[v] ?? v ?? '—' },
     { key: 'capacity',   title: t('ui.设计容量','设计容量'), width: '90px',  render: (v: any) => `${Number(v).toLocaleString()} ${t('ui.羽','羽')}` },
-    { key: 'current',    title: t('ui.当前存栏','当前存栏'), width: '120px', render: (v: any, row: any) => (
+    { key: 'current',    title: t('ui.当前存栏','当前存栏'), width: '120px', render: (v: any, row: HouseCard) => (
       <div>
         <div style={{ marginBottom:4 }}>
           <span style={{ fontWeight:600 }}>{(v||0).toLocaleString()}</span>
@@ -151,8 +151,8 @@ export default function HenHousePage() {
     )},
     { key: 'ageWeeks',   title: t('ui.鸡龄周','鸡龄周'),  width: '72px',  render: (v: any) => v > 0 ? `${v} ${t('ui.周','周')}` : <span style={{color:'var(--text-secondary)'}}>—</span> },
     { key: 'layingRate', title: t('ui.产蛋率','产蛋率'),  width: '76px',  render: (v: any) => v != null ? <span style={{ fontWeight:700, color: v>=90?'var(--status-success)':v>=85?'var(--status-warning)':'var(--status-danger)' }}>{v}%</span> : <span style={{color:'var(--text-secondary)'}}>—</span> },
-    { key: 'status',     title: t('common.status','状态'),    width: '88px',  render: (v: any, row: any) => <StatusBadge status={v==='normal'?'success':'warning'} label={v==='normal'?t('ui.正常','正常'):row.isOverload?t('ui.超载','超载'):t('ui.需关注','需关注')} /> },
-    { key: 'actions',   title: t('common.operation','操作'),    width: '160px', render: (_: any, row: any) => (
+    { key: 'status',     title: t('common.status','状态'),    width: '88px',  render: (v: any, row: HouseCard) => <StatusBadge status={v==='normal'?'success':'warning'} label={v==='normal'?t('ui.正常','正常'):row.isOverload?t('ui.超载','超载'):t('ui.需关注','需关注')} /> },
+    { key: 'actions',   title: t('common.operation','操作'),    width: '160px', render: (_: any, row: HouseCard) => (
       <div className={s.tableActions}>
         {can(['MENU_DEVICE_MONITOR']) && (
           <button

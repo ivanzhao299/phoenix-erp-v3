@@ -36,11 +36,11 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
     return translations[key] || fallback || key;
   }, [translations]);
 
-  const tField = useCallback((obj: any, fieldBase: string) => {
+  const tField = useCallback((obj: Record<string, unknown>, fieldBase: string): string => {
     if (!obj) return '';
     const valCurrent = obj[fieldBase + '_' + lang];
-    if (valCurrent) return valCurrent;
-    return obj[fieldBase + '_zh'] || obj[fieldBase + '_en'] || obj[fieldBase + '_lo'] || obj[fieldBase] || '';
+    if (valCurrent) return String(valCurrent);
+    return String(obj[fieldBase + '_zh'] || obj[fieldBase + '_en'] || obj[fieldBase + '_lo'] || obj[fieldBase] || '');
   }, [lang, translations]);
 
   const toggleLanguage = () => {

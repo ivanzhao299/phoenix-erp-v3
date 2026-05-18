@@ -7,6 +7,11 @@ import { useToast } from '@/contexts/ToastContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import s from '@/components/ui/admin-ui.module.css';
 
+interface IotSystem  { code: string; name: string; icon: string; status: string; alarmCount: number; }
+interface IotHouse   { houseCode: string; houseName: string; flockNo?: string; status: string; alarmCount: number; dataFreshness: string; lastUpdated?: string; systems?: IotSystem[]; hasData?: boolean; avgTemp?: number | null; avgHumidity?: number | null; co2?: number | null; ammonia?: number | null; feedToday?: number | null; waterToday?: number | null; onlineRate?: number; }
+interface IotAlarm   { id?: number | string; alarmName?: string; propertyName?: string; severity?: string; houseCode?: string; houseName?: string; createdAt?: string; erp_house_code?: string; name_zh?: string; current_val?: number | null; unit?: string; triggered_at?: string | number; }
+interface IotSummary { summary: Record<string, number>; houses: IotHouse[]; recentAlarms: IotAlarm[]; }
+
 const API = '/api/v3/iot/devices';
 const tok = () => (typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') || '' : '');
 const hdr = () => ({ Authorization: `Bearer ${tok()}` });
@@ -29,7 +34,7 @@ const FRESH: Record<string, { color:string; bg:string }> = {
 };
 
 // ── 系统状态点子组件（颜色由传感器状态决定，保留 inline）───────────────
-function SystemDot({ sys, statusLabel }: { sys: any; statusLabel: string }) {
+function SystemDot({ sys, statusLabel }: { sys: IotSystem; statusLabel: string }) {
   const c = STATUS_DOT[sys.status] || STATUS_DOT.no_data;
   const tip = sys.alarmCount > 0 ? `${sys.name}：${sys.alarmCount} 项告警` : `${sys.name}：${statusLabel}`;
   return (
@@ -41,7 +46,7 @@ function SystemDot({ sys, statusLabel }: { sys: any; statusLabel: string }) {
 }
 
 // ── 鸡舍卡片（颜色由告警/数据鲜度决定，保留 inline）────────────────────
-function HouseCard({ house, onClick, freshLabel, noBatchLabel }: { house: any; onClick: () => void; freshLabel: string; noBatchLabel: string }) {
+function HouseCard({ house, onClick, freshLabel, noBatchLabel }: { house: IotHouse; onClick: () => void; freshLabel: string; noBatchLabel: string }) {
   const fr = FRESH[house.dataFreshness] || FRESH.no_data;
   const hasAlarm = house.alarmCount > 0;
 
@@ -64,7 +69,7 @@ function HouseCard({ house, onClick, freshLabel, noBatchLabel }: { house: any; o
           </div>
           {house.hasData && (
             <div style={{ display:'flex', gap:8 }}>
-              {(house.systems||[]).map((sys: any) => <SystemDot key={sys.code} sys={sys} statusLabel={sys.status} />)}
+              {(house.systems||[]).map((sys) => <SystemDot key={sys.code} sys={sys} statusLabel={sys.status} />)}
             </div>
           )}
         </div>
@@ -92,7 +97,7 @@ function HouseCard({ house, onClick, freshLabel, noBatchLabel }: { house: any; o
             <div style={{ display:'flex', gap:10 }}>
               <span>耗料 <strong style={{ color:'var(--text-primary)', fontSize:11 }}>{house.feedToday!=null?`${Number(house.feedToday).toFixed(0)}kg`:'—'}</strong></span>
               <span>饮水 <strong style={{ color:'var(--text-primary)', fontSize:11 }}>{house.waterToday!=null?`${Number(house.waterToday).toFixed(1)}T`:'—'}</strong></span>
-              <span>在线 <strong style={{ fontSize:11, color: house.onlineRate>0.8?'#22c55e':house.onlineRate>0.5?'#f59e0b':'#ef4444' }}>{Math.round(house.onlineRate*100)}%</strong></span>
+              <span>在线 <strong style={{ fontSize:11, color: (house.onlineRate??0)>0.8?'#22c55e':(house.onlineRate??0)>0.5?'#f59e0b':'#ef4444' }}>{Math.round((house.onlineRate??0)*100)}%</strong></span>
             </div>
             <span style={{ fontSize:11, fontWeight:600, color:'var(--color-primary)', display:'flex', alignItems:'center', gap:2 }}>进入总览 <ChevronRight size={11}/></span>
           </div>
@@ -111,7 +116,7 @@ export default function DeviceOverviewPage() {
   const router = useRouter();
   const toast = useToast();
   const { t } = useLanguage();
-  const [data,        setData]        = useState<any>(null);
+  const [data, setData] = useState<IotSummary | null>(null);
   const [loading,     setLoading]     = useState(true);
   const [syncing,     setSyncing]     = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(() => typeof window!=='undefined' && localStorage.getItem('phx_device_autoRefresh')==='true');
@@ -244,7 +249,7 @@ export default function DeviceOverviewPage() {
         </div>
       ) : houses.length > 0 ? (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:14, marginBottom:24 }}>
-          {houses.map((h: any) => (
+          {houses.map((h) => (
             <HouseCard
               key={h.houseCode}
               house={h}
@@ -272,7 +277,7 @@ export default function DeviceOverviewPage() {
             </button>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-            {alarms.map((a: any) => (
+            {alarms.map((a) => (
               <div key={a.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 10px', backgroundColor:'color-mix(in srgb,var(--status-danger) 10%,var(--bg-card))', borderRadius:'var(--radius-sm)', border:'1px solid color-mix(in srgb,var(--status-danger) 30%,transparent)', fontSize:12 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                   <span style={{ fontWeight:700, color:'var(--status-danger)' }}>{a.erp_house_code}</span>

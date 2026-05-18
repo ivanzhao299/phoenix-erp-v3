@@ -123,10 +123,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch { /* ignore */ }
   };
 
-  const login = useCallback((tokenStr: string, userInfo: any) => {
+  const login = useCallback((tokenStr: string, userInfo: Record<string, unknown>) => {
     sessionStorage.setItem('phoenix_token', tokenStr);
     sessionStorage.setItem('phoenix_user', JSON.stringify(userInfo));
-    sessionStorage.setItem('phoenix_lang', userInfo.lang || 'zh');
+    sessionStorage.setItem('phoenix_lang', String(userInfo.lang || 'zh'));
     sessionStorage.setItem('phoenix_session_version', SESSION_VERSION);
     _setCookieToken(tokenStr);
     setToken(tokenStr);

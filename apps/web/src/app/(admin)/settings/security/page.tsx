@@ -95,14 +95,14 @@ export default function SecurityPolicyPage() {
                 </tr>
               </thead>
               <tbody>
-                {logs.map((log: any, i: number) => (
+                {logs.map((log, i) => (
                   <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "10px 16px", fontFamily: "monospace", fontSize: 11 }}>{log.flow_no || log.record_id || "—"}</td>
                     <td style={{ padding: "10px 16px" }}>{log.module || log.table_name || "—"}</td>
                     <td style={{ padding: "10px 16px", fontWeight: 600 }}>{log.submitter || log.operator || "—"}</td>
                     <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontSize: 12 }}>{log.created_at ? new Date(log.created_at).toLocaleString("zh-CN") : "—"}</td>
                     <td style={{ padding: "10px 16px" }}>
-                      <span style={{ padding: "3px 8px", borderRadius: 10, fontSize: 12, fontWeight: 700, background: (STATUS_COLOR[log.status] || "#94a3b8") + "22", color: STATUS_COLOR[log.status] || "#94a3b8" }}>
+                      <span style={{ padding: "3px 8px", borderRadius: 10, fontSize: 12, fontWeight: 700, background: (STATUS_COLOR[log.status ?? ''] || "#94a3b8") + "22", color: STATUS_COLOR[log.status ?? ''] || "#94a3b8" }}>
                         {log.status || "PENDING"}
                       </span>
                     </td>

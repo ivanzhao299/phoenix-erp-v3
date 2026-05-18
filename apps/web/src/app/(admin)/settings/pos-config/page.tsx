@@ -21,13 +21,13 @@ export default function PosConfigPage() {
     fetch("/api/crud/mst_stores?limit=100", { headers: hdr() })
       .then(r => r.json())
       .then(d => {
-        const list: any[] = d.data || d || [];
+        const list: Record<string, unknown>[] = d.data || d || [];
         setStores(list);
         const init: Record<string, typeof DEFAULT_CFG> = {};
         list.forEach(s => {
           let cfg = DEFAULT_CFG;
-          try { if (s.pos_config) cfg = { ...DEFAULT_CFG, ...JSON.parse(s.pos_config) }; } catch {}
-          init[s.store_code] = cfg;
+          try { if (s.pos_config) cfg = { ...DEFAULT_CFG, ...JSON.parse(String(s.pos_config)) }; } catch {}
+          init[String(s.store_code)] = cfg;
         });
         setConfigs(init);
       }).catch(() => {});
@@ -42,7 +42,7 @@ export default function PosConfigPage() {
     } catch { toast.error(t('ui.保存失败请重试', '保存失败，请重试')); }
   };
 
-  const upd = (code: string, key: string, value: any) => setConfigs(c => ({ ...c, [code]: { ...c[code], [key]: value } }));
+  const upd = (code: string, key: string, value: unknown) => setConfigs(c => ({ ...c, [code]: { ...c[code], [key]: value } }));
 
   const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div>

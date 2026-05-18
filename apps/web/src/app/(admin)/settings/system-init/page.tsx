@@ -41,7 +41,7 @@ export default function SystemInitPage() {
   const addLog = (msg: string, type: LogEntry["type"] = "info") =>
     setLogs(p => [...p, { time: new Date().toLocaleTimeString(), msg, type }]);
 
-  const executePost = async (table: string, dataList: any[], name: string) => {
+  const executePost = async (table: string, dataList: Record<string, unknown>[], name: string) => {
     addLog(`⏳ ${t('ui.开始处理清除旧数据并写入', '开始处理')} [${table}]，${t('ui.清除旧数据并写入', '清除旧数据并写入')}…`, "info");
     let deleted = 0, created = 0;
     try {
@@ -80,7 +80,7 @@ export default function SystemInitPage() {
     if (confirm !== "blood") { setConfirm("blood"); return; }
     setConfirm(null); setLoading(true); setLogs([]);
     addLog(`▶ ${t('ui.开始初始化业务演示数据', '开始初始化业务演示数据')}…`, "warning");
-    const wmsMock: any[] = [];
+    const wmsMock: Record<string, unknown>[] = [];
     for (let i = 0; i < 30; i++) {
       wmsMock.push({ inbound_no: `WMS-SIM-${Date.now()}-${i}`, type: ["IN","OUT","TRANSFER"][i%3], qty: Math.floor(Math.random()*2000)+100, date: new Date(Date.now()-i*3600000).toISOString(), status: "COMPLETED" });
     }
@@ -91,7 +91,7 @@ export default function SystemInitPage() {
 
   const LOG_COLOR: Record<string, string> = { error: "#ef4444", success: "#22c55e", warning: "#f59e0b", info: "#38bdf8" };
 
-  const ConfirmBanner = ({ mode, onOk, label, color }: any) => (
+  const ConfirmBanner = ({ mode, onOk, label, color }: { mode: string; onOk: () => void; label: string; color: string }) => (
     <div style={{ padding: 14, background: color+"22", border: `1px solid ${color}44`, borderRadius: "var(--radius-md)" }}>
       <p style={{ fontSize: 13, color, fontWeight: 700, marginBottom: 10 }}>⚠️ {t('ui.此操作将清除并重写相关数据不可撤销', '此操作将清除并重写相关数据，不可撤销！')}</p>
       <div style={{ display: "flex", gap: 8 }}>

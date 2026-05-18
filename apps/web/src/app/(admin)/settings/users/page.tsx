@@ -423,7 +423,7 @@ export default function UserManagementPage() {
     if (!editUser && (!form.password || form.password.length < 8)) { toast.error(t("ui.新建用户密码至少8位", "新建用户密码至少 8 位")); return; }
     setSubmitting(true);
     try {
-      let res: any;
+      let res: { code?: number; data?: { id?: number }; msg?: string } = {};
       if (editUser) {
         // 更新基本信息
         res = await API(`/${editUser.id}`, {

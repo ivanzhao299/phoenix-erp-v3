@@ -3,9 +3,10 @@ import { useState, useEffect } from 'react';
 import { useCrud } from './useCrud';
 
 type DictPair = { value: string; label: string };
+type DictEntry = Record<string, unknown>;
 interface DictCacheEntry { options: string[]; codeMap: Record<string, string>; optionPairs: DictPair[] }
 /** 模块级缓存，避免同页面多次请求 sys_dict */
-const _cache: Record<string, DictCacheEntry> = {};
+const _cache: Record<string, DictCacheEntry | DictPair[]> = {};
 
 /**
  * useDictOptions — 从 sys_dict 按 dict_type 动态加载字典选项
@@ -17,7 +18,7 @@ export const useDictOptions = (dictCode: string | string[]) => {
   // 排序后拼接，保证 ['A','B'] 和 ['B','A'] 命中同一缓存
   const cacheKey = codes.slice().sort().join(',');
 
-  const cached = _cache[cacheKey];
+  const cached = _cache[cacheKey] as DictCacheEntry | undefined;
   const [options,     setOptions]     = useState<string[]>(cached?.options     || []);
   const [codeMap,     setCodeMap]     = useState<Record<string, string>>(cached?.codeMap     || {});
   const [optionPairs, setOptionPairs] = useState<DictPair[]>(cached?.optionPairs || []);
@@ -27,31 +28,33 @@ export const useDictOptions = (dictCode: string | string[]) => {
 
   useEffect(() => {
     if (_cache[cacheKey]) {
-      const c = _cache[cacheKey];
+      const c = _cache[cacheKey] as DictCacheEntry;
       setOptions(c.options); setCodeMap(c.codeMap); setOptionPairs(c.optionPairs);
       setLoading(false); return;
     }
-    fetchRecords({ limit: 1000 } as any)
-      .then((dicts: any) => {
+    fetchRecords({ limit: 1000 })
+      .then((dicts: DictEntry[] | null) => {
         const merged: string[]             = [];
         const cm:     Record<string,string>= {};
         const pairs:  DictPair[]           = [];
-        const labelSet = new Set<string>(); // 去重 merged labels
-        const codeSet  = new Set<string>(); // 去重 pairs codes
+        const labelSet = new Set<string>();
+        const codeSet  = new Set<string>();
         codes.forEach(code => {
           const matches = (dicts || [])
-            .filter((d: any) => d.dict_type === code && d.status === 'ACTIVE')
-            .sort((a: any, b: any) => (a.sort_no || 0) - (b.sort_no || 0));
-          matches.forEach((entry: any) => {
-            if (entry.dict_label_zh && !labelSet.has(entry.dict_label_zh)) {
-              labelSet.add(entry.dict_label_zh);
-              merged.push(entry.dict_label_zh);
+            .filter(d => d.dict_type === code && d.status === 'ACTIVE')
+            .sort((a, b) => (Number(a.sort_no) || 0) - (Number(b.sort_no) || 0));
+          matches.forEach(entry => {
+            const label = entry.dict_label_zh as string | undefined;
+            const dc    = entry.dict_code    as string | undefined;
+            if (label && !labelSet.has(label)) {
+              labelSet.add(label);
+              merged.push(label);
             }
-            if (entry.dict_code && entry.dict_label_zh) {
-              cm[entry.dict_code] = entry.dict_label_zh;
-              if (!codeSet.has(entry.dict_code)) {
-                codeSet.add(entry.dict_code);
-                pairs.push({ value: entry.dict_code, label: entry.dict_label_zh });
+            if (dc && label) {
+              cm[dc] = label;
+              if (!codeSet.has(dc)) {
+                codeSet.add(dc);
+                pairs.push({ value: dc, label });
               }
             }
           });
@@ -74,16 +77,16 @@ export const useDictOptions = (dictCode: string | string[]) => {
  */
 export const useTableOptions = (table: string, valueKey: string, labelKey: string) => {
   const cacheKey = `table:${table}:${valueKey}:${labelKey}`;
-  const [options, setOptions] = useState<{ value: string; label: string }[]>(_cache[cacheKey] as any || []);
+  const [options, setOptions] = useState<DictPair[]>((_cache[cacheKey] as DictPair[]) || []);
   const { fetchRecords } = useCrud(table);
 
   useEffect(() => {
-    if (_cache[cacheKey]) { setOptions(_cache[cacheKey] as any); return; }
-    fetchRecords({ limit: 1000 } as any).then((rows: any) => {
-      const opts = (rows || [])
-        .map((r: any) => ({ value: r[valueKey] || '', label: r[labelKey] || r[valueKey] || '' }))
-        .filter((o: any) => o.value);
-      if (opts.length > 0) { (_cache as any)[cacheKey] = opts; setOptions(opts); }
+    if (_cache[cacheKey]) { setOptions(_cache[cacheKey] as DictPair[]); return; }
+    fetchRecords({ limit: 1000 }).then((rows: DictEntry[] | null) => {
+      const opts: DictPair[] = (rows || [])
+        .map(r => ({ value: String(r[valueKey] || ''), label: String(r[labelKey] || r[valueKey] || '') }))
+        .filter(o => o.value);
+      if (opts.length > 0) { _cache[cacheKey] = opts; setOptions(opts); }
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cacheKey]);

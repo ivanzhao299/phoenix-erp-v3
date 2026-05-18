@@ -98,7 +98,8 @@ function makeError(message: string, status?: number, code?: ApiError['code'], su
   return e;
 }
 
-async function rawFetch(path: string, options: RequestInit, attempt: number, max5xxRetries: number): Promise<Response> {
+async function rawFetch(path: string, options: RequestInit, attempt: number, max5xxRetries: number, signal?: AbortSignal): Promise<Response> {
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   const token = getToken();
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -106,12 +107,13 @@ async function rawFetch(path: string, options: RequestInit, attempt: number, max
     ...options.headers,
   };
   try {
-    return await fetch(`${API_BASE}${path}`, { ...options, headers });
-  } catch (netErr) {
+    return await fetch(`${API_BASE}${path}`, { ...options, headers, signal });
+  } catch (netErr: any) {
+    if (netErr?.name === 'AbortError') throw netErr; // propagate immediately — no retry
     // 网络层失败按 5xx 处理
     if (attempt < max5xxRetries) {
       await sleep(RETRY_DELAYS_MS[attempt] ?? 2000);
-      return rawFetch(path, options, attempt + 1, max5xxRetries);
+      return rawFetch(path, options, attempt + 1, max5xxRetries, signal);
     }
     throw makeError((netErr as Error).message || '网络连接失败，请检查网络后重试', undefined, 'NETWORK');
   }
@@ -119,15 +121,16 @@ async function rawFetch(path: string, options: RequestInit, attempt: number, max
 
 async function request<T = unknown>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit & { signal?: AbortSignal } = {}
 ): Promise<T> {
+  const { signal, ...fetchOptions } = options;
   // 主动静默 refresh：若 token 即将到期就先续期再发请求（用户全程无感）
   // 跳过 refresh 端点自身避免递归
   if (!path.startsWith('/auth/refresh')) {
     await ensureFreshToken();
   }
 
-  let res = await rawFetch(path, options, 0, 2);
+  let res = await rawFetch(path, fetchOptions, 0, 2, signal);
 
   // 收到 TOKEN_EXPIRED → 兜底再 refresh 一次重试（处理"刚好卡在边界过期"的场景）
   if (res.status === 401 && !path.startsWith('/auth/refresh')) {
@@ -138,7 +141,7 @@ async function request<T = unknown>(
         const newTok = await tryRefresh(current);
         if (newTok) {
           // 用新 token 重发原请求
-          res = await rawFetch(path, options, 0, 2);
+          res = await rawFetch(path, fetchOptions, 0, 2, signal);
         }
       }
     }
@@ -147,14 +150,14 @@ async function request<T = unknown>(
   // 401 一次"伪 401"重试（网络抖动 / 后端 502 透传出 401 等）
   if (res.status === 401) {
     await sleep(800);
-    res = await rawFetch(path, options, 0, 2);
+    res = await rawFetch(path, fetchOptions, 0, 2, signal);
   }
 
   // 5xx 指数退避
   let attempt = 0;
   while (res.status >= 500 && attempt < RETRY_DELAYS_MS.length) {
     await sleep(RETRY_DELAYS_MS[attempt]);
-    res = await rawFetch(path, options, 0, 2);
+    res = await rawFetch(path, fetchOptions, 0, 2, signal);
     attempt++;
   }
 
@@ -211,7 +214,8 @@ export const authApi = {
 export const crudApi = {
   list: <T = Record<string, unknown>>(
     table: string,
-    params: PaginationParams = {}
+    params: PaginationParams = {},
+    opts: { signal?: AbortSignal } = {}
   ): Promise<CrudListResponse<T>> => {
     const qs = new URLSearchParams();
     // 将 page/pageSize 转换为后端期望的 limit/offset
@@ -224,7 +228,8 @@ export const crudApi = {
       if (v !== undefined && v !== "") qs.set(k, String(v));
     });
     return request<CrudListResponse<T>>(
-      `/crud/${table}?${qs.toString()}`
+      `/crud/${table}?${qs.toString()}`,
+      opts.signal ? { signal: opts.signal } : {}
     );
   },
 

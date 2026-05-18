@@ -3,28 +3,28 @@ import React, { useState } from 'react';
 import { Search, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
-interface Column {
+export interface Column<T extends object = Record<string, unknown>> {
   key: string;
   title?: string;
   label?: string;
   width?: string | number;
-  render?: (value: any, row: any) => React.ReactNode;
+  render?: (value: any, row: T) => React.ReactNode;
 }
 
-interface DataTableProps {
-  columns?: Column[];
-  data?: any[];
+interface DataTableProps<T extends object = Record<string, unknown>> {
+  columns?: Column<T>[];
+  data?: T[];
   searchPlaceholder?: string;
   searchKeys?: string[];
   pageSize?: number;
   filters?: React.ReactNode;
   rowKey?: string;
-  onRowClick?: (row: any) => void;
+  onRowClick?: (row: T) => void;
   emptyText?: string;
   exportFilename?: string;
 }
 
-const exportTableCsv = (columns: Column[], data: any[], filename: string) => {
+const exportTableCsv = (columns: Column[], data: Record<string, unknown>[], filename: string) => {
   const headers = columns.map(c => c.title || c.label || c.key).join(',');
   const rows = data.map(row => columns.map(c => {
     const v = row[c.key] ?? '';
@@ -38,16 +38,18 @@ const exportTableCsv = (columns: Column[], data: any[], filename: string) => {
   URL.revokeObjectURL(url);
 };
 
-const DataTable: React.FC<DataTableProps> = ({
+function DataTable<T extends object = Record<string, unknown>>({
   columns = [], data = [], searchPlaceholder = '搜索...', searchKeys = [],
   pageSize = 12, filters, rowKey = 'id', onRowClick, emptyText = '暂无数据', exportFilename,
-}) => {
+}: DataTableProps<T>) {
   const { t } = useLanguage() || { t: (k: string, f: string) => f || k };
   const [query, setQuery] = useState('');
   const [page, setPage]   = useState(1);
 
+  const asMap = (row: T) => row as Record<string, unknown>;
+
   const filtered = query && searchKeys.length > 0
-    ? data.filter(row => searchKeys.some(k => String(row[k] ?? '').toLowerCase().includes(query.toLowerCase())))
+    ? data.filter(row => searchKeys.some(k => String(asMap(row)[k] ?? '').toLowerCase().includes(query.toLowerCase())))
     : data;
 
   const totalPages  = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -70,7 +72,7 @@ const DataTable: React.FC<DataTableProps> = ({
         {filters}
         <span style={{ fontSize:'12px', color:'var(--text-secondary)', marginLeft:'auto' }}>共 {filtered.length} 条</span>
         {exportFilename && (
-          <button type="button" onClick={() => exportTableCsv(columns, filtered, exportFilename)}
+          <button type="button" onClick={() => exportTableCsv(columns as Column[], data as Record<string, unknown>[], exportFilename)}
             style={{ display:'flex', alignItems:'center', gap:'5px', padding:'6px 12px', fontSize:'12px', fontWeight:'600',
               border:'1px solid var(--border)', borderRadius:'var(--radius-md)', backgroundColor:'var(--bg-page)', color:'var(--text-primary)', cursor:'pointer', whiteSpace:'nowrap', transition:'border-color 0.18s, color 0.18s' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor='var(--color-primary)'; (e.currentTarget as HTMLElement).style.color='var(--color-primary)'; }}
@@ -97,13 +99,13 @@ const DataTable: React.FC<DataTableProps> = ({
               <tr><td colSpan={columns.length} style={{ textAlign:'center', padding:'48px 16px', color:'var(--text-secondary)' }}>{emptyText}</td></tr>
             ) : (
               paged.map((row, i) => (
-                <tr key={row[rowKey] ?? i} onClick={() => onRowClick && onRowClick(row)}
+                <tr key={String(asMap(row)[rowKey] ?? i)} onClick={() => onRowClick && onRowClick(row)}
                   style={{ borderBottom:'1px solid var(--border)', cursor: onRowClick ? 'pointer' : 'default', transition:'background 0.15s' }}
                   onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-page)')}
                   onMouseLeave={e => (e.currentTarget.style.backgroundColor = '')}>
                   {columns.map(col => (
                     <td key={col.key} style={{ padding:'11px 16px', color:'var(--text-primary)', verticalAlign:'middle' }}>
-                      {col.render ? col.render(row[col.key], row) : (row[col.key] ?? '—')}
+                      {col.render ? col.render(asMap(row)[col.key], row) : (asMap(row)[col.key] != null ? String(asMap(row)[col.key]) : '—')}
                     </td>
                   ))}
                 </tr>
@@ -140,6 +142,6 @@ const DataTable: React.FC<DataTableProps> = ({
       )}
     </div>
   );
-};
+}
 
 export default DataTable;

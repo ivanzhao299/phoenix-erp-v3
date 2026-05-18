@@ -104,17 +104,18 @@ export default function ImmunePage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const handleRecordVaccine = async (row: any) => {
+  const handleRecordVaccine = async (row: ImmunePlan) => {
     const today = new Date().toISOString().slice(0,10);
-    let user: any = {};
+    let user: Record<string, unknown> = {};
     try { user = JSON.parse(sessionStorage.getItem('phoenix_user')||'{}'); } catch {}
-    const ok = await updateRecord(row.id, { status:'DONE', actual_date:today, executor: user.realNameZh||user.username||'' }, 'id', t('ui.保存成功', '保存成功'));
+    const ok = await updateRecord(row.id as number, { status:'DONE', actual_date:today, executor: user.realNameZh||user.username||'' }, 'id', t('ui.保存成功', '保存成功'));
     if (ok) loadData();
   };
 
-  const handleEdit = (row: any) => {
-    setEditId(row.id);
-    setForm({ batchNo:row.batchNo||'', farmHouse:row.farmHouse||'', vaccine:row.vaccine||row.vaccine_name||vaccineOpts[0]||'', planDate:row.planDate||'', method:row.method||vaccMethodOpts[0]||'', dose:row.dose||'', vaccineBatchNo:row.vaccineBatchNo||'', flockCount:row.flockCount?String(row.flockCount):'', nextDueDate:row.nextDueDate||'' });
+  const handleEdit = (row: ImmunePlan) => {
+    setEditId(row.id as number);
+    const s = (v: unknown) => String(v ?? '');
+    setForm({ batchNo:s(row.batchNo), farmHouse:s(row.farmHouse), vaccine:s(row.vaccine||row.vaccine_name||vaccineOpts[0]), planDate:s(row.planDate), method:s(row.method||vaccMethodOpts[0]), dose:s(row.dose), vaccineBatchNo:s(row.vaccineBatchNo), flockCount:row.flockCount?String(row.flockCount):'', nextDueDate:s(row.nextDueDate) });
     setShowDrawer(true);
   };
 
@@ -169,7 +170,7 @@ export default function ImmunePage() {
     { key:'dose',           title: t('ui.剂量', '剂量'),         width:'90px'  },
     { key:'executor',       title: t('ui.执行人', '执行人'),     width:'80px'  },
     { key:'status',         title: t('common.status', '状态'),   width:'110px', render: (v: any) => { const st = STATUS_CONF[normStatus(v)]||{ status:'default', label:v }; return <StatusBadge status={st.status} label={st.label} />; } },
-    { key:'actions',        title: t('common.operation', '操作'), width:'120px', render: (_: any, row: any) => (
+    { key:'actions',        title: t('common.operation', '操作'), width:'120px', render: (_: any, row: ImmunePlan) => (
       <div className={s.tableActions}>
         {can(['ROLE_VET','ROLE_ADMIN']) && normStatus(row.status)==='PENDING' && (
           <button type="button" className={`${s.btn} ${s.btnSm}`} style={{ background:'var(--status-success)', color:'#fff', border:'none' }}

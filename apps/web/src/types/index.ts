@@ -131,6 +131,10 @@ export interface AuditLogRow {
   action: string;
   table_name?: string;
   record_id?: string;
+  flow_no?: string;
+  module?: string;
+  submitter?: string;
+  status?: string;
   old_data?: string;
   new_data?: string;
   operator?: string;

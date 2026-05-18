@@ -62,7 +62,7 @@ export default function PdaTerminalPage() {
   const { showConfirm } = useDialog();
   const { t } = useLanguage();
   const [terminals, setTerminals] = useState<PdaTerminal[]>([]);
-  const [sysConfig, setSysConfig] = useState<any>({ server_url: "", api_url: "", scan_debounce_ms: "200", heartbeat_interval_s: "30", label_paper_size: "100x70" });
+  const [sysConfig, setSysConfig] = useState<Record<string, string>>({ server_url: "", api_url: "", scan_debounce_ms: "200", heartbeat_interval_s: "30", label_paper_size: "100x70" });
   const [loading, setLoading] = useState(true);
   const [drawer, setDrawer] = useState(false);
   const [cfgDrawer, setCfgDrawer] = useState(false);
@@ -292,7 +292,7 @@ export default function PdaTerminalPage() {
           ].map(f => (
             <div key={f.key}>
               <label style={lbl}>{f.label}</label>
-              <input style={inp} value={sysConfig[f.key] || ""} onChange={e => setSysConfig((p: any) => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder}/>
+              <input style={inp} value={sysConfig[f.key] || ""} onChange={e => setSysConfig(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder}/>
             </div>
           ))}
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>

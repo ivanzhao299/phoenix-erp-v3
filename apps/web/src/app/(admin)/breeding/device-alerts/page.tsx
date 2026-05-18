@@ -341,48 +341,48 @@ export default function DeviceAlertsPage() {
       setSummary(json.data?.summary ?? null);
 
       // Extract houses array
-      const rawHouses: any[] = Array.isArray(json.data?.houses) ? json.data.houses : [];
-      const housesData: HouseData[] = rawHouses.map((h: any) => ({
-        houseCode:      h.houseCode      ?? h.erp_house_code ?? h.house_code ?? "",
-        houseName:      h.houseName      ?? h.house_name     ?? "",
-        farmCode:       h.farmCode       ?? h.farm_code      ?? "",
-        dataFreshness:  h.dataFreshness  ?? h.data_freshness ?? "no_data",
-        lastUpdateTime: h.lastUpdateTime ?? h.last_update_time ?? "",
-        alarmCount:     h.alarmCount     ?? h.alarm_count    ?? 0,
-        totalSensors:   h.totalSensors   ?? h.total_sensors  ?? 0,
-        onlineSensors:  h.onlineSensors  ?? h.online_sensors ?? 0,
-        onlineRate:     h.onlineRate     ?? h.online_rate    ?? 0,
-        systems:        Array.isArray(h.systems) ? h.systems.map((sys: any) => ({
-          code:       sys.code       ?? sys.system_code  ?? "",
-          name:       sys.name       ?? sys.system_name  ?? "",
-          icon:       sys.icon       ?? "",
-          status:     sys.status     ?? "no_data",
-          alarmCount: sys.alarmCount ?? sys.alarm_count  ?? 0,
+      const rawHouses = (Array.isArray(json.data?.houses) ? json.data.houses : []) as Record<string, unknown>[];
+      const housesData: HouseData[] = rawHouses.map((h) => ({
+        houseCode:      String(h.houseCode      ?? h.erp_house_code ?? h.house_code ?? ""),
+        houseName:      String(h.houseName      ?? h.house_name     ?? ""),
+        farmCode:       String(h.farmCode       ?? h.farm_code      ?? ""),
+        dataFreshness:  (h.dataFreshness ?? h.data_freshness ?? "no_data") as HouseData["dataFreshness"],
+        lastUpdateTime: String(h.lastUpdateTime ?? h.last_update_time ?? ""),
+        alarmCount:     Number(h.alarmCount     ?? h.alarm_count    ?? 0),
+        totalSensors:   Number(h.totalSensors   ?? h.total_sensors  ?? 0),
+        onlineSensors:  Number(h.onlineSensors  ?? h.online_sensors ?? 0),
+        onlineRate:     Number(h.onlineRate     ?? h.online_rate    ?? 0),
+        systems:        Array.isArray(h.systems) ? (h.systems as Record<string, unknown>[]).map((sys) => ({
+          code:       String(sys.code       ?? sys.system_code  ?? ""),
+          name:       String(sys.name       ?? sys.system_name  ?? ""),
+          icon:       String(sys.icon       ?? ""),
+          status:     String(sys.status     ?? "no_data"),
+          alarmCount: Number(sys.alarmCount ?? sys.alarm_count  ?? 0),
         })) : [],
-        avgTemp:     h.avgTemp     ?? h.avg_temp     ?? null,
-        avgHumidity: h.avgHumidity ?? h.avg_humidity ?? null,
-        co2:         (h.co2  != null && h.co2  !== 0) ? h.co2  : null,
-        ammonia:     (h.ammonia != null && h.ammonia !== 0) ? h.ammonia : null,
+        avgTemp:     h.avgTemp != null ? Number(h.avgTemp) : (h.avg_temp != null ? Number(h.avg_temp) : null),
+        avgHumidity: h.avgHumidity != null ? Number(h.avgHumidity) : (h.avg_humidity != null ? Number(h.avg_humidity) : null),
+        co2:         (h.co2  != null && h.co2  !== 0) ? Number(h.co2)  : null,
+        ammonia:     (h.ammonia != null && h.ammonia !== 0) ? Number(h.ammonia) : null,
       }));
       setHouses(housesData);
 
       // Extract alarms with full fields
-      const recentAlarms: any[] = Array.isArray(json.data?.recentAlarms) ? json.data.recentAlarms : [];
-      const alarmItems: AlarmItem[] = recentAlarms.map((a: any, idx: number) => ({
-        id:              a.id ?? idx,
-        house_code:      a.erp_house_code ?? a.house_code ?? "",
-        erp_house_code:  a.erp_house_code ?? a.house_code ?? "",
-        farm_code:       a.farm_code ?? "",
-        property_name:   a.name_zh ?? a.property_name ?? "未知指标",
-        property_code:   a.property_code ?? "",
-        value:           a.current_val ?? a.value ?? 0,
-        unit:            a.unit ?? "",
-        category:        a.category ?? "",
-        system_category: a.system_category ?? a.category ?? "",
+      const recentAlarms = (Array.isArray(json.data?.recentAlarms) ? json.data.recentAlarms : []) as Record<string, unknown>[];
+      const alarmItems: AlarmItem[] = recentAlarms.map((a, idx) => ({
+        id:              (a.id as string | number | undefined) ?? idx,
+        house_code:      String(a.erp_house_code ?? a.house_code ?? ""),
+        erp_house_code:  String(a.erp_house_code ?? a.house_code ?? ""),
+        farm_code:       String(a.farm_code ?? ""),
+        property_name:   String(a.name_zh ?? a.property_name ?? "未知指标"),
+        property_code:   String(a.property_code ?? ""),
+        value:           Number(a.current_val ?? a.value ?? 0),
+        unit:            String(a.unit ?? ""),
+        category:        String(a.category ?? ""),
+        system_category: String(a.system_category ?? a.category ?? ""),
         severity:        (a.severity === "warning" || a.severity === "normal") ? a.severity : "critical",
-        triggered_at:    a.triggered_at ?? a.created_at ?? "",
-        threshold_val:   a.threshold_val ?? a.threshold_value ?? null,
-        alarm_status:    a.alarm_status ?? a.status ?? "",
+        triggered_at:    (a.triggered_at ?? a.created_at ?? "") as string | number,
+        threshold_val:   a.threshold_val != null ? Number(a.threshold_val) : (a.threshold_value != null ? Number(a.threshold_value) : null),
+        alarm_status:    String(a.alarm_status ?? a.status ?? ""),
       }));
       setAlarms(alarmItems);
       setLastUpdate(new Date());

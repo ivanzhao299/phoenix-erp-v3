@@ -108,7 +108,7 @@ export default function DictPage() {
 
   const openEdit = (r: DictRow) => {
     setEdit(r); setCloned(null);
-    let cfg: any = null; try { cfg = r.config_json ? JSON.parse(r.config_json) : null; } catch {}
+    let cfg: Record<string, unknown> | null = null; try { cfg = r.config_json ? JSON.parse(r.config_json) : null; } catch {}
     setForm({ dict_code:r.dict_code, dict_type:r.dict_type, label_zh:r.dict_label_zh||r.name||"", label_lo:r.dict_label_lo||"", label_en:r.dict_label_en||"", sort_no:String(r.sort_no||0), cfg:cfg||{} });
     setOpen(true);
   };
@@ -141,10 +141,10 @@ export default function DictPage() {
     if (form.dict_type==="PKG_EGG_GRADE") config_json = JSON.stringify({ code:form.cfg?.code||"", nameZh:form.label_zh, weightRange:form.cfg?.weightRange||"—", saleable:form.cfg?.saleable!==false, productCode:form.cfg?.productCode||"", nameEn:form.label_en, nameLo:form.label_lo });
     else if (form.dict_type==="PKG_PACK_SPEC") config_json = JSON.stringify({ name:form.label_zh, capacity:Number(form.cfg?.capacity)||0, unit:form.cfg?.unit||"", requireBoxCode:form.cfg?.requireBoxCode!==false });
 
-    const payload: any = { name:form.label_zh, dict_label_zh:form.label_zh, dict_label_lo:form.label_lo, dict_label_en:form.label_en, dict_type:form.dict_type, sort_no:Number(form.sort_no)||0, status:"ACTIVE", ...(config_json!==undefined?{config_json}:{}) };
+    const payload: Record<string, unknown> = { name:form.label_zh, dict_label_zh:form.label_zh, dict_label_lo:form.label_lo, dict_label_en:form.label_en, dict_type:form.dict_type, sort_no:Number(form.sort_no)||0, status:"ACTIVE", ...(config_json!==undefined?{config_json}:{}) };
     setLoading(true);
     try {
-      let r: any;
+      let r: Record<string, unknown>;
       if (edit) {
         r = await fetch(`/api/crud/sys_dict/${edit.id}`, { method:"PUT", headers:hdr(), body:JSON.stringify(payload) }).then(x=>x.json());
       } else {
@@ -164,8 +164,8 @@ export default function DictPage() {
     if (r.code===200) { load(); toast.success(t("ui.已删除","已删除")); } else toast.error(r.msg || t("ui.删除失败","删除失败"));
   };
 
-  const f  = (k: string, v: any) => setForm(p=>({...p,[k]:v}));
-  const fc = (k: string, v: any) => setForm(p=>({...p, cfg:{...p.cfg,[k]:v}}));
+  const f  = (k: string, v: unknown) => setForm(p=>({...p,[k]:v}));
+  const fc = (k: string, v: unknown) => setForm(p=>({...p, cfg:{...p.cfg,[k]:v}}));
 
   const selColor = selected ? typeColor(selected) : "#3b82f6";
   const selLabel = selected ? (TYPE_LABEL[selected]||selected) : "";

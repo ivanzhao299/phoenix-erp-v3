@@ -32,10 +32,16 @@ const ENV_NAME: Record<string, string> = {
 const ENV_CODES = ['2001', '2083', '2002', '2003'];
 
 // ─── types ───────────────────────────────────────────────────────
+interface IotKpi     { code: string; title?: string; value?: number | null; unit?: string; status?: string; }
+interface IotHeader  { houseName?: string; houseCode?: string; flockNo?: string; flockSize?: number; }
+interface IotOverview { header?: IotHeader; kpis?: IotKpi[]; dataFreshness?: string; }
 interface IotAlarm   { id?: string | number; alarmName?: string; propertyName?: string; severity?: string; [key: string]: unknown; }
-interface IotSystem  { id?: string | number; systemName?: string; status?: string; [key: string]: unknown; }
-interface ChartPoint { time?: string | number; value?: number; [key: string]: unknown; }
-type TrendPoint = { value: number; collectTime: number };
+interface IotSystem  { code?: string; systemCode?: string; name?: string; status?: string; onlineRate?: number | null; sensorCount?: number; alarmCount?: number; [key: string]: unknown; }
+interface ChartPoint { time?: string | number; [key: string]: unknown; }
+type TrendPoint     = { value: number; collectTime: number };
+type TrendApiPoint  = { value?: number | null; collectTime: number | string };
+type TrendApiSeries = { propertyCode: string; name?: string; unit?: string; thresholdHigh?: number | null; thresholdLow?: number | null; points?: TrendApiPoint[] };
+type RechartsPayload = { payload?: Record<string, unknown> };
 type SeriesMeta = {
   code: string; name: string; unit: string; color: string;
   thresholdHigh: number | null; thresholdLow: number | null;
@@ -61,7 +67,7 @@ function Sparkline({ pts, color }: { pts: number[]; color: string }) {
 }
 
 // ─── Custom Recharts tooltip ──────────────────────────────────────
-function ChartTip({ active, payload, series }: { active?: boolean; payload?: any[]; series: SeriesMeta[] }) {
+function ChartTip({ active, payload, series }: { active?: boolean; payload?: RechartsPayload[]; series: SeriesMeta[] }) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload;
   return (
@@ -70,7 +76,7 @@ function ChartTip({ active, payload, series }: { active?: boolean; payload?: any
       padding: '8px 14px', fontSize: 11, boxShadow: '0 4px 16px rgba(0,0,0,.14)', minWidth: 200,
     }}>
       <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 12, color: 'var(--text-primary)' }}>
-        {row?.time}
+        {String(row?.time ?? '')}
       </div>
       {series.map(sm => {
         const raw = row?.[`_${sm.code}`];
@@ -107,7 +113,7 @@ export default function HouseDetailPage() {
   const { t } = useLanguage();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const [overview,     setOverview]     = useState<any>(null);
+  const [overview,     setOverview]     = useState<IotOverview | null>(null);
   const [systems,      setSystems]      = useState<IotSystem[]>([]);
   const [alarms,       setAlarms]       = useState<IotAlarm[]>([]);
   const [series,       setSeries]       = useState<SeriesMeta[]>([]);
@@ -120,7 +126,7 @@ export default function HouseDetailPage() {
   const [lastUpdate,   setLastUpdate]   = useState('');
 
   const kpis   = useMemo(() => overview?.kpis || [], [overview]);
-  const getKpi = (code: string) => kpis.find((k: any) => k.code === code);
+  const getKpi = (code: string) => kpis.find((k) => k.code === code);
 
   const SL: Record<string, string> = {
     normal:  t('status.normal',   '正常'),
@@ -141,10 +147,10 @@ export default function HouseDetailPage() {
   // Derived: overall health
   const overallStatus = useMemo(() => {
     if (!overview && !loading) return 'no_data';
-    if (alarms.some((a: any) => a.severity === 'critical')) return 'critical';
+    if (alarms.some((a) => a.severity === 'critical')) return 'critical';
     if (alarms.length > 0) return 'warning';
-    if (kpis.some((k: any) => k.status === 'critical')) return 'critical';
-    if (kpis.some((k: any) => k.status === 'warning')) return 'warning';
+    if (kpis.some((k) => k.status === 'critical')) return 'critical';
+    if (kpis.some((k) => k.status === 'warning')) return 'warning';
     return overview ? 'normal' : 'no_data';
   }, [overview, alarms, kpis, loading]);
 
@@ -198,10 +204,10 @@ export default function HouseDetailPage() {
           : d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
       };
 
-      const metas: SeriesMeta[] = (json.data.series as any[]).flatMap((s: any) => {
+      const metas: SeriesMeta[] = (json.data.series as TrendApiSeries[]).flatMap((s) => {
         const pts: TrendPoint[] = (s.points || [])
-          .filter((p: any) => p.value != null)
-          .map((p: any) => ({
+          .filter((p) => p.value != null)
+          .map((p) => ({
             value: Number(p.value),
             collectTime: Number(p.collectTime) > 1e11
               ? Number(p.collectTime)
@@ -224,7 +230,7 @@ export default function HouseDetailPage() {
       setSeries(metas);
 
       // Build Recharts rows: normalised 0-100 for shared Y axis, raw for tooltip
-      const timeMap: Record<string, any> = {};
+      const timeMap: Record<string, ChartPoint> = {};
       metas.forEach(sm => {
         const range = sm.max - sm.min || 1;
         sm.points.forEach(p => {
@@ -332,7 +338,7 @@ export default function HouseDetailPage() {
               <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
                 · {overview.header.houseName}
                 {overview.header.flockNo && ` · ${t('ui.批次', '批次')}${overview.header.flockNo}`}
-                {overview.header.flockSize > 0 &&
+                {(overview.header.flockSize ?? 0) > 0 &&
                   ` · ${t('ui.存栏', '存栏')} ${Number(overview.header.flockSize).toLocaleString()} ${t('ui.只', '只')}`}
               </span>
             )}
@@ -367,7 +373,7 @@ export default function HouseDetailPage() {
             {alarms.length} {t('ui.个活跃告警', '个活跃告警')}
           </span>
           <span style={{ color: 'var(--text-secondary)', fontSize: 12, marginLeft: 2 }}>
-            {alarms.map((a: any) => a.alarmName || a.propertyName).slice(0, 4).join(' · ')}
+            {alarms.map((a) => a.alarmName || a.propertyName).slice(0, 4).join(' · ')}
             {alarms.length > 4 && ` +${alarms.length - 4}`}
           </span>
         </div>
@@ -526,12 +532,12 @@ export default function HouseDetailPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(156px,1fr))', gap: 10, marginBottom: 24 }}>
         {loading ? [1,2,3,4,5].map(i => (
           <div key={i} className={s.shimmer} style={{ height: 88, borderRadius: 'var(--radius-md)' }} />
-        )) : systems.length > 0 ? systems.map((sys: any) => {
-          const cfg   = SYS_CFG[sys.code || sys.systemCode] || { name: sys.name || sys.code, icon: '⚙️' };
-          const color = SC[sys.status] || '#94a3b8';
+        )) : systems.length > 0 ? systems.map((sys) => {
+          const cfg   = SYS_CFG[sys.code ?? sys.systemCode ?? ''] || { name: sys.name || sys.code || '', icon: '⚙️' };
+          const color = SC[sys.status || 'no_data'] || '#94a3b8';
           const rate  = sys.onlineRate != null ? Math.round(sys.onlineRate * 100) : null;
           return (
-            <div key={sys.code || sys.systemCode} style={{
+            <div key={sys.code ?? sys.systemCode ?? ''} style={{
               background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', padding: '12px 14px',
               border: `1px solid color-mix(in srgb,${color} 22%,var(--border))`,
               borderLeft: `3px solid ${color}`,
@@ -540,7 +546,7 @@ export default function HouseDetailPage() {
                 <span style={{ fontSize: 12, fontWeight: 700 }}>{cfg.icon} {cfg.name}</span>
                 <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 8,
                   background: `color-mix(in srgb,${color} 12%,transparent)`, color }}>
-                  {SL[sys.status] || sys.status}
+                  {SL[sys.status || 'no_data'] || sys.status}
                 </span>
               </div>
               {rate != null && (
@@ -550,8 +556,8 @@ export default function HouseDetailPage() {
               )}
               <div style={{ fontSize: 10, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
                 <span>{t('ui.传感器', '传感器')} {sys.sensorCount || 0}{t('ui.个', '个')}</span>
-                {sys.alarmCount > 0 && (
-                  <span style={{ color: '#ef4444', fontWeight: 700 }}>⚠ {sys.alarmCount}</span>
+                {(sys.alarmCount ?? 0) > 0 && (
+                  <span style={{ color: '#ef4444', fontWeight: 700 }}>⚠ {sys.alarmCount ?? 0}</span>
                 )}
               </div>
             </div>
@@ -596,8 +602,8 @@ export default function HouseDetailPage() {
                   ].map(h => <th key={h}>{h}</th>)}</tr>
                 </thead>
                 <tbody>
-                  {kpis.map((k: any) => {
-                    const color = SC[k.status] || '#94a3b8';
+                  {kpis.map((k) => {
+                    const color = SC[k.status || 'no_data'] || '#94a3b8';
                     return (
                       <tr key={k.code}>
                         <td style={{ fontWeight: 600 }}>{k.title || k.code}</td>
@@ -608,7 +614,7 @@ export default function HouseDetailPage() {
                         <td>
                           <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
                             background: `color-mix(in srgb,${color} 12%,transparent)`, color }}>
-                            {SL[k.status] || k.status}
+                            {SL[k.status || 'no_data'] || k.status}
                           </span>
                         </td>
                         <td style={{ fontSize: 11, color: 'var(--text-secondary)' }}>

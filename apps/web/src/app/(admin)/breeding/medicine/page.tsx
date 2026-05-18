@@ -84,10 +84,11 @@ export default function MedicinePage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const handleEdit = (row: any) => {
-    const r = row._raw || {};
-    setEditId(row.id);
-    setForm({ batchNo:r.batch_no||'', farmHouse:r.farm_house||'', medicine:r.medicine||'', disease:r.disease||'', startDate:r.start_date||'', daysUsed:r.days_used!=null?String(r.days_used):'5', withdrawDays:r.withdraw_days!=null?String(r.withdraw_days):'7', dose:r.dose||'' });
+  const handleEdit = (row: MedicineRecord) => {
+    const r = (row._raw || {}) as Record<string, string | number | null>;
+    setEditId(row.id as number);
+    const s = (v: string | number | null, fb = '') => v != null ? String(v) : fb;
+    setForm({ batchNo:s(r.batch_no), farmHouse:s(r.farm_house), medicine:s(r.medicine), disease:s(r.disease), startDate:s(r.start_date), daysUsed:s(r.days_used, '5'), withdrawDays:s(r.withdraw_days, '7'), dose:s(r.dose) });
     setShowDrawer(true);
   };
 
@@ -146,10 +147,10 @@ export default function MedicinePage() {
     { key:'endDate',      title: t('ui.结束日期', '结束日期'), width:'100px' },
     { key:'daysUsed',     title: t('ui.用药天数', '用药天数'), width:'80px',  render: (v: any) => `${v} ${t('ui.天','天')}` },
     { key:'withdrawDays', title: t('ui.停药期', '停药期'),     width:'80px',  render: (v: any) => `${v} ${t('ui.天','天')}` },
-    { key:'clearDate',    title: t('ui.解禁日期', '解禁日期'), width:'100px', render: (v: any, row: any) => <span style={{ fontWeight:600, color: row.status==='inWithdrawal'?'var(--status-danger)':'var(--status-success)' }}>{v}</span> },
+    { key:'clearDate',    title: t('ui.解禁日期', '解禁日期'), width:'100px', render: (v: any, row: MedicineRecord) => <span style={{ fontWeight:600, color: row.status==='inWithdrawal'?'var(--status-danger)':'var(--status-success)' }}>{v}</span> },
     { key:'status',       title: t('common.status', '状态'),   width:'110px', render: (v: any) => { const st=STATUS_CONF[v]||{status:'default',label:v}; return <StatusBadge status={st.status} label={st.label} />; } },
     { key:'executor',     title: t('ui.兽医', '兽医'),         width:'70px'  },
-    { key:'actions',      title: t('common.operation', '操作'), width:'70px',  render: (_: any, row: any) => can(['ROLE_VET','ROLE_FARM_MGR','ROLE_ADMIN']) ? (
+    { key:'actions',      title: t('common.operation', '操作'), width:'70px',  render: (_: any, row: MedicineRecord) => can(['ROLE_VET','ROLE_FARM_MGR','ROLE_ADMIN']) ? (
       <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>
     ) : null },
   ];

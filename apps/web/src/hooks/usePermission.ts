@@ -52,7 +52,7 @@ export type PermResult = {
   /** 单键权限检查（兼容旧 hasPerm('key') 用法） */
   hasPerm: (key: string) => boolean;
   /** 当前用户对象 */
-  user: any;
+  user: Record<string, unknown>;
   /** 当前主角色 */
   role: string;
   /** 所有角色数组 */

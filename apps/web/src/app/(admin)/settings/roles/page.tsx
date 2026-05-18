@@ -137,9 +137,9 @@ const TYPE_META_FALLBACK = { label: "其他", color: "#94a3b8", emoji: "📁", o
 const tok = () => (typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : "");
 const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${tok()}` });
 const apiGet = (path: string) => fetch(path, { headers: hdr() }).then((r) => r.json());
-const apiPost = (path: string, body: any) =>
+const apiPost = (path: string, body: Record<string, unknown>) =>
   fetch(path, { method: "POST", headers: hdr(), body: JSON.stringify(body) }).then((r) => r.json());
-const apiPut = (path: string, body: any) =>
+const apiPut = (path: string, body: Record<string, unknown>) =>
   fetch(path, { method: "PUT", headers: hdr(), body: JSON.stringify(body) }).then((r) => r.json());
 
 // ─────────────────────────────────────────────────────────────────────────

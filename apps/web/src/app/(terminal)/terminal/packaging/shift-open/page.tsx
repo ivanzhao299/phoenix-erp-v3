@@ -125,7 +125,7 @@ export default function ShiftOpenPage() {
         // 今日已有开放班次 → 直接加载现有班次写入 context
         if (err?.message?.includes('已有开放班次') || err?.message?.includes('already')) {
           const shifts = await packagingApi.getTodayShifts();
-          const existing = Array.isArray(shifts) ? shifts.find((s: any) => s.status === 'OPEN') : null;
+          const existing = Array.isArray(shifts) ? shifts.find((s: Record<string, unknown>) => s.status === 'OPEN') : null;
           if (existing) raw = existing;
         } else {
           throw err;
