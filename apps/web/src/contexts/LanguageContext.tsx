@@ -11,7 +11,14 @@ const loadLocale = async (lang: string) => {
   }
 };
 
-const LanguageContext = createContext<any>(null);
+type LanguageContextValue = {
+  lang: string;
+  setAppLanguage: (lang: string) => void;
+  toggleLanguage: () => void;
+  t: (key: string, fallback?: string) => string;
+  tField: (obj: Record<string, unknown>, fieldBase: string) => string;
+};
+const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 export const LanguageProvider = ({ children }: { children: React.ReactNode }) => {
   const [lang, setLang] = useState<string>(() => {
@@ -20,7 +27,7 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
     return localStorage.getItem('phoenix_lang') || 'zh';
   });
 
-  const [translations, setTranslations] = useState<Record<string, any>>({});
+  const [translations, setTranslations] = useState<Record<string, string>>({});
 
   React.useEffect(() => {
     loadLocale(lang).then(setTranslations);
@@ -55,4 +62,8 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
   );
 };
 
-export const useLanguage = () => useContext(LanguageContext);
+export const useLanguage = (): LanguageContextValue => {
+  const ctx = useContext(LanguageContext);
+  if (!ctx) throw new Error('useLanguage must be used within LanguageProvider');
+  return ctx;
+};

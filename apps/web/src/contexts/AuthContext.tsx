@@ -1,7 +1,35 @@
 'use client';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-const AuthContext = createContext<any>(null);
+type AuthUser = {
+  id?: string | number;
+  username?: string;
+  name?: string;
+  role?: string;
+  roles?: string[];
+  permissions?: string[];
+  lang?: string;
+  [key: string]: unknown;
+};
+
+type AuthContextValue = {
+  user: AuthUser | null;
+  token: string | null;
+  isLoggedIn: boolean;
+  loading: boolean;
+  login: (tokenStr: string, userInfo: Record<string, unknown>) => void;
+  logout: () => void;
+  hasPermission: (menuCode?: string | null, permCode?: string) => boolean;
+  hasRole: (...roleCodes: string[]) => boolean;
+  canView: (m: string) => boolean;
+  canCreate: (m: string) => boolean;
+  canEdit: (m: string) => boolean;
+  canDelete: (m: string) => boolean;
+  canApprove: (m: string) => boolean;
+  canExport: (m: string) => boolean;
+};
+
+const AuthContext = createContext<AuthContextValue | null>(null);
 
 const SESSION_VERSION = 'v6'; // v6: force-clear sessions stored by pre-fixed login page
 
@@ -50,7 +78,7 @@ export function hasMenuPerm(
 }
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser]       = useState<any>(null);
+  const [user, setUser]       = useState<AuthUser | null>(null);
   const [token, setToken]     = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -252,7 +280,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-export const useAuth = () => {
+export const useAuth = (): AuthContextValue => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;

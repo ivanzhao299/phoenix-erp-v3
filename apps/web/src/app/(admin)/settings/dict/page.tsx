@@ -153,7 +153,7 @@ export default function DictPage() {
       if (r.code===200 || r.dict_code || r.id) {
         setOpen(false); setEdit(null); load(); toast.success(edit ? t("ui.更新成功","更新成功") : t("ui.创建成功","创建成功"));
         if (!edit) setSelected(form.dict_type); // jump to newly created type
-      } else toast.error(r.msg || t("ui.操作失败","操作失败"));
+      } else toast.error((r.msg as string | undefined) || t("ui.操作失败","操作失败"));
     } finally { setLoading(false); }
   };
 

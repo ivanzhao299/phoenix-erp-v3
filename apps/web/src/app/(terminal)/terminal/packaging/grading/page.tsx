@@ -167,7 +167,7 @@ export default function GradingPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 80, overflowY: 'auto' }}>
             {collections.map((b, i) => (
               <div key={i} style={{ fontSize: 11, color: T.MUT, whiteSpace: 'nowrap' }}>
-                {b.house_name || b.houseCode || b.house_code} · {Number(b.received_qty ?? 0).toLocaleString()} {t('ui.枚', '枚')}
+                {String(b.house_name || b.houseCode || b.house_code || '')} · {Number(b.received_qty ?? 0).toLocaleString()} {t('ui.枚', '枚')}
               </div>
             ))}
           </div>
