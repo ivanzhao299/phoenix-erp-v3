@@ -40,6 +40,7 @@ export default function EggCollectionPage() {
   const [numPadField, setNumPadField] = useState<NumField>('total');
   const [records, setRecords] = useState<CollectionRecord[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     crudApi.list<House>('brd_houses', { limit: 50 } as never)
@@ -81,6 +82,7 @@ export default function EggCollectionPage() {
   const handleSubmit = async () => {
     if (!canSubmit || !selectedHouse) return;
     setSubmitting(true);
+    setSubmitError('');
     try {
       const today = new Date().toISOString().slice(0, 10);
       await packagingApi.receiveBatch({
@@ -107,7 +109,7 @@ export default function EggCollectionPage() {
       setCrackedQty('');
       setNumPadField('total');
     } catch (e) {
-      console.error('集蛋录入失败', e);
+      setSubmitError((e as Error).message || '提交失败，请重试');
     } finally {
       setSubmitting(false);
     }
@@ -361,7 +363,12 @@ export default function EggCollectionPage() {
           {submitting ? t('ui.提交中', '提交中...') : `✓ ${t('ui.确认录入', '确认录入')} ${selectedHouse?.house_name ?? ''}`}
         </button>
 
-        <div style={{ flex: 1 }} />
+        {submitError && (
+          <div style={{ flex: 1, fontSize: 13, color: T.RED, fontWeight: 600 }}>
+            ⚠️ {submitError}
+          </div>
+        )}
+        {!submitError && <div style={{ flex: 1 }} />}
 
         {records.length > 0 && (
           <button type="button" onClick={() => router.push('/terminal/packaging/grading')}
