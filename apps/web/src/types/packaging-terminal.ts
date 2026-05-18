@@ -13,7 +13,7 @@ export type TerminalRole =
 
 /** 具有终端自动跳转权限的角色集合 */
 export const TERMINAL_AUTO_ROLES: string[] = [
-  'ROLE_PKG_OPERATOR',
+  'ROLE_PKG_OP',
   'ROLE_QC_INSPECTOR',
   'ROLE_WH_CLERK',
   'ROLE_LINE_SUPERVISOR',
@@ -339,12 +339,12 @@ export interface TerminalContext {
 /** 每个步骤哪些角色可以操作（不在列表中的只能查看）*/
 export const STEP_ALLOWED_ROLES: Record<string, string[]> = {
   'shift-open':          ['ROLE_LINE_SUPERVISOR'],
-  'source-receive':      ['ROLE_PKG_OPERATOR', 'ROLE_LINE_SUPERVISOR'],
+  'source-receive':      ['ROLE_PKG_OP', 'ROLE_LINE_SUPERVISOR'],
   'qc-inspection':       ['ROLE_QC_INSPECTOR', 'ROLE_LINE_SUPERVISOR'],
-  'grading':             ['ROLE_PKG_OPERATOR', 'ROLE_LINE_SUPERVISOR'],
-  'packing':             ['ROLE_PKG_OPERATOR', 'ROLE_LINE_SUPERVISOR'],
-  'label-print':         ['ROLE_PKG_OPERATOR', 'ROLE_LINE_SUPERVISOR'],
+  'grading':             ['ROLE_PKG_OP', 'ROLE_LINE_SUPERVISOR'],
+  'packing':             ['ROLE_PKG_OP', 'ROLE_LINE_SUPERVISOR'],
+  'label-print':         ['ROLE_PKG_OP', 'ROLE_LINE_SUPERVISOR'],
   'warehouse-handover':  ['ROLE_WH_CLERK', 'ROLE_LINE_SUPERVISOR'],
-  'exceptions':          ['ROLE_PKG_OPERATOR', 'ROLE_QC_INSPECTOR', 'ROLE_WH_CLERK', 'ROLE_LINE_SUPERVISOR'],
+  'exceptions':          ['ROLE_PKG_OP', 'ROLE_QC_INSPECTOR', 'ROLE_WH_CLERK', 'ROLE_LINE_SUPERVISOR'],
   'shift-close':         ['ROLE_LINE_SUPERVISOR'],
 };

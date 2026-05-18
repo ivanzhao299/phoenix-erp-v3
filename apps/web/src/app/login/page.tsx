@@ -30,7 +30,7 @@ const TEST_GROUPS = IS_DEV ? [
     { u: "test_buyer",p: "123456", label: "🛒 采购专员", sub: "ROLE_PRC_BUYER" },
   ]},
   { label: "🖥️ 现场作业台（Terminal自动跳转）", color: { bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.3)", text: "#d97706" }, accounts: [
-    { u: "test_pkg_op",  p: "123456", label: "📦 包装操作员",  sub: "ROLE_PKG_OPERATOR"    },
+    { u: "test_pkg_op",  p: "123456", label: "📦 包装操作员",  sub: "ROLE_PKG_OP"    },
     { u: "test_qc",      p: "123456", label: "🔍 质检员",      sub: "ROLE_QC_INSPECTOR"    },
     { u: "test_wh_clk",  p: "123456", label: "🏭 仓管员",      sub: "ROLE_WH_CLERK"        },
     { u: "test_sup",     p: "123456", label: "👷 班组长",      sub: "ROLE_LINE_SUPERVISOR" },
@@ -50,7 +50,7 @@ const TEST_GROUPS = IS_DEV ? [
 
 // 现场作业角色 → 自动进入 Terminal（无感跳转）
 const TERMINAL_ROLES = new Set([
-  "ROLE_PKG_OPERATOR",    // 包装操作员
+  "ROLE_PKG_OP",    // 包装操作员
   "ROLE_QC_INSPECTOR",    // 质检员
   "ROLE_WH_CLERK",        // 仓管员
   "ROLE_LINE_SUPERVISOR", // 班组长
@@ -64,7 +64,7 @@ const ROLE_HOME: Record<string,string> = {
   ROLE_STORE_MGR: "/store", ROLE_CASHIER: "/pos", ROLE_SALES_REP: "/order",
   ROLE_FIN_CFO: "/finance", ROLE_FIN_ACCT: "/finance",
   // 现场作业角色 → Terminal 作业台
-  ROLE_PKG_OPERATOR:    "/terminal/packaging/dashboard",
+  ROLE_PKG_OP:    "/terminal/packaging/dashboard",
   ROLE_QC_INSPECTOR:    "/terminal/packaging/dashboard",
   ROLE_WH_CLERK:        "/terminal/packaging/dashboard",
   ROLE_LINE_SUPERVISOR: "/terminal/packaging/dashboard",
@@ -126,8 +126,11 @@ function LoginInner() {
       // 优先跳回 middleware 附带的 returnUrl，其次走角色首页
       // 特例：returnUrl 是通用 /dashboard（根路径兜底重定向产生）且该角色有专属首页时，
       // 角色首页优先，避免 terminal 操作员被送到管理后台
-      const returnUrl = sp.get("return");
-      const roleDest  = ROLE_HOME[info?.role] || "/dashboard";
+      const returnUrl    = sp.get("return");
+      // 与 login() 保持一致：优先 role 字段，其次 roles[0]
+      const effectiveRole = info?.role || info?.roles?.[0] || "";
+      const roleDest      = ROLE_HOME[effectiveRole] || "/dashboard";
+      // returnUrl='/dashboard' 是 middleware 对 '/' 的通用兜底，不代表真实意图
       const isGenericDashboard = returnUrl === "/dashboard";
       const dest = (returnUrl && returnUrl.startsWith("/") && !isGenericDashboard)
         ? returnUrl

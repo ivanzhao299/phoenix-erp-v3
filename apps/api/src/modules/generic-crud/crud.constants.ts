@@ -81,13 +81,13 @@ export const TABLE_PERM_MAP: Record<string, string[]> = {
   brd_medications:        ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_VET'],
 
   // 包装 Terminal 作业台表（现场角色可读写）
-  pkg_work_shifts:       ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_PKG_OPERATOR', 'ROLE_LINE_SUPERVISOR'],
-  pkg_source_batches:    ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_PKG_OPERATOR', 'ROLE_QC_INSPECTOR', 'ROLE_LINE_SUPERVISOR', 'ROLE_WH_CLERK'],
+  pkg_work_shifts:       ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_PKG_OP', 'ROLE_LINE_SUPERVISOR'],
+  pkg_source_batches:    ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_PKG_OP', 'ROLE_QC_INSPECTOR', 'ROLE_LINE_SUPERVISOR', 'ROLE_WH_CLERK'],
   pkg_qc_inspections:    ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_QC_INSPECTOR', 'ROLE_LINE_SUPERVISOR'],
-  pkg_label_print_logs:  ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_PKG_OPERATOR', 'ROLE_LINE_SUPERVISOR'],
+  pkg_label_print_logs:  ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_PKG_OP', 'ROLE_LINE_SUPERVISOR'],
   pkg_audit_logs:        ['ROLE_ADMIN', 'ROLE_PKG_MGR'],
-  pkg_grading_records:   ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_PKG_OPERATOR', 'ROLE_LINE_SUPERVISOR'],
-  pkg_packing_records:   ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_PKG_OPERATOR', 'ROLE_LINE_SUPERVISOR'],
+  pkg_grading_records:   ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_PKG_OP', 'ROLE_LINE_SUPERVISOR'],
+  pkg_packing_records:   ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_PKG_OP', 'ROLE_LINE_SUPERVISOR'],
   pkg_handover_records:  ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_WH_CLERK', 'ROLE_LINE_SUPERVISOR'],
 
   // 仓储与库存
