@@ -1002,7 +1002,10 @@ export class PackagingTerminalBffController {
   @Post('source-batches/receive')
   async receiveBatch(@Body() body: any, @Req() req: any) {
     const today = this.today;
-    const batchCode = body.batchCode || body.code;
+    const houseSlug = (body.houseCode || body.house_code || 'X')
+      .toString().replace(/\s+/g, '').toUpperCase().slice(0, 8);
+    const autoCode = `SRC-${today.replace(/-/g, '')}-${houseSlug}-${Date.now().toString(36).slice(-4).toUpperCase()}`;
+    const batchCode = body.batchCode || body.code || autoCode;
     const operatorId = req.user?.id || req.user?.user_id;
 
     // 检查是否已接收（仅检查 status != PENDING_RECEIVE 的记录，避免误判种子数据）
