@@ -36,6 +36,15 @@ type RuntimeSchema = {
 };
 type DirectoryOption = { label: string; value: string };
 type CheckItem = { label: string; detail: string; ok: boolean; level: "error" | "warn" | "ok" };
+type RoutePresetKind = "simple" | "two_level" | "amount_branch" | "approval_cc";
+type RoutePresetAdvice = {
+  kind: RoutePresetKind;
+  label: string;
+  description: string;
+  reason: string;
+  enabled: boolean;
+  recommended: boolean;
+};
 
 const defaultNodes: WorkflowNode[] = [
   { id: "start", type: "start", name: "发起申请", x: 80, y: 140 },
@@ -68,6 +77,12 @@ const operators = [
   { label: "小于等于", value: "<=" },
   { label: "包含", value: "contains" },
 ] as const;
+const presetMeta: Record<RoutePresetKind, { label: string; description: string }> = {
+  simple: { label: "单级审批", description: "适合请假、普通备案、低风险申请。" },
+  two_level: { label: "两级审批", description: "适合跨部门、库存、质量、门店类流程。" },
+  amount_branch: { label: "金额分支", description: "适合付款、报销、采购、合同等金额类流程。" },
+  approval_cc: { label: "审批后抄送", description: "适合审批完成后需要财务、仓储或管理层知会。" },
+};
 
 export default function WorkflowDesignerPage() {
   const params = useParams<{ id: string }>();
@@ -124,6 +139,8 @@ export default function WorkflowDesignerPage() {
     [nodes, edges, formVersionId, fieldOptions, roleOptions, userOptions],
   );
   const blockingProblems = designerChecks.filter(item => item.level === "error" && !item.ok);
+  const routePresetAdvice = buildRoutePresetAdvice(selectedForm, fieldOptions);
+  const recommendedPreset = routePresetAdvice.find(item => item.recommended) || routePresetAdvice[0];
 
   useEffect(() => {
     if (!selectedForm) return;
@@ -203,7 +220,13 @@ export default function WorkflowDesignerPage() {
     setSelectedEdge(Math.max(0, index - 1));
   }
 
-  function applyRoutePreset(kind: "simple" | "two_level" | "amount_branch" | "approval_cc") {
+  function applyRoutePreset(kind: RoutePresetKind) {
+    const advice = routePresetAdvice.find(item => item.kind === kind);
+    if (advice && !advice.enabled) {
+      setError(`${advice.label}不适合当前表单：${advice.reason}`);
+      setMsg("请先切换到含金额/数字字段的表单，或选择系统推荐的路线。");
+      return;
+    }
     const sysRole = pickRole(roleOptions, ["系统", "管理"], "ROLE_SYSOPS");
     const financeRole = pickRole(roleOptions, ["财务"], "ROLE_FIN_ACCT");
     const managerRole = pickRole(roleOptions, ["负责人", "主管", "经理"], sysRole);
@@ -255,8 +278,13 @@ export default function WorkflowDesignerPage() {
     setEdges(nextEdges);
     setSelectedNode(1);
     setSelectedEdge(0);
-    setMsg("已套用路线模板，可以继续微调审批人和条件。");
+    setMsg(`已套用${advice?.label || "路线模板"}，${advice?.reason || "可以继续微调审批人和条件。"}`);
     setError("");
+  }
+
+  function applyRecommendedRoute() {
+    if (!recommendedPreset) return;
+    applyRoutePreset(recommendedPreset.kind);
   }
 
   function tidyLayout() {
@@ -398,16 +426,42 @@ export default function WorkflowDesignerPage() {
             <span>{roleOptions.length} 个角色 · {userOptions.length} 个用户会自动从系统数据源读取</span>
           </div>
           <div style={presetBoxStyle}>
-            <strong>路线模板</strong>
-            <button type="button" className={s.tabPill} onClick={() => applyRoutePreset("simple")}>单级审批</button>
-            <button type="button" className={s.tabPill} onClick={() => applyRoutePreset("two_level")}>两级审批</button>
-            <button type="button" className={s.tabPill} onClick={() => applyRoutePreset("amount_branch")}>金额分支</button>
-            <button type="button" className={s.tabPill} onClick={() => applyRoutePreset("approval_cc")}>审批后抄送</button>
+            <div style={presetHeaderStyle}>
+              <strong>路线模板</strong>
+              <span>{selectedForm ? `已按「${selectedForm.name}」推荐` : "绑定表单后会自动推荐"}</span>
+            </div>
+            <div style={presetGridStyle}>
+              {routePresetAdvice.map(preset => (
+                <button
+                  key={preset.kind}
+                  type="button"
+                  style={{
+                    ...presetButtonStyle,
+                    borderColor: preset.recommended ? "var(--color-primary)" : "var(--border)",
+                    opacity: preset.enabled ? 1 : 0.56,
+                    cursor: preset.enabled ? "pointer" : "not-allowed",
+                  }}
+                  disabled={!preset.enabled}
+                  title={preset.reason}
+                  onClick={() => applyRoutePreset(preset.kind)}
+                >
+                  <span className={`${s.badge} ${preset.recommended ? s.badgeSuccess : preset.enabled ? s.badgeInfo : s.badgeWarning}`}>
+                    {preset.recommended ? "推荐" : preset.enabled ? "可用" : "不适合"}
+                  </span>
+                  <strong>{preset.label}</strong>
+                  <small>{preset.description}</small>
+                  <em>{preset.reason}</em>
+                </button>
+              ))}
+            </div>
           </div>
           <div style={assistantBoxStyle}>
             <strong>智能整理</strong>
             <span>自动补齐缺失表单、审批人、无效连线和条件默认路线。</span>
-            <button type="button" className={`${s.btnPrimary} ${s.btnSm}`} onClick={autoCompleteForPublish}>一键补齐发布条件</button>
+            <div style={assistantActionStyle}>
+              <button type="button" className={`${s.btnPrimary} ${s.btnSm}`} onClick={applyRecommendedRoute}>按表单推荐路线</button>
+              <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={autoCompleteForPublish}>一键补齐发布条件</button>
+            </div>
           </div>
           <div style={stepListStyle}>
             {mainPath.map((node, index) => {
@@ -760,6 +814,13 @@ function buildDesignerChecks(
   });
   const conditionEdges = edges.filter(edge => edge.condition);
   const invalidConditionEdges = conditionEdges.filter(edge => !edge.condition?.field || (fieldKeys.size > 0 && !fieldKeys.has(edge.condition.field)));
+  const fieldTypes = new Map((fields || []).map(field => [field.key, field.type]));
+  const numericOperators = new Set(["<", "<=", ">", ">="]);
+  const semanticMismatches = conditionEdges.filter(edge => {
+    if (!edge.condition || !numericOperators.has(edge.condition.operator)) return false;
+    const fieldType = fieldTypes.get(edge.condition.field);
+    return Boolean(fieldType && fieldType !== "number" && fieldType !== "amount");
+  });
   const conditionNodes = nodes.filter(node => node.type === "condition");
   const conditionWithoutFallback = conditionNodes.filter(node => {
     const outgoing = edges.filter(edge => edge.from === node.id);
@@ -804,6 +865,12 @@ function buildDesignerChecks(
       detail: invalidConditionEdges.length ? "有条件规则使用了不存在的表单字段。" : "条件规则字段可以在表单中找到。",
     },
     {
+      label: "业务语义",
+      ok: semanticMismatches.length === 0,
+      level: "warn",
+      detail: semanticMismatches.length ? "数值比较建议使用金额或数字字段，避免请假原因、类型等文本字段参与大小判断。" : "条件判断和字段类型匹配。",
+    },
+    {
       label: "条件兜底",
       ok: conditionWithoutFallback.length === 0,
       level: "warn",
@@ -816,6 +883,52 @@ function buildDesignerChecks(
       detail: hasEndPath ? "按当前主路线可以走到流程完成。" : "当前主路线无法到达完成节点。",
     },
   ];
+}
+
+function buildRoutePresetAdvice(form: WorkflowForm | undefined, fields: RuntimeSchema["fields"]): RoutePresetAdvice[] {
+  const category = String(form?.category || "").toUpperCase();
+  const formText = `${form?.name || ""} ${form?.description || ""} ${category}`;
+  const hasAmountField = (fields || []).some(field => {
+    const fieldText = `${field.key} ${field.label} ${field.type}`.toLowerCase();
+    return field.type === "amount" || field.type === "number" || /amount|money|fee|cost|price|payment|pay|total/.test(fieldText) || /金额|费用|付款|采购|合同|成本|价格|总额/.test(fieldText);
+  });
+  const amountCategory = ["FINANCE", "PURCHASE", "CONTRACT"].includes(category) || /付款|费用|报销|采购|合同|金额|财务/.test(formText);
+  const peopleCategory = category === "HR" || /请假|人事|假期/.test(formText);
+  const operationCategory = ["QUALITY", "WMS", "STORE", "FARM", "LOGISTICS"].includes(category) || /质量|库存|仓储|门店|养殖|物流|运输|异常/.test(formText);
+  const amountEnabled = hasAmountField || amountCategory;
+  const recommendedKind: RoutePresetKind = amountEnabled && amountCategory
+    ? "amount_branch"
+    : peopleCategory
+      ? "simple"
+      : operationCategory
+        ? "two_level"
+        : "simple";
+
+  return (Object.keys(presetMeta) as RoutePresetKind[]).map(kind => {
+    let enabled = true;
+    let reason = "适合当前表单，可直接套用后微调审批人。";
+    if (kind === "amount_branch" && !amountEnabled) {
+      enabled = false;
+      reason = "当前表单没有金额或数字字段，不建议做金额大小分支。";
+    } else if (kind === "amount_branch") {
+      reason = hasAmountField ? "检测到金额/数字字段，可按阈值自动分流。" : "当前业务属于金额类场景，可先套用再绑定金额字段。";
+    } else if (kind === "simple" && peopleCategory) {
+      reason = "请假/人事类流程通常先用单级审批，后续再加抄送即可。";
+    } else if (kind === "two_level" && operationCategory) {
+      reason = "运营类流程建议先经过负责人，再做最终确认。";
+    } else if (kind === "approval_cc") {
+      reason = "审批完成后需要知会财务、仓储或管理层时使用。";
+    }
+
+    return {
+      kind,
+      label: presetMeta[kind].label,
+      description: presetMeta[kind].description,
+      reason,
+      enabled,
+      recommended: kind === recommendedKind,
+    };
+  });
 }
 
 function validateDesigner(
@@ -1020,8 +1133,12 @@ const toolbarStyle: React.CSSProperties = { display: "flex", alignItems: "flex-s
 const toolbarActionsStyle: React.CSSProperties = { display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" };
 const addBarStyle: React.CSSProperties = { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 };
 const directoryHintStyle: React.CSSProperties = { display: "grid", gap: 4, padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)", color: "var(--text-secondary)", fontSize: 12, marginBottom: 12 };
-const presetBoxStyle: React.CSSProperties = { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", marginBottom: 12 };
+const presetBoxStyle: React.CSSProperties = { display: "grid", gap: 10, padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", marginBottom: 12 };
+const presetHeaderStyle: React.CSSProperties = { display: "grid", gap: 4, color: "var(--text-secondary)", fontSize: 12 };
+const presetGridStyle: React.CSSProperties = { display: "grid", gap: 8 };
+const presetButtonStyle: React.CSSProperties = { display: "grid", gap: 6, textAlign: "left", padding: 10, borderWidth: 1, borderStyle: "solid", borderColor: "var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)", color: "var(--text-primary)" };
 const assistantBoxStyle: React.CSSProperties = { display: "grid", gap: 8, padding: 10, border: "1px solid var(--color-primary)", borderRadius: "var(--radius-md)", background: "rgba(31,56,100,0.06)", color: "var(--text-primary)", fontSize: 12, lineHeight: 1.6, marginBottom: 12 };
+const assistantActionStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr", gap: 8 };
 const stepListStyle: React.CSSProperties = { display: "grid", gap: 8 };
 const stepButtonStyle: React.CSSProperties = { display: "grid", gap: 6, textAlign: "left", padding: 12, borderWidth: 1, borderStyle: "solid", borderColor: "var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)", color: "var(--text-primary)", cursor: "pointer" };
 const checkPanelStyle: React.CSSProperties = { padding: 14, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)", marginBottom: 14 };
