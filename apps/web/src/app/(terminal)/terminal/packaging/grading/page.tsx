@@ -168,7 +168,7 @@ export default function GradingPage() {
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: T.BG, overflow: 'hidden' }}>
 
-      {/* Cursor blink animation */}
+      {/* Cursor blink — visibility toggle so the span always occupies space (no layout shift) */}
       <style>{`
         @keyframes _grading_blink {
           0%,49%  { opacity: 1; }
@@ -177,8 +177,11 @@ export default function GradingPage() {
         ._grading_cursor {
           display: inline-block;
           width: 3px;
-          margin-left: 3px;
+          margin-left: 4px;
           border-radius: 2px;
+          flex-shrink: 0;
+        }
+        ._grading_cursor._active {
           animation: _grading_blink 1s step-end infinite;
         }
       `}</style>
@@ -251,29 +254,42 @@ export default function GradingPage() {
                     style={{
                       background: isSelected ? `${color}18` : T.CARD,
                       borderRadius: 16,
-                      padding: '18px 12px',
                       border: `2px solid ${isSelected ? color : qty > 0 ? `${color}50` : T.BOR}`,
                       cursor: 'pointer', textAlign: 'center',
                       transition: 'border 0.12s, background 0.12s',
                       WebkitTapHighlightColor: 'transparent',
                       boxShadow: isSelected ? `0 0 0 3px ${color}20` : 'none',
+                      /* fixed geometry — prevents any reflow when content changes */
+                      height: 132, width: '100%', boxSizing: 'border-box',
+                      display: 'flex', flexDirection: 'column',
+                      alignItems: 'center', justifyContent: 'center',
+                      gap: 0, overflow: 'hidden', flexShrink: 0,
                     }}>
-                    <div style={{ fontSize: 12, color: isSelected ? color : T.MUT, fontWeight: 700, marginBottom: 5 }}>{d.label}</div>
-                    {d.weightRange && <div style={{ fontSize: 10, color: T.MUT, marginBottom: 6, opacity: 0.6 }}>{d.weightRange as string}</div>}
-                    <div style={{
-                      fontSize: 38, fontWeight: 900, lineHeight: 1,
-                      color: qty > 0 ? color : isSelected ? `${color}60` : T.BOR,
-                      fontVariantNumeric: 'tabular-nums',
-                      display: 'flex', alignItems: 'baseline', justifyContent: 'center',
-                    }}>
-                      {qty > 0 ? qty.toLocaleString() : (isSelected ? '0' : '—')}
-                      {isSelected && (
-                        <span className="_grading_cursor" style={{
-                          height: 36, background: color, verticalAlign: 'middle',
-                        }} />
-                      )}
+                    {/* label — fixed single line */}
+                    <div style={{ fontSize: 12, color: isSelected ? color : T.MUT, fontWeight: 700, lineHeight: '18px', height: 18, overflow: 'hidden' }}>{d.label}</div>
+                    {/* weight range — always present, fixed height, prevents conditional-render shift */}
+                    <div style={{ fontSize: 10, color: T.MUT, height: 16, lineHeight: '16px', opacity: 0.6, overflow: 'hidden', marginTop: 2 }}>
+                      {(d.weightRange as string) || ' '}
                     </div>
-                    <div style={{ fontSize: 10, color: T.MUT, marginTop: 6 }}>{t('ui.枚', '枚')}</div>
+                    {/* number display — fixed height container, cursor always in DOM (visibility toggled) */}
+                    <div style={{
+                      height: 52, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      overflow: 'hidden', flexShrink: 0, marginTop: 2,
+                    }}>
+                      <span style={{
+                        fontSize: 38, fontWeight: 900, lineHeight: 1,
+                        color: qty > 0 ? color : isSelected ? `${color}60` : T.BOR,
+                        fontVariantNumeric: 'tabular-nums',
+                      }}>
+                        {qty > 0 ? qty.toLocaleString() : (isSelected ? '0' : '—')}
+                      </span>
+                      <span
+                        className={`_grading_cursor${isSelected ? ' _active' : ''}`}
+                        style={{ height: 34, background: color, visibility: isSelected ? 'visible' : 'hidden' }}
+                      />
+                    </div>
+                    {/* unit — fixed line */}
+                    <div style={{ fontSize: 10, color: T.MUT, height: 16, lineHeight: '16px', marginTop: 2 }}>{t('ui.枚', '枚')}</div>
                   </button>
                 );
               })}
@@ -297,28 +313,35 @@ export default function GradingPage() {
                     style={{
                       background: isSelected ? `${color}18` : T.CARD,
                       borderRadius: 14,
-                      padding: '15px 8px',
                       border: `2px solid ${isSelected ? color : qty > 0 ? `${color}50` : T.BOR}`,
                       cursor: 'pointer', textAlign: 'center',
                       transition: 'border 0.12s, background 0.12s',
                       WebkitTapHighlightColor: 'transparent',
                       boxShadow: isSelected ? `0 0 0 3px ${color}20` : 'none',
+                      /* fixed geometry */
+                      height: 102, width: '100%', boxSizing: 'border-box',
+                      display: 'flex', flexDirection: 'column',
+                      alignItems: 'center', justifyContent: 'center',
+                      gap: 0, overflow: 'hidden', flexShrink: 0,
                     }}>
-                    <div style={{ fontSize: 11, color: isSelected ? color : T.MUT, fontWeight: 700, marginBottom: 6 }}>{d.label}</div>
+                    <div style={{ fontSize: 11, color: isSelected ? color : T.MUT, fontWeight: 700, height: 16, lineHeight: '16px', overflow: 'hidden' }}>{d.label}</div>
                     <div style={{
-                      fontSize: 30, fontWeight: 900, lineHeight: 1,
-                      color: qty > 0 ? color : isSelected ? `${color}60` : T.BOR,
-                      fontVariantNumeric: 'tabular-nums',
-                      display: 'flex', alignItems: 'baseline', justifyContent: 'center',
+                      height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      overflow: 'hidden', flexShrink: 0, marginTop: 4,
                     }}>
-                      {qty > 0 ? qty.toLocaleString() : (isSelected ? '0' : '—')}
-                      {isSelected && (
-                        <span className="_grading_cursor" style={{
-                          height: 27, background: color, verticalAlign: 'middle',
-                        }} />
-                      )}
+                      <span style={{
+                        fontSize: 30, fontWeight: 900, lineHeight: 1,
+                        color: qty > 0 ? color : isSelected ? `${color}60` : T.BOR,
+                        fontVariantNumeric: 'tabular-nums',
+                      }}>
+                        {qty > 0 ? qty.toLocaleString() : (isSelected ? '0' : '—')}
+                      </span>
+                      <span
+                        className={`_grading_cursor${isSelected ? ' _active' : ''}`}
+                        style={{ height: 26, background: color, visibility: isSelected ? 'visible' : 'hidden' }}
+                      />
                     </div>
-                    <div style={{ fontSize: 10, color: T.MUT, marginTop: 5 }}>{t('ui.枚', '枚')}</div>
+                    <div style={{ fontSize: 10, color: T.MUT, height: 16, lineHeight: '16px', marginTop: 4 }}>{t('ui.枚', '枚')}</div>
                   </button>
                 );
               })}
@@ -330,25 +353,33 @@ export default function GradingPage() {
             background: T.CARD, borderRadius: 12, padding: '14px 18px',
             border: `1px solid ${balanceOk ? T.BOR : T.RED}`,
             display: 'flex', alignItems: 'center', gap: 24, flexShrink: 0,
+            height: 52, boxSizing: 'border-box',
           }}>
-            <div style={{ flex: 1, display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-              <span>
-                <span style={{ color: T.MUT, fontSize: 12 }}>{t('ui.今日投入', '投入')} </span>
-                <strong style={{ color: T.TXT, fontSize: 15 }}>{availableQty > 0 ? availableQty.toLocaleString() : '—'}</strong>
-              </span>
-              <span>
-                <span style={{ color: T.MUT, fontSize: 12 }}>{t('ui.已分级', '已分级')} </span>
-                <strong style={{ color: balanceOk ? T.GRN : T.RED, fontSize: 15 }}>{totalOutput.toLocaleString()}</strong>
-              </span>
-              <span>
-                <span style={{ color: T.MUT, fontSize: 12 }}>{t('ui.差异', '差异')} </span>
-                <strong style={{ fontSize: 15, color: availableQty > 0 && Math.abs(availableQty - totalOutput) > 200 ? '#f59e0b' : T.GRN }}>
+            {/* Each stat is a fixed-width block so changing numbers don't shift siblings */}
+            <div style={{ display: 'flex', gap: 32, alignItems: 'center', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 80 }}>
+                <span style={{ color: T.MUT, fontSize: 11 }}>{t('ui.今日投入', '投入')}</span>
+                <strong style={{ color: T.TXT, fontSize: 15, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                  {availableQty > 0 ? availableQty.toLocaleString() : '—'}
+                </strong>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 80 }}>
+                <span style={{ color: T.MUT, fontSize: 11 }}>{t('ui.已分级', '已分级')}</span>
+                <strong style={{ color: balanceOk ? T.GRN : T.RED, fontSize: 15, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                  {totalOutput.toLocaleString()}
+                </strong>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 80 }}>
+                <span style={{ color: T.MUT, fontSize: 11 }}>{t('ui.差异', '差异')}</span>
+                <strong style={{ fontSize: 15, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+                  color: availableQty > 0 && Math.abs(availableQty - totalOutput) > 200 ? '#f59e0b' : T.GRN }}>
                   {availableQty > 0 ? (availableQty - totalOutput).toLocaleString() : '—'}
                 </strong>
-              </span>
+              </div>
             </div>
+            <div style={{ flex: 1 }} />
             {!balanceOk && (
-              <div style={{ color: T.RED, fontSize: 13, fontWeight: 600 }}>⚠️ {t('ui.产出超过投入', '产出超过投入')}</div>
+              <div style={{ color: T.RED, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>⚠️ {t('ui.产出超过投入', '产出超过投入')}</div>
             )}
           </div>
         </div>
@@ -377,6 +408,7 @@ export default function GradingPage() {
                 <div style={{
                   fontSize: 28, fontWeight: 900, color: selectedColor,
                   fontVariantNumeric: 'tabular-nums', lineHeight: 1,
+                  minWidth: 64, textAlign: 'right', flexShrink: 0,
                 }}>
                   {(outputs[editKey] ?? 0).toLocaleString()}
                 </div>
