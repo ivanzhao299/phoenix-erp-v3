@@ -1,10 +1,11 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { crudApi } from '@/lib/api-client';
 import { packagingApi } from '@/lib/packaging-api';
 import { T } from '@/styles/terminal-theme';
+import NumPad from '@/components/terminal/NumPad';
 
 
 interface House { id: number; house_code: string; house_name: string; capacity?: number; }
@@ -19,24 +20,18 @@ interface CollectionRecord {
   submittedAt: string;
 }
 
-const NUM_INPUT_STYLE = {
-  width: '100%', background: 'rgba(255,255,255,0.06)',
-  border: `1px solid ${T.BOR}`, borderRadius: 10,
-  padding: '14px 16px', color: T.TXT,
-  fontSize: 24, fontWeight: 700 as const,
-  textAlign: 'right' as const, boxSizing: 'border-box' as const,
-};
+type NumField = 'total' | 'dirty' | 'cracked';
 
 export default function EggCollectionPage() {
   const router = useRouter();
   const { t } = useLanguage();
-  const totalRef = useRef<HTMLInputElement>(null);
 
   const [houses, setHouses] = useState<House[]>([]);
   const [selectedHouse, setSelectedHouse] = useState<House | null>(null);
   const [totalQty, setTotalQty] = useState('');
   const [dirtyQty, setDirtyQty] = useState('');
   const [crackedQty, setCrackedQty] = useState('');
+  const [numPadField, setNumPadField] = useState<NumField | null>(null);
   const [records, setRecords] = useState<CollectionRecord[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -64,7 +59,13 @@ export default function EggCollectionPage() {
     setTotalQty('');
     setDirtyQty('');
     setCrackedQty('');
-    setTimeout(() => totalRef.current?.focus(), 50);
+  };
+
+  const handleNumPadConfirm = (val: string) => {
+    if (numPadField === 'total')   setTotalQty(val);
+    if (numPadField === 'dirty')   setDirtyQty(val);
+    if (numPadField === 'cracked') setCrackedQty(val);
+    setNumPadField(null);
   };
 
   const handleSubmit = async () => {
@@ -219,39 +220,37 @@ export default function EggCollectionPage() {
                 <span style={{ marginLeft: 8, color: T.ACC, fontWeight: 700 }}>{selectedHouse.house_name}</span>
               </div>
 
+              {/* 三个数字录入卡片 — 触摸点击弹出数字键盘 */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 20 }}>
-                {/* 总蛋数 */}
-                <div style={{ background: T.CARD, borderRadius: 12, padding: 20, border: `1px solid ${T.BOR}` }}>
-                  <div style={{ fontSize: 12, color: T.MUT, marginBottom: 8 }}>
-                    {t('ui.总采集数', '总采集数（枚）')}
+                {([
+                  { field: 'total'   as NumField, label: t('ui.总采集数', '总采集数（枚）'), value: totalQty,   accent: T.GRN },
+                  { field: 'dirty'   as NumField, label: t('ui.脏蛋数',   '脏蛋数（枚）'),   value: dirtyQty,   accent: '#f97316' },
+                  { field: 'cracked' as NumField, label: t('ui.裂纹蛋数', '裂纹蛋数（枚）'), value: crackedQty, accent: '#f97316' },
+                ] as const).map(({ field, label, value, accent }) => (
+                  <div
+                    key={field}
+                    onPointerDown={() => setNumPadField(field)}
+                    style={{
+                      background: T.CARD, borderRadius: 16, padding: '20px 16px',
+                      border: `2px solid ${numPadField === field ? accent : value ? accent + '60' : T.BOR}`,
+                      cursor: 'pointer', textAlign: 'center',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                      userSelect: 'none', WebkitUserSelect: 'none',
+                      transition: 'border-color 0.15s',
+                      WebkitTapHighlightColor: 'transparent',
+                    }}
+                  >
+                    <div style={{ fontSize: 12, color: accent, fontWeight: 600 }}>{label}</div>
+                    <div style={{
+                      fontSize: 52, fontWeight: 900, lineHeight: 1,
+                      color: value ? accent : T.BOR,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}>
+                      {value || '0'}
+                    </div>
+                    <div style={{ fontSize: 11, color: T.MUT }}>▶ {t('ui.点击录入', '点击录入')}</div>
                   </div>
-                  <input ref={totalRef} type="number" value={totalQty}
-                    onChange={e => setTotalQty(e.target.value)}
-                    placeholder="0"
-                    style={NUM_INPUT_STYLE} />
-                </div>
-
-                {/* 脏蛋 */}
-                <div style={{ background: T.CARD, borderRadius: 12, padding: 20, border: `1px solid ${T.BOR}` }}>
-                  <div style={{ fontSize: 12, color: '#f97316', marginBottom: 8 }}>
-                    {t('ui.脏蛋数', '脏蛋数（枚）')}
-                  </div>
-                  <input type="number" value={dirtyQty}
-                    onChange={e => setDirtyQty(e.target.value)}
-                    placeholder="0"
-                    style={{ ...NUM_INPUT_STYLE, borderColor: dirtyQty ? 'rgba(249,115,22,0.5)' : T.BOR }} />
-                </div>
-
-                {/* 裂纹蛋 */}
-                <div style={{ background: T.CARD, borderRadius: 12, padding: 20, border: `1px solid ${T.BOR}` }}>
-                  <div style={{ fontSize: 12, color: '#f97316', marginBottom: 8 }}>
-                    {t('ui.裂纹蛋数', '裂纹蛋数（枚）')}
-                  </div>
-                  <input type="number" value={crackedQty}
-                    onChange={e => setCrackedQty(e.target.value)}
-                    placeholder="0"
-                    style={{ ...NUM_INPUT_STYLE, borderColor: crackedQty ? 'rgba(249,115,22,0.5)' : T.BOR }} />
-                </div>
+                ))}
               </div>
 
               {/* 可分级结果 */}
@@ -293,6 +292,23 @@ export default function EggCollectionPage() {
           )}
         </div>
       </div>
+
+      {/* 数字键盘弹窗 */}
+      {numPadField && (
+        <NumPad
+          initialValue={numPadField === 'total' ? totalQty : numPadField === 'dirty' ? dirtyQty : crackedQty}
+          label={
+            numPadField === 'total'   ? t('ui.总采集数', '总采集数（枚）') :
+            numPadField === 'dirty'   ? t('ui.脏蛋数',   '脏蛋数（枚）')   :
+                                        t('ui.裂纹蛋数', '裂纹蛋数（枚）')
+          }
+          accentColor={numPadField === 'total' ? T.GRN : '#f97316'}
+          onConfirm={handleNumPadConfirm}
+          onCancel={() => setNumPadField(null)}
+          confirmLabel={t('common.confirm', '确认')}
+          cancelLabel={t('common.cancel', '取消')}
+        />
+      )}
 
       {/* Bottom bar */}
       <div style={{ background: T.CARD, borderTop: `1px solid ${T.BOR}`, padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>

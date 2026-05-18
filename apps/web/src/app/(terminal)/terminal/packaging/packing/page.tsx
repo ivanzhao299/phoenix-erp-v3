@@ -7,6 +7,7 @@ import { useTerminalContext } from '@/hooks/useTerminalContext';
 import { packagingApi } from '@/lib/packaging-api';
 import { usePackagingDicts, buildGradeMap, FALLBACK_DICTS } from '@/hooks/usePackagingDicts';
 import { T } from '@/styles/terminal-theme';
+import NumPad from '@/components/terminal/NumPad';
 
 
 export default function PackingPage() {
@@ -38,6 +39,7 @@ export default function PackingPage() {
   const [selectedGrade, setSelectedGrade] = useState<GradingOutput['grade']|null>(null);
   const [selectedSpec, setSelectedSpec] = useState<typeof SPECS[0]|null>(null);
   const [boxCount, setBoxCount] = useState('');
+  const [showBoxNumPad, setShowBoxNumPad] = useState(false);
   const [materialBatch, setMaterialBatch] = useState('');
   const [batches, setBatches] = useState<Array<{grade:string;spec:string;specId:string;boxes:number;eggs:number;materialBatch:string}>>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -54,7 +56,7 @@ export default function PackingPage() {
       grade: selectedGrade, spec: selectedSpec.name, specId: selectedSpec.id,
       boxes, eggs, materialBatch,
     }]);
-    setBoxCount(''); setMaterialBatch('');
+    setBoxCount(''); setMaterialBatch(''); setShowBoxNumPad(false);
   };
 
   const handleFinish = async () => {
@@ -147,13 +149,25 @@ export default function PackingPage() {
           <div style={{ background:T.CARD, borderRadius:12, padding:16, border:`1px solid ${T.BOR}` }}>
             <div style={{ fontSize:12, color:T.MUT, marginBottom:10, fontWeight:600 }}>3. {t('ui.录入箱数加包材批次', '录入箱数 + 包材批次')}</div>
             <div style={{ display:'flex', gap:12, alignItems:'flex-end' }}>
+              {/* 箱数 — 触摸点击弹出数字键盘 */}
               <div style={{ flex:1 }}>
                 <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{t('ui.本次包装箱数', '本次包装箱数')}</div>
-                <input type="number" value={boxCount} onChange={e=>setBoxCount(e.target.value)}
-                  placeholder="0"
-                  style={{ width:'100%', background:'rgba(255,255,255,0.05)', border:`1px solid ${T.BOR}`,
-                    borderRadius:8, padding:'14px', color:T.TXT, fontSize:24, fontWeight:700,
-                    textAlign:'center', boxSizing:'border-box' }} />
+                <div
+                  onPointerDown={() => setShowBoxNumPad(true)}
+                  style={{
+                    width:'100%', background:'rgba(255,255,255,0.05)',
+                    border:`2px solid ${boxCount ? T.ACC + '80' : T.BOR}`,
+                    borderRadius:10, padding:'10px 14px',
+                    textAlign:'center', cursor:'pointer',
+                    userSelect:'none', WebkitUserSelect:'none',
+                    WebkitTapHighlightColor:'transparent',
+                    transition:'border-color 0.15s',
+                  }}>
+                  <div style={{ fontSize:36, fontWeight:900, color: boxCount ? T.ACC : T.BOR, fontVariantNumeric:'tabular-nums', lineHeight:1 }}>
+                    {boxCount || '0'}
+                  </div>
+                  <div style={{ fontSize:11, color:T.MUT, marginTop:4 }}>▶ {t('ui.点击录入', '点击录入')}</div>
+                </div>
                 {selectedSpec && boxes > 0 && (
                   <div style={{ fontSize:12, color:T.MUT, marginTop:4, textAlign:'center' }}>
                     = {(boxes * (selectedSpec.qty||1)).toLocaleString()} {t('ui.枚', '枚')}
@@ -177,6 +191,20 @@ export default function PackingPage() {
               </button>
             </div>
           </div>
+
+          {/* 数字键盘弹窗 */}
+          {showBoxNumPad && (
+            <NumPad
+              initialValue={boxCount}
+              label={t('ui.本次包装箱数', '本次包装箱数')}
+              sublabel={selectedSpec ? `${selectedSpec.name} · ${selectedSpec.qty} ${t('ui.枚', '枚')}/${t('ui.箱', '箱')}` : undefined}
+              accentColor={selectedSpec?.color ?? T.ACC}
+              onConfirm={val => { setBoxCount(val); setShowBoxNumPad(false); }}
+              onCancel={() => setShowBoxNumPad(false)}
+              confirmLabel={t('common.confirm', '确认')}
+              cancelLabel={t('common.cancel', '取消')}
+            />
+          )}
         </div>
 
         {/* 右：已包装记录 */}

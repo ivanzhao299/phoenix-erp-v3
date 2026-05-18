@@ -6,6 +6,7 @@ import { useTerminalContext } from '@/hooks/useTerminalContext';
 import { packagingApi } from '@/lib/packaging-api';
 import { usePackagingDicts, buildGradeMap, FALLBACK_DICTS } from '@/hooks/usePackagingDicts';
 import { T } from '@/styles/terminal-theme';
+import NumPad from '@/components/terminal/NumPad';
 
 
 export default function GradingPage() {
@@ -306,38 +307,21 @@ export default function GradingPage() {
         </button>
       </div>
 
-      {/* 数量编辑弹窗 */}
+      {/* 数字键盘 — 触摸终端输入 */}
       {editKey && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ background: T.CARD, borderRadius: 16, padding: 32, width: 340, border: `1px solid ${T.BOR}`, textAlign: 'center' }}>
-            <div style={{ fontSize: 13, color: T.MUT, marginBottom: 6 }}>{t('ui.录入数量枚', '录入数量（枚）')}</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: gradeMap[editKey]?.color ?? T.ACC, marginBottom: 16 }}>
-              {gradeMap[editKey]?.label ?? editKey}
-            </div>
-            <input
-              type="number" value={editVal}
-              onChange={e => setEditVal(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleEditSave()}
-              autoFocus
-              style={{
-                width: '100%', background: 'rgba(255,255,255,0.08)',
-                border: `2px solid ${gradeMap[editKey]?.color ?? T.ACC}`,
-                borderRadius: 10, padding: '16px', color: T.TXT,
-                fontSize: 42, fontWeight: 700, textAlign: 'center',
-                boxSizing: 'border-box', marginBottom: 16,
-              }} />
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button type="button" onClick={() => setEditKey(null)}
-                style={{ flex: 1, padding: '14px', background: 'transparent', border: `1px solid ${T.BOR}`, borderRadius: 8, color: T.MUT, fontSize: 15, cursor: 'pointer' }}>
-                {t('common.cancel', '取消')}
-              </button>
-              <button type="button" onClick={handleEditSave}
-                style={{ flex: 2, padding: '14px', background: T.ACC, border: 'none', borderRadius: 8, color: '#0f172a', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
-                {t('common.confirm', '确认')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <NumPad
+          initialValue={editVal}
+          label={gradeMap[editKey]?.label ?? editKey}
+          sublabel={t('ui.录入数量枚', '录入数量（枚）')}
+          accentColor={(gradeMap[editKey]?.color as string) ?? T.ACC}
+          onConfirm={val => {
+            setOutputs(p => ({ ...p, [editKey]: Math.max(0, parseInt(val) || 0) }));
+            setEditKey(null);
+          }}
+          onCancel={() => setEditKey(null)}
+          confirmLabel={t('common.confirm', '确认')}
+          cancelLabel={t('common.cancel', '取消')}
+        />
       )}
     </div>
   );
