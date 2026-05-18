@@ -66,8 +66,8 @@ export default function PdaTerminalPage() {
   const [loading, setLoading] = useState(true);
   const [drawer, setDrawer] = useState(false);
   const [cfgDrawer, setCfgDrawer] = useState(false);
-  const [editing, setEditing] = useState<any>(null);
-  const [form, setForm] = useState<any>(EMPTY_FORM);
+  const [editing, setEditing] = useState<PdaTerminal | null>(null);
+  const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
@@ -90,7 +90,7 @@ export default function PdaTerminalPage() {
   useEffect(() => { load(); }, [load]);
 
   const openNew = () => { setEditing(null); setForm(EMPTY_FORM); setErr(""); setDrawer(true); };
-  const openEdit = (t: any) => { setEditing(t); setForm({ ...EMPTY_FORM, ...t, enabled_modules: t.enabled_modules || ALL_MODULES.map(m => m.id) }); setErr(""); setDrawer(true); };
+  const openEdit = (terminal: PdaTerminal) => { setEditing(terminal); setForm({ ...EMPTY_FORM, ...terminal, enabled_modules: terminal.enabled_modules || ALL_MODULES.map(m => m.id) }); setErr(""); setDrawer(true); };
 
   const handleSave = async () => {
     if (!form.name.trim()) { setErr(t('ui.终端名称不能为空', '终端名称不能为空')); return; }
@@ -107,7 +107,7 @@ export default function PdaTerminalPage() {
     } catch { setErr(t('ui.保存失败请重试', '保存失败，请重试')); } finally { setSaving(false); }
   };
 
-  const handleDelete = async (terminal: any) => {
+  const handleDelete = async (terminal: PdaTerminal) => {
     const ok = await showConfirm({ icon: "🗑️", type: "danger", title: t('common.confirm', '确认删除'), message: `${t('ui.确认删除终端', '确认删除终端')}「${terminal.name}」？`, confirmLabel: t('common.confirm', '确认删除') });
     if (!ok) return;
     await fetch(`/api/crud/pda_terminals/id/${terminal.id}`, { method: "DELETE", headers: hdr() });
@@ -120,7 +120,7 @@ export default function PdaTerminalPage() {
   };
 
   const toggleModule = (id: string) => {
-    setForm((p: any) => ({
+    setForm(p => ({
       ...p,
       enabled_modules: p.enabled_modules.includes(id)
         ? p.enabled_modules.filter((m: string) => m !== id)
@@ -221,23 +221,23 @@ export default function PdaTerminalPage() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div style={{ gridColumn: "1/-1" }}>
               <label style={lbl}>{t('ui.终端名称', '终端名称')} *</label>
-              <input style={inp} value={form.name} onChange={e => setForm((p: any) => ({ ...p, name: e.target.value }))} placeholder={t('ui.如仓库A01号PDA', '如：仓库A-01号PDA')}/>
+              <input style={inp} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder={t('ui.如仓库A01号PDA', '如：仓库A-01号PDA')}/>
             </div>
-            <div><label style={lbl}>{t('ui.品牌', '品牌')}</label><input style={inp} value={form.brand} onChange={e => setForm((p: any) => ({ ...p, brand: e.target.value }))} placeholder={t('ui.如新大陆', '如：新大陆')}/></div>
-            <div><label style={lbl}>{t('ui.型号', '型号')}</label><input style={inp} value={form.model} onChange={e => setForm((p: any) => ({ ...p, model: e.target.value }))} placeholder={t('ui.如N7Pro', '如：N7 Pro')}/></div>
-            <div><label style={lbl}>{t('ui.设备序列号MAC', '设备序列号 / MAC')}</label><input style={inp} value={form.serial} onChange={e => setForm((p: any) => ({ ...p, serial: e.target.value }))} placeholder={t('ui.唯一标识符', '唯一标识符')}/></div>
-            <div><label style={lbl}>{t('ui.分配区域', '分配区域')}</label><input style={inp} value={form.location} onChange={e => setForm((p: any) => ({ ...p, location: e.target.value }))} placeholder={t('ui.如A仓收货区', '如：A仓收货区')}/></div>
+            <div><label style={lbl}>{t('ui.品牌', '品牌')}</label><input style={inp} value={form.brand} onChange={e => setForm(p => ({ ...p, brand: e.target.value }))} placeholder={t('ui.如新大陆', '如：新大陆')}/></div>
+            <div><label style={lbl}>{t('ui.型号', '型号')}</label><input style={inp} value={form.model} onChange={e => setForm(p => ({ ...p, model: e.target.value }))} placeholder={t('ui.如N7Pro', '如：N7 Pro')}/></div>
+            <div><label style={lbl}>{t('ui.设备序列号MAC', '设备序列号 / MAC')}</label><input style={inp} value={form.serial} onChange={e => setForm(p => ({ ...p, serial: e.target.value }))} placeholder={t('ui.唯一标识符', '唯一标识符')}/></div>
+            <div><label style={lbl}>{t('ui.分配区域', '分配区域')}</label><input style={inp} value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} placeholder={t('ui.如A仓收货区', '如：A仓收货区')}/></div>
           </div>
           <div>
             <label style={lbl}>{t('ui.扫码协议', '扫码协议')}</label>
-            <select style={inp} value={form.scan_protocol} onChange={e => setForm((p: any) => ({ ...p, scan_protocol: e.target.value }))}>
+            <select style={inp} value={form.scan_protocol} onChange={e => setForm(p => ({ ...p, scan_protocol: e.target.value }))}>
               {PROTOCOLS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
           </div>
           {form.scan_protocol !== "keyboard" && (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div><label style={lbl}>{t('ui.扫码前缀可选', '扫码前缀（可选）')}</label><input style={inp} value={form.scan_prefix} onChange={e => setForm((p: any) => ({ ...p, scan_prefix: e.target.value }))} placeholder={t('ui.部分品牌附加前缀', '部分品牌附加前缀')}/></div>
-              <div><label style={lbl}>{t('ui.扫码后缀可选', '扫码后缀（可选）')}</label><input style={inp} value={form.scan_suffix} onChange={e => setForm((p: any) => ({ ...p, scan_suffix: e.target.value }))} placeholder={t('ui.如换行符', '如：\\n')}/></div>
+              <div><label style={lbl}>{t('ui.扫码前缀可选', '扫码前缀（可选）')}</label><input style={inp} value={form.scan_prefix} onChange={e => setForm(p => ({ ...p, scan_prefix: e.target.value }))} placeholder={t('ui.部分品牌附加前缀', '部分品牌附加前缀')}/></div>
+              <div><label style={lbl}>{t('ui.扫码后缀可选', '扫码后缀（可选）')}</label><input style={inp} value={form.scan_suffix} onChange={e => setForm(p => ({ ...p, scan_suffix: e.target.value }))} placeholder={t('ui.如换行符', '如：\\n')}/></div>
             </div>
           )}
           <div>
@@ -254,11 +254,11 @@ export default function PdaTerminalPage() {
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div><label style={lbl}>{t('ui.绑定打印机IP可选', '绑定打印机 IP（可选）')}</label><input style={inp} value={form.printer_ip} onChange={e => setForm((p: any) => ({ ...p, printer_ip: e.target.value }))} placeholder={t('ui.如192168xx', '如：192.168.31.50')}/></div>
+            <div><label style={lbl}>{t('ui.绑定打印机IP可选', '绑定打印机 IP（可选）')}</label><input style={inp} value={form.printer_ip} onChange={e => setForm(p => ({ ...p, printer_ip: e.target.value }))} placeholder={t('ui.如192168xx', '如：192.168.31.50')}/></div>
             {editing && (
               <div>
                 <label style={lbl}>{t('common.status', '状态')}</label>
-                <select style={inp} value={form.status} onChange={e => setForm((p: any) => ({ ...p, status: e.target.value }))}>
+                <select style={inp} value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
                   <option value="active">{t('status.active', '活跃')}</option>
                   <option value="inactive">{t('status.inactive', '停用')}</option>
                   <option value="maintenance">{t('ui.维护中', '维护中')}</option>
@@ -268,7 +268,7 @@ export default function PdaTerminalPage() {
           </div>
           <div>
             <label style={lbl}>{t('common.remark', '备注')}</label>
-            <textarea value={form.notes} onChange={e => setForm((p: any) => ({ ...p, notes: e.target.value }))} rows={2} style={{ ...inp, resize: "vertical" }} placeholder={t('ui.可选备注信息', '可选备注信息')}/>
+            <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} rows={2} style={{ ...inp, resize: "vertical" }} placeholder={t('ui.可选备注信息', '可选备注信息')}/>
           </div>
           {err && <div style={{ color: "#dc2626", fontSize: 12 }}>⚠️ {err}</div>}
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>

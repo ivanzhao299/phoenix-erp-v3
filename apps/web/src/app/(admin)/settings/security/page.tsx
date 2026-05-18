@@ -22,12 +22,12 @@ export default function SecurityPolicyPage() {
     ]).then(([ld, ud]) => {
       setLogs(Array.isArray(ld.data) ? ld.data : Array.isArray(ld) ? ld : []);
       const users = Array.isArray(ud.data) ? ud.data : Array.isArray(ud) ? ud : [];
-      setFrozenUsers(users.filter((u: any) => u.status === "FROZEN" || u.status === "INACTIVE"));
+      setFrozenUsers(users.filter((u: UserRecord) => u.status === "FROZEN" || u.status === "INACTIVE"));
       setLoading(false);
     });
   }, []);
 
-  const InfoCard = ({ icon, title, value, desc, color = "var(--color-primary)" }: any) => (
+  const InfoCard = ({ icon, title, value, desc, color = "var(--color-primary)" }: { icon: React.ReactNode; title: string; value: React.ReactNode; desc: string; color?: string }) => (
     <div style={{ padding: 20, background: "var(--bg-card)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
         <div style={{ color }}>{icon}</div>
@@ -46,7 +46,7 @@ export default function SecurityPolicyPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 }}>
         <InfoCard icon={<Clock size={20}/>} title={t('ui.Token有效期', 'Token 有效期')} value={t('ui.8小时', '8 小时')} desc={t('ui.登录状态自动失效时间', '登录状态自动失效时间')}/>
         <InfoCard icon={<Shield size={20}/>} title={t('ui.API请求限制', 'API 请求限制')} value={t('ui.300次15分钟', '300次/15分钟')} desc={t('ui.按IP防暴力破解', '按 IP 防暴力破解')} color="var(--color-warning)"/>
-        <InfoCard icon={<Users size={20}/>} title={t('ui.冻结账户', '冻结账户')} value={loading ? "…" : frozenUsers.length} desc={frozenUsers.length > 0 ? frozenUsers.map((u: any) => u.username).join(", ") : t('ui.无冻结账户', '无冻结账户')} color={frozenUsers.length > 0 ? "#ef4444" : "#22c55e"}/>
+        <InfoCard icon={<Users size={20}/>} title={t('ui.冻结账户', '冻结账户')} value={loading ? "…" : frozenUsers.length} desc={frozenUsers.length > 0 ? frozenUsers.map(u => u.username).join(", ") : t('ui.无冻结账户', '无冻结账户')} color={frozenUsers.length > 0 ? "#ef4444" : "#22c55e"}/>
         <InfoCard icon={<Lock size={20}/>} title={t('ui.密码加密', '密码加密')} value="bcrypt+Salt" desc={t('ui.独立随机盐无彩虹表风险', '独立随机盐，无彩虹表风险')} color="#22c55e"/>
       </div>
       <div style={{ ...card, borderLeft: "4px solid var(--color-warning)", padding: "16px 20px" }}>

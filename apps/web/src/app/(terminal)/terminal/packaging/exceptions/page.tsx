@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { packagingApi } from '@/lib/packaging-api';
 import { EXCEPTION_TYPE_LABEL } from '@/types/packaging-terminal';
@@ -14,6 +15,7 @@ const SEV_COLORS = { LOW:'#22c55e', MEDIUM:'#f59e0b', HIGH:'#f97316', CRITICAL:'
 
 export default function ExceptionsPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const { t } = useLanguage();
   const { ctx } = useTerminalContext();
   // ── 从数据字典加载异常快捷类型 ─────────────────────────────────────────────
@@ -58,7 +60,7 @@ export default function ExceptionsPage() {
         quantity: Number(form.quantity)||undefined,
         description: form.description,
         relatedBatchId: form.batchId,
-        reportedBy: '当前用户',
+        reportedBy: user?.name || user?.username || t('ui.当前用户', '当前用户'),
         status: 'REPORTED',
       });
       setTickets(prev=>[result as ExceptionTicket, ...prev]);

@@ -26,7 +26,7 @@ export default function GradingPage() {
 
   // ── 今日可分级总量（来自集蛋录入，由后端聚合） ────────────────────────────────
   const [availableQty, setAvailableQty] = useState(0);
-  const [collections, setCollections] = useState<any[]>([]); // per-house breakdown
+  const [collections, setCollections] = useState<Record<string, unknown>[]>([]); // per-house breakdown
   const [summaryLoading, setSummaryLoading] = useState(true);
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function GradingPage() {
       .then(data => {
         const list = Array.isArray(data) ? data : [];
         setCollections(list);
-        const total = list.reduce((s: number, b: any) =>
+        const total = list.reduce((s: number, b) =>
           s + Number(b.received_qty ?? b.receivedQty ?? 0), 0
         );
         setAvailableQty(total);
@@ -165,7 +165,7 @@ export default function GradingPage() {
         {/* 鸡舍明细 */}
         {collections.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 80, overflowY: 'auto' }}>
-            {collections.map((b: any, i: number) => (
+            {collections.map((b, i) => (
               <div key={i} style={{ fontSize: 11, color: T.MUT, whiteSpace: 'nowrap' }}>
                 {b.house_name || b.houseCode || b.house_code} · {Number(b.received_qty ?? 0).toLocaleString()} {t('ui.枚', '枚')}
               </div>

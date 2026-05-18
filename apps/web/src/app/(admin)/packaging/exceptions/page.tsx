@@ -43,8 +43,8 @@ export default function PackagingExceptionsPage() {
     const tok = typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : "";
     fetch("/api/crud/sys_dict?dict_type=PKG_EXCEPTION_TYPE&status=ACTIVE&limit=100", { headers: { Authorization: `Bearer ${tok}` } })
       .then(r => r.json()).then(j => {
-        const list = ((j.data || j) as any[]).filter((d: any) => d.dict_type === "PKG_EXCEPTION_TYPE" && d.status === "ACTIVE");
-        if (list.length > 0) setIssueTypeOpts(list.map((d: any) => ({ label: d.dict_label_zh || d.dict_code, value: d.dict_code })));
+        const list = ((j.data || j) as any[]).filter(d => d.dict_type === "PKG_EXCEPTION_TYPE" && d.status === "ACTIVE");
+        if (list.length > 0) setIssueTypeOpts(list.map(d => ({ label: d.dict_label_zh || d.dict_code, value: d.dict_code })));
       }).catch(() => {});
   }, []);
 
