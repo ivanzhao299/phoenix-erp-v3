@@ -34,6 +34,7 @@ type WorkflowEdge = {
 type RuntimeSchema = {
   fields?: Array<{ key: string; label: string; type: string; required?: boolean }>;
 };
+type DirectoryOption = { label: string; value: string };
 
 const defaultNodes: WorkflowNode[] = [
   { id: "start", type: "start", name: "发起申请", x: 80, y: 140 },
@@ -44,7 +45,7 @@ const defaultEdges: WorkflowEdge[] = [
   { from: "start", to: "approval_1" },
   { from: "approval_1", to: "end" },
 ];
-const roleOptions = [
+const fallbackRoleOptions: DirectoryOption[] = [
   { label: "系统管理员", value: "ROLE_SYSOPS" },
   { label: "财务会计", value: "ROLE_FIN_ACCT" },
   { label: "财务负责人", value: "ROLE_FIN_CFO" },
@@ -56,6 +57,7 @@ const roleOptions = [
   { label: "养殖场长", value: "ROLE_FARM_MGR" },
   { label: "物流负责人", value: "ROLE_LOG_MGR" },
 ];
+const fallbackUserOptions: DirectoryOption[] = [];
 const operators = [
   { label: "等于", value: "==" },
   { label: "不等于", value: "!=" },
@@ -82,9 +84,16 @@ export default function WorkflowDesignerPage() {
   const [rehearsalData, setRehearsalData] = useState<Record<string, string>>({});
   const [jsonOpen, setJsonOpen] = useState(false);
   const [jsonDraft, setJsonDraft] = useState("");
+  const [roleOptions, setRoleOptions] = useState<DirectoryOption[]>(fallbackRoleOptions);
+  const [userOptions, setUserOptions] = useState<DirectoryOption[]>(fallbackUserOptions);
 
   useEffect(() => {
-    Promise.all([workflowApi.definitionDesigner(id), workflowApi.forms()]).then(([res, formRes]) => {
+    Promise.all([
+      workflowApi.definitionDesigner(id),
+      workflowApi.forms(),
+      workflowApi.previewDataSource({ code: "SYS_ROLES" }).catch(() => ({ data: [] })),
+      workflowApi.previewDataSource({ code: "SYS_USERS" }).catch(() => ({ data: [] })),
+    ]).then(([res, formRes, roleRes, userRes]) => {
       setData(res.data);
       const graph = res.data.graph_json as { nodes?: WorkflowNode[]; edges?: WorkflowEdge[] } | undefined;
       if (Array.isArray(graph?.nodes)) setNodes(graph.nodes);
@@ -93,6 +102,10 @@ export default function WorkflowDesignerPage() {
       const schema = res.data.form_schema_json as RuntimeSchema | undefined;
       setFormSchema(schema && Array.isArray(schema.fields) ? schema : null);
       setForms(formRes.data || []);
+      const nextRoles = normalizeDirectoryOptions(roleRes.data);
+      const nextUsers = normalizeDirectoryOptions(userRes.data);
+      if (nextRoles.length) setRoleOptions(nextRoles);
+      if (nextUsers.length) setUserOptions(nextUsers);
     });
   }, [id]);
 
@@ -103,8 +116,8 @@ export default function WorkflowDesignerPage() {
   const publishableForms = forms.filter(form => form.current_version_id);
   const selectedForm = publishableForms.find(form => String(form.current_version_id) === formVersionId);
   const fieldOptions = formSchema?.fields || [];
-  const previewLines = useMemo(() => buildPreview(nodes, edges), [nodes, edges]);
-  const rehearsal = useMemo(() => rehearseWorkflow(nodes, edges, rehearsalData), [edges, nodes, rehearsalData]);
+  const previewLines = useMemo(() => buildPreview(nodes, edges, roleOptions, userOptions), [nodes, edges, roleOptions, userOptions]);
+  const rehearsal = useMemo(() => rehearseWorkflow(nodes, edges, rehearsalData, roleOptions, userOptions), [edges, nodes, rehearsalData, roleOptions, userOptions]);
 
   function patchNode(index: number, patch: Partial<WorkflowNode>) {
     setNodes(prev => prev.map((node, i) => i === index ? { ...node, ...patch } : node));
@@ -225,6 +238,10 @@ export default function WorkflowDesignerPage() {
             <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addStep("condition")}>添加条件</button>
             <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addStep("cc")}>添加抄送</button>
           </div>
+          <div style={directoryHintStyle}>
+            <strong>已接入组织数据</strong>
+            <span>{roleOptions.length} 个角色 · {userOptions.length} 个用户会自动从系统数据源读取</span>
+          </div>
           <div style={stepListStyle}>
             {mainPath.map((node, index) => {
               const nodeIndex = nodes.findIndex(item => item.id === node.id);
@@ -237,7 +254,7 @@ export default function WorkflowDesignerPage() {
                 >
                   <span className={nodeBadgeClass(node.type)}>{stepTypeText(node.type)}</span>
                   <strong>{node.name}</strong>
-                  <span>{stepHint(node)}</span>
+                  <span>{stepHint(node, roleOptions, userOptions)}</span>
                 </button>
               );
             })}
@@ -268,7 +285,7 @@ export default function WorkflowDesignerPage() {
                 >
                   <span className={nodeBadgeClass(node.type)}>{stepTypeText(node.type)}</span>
                   <strong>{node.name}</strong>
-                  <small>{stepHint(node)}</small>
+                  <small>{stepHint(node, roleOptions, userOptions)}</small>
                 </button>
                 {index < mainPath.length - 1 ? <span style={arrowStyle}>→</span> : null}
               </div>
@@ -376,7 +393,7 @@ export default function WorkflowDesignerPage() {
                 <input className={s.inp} value={currentNode.name} onChange={e => patchNode(selectedNode, { name: e.target.value })} />
               </label>
               {(currentNode.type === "approval" || currentNode.type === "cc") ? (
-                <AssigneeEditor node={currentNode} onChange={patch => patchNodeConfig(selectedNode, patch)} />
+                <AssigneeEditor node={currentNode} roles={roleOptions} users={userOptions} onChange={patch => patchNodeConfig(selectedNode, patch)} />
               ) : null}
               {currentNode.type !== "start" && currentNode.type !== "end" ? (
                 <div style={smallButtonGridStyle}>
@@ -439,9 +456,10 @@ export default function WorkflowDesignerPage() {
   );
 }
 
-function AssigneeEditor({ node, onChange }: { node: WorkflowNode; onChange: (patch: WorkflowNode["config"]) => void }) {
+function AssigneeEditor({ node, roles, users, onChange }: { node: WorkflowNode; roles: DirectoryOption[]; users: DirectoryOption[]; onChange: (patch: WorkflowNode["config"]) => void }) {
   const config = node.config || {};
   const assigneeType = config.assigneeType || "ROLE";
+  const selectedUser = config.users?.[0] ? String(config.users[0]) : "";
   return (
     <>
       <label className={s.field}>
@@ -454,16 +472,25 @@ function AssigneeEditor({ node, onChange }: { node: WorkflowNode; onChange: (pat
       </label>
       {assigneeType === "ROLE" ? (
         <label className={s.field}>
-          <span className={s.lbl}>常用角色</span>
+          <span className={s.lbl}>选择角色</span>
           <select className={s.inp} value={config.roles?.[0] || "ROLE_SYSOPS"} onChange={e => onChange({ roles: [e.target.value] })}>
-            {roleOptions.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
+            {roles.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
           </select>
+          <small style={fieldHelpStyle}>角色来自系统角色数据源，新增角色后会自动出现在这里。</small>
         </label>
       ) : null}
       {assigneeType === "USER" ? (
         <label className={s.field}>
-          <span className={s.lbl}>用户 ID</span>
-          <input className={s.inp} value={(config.users || []).join(",")} onChange={e => onChange({ users: e.target.value.split(",").map(v => Number(v.trim())).filter(Boolean) })} placeholder="多个用户用逗号分隔" />
+          <span className={s.lbl}>指定用户</span>
+          {users.length ? (
+            <select className={s.inp} value={selectedUser} onChange={e => onChange({ users: e.target.value ? [Number(e.target.value)] : [] })}>
+              <option value="">请选择用户</option>
+              {users.map(user => <option key={user.value} value={user.value}>{user.label}</option>)}
+            </select>
+          ) : (
+            <input className={s.inp} value={(config.users || []).join(",")} onChange={e => onChange({ users: e.target.value.split(",").map(v => Number(v.trim())).filter(Boolean) })} placeholder="用户 ID，如 1001" />
+          )}
+          <small style={fieldHelpStyle}>用户来自系统用户数据源；如果数据源不可用，可临时填写用户 ID。</small>
         </label>
       ) : null}
       <label className={s.field}>
@@ -472,6 +499,16 @@ function AssigneeEditor({ node, onChange }: { node: WorkflowNode; onChange: (pat
       </label>
     </>
   );
+}
+
+function normalizeDirectoryOptions(rows: Record<string, unknown>[]) {
+  return rows
+    .map(row => {
+      const value = String(row.value ?? "");
+      const label = String(row.label ?? value);
+      return value && label ? { value, label } : null;
+    })
+    .filter((row): row is DirectoryOption => Boolean(row));
 }
 
 function buildMainPath(nodes: WorkflowNode[], edges: WorkflowEdge[]) {
@@ -515,9 +552,9 @@ function validateDesigner(nodes: WorkflowNode[], edges: WorkflowEdge[]) {
   return problems;
 }
 
-function buildPreview(nodes: WorkflowNode[], edges: WorkflowEdge[]) {
+function buildPreview(nodes: WorkflowNode[], edges: WorkflowEdge[], roles: DirectoryOption[], users: DirectoryOption[]) {
   const path = buildMainPath(nodes, edges);
-  const lines = path.map((node, index) => `${index + 1}. ${previewText(node)}`);
+  const lines = path.map((node, index) => `${index + 1}. ${previewText(node, roles, users)}`);
   const conditionalEdges = edges.filter(edge => edge.condition);
   conditionalEdges.forEach(edge => {
     lines.push(`条件规则：当 ${conditionText(edge.condition!, [])} 时，从「${nodeName(edge.from, nodes)}」流向「${nodeName(edge.to, nodes)}」。`);
@@ -525,7 +562,7 @@ function buildPreview(nodes: WorkflowNode[], edges: WorkflowEdge[]) {
   return lines;
 }
 
-function rehearseWorkflow(nodes: WorkflowNode[], edges: WorkflowEdge[], data: Record<string, string>) {
+function rehearseWorkflow(nodes: WorkflowNode[], edges: WorkflowEdge[], data: Record<string, string>, roles: DirectoryOption[], users: DirectoryOption[]) {
   const warnings: string[] = [];
   const steps: Array<{ node: WorkflowNode; reason: string }> = [];
   const start = nodes.find(node => node.type === "start") || nodes[0];
@@ -533,7 +570,7 @@ function rehearseWorkflow(nodes: WorkflowNode[], edges: WorkflowEdge[], data: Re
   const seen = new Set<string>();
 
   while (current && !seen.has(current.id) && steps.length < 30) {
-    steps.push({ node: current, reason: rehearsalReason(current) });
+    steps.push({ node: current, reason: rehearsalReason(current, roles, users) });
     seen.add(current.id);
     if (current.type === "end") break;
 
@@ -561,11 +598,11 @@ function rehearseWorkflow(nodes: WorkflowNode[], edges: WorkflowEdge[], data: Re
   return { steps, warnings };
 }
 
-function rehearsalReason(node: WorkflowNode) {
+function rehearsalReason(node: WorkflowNode, roles: DirectoryOption[], users: DirectoryOption[]) {
   if (node.type === "start") return "模拟提交申请";
-  if (node.type === "approval") return `等待 ${assigneeText(node)} 审批`;
+  if (node.type === "approval") return `等待 ${assigneeText(node, roles, users)} 审批`;
   if (node.type === "condition") return "根据测试数据判断下一步";
-  if (node.type === "cc") return `抄送给 ${assigneeText(node)}`;
+  if (node.type === "cc") return `抄送给 ${assigneeText(node, roles, users)}`;
   return "流程结束";
 }
 
@@ -589,20 +626,24 @@ function evaluateCondition(condition: NonNullable<WorkflowEdge["condition"]>, da
   return false;
 }
 
-function previewText(node: WorkflowNode) {
+function previewText(node: WorkflowNode, roles: DirectoryOption[], users: DirectoryOption[]) {
   if (node.type === "start") return "员工提交申请并填写表单。";
-  if (node.type === "approval") return `由「${assigneeText(node)}」处理「${node.name}」。`;
+  if (node.type === "approval") return `由「${assigneeText(node, roles, users)}」处理「${node.name}」。`;
   if (node.type === "condition") return `系统判断「${node.name}」并选择后续步骤。`;
-  if (node.type === "cc") return `抄送「${assigneeText(node)}」知会。`;
+  if (node.type === "cc") return `抄送「${assigneeText(node, roles, users)}」知会。`;
   return "流程完成并归档。";
 }
 
-function assigneeText(node: WorkflowNode) {
+function assigneeText(node: WorkflowNode, roles: DirectoryOption[], users: DirectoryOption[]) {
   const config = node.config || {};
   if (config.assigneeType === "STARTER") return "发起人本人";
-  if (config.assigneeType === "USER") return `用户 ${config.users?.join("、") || "-"}`;
+  if (config.assigneeType === "USER") {
+    const selectedUsers = config.users || [];
+    const labels = selectedUsers.map(id => users.find(user => user.value === String(id))?.label || `用户 ${id}`);
+    return labels.length ? labels.join("、") : "未选择用户";
+  }
   const role = config.roles?.[0] || "ROLE_SYSOPS";
-  return roleOptions.find(item => item.value === role)?.label || role;
+  return roles.find(item => item.value === role)?.label || role;
 }
 
 function nodeName(id: string, nodes: WorkflowNode[]) {
@@ -614,8 +655,8 @@ function stepTypeText(type: NodeType) {
   return map[type];
 }
 
-function stepHint(node: WorkflowNode) {
-  if (node.type === "approval" || node.type === "cc") return assigneeText(node);
+function stepHint(node: WorkflowNode, roles: DirectoryOption[], users: DirectoryOption[]) {
+  if (node.type === "approval" || node.type === "cc") return assigneeText(node, roles, users);
   if (node.type === "condition") return "按表单字段判断";
   if (node.type === "start") return "用户提交申请";
   return "审批完成后归档";
@@ -656,6 +697,7 @@ const panelStyle: React.CSSProperties = { padding: 16 };
 const toolbarStyle: React.CSSProperties = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 12 };
 const toolbarActionsStyle: React.CSSProperties = { display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" };
 const addBarStyle: React.CSSProperties = { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 };
+const directoryHintStyle: React.CSSProperties = { display: "grid", gap: 4, padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)", color: "var(--text-secondary)", fontSize: 12, marginBottom: 12 };
 const stepListStyle: React.CSSProperties = { display: "grid", gap: 8 };
 const stepButtonStyle: React.CSSProperties = { display: "grid", gap: 6, textAlign: "left", padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)", color: "var(--text-primary)", cursor: "pointer" };
 const flowPreviewStyle: React.CSSProperties = { display: "flex", alignItems: "stretch", gap: 8, overflowX: "auto", padding: "12px 2px 16px" };
@@ -671,6 +713,7 @@ const edgeHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: 
 const edgeListStyle: React.CSSProperties = { display: "grid", gap: 8 };
 const edgeButtonStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 24px 1fr", gap: 8, alignItems: "center", padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)", color: "var(--text-primary)", cursor: "pointer", textAlign: "left" };
 const formHintStyle: React.CSSProperties = { marginTop: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 10, display: "grid", gap: 6, color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.6 };
+const fieldHelpStyle: React.CSSProperties = { color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.5 };
 const smallButtonGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 };
 const dividerStyle: React.CSSProperties = { border: 0, borderTop: "1px solid var(--border)", margin: "16px 0" };
 const modalMaskStyle: React.CSSProperties = { position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 };
