@@ -8,6 +8,34 @@ import { usePackagingDicts, buildGradeMap, FALLBACK_DICTS } from '@/hooks/usePac
 import { T } from '@/styles/terminal-theme';
 import NumPad from '@/components/terminal/NumPad';
 
+const LANG_LABELS: Record<string, string> = { zh: '中', en: 'EN', lo: 'ລາວ' };
+const LANG_ORDER = ['zh', 'en', 'lo'];
+
+function LangToggle() {
+  const { lang, setAppLanguage } = useLanguage();
+  return (
+    <div style={{
+      display: 'flex', borderRadius: 8, overflow: 'hidden',
+      border: `1px solid ${T.BOR}`, flexShrink: 0,
+    }}>
+      {LANG_ORDER.map(l => (
+        <button key={l} type="button"
+          onPointerDown={() => setAppLanguage(l)}
+          style={{
+            padding: '6px 11px', fontSize: 12, fontWeight: 700,
+            background: lang === l ? T.ACC : 'transparent',
+            color: lang === l ? '#0f172a' : T.MUT,
+            border: 'none', cursor: 'pointer',
+            borderRight: l !== 'lo' ? `1px solid ${T.BOR}` : 'none',
+            WebkitTapHighlightColor: 'transparent',
+            minWidth: 34, textAlign: 'center',
+          }}>
+          {LANG_LABELS[l]}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export default function GradingPage() {
   const router = useRouter();
@@ -58,7 +86,6 @@ export default function GradingPage() {
       }
       return changed ? updated : prev;
     });
-    // Auto-select first saleable grade when dicts load
     if (allGradeKeys.length > 0 && editKey === null) {
       setEditKey(allGradeKeys[0]);
     }
@@ -86,17 +113,17 @@ export default function GradingPage() {
     }
   };
 
-  const selectedInfo = editKey ? gradeMap[editKey] : null;
+  const selectedInfo  = editKey ? gradeMap[editKey] : null;
   const selectedColor = (selectedInfo?.color as string) ?? T.ACC;
-  const selectedLabel = selectedInfo?.label ?? editKey ?? '';
   const numpadInitial = editKey && outputs[editKey] > 0 ? String(outputs[editKey]) : '';
 
   // ── 成功画面 ──────────────────────────────────────────────────────────────────
   if (submitResult) {
     return (
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: T.BG }}>
-        <div style={{ background: T.CARD, borderBottom: `1px solid ${T.BOR}`, padding: '14px 24px' }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: T.TXT }}>📊 {t('terminal.grading', '分级作业')}</div>
+        <div style={{ background: T.CARD, borderBottom: `1px solid ${T.BOR}`, padding: '14px 24px', display: 'flex', alignItems: 'center' }}>
+          <div style={{ flex: 1, fontSize: 18, fontWeight: 700, color: T.TXT }}>📊 {t('terminal.grading', '分级作业')}</div>
+          <LangToggle />
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, padding: 32 }}>
           <div style={{ fontSize: 64 }}>✅</div>
@@ -104,31 +131,31 @@ export default function GradingPage() {
           {!!submitResult.code && (
             <div style={{ fontSize: 13, color: T.MUT }}>{t('ui.分级单号', '分级单号')}：{String(submitResult.code)}</div>
           )}
-          <div style={{ background: T.CARD, borderRadius: 12, padding: 20, border: `1px solid ${T.BOR}`, width: '100%', maxWidth: 440 }}>
-            <div style={{ fontSize: 12, color: T.MUT, marginBottom: 12, fontWeight: 600 }}>{t('ui.分级产出汇总', '分级产出汇总')}</div>
+          <div style={{ background: T.CARD, borderRadius: 14, padding: 24, border: `1px solid ${T.BOR}`, width: '100%', maxWidth: 480 }}>
+            <div style={{ fontSize: 12, color: T.MUT, marginBottom: 14, fontWeight: 600, letterSpacing: 1 }}>{t('ui.分级产出汇总', '分级产出汇总')}</div>
             {Object.entries(submitResult.outputs as Record<string, number>)
               .filter(([, v]) => v > 0)
               .map(([k, v]) => {
                 const info = gradeMap[k];
                 return (
-                  <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid rgba(255,255,255,0.05)` }}>
-                    <span style={{ fontSize: 14, color: (info?.color as string) ?? T.MUT, fontWeight: 600 }}>{info?.label ?? k}</span>
-                    <span style={{ fontSize: 16, color: T.TXT, fontWeight: 700 }}>{(v as number).toLocaleString()} {t('ui.枚', '枚')}</span>
+                  <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 0', borderBottom: `1px solid rgba(255,255,255,0.05)` }}>
+                    <span style={{ fontSize: 15, color: (info?.color as string) ?? T.MUT, fontWeight: 600 }}>{info?.label ?? k}</span>
+                    <span style={{ fontSize: 17, color: T.TXT, fontWeight: 700 }}>{(v as number).toLocaleString()} {t('ui.枚', '枚')}</span>
                   </div>
                 );
               })}
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', marginTop: 4 }}>
-              <span style={{ fontSize: 13, color: T.MUT }}>{t('ui.合计产出', '合计产出')}</span>
-              <span style={{ fontSize: 16, color: T.GRN, fontWeight: 700 }}>{totalOutput.toLocaleString()} {t('ui.枚', '枚')}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', marginTop: 4 }}>
+              <span style={{ fontSize: 14, color: T.MUT }}>{t('ui.合计产出', '合计产出')}</span>
+              <span style={{ fontSize: 18, color: T.GRN, fontWeight: 800 }}>{totalOutput.toLocaleString()} {t('ui.枚', '枚')}</span>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 14 }}>
             <button type="button" onClick={() => { setSubmitResult(null); setOutputs(Object.fromEntries(allGradeKeys.map(k => [k, 0]))); }}
-              style={{ padding: '14px 28px', borderRadius: 10, border: `1px solid ${T.BOR}`, background: 'transparent', color: T.MUT, fontSize: 15, cursor: 'pointer' }}>
+              style={{ padding: '15px 30px', borderRadius: 12, border: `1px solid ${T.BOR}`, background: 'transparent', color: T.MUT, fontSize: 15, cursor: 'pointer' }}>
               {t('ui.继续分级', '继续分级')}
             </button>
             <button type="button" onClick={() => router.push('/terminal/packaging/packing')}
-              style={{ padding: '14px 40px', borderRadius: 10, border: 'none', background: T.ACC, color: '#0f172a', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
+              style={{ padding: '15px 44px', borderRadius: 12, border: 'none', background: T.ACC, color: '#0f172a', fontSize: 16, fontWeight: 700, cursor: 'pointer' }}>
               → {t('terminal.packing', '前往包装')}
             </button>
           </div>
@@ -141,22 +168,43 @@ export default function GradingPage() {
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: T.BG, overflow: 'hidden' }}>
 
+      {/* Cursor blink animation */}
+      <style>{`
+        @keyframes _grading_blink {
+          0%,49%  { opacity: 1; }
+          50%,100%{ opacity: 0; }
+        }
+        ._grading_cursor {
+          display: inline-block;
+          width: 3px;
+          margin-left: 3px;
+          border-radius: 2px;
+          animation: _grading_blink 1s step-end infinite;
+        }
+      `}</style>
+
       {/* Header */}
-      <div style={{ background: T.CARD, borderBottom: `1px solid ${T.BOR}`, padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+      <div style={{ background: T.CARD, borderBottom: `1px solid ${T.BOR}`, padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
         <span style={{ fontSize: 22 }}>📊</span>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 17, fontWeight: 700, color: T.TXT }}>{t('terminal.grading', '分级作业')}</div>
-          <div style={{ fontSize: 11, color: T.MUT }}>{t('ui.点击等级卡片选中后通过右侧键盘录入', '点击等级卡片选中，通过右侧键盘录入数量')}</div>
+          <div style={{ fontSize: 11, color: T.MUT }}>{t('ui.点击等级卡片选中后通过右侧键盘录入数量', '点击等级卡片选中，右侧键盘录入数量')}</div>
         </div>
-        <div style={{ background: 'rgba(34,197,94,0.1)', border: `1px solid rgba(34,197,94,0.3)`, borderRadius: 10, padding: '8px 16px', textAlign: 'right' }}>
+
+        {/* Lang toggle */}
+        <LangToggle />
+
+        {/* Available qty */}
+        <div style={{ background: 'rgba(34,197,94,0.1)', border: `1px solid rgba(34,197,94,0.3)`, borderRadius: 10, padding: '7px 14px', textAlign: 'center', minWidth: 72 }}>
           <div style={{ fontSize: 10, color: T.MUT, marginBottom: 1 }}>{t('ui.今日可分级', '今日可分级')}</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: T.GRN, fontVariantNumeric: 'tabular-nums' }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: T.GRN, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
             {summaryLoading ? '…' : availableQty > 0 ? availableQty.toLocaleString() : '—'}
           </div>
-          <div style={{ fontSize: 10, color: T.MUT }}>{t('ui.枚', '枚')}</div>
+          <div style={{ fontSize: 10, color: T.MUT, marginTop: 1 }}>{t('ui.枚', '枚')}</div>
         </div>
+
         {collections.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 72, overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 60, overflowY: 'auto' }}>
             {collections.map((b, i) => (
               <div key={i} style={{ fontSize: 10, color: T.MUT, whiteSpace: 'nowrap' }}>
                 {String(b.house_name || b.houseCode || b.house_code || '')} · {Number(b.received_qty ?? 0).toLocaleString()} {t('ui.枚', '枚')}
@@ -167,20 +215,20 @@ export default function GradingPage() {
       </div>
 
       {/* Main split: grades (left) + numpad (right) */}
-      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', gap: 0 }}>
+      <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
 
         {/* ── Left: Grade cards ── */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {!summaryLoading && availableQty === 0 && (
-            <div style={{ background: 'rgba(245,158,11,0.08)', border: `1px solid rgba(245,158,11,0.3)`, borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 18 }}>⚠️</span>
+            <div style={{ background: 'rgba(245,158,11,0.08)', border: `1px solid rgba(245,158,11,0.3)`, borderRadius: 12, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 20 }}>⚠️</span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, color: T.ACC, fontWeight: 600 }}>{t('ui.今日尚未录入集蛋数据', '今日尚未录入集蛋数据')}</div>
-                <div style={{ fontSize: 11, color: T.MUT }}>{t('ui.可先录入集蛋再返回分级', '可先录入集蛋，或直接在此录入分级产出')}</div>
+                <div style={{ fontSize: 13, color: T.ACC, fontWeight: 600 }}>{t('ui.今日尚未录入集蛋数据', '今日尚未录入集蛋数据')}</div>
+                <div style={{ fontSize: 11, color: T.MUT, marginTop: 2 }}>{t('ui.可先录入集蛋再返回分级', '可先录入集蛋，或直接在此录入分级产出')}</div>
               </div>
               <button type="button" onClick={() => router.push('/terminal/packaging/source-receive')}
-                style={{ padding: '7px 14px', borderRadius: 7, border: `1px solid ${T.ACC}`, background: 'transparent', color: T.ACC, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                style={{ padding: '9px 16px', borderRadius: 8, border: `1px solid ${T.ACC}`, background: 'transparent', color: T.ACC, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 → {t('ui.去集蛋录入', '去集蛋录入')}
               </button>
             </div>
@@ -188,7 +236,7 @@ export default function GradingPage() {
 
           {/* 可售等级 */}
           <div>
-            <div style={{ fontSize: 10, color: T.MUT, fontWeight: 700, marginBottom: 8, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+            <div style={{ fontSize: 11, color: T.MUT, fontWeight: 700, marginBottom: 10, letterSpacing: 1.5, textTransform: 'uppercase' }}>
               {t('ui.可售等级', 'Saleable Grades')}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
@@ -202,23 +250,30 @@ export default function GradingPage() {
                     onPointerDown={() => setEditKey(tc)}
                     style={{
                       background: isSelected ? `${color}18` : T.CARD,
-                      borderRadius: 14,
-                      padding: '16px 10px',
+                      borderRadius: 16,
+                      padding: '18px 12px',
                       border: `2px solid ${isSelected ? color : qty > 0 ? `${color}50` : T.BOR}`,
                       cursor: 'pointer', textAlign: 'center',
                       transition: 'border 0.12s, background 0.12s',
                       WebkitTapHighlightColor: 'transparent',
+                      boxShadow: isSelected ? `0 0 0 3px ${color}20` : 'none',
                     }}>
-                    <div style={{ fontSize: 11, color: isSelected ? color : T.MUT, fontWeight: 600, marginBottom: 6 }}>{d.label}</div>
-                    {d.weightRange && <div style={{ fontSize: 9, color: T.MUT, marginBottom: 5, opacity: 0.7 }}>{d.weightRange as string}</div>}
+                    <div style={{ fontSize: 12, color: isSelected ? color : T.MUT, fontWeight: 700, marginBottom: 5 }}>{d.label}</div>
+                    {d.weightRange && <div style={{ fontSize: 10, color: T.MUT, marginBottom: 6, opacity: 0.6 }}>{d.weightRange as string}</div>}
                     <div style={{
-                      fontSize: 34, fontWeight: 900, lineHeight: 1,
+                      fontSize: 38, fontWeight: 900, lineHeight: 1,
                       color: qty > 0 ? color : isSelected ? `${color}60` : T.BOR,
                       fontVariantNumeric: 'tabular-nums',
+                      display: 'flex', alignItems: 'baseline', justifyContent: 'center',
                     }}>
-                      {qty.toLocaleString()}
+                      {qty > 0 ? qty.toLocaleString() : (isSelected ? '0' : '—')}
+                      {isSelected && (
+                        <span className="_grading_cursor" style={{
+                          height: 36, background: color, verticalAlign: 'middle',
+                        }} />
+                      )}
                     </div>
-                    <div style={{ fontSize: 9, color: T.MUT, marginTop: 5 }}>{t('ui.枚', '枚')}</div>
+                    <div style={{ fontSize: 10, color: T.MUT, marginTop: 6 }}>{t('ui.枚', '枚')}</div>
                   </button>
                 );
               })}
@@ -227,7 +282,7 @@ export default function GradingPage() {
 
           {/* 缺陷/损耗 */}
           <div>
-            <div style={{ fontSize: 10, color: T.MUT, fontWeight: 700, marginBottom: 8, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+            <div style={{ fontSize: 11, color: T.MUT, fontWeight: 700, marginBottom: 10, letterSpacing: 1.5, textTransform: 'uppercase' }}>
               {t('ui.缺陷损耗', 'Defects / Waste')}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
@@ -241,22 +296,29 @@ export default function GradingPage() {
                     onPointerDown={() => setEditKey(tc)}
                     style={{
                       background: isSelected ? `${color}18` : T.CARD,
-                      borderRadius: 12,
-                      padding: '14px 8px',
+                      borderRadius: 14,
+                      padding: '15px 8px',
                       border: `2px solid ${isSelected ? color : qty > 0 ? `${color}50` : T.BOR}`,
                       cursor: 'pointer', textAlign: 'center',
                       transition: 'border 0.12s, background 0.12s',
                       WebkitTapHighlightColor: 'transparent',
+                      boxShadow: isSelected ? `0 0 0 3px ${color}20` : 'none',
                     }}>
-                    <div style={{ fontSize: 10, color: isSelected ? color : T.MUT, fontWeight: 600, marginBottom: 5 }}>{d.label}</div>
+                    <div style={{ fontSize: 11, color: isSelected ? color : T.MUT, fontWeight: 700, marginBottom: 6 }}>{d.label}</div>
                     <div style={{
-                      fontSize: 28, fontWeight: 900, lineHeight: 1,
+                      fontSize: 30, fontWeight: 900, lineHeight: 1,
                       color: qty > 0 ? color : isSelected ? `${color}60` : T.BOR,
                       fontVariantNumeric: 'tabular-nums',
+                      display: 'flex', alignItems: 'baseline', justifyContent: 'center',
                     }}>
-                      {qty.toLocaleString()}
+                      {qty > 0 ? qty.toLocaleString() : (isSelected ? '0' : '—')}
+                      {isSelected && (
+                        <span className="_grading_cursor" style={{
+                          height: 27, background: color, verticalAlign: 'middle',
+                        }} />
+                      )}
                     </div>
-                    <div style={{ fontSize: 9, color: T.MUT, marginTop: 4 }}>{t('ui.枚', '枚')}</div>
+                    <div style={{ fontSize: 10, color: T.MUT, marginTop: 5 }}>{t('ui.枚', '枚')}</div>
                   </button>
                 );
               })}
@@ -265,52 +327,57 @@ export default function GradingPage() {
 
           {/* 投入产出平衡 */}
           <div style={{
-            background: T.CARD, borderRadius: 10, padding: '12px 16px',
+            background: T.CARD, borderRadius: 12, padding: '14px 18px',
             border: `1px solid ${balanceOk ? T.BOR : T.RED}`,
-            display: 'flex', alignItems: 'center', gap: 20, flexShrink: 0,
+            display: 'flex', alignItems: 'center', gap: 24, flexShrink: 0,
           }}>
-            <div style={{ flex: 1, display: 'flex', gap: 28, fontSize: 14 }}>
+            <div style={{ flex: 1, display: 'flex', gap: 32, flexWrap: 'wrap' }}>
               <span>
-                <span style={{ color: T.MUT, fontSize: 11 }}>{t('ui.今日投入', '投入')} </span>
-                <strong style={{ color: T.TXT }}>{availableQty > 0 ? availableQty.toLocaleString() : '—'}</strong>
+                <span style={{ color: T.MUT, fontSize: 12 }}>{t('ui.今日投入', '投入')} </span>
+                <strong style={{ color: T.TXT, fontSize: 15 }}>{availableQty > 0 ? availableQty.toLocaleString() : '—'}</strong>
               </span>
               <span>
-                <span style={{ color: T.MUT, fontSize: 11 }}>{t('ui.已分级', '已分级')} </span>
-                <strong style={{ color: balanceOk ? T.GRN : T.RED }}>{totalOutput.toLocaleString()}</strong>
+                <span style={{ color: T.MUT, fontSize: 12 }}>{t('ui.已分级', '已分级')} </span>
+                <strong style={{ color: balanceOk ? T.GRN : T.RED, fontSize: 15 }}>{totalOutput.toLocaleString()}</strong>
               </span>
               <span>
-                <span style={{ color: T.MUT, fontSize: 11 }}>{t('ui.差异', '差异')} </span>
-                <strong style={{ color: availableQty > 0 && Math.abs(availableQty - totalOutput) > 200 ? '#f59e0b' : T.GRN }}>
+                <span style={{ color: T.MUT, fontSize: 12 }}>{t('ui.差异', '差异')} </span>
+                <strong style={{ fontSize: 15, color: availableQty > 0 && Math.abs(availableQty - totalOutput) > 200 ? '#f59e0b' : T.GRN }}>
                   {availableQty > 0 ? (availableQty - totalOutput).toLocaleString() : '—'}
                 </strong>
               </span>
             </div>
             {!balanceOk && (
-              <div style={{ color: T.RED, fontSize: 12, fontWeight: 600 }}>⚠️ {t('ui.产出超过投入', '产出超过投入')}</div>
+              <div style={{ color: T.RED, fontSize: 13, fontWeight: 600 }}>⚠️ {t('ui.产出超过投入', '产出超过投入')}</div>
             )}
           </div>
         </div>
 
-        {/* ── Right: Fixed NumPad panel ── */}
+        {/* ── Right: NumPad panel ── */}
         <div style={{
-          width: 330, flexShrink: 0, borderLeft: `1px solid ${T.BOR}`,
-          padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
+          width: 400, flexShrink: 0, borderLeft: `1px solid ${T.BOR}`,
+          padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10,
           background: '#0a1628', overflowY: 'auto',
         }}>
           {editKey ? (
             <>
-              {/* Selected grade indicator */}
+              {/* Current grade indicator */}
               <div style={{
                 background: `${selectedColor}15`,
                 border: `1px solid ${selectedColor}40`,
-                borderRadius: 10, padding: '10px 14px',
-                display: 'flex', alignItems: 'center', gap: 10,
+                borderRadius: 12, padding: '10px 16px',
+                display: 'flex', alignItems: 'center', gap: 12,
               }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10, color: T.MUT, marginBottom: 2 }}>{t('ui.当前编辑', '当前编辑')}</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: selectedColor }}>{selectedLabel}</div>
+                  <div style={{ fontSize: 11, color: T.MUT, marginBottom: 2 }}>{t('ui.当前编辑', '当前编辑')}</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: selectedColor }}>
+                    {selectedInfo?.label ?? editKey}
+                  </div>
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 900, color: selectedColor, fontVariantNumeric: 'tabular-nums' }}>
+                <div style={{
+                  fontSize: 28, fontWeight: 900, color: selectedColor,
+                  fontVariantNumeric: 'tabular-nums', lineHeight: 1,
+                }}>
                   {(outputs[editKey] ?? 0).toLocaleString()}
                 </div>
               </div>
@@ -319,39 +386,42 @@ export default function GradingPage() {
                 key={editKey}
                 initialValue={numpadInitial}
                 accentColor={selectedColor}
+                hideDisplay={true}
+                buttonHeight={80}
                 onChange={val => {
                   setOutputs(p => ({ ...p, [editKey]: Math.max(0, parseInt(val) || 0) }));
                 }}
               />
             </>
           ) : (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: T.MUT }}>
-              <div style={{ fontSize: 32 }}>👈</div>
-              <div style={{ fontSize: 13, textAlign: 'center' }}>{t('ui.请先选择左侧等级', '请先点击左侧等级卡片')}</div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, color: T.MUT }}>
+              <div style={{ fontSize: 40 }}>👈</div>
+              <div style={{ fontSize: 14, textAlign: 'center', lineHeight: 1.5 }}>{t('ui.请先点击左侧等级卡片', '请先点击左侧等级卡片')}</div>
             </div>
           )}
         </div>
       </div>
 
       {/* Bottom bar */}
-      <div style={{ background: T.CARD, borderTop: `1px solid ${T.BOR}`, padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+      <div style={{ background: T.CARD, borderTop: `1px solid ${T.BOR}`, padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <button type="button" onClick={() => router.push('/terminal/packaging/source-receive')}
-          style={{ padding: '12px 18px', borderRadius: 10, border: `1px solid ${T.BOR}`, background: 'transparent', color: T.MUT, fontSize: 14, cursor: 'pointer' }}>
+          style={{ padding: '13px 20px', borderRadius: 10, border: `1px solid ${T.BOR}`, background: 'transparent', color: T.MUT, fontSize: 14, cursor: 'pointer' }}>
           ← {t('ui.集蛋录入', '集蛋录入')}
         </button>
         <button type="button" onClick={() => router.push('/terminal/packaging/exceptions')}
-          style={{ padding: '12px 18px', borderRadius: 10, border: `1px solid rgba(239,68,68,0.4)`, background: 'rgba(239,68,68,0.1)', color: T.RED, fontSize: 14, cursor: 'pointer' }}>
+          style={{ padding: '13px 18px', borderRadius: 10, border: `1px solid rgba(239,68,68,0.4)`, background: 'rgba(239,68,68,0.1)', color: T.RED, fontSize: 14, cursor: 'pointer' }}>
           ⚠️ {t('ui.上报异常', '上报异常')}
         </button>
         <div style={{ flex: 1 }} />
         <button type="button" onClick={handleSubmit} disabled={!canSubmit || submitting}
           style={{
-            padding: '12px 48px', borderRadius: 10, border: 'none',
+            padding: '13px 52px', borderRadius: 10, border: 'none',
             background: canSubmit ? T.GRN : T.BOR,
             color: canSubmit ? '#0f172a' : T.MUT,
-            fontSize: 16, fontWeight: 700,
+            fontSize: 17, fontWeight: 800,
             cursor: canSubmit ? 'pointer' : 'not-allowed',
             opacity: submitting ? 0.7 : 1,
+            transition: 'background 0.15s',
           }}>
           {submitting ? t('ui.提交中', '提交中...') : `✓ ${t('ui.完成分级', '完成分级')}`}
         </button>
