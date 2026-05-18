@@ -23,10 +23,18 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     body: body ? JSON.stringify(body) : undefined,
   });
   if (res.status === 401) {
-    // 仅当本地有 token 却被服务端拒绝（过期/失效），才主动跳转登录页
-    // 若 token 为空（如新标签页），直接 throw 由调用方或 TerminalLayout 自行处理
+    // 只有 JWT 真正过期才跳登录；权限不足（如管理员访问仅限操作员的 endpoint）
+    // 应继续停留在当前页面，让调用方展示友好错误，不能误把权限 401 当成过期登出。
     if (typeof window !== 'undefined' && tok()) {
-      window.location.href = '/login?reason=expired';
+      try {
+        const parts = tok().split('.');
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
+          window.location.href = '/login?reason=expired';
+        }
+      } catch {
+        window.location.href = '/login?reason=expired';
+      }
     }
     throw new Error('Token expired or unauthorized');
   }
