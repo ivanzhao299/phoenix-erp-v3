@@ -124,9 +124,14 @@ function LoginInner() {
       // 记忆账户名（无密码），下次回填
       try { localStorage.setItem(LAST_USER_KEY, u.trim()); } catch { /* noop */ }
       // 优先跳回 middleware 附带的 returnUrl，其次走角色首页
+      // 特例：returnUrl 是通用 /dashboard（根路径兜底重定向产生）且该角色有专属首页时，
+      // 角色首页优先，避免 terminal 操作员被送到管理后台
       const returnUrl = sp.get("return");
       const roleDest  = ROLE_HOME[info?.role] || "/dashboard";
-      const dest      = returnUrl && returnUrl.startsWith("/") ? returnUrl : roleDest;
+      const isGenericDashboard = returnUrl === "/dashboard";
+      const dest = (returnUrl && returnUrl.startsWith("/") && !isGenericDashboard)
+        ? returnUrl
+        : roleDest;
       router.replace(dest);
     } catch {
       setError(t('ui.网络连接失败', '网络连接失败，请重试'));
