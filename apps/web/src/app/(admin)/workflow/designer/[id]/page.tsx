@@ -35,6 +35,7 @@ type RuntimeSchema = {
   fields?: Array<{ key: string; label: string; type: string; required?: boolean }>;
 };
 type DirectoryOption = { label: string; value: string };
+type CheckItem = { label: string; detail: string; ok: boolean; level: "error" | "warn" | "ok" };
 
 const defaultNodes: WorkflowNode[] = [
   { id: "start", type: "start", name: "发起申请", x: 80, y: 140 },
@@ -115,9 +116,22 @@ export default function WorkflowDesignerPage() {
   const currentEdge = edges[selectedEdge] || edges[0];
   const publishableForms = forms.filter(form => form.current_version_id);
   const selectedForm = publishableForms.find(form => String(form.current_version_id) === formVersionId);
-  const fieldOptions = formSchema?.fields || [];
+  const fieldOptions = useMemo(() => formSchema?.fields || [], [formSchema]);
   const previewLines = useMemo(() => buildPreview(nodes, edges, roleOptions, userOptions), [nodes, edges, roleOptions, userOptions]);
   const rehearsal = useMemo(() => rehearseWorkflow(nodes, edges, rehearsalData, roleOptions, userOptions), [edges, nodes, rehearsalData, roleOptions, userOptions]);
+  const designerChecks = useMemo(
+    () => buildDesignerChecks(nodes, edges, formVersionId, fieldOptions, roleOptions, userOptions),
+    [nodes, edges, formVersionId, fieldOptions, roleOptions, userOptions],
+  );
+  const blockingProblems = designerChecks.filter(item => item.level === "error" && !item.ok);
+
+  useEffect(() => {
+    if (!selectedForm) return;
+    workflowApi.formDesigner(selectedForm.id).then(res => {
+      const schema = res.data.schema_json as RuntimeSchema | undefined;
+      setFormSchema(schema && Array.isArray(schema.fields) ? schema : null);
+    }).catch(() => {});
+  }, [selectedForm]);
 
   function patchNode(index: number, patch: Partial<WorkflowNode>) {
     setNodes(prev => prev.map((node, i) => i === index ? { ...node, ...patch } : node));
@@ -189,8 +203,148 @@ export default function WorkflowDesignerPage() {
     setSelectedEdge(Math.max(0, index - 1));
   }
 
+  function applyRoutePreset(kind: "simple" | "two_level" | "amount_branch" | "approval_cc") {
+    const sysRole = pickRole(roleOptions, ["系统", "管理"], "ROLE_SYSOPS");
+    const financeRole = pickRole(roleOptions, ["财务"], "ROLE_FIN_ACCT");
+    const managerRole = pickRole(roleOptions, ["负责人", "主管", "经理"], sysRole);
+    const amountField = fieldOptions.find(field => field.type === "amount" || field.key.includes("amount") || field.key.includes("money"))?.key || "amount";
+    let nextNodes: WorkflowNode[] = [];
+    let nextEdges: WorkflowEdge[] = [];
+
+    if (kind === "simple") {
+      nextNodes = [
+        { id: "start", type: "start", name: "发起申请", x: 80, y: 140 },
+        { id: "approval_1", type: "approval", name: "负责人审批", x: 320, y: 140, config: { assigneeType: "ROLE", roles: [managerRole] } },
+        { id: "end", type: "end", name: "流程完成", x: 560, y: 140 },
+      ];
+      nextEdges = [{ from: "start", to: "approval_1" }, { from: "approval_1", to: "end" }];
+    } else if (kind === "two_level") {
+      nextNodes = [
+        { id: "start", type: "start", name: "发起申请", x: 80, y: 140 },
+        { id: "dept_approval", type: "approval", name: "部门负责人审批", x: 320, y: 140, config: { assigneeType: "ROLE", roles: [managerRole] } },
+        { id: "final_approval", type: "approval", name: "最终审批", x: 560, y: 140, config: { assigneeType: "ROLE", roles: [sysRole] } },
+        { id: "end", type: "end", name: "流程完成", x: 800, y: 140 },
+      ];
+      nextEdges = [{ from: "start", to: "dept_approval" }, { from: "dept_approval", to: "final_approval" }, { from: "final_approval", to: "end" }];
+    } else if (kind === "amount_branch") {
+      nextNodes = [
+        { id: "start", type: "start", name: "发起申请", x: 80, y: 140 },
+        { id: "amount_check", type: "condition", name: "金额判断", x: 320, y: 140 },
+        { id: "manager_approval", type: "approval", name: "负责人审批", x: 560, y: 80, config: { assigneeType: "ROLE", roles: [managerRole] } },
+        { id: "finance_approval", type: "approval", name: "财务审批", x: 560, y: 220, config: { assigneeType: "ROLE", roles: [financeRole] } },
+        { id: "end", type: "end", name: "流程完成", x: 820, y: 140 },
+      ];
+      nextEdges = [
+        { from: "start", to: "amount_check" },
+        { from: "amount_check", to: "finance_approval", label: "金额较大", condition: { field: amountField, operator: ">", value: 10000 } },
+        { from: "amount_check", to: "manager_approval", label: "普通金额" },
+        { from: "manager_approval", to: "end" },
+        { from: "finance_approval", to: "end" },
+      ];
+    } else {
+      nextNodes = [
+        { id: "start", type: "start", name: "发起申请", x: 80, y: 140 },
+        { id: "approval_1", type: "approval", name: "负责人审批", x: 320, y: 140, config: { assigneeType: "ROLE", roles: [managerRole] } },
+        { id: "cc_record", type: "cc", name: "抄送备案", x: 560, y: 140, config: { assigneeType: "ROLE", roles: [sysRole] } },
+        { id: "end", type: "end", name: "流程完成", x: 800, y: 140 },
+      ];
+      nextEdges = [{ from: "start", to: "approval_1" }, { from: "approval_1", to: "cc_record" }, { from: "cc_record", to: "end" }];
+    }
+
+    setNodes(nextNodes);
+    setEdges(nextEdges);
+    setSelectedNode(1);
+    setSelectedEdge(0);
+    setMsg("已套用路线模板，可以继续微调审批人和条件。");
+    setError("");
+  }
+
+  function tidyLayout() {
+    const path = buildMainPath(nodes, edges);
+    const pathIds = new Set(path.map(node => node.id));
+    const nextNodes = nodes.map(node => {
+      const index = path.findIndex(item => item.id === node.id);
+      if (index >= 0) return { ...node, x: 80 + index * 240, y: node.type === "condition" ? 130 : 140 };
+      const extraIndex = [...nodes].filter(item => !pathIds.has(item.id)).findIndex(item => item.id === node.id);
+      return { ...node, x: 320 + extraIndex * 220, y: 280 };
+    });
+    setNodes(nextNodes);
+    setMsg("已整理路线图位置。");
+  }
+
+  function autoCompleteForPublish() {
+    const sysRole = pickRole(roleOptions, ["系统", "管理"], "ROLE_SYSOPS");
+    let nextNodes = nodes.length ? nodes : defaultNodes;
+    let nextEdges = edges;
+
+    if (!nextNodes.some(node => node.type === "start")) {
+      nextNodes = [{ id: "start", type: "start", name: "发起申请", x: 80, y: 140 }, ...nextNodes];
+    }
+    if (!nextNodes.some(node => node.type === "end")) {
+      nextNodes = [...nextNodes, { id: "end", type: "end", name: "流程完成", x: 80 + nextNodes.length * 240, y: 140 }];
+    }
+    if (!nextNodes.some(node => node.type === "approval")) {
+      const end = nextNodes.find(node => node.type === "end");
+      const approval: WorkflowNode = { id: uniqueNodeId("approval", nextNodes), type: "approval", name: "负责人审批", x: 320, y: 140, config: { assigneeType: "ROLE", roles: [sysRole] } };
+      nextNodes = end ? [...nextNodes.filter(node => node.id !== end.id), approval, end] : [...nextNodes, approval];
+    }
+
+    const validIds = new Set(nextNodes.map(node => node.id));
+    nextNodes = nextNodes.map(node => {
+      if (node.type !== "approval" && node.type !== "cc") return node;
+      const config = node.config || {};
+      const assigneeType = config.assigneeType || "ROLE";
+      if (assigneeType === "STARTER") return node;
+      if (assigneeType === "USER" && (config.users || []).length) return node;
+      if (assigneeType === "ROLE" && (config.roles || []).length) return node;
+      return { ...node, config: { ...config, assigneeType: "ROLE", roles: [sysRole] } };
+    });
+
+    nextEdges = nextEdges.filter(edge => validIds.has(edge.from) && validIds.has(edge.to));
+    if (!nextEdges.length) nextEdges = linkMainRoute(nextNodes);
+    const fieldKeys = new Set(fieldOptions.map(field => field.key));
+    const firstField = fieldOptions[0]?.key || "amount";
+    nextEdges = nextEdges.map(edge => {
+      if (!edge.condition) return edge;
+      if (!edge.condition.field || (fieldKeys.size > 0 && !fieldKeys.has(edge.condition.field))) {
+        return { ...edge, condition: { ...edge.condition, field: firstField } };
+      }
+      return edge;
+    });
+    const conditionFallbacks = nextNodes
+      .filter(node => node.type === "condition")
+      .filter(node => nextEdges.some(edge => edge.from === node.id) && !nextEdges.some(edge => edge.from === node.id && !edge.condition))
+      .map(node => ({ from: node.id, to: nextNodes.find(item => item.type === "end")?.id || "end", label: "默认路线" }));
+
+    if (!formVersionId && publishableForms[0]?.current_version_id) {
+      setFormVersionId(String(publishableForms[0].current_version_id));
+    }
+    setNodes(nextNodes);
+    setEdges([...nextEdges, ...conditionFallbacks]);
+    setSelectedNode(Math.min(1, nextNodes.length - 1));
+    setSelectedEdge(0);
+    setMsg("已按发布要求补齐表单、审批人、路线和条件兜底，请再彩排确认。");
+    setError("");
+  }
+
+  function applyFieldToCurrentRule(fieldKey: string) {
+    if (!currentEdge) return;
+    patchEdge(selectedEdge, {
+      condition: {
+        ...(currentEdge.condition || { operator: "==", value: "" }),
+        field: fieldKey,
+      },
+    });
+    setMsg("已把字段加入当前规则，可以继续设置判断条件。");
+  }
+
+  function selectFormVersion(value: string) {
+    setFormVersionId(value);
+    if (!value) setFormSchema(null);
+  }
+
   async function publish() {
-    const problems = validateDesigner(nodes, edges);
+    const problems = validateDesigner(nodes, edges, fieldOptions, roleOptions, userOptions);
     if (problems.length > 0) {
       setError(problems[0]);
       setMsg("");
@@ -237,10 +391,23 @@ export default function WorkflowDesignerPage() {
             <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addStep("approval")}>添加审批</button>
             <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addStep("condition")}>添加条件</button>
             <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addStep("cc")}>添加抄送</button>
+            <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={tidyLayout}>整理路线</button>
           </div>
           <div style={directoryHintStyle}>
             <strong>已接入组织数据</strong>
             <span>{roleOptions.length} 个角色 · {userOptions.length} 个用户会自动从系统数据源读取</span>
+          </div>
+          <div style={presetBoxStyle}>
+            <strong>路线模板</strong>
+            <button type="button" className={s.tabPill} onClick={() => applyRoutePreset("simple")}>单级审批</button>
+            <button type="button" className={s.tabPill} onClick={() => applyRoutePreset("two_level")}>两级审批</button>
+            <button type="button" className={s.tabPill} onClick={() => applyRoutePreset("amount_branch")}>金额分支</button>
+            <button type="button" className={s.tabPill} onClick={() => applyRoutePreset("approval_cc")}>审批后抄送</button>
+          </div>
+          <div style={assistantBoxStyle}>
+            <strong>智能整理</strong>
+            <span>自动补齐缺失表单、审批人、无效连线和条件默认路线。</span>
+            <button type="button" className={`${s.btnPrimary} ${s.btnSm}`} onClick={autoCompleteForPublish}>一键补齐发布条件</button>
           </div>
           <div style={stepListStyle}>
             {mainPath.map((node, index) => {
@@ -274,6 +441,27 @@ export default function WorkflowDesignerPage() {
           </div>
           {msg ? <div className={s.successBanner}>{msg}</div> : null}
           {error ? <div className={s.errorBanner}>{error}</div> : null}
+
+          <div style={checkPanelStyle}>
+            <div style={edgeHeaderStyle}>
+              <div>
+                <strong className={s.cardTitle}>上线检查</strong>
+                <p className={s.modalDesc} style={{ margin: "4px 0 0" }}>发布前自动检查表单、审批人、分支和路线完整性。</p>
+              </div>
+              <span className={`${s.badge} ${blockingProblems.length ? s.badgeDanger : s.badgeSuccess}`}>
+                {blockingProblems.length ? `${blockingProblems.length} 项需处理` : "可以发布"}
+              </span>
+            </div>
+            <div style={checkGridStyle}>
+              {designerChecks.map(item => (
+                <div key={item.label} style={checkItemStyle}>
+                  <span className={`${s.badge} ${checkBadgeClass(item)}`}>{item.ok ? "通过" : item.level === "warn" ? "建议" : "必改"}</span>
+                  <strong>{item.label}</strong>
+                  <small>{item.detail}</small>
+                </div>
+              ))}
+            </div>
+          </div>
 
           <div style={flowPreviewStyle}>
             {mainPath.map((node, index) => (
@@ -366,7 +554,7 @@ export default function WorkflowDesignerPage() {
         <section className={s.card} style={panelStyle}>
           <strong className={s.cardTitle} style={{ display: "block", marginBottom: 12 }}>当前设置</strong>
           <label className={s.lbl}>绑定业务表单</label>
-          <select className={s.inp} value={formVersionId} onChange={e => setFormVersionId(e.target.value)}>
+          <select className={s.inp} value={formVersionId} onChange={e => selectFormVersion(e.target.value)}>
             <option value="">不绑定表单</option>
             {publishableForms.map(form => (
               <option key={form.id} value={String(form.current_version_id)}>
@@ -383,6 +571,19 @@ export default function WorkflowDesignerPage() {
           ) : (
             <div className={s.warnBanner} style={{ marginTop: 10 }}>未绑定表单时，用户只能填写通用说明。</div>
           )}
+          {fieldOptions.length ? (
+            <div style={fieldPoolStyle}>
+              <strong>表单字段池</strong>
+              <span>点击字段可直接作为当前规则的判断条件。</span>
+              <div style={fieldChipGridStyle}>
+                {fieldOptions.map(field => (
+                  <button key={field.key} type="button" className={s.tabPill} onClick={() => applyFieldToCurrentRule(field.key)}>
+                    {field.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <hr style={dividerStyle} />
           {currentNode ? (
@@ -535,7 +736,98 @@ function insertBeforeEnd(path: WorkflowNode[], edges: WorkflowEdge[], node: Work
   return [...rest, { from: beforeEnd.id, to: node.id }, { from: node.id, to: end.id }];
 }
 
-function validateDesigner(nodes: WorkflowNode[], edges: WorkflowEdge[]) {
+function buildDesignerChecks(
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[],
+  formVersionId: string,
+  fields: RuntimeSchema["fields"],
+  roles: DirectoryOption[],
+  users: DirectoryOption[],
+): CheckItem[] {
+  const nodeIds = new Set(nodes.map(node => node.id));
+  const fieldKeys = new Set((fields || []).map(field => field.key));
+  const roleValues = new Set(roles.map(role => role.value));
+  const userValues = new Set(users.map(user => user.value));
+  const approvalNodes = nodes.filter(node => node.type === "approval");
+  const invalidEdges = edges.filter(edge => !nodeIds.has(edge.from) || !nodeIds.has(edge.to));
+  const missingAssignee = nodes.filter(node => {
+    if (node.type !== "approval" && node.type !== "cc") return false;
+    const config = node.config || {};
+    const type = config.assigneeType || "ROLE";
+    if (type === "STARTER") return false;
+    if (type === "ROLE") return !(config.roles || []).length || Boolean(config.roles?.some(role => !roleValues.has(role)));
+    return !(config.users || []).length || Boolean(config.users?.some(user => users.length > 0 && !userValues.has(String(user))));
+  });
+  const conditionEdges = edges.filter(edge => edge.condition);
+  const invalidConditionEdges = conditionEdges.filter(edge => !edge.condition?.field || (fieldKeys.size > 0 && !fieldKeys.has(edge.condition.field)));
+  const conditionNodes = nodes.filter(node => node.type === "condition");
+  const conditionWithoutFallback = conditionNodes.filter(node => {
+    const outgoing = edges.filter(edge => edge.from === node.id);
+    return outgoing.length > 0 && !outgoing.some(edge => !edge.condition);
+  });
+  const hasEndPath = rehearseWorkflow(nodes, edges, {}, roles, users).steps.some(step => step.node.type === "end");
+  return [
+    {
+      label: "起止节点",
+      ok: nodes.some(node => node.type === "start") && nodes.some(node => node.type === "end"),
+      level: "error",
+      detail: "流程必须有发起和完成两个节点。",
+    },
+    {
+      label: "审批步骤",
+      ok: approvalNodes.length > 0,
+      level: "error",
+      detail: approvalNodes.length ? `已设置 ${approvalNodes.length} 个审批步骤。` : "至少需要一个审批步骤。",
+    },
+    {
+      label: "业务表单",
+      ok: Boolean(formVersionId),
+      level: "warn",
+      detail: formVersionId ? "已绑定发起申请表单。" : "建议绑定表单，否则发起人只能提交通用信息。",
+    },
+    {
+      label: "审批人/抄送人",
+      ok: missingAssignee.length === 0,
+      level: "error",
+      detail: missingAssignee.length ? `${missingAssignee.map(node => node.name).join("、")} 未选择有效处理人。` : "所有审批和抄送节点都已选择有效对象。",
+    },
+    {
+      label: "连线完整",
+      ok: invalidEdges.length === 0 && edges.length > 0,
+      level: "error",
+      detail: invalidEdges.length ? "存在指向不存在节点的规则。" : "流程规则都连接到了有效节点。",
+    },
+    {
+      label: "条件字段",
+      ok: invalidConditionEdges.length === 0,
+      level: "error",
+      detail: invalidConditionEdges.length ? "有条件规则使用了不存在的表单字段。" : "条件规则字段可以在表单中找到。",
+    },
+    {
+      label: "条件兜底",
+      ok: conditionWithoutFallback.length === 0,
+      level: "warn",
+      detail: conditionWithoutFallback.length ? "条件节点建议保留一条无条件默认路线，避免申请卡住。" : "条件节点已有默认路线或无需兜底。",
+    },
+    {
+      label: "可走到结束",
+      ok: hasEndPath,
+      level: "error",
+      detail: hasEndPath ? "按当前主路线可以走到流程完成。" : "当前主路线无法到达完成节点。",
+    },
+  ];
+}
+
+function validateDesigner(
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[],
+  fields: RuntimeSchema["fields"],
+  roles: DirectoryOption[],
+  users: DirectoryOption[],
+) {
+  const checks = buildDesignerChecks(nodes, edges, "1", fields, roles, users);
+  const blocking = checks.filter(item => item.level === "error" && !item.ok);
+  if (blocking.length) return blocking.map(item => `${item.label}：${item.detail}`);
   const problems: string[] = [];
   if (!nodes.some(node => node.type === "start")) problems.push("流程必须有发起申请步骤。");
   if (!nodes.some(node => node.type === "end")) problems.push("流程必须有完成步骤。");
@@ -550,6 +842,30 @@ function validateDesigner(nodes: WorkflowNode[], edges: WorkflowEdge[]) {
     if (config.assigneeType === "USER" && !(config.users || []).length) problems.push(`${node.name} 还没有指定用户。`);
   });
   return problems;
+}
+
+function pickRole(roles: DirectoryOption[], keywords: string[], fallback: string) {
+  return roles.find(role => keywords.some(keyword => role.label.includes(keyword) || role.value.includes(keyword)))?.value || fallback;
+}
+
+function uniqueNodeId(prefix: NodeType, nodes: WorkflowNode[]) {
+  let index = nodes.length + 1;
+  let id = `${prefix}_${index}`;
+  const used = new Set(nodes.map(node => node.id));
+  while (used.has(id)) {
+    index += 1;
+    id = `${prefix}_${index}`;
+  }
+  return id;
+}
+
+function linkMainRoute(nodes: WorkflowNode[]) {
+  const start = nodes.find(node => node.type === "start") || nodes[0];
+  const end = nodes.find(node => node.type === "end") || nodes[nodes.length - 1];
+  if (!start || !end || start.id === end.id) return [];
+  const middle = nodes.filter(node => node.id !== start.id && node.id !== end.id);
+  const route = [start, ...middle, end];
+  return route.slice(0, -1).map((node, index) => ({ from: node.id, to: route[index + 1].id }));
 }
 
 function buildPreview(nodes: WorkflowNode[], edges: WorkflowEdge[], roles: DirectoryOption[], users: DirectoryOption[]) {
@@ -670,6 +986,12 @@ function nodeBadgeClass(type: NodeType) {
   return `${s.badge} ${s.badgeNeutral}`;
 }
 
+function checkBadgeClass(item: CheckItem) {
+  if (item.ok) return s.badgeSuccess;
+  if (item.level === "warn") return s.badgeWarning;
+  return s.badgeDanger;
+}
+
 function conditionText(condition: NonNullable<WorkflowEdge["condition"]>, fields: RuntimeSchema["fields"]) {
   const field = fields?.find(item => item.key === condition.field);
   const op = operators.find(item => item.value === condition.operator);
@@ -698,11 +1020,16 @@ const toolbarStyle: React.CSSProperties = { display: "flex", alignItems: "flex-s
 const toolbarActionsStyle: React.CSSProperties = { display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" };
 const addBarStyle: React.CSSProperties = { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 };
 const directoryHintStyle: React.CSSProperties = { display: "grid", gap: 4, padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)", color: "var(--text-secondary)", fontSize: 12, marginBottom: 12 };
+const presetBoxStyle: React.CSSProperties = { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", marginBottom: 12 };
+const assistantBoxStyle: React.CSSProperties = { display: "grid", gap: 8, padding: 10, border: "1px solid var(--color-primary)", borderRadius: "var(--radius-md)", background: "rgba(31,56,100,0.06)", color: "var(--text-primary)", fontSize: 12, lineHeight: 1.6, marginBottom: 12 };
 const stepListStyle: React.CSSProperties = { display: "grid", gap: 8 };
-const stepButtonStyle: React.CSSProperties = { display: "grid", gap: 6, textAlign: "left", padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)", color: "var(--text-primary)", cursor: "pointer" };
+const stepButtonStyle: React.CSSProperties = { display: "grid", gap: 6, textAlign: "left", padding: 12, borderWidth: 1, borderStyle: "solid", borderColor: "var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)", color: "var(--text-primary)", cursor: "pointer" };
+const checkPanelStyle: React.CSSProperties = { padding: 14, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)", marginBottom: 14 };
+const checkGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 };
+const checkItemStyle: React.CSSProperties = { display: "grid", gap: 6, alignContent: "start", minHeight: 106, padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 13, lineHeight: 1.5 };
 const flowPreviewStyle: React.CSSProperties = { display: "flex", alignItems: "stretch", gap: 8, overflowX: "auto", padding: "12px 2px 16px" };
 const previewItemStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 };
-const previewCardStyle: React.CSSProperties = { minWidth: 160, minHeight: 94, display: "grid", gap: 6, textAlign: "left", padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)", color: "var(--text-primary)", cursor: "pointer" };
+const previewCardStyle: React.CSSProperties = { minWidth: 160, minHeight: 94, display: "grid", gap: 6, textAlign: "left", padding: 12, borderWidth: 1, borderStyle: "solid", borderColor: "var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)", color: "var(--text-primary)", cursor: "pointer" };
 const arrowStyle: React.CSSProperties = { color: "var(--color-primary)", fontWeight: 900, fontSize: 18 };
 const previewSummaryStyle: React.CSSProperties = { padding: 14, marginBottom: 14, background: "var(--bg-page)" };
 const summaryListStyle: React.CSSProperties = { margin: "10px 0 0", paddingLeft: 18, color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.8 };
@@ -711,8 +1038,10 @@ const rehearsalPathStyle: React.CSSProperties = { display: "grid", gap: 8, margi
 const rehearsalStepStyle: React.CSSProperties = { display: "grid", gap: 5, padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)" };
 const edgeHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 10 };
 const edgeListStyle: React.CSSProperties = { display: "grid", gap: 8 };
-const edgeButtonStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 24px 1fr", gap: 8, alignItems: "center", padding: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)", color: "var(--text-primary)", cursor: "pointer", textAlign: "left" };
+const edgeButtonStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 24px 1fr", gap: 8, alignItems: "center", padding: 10, borderWidth: 1, borderStyle: "solid", borderColor: "var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)", color: "var(--text-primary)", cursor: "pointer", textAlign: "left" };
 const formHintStyle: React.CSSProperties = { marginTop: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 10, display: "grid", gap: 6, color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.6 };
+const fieldPoolStyle: React.CSSProperties = { marginTop: 10, display: "grid", gap: 8, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 10, background: "var(--bg-page)", color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.5 };
+const fieldChipGridStyle: React.CSSProperties = { display: "flex", gap: 8, flexWrap: "wrap" };
 const fieldHelpStyle: React.CSSProperties = { color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.5 };
 const smallButtonGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 };
 const dividerStyle: React.CSSProperties = { border: 0, borderTop: "1px solid var(--border)", margin: "16px 0" };
