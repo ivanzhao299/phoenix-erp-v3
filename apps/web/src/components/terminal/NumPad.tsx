@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { T } from '@/styles/terminal-theme';
 
 export interface NumPadProps {
@@ -27,29 +27,31 @@ export default function NumPad({
   confirmLabel = '确认',
   disabled = false,
 }: NumPadProps) {
+  const displayRef = useRef(initialValue);
   const [display, setDisplay] = useState(initialValue);
 
   useEffect(() => {
+    displayRef.current = initialValue;
     setDisplay(initialValue);
   }, [initialValue]);
 
   const press = (key: string) => {
     if (disabled) return;
-    setDisplay(prev => {
-      let next: string;
-      if (key === 'C') {
-        next = '';
-      } else if (key === '⌫') {
-        next = prev.slice(0, -1);
-      } else {
-        const candidate = prev + key;
-        if (candidate.length > 7) return prev;
-        if (max !== undefined && Number(candidate) > max) return prev;
-        next = candidate;
-      }
-      onChange?.(next);
-      return next;
-    });
+    const prev = displayRef.current;
+    let next: string;
+    if (key === 'C') {
+      next = '';
+    } else if (key === '⌫') {
+      next = prev.slice(0, -1);
+    } else {
+      const candidate = prev + key;
+      if (candidate.length > 7) return;
+      if (max !== undefined && Number(candidate) > max) return;
+      next = candidate;
+    }
+    displayRef.current = next;
+    setDisplay(next);
+    onChange?.(next);
   };
 
   const numVal = Number(display) || 0;
