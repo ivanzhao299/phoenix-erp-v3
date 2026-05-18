@@ -95,8 +95,8 @@ export default function SystemInitPage() {
     <div style={{ padding: 14, background: color+"22", border: `1px solid ${color}44`, borderRadius: "var(--radius-md)" }}>
       <p style={{ fontSize: 13, color, fontWeight: 700, marginBottom: 10 }}>⚠️ {t('ui.此操作将清除并重写相关数据不可撤销', '此操作将清除并重写相关数据，不可撤销！')}</p>
       <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={onOk} style={{ flex: 1, padding: "10px", background: color, color: "#fff", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", fontWeight: 700, fontSize: 13 }}>{label}</button>
-        <button onClick={() => setConfirm(null)} style={{ flex: 1, padding: "10px", background: "var(--bg-page)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", cursor: "pointer", fontSize: 13 }}>{t('common.cancel', '取消')}</button>
+        <button type="button" onClick={onOk} style={{ flex: 1, padding: "10px", background: color, color: "#fff", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", fontWeight: 700, fontSize: 13 }}>{label}</button>
+        <button type="button" onClick={() => setConfirm(null)} style={{ flex: 1, padding: "10px", background: "var(--bg-page)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", cursor: "pointer", fontSize: 13 }}>{t('common.cancel', '取消')}</button>
       </div>
     </div>
   );
@@ -124,7 +124,7 @@ export default function SystemInitPage() {
           {confirm === "init"
             ? <ConfirmBanner mode="init" onOk={doInit} label={t('ui.确认执行初始化', '确认执行初始化')} color="#dc2626"/>
             : (
-              <button onClick={doInit} disabled={loading} style={{ padding: "16px", background: loading ? "#ccc" : "linear-gradient(135deg,#dc2626,#991b1b)", color: "#fff", border: "none", borderRadius: "var(--radius-lg)", fontSize: 16, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 15px rgba(220,38,38,0.3)", transition: "all 0.3s" }}>
+              <button type="button" onClick={doInit} disabled={loading} style={{ padding: "16px", background: loading ? "#ccc" : "linear-gradient(135deg,#dc2626,#991b1b)", color: "#fff", border: "none", borderRadius: "var(--radius-lg)", fontSize: 16, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 15px rgba(220,38,38,0.3)", transition: "all 0.3s" }}>
                 {loading ? <RefreshCw className="spin" size={20}/> : <Zap size={20}/>}
                 {loading ? t('ui.正在写入数据请勿关闭', '正在写入数据，请勿关闭…') : t('ui.开始系统初始化', '开始系统初始化')}
               </button>
@@ -132,7 +132,7 @@ export default function SystemInitPage() {
           {confirm === "blood"
             ? <ConfirmBanner mode="blood" onOk={doBlood} label={t('ui.确认初始化演示数据', '确认初始化演示数据')} color="#2563eb"/>
             : (
-              <button onClick={doBlood} disabled={loading} style={{ padding: "16px", background: loading ? "#ccc" : "linear-gradient(135deg,var(--color-primary),#1e3a8a)", color: "#fff", border: "none", borderRadius: "var(--radius-lg)", fontSize: 16, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 15px rgba(30,58,138,0.3)", transition: "all 0.3s" }}>
+              <button type="button" onClick={doBlood} disabled={loading} style={{ padding: "16px", background: loading ? "#ccc" : "linear-gradient(135deg,var(--color-primary),#1e3a8a)", color: "#fff", border: "none", borderRadius: "var(--radius-lg)", fontSize: 16, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 15px rgba(30,58,138,0.3)", transition: "all 0.3s" }}>
                 {loading ? <RefreshCw size={20}/> : <Zap size={20}/>}
                 {loading ? t('ui.初始化中请稍候', '初始化中，请稍候…') : t('ui.初始化演示数据', '初始化演示数据')}
               </button>

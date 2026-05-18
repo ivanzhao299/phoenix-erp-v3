@@ -38,9 +38,9 @@ export function ConfirmDialog({
         <h4 className={styles.title}>{title}</h4>
         <p className={styles.message}>{message}</p>
         <div className={styles.actions}>
-          <button className={styles.btnCancel} onClick={onCancel} disabled={loading}>{t('common.cancel', '取消')}</button>
+          <button type="button" className={styles.btnCancel} onClick={onCancel} disabled={loading}>{t('common.cancel', '取消')}</button>
           <button
-            className={`${styles.btnConfirm} ${danger ? styles.danger : styles.warn}`}
+type="button"             className={`${styles.btnConfirm} ${danger ? styles.danger : styles.warn}`}
             onClick={onConfirm}
             disabled={loading}
           >

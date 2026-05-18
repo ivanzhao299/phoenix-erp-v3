@@ -40,7 +40,7 @@ export default function Page() {
   return(<div>
     <PageHeader
         breadcrumb={[t('ui.门店管理', '门店管理'), t('ui.补货申请', '补货申请')]} title={t('ui.补货申请', '补货申请')} subtitle={t('ui.管理门店补货申请', '管理门店补货申请（表：store_replenish_req）')} />
-    <DataTable table={TABLE} columns={COLUMNS as any} onNew={oN} onEdit={oE as any} onDelete={del as any} showActions refreshKey={rk} />
+    <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
     <RightDrawer open={o} title={e?t('ui.编辑补货申请', '编辑补货申请'):t('ui.新增补货申请', '新增补货申请')} onClose={cl}>
       <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
     </RightDrawer>

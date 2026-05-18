@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
@@ -18,7 +18,11 @@ export default function GradingPage() {
   const saleableItems = dicts.PKG_EGG_GRADE ?? FALLBACK_DICTS.PKG_EGG_GRADE;
   const defectItems   = dicts.PKG_EGG_DEFECT ?? FALLBACK_DICTS.PKG_EGG_DEFECT;
   const gradeMap = buildGradeMap([...saleableItems, ...defectItems]);
-  const allGradeKeys = [...saleableItems, ...defectItems].map(d => (d.terminalCode as string) || d.code);
+  const allGradeKeys = useMemo(
+    () => [...saleableItems, ...defectItems].map(d => (d.terminalCode as string) || d.code),
+    [saleableItems, defectItems],
+  );
+  const allGradeKeysStr = useMemo(() => allGradeKeys.join(','), [allGradeKeys]);
 
   // ── 今日可分级总量（来自集蛋录入，由后端聚合） ────────────────────────────────
   const [availableQty, setAvailableQty] = useState(0);
@@ -58,8 +62,7 @@ export default function GradingPage() {
       }
       return changed ? updated : prev;
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allGradeKeys.join(',')]);
+  }, [allGradeKeysStr, allGradeKeys]);
 
   const totalOutput  = Object.values(outputs).reduce((a, b) => a + b, 0);
   const balanceOk    = availableQty === 0 || totalOutput <= availableQty;
@@ -124,11 +127,11 @@ export default function GradingPage() {
           </div>
 
           <div style={{ display: 'flex', gap: 12 }}>
-            <button onClick={() => { setSubmitResult(null); setOutputs(Object.fromEntries(allGradeKeys.map(k => [k, 0]))); }}
+            <button type="button" onClick={() => { setSubmitResult(null); setOutputs(Object.fromEntries(allGradeKeys.map(k => [k, 0]))); }}
               style={{ padding: '14px 28px', borderRadius: 10, border: `1px solid ${T.BOR}`, background: 'transparent', color: T.MUT, fontSize: 15, cursor: 'pointer' }}>
               {t('ui.继续分级', '继续分级')}
             </button>
-            <button onClick={() => router.push('/terminal/packaging/packing')}
+            <button type="button" onClick={() => router.push('/terminal/packaging/packing')}
               style={{ padding: '14px 40px', borderRadius: 10, border: 'none', background: T.ACC, color: '#0f172a', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
               → {t('terminal.packing', '前往包装')}
             </button>
@@ -182,7 +185,7 @@ export default function GradingPage() {
               <div style={{ fontSize: 13, color: T.ACC, fontWeight: 600 }}>{t('ui.今日尚未录入集蛋数据', '今日尚未录入集蛋数据')}</div>
               <div style={{ fontSize: 12, color: T.MUT }}>{t('ui.可先录入集蛋再返回分级', '可先录入集蛋，或直接在此录入分级产出')}</div>
             </div>
-            <button onClick={() => router.push('/terminal/packaging/source-receive')}
+            <button type="button" onClick={() => router.push('/terminal/packaging/source-receive')}
               style={{ marginLeft: 'auto', padding: '8px 18px', borderRadius: 8, border: `1px solid ${T.ACC}`, background: 'transparent', color: T.ACC, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
               → {t('ui.去集蛋录入', '去集蛋录入')}
             </button>
@@ -281,16 +284,16 @@ export default function GradingPage() {
 
       {/* Bottom bar */}
       <div style={{ background: T.CARD, borderTop: `1px solid ${T.BOR}`, padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <button onClick={() => router.push('/terminal/packaging/source-receive')}
+        <button type="button" onClick={() => router.push('/terminal/packaging/source-receive')}
           style={{ padding: '14px 20px', borderRadius: 10, border: `1px solid ${T.BOR}`, background: 'transparent', color: T.MUT, fontSize: 14, cursor: 'pointer' }}>
           ← {t('ui.集蛋录入', '集蛋录入')}
         </button>
-        <button onClick={() => router.push('/terminal/packaging/exceptions')}
+        <button type="button" onClick={() => router.push('/terminal/packaging/exceptions')}
           style={{ padding: '14px 20px', borderRadius: 10, border: `1px solid rgba(239,68,68,0.4)`, background: 'rgba(239,68,68,0.1)', color: T.RED, fontSize: 14, cursor: 'pointer' }}>
           ⚠️ {t('ui.上报异常', '上报异常')}
         </button>
         <div style={{ flex: 1 }} />
-        <button onClick={handleSubmit} disabled={!canSubmit || submitting}
+        <button type="button" onClick={handleSubmit} disabled={!canSubmit || submitting}
           style={{
             padding: '14px 52px', borderRadius: 10, border: 'none',
             background: canSubmit ? T.GRN : T.BOR,
@@ -324,11 +327,11 @@ export default function GradingPage() {
                 boxSizing: 'border-box', marginBottom: 16,
               }} />
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setEditKey(null)}
+              <button type="button" onClick={() => setEditKey(null)}
                 style={{ flex: 1, padding: '14px', background: 'transparent', border: `1px solid ${T.BOR}`, borderRadius: 8, color: T.MUT, fontSize: 15, cursor: 'pointer' }}>
                 {t('common.cancel', '取消')}
               </button>
-              <button onClick={handleEditSave}
+              <button type="button" onClick={handleEditSave}
                 style={{ flex: 2, padding: '14px', background: T.ACC, border: 'none', borderRadius: 8, color: '#0f172a', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
                 {t('common.confirm', '确认')}
               </button>

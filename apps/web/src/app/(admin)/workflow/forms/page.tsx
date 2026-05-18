@@ -7,6 +7,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowForm } from "@/lib/workflow-api";
 import { WORKFLOW_TEMPLATES } from "@/lib/workflow-templates";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const FORM_TEMPLATES = WORKFLOW_TEMPLATES.map(template => ({
   key: template.key,
@@ -20,6 +21,7 @@ const FORM_TEMPLATES = WORKFLOW_TEMPLATES.map(template => ({
 const CATEGORY_OPTIONS = ["财务", "采购", "合同", "人事", "仓储", "品控", "门店", "养殖", "物流", "通用"];
 
 export default function WorkflowFormsPage() {
+  const { t } = useLanguage();
   const [rows, setRows] = useState<WorkflowForm[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(FORM_TEMPLATES[0].key);
@@ -32,7 +34,7 @@ export default function WorkflowFormsPage() {
     [selectedTemplate],
   );
 
-  const load = () => workflowApi.forms().then(res => setRows(res.data || []));
+  const load = () => workflowApi.forms().then(res => setRows(res.data || [])).catch(() => {});
   useEffect(() => { load(); }, []);
 
   function openFromTemplate(nextTemplate = FORM_TEMPLATES[0]) {
@@ -68,7 +70,7 @@ export default function WorkflowFormsPage() {
       description: form.description.trim(),
     };
     if (!payload.code || !payload.name) {
-      setError("请填写表单名称；系统编码会自动生成，必要时可在高级设置中调整。");
+      setError(t("workflow.form_name_required", "请填写表单名称；系统编码会自动生成，必要时可在高级设置中调整。"));
       return;
     }
     setError("");
@@ -79,7 +81,7 @@ export default function WorkflowFormsPage() {
       setDrawerOpen(false);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? friendlyError(err.message) : "创建表单失败");
+      setError(err instanceof Error ? friendlyError(err.message) : t("workflow.create_form_failed", "创建表单失败"));
     } finally {
       setLoading(false);
     }
@@ -87,21 +89,21 @@ export default function WorkflowFormsPage() {
 
   return (
     <div>
-      <PageHeader title="表单定义" subtitle="维护常用业务表单，新增时优先从模板复制再微调字段" breadcrumb={["工作流", "表单定义"]} />
+      <PageHeader title={t("workflow.forms_title", "表单定义")} subtitle={t("workflow.forms_subtitle", "维护常用业务表单，新增时优先从模板复制再微调字段")} breadcrumb={[t("nav.workflow", "工作流"), t("workflow.forms_title", "表单定义")]} />
 
       <section className={s.card} style={{ marginBottom: 12 }}>
         <div className={s.cardBody} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 }}>
           <div>
-            <h3 className={s.cardTitle}>表单列表</h3>
-            <p className={s.modalDesc} style={{ margin: "4px 0 0" }}>表单用于承载流程里的基础数据，发布后可绑定到审批流程。</p>
+            <h3 className={s.cardTitle}>{t("workflow.form_list", "表单列表")}</h3>
+            <p className={s.modalDesc} style={{ margin: "4px 0 0" }}>{t("workflow.form_list_desc", "表单用于承载流程里的基础数据，发布后可绑定到审批流程。")}</p>
           </div>
-          <button className={s.btnPrimary} onClick={() => openFromTemplate()}>新增表单</button>
+          <button type="button" className={s.btnPrimary} onClick={() => openFromTemplate()}>{t("workflow.new_form", "新增表单")}</button>
         </div>
       </section>
 
       <section className={s.card}>
         <table className={s.table}>
-          <thead><tr><th>表单名称</th><th>分类</th><th>状态</th><th>版本</th><th>操作</th></tr></thead>
+          <thead><tr><th>{t("workflow.form_name", "表单名称")}</th><th>{t("common.category", "分类")}</th><th>{t("common.status", "状态")}</th><th>{t("workflow.version", "版本")}</th><th>{t("common.operation", "操作")}</th></tr></thead>
           <tbody>{rows.map(row => (
             <tr key={row.id}>
               <td>
@@ -111,7 +113,7 @@ export default function WorkflowFormsPage() {
               <td>{categoryText(row.category)}</td>
               <td><span className={statusBadgeClass(row.status)}>{statusText(row.status)}</span></td>
               <td>{row.current_version_id || "-"}</td>
-              <td><Link href={`/workflow/form-designer/${row.id}`}>设计/发布</Link></td>
+              <td><Link href={`/workflow/form-designer/${row.id}`}>{t("workflow.design_publish", "设计/发布")}</Link></td>
             </tr>
           ))}</tbody>
         </table>
@@ -119,19 +121,19 @@ export default function WorkflowFormsPage() {
 
       <RightDrawer
         open={drawerOpen}
-        title="新增表单"
+        title={t("workflow.new_form", "新增表单")}
         width={620}
         onClose={() => setDrawerOpen(false)}
         footer={
           <div style={footerStyle}>
-            <button className={s.btnSecondary} onClick={() => setDrawerOpen(false)}>取消</button>
-            <button className={s.btnPrimary} disabled={loading} onClick={create}>{loading ? "创建中..." : "创建并发布表单"}</button>
+            <button type="button" className={s.btnSecondary} onClick={() => setDrawerOpen(false)}>{t("common.cancel", "取消")}</button>
+            <button type="button" className={s.btnPrimary} disabled={loading} onClick={create}>{loading ? t("workflow.creating", "创建中...") : t("workflow.create_publish", "创建并发布表单")}</button>
           </div>
         }
       >
         <div style={drawerStackStyle}>
           <section>
-            <h4 style={sectionTitleStyle}>选择常用表单模板</h4>
+            <h4 style={sectionTitleStyle}>{t("workflow.select_template", "选择常用表单模板")}</h4>
             <div style={templateGridStyle}>
               {FORM_TEMPLATES.map(item => (
                 <button
@@ -145,34 +147,34 @@ export default function WorkflowFormsPage() {
                 </button>
               ))}
             </div>
-            <p style={hintStyle}>选择模板后会自动带出字段并发布为可用版本，后续仍可进入设计器微调。</p>
+            <p style={hintStyle}>{t("workflow.template_hint", "选择模板后会自动带出字段并发布为可用版本，后续仍可进入设计器微调。")}</p>
           </section>
 
           <section>
-            <h4 style={sectionTitleStyle}>基础信息</h4>
+            <h4 style={sectionTitleStyle}>{t("workflow.basic_info", "基础信息")}</h4>
             <label style={labelStyle}>
-              表单名称
+              {t("workflow.form_name", "表单名称")}
               <input className={s.inp} value={form.name} onChange={e=>setForm({...form, name:e.target.value})} />
             </label>
             <label style={labelStyle}>
-              业务分类
+              {t("workflow.biz_category", "业务分类")}
               <select className={s.inp} value={form.category} onChange={e=>setForm({...form, category:e.target.value})}>
                 {CATEGORY_OPTIONS.map(item => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
             <label style={labelStyle}>
-              适用说明
+              {t("workflow.applicable_desc", "适用说明")}
               <textarea className={s.textarea} value={form.description} onChange={e=>setForm({...form, description:e.target.value})} />
             </label>
           </section>
 
           <details style={advancedStyle}>
-            <summary>高级设置</summary>
+            <summary>{t("workflow.advanced_settings", "高级设置")}</summary>
             <label style={labelStyle}>
-              系统编码
+              {t("workflow.system_code", "系统编码")}
               <input className={s.inp} value={form.code} onChange={e=>setForm({...form, code:normalizeCode(e.target.value)})} />
             </label>
-            <p style={hintStyle}>系统编码用于接口和数据存储，页面会自动生成，通常不需要修改。</p>
+            <p style={hintStyle}>{t("workflow.system_code_hint", "系统编码用于接口和数据存储，页面会自动生成，通常不需要修改。")}</p>
           </details>
 
           {error ? <div style={errorStyle}>{error}</div> : null}

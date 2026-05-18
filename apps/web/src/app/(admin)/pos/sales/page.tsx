@@ -176,11 +176,11 @@ export default function PosSalesPage() {
                   <td style={{ padding:"9px 12px",display:"flex",gap:5,flexWrap:"wrap" }}>
                     {st==="COMPLETED"&&(
                       <>
-                        <button className={s.btnWarning} style={{ padding:"4px 8px",fontSize:11,display:"flex",alignItems:"center",gap:3 }} onClick={()=>refund(row)}><RotateCcw size={10}/> {t("ui.退款", "退款")}</button>
-                        <button className={s.btnDanger}  style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>voidSale(row)}>{t("ui.作废", "作废")}</button>
+                        <button type="button" className={s.btnWarning} style={{ padding:"4px 8px",fontSize:11,display:"flex",alignItems:"center",gap:3 }} onClick={()=>refund(row)}><RotateCcw size={10}/> {t("ui.退款", "退款")}</button>
+                        <button type="button" className={s.btnDanger}  style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>voidSale(row)}>{t("ui.作废", "作废")}</button>
                       </>
                     )}
-                    <button className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>setDetailRow(row)}>{t("common.detail", "详情")}</button>
+                    <button type="button" className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>setDetailRow(row)}>{t("common.detail", "详情")}</button>
                   </td>
                 </tr>
               );

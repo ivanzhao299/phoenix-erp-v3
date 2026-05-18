@@ -205,7 +205,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className={styles.headerLeft}>
             {/* Pin button — lucide icon */}
             <button
-              className={`${styles.pinBtn} ${pinned ? styles.pinActive : ""}`}
+type="button"               className={`${styles.pinBtn} ${pinned ? styles.pinActive : ""}`}
               onClick={togglePin}
               title={pinned ? t('layout.collapse_sidebar', '收起侧边栏') : t('layout.pin_sidebar', '固定展开侧边栏')}
             >
@@ -256,7 +256,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
 
             {/* Logout with lucide icon */}
-            <button className={styles.logoutBtn} onClick={handleLogout}>
+            <button type="button" className={styles.logoutBtn} onClick={handleLogout}>
               <LogOut size={13} />
               <span>{t('layout.logout', '退出')}</span>
             </button>

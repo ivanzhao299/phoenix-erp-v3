@@ -2,17 +2,29 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
 
-const ToastContext = createContext<any>(null);
+interface Toast { id: number; type: string; message: string; }
+interface ToastColor { border: string; bg: string; }
+
+const ToastContext = createContext<ReturnType<typeof buildToast> | null>(null);
 
 const ICONS: Record<string, string> = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
-const COLORS: Record<string, any> = {
+const COLORS: Record<string, ToastColor> = {
   success: { border:'#10b981', bg:'rgba(16,185,129,0.08)' },
   error:   { border:'#ef4444', bg:'rgba(239,68,68,0.08)' },
   warning: { border:'#f59e0b', bg:'rgba(245,158,11,0.08)' },
   info:    { border:'#3b82f6', bg:'rgba(59,130,246,0.08)' },
 };
 
-function ToastItem({ id, type = 'info', message, onRemove }: any) {
+function buildToast(add: (type: string, message: string) => void) {
+  return {
+    success: (msg: string) => add('success', msg),
+    error:   (msg: string) => add('error',   msg),
+    warning: (msg: string) => add('warning', msg),
+    info:    (msg: string) => add('info',    msg),
+  };
+}
+
+function ToastItem({ id, type = 'info', message, onRemove }: Toast & { onRemove: (id: number) => void }) {
   const [leaving, setLeaving] = React.useState(false);
   const dismiss = React.useCallback(() => {
     setLeaving(true);
@@ -27,7 +39,7 @@ function ToastItem({ id, type = 'info', message, onRemove }: any) {
     <div onClick={dismiss} style={{
       display:'flex', alignItems:'flex-start', gap:10,
       padding:'12px 16px', borderRadius:12,
-      background:'var(--bg-surface, #fff)',
+      background:'var(--bg-card)',
       border:`1px solid ${c.border}30`,
       borderLeft:`4px solid ${c.border}`,
       boxShadow:'0 8px 32px rgba(0,0,0,0.12)',
@@ -39,16 +51,16 @@ function ToastItem({ id, type = 'info', message, onRemove }: any) {
       transition:'transform 0.28s ease, opacity 0.28s ease',
     }}>
       <span style={{ fontSize:18, lineHeight:1.4, flexShrink:0 }}>{ICONS[type]}</span>
-      <span style={{ fontSize:13.5, lineHeight:1.55, color:'var(--text-main, #1e293b)', fontWeight:500 }}>{message}</span>
+      <span style={{ fontSize:13.5, lineHeight:1.55, color:'var(--text-primary)', fontWeight:500 }}>{message}</span>
     </div>
   );
 }
 
-function ToastContainer({ toasts, onRemove }: any) {
+function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: number) => void }) {
   if (!toasts.length || typeof document === 'undefined') return null;
   return ReactDOM.createPortal(
     <div style={{ position:'fixed', top:20, right:20, zIndex:999999, display:'flex', flexDirection:'column', gap:10, pointerEvents:'none' }}>
-      {toasts.map((t: any) => (
+      {toasts.map((t) => (
         <div key={t.id} style={{ pointerEvents:'auto' }}>
           <ToastItem {...t} onRemove={onRemove} />
         </div>
@@ -59,7 +71,7 @@ function ToastContainer({ toasts, onRemove }: any) {
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [toasts, setToasts] = useState<any[]>([]);
+  const [toasts, setToasts] = useState<Toast[]>([]);
   const idRef = useRef(0);
   const add = useCallback((type: string, message: string) => {
     const id = ++idRef.current;
@@ -68,12 +80,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const remove = useCallback((id: number) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
-  const toast = {
-    success: (msg: string) => add('success', msg),
-    error:   (msg: string) => add('error',   msg),
-    warning: (msg: string) => add('warning', msg),
-    info:    (msg: string) => add('info',    msg),
-  };
+  const toast = buildToast(add);
   return (
     <ToastContext.Provider value={toast}>
       {children}

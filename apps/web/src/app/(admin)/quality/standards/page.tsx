@@ -74,8 +74,8 @@ export default function QaStandardsPage() {
     <div>
       <PageHeader
         breadcrumb={[t("ui.品质追溯","品质追溯"), t("ui.质检标准","质检标准")]} title={t("ui.质量标准","质量标准")} subtitle={t("ui.质量标准副标题","管理产品品质检测基准参数（表：qa_standards）")} />
-      <DataTable table={TABLE} columns={COLUMNS as any} onNew={openNew} onEdit={openEdit as any}
-        onDelete={handleDelete as any} showActions refreshKey={refreshKey} />
+      <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit}
+        onDelete={handleDelete} showActions refreshKey={refreshKey} />
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑标准","编辑标准") : t("ui.新增标准","新增标准")} onClose={closeDrawer}>
         <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave}
           onCancel={closeDrawer} loading={saving} />

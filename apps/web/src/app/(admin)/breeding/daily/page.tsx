@@ -1,5 +1,21 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
+
+interface DailyReport {
+  [key: string]: unknown;
+  date?: unknown;
+  house?: unknown;
+  houseName?: unknown;
+  eggs?: unknown;
+  dirtyEggs?: unknown;
+  brokenEggs?: unknown;
+  deaths?: unknown;
+  feedKg?: unknown;
+  waterL?: unknown;
+  temp?: unknown;
+  humidity?: unknown;
+  remark?: unknown;
+}
 import PageHeader from '@/components/PageHeader';
 import { useCrud } from '@/hooks/useCrud';
 import { usePermission } from '@/hooks/usePermission';
@@ -35,7 +51,7 @@ export default function DailyPage() {
   const [rows, setRows]                       = useState([mkRow(1,t('ui.早班','早班')), mkRow(2,t('ui.晚班','晚班'))]);
   const [submitted, setSubmitted]             = useState(false);
   const [approved, setApproved]               = useState(false);
-  const [reports, setReports]                 = useState<any[]>([]);
+  const [reports, setReports]                 = useState<DailyReport[]>([]);
   const [deviceHint, setDeviceHint]           = useState<Record<string,string> | null>(null);
   const [generating, setGenerating]           = useState(false);
   const [genResult, setGenResult]             = useState<any>(null);
@@ -43,13 +59,13 @@ export default function DailyPage() {
   const loadData = useCallback(async () => {
     const [data, allHouses] = await Promise.all([fetchRecords(), fetchHouses()]);
     const houseNameMap: Record<string, string> = {};
-    (allHouses || []).forEach((h: any) => {
-      if (h.house_code) houseNameMap[h.house_code] = h.house_name || h.house_code;
-      if (h.house_no)   houseNameMap[h.house_no]   = h.house_name || h.house_no;
+    (allHouses || []).forEach((h: Record<string, unknown>) => {
+      if (h.house_code) houseNameMap[h.house_code as string] = (h.house_name as string) || (h.house_code as string);
+      if (h.house_no)   houseNameMap[h.house_no as string]   = (h.house_name as string) || (h.house_no as string);
     });
-    setReports(((data || []) as any[]).map((d: any) => ({
+    setReports(((data || []) as Record<string, unknown>[]).map((d: Record<string, unknown>) => ({
       date: d.log_date, house: d.house_code || d.flock_no || t('ui.未知','未知'),
-      houseName: houseNameMap[d.house_code] || houseNameMap[d.flock_no] || d.house_code || t('ui.未知','未知'),
+      houseName: houseNameMap[d.house_code as string] || houseNameMap[d.flock_no as string] || d.house_code || t('ui.未知','未知'),
       eggs: d.eggs_produced || 0, dirtyEggs: d.dirty_eggs || 0, brokenEggs: d.broken_eggs || 0,
       deaths: d.mortality_qty || 0, feedKg: d.feed_consumed || 0, waterL: d.water_consumed || 0,
       temp: d.temp || 25, humidity: d.humidity || 60, remark: d.note || '',
@@ -57,20 +73,20 @@ export default function DailyPage() {
   }, [fetchRecords, fetchHouses]);
 
   useEffect(() => {
-    Promise.all([fetchHouses(), fetchFlocks()]).then(([houses, flocks]: [any, any]) => {
-      const fromHouses = (houses || []).filter((h: any) => h.house_code || h.house_no);
+    Promise.all([fetchHouses(), fetchFlocks()]).then(([houses, flocks]: [Record<string, unknown>[], Record<string, unknown>[]]) => {
+      const fromHouses = (houses || []).filter((h: Record<string, unknown>) => h.house_code || h.house_no);
       const fcmap: Record<string, string> = {};
-      (houses || []).forEach((h: any) => { if (h.house_code) fcmap[h.house_code] = h.farm_code || ''; });
+      (houses || []).forEach((h: Record<string, unknown>) => { if (h.house_code) fcmap[h.house_code as string] = (h.farm_code as string) || ''; });
       setFarmCodeByHouse(fcmap);
       const hmap: Record<string, string> = {};
-      (flocks || []).forEach((f: any) => { if (f.house_code && f.flock_no && !hmap[f.house_code]) hmap[f.house_code] = f.flock_no; });
+      (flocks || []).forEach((f: Record<string, unknown>) => { if (f.house_code && f.flock_no && !hmap[f.house_code as string]) hmap[f.house_code as string] = f.flock_no as string; });
       setFlockByHouse(hmap);
       const houseList = fromHouses.length > 0
-        ? fromHouses.map((h: any) => ({ code: h.house_code || h.house_no, label: h.house_name || h.house_code || h.house_no }))
-        : (flocks || []).map((f: any) => ({ code: f.flock_no, label: f.house_code ? `${f.house_code}${f.farm_name ? ' · '+f.farm_name : ''}` : f.flock_no }));
+        ? fromHouses.map((h: Record<string, unknown>) => ({ code: (h.house_code || h.house_no) as string, label: (h.house_name || h.house_code || h.house_no) as string }))
+        : (flocks || []).map((f: Record<string, unknown>) => ({ code: f.flock_no as string, label: f.house_code ? `${f.house_code}${f.farm_name ? ' · '+f.farm_name : ''}` : f.flock_no as string }));
       setHouses(houseList);
       setSelectedHouse(houseList[0]?.code || '');
-    });
+    }).catch(() => {});
     loadData();
   }, []);
 
@@ -82,7 +98,7 @@ export default function DailyPage() {
       .then(res => {
         const snap = res?.data?.sensors;
         if (!Array.isArray(snap) || !snap.length) { setDeviceHint(null); return; }
-        const byCode = Object.fromEntries(snap.map((s: any) => [s.property_code, s]));
+        const byCode = Object.fromEntries(snap.map((s: Record<string, unknown>) => [s.property_code, s]));
         const hint: Record<string, string> = {};
         if (byCode['2001']?.value) hint.temp     = Number(byCode['2001'].value).toFixed(1);
         if (byCode['2083']?.value) hint.humidity = Number(byCode['2083'].value).toFixed(0);
@@ -342,16 +358,16 @@ export default function DailyPage() {
           <tbody>
             {visibleReports.map((r, i) => (
               <tr key={i}>
-                <td>{r.date}</td>
-                <td>{r.houseName || r.house}</td>
-                <td style={{ fontWeight:600 }}>{r.eggs.toLocaleString()}</td>
-                <td style={{ color: r.dirtyEggs>30?'#d97706':'var(--text-primary)' }}>{r.dirtyEggs||0}</td>
-                <td style={{ color: r.brokenEggs>20?'var(--status-danger)':'var(--text-primary)', fontWeight: r.brokenEggs>20?700:'normal' }}>{r.brokenEggs||0}</td>
-                <td style={{ color: r.deaths>8?'var(--status-danger)':'var(--text-primary)' }}>{r.deaths}</td>
-                <td>{r.feedKg}</td>
-                <td>{r.temp}℃</td>
-                <td>{r.humidity}%</td>
-                <td style={{ color:'var(--text-secondary)', fontSize:12 }}>{r.remark||'—'}</td>
+                <td>{String(r.date ?? '—')}</td>
+                <td>{String(r.houseName ?? r.house ?? '—')}</td>
+                <td style={{ fontWeight:600 }}>{Number(r.eggs ?? 0).toLocaleString()}</td>
+                <td style={{ color: Number(r.dirtyEggs)>30?'#d97706':'var(--text-primary)' }}>{String(r.dirtyEggs ?? 0)}</td>
+                <td style={{ color: Number(r.brokenEggs)>20?'var(--status-danger)':'var(--text-primary)', fontWeight: Number(r.brokenEggs)>20?700:'normal' }}>{String(r.brokenEggs ?? 0)}</td>
+                <td style={{ color: Number(r.deaths)>8?'var(--status-danger)':'var(--text-primary)' }}>{String(r.deaths ?? '—')}</td>
+                <td>{String(r.feedKg ?? '—')}</td>
+                <td>{String(r.temp ?? '—')}℃</td>
+                <td>{String(r.humidity ?? '—')}%</td>
+                <td style={{ color:'var(--text-secondary)', fontSize:12 }}>{String(r.remark ?? '—')}</td>
               </tr>
             ))}
             {!visibleReports.length && <tr><td colSpan={10} style={{ padding:24, textAlign:'center', color:'var(--text-secondary)', fontSize:13 }}>{t('ui.暂无该鸡舍的日报记录','暂无该鸡舍的日报记录')}</td></tr>}

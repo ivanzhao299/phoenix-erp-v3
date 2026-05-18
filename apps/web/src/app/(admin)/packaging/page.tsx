@@ -1,5 +1,9 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+
+interface ShiftRow    { id: number | string; shift_code?: string; status: string; }
+interface BatchRow    { id: number | string; batch_code?: string; batch_status: string; }
+interface ExceptionRow{ id: number | string; status: string; }
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -13,9 +17,9 @@ export default function PackagingOverviewPage() {
   const router = useRouter();
   const { t } = useLanguage();
   const today = new Date().toISOString().slice(0, 10);
-  const [shifts, setShifts] = useState<any[]>([]);
-  const [batches, setBatches] = useState<any[]>([]);
-  const [exceptions, setExceptions] = useState<any[]>([]);
+  const [shifts, setShifts] = useState<ShiftRow[]>([]);
+  const [batches, setBatches] = useState<BatchRow[]>([]);
+  const [exceptions, setExceptions] = useState<ExceptionRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -44,7 +48,7 @@ export default function PackagingOverviewPage() {
         subtitle={`${today} · ${t("ui.今日作业概览", "今日作业概览")}`}
         actions={
           <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={load} className={s.btnSecondary}><RefreshCw size={14} /> {t("common.refresh", "刷新")}</button>
+            <button type="button" onClick={load} className={s.btnSecondary}><RefreshCw size={14} /> {t("common.refresh", "刷新")}</button>
             <a href="/terminal/packaging/dashboard" target="_blank"
               style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 18px",
                 borderRadius:8, background:"#f59e0b", color:"#0f172a",
@@ -70,7 +74,7 @@ export default function PackagingOverviewPage() {
             </div>
             <div>
               <div style={{ fontSize:26, fontWeight:800, color:"var(--text-primary,#0f172a)", lineHeight:1 }}>{item.value}</div>
-              <div style={{ fontSize:12, color:"var(--text-muted,#64748b)", marginTop:4 }}>{item.label}</div>
+              <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:4 }}>{item.label}</div>
             </div>
           </div>
         ))}

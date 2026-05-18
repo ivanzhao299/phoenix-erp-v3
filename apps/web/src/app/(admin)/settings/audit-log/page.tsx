@@ -116,11 +116,11 @@ export default function AuditLogPage() {
           <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
             style={{ padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13, background: "var(--bg-page)", color: "var(--text-primary)", width: "100%" }}/>
         </div>
-        <button onClick={handleSearch} style={{ padding: "8px 20px", background: "var(--color-primary)", color: "white", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", height: 36 }}>
+        <button type="button" onClick={handleSearch} style={{ padding: "8px 20px", background: "var(--color-primary)", color: "white", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", height: 36 }}>
           {t('common.search', '查询')}
         </button>
         {(search || dateFrom || dateTo) && (
-          <button onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); setTimeout(() => load(1), 0); }}
+          <button type="button" onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); setTimeout(() => load(1), 0); }}
             style={{ padding: "8px 14px", border: "1px solid var(--border)", background: "var(--bg-page)", borderRadius: 8, fontSize: 13, cursor: "pointer", color: "var(--text-secondary)", height: 36 }}>
             {t('ui.重置', '重置')}
           </button>
@@ -129,11 +129,11 @@ export default function AuditLogPage() {
 
       {/* 操作类型 Tab */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        <button onClick={() => setActionFilter("ALL")} style={{ padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "1.5px solid", background: actionFilter === "ALL" ? "var(--color-primary)" : "var(--bg-card)", color: actionFilter === "ALL" ? "white" : "var(--text-secondary)", borderColor: actionFilter === "ALL" ? "var(--color-primary)" : "var(--border)" }}>
+        <button type="button" onClick={() => setActionFilter("ALL")} style={{ padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "1.5px solid", background: actionFilter === "ALL" ? "var(--color-primary)" : "var(--bg-card)", color: actionFilter === "ALL" ? "white" : "var(--text-secondary)", borderColor: actionFilter === "ALL" ? "var(--color-primary)" : "var(--border)" }}>
           {t('ui.全部', '全部')}
         </button>
         {Object.entries(ACTION_META).map(([k, m]) => (
-          <button key={k} onClick={() => setActionFilter(k)} style={{ padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: `1.5px solid ${actionFilter === k ? m.color : "var(--border)"}`, background: actionFilter === k ? m.bg : "var(--bg-card)", color: actionFilter === k ? m.color : "var(--text-secondary)" }}>
+          <button type="button" key={k} onClick={() => setActionFilter(k)} style={{ padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: `1.5px solid ${actionFilter === k ? m.color : "var(--border)"}`, background: actionFilter === k ? m.bg : "var(--bg-card)", color: actionFilter === k ? m.color : "var(--text-secondary)" }}>
             {m.label}
           </button>
         ))}
@@ -202,14 +202,14 @@ export default function AuditLogPage() {
         <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{t('common.total', '共')} {total} {t('ui.条记录', '条记录')}</span>
         {totalPages > 1 && (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button onClick={() => load(Math.max(1, page - 1))} disabled={page <= 1}
+            <button type="button" onClick={() => load(Math.max(1, page - 1))} disabled={page <= 1}
               style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-card)", cursor: page <= 1 ? "not-allowed" : "pointer", opacity: page <= 1 ? 0.4 : 1, display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
               <ChevronLeft size={14}/> {t('ui.上一页', '上一页')}
             </button>
             <span style={{ fontSize: 13, color: "var(--text-secondary)", padding: "0 8px" }}>
               {t('ui.第页共页', '第')} {page} / {totalPages} {t('ui.页', '页')}
             </span>
-            <button onClick={() => load(page + 1)} disabled={page >= totalPages}
+            <button type="button" onClick={() => load(page + 1)} disabled={page >= totalPages}
               style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-card)", cursor: page >= totalPages ? "not-allowed" : "pointer", opacity: page >= totalPages ? 0.4 : 1, display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
               {t('ui.下一页', '下一页')} <ChevronRight size={14}/>
             </button>

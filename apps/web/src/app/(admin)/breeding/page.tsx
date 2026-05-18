@@ -3,10 +3,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Home, Layers, Users, BookOpen, ClipboardList,
-  Droplets, AlertTriangle, BarChart2, Edit2, Trash2, Wifi, ArrowUpRight, Plus
+  Droplets, AlertTriangle, BarChart2, Trash2, Wifi, ArrowUpRight, Settings
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
-import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useDialog } from "@/contexts/DialogContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -26,21 +25,13 @@ async function apiFetch(path: string) {
 // 产蛋率低于此值视为异常（业务规则，非动态配置）
 const WARN_LAY_RATE_PCT = 88;
 
-const LAOS_PROVINCES = [
-  "万象直辖市VientianePref","万象省VientianeProv","琅勃拉邦省LuangPrabang",
-  "沙湾拿吉省Savannakhet","占巴塞省Champasak","波乔省Bokeo",
-  "南塔省LuangNamtha","乌多姆赛省Oudomxay","甘蒙省Khammouane",
-  "赛宋奔省Xaysomboun","云南省中国特区",
-]; // TODO: 待后端补充 SYS_PROVINCE dict 类型后改为 API 动态加载
-
 interface Farm {
   id: string; name: string; location: string;
-  houses: number; totalBirds: number; layingRate: string | number;
-  status: "normal" | "warning";
+  houses: number; totalBirds: number; designCapacity: number;
+  layingRate: string | number; status: "normal" | "warning";
 }
 interface AlertItem { id: string; type: string; label: string; msg: string; time: string; }
 interface FarmEnv { temp: string|null; hum: string|null; co2: number|null; }
-interface FormState { name: string; location: string; houses: string; capacity: string; }
 interface DeviceStats { openAlerts: number; offlineDevices: number; }
 interface WeekSummary { eggs: number; mortality: number; feedRatio: string|number; immuneDone: number; immuneTotal: number; }
 
@@ -67,12 +58,8 @@ export default function BreedingPage() {
   const [todayDeaths, setTodayDeaths] = useState(0);
   const [deviceStats, setDeviceStats] = useState<DeviceStats>({ openAlerts:0, offlineDevices:0 });
   const [farmEnvMap,  setFarmEnvMap]  = useState<Record<string,FarmEnv>>({});
-  const [drawerOpen,  setDrawerOpen]  = useState(false);
-  const [editId,      setEditId]      = useState<string|null>(null);
-  const [saving,      setSaving]      = useState(false);
-  const [form,        setForm]        = useState<FormState>({ name:"", location:"", houses:"", capacity:"" });
 
-  const loadData = async () => {
+  const loadData = async (cancelled?: { v: boolean }) => {
     const today   = new Date().toISOString().slice(0,10);
     const weekAgo = new Date(Date.now()-7*86400000).toISOString().slice(0,10);
     const ydStr   = new Date(Date.now()-86400000).toISOString().slice(0,10);
@@ -85,11 +72,16 @@ export default function BreedingPage() {
       apiFetch("/api/crud/brd_vaccinations"),
     ]);
 
-    const farmsData  = farmsRaw?.data   || farmsRaw  || [];
-    const flocks     = flocksRaw?.data  || flocksRaw || [];
-    const logs       = logsRaw?.data    || logsRaw   || [];
-    const meds       = medsRaw?.data    || medsRaw   || [];
-    const immune     = immuneRaw?.data  || immuneRaw || [];
+    // If the effect was superseded (Strict Mode double-invoke) or farms API failed,
+    // bail out — never wipe existing displayed data with an empty/error result.
+    if (cancelled?.v) return;
+    if (farmsRaw === null) return;
+
+    const farmsData  = Array.isArray(farmsRaw?.data) ? farmsRaw.data : Array.isArray(farmsRaw) ? farmsRaw : [];
+    const flocks     = Array.isArray(flocksRaw?.data) ? flocksRaw.data : Array.isArray(flocksRaw) ? flocksRaw : [];
+    const logs       = Array.isArray(logsRaw?.data) ? logsRaw.data : Array.isArray(logsRaw) ? logsRaw : [];
+    const meds       = Array.isArray(medsRaw?.data) ? medsRaw.data : Array.isArray(medsRaw) ? medsRaw : [];
+    const immune     = Array.isArray(immuneRaw?.data) ? immuneRaw.data : Array.isArray(immuneRaw) ? immuneRaw : [];
 
     const flockFarmMap: Record<string,string> = {};
     const flockQtyMap:  Record<string,number> = {};
@@ -133,6 +125,7 @@ export default function BreedingPage() {
           name: (d.farm_name || d.name || fc) as string,
           location,
           houses: Number(d.houses) || 0,
+          designCapacity: Number(d.capacity) || 0,
           totalBirds: qty || Number(d.capacity) || 0,
           layingRate: rate,
           status: (qty > 0 && Number(rate) < WARN_LAY_RATE_PCT) || d.status === "WARNING" ? "warning" : "normal",
@@ -207,55 +200,12 @@ export default function BreedingPage() {
     });
   };
 
-  useEffect(()=>{ loadData(); },[]);
+  useEffect(() => {
+    const cancelled = { v: false };
+    loadData(cancelled);
+    return () => { cancelled.v = true; };
+  }, []);
 
-  const openCreate = () => { setEditId(null); setForm({name:"",location:"",houses:"",capacity:""}); setDrawerOpen(true); };
-  const openEdit = (e: React.MouseEvent, farm: Farm) => {
-    e.stopPropagation();
-    setEditId(farm.id);
-    setForm({
-      name:     farm.name,
-      location: farm.location,
-      houses:   String(farm.houses),
-      capacity: String(farm.totalBirds),
-    });
-    setDrawerOpen(true);
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const token = sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "";
-      const hdrAuth = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-      const payload = {
-        farm_name: form.name,
-        location:  form.location,
-        houses:    parseInt(form.houses)   || 0,
-        capacity:  parseInt(form.capacity) || 0,
-        status:    "ACTIVE",
-      };
-      if (editId) {
-        const res = await fetch(`/api/crud/brd_farms/${editId}`, {
-          method: "PUT", headers: hdrAuth, body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        toast.success(t('ui.养殖场档案已更新','养殖场档案已更新！'));
-      } else {
-        const farmCode = "F" + Date.now().toString().slice(-6).padStart(6, "0");
-        const res = await fetch("/api/crud/brd_farms", {
-          method: "POST", headers: hdrAuth, body: JSON.stringify({ ...payload, farm_code: farmCode }),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        toast.success(t('ui.新建养殖场档案成功','新建养殖场档案成功！'));
-      }
-      setDrawerOpen(false);
-      loadData();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('ui.操作失败请检查登录状态','操作失败，请检查登录状态'));
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleDelete = async (e: React.MouseEvent, farm: Farm) => {
     e.stopPropagation();
@@ -310,17 +260,12 @@ export default function BreedingPage() {
         title={t('ui.养殖生产中心','养殖生产中心')}
         subtitle={t('ui.实时监控所有养殖场运营状态','实时监控所有养殖场运营状态')}
         breadcrumb={[t('ui.总部门户','总部门户'),t('ui.养殖生产中心','养殖生产中心')]}
-        actions={
-          <button type="button" onClick={openCreate} className={styles.btnPrimary}>
-            <Plus size={14}/> {t('ui.新增养殖场','新增养殖场')}
-          </button>
-        }
       />
 
       {/* Sub-nav pills */}
       <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:24 }}>
         {SUB_NAV.map(item => (
-          <button key={item.label} onClick={()=>router.push(item.path)}
+          <button type="button" key={item.label} onClick={()=>router.push(item.path)}
             className={item.active ? styles.btnPrimary : styles.btnSecondary}
             style={{ display:"flex", alignItems:"center", gap:6 }}>
             {item.icon}{item.label}
@@ -356,7 +301,7 @@ export default function BreedingPage() {
         {/* 环境设备卡 */}
         <div style={{ background:"var(--bg-card)", borderRadius:"var(--radius-lg)", padding:20,
           boxShadow:"var(--shadow-sm)", border:"1px solid var(--border)", borderLeft:"4px solid #0891b2", position:"relative" }}>
-          <button onClick={()=>router.push("/breeding/device-alerts")}
+          <button type="button" onClick={()=>router.push("/breeding/device-alerts")}
             title={t('ui.进入环境预警中心','进入环境预警中心')}
             style={{ position:"absolute", top:12, right:12, background:"none", border:"none",
               cursor:"pointer", color:"var(--text-secondary)", padding:4, borderRadius:4 }}>
@@ -395,7 +340,7 @@ export default function BreedingPage() {
             {farms.length===0 && (
               <div style={{ padding:"32px", textAlign:"center", color:"var(--text-secondary)", background:"var(--bg-card)",
                 border:"1px solid var(--border)", borderRadius:"var(--radius-lg)" }}>
-                {t('ui.暂无养殖场数据','暂无养殖场数据，点击右上角「新增养殖场」开始')}
+                {t('ui.暂无养殖场数据','暂无养殖场数据，请前往「主数据 → 养殖场」维护')}
               </div>
             )}
             {farms.map(farm => (
@@ -436,9 +381,11 @@ export default function BreedingPage() {
                   <div style={{ fontSize:11, color:"var(--text-secondary)" }}>{t('ui.产蛋率','产蛋率')}</div>
                 </div>
                 <div style={{ display:"flex", flexDirection:"column", gap:6, flexShrink:0, marginLeft:10 }}>
-                  <button type="button" onClick={e=>openEdit(e,farm)} className={styles.btnSecondary}
+                  <button type="button" onClick={e => { e.stopPropagation(); router.push('/master/farms'); }}
+                    className={styles.btnSecondary}
+                    title={t('ui.在主数据中编辑','在主数据中编辑')}
                     style={{ padding:6, display:"flex", alignItems:"center" }}>
-                    <Edit2 size={14}/>
+                    <Settings size={14}/>
                   </button>
                   <button type="button" onClick={e=>handleDelete(e,farm)} className={styles.btnDanger}
                     style={{ padding:6, display:"flex", alignItems:"center" }}>
@@ -488,59 +435,6 @@ export default function BreedingPage() {
         </div>
       </div>
 
-      {/* Create/Edit Drawer */}
-      <RightDrawer open={drawerOpen} title={editId?t('ui.编辑养殖场档案','编辑养殖场档案'):t('ui.新增养殖场档案','新增养殖场档案')} onClose={()=>setDrawerOpen(false)}>
-        <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
-          <div>
-            <label style={{ display:"block", fontSize:13, fontWeight:600, marginBottom:8 }}>{t('ui.所属大区省份','所属大区省份')}</label>
-            <input list="province-list" value={form.location}
-              onChange={e=>setForm({...form,location:e.target.value})}
-              placeholder={t('ui.请下拉选择或手工输入','请下拉选择或手工输入任意州省份')}
-              style={{ width:"100%", padding:"10px 14px", border:"1px solid var(--border)",
-                borderRadius:"var(--radius-md)", background:"var(--bg-page)", color:"var(--text-primary)",
-                fontSize:14, outline:"none", boxSizing:"border-box" }}/>
-            <datalist id="province-list">
-              {LAOS_PROVINCES.map(p=><option key={p} value={p}/>)}
-            </datalist>
-          </div>
-          <div>
-            <label style={{ display:"block", fontSize:13, fontWeight:600, marginBottom:8 }}>{t('ui.新场项目代号名称','新场项目代号名称')}</label>
-            <input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}
-              placeholder={t('ui.例凤凰五场','例 凤凰五场')}
-              style={{ width:"100%", padding:"10px 14px", border:"1px solid var(--border)",
-                borderRadius:"var(--radius-md)", background:"var(--bg-page)", color:"var(--text-primary)",
-                fontSize:14, outline:"none", boxSizing:"border-box" }}/>
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-            <div>
-              <label style={{ display:"block", fontSize:13, fontWeight:600, marginBottom:8 }}>{t('ui.规划栋数','规划栋数')}</label>
-              <input type="number" value={form.houses} onChange={e=>setForm({...form,houses:e.target.value})}
-                onFocus={e=>e.target.select()}
-                placeholder="0"
-                style={{ width:"100%", padding:"10px 14px", border:"1px solid var(--border)",
-                  borderRadius:"var(--radius-md)", background:"var(--bg-page)", color:"var(--text-primary)",
-                  fontSize:14, outline:"none", boxSizing:"border-box" }}/>
-            </div>
-            <div>
-              <label style={{ display:"block", fontSize:13, fontWeight:600, marginBottom:8 }}>{t('ui.总设计容量羽','总设计容量（羽）')}</label>
-              <input type="number" value={form.capacity} onChange={e=>setForm({...form,capacity:e.target.value})}
-                onFocus={e=>e.target.select()}
-                placeholder="0"
-                style={{ width:"100%", padding:"10px 14px", border:"1px solid var(--border)",
-                  borderRadius:"var(--radius-md)", background:"var(--bg-page)", color:"var(--text-primary)",
-                  fontSize:14, outline:"none", boxSizing:"border-box" }}/>
-            </div>
-          </div>
-          <div style={{ marginTop:4, display:"flex", gap:12 }}>
-            <button type="button" onClick={()=>setDrawerOpen(false)} className={styles.btnSecondary} style={{ flex:1 }}>
-              {t('common.cancel','取消')}
-            </button>
-            <button type="button" onClick={handleSave} disabled={saving} className={styles.btnPrimary} style={{ flex:2 }}>
-              {saving?t('ui.处理中','处理中...'):(editId?t('ui.保存修改','保存修改'):t('ui.确认并建档','确认并建档'))}
-            </button>
-          </div>
-        </div>
-      </RightDrawer>
     </div>
   );
 }

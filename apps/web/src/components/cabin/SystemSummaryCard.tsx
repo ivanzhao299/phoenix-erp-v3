@@ -45,7 +45,7 @@ export default function SystemSummaryCard({ system, onEnter }: Props) {
             ? <span style={{ color:'var(--status-danger)', fontWeight:700 }}>⚠ {system.alarmCount} {t('ui.项告警','项告警')}</span>
             : <span>{t('ui.传感器', '传感器')} {system?.sensorCount||0} {t('ui.个', '个')}</span>}
         </div>
-        <button onClick={onEnter} style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'var(--color-primary)', background:'none', border:'none', cursor:'pointer', padding:'4px 8px', borderRadius:'var(--radius-sm)' }}
+        <button type="button" onClick={onEnter} style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'var(--color-primary)', background:'none', border:'none', cursor:'pointer', padding:'4px 8px', borderRadius:'var(--radius-sm)' }}
           onMouseEnter={e => (e.currentTarget.style.backgroundColor='var(--bg-page)')}
           onMouseLeave={e => (e.currentTarget.style.backgroundColor='transparent')}>
           {t('common.detail','查看详情')} <ChevronRight size={12}/>

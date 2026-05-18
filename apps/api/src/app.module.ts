@@ -40,12 +40,15 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    // 速率限制：每个 IP 每分钟最多 600 次请求（全局默认；管理后台页面同时发起多个 API 请求）
-    // 登录接口使用更严格的 @Throttle({ login: ... }) 装饰器覆盖
-    ThrottlerModule.forRoot([
-      { name: 'global', ttl: 60_000,  limit: 600 },
-      { name: 'login',  ttl: 900_000, limit: 10  }, // 15分钟内最多10次
-    ]),
+    // 速率限制：仅在生产环境启用；开发环境 skipIf 直接放行，避免 React Strict Mode
+    // 双重挂载 + 多标签页并发把 127.0.0.1 同一 bucket 打满触发 blockDuration 死锁
+    ThrottlerModule.forRoot({
+      skipIf: () => process.env.NODE_ENV !== 'production',
+      throttlers: [
+        { name: 'global', ttl: 60_000, limit: 600 },
+        { name: 'login',  ttl: 900_000, limit: 10 },
+      ],
+    }),
     ClsModule.forRoot({
       global: true,
       middleware: { mount: true },

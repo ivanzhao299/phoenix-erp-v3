@@ -64,14 +64,14 @@ interface ActionBtnProps {
 
 export function ActionBtn({ onClick, children, variant = "secondary", disabled }: ActionBtnProps) {
   const colors = {
-    primary:   { bg: "var(--brand-primary)", color: "#0f172a", border: "transparent" },
+    primary:   { bg: "var(--color-primary)", color: "#0f172a", border: "transparent" },
     secondary: { bg: "var(--bg-elevated)",   color: "var(--text-secondary)", border: "var(--border)" },
     danger:    { bg: "rgba(239,68,68,0.1)",  color: "#ef4444", border: "rgba(239,68,68,0.3)" },
   }[variant];
 
   return (
     <button
-      onClick={onClick}
+type="button"       onClick={onClick}
       disabled={disabled}
       style={{
         padding: "7px 16px",

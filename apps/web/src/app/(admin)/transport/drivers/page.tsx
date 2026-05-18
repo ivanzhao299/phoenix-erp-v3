@@ -66,8 +66,8 @@ export default function DriversPage() {
   return (
     <div>
       <PageHeader title={t("ui.司机档案", "司机档案")} subtitle={t("ui.管理配送司机基础信息", "管理配送司机基础信息（表：log_drivers）")} />
-      <DataTable table={TABLE} columns={COLUMNS as any} onNew={openNew} onEdit={openEdit as any}
-        onDelete={handleDelete as any} showActions refreshKey={refreshKey} />
+      <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit}
+        onDelete={handleDelete} showActions refreshKey={refreshKey} />
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑司机", "编辑司机") : t("ui.新增司机", "新增司机")} onClose={closeDrawer}>
         <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave}
           onCancel={closeDrawer} loading={saving} />

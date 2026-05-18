@@ -32,6 +32,9 @@ const ENV_NAME: Record<string, string> = {
 const ENV_CODES = ['2001', '2083', '2002', '2003'];
 
 // ─── types ───────────────────────────────────────────────────────
+interface IotAlarm   { id?: string | number; alarmName?: string; propertyName?: string; severity?: string; [key: string]: unknown; }
+interface IotSystem  { id?: string | number; systemName?: string; status?: string; [key: string]: unknown; }
+interface ChartPoint { time?: string | number; value?: number; [key: string]: unknown; }
 type TrendPoint = { value: number; collectTime: number };
 type SeriesMeta = {
   code: string; name: string; unit: string; color: string;
@@ -105,10 +108,10 @@ export default function HouseDetailPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [overview,     setOverview]     = useState<any>(null);
-  const [systems,      setSystems]      = useState<any[]>([]);
-  const [alarms,       setAlarms]       = useState<any[]>([]);
+  const [systems,      setSystems]      = useState<IotSystem[]>([]);
+  const [alarms,       setAlarms]       = useState<IotAlarm[]>([]);
   const [series,       setSeries]       = useState<SeriesMeta[]>([]);
-  const [chartData,    setChartData]    = useState<any[]>([]);
+  const [chartData,    setChartData]    = useState<ChartPoint[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [trendLoading, setTrendLoading] = useState(false);
   const [trendRange,   setTrendRange]   = useState<'24h'|'7d'|'30d'>('24h');

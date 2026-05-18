@@ -319,13 +319,13 @@ export default function WorkflowDataSourcesPage() {
               </div>
             </div>
             <div className={s.toolbarRight}>
-              <button className={s.btnSecondary} disabled={busy || rows.length === 0} onClick={() => void checkRows(rows)}>
+              <button type="button" className={s.btnSecondary} disabled={busy || rows.length === 0} onClick={() => void checkRows(rows)}>
                 重新巡检
               </button>
-              <button className={s.btnSecondary} disabled={busy || rows.length === 0} onClick={refreshMetadata}>
+              <button type="button" className={s.btnSecondary} disabled={busy || rows.length === 0} onClick={refreshMetadata}>
                 刷新字段元数据
               </button>
-              <button className={s.btnPrimary} disabled={busy} onClick={syncDefaults}>
+              <button type="button" className={s.btnPrimary} disabled={busy} onClick={syncDefaults}>
                 补齐标准数据源
               </button>
             </div>
@@ -382,26 +382,26 @@ export default function WorkflowDataSourcesPage() {
             </div>
           ) : null}
           <div style={actionsStyle}>
-            <button className={s.btnSecondary} disabled={busy || existingCodes.has(selectedCatalog.code)} onClick={createFromCatalog}>
+            <button type="button" className={s.btnSecondary} disabled={busy || existingCodes.has(selectedCatalog.code)} onClick={createFromCatalog}>
               {existingCodes.has(selectedCatalog.code) ? "该对象已创建" : `创建 ${selectedCatalog.name}`}
             </button>
             {existingCodes.has(selectedCatalog.code) ? (
-              <button className={s.btnSecondary} disabled={busy} onClick={() => show(selectedCatalog.code)}>
+              <button type="button" className={s.btnSecondary} disabled={busy} onClick={() => show(selectedCatalog.code)}>
                 预览 {selectedCatalog.name}
               </button>
             ) : null}
             {existingCodes.has(selectedCatalog.code) ? (
-              <button className={s.btnSecondary} disabled={busy} onClick={() => loadFieldSuggestions(selectedCatalog.code)}>
+              <button type="button" className={s.btnSecondary} disabled={busy} onClick={() => loadFieldSuggestions(selectedCatalog.code)}>
                 生成字段建议
               </button>
             ) : null}
             {existingCodes.has(selectedCatalog.code) ? (
-              <button className={s.btnPrimary} disabled={busy} onClick={createFormFromSelectedSource}>
+              <button type="button" className={s.btnPrimary} disabled={busy} onClick={createFormFromSelectedSource}>
                 生成表单
               </button>
             ) : null}
             {existingCodes.has(selectedCatalog.code) ? (
-              <button className={s.btnPrimary} disabled={busy} onClick={createWorkflowFromSelectedSource}>
+              <button type="button" className={s.btnPrimary} disabled={busy} onClick={createWorkflowFromSelectedSource}>
                 生成流程
               </button>
             ) : null}
@@ -431,7 +431,7 @@ export default function WorkflowDataSourcesPage() {
                   <td><HealthBadge state={state} /></td>
                   <td>{formatTime(row.last_synced_at)}</td>
                   <td>{sampleText(state)}</td>
-                  <td><button className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => show(code)}>预览真实数据</button></td>
+                  <td><button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => show(code)}>预览真实数据</button></td>
                 </tr>
               );
             })}</tbody>

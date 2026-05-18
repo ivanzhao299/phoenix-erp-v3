@@ -1,5 +1,13 @@
 'use client';
+import type { FarmRow, HouseRow } from '@/types';
 import { useState, useEffect, useCallback } from 'react';
+
+interface FlockCard {
+  id: unknown; batchNo?: string; farmName?: string; house?: string;
+  breed?: string; inDate?: unknown; ageWeeks?: number;
+  quantity?: unknown; layingRate?: unknown; feedRatio?: unknown;
+  status: string; _raw?: Record<string, unknown>;
+}
 import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
@@ -40,9 +48,9 @@ export default function FlockPage() {
   const [showDrawer, setShowDrawer]     = useState(false);
   const [editId, setEditId]             = useState<string | null>(null);
   const [form, setForm]                 = useState(emptyForm());
-  const [flocks, setFlocks]             = useState<any[]>([]);
-  const [farms, setFarms]               = useState<any[]>([]);
-  const [houses, setHouses]             = useState<any[]>([]);
+  const [flocks, setFlocks]             = useState<FlockCard[]>([]);
+  const [farms, setFarms]               = useState<FarmRow[]>([]);
+  const [houses, setHouses]             = useState<HouseRow[]>([]);
   const [breedOptions, setBreedOptions] = useState<string[]>([]);
 
   const { fetchRecords, createRecord, updateRecord, deleteRecord } = useCrud('brd_flocks');
@@ -52,11 +60,11 @@ export default function FlockPage() {
 
   const load = useCallback(async () => {
     const data = await fetchRecords();
-    setFlocks((data||[]).map((d: any) => ({
+    setFlocks((data||[]).map((d: Record<string, unknown>) => ({
       id: d.flock_no, batchNo: d.flock_no,
       farmName: d.farm_name || d.farm_code, house: d.house_code || '',
       breed: d.breed_type || '—', inDate: d.start_date,
-      ageWeeks: d.start_date ? Math.floor((d.placement_age||0)/7) + Math.floor((Date.now()-new Date(d.start_date).getTime())/(86400000*7)) : 0,
+      ageWeeks: d.start_date ? Math.floor((Number(d.placement_age)||0)/7) + Math.floor((Date.now()-new Date(d.start_date as string).getTime())/(86400000*7)) : 0,
       quantity: d.current_qty,
       layingRate: d.current_lay_rate ?? '—',
       feedRatio:  d.feed_conversion_ratio ?? '—',
@@ -67,15 +75,15 @@ export default function FlockPage() {
 
   useEffect(() => {
     load();
-    fetchFarms().then((r: any) => setFarms(r || []));
-    fetchHouses().then((r: any) => setHouses(r || []));
-    fetchDict({ limit: 1000 }).then((d: any) => {
-      const opts = (d||[]).filter((x: any) => x.dict_type==='BRD_BREED_TYPE' && x.status==='ACTIVE').map((x: any) => x.dict_label_zh);
+    fetchFarms().then((r) => setFarms(r || [])).catch(() => {});
+    fetchHouses().then((r) => setHouses(r || [])).catch(() => {});
+    fetchDict({ limit: 1000 }).then((d) => {
+      const opts = (d||[]).filter((x: Record<string, unknown>) => x.dict_type==='BRD_BREED_TYPE' && x.status==='ACTIVE').map((x: Record<string, unknown>) => x.dict_label_zh as string);
       if (opts.length) {
         setBreedOptions(opts);
         setForm(p => ({ ...p, breed: p.breed || opts[0] }));
       }
-    });
+    }).catch(() => {});
   }, [load]);
 
   const handleEdit = (row: any) => {
@@ -116,7 +124,7 @@ export default function FlockPage() {
     }
     const payload = {
       farm_code: form.farmCode,
-      farm_name: farms.find((f: any) => f.farm_code===form.farmCode)?.farm_name || form.farmCode,
+      farm_name: farms.find((f) => f.farm_code===form.farmCode)?.farm_name || form.farmCode,
       source_farm: form.source, house_code: form.house, breed_type: form.breed,
       start_date: form.inDate || new Date().toISOString().slice(0,10),
       current_qty: Number(form.qty)||0, placement_age: Number(form.placementAge)||1,
@@ -169,7 +177,7 @@ export default function FlockPage() {
 
       <DataTable columns={columns} data={data} searchPlaceholder={t('ui.搜索批次号农场','搜索批次号农场')} searchKeys={['batchNo','farmName','breed']} rowKey="id"
         filters={<div style={{ display:'flex', gap:6 }}>
-          {statusFilters.map(f => <button type="button" key={f.key} className={statusFilter===f.key ? s.tabPillActive : s.tabPill} onClick={() => setStatusFilter(f.key)}>{f.label}</button>)}
+          {statusFilters.map(f => <button type="button" key={f.key} className={`${s.tabPill} ${statusFilter===f.key ? s.tabPillActive : ""}`} onClick={() => setStatusFilter(f.key)}>{f.label}</button>)}
         </div>} />
 
       <RightDrawer isOpen={showDrawer} onClose={() => { setShowDrawer(false); setEditId(null); }} title={`${editId?t('common.edit','编辑'):t('common.new','新建')}${t('ui.鸡群档案','鸡群档案')}`} width="460px">

@@ -1,5 +1,19 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+
+interface PdaTerminal {
+  id: number;
+  name: string;
+  serial?: string;
+  brand?: string;
+  model?: string;
+  location?: string;
+  scan_protocol?: string;
+  status: string;
+  online?: boolean;
+  last_seen?: string;
+  enabled_modules?: string[];
+}
 import PageHeader from "@/components/PageHeader";
 import RightDrawer from "@/components/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
@@ -47,7 +61,7 @@ export default function PdaTerminalPage() {
   const toast = useToast();
   const { showConfirm } = useDialog();
   const { t } = useLanguage();
-  const [terminals, setTerminals] = useState<any[]>([]);
+  const [terminals, setTerminals] = useState<PdaTerminal[]>([]);
   const [sysConfig, setSysConfig] = useState<any>({ server_url: "", api_url: "", scan_debounce_ms: "200", heartbeat_interval_s: "30", label_paper_size: "100x70" });
   const [loading, setLoading] = useState(true);
   const [drawer, setDrawer] = useState(false);
@@ -187,7 +201,7 @@ export default function PdaTerminalPage() {
                   <button type="button" onClick={() => handleApprove(terminal.id)} style={{ marginLeft: 4, padding: "2px 6px", background: "#22c55e22", border: "1px solid #22c55e", borderRadius: 4, color: "#22c55e", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>{t('ui.审核', '审核')}</button>
                 )}
               </div>
-              <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{timeAgo(terminal.last_seen)}</div>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{timeAgo(terminal.last_seen ?? "")}</div>
               <div style={{ display: "flex", gap: 4 }}>
                 <button type="button" onClick={() => openEdit(terminal)} style={{ padding: 5, background: "transparent", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text-secondary)", cursor: "pointer" }}>
                   <Edit2 size={13}/>

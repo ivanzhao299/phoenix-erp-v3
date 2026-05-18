@@ -84,10 +84,10 @@ export default function BackwardTracePage() {
       <PageHeader title={TITLE} subtitle={t("ui.反向追溯副标题","从批次反向追溯到源头生产记录（表：inv_batches）")} />
       <DataTable
         table={TABLE}
-        columns={COLUMNS as any}
+        columns={COLUMNS}
         onNew={openNew}
-        onEdit={openEdit as any}
-        onDelete={handleDelete as any}
+        onEdit={openEdit}
+        onDelete={handleDelete}
         showActions
         refreshKey={refreshKey}
       />

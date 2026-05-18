@@ -1,4 +1,5 @@
 "use client";
+import type { ProductRow } from "@/types";
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import PageHeader from "@/components/PageHeader";
@@ -24,10 +25,10 @@ export default function ProductsPage() {
   const toast = useToast();
   const { showConfirm } = useDialog();
   const { t } = useLanguage();
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<ProductRow[]>([]);
   const [activeCategory, setActiveCategory] = useState("ALL");
   const [drawer, setDrawer] = useState(false);
-  const [editing, setEditing] = useState<any>(null);
+  const [editing, setEditing] = useState<ProductRow | null>(null);
   const [form, setForm] = useState<any>(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
   const [bilingualModal, setBilingualModal] = useState(false);
@@ -82,13 +83,13 @@ export default function ProductsPage() {
     } catch { toast.error(t('ui.保存失败', '保存失败')); } finally { setLoading(false); }
   };
 
-  const uniqueCodes = [...new Set(data.map(d => d.category_code).filter(Boolean))];
+  const uniqueCodes = [...new Set(data.map(d => d.category_code ?? "").filter(Boolean))];
   const categoryList = [
     { code: "ALL", label: t('ui.全部', '全部'), count: data.length },
-    ...uniqueCodes.map(code => ({ code, label: catLabel(code), count: data.filter(d => d.category_code === code).length })),
+    ...uniqueCodes.map(code => ({ code, label: catLabel(code), count: data.filter(d => (d.category_code ?? "") === code).length })),
   ];
-  const filtered = (activeCategory === "ALL" ? data : data.filter(d => d.category_code === activeCategory))
-    .filter(d => !search || d.name_zh.includes(search) || d.code?.includes(search) || d.name_lo?.includes(search));
+  const filtered = (activeCategory === "ALL" ? data : data.filter(d => (d.category_code ?? "") === activeCategory))
+    .filter(d => !search || (d.name_zh ?? "").includes(search) || (d.code ?? "").includes(search) || (d.name_lo ?? "").includes(search));
   const missingLo = data.filter(d => !d.name_lo?.trim());
 
   return (
@@ -114,10 +115,10 @@ export default function ProductsPage() {
           {/* 工具栏 */}
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('ui.搜索商品代码中文名', '搜索商品代码、中文名…')} style={{ ...inp, width: 240 }}/>
-            <button onClick={() => setBilingualModal(true)} style={{ padding: "8px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
+            <button type="button" onClick={() => setBilingualModal(true)} style={{ padding: "8px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
               <Globe size={14}/>{t('ui.双语检查', '双语检查')}{missingLo.length > 0 && <span style={{ position: "absolute", top: -6, right: -6, background: "#ef4444", color: "#fff", borderRadius: "50%", width: 18, height: 18, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{missingLo.length}</span>}
             </button>
-            <button onClick={openNew} style={{ marginLeft: "auto", padding: "8px 16px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+            <button type="button" onClick={openNew} style={{ marginLeft: "auto", padding: "8px 16px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
               <Plus size={14}/>{t('ui.新增商品', '新增商品')}
             </button>
           </div>
@@ -147,7 +148,7 @@ export default function ProductsPage() {
                       <div style={{ fontSize: 12, color: row.name_lo ? "var(--text-secondary)" : "#ef4444" }}>{row.name_lo || `⚠ ${t('ui.缺老挝语', '缺老挝语')}`}</div>
                     </td>
                     <td style={{ padding: "12px 14px" }}>
-                      <span style={{ fontSize: 12, background: "var(--bg-page)", border: "1px solid var(--border)", padding: "2px 8px", borderRadius: 10 }}>{catLabel(row.category_code)}</span>
+                      <span style={{ fontSize: 12, background: "var(--bg-page)", border: "1px solid var(--border)", padding: "2px 8px", borderRadius: 10 }}>{catLabel(row.category_code ?? "")}</span>
                     </td>
                     <td style={{ padding: "12px 14px" }}>
                       <div style={{ fontSize: 12 }}>{row.specs || row.unit}</div>
@@ -180,7 +181,7 @@ export default function ProductsPage() {
           onClick={() => setBilingualModal(false)}
         >
           <div
-            style={{ background: "var(--bg-surface)", borderRadius: "var(--radius-lg)", width: 560, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden" }}
+            style={{ background: "var(--bg-card)", borderRadius: "var(--radius-lg)", width: 560, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden" }}
             onClick={e => e.stopPropagation()}
           >
             <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>

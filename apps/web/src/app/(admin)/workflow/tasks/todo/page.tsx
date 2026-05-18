@@ -210,18 +210,18 @@ export default function WorkflowTodoPage() {
                     placeholder={transferMode === "role" ? "角色编码，如 ROLE_FIN_ACCT" : "用户 ID，如 1001"}
                   />
                   <div style={transferActionsStyle}>
-                    <button className={s.btnSecondary} disabled={loading} onClick={() => setTransferOpen(false)}>取消转交</button>
-                    <button className={s.btnPrimary} disabled={loading} onClick={transfer}>{loading ? "转交中..." : "确认转交"}</button>
+                    <button type="button" className={s.btnSecondary} disabled={loading} onClick={() => setTransferOpen(false)}>取消转交</button>
+                    <button type="button" className={s.btnPrimary} disabled={loading} onClick={transfer}>{loading ? "转交中..." : "确认转交"}</button>
                   </div>
                 </div>
               ) : null}
 
               <div style={footerStyle}>
                 <Link href={`/workflow/instances/${selected.instance_id}`} className={s.btnSecondary}>查看详情</Link>
-                <button className={s.btnSecondary} disabled={loading || !comment.trim()} onClick={saveComment}>补充意见</button>
-                <button className={s.btnSecondary} disabled={loading} onClick={() => setTransferOpen(open => !open)}>转交</button>
-                <button className={s.btnDanger} disabled={loading} onClick={() => act("reject")}>驳回</button>
-                <button className={s.btnPrimary} disabled={loading} onClick={() => act("approve")}>
+                <button type="button" className={s.btnSecondary} disabled={loading || !comment.trim()} onClick={saveComment}>补充意见</button>
+                <button type="button" className={s.btnSecondary} disabled={loading} onClick={() => setTransferOpen(open => !open)}>转交</button>
+                <button type="button" className={s.btnDanger} disabled={loading} onClick={() => act("reject")}>驳回</button>
+                <button type="button" className={s.btnPrimary} disabled={loading} onClick={() => act("approve")}>
                   {loading ? "处理中..." : "通过"}
                 </button>
               </div>

@@ -188,7 +188,7 @@ export default function ShiftClosePage() {
                 fontSize:13, color:T.RED }}>
                 ⚠️ {t('ui.存在未关闭异常必须先处理', '存在未关闭异常，必须先处理后才能交班')}
                 <br />
-                <button onClick={()=>router.push('/terminal/packaging/exceptions')}
+                <button type="button" onClick={()=>router.push('/terminal/packaging/exceptions')}
                   style={{ marginTop:8, padding:'6px 14px', borderRadius:6, border:`1px solid ${T.RED}`,
                     background:'transparent', color:T.RED, fontSize:12, cursor:'pointer' }}>
                   → {t('ui.去处理异常', '去处理异常')}
@@ -201,13 +201,13 @@ export default function ShiftClosePage() {
 
       <div style={{ background:T.CARD, borderTop:`1px solid ${T.BOR}`, padding:'16px 24px',
         display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
-        <button onClick={()=>router.push('/terminal/packaging/dashboard')}
+        <button type="button" onClick={()=>router.push('/terminal/packaging/dashboard')}
           style={{ padding:'14px 28px', borderRadius:10, border:`1px solid ${T.BOR}`,
             background:'transparent', color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('common.back', '返回')}</button>
         <div style={{ flex:1, fontSize:13, color: canClose?T.MUT:T.RED }}>
           {!canClose && (hasOpenException ? `⚠️ ${t('ui.有未关闭异常不可交班', '有未关闭异常，不可交班')}` : `⚠️ ${t('ui.请填写差异原因', '请填写差异原因')}`)}
         </div>
-        <button onClick={()=>setShowConfirm(true)} disabled={!canClose||submitting}
+        <button type="button" onClick={()=>setShowConfirm(true)} disabled={!canClose||submitting}
           style={{ padding:'14px 40px', borderRadius:10, border:'none',
             background:canClose?T.ACC:T.BOR, color:canClose?'#0f172a':T.MUT,
             fontSize:16, fontWeight:700, cursor:canClose?'pointer':'not-allowed' }}>
@@ -227,10 +227,10 @@ export default function ShiftClosePage() {
               {t('ui.共接收', '共接收')} {summary.receivedQty.toLocaleString()} {t('ui.枚', '枚')}，{t('ui.入库', '入库')} {summary.warehousedBoxes} {t('ui.箱', '箱')}
             </div>
             <div style={{ display:'flex', gap:10 }}>
-              <button onClick={()=>setShowConfirm(false)}
+              <button type="button" onClick={()=>setShowConfirm(false)}
                 style={{ flex:1, padding:'14px', background:'transparent', border:`1px solid ${T.BOR}`,
                   borderRadius:8, color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('common.cancel', '取消')}</button>
-              <button onClick={()=>{setShowConfirm(false);handleClose();}}
+              <button type="button" onClick={()=>{setShowConfirm(false);handleClose();}}
                 style={{ flex:2, padding:'14px', background:T.ACC, border:'none',
                   borderRadius:8, color:'#0f172a', fontSize:15, fontWeight:700, cursor:'pointer' }}>
                 {t('ui.确认交班', '确认交班')}

@@ -49,7 +49,7 @@ export default function WorkflowInstancesPage() {
               <button
                 key={item.value || "ALL"}
                 type="button"
-                className={status === item.value ? s.tabPillActive : s.tabPill}
+                className={`${s.tabPill} ${status === item.value ? s.tabPillActive : ""}`}
                 onClick={() => setStatus(item.value)}
               >
                 {item.label}

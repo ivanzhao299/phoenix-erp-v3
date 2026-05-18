@@ -125,7 +125,7 @@ export default function TerminalNavRail() {
       {/* User avatar (click to toggle logout) */}
       <div style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
         {showLogout && (
-          <button onClick={handleLogout}
+          <button type="button" onClick={handleLogout}
             style={{
               background: '#ef4444', color: '#fff', border: 'none',
               borderRadius: 6, fontSize: 9, padding: '4px 6px', cursor: 'pointer',

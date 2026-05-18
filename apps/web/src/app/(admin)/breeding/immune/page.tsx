@@ -1,5 +1,22 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+
+interface ImmunePlan {
+  id?: unknown;
+  batchNo?: unknown;
+  farmHouse?: unknown;
+  vaccine?: unknown;
+  vaccineBatchNo?: unknown;
+  flockCount?: unknown;
+  planDate?: unknown;
+  nextDueDate?: unknown;
+  actualDate?: unknown;
+  method?: unknown;
+  dose?: unknown;
+  executor?: unknown;
+  status: string;
+  [key: string]: unknown;
+}
 import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
@@ -42,7 +59,7 @@ export default function ImmunePage() {
   const { fetchRecords: fetchFlocks } = useCrud('brd_flocks');
   const { options: vaccineOpts }    = useDictOptions('BRD_VACCINE_TYPE');
   const { options: vaccMethodOpts } = useDictOptions('BRD_VACCINATE_METHOD');
-  const [plans, setPlans]               = useState<any[]>([]);
+  const [plans, setPlans]               = useState<ImmunePlan[]>([]);
   const [houseOptions, setHouseOptions] = useState<{ code: string; label: string; farm_code: string }[]>([]);
   const [flockOptions, setFlockOptions] = useState<{ code: string; label: string }[]>([]);
   const [flockMap, setFlockMap]         = useState<Record<string, { house_code: string; farm_code: string }>>({});
@@ -56,24 +73,24 @@ export default function ImmunePage() {
   }, [vaccMethodOpts]);
 
   useEffect(() => {
-    fetchHouses().then((h: any) => {
-      setHouseOptions((h||[]).map((x: any) => ({ code: x.house_code||x.house_no, label: x.house_name?`${x.house_code} · ${x.house_name}`:x.house_code, farm_code: x.farm_code||'' })).filter((o: any) => o.code));
-    });
-    fetchFlocks().then((f: any) => {
-      setFlockOptions((f||[]).map((x: any) => ({ code: x.flock_no, label: `${x.flock_no}${x.house_code?' · '+x.house_code:''}` })));
-      const map: Record<string, any> = {};
-      (f||[]).forEach((x: any) => { map[x.flock_no] = { house_code: x.house_code||'', farm_code: x.farm_code||'' }; });
+    fetchHouses().then((h) => {
+      setHouseOptions((h||[]).map((x: Record<string, unknown>) => ({ code: (x.house_code||x.house_no) as string, label: x.house_name?`${x.house_code} · ${x.house_name}`:String(x.house_code||''), farm_code: (x.farm_code as string)||'' })).filter((o: { code: string; label: string; farm_code: string }) => !!o.code));
+    }).catch(() => {});
+    fetchFlocks().then((f) => {
+      setFlockOptions((f||[]).map((x: Record<string, unknown>) => ({ code: x.flock_no as string, label: `${x.flock_no}${x.house_code?' · '+x.house_code:''}` })));
+      const map: Record<string, { house_code: string; farm_code: string }> = {};
+      (f||[]).forEach((x: Record<string, unknown>) => { map[x.flock_no as string] = { house_code: (x.house_code as string)||'', farm_code: (x.farm_code as string)||'' }; });
       setFlockMap(map);
       if (f?.[0]) setForm(p => ({ ...p, batchNo: p.batchNo || f[0].flock_no, farmHouse: p.farmHouse || f[0].house_code || '' }));
-    });
+    }).catch(() => {});
   }, []);
 
   const loadData = useCallback(async () => {
     const data = await fetchRecords();
     const now = new Date(); const today = new Date(now.toDateString());
     const soon = new Date(today.getTime() + 3 * 86400000);
-    setPlans(((data||[]) as any[]).map((d: any) => {
-      const planDate = d.plan_date ? new Date(d.plan_date) : null;
+    setPlans(((data||[]) as Record<string, unknown>[]).map((d: Record<string, unknown>) => {
+      const planDate = d.plan_date ? new Date(d.plan_date as string) : null;
       let status: string;
       // 大写枚举与 STATUS_CONF 对齐
       if (d.actual_date)           status = 'DONE';
@@ -199,7 +216,7 @@ export default function ImmunePage() {
 
       <DataTable columns={columns} data={filteredData} searchPlaceholder={t('ui.搜索批次疫苗名称', '搜索批次疫苗名称')} searchKeys={['batchNo','farmHouse','vaccine']} rowKey="id"
         filters={<div style={{ display:'flex', gap:6 }}>
-          {filterKeys.map(f => <button type="button" key={f} className={filter===f ? s.tabPillActive : s.tabPill} onClick={() => setFilter(f)}>
+          {filterKeys.map(f => <button type="button" key={f} className={`${s.tabPill} ${filter===f ? s.tabPillActive : ""}`} onClick={() => setFilter(f)}>
             {filterLabels[f]}{f==='scheduled'&&scheduledCnt>0&&<span style={{ marginLeft:4, fontSize:11 }}>({scheduledCnt})</span>}
           </button>)}
         </div>} />

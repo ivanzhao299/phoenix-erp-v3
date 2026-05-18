@@ -229,9 +229,9 @@ export default function ProcurementOrderPage() {
                   </td>
                   <td style={{ padding:"9px 12px" }}>
                     <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
-                      {st==="DRAFT"&&<button className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(row)}>{t("common.edit","编辑")}</button>}
-                      {nextSt&&<button className={s.btnSuccess} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>advance(row)}>{STATUS_NEXT_LABEL[st]}</button>}
-                      <button className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openDetail(row)}>{t("common.detail","详情")}</button>
+                      {st==="DRAFT"&&<button type="button" className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(row)}>{t("common.edit","编辑")}</button>}
+                      {nextSt&&<button type="button" className={s.btnSuccess} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>advance(row)}>{STATUS_NEXT_LABEL[st]}</button>}
+                      <button type="button" className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openDetail(row)}>{t("common.detail","详情")}</button>
                     </div>
                   </td>
                 </tr>

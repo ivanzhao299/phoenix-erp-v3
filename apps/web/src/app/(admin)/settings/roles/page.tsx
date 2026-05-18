@@ -214,7 +214,7 @@ export default function RoleManagementPage() {
       // 1) 角色列表（generic-crud 返回 { code:200, data: [...] } 或直接数组）
       const r = await apiGet("/api/crud/sys_role");
       const raw = Array.isArray(r.data) ? r.data : Array.isArray(r) ? r : [];
-      const rows: RoleRow[] = raw.map((d: any) => ({
+      const rows: RoleRow[] = raw.map((d: Record<string, unknown>) => ({
         role_id: d.role_id,
         role_code: d.role_code,
         role_name_zh: d.role_name_zh,
@@ -248,6 +248,8 @@ export default function RoleManagementPage() {
     } finally {
       setLoading(false);
     }
+  // toast/t are intentionally omitted: they are context functions that change
+  // reference every render; including them would trigger infinite re-fetch.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -499,10 +501,10 @@ export default function RoleManagementPage() {
         breadcrumb={[t("ui.系统设置","系统设置"), t("ui.角色与权限","角色与权限")]}
         actions={
           <div style={{ display: "flex", gap: "8px" }}>
-            <button className={s.btnSecondary} onClick={openMatrix}>
+            <button type="button" className={s.btnSecondary} onClick={openMatrix}>
               <Grid size={14} /> {t("ui.权限矩阵全景","权限矩阵全景")}
             </button>
-            <button className={s.btnPrimaryGrad} onClick={openNew}>
+            <button type="button" className={s.btnPrimaryGrad} onClick={openNew}>
               <Plus size={14} /> {t("ui.新建角色","新建角色")}
             </button>
           </div>
@@ -584,10 +586,10 @@ export default function RoleManagementPage() {
                             </div>
                           </div>
                           <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
-                            <button className={s.btnIcon} title={t("ui.复制","复制")} onClick={() => openCopy(role)}><Copy size={12} /></button>
-                            <button className={s.btnIcon} title={t("common.edit","编辑")} onClick={() => openEdit(role)}><Edit2 size={12} /></button>
+                            <button type="button" className={s.btnIcon} title={t("ui.复制","复制")} onClick={() => openCopy(role)}><Copy size={12} /></button>
+                            <button type="button" className={s.btnIcon} title={t("common.edit","编辑")} onClick={() => openEdit(role)}><Edit2 size={12} /></button>
                             {!isAdmin && (
-                              <button className={s.btnIcon} title={t("common.delete","删除")} onClick={() => setConfirmDel(role)} style={{ color: "var(--color-danger)" }}>
+                              <button type="button" className={s.btnIcon} title={t("common.delete","删除")} onClick={() => setConfirmDel(role)} style={{ color: "var(--color-danger)" }}>
                                 <Trash2 size={12} />
                               </button>
                             )}
@@ -705,7 +707,7 @@ export default function RoleManagementPage() {
                   onClick={() => setForm({ ...form, description: ROLE_TYPE_DEFAULT_DESC[form.role_type] })}
                   style={{
                     fontSize: 11, padding: "1px 8px", borderRadius: 4, cursor: "pointer",
-                    border: "1px solid var(--border-color)", background: "var(--bg-surface)",
+                    border: "1px solid var(--border)", background: "var(--bg-card)",
                     color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 3,
                   }}
                   title="恢复为该业务域的默认说明文本"
@@ -781,7 +783,7 @@ export default function RoleManagementPage() {
             <div style={{
               display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10,
               padding: "6px 10px", borderRadius: 6,
-              background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-color)",
+              background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)",
             }}>
               {PERM_CODE_ORDER.map((c) => {
                 const meta = PERM_CODE_META[c];
@@ -817,7 +819,7 @@ export default function RoleManagementPage() {
                   }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: group.domain_color }}>{group.domain_label_zh}</span>
                     <button
-                      onClick={() => toggleDomainView(group)}
+type="button"                       onClick={() => toggleDomainView(group)}
                       style={{
                         fontSize: 11, padding: "1px 8px", borderRadius: 4,
                         border: `1px solid ${group.domain_color}`,
@@ -846,13 +848,13 @@ export default function RoleManagementPage() {
                               const on = set.has(c);
                               return (
                                 <button
-                                  key={c}
+type="button"                                   key={c}
                                   title={meta.tip}
                                   onClick={() => togglePerm(menu.menu_code, c)}
                                   style={{
                                     minWidth: 22, height: 22, fontSize: 10, fontWeight: 700,
-                                    borderRadius: 3, cursor: "pointer", border: `1px solid ${on ? meta.color : "var(--border-color)"}`,
-                                    background: on ? meta.color : "var(--bg-surface)",
+                                    borderRadius: 3, cursor: "pointer", border: `1px solid ${on ? meta.color : "var(--border)"}`,
+                                    background: on ? meta.color : "var(--bg-card)",
                                     color: on ? "white" : "var(--text-secondary)",
                                     transition: "all 0.1s",
                                   }}>
@@ -862,11 +864,11 @@ export default function RoleManagementPage() {
                             })}
                           </div>
                           <button
-                            onClick={() => toggleMenuAll(menu.menu_code)}
+type="button"                             onClick={() => toggleMenuAll(menu.menu_code)}
                             style={{
                               fontSize: 10, padding: "1px 6px", borderRadius: 3,
-                              border: "1px solid var(--border-color)",
-                              background: PERM_CODE_ORDER.every((c) => set.has(c)) ? "var(--color-primary)" : "var(--bg-surface)",
+                              border: "1px solid var(--border)",
+                              background: PERM_CODE_ORDER.every((c) => set.has(c)) ? "var(--color-primary)" : "var(--bg-card)",
                               color: PERM_CODE_ORDER.every((c) => set.has(c)) ? "white" : "var(--text-secondary)",
                               cursor: "pointer", fontWeight: 600,
                             }}>
@@ -883,9 +885,9 @@ export default function RoleManagementPage() {
 
           {/* 保存按钮 */}
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <button className={s.btnSecondary} style={{ flex: 1 }} onClick={() => setShowDrawer(false)}>{t("common.cancel","取消")}</button>
+            <button type="button" className={s.btnSecondary} style={{ flex: 1 }} onClick={() => setShowDrawer(false)}>{t("common.cancel","取消")}</button>
             <button
-              className={s.btnPrimaryGrad}
+type="button"               className={s.btnPrimaryGrad}
               style={{ flex: 2 }}
               onClick={handleSubmit}
               disabled={loading || (!editCode && !!codeError) || hasBlockingConflict}
@@ -904,31 +906,31 @@ export default function RoleManagementPage() {
           display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
         }}>
           <div onClick={(e) => e.stopPropagation()} style={{
-            background: "var(--bg-surface)", borderRadius: 12,
+            background: "var(--bg-card)", borderRadius: 12,
             width: "95vw", height: "92vh", display: "flex", flexDirection: "column",
             boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
           }}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div className={s.cardTitle} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Grid size={18} /> {t("ui.角色菜单CRUD矩阵全景","角色 × 菜单 × CRUD 矩阵全景")} — {matrixData?.matrix?.length || 0} {t("ui.角色","角色")} × {matrixData?.menus?.length || 0} {t("ui.菜单","菜单")}
               </div>
-              <button className={s.btnIcon} onClick={() => setShowMatrix(false)}><X size={16} /></button>
+              <button type="button" className={s.btnIcon} onClick={() => setShowMatrix(false)}><X size={16} /></button>
             </div>
             <div style={{ flex: 1, overflow: "auto" }}>
               {!matrixData ? (
                 <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>{t("common.loading","加载中...")}</div>
               ) : (
                 <table className={s.table} style={{ minWidth: "100%", fontSize: 10 }}>
-                  <thead style={{ position: "sticky", top: 0, background: "var(--bg-surface)", zIndex: 5 }}>
+                  <thead style={{ position: "sticky", top: 0, background: "var(--bg-card)", zIndex: 5 }}>
                     <tr>
                       <th style={{
-                        padding: "8px 10px", borderBottom: "2px solid var(--border-color)", borderRight: "1px solid var(--border-color)",
-                        textAlign: "left", position: "sticky", left: 0, background: "var(--bg-surface)", zIndex: 6, minWidth: 180,
+                        padding: "8px 10px", borderBottom: "2px solid var(--border)", borderRight: "1px solid var(--border)",
+                        textAlign: "left", position: "sticky", left: 0, background: "var(--bg-card)", zIndex: 6, minWidth: 180,
                       }}>{t("ui.角色↓菜单→","角色 ↓ / 菜单 →")}</th>
                       {matrixData.menus.map((m) => (
                         <th key={m.menu_code} title={m.menu_code} style={{
-                          padding: "6px 4px", borderBottom: "2px solid var(--border-color)",
-                          borderRight: "1px solid var(--border-color)",
+                          padding: "6px 4px", borderBottom: "2px solid var(--border)",
+                          borderRight: "1px solid var(--border)",
                           minWidth: 60, maxWidth: 60,
                           writingMode: "vertical-rl", textAlign: "left",
                           fontWeight: 600,
@@ -942,14 +944,14 @@ export default function RoleManagementPage() {
                   <tbody>
                     {matrixData.matrix.map((r) => (
                       <tr key={r.role_code}>
-                        <td style={{ padding: "6px 10px", borderRight: "1px solid var(--border-color)", borderBottom: "1px solid var(--border-color)", position: "sticky", left: 0, background: "var(--bg-surface)", fontWeight: 600, fontSize: 11 }}>
+                        <td style={{ padding: "6px 10px", borderRight: "1px solid var(--border)", borderBottom: "1px solid var(--border)", position: "sticky", left: 0, background: "var(--bg-card)", fontWeight: 600, fontSize: 11 }}>
                           <div>{r.role_name_zh}</div>
                           <div style={{ fontSize: 9, color: "var(--text-secondary)", fontFamily: "monospace" }}>{r.role_code}</div>
                         </td>
                         {r.cells.map((c) => (
                           <td key={c.menu_code} style={{
                             padding: "3px 2px", textAlign: "center",
-                            borderRight: "1px solid var(--border-color)", borderBottom: "1px solid var(--border-color)",
+                            borderRight: "1px solid var(--border)", borderBottom: "1px solid var(--border)",
                             background: c.granted ? (r.is_admin ? "#fbbf24" : "rgba(99,102,241,0.15)") : "transparent",
                             color: c.granted ? (r.is_admin ? "#78350f" : "var(--color-primary)") : "var(--text-secondary)",
                             fontWeight: c.granted ? 700 : 400,

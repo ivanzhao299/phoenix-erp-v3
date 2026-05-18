@@ -59,24 +59,11 @@ interface KpiData {
   integrity?: { score: number; grade: string; dimensions: { name: string; score: number; maxScore: number; detail?: string }[] };
 }
 
-const FALLBACK: KpiData = {
-  stats: {
-    eggs:   { value: '142,500', unit: '枚',      trend: '5.2' },
-    stock:  { value: '85,320',  unit: '版',      trend: '1.8' },
-    sales:  { value: '32,450,000', unit: '老挝基普', trend: '12.4' },
-    alerts: { value: '3', unit: '单待处理预警' },
-  },
-  chartData: [
-    { day: '周一', prod: 110, sales: 90 }, { day: '周二', prod: 115, sales: 85 },
-    { day: '周三', prod: 120, sales: 110 }, { day: '周四', prod: 105, sales: 95 },
-    { day: '周五', prod: 140, sales: 125 }, { day: '周六', prod: 135, sales: 150 },
-    { day: '周日', prod: 150, sales: 180 },
-  ],
-  alertList: [
-    { id: 1, text: '万象1号店B批次普通鲜鸡蛋库存临期剩余2天', type: 'warning' },
-    { id: 2, text: '总仓3号冷库温度异常波动超出安全阈值', type: 'danger' },
-    { id: 3, text: '05号鸡舍产蛋率环比下降4%，需排查饲料', type: 'info' },
-  ],
+const EMPTY_STATS: NonNullable<KpiData['stats']> = {
+  eggs:   { value: '—', unit: '枚' },
+  stock:  { value: '—', unit: '' },
+  sales:  { value: '—', unit: '' },
+  alerts: { value: '—', unit: '' },
 };
 
 interface Props { initialData: KpiData; }
@@ -86,18 +73,17 @@ export default function DashboardKPIs({ initialData }: Props) {
   const [kpi, setKpi]         = useState<KpiData>(initialData);
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const [alerts, setAlerts]   = useState(initialData.alertList ?? FALLBACK.alertList ?? []);
+  const [alerts, setAlerts]   = useState(initialData.alertList ?? []);
   const [integrity, setIntegrity] = useState(initialData.integrity ?? null);
-
-  const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : null;
-  const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
   const fetchKpi = useCallback(async () => {
     setLoading(true);
     try {
+      const tok = sessionStorage.getItem('phoenix_token') ?? '';
+      const hdrs: Record<string, string> = tok ? { Authorization: `Bearer ${tok}` } : {};
       const [kpiRes, integrityRes] = await Promise.all([
-        fetch(`${API_BASE}/api/dashboard/kpi`, { headers: authHeader }).then(r => r.json()),
-        fetch(`${API_BASE}/api/dashboard/integrity`, { headers: authHeader }).then(r => r.json()).catch(() => null),
+        fetch(`${API_BASE}/api/dashboard/kpi`, { headers: hdrs }).then(r => r.json()),
+        fetch(`${API_BASE}/api/dashboard/integrity`, { headers: hdrs }).then(r => r.json()).catch(() => null),
       ]);
       if (kpiRes.code === 200) {
         setKpi(kpiRes.data);
@@ -106,13 +92,11 @@ export default function DashboardKPIs({ initialData }: Props) {
       }
       if (integrityRes?.code === 200) setIntegrity(integrityRes.data);
     } catch {
-      setKpi(FALLBACK);
-      setAlerts(FALLBACK.alertList!);
-      setLastUpdated('离线缓存');
+      setLastUpdated('加载失败');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [API_BASE]);
 
   // 挂载立即刷新，之后每 60s 轮询
   useEffect(() => {
@@ -121,9 +105,9 @@ export default function DashboardKPIs({ initialData }: Props) {
     return () => clearInterval(t);
   }, [fetchKpi]);
 
-  const stats     = kpi.stats ?? FALLBACK.stats!;
-  const chartData = kpi.chartData ?? FALLBACK.chartData!;
-  const maxVal    = Math.max(...chartData.map(d => Math.max(d.prod, d.sales)), 1);
+  const stats     = kpi.stats ?? EMPTY_STATS;
+  const chartData = kpi.chartData ?? [];
+  const maxVal    = chartData.length ? Math.max(...chartData.map(d => Math.max(d.prod, d.sales)), 1) : 1;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -236,7 +220,7 @@ export default function DashboardKPIs({ initialData }: Props) {
               <div key={item.id} className={styles.alertItem}
                 style={{ borderLeft: `4px solid var(--status-${item.type === 'danger' ? 'danger' : item.type === 'warning' ? 'warning' : 'info'})` }}>
                 <span>{item.text}</span>
-                <button className={styles.dismissBtn} onClick={() => setAlerts(prev => prev.filter(a => a.id !== item.id))}>已处理</button>
+                <button type="button" className={styles.dismissBtn} onClick={() => setAlerts(prev => prev.filter(a => a.id !== item.id))}>已处理</button>
               </div>
             ))}
             {alerts.length === 0 && (

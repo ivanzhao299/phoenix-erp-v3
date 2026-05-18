@@ -171,8 +171,8 @@ export default function TransferPage() {
             placeholder={t("ui.扫描调拨单号按回车确认", "扫描调拨单号 → 按回车确认")}
             style={{
               flex: 1, padding: "9px 14px", borderRadius: 8, fontSize: 13,
-              border: "1px solid var(--border-color, #e2e8f0)",
-              background: "var(--bg-element, #f8fafc)",
+              border: "1px solid var(--border)",
+              background: "var(--bg-page)",
             }}
           />
         </div>
@@ -182,8 +182,8 @@ export default function TransferPage() {
         table={TABLE}
         columns={COLUMNS}
         onNew={openNew}
-        onEdit={openEdit as any}
-        onDelete={handleDelete as any}
+        onEdit={openEdit}
+        onDelete={handleDelete}
         showActions
         refreshKey={refreshKey}
         emptyText={t("ui.暂无调拨记录", "暂无调拨记录")}

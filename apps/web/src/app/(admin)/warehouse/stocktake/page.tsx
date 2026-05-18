@@ -234,8 +234,8 @@ export default function StocktakePage() {
         table={TABLE}
         columns={COLUMNS}
         onNew={openNew}
-        onEdit={openEdit as any}
-        onDelete={handleDelete as any}
+        onEdit={openEdit}
+        onDelete={handleDelete}
         showActions={false}
         refreshKey={refreshKey}
         emptyText={t("ui.暂无盘点记录", "暂无盘点记录")}

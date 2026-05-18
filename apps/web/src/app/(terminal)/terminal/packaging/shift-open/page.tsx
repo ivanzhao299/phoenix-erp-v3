@@ -72,6 +72,8 @@ export default function ShiftOpenPage() {
       // fallback: allow free-text entry seeded from current user
       if (!supervisor) setSupervisor(user?.name || '');
     });
+  // mount-only: pre-selects line/supervisor from dict; including them as deps
+  // would re-run the effect after they're set, overwriting user changes.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -204,7 +206,7 @@ export default function ShiftOpenPage() {
               {CHECK_ITEMS.map(item => {
                 const checked = !!checks[item.key];
                 return (
-                  <button key={item.key} onClick={() => toggleCheck(item.key)}
+                  <button type="button" key={item.key} onClick={() => toggleCheck(item.key)}
                     style={{
                       display:'flex', alignItems:'center', gap:14, padding:'16px 20px',
                       background: checked ? 'rgba(34,197,94,0.08)' : 'rgba(255,255,255,0.03)',
@@ -251,12 +253,12 @@ export default function ShiftOpenPage() {
             ? `✅ ${t('ui.点检完成可以开班', '点检完成，可以开班')}`
             : `${t('ui.还剩', '还剩')} ${CHECK_ITEMS.filter(i=>!checks[i.key]).length} ${t('ui.项未确认', '项未确认')}`}
         </div>
-        <button onClick={() => router.push('/terminal/packaging/dashboard')}
+        <button type="button" onClick={() => router.push('/terminal/packaging/dashboard')}
           style={{ padding:'14px 28px', borderRadius:10, border:`1px solid ${T.BOR}`,
             background:'transparent', color:T.MUT, fontSize:15, cursor:'pointer' }}>
           {t('common.back', '返回')}
         </button>
-        <button onClick={handleSubmit} disabled={!canSubmit || submitting}
+        <button type="button" onClick={handleSubmit} disabled={!canSubmit || submitting}
           style={{ padding:'14px 40px', borderRadius:10, border:'none',
             background: canSubmit ? T.ACC : T.BOR,
             color: canSubmit ? '#0f172a' : T.MUT,

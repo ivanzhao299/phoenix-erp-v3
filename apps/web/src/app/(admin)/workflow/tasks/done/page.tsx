@@ -9,7 +9,7 @@ import { workflowApi, type WorkflowTask } from "@/lib/workflow-api";
 export default function WorkflowDonePage() {
   const [rows, setRows] = useState<WorkflowTask[]>([]);
 
-  useEffect(() => { workflowApi.done().then(res => setRows(res.data || [])); }, []);
+  useEffect(() => { workflowApi.done().then(res => setRows(res.data || [])).catch(() => {}); }, []);
 
   return (
     <div>

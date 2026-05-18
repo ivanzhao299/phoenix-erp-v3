@@ -41,12 +41,12 @@ export default function ForwardTracePage() {
   const Section = ({ title, items, keys }: { title: string; items: Record<string,unknown>[]; keys: string[] }) => (
     <div style={{ marginBottom: 24 }}>
       <div style={{ fontWeight: 700, marginBottom: 10, color: "var(--text-primary)", fontSize: "0.95rem" }}>{title}（{items.length} {t("ui.条","条")}）</div>
-      {items.length === 0 ? <div style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>{t("common.no_data","暂无数据")}</div> : (
+      {items.length === 0 ? <div style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>{t("common.no_data","暂无数据")}</div> : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {items.map((item, i) => (
-            <div key={i} style={{ background: "var(--bg-surface)", borderRadius: 8, padding: "10px 14px", fontSize: "0.83rem", display: "flex", gap: 20, flexWrap: "wrap" }}>
+            <div key={i} style={{ background: "var(--bg-card)", borderRadius: 8, padding: "10px 14px", fontSize: "0.83rem", display: "flex", gap: 20, flexWrap: "wrap" }}>
               {keys.map(k => item[k] != null && (
-                <span key={k}><b style={{ color: "var(--text-muted)" }}>{k}: </b>{String(item[k])}</span>
+                <span key={k}><b style={{ color: "var(--text-secondary)" }}>{k}: </b>{String(item[k])}</span>
               ))}
             </div>
           ))}
@@ -63,24 +63,24 @@ export default function ForwardTracePage() {
           value={batchNo} onChange={e => setBatchNo(e.target.value)}
           onKeyDown={e => e.key === "Enter" && trace()}
           placeholder={t("ui.输入批次号","输入批次号，如：B-20260510-001")}
-          style={{ flex: 1, background: "var(--bg-surface)", border: "1px solid var(--border-light)",
+          style={{ flex: 1, background: "var(--bg-card)", border: "1px solid var(--border)",
             borderRadius: 8, padding: "10px 16px", color: "#fff", fontSize: "0.9rem", outline: "none" }}
         />
-        <button onClick={trace} disabled={loading || !batchNo.trim()}
-          style={{ padding: "10px 24px", background: "var(--brand-primary)", color: "#fff", borderRadius: 8,
+        <button type="button" onClick={trace} disabled={loading || !batchNo.trim()}
+          style={{ padding: "10px 24px", background: "var(--color-primary)", color: "#fff", borderRadius: 8,
             border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
           <Search size={16} />{loading ? t("ui.查询中","查询中...") : t("ui.追溯","追溯")}
         </button>
       </div>
       {error && <div style={{ color: "#ef4444", marginBottom: 16 }}>{t("ui.查询失败","查询失败")}：{error}</div>}
       {result && (
-        <div style={{ background: "var(--bg-surface)", borderRadius: 12, padding: 20, border: "1px solid var(--bg-surface)" }}>
+        <div style={{ background: "var(--bg-card)", borderRadius: 12, padding: 20, border: "1px solid var(--bg-card)" }}>
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontWeight: 700, marginBottom: 8, color: "var(--brand-primary)" }}>📦 {t("ui.批次信息","批次信息")}</div>
+            <div style={{ fontWeight: 700, marginBottom: 8, color: "var(--color-primary)" }}>📦 {t("ui.批次信息","批次信息")}</div>
             {result.batch ? (
               <div style={{ display: "flex", gap: 20, flexWrap: "wrap", fontSize: "0.85rem" }}>
                 {["batch_no","sku_code","qty","house_code","grading_date","pack_type","status"].map(k => result.batch![k] != null && (
-                  <span key={k}><b style={{ color: "var(--text-muted)" }}>{k}: </b>{String(result.batch![k])}</span>
+                  <span key={k}><b style={{ color: "var(--text-secondary)" }}>{k}: </b>{String(result.batch![k])}</span>
                 ))}
               </div>
             ) : <div style={{ color: "#ef4444" }}>{t("ui.未找到批次","未找到批次")}「{batchNo}」</div>}

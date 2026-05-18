@@ -175,8 +175,8 @@ export default function MemberListPage() {
                   <td style={{ padding:"9px 12px",color:"var(--color-primary)" }}>¥{Number(row.total_spent||0).toLocaleString()}</td>
                   <td style={{ padding:"9px 12px" }}><span className={`${s.badge} ${s[STATUS_CLS[st]||'badgeNeutral']}`}>{STATUS_LABEL[st]||st}</span></td>
                   <td style={{ padding:"9px 12px",display:"flex",gap:5,flexWrap:"wrap" }}>
-                    <button className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(row)}>{t('common.edit', '编辑')}</button>
-                    {canUp&&<button className={s.btnSuccess} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>upgradeLevel(row)}>{t('ui.升级', '升级')}</button>}
+                    <button type="button" className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(row)}>{t('common.edit', '编辑')}</button>
+                    {canUp&&<button type="button" className={s.btnSuccess} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>upgradeLevel(row)}>{t('ui.升级', '升级')}</button>}
                   </td>
                 </tr>
               );

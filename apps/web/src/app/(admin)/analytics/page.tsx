@@ -115,7 +115,7 @@ export default function AnalyticsDashboard() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const tok = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const tok = typeof window !== "undefined" ? (sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "") : "";
       const res = await fetch("/api/analytics/dashboard", {
         headers: tok ? { Authorization: `Bearer ${tok}` } : {},
       });

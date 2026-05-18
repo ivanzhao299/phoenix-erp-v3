@@ -213,8 +213,8 @@ export default function InboundPage() {
         onClose={close}
         footer={
           <div className={s.drawerFooter}>
-            <button className={s.btnSecondary} onClick={close}>{t("common.cancel", "取消")}</button>
-            <button className={s.btnPrimaryGrad} onClick={handleSubmit} disabled={saving}>
+            <button type="button" className={s.btnSecondary} onClick={close}>{t("common.cancel", "取消")}</button>
+            <button type="button" className={s.btnPrimaryGrad} onClick={handleSubmit} disabled={saving}>
               {saving ? <><RefreshCw size={14} className="spin" /> {t("common.saving", "保存中...")}</> : t("ui.确认入库", "确认入库")}
             </button>
           </div>

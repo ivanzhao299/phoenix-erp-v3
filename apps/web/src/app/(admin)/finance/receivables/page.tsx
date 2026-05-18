@@ -161,7 +161,7 @@ export default function ReceivablesPage() {
                 </td>
                 <td style={{ padding:"9px 14px" }}>
                   {r._status!=="PAID"&&(
-                    <button className={s.btnSuccess} style={{ padding:"4px 10px",fontSize:12 }}
+                    <button type="button" className={s.btnSuccess} style={{ padding:"4px 10px",fontSize:12 }}
                       onClick={()=>{ setSelected(r); setPayAmt(String(r.amount||"")); setDrawerOpen(true); }}>
                       {t('ui.录收款', '录收款')}
                     </button>

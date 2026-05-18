@@ -1,5 +1,23 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+
+interface MedicineRecord {
+  id?: unknown;
+  batchNo?: unknown;
+  farmHouse?: unknown;
+  medicine?: unknown;
+  disease?: unknown;
+  startDate?: unknown;
+  endDate?: unknown;
+  daysUsed?: unknown;
+  withdrawDays?: unknown;
+  clearDate?: unknown;
+  dose?: unknown;
+  executor?: unknown;
+  status: string;
+  _raw?: Record<string, unknown>;
+  [key: string]: unknown;
+}
 import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
@@ -27,7 +45,7 @@ export default function MedicinePage() {
   const [showDrawer, setShowDrawer] = useState(false);
   const [editId, setEditId]       = useState<number | null>(null);
   const [form, setForm]           = useState({ ...EMPTY_FORM });
-  const [records, setRecords]     = useState<any[]>([]);
+  const [records, setRecords]     = useState<MedicineRecord[]>([]);
   const [flockOptions, setFlockOptions] = useState<{ code: string; label: string }[]>([]);
   const [flockMap, setFlockMap]   = useState<Record<string, { house_code: string; farm_code: string }>>({});
 
@@ -35,14 +53,14 @@ export default function MedicinePage() {
   const { fetchRecords: fetchFlocks } = useCrud('brd_flocks');
 
   useEffect(() => {
-    fetchFlocks().then((flocks: any) => {
+    fetchFlocks().then((flocks) => {
       if (!flocks?.length) return;
-      setFlockOptions(flocks.map((f: any) => ({ code: f.flock_no, label: `${f.flock_no}${f.house_code?' · '+f.house_code:''}` })));
-      const map: Record<string, any> = {};
-      flocks.forEach((f: any) => { if (f.flock_no) map[f.flock_no] = { house_code: f.house_code||'', farm_code: f.farm_code||'' }; });
+      setFlockOptions(flocks.map((f: Record<string, unknown>) => ({ code: f.flock_no as string, label: `${f.flock_no}${f.house_code?' · '+f.house_code:''}` })));
+      const map: Record<string, { house_code: string; farm_code: string }> = {};
+      flocks.forEach((f: Record<string, unknown>) => { if (f.flock_no) map[f.flock_no as string] = { house_code: (f.house_code as string)||'', farm_code: (f.farm_code as string)||'' }; });
       setFlockMap(map);
       setForm(p => ({ ...p, farmHouse: p.farmHouse || flocks[0].flock_no }));
-    });
+    }).catch(() => {});
   }, []);
 
   const loadData = useCallback(async () => {
@@ -51,10 +69,10 @@ export default function MedicinePage() {
     //     后端 cron 走字符串比较（YYYY-MM-DD），跨日界点两边显示不一致。
     //     改用纯字符串比较（YYYY-MM-DD 字典序即时间序），与后端 cron 对齐。
     const todayStr = new Date().toISOString().slice(0, 10);
-    setRecords(((data||[]) as any[]).map((d: any) => {
+    setRecords(((data||[]) as Record<string, unknown>[]).map((d: Record<string, unknown>) => {
       const clearStr = d.clear_date ? String(d.clear_date).slice(0, 10) : '';
       const endStr   = d.end_date   ? String(d.end_date).slice(0, 10)   : '';
-      let computedStatus = d.status || 'using';
+      let computedStatus: string = String(d.status || 'using');
       if (clearStr) {
         if (todayStr > clearStr)              computedStatus = 'cleared';
         else if (endStr && todayStr > endStr) computedStatus = 'inWithdrawal';
@@ -157,7 +175,7 @@ export default function MedicinePage() {
 
       <DataTable columns={columns} data={data} searchPlaceholder={t('ui.搜索批次药品', '搜索批次药品')} searchKeys={['batchNo','farmHouse','medicine']} rowKey="id"
         filters={<div style={{ display:'flex', gap:6 }}>
-          {filterKeys.map(f => <button type="button" key={f} className={filter===f ? s.tabPillActive : s.tabPill} onClick={() => setFilter(f)}>{filterLabels[f]}</button>)}
+          {filterKeys.map(f => <button type="button" key={f} className={`${s.tabPill} ${filter===f ? s.tabPillActive : ""}`} onClick={() => setFilter(f)}>{filterLabels[f]}</button>)}
         </div>} />
 
       <RightDrawer isOpen={showDrawer} onClose={() => { setShowDrawer(false); setEditId(null); }} title={editId ? t('ui.编辑用药记录', '编辑用药记录') : t('ui.新增用药记录', '新增用药记录')} width="400px">

@@ -133,11 +133,11 @@ export default function NonconformancePage() {
                     <span className={`${s.badge} ${s[STATUS_CLS[st]??'badgeNeutral']}`}>{STATUS_LABEL[st]||st}</span>
                   </td>
                   <td style={{ padding:"9px 14px",display:"flex",gap:6 }}>
-                    <button className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:12 }}
+                    <button type="button" className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:12 }}
                       onClick={()=>{setEditing(r);setForm({source:r.source||"",issue_desc:r.issue_desc||"",qty:String(r.qty||""),handler:r.handler||"",action_taken:r.action_taken||"评估封存",severity:r.severity||"MEDIUM",batch_no:r.batch_no||""});setDrawerOpen(true);}}>
                       {t("common.edit","编辑")}
                     </button>
-                    {!isClosed&&<button className={s.btnSuccess} style={{ padding:"4px 8px",fontSize:12 }} onClick={()=>close_ncr(r.id)}>{t("common.close","关闭")}</button>}
+                    {!isClosed&&<button type="button" className={s.btnSuccess} style={{ padding:"4px 8px",fontSize:12 }} onClick={()=>close_ncr(r.id)}>{t("common.close","关闭")}</button>}
                   </td>
                 </tr>
               );

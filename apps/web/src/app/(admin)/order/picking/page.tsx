@@ -79,11 +79,11 @@ export default function PickingPage() {
       />
       <DataTable
         table={TABLE}
-        columns={COLUMNS as any}
-        params={{ status: "approved" } as any}
+        columns={COLUMNS}
+        params={{ status: "approved" }}
         onNew={openNew}
-        onEdit={openEdit as any}
-        onDelete={handleDelete as any}
+        onEdit={openEdit}
+        onDelete={handleDelete}
         showActions
         refreshKey={refreshKey}
         emptyText={t("ui.暂无待拣货订单","暂无待拣货订单")}

@@ -55,7 +55,7 @@ export default function WorkflowInstanceDetailPage() {
                 <Link href="/workflow/start" className={s.btnSecondary}>继续发起</Link>
                 <Link href="/workflow/tasks/todo" className={s.btnSecondary}>我的待办</Link>
                 {data.status === "RUNNING" ? (
-                  <button className={s.btnDanger} disabled={canceling} onClick={cancel}>
+                  <button type="button" className={s.btnDanger} disabled={canceling} onClick={cancel}>
                     {canceling ? "取消中..." : "取消流程"}
                   </button>
                 ) : null}

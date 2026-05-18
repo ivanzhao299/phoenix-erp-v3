@@ -192,7 +192,7 @@ export default function EggCollectionPage() {
                   const done = records.some(r => r.houseCode === h.house_code);
                   const isSelected = selectedHouse?.house_code === h.house_code;
                   return (
-                    <button key={h.id} onClick={() => !done && selectHouse(h)}
+                    <button type="button" key={h.id} onClick={() => !done && selectHouse(h)}
                       style={{
                         padding: '14px 22px', borderRadius: 12, fontSize: 15, fontWeight: 600,
                         cursor: done ? 'default' : 'pointer',
@@ -296,12 +296,12 @@ export default function EggCollectionPage() {
 
       {/* Bottom bar */}
       <div style={{ background: T.CARD, borderTop: `1px solid ${T.BOR}`, padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-        <button onClick={() => router.push('/terminal/packaging/dashboard')}
+        <button type="button" onClick={() => router.push('/terminal/packaging/dashboard')}
           style={{ padding: '14px 24px', borderRadius: 10, border: `1px solid ${T.BOR}`, background: 'transparent', color: T.MUT, fontSize: 15, cursor: 'pointer' }}>
           {t('common.back', '返回')}
         </button>
 
-        <button onClick={handleSubmit} disabled={!canSubmit || submitting}
+        <button type="button" onClick={handleSubmit} disabled={!canSubmit || submitting}
           style={{
             padding: '14px 40px', borderRadius: 10, border: 'none',
             background: canSubmit ? T.ACC : T.BOR,
@@ -316,7 +316,7 @@ export default function EggCollectionPage() {
         <div style={{ flex: 1 }} />
 
         {records.length > 0 && (
-          <button onClick={() => router.push('/terminal/packaging/grading')}
+          <button type="button" onClick={() => router.push('/terminal/packaging/grading')}
             style={{
               padding: '14px 32px', borderRadius: 10, border: 'none',
               background: T.GRN, color: '#0f172a', fontSize: 16, fontWeight: 700, cursor: 'pointer',

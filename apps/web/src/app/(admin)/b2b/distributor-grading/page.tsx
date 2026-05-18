@@ -59,7 +59,7 @@ export default function Page() {
         title={t("ui.经销商分级", "经销商分级")}
         subtitle={t("ui.经销商分级副标题", "管理渠道经销商信用评级和授信额度（仅管理员/区域经理可见）（表：chn_distributor_grading）")}
       />
-      <DataTable table={TABLE} columns={COLUMNS as any} onNew={oN} onEdit={oE as any} onDelete={del as any} showActions refreshKey={rk} />
+      <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
       <RightDrawer open={o} title={e ? t("ui.编辑经销商分级", "编辑经销商分级") : t("ui.新增经销商分级", "新增经销商分级")} onClose={cl}>
         <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
       </RightDrawer>

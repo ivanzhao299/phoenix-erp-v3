@@ -53,7 +53,7 @@ export default function Page() {
         breadcrumb={[t("ui.财务管理", "财务管理"), t("ui.收款管理", "收款管理")]}
         title={t("ui.付款单", "付款单")}
         subtitle={t("ui.管理对外付款单据", "管理对外付款单据（表：fin_payments）")} />
-      <DataTable table={TABLE} columns={COLUMNS as any} onNew={oN} onEdit={oE as any} onDelete={del as any} showActions refreshKey={rk} />
+      <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
       <RightDrawer open={o} title={e ? t("ui.编辑付款单", "编辑付款单") : t("ui.新增付款单", "新增付款单")} onClose={cl}>
         <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
       </RightDrawer>

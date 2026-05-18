@@ -79,7 +79,7 @@ export default function WarehouseHandoverPage() {
       <div style={{ fontSize:48 }}>📦</div>
       <div style={{ fontSize:18, fontWeight:700, color:T.TXT }}>{t('ui.暂无待入库包装批次', '暂无待入库包装批次')}</div>
       <div style={{ fontSize:13, color:T.MUT }}>{t('ui.请先完成包装作业', '请先完成包装作业')}</div>
-      <button onClick={() => router.push('/terminal/packaging/packing')}
+      <button type="button" onClick={() => router.push('/terminal/packaging/packing')}
         style={{ marginTop:8, padding:'12px 28px', borderRadius:10, background:T.ACC, color:'#0f172a', border:'none', fontSize:14, fontWeight:700, cursor:'pointer' }}>
         → {t('terminal.packing', '前往包装')}
       </button>
@@ -116,11 +116,11 @@ export default function WarehouseHandoverPage() {
                 autoFocus
                 style={{ flex:1, background:'rgba(255,255,255,0.05)', border:`1px solid ${T.BOR}`,
                   borderRadius:8, padding:'14px 16px', color:T.TXT, fontSize:15 }} />
-              <button onClick={()=>handleScan()}
+              <button type="button" onClick={()=>handleScan()}
                 style={{ padding:'14px 24px', background:T.ACC, color:'#0f172a', border:'none',
                   borderRadius:8, fontSize:15, fontWeight:700, cursor:'pointer' }}>{t('ui.扫入', '扫入')}</button>
               {!allScanned && (
-                <button onClick={handleConfirmAll}
+                <button type="button" onClick={handleConfirmAll}
                   style={{ padding:'14px 20px', background:'rgba(34,197,94,0.15)', color:T.GRN,
                     border:`1px solid rgba(34,197,94,0.3)`, borderRadius:8, fontSize:13,
                     fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>{t('ui.全部确认', '全部确认')}</button>
@@ -142,7 +142,7 @@ export default function WarehouseHandoverPage() {
                       <div style={{ fontSize:11, color:T.MUT }}>{box.grade} · {box.qty}{t('ui.枚', '枚')}</div>
                     </div>
                     {!isDone && (
-                      <button onClick={()=>handleScan(box.code)}
+                      <button type="button" onClick={()=>handleScan(box.code)}
                         style={{ padding:'6px 12px', borderRadius:6, border:`1px solid ${T.BOR}`,
                           background:'transparent', color:T.MUT, fontSize:12, cursor:'pointer' }}>
                         {t('ui.手动确认', '手动确认')}
@@ -202,11 +202,11 @@ export default function WarehouseHandoverPage() {
 
       <div style={{ background:T.CARD, borderTop:`1px solid ${T.BOR}`, padding:'16px 24px',
         display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
-        <button onClick={()=>router.push('/terminal/packaging/label-print')}
+        <button type="button" onClick={()=>router.push('/terminal/packaging/label-print')}
           style={{ padding:'14px 28px', borderRadius:10, border:`1px solid ${T.BOR}`,
             background:'transparent', color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('common.back', '返回')}</button>
         <div style={{ flex:1 }} />
-        <button onClick={()=>setShowConfirm(true)} disabled={!canSubmit||submitting}
+        <button type="button" onClick={()=>setShowConfirm(true)} disabled={!canSubmit||submitting}
           style={{ padding:'14px 40px', borderRadius:10, border:'none',
             background:canSubmit?T.GRN:T.BOR, color:canSubmit?'#0f172a':T.MUT,
             fontSize:16, fontWeight:700, cursor:canSubmit?'pointer':'not-allowed' }}>
@@ -225,10 +225,10 @@ export default function WarehouseHandoverPage() {
               {t('ui.接收人', '接收人')}：{receiver}
             </div>
             <div style={{ display:'flex', gap:10 }}>
-              <button onClick={()=>setShowConfirm(false)}
+              <button type="button" onClick={()=>setShowConfirm(false)}
                 style={{ flex:1, padding:'14px', background:'transparent', border:`1px solid ${T.BOR}`,
                   borderRadius:8, color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('common.cancel', '取消')}</button>
-              <button onClick={()=>{setShowConfirm(false);handleSubmit();}}
+              <button type="button" onClick={()=>{setShowConfirm(false);handleSubmit();}}
                 style={{ flex:2, padding:'14px', background:T.GRN, border:'none',
                   borderRadius:8, color:'#0f172a', fontSize:15, fontWeight:700, cursor:'pointer' }}>
                 {t('ui.确认入库', '确认入库')}

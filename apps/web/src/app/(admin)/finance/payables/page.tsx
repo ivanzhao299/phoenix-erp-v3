@@ -145,7 +145,7 @@ export default function PayablesPage() {
                   <span className={`${s.badge} ${s[STATUS_CLS[r._status!]??'badgeNeutral']}`}>{STATUS_LABEL[r._status!]||r._status}</span>
                 </td>
                 <td style={{ padding:"9px 14px" }}>
-                  <button className={s.btnSecondary} style={{ padding:"4px 10px",fontSize:12 }}
+                  <button type="button" className={s.btnSecondary} style={{ padding:"4px 10px",fontSize:12 }}
                     onClick={()=>{setEditing(r);setForm({supplier:r.customer_or_supplier||"",amount:String(r.amount||""),paid_amount:String(r.paid_amount||0),due_date:r.due_date||""});setDrawerOpen(true);}}>
                     {t('common.edit','编辑')}
                   </button>

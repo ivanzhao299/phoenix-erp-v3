@@ -182,7 +182,7 @@ export default function WarehouseDashboard() {
             ) : activity.length === 0 ? (
               <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 12, color: 'var(--text-secondary)' }}>{t("ui.今日暂无出入库记录", "今日暂无出入库记录")}</div>
             ) : activity.map((a, i) => (
-              <div key={i} style={{ padding: '10px 0', borderBottom: i < activity.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
+              <div key={i} style={{ padding: '10px 0', borderBottom: i < activity.length - 1 ? '1px solid var(--border)' : 'none' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                   <span className={a.cls} style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, display: 'inline-block', background: 'currentColor' }} />
                   <span className={a.cls} style={{ fontSize: 11, fontWeight: 700 }}>{a.label}</span>

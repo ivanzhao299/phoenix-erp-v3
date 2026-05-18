@@ -214,7 +214,7 @@ export default function DictPage() {
               const label = TYPE_LABEL[tp]||tp;
               const isSel = tp === selected;
               return (
-                <button key={tp} onClick={()=>setSelected(tp)}
+                <button type="button" key={tp} onClick={()=>setSelected(tp)}
                   style={{ width:"100%", display:"flex", alignItems:"center", gap:8,
                     padding:"8px 10px", borderRadius:8, cursor:"pointer", border:"none",
                     background: isSel ? `${color}18` : "transparent",
@@ -265,7 +265,7 @@ export default function DictPage() {
                   background:selColor, padding:"2px 10px", borderRadius:999 }}>
                   {selectedItems.length} {t("ui.条","条")}
                 </span>
-                <button onClick={()=>openNew(selected)}
+                <button type="button" onClick={()=>openNew(selected)}
                   style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 14px",
                     border:`1px solid ${selColor}`, borderRadius:8, background:`${selColor}15`,
                     color:selColor, fontSize:13, fontWeight:600, cursor:"pointer" }}>
@@ -418,8 +418,8 @@ export default function DictPage() {
           </>}
 
           <div className={s.drawerFooter} style={{ marginTop:"auto", paddingTop:8, borderTop:"1px solid var(--border)" }}>
-            <button onClick={()=>{setOpen(false);setEdit(null);}} className={s.btnSecondary}>{t("common.cancel","取消")}</button>
-            <button onClick={handleSubmit} disabled={loading} className={s.btnPrimaryGrad}>
+            <button type="button" onClick={()=>{setOpen(false);setEdit(null);}} className={s.btnSecondary}>{t("common.cancel","取消")}</button>
+            <button type="button" onClick={handleSubmit} disabled={loading} className={s.btnPrimaryGrad}>
               {loading ? t("ui.保存中","保存中…") : <><Save size={15}/>{t("common.save","保存")}</>}
             </button>
           </div>

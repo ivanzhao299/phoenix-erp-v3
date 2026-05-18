@@ -82,7 +82,7 @@ export default function PosConfigPage() {
                   <div style={{ fontSize: 12, color: "var(--text-secondary)", fontFamily: "monospace" }}>{store.store_code}</div>
                 </div>
               </div>
-              <button onClick={() => handleSave(store.store_code)} style={{ padding: "8px 16px", background: saved[store.store_code] ? "#22c55e" : "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, transition: "background 0.3s" }}>
+              <button type="button" onClick={() => handleSave(store.store_code)} style={{ padding: "8px 16px", background: saved[store.store_code] ? "#22c55e" : "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, transition: "background 0.3s" }}>
                 {saved[store.store_code] ? <><CheckCircle size={14}/>{t('ui.已保存', '已保存')}</> : <><Save size={14}/>{t('ui.保存配置', '保存配置')}</>}
               </button>
             </div>

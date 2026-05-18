@@ -54,7 +54,7 @@ export default function Page() {
         breadcrumb={[t("ui.财务管理", "财务管理"), t("ui.成本核算", "成本核算")]}
         title={t("ui.成本核算", "成本核算")}
         subtitle={t("ui.管理成本相关财务记录", "管理成本相关财务记录（表：fin_transactions）")} />
-      <DataTable table={TABLE} columns={COLUMNS as any} onNew={oN} onEdit={oE as any} onDelete={del as any} showActions refreshKey={rk} />
+      <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
       <RightDrawer open={o} title={e ? t("ui.编辑成本核算", "编辑成本核算") : t("ui.新增成本核算", "新增成本核算")} onClose={cl}>
         <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
       </RightDrawer>

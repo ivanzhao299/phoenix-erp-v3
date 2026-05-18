@@ -1,4 +1,5 @@
 "use client";
+import type { AuditLogRow, UserRecord } from "@/types";
 import { useState, useEffect } from "react";
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
@@ -10,8 +11,8 @@ const card: React.CSSProperties = { background: "var(--bg-card)", border: "1px s
 
 export default function SecurityPolicyPage() {
   const { t } = useLanguage();
-  const [logs, setLogs] = useState<any[]>([]);
-  const [frozenUsers, setFrozenUsers] = useState<any[]>([]);
+  const [logs, setLogs] = useState<AuditLogRow[]>([]);
+  const [frozenUsers, setFrozenUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

@@ -144,7 +144,7 @@ export default function WorkflowCcPage() {
 
               <div style={footerStyle}>
                 <Link href={`/workflow/instances/${selected.instance_id}`} className={s.btnSecondary}>查看流程详情</Link>
-                <button className={s.btnPrimary} disabled={loading || Boolean(selected.read_at)} onClick={() => markRead()}>
+                <button type="button" className={s.btnPrimary} disabled={loading || Boolean(selected.read_at)} onClick={() => markRead()}>
                   {selected.read_at ? "已读" : loading ? "处理中..." : "标记已读"}
                 </button>
               </div>

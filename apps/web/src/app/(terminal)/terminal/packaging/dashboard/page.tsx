@@ -118,7 +118,7 @@ export default function TerminalDashboard() {
         {/* Action buttons — 3 columns × 2 rows */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           {ACTIONS.map(action => (
-            <button key={action.path} onClick={() => router.push(action.path)}
+            <button type="button" key={action.path} onClick={() => router.push(action.path)}
               style={{
                 background: T.CARD,
                 border: `2px solid ${action.color}33`,

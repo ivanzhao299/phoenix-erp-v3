@@ -39,7 +39,7 @@ export default function Page() {
   return(<div>
     <PageHeader
         breadcrumb={[t('ui.门店管理', '门店管理'), t('ui.损耗上报', '损耗上报')]} title={t('ui.损耗记录', '损耗记录')} subtitle={t('ui.记录门店商品损耗', '记录门店商品损耗（表：store_losses）')} />
-    <DataTable table={TABLE} columns={COLUMNS as any} onNew={oN} onEdit={oE as any} onDelete={del as any} showActions refreshKey={rk} />
+    <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
     <RightDrawer open={o} title={e?t('ui.编辑损耗记录', '编辑损耗记录'):t('ui.新增损耗记录', '新增损耗记录')} onClose={cl}>
       <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
     </RightDrawer>

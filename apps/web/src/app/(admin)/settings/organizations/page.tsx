@@ -84,7 +84,6 @@ export default function OrganizationsPage() {
     try {
       const r  = await fetch("/api/crud/sys_orgs?limit=500", { headers: hdr() });
       const or = await r.json();
-      console.log("[orgs] API status:", r.status, "response:", or);
       if (!r.ok) {
         const msg = or?.message || or?.msg || `HTTP ${r.status}`;
         setLoadMsg(`❌ ${t("ui.加载失败","加载失败")}：${msg}`);

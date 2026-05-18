@@ -140,10 +140,10 @@ export default function WorkflowDefinitionsPage() {
             <p className={s.modalDesc} style={{ margin: "4px 0 0" }}>大多数流程应先由管理员统一定义，业务人员只需要发起和审批。</p>
           </div>
           <div style={toolbarActionsStyle}>
-            <button className={s.btnSecondary} disabled={generating} onClick={generateIndustryTemplates}>
+            <button type="button" className={s.btnSecondary} disabled={generating} onClick={generateIndustryTemplates}>
               {generating ? "生成中..." : "AI生成行业模板"}
             </button>
-            <button className={s.btnPrimary} onClick={() => openFromTemplate()}>新增流程</button>
+            <button type="button" className={s.btnPrimary} onClick={() => openFromTemplate()}>新增流程</button>
           </div>
         </div>
       </section>
@@ -165,7 +165,7 @@ export default function WorkflowDefinitionsPage() {
               <td>
                 <div style={actionStyle}>
                   <Link href={`/workflow/designer/${row.id}`}>设计/发布</Link>
-                  <button style={linkButtonStyle} onClick={() => openFromExisting(row)}>复制创建</button>
+                  <button type="button" style={linkButtonStyle} onClick={() => openFromExisting(row)}>复制创建</button>
                 </div>
               </td>
             </tr>
@@ -180,8 +180,8 @@ export default function WorkflowDefinitionsPage() {
         onClose={() => setDrawerOpen(false)}
         footer={
           <div style={footerStyle}>
-            <button className={s.btnSecondary} onClick={() => setDrawerOpen(false)}>取消</button>
-            <button className={s.btnPrimary} disabled={loading} onClick={create}>{loading ? "创建中..." : "创建流程"}</button>
+            <button type="button" className={s.btnSecondary} onClick={() => setDrawerOpen(false)}>取消</button>
+            <button type="button" className={s.btnPrimary} disabled={loading} onClick={create}>{loading ? "创建中..." : "创建流程"}</button>
           </div>
         }
       >

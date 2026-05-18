@@ -96,7 +96,7 @@ export default function DailyReportPage() {
         <input type="date" className={s.inp} value={date}
           onChange={e => setDate(e.target.value)}
           style={{ width: 160, height: 36, padding: "0 12px" }} />
-        <button className={s.btnPrimaryGrad} onClick={loadReport} disabled={loading}>
+        <button type="button" className={s.btnPrimaryGrad} onClick={loadReport} disabled={loading}>
           {loading ? t("ui.查询中", "查询中...") : t("common.search", "查询")}
         </button>
         {[t("ui.今天", "今天"), t("ui.昨天", "昨天")].map((label, i) => (

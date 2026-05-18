@@ -221,9 +221,9 @@ export default function WorkflowDesignerPage() {
             </div>
           </div>
           <div style={addBarStyle}>
-            <button className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addStep("approval")}>添加审批</button>
-            <button className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addStep("condition")}>添加条件</button>
-            <button className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addStep("cc")}>添加抄送</button>
+            <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addStep("approval")}>添加审批</button>
+            <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addStep("condition")}>添加条件</button>
+            <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addStep("cc")}>添加抄送</button>
           </div>
           <div style={stepListStyle}>
             {mainPath.map((node, index) => {
@@ -251,8 +251,8 @@ export default function WorkflowDesignerPage() {
               <p className={s.modalDesc} style={{ margin: "4px 0 0" }}>发布前先看一遍业务人员会经历什么。</p>
             </div>
             <div style={toolbarActionsStyle}>
-              <button className={s.btnSecondary} onClick={openJson}>高级 JSON</button>
-              <button className={s.btnPrimary} onClick={publish}>发布流程</button>
+              <button type="button" className={s.btnSecondary} onClick={openJson}>高级 JSON</button>
+              <button type="button" className={s.btnPrimary} onClick={publish}>发布流程</button>
             </div>
           </div>
           {msg ? <div className={s.successBanner}>{msg}</div> : null}
@@ -327,7 +327,7 @@ export default function WorkflowDesignerPage() {
 
           <div style={edgeHeaderStyle}>
             <strong className={s.cardTitle}>分支/连线规则</strong>
-            <button className={`${s.btnSecondary} ${s.btnSm}`} onClick={addEdge}>添加规则</button>
+            <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={addEdge}>添加规则</button>
           </div>
           <div style={edgeListStyle}>
             {edges.map((edge, index) => (
@@ -380,9 +380,9 @@ export default function WorkflowDesignerPage() {
               ) : null}
               {currentNode.type !== "start" && currentNode.type !== "end" ? (
                 <div style={smallButtonGridStyle}>
-                  <button className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveStep(currentNode.id, -1)}>上移</button>
-                  <button className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveStep(currentNode.id, 1)}>下移</button>
-                  <button className={`${s.btnDanger} ${s.btnSm}`} onClick={() => removeStep(selectedNode)}>删除</button>
+                  <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveStep(currentNode.id, -1)}>上移</button>
+                  <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveStep(currentNode.id, 1)}>下移</button>
+                  <button type="button" className={`${s.btnDanger} ${s.btnSm}`} onClick={() => removeStep(selectedNode)}>删除</button>
                 </div>
               ) : null}
             </div>
@@ -417,7 +417,7 @@ export default function WorkflowDesignerPage() {
                   <input className={s.inp} value={String(currentEdge.condition.value ?? "")} onChange={e => patchEdge(selectedEdge, { condition: { ...currentEdge.condition!, value: e.target.value } })} placeholder="判断值，如 10000" />
                 </>
               ) : null}
-              <button className={s.btnDanger} onClick={() => removeEdge(selectedEdge)}>删除规则</button>
+              <button type="button" className={s.btnDanger} onClick={() => removeEdge(selectedEdge)}>删除规则</button>
             </div>
           ) : <div className={s.emptyState}><div className={s.emptyStateText}>暂无规则。</div></div>}
         </section>
@@ -428,10 +428,10 @@ export default function WorkflowDesignerPage() {
           <div className={s.card} style={modalStyle}>
             <div style={toolbarStyle}>
               <strong className={s.cardTitle}>高级 JSON 编辑</strong>
-              <button className={s.btnSecondary} onClick={() => setJsonOpen(false)}>关闭</button>
+              <button type="button" className={s.btnSecondary} onClick={() => setJsonOpen(false)}>关闭</button>
             </div>
             <textarea value={jsonDraft} onChange={e => setJsonDraft(e.target.value)} className={s.textarea} style={textareaStyle} spellCheck={false} />
-            <button className={s.btnPrimary} onClick={applyJson}>应用 JSON</button>
+            <button type="button" className={s.btnPrimary} onClick={applyJson}>应用 JSON</button>
           </div>
         </div>
       ) : null}

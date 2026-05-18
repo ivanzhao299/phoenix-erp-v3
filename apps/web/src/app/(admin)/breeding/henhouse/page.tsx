@@ -1,5 +1,14 @@
 'use client';
+import type { FarmRow } from '@/types';
 import { useState, useEffect, useCallback } from 'react';
+
+interface HouseCard {
+  id: string | number; dbId?: unknown; code: string;
+  farmName?: string; farmLabel?: string; name?: string; type?: string;
+  capacity: number; current: number; currentBirds: number;
+  ageWeeks: number; layingRate: number | null;
+  occupancyPct: number; isOverload: boolean; status: string;
+}
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
@@ -26,10 +35,10 @@ export default function HenHousePage() {
   const [farmFilter, setFarmFilter]         = useState('all');
   const [showDrawer, setShowDrawer]         = useState(false);
   const [editId, setEditId]                 = useState<string | null>(null);
-  const [editRow, setEditRow]               = useState<any>(null);
+  const [editRow, setEditRow]               = useState<HouseCard | null>(null);
   const [form, setForm]                     = useState(emptyForm());
-  const [housesList, setHousesList]         = useState<any[]>([]);
-  const [farmsList, setFarmsList]           = useState<any[]>([]);
+  const [housesList, setHousesList]         = useState<HouseCard[]>([]);
+  const [farmsList, setFarmsList]           = useState<FarmRow[]>([]);
   const [mappedHouses, setMappedHouses]     = useState<Set<string>>(new Set());
 
   const { fetchRecords, createRecord, updateRecord, deleteRecord } = useCrud('brd_houses');
@@ -40,22 +49,22 @@ export default function HenHousePage() {
   const loadData = useCallback(async () => {
     const [houses, flocks] = await Promise.all([fetchRecords(), fetchFlocks()]);
     const flockByHouse: Record<string, any> = {};
-    (flocks || []).forEach((f: any) => {
-      const hc = f.house_code; if (!hc) return;
+    (flocks || []).forEach((f: Record<string, unknown>) => {
+      const hc = f.house_code as string; if (!hc) return;
       if (!flockByHouse[hc]) flockByHouse[hc] = { qty: 0, layRateSum: 0, layRateWeight: 0, startDate: null };
       const qty = Number(f.current_qty) || 0;
       flockByHouse[hc].qty += qty;
       if (f.current_lay_rate != null && qty > 0) {
-        flockByHouse[hc].layRateSum    += f.current_lay_rate * qty;
+        flockByHouse[hc].layRateSum    += Number(f.current_lay_rate) * qty;
         flockByHouse[hc].layRateWeight += qty;
       }
-      if (f.start_date && (!flockByHouse[hc].startDate || f.start_date < flockByHouse[hc].startDate))
+      if (f.start_date && (!flockByHouse[hc].startDate || String(f.start_date) < flockByHouse[hc].startDate))
         flockByHouse[hc].startDate = f.start_date;
     });
 
     const today = new Date();
-    const mapped = (houses || []).map((d: any) => {
-      const hc = d.house_code;
+    const mapped = (houses || []).map((d: Record<string, unknown>) => {
+      const hc = d.house_code as string;
       const agg = flockByHouse[hc] || { qty: 0, layRateSum: 0, layRateWeight: 0, startDate: null };
       const ageWeeks   = agg.startDate ? Math.floor((today.getTime() - new Date(agg.startDate).getTime()) / (7 * 86400000)) : 0;
       const layingRate = agg.layRateWeight > 0 ? parseFloat((agg.layRateSum / agg.layRateWeight).toFixed(2)) : null;
@@ -71,7 +80,7 @@ export default function HenHousePage() {
 
   useEffect(() => {
     loadData();
-    fetchFarms().then((res: any) => {
+    fetchFarms().then((res) => {
       const farms = res || [];
       setFarmsList(farms);
       if (farms.length > 0) setForm(prev => ({ ...prev, farmName: prev.farmName || farms[0].farm_code }));
@@ -79,7 +88,7 @@ export default function HenHousePage() {
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : '';
     fetch('/api/farm-device/mappings', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       .then(r => r.ok ? r.json() : [])
-      .then(ms => setMappedHouses(new Set((Array.isArray(ms) ? ms : []).filter((m: any) => m.status === 'ACTIVE').map((m: any) => m.erp_house_code))))
+      .then(ms => setMappedHouses(new Set((Array.isArray(ms) ? ms : []).filter((m: Record<string, unknown>) => m.status === 'ACTIVE').map((m: Record<string, unknown>) => m.erp_house_code as string))))
       .catch(() => {});
   }, [loadData]);
 
@@ -101,7 +110,7 @@ export default function HenHousePage() {
     if (!editId && !form.code.trim()) { toast.error(t('ui.请填写鸡舍编码','请填写鸡舍编码')); return; }
     const cap = parseInt(form.capacity);
     if (form.capacity !== '' && (isNaN(cap) || cap < 0)) { toast.error(t('ui.容量不能为负','容量不能为负')); return; }
-    const farmInfo = farmsList.find((f: any) => f.farm_code === form.farmName);
+    const farmInfo = farmsList.find((f) => f.farm_code === form.farmName);
     const payload = { farm_code: form.farmName, farm_name: farmInfo?.farm_name || form.farmName, house_name: form.name.trim(), house_type: form.type, capacity: isNaN(cap) ? 0 : cap, status: 'ACTIVE' };
     const ok = editId
       ? await updateRecord(editId, payload, 'house_code', t('ui.鸡舍信息已更新','鸡舍信息已更新'))
@@ -147,7 +156,7 @@ export default function HenHousePage() {
       <div className={s.tableActions}>
         {can(['MENU_DEVICE_MONITOR']) && (
           <button
-            className={mappedHouses.has(row.code) ? `${s.btn} ${s.btnSm}` : `${s.btn} ${s.btnSm} ${s.btnGhost}`}
+type="button"             className={mappedHouses.has(row.code) ? `${s.btn} ${s.btnSm}` : `${s.btn} ${s.btnSm} ${s.btnGhost}`}
             style={mappedHouses.has(row.code) ? { color:'#16a34a', borderColor:'#bbf7d0', background:'#f0fdf4' } : { opacity:0.5, cursor:'default' }}
             onClick={() => mappedHouses.has(row.code) && router.push(`/breeding/device/${row.code}`)}>
             <Activity size={12} />{mappedHouses.has(row.code)?t('ui.实时环境','实时环境'):t('ui.未映射','未映射')}
@@ -195,8 +204,8 @@ export default function HenHousePage() {
 
       <DataTable columns={columns} data={filtered} searchPlaceholder={t('ui.搜索鸡舍编码名称','搜索鸡舍编码名称')} searchKeys={['code','name','farmLabel']} rowKey="id"
         filters={<div className={s.toolbar} style={{ gap:6 }}>
-          <button type="button" className={farmFilter==='all' ? s.tabPillActive : s.tabPill} onClick={() => setFarmFilter('all')}>{t('ui.全部农场','全部农场')}</button>
-          {farmsList.map((f: any) => <button type="button" key={f.farm_code} className={farmFilter===f.farm_code ? s.tabPillActive : s.tabPill} onClick={() => setFarmFilter(f.farm_code)}>{f.farm_name}</button>)}
+          <button type="button" className={`${s.tabPill} ${farmFilter==='all' ? s.tabPillActive : ""}`} onClick={() => setFarmFilter('all')}>{t('ui.全部农场','全部农场')}</button>
+          {farmsList.map((f) => <button type="button" key={f.farm_code as string} className={`${s.tabPill} ${farmFilter===f.farm_code ? s.tabPillActive : ""}`} onClick={() => setFarmFilter(f.farm_code as string)}>{f.farm_name as string}</button>)}
         </div>} />
 
       <RightDrawer isOpen={showDrawer} onClose={() => { setShowDrawer(false); setEditId(null); setEditRow(null); }} title={`${editId?t('common.edit','编辑'):t('common.new','新增')}${t('ui.鸡舍','鸡舍')}`} width="450px">
@@ -205,7 +214,7 @@ export default function HenHousePage() {
             <label className={s.lbl}>{t('ui.所属农场','所属农场')} <span style={{color:'var(--status-danger)'}}>*</span></label>
             <select value={form.farmName} onChange={e => setForm({...form, farmName:e.target.value})} className={s.inp}>
               <option value="">{t('ui.选择所属农场','选择所属农场')}</option>
-              {farmsList.map((f: any) => <option key={f.farm_code} value={f.farm_code}>{f.farm_name}</option>)}
+              {farmsList.map((f) => <option key={f.farm_code as string} value={f.farm_code as string}>{f.farm_name as string}</option>)}
             </select>
           </div>
           <div className={s.fieldRow}>

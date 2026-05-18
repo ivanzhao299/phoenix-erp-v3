@@ -84,8 +84,8 @@ export default function LoadingPage() {
   return (
     <div>
       <PageHeader title={t("ui.装车清单","装车清单")} subtitle={t("ui.装车清单副标题","管理配送波次及装车安排")} breadcrumb={[t("ui.物流","物流"), t("ui.装车清单","装车清单")]} />
-      <DataTable table={TABLE} columns={COLUMNS as any} onNew={openNew} onEdit={openEdit as any}
-        onDelete={handleDelete as any} showActions refreshKey={refreshKey} />
+      <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit}
+        onDelete={handleDelete} showActions refreshKey={refreshKey} />
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑波次","编辑波次") : t("ui.新建波次","新建波次")} onClose={closeDrawer}>
         <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave}
           onCancel={closeDrawer} loading={saving} />

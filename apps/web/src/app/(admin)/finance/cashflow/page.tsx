@@ -73,8 +73,8 @@ export default function CashflowPage() {
   return (
     <div>
       <PageHeader title={t("ui.现金流水", "现金流水")} subtitle={t("ui.记录企业现金收付流水明细", "记录企业现金收付流水明细（表：biz_cash_flow）")} />
-      <DataTable table={TABLE} columns={COLUMNS as any} onNew={openNew} onEdit={openEdit as any}
-        onDelete={handleDelete as any} showActions refreshKey={refreshKey} />
+      <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit}
+        onDelete={handleDelete} showActions refreshKey={refreshKey} />
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑流水", "编辑流水") : t("ui.新增流水", "新增流水")} onClose={closeDrawer}>
         <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave}
           onCancel={closeDrawer} loading={saving} />

@@ -59,7 +59,7 @@ export default function WorkflowFormDesignerPage() {
       const schema = res.data.schema_json as { fields?: Field[] } | undefined;
       if (Array.isArray(schema?.fields)) setFields(schema.fields);
       setDataSources(sourceRes.data || []);
-    });
+    }).catch(() => {});
   }, [id]);
 
   const schema = useMemo(() => ({ fields }), [fields]);
@@ -144,7 +144,7 @@ export default function WorkflowFormDesignerPage() {
           </div>
           <div style={controlGridStyle}>
             {quickFieldTypes.map(type => (
-              <button key={type} className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addField(type)}>{fieldTypeLabels[type]}</button>
+              <button type="button" key={type} className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => addField(type)}>{fieldTypeLabels[type]}</button>
             ))}
           </div>
 
@@ -172,8 +172,8 @@ export default function WorkflowFormDesignerPage() {
               <p className={s.modalDesc} style={{ margin: "4px 0 0" }}>业务人员发起流程时会按这个顺序填写。</p>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button className={s.btnSecondary} onClick={openJson}>高级 JSON</button>
-              <button className={s.btnPrimary} onClick={publish}>发布表单</button>
+              <button type="button" className={s.btnSecondary} onClick={openJson}>高级 JSON</button>
+              <button type="button" className={s.btnPrimary} onClick={publish}>发布表单</button>
             </div>
           </div>
           {msg ? <div className={s.successBanner}>{msg}</div> : null}
@@ -266,9 +266,9 @@ export default function WorkflowFormDesignerPage() {
               <label style={checkStyle}><input type="checkbox" checked={Boolean(current.required)} onChange={e => patchField(selected, { required: e.target.checked })} /> 必填</label>
               <label style={checkStyle}><input type="checkbox" checked={current.span === 2} onChange={e => patchField(selected, { span: e.target.checked ? 2 : 1 })} /> 跨两列</label>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                <button className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveField(selected, -1)}>上移</button>
-                <button className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveField(selected, 1)}>下移</button>
-                <button className={`${s.btnDanger} ${s.btnSm}`} onClick={() => removeField(selected)}>删除</button>
+                <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveField(selected, -1)}>上移</button>
+                <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => moveField(selected, 1)}>下移</button>
+                <button type="button" className={`${s.btnDanger} ${s.btnSm}`} onClick={() => removeField(selected)}>删除</button>
               </div>
             </div>
           ) : <div style={{ color: "var(--text-secondary)" }}>暂无字段</div>}
@@ -280,10 +280,10 @@ export default function WorkflowFormDesignerPage() {
           <div className={s.card} style={modalStyle}>
             <div style={toolbarStyle}>
               <strong className={s.cardTitle}>高级 JSON 编辑</strong>
-              <button className={s.btnSecondary} onClick={() => setJsonOpen(false)}>关闭</button>
+              <button type="button" className={s.btnSecondary} onClick={() => setJsonOpen(false)}>关闭</button>
             </div>
             <textarea value={jsonDraft} onChange={e => setJsonDraft(e.target.value)} className={s.textarea} style={textareaStyle} spellCheck={false} />
-            <button className={s.btnPrimary} onClick={applyJson}>应用 JSON</button>
+            <button type="button" className={s.btnPrimary} onClick={applyJson}>应用 JSON</button>
           </div>
         </div>
       ) : null}

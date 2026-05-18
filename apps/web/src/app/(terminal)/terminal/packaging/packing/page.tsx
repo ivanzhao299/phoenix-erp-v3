@@ -107,7 +107,7 @@ export default function PackingPage() {
             <div style={{ fontSize:12, color:T.MUT, marginBottom:10, fontWeight:600 }}>1. {t('ui.选择等级', '选择等级')}</div>
             <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
               {availableGrades.map(g => (
-                <button key={g.grade} onClick={()=>setSelectedGrade(g.grade as GradingOutput['grade'])}
+                <button type="button" key={g.grade} onClick={()=>setSelectedGrade(g.grade as GradingOutput['grade'])}
                   style={{ padding:'12px 20px', borderRadius:10, cursor:'pointer',
                     border:`2px solid ${selectedGrade===g.grade ? (gradeMap[g.grade]?.color ?? '#7c3aed') : T.BOR}`,
                     background: selectedGrade===g.grade ? `${(gradeMap[g.grade]?.color ?? '#7c3aed')}20` : 'rgba(255,255,255,0.03)',
@@ -126,7 +126,7 @@ export default function PackingPage() {
             <div style={{ fontSize:12, color:T.MUT, marginBottom:10, fontWeight:600 }}>2. {t('ui.选择包装规格', '选择包装规格')}</div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
               {SPECS.map(spec => (
-                <button key={spec.id} onClick={()=>setSelectedSpec(spec)}
+                <button type="button" key={spec.id} onClick={()=>setSelectedSpec(spec)}
                   style={{ padding:'16px', borderRadius:10, cursor:'pointer', textAlign:'left',
                     border:`2px solid ${selectedSpec?.id===spec.id ? spec.color : T.BOR}`,
                     background: selectedSpec?.id===spec.id ? `${spec.color}15` : 'rgba(255,255,255,0.03)',
@@ -168,7 +168,7 @@ export default function PackingPage() {
                   style={{ width:'100%', background:'rgba(255,255,255,0.05)', border:`1px solid ${T.BOR}`,
                     borderRadius:8, padding:'14px', color:T.TXT, fontSize:14, boxSizing:'border-box' }} />
               </div>
-              <button onClick={handleAdd} disabled={!canAdd}
+              <button type="button" onClick={handleAdd} disabled={!canAdd}
                 style={{ padding:'14px 24px', borderRadius:8, border:'none',
                   background: canAdd ? T.ACC : T.BOR, color: canAdd ? '#0f172a' : T.MUT,
                   fontSize:15, fontWeight:700, cursor: canAdd ? 'pointer' : 'not-allowed',
@@ -205,13 +205,13 @@ export default function PackingPage() {
 
       <div style={{ background:T.CARD, borderTop:`1px solid ${T.BOR}`, padding:'16px 24px',
         display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
-        <button onClick={()=>router.push('/terminal/packaging/dashboard')}
+        <button type="button" onClick={()=>router.push('/terminal/packaging/dashboard')}
           style={{ padding:'14px 28px', borderRadius:10, border:`1px solid ${T.BOR}`,
             background:'transparent', color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('common.back', '返回')}</button>
         <div style={{ flex:1, fontSize:13, color:T.MUT }}>
           {t('ui.合计', '合计')} {totalBoxes} {t('ui.箱', '箱')} · {totalEggs.toLocaleString()} {t('ui.枚', '枚')}
         </div>
-        <button onClick={handleFinish} disabled={batches.length===0||submitting}
+        <button type="button" onClick={handleFinish} disabled={batches.length===0||submitting}
           style={{ padding:'14px 40px', borderRadius:10, border:'none',
             background: batches.length>0 ? T.GRN : T.BOR,
             color: batches.length>0 ? '#0f172a' : T.MUT,

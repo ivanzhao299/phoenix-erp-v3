@@ -312,8 +312,8 @@ export default function WorkflowStartPage() {
                 </div>
                 <div style={smartMetaStyle}>
                   <span className={s.badge}>{smartSummary}</span>
-                  <button className={s.btnSecondary} disabled={smartFilling} onClick={clearDraft}>清空</button>
-                  <button className={s.btnPrimary} disabled={smartFilling} onClick={fillSmartDraft}>
+                  <button type="button" className={s.btnSecondary} disabled={smartFilling} onClick={clearDraft}>清空</button>
+                  <button type="button" className={s.btnPrimary} disabled={smartFilling} onClick={fillSmartDraft}>
                     {smartFilling ? "生成中..." : "智能生成草稿"}
                   </button>
                 </div>
@@ -410,12 +410,12 @@ export default function WorkflowStartPage() {
 
             <div style={footerStyle}>
               <Link href="/workflow/tasks/todo" className={s.btnSecondary}>我的待办</Link>
-              {step === "select" ? <button className={s.btnPrimary} disabled={!selected} onClick={() => selected && setStep("fill")}>下一步：填写资料</button> : null}
-              {step === "fill" ? <button className={s.btnPrimary} disabled={!selectedId || submitting} onClick={goConfirm}>下一步：确认提交</button> : null}
+              {step === "select" ? <button type="button" className={s.btnPrimary} disabled={!selected} onClick={() => selected && setStep("fill")}>下一步：填写资料</button> : null}
+              {step === "fill" ? <button type="button" className={s.btnPrimary} disabled={!selectedId || submitting} onClick={goConfirm}>下一步：确认提交</button> : null}
               {step === "confirm" ? (
                 <>
-                  <button className={s.btnSecondary} disabled={submitting} onClick={() => setStep("fill")}>返回修改</button>
-                  <button className={s.btnPrimary} disabled={!selectedId || submitting} onClick={submit}>
+                  <button type="button" className={s.btnSecondary} disabled={submitting} onClick={() => setStep("fill")}>返回修改</button>
+                  <button type="button" className={s.btnPrimary} disabled={!selectedId || submitting} onClick={submit}>
                     {submitting ? "提交中..." : "确认提交"}
                   </button>
                 </>
