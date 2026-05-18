@@ -205,7 +205,7 @@ export default function EggCollectionPage() {
                     <button type="button" key={h.id}
                       onPointerDown={() => !done && selectHouse(h)}
                       style={{
-                        padding: '12px 18px', borderRadius: 10, fontSize: 14, fontWeight: 600,
+                        padding: '13px 20px', borderRadius: 10, fontSize: 15, fontWeight: 600,
                         cursor: done ? 'default' : 'pointer',
                         border: `2px solid ${isSelected ? T.ACC : done ? T.GRN : T.BOR}`,
                         background: isSelected ? `rgba(245,158,11,0.15)` : done ? 'rgba(34,197,94,0.08)' : 'rgba(255,255,255,0.04)',
@@ -247,21 +247,21 @@ export default function EggCollectionPage() {
                         transition: 'all 0.12s',
                         WebkitTapHighlightColor: 'transparent',
                       }}>
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: isActive ? accent : T.BOR, flexShrink: 0 }} />
+                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: isActive ? accent : T.BOR, flexShrink: 0 }} />
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 12, color: isActive ? accent : T.MUT, fontWeight: 600 }}>
+                        <div style={{ fontSize: 15, color: isActive ? accent : T.MUT, fontWeight: 600 }}>
                           {t(labelKey, labelFb)}
                         </div>
                       </div>
                       <div style={{
-                        fontSize: 36, fontWeight: 900, lineHeight: 1,
+                        fontSize: 42, fontWeight: 900, lineHeight: 1,
                         color: val ? accent : isActive ? `${accent}50` : T.BOR,
                         fontVariantNumeric: 'tabular-nums',
-                        minWidth: 80, textAlign: 'right',
+                        minWidth: 90, textAlign: 'right',
                       }}>
                         {val || '0'}
                       </div>
-                      <div style={{ fontSize: 10, color: T.MUT }}>{t('ui.枚', '枚')}</div>
+                      <div style={{ fontSize: 12, color: T.MUT }}>{t('ui.枚', '枚')}</div>
                     </button>
                   );
                 })}
@@ -275,10 +275,10 @@ export default function EggCollectionPage() {
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               }}>
                 <div>
-                  <div style={{ fontSize: 12, color: T.MUT, marginBottom: 3 }}>
+                  <div style={{ fontSize: 14, color: T.MUT, marginBottom: 4 }}>
                     {t('ui.可进入分级的蛋', '可进入分级的蛋')} = 总 − 脏 − 裂纹
                   </div>
-                  <div style={{ fontSize: 11, color: T.MUT }}>
+                  <div style={{ fontSize: 13, color: T.MUT }}>
                     {total.toLocaleString()} − {dirty} − {cracked} =
                   </div>
                 </div>
@@ -308,25 +308,25 @@ export default function EggCollectionPage() {
 
         {/* ── Right: fixed NumPad ── */}
         <div style={{
-          width: 310, flexShrink: 0, borderLeft: `1px solid ${T.BOR}`,
-          padding: 14, display: 'flex', flexDirection: 'column', gap: 10,
+          width: 380, flexShrink: 0, borderLeft: `1px solid ${T.BOR}`,
+          padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10,
           background: '#0a1628',
         }}>
           {/* Active field indicator */}
           <div style={{
             background: `${activeAccent}12`,
             border: `1px solid ${activeAccent}40`,
-            borderRadius: 10, padding: '9px 12px',
+            borderRadius: 10, padding: '10px 14px',
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 9, color: T.MUT, marginBottom: 1 }}>{t('ui.当前录入', '当前录入')}</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: activeAccent }}>
+              <div style={{ fontSize: 10, color: T.MUT, marginBottom: 2 }}>{t('ui.当前录入', '当前录入')}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: activeAccent }}>
                 {t(activeField.labelKey, activeField.labelFb)}
               </div>
             </div>
             {!selectedHouse && (
-              <div style={{ fontSize: 10, color: T.MUT }}>{t('ui.请先选鸡舍', '请先选鸡舍')}</div>
+              <div style={{ fontSize: 11, color: T.MUT }}>{t('ui.请先选鸡舍', '请先选鸡舍')}</div>
             )}
           </div>
 
@@ -336,6 +336,8 @@ export default function EggCollectionPage() {
             accentColor={activeAccent}
             disabled={!selectedHouse}
             onChange={handleNumPadChange}
+            hideDisplay
+            buttonHeight={76}
           />
         </div>
       </div>

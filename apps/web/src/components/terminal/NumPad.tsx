@@ -12,6 +12,8 @@ export interface NumPadProps {
   max?: number;
   confirmLabel?: string;
   disabled?: boolean;
+  hideDisplay?: boolean;
+  buttonHeight?: number;
 }
 
 const KEYS = ['7', '8', '9', '4', '5', '6', '1', '2', '3', 'C', '0', '⌫'] as const;
@@ -26,6 +28,8 @@ export default function NumPad({
   max,
   confirmLabel = '确认',
   disabled = false,
+  hideDisplay = false,
+  buttonHeight = 64,
 }: NumPadProps) {
   const displayRef = useRef(initialValue);
   const [display, setDisplay] = useState(initialValue);
@@ -59,9 +63,9 @@ export default function NumPad({
 
   return (
     <div style={{
-      background: T.CARD, borderRadius: 20, padding: 20,
+      background: T.CARD, borderRadius: 20, padding: 16,
       border: `1px solid ${T.BOR}`,
-      display: 'flex', flexDirection: 'column', gap: 14,
+      display: 'flex', flexDirection: 'column', gap: 10,
     }}>
       {(label || sublabel) && (
         <div style={{ textAlign: 'center' }}>
@@ -70,22 +74,24 @@ export default function NumPad({
         </div>
       )}
 
-      <div style={{
-        background: 'rgba(0,0,0,0.45)', borderRadius: 12, padding: '12px 20px',
-        border: `2px solid ${display ? accentColor + '80' : T.BOR}`,
-        textAlign: 'right', minHeight: 68,
-        display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
-        transition: 'border-color 0.15s',
-      }}>
-        <span style={{
-          fontSize: 48, fontWeight: 900, lineHeight: 1,
-          color: display ? accentColor : T.BOR,
-          fontVariantNumeric: 'tabular-nums',
-          letterSpacing: '-1px',
+      {!hideDisplay && (
+        <div style={{
+          background: 'rgba(0,0,0,0.45)', borderRadius: 12, padding: '10px 18px',
+          border: `2px solid ${display ? accentColor + '80' : T.BOR}`,
+          textAlign: 'right', minHeight: 64,
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+          transition: 'border-color 0.15s',
         }}>
-          {display || '0'}
-        </span>
-      </div>
+          <span style={{
+            fontSize: 48, fontWeight: 900, lineHeight: 1,
+            color: display ? accentColor : T.BOR,
+            fontVariantNumeric: 'tabular-nums',
+            letterSpacing: '-1px',
+          }}>
+            {display || '0'}
+          </span>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
         {KEYS.map(k => {
@@ -98,7 +104,7 @@ export default function NumPad({
               disabled={disabled}
               onPointerDown={e => { e.preventDefault(); press(k); }}
               style={{
-                height: 64, borderRadius: 12, border: 'none',
+                height: buttonHeight, borderRadius: 12, border: 'none',
                 cursor: disabled ? 'not-allowed' : 'pointer',
                 fontSize: isBksp ? 26 : 24, fontWeight: 700,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
