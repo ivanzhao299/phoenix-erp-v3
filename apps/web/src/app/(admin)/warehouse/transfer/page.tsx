@@ -126,8 +126,8 @@ export default function TransferPage() {
   const handleScan = useCallback(async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter" || !scanCode.trim()) return;
     // 按照 transfer_no 查询并更新为 DONE
-    const res = await crudApi.list(TABLE, { transfer_no: scanCode.trim(), limit: 1 } as any).catch(() => null);
-    const record = (res as any)?.data?.[0] ?? (res as any)?.[0];
+    const res = await crudApi.list<Row>(TABLE, { transfer_no: scanCode.trim(), limit: 1 }).catch(() => null);
+    const record = res?.data?.[0] ?? null;
     if (record?.id) {
       await crudApi.update(TABLE, record.id as number, { status: "DONE" });
       refresh();

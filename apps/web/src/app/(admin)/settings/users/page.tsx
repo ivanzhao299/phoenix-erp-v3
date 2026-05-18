@@ -323,8 +323,8 @@ export default function UserManagementPage() {
       (u.roles_detail || []).some(r => r.role_name_zh.toLowerCase().includes(q))
     );
     return [...list].sort((a, b) => {
-      const va = String((a as any)[sortKey] || "").toLowerCase();
-      const vb = String((b as any)[sortKey] || "").toLowerCase();
+      const va = String((a as unknown as Record<string, unknown>)[sortKey] || "").toLowerCase();
+      const vb = String((b as unknown as Record<string, unknown>)[sortKey] || "").toLowerCase();
       return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
     });
   }, [users, typeFilter, statusFilter, roleFilter, search, sortKey, sortDir]);

@@ -51,8 +51,8 @@ export default function PermissionsPage() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await crudApi.list(TABLE, { limit: 1000 } as any);
-      setData(((res as any).data ?? []) as PermRow[]);
+      const res = await crudApi.list<PermRow>(TABLE, { limit: 1000 });
+      setData(res.data ?? []);
     } finally { setLoading(false); }
   }, []);
 

@@ -152,14 +152,14 @@ export default function FlockPage() {
     { key:'house',      title:t('ui.鸡舍','鸡舍'),    width:'70px'  },
     { key:'breed',      title:t('ui.品种','品种'),    width:'80px'  },
     { key:'inDate',     title:t('ui.进雏日期','进雏日期'),width:'100px' },
-    { key:'ageWeeks',   title:t('ui.鸡龄','鸡龄'),    width:'70px',  render: (v: any) => `${v}${t('ui.周','周')}` },
-    { key:'quantity',   title:t('ui.存栏量','存栏量'),  width:'90px',  render: (v: any) => `${Number(v).toLocaleString()}${t('ui.羽','羽')}` },
-    { key:'layingRate', title:t('ui.产蛋率','产蛋率'),  width:'80px',  render: (v: any) => typeof v === 'number' ? <span style={{ fontWeight:700, color: v>=90?'var(--status-success)':v>=85?'var(--status-warning)':'var(--status-danger)' }}>{v}%</span> : <span style={{color:'var(--text-secondary)'}}>—</span> },
-    { key:'feedRatio',  title:t('ui.料蛋比','料蛋比'),  width:'80px',  render: (v: any) => typeof v === 'number' ? <span style={{ color: v<=2.35?'var(--status-success)':'var(--status-warning)' }}>{v}</span> : '—' },
-    { key:'targetWeeks',     title:t('ui.目标周数','目标周数'),  width:'80px',  render: (v: any, row: FlockCard) => { const tw = v ?? row._raw?.target_weeks; return tw ? `${tw}${t('ui.周','周')}` : '—'; } },
-    { key:'eliminationDate', title:t('ui.预计淘汰日','预计淘汰日'), width:'100px', render: (_: any, row: FlockCard) => String(row._raw?.elimination_date || '—') },
-    { key:'status',     title:t('common.status','状态'),    width:'100px', render: (v: any) => { const st = STATUS_MAP[v]||{status:'default',label:v}; return <StatusBadge status={st.status} label={st.label} />; } },
-    { key:'actions',    title:t('common.operation','操作'),    width:'100px', render: (_: any, row: FlockCard) => can(['ROLE_FARM_MGR','ROLE_ADMIN']) ? (
+    { key:'ageWeeks',   title:t('ui.鸡龄','鸡龄'),    width:'70px',  render: (v: unknown) => `${String(v ?? '')}${t('ui.周','周')}` },
+    { key:'quantity',   title:t('ui.存栏量','存栏量'),  width:'90px',  render: (v: unknown) => `${Number(v).toLocaleString()}${t('ui.羽','羽')}` },
+    { key:'layingRate', title:t('ui.产蛋率','产蛋率'),  width:'80px',  render: (v: unknown) => typeof v === 'number' ? <span style={{ fontWeight:700, color: v>=90?'var(--status-success)':v>=85?'var(--status-warning)':'var(--status-danger)' }}>{v}%</span> : <span style={{color:'var(--text-secondary)'}}>—</span> },
+    { key:'feedRatio',  title:t('ui.料蛋比','料蛋比'),  width:'80px',  render: (v: unknown) => typeof v === 'number' ? <span style={{ color: v<=2.35?'var(--status-success)':'var(--status-warning)' }}>{v}</span> : '—' },
+    { key:'targetWeeks',     title:t('ui.目标周数','目标周数'),  width:'80px',  render: (v: unknown, row: FlockCard) => { const tw = v ?? row._raw?.target_weeks; return tw ? `${String(tw)}${t('ui.周','周')}` : '—'; } },
+    { key:'eliminationDate', title:t('ui.预计淘汰日','预计淘汰日'), width:'100px', render: (_: unknown, row: FlockCard) => String(row._raw?.elimination_date || '—') },
+    { key:'status',     title:t('common.status','状态'),    width:'100px', render: (v: unknown) => { const st = STATUS_MAP[v as string]||{status:'default',label:String(v)}; return <StatusBadge status={st.status} label={st.label} />; } },
+    { key:'actions',    title:t('common.operation','操作'),    width:'100px', render: (_: unknown, row: FlockCard) => can(['ROLE_FARM_MGR','ROLE_ADMIN']) ? (
       <div className={s.tableActions}>
         <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>
         <button type="button" className={`${s.btnIcon} ${s.btnDanger}`} onClick={() => handleDelete(row)}><Trash2 size={12} /></button>

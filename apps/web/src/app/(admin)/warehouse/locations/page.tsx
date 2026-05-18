@@ -78,8 +78,8 @@ export default function LocationsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await crudApi.list(TABLE, { limit: 500 } as any).catch(() => ({ data: [] }));
-    setRows(Array.isArray(res) ? res : ((res as any).data ?? []));
+    const res = await crudApi.list<Row>(TABLE, { limit: 500 }).catch(() => ({ data: [] as Row[], code: 0 }));
+    setRows(Array.isArray(res.data) ? res.data : []);
     setLoading(false);
   }, []);
   useEffect(() => { load(); }, [load]);

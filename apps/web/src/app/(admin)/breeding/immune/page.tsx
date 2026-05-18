@@ -161,16 +161,16 @@ export default function ImmunePage() {
     { key:'batchNo',        title: t('ui.鸡群批次', '鸡群批次'), width:'120px' },
     { key:'farmHouse',      title: t('ui.鸡舍', '鸡舍'),         width:'100px' },
     { key:'vaccine',        title: t('ui.疫苗名称', '疫苗名称') },
-    { key:'vaccineBatchNo', title: t('ui.疫苗批号', '疫苗批号'), width:'130px', render: (v: any) => v ? <span style={{ fontFamily:'monospace', fontSize:12, color:'var(--color-primary)' }}>{v}</span> : <span style={{ color:'var(--text-secondary)' }}>—</span> },
-    { key:'flockCount',     title: t('ui.免疫头数', '免疫头数'), width:'90px',  render: (v: any) => v ? `${v} ${t('ui.只','只')}` : '—' },
+    { key:'vaccineBatchNo', title: t('ui.疫苗批号', '疫苗批号'), width:'130px', render: (v: unknown) => v != null && v !== '' ? <span style={{ fontFamily:'monospace', fontSize:12, color:'var(--color-primary)' }}>{String(v)}</span> : <span style={{ color:'var(--text-secondary)' }}>—</span> },
+    { key:'flockCount',     title: t('ui.免疫头数', '免疫头数'), width:'90px',  render: (v: unknown) => v != null && v !== '' ? `${String(v)} ${t('ui.只','只')}` : '—' },
     { key:'planDate',       title: t('ui.计划日期', '计划日期'), width:'100px' },
-    { key:'nextDueDate',    title: t('ui.下次免疫', '下次免疫'), width:'100px', render: (v: any) => v || '—' },
-    { key:'actualDate',     title: t('ui.执行日期', '执行日期'), width:'100px', render: (v: any) => v || '—' },
+    { key:'nextDueDate',    title: t('ui.下次免疫', '下次免疫'), width:'100px', render: (v: unknown) => v != null && v !== '' ? String(v) : '—' },
+    { key:'actualDate',     title: t('ui.执行日期', '执行日期'), width:'100px', render: (v: unknown) => v != null && v !== '' ? String(v) : '—' },
     { key:'method',         title: t('ui.接种方式', '接种方式'), width:'90px'  },
     { key:'dose',           title: t('ui.剂量', '剂量'),         width:'90px'  },
     { key:'executor',       title: t('ui.执行人', '执行人'),     width:'80px'  },
-    { key:'status',         title: t('common.status', '状态'),   width:'110px', render: (v: any) => { const st = STATUS_CONF[normStatus(v)]||{ status:'default', label:v }; return <StatusBadge status={st.status} label={st.label} />; } },
-    { key:'actions',        title: t('common.operation', '操作'), width:'120px', render: (_: any, row: ImmunePlan) => (
+    { key:'status',         title: t('common.status', '状态'),   width:'110px', render: (v: unknown) => { const st = STATUS_CONF[normStatus(String(v ?? ''))]||{ status:'default', label:String(v ?? '') }; return <StatusBadge status={st.status} label={st.label} />; } },
+    { key:'actions',        title: t('common.operation', '操作'), width:'120px', render: (_: unknown, row: ImmunePlan) => (
       <div className={s.tableActions}>
         {can(['ROLE_VET','ROLE_ADMIN']) && normStatus(row.status)==='PENDING' && (
           <button type="button" className={`${s.btn} ${s.btnSm}`} style={{ background:'var(--status-success)', color:'#fff', border:'none' }}

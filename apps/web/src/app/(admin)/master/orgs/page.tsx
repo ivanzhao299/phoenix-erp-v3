@@ -150,8 +150,8 @@ export default function OrgsPage() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await crudApi.list("sys_orgs", { limit: 500 } as any);
-      const data = ((res as any).data ?? []) as OrgNode[];
+      const res = await crudApi.list<OrgNode>("sys_orgs", { limit: 500 });
+      const data = res.data ?? [];
       setNodes(data);
       setTree(buildTree(data));
     } finally {

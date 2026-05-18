@@ -124,21 +124,21 @@ export default function HenHousePage() {
   const warnCount    = housesList.filter(h => h.status === 'warning').length;
 
   const columns = [
-    { key: 'name', title: t('ui.鸡舍','鸡舍'), width: '160px', render: (v: any, row: HouseCard) => (
+    { key: 'name', title: t('ui.鸡舍','鸡舍'), width: '160px', render: (v: unknown, row: HouseCard) => (
       <div>
-        <div style={{ fontWeight:600, color:'var(--text-primary)', lineHeight:1.3 }}>{v || '—'}</div>
+        <div style={{ fontWeight:600, color:'var(--text-primary)', lineHeight:1.3 }}>{v != null ? String(v) : '—'}</div>
         <div style={{ fontSize:11, color:'var(--text-secondary)', marginTop:2, fontFamily:'monospace' }}>{row.code}</div>
       </div>
     )},
-    { key: 'farmLabel',  title: t('ui.所属农场','所属农场'), width: '110px', render: (v: any) => (
-      <span style={{ fontSize:13 }}>{v || '—'}</span>
+    { key: 'farmLabel',  title: t('ui.所属农场','所属农场'), width: '110px', render: (v: unknown) => (
+      <span style={{ fontSize:13 }}>{v != null ? String(v) : '—'}</span>
     )},
-    { key: 'type',       title: t('ui.舍型','舍型'),     width: '75px',  render: (v: any) => houseTypeMap[v] ?? v ?? '—' },
-    { key: 'capacity',   title: t('ui.设计容量','设计容量'), width: '90px',  render: (v: any) => `${Number(v).toLocaleString()} ${t('ui.羽','羽')}` },
-    { key: 'current',    title: t('ui.当前存栏','当前存栏'), width: '120px', render: (v: any, row: HouseCard) => (
+    { key: 'type',       title: t('ui.舍型','舍型'),     width: '75px',  render: (v: unknown) => houseTypeMap[v as string] ?? (v != null ? String(v) : '—') },
+    { key: 'capacity',   title: t('ui.设计容量','设计容量'), width: '90px',  render: (v: unknown) => `${Number(v).toLocaleString()} ${t('ui.羽','羽')}` },
+    { key: 'current',    title: t('ui.当前存栏','当前存栏'), width: '120px', render: (v: unknown, row: HouseCard) => (
       <div>
         <div style={{ marginBottom:4 }}>
-          <span style={{ fontWeight:600 }}>{(v||0).toLocaleString()}</span>
+          <span style={{ fontWeight:600 }}>{(Number(v)||0).toLocaleString()}</span>
           <span style={{ fontSize:11, color:'var(--text-secondary)', marginLeft:2 }}>{t('ui.羽','羽')}</span>
           {row.capacity>0 && <span style={{ fontSize:11, color:row.isOverload?'var(--status-danger)':'var(--text-secondary)', marginLeft:5, fontWeight:row.isOverload?700:400 }}>({row.occupancyPct}%{row.isOverload?' ⚠️':''})</span>}
         </div>
@@ -149,10 +149,10 @@ export default function HenHousePage() {
         )}
       </div>
     )},
-    { key: 'ageWeeks',   title: t('ui.鸡龄周','鸡龄周'),  width: '72px',  render: (v: any) => v > 0 ? `${v} ${t('ui.周','周')}` : <span style={{color:'var(--text-secondary)'}}>—</span> },
-    { key: 'layingRate', title: t('ui.产蛋率','产蛋率'),  width: '76px',  render: (v: any) => v != null ? <span style={{ fontWeight:700, color: v>=90?'var(--status-success)':v>=85?'var(--status-warning)':'var(--status-danger)' }}>{v}%</span> : <span style={{color:'var(--text-secondary)'}}>—</span> },
-    { key: 'status',     title: t('common.status','状态'),    width: '88px',  render: (v: any, row: HouseCard) => <StatusBadge status={v==='normal'?'success':'warning'} label={v==='normal'?t('ui.正常','正常'):row.isOverload?t('ui.超载','超载'):t('ui.需关注','需关注')} /> },
-    { key: 'actions',   title: t('common.operation','操作'),    width: '160px', render: (_: any, row: HouseCard) => (
+    { key: 'ageWeeks',   title: t('ui.鸡龄周','鸡龄周'),  width: '72px',  render: (v: unknown) => Number(v) > 0 ? `${String(v)} ${t('ui.周','周')}` : <span style={{color:'var(--text-secondary)'}}>—</span> },
+    { key: 'layingRate', title: t('ui.产蛋率','产蛋率'),  width: '76px',  render: (v: unknown) => v != null ? <span style={{ fontWeight:700, color: Number(v)>=90?'var(--status-success)':Number(v)>=85?'var(--status-warning)':'var(--status-danger)' }}>{String(v)}%</span> : <span style={{color:'var(--text-secondary)'}}>—</span> },
+    { key: 'status',     title: t('common.status','状态'),    width: '88px',  render: (v: unknown, row: HouseCard) => <StatusBadge status={v==='normal'?'success':'warning'} label={v==='normal'?t('ui.正常','正常'):row.isOverload?t('ui.超载','超载'):t('ui.需关注','需关注')} /> },
+    { key: 'actions',   title: t('common.operation','操作'),    width: '160px', render: (_: unknown, row: HouseCard) => (
       <div className={s.tableActions}>
         {can(['MENU_DEVICE_MONITOR']) && (
           <button

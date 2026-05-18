@@ -24,14 +24,14 @@ export default function ForwardTracePage() {
     setLoading(true); setError(null);
     try {
       const [bRes, iRes, oRes] = await Promise.all([
-        crudApi.list("inv_batches",    { batch_no: batchNo, limit: 1 } as any),
-        crudApi.list("qa_inspections", { batch_no: batchNo, limit: 50 } as any),
-        crudApi.list("ord_orders",     { batch_no: batchNo, limit: 20 } as any),
+        crudApi.list<Record<string,unknown>>("inv_batches",    { batch_no: batchNo, limit: 1 }),
+        crudApi.list<Record<string,unknown>>("qa_inspections", { batch_no: batchNo, limit: 50 }),
+        crudApi.list<Record<string,unknown>>("ord_orders",     { batch_no: batchNo, limit: 20 }),
       ]);
       setResult({
-        batch:       ((bRes as any).data ?? [])[0] ?? null,
-        inspections: (iRes as any).data ?? [],
-        orders:      (oRes as any).data ?? [],
+        batch:       (bRes.data ?? [])[0] ?? null,
+        inspections: iRes.data ?? [],
+        orders:      oRes.data ?? [],
       });
     } catch (e) {
       setError((e as Error).message);

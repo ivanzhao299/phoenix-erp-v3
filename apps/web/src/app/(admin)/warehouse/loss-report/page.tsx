@@ -61,8 +61,8 @@ export default function LossReportPage() {
 
   // KPI 数据：独立拉取全量（DataTable 分页显示，KPI 需全量）
   useEffect(() => {
-    crudApi.list(TABLE, { limit: 500 } as any)
-      .then(res => setAllRows((res as any).data ?? []))
+    crudApi.list<Row>(TABLE, { limit: 500 })
+      .then(res => setAllRows(res.data ?? []))
       .catch(() => {});
   }, [refreshKey]);
 

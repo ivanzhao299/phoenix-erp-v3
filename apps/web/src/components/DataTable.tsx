@@ -8,7 +8,7 @@ export interface Column<T extends object = Record<string, unknown>> {
   title?: string;
   label?: string;
   width?: string | number;
-  render?: (value: any, row: T) => React.ReactNode;
+  render?: (value: unknown, row: T) => React.ReactNode;
 }
 
 interface DataTableProps<T extends object = Record<string, unknown>> {

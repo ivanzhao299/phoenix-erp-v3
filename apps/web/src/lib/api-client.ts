@@ -262,7 +262,7 @@ export const crudApi = {
 // ── 数据字典 ─────────────────────────────────────────────────
 export const dictApi = {
   getByType: (dictType: string) =>
-    crudApi.list("sys_dict", { dict_type: dictType, limit: 200 } as PaginationParams),
+    crudApi.list("sys_dict", { dict_type: dictType, limit: 200 }),
 };
 
 export default request;

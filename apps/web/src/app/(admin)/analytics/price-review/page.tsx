@@ -35,11 +35,11 @@ export default function PriceReviewPage() {
 
   useEffect(() => {
     Promise.all([
-      crudApi.list<PriceRecord>("ord_prices",      { limit: 200 } as any),
-      crudApi.list<OrderItem>("ord_order_items",   { limit: 500 } as any),
+      crudApi.list<PriceRecord>("ord_prices",      { limit: 200 }),
+      crudApi.list<OrderItem>("ord_order_items",   { limit: 500 }),
     ]).then(([pRes, iRes]) => {
-      setPrices((pRes as any).data ?? []);
-      setItems((iRes as any).data ?? []);
+      setPrices(pRes.data ?? []);
+      setItems(iRes.data ?? []);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
