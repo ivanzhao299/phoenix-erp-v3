@@ -101,7 +101,7 @@ export default function GradingPage() {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, padding: 32 }}>
           <div style={{ fontSize: 64 }}>✅</div>
           <div style={{ fontSize: 26, fontWeight: 700, color: T.GRN }}>{t('ui.分级完成', '分级完成')}</div>
-          {submitResult.code && (
+          {!!submitResult.code && (
             <div style={{ fontSize: 13, color: T.MUT }}>{t('ui.分级单号', '分级单号')}：{String(submitResult.code)}</div>
           )}
           <div style={{ background: T.CARD, borderRadius: 12, padding: 20, border: `1px solid ${T.BOR}`, width: '100%', maxWidth: 440 }}>
