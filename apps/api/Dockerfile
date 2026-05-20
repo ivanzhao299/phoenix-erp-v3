@@ -25,8 +25,9 @@ COPY apps/api ./apps/api
 WORKDIR /workspace/apps/api
 RUN pnpm build
 
-# 修剪 devDependencies
-RUN pnpm prune --prod
+# 用 pnpm deploy 创建独立的生产目录（解决 pnpm 虚拟存储符号链接问题）
+WORKDIR /workspace
+RUN pnpm deploy --filter phoenix-erp-v3-nest --prod /app-deploy
 
 # ─── Stage 2: runtime ──────────────────────────────────────────
 FROM node:20-alpine AS runtime
@@ -40,11 +41,10 @@ RUN apk add --no-cache curl tini
 
 WORKDIR /app
 
-# 从 builder 复制编译产物 + 仅生产依赖
-COPY --from=builder /workspace/apps/api/dist          ./dist
-COPY --from=builder /workspace/apps/api/node_modules  ./node_modules
-COPY --from=builder /workspace/apps/api/package.json  ./package.json
-# bcrypt 等可能需要 prebuilds；不再 npm rebuild
+# 从 builder 复制编译产物 + 独立生产依赖（pnpm deploy 产物，无虚拟存储符号链接）
+COPY --from=builder /app-deploy/node_modules  ./node_modules
+COPY --from=builder /workspace/apps/api/dist  ./dist
+COPY --from=builder /app-deploy/package.json  ./package.json
 
 # 非 root 用户
 RUN addgroup -S phoenix && adduser -S phoenix -G phoenix \
