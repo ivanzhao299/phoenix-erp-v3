@@ -10,11 +10,17 @@ export type LabelLang = 'zh' | 'lo' | 'en';
 
 export interface LabelConfig {
   // 字段显示
+  showBarcode: boolean;  // 显示条形码
   showBatch: boolean;    // 显示批次号
   showDate: boolean;     // 显示生产日期
   showExpiry: boolean;   // 显示食用期
   showPrice: boolean;    // 显示零售价
   showQr: boolean;       // 显示 QR 追溯码
+  showSources: boolean;  // 显示来源鸡舍
+  showShift: boolean;    // 显示班次信息
+
+  // 食用期天数
+  expiryDays: number;
 
   // 标签尺寸（mm）
   labelW: number;
@@ -30,23 +36,27 @@ export interface LabelConfig {
 const STORAGE_KEY = 'phoenix_label_config';
 
 const DEFAULTS: LabelConfig = {
+  showBarcode: true,
   showBatch: true,
   showDate: true,
   showExpiry: true,
   showPrice: false,
   showQr: true,
-  labelW: 40,
-  labelH: 30,
+  showSources: true,
+  showShift: true,
+  expiryDays: 28,
+  labelW: 50,
+  labelH: 25,
   lang: 'lo',
   printerName: '',
 };
 
 // 标签尺寸预设
 export const LABEL_SIZE_PRESETS = [
-  { label: '40×30mm（标准）', w: 40, h: 30 },
+  { label: '50×25mm（标准）', w: 50, h: 25 },
+  { label: '40×30mm', w: 40, h: 30 },
   { label: '60×40mm（中号）', w: 60, h: 40 },
   { label: '80×50mm（大号）', w: 80, h: 50 },
-  { label: '50×25mm（条码）', w: 50, h: 25 },
 ];
 
 function load(): LabelConfig {
@@ -59,6 +69,12 @@ function load(): LabelConfig {
 
     if (current) {
       const parsed = JSON.parse(current) as Partial<LabelConfig>;
+      // 迁移旧默认尺寸 40×30 → 50×25
+      if (parsed.labelW === 40 && parsed.labelH === 30) {
+        parsed.labelW = 50;
+        parsed.labelH = 25;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...DEFAULTS, ...parsed }));
+      }
       return { ...DEFAULTS, ...parsed };
     }
 
@@ -66,11 +82,15 @@ function load(): LabelConfig {
     const t = oldTerminal ? (JSON.parse(oldTerminal) as Record<string, unknown>) : {};
     const p = oldPrint    ? (JSON.parse(oldPrint)    as Record<string, unknown>) : {};
     const merged: LabelConfig = {
+      showBarcode: DEFAULTS.showBarcode,
       showBatch:   (t.showBatch  ?? p.showBatchNo ?? DEFAULTS.showBatch)  as boolean,
       showDate:    (t.showDate   ?? p.showMfgDate ?? DEFAULTS.showDate)   as boolean,
       showExpiry:  (t.showExpiry ?? p.showExpiry  ?? DEFAULTS.showExpiry) as boolean,
       showPrice:   (t.showPrice  ?? p.showPrice   ?? DEFAULTS.showPrice)  as boolean,
       showQr:      (p.showQr     ?? DEFAULTS.showQr)                       as boolean,
+      showSources: DEFAULTS.showSources,
+      showShift:   DEFAULTS.showShift,
+      expiryDays:  DEFAULTS.expiryDays,
       labelW:      (p.labelW     ?? DEFAULTS.labelW)                       as number,
       labelH:      (p.labelH     ?? DEFAULTS.labelH)                       as number,
       lang:        ((t.lang      ?? p.lang        ?? DEFAULTS.lang) as LabelLang),

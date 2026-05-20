@@ -73,20 +73,26 @@ export default function ExceptionsPage() {
 
   return (
     <div style={{ height:'100%', display:'flex', flexDirection:'column', background:T.BG, overflow:'hidden' }}>
-      <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'14px 24px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
-        <span style={{ fontSize:24 }}>⚠️</span>
+      <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'12px 20px', display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+        <span style={{ fontSize:22 }}>⚠️</span>
         <div style={{ flex:1 }}>
-          <div style={{ fontSize:18, fontWeight:700, color:T.TXT }}>{t('terminal.exceptions', '异常处理')}</div>
+          <div style={{ fontSize:17, fontWeight:700, color:T.TXT }}>{t('terminal.exceptions', '异常处理')}</div>
           <div style={{ fontSize:12, color:T.MUT }}>{t('ui.未关闭', '未关闭')} {openCount} {t('ui.条', '条')} · {t('ui.重大异常未关闭不得交班', '重大异常未关闭不得交班')}</div>
         </div>
         <button type="button" onClick={()=>setShowForm(true)}
-          style={{ padding:'12px 24px', background:T.RED, color:'#fff', border:'none',
-            borderRadius:10, fontSize:15, fontWeight:700, cursor:'pointer' }}>
+          style={{ padding:'9px 20px', background:T.RED, color:'#fff', border:'none',
+            borderRadius:10, fontSize:15, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
           + {t('ui.上报异常', '上报异常')}
         </button>
+        <div style={{ textAlign:'right', flexShrink:0 }}>
+          <div style={{ fontSize:22, fontWeight:800, color: openCount > 0 ? T.RED : T.GRN, fontVariantNumeric:'tabular-nums' }}>
+            {openCount}
+          </div>
+          <div style={{ fontSize:11, color:T.MUT }}>{t('ui.未关闭条', '未关闭（条）')}</div>
+        </div>
       </div>
 
-      <div style={{ flex:1, overflow:'auto', padding:16 }}>
+      <div style={{ flex:1, overflow:'hidden', minHeight:0, padding:16 }}>
         {tickets.length === 0 ? (
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:12 }}>
             <div style={{ fontSize:48 }}>✅</div>
@@ -128,8 +134,8 @@ export default function ExceptionsPage() {
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.8)', display:'flex',
           alignItems:'center', justifyContent:'center', zIndex:200 }}>
           <div style={{ background:T.CARD, borderRadius:16, padding:32, width:480,
-            border:`1px solid ${T.BOR}`, maxHeight:'90vh', overflow:'auto' }}>
-            <div style={{ fontSize:18, fontWeight:700, color:T.TXT, marginBottom:20 }}>{t('ui.快速上报异常', '快速上报异常')}</div>
+            border:`1px solid ${T.BOR}`, maxHeight:'90vh', overflow:'hidden' }}>
+            <div style={{ fontSize:17, fontWeight:700, color:T.TXT, marginBottom:20 }}>{t('ui.快速上报异常', '快速上报异常')}</div>
 
             <div style={{ marginBottom:16 }}>
               <div style={{ fontSize:12, color:T.MUT, marginBottom:8 }}>{t('ui.异常类型', '异常类型')}</div>
@@ -194,10 +200,10 @@ export default function ExceptionsPage() {
         </div>
       )}
 
-      <div style={{ background:T.CARD, borderTop:`1px solid ${T.BOR}`, padding:'16px 24px',
+      <div style={{ background:T.CARD, borderTop:`1px solid ${T.BOR}`, padding:'17px 16px',
         display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
         <button type="button" onClick={()=>router.push('/terminal/packaging/dashboard')}
-          style={{ padding:'14px 28px', borderRadius:10, border:`1px solid ${T.BOR}`,
+          style={{ padding:'9px 20px', borderRadius:10, border:`1px solid ${T.BOR}`,
             background:'transparent', color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('ui.返回首页', '返回首页')}</button>
         <div style={{ flex:1, fontSize:13, color: openCount>0?T.RED:T.GRN }}>
           {openCount>0

@@ -14,6 +14,8 @@ export interface NumPadProps {
   disabled?: boolean;
   hideDisplay?: boolean;
   buttonHeight?: number;
+  buttonFontSize?: number;
+  fillHeight?: boolean;
 }
 
 const KEYS = ['7', '8', '9', '4', '5', '6', '1', '2', '3', 'C', '0', '⌫'] as const;
@@ -30,13 +32,19 @@ export default function NumPad({
   disabled = false,
   hideDisplay = false,
   buttonHeight = 64,
+  buttonFontSize,
+  fillHeight = false,
 }: NumPadProps) {
-  const displayRef = useRef(initialValue);
-  const [display, setDisplay] = useState(initialValue);
+  const sanitize = (v: string) =>
+    v === '' ? '' : String(parseInt(v, 10) || 0);
+
+  const displayRef = useRef(sanitize(initialValue));
+  const [display, setDisplay] = useState(() => sanitize(initialValue));
 
   useEffect(() => {
-    displayRef.current = initialValue;
-    setDisplay(initialValue);
+    const s = sanitize(initialValue);
+    displayRef.current = s;
+    setDisplay(s);
   }, [initialValue]);
 
   const press = (key: string) => {
@@ -50,13 +58,40 @@ export default function NumPad({
     } else {
       const candidate = prev + key;
       if (candidate.length > 7) return;
-      if (max !== undefined && Number(candidate) > max) return;
-      next = candidate;
+      const stripped = String(parseInt(candidate, 10)); // 去除前导零
+      if (max !== undefined && Number(stripped) > max) return;
+      next = stripped;
     }
     displayRef.current = next;
     setDisplay(next);
     onChange?.(next);
   };
+
+  // Keep stable refs so the keyboard handler never goes stale
+  const pressRef     = useRef<typeof press>(press);
+  const onConfirmRef = useRef(onConfirm);
+  pressRef.current     = press;
+  onConfirmRef.current = onConfirm;
+
+  // Physical keyboard support — skip when any text input has focus
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+      if (e.key >= '0' && e.key <= '9') {
+        e.preventDefault(); pressRef.current(e.key);
+      } else if (e.key === 'Backspace') {
+        e.preventDefault(); pressRef.current('⌫');
+      } else if (e.key === 'Delete' || e.key === 'Escape') {
+        e.preventDefault(); pressRef.current('C');
+      } else if (e.key === 'Enter') {
+        const v = displayRef.current;
+        if (v.length > 0 && onConfirmRef.current) { e.preventDefault(); onConfirmRef.current(v); }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const numVal = Number(display) || 0;
   const valid = display.length > 0 && numVal >= 0;
@@ -66,6 +101,7 @@ export default function NumPad({
       background: T.CARD, borderRadius: 20, padding: 16,
       border: `1px solid ${T.BOR}`,
       display: 'flex', flexDirection: 'column', gap: 10,
+      ...(fillHeight ? { flex: 1, minHeight: 0 } : {}),
     }}>
       {(label || sublabel) && (
         <div style={{ textAlign: 'center' }}>
@@ -93,10 +129,11 @@ export default function NumPad({
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, ...(fillHeight ? { flex: 1, gridAutoRows: '1fr' } : {}) }}>
         {KEYS.map(k => {
           const isClear = k === 'C';
           const isBksp  = k === '⌫';
+          const fs = buttonFontSize ?? (isBksp ? 26 : 24);
           return (
             <button
               key={k}
@@ -104,9 +141,11 @@ export default function NumPad({
               disabled={disabled}
               onPointerDown={e => { e.preventDefault(); press(k); }}
               style={{
-                height: buttonHeight, borderRadius: 12, border: 'none',
+                height: fillHeight ? 'auto' : buttonHeight,
+                minHeight: fillHeight ? buttonHeight : undefined,
+                borderRadius: 12, border: 'none',
                 cursor: disabled ? 'not-allowed' : 'pointer',
-                fontSize: isBksp ? 26 : 24, fontWeight: 700,
+                fontSize: fs, fontWeight: 700,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 userSelect: 'none',
                 WebkitUserSelect: 'none',

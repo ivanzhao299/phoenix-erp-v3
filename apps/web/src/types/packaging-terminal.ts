@@ -131,6 +131,7 @@ export interface DeviceStatus {
 export interface WorkShift {
   id: string;
   code: string;
+  shiftType?: string;
   productionDate: string;
   siteId: string;
   siteName?: string;
@@ -173,8 +174,7 @@ export interface SourceBatch {
 
 // ─── 分级批次 ────────────────────────────────────────────────────
 export interface GradingOutput {
-  grade: 'GRADE_1' | 'GRADE_2' | 'GRADE_3' | 'GRADE_4' | 'GRADE_5'
-       | 'DIRTY' | 'BROKEN' | 'REJECTED' | 'RECHECK';
+  grade: string;   // dict_code，跟随系统字典动态，不写死枚举
   qty: number;
   weight?: number;
 }

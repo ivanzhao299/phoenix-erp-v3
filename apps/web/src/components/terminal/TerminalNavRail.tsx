@@ -3,25 +3,36 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useBrand } from '@/contexts/BrandContext';
 import { useState, useEffect } from 'react';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
+import {
+  LayoutDashboard,
+  Egg,
+  BarChart2,
+  Package2,
+  Tag,
+  Warehouse,
+  AlertTriangle,
+  type LucideIcon,
+} from 'lucide-react';
 
 interface NavStep {
   id: string;
   path: string;
-  icon: string;
+  icon: LucideIcon;
   labelKey: string;
   labelFb: string;
 }
 
 const STEPS: NavStep[] = [
-  { id: 'dashboard',          path: '/terminal/packaging/dashboard',          icon: '🏠', labelKey: 'terminal.dashboard',          labelFb: '概览' },
-  { id: 'source-receive',     path: '/terminal/packaging/source-receive',     icon: '📥', labelKey: 'terminal.source_receive',     labelFb: '集蛋' },
-  { id: 'grading',            path: '/terminal/packaging/grading',            icon: '📊', labelKey: 'terminal.grading',            labelFb: '分级' },
-  { id: 'packing',            path: '/terminal/packaging/packing',            icon: '📦', labelKey: 'terminal.packing',            labelFb: '包装' },
-  { id: 'label-print',        path: '/terminal/packaging/label-print',        icon: '🏷️', labelKey: 'terminal.label_print',        labelFb: '标签' },
-  { id: 'warehouse-handover', path: '/terminal/packaging/warehouse-handover', icon: '🏭', labelKey: 'terminal.warehouse_handover', labelFb: '入库' },
-  { id: 'exceptions',         path: '/terminal/packaging/exceptions',         icon: '⚠️', labelKey: 'terminal.exceptions',         labelFb: '异常' },
+  { id: 'dashboard',          path: '/terminal/packaging/dashboard',          icon: LayoutDashboard, labelKey: 'terminal.dashboard',          labelFb: '概览' },
+  { id: 'source-receive',     path: '/terminal/packaging/source-receive',     icon: Egg,             labelKey: 'terminal.source_receive',     labelFb: '集蛋' },
+  { id: 'grading',            path: '/terminal/packaging/grading',            icon: BarChart2,       labelKey: 'terminal.grading',            labelFb: '分级' },
+  { id: 'packing',            path: '/terminal/packaging/packing',            icon: Package2,        labelKey: 'terminal.packing',            labelFb: '包装' },
+  { id: 'label-print',        path: '/terminal/packaging/label-print',        icon: Tag,             labelKey: 'terminal.label_print',        labelFb: '标签' },
+  { id: 'warehouse-handover', path: '/terminal/packaging/warehouse-handover', icon: Warehouse,       labelKey: 'terminal.warehouse_handover', labelFb: '入库' },
+  { id: 'exceptions',         path: '/terminal/packaging/exceptions',         icon: AlertTriangle,   labelKey: 'terminal.exceptions',         labelFb: '异常' },
 ];
 
 export default function TerminalNavRail() {
@@ -29,6 +40,7 @@ export default function TerminalNavRail() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { t } = useLanguage();
+  const { brand } = useBrand();
   const { openExceptionCount } = useTerminalContext();
   const [showLogout, setShowLogout] = useState(false);
   const [pressTimer, setPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -61,29 +73,32 @@ export default function TerminalNavRail() {
 
   return (
     <nav style={{
-      width: 72,
+      width: 88,
       height: '100vh',
       background: '#0a1628',
       borderRight: '1px solid #1e3a5f',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      paddingTop: 8,
-      paddingBottom: 8,
+      paddingTop: 28,
+      paddingBottom: 10,
       flexShrink: 0,
       overflowY: 'auto',
       overflowX: 'hidden',
     }}>
       {/* Logo */}
       <div style={{
-        width: 48, height: 48, borderRadius: 12,
+        width: 56, height: 56, borderRadius: 14,
         background: 'linear-gradient(135deg, #f59e0b, #d97706)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 22, marginBottom: 4, flexShrink: 0,
-      }}>🥚</div>
-      <div style={{ fontSize: 9, color: '#64748b', marginBottom: 12, textAlign: 'center', lineHeight: 1.2 }}>
-        {t('terminal.title', '包装\n作业台')}
+        marginBottom: 0, flexShrink: 0, overflow: 'hidden',
+      }}>
+        {brand.logo_url
+          ? <img src={brand.logo_url} alt={brand.company_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : <Egg size={28} color="#0f172a" strokeWidth={2.5} />
+        }
       </div>
+      <div style={{ width: 52, height: 1, background: '#1e3a5f', margin: '20px 0 16px', flexShrink: 0 }} />
 
       {/* Nav items */}
       {STEPS.map(step => {
@@ -93,43 +108,53 @@ export default function TerminalNavRail() {
           <Link key={step.id} href={step.path}
             style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              width: '100%', minHeight: 60, padding: '6px 2px',
+              width: '100%', minHeight: 72, padding: '8px 4px',
               textDecoration: 'none', position: 'relative',
-              background: active ? 'rgba(245,158,11,0.15)' : 'transparent',
+              background: active ? '#0f172a' : 'transparent',
               borderLeft: active ? '3px solid #f59e0b' : '3px solid transparent',
+              borderRadius: active ? '12px 0 0 12px' : 0,
+              marginRight: active ? -1 : 0,
+              zIndex: active ? 1 : 0,
               transition: 'background 0.15s',
             }}
           >
-            <span style={{ fontSize: 22, lineHeight: 1, marginBottom: 2 }}>{step.icon}</span>
+            <step.icon
+              size={28}
+              strokeWidth={active ? 2.5 : 1.8}
+              color={active ? '#f59e0b' : '#475569'}
+              style={{ marginBottom: 5, flexShrink: 0 }}
+            />
             <span style={{
-              fontSize: 10, lineHeight: 1.2, textAlign: 'center',
-              color: active ? '#f59e0b' : '#94a3b8',
-              fontWeight: active ? 600 : 400,
+              fontSize: 13, lineHeight: 1.3, textAlign: 'center',
+              color: active ? '#f59e0b' : '#64748b',
+              fontWeight: active ? 700 : 400,
+              letterSpacing: 0.2,
             }}>{t(step.labelKey, step.labelFb)}</span>
 
             {isException && openExceptionCount > 0 && (
               <span style={{
-                position: 'absolute', top: 6, right: 6,
+                position: 'absolute', top: 8, right: 8,
                 background: '#ef4444', color: '#fff',
-                borderRadius: 99, fontSize: 9, fontWeight: 700,
-                minWidth: 16, height: 16, padding: '0 3px',
+                borderRadius: 99, fontSize: 10, fontWeight: 700,
+                minWidth: 18, height: 18, padding: '0 4px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>{openExceptionCount}</span>
             )}
+
           </Link>
         );
       })}
 
       <div style={{ flex: 1 }} />
 
-      {/* User avatar (click to toggle logout) */}
-      <div style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+      {/* User avatar */}
+      <div style={{ padding: '10px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
         {showLogout && (
           <button type="button" onClick={handleLogout}
             style={{
               background: '#ef4444', color: '#fff', border: 'none',
-              borderRadius: 6, fontSize: 9, padding: '4px 6px', cursor: 'pointer',
-              whiteSpace: 'nowrap',
+              borderRadius: 7, fontSize: 11, padding: '5px 8px', cursor: 'pointer',
+              whiteSpace: 'nowrap', fontWeight: 600,
             }}
           >{t('terminal.logout', '退出登录')}</button>
         )}
@@ -140,17 +165,20 @@ export default function TerminalNavRail() {
           onTouchEnd={handleAvatarPressEnd}
           onClick={() => setShowLogout(v => !v)}
           style={{
-            width: 36, height: 36, borderRadius: '50%',
+            width: 42, height: 42, borderRadius: '50%',
             background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, color: '#fff', fontWeight: 700, cursor: 'pointer',
+            fontSize: 16, color: '#fff', fontWeight: 700, cursor: 'pointer',
             userSelect: 'none',
           }}
         >
           {(user?.name || user?.username || '?').charAt(0).toUpperCase()}
         </div>
-        <div style={{ fontSize: 9, color: '#475569', textAlign: 'center', maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: 11, color: '#475569', textAlign: 'center', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {user?.name || user?.username}
+        </div>
+        <div style={{ fontSize: 10, color: '#334155', textAlign: 'center', lineHeight: 1.3, whiteSpace: 'pre-line', marginTop: 4 }}>
+          {t('terminal.title', '包装\n作业台')}
         </div>
       </div>
     </nav>

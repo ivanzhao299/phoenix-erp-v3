@@ -140,6 +140,7 @@ export default function DictPage() {
     let config_json: string|undefined;
     if (form.dict_type==="PKG_EGG_GRADE") config_json = JSON.stringify({ code:form.cfg?.code||"", nameZh:form.label_zh, weightRange:form.cfg?.weightRange||"—", saleable:form.cfg?.saleable!==false, productCode:form.cfg?.productCode||"", nameEn:form.label_en, nameLo:form.label_lo });
     else if (form.dict_type==="PKG_PACK_SPEC") config_json = JSON.stringify({ name:form.label_zh, capacity:Number(form.cfg?.capacity)||0, unit:form.cfg?.unit||"", requireBoxCode:form.cfg?.requireBoxCode!==false });
+    else if (form.dict_type==="PKG_SHIFT") config_json = JSON.stringify({ timeRange:form.cfg?.timeRange||"" });
 
     const payload: Record<string, unknown> = { name:form.label_zh, dict_label_zh:form.label_zh, dict_label_lo:form.label_lo, dict_label_en:form.label_en, dict_type:form.dict_type, sort_no:Number(form.sort_no)||0, status:"ACTIVE", ...(config_json!==undefined?{config_json}:{}) };
     setLoading(true);
@@ -387,6 +388,25 @@ export default function DictPage() {
             <label className={s.lbl}>🔢 {t("ui.排序值","排序值")}</label>
             <input type="number" value={form.sort_no} onChange={e=>f("sort_no",e.target.value)} className={s.inp}/>
           </div>
+
+          {form.dict_type==="PKG_SHIFT" && <>
+            <div style={{ height:1, background:"var(--border)", margin:"4px 0" }}/>
+            <div style={{ fontSize:12, fontWeight:700, color:"var(--text-secondary)" }}>扩展配置（班次时间段）</div>
+            <div className={s.field}>
+              <label style={{ display:"block", fontSize:12, marginBottom:4, color:"var(--text-primary)" }}>
+                ⏰ 时间范围
+              </label>
+              <input
+                value={form.cfg?.timeRange||""}
+                onChange={e=>fc("timeRange", e.target.value)}
+                placeholder="如 08:00-14:00"
+                className={s.inp}
+              />
+              <div style={{ fontSize:11, color:"var(--text-secondary)", marginTop:4 }}>
+                格式：HH:MM-HH:MM，如 08:00-14:00 或 22:00-06:00（跨夜）
+              </div>
+            </div>
+          </>}
 
           {form.dict_type==="PKG_EGG_GRADE" && <>
             <div style={{ height:1, background:"var(--border)", margin:"4px 0" }}/>

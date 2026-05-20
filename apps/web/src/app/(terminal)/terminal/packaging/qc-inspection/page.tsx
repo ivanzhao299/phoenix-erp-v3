@@ -9,6 +9,7 @@ import type { QCResult } from '@/types/packaging-terminal';
 import { T } from '@/styles/terminal-theme';
 
 
+
 export default function QCInspectionPage() {
   const router = useRouter();
   const { t } = useLanguage();
@@ -80,13 +81,13 @@ export default function QCInspectionPage() {
     <div style={{ height:'100%', display:'flex', flexDirection:'column', background:T.BG, overflow:'hidden' }}>
       <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'14px 24px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
         <span style={{ fontSize:24 }}>🔍</span>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ fontSize:18, fontWeight:700, color:T.TXT }}>{t('terminal.qc_inspection', '首检录入')}</div>
           <div style={{ fontSize:12, color:T.MUT }}>{t('ui.批次', '批次')} {batch.code} · {'houseName' in batch ? batch.houseName : '--'} · {'layDate' in batch ? batch.layDate : '--'}</div>
         </div>
       </div>
 
-      <div style={{ flex:1, overflow:'auto', padding:24, display:'flex', gap:16 }}>
+      <div style={{ flex:1, overflow:'hidden', minHeight:0, padding:24, display:'flex', gap:16 }}>
         {/* 左：检验数据 */}
         <div style={{ flex:1, display:'flex', flexDirection:'column', gap:16 }}>
           <div style={{ background:T.CARD, borderRadius:12, padding:20, border:`1px solid ${T.BOR}` }}>
@@ -116,7 +117,7 @@ export default function QCInspectionPage() {
           {/* 感官检查 */}
           <div style={{ background:T.CARD, borderRadius:12, padding:20, border:`1px solid ${T.BOR}` }}>
             <div style={{ fontSize:13, color:T.MUT, marginBottom:12, fontWeight:600 }}>{t('ui.感官检查', '感官检查')}</div>
-            <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+            <div style={{ display:'flex', gap:10 }}>
               {[
                 { key:'shellOk', label: t('ui.蛋壳清洁', '蛋壳清洁 ✓') },
                 { key:'odorOk', label: t('ui.气味正常', '气味正常 ✓') },

@@ -73,6 +73,7 @@ const MENU: MenuItem[] = [
     { id: "pkg-batch",      path: "/packaging/batch",        Icon: Layers,        label: "批次管理",   perm: "MENU_PKG_MGR" },
     { id: "pkg-report",     path: "/packaging/daily-report", Icon: BarChart2,     label: "包装日报",   perm: "MENU_PKG_MGR" },
     { id: "pkg-except",     path: "/packaging/exceptions",   Icon: FileWarning,   label: "异常处理",   perm: "MENU_PKG_MGR" },
+    { id: "pkg-printlogs", path: "/packaging/print-logs",   Icon: ScrollText,    label: "补打日志",   perm: "MENU_PKG_MGR" },
   ]},
   { id: "warehouse", Icon: Archive, label: "仓储库存", perm: null, children: [
     { id: "wh-dash",     path: "/warehouse",              Icon: LayoutDashboard, label: "仓库看板",   perm: "MENU_WMS_VIEW" },

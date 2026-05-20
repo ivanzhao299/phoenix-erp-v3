@@ -1410,6 +1410,45 @@ export class GenericCrudService implements OnModuleInit {
     } catch (eT2: any) {
       console.warn('⚠️  Phase T2 skipped:', eT2.message);
     }
+
+    // Phase T3: 弹性排班 — shift_type 列 + PKG_SHIFT 字典
+    // ─────────────────────────────────────────────────────────────────────────
+    try {
+      await this.entityManager.query(
+        `ALTER TABLE pkg_work_shifts ADD COLUMN IF NOT EXISTS shift_type VARCHAR(20)`,
+      ).catch(() => {});
+
+      const shifts = [
+        { code: 'MORNING',   zh: '早班',   en: 'Morning Shift',   sort: 1, timeRange: '08:00-14:00' },
+        { code: 'AFTERNOON', zh: '下午班', en: 'Afternoon Shift', sort: 2, timeRange: '14:00-22:00' },
+        { code: 'NIGHT',     zh: '夜班',   en: 'Night Shift',     sort: 3, timeRange: '22:00-06:00' },
+      ];
+      for (const s of shifts) {
+        await this.entityManager.query(
+          `INSERT INTO sys_dict (dict_code, dict_type, name, dict_label_zh, dict_label_en, sort_no, status, config_json)
+           SELECT $1, 'PKG_SHIFT', $2, $2, $3, $4, 'ACTIVE', $5::jsonb
+           WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE dict_code=$1 AND dict_type='PKG_SHIFT')`,
+          [s.code, s.zh, s.en, s.sort, JSON.stringify({ timeRange: s.timeRange })],
+        ).catch(() => {});
+      }
+      // 修复已存在的旧记录：名称里混入了时间范围（如"早班 08:00-12:00"），拆分存入 config_json
+      await this.entityManager.query(`
+        UPDATE sys_dict
+        SET
+          config_json = COALESCE(NULLIF(NULLIF(config_json,''),'null')::jsonb, '{}'::jsonb)
+                        || jsonb_build_object('timeRange', TRIM(SUBSTRING(dict_label_zh FROM '[0-9]{2}:[0-9]{2}-[0-9]{2}:[0-9]{2}'))),
+          dict_label_zh = TRIM(SPLIT_PART(dict_label_zh, ' ', 1)),
+          dict_label_en = TRIM(SPLIT_PART(dict_label_en, ' ', 1)),
+          dict_label_lo = CASE WHEN dict_label_lo IS NOT NULL THEN TRIM(SPLIT_PART(dict_label_lo, ' ', 1)) ELSE NULL END,
+          name          = TRIM(SPLIT_PART(name, ' ', 1)),
+          updated_at    = NOW()
+        WHERE dict_type = 'PKG_SHIFT'
+          AND dict_label_zh ~ '[0-9]{2}:[0-9]{2}'
+      `).catch(() => {});
+      console.log('✅ Phase T3: shift_type column + PKG_SHIFT dict seeded.');
+    } catch (eT3: any) {
+      console.warn('⚠️  Phase T3 skipped:', eT3.message);
+    }
   }
 
 

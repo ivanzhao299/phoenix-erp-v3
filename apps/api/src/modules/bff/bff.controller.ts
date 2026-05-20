@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -904,29 +904,31 @@ export class PackagingTerminalBffController {
   @Post('shifts/open')
   async openShift(@Body() body: any, @Req() req: any) {
     const today = this.today;
+    const lineId = body.lineId || body.line_id || 'line-01';
+    const shiftType = body.shiftType || body.shift_type || '';
     const shiftCode = `SH-${today.replace(/-/g, '')}-${Date.now().toString().slice(-4)}`;
     const operatorId = req.user?.id || req.user?.user_id;
     const operatorName = req.user?.name || req.user?.username || '';
 
-    // 检查今日是否已有开放班次
+    // 弹性排班：同一产线同一班次类型不能同时有两个 OPEN 班次
     const [existing] = await this.safe(
       this.em.query(
-        `SELECT id FROM pkg_work_shifts WHERE production_date = $1 AND status = 'OPEN' LIMIT 1`,
-        [today],
+        `SELECT id FROM pkg_work_shifts WHERE line_id = $1 AND shift_type = $2 AND production_date = $3 AND status = 'OPEN' LIMIT 1`,
+        [lineId, shiftType, today],
       ),
       [],
     );
-    if (existing) return { code: 400, msg: '今日已有开放班次，请先交班' };
+    if (existing) return { code: 400, msg: `该产线 ${shiftType} 班次已有开放记录，请先交班` };
 
     await this.em.query(
       `INSERT INTO pkg_work_shifts
-       (shift_code, production_date, site_id, line_id, operator_id, operator_name,
+       (shift_code, shift_type, production_date, site_id, line_id, operator_id, operator_name,
         supervisor_name, status, hygiene_check, device_check, opened_at, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,'OPEN',$8,$9,NOW(),NOW())`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'OPEN',$9,$10,NOW(),NOW())`,
       [
-        shiftCode, today,
+        shiftCode, shiftType, today,
         body.siteId || 'site-01',
-        body.lineId || body.line_id || 'line-01',
+        lineId,
         operatorId,
         operatorName,
         body.supervisorName || body.supervisor_name || '',
@@ -943,6 +945,12 @@ export class PackagingTerminalBffController {
 
   @Post('shifts/:id/close')
   async closeShift(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    const [existing] = await this.safe(
+      this.em.query(`SELECT id, status FROM pkg_work_shifts WHERE id=$1`, [id]),
+      [],
+    );
+    if (!existing) return { code: 404, msg: '班次不存在' };
+    if (existing.status === 'CLOSED') return { code: 200, msg: '该班次已交班' };
     await this.em.query(
       `UPDATE pkg_work_shifts SET status='CLOSED', closed_at=NOW(), variance_reason=$1, updated_at=NOW()
        WHERE id=$2`,
@@ -956,7 +964,18 @@ export class PackagingTerminalBffController {
   async getTodaySourceBatches() {
     const rows = await this.safe(
       this.em.query(
-        `SELECT * FROM pkg_source_batches WHERE production_date = $1 ORDER BY created_at DESC`,
+        `WITH graded_sum AS (
+           SELECT COALESCE(SUM(total_output), 0)::int AS total_graded
+           FROM pkg_grading_records
+           WHERE production_date = $1
+         )
+         SELECT psb.*,
+                COALESCE(bh.house_name, psb.house_code) AS house_name,
+                (SELECT total_graded FROM graded_sum) AS total_graded_today
+         FROM pkg_source_batches psb
+         LEFT JOIN brd_houses bh ON bh.house_code = psb.house_code
+         WHERE psb.production_date = $1
+         ORDER BY psb.created_at DESC`,
         [this.today],
       ),
       [],
@@ -1031,14 +1050,15 @@ export class PackagingTerminalBffController {
       await this.em.query(
         `UPDATE pkg_source_batches
          SET batch_status='RECEIVED', received_qty=$1, received_weight=$2,
-             container_count=$3, variance_reason=$4, received_by=$5, updated_at=NOW()
-         WHERE id=$6`,
+             container_count=$3, variance_reason=$4, received_by=$5, shift_id=$6, updated_at=NOW()
+         WHERE id=$7`,
         [
           body.receivedQty || body.received_qty || 0,
           body.receivedWeight || body.received_weight || 0,
           body.containerCount || body.container_count || 0,
           body.varianceReason || body.variance_reason || '',
           operatorId,
+          body.shiftId || null,
           pendingRow.id,
         ],
       );
@@ -1046,9 +1066,10 @@ export class PackagingTerminalBffController {
     await this.em.query(
       `INSERT INTO pkg_source_batches
        (batch_code, source_inbound_no, production_date, house_code, flock_code,
-        lay_date, expected_qty, received_qty, expected_weight, received_weight,
-        container_count, variance_reason, received_by, batch_status, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'RECEIVED',NOW(),NOW())`,
+        lay_date, total_qty, dirty_qty, cracked_qty,
+        expected_qty, received_qty, expected_weight, received_weight,
+        container_count, variance_reason, received_by, shift_id, batch_status, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'RECEIVED',NOW(),NOW())`,
       [
         batchCode,
         body.sourceInboundNo || batchCode,
@@ -1056,13 +1077,17 @@ export class PackagingTerminalBffController {
         body.houseCode || body.house_code || '',
         body.flockCode || body.flock_code || '',
         body.layDate || body.lay_date || today,
-        body.expectedQty || body.expected_qty || 0,
+        body.totalQty  || body.total_qty  || 0,
+        body.dirtyQty  || body.dirty_qty  || 0,
+        body.crackedQty || body.cracked_qty || 0,
+        body.totalQty  || body.expected_qty || 0,
         body.receivedQty || body.received_qty || 0,
         body.expectedWeight || body.expected_weight || 0,
         body.receivedWeight || body.received_weight || 0,
         body.containerCount || body.container_count || 0,
         body.varianceReason || body.variance_reason || '',
         operatorId,
+        body.shiftId || null,
       ],
     ).catch((e: any) => { throw new Error(e.message); });
     } // end else (INSERT branch)
@@ -1079,6 +1104,70 @@ export class PackagingTerminalBffController {
     ), null);
 
     return { code: 200, msg: '接收成功', data: batch };
+  }
+
+  // ── 来源批次数量更正 ─────────────────────────────────────────────────────────
+  @Patch('source-batches/correct')
+  async correctBatch(@Body() body: any, @Req() req: any) {
+    const operatorId = req.user?.id || req.user?.user_id;
+    const date = body.productionDate || this.today;
+    const houseCode = body.houseCode || body.house_code;
+    if (!houseCode) throw new BadRequestException('houseCode 必填');
+
+    const newTotal   = Math.max(0, Number(body.totalQty   ?? 0));
+    const newDirty   = Math.max(0, Number(body.dirtyQty   ?? 0));
+    const newCracked = Math.max(0, Number(body.crackedQty ?? 0));
+    const newReceived = Math.max(0, newTotal - newDirty - newCracked);
+    const reason = String(body.reason || '');
+
+    // 取当日该鸡舍所有 RECEIVED 记录，按时间升序
+    const rows: any[] = await this.em.query(
+      `SELECT id, batch_code, total_qty, dirty_qty, cracked_qty, received_qty
+       FROM pkg_source_batches
+       WHERE house_code = $1 AND production_date = $2
+         AND batch_status NOT IN ('WAREHOUSED','SCRAPPED','CANCELLED')
+       ORDER BY created_at ASC`,
+      [houseCode, date],
+    );
+    if (rows.length === 0) throw new BadRequestException('未找到该鸡舍当日记录');
+
+    const beforeTotal    = rows.reduce((s, r) => s + Number(r.total_qty    || 0), 0);
+    const beforeDirty    = rows.reduce((s, r) => s + Number(r.dirty_qty    || 0), 0);
+    const beforeCracked  = rows.reduce((s, r) => s + Number(r.cracked_qty  || 0), 0);
+    const beforeReceived = rows.reduce((s, r) => s + Number(r.received_qty || 0), 0);
+
+    // 主记录更新为更正后数值
+    await this.em.query(
+      `UPDATE pkg_source_batches
+       SET total_qty=$1, dirty_qty=$2, cracked_qty=$3, received_qty=$4, updated_at=NOW()
+       WHERE id=$5`,
+      [newTotal, newDirty, newCracked, newReceived, rows[0].id],
+    );
+    // 同鸡舍额外记录清零（保留行以维持完整性）
+    if (rows.length > 1) {
+      await this.em.query(
+        `UPDATE pkg_source_batches
+         SET total_qty=0, dirty_qty=0, cracked_qty=0, received_qty=0, updated_at=NOW()
+         WHERE id = ANY($1::int[])`,
+        [rows.slice(1).map((r: any) => r.id)],
+      );
+    }
+
+    // 审计日志
+    await this.safe(this.em.query(
+      `INSERT INTO pkg_audit_logs
+       (entity_type, entity_id, action, before_data, after_data, reason, operator_id, created_at)
+       VALUES ('SOURCE_BATCH', $1, 'CORRECT', $2, $3, $4, $5, NOW())`,
+      [
+        rows[0].batch_code,
+        JSON.stringify({ total_qty: beforeTotal, dirty_qty: beforeDirty, cracked_qty: beforeCracked, received_qty: beforeReceived }),
+        JSON.stringify({ total_qty: newTotal,    dirty_qty: newDirty,    cracked_qty: newCracked,    received_qty: newReceived }),
+        reason,
+        operatorId,
+      ],
+    ), null);
+
+    return { code: 200, msg: '更正成功' };
   }
 
   // ── 首检 ───────────────────────────────────────────────────────────────────
@@ -1188,6 +1277,37 @@ export class PackagingTerminalBffController {
     return { code: 200, msg: '打印记录已保存' };
   }
 
+  // ── 打印日志查询 ─────────────────────────────────────────────────────────────
+  @Get('labels/print-logs')
+  async getPrintLogs(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Query('type') type: string,
+  ) {
+    const start = startDate || this.today;
+    const end   = endDate   || this.today;
+    const params: unknown[] = [start, end];
+    let typeClause = '';
+    if (type && type !== 'ALL') {
+      params.push(type);
+      typeClause = `AND print_type = $${params.length}`;
+    }
+    const rows = await this.safe(
+      this.em.query(
+        `SELECT id, box_code, packaging_batch_id, print_type,
+                reprint_reason, printed_by, printed_at
+         FROM pkg_label_print_logs
+         WHERE DATE(printed_at) BETWEEN $1 AND $2
+         ${typeClause}
+         ORDER BY printed_at DESC
+         LIMIT 1000`,
+        params,
+      ),
+      [],
+    );
+    return { data: rows };
+  }
+
   // ── 交班日报汇总 ────────────────────────────────────────────────────────────
   @Get('reports/shift-summary')
   async getShiftSummary(@Query('date') date: string, @Query('shiftId') shiftId: string) {
@@ -1221,6 +1341,19 @@ export class PackagingTerminalBffController {
       [{ open_count: 0, closed_count: 0 }],
     );
 
+    // 本班包装产出（按 shift_id 精确查询）
+    const shiftIdNum = shiftId ? Number(shiftId) : (shiftRow?.id ? Number(shiftRow.id) : null);
+    const [packRow] = shiftIdNum
+      ? await this.safe(
+          this.em.query(
+            `SELECT COALESCE(SUM(total_boxes),0)::int AS boxes, COALESCE(SUM(total_eggs),0)::int AS eggs
+             FROM pkg_packing_records WHERE shift_id = $1`,
+            [shiftIdNum],
+          ),
+          [{ boxes: 0, eggs: 0 }],
+        )
+      : [[{ boxes: 0, eggs: 0 }]];
+
     return {
       code: 200,
       data: {
@@ -1229,6 +1362,8 @@ export class PackagingTerminalBffController {
         receivedWeight: Number(recvRow[0]?.weight) || 0,
         openExceptionCount: Number(exceptRow[0]?.open_count) || 0,
         closedExceptionCount: Number(exceptRow[0]?.closed_count) || 0,
+        shiftPackedBoxes: Number(packRow[0]?.boxes) || 0,
+        shiftPackedEggs:  Number(packRow[0]?.eggs)  || 0,
       },
     };
   }
@@ -1237,9 +1372,42 @@ export class PackagingTerminalBffController {
   async submitGrading(@Body() body: Record<string, any>) {
     const today = new Date().toISOString().slice(0, 10);
     const productionDate = body.productionDate || today;
-    const code = `GRD-${productionDate.replace(/-/g, '')}-${Date.now().toString().slice(-6)}`;
     const outputs = body.outputs as Record<string, number> || {};
-    const totalOutput = Object.values(outputs).reduce((a: number, b: number) => a + (b as number), 0);
+
+    // 校验每项产出非负
+    for (const [k, v] of Object.entries(outputs)) {
+      if (typeof v !== 'number' || v < 0 || !Number.isFinite(v)) {
+        throw new BadRequestException(`等级 ${k} 的数量无效`);
+      }
+    }
+
+    const totalOutput = Object.values(outputs).reduce((a: number, b: number) => a + b, 0);
+
+    // 服务端校验：总产出不得超过当日净可分级量（已收 − 已分级）
+    const [recvRow] = await this.em.query<{ total_received: number }[]>(
+      `SELECT COALESCE(SUM(received_qty), 0)::int AS total_received
+       FROM pkg_source_batches WHERE production_date = $1`,
+      [productionDate],
+    );
+    const [gradedRow] = await this.em.query<{ total_graded: number }[]>(
+      `SELECT COALESCE(SUM(total_output), 0)::int AS total_graded
+       FROM pkg_grading_records WHERE production_date = $1`,
+      [productionDate],
+    );
+    const totalReceived = Number(recvRow?.total_received) || 0;
+    const totalGraded   = Number(gradedRow?.total_graded)  || 0;
+    const netAvailable  = totalReceived - totalGraded;
+
+    if (totalReceived === 0) {
+      throw new BadRequestException('今日尚未录入集蛋数据，无法提交分级');
+    }
+    if (totalOutput > netAvailable) {
+      throw new BadRequestException(
+        `产出 ${totalOutput} 超过今日可分级余量 ${netAvailable}（已收 ${totalReceived} − 已分级 ${totalGraded}）`,
+      );
+    }
+
+    const code = `GRD-${productionDate.replace(/-/g, '')}-${Date.now().toString().slice(-6)}`;
     await this.safe(
       this.em.query(
         `INSERT INTO pkg_grading_records
@@ -1254,6 +1422,84 @@ export class PackagingTerminalBffController {
     return { code: 200, data: { code } };
   }
 
+  /**
+   * GET /grading/active?date=YYYY-MM-DD
+   * 按等级汇总当日所有分级批次的产出，减去当日所有包装记录已消耗量，
+   * 返回各等级实时剩余（key = dict_code，多终端并发安全）。
+   */
+  @Get('grading/active')
+  async getActiveGrading(@Query('date') dateParam?: string) {
+    const date = dateParam || new Date().toISOString().slice(0, 10);
+
+    // ── key 标准化映射：config_json.code / terminalCode → dict_code ────────────
+    const dictRows = await this.safe(
+      this.em.query<any[]>(
+        `SELECT dict_code, config_json FROM sys_dict WHERE dict_type IN ('PKG_EGG_GRADE','PKG_EGG_DEFECT')`,
+      ),
+      [] as any[],
+    );
+    const keyMap: Record<string, string> = {};
+    for (const d of (dictRows || [])) {
+      const dc = d.dict_code as string;
+      keyMap[dc] = dc;
+      try {
+        const cfg = typeof d.config_json === 'string' ? JSON.parse(d.config_json) : (d.config_json ?? {});
+        if (cfg.code)         keyMap[String(cfg.code)]         = dc;
+        if (cfg.terminalCode) keyMap[String(cfg.terminalCode)] = dc;
+      } catch { /* ignore */ }
+    }
+    const normalize = (k: string) => keyMap[k] ?? k;
+
+    // ── 合并当日所有分级批次产出（按等级累加） ──────────────────────────────────
+    const gradingRows = await this.safe(
+      this.em.query<any[]>(
+        `SELECT code, outputs_json FROM pkg_grading_records WHERE production_date = $1 ORDER BY created_at ASC`,
+        [date],
+      ),
+      [] as any[],
+    );
+
+    const outputs: Record<string, number> = {};
+    const gradingCodes: string[] = [];
+    for (const row of (gradingRows || [])) {
+      gradingCodes.push(row.code as string);
+      const raw = (typeof row.outputs_json === 'string'
+        ? JSON.parse(row.outputs_json) : row.outputs_json) as Record<string, number>;
+      for (const [k, v] of Object.entries(raw)) {
+        const nk = normalize(k);
+        outputs[nk] = (outputs[nk] || 0) + Number(v);
+      }
+    }
+
+    // ── 按 production_date 汇总已包装枚数（不限 grading_code，覆盖所有终端） ──
+    const packed: Record<string, number> = {};
+    const packingRows = await this.safe(
+      this.em.query<any[]>(
+        `SELECT batches_json FROM pkg_packing_records WHERE production_date = $1`,
+        [date],
+      ),
+      [] as any[],
+    );
+    for (const row of (packingRows || [])) {
+      const batches = (typeof row.batches_json === 'string'
+        ? JSON.parse(row.batches_json) : row.batches_json) as Array<{ grade: string; eggs: number }>;
+      for (const b of batches) {
+        const nk = normalize(b.grade);
+        packed[nk] = (packed[nk] || 0) + Number(b.eggs || 0);
+      }
+    }
+
+    const remaining: Record<string, number> = {};
+    for (const [grade, total] of Object.entries(outputs)) {
+      remaining[grade] = Math.max(0, total - (packed[grade] || 0));
+    }
+
+    return {
+      code: 200,
+      data: { gradingCodes, outputs, packed, remaining },
+    };
+  }
+
   @Post('packing/submit')
   async submitPacking(@Body() body: Record<string, any>) {
     const today = new Date().toISOString().slice(0, 10);
@@ -1262,18 +1508,76 @@ export class PackagingTerminalBffController {
     const batches = (body.batches as any[]) || [];
     const totalBoxes = batches.reduce((a: number, b: any) => a + (b.boxes || 0), 0);
     const totalEggs  = batches.reduce((a: number, b: any) => a + (b.eggs  || 0), 0);
+    const gradingCodes: string[] = Array.isArray(body.gradingCodes)
+      ? body.gradingCodes.filter((c: unknown) => typeof c === 'string')
+      : (body.gradingCode ? [body.gradingCode] : []);
     await this.safe(
       this.em.query(
         `INSERT INTO pkg_packing_records
-         (code, grading_code, production_date, batches_json, total_boxes, total_eggs, created_at)
-         VALUES ($1,$2,$3,$4::jsonb,$5,$6,NOW())
+         (code, grading_code, grading_codes_json, production_date, batches_json, total_boxes, total_eggs, shift_id, created_at)
+         VALUES ($1,$2,$3::jsonb,$4,$5::jsonb,$6,$7,$8,NOW())
          ON CONFLICT (code) DO NOTHING`,
-        [code, body.gradingCode || null, productionDate,
-         JSON.stringify(batches), totalBoxes, totalEggs],
+        [code, gradingCodes[0] ?? null, JSON.stringify(gradingCodes),
+         productionDate, JSON.stringify(batches), totalBoxes, totalEggs,
+         body.shiftId || null],
       ),
       null,
     );
     return { code: 200, data: { code, totalBoxes, totalEggs } };
+  }
+
+  @Get('labels/trace')
+  async getPackingTrace(@Query('packingCode') packingCode: string) {
+    if (!packingCode) throw new BadRequestException('packingCode is required');
+
+    const [pr] = await this.em.query<any[]>(
+      `SELECT pr.code, pr.production_date, pr.batches_json, pr.shift_id,
+              ws.shift_code, ws.operator_name, ws.supervisor_name
+       FROM pkg_packing_records pr
+       LEFT JOIN pkg_work_shifts ws ON ws.id = pr.shift_id
+       WHERE pr.code = $1`,
+      [packingCode],
+    );
+    if (!pr) return { code: 200, data: null };
+
+    // 来源鸡舍（按生产日期汇总）
+    const sources = await this.em.query<any[]>(
+      `SELECT sb.house_code, bh.house_name, SUM(sb.total_qty)::int AS total_qty
+       FROM pkg_source_batches sb
+       LEFT JOIN brd_houses bh ON bh.house_code = sb.house_code
+       WHERE sb.production_date = $1 AND sb.batch_status != 'PENDING_RECEIVE'
+       GROUP BY sb.house_code, bh.house_name
+       ORDER BY bh.house_name`,
+      [pr.production_date],
+    );
+
+    // 班次标签
+    const shiftDicts = await this.em.query<any[]>(
+      `SELECT dict_code, dict_label_zh FROM sys_dict WHERE dict_type = 'PKG_SHIFT'`,
+    );
+    const shiftLabelMap: Record<string, string> = Object.fromEntries(
+      shiftDicts.map((d: any) => [d.dict_code, d.dict_label_zh]),
+    );
+
+    return {
+      code: 200,
+      data: {
+        packingCode,
+        productionDate: pr.production_date,
+        shift: pr.shift_id ? {
+          id: pr.shift_id,
+          shiftCode: pr.shift_code,
+          shiftLabel: shiftLabelMap[pr.shift_code] || pr.shift_code || '',
+          operatorName: pr.operator_name || '',
+          supervisorName: pr.supervisor_name || '',
+        } : null,
+        sources: sources.map((s: any) => ({
+          houseCode: s.house_code,
+          houseName: s.house_name || s.house_code,
+          totalQty: s.total_qty,
+        })),
+      },
+    };
   }
 
   @Post('warehouse/confirm')
@@ -1319,7 +1623,7 @@ export class PackagingTerminalBffController {
     const placeholders = requested.map((_, i) => `$${i + 1}`).join(',');
     const rows = await this.safe(
       this.em.query(
-        `SELECT dict_type, dict_code, dict_label_zh, dict_label_en, sort_no, config_json, status
+        `SELECT dict_type, dict_code, dict_label_zh, dict_label_en, dict_label_lo, sort_no, config_json, status
          FROM sys_dict
          WHERE dict_type IN (${placeholders}) AND (status IS NULL OR status = 'ACTIVE')
          ORDER BY dict_type, sort_no NULLS LAST, dict_code`,
@@ -1334,11 +1638,12 @@ export class PackagingTerminalBffController {
       let cfg: any = {};
       try { cfg = row.config_json ? (typeof row.config_json === 'string' ? JSON.parse(row.config_json) : row.config_json) : {}; } catch {}
       result[row.dict_type].push({
-        code:    row.dict_code,
+        ...cfg,
+        code:    row.dict_code,   // dict_code 永远不被 config_json 覆盖
         label:   row.dict_label_zh,
         labelEn: row.dict_label_en,
+        labelLo: row.dict_label_lo,
         sortNo:  row.sort_no,
-        ...cfg,
       });
     }
     return { code: 200, data: result };
