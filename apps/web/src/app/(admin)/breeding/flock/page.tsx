@@ -53,7 +53,7 @@ export default function FlockPage() {
   const [houses, setHouses]             = useState<HouseRow[]>([]);
   const [breedOptions, setBreedOptions] = useState<string[]>([]);
 
-  const { fetchRecords, createRecord, updateRecord, deleteRecord } = useCrud('brd_flocks');
+  const { fetchRecords, createRecord, updateRecord } = useCrud('brd_flocks');
   const { fetchRecords: fetchFarms }  = useCrud('brd_farms');
   const { fetchRecords: fetchHouses } = useCrud('brd_houses');
   const { fetchRecords: fetchDict }   = useCrud('sys_dict');
@@ -115,7 +115,23 @@ export default function FlockPage() {
       return;
     }
     const ok = await showConfirm({ icon:'🗑️', type:'danger', title:t('common.confirm','确认')+t('common.delete','删除'), message:`${t('ui.确认删除鸡群档案','确认删除鸡群档案')}: ${row.batchNo}？`, confirmLabel:t('ui.确认删除','确认删除') });
-    if (ok) { const st = await deleteRecord(row.id as string | number,'flock_no'); if (st) load(); }
+    if (ok) {
+      const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : null;
+      const apiBase = (process.env.NEXT_PUBLIC_API_BASE || '') + '/api/crud';
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 10000);
+      const res = await fetch(`${apiBase}/brd_flocks/flock_no/${row.id}`, {
+        method: 'DELETE',
+        signal: ctrl.signal,
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      }).finally(() => clearTimeout(tid));
+      if (res.ok) {
+        load();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        await showAlert({ icon:'❌', type:'danger', title:t('crud.err.deleteFailTitle','删除失败'), message:err.msg||err.message||t('crud.err.deleteFail','删除失败，请稍后重试'), confirmLabel:t('common.close','关闭') });
+      }
+    }
   };
 
   const handleSubmit = async () => {
@@ -162,7 +178,7 @@ export default function FlockPage() {
     { key:'actions',    title:t('common.operation','操作'),    width:'100px', render: (_: unknown, row: FlockCard) => can(['ROLE_FARM_MGR','ROLE_ADMIN']) ? (
       <div className={s.tableActions}>
         <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>
-        <button type="button" className={`${s.btnIcon} ${s.btnDanger}`} onClick={() => handleDelete(row)}><Trash2 size={12} /></button>
+        <button type="button" className={s.btnIconDanger} onClick={() => handleDelete(row)}><Trash2 size={12} /></button>
       </div>
     ) : null },
   ];

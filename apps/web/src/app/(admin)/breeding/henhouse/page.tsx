@@ -164,7 +164,7 @@ type="button"             className={mappedHouses.has(row.code) ? `${s.btn} ${s.
         )}
         {can(['ROLE_FARM_MGR','ROLE_ADMIN']) && (<>
           <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>
-          <button type="button" className={`${s.btnIcon} ${s.btnDanger}`} onClick={() => handleDelete(row)}><Trash2 size={12} /></button>
+          <button type="button" className={s.btnIconDanger} onClick={() => handleDelete(row)}><Trash2 size={12} /></button>
         </>)}
       </div>
     )},

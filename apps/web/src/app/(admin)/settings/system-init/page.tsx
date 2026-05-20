@@ -33,7 +33,7 @@ type LogEntry = { time: string; msg: string; type: "info"|"success"|"warning"|"e
 
 export default function SystemInitPage() {
   const { t } = useLanguage();
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3100";
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [confirm, setConfirm] = useState<null|"init"|"blood">(null);
@@ -41,11 +41,16 @@ export default function SystemInitPage() {
   const addLog = (msg: string, type: LogEntry["type"] = "info") =>
     setLogs(p => [...p, { time: new Date().toLocaleTimeString(), msg, type }]);
 
+  const getAuthHeaders = (): Record<string, string> => {
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : null;
+    return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  };
+
   const executePost = async (table: string, dataList: Record<string, unknown>[], name: string) => {
     addLog(`⏳ ${t('ui.开始处理清除旧数据并写入', '开始处理')} [${table}]，${t('ui.清除旧数据并写入', '清除旧数据并写入')}…`, "info");
     let deleted = 0, created = 0;
     try {
-      const getRes = await fetch(`${API_BASE}/api/crud/${table}`);
+      const getRes = await fetch(`${API_BASE}/api/crud/${table}`, { headers: getAuthHeaders() });
       if (getRes.ok) {
         const { data: cur } = await getRes.json();
         if (cur?.length) {
@@ -53,13 +58,13 @@ export default function SystemInitPage() {
           for (const row of cur) {
             const pk = table === "sys_roles" ? row.role_code : row.id;
             const col = table === "sys_roles" ? "role_code" : "id";
-            if (pk) { await fetch(`${API_BASE}/api/crud/${table}/${col}/${pk}`, { method: "DELETE" }); deleted++; }
+            if (pk) { await fetch(`${API_BASE}/api/crud/${table}/${col}/${pk}`, { method: "DELETE", headers: getAuthHeaders() }); deleted++; }
           }
         }
       }
     } catch { /* ignore */ }
     for (const item of dataList) {
-      const r = await fetch(`${API_BASE}/api/crud/${table}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) });
+      const r = await fetch(`${API_BASE}/api/crud/${table}`, { method: "POST", headers: getAuthHeaders(), body: JSON.stringify(item) });
       if (r.ok) created++; else { const e = await r.json(); addLog(`❌ [${table}] ${t('ui.写入失败', '写入失败')}: ${e.msg || r.statusText}`, "error"); }
     }
     addLog(`✅ [${table}] ${name} ${t('ui.完成', '完成')}（${t('ui.清除', '清除')}: ${deleted}，${t('ui.新建', '新建')}: ${created}）`, "success");
