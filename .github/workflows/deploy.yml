@@ -224,6 +224,10 @@ jobs:
     timeout-minutes: 15
     environment: production
 
+    permissions:
+      contents: read
+      packages: read
+
     steps:
       - uses: actions/checkout@v4
 
@@ -242,8 +246,8 @@ jobs:
             set -e
             cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
 
-            # 拉取最新镜像（GHCR_TOKEN = read:packages PAT）
-            echo "${{ secrets.GHCR_TOKEN }}" | \
+            # 拉取最新镜像（用 GITHUB_TOKEN，自带 packages:read）
+            echo "${{ secrets.GITHUB_TOKEN }}" | \
               docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
 
             docker compose pull api web
