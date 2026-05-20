@@ -31,7 +31,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:18-alpine
+        image: postgres:16-alpine
         env:
           POSTGRES_USER: phoenix_v3
           POSTGRES_PASSWORD: phoenix_v3_pass
@@ -238,9 +238,9 @@ jobs:
             set -e
             cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
 
-            # 拉取最新镜像
-            echo "${{ secrets.GITHUB_TOKEN }}" | \
-              docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # 拉取最新镜像（GHCR_TOKEN = read:packages PAT）
+            echo "${{ secrets.GHCR_TOKEN }}" | \
+              docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
 
             docker compose pull api web
 
@@ -254,14 +254,11 @@ jobs:
             echo "✅ Deploy complete — $(date '+%Y-%m-%d %H:%M:%S')"
 
       - name: Smoke test production
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          WEB_PORT: ${{ secrets.WEB_PORT || 3000 }}
         run: |
           sleep 5
-          curl -fsS --max-time 15 "http://${DEPLOY_HOST}:${WEB_PORT}/" -o /dev/null \
+          curl -fsS --max-time 15 "https://erp.eggslao.com/" -o /dev/null \
             && echo "✅ Web smoke test passed" \
-            || echo "⚠️  Web smoke test failed (may be behind Nginx/Caddy)"
+            || echo "⚠️  Web smoke test failed"
 
       - name: Send deploy notification
         if: always()
