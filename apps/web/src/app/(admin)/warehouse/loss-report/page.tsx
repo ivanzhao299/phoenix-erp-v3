@@ -61,8 +61,8 @@ export default function LossReportPage() {
 
   // KPI 数据：独立拉取全量（DataTable 分页显示，KPI 需全量）
   useEffect(() => {
-    crudApi.list(TABLE, { limit: 500 } as any)
-      .then(res => setAllRows((res as any).data ?? []))
+    crudApi.list<Row>(TABLE, { limit: 500 })
+      .then(res => setAllRows(res.data ?? []))
       .catch(() => {});
   }, [refreshKey]);
 
@@ -165,10 +165,10 @@ export default function LossReportPage() {
       <DataTable
         table={TABLE}
         columns={COLUMNS}
-        params={{ stocktake_no__like: "LR-%" } as any}
+        params={{ stocktake_no__like: "LR-%" }}
         onNew={openNew}
-        onEdit={openEdit as any}
-        onDelete={handleDelete as any}
+        onEdit={openEdit}
+        onDelete={handleDelete}
         showActions={false}
         refreshKey={refreshKey}
         emptyText={t("ui.暂无报损记录点击新建报损单开始记录", "暂无报损记录，点击「新建报损单」开始记录")}

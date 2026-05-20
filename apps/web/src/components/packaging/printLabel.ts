@@ -59,33 +59,46 @@ export function printLabel({ singleLabelHtml, css, copies, title }: PrintLabelAr
 }
 
 /**
- * 构造一段 Code128 标签的标准 CSS（与 V2 PackagingTerminal 对齐，40×30mm 默认值）
- * @param widthMm  毫米
- * @param heightMm 毫米
+ * 构造标签 CSS — 按实际尺寸自动缩放各区块高度/字号
+ * 经过 40×30mm 精确标定，其他尺寸等比缩放。
  */
 export function buildLabelCss(widthMm: number, heightMm: number): string {
+  const h = heightMm;
+  // 各区块高度（mm）
+  const hdrH  = (6.0).toFixed(1);                          // 品牌栏放高
+  const barH  = Math.min(11.0, h * 0.33).toFixed(1);       // 30mm→9.9mm，条码适度缩小
+  // 字号（pt）
+  const bfs   = Math.min(9.5, h * 0.29).toFixed(1);        // 信息区字号
+  const lfs   = Math.max(7.0, h * 0.23).toFixed(1);        // 标签字号
+  const btfs  = Math.min(9.5, h * 0.28).toFixed(1);        // 箱码编号字号（独立放大）
+
   return (
     `@page{size:${widthMm}mm ${heightMm}mm;margin:0}` +
-    `*{box-sizing:border-box}` +
-    `body{margin:0;padding:0;font-family:"Noto Sans SC","Noto Sans Lao",Arial,sans-serif;font-size:5pt;color:#000}` +
-    `.label{width:${widthMm}mm;height:${heightMm}mm;overflow:hidden;display:flex;flex-direction:column;break-after:page;page-break-after:always}` +
+    `*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}` +
+    `body{margin:0;padding:0;font-family:"Noto Sans SC","Noto Sans Lao",Arial,sans-serif;font-size:${bfs}pt;color:#000}` +
+    `.label{width:${widthMm}mm;height:${heightMm}mm;overflow:hidden;display:flex;flex-direction:column;` +
+      `break-after:page;page-break-after:always;position:relative}` +
     `.label:last-child{break-after:auto;page-break-after:auto}` +
-    `.hdr{height:4.5mm;display:flex;align-items:center;justify-content:space-between;padding:0 2mm;border-bottom:1px solid #000;flex-shrink:0;background:#fff}` +
-    `.brand{display:flex;align-items:center;gap:1mm;font-size:5.5pt;font-weight:800;white-space:nowrap;overflow:hidden}` +
-    `.badge{font-size:4.5pt;color:#fff;background:#000;padding:.3mm 1.2mm;border-radius:.8mm;font-weight:700;flex-shrink:0;white-space:nowrap}` +
-    `.bar{height:7.5mm;padding:1mm 0 0;flex-shrink:0;overflow:hidden;display:flex;justify-content:center}` +
-    `.bar svg{height:100%;display:block}` +
-    `.bar-text{text-align:center;font-family:Arial,sans-serif;font-size:5pt;font-weight:700;letter-spacing:0;border-bottom:1px solid #000;padding-bottom:.5mm;flex-shrink:0}` +
-    `.info{flex:1;padding:1.5mm 2mm;display:flex;flex-direction:column;gap:1mm;font-size:5.5pt;overflow:hidden}` +
-    `.row{display:flex;gap:1mm;align-items:baseline;white-space:nowrap;overflow:hidden}` +
-    `.row2{display:flex;gap:1.5mm;align-items:baseline;white-space:nowrap}` +
-    `.l{color:#000;font-weight:700;flex-shrink:0}` +
-    `.gap{margin-left:1.5mm}` +
-    `.v{font-weight:800}` +
-    `.ell{overflow:hidden;text-overflow:ellipsis}` +
-    `.qr{position:absolute;right:1.5mm;bottom:1.5mm;width:8mm;height:8mm;background:#fff;padding:0;line-height:0}` +
-    `.qr svg{width:100%;height:100%;display:block}` +
-    `.label{position:relative}` +
+    // 顶部品牌栏
+    `.hdr{height:${hdrH}mm;display:flex;align-items:center;justify-content:space-between;` +
+      `padding:0 1.5mm;flex-shrink:0}` +
+    `.brand{font-size:${bfs}pt;font-weight:800;display:flex;align-items:center;gap:0.8mm;overflow:hidden;min-width:0}` +
+    `.logo{height:${(parseFloat(hdrH) - 1.2).toFixed(1)}mm;width:auto;object-fit:contain;flex-shrink:0}` +
+    `.badge{font-size:${lfs}pt;color:#fff;background:#000;` +
+      `padding:0.3mm 1.2mm;border-radius:0.5mm;font-weight:700;flex-shrink:0;white-space:nowrap}` +
+    // 条形码区
+    `.bar{height:${barH}mm;flex-shrink:0;overflow:hidden}` +
+    `.bar svg{height:100%;width:100%;display:block}` +
+    // 箱码编号（放大）
+    `.bar-text{text-align:center;font-family:"Courier New",Courier,monospace;` +
+      `font-size:${btfs}pt;font-weight:700;letter-spacing:0.5pt;` +
+      `padding:0.3mm 0;flex-shrink:0}` +
+    // 信息区 — 两列网格（字号放大）
+    `.info{flex:1;padding:0.5mm 1.5mm;display:grid;grid-template-columns:1fr 1fr;` +
+      `align-content:space-evenly;overflow:hidden;gap:0 1mm}` +
+    `.row{display:flex;align-items:baseline;white-space:nowrap;overflow:hidden;line-height:1.4}` +
+    `.l{font-size:${lfs}pt;color:#444;font-weight:600;flex-shrink:0;min-width:5mm}` +
+    `.v{font-size:${bfs}pt;font-weight:800;overflow:hidden;text-overflow:ellipsis}` +
     `@media print{html,body{width:${widthMm}mm!important;height:${heightMm}mm!important}}`
   );
 }

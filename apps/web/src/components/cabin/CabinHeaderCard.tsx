@@ -53,7 +53,7 @@ export default function CabinHeaderCard({ header, houseCode, onRefresh }: Props)
           <div style={{ fontSize:22, fontWeight:800, color:(header?.alarmCount||0)>0?'#ef4444':'#22c55e' }}>{header?.alarmCount||0}</div>
           <div style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>{t('ui.当前告警', '当前告警')}</div>
         </div>
-        <button onClick={onRefresh} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', backgroundColor:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:'var(--radius-md)', color:'rgba(255,255,255,0.7)', cursor:'pointer', fontSize:12 }}
+        <button type="button" onClick={onRefresh} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', backgroundColor:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:'var(--radius-md)', color:'rgba(255,255,255,0.7)', cursor:'pointer', fontSize:12 }}
           onMouseEnter={e => (e.currentTarget.style.backgroundColor='rgba(255,255,255,0.15)')}
           onMouseLeave={e => (e.currentTarget.style.backgroundColor='rgba(255,255,255,0.08)')}>
           <RefreshCw size={13} /> {t('common.refresh', '刷新')}

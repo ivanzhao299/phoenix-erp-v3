@@ -21,13 +21,13 @@ export default function PosConfigPage() {
     fetch("/api/crud/mst_stores?limit=100", { headers: hdr() })
       .then(r => r.json())
       .then(d => {
-        const list: any[] = d.data || d || [];
+        const list: Record<string, unknown>[] = d.data || d || [];
         setStores(list);
         const init: Record<string, typeof DEFAULT_CFG> = {};
         list.forEach(s => {
           let cfg = DEFAULT_CFG;
-          try { if (s.pos_config) cfg = { ...DEFAULT_CFG, ...JSON.parse(s.pos_config) }; } catch {}
-          init[s.store_code] = cfg;
+          try { if (s.pos_config) cfg = { ...DEFAULT_CFG, ...JSON.parse(String(s.pos_config)) }; } catch {}
+          init[String(s.store_code)] = cfg;
         });
         setConfigs(init);
       }).catch(() => {});
@@ -42,7 +42,7 @@ export default function PosConfigPage() {
     } catch { toast.error(t('ui.保存失败请重试', '保存失败，请重试')); }
   };
 
-  const upd = (code: string, key: string, value: any) => setConfigs(c => ({ ...c, [code]: { ...c[code], [key]: value } }));
+  const upd = (code: string, key: string, value: unknown) => setConfigs(c => ({ ...c, [code]: { ...c[code], [key]: value } }));
 
   const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div>
@@ -82,7 +82,7 @@ export default function PosConfigPage() {
                   <div style={{ fontSize: 12, color: "var(--text-secondary)", fontFamily: "monospace" }}>{store.store_code}</div>
                 </div>
               </div>
-              <button onClick={() => handleSave(store.store_code)} style={{ padding: "8px 16px", background: saved[store.store_code] ? "#22c55e" : "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, transition: "background 0.3s" }}>
+              <button type="button" onClick={() => handleSave(store.store_code)} style={{ padding: "8px 16px", background: saved[store.store_code] ? "#22c55e" : "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, transition: "background 0.3s" }}>
                 {saved[store.store_code] ? <><CheckCircle size={14}/>{t('ui.已保存', '已保存')}</> : <><Save size={14}/>{t('ui.保存配置', '保存配置')}</>}
               </button>
             </div>

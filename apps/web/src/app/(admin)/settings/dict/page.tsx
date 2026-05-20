@@ -108,7 +108,7 @@ export default function DictPage() {
 
   const openEdit = (r: DictRow) => {
     setEdit(r); setCloned(null);
-    let cfg: any = null; try { cfg = r.config_json ? JSON.parse(r.config_json) : null; } catch {}
+    let cfg: Record<string, unknown> | null = null; try { cfg = r.config_json ? JSON.parse(r.config_json) : null; } catch {}
     setForm({ dict_code:r.dict_code, dict_type:r.dict_type, label_zh:r.dict_label_zh||r.name||"", label_lo:r.dict_label_lo||"", label_en:r.dict_label_en||"", sort_no:String(r.sort_no||0), cfg:cfg||{} });
     setOpen(true);
   };
@@ -140,11 +140,12 @@ export default function DictPage() {
     let config_json: string|undefined;
     if (form.dict_type==="PKG_EGG_GRADE") config_json = JSON.stringify({ code:form.cfg?.code||"", nameZh:form.label_zh, weightRange:form.cfg?.weightRange||"—", saleable:form.cfg?.saleable!==false, productCode:form.cfg?.productCode||"", nameEn:form.label_en, nameLo:form.label_lo });
     else if (form.dict_type==="PKG_PACK_SPEC") config_json = JSON.stringify({ name:form.label_zh, capacity:Number(form.cfg?.capacity)||0, unit:form.cfg?.unit||"", requireBoxCode:form.cfg?.requireBoxCode!==false });
+    else if (form.dict_type==="PKG_SHIFT") config_json = JSON.stringify({ timeRange:form.cfg?.timeRange||"" });
 
-    const payload: any = { name:form.label_zh, dict_label_zh:form.label_zh, dict_label_lo:form.label_lo, dict_label_en:form.label_en, dict_type:form.dict_type, sort_no:Number(form.sort_no)||0, status:"ACTIVE", ...(config_json!==undefined?{config_json}:{}) };
+    const payload: Record<string, unknown> = { name:form.label_zh, dict_label_zh:form.label_zh, dict_label_lo:form.label_lo, dict_label_en:form.label_en, dict_type:form.dict_type, sort_no:Number(form.sort_no)||0, status:"ACTIVE", ...(config_json!==undefined?{config_json}:{}) };
     setLoading(true);
     try {
-      let r: any;
+      let r: Record<string, unknown>;
       if (edit) {
         r = await fetch(`/api/crud/sys_dict/${edit.id}`, { method:"PUT", headers:hdr(), body:JSON.stringify(payload) }).then(x=>x.json());
       } else {
@@ -153,7 +154,7 @@ export default function DictPage() {
       if (r.code===200 || r.dict_code || r.id) {
         setOpen(false); setEdit(null); load(); toast.success(edit ? t("ui.更新成功","更新成功") : t("ui.创建成功","创建成功"));
         if (!edit) setSelected(form.dict_type); // jump to newly created type
-      } else toast.error(r.msg || t("ui.操作失败","操作失败"));
+      } else toast.error((r.msg as string | undefined) || t("ui.操作失败","操作失败"));
     } finally { setLoading(false); }
   };
 
@@ -164,8 +165,8 @@ export default function DictPage() {
     if (r.code===200) { load(); toast.success(t("ui.已删除","已删除")); } else toast.error(r.msg || t("ui.删除失败","删除失败"));
   };
 
-  const f  = (k: string, v: any) => setForm(p=>({...p,[k]:v}));
-  const fc = (k: string, v: any) => setForm(p=>({...p, cfg:{...p.cfg,[k]:v}}));
+  const f  = (k: string, v: unknown) => setForm(p=>({...p,[k]:v}));
+  const fc = (k: string, v: unknown) => setForm(p=>({...p, cfg:{...p.cfg,[k]:v}}));
 
   const selColor = selected ? typeColor(selected) : "#3b82f6";
   const selLabel = selected ? (TYPE_LABEL[selected]||selected) : "";
@@ -214,7 +215,7 @@ export default function DictPage() {
               const label = TYPE_LABEL[tp]||tp;
               const isSel = tp === selected;
               return (
-                <button key={tp} onClick={()=>setSelected(tp)}
+                <button type="button" key={tp} onClick={()=>setSelected(tp)}
                   style={{ width:"100%", display:"flex", alignItems:"center", gap:8,
                     padding:"8px 10px", borderRadius:8, cursor:"pointer", border:"none",
                     background: isSel ? `${color}18` : "transparent",
@@ -265,7 +266,7 @@ export default function DictPage() {
                   background:selColor, padding:"2px 10px", borderRadius:999 }}>
                   {selectedItems.length} {t("ui.条","条")}
                 </span>
-                <button onClick={()=>openNew(selected)}
+                <button type="button" onClick={()=>openNew(selected)}
                   style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 14px",
                     border:`1px solid ${selColor}`, borderRadius:8, background:`${selColor}15`,
                     color:selColor, fontSize:13, fontWeight:600, cursor:"pointer" }}>
@@ -388,6 +389,25 @@ export default function DictPage() {
             <input type="number" value={form.sort_no} onChange={e=>f("sort_no",e.target.value)} className={s.inp}/>
           </div>
 
+          {form.dict_type==="PKG_SHIFT" && <>
+            <div style={{ height:1, background:"var(--border)", margin:"4px 0" }}/>
+            <div style={{ fontSize:12, fontWeight:700, color:"var(--text-secondary)" }}>扩展配置（班次时间段）</div>
+            <div className={s.field}>
+              <label style={{ display:"block", fontSize:12, marginBottom:4, color:"var(--text-primary)" }}>
+                ⏰ 时间范围
+              </label>
+              <input
+                value={form.cfg?.timeRange||""}
+                onChange={e=>fc("timeRange", e.target.value)}
+                placeholder="如 08:00-14:00"
+                className={s.inp}
+              />
+              <div style={{ fontSize:11, color:"var(--text-secondary)", marginTop:4 }}>
+                格式：HH:MM-HH:MM，如 08:00-14:00 或 22:00-06:00（跨夜）
+              </div>
+            </div>
+          </>}
+
           {form.dict_type==="PKG_EGG_GRADE" && <>
             <div style={{ height:1, background:"var(--border)", margin:"4px 0" }}/>
             <div style={{ fontSize:12, fontWeight:700, color:"var(--text-secondary)" }}>{t("ui.扩展配置鸡蛋等级","扩展配置（鸡蛋等级）")}</div>
@@ -418,8 +438,8 @@ export default function DictPage() {
           </>}
 
           <div className={s.drawerFooter} style={{ marginTop:"auto", paddingTop:8, borderTop:"1px solid var(--border)" }}>
-            <button onClick={()=>{setOpen(false);setEdit(null);}} className={s.btnSecondary}>{t("common.cancel","取消")}</button>
-            <button onClick={handleSubmit} disabled={loading} className={s.btnPrimaryGrad}>
+            <button type="button" onClick={()=>{setOpen(false);setEdit(null);}} className={s.btnSecondary}>{t("common.cancel","取消")}</button>
+            <button type="button" onClick={handleSubmit} disabled={loading} className={s.btnPrimaryGrad}>
               {loading ? t("ui.保存中","保存中…") : <><Save size={15}/>{t("common.save","保存")}</>}
             </button>
           </div>

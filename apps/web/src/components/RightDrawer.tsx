@@ -116,7 +116,7 @@ export default function RightDrawer({
             {title}
           </h3>
           <button
-            onClick={onClose}
+type="button"             onClick={onClose}
             title={t('ui.关闭', '关闭')}
             aria-label={t('ui.关闭抽屉', '关闭抽屉')}
             style={{

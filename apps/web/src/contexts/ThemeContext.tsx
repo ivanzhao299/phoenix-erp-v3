@@ -1,7 +1,8 @@
 'use client';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-const ThemeContext = createContext<any>(null);
+type ThemeContextValue = { themeMode: string; toggleTheme: (mode: string) => void };
+const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [themeMode, setThemeMode] = useState<string>(() => {
@@ -49,4 +50,8 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-export const useTheme = () => useContext(ThemeContext);
+export const useTheme = (): ThemeContextValue => {
+  const ctx = useContext(ThemeContext);
+  if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
+  return ctx;
+};

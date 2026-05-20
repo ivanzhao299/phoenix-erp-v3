@@ -35,7 +35,7 @@ export class ErrorBoundary extends React.Component<
           请刷新页面重试，或联系系统管理员
         </p>
         <button
-          onClick={() => window.location.reload()}
+type="button"           onClick={() => window.location.reload()}
           style={{
             padding: '10px 24px', borderRadius: 8, border: 'none',
             background: '#f59e0b', color: '#fff', fontSize: 14,

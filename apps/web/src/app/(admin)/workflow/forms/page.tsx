@@ -6,31 +6,22 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowForm } from "@/lib/workflow-api";
+import { WORKFLOW_TEMPLATES } from "@/lib/workflow-templates";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-type FormTemplate = {
-  key: string;
-  name: string;
-  category: string;
-  code: string;
-  description: string;
-};
-
-const FORM_TEMPLATES: FormTemplate[] = [
-  { key: "expense", name: "费用报销单", category: "财务", code: "EXPENSE_FORM", description: "包含报销金额、费用类型、事由、附件等常用字段。" },
-  { key: "purchase", name: "采购申请单", category: "采购", code: "PURCHASE_REQUEST_FORM", description: "包含采购物料、数量、预算、供应商建议和到货时间。" },
-  { key: "payment", name: "付款申请单", category: "财务", code: "PAYMENT_REQUEST_FORM", description: "包含收款方、付款金额、合同/发票、付款原因。" },
-  { key: "contract", name: "合同审批单", category: "合同", code: "CONTRACT_REVIEW_FORM", description: "包含合同主体、金额、期限、风险说明和附件。" },
-  { key: "leave", name: "请假申请单", category: "人事", code: "LEAVE_REQUEST_FORM", description: "包含假期类型、开始时间、结束时间、请假原因。" },
-  { key: "stock_adjust", name: "库存调整单", category: "仓储", code: "STOCK_ADJUST_FORM", description: "包含仓库、物料、批次、调整数量、调整原因。" },
-  { key: "quality_exception", name: "质量异常单", category: "品控", code: "QUALITY_EXCEPTION_FORM", description: "包含异常类型、批次、问题描述、处理建议和责任部门。" },
-  { key: "store_discount", name: "门店折扣申请单", category: "门店", code: "STORE_DISCOUNT_FORM", description: "包含门店、折扣类型、让利金额、活动周期和原因。" },
-  { key: "farm_medicine", name: "养殖用药申请单", category: "养殖", code: "FARM_MEDICINE_FORM", description: "包含养殖场、药品、批次、用药对象、剂量和兽医意见。" },
-  { key: "logistics_exception", name: "运输异常处理单", category: "物流", code: "LOGISTICS_EXCEPTION_FORM", description: "包含运单、异常类型、损失金额、责任方和处理方案。" },
-];
+const FORM_TEMPLATES = WORKFLOW_TEMPLATES.map(template => ({
+  key: template.key,
+  name: template.formName,
+  category: template.category,
+  code: template.formCode,
+  description: template.formDescription,
+  fields: template.fields,
+}));
 
 const CATEGORY_OPTIONS = ["财务", "采购", "合同", "人事", "仓储", "品控", "门店", "养殖", "物流", "通用"];
 
 export default function WorkflowFormsPage() {
+  const { t } = useLanguage();
   const [rows, setRows] = useState<WorkflowForm[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(FORM_TEMPLATES[0].key);
@@ -43,7 +34,7 @@ export default function WorkflowFormsPage() {
     [selectedTemplate],
   );
 
-  const load = () => workflowApi.forms().then(res => setRows(res.data || []));
+  const load = () => workflowApi.forms().then(res => setRows(res.data || [])).catch(() => {});
   useEffect(() => { load(); }, []);
 
   function openFromTemplate(nextTemplate = FORM_TEMPLATES[0]) {
@@ -79,17 +70,18 @@ export default function WorkflowFormsPage() {
       description: form.description.trim(),
     };
     if (!payload.code || !payload.name) {
-      setError("请填写表单名称；系统编码会自动生成，必要时可在高级设置中调整。");
+      setError(t("workflow.form_name_required", "请填写表单名称；系统编码会自动生成，必要时可在高级设置中调整。"));
       return;
     }
     setError("");
     setLoading(true);
     try {
-      await workflowApi.createForm(payload);
+      const created = await workflowApi.createForm(payload);
+      await workflowApi.publishForm(created.data.id, { schema_json: { fields: template.fields } });
       setDrawerOpen(false);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? friendlyError(err.message) : "创建表单失败");
+      setError(err instanceof Error ? friendlyError(err.message) : t("workflow.create_form_failed", "创建表单失败"));
     } finally {
       setLoading(false);
     }
@@ -97,21 +89,21 @@ export default function WorkflowFormsPage() {
 
   return (
     <div>
-      <PageHeader title="表单定义" subtitle="维护常用业务表单，新增时优先从模板复制再微调字段" breadcrumb={["工作流", "表单定义"]} />
+      <PageHeader title={t("workflow.forms_title", "表单定义")} subtitle={t("workflow.forms_subtitle", "维护常用业务表单，新增时优先从模板复制再微调字段")} breadcrumb={[t("nav.workflow", "工作流"), t("workflow.forms_title", "表单定义")]} />
 
       <section className={s.card} style={{ marginBottom: 12 }}>
         <div className={s.cardBody} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 }}>
           <div>
-            <h3 className={s.cardTitle}>表单列表</h3>
-            <p className={s.modalDesc} style={{ margin: "4px 0 0" }}>表单用于承载流程里的基础数据，发布后可绑定到审批流程。</p>
+            <h3 className={s.cardTitle}>{t("workflow.form_list", "表单列表")}</h3>
+            <p className={s.modalDesc} style={{ margin: "4px 0 0" }}>{t("workflow.form_list_desc", "表单用于承载流程里的基础数据，发布后可绑定到审批流程。")}</p>
           </div>
-          <button className={s.btnPrimary} onClick={() => openFromTemplate()}>新增表单</button>
+          <button type="button" className={s.btnPrimary} onClick={() => openFromTemplate()}>{t("workflow.new_form", "新增表单")}</button>
         </div>
       </section>
 
       <section className={s.card}>
         <table className={s.table}>
-          <thead><tr><th>表单名称</th><th>分类</th><th>状态</th><th>版本</th><th>操作</th></tr></thead>
+          <thead><tr><th>{t("workflow.form_name", "表单名称")}</th><th>{t("common.category", "分类")}</th><th>{t("common.status", "状态")}</th><th>{t("workflow.version", "版本")}</th><th>{t("common.operation", "操作")}</th></tr></thead>
           <tbody>{rows.map(row => (
             <tr key={row.id}>
               <td>
@@ -121,7 +113,7 @@ export default function WorkflowFormsPage() {
               <td>{categoryText(row.category)}</td>
               <td><span className={statusBadgeClass(row.status)}>{statusText(row.status)}</span></td>
               <td>{row.current_version_id || "-"}</td>
-              <td><Link href={`/workflow/form-designer/${row.id}`}>设计/发布</Link></td>
+              <td><Link href={`/workflow/form-designer/${row.id}`}>{t("workflow.design_publish", "设计/发布")}</Link></td>
             </tr>
           ))}</tbody>
         </table>
@@ -129,19 +121,19 @@ export default function WorkflowFormsPage() {
 
       <RightDrawer
         open={drawerOpen}
-        title="新增表单"
+        title={t("workflow.new_form", "新增表单")}
         width={620}
         onClose={() => setDrawerOpen(false)}
         footer={
           <div style={footerStyle}>
-            <button className={s.btnSecondary} onClick={() => setDrawerOpen(false)}>取消</button>
-            <button className={s.btnPrimary} disabled={loading} onClick={create}>{loading ? "创建中..." : "创建表单"}</button>
+            <button type="button" className={s.btnSecondary} onClick={() => setDrawerOpen(false)}>{t("common.cancel", "取消")}</button>
+            <button type="button" className={s.btnPrimary} disabled={loading} onClick={create}>{loading ? t("workflow.creating", "创建中...") : t("workflow.create_publish", "创建并发布表单")}</button>
           </div>
         }
       >
         <div style={drawerStackStyle}>
           <section>
-            <h4 style={sectionTitleStyle}>选择常用表单模板</h4>
+            <h4 style={sectionTitleStyle}>{t("workflow.select_template", "选择常用表单模板")}</h4>
             <div style={templateGridStyle}>
               {FORM_TEMPLATES.map(item => (
                 <button
@@ -155,33 +147,34 @@ export default function WorkflowFormsPage() {
                 </button>
               ))}
             </div>
+            <p style={hintStyle}>{t("workflow.template_hint", "选择模板后会自动带出字段并发布为可用版本，后续仍可进入设计器微调。")}</p>
           </section>
 
           <section>
-            <h4 style={sectionTitleStyle}>基础信息</h4>
+            <h4 style={sectionTitleStyle}>{t("workflow.basic_info", "基础信息")}</h4>
             <label style={labelStyle}>
-              表单名称
+              {t("workflow.form_name", "表单名称")}
               <input className={s.inp} value={form.name} onChange={e=>setForm({...form, name:e.target.value})} />
             </label>
             <label style={labelStyle}>
-              业务分类
+              {t("workflow.biz_category", "业务分类")}
               <select className={s.inp} value={form.category} onChange={e=>setForm({...form, category:e.target.value})}>
                 {CATEGORY_OPTIONS.map(item => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
             <label style={labelStyle}>
-              适用说明
+              {t("workflow.applicable_desc", "适用说明")}
               <textarea className={s.textarea} value={form.description} onChange={e=>setForm({...form, description:e.target.value})} />
             </label>
           </section>
 
           <details style={advancedStyle}>
-            <summary>高级设置</summary>
+            <summary>{t("workflow.advanced_settings", "高级设置")}</summary>
             <label style={labelStyle}>
-              系统编码
+              {t("workflow.system_code", "系统编码")}
               <input className={s.inp} value={form.code} onChange={e=>setForm({...form, code:normalizeCode(e.target.value)})} />
             </label>
-            <p style={hintStyle}>系统编码用于接口和数据存储，页面会自动生成，通常不需要修改。</p>
+            <p style={hintStyle}>{t("workflow.system_code_hint", "系统编码用于接口和数据存储，页面会自动生成，通常不需要修改。")}</p>
           </details>
 
           {error ? <div style={errorStyle}>{error}</div> : null}
@@ -234,13 +227,7 @@ function categoryText(category?: string) {
   return category ? map[category] || category : "-";
 }
 
-const panelStyle: React.CSSProperties = { background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:16, marginBottom:12 };
-const toolbarStyle: React.CSSProperties = { ...panelStyle, display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 };
-const titleStyle: React.CSSProperties = { margin: "0 0 6px", fontSize: 16 };
 const hintStyle: React.CSSProperties = { margin:0, color:"var(--text-secondary)", fontSize:13, lineHeight:1.6 };
-const buttonStyle: React.CSSProperties = { height:36, padding:"0 16px", border:0, borderRadius:"var(--radius-md)", background:"var(--color-primary)", color:"#fff", fontWeight:700, cursor:"pointer" };
-const secondaryButtonStyle: React.CSSProperties = { height:36, padding:"0 16px", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-card)", color:"var(--text-primary)", fontWeight:600, cursor:"pointer" };
-const tableStyle: React.CSSProperties = { width:"100%", borderCollapse:"collapse" };
 const codeStyle: React.CSSProperties = { marginTop:4, color:"var(--text-secondary)", fontSize:12 };
 const drawerStackStyle: React.CSSProperties = { display:"grid", gap:20 };
 const sectionTitleStyle: React.CSSProperties = { margin:"0 0 10px", fontSize:14 };
@@ -248,8 +235,6 @@ const templateGridStyle: React.CSSProperties = { display:"grid", gridTemplateCol
 const templateStyle: React.CSSProperties = { minHeight:74, textAlign:"left", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-card)", padding:12, cursor:"pointer", display:"grid", gap:6, color:"var(--text-primary)" };
 const selectedTemplateStyle: React.CSSProperties = { ...templateStyle, borderColor:"var(--color-primary)", background:"var(--bg-muted)" };
 const labelStyle: React.CSSProperties = { display:"grid", gap:6, marginBottom:12, fontSize:13, color:"var(--text-secondary)" };
-const inputStyle: React.CSSProperties = { height:38, border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-muted)", padding:"0 10px", color:"var(--text-primary)" };
-const textareaStyle: React.CSSProperties = { ...inputStyle, minHeight:82, padding:"10px", resize:"vertical" };
 const advancedStyle: React.CSSProperties = { border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:12 };
 const errorStyle: React.CSSProperties = { color:"var(--color-danger)", fontSize:13 };
 const footerStyle: React.CSSProperties = { display:"flex", justifyContent:"flex-end", gap:10 };

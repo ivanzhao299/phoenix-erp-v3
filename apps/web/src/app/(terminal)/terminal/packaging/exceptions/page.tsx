@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { packagingApi } from '@/lib/packaging-api';
 import { EXCEPTION_TYPE_LABEL } from '@/types/packaging-terminal';
@@ -14,6 +15,7 @@ const SEV_COLORS = { LOW:'#22c55e', MEDIUM:'#f59e0b', HIGH:'#f97316', CRITICAL:'
 
 export default function ExceptionsPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const { t } = useLanguage();
   const { ctx } = useTerminalContext();
   // ── 从数据字典加载异常快捷类型 ─────────────────────────────────────────────
@@ -58,7 +60,7 @@ export default function ExceptionsPage() {
         quantity: Number(form.quantity)||undefined,
         description: form.description,
         relatedBatchId: form.batchId,
-        reportedBy: '当前用户',
+        reportedBy: user?.name || user?.username || t('ui.当前用户', '当前用户'),
         status: 'REPORTED',
       });
       setTickets(prev=>[result as ExceptionTicket, ...prev]);
@@ -71,20 +73,26 @@ export default function ExceptionsPage() {
 
   return (
     <div style={{ height:'100%', display:'flex', flexDirection:'column', background:T.BG, overflow:'hidden' }}>
-      <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'14px 24px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
-        <span style={{ fontSize:24 }}>⚠️</span>
+      <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'12px 20px', display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+        <span style={{ fontSize:22 }}>⚠️</span>
         <div style={{ flex:1 }}>
-          <div style={{ fontSize:18, fontWeight:700, color:T.TXT }}>{t('terminal.exceptions', '异常处理')}</div>
+          <div style={{ fontSize:17, fontWeight:700, color:T.TXT }}>{t('terminal.exceptions', '异常处理')}</div>
           <div style={{ fontSize:12, color:T.MUT }}>{t('ui.未关闭', '未关闭')} {openCount} {t('ui.条', '条')} · {t('ui.重大异常未关闭不得交班', '重大异常未关闭不得交班')}</div>
         </div>
-        <button onClick={()=>setShowForm(true)}
-          style={{ padding:'12px 24px', background:T.RED, color:'#fff', border:'none',
-            borderRadius:10, fontSize:15, fontWeight:700, cursor:'pointer' }}>
+        <button type="button" onClick={()=>setShowForm(true)}
+          style={{ padding:'9px 20px', background:T.RED, color:'#fff', border:'none',
+            borderRadius:10, fontSize:15, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
           + {t('ui.上报异常', '上报异常')}
         </button>
+        <div style={{ textAlign:'right', flexShrink:0 }}>
+          <div style={{ fontSize:22, fontWeight:800, color: openCount > 0 ? T.RED : T.GRN, fontVariantNumeric:'tabular-nums' }}>
+            {openCount}
+          </div>
+          <div style={{ fontSize:11, color:T.MUT }}>{t('ui.未关闭条', '未关闭（条）')}</div>
+        </div>
       </div>
 
-      <div style={{ flex:1, overflow:'auto', padding:16 }}>
+      <div style={{ flex:1, overflow:'hidden', minHeight:0, padding:16 }}>
         {tickets.length === 0 ? (
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:12 }}>
             <div style={{ fontSize:48 }}>✅</div>
@@ -126,14 +134,14 @@ export default function ExceptionsPage() {
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.8)', display:'flex',
           alignItems:'center', justifyContent:'center', zIndex:200 }}>
           <div style={{ background:T.CARD, borderRadius:16, padding:32, width:480,
-            border:`1px solid ${T.BOR}`, maxHeight:'90vh', overflow:'auto' }}>
-            <div style={{ fontSize:18, fontWeight:700, color:T.TXT, marginBottom:20 }}>{t('ui.快速上报异常', '快速上报异常')}</div>
+            border:`1px solid ${T.BOR}`, maxHeight:'90vh', overflow:'hidden' }}>
+            <div style={{ fontSize:17, fontWeight:700, color:T.TXT, marginBottom:20 }}>{t('ui.快速上报异常', '快速上报异常')}</div>
 
             <div style={{ marginBottom:16 }}>
               <div style={{ fontSize:12, color:T.MUT, marginBottom:8 }}>{t('ui.异常类型', '异常类型')}</div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
                 {QUICK_TYPES.map(qt=>(
-                  <button key={qt.type} onClick={()=>setForm(p=>({...p,type:qt.type}))}
+                  <button type="button" key={qt.type} onClick={()=>setForm(p=>({...p,type:qt.type}))}
                     style={{ padding:'12px', borderRadius:8, cursor:'pointer', textAlign:'left',
                       border:`2px solid ${form.type===qt.type?T.RED:T.BOR}`,
                       background:form.type===qt.type?'rgba(239,68,68,0.1)':'rgba(255,255,255,0.03)',
@@ -149,7 +157,7 @@ export default function ExceptionsPage() {
               <div style={{ fontSize:12, color:T.MUT, marginBottom:8 }}>{t('ui.严重程度', '严重程度')}</div>
               <div style={{ display:'flex', gap:8 }}>
                 {(['LOW','MEDIUM','HIGH','CRITICAL'] as const).map(s=>(
-                  <button key={s} onClick={()=>setForm(p=>({...p,severity:s}))}
+                  <button type="button" key={s} onClick={()=>setForm(p=>({...p,severity:s}))}
                     style={{ flex:1, padding:'10px', borderRadius:8, cursor:'pointer',
                       border:`2px solid ${form.severity===s?SEV_COLORS[s]:T.BOR}`,
                       background:form.severity===s?`${SEV_COLORS[s]}20`:'rgba(255,255,255,0.03)',
@@ -178,10 +186,10 @@ export default function ExceptionsPage() {
             </div>
 
             <div style={{ display:'flex', gap:10 }}>
-              <button onClick={()=>setShowForm(false)}
+              <button type="button" onClick={()=>setShowForm(false)}
                 style={{ flex:1, padding:'14px', background:'transparent', border:`1px solid ${T.BOR}`,
                   borderRadius:8, color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('common.cancel', '取消')}</button>
-              <button onClick={handleSubmit} disabled={!form.type||submitting}
+              <button type="button" onClick={handleSubmit} disabled={!form.type||submitting}
                 style={{ flex:2, padding:'14px', background:form.type?T.RED:T.BOR, border:'none',
                   borderRadius:8, color:form.type?'#fff':T.MUT, fontSize:15, fontWeight:700,
                   cursor:form.type?'pointer':'not-allowed', opacity:submitting?0.7:1 }}>
@@ -192,10 +200,10 @@ export default function ExceptionsPage() {
         </div>
       )}
 
-      <div style={{ background:T.CARD, borderTop:`1px solid ${T.BOR}`, padding:'16px 24px',
+      <div style={{ background:T.CARD, borderTop:`1px solid ${T.BOR}`, padding:'17px 16px',
         display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
-        <button onClick={()=>router.push('/terminal/packaging/dashboard')}
-          style={{ padding:'14px 28px', borderRadius:10, border:`1px solid ${T.BOR}`,
+        <button type="button" onClick={()=>router.push('/terminal/packaging/dashboard')}
+          style={{ padding:'9px 20px', borderRadius:10, border:`1px solid ${T.BOR}`,
             background:'transparent', color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('ui.返回首页', '返回首页')}</button>
         <div style={{ flex:1, fontSize:13, color: openCount>0?T.RED:T.GRN }}>
           {openCount>0

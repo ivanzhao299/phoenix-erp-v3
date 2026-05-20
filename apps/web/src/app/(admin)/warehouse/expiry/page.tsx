@@ -48,23 +48,23 @@ export default function ExpiryAlertPage() {
     setLoading(true);
     try {
       const res = await crudApi.list("inv_batches", { limit: 500 } as any);
-      const batches: any[] = (res as any).data ?? [];
+      const batches: Record<string, unknown>[] = (res as { data?: Record<string, unknown>[] }).data ?? [];
       const today = new Date();
       const todayStr = today.toISOString().slice(0, 10);
       const in14    = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
 
       const list: AlertItem[] = batches
-        .filter(b => b.expire_date && b.expire_date <= in14 && b.expire_date >= todayStr && (b.qty_available ?? b.qty) > 0)
+        .filter(b => b.expire_date && String(b.expire_date) <= in14 && String(b.expire_date) >= todayStr && Number(b.qty_available ?? b.qty ?? 0) > 0)
         .map(b => {
-          const daysLeft = Math.ceil((new Date(b.expire_date).getTime() - today.getTime()) / 86400000);
+          const daysLeft = Math.ceil((new Date(String(b.expire_date)).getTime() - today.getTime()) / 86400000);
           const severity: AlertItem['severity'] = daysLeft <= 3 ? 'critical' : daysLeft <= 5 ? 'high' : daysLeft <= 7 ? 'medium' : 'low';
           return {
-            id:        b.id,
-            batchNo:   b.batch_no  || `#${b.id}`,
-            skuCode:   b.sku_code  || b.product_code || '—',
-            warehouse: b.warehouse_code || b.location_code || '—',
-            qty:       b.qty_available ?? b.qty ?? 0,
-            expDate:   b.expire_date.slice(0, 10),
+            id:        Number(b.id),
+            batchNo:   String(b.batch_no  || `#${b.id}`),
+            skuCode:   String(b.sku_code  || b.product_code || '—'),
+            warehouse: String(b.warehouse_code || b.location_code || '—'),
+            qty:       Number(b.qty_available ?? b.qty ?? 0),
+            expDate:   String(b.expire_date).slice(0, 10),
             daysLeft,
             severity,
           };

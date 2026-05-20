@@ -1,5 +1,13 @@
 'use client';
+import type { FarmRow, HouseRow } from '@/types';
 import { useState, useEffect, useCallback } from 'react';
+
+interface FlockCard {
+  id: unknown; batchNo?: string; farmName?: string; house?: string;
+  breed?: string; inDate?: unknown; ageWeeks?: number;
+  quantity?: unknown; layingRate?: unknown; feedRatio?: unknown;
+  status: string; _raw?: Record<string, unknown>;
+}
 import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
@@ -40,23 +48,23 @@ export default function FlockPage() {
   const [showDrawer, setShowDrawer]     = useState(false);
   const [editId, setEditId]             = useState<string | null>(null);
   const [form, setForm]                 = useState(emptyForm());
-  const [flocks, setFlocks]             = useState<any[]>([]);
-  const [farms, setFarms]               = useState<any[]>([]);
-  const [houses, setHouses]             = useState<any[]>([]);
+  const [flocks, setFlocks]             = useState<FlockCard[]>([]);
+  const [farms, setFarms]               = useState<FarmRow[]>([]);
+  const [houses, setHouses]             = useState<HouseRow[]>([]);
   const [breedOptions, setBreedOptions] = useState<string[]>([]);
 
-  const { fetchRecords, createRecord, updateRecord, deleteRecord } = useCrud('brd_flocks');
+  const { fetchRecords, createRecord, updateRecord } = useCrud('brd_flocks');
   const { fetchRecords: fetchFarms }  = useCrud('brd_farms');
   const { fetchRecords: fetchHouses } = useCrud('brd_houses');
   const { fetchRecords: fetchDict }   = useCrud('sys_dict');
 
   const load = useCallback(async () => {
     const data = await fetchRecords();
-    setFlocks((data||[]).map((d: any) => ({
+    setFlocks((data||[]).map((d: Record<string, unknown>) => ({
       id: d.flock_no, batchNo: d.flock_no,
       farmName: d.farm_name || d.farm_code, house: d.house_code || '',
       breed: d.breed_type || '—', inDate: d.start_date,
-      ageWeeks: d.start_date ? Math.floor((d.placement_age||0)/7) + Math.floor((Date.now()-new Date(d.start_date).getTime())/(86400000*7)) : 0,
+      ageWeeks: d.start_date ? Math.floor((Number(d.placement_age)||0)/7) + Math.floor((Date.now()-new Date(d.start_date as string).getTime())/(86400000*7)) : 0,
       quantity: d.current_qty,
       layingRate: d.current_lay_rate ?? '—',
       feedRatio:  d.feed_conversion_ratio ?? '—',
@@ -67,35 +75,36 @@ export default function FlockPage() {
 
   useEffect(() => {
     load();
-    fetchFarms().then((r: any) => setFarms(r || []));
-    fetchHouses().then((r: any) => setHouses(r || []));
-    fetchDict({ limit: 1000 }).then((d: any) => {
-      const opts = (d||[]).filter((x: any) => x.dict_type==='BRD_BREED_TYPE' && x.status==='ACTIVE').map((x: any) => x.dict_label_zh);
+    fetchFarms().then((r) => setFarms(r || [])).catch(() => {});
+    fetchHouses().then((r) => setHouses(r || [])).catch(() => {});
+    fetchDict({ limit: 1000 }).then((d) => {
+      const opts = (d||[]).filter((x: Record<string, unknown>) => x.dict_type==='BRD_BREED_TYPE' && x.status==='ACTIVE').map((x: Record<string, unknown>) => x.dict_label_zh as string);
       if (opts.length) {
         setBreedOptions(opts);
         setForm(p => ({ ...p, breed: p.breed || opts[0] }));
       }
-    });
+    }).catch(() => {});
   }, [load]);
 
-  const handleEdit = (row: any) => {
-    const r = row._raw || {};
-    setEditId(row.id);
+  const handleEdit = (row: FlockCard) => {
+    const r = (row._raw || {}) as Record<string, string | number | null>;
+    setEditId(row.id as string);
+    const s = (v: string | number | null, fb = '') => v != null ? String(v) : fb;
     setForm({
-      farmCode: r.farm_code||'', house: r.house_code||'', breed: r.breed_type||breedOptions[0]||'',
-      source: r.source_farm||'',
-      placementAge: r.placement_age!=null?String(r.placement_age):'1',
-      cost: r.cost!=null?String(r.cost):'0', inDate: r.start_date||'',
-      qty: r.current_qty!=null?String(r.current_qty):'', targetWeeks: r.target_weeks!=null?String(r.target_weeks):'80',
-      eliminationDate: r.elimination_date||'', peakLayRate: r.peak_lay_rate!=null?String(r.peak_lay_rate):'',
-      feedConvRatio: r.feed_conversion_ratio!=null?String(r.feed_conversion_ratio):'',
-      flockStatus: r.status||'GROWING',
+      farmCode: s(r.farm_code), house: s(r.house_code), breed: s(r.breed_type) || breedOptions[0] || '',
+      source: s(r.source_farm),
+      placementAge: s(r.placement_age, '1'),
+      cost: s(r.cost, '0'), inDate: s(r.start_date),
+      qty: s(r.current_qty), targetWeeks: s(r.target_weeks, '80'),
+      eliminationDate: s(r.elimination_date), peakLayRate: s(r.peak_lay_rate),
+      feedConvRatio: s(r.feed_conversion_ratio),
+      flockStatus: s(r.status, 'GROWING'),
     });
     setShowDrawer(true);
   };
 
-  const handleDelete = async (row: any) => {
-    const currentQty = Number(row.currentQty ?? row.current_qty ?? 0);
+  const handleDelete = async (row: FlockCard) => {
+    const currentQty = Number(row.quantity ?? 0);
     if (currentQty > 0) {
       await showAlert({
         icon: '🚫',
@@ -106,7 +115,23 @@ export default function FlockPage() {
       return;
     }
     const ok = await showConfirm({ icon:'🗑️', type:'danger', title:t('common.confirm','确认')+t('common.delete','删除'), message:`${t('ui.确认删除鸡群档案','确认删除鸡群档案')}: ${row.batchNo}？`, confirmLabel:t('ui.确认删除','确认删除') });
-    if (ok) { const st = await deleteRecord(row.id,'flock_no'); if (st) load(); }
+    if (ok) {
+      const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : null;
+      const apiBase = (process.env.NEXT_PUBLIC_API_BASE || '') + '/api/crud';
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 10000);
+      const res = await fetch(`${apiBase}/brd_flocks/flock_no/${row.id}`, {
+        method: 'DELETE',
+        signal: ctrl.signal,
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      }).finally(() => clearTimeout(tid));
+      if (res.ok) {
+        load();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        await showAlert({ icon:'❌', type:'danger', title:t('crud.err.deleteFailTitle','删除失败'), message:err.msg||err.message||t('crud.err.deleteFail','删除失败，请稍后重试'), confirmLabel:t('common.close','关闭') });
+      }
+    }
   };
 
   const handleSubmit = async () => {
@@ -116,7 +141,7 @@ export default function FlockPage() {
     }
     const payload = {
       farm_code: form.farmCode,
-      farm_name: farms.find((f: any) => f.farm_code===form.farmCode)?.farm_name || form.farmCode,
+      farm_name: farms.find((f) => f.farm_code===form.farmCode)?.farm_name || form.farmCode,
       source_farm: form.source, house_code: form.house, breed_type: form.breed,
       start_date: form.inDate || new Date().toISOString().slice(0,10),
       current_qty: Number(form.qty)||0, placement_age: Number(form.placementAge)||1,
@@ -143,17 +168,17 @@ export default function FlockPage() {
     { key:'house',      title:t('ui.鸡舍','鸡舍'),    width:'70px'  },
     { key:'breed',      title:t('ui.品种','品种'),    width:'80px'  },
     { key:'inDate',     title:t('ui.进雏日期','进雏日期'),width:'100px' },
-    { key:'ageWeeks',   title:t('ui.鸡龄','鸡龄'),    width:'70px',  render: (v: any) => `${v}${t('ui.周','周')}` },
-    { key:'quantity',   title:t('ui.存栏量','存栏量'),  width:'90px',  render: (v: any) => `${Number(v).toLocaleString()}${t('ui.羽','羽')}` },
-    { key:'layingRate', title:t('ui.产蛋率','产蛋率'),  width:'80px',  render: (v: any) => typeof v === 'number' ? <span style={{ fontWeight:700, color: v>=90?'var(--status-success)':v>=85?'var(--status-warning)':'var(--status-danger)' }}>{v}%</span> : <span style={{color:'var(--text-secondary)'}}>—</span> },
-    { key:'feedRatio',  title:t('ui.料蛋比','料蛋比'),  width:'80px',  render: (v: any) => typeof v === 'number' ? <span style={{ color: v<=2.35?'var(--status-success)':'var(--status-warning)' }}>{v}</span> : '—' },
-    { key:'targetWeeks',     title:t('ui.目标周数','目标周数'),  width:'80px',  render: (v: any, row: any) => { const tw = v ?? row._raw?.target_weeks; return tw ? `${tw}${t('ui.周','周')}` : '—'; } },
-    { key:'eliminationDate', title:t('ui.预计淘汰日','预计淘汰日'), width:'100px', render: (_: any, row: any) => row._raw?.elimination_date || '—' },
-    { key:'status',     title:t('common.status','状态'),    width:'100px', render: (v: any) => { const st = STATUS_MAP[v]||{status:'default',label:v}; return <StatusBadge status={st.status} label={st.label} />; } },
-    { key:'actions',    title:t('common.operation','操作'),    width:'100px', render: (_: any, row: any) => can(['ROLE_FARM_MGR','ROLE_ADMIN']) ? (
+    { key:'ageWeeks',   title:t('ui.鸡龄','鸡龄'),    width:'70px',  render: (v: unknown) => `${String(v ?? '')}${t('ui.周','周')}` },
+    { key:'quantity',   title:t('ui.存栏量','存栏量'),  width:'90px',  render: (v: unknown) => `${Number(v).toLocaleString()}${t('ui.羽','羽')}` },
+    { key:'layingRate', title:t('ui.产蛋率','产蛋率'),  width:'80px',  render: (v: unknown) => typeof v === 'number' ? <span style={{ fontWeight:700, color: v>=90?'var(--status-success)':v>=85?'var(--status-warning)':'var(--status-danger)' }}>{v}%</span> : <span style={{color:'var(--text-secondary)'}}>—</span> },
+    { key:'feedRatio',  title:t('ui.料蛋比','料蛋比'),  width:'80px',  render: (v: unknown) => typeof v === 'number' ? <span style={{ color: v<=2.35?'var(--status-success)':'var(--status-warning)' }}>{v}</span> : '—' },
+    { key:'targetWeeks',     title:t('ui.目标周数','目标周数'),  width:'80px',  render: (v: unknown, row: FlockCard) => { const tw = v ?? row._raw?.target_weeks; return tw ? `${String(tw)}${t('ui.周','周')}` : '—'; } },
+    { key:'eliminationDate', title:t('ui.预计淘汰日','预计淘汰日'), width:'100px', render: (_: unknown, row: FlockCard) => String(row._raw?.elimination_date || '—') },
+    { key:'status',     title:t('common.status','状态'),    width:'100px', render: (v: unknown) => { const st = STATUS_MAP[v as string]||{status:'default',label:String(v)}; return <StatusBadge status={st.status} label={st.label} />; } },
+    { key:'actions',    title:t('common.operation','操作'),    width:'100px', render: (_: unknown, row: FlockCard) => can(['ROLE_FARM_MGR','ROLE_ADMIN']) ? (
       <div className={s.tableActions}>
         <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>
-        <button type="button" className={`${s.btnIcon} ${s.btnDanger}`} onClick={() => handleDelete(row)}><Trash2 size={12} /></button>
+        <button type="button" className={s.btnIconDanger} onClick={() => handleDelete(row)}><Trash2 size={12} /></button>
       </div>
     ) : null },
   ];
@@ -169,7 +194,7 @@ export default function FlockPage() {
 
       <DataTable columns={columns} data={data} searchPlaceholder={t('ui.搜索批次号农场','搜索批次号农场')} searchKeys={['batchNo','farmName','breed']} rowKey="id"
         filters={<div style={{ display:'flex', gap:6 }}>
-          {statusFilters.map(f => <button type="button" key={f.key} className={statusFilter===f.key ? s.tabPillActive : s.tabPill} onClick={() => setStatusFilter(f.key)}>{f.label}</button>)}
+          {statusFilters.map(f => <button type="button" key={f.key} className={`${s.tabPill} ${statusFilter===f.key ? s.tabPillActive : ""}`} onClick={() => setStatusFilter(f.key)}>{f.label}</button>)}
         </div>} />
 
       <RightDrawer isOpen={showDrawer} onClose={() => { setShowDrawer(false); setEditId(null); }} title={`${editId?t('common.edit','编辑'):t('common.new','新建')}${t('ui.鸡群档案','鸡群档案')}`} width="460px">

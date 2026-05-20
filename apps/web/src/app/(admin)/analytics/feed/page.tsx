@@ -78,10 +78,10 @@ export default function FeedPage() {
       <PageHeader title={TITLE} subtitle={t('ui.核对饲料采购到货与设备消耗对比', '核对饲料采购到货与设备消耗对比（表：prc_receipts）')} />
       <DataTable
         table={TABLE}
-        columns={COLUMNS as any}
+        columns={COLUMNS}
         onNew={openNew}
-        onEdit={openEdit as any}
-        onDelete={handleDelete as any}
+        onEdit={openEdit}
+        onDelete={handleDelete}
         showActions
         refreshKey={refreshKey}
       />

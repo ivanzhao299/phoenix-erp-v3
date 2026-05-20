@@ -78,8 +78,8 @@ export default function LocationsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await crudApi.list(TABLE, { limit: 500 } as any).catch(() => ({ data: [] }));
-    setRows(Array.isArray(res) ? res : ((res as any).data ?? []));
+    const res = await crudApi.list<Row>(TABLE, { limit: 500 }).catch(() => ({ data: [] as Row[], code: 0 }));
+    setRows(Array.isArray(res.data) ? res.data : []);
     setLoading(false);
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -147,8 +147,8 @@ export default function LocationsPage() {
 
   const inputStyle: React.CSSProperties = {
     width: "100%", boxSizing: "border-box", padding: "8px 12px",
-    border: "1px solid var(--border-color, #e2e8f0)", borderRadius: 8,
-    background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14,
+    border: "1px solid var(--border)", borderRadius: 8,
+    background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 14,
   };
   const labelStyle: React.CSSProperties = { fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 4, fontWeight: 600 };
 
@@ -248,7 +248,7 @@ export default function LocationsPage() {
       <div className={s.card} style={{ overflow: "hidden", padding: 0 }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ background: "var(--bg-element, #f8fafc)", borderBottom: "1px solid var(--border-color)" }}>
+            <tr style={{ background: "var(--bg-page)", borderBottom: "1px solid var(--border)" }}>
               {[
                 t("ui.库位编码", "库位编码"),
                 t("ui.库位名称", "库位名称"),
@@ -276,8 +276,8 @@ export default function LocationsPage() {
               const pct = usagePct(String(row.status ?? "EMPTY"));
               return (
                 <tr key={String(row.id)}
-                  style={{ borderBottom: i < arr.length - 1 ? "1px solid var(--border-color)" : "none", transition: "background 0.15s" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-element, #f8fafc)")}
+                  style={{ borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none", transition: "background 0.15s" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-page)")}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                   <td style={{ padding: "12px 14px", fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: "var(--color-primary)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}><MapPin size={12} />{String(row.location_code ?? "")}</div>

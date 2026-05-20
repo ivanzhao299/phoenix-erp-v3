@@ -207,6 +207,8 @@ export class WorkflowService implements OnModuleInit {
          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
        )`,
+      `ALTER TABLE wf_data_source ADD COLUMN IF NOT EXISTS metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb`,
+      `ALTER TABLE wf_data_source ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMP`,
       `CREATE TABLE IF NOT EXISTS wf_cc_task (
          id SERIAL PRIMARY KEY,
          instance_id INT NOT NULL REFERENCES wf_instance(id) ON DELETE CASCADE,
@@ -252,8 +254,105 @@ export class WorkflowService implements OnModuleInit {
 
   async generateIndustryTemplates(user: WorkflowUser) {
     this.requireAdmin(user);
+    await this.ensureDefaultDataSources();
     const result = await this.seedIndustryTemplates(user.userId || null);
     return { code: 200, data: result };
+  }
+
+  async createDefinitionFromDataSource(body: any, user: WorkflowUser) {
+    this.requireAdmin(user);
+    const sourceCode = String(body?.sourceCode || body?.source_code || '').trim().toUpperCase();
+    this.assertCode(sourceCode);
+    const definitionCode = body?.code ? String(body.code).trim().toUpperCase() : `${sourceCode}_AUTO_WORKFLOW`;
+    this.assertCode(definitionCode);
+
+    const formResult = await this.createFormFromDataSource({
+      sourceCode,
+      code: body?.formCode || `${sourceCode}_AUTO_FORM`,
+      name: body?.formName || `${body?.name || sourceCode}自动表单`,
+      category: body?.category || '通用',
+      description: body?.formDescription,
+    }, user);
+    const formVersionId = Number((formResult.data as any)?.version?.id);
+    if (!formVersionId) throw new BadRequestException('generated form version missing');
+
+    const name = String(body?.name || `${sourceCode}自动审批流程`).trim();
+    if (!name) throw new BadRequestException('name required');
+    const description = body?.description || `由工作流数据源 ${sourceCode} 自动生成，包含表单和默认审批节点。`;
+    const category = body?.category || '通用';
+    const approvalRole = String(body?.approvalRole || body?.approval_role || 'ROLE_ADMIN').trim().toUpperCase();
+    this.assertCode(approvalRole);
+
+    const existing = await this.em.query(
+      `SELECT id FROM wf_definition WHERE code=$1 LIMIT 1`,
+      [definitionCode],
+    );
+    let definitionId = existing[0]?.id;
+    let created = false;
+    if (!definitionId) {
+      const rows = await this.em.query(
+        `INSERT INTO wf_definition (code, name, description, category, status, created_by, updated_at)
+         VALUES ($1,$2,$3,$4,'ACTIVE',$5,CURRENT_TIMESTAMP)
+         RETURNING *`,
+        [definitionCode, name, description, category, user.userId || null],
+      );
+      definitionId = rows[0].id;
+      created = true;
+    } else {
+      await this.em.query(
+        `UPDATE wf_definition
+         SET name=$2, description=$3, category=$4, status='ACTIVE', updated_at=CURRENT_TIMESTAMP
+         WHERE id=$1`,
+        [definitionId, name, description, category],
+      );
+    }
+
+    const graph = this.templateGraph({
+      code: definitionCode,
+      name,
+      category,
+      description,
+      formCode: String((formResult.data as any)?.form?.code || `${sourceCode}_AUTO_FORM`),
+      formName: String((formResult.data as any)?.form?.name || `${sourceCode}自动表单`),
+      formDescription: description,
+      fields: [],
+      approvals: [{ id: 'auto_approval', name: '管理员审批', role: approvalRole }],
+    });
+    const latest = await this.em.query(
+      `SELECT COALESCE(MAX(version_no),0)::int AS version_no FROM wf_definition_version WHERE definition_id=$1`,
+      [definitionId],
+    );
+    const versionNo = Number(latest[0]?.version_no || 0) + 1;
+    const versionRows = await this.em.query(
+      `INSERT INTO wf_definition_version
+         (definition_id, version_no, status, graph_json, form_version_id, published_by, published_at)
+       VALUES ($1,$2,'PUBLISHED',$3::jsonb,$4,$5,CURRENT_TIMESTAMP)
+       RETURNING *`,
+      [definitionId, versionNo, JSON.stringify(graph), formVersionId, user.userId || null],
+    );
+    const definitionRows = await this.em.query(
+      `UPDATE wf_definition
+       SET current_version_id=$2, updated_at=CURRENT_TIMESTAMP
+       WHERE id=$1 RETURNING *`,
+      [definitionId, versionRows[0].id],
+    );
+
+    return {
+      code: 200,
+      data: {
+        definition: definitionRows[0],
+        version: versionRows[0],
+        form: (formResult.data as any)?.form,
+        formVersion: (formResult.data as any)?.version,
+        created,
+        links: {
+          start: `/workflow/start?code=${encodeURIComponent(definitionCode)}`,
+          designer: `/workflow/designer/${definitionId}`,
+          definitions: '/workflow/definitions',
+          formDesigner: `/workflow/form-designer/${Number((formResult.data as any)?.form?.id || 0)}`,
+        },
+      },
+    };
   }
 
   async cloneDefinition(id: number, body: any, user: WorkflowUser) {
@@ -390,6 +489,92 @@ export class WorkflowService implements OnModuleInit {
     return { code: 200, data: rows[0] };
   }
 
+  async createFormFromDataSource(body: any, user: WorkflowUser) {
+    this.requireAdmin(user);
+    const sourceCode = String(body?.sourceCode || body?.source_code || '').trim().toUpperCase();
+    this.assertCode(sourceCode);
+    const source = await this.findDataSourceByCode(sourceCode);
+    const refreshed = await this.refreshDataSourceForUse(source);
+    const metadata = refreshed.metadata_json || {};
+    const fields = this.buildFieldSuggestions(refreshed, metadata);
+    if (fields.length === 0) throw new BadRequestException('no field suggestions available for data source');
+
+    const code = body?.code ? String(body.code).trim().toUpperCase() : `${sourceCode}_AUTO_FORM`;
+    this.assertCode(code);
+    const name = String(body?.name || `${refreshed.name}自动表单`).trim();
+    if (!name) throw new BadRequestException('name required');
+    const description = body?.description || `由工作流数据源 ${refreshed.name} 自动生成，可进入表单设计器继续微调。`;
+    const category = body?.category || '通用';
+    const schema = this.normalizeFormSchema({
+      fields: fields.map((field: any) => ({
+        key: field.key,
+        label: field.label,
+        type: field.type,
+        dataSource: field.dataSource,
+        required: Boolean(field.required),
+        span: field.type === 'textarea' ? 2 : 1,
+      })),
+      sourceDataSource: sourceCode,
+      generatedAt: new Date().toISOString(),
+    });
+
+    const existing = await this.em.query(
+      `SELECT id, current_version_id FROM wf_form_definition WHERE code=$1 LIMIT 1`,
+      [code],
+    );
+    let formId = existing[0]?.id;
+    let created = false;
+    if (!formId) {
+      const formRows = await this.em.query(
+        `INSERT INTO wf_form_definition (code, name, description, category, status, created_by, updated_at)
+         VALUES ($1,$2,$3,$4,'ACTIVE',$5,CURRENT_TIMESTAMP)
+         RETURNING *`,
+        [code, name, description, category, user.userId || null],
+      );
+      formId = formRows[0].id;
+      created = true;
+    } else {
+      await this.em.query(
+        `UPDATE wf_form_definition
+         SET name=$2, description=$3, category=$4, status='ACTIVE', updated_at=CURRENT_TIMESTAMP
+         WHERE id=$1`,
+        [formId, name, description, category],
+      );
+    }
+
+    const latest = await this.em.query(
+      `SELECT COALESCE(MAX(version_no),0)::int AS version_no FROM wf_form_version WHERE form_id=$1`,
+      [formId],
+    );
+    const versionNo = Number(latest[0]?.version_no || 0) + 1;
+    const versionRows = await this.em.query(
+      `INSERT INTO wf_form_version (form_id, version_no, status, schema_json, published_by, published_at)
+       VALUES ($1,$2,'PUBLISHED',$3::jsonb,$4,CURRENT_TIMESTAMP)
+       RETURNING *`,
+      [formId, versionNo, JSON.stringify(schema), user.userId || null],
+    );
+    const formRows = await this.em.query(
+      `UPDATE wf_form_definition
+       SET current_version_id=$2, updated_at=CURRENT_TIMESTAMP
+       WHERE id=$1 RETURNING *`,
+      [formId, versionRows[0].id],
+    );
+
+    return {
+      code: 200,
+      data: {
+        form: formRows[0],
+        version: versionRows[0],
+        created,
+        fields,
+        links: {
+          designer: `/workflow/form-designer/${formId}`,
+          forms: '/workflow/forms',
+        },
+      },
+    };
+  }
+
   async getForm(id: number) {
     const rows = await this.em.query(`SELECT * FROM wf_form_definition WHERE id=$1`, [id]);
     if (!rows[0]) throw new NotFoundException('workflow form not found');
@@ -498,8 +683,106 @@ export class WorkflowService implements OnModuleInit {
     return { code: 200, data: rows, total: rows.length };
   }
 
+  async getAnalytics(user: WorkflowUser, query: QueryDto & { days?: string | number }) {
+    this.requireAdmin(user);
+    const days = Math.min(Math.max(Number(query.days || 30), 1), 365);
+    const windowSql = `i.started_at >= CURRENT_TIMESTAMP - ($1::int * INTERVAL '1 day')`;
+    const [summaryRows, statusRows, definitionRows, bottleneckRows, trendRows] = await Promise.all([
+      this.em.query(
+        `SELECT
+           COUNT(*)::int AS total,
+           COUNT(*) FILTER (WHERE i.status='RUNNING')::int AS running,
+           COUNT(*) FILTER (WHERE i.status='APPROVED')::int AS approved,
+           COUNT(*) FILTER (WHERE i.status='REJECTED')::int AS rejected,
+           COUNT(*) FILTER (WHERE i.status='CANCELED')::int AS canceled,
+           COUNT(*) FILTER (WHERE i.started_at::date=CURRENT_DATE)::int AS started_today,
+           COUNT(*) FILTER (WHERE i.ended_at::date=CURRENT_DATE)::int AS completed_today,
+           COALESCE(AVG(EXTRACT(EPOCH FROM (i.ended_at - i.started_at)) / 3600) FILTER (WHERE i.ended_at IS NOT NULL), 0)::float AS avg_complete_hours
+         FROM wf_instance i
+         WHERE ${windowSql}`,
+        [days],
+      ),
+      this.em.query(
+        `SELECT i.status, COUNT(*)::int AS count
+         FROM wf_instance i
+         WHERE ${windowSql}
+         GROUP BY i.status
+         ORDER BY count DESC`,
+        [days],
+      ),
+      this.em.query(
+        `SELECT d.id AS definition_id, d.name AS definition_name, d.category,
+                COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE i.status='RUNNING')::int AS running,
+                COUNT(*) FILTER (WHERE i.status='APPROVED')::int AS approved,
+                COALESCE(AVG(EXTRACT(EPOCH FROM (i.ended_at - i.started_at)) / 3600) FILTER (WHERE i.ended_at IS NOT NULL), 0)::float AS avg_complete_hours
+         FROM wf_instance i
+         LEFT JOIN wf_definition d ON d.id=i.definition_id
+         WHERE ${windowSql}
+         GROUP BY d.id, d.name, d.category
+         ORDER BY total DESC, running DESC
+         LIMIT 8`,
+        [days],
+      ),
+      this.em.query(
+        `SELECT t.node_id, COALESCE(t.node_name, t.node_id) AS node_name,
+                COUNT(*)::int AS todo_count,
+                COUNT(*) FILTER (WHERE t.due_at IS NOT NULL AND t.due_at < CURRENT_TIMESTAMP)::int AS overdue_count,
+                COALESCE(AVG(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - t.created_at)) / 3600), 0)::float AS avg_waiting_hours
+         FROM wf_task t
+         JOIN wf_instance i ON i.id=t.instance_id
+         WHERE t.status='TODO' AND ${windowSql}
+         GROUP BY t.node_id, t.node_name
+         ORDER BY overdue_count DESC, avg_waiting_hours DESC, todo_count DESC
+         LIMIT 8`,
+        [days],
+      ),
+      this.em.query(
+        `SELECT i.started_at::date AS day,
+                COUNT(*)::int AS started,
+                COUNT(*) FILTER (WHERE i.status='APPROVED')::int AS approved,
+                COUNT(*) FILTER (WHERE i.status='REJECTED')::int AS rejected
+         FROM wf_instance i
+         WHERE ${windowSql}
+         GROUP BY i.started_at::date
+         ORDER BY day ASC`,
+        [days],
+      ),
+    ]);
+    const summary = summaryRows[0] || {};
+    const finished = Number(summary.approved || 0) + Number(summary.rejected || 0) + Number(summary.canceled || 0);
+    const approved = Number(summary.approved || 0);
+    return {
+      code: 200,
+      data: {
+        days,
+        summary: {
+          total: Number(summary.total || 0),
+          running: Number(summary.running || 0),
+          approved,
+          rejected: Number(summary.rejected || 0),
+          canceled: Number(summary.canceled || 0),
+          startedToday: Number(summary.started_today || 0),
+          completedToday: Number(summary.completed_today || 0),
+          avgCompleteHours: Number(summary.avg_complete_hours || 0),
+          approvalRate: finished > 0 ? approved / finished : 0,
+        },
+        statuses: statusRows,
+        definitions: definitionRows,
+        bottlenecks: bottleneckRows,
+        trend: trendRows,
+      },
+    };
+  }
+
   async getInstance(id: number, user: WorkflowUser) {
-    const rows = await this.em.query(`SELECT * FROM wf_instance WHERE id=$1`, [id]);
+    const rows = await this.em.query(
+      `SELECT i.*, fv.schema_json AS form_schema_json
+       FROM wf_instance i
+       LEFT JOIN wf_form_version fv ON fv.id=i.form_version_id
+       WHERE i.id=$1`,
+      [id],
+    );
     if (!rows[0]) throw new NotFoundException('workflow instance not found');
     await this.assertInstanceVisible(id, user);
     const tasks = await this.em.query(`SELECT * FROM wf_task WHERE instance_id=$1 ORDER BY id`, [id]);
@@ -522,12 +805,171 @@ export class WorkflowService implements OnModuleInit {
     return this.getInstance(id, user);
   }
 
+  async urgeInstance(id: number, body: any, user: WorkflowUser) {
+    const rows = await this.em.query(`SELECT * FROM wf_instance WHERE id=$1`, [id]);
+    const instance = rows[0];
+    if (!instance) throw new NotFoundException('workflow instance not found');
+    if (instance.status !== 'RUNNING') throw new BadRequestException('only RUNNING instance can be urged');
+    if (!this.isAdmin(user) && Number(instance.starter_id) !== Number(user.userId)) {
+      throw new ForbiddenException('only starter or admin can urge instance');
+    }
+    const tasks = await this.em.query(
+      `SELECT id, node_id, node_name, assignee_user_id, assignee_role_code
+       FROM wf_task
+       WHERE instance_id=$1 AND status='TODO'
+       ORDER BY created_at ASC, id ASC`,
+      [id],
+    );
+    if (tasks.length === 0) throw new BadRequestException('instance has no active task to urge');
+    const comment = String(body?.comment || '请尽快处理该流程。').slice(0, 500);
+    await this.writeAction(id, null, 'URGE', user, instance.current_node_id, instance.current_node_id, {
+      comment,
+      targetTaskIds: tasks.map((task: any) => task.id),
+      targetNodes: tasks.map((task: any) => task.node_name || task.node_id).filter(Boolean),
+    });
+    return { code: 200, data: { success: true, urgedTaskCount: tasks.length } };
+  }
+
   async listTodo(user: WorkflowUser, query: QueryDto) {
     return this.listTasks(user, query, 'TODO');
   }
 
   async listDone(user: WorkflowUser, query: QueryDto) {
     return this.listTasks(user, query, 'DONE');
+  }
+
+  async listMonitorTasks(user: WorkflowUser, query: QueryDto) {
+    const { limit, offset } = this.page(query);
+    const roles = this.userRoles(user);
+    const rows = await this.em.query(
+      `SELECT t.*, i.title, i.instance_no, i.status AS instance_status, i.started_at, i.starter_id, i.starter_name,
+              d.name AS definition_name,
+              u.real_name AS assignee_user_name,
+              r.role_name_zh AS assignee_role_name,
+              EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - t.created_at)) / 3600 AS waiting_hours,
+              (t.due_at IS NOT NULL AND t.due_at < CURRENT_TIMESTAMP) AS overdue,
+              COALESCE(a.urge_count, 0) AS urge_count,
+              a.last_urged_at
+       FROM wf_task t
+       JOIN wf_instance i ON i.id=t.instance_id
+       LEFT JOIN wf_definition d ON d.id=i.definition_id
+       LEFT JOIN sys_user u ON u.user_id=t.assignee_user_id
+       LEFT JOIN sys_role r ON r.role_code=t.assignee_role_code
+       LEFT JOIN (
+         SELECT instance_id,
+                COUNT(*) FILTER (WHERE action='URGE')::int AS urge_count,
+                MAX(created_at) FILTER (WHERE action='URGE') AS last_urged_at
+         FROM wf_task_action
+         GROUP BY instance_id
+       ) a ON a.instance_id=i.id
+       WHERE t.status='TODO'
+         AND ($1::boolean OR i.starter_id=$2 OR t.assignee_user_id=$2 OR t.assignee_role_code = ANY($3::text[]) OR EXISTS (
+           SELECT 1 FROM wf_cc_task c
+           WHERE c.instance_id=i.id
+             AND (c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[]))
+         ))
+       ORDER BY (t.due_at IS NOT NULL AND t.due_at < CURRENT_TIMESTAMP) DESC,
+                t.due_at ASC NULLS LAST,
+                t.created_at ASC,
+                t.id ASC
+       LIMIT $4 OFFSET $5`,
+      [this.isAdmin(user), user.userId || 0, roles, limit, offset],
+    );
+    return { code: 200, data: rows, total: rows.length };
+  }
+
+  async listCcTasks(user: WorkflowUser, query: QueryDto) {
+    const { limit, offset } = this.page(query);
+    const roles = this.userRoles(user);
+    const rows = await this.em.query(
+      `SELECT c.*, i.title, i.instance_no, i.status AS instance_status, i.started_at, i.starter_name,
+              i.form_data_json, fv.schema_json AS form_schema_json, d.name AS definition_name,
+              u.real_name AS receiver_user_name, r.role_name_zh AS receiver_role_name
+       FROM wf_cc_task c
+       JOIN wf_instance i ON i.id=c.instance_id
+       LEFT JOIN wf_definition d ON d.id=i.definition_id
+       LEFT JOIN wf_form_version fv ON fv.id=i.form_version_id
+       LEFT JOIN sys_user u ON u.user_id=c.receiver_user_id
+       LEFT JOIN sys_role r ON r.role_code=c.receiver_role_code
+       WHERE $1::boolean OR c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[])
+       ORDER BY COALESCE(c.read_at, TIMESTAMP '1970-01-01') ASC, c.created_at DESC, c.id DESC
+       LIMIT $4 OFFSET $5`,
+      [this.isAdmin(user), user.userId || 0, roles, limit, offset],
+    );
+    return { code: 200, data: rows, total: rows.length };
+  }
+
+  async getTaskSummary(user: WorkflowUser) {
+    const roles = this.userRoles(user);
+    const isAdmin = this.isAdmin(user);
+    const [todoRows, ccRows, overdueRows, runningRows, startedRows] = await Promise.all([
+      this.em.query(
+        `SELECT COUNT(*)::int AS count
+         FROM wf_task t
+         WHERE t.status='TODO'
+           AND ($1::boolean OR t.assignee_user_id=$2 OR t.assignee_role_code = ANY($3::text[]))`,
+        [isAdmin, user.userId || 0, roles],
+      ),
+      this.em.query(
+        `SELECT COUNT(*)::int AS count
+         FROM wf_cc_task c
+         WHERE c.read_at IS NULL
+           AND ($1::boolean OR c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[]))`,
+        [isAdmin, user.userId || 0, roles],
+      ),
+      this.em.query(
+        `SELECT COUNT(*)::int AS count
+         FROM wf_task t
+         WHERE t.status='TODO'
+           AND t.due_at IS NOT NULL
+           AND t.due_at < CURRENT_TIMESTAMP
+           AND ($1::boolean OR t.assignee_user_id=$2 OR t.assignee_role_code = ANY($3::text[]))`,
+        [isAdmin, user.userId || 0, roles],
+      ),
+      this.em.query(
+        `SELECT COUNT(*)::int AS count
+         FROM wf_instance i
+         WHERE i.status='RUNNING'
+           AND ($1::boolean OR i.starter_id=$2 OR EXISTS (
+             SELECT 1 FROM wf_task t
+             WHERE t.instance_id=i.id
+               AND (t.assignee_user_id=$2 OR t.assignee_role_code = ANY($3::text[]))
+           ) OR EXISTS (
+             SELECT 1 FROM wf_cc_task c
+             WHERE c.instance_id=i.id
+               AND (c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[]))
+           ))`,
+        [isAdmin, user.userId || 0, roles],
+      ),
+      this.em.query(
+        `SELECT COUNT(*)::int AS count
+         FROM wf_instance
+         WHERE starter_id=$1 AND status='RUNNING'`,
+        [user.userId || 0],
+      ),
+    ]);
+    return {
+      code: 200,
+      data: {
+        todo: Number(todoRows[0]?.count || 0),
+        ccUnread: Number(ccRows[0]?.count || 0),
+        overdueTodo: Number(overdueRows[0]?.count || 0),
+        running: Number(runningRows[0]?.count || 0),
+        startedRunning: Number(startedRows[0]?.count || 0),
+      },
+    };
+  }
+
+  async markCcRead(id: number, user: WorkflowUser) {
+    const rows = await this.em.query(`SELECT * FROM wf_cc_task WHERE id=$1`, [id]);
+    const cc = rows[0];
+    if (!cc) throw new NotFoundException('workflow cc task not found');
+    await this.assertCcVisible(cc, user);
+    const updated = await this.em.query(
+      `UPDATE wf_cc_task SET read_at=COALESCE(read_at, CURRENT_TIMESTAMP) WHERE id=$1 RETURNING *`,
+      [id],
+    );
+    return { code: 200, data: updated[0] };
   }
 
   async approveTask(taskId: number, body: any, user: WorkflowUser) {
@@ -560,6 +1002,7 @@ export class WorkflowService implements OnModuleInit {
   }
 
   async listDataSources(query: QueryDto) {
+    await this.refreshAllDataSourceMetadata();
     const { limit, offset } = this.page(query);
     const rows = await this.em.query(
       `SELECT * FROM wf_data_source
@@ -568,6 +1011,41 @@ export class WorkflowService implements OnModuleInit {
       [query.status || null, limit, offset],
     );
     return { code: 200, data: rows, total: rows.length };
+  }
+
+  async syncDefaultDataSources(user: WorkflowUser) {
+    this.requireAdmin(user);
+    await this.ensureDefaultDataSources();
+    const rows = await this.refreshAllDataSourceMetadata();
+    return { code: 200, data: rows, total: rows.length };
+  }
+
+  async refreshDataSourceMetadata(user: WorkflowUser) {
+    this.requireAdmin(user);
+    const rows = await this.refreshAllDataSourceMetadata();
+    return { code: 200, data: rows, total: rows.length };
+  }
+
+  async suggestDataSourceFields(code: string, user: WorkflowUser) {
+    this.requireAdmin(user);
+    this.assertCode(code);
+    const source = await this.findDataSourceByCode(code);
+    const refreshed = await this.refreshDataSourceForUse(source);
+    const metadata = refreshed.metadata_json || {};
+    const fields = this.buildFieldSuggestions(refreshed, metadata);
+    return {
+      code: 200,
+      data: {
+        source: {
+          code: refreshed.code,
+          name: refreshed.name,
+          source_type: refreshed.source_type,
+          last_synced_at: refreshed.last_synced_at,
+        },
+        metadata,
+        fields,
+      },
+    };
   }
 
   async createDataSource(body: any, user: WorkflowUser) {
@@ -580,7 +1058,8 @@ export class WorkflowService implements OnModuleInit {
        RETURNING *`,
       [body.code, body.name, body.source_type, JSON.stringify(body.config_json || {}), body.status || 'ACTIVE'],
     );
-    return { code: 200, data: rows[0] };
+    const refreshed = await this.refreshDataSourceRow(rows[0]);
+    return { code: 200, data: refreshed };
   }
 
   async updateDataSource(id: number, body: any, user: WorkflowUser) {
@@ -599,7 +1078,8 @@ export class WorkflowService implements OnModuleInit {
       ],
     );
     if (!rows[0]) throw new NotFoundException('workflow data source not found');
-    return { code: 200, data: rows[0] };
+    const refreshed = await this.refreshDataSourceRow(rows[0]);
+    return { code: 200, data: refreshed };
   }
 
   async previewDataSource(body: any) {
@@ -619,13 +1099,17 @@ export class WorkflowService implements OnModuleInit {
     }
     if (source.source_type === 'TABLE') {
       const table = String(config.table || '');
-      const valueField = String(config.valueField || 'id');
-      const labelField = String(config.labelField || valueField);
+      const valueField = await this.pickExistingColumn(table, config.valueFields || [config.valueField || 'id']);
+      const labelField = await this.pickExistingColumn(table, config.labelFields || [config.labelField || valueField]);
+      const statusField = await this.pickOptionalExistingColumn(table, config.statusFields || [config.statusField || 'status']);
+      const activeValues = this.normalizeActiveValues(config.activeValues);
       this.assertIdentifier(table);
       this.assertIdentifier(valueField);
       this.assertIdentifier(labelField);
+      const whereSql = statusField ? ` WHERE COALESCE("${statusField}"::text,'ACTIVE') = ANY($1::text[])` : '';
       const rows = await this.em.query(
-        `SELECT "${valueField}" AS value, "${labelField}" AS label FROM "${table}" LIMIT 200`,
+        `SELECT "${valueField}" AS value, "${labelField}" AS label FROM "${table}"${whereSql} LIMIT 200`,
+        statusField ? [activeValues] : [],
       );
       return { code: 200, data: rows };
     }
@@ -783,10 +1267,11 @@ export class WorkflowService implements OnModuleInit {
     const { limit, offset } = this.page(query);
     const rows = await this.em.query(
       `SELECT t.*, i.title, i.instance_no, i.status AS instance_status, i.started_at, i.starter_name,
-              i.form_data_json, d.name AS definition_name
+              i.form_data_json, fv.schema_json AS form_schema_json, d.name AS definition_name
        FROM wf_task t
        JOIN wf_instance i ON i.id=t.instance_id
        LEFT JOIN wf_definition d ON d.id=i.definition_id
+       LEFT JOIN wf_form_version fv ON fv.id=i.form_version_id
        WHERE t.status=$1
          AND ($2::boolean OR t.assignee_user_id=$3 OR t.assignee_role_code = ANY($4::text[]))
        ORDER BY t.created_at DESC, t.id DESC LIMIT $5 OFFSET $6`,
@@ -833,6 +1318,294 @@ export class WorkflowService implements OnModuleInit {
     return rows[0];
   }
 
+  private async pickExistingColumn(table: string, candidates: any[]) {
+    this.assertIdentifier(table);
+    const normalized = (Array.isArray(candidates) ? candidates : [candidates])
+      .map(item => String(item || '').trim())
+      .filter(Boolean);
+    if (normalized.length === 0) throw new BadRequestException('data source column required');
+    normalized.forEach(item => this.assertIdentifier(item));
+    const rows = await this.em.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = $1`,
+      [table],
+    );
+    const existing = new Set(rows.map((row: any) => String(row.column_name)));
+    const picked = normalized.find(item => existing.has(item));
+    if (!picked) throw new BadRequestException(`data source column not found for table ${table}`);
+    return picked;
+  }
+
+  private async pickOptionalExistingColumn(table: string, candidates: any[]) {
+    this.assertIdentifier(table);
+    const normalized = (Array.isArray(candidates) ? candidates : [candidates])
+      .map(item => String(item || '').trim())
+      .filter(Boolean);
+    if (normalized.length === 0) return null;
+    normalized.forEach(item => this.assertIdentifier(item));
+    const rows = await this.em.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = $1`,
+      [table],
+    );
+    const existing = new Set(rows.map((row: any) => String(row.column_name)));
+    return normalized.find(item => existing.has(item)) || null;
+  }
+
+  private normalizeActiveValues(values: any) {
+    const normalized = (Array.isArray(values) ? values : ['ACTIVE', 'ENABLED', 'NORMAL', '1', 'true'])
+      .map(item => String(item || '').trim())
+      .filter(Boolean);
+    return normalized.length ? normalized : ['ACTIVE', 'ENABLED', 'NORMAL', '1', 'true'];
+  }
+
+  private async refreshAllDataSourceMetadata() {
+    const rows = await this.em.query(`SELECT * FROM wf_data_source WHERE status='ACTIVE' ORDER BY id`);
+    const refreshed: any[] = [];
+    for (const row of rows) {
+      refreshed.push(await this.refreshDataSourceRow(row));
+    }
+    return refreshed;
+  }
+
+  private async refreshDataSourceRow(row: any) {
+    if (!row) return row;
+    const metadata = await this.buildDataSourceMetadata(row).catch(err => ({
+      available: false,
+      refreshedAt: new Date().toISOString(),
+      error: err?.message || 'data source metadata refresh failed',
+    }));
+    const rows = await this.em.query(
+      `UPDATE wf_data_source
+       SET metadata_json=$2::jsonb, last_synced_at=CURRENT_TIMESTAMP
+       WHERE id=$1
+       RETURNING *`,
+      [row.id, JSON.stringify(metadata)],
+    );
+    return rows[0] || { ...row, metadata_json: metadata };
+  }
+
+  private async refreshDataSourceForUse(source: any) {
+    const refreshed = await this.refreshDataSourceRow(source);
+    const merged = refreshed?.code ? refreshed : { ...source, ...(refreshed || {}) };
+    if (!merged.metadata_json || Object.keys(merged.metadata_json || {}).length === 0) {
+      merged.metadata_json = await this.buildDataSourceMetadata(merged);
+    }
+    return merged;
+  }
+
+  private async buildDataSourceMetadata(source: any) {
+    const config = source.config_json || {};
+    const base = {
+      available: true,
+      sourceType: source.source_type,
+      refreshedAt: new Date().toISOString(),
+    };
+
+    if (source.source_type === 'STATIC') {
+      const options = Array.isArray(config.options) ? config.options : [];
+      return { ...base, optionCount: options.length };
+    }
+
+    if (source.source_type === 'DICT') {
+      const rows = await this.em.query(
+        `SELECT COUNT(*)::int AS count
+         FROM sys_dict
+         WHERE dict_type=$1 AND COALESCE(status,'ACTIVE')='ACTIVE'`,
+        [config.dict_type],
+      );
+      return { ...base, dictType: config.dict_type || null, rowCount: Number(rows[0]?.count || 0) };
+    }
+
+    if (source.source_type !== 'TABLE') {
+      return { ...base, available: false, error: 'unsupported source_type' };
+    }
+
+    const table = String(config.table || '').trim();
+    this.assertIdentifier(table);
+    const columns = await this.em.query(
+      `SELECT column_name, data_type, is_nullable
+       FROM information_schema.columns
+       WHERE table_schema = current_schema() AND table_name = $1
+       ORDER BY ordinal_position`,
+      [table],
+    );
+    if (columns.length === 0) {
+      return { ...base, available: false, table, tableExists: false, columns: [], error: 'table not found' };
+    }
+
+    const valueField = this.pickColumnName(columns, config.valueFields || [config.valueField || 'id']);
+    const labelField = this.pickColumnName(columns, config.labelFields || [config.labelField || valueField]);
+    const statusField = this.pickColumnName(columns, config.statusFields || [config.statusField || 'status']);
+    const activeValues = this.normalizeActiveValues(config.activeValues);
+    const missing: string[] = [];
+    if (!valueField) missing.push('valueField');
+    if (!labelField) missing.push('labelField');
+
+    const rowCount = missing.length === 0
+      ? await this.countDataSourceRows(table, statusField, activeValues)
+      : 0;
+
+    return {
+      ...base,
+      available: missing.length === 0,
+      table,
+      tableExists: true,
+      valueField,
+      labelField,
+      statusField,
+      activeValues,
+      rowCount,
+      missing,
+      columns: columns.map((column: any) => ({
+        key: String(column.column_name),
+        type: String(column.data_type),
+        nullable: column.is_nullable === 'YES',
+      })),
+    };
+  }
+
+  private pickColumnName(columns: any[], candidates: any[]) {
+    const normalized = (Array.isArray(candidates) ? candidates : [candidates])
+      .map(item => String(item || '').trim())
+      .filter(Boolean);
+    normalized.forEach(item => this.assertIdentifier(item));
+    const existing = new Set(columns.map(column => String(column.column_name)));
+    return normalized.find(item => existing.has(item)) || null;
+  }
+
+  private async countDataSourceRows(table: string, statusField: string | null, activeValues: string[]) {
+    this.assertIdentifier(table);
+    if (statusField) this.assertIdentifier(statusField);
+    const whereSql = statusField ? ` WHERE COALESCE("${statusField}"::text,'ACTIVE') = ANY($1::text[])` : '';
+    const rows = await this.em.query(
+      `SELECT COUNT(*)::int AS count FROM "${table}"${whereSql}`,
+      statusField ? [activeValues] : [],
+    );
+    return Number(rows[0]?.count || 0);
+  }
+
+  private buildFieldSuggestions(source: any, metadata: any) {
+    if (source.source_type === 'STATIC') {
+      return [{
+        key: this.suggestFieldKey(source.code),
+        label: source.name,
+        type: 'select',
+        required: false,
+        reason: '固定选项可直接作为下拉控件',
+      }];
+    }
+
+    if (source.source_type === 'DICT') {
+      return [{
+        key: this.suggestFieldKey(source.code),
+        label: source.name,
+        type: 'select',
+        dataSource: source.code,
+        required: false,
+        reason: '系统字典可作为审批表单里的标准下拉项',
+      }];
+    }
+
+    if (source.source_type !== 'TABLE' || metadata?.available === false) return [];
+
+    const columns = Array.isArray(metadata?.columns) ? metadata.columns : [];
+    const valueField = String(metadata?.valueField || '').trim();
+    const labelField = String(metadata?.labelField || '').trim();
+    const statusField = String(metadata?.statusField || '').trim();
+    const suggestions: any[] = [];
+
+    if (valueField) {
+      suggestions.push({
+        key: this.suggestFieldKey(valueField),
+        label: this.suggestFieldLabel(valueField, source.name),
+        type: 'reference',
+        dataSource: source.code,
+        required: false,
+        reason: '主引用字段会实时读取该数据源最新记录',
+      });
+    }
+
+    for (const column of columns) {
+      const key = String(column?.key || '').trim();
+      if (!key || key === valueField || key === labelField || key === statusField) continue;
+      if (this.isTechnicalColumn(key)) continue;
+      suggestions.push({
+        key: this.suggestFieldKey(key),
+        label: this.suggestFieldLabel(key),
+        type: this.suggestFieldType(key, String(column?.type || '')),
+        required: column?.nullable === false && !this.isOptionalBusinessColumn(key),
+        reason: '由数据表字段自动发现，可按需加入自定义表单',
+      });
+    }
+
+    return suggestions.slice(0, 24);
+  }
+
+  private suggestFieldKey(key: string) {
+    return String(key || 'field')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'field';
+  }
+
+  private suggestFieldLabel(key: string, fallback?: string) {
+    const dict: Record<string, string> = {
+      user_id: '用户',
+      username: '账号',
+      real_name: '姓名',
+      real_name_zh: '姓名',
+      role_code: '角色',
+      role_name_zh: '角色名称',
+      org_code: '组织',
+      org_name: '组织名称',
+      store_code: '门店',
+      store_name: '门店名称',
+      product_code: '商品/物料',
+      product_name: '商品名称',
+      warehouse_code: '仓库',
+      warehouse_name: '仓库名称',
+      supplier_code: '供应商',
+      supplier_name: '供应商名称',
+      customer_code: '客户',
+      customer_name: '客户名称',
+      amount: '金额',
+      quantity: '数量',
+      remark: '备注',
+      description: '说明',
+    };
+    return dict[key] || fallback || key.split('_').filter(Boolean).map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+  }
+
+  private suggestFieldType(key: string, dbType: string): FormFieldType {
+    const lowerKey = key.toLowerCase();
+    const lowerType = dbType.toLowerCase();
+    if (lowerKey.includes('amount') || lowerKey.includes('price') || lowerKey.includes('cost') || lowerKey.includes('total')) return 'amount';
+    if (lowerType.includes('timestamp') || lowerKey.endsWith('_at') || lowerKey.includes('time')) return 'datetime';
+    if (lowerType.includes('date')) return 'date';
+    if (lowerType.includes('int') || lowerType.includes('numeric') || lowerType.includes('decimal') || lowerType.includes('double') || lowerType.includes('real')) return 'number';
+    if (lowerType.includes('text') || lowerKey.includes('remark') || lowerKey.includes('description') || lowerKey.includes('note')) return 'textarea';
+    return 'text';
+  }
+
+  private isTechnicalColumn(key: string) {
+    return [
+      'id',
+      'password',
+      'password_hash',
+      'salt',
+      'created_at',
+      'updated_at',
+      'deleted_at',
+      'created_by',
+      'updated_by',
+      'perms_version',
+    ].includes(key);
+  }
+
+  private isOptionalBusinessColumn(key: string) {
+    return key.includes('remark') || key.includes('description') || key.includes('note') || key.includes('memo');
+  }
+
   private async assertInstanceVisible(instanceId: number, user: WorkflowUser) {
     if (this.isAdmin(user)) return;
     const rows = await this.em.query(
@@ -841,10 +1614,21 @@ export class WorkflowService implements OnModuleInit {
          SELECT 1 FROM wf_task t
          WHERE t.instance_id=i.id
            AND (t.assignee_user_id=$2 OR t.assignee_role_code = ANY($3::text[]))
+       ) OR EXISTS (
+         SELECT 1 FROM wf_cc_task c
+         WHERE c.instance_id=i.id
+           AND (c.receiver_user_id=$2 OR c.receiver_role_code = ANY($3::text[]))
        ))`,
       [instanceId, user.userId || 0, this.userRoles(user)],
     );
     if (!rows[0]) throw new ForbiddenException('workflow instance not visible');
+  }
+
+  private async assertCcVisible(cc: any, user: WorkflowUser) {
+    if (this.isAdmin(user)) return;
+    if (Number(cc.receiver_user_id) === Number(user.userId)) return;
+    if (cc.receiver_role_code && this.userRoles(user).includes(cc.receiver_role_code)) return;
+    throw new ForbiddenException('workflow cc task not visible');
   }
 
   private async assertTaskVisible(task: any, user: WorkflowUser) {
@@ -1057,19 +1841,31 @@ export class WorkflowService implements OnModuleInit {
   }
 
   private async seedDefaults() {
-    const dsCount = await this.em.query(`SELECT COUNT(*)::int AS count FROM wf_data_source`);
-    if (Number(dsCount[0]?.count || 0) === 0) {
-      await this.em.query(
-        `INSERT INTO wf_data_source (code, name, source_type, config_json)
-         VALUES
-           ('SYS_DICT_APPROVAL','审批字典','DICT','{"dict_type":"APPROVAL"}'::jsonb),
-           ('MST_STORES','门店列表','TABLE','{"table":"mst_stores","valueField":"store_code","labelField":"store_name"}'::jsonb),
-           ('MST_PRODUCTS','产品列表','TABLE','{"table":"mst_products","valueField":"product_code","labelField":"product_name"}'::jsonb)
-         ON CONFLICT (code) DO NOTHING`,
-      );
-    }
-
+    await this.ensureDefaultDataSources();
     await this.seedIndustryTemplates(null);
+  }
+
+  private async ensureDefaultDataSources() {
+    return this.em.query(
+      `INSERT INTO wf_data_source (code, name, source_type, config_json)
+       VALUES
+         ('SYS_USERS','系统用户','TABLE','{"table":"sys_user","valueField":"user_id","labelField":"real_name","valueFields":["user_id","id"],"labelFields":["real_name","real_name_zh","username"],"statusFields":["status"],"activeValues":["1","ACTIVE","ENABLED","true"]}'::jsonb),
+         ('SYS_ROLES','系统角色','TABLE','{"table":"sys_role","valueField":"role_code","labelField":"role_name_zh","statusFields":["status"],"activeValues":["1","ACTIVE","ENABLED","true"]}'::jsonb),
+         ('SYS_ORGS','组织部门','TABLE','{"table":"sys_orgs","valueField":"org_code","labelField":"org_name","valueFields":["org_code","id"],"labelFields":["org_name"],"statusFields":["status"],"activeValues":["1","ACTIVE","ENABLED","true"]}'::jsonb),
+         ('SYS_DICT_APPROVAL','审批字典','DICT','{"dict_type":"APPROVAL"}'::jsonb),
+         ('MST_STORES','门店列表','TABLE','{"table":"mst_stores","valueField":"store_code","labelField":"store_name"}'::jsonb),
+         ('MST_PRODUCTS','产品列表','TABLE','{"table":"mst_products","valueField":"product_code","labelField":"product_name"}'::jsonb),
+         ('WMS_WAREHOUSES','仓库列表','TABLE','{"table":"wms_warehouses","valueField":"warehouse_code","labelField":"warehouse_name_zh"}'::jsonb),
+         ('PRC_SUPPLIERS','供应商列表','TABLE','{"table":"prc_suppliers","valueField":"supplier_code","labelField":"supplier_name"}'::jsonb),
+         ('ORD_CUSTOMERS','客户列表','TABLE','{"table":"ord_customers","valueField":"customer_code","labelField":"customer_name"}'::jsonb),
+         ('B2B_CUSTOMERS','B2B客户列表','TABLE','{"table":"b2b_customers","valueField":"customer_code","labelField":"customer_name"}'::jsonb)
+       ON CONFLICT (code) DO UPDATE
+       SET name=EXCLUDED.name,
+           source_type=EXCLUDED.source_type,
+           config_json=EXCLUDED.config_json || wf_data_source.config_json,
+           updated_at=CURRENT_TIMESTAMP
+       RETURNING code, name, source_type, status, config_json`,
+    );
   }
 
   private async seedIndustryTemplates(userId: number | null) {

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowInstance } from "@/lib/workflow-api";
@@ -15,11 +16,12 @@ const STATUS_FILTERS = [
 ];
 
 export default function WorkflowInstancesPage() {
+  const searchParams = useSearchParams();
   const [rows, setRows] = useState<WorkflowInstance[]>([]);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(searchParams.get("status") || "");
 
-  const load = () => workflowApi.instances(status || undefined).then(res => setRows(res.data || []));
-  useEffect(() => { load(); }, [status]);
+  const load = useCallback(() => workflowApi.instances(status || undefined).then(res => setRows(res.data || [])), [status]);
+  useEffect(() => { load(); }, [load]);
 
   const counts = useMemo(() => {
     const map: Record<string, number> = { ALL: rows.length };
@@ -47,7 +49,7 @@ export default function WorkflowInstancesPage() {
               <button
                 key={item.value || "ALL"}
                 type="button"
-                className={status === item.value ? s.tabPillActive : s.tabPill}
+                className={`${s.tabPill} ${status === item.value ? s.tabPillActive : ""}`}
                 onClick={() => setStatus(item.value)}
               >
                 {item.label}

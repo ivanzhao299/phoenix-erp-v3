@@ -206,8 +206,8 @@ export default function SuppliersPage() {
                   <span className={`${s.badge} ${s[STATUS_CLS[row.status]||'badgeNeutral']}`}>{row.status==="ACTIVE"||row.status==="active"?t("ui.活跃","活跃"):t("ui.停用","停用")}</span>
                 </td>
                 <td style={{ padding:"9px 12px",display:"flex",gap:6 }}>
-                  <button className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(row)}>{t("common.edit","编辑")}</button>
-                  <button className={s.btnDanger}    style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>setConfirmId(row.id)}>{t("common.delete","删除")}</button>
+                  <button type="button" className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(row)}>{t("common.edit","编辑")}</button>
+                  <button type="button" className={s.btnDanger}    style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>setConfirmId(row.id)}>{t("common.delete","删除")}</button>
                 </td>
               </tr>
             ))}

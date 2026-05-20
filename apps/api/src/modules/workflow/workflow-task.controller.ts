@@ -17,6 +17,26 @@ export class WorkflowTaskController {
     return this.workflow.listDone(req.user, query);
   }
 
+  @Get('cc')
+  cc(@Query() query: any, @Req() req: any) {
+    return this.workflow.listCcTasks(req.user, query);
+  }
+
+  @Get('summary')
+  summary(@Req() req: any) {
+    return this.workflow.getTaskSummary(req.user);
+  }
+
+  @Get('monitor')
+  monitor(@Query() query: any, @Req() req: any) {
+    return this.workflow.listMonitorTasks(req.user, query);
+  }
+
+  @Post('cc/:id/read')
+  readCc(@Param('id') id: string, @Req() req: any) {
+    return this.workflow.markCcRead(Number(id), req.user);
+  }
+
   @Post(':id/approve')
   approve(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.workflow.approveTask(Number(id), body, req.user);

@@ -42,6 +42,19 @@ export interface WorkflowDefinition {
   current_version_id?: number;
 }
 
+export interface WorkflowFormField {
+  key: string;
+  label: string;
+  type: string;
+  required?: boolean;
+  dataSource?: string;
+  options?: Array<{ label: string; value: string | number }>;
+}
+
+export interface WorkflowFormSchema {
+  fields?: WorkflowFormField[];
+}
+
 export interface WorkflowForm {
   id: number;
   code: string;
@@ -65,10 +78,82 @@ export interface WorkflowTask {
   definition_name?: string;
   starter_name: string;
   assignee_role_code?: string;
+  assignee_user_id?: number;
   due_at?: string;
   completed_at?: string;
   form_data_json?: Record<string, unknown>;
+  form_schema_json?: WorkflowFormSchema;
   created_at: string;
+}
+
+export interface WorkflowCcTask {
+  id: number;
+  instance_id: number;
+  node_id?: string;
+  receiver_user_id?: number;
+  receiver_role_code?: string;
+  receiver_user_name?: string;
+  receiver_role_name?: string;
+  read_at?: string;
+  title: string;
+  instance_no?: string;
+  instance_status?: string;
+  definition_name?: string;
+  starter_name: string;
+  form_data_json?: Record<string, unknown>;
+  form_schema_json?: WorkflowFormSchema;
+  created_at: string;
+}
+
+export interface WorkflowTaskSummary {
+  todo: number;
+  ccUnread: number;
+  overdueTodo: number;
+  running: number;
+  startedRunning: number;
+}
+
+export interface WorkflowMonitorTask extends WorkflowTask {
+  starter_id?: number;
+  assignee_user_name?: string;
+  assignee_role_name?: string;
+  waiting_hours?: string | number;
+  overdue?: boolean;
+  urge_count?: number;
+  last_urged_at?: string;
+}
+
+export interface WorkflowAnalytics {
+  days: number;
+  summary: {
+    total: number;
+    running: number;
+    approved: number;
+    rejected: number;
+    canceled: number;
+    startedToday: number;
+    completedToday: number;
+    avgCompleteHours: number;
+    approvalRate: number;
+  };
+  statuses: Array<{ status: string; count: number }>;
+  definitions: Array<{
+    definition_id?: number;
+    definition_name?: string;
+    category?: string;
+    total: number;
+    running: number;
+    approved: number;
+    avg_complete_hours: number;
+  }>;
+  bottlenecks: Array<{
+    node_id?: string;
+    node_name?: string;
+    todo_count: number;
+    overdue_count: number;
+    avg_waiting_hours: number;
+  }>;
+  trend: Array<{ day: string; started: number; approved: number; rejected: number }>;
 }
 
 export interface WorkflowInstance {
@@ -77,10 +162,14 @@ export interface WorkflowInstance {
   title: string;
   status: string;
   business_type?: string;
+  current_node_id?: string;
   starter_name: string;
   form_data_json?: Record<string, unknown>;
+  form_schema_json?: WorkflowFormSchema;
   tasks?: WorkflowTask[];
   actions?: Record<string, unknown>[];
+  started_at?: string;
+  ended_at?: string;
   created_at: string;
 }
 
@@ -90,6 +179,8 @@ export const workflowApi = {
     req<WorkflowOne<WorkflowDefinition>>("/definitions", { method: "POST", body: JSON.stringify(data) }),
   generateIndustryTemplates: () =>
     req<WorkflowOne<Record<string, unknown>>>("/definitions/industry-templates/generate", { method: "POST", body: JSON.stringify({}) }),
+  createDefinitionFromDataSource: (data: Record<string, unknown>) =>
+    req<WorkflowOne<Record<string, unknown>>>("/definitions/from-data-source", { method: "POST", body: JSON.stringify(data) }),
   cloneDefinition: (id: number, data: Record<string, unknown>) =>
     req<WorkflowOne<WorkflowDefinition>>(`/definitions/${id}/clone`, { method: "POST", body: JSON.stringify(data) }),
   publishDefinition: (id: number, data: Record<string, unknown>) =>
@@ -99,6 +190,8 @@ export const workflowApi = {
   forms: () => req<WorkflowList<WorkflowForm>>("/forms"),
   createForm: (data: Record<string, unknown>) =>
     req<WorkflowOne<WorkflowForm>>("/forms", { method: "POST", body: JSON.stringify(data) }),
+  createFormFromDataSource: (data: Record<string, unknown>) =>
+    req<WorkflowOne<Record<string, unknown>>>("/forms/from-data-source", { method: "POST", body: JSON.stringify(data) }),
   publishForm: (id: number, data: Record<string, unknown>) =>
     req<WorkflowOne<Record<string, unknown>>>(`/forms/${id}/publish`, { method: "POST", body: JSON.stringify(data) }),
   formDesigner: (id: number) => req<WorkflowOne<Record<string, unknown>>>(`/forms/${id}/designer`),
@@ -106,20 +199,38 @@ export const workflowApi = {
   dataSources: () => req<WorkflowList<Record<string, unknown>>>("/data-sources"),
   createDataSource: (data: Record<string, unknown>) =>
     req<WorkflowOne<Record<string, unknown>>>("/data-sources", { method: "POST", body: JSON.stringify(data) }),
+  syncDefaultDataSources: () =>
+    req<WorkflowList<Record<string, unknown>>>("/data-sources/sync-defaults", { method: "POST", body: JSON.stringify({}) }),
+  refreshDataSourceMetadata: () =>
+    req<WorkflowList<Record<string, unknown>>>("/data-sources/refresh-metadata", { method: "POST", body: JSON.stringify({}) }),
+  dataSourceFieldSuggestions: (code: string) =>
+    req<WorkflowOne<Record<string, unknown>>>(`/data-sources/${encodeURIComponent(code)}/field-suggestions`),
   previewDataSource: (data: Record<string, unknown>) =>
     req<WorkflowList<Record<string, unknown>>>("/data-sources/preview", { method: "POST", body: JSON.stringify(data) }),
 
   start: (data: Record<string, unknown>) =>
     req<WorkflowOne<WorkflowInstance>>("/start", { method: "POST", body: JSON.stringify(data) }),
+  analytics: (days = 30) => req<WorkflowOne<WorkflowAnalytics>>(`/analytics?days=${encodeURIComponent(String(days))}`),
   instances: (status?: string) => req<WorkflowList<WorkflowInstance>>(`/instances${status ? `?status=${encodeURIComponent(status)}` : ""}`),
   instance: (id: number) => req<WorkflowOne<WorkflowInstance>>(`/instances/${id}`),
   cancelInstance: (id: number, comment = "") =>
     req<WorkflowOne<WorkflowInstance>>(`/instances/${id}/cancel`, { method: "POST", body: JSON.stringify({ comment }) }),
+  urgeInstance: (id: number, comment = "") =>
+    req<WorkflowOne<{ success: boolean; urgedTaskCount: number }>>(`/instances/${id}/urge`, { method: "POST", body: JSON.stringify({ comment }) }),
 
   todo: () => req<WorkflowList<WorkflowTask>>("/tasks/todo"),
   done: () => req<WorkflowList<WorkflowTask>>("/tasks/done"),
+  cc: () => req<WorkflowList<WorkflowCcTask>>("/tasks/cc"),
+  taskSummary: () => req<WorkflowOne<WorkflowTaskSummary>>("/tasks/summary"),
+  monitorTasks: () => req<WorkflowList<WorkflowMonitorTask>>("/tasks/monitor"),
+  markCcRead: (id: number) =>
+    req<WorkflowOne<WorkflowCcTask>>(`/tasks/cc/${id}/read`, { method: "POST", body: JSON.stringify({}) }),
   approve: (id: number, comment: string) =>
     req<WorkflowOne<WorkflowInstance>>(`/tasks/${id}/approve`, { method: "POST", body: JSON.stringify({ comment }) }),
   reject: (id: number, comment: string) =>
     req<WorkflowOne<WorkflowInstance>>(`/tasks/${id}/reject`, { method: "POST", body: JSON.stringify({ comment }) }),
+  comment: (id: number, comment: string) =>
+    req<WorkflowOne<{ success: boolean }>>(`/tasks/${id}/comment`, { method: "POST", body: JSON.stringify({ comment }) }),
+  transfer: (id: number, data: Record<string, unknown>) =>
+    req<WorkflowOne<{ success: boolean }>>(`/tasks/${id}/transfer`, { method: "POST", body: JSON.stringify(data) }),
 };

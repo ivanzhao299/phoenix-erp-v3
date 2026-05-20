@@ -63,8 +63,8 @@ export default function Page() {
   return (
     <div>
       <PageHeader title={t("ui.仓库主档", "仓库主档")} subtitle={t("ui.管理仓库基础信息", "管理仓库基础信息（表：wms_warehouses）")} />
-      <DataTable table={TABLE} columns={COLUMNS as any} onNew={openNew} onEdit={openEdit as any}
-        onDelete={handleDelete as any} showActions refreshKey={refreshKey} />
+      <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit}
+        onDelete={handleDelete} showActions refreshKey={refreshKey} />
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑仓库主档", "编辑仓库主档") : t("ui.新增仓库主档", "新增仓库主档")} onClose={closeDrawer}>
         <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave}
           onCancel={closeDrawer} loading={saving} />

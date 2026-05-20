@@ -178,7 +178,7 @@ function getPkColumn(table: string): string {
     // 主数据
     brd_farms:        'farm_code',
     brd_houses:       'house_code',
-    brd_flocks:       'flock_code',
+    brd_flocks:       'flock_no',
     // 仓储
     wms_warehouses:   'warehouse_code',
     wms_locations:    'location_code',

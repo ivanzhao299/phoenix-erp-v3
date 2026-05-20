@@ -175,8 +175,8 @@ export default function InboundPage() {
         columns={COLUMNS}
         params={typeFilter ? { type: typeFilter } as any : undefined}
         onNew={openNew}
-        onEdit={openEdit as any}
-        onDelete={handleDelete as any}
+        onEdit={openEdit}
+        onDelete={handleDelete}
         showActions={false}
         refreshKey={refreshKey}
         emptyText={t("common.no_data", "暂无入库记录")}

@@ -17,6 +17,11 @@ export class WorkflowFormController {
     return this.workflow.createForm(body, req.user);
   }
 
+  @Post('from-data-source')
+  createFromDataSource(@Body() body: any, @Req() req: any) {
+    return this.workflow.createFormFromDataSource(body, req.user);
+  }
+
   @Get(':id')
   get(@Param('id') id: string) {
     return this.workflow.getForm(Number(id));

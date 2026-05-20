@@ -77,10 +77,10 @@ export default function InventoryAnalyticsPage() {
       <PageHeader title={TITLE} subtitle={t('ui.分析库存批次周转率', '分析库存批次周转率和积压情况（表：inv_batches）')} />
       <DataTable
         table={TABLE}
-        columns={COLUMNS as any}
+        columns={COLUMNS}
         onNew={openNew}
-        onEdit={openEdit as any}
-        onDelete={handleDelete as any}
+        onEdit={openEdit}
+        onDelete={handleDelete}
         showActions
         refreshKey={refreshKey}
       />

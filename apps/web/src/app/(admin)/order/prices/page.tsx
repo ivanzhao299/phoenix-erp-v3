@@ -53,7 +53,7 @@ export default function Page() {
   const confirmDelete=useCallback(async()=>{if(!deleteTarget?.id)return;await crudApi.delete(TABLE,deleteTarget.id as number);setConfirmOpen(false);refresh();},[deleteTarget,refresh]);
   return(<div><PageHeader
         breadcrumb={[t("ui.销售","销售"), t("ui.价格管理","价格管理")]} title={t("ui.合同价格","合同价格")} subtitle={t("ui.合同价格副标题","管理客户合同价格档位（表：ord_prices）")} />
-    <DataTable table={TABLE} columns={COLUMNS as any} onNew={openNew} onEdit={openEdit as any} onDelete={handleDelete as any} showActions refreshKey={refreshKey} />
+    <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit} onDelete={handleDelete} showActions refreshKey={refreshKey} />
     <RightDrawer open={drawerOpen} title={editing?t("ui.编辑合同价格","编辑合同价格"):t("ui.新增合同价格","新增合同价格")} onClose={closeDrawer}>
       <CrudForm fields={FIELDS} initialValues={editing??{}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
     </RightDrawer>

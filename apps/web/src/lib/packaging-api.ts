@@ -3,6 +3,16 @@
  * 替换 packaging-mock.ts，通过 /api/packaging/terminal/* 调用后端
  */
 
+export interface PrintLogRow {
+  id: number;
+  box_code: string;
+  packaging_batch_id: string;
+  print_type: 'NORMAL' | 'REPRINT';
+  reprint_reason: string | null;
+  printed_by: string;
+  printed_at: string;
+}
+
 function tok(): string {
   if (typeof window === 'undefined') return '';
   return sessionStorage.getItem('phoenix_token') || '';
@@ -23,10 +33,18 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     body: body ? JSON.stringify(body) : undefined,
   });
   if (res.status === 401) {
-    // 仅当本地有 token 却被服务端拒绝（过期/失效），才主动跳转登录页
-    // 若 token 为空（如新标签页），直接 throw 由调用方或 TerminalLayout 自行处理
+    // 只有 JWT 真正过期才跳登录；权限不足（如管理员访问仅限操作员的 endpoint）
+    // 应继续停留在当前页面，让调用方展示友好错误，不能误把权限 401 当成过期登出。
     if (typeof window !== 'undefined' && tok()) {
-      window.location.href = '/login?reason=expired';
+      try {
+        const parts = tok().split('.');
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
+          window.location.href = '/login?reason=expired';
+        }
+      } catch {
+        window.location.href = '/login?reason=expired';
+      }
     }
     throw new Error('Token expired or unauthorized');
   }
@@ -52,6 +70,7 @@ export const packagingApi = {
   getTodaySourceBatches: () => request<any[]>('GET', '/api/packaging/terminal/source-batches/today'),
   getPendingSourceBatches: () => request<any[]>('GET', '/api/packaging/terminal/source-batches/pending'),
   receiveBatch: (body: Record<string, unknown>) => request<any>('POST', '/api/packaging/terminal/source-batches/receive', body),
+  correctBatch: (body: Record<string, unknown>) => request<void>('PATCH', '/api/packaging/terminal/source-batches/correct', body),
 
   // ── 首检 ─────────────────────────────────────────────────────────────────────
   submitQCInspection: (body: Record<string, unknown>) => request<any>('POST', '/api/packaging/terminal/qc/first-inspection', body),
@@ -62,13 +81,42 @@ export const packagingApi = {
 
   // ── 标签打印日志 ──────────────────────────────────────────────────────────────
   recordPrintLog: (body: Record<string, unknown>) => request<any>('POST', '/api/packaging/terminal/labels/print-log', body),
+  getPrintLogs: (params: { startDate: string; endDate: string; type?: string }) => {
+    const q = new URLSearchParams({ startDate: params.startDate, endDate: params.endDate });
+    if (params.type && params.type !== 'ALL') q.set('type', params.type);
+    return request<{ data: PrintLogRow[] }>('GET', `/api/packaging/terminal/labels/print-logs?${q}`);
+  },
+
+  /** 获取包装单完整追溯信息（鸡舍来源、班次、等级、规格） */
+  getPackingTrace: (packingCode: string) =>
+    request<{
+      packingCode: string;
+      productionDate: string;
+      shift: { id: number; shiftCode: string; shiftLabel: string; operatorName: string; supervisorName: string } | null;
+      sources: { houseCode: string; houseName: string; totalQty: number }[];
+    }>('GET', `/api/packaging/terminal/labels/trace?packingCode=${encodeURIComponent(packingCode)}`),
 
   // ── 交班日报 ──────────────────────────────────────────────────────────────────
-  getShiftSummary: (date?: string) => request<any>('GET', `/api/packaging/terminal/reports/shift-summary${date ? `?date=${date}` : ''}`),
+  getShiftSummary: (date?: string, shiftId?: string) => {
+    const params = new URLSearchParams();
+    if (date) params.set('date', date);
+    if (shiftId) params.set('shiftId', shiftId);
+    const qs = params.toString();
+    return request<any>('GET', `/api/packaging/terminal/reports/shift-summary${qs ? `?${qs}` : ''}`);
+  },
 
   // ── 分级 ─────────────────────────────────────────────────────────────────────
   submitGrading: (body: Record<string, unknown>) =>
     request<{ code: string }>('POST', '/api/packaging/terminal/grading/submit', body),
+
+  /** 按等级汇总当日所有分级批次产出及已包装量，返回各等级实时剩余（多终端并发安全） */
+  getActiveGrading: (date?: string) =>
+    request<{
+      gradingCodes: string[];
+      outputs:      Record<string, number>;
+      packed:       Record<string, number>;
+      remaining:    Record<string, number>;
+    }>('GET', `/api/packaging/terminal/grading/active${date ? `?date=${date}` : ''}`),
 
   // ── 包装 ─────────────────────────────────────────────────────────────────────
   submitPacking: (body: Record<string, unknown>) =>
@@ -95,6 +143,7 @@ export interface DictItem {
   code: string;
   label: string;
   labelEn?: string;
+  labelLo?: string;
   sortNo?: number;
   // PKG_EGG_GRADE terminal grades
   terminalCode?: string;

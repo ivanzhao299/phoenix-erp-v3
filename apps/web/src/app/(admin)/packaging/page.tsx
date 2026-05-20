@@ -1,5 +1,9 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+
+interface ShiftRow    { id: number | string; shift_code?: string; status: string; operator_name?: string; line_id?: string; }
+interface BatchRow    { id: number | string; batch_code?: string; batch_status: string; received_qty?: number; house_code?: string; }
+interface ExceptionRow{ id: number | string; status: string; exception_type?: string; issue_type?: string; description?: string; detail?: string; }
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -13,9 +17,9 @@ export default function PackagingOverviewPage() {
   const router = useRouter();
   const { t } = useLanguage();
   const today = new Date().toISOString().slice(0, 10);
-  const [shifts, setShifts] = useState<any[]>([]);
-  const [batches, setBatches] = useState<any[]>([]);
-  const [exceptions, setExceptions] = useState<any[]>([]);
+  const [shifts, setShifts] = useState<ShiftRow[]>([]);
+  const [batches, setBatches] = useState<BatchRow[]>([]);
+  const [exceptions, setExceptions] = useState<ExceptionRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -35,7 +39,7 @@ export default function PackagingOverviewPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const openExceptions = exceptions.filter((e: any) => !["CLOSED", "CANCELLED"].includes(e.status || ""));
+  const openExceptions = exceptions.filter(e => !["CLOSED", "CANCELLED"].includes(e.status || ""));
 
   return (
     <div className={s.pageRoot}>
@@ -44,7 +48,7 @@ export default function PackagingOverviewPage() {
         subtitle={`${today} · ${t("ui.今日作业概览", "今日作业概览")}`}
         actions={
           <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={load} className={s.btnSecondary}><RefreshCw size={14} /> {t("common.refresh", "刷新")}</button>
+            <button type="button" onClick={load} className={s.btnSecondary}><RefreshCw size={14} /> {t("common.refresh", "刷新")}</button>
             <a href="/terminal/packaging/dashboard" target="_blank"
               style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 18px",
                 borderRadius:8, background:"#f59e0b", color:"#0f172a",
@@ -60,7 +64,7 @@ export default function PackagingOverviewPage() {
         {[
           { icon:<Clock size={20}/>, label: t("ui.今日班次", "今日班次"), value:shifts.length, color:"#3b82f6" },
           { icon:<Package size={20}/>, label: t("ui.来源批次", "来源批次"), value:batches.length, color:"#8b5cf6" },
-          { icon:<CheckCircle size={20}/>, label: t("ui.已接收", "已接收"), value:batches.filter((b:any)=>b.batch_status==="RECEIVED"||b.batch_status==="QC_PASSED").length, color:"#22c55e" },
+          { icon:<CheckCircle size={20}/>, label: t("ui.已接收", "已接收"), value:batches.filter(b =>b.batch_status==="RECEIVED"||b.batch_status==="QC_PASSED").length, color:"#22c55e" },
           { icon:<AlertCircle size={20}/>, label: t("ui.未关闭异常", "未关闭异常"), value:openExceptions.length, color: openExceptions.length > 0 ? "#ef4444" : "#94a3b8" },
         ].map(item => (
           <div key={item.label} className={s.card} style={{ padding:"20px 24px", display:"flex", alignItems:"center", gap:16 }}>
@@ -70,7 +74,7 @@ export default function PackagingOverviewPage() {
             </div>
             <div>
               <div style={{ fontSize:26, fontWeight:800, color:"var(--text-primary,#0f172a)", lineHeight:1 }}>{item.value}</div>
-              <div style={{ fontSize:12, color:"var(--text-muted,#64748b)", marginTop:4 }}>{item.label}</div>
+              <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:4 }}>{item.label}</div>
             </div>
           </div>
         ))}
@@ -86,7 +90,7 @@ export default function PackagingOverviewPage() {
           <div style={{ padding:"12px 20px" }}>
             {loading ? <div style={{ color:"#94a3b8", padding:"20px 0", textAlign:"center" }}>{t("common.loading", "加载中...")}</div>
               : shifts.length === 0 ? <div style={{ color:"#94a3b8", padding:"20px 0", textAlign:"center" }}>{t("ui.今日暂无班次", "今日暂无班次")}</div>
-              : shifts.map((sh: any) => (
+              : shifts.map(sh => (
                 <div key={sh.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
                   padding:"10px 0", borderBottom:"1px solid var(--border,#f1f5f9)" }}>
                   <div>
@@ -114,7 +118,7 @@ export default function PackagingOverviewPage() {
           <div style={{ padding:"12px 20px" }}>
             {loading ? <div style={{ color:"#94a3b8", padding:"20px 0", textAlign:"center" }}>{t("common.loading", "加载中...")}</div>
               : batches.length === 0 ? <div style={{ color:"#94a3b8", padding:"20px 0", textAlign:"center" }}>{t("ui.今日暂无批次", "今日暂无批次")}</div>
-              : batches.map((b: any) => (
+              : batches.map(b => (
                 <div key={b.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
                   padding:"10px 0", borderBottom:"1px solid var(--border,#f1f5f9)" }}>
                   <div>
@@ -142,7 +146,7 @@ export default function PackagingOverviewPage() {
             <span style={{ fontWeight:600, fontSize:15, color:"#ef4444" }}>{t("ui.未关闭异常", "未关闭异常")} ({openExceptions.length})</span>
           </div>
           <div style={{ padding:"12px 20px" }}>
-            {openExceptions.map((e: any) => (
+            {openExceptions.map(e => (
               <div key={e.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
                 padding:"10px 0", borderBottom:"1px solid var(--border,#f1f5f9)" }}>
                 <div>

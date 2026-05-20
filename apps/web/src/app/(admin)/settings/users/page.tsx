@@ -175,14 +175,14 @@ function RolePicker({ allRoles, selected, onChange }: {
                 {r.role_name_zh}
                 <LevelBadge level={r.approval_level}/>
                 {!r.is_primary && selected.length > 1 && (
-                  <button onClick={() => setPrimary(r.role_code)}
+                  <button type="button" onClick={() => setPrimary(r.role_code)}
                     title={t("ui.设为主角色", "设为主角色")}
                     style={{ background: "none", border: "none", cursor: "pointer", padding: "0 2px",
                       color: col, opacity: 0.5, fontSize: 10, lineHeight: 1 }}>
                     ★
                   </button>
                 )}
-                <button onClick={() => toggle({ role_code: r.role_code, role_name_zh: r.role_name_zh,
+                <button type="button" onClick={() => toggle({ role_code: r.role_code, role_name_zh: r.role_name_zh,
                     role_type: "", approval_level: r.approval_level, description: "" })}
                   style={{ background: "none", border: "none", cursor: "pointer",
                     padding: "0 2px", color: col, opacity: 0.7 }}>
@@ -220,7 +220,7 @@ function RolePicker({ allRoles, selected, onChange }: {
                 const isSelected = selectedSet.has(r.role_code);
                 const col = levelColor(r.approval_level);
                 return (
-                  <button key={r.role_code} onClick={() => toggle(r)}
+                  <button type="button" key={r.role_code} onClick={() => toggle(r)}
                     title={`${r.role_code}${r.description ? " — " + r.description : ""}`}
                     style={{
                       padding: "4px 10px", borderRadius: 12, fontSize: 12, cursor: "pointer",
@@ -323,8 +323,8 @@ export default function UserManagementPage() {
       (u.roles_detail || []).some(r => r.role_name_zh.toLowerCase().includes(q))
     );
     return [...list].sort((a, b) => {
-      const va = String((a as any)[sortKey] || "").toLowerCase();
-      const vb = String((b as any)[sortKey] || "").toLowerCase();
+      const va = String((a as unknown as Record<string, unknown>)[sortKey] || "").toLowerCase();
+      const vb = String((b as unknown as Record<string, unknown>)[sortKey] || "").toLowerCase();
       return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
     });
   }, [users, typeFilter, statusFilter, roleFilter, search, sortKey, sortDir]);
@@ -423,7 +423,7 @@ export default function UserManagementPage() {
     if (!editUser && (!form.password || form.password.length < 8)) { toast.error(t("ui.新建用户密码至少8位", "新建用户密码至少 8 位")); return; }
     setSubmitting(true);
     try {
-      let res: any;
+      let res: { code?: number; data?: { id?: number }; msg?: string } = {};
       if (editUser) {
         // 更新基本信息
         res = await API(`/${editUser.id}`, {
@@ -574,7 +574,7 @@ export default function UserManagementPage() {
             style={{ border: "none", background: "transparent", outline: "none",
               fontSize: 13, color: "var(--text-primary)", width: "100%" }}/>
           {search && (
-            <button onClick={() => setSearch("")}
+            <button type="button" onClick={() => setSearch("")}
               style={{ border: "none", background: "transparent", cursor: "pointer",
                 color: "var(--text-secondary)", padding: 0, fontSize: 14, lineHeight: 1 }}>✕</button>
           )}
@@ -598,7 +598,7 @@ export default function UserManagementPage() {
         </select>
 
         {hasActiveFilters && (
-          <button onClick={() => { setSearch(""); setStatusFilter("ALL"); setRoleFilter(""); }}
+          <button type="button" onClick={() => { setSearch(""); setStatusFilter("ALL"); setRoleFilter(""); }}
             style={{ fontSize: 12, color: "#ef4444", background: "rgba(239,68,68,0.08)",
               border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6,
               padding: "6px 10px", cursor: "pointer", whiteSpace: "nowrap" }}>
@@ -743,13 +743,13 @@ export default function UserManagementPage() {
                 {userGroups.length} {t("ui.个分组", "个分组")}
               </span>
               <div style={{ display: "flex", gap: 6 }}>
-                <button onClick={() => setCollapsedGroups(new Set())}
+                <button type="button" onClick={() => setCollapsedGroups(new Set())}
                   style={{ fontSize: 12, padding: "4px 10px", borderRadius: 6, cursor: "pointer",
                     border: "1px solid var(--border)", background: "var(--bg-card)",
                     color: "var(--text-secondary)" }}>
                   {t("ui.全部展开", "全部展开")}
                 </button>
-                <button onClick={() => setCollapsedGroups(new Set(userGroups.map(g => g.type)))}
+                <button type="button" onClick={() => setCollapsedGroups(new Set(userGroups.map(g => g.type)))}
                   style={{ fontSize: 12, padding: "4px 10px", borderRadius: 6, cursor: "pointer",
                     border: "1px solid var(--border)", background: "var(--bg-card)",
                     color: "var(--text-secondary)" }}>
@@ -884,11 +884,11 @@ export default function UserManagementPage() {
                 </select>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <button onClick={() => setPage(1)} disabled={page === 1}
+                <button type="button" onClick={() => setPage(1)} disabled={page === 1}
                   style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)",
                     background: "var(--bg-card)", cursor: page === 1 ? "not-allowed" : "pointer",
                     opacity: page === 1 ? 0.4 : 1, fontSize: 12 }}>«</button>
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                <button type="button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
                   style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)",
                     background: "var(--bg-card)", cursor: page === 1 ? "not-allowed" : "pointer",
                     opacity: page === 1 ? 0.4 : 1, fontSize: 12 }}>‹</button>
@@ -901,7 +901,7 @@ export default function UserManagementPage() {
                   .map((p, i) => p === "..." ? (
                     <span key={`e${i}`} style={{ padding: "4px 4px", fontSize: 12 }}>…</span>
                   ) : (
-                    <button key={p} onClick={() => setPage(p as number)}
+                    <button type="button" key={p} onClick={() => setPage(p as number)}
                       style={{ padding: "4px 9px", borderRadius: 6, fontSize: 12, cursor: "pointer",
                         border: page === p ? "1px solid var(--color-primary)" : "1px solid var(--border)",
                         background: page === p ? "var(--color-primary)" : "var(--bg-card)",
@@ -910,11 +910,11 @@ export default function UserManagementPage() {
                       {p}
                     </button>
                   ))}
-                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                <button type="button" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
                   style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)",
                     background: "var(--bg-card)", cursor: page === totalPages ? "not-allowed" : "pointer",
                     opacity: page === totalPages ? 0.4 : 1, fontSize: 12 }}>›</button>
-                <button onClick={() => setPage(totalPages)} disabled={page === totalPages}
+                <button type="button" onClick={() => setPage(totalPages)} disabled={page === totalPages}
                   style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)",
                     background: "var(--bg-card)", cursor: page === totalPages ? "not-allowed" : "pointer",
                     opacity: page === totalPages ? 0.4 : 1, fontSize: 12 }}>»</button>

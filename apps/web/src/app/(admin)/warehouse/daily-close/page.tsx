@@ -91,7 +91,7 @@ export default function DailyClosePage() {
         actions={
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input type="date" value={date} onChange={e => setDate(e.target.value)}
-              style={{ padding: "7px 12px", border: "1px solid var(--border-color)", borderRadius: 8, background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 13 }} />
+              style={{ padding: "7px 12px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 13 }} />
             <button type="button" className={s.btnSecondary} onClick={load}>
               <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />{t("common.refresh", "刷新")}
             </button>
@@ -156,7 +156,7 @@ export default function DailyClosePage() {
                 { label: t("ui.实盘量", "实盘量"),   value: `${Number(data.last_stocktake.act_qty ?? 0).toLocaleString()} ${t("ui.枚", "枚")}` },
                 { label: t("ui.差异量", "差异量"),   value: `${Number(data.last_stocktake.diff_qty ?? 0).toLocaleString()} ${t("ui.枚", "枚")}` },
               ].map(row => (
-                <div key={row.label} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: 8 }}>
+                <div key={row.label} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
                   <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{row.label}</span>
                   <span style={{ fontSize: 13, fontWeight: 600 }}>{row.value}</span>
                 </div>
@@ -181,7 +181,7 @@ export default function DailyClosePage() {
                   { label: t("ui.净变化", "净变化"),   value: (balance >= 0 ? "+" : "") + balance.toLocaleString(), cls: balance >= 0 ? s.textInfo : s.textWarning },
                   { label: t("ui.当前库存", "当前库存"), value: `${curQty.toLocaleString()} ${t("ui.枚", "枚")}`, cls: "" },
                 ].map(row => (
-                  <div key={row.label} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: 8 }}>
+                  <div key={row.label} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
                     <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{row.label}</span>
                     <span className={row.cls} style={{ fontSize: 14, fontWeight: 700 }}>{row.value}</span>
                   </div>

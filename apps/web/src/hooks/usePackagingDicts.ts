@@ -10,17 +10,17 @@ export type DictMap = Record<string, DictItem[]>;
 // ── 硬编码兜底（API 失败时使用）────────────────────────────────────────────────
 export const FALLBACK_DICTS: DictMap = {
   PKG_EGG_GRADE: [
-    { code:'PKG_EGG_GRADE_1', label:'1号蛋', terminalCode:'GRADE_1', color:'#7c3aed', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'59-66g' },
-    { code:'PKG_EGG_GRADE_2', label:'2号蛋', terminalCode:'GRADE_2', color:'#2563eb', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'53-59g' },
-    { code:'PKG_EGG_GRADE_3', label:'3号蛋', terminalCode:'GRADE_3', color:'#059669', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'46-53g' },
-    { code:'PKG_EGG_GRADE_4', label:'4号蛋', terminalCode:'GRADE_4', color:'#d97706', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'40-46g' },
-    { code:'PKG_EGG_GRADE_5', label:'5号蛋', terminalCode:'GRADE_5', color:'#f97316', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'30-40g' },
+    { code:'PKG_EGG_GRADE_1', label:'1号蛋', labelEn:'Grade 1', labelLo:'ໄຂ່ຊັ້ນ 1', terminalCode:'GRADE_1', color:'#7c3aed', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'59-66g' },
+    { code:'PKG_EGG_GRADE_2', label:'2号蛋', labelEn:'Grade 2', labelLo:'ໄຂ່ຊັ້ນ 2', terminalCode:'GRADE_2', color:'#2563eb', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'53-59g' },
+    { code:'PKG_EGG_GRADE_3', label:'3号蛋', labelEn:'Grade 3', labelLo:'ໄຂ່ຊັ້ນ 3', terminalCode:'GRADE_3', color:'#059669', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'46-53g' },
+    { code:'PKG_EGG_GRADE_4', label:'4号蛋', labelEn:'Grade 4', labelLo:'ໄຂ່ຊັ້ນ 4', terminalCode:'GRADE_4', color:'#d97706', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'40-46g' },
+    { code:'PKG_EGG_GRADE_5', label:'5号蛋', labelEn:'Grade 5', labelLo:'ໄຂ່ຊັ້ນ 5', terminalCode:'GRADE_5', color:'#f97316', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'30-40g' },
   ],
   PKG_EGG_DEFECT: [
-    { code:'PKG_DEFECT_DIRTY',    label:'脏污蛋', terminalCode:'DIRTY',    color:'#f97316', icon:'💧', isTerminalGrade:true, isDefect:true },
-    { code:'PKG_DEFECT_BROKEN',   label:'破损蛋', terminalCode:'BROKEN',   color:'#ef4444', icon:'💔', isTerminalGrade:true, isDefect:true },
-    { code:'PKG_DEFECT_REJECTED', label:'淘汰蛋', terminalCode:'REJECTED', color:'#6b7280', icon:'🚫', isTerminalGrade:true, isDefect:true },
-    { code:'PKG_DEFECT_RECHECK',  label:'待复检', terminalCode:'RECHECK',  color:'#0891b2', icon:'🔄', isTerminalGrade:true, isDefect:true },
+    { code:'PKG_DEFECT_DIRTY',    label:'脏污蛋', labelEn:'Dirty',    labelLo:'ໄຂ່ສົກ',      terminalCode:'DIRTY',    color:'#f97316', icon:'💧', isTerminalGrade:true, isDefect:true },
+    { code:'PKG_DEFECT_BROKEN',   label:'破损蛋', labelEn:'Broken',   labelLo:'ໄຂ່ແຕກ',     terminalCode:'BROKEN',   color:'#ef4444', icon:'💔', isTerminalGrade:true, isDefect:true },
+    { code:'PKG_DEFECT_REJECTED', label:'淘汰蛋', labelEn:'Rejected', labelLo:'ໄຂ່ຖືກປ່ຽນ', terminalCode:'REJECTED', color:'#6b7280', icon:'🚫', isTerminalGrade:true, isDefect:true },
+    { code:'PKG_DEFECT_RECHECK',  label:'待复检', labelEn:'Recheck',  labelLo:'ລໍຖ້າກວດ',   terminalCode:'RECHECK',  color:'#0891b2', icon:'🔄', isTerminalGrade:true, isDefect:true },
   ],
   PKG_PACK_SPEC: [
     { code:'PKG_PACK_SPEC_1', label:'散装整提(纸托180枚/提)', qty:180, unit:'枚', icon:'📦', color:'#7c3aed', perBox:180 },
@@ -54,8 +54,7 @@ export const FALLBACK_DICTS: DictMap = {
 export function buildGradeMap(items: DictItem[]): Record<string, DictItem> {
   const map: Record<string, DictItem> = {};
   for (const it of items) {
-    const key = (it.terminalCode as string) || it.code;
-    map[key] = it;
+    map[it.code] = it;
   }
   return map;
 }
@@ -65,10 +64,21 @@ export function buildGradeMap(items: DictItem[]): Record<string, DictItem> {
  */
 export function buildQuickTypes(items: DictItem[]): Array<{ type: string; label: string; icon: string }> {
   return items.map(it => ({
-    type:  (it.terminalCode as string) || it.code,
+    type:  it.code,
     label: it.label,
     icon:  (it.icon as string) || '❓',
   }));
+}
+
+/**
+ * Returns the language-appropriate label for a dict item.
+ * Falls back to Chinese label if no translation is available.
+ */
+export function getDictLabel(item: DictItem | undefined | null, lang: string): string {
+  if (!item) return '';
+  if (lang === 'en' && item.labelEn) return item.labelEn;
+  if (lang === 'lo' && item.labelLo) return item.labelLo;
+  return item.label;
 }
 
 // ── Hook ────────────────────────────────────────────────────────────────────────

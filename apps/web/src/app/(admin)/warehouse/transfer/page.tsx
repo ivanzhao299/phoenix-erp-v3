@@ -126,8 +126,8 @@ export default function TransferPage() {
   const handleScan = useCallback(async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter" || !scanCode.trim()) return;
     // 按照 transfer_no 查询并更新为 DONE
-    const res = await crudApi.list(TABLE, { transfer_no: scanCode.trim(), limit: 1 } as any).catch(() => null);
-    const record = (res as any)?.data?.[0] ?? (res as any)?.[0];
+    const res = await crudApi.list<Row>(TABLE, { transfer_no: scanCode.trim(), limit: 1 }).catch(() => null);
+    const record = res?.data?.[0] ?? null;
     if (record?.id) {
       await crudApi.update(TABLE, record.id as number, { status: "DONE" });
       refresh();
@@ -171,8 +171,8 @@ export default function TransferPage() {
             placeholder={t("ui.扫描调拨单号按回车确认", "扫描调拨单号 → 按回车确认")}
             style={{
               flex: 1, padding: "9px 14px", borderRadius: 8, fontSize: 13,
-              border: "1px solid var(--border-color, #e2e8f0)",
-              background: "var(--bg-element, #f8fafc)",
+              border: "1px solid var(--border)",
+              background: "var(--bg-page)",
             }}
           />
         </div>
@@ -182,8 +182,8 @@ export default function TransferPage() {
         table={TABLE}
         columns={COLUMNS}
         onNew={openNew}
-        onEdit={openEdit as any}
-        onDelete={handleDelete as any}
+        onEdit={openEdit}
+        onDelete={handleDelete}
         showActions
         refreshKey={refreshKey}
         emptyText={t("ui.暂无调拨记录", "暂无调拨记录")}

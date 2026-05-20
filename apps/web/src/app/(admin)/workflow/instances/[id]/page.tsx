@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
+import { WorkflowDataView } from "@/components/workflow/WorkflowDataView";
 import { WorkflowTimeline } from "@/components/workflow/WorkflowTimeline";
 import s from "@/components/ui/admin-ui.module.css";
-import { workflowApi, type WorkflowInstance } from "@/lib/workflow-api";
+import { workflowApi, type WorkflowInstance, type WorkflowTask } from "@/lib/workflow-api";
 
 export default function WorkflowInstanceDetailPage() {
   const params = useParams<{ id: string }>();
@@ -15,8 +16,8 @@ export default function WorkflowInstanceDetailPage() {
   const [canceling, setCanceling] = useState(false);
   const [error, setError] = useState("");
 
-  const load = () => workflowApi.instance(id).then(res => setData(res.data));
-  useEffect(() => { load(); }, [id]);
+  const load = useCallback(() => workflowApi.instance(id).then(res => setData(res.data)), [id]);
+  useEffect(() => { load(); }, [load]);
 
   async function cancel() {
     setCanceling(true);
@@ -33,6 +34,7 @@ export default function WorkflowInstanceDetailPage() {
 
   const tasks = data?.tasks || [];
   const runningTasks = tasks.filter(task => String(task.status) === "TODO");
+  const insight = data ? buildInstanceInsight(data, tasks) : null;
 
   return (
     <div>
@@ -53,12 +55,38 @@ export default function WorkflowInstanceDetailPage() {
                 <Link href="/workflow/start" className={s.btnSecondary}>继续发起</Link>
                 <Link href="/workflow/tasks/todo" className={s.btnSecondary}>我的待办</Link>
                 {data.status === "RUNNING" ? (
-                  <button className={s.btnDanger} disabled={canceling} onClick={cancel}>
+                  <button type="button" className={s.btnDanger} disabled={canceling} onClick={cancel}>
                     {canceling ? "取消中..." : "取消流程"}
                   </button>
                 ) : null}
               </div>
               {error ? <div className={s.errorBanner}>{error}</div> : null}
+
+              {insight ? (
+                <div style={insightGridStyle}>
+                  <div style={insightCardStyle}>
+                    <span className={s.badge}>流程进度</span>
+                    <strong>{insight.progressText}</strong>
+                    <div style={progressTrackStyle}><span style={{ ...progressBarStyle, width: insight.progressPercent }} /></div>
+                    <span style={hintStyle}>{insight.nodeText}</span>
+                  </div>
+                  <div style={insightCardStyle}>
+                    <span className={s.badge}>当前责任</span>
+                    <strong>{insight.ownerText}</strong>
+                    <span style={hintStyle}>{insight.ownerHint}</span>
+                  </div>
+                  <div style={insightCardStyle}>
+                    <span className={s.badge}>耗时</span>
+                    <strong>{insight.elapsedText}</strong>
+                    <span style={hintStyle}>{insight.timeHint}</span>
+                  </div>
+                  <div style={insightCardStyle}>
+                    <span className={s.badge}>下一步</span>
+                    <strong>{insight.nextTitle}</strong>
+                    <span style={hintStyle}>{insight.nextHint}</span>
+                  </div>
+                </div>
+              ) : null}
 
               {runningTasks.length ? (
                 <div className={s.warnBanner}>
@@ -70,7 +98,7 @@ export default function WorkflowInstanceDetailPage() {
               ) : null}
 
               <h4 className={s.formSection}>申请内容</h4>
-              <DataView data={data.form_data_json || {}} />
+              <WorkflowDataView data={data.form_data_json || {}} schema={data.form_schema_json} />
 
               <h4 className={s.formSection}>审批任务</h4>
               <table className={s.table}>
@@ -99,55 +127,75 @@ export default function WorkflowInstanceDetailPage() {
   );
 }
 
-function DataView({ data }: { data: Record<string, unknown> }) {
-  const entries = Object.entries(data).filter(([, value]) => value !== undefined && value !== null && value !== "");
-  if (!entries.length) return <div className={s.emptyState}><div className={s.emptyStateText}>暂无表单数据。</div></div>;
-  return (
-    <div className={s.infoGrid}>
-      {entries.map(([key, value]) => (
-        <div key={key} className={s.infoItem}>
-          <div className={s.infoKey}>{fieldLabel(key)}</div>
-          <div className={s.infoVal}>{formatValue(value)}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
+function buildInstanceInsight(data: WorkflowInstance, tasks: WorkflowTask[]) {
+  const total = tasks.length;
+  const done = tasks.filter(task => String(task.status) === "DONE").length;
+  const todo = tasks.filter(task => String(task.status) === "TODO");
+  const canceled = tasks.filter(task => String(task.status) === "CANCELED").length;
+  const finished = ["APPROVED", "REJECTED", "CANCELED"].includes(data.status);
+  const progressNumber = total ? Math.round((done / total) * 100) : (finished ? 100 : 0);
+  const current = todo[0];
+  const pendingOwners = todo.map(task => task.assignee_role_code || (task.assignee_user_id ? `用户 ${task.assignee_user_id}` : "待分配"));
+  const startedAt = data.started_at || data.created_at;
+  const endedAt = data.ended_at || undefined;
+  const elapsedText = durationText(startedAt, endedAt);
+  const dueText = current?.due_at ? dueStatusText(current.due_at) : "";
 
-function fieldLabel(key: string) {
-  const map: Record<string, string> = {
-    amount: "金额",
-    expense_type: "费用类型",
-    store_code: "门店",
-    reason: "申请原因",
-    product_code: "物料/商品",
-    quantity: "数量",
-    budget_amount: "预算金额",
-    need_date: "期望日期",
-    payee: "收款方",
-    payment_type: "付款类型",
-    counterparty: "合同相对方",
-    contract_amount: "合同金额",
-    leave_type: "假期类型",
-    start_time: "开始时间",
-    end_time: "结束时间",
-    warehouse: "仓库/门店",
-    adjust_qty: "调整数量",
-    adjust_type: "调整类型",
-    batch_no: "批次号",
-    exception_type: "异常类型",
-    severity: "严重程度",
-    description: "说明",
-    proposal: "处理建议",
-    shipment_no: "运输单号",
+  return {
+    progressText: total ? `${done}/${total} 个节点已处理` : statusText(data.status),
+    progressPercent: `${progressNumber}%`,
+    nodeText: canceled ? `${canceled} 个节点已取消` : (current ? `当前节点：${current.node_name}` : "暂无待处理节点"),
+    ownerText: pendingOwners.length ? Array.from(new Set(pendingOwners)).join("、") : "无待处理人",
+    ownerHint: current ? `${current.node_name}${dueText ? ` · ${dueText}` : ""}` : "流程当前无需人工处理",
+    elapsedText,
+    timeHint: finished ? `结束时间：${formatDate(endedAt) || "-"}` : "从发起到当前的运行时长",
+    nextTitle: nextTitle(data.status, todo.length),
+    nextHint: nextHint(data.status, todo),
   };
-  return map[key] || key;
 }
 
-function formatValue(value: unknown) {
-  if (Array.isArray(value)) return value.join("、");
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
+function nextTitle(status: string, todoCount: number) {
+  if (status === "RUNNING" && todoCount > 0) return "等待审批处理";
+  if (status === "RUNNING") return "等待系统流转";
+  if (status === "APPROVED") return "流程已完成";
+  if (status === "REJECTED") return "申请已驳回";
+  if (status === "CANCELED") return "流程已取消";
+  return "查看流程轨迹";
+}
+
+function nextHint(status: string, todo: WorkflowTask[]) {
+  if (status === "RUNNING" && todo.length > 0) {
+    return todo.map(task => `${task.node_name} 由 ${task.assignee_role_code || task.assignee_user_id || "待分配"} 处理`).join("；");
+  }
+  if (status === "RUNNING") return "系统正在按流程图继续推进。";
+  if (status === "APPROVED") return "可以查看审批轨迹或继续发起类似申请。";
+  if (status === "REJECTED") return "根据审批意见修改资料后可重新发起。";
+  if (status === "CANCELED") return "如业务仍需办理，可重新发起申请。";
+  return "查看任务表和流程轨迹了解细节。";
+}
+
+function durationText(start?: string, end?: string) {
+  if (!start) return "未记录";
+  const startTime = new Date(start).getTime();
+  const endTime = end ? new Date(end).getTime() : Date.now();
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime)) return "未记录";
+  const minutes = Math.max(0, Math.round((endTime - startTime) / 60000));
+  if (minutes < 60) return `${minutes} 分钟`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours < 24) return rest ? `${hours} 小时 ${rest} 分钟` : `${hours} 小时`;
+  const days = Math.floor(hours / 24);
+  const restHours = hours % 24;
+  return restHours ? `${days} 天 ${restHours} 小时` : `${days} 天`;
+}
+
+function dueStatusText(value: string) {
+  const due = new Date(value).getTime();
+  if (!Number.isFinite(due)) return "";
+  const diffHours = Math.round((due - Date.now()) / 36e5);
+  if (diffHours < 0) return `已超期 ${Math.abs(diffHours)} 小时`;
+  if (diffHours <= 24) return `剩余 ${diffHours} 小时到期`;
+  return `到期：${formatDate(value)}`;
 }
 
 function statusText(status: string) {
@@ -194,3 +242,8 @@ function taskBadgeClass(status: string) {
 const layoutStyle: React.CSSProperties = { display:"grid", gridTemplateColumns:"minmax(0, 1fr) 360px", gap:12, alignItems:"start" };
 const headerStyle: React.CSSProperties = { display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, marginBottom:12 };
 const actionBarStyle: React.CSSProperties = { display:"flex", justifyContent:"flex-end", gap:10, marginBottom:12, flexWrap:"wrap" };
+const insightGridStyle: React.CSSProperties = { display:"grid", gridTemplateColumns:"repeat(4, minmax(0, 1fr))", gap:10, marginBottom:14 };
+const insightCardStyle: React.CSSProperties = { display:"grid", gap:7, alignContent:"start", minHeight:126, padding:12, border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-page)", color:"var(--text-primary)" };
+const hintStyle: React.CSSProperties = { color:"var(--text-secondary)", fontSize:12, lineHeight:1.6 };
+const progressTrackStyle: React.CSSProperties = { height:8, borderRadius:999, background:"var(--bg-muted)", overflow:"hidden" };
+const progressBarStyle: React.CSSProperties = { display:"block", height:"100%", borderRadius:999, background:"var(--color-primary)" };

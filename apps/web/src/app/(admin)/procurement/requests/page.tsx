@@ -174,9 +174,9 @@ export default function RequestsPage() {
                     <span className={`${s.badge} ${isDraft?s.badgeNeutral:s.badgeWarning}`}>{isDraft?t("ui.草稿","草稿"):t("ui.待审批","待审批")}</span>
                   </td>
                   <td style={{ padding:"9px 12px",display:"flex",gap:6,flexWrap:"wrap" }}>
-                    <button className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(row)}>{t("common.edit","编辑")}</button>
-                    {isDraft&&<button className={s.btnSuccess} style={{ padding:"4px 8px",fontSize:11,display:"flex",alignItems:"center",gap:4 }} onClick={()=>submit(row)}><Send size={10}/> {t("ui.提交审批","提交审批")}</button>}
-                    {isDraft&&<button className={s.btnDanger} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>del(row)}>{t("ui.撤销","撤销")}</button>}
+                    <button type="button" className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(row)}>{t("common.edit","编辑")}</button>
+                    {isDraft&&<button type="button" className={s.btnSuccess} style={{ padding:"4px 8px",fontSize:11,display:"flex",alignItems:"center",gap:4 }} onClick={()=>submit(row)}><Send size={10}/> {t("ui.提交审批","提交审批")}</button>}
+                    {isDraft&&<button type="button" className={s.btnDanger} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>del(row)}>{t("ui.撤销","撤销")}</button>}
                   </td>
                 </tr>
               );

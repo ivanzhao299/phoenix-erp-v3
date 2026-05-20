@@ -63,7 +63,7 @@ export function DataTable<T = Record<string, unknown>>({
   const paramsRef = useRef(params);
   useEffect(() => { paramsRef.current = params; }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
@@ -71,7 +71,8 @@ export function DataTable<T = Record<string, unknown>>({
         ...paramsRef.current,
         limit:  pageSize,
         offset: (page - 1) * pageSize,
-      } as PaginationParams);
+      } as PaginationParams, { signal });
+      if (signal.aborted) return;
       if (Array.isArray(res)) {
         setData(res as T[]);
         setTotal((res as T[]).length);
@@ -79,7 +80,8 @@ export function DataTable<T = Record<string, unknown>>({
         setData(res.data ?? []);
         setTotal(res.total ?? 0);
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (signal.aborted || e?.name === 'AbortError') return; // cancelled — ignore
       const msg = e instanceof Error ? e.message : t('ui.加载失败', '加载失败');
       const isEmptyState = msg.includes("does not exist") ||
         msg.includes("relation") || msg.includes("404") ||
@@ -87,11 +89,17 @@ export function DataTable<T = Record<string, unknown>>({
       if (isEmptyState) { setData([]); setTotal(0); }
       else setError(msg);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }, [table, page, pageSize, refreshKey, paramsKey]); // ✅ paramsKey 只在 params 真正变化时才变
 
-  useEffect(() => { load(); }, [load]);
+  // AbortController cancels in-flight request on cleanup — prevents React Strict Mode
+  // from firing two simultaneous requests to the server (cleanup aborts the first).
+  useEffect(() => {
+    const ctrl = new AbortController();
+    load(ctrl.signal);
+    return () => ctrl.abort();
+  }, [load]);
 
   // ✅ 重置页码：只在 table 或 paramsKey 变化时触发，避免每次渲染都触发
   useEffect(() => { setPage(1); }, [table, paramsKey]);
@@ -109,7 +117,7 @@ export function DataTable<T = Record<string, unknown>>({
           <div className={styles.actionBtns}>
             {onEdit && (
               <button
-                className={styles.editBtn}
+type="button"                 className={styles.editBtn}
                 title={t('common.edit', '编辑')}
                 onClick={e => { e.stopPropagation(); onEdit(row); }}
               >
@@ -118,7 +126,7 @@ export function DataTable<T = Record<string, unknown>>({
             )}
             {onDelete && (
               <button
-                className={styles.deleteBtn}
+type="button"                 className={styles.deleteBtn}
                 title={t('common.delete', '删除')}
                 onClick={e => { e.stopPropagation(); onDelete(row); }}
               >
@@ -136,11 +144,11 @@ export function DataTable<T = Record<string, unknown>>({
       <div className={styles.toolbar}>
         <span className={styles.totalInfo}>{t('ui.共', '共')} <b>{total}</b> {t('ui.条记录', '条记录')}</span>
         <div className={styles.toolbarRight}>
-          <button className={styles.refreshBtn} onClick={load} title={t('common.refresh', '刷新')}>
+          <button type="button" className={styles.refreshBtn} onClick={() => { const ctrl = new AbortController(); load(ctrl.signal); }} title={t('common.refresh', '刷新')}>
             <RefreshCw size={14} />
           </button>
           {onNew && (
-            <button className={styles.newBtn} onClick={onNew}>
+            <button type="button" className={styles.newBtn} onClick={onNew}>
               <Plus size={15} />
               {newLabel}
             </button>
@@ -198,9 +206,9 @@ export function DataTable<T = Record<string, unknown>>({
       {/* Pagination */}
       {totalPages > 1 && (
         <div className={styles.pagination}>
-          <button className={styles.pageBtn} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('ui.上一页', '上一页')}</button>
+          <button type="button" className={styles.pageBtn} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('ui.上一页', '上一页')}</button>
           <span className={styles.pageCurrent}>{page} / {totalPages}</span>
-          <button className={styles.pageBtn} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('ui.下一页', '下一页')}</button>
+          <button type="button" className={styles.pageBtn} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('ui.下一页', '下一页')}</button>
         </div>
       )}
     </div>

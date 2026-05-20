@@ -1,0 +1,289 @@
+name: CI/CD — Build & Deploy
+
+# 触发条件：
+#   - push 到 main（完整流水线：测试 → 构建 → 推送 → 部署）
+#   - pull_request 到 main（仅测试，不部署）
+#   - workflow_dispatch（手动触发，可选跳过部署）
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_deploy:
+        description: "跳过部署步骤（仅构建镜像）"
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3
+
+jobs:
+  # ────────────────────────────────────────────────────────────
+  # Job 1: 类型检查 + 回归测试
+  # ────────────────────────────────────────────────────────────
+  test:
+    name: Type-check & Regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: phoenix_v3
+          POSTGRES_PASSWORD: phoenix_v3_pass
+          POSTGRES_DB: phoenix_erp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_USER: phoenix_v3
+      DB_PASSWORD: phoenix_v3_pass
+      DB_NAME: phoenix_erp
+      JWT_SECRET: ci_test_secret_minlen_32_characters_xx
+      JWT_SECRET_PREV: ""
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check API
+        working-directory: apps/api
+        run: pnpm exec tsc --noEmit
+
+      - name: Type-check Web
+        working-directory: apps/web
+        run: pnpm exec tsc --noEmit
+
+      - name: Build API
+        working-directory: apps/api
+        run: pnpm build
+
+      - name: Start API
+        working-directory: apps/api
+        env:
+          PORT: 3100
+        run: |
+          nohup node dist/main > /tmp/api.log 2>&1 &
+          echo $! > /tmp/api.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:3100/api/health >/dev/null; then
+              echo "✅ API ready after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "❌ API failed to start" >&2
+          tail -100 /tmp/api.log >&2
+          exit 1
+
+      - name: Regression — system
+        working-directory: apps/api
+        run: pnpm test:regr:system
+
+      - name: Regression — breeding
+        working-directory: apps/api
+        run: pnpm test:regr:breeding
+
+      - name: Regression — packaging
+        working-directory: apps/api
+        run: pnpm test:regr:packaging
+
+      - name: Regression — wms
+        working-directory: apps/api
+        run: pnpm test:regr:wms
+
+      - name: Regression — order + finance
+        working-directory: apps/api
+        run: |
+          pnpm test:regr:order
+          pnpm test:regr:finance
+
+      - name: E2E order flow
+        working-directory: apps/api
+        run: pnpm test:e2e
+
+      - name: Dump API log on failure
+        if: failure()
+        run: tail -200 /tmp/api.log || true
+
+      - name: Stop API
+        if: always()
+        run: kill $(cat /tmp/api.pid 2>/dev/null) 2>/dev/null || true
+
+  # ────────────────────────────────────────────────────────────
+  # Job 2: 构建并推送 Docker 镜像到 ghcr.io
+  # 仅在 push to main 时运行
+  # ────────────────────────────────────────────────────────────
+  build-push:
+    name: Build & Push Images
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      api_image: ${{ steps.meta-api.outputs.tags }}
+      web_image: ${{ steps.meta-web.outputs.tags }}
+      sha_tag: sha-${{ github.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata — API
+        id: meta-api
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/api
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+
+      - name: Extract metadata — Web
+        id: meta-web
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/web
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+
+      - name: Build & push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: ${{ steps.meta-api.outputs.tags }}
+          labels: ${{ steps.meta-api.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & push Web image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: ${{ steps.meta-web.outputs.tags }}
+          labels: ${{ steps.meta-web.outputs.labels }}
+          build-args: |
+            API_TARGET=http://api:3100
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ────────────────────────────────────────────────────────────
+  # Job 3: SSH 部署到生产服务器
+  # 需要 GitHub Secrets（见下方说明）
+  # ────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Production
+    needs: build-push
+    if: |
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      github.event.inputs.skip_deploy != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script: |
+            set -e
+            cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+
+            # 拉取最新镜像
+            echo "${{ secrets.GITHUB_TOKEN }}" | \
+              docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            docker compose pull api web
+
+            # 滚动重启：先 api 后 web（DB 不重启）
+            docker compose up -d --no-deps --wait api
+            docker compose up -d --no-deps --wait web
+
+            # 清理悬空镜像
+            docker image prune -f
+
+            echo "✅ Deploy complete — $(date '+%Y-%m-%d %H:%M:%S')"
+
+      - name: Smoke test production
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          WEB_PORT: ${{ secrets.WEB_PORT || 3000 }}
+        run: |
+          sleep 5
+          curl -fsS --max-time 15 "http://${DEPLOY_HOST}:${WEB_PORT}/" -o /dev/null \
+            && echo "✅ Web smoke test passed" \
+            || echo "⚠️  Web smoke test failed (may be behind Nginx/Caddy)"
+
+      - name: Send deploy notification
+        if: always()
+        env:
+          WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+          WEBHOOK_TYPE: ${{ secrets.ALERT_WEBHOOK_TYPE || 'slack' }}
+          STATUS: ${{ job.status }}
+          SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -z "$WEBHOOK_URL" ] && exit 0
+          EMOJI=$( [ "$STATUS" = "success" ] && echo "✅" || echo "🚨" )
+          MSG="$EMOJI Phoenix ERP V3 Deploy ${STATUS^^}\nbranch=\`main\` sha=\`${SHA:0:8}\` by \`$ACTOR\`\n$RUN_URL"
+          case "$WEBHOOK_TYPE" in
+            feishu)
+              curl -sS -X POST "$WEBHOOK_URL" -H 'Content-Type: application/json' \
+                -d "{\"msg_type\":\"text\",\"content\":{\"text\":\"$MSG\"}}" || true ;;
+            dingtalk)
+              curl -sS -X POST "$WEBHOOK_URL" -H 'Content-Type: application/json' \
+                -d "{\"msgtype\":\"text\",\"text\":{\"content\":\"$MSG\"}}" || true ;;
+            slack|*)
+              curl -sS -X POST "$WEBHOOK_URL" -H 'Content-Type: application/json' \
+                -d "{\"text\":\"$MSG\"}" || true ;;
+          esac

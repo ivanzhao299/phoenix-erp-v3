@@ -128,7 +128,7 @@ function PhoenixDialog({
         }}>
           {!hideCancel && (
             <button
-              onClick={onCancel}
+type="button"               onClick={onCancel}
               style={{
                 padding: '9px 24px', fontSize: 13.5, fontWeight: 500,
                 border: '1px solid var(--border)', borderRadius: 8,
@@ -142,7 +142,7 @@ function PhoenixDialog({
             </button>
           )}
           <button
-            onClick={onConfirm}
+type="button"             onClick={onConfirm}
             style={{
               padding: '9px 28px', fontSize: 13.5, fontWeight: 600,
               border: 'none', borderRadius: 8,

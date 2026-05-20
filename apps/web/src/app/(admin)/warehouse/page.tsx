@@ -56,19 +56,19 @@ export default function WarehouseDashboard() {
   const loadAll = useCallback(async () => {
     setLoading(true);
     const [zRes, ibRes, obRes, btRes] = await Promise.all([
-      crudApi.list("wms_zones",    { limit: 100 } as any).catch(() => ({ data: [] })),
-      crudApi.list("wms_inbound",  { limit: 200 } as any).catch(() => ({ data: [] })),
-      crudApi.list("wms_outbound", { limit: 200 } as any).catch(() => ({ data: [] })),
-      crudApi.list("inv_batches",  { limit: 500 } as any).catch(() => ({ data: [] })),
+      crudApi.list<Zone>("wms_zones",         { limit: 100 }).catch(() => ({ data: [] as Zone[], code: 0 })),
+      crudApi.list<InboundRow>("wms_inbound",  { limit: 200 }).catch(() => ({ data: [] as InboundRow[], code: 0 })),
+      crudApi.list<OutboundRow>("wms_outbound",{ limit: 200 }).catch(() => ({ data: [] as OutboundRow[], code: 0 })),
+      crudApi.list<BatchRow>("inv_batches",    { limit: 500 }).catch(() => ({ data: [] as BatchRow[], code: 0 })),
     ]);
-    setZones((zRes as any).data ?? []);
-    setInbounds((ibRes as any).data ?? []);
-    setOutbounds((obRes as any).data ?? []);
+    setZones(zRes.data ?? []);
+    setInbounds(ibRes.data ?? []);
+    setOutbounds(obRes.data ?? []);
 
     // 14 天内临期批次
     const in14 = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
     const today = new Date().toISOString().slice(0, 10);
-    setExpiry(((btRes as any).data ?? []).filter((b: BatchRow) =>
+    setExpiry((btRes.data ?? []).filter((b: BatchRow) =>
       b.expire_date && b.expire_date <= in14 && b.expire_date >= today && b.qty_available > 0
     ));
     setLoading(false);
@@ -182,7 +182,7 @@ export default function WarehouseDashboard() {
             ) : activity.length === 0 ? (
               <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 12, color: 'var(--text-secondary)' }}>{t("ui.今日暂无出入库记录", "今日暂无出入库记录")}</div>
             ) : activity.map((a, i) => (
-              <div key={i} style={{ padding: '10px 0', borderBottom: i < activity.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
+              <div key={i} style={{ padding: '10px 0', borderBottom: i < activity.length - 1 ? '1px solid var(--border)' : 'none' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                   <span className={a.cls} style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, display: 'inline-block', background: 'currentColor' }} />
                   <span className={a.cls} style={{ fontSize: 11, fontWeight: 700 }}>{a.label}</span>

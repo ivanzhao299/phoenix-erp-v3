@@ -8,6 +8,7 @@ import { packagingApi } from '@/lib/packaging-api';
 import { T } from '@/styles/terminal-theme';
 
 
+
 const CHECK_ITEMS = [
   { key:'scanner',   label:'扫码枪在线',       icon:'📷' },
   { key:'printer',   label:'标签打印机在线',   icon:'🖨️' },
@@ -30,6 +31,7 @@ const CHECK_ITEM_KEYS: Record<string, string> = {
 
 interface PackLine { code: string; label: string; }
 interface Supervisor { id: number; name: string; }
+interface ShiftTypeItem { code: string; label: string; timeRange?: string; }
 
 export default function ShiftOpenPage() {
   const router = useRouter();
@@ -39,26 +41,44 @@ export default function ShiftOpenPage() {
   const [checks, setChecks] = useState<Record<string,boolean>>({});
   const [packLines, setPackLines] = useState<PackLine[]>([]);
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
+  const [shiftTypes, setShiftTypes] = useState<ShiftTypeItem[]>([]);
   const [line, setLine] = useState('');
+  const [shiftType, setShiftType] = useState('');
   const [supervisor, setSupervisor] = useState('');
   const [offline, setOffline] = useState<string[]>([]);
   const [offlineReason, setOfflineReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    packagingApi.getDicts(['PKG_PACK_LINE']).then(d => {
+    packagingApi.getDicts(['PKG_PACK_LINE', 'PKG_SHIFT']).then(d => {
       const lines = (d.PKG_PACK_LINE || []).map(i => ({ code: i.code, label: i.label }));
       setPackLines(lines);
       if (lines.length > 0 && !line) setLine(lines[0].code);
+
+      const types = (d.PKG_SHIFT || []).map(i => ({
+        code: i.code,
+        label: i.label,
+        timeRange: (i.timeRange as string | undefined) ?? '',
+      }));
+      setShiftTypes(types);
+      if (types.length > 0 && !shiftType) setShiftType(types[0].code);
     }).catch(() => {
-      // fallback to defaults if dict not yet seeded
-      const fallback = [
-        { code: 'LINE-01', label: '1号包装线' },
-        { code: 'LINE-02', label: '2号包装线' },
+      const fallbackLines = [
+        { code: 'LINE-01', label: t('ui.1号包装线', '1号包装线') },
+        { code: 'LINE-02', label: t('ui.2号包装线', '2号包装线') },
       ];
-      setPackLines(fallback);
-      if (!line) setLine(fallback[0].code);
+      setPackLines(fallbackLines);
+      if (!line) setLine(fallbackLines[0].code);
+
+      const fallbackTypes = [
+        { code: 'MORNING',   label: t('ui.早班', '早班'),   timeRange: '08:00-14:00' },
+        { code: 'AFTERNOON', label: t('ui.下午班', '下午班'), timeRange: '14:00-22:00' },
+        { code: 'NIGHT',     label: t('ui.夜班', '夜班'),   timeRange: '22:00-06:00' },
+      ];
+      setShiftTypes(fallbackTypes);
+      if (!shiftType) setShiftType('MORNING');
     });
 
     packagingApi.getSupervisors().then(list => {
@@ -72,6 +92,8 @@ export default function ShiftOpenPage() {
       // fallback: allow free-text entry seeded from current user
       if (!supervisor) setSupervisor(user?.name || '');
     });
+  // mount-only: pre-selects line/supervisor from dict; including them as deps
+  // would re-run the effect after they're set, overwriting user changes.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -95,6 +117,7 @@ export default function ShiftOpenPage() {
     ctx.setShift({
       id:             String(raw.id ?? ''),
       code:           raw.shift_code ?? raw.code ?? '',
+      shiftType:      raw.shift_type ?? shiftType,
       productionDate: raw.production_date ?? '',
       siteId:         raw.site_id ?? 'site-01',
       siteName:       raw.site_name ?? '',
@@ -114,24 +137,15 @@ export default function ShiftOpenPage() {
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
+    setSubmitError('');
     setSubmitting(true);
     try {
-      let raw: Record<string, any> | null = null;
-      try {
-        raw = await packagingApi.openShift({ lineId: line, supervisorName: supervisor });
-      } catch (err: any) {
-        // 今日已有开放班次 → 直接加载现有班次写入 context
-        if (err?.message?.includes('已有开放班次') || err?.message?.includes('already')) {
-          const shifts = await packagingApi.getTodayShifts();
-          const existing = Array.isArray(shifts) ? shifts.find((s: any) => s.status === 'OPEN') : null;
-          if (existing) raw = existing;
-        } else {
-          throw err;
-        }
-      }
-      if (raw) applyShiftToContext(raw);
+      const raw = await packagingApi.openShift({ lineId: line, shiftType, supervisorName: supervisor });
+      applyShiftToContext(raw);
       setDone(true);
       setTimeout(() => router.push('/terminal/packaging/dashboard'), 1500);
+    } catch (err: any) {
+      setSubmitError(err?.message || t('ui.开班失败请重试', '开班失败，请重试'));
     } finally {
       setSubmitting(false);
     }
@@ -150,13 +164,13 @@ export default function ShiftOpenPage() {
       {/* 页头 */}
       <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'14px 24px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
         <span style={{ fontSize:24 }}>🔓</span>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ fontSize:18, fontWeight:700, color:T.TXT }}>{t('terminal.shift_open', '开班 / 设备点检')}</div>
           <div style={{ fontSize:12, color:T.MUT }}>{t('ui.完成点检后方可开始作业', '完成点检后方可开始作业')}</div>
         </div>
       </div>
 
-      <div style={{ flex:1, overflow:'auto', padding:24, display:'flex', gap:24 }}>
+      <div style={{ flex:1, overflow:'hidden', minHeight:0, padding:24, display:'flex', gap:24 }}>
         {/* 左：班次信息 */}
         <div style={{ width:280, flexShrink:0 }}>
           <div style={{ background:T.CARD, borderRadius:12, padding:20, border:`1px solid ${T.BOR}` }}>
@@ -167,6 +181,36 @@ export default function ShiftOpenPage() {
                 {new Date().toLocaleDateString('zh-CN')}
               </div>
             </div>
+            <div style={{ marginBottom:12 }}>
+              <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{t('ui.班次类型', '班次类型')}</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {(shiftTypes.length > 0 ? shiftTypes : [
+                  { code: 'MORNING',   label: t('ui.早班', '早班') },
+                  { code: 'AFTERNOON', label: t('ui.下午班', '下午班') },
+                  { code: 'NIGHT',     label: t('ui.夜班', '夜班') },
+                ]).map(st => {
+                  const active = shiftType === st.code;
+                  return (
+                    <button key={st.code} type="button" onClick={() => setShiftType(st.code)}
+                      style={{
+                        flex: 1, padding: '12px 6px', borderRadius: 8, border: 'none',
+                        background: active ? T.ACC : 'rgba(255,255,255,0.07)',
+                        color: active ? '#0f172a' : T.TXT,
+                        cursor: 'pointer', transition: 'background 0.15s',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                      }}>
+                      <span style={{ fontSize: 15, fontWeight: 700, lineHeight: 1 }}>{st.label}</span>
+                      {st.timeRange && (
+                        <span style={{ fontSize: 11, opacity: active ? 0.7 : 0.45, lineHeight: 1 }}>
+                          {st.timeRange}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div style={{ marginBottom:12 }}>
               <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{t('ui.产线', '产线')}</div>
               <select value={line} onChange={e => setLine(e.target.value)}
@@ -204,7 +248,7 @@ export default function ShiftOpenPage() {
               {CHECK_ITEMS.map(item => {
                 const checked = !!checks[item.key];
                 return (
-                  <button key={item.key} onClick={() => toggleCheck(item.key)}
+                  <button type="button" key={item.key} onClick={() => toggleCheck(item.key)}
                     style={{
                       display:'flex', alignItems:'center', gap:14, padding:'16px 20px',
                       background: checked ? 'rgba(34,197,94,0.08)' : 'rgba(255,255,255,0.03)',
@@ -226,37 +270,45 @@ export default function ShiftOpenPage() {
               })}
             </div>
 
-            {offline.length > 0 && (
-              <div style={{ marginTop:16 }}>
-                <div style={{ fontSize:12, color:'#fbbf24', marginBottom:6 }}>
-                  {t('ui.设备离线请说明原因', '以下设备离线，请说明原因（允许以人工模式继续）：')}
-                </div>
-                <textarea value={offlineReason} onChange={e => setOfflineReason(e.target.value)}
-                  placeholder={t('ui.设备离线原因示例', '例：电子秤故障，已联系维修，本班手工称重...')}
-                  rows={3}
-                  style={{ width:'100%', background:'rgba(251,191,36,0.05)', border:`1px solid rgba(251,191,36,0.3)`,
-                    borderRadius:8, padding:'10px 12px', color:T.TXT, fontSize:13,
-                    resize:'none', boxSizing:'border-box' }} />
+            <div style={{ marginTop:16, overflow:'hidden', maxHeight: offline.length > 0 ? 200 : 0, flexShrink: 0 }}>
+              <div style={{ fontSize:12, color:'#fbbf24', marginBottom:6 }}>
+                {t('ui.设备离线请说明原因', '以下设备离线，请说明原因（允许以人工模式继续）：')}
               </div>
-            )}
+              <textarea value={offlineReason} onChange={e => setOfflineReason(e.target.value)}
+                placeholder={t('ui.设备离线原因示例', '例：电子秤故障，已联系维修，本班手工称重...')}
+                rows={3}
+                style={{ width:'100%', background:'rgba(251,191,36,0.05)', border:`1px solid rgba(251,191,36,0.3)`,
+                  borderRadius:8, padding:'10px 12px', color:T.TXT, fontSize:13,
+                  resize:'none', boxSizing:'border-box' }} />
+            </div>
           </div>
         </div>
       </div>
 
       {/* 底部操作 */}
       <div style={{ background:T.CARD, borderTop:`1px solid ${T.BOR}`, padding:'16px 24px',
-        display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
+        display:'flex', flexDirection:'column', gap:10, flexShrink:0 }}>
+        {submitError && (
+          <div style={{
+            background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)',
+            borderRadius: 8, padding: '10px 16px',
+            fontSize: 14, color: T.RED, fontWeight: 500,
+          }}>
+            ⚠️ {shiftTypes.reduce((msg, st) => msg.replace(new RegExp(st.code, 'g'), st.label), submitError)}
+          </div>
+        )}
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
         <div style={{ flex:1, fontSize:13, color: allChecked ? T.GRN : T.MUT }}>
           {allChecked
             ? `✅ ${t('ui.点检完成可以开班', '点检完成，可以开班')}`
             : `${t('ui.还剩', '还剩')} ${CHECK_ITEMS.filter(i=>!checks[i.key]).length} ${t('ui.项未确认', '项未确认')}`}
         </div>
-        <button onClick={() => router.push('/terminal/packaging/dashboard')}
+        <button type="button" onClick={() => router.push('/terminal/packaging/dashboard')}
           style={{ padding:'14px 28px', borderRadius:10, border:`1px solid ${T.BOR}`,
             background:'transparent', color:T.MUT, fontSize:15, cursor:'pointer' }}>
           {t('common.back', '返回')}
         </button>
-        <button onClick={handleSubmit} disabled={!canSubmit || submitting}
+        <button type="button" onClick={handleSubmit} disabled={!canSubmit || submitting}
           style={{ padding:'14px 40px', borderRadius:10, border:'none',
             background: canSubmit ? T.ACC : T.BOR,
             color: canSubmit ? '#0f172a' : T.MUT,
@@ -264,6 +316,7 @@ export default function ShiftOpenPage() {
             opacity: submitting ? 0.7 : 1, transition:'all 0.15s' }}>
           {submitting ? t('ui.开班中', '开班中...') : t('ui.确认开班', '确认开班')}
         </button>
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,23 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+
+interface MedicineRecord {
+  id?: unknown;
+  batchNo?: unknown;
+  farmHouse?: unknown;
+  medicine?: unknown;
+  disease?: unknown;
+  startDate?: unknown;
+  endDate?: unknown;
+  daysUsed?: unknown;
+  withdrawDays?: unknown;
+  clearDate?: unknown;
+  dose?: unknown;
+  executor?: unknown;
+  status: string;
+  _raw?: Record<string, unknown>;
+  [key: string]: unknown;
+}
 import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
@@ -27,7 +45,7 @@ export default function MedicinePage() {
   const [showDrawer, setShowDrawer] = useState(false);
   const [editId, setEditId]       = useState<number | null>(null);
   const [form, setForm]           = useState({ ...EMPTY_FORM });
-  const [records, setRecords]     = useState<any[]>([]);
+  const [records, setRecords]     = useState<MedicineRecord[]>([]);
   const [flockOptions, setFlockOptions] = useState<{ code: string; label: string }[]>([]);
   const [flockMap, setFlockMap]   = useState<Record<string, { house_code: string; farm_code: string }>>({});
 
@@ -35,14 +53,14 @@ export default function MedicinePage() {
   const { fetchRecords: fetchFlocks } = useCrud('brd_flocks');
 
   useEffect(() => {
-    fetchFlocks().then((flocks: any) => {
+    fetchFlocks().then((flocks) => {
       if (!flocks?.length) return;
-      setFlockOptions(flocks.map((f: any) => ({ code: f.flock_no, label: `${f.flock_no}${f.house_code?' · '+f.house_code:''}` })));
-      const map: Record<string, any> = {};
-      flocks.forEach((f: any) => { if (f.flock_no) map[f.flock_no] = { house_code: f.house_code||'', farm_code: f.farm_code||'' }; });
+      setFlockOptions(flocks.map((f: Record<string, unknown>) => ({ code: f.flock_no as string, label: `${f.flock_no}${f.house_code?' · '+f.house_code:''}` })));
+      const map: Record<string, { house_code: string; farm_code: string }> = {};
+      flocks.forEach((f: Record<string, unknown>) => { if (f.flock_no) map[f.flock_no as string] = { house_code: (f.house_code as string)||'', farm_code: (f.farm_code as string)||'' }; });
       setFlockMap(map);
       setForm(p => ({ ...p, farmHouse: p.farmHouse || flocks[0].flock_no }));
-    });
+    }).catch(() => {});
   }, []);
 
   const loadData = useCallback(async () => {
@@ -51,10 +69,10 @@ export default function MedicinePage() {
     //     后端 cron 走字符串比较（YYYY-MM-DD），跨日界点两边显示不一致。
     //     改用纯字符串比较（YYYY-MM-DD 字典序即时间序），与后端 cron 对齐。
     const todayStr = new Date().toISOString().slice(0, 10);
-    setRecords(((data||[]) as any[]).map((d: any) => {
+    setRecords(((data||[]) as Record<string, unknown>[]).map((d: Record<string, unknown>) => {
       const clearStr = d.clear_date ? String(d.clear_date).slice(0, 10) : '';
       const endStr   = d.end_date   ? String(d.end_date).slice(0, 10)   : '';
-      let computedStatus = d.status || 'using';
+      let computedStatus: string = String(d.status || 'using');
       if (clearStr) {
         if (todayStr > clearStr)              computedStatus = 'cleared';
         else if (endStr && todayStr > endStr) computedStatus = 'inWithdrawal';
@@ -66,10 +84,11 @@ export default function MedicinePage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const handleEdit = (row: any) => {
-    const r = row._raw || {};
-    setEditId(row.id);
-    setForm({ batchNo:r.batch_no||'', farmHouse:r.farm_house||'', medicine:r.medicine||'', disease:r.disease||'', startDate:r.start_date||'', daysUsed:r.days_used!=null?String(r.days_used):'5', withdrawDays:r.withdraw_days!=null?String(r.withdraw_days):'7', dose:r.dose||'' });
+  const handleEdit = (row: MedicineRecord) => {
+    const r = (row._raw || {}) as Record<string, string | number | null>;
+    setEditId(row.id as number);
+    const s = (v: string | number | null, fb = '') => v != null ? String(v) : fb;
+    setForm({ batchNo:s(r.batch_no), farmHouse:s(r.farm_house), medicine:s(r.medicine), disease:s(r.disease), startDate:s(r.start_date), daysUsed:s(r.days_used, '5'), withdrawDays:s(r.withdraw_days, '7'), dose:s(r.dose) });
     setShowDrawer(true);
   };
 
@@ -126,12 +145,12 @@ export default function MedicinePage() {
     { key:'disease',      title: t('ui.治疗疾病', '治疗疾病'), width:'90px'  },
     { key:'startDate',    title: t('ui.开始日期', '开始日期'), width:'100px' },
     { key:'endDate',      title: t('ui.结束日期', '结束日期'), width:'100px' },
-    { key:'daysUsed',     title: t('ui.用药天数', '用药天数'), width:'80px',  render: (v: any) => `${v} ${t('ui.天','天')}` },
-    { key:'withdrawDays', title: t('ui.停药期', '停药期'),     width:'80px',  render: (v: any) => `${v} ${t('ui.天','天')}` },
-    { key:'clearDate',    title: t('ui.解禁日期', '解禁日期'), width:'100px', render: (v: any, row: any) => <span style={{ fontWeight:600, color: row.status==='inWithdrawal'?'var(--status-danger)':'var(--status-success)' }}>{v}</span> },
-    { key:'status',       title: t('common.status', '状态'),   width:'110px', render: (v: any) => { const st=STATUS_CONF[v]||{status:'default',label:v}; return <StatusBadge status={st.status} label={st.label} />; } },
+    { key:'daysUsed',     title: t('ui.用药天数', '用药天数'), width:'80px',  render: (v: unknown) => `${String(v ?? '')} ${t('ui.天','天')}` },
+    { key:'withdrawDays', title: t('ui.停药期', '停药期'),     width:'80px',  render: (v: unknown) => `${String(v ?? '')} ${t('ui.天','天')}` },
+    { key:'clearDate',    title: t('ui.解禁日期', '解禁日期'), width:'100px', render: (v: unknown, row: MedicineRecord) => <span style={{ fontWeight:600, color: row.status==='inWithdrawal'?'var(--status-danger)':'var(--status-success)' }}>{String(v ?? '')}</span> },
+    { key:'status',       title: t('common.status', '状态'),   width:'110px', render: (v: unknown) => { const st=STATUS_CONF[v as string]||{status:'default',label:String(v ?? '')}; return <StatusBadge status={st.status} label={st.label} />; } },
     { key:'executor',     title: t('ui.兽医', '兽医'),         width:'70px'  },
-    { key:'actions',      title: t('common.operation', '操作'), width:'70px',  render: (_: any, row: any) => can(['ROLE_VET','ROLE_FARM_MGR','ROLE_ADMIN']) ? (
+    { key:'actions',      title: t('common.operation', '操作'), width:'70px',  render: (_: unknown, row: MedicineRecord) => can(['ROLE_VET','ROLE_FARM_MGR','ROLE_ADMIN']) ? (
       <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>
     ) : null },
   ];
@@ -157,7 +176,7 @@ export default function MedicinePage() {
 
       <DataTable columns={columns} data={data} searchPlaceholder={t('ui.搜索批次药品', '搜索批次药品')} searchKeys={['batchNo','farmHouse','medicine']} rowKey="id"
         filters={<div style={{ display:'flex', gap:6 }}>
-          {filterKeys.map(f => <button type="button" key={f} className={filter===f ? s.tabPillActive : s.tabPill} onClick={() => setFilter(f)}>{filterLabels[f]}</button>)}
+          {filterKeys.map(f => <button type="button" key={f} className={`${s.tabPill} ${filter===f ? s.tabPillActive : ""}`} onClick={() => setFilter(f)}>{filterLabels[f]}</button>)}
         </div>} />
 
       <RightDrawer isOpen={showDrawer} onClose={() => { setShowDrawer(false); setEditId(null); }} title={editId ? t('ui.编辑用药记录', '编辑用药记录') : t('ui.新增用药记录', '新增用药记录')} width="400px">

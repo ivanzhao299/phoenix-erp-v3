@@ -17,6 +17,11 @@ export class WorkflowRuntimeController {
     return this.workflow.listInstances(query, req.user);
   }
 
+  @Get('analytics')
+  analytics(@Query() query: any, @Req() req: any) {
+    return this.workflow.getAnalytics(req.user, query);
+  }
+
   @Get('instances/:id')
   getInstance(@Param('id') id: string, @Req() req: any) {
     return this.workflow.getInstance(Number(id), req.user);
@@ -25,5 +30,10 @@ export class WorkflowRuntimeController {
   @Post('instances/:id/cancel')
   cancel(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.workflow.cancelInstance(Number(id), body, req.user);
+  }
+
+  @Post('instances/:id/urge')
+  urge(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    return this.workflow.urgeInstance(Number(id), body, req.user);
   }
 }

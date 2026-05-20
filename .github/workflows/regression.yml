@@ -2,9 +2,9 @@ name: V3 Regression Suite
 
 on:
   push:
-    branches: [v3-admin, main]
+    branches: [v3-admin]        # main push 由 deploy.yml 统一处理
   pull_request:
-    branches: [v3-admin, main]
+    branches: [v3-admin, main]  # PR 仍跑回归，保护 merge 质量
   workflow_dispatch: {}
 
 env:

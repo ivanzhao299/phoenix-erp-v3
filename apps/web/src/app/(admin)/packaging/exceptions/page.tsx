@@ -43,8 +43,8 @@ export default function PackagingExceptionsPage() {
     const tok = typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : "";
     fetch("/api/crud/sys_dict?dict_type=PKG_EXCEPTION_TYPE&status=ACTIVE&limit=100", { headers: { Authorization: `Bearer ${tok}` } })
       .then(r => r.json()).then(j => {
-        const list = ((j.data || j) as any[]).filter((d: any) => d.dict_type === "PKG_EXCEPTION_TYPE" && d.status === "ACTIVE");
-        if (list.length > 0) setIssueTypeOpts(list.map((d: any) => ({ label: d.dict_label_zh || d.dict_code, value: d.dict_code })));
+        const list = ((j.data || j) as any[]).filter(d => d.dict_type === "PKG_EXCEPTION_TYPE" && d.status === "ACTIVE");
+        if (list.length > 0) setIssueTypeOpts(list.map(d => ({ label: d.dict_label_zh || d.dict_code, value: d.dict_code })));
       }).catch(() => {});
   }, []);
 
@@ -103,8 +103,8 @@ export default function PackagingExceptionsPage() {
         title={t("ui.异常品处理", "异常品处理")}
         subtitle={t("ui.异常品处理副标题", "记录包装过程中的异常蛋品及处置措施（表：pkg_exceptions）")}
       />
-      <DataTable table={TABLE} columns={COLUMNS as any} onNew={openNew} onEdit={openEdit as any}
-        onDelete={handleDelete as any} showActions refreshKey={refreshKey} />
+      <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit}
+        onDelete={handleDelete} showActions refreshKey={refreshKey} />
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑异常记录", "编辑异常记录") : t("ui.新增异常记录", "新增异常记录")} onClose={closeDrawer}>
         <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave}
           onCancel={closeDrawer} loading={saving} />

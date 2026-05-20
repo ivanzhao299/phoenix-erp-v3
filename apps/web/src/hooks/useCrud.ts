@@ -58,7 +58,7 @@ export const useCrud = (table: string) => {
     }
   };
 
-  const createRecord = useCallback(async (data: any, successMsg?: string) => {
+  const createRecord = useCallback(async (data: Record<string, unknown>, successMsg?: string) => {
     if (!data || Object.keys(data).length === 0) {
       await showAlert({ icon:'⚠️', type:'warning', title:t('crud.err.emptyTitle', '数据为空'), message:t('crud.err.empty', '检测到试图提交全空白的空气建档，已被拒绝。') });
       return false;
@@ -77,20 +77,20 @@ export const useCrud = (table: string) => {
     return success;
   }, [table, showAlert, t]);
 
-  const getRecords = useCallback(async (queryParams: Record<string, any> = {}) => {
-    const qs = Object.keys(queryParams).length ? `?${new URLSearchParams(queryParams).toString()}` : '';
+  const getRecords = useCallback(async (queryParams: Record<string, string | number> = {}) => {
+    const qs = Object.keys(queryParams).length ? `?${new URLSearchParams(Object.fromEntries(Object.entries(queryParams).map(([k, v]) => [k, String(v)]))).toString()}` : '';
     const { success, data } = await executeReq(`${API_BASE}/${table}${qs}`, { method:'GET' });
     return success ? (data.data || data) : null;
   }, [table]);
 
-  const updateRecord = useCallback(async (id: any, data: any, idColumn = 'id', successMsg?: string) => {
+  const updateRecord = useCallback(async (id: string | number, data: Record<string, unknown>, idColumn = 'id', successMsg?: string) => {
     const { success, error: reqErr } = await executeReq(`${API_BASE}/${table}/${idColumn}/${id}`, { method:'PUT', body:JSON.stringify(data) });
     if (success && successMsg) await showAlert({ icon:'✅', type:'success', title:t('common.success', '操作成功'), message:successMsg, confirmLabel:t('common.ok', '好的') });
     if (!success) await showAlert({ icon:'❌', type:'danger', title:t('crud.err.updateFailTitle', '更新失败'), message:reqErr||t('crud.err.updateFail', '更新失败，请稍后重试'), confirmLabel:t('common.close', '关闭') });
     return success;
   }, [table, showAlert, t]);
 
-  const deleteRecord = useCallback(async (id: any, idColumn = 'id', successMsg?: string, confirmMsg?: string) => {
+  const deleteRecord = useCallback(async (id: string | number, idColumn = 'id', successMsg?: string, confirmMsg?: string) => {
     const _u = (() => { try { return JSON.parse(sessionStorage.getItem('phoenix_user') || '{}'); } catch { return {}; } })();
     if (_u.role !== 'ROLE_ADMIN') {
       await showAlert({ icon:'🚫', type:'danger', title:t('crud.err.noPermTitle', '无权限'), message:t('crud.err.noPermission', '历史记录数据仅系统管理员可删除，如需处理请联系管理员。'), confirmLabel:t('common.understood', '知道了') });

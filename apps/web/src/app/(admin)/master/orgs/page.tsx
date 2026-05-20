@@ -60,11 +60,11 @@ function OrgTreeNode({
         display: "flex", alignItems: "center", gap: 6, padding: "7px 10px",
         borderRadius: 8, cursor: "pointer", transition: "background 0.1s",
       }}
-      onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-surface)")}
+      onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-card)")}
       onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
       >
-        <button onClick={() => setExpanded(e => !e)} style={{
-          background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer",
+        <button type="button" onClick={() => setExpanded(e => !e)} style={{
+          background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer",
           padding: 2, width: 18, flexShrink: 0,
         }}>
           {hasChildren ? (expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />) : <span style={{ width: 12 }} />}
@@ -76,7 +76,7 @@ function OrgTreeNode({
           <span style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--text-primary)" }}>
             {node.org_name}
           </span>
-          <span style={{ marginLeft: 8, fontSize: "0.72rem", color: "var(--text-muted)", fontFamily: "monospace" }}>
+          <span style={{ marginLeft: 8, fontSize: "0.72rem", color: "var(--text-secondary)", fontFamily: "monospace" }}>
             {node.org_code}
           </span>
           {node.org_type && (
@@ -94,15 +94,15 @@ function OrgTreeNode({
         </div>
 
         <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-          <button onClick={e => { e.stopPropagation(); onAddChild(node.org_code); }}
+          <button type="button" onClick={e => { e.stopPropagation(); onAddChild(node.org_code); }}
             style={{ background: "none", border: "none", color: "#22c55e", cursor: "pointer", padding: 4, borderRadius: 4, opacity: 0.7 }} title={addChildTitle}>
             <Plus size={13} />
           </button>
-          <button onClick={e => { e.stopPropagation(); onEdit(node); }}
+          <button type="button" onClick={e => { e.stopPropagation(); onEdit(node); }}
             style={{ background: "none", border: "none", color: "#3b82f6", cursor: "pointer", padding: 4, borderRadius: 4, opacity: 0.7 }} title={editTitle}>
             <Edit2 size={13} />
           </button>
-          <button onClick={e => { e.stopPropagation(); onDelete(node); }}
+          <button type="button" onClick={e => { e.stopPropagation(); onDelete(node); }}
             style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 4, borderRadius: 4, opacity: 0.7 }} title={deleteTitle}>
             <Trash2 size={13} />
           </button>
@@ -150,8 +150,8 @@ export default function OrgsPage() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await crudApi.list("sys_orgs", { limit: 500 } as any);
-      const data = ((res as any).data ?? []) as OrgNode[];
+      const res = await crudApi.list<OrgNode>("sys_orgs", { limit: 500 });
+      const data = res.data ?? [];
       setNodes(data);
       setTree(buildTree(data));
     } finally {
@@ -224,14 +224,14 @@ export default function OrgsPage() {
             background: "var(--bg-card)", border: "1px solid var(--border)",
             borderRadius: 10, padding: "10px 16px", minWidth: 100,
           }}>
-            <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginBottom: 4 }}>{opt.label}</div>
+            <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginBottom: 4 }}>{opt.label}</div>
             <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--color-primary)" }}>
               {typeCounts[opt.value] ?? 0}
             </div>
           </div>
         ))}
-        <button onClick={() => openNew()} style={{
-          background: "var(--brand-primary)", border: "none", borderRadius: 10,
+        <button type="button" onClick={() => openNew()} style={{
+          background: "var(--color-primary)", border: "none", borderRadius: 10,
           padding: "10px 20px", color: "#fff", cursor: "pointer", fontWeight: 700,
           display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", alignSelf: "center",
         }}>
@@ -240,11 +240,11 @@ export default function OrgsPage() {
       </div>
 
       {/* 树形视图 */}
-      <div style={{ background: "var(--bg-surface)", borderRadius: 12, border: "1px solid var(--bg-surface)", padding: 16, minHeight: 300 }}>
+      <div style={{ background: "var(--bg-card)", borderRadius: 12, border: "1px solid var(--bg-card)", padding: 16, minHeight: 300 }}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>{t('ui.加载组织架构', '加载组织架构…')}</div>
+          <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>{t('ui.加载组织架构', '加载组织架构…')}</div>
         ) : tree.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>
+          <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>
             <Building size={40} style={{ opacity: 0.2, marginBottom: 12 }} />
             <div>{t('ui.暂无组织数据点击新增根节点开始构建', '暂无组织数据，点击「新增根节点」开始构建')}</div>
           </div>

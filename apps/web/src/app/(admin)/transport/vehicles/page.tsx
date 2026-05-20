@@ -78,8 +78,8 @@ export default function VehiclesPage() {
   return (
     <div>
       <PageHeader title={t("ui.车辆档案", "车辆档案")} subtitle={t("ui.管理配送车辆基础信息", "管理配送车辆基础信息（表：log_vehicles）")} />
-      <DataTable table={TABLE} columns={COLUMNS as any} onNew={openNew} onEdit={openEdit as any}
-        onDelete={handleDelete as any} showActions refreshKey={refreshKey} />
+      <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit}
+        onDelete={handleDelete} showActions refreshKey={refreshKey} />
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑车辆", "编辑车辆") : t("ui.新增车辆", "新增车辆")} onClose={closeDrawer}>
         <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave}
           onCancel={closeDrawer} loading={saving} />

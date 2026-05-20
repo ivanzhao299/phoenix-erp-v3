@@ -71,8 +71,8 @@ export default function MasterDataConfigPage() {
               </div>
             )}
             <Link href={c.link} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "var(--bg-page)", border: `1px solid ${c.color}`, borderRadius: "var(--radius-md)", fontSize: 13, fontWeight: 600, color: c.color, textDecoration: "none", transition: "all 0.15s" }}
-              onMouseEnter={(e: any) => { e.currentTarget.style.background = `${c.color}12`; }}
-              onMouseLeave={(e: any) => { e.currentTarget.style.background = "var(--bg-page)"; }}>
+              onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.background = `${c.color}12`; }}
+              onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.background = "var(--bg-page)"; }}>
               {c.action} →
             </Link>
           </div>

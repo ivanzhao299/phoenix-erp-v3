@@ -81,10 +81,10 @@ export default function 账龄分析Page() {
       <PageHeader title={TITLE} subtitle={t("ui.按账期维度分析应收款项逾期情况", "按账期维度分析应收款项逾期情况（表：fin_transactions）")} />
       <DataTable
         table={TABLE}
-        columns={COLUMNS as any}
+        columns={COLUMNS}
         onNew={openNew}
-        onEdit={openEdit as any}
-        onDelete={handleDelete as any}
+        onEdit={openEdit}
+        onDelete={handleDelete}
         showActions
         refreshKey={refreshKey}
       />

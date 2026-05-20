@@ -53,7 +53,7 @@ export default function Page() {
         breadcrumb={[t("ui.主数据", "主数据"), t("ui.产品档案", "产品档案")]}
         title={t("ui.产品品级", "产品品级")}
         subtitle={t("ui.管理鸡蛋产品规格和品级", "管理鸡蛋产品规格和品级（表：mst_products）")} />
-      <DataTable table={TABLE} columns={COLUMNS as any} onNew={oN} onEdit={oE as any} onDelete={del as any} showActions refreshKey={rk} />
+      <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
       <RightDrawer open={o} title={e ? t("ui.编辑产品品级", "编辑产品品级") : t("ui.新增产品品级", "新增产品品级")} onClose={cl}>
         <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
       </RightDrawer>

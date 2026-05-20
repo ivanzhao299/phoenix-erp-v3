@@ -193,8 +193,8 @@ export default function ArrivalPage() {
                   <td style={{ padding:"9px 12px" }}><span className={`${s.badge} ${s[STATUS_CLS[st]||'badgeNeutral']}`}>{STATUS_LABEL[st]||st}</span></td>
                   <td style={{ padding:"9px 12px",fontSize:11,color:"var(--text-secondary)" }}>{row.created_at?.slice(0,10)||"—"}</td>
                   <td style={{ padding:"9px 12px",display:"flex",gap:6 }}>
-                    <button className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openDetail(row)}>{t("common.detail","详情")}</button>
-                    {st==="PENDING"&&<button className={s.btnSuccess} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>confirm(row)}><CheckCircle size={11}/> {t("ui.确认收货","确认收货")}</button>}
+                    <button type="button" className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openDetail(row)}>{t("common.detail","详情")}</button>
+                    {st==="PENDING"&&<button type="button" className={s.btnSuccess} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>confirm(row)}><CheckCircle size={11}/> {t("ui.确认收货","确认收货")}</button>}
                   </td>
                 </tr>
               );
@@ -238,7 +238,7 @@ export default function ArrivalPage() {
                 <div style={{ fontWeight:700,fontSize:12,marginBottom:6 }}>{t("ui.第","第")} {it.line_no||idx+1} {t("ui.行","行")} — {it.product_code}</div>
                 <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,fontSize:12,color:"var(--text-secondary)" }}>
                   {[[t("ui.规格","规格"),it.spec_code],[t("ui.批次","批次"),it.batch_no],[t("ui.效期","效期"),it.expire_date?.slice(0,10)],[t("ui.计划数","计划数"),it.planned_qty],[t("ui.实收数","实收数"),it.actual_qty],[t("ui.单位","单位"),it.unit],[t("ui.单价","单价"),it.unit_cost],[t("ui.库位","库位"),it.location_code]].map(([k,v])=>(
-                    <div key={String(k)}><span style={{ color:"var(--text-muted)" }}>{k}：</span>{String(v||"—")}</div>
+                    <div key={String(k)}><span style={{ color:"var(--text-secondary)" }}>{k}：</span>{String(v||"—")}</div>
                   ))}
                 </div>
               </div>

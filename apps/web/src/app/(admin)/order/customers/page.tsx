@@ -186,8 +186,8 @@ export default function CustomersPage() {
                     <span className={`${s.badge} ${isActive?s.badgeSuccess:s.badgeDanger}`}>{isActive?t("status.normal","正常"):t("ui.已冻结","已冻结")}</span>
                   </td>
                   <td style={{ padding:"9px 12px",display:"flex",gap:6,flexWrap:"wrap" }}>
-                    <button className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(c)}>{t("common.edit","编辑")}</button>
-                    <button className={isActive?s.btnDanger:s.btnSuccess} style={{ padding:"4px 8px",fontSize:11 }}
+                    <button type="button" className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(c)}>{t("common.edit","编辑")}</button>
+                    <button type="button" className={isActive?s.btnDanger:s.btnSuccess} style={{ padding:"4px 8px",fontSize:11 }}
                       onClick={()=>freeze(c.id, c.status||"active")}>{isActive?t("ui.冻结","冻结"):t("ui.解冻","解冻")}</button>
                   </td>
                 </tr>

@@ -66,6 +66,7 @@ const nextConfig: NextConfig = {
   },
 
   // ── 性能 ─────────────────────────────────────────────────────────
+  output: "standalone",      // Docker 精简包：只含运行所需文件
   poweredByHeader: false,   // 移除 X-Powered-By 响应头
   compress: true,            // 启用 gzip 压缩
   reactStrictMode: true,     // 严格模式（帮助发现副作用问题）

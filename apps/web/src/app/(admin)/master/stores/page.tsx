@@ -60,7 +60,7 @@ export default function Page() {
         breadcrumb={[t("ui.主数据", "主数据"), t("ui.门店档案", "门店档案")]}
         title={t("ui.门店主档", "门店主档")}
         subtitle={t("ui.管理直营和加盟门店档案", "管理直营和加盟门店档案（表：mst_stores）")} />
-      <DataTable table={TABLE} columns={COLUMNS as any} onNew={oN} onEdit={oE as any} onDelete={del as any} showActions refreshKey={rk} />
+      <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
       <RightDrawer open={o} title={e ? t("ui.编辑门店主档", "编辑门店主档") : t("ui.新增门店主档", "新增门店主档")} onClose={cl}>
         <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
       </RightDrawer>

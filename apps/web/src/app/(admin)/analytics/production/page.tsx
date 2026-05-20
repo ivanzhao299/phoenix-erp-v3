@@ -81,10 +81,10 @@ export default function ProductionPage() {
       <PageHeader title={TITLE} subtitle={t('ui.按日期和鸡舍汇总生产数据', '按日期和鸡舍汇总生产数据（表：brd_daily_logs）')} />
       <DataTable
         table={TABLE}
-        columns={COLUMNS as any}
+        columns={COLUMNS}
         onNew={openNew}
-        onEdit={openEdit as any}
-        onDelete={handleDelete as any}
+        onEdit={openEdit}
+        onDelete={handleDelete}
         showActions
         refreshKey={refreshKey}
       />

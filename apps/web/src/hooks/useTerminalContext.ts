@@ -28,7 +28,7 @@ export interface PackingBatchItem {
   specId: string;
   boxes: number;
   eggs: number;
-  materialBatch: string;
+  materialBatch?: string;
 }
 
 export interface TerminalState {

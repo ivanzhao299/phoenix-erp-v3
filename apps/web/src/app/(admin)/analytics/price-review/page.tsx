@@ -35,11 +35,11 @@ export default function PriceReviewPage() {
 
   useEffect(() => {
     Promise.all([
-      crudApi.list<PriceRecord>("ord_prices",      { limit: 200 } as any),
-      crudApi.list<OrderItem>("ord_order_items",   { limit: 500 } as any),
+      crudApi.list<PriceRecord>("ord_prices",      { limit: 200 }),
+      crudApi.list<OrderItem>("ord_order_items",   { limit: 500 }),
     ]).then(([pRes, iRes]) => {
-      setPrices((pRes as any).data ?? []);
-      setItems((iRes as any).data ?? []);
+      setPrices(pRes.data ?? []);
+      setItems(iRes.data ?? []);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
@@ -71,37 +71,37 @@ export default function PriceReviewPage() {
           { label: t('ui.低于底价', '低于底价'),   value: belowFloorCount,      color: belowFloorCount > 0 ? "#ef4444" : "#22c55e" },
         ].map(k => (
           <div key={k.label} style={{
-            background: "var(--bg-surface)", border: "1px solid var(--bg-surface)",
+            background: "var(--bg-card)", border: "1px solid var(--bg-card)",
             borderRadius: 12, padding: "16px 24px", flex: 1, textAlign: "center",
           }}>
             <div style={{ fontSize: "1.8rem", fontWeight: 800, color: k.color }}>{loading ? "—" : k.value}</div>
-            <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 4 }}>{k.label}</div>
+            <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: 4 }}>{k.label}</div>
           </div>
         ))}
       </div>
 
       {/* 明细表 */}
-      <div style={{ background: "var(--bg-surface)", borderRadius: 12, border: "1px solid var(--bg-surface)", overflow: "hidden" }}>
+      <div style={{ background: "var(--bg-card)", borderRadius: 12, border: "1px solid var(--bg-card)", overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ borderBottom: "1px solid var(--bg-surface)" }}>
+            <tr style={{ borderBottom: "1px solid var(--bg-card)" }}>
               {[t('ui.订单号', '订单号'), t('ui.品级编码', '品级编码'), t('ui.实际单价', '实际单价'), t('ui.合同单价', '合同单价'), t('ui.底价', '底价'), t('ui.差额', '差额'), t('common.status', '状态')].map(h => (
-                <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 600 }}>{h}</th>
+                <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 600 }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>{t('common.loading', '加载中...')}</td></tr>
+              <tr><td colSpan={7} style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>{t('common.loading', '加载中...')}</td></tr>
             ) : review.length === 0 ? (
-              <tr><td colSpan={7} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>{t('ui.暂无可对比数据', '暂无可对比数据（需先维护合同价档位）')}</td></tr>
+              <tr><td colSpan={7} style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>{t('ui.暂无可对比数据', '暂无可对比数据（需先维护合同价档位）')}</td></tr>
             ) : review.map((r, i) => (
-              <tr key={i} style={{ borderBottom: "1px solid var(--bg-surface)", background: r!.belowFloor ? "rgba(239,68,68,0.06)" : "transparent" }}>
+              <tr key={i} style={{ borderBottom: "1px solid var(--bg-card)", background: r!.belowFloor ? "rgba(239,68,68,0.06)" : "transparent" }}>
                 <td style={{ padding: "10px 16px", fontSize: "0.85rem" }}>{r!.order_no}</td>
                 <td style={{ padding: "10px 16px", fontSize: "0.85rem" }}>{r!.product_code}</td>
                 <td style={{ padding: "10px 16px", fontWeight: 700, color: r!.belowFloor ? "#ef4444" : "var(--text-primary)" }}>{Number(r!.unit_price).toFixed(2)}</td>
                 <td style={{ padding: "10px 16px", color: "var(--text-secondary)" }}>{Number(r!.contract_price).toFixed(2)}</td>
-                <td style={{ padding: "10px 16px", color: "var(--text-muted)" }}>{Number(r!.floor_price).toFixed(2)}</td>
+                <td style={{ padding: "10px 16px", color: "var(--text-secondary)" }}>{Number(r!.floor_price).toFixed(2)}</td>
                 <td style={{ padding: "10px 16px", fontWeight: 700, color: r!.diff >= 0 ? "#22c55e" : "#ef4444" }}>
                   {r!.diff >= 0 ? <TrendingUp size={12} style={{ marginRight: 4 }} /> : <TrendingDown size={12} style={{ marginRight: 4 }} />}
                   {Number(r!.diff).toFixed(2)}

@@ -13,7 +13,7 @@ export type TerminalRole =
 
 /** 具有终端自动跳转权限的角色集合 */
 export const TERMINAL_AUTO_ROLES: string[] = [
-  'ROLE_PKG_OPERATOR',
+  'ROLE_PKG_OP',
   'ROLE_QC_INSPECTOR',
   'ROLE_WH_CLERK',
   'ROLE_LINE_SUPERVISOR',
@@ -131,6 +131,7 @@ export interface DeviceStatus {
 export interface WorkShift {
   id: string;
   code: string;
+  shiftType?: string;
   productionDate: string;
   siteId: string;
   siteName?: string;
@@ -173,8 +174,7 @@ export interface SourceBatch {
 
 // ─── 分级批次 ────────────────────────────────────────────────────
 export interface GradingOutput {
-  grade: 'GRADE_1' | 'GRADE_2' | 'GRADE_3' | 'GRADE_4' | 'GRADE_5'
-       | 'DIRTY' | 'BROKEN' | 'REJECTED' | 'RECHECK';
+  grade: string;   // dict_code，跟随系统字典动态，不写死枚举
   qty: number;
   weight?: number;
 }
@@ -339,12 +339,12 @@ export interface TerminalContext {
 /** 每个步骤哪些角色可以操作（不在列表中的只能查看）*/
 export const STEP_ALLOWED_ROLES: Record<string, string[]> = {
   'shift-open':          ['ROLE_LINE_SUPERVISOR'],
-  'source-receive':      ['ROLE_PKG_OPERATOR', 'ROLE_LINE_SUPERVISOR'],
+  'source-receive':      ['ROLE_PKG_OP', 'ROLE_LINE_SUPERVISOR'],
   'qc-inspection':       ['ROLE_QC_INSPECTOR', 'ROLE_LINE_SUPERVISOR'],
-  'grading':             ['ROLE_PKG_OPERATOR', 'ROLE_LINE_SUPERVISOR'],
-  'packing':             ['ROLE_PKG_OPERATOR', 'ROLE_LINE_SUPERVISOR'],
-  'label-print':         ['ROLE_PKG_OPERATOR', 'ROLE_LINE_SUPERVISOR'],
+  'grading':             ['ROLE_PKG_OP', 'ROLE_LINE_SUPERVISOR'],
+  'packing':             ['ROLE_PKG_OP', 'ROLE_LINE_SUPERVISOR'],
+  'label-print':         ['ROLE_PKG_OP', 'ROLE_LINE_SUPERVISOR'],
   'warehouse-handover':  ['ROLE_WH_CLERK', 'ROLE_LINE_SUPERVISOR'],
-  'exceptions':          ['ROLE_PKG_OPERATOR', 'ROLE_QC_INSPECTOR', 'ROLE_WH_CLERK', 'ROLE_LINE_SUPERVISOR'],
+  'exceptions':          ['ROLE_PKG_OP', 'ROLE_QC_INSPECTOR', 'ROLE_WH_CLERK', 'ROLE_LINE_SUPERVISOR'],
   'shift-close':         ['ROLE_LINE_SUPERVISOR'],
 };

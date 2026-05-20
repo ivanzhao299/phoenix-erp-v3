@@ -17,6 +17,21 @@ export class WorkflowDatasourceController {
     return this.workflow.createDataSource(body, req.user);
   }
 
+  @Post('sync-defaults')
+  syncDefaults(@Req() req: any) {
+    return this.workflow.syncDefaultDataSources(req.user);
+  }
+
+  @Post('refresh-metadata')
+  refreshMetadata(@Req() req: any) {
+    return this.workflow.refreshDataSourceMetadata(req.user);
+  }
+
+  @Get(':code/field-suggestions')
+  fieldSuggestions(@Param('code') code: string, @Req() req: any) {
+    return this.workflow.suggestDataSourceFields(code, req.user);
+  }
+
   @Put(':id')
   update(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.workflow.updateDataSource(Number(id), body, req.user);

@@ -159,8 +159,8 @@ export default function OutboundPage() {
         columns={COLUMNS}
         params={typeFilter ? { target_type: typeFilter } as any : undefined}
         onNew={openNew}
-        onEdit={openEdit as any}
-        onDelete={handleDelete as any}
+        onEdit={openEdit}
+        onDelete={handleDelete}
         showActions={false}
         refreshKey={refreshKey}
         emptyText={t("common.no_data", "暂无出库记录")}

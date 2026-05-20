@@ -33,7 +33,7 @@ type LogEntry = { time: string; msg: string; type: "info"|"success"|"warning"|"e
 
 export default function SystemInitPage() {
   const { t } = useLanguage();
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3100";
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [confirm, setConfirm] = useState<null|"init"|"blood">(null);
@@ -41,11 +41,16 @@ export default function SystemInitPage() {
   const addLog = (msg: string, type: LogEntry["type"] = "info") =>
     setLogs(p => [...p, { time: new Date().toLocaleTimeString(), msg, type }]);
 
-  const executePost = async (table: string, dataList: any[], name: string) => {
+  const getAuthHeaders = (): Record<string, string> => {
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : null;
+    return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  };
+
+  const executePost = async (table: string, dataList: Record<string, unknown>[], name: string) => {
     addLog(`⏳ ${t('ui.开始处理清除旧数据并写入', '开始处理')} [${table}]，${t('ui.清除旧数据并写入', '清除旧数据并写入')}…`, "info");
     let deleted = 0, created = 0;
     try {
-      const getRes = await fetch(`${API_BASE}/api/crud/${table}`);
+      const getRes = await fetch(`${API_BASE}/api/crud/${table}`, { headers: getAuthHeaders() });
       if (getRes.ok) {
         const { data: cur } = await getRes.json();
         if (cur?.length) {
@@ -53,13 +58,13 @@ export default function SystemInitPage() {
           for (const row of cur) {
             const pk = table === "sys_roles" ? row.role_code : row.id;
             const col = table === "sys_roles" ? "role_code" : "id";
-            if (pk) { await fetch(`${API_BASE}/api/crud/${table}/${col}/${pk}`, { method: "DELETE" }); deleted++; }
+            if (pk) { await fetch(`${API_BASE}/api/crud/${table}/${col}/${pk}`, { method: "DELETE", headers: getAuthHeaders() }); deleted++; }
           }
         }
       }
     } catch { /* ignore */ }
     for (const item of dataList) {
-      const r = await fetch(`${API_BASE}/api/crud/${table}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) });
+      const r = await fetch(`${API_BASE}/api/crud/${table}`, { method: "POST", headers: getAuthHeaders(), body: JSON.stringify(item) });
       if (r.ok) created++; else { const e = await r.json(); addLog(`❌ [${table}] ${t('ui.写入失败', '写入失败')}: ${e.msg || r.statusText}`, "error"); }
     }
     addLog(`✅ [${table}] ${name} ${t('ui.完成', '完成')}（${t('ui.清除', '清除')}: ${deleted}，${t('ui.新建', '新建')}: ${created}）`, "success");
@@ -80,7 +85,7 @@ export default function SystemInitPage() {
     if (confirm !== "blood") { setConfirm("blood"); return; }
     setConfirm(null); setLoading(true); setLogs([]);
     addLog(`▶ ${t('ui.开始初始化业务演示数据', '开始初始化业务演示数据')}…`, "warning");
-    const wmsMock: any[] = [];
+    const wmsMock: Record<string, unknown>[] = [];
     for (let i = 0; i < 30; i++) {
       wmsMock.push({ inbound_no: `WMS-SIM-${Date.now()}-${i}`, type: ["IN","OUT","TRANSFER"][i%3], qty: Math.floor(Math.random()*2000)+100, date: new Date(Date.now()-i*3600000).toISOString(), status: "COMPLETED" });
     }
@@ -91,12 +96,12 @@ export default function SystemInitPage() {
 
   const LOG_COLOR: Record<string, string> = { error: "#ef4444", success: "#22c55e", warning: "#f59e0b", info: "#38bdf8" };
 
-  const ConfirmBanner = ({ mode, onOk, label, color }: any) => (
+  const ConfirmBanner = ({ mode, onOk, label, color }: { mode: string; onOk: () => void; label: string; color: string }) => (
     <div style={{ padding: 14, background: color+"22", border: `1px solid ${color}44`, borderRadius: "var(--radius-md)" }}>
       <p style={{ fontSize: 13, color, fontWeight: 700, marginBottom: 10 }}>⚠️ {t('ui.此操作将清除并重写相关数据不可撤销', '此操作将清除并重写相关数据，不可撤销！')}</p>
       <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={onOk} style={{ flex: 1, padding: "10px", background: color, color: "#fff", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", fontWeight: 700, fontSize: 13 }}>{label}</button>
-        <button onClick={() => setConfirm(null)} style={{ flex: 1, padding: "10px", background: "var(--bg-page)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", cursor: "pointer", fontSize: 13 }}>{t('common.cancel', '取消')}</button>
+        <button type="button" onClick={onOk} style={{ flex: 1, padding: "10px", background: color, color: "#fff", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", fontWeight: 700, fontSize: 13 }}>{label}</button>
+        <button type="button" onClick={() => setConfirm(null)} style={{ flex: 1, padding: "10px", background: "var(--bg-page)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", cursor: "pointer", fontSize: 13 }}>{t('common.cancel', '取消')}</button>
       </div>
     </div>
   );
@@ -124,7 +129,7 @@ export default function SystemInitPage() {
           {confirm === "init"
             ? <ConfirmBanner mode="init" onOk={doInit} label={t('ui.确认执行初始化', '确认执行初始化')} color="#dc2626"/>
             : (
-              <button onClick={doInit} disabled={loading} style={{ padding: "16px", background: loading ? "#ccc" : "linear-gradient(135deg,#dc2626,#991b1b)", color: "#fff", border: "none", borderRadius: "var(--radius-lg)", fontSize: 16, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 15px rgba(220,38,38,0.3)", transition: "all 0.3s" }}>
+              <button type="button" onClick={doInit} disabled={loading} style={{ padding: "16px", background: loading ? "#ccc" : "linear-gradient(135deg,#dc2626,#991b1b)", color: "#fff", border: "none", borderRadius: "var(--radius-lg)", fontSize: 16, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 15px rgba(220,38,38,0.3)", transition: "all 0.3s" }}>
                 {loading ? <RefreshCw className="spin" size={20}/> : <Zap size={20}/>}
                 {loading ? t('ui.正在写入数据请勿关闭', '正在写入数据，请勿关闭…') : t('ui.开始系统初始化', '开始系统初始化')}
               </button>
@@ -132,7 +137,7 @@ export default function SystemInitPage() {
           {confirm === "blood"
             ? <ConfirmBanner mode="blood" onOk={doBlood} label={t('ui.确认初始化演示数据', '确认初始化演示数据')} color="#2563eb"/>
             : (
-              <button onClick={doBlood} disabled={loading} style={{ padding: "16px", background: loading ? "#ccc" : "linear-gradient(135deg,var(--color-primary),#1e3a8a)", color: "#fff", border: "none", borderRadius: "var(--radius-lg)", fontSize: 16, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 15px rgba(30,58,138,0.3)", transition: "all 0.3s" }}>
+              <button type="button" onClick={doBlood} disabled={loading} style={{ padding: "16px", background: loading ? "#ccc" : "linear-gradient(135deg,var(--color-primary),#1e3a8a)", color: "#fff", border: "none", borderRadius: "var(--radius-lg)", fontSize: 16, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 15px rgba(30,58,138,0.3)", transition: "all 0.3s" }}>
                 {loading ? <RefreshCw size={20}/> : <Zap size={20}/>}
                 {loading ? t('ui.初始化中请稍候', '初始化中，请稍候…') : t('ui.初始化演示数据', '初始化演示数据')}
               </button>

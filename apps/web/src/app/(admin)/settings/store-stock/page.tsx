@@ -21,7 +21,7 @@ export default function StoreStockConfigPage() {
     fetch("/api/crud/mst_stores?limit=100", { headers: hdr() })
       .then(r => r.json())
       .then(d => {
-        const list = (d.data || d || []).map((s: any) => ({
+        const list = (d.data || d || []).map((s: Record<string, unknown>) => ({
           id: s.store_code, name: s.store_name_zh || s.store_code,
           type: s.store_type === "FRANCHISE" ? "FRANCHISE" : "DIRECT",
           split_stock_enabled: !!s.split_stock_enabled,

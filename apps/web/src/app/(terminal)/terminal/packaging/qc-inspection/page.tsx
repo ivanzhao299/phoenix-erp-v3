@@ -9,6 +9,7 @@ import type { QCResult } from '@/types/packaging-terminal';
 import { T } from '@/styles/terminal-theme';
 
 
+
 export default function QCInspectionPage() {
   const router = useRouter();
   const { t } = useLanguage();
@@ -80,13 +81,13 @@ export default function QCInspectionPage() {
     <div style={{ height:'100%', display:'flex', flexDirection:'column', background:T.BG, overflow:'hidden' }}>
       <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'14px 24px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
         <span style={{ fontSize:24 }}>🔍</span>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ fontSize:18, fontWeight:700, color:T.TXT }}>{t('terminal.qc_inspection', '首检录入')}</div>
           <div style={{ fontSize:12, color:T.MUT }}>{t('ui.批次', '批次')} {batch.code} · {'houseName' in batch ? batch.houseName : '--'} · {'layDate' in batch ? batch.layDate : '--'}</div>
         </div>
       </div>
 
-      <div style={{ flex:1, overflow:'auto', padding:24, display:'flex', gap:16 }}>
+      <div style={{ flex:1, overflow:'hidden', minHeight:0, padding:24, display:'flex', gap:16 }}>
         {/* 左：检验数据 */}
         <div style={{ flex:1, display:'flex', flexDirection:'column', gap:16 }}>
           <div style={{ background:T.CARD, borderRadius:12, padding:20, border:`1px solid ${T.BOR}` }}>
@@ -116,13 +117,13 @@ export default function QCInspectionPage() {
           {/* 感官检查 */}
           <div style={{ background:T.CARD, borderRadius:12, padding:20, border:`1px solid ${T.BOR}` }}>
             <div style={{ fontSize:13, color:T.MUT, marginBottom:12, fontWeight:600 }}>{t('ui.感官检查', '感官检查')}</div>
-            <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+            <div style={{ display:'flex', gap:10 }}>
               {[
                 { key:'shellOk', label: t('ui.蛋壳清洁', '蛋壳清洁 ✓') },
                 { key:'odorOk', label: t('ui.气味正常', '气味正常 ✓') },
                 { key:'containerOk', label: t('ui.容器清洁', '容器清洁 ✓') },
               ].map(item => (
-                <button key={item.key} onClick={()=>setForm(p=>({...p,[item.key]:!(p as any)[item.key]}))}
+                <button type="button" key={item.key} onClick={()=>setForm(p=>({...p,[item.key]:!(p as any)[item.key]}))}
                   style={{ padding:'12px 20px', borderRadius:8, cursor:'pointer', transition:'all 0.15s',
                     border:`2px solid ${(form as any)[item.key] ? T.GRN : T.BOR}`,
                     background:(form as any)[item.key] ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.03)',
@@ -140,7 +141,7 @@ export default function QCInspectionPage() {
             <div style={{ fontSize:13, color:T.MUT, marginBottom:12, fontWeight:600 }}>{t('ui.QC检验结论', 'QC 检验结论')}</div>
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {QC_RESULTS.map(r => (
-                <button key={r.value} onClick={()=>setForm(p=>({...p,qcResult:r.value}))}
+                <button type="button" key={r.value} onClick={()=>setForm(p=>({...p,qcResult:r.value}))}
                   style={{ padding:'14px 16px', borderRadius:10, cursor:'pointer', textAlign:'left',
                     border:`2px solid ${form.qcResult===r.value ? r.color : T.BOR}`,
                     background: form.qcResult===r.value ? `${r.color}15` : 'rgba(255,255,255,0.03)',
@@ -171,10 +172,10 @@ export default function QCInspectionPage() {
             ? `${t('ui.已选择', '已选择')}：${QC_RESULTS.find(r=>r.value===form.qcResult)?.label}`
             : t('ui.请选择QC检验结论', '请选择 QC 检验结论')}
         </div>
-        <button onClick={()=>router.push('/terminal/packaging/dashboard')}
+        <button type="button" onClick={()=>router.push('/terminal/packaging/dashboard')}
           style={{ padding:'14px 28px', borderRadius:10, border:`1px solid ${T.BOR}`,
             background:'transparent', color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('common.back', '返回')}</button>
-        <button onClick={handleSubmit} disabled={!form.qcResult || submitting}
+        <button type="button" onClick={handleSubmit} disabled={!form.qcResult || submitting}
           style={{ padding:'14px 40px', borderRadius:10, border:'none',
             background: form.qcResult ? T.ACC : T.BOR,
             color: form.qcResult ? '#0f172a' : T.MUT,

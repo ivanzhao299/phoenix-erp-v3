@@ -3,14 +3,18 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
+import { usePackagingDicts, getDictLabel, buildGradeMap } from '@/hooks/usePackagingDicts';
 import { packagingApi } from '@/lib/packaging-api';
 import { T } from '@/styles/terminal-theme';
 
 
+
 export default function WarehouseHandoverPage() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { ctx } = useTerminalContext();
+  const { dicts } = usePackagingDicts(['PKG_EGG_GRADE', 'PKG_EGG_DEFECT']);
+  const gradeMap = buildGradeMap([...(dicts.PKG_EGG_GRADE ?? []), ...(dicts.PKG_EGG_DEFECT ?? [])]);
 
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const pendingBoxes = (ctx.packingBatches || []).flatMap((batch, bi) =>
@@ -77,9 +81,9 @@ export default function WarehouseHandoverPage() {
   if (pendingBoxes.length === 0) return (
     <div style={{ height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:T.BG, gap:16 }}>
       <div style={{ fontSize:48 }}>📦</div>
-      <div style={{ fontSize:18, fontWeight:700, color:T.TXT }}>{t('ui.暂无待入库包装批次', '暂无待入库包装批次')}</div>
+      <div style={{ fontSize:17, fontWeight:700, color:T.TXT }}>{t('ui.暂无待入库包装批次', '暂无待入库包装批次')}</div>
       <div style={{ fontSize:13, color:T.MUT }}>{t('ui.请先完成包装作业', '请先完成包装作业')}</div>
-      <button onClick={() => router.push('/terminal/packaging/packing')}
+      <button type="button" onClick={() => router.push('/terminal/packaging/packing')}
         style={{ marginTop:8, padding:'12px 28px', borderRadius:10, background:T.ACC, color:'#0f172a', border:'none', fontSize:14, fontWeight:700, cursor:'pointer' }}>
         → {t('terminal.packing', '前往包装')}
       </button>
@@ -96,15 +100,21 @@ export default function WarehouseHandoverPage() {
 
   return (
     <div style={{ height:'100%', display:'flex', flexDirection:'column', background:T.BG, overflow:'hidden' }}>
-      <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'14px 24px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
-        <span style={{ fontSize:24 }}>🏭</span>
-        <div>
-          <div style={{ fontSize:18, fontWeight:700, color:T.TXT }}>{t('terminal.warehouse_handover', '成品入库')}</div>
+      <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'12px 20px', display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+        <span style={{ fontSize:22 }}>🏭</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize:17, fontWeight:700, color:T.TXT }}>{t('terminal.warehouse_handover', '成品入库')}</div>
           <div style={{ fontSize:12, color:T.MUT }}>{t('ui.逐箱扫码核验仓库确认接收', '逐箱扫码核验，仓库确认接收')}</div>
+        </div>
+        <div style={{ textAlign:'right', flexShrink:0 }}>
+          <div style={{ fontSize:22, fontWeight:800, color:T.ACC, fontVariantNumeric:'tabular-nums' }}>
+            {scanned.length}<span style={{ fontSize:13, fontWeight:400, color:T.MUT }}>/{pendingBoxes.length}</span>
+          </div>
+          <div style={{ fontSize:11, color:T.MUT }}>{t('ui.已入库总箱数', '已入库/总箱数')}</div>
         </div>
       </div>
 
-      <div style={{ flex:1, overflow:'auto', padding:24, display:'flex', gap:16 }}>
+      <div style={{ flex:1, overflow:'hidden', minHeight:0, padding:24, display:'flex', gap:16 }}>
         {/* 左：扫码区 */}
         <div style={{ flex:1, display:'flex', flexDirection:'column', gap:12 }}>
           <div style={{ background:T.CARD, borderRadius:12, padding:20, border:`1px solid ${T.BOR}` }}>
@@ -116,17 +126,16 @@ export default function WarehouseHandoverPage() {
                 autoFocus
                 style={{ flex:1, background:'rgba(255,255,255,0.05)', border:`1px solid ${T.BOR}`,
                   borderRadius:8, padding:'14px 16px', color:T.TXT, fontSize:15 }} />
-              <button onClick={()=>handleScan()}
+              <button type="button" onClick={()=>handleScan()}
                 style={{ padding:'14px 24px', background:T.ACC, color:'#0f172a', border:'none',
                   borderRadius:8, fontSize:15, fontWeight:700, cursor:'pointer' }}>{t('ui.扫入', '扫入')}</button>
-              {!allScanned && (
-                <button onClick={handleConfirmAll}
-                  style={{ padding:'14px 20px', background:'rgba(34,197,94,0.15)', color:T.GRN,
-                    border:`1px solid rgba(34,197,94,0.3)`, borderRadius:8, fontSize:13,
-                    fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>{t('ui.全部确认', '全部确认')}</button>
-              )}
+              <button type="button" onClick={handleConfirmAll}
+                style={{ padding:'14px 20px', background:'rgba(34,197,94,0.15)', color:T.GRN,
+                  border:`1px solid rgba(34,197,94,0.3)`, borderRadius:8, fontSize:13,
+                  fontWeight:600, cursor:'pointer', whiteSpace:'nowrap',
+                  visibility: allScanned ? 'hidden' : 'visible' }}>{t('ui.全部确认', '全部确认')}</button>
             </div>
-            {error && <div style={{ color:T.RED, fontSize:13 }}>⚠️ {error}</div>}
+            <div style={{ color:T.RED, fontSize:13, height: 20, visibility: error ? 'visible' : 'hidden' }}>⚠️ {error || ' '}</div>
 
             {/* 待扫列表 */}
             <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
@@ -139,10 +148,10 @@ export default function WarehouseHandoverPage() {
                     <span style={{ fontSize:18 }}>{isDone?'✅':'⬜'}</span>
                     <div style={{ flex:1 }}>
                       <div style={{ fontSize:13, fontWeight:600, color:isDone?T.GRN:T.TXT, fontFamily:'monospace' }}>{box.code}</div>
-                      <div style={{ fontSize:11, color:T.MUT }}>{box.grade} · {box.qty}{t('ui.枚', '枚')}</div>
+                      <div style={{ fontSize:11, color:T.MUT }}>{getDictLabel(gradeMap[box.grade], lang) || box.grade} · {box.qty}{t('ui.枚', '枚')}</div>
                     </div>
                     {!isDone && (
-                      <button onClick={()=>handleScan(box.code)}
+                      <button type="button" onClick={()=>handleScan(box.code)}
                         style={{ padding:'6px 12px', borderRadius:6, border:`1px solid ${T.BOR}`,
                           background:'transparent', color:T.MUT, fontSize:12, cursor:'pointer' }}>
                         {t('ui.手动确认', '手动确认')}
@@ -185,7 +194,7 @@ export default function WarehouseHandoverPage() {
             ].map(item=>(
               <div key={item.label} style={{ padding:'10px 0', borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
                 <div style={{ fontSize:11, color:T.MUT }}>{item.label}</div>
-                <div style={{ fontSize:20, fontWeight:700, color:item.color||T.TXT }}>{item.value}</div>
+                <div style={{ fontSize:20, fontWeight:700, color:item.color||T.TXT, fontVariantNumeric:'tabular-nums' }}>{item.value}</div>
               </div>
             ))}
             <div style={{ marginTop:12, padding:'8px', borderRadius:8,
@@ -200,14 +209,14 @@ export default function WarehouseHandoverPage() {
         </div>
       </div>
 
-      <div style={{ background:T.CARD, borderTop:`1px solid ${T.BOR}`, padding:'16px 24px',
+      <div style={{ background:T.CARD, borderTop:`1px solid ${T.BOR}`, padding:'17px 16px',
         display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
-        <button onClick={()=>router.push('/terminal/packaging/label-print')}
-          style={{ padding:'14px 28px', borderRadius:10, border:`1px solid ${T.BOR}`,
+        <button type="button" onClick={()=>router.push('/terminal/packaging/label-print')}
+          style={{ padding:'9px 20px', borderRadius:10, border:`1px solid ${T.BOR}`,
             background:'transparent', color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('common.back', '返回')}</button>
         <div style={{ flex:1 }} />
-        <button onClick={()=>setShowConfirm(true)} disabled={!canSubmit||submitting}
-          style={{ padding:'14px 40px', borderRadius:10, border:'none',
+        <button type="button" onClick={()=>setShowConfirm(true)} disabled={!canSubmit||submitting}
+          style={{ padding:'9px 40px', borderRadius:10, border:'none',
             background:canSubmit?T.GRN:T.BOR, color:canSubmit?'#0f172a':T.MUT,
             fontSize:16, fontWeight:700, cursor:canSubmit?'pointer':'not-allowed' }}>
           ✓ {t('ui.确认入库', '确认入库')}
@@ -219,16 +228,16 @@ export default function WarehouseHandoverPage() {
           alignItems:'center', justifyContent:'center', zIndex:200 }}>
           <div style={{ background:T.CARD, borderRadius:16, padding:32, width:360, border:`1px solid ${T.BOR}`, textAlign:'center' }}>
             <div style={{ fontSize:48, marginBottom:12 }}>🏭</div>
-            <div style={{ fontSize:18, fontWeight:700, color:T.TXT, marginBottom:8 }}>{t('ui.确认入库', '确认入库？')}</div>
+            <div style={{ fontSize:17, fontWeight:700, color:T.TXT, marginBottom:8 }}>{t('ui.确认入库', '确认入库？')}</div>
             <div style={{ fontSize:13, color:T.MUT, marginBottom:24 }}>
               {scanned.length} {t('ui.箱', '箱')} · {totalQty} {t('ui.枚', '枚')} → {location || t('ui.待定库位', '待定库位')}<br/>
               {t('ui.接收人', '接收人')}：{receiver}
             </div>
             <div style={{ display:'flex', gap:10 }}>
-              <button onClick={()=>setShowConfirm(false)}
+              <button type="button" onClick={()=>setShowConfirm(false)}
                 style={{ flex:1, padding:'14px', background:'transparent', border:`1px solid ${T.BOR}`,
                   borderRadius:8, color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('common.cancel', '取消')}</button>
-              <button onClick={()=>{setShowConfirm(false);handleSubmit();}}
+              <button type="button" onClick={()=>{setShowConfirm(false);handleSubmit();}}
                 style={{ flex:2, padding:'14px', background:T.GRN, border:'none',
                   borderRadius:8, color:'#0f172a', fontSize:15, fontWeight:700, cursor:'pointer' }}>
                 {t('ui.确认入库', '确认入库')}

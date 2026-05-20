@@ -69,7 +69,7 @@ export default function ProfilePage() {
           <input type={showPwd[field] ? "text" : "password"} value={pwdForm[key]}
             onChange={e => { setPwdForm(p => ({ ...p, [key]: e.target.value })); setMsg(null); }}
             placeholder={placeholder} style={inp}/>
-          <button onClick={() => setShowPwd(s => ({ ...s, [field]: !s[field] }))}
+          <button type="button" onClick={() => setShowPwd(s => ({ ...s, [field]: !s[field] }))}
             style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)" }}>
             {showPwd[field] ? <EyeOff size={16}/> : <Eye size={16}/>}
           </button>
@@ -159,7 +159,7 @@ export default function ProfilePage() {
               </div>
             )}
 
-            <button onClick={handleChangePwd} disabled={loading}
+            <button type="button" onClick={handleChangePwd} disabled={loading}
               style={{ padding: "12px 20px", background: "var(--color-primary)", color: "white", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 8, opacity: loading ? 0.7 : 1, width: "fit-content" }}>
               <Save size={16}/>{loading ? t('ui.修改中', '修改中...') : t('ui.确认修改密码', '确认修改密码')}
             </button>

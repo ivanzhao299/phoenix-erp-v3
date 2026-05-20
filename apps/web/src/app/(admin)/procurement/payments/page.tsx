@@ -173,9 +173,9 @@ export default function PaymentsPage() {
                   <td style={{ padding:"9px 12px",fontSize:11,color:isOverdue?"#ef4444":"var(--text-secondary)" }}>{row.due_date?.slice(0,10)||"—"}</td>
                   <td style={{ padding:"9px 12px" }}><span className={`${s.badge} ${s[STATUS_CLS[st]||'badgeNeutral']}`}>{STATUS_LABEL[st]||st}</span></td>
                   <td style={{ padding:"9px 12px",display:"flex",gap:6 }}>
-                    <button className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(row)}>{t("common.edit","编辑")}</button>
+                    <button type="button" className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(row)}>{t("common.edit","编辑")}</button>
                     {["PENDING","OVERDUE"].includes(st)&&(
-                      <button className={s.btnSuccess} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>markPaid(row)}>{t("ui.标记已付","标记已付")}</button>
+                      <button type="button" className={s.btnSuccess} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>markPaid(row)}>{t("ui.标记已付","标记已付")}</button>
                     )}
                   </td>
                 </tr>

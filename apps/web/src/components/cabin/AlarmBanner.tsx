@@ -20,7 +20,7 @@ export default function AlarmBanner({ alarms, onViewAll }: Props) {
           </span>
         </div>
       </div>
-      <button onClick={onViewAll} style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, fontWeight:700, color:'var(--status-danger)', background:'none', border:'1px solid color-mix(in srgb,var(--status-danger) 40%,transparent)', cursor:'pointer', padding:'5px 10px', borderRadius:'var(--radius-sm)' }}>
+      <button type="button" onClick={onViewAll} style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, fontWeight:700, color:'var(--status-danger)', background:'none', border:'1px solid color-mix(in srgb,var(--status-danger) 40%,transparent)', cursor:'pointer', padding:'5px 10px', borderRadius:'var(--radius-sm)' }}>
         {t('ui.全部告警', '全部告警')} <ChevronRight size={12} />
       </button>
     </div>

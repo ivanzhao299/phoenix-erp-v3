@@ -77,7 +77,7 @@ export const RightDrawer = memo(function RightDrawer({
         {/* Header */}
         <div className={styles.header}>
           <h3 className={styles.title}>{title}</h3>
-          <button className={styles.closeBtn} onClick={onClose} title={t('ui.关闭', '关闭')} aria-label={t('ui.关闭抽屉', '关闭抽屉')}>
+          <button type="button" className={styles.closeBtn} onClick={onClose} title={t('ui.关闭', '关闭')} aria-label={t('ui.关闭抽屉', '关闭抽屉')}>
             <X size={18} />
           </button>
         </div>

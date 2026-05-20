@@ -193,8 +193,8 @@ export default function B2BCustomersPage() {
                   <td style={{ padding:"9px 12px" }}>{row.credit_days||30}{t("ui.天", "天")}</td>
                   <td style={{ padding:"9px 12px" }}><span className={`${s.badge} ${s[STATUS_CLS[st]||'badgeNeutral']}`}>{STATUS_LABEL[st]||st}</span></td>
                   <td style={{ padding:"9px 12px",display:"flex",gap:5,flexWrap:"wrap" }}>
-                    <button className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(row)}>{t("common.edit", "编辑")}</button>
-                    <button className={st==="ACTIVE"?s.btnDanger:s.btnSuccess} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>freeze(row)}>{st==="ACTIVE" ? t("ui.冻结", "冻结") : t("ui.解冻", "解冻")}</button>
+                    <button type="button" className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(row)}>{t("common.edit", "编辑")}</button>
+                    <button type="button" className={st==="ACTIVE"?s.btnDanger:s.btnSuccess} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>freeze(row)}>{st==="ACTIVE" ? t("ui.冻结", "冻结") : t("ui.解冻", "解冻")}</button>
                   </td>
                 </tr>
               );

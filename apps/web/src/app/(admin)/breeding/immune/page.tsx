@@ -1,5 +1,22 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+
+interface ImmunePlan {
+  id?: unknown;
+  batchNo?: unknown;
+  farmHouse?: unknown;
+  vaccine?: unknown;
+  vaccineBatchNo?: unknown;
+  flockCount?: unknown;
+  planDate?: unknown;
+  nextDueDate?: unknown;
+  actualDate?: unknown;
+  method?: unknown;
+  dose?: unknown;
+  executor?: unknown;
+  status: string;
+  [key: string]: unknown;
+}
 import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
@@ -42,7 +59,7 @@ export default function ImmunePage() {
   const { fetchRecords: fetchFlocks } = useCrud('brd_flocks');
   const { options: vaccineOpts }    = useDictOptions('BRD_VACCINE_TYPE');
   const { options: vaccMethodOpts } = useDictOptions('BRD_VACCINATE_METHOD');
-  const [plans, setPlans]               = useState<any[]>([]);
+  const [plans, setPlans]               = useState<ImmunePlan[]>([]);
   const [houseOptions, setHouseOptions] = useState<{ code: string; label: string; farm_code: string }[]>([]);
   const [flockOptions, setFlockOptions] = useState<{ code: string; label: string }[]>([]);
   const [flockMap, setFlockMap]         = useState<Record<string, { house_code: string; farm_code: string }>>({});
@@ -56,24 +73,24 @@ export default function ImmunePage() {
   }, [vaccMethodOpts]);
 
   useEffect(() => {
-    fetchHouses().then((h: any) => {
-      setHouseOptions((h||[]).map((x: any) => ({ code: x.house_code||x.house_no, label: x.house_name?`${x.house_code} · ${x.house_name}`:x.house_code, farm_code: x.farm_code||'' })).filter((o: any) => o.code));
-    });
-    fetchFlocks().then((f: any) => {
-      setFlockOptions((f||[]).map((x: any) => ({ code: x.flock_no, label: `${x.flock_no}${x.house_code?' · '+x.house_code:''}` })));
-      const map: Record<string, any> = {};
-      (f||[]).forEach((x: any) => { map[x.flock_no] = { house_code: x.house_code||'', farm_code: x.farm_code||'' }; });
+    fetchHouses().then((h) => {
+      setHouseOptions((h||[]).map((x: Record<string, unknown>) => ({ code: (x.house_code||x.house_no) as string, label: x.house_name?`${x.house_code} · ${x.house_name}`:String(x.house_code||''), farm_code: (x.farm_code as string)||'' })).filter((o: { code: string; label: string; farm_code: string }) => !!o.code));
+    }).catch(() => {});
+    fetchFlocks().then((f) => {
+      setFlockOptions((f||[]).map((x: Record<string, unknown>) => ({ code: x.flock_no as string, label: `${x.flock_no}${x.house_code?' · '+x.house_code:''}` })));
+      const map: Record<string, { house_code: string; farm_code: string }> = {};
+      (f||[]).forEach((x: Record<string, unknown>) => { map[x.flock_no as string] = { house_code: (x.house_code as string)||'', farm_code: (x.farm_code as string)||'' }; });
       setFlockMap(map);
       if (f?.[0]) setForm(p => ({ ...p, batchNo: p.batchNo || f[0].flock_no, farmHouse: p.farmHouse || f[0].house_code || '' }));
-    });
+    }).catch(() => {});
   }, []);
 
   const loadData = useCallback(async () => {
     const data = await fetchRecords();
     const now = new Date(); const today = new Date(now.toDateString());
     const soon = new Date(today.getTime() + 3 * 86400000);
-    setPlans(((data||[]) as any[]).map((d: any) => {
-      const planDate = d.plan_date ? new Date(d.plan_date) : null;
+    setPlans(((data||[]) as Record<string, unknown>[]).map((d: Record<string, unknown>) => {
+      const planDate = d.plan_date ? new Date(d.plan_date as string) : null;
       let status: string;
       // 大写枚举与 STATUS_CONF 对齐
       if (d.actual_date)           status = 'DONE';
@@ -87,17 +104,18 @@ export default function ImmunePage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const handleRecordVaccine = async (row: any) => {
+  const handleRecordVaccine = async (row: ImmunePlan) => {
     const today = new Date().toISOString().slice(0,10);
-    let user: any = {};
+    let user: Record<string, unknown> = {};
     try { user = JSON.parse(sessionStorage.getItem('phoenix_user')||'{}'); } catch {}
-    const ok = await updateRecord(row.id, { status:'DONE', actual_date:today, executor: user.realNameZh||user.username||'' }, 'id', t('ui.保存成功', '保存成功'));
+    const ok = await updateRecord(row.id as number, { status:'DONE', actual_date:today, executor: user.realNameZh||user.username||'' }, 'id', t('ui.保存成功', '保存成功'));
     if (ok) loadData();
   };
 
-  const handleEdit = (row: any) => {
-    setEditId(row.id);
-    setForm({ batchNo:row.batchNo||'', farmHouse:row.farmHouse||'', vaccine:row.vaccine||row.vaccine_name||vaccineOpts[0]||'', planDate:row.planDate||'', method:row.method||vaccMethodOpts[0]||'', dose:row.dose||'', vaccineBatchNo:row.vaccineBatchNo||'', flockCount:row.flockCount?String(row.flockCount):'', nextDueDate:row.nextDueDate||'' });
+  const handleEdit = (row: ImmunePlan) => {
+    setEditId(row.id as number);
+    const s = (v: unknown) => String(v ?? '');
+    setForm({ batchNo:s(row.batchNo), farmHouse:s(row.farmHouse), vaccine:s(row.vaccine||row.vaccine_name||vaccineOpts[0]), planDate:s(row.planDate), method:s(row.method||vaccMethodOpts[0]), dose:s(row.dose), vaccineBatchNo:s(row.vaccineBatchNo), flockCount:row.flockCount?String(row.flockCount):'', nextDueDate:s(row.nextDueDate) });
     setShowDrawer(true);
   };
 
@@ -143,16 +161,16 @@ export default function ImmunePage() {
     { key:'batchNo',        title: t('ui.鸡群批次', '鸡群批次'), width:'120px' },
     { key:'farmHouse',      title: t('ui.鸡舍', '鸡舍'),         width:'100px' },
     { key:'vaccine',        title: t('ui.疫苗名称', '疫苗名称') },
-    { key:'vaccineBatchNo', title: t('ui.疫苗批号', '疫苗批号'), width:'130px', render: (v: any) => v ? <span style={{ fontFamily:'monospace', fontSize:12, color:'var(--color-primary)' }}>{v}</span> : <span style={{ color:'var(--text-secondary)' }}>—</span> },
-    { key:'flockCount',     title: t('ui.免疫头数', '免疫头数'), width:'90px',  render: (v: any) => v ? `${v} ${t('ui.只','只')}` : '—' },
+    { key:'vaccineBatchNo', title: t('ui.疫苗批号', '疫苗批号'), width:'130px', render: (v: unknown) => v != null && v !== '' ? <span style={{ fontFamily:'monospace', fontSize:12, color:'var(--color-primary)' }}>{String(v)}</span> : <span style={{ color:'var(--text-secondary)' }}>—</span> },
+    { key:'flockCount',     title: t('ui.免疫头数', '免疫头数'), width:'90px',  render: (v: unknown) => v != null && v !== '' ? `${String(v)} ${t('ui.只','只')}` : '—' },
     { key:'planDate',       title: t('ui.计划日期', '计划日期'), width:'100px' },
-    { key:'nextDueDate',    title: t('ui.下次免疫', '下次免疫'), width:'100px', render: (v: any) => v || '—' },
-    { key:'actualDate',     title: t('ui.执行日期', '执行日期'), width:'100px', render: (v: any) => v || '—' },
+    { key:'nextDueDate',    title: t('ui.下次免疫', '下次免疫'), width:'100px', render: (v: unknown) => v != null && v !== '' ? String(v) : '—' },
+    { key:'actualDate',     title: t('ui.执行日期', '执行日期'), width:'100px', render: (v: unknown) => v != null && v !== '' ? String(v) : '—' },
     { key:'method',         title: t('ui.接种方式', '接种方式'), width:'90px'  },
     { key:'dose',           title: t('ui.剂量', '剂量'),         width:'90px'  },
     { key:'executor',       title: t('ui.执行人', '执行人'),     width:'80px'  },
-    { key:'status',         title: t('common.status', '状态'),   width:'110px', render: (v: any) => { const st = STATUS_CONF[normStatus(v)]||{ status:'default', label:v }; return <StatusBadge status={st.status} label={st.label} />; } },
-    { key:'actions',        title: t('common.operation', '操作'), width:'120px', render: (_: any, row: any) => (
+    { key:'status',         title: t('common.status', '状态'),   width:'110px', render: (v: unknown) => { const st = STATUS_CONF[normStatus(String(v ?? ''))]||{ status:'default', label:String(v ?? '') }; return <StatusBadge status={st.status} label={st.label} />; } },
+    { key:'actions',        title: t('common.operation', '操作'), width:'120px', render: (_: unknown, row: ImmunePlan) => (
       <div className={s.tableActions}>
         {can(['ROLE_VET','ROLE_ADMIN']) && normStatus(row.status)==='PENDING' && (
           <button type="button" className={`${s.btn} ${s.btnSm}`} style={{ background:'var(--status-success)', color:'#fff', border:'none' }}
@@ -199,7 +217,7 @@ export default function ImmunePage() {
 
       <DataTable columns={columns} data={filteredData} searchPlaceholder={t('ui.搜索批次疫苗名称', '搜索批次疫苗名称')} searchKeys={['batchNo','farmHouse','vaccine']} rowKey="id"
         filters={<div style={{ display:'flex', gap:6 }}>
-          {filterKeys.map(f => <button type="button" key={f} className={filter===f ? s.tabPillActive : s.tabPill} onClick={() => setFilter(f)}>
+          {filterKeys.map(f => <button type="button" key={f} className={`${s.tabPill} ${filter===f ? s.tabPillActive : ""}`} onClick={() => setFilter(f)}>
             {filterLabels[f]}{f==='scheduled'&&scheduledCnt>0&&<span style={{ marginLeft:4, fontSize:11 }}>({scheduledCnt})</span>}
           </button>)}
         </div>} />

@@ -38,7 +38,7 @@ export default function Page() {
   return(<div>
     <PageHeader
         breadcrumb={[t('ui.系统设置', '系统设置'), t('ui.审批流配置', '审批流配置')]} title={t('ui.审批流配置', '审批流配置')} subtitle={t('ui.配置各类单据的审批金额阈值和审批角色链', '配置各类单据的审批金额阈值和审批角色链（表：sys_approval_flows）')} />
-    <DataTable table={TABLE} columns={COLUMNS as any} onNew={oN} onEdit={oE as any} onDelete={del as any} showActions refreshKey={rk} />
+    <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
     <RightDrawer open={o} title={e?t('ui.编辑审批流配置', '编辑审批流配置'):t('ui.新增审批流配置', '新增审批流配置')} onClose={cl}>
       <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
     </RightDrawer>

@@ -220,7 +220,7 @@ export default function OrderPage() {
                     {o.created_at ? o.created_at.slice(0,16).replace("T"," ") : "—"}
                   </td>
                   <td style={{ padding:"10px 14px" }}>
-                    <button className={s.btnSecondary} style={{ padding:"4px 10px", fontSize:12, display:"flex", alignItems:"center", gap:4 }}
+                    <button type="button" className={s.btnSecondary} style={{ padding:"4px 10px", fontSize:12, display:"flex", alignItems:"center", gap:4 }}
                       onClick={() => {
                         setForm({ customer_code:o.customer_code, order_type:o.order_type||"normal",
                           is_urgent:o.is_urgent||0, delivery_addr:o.delivery_addr||"",

@@ -8,10 +8,11 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-// ✅ V3 表: brd_farms — 主键 farm_code (VARCHAR, 非 id)
-// 字段: farm_code, farm_name, address, province, contact, manager_name, max_capacity, status, created_at, updated_at
+// V3 表: brd_farms — 主键 farm_code (VARCHAR, 非 id)
+// 实际列: farm_code, farm_name, location, houses(INT), capacity(INT), status, created_at, updated_at
+// max_capacity 已于 2026-05-10 删除，province/address/contact/manager_name 从未存在于 schema
 const TABLE = "brd_farms";
-const PK    = "farm_code"; // 主键列名（非 id）
+const PK    = "farm_code";
 
 function getToken() {
   if (typeof window === "undefined") return "";
@@ -23,25 +24,21 @@ export default function Page() {
   const { t } = useLanguage();
 
   const COLUMNS = [
-    { key: "farm_code",    title: t("ui.农场编码", "农场编码"),   width: 120 },
-    { key: "farm_name",    title: t("ui.农场名称", "农场名称"),   width: 160 },
-    { key: "province",     title: t("ui.省份", "省份"),           width: 100 },
-    { key: "address",      title: t("ui.地址", "地址") },
-    { key: "contact",      title: t("ui.联系电话", "联系电话"),   width: 120 },
-    { key: "manager_name", title: t("ui.负责人", "负责人"),       width: 100 },
-    { key: "max_capacity", title: t("ui.最大存栏羽", "最大存栏（羽）"), width: 130 },
-    { key: "status",       title: t("common.status", "状态"),     width: 80 },
+    { key: "farm_code", title: t("ui.农场编码", "农场编码"), width: 130 },
+    { key: "farm_name", title: t("ui.农场名称", "农场名称"), width: 160 },
+    { key: "location",  title: t("ui.所在地区", "所在地区") },
+    { key: "houses",    title: t("ui.规划栋数", "规划栋数"),   width: 90 },
+    { key: "capacity",  title: t("ui.设计容量羽", "设计容量（羽）"), width: 130 },
+    { key: "status",    title: t("common.status", "状态"),     width: 80 },
   ];
 
   const FIELDS: FormField[] = [
-    { key: "farm_code",    label: t("ui.农场编码", "农场编码"),       type: "text",   required: true, placeholder: "如：FARM-001" },
-    { key: "farm_name",    label: t("ui.农场名称", "农场名称"),       type: "text",   required: true },
-    { key: "province",     label: t("ui.省份大区", "省份/大区"),      type: "text" },
-    { key: "address",      label: t("ui.地址", "地址"),               type: "textarea", span: 2 },
-    { key: "contact",      label: t("ui.联系电话", "联系电话"),       type: "text" },
-    { key: "manager_name", label: t("ui.负责人", "负责人"),           type: "text" },
-    { key: "max_capacity", label: t("ui.最大存栏羽", "最大存栏（羽）"), type: "number", defaultValue: 0 },
-    { key: "status",       label: t("common.status", "状态"),         type: "select",
+    { key: "farm_code", label: t("ui.农场编码", "农场编码"), type: "text",   required: true, placeholder: "如：FARM-001" },
+    { key: "farm_name", label: t("ui.农场名称", "农场名称"), type: "text",   required: true },
+    { key: "location",  label: t("ui.所在地区", "所在地区"), type: "text",   placeholder: t("ui.省市县示例", "如：万象直辖市") },
+    { key: "houses",    label: t("ui.规划栋数", "规划栋数"), type: "number", defaultValue: 0 },
+    { key: "capacity",  label: t("ui.设计容量羽", "设计容量（羽）"), type: "number", defaultValue: 0 },
+    { key: "status",    label: t("common.status", "状态"),   type: "select",
       options: [{ label: t("ui.运营中", "运营中"), value: "ACTIVE" }, { label: t("status.inactive", "停用"), value: "INACTIVE" }] },
   ];
 
@@ -126,11 +123,11 @@ export default function Page() {
       />
       <DataTable
         table={TABLE}
-        columns={COLUMNS as any}
+        columns={COLUMNS}
         rowKey={PK}           // ← 关键：用 farm_code 作为行唯一标识
         onNew={openNew}
-        onEdit={openEdit as any}
-        onDelete={askDelete as any}
+        onEdit={openEdit}
+        onDelete={askDelete}
         showActions
         refreshKey={refreshKey}
       />

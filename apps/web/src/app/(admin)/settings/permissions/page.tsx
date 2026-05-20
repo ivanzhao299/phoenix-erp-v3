@@ -51,8 +51,8 @@ export default function PermissionsPage() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await crudApi.list(TABLE, { limit: 1000 } as any);
-      setData(((res as any).data ?? []) as PermRow[]);
+      const res = await crudApi.list<PermRow>(TABLE, { limit: 1000 });
+      setData(res.data ?? []);
     } finally { setLoading(false); }
   }, []);
 
@@ -99,18 +99,18 @@ export default function PermissionsPage() {
       <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
         <div style={{ position: "relative", flex: 1, maxWidth: 360 }}>
           <Search size={15} style={{ position: "absolute", left: 10, top: "50%",
-            transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+            transform: "translateY(-50%)", color: "var(--text-secondary)" }} />
           <input
             value={filter}
             onChange={e => setFilter(e.target.value)}
             placeholder={t('ui.搜索角色或菜单编码', '搜索角色或菜单编码…')}
             style={{ width: "100%", padding: "8px 12px 8px 32px",
-              background: "var(--bg-surface)", border: "1px solid var(--border-light)",
+              background: "var(--bg-card)", border: "1px solid var(--border)",
               borderRadius: 8, color: "var(--text-primary)", fontSize: "0.85rem" }}
           />
         </div>
-        <button onClick={() => { setEditing(null); setOpen(true); }} style={{
-          background: "var(--brand-primary)", border: "none", borderRadius: 8,
+        <button type="button" onClick={() => { setEditing(null); setOpen(true); }} style={{
+          background: "var(--color-primary)", border: "none", borderRadius: 8,
           padding: "8px 18px", color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: "0.85rem",
         }}>+ {t('ui.新增权限条目', '新增权限条目')}</button>
       </div>
@@ -127,33 +127,33 @@ export default function PermissionsPage() {
             borderRadius: 10, padding: "10px 16px",
           }}>
             <div style={{ fontSize: "1.5rem", fontWeight: 800, color: k.color }}>{loading ? "—" : k.value}</div>
-            <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: 2 }}>{k.label}</div>
+            <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 2 }}>{k.label}</div>
           </div>
         ))}
       </div>
 
       {/* 分组权限表 */}
       {loading ? (
-        <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>{t('common.loading', '加载中…')}</div>
+        <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>{t('common.loading', '加载中…')}</div>
       ) : Object.entries(groups).length === 0 ? (
-        <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>
+        <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>
           <Shield size={40} style={{ opacity: 0.2, marginBottom: 12 }} />
           <div>{t('ui.暂无权限配置点击新增开始配置', '暂无权限配置，点击「新增」开始配置')}</div>
         </div>
       ) : (
         Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([roleCode, rows]) => (
           <div key={roleCode} style={{
-            marginBottom: 12, background: "var(--bg-surface)",
-            border: "1px solid var(--bg-surface)", borderRadius: 10, overflow: "hidden",
+            marginBottom: 12, background: "var(--bg-card)",
+            border: "1px solid var(--bg-card)", borderRadius: 10, overflow: "hidden",
           }}>
-            <div style={{ padding: "10px 16px", background: "var(--bg-surface)",
-              borderBottom: "1px solid var(--bg-surface)",
+            <div style={{ padding: "10px 16px", background: "var(--bg-card)",
+              borderBottom: "1px solid var(--bg-card)",
               display: "flex", alignItems: "center", gap: 10 }}>
               <Shield size={14} style={{ color: "#8b5cf6" }} />
               <span style={{ fontWeight: 700, fontSize: "0.85rem", fontFamily: "monospace", color: "#8b5cf6" }}>
                 {roleCode}
               </span>
-              <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+              <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
                 {rows.length} {t('ui.个菜单权限', '个菜单权限')}
               </span>
             </div>
@@ -161,15 +161,15 @@ export default function PermissionsPage() {
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
                 <thead>
-                  <tr style={{ borderBottom: "1px solid var(--bg-surface)" }}>
-                    <th style={{ padding: "6px 16px", textAlign: "left", color: "var(--text-muted)", fontWeight: 500 }}>{t('ui.菜单代码', '菜单代码')}</th>
-                    <th style={{ padding: "6px 16px", textAlign: "left", color: "var(--text-muted)", fontWeight: 500 }}>{t('ui.权限码', '权限码')}</th>
-                    <th style={{ padding: "6px 16px", textAlign: "left", color: "var(--text-muted)", fontWeight: 500 }}>{t('common.operation', '操作')}</th>
+                  <tr style={{ borderBottom: "1px solid var(--bg-card)" }}>
+                    <th style={{ padding: "6px 16px", textAlign: "left", color: "var(--text-secondary)", fontWeight: 500 }}>{t('ui.菜单代码', '菜单代码')}</th>
+                    <th style={{ padding: "6px 16px", textAlign: "left", color: "var(--text-secondary)", fontWeight: 500 }}>{t('ui.权限码', '权限码')}</th>
+                    <th style={{ padding: "6px 16px", textAlign: "left", color: "var(--text-secondary)", fontWeight: 500 }}>{t('common.operation', '操作')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.sort((a, b) => a.menu_code.localeCompare(b.menu_code)).map(row => (
-                    <tr key={row.id} style={{ borderBottom: "1px solid var(--bg-surface)" }}>
+                    <tr key={row.id} style={{ borderBottom: "1px solid var(--bg-card)" }}>
                       <td style={{ padding: "8px 16px", fontFamily: "monospace", color: "var(--text-primary)" }}>
                         {row.menu_code}
                       </td>
@@ -197,12 +197,12 @@ export default function PermissionsPage() {
                       </td>
                       <td style={{ padding: "8px 16px" }}>
                         <div style={{ display: "flex", gap: 6 }}>
-                          <button onClick={() => { setEditing(row); setOpen(true); }} style={{
+                          <button type="button" onClick={() => { setEditing(row); setOpen(true); }} style={{
                             padding: "4px 10px", fontSize: "0.75rem", background: "rgba(59,130,246,0.15)",
                             color: "#3b82f6", border: "1px solid rgba(59,130,246,0.3)",
                             borderRadius: 6, cursor: "pointer",
                           }}>{t('common.edit', '编辑')}</button>
-                          <button onClick={() => { setDelItem(row); setConfirm(true); }} style={{
+                          <button type="button" onClick={() => { setDelItem(row); setConfirm(true); }} style={{
                             padding: "4px 10px", fontSize: "0.75rem", background: "rgba(239,68,68,0.12)",
                             color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)",
                             borderRadius: 6, cursor: "pointer",
