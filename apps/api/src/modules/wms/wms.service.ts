@@ -554,7 +554,7 @@ export class WmsService {
     return await this.em.transaction(async (manager) => {
       // 标记盘点单已审核
       await manager.query(
-        `UPDATE wms_stocktake SET status='APPROVED', auditor=$1, updated_at=now()::text WHERE stocktake_no=$2`,
+        `UPDATE wms_stocktake SET status='APPROVED', auditor=$1, updated_at=now() WHERE stocktake_no=$2`,
         [opName, stocktake_no],
       );
 
@@ -668,7 +668,7 @@ export class WmsService {
     return await this.em.transaction(async (manager) => {
       // loss-report 复用 wms_stocktake 表 + LR- 前缀（前端约定）
       await manager.query(
-        `UPDATE wms_stocktake SET status='APPROVED', auditor=$1, updated_at=now()::text
+        `UPDATE wms_stocktake SET status='APPROVED', auditor=$1, updated_at=now()
          WHERE stocktake_no=$2`,
         [opName, loss_no],
       );

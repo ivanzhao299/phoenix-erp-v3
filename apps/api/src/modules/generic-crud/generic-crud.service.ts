@@ -965,16 +965,22 @@ export class GenericCrudService implements OnModuleInit {
         `UPDATE wms_zones SET warehouse_code = warehouse WHERE warehouse_code IS NULL AND warehouse IS NOT NULL`,
 
         `CREATE TABLE IF NOT EXISTS wms_transfer (
-           id           SERIAL PRIMARY KEY,
-           transfer_no  VARCHAR(50) UNIQUE,
-           from_zone    VARCHAR(30),
-           to_zone      VARCHAR(30),
-           product_code VARCHAR(50),
-           qty          DECIMAL(12,3) DEFAULT 0,
-           status       VARCHAR(20) DEFAULT 'PENDING',
-           created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-           updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+           id              SERIAL PRIMARY KEY,
+           transfer_no     VARCHAR(50) UNIQUE,
+           from_warehouse  VARCHAR(64),
+           to_warehouse    VARCHAR(64),
+           from_zone       VARCHAR(30),
+           to_zone         VARCHAR(30),
+           product_code    VARCHAR(50),
+           qty             DECIMAL(12,3) DEFAULT 0,
+           status          VARCHAR(20) DEFAULT 'PENDING',
+           operator_id     INTEGER,
+           created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
          )`,
+        `ALTER TABLE wms_transfer ADD COLUMN IF NOT EXISTS from_warehouse  VARCHAR(64)`,
+        `ALTER TABLE wms_transfer ADD COLUMN IF NOT EXISTS to_warehouse    VARCHAR(64)`,
+        `ALTER TABLE wms_transfer ADD COLUMN IF NOT EXISTS operator_id     INTEGER`,
 
         `CREATE TABLE IF NOT EXISTS wms_stock_transfers (
            id            SERIAL PRIMARY KEY,
