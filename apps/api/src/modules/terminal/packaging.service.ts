@@ -125,7 +125,12 @@ export class PackagingService {
       return { code: 400, msg: '该班次已完成，请勿重复提交' };
     }
     const houseCode = shift.house_code  || 'UNKNOWN';
-    const shiftDate = (shift.shift_date && String(shift.shift_date).slice(0, 10)) || today;
+    // shift_date may be returned as a JS Date object by node-postgres — use toISOString() to get YYYY-MM-DD
+    const shiftDate = shift.shift_date
+      ? (shift.shift_date instanceof Date
+          ? shift.shift_date.toISOString().slice(0, 10)
+          : String(shift.shift_date).slice(0, 10))
+      : today;
 
     // 班次显示名：shift_time 已是中文标签优先；为空则查 sys_dict.PKG_SHIFT 用 dict_code 反查中文 label
     // 避免 source_item 显示 "NIGHT" 这种英文 code，给操作员看的应该是 "夜班"
