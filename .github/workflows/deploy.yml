@@ -304,20 +304,22 @@ jobs:
             # ── 同步 Nginx 配置并重载 ────────────────────────────────
             # 官方 nginx.org 包用 conf.d/；Debian 系统包用 sites-enabled/；两处都写
             NGINX_CONF=/etc/nginx/conf.d/erp.eggslao.com.conf
-            mkdir -p /etc/nginx/conf.d /etc/nginx/sites-available /etc/nginx/sites-enabled
+            mkdir -p /etc/nginx/conf.d
             echo IyBQaG9lbml4IEVSUCBWMyDigJQgTmdpbngg5Y+N5ZCR5Luj55CG6YWN572uCiMgSFRUUCDihpIgMzAxIOmHjeWumuWQkeWIsCBIVFRQUwpzZXJ2ZXIgewogICAgbGlzdGVuIDgwOwogICAgbGlzdGVuIFs6Ol06ODA7CiAgICBzZXJ2ZXJfbmFtZSBlcnAuZWdnc2xhby5jb207CiAgICByZXR1cm4gMzAxIGh0dHBzOi8vJGhvc3QkcmVxdWVzdF91cmk7Cn0KCiMgSFRUUFMg5Li75pyN5YqhCnNlcnZlciB7CiAgICBsaXN0ZW4gNDQzIHNzbDsKICAgIGxpc3RlbiBbOjpdOjQ0MyBzc2w7CiAgICBodHRwMiBvbjsKICAgIHNlcnZlcl9uYW1lIGVycC5lZ2dzbGFvLmNvbTsKCiAgICBzc2xfY2VydGlmaWNhdGUgICAgIC9ldGMvbGV0c2VuY3J5cHQvbGl2ZS9lcnAuZWdnc2xhby5jb20vZnVsbGNoYWluLnBlbTsKICAgIHNzbF9jZXJ0aWZpY2F0ZV9rZXkgL2V0Yy9sZXRzZW5jcnlwdC9saXZlL2VycC5lZ2dzbGFvLmNvbS9wcml2a2V5LnBlbTsKICAgIGluY2x1ZGUgICAgICAgICAgICAgL2V0Yy9sZXRzZW5jcnlwdC9vcHRpb25zLXNzbC1uZ2lueC5jb25mOwogICAgc3NsX2RocGFyYW0gICAgICAgICAvZXRjL2xldHNlbmNyeXB0L3NzbC1kaHBhcmFtcy5wZW07CgogICAgIyDlronlhajlk43lupTlpLQKICAgIGFkZF9oZWFkZXIgU3RyaWN0LVRyYW5zcG9ydC1TZWN1cml0eSAibWF4LWFnZT02MzA3MjAwMDsgaW5jbHVkZVN1YkRvbWFpbnMiIGFsd2F5czsKICAgIGFkZF9oZWFkZXIgWC1Db250ZW50LVR5cGUtT3B0aW9ucyAgICBub3NuaWZmICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGFsd2F5czsKICAgIGFkZF9oZWFkZXIgWC1GcmFtZS1PcHRpb25zICAgICAgICAgICBTQU1FT1JJR0lOICAgICAgICAgICAgICAgICAgICAgICAgICAgIGFsd2F5czsKCiAgICAjIOaJgOaciea1gemHj+S7o+eQhuWIsCBOZXh0LmpzIFdlYiDlrrnlmagKICAgICMgV2ViIOWuueWZqOWGhemDqOmAmui/hyByZXdyaXRlcyDlsIYgL2FwaS8qIOi9rOWPkee7mSBBUEkg5a655ZmoCiAgICBsb2NhdGlvbiAvIHsKICAgICAgICBwcm94eV9wYXNzICAgICAgICAgaHR0cDovLzEyNy4wLjAuMTozMDAwOwogICAgICAgIHByb3h5X2h0dHBfdmVyc2lvbiAxLjE7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciAgIFVwZ3JhZGUgICAgICAgICAgICRodHRwX3VwZ3JhZGU7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciAgIENvbm5lY3Rpb24gICAgICAgICJ1cGdyYWRlIjsKICAgICAgICBwcm94eV9zZXRfaGVhZGVyICAgSG9zdCAgICAgICAgICAgICAgJGhvc3Q7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciAgIFgtUmVhbC1JUCAgICAgICAgICRyZW1vdGVfYWRkcjsKICAgICAgICBwcm94eV9zZXRfaGVhZGVyICAgWC1Gb3J3YXJkZWQtRm9yICAgJHByb3h5X2FkZF94X2ZvcndhcmRlZF9mb3I7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciAgIFgtRm9yd2FyZGVkLVByb3RvICRzY2hlbWU7CiAgICAgICAgcHJveHlfcmVhZF90aW1lb3V0IDYwczsKICAgIH0KfQo= | base64 -d > "$NGINX_CONF"
-            # 同时写一份到 sites-enabled（兼容系统包）
-            cp "$NGINX_CONF" /etc/nginx/sites-available/erp.eggslao.com
-            ln -sf /etc/nginx/sites-available/erp.eggslao.com /etc/nginx/sites-enabled/erp.eggslao.com
-            # 移除 conf.d/default.conf 防止端口冲突
+            # 清理旧配置：移除 conf.d/default.conf 和 sites-enabled/ 中的冲突条目
             rm -f /etc/nginx/conf.d/default.conf
+            rm -f /etc/nginx/sites-enabled/erp.eggslao.com
+            rm -f /etc/nginx/sites-enabled/default
             # 测试配置，失败立即报错退出
             if ! nginx -t 2>&1; then
               echo "❌ nginx -t failed, aborting"
+              nginx -T 2>&1 | tail -40
               exit 1
             fi
-            systemctl reload nginx
-            echo "✅ Nginx reloaded"
+            # 启用并启动（inactive 时 reload 会失败，统一用 restart）
+            systemctl enable nginx
+            systemctl restart nginx
+            echo "✅ Nginx started/reloaded"
 
             # ── 本地 smoke test（从服务器内部 curl，绕过外网防火墙）────────
             sleep 5
