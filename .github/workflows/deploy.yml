@@ -265,6 +265,7 @@ jobs:
             cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
 
             # ── 同步代码（DDL 迁移文件等）────────────────────────────────
+            git stash
             git pull --ff-only origin main
             echo "✅ Code synced"
 
