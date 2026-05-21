@@ -1383,8 +1383,10 @@ export class GenericCrudService implements OnModuleInit {
            approved_by_mgr VARCHAR(64),
            approved_by_gm  VARCHAR(64),
            approved_by_ceo VARCHAR(64),
-           created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+           created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
          )`,
+        `ALTER TABLE fin_transactions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
 
         `CREATE TABLE IF NOT EXISTS fin_invoices (
            id                      SERIAL PRIMARY KEY,

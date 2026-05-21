@@ -308,7 +308,7 @@ export class FinanceService {
       await mgr.query(
         `INSERT INTO fin_invoices
            (invoice_no, ref_no, customer_or_supplier, amount, paid_amount, status, direction, due_date, created_at)
-         VALUES ($1, $2, $3, $4, 0, 'UNPAID', 'AP', $5, now()::text)`,
+         VALUES ($1, $2, $3, $4, 0, 'UNPAID', 'AP', $5, now())`,
         [invoiceNo, po_no, supplier, Number(amount), dueDate],
       );
       // 同步财务流水：AP-TRADE DEBIT 借方
@@ -461,7 +461,7 @@ export class FinanceService {
       try {
         await mgr.query(
           `INSERT INTO fin_approvals (txn_id, role, approver, action, comment, created_at)
-           VALUES ($1, $2, $3, $4, $5, now()::text)`,
+           VALUES ($1, $2, $3, $4, $5, now())`,
           [txnId, role, username, action, body?.comment || ''],
         );
         await mgr.query('RELEASE SAVEPOINT sp_fin_approval');
