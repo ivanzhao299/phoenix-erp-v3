@@ -245,6 +245,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Prepare nginx config
+        id: nginx
+        run: echo "conf=$(base64 -w0 nginx/erp.eggslao.com.conf)" >> $GITHUB_OUTPUT
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
@@ -260,19 +264,17 @@ jobs:
             set -e
             cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
 
-            # 拉取最新镜像（用 GITHUB_TOKEN，自带 packages:read）
+            # ── 拉取镜像 ────────────────────────────────────────────────
             echo "${{ secrets.GITHUB_TOKEN }}" | \
               docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
-
             docker compose pull api web
 
-            # ── 确保数据库容器运行（幂等：已运行则跳过，新环境则启动）────────
+            # ── DB：幂等启动 ─────────────────────────────────────────────
             docker compose up -d --wait db
             echo "✅ DB healthy"
 
-            # ── 应用 DDL 迁移（幂等；已存在的表/数据跳过，不中断部署）──────
+            # ── DDL 迁移（幂等）────────────────────────────────────────
             for f in $(ls apps/api/ddl/*.sql | sort); do
-              echo "Applying $f ..."
               docker compose exec -T db sh -c \
                 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
                 < "$f" 2>&1 \
@@ -280,136 +282,32 @@ jobs:
             done
             echo "✅ DDL migrations applied"
 
-            # 滚动重启：先 api 后 web（DB 不重启）
+            # ── 滚动重启容器 ─────────────────────────────────────────────
             docker compose up -d --no-deps --wait api
             docker compose up -d --no-deps --wait web \
-              || { echo "=== web container logs ==="; docker compose logs web --tail 80; exit 1; }
-
-            # 清理悬空镜像
+              || { docker compose logs web --tail 80; exit 1; }
             docker image prune -f
 
-            # ── 升级 Nginx 到官方 mainline（支持 http2 on 新语法）────────
-            NGINX_CUR=$(nginx -v 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "0.0.0")
-            echo "当前 Nginx 版本: $NGINX_CUR"
-            if command -v apt-get &>/dev/null; then
-              # Debian/Ubuntu
-              # 先修复可能因上次中断导致的 dpkg broken 状态
-              DEBIAN_FRONTEND=noninteractive dpkg --configure -a \
-                -o Dpkg::Options::="--force-confold" \
-                -o Dpkg::Options::="--force-confdef" 2>/dev/null || true
-              CODENAME=$(. /etc/os-release 2>/dev/null && echo "${VERSION_CODENAME:-focal}" || echo focal)
-              curl -fsSL https://nginx.org/keys/nginx_signing.key \
-                | gpg --dearmor > /etc/apt/trusted.gpg.d/nginx-mainline.gpg
-              echo "deb https://nginx.org/packages/mainline/ubuntu ${CODENAME} nginx" \
-                > /etc/apt/sources.list.d/nginx-mainline.list
-              DEBIAN_FRONTEND=noninteractive apt-get update -qq
-              # --force-confold: 保留现有配置文件（不弹交互提示）
-              DEBIAN_FRONTEND=noninteractive apt-get install -y \
-                -o Dpkg::Options::="--force-confold" \
-                -o Dpkg::Options::="--force-confdef" nginx
-            elif command -v yum &>/dev/null; then
-              # CentOS/RHEL
-              printf '[nginx-mainline]\nname=nginx mainline\nbaseurl=https://nginx.org/packages/mainline/centos/$releasever/$basearch/\nenabled=1\ngpgcheck=1\ngpgkey=https://nginx.org/keys/nginx_signing.key\n' \
-                > /etc/yum.repos.d/nginx-mainline.repo
-              yum install -y nginx
+            # ── Nginx：备份 → 写入 → reload（不 restart）────────────────
+            cp /etc/nginx/conf.d/cnjinhu-default.conf \
+              /root/nginx-cnjinhu.conf.bak-$(date +%Y%m%d-%H%M%S) 2>/dev/null || true
+            echo "${{ steps.nginx.outputs.conf }}" | base64 -d \
+              > /etc/nginx/conf.d/erp.eggslao.com.conf
+            nginx -t
+            if systemctl is-active --quiet nginx; then
+              systemctl reload nginx
+            else
+              systemctl start nginx
             fi
-            nginx -v
+            echo "✅ Nginx reloaded"
 
-            # ── 同步 Nginx 配置并重载 ────────────────────────────────
-            # 官方 nginx.org 包用 conf.d/；Debian 系统包用 sites-enabled/；两处都写
-            NGINX_CONF=/etc/nginx/conf.d/erp.eggslao.com.conf
-            mkdir -p /etc/nginx/conf.d
-            echo IyBQaG9lbml4IEVSUCBWMyDigJQgTmdpbngg5Y+N5ZCR5Luj55CG6YWN572uCiMgSFRUUCDihpIgMzAxIOmHjeWumuWQkeWIsCBIVFRQUwpzZXJ2ZXIgewogICAgbGlzdGVuIDgwOwogICAgbGlzdGVuIFs6Ol06ODA7CiAgICBzZXJ2ZXJfbmFtZSBlcnAuZWdnc2xhby5jb207CiAgICByZXR1cm4gMzAxIGh0dHBzOi8vJGhvc3QkcmVxdWVzdF91cmk7Cn0KCiMgSFRUUFMg5Li75pyN5YqhCnNlcnZlciB7CiAgICBsaXN0ZW4gNDQzIHNzbDsKICAgIGxpc3RlbiBbOjpdOjQ0MyBzc2w7CiAgICBodHRwMiBvbjsKICAgIHNlcnZlcl9uYW1lIGVycC5lZ2dzbGFvLmNvbTsKCiAgICBzc2xfY2VydGlmaWNhdGUgICAgIC9ldGMvbGV0c2VuY3J5cHQvbGl2ZS9lcnAuZWdnc2xhby5jb20vZnVsbGNoYWluLnBlbTsKICAgIHNzbF9jZXJ0aWZpY2F0ZV9rZXkgL2V0Yy9sZXRzZW5jcnlwdC9saXZlL2VycC5lZ2dzbGFvLmNvbS9wcml2a2V5LnBlbTsKICAgIGluY2x1ZGUgICAgICAgICAgICAgL2V0Yy9sZXRzZW5jcnlwdC9vcHRpb25zLXNzbC1uZ2lueC5jb25mOwogICAgc3NsX2RocGFyYW0gICAgICAgICAvZXRjL2xldHNlbmNyeXB0L3NzbC1kaHBhcmFtcy5wZW07CgogICAgIyDlronlhajlk43lupTlpLQKICAgIGFkZF9oZWFkZXIgU3RyaWN0LVRyYW5zcG9ydC1TZWN1cml0eSAibWF4LWFnZT02MzA3MjAwMDsgaW5jbHVkZVN1YkRvbWFpbnMiIGFsd2F5czsKICAgIGFkZF9oZWFkZXIgWC1Db250ZW50LVR5cGUtT3B0aW9ucyAgICBub3NuaWZmICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGFsd2F5czsKICAgIGFkZF9oZWFkZXIgWC1GcmFtZS1PcHRpb25zICAgICAgICAgICBTQU1FT1JJR0lOICAgICAgICAgICAgICAgICAgICAgICAgICAgIGFsd2F5czsKCiAgICAjIOaJgOaciea1gemHj+S7o+eQhuWIsCBOZXh0LmpzIFdlYiDlrrnlmagKICAgICMgV2ViIOWuueWZqOWGhemDqOmAmui/hyByZXdyaXRlcyDlsIYgL2FwaS8qIOi9rOWPkee7mSBBUEkg5a655ZmoCiAgICBsb2NhdGlvbiAvIHsKICAgICAgICBwcm94eV9wYXNzICAgICAgICAgaHR0cDovLzEyNy4wLjAuMTozMDAwOwogICAgICAgIHByb3h5X2h0dHBfdmVyc2lvbiAxLjE7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciAgIFVwZ3JhZGUgICAgICAgICAgICRodHRwX3VwZ3JhZGU7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciAgIENvbm5lY3Rpb24gICAgICAgICJ1cGdyYWRlIjsKICAgICAgICBwcm94eV9zZXRfaGVhZGVyICAgSG9zdCAgICAgICAgICAgICAgJGhvc3Q7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciAgIFgtUmVhbC1JUCAgICAgICAgICRyZW1vdGVfYWRkcjsKICAgICAgICBwcm94eV9zZXRfaGVhZGVyICAgWC1Gb3J3YXJkZWQtRm9yICAgJHByb3h5X2FkZF94X2ZvcndhcmRlZF9mb3I7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciAgIFgtRm9yd2FyZGVkLVByb3RvICRzY2hlbWU7CiAgICAgICAgcHJveHlfcmVhZF90aW1lb3V0IDYwczsKICAgIH0KfQo= | base64 -d > "$NGINX_CONF"
-            # 清理旧配置：移除 conf.d/default.conf 和 sites-enabled/ 中的冲突条目
-            rm -f /etc/nginx/conf.d/default.conf
-            rm -f /etc/nginx/sites-enabled/erp.eggslao.com
-            rm -f /etc/nginx/sites-enabled/default
-            # 测试配置，失败立即报错退出
-            if ! nginx -t 2>&1; then
-              echo "❌ nginx -t failed, aborting"
-              nginx -T 2>&1 | tail -40
-              exit 1
-            fi
-            # 证书有效期检查
-            echo "=== SSL cert dates ==="
-            openssl x509 -in /etc/letsencrypt/live/erp.eggslao.com/fullchain.pem -noout -dates 2>&1 || true
-            # options-ssl-nginx.conf 内容
-            echo "=== options-ssl-nginx.conf ==="
-            cat /etc/letsencrypt/options-ssl-nginx.conf 2>/dev/null || echo "(file not found)"
-            # 启用并启动（inactive 时 reload 会失败，统一用 restart）
-            systemctl enable nginx
-            systemctl restart nginx
-            sleep 2
-            # 验证 nginx 实际在运行
-            if ! systemctl is-active --quiet nginx; then
-              echo "❌ nginx failed to start:"
-              systemctl status nginx --no-pager -l
-              journalctl -u nginx --no-pager -n 50
-              exit 1
-            fi
-            echo "✅ Nginx started/reloaded"
-            # nginx 启动后的 error log（SSL context 错误会在这里出现）
-            echo "=== nginx error.log (last 20 lines) ==="
-            tail -20 /var/log/nginx/error.log 2>/dev/null || journalctl -u nginx --no-pager -n 20
-            # ── 完整 nginx 配置状态 ──────────────────────────────────────
-            echo "=== sites-enabled/ contents ==="
-            ls -la /etc/nginx/sites-enabled/ 2>/dev/null || echo "(dir not found)"
-            echo "=== conf.d/ contents ==="
-            ls -la /etc/nginx/conf.d/ 2>/dev/null
-            echo "=== nginx.conf (full) ==="
-            cat /etc/nginx/nginx.conf
-            # 确保 sites-enabled/ 里没有残留冲突文件（清空所有，只保留我们的 conf.d）
-            rm -rf /etc/nginx/sites-enabled/
-            mkdir -p /etc/nginx/sites-enabled
-            echo "=== sites-enabled/ after cleanup ==="
-            ls -la /etc/nginx/sites-enabled/
-            # 诊断：从服务器内用 openssl 测试 SSL（SNI 正确）
-            echo "=== openssl s_client test (from server) ==="
-            echo | openssl s_client -connect 127.0.0.1:443 -servername erp.eggslao.com 2>&1 | grep -E "depth|verify|Cipher|Protocol|issuer|subject|date|error|CONNECTED|BEGIN" | head -20 || true
-            # 诊断：从服务器内测试 HTTPS（跳过证书验证）
-            curl -Ik --max-time 5 https://127.0.0.1:443/ -H "Host: erp.eggslao.com" 2>&1 | head -10 \
-              || { echo "❌ HTTPS via nginx FAILED"; exit 1; }
-
-            # ── 端口监听确认 ──────────────────────────────────────────────
-            echo "=== all listening sockets ==="
-            ss -tlnp 2>/dev/null | grep -E ':80 |:443 |Recv-Q' || netstat -tlnp 2>/dev/null | grep -E ':80 |:443 '
-            echo "=== docker containers & ports ==="
-            docker ps --format '{{.Names}}: {{.Ports}}' 2>/dev/null || true
-            echo "=== ufw status ==="
-            ufw status verbose 2>/dev/null || true
-            echo "=== iptables INPUT rules ==="
-            iptables -L INPUT -n 2>/dev/null | head -25 || true
-            echo "=== cnjinhu-default.conf (if exists) ==="
-            cat /etc/nginx/conf.d/cnjinhu-default.conf 2>/dev/null || echo "(not found)"
-
-            # ── 本地 smoke test（从服务器内部 curl，绕过外网防火墙）────────
+            # ── Smoke test ───────────────────────────────────────────────
             sleep 3
             curl -fsSL --max-time 20 http://127.0.0.1:3000/ -o /dev/null \
-              && echo "✅ Web smoke test passed (local)" \
-              || { echo "❌ Web smoke test FAILED"; curl -v http://127.0.0.1:3000/ 2>&1 | tail -20; exit 1; }
+              && echo "✅ Web smoke test passed" \
+              || { docker compose logs web --tail 20; exit 1; }
 
             echo "✅ Deploy complete — $(date '+%Y-%m-%d %H:%M:%S')"
-
-      - name: Verify external access from runner
-        run: |
-          echo "=== 从 CI runner 验证外部连通性（无代理）==="
-          # 等待 nginx/web 稳定
-          sleep 5
-          # HTTP 应跳转 301 → HTTPS
-          HTTP_CODE=$(curl -o /dev/null -sw "%{http_code}" --max-time 10 http://erp.eggslao.com/ 2>&1 || echo "FAIL")
-          echo "HTTP status: $HTTP_CODE"
-          # HTTPS 应返回 2xx/3xx（Next.js 可能返回 307/200）
-          HTTPS_CODE=$(curl -o /dev/null -sw "%{http_code}" --max-time 15 https://erp.eggslao.com/ 2>&1 || echo "FAIL")
-          echo "HTTPS status: $HTTPS_CODE"
-          if [[ "$HTTP_CODE" =~ ^3 ]] && [[ "$HTTPS_CODE" =~ ^[23] ]]; then
-            echo "✅ 外部访问正常（HTTP $HTTP_CODE → HTTPS $HTTPS_CODE）"
-          else
-            echo "⚠️  外部访问可能异常：HTTP=$HTTP_CODE HTTPS=$HTTPS_CODE"
-            echo "=== curl -v http://erp.eggslao.com/ ==="
-            curl -v --max-time 10 http://erp.eggslao.com/ 2>&1 | tail -30 || true
-            echo "=== openssl s_client ==="
-            echo | openssl s_client -connect erp.eggslao.com:443 2>&1 | grep -E "depth|verify|Cipher|Protocol|error|CONNECTED|0 bytes" | head -15 || true
-          fi
 
       - name: Send deploy notification
         if: always()
