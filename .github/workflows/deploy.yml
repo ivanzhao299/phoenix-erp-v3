@@ -274,11 +274,36 @@ jobs:
             # 清理悬空镜像
             docker image prune -f
 
+            # ── 升级 Nginx 到官方 mainline（支持 http2 on 新语法）────────
+            NGINX_CUR=$(nginx -v 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "0.0.0")
+            echo "当前 Nginx 版本: $NGINX_CUR"
+            if command -v apt-get &>/dev/null; then
+              # Debian/Ubuntu
+              CODENAME=$(. /etc/os-release 2>/dev/null && echo "${VERSION_CODENAME:-focal}" || echo focal)
+              curl -fsSL https://nginx.org/keys/nginx_signing.key \
+                | gpg --dearmor > /etc/apt/trusted.gpg.d/nginx-mainline.gpg
+              echo "deb https://nginx.org/packages/mainline/ubuntu ${CODENAME} nginx" \
+                > /etc/apt/sources.list.d/nginx-mainline.list
+              DEBIAN_FRONTEND=noninteractive apt-get update -qq
+              DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
+            elif command -v yum &>/dev/null; then
+              # CentOS/RHEL
+              printf '[nginx-mainline]\nname=nginx mainline\nbaseurl=https://nginx.org/packages/mainline/centos/$releasever/$basearch/\nenabled=1\ngpgcheck=1\ngpgkey=https://nginx.org/keys/nginx_signing.key\n' \
+                > /etc/yum.repos.d/nginx-mainline.repo
+              yum install -y nginx
+            fi
+            nginx -v
+
             # ── 同步 Nginx 配置并重载 ────────────────────────────────
-            NGINX_CONF=/etc/nginx/sites-available/erp.eggslao.com
-            echo IyBQaG9lbml4IEVSUCBWMyDigJQgTmdpbngg5Y+N5ZCR5Luj55CG6YWN572uCiMgSFRUUCDihpIgMzAxIOmHjeWumuWQkeWIsCBIVFRQUwpzZXJ2ZXIgewogICAgbGlzdGVuIDgwOwogICAgbGlzdGVuIFs6Ol06ODA7CiAgICBzZXJ2ZXJfbmFtZSBlcnAuZWdnc2xhby5jb207CiAgICByZXR1cm4gMzAxIGh0dHBzOi8vJGhvc3QkcmVxdWVzdF91cmk7Cn0KCiMgSFRUUFMg5Li75pyN5YqhCnNlcnZlciB7CiAgICBsaXN0ZW4gNDQzIHNzbCBodHRwMjsKICAgIGxpc3RlbiBbOjpdOjQ0MyBzc2wgaHR0cDI7CiAgICBzZXJ2ZXJfbmFtZSBlcnAuZWdnc2xhby5jb207CgogICAgc3NsX2NlcnRpZmljYXRlICAgICAvZXRjL2xldHNlbmNyeXB0L2xpdmUvZXJwLmVnZ3NsYW8uY29tL2Z1bGxjaGFpbi5wZW07CiAgICBzc2xfY2VydGlmaWNhdGVfa2V5IC9ldGMvbGV0c2VuY3J5cHQvbGl2ZS9lcnAuZWdnc2xhby5jb20vcHJpdmtleS5wZW07CiAgICBpbmNsdWRlICAgICAgICAgICAgIC9ldGMvbGV0c2VuY3J5cHQvb3B0aW9ucy1zc2wtbmdpbnguY29uZjsKICAgIHNzbF9kaHBhcmFtICAgICAgICAgL2V0Yy9sZXRzZW5jcnlwdC9zc2wtZGhwYXJhbXMucGVtOwoKICAgICMg5a6J5YWo5ZON5bqU5aS0CiAgICBhZGRfaGVhZGVyIFN0cmljdC1UcmFuc3BvcnQtU2VjdXJpdHkgIm1heC1hZ2U9NjMwNzIwMDA7IGluY2x1ZGVTdWJEb21haW5zIiBhbHdheXM7CiAgICBhZGRfaGVhZGVyIFgtQ29udGVudC1UeXBlLU9wdGlvbnMgICAgbm9zbmlmZiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBhbHdheXM7CiAgICBhZGRfaGVhZGVyIFgtRnJhbWUtT3B0aW9ucyAgICAgICAgICAgU0FNRU9SSUdJTiAgICAgICAgICAgICAgICAgICAgICAgICAgICBhbHdheXM7CgogICAgIyDmiYDmnInmtYHph4/ku6PnkIbliLAgTmV4dC5qcyBXZWIg5a655ZmoCiAgICAjIFdlYiDlrrnlmajlhoXpg6jpgJrov4cgcmV3cml0ZXMg5bCGIC9hcGkvKiDovazlj5Hnu5kgQVBJIOWuueWZqAogICAgbG9jYXRpb24gLyB7CiAgICAgICAgcHJveHlfcGFzcyAgICAgICAgIGh0dHA6Ly8xMjcuMC4wLjE6MzAwMDsKICAgICAgICBwcm94eV9odHRwX3ZlcnNpb24gMS4xOwogICAgICAgIHByb3h5X3NldF9oZWFkZXIgICBVcGdyYWRlICAgICAgICAgICAkaHR0cF91cGdyYWRlOwogICAgICAgIHByb3h5X3NldF9oZWFkZXIgICBDb25uZWN0aW9uICAgICAgICAidXBncmFkZSI7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciAgIEhvc3QgICAgICAgICAgICAgICRob3N0OwogICAgICAgIHByb3h5X3NldF9oZWFkZXIgICBYLVJlYWwtSVAgICAgICAgICAkcmVtb3RlX2FkZHI7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciAgIFgtRm9yd2FyZGVkLUZvciAgICRwcm94eV9hZGRfeF9mb3J3YXJkZWRfZm9yOwogICAgICAgIHByb3h5X3NldF9oZWFkZXIgICBYLUZvcndhcmRlZC1Qcm90byAkc2NoZW1lOwogICAgICAgIHByb3h5X3JlYWRfdGltZW91dCA2MHM7CiAgICB9Cn0K | base64 -d > "$NGINX_CONF"
-            # 创建 symlink（如不存在）
-            ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/erp.eggslao.com
+            # 官方 nginx.org 包用 conf.d/；Debian 系统包用 sites-enabled/；两处都写
+            NGINX_CONF=/etc/nginx/conf.d/erp.eggslao.com.conf
+            mkdir -p /etc/nginx/conf.d /etc/nginx/sites-available /etc/nginx/sites-enabled
+            echo IyBQaG9lbml4IEVSUCBWMyDigJQgTmdpbngg5Y+N5ZCR5Luj55CG6YWN572uCiMgSFRUUCDihpIgMzAxIOmHjeWumuWQkeWIsCBIVFRQUwpzZXJ2ZXIgewogICAgbGlzdGVuIDgwOwogICAgbGlzdGVuIFs6Ol06ODA7CiAgICBzZXJ2ZXJfbmFtZSBlcnAuZWdnc2xhby5jb207CiAgICByZXR1cm4gMzAxIGh0dHBzOi8vJGhvc3QkcmVxdWVzdF91cmk7Cn0KCiMgSFRUUFMg5Li75pyN5YqhCnNlcnZlciB7CiAgICBsaXN0ZW4gNDQzIHNzbDsKICAgIGxpc3RlbiBbOjpdOjQ0MyBzc2w7CiAgICBodHRwMiBvbjsKICAgIHNlcnZlcl9uYW1lIGVycC5lZ2dzbGFvLmNvbTsKCiAgICBzc2xfY2VydGlmaWNhdGUgICAgIC9ldGMvbGV0c2VuY3J5cHQvbGl2ZS9lcnAuZWdnc2xhby5jb20vZnVsbGNoYWluLnBlbTsKICAgIHNzbF9jZXJ0aWZpY2F0ZV9rZXkgL2V0Yy9sZXRzZW5jcnlwdC9saXZlL2VycC5lZ2dzbGFvLmNvbS9wcml2a2V5LnBlbTsKICAgIGluY2x1ZGUgICAgICAgICAgICAgL2V0Yy9sZXRzZW5jcnlwdC9vcHRpb25zLXNzbC1uZ2lueC5jb25mOwogICAgc3NsX2RocGFyYW0gICAgICAgICAvZXRjL2xldHNlbmNyeXB0L3NzbC1kaHBhcmFtcy5wZW07CgogICAgIyDlronlhajlk43lupTlpLQKICAgIGFkZF9oZWFkZXIgU3RyaWN0LVRyYW5zcG9ydC1TZWN1cml0eSAibWF4LWFnZT02MzA3MjAwMDsgaW5jbHVkZVN1YkRvbWFpbnMiIGFsd2F5czsKICAgIGFkZF9oZWFkZXIgWC1Db250ZW50LVR5cGUtT3B0aW9ucyAgICBub3NuaWZmICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGFsd2F5czsKICAgIGFkZF9oZWFkZXIgWC1GcmFtZS1PcHRpb25zICAgICAgICAgICBTQU1FT1JJR0lOICAgICAgICAgICAgICAgICAgICAgICAgICAgIGFsd2F5czsKCiAgICAjIOaJgOaciea1gemHj+S7o+eQhuWIsCBOZXh0LmpzIFdlYiDlrrnlmagKICAgICMgV2ViIOWuueWZqOWGhemDqOmAmui/hyByZXdyaXRlcyDlsIYgL2FwaS8qIOi9rOWPkee7mSBBUEkg5a655ZmoCiAgICBsb2NhdGlvbiAvIHsKICAgICAgICBwcm94eV9wYXNzICAgICAgICAgaHR0cDovLzEyNy4wLjAuMTozMDAwOwogICAgICAgIHByb3h5X2h0dHBfdmVyc2lvbiAxLjE7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciAgIFVwZ3JhZGUgICAgICAgICAgICRodHRwX3VwZ3JhZGU7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciAgIENvbm5lY3Rpb24gICAgICAgICJ1cGdyYWRlIjsKICAgICAgICBwcm94eV9zZXRfaGVhZGVyICAgSG9zdCAgICAgICAgICAgICAgJGhvc3Q7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciAgIFgtUmVhbC1JUCAgICAgICAgICRyZW1vdGVfYWRkcjsKICAgICAgICBwcm94eV9zZXRfaGVhZGVyICAgWC1Gb3J3YXJkZWQtRm9yICAgJHByb3h5X2FkZF94X2ZvcndhcmRlZF9mb3I7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciAgIFgtRm9yd2FyZGVkLVByb3RvICRzY2hlbWU7CiAgICAgICAgcHJveHlfcmVhZF90aW1lb3V0IDYwczsKICAgIH0KfQo= | base64 -d > "$NGINX_CONF"
+            # 同时写一份到 sites-enabled（兼容系统包）
+            cp "$NGINX_CONF" /etc/nginx/sites-available/erp.eggslao.com
+            ln -sf /etc/nginx/sites-available/erp.eggslao.com /etc/nginx/sites-enabled/erp.eggslao.com
+            # 移除 conf.d/default.conf 防止端口冲突
+            rm -f /etc/nginx/conf.d/default.conf
             # 测试配置，失败立即报错退出
             if ! nginx -t 2>&1; then
               echo "❌ nginx -t failed, aborting"
