@@ -75,6 +75,8 @@ const nextConfig: NextConfig = {
   experimental: {
     // 优化包导入，减少首屏 bundle 大小
     optimizePackageImports: ["lucide-react"],
+    // pnpm monorepo standalone: 让文件追踪器从 monorepo 根开始，确保 node_modules 完整复制
+    outputFileTracingRoot: path.join(__dirname, "../../"),
   },
 };
 

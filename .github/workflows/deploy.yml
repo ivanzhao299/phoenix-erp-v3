@@ -268,7 +268,8 @@ jobs:
 
             # 滚动重启：先 api 后 web（DB 不重启）
             docker compose up -d --no-deps --wait api
-            docker compose up -d --no-deps --wait web
+            docker compose up -d --no-deps --wait web \
+              || { echo "=== web container logs ==="; docker compose logs web --tail 80; exit 1; }
 
             # 清理悬空镜像
             docker image prune -f
