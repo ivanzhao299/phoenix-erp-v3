@@ -276,41 +276,14 @@ jobs:
 
             # ── 同步 Nginx 配置并重载 ────────────────────────────────
             NGINX_CONF=/etc/nginx/sites-available/erp.eggslao.com
-            cat > "$NGINX_CONF" << 'NGINX_EOF'
-server {
-    listen 80;
-    listen [::]:80;
-    server_name erp.eggslao.com;
-    return 301 https://$host$request_uri;
-}
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name erp.eggslao.com;
-    ssl_certificate     /etc/letsencrypt/live/erp.eggslao.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/erp.eggslao.com/privkey.pem;
-    include             /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
-    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
-    add_header X-Content-Type-Options nosniff always;
-    add_header X-Frame-Options SAMEORIGIN always;
-    location / {
-        proxy_pass         http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header   Upgrade $http_upgrade;
-        proxy_set_header   Connection "upgrade";
-        proxy_set_header   Host $host;
-        proxy_set_header   X-Real-IP $remote_addr;
-        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header   X-Forwarded-Proto $scheme;
-        proxy_read_timeout 60s;
-    }
-}
-NGINX_EOF
+            echo IyBQaG9lbml4IEVSUCBWMyDigJQgTmdpbngg5Y+N5ZCR5Luj55CG6YWN572uCiMgSFRUUCDihpIgMzAxIOmHjeWumuWQkeWIsCBIVFRQUwpzZXJ2ZXIgewogICAgbGlzdGVuIDgwOwogICAgbGlzdGVuIFs6Ol06ODA7CiAgICBzZXJ2ZXJfbmFtZSBlcnAuZWdnc2xhby5jb207CiAgICByZXR1cm4gMzAxIGh0dHBzOi8vJGhvc3QkcmVxdWVzdF91cmk7Cn0KCiMgSFRUUFMg5Li75pyN5YqhCnNlcnZlciB7CiAgICBsaXN0ZW4gNDQzIHNzbCBodHRwMjsKICAgIGxpc3RlbiBbOjpdOjQ0MyBzc2wgaHR0cDI7CiAgICBzZXJ2ZXJfbmFtZSBlcnAuZWdnc2xhby5jb207CgogICAgc3NsX2NlcnRpZmljYXRlICAgICAvZXRjL2xldHNlbmNyeXB0L2xpdmUvZXJwLmVnZ3NsYW8uY29tL2Z1bGxjaGFpbi5wZW07CiAgICBzc2xfY2VydGlmaWNhdGVfa2V5IC9ldGMvbGV0c2VuY3J5cHQvbGl2ZS9lcnAuZWdnc2xhby5jb20vcHJpdmtleS5wZW07CiAgICBpbmNsdWRlICAgICAgICAgICAgIC9ldGMvbGV0c2VuY3J5cHQvb3B0aW9ucy1zc2wtbmdpbnguY29uZjsKICAgIHNzbF9kaHBhcmFtICAgICAgICAgL2V0Yy9sZXRzZW5jcnlwdC9zc2wtZGhwYXJhbXMucGVtOwoKICAgICMg5a6J5YWo5ZON5bqU5aS0CiAgICBhZGRfaGVhZGVyIFN0cmljdC1UcmFuc3BvcnQtU2VjdXJpdHkgIm1heC1hZ2U9NjMwNzIwMDA7IGluY2x1ZGVTdWJEb21haW5zIiBhbHdheXM7CiAgICBhZGRfaGVhZGVyIFgtQ29udGVudC1UeXBlLU9wdGlvbnMgICAgbm9zbmlmZiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBhbHdheXM7CiAgICBhZGRfaGVhZGVyIFgtRnJhbWUtT3B0aW9ucyAgICAgICAgICAgU0FNRU9SSUdJTiAgICAgICAgICAgICAgICAgICAgICAgICAgICBhbHdheXM7CgogICAgIyDmiYDmnInmtYHph4/ku6PnkIbliLAgTmV4dC5qcyBXZWIg5a655ZmoCiAgICAjIFdlYiDlrrnlmajlhoXpg6jpgJrov4cgcmV3cml0ZXMg5bCGIC9hcGkvKiDovazlj5Hnu5kgQVBJIOWuueWZqAogICAgbG9jYXRpb24gLyB7CiAgICAgICAgcHJveHlfcGFzcyAgICAgICAgIGh0dHA6Ly8xMjcuMC4wLjE6MzAwMDsKICAgICAgICBwcm94eV9odHRwX3ZlcnNpb24gMS4xOwogICAgICAgIHByb3h5X3NldF9oZWFkZXIgICBVcGdyYWRlICAgICAgICAgICAkaHR0cF91cGdyYWRlOwogICAgICAgIHByb3h5X3NldF9oZWFkZXIgICBDb25uZWN0aW9uICAgICAgICAidXBncmFkZSI7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciAgIEhvc3QgICAgICAgICAgICAgICRob3N0OwogICAgICAgIHByb3h5X3NldF9oZWFkZXIgICBYLVJlYWwtSVAgICAgICAgICAkcmVtb3RlX2FkZHI7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciAgIFgtRm9yd2FyZGVkLUZvciAgICRwcm94eV9hZGRfeF9mb3J3YXJkZWRfZm9yOwogICAgICAgIHByb3h5X3NldF9oZWFkZXIgICBYLUZvcndhcmRlZC1Qcm90byAkc2NoZW1lOwogICAgICAgIHByb3h5X3JlYWRfdGltZW91dCA2MHM7CiAgICB9Cn0K | base64 -d > "$NGINX_CONF"
             # 创建 symlink（如不存在）
             ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/erp.eggslao.com
             # 测试配置，失败立即报错退出
-            nginx -t || { echo "❌ nginx -t failed"; nginx -t 2>&1; exit 1; }
+            if ! nginx -t 2>&1; then
+              echo "❌ nginx -t failed, aborting"
+              exit 1
+            fi
             systemctl reload nginx
             echo "✅ Nginx reloaded"
 
