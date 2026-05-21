@@ -351,6 +351,10 @@ jobs:
             # nginx 启动后的 error log（SSL context 错误会在这里出现）
             echo "=== nginx error.log (last 20 lines) ==="
             tail -20 /var/log/nginx/error.log 2>/dev/null || journalctl -u nginx --no-pager -n 20
+            # 诊断：iptables 规则（检查是否有拦截 443 的规则）
+            echo "=== iptables INPUT rules for port 443 ==="
+            iptables -L INPUT -n -v --line-numbers 2>/dev/null | grep -E "443|DROP|REJECT|dpt" | head -20 || true
+            iptables -L -n -v 2>/dev/null | grep -E "443" | head -10 || true
             # 诊断：从服务器内用 openssl 测试 SSL（SNI 正确）
             echo "=== openssl s_client test (from server) ==="
             echo | openssl s_client -connect 127.0.0.1:443 -servername erp.eggslao.com 2>&1 | grep -E "depth|verify|Cipher|Protocol|issuer|subject|date|error|CONNECTED|BEGIN" | head -20 || true
