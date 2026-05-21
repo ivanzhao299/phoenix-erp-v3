@@ -53,6 +53,7 @@ jobs:
       JWT_SECRET: ci_test_secret_minlen_32_characters_xx
       JWT_SECRET_PREV: ""
       NODE_ENV: test
+      ENABLE_DEV_LOGIN: "true"
 
     steps:
       - uses: actions/checkout@v4

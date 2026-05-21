@@ -7,7 +7,7 @@ set -u
 API="${API_URL:-http://127.0.0.1:3100}"
 ADMIN_U="${ADMIN_USER:-admin}"
 ADMIN_P="${ADMIN_PASS:-admin123}"
-PSQL=/Applications/Postgres.app/Contents/Versions/18/bin/psql
+PSQL=${PSQL:-$(which psql)}
 DB=phoenix_erp
 
 PASS=0
