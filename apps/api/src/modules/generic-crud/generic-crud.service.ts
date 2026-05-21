@@ -1031,6 +1031,507 @@ export class GenericCrudService implements OnModuleInit {
         `ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS price_retail     DECIMAL(10,4) DEFAULT 0`,
         `ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS price_wholesale  DECIMAL(10,4) DEFAULT 0`,
         `ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS updated_at       TIMESTAMP`,
+
+        // ── sys_dict：全局字典表（Phase S1/S2 依赖）──────────────────────
+        `CREATE TABLE IF NOT EXISTS sys_dict (
+           id             SERIAL PRIMARY KEY,
+           dict_code      VARCHAR(64),
+           dict_type      VARCHAR(64),
+           name           VARCHAR(128),
+           dict_label_zh  VARCHAR(128),
+           dict_label_lo  VARCHAR(128),
+           dict_label_en  VARCHAR(128),
+           dict_value     VARCHAR(64),
+           sort_no        INT DEFAULT 0,
+           status         VARCHAR(32) DEFAULT 'ACTIVE',
+           config_json    TEXT,
+           created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE sys_dict ADD COLUMN IF NOT EXISTS dict_code     VARCHAR(64)`,
+        `ALTER TABLE sys_dict ADD COLUMN IF NOT EXISTS dict_label_lo VARCHAR(128)`,
+        `ALTER TABLE sys_dict ADD COLUMN IF NOT EXISTS dict_label_en VARCHAR(128)`,
+        `ALTER TABLE sys_dict ADD COLUMN IF NOT EXISTS config_json   TEXT`,
+
+        // ── sys_approval_flows / sys_permissions ──────────────────────────
+        `CREATE TABLE IF NOT EXISTS sys_approval_flows (
+           id             SERIAL PRIMARY KEY,
+           flow_code      VARCHAR(64) UNIQUE,
+           flow_name      VARCHAR(256),
+           doc_type       VARCHAR(64),
+           approver_chain TEXT,
+           status         VARCHAR(32) DEFAULT 'ACTIVE',
+           created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `CREATE TABLE IF NOT EXISTS sys_permissions (
+           id         SERIAL PRIMARY KEY,
+           perm_code  VARCHAR(64) UNIQUE,
+           perm_name  VARCHAR(256),
+           resource   VARCHAR(128),
+           action     VARCHAR(32),
+           status     VARCHAR(32) DEFAULT 'ACTIVE',
+           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+
+        // ── 养殖日报（brd_daily_logs）────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS brd_daily_logs (
+           id            SERIAL PRIMARY KEY,
+           flock_no      VARCHAR(64),
+           log_date      DATE,
+           shift         VARCHAR(64),
+           feed_consumed DECIMAL(10,2) DEFAULT 0,
+           water_consumed DECIMAL(10,2) DEFAULT 0,
+           mortality_qty INT DEFAULT 0,
+           eggs_produced INT DEFAULT 0,
+           bad_eggs      INT DEFAULT 0,
+           dirty_eggs    INT DEFAULT 0,
+           broken_eggs   INT DEFAULT 0,
+           temp          DECIMAL(5,2),
+           humidity      DECIMAL(5,2),
+           note          TEXT,
+           operator      VARCHAR(128),
+           farm_code     VARCHAR(64),
+           house_code    VARCHAR(64),
+           egg_count     INT DEFAULT 0,
+           farm_name     VARCHAR(256),
+           updated_at    TIMESTAMP,
+           created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           UNIQUE (log_date, house_code, shift)
+         )`,
+
+        // ── 兽药主数据 ────────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS brd_medications (
+           id               SERIAL PRIMARY KEY,
+           medication_code  VARCHAR(64) UNIQUE,
+           medication_name  VARCHAR(256),
+           dosage           VARCHAR(64),
+           status           VARCHAR(32) DEFAULT 'ACTIVE',
+           created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+
+        // ── 库存批次 & 台账 ───────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS inv_batches (
+           id              SERIAL PRIMARY KEY,
+           batch_no        VARCHAR(64) UNIQUE,
+           product_code    VARCHAR(64),
+           qty             DECIMAL(14,3) DEFAULT 0,
+           qty_available   INT,
+           status          VARCHAR(20) DEFAULT 'AVAILABLE',
+           warehouse_code  VARCHAR(50),
+           location_code   VARCHAR(50),
+           store_code      VARCHAR(50),
+           expire_date     DATE,
+           created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `CREATE TABLE IF NOT EXISTS inv_ledger (
+           id           SERIAL PRIMARY KEY,
+           batch_no     VARCHAR(64),
+           change_type  VARCHAR(64),
+           qty_change   DECIMAL(14,3) DEFAULT 0,
+           operator     VARCHAR(128),
+           store_code   VARCHAR(50),
+           ref_no       VARCHAR(128),
+           note         TEXT,
+           created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+
+        // ── WMS 仓库 / 入出库 / 盘点 ─────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS wms_warehouses (
+           id                  SERIAL PRIMARY KEY,
+           warehouse_code      VARCHAR(32) UNIQUE,
+           warehouse_name      VARCHAR(128),
+           warehouse_name_zh   VARCHAR(128),
+           type                VARCHAR(32),
+           status              VARCHAR(32) DEFAULT 'ACTIVE',
+           created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE wms_warehouses ADD COLUMN IF NOT EXISTS warehouse_name_zh VARCHAR(128)`,
+        `ALTER TABLE wms_warehouses ADD COLUMN IF NOT EXISTS updated_at        TIMESTAMP`,
+
+        `CREATE TABLE IF NOT EXISTS wms_inbound (
+           id              SERIAL PRIMARY KEY,
+           task_no         VARCHAR(64) UNIQUE,
+           status          VARCHAR(32) DEFAULT 'PENDING',
+           warehouse_code  VARCHAR(64),
+           type            VARCHAR(64),
+           item            VARCHAR(256),
+           qty             INT DEFAULT 0,
+           store_code      VARCHAR(32),
+           operator        VARCHAR(128),
+           created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE wms_inbound ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+
+        `CREATE TABLE IF NOT EXISTS wms_inbound_items (
+           id              SERIAL PRIMARY KEY,
+           task_no         VARCHAR(64),
+           batch_no        VARCHAR(64),
+           product_code    VARCHAR(64),
+           qty             INT DEFAULT 0,
+           expected_qty    INT DEFAULT 0,
+           actual_qty      INT DEFAULT 0,
+           broken_qty      INT DEFAULT 0,
+           warehouse_code  VARCHAR(64),
+           location_code   VARCHAR(64),
+           created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+
+        `CREATE TABLE IF NOT EXISTS wms_outbound (
+           id           SERIAL PRIMARY KEY,
+           outbound_no  VARCHAR(64) UNIQUE,
+           type         VARCHAR(64),
+           item         VARCHAR(256),
+           qty          INT DEFAULT 0,
+           status       VARCHAR(32) DEFAULT 'PENDING',
+           picker       VARCHAR(128),
+           ref_no       VARCHAR(128),
+           created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE wms_outbound ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+
+        `CREATE TABLE IF NOT EXISTS wms_outbound_items (
+           id           SERIAL PRIMARY KEY,
+           outbound_no  VARCHAR(64),
+           batch_no     VARCHAR(64),
+           product_code VARCHAR(64),
+           qty          INT DEFAULT 0,
+           actual_qty   INT DEFAULT 0,
+           created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+
+        `CREATE TABLE IF NOT EXISTS wms_stocktake (
+           id             SERIAL PRIMARY KEY,
+           stocktake_no   VARCHAR(64) UNIQUE,
+           status         VARCHAR(32) DEFAULT 'PENDING',
+           auditor        VARCHAR(128),
+           date           VARCHAR(32),
+           act_qty        INT DEFAULT 0,
+           diff_qty       INT DEFAULT 0,
+           created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE wms_stocktake ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+
+        `CREATE TABLE IF NOT EXISTS wms_suppliers (
+           id             SERIAL PRIMARY KEY,
+           supplier_code  VARCHAR(64) UNIQUE,
+           supplier_name  VARCHAR(256),
+           contact        VARCHAR(128),
+           phone          VARCHAR(32),
+           status         VARCHAR(32) DEFAULT 'ACTIVE',
+           created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE wms_suppliers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+
+        // ── 采购主数据 ────────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS prc_suppliers (
+           id             SERIAL PRIMARY KEY,
+           supplier_code  VARCHAR(64) UNIQUE,
+           supplier_name  VARCHAR(256),
+           contact        VARCHAR(128),
+           phone          VARCHAR(32),
+           status         VARCHAR(32) DEFAULT 'ACTIVE',
+           created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE prc_suppliers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+
+        `CREATE TABLE IF NOT EXISTS prc_purchase_orders (
+           id              SERIAL PRIMARY KEY,
+           po_no           VARCHAR(64) UNIQUE,
+           supplier_code   VARCHAR(128),
+           supplier_name   VARCHAR(256),
+           subject         VARCHAR(256),
+           plan_qty        INT DEFAULT 0,
+           received_qty    INT DEFAULT 0,
+           total_amount    DECIMAL(18,2) DEFAULT 0,
+           currency_code   VARCHAR(8),
+           expected_date   DATE,
+           remark          TEXT,
+           status          VARCHAR(32) DEFAULT 'PENDING',
+           store_code      VARCHAR(32),
+           created_by      BIGINT,
+           created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+
+        `CREATE TABLE IF NOT EXISTS prc_purchase_items (
+           id            SERIAL PRIMARY KEY,
+           po_no         VARCHAR(64),
+           product_code  VARCHAR(64),
+           qty           INT DEFAULT 0,
+           unit_price    DECIMAL(12,2) DEFAULT 0,
+           amount        DECIMAL(18,2) DEFAULT 0,
+           created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+
+        `CREATE TABLE IF NOT EXISTS prc_purchase_requests (
+           id          SERIAL PRIMARY KEY,
+           request_no  VARCHAR(64) UNIQUE,
+           status      VARCHAR(32) DEFAULT 'PENDING',
+           created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE prc_purchase_requests ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+
+        `CREATE TABLE IF NOT EXISTS prc_purchase_payments (
+           id          SERIAL PRIMARY KEY,
+           payment_no  VARCHAR(64) UNIQUE,
+           po_no       VARCHAR(64),
+           amount      DECIMAL(18,2) DEFAULT 0,
+           status      VARCHAR(32) DEFAULT 'PENDING',
+           created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE prc_purchase_payments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+
+        `CREATE TABLE IF NOT EXISTS prc_returns (
+           id         SERIAL PRIMARY KEY,
+           return_no  VARCHAR(64) UNIQUE,
+           po_no      VARCHAR(64),
+           qty        INT DEFAULT 0,
+           status     VARCHAR(32) DEFAULT 'PENDING',
+           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE prc_returns ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+
+        // ── 财务核心表 ────────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS fin_accounts (
+           id            SERIAL PRIMARY KEY,
+           account_code  VARCHAR(64) UNIQUE,
+           account_name  VARCHAR(256),
+           balance       DECIMAL(18,2) DEFAULT 0,
+           status        VARCHAR(32) DEFAULT 'ACTIVE',
+           created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE fin_accounts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+
+        `CREATE TABLE IF NOT EXISTS fin_transactions (
+           id              SERIAL PRIMARY KEY,
+           txn_no          VARCHAR(64),
+           transaction_no  VARCHAR(64),
+           type            VARCHAR(32),
+           amount          DECIMAL(18,2) DEFAULT 0,
+           currency_code   VARCHAR(8),
+           status          VARCHAR(32) DEFAULT 'PENDING',
+           description     TEXT,
+           account_code    VARCHAR(64),
+           ref_no          VARCHAR(128),
+           note            TEXT,
+           due_date        DATE,
+           operator        VARCHAR(128),
+           store_code      VARCHAR(32),
+           created_by      INTEGER,
+           approved_by_mgr VARCHAR(64),
+           approved_by_gm  VARCHAR(64),
+           approved_by_ceo VARCHAR(64),
+           created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+
+        `CREATE TABLE IF NOT EXISTS fin_invoices (
+           id                      SERIAL PRIMARY KEY,
+           invoice_no              VARCHAR(64) UNIQUE,
+           ref_no                  VARCHAR(128),
+           customer_or_supplier    VARCHAR(256),
+           amount                  DECIMAL(18,2) DEFAULT 0,
+           paid_amount             DECIMAL(18,2) DEFAULT 0,
+           status                  VARCHAR(32) DEFAULT 'PENDING',
+           direction               VARCHAR(8) DEFAULT 'AP',
+           due_date                DATE,
+           updated_at              TEXT,
+           created_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+
+        `CREATE TABLE IF NOT EXISTS fin_payments (
+           id          SERIAL PRIMARY KEY,
+           payment_no  VARCHAR(64) UNIQUE,
+           invoice_no  VARCHAR(64),
+           amount      DECIMAL(18,2) DEFAULT 0,
+           status      VARCHAR(32) DEFAULT 'PENDING',
+           created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE fin_payments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+
+        `CREATE TABLE IF NOT EXISTS fin_approvals (
+           id            SERIAL PRIMARY KEY,
+           doc_type      VARCHAR(64),
+           doc_id        BIGINT,
+           approver_id   BIGINT,
+           approver_role VARCHAR(64),
+           action        VARCHAR(32),
+           comment       TEXT,
+           created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+
+        // ── POS 销售 ──────────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS pos_sales (
+           id               SERIAL PRIMARY KEY,
+           sale_no          VARCHAR(64) UNIQUE,
+           store_code       VARCHAR(32),
+           cashier          VARCHAR(128),
+           member_phone     VARCHAR(32),
+           total_amount     DECIMAL(18,2) DEFAULT 0,
+           discount_amount  DECIMAL(18,2) DEFAULT 0,
+           net_amount       DECIMAL(18,2) DEFAULT 0,
+           pay_method       VARCHAR(32),
+           status           VARCHAR(32) DEFAULT 'COMPLETED',
+           session_no       VARCHAR(64),
+           sale_type        VARCHAR(32),
+           note             TEXT,
+           created_at       TEXT,
+           updated_at       TEXT
+         )`,
+
+        `CREATE TABLE IF NOT EXISTS pos_sale_items (
+           id               SERIAL PRIMARY KEY,
+           sale_no          VARCHAR(64),
+           product_code     VARCHAR(64),
+           product_name_zh  VARCHAR(256),
+           product_name_lo  VARCHAR(256),
+           batch_no         VARCHAR(64),
+           qty              INT DEFAULT 0,
+           unit_price       DECIMAL(12,4) DEFAULT 0,
+           subtotal         DECIMAL(18,2) DEFAULT 0,
+           store_code       VARCHAR(32),
+           created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+
+        // ── 日结 & 台账 ───────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS daily_close (
+           id                   SERIAL PRIMARY KEY,
+           close_no             VARCHAR(64) UNIQUE,
+           store_code           VARCHAR(32),
+           close_date           DATE,
+           operator             VARCHAR(128),
+           total_sales          DECIMAL(18,2) DEFAULT 0,
+           total_transactions   INT DEFAULT 0,
+           cash_sales           DECIMAL(18,2) DEFAULT 0,
+           qr_sales             DECIMAL(18,2) DEFAULT 0,
+           discount_total       DECIMAL(18,2) DEFAULT 0,
+           cash_actual          DECIMAL(18,2) DEFAULT 0,
+           cash_diff            DECIMAL(18,2) DEFAULT 0,
+           note                 TEXT,
+           status               VARCHAR(32) DEFAULT 'PENDING',
+           submitted_at         TEXT,
+           created_at           TEXT
+         )`,
+
+        `CREATE TABLE IF NOT EXISTS acc_ledger (
+           id            SERIAL PRIMARY KEY,
+           store_code    VARCHAR(32),
+           ref_no        VARCHAR(128),
+           ledger_type   VARCHAR(64),
+           amount        DECIMAL(18,2) DEFAULT 0,
+           balance_after DECIMAL(18,2) DEFAULT 0,
+           note          TEXT,
+           created_at    TEXT
+         )`,
+
+        // ── 客户信用预警 ──────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS cst_credit_warnings (
+           id                 SERIAL PRIMARY KEY,
+           customer_code      VARCHAR(64),
+           credit_limit       DECIMAL(18,2) DEFAULT 0,
+           current_balance    DECIMAL(18,2) DEFAULT 0,
+           warning_threshold  DECIMAL(5,2) DEFAULT 0,
+           status             VARCHAR(32) DEFAULT 'ACTIVE',
+           created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE cst_credit_warnings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+
+        // ── 包装模块 V2 遗留表 ────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS pkg_shifts (
+           id             SERIAL PRIMARY KEY,
+           shift_no       VARCHAR(64) UNIQUE,
+           house_code     VARCHAR(64),
+           shift_type     VARCHAR(64),
+           shift_time     VARCHAR(64),
+           operator       VARCHAR(128),
+           shift_date     DATE,
+           status         VARCHAR(32) DEFAULT 'OPEN',
+           created_by     BIGINT,
+           total_qty      INT DEFAULT 0,
+           dirty_qty      INT DEFAULT 0,
+           broken_qty     INT DEFAULT 0,
+           qualified_qty  INT DEFAULT 0,
+           eggs_collected INT DEFAULT 0,
+           dirty_eggs     INT DEFAULT 0,
+           broken_eggs    INT DEFAULT 0,
+           bad_eggs       INT DEFAULT 0,
+           completed_at   TIMESTAMP,
+           completed_time VARCHAR(32),
+           reopen_reason  TEXT,
+           updated_by     BIGINT,
+           created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS shift_type     VARCHAR(64)`,
+        `ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS shift_time     VARCHAR(64)`,
+        `ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS eggs_collected INT DEFAULT 0`,
+        `ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS dirty_eggs     INT DEFAULT 0`,
+        `ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS broken_eggs    INT DEFAULT 0`,
+        `ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS bad_eggs       INT DEFAULT 0`,
+        `ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS completed_at   TIMESTAMP`,
+        `ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS completed_time VARCHAR(32)`,
+        `ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS reopen_reason  TEXT`,
+        `ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS updated_by     BIGINT`,
+        `ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS updated_at     TIMESTAMP`,
+
+        `CREATE TABLE IF NOT EXISTS pkg_tasks (
+           id           SERIAL PRIMARY KEY,
+           task_no      VARCHAR(64) UNIQUE,
+           batch_no     VARCHAR(64),
+           source_item  VARCHAR(256),
+           plan_qty     INT DEFAULT 0,
+           packed_qty   INT DEFAULT 0,
+           status       VARCHAR(32) DEFAULT 'PENDING',
+           task_type    VARCHAR(32),
+           shift_id     BIGINT,
+           house_code   VARCHAR(64),
+           start_time   TIMESTAMP,
+           created_by   BIGINT,
+           created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+
+        // ── PDA 终端 ──────────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS pda_terminals (
+           id               SERIAL PRIMARY KEY,
+           name             VARCHAR(256),
+           brand            VARCHAR(128),
+           model            VARCHAR(128),
+           serial           VARCHAR(128),
+           scan_protocol    VARCHAR(32),
+           scan_prefix      VARCHAR(128),
+           scan_suffix      VARCHAR(128),
+           location         VARCHAR(256),
+           enabled_modules  TEXT,
+           printer_ip       VARCHAR(32),
+           notes            TEXT,
+           status           VARCHAR(32) DEFAULT 'ACTIVE',
+           app_version      VARCHAR(32),
+           last_seen        TIMESTAMP,
+           created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE pda_terminals ADD COLUMN IF NOT EXISTS scan_protocol   VARCHAR(32)`,
+        `ALTER TABLE pda_terminals ADD COLUMN IF NOT EXISTS scan_prefix     VARCHAR(128)`,
+        `ALTER TABLE pda_terminals ADD COLUMN IF NOT EXISTS scan_suffix     VARCHAR(128)`,
+        `ALTER TABLE pda_terminals ADD COLUMN IF NOT EXISTS enabled_modules TEXT`,
+        `ALTER TABLE pda_terminals ADD COLUMN IF NOT EXISTS printer_ip      VARCHAR(32)`,
+        `ALTER TABLE pda_terminals ADD COLUMN IF NOT EXISTS notes           TEXT`,
+        `ALTER TABLE pda_terminals ADD COLUMN IF NOT EXISTS app_version     VARCHAR(32)`,
+        `ALTER TABLE pda_terminals ADD COLUMN IF NOT EXISTS last_seen       TIMESTAMP`,
       ];
 
       for (const sql of businessTables) {
