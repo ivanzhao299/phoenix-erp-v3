@@ -330,6 +330,12 @@ jobs:
               nginx -T 2>&1 | tail -40
               exit 1
             fi
+            # 打印生效的 server 块摘要，方便排查 conf 未加载问题
+            echo "=== nginx effective config (server blocks) ==="
+            nginx -T 2>&1 | grep -E "^[[:space:]]*(server|listen|server_name|ssl_cert|include|http2)" | head -40
+            # 确认 conf.d/ 被主配置 include
+            echo "=== nginx.conf include lines ==="
+            grep -n "include" /etc/nginx/nginx.conf || true
             # 启用并启动（inactive 时 reload 会失败，统一用 restart）
             systemctl enable nginx
             systemctl restart nginx
