@@ -45,7 +45,7 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
     ThrottlerModule.forRoot({
       skipIf: () => process.env.NODE_ENV !== 'production',
       throttlers: [
-        { name: 'global', ttl: 60_000, limit: 600 },
+        { name: 'global', ttl: 60_000, limit: 1500 },
         { name: 'login',  ttl: 900_000, limit: 10 },
       ],
     }),

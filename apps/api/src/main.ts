@@ -15,6 +15,13 @@ async function bootstrap() {
 
   const isProd = process.env.NODE_ENV === 'production';
 
+  // ── 反向代理信任（Docker / Nginx 链路下正确识别真实客户端 IP）──────────────
+  // 不设置时 ThrottlerGuard 会把所有请求都归到同一个 IP bucket（Nginx 内网 IP），
+  // 导致多用户共享 600/min 限额，触发误伤性 429
+  if (isProd) {
+    app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  }
+
   // ── CORS 配置 ────────────────────────────────────────────────────────────────
   const allowedOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
