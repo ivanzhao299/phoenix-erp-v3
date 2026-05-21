@@ -279,13 +279,20 @@ jobs:
             echo "当前 Nginx 版本: $NGINX_CUR"
             if command -v apt-get &>/dev/null; then
               # Debian/Ubuntu
+              # 先修复可能因上次中断导致的 dpkg broken 状态
+              DEBIAN_FRONTEND=noninteractive dpkg --configure -a \
+                -o Dpkg::Options::="--force-confold" \
+                -o Dpkg::Options::="--force-confdef" 2>/dev/null || true
               CODENAME=$(. /etc/os-release 2>/dev/null && echo "${VERSION_CODENAME:-focal}" || echo focal)
               curl -fsSL https://nginx.org/keys/nginx_signing.key \
                 | gpg --dearmor > /etc/apt/trusted.gpg.d/nginx-mainline.gpg
               echo "deb https://nginx.org/packages/mainline/ubuntu ${CODENAME} nginx" \
                 > /etc/apt/sources.list.d/nginx-mainline.list
               DEBIAN_FRONTEND=noninteractive apt-get update -qq
-              DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
+              # --force-confold: 保留现有配置文件（不弹交互提示）
+              DEBIAN_FRONTEND=noninteractive apt-get install -y \
+                -o Dpkg::Options::="--force-confold" \
+                -o Dpkg::Options::="--force-confdef" nginx
             elif command -v yum &>/dev/null; then
               # CentOS/RHEL
               printf '[nginx-mainline]\nname=nginx mainline\nbaseurl=https://nginx.org/packages/mainline/centos/$releasever/$basearch/\nenabled=1\ngpgcheck=1\ngpgkey=https://nginx.org/keys/nginx_signing.key\n' \
