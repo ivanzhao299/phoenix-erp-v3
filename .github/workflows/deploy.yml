@@ -72,12 +72,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Type-check API
-        working-directory: apps/api
-        run: pnpm exec tsc --noEmit
+        run: pnpm --filter phoenix-erp-v3-nest exec tsc --noEmit
 
       - name: Type-check Web
-        working-directory: apps/web
-        run: pnpm exec tsc --noEmit
+        run: pnpm --filter web run typecheck
 
       - name: Build API
         working-directory: apps/api
