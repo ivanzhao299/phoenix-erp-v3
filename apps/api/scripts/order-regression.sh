@@ -128,9 +128,8 @@ cyan "▶ T3: A2 状态机非法跳转 → 拒绝"
 R3=$(curl -s -o /tmp/t3.json -w '%{http_code}' -X POST "$API/api/orders/$ORDER_NO/transition" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"to_status":"SHIPPED","remark":"非法跳转"}')
-# transitionOrder 内 try/catch → 返 code:500 + msg；HTTP 仍 200/201；body code 判断
-CODE=$(cat /tmp/t3.json | grep -oE '"code":[0-9]+' | head -1 | cut -d: -f2)
-assert_eq "T3.1 非法跳转 code 500" "500" "$CODE"
+# V3 用 NestJS BadRequestException → HTTP 400，验证 HTTP 状态非 2xx
+assert_fail "T3.1 非法跳转 HTTP 4xx" "$R3"
 
 # msg 应含"不能流转到"
 MSG=$(cat /tmp/t3.json)

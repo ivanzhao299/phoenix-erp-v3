@@ -772,6 +772,8 @@ export class GenericCrudService implements OnModuleInit {
         `ALTER TABLE ord_orders ADD COLUMN IF NOT EXISTS remark               TEXT`,
         `ALTER TABLE ord_orders ADD COLUMN IF NOT EXISTS created_by           VARCHAR(100)`,
         `ALTER TABLE ord_orders ADD COLUMN IF NOT EXISTS shipped_date         DATE`,
+        `ALTER TABLE ord_orders ADD COLUMN IF NOT EXISTS received_date       DATE`,
+        `ALTER TABLE ord_orders ADD COLUMN IF NOT EXISTS cancel_reason       TEXT`,
 
         `CREATE TABLE IF NOT EXISTS ord_order_items (
            id               SERIAL PRIMARY KEY,
