@@ -351,20 +351,18 @@ jobs:
             # nginx 启动后的 error log（SSL context 错误会在这里出现）
             echo "=== nginx error.log (last 20 lines) ==="
             tail -20 /var/log/nginx/error.log 2>/dev/null || journalctl -u nginx --no-pager -n 20
-            # ── 找出并清除冲突的 nginx 配置文件 ────────────────────────────
-            echo "=== All nginx conf files mentioning erp.eggslao.com or 443 ssl ==="
-            grep -rl "erp\.eggslao\.com\|listen 443" /etc/nginx/ 2>/dev/null
-            for f in $(grep -rl "erp\.eggslao\.com\|listen 443" /etc/nginx/ 2>/dev/null); do
-              echo "--- $f ---"
-              grep -nE "listen|server_name|ssl_cert" "$f" | head -8
-            done
-            # 删除所有不是我们管理的含 443/erp.eggslao.com 的配置（除了 conf.d/erp.eggslao.com.conf）
-            for f in $(grep -rl "erp\.eggslao\.com\|listen 443" /etc/nginx/ 2>/dev/null); do
-              if [ "$f" != "/etc/nginx/conf.d/erp.eggslao.com.conf" ]; then
-                echo "Removing conflicting config: $f"
-                rm -f "$f"
-              fi
-            done
+            # ── 完整 nginx 配置状态 ──────────────────────────────────────
+            echo "=== sites-enabled/ contents ==="
+            ls -la /etc/nginx/sites-enabled/ 2>/dev/null || echo "(dir not found)"
+            echo "=== conf.d/ contents ==="
+            ls -la /etc/nginx/conf.d/ 2>/dev/null
+            echo "=== nginx.conf (full) ==="
+            cat /etc/nginx/nginx.conf
+            # 确保 sites-enabled/ 里没有残留冲突文件（清空所有，只保留我们的 conf.d）
+            rm -rf /etc/nginx/sites-enabled/
+            mkdir -p /etc/nginx/sites-enabled
+            echo "=== sites-enabled/ after cleanup ==="
+            ls -la /etc/nginx/sites-enabled/
             # 诊断：从服务器内用 openssl 测试 SSL（SNI 正确）
             echo "=== openssl s_client test (from server) ==="
             echo | openssl s_client -connect 127.0.0.1:443 -servername erp.eggslao.com 2>&1 | grep -E "depth|verify|Cipher|Protocol|issuer|subject|date|error|CONNECTED|BEGIN" | head -20 || true
