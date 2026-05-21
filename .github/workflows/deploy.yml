@@ -330,12 +330,12 @@ jobs:
               nginx -T 2>&1 | tail -40
               exit 1
             fi
-            # 打印生效的 server 块摘要，方便排查 conf 未加载问题
-            echo "=== nginx effective config (server blocks) ==="
-            nginx -T 2>&1 | grep -E "^[[:space:]]*(server|listen|server_name|ssl_cert|include|http2)" | head -40
-            # 确认 conf.d/ 被主配置 include
-            echo "=== nginx.conf include lines ==="
-            grep -n "include" /etc/nginx/nginx.conf || true
+            # 证书有效期检查
+            echo "=== SSL cert dates ==="
+            openssl x509 -in /etc/letsencrypt/live/erp.eggslao.com/fullchain.pem -noout -dates 2>&1 || true
+            # options-ssl-nginx.conf 内容
+            echo "=== options-ssl-nginx.conf ==="
+            cat /etc/letsencrypt/options-ssl-nginx.conf 2>/dev/null || echo "(file not found)"
             # 启用并启动（inactive 时 reload 会失败，统一用 restart）
             systemctl enable nginx
             systemctl restart nginx
@@ -348,15 +348,15 @@ jobs:
               exit 1
             fi
             echo "✅ Nginx started/reloaded"
-            # 诊断：确认 nginx 监听端口
-            ss -tlnp | grep -E ':80|:443' || echo "(no nginx listener found)"
-            # 诊断：从服务器内测试 HTTP 重定向
-            curl -I --max-time 5 http://127.0.0.1:80/ -H "Host: erp.eggslao.com" 2>&1 | head -5 || echo "HTTP test failed"
+            # nginx 启动后的 error log（SSL context 错误会在这里出现）
+            echo "=== nginx error.log (last 20 lines) ==="
+            tail -20 /var/log/nginx/error.log 2>/dev/null || journalctl -u nginx --no-pager -n 20
+            # 诊断：从服务器内用 openssl 测试 SSL（SNI 正确）
+            echo "=== openssl s_client test (from server) ==="
+            echo | openssl s_client -connect 127.0.0.1:443 -servername erp.eggslao.com 2>&1 | grep -E "depth|verify|Cipher|Protocol|issuer|subject|date|error|CONNECTED|BEGIN" | head -20 || true
             # 诊断：从服务器内测试 HTTPS（跳过证书验证）
             curl -Ik --max-time 5 https://127.0.0.1:443/ -H "Host: erp.eggslao.com" 2>&1 | head -10 \
-              || { echo "❌ HTTPS via nginx FAILED — checking nginx error log:"; \
-                   tail -20 /var/log/nginx/error.log 2>/dev/null || journalctl -u nginx -n 20 --no-pager; \
-                   exit 1; }
+              || { echo "❌ HTTPS via nginx FAILED"; exit 1; }
 
             # ── 本地 smoke test（从服务器内部 curl，绕过外网防火墙）────────
             sleep 3
