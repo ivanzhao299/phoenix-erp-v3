@@ -11,6 +11,8 @@
   "lang": "zh-CN",
   "categories": ["business", "productivity"],
   "icons": [
-    { "src": "/favicon.ico", "sizes": "any", "type": "image/x-icon", "purpose": "any" }
+    { "src": "/favicon.ico",   "sizes": "any",         "type": "image/x-icon", "purpose": "any" },
+    { "src": "/icon-32.png",   "sizes": "32x32",       "type": "image/png",    "purpose": "any" },
+    { "src": "/icon-256.png",  "sizes": "256x256",     "type": "image/png",    "purpose": "any maskable" }
   ]
 }

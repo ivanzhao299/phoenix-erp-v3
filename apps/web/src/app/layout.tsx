@@ -15,6 +15,14 @@ export const metadata: Metadata = {
   description: "Phoenix ERP V3 — 鸡蛋供应链管理系统（老挝凤羽农业）",
   robots: { index: false, follow: false },
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon-32.png", type: "image/png", sizes: "32x32" },
+      { url: "/icon-256.png", type: "image/png", sizes: "256x256" },
+    ],
+    apple: { url: "/icon-256.png", sizes: "256x256", type: "image/png" },
+  },
 };
 
 export const viewport: Viewport = {
