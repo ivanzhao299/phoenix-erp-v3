@@ -39,10 +39,16 @@ RUN apk add --no-cache curl tini
 
 WORKDIR /app
 
-# standalone 产物 + 静态资源
+# outputFileTracingRoot 指向 monorepo 根后，standalone 结构为：
+#   standalone/
+#     node_modules/          ← monorepo 公共依赖
+#     apps/web/
+#       server.js            ← 入口
+#       .next/server/        ← 服务端 JS chunk
+#       node_modules/        ← web 专属依赖（若有）
 COPY --from=builder /workspace/apps/web/.next/standalone ./
-COPY --from=builder /workspace/apps/web/.next/static     ./.next/static
-COPY --from=builder /workspace/apps/web/public           ./public
+COPY --from=builder /workspace/apps/web/.next/static     ./apps/web/.next/static
+COPY --from=builder /workspace/apps/web/public           ./apps/web/public
 
 RUN addgroup -S phoenix && adduser -S phoenix -G phoenix \
     && chown -R phoenix:phoenix /app
@@ -59,4 +65,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD curl -fsS http://127.0.0.1:3000/ || exit 1
 
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["node", "server.js"]
+# server.js 在 apps/web/ 子目录（monorepo outputFileTracingRoot 约定）
+CMD ["node", "apps/web/server.js"]
