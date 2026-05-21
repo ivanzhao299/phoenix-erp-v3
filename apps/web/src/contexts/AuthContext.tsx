@@ -128,8 +128,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       idleTimer = setTimeout(() => {
         sessionStorage.removeItem('phoenix_token');
         sessionStorage.removeItem('phoenix_user');
-        const isMobile = window.location.pathname.startsWith('/mobile');
-        window.location.href = isMobile ? '/mobile/login?reason=idle' : '/login?reason=idle';
+        const path = window.location.pathname;
+        const isMobile = path.startsWith('/mobile');
+        const base = isMobile ? '/mobile/login' : '/login';
+        const returnParam = (!path.includes('/login') && path !== '/')
+          ? `&return=${encodeURIComponent(path)}`
+          : '';
+        window.location.href = `${base}?reason=idle${returnParam}`;
       }, IDLE_TIMEOUT);
     };
     const events = ['mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
@@ -177,9 +182,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onExpired = (e: Event) => {
-      if (window.location.pathname.includes('/login')) return;
+      const path = window.location.pathname;
+      if (path.includes('/login')) return;
       const detail = (e as CustomEvent<{ reason?: 'expired' | 'perms_changed' }>).detail;
-      logout(detail?.reason || 'expired');
+      const reason = detail?.reason || 'expired';
+      sessionStorage.removeItem('phoenix_token');
+      sessionStorage.removeItem('phoenix_user');
+      document.cookie = 'phoenix_access_token=; path=/; max-age=0; SameSite=Lax';
+      const isMobile = path.startsWith('/mobile');
+      const base = isMobile ? '/mobile/login' : '/login';
+      const returnParam = path !== '/' ? `&return=${encodeURIComponent(path)}` : '';
+      window.location.href = `${base}?reason=${reason}${returnParam}`;
     };
     window.addEventListener('api:auth-expired', onExpired);
     return () => window.removeEventListener('api:auth-expired', onExpired);

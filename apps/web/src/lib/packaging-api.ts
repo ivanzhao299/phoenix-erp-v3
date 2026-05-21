@@ -36,14 +36,17 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     // 只有 JWT 真正过期才跳登录；权限不足（如管理员访问仅限操作员的 endpoint）
     // 应继续停留在当前页面，让调用方展示友好错误，不能误把权限 401 当成过期登出。
     if (typeof window !== 'undefined' && tok()) {
+      const returnParam = window.location.pathname && !window.location.pathname.includes('/login')
+        ? `&return=${encodeURIComponent(window.location.pathname)}`
+        : '';
       try {
         const parts = tok().split('.');
         const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
         if (payload.exp && payload.exp * 1000 < Date.now()) {
-          window.location.href = '/login?reason=expired';
+          window.location.href = `/login?reason=expired${returnParam}`;
         }
       } catch {
-        window.location.href = '/login?reason=expired';
+        window.location.href = `/login?reason=expired${returnParam}`;
       }
     }
     throw new Error('Token expired or unauthorized');
