@@ -371,8 +371,16 @@ jobs:
               || { echo "❌ HTTPS via nginx FAILED"; exit 1; }
 
             # ── 端口监听确认 ──────────────────────────────────────────────
-            echo "=== listening on :80 and :443 ==="
-            ss -tlnp 'sport = :80 or sport = :443' 2>/dev/null || netstat -tlnp 2>/dev/null | grep -E ':80 |:443 '
+            echo "=== all listening sockets ==="
+            ss -tlnp 2>/dev/null | grep -E ':80 |:443 |Recv-Q' || netstat -tlnp 2>/dev/null | grep -E ':80 |:443 '
+            echo "=== docker containers & ports ==="
+            docker ps --format '{{.Names}}: {{.Ports}}' 2>/dev/null || true
+            echo "=== ufw status ==="
+            ufw status verbose 2>/dev/null || true
+            echo "=== iptables INPUT rules ==="
+            iptables -L INPUT -n 2>/dev/null | head -25 || true
+            echo "=== cnjinhu-default.conf (if exists) ==="
+            cat /etc/nginx/conf.d/cnjinhu-default.conf 2>/dev/null || echo "(not found)"
 
             # ── 本地 smoke test（从服务器内部 curl，绕过外网防火墙）────────
             sleep 3
