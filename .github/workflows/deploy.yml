@@ -82,6 +82,16 @@ jobs:
         working-directory: apps/api
         run: pnpm build
 
+      - name: Run DDL migrations
+        working-directory: apps/api
+        run: |
+          for f in $(ls ddl/*.sql | sort); do
+            echo "Applying $f..."
+            PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f "$f" 2>&1 \
+              | grep -v "^NOTICE\|already exists\|will create" || true
+          done
+          echo "✅ DDL migrations applied"
+
       - name: Start API
         working-directory: apps/api
         env:
