@@ -54,6 +54,33 @@ export class AuthService {
    */
   async login(username: string, password: string, ip?: string) {
     try {
+    // DEV-ONLY 快捷通道：在 DB 查询之前短路，不依赖 admin 是否在 sys_user 中
+    //   条件：NODE_ENV !== 'production' && ENABLE_DEV_LOGIN=true && admin/admin123
+    const devLoginEnabled =
+      process.env.NODE_ENV !== 'production' &&
+      process.env.ENABLE_DEV_LOGIN === 'true';
+    if (devLoginEnabled && username === 'admin' && password === 'admin123') {
+      this.logger.warn('[DEV] admin quick-login used — disable ENABLE_DEV_LOGIN in staging/prod');
+      const payload = {
+        userId: 'dev-admin-00000000-0000-0000-0000-000000000000',
+        username: 'admin',
+        realNameZh: '超级管理员',
+        realNameLo: '',
+        role: 'ROLE_ADMIN',
+        roleNameZh: '集团超级管理员',
+        roleNameLo: '',
+        storeCode: 'ALL',
+        permissions: ['*'] as string[],
+        roles: ['ROLE_ADMIN'],
+        store_code: 'ALL',
+        locale: 'zh-CN',
+        sub: 'dev-admin-00000000-0000-0000-0000-000000000000',
+        perms_version: 1,
+      };
+      const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+      return { code: 200, token, user_info: payload };
+    }
+
     // 查用户 + 角色信息（关联 sys_user_role 和 sys_role）
     // V3 架构中角色是多对多，所以使用 array_agg 或 json_agg 聚合角色
     const result = await this.userRepo.query(
@@ -81,17 +108,7 @@ export class AuthService {
     // ── 密码验证 ──────────────────────────────────────────────────────────────
     let isPasswordValid = false;
 
-    // DEV-ONLY 快捷通道：必须同时满足三个条件才生效，防止生产误启
-    //   1. NODE_ENV 不是 production
-    //   2. 显式设置 ENABLE_DEV_LOGIN=true 环境变量
-    //   3. 用户名 = admin，密码 = admin123
-    const devLoginEnabled =
-      process.env.NODE_ENV !== 'production' &&
-      process.env.ENABLE_DEV_LOGIN === 'true';
-    if (devLoginEnabled && username === 'admin' && password === 'admin123') {
-      this.logger.warn('[DEV] admin quick-login used — disable ENABLE_DEV_LOGIN in staging/prod');
-      isPasswordValid = true;
-    } else if (user.password_hash) {
+    if (user.password_hash) {
       // bcrypt 验证（所有 V3 用户密码以 bcrypt $2b$ 格式存储）
       try {
         const bcrypt = await import('bcrypt');

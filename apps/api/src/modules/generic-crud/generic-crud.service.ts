@@ -1942,7 +1942,7 @@ export class GenericCrudService implements OnModuleInit {
 
       // T1-2: 注册现场角色（幂等）
       const terminalRoles = [
-        { code: 'ROLE_PKG_OPERATOR',    nameZh: '包装操作员',  nameEn: 'Packaging Operator'  },
+        { code: 'ROLE_PKG_OP',          nameZh: '包装操作员',  nameEn: 'Packaging Operator'  },
         { code: 'ROLE_QC_INSPECTOR',    nameZh: '质检员',      nameEn: 'QC Inspector'         },
         { code: 'ROLE_WH_CLERK',        nameZh: '仓管员',      nameEn: 'Warehouse Clerk'      },
         { code: 'ROLE_LINE_SUPERVISOR', nameZh: '班组长',      nameEn: 'Line Supervisor'      },
