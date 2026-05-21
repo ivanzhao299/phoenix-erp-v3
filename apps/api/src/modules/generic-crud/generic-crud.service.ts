@@ -991,6 +991,46 @@ export class GenericCrudService implements OnModuleInit {
         `ALTER TABLE prc_purchase_items   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
         `ALTER TABLE prc_purchase_requests ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
         `ALTER TABLE prc_returns          ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+
+        // ── 主数据（mst_*）：新装库无 V2 数据时须幂等建表 ───────────────
+        `CREATE TABLE IF NOT EXISTS mst_stores (
+           id          SERIAL PRIMARY KEY,
+           store_code  VARCHAR(50) UNIQUE,
+           store_name  VARCHAR(100),
+           address     TEXT,
+           phone       VARCHAR(30),
+           status      VARCHAR(20) DEFAULT 'ACTIVE',
+           created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE mst_stores ADD COLUMN IF NOT EXISTS address    TEXT`,
+        `ALTER TABLE mst_stores ADD COLUMN IF NOT EXISTS phone      VARCHAR(30)`,
+        `ALTER TABLE mst_stores ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+
+        `CREATE TABLE IF NOT EXISTS mst_products (
+           id                  SERIAL PRIMARY KEY,
+           product_code        VARCHAR(50) UNIQUE,
+           product_name        VARCHAR(100),
+           product_name_zh     VARCHAR(100),
+           product_name_lo     VARCHAR(100),
+           unit_zh             VARCHAR(20),
+           unit_lo             VARCHAR(20),
+           shelf_life_days     INT DEFAULT 0,
+           price_retail        DECIMAL(10,4) DEFAULT 0,
+           price_wholesale     DECIMAL(10,4) DEFAULT 0,
+           status              VARCHAR(20) DEFAULT 'ACTIVE',
+           created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS product_name     VARCHAR(100)`,
+        `ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS product_name_zh  VARCHAR(100)`,
+        `ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS product_name_lo  VARCHAR(100)`,
+        `ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS unit_zh          VARCHAR(20)`,
+        `ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS unit_lo          VARCHAR(20)`,
+        `ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS shelf_life_days  INT DEFAULT 0`,
+        `ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS price_retail     DECIMAL(10,4) DEFAULT 0`,
+        `ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS price_wholesale  DECIMAL(10,4) DEFAULT 0`,
+        `ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS updated_at       TIMESTAMP`,
       ];
 
       for (const sql of businessTables) {
