@@ -1297,6 +1297,7 @@ export class GenericCrudService implements OnModuleInit {
         if (bcrypt) {
           const hash = await bcrypt.hash('123456', 10);
           const testUsers = [
+            { username: 'admin',        realName: '超级管理员',     roleCode: 'ROLE_ADMIN'           },
             { username: 'test_pkg_op',  realName: '测试包装操作员', roleCode: 'ROLE_PKG_OPERATOR'    },
             { username: 'test_qc',      realName: '测试质检员',     roleCode: 'ROLE_QC_INSPECTOR'    },
             { username: 'test_wh_clk',  realName: '测试仓管员',     roleCode: 'ROLE_WH_CLERK'        },
