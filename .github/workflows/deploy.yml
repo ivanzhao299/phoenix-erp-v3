@@ -54,6 +54,11 @@ jobs:
       JWT_SECRET_PREV: ""
       NODE_ENV: test
       ENABLE_DEV_LOGIN: "true"
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: phoenix_v3
+      PGPASSWORD: phoenix_v3_pass
+      PGDATABASE: phoenix_erp
 
     steps:
       - uses: actions/checkout@v4
