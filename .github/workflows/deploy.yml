@@ -264,6 +264,10 @@ jobs:
             set -e
             cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
 
+            # ── 同步代码（DDL 迁移文件等）────────────────────────────────
+            git pull --ff-only origin main
+            echo "✅ Code synced"
+
             # ── 拉取镜像 ────────────────────────────────────────────────
             echo "${{ secrets.GITHUB_TOKEN }}" | \
               docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
