@@ -725,11 +725,15 @@ export class GenericCrudService implements OnModuleInit {
            phone         VARCHAR(30),
            region        VARCHAR(100),
            credit_limit  DECIMAL(12,2) DEFAULT 0,
+           credit_used   DECIMAL(12,2) DEFAULT 0,
+           tier          VARCHAR(20),
            status        VARCHAR(20) DEFAULT 'ACTIVE',
            created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
            updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
          )`,
-        `ALTER TABLE ord_customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+        `ALTER TABLE ord_customers ADD COLUMN IF NOT EXISTS credit_used DECIMAL(12,2) DEFAULT 0`,
+        `ALTER TABLE ord_customers ADD COLUMN IF NOT EXISTS tier        VARCHAR(20)`,
+        `ALTER TABLE ord_customers ADD COLUMN IF NOT EXISTS updated_at  TIMESTAMP`,
 
         `CREATE TABLE IF NOT EXISTS ord_prices (
            id            SERIAL PRIMARY KEY,
@@ -1214,15 +1218,21 @@ export class GenericCrudService implements OnModuleInit {
         `CREATE TABLE IF NOT EXISTS wms_stocktake (
            id             SERIAL PRIMARY KEY,
            stocktake_no   VARCHAR(64) UNIQUE,
+           warehouse_code VARCHAR(64),
+           item           VARCHAR(256),
+           sys_qty        INT DEFAULT 0,
+           act_qty        INT DEFAULT 0,
+           diff_qty       INT DEFAULT 0,
            status         VARCHAR(32) DEFAULT 'PENDING',
            auditor        VARCHAR(128),
            date           VARCHAR(32),
-           act_qty        INT DEFAULT 0,
-           diff_qty       INT DEFAULT 0,
            created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
            updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
          )`,
-        `ALTER TABLE wms_stocktake ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+        `ALTER TABLE wms_stocktake ADD COLUMN IF NOT EXISTS warehouse_code VARCHAR(64)`,
+        `ALTER TABLE wms_stocktake ADD COLUMN IF NOT EXISTS item           VARCHAR(256)`,
+        `ALTER TABLE wms_stocktake ADD COLUMN IF NOT EXISTS sys_qty        INT DEFAULT 0`,
+        `ALTER TABLE wms_stocktake ADD COLUMN IF NOT EXISTS updated_at     TIMESTAMP`,
 
         `CREATE TABLE IF NOT EXISTS wms_suppliers (
            id             SERIAL PRIMARY KEY,
@@ -1314,11 +1324,13 @@ export class GenericCrudService implements OnModuleInit {
            id            SERIAL PRIMARY KEY,
            account_code  VARCHAR(64) UNIQUE,
            account_name  VARCHAR(256),
+           currency      VARCHAR(8) DEFAULT 'CNY',
            balance       DECIMAL(18,2) DEFAULT 0,
            status        VARCHAR(32) DEFAULT 'ACTIVE',
            created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
            updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
          )`,
+        `ALTER TABLE fin_accounts ADD COLUMN IF NOT EXISTS currency   VARCHAR(8) DEFAULT 'CNY'`,
         `ALTER TABLE fin_accounts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
 
         `CREATE TABLE IF NOT EXISTS fin_transactions (
@@ -1370,14 +1382,20 @@ export class GenericCrudService implements OnModuleInit {
 
         `CREATE TABLE IF NOT EXISTS fin_approvals (
            id            SERIAL PRIMARY KEY,
+           txn_id        VARCHAR(64),
            doc_type      VARCHAR(64),
            doc_id        BIGINT,
+           role          VARCHAR(64),
+           approver      VARCHAR(128),
            approver_id   BIGINT,
            approver_role VARCHAR(64),
            action        VARCHAR(32),
            comment       TEXT,
            created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
          )`,
+        `ALTER TABLE fin_approvals ADD COLUMN IF NOT EXISTS txn_id   VARCHAR(64)`,
+        `ALTER TABLE fin_approvals ADD COLUMN IF NOT EXISTS role     VARCHAR(64)`,
+        `ALTER TABLE fin_approvals ADD COLUMN IF NOT EXISTS approver VARCHAR(128)`,
 
         // ── POS 销售 ──────────────────────────────────────────────────────
         `CREATE TABLE IF NOT EXISTS pos_sales (
@@ -1516,10 +1534,12 @@ export class GenericCrudService implements OnModuleInit {
            start_time        TIMESTAMP,
            graded_at         TIMESTAMP,
            graded_by         BIGINT,
+           remainder_qty     INT DEFAULT 0,
            created_by        BIGINT,
            created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
            updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
          )`,
+        `ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS remainder_qty      INT DEFAULT 0`,
         `ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS breakage_qty       INT DEFAULT 0`,
         `ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS breakage_rate      NUMERIC(8,4) DEFAULT 0`,
         `ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS discrepancy_qty    INT DEFAULT 0`,
@@ -1559,6 +1579,40 @@ export class GenericCrudService implements OnModuleInit {
         `ALTER TABLE pda_terminals ADD COLUMN IF NOT EXISTS notes           TEXT`,
         `ALTER TABLE pda_terminals ADD COLUMN IF NOT EXISTS app_version     VARCHAR(32)`,
         `ALTER TABLE pda_terminals ADD COLUMN IF NOT EXISTS last_seen       TIMESTAMP`,
+
+        // ── PDA 同步日志 ──────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS pda_sync_log (
+           id         SERIAL PRIMARY KEY,
+           op_id      VARCHAR(64) UNIQUE,
+           pda_id     VARCHAR(64),
+           task_no    VARCHAR(64),
+           payload    JSONB,
+           status     VARCHAR(20) DEFAULT 'PROCESSED',
+           error_msg  TEXT,
+           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+
+        // ── 价格体系 ──────────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS prc_price_books (
+           id             SERIAL PRIMARY KEY,
+           price_book_id  VARCHAR(64) UNIQUE,
+           name           VARCHAR(256),
+           status         VARCHAR(32) DEFAULT 'ACTIVE',
+           created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `CREATE TABLE IF NOT EXISTS prc_price_items (
+           id             SERIAL PRIMARY KEY,
+           item_id        VARCHAR(64) UNIQUE,
+           price_book_id  VARCHAR(64),
+           sku_code       VARCHAR(64),
+           retail_lower   DECIMAL(12,4) DEFAULT 0,
+           retail_upper   DECIMAL(12,4) DEFAULT 0,
+           created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         )`,
+        `ALTER TABLE prc_price_items ADD COLUMN IF NOT EXISTS retail_lower DECIMAL(12,4) DEFAULT 0`,
+        `ALTER TABLE prc_price_items ADD COLUMN IF NOT EXISTS retail_upper DECIMAL(12,4) DEFAULT 0`,
       ];
 
       for (const sql of businessTables) {
