@@ -20,14 +20,13 @@ RUN pnpm install --frozen-lockfile --filter web...
 # 复制源码
 COPY apps/web ./apps/web
 
-WORKDIR /workspace/apps/web
-
 # API_TARGET 在 build 时嵌入 rewrites；Docker Compose 里 api 服务名固定为 api
 ARG API_TARGET=http://api:3100
 ENV API_TARGET=${API_TARGET}
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN pnpm build
+WORKDIR /workspace
+RUN pnpm --filter web build
 
 # ─── Stage 2: runtime ──────────────────────────────────────────
 FROM node:20-alpine AS runtime
