@@ -62,7 +62,7 @@ export class AuthService {
     if (devLoginEnabled && username === 'admin' && password === 'admin123') {
       this.logger.warn('[DEV] admin quick-login used — disable ENABLE_DEV_LOGIN in staging/prod');
       const payload = {
-        userId: 'dev-admin-00000000-0000-0000-0000-000000000000',
+        userId: 999999999,
         username: 'admin',
         realNameZh: '超级管理员',
         realNameLo: '',
@@ -74,7 +74,7 @@ export class AuthService {
         roles: ['ROLE_ADMIN'],
         store_code: 'ALL',
         locale: 'zh-CN',
-        sub: 'dev-admin-00000000-0000-0000-0000-000000000000',
+        sub: 999999999,
         perms_version: 1,
       };
       const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
