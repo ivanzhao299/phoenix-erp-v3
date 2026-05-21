@@ -28,7 +28,7 @@ const PUBLIC_PREFIXES = [
   '/manifest',
 ];
 
-/** 需要登录才能访问的路由前缀（admin + terminal） */
+/** 需要登录才能访问的路由前缀（admin + terminal + mobile） */
 const GUARDED_PREFIXES = [
   '/dashboard',
   '/breeding',
@@ -50,6 +50,7 @@ const GUARDED_PREFIXES = [
   '/approval',
   '/farm',
   '/terminal',
+  '/mobile',
 ];
 
 /** 超级管理员专属路由（需要 ROLE_ADMIN 或 ROLE_SYSOPS） */
@@ -105,9 +106,11 @@ export function middleware(request: NextRequest) {
   // ── 从 cookie 读取 Token ─────────────────────────────────────────
   const token = request.cookies.get(TOKEN_COOKIE)?.value;
 
+  const loginBase = pathname.startsWith('/mobile') ? '/mobile/login' : '/login';
+
   if (!token) {
     // 无 Token → 重定向到登录页，附带 returnUrl
-    const loginUrl = new URL('/login', request.url);
+    const loginUrl = new URL(loginBase, request.url);
     loginUrl.searchParams.set('return', pathname);
     return NextResponse.redirect(loginUrl);
   }
@@ -116,7 +119,7 @@ export function middleware(request: NextRequest) {
   const payload = parseJwtPayload(token);
 
   if (!payload) {
-    const loginUrl = new URL('/login', request.url);
+    const loginUrl = new URL(loginBase, request.url);
     loginUrl.searchParams.set('return', pathname);
     loginUrl.searchParams.set('reason', 'expired');
     return NextResponse.redirect(loginUrl);
@@ -125,7 +128,7 @@ export function middleware(request: NextRequest) {
   // 5. Token 过期检查（含 10s 时钟偏差宽容）
   const now = Math.floor(Date.now() / 1000);
   if (payload.exp && payload.exp + 10 < now) {
-    const loginUrl = new URL('/login', request.url);
+    const loginUrl = new URL(loginBase, request.url);
     loginUrl.searchParams.set('return', pathname);
     loginUrl.searchParams.set('reason', 'expired');
     return NextResponse.redirect(loginUrl);
