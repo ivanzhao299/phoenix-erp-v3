@@ -355,4 +355,19 @@ export const mobileApi = {
   /** 母鸡存栏日报（按日期） */
   getDailyHenReport: (date: string) =>
     get<DailyHenReport>(`/api/v3/farm/daily-hen-report?date=${date}`),
+
+  /** 提交/更新养殖日报（产蛋录入） */
+  submitDailyLog: (payload: {
+    house_code:    string;
+    flock_no?:     string;
+    log_date:      string;
+    shift:         string;
+    eggs_produced: number;
+    bad_eggs?:     number;
+    dirty_eggs?:   number;
+    broken_eggs?:  number;
+    temp?:         number | null;
+    humidity?:     number | null;
+    operator?:     string;
+  }) => post<{ code: number; msg: string }>('/api/v3/farm/daily-logs', payload),
 };

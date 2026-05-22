@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   BarChart2, Package, ShieldCheck, Warehouse,
-  Truck, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird,
+  Truck, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird, Egg,
 } from 'lucide-react';
 
 type NavCard = {
@@ -81,6 +81,14 @@ const NAV_CARDS: NavCard[] = [
     desc: '母鸡存栏·产蛋率·死淘',
     color: '#22d3ee',
     href: '/mobile/henreport',
+    soon: false,
+  },
+  {
+    icon: <Egg size={28} />,
+    titleZh: '产蛋录入', titleEn: 'Egg Entry', titleLo: 'ບັນທຶກໄຂ່',
+    desc: '各栋产蛋数量·班次录入',
+    color: '#f59e0b',
+    href: '/mobile/egglog',
     soon: false,
   },
 ];
