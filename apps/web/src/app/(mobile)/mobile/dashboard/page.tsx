@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, RefreshCw, ArrowLeft } from 'lucide-react';
-import { mobileApi, KpiData, PackagingDailyReport, QcInspection, FarmLog } from '@/lib/mobile-api';
+import { mobileApi, KpiData, PackagingDailyReport, QcInspection, FarmLog, PackagingTrendItem, DeviceAlert } from '@/lib/mobile-api';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
@@ -36,6 +36,52 @@ const GRADE_COLORS: Record<string, string> = {
   AAA: '#f59e0b', AA: '#3b82f6', A: '#10b981',
   B: '#f97316', C: '#8b5cf6',
 };
+
+const ALERT_LABELS: Record<string, string> = {
+  TEMP_HIGH: '温度过高', TEMP_LOW: '温度过低',
+  HUMIDITY_HIGH: '湿度过高', HUMIDITY_LOW: '湿度过低',
+  CO2_HIGH: 'CO₂浓度高', OFFLINE: '设备离线',
+  POWER_FAILURE: '电源故障', SENSOR_ERROR: '传感器异常',
+  OVER_HIGH: '数值超上限', OVER_LOW: '数值超下限',
+  AMMONIA_HIGH: '氨气浓度高', FAN_FAULT: '风机故障',
+  WATER_LEAK: '漏水告警', FEED_LOW: '饲料不足',
+};
+
+// ── 迷你柱状图 ────────────────────────────────────────────────────────────────
+
+function MiniBarChart({ data, selectedDate }: { data: PackagingTrendItem[]; selectedDate: string }) {
+  if (!data.length) return null;
+  const maxVal = Math.max(...data.map(d => d.summary.total_packed), 1);
+  return (
+    <div>
+      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 6 }}>近 7 日包装箱数</div>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 52 }}>
+        {data.map(day => {
+          const pct = Math.max((day.summary.total_packed / maxVal) * 100, day.summary.total_packed > 0 ? 8 : 2);
+          const isSelected = day.date === selectedDate;
+          const isToday = day.date === fmtDate(new Date());
+          return (
+            <div key={day.date} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end', position: 'relative' }}>
+                <div style={{
+                  width: '100%',
+                  height: `${pct}%`,
+                  background: isSelected ? '#f59e0b' : isToday ? 'rgba(245,158,11,0.5)' : 'rgba(245,158,11,0.25)',
+                  borderRadius: '3px 3px 0 0',
+                  transition: 'height 0.3s',
+                  minHeight: 2,
+                }} />
+              </div>
+              <div style={{ fontSize: 9, color: isSelected ? '#f59e0b' : 'rgba(255,255,255,0.25)', fontWeight: isSelected ? 700 : 400 }}>
+                {day.date.slice(8)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // ── 子组件 ───────────────────────────────────────────────────────────────────
 
@@ -94,6 +140,9 @@ export default function MobileDashboardPage() {
   const [pkg, setPkg]           = useState<PackagingDailyReport | null>(null);
   const [qc, setQc]             = useState<QcInspection[] | null>(null);
   const [farm, setFarm]         = useState<FarmLog[] | null>(null);
+  const [trend, setTrend]       = useState<PackagingTrendItem[]>([]);
+  const [alerts, setAlerts]     = useState<DeviceAlert[]>([]);
+  const [alertsExpanded, setAlertsExpanded] = useState(false);
 
   const [kpiLoading, setKpiLoading]   = useState(true);
   const [pkgLoading, setPkgLoading]   = useState(true);
@@ -106,6 +155,16 @@ export default function MobileDashboardPage() {
   const [farmErr, setFarmErr] = useState('');
 
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // 趋势图和告警只在初次加载/刷新时更新（不随日期切换重复请求）
+  useEffect(() => {
+    mobileApi.getPackagingTrend(today, 7)
+      .then(data => { const arr = Array.isArray(data) ? data : (data as any)?.data ?? []; setTrend(arr); })
+      .catch(() => {/* 趋势图可选，失败静默 */});
+    mobileApi.getOpenAlerts()
+      .then(data => { const arr = Array.isArray(data) ? data : []; setAlerts(arr); })
+      .catch(() => {/* 告警可选，失败静默 */});
+  }, [refreshKey, today]);
 
   const fetchAll = useCallback(async (d: string) => {
     // 四个请求并发，互不影响
@@ -125,7 +184,6 @@ export default function MobileDashboardPage() {
     // 3. 质检记录
     mobileApi.getQcInspections(d)
       .then(data => {
-        // CRUD 端点可能包在 {data: [...]} 里
         const arr = Array.isArray(data) ? data : (data as any)?.data ?? [];
         setQc(arr);
         setQcLoading(false);
@@ -269,7 +327,7 @@ export default function MobileDashboardPage() {
             />
           </div>
           {byGrade.length > 0 && (
-            <div>
+            <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 6 }}>按等级分布</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {byGrade.map(g => (
@@ -287,7 +345,9 @@ export default function MobileDashboardPage() {
               </div>
             </div>
           )}
-          {byGrade.length === 0 && !pkgLoading && (
+          {/* 7 日趋势迷你柱状图 */}
+          {trend.length > 0 && <MiniBarChart data={trend} selectedDate={date} />}
+          {byGrade.length === 0 && !pkgLoading && trend.length === 0 && (
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', textAlign: 'center', padding: '8px 0' }}>
               当日暂无包装记录
             </div>
@@ -300,7 +360,7 @@ export default function MobileDashboardPage() {
             <StatCard label="今日检测" value={fmt(qcTotal)} unit="次" />
             <StatCard
               label="合格率"
-              value={qcRate != null ? `${qcRate}%` : qcTotal === 0 ? '—' : '—'}
+              value={qcRate != null ? `${qcRate}%` : '—'}
               color={qcRate != null ? (qcRate >= 95 ? '#10b981' : qcRate >= 80 ? '#f59e0b' : '#ef4444') : undefined}
             />
             <StatCard
@@ -327,23 +387,84 @@ export default function MobileDashboardPage() {
               color="#3b82f6"
             />
             <StatCard
-              label="告警"
-              value={String(kpi?.stats?.alerts?.value || 0)}
+              label="今日告警"
+              value={String(alerts.length || kpi?.stats?.alerts?.value || 0)}
               unit="条"
-              color={(Number(kpi?.stats?.alerts?.value) || 0) > 0 ? '#ef4444' : undefined}
+              color={alerts.length > 0 ? '#ef4444' : undefined}
             />
           </div>
-          {isToday && (
-            <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>
-              仅显示今日 POS 销售数据
-            </div>
-          )}
-          {!isToday && (
-            <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>
-              历史销售数据暂不支持按日查询
-            </div>
-          )}
+          <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>
+            {isToday ? '今日 POS 销售数据' : '历史销售数据暂不支持按日查询'}
+          </div>
         </Section>
+
+        {/* ── 设备告警列表 ── */}
+        {alerts.length > 0 && (
+          <div style={{
+            background: 'rgba(239,68,68,0.06)',
+            border: '1px solid rgba(239,68,68,0.2)',
+            borderRadius: 16, padding: '14px 16px',
+            marginBottom: 12,
+          }}>
+            <button
+              onClick={() => setAlertsExpanded(v => !v)}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 18 }}>⚠️</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#f87171' }}>
+                  设备告警
+                </span>
+                <span style={{
+                  fontSize: 11, padding: '2px 7px', borderRadius: 10,
+                  background: 'rgba(239,68,68,0.2)', color: '#f87171', fontWeight: 700,
+                }}>
+                  {alerts.length} 条未处理
+                </span>
+              </div>
+              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                {alertsExpanded ? '收起' : '展开'}
+              </span>
+            </button>
+
+            {alertsExpanded && (
+              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {alerts.slice(0, 15).map(a => (
+                  <div key={a.id} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '10px 12px',
+                    background: 'rgba(255,255,255,0.04)',
+                    borderRadius: 10,
+                    borderLeft: '3px solid #ef4444',
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#f87171' }}>
+                        {ALERT_LABELS[a.alert_type] || a.alert_type}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+                        {a.erp_house_code} · {new Date(a.created_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                    {a.value != null && (
+                      <div style={{ fontSize: 12, color: '#f87171', fontWeight: 700, textAlign: 'right' }}>
+                        {String(a.value)}
+                        {a.threshold != null && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 400 }}>阈值 {String(a.threshold)}</div>}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {alerts.length > 15 && (
+                  <div style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>
+                    共 {alerts.length} 条，仅显示最新 15 条
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -69,6 +69,22 @@ export interface FarmLog {
   broken_eggs?:  number | string;
 }
 
+export interface PackagingTrendItem {
+  date: string;
+  summary: { total_tasks: number; total_packed: number; total_plan: number };
+}
+
+export interface DeviceAlert {
+  id:              number;
+  erp_house_code:  string;
+  alert_type:      string;
+  status:          'OPEN' | 'CONFIRMED' | 'CLOSED';
+  message?:        string;
+  value?:          number | string;
+  threshold?:      number | string;
+  created_at:      string;
+}
+
 // ── API 方法 ──────────────────────────────────────────────────────────────────
 
 export const mobileApi = {
@@ -79,6 +95,10 @@ export const mobileApi = {
   getPackagingReport: (date: string) =>
     get<PackagingDailyReport>(`/api/packaging/daily-report?date=${date}`),
 
+  /** 包装 N 日趋势（用于迷你柱状图，一次调用替代多次 daily-report） */
+  getPackagingTrend: (endDate: string, days = 7) =>
+    get<PackagingTrendItem[]>(`/api/packaging/daily-report-range?end_date=${endDate}&days=${days}`),
+
   /** 质检记录（按日期，支持跨权限查询） */
   getQcInspections: (date: string) =>
     get<QcInspection[]>(`/api/quality/inspections?start_date=${date}&end_date=${date}&limit=200`),
@@ -86,4 +106,8 @@ export const mobileApi = {
   /** 养殖日报（仅 ROLE_FARM_MGR/ROLE_ADMIN 可访问；其他角色返回 403 则降级） */
   getFarmLogs: (date: string) =>
     get<{ data: FarmLog[]; total: number }>(`/api/crud/brd_daily_logs?log_date=${date}&limit=200`),
+
+  /** 未处理告警列表（IoT 设备告警，管理员/农场经理可访问） */
+  getOpenAlerts: () =>
+    get<DeviceAlert[]>('/api/farm-device/alerts?status=OPEN'),
 };
