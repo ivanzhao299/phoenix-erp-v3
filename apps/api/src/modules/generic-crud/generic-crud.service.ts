@@ -59,6 +59,9 @@ export class GenericCrudService implements OnModuleInit {
         'biz_cash_flow', 'cst_credit_warnings',
         // 包装模块
         'pkg_shifts', 'pkg_tasks',
+        // 物流模块
+        'log_dispatch', 'log_receipts', 'log_routes', 'log_exceptions',
+        'log_vehicles', 'log_drivers',
       ];
       for (const tbl of legacyTables) {
         const seq = `${tbl}_id_seq`;

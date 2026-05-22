@@ -7,7 +7,7 @@ import { canAccess } from '@/lib/mobile-roles';
 import {
   BarChart2, Package, ShieldCheck, Warehouse,
   Truck, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird, Egg,
-  Sun, Moon, LineChart,
+  Sun, Moon, LineChart, PackageCheck,
 } from 'lucide-react';
 
 type NavCard = {
@@ -115,6 +115,15 @@ const NAV_CARDS: NavCard[] = [
     href: '/mobile/analytics',
     soon: false,
     pageKey: 'analytics',
+  },
+  {
+    icon: <PackageCheck size={28} />,
+    titleZh: '配送签收', titleEn: 'Delivery', titleLo: 'ການຈັດສົ່ງ',
+    desc: '查看配送波次 · 录入签收记录',
+    color: '#0891b2',
+    href: '/mobile/delivery',
+    soon: false,
+    pageKey: 'delivery',
   },
 ];
 

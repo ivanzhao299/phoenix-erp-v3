@@ -104,8 +104,8 @@ export const TABLE_PERM_MAP: Record<string, string[]> = {
   // 物流调度
   log_vehicles: ['ROLE_ADMIN', 'ROLE_LOGISTICS_MGR'],
   log_drivers:  ['ROLE_ADMIN', 'ROLE_LOGISTICS_MGR'],
-  log_dispatch: ['ROLE_ADMIN', 'ROLE_LOGISTICS_MGR', 'ROLE_DRIVER'],
-  log_routes:   ['ROLE_ADMIN', 'ROLE_LOGISTICS_MGR'],
+  log_dispatch: ['ROLE_ADMIN', 'ROLE_LOGISTICS_MGR', 'ROLE_DRIVER', 'ROLE_LOG_MGR'],
+  log_routes:   ['ROLE_ADMIN', 'ROLE_LOGISTICS_MGR', 'ROLE_LOG_MGR'],
 
   // 核心财务现金流 (V3)
   biz_cash_flow:      ['ROLE_ADMIN', 'ROLE_FIN_CFO', 'ROLE_FIN_ACCT', 'ROLE_FIN_AR', 'ROLE_CEO'],
@@ -151,8 +151,8 @@ export const TABLE_PERM_MAP: Record<string, string[]> = {
   prc_supplier_returns:  ['ROLE_ADMIN', 'ROLE_PRC_BUYER'],
 
   // 物流补全
-  log_receipts:    ['ROLE_ADMIN', 'ROLE_LOGISTICS_MGR'],
-  log_exceptions:  ['ROLE_ADMIN', 'ROLE_LOGISTICS_MGR'],
+  log_receipts:    ['ROLE_ADMIN', 'ROLE_LOGISTICS_MGR', 'ROLE_LOG_MGR'],
+  log_exceptions:  ['ROLE_ADMIN', 'ROLE_LOGISTICS_MGR', 'ROLE_LOG_MGR'],
 
   // 质量
   qa_standards:           ['ROLE_ADMIN', 'ROLE_QA_MGR', 'ROLE_QC_INSPECTOR'],
