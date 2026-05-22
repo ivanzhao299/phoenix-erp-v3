@@ -21,6 +21,7 @@ const ALLOWED_DAILY_COLS = new Set([
   'mortality_qty', 'eggs_produced', 'bad_eggs', 'temp', 'humidity',
   'note', 'operator', 'farm_code', 'house_code', 'egg_count',
   'updated_at', 'farm_name', 'dirty_eggs', 'broken_eggs',
+  'elimination_qty', 'culling_reason',
 ]);
 
 @Injectable()
@@ -222,5 +223,81 @@ export class FarmService {
 
       return { code: 200, msg: '日报更新成功' };
     });
+  }
+
+  async getDailyHenReport(date: string) {
+    const flocks = await this.entityManager.query(
+      `SELECT flock_no, house_code, current_qty, initial_qty, placement_date, current_lay_rate
+       FROM brd_flocks WHERE status IN ('LAYING','ACTIVE','laying','active') ORDER BY house_code`,
+    );
+
+    const logs = await this.entityManager.query(
+      `SELECT
+         COALESCE(house_code, flock_no) AS house_code,
+         flock_no,
+         SUM(eggs_produced)::int           AS eggs,
+         SUM(mortality_qty)::int           AS mortality,
+         SUM(COALESCE(elimination_qty,0))::int AS elimination,
+         SUM(feed_consumed)::numeric(12,2) AS feed,
+         string_agg(DISTINCT culling_reason, '；')
+           FILTER (WHERE culling_reason IS NOT NULL AND culling_reason <> '') AS culling_reason
+       FROM brd_daily_logs
+       WHERE log_date = $1
+       GROUP BY COALESCE(house_code, flock_no), flock_no`,
+      [date],
+    );
+
+    const logMap = new Map<string, (typeof logs)[0]>();
+    for (const l of logs) {
+      logMap.set(l.house_code, l);
+      if (l.flock_no && l.flock_no !== l.house_code) logMap.set(l.flock_no, l);
+    }
+
+    const today = new Date(date);
+    const rows = flocks.map((f: any) => {
+      const log = logMap.get(f.house_code) ?? logMap.get(f.flock_no) ?? null;
+      const eggs = Number(log?.eggs ?? 0);
+      const mortality = Number(log?.mortality ?? 0);
+      const elimination = Number(log?.elimination ?? 0);
+      const feed = Number(log?.feed ?? 0);
+      const currentQty = Number(f.current_qty ?? 0);
+      const layRate = currentQty > 0 ? ((eggs / currentQty) * 100).toFixed(2) : '0.00';
+      const placementDate = f.placement_date ? new Date(f.placement_date) : null;
+      const ageDays = placementDate
+        ? Math.max(0, Math.floor((today.getTime() - placementDate.getTime()) / 86400000))
+        : null;
+      return {
+        house_code: f.house_code,
+        flock_no: f.flock_no,
+        current_qty: currentQty,
+        initial_qty: Number(f.initial_qty ?? 0),
+        age_days: ageDays,
+        eggs,
+        lay_rate: layRate,
+        mortality,
+        elimination,
+        total_loss: mortality + elimination,
+        culling_reason: log?.culling_reason ?? null,
+        feed,
+      };
+    });
+
+    const totals = rows.reduce(
+      (acc: any, r: any) => {
+        acc.current_qty += r.current_qty;
+        acc.eggs += r.eggs;
+        acc.mortality += r.mortality;
+        acc.elimination += r.elimination;
+        acc.total_loss += r.total_loss;
+        acc.feed += r.feed;
+        return acc;
+      },
+      { current_qty: 0, eggs: 0, mortality: 0, elimination: 0, total_loss: 0, feed: 0 },
+    );
+    totals.lay_rate =
+      totals.current_qty > 0 ? ((totals.eggs / totals.current_qty) * 100).toFixed(2) : '0.00';
+    totals.feed = Number(totals.feed.toFixed(2));
+
+    return { code: 200, date, rows, totals };
   }
 }

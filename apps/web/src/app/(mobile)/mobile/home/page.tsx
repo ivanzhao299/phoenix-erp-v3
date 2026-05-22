@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   BarChart2, Package, ShieldCheck, Warehouse,
-  Truck, CheckSquare, LogOut, Monitor, Wheat, Skull,
+  Truck, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird,
 } from 'lucide-react';
 
 type NavCard = {
@@ -73,6 +73,14 @@ const NAV_CARDS: NavCard[] = [
     desc: '前往现场作业终端',
     color: '#f59e0b',
     href: '/terminal/packaging/dashboard',
+    soon: false,
+  },
+  {
+    icon: <Bird size={28} />,
+    titleZh: '存栏日报', titleEn: 'Hen Report', titleLo: 'ລາຍງານໄກ່',
+    desc: '母鸡存栏·产蛋率·死淘',
+    color: '#22d3ee',
+    href: '/mobile/henreport',
     soon: false,
   },
 ];

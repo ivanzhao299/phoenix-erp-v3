@@ -1,4 +1,4 @@
-import { Controller, Post, Put, Body, Param } from '@nestjs/common';
+import { Controller, Post, Put, Get, Body, Param, Query } from '@nestjs/common';
 import { FarmService } from './farm.service';
 
 /**
@@ -23,5 +23,11 @@ export class FarmController {
   @Put('daily-logs/:id')
   async updateBreedingDailyLog(@Param('id') id: number, @Body() body: any) {
     return await this.farmService.updateBreedingDailyLog(id, body);
+  }
+
+  @Get('daily-hen-report')
+  async getDailyHenReport(@Query('date') date: string) {
+    const d = date || new Date().toISOString().slice(0, 10);
+    return await this.farmService.getDailyHenReport(d);
   }
 }

@@ -215,6 +215,36 @@ export interface MedLedgerEntry {
   created_at:      string;
 }
 
+export interface HenReportRow {
+  house_code:     string;
+  flock_no:       string;
+  current_qty:    number;
+  initial_qty:    number;
+  age_days:       number | null;
+  eggs:           number;
+  lay_rate:       string;
+  mortality:      number;
+  elimination:    number;
+  total_loss:     number;
+  culling_reason: string | null;
+  feed:           number;
+}
+
+export interface DailyHenReport {
+  code:    number;
+  date:    string;
+  rows:    HenReportRow[];
+  totals: {
+    current_qty: number;
+    eggs:        number;
+    lay_rate:    string;
+    mortality:   number;
+    elimination: number;
+    total_loss:  number;
+    feed:        number;
+  };
+}
+
 // ── API 方法 ──────────────────────────────────────────────────────────────────
 
 export const mobileApi = {
@@ -321,4 +351,8 @@ export const mobileApi = {
   /** 药品出库（用药） */
   medOutbound: (date: string, items: Array<{ medication_code: string; qty: number; house_code?: string; note?: string }>, operator?: string) =>
     post('/api/farm/medicine/outbound', { date, items, operator }),
+
+  /** 母鸡存栏日报（按日期） */
+  getDailyHenReport: (date: string) =>
+    get<DailyHenReport>(`/api/v3/farm/daily-hen-report?date=${date}`),
 };
