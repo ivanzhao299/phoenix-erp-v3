@@ -56,6 +56,7 @@ const DOMAIN_META: Record<string, { label_zh: string; color: string }> = {
   LOG:        { label_zh: '🚚 物流',           color: '#f97316' },
   PRC:        { label_zh: '🛒 采购',           color: '#8b5cf6' },
   SALES:      { label_zh: '📊 销售 B2B',       color: '#0ea5e9' },
+  MOBILE:     { label_zh: '📱 移动端功能',     color: '#0891b2' },
 };
 
 // ── 敏感菜单白名单（CRUD 写操作受限）────────────────────────────────────

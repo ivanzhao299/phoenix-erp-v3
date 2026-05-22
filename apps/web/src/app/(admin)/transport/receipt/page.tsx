@@ -8,17 +8,17 @@ import PageHeader from "@/components/PageHeader";
 import { crudApi } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-// ✅ log_receipts - 字段对齐：receipt_no, wave_no, store_code, receive_date, qty, status
 const TABLE = "log_receipts";
 
 interface Receipt {
   id: number;
-  receipt_no: string;   // ✅ DB字段
-  wave_no: string;      // ✅ DB字段（非dispatch_no）
-  store_code: string;   // ✅ DB字段
-  receive_date: string; // ✅ DB字段（非sign_time）
-  qty: number;          // ✅ DB字段（DECIMAL）
+  receipt_no: string;
+  dispatch_no: string;  // 与 log_dispatch.dispatch_no 关联（移动端写入字段）
+  store_code: string;
+  receive_date: string;
+  qty: number;
   status: string;
+  remark?: string;
 }
 
 export default function ReceiptPage() {
@@ -26,15 +26,15 @@ export default function ReceiptPage() {
 
   const STATUS_MAP: Record<string, { label: string; color: string }> = {
     PENDING:   { label: t("ui.待签收", "待签收"), color: "#f59e0b" },
-    RECEIVED:  { label: t("ui.已签收", "已签收"), color: "#22c55e" },
-    DISPUTED:  { label: t("ui.有异议", "有异议"), color: "#ef4444" },
+    SIGNED:    { label: t("ui.已签收", "已签收"), color: "#22c55e" },
+    EXCEPTION: { label: t("ui.签收异常", "签收异常"), color: "#ef4444" },
   };
 
   const COLS: Column<Receipt>[] = [
     { key: "receipt_no",   title: t("ui.签收单号", "签收单号"), width: 150 },
-    { key: "wave_no",      title: t("ui.配送波次", "配送波次"), width: 150 }, // ✅ wave_no
+    { key: "dispatch_no",  title: t("ui.配送波次", "配送波次"), width: 150 },
     { key: "store_code",   title: t("ui.门店编号", "门店编号"), width: 100 },
-    { key: "receive_date", title: t("ui.签收日期", "签收日期"), width: 110 }, // ✅ receive_date
+    { key: "receive_date", title: t("ui.签收日期", "签收日期"), width: 110 },
     { key: "qty",          title: t("ui.签收数量", "签收数量"), width: 100, align: "right" },
     { key: "status", title: t("common.status", "状态"), width: 90, align: "center",
       render: v => { const s = STATUS_MAP[String(v)]; return s ? <span style={{ color: s.color, fontWeight: 700, fontSize: 12 }}>{s.label}</span> : String(v ?? "—"); }
@@ -43,17 +43,18 @@ export default function ReceiptPage() {
 
   const FIELDS: FormField[] = [
     { key: "receipt_no",   label: t("ui.签收单号", "签收单号"), type: "text",   required: true },
-    { key: "wave_no",      label: t("ui.配送波次", "配送波次"), type: "text" }, // ✅ wave_no
+    { key: "dispatch_no",  label: t("ui.配送波次", "配送波次"), type: "text" },
     { key: "store_code",   label: t("ui.门店编号", "门店编号"), type: "text",   required: true },
-    { key: "receive_date", label: t("ui.签收日期", "签收日期"), type: "date" },  // ✅ receive_date
+    { key: "receive_date", label: t("ui.签收日期", "签收日期"), type: "date" },
     { key: "qty",          label: t("ui.签收数量", "签收数量"), type: "number", defaultValue: 0 },
     { key: "status", label: t("common.status", "状态"), type: "select", defaultValue: "PENDING",
       options: [
-        { label: t("ui.待签收", "待签收"), value: "PENDING" },
-        { label: t("ui.已签收", "已签收"), value: "RECEIVED" },
-        { label: t("ui.有异议", "有异议"), value: "DISPUTED" },
+        { label: t("ui.待签收",   "待签收"),   value: "PENDING"   },
+        { label: t("ui.已签收",   "已签收"),   value: "SIGNED"    },
+        { label: t("ui.签收异常", "签收异常"), value: "EXCEPTION" },
       ]
     },
+    { key: "remark", label: t("common.remark", "备注"), type: "textarea", span: 2 as const },
   ];
 
   const [drawerOpen, setDrawerOpen] = useState(false);

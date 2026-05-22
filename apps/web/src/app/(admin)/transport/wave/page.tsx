@@ -15,26 +15,27 @@ export default function Page() {
   const { t } = useLanguage();
 
   const COLS: Column<Row>[] = [
-    { key: "wave_no",    title: t("ui.波次号", "波次号"),  width: 150 },
-    { key: "vehicle_no", title: t("ui.车牌号", "车牌号"),  width: 110 },
-    { key: "driver_id",  title: t("ui.司机", "司机"),    width: 90  },
-    { key: "plan_date",  title: t("common.date", "计划日期"), width: 110 },
-    { key: "stores",     title: t("ui.门店列表", "门店列表"), width: 200 },
-    { key: "status",     title: t("common.status", "状态"),    width: 90, align: "center" as const },
+    { key: "dispatch_no", title: t("ui.波次号", "波次号"),   width: 150 },
+    { key: "plate_no",    title: t("ui.车牌号", "车牌号"),   width: 110 },
+    { key: "driver",      title: t("ui.司机",   "司机"),     width: 90  },
+    { key: "date",        title: t("common.date","计划日期"), width: 110 },
+    { key: "stores",      title: t("ui.门店列表","门店列表"), width: 200 },
+    { key: "status",      title: t("common.status","状态"),  width: 90, align: "center" as const },
   ];
   const FIELDS: FormField[] = [
-    { key: "wave_no",    label: t("ui.波次号", "波次号"),   type: "text" as const, required: true },
-    { key: "vehicle_no", label: t("ui.车牌号", "车牌号"),   type: "text" as const },
-    { key: "driver_id",  label: t("ui.司机编号", "司机编号"), type: "text" as const },
-    { key: "plan_date",  label: t("common.date", "计划日期"), type: "date" as const },
-    { key: "stores",     label: t("ui.门店列表逗号分隔", "门店列表(逗号分隔)"), type: "textarea" as const, span: 2 as const },
+    { key: "dispatch_no", label: t("ui.波次号",   "波次号"),            type: "text" as const, required: true },
+    { key: "plate_no",    label: t("ui.车牌号",   "车牌号"),            type: "text" as const },
+    { key: "driver",      label: t("ui.司机姓名", "司机姓名"),          type: "text" as const },
+    { key: "driver_id",   label: t("ui.司机编号", "司机编号"),          type: "text" as const },
+    { key: "date",        label: t("common.date", "计划日期"),          type: "date" as const },
+    { key: "route",       label: t("ui.线路",     "线路"),              type: "text" as const },
+    { key: "stores",      label: t("ui.门店列表逗号分隔", "门店列表(逗号分隔)"), type: "textarea" as const, span: 2 as const },
     { key: "status", label: t("common.status", "状态"), type: "select" as const, defaultValue: "PENDING",
       options: [
         { label: t("status.pending",   "待出发"), value: "PENDING"    },
-        { label: t("ui.装车中",        "装车中"), value: "LOADING"    },
-        { label: t("ui.已发运",        "已发运"), value: "DISPATCHED" },
-        { label: t("ui.已到达",        "已到达"), value: "ARRIVED"    },
-        { label: t("ui.已关闭",        "已关闭"), value: "CLOSED"     },
+        { label: t("ui.配送中",        "配送中"), value: "IN_TRANSIT" },
+        { label: t("ui.已完成",        "已完成"), value: "COMPLETED"  },
+        { label: t("ui.签收异常",      "签收异常"), value: "EXCEPTION" },
         { label: t("status.cancelled", "已取消"), value: "CANCELLED"  },
       ] },
   ];
