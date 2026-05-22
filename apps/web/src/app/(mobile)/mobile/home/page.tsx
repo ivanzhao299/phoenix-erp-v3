@@ -51,9 +51,9 @@ const NAV_CARDS: NavCard[] = [
   },
   {
     icon: <Warehouse size={28} />,
-    titleZh: '库存看板', titleEn: 'Inventory', titleLo: 'ສິນຄ້າຄົງຄັງ',
-    desc: '蛋品·药品库存查询',
-    color: '#3b82f6', soon: true,
+    titleZh: '鸡蛋台账', titleEn: 'Egg Ledger', titleLo: 'ບັນທຶກໄຂ່',
+    desc: '出入库登记·分级库存',
+    color: '#3b82f6', href: '/mobile/egg', soon: false,
   },
   {
     icon: <Truck size={28} />,

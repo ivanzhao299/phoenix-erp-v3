@@ -15,27 +15,26 @@ function toDate(s: string): Date {
   return new Date(y, m - 1, d);
 }
 
-// 聚合日志按栋舍
 function aggregateByHouse(logs: FarmLog[]) {
-  const map = new Map<string, { eggs: number; mortality: number; logIds: number[] }>();
+  const map = new Map<string, { eggs: number; mortality: number; elimination: number; reason: string }>();
   for (const r of logs) {
     const key = r.house_code || r.flock_no || '未知';
-    const cur = map.get(key) ?? { eggs: 0, mortality: 0, logIds: [] };
-    cur.eggs     += Number(r.eggs_produced  || 0);
-    cur.mortality += Number(r.mortality_qty || 0);
-    cur.logIds.push(r.id);
+    const cur = map.get(key) ?? { eggs: 0, mortality: 0, elimination: 0, reason: '' };
+    cur.eggs      += Number(r.eggs_produced    || 0);
+    cur.mortality += Number(r.mortality_qty    || 0);
+    cur.elimination += Number((r as any).elimination_qty || 0);
+    if ((r as any).culling_reason) cur.reason = (r as any).culling_reason;
     map.set(key, cur);
   }
   return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 }
 
-// 快速数字输入，带 +/- 步进按钮
 function NumStepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <button
         onClick={() => onChange(Math.max(0, value - 1))}
-        style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
         <Minus size={14} />
       </button>
@@ -54,7 +53,7 @@ function NumStepper({ value, onChange }: { value: number; onChange: (v: number) 
       />
       <button
         onClick={() => onChange(value + 1)}
-        style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
         <Plus size={14} />
       </button>
@@ -74,12 +73,12 @@ export default function MortalityPage() {
   const [error, setError]     = useState('');
   const [permErr, setPermErr] = useState(false);
 
-  // 简单的编辑状态：栋舍 → 死淘数
-  const [mortEdits, setMortEdits] = useState<Record<string, number>>({});
-  // 新增一栋
-  const [newHouse, setNewHouse]   = useState('');
+  const [mortEdits, setMortEdits]     = useState<Record<string, number>>({});
+  const [elimEdits, setElimEdits]     = useState<Record<string, number>>({});
+  const [reasonEdits, setReasonEdits] = useState<Record<string, string>>({});
+  const [newHouse, setNewHouse]       = useState('');
 
-  const isToday  = date === today;
+  const isToday   = date === today;
   const dateLabel = isToday ? '今天' : date === fmtDate(addDays(toDate(today), -1)) ? '昨天' : date;
 
   const loadData = useCallback(async (d: string) => {
@@ -91,11 +90,17 @@ export default function MortalityPage() {
       const res = await mobileApi.getFarmLogs(d);
       const arr: FarmLog[] = Array.isArray(res) ? res : (res as any)?.data ?? [];
       setLogs(arr);
-      // 初始化编辑态
-      const init: Record<string, number> = {};
-      const agg = aggregateByHouse(arr);
-      for (const [house, v] of agg) init[house] = v.mortality;
-      setMortEdits(init);
+      const initMort: Record<string, number> = {};
+      const initElim: Record<string, number> = {};
+      const initReason: Record<string, string> = {};
+      for (const [house, v] of aggregateByHouse(arr)) {
+        initMort[house]   = v.mortality;
+        initElim[house]   = v.elimination;
+        initReason[house] = v.reason;
+      }
+      setMortEdits(initMort);
+      setElimEdits(initElim);
+      setReasonEdits(initReason);
     } catch (e: any) {
       if (e.message?.includes('403')) setPermErr(true);
       else setError(e.message || '加载失败');
@@ -106,13 +111,17 @@ export default function MortalityPage() {
 
   useEffect(() => { loadData(date); }, [date, loadData]);
 
-  const houseList = Object.keys(mortEdits).sort();
-  const totalMort = houseList.reduce((s, h) => s + (mortEdits[h] ?? 0), 0);
+  const houseList  = [...new Set([...Object.keys(mortEdits), ...Object.keys(elimEdits)])].sort();
+  const totalMort  = houseList.reduce((s, h) => s + (mortEdits[h] ?? 0), 0);
+  const totalElim  = houseList.reduce((s, h) => s + (elimEdits[h] ?? 0), 0);
+  const totalLoss  = totalMort + totalElim;
 
   const handleAddHouse = () => {
     const h = newHouse.trim();
     if (!h || mortEdits[h] !== undefined) return;
     setMortEdits(p => ({ ...p, [h]: 0 }));
+    setElimEdits(p => ({ ...p, [h]: 0 }));
+    setReasonEdits(p => ({ ...p, [h]: '' }));
     setNewHouse('');
   };
 
@@ -123,28 +132,33 @@ export default function MortalityPage() {
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') || '' : '';
 
     try {
-      // 对每个栋舍提交/更新日志（尝试 POST，冲突时找到现有记录 PUT）
       const results = await Promise.allSettled(
-        houseList.map(house =>
-          fetch(`${API_BASE}/api/v3/farm/daily-logs`, {
+        houseList.map(house => {
+          const existingEggs = logs
+            .filter(l => (l.house_code || l.flock_no) === house)
+            .reduce((s, r) => s + Number(r.eggs_produced || 0), 0);
+          return fetch(`${API_BASE}/api/v3/farm/daily-logs`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({
-              flock_no:     house,
-              house_code:   house,
-              log_date:     date,
-              shift:        'ALL',
-              eggs_produced: logs.find(l => (l.house_code || l.flock_no) === house)
-                ? logs.filter(l => (l.house_code || l.flock_no) === house).reduce((s, r) => s + Number(r.eggs_produced || 0), 0)
-                : 0,
-              mortality_qty: mortEdits[house] ?? 0,
-              operator: 'mobile',
+              flock_no:        house,
+              house_code:      house,
+              log_date:        date,
+              shift:           'ALL',
+              eggs_produced:   existingEggs,
+              mortality_qty:   mortEdits[house]  ?? 0,
+              elimination_qty: elimEdits[house]  ?? 0,
+              culling_reason:  reasonEdits[house] || null,
+              operator:        'mobile',
             }),
-          }).then(r => r.json())
-        )
+          }).then(r => r.json());
+        })
       );
 
-      const anyFail = results.some(r => r.status === 'rejected' || (r.status === 'fulfilled' && r.value?.code && r.value.code !== 200));
+      const anyFail = results.some(r =>
+        r.status === 'rejected' ||
+        (r.status === 'fulfilled' && r.value?.code && r.value.code !== 200)
+      );
       if (!anyFail) {
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
@@ -159,11 +173,7 @@ export default function MortalityPage() {
   };
 
   return (
-    <div style={{
-      minHeight: '100svh',
-      background: 'linear-gradient(160deg,#070b14 0%,#0f1929 100%)',
-      display: 'flex', flexDirection: 'column',
-    }}>
+    <div style={{ minHeight: '100svh', background: 'linear-gradient(160deg,#070b14 0%,#0f1929 100%)', display: 'flex', flexDirection: 'column' }}>
       {/* 头部 */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
@@ -198,7 +208,7 @@ export default function MortalityPage() {
         </button>
       </div>
 
-      {/* 日期 */}
+      {/* 日期导航 */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '10px 16px',
@@ -219,27 +229,42 @@ export default function MortalityPage() {
         </button>
       </div>
 
-      {/* 内容 */}
-      <div style={{
-        flex: 1, overflowY: 'auto', padding: '12px 16px',
-        paddingBottom: 'calc(24px + env(safe-area-inset-bottom))',
-      }}>
+      {/* 内容区 */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}>
         <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
 
         {/* 汇总统计 */}
         {!loading && !permErr && (
           <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '12px 14px', borderRadius: 14, marginBottom: 12,
-            background: totalMort > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.06)',
-            border: `1px solid ${totalMort > 0 ? 'rgba(239,68,68,0.25)' : 'rgba(16,185,129,0.2)'}`,
+            display: 'grid', gridTemplateColumns: '1fr 1fr',
+            gap: 8, marginBottom: 12,
           }}>
-            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
-              今日合计 · {houseList.length} 栋上报
-            </span>
-            <span style={{ fontSize: 22, fontWeight: 800, color: totalMort > 0 ? '#f87171' : '#10b981' }}>
-              {totalMort} 只
-            </span>
+            <div style={{
+              padding: '12px 14px', borderRadius: 14,
+              background: totalMort > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.06)',
+              border: `1px solid ${totalMort > 0 ? 'rgba(239,68,68,0.25)' : 'rgba(16,185,129,0.2)'}`,
+            }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>死亡合计</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: totalMort > 0 ? '#f87171' : '#10b981' }}>{totalMort} 只</div>
+            </div>
+            <div style={{
+              padding: '12px 14px', borderRadius: 14,
+              background: totalElim > 0 ? 'rgba(251,146,60,0.08)' : 'rgba(16,185,129,0.06)',
+              border: `1px solid ${totalElim > 0 ? 'rgba(251,146,60,0.3)' : 'rgba(16,185,129,0.2)'}`,
+            }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>淘汰合计</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: totalElim > 0 ? '#fb923c' : '#10b981' }}>{totalElim} 只</div>
+            </div>
+            {totalLoss > 0 && (
+              <div style={{
+                gridColumn: '1/-1', padding: '8px 14px', borderRadius: 10,
+                background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>今日总损耗 · {houseList.length} 栋</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: '#f87171' }}>{totalLoss} 只</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -258,31 +283,67 @@ export default function MortalityPage() {
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} style={{ height: 60, borderRadius: 14, background: 'rgba(255,255,255,0.04)', animation: 'pulse 1.5s infinite' }} />
+              <div key={i} style={{ height: 90, borderRadius: 14, background: 'rgba(255,255,255,0.04)', animation: 'pulse 1.5s infinite' }} />
             ))}
           </div>
         ) : !permErr && (
           <>
-            {/* 各栋死淘输入 */}
-            {houseList.map(house => (
-              <div key={house} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '12px 16px', borderRadius: 14, marginBottom: 8,
-                background: (mortEdits[house] ?? 0) > 0 ? 'rgba(239,68,68,0.07)' : 'rgba(255,255,255,0.03)',
-                border: `1px solid ${(mortEdits[house] ?? 0) > 0 ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.07)'}`,
-              }}>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>{house}</div>
-                  {(mortEdits[house] ?? 0) > 10 && (
-                    <div style={{ fontSize: 11, color: '#f87171', marginTop: 2 }}>⚠ 数量较大，请确认</div>
+            {houseList.map(house => {
+              const mort  = mortEdits[house]  ?? 0;
+              const elim  = elimEdits[house]  ?? 0;
+              const hasLoss = mort > 0 || elim > 0;
+              return (
+                <div key={house} style={{
+                  padding: '14px 16px', borderRadius: 14, marginBottom: 10,
+                  background: hasLoss ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${hasLoss ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.07)'}`,
+                }}>
+                  {/* 栋舍名 */}
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'white', marginBottom: 12 }}>{house}</div>
+
+                  {/* 死亡行 */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 18 }}>💀</span>
+                      <span style={{ fontSize: 13, color: mort > 0 ? '#f87171' : 'rgba(255,255,255,0.5)' }}>死亡</span>
+                      {mort > 10 && <span style={{ fontSize: 10, color: '#f87171' }}>⚠ 数量较大</span>}
+                    </div>
+                    <NumStepper
+                      value={mort}
+                      onChange={v => { setMortEdits(p => ({ ...p, [house]: v })); setSaved(false); }}
+                    />
+                  </div>
+
+                  {/* 淘汰行 */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: elim > 0 ? 10 : 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 18 }}>🔄</span>
+                      <span style={{ fontSize: 13, color: elim > 0 ? '#fb923c' : 'rgba(255,255,255,0.5)' }}>淘汰</span>
+                    </div>
+                    <NumStepper
+                      value={elim}
+                      onChange={v => { setElimEdits(p => ({ ...p, [house]: v })); setSaved(false); }}
+                    />
+                  </div>
+
+                  {/* 淘汰原因（当淘汰 > 0 时展开） */}
+                  {elim > 0 && (
+                    <input
+                      type="text"
+                      value={reasonEdits[house] || ''}
+                      onChange={e => { setReasonEdits(p => ({ ...p, [house]: e.target.value })); setSaved(false); }}
+                      placeholder="淘汰原因（如：产蛋率低、受伤等）"
+                      style={{
+                        width: '100%', height: 36, padding: '0 10px', boxSizing: 'border-box',
+                        background: 'rgba(251,146,60,0.08)',
+                        border: '1px solid rgba(251,146,60,0.25)',
+                        borderRadius: 8, color: 'white', fontSize: 12, outline: 'none',
+                      }}
+                    />
                   )}
                 </div>
-                <NumStepper
-                  value={mortEdits[house] ?? 0}
-                  onChange={v => { setMortEdits(p => ({ ...p, [house]: v })); setSaved(false); }}
-                />
-              </div>
-            ))}
+              );
+            })}
 
             {/* 添加新栋舍 */}
             <div style={{

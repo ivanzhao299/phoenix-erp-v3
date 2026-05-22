@@ -22,6 +22,21 @@ async function get<T>(path: string): Promise<T> {
   return body.data ?? body;
 }
 
+async function post<T = any>(path: string, data: unknown): Promise<T> {
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${tok()}`,
+    },
+    body: JSON.stringify(data),
+  });
+  if (res.status === 401 || res.status === 403) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 
 export interface KpiData {
@@ -117,6 +132,38 @@ export interface DeviceAlert {
   created_at:      string;
 }
 
+export interface EggStockRow {
+  grade:  string;
+  name:   string;
+  qty:    number;
+  trays:  number;
+}
+
+export interface EggLedgerEntry {
+  id:           number;
+  log_date:     string;
+  change_type:  string;
+  grade:        string;
+  qty_change:   number;
+  house_code:   string | null;
+  customer_no:  string | null;
+  note:         string | null;
+  operator:     string;
+  created_at:   string;
+}
+
+export interface EggInboundItem {
+  grade:      string;
+  qty:        number;
+  house_code: string;
+}
+
+export interface EggOutboundItem {
+  grade:       string;
+  qty:         number;
+  customer_no: string;
+}
+
 // ── API 方法 ──────────────────────────────────────────────────────────────────
 
 export const mobileApi = {
@@ -165,4 +212,24 @@ export const mobileApi = {
   /** 饲料台账 — 栋舍列表 */
   getFeedHouses: () =>
     get<string[]>('/api/farm/feed/houses'),
+
+  /** 鸡蛋库存快照 */
+  getEggStock: () =>
+    get<EggStockRow[]>('/api/farm/egg/stock'),
+
+  /** 鸡蛋出入库流水（按日期范围） */
+  getEggLedger: (start: string, end: string) =>
+    get<EggLedgerEntry[]>(`/api/farm/egg/ledger?start=${start}&end=${end}`),
+
+  /** 鸡蛋入库（鸡舍 → 库） */
+  eggInbound: (date: string, items: EggInboundItem[], operator?: string) =>
+    post('/api/farm/egg/inbound', { date, items, operator }),
+
+  /** 鸡蛋出库（库 → 客户） */
+  eggOutbound: (date: string, items: EggOutboundItem[], operator?: string, refNo?: string) =>
+    post('/api/farm/egg/outbound', { date, items, operator, ref_no: refNo }),
+
+  /** 鸡蛋报损 */
+  eggWriteOff: (date: string, items: Array<{ grade: string; qty: number; reason: string }>, operator?: string) =>
+    post('/api/farm/egg/write-off', { date, items, operator }),
 };

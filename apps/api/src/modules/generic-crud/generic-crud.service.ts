@@ -578,6 +578,10 @@ export class GenericCrudService implements OnModuleInit {
            END IF;
          END $$;`,
 
+        // A2: 死淘记录扩展：淘汰数量 + 淘汰原因
+        `ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS elimination_qty  INT          DEFAULT 0`,
+        `ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS culling_reason   VARCHAR(200)`,
+
         `CREATE TABLE IF NOT EXISTS brd_withdrawal_alerts (
            id          SERIAL PRIMARY KEY,
            flock_no    VARCHAR(50),
@@ -1179,6 +1183,10 @@ export class GenericCrudService implements OnModuleInit {
            note         TEXT,
            created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
          )`,
+        `ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS log_date      DATE`,
+        `ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS warehouse_code VARCHAR(50)`,
+        `ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS house_code    VARCHAR(50)`,
+        `ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS customer_no   VARCHAR(100)`,
 
         // ── WMS 仓库 / 入出库 / 盘点 ─────────────────────────────────────
         `CREATE TABLE IF NOT EXISTS wms_warehouses (

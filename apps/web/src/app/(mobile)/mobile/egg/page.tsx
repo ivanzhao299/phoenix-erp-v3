@@ -1,0 +1,493 @@
+'use client';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight,
+  TrendingUp, TrendingDown, Package,
+} from 'lucide-react';
+import { mobileApi, EggStockRow, EggLedgerEntry } from '@/lib/mobile-api';
+
+function fmtDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function addDays(d: Date, n: number): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+}
+function toDate(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+const EGG_GRADES = [
+  { code: '0', name: '0号蛋' },
+  { code: '1', name: '1号蛋' },
+  { code: '2', name: '2号蛋' },
+  { code: '3', name: '3号蛋' },
+  { code: '4', name: '4号蛋' },
+  { code: '5', name: '5号蛋' },
+  { code: 'DIRTY',  name: '脏蛋'  },
+  { code: 'BROKEN', name: '破损蛋' },
+];
+
+const DEFAULT_HOUSES = ['2号舍', '3号舍', '4号舍', '5号舍', '6号舍'];
+
+const DEFAULT_CUSTOMERS = [
+  '孟赛直营店',
+  '万象直营店',
+  '孟龙客户一',
+  '孟龙客户二',
+  '职工购买',
+];
+
+type Tab = 'stock' | 'inbound' | 'outbound';
+
+// 行格式：grade → qty（枚）
+type GradeQtyMap = Record<string, number>;
+
+function QtyInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <input
+      type="number" inputMode="numeric" min="0"
+      value={value || ''}
+      onChange={e => onChange(Math.max(0, Number(e.target.value) || 0))}
+      placeholder="0"
+      style={{
+        width: 70, height: 34, textAlign: 'center',
+        background: value > 0 ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)',
+        border: `1px solid ${value > 0 ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`,
+        borderRadius: 8, color: value > 0 ? '#f59e0b' : 'rgba(255,255,255,0.5)',
+        fontSize: 14, fontWeight: 700, outline: 'none', WebkitAppearance: 'none',
+      }}
+    />
+  );
+}
+
+export default function EggPage() {
+  const router = useRouter();
+  const today  = fmtDate(new Date());
+  const [tab, setTab]     = useState<Tab>('stock');
+  const [date, setDate]   = useState(today);
+  const isToday = date === today;
+  const dateLabel = isToday ? '今天' : date === fmtDate(addDays(toDate(today), -1)) ? '昨天' : date;
+
+  const [stock, setStock]       = useState<EggStockRow[]>([]);
+  const [ledger, setLedger]     = useState<EggLedgerEntry[]>([]);
+  const [loading, setLoading]   = useState(false);
+  const [saving, setSaving]     = useState(false);
+  const [saved, setSaved]       = useState(false);
+  const [error, setError]       = useState('');
+
+  // 入库：{ house → { grade → qty } }
+  const [inboundData, setInboundData]   = useState<Record<string, GradeQtyMap>>({});
+  const [selectedHouse, setSelectedHouse] = useState(DEFAULT_HOUSES[0]);
+
+  // 出库：{ customer → { grade → qty } }
+  const [outboundData, setOutboundData] = useState<Record<string, GradeQtyMap>>({});
+  const [selectedCustomer, setSelectedCustomer] = useState(DEFAULT_CUSTOMERS[0]);
+
+  const loadStock = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await mobileApi.getEggStock();
+      setStock(data);
+    } catch (e: any) {
+      setError(e.message || '加载失败');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadLedger = useCallback(async (d: string) => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await mobileApi.getEggLedger(d, d);
+      setLedger(data);
+    } catch (e: any) {
+      setError(e.message || '加载失败');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'stock') loadStock();
+    else loadLedger(date);
+  }, [tab, date, loadStock, loadLedger]);
+
+  const getInbound = (house: string, grade: string) =>
+    inboundData[house]?.[grade] ?? 0;
+  const setInbound = (house: string, grade: string, v: number) => {
+    setInboundData(p => ({
+      ...p,
+      [house]: { ...(p[house] ?? {}), [grade]: v },
+    }));
+    setSaved(false);
+  };
+
+  const getOutbound = (customer: string, grade: string) =>
+    outboundData[customer]?.[grade] ?? 0;
+  const setOutbound = (customer: string, grade: string, v: number) => {
+    setOutboundData(p => ({
+      ...p,
+      [customer]: { ...(p[customer] ?? {}), [grade]: v },
+    }));
+    setSaved(false);
+  };
+
+  const inboundTotal = DEFAULT_HOUSES.reduce((s, h) =>
+    s + EGG_GRADES.reduce((s2, g) => s2 + getInbound(h, g.code), 0), 0);
+
+  const outboundTotal = DEFAULT_CUSTOMERS.reduce((s, c) =>
+    s + EGG_GRADES.reduce((s2, g) => s2 + getOutbound(c, g.code), 0), 0);
+
+  const handleSaveInbound = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const items: Array<{ grade: string; qty: number; house_code: string }> = [];
+      for (const house of DEFAULT_HOUSES) {
+        for (const g of EGG_GRADES) {
+          const qty = getInbound(house, g.code);
+          if (qty > 0) items.push({ grade: g.code, qty, house_code: house });
+        }
+      }
+      if (items.length === 0) { setSaving(false); return; }
+      await mobileApi.eggInbound(date, items);
+      setSaved(true);
+      setInboundData({});
+      setTimeout(() => setSaved(false), 3000);
+      loadStock();
+    } catch (e: any) {
+      setError(e.message || '保存失败');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveOutbound = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const items: Array<{ grade: string; qty: number; customer_no: string }> = [];
+      for (const cust of DEFAULT_CUSTOMERS) {
+        for (const g of EGG_GRADES) {
+          const qty = getOutbound(cust, g.code);
+          if (qty > 0) items.push({ grade: g.code, qty, customer_no: cust });
+        }
+      }
+      if (items.length === 0) { setSaving(false); return; }
+      await mobileApi.eggOutbound(date, items);
+      setSaved(true);
+      setOutboundData({});
+      setTimeout(() => setSaved(false), 3000);
+      loadStock();
+    } catch (e: any) {
+      setError(e.message || '保存失败');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const canSave = tab === 'inbound' ? inboundTotal > 0 : outboundTotal > 0;
+  const handleSave = tab === 'inbound' ? handleSaveInbound : handleSaveOutbound;
+
+  const totalStock = stock.reduce((s, r) => s + r.qty, 0);
+  const totalTrays = stock.reduce((s, r) => s + r.trays, 0);
+
+  const CHANGE_LABELS: Record<string, string> = {
+    EGG_INBOUND_HOUSE: '入库',
+    EGG_OUTBOUND_SALE: '出库',
+    EGG_WRITE_OFF:     '报损',
+  };
+
+  return (
+    <div style={{ minHeight: '100svh', background: 'linear-gradient(160deg,#070b14 0%,#0f1929 100%)', display: 'flex', flexDirection: 'column' }}>
+      {/* 头部 */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: 'calc(env(safe-area-inset-top) + 14px) 16px 14px',
+        background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        position: 'sticky', top: 0, zIndex: 10,
+      }}>
+        <button onClick={() => router.back()}
+          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', padding: 4 }}>
+          <ArrowLeft size={20} />
+        </button>
+        <span style={{ fontSize: 15, fontWeight: 700, color: 'white', flex: 1 }}>🥚 鸡蛋出入库</span>
+        <button onClick={() => tab === 'stock' ? loadStock() : loadLedger(date)}
+          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 4 }}>
+          <RefreshCw size={16} />
+        </button>
+        {(tab === 'inbound' || tab === 'outbound') && (
+          <button
+            onClick={handleSave}
+            disabled={saving || !canSave}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '8px 14px', borderRadius: 10,
+              background: saved ? 'rgba(16,185,129,0.2)' : canSave ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.05)',
+              border: `1px solid ${saved ? 'rgba(16,185,129,0.4)' : canSave ? 'rgba(245,158,11,0.35)' : 'rgba(255,255,255,0.1)'}`,
+              color: saved ? '#10b981' : canSave ? '#f59e0b' : 'rgba(255,255,255,0.3)',
+              cursor: canSave ? 'pointer' : 'default', fontSize: 13, fontWeight: 700,
+            }}
+          >
+            <Save size={14} />
+            {saving ? '提交…' : saved ? '已保存' : '保存'}
+          </button>
+        )}
+      </div>
+
+      {/* Tab 切换 */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(3,1fr)',
+        background: 'rgba(0,0,0,0.2)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+      }}>
+        {([
+          { key: 'stock',    label: '库存', icon: <Package size={14} /> },
+          { key: 'inbound',  label: '入库', icon: <TrendingUp size={14} /> },
+          { key: 'outbound', label: '出库', icon: <TrendingDown size={14} /> },
+        ] as const).map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+              padding: '12px 0',
+              background: tab === t.key ? 'rgba(245,158,11,0.1)' : 'none',
+              border: 'none', borderBottom: `2px solid ${tab === t.key ? '#f59e0b' : 'transparent'}`,
+              color: tab === t.key ? '#f59e0b' : 'rgba(255,255,255,0.4)',
+              cursor: 'pointer', fontSize: 13, fontWeight: 700,
+            }}
+          >
+            {t.icon}{t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 日期（仅入库/出库 tab 显示） */}
+      {tab !== 'stock' && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '8px 16px',
+          background: 'rgba(245,158,11,0.03)',
+          borderBottom: '1px solid rgba(245,158,11,0.1)',
+        }}>
+          <button onClick={() => setDate(d => fmtDate(addDays(toDate(d), -1)))}
+            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: 6 }}>
+            <ChevronLeft size={18} />
+          </button>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>{dateLabel}</div>
+            {dateLabel !== date && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{date}</div>}
+          </div>
+          <button onClick={() => { if (!isToday) setDate(d => fmtDate(addDays(toDate(d), 1))); }} disabled={isToday}
+            style={{ background: 'none', border: 'none', color: isToday ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)', cursor: isToday ? 'default' : 'pointer', padding: 6 }}>
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      )}
+
+      {/* 错误提示 */}
+      {error && (
+        <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', fontSize: 12 }}>
+          {error}
+        </div>
+      )}
+
+      {/* 内容区 */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}>
+        <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
+
+        {/* ── 库存 Tab ─────────────────────────────────────────────── */}
+        {tab === 'stock' && (
+          <>
+            {/* 汇总 */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr',
+              gap: 8, marginBottom: 12,
+            }}>
+              <div style={{ padding: '12px 14px', borderRadius: 14, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>总库存（枚）</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#f59e0b' }}>{totalStock.toLocaleString()}</div>
+              </div>
+              <div style={{ padding: '12px 14px', borderRadius: 14, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>总提数</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#f59e0b' }}>{totalTrays} <span style={{ fontSize: 12, fontWeight: 400 }}>提</span></div>
+              </div>
+            </div>
+
+            {loading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[1,2,3,4].map(i => <div key={i} style={{ height: 52, borderRadius: 12, background: 'rgba(255,255,255,0.04)', animation: 'pulse 1.5s infinite' }} />)}
+              </div>
+            ) : (
+              stock.map(row => (
+                <div key={row.grade} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 16px', borderRadius: 12, marginBottom: 8,
+                  background: row.qty > 0 ? 'rgba(245,158,11,0.06)' : 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${row.qty > 0 ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.07)'}`,
+                }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: row.qty > 0 ? 'white' : 'rgba(255,255,255,0.4)' }}>{row.name}</span>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: row.qty > 0 ? '#f59e0b' : 'rgba(255,255,255,0.3)' }}>
+                      {row.qty.toLocaleString()} <span style={{ fontSize: 11, fontWeight: 400 }}>枚</span>
+                    </div>
+                    {row.trays > 0 && (
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{row.trays} 提</div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </>
+        )}
+
+        {/* ── 入库 Tab ─────────────────────────────────────────────── */}
+        {tab === 'inbound' && (
+          <>
+            {inboundTotal > 0 && (
+              <div style={{ padding: '10px 14px', borderRadius: 12, marginBottom: 12, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>本次入库合计</span>
+                <span style={{ fontSize: 18, fontWeight: 800, color: '#10b981' }}>{inboundTotal.toLocaleString()} 枚</span>
+              </div>
+            )}
+
+            {/* 栋舍切换 */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12, overflowX: 'auto', paddingBottom: 2 }}>
+              {DEFAULT_HOUSES.map(h => {
+                const houseTotal = EGG_GRADES.reduce((s, g) => s + getInbound(h, g.code), 0);
+                return (
+                  <button key={h} onClick={() => setSelectedHouse(h)}
+                    style={{
+                      flexShrink: 0, padding: '7px 14px', borderRadius: 10,
+                      background: selectedHouse === h ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)',
+                      border: `1px solid ${selectedHouse === h ? 'rgba(16,185,129,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                      color: selectedHouse === h ? '#10b981' : 'rgba(255,255,255,0.5)',
+                      cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+                    }}>
+                    {h}{houseTotal > 0 ? ` (${houseTotal})` : ''}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 规格输入表格 */}
+            <div style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '10px 16px', background: 'rgba(255,255,255,0.04)', fontSize: 12, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+                <span>规格</span><span>数量（枚）</span>
+              </div>
+              {EGG_GRADES.map((g, idx) => (
+                <div key={g.code} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 16px',
+                  background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.01)',
+                  borderTop: '1px solid rgba(255,255,255,0.04)',
+                }}>
+                  <span style={{ fontSize: 14, color: getInbound(selectedHouse, g.code) > 0 ? 'white' : 'rgba(255,255,255,0.6)' }}>{g.name}</span>
+                  <QtyInput
+                    value={getInbound(selectedHouse, g.code)}
+                    onChange={v => setInbound(selectedHouse, g.code, v)}
+                  />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ── 出库 Tab ─────────────────────────────────────────────── */}
+        {tab === 'outbound' && (
+          <>
+            {outboundTotal > 0 && (
+              <div style={{ padding: '10px 14px', borderRadius: 12, marginBottom: 12, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>本次出库合计</span>
+                <span style={{ fontSize: 18, fontWeight: 800, color: '#f87171' }}>{outboundTotal.toLocaleString()} 枚</span>
+              </div>
+            )}
+
+            {/* 客户切换 */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12, overflowX: 'auto', paddingBottom: 2 }}>
+              {DEFAULT_CUSTOMERS.map(c => {
+                const custTotal = EGG_GRADES.reduce((s, g) => s + getOutbound(c, g.code), 0);
+                return (
+                  <button key={c} onClick={() => setSelectedCustomer(c)}
+                    style={{
+                      flexShrink: 0, padding: '7px 14px', borderRadius: 10,
+                      background: selectedCustomer === c ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.05)',
+                      border: `1px solid ${selectedCustomer === c ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                      color: selectedCustomer === c ? '#f87171' : 'rgba(255,255,255,0.5)',
+                      cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+                    }}>
+                    {c}{custTotal > 0 ? ` (${custTotal})` : ''}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 规格 × 当前库存参考 */}
+            <div style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', padding: '10px 16px', background: 'rgba(255,255,255,0.04)', fontSize: 12, color: 'rgba(255,255,255,0.4)', fontWeight: 600, gap: 8 }}>
+                <span>规格</span><span style={{ textAlign: 'right' }}>库存</span><span style={{ textAlign: 'right' }}>出库数</span>
+              </div>
+              {EGG_GRADES.map((g, idx) => {
+                const stockQty = stock.find(s => s.grade === g.code)?.qty ?? 0;
+                const outQty   = getOutbound(selectedCustomer, g.code);
+                const overStock = outQty > stockQty;
+                return (
+                  <div key={g.code} style={{
+                    display: 'grid', gridTemplateColumns: '1fr auto auto',
+                    alignItems: 'center', padding: '10px 16px', gap: 8,
+                    background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.01)',
+                    borderTop: '1px solid rgba(255,255,255,0.04)',
+                  }}>
+                    <span style={{ fontSize: 14, color: outQty > 0 ? 'white' : 'rgba(255,255,255,0.6)' }}>{g.name}</span>
+                    <span style={{ fontSize: 12, color: stockQty > 0 ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.2)', textAlign: 'right' }}>
+                      {stockQty.toLocaleString()}
+                    </span>
+                    <div style={{ position: 'relative' }}>
+                      <QtyInput
+                        value={outQty}
+                        onChange={v => setOutbound(selectedCustomer, g.code, v)}
+                      />
+                      {overStock && outQty > 0 && (
+                        <div style={{ position: 'absolute', top: -16, right: 0, fontSize: 9, color: '#f87171', whiteSpace: 'nowrap' }}>超库存!</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 今日流水简览 */}
+            {ledger.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginBottom: 8 }}>今日流水</div>
+                {ledger.slice(0, 10).map(e => (
+                  <div key={e.id} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '8px 12px', borderRadius: 10, marginBottom: 6,
+                    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                  }}>
+                    <div>
+                      <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+                        {CHANGE_LABELS[e.change_type] ?? e.change_type}
+                      </span>
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginLeft: 6 }}>
+                        {e.customer_no || e.house_code || ''}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: e.qty_change > 0 ? '#10b981' : '#f87171' }}>
+                      {e.qty_change > 0 ? '+' : ''}{e.qty_change}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
