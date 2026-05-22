@@ -94,34 +94,31 @@ function isMobileDevice(request: NextRequest): boolean {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 1. 公共路由直接放行
-  if (isPublic(pathname)) {
-    return NextResponse.next();
-  }
-
-  // 2. 根路径：按设备类型分流
+  // 1. 移动端分流（必须在 isPublic 之前，否则 /login 会被提前放行）
   if (pathname === '/') {
     const token = request.cookies.get(TOKEN_COOKIE)?.value;
     if (isMobileDevice(request)) {
-      // 移动端：有 token → 移动首页，无 token → 移动登录
       const dest = token ? '/mobile/home' : '/mobile/login';
       return NextResponse.redirect(new URL(dest, request.url));
     }
-    // PC 端：有 token → dashboard，无 token → login
     const dest = token ? '/dashboard' : '/login';
     return NextResponse.redirect(new URL(dest, request.url));
   }
 
-  // 2b. PC 登录页从移动端访问 → 跳到移动登录页
+  // 1b. /login 从移动端访问 → 跳移动登录页
   if (pathname === '/login' && isMobileDevice(request)) {
     const loginUrl = new URL('/mobile/login', request.url);
-    // 透传 return 参数（若有）
     const ret = request.nextUrl.searchParams.get('return');
     if (ret) loginUrl.searchParams.set('return', ret);
     return NextResponse.redirect(loginUrl);
   }
 
-  // 3. 检查是否需要守卫
+  // 2. 公共路由放行
+  if (isPublic(pathname)) {
+    return NextResponse.next();
+  }
+
+  // 3. 守卫路由：移动端未登录直接打开 PC 路由 → 引导到移动登录
   if (!isGuarded(pathname)) {
     return NextResponse.next();
   }
