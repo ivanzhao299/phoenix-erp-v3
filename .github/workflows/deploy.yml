@@ -225,8 +225,8 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ────────────────────────────────────────────────────────────
-  # Job 3: SSH 部署到生产服务器
-  # 需要 GitHub Secrets（见下方说明）
+  # Job 3: Webhook 触发服务器部署（无需 SSH）
+  # 需要 GitHub Secret: DEPLOY_WEBHOOK_TOKEN
   # ────────────────────────────────────────────────────────────
   deploy:
     name: Deploy to Production
@@ -239,81 +239,55 @@ jobs:
     timeout-minutes: 15
     environment: production
 
-    permissions:
-      contents: read
-      packages: read
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Trigger deploy via webhook
+        run: |
+          resp=$(curl -fsSL --max-time 15 \
+            -X POST https://erp.eggslao.com/deploy/webhook \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.DEPLOY_WEBHOOK_TOKEN }}" \
+            -d "{\"sha\":\"${{ github.sha }}\",\"actor\":\"${{ github.actor }}\"}") \
+            || { echo "::error::Cannot reach webhook endpoint"; exit 1; }
+          echo "Webhook response: $resp"
+          ok=$(echo "$resp" | python3 -c \
+            "import sys,json; print(json.load(sys.stdin).get('ok',False))" 2>/dev/null || echo "False")
+          if [ "$ok" != "True" ]; then
+            echo "::error::Deploy trigger rejected: $resp"
+            exit 1
+          fi
+          echo "✅ Deploy triggered (sha=${{ github.sha }})"
 
-      - name: Prepare nginx config
-        id: nginx
-        run: echo "conf=$(base64 -w0 nginx/erp.eggslao.com.conf)" >> $GITHUB_OUTPUT
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
-          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || 'root' }}
-          proxy_key: ${{ secrets.DEPLOY_SSH_KEY }}
-          proxy_port: 22
-          script: |
-            set -e
-            cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
-
-            # ── 同步代码（DDL 迁移文件等）────────────────────────────────
-            git stash
-            git pull --ff-only origin main
-            echo "✅ Code synced"
-
-            # ── 拉取镜像 ────────────────────────────────────────────────
-            echo "${{ secrets.GITHUB_TOKEN }}" | \
-              docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
-            docker compose pull api web
-
-            # ── DB：幂等启动 ─────────────────────────────────────────────
-            docker compose up -d --wait db
-            echo "✅ DB healthy"
-
-            # ── DDL 迁移（幂等）────────────────────────────────────────
-            for f in $(ls apps/api/ddl/*.sql | sort); do
-              docker compose exec -T db sh -c \
-                'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
-                < "$f" 2>&1 \
-                | grep -v "already exists\|NOTICE\|will create\|^$" || true
-            done
-            echo "✅ DDL migrations applied"
-
-            # ── 滚动重启容器 ─────────────────────────────────────────────
-            docker compose up -d --no-deps --wait api
-            docker compose up -d --no-deps --wait web \
-              || { docker compose logs web --tail 80; exit 1; }
-            docker image prune -f
-
-            # ── Nginx：备份 → 写入 → reload（不 restart）────────────────
-            cp /etc/nginx/conf.d/cnjinhu-default.conf \
-              /root/nginx-cnjinhu.conf.bak-$(date +%Y%m%d-%H%M%S) 2>/dev/null || true
-            echo "${{ steps.nginx.outputs.conf }}" | base64 -d \
-              > /etc/nginx/conf.d/erp.eggslao.com.conf
-            nginx -t
-            if systemctl is-active --quiet nginx; then
-              systemctl reload nginx
-            else
-              systemctl start nginx
+      - name: Wait for deploy to complete
+        run: |
+          echo "Polling https://erp.eggslao.com/deploy/status every 10s (max 6min)..."
+          for i in $(seq 1 36); do
+            sleep 10
+            resp=$(curl -fsSL --max-time 10 https://erp.eggslao.com/deploy/status \
+              2>/dev/null || echo '{"running":true,"log":""}')
+            running=$(echo "$resp" | python3 -c \
+              "import sys,json; print(json.load(sys.stdin).get('running',True))" 2>/dev/null || echo "True")
+            echo "[$((i * 10))s] running=$running"
+            if [ "$running" = "False" ]; then
+              log=$(echo "$resp" | python3 -c \
+                "import sys,json; print(json.load(sys.stdin).get('log','')[-800:])" 2>/dev/null || echo "")
+              echo "--- Deploy log (tail) ---"
+              echo "$log"
+              echo "-------------------------"
+              if echo "$log" | grep -qE "ERROR:|smoke test failed|exit 1|Deploy complete"; then
+                if echo "$log" | grep -q "Deploy complete"; then
+                  echo "✅ Deploy complete"
+                  exit 0
+                else
+                  echo "::error::Deploy script reported failure"
+                  exit 1
+                fi
+              fi
+              echo "✅ Deploy done"
+              exit 0
             fi
-            echo "✅ Nginx reloaded"
-
-            # ── Smoke test ───────────────────────────────────────────────
-            sleep 3
-            curl -fsSL --max-time 20 http://127.0.0.1:3000/ -o /dev/null \
-              && echo "✅ Web smoke test passed" \
-              || { docker compose logs web --tail 20; exit 1; }
-
-            echo "✅ Deploy complete — $(date '+%Y-%m-%d %H:%M:%S')"
+          done
+          echo "::error::Deploy timed out after 360s — check https://erp.eggslao.com/deploy/status"
+          exit 1
 
       - name: Send deploy notification
         if: always()

@@ -1,0 +1,41 @@
+# /etc/systemd/system/phoenix-webhook.service
+#
+# 安装方法（服务器上执行一次）：
+#   cp deploy/phoenix-webhook.service /etc/systemd/system/
+#   # 先创建 /etc/phoenix-webhook.env（参考 deploy/phoenix-webhook.env.example）
+#   systemctl daemon-reload
+#   systemctl enable --now phoenix-webhook
+#
+# 查看日志：
+#   journalctl -u phoenix-webhook -f
+
+[Unit]
+Description=Phoenix ERP V3 Deploy Webhook Receiver
+Documentation=https://github.com/ivanzhao299/phoenix-erp-v3
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+# 工作目录和用户根据实际服务器调整
+WorkingDirectory=/root/phoenix-erp
+User=root
+
+ExecStart=/usr/bin/python3 /root/phoenix-erp/deploy/webhook.py
+
+# 环境变量文件（不提交到 Git）
+EnvironmentFile=/etc/phoenix-webhook.env
+
+# 进程管理
+Restart=always
+RestartSec=5
+StartLimitInterval=60
+StartLimitBurst=5
+
+# 日志
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=phoenix-webhook
+
+[Install]
+WantedBy=multi-user.target
