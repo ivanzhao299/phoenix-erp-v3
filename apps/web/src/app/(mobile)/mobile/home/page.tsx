@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   BarChart2, Package, ShieldCheck, Warehouse,
-  Truck, CheckSquare, LogOut, Monitor,
+  Truck, CheckSquare, LogOut, Monitor, Wheat, Skull,
 } from 'lucide-react';
 
 type NavCard = {
@@ -26,10 +26,22 @@ const NAV_CARDS: NavCard[] = [
     color: '#10b981', href: '/mobile/dashboard', soon: false,
   },
   {
+    icon: <Wheat size={28} />,
+    titleZh: '饲料台账', titleEn: 'Feed Ledger', titleLo: 'ບັນທຶກອາຫານ',
+    desc: '出入库登记·库存预警',
+    color: '#f59e0b', href: '/mobile/feed', soon: false,
+  },
+  {
+    icon: <Skull size={28} />,
+    titleZh: '死淘快录', titleEn: 'Mortality', titleLo: 'ບັນທຶກຕາຍ',
+    desc: '各栋死淘数量快速录入',
+    color: '#ef4444', href: '/mobile/mortality', soon: false,
+  },
+  {
     icon: <Package size={28} />,
     titleZh: '包装统计', titleEn: 'Packaging', titleLo: 'ຫຸ້ມຫໍ່',
     desc: '班次产出、等级分布',
-    color: '#f59e0b', href: '/mobile/dashboard', soon: false,
+    color: '#a78bfa', href: '/mobile/dashboard', soon: false,
   },
   {
     icon: <ShieldCheck size={28} />,
@@ -40,7 +52,7 @@ const NAV_CARDS: NavCard[] = [
   {
     icon: <Warehouse size={28} />,
     titleZh: '库存看板', titleEn: 'Inventory', titleLo: 'ສິນຄ້າຄົງຄັງ',
-    desc: '实时库存与预警',
+    desc: '蛋品·药品库存查询',
     color: '#3b82f6', soon: true,
   },
   {
@@ -53,7 +65,7 @@ const NAV_CARDS: NavCard[] = [
     icon: <CheckSquare size={28} />,
     titleZh: '审批中心', titleEn: 'Approvals', titleLo: 'ການອະນຸມັດ',
     desc: '待审批事项提醒',
-    color: '#ef4444', soon: true,
+    color: '#ec4899', soon: true,
   },
   {
     icon: <Monitor size={28} />,

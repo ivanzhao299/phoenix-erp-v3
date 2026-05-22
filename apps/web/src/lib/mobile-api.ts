@@ -72,6 +72,23 @@ export interface FarmLog {
   water_consumed?: number | string;
 }
 
+export interface FeedLedgerRow {
+  id:              number | null;
+  ledger_date:     string;
+  material_name:   string;
+  unit:            string;
+  sort_order:      number;
+  prev_stock:      number;
+  inbound_qty:     number;
+  outbound_detail: Record<string, number>;
+  outbound_total:  number;
+  current_stock:   number;
+  daily_usage:     number;
+  days_left:       number | null;
+  alert:           'CRITICAL' | 'WARN' | null;
+  note:            string;
+}
+
 export interface FlockRecord {
   flock_no:         string;
   house_code?:      string;
@@ -129,4 +146,23 @@ export const mobileApi = {
   /** 存栏批次（ROLE_ADMIN / ROLE_FARM_MGR 可访问；其他角色 403 降级） */
   getFlocks: () =>
     get<{ data: FlockRecord[]; total: number }>('/api/crud/brd_flocks?status=LAYING&limit=100'),
+
+  /** 饲料台账 — 查询某日 */
+  getFeedLedger: (date: string) =>
+    get<FeedLedgerRow[]>(`/api/farm/feed/ledger?date=${date}`),
+
+  /** 饲料台账 — 保存 */
+  saveFeedLedger: (date: string, items: Partial<FeedLedgerRow>[]) =>
+    fetch((process.env.NEXT_PUBLIC_API_BASE || '') + '/api/farm/feed/ledger', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') || '' : ''}`,
+      },
+      body: JSON.stringify({ date, items }),
+    }).then(r => r.json()),
+
+  /** 饲料台账 — 栋舍列表 */
+  getFeedHouses: () =>
+    get<string[]>('/api/farm/feed/houses'),
 };
