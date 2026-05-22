@@ -8,39 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Plus, Edit2, Trash2, Save, Search } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 
-const TYPE_LABEL: Record<string,string> = {
-  // 包装
-  PKG_ANOMALY_REASON:"包装异常原因", PKG_EGG_GRADE:"鸡蛋等级配置", PKG_EGG_DEFECT:"蛋品缺陷类型",
-  PKG_PACK_SPEC:"包装规格配置", PKG_PRESORT_STANDARD:"预分拣标准",
-  PKG_SHIFT:"包装班次", PKG_CUSTOM_LABEL:"临时标签类型", PKG_QC_RESULT:"QC检验结论",
-  // 审批
-  APPROVAL:"审批流程", APR_MODULE_TYPE:"审批模块类型",
-  // 养殖
-  BREEDING:"养殖管理", BRD_BREED_TYPE:"鸡种类型", BRD_HOUSE_TYPE:"鸡舍类型",
-  BRD_FLOCK_STATUS:"鸡群状态", BRD_VACCINE_TYPE:"疫苗种类", BRD_VACCINATE_METHOD:"接种方式",
-  // 业务
-  BUSINESS:"业务设置", BS_PAYMENT_TERM:"付款条款", BS_CUSTOMER_LEVEL:"客户等级",
-  // CRM
-  CRM:"客户管理", CRM_MEMBER_LEVEL:"会员等级", CRM_ACTIVITY_TYPE:"营销活动类型",
-  CRM_COUPON_LEVEL:"优惠券等级", CRM_COUPON_TYPE:"优惠券类型",
-  CRM_TARGET_GROUP:"营销目标群体", CRM_POINTS_RULE:"积分规则",
-  // 产品
-  PRD_PRODUCT_GRADE:"产品品质等级", PRD_CATEGORY:"产品分类", PRD_PRODUCT_TYPE:"产品类型",
-  // 质检
-  QC_TRACE_TYPE:"追溯类型", QC_NCR_SOURCE:"异常反馈来源",
-  QC_INSPECTION_METHOD:"质检方式", QC_INSPECTION_TYPE:"巡检类型",
-  QC_INSPECT_CATEGORY:"质检分类", QC_INSPECT_TYPE:"质检类型",
-  QC_NC_SOURCE:"异常来源", QC_PRODUCT_CATEGORY:"产品质检分类",
-  // 系统
-  SYS_ORG_LEVEL:"组织架构层级",
-  // 运输
-  TRP_EXCEPTION_TYPE:"运输异常原因", TRP_RECEIPT_STATUS:"签收状态",
-  // 仓储
-  WMS_INBOUND_TYPE:"入库类型", WMS_OUTBOUND_TYPE:"出库类型",
-  WMS_STATUS:"库位状态", WMS_ZONE_TYPE:"库区类型", WMS_LOCATION_PURPOSE:"特殊库位用途",
-  // 通用
-  ORG_DEPT_LEVEL:"部门层级", GENERAL:"通用字典",
-};
+// TYPE_LABEL 在组件内通过 useTypeLabelMap() 动态生成，支持多语言
 
 const COLORS = ["#3b82f6","#8b5cf6","#10b981","#f59e0b","#ef4444","#06b6d4","#ec4899","#14b8a6","#f97316","#6366f1"];
 const typeColor = (t: string) => COLORS[t.charCodeAt(0) % COLORS.length];
@@ -53,6 +21,71 @@ interface DictRow { id:number; dict_code:string; dict_type:string; dict_label_zh
 export default function DictPage() {
   const toast = useToast();
   const { t } = useLanguage();
+
+  // 字典类型中文/多语言标签映射，随语言切换动态更新
+  const TYPE_LABEL = useMemo<Record<string,string>>(() => ({
+    // 包装
+    PKG_ANOMALY_REASON: t("dict.PKG_ANOMALY_REASON","包装异常原因"),
+    PKG_EGG_GRADE:      t("dict.PKG_EGG_GRADE","鸡蛋等级配置"),
+    PKG_EGG_DEFECT:     t("dict.PKG_EGG_DEFECT","蛋品缺陷类型"),
+    PKG_PACK_LINE:      t("dict.PKG_PACK_LINE","包装产线"),
+    PKG_PACK_SPEC:      t("dict.PKG_PACK_SPEC","包装规格配置"),
+    PKG_PRESORT_STANDARD: t("dict.PKG_PRESORT_STANDARD","预分拣标准"),
+    PKG_SHIFT:          t("dict.PKG_SHIFT","包装班次"),
+    PKG_CUSTOM_LABEL:   t("dict.PKG_CUSTOM_LABEL","临时标签类型"),
+    PKG_QC_RESULT:      t("dict.PKG_QC_RESULT","QC检验结论"),
+    // 审批
+    APPROVAL:           t("dict.APPROVAL","审批流程"),
+    APR_MODULE_TYPE:    t("dict.APR_MODULE_TYPE","审批模块类型"),
+    // 养殖
+    BREEDING:           t("dict.BREEDING","养殖管理"),
+    BRD_BREED_TYPE:     t("dict.BRD_BREED_TYPE","鸡种类型"),
+    BRD_HOUSE_TYPE:     t("dict.BRD_HOUSE_TYPE","鸡舍类型"),
+    BRD_SHIFT:          t("dict.BRD_SHIFT","养殖班次"),
+    BRD_FLOCK_STATUS:   t("dict.BRD_FLOCK_STATUS","鸡群状态"),
+    BRD_VACCINE_TYPE:   t("dict.BRD_VACCINE_TYPE","疫苗种类"),
+    BRD_VACCINATE_METHOD: t("dict.BRD_VACCINATE_METHOD","接种方式"),
+    // 业务
+    BUSINESS:           t("dict.BUSINESS","业务设置"),
+    BS_PAYMENT_TERM:    t("dict.BS_PAYMENT_TERM","付款条款"),
+    BS_CUSTOMER_LEVEL:  t("dict.BS_CUSTOMER_LEVEL","客户等级"),
+    // CRM
+    CRM:                t("dict.CRM","客户管理"),
+    CRM_MEMBER_LEVEL:   t("dict.CRM_MEMBER_LEVEL","会员等级"),
+    CRM_ACTIVITY_TYPE:  t("dict.CRM_ACTIVITY_TYPE","营销活动类型"),
+    CRM_COUPON_LEVEL:   t("dict.CRM_COUPON_LEVEL","优惠券等级"),
+    CRM_COUPON_TYPE:    t("dict.CRM_COUPON_TYPE","优惠券类型"),
+    CRM_TARGET_GROUP:   t("dict.CRM_TARGET_GROUP","营销目标群体"),
+    CRM_POINTS_RULE:    t("dict.CRM_POINTS_RULE","积分规则"),
+    // 产品
+    PRD_PRODUCT_GRADE:  t("dict.PRD_PRODUCT_GRADE","产品品质等级"),
+    PRD_CATEGORY:       t("dict.PRD_CATEGORY","产品分类"),
+    PRD_PRODUCT_TYPE:   t("dict.PRD_PRODUCT_TYPE","产品类型"),
+    // 质检
+    QC_TRACE_TYPE:      t("dict.QC_TRACE_TYPE","追溯类型"),
+    QC_NCR_SOURCE:      t("dict.QC_NCR_SOURCE","异常反馈来源"),
+    QC_INSPECTION_METHOD: t("dict.QC_INSPECTION_METHOD","质检方式"),
+    QC_INSPECTION_TYPE: t("dict.QC_INSPECTION_TYPE","巡检类型"),
+    QC_INSPECT_CATEGORY: t("dict.QC_INSPECT_CATEGORY","质检分类"),
+    QC_INSPECT_TYPE:    t("dict.QC_INSPECT_TYPE","质检类型"),
+    QC_NC_SOURCE:       t("dict.QC_NC_SOURCE","异常来源"),
+    QC_PRODUCT_CATEGORY: t("dict.QC_PRODUCT_CATEGORY","产品质检分类"),
+    // 系统
+    SYS_ORG_LEVEL:      t("dict.SYS_ORG_LEVEL","组织架构层级"),
+    // 运输
+    TRP_EXCEPTION_TYPE: t("dict.TRP_EXCEPTION_TYPE","运输异常原因"),
+    TRP_RECEIPT_STATUS: t("dict.TRP_RECEIPT_STATUS","签收状态"),
+    // 仓储
+    WMS_INBOUND_TYPE:   t("dict.WMS_INBOUND_TYPE","入库类型"),
+    WMS_OUTBOUND_TYPE:  t("dict.WMS_OUTBOUND_TYPE","出库类型"),
+    WMS_STATUS:         t("dict.WMS_STATUS","库位状态"),
+    WMS_ZONE_TYPE:      t("dict.WMS_ZONE_TYPE","库区类型"),
+    WMS_LOCATION_PURPOSE: t("dict.WMS_LOCATION_PURPOSE","特殊库位用途"),
+    // 通用
+    ORG_DEPT_LEVEL:     t("dict.ORG_DEPT_LEVEL","部门层级"),
+    GENERAL:            t("dict.GENERAL","通用字典"),
+  }), [t]);
+
   const [rows,    setRows]    = useState<DictRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [search,  setSearch]  = useState("");
@@ -391,19 +424,19 @@ export default function DictPage() {
 
           {form.dict_type==="PKG_SHIFT" && <>
             <div style={{ height:1, background:"var(--border)", margin:"4px 0" }}/>
-            <div style={{ fontSize:12, fontWeight:700, color:"var(--text-secondary)" }}>扩展配置（班次时间段）</div>
+            <div style={{ fontSize:12, fontWeight:700, color:"var(--text-secondary)" }}>{t("ui.扩展配置班次时间段","扩展配置（班次时间段）")}</div>
             <div className={s.field}>
               <label style={{ display:"block", fontSize:12, marginBottom:4, color:"var(--text-primary)" }}>
-                ⏰ 时间范围
+                ⏰ {t("ui.时间范围","时间范围")}
               </label>
               <input
                 value={form.cfg?.timeRange||""}
                 onChange={e=>fc("timeRange", e.target.value)}
-                placeholder="如 08:00-14:00"
+                placeholder={t("ui.班次时间示例","如 08:00-14:00")}
                 className={s.inp}
               />
               <div style={{ fontSize:11, color:"var(--text-secondary)", marginTop:4 }}>
-                格式：HH:MM-HH:MM，如 08:00-14:00 或 22:00-06:00（跨夜）
+                {t("ui.班次时间格式说明","格式：HH:MM-HH:MM，如 08:00-14:00 或 22:00-06:00（跨夜）")}
               </div>
             </div>
           </>}
@@ -413,7 +446,7 @@ export default function DictPage() {
             <div style={{ fontSize:12, fontWeight:700, color:"var(--text-secondary)" }}>{t("ui.扩展配置鸡蛋等级","扩展配置（鸡蛋等级）")}</div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
               <div><label style={{ display:"block", fontSize:12, marginBottom:4, color:"var(--text-primary)" }}>{t("ui.内部编码","内部编码")}</label><input value={form.cfg?.code||""} onChange={e=>fc("code",e.target.value)} className={s.inp}/></div>
-              <div><label style={{ display:"block", fontSize:12, marginBottom:4, color:"var(--text-primary)" }}>{t("ui.重量范围","重量范围")}</label><input value={form.cfg?.weightRange||""} onChange={e=>fc("weightRange",e.target.value)} placeholder="如 59-66g" className={s.inp}/></div>
+              <div><label style={{ display:"block", fontSize:12, marginBottom:4, color:"var(--text-primary)" }}>{t("ui.重量范围","重量范围")}</label><input value={form.cfg?.weightRange||""} onChange={e=>fc("weightRange",e.target.value)} placeholder={t("ui.重量范围示例","如 59-66g")} className={s.inp}/></div>
               <div><label style={{ display:"block", fontSize:12, marginBottom:4, color:"var(--text-primary)" }}>{t("ui.关联产品号","关联产品号")}</label><input value={form.cfg?.productCode||""} onChange={e=>fc("productCode",e.target.value)} placeholder="PRD-EGG-1" className={s.inp}/></div>
               <div style={{ display:"flex", alignItems:"flex-end", paddingBottom:6 }}>
                 <label style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, cursor:"pointer", color:"var(--text-primary)" }}>
@@ -427,8 +460,8 @@ export default function DictPage() {
             <div style={{ height:1, background:"var(--border)", margin:"4px 0" }}/>
             <div style={{ fontSize:12, fontWeight:700, color:"var(--text-secondary)" }}>{t("ui.扩展配置包装规格","扩展配置（包装规格）")}</div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-              <div><label style={{ display:"block", fontSize:12, marginBottom:4, color:"var(--text-primary)" }}>{t("ui.容量单品数","容量/单品数")}</label><input type="number" value={form.cfg?.capacity||""} onChange={e=>fc("capacity",e.target.value)} placeholder="如 360" className={s.inp}/></div>
-              <div><label style={{ display:"block", fontSize:12, marginBottom:4, color:"var(--text-primary)" }}>{t("ui.计件单位","计件单位")}</label><input value={form.cfg?.unit||""} onChange={e=>fc("unit",e.target.value)} placeholder="如 枚/箱" className={s.inp}/></div>
+              <div><label style={{ display:"block", fontSize:12, marginBottom:4, color:"var(--text-primary)" }}>{t("ui.容量单品数","容量/单品数")}</label><input type="number" value={form.cfg?.capacity||""} onChange={e=>fc("capacity",e.target.value)} placeholder={t("ui.容量示例","如 360")} className={s.inp}/></div>
+              <div><label style={{ display:"block", fontSize:12, marginBottom:4, color:"var(--text-primary)" }}>{t("ui.计件单位","计件单位")}</label><input value={form.cfg?.unit||""} onChange={e=>fc("unit",e.target.value)} placeholder={t("ui.计件单位示例","如 枚/箱")} className={s.inp}/></div>
               <div style={{ gridColumn:"1 / -1" }}>
                 <label style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, cursor:"pointer", color:"var(--text-primary)" }}>
                   <input type="checkbox" checked={form.cfg?.requireBoxCode!==false} onChange={e=>fc("requireBoxCode",e.target.checked)}/> {t("ui.必须扫描大箱箱码入库","必须扫描大箱箱码入库")}
