@@ -201,7 +201,7 @@ const MENU: MenuItem[] = [
     { id: "stg-security",    path: "/settings/security",       Icon: ShieldCheck,   label: "安全策略",     perm: null },
     { id: "stg-health",      path: "/settings/health",         Icon: Activity,      label: "系统健康",     perm: "MENU_SETTINGS_IT" },
     { id: "stg-audit",       path: "/settings/audit-log",      Icon: History,       label: "审计日志",     perm: "MENU_SETTINGS_IT" },
-    { id: "stg-init",        path: "/settings/system-init",    Icon: Zap,           label: "系统初始化",   perm: null },
+
     { id: "stg-brand",       path: "/settings/brand",          Icon: Star,          label: "品牌配置",     perm: "MENU_SETTINGS_IT" },
     { id: "stg-profile",     path: "/settings/profile",        Icon: UserCheck,     label: "个人中心",     perm: null },
   ]},
