@@ -5,11 +5,17 @@ import { EntityManager } from 'typeorm';
 @Injectable()
 export class IotSyncService implements OnModuleInit {
   private readonly logger = new Logger(IotSyncService.name);
-  
+
   private readonly API_BASE = 'http://data.znmc.co';
   private readonly APP_ID = 'lwfhny_api';
   private readonly APP_SECRET = '9q8XClpru43YX0DavdkjSkocbN0WrXwK';
-  
+
+  /** 防止定时任务与手动触发并发打同一栏舍 */
+  private _syncLock = false;
+  /** 每栋鸡舍最后一次调用外部 API 的时间戳（ms），用于全局限速 */
+  private _lastCallTs: Map<number, number> = new Map();
+  private readonly IOT_INTERVAL_MS = 12_000; // 外部 API 要求同一栏舍间隔 ≥10s，取 12s 安全边距
+
   private accessToken: string | null = null;
   private expireTime: number = 0;
 
@@ -18,12 +24,19 @@ export class IotSyncService implements OnModuleInit {
   /** 每 5 分钟自动同步全场实时数据（与 V2 版本保持一致）*/
   @Cron('0 */5 * * * *')
   async scheduledSync() {
+    if (this._syncLock) {
+      this.logger.warn('⚠️ [定时任务] 上一轮同步尚未结束，跳过本次触发');
+      return;
+    }
     this.logger.log('⏰ [定时任务] 开始 5 分钟自动同步...');
+    this._syncLock = true;
     try {
       const result = await this.syncAllRealtime();
       this.logger.log(`✅ [定时任务] 同步完成：${result.successHouses} 栋成功，${result.totalUpdated} 条数据`);
     } catch (e: any) {
       this.logger.error('❌ [定时任务] 同步异常：' + e.message);
+    } finally {
+      this._syncLock = false;
     }
   }
 
@@ -125,6 +138,16 @@ export class IotSyncService implements OnModuleInit {
       this.logger.warn(`No active vendor_house_id mapping found for ${houseCode}`);
       return [];
     }
+
+    // 全局限速：同一 vendorHouseId 上次调用未满 IOT_INTERVAL_MS，主动等待补足
+    const lastTs = this._lastCallTs.get(vendorHouseId) ?? 0;
+    const elapsed = Date.now() - lastTs;
+    if (elapsed < this.IOT_INTERVAL_MS) {
+      const wait = this.IOT_INTERVAL_MS - elapsed;
+      this.logger.debug(`Rate-limit guard: waiting ${wait}ms before calling houseId=${vendorHouseId}`);
+      await new Promise(r => setTimeout(r, wait));
+    }
+    this._lastCallTs.set(vendorHouseId, Date.now());
 
     let devicesData;
     try {
@@ -345,8 +368,7 @@ export class IotSyncService implements OnModuleInit {
         } catch (innerErr: any) {
           this.logger.error(`Sync realtime failed for house ${map.erp_house_code}: ${innerErr.message}`);
         }
-        // IoT 平台限速：每栋鸡舍请求间隔至少 12 秒
-        await new Promise(resolve => setTimeout(resolve, 12000));
+        // 限速由 fetchRealtimeProxy 内的 _lastCallTs 统一管理，无需在此额外等待
       }
     } catch (e: any) {
       result.error = 'API fetch failed. Demo Fallback: DB timestamps refreshed.';
