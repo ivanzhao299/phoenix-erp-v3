@@ -41,13 +41,13 @@ const NAV_CARDS: NavCard[] = [
     icon: <Package size={28} />,
     titleZh: '包装统计', titleEn: 'Packaging', titleLo: 'ຫຸ້ມຫໍ່',
     desc: '班次产出、等级分布',
-    color: '#a78bfa', href: '/mobile/dashboard', soon: false,
+    color: '#a78bfa', href: '/mobile/packaging', soon: false,
   },
   {
     icon: <ShieldCheck size={28} />,
     titleZh: '品质检测', titleEn: 'Quality', titleLo: 'ຄຸນນະພາບ',
     desc: '首检、过程检、出库检',
-    color: '#8b5cf6', href: '/mobile/dashboard', soon: false,
+    color: '#8b5cf6', href: '/mobile/quality', soon: false,
   },
   {
     icon: <Warehouse size={28} />,

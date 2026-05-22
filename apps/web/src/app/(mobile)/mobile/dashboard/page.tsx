@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, RefreshCw, ArrowLeft } from 'lucide-react';
-import { mobileApi, KpiData, PackagingDailyReport, QcInspection, FarmLog, FlockRecord, PackagingTrendItem, DeviceAlert } from '@/lib/mobile-api';
+import { mobileApi, KpiData, PackagingDailyReport, QcInspection, FarmLog, FlockRecord, PackagingTrendItem, DeviceAlert, EggStockRow } from '@/lib/mobile-api';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
@@ -143,6 +143,7 @@ export default function MobileDashboardPage() {
   const [trend, setTrend]       = useState<PackagingTrendItem[]>([]);
   const [alerts, setAlerts]     = useState<DeviceAlert[]>([]);
   const [flocks, setFlocks]     = useState<FlockRecord[]>([]);
+  const [eggStock, setEggStock] = useState<EggStockRow[]>([]);
   const [alertsExpanded, setAlertsExpanded] = useState(false);
   const [houseExpanded, setHouseExpanded]   = useState(false);
   const [flockExpanded, setFlockExpanded]   = useState(false);
@@ -169,6 +170,9 @@ export default function MobileDashboardPage() {
       .catch(() => {});
     mobileApi.getFlocks()
       .then(data => { const arr = Array.isArray(data) ? data : (data as any)?.data ?? []; setFlocks(arr); })
+      .catch(() => {});
+    mobileApi.getEggStock()
+      .then(data => { setEggStock(Array.isArray(data) ? data : []); })
       .catch(() => {});
   }, [refreshKey, today]);
 
@@ -479,6 +483,48 @@ export default function MobileDashboardPage() {
             </div>
           )}
         </Section>
+
+        {/* ── 蛋品库存 ── */}
+        {eggStock.length > 0 && (() => {
+          const totalQty   = eggStock.reduce((s, r) => s + r.qty, 0);
+          const totalTrays = eggStock.reduce((s, r) => s + r.trays, 0);
+          const nonEmpty   = eggStock.filter(r => r.qty > 0);
+          return (
+            <div style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(245,158,11,0.3)',
+              borderRadius: 16, padding: '16px',
+              marginBottom: 12,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 18 }}>🥚</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>蛋品库存</span>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b' }}>{totalTrays}</span>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 3 }}>提</span>
+                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', marginLeft: 6 }}>{totalQty.toLocaleString()} 枚</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {nonEmpty.map(r => (
+                  <div key={r.grade} style={{
+                    padding: '6px 10px', borderRadius: 8,
+                    background: 'rgba(245,158,11,0.08)',
+                    border: '1px solid rgba(245,158,11,0.2)',
+                  }}>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{r.name}</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#f59e0b' }}>{r.qty.toLocaleString()}</div>
+                  </div>
+                ))}
+                {nonEmpty.length === 0 && (
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', padding: '4px 0' }}>库存为零</div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── 销售情况 ── */}
         <Section title="销售情况" icon="💰" color="#3b82f6" loading={kpiLoading} error={kpiErr}>
