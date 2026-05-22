@@ -85,6 +85,12 @@ function parseJwtPayload(token: string): Record<string, any> | null {
   }
 }
 
+/** 检测是否移动端设备（Edge Runtime 中通过 User-Agent 判断） */
+function isMobileDevice(request: NextRequest): boolean {
+  const ua = request.headers.get('user-agent') ?? '';
+  return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -93,9 +99,26 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. 根路径重定向到 /dashboard
+  // 2. 根路径：按设备类型分流
   if (pathname === '/') {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    const token = request.cookies.get(TOKEN_COOKIE)?.value;
+    if (isMobileDevice(request)) {
+      // 移动端：有 token → 移动首页，无 token → 移动登录
+      const dest = token ? '/mobile/home' : '/mobile/login';
+      return NextResponse.redirect(new URL(dest, request.url));
+    }
+    // PC 端：有 token → dashboard，无 token → login
+    const dest = token ? '/dashboard' : '/login';
+    return NextResponse.redirect(new URL(dest, request.url));
+  }
+
+  // 2b. PC 登录页从移动端访问 → 跳到移动登录页
+  if (pathname === '/login' && isMobileDevice(request)) {
+    const loginUrl = new URL('/mobile/login', request.url);
+    // 透传 return 参数（若有）
+    const ret = request.nextUrl.searchParams.get('return');
+    if (ret) loginUrl.searchParams.set('return', ret);
+    return NextResponse.redirect(loginUrl);
   }
 
   // 3. 检查是否需要守卫
