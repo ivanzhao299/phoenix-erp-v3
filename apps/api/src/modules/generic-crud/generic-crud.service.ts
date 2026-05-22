@@ -896,6 +896,19 @@ export class GenericCrudService implements OnModuleInit {
         `ALTER TABLE ord_orders ADD COLUMN IF NOT EXISTS paid_amount NUMERIC(18,2) DEFAULT 0`,
         `ALTER TABLE ord_orders ADD COLUMN IF NOT EXISTS received_date DATE`,
 
+        // A3: 鸡蛋销售出库：ord_order_items 加 grade 字段（对应蛋品规格）
+        `ALTER TABLE ord_order_items ADD COLUMN IF NOT EXISTS grade VARCHAR(20)`,
+
+        // A4: 农场直销客户种子数据（幂等 INSERT，customer_code 为唯一键）
+        `INSERT INTO ord_customers (customer_code, customer_name, tier, status)
+         VALUES
+           ('FARM-MS',  '孟赛直营店',  'FARM', 'ACTIVE'),
+           ('FARM-WX',  '万象直营店',  'FARM', 'ACTIVE'),
+           ('FARM-ML1', '孟龙客户一',  'FARM', 'ACTIVE'),
+           ('FARM-ML2', '孟龙客户二',  'FARM', 'ACTIVE'),
+           ('FARM-EMP', '职工购买',    'FARM', 'ACTIVE')
+         ON CONFLICT (customer_code) DO NOTHING`,
+
         // ══════════════════════════════════════════════════════════════════════
         // 阶段二收尾：V2 残表归档封存（sys_users / sys_roles / sys_user_roles）
         // 策略：

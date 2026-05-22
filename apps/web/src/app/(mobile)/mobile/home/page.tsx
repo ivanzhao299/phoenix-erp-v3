@@ -57,9 +57,9 @@ const NAV_CARDS: NavCard[] = [
   },
   {
     icon: <Truck size={28} />,
-    titleZh: '物流跟踪', titleEn: 'Logistics', titleLo: 'ການຂົນສົ່ງ',
-    desc: '配送路线与签收状态',
-    color: '#06b6d4', soon: true,
+    titleZh: '销售出库', titleEn: 'Sales', titleLo: 'ການຂາຍ',
+    desc: '农场直销·出库开单',
+    color: '#06b6d4', href: '/mobile/sales', soon: false,
   },
   {
     icon: <CheckSquare size={28} />,

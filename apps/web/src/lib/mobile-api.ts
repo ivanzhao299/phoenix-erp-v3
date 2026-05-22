@@ -164,6 +164,36 @@ export interface EggOutboundItem {
   customer_no: string;
 }
 
+export interface FarmCustomer {
+  customer_code: string;
+  customer_name: string;
+}
+
+export interface FarmSaleItem {
+  grade:       string;
+  grade_name:  string;
+  qty:         number;
+  trays:       number;
+  unit_price:  number;
+}
+
+export interface FarmSaleRecord {
+  order_no:      string;
+  order_date:    string;
+  customer_code: string;
+  customer_name: string;
+  total_amount:  number;
+  status:        string;
+  remark:        string | null;
+  items:         Array<{
+    grade:           string;
+    product_name_zh: string;
+    qty:             number;
+    unit_price:      number;
+    subtotal:        number;
+  }>;
+}
+
 // ── API 方法 ──────────────────────────────────────────────────────────────────
 
 export const mobileApi = {
@@ -232,4 +262,26 @@ export const mobileApi = {
   /** 鸡蛋报损 */
   eggWriteOff: (date: string, items: Array<{ grade: string; qty: number; reason: string }>, operator?: string) =>
     post('/api/farm/egg/write-off', { date, items, operator }),
+
+  /** 农场客户列表 */
+  getFarmCustomers: () =>
+    get<FarmCustomer[]>('/api/farm/sales/customers'),
+
+  /** 农场销售记录（按日期） */
+  getFarmSales: (date: string) =>
+    get<FarmSaleRecord[]>(`/api/farm/sales?date=${date}`),
+
+  /** 创建农场直销单 */
+  createFarmSale: (data: {
+    sale_date:     string;
+    customer_code: string;
+    customer_name: string;
+    items:         FarmSaleItem[];
+    remark?:       string;
+    operator:      string;
+  }) => post<{ order_no: string; total_amount: number }>('/api/farm/sales', data),
+
+  /** 撤销农场销售单 */
+  cancelFarmSale: (orderNo: string, operator: string) =>
+    post(`/api/farm/sales/${orderNo}/cancel`, { operator }),
 };
