@@ -8,10 +8,12 @@ import { FarmEggController } from './farm-egg.controller';
 import { FarmEggService } from './farm-egg.service';
 import { FarmSalesController } from './farm-sales.controller';
 import { FarmSalesService } from './farm-sales.service';
+import { FarmMedicineController } from './farm-medicine.controller';
+import { FarmMedicineService } from './farm-medicine.service';
 
 @Module({
-  controllers: [FarmController, FarmFeedController, FarmEggController, FarmSalesController],
-  providers: [FarmService, FarmCronService, FarmFeedService, FarmEggService, FarmSalesService],
-  exports: [FarmService, FarmFeedService, FarmEggService, FarmSalesService],
+  controllers: [FarmController, FarmFeedController, FarmEggController, FarmSalesController, FarmMedicineController],
+  providers: [FarmService, FarmCronService, FarmFeedService, FarmEggService, FarmSalesService, FarmMedicineService],
+  exports: [FarmService, FarmFeedService, FarmEggService, FarmSalesService, FarmMedicineService],
 })
 export class FarmModule {}

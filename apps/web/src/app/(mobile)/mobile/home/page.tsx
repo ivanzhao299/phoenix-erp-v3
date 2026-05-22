@@ -63,9 +63,9 @@ const NAV_CARDS: NavCard[] = [
   },
   {
     icon: <CheckSquare size={28} />,
-    titleZh: '审批中心', titleEn: 'Approvals', titleLo: 'ການອະນຸມັດ',
-    desc: '待审批事项提醒',
-    color: '#ec4899', soon: true,
+    titleZh: '药品台账', titleEn: 'Medicine', titleLo: 'ຢາ',
+    desc: '药品库存·出入库登记',
+    color: '#8b5cf6', href: '/mobile/medicine', soon: false,
   },
   {
     icon: <Monitor size={28} />,

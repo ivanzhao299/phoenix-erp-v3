@@ -194,6 +194,27 @@ export interface FarmSaleRecord {
   }>;
 }
 
+export interface MedStockRow {
+  medication_code: string;
+  medication_name: string;
+  dosage:          string;
+  qty:             number;
+  unit:            string;
+}
+
+export interface MedLedgerEntry {
+  id:              number;
+  log_date:        string;
+  change_type:     string;
+  medication_code: string;
+  medication_name: string;
+  qty_change:      number;
+  house_code:      string | null;
+  note:            string | null;
+  operator:        string;
+  created_at:      string;
+}
+
 // ── API 方法 ──────────────────────────────────────────────────────────────────
 
 export const mobileApi = {
@@ -284,4 +305,20 @@ export const mobileApi = {
   /** 撤销农场销售单 */
   cancelFarmSale: (orderNo: string, operator: string) =>
     post(`/api/farm/sales/${orderNo}/cancel`, { operator }),
+
+  /** 药品库存（含目录） */
+  getMedStock: () =>
+    get<MedStockRow[]>('/api/farm/medicine/stock'),
+
+  /** 药品流水 */
+  getMedLedger: (start: string, end: string) =>
+    get<MedLedgerEntry[]>(`/api/farm/medicine/ledger?start=${start}&end=${end}`),
+
+  /** 药品入库 */
+  medInbound: (date: string, items: Array<{ medication_code: string; qty: number; note?: string }>, operator?: string) =>
+    post('/api/farm/medicine/inbound', { date, items, operator }),
+
+  /** 药品出库（用药） */
+  medOutbound: (date: string, items: Array<{ medication_code: string; qty: number; house_code?: string; note?: string }>, operator?: string) =>
+    post('/api/farm/medicine/outbound', { date, items, operator }),
 };
