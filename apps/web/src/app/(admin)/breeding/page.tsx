@@ -165,7 +165,7 @@ export default function BreedingPage() {
       ydMap[fc].cap +=flockQtyMap[l.flock_no as string]||0;
     });
     mapped.forEach(farm => {
-      const todayR=farmEggMap[farm.id]&&farmCapMap[farm.id]?farmEggMap[farm.id]/farmCapMap[farm.id]*100:null;
+      const todayR=farmEggMap[farm.id]&&farmLayMap[farm.id]?farmEggMap[farm.id]/farmLayMap[farm.id]*100:null;
       const ydD=ydMap[farm.id];
       const ydR=ydD&&ydD.cap>0?ydD.eggs/ydD.cap*100:null;
       if(todayR!==null&&ydR!==null&&(ydR-todayR)>2)
