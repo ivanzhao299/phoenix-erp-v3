@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { mobileApi, FarmCustomer, FarmSaleRecord, FarmSaleItem } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
 
 function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -51,6 +52,7 @@ export default function SalesPage() {
   const router  = useRouter();
   const today   = fmtDate(new Date());
   const { isDark, toggle, t } = useMobileTheme();
+  const { allowed, loading: permLoading, readonly } = useMobilePermission('sales');
 
   const [tab, setTab]   = useState<Tab>('new');
   const [date, setDate] = useState(today);
@@ -95,6 +97,8 @@ export default function SalesPage() {
   useEffect(() => {
     if (tab === 'history') loadHistory(date);
   }, [tab, date, loadHistory]);
+
+  if (permLoading || !allowed) return null;
 
   const getQty   = (g: string) => entries[g]?.qty        ?? 0;
   const getPrice = (g: string) => entries[g]?.unit_price ?? DEFAULT_PRICES[g] ?? 0;

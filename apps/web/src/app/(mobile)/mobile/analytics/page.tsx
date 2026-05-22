@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, RefreshCw, TrendingUp, TrendingDown, Minus, Sun, Moon } from 'lucide-react';
 import { mobileApi, FarmTrend, TrendRow } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
 
 // ── SVG Bar Chart ─────────────────────────────────────────────────────────────
 
@@ -123,6 +124,7 @@ const PERIODS = [
 export default function AnalyticsPage() {
   const router = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
+  const { allowed, loading: permLoading, readonly } = useMobilePermission('analytics');
   const [days, setDays]       = useState(7);
   const [data, setData]       = useState<FarmTrend | null>(null);
   const [loading, setLoading] = useState(true);
@@ -142,6 +144,8 @@ export default function AnalyticsPage() {
   }, []);
 
   useEffect(() => { load(days); }, [days, load]);
+
+  if (permLoading || !allowed) return null;
 
   const s = data?.summary;
   const rows = data?.rows ?? [];

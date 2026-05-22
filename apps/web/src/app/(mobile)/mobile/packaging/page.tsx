@@ -8,6 +8,7 @@ import {
   PackagingTrendItem,
 } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
 
 // ── 日期工具函数 ──────────────────────────────────────────────────────────────
 
@@ -135,6 +136,7 @@ function SkeletonGrid({ count = 2, cols = 2 }: { count?: number; cols?: number }
 export default function MobilePackagingPage() {
   const router = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
+  const { allowed, loading: permLoading, readonly } = useMobilePermission('packaging');
   const today = fmtDate(new Date());
 
   const [date, setDate]         = useState(today);
@@ -169,6 +171,8 @@ export default function MobilePackagingPage() {
   }, []);
 
   useEffect(() => { fetchReport(date); }, [date, refreshKey, fetchReport]);
+
+  if (permLoading || !allowed) return null;
 
   const isToday = date === today;
 

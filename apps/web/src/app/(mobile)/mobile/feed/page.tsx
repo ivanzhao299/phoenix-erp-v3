@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Sun, Moon } from 'lucide-react';
 import { mobileApi, FeedLedgerRow } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 
@@ -186,6 +187,7 @@ function MaterialCard({
 export default function FeedLedgerPage() {
   const router  = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
+  const { allowed, loading: permLoading, readonly } = useMobilePermission('feed');
   const today   = fmtDate(new Date());
   const [date, setDate]       = useState(today);
   const [rows, setRows]       = useState<FeedLedgerRow[]>([]);
@@ -218,6 +220,7 @@ export default function FeedLedgerPage() {
   }, []);
 
   useEffect(() => { loadData(date); }, [date, loadData]);
+  if (permLoading || !allowed) return null;
 
   // 当某行修改时，重新计算 outbound_total 和 current_stock
   const updateRow = (idx: number, patch: Partial<FeedLedgerRow>) => {

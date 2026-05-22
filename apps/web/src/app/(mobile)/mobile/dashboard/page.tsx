@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, RefreshCw, ArrowLeft, Sun, Moon } from 'luci
 import { mobileApi, KpiData, PackagingDailyReport, QcInspection, FarmLog, FlockRecord, PackagingTrendItem, DeviceAlert, EggStockRow } from '@/lib/mobile-api';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 
@@ -138,6 +139,7 @@ export default function MobileDashboardPage() {
   const router = useRouter();
   const { lang } = useLanguage();
   const { isDark, toggle, t } = useMobileTheme();
+  const { allowed, loading: permLoading } = useMobilePermission('dashboard');
   const today = fmtDate(new Date());
 
   const [date, setDate]         = useState(today);
@@ -219,6 +221,7 @@ export default function MobileDashboardPage() {
   }, []);
 
   useEffect(() => { fetchAll(date); }, [date, refreshKey, fetchAll]);
+  if (permLoading || !allowed) return null;
 
   const isToday = date === today;
   const isFuture = date > today;

@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FarmEggService } from './farm-egg.service';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
 
 @Controller('api/farm/egg')
 @UseGuards(AuthGuard('jwt'))
@@ -31,6 +33,8 @@ export class FarmEggController {
    *  body: { date, items: [{grade, qty, house_code}], operator? }
    */
   @Post('inbound')
+  @UseGuards(RolesGuard)
+  @Roles('ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_WMS_MGR')
   async inbound(
     @Body() body: { date: string; items: Array<{ grade: string; qty: number; house_code: string }>; operator?: string },
   ) {
@@ -42,6 +46,8 @@ export class FarmEggController {
    *  body: { date, items: [{grade, qty, customer_no}], operator?, ref_no? }
    */
   @Post('outbound')
+  @UseGuards(RolesGuard)
+  @Roles('ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_WMS_MGR')
   async outbound(
     @Body() body: { date: string; items: Array<{ grade: string; qty: number; customer_no: string }>; operator?: string; ref_no?: string },
   ) {
@@ -53,6 +59,8 @@ export class FarmEggController {
    *  body: { date, items: [{grade, qty, reason}], operator? }
    */
   @Post('write-off')
+  @UseGuards(RolesGuard)
+  @Roles('ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_WMS_MGR')
   async writeOff(
     @Body() body: { date: string; items: Array<{ grade: string; qty: number; reason: string }>; operator?: string },
   ) {

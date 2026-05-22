@@ -1,5 +1,8 @@
-import { Controller, Post, Put, Get, Body, Param, Query } from '@nestjs/common';
+import { Controller, Post, Put, Get, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { FarmService } from './farm.service';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
 
 /**
  * FarmController — 养殖中心 API
@@ -12,15 +15,20 @@ import { FarmService } from './farm.service';
  * 保留两个真实在用的路由：POST/PUT daily-logs
  */
 @Controller('api/v3/farm')
+@UseGuards(AuthGuard('jwt'))
 export class FarmController {
   constructor(private readonly farmService: FarmService) {}
 
   @Post('daily-logs')
+  @UseGuards(RolesGuard)
+  @Roles('ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_VET', 'ROLE_BREEDER')
   async submitBreedingDailyLog(@Body() body: any) {
     return await this.farmService.submitBreedingDailyLog(body);
   }
 
   @Put('daily-logs/:id')
+  @UseGuards(RolesGuard)
+  @Roles('ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_VET', 'ROLE_BREEDER')
   async updateBreedingDailyLog(@Param('id') id: number, @Body() body: any) {
     return await this.farmService.updateBreedingDailyLog(id, body);
   }

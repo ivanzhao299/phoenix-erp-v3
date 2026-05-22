@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight, Plus, Minus, Sun, Moon } from 'lucide-react';
 import { mobileApi, FarmLog } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
 
 function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -66,6 +67,7 @@ function NumStepper({ value, onChange }: { value: number; onChange: (v: number) 
 export default function MortalityPage() {
   const router = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
+  const { allowed, loading: permLoading, readonly } = useMobilePermission('mortality');
   const today  = fmtDate(new Date());
 
   const [date, setDate]       = useState(today);
@@ -113,6 +115,8 @@ export default function MortalityPage() {
   }, []);
 
   useEffect(() => { loadData(date); }, [date, loadData]);
+
+  if (permLoading || !allowed) return null;
 
   const houseList  = [...new Set([...Object.keys(mortEdits), ...Object.keys(elimEdits)])].sort();
   const totalMort  = houseList.reduce((s, h) => s + (mortEdits[h] ?? 0), 0);

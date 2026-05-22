@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { mobileApi, MedStockRow, MedLedgerEntry } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
 
 function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -32,6 +33,7 @@ export default function MedicinePage() {
   const router = useRouter();
   const today  = fmtDate(new Date());
   const { isDark, toggle, t } = useMobileTheme();
+  const { allowed, loading: permLoading, readonly } = useMobilePermission('medicine');
 
   const [tab, setTab]     = useState<Tab>('stock');
   const [search, setSearch] = useState('');
@@ -75,6 +77,8 @@ export default function MedicinePage() {
     else if (tab === 'outbound') loadLedger();
     else setLoading(false);
   }, [tab, loadStock, loadLedger]);
+
+  if (permLoading || !allowed) return null;
 
   const getEntry = (code: string): EntryRow =>
     entries[code] ?? { qty: 0, house_code: DEFAULT_HOUSES[0], note: '' };

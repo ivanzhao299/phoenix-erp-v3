@@ -10,10 +10,11 @@ import { FarmSalesController } from './farm-sales.controller';
 import { FarmSalesService } from './farm-sales.service';
 import { FarmMedicineController } from './farm-medicine.controller';
 import { FarmMedicineService } from './farm-medicine.service';
+import { RolesGuard } from '../../common/guards/roles.guard';
 
 @Module({
   controllers: [FarmController, FarmFeedController, FarmEggController, FarmSalesController, FarmMedicineController],
-  providers: [FarmService, FarmCronService, FarmFeedService, FarmEggService, FarmSalesService, FarmMedicineService],
+  providers: [FarmService, FarmCronService, FarmFeedService, FarmEggService, FarmSalesService, FarmMedicineService, RolesGuard],
   exports: [FarmService, FarmFeedService, FarmEggService, FarmSalesService, FarmMedicineService],
 })
 export class FarmModule {}

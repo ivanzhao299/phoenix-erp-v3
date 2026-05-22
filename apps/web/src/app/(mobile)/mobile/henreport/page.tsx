@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, RefreshCw, Sun, Moon } from 'lucide-react';
 import { mobileApi, HenReportRow, DailyHenReport } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -145,6 +146,7 @@ function TotalsBar({ totals }: { totals: DailyHenReport['totals'] }) {
 export default function DailyHenReportPage() {
   const router = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
+  const { allowed, loading: permLoading, readonly } = useMobilePermission('henreport');
   const [date, setDate] = useState(today());
   const [report, setReport] = useState<DailyHenReport | null>(null);
   const [loading, setLoading] = useState(false);
@@ -164,6 +166,8 @@ export default function DailyHenReportPage() {
   }, []);
 
   useEffect(() => { load(date); }, [date, load]);
+
+  if (permLoading || !allowed) return null;
 
   const prevDay = () => setDate(d => addDays(d, -1));
   const nextDay = () => { if (date < today()) setDate(d => addDays(d, 1)); };

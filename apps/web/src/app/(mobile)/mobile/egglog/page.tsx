@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Save, RefreshCw, ChevronDown, ChevronUp, Sun
 import { mobileApi, FlockRecord, FarmLog } from '@/lib/mobile-api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -212,6 +213,7 @@ export default function EggLogPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { isDark, toggle, t } = useMobileTheme();
+  const { allowed, loading: permLoading, readonly } = useMobilePermission('egglog');
 
   const [date, setDate]     = useState(todayStr());
   const [shift, setShift]   = useState('早班');
@@ -266,6 +268,8 @@ export default function EggLogPage() {
   }, []);
 
   useEffect(() => { loadExisting(date, shift); }, [date, shift, loadExisting]);
+
+  if (permLoading || !allowed) return null;
 
   const getEntry = (house: string) => entries[house] ?? emptyEntry();
 

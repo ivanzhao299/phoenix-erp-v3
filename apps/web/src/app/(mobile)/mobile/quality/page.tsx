@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Sun, Moon } from 'lucide-react';
 import { mobileApi, QcInspection } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
 
 // ── 日期工具 ──────────────────────────────────────────────────────────────────
 function fmtDate(d: Date): string {
@@ -148,6 +149,7 @@ function SkeletonList() {
 export default function QualityPage() {
   const router = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
+  const { allowed, loading: permLoading, readonly } = useMobilePermission('quality');
   const today  = fmtDate(new Date());
 
   const [date, setDate]         = useState(today);
@@ -180,6 +182,8 @@ export default function QualityPage() {
   }, []);
 
   useEffect(() => { loadData(date); }, [date, loadData]);
+
+  if (permLoading || !allowed) return null;
 
   // ── 统计 ────────────────────────────────────────────────────────────────────
   const total    = items.length;

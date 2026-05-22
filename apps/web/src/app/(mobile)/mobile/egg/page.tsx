@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { mobileApi, EggStockRow, EggLedgerEntry } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { useMobilePermission } from '@/hooks/useMobilePermission';
 
 function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -69,6 +70,7 @@ export default function EggPage() {
   const router = useRouter();
   const today  = fmtDate(new Date());
   const { isDark, toggle, t } = useMobileTheme();
+  const { allowed, loading: permLoading, readonly } = useMobilePermission('egg');
 
   const [tab, setTab]     = useState<Tab>('stock');
   const [date, setDate]   = useState(today);
@@ -120,6 +122,8 @@ export default function EggPage() {
     if (tab === 'stock') loadStock();
     else loadLedger(date);
   }, [tab, date, loadStock, loadLedger]);
+
+  if (permLoading || !allowed) return null;
 
   const getInbound = (house: string, grade: string) =>
     inboundData[house]?.[grade] ?? 0;
