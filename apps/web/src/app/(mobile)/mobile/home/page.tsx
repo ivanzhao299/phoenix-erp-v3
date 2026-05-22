@@ -21,21 +21,21 @@ type NavCard = {
 const NAV_CARDS: NavCard[] = [
   {
     icon: <BarChart2 size={28} />,
-    titleZh: '农场日报', titleEn: 'Farm Report', titleLo: 'ລາຍງານຟາມ',
-    desc: '鸡舍产蛋、存栏数据',
-    color: '#10b981', soon: true,
+    titleZh: '每日看板', titleEn: 'Daily Board', titleLo: 'ກະດານປະຈໍາວັນ',
+    desc: '生产·包装·品质·销售',
+    color: '#10b981', href: '/mobile/dashboard', soon: false,
   },
   {
     icon: <Package size={28} />,
     titleZh: '包装统计', titleEn: 'Packaging', titleLo: 'ຫຸ້ມຫໍ່',
     desc: '班次产出、等级分布',
-    color: '#f59e0b', soon: true,
+    color: '#f59e0b', href: '/mobile/dashboard', soon: false,
   },
   {
     icon: <ShieldCheck size={28} />,
     titleZh: '品质检测', titleEn: 'Quality', titleLo: 'ຄຸນນະພາບ',
     desc: '首检、过程检、出库检',
-    color: '#8b5cf6', soon: true,
+    color: '#8b5cf6', href: '/mobile/dashboard', soon: false,
   },
   {
     icon: <Warehouse size={28} />,
