@@ -8,6 +8,7 @@ on:
   workflow_dispatch: {}
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   DB_HOST: 127.0.0.1
   DB_PORT: 5432
   DB_USER: phoenix_v3
@@ -49,7 +50,7 @@ jobs:
           sudo ln -sf $(which psql) /Applications/Postgres.app/Contents/Versions/18/bin/psql
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
           version: 9
 
