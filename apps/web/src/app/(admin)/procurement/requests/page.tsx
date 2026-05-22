@@ -1,182 +1,388 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Plus, RefreshCw, Send } from "lucide-react";
+import { Plus, RefreshCw, Send, CheckCircle, XCircle, ArrowRight } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
 
-// V3 表: prc_purchase_orders（status=DRAFT 的即为采购申请）
+// 正式流程表：prc_purchase_requests
+// 状态机：DRAFT → SUBMITTED → APPROVED/REJECTED → PO_CREATED
 
-interface Request {
-  id:number; po_no:string; supplier_code?:string; supplier_name?:string;
-  subject?:string; total_amount?:number; currency_code?:string;
-  status:string; plan_qty?:number; expected_date?:string;
-  remark?:string; created_at?:string; updated_at?:string;
+interface PR {
+  id: number;
+  req_no: string;
+  subject?: string;
+  category?: string;
+  dept?: string;
+  urgency?: string;
+  item?: string;
+  qty?: string;
+  unit?: string;
+  budget_amount?: number;
+  currency_code?: string;
+  expected_date?: string;
+  supplier_name?: string;
+  supplier_code?: string;
+  applicant?: string;
+  reason?: string;
+  status: string;
+  approved_by?: string;
+  approved_at?: string;
+  reject_note?: string;
+  po_no?: string;
+  created_at?: string;
 }
+
+interface Supplier { id: number; supplier_code: string; supplier_name: string; supplier_type: string; }
+
 interface Form {
-  po_no:string; subject:string; supplier_code:string; supplier_name:string;
-  total_amount:string; plan_qty:string; currency_code:string; expected_date:string;
-  remark:string; urgency:string; dept:string;
+  req_no: string;
+  subject: string;
+  category: string;
+  dept: string;
+  urgency: string;
+  item: string;
+  qty: string;
+  unit: string;
+  budget_amount: string;
+  currency_code: string;
+  expected_date: string;
+  supplier_name: string;
+  supplier_code: string;
+  reason: string;
 }
+
+const CATEGORY_OPTS = [
+  { value: "FEED",      label: "饲料原料" },
+  { value: "MEDICINE",  label: "兽药疫苗" },
+  { value: "PACKAGING", label: "包装耗材" },
+  { value: "EQUIPMENT", label: "设备配件" },
+  { value: "OTHER",     label: "其他" },
+];
+
+const DEPT_OPTS = ["养殖部", "分级包装部", "物流配送部", "财务部", "行政人力", "信息技术部"];
+
+const STATUS_CFG: Record<string, { label: string; cls: string; color: string }> = {
+  DRAFT:      { label: "草稿",   cls: "badgeNeutral",  color: "#6b7280" },
+  SUBMITTED:  { label: "待审批", cls: "badgeWarning",  color: "#f59e0b" },
+  APPROVED:   { label: "已审批", cls: "badgeSuccess",  color: "#10b981" },
+  REJECTED:   { label: "已驳回", cls: "badgeDanger",   color: "#ef4444" },
+  PO_CREATED: { label: "已转PO", cls: "badgeInfo",     color: "#3b82f6" },
+};
+
+const APPROVER_ROLES = ["ROLE_ADMIN", "ROLE_CEO", "ROLE_FARM_MGR"];
+const BUYER_ROLES    = ["ROLE_ADMIN", "ROLE_PRC_BUYER"];
+
+const DEF: Form = {
+  req_no: "", subject: "", category: "FEED", dept: DEPT_OPTS[0],
+  urgency: "NORMAL", item: "", qty: "", unit: "袋",
+  budget_amount: "0", currency_code: "LAK", expected_date: "",
+  supplier_name: "", supplier_code: "", reason: "",
+};
 
 export default function RequestsPage() {
   const toast = useToast();
   const { t } = useLanguage();
+  const { user } = useAuth();
 
-  const URGENCY_OPTS = [
-    { value:"NORMAL", label:t("ui.普通","普通"),  color:"#6b7280" },
-    { value:"URGENT", label:t("ui.加急","加急"),  color:"#ef4444" },
-  ];
-  const DEPT_OPTS = [
-    t("ui.养殖部","养殖部"),
-    t("ui.分级包装部","分级包装部"),
-    t("ui.物流配送部","物流配送部"),
-    t("ui.财务部","财务部"),
-    t("ui.行政人力","行政人力"),
-    t("ui.信息技术部","信息技术部"),
-  ];
-
-  const DEF: Form = {
-    po_no:"", subject:"", supplier_code:"", supplier_name:"",
-    total_amount:"0", plan_qty:"0", currency_code:"LAK",
-    expected_date:"", remark:"", urgency:"NORMAL", dept:DEPT_OPTS[0],
-  };
-
-  const [list, setList]         = useState<Request[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [search, setSearch]     = useState("");
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editing, setEditing]   = useState<Request|null>(null);
-  const [form, setForm]         = useState<Form>(DEF);
-  const [saving, setSaving]     = useState(false);
+  const userRole  = user?.role || "";
+  const userName  = user?.name || user?.username || "";
+  const canApprove = APPROVER_ROLES.includes(userRole);
+  const canBuy     = BUYER_ROLES.includes(userRole);
 
   const token = typeof window !== "undefined"
-    ? (sessionStorage.getItem("phoenix_token")||localStorage.getItem("phoenix_token")||"") : "";
-  const hdr = { Authorization:`Bearer ${token}`, "Content-Type":"application/json" };
+    ? (sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "") : "";
+  const hdr = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
-  const load = useCallback(()=>{
+  const [list,       setList]       = useState<PR[]>([]);
+  const [suppliers,  setSuppliers]  = useState<Supplier[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [search,     setSearch]     = useState("");
+  const [catFilter,  setCatFilter]  = useState("");
+  const [stFilter,   setStFilter]   = useState("");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [detailRow,  setDetailRow]  = useState<PR | null>(null);
+  const [editing,    setEditing]    = useState<PR | null>(null);
+  const [form,       setForm]       = useState<Form>(DEF);
+  const [saving,     setSaving]     = useState(false);
+  const [rejectNote, setRejectNote] = useState("");
+  const [rejectTarget, setRejectTarget] = useState<PR | null>(null);
+
+  const load = useCallback(() => {
     setLoading(true);
-    crudApi.list<Request>("prc_purchase_orders", { limit: 300 })
-      .then(res=>{ const all = res.data||[]; setList(all.filter((o:Request)=>["DRAFT","PENDING"].includes(o.status?.toUpperCase()||""))); })
-      .catch(()=>{}).finally(()=>setLoading(false));
-  },[]);
-  useEffect(()=>{ load(); },[load]);
+    Promise.all([
+      crudApi.list<PR>("prc_purchase_requests", { limit: 300 }),
+      crudApi.list<Supplier>("prc_suppliers", { limit: 200 }),
+    ]).then(([pr, sp]) => {
+      setList(pr.data || []);
+      setSuppliers(sp.data || []);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+  useEffect(() => { load(); }, [load]);
 
-  const filtered = useMemo(()=>list.filter(r=>
-    !search||(r.po_no||"").includes(search)||(r.subject||"").includes(search)||(r.supplier_name||"").includes(search)
-  ),[list,search]);
+  const filtered = useMemo(() => list.filter(r =>
+    (!search || (r.req_no || "").includes(search) || (r.subject || "").includes(search) || (r.item || "").includes(search)) &&
+    (!catFilter || r.category === catFilter) &&
+    (!stFilter  || r.status   === stFilter)
+  ), [list, search, catFilter, stFilter]);
 
-  const pendingCnt = list.filter(r=>r.status?.toUpperCase()==="PENDING").length;
-  const draftCnt   = list.filter(r=>r.status?.toUpperCase()==="DRAFT").length;
+  const counts = useMemo(() => ({
+    draft:     list.filter(r => r.status === "DRAFT").length,
+    submitted: list.filter(r => r.status === "SUBMITTED").length,
+    approved:  list.filter(r => r.status === "APPROVED").length,
+    total:     list.length,
+  }), [list]);
+
+  function genReqNo() {
+    const d = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    return `REQ-${d}-${Date.now().toString().slice(-4)}`;
+  }
 
   function openNew() {
-    setEditing(null);
-    const d = new Date().toISOString().slice(0,10).replace(/-/g,"");
-    setForm({ ...DEF, po_no:`REQ-${d}-${Date.now().toString().slice(-5)}` });
+    setEditing(null); setDetailRow(null);
+    setForm({ ...DEF, req_no: genReqNo(), applicant: userName } as Form & { applicant: string });
     setDrawerOpen(true);
   }
-  function openEdit(row: Request) {
-    setEditing(row);
+  function openEdit(row: PR) {
+    setEditing(row); setDetailRow(null);
     setForm({
-      po_no:row.po_no, subject:row.subject||"",
-      supplier_code:row.supplier_code||"", supplier_name:row.supplier_name||"",
-      total_amount:String(row.total_amount||0), plan_qty:String(row.plan_qty||0),
-      currency_code:row.currency_code||"LAK", expected_date:row.expected_date?.slice(0,10)||"",
-      remark:row.remark||"", urgency:"NORMAL", dept:DEPT_OPTS[0],
+      req_no: row.req_no, subject: row.subject || "", category: row.category || "FEED",
+      dept: row.dept || DEPT_OPTS[0], urgency: row.urgency || "NORMAL",
+      item: row.item || "", qty: row.qty || "", unit: row.unit || "袋",
+      budget_amount: String(row.budget_amount || 0), currency_code: row.currency_code || "LAK",
+      expected_date: row.expected_date?.slice(0, 10) || "",
+      supplier_name: row.supplier_name || "", supplier_code: row.supplier_code || "",
+      reason: row.reason || "",
     });
     setDrawerOpen(true);
   }
+  function openDetail(row: PR) {
+    setDetailRow(row); setEditing(null); setDrawerOpen(true);
+  }
+
+  const setF = (k: keyof Form, v: string) => setForm(p => ({ ...p, [k]: v }));
 
   const save = async () => {
-    if (!form.subject) { toast.error(t("ui.采购主题为必填项","采购主题为必填项")); return; }
+    if (!form.subject || !form.item) {
+      toast.error("采购主题和物料名称为必填项"); return;
+    }
     setSaving(true);
     try {
-      const payload = { ...form, total_amount:Number(form.total_amount)||0, plan_qty:Number(form.plan_qty)||0, status:"DRAFT" };
+      const payload = {
+        ...form,
+        budget_amount: Number(form.budget_amount) || 0,
+        applicant: userName,
+        status: "DRAFT",
+      };
       if (editing?.id) {
-        await fetch(`/api/crud/prc_purchase_orders/${editing.id}`,{ method:"PUT",headers:hdr,body:JSON.stringify(payload) });
-        toast.success(t("ui.申请已更新","申请已更新"));
+        await fetch(`/api/crud/prc_purchase_requests/${editing.id}`, { method: "PUT", headers: hdr, body: JSON.stringify(payload) });
+        toast.success("申请已更新");
       } else {
-        await fetch("/api/crud/prc_purchase_orders",{ method:"POST",headers:hdr,body:JSON.stringify(payload) });
-        toast.success(t("ui.采购申请已提交","采购申请已提交"));
+        await fetch("/api/crud/prc_purchase_requests", { method: "POST", headers: hdr, body: JSON.stringify(payload) });
+        toast.success("采购申请已保存");
       }
       setDrawerOpen(false); setEditing(null); load();
-    } catch { toast.error(t("ui.操作失败","操作失败")); } finally { setSaving(false); }
+    } catch { toast.error("操作失败"); } finally { setSaving(false); }
   };
 
-  const submit = async (row: Request) => {
-    await fetch(`/api/crud/prc_purchase_orders/${row.id}`,{ method:"PUT",headers:hdr,body:JSON.stringify({ status:"PENDING" }) });
-    toast.success(t("ui.申请已提交审批","申请已提交审批")); load();
+  const submitForApproval = async (row: PR) => {
+    await fetch(`/api/crud/prc_purchase_requests/${row.id}`, {
+      method: "PUT", headers: hdr, body: JSON.stringify({ status: "SUBMITTED" }),
+    });
+    toast.success("已提交审批，等待场长/CEO审批");
+    load();
   };
 
-  const del = async (row: Request) => {
-    if (!confirm(`${t("ui.确认撤销采购申请","确认撤销采购申请")} ${row.po_no}？`)) return;
-    await fetch(`/api/crud/prc_purchase_orders/${row.id}`,{ method:"DELETE",headers:hdr });
-    toast.success(t("ui.已撤销","已撤销")); load();
+  const approve = async (row: PR) => {
+    await fetch(`/api/crud/prc_purchase_requests/${row.id}`, {
+      method: "PUT", headers: hdr,
+      body: JSON.stringify({ status: "APPROVED", approved_by: userName, approved_at: new Date().toISOString() }),
+    });
+    toast.success("已审批通过");
+    load();
   };
 
-  const setF = (k:keyof Form,v:string)=>setForm(p=>({...p,[k]:v}));
-  const inp = { padding:"8px 10px",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:13,outline:"none",width:"100%",boxSizing:"border-box" } as React.CSSProperties;
+  const reject = async () => {
+    if (!rejectTarget) return;
+    if (!rejectNote.trim()) { toast.error("请填写驳回原因"); return; }
+    await fetch(`/api/crud/prc_purchase_requests/${rejectTarget.id}`, {
+      method: "PUT", headers: hdr,
+      body: JSON.stringify({ status: "REJECTED", approved_by: userName, reject_note: rejectNote }),
+    });
+    toast.success("已驳回");
+    setRejectTarget(null); setRejectNote(""); load();
+  };
+
+  const convertToPO = async (row: PR) => {
+    setSaving(true);
+    try {
+      const d = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const poNo = `PO-${d}-${Date.now().toString().slice(-5)}`;
+      await fetch("/api/crud/prc_purchase_orders", {
+        method: "POST", headers: hdr,
+        body: JSON.stringify({
+          po_no: poNo,
+          subject: row.subject || row.item,
+          supplier_code: row.supplier_code || "",
+          supplier_name: row.supplier_name || "",
+          plan_qty: Number(row.qty) || 0,
+          total_amount: row.budget_amount || 0,
+          currency_code: row.currency_code || "LAK",
+          expected_date: row.expected_date || "",
+          remark: `来自采购申请 ${row.req_no}`,
+          status: "CONFIRMED",
+          store_code: "ALL",
+        }),
+      });
+      await fetch(`/api/crud/prc_purchase_requests/${row.id}`, {
+        method: "PUT", headers: hdr,
+        body: JSON.stringify({ status: "PO_CREATED", po_no: poNo }),
+      });
+      toast.success(`已转采购单 ${poNo}`);
+      setDrawerOpen(false);
+      load();
+    } catch { toast.error("转单失败"); } finally { setSaving(false); }
+  };
+
+  const delDraft = async (row: PR) => {
+    if (!confirm(`确认删除采购申请 ${row.req_no}？`)) return;
+    await fetch(`/api/crud/prc_purchase_requests/${row.id}`, { method: "DELETE", headers: hdr });
+    toast.success("已删除"); load();
+  };
+
+  const catLabel = (c?: string) => CATEGORY_OPTS.find(o => o.value === c)?.label || c || "—";
+
+  const inp = {
+    padding: "8px 10px", background: "var(--bg-card)", border: "1px solid var(--border)",
+    borderRadius: "var(--radius-md)", color: "var(--text-primary)", fontSize: 13,
+    outline: "none", width: "100%", boxSizing: "border-box" as const,
+  };
+  const lbl = { fontSize: 13, color: "var(--text-secondary)", display: "block" as const, marginBottom: 4 };
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title={t("ui.采购申请","采购申请")} subtitle={t("ui.采购申请副标题","提交采购需求·待审批·转采购订单")} breadcrumb={[t("ui.采购管理","采购管理"),t("ui.采购申请","采购申请")]}
+      <PageHeader
+        title="采购申请"
+        subtitle="提交采购需求 · 场长/CEO审批 · 采购员转PO"
+        breadcrumb={["采购管理", "采购申请"]}
         actions={
-          <div style={{ display:"flex",gap:8 }}>
-            <button type="button" className={s.btnSecondary} onClick={load} disabled={loading} style={{ display:"flex",alignItems:"center",gap:6 }}><RefreshCw size={14}/> {t("common.refresh","刷新")}</button>
-            <button type="button" className={s.btnPrimary} onClick={openNew} style={{ display:"flex",alignItems:"center",gap:6 }}><Plus size={14}/> {t("ui.新增申请","新增申请")}</button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" className={s.btnSecondary} onClick={load} disabled={loading}
+              style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <RefreshCw size={14} /> 刷新
+            </button>
+            <button type="button" className={s.btnPrimary} onClick={openNew}
+              style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Plus size={14} /> 新增申请
+            </button>
           </div>
-        }/>
+        }
+      />
 
-      <div style={{ display:"flex",gap:12,marginBottom:16,flexWrap:"wrap" }}>
+      {/* KPI */}
+      <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
         {[
-          { label:t("ui.草稿","草稿"),   value:draftCnt,   accent:"#6b7280" },
-          { label:t("ui.待审批","待审批"), value:pendingCnt,  accent:"#f59e0b" },
-          { label:t("common.total","合计"),   value:list.length, accent:"var(--color-primary)" },
-        ].map(k=>(
-          <div key={k.label} style={{ background:"var(--bg-card)",border:"1px solid var(--border)",borderLeft:`3px solid ${k.accent}`,borderRadius:"var(--radius-md)",padding:"10px 16px",display:"flex",alignItems:"center",gap:10 }}>
-            <span style={{ fontSize:20,fontWeight:800,color:k.accent }}>{k.value}</span>
-            <span style={{ fontSize:12,color:"var(--text-secondary)" }}>{k.label}</span>
-          </div>
+          { label: "草稿",   value: counts.draft,     color: "#6b7280", st: "DRAFT" },
+          { label: "待审批", value: counts.submitted,  color: "#f59e0b", st: "SUBMITTED" },
+          { label: "已审批", value: counts.approved,   color: "#10b981", st: "APPROVED" },
+          { label: "全部",   value: counts.total,      color: "var(--color-primary)", st: "" },
+        ].map(k => (
+          <button key={k.label} type="button" onClick={() => setStFilter(stFilter === k.st ? "" : k.st)}
+            style={{
+              background: "var(--bg-card)", border: `1px solid var(--border)`,
+              borderLeft: `3px solid ${stFilter === k.st ? k.color : k.color}`,
+              borderRadius: "var(--radius-md)", padding: "10px 16px",
+              display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
+              opacity: stFilter && stFilter !== k.st ? 0.6 : 1,
+            }}>
+            <span style={{ fontSize: 20, fontWeight: 800, color: k.color }}>{k.value}</span>
+            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{k.label}</span>
+          </button>
         ))}
       </div>
 
-      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t("ui.搜索申请编号主题供应商","搜索申请编号 / 主题 / 供应商…")}
-        style={{ width:"100%",boxSizing:"border-box",...inp,marginBottom:14 }}/>
+      {/* 过滤栏 */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+        <input value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="搜索申请编号 / 主题 / 物料…"
+          style={{ flex: 1, minWidth: 160, ...inp }} />
+        <select value={catFilter} onChange={e => setCatFilter(e.target.value)} style={{ ...inp, width: "auto" }}>
+          <option value="">全部品类</option>
+          {CATEGORY_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
 
-      <div style={{ background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-lg)",overflow:"auto" }}>
-        <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+      {/* 表格 */}
+      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
-            <tr style={{ background:"var(--bg-page)",borderBottom:"1px solid var(--border)" }}>
-              {[t("ui.申请编号","申请编号"),t("ui.采购主题","采购主题"),t("ui.供应商","供应商"),t("ui.预算金额","预算金额"),t("ui.计划数量","计划数量"),t("ui.期望到货","期望到货"),t("common.status","状态"),t("common.operation","操作")].map(h=>(
-                <th key={h} style={{ padding:"9px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"var(--text-secondary)",whiteSpace:"nowrap" }}>{h}</th>
+            <tr style={{ background: "var(--bg-page)", borderBottom: "1px solid var(--border)" }}>
+              {["申请编号", "主题/物料", "品类", "部门", "预算", "期望到货", "状态", "操作"].map(h => (
+                <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {loading&&<tr><td colSpan={8} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>{t("common.loading","加载中…")}</td></tr>}
-            {!loading&&filtered.length===0&&<tr><td colSpan={8} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>{t("ui.暂无采购申请","暂无采购申请")}</td></tr>}
-            {!loading&&filtered.map((row,i)=>{
-              const isDraft = row.status?.toUpperCase()==="DRAFT";
+            {loading && <tr><td colSpan={8} style={{ padding: 28, textAlign: "center", color: "var(--text-secondary)" }}>加载中…</td></tr>}
+            {!loading && filtered.length === 0 && <tr><td colSpan={8} style={{ padding: 28, textAlign: "center", color: "var(--text-secondary)" }}>暂无采购申请</td></tr>}
+            {!loading && filtered.map((row, i) => {
+              const st = row.status || "DRAFT";
+              const cfg = STATUS_CFG[st] || STATUS_CFG.DRAFT;
               return (
-                <tr key={row.id} style={{ borderBottom:"1px solid var(--border)",background:i%2===0?"var(--bg-card)":"var(--bg-page)" }}>
-                  <td style={{ padding:"9px 12px",fontFamily:"monospace",fontSize:11,color:"var(--text-secondary)" }}>{row.po_no}</td>
-                  <td style={{ padding:"9px 12px",fontWeight:600 }}>{row.subject||"—"}</td>
-                  <td style={{ padding:"9px 12px" }}>{row.supplier_name||row.supplier_code||"—"}</td>
-                  <td style={{ padding:"9px 12px",color:"var(--color-primary)",fontWeight:700 }}>
-                    {row.currency_code||"LAK"} {Number(row.total_amount||0).toLocaleString()}
+                <tr key={row.id} style={{ borderBottom: "1px solid var(--border)", background: i % 2 === 0 ? "var(--bg-card)" : "var(--bg-page)" }}>
+                  <td style={{ padding: "9px 12px" }}>
+                    <button type="button" onClick={() => openDetail(row)}
+                      style={{ background: "none", border: "none", color: "var(--color-primary)", cursor: "pointer", fontWeight: 700, fontFamily: "monospace", fontSize: 11, padding: 0 }}>
+                      {row.req_no}
+                    </button>
                   </td>
-                  <td style={{ padding:"9px 12px" }}>{row.plan_qty||0}</td>
-                  <td style={{ padding:"9px 12px",fontSize:11 }}>{row.expected_date?.slice(0,10)||"—"}</td>
-                  <td style={{ padding:"9px 12px" }}>
-                    <span className={`${s.badge} ${isDraft?s.badgeNeutral:s.badgeWarning}`}>{isDraft?t("ui.草稿","草稿"):t("ui.待审批","待审批")}</span>
+                  <td style={{ padding: "9px 12px" }}>
+                    <div style={{ fontWeight: 600 }}>{row.subject || "—"}</div>
+                    {row.item && <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{row.item} × {row.qty}{row.unit}</div>}
                   </td>
-                  <td style={{ padding:"9px 12px",display:"flex",gap:6,flexWrap:"wrap" }}>
-                    <button type="button" className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(row)}>{t("common.edit","编辑")}</button>
-                    {isDraft&&<button type="button" className={s.btnSuccess} style={{ padding:"4px 8px",fontSize:11,display:"flex",alignItems:"center",gap:4 }} onClick={()=>submit(row)}><Send size={10}/> {t("ui.提交审批","提交审批")}</button>}
-                    {isDraft&&<button type="button" className={s.btnDanger} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>del(row)}>{t("ui.撤销","撤销")}</button>}
+                  <td style={{ padding: "9px 12px" }}>
+                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, background: "var(--bg-page)", border: "1px solid var(--border)" }}>
+                      {catLabel(row.category)}
+                    </span>
+                  </td>
+                  <td style={{ padding: "9px 12px", fontSize: 12, color: "var(--text-secondary)" }}>{row.dept || "—"}</td>
+                  <td style={{ padding: "9px 12px", fontWeight: 700 }}>
+                    {row.currency_code || "LAK"} {Number(row.budget_amount || 0).toLocaleString()}
+                  </td>
+                  <td style={{ padding: "9px 12px", fontSize: 11 }}>{row.expected_date?.slice(0, 10) || "—"}</td>
+                  <td style={{ padding: "9px 12px" }}>
+                    <span className={`${s.badge} ${s[cfg.cls]}`}>{cfg.label}</span>
+                    {st === "PO_CREATED" && row.po_no && (
+                      <div style={{ fontSize: 10, color: "var(--text-secondary)", marginTop: 2, fontFamily: "monospace" }}>{row.po_no}</div>
+                    )}
+                    {st === "REJECTED" && row.reject_note && (
+                      <div style={{ fontSize: 10, color: "#ef4444", marginTop: 2 }} title={row.reject_note}>驳回：{row.reject_note.slice(0, 20)}</div>
+                    )}
+                  </td>
+                  <td style={{ padding: "9px 12px" }}>
+                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                      <button type="button" className={s.btnSecondary} style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => openDetail(row)}>详情</button>
+                      {st === "DRAFT" && <>
+                        <button type="button" className={s.btnSecondary} style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => openEdit(row)}>编辑</button>
+                        <button type="button" className={s.btnSuccess} style={{ padding: "4px 8px", fontSize: 11, display: "flex", alignItems: "center", gap: 3 }}
+                          onClick={() => submitForApproval(row)}><Send size={10} />提交审批</button>
+                        <button type="button" className={s.btnDanger} style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => delDraft(row)}>删除</button>
+                      </>}
+                      {st === "SUBMITTED" && canApprove && <>
+                        <button type="button" className={s.btnSuccess} style={{ padding: "4px 8px", fontSize: 11, display: "flex", alignItems: "center", gap: 3 }}
+                          onClick={() => approve(row)}><CheckCircle size={10} />审批通过</button>
+                        <button type="button" className={s.btnDanger} style={{ padding: "4px 8px", fontSize: 11, display: "flex", alignItems: "center", gap: 3 }}
+                          onClick={() => { setRejectTarget(row); setRejectNote(""); }}><XCircle size={10} />驳回</button>
+                      </>}
+                      {st === "APPROVED" && canBuy && (
+                        <button type="button" className={s.btnPrimary} style={{ padding: "4px 8px", fontSize: 11, display: "flex", alignItems: "center", gap: 3 }}
+                          onClick={() => convertToPO(row)} disabled={saving}><ArrowRight size={10} />转采购单</button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
@@ -185,63 +391,166 @@ export default function RequestsPage() {
         </table>
       </div>
 
-      <RightDrawer open={drawerOpen} title={editing?t("ui.编辑采购申请","编辑采购申请"):t("ui.新增采购申请","新增采购申请")} onClose={()=>{ setDrawerOpen(false); setEditing(null); }}>
-        <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
-          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
+      {/* 驳回对话框 */}
+      {rejectTarget && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}>
+          <div style={{ background: "var(--bg-card)", borderRadius: 16, padding: 24, width: 360, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>驳回申请 — {rejectTarget.req_no}</div>
+            <textarea value={rejectNote} onChange={e => setRejectNote(e.target.value)} rows={3}
+              placeholder="请填写驳回原因（必填）"
+              style={{ ...inp, resize: "vertical", marginBottom: 14 }} />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button type="button" className={s.btnSecondary} style={{ flex: 1 }} onClick={() => setRejectTarget(null)}>取消</button>
+              <button type="button" className={s.btnDanger} style={{ flex: 1 }} onClick={reject}>确认驳回</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 详情 Drawer */}
+      <RightDrawer open={drawerOpen && !!detailRow} title={`申请详情 — ${detailRow?.req_no || ""}`}
+        onClose={() => { setDrawerOpen(false); setDetailRow(null); }}>
+        {detailRow && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {[
+              { label: "申请编号", value: detailRow.req_no, mono: true },
+              { label: "主题",     value: detailRow.subject },
+              { label: "品类",     value: catLabel(detailRow.category) },
+              { label: "物料",     value: `${detailRow.item || "—"} × ${detailRow.qty || 0} ${detailRow.unit || ""}` },
+              { label: "预算",     value: `${detailRow.currency_code || "LAK"} ${Number(detailRow.budget_amount || 0).toLocaleString()}` },
+              { label: "部门",     value: detailRow.dept },
+              { label: "申请人",   value: detailRow.applicant },
+              { label: "意向供应商", value: detailRow.supplier_name || detailRow.supplier_code || "—" },
+              { label: "期望到货", value: detailRow.expected_date?.slice(0, 10) || "—" },
+              { label: "申请理由", value: detailRow.reason || "—" },
+              { label: "审批人",   value: detailRow.approved_by || "—" },
+              { label: "审批时间", value: detailRow.approved_at?.slice(0, 16) || "—" },
+              { label: "驳回原因", value: detailRow.reject_note || "—" },
+              { label: "关联PO",   value: detailRow.po_no || "—", mono: true },
+            ].map(r => (
+              <div key={r.label} style={{ display: "flex", gap: 10 }}>
+                <span style={{ width: 80, fontSize: 12, color: "var(--text-secondary)", flexShrink: 0 }}>{r.label}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, fontFamily: r.mono ? "monospace" : "inherit" }}>{r.value || "—"}</span>
+              </div>
+            ))}
+            <div style={{ marginTop: 4 }}>
+              <span style={{ width: 80, fontSize: 12, color: "var(--text-secondary)" }}>状态 </span>
+              <span className={`${s.badge} ${s[STATUS_CFG[detailRow.status]?.cls || "badgeNeutral"]}`}>
+                {STATUS_CFG[detailRow.status]?.label || detailRow.status}
+              </span>
+            </div>
+            {/* 详情页操作 */}
+            <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+              {detailRow.status === "SUBMITTED" && canApprove && <>
+                <button type="button" className={s.btnSuccess} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                  onClick={() => { approve(detailRow); setDrawerOpen(false); }}>
+                  <CheckCircle size={14} /> 审批通过
+                </button>
+                <button type="button" className={s.btnDanger} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                  onClick={() => { setRejectTarget(detailRow); setRejectNote(""); setDrawerOpen(false); }}>
+                  <XCircle size={14} /> 驳回
+                </button>
+              </>}
+              {detailRow.status === "APPROVED" && canBuy && (
+                <button type="button" className={s.btnPrimary} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                  onClick={() => convertToPO(detailRow)} disabled={saving}>
+                  <ArrowRight size={14} /> 转为采购单
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </RightDrawer>
+
+      {/* 新增/编辑 Drawer */}
+      <RightDrawer open={drawerOpen && !detailRow} title={editing ? "编辑采购申请" : "新增采购申请"}
+        onClose={() => { setDrawerOpen(false); setEditing(null); }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div>
-              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.申请编号","申请编号")}</label>
-              <input value={form.po_no} readOnly style={{ ...inp,background:"var(--bg-page)",color:"var(--text-secondary)",fontFamily:"monospace",fontSize:12 }}/>
+              <label style={lbl}>申请编号</label>
+              <input value={form.req_no} readOnly style={{ ...inp, background: "var(--bg-page)", color: "var(--text-secondary)", fontFamily: "monospace", fontSize: 12 }} />
             </div>
             <div>
-              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.紧急程度","紧急程度")}</label>
-              <select value={form.urgency} onChange={e=>setF("urgency",e.target.value)} style={{ ...inp }}>
-                {URGENCY_OPTS.map(o=><option key={o.value} value={o.value} style={{ color:o.color }}>{o.label}</option>)}
+              <label style={lbl}>紧急程度</label>
+              <select value={form.urgency} onChange={e => setF("urgency", e.target.value)} style={inp}>
+                <option value="NORMAL">普通</option>
+                <option value="URGENT">加急</option>
               </select>
             </div>
           </div>
           <div>
-            <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.采购主题","采购主题")} <span className={s.textDanger}>*</span></label>
-            <input value={form.subject} onChange={e=>setF("subject",e.target.value)} placeholder={t("ui.采购主题示例","例：饲料原料补库采购")} style={{ ...inp }}/>
+            <label style={lbl}>采购主题 <span className={s.textDanger}>*</span></label>
+            <input value={form.subject} onChange={e => setF("subject", e.target.value)} placeholder="例：2026年6月饲料补库采购" style={inp} />
           </div>
-          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div>
-              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.申请部门","申请部门")}</label>
-              <select value={form.dept} onChange={e=>setF("dept",e.target.value)} style={{ ...inp }}>
-                {DEPT_OPTS.map(d=><option key={d} value={d}>{d}</option>)}
+              <label style={lbl}>采购品类 <span className={s.textDanger}>*</span></label>
+              <select value={form.category} onChange={e => setF("category", e.target.value)} style={inp}>
+                {CATEGORY_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             <div>
-              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.结算币种","结算币种")}</label>
-              <select value={form.currency_code} onChange={e=>setF("currency_code",e.target.value)} style={{ ...inp }}>
-                {["LAK","CNY","THB","USD"].map(c=><option key={c} value={c}>{c}</option>)}
+              <label style={lbl}>申请部门</label>
+              <select value={form.dept} onChange={e => setF("dept", e.target.value)} style={inp}>
+                {DEPT_OPTS.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10 }}>
+            <div>
+              <label style={lbl}>物料名称 <span className={s.textDanger}>*</span></label>
+              <input value={form.item} onChange={e => setF("item", e.target.value)} placeholder="例：玉米饲料（50kg/袋）" style={inp} />
+            </div>
+            <div>
+              <label style={lbl}>数量</label>
+              <input type="number" value={form.qty} onChange={e => setF("qty", e.target.value)} min="0" style={inp} />
+            </div>
+            <div>
+              <label style={lbl}>单位</label>
+              <input value={form.unit} onChange={e => setF("unit", e.target.value)} placeholder="袋/箱/件" style={inp} />
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div>
+              <label style={lbl}>预算金额</label>
+              <input type="number" value={form.budget_amount} onChange={e => setF("budget_amount", e.target.value)} style={inp} />
+            </div>
+            <div>
+              <label style={lbl}>结算币种</label>
+              <select value={form.currency_code} onChange={e => setF("currency_code", e.target.value)} style={inp}>
+                {["LAK", "CNY", "THB", "USD"].map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
           </div>
           <div>
-            <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.意向供应商","意向供应商")}</label>
-            <input value={form.supplier_name} onChange={e=>setF("supplier_name",e.target.value)} placeholder={t("ui.供应商名称可选","供应商名称（可选）")} style={{ ...inp }}/>
-          </div>
-          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
-            <div>
-              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.预算金额","预算金额")}</label>
-              <input type="number" value={form.total_amount} onChange={e=>setF("total_amount",e.target.value)} style={{ ...inp }}/>
-            </div>
-            <div>
-              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.计划数量","计划数量")}</label>
-              <input type="number" value={form.plan_qty} onChange={e=>setF("plan_qty",e.target.value)} style={{ ...inp }}/>
-            </div>
+            <label style={lbl}>期望到货日期</label>
+            <input type="date" value={form.expected_date} onChange={e => setF("expected_date", e.target.value)} style={inp} />
           </div>
           <div>
-            <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.期望到货日期","期望到货日期")}</label>
-            <input type="date" value={form.expected_date} onChange={e=>setF("expected_date",e.target.value)} style={{ ...inp }}/>
+            <label style={lbl}>意向供应商（可选）</label>
+            <select value={form.supplier_code}
+              onChange={e => {
+                const sup = suppliers.find(s => s.supplier_code === e.target.value);
+                setF("supplier_code", e.target.value);
+                setF("supplier_name", sup?.supplier_name || "");
+              }} style={inp}>
+              <option value="">— 待采购确认 —</option>
+              {suppliers.map(sp => (
+                <option key={sp.supplier_code} value={sp.supplier_code}>
+                  [{CATEGORY_OPTS.find(c => c.value === sp.supplier_type)?.label || sp.supplier_type}] {sp.supplier_name}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
-            <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.采购说明","采购说明")}</label>
-            <textarea value={form.remark} onChange={e=>setF("remark",e.target.value)} rows={3} style={{ ...inp,resize:"vertical" }}/>
+            <label style={lbl}>申请理由</label>
+            <textarea value={form.reason} onChange={e => setF("reason", e.target.value)} rows={3}
+              placeholder="说明采购原因、用途或库存不足背景" style={{ ...inp, resize: "vertical" }} />
           </div>
-          <div style={{ display:"flex",gap:10,paddingTop:8 }}>
-            <button type="button" className={s.btnSecondary} style={{ flex:1 }} onClick={()=>{ setDrawerOpen(false); setEditing(null); }}>{t("common.cancel","取消")}</button>
-            <button type="button" className={s.btnPrimary} style={{ flex:2 }} disabled={saving} onClick={save}>{saving?t("ui.保存中","保存中…"):t("ui.保存草稿","保存草稿")}</button>
+          <div style={{ display: "flex", gap: 10, paddingTop: 8 }}>
+            <button type="button" className={s.btnSecondary} style={{ flex: 1 }} onClick={() => { setDrawerOpen(false); setEditing(null); }}>取消</button>
+            <button type="button" className={s.btnPrimary} style={{ flex: 2 }} disabled={saving} onClick={save}>{saving ? "保存中…" : "保存草稿"}</button>
           </div>
         </div>
       </RightDrawer>
