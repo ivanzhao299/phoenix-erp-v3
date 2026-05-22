@@ -45,8 +45,10 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
     ThrottlerModule.forRoot({
       skipIf: () => process.env.NODE_ENV !== 'production',
       throttlers: [
-        { name: 'global', ttl: 60_000, limit: 1500 },
-        { name: 'login',  ttl: 900_000, limit: 10 },
+        // 只保留 login 限流；全局 limit 已移除：
+        // API 跑在 Docker 里，Next.js 以同一内网 IP 代理所有请求，
+        // 全局 bucket 共享会误伤所有用户触发 429
+        { name: 'login', ttl: 900_000, limit: 10 },
       ],
     }),
     ClsModule.forRoot({
@@ -85,8 +87,7 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
   controllers: [DebugController, HealthController],
   providers: [
     JwtStrategy,
-    // 全局速率限制 Guard
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    // ThrottlerGuard 不全局挂载——仅在 auth.controller login 端点单独 @UseGuards
     // 全局挂载拦截器
     {
       provide: APP_INTERCEPTOR,
