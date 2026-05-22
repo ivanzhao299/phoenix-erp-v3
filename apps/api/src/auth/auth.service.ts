@@ -88,9 +88,12 @@ export class AuthService {
          u.user_id as id, u.username, u.password_hash, u.real_name as real_name_zh,
          u.store_code, u.status, u.locale, u.perms_version,
          COALESCE(
-           (SELECT json_agg(json_build_object('role_code', r.role_code, 'role_name_zh', r.role_name_zh))
+           (SELECT json_agg(
+                     json_build_object('role_code', r.role_code, 'role_name_zh', r.role_name_zh, 'is_primary', ur.is_primary)
+                     ORDER BY ur.is_primary DESC, r.approval_level DESC NULLS LAST, r.role_id ASC
+                   )
             FROM sys_user_role ur
-            JOIN sys_role r ON ur.role_id = r.role_id
+            JOIN sys_role r ON r.role_id = ur.role_id
             WHERE ur.user_id = u.user_id),
            '[]'::json
          ) as roles_info
@@ -130,9 +133,15 @@ export class AuthService {
 
 
     // 取出主角色（兼容 V2 的单角色机制）
+    // roles_info 已按 is_primary DESC, approval_level DESC 排序，[0] 即最高优先角色
     const rolesInfo = user.roles_info || [];
-    const primaryRole = rolesInfo.length > 0 ? rolesInfo[0].role_code : 'ROLE_ADMIN';
-    const roleNameZh = rolesInfo.length > 0 ? rolesInfo[0].role_name_zh : '管理员';
+    // 优先取 is_primary=true 的角色；若无，取排序后的第一个
+    const primaryRoleInfo = rolesInfo.find((r: any) => r.is_primary) ?? rolesInfo[0];
+    const primaryRole = primaryRoleInfo?.role_code ?? 'ROLE_ADMIN';
+    const roleNameZh  = primaryRoleInfo?.role_name_zh ?? '管理员';
+
+    // 是否含超管角色（无论多少个角色，只要有 ROLE_ADMIN 就视为超管）
+    const isAdminUser = rolesInfo.some((r: any) => r.role_code === 'ROLE_ADMIN') || username === 'admin';
 
     // ── V3 RBAC 完整方案：三路权限源合并（按优先级冲突解决）─────────────────
     // 来源 1：sys_user_role → sys_role → sys_role_menu_permission  （角色直绑权限）
@@ -140,7 +149,7 @@ export class AuthService {
     // 来源 3：sys_user_permission_set → sys_permission_set_item    （用户直绑权限集）
     // 合并：resolvePermissions 函数按 approval_level 降序处理；DENY > GRANT
     let permissions: string[] = [];
-    if (primaryRole === 'ROLE_ADMIN' || username === 'admin') {
+    if (isAdminUser) {
       permissions = ['*']; // 超管通配
     } else {
       try {

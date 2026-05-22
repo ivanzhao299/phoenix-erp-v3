@@ -126,13 +126,18 @@ function LoginInner() {
       // 优先跳回 middleware 附带的 returnUrl，其次走角色首页
       // 特例：returnUrl 是通用 /dashboard（根路径兜底重定向产生）且该角色有专属首页时，
       // 角色首页优先，避免 terminal 操作员被送到管理后台
-      const returnUrl    = sp.get("return");
-      // 与 login() 保持一致：优先 role 字段，其次 roles[0]
-      const effectiveRole = info?.role || info?.roles?.[0] || "";
+      const returnUrl = sp.get("return");
+      const allRoles: string[] = Array.isArray(info?.roles) ? info.roles : (info?.role ? [info.role] : []);
+      // ROLE_ADMIN 优先：只要 roles 数组中含超管角色，强制走 /dashboard
+      // 避免超管同时持有其他角色时被错误路由到 terminal/packaging
+      const isAdmin = allRoles.includes("ROLE_ADMIN") || info?.permissions?.includes("*");
+      const effectiveRole = isAdmin ? "ROLE_ADMIN" : (info?.role || allRoles[0] || "");
       const roleDest      = ROLE_HOME[effectiveRole] || "/dashboard";
       // returnUrl='/dashboard' 是 middleware 对 '/' 的通用兜底，不代表真实意图
+      // terminal 操作员的 returnUrl 不应覆盖他们专属的 terminal 首页
       const isGenericDashboard = returnUrl === "/dashboard";
-      const dest = (returnUrl && returnUrl.startsWith("/") && !isGenericDashboard)
+      const isTerminalRole = TERMINAL_ROLES.has(effectiveRole);
+      const dest = (returnUrl && returnUrl.startsWith("/") && !isGenericDashboard && !isTerminalRole)
         ? returnUrl
         : roleDest;
       router.replace(dest);

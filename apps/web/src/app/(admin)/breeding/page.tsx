@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Home, Layers, Users, BookOpen, ClipboardList,
-  Droplets, AlertTriangle, BarChart2, Trash2, Wifi, ArrowUpRight, Settings
+  Droplets, AlertTriangle, BarChart2, Trash2, Wifi, ArrowUpRight, Settings,
+  Wheat, FileBarChart, Package,
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
@@ -46,9 +47,12 @@ export default function BreedingPage() {
     { label:t('ui.鸡舍管理','鸡舍管理'),   path:"/breeding/henhouse",  icon:<Layers size={16}/> },
     { label:t('ui.鸡群档案','鸡群档案'),   path:"/breeding/flock",     icon:<Users size={16}/> },
     { label:t('ui.日生产日报','日生产日报'), path:"/breeding/daily",     icon:<ClipboardList size={16}/> },
-    { label:t('ui.免疫计划','免疫计划'),   path:"/breeding/immune",    icon:<BookOpen size={16}/> },
-    { label:t('ui.用药记录','用药记录'),   path:"/breeding/medicine",  icon:<Droplets size={16}/> },
-    { label:t('ui.停药期预警','停药期预警'), path:"/breeding/medicine",   icon:<AlertTriangle size={16}/> },
+    { label:t('ui.免疫计划','免疫计划'),     path:"/breeding/immune",      icon:<BookOpen size={16}/> },
+    { label:t('ui.用药记录','用药记录'),     path:"/breeding/medicine",    icon:<Droplets size={16}/> },
+    { label:t('ui.饲料台账','饲料台账'),     path:"/breeding/feed",         icon:<Wheat size={16}/> },
+    { label:t('ui.存栏日报','存栏日报'),     path:"/breeding/henreport",   icon:<FileBarChart size={16}/> },
+    { label:t('ui.药品库存','药品库存'),     path:"/breeding/med-stock",   icon:<Package size={16}/> },
+    { label:t('ui.蛋品台账','蛋品台账'),     path:"/breeding/egg-ledger",  icon:<BarChart2 size={16}/> },
   ];
 
   const [farms,       setFarms]       = useState<Farm[]>([]);
@@ -85,10 +89,16 @@ export default function BreedingPage() {
 
     const flockFarmMap: Record<string,string> = {};
     const flockQtyMap:  Record<string,number> = {};
+    // 按农场直接汇总实际存栏数（brd_flocks.current_qty），不依赖日志
+    const farmBirdsMap: Record<string,number> = {};
     flocks.forEach((fk: Record<string,unknown>) => {
       if (fk.flock_no) {
         flockFarmMap[fk.flock_no as string] = fk.farm_code as string;
         flockQtyMap[fk.flock_no  as string] = Number(fk.current_qty) || 0;
+      }
+      if (fk.farm_code) {
+        const fc = fk.farm_code as string;
+        farmBirdsMap[fc] = (farmBirdsMap[fc] || 0) + (Number(fk.current_qty) || 0);
       }
     });
 
@@ -107,18 +117,20 @@ export default function BreedingPage() {
     const latestDate = logs.reduce((mx: string, l: Record<string,unknown>) => (l.log_date as string)>mx?(l.log_date as string):mx, "");
     const recentLogs = logs.filter((l: Record<string,unknown>) => l.log_date===latestDate);
     const farmEggMap: Record<string,number> = {};
-    const farmCapMap: Record<string,number> = {};
+    // farmLayMap: 用于产蛋率分母（有日报记录的当日在产鸡数），独立于存栏总数
+    const farmLayMap: Record<string,number> = {};
     recentLogs.forEach((l: Record<string,unknown>) => {
       const fc = flockFarmMap[l.flock_no as string]; if(!fc) return;
       farmEggMap[fc]=(farmEggMap[fc]||0)+(Number(l.eggs_produced)||0);
-      farmCapMap[fc]=(farmCapMap[fc]||0)+(flockQtyMap[l.flock_no as string]||0);
+      farmLayMap[fc]=(farmLayMap[fc]||0)+(flockQtyMap[l.flock_no as string]||0);
     });
 
       const mapped: Farm[] = farmsData.map((d: Record<string, unknown>) => {
         const fc = d.farm_code as string;
-        const qty = farmCapMap[fc] || 0;
+        const totalBirds = farmBirdsMap[fc] || 0;    // 实际存栏：来自 brd_flocks.current_qty
+        const layBirds   = farmLayMap[fc]   || 0;    // 产蛋率分母：当日有日报的鸡数
         const eggs = farmEggMap[fc] || 0;
-        const rate = qty > 0 ? (eggs / qty * 100).toFixed(1) : "—";
+        const rate = layBirds > 0 ? (eggs / layBirds * 100).toFixed(1) : "—";
         const location = (d.location as string) || "—";
         return {
           id: fc,
@@ -126,9 +138,9 @@ export default function BreedingPage() {
           location,
           houses: Number(d.houses) || 0,
           designCapacity: Number(d.capacity) || 0,
-          totalBirds: qty || Number(d.capacity) || 0,
+          totalBirds,
           layingRate: rate,
-          status: (qty > 0 && Number(rate) < WARN_LAY_RATE_PCT) || d.status === "WARNING" ? "warning" : "normal",
+          status: (layBirds > 0 && Number(rate) < WARN_LAY_RATE_PCT) || d.status === "WARNING" ? "warning" : "normal",
         };
       });
     setFarms(mapped);
