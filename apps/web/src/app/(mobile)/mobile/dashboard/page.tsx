@@ -1,9 +1,10 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, RefreshCw, ArrowLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, ArrowLeft, Sun, Moon } from 'lucide-react';
 import { mobileApi, KpiData, PackagingDailyReport, QcInspection, FarmLog, FlockRecord, PackagingTrendItem, DeviceAlert, EggStockRow } from '@/lib/mobile-api';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useMobileTheme } from '@/contexts/MobileThemeContext';
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 
@@ -50,11 +51,12 @@ const ALERT_LABELS: Record<string, string> = {
 // ── 迷你柱状图 ────────────────────────────────────────────────────────────────
 
 function MiniBarChart({ data, selectedDate }: { data: PackagingTrendItem[]; selectedDate: string }) {
+  const { t } = useMobileTheme();
   if (!data.length) return null;
   const maxVal = Math.max(...data.map(d => d.summary.total_packed), 1);
   return (
     <div>
-      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 6 }}>近 7 日包装箱数</div>
+      <div style={{ fontSize: 11, color: t.textFaint, marginBottom: 6 }}>近 7 日包装箱数</div>
       <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 52 }}>
         {data.map(day => {
           const pct = Math.max((day.summary.total_packed / maxVal) * 100, day.summary.total_packed > 0 ? 8 : 2);
@@ -72,7 +74,7 @@ function MiniBarChart({ data, selectedDate }: { data: PackagingTrendItem[]; sele
                   minHeight: 2,
                 }} />
               </div>
-              <div style={{ fontSize: 9, color: isSelected ? '#f59e0b' : 'rgba(255,255,255,0.25)', fontWeight: isSelected ? 700 : 400 }}>
+              <div style={{ fontSize: 9, color: isSelected ? '#f59e0b' : t.textFaint, fontWeight: isSelected ? 700 : 400 }}>
                 {day.date.slice(8)}
               </div>
             </div>
@@ -89,28 +91,29 @@ function Section({ title, icon, color, children, loading, error }: {
   title: string; icon: string; color: string;
   children: React.ReactNode; loading: boolean; error?: string;
 }) {
+  const { t } = useMobileTheme();
   return (
     <div style={{
-      background: 'rgba(255,255,255,0.04)',
+      background: t.cardBg,
       border: `1px solid ${color}30`,
       borderRadius: 16, padding: '16px',
       marginBottom: 12,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <span style={{ fontSize: 18 }}>{icon}</span>
-        <span style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>{title}</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{title}</span>
         {loading && (
-          <span style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>加载中…</span>
+          <span style={{ marginLeft: 'auto', fontSize: 11, color: t.textFaint }}>加载中…</span>
         )}
       </div>
       {error ? (
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', textAlign: 'center', padding: '8px 0' }}>
+        <div style={{ fontSize: 12, color: t.textMuted, textAlign: 'center', padding: '8px 0' }}>
           {error}
         </div>
       ) : loading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
           {[1, 2, 3, 4].map(i => (
-            <div key={i} style={{ height: 52, borderRadius: 10, background: 'rgba(255,255,255,0.06)', animation: 'pulse 1.5s infinite' }} />
+            <div key={i} style={{ height: 52, borderRadius: 10, background: t.btnBg, animation: 'pulse 1.5s infinite' }} />
           ))}
         </div>
       ) : children}
@@ -119,11 +122,12 @@ function Section({ title, icon, color, children, loading, error }: {
 }
 
 function StatCard({ label, value, unit, color }: { label: string; value: string; unit?: string; color?: string }) {
+  const { t } = useMobileTheme();
   return (
-    <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '10px 12px' }}>
-      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 800, color: color || 'white', lineHeight: 1.1 }}>{value}</div>
-      {unit && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>{unit}</div>}
+    <div style={{ background: t.cardBg, borderRadius: 10, padding: '10px 12px' }}>
+      <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 800, color: color || t.text, lineHeight: 1.1 }}>{value}</div>
+      {unit && <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>{unit}</div>}
     </div>
   );
 }
@@ -133,6 +137,7 @@ function StatCard({ label, value, unit, color }: { label: string; value: string;
 export default function MobileDashboardPage() {
   const router = useRouter();
   const { lang } = useLanguage();
+  const { isDark, toggle, t } = useMobileTheme();
   const today = fmtDate(new Date());
 
   const [date, setDate]         = useState(today);
@@ -266,27 +271,33 @@ export default function MobileDashboardPage() {
   return (
     <div style={{
       minHeight: '100svh',
-      background: 'linear-gradient(160deg,#070b14 0%,#0f1929 100%)',
+      background: t.pageBg,
       display: 'flex', flexDirection: 'column',
     }}>
       {/* 头部 */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: 'calc(env(safe-area-inset-top) + 14px) 16px 14px',
-        background: 'rgba(0,0,0,0.3)',
+        background: t.appBarBg,
         backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        borderBottom: `1px solid ${t.barBorder}`,
         position: 'sticky', top: 0, zIndex: 10,
       }}>
         <button onClick={() => router.back()}
-          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', padding: 4 }}>
+          style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 4 }}>
           <ArrowLeft size={20} />
         </button>
-        <span style={{ fontSize: 15, fontWeight: 700, color: 'white', flex: 1 }}>
+        <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>
           {lang === 'en' ? 'Daily Report' : lang === 'lo' ? 'ລາຍງານປະຈໍາວັນ' : '每日数据看板'}
         </span>
+        <button onClick={toggle} style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+          color: t.textSub, display: 'flex', alignItems: 'center',
+        }}>
+          {isDark ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
         <button onClick={() => setRefreshKey(k => k + 1)}
-          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 4 }}>
+          style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', padding: 4 }}>
           <RefreshCw size={16} />
         </button>
       </div>
@@ -299,15 +310,15 @@ export default function MobileDashboardPage() {
         borderBottom: '1px solid rgba(245,158,11,0.1)',
       }}>
         <button onClick={prevDay}
-          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: 6 }}>
+          style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 6 }}>
           <ChevronLeft size={20} />
         </button>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>{dateLabel}</div>
-          {dateLabel !== date && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{date}</div>}
+          <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{dateLabel}</div>
+          {dateLabel !== date && <div style={{ fontSize: 11, color: t.textMuted }}>{date}</div>}
         </div>
         <button onClick={nextDay} disabled={isToday}
-          style={{ background: 'none', border: 'none', color: isToday ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)', cursor: isToday ? 'default' : 'pointer', padding: 6 }}>
+          style={{ background: 'none', border: 'none', color: isToday ? t.textFaint : t.textSub, cursor: isToday ? 'default' : 'pointer', padding: 6 }}>
           <ChevronRight size={20} />
         </button>
       </div>
@@ -334,28 +345,28 @@ export default function MobileDashboardPage() {
             />
           </div>
           {farmErr && (
-            <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>
+            <div style={{ marginTop: 8, fontSize: 11, color: t.textFaint, textAlign: 'center' }}>
               死淘数据：{farmErr}
             </div>
           )}
 
           {/* 逐栋明细（可展开） */}
           {houseRows.length > 0 && (
-            <div style={{ marginTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
+            <div style={{ marginTop: 10, borderTop: `1px solid ${t.divider}`, paddingTop: 10 }}>
               <button
                 onClick={() => setHouseExpanded(v => !v)}
                 style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
               >
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+                <span style={{ fontSize: 12, color: t.textMuted, fontWeight: 600 }}>
                   逐栋明细 · {houseRows.length} 栋
                 </span>
-                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{houseExpanded ? '收起 ▴' : '展开 ▾'}</span>
+                <span style={{ fontSize: 11, color: t.textFaint }}>{houseExpanded ? '收起 ▴' : '展开 ▾'}</span>
               </button>
               {houseExpanded && (
                 <div style={{ marginTop: 8, overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
-                      <tr style={{ color: 'rgba(255,255,255,0.3)' }}>
+                      <tr style={{ color: t.textFaint }}>
                         {['栋舍', '产蛋', '死淘', '脏破蛋', '耗料(kg)'].map(h => (
                           <th key={h} style={{ padding: '4px 6px', textAlign: h === '栋舍' ? 'left' : 'right', fontWeight: 600, fontSize: 10 }}>{h}</th>
                         ))}
@@ -363,12 +374,12 @@ export default function MobileDashboardPage() {
                     </thead>
                     <tbody>
                       {houseRows.map(([key, v]) => (
-                        <tr key={key} style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                        <tr key={key} style={{ borderTop: `1px solid ${t.divider}` }}>
                           <td style={{ padding: '5px 6px', color: '#f59e0b', fontWeight: 600 }}>{key}</td>
-                          <td style={{ padding: '5px 6px', textAlign: 'right', color: 'white' }}>{v.eggs > 0 ? fmt(v.eggs) : '—'}</td>
-                          <td style={{ padding: '5px 6px', textAlign: 'right', color: v.mortality > 0 ? '#f87171' : 'rgba(255,255,255,0.4)' }}>{v.mortality > 0 ? v.mortality : '0'}</td>
-                          <td style={{ padding: '5px 6px', textAlign: 'right', color: 'rgba(255,255,255,0.5)' }}>{(v.dirty + v.broken) > 0 ? v.dirty + v.broken : '—'}</td>
-                          <td style={{ padding: '5px 6px', textAlign: 'right', color: 'rgba(255,255,255,0.5)' }}>{v.feed > 0 ? fmt(v.feed, 1) : '—'}</td>
+                          <td style={{ padding: '5px 6px', textAlign: 'right', color: t.text }}>{v.eggs > 0 ? fmt(v.eggs) : '—'}</td>
+                          <td style={{ padding: '5px 6px', textAlign: 'right', color: v.mortality > 0 ? '#f87171' : t.textMuted }}>{v.mortality > 0 ? v.mortality : '0'}</td>
+                          <td style={{ padding: '5px 6px', textAlign: 'right', color: t.textSub }}>{(v.dirty + v.broken) > 0 ? v.dirty + v.broken : '—'}</td>
+                          <td style={{ padding: '5px 6px', textAlign: 'right', color: t.textSub }}>{v.feed > 0 ? fmt(v.feed, 1) : '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -380,21 +391,21 @@ export default function MobileDashboardPage() {
 
           {/* 存栏批次（可展开，仅 FARM_MGR+ 可见） */}
           {flocks.length > 0 && (
-            <div style={{ marginTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
+            <div style={{ marginTop: 10, borderTop: `1px solid ${t.divider}`, paddingTop: 10 }}>
               <button
                 onClick={() => setFlockExpanded(v => !v)}
                 style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
               >
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+                <span style={{ fontSize: 12, color: t.textMuted, fontWeight: 600 }}>
                   存栏批次 · {flocks.length} 批 · {fmt(flocks.reduce((s, f) => s + Number(f.current_qty || 0), 0))} 只
                 </span>
-                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{flockExpanded ? '收起 ▴' : '展开 ▾'}</span>
+                <span style={{ fontSize: 11, color: t.textFaint }}>{flockExpanded ? '收起 ▴' : '展开 ▾'}</span>
               </button>
               {flockExpanded && (
                 <div style={{ marginTop: 8, overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
-                      <tr style={{ color: 'rgba(255,255,255,0.3)' }}>
+                      <tr style={{ color: t.textFaint }}>
                         {['批次', '栋舍', '期初', '现存', '产蛋率'].map(h => (
                           <th key={h} style={{ padding: '4px 6px', textAlign: h === '批次' ? 'left' : 'right', fontWeight: 600, fontSize: 10 }}>{h}</th>
                         ))}
@@ -404,12 +415,12 @@ export default function MobileDashboardPage() {
                       {flocks.map(f => {
                         const lr = f.current_lay_rate != null ? Number(f.current_lay_rate) : null;
                         return (
-                          <tr key={f.flock_no} style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                          <tr key={f.flock_no} style={{ borderTop: `1px solid ${t.divider}` }}>
                             <td style={{ padding: '5px 6px', color: '#f59e0b', fontWeight: 600 }}>{f.flock_no}</td>
-                            <td style={{ padding: '5px 6px', textAlign: 'right', color: 'rgba(255,255,255,0.5)' }}>{f.house_code || '—'}</td>
-                            <td style={{ padding: '5px 6px', textAlign: 'right', color: 'rgba(255,255,255,0.4)' }}>{fmt(f.initial_qty)}</td>
-                            <td style={{ padding: '5px 6px', textAlign: 'right', color: 'white' }}>{fmt(f.current_qty)}</td>
-                            <td style={{ padding: '5px 6px', textAlign: 'right', color: lr != null ? (lr >= 80 ? '#10b981' : lr >= 60 ? '#f59e0b' : '#ef4444') : 'rgba(255,255,255,0.3)' }}>
+                            <td style={{ padding: '5px 6px', textAlign: 'right', color: t.textSub }}>{f.house_code || '—'}</td>
+                            <td style={{ padding: '5px 6px', textAlign: 'right', color: t.textMuted }}>{fmt(f.initial_qty)}</td>
+                            <td style={{ padding: '5px 6px', textAlign: 'right', color: t.text }}>{fmt(f.current_qty)}</td>
+                            <td style={{ padding: '5px 6px', textAlign: 'right', color: lr != null ? (lr >= 80 ? '#10b981' : lr >= 60 ? '#f59e0b' : '#ef4444') : t.textFaint }}>
                               {lr != null ? `${lr.toFixed(1)}%` : '—'}
                             </td>
                           </tr>
@@ -435,7 +446,7 @@ export default function MobileDashboardPage() {
           </div>
           {byGrade.length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 6 }}>按等级分布</div>
+              <div style={{ fontSize: 11, color: t.textFaint, marginBottom: 6 }}>按等级分布</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {byGrade.map(g => (
                   <div key={g.grade} style={{
@@ -445,8 +456,8 @@ export default function MobileDashboardPage() {
                     borderRadius: 8, padding: '8px 10px', textAlign: 'center',
                   }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: GRADE_COLORS[g.grade] || '#9ca3af' }}>{g.grade}</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: 'white' }}>{fmt(g.qty)}</div>
-                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>箱</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: t.text }}>{fmt(g.qty)}</div>
+                    <div style={{ fontSize: 10, color: t.textFaint }}>箱</div>
                   </div>
                 ))}
               </div>
@@ -455,7 +466,7 @@ export default function MobileDashboardPage() {
           {/* 7 日趋势迷你柱状图 */}
           {trend.length > 0 && <MiniBarChart data={trend} selectedDate={date} />}
           {byGrade.length === 0 && !pkgLoading && trend.length === 0 && (
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', textAlign: 'center', padding: '8px 0' }}>
+            <div style={{ fontSize: 12, color: t.textFaint, textAlign: 'center', padding: '8px 0' }}>
               当日暂无包装记录
             </div>
           )}
@@ -478,7 +489,7 @@ export default function MobileDashboardPage() {
             />
           </div>
           {qcTotal === 0 && !qcLoading && (
-            <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>
+            <div style={{ marginTop: 8, fontSize: 12, color: t.textFaint, textAlign: 'center' }}>
               当日暂无检测记录
             </div>
           )}
@@ -491,7 +502,7 @@ export default function MobileDashboardPage() {
           const nonEmpty   = eggStock.filter(r => r.qty > 0);
           return (
             <div style={{
-              background: 'rgba(255,255,255,0.04)',
+              background: t.cardBg,
               border: '1px solid rgba(245,158,11,0.3)',
               borderRadius: 16, padding: '16px',
               marginBottom: 12,
@@ -499,12 +510,12 @@ export default function MobileDashboardPage() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 18 }}>🥚</span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>蛋品库存</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>蛋品库存</span>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <span style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b' }}>{totalTrays}</span>
-                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 3 }}>提</span>
-                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', marginLeft: 6 }}>{totalQty.toLocaleString()} 枚</span>
+                  <span style={{ fontSize: 11, color: t.textMuted, marginLeft: 3 }}>提</span>
+                  <span style={{ fontSize: 13, color: t.textFaint, marginLeft: 6 }}>{totalQty.toLocaleString()} 枚</span>
                 </div>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -514,12 +525,12 @@ export default function MobileDashboardPage() {
                     background: 'rgba(245,158,11,0.08)',
                     border: '1px solid rgba(245,158,11,0.2)',
                   }}>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{r.name}</div>
+                    <div style={{ fontSize: 11, color: t.textMuted }}>{r.name}</div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: '#f59e0b' }}>{r.qty.toLocaleString()}</div>
                   </div>
                 ))}
                 {nonEmpty.length === 0 && (
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', padding: '4px 0' }}>库存为零</div>
+                  <div style={{ fontSize: 12, color: t.textFaint, padding: '4px 0' }}>库存为零</div>
                 )}
               </div>
             </div>
@@ -542,7 +553,7 @@ export default function MobileDashboardPage() {
               color={alerts.length > 0 ? '#ef4444' : undefined}
             />
           </div>
-          <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>
+          <div style={{ marginTop: 8, fontSize: 11, color: t.textFaint, textAlign: 'center' }}>
             {isToday ? '今日 POS 销售数据' : '历史销售数据暂不支持按日查询'}
           </div>
         </Section>
@@ -574,7 +585,7 @@ export default function MobileDashboardPage() {
                   {alerts.length} 条未处理
                 </span>
               </div>
-              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+              <span style={{ color: t.textMuted, fontSize: 12 }}>
                 {alertsExpanded ? '收起' : '展开'}
               </span>
             </button>
@@ -585,7 +596,7 @@ export default function MobileDashboardPage() {
                   <div key={a.id} style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '10px 12px',
-                    background: 'rgba(255,255,255,0.04)',
+                    background: t.cardBg,
                     borderRadius: 10,
                     borderLeft: '3px solid #ef4444',
                   }}>
@@ -593,20 +604,20 @@ export default function MobileDashboardPage() {
                       <div style={{ fontSize: 13, fontWeight: 600, color: '#f87171' }}>
                         {ALERT_LABELS[a.alert_type] || a.alert_type}
                       </div>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+                      <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>
                         {a.erp_house_code} · {new Date(a.created_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
                     {a.value != null && (
                       <div style={{ fontSize: 12, color: '#f87171', fontWeight: 700, textAlign: 'right' }}>
                         {String(a.value)}
-                        {a.threshold != null && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 400 }}>阈值 {String(a.threshold)}</div>}
+                        {a.threshold != null && <div style={{ fontSize: 10, color: t.textFaint, fontWeight: 400 }}>阈值 {String(a.threshold)}</div>}
                       </div>
                     )}
                   </div>
                 ))}
                 {alerts.length > 15 && (
-                  <div style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>
+                  <div style={{ textAlign: 'center', fontSize: 12, color: t.textFaint }}>
                     共 {alerts.length} 条，仅显示最新 15 条
                   </div>
                 )}

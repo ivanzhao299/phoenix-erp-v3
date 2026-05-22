@@ -1,12 +1,13 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, RefreshCw, ArrowLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, ArrowLeft, Sun, Moon } from 'lucide-react';
 import {
   mobileApi,
   PackagingDailyReport,
   PackagingTrendItem,
 } from '@/lib/mobile-api';
+import { useMobileTheme } from '@/contexts/MobileThemeContext';
 
 // ── 日期工具函数 ──────────────────────────────────────────────────────────────
 
@@ -52,12 +53,13 @@ function MiniBarChart({
   data: PackagingTrendItem[];
   selectedDate: string;
 }) {
+  const { t } = useMobileTheme();
   if (!data.length) return null;
   const maxVal = Math.max(...data.map(d => d.summary.total_packed), 1);
 
   return (
     <div>
-      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 6 }}>
+      <div style={{ fontSize: 11, color: t.textFaint, marginBottom: 6 }}>
         近 7 日包装箱数
       </div>
       <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 60 }}>
@@ -87,7 +89,7 @@ function MiniBarChart({
               <div
                 style={{
                   fontSize: 9,
-                  color: isSelected ? '#f59e0b' : 'rgba(255,255,255,0.25)',
+                  color: isSelected ? '#f59e0b' : t.textFaint,
                   fontWeight: isSelected ? 700 : 400,
                 }}
               >
@@ -104,6 +106,7 @@ function MiniBarChart({
 // ── 骨架屏 ────────────────────────────────────────────────────────────────────
 
 function SkeletonGrid({ count = 2, cols = 2 }: { count?: number; cols?: number }) {
+  const { t } = useMobileTheme();
   return (
     <div
       style={{
@@ -118,7 +121,7 @@ function SkeletonGrid({ count = 2, cols = 2 }: { count?: number; cols?: number }
           style={{
             height: 72,
             borderRadius: 10,
-            background: 'rgba(255,255,255,0.06)',
+            background: t.cardBg,
             animation: 'pulse 1.5s infinite',
           }}
         />
@@ -131,6 +134,7 @@ function SkeletonGrid({ count = 2, cols = 2 }: { count?: number; cols?: number }
 
 export default function MobilePackagingPage() {
   const router = useRouter();
+  const { isDark, toggle, t } = useMobileTheme();
   const today = fmtDate(new Date());
 
   const [date, setDate]         = useState(today);
@@ -182,7 +186,7 @@ export default function MobilePackagingPage() {
 
   const rateColor =
     pkgRate == null
-      ? 'rgba(255,255,255,0.6)'
+      ? t.textSub
       : pkgRate >= 90
       ? '#10b981'
       : pkgRate >= 70
@@ -201,7 +205,7 @@ export default function MobilePackagingPage() {
     <div
       style={{
         minHeight: '100svh',
-        background: 'linear-gradient(160deg,#070b14 0%,#0f1929 100%)',
+        background: t.pageBg,
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -215,9 +219,9 @@ export default function MobilePackagingPage() {
           alignItems: 'center',
           gap: 10,
           padding: 'calc(env(safe-area-inset-top) + 14px) 16px 14px',
-          background: 'rgba(0,0,0,0.3)',
+          background: t.appBarBg,
           backdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          borderBottom: `1px solid ${t.barBorder}`,
           position: 'sticky',
           top: 0,
           zIndex: 10,
@@ -228,14 +232,14 @@ export default function MobilePackagingPage() {
           style={{
             background: 'none',
             border: 'none',
-            color: 'rgba(255,255,255,0.5)',
+            color: t.textSub,
             cursor: 'pointer',
             padding: 4,
           }}
         >
           <ArrowLeft size={20} />
         </button>
-        <span style={{ fontSize: 15, fontWeight: 700, color: 'white', flex: 1 }}>
+        <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>
           📦 包装统计
         </span>
         <button
@@ -243,12 +247,18 @@ export default function MobilePackagingPage() {
           style={{
             background: 'none',
             border: 'none',
-            color: 'rgba(255,255,255,0.4)',
+            color: t.textMuted,
             cursor: 'pointer',
             padding: 4,
           }}
         >
           <RefreshCw size={16} />
+        </button>
+        <button onClick={toggle} style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+          color: t.textSub, display: 'flex', alignItems: 'center',
+        }}>
+          {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
       </div>
 
@@ -268,7 +278,7 @@ export default function MobilePackagingPage() {
           style={{
             background: 'none',
             border: 'none',
-            color: 'rgba(255,255,255,0.6)',
+            color: t.textSub,
             cursor: 'pointer',
             padding: 6,
           }}
@@ -276,9 +286,9 @@ export default function MobilePackagingPage() {
           <ChevronLeft size={20} />
         </button>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>{dateLabel}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{dateLabel}</div>
           {dateLabel !== date && (
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{date}</div>
+            <div style={{ fontSize: 11, color: t.textMuted }}>{date}</div>
           )}
         </div>
         <button
@@ -287,7 +297,7 @@ export default function MobilePackagingPage() {
           style={{
             background: 'none',
             border: 'none',
-            color: isToday ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)',
+            color: isToday ? t.textFaint : t.textSub,
             cursor: isToday ? 'default' : 'pointer',
             padding: 6,
           }}
@@ -308,7 +318,7 @@ export default function MobilePackagingPage() {
         {/* ── 汇总卡片 ── */}
         <div
           style={{
-            background: 'rgba(255,255,255,0.04)',
+            background: t.cardBg,
             border: '1px solid rgba(245,158,11,0.2)',
             borderRadius: 16,
             padding: 16,
@@ -316,16 +326,16 @@ export default function MobilePackagingPage() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <span style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>今日汇总</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: t.text }}>今日汇总</span>
             {pkgLoading && (
-              <span style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
+              <span style={{ marginLeft: 'auto', fontSize: 11, color: t.textFaint }}>
                 加载中…
               </span>
             )}
           </div>
 
           {pkgErr ? (
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', textAlign: 'center', padding: '12px 0' }}>
+            <div style={{ fontSize: 12, color: t.textFaint, textAlign: 'center', padding: '12px 0' }}>
               {pkgErr}
             </div>
           ) : pkgLoading ? (
@@ -333,21 +343,21 @@ export default function MobilePackagingPage() {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
               {/* 完成箱数 */}
-              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '10px 12px' }}>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>完成箱数</div>
+              <div style={{ background: t.cardBg, borderRadius: 10, padding: '10px 12px' }}>
+                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>完成箱数</div>
                 <div style={{ fontSize: 26, fontWeight: 800, color: '#f59e0b', lineHeight: 1.1 }}>
                   {fmt(pkgTotal)}
                 </div>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>箱</div>
+                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>箱</div>
               </div>
 
               {/* 完成率 */}
-              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '10px 12px' }}>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>完成率</div>
+              <div style={{ background: t.cardBg, borderRadius: 10, padding: '10px 12px' }}>
+                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>完成率</div>
                 <div style={{ fontSize: 26, fontWeight: 800, color: rateColor, lineHeight: 1.1 }}>
                   {pkgRate != null ? `${pkgRate}%` : pkgPlan === 0 ? '—' : '—'}
                 </div>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>
+                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>
                   {pkgPlan > 0 ? `计划 ${fmt(pkgPlan)} 箱` : '无计划'}
                 </div>
               </div>
@@ -360,9 +370,9 @@ export default function MobilePackagingPage() {
               style={{
                 marginTop: 10,
                 paddingTop: 10,
-                borderTop: '1px solid rgba(255,255,255,0.06)',
+                borderTop: `1px solid ${t.divider}`,
                 fontSize: 12,
-                color: 'rgba(255,255,255,0.35)',
+                color: t.textFaint,
                 textAlign: 'center',
               }}
             >
@@ -374,14 +384,14 @@ export default function MobilePackagingPage() {
         {/* ── 等级分布 ── */}
         <div
           style={{
-            background: 'rgba(255,255,255,0.04)',
+            background: t.cardBg,
             border: '1px solid rgba(245,158,11,0.12)',
             borderRadius: 16,
             padding: 16,
             marginBottom: 12,
           }}
         >
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>
             等级分布
           </div>
 
@@ -391,7 +401,7 @@ export default function MobilePackagingPage() {
             <div
               style={{
                 fontSize: 13,
-                color: 'rgba(255,255,255,0.25)',
+                color: t.textFaint,
                 textAlign: 'center',
                 padding: '20px 0',
               }}
@@ -422,10 +432,10 @@ export default function MobilePackagingPage() {
                     <div style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 4 }}>
                       {g.grade}
                     </div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: 'white', lineHeight: 1.1 }}>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: t.text, lineHeight: 1.1 }}>
                       {fmt(g.qty)}
                     </div>
-                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>
+                    <div style={{ fontSize: 9, color: t.textFaint, marginTop: 2 }}>
                       箱 · {fmt(g.tasks)}任务
                     </div>
                   </div>
@@ -436,7 +446,7 @@ export default function MobilePackagingPage() {
             <div
               style={{
                 fontSize: 13,
-                color: 'rgba(255,255,255,0.25)',
+                color: t.textFaint,
                 textAlign: 'center',
                 padding: '20px 0',
               }}
@@ -449,14 +459,14 @@ export default function MobilePackagingPage() {
         {/* ── 7 日趋势 ── */}
         <div
           style={{
-            background: 'rgba(255,255,255,0.04)',
+            background: t.cardBg,
             border: '1px solid rgba(245,158,11,0.12)',
             borderRadius: 16,
             padding: 16,
             marginBottom: 16,
           }}
         >
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>
             7 日趋势
           </div>
 
@@ -465,7 +475,7 @@ export default function MobilePackagingPage() {
               style={{
                 height: 80,
                 borderRadius: 8,
-                background: 'rgba(255,255,255,0.04)',
+                background: t.cardBg,
                 animation: 'pulse 1.5s infinite',
               }}
             />
@@ -475,7 +485,7 @@ export default function MobilePackagingPage() {
             <div
               style={{
                 fontSize: 12,
-                color: 'rgba(255,255,255,0.25)',
+                color: t.textFaint,
                 textAlign: 'center',
                 padding: '12px 0',
               }}

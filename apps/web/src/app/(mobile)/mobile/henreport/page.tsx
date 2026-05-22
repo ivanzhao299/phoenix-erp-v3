@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, Sun, Moon } from 'lucide-react';
 import { mobileApi, HenReportRow, DailyHenReport } from '@/lib/mobile-api';
+import { useMobileTheme } from '@/contexts/MobileThemeContext';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -13,27 +14,29 @@ const addDays = (d: string, n: number) => {
 };
 
 function MetaChip({ label, value, color }: { label: string; value: string | number; color: string }) {
+  const { t } = useMobileTheme();
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       background: `${color}12`, border: `1px solid ${color}30`,
       borderRadius: 10, padding: '6px 10px', minWidth: 60,
     }}>
-      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>{label}</span>
+      <span style={{ fontSize: 10, color: t.textMuted, marginBottom: 2 }}>{label}</span>
       <span style={{ fontSize: 14, fontWeight: 700, color }}>{value}</span>
     </div>
   );
 }
 
 function HouseCard({ row }: { row: HenReportRow }) {
+  const { t } = useMobileTheme();
   const [open, setOpen] = useState(false);
   const layRateNum = parseFloat(row.lay_rate);
   const rateColor = layRateNum >= 85 ? '#10b981' : layRateNum >= 70 ? '#f59e0b' : '#ef4444';
 
   return (
     <div style={{
-      background: 'rgba(255,255,255,0.04)',
-      border: '1px solid rgba(255,255,255,0.08)',
+      background: t.cardBg,
+      border: `1px solid ${t.cardBorder}`,
       borderRadius: 14,
       overflow: 'hidden',
       marginBottom: 10,
@@ -60,8 +63,8 @@ function HouseCard({ row }: { row: HenReportRow }) {
 
         {/* Flock + age */}
         <div style={{ flex: 1, textAlign: 'left' }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'white' }}>{row.flock_no}</div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{row.flock_no}</div>
+          <div style={{ fontSize: 11, color: t.textFaint }}>
             {row.age_days != null ? `日龄 ${row.age_days}天` : ''}
             {row.age_days != null && row.current_qty > 0 ? ' · ' : ''}
             存栏 {row.current_qty.toLocaleString()}只
@@ -80,7 +83,7 @@ function HouseCard({ row }: { row: HenReportRow }) {
 
         <ChevronRight
           size={16}
-          color="rgba(255,255,255,0.3)"
+          color={t.textFaint}
           style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}
         />
       </button>
@@ -99,7 +102,7 @@ function HouseCard({ row }: { row: HenReportRow }) {
               padding: '8px 10px', borderRadius: 8,
               background: 'rgba(249,115,22,0.08)',
               border: '1px solid rgba(249,115,22,0.2)',
-              fontSize: 12, color: 'rgba(255,255,255,0.6)',
+              fontSize: 12, color: t.textSub,
             }}>
               淘汰原因：{row.culling_reason}
             </div>
@@ -110,27 +113,28 @@ function HouseCard({ row }: { row: HenReportRow }) {
   );
 }
 
-function TotalsBar({ t }: { t: DailyHenReport['totals'] }) {
+function TotalsBar({ totals }: { totals: DailyHenReport['totals'] }) {
+  const { t } = useMobileTheme();
   return (
     <div style={{
       display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8,
       padding: '12px 16px',
-      background: 'rgba(255,255,255,0.03)',
-      borderBottom: '1px solid rgba(255,255,255,0.07)',
+      background: t.sectionBg,
+      borderBottom: `1px solid ${t.divider}`,
     }}>
       {[
-        { label: '总存栏', value: t.current_qty.toLocaleString() + '只', color: '#f59e0b' },
-        { label: '总产蛋', value: t.eggs.toLocaleString() + '枚', color: '#10b981' },
-        { label: '综合产蛋率', value: t.lay_rate + '%', color: parseFloat(t.lay_rate) >= 80 ? '#10b981' : '#ef4444' },
-        { label: '死亡', value: String(t.mortality), color: '#ef4444' },
-        { label: '淘汰', value: String(t.elimination), color: '#f97316' },
-        { label: '今日损耗', value: String(t.total_loss), color: '#dc2626' },
+        { label: '总存栏', value: totals.current_qty.toLocaleString() + '只', color: '#f59e0b' },
+        { label: '总产蛋', value: totals.eggs.toLocaleString() + '枚', color: '#10b981' },
+        { label: '综合产蛋率', value: totals.lay_rate + '%', color: parseFloat(totals.lay_rate) >= 80 ? '#10b981' : '#ef4444' },
+        { label: '死亡', value: String(totals.mortality), color: '#ef4444' },
+        { label: '淘汰', value: String(totals.elimination), color: '#f97316' },
+        { label: '今日损耗', value: String(totals.total_loss), color: '#dc2626' },
       ].map(item => (
         <div key={item.label} style={{
           background: `${item.color}10`, border: `1px solid ${item.color}25`,
           borderRadius: 10, padding: '8px 0', textAlign: 'center',
         }}>
-          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginBottom: 3 }}>{item.label}</div>
+          <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 3 }}>{item.label}</div>
           <div style={{ fontSize: 15, fontWeight: 800, color: item.color }}>{item.value}</div>
         </div>
       ))}
@@ -140,6 +144,7 @@ function TotalsBar({ t }: { t: DailyHenReport['totals'] }) {
 
 export default function DailyHenReportPage() {
   const router = useRouter();
+  const { isDark, toggle, t } = useMobileTheme();
   const [date, setDate] = useState(today());
   const [report, setReport] = useState<DailyHenReport | null>(null);
   const [loading, setLoading] = useState(false);
@@ -166,31 +171,37 @@ export default function DailyHenReportPage() {
   return (
     <div style={{
       minHeight: '100svh',
-      background: 'linear-gradient(160deg,#070b14 0%,#0f1929 100%)',
+      background: t.pageBg,
       display: 'flex', flexDirection: 'column',
     }}>
       {/* AppBar */}
       <div style={{
         display: 'flex', alignItems: 'center',
         padding: 'calc(env(safe-area-inset-top) + 12px) 16px 12px',
-        background: 'rgba(0,0,0,0.3)',
+        background: t.appBarBg,
         backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        borderBottom: `1px solid ${t.barBorder}`,
         position: 'sticky', top: 0, zIndex: 10,
         gap: 10,
       }}>
         <button onClick={() => router.back()} style={{
           background: 'none', border: 'none', cursor: 'pointer', padding: 4,
-          color: 'rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center',
+          color: t.textSub, display: 'flex', alignItems: 'center',
         }}>
           <ChevronLeft size={22} />
         </button>
-        <div style={{ flex: 1, fontSize: 16, fontWeight: 700, color: 'white' }}>母鸡存栏日报</div>
+        <div style={{ flex: 1, fontSize: 16, fontWeight: 700, color: t.text }}>母鸡存栏日报</div>
         <button onClick={() => load(date)} style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          color: 'rgba(255,255,255,0.5)', padding: 4, display: 'flex', alignItems: 'center',
+          color: t.textSub, padding: 4, display: 'flex', alignItems: 'center',
         }}>
           <RefreshCw size={16} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+        </button>
+        <button onClick={toggle} style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+          color: t.textSub, display: 'flex', alignItems: 'center',
+        }}>
+          {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
       </div>
 
@@ -198,22 +209,22 @@ export default function DailyHenReportPage() {
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
         padding: '10px 16px',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        borderBottom: `1px solid ${t.divider}`,
       }}>
         <button onClick={prevDay} style={{
-          background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: 'rgba(255,255,255,0.6)',
+          background: t.btnBg, border: `1px solid ${t.btnBorder}`,
+          borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: t.textSub,
           display: 'flex', alignItems: 'center',
         }}>
           <ChevronLeft size={16} />
         </button>
-        <div style={{ fontSize: 15, fontWeight: 600, color: 'white', minWidth: 110, textAlign: 'center' }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: t.text, minWidth: 110, textAlign: 'center' }}>
           {date}
         </div>
         <button onClick={nextDay} disabled={date >= today()} style={{
-          background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+          background: t.btnBg, border: `1px solid ${t.btnBorder}`,
           borderRadius: 8, padding: '6px 10px', cursor: date >= today() ? 'default' : 'pointer',
-          color: date >= today() ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.6)',
+          color: date >= today() ? t.textFaint : t.textSub,
           display: 'flex', alignItems: 'center',
         }}>
           <ChevronRight size={16} />
@@ -221,7 +232,7 @@ export default function DailyHenReportPage() {
       </div>
 
       {/* Totals */}
-      {report && <TotalsBar t={report.totals} />}
+      {report && <TotalsBar totals={report.totals} />}
 
       {/* Content */}
       <div style={{
@@ -231,7 +242,7 @@ export default function DailyHenReportPage() {
         overflowY: 'auto',
       }}>
         {loading && (
-          <div style={{ textAlign: 'center', padding: 40, color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>
+          <div style={{ textAlign: 'center', padding: 40, color: t.textFaint, fontSize: 14 }}>
             加载中…
           </div>
         )}
@@ -247,7 +258,7 @@ export default function DailyHenReportPage() {
         )}
 
         {!loading && !error && report && report.rows.length === 0 && (
-          <div style={{ textAlign: 'center', padding: 40, color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>
+          <div style={{ textAlign: 'center', padding: 40, color: t.textFaint, fontSize: 14 }}>
             暂无存栏鸡群数据
           </div>
         )}

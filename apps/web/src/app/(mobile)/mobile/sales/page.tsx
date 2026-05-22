@@ -4,8 +4,10 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, RefreshCw, ChevronLeft, ChevronRight,
   ShoppingCart, List, X,
+  Sun, Moon,
 } from 'lucide-react';
 import { mobileApi, FarmCustomer, FarmSaleRecord, FarmSaleItem } from '@/lib/mobile-api';
+import { useMobileTheme } from '@/contexts/MobileThemeContext';
 
 function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -48,6 +50,8 @@ const DEFAULT_PRICES: Record<string, number> = {
 export default function SalesPage() {
   const router  = useRouter();
   const today   = fmtDate(new Date());
+  const { isDark, toggle, t } = useMobileTheme();
+
   const [tab, setTab]   = useState<Tab>('new');
   const [date, setDate] = useState(today);
   const isToday   = date === today;
@@ -152,48 +156,54 @@ export default function SalesPage() {
   const historyTotal = history.reduce((s, r) => s + Number(r.total_amount), 0);
 
   return (
-    <div style={{ minHeight: '100svh', background: 'linear-gradient(160deg,#070b14 0%,#0f1929 100%)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100svh', background: t.pageBg, display: 'flex', flexDirection: 'column' }}>
       {/* 头部 */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: 'calc(env(safe-area-inset-top) + 14px) 16px 14px',
-        background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: t.appBarBg, backdropFilter: 'blur(20px)',
+        borderBottom: `1px solid ${t.barBorder}`,
         position: 'sticky', top: 0, zIndex: 10,
       }}>
         <button onClick={() => router.back()}
-          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', padding: 4 }}>
+          style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 4 }}>
           <ArrowLeft size={20} />
         </button>
-        <span style={{ fontSize: 15, fontWeight: 700, color: 'white', flex: 1 }}>🛒 销售出库</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>🛒 销售出库</span>
         {tab === 'history' && (
           <button onClick={() => loadHistory(date)}
-            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 4 }}>
+            style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', padding: 4 }}>
             <RefreshCw size={16} />
           </button>
         )}
+        <button onClick={toggle} style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+          color: t.textSub, display: 'flex', alignItems: 'center',
+        }}>
+          {isDark ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
       </div>
 
       {/* Tab */}
       <div style={{
         display: 'grid', gridTemplateColumns: '1fr 1fr',
-        background: 'rgba(0,0,0,0.2)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: t.appBarBg,
+        borderBottom: `1px solid ${t.barBorder}`,
       }}>
         {([
           { key: 'new',     label: '开单', icon: <ShoppingCart size={14} /> },
           { key: 'history', label: '记录', icon: <List size={14} /> },
-        ] as const).map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
+        ] as const).map(tab_ => (
+          <button key={tab_.key} onClick={() => setTab(tab_.key)}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-              padding: '12px 0', background: tab === t.key ? 'rgba(16,185,129,0.1)' : 'none',
-              border: 'none', borderBottom: `2px solid ${tab === t.key ? '#10b981' : 'transparent'}`,
-              color: tab === t.key ? '#10b981' : 'rgba(255,255,255,0.4)',
+              padding: '12px 0', background: tab === tab_.key ? 'rgba(16,185,129,0.1)' : 'none',
+              border: 'none', borderBottom: `2px solid ${tab === tab_.key ? '#10b981' : 'transparent'}`,
+              color: tab === tab_.key ? '#10b981' : t.textMuted,
               cursor: 'pointer', fontSize: 13, fontWeight: 700,
             }}
           >
-            {t.icon}{t.label}
+            {tab_.icon}{tab_.label}
           </button>
         ))}
       </div>
@@ -207,15 +217,15 @@ export default function SalesPage() {
           borderBottom: '1px solid rgba(16,185,129,0.1)',
         }}>
           <button onClick={() => setDate(d => fmtDate(addDays(toDate(d), -1)))}
-            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: 6 }}>
+            style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 6 }}>
             <ChevronLeft size={18} />
           </button>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>{dateLabel}</div>
-            {dateLabel !== date && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{date}</div>}
+            <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{dateLabel}</div>
+            {dateLabel !== date && <div style={{ fontSize: 10, color: t.textMuted }}>{date}</div>}
           </div>
           <button onClick={() => { if (!isToday) setDate(d => fmtDate(addDays(toDate(d), 1))); }} disabled={isToday}
-            style={{ background: 'none', border: 'none', color: isToday ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)', cursor: isToday ? 'default' : 'pointer', padding: 6 }}>
+            style={{ background: 'none', border: 'none', color: isToday ? t.textFaint : t.textSub, cursor: isToday ? 'default' : 'pointer', padding: 6 }}>
             <ChevronRight size={18} />
           </button>
         </div>
@@ -242,16 +252,16 @@ export default function SalesPage() {
           <>
             {/* 客户选择 */}
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 8 }}>客户</div>
+              <div style={{ fontSize: 12, color: t.textMuted, marginBottom: 8 }}>客户</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {customers.map(c => (
                   <button key={c.customer_code}
                     onClick={() => setSelCustomer(c)}
                     style={{
                       padding: '8px 14px', borderRadius: 10,
-                      background: selCustomer?.customer_code === c.customer_code ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)',
-                      border: `1px solid ${selCustomer?.customer_code === c.customer_code ? 'rgba(16,185,129,0.4)' : 'rgba(255,255,255,0.1)'}`,
-                      color: selCustomer?.customer_code === c.customer_code ? '#10b981' : 'rgba(255,255,255,0.6)',
+                      background: selCustomer?.customer_code === c.customer_code ? 'rgba(16,185,129,0.15)' : t.btnBg,
+                      border: `1px solid ${selCustomer?.customer_code === c.customer_code ? 'rgba(16,185,129,0.4)' : t.btnBorder}`,
+                      color: selCustomer?.customer_code === c.customer_code ? '#10b981' : t.textSub,
                       cursor: 'pointer', fontSize: 13, fontWeight: 600,
                     }}>
                     {c.customer_name}
@@ -261,12 +271,12 @@ export default function SalesPage() {
             </div>
 
             {/* 规格表格 */}
-            <div style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', marginBottom: 14 }}>
+            <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${t.cardBorder}`, marginBottom: 14 }}>
               <div style={{
                 display: 'grid', gridTemplateColumns: '1fr 80px 90px',
                 padding: '10px 14px', gap: 8,
-                background: 'rgba(255,255,255,0.04)',
-                fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600,
+                background: t.cardBg,
+                fontSize: 11, color: t.textMuted, fontWeight: 600,
               }}>
                 <span>规格</span><span style={{ textAlign: 'right' }}>数量（枚）</span><span style={{ textAlign: 'right' }}>单价（LAK）</span>
               </div>
@@ -279,11 +289,11 @@ export default function SalesPage() {
                   <div key={g.code} style={{
                     display: 'grid', gridTemplateColumns: '1fr 80px 90px',
                     alignItems: 'center', padding: '10px 14px', gap: 8,
-                    background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.01)',
-                    borderTop: '1px solid rgba(255,255,255,0.04)',
+                    background: idx % 2 === 0 ? t.sectionBg : t.cardBg,
+                    borderTop: `1px solid ${t.divider}`,
                   }}>
                     <div>
-                      <div style={{ fontSize: 14, color: qty > 0 ? 'white' : 'rgba(255,255,255,0.6)' }}>{g.name}</div>
+                      <div style={{ fontSize: 14, color: qty > 0 ? t.text : t.textSub }}>{g.name}</div>
                       {sub > 0 && <div style={{ fontSize: 10, color: '#10b981' }}>小计 {fmtMoney(sub)}</div>}
                     </div>
                     <input
@@ -293,9 +303,9 @@ export default function SalesPage() {
                       placeholder="0"
                       style={{
                         height: 34, textAlign: 'right', padding: '0 8px',
-                        background: qty > 0 ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.05)',
-                        border: `1px solid ${qty > 0 ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.1)'}`,
-                        borderRadius: 8, color: qty > 0 ? '#10b981' : 'rgba(255,255,255,0.5)',
+                        background: qty > 0 ? 'rgba(16,185,129,0.1)' : t.inputBg,
+                        border: `1px solid ${qty > 0 ? 'rgba(16,185,129,0.3)' : t.inputBorder}`,
+                        borderRadius: 8, color: qty > 0 ? '#10b981' : t.textSub,
                         fontSize: 14, fontWeight: 700, outline: 'none', WebkitAppearance: 'none',
                       }}
                     />
@@ -305,9 +315,9 @@ export default function SalesPage() {
                       onChange={e => setEntry(g.code, 'unit_price', Math.max(0, Number(e.target.value) || 0))}
                       style={{
                         height: 34, textAlign: 'right', padding: '0 8px',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: 8, color: 'rgba(255,255,255,0.6)',
+                        background: t.inputBg,
+                        border: `1px solid ${t.inputBorder}`,
+                        borderRadius: 8, color: t.textSub,
                         fontSize: 13, outline: 'none', WebkitAppearance: 'none',
                       }}
                     />
@@ -327,23 +337,23 @@ export default function SalesPage() {
                 background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               }}>
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>今日合计 · {history.length} 单</span>
+                <span style={{ fontSize: 12, color: t.textMuted }}>今日合计 · {history.length} 单</span>
                 <span style={{ fontSize: 18, fontWeight: 800, color: '#10b981' }}>₭ {fmtMoney(historyTotal)}</span>
               </div>
             )}
 
             {loading ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[1,2,3].map(i => <div key={i} style={{ height: 80, borderRadius: 14, background: 'rgba(255,255,255,0.04)', animation: 'pulse 1.5s infinite' }} />)}
+                {[1,2,3].map(i => <div key={i} style={{ height: 80, borderRadius: 14, background: t.cardBg, animation: 'pulse 1.5s infinite' }} />)}
               </div>
             ) : history.length === 0 ? (
-              <div style={{ padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: 13 }}>暂无记录</div>
+              <div style={{ padding: 40, textAlign: 'center', color: t.textFaint, fontSize: 13 }}>暂无记录</div>
             ) : (
               history.map(rec => (
                 <div key={rec.order_no} style={{
                   borderRadius: 14, marginBottom: 10,
-                  background: rec.status === 'CANCELLED' ? 'rgba(255,255,255,0.02)' : 'rgba(16,185,129,0.05)',
-                  border: `1px solid ${rec.status === 'CANCELLED' ? 'rgba(255,255,255,0.07)' : 'rgba(16,185,129,0.2)'}`,
+                  background: rec.status === 'CANCELLED' ? t.cardBg : 'rgba(16,185,129,0.05)',
+                  border: `1px solid ${rec.status === 'CANCELLED' ? t.cardBorder : 'rgba(16,185,129,0.2)'}`,
                   opacity: rec.status === 'CANCELLED' ? 0.6 : 1,
                 }}>
                   <div
@@ -351,11 +361,11 @@ export default function SalesPage() {
                     style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', cursor: 'pointer' }}
                   >
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'white' }}>{rec.customer_name}</div>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>{rec.order_no}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{rec.customer_name}</div>
+                      <div style={{ fontSize: 11, color: t.textFaint, marginTop: 2 }}>{rec.order_no}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: rec.status === 'CANCELLED' ? 'rgba(255,255,255,0.3)' : '#10b981' }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: rec.status === 'CANCELLED' ? t.textFaint : '#10b981' }}>
                         ₭ {fmtMoney(Number(rec.total_amount))}
                       </div>
                       {rec.status === 'CANCELLED' && (
@@ -365,15 +375,15 @@ export default function SalesPage() {
                   </div>
 
                   {expandedOrder === rec.order_no && (
-                    <div style={{ padding: '0 14px 14px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ padding: '0 14px 14px', borderTop: `1px solid ${t.divider}` }}>
                       {rec.items?.map((it, i) => (
                         <div key={i} style={{
                           display: 'flex', justifyContent: 'space-between',
-                          padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)',
+                          padding: '6px 0', borderBottom: `1px solid ${t.divider}`,
                           fontSize: 12,
                         }}>
-                          <span style={{ color: 'rgba(255,255,255,0.6)' }}>{it.product_name_zh}</span>
-                          <span style={{ color: 'rgba(255,255,255,0.4)' }}>
+                          <span style={{ color: t.textSub }}>{it.product_name_zh}</span>
+                          <span style={{ color: t.textMuted }}>
                             {Number(it.qty).toLocaleString()} × {fmtMoney(it.unit_price)} = ₭{fmtMoney(it.subtotal)}
                           </span>
                         </div>
@@ -405,15 +415,15 @@ export default function SalesPage() {
         <div style={{
           position: 'fixed', bottom: 0, left: 0, right: 0,
           padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
-          background: 'rgba(7,11,20,0.95)', backdropFilter: 'blur(20px)',
-          borderTop: '1px solid rgba(255,255,255,0.08)',
+          background: t.bottomBarBg, backdropFilter: 'blur(20px)',
+          borderTop: `1px solid ${t.cardBorder}`,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
         }}>
           <div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
+            <div style={{ fontSize: 11, color: t.textFaint }}>
               {totalQty > 0 ? `${totalQty.toLocaleString()} 枚` : '未填写数量'}
             </div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: totalAmount > 0 ? '#10b981' : 'rgba(255,255,255,0.2)' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: totalAmount > 0 ? '#10b981' : t.textFaint }}>
               ₭ {fmtMoney(totalAmount)}
             </div>
           </div>
@@ -422,9 +432,9 @@ export default function SalesPage() {
             disabled={submitting || totalQty === 0 || !selCustomer}
             style={{
               flex: 1, maxWidth: 160, height: 48, borderRadius: 14,
-              background: totalQty > 0 ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.05)',
-              border: `1px solid ${totalQty > 0 ? 'rgba(16,185,129,0.5)' : 'rgba(255,255,255,0.1)'}`,
-              color: totalQty > 0 ? '#10b981' : 'rgba(255,255,255,0.3)',
+              background: totalQty > 0 ? 'rgba(16,185,129,0.2)' : t.btnBg,
+              border: `1px solid ${totalQty > 0 ? 'rgba(16,185,129,0.5)' : t.btnBorder}`,
+              color: totalQty > 0 ? '#10b981' : t.textFaint,
               cursor: totalQty > 0 ? 'pointer' : 'default',
               fontSize: 15, fontWeight: 800,
             }}

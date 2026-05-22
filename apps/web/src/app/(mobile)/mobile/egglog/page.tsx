@@ -1,9 +1,10 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Save, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, RefreshCw, ChevronDown, ChevronUp, Sun, Moon } from 'lucide-react';
 import { mobileApi, FlockRecord, FarmLog } from '@/lib/mobile-api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMobileTheme } from '@/contexts/MobileThemeContext';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ function NumInput({
 }: {
   value: number | ''; onChange: (v: number) => void; placeholder?: string; small?: boolean;
 }) {
+  const { t } = useMobileTheme();
   return (
     <input
       type="number" inputMode="numeric" min="0"
@@ -38,9 +40,9 @@ function NumInput({
       onChange={e => onChange(Math.max(0, Number(e.target.value) || 0))}
       style={{
         width: small ? 64 : 80, height: small ? 32 : 40, textAlign: 'center',
-        background: 'rgba(255,255,255,0.06)',
-        border: '1px solid rgba(255,255,255,0.14)',
-        borderRadius: 8, color: 'white',
+        background: t.inputBg,
+        border: `1px solid ${t.inputBorder}`,
+        borderRadius: 8, color: t.text,
         fontSize: small ? 13 : 16, fontWeight: 700,
         outline: 'none', WebkitAppearance: 'none',
       }}
@@ -72,6 +74,7 @@ function HouseCard({
   onChange: (e: HouseEntry) => void;
   existing: number;
 }) {
+  const { t } = useMobileTheme();
   const [open, setOpen] = useState(false);
   const hasQuality = entry.bad > 0 || entry.dirty > 0 || entry.broken > 0;
   const hasEnv = entry.temp !== '' || entry.humidity !== '';
@@ -81,8 +84,8 @@ function HouseCard({
     <div style={{
       background: dirty
         ? 'rgba(245,158,11,0.06)'
-        : 'rgba(255,255,255,0.04)',
-      border: `1px solid ${dirty ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.08)'}`,
+        : t.cardBg,
+      border: `1px solid ${dirty ? 'rgba(245,158,11,0.3)' : t.cardBorder}`,
       borderRadius: 14,
       marginBottom: 10,
       overflow: 'hidden',
@@ -101,9 +104,9 @@ function HouseCard({
 
         {/* Flock */}
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'white' }}>{flock_no || house}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{flock_no || house}</div>
           {existing > 0 && (
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+            <div style={{ fontSize: 11, color: t.textFaint }}>
               已录 {existing.toLocaleString()} 枚
             </div>
           )}
@@ -111,12 +114,12 @@ function HouseCard({
 
         {/* Eggs input */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>产蛋</span>
+          <span style={{ fontSize: 12, color: t.textMuted }}>产蛋</span>
           <NumInput
             value={entry.eggs}
             onChange={v => onChange({ ...entry, eggs: v })}
           />
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>枚</span>
+          <span style={{ fontSize: 11, color: t.textFaint }}>枚</span>
         </div>
 
         {/* Expand toggle */}
@@ -124,7 +127,7 @@ function HouseCard({
           onClick={() => setOpen(v => !v)}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            color: 'rgba(255,255,255,0.4)', padding: 4, flexShrink: 0,
+            color: t.textMuted, padding: 4, flexShrink: 0,
             display: 'flex', alignItems: 'center',
           }}
         >
@@ -136,10 +139,10 @@ function HouseCard({
       {open && (
         <div style={{
           padding: '0 14px 14px',
-          borderTop: '1px solid rgba(255,255,255,0.06)',
+          borderTop: `1px solid ${t.divider}`,
         }}>
           {/* Quality breakdown */}
-          <div style={{ marginTop: 10, marginBottom: 8, fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+          <div style={{ marginTop: 10, marginBottom: 8, fontSize: 11, color: t.textMuted, fontWeight: 600 }}>
             蛋品质分级
           </div>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -160,41 +163,41 @@ function HouseCard({
           </div>
 
           {/* Env data */}
-          <div style={{ marginTop: 12, marginBottom: 8, fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+          <div style={{ marginTop: 12, marginBottom: 8, fontSize: 11, color: t.textMuted, fontWeight: 600 }}>
             环境（选填）
           </div>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', minWidth: 30 }}>温度</span>
+              <span style={{ fontSize: 12, color: t.textSub, minWidth: 30 }}>温度</span>
               <input
                 type="number" inputMode="decimal" placeholder="℃"
                 value={entry.temp}
                 onChange={e => onChange({ ...entry, temp: e.target.value })}
                 style={{
                   width: 64, height: 32, textAlign: 'center',
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.14)',
-                  borderRadius: 8, color: 'white', fontSize: 13, fontWeight: 600,
+                  background: t.inputBg,
+                  border: `1px solid ${t.inputBorder}`,
+                  borderRadius: 8, color: t.text, fontSize: 13, fontWeight: 600,
                   outline: 'none', WebkitAppearance: 'none',
                 }}
               />
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>℃</span>
+              <span style={{ fontSize: 11, color: t.textFaint }}>℃</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', minWidth: 30 }}>湿度</span>
+              <span style={{ fontSize: 12, color: t.textSub, minWidth: 30 }}>湿度</span>
               <input
                 type="number" inputMode="decimal" placeholder="%"
                 value={entry.humidity}
                 onChange={e => onChange({ ...entry, humidity: e.target.value })}
                 style={{
                   width: 64, height: 32, textAlign: 'center',
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.14)',
-                  borderRadius: 8, color: 'white', fontSize: 13, fontWeight: 600,
+                  background: t.inputBg,
+                  border: `1px solid ${t.inputBorder}`,
+                  borderRadius: 8, color: t.text, fontSize: 13, fontWeight: 600,
                   outline: 'none', WebkitAppearance: 'none',
                 }}
               />
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>%</span>
+              <span style={{ fontSize: 11, color: t.textFaint }}>%</span>
             </div>
           </div>
         </div>
@@ -208,6 +211,7 @@ function HouseCard({
 export default function EggLogPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { isDark, toggle, t } = useMobileTheme();
 
   const [date, setDate]     = useState(todayStr());
   const [shift, setShift]   = useState('早班');
@@ -314,24 +318,24 @@ export default function EggLogPage() {
   return (
     <div style={{
       minHeight: '100svh',
-      background: 'linear-gradient(160deg,#070b14 0%,#0f1929 100%)',
+      background: t.pageBg,
       display: 'flex', flexDirection: 'column',
     }}>
       {/* AppBar */}
       <div style={{
         display: 'flex', alignItems: 'center',
         padding: 'calc(env(safe-area-inset-top) + 12px) 16px 12px',
-        background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: t.appBarBg, backdropFilter: 'blur(20px)',
+        borderBottom: `1px solid ${t.barBorder}`,
         position: 'sticky', top: 0, zIndex: 10, gap: 10,
       }}>
         <button onClick={() => router.back()} style={{
           background: 'none', border: 'none', cursor: 'pointer', padding: 4,
-          color: 'rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center',
+          color: t.textSub, display: 'flex', alignItems: 'center',
         }}>
           <ChevronLeft size={22} />
         </button>
-        <div style={{ flex: 1, fontSize: 16, fontWeight: 700, color: 'white' }}>产蛋日报录入</div>
+        <div style={{ flex: 1, fontSize: 16, fontWeight: 700, color: t.text }}>产蛋日报录入</div>
         {totalEggs > 0 && (
           <div style={{
             padding: '4px 10px', borderRadius: 8,
@@ -342,31 +346,37 @@ export default function EggLogPage() {
             {totalEggs.toLocaleString()} 枚
           </div>
         )}
+        <button onClick={toggle} style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+          color: t.textSub, display: 'flex', alignItems: 'center',
+        }}>
+          {isDark ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
       </div>
 
       {/* Date nav + shift */}
       <div style={{
-        padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+        padding: '10px 16px', borderBottom: `1px solid ${t.divider}`,
         display: 'flex', flexDirection: 'column', gap: 8,
       }}>
         {/* Date row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
           <button onClick={() => setDate(d => shiftDays(d, -1))} style={{
-            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+            background: t.btnBg, border: `1px solid ${t.btnBorder}`,
             borderRadius: 8, padding: '6px 10px', cursor: 'pointer',
-            color: 'rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center',
+            color: t.textSub, display: 'flex', alignItems: 'center',
           }}><ChevronLeft size={16} /></button>
-          <span style={{ fontSize: 15, fontWeight: 600, color: 'white', minWidth: 110, textAlign: 'center' }}>
+          <span style={{ fontSize: 15, fontWeight: 600, color: t.text, minWidth: 110, textAlign: 'center' }}>
             {date}
           </span>
           <button
             onClick={() => { if (date < todayStr()) setDate(d => shiftDays(d, 1)); }}
             disabled={date >= todayStr()}
             style={{
-              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+              background: t.btnBg, border: `1px solid ${t.btnBorder}`,
               borderRadius: 8, padding: '6px 10px',
               cursor: date >= todayStr() ? 'default' : 'pointer',
-              color: date >= todayStr() ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.6)',
+              color: date >= todayStr() ? t.textFaint : t.textSub,
               display: 'flex', alignItems: 'center',
             }}
           ><ChevronRight size={16} /></button>
@@ -380,9 +390,9 @@ export default function EggLogPage() {
               onClick={() => setShift(s.key)}
               style={{
                 padding: '6px 20px', borderRadius: 20,
-                border: `1px solid ${shift === s.key ? '#f59e0b' : 'rgba(255,255,255,0.12)'}`,
-                background: shift === s.key ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.04)',
-                color: shift === s.key ? '#f59e0b' : 'rgba(255,255,255,0.5)',
+                border: `1px solid ${shift === s.key ? '#f59e0b' : t.inputBorder}`,
+                background: shift === s.key ? 'rgba(245,158,11,0.2)' : t.cardBg,
+                color: shift === s.key ? '#f59e0b' : t.textSub,
                 cursor: 'pointer', fontSize: 13, fontWeight: 600,
               }}
             >
@@ -399,11 +409,11 @@ export default function EggLogPage() {
         overflowY: 'auto',
       }}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 40, color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>
+          <div style={{ textAlign: 'center', padding: 40, color: t.textFaint, fontSize: 14 }}>
             加载中…
           </div>
         ) : flocks.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40, color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>
+          <div style={{ textAlign: 'center', padding: 40, color: t.textFaint, fontSize: 14 }}>
             无在产鸡群数据，请先在管理后台建立鸡群
           </div>
         ) : (
@@ -448,8 +458,8 @@ export default function EggLogPage() {
         position: 'fixed', bottom: 0, left: 0, right: 0,
         padding: '12px 16px',
         paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
-        background: 'rgba(7,11,20,0.95)', backdropFilter: 'blur(20px)',
-        borderTop: '1px solid rgba(255,255,255,0.08)',
+        background: t.bottomBarBg, backdropFilter: 'blur(20px)',
+        borderTop: `1px solid ${t.cardBorder}`,
       }}>
         <button
           onClick={handleSubmit}
@@ -457,10 +467,10 @@ export default function EggLogPage() {
           style={{
             width: '100%', height: 52, borderRadius: 14,
             background: saving || totalEggs === 0
-              ? 'rgba(255,255,255,0.06)'
+              ? t.btnBg
               : 'linear-gradient(135deg,#f59e0b,#d97706)',
             border: 'none', cursor: saving || totalEggs === 0 ? 'default' : 'pointer',
-            color: saving || totalEggs === 0 ? 'rgba(255,255,255,0.3)' : 'white',
+            color: saving || totalEggs === 0 ? t.textFaint : 'white',
             fontSize: 16, fontWeight: 700,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}

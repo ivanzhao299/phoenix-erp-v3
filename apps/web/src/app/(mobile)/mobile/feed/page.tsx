@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Sun, Moon } from 'lucide-react';
 import { mobileApi, FeedLedgerRow } from '@/lib/mobile-api';
+import { useMobileTheme } from '@/contexts/MobileThemeContext';
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 
@@ -37,13 +38,14 @@ function MaterialCard({
   houses: string[];
   onChange: (updated: Partial<FeedLedgerRow>) => void;
 }) {
+  const { t } = useMobileTheme();
   const [expanded, setExpanded] = useState(false);
 
   const alertColor = row.alert ? ALERT_COLOR[row.alert] : null;
   const daysLabel  = row.days_left != null
     ? `${row.days_left}天`
     : '—';
-  const daysColor = row.days_left == null ? 'rgba(255,255,255,0.3)'
+  const daysColor = row.days_left == null ? t.textFaint
     : row.days_left <= 3  ? '#ef4444'
     : row.days_left <= 7  ? '#f59e0b'
     : row.days_left <= 14 ? '#fbbf24'
@@ -54,11 +56,20 @@ function MaterialCard({
     onChange({ outbound_detail: detail });
   };
 
+  const inputStyle: React.CSSProperties = {
+    width: '100%', height: 36, padding: '0 10px',
+    background: t.inputBg,
+    border: `1px solid ${t.inputBorder}`,
+    borderRadius: 8, color: t.text, fontSize: 13,
+    outline: 'none', boxSizing: 'border-box',
+    WebkitAppearance: 'none',
+  };
+
   return (
     <div style={{
       borderRadius: 14,
-      border: `1px solid ${alertColor ? alertColor + '50' : 'rgba(255,255,255,0.08)'}`,
-      background: alertColor ? `${alertColor}08` : 'rgba(255,255,255,0.03)',
+      border: `1px solid ${alertColor ? alertColor + '50' : t.cardBorder}`,
+      background: alertColor ? `${alertColor}08` : t.sectionBg,
       overflow: 'hidden',
       marginBottom: 8,
     }}>
@@ -73,8 +84,8 @@ function MaterialCard({
       >
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>{row.material_name}</span>
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{row.unit}</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{row.material_name}</span>
+            <span style={{ fontSize: 11, color: t.textFaint }}>{row.unit}</span>
             {row.alert && (
               <span style={{
                 fontSize: 10, padding: '1px 6px', borderRadius: 4, fontWeight: 700,
@@ -85,30 +96,30 @@ function MaterialCard({
             )}
           </div>
           <div style={{ display: 'flex', gap: 16, marginTop: 4 }}>
-            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
-              库存 <b style={{ color: 'white' }}>{row.current_stock.toLocaleString('zh-CN')}</b>
+            <span style={{ fontSize: 12, color: t.textSub }}>
+              库存 <b style={{ color: t.text }}>{row.current_stock.toLocaleString('zh-CN')}</b>
             </span>
             <span style={{ fontSize: 12, color: daysColor, fontWeight: 600 }}>
               可用 {daysLabel}
             </span>
           </div>
         </div>
-        {expanded ? <ChevronUp size={16} color="rgba(255,255,255,0.4)" /> : <ChevronDown size={16} color="rgba(255,255,255,0.4)" />}
+        {expanded ? <ChevronUp size={16} color={t.textMuted} /> : <ChevronDown size={16} color={t.textMuted} />}
       </button>
 
       {/* 展开的输入区域 */}
       {expanded && (
-        <div style={{ padding: '0 14px 14px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ padding: '0 14px 14px', borderTop: `1px solid ${t.divider}` }}>
           {/* 前日库存 */}
           <div style={{ display: 'flex', gap: 10, marginTop: 12, marginBottom: 10 }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginBottom: 4 }}>昨日库存</div>
-              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ fontSize: 10, color: t.textFaint, marginBottom: 4 }}>昨日库存</div>
+              <div style={{ fontSize: 14, color: t.textSub, padding: '8px 10px', background: t.sectionBg, borderRadius: 8, border: `1px solid ${t.divider}` }}>
                 {row.prev_stock.toLocaleString('zh-CN')}
               </div>
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginBottom: 4 }}>今日入库</div>
+              <div style={{ fontSize: 10, color: t.textFaint, marginBottom: 4 }}>今日入库</div>
               <input
                 type="number" inputMode="numeric" min="0"
                 value={numInput(row.inbound_qty)}
@@ -118,7 +129,7 @@ function MaterialCard({
               />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginBottom: 4 }}>日用量</div>
+              <div style={{ fontSize: 10, color: t.textFaint, marginBottom: 4 }}>日用量</div>
               <input
                 type="number" inputMode="numeric" min="0"
                 value={numInput(row.daily_usage)}
@@ -130,11 +141,11 @@ function MaterialCard({
           </div>
 
           {/* 各栋出库 */}
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginBottom: 6 }}>今日出库（各栋）</div>
+          <div style={{ fontSize: 10, color: t.textFaint, marginBottom: 6 }}>今日出库（各栋）</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
             {houses.map(house => (
               <div key={house}>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginBottom: 3, textAlign: 'center' }}>{house}</div>
+                <div style={{ fontSize: 10, color: t.textFaint, marginBottom: 3, textAlign: 'center' }}>{house}</div>
                 <input
                   type="number" inputMode="numeric" min="0"
                   value={numInput(row.outbound_detail[house] ?? 0)}
@@ -147,10 +158,10 @@ function MaterialCard({
           </div>
 
           {/* 合计行 */}
-          <div style={{ display: 'flex', gap: 10, marginTop: 10, padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
-            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>出库合计</span>
+          <div style={{ display: 'flex', gap: 10, marginTop: 10, padding: '8px 10px', background: t.sectionBg, borderRadius: 8 }}>
+            <span style={{ fontSize: 12, color: t.textMuted }}>出库合计</span>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b' }}>{row.outbound_total.toLocaleString('zh-CN')}</span>
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>→ 库存</span>
+            <span style={{ marginLeft: 'auto', fontSize: 12, color: t.textMuted }}>→ 库存</span>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#10b981' }}>{row.current_stock.toLocaleString('zh-CN')}</span>
           </div>
 
@@ -170,19 +181,11 @@ function MaterialCard({
   );
 }
 
-const inputStyle: React.CSSProperties = {
-  width: '100%', height: 36, padding: '0 10px',
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.12)',
-  borderRadius: 8, color: 'white', fontSize: 13,
-  outline: 'none', boxSizing: 'border-box',
-  WebkitAppearance: 'none',
-};
-
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function FeedLedgerPage() {
   const router  = useRouter();
+  const { isDark, toggle, t } = useMobileTheme();
   const today   = fmtDate(new Date());
   const [date, setDate]       = useState(today);
   const [rows, setRows]       = useState<FeedLedgerRow[]>([]);
@@ -262,25 +265,31 @@ export default function FeedLedgerPage() {
   return (
     <div style={{
       minHeight: '100svh',
-      background: 'linear-gradient(160deg,#070b14 0%,#0f1929 100%)',
+      background: t.pageBg,
       display: 'flex', flexDirection: 'column',
     }}>
       {/* 头部 */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: 'calc(env(safe-area-inset-top) + 14px) 16px 14px',
-        background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: t.appBarBg, backdropFilter: 'blur(20px)',
+        borderBottom: `1px solid ${t.barBorder}`,
         position: 'sticky', top: 0, zIndex: 10,
       }}>
         <button onClick={() => router.back()}
-          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', padding: 4 }}>
+          style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 4 }}>
           <ArrowLeft size={20} />
         </button>
-        <span style={{ fontSize: 15, fontWeight: 700, color: 'white', flex: 1 }}>🌾 饲料台账</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>🌾 饲料台账</span>
         <button onClick={() => loadData(date)}
-          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 4 }}>
+          style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', padding: 4 }}>
           <RefreshCw size={16} />
+        </button>
+        <button onClick={toggle} style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+          color: t.textSub, display: 'flex', alignItems: 'center',
+        }}>
+          {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
         <button
           onClick={handleSave}
@@ -307,15 +316,15 @@ export default function FeedLedgerPage() {
         borderBottom: '1px solid rgba(245,158,11,0.1)',
       }}>
         <button onClick={prevDay}
-          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: 6 }}>
+          style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 6 }}>
           <ChevronLeft size={20} />
         </button>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>{dateLabel}</div>
-          {dateLabel !== date && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{date}</div>}
+          <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{dateLabel}</div>
+          {dateLabel !== date && <div style={{ fontSize: 11, color: t.textMuted }}>{date}</div>}
         </div>
         <button onClick={nextDay} disabled={isToday}
-          style={{ background: 'none', border: 'none', color: isToday ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)', cursor: isToday ? 'default' : 'pointer', padding: 6 }}>
+          style={{ background: 'none', border: 'none', color: isToday ? t.textFaint : t.textSub, cursor: isToday ? 'default' : 'pointer', padding: 6 }}>
           <ChevronRight size={20} />
         </button>
       </div>
@@ -358,7 +367,7 @@ export default function FeedLedgerPage() {
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} style={{ height: 64, borderRadius: 14, background: 'rgba(255,255,255,0.04)', animation: 'pulse 1.5s infinite' }} />
+              <div key={i} style={{ height: 64, borderRadius: 14, background: t.cardBg, animation: 'pulse 1.5s infinite' }} />
             ))}
           </div>
         ) : (
@@ -373,7 +382,7 @@ export default function FeedLedgerPage() {
               />
             ))}
             {rows.length === 0 && (
-              <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 14, paddingTop: 40 }}>
+              <div style={{ textAlign: 'center', color: t.textFaint, fontSize: 14, paddingTop: 40 }}>
                 暂无数据
               </div>
             )}

@@ -4,8 +4,10 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight,
   TrendingUp, TrendingDown, Package,
+  Sun, Moon,
 } from 'lucide-react';
 import { mobileApi, EggStockRow, EggLedgerEntry } from '@/lib/mobile-api';
+import { useMobileTheme } from '@/contexts/MobileThemeContext';
 
 function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -45,6 +47,7 @@ type Tab = 'stock' | 'inbound' | 'outbound';
 type GradeQtyMap = Record<string, number>;
 
 function QtyInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const { t } = useMobileTheme();
   return (
     <input
       type="number" inputMode="numeric" min="0"
@@ -53,9 +56,9 @@ function QtyInput({ value, onChange }: { value: number; onChange: (v: number) =>
       placeholder="0"
       style={{
         width: 70, height: 34, textAlign: 'center',
-        background: value > 0 ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)',
-        border: `1px solid ${value > 0 ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`,
-        borderRadius: 8, color: value > 0 ? '#f59e0b' : 'rgba(255,255,255,0.5)',
+        background: value > 0 ? 'rgba(245,158,11,0.1)' : t.inputBg,
+        border: `1px solid ${value > 0 ? 'rgba(245,158,11,0.4)' : t.inputBorder}`,
+        borderRadius: 8, color: value > 0 ? '#f59e0b' : t.textSub,
         fontSize: 14, fontWeight: 700, outline: 'none', WebkitAppearance: 'none',
       }}
     />
@@ -65,6 +68,8 @@ function QtyInput({ value, onChange }: { value: number; onChange: (v: number) =>
 export default function EggPage() {
   const router = useRouter();
   const today  = fmtDate(new Date());
+  const { isDark, toggle, t } = useMobileTheme();
+
   const [tab, setTab]     = useState<Tab>('stock');
   const [date, setDate]   = useState(today);
   const isToday = date === today;
@@ -203,23 +208,29 @@ export default function EggPage() {
   };
 
   return (
-    <div style={{ minHeight: '100svh', background: 'linear-gradient(160deg,#070b14 0%,#0f1929 100%)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100svh', background: t.pageBg, display: 'flex', flexDirection: 'column' }}>
       {/* 头部 */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: 'calc(env(safe-area-inset-top) + 14px) 16px 14px',
-        background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: t.appBarBg, backdropFilter: 'blur(20px)',
+        borderBottom: `1px solid ${t.barBorder}`,
         position: 'sticky', top: 0, zIndex: 10,
       }}>
         <button onClick={() => router.back()}
-          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', padding: 4 }}>
+          style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 4 }}>
           <ArrowLeft size={20} />
         </button>
-        <span style={{ fontSize: 15, fontWeight: 700, color: 'white', flex: 1 }}>🥚 鸡蛋出入库</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>🥚 鸡蛋出入库</span>
         <button onClick={() => tab === 'stock' ? loadStock() : loadLedger(date)}
-          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 4 }}>
+          style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', padding: 4 }}>
           <RefreshCw size={16} />
+        </button>
+        <button onClick={toggle} style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+          color: t.textSub, display: 'flex', alignItems: 'center',
+        }}>
+          {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
         {(tab === 'inbound' || tab === 'outbound') && (
           <button
@@ -228,9 +239,9 @@ export default function EggPage() {
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
               padding: '8px 14px', borderRadius: 10,
-              background: saved ? 'rgba(16,185,129,0.2)' : canSave ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.05)',
-              border: `1px solid ${saved ? 'rgba(16,185,129,0.4)' : canSave ? 'rgba(245,158,11,0.35)' : 'rgba(255,255,255,0.1)'}`,
-              color: saved ? '#10b981' : canSave ? '#f59e0b' : 'rgba(255,255,255,0.3)',
+              background: saved ? 'rgba(16,185,129,0.2)' : canSave ? 'rgba(245,158,11,0.15)' : t.btnBg,
+              border: `1px solid ${saved ? 'rgba(16,185,129,0.4)' : canSave ? 'rgba(245,158,11,0.35)' : t.btnBorder}`,
+              color: saved ? '#10b981' : canSave ? '#f59e0b' : t.textFaint,
               cursor: canSave ? 'pointer' : 'default', fontSize: 13, fontWeight: 700,
             }}
           >
@@ -243,25 +254,25 @@ export default function EggPage() {
       {/* Tab 切换 */}
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(3,1fr)',
-        background: 'rgba(0,0,0,0.2)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: t.appBarBg,
+        borderBottom: `1px solid ${t.barBorder}`,
       }}>
         {([
           { key: 'stock',    label: '库存', icon: <Package size={14} /> },
           { key: 'inbound',  label: '入库', icon: <TrendingUp size={14} /> },
           { key: 'outbound', label: '出库', icon: <TrendingDown size={14} /> },
-        ] as const).map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
+        ] as const).map(tab_ => (
+          <button key={tab_.key} onClick={() => setTab(tab_.key)}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
               padding: '12px 0',
-              background: tab === t.key ? 'rgba(245,158,11,0.1)' : 'none',
-              border: 'none', borderBottom: `2px solid ${tab === t.key ? '#f59e0b' : 'transparent'}`,
-              color: tab === t.key ? '#f59e0b' : 'rgba(255,255,255,0.4)',
+              background: tab === tab_.key ? 'rgba(245,158,11,0.1)' : 'none',
+              border: 'none', borderBottom: `2px solid ${tab === tab_.key ? '#f59e0b' : 'transparent'}`,
+              color: tab === tab_.key ? '#f59e0b' : t.textMuted,
               cursor: 'pointer', fontSize: 13, fontWeight: 700,
             }}
           >
-            {t.icon}{t.label}
+            {tab_.icon}{tab_.label}
           </button>
         ))}
       </div>
@@ -275,15 +286,15 @@ export default function EggPage() {
           borderBottom: '1px solid rgba(245,158,11,0.1)',
         }}>
           <button onClick={() => setDate(d => fmtDate(addDays(toDate(d), -1)))}
-            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: 6 }}>
+            style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 6 }}>
             <ChevronLeft size={18} />
           </button>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>{dateLabel}</div>
-            {dateLabel !== date && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{date}</div>}
+            <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{dateLabel}</div>
+            {dateLabel !== date && <div style={{ fontSize: 10, color: t.textMuted }}>{date}</div>}
           </div>
           <button onClick={() => { if (!isToday) setDate(d => fmtDate(addDays(toDate(d), 1))); }} disabled={isToday}
-            style={{ background: 'none', border: 'none', color: isToday ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)', cursor: isToday ? 'default' : 'pointer', padding: 6 }}>
+            style={{ background: 'none', border: 'none', color: isToday ? t.textFaint : t.textSub, cursor: isToday ? 'default' : 'pointer', padding: 6 }}>
             <ChevronRight size={18} />
           </button>
         </div>
@@ -309,34 +320,34 @@ export default function EggPage() {
               gap: 8, marginBottom: 12,
             }}>
               <div style={{ padding: '12px 14px', borderRadius: 14, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>总库存（枚）</div>
+                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>总库存（枚）</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: '#f59e0b' }}>{totalStock.toLocaleString()}</div>
               </div>
               <div style={{ padding: '12px 14px', borderRadius: 14, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>总提数</div>
+                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>总提数</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: '#f59e0b' }}>{totalTrays} <span style={{ fontSize: 12, fontWeight: 400 }}>提</span></div>
               </div>
             </div>
 
             {loading ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[1,2,3,4].map(i => <div key={i} style={{ height: 52, borderRadius: 12, background: 'rgba(255,255,255,0.04)', animation: 'pulse 1.5s infinite' }} />)}
+                {[1,2,3,4].map(i => <div key={i} style={{ height: 52, borderRadius: 12, background: t.cardBg, animation: 'pulse 1.5s infinite' }} />)}
               </div>
             ) : (
               stock.map(row => (
                 <div key={row.grade} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '12px 16px', borderRadius: 12, marginBottom: 8,
-                  background: row.qty > 0 ? 'rgba(245,158,11,0.06)' : 'rgba(255,255,255,0.03)',
-                  border: `1px solid ${row.qty > 0 ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.07)'}`,
+                  background: row.qty > 0 ? 'rgba(245,158,11,0.06)' : t.cardBg,
+                  border: `1px solid ${row.qty > 0 ? 'rgba(245,158,11,0.2)' : t.cardBorder}`,
                 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: row.qty > 0 ? 'white' : 'rgba(255,255,255,0.4)' }}>{row.name}</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: row.qty > 0 ? t.text : t.textMuted }}>{row.name}</span>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: row.qty > 0 ? '#f59e0b' : 'rgba(255,255,255,0.3)' }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: row.qty > 0 ? '#f59e0b' : t.textFaint }}>
                       {row.qty.toLocaleString()} <span style={{ fontSize: 11, fontWeight: 400 }}>枚</span>
                     </div>
                     {row.trays > 0 && (
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{row.trays} 提</div>
+                      <div style={{ fontSize: 11, color: t.textFaint }}>{row.trays} 提</div>
                     )}
                   </div>
                 </div>
@@ -350,7 +361,7 @@ export default function EggPage() {
           <>
             {inboundTotal > 0 && (
               <div style={{ padding: '10px 14px', borderRadius: 12, marginBottom: 12, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>本次入库合计</span>
+                <span style={{ fontSize: 13, color: t.textSub }}>本次入库合计</span>
                 <span style={{ fontSize: 18, fontWeight: 800, color: '#10b981' }}>{inboundTotal.toLocaleString()} 枚</span>
               </div>
             )}
@@ -363,9 +374,9 @@ export default function EggPage() {
                   <button key={h} onClick={() => setSelectedHouse(h)}
                     style={{
                       flexShrink: 0, padding: '7px 14px', borderRadius: 10,
-                      background: selectedHouse === h ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)',
-                      border: `1px solid ${selectedHouse === h ? 'rgba(16,185,129,0.4)' : 'rgba(255,255,255,0.1)'}`,
-                      color: selectedHouse === h ? '#10b981' : 'rgba(255,255,255,0.5)',
+                      background: selectedHouse === h ? 'rgba(16,185,129,0.15)' : t.btnBg,
+                      border: `1px solid ${selectedHouse === h ? 'rgba(16,185,129,0.4)' : t.btnBorder}`,
+                      color: selectedHouse === h ? '#10b981' : t.textSub,
                       cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
                     }}>
                     {h}{houseTotal > 0 ? ` (${houseTotal})` : ''}
@@ -375,18 +386,18 @@ export default function EggPage() {
             </div>
 
             {/* 规格输入表格 */}
-            <div style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '10px 16px', background: 'rgba(255,255,255,0.04)', fontSize: 12, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+            <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${t.cardBorder}` }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '10px 16px', background: t.cardBg, fontSize: 12, color: t.textMuted, fontWeight: 600 }}>
                 <span>规格</span><span>数量（枚）</span>
               </div>
               {EGG_GRADES.map((g, idx) => (
                 <div key={g.code} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '10px 16px',
-                  background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.01)',
-                  borderTop: '1px solid rgba(255,255,255,0.04)',
+                  background: idx % 2 === 0 ? t.sectionBg : t.cardBg,
+                  borderTop: `1px solid ${t.divider}`,
                 }}>
-                  <span style={{ fontSize: 14, color: getInbound(selectedHouse, g.code) > 0 ? 'white' : 'rgba(255,255,255,0.6)' }}>{g.name}</span>
+                  <span style={{ fontSize: 14, color: getInbound(selectedHouse, g.code) > 0 ? t.text : t.textSub }}>{g.name}</span>
                   <QtyInput
                     value={getInbound(selectedHouse, g.code)}
                     onChange={v => setInbound(selectedHouse, g.code, v)}
@@ -402,7 +413,7 @@ export default function EggPage() {
           <>
             {outboundTotal > 0 && (
               <div style={{ padding: '10px 14px', borderRadius: 12, marginBottom: 12, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>本次出库合计</span>
+                <span style={{ fontSize: 13, color: t.textSub }}>本次出库合计</span>
                 <span style={{ fontSize: 18, fontWeight: 800, color: '#f87171' }}>{outboundTotal.toLocaleString()} 枚</span>
               </div>
             )}
@@ -415,9 +426,9 @@ export default function EggPage() {
                   <button key={c} onClick={() => setSelectedCustomer(c)}
                     style={{
                       flexShrink: 0, padding: '7px 14px', borderRadius: 10,
-                      background: selectedCustomer === c ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.05)',
-                      border: `1px solid ${selectedCustomer === c ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.1)'}`,
-                      color: selectedCustomer === c ? '#f87171' : 'rgba(255,255,255,0.5)',
+                      background: selectedCustomer === c ? 'rgba(239,68,68,0.15)' : t.btnBg,
+                      border: `1px solid ${selectedCustomer === c ? 'rgba(239,68,68,0.4)' : t.btnBorder}`,
+                      color: selectedCustomer === c ? '#f87171' : t.textSub,
                       cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
                     }}>
                     {c}{custTotal > 0 ? ` (${custTotal})` : ''}
@@ -427,8 +438,8 @@ export default function EggPage() {
             </div>
 
             {/* 规格 × 当前库存参考 */}
-            <div style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', padding: '10px 16px', background: 'rgba(255,255,255,0.04)', fontSize: 12, color: 'rgba(255,255,255,0.4)', fontWeight: 600, gap: 8 }}>
+            <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${t.cardBorder}` }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', padding: '10px 16px', background: t.cardBg, fontSize: 12, color: t.textMuted, fontWeight: 600, gap: 8 }}>
                 <span>规格</span><span style={{ textAlign: 'right' }}>库存</span><span style={{ textAlign: 'right' }}>出库数</span>
               </div>
               {EGG_GRADES.map((g, idx) => {
@@ -439,11 +450,11 @@ export default function EggPage() {
                   <div key={g.code} style={{
                     display: 'grid', gridTemplateColumns: '1fr auto auto',
                     alignItems: 'center', padding: '10px 16px', gap: 8,
-                    background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.01)',
-                    borderTop: '1px solid rgba(255,255,255,0.04)',
+                    background: idx % 2 === 0 ? t.sectionBg : t.cardBg,
+                    borderTop: `1px solid ${t.divider}`,
                   }}>
-                    <span style={{ fontSize: 14, color: outQty > 0 ? 'white' : 'rgba(255,255,255,0.6)' }}>{g.name}</span>
-                    <span style={{ fontSize: 12, color: stockQty > 0 ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.2)', textAlign: 'right' }}>
+                    <span style={{ fontSize: 14, color: outQty > 0 ? t.text : t.textSub }}>{g.name}</span>
+                    <span style={{ fontSize: 12, color: stockQty > 0 ? t.textMuted : t.textFaint, textAlign: 'right' }}>
                       {stockQty.toLocaleString()}
                     </span>
                     <div style={{ position: 'relative' }}>
@@ -463,18 +474,18 @@ export default function EggPage() {
             {/* 今日流水简览 */}
             {ledger.length > 0 && (
               <div style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginBottom: 8 }}>今日流水</div>
+                <div style={{ fontSize: 12, color: t.textFaint, marginBottom: 8 }}>今日流水</div>
                 {ledger.slice(0, 10).map(e => (
                   <div key={e.id} style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '8px 12px', borderRadius: 10, marginBottom: 6,
-                    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                    background: t.sectionBg, border: `1px solid ${t.cardBorder}`,
                   }}>
                     <div>
-                      <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+                      <span style={{ fontSize: 12, color: t.textSub }}>
                         {CHANGE_LABELS[e.change_type] ?? e.change_type}
                       </span>
-                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginLeft: 6 }}>
+                      <span style={{ fontSize: 11, color: t.textFaint, marginLeft: 6 }}>
                         {e.customer_no || e.house_code || ''}
                       </span>
                     </div>

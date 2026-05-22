@@ -2,9 +2,11 @@
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import {
   BarChart2, Package, ShieldCheck, Warehouse,
   Truck, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird, Egg,
+  Sun, Moon,
 } from 'lucide-react';
 
 type NavCard = {
@@ -97,6 +99,7 @@ export default function MobileHomePage() {
   const { user, logout } = useAuth();
   const { lang } = useLanguage();
   const router = useRouter();
+  const { isDark, toggle, t } = useMobileTheme();
 
   const getTitle = (card: NavCard) =>
     lang === 'en' ? card.titleEn : lang === 'lo' ? card.titleLo : card.titleZh;
@@ -108,7 +111,7 @@ export default function MobileHomePage() {
   return (
     <div style={{
       minHeight: '100svh',
-      background: 'linear-gradient(160deg,#070b14 0%,#0f1929 100%)',
+      background: t.pageBg,
       display: 'flex',
       flexDirection: 'column',
     }}>
@@ -118,9 +121,9 @@ export default function MobileHomePage() {
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: 'calc(env(safe-area-inset-top) + 14px) 20px 14px',
-        background: 'rgba(0,0,0,0.3)',
+        background: t.appBarBg,
         backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        borderBottom: `1px solid ${t.barBorder}`,
         position: 'sticky',
         top: 0,
         zIndex: 10,
@@ -135,26 +138,34 @@ export default function MobileHomePage() {
             <span style={{ fontSize: 18 }}>🐦</span>
           </div>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: 'white', lineHeight: 1.2 }}>金凤凰 ERP</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', lineHeight: 1.2 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: t.text, lineHeight: 1.2 }}>金凤凰 ERP</div>
+            <div style={{ fontSize: 11, color: t.textFaint, lineHeight: 1.2 }}>
               {user?.name || user?.username || '用户'}
             </div>
           </div>
         </div>
-        <button
-          onClick={() => logout()}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '8px 14px', borderRadius: 10,
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            color: 'rgba(255,255,255,0.5)',
-            cursor: 'pointer', fontSize: 12, fontWeight: 600,
-          }}
-        >
-          <LogOut size={14} />
-          退出
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={toggle} style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+            color: t.textSub, display: 'flex', alignItems: 'center',
+          }}>
+            {isDark ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+          <button
+            onClick={() => logout()}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 14px', borderRadius: 10,
+              background: t.btnBg,
+              border: `1px solid ${t.btnBorder}`,
+              color: t.textSub,
+              cursor: 'pointer', fontSize: 12, fontWeight: 600,
+            }}
+          >
+            <LogOut size={14} />
+            退出
+          </button>
+        </div>
       </div>
 
       {/* 角色 Badge */}
@@ -195,9 +206,9 @@ export default function MobileHomePage() {
               padding: '18px 16px',
               borderRadius: 16,
               background: card.soon
-                ? 'rgba(255,255,255,0.03)'
+                ? t.sectionBg
                 : `linear-gradient(135deg, ${card.color}18, ${card.color}08)`,
-              border: `1px solid ${card.soon ? 'rgba(255,255,255,0.07)' : card.color + '35'}`,
+              border: `1px solid ${card.soon ? t.cardBorder : card.color + '35'}`,
               cursor: card.soon ? 'default' : 'pointer',
               textAlign: 'left',
               opacity: card.soon ? 0.7 : 1,
@@ -213,20 +224,20 @@ export default function MobileHomePage() {
               <div style={{
                 position: 'absolute', top: 10, right: 10,
                 fontSize: 9, padding: '2px 6px', borderRadius: 4,
-                background: 'rgba(255,255,255,0.08)',
-                color: 'rgba(255,255,255,0.3)',
+                background: t.cardBorder,
+                color: t.textFaint,
                 fontWeight: 700, letterSpacing: 0.5,
               }}>
                 开发中
               </div>
             )}
-            <div style={{ color: card.soon ? 'rgba(255,255,255,0.3)' : card.color, marginBottom: 10 }}>
+            <div style={{ color: card.soon ? t.textFaint : card.color, marginBottom: 10 }}>
               {card.icon}
             </div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: card.soon ? 'rgba(255,255,255,0.5)' : 'white', marginBottom: 4 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: card.soon ? t.textSub : t.text, marginBottom: 4 }}>
               {getTitle(card)}
             </div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', lineHeight: 1.4 }}>
+            <div style={{ fontSize: 11, color: t.textFaint, lineHeight: 1.4 }}>
               {card.desc}
             </div>
           </button>
@@ -234,7 +245,7 @@ export default function MobileHomePage() {
       </div>
 
       {/* 底部版权 */}
-      <div style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.1)', paddingBottom: 'calc(12px + env(safe-area-inset-bottom))', paddingTop: 4 }}>
+      <div style={{ textAlign: 'center', fontSize: 10, color: t.textFaint, paddingBottom: 'calc(12px + env(safe-area-inset-bottom))', paddingTop: 4 }}>
         Phoenix ERP V3 · 老挝凤羽农业
       </div>
     </div>

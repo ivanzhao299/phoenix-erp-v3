@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { MobileThemeProvider } from '@/contexts/MobileThemeContext';
 
 export default function MobileLayout({ children }: { children: React.ReactNode }) {
   const { isLoggedIn, loading } = useAuth();
@@ -14,5 +15,5 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
     }
   }, [loading, isLoggedIn, pathname, router]);
 
-  return <>{children}</>;
+  return <MobileThemeProvider>{children}</MobileThemeProvider>;
 }

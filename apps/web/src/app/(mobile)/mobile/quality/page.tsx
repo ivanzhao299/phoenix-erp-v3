@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Sun, Moon } from 'lucide-react';
 import { mobileApi, QcInspection } from '@/lib/mobile-api';
+import { useMobileTheme } from '@/contexts/MobileThemeContext';
 
 // ── 日期工具 ──────────────────────────────────────────────────────────────────
 function fmtDate(d: Date): string {
@@ -38,21 +39,22 @@ function fmtTime(checkTime: string): string {
 
 // ── 单条记录卡片 ──────────────────────────────────────────────────────────────
 function InspectionCard({ item }: { item: QcInspection }) {
+  const { t } = useMobileTheme();
   const [expanded, setExpanded] = useState(false);
   const isPass = item.result === 'PASS';
   const isFail = item.result === 'FAIL';
   const hasFailItems = item.fail_items_json != null;
 
-  const resultColor  = isPass ? '#10b981' : isFail ? '#ef4444' : 'rgba(255,255,255,0.5)';
-  const resultBg     = isPass ? 'rgba(16,185,129,0.1)' : isFail ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.05)';
-  const resultBorder = isPass ? 'rgba(16,185,129,0.25)' : isFail ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.12)';
+  const resultColor  = isPass ? '#10b981' : isFail ? '#ef4444' : t.textSub;
+  const resultBg     = isPass ? 'rgba(16,185,129,0.1)' : isFail ? 'rgba(239,68,68,0.1)' : t.sectionBg;
+  const resultBorder = isPass ? 'rgba(16,185,129,0.25)' : isFail ? 'rgba(239,68,68,0.25)' : t.inputBorder;
   const resultText   = isPass ? '✓ 合格' : isFail ? '✗ 不合格' : item.result;
 
   return (
     <div style={{
       borderRadius: 14, marginBottom: 10,
-      background: isFail ? 'rgba(239,68,68,0.05)' : 'rgba(255,255,255,0.03)',
-      border: `1px solid ${isFail ? 'rgba(239,68,68,0.18)' : 'rgba(255,255,255,0.07)'}`,
+      background: isFail ? 'rgba(239,68,68,0.05)' : t.sectionBg,
+      border: `1px solid ${isFail ? 'rgba(239,68,68,0.18)' : t.cardBorder}`,
       overflow: 'hidden',
     }}>
       {/* 主行 */}
@@ -62,7 +64,7 @@ function InspectionCard({ item }: { item: QcInspection }) {
       >
         {/* 左侧：单号 + 类型标签 */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, letterSpacing: 0.3 }}>
+          <div style={{ fontSize: 11, color: t.textFaint, marginBottom: 5, letterSpacing: 0.3 }}>
             {item.inspect_no}
           </div>
           <span style={{
@@ -76,7 +78,7 @@ function InspectionCard({ item }: { item: QcInspection }) {
         </div>
 
         {/* 中间：时间 */}
-        <div style={{ fontSize: 16, fontWeight: 700, color: 'rgba(255,255,255,0.75)', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: t.textSub, whiteSpace: 'nowrap' }}>
           {fmtTime(item.checkTime)}
         </div>
 
@@ -91,7 +93,7 @@ function InspectionCard({ item }: { item: QcInspection }) {
 
         {/* 展开箭头（仅有 fail_items_json 时显示） */}
         {hasFailItems && (
-          <div style={{ color: 'rgba(255,255,255,0.3)', flexShrink: 0 }}>
+          <div style={{ color: t.textMuted, flexShrink: 0 }}>
             {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
           </div>
         )}
@@ -103,7 +105,7 @@ function InspectionCard({ item }: { item: QcInspection }) {
           padding: '0 14px 12px',
           borderTop: '1px solid rgba(239,68,68,0.15)',
         }}>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6, marginTop: 10 }}>不合格项详情</div>
+          <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 6, marginTop: 10 }}>不合格项详情</div>
           <pre style={{
             margin: 0, fontSize: 11, lineHeight: 1.6,
             color: '#fca5a5',
@@ -122,20 +124,21 @@ function InspectionCard({ item }: { item: QcInspection }) {
 
 // ── 骨架屏 ────────────────────────────────────────────────────────────────────
 function SkeletonList() {
+  const { t } = useMobileTheme();
   return (
     <>
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}`}</style>
       {/* 汇总骨架 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 }}>
         {[0, 1, 2].map(i => (
-          <div key={i} style={{ height: 66, borderRadius: 14, background: 'rgba(255,255,255,0.05)', animation: 'pulse 1.5s infinite' }} />
+          <div key={i} style={{ height: 66, borderRadius: 14, background: t.cardBg, animation: 'pulse 1.5s infinite' }} />
         ))}
       </div>
       {/* 筛选骨架 */}
-      <div style={{ height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.04)', marginBottom: 14, animation: 'pulse 1.5s infinite' }} />
+      <div style={{ height: 36, borderRadius: 10, background: t.cardBg, marginBottom: 14, animation: 'pulse 1.5s infinite' }} />
       {/* 卡片骨架 */}
       {[1, 2, 3, 4, 5].map(i => (
-        <div key={i} style={{ height: 72, borderRadius: 14, background: 'rgba(255,255,255,0.04)', marginBottom: 10, animation: 'pulse 1.5s infinite' }} />
+        <div key={i} style={{ height: 72, borderRadius: 14, background: t.cardBg, marginBottom: 10, animation: 'pulse 1.5s infinite' }} />
       ))}
     </>
   );
@@ -144,6 +147,7 @@ function SkeletonList() {
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 export default function QualityPage() {
   const router = useRouter();
+  const { isDark, toggle, t } = useMobileTheme();
   const today  = fmtDate(new Date());
 
   const [date, setDate]         = useState(today);
@@ -197,7 +201,7 @@ export default function QualityPage() {
   return (
     <div style={{
       minHeight: '100svh',
-      background: 'linear-gradient(160deg,#070b14 0%,#0f1929 100%)',
+      background: t.pageBg,
       display: 'flex', flexDirection: 'column',
     }}>
 
@@ -205,22 +209,28 @@ export default function QualityPage() {
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: 'calc(env(safe-area-inset-top) + 14px) 16px 14px',
-        background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: t.appBarBg, backdropFilter: 'blur(20px)',
+        borderBottom: `1px solid ${t.barBorder}`,
         position: 'sticky', top: 0, zIndex: 10,
       }}>
         <button
           onClick={() => router.back()}
-          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', padding: 4 }}
+          style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 4 }}
         >
           <ArrowLeft size={20} />
         </button>
-        <span style={{ fontSize: 15, fontWeight: 700, color: 'white', flex: 1 }}>🛡️ 品质检测</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>🛡️ 品质检测</span>
         <button
           onClick={() => loadData(date)}
-          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 4 }}
+          style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', padding: 4 }}
         >
           <RefreshCw size={16} />
+        </button>
+        <button onClick={toggle} style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+          color: t.textSub, display: 'flex', alignItems: 'center',
+        }}>
+          {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
       </div>
 
@@ -233,14 +243,14 @@ export default function QualityPage() {
       }}>
         <button
           onClick={() => setDate(d => fmtDate(addDays(toDate(d), -1)))}
-          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: 6 }}
+          style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 6 }}
         >
           <ChevronLeft size={20} />
         </button>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>{dateLabel}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{dateLabel}</div>
           {dateLabel !== date && (
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{date}</div>
+            <div style={{ fontSize: 11, color: t.textMuted }}>{date}</div>
           )}
         </div>
         <button
@@ -248,7 +258,7 @@ export default function QualityPage() {
           disabled={isToday}
           style={{
             background: 'none', border: 'none',
-            color: isToday ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)',
+            color: isToday ? t.textFaint : t.textSub,
             cursor: isToday ? 'default' : 'pointer', padding: 6,
           }}
         >
@@ -282,11 +292,11 @@ export default function QualityPage() {
               {/* 今日检测次数 */}
               <div style={{
                 padding: '12px 10px', borderRadius: 14, textAlign: 'center',
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
+                background: t.cardBg,
+                border: `1px solid ${t.cardBorder}`,
               }}>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>检测次数</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: 'white' }}>{total}</div>
+                <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 5 }}>检测次数</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: t.text }}>{total}</div>
               </div>
 
               {/* 合格率 */}
@@ -295,7 +305,7 @@ export default function QualityPage() {
                 background: `rgba(${passRateColor === '#10b981' ? '16,185,129' : passRateColor === '#f59e0b' ? '245,158,11' : '239,68,68'},0.08)`,
                 border: `1px solid rgba(${passRateColor === '#10b981' ? '16,185,129' : passRateColor === '#f59e0b' ? '245,158,11' : '239,68,68'},0.22)`,
               }}>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>合格率</div>
+                <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 5 }}>合格率</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: passRateColor }}>
                   {total > 0 ? `${passRate}%` : '—'}
                 </div>
@@ -307,7 +317,7 @@ export default function QualityPage() {
                 background: failCount > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.05)',
                 border: `1px solid ${failCount > 0 ? 'rgba(239,68,68,0.22)' : 'rgba(16,185,129,0.18)'}`,
               }}>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>不合格</div>
+                <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 5 }}>不合格</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: failCount > 0 ? '#ef4444' : '#10b981' }}>
                   {failCount}
                 </div>
@@ -328,9 +338,9 @@ export default function QualityPage() {
                   style={{
                     flexShrink: 0, padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
                     cursor: 'pointer', border: 'none',
-                    background: activeType === 'ALL' ? 'rgba(99,179,237,0.25)' : 'rgba(255,255,255,0.06)',
-                    color: activeType === 'ALL' ? '#63b3ed' : 'rgba(255,255,255,0.5)',
-                    outline: activeType === 'ALL' ? '1px solid rgba(99,179,237,0.45)' : '1px solid rgba(255,255,255,0.1)',
+                    background: activeType === 'ALL' ? 'rgba(99,179,237,0.25)' : t.btnBg,
+                    color: activeType === 'ALL' ? '#63b3ed' : t.textSub,
+                    outline: activeType === 'ALL' ? '1px solid rgba(99,179,237,0.45)' : `1px solid ${t.btnBorder}`,
                   }}
                 >
                   全部 {total > 0 ? `(${total})` : ''}
@@ -345,9 +355,9 @@ export default function QualityPage() {
                       style={{
                         flexShrink: 0, padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
                         cursor: 'pointer', border: 'none',
-                        background: active ? 'rgba(99,179,237,0.25)' : 'rgba(255,255,255,0.06)',
-                        color: active ? '#63b3ed' : 'rgba(255,255,255,0.5)',
-                        outline: active ? '1px solid rgba(99,179,237,0.45)' : '1px solid rgba(255,255,255,0.1)',
+                        background: active ? 'rgba(99,179,237,0.25)' : t.btnBg,
+                        color: active ? '#63b3ed' : t.textSub,
+                        outline: active ? '1px solid rgba(99,179,237,0.45)' : `1px solid ${t.btnBorder}`,
                       }}
                     >
                       {checkTypeLabel(type)} ({cnt})
@@ -361,7 +371,7 @@ export default function QualityPage() {
             {filtered.length === 0 ? (
               <div style={{
                 padding: '48px 20px', textAlign: 'center',
-                color: 'rgba(255,255,255,0.25)', fontSize: 14,
+                color: t.textFaint, fontSize: 14,
               }}>
                 当日暂无检测记录
               </div>

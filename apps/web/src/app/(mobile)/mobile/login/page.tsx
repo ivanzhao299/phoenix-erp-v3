@@ -3,6 +3,7 @@ import { useState, useEffect, FormEvent, useRef, Suspense, useCallback } from 'r
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { Shield, User, Lock, AlertTriangle, ChevronDown, ChevronUp, Info } from 'lucide-react';
 
 const LAST_USER_KEY = 'phoenix_last_username';
@@ -62,6 +63,7 @@ function MobileLoginInner() {
   const { t, lang, setAppLanguage } = useLanguage();
   const router = useRouter();
   const sp = useSearchParams();
+  const { isDark: _isDark, t: th } = useMobileTheme();
 
   const [username, setUsername]         = useState('');
   const [password, setPassword]         = useState('');
@@ -128,9 +130,9 @@ function MobileLoginInner() {
   const inputStyle: React.CSSProperties = {
     width: '100%', height: 52,
     padding: '0 14px 0 42px',
-    background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: 12, color: 'white',
+    background: th.inputBg,
+    border: `1px solid ${th.inputBorder}`,
+    borderRadius: 12, color: th.text,
     outline: 'none', fontSize: 15,
     boxSizing: 'border-box',
     WebkitAppearance: 'none',
@@ -143,7 +145,7 @@ function MobileLoginInner() {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'linear-gradient(160deg,#070b14 0%,#0f1929 100%)',
+      background: th.pageBg,
       padding: '24px 20px',
       paddingBottom: 'calc(24px + env(safe-area-inset-bottom))',
     }}>
@@ -153,9 +155,9 @@ function MobileLoginInner() {
           <button key={l} type="button" onClick={() => setAppLanguage(l)}
             style={{
               fontSize: 12, padding: '4px 10px', borderRadius: 8,
-              border: '1px solid rgba(255,255,255,0.12)',
-              background: lang === l ? 'rgba(245,158,11,0.2)' : 'rgba(0,0,0,0.3)',
-              color: lang === l ? '#f59e0b' : 'rgba(255,255,255,0.4)',
+              border: `1px solid ${th.inputBorder}`,
+              background: lang === l ? 'rgba(245,158,11,0.2)' : th.appBarBg,
+              color: lang === l ? '#f59e0b' : th.textMuted,
               cursor: 'pointer', fontWeight: lang === l ? 700 : 400,
               backdropFilter: 'blur(8px)',
             }}>
@@ -175,10 +177,10 @@ function MobileLoginInner() {
         }}>
           <Shield size={36} color="white" />
         </div>
-        <div style={{ fontSize: 22, fontWeight: 900, color: 'white', letterSpacing: '-0.5px' }}>
+        <div style={{ fontSize: 22, fontWeight: 900, color: th.text, letterSpacing: '-0.5px' }}>
           {t('ui.金凤凰ERP', '金凤凰 ERP')}
         </div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
+        <div style={{ fontSize: 12, color: th.textFaint, marginTop: 4 }}>
           Phoenix V3 · {t('ui.企业管理平台', '企业管理平台')}
         </div>
       </div>
@@ -186,16 +188,16 @@ function MobileLoginInner() {
       {/* 登录卡片 */}
       <div style={{
         width: '100%', maxWidth: 400,
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.08)',
+        background: th.cardBg,
+        border: `1px solid ${th.cardBorder}`,
         borderRadius: 20,
         padding: '28px 24px',
         backdropFilter: 'blur(20px)',
       }}>
-        <h1 style={{ fontSize: 18, fontWeight: 800, color: 'white', marginBottom: 4 }}>
+        <h1 style={{ fontSize: 18, fontWeight: 800, color: th.text, marginBottom: 4 }}>
           {t('ui.欢迎回来', '欢迎回来')}
         </h1>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', marginBottom: 24 }}>
+        <p style={{ fontSize: 13, color: th.textFaint, marginBottom: 24 }}>
           {t('ui.登录Phoenix平台', '登录 Phoenix 企业管理平台')}
         </p>
 
@@ -212,11 +214,11 @@ function MobileLoginInner() {
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: 'block', marginBottom: 6, color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+            <label style={{ display: 'block', marginBottom: 6, color: th.textMuted, fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
               {t('ui.账户名', '账户名')}
             </label>
             <div style={{ position: 'relative' }}>
-              <User size={16} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: 14, top: 18 }} />
+              <User size={16} color={th.textFaint} style={{ position: 'absolute', left: 14, top: 18 }} />
               <input
                 value={username}
                 onChange={e => { setUsername(e.target.value); setError(''); }}
@@ -230,11 +232,11 @@ function MobileLoginInner() {
           </div>
 
           <div style={{ marginBottom: 24 }}>
-            <label style={{ display: 'block', marginBottom: 6, color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+            <label style={{ display: 'block', marginBottom: 6, color: th.textMuted, fontSize: 11, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
               {t('ui.密码', '密码')}
             </label>
             <div style={{ position: 'relative' }}>
-              <Lock size={16} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: 14, top: 18 }} />
+              <Lock size={16} color={th.textFaint} style={{ position: 'absolute', left: 14, top: 18 }} />
               <input
                 ref={passwordRef}
                 value={password}
@@ -269,7 +271,7 @@ function MobileLoginInner() {
       {/* 测试账号面板（仅开发环境） */}
       {IS_DEV && TEST_GROUPS.length > 0 && (
         <div style={{ width: '100%', maxWidth: 400, marginTop: 20 }}>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', textAlign: 'center', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10 }}>
+          <div style={{ fontSize: 10, color: th.textFaint, textAlign: 'center', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10 }}>
             开发测试账号
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -285,9 +287,9 @@ function MobileLoginInner() {
                     {grp.accounts.map(acc => (
                       <button type="button" key={acc.u}
                         onClick={() => { setUsername(acc.u); setPassword(acc.p); doLogin(acc.u, acc.p); }}
-                        style={{ padding: '10px 8px', background: 'rgba(0,0,0,0.3)', border: `1px solid ${grp.color.border}`, borderRadius: 8, cursor: 'pointer', textAlign: 'left' }}>
+                        style={{ padding: '10px 8px', background: th.sectionBg, border: `1px solid ${grp.color.border}`, borderRadius: 8, cursor: 'pointer', textAlign: 'left' }}>
                         <div style={{ fontSize: 13, color: grp.color.text, fontWeight: 600 }}>{acc.label}</div>
-                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontFamily: 'monospace', marginTop: 2 }}>{acc.u}</div>
+                        <div style={{ fontSize: 10, color: th.textFaint, fontFamily: 'monospace', marginTop: 2 }}>{acc.u}</div>
                       </button>
                     ))}
                   </div>
@@ -295,14 +297,14 @@ function MobileLoginInner() {
               </div>
             ))}
           </div>
-          <div style={{ marginTop: 8, textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.15)' }}>
-            统一密码: <code style={{ color: 'rgba(255,255,255,0.25)' }}>123456</code>
-            {' · '}超管: <code style={{ color: 'rgba(255,255,255,0.25)' }}>admin123</code>
+          <div style={{ marginTop: 8, textAlign: 'center', fontSize: 10, color: th.textFaint }}>
+            统一密码: <code style={{ color: th.textMuted }}>123456</code>
+            {' · '}超管: <code style={{ color: th.textMuted }}>admin123</code>
           </div>
         </div>
       )}
 
-      <div style={{ marginTop: 28, fontSize: 11, color: 'rgba(255,255,255,0.12)', textAlign: 'center' }}>
+      <div style={{ marginTop: 28, fontSize: 11, color: th.textFaint, textAlign: 'center' }}>
         Phoenix ERP V3 · 老挝凤羽农业
       </div>
     </div>

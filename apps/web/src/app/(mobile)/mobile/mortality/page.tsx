@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight, Plus, Minus } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight, Plus, Minus, Sun, Moon } from 'lucide-react';
 import { mobileApi, FarmLog } from '@/lib/mobile-api';
+import { useMobileTheme } from '@/contexts/MobileThemeContext';
 
 function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -30,11 +31,12 @@ function aggregateByHouse(logs: FarmLog[]) {
 }
 
 function NumStepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const { t } = useMobileTheme();
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <button
         onClick={() => onChange(Math.max(0, value - 1))}
-        style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${t.inputBorder}`, background: t.sectionBg, color: t.text, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
         <Minus size={14} />
       </button>
@@ -45,15 +47,15 @@ function NumStepper({ value, onChange }: { value: number; onChange: (v: number) 
         placeholder="0"
         style={{
           width: 64, height: 32, textAlign: 'center',
-          background: 'rgba(255,255,255,0.06)',
-          border: '1px solid rgba(255,255,255,0.12)',
-          borderRadius: 8, color: 'white', fontSize: 16, fontWeight: 700,
+          background: t.inputBg,
+          border: `1px solid ${t.inputBorder}`,
+          borderRadius: 8, color: t.text, fontSize: 16, fontWeight: 700,
           outline: 'none', WebkitAppearance: 'none',
         }}
       />
       <button
         onClick={() => onChange(value + 1)}
-        style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${t.inputBorder}`, background: t.sectionBg, color: t.text, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
         <Plus size={14} />
       </button>
@@ -63,6 +65,7 @@ function NumStepper({ value, onChange }: { value: number; onChange: (v: number) 
 
 export default function MortalityPage() {
   const router = useRouter();
+  const { isDark, toggle, t } = useMobileTheme();
   const today  = fmtDate(new Date());
 
   const [date, setDate]       = useState(today);
@@ -173,23 +176,29 @@ export default function MortalityPage() {
   };
 
   return (
-    <div style={{ minHeight: '100svh', background: 'linear-gradient(160deg,#070b14 0%,#0f1929 100%)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100svh', background: t.pageBg, display: 'flex', flexDirection: 'column' }}>
       {/* 头部 */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: 'calc(env(safe-area-inset-top) + 14px) 16px 14px',
-        background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: t.appBarBg, backdropFilter: 'blur(20px)',
+        borderBottom: `1px solid ${t.barBorder}`,
         position: 'sticky', top: 0, zIndex: 10,
       }}>
         <button onClick={() => router.back()}
-          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', padding: 4 }}>
+          style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 4 }}>
           <ArrowLeft size={20} />
         </button>
-        <span style={{ fontSize: 15, fontWeight: 700, color: 'white', flex: 1 }}>💀 死淘快录</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: t.text, flex: 1 }}>💀 死淘快录</span>
         <button onClick={() => loadData(date)}
-          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 4 }}>
+          style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', padding: 4 }}>
           <RefreshCw size={16} />
+        </button>
+        <button onClick={toggle} style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+          color: t.textSub, display: 'flex', alignItems: 'center',
+        }}>
+          {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
         <button
           onClick={handleSave}
@@ -216,15 +225,15 @@ export default function MortalityPage() {
         borderBottom: '1px solid rgba(239,68,68,0.1)',
       }}>
         <button onClick={() => setDate(d => fmtDate(addDays(toDate(d), -1)))}
-          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: 6 }}>
+          style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 6 }}>
           <ChevronLeft size={20} />
         </button>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>{dateLabel}</div>
-          {dateLabel !== date && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{date}</div>}
+          <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{dateLabel}</div>
+          {dateLabel !== date && <div style={{ fontSize: 11, color: t.textMuted }}>{date}</div>}
         </div>
         <button onClick={() => { if (!isToday) setDate(d => fmtDate(addDays(toDate(d), 1))); }} disabled={isToday}
-          style={{ background: 'none', border: 'none', color: isToday ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)', cursor: isToday ? 'default' : 'pointer', padding: 6 }}>
+          style={{ background: 'none', border: 'none', color: isToday ? t.textFaint : t.textSub, cursor: isToday ? 'default' : 'pointer', padding: 6 }}>
           <ChevronRight size={20} />
         </button>
       </div>
@@ -244,7 +253,7 @@ export default function MortalityPage() {
               background: totalMort > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.06)',
               border: `1px solid ${totalMort > 0 ? 'rgba(239,68,68,0.25)' : 'rgba(16,185,129,0.2)'}`,
             }}>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>死亡合计</div>
+              <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>死亡合计</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: totalMort > 0 ? '#f87171' : '#10b981' }}>{totalMort} 只</div>
             </div>
             <div style={{
@@ -252,7 +261,7 @@ export default function MortalityPage() {
               background: totalElim > 0 ? 'rgba(251,146,60,0.08)' : 'rgba(16,185,129,0.06)',
               border: `1px solid ${totalElim > 0 ? 'rgba(251,146,60,0.3)' : 'rgba(16,185,129,0.2)'}`,
             }}>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>淘汰合计</div>
+              <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>淘汰合计</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: totalElim > 0 ? '#fb923c' : '#10b981' }}>{totalElim} 只</div>
             </div>
             {totalLoss > 0 && (
@@ -261,7 +270,7 @@ export default function MortalityPage() {
                 background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               }}>
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>今日总损耗 · {houseList.length} 栋</span>
+                <span style={{ fontSize: 12, color: t.textMuted }}>今日总损耗 · {houseList.length} 栋</span>
                 <span style={{ fontSize: 16, fontWeight: 800, color: '#f87171' }}>{totalLoss} 只</span>
               </div>
             )}
@@ -269,7 +278,7 @@ export default function MortalityPage() {
         )}
 
         {permErr && (
-          <div style={{ padding: 20, textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>
+          <div style={{ padding: 20, textAlign: 'center', color: t.textMuted, fontSize: 13 }}>
             权限不足（需要农场经理或管理员权限）
           </div>
         )}
@@ -283,7 +292,7 @@ export default function MortalityPage() {
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} style={{ height: 90, borderRadius: 14, background: 'rgba(255,255,255,0.04)', animation: 'pulse 1.5s infinite' }} />
+              <div key={i} style={{ height: 90, borderRadius: 14, background: t.cardBg, animation: 'pulse 1.5s infinite' }} />
             ))}
           </div>
         ) : !permErr && (
@@ -295,17 +304,17 @@ export default function MortalityPage() {
               return (
                 <div key={house} style={{
                   padding: '14px 16px', borderRadius: 14, marginBottom: 10,
-                  background: hasLoss ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.03)',
-                  border: `1px solid ${hasLoss ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.07)'}`,
+                  background: hasLoss ? 'rgba(239,68,68,0.06)' : t.sectionBg,
+                  border: `1px solid ${hasLoss ? 'rgba(239,68,68,0.2)' : t.cardBorder}`,
                 }}>
                   {/* 栋舍名 */}
-                  <div style={{ fontSize: 15, fontWeight: 700, color: 'white', marginBottom: 12 }}>{house}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 12 }}>{house}</div>
 
                   {/* 死亡行 */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontSize: 18 }}>💀</span>
-                      <span style={{ fontSize: 13, color: mort > 0 ? '#f87171' : 'rgba(255,255,255,0.5)' }}>死亡</span>
+                      <span style={{ fontSize: 13, color: mort > 0 ? '#f87171' : t.textSub }}>死亡</span>
                       {mort > 10 && <span style={{ fontSize: 10, color: '#f87171' }}>⚠ 数量较大</span>}
                     </div>
                     <NumStepper
@@ -318,7 +327,7 @@ export default function MortalityPage() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: elim > 0 ? 10 : 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontSize: 18 }}>🔄</span>
-                      <span style={{ fontSize: 13, color: elim > 0 ? '#fb923c' : 'rgba(255,255,255,0.5)' }}>淘汰</span>
+                      <span style={{ fontSize: 13, color: elim > 0 ? '#fb923c' : t.textSub }}>淘汰</span>
                     </div>
                     <NumStepper
                       value={elim}
@@ -337,7 +346,7 @@ export default function MortalityPage() {
                         width: '100%', height: 36, padding: '0 10px', boxSizing: 'border-box',
                         background: 'rgba(251,146,60,0.08)',
                         border: '1px solid rgba(251,146,60,0.25)',
-                        borderRadius: 8, color: 'white', fontSize: 12, outline: 'none',
+                        borderRadius: 8, color: t.text, fontSize: 12, outline: 'none',
                       }}
                     />
                   )}
@@ -348,8 +357,8 @@ export default function MortalityPage() {
             {/* 添加新栋舍 */}
             <div style={{
               display: 'flex', gap: 8, marginTop: 4, padding: '10px 14px',
-              borderRadius: 14, background: 'rgba(255,255,255,0.02)',
-              border: '1px dashed rgba(255,255,255,0.1)',
+              borderRadius: 14, background: t.sectionBg,
+              border: `1px dashed ${t.btnBorder}`,
             }}>
               <input
                 type="text"
@@ -359,9 +368,9 @@ export default function MortalityPage() {
                 placeholder="添加栋舍（如：7号舍）"
                 style={{
                   flex: 1, height: 36, padding: '0 10px',
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: 8, color: 'white', fontSize: 13, outline: 'none',
+                  background: t.inputBg,
+                  border: `1px solid ${t.btnBorder}`,
+                  borderRadius: 8, color: t.text, fontSize: 13, outline: 'none',
                 }}
               />
               <button
