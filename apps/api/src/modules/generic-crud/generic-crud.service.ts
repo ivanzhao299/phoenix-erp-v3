@@ -2069,7 +2069,7 @@ export class GenericCrudService implements OnModuleInit {
 
             // 绑定角色
             await this.entityManager.query(`
-              INSERT INTO sys_user_role (user_id, role_id, is_primary, created_at)
+              INSERT INTO sys_user_role (user_id, role_id, is_primary, granted_at)
               SELECT u.user_id, r.role_id, TRUE, NOW()
               FROM sys_user u, sys_role r
               WHERE u.username = $1 AND r.role_code = $2
