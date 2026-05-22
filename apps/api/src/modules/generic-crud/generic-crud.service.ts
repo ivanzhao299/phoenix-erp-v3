@@ -1828,7 +1828,8 @@ export class GenericCrudService implements OnModuleInit {
           WHERE NOT EXISTS (
             SELECT 1 FROM sys_dict WHERE dict_code = $1 AND dict_type = 'SYS_ORG_LEVEL'
           )
-        `, [t.code, t.label_zh, t.label_lo, t.label_en, t.sort]).catch(() => {});
+        `, [t.code, t.label_zh, t.label_lo, t.label_en, t.sort])
+          .catch((e: Error) => console.warn(`⚠️ sys_dict SYS_ORG_LEVEL insert failed for ${t.code}:`, e.message));
       }
 
       console.log('✅ Phase S1: sys_orgs schema & SYS_ORG_LEVEL dict initialized.');
@@ -1852,7 +1853,8 @@ export class GenericCrudService implements OnModuleInit {
           INSERT INTO sys_dict (dict_code, dict_type, name, dict_label_zh, dict_label_lo, dict_label_en, sort_no, status)
           SELECT $1, 'BRD_HOUSE_TYPE', $2, $2, $3, $4, $5, 'ACTIVE'
           WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE dict_code=$1 AND dict_type='BRD_HOUSE_TYPE')
-        `, [t.code, t.zh, t.lo, t.en, t.sort]).catch(() => {});
+        `, [t.code, t.zh, t.lo, t.en, t.sort])
+          .catch((e: Error) => console.warn(`⚠️ sys_dict BRD_HOUSE_TYPE insert failed for ${t.code}:`, e.message));
       }
       // 规范化现有 brd_houses.house_type 为标准英文代码
       const normalize: [string, string][] = [
@@ -2143,7 +2145,7 @@ export class GenericCrudService implements OnModuleInit {
            SELECT $1, 'PKG_PACK_LINE', $2, $2, $3, $4, 'ACTIVE'
            WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE dict_code=$1 AND dict_type='PKG_PACK_LINE')`,
           [code, label_zh, label_en, sort],
-        ).catch(() => {});
+        ).catch((e: Error) => console.warn(`⚠️ sys_dict PKG_PACK_LINE insert failed for ${code}:`, e.message));
       }
       console.log('✅ Phase T2: PKG_PACK_LINE dict seeded.');
     } catch (eT2: any) {
@@ -2165,10 +2167,10 @@ export class GenericCrudService implements OnModuleInit {
       for (const s of shifts) {
         await this.entityManager.query(
           `INSERT INTO sys_dict (dict_code, dict_type, name, dict_label_zh, dict_label_en, sort_no, status, config_json)
-           SELECT $1, 'PKG_SHIFT', $2, $2, $3, $4, 'ACTIVE', $5::jsonb
+           SELECT $1, 'PKG_SHIFT', $2, $2, $3, $4, 'ACTIVE', $5
            WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE dict_code=$1 AND dict_type='PKG_SHIFT')`,
           [s.code, s.zh, s.en, s.sort, JSON.stringify({ timeRange: s.timeRange })],
-        ).catch(() => {});
+        ).catch((e: Error) => console.warn(`⚠️ sys_dict PKG_SHIFT insert failed for ${s.code}:`, e.message));
       }
       // 修复已存在的旧记录：名称里混入了时间范围（如"早班 08:00-12:00"），拆分存入 config_json
       await this.entityManager.query(`
