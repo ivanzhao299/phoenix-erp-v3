@@ -300,4 +300,56 @@ export class FarmService {
 
     return { code: 200, date, rows, totals };
   }
+
+  async getFarmTrend(days: number) {
+    const safeDays = Math.min(Math.max(Number(days) || 7, 1), 90);
+    // 当期：最近 safeDays 天；对比期：再往前 safeDays 天
+    const rows = await this.entityManager.query(
+      `SELECT
+         log_date::text                           AS date,
+         SUM(eggs_produced)::int                  AS eggs,
+         SUM(mortality_qty)::int                  AS mortality,
+         SUM(COALESCE(elimination_qty,0))::int    AS elimination,
+         SUM(COALESCE(feed_consumed,0))::numeric  AS feed
+       FROM brd_daily_logs
+       WHERE log_date >= (CURRENT_DATE - ($1 * 2 - 1) * INTERVAL '1 day')
+       GROUP BY log_date
+       ORDER BY log_date ASC`,
+      [safeDays],
+    );
+
+    const today = new Date();
+    const cutoff = new Date(today);
+    cutoff.setDate(cutoff.getDate() - safeDays);
+
+    const current: typeof rows = [];
+    const prev: typeof rows = [];
+    for (const r of rows) {
+      const d = new Date(r.date);
+      if (d > cutoff) current.push(r); else prev.push(r);
+    }
+
+    const avg = (arr: typeof rows, field: string) =>
+      arr.length ? Math.round(arr.reduce((s: number, r: any) => s + Number(r[field] || 0), 0) / arr.length) : 0;
+
+    // 获取存栏数用于计算产蛋率
+    const flockSum = await this.entityManager.query(
+      `SELECT COALESCE(SUM(current_qty),0)::int AS total FROM brd_flocks WHERE status IN ('LAYING','ACTIVE','laying','active')`,
+    );
+    const totalQty = Number(flockSum[0]?.total ?? 0);
+
+    const summary = {
+      current_days:    current.length,
+      avg_eggs:        avg(current, 'eggs'),
+      avg_mortality:   avg(current, 'mortality'),
+      avg_elimination: avg(current, 'elimination'),
+      avg_feed:        avg(current, 'feed'),
+      lay_rate:        totalQty > 0 ? ((avg(current, 'eggs') / totalQty) * 100).toFixed(2) : '0.00',
+      prev_avg_eggs:   avg(prev, 'eggs'),
+      prev_lay_rate:   totalQty > 0 ? ((avg(prev, 'eggs') / totalQty) * 100).toFixed(2) : '0.00',
+      total_qty:       totalQty,
+    };
+
+    return { code: 200, days: safeDays, rows: current, summary };
+  }
 }

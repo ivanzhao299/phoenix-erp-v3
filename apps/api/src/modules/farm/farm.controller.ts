@@ -30,4 +30,9 @@ export class FarmController {
     const d = date || new Date().toISOString().slice(0, 10);
     return await this.farmService.getDailyHenReport(d);
   }
+
+  @Get('trend')
+  async getFarmTrend(@Query('days') days: string) {
+    return await this.farmService.getFarmTrend(Number(days) || 7);
+  }
 }

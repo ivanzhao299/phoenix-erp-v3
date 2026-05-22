@@ -245,6 +245,31 @@ export interface DailyHenReport {
   };
 }
 
+export interface TrendRow {
+  date:        string;
+  eggs:        number;
+  mortality:   number;
+  elimination: number;
+  feed:        number;
+}
+
+export interface FarmTrend {
+  code:    number;
+  days:    number;
+  rows:    TrendRow[];
+  summary: {
+    current_days:    number;
+    avg_eggs:        number;
+    avg_mortality:   number;
+    avg_elimination: number;
+    avg_feed:        number;
+    lay_rate:        string;
+    prev_avg_eggs:   number;
+    prev_lay_rate:   string;
+    total_qty:       number;
+  };
+}
+
 // ── API 方法 ──────────────────────────────────────────────────────────────────
 
 export const mobileApi = {
@@ -355,6 +380,10 @@ export const mobileApi = {
   /** 母鸡存栏日报（按日期） */
   getDailyHenReport: (date: string) =>
     get<DailyHenReport>(`/api/v3/farm/daily-hen-report?date=${date}`),
+
+  /** 生产趋势（最近 N 天日均产蛋/死淘/饲料 + 上期对比） */
+  getFarmTrend: (days: number) =>
+    get<FarmTrend>(`/api/v3/farm/trend?days=${days}`),
 
   /** 提交/更新养殖日报（产蛋录入） */
   submitDailyLog: (payload: {

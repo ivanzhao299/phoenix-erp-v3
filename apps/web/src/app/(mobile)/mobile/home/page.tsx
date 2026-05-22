@@ -6,7 +6,7 @@ import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import {
   BarChart2, Package, ShieldCheck, Warehouse,
   Truck, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird, Egg,
-  Sun, Moon,
+  Sun, Moon, LineChart,
 } from 'lucide-react';
 
 type NavCard = {
@@ -91,6 +91,14 @@ const NAV_CARDS: NavCard[] = [
     desc: '各栋产蛋数量·班次录入',
     color: '#f59e0b',
     href: '/mobile/egglog',
+    soon: false,
+  },
+  {
+    icon: <LineChart size={28} />,
+    titleZh: '生产趋势', titleEn: 'Analytics', titleLo: 'ທ່າອ່ຽງ',
+    desc: '7/14/30天产蛋·死淘·饲料',
+    color: '#6366f1',
+    href: '/mobile/analytics',
     soon: false,
   },
 ];
