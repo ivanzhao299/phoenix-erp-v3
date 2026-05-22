@@ -59,14 +59,29 @@ export interface QcInspection {
 }
 
 export interface FarmLog {
-  id:            number;
-  flock_no:      string;
-  log_date:      string;
-  shift?:        string;
-  eggs_produced: number | string;
-  mortality_qty: number | string;
-  dirty_eggs?:   number | string;
-  broken_eggs?:  number | string;
+  id:              number;
+  flock_no:        string;
+  house_code?:     string;
+  log_date:        string;
+  shift?:          string;
+  eggs_produced:   number | string;
+  mortality_qty:   number | string;
+  dirty_eggs?:     number | string;
+  broken_eggs?:    number | string;
+  feed_consumed?:  number | string;
+  water_consumed?: number | string;
+}
+
+export interface FlockRecord {
+  flock_no:         string;
+  house_code?:      string;
+  farm_code?:       string;
+  strain?:          string;
+  placement_date?:  string;
+  initial_qty:      number | string;
+  current_qty:      number | string;
+  current_lay_rate: number | string | null;
+  status:           string;
 }
 
 export interface PackagingTrendItem {
@@ -110,4 +125,8 @@ export const mobileApi = {
   /** 未处理告警列表（IoT 设备告警，管理员/农场经理可访问） */
   getOpenAlerts: () =>
     get<DeviceAlert[]>('/api/farm-device/alerts?status=OPEN'),
+
+  /** 存栏批次（ROLE_ADMIN / ROLE_FARM_MGR 可访问；其他角色 403 降级） */
+  getFlocks: () =>
+    get<{ data: FlockRecord[]; total: number }>('/api/crud/brd_flocks?status=LAYING&limit=100'),
 };

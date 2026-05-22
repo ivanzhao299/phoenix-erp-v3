@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, RefreshCw, ArrowLeft } from 'lucide-react';
-import { mobileApi, KpiData, PackagingDailyReport, QcInspection, FarmLog, PackagingTrendItem, DeviceAlert } from '@/lib/mobile-api';
+import { mobileApi, KpiData, PackagingDailyReport, QcInspection, FarmLog, FlockRecord, PackagingTrendItem, DeviceAlert } from '@/lib/mobile-api';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
@@ -142,7 +142,10 @@ export default function MobileDashboardPage() {
   const [farm, setFarm]         = useState<FarmLog[] | null>(null);
   const [trend, setTrend]       = useState<PackagingTrendItem[]>([]);
   const [alerts, setAlerts]     = useState<DeviceAlert[]>([]);
+  const [flocks, setFlocks]     = useState<FlockRecord[]>([]);
   const [alertsExpanded, setAlertsExpanded] = useState(false);
+  const [houseExpanded, setHouseExpanded]   = useState(false);
+  const [flockExpanded, setFlockExpanded]   = useState(false);
 
   const [kpiLoading, setKpiLoading]   = useState(true);
   const [pkgLoading, setPkgLoading]   = useState(true);
@@ -156,14 +159,17 @@ export default function MobileDashboardPage() {
 
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // 趋势图和告警只在初次加载/刷新时更新（不随日期切换重复请求）
+  // 趋势图、告警、存栏批次只在初次加载/刷新时更新（不随日期切换重复请求）
   useEffect(() => {
     mobileApi.getPackagingTrend(today, 7)
       .then(data => { const arr = Array.isArray(data) ? data : (data as any)?.data ?? []; setTrend(arr); })
-      .catch(() => {/* 趋势图可选，失败静默 */});
+      .catch(() => {});
     mobileApi.getOpenAlerts()
       .then(data => { const arr = Array.isArray(data) ? data : []; setAlerts(arr); })
-      .catch(() => {/* 告警可选，失败静默 */});
+      .catch(() => {});
+    mobileApi.getFlocks()
+      .then(data => { const arr = Array.isArray(data) ? data : (data as any)?.data ?? []; setFlocks(arr); })
+      .catch(() => {});
   }, [refreshKey, today]);
 
   const fetchAll = useCallback(async (d: string) => {
@@ -216,6 +222,20 @@ export default function MobileDashboardPage() {
   const layingTotal  = kpi?.meta?.layingTotal ?? 0;
   const layRate      = kpi?.meta?.todayLayRate;
   const farmMortality = farm ? farm.reduce((s, r) => s + Number(r.mortality_qty || 0), 0) : null;
+
+  // 按栋舍聚合日志（同一 house_code / flock_no 可能有多班次）
+  const houseMap = new Map<string, { eggs: number; mortality: number; dirty: number; broken: number; feed: number }>();
+  (farm ?? []).forEach(r => {
+    const key = r.house_code || r.flock_no || '—';
+    const cur = houseMap.get(key) ?? { eggs: 0, mortality: 0, dirty: 0, broken: 0, feed: 0 };
+    cur.eggs     += Number(r.eggs_produced || 0);
+    cur.mortality += Number(r.mortality_qty || 0);
+    cur.dirty    += Number(r.dirty_eggs    || 0);
+    cur.broken   += Number(r.broken_eggs   || 0);
+    cur.feed     += Number(r.feed_consumed || 0);
+    houseMap.set(key, cur);
+  });
+  const houseRows = Array.from(houseMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
   // ── 包装计算 ──
   const pkgTotal   = Number(pkg?.summary?.total_packed || 0);
@@ -312,6 +332,89 @@ export default function MobileDashboardPage() {
           {farmErr && (
             <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>
               死淘数据：{farmErr}
+            </div>
+          )}
+
+          {/* 逐栋明细（可展开） */}
+          {houseRows.length > 0 && (
+            <div style={{ marginTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
+              <button
+                onClick={() => setHouseExpanded(v => !v)}
+                style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+                  逐栋明细 · {houseRows.length} 栋
+                </span>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{houseExpanded ? '收起 ▴' : '展开 ▾'}</span>
+              </button>
+              {houseExpanded && (
+                <div style={{ marginTop: 8, overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ color: 'rgba(255,255,255,0.3)' }}>
+                        {['栋舍', '产蛋', '死淘', '脏破蛋', '耗料(kg)'].map(h => (
+                          <th key={h} style={{ padding: '4px 6px', textAlign: h === '栋舍' ? 'left' : 'right', fontWeight: 600, fontSize: 10 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {houseRows.map(([key, v]) => (
+                        <tr key={key} style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                          <td style={{ padding: '5px 6px', color: '#f59e0b', fontWeight: 600 }}>{key}</td>
+                          <td style={{ padding: '5px 6px', textAlign: 'right', color: 'white' }}>{v.eggs > 0 ? fmt(v.eggs) : '—'}</td>
+                          <td style={{ padding: '5px 6px', textAlign: 'right', color: v.mortality > 0 ? '#f87171' : 'rgba(255,255,255,0.4)' }}>{v.mortality > 0 ? v.mortality : '0'}</td>
+                          <td style={{ padding: '5px 6px', textAlign: 'right', color: 'rgba(255,255,255,0.5)' }}>{(v.dirty + v.broken) > 0 ? v.dirty + v.broken : '—'}</td>
+                          <td style={{ padding: '5px 6px', textAlign: 'right', color: 'rgba(255,255,255,0.5)' }}>{v.feed > 0 ? fmt(v.feed, 1) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 存栏批次（可展开，仅 FARM_MGR+ 可见） */}
+          {flocks.length > 0 && (
+            <div style={{ marginTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
+              <button
+                onClick={() => setFlockExpanded(v => !v)}
+                style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+                  存栏批次 · {flocks.length} 批 · {fmt(flocks.reduce((s, f) => s + Number(f.current_qty || 0), 0))} 只
+                </span>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{flockExpanded ? '收起 ▴' : '展开 ▾'}</span>
+              </button>
+              {flockExpanded && (
+                <div style={{ marginTop: 8, overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ color: 'rgba(255,255,255,0.3)' }}>
+                        {['批次', '栋舍', '期初', '现存', '产蛋率'].map(h => (
+                          <th key={h} style={{ padding: '4px 6px', textAlign: h === '批次' ? 'left' : 'right', fontWeight: 600, fontSize: 10 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {flocks.map(f => {
+                        const lr = f.current_lay_rate != null ? Number(f.current_lay_rate) : null;
+                        return (
+                          <tr key={f.flock_no} style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                            <td style={{ padding: '5px 6px', color: '#f59e0b', fontWeight: 600 }}>{f.flock_no}</td>
+                            <td style={{ padding: '5px 6px', textAlign: 'right', color: 'rgba(255,255,255,0.5)' }}>{f.house_code || '—'}</td>
+                            <td style={{ padding: '5px 6px', textAlign: 'right', color: 'rgba(255,255,255,0.4)' }}>{fmt(f.initial_qty)}</td>
+                            <td style={{ padding: '5px 6px', textAlign: 'right', color: 'white' }}>{fmt(f.current_qty)}</td>
+                            <td style={{ padding: '5px 6px', textAlign: 'right', color: lr != null ? (lr >= 80 ? '#10b981' : lr >= 60 ? '#f59e0b' : '#ef4444') : 'rgba(255,255,255,0.3)' }}>
+                              {lr != null ? `${lr.toFixed(1)}%` : '—'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </Section>
