@@ -271,9 +271,14 @@ jobs:
             echo "✅ Code synced"
 
             # ── 拉取镜像 ────────────────────────────────────────────────
+            # 清理 containerd 残留状态（防止 lease does not exist 错误）
+            docker system prune -f 2>/dev/null || true
+
             echo "${{ secrets.GITHUB_TOKEN }}" | \
               docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
-            docker compose pull api web
+            # 顺序拉取，避免并发 lease 冲突
+            docker compose pull api
+            docker compose pull web
 
             # ── DB：幂等启动 ─────────────────────────────────────────────
             docker compose up -d --wait db
