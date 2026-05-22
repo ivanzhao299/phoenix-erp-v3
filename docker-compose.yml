@@ -83,6 +83,8 @@ services:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
+      # 容器内必须用 docker 服务名，不能用 127.0.0.1
+      API_TARGET: http://api:3100
     ports:
       - "127.0.0.1:${WEB_PORT:-3000}:3000"
     healthcheck:
