@@ -9,7 +9,9 @@ import {
 import { mobileApi, FarmCustomer, FarmSaleRecord, FarmSaleItem } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
-import { MobilePageSkeleton, SkeletonCard } from '@/components/mobile/MobileSkeleton';
+import { MobilePageSkeleton, SkeletonCard, MobileEmptyState } from '@/components/mobile/MobileSkeleton';
+import { useToast } from '@/contexts/ToastContext';
+import { haptic } from '@/lib/haptic';
 
 function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -54,6 +56,7 @@ export default function SalesPage() {
   const today   = fmtDate(new Date());
   const { isDark, toggle, t } = useMobileTheme();
   const { allowed, loading: permLoading, readonly } = useMobilePermission('sales');
+  const toast = useToast();
 
   const [tab, setTab]   = useState<Tab>('new');
   const [date, setDate] = useState(today);
@@ -140,9 +143,11 @@ export default function SalesPage() {
         items,
         operator:      token ? 'mobile' : 'mobile',
       });
+      haptic('success'); toast.success('销售单开单成功');
       setSuccessNo(res.order_no);
       setEntries({});
     } catch (e: any) {
+      haptic('error'); toast.error(e.message || '开单失败');
       setError(e.message || '提交失败');
     } finally {
       setSubmitting(false);
@@ -351,7 +356,7 @@ export default function SalesPage() {
             {loading ? (
               <div>{[1,2,3].map(i => <SkeletonCard key={i} lines={3} />)}</div>
             ) : history.length === 0 ? (
-              <div style={{ padding: 40, textAlign: 'center', color: t.textFaint, fontSize: 13 }}>暂无记录</div>
+              <MobileEmptyState icon="🛒" title="暂无销售记录" desc="今日还没有销售出库记录" />
             ) : (
               history.map(rec => (
                 <div key={rec.order_no} style={{

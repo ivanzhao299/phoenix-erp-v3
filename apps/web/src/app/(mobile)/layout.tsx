@@ -1,8 +1,47 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { MobileThemeProvider } from '@/contexts/MobileThemeContext';
+
+/** 全局断网提示条 — 悬浮在底部，网络恢复后 2 秒自动消失 */
+function NetworkBanner() {
+  const [offline, setOffline] = useState(false);
+  const [showRestore, setShowRestore] = useState(false);
+
+  useEffect(() => {
+    const handleOffline = () => { setOffline(true); setShowRestore(false); };
+    const handleOnline  = () => {
+      setOffline(false);
+      setShowRestore(true);
+      setTimeout(() => setShowRestore(false), 2500);
+    };
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online',  handleOnline);
+    // 初始检测（页面加载时已经离线）
+    if (!navigator.onLine) setOffline(true);
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online',  handleOnline);
+    };
+  }, []);
+
+  if (!offline && !showRestore) return null;
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 'env(safe-area-inset-bottom, 0px)',
+      left: 0, right: 0, zIndex: 9999,
+      padding: '10px 16px',
+      background: offline ? '#ef4444' : '#10b981',
+      color: '#fff', fontSize: 13, fontWeight: 600,
+      textAlign: 'center',
+      transition: 'background 0.3s',
+    }}>
+      {offline ? '⚠️ 当前无网络连接，数据可能无法提交' : '✅ 网络已恢复'}
+    </div>
+  );
+}
 
 /**
  * 首屏加载动画
@@ -94,9 +133,12 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
           <MobileLoadingScreen />
         ) : (
           /* key=pathname：每次路由切换触发子树重挂，mobile-page-in 动画自动播放 */
-          <div key={pathname} className="mobile-page-in" style={{ minHeight: '100%' }}>
-            {children}
-          </div>
+          <>
+            <div key={pathname} className="mobile-page-in" style={{ minHeight: '100%' }}>
+              {children}
+            </div>
+            <NetworkBanner />
+          </>
         )}
       </div>
     </MobileThemeProvider>

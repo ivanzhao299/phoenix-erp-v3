@@ -5,7 +5,10 @@ import { ChevronLeft, RefreshCw, Truck, ClipboardList, X, Sun, Moon } from 'luci
 import { crudApi } from '@/lib/api-client';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
-import { MobilePageSkeleton, SkeletonCard } from '@/components/mobile/MobileSkeleton';
+import { MobilePageSkeleton, SkeletonCard, MobileEmptyState } from '@/components/mobile/MobileSkeleton';
+import { useToast } from '@/contexts/ToastContext';
+import { haptic } from '@/lib/haptic';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -57,6 +60,7 @@ function ReceiptForm({
   readonly: boolean;
 }) {
   const { t, isDark } = useMobileTheme();
+  const toast = useToast();
   const today = todayStr();
 
   const [storeCode,   setStoreCode]   = useState('');
@@ -81,8 +85,13 @@ function ReceiptForm({
         status,
         remark:       remark.trim() || undefined,
       });
+      haptic('success');
+      toast.success('签收记录已提交');
       onSaved();
-    } catch {
+    } catch (e: unknown) {
+      haptic('error');
+      const msg = e instanceof Error ? e.message : '提交失败';
+      toast.error(msg || '提交失败');
       setError('保存失败，请重试');
     } finally {
       setSaving(false);
@@ -273,6 +282,7 @@ export default function DeliveryPage() {
   const today  = todayStr();
   const { isDark, toggle, t } = useMobileTheme();
   const { allowed, loading: permLoading, readonly } = useMobilePermission('delivery');
+  const toast = useToast();
 
   const [tab,      setTab]      = useState<Tab>('waves');
   const [waves,    setWaves]    = useState<Dispatch[]>([]);
@@ -311,6 +321,11 @@ export default function DeliveryPage() {
     else loadReceipts();
   }, [tab, allowed, permLoading, loadWaves, loadReceipts]);
 
+  const { pullHandlers } = usePullToRefresh(() => {
+    if (tab === 'waves') loadWaves();
+    else loadReceipts();
+  });
+
   const handleSaved = useCallback(() => {
     setFormWave(null);
     loadReceipts();
@@ -325,7 +340,7 @@ export default function DeliveryPage() {
       {/* AppBar */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 16px', background: t.appBarBg,
+        padding: 'calc(env(safe-area-inset-top) + 12px) 16px 12px', background: t.appBarBg,
         borderBottom: `1px solid ${t.barBorder}`, position: 'sticky', top: 0, zIndex: 10,
       }}>
         <button onClick={() => router.push('/mobile/home')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textSub, display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -379,7 +394,7 @@ export default function DeliveryPage() {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, padding: '0 16px 24px', overflowY: 'auto' }}>
+      <div {...pullHandlers} style={{ flex: 1, padding: '0 16px calc(24px + env(safe-area-inset-bottom))', overflowY: 'auto' }}>
         {loading && (
           <div style={{ paddingTop: 8 }}>{[1,2,3].map(i => <SkeletonCard key={i} lines={3} />)}</div>
         )}
@@ -391,7 +406,7 @@ export default function DeliveryPage() {
 
         {!loading && tab === 'waves' && (
           waves.length === 0
-            ? <div style={{ textAlign: 'center', padding: 60, color: t.textFaint, fontSize: 14 }}>暂无配送波次</div>
+            ? <MobileEmptyState icon="🚚" title="暂无配送波次" desc="今日还没有安排配送" />
             : waves.map(w => (
               <WaveCard key={w.id} wave={w} onSign={setFormWave} readonly={readonly} />
             ))
@@ -399,7 +414,7 @@ export default function DeliveryPage() {
 
         {!loading && tab === 'receipts' && (
           receipts.length === 0
-            ? <div style={{ textAlign: 'center', padding: 60, color: t.textFaint, fontSize: 14 }}>暂无签收记录</div>
+            ? <MobileEmptyState icon="📋" title="暂无签收记录" desc="还没有录入签收数据" />
             : receipts.map(r => (
               <ReceiptCard key={r.id} receipt={r} />
             ))

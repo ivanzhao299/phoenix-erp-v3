@@ -5,7 +5,10 @@ import { ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight, ChevronDown, Che
 import { mobileApi, FeedLedgerRow } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
-import { MobilePageSkeleton, SkeletonCard } from '@/components/mobile/MobileSkeleton';
+import { MobilePageSkeleton, SkeletonCard, MobileEmptyState } from '@/components/mobile/MobileSkeleton';
+import { useToast } from '@/contexts/ToastContext';
+import { haptic } from '@/lib/haptic';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 
@@ -189,6 +192,7 @@ export default function FeedLedgerPage() {
   const router  = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
   const { allowed, loading: permLoading, readonly } = useMobilePermission('feed');
+  const toast = useToast();
   const today   = fmtDate(new Date());
   const [date, setDate]       = useState(today);
   const [rows, setRows]       = useState<FeedLedgerRow[]>([]);
@@ -220,6 +224,8 @@ export default function FeedLedgerPage() {
     }
   }, []);
 
+  const { pullHandlers } = usePullToRefresh(() => loadData(date));
+
   useEffect(() => { loadData(date); }, [date, loadData]);
   if (permLoading) return <MobilePageSkeleton title="饲料台账" onBack={() => router.back()} />;
   if (!allowed) return null;
@@ -249,12 +255,16 @@ export default function FeedLedgerPage() {
       if (res?.code === 200 || Array.isArray(res?.data)) {
         const arr = Array.isArray(res?.data) ? res.data : res;
         if (Array.isArray(arr)) setRows(arr);
+        haptic('success');
+        toast.success('饲料台账保存成功');
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       } else {
         setError(res?.msg || '保存失败');
       }
     } catch (e: any) {
+      haptic('error');
+      toast.error(e.message || '保存失败');
       setError(e.message || '保存失败');
     } finally {
       setSaving(false);
@@ -338,7 +348,7 @@ export default function FeedLedgerPage() {
       <div style={{
         flex: 1, overflowY: 'auto', padding: '12px 16px',
         paddingBottom: 'calc(24px + env(safe-area-inset-bottom))',
-      }}>
+      }} {...pullHandlers}>
         {/* 预警汇总 */}
         {alertRows.length > 0 && (
           <div style={{
@@ -384,9 +394,7 @@ export default function FeedLedgerPage() {
               />
             ))}
             {rows.length === 0 && (
-              <div style={{ textAlign: 'center', color: t.textFaint, fontSize: 14, paddingTop: 40 }}>
-                暂无数据
-              </div>
+              <MobileEmptyState icon="🌾" title="暂无饲料数据" desc="今日还没有饲料记录，可以尝试刷新" />
             )}
           </>
         )}

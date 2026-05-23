@@ -4,7 +4,9 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, RefreshCw, ClipboardCheck, X, Sun, Moon, CheckCircle, XCircle } from 'lucide-react';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
-import { MobilePageSkeleton, SkeletonCard } from '@/components/mobile/MobileSkeleton';
+import { MobilePageSkeleton, SkeletonCard, MobileEmptyState } from '@/components/mobile/MobileSkeleton';
+import { useToast } from '@/contexts/ToastContext';
+import { haptic } from '@/lib/haptic';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -72,6 +74,7 @@ function ConvertDrawer({
   onDone: () => void;
 }) {
   const { t, isDark } = useMobileTheme();
+  const toast = useToast();
 
   const [supplierCode, setSupplierCode] = useState('');
   const [supplierName, setSupplierName] = useState('');
@@ -115,10 +118,13 @@ function ConvertDrawer({
         }),
       });
       const json = await res.json().catch(() => ({}));
-      if (json.code === 200) { onDone(); }
+      if (json.code === 200) { haptic('success'); toast.success('已转采购单'); onDone(); }
       else { setError(json.msg || '转换失败，请重试'); }
-    } catch {
-      setError('网络错误，请重试');
+    } catch (e: unknown) {
+      haptic('error');
+      const msg = e instanceof Error ? e.message : '网络错误，请重试';
+      toast.error(msg || '转单失败');
+      setError(msg || '网络错误，请重试');
     } finally {
       setSubmitting(false);
     }
@@ -243,6 +249,7 @@ function RejectDrawer({
   onDone: () => void;
 }) {
   const { t, isDark } = useMobileTheme();
+  const toast = useToast();
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -264,10 +271,13 @@ function RejectDrawer({
         body: JSON.stringify({ note: note.trim() || '不符合采购条件' }),
       });
       const json = await res.json().catch(() => ({}));
-      if (json.code === 200) { onDone(); }
+      if (json.code === 200) { haptic('success'); toast.success('已拒绝申请'); onDone(); }
       else { setError(json.msg || '操作失败'); }
-    } catch {
-      setError('网络错误，请重试');
+    } catch (e: unknown) {
+      haptic('error');
+      const msg = e instanceof Error ? e.message : '网络错误，请重试';
+      toast.error(msg || '操作失败');
+      setError(msg || '网络错误，请重试');
     } finally {
       setSubmitting(false);
     }
@@ -517,7 +527,7 @@ export default function PrcReviewPage() {
         position: 'sticky', top: 0, zIndex: 100,
         background: isDark ? '#1e293b' : '#fff',
         borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
-        padding: '12px 16px',
+        padding: 'calc(env(safe-area-inset-top) + 12px) 16px 12px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -575,7 +585,7 @@ export default function PrcReviewPage() {
       </div>
 
       {/* 内容区 */}
-      <div style={{ padding: '12px 16px 80px' }}>
+      <div style={{ padding: '12px 16px calc(80px + env(safe-area-inset-bottom))' }}>
         {loading ? (
           <div>{[1,2,3,4].map(i => <SkeletonCard key={i} lines={3} />)}</div>
         ) : error ? (
@@ -586,11 +596,7 @@ export default function PrcReviewPage() {
           <>
             {tab === 'pending' && (
               pending.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '60px 0' }}>
-                  <CheckCircle size={48} color="#10b981" style={{ margin: '0 auto 12px' }} />
-                  <div style={{ color: t.textSub, fontSize: 15, fontWeight: 600 }}>暂无待处理申请</div>
-                  <div style={{ color: t.textSub, fontSize: 13, marginTop: 6 }}>所有采购申请均已处理完毕</div>
-                </div>
+                <MobileEmptyState icon="✅" title="暂无待处理申请" desc="所有采购申请均已处理完毕" />
               ) : (
                 pending.map(r => (
                   <RequestCard key={r.id} req={r} readonly={readonly}
@@ -601,9 +607,7 @@ export default function PrcReviewPage() {
 
             {tab === 'history' && (
               history.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '60px 0', color: t.textSub, fontSize: 14 }}>
-                  暂无历史记录
-                </div>
+                <MobileEmptyState icon="📋" title="暂无历史记录" desc="还没有已处理的申请" />
               ) : (
                 history.map(r => (
                   <RequestCard key={r.id} req={r} readonly={readonly}

@@ -6,7 +6,10 @@ import { mobileApi, FlockRecord, FarmLog } from '@/lib/mobile-api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
-import { MobilePageSkeleton } from '@/components/mobile/MobileSkeleton';
+import { MobilePageSkeleton, MobileEmptyState } from '@/components/mobile/MobileSkeleton';
+import { useToast } from '@/contexts/ToastContext';
+import { haptic } from '@/lib/haptic';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -215,6 +218,8 @@ export default function EggLogPage() {
   const { user } = useAuth();
   const { isDark, toggle, t } = useMobileTheme();
   const { allowed, loading: permLoading, readonly } = useMobilePermission('egglog');
+  const toast = useToast();
+  const { pullHandlers } = usePullToRefresh(() => loadExisting(date, shift));
 
   const [date, setDate]     = useState(todayStr());
   const [shift, setShift]   = useState('早班');
@@ -314,8 +319,10 @@ export default function EggLogPage() {
     }
     setSaving(false);
     if (errors.length > 0) {
+      haptic('error');
       setError(errors.join('；'));
     } else {
+      haptic('success'); toast.success('产蛋日报提交成功');
       setSaved(true);
       await loadExisting(date, shift);
     }
@@ -409,7 +416,7 @@ export default function EggLogPage() {
       </div>
 
       {/* House list */}
-      <div style={{
+      <div {...pullHandlers} style={{
         flex: 1, padding: '12px 16px',
         paddingBottom: 'calc(88px + env(safe-area-inset-bottom))',
         overflowY: 'auto',
@@ -419,9 +426,7 @@ export default function EggLogPage() {
             加载中…
           </div>
         ) : flocks.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40, color: t.textFaint, fontSize: 14 }}>
-            无在产鸡群数据，请先在管理后台建立鸡群
-          </div>
+          <MobileEmptyState icon="🥚" title="暂无产蛋数据" desc="今日还没有记录" />
         ) : (
           flocks.map(f => {
             const key = f.house_code || f.flock_no;

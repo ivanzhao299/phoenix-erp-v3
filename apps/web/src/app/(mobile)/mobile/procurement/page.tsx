@@ -1,10 +1,12 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, RefreshCw, ShoppingCart, CreditCard, CheckCircle, X, Sun, Moon } from 'lucide-react';
+import { ChevronLeft, RefreshCw, ShoppingCart, CreditCard, Sun, Moon } from 'lucide-react';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
-import { MobilePageSkeleton, SkeletonCard } from '@/components/mobile/MobileSkeleton';
+import { MobilePageSkeleton, SkeletonCard, MobileEmptyState } from '@/components/mobile/MobileSkeleton';
+import { useToast } from '@/contexts/ToastContext';
+import { haptic } from '@/lib/haptic';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -60,6 +62,7 @@ function ApproveCard({
   po, canApprove, onApproved,
 }: { po: PO; canApprove: boolean; onApproved: () => void }) {
   const { t, isDark } = useMobileTheme();
+  const toast = useToast();
   const [expanded, setExpanded] = useState(false);
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState('');
@@ -74,9 +77,9 @@ function ApproveCard({
         headers: { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
       });
       const json = await res.json().catch(() => ({}));
-      if (res.ok) { setExpanded(false); onApproved(); }
+      if (res.ok) { haptic('success'); toast.success('操作成功'); setExpanded(false); onApproved(); }
       else { setError(json.msg || '批准失败'); }
-    } catch { setError('网络错误，请重试'); }
+    } catch (e: any) { haptic('error'); toast.error(e.message || '操作失败'); setError('网络错误，请重试'); }
     finally { setApproving(false); }
   };
 
@@ -162,6 +165,7 @@ function PayCard({
   item, canPay, onPaid,
 }: { item: PendingPayment; canPay: boolean; onPaid: () => void }) {
   const { t } = useMobileTheme();
+  const toast = useToast();
   const [expanded, setExpanded] = useState(false);
   const [method, setMethod]     = useState(PAYMENT_METHODS[0]);
   const [ref, setRef]           = useState('');
@@ -182,9 +186,9 @@ function PayCard({
         body: JSON.stringify({ payment_ref: ref.trim(), payment_proof: proof.trim() || undefined, method }),
       });
       const json = await res.json().catch(() => ({}));
-      if (res.ok) { setExpanded(false); onPaid(); }
+      if (res.ok) { haptic('success'); toast.success('操作成功'); setExpanded(false); onPaid(); }
       else { setError(json.msg || '确认失败'); }
-    } catch { setError('网络错误，请重试'); }
+    } catch (e: any) { haptic('error'); toast.error(e.message || '操作失败'); setError('网络错误，请重试'); }
     finally { setPaying(false); }
   };
 
@@ -312,6 +316,7 @@ export default function ProcurementPage() {
   const router  = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
   const { allowed, loading: permLoading } = useMobilePermission('procurement');
+  const toast = useToast();
 
   const roles      = getUserRoles();
   const canApprove = roles.some(r => CAN_APPROVE_ROLES.includes(r));
@@ -365,7 +370,7 @@ export default function ProcurementPage() {
       {/* AppBar */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 16px', background: t.appBarBg,
+        padding: 'calc(env(safe-area-inset-top) + 12px) 16px 12px', background: t.appBarBg,
         borderBottom: `1px solid ${t.barBorder}`, position: 'sticky', top: 0, zIndex: 10,
       }}>
         <button
@@ -380,7 +385,7 @@ export default function ProcurementPage() {
           <span style={{ fontWeight: 700, fontSize: 16, color: t.text }}>采购审批</span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={refresh} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textSub }}>
+          <button onClick={() => { haptic('light'); refresh(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textSub }}>
             <RefreshCw size={18} />
           </button>
           <button onClick={toggle} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textSub }}>
@@ -428,7 +433,7 @@ export default function ProcurementPage() {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, padding: '12px 16px 24px', overflowY: 'auto' }}>
+      <div style={{ flex: 1, padding: '12px 16px calc(24px + env(safe-area-inset-bottom))', overflowY: 'auto' }}>
         {loading && (
           <div>{[1,2,3].map(i => <SkeletonCard key={i} lines={3} />)}</div>
         )}
@@ -442,10 +447,7 @@ export default function ProcurementPage() {
         {!loading && tab === 'approve' && (
           pos.length === 0
             ? (
-              <div style={{ textAlign: 'center', padding: 60, color: t.textFaint }}>
-                <CheckCircle size={36} color="#10b981" style={{ margin: '0 auto 10px', display: 'block' }} />
-                <div style={{ fontSize: 14 }}>暂无待审批的采购单</div>
-              </div>
+              <MobileEmptyState icon="✅" title="暂无待审批采购单" desc="所有采购单均已审批完毕" />
             )
             : pos.map(po => (
               <ApproveCard key={po.id} po={po} canApprove={canApprove} onApproved={loadPOs} />
@@ -456,10 +458,7 @@ export default function ProcurementPage() {
         {!loading && tab === 'pay' && (
           payments.length === 0
             ? (
-              <div style={{ textAlign: 'center', padding: 60, color: t.textFaint }}>
-                <CheckCircle size={36} color="#10b981" style={{ margin: '0 auto 10px', display: 'block' }} />
-                <div style={{ fontSize: 14 }}>暂无待付款项</div>
-              </div>
+              <MobileEmptyState icon="💰" title="暂无待付款记录" desc="所有采购单均已付款或无待付款项" />
             )
             : payments.map(item => (
               <PayCard key={item.id} item={item} canPay={canPay} onPaid={loadPayments} />

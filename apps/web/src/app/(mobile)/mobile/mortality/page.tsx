@@ -5,6 +5,9 @@ import { ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight, Plus, Minus, Sun
 import { mobileApi, FarmLog } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { useToast } from '@/contexts/ToastContext';
+import { haptic } from '@/lib/haptic';
+import { MobileEmptyState } from '@/components/mobile/MobileSkeleton';
 
 function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -68,6 +71,7 @@ export default function MortalityPage() {
   const router = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
   const { allowed, loading: permLoading, readonly } = useMobilePermission('mortality');
+  const toast = useToast();
   const today  = fmtDate(new Date());
 
   const [date, setDate]       = useState(today);
@@ -167,12 +171,14 @@ export default function MortalityPage() {
         (r.status === 'fulfilled' && r.value?.code && r.value.code !== 200)
       );
       if (!anyFail) {
+        haptic('success'); toast.success('死淘记录保存成功');
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       } else {
         setError('部分记录保存失败，请重试');
       }
     } catch (e: any) {
+      haptic('error'); toast.error(e.message || '保存失败');
       setError(e.message || '保存失败');
     } finally {
       setSaving(false);
@@ -301,6 +307,9 @@ export default function MortalityPage() {
           </div>
         ) : !permErr && (
           <>
+            {houseList.length === 0 && (
+              <MobileEmptyState icon="📊" title="暂无死淘记录" desc="今日还没有死淘数据" />
+            )}
             {houseList.map(house => {
               const mort  = mortEdits[house]  ?? 0;
               const elim  = elimEdits[house]  ?? 0;

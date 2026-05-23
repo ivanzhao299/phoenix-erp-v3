@@ -160,3 +160,39 @@ export function MobilePageSkeleton({
     </div>
   );
 }
+
+// ── 空状态 ────────────────────────────────────────────────────────────────────
+
+interface MobileEmptyStateProps {
+  icon?: string;
+  title?: string;
+  desc?: string;
+  action?: React.ReactNode;
+}
+
+/**
+ * 空状态组件 — 替代"暂无数据"文字，提供图标+标题+说明+可选操作按钮
+ * 用法：
+ *   <MobileEmptyState icon="📭" title="暂无记录" desc="今日还没有数据" />
+ */
+export function MobileEmptyState({
+  icon = '📭',
+  title = '暂无数据',
+  desc,
+  action,
+}: MobileEmptyStateProps) {
+  const { t } = useMobileTheme();
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', padding: '60px 24px', textAlign: 'center',
+    }}>
+      <div style={{ fontSize: 52, lineHeight: 1, marginBottom: 16 }}>{icon}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 6 }}>{title}</div>
+      {desc && (
+        <div style={{ fontSize: 13, color: t.textFaint, lineHeight: 1.6, maxWidth: 240 }}>{desc}</div>
+      )}
+      {action && <div style={{ marginTop: 20 }}>{action}</div>}
+    </div>
+  );
+}

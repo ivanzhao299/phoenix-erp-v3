@@ -154,7 +154,7 @@ const NAV_CARDS: NavCard[] = [
 
 export default function MobileHomePage() {
   const { user, logout } = useAuth();
-  const { lang } = useLanguage();
+  const { lang, toggleLanguage } = useLanguage();
   const router = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
   const { brand } = useBrand();
@@ -216,6 +216,14 @@ export default function MobileHomePage() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {/* 语言切换：ZH → ລາວ → EN → ZH 循环 */}
+          <button onClick={toggleLanguage} style={{
+            background: 'none', border: `1px solid ${t.btnBorder}`,
+            borderRadius: 8, cursor: 'pointer', padding: '4px 8px',
+            color: t.textSub, fontSize: 11, fontWeight: 700, letterSpacing: 0.3,
+          }}>
+            {lang === 'zh' ? 'ZH' : lang === 'lo' ? 'ລາວ' : 'EN'}
+          </button>
           <button onClick={toggle} style={{
             background: 'none', border: 'none', cursor: 'pointer', padding: 6,
             color: t.textSub, display: 'flex', alignItems: 'center',
@@ -234,7 +242,7 @@ export default function MobileHomePage() {
             }}
           >
             <LogOut size={14} />
-            退出
+            {lang === 'en' ? 'Logout' : lang === 'lo' ? 'ອອກ' : '退出'}
           </button>
         </div>
       </div>
