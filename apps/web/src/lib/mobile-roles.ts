@@ -61,10 +61,10 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     read:  MGMT,
   },
 
-  /** 饲料台账：农场相关角色可录入；仓储/物流/采购可查看（采购需了解库存水位） */
+  /** 饲料台账：农场相关角色可录入；仓储/物流/采购/成本会计可查看 */
   feed: {
     write: [R.ADMIN, R.FARM_MGR, R.VET, R.BREEDER],
-    read:  [R.CEO, R.WMS_MGR, R.LOG_MGR, R.AUDITOR, R.PRC_BUYER],
+    read:  [R.CEO, R.WMS_MGR, R.LOG_MGR, R.AUDITOR, R.PRC_BUYER, R.FIN_COST],
   },
 
   /** 死淘快录：现场/农场/兽医录入；管理层查看 */
@@ -73,10 +73,10 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     read:  [R.CEO, R.QA_MGR, R.AUDITOR],
   },
 
-  /** 产蛋录入：现场/农场/兽医录入；管理层查看 */
+  /** 产蛋录入：现场/农场/兽医录入；管理层/成本会计查看（产量数据是成本核算基础） */
   egglog: {
     write: [R.ADMIN, R.FARM_MGR, R.VET, R.BREEDER],
-    read:  [R.CEO, R.WMS_MGR, R.QA_MGR, R.FIN_CFO, R.FIN_ACCT, R.AUDITOR],
+    read:  [R.CEO, R.WMS_MGR, R.QA_MGR, R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.AUDITOR],
   },
 
   /** 存栏日报：农场/兽医/品控/管理层查看 */
@@ -85,12 +85,12 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     read:  [R.CEO, R.VET, R.QA_MGR, R.WMS_MGR, R.BREEDER, R.AUDITOR],
   },
 
-  /** 生产趋势：管理层 + 农场 + 财务 + 销售 + 区域督导查看 */
+  /** 生产趋势：管理层 + 农场 + 财务 + 销售 + 区域督导 + 采购（了解消耗趋势以排期采购） */
   analytics: {
     write: [],
     read:  [R.ADMIN, R.CEO, R.FARM_MGR, R.VET, R.QA_MGR, R.WMS_MGR,
             R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.AUDITOR,
-            R.SALES_MGR, R.REGION_MGR, R.STORE_MGR],
+            R.SALES_MGR, R.REGION_MGR, R.STORE_MGR, R.PRC_BUYER],
   },
 
   /** 包装统计：包装/品控/管理层 */
@@ -113,11 +113,11 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
             R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.AUDITOR],
   },
 
-  /** 销售出库：销售/农场录入；物流/财务/区域/店长只读 */
+  /** 销售出库：销售/农场录入；物流/财务/区域/店长/收银员只读 */
   sales: {
     write: [R.ADMIN, R.FARM_MGR, R.SALES_MGR, R.SALES_REP],
     read:  [R.CEO, R.WMS_MGR, R.LOG_MGR, R.REGION_MGR, R.STORE_MGR,
-            R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.AUDITOR],
+            R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.CASHIER, R.AUDITOR],
   },
 
   /** 药品台账：兽医/农场录入；管理层/品控查看 */
@@ -126,10 +126,10 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     read:  [R.CEO, R.QA_MGR, R.STORE_MGR, R.AUDITOR],
   },
 
-  /** 配送签收：物流经理录入；仓储/门店/销售/区域/司机只读 */
+  /** 配送签收：物流经理录入；仓储/门店/销售/区域/场长/司机只读 */
   delivery: {
     write: [R.ADMIN, R.LOG_MGR],
-    read:  [R.CEO, R.WMS_MGR, R.STORE_MGR, R.SALES_MGR,
+    read:  [R.CEO, R.WMS_MGR, R.FARM_MGR, R.STORE_MGR, R.SALES_MGR,
             R.REGION_MGR, R.DRIVER, R.AUDITOR],
   },
 
