@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
+import { ClsService } from 'nestjs-cls';
 import { hasMenuPermission } from './rbac.matrix';
 
 // === Decorators ===
@@ -28,7 +29,10 @@ export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 // === Guard ===
 @Injectable()
 export class MenuGuard extends AuthGuard('jwt') implements CanActivate {
-  constructor(private reflector: Reflector) {
+  constructor(
+    private reflector: Reflector,
+    private readonly cls: ClsService,
+  ) {
     super();
   }
 
@@ -44,11 +48,15 @@ export class MenuGuard extends AuthGuard('jwt') implements CanActivate {
     const isAuthenticated = await super.canActivate(context);
     if (!isAuthenticated) return false;
 
+    // 将已验证的用户写入 CLS，使 Service 层可通过 cls.get('user.*') 读取
+    const req = context.switchToHttp().getRequest();
+    if (req.user) this.cls.set('user', req.user);
+
     // 无 @RequireMenu → 仅需登录
     const requirement = this.reflector.get<MenuRequirement>(REQUIRE_MENU_KEY, context.getHandler());
     if (!requirement) return true;
 
-    const user = context.switchToHttp().getRequest().user;
+    const user = req.user;
     if (!user) throw new ForbiddenException('User context not found.');
 
     // 超级管理员特权通道

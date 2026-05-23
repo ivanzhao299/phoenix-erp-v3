@@ -34,14 +34,15 @@ export class ProcurementService {
     const po = new PurchaseOrderEntity();
     po.po_no          = `PO-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     po.contract_no    = `HT-${year}-${seq}`;
+    po.status         = 'DRAFT';
     po.supplier_code  = dto.supplier_code;
     po.supplier_name  = dto.supplier_name || '';
     po.subject        = dto.subject || '';
     po.plan_qty       = dto.plan_qty;
     po.total_amount   = dto.total_amount;
     po.currency_code  = dto.currency_code || (dto.total_amount > 50000 ? 'LAK' : 'CNY');
-    po.expected_date  = dto.expected_date || '';
-    po.pay_deadline   = dto.pay_deadline  || '';
+    po.expected_date  = dto.expected_date || (null as any);
+    po.pay_deadline   = dto.pay_deadline  || (null as any);
     po.contract_note  = dto.contract_note || '';
     po.remark         = dto.remark || '';
     po.store_code     = this.cls.get('user.storeCode') || 'ALL';

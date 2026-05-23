@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
+import { ClsService } from 'nestjs-cls';
 // import { InjectRepository } from '@nestjs/typeorm';
 // import { Repository } from 'typeorm';
 // import { SysAuditLog } from '../../models/sys-audit-log.entity';
@@ -22,6 +23,7 @@ import { tap } from 'rxjs/operators';
 @Injectable()
 export class AuditLogInterceptor implements NestInterceptor {
   constructor(
+    private readonly cls: ClsService,
     // 实际项目中解除注释以注入日志存储库
     // @InjectRepository(SysAuditLog)
     // private auditLogRepo: Repository<SysAuditLog>,
@@ -30,6 +32,11 @@ export class AuditLogInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const ctx = context.switchToHttp();
     const request = ctx.getRequest();
+
+    // 将 JWT 验证后的用户写入 CLS，让 Service 层通过 cls.get('user.*') 读取审计字段
+    if (request.user && !this.cls.get('user')) {
+      this.cls.set('user', request.user);
+    }
     const method = request.method;
 
     // 如果是纯读取操作 (GET)，除了导出(通常在Controller特别处理)外，不记录审计
