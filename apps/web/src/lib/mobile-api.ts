@@ -91,7 +91,6 @@ export interface PackagingDailyReport {
   summary: {
     total_tasks:  number | string;
     total_packed: number | string;
-    total_plan:   number | string;
   };
   by_grade: { grade: string; qty: number | string; tasks: number | string }[];
 }
@@ -149,7 +148,7 @@ export interface FlockRecord {
 
 export interface PackagingTrendItem {
   date: string;
-  summary: { total_tasks: number; total_packed: number; total_plan: number };
+  summary: { total_tasks: number; total_packed: number };
 }
 
 export interface DeviceAlert {

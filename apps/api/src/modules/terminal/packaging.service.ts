@@ -827,9 +827,8 @@ export class PackagingService {
     try {
       const summary = await this.em.query(
         `SELECT
-           COUNT(DISTINCT id)    AS total_tasks,
-           COALESCE(SUM(packed_qty),0) AS total_packed,
-           COALESCE(SUM(plan_qty),0)   AS total_plan
+           COUNT(DISTINCT id)          AS total_tasks,
+           COALESCE(SUM(packed_qty),0) AS total_packed
          FROM pkg_tasks
          WHERE task_type = 'PACKING' AND DATE(completed_at) = $1`,
         [d],
@@ -861,12 +860,12 @@ export class PackagingService {
         code: 200,
         data: {
           date: d,
-          summary: summary[0] || { total_tasks: 0, total_packed: 0, total_plan: 0 },
+          summary: summary[0] || { total_tasks: 0, total_packed: 0 },
           by_grade: byGrade,
         },
       };
     } catch {
-      return { code: 200, data: { date: d, summary: { total_tasks: 0, total_packed: 0, total_plan: 0 }, by_grade: [] } };
+      return { code: 200, data: { date: d, summary: { total_tasks: 0, total_packed: 0 }, by_grade: [] } };
     }
   }
 
@@ -878,7 +877,7 @@ export class PackagingService {
     const end = endDate || new Date().toISOString().slice(0, 10);
     const n = Math.max(1, Math.min(31, Number(days) || 7));
     try {
-      const rows: Array<{ d: string; total_tasks: string; total_packed: string; total_plan: string }> =
+      const rows: Array<{ d: string; total_tasks: string; total_packed: string }> =
         await this.em.query(
           `WITH series AS (
              SELECT generate_series($1::date - ($2::int - 1), $1::date, '1 day'::interval)::date AS d
@@ -886,8 +885,7 @@ export class PackagingService {
            SELECT
              to_char(series.d, 'YYYY-MM-DD')        AS d,
              COUNT(DISTINCT t.id)                    AS total_tasks,
-             COALESCE(SUM(t.packed_qty), 0)          AS total_packed,
-             COALESCE(SUM(t.plan_qty), 0)            AS total_plan
+             COALESCE(SUM(t.packed_qty), 0)          AS total_packed
            FROM series
            LEFT JOIN pkg_tasks t
              ON t.task_type = 'PACKING'
@@ -901,9 +899,8 @@ export class PackagingService {
         data: rows.map(r => ({
           date: r.d,
           summary: {
-            total_tasks: Number(r.total_tasks) || 0,
+            total_tasks:  Number(r.total_tasks)  || 0,
             total_packed: Number(r.total_packed) || 0,
-            total_plan: Number(r.total_plan) || 0,
           },
         })),
       };

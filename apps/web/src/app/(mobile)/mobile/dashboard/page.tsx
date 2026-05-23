@@ -263,8 +263,7 @@ export default function MobileDashboardPage() {
 
   // ── 包装计算 ──
   const pkgTotal = Number(pkg?.summary?.total_packed || 0);
-  const pkgPlan  = Number(pkg?.summary?.total_plan   || 0);
-  const pkgRate  = pkgPlan > 0 ? Math.round((pkgTotal / pkgPlan) * 100) : null;
+  const pkgTasks = Number(pkg?.summary?.total_tasks  || 0);
   const byGrade  = pkg?.by_grade ?? [];
 
   // ── 质检计算 ──
@@ -510,11 +509,7 @@ export default function MobileDashboardPage() {
           <Section title="包装产出" icon="📦" color="#f59e0b" loading={pkgLoading} error={pkgErr}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8, marginBottom: 10 }}>
               <StatCard label="完成箱数" value={fmt(pkgTotal)} unit="箱" color="#f59e0b" />
-              <StatCard
-                label="完成率"
-                value={pkgRate != null ? `${pkgRate}%` : pkgPlan === 0 ? '无计划' : '—'}
-                color={pkgRate != null ? (pkgRate >= 90 ? '#10b981' : pkgRate >= 70 ? '#f59e0b' : '#ef4444') : undefined}
-              />
+              <StatCard label="完成任务数" value={fmt(pkgTasks)} unit="个" />
             </div>
             {byGrade.length > 0 && (
               <div style={{ marginBottom: 12 }}>
@@ -529,7 +524,7 @@ export default function MobileDashboardPage() {
                     }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: GRADE_COLORS[g.grade] || '#9ca3af' }}>{g.grade}</div>
                       <div style={{ fontSize: 16, fontWeight: 800, color: t.text }}>{fmt(g.qty)}</div>
-                      <div style={{ fontSize: 10, color: t.textFaint }}>箱</div>
+                      <div style={{ fontSize: 10, color: t.textFaint }}>枚</div>
                     </div>
                   ))}
                 </div>

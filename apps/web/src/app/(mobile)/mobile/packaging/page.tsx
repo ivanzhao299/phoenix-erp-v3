@@ -183,19 +183,8 @@ export default function MobilePackagingPage() {
 
   // ── 包装计算 ──
   const pkgTotal = Number(pkg?.summary?.total_packed ?? 0);
-  const pkgPlan  = Number(pkg?.summary?.total_plan   ?? 0);
   const pkgTasks = Number(pkg?.summary?.total_tasks  ?? 0);
-  const pkgRate  = pkgPlan > 0 ? Math.round((pkgTotal / pkgPlan) * 100) : null;
   const byGrade  = pkg?.by_grade ?? [];
-
-  const rateColor =
-    pkgRate == null
-      ? t.textSub
-      : pkgRate >= 90
-      ? '#10b981'
-      : pkgRate >= 70
-      ? '#f59e0b'
-      : '#ef4444';
 
   const dateLabel = (() => {
     if (date === today) return '今天';
@@ -355,34 +344,17 @@ export default function MobilePackagingPage() {
                 <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>箱</div>
               </div>
 
-              {/* 完成率 */}
+              {/* 完成任务数 */}
               <div style={{ background: t.cardBg, borderRadius: 10, padding: '10px 12px' }}>
-                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>完成率</div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: rateColor, lineHeight: 1.1 }}>
-                  {pkgRate != null ? `${pkgRate}%` : pkgPlan === 0 ? '—' : '—'}
+                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>完成任务数</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: t.text, lineHeight: 1.1 }}>
+                  {fmt(pkgTasks)}
                 </div>
-                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>
-                  {pkgPlan > 0 ? `计划 ${fmt(pkgPlan)} 箱` : '无计划'}
-                </div>
+                <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>个</div>
               </div>
             </div>
           )}
 
-          {/* 任务数（附加信息） */}
-          {!pkgLoading && !pkgErr && pkgTasks > 0 && (
-            <div
-              style={{
-                marginTop: 10,
-                paddingTop: 10,
-                borderTop: `1px solid ${t.divider}`,
-                fontSize: 12,
-                color: t.textFaint,
-                textAlign: 'center',
-              }}
-            >
-              共 {pkgTasks} 个包装任务
-            </div>
-          )}
         </div>
 
         {/* ── 等级分布 ── */}
@@ -440,7 +412,7 @@ export default function MobilePackagingPage() {
                       {fmt(g.qty)}
                     </div>
                     <div style={{ fontSize: 9, color: t.textFaint, marginTop: 2 }}>
-                      箱 · {fmt(g.tasks)}任务
+                      枚 · {fmt(g.tasks)}任务
                     </div>
                   </div>
                 );
