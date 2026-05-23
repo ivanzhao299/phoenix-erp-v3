@@ -8,7 +8,7 @@ import { canAccess } from '@/lib/mobile-roles';
 import {
   BarChart2, Package, ShieldCheck, Warehouse,
   Truck, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird, Egg,
-  Sun, Moon, LineChart, PackageCheck, ShoppingCart, ClipboardList,
+  Sun, Moon, LineChart, PackageCheck, ShoppingCart, ClipboardList, ClipboardCheck,
 } from 'lucide-react';
 
 type NavCard = {
@@ -141,6 +141,13 @@ const NAV_CARDS: NavCard[] = [
     desc: '填报采购需求 · 查看申请进度',
     color: '#059669', href: '/mobile/prc-request', soon: false,
     pageKey: 'prc_request',
+  },
+  {
+    icon: <ClipboardCheck size={28} />,
+    titleZh: '采购审核', titleEn: 'PO Review', titleLo: 'ກວດສອບຈັດຊື້',
+    desc: '处理采购申请 · 转单 / 拒绝',
+    color: '#b45309', href: '/mobile/prc-review', soon: false,
+    pageKey: 'prc_review',
   },
 ];
 
