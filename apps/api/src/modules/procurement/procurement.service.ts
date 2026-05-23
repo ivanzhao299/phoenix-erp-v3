@@ -450,21 +450,24 @@ export class ProcurementService {
     expected_date?: string;
     reason?: string;
     category?: string;
-    attachment_url?: string;  // 合同/报价单/图片附件（POST /api/upload/contract 返回的路径）
+    attachment_url?: string;   // 合同/报价单/图片附件（POST /api/upload/contract 返回的路径）
+    supplier_name?: string;    // 已知供应商（可选，申请阶段可不填）
+    supplier_code?: string;
   }) {
+    if (!dto.subject?.trim()) throw new BadRequestException('申请主题不能为空');
     const year = new Date().getFullYear();
     const ts   = Date.now();
     const reqNo = `REQ-${year}-${ts.toString().slice(-6)}`;
     await this.em.query(
       `INSERT INTO prc_purchase_requests
          (req_no, subject, item, qty, urgency, budget_amount, currency_code,
-          expected_date, reason, category, attachment_url, status, store_code, requester_id,
-          applicant, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'PENDING',$12,$13,$14,
-               CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`,
+          expected_date, reason, category, attachment_url, supplier_name, supplier_code,
+          status, store_code, requester_id, applicant, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,
+               'PENDING',$14,$15,$16,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`,
       [
         reqNo,
-        dto.subject,
+        dto.subject.trim(),
         dto.item || '',
         dto.qty || '',
         dto.urgency || 'NORMAL',
@@ -474,6 +477,8 @@ export class ProcurementService {
         dto.reason || '',
         dto.category || 'OTHER',
         dto.attachment_url || null,
+        dto.supplier_name || null,
+        dto.supplier_code || null,
         this.cls.get('user.storeCode') || 'ALL',
         this.cls.get('user.userId') || null,
         this.cls.get('user.realNameZh') || this.cls.get('user.username') || '',
@@ -484,6 +489,12 @@ export class ProcurementService {
 
   /** 采购员拒绝申请 */
   async rejectRequest(id: number, note: string) {
+    const [req] = await this.em.query(
+      `SELECT id, status FROM prc_purchase_requests WHERE id=$1`, [id],
+    );
+    if (!req) throw new BadRequestException('采购申请不存在');
+    if (req.status !== 'PENDING') throw new BadRequestException(`当前状态 ${req.status} 不可拒绝，只能拒绝待处理申请`);
+
     await this.em.query(
       `UPDATE prc_purchase_requests
        SET status='REJECTED', reject_note=$1, approved_by=$2, reviewer_name=$3,
@@ -512,6 +523,8 @@ export class ProcurementService {
       contract_note?: string;
     },
   ) {
+    if (!(dto.total_amount > 0)) throw new BadRequestException('采购金额必须大于 0');
+
     const [req] = await this.em.query(
       `SELECT * FROM prc_purchase_requests WHERE id=$1`, [id],
     );
