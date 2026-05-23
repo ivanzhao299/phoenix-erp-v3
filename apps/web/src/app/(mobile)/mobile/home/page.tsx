@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { useBrand } from '@/contexts/BrandContext';
 import { canAccess } from '@/lib/mobile-roles';
 import {
   BarChart2, Package, ShieldCheck, Warehouse,
@@ -132,6 +133,7 @@ export default function MobileHomePage() {
   const { lang } = useLanguage();
   const router = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
+  const { brand } = useBrand();
 
   const getTitle = (card: NavCard) =>
     lang === 'en' ? card.titleEn : lang === 'lo' ? card.titleLo : card.titleZh;
@@ -283,7 +285,7 @@ export default function MobileHomePage() {
 
       {/* 底部版权 */}
       <div style={{ textAlign: 'center', fontSize: 10, color: t.textFaint, paddingBottom: 'calc(12px + env(safe-area-inset-bottom))', paddingTop: 4 }}>
-        Phoenix ERP V3 · 老挝凤羽农业
+        Phoenix ERP V3 · {brand.company_name}
       </div>
     </div>
   );

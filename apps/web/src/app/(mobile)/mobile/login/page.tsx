@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
+import { useBrand } from '@/contexts/BrandContext';
 import { Shield, User, Lock, AlertTriangle, ChevronDown, ChevronUp, Info } from 'lucide-react';
 
 const LAST_USER_KEY = 'phoenix_last_username';
@@ -64,6 +65,7 @@ function MobileLoginInner() {
   const router = useRouter();
   const sp = useSearchParams();
   const { isDark: _isDark, t: th } = useMobileTheme();
+  const { brand } = useBrand();
 
   const [username, setUsername]         = useState('');
   const [password, setPassword]         = useState('');
@@ -305,7 +307,7 @@ function MobileLoginInner() {
       )}
 
       <div style={{ marginTop: 28, fontSize: 11, color: th.textFaint, textAlign: 'center' }}>
-        Phoenix ERP V3 · 老挝凤羽农业
+        Phoenix ERP V3 · {brand.company_name}
       </div>
     </div>
   );

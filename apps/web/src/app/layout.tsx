@@ -12,7 +12,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "金凤凰 ERP — Phoenix ERP V3",
-  description: "Phoenix ERP V3 — 鸡蛋供应链管理系统（老挝凤羽农业）",
+  description: "Phoenix ERP V3 — 鸡蛋供应链管理系统",
   robots: { index: false, follow: false },
   manifest: "/manifest.json",
   icons: {
