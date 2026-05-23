@@ -90,6 +90,7 @@
   background: var(--bg-muted);
   border-radius: var(--radius-md);
   animation: shimmer 1.4s ease-in-out infinite;
+  will-change: background-position;
 }
 @keyframes shimmer {
   0%,100% { opacity: 0.5; }

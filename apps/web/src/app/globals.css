@@ -205,6 +205,21 @@ input:disabled, textarea:disabled, select:disabled {
   clip: rect(0,0,0,0); border: 0;
 }
 
+/**
+ * prefers-reduced-motion — 为开启"减少动画"的用户（低配置电脑、辅助功能）
+ * 立即停止所有 infinite 动画（shimmer/pulse/spin），瞬间消除持续 CPU/GPU 消耗
+ * macOS: 系统设置 → 辅助功能 → 显示 → 减少动态效果
+ * Windows: 设置 → 辅助功能 → 视觉效果 → 动画效果
+ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration:       0.01ms !important;
+    animation-iteration-count: 1     !important;
+    transition-duration:      0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ── Print ───────────────────────────────────────────────────── */
 .print-area { display: none; }
 @media print {

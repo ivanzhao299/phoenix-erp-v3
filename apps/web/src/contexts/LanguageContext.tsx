@@ -28,41 +28,49 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
   });
 
   /**
-   * 性能修复：翻译数据存入 useRef 而非 useState
-   * - 旧方案：setAllTranslations(map) → allTranslations 进入 React state →
-   *   148 个 useLanguage 消费者同时重渲染（每次加载页面都触发一次级联）
-   * - 新方案：translationsRef.current 赋值不触发任何重渲染；
-   *   改为用 translationsVersion（一个数字）作为 t() 的依赖项，
-   *   翻译加载完成后仅 bump 一次版本号，React 收到的 state diff 是 number，
-   *   组件仍会重渲染一次（拿到翻译文案），但避免了 React 对大 object 的深度 diff
+   * 性能修复 — 按需加载语言包（On-demand locale loading）
+   *
+   * 旧方案：Promise.all([zh, en, lo]) 并行加载全部 → 首屏下载 796KB JSON
+   *   zh.json: 208KB + en.json: 232KB + lo.json: 356KB = 796KB
+   *   99% 的用户只需要 zh，却额外下载 588KB 无用数据 + 解析耗时
+   *
+   * 新方案：
+   *   - 首屏只加载当前语言（通常 zh ≈ 208KB gzip 后约 40KB）
+   *   - 切换语言时才加载目标语言，且缓存在 translationsRef 里不重复加载
+   *   - translationsRef 存翻译数据（不经过 React state，无重渲染开销）
+   *   - translationsVersion 是纯数字，作为 t() 的依赖触发更新
    */
   const translationsRef = useRef<Record<string, Record<string, string>>>({});
+  const loadedLangsRef  = useRef<Set<string>>(new Set());
   const [translationsVersion, bumpTranslations] = useReducer((x: number) => x + 1, 0);
-  const loaded = useRef(false);
 
-  React.useEffect(() => {
-    if (loaded.current) return;
-    loaded.current = true;
-    Promise.all(
-      SUPPORTED_LANGS.map(l => loadLocale(l).then(dict => [l, dict] as const))
-    ).then(pairs => {
-      const map: Record<string, Record<string, string>> = {};
-      pairs.forEach(([l, dict]) => { map[l] = dict; });
-      translationsRef.current = map;    // 直接赋值，不经过 React state
-      bumpTranslations();               // 仅触发一次数字 diff，而非大 object diff
+  /** 加载指定语言（已加载过则跳过） */
+  const ensureLocale = useCallback((targetLang: string): Promise<void> => {
+    if (loadedLangsRef.current.has(targetLang)) return Promise.resolve();
+    return loadLocale(targetLang).then(dict => {
+      translationsRef.current = { ...translationsRef.current, [targetLang]: dict };
+      loadedLangsRef.current.add(targetLang);
+      bumpTranslations();
     });
   }, []);
 
-  const setAppLanguage = (newLang: string) => {
+  // 首屏只加载当前语言（不再 Promise.all 全部语言）
+  React.useEffect(() => {
+    ensureLocale(lang);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const setAppLanguage = useCallback((newLang: string) => {
     setLang(newLang);
     if (typeof window !== 'undefined') localStorage.setItem('phoenix_lang', newLang);
-  };
+    ensureLocale(newLang); // 切换时才按需加载目标语言
+  }, [ensureLocale]);
 
   /**
-   * t() 依赖 [lang, translationsVersion]（两个原始值），而非 [allTranslations, lang]（大对象）
-   * - 翻译加载完成时：translationsVersion 0→1，t() 获得新引用，所有消费者重渲染一次（正确）
-   * - 切换语言时：lang 变化，t() 获得新引用，所有消费者重渲染一次（正确）
-   * - 其他 state 变化时：t() 引用不变，消费者不因 t 而重渲染（优化）
+   * t() 依赖 [lang, translationsVersion]（两个原始值）而非大 object
+   * - 翻译加载完成：translationsVersion +1 → t() 新引用 → 消费者重渲染一次
+   * - 切换语言：lang 变化 → t() 新引用 → 消费者重渲染一次
+   * - 其他变化：t() 引用不变，消费者不重渲染
    */
   const t = useCallback((key: string, fallback?: string): string => {
     const dict = translationsRef.current[lang] || {};
@@ -76,10 +84,10 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
     return String(obj[fieldBase + '_zh'] || obj[fieldBase + '_en'] || obj[fieldBase + '_lo'] || obj[fieldBase] || '');
   }, [lang]);
 
-  const toggleLanguage = () => {
+  const toggleLanguage = useCallback(() => {
     const sequence: Record<string, string> = { zh: 'lo', lo: 'en', en: 'zh' };
     setAppLanguage(sequence[lang] || 'zh');
-  };
+  }, [lang, setAppLanguage]);
 
   return (
     <LanguageContext.Provider value={{ lang, setAppLanguage, toggleLanguage, t, tField }}>

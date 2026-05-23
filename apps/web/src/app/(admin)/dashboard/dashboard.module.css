@@ -89,4 +89,5 @@
   background: var(--bg-muted);
   border-radius: var(--radius-md);
   animation: shimmer 1.4s ease-in-out infinite;
+  will-change: opacity; /* opacity 动画，非 background-position */
 }
