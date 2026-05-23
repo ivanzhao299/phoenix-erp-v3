@@ -294,7 +294,7 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
         {expanded_ && (
           <div className={styles.userInfo}>
             <div className={styles.userName}>{user?.name}</div>
-            <div className={styles.userRole}>{user?.role}</div>
+            <div className={styles.userRole}>{user?.roleNameZh || user?.role}</div>
           </div>
         )}
       </div>

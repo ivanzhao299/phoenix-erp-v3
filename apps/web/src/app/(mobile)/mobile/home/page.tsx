@@ -240,7 +240,7 @@ export default function MobileHomePage() {
         }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
           <span style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>
-            {user?.role || '管理员'}
+            {user?.roleNameZh || user?.role || '管理员'}
           </span>
         </div>
       </div>

@@ -6,6 +6,8 @@ type AuthUser = {
   username?: string;
   name?: string;
   role?: string;
+  roleNameZh?: string;   // 角色中文名（来自 JWT payload）
+  roleNameLo?: string;   // 角色老挝语名
   roles?: string[];
   permissions?: string[];
   lang?: string;

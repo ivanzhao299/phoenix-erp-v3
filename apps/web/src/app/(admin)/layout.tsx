@@ -251,7 +251,7 @@ type="button"               className={`${styles.pinBtn} ${pinned ? styles.pinAc
               <div className={styles.headerAvatar}>{avatarChar}</div>
               <div>
                 <div className={styles.headerName}>{user.name}</div>
-                <div className={styles.headerRole}>{user.role}</div>
+                <div className={styles.headerRole}>{user.roleNameZh || user.role}</div>
               </div>
             </div>
 
