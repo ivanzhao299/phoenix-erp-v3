@@ -394,6 +394,13 @@ function RequestCard({
         </div>
       )}
 
+      {/* 申请理由 */}
+      {req.reason && (
+        <div style={{ fontSize: 13, color: t.textSub, marginBottom: 6, lineHeight: 1.5 }}>
+          💬 申请理由：{req.reason}
+        </div>
+      )}
+
       {/* 申请人/门店/时间 */}
       <div style={{ fontSize: 12, color: t.textSub, marginBottom: req.status === 'PENDING' ? 12 : 0 }}>
         {req.applicant && <span>👤 {req.applicant}</span>}

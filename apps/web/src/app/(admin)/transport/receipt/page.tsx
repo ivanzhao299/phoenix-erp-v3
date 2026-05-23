@@ -39,6 +39,7 @@ export default function ReceiptPage() {
     { key: "status", title: t("common.status", "状态"), width: 90, align: "center",
       render: v => { const s = STATUS_MAP[String(v)]; return s ? <span style={{ color: s.color, fontWeight: 700, fontSize: 12 }}>{s.label}</span> : String(v ?? "—"); }
     },
+    { key: "remark", title: t("common.remark", "备注"), width: 200 },
   ];
 
   const FIELDS: FormField[] = [
