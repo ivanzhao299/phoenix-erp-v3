@@ -69,7 +69,9 @@ const nextConfig: NextConfig = {
   output: "standalone",      // Docker 精简包：只含运行所需文件
   poweredByHeader: false,   // 移除 X-Powered-By 响应头
   compress: true,            // 启用 gzip 压缩
-  reactStrictMode: true,     // 严格模式（帮助发现副作用问题）
+  // 严格模式仅在开发环境启用：生产环境下 StrictMode 会让每个组件渲染两次，
+  // 148 个使用 useLanguage 的组件 × 2 = 296+ 次渲染调用，是风扇飞转的核心原因之一
+  reactStrictMode: process.env.NODE_ENV !== 'production',
 
   // ── 实验性优化 ───────────────────────────────────────────────────
   // pnpm monorepo standalone: 让文件追踪器从 monorepo 根开始，确保 node_modules 完整复制

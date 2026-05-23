@@ -12,6 +12,28 @@ import { useRouter } from 'next/navigation';
 import TerminalNavRail from '@/components/terminal/TerminalNavRail';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
 
+/**
+ * 时钟单独抽成组件：setNow 每秒触发重渲染只影响此组件，
+ * 不会冒泡到整个 TerminalLayout 树（避免每秒触发所有子组件 re-render）
+ */
+function TerminalClock() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+      <span style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b', fontVariantNumeric: 'tabular-nums', letterSpacing: 1 }}>
+        {now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+      </span>
+      <span style={{ fontSize: 11, color: '#475569' }}>
+        {now.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'short' })}
+      </span>
+    </div>
+  );
+}
+
 const LANG_LABELS: Record<string, string> = { zh: '中', en: 'EN', lo: 'ລາວ' };
 const LANG_ORDER = ['zh', 'en', 'lo'];
 const SHIFT_LABELS: Record<string, string> = { MORNING: '早班', AFTERNOON: '下午班', NIGHT: '夜班' };
@@ -21,14 +43,9 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
   const { t } = useLanguage();
   const router = useRouter();
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [now, setNow] = useState(new Date());
+  // [优化] now 状态已移入独立的 TerminalClock 组件，消除每秒全局 re-render
   const { lang, setAppLanguage } = useLanguage();
   const { ctx } = useTerminalContext();
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const handleLogout = () => {
     if (document.fullscreenElement) {
@@ -132,15 +149,8 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
           display: 'flex', alignItems: 'center',
           padding: '0 16px', gap: 12,
         }}>
-          {/* 时钟 */}
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b', fontVariantNumeric: 'tabular-nums', letterSpacing: 1 }}>
-              {now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
-            </span>
-            <span style={{ fontSize: 11, color: '#475569' }}>
-              {now.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'short' })}
-            </span>
-          </div>
+          {/* 时钟：独立组件隔离重渲染，每秒 setState 只影响自身 */}
+          <TerminalClock />
 
           {/* 班次状态 */}
           {ctx.currentShift?.status === 'OPEN' ? (

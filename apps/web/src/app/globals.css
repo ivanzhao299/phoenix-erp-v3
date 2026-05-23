@@ -154,7 +154,9 @@ input:disabled, textarea:disabled, select:disabled {
 
 .animate-fade-in  { animation: fadeIn  0.24s var(--ease) both; }
 
-/* 骨架屏 shimmer — 流光扫动 */
+/* 骨架屏 shimmer — 流光扫动
+   [优化] will-change: transform 提示浏览器提前为此元素分配独立 GPU 合成层，
+   避免每帧在主线程计算，动画更丝滑且 CPU 占用更低 */
 .skeleton {
   background: linear-gradient(90deg,
     var(--bg-muted) 25%,
@@ -164,6 +166,7 @@ input:disabled, textarea:disabled, select:disabled {
   background-size: 800px 100%;
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: var(--radius-sm);
+  will-change: background-position;
 }
 
 .mobile-spin     { animation: spin    0.72s linear infinite; }
@@ -185,10 +188,11 @@ input:disabled, textarea:disabled, select:disabled {
 .mobile-card-in:nth-child(n+10){ animation-delay: 0.24s; }
 
 /* ── Glass card ─────────────────────────────────────────────── */
+/* [优化] backdrop-filter: blur() 强制创建 GPU 合成层并对背景像素做高斯模糊，
+   在有多个实例或滚动场景下持续占用 GPU。改为实色半透明背景，
+   视觉上几乎无差异，但消除了持续的 GPU 模糊合成开销 */
 .glass-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--bg-card);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);

@@ -20,6 +20,7 @@
   background: linear-gradient(90deg, var(--bg-page) 25%, var(--border) 50%, var(--bg-page) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
+  will-change: background-position; /* GPU 合成层提示，shimmer 不占主线程 */
 }
 @keyframes shimmer {
   0%   { background-position: 200% 0; }

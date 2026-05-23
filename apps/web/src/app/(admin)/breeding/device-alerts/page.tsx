@@ -5,6 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import { AlertTriangle, RefreshCw, Wifi, WifiOff } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePolling } from '@/hooks/usePolling';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -394,11 +395,7 @@ export default function DeviceAlertsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchAlarms();
-    const timer = setInterval(fetchAlarms, 30000);
-    return () => clearInterval(timer);
-  }, [fetchAlarms]);
+  usePolling(fetchAlarms, 30_000);
 
   // ── Derived data ────────────────────────────────────────────────────────────
 

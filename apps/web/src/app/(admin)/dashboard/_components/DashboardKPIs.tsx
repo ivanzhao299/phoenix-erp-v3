@@ -1,7 +1,8 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { TrendingUp, AlertCircle, Egg, PackageSearch, BatteryWarning, ArrowUpRight, RefreshCw, Wifi, ShieldCheck } from 'lucide-react';
 import styles from './dashboard.module.css';
+import { usePolling } from '@/hooks/usePolling';
 
 const CARD_THEMES = [
   { accent: '#0ea5e9', bg: 'rgba(14,165,233,0.08)',  glow: 'rgba(14,165,233,0.18)' },
@@ -98,12 +99,8 @@ export default function DashboardKPIs({ initialData }: Props) {
     }
   }, [API_BASE]);
 
-  // 挂载立即刷新，之后每 60s 轮询
-  useEffect(() => {
-    fetchKpi();
-    const t = setInterval(fetchKpi, 60_000);
-    return () => clearInterval(t);
-  }, [fetchKpi]);
+  // 挂载立即刷新，之后每 60s 轮询（后台标签时跳过，切回来时补跑）
+  usePolling(fetchKpi, 60_000);
 
   const stats     = kpi.stats ?? EMPTY_STATS;
   const chartData = kpi.chartData ?? [];

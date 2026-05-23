@@ -19,11 +19,10 @@
   box-shadow: var(--shadow-md);
 }
 
+/* [优化] 移除 backdrop-filter: blur(12px)，改为实色背景 */
 .glassCard {
-  background: var(--glass-bg, rgba(255,255,255,0.72));
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border, rgba(255,255,255,0.20));
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: 20px;

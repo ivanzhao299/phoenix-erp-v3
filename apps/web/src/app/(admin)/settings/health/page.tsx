@@ -1,8 +1,9 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
 import { Activity, Database, Cpu, Wifi, Clock, RefreshCw, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePolling } from '@/hooks/usePolling';
 
 type Status = "ok" | "warn" | "error" | "loading";
 
@@ -88,7 +89,7 @@ export default function SystemHealthPage() {
     setChecking(false);
   }, []);
 
-  useEffect(() => { runCheck(); const timer = setInterval(runCheck, 30000); return () => clearInterval(timer); }, [runCheck]);
+  usePolling(runCheck, 30_000);
 
   const latencyStatus: Status = apiLatency==null?"loading":apiLatency<200?"ok":apiLatency<800?"warn":"error";
   const memStatus:     Status = memUsage==null?"loading":Number(memUsage.pct)<60?"ok":Number(memUsage.pct)<80?"warn":"error";
