@@ -35,6 +35,7 @@ import { BffModule } from './modules/bff/bff.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { QualityModule } from './modules/quality/quality.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
+import { UploadModule } from './modules/upload/upload.module';
 
 
 @Module({
@@ -83,6 +84,7 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
     PermissionsModule,
     QualityModule,
     WorkflowModule,
+    UploadModule,
   ],
   controllers: [DebugController, HealthController],
   providers: [

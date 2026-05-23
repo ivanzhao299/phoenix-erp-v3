@@ -46,6 +46,24 @@ export class PurchaseOrderEntity {
   @Column({ type: 'date', nullable: true })
   expected_date: string;    // 预计到货日期
 
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  contract_no: string;        // 合同编号（自动生成，格式 HT-YYYY-NNNNN）
+
+  @Column({ type: 'text', nullable: true })
+  contract_note: string;      // 合同关键条款摘要
+
+  @Column({ type: 'date', nullable: true })
+  pay_deadline: string;       // 付款截止日
+
+  @Column({ type: 'text', nullable: true })
+  contract_url: string;       // 合同/单据文件路径
+
+  @Column({ type: 'int', nullable: true })
+  approver_id: number;        // 指定审批人 user_id
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  approver_name: string;      // 审批人姓名快照
+
   @Column({ type: 'text', nullable: true })
   remark: string;
 

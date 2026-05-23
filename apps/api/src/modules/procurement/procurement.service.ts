@@ -22,10 +22,18 @@ export class ProcurementService {
     total_amount: number;
     currency_code?: string;
     expected_date?: string;
+    pay_deadline?: string;
+    contract_note?: string;
     remark?: string;
   }) {
+    // 原子性生成合同编号，序列保证并发不重号
+    const year = new Date().getFullYear();
+    const [{ seq }] = await this.em.query(
+      `SELECT LPAD(nextval('prc_contract_no_seq')::text, 5, '0') AS seq`,
+    );
     const po = new PurchaseOrderEntity();
     po.po_no          = `PO-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    po.contract_no    = `HT-${year}-${seq}`;
     po.supplier_code  = dto.supplier_code;
     po.supplier_name  = dto.supplier_name || '';
     po.subject        = dto.subject || '';
@@ -33,10 +41,29 @@ export class ProcurementService {
     po.total_amount   = dto.total_amount;
     po.currency_code  = dto.currency_code || (dto.total_amount > 50000 ? 'LAK' : 'CNY');
     po.expected_date  = dto.expected_date || '';
+    po.pay_deadline   = dto.pay_deadline  || '';
+    po.contract_note  = dto.contract_note || '';
     po.remark         = dto.remark || '';
     po.store_code     = this.cls.get('user.storeCode') || 'ALL';
     po.created_by     = this.cls.get('user.userId');
     return await this.em.save(PurchaseOrderEntity, po);
+  }
+
+  // ─── 获取可用审批人列表（有审批权限的在职用户） ───────────────────────────
+  async getApprovers() {
+    try {
+      const data = await this.em.query(`
+        SELECT DISTINCT u.user_id, u.username, u.real_name, u.store_code,
+               r.role_code, r.role_name_zh
+        FROM sys_user u
+        JOIN sys_user_role ur ON u.user_id = ur.user_id
+        JOIN sys_role r ON ur.role_id = r.role_id
+        WHERE r.role_code IN ('ROLE_ADMIN', 'ROLE_REGION_MGR', 'ROLE_CEO')
+          AND u.status = 1
+        ORDER BY u.real_name
+      `);
+      return { code: 200, data };
+    } catch { return { code: 200, data: [] }; }
   }
 
   async getRequests() {
@@ -57,10 +84,16 @@ export class ProcurementService {
     } catch { return { code: 200, data: [] }; }
   }
 
-  async submitForApproval(poNo: string) {
+  async submitForApproval(
+    poNo: string,
+    extra?: { approver_id?: number; approver_name?: string; contract_url?: string },
+  ) {
     const po = await this.em.findOne(PurchaseOrderEntity, { where: { po_no: poNo } });
     if (!po) throw new BadRequestException('采购单不存在');
     if (po.status !== 'DRAFT') throw new BadRequestException('只能提交草稿状态的采购单');
+    if (extra?.approver_id)   po.approver_id   = extra.approver_id;
+    if (extra?.approver_name) po.approver_name  = extra.approver_name;
+    if (extra?.contract_url)  po.contract_url   = extra.contract_url;
     po.status = 'PENDING_APPROVAL';
     await this.em.save(PurchaseOrderEntity, po);
     await this.approvalService.submitForApproval({

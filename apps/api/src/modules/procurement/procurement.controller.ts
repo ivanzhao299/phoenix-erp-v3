@@ -31,11 +31,21 @@ export class ProcurementController {
   }
 
   @Post(':poNo/submit')
-  async submitPO(@Param('poNo') poNo: string) {
-    return await this.procurementService.submitForApproval(poNo);
+  async submitPO(@Param('poNo') poNo: string, @Body() body: any) {
+    return await this.procurementService.submitForApproval(poNo, {
+      approver_id:   body?.approver_id   ? Number(body.approver_id) : undefined,
+      approver_name: body?.approver_name || undefined,
+      contract_url:  body?.contract_url  || undefined,
+    });
   }
 
-  // ─── 批准采购单 ────────────────────────────────────────────────────────────
+  // ─── 获取审批人列表 ──────────────────────────────���─────────────────────────
+  @Get('approvers')
+  async getApprovers() {
+    return await this.procurementService.getApprovers();
+  }
+
+  // ─── 批准采购单 ─────────────────────���──────────────────────────────────────
   @Post(':poNo/approve')
   async approvePO(@Param('poNo') poNo: string) {
     return await this.procurementService.approvePO(poNo);

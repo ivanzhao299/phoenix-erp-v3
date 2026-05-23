@@ -1,12 +1,20 @@
 import 'dotenv/config';            // 必须在 AppModule 之前 — 否则 auth.service 文件级 const JWT_SECRET 在 ConfigModule 加载 .env 之前就取了 FALLBACK，与 jwt.strategy 的真实 secret 错配
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import * as express from 'express';
+import { join } from 'path';
+import { mkdirSync } from 'fs';
 
 async function bootstrap() {
   // ✅ bodyParser: false — 禁用 NestJS 内置的 100KB body-parser
   //    否则内置 parser 先于自定义中间件执行，logo base64 会触发 413
-  const app = await NestFactory.create(AppModule, { bodyParser: false });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
+
+  // ── 静态文件：合同/单据上传目录 ───────────────────────────────────────────
+  const uploadsDir = join(process.cwd(), 'uploads');
+  mkdirSync(uploadsDir, { recursive: true });
+  app.useStaticAssets(uploadsDir, { prefix: '/uploads' });
 
   // ── Body 大小限制（必须在所有中间件最前面注册）────────────────────────────
   // Logo base64 最大约 800KB（前端已限制），正文 JSON 预留至 5MB

@@ -55,6 +55,8 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-https://erp.eggslao.com}
       LOG_LEVEL: ${LOG_LEVEL:-warn}
       PORT: 3100
+    volumes:
+      - phoenix_uploads:/app/uploads   # 合同/单据文件持久化
     ports:
       - "127.0.0.1:${API_PORT:-3100}:3100"
     healthcheck:
@@ -102,3 +104,5 @@ services:
 volumes:
   phoenix_pg_data:
     name: phoenix_pg_data
+  phoenix_uploads:
+    name: phoenix_uploads
