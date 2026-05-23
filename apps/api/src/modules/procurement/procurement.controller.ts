@@ -35,6 +35,24 @@ export class ProcurementController {
     return await this.procurementService.submitForApproval(poNo);
   }
 
+  // ─── 批准采购单 ────────────────────────────────────────────────────────────
+  @Post(':poNo/approve')
+  async approvePO(@Param('poNo') poNo: string) {
+    return await this.procurementService.approvePO(poNo);
+  }
+
+  // ─── 待付款列表（来自PO批准） ──────────────────────────────────────────────
+  @Get('pending-payments')
+  async getPendingPayments() {
+    return await this.procurementService.getPendingPayments();
+  }
+
+  // ─── 确认付款 ──────────────────────────────────────────────────────────────
+  @Post('payments/:id/confirm')
+  async confirmPayment(@Param('id') id: string, @Body() body: any) {
+    return await this.procurementService.confirmPayment(Number(id), body);
+  }
+
   // ─── 收货确认 ──────────────────────────────────────────────────────────────
   @Post(':poNo/confirm-receipt')
   async confirmReceipt(@Param('poNo') poNo: string, @Body('items') items: any[]) {

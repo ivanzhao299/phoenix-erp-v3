@@ -12,11 +12,14 @@ import s from "@/components/ui/admin-ui.module.css";
 
 const STATUS_CLS: Record<string,string> = {
   DRAFT:"badgeNeutral", PENDING:"badgeWarning", CONFIRMED:"badgeInfo",
-  APPROVED:"badgeInfo", ARRIVING:"badgeInfo", RECEIVED:"badgeSuccess", CANCELLED:"badgeDanger",
+  APPROVED:"badgeInfo", PAID:"badgeSuccess", ARRIVING:"badgeInfo",
+  RECEIVED:"badgeSuccess", CANCELLED:"badgeDanger",
 };
 
+// APPROVED → PAID 由财务在付款页操作；此处跳过，改为 PAID → ARRIVING
 const STATUS_FLOW: Record<string,string> = {
-  DRAFT:"CONFIRMED", PENDING:"CONFIRMED", CONFIRMED:"APPROVED", APPROVED:"ARRIVING", ARRIVING:"RECEIVED",
+  DRAFT:"CONFIRMED", PENDING:"CONFIRMED", CONFIRMED:"APPROVED",
+  PAID:"ARRIVING", ARRIVING:"RECEIVED",
 };
 
 interface PO {
@@ -24,6 +27,7 @@ interface PO {
   subject?:string; total_amount?:number; currency_code?:string;
   status:string; plan_qty?:number; received_qty?:number;
   store_code?:string; expected_date?:string; remark?:string;
+  contract_no?:string; contract_note?:string; pay_deadline?:string;
   created_by?:number; approved_by?:number; created_at?:string; updated_at?:string;
 }
 interface Supplier { id:number; supplier_code:string; supplier_name:string; }
@@ -31,11 +35,13 @@ interface Form {
   po_no:string; supplier_code:string; supplier_name:string; subject:string;
   total_amount:string; currency_code:string; plan_qty:string;
   expected_date:string; remark:string;
+  contract_no:string; contract_note:string; pay_deadline:string;
 }
 const DEF: Form = {
   po_no:"", supplier_code:"", supplier_name:"", subject:"",
   total_amount:"0", currency_code:"LAK", plan_qty:"0",
   expected_date:"", remark:"",
+  contract_no:"", contract_note:"", pay_deadline:"",
 };
 
 export default function ProcurementOrderPage() {
@@ -44,10 +50,13 @@ export default function ProcurementOrderPage() {
 
   const STATUS_LABEL: Record<string,string> = {
     DRAFT:t("ui.草稿","草稿"), PENDING:t("ui.待审批","待审批"), CONFIRMED:t("ui.已确认","已确认"),
-    APPROVED:t("ui.已批准","已批准"), ARRIVING:t("ui.在途中","在途中"), RECEIVED:t("ui.已收货","已收货"), CANCELLED:t("status.cancelled","已取消"),
+    APPROVED:t("ui.已批准待付款","已批准·待付款"), PAID:t("ui.已付款","已付款"),
+    ARRIVING:t("ui.在途中","在途中"), RECEIVED:t("ui.已收货","已收货"), CANCELLED:t("status.cancelled","已取消"),
   };
   const STATUS_NEXT_LABEL: Record<string,string> = {
-    DRAFT:t("ui.提交确认","提交确认"), PENDING:t("ui.批准确认","批准确认"), CONFIRMED:t("ui.批准","批准"), APPROVED:t("ui.发货在途","发货在途"), ARRIVING:t("ui.确认收货","确认收货"),
+    DRAFT:t("ui.提交确认","提交确认"), PENDING:t("ui.提交确认","提交确认"),
+    CONFIRMED:t("ui.批准并生成待付款","批准并生成待付款"),
+    PAID:t("ui.标记发货在途","标记发货在途"), ARRIVING:t("ui.确认收货","确认收货"),
   };
 
   const [orders, setOrders]       = useState<PO[]>([]);
@@ -103,6 +112,8 @@ export default function ProcurementOrderPage() {
       subject: row.subject||"", total_amount: String(row.total_amount||0),
       currency_code: row.currency_code||"LAK", plan_qty: String(row.plan_qty||0),
       expected_date: row.expected_date?.slice(0,10)||"", remark: row.remark||"",
+      contract_no: row.contract_no||"", contract_note: row.contract_note||"",
+      pay_deadline: row.pay_deadline?.slice(0,10)||"",
     });
     setDrawerOpen(true);
   }
@@ -137,11 +148,19 @@ export default function ProcurementOrderPage() {
   const advance = async (row: PO) => {
     const next = STATUS_FLOW[row.status?.toUpperCase()||""];
     if (!next) return;
-    await fetch(`/api/crud/prc_purchase_orders/${row.id}`,{
-      method:"PUT",headers:hdr,
-      body:JSON.stringify({ status:next, ...(next==="RECEIVED"?{received_qty:row.plan_qty}:{}) }),
-    });
-    toast.success(`${t("ui.状态已推进为","状态已推进为")}：${STATUS_LABEL[next]||next}`);
+    if (next === "APPROVED") {
+      // 批准：使用专用接口，自动创建待付款记录
+      const res = await fetch(`/api/procurement/${row.po_no}/approve`,{ method:"POST",headers:hdr });
+      const json = await res.json().catch(()=>({}));
+      if (res.ok) { toast.success(json.msg || t("ui.采购单已批准","采购单已批准，待付款记录已生成")); }
+      else { toast.error(json.msg || t("ui.批准失败","批准失败")); }
+    } else {
+      await fetch(`/api/crud/prc_purchase_orders/${row.id}`,{
+        method:"PUT",headers:hdr,
+        body:JSON.stringify({ status:next, ...(next==="RECEIVED"?{received_qty:row.plan_qty}:{}) }),
+      });
+      toast.success(`${t("ui.状态已推进为","状态已推进为")}：${STATUS_LABEL[next]||next}`);
+    }
     load();
   };
 
@@ -255,6 +274,9 @@ export default function ProcurementOrderPage() {
               { label:t("ui.计划数量","计划数量"), value:String(detailRow.plan_qty||0) },
               { label:t("ui.已收数量","已收数量"), value:String(detailRow.received_qty||0) },
               { label:t("ui.期望到货","期望到货"), value:detailRow.expected_date?.slice(0,10)||"—" },
+                      { label:t("ui.合同编号","合同编号"), value:detailRow.contract_no||"—" },
+              { label:t("ui.合同摘要","合同摘要"), value:detailRow.contract_note||"—" },
+              { label:t("ui.付款截止","付款截止"), value:detailRow.pay_deadline?.slice(0,10)||"—" },
               { label:t("ui.创建时间","创建时间"), value:detailRow.created_at?.slice(0,16)||"—" },
               { label:t("ui.更新时间","更新时间"), value:detailRow.updated_at?.slice(0,16)||"—" },
               { label:t("common.remark","备注"),     value:detailRow.remark||"—" },
@@ -318,14 +340,33 @@ export default function ProcurementOrderPage() {
                   style={{ width:"100%",padding:"8px 10px",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:13,outline:"none",boxSizing:"border-box" }}/>
               </div>
             </div>
-            <div>
-              <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.期望到货日期","期望到货日期")}</label>
-              <input type="date" value={form.expected_date} onChange={e=>setF("expected_date",e.target.value)}
-                style={{ width:"100%",padding:"8px 10px",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:13,outline:"none",boxSizing:"border-box" }}/>
+            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
+              <div>
+                <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.期望到货日期","期望到货日期")}</label>
+                <input type="date" value={form.expected_date} onChange={e=>setF("expected_date",e.target.value)}
+                  style={{ width:"100%",padding:"8px 10px",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:13,outline:"none",boxSizing:"border-box" }}/>
+              </div>
+              <div>
+                <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.付款截止日","付款截止日")}</label>
+                <input type="date" value={form.pay_deadline} onChange={e=>setF("pay_deadline",e.target.value)}
+                  style={{ width:"100%",padding:"8px 10px",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:13,outline:"none",boxSizing:"border-box" }}/>
+              </div>
+            </div>
+            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
+              <div>
+                <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.合同编号","合同编号")}</label>
+                <input value={form.contract_no} onChange={e=>setF("contract_no",e.target.value)} placeholder="如：HT-2026-001"
+                  style={{ width:"100%",padding:"8px 10px",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:13,outline:"none",boxSizing:"border-box" }}/>
+              </div>
+              <div style={{ gridColumn:"1/-1" }}>
+                <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("ui.合同关键条款","合同关键条款摘要")}</label>
+                <textarea value={form.contract_note} onChange={e=>setF("contract_note",e.target.value)} rows={2} placeholder={t("ui.合同摘要示例","价格条款、交货方式、付款期限等")}
+                  style={{ width:"100%",padding:"8px 10px",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:13,outline:"none",resize:"vertical",boxSizing:"border-box" }}/>
+              </div>
             </div>
             <div>
               <label style={{ fontSize:13,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>{t("common.remark","备注")}</label>
-              <textarea value={form.remark} onChange={e=>setF("remark",e.target.value)} rows={3}
+              <textarea value={form.remark} onChange={e=>setF("remark",e.target.value)} rows={2}
                 style={{ width:"100%",padding:"8px 10px",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:13,outline:"none",resize:"vertical",boxSizing:"border-box" }}/>
             </div>
             <div style={{ display:"flex",gap:10,paddingTop:8 }}>

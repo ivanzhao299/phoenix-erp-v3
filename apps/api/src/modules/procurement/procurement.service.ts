@@ -75,6 +75,91 @@ export class ProcurementService {
     await this.em.update(PurchaseOrderEntity, { id: docId }, { status: 'APPROVED' });
   }
 
+  // ─── 批准采购单（同时生成待付款记录） ─────────────────────────────────────────
+  async approvePO(poNo: string) {
+    const po = await this.em.findOne(PurchaseOrderEntity, { where: { po_no: poNo } });
+    if (!po) throw new BadRequestException('采购单不存在');
+
+    await this.em.transaction(async (manager) => {
+      // 1. 更新 PO 状态
+      await manager.query(
+        `UPDATE prc_purchase_orders SET status='APPROVED', updated_at=CURRENT_TIMESTAMP WHERE po_no=$1`,
+        [poNo],
+      );
+      // 2. 幂等：若已有此 PO 的待付款记录则跳过
+      const [exists] = await manager.query(
+        `SELECT 1 FROM fin_transactions WHERE po_no=$1 AND type='AP' LIMIT 1`,
+        [poNo],
+      );
+      if (!exists) {
+        const txnNo = `AP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        await manager.query(
+          `INSERT INTO fin_transactions
+             (txn_no, type, account_code, amount, currency_code, status, ref_no, po_no, description, created_at)
+           VALUES ($1,'AP','AP-TRADE',$2,$3,'PENDING',$4,$5,$6,CURRENT_TIMESTAMP)`,
+          [
+            txnNo,
+            po.total_amount,
+            po.currency_code || 'LAK',
+            poNo,
+            poNo,
+            `采购单：${po.subject || ''} / ${po.supplier_name || po.supplier_code || ''}`,
+          ],
+        );
+      }
+    });
+    return { code: 200, msg: '采购单已批准，待付款记录已生成' };
+  }
+
+  // ─── 待付款列表（来自PO批准的AP记录）─────────────────────────────────────────
+  async getPendingPayments() {
+    try {
+      const data = await this.em.query(`
+        SELECT ft.id, ft.txn_no, ft.amount, ft.currency_code, ft.status,
+               ft.description, ft.due_date, ft.created_at, ft.po_no,
+               po.subject, po.supplier_name, po.supplier_code,
+               po.contract_no, po.pay_deadline, po.plan_qty, po.currency_code AS po_currency
+        FROM fin_transactions ft
+        LEFT JOIN prc_purchase_orders po ON ft.po_no = po.po_no
+        WHERE ft.type = 'AP' AND ft.status = 'PENDING' AND ft.po_no IS NOT NULL
+        ORDER BY ft.created_at DESC
+      `);
+      return { code: 200, data };
+    } catch { return { code: 200, data: [] }; }
+  }
+
+  // ─── 确认付款（财务操作）─────────────────────────────────────────────────────
+  async confirmPayment(
+    txnId: number,
+    dto: { payment_ref?: string; payment_proof?: string; method?: string },
+  ) {
+    const [txn] = await this.em.query(
+      `SELECT * FROM fin_transactions WHERE id=$1`, [txnId],
+    );
+    if (!txn) throw new BadRequestException('付款记录不存在');
+    if (txn.status === 'PAID') throw new BadRequestException('该笔款项已确认付款');
+
+    await this.em.transaction(async (manager) => {
+      const methodNote = dto.method ? ` | 付款方式：${dto.method}` : '';
+      await manager.query(
+        `UPDATE fin_transactions
+         SET status='PAID', payment_ref=$1, payment_proof=$2,
+             note=COALESCE(note,'')||$3, updated_at=CURRENT_TIMESTAMP
+         WHERE id=$4`,
+        [dto.payment_ref || null, dto.payment_proof || null, methodNote, txnId],
+      );
+      if (txn.po_no) {
+        await manager.query(
+          `UPDATE prc_purchase_orders
+           SET status='PAID', updated_at=CURRENT_TIMESTAMP
+           WHERE po_no=$1`,
+          [txn.po_no],
+        );
+      }
+    });
+    return { code: 200, msg: '付款已确认' };
+  }
+
   // ─── 收货确认 ─────────────────────────────────────────────────────────────────
   async confirmReceipt(poNo: string, items: any[]) {
     await this.em.transaction(async (manager) => {

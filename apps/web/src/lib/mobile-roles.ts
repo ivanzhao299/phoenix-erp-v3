@@ -138,6 +138,12 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     write: [R.ADMIN, R.PKG_MGR, R.PKG_OP],
     read:  [R.CEO, R.FARM_MGR, R.QA_MGR],
   },
+
+  /** 采购审批与付款：区域经理/CEO批准采购单；财务确认付款 */
+  procurement: {
+    write: [R.ADMIN, R.REGION_MGR, R.CEO, R.FIN_ACCT, R.FIN_CFO],
+    read:  [R.PRC_BUYER, R.AUDITOR, R.STORE_MGR],
+  },
 };
 
 // ── 辅助函数 ──────────────────────────────────────────────────────────────────

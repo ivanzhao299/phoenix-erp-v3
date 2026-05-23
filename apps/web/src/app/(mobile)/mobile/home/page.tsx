@@ -8,7 +8,7 @@ import { canAccess } from '@/lib/mobile-roles';
 import {
   BarChart2, Package, ShieldCheck, Warehouse,
   Truck, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird, Egg,
-  Sun, Moon, LineChart, PackageCheck,
+  Sun, Moon, LineChart, PackageCheck, ShoppingCart,
 } from 'lucide-react';
 
 type NavCard = {
@@ -125,6 +125,15 @@ const NAV_CARDS: NavCard[] = [
     href: '/mobile/delivery',
     soon: false,
     pageKey: 'delivery',
+  },
+  {
+    icon: <ShoppingCart size={28} />,
+    titleZh: '采购审批', titleEn: 'Procurement', titleLo: 'ການຈັດຊື້',
+    desc: '审批采购单 · 财务确认付款',
+    color: '#7c3aed',
+    href: '/mobile/procurement',
+    soon: false,
+    pageKey: 'procurement',
   },
 ];
 
