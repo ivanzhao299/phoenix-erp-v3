@@ -111,6 +111,33 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
     }
   }, [loading, isLoggedIn, pathname, router]);
 
+  /**
+   * 禁止捏合缩放（iOS Safari 会忽略 viewport meta 的 user-scalable=no）
+   * - 使用 passive:false 才能调用 preventDefault()
+   * - 标记了 data-zoomable 的容器（如图片查看器）放行
+   */
+  useEffect(() => {
+    const preventPinchZoom = (e: TouchEvent) => {
+      if (e.touches.length < 2) return;
+      const target = e.target as Element | null;
+      if (target?.closest('[data-zoomable]')) return; // 图片/图表查看区放行
+      e.preventDefault();
+    };
+    document.addEventListener('touchstart', preventPinchZoom, { passive: false });
+    // gesturestart 是 iOS 私有事件，也需拦截
+    const preventGesture = (e: Event) => {
+      const target = (e as TouchEvent).target as Element | null;
+      if (!target?.closest('[data-zoomable]')) e.preventDefault();
+    };
+    document.addEventListener('gesturestart', preventGesture, { passive: false } as AddEventListenerOptions);
+    document.addEventListener('gesturechange', preventGesture, { passive: false } as AddEventListenerOptions);
+    return () => {
+      document.removeEventListener('touchstart', preventPinchZoom);
+      document.removeEventListener('gesturestart', preventGesture);
+      document.removeEventListener('gesturechange', preventGesture);
+    };
+  }, []);
+
   return (
     <MobileThemeProvider>
       {/*
@@ -119,6 +146,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
        *   2. overflow-y: auto            →  内容超出时在此容器内滚动
        *   3. overscroll-behavior: none   →  禁止容器边界处的橡皮筋回弹
        *   4. -webkit-overflow-scrolling  →  iOS 惯性滚动（丝滑感）
+       *   5. touch-action: pan-x pan-y   →  CSS 层禁止捏合缩放，双重保险
        */}
       <div
         style={{
@@ -127,6 +155,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
           overflowY: 'auto',
           overscrollBehavior: 'none',
           WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-x pan-y',   // CSS 层禁止 pinch-zoom
         } as React.CSSProperties}
       >
         {loading && pathname !== '/mobile/login' ? (

@@ -1,15 +1,17 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useBrand } from '@/contexts/BrandContext';
 import { canAccess } from '@/lib/mobile-roles';
+import { haptic } from '@/lib/haptic';
 import {
   BarChart2, Package, ShieldCheck, Warehouse,
   Truck, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird, Egg,
   Sun, Moon, LineChart, PackageCheck, ShoppingCart, ClipboardList, ClipboardCheck,
+  Maximize2, Minimize2,
 } from 'lucide-react';
 
 type NavCard = {
@@ -152,12 +154,53 @@ const NAV_CARDS: NavCard[] = [
   },
 ];
 
+/** 全屏 API 能力检测（iOS Safari 不支持） */
+function canFullscreen() {
+  if (typeof document === 'undefined') return false;
+  return !!(document.documentElement.requestFullscreen
+    || (document.documentElement as unknown as { webkitRequestFullscreen?: unknown }).webkitRequestFullscreen);
+}
+
 export default function MobileHomePage() {
   const { user, logout } = useAuth();
   const { lang, toggleLanguage } = useLanguage();
   const router = useRouter();
   const { isDark, toggle, t } = useMobileTheme();
   const { brand } = useBrand();
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fsSupported] = useState(() => canFullscreen());
+
+  /** 监听浏览器全屏状态变化（用户按 Esc 退出时同步状态） */
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFsChange);
+      document.removeEventListener('webkitfullscreenchange', onFsChange);
+    };
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    haptic('light');
+    try {
+      if (!document.fullscreenElement) {
+        const el = document.documentElement as unknown as {
+          requestFullscreen?: () => Promise<void>;
+          webkitRequestFullscreen?: () => void;
+        };
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else el.webkitRequestFullscreen?.();
+      } else {
+        const doc = document as unknown as {
+          exitFullscreen?: () => Promise<void>;
+          webkitExitFullscreen?: () => void;
+        };
+        if (doc.exitFullscreen) await doc.exitFullscreen();
+        else doc.webkitExitFullscreen?.();
+      }
+    } catch { /* 用户拒绝或浏览器不支持 */ }
+  }, []);
 
   const getTitle = (card: NavCard) =>
     lang === 'en' ? card.titleEn : lang === 'lo' ? card.titleLo : card.titleZh;
@@ -230,6 +273,23 @@ export default function MobileHomePage() {
           }}>
             {isDark ? <Sun size={18} /> : <Moon size={18} />}
           </button>
+          {/* 全屏按钮：Android Chrome / 桌面支持；iOS Safari 不支持 Fullscreen API，隐藏 */}
+          {fsSupported && (
+            <button
+              onClick={toggleFullscreen}
+              title={isFullscreen
+                ? (lang === 'en' ? 'Exit Fullscreen' : '退出全屏')
+                : (lang === 'en' ? 'Fullscreen' : '全屏')}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: 6,
+                color: isFullscreen ? '#f59e0b' : t.textSub,
+                display: 'flex', alignItems: 'center',
+                transition: 'color 0.2s',
+              }}
+            >
+              {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+          )}
           <button
             onClick={() => logout()}
             style={{
