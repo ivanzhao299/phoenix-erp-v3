@@ -1,7 +1,8 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, RefreshCw, ArrowLeft, Sun, Moon } from 'lucide-react';
+import useSWR from 'swr';
 import { mobileApi, KpiData, PackagingDailyReport, QcInspection, FarmLog, FlockRecord, PackagingTrendItem, DeviceAlert, EggStockRow } from '@/lib/mobile-api';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
@@ -143,85 +144,50 @@ export default function MobileDashboardPage() {
   const { allowed, loading: permLoading } = useMobilePermission('dashboard');
   const today = fmtDate(new Date());
 
-  const [date, setDate]         = useState(today);
-  const [kpi, setKpi]           = useState<KpiData | null>(null);
-  const [pkg, setPkg]           = useState<PackagingDailyReport | null>(null);
-  const [qc, setQc]             = useState<QcInspection[] | null>(null);
-  const [farm, setFarm]         = useState<FarmLog[] | null>(null);
-  const [trend, setTrend]       = useState<PackagingTrendItem[]>([]);
-  const [alerts, setAlerts]     = useState<DeviceAlert[]>([]);
-  const [flocks, setFlocks]     = useState<FlockRecord[]>([]);
-  const [eggStock, setEggStock] = useState<EggStockRow[]>([]);
+  const [date, setDate]   = useState(today);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [alertsExpanded, setAlertsExpanded] = useState(false);
   const [houseExpanded, setHouseExpanded]   = useState(false);
   const [flockExpanded, setFlockExpanded]   = useState(false);
 
-  const [kpiLoading, setKpiLoading]   = useState(true);
-  const [pkgLoading, setPkgLoading]   = useState(true);
-  const [qcLoading, setQcLoading]     = useState(true);
-  const [farmLoading, setFarmLoading] = useState(true);
+  // ── SWR 数据加载 ─────────────────────────────────────────────────────────────
+  // key 格式 = "<数据名>/<参数>/<refreshKey>"，日期变化或手动刷新时自动重取
+  // revalidateOnFocus = 切回 App 时后台静默更新；上次结果立即��示，无感刷新
+  const swrOpts = { revalidateOnFocus: true, dedupingInterval: 5_000 };
 
-  const [kpiErr, setKpiErr]   = useState('');
-  const [pkgErr, setPkgErr]   = useState('');
-  const [qcErr, setQcErr]     = useState('');
-  const [farmErr, setFarmErr] = useState('');
+  const { data: kpiData,   isLoading: kpiLoading,  error: _kpiErr  } =
+    useSWR(`kpi/${refreshKey}`, () => mobileApi.getKpi(), swrOpts);
+  const { data: pkgData,   isLoading: pkgLoading,  error: _pkgErr  } =
+    useSWR(`pkg/${date}/${refreshKey}`, () => mobileApi.getPackagingReport(date), swrOpts);
+  const { data: qcRaw,     isLoading: qcLoading,   error: _qcErr   } =
+    useSWR(`qc/${date}/${refreshKey}`, () => mobileApi.getQcInspections(date), swrOpts);
+  const { data: farmRaw,   isLoading: farmLoading, error: _farmErr } =
+    useSWR(`farm/${date}/${refreshKey}`, () => mobileApi.getFarmLogs(date), swrOpts);
+  const { data: trendRaw  } =
+    useSWR(`trend/${refreshKey}`, () => mobileApi.getPackagingTrend(today, 7), swrOpts);
+  const { data: alertsRaw } =
+    useSWR(`alerts/${refreshKey}`, () => mobileApi.getOpenAlerts(), swrOpts);
+  const { data: flocksRaw } =
+    useSWR(`flocks/${refreshKey}`, () => mobileApi.getFlocks(), swrOpts);
+  const { data: eggStockRaw } =
+    useSWR(`eggstock/${refreshKey}`, () => mobileApi.getEggStock(), swrOpts);
 
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  // 趋势图、告警、存栏批次只在初次加载/刷新时更新（不随日期切换重复请求）
-  useEffect(() => {
-    mobileApi.getPackagingTrend(today, 7)
-      .then(data => { const arr = Array.isArray(data) ? data : (data as any)?.data ?? []; setTrend(arr); })
-      .catch(() => {});
-    mobileApi.getOpenAlerts()
-      .then(data => { const arr = Array.isArray(data) ? data : []; setAlerts(arr); })
-      .catch(() => {});
-    mobileApi.getFlocks()
-      .then(data => { const arr = Array.isArray(data) ? data : (data as any)?.data ?? []; setFlocks(arr); })
-      .catch(() => {});
-    mobileApi.getEggStock()
-      .then(data => { setEggStock(Array.isArray(data) ? data : []); })
-      .catch(() => {});
-  }, [refreshKey, today]);
-
-  const fetchAll = useCallback(async (d: string) => {
-    // 四个请求并发，互不影响
-    setKpiLoading(true); setPkgLoading(true); setQcLoading(true); setFarmLoading(true);
-    setKpiErr(''); setPkgErr(''); setQcErr(''); setFarmErr('');
-
-    // 1. KPI（仅今日有意义，其他日期也调用但结果是今日）
-    mobileApi.getKpi()
-      .then(data => { setKpi(data); setKpiLoading(false); })
-      .catch(() => { setKpiErr('数据加载失败'); setKpiLoading(false); });
-
-    // 2. 包装日报
-    mobileApi.getPackagingReport(d)
-      .then(data => { setPkg(data); setPkgLoading(false); })
-      .catch(() => { setPkgErr('数据加载失败'); setPkgLoading(false); });
-
-    // 3. 质检记录
-    mobileApi.getQcInspections(d)
-      .then(data => {
-        const arr = Array.isArray(data) ? data : (data as any)?.data ?? [];
-        setQc(arr);
-        setQcLoading(false);
-      })
-      .catch(() => { setQcErr('数据加载失败'); setQcLoading(false); });
-
-    // 4. 养殖日报（权限较严，403 时降级显示）
-    mobileApi.getFarmLogs(d)
-      .then(data => {
-        const arr = Array.isArray(data) ? data : (data as any)?.data ?? [];
-        setFarm(arr);
-        setFarmLoading(false);
-      })
-      .catch((e: Error) => {
-        setFarmErr(e.message?.includes('403') ? '权限不足' : e.message?.includes('401') ? '请重新登录' : '数据加载失败');
-        setFarmLoading(false);
-      });
-  }, []);
-
-  useEffect(() => { fetchAll(date); }, [date, refreshKey, fetchAll]);
+  // 保持与渲染代码相同的变量名，SWR 返回 undefined 时降级为 null/[]
+  // 显式标注类型避免 useMemo 推断为 any[]
+  const kpi      = kpiData ?? null;
+  const pkg      = pkgData ?? null;
+  const qc       = useMemo((): QcInspection[]        => Array.isArray(qcRaw)    ? (qcRaw    as QcInspection[])       : ((qcRaw    as any)?.data ?? []), [qcRaw]);
+  const farm     = useMemo((): FarmLog[]              => Array.isArray(farmRaw)  ? (farmRaw  as FarmLog[])             : ((farmRaw  as any)?.data ?? []), [farmRaw]);
+  const trend    = useMemo((): PackagingTrendItem[]   => Array.isArray(trendRaw) ? (trendRaw as PackagingTrendItem[])  : ((trendRaw as any)?.data ?? []), [trendRaw]);
+  const alerts   = useMemo((): DeviceAlert[]          => Array.isArray(alertsRaw)   ? (alertsRaw   as DeviceAlert[])  : [],                              [alertsRaw]);
+  const flocks   = useMemo((): FlockRecord[]          => Array.isArray(flocksRaw)   ? (flocksRaw   as FlockRecord[])  : ((flocksRaw   as any)?.data ?? []), [flocksRaw]);
+  const eggStock = useMemo((): EggStockRow[]          => Array.isArray(eggStockRaw) ? (eggStockRaw as EggStockRow[])  : [],                              [eggStockRaw]);
+  const kpiErr   = _kpiErr  ? '数据加载失败' : '';
+  const pkgErr   = _pkgErr  ? '数据加载失败' : '';
+  const qcErr    = _qcErr   ? '数据加载失败' : '';
+  const farmErr  = _farmErr
+    ? (_farmErr.message?.includes('403') ? '权限不足' : _farmErr.message?.includes('401') ? '请重新登录' : '数据加载失败')
+    : '';
   if (permLoading) return <MobilePageSkeleton title="每日看板" statGrid onBack={() => router.back()} />;
   if (!allowed) return null;
 

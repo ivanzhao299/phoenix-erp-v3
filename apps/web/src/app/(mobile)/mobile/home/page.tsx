@@ -1,4 +1,5 @@
 'use client';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -169,6 +170,14 @@ export default function MobileHomePage() {
   const visibleCards = NAV_CARDS.filter(card =>
     !card.pageKey || canAccess(card.pageKey, user?.role)
   );
+
+  // 首页渲染后立即 prefetch 所有可见页面，用户点击时 JS 已就绪 → 瞬间跳转
+  useEffect(() => {
+    visibleCards.forEach(card => {
+      if (card.href && !card.soon) router.prefetch(card.href);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div style={{

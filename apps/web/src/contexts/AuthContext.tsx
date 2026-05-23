@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useCallback } from 'react';
 
 type AuthUser = {
   id?: string | number;
@@ -34,6 +34,34 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const SESSION_VERSION = 'v6'; // v6: force-clear sessions stored by pre-fixed login page
+
+// ── 同步读取 sessionStorage（在 useLayoutEffect 里调用，避免首屏白屏）──────────
+function readStoredAuth(): { user: AuthUser | null; token: string | null } {
+  if (typeof window === 'undefined') return { user: null, token: null };
+  try {
+    const savedVersion = sessionStorage.getItem('phoenix_session_version');
+    if (savedVersion !== SESSION_VERSION) {
+      sessionStorage.removeItem('phoenix_token');
+      sessionStorage.removeItem('phoenix_user');
+      sessionStorage.setItem('phoenix_session_version', SESSION_VERSION);
+      return { user: null, token: null };
+    }
+    const storedToken = sessionStorage.getItem('phoenix_token');
+    const storedUser  = sessionStorage.getItem('phoenix_user');
+    if (!storedToken || !storedUser) return { user: null, token: null };
+
+    const payload = parseJwtPayload(storedToken);
+    if (!payload) throw new Error('invalid token');
+    const CLOCK_SKEW_MS = 10_000;
+    if (payload.exp && payload.exp * 1000 + CLOCK_SKEW_MS < Date.now()) throw new Error('expired');
+
+    return { user: JSON.parse(storedUser) as AuthUser, token: storedToken };
+  } catch {
+    sessionStorage.removeItem('phoenix_token');
+    sessionStorage.removeItem('phoenix_user');
+    return { user: null, token: null };
+  }
+}
 
 const parseJwtPayload = (token: string) => {
   try {
@@ -84,40 +112,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [token, setToken]     = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const savedVersion = sessionStorage.getItem('phoenix_session_version');
-    if (savedVersion !== SESSION_VERSION) {
-      sessionStorage.removeItem('phoenix_token');
-      sessionStorage.removeItem('phoenix_user');
-      sessionStorage.setItem('phoenix_session_version', SESSION_VERSION);
-      setLoading(false);
-      return;
-    }
-    const storedToken = sessionStorage.getItem('phoenix_token');
-    const storedUser  = sessionStorage.getItem('phoenix_user');
-    if (storedToken && storedUser) {
-      try {
-        const payload = parseJwtPayload(storedToken);
-        if (!payload) throw new Error('Invalid token');
-        const CLOCK_SKEW_MS = 10 * 1000;
-        if (payload.exp && payload.exp * 1000 + CLOCK_SKEW_MS < Date.now()) {
-          sessionStorage.removeItem('phoenix_token');
-          sessionStorage.removeItem('phoenix_user');
-        } else {
-          setToken(storedToken);
-          setUser(JSON.parse(storedUser));
-          // 恢复中间件 cookie（SPA 刷新后 sessionStorage 仍有效，同步给 cookie）
-          try {
-            const payload2 = parseJwtPayload(storedToken);
-            if (payload2?.exp) {
-              const maxAge = Math.max(0, payload2.exp - Math.floor(Date.now() / 1000));
-              document.cookie = `phoenix_access_token=${storedToken}; path=/; max-age=${maxAge}; SameSite=Lax`;
-            }
-          } catch { /* ignore */ }
-        }
-      } catch { sessionStorage.removeItem('phoenix_token'); sessionStorage.removeItem('phoenix_user'); }
-    }
+  // useLayoutEffect 在浏览器绘制前同步执行 → 消灭首屏白屏闪烁
+  // 注意：SSR 阶段此 hook 被 React 跳过（window 不存在），loading 保持 true
+  // 客户端 hydration 完成后立即执行，painting 前就完成状态恢复
+  useLayoutEffect(() => {
+    const { user: u, token: t } = readStoredAuth();
+    setUser(u);
+    setToken(t);
     setLoading(false);
+    // 恢复中间件可读的 cookie（同步到 document.cookie，供 Next.js middleware 使用）
+    if (t) {
+      try {
+        const payload = parseJwtPayload(t);
+        if (payload?.exp) {
+          const maxAge = Math.max(0, payload.exp - Math.floor(Date.now() / 1000));
+          document.cookie = `phoenix_access_token=${t}; path=/; max-age=${maxAge}; SameSite=Lax`;
+        }
+      } catch { /* ignore */ }
+    }
   }, []);
 
   // 30 分钟无操作自动登出

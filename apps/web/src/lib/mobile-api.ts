@@ -2,6 +2,37 @@
  * mobile-api.ts — 手机端管理日报 API 客户端
  */
 
+// ── 内存缓存（SWR 策略：TTL 内直接返回，过期��后台静默更新）────────────────────
+interface MemCacheEntry { data: unknown; at: number }
+const _memCache = new Map<string, MemCacheEntry>();
+
+/**
+ * 带 TTL 的内存缓存 GET
+ * - TTL 内：直接返回缓存，零网络延迟
+ * - 过期后：返回旧数据并在后台静默刷新（stale-while-revalidate）
+ * - 无缓存：阻塞等待网络响应后写入缓存
+ *
+ * 适用于几乎不变的主数据（鸡舍列表、客户列表、药品目录等）
+ */
+async function getCached<T>(cacheKey: string, fetcher: () => Promise<T>, ttlMs: number): Promise<T> {
+  const hit = _memCache.get(cacheKey);
+  const now = Date.now();
+  if (hit) {
+    if (now - hit.at < ttlMs) return hit.data as T;        // 新鲜缓存��直接返回
+    // 过期：立即返回旧数据，后台静默刷新（stale-while-revalidate）
+    fetcher().then(fresh => _memCache.set(cacheKey, { data: fresh, at: Date.now() })).catch(() => {});
+    return hit.data as T;
+  }
+  const data = await fetcher();
+  _memCache.set(cacheKey, { data, at: now });
+  return data;
+}
+
+/** 手动清除某个 key 的缓存（例如提交数据后强制刷新） */
+export function invalidateCache(cacheKey: string) {
+  _memCache.delete(cacheKey);
+}
+
 function tok(): string {
   if (typeof window === 'undefined') return '';
   return sessionStorage.getItem('phoenix_token') || '';
@@ -296,9 +327,9 @@ export const mobileApi = {
   getOpenAlerts: () =>
     get<DeviceAlert[]>('/api/farm-device/alerts?status=OPEN'),
 
-  /** 存栏批次（ROLE_ADMIN / ROLE_FARM_MGR 可访问；其他角色 403 降级） */
+  /** 存栏批次（5 分钟缓存，当日不会频繁变动） */
   getFlocks: () =>
-    get<{ data: FlockRecord[]; total: number }>('/api/crud/brd_flocks?status=LAYING&limit=100'),
+    getCached('flocks', () => get<{ data: FlockRecord[]; total: number }>('/api/crud/brd_flocks?status=LAYING&limit=100'), 5 * 60_000),
 
   /** 饲料台账 — 查询某日 */
   getFeedLedger: (date: string) =>
@@ -315,9 +346,9 @@ export const mobileApi = {
       body: JSON.stringify({ date, items }),
     }).then(r => r.json()),
 
-  /** 饲料台账 — 栋舍列表 */
+  /** 饲料台账 — 栋舍列表（5 分钟缓存，几乎不变） */
   getFeedHouses: () =>
-    get<string[]>('/api/farm/feed/houses'),
+    getCached('feedHouses', () => get<string[]>('/api/farm/feed/houses'), 5 * 60_000),
 
   /** 鸡蛋库存快照 */
   getEggStock: () =>
@@ -339,9 +370,9 @@ export const mobileApi = {
   eggWriteOff: (date: string, items: Array<{ grade: string; qty: number; reason: string }>, operator?: string) =>
     post('/api/farm/egg/write-off', { date, items, operator }),
 
-  /** 农场客户列表 */
+  /** 农场客户列表（5 分钟缓存，几乎不变） */
   getFarmCustomers: () =>
-    get<FarmCustomer[]>('/api/farm/sales/customers'),
+    getCached('farmCustomers', () => get<FarmCustomer[]>('/api/farm/sales/customers'), 5 * 60_000),
 
   /** 农场销售记录（按日期） */
   getFarmSales: (date: string) =>
@@ -361,9 +392,9 @@ export const mobileApi = {
   cancelFarmSale: (orderNo: string, operator: string) =>
     post(`/api/farm/sales/${orderNo}/cancel`, { operator }),
 
-  /** 药品库存（含目录） */
+  /** 药品库存（含目录）（60 秒缓存） */
   getMedStock: () =>
-    get<MedStockRow[]>('/api/farm/medicine/stock'),
+    getCached('medStock', () => get<MedStockRow[]>('/api/farm/medicine/stock'), 60_000),
 
   /** 药品流水 */
   getMedLedger: (start: string, end: string) =>
