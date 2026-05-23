@@ -66,10 +66,27 @@ export class ProcurementService {
     } catch { return { code: 200, data: [] }; }
   }
 
+  // ─── Org 隔离辅助：全局角色（集团层）可见所有，场级用户只见本场 ──────────────
+  private get isGlobalUser(): boolean {
+    const storeCode: string = this.cls.get('user.storeCode') || 'ALL';
+    return !storeCode || storeCode === 'ALL';
+  }
+
+  private get userStoreCode(): string {
+    return this.cls.get('user.storeCode') || 'ALL';
+  }
+
   async getRequests() {
     try {
+      const params: any[] = [];
+      let scopeClause = '';
+      if (!this.isGlobalUser) {
+        params.push(this.userStoreCode);
+        scopeClause = ` AND store_code = $${params.length}`;
+      }
       const data = await this.em.query(
-        `SELECT * FROM prc_purchase_orders WHERE status IN ('DRAFT','PENDING_APPROVAL') ORDER BY created_at DESC`,
+        `SELECT * FROM prc_purchase_orders WHERE status IN ('DRAFT','PENDING_APPROVAL')${scopeClause} ORDER BY created_at DESC`,
+        params,
       );
       return { code: 200, data };
     } catch { return { code: 200, data: [] }; }
@@ -77,8 +94,15 @@ export class ProcurementService {
 
   async getOrders() {
     try {
+      const params: any[] = [];
+      let scopeClause = '';
+      if (!this.isGlobalUser) {
+        params.push(this.userStoreCode);
+        scopeClause = ` AND store_code = $${params.length}`;
+      }
       const data = await this.em.query(
-        `SELECT * FROM prc_purchase_orders WHERE status NOT IN ('DRAFT') ORDER BY created_at DESC`,
+        `SELECT * FROM prc_purchase_orders WHERE status NOT IN ('DRAFT')${scopeClause} ORDER BY created_at DESC`,
+        params,
       );
       return { code: 200, data };
     } catch { return { code: 200, data: [] }; }
@@ -147,16 +171,23 @@ export class ProcurementService {
   // ─── 待付款列表（来自PO批准的AP记录）─────────────────────────────────────────
   async getPendingPayments() {
     try {
+      const params: any[] = [];
+      let scopeClause = '';
+      if (!this.isGlobalUser) {
+        params.push(this.userStoreCode);
+        scopeClause = ` AND po.store_code = $${params.length}`;
+      }
       const data = await this.em.query(`
         SELECT ft.id, ft.txn_no, ft.amount, ft.currency_code, ft.status,
                ft.description, ft.due_date, ft.created_at, ft.po_no,
                po.subject, po.supplier_name, po.supplier_code,
-               po.contract_no, po.pay_deadline, po.plan_qty, po.currency_code AS po_currency
+               po.contract_no, po.pay_deadline, po.plan_qty, po.currency_code AS po_currency,
+               po.store_code
         FROM fin_transactions ft
         LEFT JOIN prc_purchase_orders po ON ft.po_no = po.po_no
-        WHERE ft.type = 'AP' AND ft.status = 'PENDING' AND ft.po_no IS NOT NULL
+        WHERE ft.type = 'AP' AND ft.status = 'PENDING' AND ft.po_no IS NOT NULL${scopeClause}
         ORDER BY ft.created_at DESC
-      `);
+      `, params);
       return { code: 200, data };
     } catch { return { code: 200, data: [] }; }
   }
