@@ -55,10 +55,10 @@ const MGMT = [
 
 export const PAGE_PERMS: Record<string, PagePermission> = {
 
-  /** 每日看板：所有管理类角色均可查看 */
+  /** 每日看板：所有管理类角色 + 司机均可查看（司机需看当日配送安排） */
   dashboard: {
     write: [],
-    read:  MGMT,
+    read:  [...MGMT, R.DRIVER],
   },
 
   /** 饲料台账：农场相关角色可录入；仓储/物流/采购/成本会计可查看 */
@@ -85,12 +85,13 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     read:  [R.CEO, R.VET, R.QA_MGR, R.WMS_MGR, R.BREEDER, R.AUDITOR],
   },
 
-  /** 生产趋势：管理层 + 农场 + 财务 + 销售 + 区域督导 + 采购（了解消耗趋势以排期采购） */
+  /** 生产趋势：管理层 + 农场 + 财务 + 销售 + 区域督导 + 采购 + 物流（运力规划） + 养殖员（看自身产能） + 包装经理（排班依据） */
   analytics: {
     write: [],
     read:  [R.ADMIN, R.CEO, R.FARM_MGR, R.VET, R.QA_MGR, R.WMS_MGR,
             R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.AUDITOR,
-            R.SALES_MGR, R.REGION_MGR, R.STORE_MGR, R.PRC_BUYER],
+            R.SALES_MGR, R.REGION_MGR, R.STORE_MGR, R.PRC_BUYER,
+            R.LOG_MGR, R.BREEDER, R.PKG_MGR],
   },
 
   /** 包装统计：包装/品控/管理层 */
@@ -105,32 +106,32 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     read:  [R.CEO, R.PKG_MGR, R.AUDITOR],
   },
 
-  /** 鸡蛋台账：仓储/农场录入；销售/财务/区域/店长只读 */
+  /** 鸡蛋台账：仓储/农场录入；销售/财务/区域/店长/物流只读（物流需掌握库存量安排配送波次） */
   egg: {
     write: [R.ADMIN, R.FARM_MGR, R.WMS_MGR],
     read:  [R.CEO, R.VET, R.QA_MGR, R.PKG_MGR,
             R.SALES_MGR, R.SALES_REP, R.REGION_MGR, R.STORE_MGR,
-            R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.AUDITOR],
+            R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.AUDITOR, R.LOG_MGR],
   },
 
-  /** 销售出库：销售/农场录入；物流/财务/区域/店长/收银员只读 */
+  /** 销售出库：销售/农场录入；物流/财务/区域/店长/收银员/品控只读（品控追溯出货品质） */
   sales: {
     write: [R.ADMIN, R.FARM_MGR, R.SALES_MGR, R.SALES_REP],
     read:  [R.CEO, R.WMS_MGR, R.LOG_MGR, R.REGION_MGR, R.STORE_MGR,
-            R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.CASHIER, R.AUDITOR],
+            R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.CASHIER, R.AUDITOR, R.QA_MGR],
   },
 
-  /** 药品台账：兽医/农场录入；管理层/品控查看 */
+  /** 药品台账：兽医/农场录入；管理层/品控查看（门店经理与用药无关，移除） */
   medicine: {
     write: [R.ADMIN, R.FARM_MGR, R.VET],
-    read:  [R.CEO, R.QA_MGR, R.STORE_MGR, R.AUDITOR],
+    read:  [R.CEO, R.QA_MGR, R.AUDITOR],
   },
 
-  /** 配送签收：物流经理录入；仓储/门店/销售/区域/场长/司机只读 */
+  /** 配送签收：物流经理录入；仓储/门店/销售/区域/场长/司机/销售员/品控只读 */
   delivery: {
     write: [R.ADMIN, R.LOG_MGR],
     read:  [R.CEO, R.WMS_MGR, R.FARM_MGR, R.STORE_MGR, R.SALES_MGR,
-            R.REGION_MGR, R.DRIVER, R.AUDITOR],
+            R.REGION_MGR, R.DRIVER, R.AUDITOR, R.SALES_REP, R.QA_MGR],
   },
 
   /** 包装作业台终端：仅包装相关操作角色可访问；财务/物流等不应看到此入口 */
@@ -139,10 +140,10 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     read:  [R.CEO, R.FARM_MGR, R.QA_MGR],
   },
 
-  /** 采购审批与付款：区域经理/CEO批准采购单；财务确认付款 */
+  /** 采购审批与付款：区域经理/CEO/CFO批准采购单；财务会计仅查看（不负责审批） */
   procurement: {
-    write: [R.ADMIN, R.REGION_MGR, R.CEO, R.FIN_ACCT, R.FIN_CFO],
-    read:  [R.PRC_BUYER, R.AUDITOR, R.STORE_MGR],
+    write: [R.ADMIN, R.REGION_MGR, R.CEO, R.FIN_CFO],
+    read:  [R.FIN_ACCT, R.PRC_BUYER, R.AUDITOR, R.STORE_MGR],
   },
 
   /** 采购申请发起：场级业务用户提单；采购员/管理层查看审核 */
