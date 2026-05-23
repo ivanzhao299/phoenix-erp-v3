@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, RefreshCw, ClipboardList, Send, Sun, Moon } from 'lucide-react';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { MobilePageSkeleton, SkeletonCard } from '@/components/mobile/MobileSkeleton';
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 
@@ -142,8 +143,8 @@ export default function PrcRequestPage() {
     }
   }, [subject, item, qty, urgency, budgetAmount, currencyCode, expectedDate, reason]);
 
-  if (permLoading) return null;
-  if (!allowed)   return null;
+  if (permLoading) return <MobilePageSkeleton title="发起采购" tabs={['填写申请', '申请记录']} onBack={() => router.back()} />;
+  if (!allowed) return null;
 
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '10px 12px', borderRadius: 10,
@@ -348,7 +349,7 @@ export default function PrcRequestPage() {
         {tab === 'records' && (
           <div>
             {recLoading && (
-              <div style={{ textAlign: 'center', padding: 40, color: t.textSub, fontSize: 14 }}>加载中…</div>
+              <div>{[1,2,3].map(i => <SkeletonCard key={i} lines={2} />)}</div>
             )}
             {recError && (
               <div style={{ color: '#ef4444', background: '#fef2f2', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>

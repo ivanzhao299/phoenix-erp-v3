@@ -6,6 +6,7 @@ import { mobileApi, FlockRecord, FarmLog } from '@/lib/mobile-api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { MobilePageSkeleton } from '@/components/mobile/MobileSkeleton';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -269,7 +270,8 @@ export default function EggLogPage() {
 
   useEffect(() => { loadExisting(date, shift); }, [date, shift, loadExisting]);
 
-  if (permLoading || !allowed) return null;
+  if (permLoading) return <MobilePageSkeleton title="产蛋录入" onBack={() => router.back()} />;
+  if (!allowed) return null;
 
   const getEntry = (house: string) => entries[house] ?? emptyEntry();
 

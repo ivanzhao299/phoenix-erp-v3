@@ -5,6 +5,7 @@ import { ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight, ChevronDown, Che
 import { mobileApi, FeedLedgerRow } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { MobilePageSkeleton, SkeletonCard } from '@/components/mobile/MobileSkeleton';
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 
@@ -220,7 +221,8 @@ export default function FeedLedgerPage() {
   }, []);
 
   useEffect(() => { loadData(date); }, [date, loadData]);
-  if (permLoading || !allowed) return null;
+  if (permLoading) return <MobilePageSkeleton title="饲料台账" onBack={() => router.back()} />;
+  if (!allowed) return null;
 
   // 当某行修改时，重新计算 outbound_total 和 current_stock
   const updateRow = (idx: number, patch: Partial<FeedLedgerRow>) => {
@@ -368,14 +370,11 @@ export default function FeedLedgerPage() {
         )}
 
         {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} style={{ height: 64, borderRadius: 14, background: t.cardBg, animation: 'pulse 1.5s infinite' }} />
-            ))}
+          <div>
+            {[1, 2, 3, 4, 5].map(i => <SkeletonCard key={i} lines={3} />)}
           </div>
         ) : (
           <>
-            <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
             {rows.map((row, idx) => (
               <MaterialCard
                 key={row.material_name}

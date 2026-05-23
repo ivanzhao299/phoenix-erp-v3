@@ -93,7 +93,10 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
         {loading && pathname !== '/mobile/login' ? (
           <MobileLoadingScreen />
         ) : (
-          children
+          /* key=pathname：每次路由切换触发子树重挂，mobile-page-in 动画自动播放 */
+          <div key={pathname} className="mobile-page-in" style={{ minHeight: '100%' }}>
+            {children}
+          </div>
         )}
       </div>
     </MobileThemeProvider>

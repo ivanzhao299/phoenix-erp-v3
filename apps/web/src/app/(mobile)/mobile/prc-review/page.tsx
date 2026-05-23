@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, RefreshCw, ClipboardCheck, X, Sun, Moon, CheckCircle, XCircle } from 'lucide-react';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { MobilePageSkeleton, SkeletonCard } from '@/components/mobile/MobileSkeleton';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -495,11 +496,7 @@ export default function PrcReviewPage() {
 
   // ── 权限加载中 / 无权限 ──
   if (permLoading) {
-    return (
-      <div style={{ minHeight: '100vh', background: isDark ? '#0f172a' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: t.textSub, fontSize: 14 }}>验证权限中…</div>
-      </div>
-    );
+    return <MobilePageSkeleton title="采购审核" tabs={['待处理', '已处理']} onBack={() => router.back()} />;
   }
   if (!allowed) {
     return (
@@ -580,9 +577,7 @@ export default function PrcReviewPage() {
       {/* 内容区 */}
       <div style={{ padding: '12px 16px 80px' }}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: t.textSub, fontSize: 14 }}>
-            加载中…
-          </div>
+          <div>{[1,2,3,4].map(i => <SkeletonCard key={i} lines={3} />)}</div>
         ) : error ? (
           <div style={{ textAlign: 'center', padding: '40px 0', color: '#ef4444', fontSize: 14 }}>
             {error}

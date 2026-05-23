@@ -5,6 +5,7 @@ import { ChevronLeft, RefreshCw, Truck, ClipboardList, X, Sun, Moon } from 'luci
 import { crudApi } from '@/lib/api-client';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { MobilePageSkeleton, SkeletonCard } from '@/components/mobile/MobileSkeleton';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -316,7 +317,7 @@ export default function DeliveryPage() {
     setTab('receipts');
   }, [loadReceipts]);
 
-  if (permLoading) return null;
+  if (permLoading) return <MobilePageSkeleton title="配送签收" tabs={['配送波次', '签收记录']} onBack={() => router.back()} />;
   if (!allowed) return null;
 
   return (
@@ -380,7 +381,7 @@ export default function DeliveryPage() {
       {/* Content */}
       <div style={{ flex: 1, padding: '0 16px 24px', overflowY: 'auto' }}>
         {loading && (
-          <div style={{ textAlign: 'center', padding: 40, color: t.textSub, fontSize: 14 }}>加载中…</div>
+          <div style={{ paddingTop: 8 }}>{[1,2,3].map(i => <SkeletonCard key={i} lines={3} />)}</div>
         )}
         {error && (
           <div style={{ color: '#ef4444', background: '#fef2f2', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>

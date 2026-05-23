@@ -9,6 +9,7 @@ import {
 import { mobileApi, FarmCustomer, FarmSaleRecord, FarmSaleItem } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { MobilePageSkeleton, SkeletonCard } from '@/components/mobile/MobileSkeleton';
 
 function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -98,7 +99,8 @@ export default function SalesPage() {
     if (tab === 'history') loadHistory(date);
   }, [tab, date, loadHistory]);
 
-  if (permLoading || !allowed) return null;
+  if (permLoading) return <MobilePageSkeleton title="销售出库" tabs={['开单', '记录']} onBack={() => router.back()} />;
+  if (!allowed) return null;
 
   const getQty   = (g: string) => entries[g]?.qty        ?? 0;
   const getPrice = (g: string) => entries[g]?.unit_price ?? DEFAULT_PRICES[g] ?? 0;
@@ -347,9 +349,7 @@ export default function SalesPage() {
             )}
 
             {loading ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[1,2,3].map(i => <div key={i} style={{ height: 80, borderRadius: 14, background: t.cardBg, animation: 'pulse 1.5s infinite' }} />)}
-              </div>
+              <div>{[1,2,3].map(i => <SkeletonCard key={i} lines={3} />)}</div>
             ) : history.length === 0 ? (
               <div style={{ padding: 40, textAlign: 'center', color: t.textFaint, fontSize: 13 }}>暂无记录</div>
             ) : (

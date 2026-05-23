@@ -260,6 +260,7 @@ export default function MobileHomePage() {
             key={idx}
             onClick={() => handleCardClick(card)}
             disabled={card.soon}
+            className="mobile-card-in"
             style={{
               position: 'relative',
               display: 'flex',
@@ -274,7 +275,7 @@ export default function MobileHomePage() {
               cursor: card.soon ? 'default' : 'pointer',
               textAlign: 'left',
               opacity: card.soon ? 0.7 : 1,
-              transition: 'transform 0.08s, box-shadow 0.08s',
+              transition: 'transform 0.12s cubic-bezier(0.22,1,0.36,1), box-shadow 0.12s',
               willChange: 'transform',
               // full-width for last odd card
               ...(idx === visibleCards.length - 1 && visibleCards.length % 2 !== 0

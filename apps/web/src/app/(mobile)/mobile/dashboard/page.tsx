@@ -6,6 +6,7 @@ import { mobileApi, KpiData, PackagingDailyReport, QcInspection, FarmLog, FlockR
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { MobilePageSkeleton } from '@/components/mobile/MobileSkeleton';
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 
@@ -221,7 +222,8 @@ export default function MobileDashboardPage() {
   }, []);
 
   useEffect(() => { fetchAll(date); }, [date, refreshKey, fetchAll]);
-  if (permLoading || !allowed) return null;
+  if (permLoading) return <MobilePageSkeleton title="每日看板" statGrid onBack={() => router.back()} />;
+  if (!allowed) return null;
 
   const isToday = date === today;
   const isFuture = date > today;

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, RefreshCw, ShoppingCart, CreditCard, CheckCircle, X, Sun, Moon } from 'lucide-react';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { MobilePageSkeleton, SkeletonCard } from '@/components/mobile/MobileSkeleton';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -354,8 +355,8 @@ export default function ProcurementPage() {
     else loadPayments();
   }, [tab, allowed, permLoading, loadPOs, loadPayments]);
 
-  if (permLoading) return null;
-  if (!allowed)    return null;
+  if (permLoading) return <MobilePageSkeleton title="采购审批" tabs={['待审批', '待付款']} onBack={() => router.back()} />;
+  if (!allowed) return null;
 
   const refresh = () => tab === 'approve' ? loadPOs() : loadPayments();
 
@@ -429,7 +430,7 @@ export default function ProcurementPage() {
       {/* Content */}
       <div style={{ flex: 1, padding: '12px 16px 24px', overflowY: 'auto' }}>
         {loading && (
-          <div style={{ textAlign: 'center', padding: 40, color: t.textSub, fontSize: 14 }}>加载中…</div>
+          <div>{[1,2,3].map(i => <SkeletonCard key={i} lines={3} />)}</div>
         )}
         {error && (
           <div style={{ color: '#ef4444', background: '#fef2f2', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>

@@ -134,14 +134,56 @@ input:disabled, textarea:disabled, select:disabled {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
 }
-@keyframes shimmer { 0%,100% { opacity:.4; } 50% { opacity:.85; } }
+/* shimmer: 骨架屏光扫效果 */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
 @keyframes spin    { to { transform: rotate(360deg); } }
-@keyframes pageIn  { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 
-.animate-fade-in { animation: fadeIn 0.24s var(--ease) both; }
-.skeleton        { animation: shimmer 1.4s ease-in-out infinite; background: var(--bg-muted); border-radius: var(--radius-sm); }
-.mobile-spin     { animation: spin 0.72s linear infinite; }
-.mobile-page-in  { animation: pageIn 0.18s var(--ease) both; }
+/* pageIn: 页面切换入场动画 — 轻微上移 + 淡入 */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* cardIn: 卡片错落入场 */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(18px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-fade-in  { animation: fadeIn  0.24s var(--ease) both; }
+
+/* 骨架屏 shimmer — 流光扫动 */
+.skeleton {
+  background: linear-gradient(90deg,
+    var(--bg-muted) 25%,
+    color-mix(in srgb, var(--bg-muted) 60%, white) 50%,
+    var(--bg-muted) 75%
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+.mobile-spin     { animation: spin    0.72s linear infinite; }
+
+/* 页面入场 — 所有页面切换自动触发 */
+.mobile-page-in  { animation: pageIn  0.22s cubic-bezier(0.22,1,0.36,1) both; }
+
+/* 卡片错落动画（nth-child 驱动，最多支持 20 张） */
+.mobile-card-in  { animation: cardIn  0.28s cubic-bezier(0.22,1,0.36,1) both; }
+.mobile-card-in:nth-child(1)  { animation-delay: 0.02s; }
+.mobile-card-in:nth-child(2)  { animation-delay: 0.06s; }
+.mobile-card-in:nth-child(3)  { animation-delay: 0.10s; }
+.mobile-card-in:nth-child(4)  { animation-delay: 0.14s; }
+.mobile-card-in:nth-child(5)  { animation-delay: 0.18s; }
+.mobile-card-in:nth-child(6)  { animation-delay: 0.20s; }
+.mobile-card-in:nth-child(7)  { animation-delay: 0.22s; }
+.mobile-card-in:nth-child(8)  { animation-delay: 0.24s; }
+.mobile-card-in:nth-child(9)  { animation-delay: 0.24s; }
+.mobile-card-in:nth-child(n+10){ animation-delay: 0.24s; }
 
 /* ── Glass card ─────────────────────────────────────────────── */
 .glass-card {
