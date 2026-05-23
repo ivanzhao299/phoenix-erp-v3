@@ -54,14 +54,24 @@ const URGENCY_LABEL: Record<string, string> = {
   NORMAL:   '普通',
 };
 const STATUS_COLOR: Record<string, string> = {
-  PENDING:   '#f59e0b',
-  CONVERTED: '#10b981',
-  REJECTED:  '#ef4444',
+  PENDING:    '#f59e0b',
+  CONVERTED:  '#10b981',
+  REJECTED:   '#ef4444',
+  // 兼容 PC 端历史数据
+  DRAFT:      '#6b7280',
+  SUBMITTED:  '#f59e0b',
+  APPROVED:   '#3b82f6',
+  PO_CREATED: '#10b981',
 };
 const STATUS_LABEL: Record<string, string> = {
-  PENDING:   '待处理',
-  CONVERTED: '已转单',
-  REJECTED:  '已拒绝',
+  PENDING:    '待处理',
+  CONVERTED:  '已转单',
+  REJECTED:   '已拒绝',
+  // 兼容 PC 端历史数据
+  DRAFT:      '草稿',
+  SUBMITTED:  '待处理',
+  APPROVED:   '已审批',
+  PO_CREATED: '已转单',
 };
 
 // ── ConvertDrawer ─────────────────────────────────────────────────────────────
@@ -428,8 +438,8 @@ function RequestCard({
         </div>
       )}
 
-      {/* 操作按钮（仅 PENDING + 非只读） */}
-      {req.status === 'PENDING' && !readonly && (
+      {/* 操作按钮：PENDING/SUBMITTED/APPROVED 均可处理，非只读 */}
+      {!['CONVERTED', 'PO_CREATED', 'REJECTED'].includes(req.status) && !readonly && (
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             onClick={() => onConvert(req)}
@@ -508,8 +518,10 @@ export default function PrcReviewPage() {
     load();
   }
 
-  const pending = requests.filter(r => r.status === 'PENDING');
-  const history = requests.filter(r => r.status !== 'PENDING');
+  // 终态：CONVERTED（移动端）/ PO_CREATED（旧 PC）/ REJECTED / DRAFT（草稿不需要采购员处理）
+  const TERMINAL = new Set(['CONVERTED', 'PO_CREATED', 'REJECTED', 'DRAFT']);
+  const pending = requests.filter(r => !TERMINAL.has(r.status));
+  const history = requests.filter(r => TERMINAL.has(r.status));
 
   // ── 权限加载中 / 无权限 ──
   if (permLoading) {

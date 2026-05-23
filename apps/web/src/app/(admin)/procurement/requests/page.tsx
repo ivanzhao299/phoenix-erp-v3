@@ -66,11 +66,19 @@ const CATEGORY_OPTS = [
 
 const DEPT_OPTS = ["养殖部", "分级包装部", "物流配送部", "财务部", "行政人力", "信息技术部"];
 
+// 与后端 procurement.service.ts 写入值保持一致：
+//   PENDING   = 已提交待采购员审核（service 写入值，原 SUBMITTED 改为此值）
+//   CONVERTED = 已转采购单（service 写入值，原 PO_CREATED 改为此值）
+// 保留旧值映射以兼容历史数据
 const STATUS_CFG: Record<string, { label: string; cls: string; color: string }> = {
   DRAFT:      { label: "草稿",   cls: "badgeNeutral",  color: "#6b7280" },
-  SUBMITTED:  { label: "待审批", cls: "badgeWarning",  color: "#f59e0b" },
+  // ── 正式状态（与 service / 移动端一致） ──
+  PENDING:    { label: "待处理", cls: "badgeWarning",  color: "#f59e0b" },
   APPROVED:   { label: "已审批", cls: "badgeSuccess",  color: "#10b981" },
+  CONVERTED:  { label: "已转PO", cls: "badgeInfo",     color: "#3b82f6" },
   REJECTED:   { label: "已驳回", cls: "badgeDanger",   color: "#ef4444" },
+  // ── 历史兼容（旧 PC 数据） ──
+  SUBMITTED:  { label: "待处理", cls: "badgeWarning",  color: "#f59e0b" },
   PO_CREATED: { label: "已转PO", cls: "badgeInfo",     color: "#3b82f6" },
 };
 
@@ -132,7 +140,8 @@ export default function RequestsPage() {
 
   const counts = useMemo(() => ({
     draft:     list.filter(r => r.status === "DRAFT").length,
-    submitted: list.filter(r => r.status === "SUBMITTED").length,
+    // PENDING = 新写入值；SUBMITTED = 历史兼容
+    submitted: list.filter(r => r.status === "PENDING" || r.status === "SUBMITTED").length,
     approved:  list.filter(r => r.status === "APPROVED").length,
     total:     list.length,
   }), [list]);
@@ -190,10 +199,11 @@ export default function RequestsPage() {
   };
 
   const submitForApproval = async (row: PR) => {
+    // 与 backend service 对齐：提交后状态为 PENDING（移动端采购审核可见）
     await fetch(`/api/crud/prc_purchase_requests/${row.id}`, {
-      method: "PUT", headers: hdr, body: JSON.stringify({ status: "SUBMITTED" }),
+      method: "PUT", headers: hdr, body: JSON.stringify({ status: "PENDING" }),
     });
-    toast.success("已提交审批，等待场长/CEO审批");
+    toast.success("已提交，等待采购员/场长审批");
     load();
   };
 
@@ -238,9 +248,10 @@ export default function RequestsPage() {
           store_code: "ALL",
         }),
       });
+      // 与 backend service 对齐：转单后状态为 CONVERTED（原 PO_CREATED）
       await fetch(`/api/crud/prc_purchase_requests/${row.id}`, {
         method: "PUT", headers: hdr,
-        body: JSON.stringify({ status: "PO_CREATED", po_no: poNo }),
+        body: JSON.stringify({ status: "CONVERTED", po_no: poNo }),
       });
       toast.success(`已转采购单 ${poNo}`);
       setDrawerOpen(false);
@@ -372,15 +383,22 @@ export default function RequestsPage() {
                           onClick={() => submitForApproval(row)}><Send size={10} />提交审批</button>
                         <button type="button" className={s.btnDanger} style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => delDraft(row)}>删除</button>
                       </>}
-                      {st === "SUBMITTED" && canApprove && <>
+                      {/* PENDING / SUBMITTED：场长/CEO 可审批；采购员可直接转单或驳回 */}
+                      {(st === "PENDING" || st === "SUBMITTED") && canApprove && !canBuy && <>
                         <button type="button" className={s.btnSuccess} style={{ padding: "4px 8px", fontSize: 11, display: "flex", alignItems: "center", gap: 3 }}
                           onClick={() => approve(row)}><CheckCircle size={10} />审批通过</button>
                         <button type="button" className={s.btnDanger} style={{ padding: "4px 8px", fontSize: 11, display: "flex", alignItems: "center", gap: 3 }}
                           onClick={() => { setRejectTarget(row); setRejectNote(""); }}><XCircle size={10} />驳回</button>
                       </>}
-                      {st === "APPROVED" && canBuy && (
+                      {/* APPROVED：场长已审批，采购员转单 */}
+                      {(st === "APPROVED" || ((st === "PENDING" || st === "SUBMITTED") && canBuy)) && (
                         <button type="button" className={s.btnPrimary} style={{ padding: "4px 8px", fontSize: 11, display: "flex", alignItems: "center", gap: 3 }}
                           onClick={() => convertToPO(row)} disabled={saving}><ArrowRight size={10} />转采购单</button>
+                      )}
+                      {/* 采购员还可以直接驳回 PENDING */}
+                      {(st === "PENDING" || st === "SUBMITTED") && canBuy && (
+                        <button type="button" className={s.btnDanger} style={{ padding: "4px 8px", fontSize: 11, display: "flex", alignItems: "center", gap: 3 }}
+                          onClick={() => { setRejectTarget(row); setRejectNote(""); }}><XCircle size={10} />驳回</button>
                       )}
                     </div>
                   </td>
@@ -441,7 +459,7 @@ export default function RequestsPage() {
             </div>
             {/* 详情页操作 */}
             <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-              {detailRow.status === "SUBMITTED" && canApprove && <>
+              {(detailRow.status === "PENDING" || detailRow.status === "SUBMITTED") && canApprove && !canBuy && <>
                 <button type="button" className={s.btnSuccess} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
                   onClick={() => { approve(detailRow); setDrawerOpen(false); }}>
                   <CheckCircle size={14} /> 审批通过
@@ -451,10 +469,16 @@ export default function RequestsPage() {
                   <XCircle size={14} /> 驳回
                 </button>
               </>}
-              {detailRow.status === "APPROVED" && canBuy && (
+              {(detailRow.status === "APPROVED" || ((detailRow.status === "PENDING" || detailRow.status === "SUBMITTED") && canBuy)) && (
                 <button type="button" className={s.btnPrimary} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
                   onClick={() => convertToPO(detailRow)} disabled={saving}>
                   <ArrowRight size={14} /> 转为采购单
+                </button>
+              )}
+              {(detailRow.status === "PENDING" || detailRow.status === "SUBMITTED") && canBuy && (
+                <button type="button" className={s.btnDanger} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                  onClick={() => { setRejectTarget(detailRow); setRejectNote(""); setDrawerOpen(false); }}>
+                  <XCircle size={14} /> 驳回
                 </button>
               )}
             </div>

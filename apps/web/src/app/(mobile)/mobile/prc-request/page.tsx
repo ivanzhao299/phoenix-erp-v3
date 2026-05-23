@@ -22,14 +22,24 @@ function getToken(): string {
 // ── 状态颜色映射 ──────────────────────────────────────────────────────────────
 
 const STATUS_COLOR: Record<string, string> = {
-  PENDING:   '#f59e0b',
-  CONVERTED: '#10b981',
-  REJECTED:  '#ef4444',
+  PENDING:    '#f59e0b',
+  CONVERTED:  '#10b981',
+  REJECTED:   '#ef4444',
+  // 兼容 PC 端历史数据
+  DRAFT:      '#6b7280',
+  SUBMITTED:  '#f59e0b',
+  APPROVED:   '#3b82f6',
+  PO_CREATED: '#10b981',
 };
 const STATUS_LABEL: Record<string, string> = {
-  PENDING:   '待处理',
-  CONVERTED: '已转采购单',
-  REJECTED:  '已拒绝',
+  PENDING:    '待处理',
+  CONVERTED:  '已转采购单',
+  REJECTED:   '已拒绝',
+  // 兼容 PC 端历史数据
+  DRAFT:      '草稿',
+  SUBMITTED:  '待审批',
+  APPROVED:   '已审批',
+  PO_CREATED: '已转采购单',
 };
 
 // ── 申请记录类型 ──────────────────────────────────────────────────────────────
