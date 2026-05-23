@@ -348,7 +348,7 @@ export class UsersBffController {
         `SELECT
            u.user_id AS id, u.username, u.real_name AS real_name_zh, u.store_code,
            CASE WHEN u.status = 1 THEN 'ACTIVE' ELSE 'FROZEN' END AS status,
-           u.locale, u.email, u.phone,
+           u.locale, u.email, u.phone, u.org_id,
            COALESCE(
              (SELECT r.role_code FROM sys_user_role ur
               JOIN sys_role r ON ur.role_id = r.role_id

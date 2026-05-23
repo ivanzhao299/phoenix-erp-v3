@@ -49,7 +49,7 @@ const btnPrimary: React.CSSProperties = {
 };
 
 type Org = { id: number; org_code?: string; org_name: string; org_type: string; parent_id: number; sort_no?: number; remark?: string; status?: string; };
-type User = { id: number; username: string; real_name: string; role: string; status: string; org_id: number | null };
+type User = { id: number; username: string; real_name: string; role: string; role_name_zh?: string; status: string; org_id: number | null };
 type DictOption = { dict_code: string; dict_label_zh: string; dict_label_lo?: string; sort_no: number; };
 
 export default function OrganizationsPage() {
@@ -73,9 +73,19 @@ export default function OrganizationsPage() {
 
   const loadUsers = async () => {
     try {
-      const r = await fetch("/api/crud/sys_user?limit=500", { headers: hdr() });
+      const r = await fetch("/api/users", { headers: hdr() });
       const d = await r.json();
-      const list: User[] = Array.isArray(d.data) ? d.data : Array.isArray(d) ? d : [];
+      const raw = Array.isArray(d.data) ? d.data : [];
+      // /api/users 返回 real_name_zh，映射回 User.real_name
+      const list: User[] = raw.map((u: any) => ({
+        id:           u.id,
+        username:     u.username,
+        real_name:    u.real_name_zh || u.real_name || '',
+        role:         u.role || '',
+        role_name_zh: u.role_name_zh || '',
+        status:       u.status || '',
+        org_id:       u.org_id ?? null,
+      }));
       setUsers(list);
     } catch { /* 静默 */ }
   };
@@ -415,7 +425,7 @@ export default function OrganizationsPage() {
                             <div style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "monospace" }}>{u.username}</div>
                           </td>
                           <td style={{ padding: "12px 16px" }}>
-                            <span style={{ fontSize: 12, background: "rgba(99,102,241,0.1)", color: "#6366f1", padding: "3px 8px", borderRadius: 4, fontWeight: 600 }}>{u.role}</span>
+                            <span style={{ fontSize: 12, background: "rgba(99,102,241,0.1)", color: "#6366f1", padding: "3px 8px", borderRadius: 4, fontWeight: 600 }}>{u.role_name_zh || u.role}</span>
                           </td>
                           <td style={{ padding: "12px 16px" }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: statusColor(u.status) }}>● {statusColor(u.status) === "#22c55e" ? t("status.normal","正常") : t("ui.冻结","冻结")}</span>
@@ -609,7 +619,7 @@ export default function OrganizationsPage() {
                 </div>
               </div>
               <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 4, background: "rgba(99,102,241,0.1)", color: "#6366f1", fontWeight: 600, flexShrink: 0 }}>
-                {u.role}
+                {u.role_name_zh || u.role}
               </span>
               {inCurrent ? (
                 <button
