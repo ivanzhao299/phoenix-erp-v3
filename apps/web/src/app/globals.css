@@ -98,6 +98,8 @@ html, body {
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   line-height: 1.5;
+  /* 防止 iOS 橡皮筋回弹 / Android 下拉刷新 */
+  overscroll-behavior: none;
 }
 
 a { color: inherit; text-decoration: none; }
@@ -133,9 +135,13 @@ input:disabled, textarea:disabled, select:disabled {
   to   { opacity: 1; transform: none; }
 }
 @keyframes shimmer { 0%,100% { opacity:.4; } 50% { opacity:.85; } }
+@keyframes spin    { to { transform: rotate(360deg); } }
+@keyframes pageIn  { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 
 .animate-fade-in { animation: fadeIn 0.24s var(--ease) both; }
 .skeleton        { animation: shimmer 1.4s ease-in-out infinite; background: var(--bg-muted); border-radius: var(--radius-sm); }
+.mobile-spin     { animation: spin 0.72s linear infinite; }
+.mobile-page-in  { animation: pageIn 0.18s var(--ease) both; }
 
 /* ── Glass card ─────────────────────────────────────────────── */
 .glass-card {
@@ -171,4 +177,37 @@ input:disabled, textarea:disabled, select:disabled {
 /* ── Mobile ─────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   :root { --sidebar-width: 0px; }
+}
+
+/* ── Mobile Performance & UX ─────────────────────────────────── */
+/*
+ * 1. 消除 300ms 点击延迟（touch-action: manipulation 告知浏览器无双击缩放意图）
+ * 2. 移除点击时的蓝色/灰色高亮闪烁
+ * 3. 按钮禁止文本选中
+ */
+button,
+[role="button"],
+a,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+select,
+label,
+summary {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+button, [role="button"] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/*
+ * 滚动容器：阻止 scroll chain，防止边界处橡皮筋蔓延到父层
+ * 使用：在移动端可滚动 div 上添加 className="scroll-y"
+ */
+.scroll-y {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
 }

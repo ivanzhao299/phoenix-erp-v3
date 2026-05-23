@@ -251,7 +251,8 @@ export default function MobileHomePage() {
               cursor: card.soon ? 'default' : 'pointer',
               textAlign: 'left',
               opacity: card.soon ? 0.7 : 1,
-              transition: 'transform 0.1s, opacity 0.2s',
+              transition: 'transform 0.08s, box-shadow 0.08s',
+              willChange: 'transform',
               // full-width for last odd card
               ...(idx === visibleCards.length - 1 && visibleCards.length % 2 !== 0
                 ? { gridColumn: '1/-1' }

@@ -313,9 +313,42 @@ function MobileLoginInner() {
   );
 }
 
+function LoginFallback() {
+  return (
+    <div style={{
+      minHeight: '100svh',
+      background: 'linear-gradient(160deg,#070b14 0%,#0f1929 100%)',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 28,
+    }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+        <div style={{
+          width: 64, height: 64, borderRadius: 20,
+          background: 'linear-gradient(135deg,#f59e0b,#d97706)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 34,
+          boxShadow: '0 0 40px rgba(245,158,11,0.4)',
+        }}>🐦</div>
+        <span style={{ color: '#f59e0b', fontWeight: 800, fontSize: 16, letterSpacing: 0.5 }}>
+          Phoenix ERP
+        </span>
+      </div>
+      <div className="mobile-spin" style={{
+        width: 28, height: 28,
+        border: '2.5px solid rgba(255,255,255,0.07)',
+        borderTopColor: '#f59e0b',
+        borderRadius: '50%',
+      }} />
+    </div>
+  );
+}
+
 export default function MobileLoginPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100svh', background: '#070b14' }} />}>
+    <Suspense fallback={<LoginFallback />}>
       <MobileLoginInner />
     </Suspense>
   );
