@@ -25,21 +25,31 @@ export const R = {
   QA_MGR:     'ROLE_QA_MGR',
   WMS_MGR:    'ROLE_WMS_MGR',
   PKG_MGR:    'ROLE_PKG_MGR',
+  PKG_OP:     'ROLE_PKG_OP',
   LOG_MGR:    'ROLE_LOG_MGR',
   STORE_MGR:  'ROLE_STORE_MGR',
   FIN_CFO:    'ROLE_FIN_CFO',
   FIN_ACCT:   'ROLE_FIN_ACCT',
+  FIN_COST:   'ROLE_FIN_COST',
   AUDITOR:    'ROLE_AUDITOR',
   BREEDER:    'ROLE_BREEDER',
   SALES_REP:  'ROLE_SALES_REP',
   SALES_MGR:  'ROLE_SALES_MGR',
+  REGION_MGR: 'ROLE_REGION_MGR',
+  PRC_BUYER:  'ROLE_PRC_BUYER',
+  DRIVER:     'ROLE_DRIVER',
+  CASHIER:    'ROLE_CASHIER',
 } as const;
 
-// ── 管理类角色组（可登录手机端） ──────────────────────────────────────────────
+// ── 管理类角色组（可登录手机端，至少可见每日看板） ────────────────────────────
 
-const MGMT = [R.ADMIN, R.CEO, R.FARM_MGR, R.VET, R.QA_MGR, R.WMS_MGR,
-              R.PKG_MGR, R.LOG_MGR, R.STORE_MGR, R.FIN_CFO, R.FIN_ACCT,
-              R.AUDITOR, R.BREEDER, R.SALES_REP, R.SALES_MGR];
+const MGMT = [
+  R.ADMIN, R.CEO, R.FARM_MGR, R.VET, R.QA_MGR, R.WMS_MGR,
+  R.PKG_MGR, R.PKG_OP, R.LOG_MGR, R.STORE_MGR,
+  R.FIN_CFO, R.FIN_ACCT, R.FIN_COST,
+  R.AUDITOR, R.BREEDER, R.SALES_REP, R.SALES_MGR,
+  R.REGION_MGR, R.PRC_BUYER, R.CASHIER,
+];
 
 // ── 页面权限矩阵 ──────────────────────────────────────────────────────────────
 
@@ -51,10 +61,10 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     read:  MGMT,
   },
 
-  /** 饲料台账：农场相关角色可录入；仓储/管理可查看 */
+  /** 饲料台账：农场相关角色可录入；仓储/物流/采购可查看（采购需了解库存水位） */
   feed: {
     write: [R.ADMIN, R.FARM_MGR, R.VET, R.BREEDER],
-    read:  [R.CEO, R.WMS_MGR, R.LOG_MGR, R.AUDITOR],
+    read:  [R.CEO, R.WMS_MGR, R.LOG_MGR, R.AUDITOR, R.PRC_BUYER],
   },
 
   /** 死淘快录：现场/农场/兽医录入；管理层查看 */
@@ -75,11 +85,12 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     read:  [R.CEO, R.VET, R.QA_MGR, R.WMS_MGR, R.BREEDER, R.AUDITOR],
   },
 
-  /** 生产趋势：管理层 + 农场 + 财务查看 */
+  /** 生产趋势：管理层 + 农场 + 财务 + 销售 + 区域督导查看 */
   analytics: {
     write: [],
     read:  [R.ADMIN, R.CEO, R.FARM_MGR, R.VET, R.QA_MGR, R.WMS_MGR,
-            R.FIN_CFO, R.FIN_ACCT, R.AUDITOR],
+            R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.AUDITOR,
+            R.SALES_MGR, R.REGION_MGR, R.STORE_MGR],
   },
 
   /** 包装统计：包装/品控/管理层 */
@@ -94,17 +105,19 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     read:  [R.CEO, R.PKG_MGR, R.AUDITOR],
   },
 
-  /** 鸡蛋台账：仓储/农场/销售/财务 */
+  /** 鸡蛋台账：仓储/农场录入；销售/财务/区域/店长只读 */
   egg: {
     write: [R.ADMIN, R.FARM_MGR, R.WMS_MGR],
-    read:  [R.CEO, R.VET, R.QA_MGR, R.PKG_MGR, R.SALES_MGR, R.SALES_REP,
-            R.FIN_CFO, R.FIN_ACCT, R.AUDITOR],
+    read:  [R.CEO, R.VET, R.QA_MGR, R.PKG_MGR,
+            R.SALES_MGR, R.SALES_REP, R.REGION_MGR, R.STORE_MGR,
+            R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.AUDITOR],
   },
 
-  /** 销售出库：销售/农场/管理层 */
+  /** 销售出库：销售/农场录入；物流/财务/区域/店长只读 */
   sales: {
     write: [R.ADMIN, R.FARM_MGR, R.SALES_MGR, R.SALES_REP],
-    read:  [R.CEO, R.WMS_MGR, R.LOG_MGR, R.FIN_CFO, R.FIN_ACCT, R.AUDITOR],
+    read:  [R.CEO, R.WMS_MGR, R.LOG_MGR, R.REGION_MGR, R.STORE_MGR,
+            R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.AUDITOR],
   },
 
   /** 药品台账：兽医/农场录入；管理层/品控查看 */
@@ -113,10 +126,17 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     read:  [R.CEO, R.QA_MGR, R.STORE_MGR, R.AUDITOR],
   },
 
-  /** 配送签收：物流经理录入；仓储/门店/销售/管理层查看 */
+  /** 配送签收：物流经理录入；仓储/门店/销售/区域/司机只读 */
   delivery: {
     write: [R.ADMIN, R.LOG_MGR],
-    read:  [R.CEO, R.WMS_MGR, R.STORE_MGR, R.SALES_MGR, R.AUDITOR],
+    read:  [R.CEO, R.WMS_MGR, R.STORE_MGR, R.SALES_MGR,
+            R.REGION_MGR, R.DRIVER, R.AUDITOR],
+  },
+
+  /** 包装作业台终端：仅包装相关操作角色可访问；财务/物流等不应看到此入口 */
+  terminal: {
+    write: [R.ADMIN, R.PKG_MGR, R.PKG_OP],
+    read:  [R.CEO, R.FARM_MGR, R.QA_MGR],
   },
 };
 

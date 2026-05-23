@@ -88,7 +88,7 @@ const NAV_CARDS: NavCard[] = [
     color: '#f59e0b',
     href: '/terminal/packaging/dashboard',
     soon: false,
-    // 包装作业台不做角色过滤，所有登录用户均可跳转
+    pageKey: 'terminal',
   },
   {
     icon: <Bird size={28} />,
