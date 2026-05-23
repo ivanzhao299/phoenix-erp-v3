@@ -15,6 +15,12 @@ import { EntityManager } from 'typeorm';
  *   - B4: 动态字段名拼接加白名单校验，杜绝 SQL 注入
  */
 
+/** 组织作用域 — 从 JWT storeCode 派生 */
+export interface OrgScope {
+  isGlobal: boolean;
+  farmCode: string | null;
+}
+
 // brd_daily_logs 允许写入的列（白名单 — 任何前端伪造的列名都会被丢弃）
 const ALLOWED_DAILY_COLS = new Set([
   'flock_no', 'log_date', 'shift', 'feed_consumed', 'water_consumed',
@@ -44,10 +50,19 @@ export class FarmService {
     return { fields, values };
   }
 
-  async submitBreedingDailyLog(body: any) {
+  async submitBreedingDailyLog(body: any, scope: OrgScope = { isGlobal: true, farmCode: null }) {
     const eggs = Number(body.eggs_produced) || 0;
     const mortality = Number(body.mortality_qty) || 0;
     const flock_no = body.flock_no || body.house_code;
+
+    // 安全校验：非全局用户只能写自己农场的数据
+    if (!scope.isGlobal && scope.farmCode) {
+      if (body.farm_code && body.farm_code !== scope.farmCode) {
+        throw new BadRequestException('无权写入其他农场的数据');
+      }
+      // 自动补全 farm_code
+      body.farm_code = scope.farmCode;
+    }
 
     if (eggs < 0 || mortality < 0) {
       throw new BadRequestException('产蛋数和死淘数不能为负数！');
@@ -225,12 +240,27 @@ export class FarmService {
     });
   }
 
-  async getDailyHenReport(date: string) {
+  async getDailyHenReport(date: string, scope: OrgScope = { isGlobal: true, farmCode: null }) {
+    // ── 鸡群查询 ──────────────────────────────────────────────
+    const flockParams: any[] = [];
+    let flockWhere = `WHERE status IN ('LAYING','ACTIVE','laying','active')`;
+    if (!scope.isGlobal && scope.farmCode) {
+      flockParams.push(scope.farmCode);
+      flockWhere += ` AND farm_code = $1`;
+    }
     const flocks = await this.entityManager.query(
       `SELECT flock_no, house_code, current_qty, initial_qty, placement_date, current_lay_rate
-       FROM brd_flocks WHERE status IN ('LAYING','ACTIVE','laying','active') ORDER BY house_code`,
+       FROM brd_flocks ${flockWhere} ORDER BY house_code`,
+      flockParams,
     );
 
+    // ── 日报查询 ──────────────────────────────────────────────
+    const logParams: any[] = [date];
+    let logWhere = `WHERE log_date = $1`;
+    if (!scope.isGlobal && scope.farmCode) {
+      logParams.push(scope.farmCode);
+      logWhere += ` AND farm_code = $${logParams.length}`;
+    }
     const logs = await this.entityManager.query(
       `SELECT
          COALESCE(house_code, flock_no) AS house_code,
@@ -242,9 +272,9 @@ export class FarmService {
          string_agg(DISTINCT culling_reason, '；')
            FILTER (WHERE culling_reason IS NOT NULL AND culling_reason <> '') AS culling_reason
        FROM brd_daily_logs
-       WHERE log_date = $1
+       ${logWhere}
        GROUP BY COALESCE(house_code, flock_no), flock_no`,
-      [date],
+      logParams,
     );
 
     const logMap = new Map<string, (typeof logs)[0]>();
@@ -301,9 +331,15 @@ export class FarmService {
     return { code: 200, date, rows, totals };
   }
 
-  async getFarmTrend(days: number) {
+  async getFarmTrend(days: number, scope: OrgScope = { isGlobal: true, farmCode: null }) {
     const safeDays = Math.min(Math.max(Number(days) || 7, 1), 90);
-    // 当期：最近 safeDays 天；对比期：再往前 safeDays 天
+
+    const trendParams: any[] = [safeDays];
+    let trendWhere = `WHERE log_date >= (CURRENT_DATE - ($1 * 2 - 1) * INTERVAL '1 day')`;
+    if (!scope.isGlobal && scope.farmCode) {
+      trendParams.push(scope.farmCode);
+      trendWhere += ` AND farm_code = $${trendParams.length}`;
+    }
     const rows = await this.entityManager.query(
       `SELECT
          log_date::text                           AS date,
@@ -312,10 +348,10 @@ export class FarmService {
          SUM(COALESCE(elimination_qty,0))::int    AS elimination,
          SUM(COALESCE(feed_consumed,0))::numeric  AS feed
        FROM brd_daily_logs
-       WHERE log_date >= (CURRENT_DATE - ($1 * 2 - 1) * INTERVAL '1 day')
+       ${trendWhere}
        GROUP BY log_date
        ORDER BY log_date ASC`,
-      [safeDays],
+      trendParams,
     );
 
     const today = new Date();
@@ -332,9 +368,16 @@ export class FarmService {
     const avg = (arr: typeof rows, field: string) =>
       arr.length ? Math.round(arr.reduce((s: number, r: any) => s + Number(r[field] || 0), 0) / arr.length) : 0;
 
-    // 获取存栏数用于计算产蛋率
+    // flock 存栏数也按农场过滤
+    const flockParams: any[] = [];
+    let flockWhere = `WHERE status IN ('LAYING','ACTIVE','laying','active')`;
+    if (!scope.isGlobal && scope.farmCode) {
+      flockParams.push(scope.farmCode);
+      flockWhere += ` AND farm_code = $1`;
+    }
     const flockSum = await this.entityManager.query(
-      `SELECT COALESCE(SUM(current_qty),0)::int AS total FROM brd_flocks WHERE status IN ('LAYING','ACTIVE','laying','active')`,
+      `SELECT COALESCE(SUM(current_qty),0)::int AS total FROM brd_flocks ${flockWhere}`,
+      flockParams,
     );
     const totalQty = Number(flockSum[0]?.total ?? 0);
 

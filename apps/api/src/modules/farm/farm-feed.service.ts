@@ -122,9 +122,21 @@ export class FarmFeedService {
     return { code: 200, data: rows.map(this.formatRow) };
   }
 
-  // ── 获取栋舍列表（将来可从 brd_houses 读取） ──────────────────────────────────
-  async getHouses() {
-    return { code: 200, data: DEFAULT_HOUSES };
+  // ── 获取栋舍列表（从 brd_houses 表读取，按农场隔离） ────────────────────────
+  async getHouses(farmCode?: string) {
+    const params: any[] = [];
+    let where = `WHERE status = 'ACTIVE'`;
+    if (farmCode) {
+      params.push(farmCode);
+      where += ` AND farm_code = $1`;
+    }
+    const rows = await this.em.query(
+      `SELECT house_code FROM brd_houses ${where} ORDER BY house_code`,
+      params,
+    );
+    // 兜底：如果 brd_houses 无数据，返回默认列表
+    const data: string[] = rows.length > 0 ? rows.map((r: any) => r.house_code) : DEFAULT_HOUSES;
+    return { code: 200, data };
   }
 
   // ── 工具 ──────────────────────────────────────────────────────────────────────

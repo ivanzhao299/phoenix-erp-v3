@@ -6,7 +6,7 @@ import {
   TrendingUp, TrendingDown, Package,
   Sun, Moon,
 } from 'lucide-react';
-import { mobileApi, EggStockRow, EggLedgerEntry } from '@/lib/mobile-api';
+import { mobileApi, EggStockRow, EggLedgerEntry, FarmCustomer } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
 
@@ -30,16 +30,6 @@ const EGG_GRADES = [
   { code: '5', name: '5号蛋' },
   { code: 'DIRTY',  name: '脏蛋'  },
   { code: 'BROKEN', name: '破损蛋' },
-];
-
-const DEFAULT_HOUSES = ['2号舍', '3号舍', '4号舍', '5号舍', '6号舍'];
-
-const DEFAULT_CUSTOMERS = [
-  '孟赛直营店',
-  '万象直营店',
-  '孟龙客户一',
-  '孟龙客户二',
-  '职工购买',
 ];
 
 type Tab = 'stock' | 'inbound' | 'outbound';
@@ -84,13 +74,17 @@ export default function EggPage() {
   const [saved, setSaved]       = useState(false);
   const [error, setError]       = useState('');
 
+  // 动态栋舍/客户列表（从后端拉取，按农场隔离）
+  const [houses, setHouses]       = useState<string[]>([]);
+  const [customers, setCustomers] = useState<FarmCustomer[]>([]);
+
   // 入库：{ house → { grade → qty } }
   const [inboundData, setInboundData]   = useState<Record<string, GradeQtyMap>>({});
-  const [selectedHouse, setSelectedHouse] = useState(DEFAULT_HOUSES[0]);
+  const [selectedHouse, setSelectedHouse] = useState('');
 
-  // 出库：{ customer → { grade → qty } }
+  // 出库：{ customer_code → { grade → qty } }
   const [outboundData, setOutboundData] = useState<Record<string, GradeQtyMap>>({});
-  const [selectedCustomer, setSelectedCustomer] = useState(DEFAULT_CUSTOMERS[0]);
+  const [selectedCustomer, setSelectedCustomer] = useState('');
 
   const loadStock = useCallback(async () => {
     setLoading(true);
@@ -123,6 +117,18 @@ export default function EggPage() {
     else loadLedger(date);
   }, [tab, date, loadStock, loadLedger]);
 
+  // 拉取栋舍和客户列表（组织隔离：农场用户只见本场数据）
+  useEffect(() => {
+    mobileApi.getFeedHouses().then(data => {
+      setHouses(data);
+      if (data.length > 0) setSelectedHouse(h => h || data[0]);
+    }).catch(() => {});
+    mobileApi.getFarmCustomers().then(data => {
+      setCustomers(data);
+      if (data.length > 0) setSelectedCustomer(c => c || data[0].customer_code);
+    }).catch(() => {});
+  }, []);
+
   if (permLoading || !allowed) return null;
 
   const getInbound = (house: string, grade: string) =>
@@ -145,18 +151,18 @@ export default function EggPage() {
     setSaved(false);
   };
 
-  const inboundTotal = DEFAULT_HOUSES.reduce((s, h) =>
+  const inboundTotal = houses.reduce((s, h) =>
     s + EGG_GRADES.reduce((s2, g) => s2 + getInbound(h, g.code), 0), 0);
 
-  const outboundTotal = DEFAULT_CUSTOMERS.reduce((s, c) =>
-    s + EGG_GRADES.reduce((s2, g) => s2 + getOutbound(c, g.code), 0), 0);
+  const outboundTotal = customers.reduce((s, c) =>
+    s + EGG_GRADES.reduce((s2, g) => s2 + getOutbound(c.customer_code, g.code), 0), 0);
 
   const handleSaveInbound = async () => {
     setSaving(true);
     setError('');
     try {
       const items: Array<{ grade: string; qty: number; house_code: string }> = [];
-      for (const house of DEFAULT_HOUSES) {
+      for (const house of houses) {
         for (const g of EGG_GRADES) {
           const qty = getInbound(house, g.code);
           if (qty > 0) items.push({ grade: g.code, qty, house_code: house });
@@ -180,10 +186,10 @@ export default function EggPage() {
     setError('');
     try {
       const items: Array<{ grade: string; qty: number; customer_no: string }> = [];
-      for (const cust of DEFAULT_CUSTOMERS) {
+      for (const cust of customers) {
         for (const g of EGG_GRADES) {
-          const qty = getOutbound(cust, g.code);
-          if (qty > 0) items.push({ grade: g.code, qty, customer_no: cust });
+          const qty = getOutbound(cust.customer_code, g.code);
+          if (qty > 0) items.push({ grade: g.code, qty, customer_no: cust.customer_code });
         }
       }
       if (items.length === 0) { setSaving(false); return; }
@@ -372,7 +378,7 @@ export default function EggPage() {
 
             {/* 栋舍切换 */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, overflowX: 'auto', paddingBottom: 2 }}>
-              {DEFAULT_HOUSES.map(h => {
+              {houses.map(h => {
                 const houseTotal = EGG_GRADES.reduce((s, g) => s + getInbound(h, g.code), 0);
                 return (
                   <button key={h} onClick={() => setSelectedHouse(h)}
@@ -424,18 +430,18 @@ export default function EggPage() {
 
             {/* 客户切换 */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, overflowX: 'auto', paddingBottom: 2 }}>
-              {DEFAULT_CUSTOMERS.map(c => {
-                const custTotal = EGG_GRADES.reduce((s, g) => s + getOutbound(c, g.code), 0);
+              {customers.map(c => {
+                const custTotal = EGG_GRADES.reduce((s, g) => s + getOutbound(c.customer_code, g.code), 0);
                 return (
-                  <button key={c} onClick={() => setSelectedCustomer(c)}
+                  <button key={c.customer_code} onClick={() => setSelectedCustomer(c.customer_code)}
                     style={{
                       flexShrink: 0, padding: '7px 14px', borderRadius: 10,
-                      background: selectedCustomer === c ? 'rgba(239,68,68,0.15)' : t.btnBg,
-                      border: `1px solid ${selectedCustomer === c ? 'rgba(239,68,68,0.4)' : t.btnBorder}`,
-                      color: selectedCustomer === c ? '#f87171' : t.textSub,
+                      background: selectedCustomer === c.customer_code ? 'rgba(239,68,68,0.15)' : t.btnBg,
+                      border: `1px solid ${selectedCustomer === c.customer_code ? 'rgba(239,68,68,0.4)' : t.btnBorder}`,
+                      color: selectedCustomer === c.customer_code ? '#f87171' : t.textSub,
                       cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
                     }}>
-                    {c}{custTotal > 0 ? ` (${custTotal})` : ''}
+                    {c.customer_name}{custTotal > 0 ? ` (${custTotal})` : ''}
                   </button>
                 );
               })}

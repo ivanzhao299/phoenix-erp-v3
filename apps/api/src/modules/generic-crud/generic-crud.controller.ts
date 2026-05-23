@@ -89,9 +89,12 @@ export class GenericCrudController {
       (req.user?.permissions || []).includes('*') ||
       req.user?.username === 'admin';
 
+    // Determine scope field: brd_* tables use farm_code; all others use store_code
+    const scopeField = table.startsWith('brd_') ? 'farm_code' : 'store_code';
+
     const effectiveQuery = isGlobal
       ? query
-      : { ...query, store_code: userStoreCode };
+      : { ...query, [scopeField]: userStoreCode };
 
     const data = await this.crudService.findAll(table, effectiveQuery);
     return { code: 200, data };

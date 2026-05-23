@@ -17,7 +17,16 @@ export class DashboardBffController {
   // ═══ V2 fidelity: 主仪表盘 KPI ═══════════════════════════════════════════
   // 来源：_archive/phoenix-backend-v2-sqlite/src/routes/dashboard.js (kpi)
   @Get('kpi')
-  async getKpi() {
+  async getKpi(@Req() req: any) {
+    // ── 组织隔离 scope ────────────────────────────────────────────
+    const userStoreCode: string | undefined = req.user?.storeCode;
+    const isGlobalKpi =
+      !userStoreCode ||
+      userStoreCode === 'ALL' ||
+      (req.user?.permissions || []).includes('*') ||
+      req.user?.username === 'admin';
+    const farmKpiCode = isGlobalKpi ? null : userStoreCode;
+
     const today = new Date().toISOString().slice(0, 10);
     const safe = async <T,>(p: Promise<T>, fb: T): Promise<T> => { try { return await p; } catch { return fb; } };
 
@@ -45,15 +54,23 @@ export class DashboardBffController {
     // 今日产蛋
     const [eggsRow] = await safe(
       this.em.query(
-        `SELECT COALESCE(SUM(eggs_produced),0)::int AS today_eggs
-           FROM brd_daily_logs WHERE log_date::text = $1`,
-        [today],
+        farmKpiCode
+          ? `SELECT COALESCE(SUM(eggs_produced),0)::int AS today_eggs
+               FROM brd_daily_logs WHERE log_date::text = $1 AND farm_code = $2`
+          : `SELECT COALESCE(SUM(eggs_produced),0)::int AS today_eggs
+               FROM brd_daily_logs WHERE log_date::text = $1`,
+        farmKpiCode ? [today, farmKpiCode] : [today],
       ),
       [{ today_eggs: 0 }],
     );
     const todayEggs = Number(eggsRow?.today_eggs) || 0;
     const [flockRow] = await safe(
-      this.em.query(`SELECT COALESCE(SUM(current_qty),0)::int AS total FROM brd_flocks WHERE status='LAYING'`),
+      this.em.query(
+        farmKpiCode
+          ? `SELECT COALESCE(SUM(current_qty),0)::int AS total FROM brd_flocks WHERE status='LAYING' AND farm_code = $1`
+          : `SELECT COALESCE(SUM(current_qty),0)::int AS total FROM brd_flocks WHERE status='LAYING'`,
+        farmKpiCode ? [farmKpiCode] : [],
+      ),
       [{ total: 0 }],
     );
     const layingTotal = Number(flockRow?.total) || 0;

@@ -34,9 +34,15 @@ export class FarmFeedController {
     return this.feedService.getLedgerRange(start, end);
   }
 
-  /** GET /api/farm/feed/houses */
+  /** GET /api/farm/feed/houses — 返回当前用户所属农场的栋舍列表 */
   @Get('houses')
-  async getHouses() {
-    return this.feedService.getHouses();
+  async getHouses(@Req() req: any) {
+    const storeCode: string | undefined = req.user?.storeCode;
+    const isGlobal =
+      !storeCode ||
+      storeCode === 'ALL' ||
+      (req.user?.permissions || []).includes('*') ||
+      req.user?.username === 'admin';
+    return this.feedService.getHouses(isGlobal ? undefined : storeCode);
   }
 }
