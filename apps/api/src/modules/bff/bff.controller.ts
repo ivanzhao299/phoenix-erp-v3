@@ -51,6 +51,17 @@ export class DashboardBffController {
       [{ total: 0, txns: 0 }],
     );
 
+    // 今日农场直销额（手工录入，来源：ord_orders FARM_SALE）
+    const [todayFarmSales] = await safe(
+      this.em.query(
+        `SELECT COALESCE(SUM(total_amount),0)::float8 AS total
+           FROM ord_orders
+          WHERE order_type = 'FARM_SALE' AND order_date::text = $1 AND status != 'CANCELLED'`,
+        [today],
+      ),
+      [{ total: 0 }],
+    );
+
     // 今日产蛋
     const [eggsRow] = await safe(
       this.em.query(
@@ -130,7 +141,7 @@ export class DashboardBffController {
       alertList.unshift({ id: 'dev_offline', text: `设备离线：${deviceStats.offlineHouses} 个鸡舍数据超过 10 分钟未更新`, type: 'danger' });
     }
 
-    // 7 天销售趋势（按 DOW）
+    // 7 天销售趋势（POS 收银，按 DOW）
     const chartRows: any[] = await safe(
       this.em.query(
         `SELECT EXTRACT(DOW FROM created_at::timestamp)::int AS dow,
@@ -143,21 +154,55 @@ export class DashboardBffController {
       ),
       [],
     );
+
+    // 7 天农场直销趋势（按 DOW）
+    const farmChartRows: any[] = await safe(
+      this.em.query(
+        `SELECT EXTRACT(DOW FROM order_date)::int AS dow,
+                COALESCE(SUM(total_amount),0)::float8 AS sales
+           FROM ord_orders
+          WHERE order_type = 'FARM_SALE'
+            AND order_date >= (CURRENT_DATE - INTERVAL '7 days')
+            AND status != 'CANCELLED'
+          GROUP BY dow
+          ORDER BY dow`,
+      ),
+      [],
+    );
+
     const days = ['日', '一', '二', '三', '四', '五', '六'];
     const eggsUnit = todayLayRate != null
       ? `枚 (今日·产蛋率 ${todayLayRate}%)`
       : `枚 (今日产蛋)`;
 
+    // 生成最近 7 天（含今日）按日期合并两渠道
+    const last7: string[] = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - (6 - i));
+      return d.toISOString().slice(0, 10);
+    });
+    const mergedChart = last7.map(dateStr => {
+      const dow  = new Date(dateStr).getDay();
+      const posR  = chartRows.find((r: any) => Number(r.dow) === dow);
+      const farmR = farmChartRows.find((f: any) => Number(f.dow) === dow);
+      return {
+        day:       `周${days[dow]}`,
+        sales:     posR  ? Number(posR.sales)  : 0,
+        farmSales: farmR ? Number(farmR.sales) : 0,
+        prod:      posR  ? Number(posR.txns) * 15 : 0,
+      };
+    });
+
     return {
       code: 200,
       data: {
         stats: {
-          eggs:   { value: todayEggs.toLocaleString(), unit: eggsUnit, trend: null },
-          stock:  { value: Number(stockRow?.total || 0).toLocaleString(), unit: '托 (可用库存)', trend: '1.8' },
-          sales:  { value: Number(todaySales?.total || 0).toFixed(0), unit: 'LAK (今日销售)', trend: '12.4' },
-          alerts: { value: String(totalAlerts + deviceStats.activeAlerts), unit: '条未处理预警', alert: (totalAlerts + deviceStats.activeAlerts) > 0 },
+          eggs:      { value: todayEggs.toLocaleString(), unit: eggsUnit, trend: null },
+          stock:     { value: Number(stockRow?.total || 0).toLocaleString(), unit: '托 (可用库存)', trend: '1.8' },
+          salesPos:  { value: Number(todaySales?.total    || 0).toFixed(0), unit: 'LAK · POS 收银' },
+          salesFarm: { value: Number(todayFarmSales?.total || 0).toFixed(0), unit: 'LAK · 农场直销' },
+          alerts:    { value: String(totalAlerts + deviceStats.activeAlerts), unit: '条未处理预警', alert: (totalAlerts + deviceStats.activeAlerts) > 0 },
         },
-        chartData: chartRows.map((r: any) => ({ day: `周${days[r.dow]}`, sales: Number(r.sales), prod: Number(r.txns) * 15 })),
+        chartData: mergedChart,
         alertList,
         deviceStats,
         meta: { today, layingTotal, todayEggs, todayLayRate },
