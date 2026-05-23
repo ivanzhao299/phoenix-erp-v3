@@ -283,6 +283,19 @@ export default function ProcurementOrderPage() {
   const [form,       setForm]       = useState<CreateForm>(DEF_CREATE);
   const [saving,     setSaving]     = useState(false);
 
+  // 采购申请 tab
+  const [activeTab, setActiveTab]           = useState<"requests" | "orders">("orders");
+  const [requests,    setRequests]          = useState<any[]>([]);
+  const [reqLoading,  setReqLoading]        = useState(false);
+  const [convertOpen, setConvertOpen]       = useState(false);
+  const [convertReq,  setConvertReq]        = useState<any | null>(null);
+  const [convertForm, setConvertForm]       = useState({ supplier_code: "", supplier_name: "", total_amount: "0", currency_code: "LAK", expected_date: "", pay_deadline: "", contract_note: "" });
+  const [converting,  setConverting]        = useState(false);
+  const [rejectOpen,  setRejectOpen]        = useState(false);
+  const [rejectReq,   setRejectReq]         = useState<any | null>(null);
+  const [rejectNote,  setRejectNote]        = useState("");
+  const [rejecting,   setRejecting]         = useState(false);
+
   // 提交审核 drawer
   const [submitOpen,    setSubmitOpen]    = useState(false);
   const [submitPO,      setSubmitPO]      = useState<PO | null>(null);
@@ -306,6 +319,15 @@ export default function ProcurementOrderPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadRequests = useCallback(() => {
+    setReqLoading(true);
+    fetch("/api/procurement/purchase-requests", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(j => setRequests(j.data || []))
+      .catch(() => {}).finally(() => setReqLoading(false));
+  }, [token]);
+
+  useEffect(() => { if (activeTab === "requests") loadRequests(); }, [activeTab, loadRequests]);
 
   // ── 打开提交审核 drawer ───────────��──────────────────────────────────────
 
@@ -360,7 +382,45 @@ export default function ProcurementOrderPage() {
     finally { setSubmitting(false); }
   };
 
-  // ── 状态推进（非提交审核） ────────────────���───────────────────────────────
+  const doConvert = async () => {
+    if (!convertReq) return;
+    if (!convertForm.supplier_code) { toast.error("请选择或输入供应商代码"); return; }
+    if (!Number(convertForm.total_amount)) { toast.error("请填写采购金额"); return; }
+    setConverting(true);
+    try {
+      const res = await fetch(`/api/procurement/purchase-requests/${convertReq.id}/convert`, {
+        method: "POST", headers: hdr,
+        body: JSON.stringify({ ...convertForm, total_amount: Number(convertForm.total_amount) }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast.success(json.msg || "已转为采购单草稿");
+        setConvertOpen(false); setConvertReq(null);
+        loadRequests(); load();
+      } else { toast.error(json.msg || json.message || "转换失败"); }
+    } catch { toast.error("网络错误"); }
+    finally { setConverting(false); }
+  };
+
+  const doReject = async () => {
+    if (!rejectReq) return;
+    setRejecting(true);
+    try {
+      const res = await fetch(`/api/procurement/purchase-requests/${rejectReq.id}/reject`, {
+        method: "POST", headers: hdr,
+        body: JSON.stringify({ note: rejectNote }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast.success("已拒绝该申请");
+        setRejectOpen(false); setRejectReq(null); setRejectNote("");
+        loadRequests();
+      } else { toast.error(json.msg || "操作失败"); }
+    } catch { toast.error("网络错误"); }
+    finally { setRejecting(false); }
+  };
+
+  // ── 状态推进（非提交审核） ────────────────────────────────────────────────
 
   const advance = async (row: PO) => {
     const next = STATUS_FLOW[row.status?.toUpperCase() || ""];
@@ -469,80 +529,166 @@ export default function ProcurementOrderPage() {
           </div>
         } />
 
-      {/* KPI */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-        {[
-          { label: "采购总额",   value: `¥${monthlyAmt.toLocaleString()}`,       accent: "var(--color-primary)" },
-          { label: "审批/在途",  value: `${inTransitCnt} 单`,                    accent: "#3b82f6" },
-          { label: "已收货",     value: `${receivedCnt} 单`,                     accent: "#10b981" },
-        ].map(k => (
-          <div key={k.label} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderLeft: `3px solid ${k.accent}`, borderRadius: "var(--radius-md)", padding: "10px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 18, fontWeight: 800, color: k.accent }}>{k.value}</span>
-            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{k.label}</span>
-          </div>
+      {/* tab 切换 */}
+      <div style={{ display: "flex", gap: 0, marginBottom: 16, borderBottom: "1px solid var(--border)" }}>
+        {(["requests", "orders"] as const).map(tab => (
+          <button key={tab} type="button"
+            onClick={() => setActiveTab(tab)}
+            style={{
+              padding: "9px 20px", fontSize: 13, fontWeight: activeTab === tab ? 700 : 400,
+              background: "none", border: "none", cursor: "pointer",
+              color: activeTab === tab ? "var(--color-primary)" : "var(--text-secondary)",
+              borderBottom: activeTab === tab ? "2px solid var(--color-primary)" : "2px solid transparent",
+              marginBottom: -1,
+            }}>
+            {tab === "requests" ? `采购申请 ${requests.filter(r => r.status === "PENDING").length ? `(${requests.filter(r => r.status === "PENDING").length})` : ""}` : "采购订单"}
+          </button>
         ))}
       </div>
 
-      {/* 搜索 + 状态过滤 */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索订单号 / 供应商 / 主题…"
-          style={{ flex: 1, padding: "9px 14px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", color: "var(--text-primary)", fontSize: 14, outline: "none" }} />
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          style={{ padding: "9px 12px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", color: "var(--text-primary)", fontSize: 14, outline: "none" }}>
-          <option value="">全部状态</option>
-          {Object.entries(STATUS_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
-      </div>
+      {activeTab === "orders" && (
+        <>
+          {/* KPI */}
+          <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+            {[
+              { label: "采购总额",   value: `¥${monthlyAmt.toLocaleString()}`,       accent: "var(--color-primary)" },
+              { label: "审批/在途",  value: `${inTransitCnt} 单`,                    accent: "#3b82f6" },
+              { label: "已收货",     value: `${receivedCnt} 单`,                     accent: "#10b981" },
+            ].map(k => (
+              <div key={k.label} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderLeft: `3px solid ${k.accent}`, borderRadius: "var(--radius-md)", padding: "10px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 18, fontWeight: 800, color: k.accent }}>{k.value}</span>
+                <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{k.label}</span>
+              </div>
+            ))}
+          </div>
 
-      {/* 表格 */}
-      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead>
-            <tr style={{ background: "var(--bg-page)", borderBottom: "1px solid var(--border)" }}>
-              {["合同编号", "供应商", "采购主题", "金额", "计划/收货", "到货日", "审批人", "状态", "操作"].map(h => (
-                <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading && <tr><td colSpan={9} style={{ padding: 28, textAlign: "center", color: "var(--text-secondary)" }}>加载中…</td></tr>}
-            {!loading && filtered.length === 0 && <tr><td colSpan={9} style={{ padding: 28, textAlign: "center", color: "var(--text-secondary)" }}>暂无采购订单</td></tr>}
-            {!loading && filtered.map((row, i) => {
-              const st    = row.status?.toUpperCase() || "DRAFT";
-              const nextSt = STATUS_FLOW[st];
-              return (
-                <tr key={row.id} style={{ borderBottom: "1px solid var(--border)", background: i % 2 === 0 ? "var(--bg-card)" : "var(--bg-page)" }}>
-                  <td style={{ padding: "9px 12px" }}>
-                    <button type="button" onClick={() => openDetail(row)}
-                      style={{ background: "none", border: "none", color: "var(--color-primary)", cursor: "pointer", fontWeight: 700, fontFamily: "monospace", fontSize: 11, padding: 0 }}>
-                      {row.contract_no || row.po_no}
-                    </button>
-                    {row.contract_url && <span title="已上传合同" style={{ marginLeft: 4, color: "#10b981", fontSize: 10 }}>📎</span>}
-                  </td>
-                  <td style={{ padding: "9px 12px", fontWeight: 600 }}>{row.supplier_name || row.supplier_code || "—"}</td>
-                  <td style={{ padding: "9px 12px", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.subject || "—"}</td>
-                  <td style={{ padding: "9px 12px", fontWeight: 700, color: "var(--color-primary)" }}>
-                    {row.currency_code || "LAK"} {Number(row.total_amount || 0).toLocaleString()}
-                  </td>
-                  <td style={{ padding: "9px 12px" }}>{row.plan_qty || 0} / <span style={{ color: (row.received_qty || 0) >= (row.plan_qty || 1) ? "#10b981" : undefined }}>{row.received_qty || 0}</span></td>
-                  <td style={{ padding: "9px 12px", fontSize: 11 }}>{row.expected_date?.slice(0, 10) || "—"}</td>
-                  <td style={{ padding: "9px 12px", fontSize: 12 }}>{row.approver_name || "—"}</td>
-                  <td style={{ padding: "9px 12px" }}>
-                    <span className={`${s.badge} ${s[STATUS_CLS[st] || "badgeNeutral"]}`}>{STATUS_LABEL[st] || st}</span>
-                  </td>
-                  <td style={{ padding: "9px 12px" }}>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {st === "DRAFT" && <button type="button" className={s.btnSecondary} style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => openEdit(row)}>编辑</button>}
-                      {nextSt && <button type="button" className={s.btnSuccess} style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => advance(row)}>{STATUS_NEXT_LABEL[st] || nextSt}</button>}
-                      <button type="button" className={s.btnSecondary} style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => openDetail(row)}>详情</button>
-                    </div>
-                  </td>
+          {/* 搜索 + 状态过滤 */}
+          <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索订单号 / 供应商 / 主题…"
+              style={{ flex: 1, padding: "9px 14px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", color: "var(--text-primary)", fontSize: 14, outline: "none" }} />
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+              style={{ padding: "9px 12px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", color: "var(--text-primary)", fontSize: 14, outline: "none" }}>
+              <option value="">全部状态</option>
+              {Object.entries(STATUS_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+
+          {/* 表格 */}
+          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: "var(--bg-page)", borderBottom: "1px solid var(--border)" }}>
+                  {["合同编号", "供应商", "采购主题", "金额", "计划/收货", "到货日", "审批人", "状态", "操作"].map(h => (
+                    <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {loading && <tr><td colSpan={9} style={{ padding: 28, textAlign: "center", color: "var(--text-secondary)" }}>加载中…</td></tr>}
+                {!loading && filtered.length === 0 && <tr><td colSpan={9} style={{ padding: 28, textAlign: "center", color: "var(--text-secondary)" }}>暂无采购订单</td></tr>}
+                {!loading && filtered.map((row, i) => {
+                  const st    = row.status?.toUpperCase() || "DRAFT";
+                  const nextSt = STATUS_FLOW[st];
+                  return (
+                    <tr key={row.id} style={{ borderBottom: "1px solid var(--border)", background: i % 2 === 0 ? "var(--bg-card)" : "var(--bg-page)" }}>
+                      <td style={{ padding: "9px 12px" }}>
+                        <button type="button" onClick={() => openDetail(row)}
+                          style={{ background: "none", border: "none", color: "var(--color-primary)", cursor: "pointer", fontWeight: 700, fontFamily: "monospace", fontSize: 11, padding: 0 }}>
+                          {row.contract_no || row.po_no}
+                        </button>
+                        {row.contract_url && <span title="已上传合同" style={{ marginLeft: 4, color: "#10b981", fontSize: 10 }}>📎</span>}
+                      </td>
+                      <td style={{ padding: "9px 12px", fontWeight: 600 }}>{row.supplier_name || row.supplier_code || "—"}</td>
+                      <td style={{ padding: "9px 12px", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.subject || "—"}</td>
+                      <td style={{ padding: "9px 12px", fontWeight: 700, color: "var(--color-primary)" }}>
+                        {row.currency_code || "LAK"} {Number(row.total_amount || 0).toLocaleString()}
+                      </td>
+                      <td style={{ padding: "9px 12px" }}>{row.plan_qty || 0} / <span style={{ color: (row.received_qty || 0) >= (row.plan_qty || 1) ? "#10b981" : undefined }}>{row.received_qty || 0}</span></td>
+                      <td style={{ padding: "9px 12px", fontSize: 11 }}>{row.expected_date?.slice(0, 10) || "—"}</td>
+                      <td style={{ padding: "9px 12px", fontSize: 12 }}>{row.approver_name || "—"}</td>
+                      <td style={{ padding: "9px 12px" }}>
+                        <span className={`${s.badge} ${s[STATUS_CLS[st] || "badgeNeutral"]}`}>{STATUS_LABEL[st] || st}</span>
+                      </td>
+                      <td style={{ padding: "9px 12px" }}>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {st === "DRAFT" && <button type="button" className={s.btnSecondary} style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => openEdit(row)}>编辑</button>}
+                          {nextSt && <button type="button" className={s.btnSuccess} style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => advance(row)}>{STATUS_NEXT_LABEL[st] || nextSt}</button>}
+                          <button type="button" className={s.btnSecondary} style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => openDetail(row)}>详情</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {activeTab === "requests" && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
+              待处理采购申请
+            </span>
+            <button type="button" className={s.btnSecondary} onClick={loadRequests} disabled={reqLoading}
+              style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+              <RefreshCw size={12} /> 刷新
+            </button>
+          </div>
+          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: "var(--bg-page)", borderBottom: "1px solid var(--border)" }}>
+                  {["申请单号", "申请事项", "物品/规格", "数量", "预算", "紧急程度", "期望到货", "申请人", "状态", "操作"].map(h => (
+                    <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {reqLoading && <tr><td colSpan={10} style={{ padding: 28, textAlign: "center", color: "var(--text-secondary)" }}>加载中…</td></tr>}
+                {!reqLoading && requests.length === 0 && <tr><td colSpan={10} style={{ padding: 28, textAlign: "center", color: "var(--text-secondary)" }}>暂无采购申请</td></tr>}
+                {!reqLoading && requests.map((row, i) => {
+                  const st = (row.status || "PENDING").toUpperCase();
+                  const stColor = st === "PENDING" ? "#f59e0b" : st === "CONVERTED" ? "#10b981" : "#ef4444";
+                  const stLabel = st === "PENDING" ? "待处理" : st === "CONVERTED" ? "已转采购单" : st === "REJECTED" ? "已拒绝" : st;
+                  const urgLabel = row.urgency === "CRITICAL" ? "🔴 非常紧急" : row.urgency === "URGENT" ? "🟡 紧急" : "普通";
+                  return (
+                    <tr key={row.id} style={{ borderBottom: "1px solid var(--border)", background: i % 2 === 0 ? "var(--bg-card)" : "var(--bg-page)" }}>
+                      <td style={{ padding: "9px 12px", fontFamily: "monospace", fontSize: 11, fontWeight: 700 }}>{row.req_no || row.id}</td>
+                      <td style={{ padding: "9px 12px", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.subject || "—"}</td>
+                      <td style={{ padding: "9px 12px" }}>{row.item || "—"}</td>
+                      <td style={{ padding: "9px 12px" }}>{row.qty || "—"}</td>
+                      <td style={{ padding: "9px 12px", fontWeight: 600 }}>{row.currency_code || "LAK"} {Number(row.budget_amount || 0).toLocaleString()}</td>
+                      <td style={{ padding: "9px 12px", fontSize: 12 }}>{urgLabel}</td>
+                      <td style={{ padding: "9px 12px", fontSize: 11 }}>{row.expected_date?.slice(0, 10) || "—"}</td>
+                      <td style={{ padding: "9px 12px", fontSize: 12 }}>{row.applicant || "—"}</td>
+                      <td style={{ padding: "9px 12px" }}>
+                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, background: stColor + "22", color: stColor, fontSize: 11, fontWeight: 700 }}>{stLabel}</span>
+                        {row.po_no && <div style={{ fontSize: 10, color: "var(--text-secondary)", marginTop: 2 }}>→ {row.po_no}</div>}
+                      </td>
+                      <td style={{ padding: "9px 12px" }}>
+                        {st === "PENDING" && (
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button type="button" className={s.btnSuccess} style={{ padding: "4px 8px", fontSize: 11 }}
+                              onClick={() => {
+                                setConvertReq(row);
+                                setConvertForm({ supplier_code: row.supplier_code || "", supplier_name: row.supplier_name || "", total_amount: String(row.budget_amount || 0), currency_code: row.currency_code || "LAK", expected_date: row.expected_date?.slice(0, 10) || "", pay_deadline: "", contract_note: row.reason || "" });
+                                setConvertOpen(true);
+                              }}>转为采购单</button>
+                            <button type="button" className={s.btnDanger} style={{ padding: "4px 8px", fontSize: 11 }}
+                              onClick={() => { setRejectReq(row); setRejectNote(""); setRejectOpen(true); }}>拒绝</button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* ── 新建 / 编辑 / 详情 Drawer ── */}
       <RightDrawer open={createOpen}
@@ -715,6 +861,74 @@ export default function ProcurementOrderPage() {
             </div>
           </div>
         )}
+      </RightDrawer>
+
+      {/* 转为采购单 Drawer */}
+      <RightDrawer open={convertOpen} title={`转为采购单：${convertReq?.subject || ""}`}
+        onClose={() => { setConvertOpen(false); setConvertReq(null); }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {convertReq && (
+            <div style={{ background: "var(--bg-page)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "10px 12px", fontSize: 12 }}>
+              <div><span style={{ color: "var(--text-secondary)" }}>申请单：</span><span style={{ fontFamily: "monospace", fontWeight: 700 }}>{convertReq.req_no}</span></div>
+              <div><span style={{ color: "var(--text-secondary)" }}>申请事项：</span>{convertReq.subject}</div>
+              <div><span style={{ color: "var(--text-secondary)" }}>数量：</span>{convertReq.qty} &nbsp;|&nbsp; <span style={{ color: "var(--text-secondary)" }}>预算：</span>{convertReq.currency_code} {Number(convertReq.budget_amount||0).toLocaleString()}</div>
+              {convertReq.reason && <div><span style={{ color: "var(--text-secondary)" }}>原因：</span>{convertReq.reason}</div>}
+            </div>
+          )}
+          {[
+            { key: "supplier_code",  label: "供应商代码 *",  type: "text",   placeholder: "如 SUP-001" },
+            { key: "supplier_name",  label: "供应商名称",    type: "text",   placeholder: "可选" },
+            { key: "total_amount",   label: "采购金额 *",    type: "number", placeholder: "实际金额" },
+            { key: "expected_date",  label: "期望到货日期",  type: "date",   placeholder: "" },
+            { key: "pay_deadline",   label: "付款截止日期",  type: "date",   placeholder: "" },
+            { key: "contract_note",  label: "合同摘要",      type: "text",   placeholder: "可选备注" },
+          ].map(f => (
+            <div key={f.key}>
+              <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>{f.label}</label>
+              <input type={f.type} placeholder={f.placeholder}
+                value={(convertForm as any)[f.key]}
+                onChange={e => setConvertForm(p => ({ ...p, [f.key]: e.target.value }))}
+                style={{ width: "100%", padding: "9px 12px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", color: "var(--text-primary)", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+            </div>
+          ))}
+          <div>
+            <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>货币</label>
+            <select value={convertForm.currency_code} onChange={e => setConvertForm(p => ({ ...p, currency_code: e.target.value }))}
+              style={{ width: "100%", padding: "9px 12px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", color: "var(--text-primary)", fontSize: 13, outline: "none" }}>
+              {["LAK","CNY","THB","USD"].map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button type="button" className={s.btnPrimary} style={{ flex: 1 }} onClick={doConvert} disabled={converting}>
+              {converting ? "转换中…" : "✅ 确认转为采购单"}
+            </button>
+            <button type="button" className={s.btnSecondary} onClick={() => setConvertOpen(false)} disabled={converting}>取消</button>
+          </div>
+        </div>
+      </RightDrawer>
+
+      {/* 拒绝申请 Drawer */}
+      <RightDrawer open={rejectOpen} title="拒绝采购申请"
+        onClose={() => { setRejectOpen(false); setRejectReq(null); }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {rejectReq && (
+            <div style={{ background: "var(--bg-page)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "10px 12px", fontSize: 12 }}>
+              <div><span style={{ color: "var(--text-secondary)" }}>申请单：</span><span style={{ fontFamily: "monospace", fontWeight: 700 }}>{rejectReq.req_no}</span></div>
+              <div><span style={{ color: "var(--text-secondary)" }}>申请事项：</span>{rejectReq.subject}</div>
+            </div>
+          )}
+          <div>
+            <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>拒绝原因</label>
+            <textarea rows={3} value={rejectNote} onChange={e => setRejectNote(e.target.value)} placeholder="请填写拒绝原因（可选）"
+              style={{ width: "100%", padding: "9px 12px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", color: "var(--text-primary)", fontSize: 13, outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button type="button" className={s.btnDanger} style={{ flex: 1 }} onClick={doReject} disabled={rejecting}>
+              {rejecting ? "处理中…" : "确认拒绝"}
+            </button>
+            <button type="button" className={s.btnSecondary} onClick={() => setRejectOpen(false)} disabled={rejecting}>取消</button>
+          </div>
+        </div>
       </RightDrawer>
     </div>
   );

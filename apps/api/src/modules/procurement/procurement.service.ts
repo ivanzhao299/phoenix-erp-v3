@@ -418,4 +418,130 @@ export class ProcurementService {
       return { code: 500, msg: e.message };
     }
   }
+
+  // ─── 采购申请 (prc_purchase_requests) ──────────────────────────────────────
+
+  /** 获取采购申请列表（org 隔离） */
+  async getPurchaseRequests() {
+    try {
+      const params: any[] = [];
+      let scopeClause = '';
+      if (!this.isGlobalUser) {
+        params.push(this.userStoreCode);
+        scopeClause = ` AND store_code = $${params.length}`;
+      }
+      const data = await this.em.query(
+        `SELECT * FROM prc_purchase_requests WHERE 1=1${scopeClause} ORDER BY created_at DESC LIMIT 200`,
+        params,
+      );
+      return { code: 200, data };
+    } catch (e) { return { code: 200, data: [] }; }
+  }
+
+  /** 发起采购申请（业务用户） */
+  async createPurchaseRequest(dto: {
+    subject: string;
+    item?: string;
+    qty?: string;
+    urgency?: string;
+    budget_amount?: number;
+    currency_code?: string;
+    expected_date?: string;
+    reason?: string;
+    category?: string;
+  }) {
+    const year = new Date().getFullYear();
+    const ts   = Date.now();
+    const reqNo = `REQ-${year}-${ts.toString().slice(-6)}`;
+    await this.em.query(
+      `INSERT INTO prc_purchase_requests
+         (req_no, subject, item, qty, urgency, budget_amount, currency_code,
+          expected_date, reason, category, status, store_code, requester_id,
+          applicant, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'PENDING',$11,$12,$13,
+               CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`,
+      [
+        reqNo,
+        dto.subject,
+        dto.item || '',
+        dto.qty || '',
+        dto.urgency || 'NORMAL',
+        dto.budget_amount || 0,
+        dto.currency_code || 'LAK',
+        dto.expected_date || null,
+        dto.reason || '',
+        dto.category || 'OTHER',
+        this.cls.get('user.storeCode') || 'ALL',
+        this.cls.get('user.userId') || null,
+        this.cls.get('user.realNameZh') || this.cls.get('user.username') || '',
+      ],
+    );
+    return { code: 200, msg: '采购申请已提交', reqNo };
+  }
+
+  /** 采购员拒绝申请 */
+  async rejectRequest(id: number, note: string) {
+    await this.em.query(
+      `UPDATE prc_purchase_requests
+       SET status='REJECTED', reject_note=$1, approved_by=$2, reviewer_name=$3,
+           approved_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
+       WHERE id=$4`,
+      [
+        note || '不符合采购条件',
+        String(this.cls.get('user.userId') || ''),
+        this.cls.get('user.realNameZh') || this.cls.get('user.username') || '',
+        id,
+      ],
+    );
+    return { code: 200, msg: '已拒绝该申请' };
+  }
+
+  /** 采购员将申请转为采购单（DRAFT PO） */
+  async convertRequestToPO(
+    id: number,
+    dto: {
+      supplier_code: string;
+      supplier_name?: string;
+      total_amount: number;
+      currency_code?: string;
+      expected_date?: string;
+      pay_deadline?: string;
+      contract_note?: string;
+    },
+  ) {
+    const [req] = await this.em.query(
+      `SELECT * FROM prc_purchase_requests WHERE id=$1`, [id],
+    );
+    if (!req) throw new BadRequestException('采购申请不存在');
+    if (req.status !== 'PENDING') throw new BadRequestException('只能转换待处理状态的申请');
+
+    // 复用 createPurchaseOrder 生成合同号并建 PO（DRAFT）
+    const po = await this.createPurchaseOrder({
+      supplier_code:  dto.supplier_code,
+      supplier_name:  dto.supplier_name || req.supplier_name || '',
+      subject:        req.subject || '',
+      plan_qty:       Number(req.qty) || 1,
+      total_amount:   dto.total_amount,
+      currency_code:  dto.currency_code || req.currency_code || 'LAK',
+      expected_date:  dto.expected_date || req.expected_date || '',
+      pay_deadline:   dto.pay_deadline || '',
+      contract_note:  dto.contract_note || req.reason || '',
+      remark:         `来自采购申请 ${req.req_no}`,
+    });
+
+    // 标记申请为已转换
+    await this.em.query(
+      `UPDATE prc_purchase_requests
+       SET status='CONVERTED', po_no=$1, approved_by=$2, reviewer_name=$3,
+           approved_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
+       WHERE id=$4`,
+      [
+        (po as any).po_no,
+        String(this.cls.get('user.userId') || ''),
+        this.cls.get('user.realNameZh') || this.cls.get('user.username') || '',
+        id,
+      ],
+    );
+    return { code: 200, msg: '已成功转为采购单（草稿）', po };
+  }
 }

@@ -101,4 +101,25 @@ export class ProcurementController {
   ) {
     return await this.procurementService.getFeedReconciliation(startDate, endDate, houseCode);
   }
+
+  // ─── 采购申请 ──────────────────────────────────────────────────────────────
+  @Get('purchase-requests')
+  async getPurchaseRequests() {
+    return await this.procurementService.getPurchaseRequests();
+  }
+
+  @Post('purchase-requests')
+  async createPurchaseRequest(@Body() body: any) {
+    return await this.procurementService.createPurchaseRequest(body);
+  }
+
+  @Post('purchase-requests/:id/convert')
+  async convertRequestToPO(@Param('id') id: string, @Body() body: any) {
+    return await this.procurementService.convertRequestToPO(Number(id), body);
+  }
+
+  @Post('purchase-requests/:id/reject')
+  async rejectRequest(@Param('id') id: string, @Body('note') note: string) {
+    return await this.procurementService.rejectRequest(Number(id), note);
+  }
 }
