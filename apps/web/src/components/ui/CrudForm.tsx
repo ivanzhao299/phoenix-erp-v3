@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { FileUploadInput } from "./FileUploadInput";
 import styles from "./crudForm.module.css";
 
-export type FieldType = "text" | "number" | "select" | "date" | "datetime" | "textarea" | "readonly";
+export type FieldType = "text" | "number" | "select" | "date" | "datetime" | "textarea" | "readonly" | "upload";
 
 export interface FormField {
   key: string;
@@ -142,6 +143,12 @@ export const CrudForm = memo(function CrudForm({
               <div className={styles.readonlyValue}>
                 {String(values[field.key] ?? "—")}
               </div>
+            ) : field.type === "upload" ? (
+              <FileUploadInput
+                value={String(values[field.key] ?? "")}
+                onChange={url => set(field.key, url)}
+                disabled={false}
+              />
             ) : (
               <input
                 className={`${styles.input} ${errors[field.key] ? styles.hasError : ""}`}

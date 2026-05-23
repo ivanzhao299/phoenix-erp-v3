@@ -1096,6 +1096,7 @@ export class GenericCrudService implements OnModuleInit {
         `ALTER TABLE prc_purchase_orders  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
         `ALTER TABLE prc_purchase_items   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
         `ALTER TABLE prc_purchase_requests ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
+        `ALTER TABLE prc_purchase_requests ADD COLUMN IF NOT EXISTS attachment_url TEXT`,
         `ALTER TABLE prc_returns          ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
 
         // ── 主数据（mst_*）：新装库无 V2 数据时须幂等建表 ───────────────
@@ -2024,6 +2025,7 @@ export class GenericCrudService implements OnModuleInit {
         `ALTER TABLE pkg_exceptions ADD COLUMN IF NOT EXISTS related_batch_id VARCHAR(80)`,
         `ALTER TABLE pkg_exceptions ADD COLUMN IF NOT EXISTS reported_by VARCHAR(100)`,
         `ALTER TABLE pkg_exceptions ADD COLUMN IF NOT EXISTS quantity INTEGER DEFAULT 0`,
+        `ALTER TABLE pkg_exceptions ADD COLUMN IF NOT EXISTS photo_url TEXT`,
       ];
 
       for (const ddl of terminalTableDDLs) {

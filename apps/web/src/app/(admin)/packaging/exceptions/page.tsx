@@ -22,6 +22,9 @@ export default function PackagingExceptionsPage() {
     { key: "severity",     title: t("ui.严重级别",     "严重级别") },
     { key: "status",       title: t("ui.处置状态",     "处置状态") },
     { key: "action_taken", title: t("ui.处置措施",     "处置措施") },
+    { key: "photo_url",    title: t("ui.照片",         "照片"), width: 60,
+      render: (v: unknown) => v ? <span title={String(v)} style={{ color: "#3b82f6", fontSize: 18 }}>📎</span> : null,
+    },
   ];
 
   const [drawerOpen, setDrawerOpen]     = useState(false);
@@ -74,6 +77,7 @@ export default function PackagingExceptionsPage() {
         { label: t("ui.处置中", "处置中"), value: "IN_PROGRESS" },
         { label: t("ui.已关闭", "已关闭"), value: "CLOSED" },
       ] },
+    { key: "photo_url", label: t("ui.异常照片", "异常照片（PDF / 图片，≤15MB）"), type: "upload" as const, span: 2 as const },
   ];
 
   const refresh     = useCallback(() => setRefreshKey(k => k + 1), []);

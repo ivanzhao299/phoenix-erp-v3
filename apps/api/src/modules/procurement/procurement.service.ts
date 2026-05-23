@@ -449,6 +449,7 @@ export class ProcurementService {
     expected_date?: string;
     reason?: string;
     category?: string;
+    attachment_url?: string;  // 合同/报价单/图片附件（POST /api/upload/contract 返回的路径）
   }) {
     const year = new Date().getFullYear();
     const ts   = Date.now();
@@ -456,9 +457,9 @@ export class ProcurementService {
     await this.em.query(
       `INSERT INTO prc_purchase_requests
          (req_no, subject, item, qty, urgency, budget_amount, currency_code,
-          expected_date, reason, category, status, store_code, requester_id,
+          expected_date, reason, category, attachment_url, status, store_code, requester_id,
           applicant, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'PENDING',$11,$12,$13,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'PENDING',$12,$13,$14,
                CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`,
       [
         reqNo,
@@ -471,6 +472,7 @@ export class ProcurementService {
         dto.expected_date || null,
         dto.reason || '',
         dto.category || 'OTHER',
+        dto.attachment_url || null,
         this.cls.get('user.storeCode') || 'ALL',
         this.cls.get('user.userId') || null,
         this.cls.get('user.realNameZh') || this.cls.get('user.username') || '',

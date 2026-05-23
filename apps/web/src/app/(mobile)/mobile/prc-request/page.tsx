@@ -1,7 +1,7 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, RefreshCw, ClipboardList, Send, Sun, Moon } from 'lucide-react';
+import { ChevronLeft, RefreshCw, ClipboardList, Send, Sun, Moon, Paperclip, X, Loader2, ImageIcon, FileText } from 'lucide-react';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
 import { MobilePageSkeleton, SkeletonCard } from '@/components/mobile/MobileSkeleton';
@@ -81,7 +81,11 @@ export default function PrcRequestPage() {
   const [budgetAmount,  setBudgetAmount]  = useState('');
   const [currencyCode,  setCurrencyCode]  = useState('LAK');
   const [expectedDate,  setExpectedDate]  = useState(todayPlusDays(7));
-  const [reason,        setReason]        = useState('');
+  const [reason,          setReason]          = useState('');
+  const [attachmentUrl,   setAttachmentUrl]   = useState('');
+  const [attachUploading, setAttachUploading] = useState(false);
+  const [attachError,     setAttachError]     = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [submitting,    setSubmitting]    = useState(false);
   const [submitError,   setSubmitError]   = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
@@ -126,14 +130,15 @@ export default function PrcRequestPage() {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          subject:        subject.trim(),
-          item:           item.trim() || undefined,
-          qty:            qty.trim() || undefined,
+          subject:         subject.trim(),
+          item:            item.trim() || undefined,
+          qty:             qty.trim() || undefined,
           urgency,
-          budget_amount:  budgetAmount ? Number(budgetAmount) : undefined,
-          currency_code:  currencyCode,
-          expected_date:  expectedDate || undefined,
-          reason:         reason.trim() || undefined,
+          budget_amount:   budgetAmount ? Number(budgetAmount) : undefined,
+          currency_code:   currencyCode,
+          expected_date:   expectedDate || undefined,
+          reason:          reason.trim() || undefined,
+          attachment_url:  attachmentUrl || undefined,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -143,6 +148,7 @@ export default function PrcRequestPage() {
         setSubject(''); setItem(''); setQty(''); setUrgency('NORMAL');
         setBudgetAmount(''); setCurrencyCode('LAK');
         setExpectedDate(todayPlusDays(7)); setReason('');
+        setAttachmentUrl(''); setAttachError('');
       } else {
         setSubmitError(json.msg || json.message || '提交失败，请重试');
       }
@@ -322,6 +328,96 @@ export default function PrcRequestPage() {
                 disabled={readonly}
               />
             </div>
+
+            {/* 附件上传（报价单 / 合同 / 实物照片） */}
+            {!readonly && (
+              <div>
+                <span style={labelStyle}>附件（报价单 / 合同 / 图片，PDF 或图片 ≤ 15MB）</span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  style={{ display: 'none' }}
+                  onChange={async e => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    e.target.value = '';
+                    setAttachUploading(true);
+                    setAttachError('');
+                    try {
+                      const fd = new FormData();
+                      fd.append('file', file);
+                      const res = await fetch('/api/upload/contract', {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${getToken()}` },
+                        body: fd,
+                      });
+                      const json = await res.json().catch(() => ({}));
+                      if (json.code === 200 && json.url) {
+                        setAttachmentUrl(json.url);
+                      } else {
+                        setAttachError(json.message || '上传失败，请重试');
+                      }
+                    } catch {
+                      setAttachError('网络错误，请检查连接');
+                    } finally {
+                      setAttachUploading(false);
+                    }
+                  }}
+                />
+                {attachmentUrl ? (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '10px 12px', borderRadius: 10,
+                    background: isDark ? '#1e293b' : '#f0fdf4',
+                    border: `1px solid ${isDark ? '#334155' : '#bbf7d0'}`,
+                  }}>
+                    {/\.(jpg|jpeg|png|webp)$/i.test(attachmentUrl)
+                      ? <ImageIcon size={16} color="#10b981" />
+                      : <FileText size={16} color="#6366f1" />
+                    }
+                    <a
+                      href={attachmentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ flex: 1, fontSize: 13, color: '#059669', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    >
+                      {decodeURIComponent(attachmentUrl.split('/').pop() || '附件')}
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => { setAttachmentUrl(''); setAttachError(''); }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 2 }}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={attachUploading}
+                    style={{
+                      ...inputStyle,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      cursor: attachUploading ? 'not-allowed' : 'pointer',
+                      border: `1.5px dashed ${isDark ? '#374151' : '#d1d5db'}`,
+                      background: isDark ? '#1f2937' : '#f9fafb',
+                      color: t.textSub,
+                    }}
+                  >
+                    {attachUploading
+                      ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                      : <Paperclip size={16} />
+                    }
+                    {attachUploading ? '上传中...' : '点击上传附件'}
+                  </button>
+                )}
+                {attachError && (
+                  <div style={{ color: '#ef4444', fontSize: 12, marginTop: 4 }}>{attachError}</div>
+                )}
+              </div>
+            )}
 
             {/* 错误 / 成功提示 */}
             {submitError && (

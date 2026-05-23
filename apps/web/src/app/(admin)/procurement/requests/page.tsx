@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Plus, RefreshCw, Send, CheckCircle, XCircle, ArrowRight } from "lucide-react";
+import { FileUploadInput } from "@/components/ui/FileUploadInput";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
@@ -54,6 +55,7 @@ interface Form {
   supplier_name: string;
   supplier_code: string;
   reason: string;
+  attachment_url: string;
 }
 
 const CATEGORY_OPTS = [
@@ -89,7 +91,7 @@ const DEF: Form = {
   req_no: "", subject: "", category: "FEED", dept: DEPT_OPTS[0],
   urgency: "NORMAL", item: "", qty: "", unit: "袋",
   budget_amount: "0", currency_code: "LAK", expected_date: "",
-  supplier_name: "", supplier_code: "", reason: "",
+  supplier_name: "", supplier_code: "", reason: "", attachment_url: "",
 };
 
 export default function RequestsPage() {
@@ -165,7 +167,7 @@ export default function RequestsPage() {
       budget_amount: String(row.budget_amount || 0), currency_code: row.currency_code || "LAK",
       expected_date: row.expected_date?.slice(0, 10) || "",
       supplier_name: row.supplier_name || "", supplier_code: row.supplier_code || "",
-      reason: row.reason || "",
+      reason: row.reason || "", attachment_url: (row as any).attachment_url || "",
     });
     setDrawerOpen(true);
   }
@@ -186,6 +188,7 @@ export default function RequestsPage() {
         budget_amount: Number(form.budget_amount) || 0,
         applicant: userName,
         status: "DRAFT",
+        attachment_url: form.attachment_url || null,
       };
       if (editing?.id) {
         await fetch(`/api/crud/prc_purchase_requests/${editing.id}`, { method: "PUT", headers: hdr, body: JSON.stringify(payload) });
@@ -457,6 +460,17 @@ export default function RequestsPage() {
                 {STATUS_CFG[detailRow.status]?.label || detailRow.status}
               </span>
             </div>
+            {/* 附件预览 */}
+            {(detailRow as any).attachment_url && (
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                <span style={{ width: 80, fontSize: 12, color: "var(--text-secondary)", flexShrink: 0 }}>附件</span>
+                <FileUploadInput
+                  value={(detailRow as any).attachment_url}
+                  onChange={() => {}}
+                  disabled={true}
+                />
+              </div>
+            )}
             {/* 详情页操作 */}
             <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
               {(detailRow.status === "PENDING" || detailRow.status === "SUBMITTED") && canApprove && !canBuy && <>
@@ -571,6 +585,13 @@ export default function RequestsPage() {
             <label style={lbl}>申请理由</label>
             <textarea value={form.reason} onChange={e => setF("reason", e.target.value)} rows={3}
               placeholder="说明采购原因、用途或库存不足背景" style={{ ...inp, resize: "vertical" }} />
+          </div>
+          <div>
+            <label style={lbl}>附件（报价单 / 合同 / 实物图片，PDF 或图片 ≤ 15MB）</label>
+            <FileUploadInput
+              value={form.attachment_url}
+              onChange={url => setF("attachment_url", url)}
+            />
           </div>
           <div style={{ display: "flex", gap: 10, paddingTop: 8 }}>
             <button type="button" className={s.btnSecondary} style={{ flex: 1 }} onClick={() => { setDrawerOpen(false); setEditing(null); }}>取消</button>
