@@ -10,6 +10,8 @@ interface DailyReport {
   dirtyEggs?: unknown;
   brokenEggs?: unknown;
   deaths?: unknown;
+  elimination?: unknown;   // 淘汰数（主动淘汰，非自然死亡）
+  cullingReason?: unknown; // 淘汰原因
   feedKg?: unknown;
   waterL?: unknown;
   temp?: unknown;
@@ -25,8 +27,15 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Save, Download, Cpu, CheckCircle } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 
-const FIELDS = ['eggs','dirtyEggs','brokenEggs','deaths','feedKg','waterL','temp','humidity'] as const;
-const mkRow  = (id: number, shift: string) => ({ id, shift, eggs:'', dirtyEggs:'', brokenEggs:'', deaths:'', feedKg:'', waterL:'', temp:'', humidity:'', remark:'' });
+// 纯数字输入列（分前后两段，中间插入淘汰数+淘汰原因）
+const FIELDS_A = ['eggs','dirtyEggs','brokenEggs','deaths'] as const;
+const FIELDS_B = ['feedKg','waterL','temp','humidity'] as const;
+const mkRow    = (id: number, shift: string) => ({
+  id, shift,
+  eggs:'', dirtyEggs:'', brokenEggs:'', deaths:'',
+  elimination: '', elimReason: '',      // 手机端 mortality 写入的字段
+  feedKg:'', waterL:'', temp:'', humidity:'', remark:'',
+});
 
 export default function DailyPage() {
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
@@ -37,7 +46,20 @@ export default function DailyPage() {
   const today = new Date().toISOString().split('T')[0];
   const historyRef = useRef<HTMLHeadingElement>(null);
 
-  const HEADS = [t('ui.班次','班次'),t('ui.产蛋数(枚)','产蛋数(枚)'),`🟡${t('ui.脏蛋(枚)','脏蛋(枚)')}`,`🔴${t('ui.破损蛋(枚)','破损蛋(枚)')}`,t('ui.死淘(羽)','死淘(羽)'),t('ui.饲料(kg)','饲料(kg)'),t('ui.用水(L)','用水(L)'),t('ui.温度(℃)','温度(℃)'),t('ui.湿度(%)','湿度(%)'),`${t('common.remark','备注')}...`];
+  const HEADS = [
+    t('ui.班次','班次'),
+    t('ui.产蛋数(枚)','产蛋数(枚)'),
+    `🟡${t('ui.脏蛋(枚)','脏蛋(枚)')}`,
+    `🔴${t('ui.破损蛋(枚)','破损蛋(枚)')}`,
+    t('ui.死亡(羽)','死亡(羽)'),
+    t('ui.淘汰数(羽)','淘汰数(羽)'),    // 移动端 mortality 写入 elimination_qty
+    t('ui.淘汰原因','淘汰原因'),          // 移动端 mortality 写入 culling_reason
+    t('ui.饲料(kg)','饲料(kg)'),
+    t('ui.用水(L)','用水(L)'),
+    t('ui.温度(℃)','温度(℃)'),
+    t('ui.湿度(%)','湿度(%)'),
+    `${t('common.remark','备注')}...`,
+  ];
 
   const { fetchRecords: fetchHouses } = useCrud('brd_houses');
   const { fetchRecords: fetchFlocks } = useCrud('brd_flocks');
@@ -67,7 +89,10 @@ export default function DailyPage() {
       date: d.log_date, house: d.house_code || d.flock_no || t('ui.未知','未知'),
       houseName: houseNameMap[d.house_code as string] || houseNameMap[d.flock_no as string] || d.house_code || t('ui.未知','未知'),
       eggs: d.eggs_produced || 0, dirtyEggs: d.dirty_eggs || 0, brokenEggs: d.broken_eggs || 0,
-      deaths: d.mortality_qty || 0, feedKg: d.feed_consumed || 0, waterL: d.water_consumed || 0,
+      deaths: d.mortality_qty || 0,
+      elimination: d.elimination_qty || 0,        // 手机端 mortality 写入
+      cullingReason: d.culling_reason || '',       // 手机端 mortality 写入
+      feedKg: d.feed_consumed || 0, waterL: d.water_consumed || 0,
       temp: d.temp || 25, humidity: d.humidity || 60, remark: d.note || '',
     })).reverse());
   }, [fetchRecords, fetchHouses]);
@@ -134,20 +159,22 @@ export default function DailyPage() {
 
     const submitOne = async (r: typeof rows[number]) => {
       const payload = {
-        house_code:     selectedHouse,
-        flock_no:       flockByHouse[selectedHouse] || selectedHouse,
-        farm_code:      farmCodeByHouse[selectedHouse] || '',
-        log_date:       formDate, shift: r.shift,
-        feed_consumed:  Number(r.feedKg) || 0,
-        water_consumed: Number(r.waterL) || 0,
-        mortality_qty:  Number(r.deaths) || 0,
-        eggs_produced:  Number(r.eggs) || 0,
-        dirty_eggs:     Number(r.dirtyEggs) || 0,
-        broken_eggs:    Number(r.brokenEggs) || 0,
-        temp:           Number(r.temp) || 25,
-        humidity:       Number(r.humidity) || 60,
-        note:           r.remark,
-        operator:       operatorName,
+        house_code:       selectedHouse,
+        flock_no:         flockByHouse[selectedHouse] || selectedHouse,
+        farm_code:        farmCodeByHouse[selectedHouse] || '',
+        log_date:         formDate, shift: r.shift,
+        feed_consumed:    Number(r.feedKg) || 0,
+        water_consumed:   Number(r.waterL) || 0,
+        mortality_qty:    Number(r.deaths) || 0,
+        elimination_qty:  Number(r.elimination) || 0,   // 淘汰数（与手机端 mortality 字段一致）
+        culling_reason:   r.elimReason || null,          // 淘汰原因（与手机端 mortality 字段一致）
+        eggs_produced:    Number(r.eggs) || 0,
+        dirty_eggs:       Number(r.dirtyEggs) || 0,
+        broken_eggs:      Number(r.brokenEggs) || 0,
+        temp:             Number(r.temp) || 25,
+        humidity:         Number(r.humidity) || 60,
+        note:             r.remark,
+        operator:         operatorName,
       };
       const res = await fetch(`${API_BASE}/api/v3/farm/daily-logs`, {
         method: 'POST',
@@ -183,8 +210,8 @@ export default function DailyPage() {
   };
 
   const handleExport = () => {
-    const headers = [t('ui.班次','班次'),t('ui.产蛋数','产蛋数'),t('ui.脏蛋','脏蛋'),t('ui.破损蛋','破损蛋'),t('ui.死淘','死淘'),t('ui.饲料kg','饲料kg'),t('ui.用水L','用水L'),t('ui.温度','温度'),t('ui.湿度','湿度'),t('common.remark','备注')];
-    const rowData = rows.map(r => [r.shift, r.eggs||0, r.dirtyEggs||0, r.brokenEggs||0, r.deaths||0, r.feedKg||0, r.waterL||0, r.temp||0, r.humidity||0, r.remark]);
+    const headers = [t('ui.班次','班次'),t('ui.产蛋数','产蛋数'),t('ui.脏蛋','脏蛋'),t('ui.破损蛋','破损蛋'),t('ui.死亡','死亡'),t('ui.淘汰数','淘汰数'),t('ui.淘汰原因','淘汰原因'),t('ui.饲料kg','饲料kg'),t('ui.用水L','用水L'),t('ui.温度','温度'),t('ui.湿度','湿度'),t('common.remark','备注')];
+    const rowData = rows.map(r => [r.shift, r.eggs||0, r.dirtyEggs||0, r.brokenEggs||0, r.deaths||0, r.elimination||0, r.elimReason||'', r.feedKg||0, r.waterL||0, r.temp||0, r.humidity||0, r.remark]);
     const csv = [headers, ...rowData].map(r => r.join(',')).join('\n');
     const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -324,7 +351,25 @@ export default function DailyPage() {
               {rows.map(row => (
                 <tr key={row.id}>
                   <td style={{ fontWeight:600, color:'var(--text-primary)', whiteSpace:'nowrap' }}>{row.shift}</td>
-                  {FIELDS.map(field => (
+                  {/* 第一段：产蛋/脏蛋/破损蛋/死亡 */}
+                  {FIELDS_A.map(field => (
+                    <td key={field} style={{ padding:'6px 8px' }}>
+                      <input type="number" onFocus={e=>e.currentTarget.select()} value={(row as any)[field]} onChange={e => updateRow(row.id, field, e.target.value)}
+                        className={s.inp} style={{ textAlign:'right', width:'80px', padding:'6px 8px' }} placeholder="0" />
+                    </td>
+                  ))}
+                  {/* 淘汰数（手机端 mortality → elimination_qty） */}
+                  <td style={{ padding:'6px 8px' }}>
+                    <input type="number" onFocus={e=>e.currentTarget.select()} value={row.elimination} onChange={e => updateRow(row.id, 'elimination', e.target.value)}
+                      className={s.inp} style={{ textAlign:'right', width:'80px', padding:'6px 8px' }} placeholder="0" />
+                  </td>
+                  {/* 淘汰原因（手机端 mortality → culling_reason） */}
+                  <td style={{ padding:'6px 8px' }}>
+                    <input value={row.elimReason} onChange={e => updateRow(row.id, 'elimReason', e.target.value)}
+                      className={s.inp} style={{ width:'100px', padding:'6px 8px' }} placeholder={t('ui.淘汰原因','淘汰原因')} />
+                  </td>
+                  {/* 第二段：饲料/用水/温度/湿度 */}
+                  {FIELDS_B.map(field => (
                     <td key={field} style={{ padding:'6px 8px' }}>
                       <input type="number" onFocus={e=>e.currentTarget.select()} value={(row as any)[field]} onChange={e => updateRow(row.id, field, e.target.value)}
                         className={s.inp} style={{ textAlign:'right', width:'80px', padding:'6px 8px' }} placeholder="0" />
@@ -350,7 +395,7 @@ export default function DailyPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              {[t('common.date','日期'),t('ui.鸡舍','鸡舍'),t('ui.产蛋数','产蛋数'),t('ui.脏蛋','脏蛋'),t('ui.破损蛋','破损蛋'),t('ui.死淘','死淘'),t('ui.饲料(kg)','饲料(kg)'),t('ui.温度','温度'),t('ui.湿度','湿度'),t('common.remark','备注')].map(h =>
+              {[t('common.date','日期'),t('ui.鸡舍','鸡舍'),t('ui.产蛋数','产蛋数'),t('ui.脏蛋','脏蛋'),t('ui.破损蛋','破损蛋'),t('ui.死亡','死亡'),t('ui.淘汰','淘汰'),t('ui.淘汰原因','淘汰原因'),t('ui.饲料(kg)','饲料(kg)'),t('ui.温度','温度'),t('ui.湿度','湿度'),t('common.remark','备注')].map(h =>
                 <th key={h}>{h}</th>
               )}
             </tr>
@@ -364,13 +409,15 @@ export default function DailyPage() {
                 <td style={{ color: Number(r.dirtyEggs)>30?'#d97706':'var(--text-primary)' }}>{String(r.dirtyEggs ?? 0)}</td>
                 <td style={{ color: Number(r.brokenEggs)>20?'var(--status-danger)':'var(--text-primary)', fontWeight: Number(r.brokenEggs)>20?700:'normal' }}>{String(r.brokenEggs ?? 0)}</td>
                 <td style={{ color: Number(r.deaths)>8?'var(--status-danger)':'var(--text-primary)' }}>{String(r.deaths ?? '—')}</td>
+                <td style={{ color: Number(r.elimination)>0?'#f59e0b':'var(--text-primary)' }}>{Number(r.elimination) > 0 ? String(r.elimination) : '—'}</td>
+                <td style={{ color:'var(--text-secondary)', fontSize:12 }}>{String(r.cullingReason || '—')}</td>
                 <td>{String(r.feedKg ?? '—')}</td>
                 <td>{String(r.temp ?? '—')}℃</td>
                 <td>{String(r.humidity ?? '—')}%</td>
                 <td style={{ color:'var(--text-secondary)', fontSize:12 }}>{String(r.remark ?? '—')}</td>
               </tr>
             ))}
-            {!visibleReports.length && <tr><td colSpan={10} style={{ padding:24, textAlign:'center', color:'var(--text-secondary)', fontSize:13 }}>{t('ui.暂无该鸡舍的日报记录','暂无该鸡舍的日报记录')}</td></tr>}
+            {!visibleReports.length && <tr><td colSpan={12} style={{ padding:24, textAlign:'center', color:'var(--text-secondary)', fontSize:13 }}>{t('ui.暂无该鸡舍的日报记录','暂无该鸡舍的日报记录')}</td></tr>}
           </tbody>
         </table>
       </div>
