@@ -59,7 +59,7 @@ export class ProcurementService {
         FROM sys_user u
         JOIN sys_user_role ur ON u.user_id = ur.user_id
         JOIN sys_role r ON ur.role_id = r.role_id
-        WHERE r.role_code IN ('ROLE_ADMIN', 'ROLE_REGION_MGR', 'ROLE_CEO')
+        WHERE r.role_code IN ('ROLE_ADMIN', 'ROLE_REGION_MGR', 'ROLE_CEO', 'ROLE_FIN_CFO')
           AND u.status = 1
         ORDER BY u.real_name
       `);
@@ -130,7 +130,12 @@ export class ProcurementService {
   }
 
   async onApproved(docId: string) {
-    await this.em.update(PurchaseOrderEntity, { id: docId }, { status: 'APPROVED' });
+    // 修复：DB 主键是 po_no（text），TypeORM em.update({ id }) 以 po_no 作 WHERE 条件会静默失败
+    // 改用 raw SQL 按 id 列精确更新
+    await this.em.query(
+      `UPDATE prc_purchase_orders SET status='APPROVED', updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
+      [docId],
+    );
   }
 
   // ─── 批准采购单（同时生成待付款记录） ─────────────────────────────────────────
@@ -226,10 +231,13 @@ export class ProcurementService {
   }
 
   // ─── 收货确认 ─────────────────────────────────────────────────────────────────
+  // 职责：更新 PO 状态为 RECEIVED + 写入 inv_batches 库存批次
+  // AP 应付账款记录由 approvePO() 唯一负责生成（幂等），此处不再重复写入
   async confirmReceipt(poNo: string, items: any[]) {
     await this.em.transaction(async (manager) => {
       await manager.query(
-        `UPDATE prc_purchase_orders SET status = 'RECEIVED' WHERE po_no = $1`, [poNo],
+        `UPDATE prc_purchase_orders SET status = 'RECEIVED', updated_at = CURRENT_TIMESTAMP WHERE po_no = $1`,
+        [poNo],
       );
       for (const item of items) {
         const batchNo = `B-${Date.now()}${Math.floor(Math.random() * 1000)}`;
@@ -239,17 +247,8 @@ export class ProcurementService {
           [batchNo, item.product_code, item.qty, item.warehouse || 'WH-B', 'INBOUND-TMP'],
         );
       }
-      const totalAmount = items.reduce((s, i) => s + (i.qty * (i.price || 0)), 0);
-      if (totalAmount > 0) {
-        const txnNo = `AP-${Date.now()}`;
-        await manager.query(
-          `INSERT INTO fin_transactions (txn_no, type, amount, currency_code, status, description, created_at)
-           VALUES ($1,'AP',$2,'LAK','PENDING',$3,CURRENT_TIMESTAMP)`,
-          [txnNo, totalAmount, `采购收货自动生成应付账款 PO:${poNo}`],
-        );
-      }
     });
-    return { code: 200, msg: '收货确认成功，库存已入账，应付账款已生成' };
+    return { code: 200, msg: '收货确认成功，库存已入账' };
   }
 
   async updateReceiveProgress(poNo: string, receivedQty: number) {

@@ -17,10 +17,10 @@ const STATUS_CLS: Record<string, string> = {
 };
 
 // CONFIRMED/PENDING_APPROVAL 由提交审核 drawer 处理；APPROVED→PAID 由财务付款页处理
+// ARRIVING 状态由物流模块管理，PO 状态机跳过，PAID 直接推进到 RECEIVED
 const STATUS_FLOW: Record<string, string> = {
   DRAFT: "SUBMIT",   // 特殊标记：开提交审核 drawer
-  PAID: "ARRIVING",
-  ARRIVING: "RECEIVED",
+  PAID: "RECEIVED",
 };
 
 const APPROVER_KEY = "phoenix_prc_approver_id";
@@ -261,9 +261,8 @@ export default function ProcurementOrderPage() {
     CANCELLED:       t("status.cancelled", "已取消"),
   };
   const STATUS_NEXT_LABEL: Record<string, string> = {
-    DRAFT:    "提交审核",
-    PAID:     "标记发货在途",
-    ARRIVING: "确认收货",
+    DRAFT: "提交审核",
+    PAID:  "确认收货",
   };
 
   const token = typeof window !== "undefined"

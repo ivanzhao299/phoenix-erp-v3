@@ -11,7 +11,8 @@ import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
 
 // 正式流程表：prc_purchase_requests
-// 状态机：DRAFT → SUBMITTED → APPROVED/REJECTED → PO_CREATED
+// 状态机：DRAFT → PENDING → APPROVED → CONVERTED
+//                         → REJECTED
 
 interface PR {
   id: number;
@@ -68,20 +69,18 @@ const CATEGORY_OPTS = [
 
 const DEPT_OPTS = ["养殖部", "分级包装部", "物流配送部", "财务部", "行政人力", "信息技术部"];
 
-// 与后端 procurement.service.ts 写入值保持一致：
-//   PENDING   = 已提交待采购员审核（service 写入值，原 SUBMITTED 改为此值）
-//   CONVERTED = 已转采购单（service 写入值，原 PO_CREATED 改为此值）
-// 保留旧值映射以兼容历史数据
+// ── 标准状态枚举（与 procurement.service.ts 保持一致） ──────────────────────────
+// 写入值：DRAFT / PENDING / APPROVED / CONVERTED / REJECTED
+// 历史兼容展示（只读）：SUBMITTED → "待处理"、PO_CREATED → "已转PO"
 const STATUS_CFG: Record<string, { label: string; cls: string; color: string }> = {
-  DRAFT:      { label: "草稿",   cls: "badgeNeutral",  color: "#6b7280" },
-  // ── 正式状态（与 service / 移动端一致） ──
-  PENDING:    { label: "待处理", cls: "badgeWarning",  color: "#f59e0b" },
-  APPROVED:   { label: "已审批", cls: "badgeSuccess",  color: "#10b981" },
-  CONVERTED:  { label: "已转PO", cls: "badgeInfo",     color: "#3b82f6" },
-  REJECTED:   { label: "已驳回", cls: "badgeDanger",   color: "#ef4444" },
-  // ── 历史兼容（旧 PC 数据） ──
-  SUBMITTED:  { label: "待处理", cls: "badgeWarning",  color: "#f59e0b" },
-  PO_CREATED: { label: "已转PO", cls: "badgeInfo",     color: "#3b82f6" },
+  DRAFT:            { label: "草稿",   cls: "badgeNeutral",  color: "#6b7280" },
+  PENDING:          { label: "待处理", cls: "badgeWarning",  color: "#f59e0b" },
+  APPROVED:         { label: "已审批", cls: "badgeSuccess",  color: "#10b981" },
+  CONVERTED:        { label: "已转PO", cls: "badgeInfo",     color: "#3b82f6" },
+  REJECTED:         { label: "已驳回", cls: "badgeDanger",   color: "#ef4444" },
+  // ── 历史只读兼容（不再写入这些值）──
+  SUBMITTED:        { label: "待处理", cls: "badgeWarning",  color: "#f59e0b" },
+  PO_CREATED:       { label: "已转PO", cls: "badgeInfo",     color: "#3b82f6" },
 };
 
 const APPROVER_ROLES = ["ROLE_ADMIN", "ROLE_CEO", "ROLE_FARM_MGR"];
@@ -134,16 +133,20 @@ export default function RequestsPage() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const filtered = useMemo(() => list.filter(r =>
-    (!search || (r.req_no || "").includes(search) || (r.subject || "").includes(search) || (r.item || "").includes(search)) &&
-    (!catFilter || r.category === catFilter) &&
-    (!stFilter  || r.status   === stFilter)
-  ), [list, search, catFilter, stFilter]);
+  const filtered = useMemo(() => list.filter(r => {
+    if (search && !(r.req_no || "").includes(search) && !(r.subject || "").includes(search) && !(r.item || "").includes(search)) return false;
+    if (catFilter && r.category !== catFilter) return false;
+    if (stFilter) {
+      // PENDING 筛选同时匹配历史 SUBMITTED 记录
+      if (stFilter === "PENDING" && r.status !== "PENDING" && r.status !== "SUBMITTED") return false;
+      else if (stFilter !== "PENDING" && r.status !== stFilter) return false;
+    }
+    return true;
+  }), [list, search, catFilter, stFilter]);
 
   const counts = useMemo(() => ({
     draft:     list.filter(r => r.status === "DRAFT").length,
-    // PENDING = 新写入值；SUBMITTED = 历史兼容
-    submitted: list.filter(r => r.status === "PENDING" || r.status === "SUBMITTED").length,
+    pending:   list.filter(r => r.status === "PENDING" || r.status === "SUBMITTED").length,
     approved:  list.filter(r => r.status === "APPROVED").length,
     total:     list.length,
   }), [list]);
@@ -231,39 +234,41 @@ export default function RequestsPage() {
   };
 
   const convertToPO = async (row: PR) => {
+    // 前置校验：预算金额 > 0（后端也有同样校验）
+    if (!(Number(row.budget_amount) > 0)) {
+      toast.error("预算金额必须大于 0 才能转为采购单，请先编辑申请填写金额");
+      return;
+    }
     setSaving(true);
     try {
-      const d = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-      const poNo = `PO-${d}-${Date.now().toString().slice(-5)}`;
-      await fetch("/api/crud/prc_purchase_orders", {
-        method: "POST", headers: hdr,
+      // 走 Service 端点，由后端生成合同号（HT-YYYY-NNNNN）并设状态 DRAFT
+      const resp = await fetch(`/api/procurement/purchase-requests/${row.id}/convert`, {
+        method: "POST",
+        headers: hdr,
         body: JSON.stringify({
-          po_no: poNo,
-          subject: row.subject || row.item,
-          supplier_code: row.supplier_code || "",
-          supplier_name: row.supplier_name || "",
-          plan_qty: Number(row.qty) || 0,
-          total_amount: row.budget_amount || 0,
-          currency_code: row.currency_code || "LAK",
-          expected_date: row.expected_date || "",
-          remark: `来自采购申请 ${row.req_no}`,
-          status: "CONFIRMED",
-          store_code: "ALL",
+          supplier_code:  row.supplier_code  || "",
+          supplier_name:  row.supplier_name  || "",
+          total_amount:   Number(row.budget_amount) || 0,
+          currency_code:  row.currency_code  || "LAK",
+          expected_date:  row.expected_date  || undefined,
         }),
       });
-      // 与 backend service 对齐：转单后状态为 CONVERTED（原 PO_CREATED）
-      await fetch(`/api/crud/prc_purchase_requests/${row.id}`, {
-        method: "PUT", headers: hdr,
-        body: JSON.stringify({ status: "CONVERTED", po_no: poNo }),
-      });
-      toast.success(`已转采购单 ${poNo}`);
+      const result = await resp.json();
+      if (result.code !== 200) throw new Error(result.msg || "转单失败");
+      const poNo = result.po?.po_no || "—";
+      const contractNo = result.po?.contract_no || "";
+      toast.success(`已转采购单 ${poNo}${contractNo ? `（合同号 ${contractNo}）` : ""}`);
       setDrawerOpen(false);
       load();
-    } catch { toast.error("转单失败"); } finally { setSaving(false); }
+    } catch (e: any) { toast.error(e.message || "转单失败"); } finally { setSaving(false); }
   };
 
   const delDraft = async (row: PR) => {
-    if (!confirm(`确认删除采购申请 ${row.req_no}？`)) return;
+    if (row.status !== "DRAFT") {
+      toast.error("只有草稿状态的申请可以删除");
+      return;
+    }
+    if (!confirm(`确认删除草稿申请 ${row.req_no}？此操作不可撤销。`)) return;
     await fetch(`/api/crud/prc_purchase_requests/${row.id}`, { method: "DELETE", headers: hdr });
     toast.success("已删除"); load();
   };
@@ -300,10 +305,10 @@ export default function RequestsPage() {
       {/* KPI */}
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
         {[
-          { label: "草稿",   value: counts.draft,     color: "#6b7280", st: "DRAFT" },
-          { label: "待审批", value: counts.submitted,  color: "#f59e0b", st: "SUBMITTED" },
-          { label: "已审批", value: counts.approved,   color: "#10b981", st: "APPROVED" },
-          { label: "全部",   value: counts.total,      color: "var(--color-primary)", st: "" },
+          { label: "草稿",   value: counts.draft,    color: "#6b7280", st: "DRAFT" },
+          { label: "待处理", value: counts.pending,  color: "#f59e0b", st: "PENDING" },
+          { label: "已审批", value: counts.approved, color: "#10b981", st: "APPROVED" },
+          { label: "全部",   value: counts.total,    color: "var(--color-primary)", st: "" },
         ].map(k => (
           <button key={k.label} type="button" onClick={() => setStFilter(stFilter === k.st ? "" : k.st)}
             style={{
@@ -370,7 +375,7 @@ export default function RequestsPage() {
                   <td style={{ padding: "9px 12px", fontSize: 11 }}>{row.expected_date?.slice(0, 10) || "—"}</td>
                   <td style={{ padding: "9px 12px" }}>
                     <span className={`${s.badge} ${s[cfg.cls]}`}>{cfg.label}</span>
-                    {st === "PO_CREATED" && row.po_no && (
+                    {(st === "CONVERTED" || st === "PO_CREATED") && row.po_no && (
                       <div style={{ fontSize: 10, color: "var(--text-secondary)", marginTop: 2, fontFamily: "monospace" }}>{row.po_no}</div>
                     )}
                     {st === "REJECTED" && row.reject_note && (
