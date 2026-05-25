@@ -1,5 +1,5 @@
 import {
-  Injectable, ConflictException, NotFoundException, ForbiddenException,
+  Injectable, ConflictException, NotFoundException, ForbiddenException, Inject, forwardRef,
 } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
@@ -12,6 +12,7 @@ import { WfApprovalInstanceEntity }     from './entities/wf-approval-instance.en
 import { WfApprovalInstanceStepEntity } from './entities/wf-approval-instance-step.entity';
 import { WorkflowBizRegistryService }   from './workflow-biz-registry.service';
 import { WorkflowNotificationService }  from '../workflow/workflow-notification.service';
+import { AssignmentResolverService, ApproverType } from '../workflow/assignment-resolver.service';
 
 export interface StartApprovalParams {
   moduleCode?: string;
@@ -43,7 +44,10 @@ export class ApprovalEngineService {
     private readonly ds: DataSource,
     private readonly cls: ClsService,
     private readonly bizRegistry: WorkflowBizRegistryService,
+    @Inject(forwardRef(() => WorkflowNotificationService))
     private readonly notify: WorkflowNotificationService,
+    @Inject(forwardRef(() => AssignmentResolverService))
+    private readonly assignmentResolver: AssignmentResolverService,
   ) {}
 
   // ── 工具 ────────────────────────────────────────────────────────────────
@@ -181,30 +185,63 @@ export class ApprovalEngineService {
     });
     const savedInstance = await mgr.save(WfApprovalInstanceEntity, instance);
 
-    const stepEntities = ruleSteps.map(rs =>
-      mgr.create(WfApprovalInstanceStepEntity, {
-        instanceId:         savedInstance.id,
-        stepNo:             rs.stepNo,
-        approverRole:       rs.approverRole      ?? null,
-        requiredRole:       rs.approverRole      ?? null,
-        allowAdminOverride: rs.allowAdminOverride ?? false,
-        status:             'PENDING',
-      }),
-    );
+    // 使用 AssignmentResolverService 解析每步的具体审批人
+    const stepEntities: WfApprovalInstanceStepEntity[] = [];
+    for (const rs of ruleSteps) {
+      const bizCtx = {
+        companyCode:  params.companyCode,
+        projectCode:  params.projectCode,
+        starterUserId: userId || undefined,
+      };
+      const resolved = await this.assignmentResolver.resolveApprovers({
+        approverType:   (rs.approverType ?? 'ROLE') as ApproverType,
+        approverRole:   rs.approverRole ?? undefined,
+        approverUserId: rs.approverUserId ?? undefined,
+        bizContext:     bizCtx,
+      });
+
+      if (resolved.length === 0) {
+        this.assignmentResolver.throwNotFound(
+          { approverType: (rs.approverType ?? 'ROLE') as ApproverType, approverRole: rs.approverRole ?? undefined, bizContext: bizCtx },
+          rs.stepNo,
+        );
+      }
+
+      for (const approver of resolved) {
+        stepEntities.push(
+          mgr.create(WfApprovalInstanceStepEntity, {
+            instanceId:         savedInstance.id,
+            stepNo:             rs.stepNo,
+            approverType:       rs.approverType ?? 'ROLE',
+            approverRole:       rs.approverRole      ?? null,
+            approverUserId:     approver.userId,
+            approverName:       approver.displayName,
+            requiredRole:       rs.approverRole      ?? null,
+            allowAdminOverride: rs.allowAdminOverride ?? false,
+            status:             'PENDING',
+          }),
+        );
+      }
+    }
     await mgr.save(WfApprovalInstanceStepEntity, stepEntities);
 
-    // 通知第一步审批人（fire-and-forget，不阻塞事务）
-    const firstStep = stepEntities[0];
+    // 通知第一步所有审批人（fire-and-forget）
+    const firstStepEntities = stepEntities.filter(s => s.stepNo === ruleSteps[0]?.stepNo);
     setImmediate(() => {
-      this.notify.onTaskCreated({
-        instanceId:        savedInstance.id,
-        bizType:           params.bizType,
-        bizId:             params.bizId,
-        bizNo:             params.bizNo,
-        subject:           params.subject,
-        starterUserId:     userId || undefined,
-        assigneeRoleCode:  firstStep?.approverRole ?? undefined,
-      }).catch(() => {/* ignore */});
+      Promise.all(
+        firstStepEntities.map(step =>
+          this.notify.onTaskCreated({
+            instanceId:        savedInstance.id,
+            bizType:           params.bizType,
+            bizId:             params.bizId,
+            bizNo:             params.bizNo,
+            subject:           params.subject,
+            starterUserId:     userId || undefined,
+            assigneeRoleCode:  step.approverRole  ?? undefined,
+            assigneeUserId:    step.approverUserId ?? undefined,
+          }),
+        ),
+      ).catch(() => {/* ignore */});
     });
 
     return savedInstance;
@@ -220,17 +257,30 @@ export class ApprovalEngineService {
   ): void {
     if (step.allowAdminOverride && roles.includes('ROLE_ADMIN')) return;
 
-    if (step.approverRole) {
-      if (!roles.includes(step.approverRole)) {
-        throw new ForbiddenException(
-          `APPROVER_ROLE_MISMATCH: 当前步骤需要角色 ${step.approverRole}，您的角色（${roles.join(',')}）无审批权`,
-        );
-      }
-    } else if (step.approverUserId) {
-      if (String(step.approverUserId) !== String(userId)) {
+    const approverType = step.approverType ?? 'ROLE';
+    const userSpecificTypes = ['USER', 'ORG_MANAGER', 'PROJECT_MANAGER', 'COMPANY_FINANCE', 'DIRECT_MANAGER'];
+
+    if (userSpecificTypes.includes(approverType)) {
+      // 用户指定类型：必须 approver_user_id 匹配
+      if (step.approverUserId && String(step.approverUserId) !== String(userId)) {
         throw new ForbiddenException(
           `APPROVER_USER_MISMATCH: 当前步骤指定审批人 userId=${step.approverUserId}，非本人不可操作`,
         );
+      }
+    } else if (approverType === 'ROLE' || approverType === 'COMPANY_ROLE' || approverType === 'PROJECT_ROLE') {
+      // 角色类型：先检查 approver_user_id（startApproval已解析），再 fallback 到角色
+      if (step.approverUserId) {
+        if (String(step.approverUserId) !== String(userId)) {
+          throw new ForbiddenException(
+            `APPROVER_USER_MISMATCH: 当前步骤指定审批人 userId=${step.approverUserId}，非本人不可操作`,
+          );
+        }
+      } else if (step.approverRole) {
+        if (!roles.includes(step.approverRole)) {
+          throw new ForbiddenException(
+            `APPROVER_ROLE_MISMATCH: 当前步骤需要角色 ${step.approverRole}，您的角色（${roles.join(',')}）无审批权`,
+          );
+        }
       }
     }
   }
@@ -308,24 +358,27 @@ export class ApprovalEngineService {
         instance.currentStepNo += 1;
         await mgr.save(WfApprovalInstanceEntity, instance);
 
-        // 通知下一步审批人
+        // 通知下一步所有审批人
         const nextStepNo = instance.currentStepNo;
         const instanceSnapshot = { ...instance };
         setImmediate(async () => {
           try {
-            const nextStep = await this.stepRepo.findOne({
-              where: { instanceId: instance.id, stepNo: nextStepNo },
+            const nextSteps = await this.stepRepo.find({
+              where: { instanceId: instance.id, stepNo: nextStepNo, status: 'PENDING' as any },
             });
-            if (nextStep?.approverRole) {
-              await this.notify.onTaskCreated({
-                instanceId:       instanceSnapshot.id,
-                bizType:          instanceSnapshot.bizType,
-                bizId:            instanceSnapshot.bizId,
-                bizNo:            instanceSnapshot.bizNo,
-                subject:          instanceSnapshot.subject ?? undefined,
-                assigneeRoleCode: nextStep.approverRole,
-              });
-            }
+            await Promise.all(
+              nextSteps.map(ns =>
+                this.notify.onTaskCreated({
+                  instanceId:       instanceSnapshot.id,
+                  bizType:          instanceSnapshot.bizType,
+                  bizId:            instanceSnapshot.bizId,
+                  bizNo:            instanceSnapshot.bizNo,
+                  subject:          instanceSnapshot.subject ?? undefined,
+                  assigneeRoleCode: ns.approverRole   ?? undefined,
+                  assigneeUserId:   ns.approverUserId ?? undefined,
+                }),
+              ),
+            );
           } catch {/* ignore */}
         });
 
@@ -415,18 +468,21 @@ export class ApprovalEngineService {
 
   // ── 查询 ─────────────────────────────────────────────────────────────────
 
-  /** 获取我的待办（通过角色匹配） */
+  /** 获取我的待办（角色匹配 OR 指定用户匹配） */
   async getMyTodos(): Promise<any[]> {
-    const { roles } = this.currentUser();
+    const { userId, roles } = this.currentUser();
 
     const rows = await this.ds.query(`
       SELECT
-        s.id            AS step_id,
+        s.id              AS step_id,
         s.step_no,
+        s.approver_type,
         s.approver_role,
+        s.approver_user_id,
+        s.approver_name,
         s.required_role,
-        s.status        AS step_status,
-        i.id            AS instance_id,
+        s.status          AS step_status,
+        i.id              AS instance_id,
         i.instance_no,
         i.module_code,
         i.biz_type,
@@ -448,9 +504,12 @@ export class ApprovalEngineService {
       WHERE s.status = 'PENDING'
         AND i.status = 'PENDING'
         AND s.step_no = i.current_step_no
-        AND s.approver_role = ANY($1::varchar[])
+        AND (
+          s.approver_role = ANY($1::varchar[])
+          OR s.approver_user_id = $2
+        )
       ORDER BY i.started_at ASC
-    `, [roles]);
+    `, [roles, userId]);
 
     return rows;
   }
@@ -509,14 +568,14 @@ export class ApprovalEngineService {
 
   /** 查询待办数量（用于 badge 展示） */
   async getTodosCount(): Promise<number> {
-    const { roles } = this.currentUser();
+    const { userId, roles } = this.currentUser();
     const rows = await this.ds.query(
       `SELECT COUNT(*) AS cnt FROM wf_approval_instance_steps s
        JOIN wf_approval_instances i ON i.id = s.instance_id
        WHERE s.status='PENDING' AND i.status='PENDING'
          AND s.step_no = i.current_step_no
-         AND s.approver_role = ANY($1::varchar[])`,
-      [roles],
+         AND (s.approver_role = ANY($1::varchar[]) OR s.approver_user_id = $2)`,
+      [roles, userId],
     );
     return parseInt(rows[0]?.cnt ?? '0', 10);
   }

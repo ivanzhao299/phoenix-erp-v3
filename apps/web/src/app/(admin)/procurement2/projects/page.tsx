@@ -21,6 +21,8 @@ interface Project {
   endDate?: string;
   remark?: string;
   createdAt?: string;
+  projectManagerUserId?: string | null;
+  projectManagerName?: string | null;
 }
 interface PageResult { items: Project[]; total: number; page: number; pageSize: number; }
 
@@ -44,7 +46,7 @@ function statusLabel(st: string) { return STATUS_OPTS.find(o => o.value === st)?
 function typeLabel(t?: string) { return PROJECT_TYPES.find(o => o.value === t)?.label ?? t ?? "—"; }
 
 const API_BASE = "/api/v2/procurement/projects";
-const DEF_FORM = { companyId: "", companyCode: "", companyName: "", projectCode: "", projectName: "", projectType: "PRODUCTION", startDate: "", endDate: "", remark: "" };
+const DEF_FORM = { companyId: "", companyCode: "", companyName: "", projectCode: "", projectName: "", projectType: "PRODUCTION", startDate: "", endDate: "", remark: "", projectManagerUserId: "", projectManagerName: "" };
 type FormState = typeof DEF_FORM;
 
 // ── 主页面 ────────────────────────────────────────────────────────────────────
@@ -97,15 +99,17 @@ export default function ProjectsPage() {
   function openEdit(row: Project) {
     setEditing(row);
     setForm({
-      companyId:   row.companyId ?? "",
-      companyCode: row.companyCode,
-      companyName: row.companyName,
-      projectCode: row.projectCode,
-      projectName: row.projectName,
-      projectType: row.projectType ?? "PRODUCTION",
-      startDate:   row.startDate ?? "",
-      endDate:     row.endDate   ?? "",
-      remark:      row.remark    ?? "",
+      companyId:             row.companyId ?? "",
+      companyCode:           row.companyCode,
+      companyName:           row.companyName,
+      projectCode:           row.projectCode,
+      projectName:           row.projectName,
+      projectType:           row.projectType ?? "PRODUCTION",
+      startDate:             row.startDate ?? "",
+      endDate:               row.endDate   ?? "",
+      remark:                row.remark    ?? "",
+      projectManagerUserId:  row.projectManagerUserId ?? "",
+      projectManagerName:    row.projectManagerName   ?? "",
     });
     setDrawerOpen(true);
   }
@@ -119,14 +123,16 @@ export default function ProjectsPage() {
     setSaving(true);
     try {
       const body = {
-        companyCode: form.companyCode.trim(),
-        companyName: form.companyName.trim(),
-        projectCode: form.projectCode.trim(),
-        projectName: form.projectName.trim(),
-        projectType: form.projectType || undefined,
-        startDate:   form.startDate || undefined,
-        endDate:     form.endDate   || undefined,
-        remark:      form.remark    || undefined,
+        companyCode:           form.companyCode.trim(),
+        companyName:           form.companyName.trim(),
+        projectCode:           form.projectCode.trim(),
+        projectName:           form.projectName.trim(),
+        projectType:           form.projectType || undefined,
+        startDate:             form.startDate || undefined,
+        endDate:               form.endDate   || undefined,
+        remark:                form.remark    || undefined,
+        projectManagerUserId:  form.projectManagerUserId || undefined,
+        projectManagerName:    form.projectManagerName   || undefined,
       };
       if (editing) {
         const res = await fetch(`${API_BASE}/${editing.id}`, { method: "PATCH", headers: hdr, body: JSON.stringify(body) });
@@ -228,14 +234,14 @@ export default function ProjectsPage() {
         <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
           <thead>
             <tr style={{ background:"var(--bg-page)",borderBottom:"1px solid var(--border)" }}>
-              {["公司","项目编号","项目名称","类型","周期","状态","操作"].map(h=>(
+              {["公司","项目编号","项目名称","类型","负责人","周期","状态","操作"].map(h=>(
                 <th key={h} style={{ padding:"9px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"var(--text-secondary)",whiteSpace:"nowrap" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={7} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>加载中…</td></tr>}
-            {!loading && data.items.length === 0 && <tr><td colSpan={7} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>暂无项目记录</td></tr>}
+            {loading && <tr><td colSpan={8} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>加载中…</td></tr>}
+            {!loading && data.items.length === 0 && <tr><td colSpan={8} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>暂无项目记录</td></tr>}
             {!loading && data.items.map((row, i) => (
               <tr key={row.id} style={{ borderBottom:"1px solid var(--border)",background:i%2===0?"var(--bg-card)":"var(--bg-page)" }}>
                 <td style={{ padding:"8px 12px" }}>
@@ -255,6 +261,9 @@ export default function ProjectsPage() {
                   </button>
                 </td>
                 <td style={{ padding:"8px 12px",fontSize:12 }}>{typeLabel(row.projectType)}</td>
+                <td style={{ padding:"8px 12px",fontSize:12,color:"var(--text-secondary)" }}>
+                  {row.projectManagerName || <span style={{ opacity:0.4 }}>—</span>}
+                </td>
                 <td style={{ padding:"8px 12px",fontSize:11,color:"var(--text-secondary)" }}>
                   {row.startDate ? `${row.startDate} ~ ${row.endDate ?? "—"}` : "—"}
                 </td>
@@ -348,6 +357,22 @@ export default function ProjectsPage() {
             <label style={{ fontSize:12,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>备注</label>
             <textarea value={form.remark} onChange={e=>setF("remark",e.target.value)} rows={2}
               style={{ width:"100%",padding:"7px 10px",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:13,outline:"none",resize:"vertical",boxSizing:"border-box" }}/>
+          </div>
+
+          <div style={{ fontWeight:700,fontSize:13,color:"var(--text-secondary)",borderBottom:"1px solid var(--border)",paddingBottom:6,marginTop:4 }}>项目负责人（用于动态审批路由）</div>
+          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
+            <div>
+              <label style={{ fontSize:12,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>负责人 userId</label>
+              <input value={form.projectManagerUserId} onChange={e=>setF("projectManagerUserId",e.target.value)}
+                type="number" placeholder="用户数字ID"
+                style={{ width:"100%",padding:"7px 10px",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:13,outline:"none",boxSizing:"border-box" }}/>
+            </div>
+            <div>
+              <label style={{ fontSize:12,color:"var(--text-secondary)",display:"block",marginBottom:4 }}>负责人姓名</label>
+              <input value={form.projectManagerName} onChange={e=>setF("projectManagerName",e.target.value)}
+                placeholder="展示用快照"
+                style={{ width:"100%",padding:"7px 10px",background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-md)",color:"var(--text-primary)",fontSize:13,outline:"none",boxSizing:"border-box" }}/>
+            </div>
           </div>
 
           <div style={{ display:"flex",gap:10,paddingTop:8 }}>

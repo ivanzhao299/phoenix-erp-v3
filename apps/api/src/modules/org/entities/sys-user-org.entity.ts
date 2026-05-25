@@ -22,6 +22,12 @@ export class SysUserOrgEntity {
   @Column({ name: 'data_scope_level', type: 'varchar', length: 16 })
   dataScopeLevel: 'SELF' | 'PROJECT' | 'COMPANY' | 'REGION' | 'GROUP';
 
+  @Column({ name: 'position_title', type: 'varchar', length: 128, nullable: true })
+  positionTitle: string | null;
+
+  @Column({ name: 'is_manager', type: 'boolean', default: false })
+  isManager: boolean;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

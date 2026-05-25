@@ -47,4 +47,7 @@ export class WfApprovalInstanceStepEntity {
 
   @Column({ name: 'allow_admin_override', default: false })
   allowAdminOverride: boolean;
+
+  @Column({ name: 'approver_type', type: 'varchar', length: 32, default: 'ROLE' })
+  approverType: string;
 }

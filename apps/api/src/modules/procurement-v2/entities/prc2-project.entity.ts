@@ -45,6 +45,12 @@ export class Prc2ProjectEntity {
   @Column({ name: 'remark', type: 'text', nullable: true })
   remark: string;
 
+  @Column({ name: 'project_manager_user_id', type: 'bigint', nullable: true })
+  projectManagerUserId: string | null;
+
+  @Column({ name: 'project_manager_name', type: 'varchar', length: 128, nullable: true })
+  projectManagerName: string | null;
+
   @Column({ name: 'created_by', type: 'bigint', nullable: true })
   createdBy: string;
 

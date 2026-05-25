@@ -14,12 +14,16 @@ export class ApprovalRuleStepDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(['ROLE', 'USER'])
+  @IsIn(['ROLE', 'USER', 'ORG_MANAGER', 'PROJECT_MANAGER', 'COMPANY_FINANCE', 'DIRECT_MANAGER', 'COMPANY_ROLE', 'PROJECT_ROLE'])
   approverType?: string;
 
   @IsOptional()
   @IsString()
   approverRole?: string;
+
+  @IsOptional()
+  @IsString()
+  approverUserId?: string;
 
   @IsOptional()
   @IsString()

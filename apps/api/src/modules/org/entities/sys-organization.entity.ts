@@ -44,6 +44,12 @@ export class SysOrganizationEntity {
   @Column({ name: 'remark', type: 'text', nullable: true })
   remark: string | null;
 
+  @Column({ name: 'manager_user_id', type: 'bigint', nullable: true })
+  managerUserId: number | null;
+
+  @Column({ name: 'manager_name', type: 'varchar', length: 128, nullable: true })
+  managerName: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

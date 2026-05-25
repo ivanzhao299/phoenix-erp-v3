@@ -44,4 +44,7 @@ export class SysUserEntity {
 
   @Column({ type: 'varchar', nullable: true })
   user_type: string;
+
+  @Column({ name: 'manager_user_id', type: 'bigint', nullable: true })
+  managerUserId: number | null;
 }

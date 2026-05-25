@@ -85,17 +85,19 @@ export class ProjectsService {
     const userId = user?.userId ?? user?.id;
 
     const entity = this.repo.create({
-      companyId:   dto.companyId,
-      companyCode: dto.companyCode,
-      companyName: dto.companyName,
-      projectCode: dto.projectCode,
-      projectName: dto.projectName,
-      projectType: dto.projectType,
-      startDate:   dto.startDate,
-      endDate:     dto.endDate,
-      remark:      dto.remark,
-      status:      'ACTIVE',
-      createdBy:   userId ? String(userId) : undefined,
+      companyId:            dto.companyId,
+      companyCode:          dto.companyCode,
+      companyName:          dto.companyName,
+      projectCode:          dto.projectCode,
+      projectName:          dto.projectName,
+      projectType:          dto.projectType,
+      startDate:            dto.startDate,
+      endDate:              dto.endDate,
+      remark:               dto.remark,
+      status:               'ACTIVE',
+      createdBy:            userId ? String(userId) : undefined,
+      projectManagerUserId: (dto as any).projectManagerUserId ?? null,
+      projectManagerName:   (dto as any).projectManagerName   ?? null,
     });
     return this.repo.save(entity);
   }
@@ -109,6 +111,8 @@ export class ProjectsService {
     if (dto.startDate   !== undefined) item.startDate   = dto.startDate;
     if (dto.endDate     !== undefined) item.endDate     = dto.endDate;
     if (dto.remark      !== undefined) item.remark      = dto.remark;
+    if ((dto as any).projectManagerUserId !== undefined) item.projectManagerUserId = (dto as any).projectManagerUserId ?? null;
+    if ((dto as any).projectManagerName   !== undefined) item.projectManagerName   = (dto as any).projectManagerName   ?? null;
     return this.repo.save(item);
   }
 

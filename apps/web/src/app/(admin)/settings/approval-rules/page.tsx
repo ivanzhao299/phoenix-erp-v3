@@ -16,6 +16,7 @@ interface RuleStep {
   stepNo: number;
   approverType: string;
   approverRole: string;
+  approverUserId?: string;
   orgScope: string;
   requiredApprovalCount: number;
   allowAdminOverride: boolean;
@@ -57,7 +58,19 @@ const APPROVAL_MODE_OPTIONS = [
 const ROLE_OPTIONS = [
   "ROLE_ADMIN", "ROLE_CEO", "ROLE_FIN_CFO", "ROLE_FIN_ACCT",
   "ROLE_PRC_BUYER", "ROLE_REGION_MGR", "ROLE_FARM_MGR",
-  "ROLE_PROJECT_MGR", "ROLE_FACTORY_ACCT",
+  "ROLE_PROJECT_MGR", "ROLE_FACTORY_ACCT", "ROLE_FACTORY_ACCOUNTANT",
+  "ROLE_GROUP_FINANCE",
+];
+
+const APPROVER_TYPE_OPTIONS = [
+  { value: "ROLE",            label: "角色（全局）",     hint: "所有拥有该角色的用户均可审批" },
+  { value: "COMPANY_ROLE",    label: "角色（本公司）",   hint: "限定公司范围内的角色用户" },
+  { value: "PROJECT_ROLE",    label: "角色（本项目）",   hint: "限定项目范围内的角色用户" },
+  { value: "USER",            label: "指定用户",         hint: "按 userId 指定具体审批人" },
+  { value: "ORG_MANAGER",     label: "组织负责人",       hint: "自动查找公司/项目的负责人" },
+  { value: "PROJECT_MANAGER", label: "项目负责人",       hint: "自动查找项目的 project_manager" },
+  { value: "COMPANY_FINANCE", label: "公司财务负责人",   hint: "优先级：厂级会计→集团财务→财务总监" },
+  { value: "DIRECT_MANAGER",  label: "直属上级",         hint: "读取申请人的 manager_user_id" },
 ];
 
 const BIZ_TYPE_LABEL: Record<string, string> = {
@@ -117,12 +130,20 @@ async function deleteRule(id: string) {
   return res.ok;
 }
 
+// 是否需要展示「角色」字段
+function needsRoleField(t: string) {
+  return t === "ROLE" || t === "COMPANY_ROLE" || t === "PROJECT_ROLE";
+}
+// 是否需要展示「指定用户ID」字段
+function needsUserField(t: string) { return t === "USER"; }
+
 // ── 空步骤工厂 ────────────────────────────────────────────────────────────────
 function emptyStep(no: number): RuleStep {
   return {
     stepNo: no,
     approverType: "ROLE",
     approverRole: "ROLE_FIN_CFO",
+    approverUserId: "",
     orgScope: "",
     requiredApprovalCount: 1,
     allowAdminOverride: false,
@@ -233,7 +254,8 @@ export default function ApprovalRulesPage() {
         steps: form.steps.map(st => ({
           stepNo:               st.stepNo,
           approverType:         st.approverType,
-          approverRole:         st.approverRole,
+          approverRole:         needsRoleField(st.approverType) ? (st.approverRole || undefined) : undefined,
+          approverUserId:       needsUserField(st.approverType) ? (st.approverUserId || undefined) : undefined,
           orgScope:             st.orgScope || undefined,
           requiredApprovalCount: st.requiredApprovalCount,
           allowAdminOverride:   st.allowAdminOverride,
@@ -395,14 +417,19 @@ export default function ApprovalRulesPage() {
                             <div key={st.id ?? st.stepNo} style={{
                               display: "flex", gap: 10, alignItems: "center",
                               padding: "6px 10px", background: "#f8fafc",
-                              borderRadius: 6, fontSize: 13,
+                              borderRadius: 6, fontSize: 13, flexWrap: "wrap",
                             }}>
                               <span style={{ fontWeight: 700, color: "#3b82f6", minWidth: 20 }}>
                                 {st.stepNo}
                               </span>
-                              <code style={{ background: "#e0e7ff", color: "#4338ca", padding: "1px 6px", borderRadius: 4, fontSize: 12 }}>
-                                {st.approverRole}
-                              </code>
+                              <span style={{ fontSize: 11, background: "#e5e7eb", color: "#374151", padding: "1px 6px", borderRadius: 4 }}>
+                                {APPROVER_TYPE_OPTIONS.find(o => o.value === st.approverType)?.label ?? st.approverType}
+                              </span>
+                              {st.approverRole && (
+                                <code style={{ background: "#e0e7ff", color: "#4338ca", padding: "1px 6px", borderRadius: 4, fontSize: 12 }}>
+                                  {st.approverRole}
+                                </code>
+                              )}
                               {st.allowAdminOverride && (
                                 <span style={{ fontSize: 11, color: "#f59e0b", background: "#fef3c7", padding: "1px 5px", borderRadius: 3 }}>
                                   ADMIN可代理
@@ -540,13 +567,39 @@ export default function ApprovalRulesPage() {
                   )}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  <div>
-                    <label className={s.label}>审批角色</label>
-                    <select className={s.select} value={st.approverRole}
-                      onChange={e => updateStep(idx, { approverRole: e.target.value })}>
-                      {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label className={s.label}>审批人类型</label>
+                    <select className={s.select} value={st.approverType}
+                      onChange={e => updateStep(idx, { approverType: e.target.value, approverUserId: "" })}>
+                      {APPROVER_TYPE_OPTIONS.map(o => (
+                        <option key={o.value} value={o.value}>{o.label} — {o.hint}</option>
+                      ))}
                     </select>
                   </div>
+                  {needsRoleField(st.approverType) && (
+                    <div>
+                      <label className={s.label}>审批角色</label>
+                      <select className={s.select} value={st.approverRole}
+                        onChange={e => updateStep(idx, { approverRole: e.target.value })}>
+                        {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {needsUserField(st.approverType) && (
+                    <div>
+                      <label className={s.label}>指定用户 ID</label>
+                      <input className={s.input} type="text" value={st.approverUserId ?? ""}
+                        onChange={e => updateStep(idx, { approverUserId: e.target.value })}
+                        placeholder="用户数字ID" />
+                    </div>
+                  )}
+                  {!needsRoleField(st.approverType) && !needsUserField(st.approverType) && (
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <p style={{ fontSize: 12, color: "#6b7280", background: "#f0fdf4", padding: "6px 10px", borderRadius: 6 }}>
+                        系统将在审批启动时自动解析审批人（无需手动指定）
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <label className={s.label}>所需人数</label>
                     <input className={s.input} type="number" min={1} value={st.requiredApprovalCount}

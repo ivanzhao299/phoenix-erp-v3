@@ -62,7 +62,7 @@ export default function OrganizationsPage() {
   const [activeId, setActiveId] = useState<number | null>(null);
   const [drawer, setDrawer] = useState(false);
   const [editing, setEditing] = useState<Org | null>(null);
-  const [form, setForm] = useState({ org_name: "", org_type: "", parent_id: 0, sort_no: 0, remark: "" });
+  const [form, setForm] = useState({ org_name: "", org_type: "", parent_id: 0, sort_no: 0, remark: "", manager_user_id: "", manager_name: "" });
   const [saving, setSaving] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [loadMsg, setLoadMsg] = useState<string | null>(null);
@@ -141,7 +141,7 @@ export default function OrganizationsPage() {
     setEditing(null);
     const types = orgTypes.length > 0 ? orgTypes : await loadDicts();
     const defaultType = types[0]?.dict_label_zh ?? "";
-    setForm({ org_name: "", org_type: defaultType, parent_id: 0, sort_no: 0, remark: "" });
+    setForm({ org_name: "", org_type: defaultType, parent_id: 0, sort_no: 0, remark: "", manager_user_id: "", manager_name: "" });
     setDrawer(true);
   };
 
@@ -151,7 +151,7 @@ export default function OrganizationsPage() {
     const types = orgTypes.length > 0 ? orgTypes : await loadDicts();
     // 默认选子级类型：如果有第二个则用第二个，否则用第一个
     const childType = types[1]?.dict_label_zh ?? types[0]?.dict_label_zh ?? "";
-    setForm({ org_name: "", org_type: childType, parent_id: parentOrg.id, sort_no: 0, remark: "" });
+    setForm({ org_name: "", org_type: childType, parent_id: parentOrg.id, sort_no: 0, remark: "", manager_user_id: "", manager_name: "" });
     setDrawer(true);
   };
 
@@ -163,7 +163,7 @@ export default function OrganizationsPage() {
     const validType = types.find(t => t.dict_label_zh === org.org_type)
       ? org.org_type
       : (types[0]?.dict_label_zh ?? org.org_type);
-    setForm({ org_name: org.org_name, org_type: validType, parent_id: org.parent_id, sort_no: org.sort_no ?? 0, remark: org.remark ?? "" });
+    setForm({ org_name: org.org_name, org_type: validType, parent_id: org.parent_id, sort_no: org.sort_no ?? 0, remark: org.remark ?? "", manager_user_id: (org as any).manager_user_id ? String((org as any).manager_user_id) : "", manager_name: (org as any).manager_name ?? "" });
     setDrawer(true);
   };
 
@@ -180,6 +180,8 @@ export default function OrganizationsPage() {
         remark:    form.remark,
         status:    "ACTIVE",
         updated_at: new Date().toISOString(),
+        manager_user_id: form.manager_user_id ? Number(form.manager_user_id) : null,
+        manager_name:    form.manager_name || null,
       };
       if (editing) {
         const res = await fetch(`/api/crud/sys_orgs/id/${editing.id}`, { method: "PUT", headers: hdr(), body: JSON.stringify(payload) });
@@ -628,6 +630,29 @@ export default function OrganizationsPage() {
                   value={form.remark}
                   onChange={e => setForm(p => ({ ...p, remark: e.target.value }))}
                   placeholder={t("ui.可选","可选")}
+                />
+              </div>
+            </div>
+
+            {/* 负责人（用于动态审批路由） */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={lbl}>负责人 userId（可选）</label>
+                <input
+                  style={inp}
+                  type="number"
+                  value={form.manager_user_id}
+                  onChange={e => setForm(p => ({ ...p, manager_user_id: e.target.value }))}
+                  placeholder="用于 ORG_MANAGER 审批路由"
+                />
+              </div>
+              <div>
+                <label style={lbl}>负责人姓名</label>
+                <input
+                  style={inp}
+                  value={form.manager_name}
+                  onChange={e => setForm(p => ({ ...p, manager_name: e.target.value }))}
+                  placeholder="展示用快照"
                 />
               </div>
             </div>
