@@ -7,30 +7,29 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
 
-// ── 类型 ─────────────────────────────────────────────────────────────────────
-interface ApprovalTodo {
-  step_id: string;
-  step_no: number;
-  approver_role: string;
-  step_status: string;
-  instance_id: string;
-  instance_no: string;
-  module_code: string;
-  biz_type: string;
-  biz_id: string;
-  biz_no: string;
-  total_steps: number;
-  current_step_no: number;
-  started_at: string;
-  started_by: string;
-  // Phase B 新增业务摘要字段
-  amount: string | null;
-  currency_code: string | null;
-  company_code: string | null;
-  company_name: string | null;
-  project_code: string | null;
-  project_name: string | null;
-  subject: string | null;
+// ── 统一任务类型（对应 GET /api/workflow/my-tasks）──────────────────────────────
+interface UnifiedTask {
+  taskSource:    string;
+  taskId:        string;
+  instanceId:    string;
+  instanceNo:    string | null;
+  bizType:       string;
+  bizId:         string;
+  bizNo:         string | null;
+  subject:       string | null;
+  amount:        number | null;
+  currencyCode:  string | null;
+  companyCode:   string | null;
+  companyName:   string | null;
+  projectCode:   string | null;
+  projectName:   string | null;
+  requiredRole:  string;
+  stepNo:        number;
+  totalSteps:    number;
+  currentStepNo: number;
+  startedBy:     string | null;
+  status:        string;
+  createdAt:     string;
 }
 
 interface InstanceDetail {
@@ -65,17 +64,17 @@ interface InstanceDetail {
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 const BIZ_TYPE_LABEL: Record<string, string> = {
-  PR: "采购申请",
-  PO: "采购订单",
+  PR:      "采购申请",
+  PO:      "采购订单",
   PAYMENT: "付款申请",
-  FUND: "股东资金",
+  FUND:    "股东资金",
 };
 
 const BIZ_TYPE_ICON: Record<string, React.ReactNode> = {
-  PR:      <FileText  size={14} />,
+  PR:      <FileText    size={14} />,
   PO:      <ShoppingBag size={14} />,
-  PAYMENT: <Banknote  size={14} />,
-  FUND:    <Banknote  size={14} />,
+  PAYMENT: <Banknote    size={14} />,
+  FUND:    <Banknote    size={14} />,
 };
 
 function fmtDate(s: string) {
@@ -83,8 +82,8 @@ function fmtDate(s: string) {
   return new Date(s).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
-function fmtAmount(amount: string | number | null, currency: string | null) {
-  if (!amount) return "-";
+function fmtAmount(amount: number | string | null, currency: string | null) {
+  if (amount == null) return "-";
   const n = Number(amount);
   if (isNaN(n)) return "-";
   return `${n.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} ${currency ?? ""}`;
@@ -92,20 +91,18 @@ function fmtAmount(amount: string | number | null, currency: string | null) {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; color: string }> = {
-    PENDING:   { label: "待审批", color: "#f59e0b" },
-    APPROVED:  { label: "已通过", color: "#22c55e" },
-    REJECTED:  { label: "已拒绝", color: "#ef4444" },
-    SKIPPED:   { label: "已跳过", color: "#9ca3af" },
+    PENDING:  { label: "待审批", color: "#f59e0b" },
+    APPROVED: { label: "已通过", color: "#22c55e" },
+    REJECTED: { label: "已拒绝", color: "#ef4444" },
+    SKIPPED:  { label: "已跳过", color: "#9ca3af" },
   };
   const cfg = map[status] ?? { label: status, color: "#9ca3af" };
-  return (
-    <span style={{ color: cfg.color, fontWeight: 600, fontSize: 12 }}>{cfg.label}</span>
-  );
+  return <span style={{ color: cfg.color, fontWeight: 600, fontSize: 12 }}>{cfg.label}</span>;
 }
 
-// ── API ───────────────────────────────────────────────────────────────────────
-async function fetchTodos(): Promise<ApprovalTodo[]> {
-  const res = await fetch("/api/approval/todos", { credentials: "include" });
+// ── API（统一端点 + ApprovalEngine 操作端点）──────────────────────────────────
+async function fetchTodos(): Promise<UnifiedTask[]> {
+  const res = await fetch("/api/workflow/my-tasks", { credentials: "include" });
   if (!res.ok) return [];
   return res.json();
 }
@@ -139,19 +136,18 @@ async function rejectInstance(instanceId: string, comment: string) {
 // ── 组件 ─────────────────────────────────────────────────────────────────────
 export default function ApprovalTodosPage() {
   const toast = useToast();
-  const [todos, setTodos]       = useState<ApprovalTodo[]>([]);
-  const [loading, setLoading]   = useState(false);
-  const [selected, setSelected] = useState<ApprovalTodo | null>(null);
-  const [detail, setDetail]     = useState<InstanceDetail | null>(null);
+  const [todos, setTodos]           = useState<UnifiedTask[]>([]);
+  const [loading, setLoading]       = useState(false);
+  const [selected, setSelected]     = useState<UnifiedTask | null>(null);
+  const [detail, setDetail]         = useState<InstanceDetail | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [comment, setComment]   = useState("");
+  const [comment, setComment]       = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchTodos();
-      setTodos(data);
+      setTodos(await fetchTodos());
     } finally {
       setLoading(false);
     }
@@ -159,19 +155,18 @@ export default function ApprovalTodosPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const openDetail = async (todo: ApprovalTodo) => {
+  const openDetail = async (todo: UnifiedTask) => {
     setSelected(todo);
     setComment("");
     setDrawerOpen(true);
-    const d = await fetchDetail(todo.instance_id);
-    setDetail(d);
+    setDetail(await fetchDetail(todo.instanceId));
   };
 
   const handleApprove = async () => {
     if (!selected) return;
     setSubmitting(true);
     try {
-      const r = await approveInstance(selected.instance_id, comment);
+      const r = await approveInstance(selected.instanceId, comment);
       if (r.statusCode && r.statusCode >= 400) {
         toast.error(r.message || "操作失败");
       } else {
@@ -191,7 +186,7 @@ export default function ApprovalTodosPage() {
     if (!comment.trim()) { toast.warning("拒绝时必须填写意见"); return; }
     setSubmitting(true);
     try {
-      const r = await rejectInstance(selected.instance_id, comment);
+      const r = await rejectInstance(selected.instanceId, comment);
       if (r.statusCode && r.statusCode >= 400) {
         toast.error(r.message || "操作失败");
       } else {
@@ -250,15 +245,17 @@ export default function ApprovalTodosPage() {
             </thead>
             <tbody>
               {todos.map(todo => (
-                <tr key={todo.step_id}>
+                <tr key={todo.taskId}>
                   <td>
                     <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      {BIZ_TYPE_ICON[todo.biz_type]}
-                      {BIZ_TYPE_LABEL[todo.biz_type] ?? todo.biz_type}
+                      {BIZ_TYPE_ICON[todo.bizType]}
+                      {BIZ_TYPE_LABEL[todo.bizType] ?? todo.bizType}
                     </span>
                   </td>
                   <td>
-                    <span style={{ fontWeight: 600, fontFamily: "monospace", fontSize: 12 }}>{todo.biz_no || todo.biz_id}</span>
+                    <span style={{ fontWeight: 600, fontFamily: "monospace", fontSize: 12 }}>
+                      {todo.bizNo || todo.bizId}
+                    </span>
                   </td>
                   <td>
                     <span style={{ fontSize: 12, color: "#374151", maxWidth: 140, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -267,32 +264,32 @@ export default function ApprovalTodosPage() {
                   </td>
                   <td>
                     <span style={{ fontWeight: 600, color: "#0f172a", fontSize: 13 }}>
-                      {fmtAmount(todo.amount, todo.currency_code)}
+                      {fmtAmount(todo.amount, todo.currencyCode)}
                     </span>
                   </td>
                   <td>
                     <span style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
-                      {todo.company_name && <Building2 size={11} style={{ flexShrink: 0 }} />}
-                      {todo.company_name ?? todo.company_code ?? "-"}
+                      {todo.companyName && <Building2 size={11} style={{ flexShrink: 0 }} />}
+                      {todo.companyName ?? todo.companyCode ?? "-"}
                     </span>
                   </td>
                   <td>
                     <span style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
-                      {todo.project_name && <FolderOpen size={11} style={{ flexShrink: 0 }} />}
-                      {todo.project_name ?? todo.project_code ?? "-"}
+                      {todo.projectName && <FolderOpen size={11} style={{ flexShrink: 0 }} />}
+                      {todo.projectName ?? todo.projectCode ?? "-"}
                     </span>
                   </td>
                   <td>
                     <code style={{ fontSize: 11, background: "#f1f5f9", padding: "2px 6px", borderRadius: 4 }}>
-                      {todo.approver_role}
+                      {todo.requiredRole}
                     </code>
                   </td>
                   <td>
                     <span style={{ color: "#f59e0b", fontWeight: 600 }}>
-                      {todo.current_step_no}/{todo.total_steps}
+                      {todo.currentStepNo}/{todo.totalSteps}
                     </span>
                   </td>
-                  <td style={{ fontSize: 12 }}>{fmtDate(todo.started_at)}</td>
+                  <td style={{ fontSize: 12 }}>{fmtDate(todo.createdAt)}</td>
                   <td>
                     <button className={s.btnPrimary} style={{ fontSize: 12 }} onClick={() => openDetail(todo)}>
                       审批
@@ -308,12 +305,11 @@ export default function ApprovalTodosPage() {
       {/* ── 审批详情侧栏 ── */}
       <RightDrawer
         open={drawerOpen}
-        title={`审批操作 — ${BIZ_TYPE_LABEL[selected?.biz_type ?? ""] ?? ""} ${selected?.biz_no ?? ""}`}
+        title={`审批操作 — ${BIZ_TYPE_LABEL[selected?.bizType ?? ""] ?? ""} ${selected?.bizNo ?? ""}`}
         onClose={() => setDrawerOpen(false)}
       >
         {detail && (
           <div style={{ padding: "0 20px" }}>
-            {/* 实例基本信息 */}
             <div className={s.detailSection} style={{ marginBottom: 16 }}>
               <div className={s.detailGrid}>
                 <span className={s.detailLabel}>实例编号</span>
@@ -346,7 +342,6 @@ export default function ApprovalTodosPage() {
               </div>
             </div>
 
-            {/* 审批步骤历史 */}
             <h4 style={{ fontSize: 14, fontWeight: 600, margin: "16px 0 12px", color: "#374151" }}>
               审批历史
             </h4>
@@ -384,7 +379,6 @@ export default function ApprovalTodosPage() {
               ))}
             </div>
 
-            {/* 审批操作区 */}
             <h4 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 12px", color: "#374151" }}>
               审批意见
             </h4>

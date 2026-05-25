@@ -1,10 +1,11 @@
 import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { WorkflowService } from './workflow.service';
 import { ApprovalEngineService } from '../approval-engine/approval-engine.service';
 
 @Controller('api/workflow')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class WorkflowRuntimeController {
   constructor(
     private readonly workflow: WorkflowService,
@@ -13,29 +14,34 @@ export class WorkflowRuntimeController {
 
   /**
    * 统一任务入口 — Phase A 聚合 ApprovalEngine 待办
-   * Phase B 将追加 WorkflowEngine wf_task 数据
+   * Phase B 追加 WorkflowEngine wf_task 数据
    */
   @Get('my-tasks')
   @RequireMenu('MENU_WORKFLOW', 'V')
   async getMyTasks() {
     const apTodos: any[] = await this.approvalEngine.getMyTodos();
     return apTodos.map(t => ({
-      taskSource:   'APPROVAL_ENGINE',
-      taskId:       String(t.step_id),
-      instanceId:   String(t.instance_id),
-      bizType:      t.biz_type,
-      bizId:        String(t.biz_id),
-      bizNo:        t.biz_no ?? null,
-      subject:      t.subject ?? null,
-      amount:       t.amount != null ? Number(t.amount) : null,
-      currencyCode: t.currency_code ?? null,
-      companyCode:  t.company_code ?? null,
-      companyName:  t.company_name ?? null,
-      projectCode:  t.project_code ?? null,
-      projectName:  t.project_name ?? null,
-      requiredRole: t.approver_role,
-      status:       t.step_status,
-      createdAt:    t.started_at,
+      taskSource:    'APPROVAL_ENGINE',
+      taskId:        String(t.step_id),
+      instanceId:    String(t.instance_id),
+      instanceNo:    t.instance_no ?? null,
+      bizType:       t.biz_type,
+      bizId:         String(t.biz_id),
+      bizNo:         t.biz_no ?? null,
+      subject:       t.subject ?? null,
+      amount:        t.amount != null ? Number(t.amount) : null,
+      currencyCode:  t.currency_code ?? null,
+      companyCode:   t.company_code ?? null,
+      companyName:   t.company_name ?? null,
+      projectCode:   t.project_code ?? null,
+      projectName:   t.project_name ?? null,
+      requiredRole:  t.approver_role,
+      stepNo:        t.step_no ?? 1,
+      totalSteps:    t.total_steps ?? 1,
+      currentStepNo: t.current_step_no ?? 1,
+      startedBy:     t.started_by ?? null,
+      status:        t.step_status,
+      createdAt:     t.started_at,
     }));
   }
 
