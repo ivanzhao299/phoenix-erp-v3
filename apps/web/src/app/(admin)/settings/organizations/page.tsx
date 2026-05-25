@@ -70,6 +70,17 @@ export default function OrganizationsPage() {
   const [assignDrawer, setAssignDrawer] = useState(false);
   const [assignSearch, setAssignSearch] = useState("");
   const [assigning, setAssigning] = useState<number | null>(null); // userId 正在操作中
+  const [assignScopeLevel, setAssignScopeLevel] = useState("COMPANY"); // 数据范围等级
+  // userId → { userOrgId, dataScopeLevel } for current org
+  const [userOrgMap, setUserOrgMap] = useState<Record<number, { userOrgId: number; dataScopeLevel: string }>>({});
+
+  const SCOPE_LEVELS = [
+    { value: "SELF",    label: "个人（SELF）" },
+    { value: "PROJECT", label: "项目（PROJECT）" },
+    { value: "COMPANY", label: "公司（COMPANY）" },
+    { value: "REGION",  label: "区域（REGION）" },
+    { value: "GROUP",   label: "集团（GROUP）" },
+  ] as const;
 
   const loadUsers = async () => {
     try {
@@ -206,21 +217,80 @@ export default function OrganizationsPage() {
     toast.success(t("ui.已删除","已删除")); load();
   };
 
+  // 加载当前组织的 sys_user_orgs 记录（用于显示 dataScopeLevel）
+  const loadUserOrgs = async (orgId: number, memberIds: number[]) => {
+    if (!memberIds.length) return;
+    try {
+      const results = await Promise.all(
+        memberIds.map(uid =>
+          fetch(`/api/org/user-orgs/${uid}`, { headers: hdr() })
+            .then(r => r.json())
+            .then(d => ({ uid, rows: Array.isArray(d.data) ? d.data : [] }))
+            .catch(() => ({ uid, rows: [] }))
+        )
+      );
+      const map: Record<number, { userOrgId: number; dataScopeLevel: string }> = {};
+      results.forEach(({ uid, rows }) => {
+        const row = rows.find((r: any) => r.orgId === orgId || r.org_id === orgId);
+        if (row) map[uid] = { userOrgId: row.id, dataScopeLevel: row.dataScopeLevel || row.data_scope_level || "COMPANY" };
+      });
+      setUserOrgMap(map);
+    } catch { /* 静默 */ }
+  };
+
   // 将用户分配到当前选中的组织
   const assignUser = async (userId: number) => {
     if (!activeId) return;
     setAssigning(userId);
     try {
-      const res = await fetch(`/api/crud/sys_user/id/${userId}`, {
+      // 1. 保留旧字段 org_id（向后兼容）
+      const res1 = await fetch(`/api/crud/sys_user/id/${userId}`, {
         method: "PUT", headers: hdr(),
         body: JSON.stringify({ org_id: activeId }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res1.ok) throw new Error(`HTTP ${res1.status}`);
+
+      // 2. 写入 sys_user_orgs（含数据范围等级）
+      const res2 = await fetch("/api/org/user-orgs", {
+        method: "POST", headers: hdr(),
+        body: JSON.stringify({
+          userId, orgId: activeId,
+          dataScopeLevel: assignScopeLevel,
+          isPrimary: true,
+        }),
+      });
+      if (res2.ok) {
+        const d2 = await res2.json();
+        if (d2.code === 200 && d2.data?.id) {
+          setUserOrgMap(prev => ({
+            ...prev,
+            [userId]: { userOrgId: d2.data.id, dataScopeLevel: assignScopeLevel },
+          }));
+        }
+      }
+
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, org_id: activeId } : u));
       toast.success(t("ui.已分配","已分配到") + "「" + activeOrg?.org_name + "」");
     } catch (e: any) {
       toast.error(e?.message || t("ui.操作失败","操作失败"));
     } finally { setAssigning(null); }
+  };
+
+  // 更新已在本组织的用户数据范围等级
+  const updateUserScope = async (userId: number, dataScopeLevel: string) => {
+    const entry = userOrgMap[userId];
+    if (!entry) return;
+    try {
+      const res = await fetch(`/api/org/user-orgs/${entry.userOrgId}`, {
+        method: "PUT", headers: hdr(),
+        body: JSON.stringify({ dataScopeLevel }),
+      });
+      const d = await res.json();
+      if (d.code === 200) {
+        setUserOrgMap(prev => ({ ...prev, [userId]: { ...entry, dataScopeLevel } }));
+        toast.success("数据范围已更新");
+      }
+    } catch { toast.error("更新失败"); }
   };
 
   // 从当前组织移除用户（清空 org_id）
@@ -232,6 +302,16 @@ export default function OrganizationsPage() {
         body: JSON.stringify({ org_id: null }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      // 同步删除 sys_user_orgs 记录
+      const entry = userOrgMap[userId];
+      if (entry) {
+        await fetch(`/api/org/user-orgs/${entry.userOrgId}`, {
+          method: "DELETE", headers: hdr(),
+        }).catch(() => {/* 忽略 */});
+        setUserOrgMap(prev => { const m = { ...prev }; delete m[userId]; return m; });
+      }
+
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, org_id: null } : u));
       toast.success(t("ui.已移除","已从部门移除"));
     } catch (e: any) {
@@ -392,7 +472,11 @@ export default function OrganizationsPage() {
                   <button type="button" onClick={() => openEdit(activeOrg)} style={{ padding: "6px 12px", border: "1px solid var(--border)", background: "var(--bg-page)", borderRadius: "var(--radius-sm)", cursor: "pointer", fontSize: 12, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 4 }}>
                     <Edit3 size={13}/>{t("ui.编辑节点","编辑节点")}
                   </button>
-                  <button type="button" onClick={() => { setAssignSearch(""); setAssignDrawer(true); }}
+                  <button type="button" onClick={() => {
+                    setAssignSearch(""); setAssignDrawer(true);
+                    const memberIds = safeUsers.filter(u => u.org_id === activeId).map(u => u.id);
+                    if (activeId) loadUserOrgs(activeId, memberIds);
+                  }}
                     style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", cursor: "pointer", background: "var(--bg-page)", color: "var(--text-primary)" }}>
                     <Users size={13}/>{t("ui.分配人员","分配人员")}
                   </button>
@@ -602,57 +686,82 @@ export default function OrganizationsPage() {
             color: inCurrent ? "var(--color-primary)" : "var(--text-secondary)",
           });
 
-          const UserRow = ({ u, inCurrent }: { u: User; inCurrent: boolean }) => (
-            <div style={rowStyle}>
-              <div style={avatarStyle(inCurrent)}>
-                {(u.real_name || u.username || "?")[0].toUpperCase()}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 13 }}>{u.real_name || "—"}</div>
-                <div style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "monospace" }}>
-                  {u.username}
-                  {u.org_id && u.org_id !== activeId && (
-                    <span style={{ marginLeft: 6, color: "#f59e0b" }}>
-                      · {t("ui.现属于","现属于")}：{safeOrgs.find(o => o.id === u.org_id)?.org_name ?? `#${u.org_id}`}
-                    </span>
-                  )}
+          const UserRow = ({ u, inCurrent }: { u: User; inCurrent: boolean }) => {
+            const uorgEntry = userOrgMap[u.id];
+            return (
+              <div style={rowStyle}>
+                <div style={avatarStyle(inCurrent)}>
+                  {(u.real_name || u.username || "?")[0].toUpperCase()}
                 </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{u.real_name || "—"}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: "monospace" }}>
+                    {u.username}
+                    {u.org_id && u.org_id !== activeId && (
+                      <span style={{ marginLeft: 6, color: "#f59e0b" }}>
+                        · {t("ui.现属于","现属于")}：{safeOrgs.find(o => o.id === u.org_id)?.org_name ?? `#${u.org_id}`}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 4, background: "rgba(99,102,241,0.1)", color: "#6366f1", fontWeight: 600, flexShrink: 0 }}>
+                  {u.role_name_zh || u.role}
+                </span>
+                {/* 已在本组织：显示当前数据范围等级（可修改） */}
+                {inCurrent && uorgEntry && (
+                  <select
+                    value={uorgEntry.dataScopeLevel}
+                    onChange={e => updateUserScope(u.id, e.target.value)}
+                    title="修改数据范围等级"
+                    style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, border: "1px solid var(--border)", background: "var(--bg-page)", color: "var(--text-primary)", cursor: "pointer", flexShrink: 0 }}
+                  >
+                    {SCOPE_LEVELS.map(s => <option key={s.value} value={s.value}>{s.value}</option>)}
+                  </select>
+                )}
+                {inCurrent ? (
+                  <button
+                    type="button"
+                    disabled={assigning === u.id}
+                    onClick={() => removeUser(u.id)}
+                    style={{ flexShrink: 0, padding: "4px 12px", fontSize: 12, border: "1px solid #fca5a5", borderRadius: 6, background: "#fef2f2", color: "#dc2626", cursor: assigning === u.id ? "not-allowed" : "pointer", fontWeight: 600 }}
+                  >
+                    {assigning === u.id ? "…" : t("ui.移除","移除")}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={assigning === u.id}
+                    onClick={() => assignUser(u.id)}
+                    style={{ flexShrink: 0, padding: "4px 12px", fontSize: 12, border: "1px solid var(--color-primary)", borderRadius: 6, background: "rgba(var(--color-primary-rgb),0.06)", color: "var(--color-primary)", cursor: assigning === u.id ? "not-allowed" : "pointer", fontWeight: 600 }}
+                  >
+                    {assigning === u.id ? "…" : t("ui.分配","分配")}
+                  </button>
+                )}
               </div>
-              <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 4, background: "rgba(99,102,241,0.1)", color: "#6366f1", fontWeight: 600, flexShrink: 0 }}>
-                {u.role_name_zh || u.role}
-              </span>
-              {inCurrent ? (
-                <button
-                  type="button"
-                  disabled={assigning === u.id}
-                  onClick={() => removeUser(u.id)}
-                  style={{ flexShrink: 0, padding: "4px 12px", fontSize: 12, border: "1px solid #fca5a5", borderRadius: 6, background: "#fef2f2", color: "#dc2626", cursor: assigning === u.id ? "not-allowed" : "pointer", fontWeight: 600 }}
-                >
-                  {assigning === u.id ? "…" : t("ui.移除","移除")}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={assigning === u.id}
-                  onClick={() => assignUser(u.id)}
-                  style={{ flexShrink: 0, padding: "4px 12px", fontSize: 12, border: "1px solid var(--color-primary)", borderRadius: 6, background: "rgba(var(--color-primary-rgb),0.06)", color: "var(--color-primary)", cursor: assigning === u.id ? "not-allowed" : "pointer", fontWeight: 600 }}
-                >
-                  {assigning === u.id ? "…" : t("ui.分配","分配")}
-                </button>
-              )}
-            </div>
-          );
+            );
+          };
 
           return (
             <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
               {/* 搜索框 */}
               <input
-                style={{ ...inp, marginBottom: 16 }}
+                style={{ ...inp, marginBottom: 10 }}
                 placeholder={t("ui.搜索姓名或账号","搜索姓名或账号…")}
                 value={assignSearch}
                 onChange={e => setAssignSearch(e.target.value)}
                 autoFocus
               />
+              {/* 新分配时使用的数据范围等级 */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, padding: "8px 12px", background: "var(--bg-muted)", borderRadius: 6, border: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 600, flexShrink: 0 }}>分配范围等级：</span>
+                <select
+                  style={{ ...inp, padding: "5px 8px", fontSize: 12, flex: 1 }}
+                  value={assignScopeLevel}
+                  onChange={e => setAssignScopeLevel(e.target.value)}
+                >
+                  {SCOPE_LEVELS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
 
               <div style={{ flex: 1, overflowY: "auto" }}>
                 {/* 当前部门成员 */}

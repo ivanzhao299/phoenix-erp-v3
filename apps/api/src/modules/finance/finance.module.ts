@@ -5,6 +5,7 @@ import { FinanceService } from './finance.service';
 import { CashFlowEntity } from './entities/cash-flow.entity';
 import { ApprovalModule } from '../approval/approval.module';
 
+// OrgModule 是 @Global()，DataScopeHelper / DataScopeGuard 已通过全局导出自动可注入。
 @Module({
   imports: [
     TypeOrmModule.forFeature([CashFlowEntity]),

@@ -2,6 +2,7 @@ import { Controller, Get, Put, Body, UseGuards, InternalServerErrorException, On
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { AuthGuard } from '@nestjs/passport';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 
 const DEFAULT_BRAND = {
   system_name:   '凤凰农业ERP管理系统',
@@ -103,6 +104,8 @@ export class SystemController implements OnModuleInit {
   }
 
   @Put('brand')
+  @UseGuards(MenuGuard)
+  @RequireMenu('MENU_SETTINGS_IT', 'E')
   async updateBrand(@Body() body: any) {
     try {
       await this.ensureTable(); // 防御：确保表存在再写入

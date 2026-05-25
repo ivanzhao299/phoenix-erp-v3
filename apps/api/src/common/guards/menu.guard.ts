@@ -8,7 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { ClsService } from 'nestjs-cls';
-import { hasMenuPermission } from './rbac.matrix';
+import { hasMenuPermission, isMenuRegistered } from './rbac.matrix';
 
 // === Decorators ===
 export const REQUIRE_MENU_KEY = 'require_menu';
@@ -59,19 +59,19 @@ export class MenuGuard extends AuthGuard('jwt') implements CanActivate {
     const user = req.user;
     if (!user) throw new ForbiddenException('User context not found.');
 
-    // 超级管理员特权通道
+    // SECURITY: 不再有无条件超级管理员旁路通道
+    // ROLE_ADMIN 已在矩阵所有 MENU 条目中配置全权限，走正常矩阵校验即可
     const userRoles: string[] = user.roles || (user.role ? [user.role] : []);
-    const userPerms: string[] = user.permissions || [];
-    if (userRoles.includes('ROLE_ADMIN') || user.username === 'admin' || userPerms.includes('*')) {
-      return true;
+
+    // 检查 MENU 是否在矩阵中注册（防止裸接口穿越）
+    if (!isMenuRegistered(requirement.menu)) {
+      throw new ForbiddenException('MENU_PERMISSION_NOT_REGISTERED');
     }
 
     // 静态 RBAC 矩阵校验（零 DB 查询）
     const allowed = hasMenuPermission(userRoles, requirement.menu, requirement.perm);
     if (!allowed) {
-      throw new ForbiddenException(
-        `Access Denied: [${userRoles.join(',')}] lacks '${requirement.perm}' on '${requirement.menu}'`,
-      );
+      throw new ForbiddenException('MENU_PERMISSION_DENIED');
     }
 
     return true;

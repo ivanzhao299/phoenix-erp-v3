@@ -16,7 +16,8 @@ import {
   ClipboardCheck, PackageCheck, Truck as TruckLoad, BarChart, PieChart,
   Wheat, ScrollText, FlaskConical, ArrowLeftRight, DollarSign,
   History, Box, RefreshCw, TrendingDown, Banknote, Building, ShoppingBag,
-  BarChart3, Minus, Network, Smartphone, ToggleRight, Zap
+  BarChart3, Minus, Network, Smartphone, ToggleRight, Zap,
+  FolderKanban, Globe, Layers3, UploadCloud
 } from "lucide-react";
 import styles from "./sidebar.module.css";
 import { useBrand } from "@/contexts/BrandContext";
@@ -125,6 +126,18 @@ const MENU: MenuItem[] = [
     { id: "pr-supplier", path: "/procurement/suppliers",    Icon: Users,           label: "供应商档案", perm: "MENU_PRC_MASTER" },
     { id: "pr-reconcile",path: "/procurement/reconcile",    Icon: GitMerge,        label: "饲料核对",   perm: "MENU_PRC_MGR" },
   ]},
+  { id: "procurement2", Icon: Layers3, label: "采购 V2", perm: "MENU_PRC2_MASTER", children: [
+    { id: "prc2-dashboard", path: "/procurement2/dashboard", Icon: LayoutDashboard, label: "采购看板", perm: "MENU_PRC2" },
+    { id: "prc2-supplier",  path: "/procurement2/suppliers", Icon: Globe,           label: "供应商 V2",  perm: "MENU_PRC2_MASTER" },
+    { id: "prc2-project",  path: "/procurement2/projects",  Icon: FolderKanban,    label: "采购项目",   perm: "MENU_PRC2_MASTER" },
+    { id: "prc2-request",  path: "/procurement2/requests",  Icon: FilePlus,        label: "采购申请",   perm: "MENU_PRC2_MASTER" },
+    { id: "prc2-order",    path: "/procurement2/orders",    Icon: ShoppingBag,     label: "采购订单",   perm: "MENU_PRC2_ORDER"   },
+    { id: "prc2-payment",  path: "/procurement2/payments",          Icon: Banknote,    label: "付款管理",   perm: "MENU_PRC2_PAYMENT"  },
+    { id: "prc2-fund",     path: "/procurement2/shareholder-funds", Icon: DollarSign,  label: "股东资金",   perm: "MENU_PRC2_FUND"     },
+    { id: "prc2-shipment", path: "/procurement2/shipments",         Icon: Truck,       label: "物流管理",   perm: "MENU_PRC2_SHIPMENT" },
+    { id: "prc2-receipt",  path: "/procurement2/receipts",          Icon: PackageCheck,  label: "收货管理",   perm: "MENU_PRC2_RECEIPT"  },
+    { id: "prc2-init",     path: "/procurement2/init",              Icon: UploadCloud,   label: "历史初始化", perm: "MENU_PRC2_INIT"     },
+  ]},
   { id: "order", Icon: ShoppingCart, label: "订货系统", perm: "MENU_ORDER_MGR", children: [
     { id: "ord-center",  path: "/order",               Icon: LayoutDashboard, label: "订单中心",   perm: "MENU_ORDER_MGR" },
     { id: "ord-cust",    path: "/order/customers",     Icon: Users,           label: "客户档案",   perm: "MENU_ORDER_MGR" },
@@ -168,6 +181,10 @@ const MENU: MenuItem[] = [
     { id: "pos-sales", path: "/pos/sales",   Icon: CreditCard,      label: "销售单管理", perm: null },
   ]},
   { id: "workflow", Icon: GitMerge, label: "工作流", perm: null, children: [
+    // ── 规则驱动审批中心（采购专用）──────────────────────────────────────
+    { id: "wf-approval-todos",   path: "/workflow/todos",   Icon: ClipboardCheck, label: "审批待办",   perm: "MENU_WORKFLOW" },
+    { id: "wf-approval-history", path: "/workflow/history", Icon: History,        label: "审批历史",   perm: "MENU_WORKFLOW" },
+    // ── 通用工作流引擎 ────────────────────────────────────────────────────
     { id: "wf-start",  path: "/workflow/start",        Icon: FilePlus,        label: "发起申请", perm: null },
     { id: "wf-todo",   path: "/workflow/tasks/todo",   Icon: ClipboardCheck,  label: "我的待办", perm: null },
     { id: "wf-done",   path: "/workflow/tasks/done",   Icon: ListChecks,      label: "我的已办", perm: null },
@@ -189,11 +206,13 @@ const MENU: MenuItem[] = [
   { id: "settings", Icon: Settings, label: "系统设置", perm: null, children: [
     { id: "stg-users",       path: "/settings/users",          Icon: Users,         label: "用户管理",     perm: "MENU_SETTINGS_USER" },
     { id: "stg-roles",       path: "/settings/roles",          Icon: Shield,        label: "角色与权限",   perm: "MENU_SETTINGS_IT" },
-    { id: "stg-orgs",        path: "/settings/organizations",  Icon: Network,       label: "组织架构",     perm: null },
+    { id: "stg-orgs",        path: "/settings/organizations",  Icon: Network,       label: "组织架构",     perm: "MENU_SYS_ORG" },
+    { id: "stg-data-scopes", path: "/settings/data-scopes",   Icon: ShieldCheck,   label: "数据范围",     perm: "MENU_SYS_ORG" },
     { id: "stg-dict",        path: "/settings/dict",           Icon: BookOpen,      label: "系统字典",     perm: "MENU_SETTINGS_DATA" },
     { id: "stg-products",    path: "/settings/products",       Icon: Egg,           label: "商品主数据",   perm: null },
     { id: "stg-master",      path: "/settings/master-data",    Icon: Database,      label: "主数据配置",   perm: null },
-    { id: "stg-approvals",   path: "/settings/approval-flows", Icon: GitMerge,      label: "审批流配置",   perm: "MENU_SETTINGS_IT" },
+    { id: "stg-approvals",      path: "/settings/approval-flows",  Icon: GitMerge,   label: "审批流配置",   perm: "MENU_SETTINGS_IT" },
+    { id: "stg-approval-rules", path: "/settings/approval-rules", Icon: ListChecks, label: "审批规则",     perm: "MENU_WORKFLOW" },
     { id: "stg-perms",       path: "/settings/permissions",    Icon: Shield,        label: "权限配置",     perm: "MENU_SETTINGS_IT" },
     { id: "stg-pda",         path: "/settings/pda-terminals",  Icon: Smartphone,    label: "PDA终端",      perm: null },
     { id: "stg-pos",         path: "/settings/pos-config",     Icon: Store,         label: "POS配置",      perm: null },

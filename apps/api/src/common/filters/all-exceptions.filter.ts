@@ -48,7 +48,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const err = exception as any;
     const pgCode: string | undefined = err?.code;
     if (pgCode && PG_ERROR_MAP[pgCode]) {
-      this.logger.warn(`[DB] PG${pgCode} on ${req.method} ${req.url}`);
+      this.logger.warn(`[DB] PG${pgCode} on ${req.method} ${req.url} — ${err?.message} col:${err?.column}`);
       return res.status(400).json({ code: 400, msg: PG_ERROR_MAP[pgCode] });
     }
 

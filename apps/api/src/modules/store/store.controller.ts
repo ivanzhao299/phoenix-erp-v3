@@ -1,9 +1,10 @@
 import { Controller, Post, Put, Get, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { StoreService } from './store.service';
 import { StoreDailyCloseEntity } from './entities/store-daily-close.entity';
-import { RequireMenu } from '../../common/guards/menu.guard';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 
 @Controller('api/v3/store')
+@UseGuards(MenuGuard)
 export class StoreController {
   constructor(private readonly storeService: StoreService) {}
 

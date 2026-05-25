@@ -8,6 +8,7 @@ import { APP_GUARD, APP_INTERCEPTOR, APP_FILTER } from '@nestjs/core';
 import { MenuGuard } from './common/guards/menu.guard';
 import { StoreCodeInterceptor } from './common/interceptors/store-code.interceptor';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
+import { OperationLogInterceptor } from './common/interceptors/operation-log.interceptor';
 import { AuthExceptionFilter } from './common/filters/auth-exception.filter';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { JwtStrategy } from './auth/jwt.strategy';
@@ -36,6 +37,11 @@ import { PermissionsModule } from './modules/permissions/permissions.module';
 import { QualityModule } from './modules/quality/quality.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
 import { UploadModule } from './modules/upload/upload.module';
+import { ProcurementV2Module } from './modules/procurement-v2/procurement-v2.module';
+// [RBAC-2] 组织范围 + 数据范围全局模块
+import { OrgModule } from './modules/org/org.module';
+// [RBAC-4] 动态审批引擎
+import { ApprovalEngineModule } from './modules/approval-engine/approval-engine.module';
 
 
 @Module({
@@ -85,6 +91,9 @@ import { UploadModule } from './modules/upload/upload.module';
     QualityModule,
     WorkflowModule,
     UploadModule,
+    ProcurementV2Module,
+    OrgModule,
+    ApprovalEngineModule,
   ],
   controllers: [DebugController, HealthController],
   providers: [
@@ -94,6 +103,11 @@ import { UploadModule } from './modules/upload/upload.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: AuditLogInterceptor,
+    },
+    // 高敏感操作日志（RBAC-1）
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: OperationLogInterceptor,
     },
     StoreCodeInterceptor,
     // 统一 401 响应结构（注入 subcode）— 先注册，优先处理 UnauthorizedException

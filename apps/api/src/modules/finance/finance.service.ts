@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { CashFlowEntity } from './entities/cash-flow.entity';
 import { ApprovalService } from '../approval/approval.service';
+import { DataScopeHelper } from '../org/helpers/data-scope.helper';
 
 @Injectable()
 export class FinanceService {
@@ -13,6 +14,7 @@ export class FinanceService {
     @InjectEntityManager()
     private readonly em: EntityManager,
     private readonly approvalService: ApprovalService,
+    private readonly scopeHelper: DataScopeHelper,   // RBAC-3.1：数据范围注入
   ) {}
 
   // ─── 资金流水申请 ──────────────────────────────────────────────────────────────
@@ -51,6 +53,10 @@ export class FinanceService {
   // ─── AR 账龄分析 ─────────────────────────────────────────────────────────────
   async getArAging() {
     try {
+      // RBAC-3.1：注入 store_code 数据范围过滤
+      const { sql: scopeSql, params: scopeParams } =
+        this.scopeHelper.buildRawCondition({ companyAlias: 't.store_code' }, 0);
+
       const rows = await this.em.query(`
         SELECT c.customer_name, c.customer_code,
           COALESCE(t.amount, 0)                            AS balance,
@@ -60,8 +66,9 @@ export class FinanceService {
         FROM fin_transactions t
         LEFT JOIN ord_customers c ON t.account_code = c.customer_code
         WHERE t.type = 'AR' AND t.status = 'PENDING'
+          AND (${scopeSql})
         ORDER BY days_outstanding DESC
-      `);
+      `, scopeParams);
 
       const buckets: Record<string, any[]> = {
         current: [], days_30: [], days_60: [], days_90: [], over_90: [],
@@ -102,6 +109,10 @@ export class FinanceService {
   // ─── AP 账龄分析 ─────────────────────────────────────────────────────────────
   async getApAging() {
     try {
+      // RBAC-3.1：注入 store_code 数据范围过滤
+      const { sql: scopeSql, params: scopeParams } =
+        this.scopeHelper.buildRawCondition({ companyAlias: 't.store_code' }, 0);
+
       const rows = await this.em.query(`
         SELECT COALESCE(s.supplier_name, t.account_code) AS supplier,
           t.account_code AS supplier_code,
@@ -112,8 +123,9 @@ export class FinanceService {
         FROM fin_transactions t
         LEFT JOIN prc_suppliers s ON t.account_code = s.supplier_code
         WHERE t.type = 'AP' AND t.status = 'PENDING'
+          AND (${scopeSql})
         ORDER BY days_outstanding DESC
-      `);
+      `, scopeParams);
 
       const buckets: Record<string, any[]> = {
         current: [], days_30: [], days_60: [], days_90: [], over_90: [],
@@ -155,6 +167,10 @@ export class FinanceService {
   async getCashflow(period = 'monthly') {
     const fmt = period === 'daily' ? 'YYYY-MM-DD' : 'YYYY-MM';
     try {
+      // RBAC-3.1：注入 store_code 数据范围过滤
+      const { sql: scopeSql, params: scopeParams } =
+        this.scopeHelper.buildRawCondition({ companyAlias: 'store_code' }, 0);
+
       const data = await this.em.query(`
         SELECT TO_CHAR(created_at, '${fmt}') AS period,
           SUM(CASE WHEN type IN ('AR_RECEIPT','INCOME') THEN amount ELSE 0 END) AS cash_in,
@@ -163,9 +179,10 @@ export class FinanceService {
           SUM(CASE WHEN type IN ('AP_PAYMENT','EXPENSE') THEN amount ELSE 0 END) AS net_cash
         FROM fin_transactions
         WHERE status = 'COMPLETED'
+          AND (${scopeSql})
         GROUP BY TO_CHAR(created_at, '${fmt}')
         ORDER BY period DESC LIMIT 12
-      `);
+      `, scopeParams);
       return { code: 200, data };
     } catch { return { code: 200, data: [] }; }
   }
@@ -173,20 +190,26 @@ export class FinanceService {
   // ─── 账龄总览（Overview Tiles） ────────────────────────────────────────────────
   async getAgingOverview() {
     try {
+      // RBAC-3.1：注入 store_code 数据范围过滤（两个查询共享同一 scope）
+      const { sql: scopeSql, params: scopeParams } =
+        this.scopeHelper.buildRawCondition({ companyAlias: 'store_code' }, 0);
+
       const [arRow] = await this.em.query(`
         SELECT
           COALESCE(SUM(amount), 0) AS balance,
           COALESCE(SUM(CASE WHEN due_date < CURRENT_DATE THEN amount ELSE 0 END), 0) AS overdue,
           COUNT(*) AS count
         FROM fin_transactions WHERE type='AR' AND status='PENDING'
-      `);
+          AND (${scopeSql})
+      `, scopeParams);
       const [apRow] = await this.em.query(`
         SELECT
           COALESCE(SUM(amount), 0) AS balance,
           COALESCE(SUM(CASE WHEN due_date < CURRENT_DATE THEN amount ELSE 0 END), 0) AS overdue,
           COUNT(*) AS count
         FROM fin_transactions WHERE type='AP' AND status='PENDING'
-      `);
+          AND (${scopeSql})
+      `, scopeParams);
       return {
         code: 200,
         data: {
@@ -201,11 +224,23 @@ export class FinanceService {
 
   // ─── 财务仪表盘总览 ────────────────────────────────────────────────────────────
   async getSummary() {
-
     try {
-      const [ar]   = await this.em.query(`SELECT COALESCE(SUM(amount),0) AS total FROM fin_transactions WHERE type='AR' AND status='PENDING'`);
-      const [ap]   = await this.em.query(`SELECT COALESCE(SUM(amount),0) AS total FROM fin_transactions WHERE type='AP' AND status='PENDING'`);
-      const [cash] = await this.em.query(`SELECT COALESCE(SUM(balance),0) AS total FROM fin_accounts`);
+      // RBAC-3.1：注入 store_code 数据范围过滤
+      const { sql: scopeSql, params: scopeParams } =
+        this.scopeHelper.buildRawCondition({ companyAlias: 'store_code' }, 0);
+
+      const [ar]   = await this.em.query(
+        `SELECT COALESCE(SUM(amount),0) AS total FROM fin_transactions WHERE type='AR' AND status='PENDING' AND (${scopeSql})`,
+        scopeParams,
+      );
+      const [ap]   = await this.em.query(
+        `SELECT COALESCE(SUM(amount),0) AS total FROM fin_transactions WHERE type='AP' AND status='PENDING' AND (${scopeSql})`,
+        scopeParams,
+      );
+      const [cash] = await this.em.query(
+        `SELECT COALESCE(SUM(balance),0) AS total FROM fin_accounts WHERE (${scopeSql})`,
+        scopeParams,
+      );
       return { code: 200, data: {
         total_ar: Number(ar?.total || 0), total_ap: Number(ap?.total || 0),
         total_cash: Number(cash?.total || 0), health_score: 95,
@@ -533,11 +568,16 @@ export class FinanceService {
   // ─── 移动端资金账户 ─────────────────────────────────────────────────────────
   async getAccounts() {
     try {
+      // RBAC-3.1：注入 store_code 数据范围过滤
+      const { sql: scopeSql, params: scopeParams } =
+        this.scopeHelper.buildRawCondition({ companyAlias: 'store_code' }, 0);
+
       const data = await this.em.query(
         `SELECT account_code, account_name, currency_code AS currency, balance
          FROM fin_accounts
-         WHERE status = 'ACTIVE'
+         WHERE status = 'ACTIVE' AND (${scopeSql})
          ORDER BY currency_code, account_name`,
+        scopeParams,
       );
       return { code: 200, data };
     } catch {
@@ -547,14 +587,20 @@ export class FinanceService {
 
   async getTransactions(accountCode?: string) {
     try {
-      const cond = accountCode ? `AND account_code = '${accountCode}'` : '';
+      // RBAC-3.1：注入 store_code 数据范围过滤
+      const { sql: scopeSql, params: scopeParams } =
+        this.scopeHelper.buildRawCondition({ companyAlias: 'store_code' }, 0);
+
+      // NOTE: accountCode via string template is a pre-existing pattern (not in scope to refactor)
+      const cond = accountCode ? `AND account_code = '${accountCode.replace(/'/g, "''")}'` : '';
       const data = await this.em.query(
         `SELECT txn_no AS txn_id, type, amount, currency_code, account_code,
                 description AS note, status, created_at
          FROM fin_transactions
-         WHERE 1=1 ${cond}
+         WHERE 1=1 ${cond} AND (${scopeSql})
          ORDER BY created_at DESC
          LIMIT 100`,
+        scopeParams,
       );
       return { code: 200, data };
     } catch {
@@ -565,18 +611,27 @@ export class FinanceService {
   // ─── 移动端客户应收 ─────────────────────────────────────────────────────────
   async getIncome(month?: string) {
     try {
-      const cond = month ? `AND TO_CHAR(created_at,'YYYY-MM') = '${month}'` : '';
+      // RBAC-3.1：注入 store_code 数据范围过滤
+      const { sql: scopeSql, params: scopeParams } =
+        this.scopeHelper.buildRawCondition({ companyAlias: 'store_code' }, 0);
+
+      // NOTE: month via string template is a pre-existing pattern (not in scope to refactor)
+      const cond = month ? `AND TO_CHAR(created_at,'YYYY-MM') = '${month.replace(/'/g, "''")}'` : '';
       const data = await this.em.query(
         `SELECT txn_no, amount, currency_code, account_code, description, status, created_at
          FROM fin_transactions
          WHERE type IN ('AR','AR_RECEIPT','INCOME') ${cond}
+           AND (${scopeSql})
          ORDER BY created_at DESC
          LIMIT 200`,
+        scopeParams,
       );
       const [total] = await this.em.query(
         `SELECT COALESCE(SUM(amount),0) AS total_amount
          FROM fin_transactions
-         WHERE type IN ('AR','AR_RECEIPT','INCOME') AND status='COMPLETED' ${cond}`,
+         WHERE type IN ('AR','AR_RECEIPT','INCOME') AND status='COMPLETED' ${cond}
+           AND (${scopeSql})`,
+        scopeParams,
       );
       return { code: 200, data, total_amount: Number(total?.total_amount || 0) };
     } catch {

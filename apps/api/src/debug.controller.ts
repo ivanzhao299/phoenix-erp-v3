@@ -1,12 +1,15 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { MenuGuard, RequireMenu } from './common/guards/menu.guard';
 
 @Controller('api/v3/debug')
+@UseGuards(MenuGuard)
 export class DebugController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
   @Get('migrated-data')
+  @RequireMenu('MENU_SYSTEM', 'V')
   async getMigratedData() {
     const users = await this.em.query('SELECT * FROM sys_user ORDER BY user_id DESC LIMIT 5');
     const cashFlows = await this.em.query('SELECT * FROM biz_cash_flow ORDER BY id ASC LIMIT 5');

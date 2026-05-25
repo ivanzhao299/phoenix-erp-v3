@@ -54,7 +54,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_CASHIER:     ['V'],
   },
 
-  // ── 采购 ──────────────────────────────────────────────────────────────────
+  // ── 采购 V1 ───────────────────────────────────────────────────────────────
   MENU_PROCUREMENT: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
     ROLE_PRC_BUYER:   ['V','C','E','D','X'],
@@ -62,6 +62,99 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_FIN_ACCT:    ['V','X'],
     ROLE_FIN_CFO:     ['V','A','X'],
     ROLE_CEO:         ['V','A','X'],
+  },
+
+  // ── 采购 V2 ───────────────────────────────────────────────────────────────
+  /** 采购V2 主模块（订单/付款/物流/收货） */
+  MENU_PRC2: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_PRC_BUYER:   ['V','C','E','D','X'],
+    ROLE_FARM_MGR:    ['V','C'],
+    ROLE_FIN_ACCT:    ['V','X'],
+    ROLE_FIN_CFO:     ['V','A','X'],
+    ROLE_CEO:         ['V','A','X'],
+    ROLE_REGION_MGR:  ['V'],
+    ROLE_LOG_MGR:     ['V','E'],
+  },
+  /** 采购V2 主数据（供应商/项目） */
+  MENU_PRC2_MASTER: {
+    ROLE_ADMIN:          ['V','C','E','D','A','X'],
+    ROLE_PRC_BUYER:      ['V','C','E','X'],
+    ROLE_FARM_MGR:       ['V'],
+    ROLE_FIN_CFO:        ['V'],
+    ROLE_CEO:            ['V'],
+    ROLE_REGION_MGR:     ['V'],
+    ROLE_PROJECT_MGR:    ['V','C','E'], // RBAC-2.5：requests/suppliers 走此 MENU
+    ROLE_FACTORY_ACCT:   ['V'],         // RBAC-2.5
+  },
+  /** 采购V2 付款（敏感） */
+  MENU_PRC2_PAYMENT: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_FIN_CFO:     ['V','C','E','A','X'],
+    ROLE_FIN_ACCT:    ['V','C','E','X'],
+    ROLE_PRC_BUYER:   ['V'],
+    ROLE_CEO:         ['V','A','X'],
+  },
+  /** 采购V2 股东资金（高度敏感） */
+  MENU_PRC2_FUND: {
+    ROLE_ADMIN:            ['V','C','E','D','A','X'],
+    ROLE_FIN_CFO:          ['V','C','E','A','X'],
+    ROLE_CEO:              ['V','A','X'],
+    ROLE_SHAREHOLDER_VIEW: ['V'],   // RBAC-2.5：只读自己名下股东资金
+  },
+  /** 采购V2 订单管理（PO） */
+  MENU_PRC2_ORDER: {
+    ROLE_ADMIN:          ['V','C','E','D','A','X'],
+    ROLE_PRC_BUYER:      ['V','C','E','D','X'],
+    ROLE_FARM_MGR:       ['V','C'],
+    ROLE_FIN_ACCT:       ['V','X'],
+    ROLE_FIN_CFO:        ['V','A','X'],
+    ROLE_CEO:            ['V','A','X'],
+    ROLE_REGION_MGR:     ['V'],
+    ROLE_PROJECT_MGR:    ['V','C','E'],   // RBAC-2.5：项目经理（PROJECT scope）
+    ROLE_FACTORY_ACCT:   ['V'],           // RBAC-2.5：工厂会计（COMPANY scope，只读）
+  },
+  /** 采购V2 历史初始化（仅超管） */
+  MENU_PRC2_INIT: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+  },
+  /** 采购V2 看板 & 报表 */
+  MENU_PRC2_DASHBOARD: {
+    ROLE_ADMIN:          ['V','X'],
+    ROLE_PRC_BUYER:      ['V','X'],
+    ROLE_FARM_MGR:       ['V'],
+    ROLE_FIN_ACCT:       ['V','X'],
+    ROLE_FIN_CFO:        ['V','X'],
+    ROLE_CEO:            ['V','X'],
+    ROLE_REGION_MGR:     ['V'],
+    ROLE_PROJECT_MGR:    ['V'],         // RBAC-2.5
+    ROLE_FACTORY_ACCT:   ['V'],         // RBAC-2.5
+  },
+  /** 采购V2 物流运单 */
+  MENU_PRC2_SHIPMENT: {
+    ROLE_ADMIN:          ['V','C','E','D','A','X'],
+    ROLE_PRC_BUYER:      ['V','C','E','X'],
+    ROLE_LOG_MGR:        ['V','C','E','X'],
+    ROLE_FARM_MGR:       ['V'],
+    ROLE_FIN_ACCT:       ['V','X'],
+    ROLE_FIN_CFO:        ['V','X'],
+    ROLE_CEO:            ['V','X'],
+    ROLE_REGION_MGR:     ['V'],
+    ROLE_PROJECT_MGR:    ['V','C','E'], // RBAC-2.5
+    ROLE_FACTORY_ACCT:   ['V'],         // RBAC-2.5
+  },
+  /** 采购V2 收货入库 */
+  MENU_PRC2_RECEIPT: {
+    ROLE_ADMIN:          ['V','C','E','D','A','X'],
+    ROLE_PRC_BUYER:      ['V','C','E','X'],
+    ROLE_LOG_MGR:        ['V','C','E','X'],
+    ROLE_FARM_MGR:       ['V','C','E'],
+    ROLE_FIN_ACCT:       ['V','X'],
+    ROLE_FIN_CFO:        ['V','X'],
+    ROLE_CEO:            ['V','X'],
+    ROLE_REGION_MGR:     ['V'],
+    ROLE_PROJECT_MGR:    ['V','C','E'], // RBAC-2.5
+    ROLE_FACTORY_ACCT:   ['V'],         // RBAC-2.5
   },
 
   // ── 财务 ──────────────────────────────────────────────────────────────────
@@ -73,6 +166,9 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_CEO:         ['V','A','X'],
     ROLE_REGION_MGR:  ['V','X'],
     ROLE_AUDITOR:     ['V','X'],
+    ROLE_FARM_MGR:    ['C'],              // RBAC-3.1：费用报销提交
+    ROLE_STORE_MGR:   ['V','C'],          // RBAC-3.1：移动端账户查看+现金流录入
+    ROLE_CASHIER:     ['V','C'],          // RBAC-3.1：移动端收入登记
   },
   MENU_FIN_CLOSE: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
@@ -173,7 +269,144 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_REGION_MGR:  ['V','A','X'],
     ROLE_FIN_ACCT:    ['V','X'],
   },
+
+  // ── 补齐高风险 MENU（RBAC-1 安全加固 2026-05-25）────────────────────────
+
+  // 财务审计（高度敏感）
+  MENU_FIN_AUDIT: {
+    ROLE_ADMIN:       ['V','X'],
+    ROLE_AUDITOR:     ['V','X'],
+    ROLE_FIN_CFO:     ['V','X'],
+    ROLE_CEO:         ['V','X'],
+  },
+
+  // 订单管理（BFF 层，原 MENU_ORDERS 的 BFF 补充）
+  MENU_ORDER_MGR: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_STORE_MGR:   ['V','C','E','D','X'],
+    ROLE_CASHIER:     ['V','C','E'],
+    ROLE_SALES_REP:   ['V','C'],
+    ROLE_REGION_MGR:  ['V','A','X'],
+    ROLE_FIN_ACCT:    ['V','X'],
+  },
+
+  // 系统设置（数据层）
+  MENU_SETTINGS_DATA: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_SYSOPS:      ['V','C','E','D'],
+  },
+
+  // 系统设置（IT层）
+  MENU_SETTINGS_IT: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_SYSOPS:      ['V','C','E','D'],
+  },
+
+  // 基础主数据
+  MENU_MASTER: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_SYSOPS:      ['V','C','E','D'],
+    ROLE_HR_ADMIN:    ['V','C','E'],
+    ROLE_FARM_MGR:    ['V'],
+    ROLE_STORE_MGR:   ['V'],
+  },
+
+  // 采购 V1 管理
+  MENU_PRC_MGR: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_PRC_BUYER:   ['V','C','E','D','X'],
+    ROLE_FIN_CFO:     ['V','A','X'],
+    ROLE_CEO:         ['V','A','X'],
+  },
+
+  // 采购 V1 主数据
+  MENU_PRC_MASTER: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_PRC_BUYER:   ['V','C','E','X'],
+    ROLE_FARM_MGR:    ['V'],
+  },
+
+  // 质检主数据
+  MENU_QA_MASTER: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_FARM_MGR:    ['V','C','E'],
+    ROLE_VET:         ['V','C','E'],
+    ROLE_REGION_MGR:  ['V'],
+  },
+
+  // 物流主数据
+  MENU_LOGISTICS_MASTER: {
+    ROLE_ADMIN:           ['V','C','E','D','A','X'],
+    ROLE_LOGISTICS_MGR:   ['V','C','E','D'],
+    ROLE_REGION_MGR:      ['V'],
+  },
+
+  // ── RBAC-2 组织与数据范围管理 ────────────────────────────────────────────────
+  MENU_SYS_ORG: {
+    ROLE_ADMIN:    ['V','C','E','D','A','X'],
+    ROLE_HR_ADMIN: ['V','C','E','D'],
+    ROLE_SYSOPS:   ['V','C','E'],
+    ROLE_CEO:      ['V'],
+  },
+
+  // ── RBAC-2.5 新增：压测专用菜单（无重复键，仅补充之前未覆盖的菜单）────────────
+
+  /** 采购V2 采购申请（PR） — requests.controller 原使用 MENU_PRC2_MASTER，此条新增精细化 */
+  MENU_PRC2_REQUEST: {
+    ROLE_ADMIN:          ['V','C','E','D','A','X'],
+    ROLE_CEO:            ['V','A','X'],
+    ROLE_FIN_CFO:        ['V','A'],
+    ROLE_PRC_BUYER:      ['V','C','E','D','X'],
+    ROLE_FARM_MGR:       ['V','C','E'],
+    ROLE_PROJECT_MGR:    ['V','C','E'],
+    ROLE_FACTORY_ACCT:   ['V'],
+  },
+
+  /** 采购V2 供应商管理（单独菜单） */
+  MENU_PRC2_SUPPLIER: {
+    ROLE_ADMIN:          ['V','C','E','D','A','X'],
+    ROLE_PRC_BUYER:      ['V','C','E','X'],
+    ROLE_FIN_CFO:        ['V','X'],
+    ROLE_FARM_MGR:       ['V'],
+    ROLE_PROJECT_MGR:    ['V'],
+    ROLE_FACTORY_ACCT:   ['V'],
+  },
+
+  /** 采购V2 项目管理（单独菜单） */
+  MENU_PRC2_PROJECT: {
+    ROLE_ADMIN:          ['V','C','E','D','A','X'],
+    ROLE_CEO:            ['V','X'],
+    ROLE_REGION_MGR:     ['V','X'],
+    ROLE_FIN_CFO:        ['V','X'],
+    ROLE_PRC_BUYER:      ['V','C','E'],
+    ROLE_PROJECT_MGR:    ['V','C','E'],
+    ROLE_FACTORY_ACCT:   ['V'],
+  },
+
+  // ── 审批工作流 ──────────────────────────────────────────────────────────
+  MENU_WORKFLOW: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_CEO:         ['V','C','E','D','A','X'],   // Phase C：CEO 可管理审批规则
+    ROLE_FIN_CFO:     ['V','C','E','D','A','X'],   // Phase C：CFO 可管理审批规则
+    ROLE_PRC_BUYER:   ['V','A','X'],
+    ROLE_FIN_ACCT:    ['V','X'],
+    ROLE_REGION_MGR:  ['V','A'],
+    ROLE_FARM_MGR:    ['V'],
+    ROLE_STORE_MGR:   ['V'],
+    ROLE_PROJECT_MGR: ['V','A'],
+  },
 };
+
+/**
+ * 检查指定角色列表是否对某菜单拥有指定权限码
+ */
+/**
+ * 检查 MENU 是否已在矩阵中注册
+ * 未注册的 MENU 视为高风险，由 MenuGuard 返回 MENU_PERMISSION_NOT_REGISTERED
+ */
+export function isMenuRegistered(menuCode: string): boolean {
+  return menuCode in ROLE_MENU_MATRIX;
+}
 
 /**
  * 检查指定角色列表是否对某菜单拥有指定权限码
@@ -186,8 +419,8 @@ export function hasMenuPermission(
   if (!roles?.length) return false;
   const menuPerms = ROLE_MENU_MATRIX[menuCode];
   if (!menuPerms) {
-    // 菜单未在矩阵中注册 → 默认仅需登录即可访问（宽松策略）
-    return true;
+    // SECURITY: 菜单未在矩阵中注册 → 默认拒绝（严格策略）
+    return false;
   }
   for (const role of roles) {
     const perms = menuPerms[role];

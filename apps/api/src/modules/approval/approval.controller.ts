@@ -1,8 +1,9 @@
-import { Controller, Post, Body, Param, Req } from '@nestjs/common';
+import { Controller, Post, Body, Param, Req, UseGuards } from '@nestjs/common';
 import { ApprovalService } from './approval.service';
-import { RequireMenu } from '../../common/guards/menu.guard';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 
 @Controller('api/v3/approval')
+@UseGuards(MenuGuard)
 export class ApprovalController {
   constructor(private readonly approvalService: ApprovalService) {}
 

@@ -1,6 +1,7 @@
 import 'dotenv/config';            // 必须在 AppModule 之前 — 否则 auth.service 文件级 const JWT_SECRET 在 ConfigModule 加载 .env 之前就取了 FALLBACK，与 jwt.strategy 的真实 secret 错配
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import * as express from 'express';
 import { join } from 'path';
@@ -54,6 +55,14 @@ async function bootstrap() {
     }
     next();
   });
+
+  // ── 全局 ValidationPipe（class-validator 驱动，whitelist 剥离多余字段） ────────
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,          // 剥离 DTO 未声明的字段
+    transform: true,          // 自动类型转换（@Type 装饰器生效）
+    forbidNonWhitelisted: false, // 不因额外字段直接报错（宽松模式）
+    transformOptions: { enableImplicitConversion: true },
+  }));
 
   // ── 启动 ─────────────────────────────────────────────────────────────────────
   const port = parseInt(process.env.PORT || '3100');
