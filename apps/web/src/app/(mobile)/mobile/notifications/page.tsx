@@ -1,12 +1,26 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, RefreshCw, Bell, CheckCheck, Sun, Moon } from 'lucide-react';
+import { ChevronLeft, RefreshCw, Bell, CheckCheck, Sun, Moon, BellRing, BellOff } from 'lucide-react';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { SkeletonCard, MobileEmptyState } from '@/components/mobile/MobileSkeleton';
 import { useToast } from '@/contexts/ToastContext';
 import { haptic } from '@/lib/haptic';
 import { notificationApi, type MobileNotification } from '@/lib/mobile-api';
+import { authHeader } from '@/lib/mobile-auth-token';
+
+// ── Web Push 工具 ─────────────────────────────────────────────────────────────
+
+type PushStatus = 'unknown' | 'unsupported' | 'denied' | 'subscribed' | 'idle';
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+  const padding   = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64    = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData   = atob(base64);
+  const outputArr = new Uint8Array(new ArrayBuffer(rawData.length));
+  for (let i = 0; i < rawData.length; ++i) outputArr[i] = rawData.charCodeAt(i);
+  return outputArr;
+}
 
 // ── 通知类型配置 ──────────────────────────────────────────────────────────────
 
@@ -120,6 +134,91 @@ export default function NotificationsPage() {
   const [err,     setErr]     = useState('');
   const [filter,  setFilter]  = useState<'all' | 'unread'>('all');
 
+  // ── Push 订阅状态 ────────────────────────────────────────────────────────
+  const [pushStatus,    setPushStatus]    = useState<PushStatus>('unknown');
+  const [pushWorking,   setPushWorking]   = useState(false);
+  const swRegRef = useRef<ServiceWorkerRegistration | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const supported = 'Notification' in window && 'PushManager' in window && 'serviceWorker' in navigator;
+    if (!supported) { setPushStatus('unsupported'); return; }
+    if (Notification.permission === 'denied') { setPushStatus('denied'); return; }
+
+    navigator.serviceWorker.ready.then(reg => {
+      swRegRef.current = reg;
+      return reg.pushManager.getSubscription();
+    }).then(sub => {
+      setPushStatus(sub ? 'subscribed' : 'idle');
+    }).catch(() => setPushStatus('idle'));
+  }, []);
+
+  const handlePushSubscribe = async () => {
+    if (pushWorking) return;
+    setPushWorking(true);
+    try {
+      const pkRes  = await fetch('/api/notifications/push/public-key');
+      const pkJson = await pkRes.json().catch(() => ({}));
+      if (!pkJson.enabled) {
+        toast.error('推送功能暂未在服务器启用');
+        return;
+      }
+
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { setPushStatus('denied'); toast.error('推送权限被拒绝'); return; }
+
+      const reg = swRegRef.current ?? await navigator.serviceWorker.ready;
+      swRegRef.current = reg;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly:      true,
+        applicationServerKey: urlBase64ToUint8Array(pkJson.publicKey),
+      });
+
+      const subJson = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
+      await fetch('/api/notifications/push/subscribe', {
+        method:  'POST',
+        headers: authHeader(),
+        body:    JSON.stringify({
+          endpoint:  subJson.endpoint,
+          keys:      subJson.keys,
+          userAgent: navigator.userAgent,
+          platform:  navigator.platform,
+        }),
+      });
+
+      setPushStatus('subscribed');
+      haptic('success');
+      toast.success('推送通知已开启');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : '订阅失败，请重试');
+    } finally {
+      setPushWorking(false);
+    }
+  };
+
+  const handlePushUnsubscribe = async () => {
+    if (pushWorking || !swRegRef.current) return;
+    setPushWorking(true);
+    try {
+      const sub = await swRegRef.current.pushManager.getSubscription();
+      if (sub) {
+        await fetch('/api/notifications/push/unsubscribe', {
+          method:  'POST',
+          headers: authHeader(),
+          body:    JSON.stringify({ endpoint: sub.endpoint }),
+        });
+        await sub.unsubscribe();
+      }
+      setPushStatus('idle');
+      haptic('light');
+      toast.success('推送通知已关闭');
+    } catch {
+      toast.error('操作失败，请重试');
+    } finally {
+      setPushWorking(false);
+    }
+  };
+
   const load = useCallback(async () => {
     setLoading(true); setErr('');
     try {
@@ -229,6 +328,46 @@ export default function NotificationsPage() {
           </button>
         ))}
       </div>
+
+      {/* Push 订阅卡片 */}
+      {pushStatus !== 'unknown' && (
+        <div style={{
+          margin: '10px 16px 0',
+          background: t.cardBg, borderRadius: 12, padding: '12px 14px',
+          border: `1px solid ${t.cardBorder}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+            {pushStatus === 'subscribed'
+              ? <BellRing size={18} color="#10b981" />
+              : pushStatus === 'unsupported' || pushStatus === 'denied'
+                ? <BellOff size={18} color="#94a3b8" />
+                : <Bell size={18} color="#f59e0b" />
+            }
+            <span style={{ fontSize: 13, color: t.text }}>
+              {pushStatus === 'subscribed'   && '推送通知已开启'}
+              {pushStatus === 'unsupported'  && '当前浏览器不支持推送通知'}
+              {pushStatus === 'denied'       && '推送权限已被拒绝（请在浏览器设置中允许）'}
+              {pushStatus === 'idle'         && '开启推送，审批变化第一时间收到通知'}
+            </span>
+          </div>
+          {(pushStatus === 'idle' || pushStatus === 'subscribed') && (
+            <button
+              onClick={pushStatus === 'subscribed' ? handlePushUnsubscribe : handlePushSubscribe}
+              disabled={pushWorking}
+              style={{
+                flexShrink: 0,
+                padding: '7px 14px', borderRadius: 8, border: 'none', cursor: pushWorking ? 'not-allowed' : 'pointer',
+                background: pushStatus === 'subscribed' ? (isDark ? '#1e293b' : '#f1f5f9') : '#059669',
+                color: pushStatus === 'subscribed' ? t.textSub : '#fff',
+                fontSize: 13, fontWeight: 600, opacity: pushWorking ? 0.6 : 1,
+              }}
+            >
+              {pushWorking ? '处理中…' : pushStatus === 'subscribed' ? '关闭' : '开启推送'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 内容 */}
       <div style={{ flex: 1, padding: '12px 16px calc(24px + env(safe-area-inset-bottom))' }}>

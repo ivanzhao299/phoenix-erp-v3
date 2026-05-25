@@ -109,3 +109,40 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
+
+// ── Web Push ─────────────────────────────────────────────────────────────────
+
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try { payload = event.data ? event.data.json() : {}; } catch { /* ignore */ }
+
+  const title   = payload.title  || 'Phoenix ERP';
+  const body    = payload.body   || '你有新的审批待办';
+  const url     = payload.url    || '/mobile/workflow';
+  const icon    = payload.icon   || '/icon-256.png';
+  const badge   = payload.badge  || '/icon-32.png';
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon,
+      badge,
+      data: { url },
+      tag:  'phoenix-erp-push',
+      renotify: true,
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/mobile/workflow';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ('focus' in client) { client.navigate(url); return client.focus(); }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    })
+  );
+});

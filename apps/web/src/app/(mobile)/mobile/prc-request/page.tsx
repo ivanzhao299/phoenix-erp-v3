@@ -1,12 +1,16 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, RefreshCw, ClipboardList, Send, Sun, Moon, Paperclip, X, Loader2, ImageIcon, FileText } from 'lucide-react';
+import {
+  ChevronLeft, RefreshCw, ClipboardList, Save, Send,
+  Plus, Trash2, Sun, Moon, Loader2,
+} from 'lucide-react';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { getMobileToken, authHeader } from '@/lib/mobile-auth-token';
 import { MobilePageSkeleton, SkeletonCard } from '@/components/mobile/MobileSkeleton';
 
-// ── 工具函数 ──────────────────────────────────────────────────────────────────
+// ── 工具 ──────────────────────────────────────────────────────────────────────
 
 function todayPlusDays(n: number): string {
   const d = new Date();
@@ -14,55 +18,69 @@ function todayPlusDays(n: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function getToken(): string {
-  if (typeof window === 'undefined') return '';
-  return sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token') || '';
+function getUserInfo(): { companyCode: string; companyName: string } {
+  if (typeof window === 'undefined') return { companyCode: '', companyName: '' };
+  try {
+    const u = JSON.parse(localStorage.getItem('auth_user') || '{}');
+    return {
+      companyCode: u.companyCode ?? u.company_code ?? '',
+      companyName: u.companyName ?? u.company_name ?? '',
+    };
+  } catch {
+    return { companyCode: '', companyName: '' };
+  }
 }
 
-// ── 状态颜色映射 ──────────────────────────────────────────────────────────────
+// ── 类型 ──────────────────────────────────────────────────────────────────────
 
-const STATUS_COLOR: Record<string, string> = {
-  PENDING:    '#f59e0b',
-  CONVERTED:  '#10b981',
-  REJECTED:   '#ef4444',
-  // 兼容 PC 端历史数据
-  DRAFT:      '#6b7280',
-  SUBMITTED:  '#f59e0b',
-  APPROVED:   '#3b82f6',
-  PO_CREATED: '#10b981',
-};
-const STATUS_LABEL: Record<string, string> = {
-  PENDING:    '待处理',
-  CONVERTED:  '已转采购单',
-  REJECTED:   '已拒绝',
-  // 兼容 PC 端历史数据
-  DRAFT:      '草稿',
-  SUBMITTED:  '待审批',
-  APPROVED:   '已审批',
-  PO_CREATED: '已转采购单',
-};
+interface LineItem {
+  key:                string;
+  itemName:           string;
+  spec:               string;
+  qty:                string;
+  unit:               string;
+  estimatedUnitPrice: string;
+}
 
-// ── 申请记录类型 ──────────────────────────────────────────────────────────────
-
-interface PrcRequest {
-  id: number;
-  req_no?: string;
-  subject?: string;
-  item?: string;
-  qty?: string;
-  urgency?: string;
-  budget_amount?: number;
+interface V2PrRecord {
+  id:           number;
+  req_no?:      string;
+  prNo?:        string;
+  subject?:     string;
+  status:       string;
+  urgency?:     string;
   currency_code?: string;
-  expected_date?: string;
-  status: string;
-  applicant?: string;
-  created_at?: string;
-  po_no?: string;
+  currencyCode?:  string;
+  created_at?:  string;
+  createdAt?:   string;
+  total_amount?: number;
+  totalAmount?:  number;
 }
-
-// ── Tab 类型 ──────────────────────────────────────────────────────────────────
 
 type Tab = 'form' | 'records';
+
+const STATUS_COLOR: Record<string, string> = {
+  DRAFT:       '#6b7280',
+  SUBMITTED:   '#f59e0b',
+  IN_REVIEW:   '#f59e0b',
+  APPROVED:    '#3b82f6',
+  REJECTED:    '#ef4444',
+  PO_CREATED:  '#10b981',
+  CANCELLED:   '#94a3b8',
+};
+const STATUS_LABEL: Record<string, string> = {
+  DRAFT:       '草稿',
+  SUBMITTED:   '待审批',
+  IN_REVIEW:   '审批中',
+  APPROVED:    '已审批',
+  REJECTED:    '已拒绝',
+  PO_CREATED:  '已转采购单',
+  CANCELLED:   '已取消',
+};
+
+function newLine(): LineItem {
+  return { key: Math.random().toString(36).slice(2), itemName: '', spec: '', qty: '', unit: '件', estimatedUnitPrice: '' };
+}
 
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
@@ -73,39 +91,179 @@ export default function PrcRequestPage() {
 
   const [tab, setTab] = useState<Tab>('form');
 
-  // 表单 state
-  const [subject,       setSubject]       = useState('');
-  const [item,          setItem]          = useState('');
-  const [qty,           setQty]           = useState('');
-  const [urgency,       setUrgency]       = useState('NORMAL');
-  const [budgetAmount,  setBudgetAmount]  = useState('');
-  const [currencyCode,  setCurrencyCode]  = useState('LAK');
-  const [expectedDate,  setExpectedDate]  = useState(todayPlusDays(7));
-  const [reason,          setReason]          = useState('');
-  const [attachmentUrl,   setAttachmentUrl]   = useState('');
-  const [attachUploading, setAttachUploading] = useState(false);
-  const [attachError,     setAttachError]     = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [submitting,    setSubmitting]    = useState(false);
-  const [submitError,   setSubmitError]   = useState('');
-  const [submitSuccess, setSubmitSuccess] = useState('');
+  // 头表
+  const userInfo = useRef(getUserInfo());
+  const [subject,      setSubject]      = useState('');
+  const [companyCode,  setCompanyCode]  = useState(userInfo.current.companyCode);
+  const [companyName,  setCompanyName]  = useState(userInfo.current.companyName);
+  const [projectCode,  setProjectCode]  = useState('');
+  const [projectName,  setProjectName]  = useState('');
+  const [purchaseType, setPurchaseType] = useState('MATERIAL');
+  const [urgency,      setUrgency]      = useState('NORMAL');
+  const [currencyCode, setCurrencyCode] = useState('LAK');
+  const [expectedDate, setExpectedDate] = useState(todayPlusDays(7));
+  const [reason,       setReason]       = useState('');
 
-  // 申请记录 state
-  const [records,     setRecords]     = useState<PrcRequest[]>([]);
-  const [recLoading,  setRecLoading]  = useState(false);
-  const [recError,    setRecError]    = useState('');
+  // 明细行
+  const [items, setItems] = useState<LineItem[]>([newLine()]);
 
-  // 加载申请记录
+  // UI state
+  const [saving,       setSaving]       = useState(false);
+  const [submitting,   setSubmitting]   = useState(false);
+  const [formError,    setFormError]    = useState('');
+  const [formSuccess,  setFormSuccess]  = useState('');
+
+  // 申请记录
+  const [records,    setRecords]    = useState<V2PrRecord[]>([]);
+  const [recLoading, setRecLoading] = useState(false);
+  const [recError,   setRecError]   = useState('');
+
+  // ── 明细计算 ──────────────────────────────────────────────────────────────
+
+  const totalEstimated = items.reduce((sum, row) => {
+    const q = parseFloat(row.qty) || 0;
+    const p = parseFloat(row.estimatedUnitPrice) || 0;
+    return sum + q * p;
+  }, 0);
+
+  // ── 明细行操作 ────────────────────────────────────────────────────────────
+
+  const updateItem = (key: string, field: keyof Omit<LineItem, 'key'>, value: string) =>
+    setItems(prev => prev.map(r => r.key === key ? { ...r, [field]: value } : r));
+
+  const addItem = () => setItems(prev => [...prev, newLine()]);
+
+  const removeItem = (key: string) =>
+    setItems(prev => prev.length > 1 ? prev.filter(r => r.key !== key) : prev);
+
+  // ── 构建 DTO ──────────────────────────────────────────────────────────────
+
+  function buildDto() {
+    return {
+      subject:      subject.trim(),
+      companyCode:  companyCode.trim(),
+      companyName:  companyName.trim(),
+      projectCode:  projectCode.trim() || undefined,
+      projectName:  projectName.trim() || undefined,
+      purchaseType: purchaseType || undefined,
+      urgency,
+      currencyCode,
+      expectedDate: expectedDate || undefined,
+      reason:       reason.trim() || undefined,
+      items: items.map(r => ({
+        itemName:           r.itemName.trim(),
+        spec:               r.spec.trim() || undefined,
+        qty:                parseFloat(r.qty) || 1,
+        unit:               r.unit.trim() || undefined,
+        estimatedUnitPrice: r.estimatedUnitPrice ? parseFloat(r.estimatedUnitPrice) : undefined,
+        estimatedAmount:    (parseFloat(r.qty) || 0) * (parseFloat(r.estimatedUnitPrice) || 0) || undefined,
+      })),
+    };
+  }
+
+  function validate(): string {
+    if (!subject.trim())           return '请填写申请主题';
+    if (!companyCode.trim())       return '请填写公司代码';
+    if (!companyName.trim())       return '请填写公司名称';
+    const emptyItem = items.find(r => !r.itemName.trim());
+    if (emptyItem)                 return '请填写所有明细行的物品名称';
+    const badQty = items.find(r => !r.qty || parseFloat(r.qty) <= 0);
+    if (badQty)                    return '请填写所有明细行的数量（须大于0）';
+    return '';
+  }
+
+  // ── 保存草稿 ──────────────────────────────────────────────────────────────
+
+  const handleSaveDraft = useCallback(async () => {
+    const err = validate();
+    if (err) { setFormError(err); return; }
+    setSaving(true);
+    setFormError('');
+    setFormSuccess('');
+    try {
+      const res  = await fetch('/api/v2/procurement/requests', {
+        method:  'POST',
+        headers: authHeader(),
+        body:    JSON.stringify(buildDto()),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setFormSuccess(`草稿已保存！单号：${json.prNo ?? json.req_no ?? json.id ?? ''}`);
+        resetForm();
+      } else {
+        setFormError(json.message ?? json.msg ?? '保存失败，请重试');
+      }
+    } catch {
+      setFormError('网络错误，请检查连接后重试');
+    } finally {
+      setSaving(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subject, companyCode, companyName, projectCode, projectName, purchaseType, urgency, currencyCode, expectedDate, reason, items]);
+
+  // ── 提交审批 ──────────────────────────────────────────────────────────────
+
+  const handleSubmit = useCallback(async () => {
+    const err = validate();
+    if (err) { setFormError(err); return; }
+    setSubmitting(true);
+    setFormError('');
+    setFormSuccess('');
+    try {
+      // 1. 创建草稿
+      const createRes  = await fetch('/api/v2/procurement/requests', {
+        method:  'POST',
+        headers: authHeader(),
+        body:    JSON.stringify(buildDto()),
+      });
+      const createJson = await createRes.json().catch(() => ({}));
+      if (!createRes.ok) {
+        setFormError(createJson.message ?? createJson.msg ?? '创建申请失败');
+        return;
+      }
+      const prId = createJson.id;
+
+      // 2. 提交审批
+      const submitRes  = await fetch(`/api/v2/procurement/requests/${prId}/submit`, {
+        method:  'POST',
+        headers: authHeader(),
+        body:    JSON.stringify({}),
+      });
+      const submitJson = await submitRes.json().catch(() => ({}));
+      if (!submitRes.ok) {
+        setFormError(submitJson.message ?? submitJson.msg ?? '提交审批失败');
+        return;
+      }
+
+      setFormSuccess(`申请已提交审批！单号：${createJson.prNo ?? createJson.req_no ?? prId}`);
+      resetForm();
+      setTimeout(() => router.push('/mobile/workflow'), 1200);
+    } catch {
+      setFormError('网络错误，请检查连接后重试');
+    } finally {
+      setSubmitting(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subject, companyCode, companyName, projectCode, projectName, purchaseType, urgency, currencyCode, expectedDate, reason, items]);
+
+  function resetForm() {
+    setSubject(''); setProjectCode(''); setProjectName('');
+    setPurchaseType('MATERIAL'); setUrgency('NORMAL'); setCurrencyCode('LAK');
+    setExpectedDate(todayPlusDays(7)); setReason('');
+    setItems([newLine()]);
+  }
+
+  // ── 申请记录（V2） ────────────────────────────────────────────────────────
+
   const loadRecords = useCallback(async () => {
     setRecLoading(true);
     setRecError('');
     try {
-      const token = getToken();
-      const res = await fetch('/api/procurement/purchase-requests', {
-        headers: { Authorization: `Bearer ${token}` },
+      const res  = await fetch('/api/v2/procurement/requests?pageSize=50', {
+        headers: { Authorization: `Bearer ${getMobileToken()}` },
       });
       const json = await res.json().catch(() => ({}));
-      setRecords(json.data || []);
+      setRecords(json.items ?? json.data ?? []);
     } catch {
       setRecError('申请记录加载失败');
     } finally {
@@ -118,61 +276,28 @@ export default function PrcRequestPage() {
     if (tab === 'records') loadRecords();
   }, [tab, allowed, permLoading, loadRecords]);
 
-  // 提交申请
-  const handleSubmit = useCallback(async () => {
-    if (!subject.trim()) { setSubmitError('请填写申请事项'); return; }
-    setSubmitting(true);
-    setSubmitError('');
-    setSubmitSuccess('');
-    try {
-      const token = getToken();
-      const res = await fetch('/api/procurement/purchase-requests', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subject:         subject.trim(),
-          item:            item.trim() || undefined,
-          qty:             qty.trim() || undefined,
-          urgency,
-          budget_amount:   budgetAmount ? Number(budgetAmount) : undefined,
-          currency_code:   currencyCode,
-          expected_date:   expectedDate || undefined,
-          reason:          reason.trim() || undefined,
-          attachment_url:  attachmentUrl || undefined,
-        }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (res.ok) {
-        setSubmitSuccess(`申请已提交！单号：${json.reqNo || ''}`);
-        // 重置表单
-        setSubject(''); setItem(''); setQty(''); setUrgency('NORMAL');
-        setBudgetAmount(''); setCurrencyCode('LAK');
-        setExpectedDate(todayPlusDays(7)); setReason('');
-        setAttachmentUrl(''); setAttachError('');
-      } else {
-        setSubmitError(json.msg || json.message || '提交失败，请重试');
-      }
-    } catch {
-      setSubmitError('网络错误，请检查连接后重试');
-    } finally {
-      setSubmitting(false);
-    }
-  }, [subject, item, qty, urgency, budgetAmount, currencyCode, expectedDate, reason]);
-
-  if (permLoading) return <MobilePageSkeleton title="发起采购" tabs={['填写申请', '申请记录']} onBack={() => router.back()} />;
+  if (permLoading) return <MobilePageSkeleton title="发起采购申请" tabs={['发起申请', '申请记录']} onBack={() => router.back()} />;
   if (!allowed) return null;
 
-  const inputStyle: React.CSSProperties = {
+  // ── 样式 ──────────────────────────────────────────────────────────────────
+
+  const inputSt: React.CSSProperties = {
     width: '100%', padding: '10px 12px', borderRadius: 10,
     background: t.inputBg, border: `1px solid ${t.inputBorder}`,
     color: t.text, fontSize: 15, outline: 'none', boxSizing: 'border-box',
   };
-  const labelStyle: React.CSSProperties = {
+  const labelSt: React.CSSProperties = {
     fontSize: 13, color: t.textSub, marginBottom: 4, display: 'block',
+  };
+  const sectionSt: React.CSSProperties = {
+    background: t.cardBg, borderRadius: 14,
+    border: `1px solid ${t.cardBorder}`, padding: '14px 14px 10px',
+    display: 'flex', flexDirection: 'column', gap: 12,
   };
 
   return (
     <div style={{ minHeight: '100svh', background: t.pageBg, display: 'flex', flexDirection: 'column' }}>
+
       {/* AppBar */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -202,21 +327,6 @@ export default function PrcRequestPage() {
         </div>
       </div>
 
-      {/* ⚠ 迁移通知 */}
-      <div style={{
-        background: '#fef3c7', color: '#92400e',
-        fontSize: 12, padding: '8px 14px',
-        display: 'flex', alignItems: 'center', gap: 8, lineHeight: 1.5,
-        borderBottom: '1px solid #fde68a',
-      }}>
-        <span style={{ flexShrink: 0 }}>⚠</span>
-        <span>
-          本页面调用旧采购 V1 API，待迁移至采购 V2。
-          发起的申请后续审批请使用
-          <strong> 审批中心</strong>。
-        </span>
-      </div>
-
       {/* 只读提示 */}
       {readonly && (
         <div style={{ background: '#fef3c7', color: '#92400e', fontSize: 13, padding: '8px 16px', textAlign: 'center' }}>
@@ -244,234 +354,206 @@ export default function PrcRequestPage() {
       </div>
 
       {/* 内容区 */}
-      <div style={{ flex: 1, padding: '16px 16px 32px', overflowY: 'auto' }}>
+      <div style={{ flex: 1, padding: '14px 16px 80px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* ── 发起申请 Tab ── */}
         {tab === 'form' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {/* 申请事项 */}
-            <div>
-              <span style={labelStyle}>申请事项 *</span>
-              <input
-                style={inputStyle}
-                value={subject}
-                onChange={e => setSubject(e.target.value)}
-                placeholder="例：5月饲料补充采购"
-                disabled={readonly}
-              />
-            </div>
+          <>
+            {/* 基本信息 */}
+            <div style={sectionSt}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: t.textSub, marginBottom: 2 }}>基本信息</div>
 
-            {/* 物品名称/规格 */}
-            <div>
-              <span style={labelStyle}>物品名称/规格</span>
-              <input
-                style={inputStyle}
-                value={item}
-                onChange={e => setItem(e.target.value)}
-                placeholder="例：大豆粕 43% 蛋白"
-                disabled={readonly}
-              />
-            </div>
-
-            {/* 数量及单位 */}
-            <div>
-              <span style={labelStyle}>数量及单位</span>
-              <input
-                style={inputStyle}
-                value={qty}
-                onChange={e => setQty(e.target.value)}
-                placeholder="例：500kg"
-                disabled={readonly}
-              />
-            </div>
-
-            {/* 紧急程度 */}
-            <div>
-              <span style={labelStyle}>紧急程度</span>
-              <select style={inputStyle} value={urgency} onChange={e => setUrgency(e.target.value)} disabled={readonly}>
-                <option value="NORMAL">普通</option>
-                <option value="URGENT">紧急</option>
-                <option value="CRITICAL">非常紧急</option>
-              </select>
-            </div>
-
-            {/* 预算金额 + 货币 */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
               <div>
-                <span style={labelStyle}>预算金额</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  style={inputStyle}
-                  value={budgetAmount}
-                  onChange={e => setBudgetAmount(e.target.value)}
-                  placeholder="0"
-                  disabled={readonly}
+                <span style={labelSt}>申请主题 *</span>
+                <input style={inputSt} value={subject} onChange={e => setSubject(e.target.value)}
+                  placeholder="例：5月饲料补充采购" disabled={readonly} />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <span style={labelSt}>公司代码 *</span>
+                  <input style={inputSt} value={companyCode} onChange={e => setCompanyCode(e.target.value)}
+                    placeholder="PHX_AGRI" disabled={readonly} />
+                </div>
+                <div>
+                  <span style={labelSt}>公司名称 *</span>
+                  <input style={inputSt} value={companyName} onChange={e => setCompanyName(e.target.value)}
+                    placeholder="金凤凰农业" disabled={readonly} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <span style={labelSt}>项目代码</span>
+                  <input style={inputSt} value={projectCode} onChange={e => setProjectCode(e.target.value)}
+                    placeholder="可选" disabled={readonly} />
+                </div>
+                <div>
+                  <span style={labelSt}>项目名称</span>
+                  <input style={inputSt} value={projectName} onChange={e => setProjectName(e.target.value)}
+                    placeholder="可选" disabled={readonly} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <span style={labelSt}>采购类型</span>
+                  <select style={inputSt} value={purchaseType} onChange={e => setPurchaseType(e.target.value)} disabled={readonly}>
+                    <option value="MATERIAL">物料</option>
+                    <option value="EQUIPMENT">设备</option>
+                    <option value="SERVICE">服务</option>
+                    <option value="FIXED_ASSET">固定资产</option>
+                    <option value="OTHER">其他</option>
+                  </select>
+                </div>
+                <div>
+                  <span style={labelSt}>紧急程度</span>
+                  <select style={inputSt} value={urgency} onChange={e => setUrgency(e.target.value)} disabled={readonly}>
+                    <option value="NORMAL">普通</option>
+                    <option value="URGENT">紧急</option>
+                    <option value="CRITICAL">非常紧急</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <span style={labelSt}>货币</span>
+                  <select style={inputSt} value={currencyCode} onChange={e => setCurrencyCode(e.target.value)} disabled={readonly}>
+                    <option value="LAK">LAK</option>
+                    <option value="CNY">CNY</option>
+                    <option value="THB">THB</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
+                <div>
+                  <span style={labelSt}>期望到货日期</span>
+                  <input type="date" style={inputSt} value={expectedDate}
+                    onChange={e => setExpectedDate(e.target.value)} disabled={readonly} />
+                </div>
+              </div>
+
+              <div>
+                <span style={labelSt}>申请原因</span>
+                <textarea
+                  style={{ ...inputSt, height: 72, resize: 'none' } as React.CSSProperties}
+                  value={reason} onChange={e => setReason(e.target.value)}
+                  placeholder="请简述采购需求背景及用途" disabled={readonly}
                 />
               </div>
-              <div>
-                <span style={labelStyle}>货币</span>
-                <select style={inputStyle} value={currencyCode} onChange={e => setCurrencyCode(e.target.value)} disabled={readonly}>
-                  <option value="LAK">LAK</option>
-                  <option value="CNY">CNY</option>
-                  <option value="THB">THB</option>
-                  <option value="USD">USD</option>
-                </select>
-              </div>
             </div>
 
-            {/* 期望到货日期 */}
-            <div>
-              <span style={labelStyle}>期望到货日期</span>
-              <input
-                type="date"
-                style={inputStyle}
-                value={expectedDate}
-                onChange={e => setExpectedDate(e.target.value)}
-                disabled={readonly}
-              />
-            </div>
-
-            {/* 申请原因 */}
-            <div>
-              <span style={labelStyle}>申请原因</span>
-              <textarea
-                style={{ ...inputStyle, height: 80, resize: 'none' }}
-                value={reason}
-                onChange={e => setReason(e.target.value)}
-                placeholder="请简述采购需求背景及用途"
-                disabled={readonly}
-              />
-            </div>
-
-            {/* 附件上传（报价单 / 合同 / 实物照片） */}
-            {!readonly && (
-              <div>
-                <span style={labelStyle}>附件（报价单 / 合同 / 图片，PDF 或图片 ≤ 15MB）</span>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png,.webp"
-                  style={{ display: 'none' }}
-                  onChange={async e => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    e.target.value = '';
-                    setAttachUploading(true);
-                    setAttachError('');
-                    try {
-                      const fd = new FormData();
-                      fd.append('file', file);
-                      const res = await fetch('/api/upload/contract', {
-                        method: 'POST',
-                        headers: { Authorization: `Bearer ${getToken()}` },
-                        body: fd,
-                      });
-                      const json = await res.json().catch(() => ({}));
-                      if (json.code === 200 && json.url) {
-                        setAttachmentUrl(json.url);
-                      } else {
-                        setAttachError(json.message || '上传失败，请重试');
-                      }
-                    } catch {
-                      setAttachError('网络错误，请检查连接');
-                    } finally {
-                      setAttachUploading(false);
-                    }
-                  }}
-                />
-                {attachmentUrl ? (
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '10px 12px', borderRadius: 10,
-                    background: isDark ? '#1e293b' : '#f0fdf4',
-                    border: `1px solid ${isDark ? '#334155' : '#bbf7d0'}`,
-                  }}>
-                    {/\.(jpg|jpeg|png|webp)$/i.test(attachmentUrl)
-                      ? <ImageIcon size={16} color="#10b981" />
-                      : <FileText size={16} color="#6366f1" />
-                    }
-                    <a
-                      href={attachmentUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ flex: 1, fontSize: 13, color: '#059669', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                    >
-                      {decodeURIComponent(attachmentUrl.split('/').pop() || '附件')}
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => { setAttachmentUrl(''); setAttachError(''); }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 2 }}
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ) : (
+            {/* 明细行 */}
+            <div style={sectionSt}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: t.textSub }}>采购明细 *</span>
+                {!readonly && (
                   <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={attachUploading}
+                    onClick={addItem}
                     style={{
-                      ...inputStyle,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                      cursor: attachUploading ? 'not-allowed' : 'pointer',
-                      border: `1.5px dashed ${isDark ? '#374151' : '#d1d5db'}`,
-                      background: isDark ? '#1f2937' : '#f9fafb',
-                      color: t.textSub,
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      background: '#059669', color: '#fff', border: 'none', borderRadius: 8,
+                      padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                     }}
                   >
-                    {attachUploading
-                      ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                      : <Paperclip size={16} />
-                    }
-                    {attachUploading ? '上传中...' : '点击上传附件'}
+                    <Plus size={13} />添加明细
                   </button>
                 )}
-                {attachError && (
-                  <div style={{ color: '#ef4444', fontSize: 12, marginTop: 4 }}>{attachError}</div>
-                )}
               </div>
-            )}
 
-            {/* 错误 / 成功提示 */}
-            {submitError && (
+              {items.map((row, idx) => (
+                <div key={row.key} style={{
+                  background: isDark ? '#1e293b' : '#f8fafc',
+                  borderRadius: 10, padding: '10px 12px',
+                  border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>明细 {idx + 1}</span>
+                    {!readonly && items.length > 1 && (
+                      <button
+                        onClick={() => removeItem(row.key)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 2 }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div>
+                      <span style={labelSt}>物品名称 *</span>
+                      <input style={inputSt} value={row.itemName}
+                        onChange={e => updateItem(row.key, 'itemName', e.target.value)}
+                        placeholder="例：大豆粕" disabled={readonly} />
+                    </div>
+
+                    <div>
+                      <span style={labelSt}>规格型号</span>
+                      <input style={inputSt} value={row.spec}
+                        onChange={e => updateItem(row.key, 'spec', e.target.value)}
+                        placeholder="例：43%蛋白，可选" disabled={readonly} />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr', gap: 8 }}>
+                      <div>
+                        <span style={labelSt}>数量 *</span>
+                        <input type="number" inputMode="decimal" style={inputSt} value={row.qty}
+                          onChange={e => updateItem(row.key, 'qty', e.target.value)}
+                          placeholder="0" disabled={readonly} />
+                      </div>
+                      <div>
+                        <span style={labelSt}>单位</span>
+                        <input style={inputSt} value={row.unit}
+                          onChange={e => updateItem(row.key, 'unit', e.target.value)}
+                          placeholder="件" disabled={readonly} />
+                      </div>
+                      <div>
+                        <span style={labelSt}>估算单价</span>
+                        <input type="number" inputMode="decimal" style={inputSt} value={row.estimatedUnitPrice}
+                          onChange={e => updateItem(row.key, 'estimatedUnitPrice', e.target.value)}
+                          placeholder="可选" disabled={readonly} />
+                      </div>
+                    </div>
+
+                    {/* 行小计 */}
+                    {row.qty && row.estimatedUnitPrice && (
+                      <div style={{ textAlign: 'right', fontSize: 12, color: '#059669', fontWeight: 600 }}>
+                        小计：{((parseFloat(row.qty) || 0) * (parseFloat(row.estimatedUnitPrice) || 0)).toLocaleString()} {currencyCode}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {/* 合计 */}
+              {totalEstimated > 0 && (
+                <div style={{
+                  textAlign: 'right', padding: '6px 4px',
+                  fontSize: 14, fontWeight: 700, color: t.text,
+                }}>
+                  预估合计：{totalEstimated.toLocaleString()} {currencyCode}
+                </div>
+              )}
+            </div>
+
+            {/* 错误 / 成功 */}
+            {formError && (
               <div style={{ color: '#ef4444', background: '#fef2f2', padding: '10px 14px', borderRadius: 10, fontSize: 13 }}>
-                {submitError}
+                {formError}
               </div>
             )}
-            {submitSuccess && (
+            {formSuccess && (
               <div style={{ color: '#065f46', background: '#d1fae5', padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600 }}>
-                ✅ {submitSuccess}
+                ✅ {formSuccess}
               </div>
             )}
-
-            {/* 提交按钮 */}
-            {!readonly && (
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                style={{
-                  width: '100%', padding: '14px 0', borderRadius: 12, border: 'none',
-                  background: submitting ? '#94a3b8' : '#059669',
-                  color: '#fff', fontSize: 16, fontWeight: 700,
-                  cursor: submitting ? 'not-allowed' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                }}
-              >
-                <Send size={18} />
-                {submitting ? '提交中…' : '提交采购申请'}
-              </button>
-            )}
-          </div>
+          </>
         )}
 
         {/* ── 申请记录 Tab ── */}
         {tab === 'records' && (
           <div>
-            {recLoading && (
-              <div>{[1,2,3].map(i => <SkeletonCard key={i} lines={2} />)}</div>
-            )}
+            {recLoading && <div>{[1,2,3].map(i => <SkeletonCard key={i} lines={2} />)}</div>}
             {recError && (
               <div style={{ color: '#ef4444', background: '#fef2f2', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>
                 {recError}
@@ -481,9 +563,11 @@ export default function PrcRequestPage() {
               <div style={{ textAlign: 'center', padding: 60, color: t.textFaint, fontSize: 14 }}>暂无采购申请记录</div>
             )}
             {!recLoading && records.map(row => {
-              const st = (row.status || 'PENDING').toUpperCase();
+              const st      = (row.status || 'DRAFT').toUpperCase();
               const stColor = STATUS_COLOR[st] ?? '#94a3b8';
               const stLabel = STATUS_LABEL[st] ?? st;
+              const createdAt = row.created_at ?? row.createdAt;
+              const total     = row.total_amount ?? row.totalAmount;
               return (
                 <div key={row.id} style={{
                   background: t.cardBg, borderRadius: 14, padding: '14px 16px',
@@ -492,24 +576,19 @@ export default function PrcRequestPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: t.textSub }}>
-                        {row.req_no || `#${row.id}`}
+                        {row.prNo ?? row.req_no ?? `#${row.id}`}
                       </div>
                       <div style={{ fontWeight: 700, fontSize: 15, color: t.text, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {row.subject || '—'}
                       </div>
-                      {row.item && (
+                      {total != null && total > 0 && (
                         <div style={{ fontSize: 13, color: t.textSub, marginTop: 2 }}>
-                          {row.item}{row.qty ? ` · ${row.qty}` : ''}
+                          预估合计：{total.toLocaleString()} {row.currency_code ?? row.currencyCode ?? ''}
                         </div>
                       )}
-                      {row.created_at && (
+                      {createdAt && (
                         <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4 }}>
-                          提交时间：{row.created_at.slice(0, 16)}
-                        </div>
-                      )}
-                      {row.po_no && (
-                        <div style={{ fontSize: 11, color: '#059669', marginTop: 2 }}>
-                          → 采购单：{row.po_no}
+                          提交时间：{createdAt.slice(0, 16)}
                         </div>
                       )}
                     </div>
@@ -526,6 +605,44 @@ export default function PrcRequestPage() {
           </div>
         )}
       </div>
+
+      {/* ── 底部操作栏（发起申请 Tab） ── */}
+      {tab === 'form' && !readonly && (
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0,
+          background: t.appBarBg, borderTop: `1px solid ${t.barBorder}`,
+          padding: '12px 16px', display: 'flex', gap: 10,
+          paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
+        }}>
+          <button
+            onClick={handleSaveDraft}
+            disabled={saving || submitting}
+            style={{
+              flex: 1, padding: '13px 0', borderRadius: 12, border: `1.5px solid ${isDark ? '#374151' : '#d1d5db'}`,
+              background: 'transparent', color: t.text,
+              fontSize: 15, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: saving ? 0.6 : 1,
+            }}
+          >
+            {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={16} />}
+            {saving ? '保存中…' : '保存草稿'}
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={saving || submitting}
+            style={{
+              flex: 2, padding: '13px 0', borderRadius: 12, border: 'none',
+              background: submitting ? '#94a3b8' : '#059669',
+              color: '#fff', fontSize: 15, fontWeight: 700,
+              cursor: submitting ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+          >
+            {submitting ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={16} />}
+            {submitting ? '提交中…' : '提交审批'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

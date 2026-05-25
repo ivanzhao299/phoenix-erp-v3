@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { NotificationService } from '../notification/notification.service';
+import { PushNotificationService } from '../notification/push-notification.service';
 
 export interface WfNotifyTaskPayload {
   instanceId:   string | number;
@@ -43,6 +44,7 @@ export class WorkflowNotificationService {
     @InjectDataSource()
     private readonly ds: DataSource,
     private readonly notificationSvc: NotificationService,
+    private readonly pushSvc: PushNotificationService,
   ) {}
 
   /** 根据角色代码查询所有有效用户 ID */
@@ -119,6 +121,11 @@ export class WorkflowNotificationService {
           bizNo:            payload.bizNo,
         }),
       ));
+
+      // fire-and-forget push，失败不影响主业务
+      for (const uid of userIds) {
+        this.pushSvc.sendToUser(uid, { title, body: content, url: '/mobile/workflow' }).catch(() => {});
+      }
     } catch (err) {
       this.logger.error(`[NOTIFY] onTaskCreated failed: ${(err as any)?.message}`);
     }
@@ -142,17 +149,20 @@ export class WorkflowNotificationService {
     if (!payload.starterUserId) return;
 
     try {
+      const title   = this.buildTitle(payload.bizType, 'approved');
+      const content = this.buildContent(payload, 'approved');
       await this.notificationSvc.create({
         userId:           payload.starterUserId,
         notificationType: 'APPROVAL_RESULT',
-        title:            this.buildTitle(payload.bizType, 'approved'),
-        content:          this.buildContent(payload, 'approved'),
+        title,
+        content,
         linkType:         'APPROVAL_INSTANCE',
         linkId:           String(payload.instanceId),
         bizType:          payload.bizType,
         bizId:            payload.bizId,
         bizNo:            payload.bizNo,
       });
+      this.pushSvc.sendToUser(payload.starterUserId, { title, body: content, url: '/mobile/workflow' }).catch(() => {});
     } catch (err) {
       this.logger.error(`[NOTIFY] onInstanceCompleted failed: ${(err as any)?.message}`);
     }
@@ -168,17 +178,20 @@ export class WorkflowNotificationService {
     if (!payload.starterUserId) return;
 
     try {
+      const title   = this.buildTitle(payload.bizType, 'rejected');
+      const content = this.buildContent(payload, 'rejected');
       await this.notificationSvc.create({
         userId:           payload.starterUserId,
         notificationType: 'APPROVAL_RESULT',
-        title:            this.buildTitle(payload.bizType, 'rejected'),
-        content:          this.buildContent(payload, 'rejected'),
+        title,
+        content,
         linkType:         'APPROVAL_INSTANCE',
         linkId:           String(payload.instanceId),
         bizType:          payload.bizType,
         bizId:            payload.bizId,
         bizNo:            payload.bizNo,
       });
+      this.pushSvc.sendToUser(payload.starterUserId, { title, body: content, url: '/mobile/workflow' }).catch(() => {});
     } catch (err) {
       this.logger.error(`[NOTIFY] onInstanceRejected failed: ${(err as any)?.message}`);
     }

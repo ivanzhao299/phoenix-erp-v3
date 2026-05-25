@@ -1,12 +1,16 @@
-import { Controller, Get, Post, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { NotificationService } from './notification.service';
+import { PushNotificationService, PushSubscribeDto } from './push-notification.service';
 
 @Controller('api/notifications')
 @UseGuards(MenuGuard, DataScopeGuard)
 export class NotificationController {
-  constructor(private readonly svc: NotificationService) {}
+  constructor(
+    private readonly svc: NotificationService,
+    private readonly pushSvc: PushNotificationService,
+  ) {}
 
   @Get()
   @RequireMenu('MENU_WORKFLOW', 'V')
@@ -52,5 +56,27 @@ export class NotificationController {
   async archive(@Param('id') id: string) {
     await this.svc.archive(id);
     return { ok: true };
+  }
+
+  // ── Web Push ────────────────────────────────────────────────────────────────
+
+  /** GET /api/notifications/push/public-key — 返回 VAPID 公钥（未配置时 enabled=false） */
+  @Get('push/public-key')
+  pushPublicKey() {
+    return this.pushSvc.getPublicKey();
+  }
+
+  /** POST /api/notifications/push/subscribe — 保存当前用户的 Push 订阅 */
+  @Post('push/subscribe')
+  @RequireMenu('MENU_WORKFLOW', 'V')
+  async pushSubscribe(@Body() dto: PushSubscribeDto) {
+    return this.pushSvc.subscribe(dto);
+  }
+
+  /** POST /api/notifications/push/unsubscribe — 按 endpoint 禁用当前用户订阅 */
+  @Post('push/unsubscribe')
+  @RequireMenu('MENU_WORKFLOW', 'V')
+  async pushUnsubscribe(@Body() body: { endpoint: string }) {
+    return this.pushSvc.unsubscribe(body.endpoint);
   }
 }
