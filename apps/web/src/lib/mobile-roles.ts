@@ -18,27 +18,32 @@ export interface PagePermission {
 // ── 角色常量 ──────────────────────────────────────────────────────────────────
 
 export const R = {
-  ADMIN:      'ROLE_ADMIN',
-  CEO:        'ROLE_CEO',
-  FARM_MGR:   'ROLE_FARM_MGR',
-  VET:        'ROLE_VET',
-  QA_MGR:     'ROLE_QA_MGR',
-  WMS_MGR:    'ROLE_WMS_MGR',
-  PKG_MGR:    'ROLE_PKG_MGR',
-  PKG_OP:     'ROLE_PKG_OP',
-  LOG_MGR:    'ROLE_LOG_MGR',
-  STORE_MGR:  'ROLE_STORE_MGR',
-  FIN_CFO:    'ROLE_FIN_CFO',
-  FIN_ACCT:   'ROLE_FIN_ACCT',
-  FIN_COST:   'ROLE_FIN_COST',
-  AUDITOR:    'ROLE_AUDITOR',
-  BREEDER:    'ROLE_BREEDER',
-  SALES_REP:  'ROLE_SALES_REP',
-  SALES_MGR:  'ROLE_SALES_MGR',
-  REGION_MGR: 'ROLE_REGION_MGR',
-  PRC_BUYER:  'ROLE_PRC_BUYER',
-  DRIVER:     'ROLE_DRIVER',
-  CASHIER:    'ROLE_CASHIER',
+  ADMIN:               'ROLE_ADMIN',
+  CEO:                 'ROLE_CEO',
+  FARM_MGR:            'ROLE_FARM_MGR',
+  VET:                 'ROLE_VET',
+  QA_MGR:              'ROLE_QA_MGR',
+  WMS_MGR:             'ROLE_WMS_MGR',
+  PKG_MGR:             'ROLE_PKG_MGR',
+  PKG_OP:              'ROLE_PKG_OP',
+  LOG_MGR:             'ROLE_LOG_MGR',
+  STORE_MGR:           'ROLE_STORE_MGR',
+  FIN_CFO:             'ROLE_FIN_CFO',
+  FIN_ACCT:            'ROLE_FIN_ACCT',
+  FIN_COST:            'ROLE_FIN_COST',
+  AUDITOR:             'ROLE_AUDITOR',
+  BREEDER:             'ROLE_BREEDER',
+  SALES_REP:           'ROLE_SALES_REP',
+  SALES_MGR:           'ROLE_SALES_MGR',
+  REGION_MGR:          'ROLE_REGION_MGR',
+  PRC_BUYER:           'ROLE_PRC_BUYER',
+  DRIVER:              'ROLE_DRIVER',
+  CASHIER:             'ROLE_CASHIER',
+  // Workflow 2.0 新增角色
+  GROUP_FINANCE:       'ROLE_GROUP_FINANCE',
+  FACTORY_ACCOUNTANT:  'ROLE_FACTORY_ACCOUNTANT',
+  PROJECT_MGR:         'ROLE_PROJECT_MGR',
+  SHAREHOLDER_VIEW:    'ROLE_SHAREHOLDER_VIEW',
 } as const;
 
 // ── 管理类角色组（可登录手机端，至少可见每日看板） ────────────────────────────
@@ -49,6 +54,8 @@ const MGMT = [
   R.FIN_CFO, R.FIN_ACCT, R.FIN_COST,
   R.AUDITOR, R.BREEDER, R.SALES_REP, R.SALES_MGR,
   R.REGION_MGR, R.PRC_BUYER, R.CASHIER,
+  // Workflow 2.0 新增
+  R.GROUP_FINANCE, R.FACTORY_ACCOUNTANT, R.PROJECT_MGR, R.SHAREHOLDER_VIEW,
 ];
 
 // ── 页面权限矩阵 ──────────────────────────────────────────────────────────────
@@ -156,6 +163,28 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
   prc_review: {
     write: [R.ADMIN, R.PRC_BUYER],
     read:  [R.CEO, R.REGION_MGR, R.AUDITOR],
+  },
+
+  /**
+   * 移动端审批中心 — Workflow 2.0
+   * 入口可见性由此控制，真正审批权限由后端 ApprovalEngine.validateApprover() 决定。
+   * 几乎所有管理类角色都可查看（待办为空时也无害），不在此矩阵的角色跳过入口显示。
+   */
+  workflow: {
+    write: [
+      R.ADMIN, R.CEO, R.REGION_MGR,
+      R.FIN_CFO, R.FIN_ACCT, R.FIN_COST,
+      R.GROUP_FINANCE, R.FACTORY_ACCOUNTANT,
+      R.PRC_BUYER, R.FARM_MGR,
+      R.PROJECT_MGR, R.LOG_MGR, R.STORE_MGR,
+    ],
+    read: [R.AUDITOR, R.SHAREHOLDER_VIEW, R.VET, R.QA_MGR],
+  },
+
+  /** 通知中心 — 所有管理角色均可查看自己的通知 */
+  notifications: {
+    write: [],
+    read:  [...MGMT],
   },
 };
 

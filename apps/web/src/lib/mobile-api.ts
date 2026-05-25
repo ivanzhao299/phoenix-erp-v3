@@ -430,3 +430,182 @@ export const mobileApi = {
     operator?:     string;
   }) => post<{ code: number; msg: string }>('/api/v3/farm/daily-logs', payload),
 };
+
+// ── Workflow / Approval / Notification API ────────────────────────────────────
+// Token: sessionStorage.phoenix_token → localStorage.phoenix_token → auth_user.token
+
+function _wfTok(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    return (
+      sessionStorage.getItem('phoenix_token') ||
+      localStorage.getItem('phoenix_token') ||
+      JSON.parse(localStorage.getItem('auth_user') || '{}').token ||
+      ''
+    );
+  } catch { return ''; }
+}
+
+async function wfGet<T>(path: string): Promise<T> {
+  const base = process.env.NEXT_PUBLIC_API_BASE || '';
+  const res = await fetch(`${base}${path}`, {
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_wfTok()}` },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function wfPost<T = unknown>(path: string, body?: unknown): Promise<T> {
+  const base = process.env.NEXT_PUBLIC_API_BASE || '';
+  const res = await fetch(`${base}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_wfTok()}` },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { msg = (await res.json()).message ?? msg; } catch { /* */ }
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+export interface WorkflowTask {
+  taskSource:    'APPROVAL_ENGINE' | 'WORKFLOW_ENGINE';
+  taskId:        string;
+  instanceId:    string;
+  instanceNo:    string | null;
+  bizType:       string | null;
+  bizId:         string | null;
+  bizNo:         string | null;
+  subject:       string | null;
+  amount:        number | null;
+  currencyCode:  string | null;
+  companyCode:   string | null;
+  companyName:   string | null;
+  projectCode:   string | null;
+  projectName:   string | null;
+  requiredRole:  string | null;
+  stepNo:        number | null;
+  totalSteps:    number | null;
+  currentStepNo: number | null;
+  startedBy:     string | null;
+  status:        string;
+  createdAt:     string;
+}
+
+export interface WorkflowTaskPage {
+  items:    WorkflowTask[];
+  total:    number;
+  page:     number;
+  pageSize: number;
+}
+
+export interface InstanceDetail {
+  id:          string;
+  instanceNo:  string;
+  bizType:     string;
+  bizId:       string;
+  bizNo:       string | null;
+  subject:     string | null;
+  status:      string;
+  steps:       InstanceStep[];
+  startedBy?:  string | null;
+  startedAt?:  string | null;
+}
+
+export interface InstanceStep {
+  id:            string;
+  stepNo:        number;
+  approverRole:  string | null;
+  approverUserId?: string | null;
+  approverName?: string | null;
+  approverType?: string;
+  status:        string;
+  comment:       string | null;
+  actedAt:       string | null;
+  createdAt:     string;
+}
+
+export interface MobileNotification {
+  id:               string;
+  notificationType: string;
+  title:            string;
+  body:             string;
+  status:           string;
+  refId:            string | null;
+  refType:          string | null;
+  createdAt:        string;
+}
+
+export const approvalApi = {
+  /** 统一待办列表（ApprovalEngine + WorkflowEngine 合并） */
+  getMyTasks: (params?: {
+    page?: number; pageSize?: number;
+    taskSource?: string; bizType?: string; keyword?: string;
+  }): Promise<WorkflowTaskPage> => {
+    const q = new URLSearchParams();
+    if (params?.page)       q.set('page',       String(params.page));
+    if (params?.pageSize)   q.set('pageSize',   String(params.pageSize));
+    if (params?.taskSource) q.set('taskSource', params.taskSource);
+    if (params?.bizType)    q.set('bizType',    params.bizType);
+    if (params?.keyword)    q.set('keyword',    params.keyword);
+    return wfGet<WorkflowTaskPage>(`/api/workflow/my-tasks?${q}`);
+  },
+
+  /** 审批历史（已办） */
+  getHistory: (params?: { page?: number; pageSize?: number; bizType?: string }): Promise<WorkflowTaskPage> => {
+    const q = new URLSearchParams();
+    if (params?.page)     q.set('page',     String(params.page));
+    if (params?.pageSize) q.set('pageSize', String(params.pageSize));
+    if (params?.bizType)  q.set('bizType',  params.bizType);
+    return wfGet<WorkflowTaskPage>(`/api/approval/history?${q}`);
+  },
+
+  /** 实例详情 */
+  getInstance: (instanceId: string): Promise<InstanceDetail> =>
+    wfGet<InstanceDetail>(`/api/approval/instances/${instanceId}`),
+
+  /** 审批通过 */
+  approveInstance: (instanceId: string, comment?: string): Promise<unknown> =>
+    wfPost(`/api/approval/instances/${instanceId}/approve`, { comment: comment ?? '' }),
+
+  /** 审批拒绝（comment 必填） */
+  rejectInstance: (instanceId: string, comment: string): Promise<unknown> =>
+    wfPost(`/api/approval/instances/${instanceId}/reject`, { comment }),
+
+  /** 待办数量（用于首页角标） */
+  getTaskCount: async (): Promise<number> => {
+    try {
+      const r = await wfGet<WorkflowTaskPage>('/api/workflow/my-tasks?page=1&pageSize=1');
+      return r.total ?? 0;
+    } catch { return 0; }
+  },
+};
+
+export const notificationApi = {
+  /** 通知列表 */
+  list: (params?: { status?: string; page?: number; pageSize?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.status)   q.set('status',   params.status);
+    if (params?.page)     q.set('page',     String(params.page));
+    if (params?.pageSize) q.set('pageSize', String(params.pageSize));
+    return wfGet<{ items: MobileNotification[]; total: number; page: number; pageSize: number }>(
+      `/api/notifications?${q}`,
+    );
+  },
+
+  /** 未读数量（用于首页角标） */
+  unreadCount: async (): Promise<number> => {
+    try {
+      const r = await wfGet<{ count: number }>('/api/notifications/unread-count');
+      return r.count ?? 0;
+    } catch { return 0; }
+  },
+
+  /** 标记单条已读 */
+  markRead: (id: string) => wfPost(`/api/notifications/${id}/read`),
+
+  /** 全部已读 */
+  readAll: () => wfPost('/api/notifications/read-all'),
+};

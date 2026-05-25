@@ -7,11 +7,12 @@ import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useBrand } from '@/contexts/BrandContext';
 import { canAccess } from '@/lib/mobile-roles';
 import { haptic } from '@/lib/haptic';
+import { approvalApi, notificationApi } from '@/lib/mobile-api';
 import {
   BarChart2, Package, ShieldCheck, Warehouse,
   Truck, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird, Egg,
   Sun, Moon, LineChart, PackageCheck, ShoppingCart, ClipboardList, ClipboardCheck,
-  Maximize2, Minimize2,
+  Maximize2, Minimize2, ClipboardCheck as WorkflowIcon, Bell,
 } from 'lucide-react';
 
 type NavCard = {
@@ -25,6 +26,8 @@ type NavCard = {
   color: string;
   /** mobile-roles.ts 中的 pageKey，用于角色过滤；不填则始终显示 */
   pageKey?: string;
+  /** 动态角标数量 key，由首页 useEffect 填充 */
+  badgeKey?: 'todoCount' | 'notifCount';
 };
 
 const NAV_CARDS: NavCard[] = [
@@ -152,6 +155,23 @@ const NAV_CARDS: NavCard[] = [
     color: '#b45309', href: '/mobile/prc-review', soon: false,
     pageKey: 'prc_review',
   },
+  // ── Workflow 2.0 新增 ──────────────────────────────────────────────────────
+  {
+    icon: <WorkflowIcon size={28} />,
+    titleZh: '审批中心', titleEn: 'Approvals', titleLo: 'ການອະນຸມັດ',
+    desc: '统一审批待办 · Workflow 2.0',
+    color: '#7c3aed', href: '/mobile/workflow', soon: false,
+    pageKey: 'workflow',
+    badgeKey: 'todoCount',
+  },
+  {
+    icon: <Bell size={28} />,
+    titleZh: '通知中心', titleEn: 'Notifications', titleLo: 'ການແຈ້ງເຕືອນ',
+    desc: '审批提醒 · 系统通知',
+    color: '#f59e0b', href: '/mobile/notifications', soon: false,
+    pageKey: 'notifications',
+    badgeKey: 'notifCount',
+  },
 ];
 
 /** 全屏 API 能力检测（iOS Safari 不支持） */
@@ -169,6 +189,23 @@ export default function MobileHomePage() {
   const { brand } = useBrand();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fsSupported] = useState(() => canFullscreen());
+
+  // 动态角标：审批待办数 + 未读通知数
+  const [todoCount,  setTodoCount]  = useState(0);
+  const [notifCount, setNotifCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    Promise.allSettled([
+      approvalApi.getTaskCount(),
+      notificationApi.unreadCount(),
+    ]).then(([todoRes, notifRes]) => {
+      if (!active) return;
+      if (todoRes.status  === 'fulfilled') setTodoCount(todoRes.value);
+      if (notifRes.status === 'fulfilled') setNotifCount(notifRes.value);
+    });
+    return () => { active = false; };
+  }, []);
 
   /** 监听浏览器全屏状态变化（用户按 Esc 退出时同步状态） */
   useEffect(() => {
@@ -213,6 +250,11 @@ export default function MobileHomePage() {
   const visibleCards = NAV_CARDS.filter(card =>
     !card.pageKey || canAccess(card.pageKey, user?.role)
   );
+
+  const badgeCounts: Record<string, number> = {
+    todoCount,
+    notifCount,
+  };
 
   // 首页渲染后立即 prefetch 所有可见页面，用户点击时 JS 已就绪 → 瞬间跳转
   useEffect(() => {
@@ -372,8 +414,19 @@ export default function MobileHomePage() {
                 开发中
               </div>
             )}
-            <div style={{ color: card.soon ? t.textFaint : card.color, marginBottom: 10 }}>
-              {card.icon}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', marginBottom: 10 }}>
+              <div style={{ color: card.soon ? t.textFaint : card.color }}>
+                {card.icon}
+              </div>
+              {card.badgeKey && (badgeCounts[card.badgeKey] ?? 0) > 0 && (
+                <span style={{
+                  background: '#ef4444', color: '#fff',
+                  borderRadius: 12, padding: '2px 7px',
+                  fontSize: 11, fontWeight: 800, lineHeight: 1.4,
+                }}>
+                  {badgeCounts[card.badgeKey]}
+                </span>
+              )}
             </div>
             <div style={{ fontSize: 15, fontWeight: 700, color: card.soon ? t.textSub : t.text, marginBottom: 4 }}>
               {getTitle(card)}

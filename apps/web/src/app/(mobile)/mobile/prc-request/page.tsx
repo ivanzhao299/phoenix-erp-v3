@@ -202,6 +202,21 @@ export default function PrcRequestPage() {
         </div>
       </div>
 
+      {/* ⚠ 迁移通知 */}
+      <div style={{
+        background: '#fef3c7', color: '#92400e',
+        fontSize: 12, padding: '8px 14px',
+        display: 'flex', alignItems: 'center', gap: 8, lineHeight: 1.5,
+        borderBottom: '1px solid #fde68a',
+      }}>
+        <span style={{ flexShrink: 0 }}>⚠</span>
+        <span>
+          本页面调用旧采购 V1 API，待迁移至采购 V2。
+          发起的申请后续审批请使用
+          <strong> 审批中心</strong>。
+        </span>
+      </div>
+
       {/* 只读提示 */}
       {readonly && (
         <div style={{ background: '#fef3c7', color: '#92400e', fontSize: 13, padding: '8px 16px', textAlign: 'center' }}>
