@@ -11,6 +11,7 @@ import { WfApprovalRuleStepEntity }     from './entities/wf-approval-rule-step.e
 import { WfApprovalInstanceEntity }     from './entities/wf-approval-instance.entity';
 import { WfApprovalInstanceStepEntity } from './entities/wf-approval-instance-step.entity';
 import { WorkflowBizRegistryService }   from './workflow-biz-registry.service';
+import { WorkflowNotificationService }  from '../workflow/workflow-notification.service';
 
 export interface StartApprovalParams {
   moduleCode?: string;
@@ -42,6 +43,7 @@ export class ApprovalEngineService {
     private readonly ds: DataSource,
     private readonly cls: ClsService,
     private readonly bizRegistry: WorkflowBizRegistryService,
+    private readonly notify: WorkflowNotificationService,
   ) {}
 
   // ── 工具 ────────────────────────────────────────────────────────────────
@@ -191,6 +193,20 @@ export class ApprovalEngineService {
     );
     await mgr.save(WfApprovalInstanceStepEntity, stepEntities);
 
+    // 通知第一步审批人（fire-and-forget，不阻塞事务）
+    const firstStep = stepEntities[0];
+    setImmediate(() => {
+      this.notify.onTaskCreated({
+        instanceId:        savedInstance.id,
+        bizType:           params.bizType,
+        bizId:             params.bizId,
+        bizNo:             params.bizNo,
+        subject:           params.subject,
+        starterUserId:     userId || undefined,
+        assigneeRoleCode:  firstStep?.approverRole ?? undefined,
+      }).catch(() => {/* ignore */});
+    });
+
     return savedInstance;
   }
 
@@ -272,10 +288,47 @@ export class ApprovalEngineService {
         await mgr.save(WfApprovalInstanceEntity, instance);
         const bizStatus = this.bizRegistry.getApprovedStatus(instance.bizType);
         await this.updateBizStatus(instance.bizType, instance.bizId, bizStatus, mgr);
+
+        // 通知发起人：审批完成
+        const starterUserId = instance.startedBy ?? undefined;
+        setImmediate(() => {
+          this.notify.onInstanceCompleted({
+            instanceId:    instance.id,
+            bizType:       instance.bizType,
+            bizId:         instance.bizId,
+            bizNo:         instance.bizNo,
+            subject:       instance.subject ?? undefined,
+            starterUserId: starterUserId ?? undefined,
+            result:        'APPROVED',
+          }).catch(() => {/* ignore */});
+        });
+
         return { finished: true, approved: true };
       } else {
         instance.currentStepNo += 1;
         await mgr.save(WfApprovalInstanceEntity, instance);
+
+        // 通知下一步审批人
+        const nextStepNo = instance.currentStepNo;
+        const instanceSnapshot = { ...instance };
+        setImmediate(async () => {
+          try {
+            const nextStep = await this.stepRepo.findOne({
+              where: { instanceId: instance.id, stepNo: nextStepNo },
+            });
+            if (nextStep?.approverRole) {
+              await this.notify.onTaskCreated({
+                instanceId:       instanceSnapshot.id,
+                bizType:          instanceSnapshot.bizType,
+                bizId:            instanceSnapshot.bizId,
+                bizNo:            instanceSnapshot.bizNo,
+                subject:          instanceSnapshot.subject ?? undefined,
+                assigneeRoleCode: nextStep.approverRole,
+              });
+            }
+          } catch {/* ignore */}
+        });
+
         return { finished: false, approved: false, currentStepNo: instance.currentStepNo, totalSteps: instance.totalSteps };
       }
     });
@@ -323,6 +376,21 @@ export class ApprovalEngineService {
 
       // 更新业务状态
       await this.updateBizStatus(instance.bizType, instance.bizId, 'REJECTED', mgr);
+
+      // 通知发起人：审批被拒绝
+      const starterUserId = instance.startedBy ?? undefined;
+      const snapshot = { ...instance };
+      setImmediate(() => {
+        this.notify.onInstanceRejected({
+          instanceId:    snapshot.id,
+          bizType:       snapshot.bizType,
+          bizId:         snapshot.bizId,
+          bizNo:         snapshot.bizNo,
+          subject:       snapshot.subject ?? undefined,
+          starterUserId: starterUserId ?? undefined,
+          result:        'REJECTED',
+        }).catch(() => {/* ignore */});
+      });
     });
   }
 

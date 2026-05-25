@@ -84,6 +84,7 @@ const TITLE_KEY_MAP: Record<string, string> = {
   "/procurement2/init":               "menu.prc2-init",
   "/workflow/todos":               "menu.wf-approval-todos",
   "/workflow/history":             "menu.wf-approval-history",
+  "/notifications":                "menu.wf-notifications",
   "/order":                        "menu.ord-center",
   "/order/customers":              "menu.ord-cust",
   "/order/prices":                 "menu.ord-price",

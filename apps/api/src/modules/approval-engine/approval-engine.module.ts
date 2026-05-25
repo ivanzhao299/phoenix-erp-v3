@@ -1,4 +1,4 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { WfApprovalRuleEntity }         from './entities/wf-approval-rule.entity';
@@ -11,6 +11,7 @@ import { ApprovalEngineController }   from './approval-engine.controller';
 import { ApprovalRulesService }       from './approval-rules.service';
 import { ApprovalRulesController }    from './approval-rules.controller';
 import { WorkflowBizRegistryService } from './workflow-biz-registry.service';
+import { WorkflowModule }             from '../workflow/workflow.module';
 
 @Global()
 @Module({
@@ -21,6 +22,7 @@ import { WorkflowBizRegistryService } from './workflow-biz-registry.service';
       WfApprovalInstanceEntity,
       WfApprovalInstanceStepEntity,
     ]),
+    forwardRef(() => WorkflowModule),
   ],
   controllers: [ApprovalEngineController, ApprovalRulesController],
   providers:   [ApprovalEngineService, ApprovalRulesService, WorkflowBizRegistryService],

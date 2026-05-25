@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { CheckCircle, XCircle, RefreshCw, User, FileText, Banknote, ShoppingBag, Building2, FolderOpen, DollarSign } from "lucide-react";
+import { CheckCircle, XCircle, RefreshCw, User, FileText, Banknote, ShoppingBag, Building2, FolderOpen, DollarSign, Search } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
 
-// ── 统一任务类型（对应 GET /api/workflow/my-tasks）──────────────────────────────
+// ── 统一任务类型 ───────────────────────────────────────────────────────────────
 interface UnifiedTask {
   taskSource:    string;
   taskId:        string;
@@ -24,12 +24,19 @@ interface UnifiedTask {
   projectCode:   string | null;
   projectName:   string | null;
   requiredRole:  string;
-  stepNo:        number;
-  totalSteps:    number;
-  currentStepNo: number;
+  stepNo:        number | null;
+  totalSteps:    number | null;
+  currentStepNo: number | null;
   startedBy:     string | null;
   status:        string;
   createdAt:     string;
+}
+
+interface TaskListResponse {
+  items:    UnifiedTask[];
+  total:    number;
+  page:     number;
+  pageSize: number;
 }
 
 interface InstanceDetail {
@@ -95,15 +102,41 @@ function StatusBadge({ status }: { status: string }) {
     APPROVED: { label: "已通过", color: "#22c55e" },
     REJECTED: { label: "已拒绝", color: "#ef4444" },
     SKIPPED:  { label: "已跳过", color: "#9ca3af" },
+    TODO:     { label: "待处理", color: "#f59e0b" },
   };
   const cfg = map[status] ?? { label: status, color: "#9ca3af" };
   return <span style={{ color: cfg.color, fontWeight: 600, fontSize: 12 }}>{cfg.label}</span>;
 }
 
-// ── API（统一端点 + ApprovalEngine 操作端点）──────────────────────────────────
-async function fetchTodos(): Promise<UnifiedTask[]> {
-  const res = await fetch("/api/workflow/my-tasks", { credentials: "include" });
-  if (!res.ok) return [];
+function TaskSourceBadge({ source }: { source: string }) {
+  const isAE = source === "APPROVAL_ENGINE";
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 3,
+      fontSize: 10, fontWeight: 600, padding: "2px 6px",
+      borderRadius: 4,
+      background: isAE ? "rgba(245,158,11,0.12)" : "rgba(59,130,246,0.12)",
+      color:      isAE ? "#b45309"               : "#1d4ed8",
+    }}>
+      {isAE ? "审批引擎" : "通用流程"}
+    </span>
+  );
+}
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function fetchTodos(params: {
+  page: number; pageSize: number;
+  taskSource?: string; bizType?: string; keyword?: string;
+}): Promise<TaskListResponse> {
+  const p = new URLSearchParams();
+  p.set("page",     String(params.page));
+  p.set("pageSize", String(params.pageSize));
+  if (params.taskSource) p.set("taskSource", params.taskSource);
+  if (params.bizType)    p.set("bizType",    params.bizType);
+  if (params.keyword)    p.set("keyword",    params.keyword);
+
+  const res = await fetch(`/api/workflow/my-tasks?${p.toString()}`, { credentials: "include" });
+  if (!res.ok) return { items: [], total: 0, page: 1, pageSize: 20 };
   return res.json();
 }
 
@@ -115,8 +148,7 @@ async function fetchDetail(instanceId: string): Promise<InstanceDetail | null> {
 
 async function approveInstance(instanceId: string, comment: string) {
   const res = await fetch(`/api/approval/instances/${instanceId}/approve`, {
-    method: "POST",
-    credentials: "include",
+    method: "POST", credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ comment }),
   });
@@ -125,8 +157,7 @@ async function approveInstance(instanceId: string, comment: string) {
 
 async function rejectInstance(instanceId: string, comment: string) {
   const res = await fetch(`/api/approval/instances/${instanceId}/reject`, {
-    method: "POST",
-    credentials: "include",
+    method: "POST", credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ comment }),
   });
@@ -136,7 +167,7 @@ async function rejectInstance(instanceId: string, comment: string) {
 // ── 组件 ─────────────────────────────────────────────────────────────────────
 export default function ApprovalTodosPage() {
   const toast = useToast();
-  const [todos, setTodos]           = useState<UnifiedTask[]>([]);
+  const [resp, setResp]             = useState<TaskListResponse>({ items: [], total: 0, page: 1, pageSize: 20 });
   const [loading, setLoading]       = useState(false);
   const [selected, setSelected]     = useState<UnifiedTask | null>(null);
   const [detail, setDetail]         = useState<InstanceDetail | null>(null);
@@ -144,22 +175,50 @@ export default function ApprovalTodosPage() {
   const [comment, setComment]       = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const load = useCallback(async () => {
+  // 筛选状态
+  const [taskSource, setTaskSource] = useState("");
+  const [bizType,    setBizType]    = useState("");
+  const [keyword,    setKeyword]    = useState("");
+  const [page,       setPage]       = useState(1);
+  const PAGE_SIZE = 20;
+
+  const load = useCallback(async (params?: { taskSource?: string; bizType?: string; keyword?: string; page?: number }) => {
     setLoading(true);
     try {
-      setTodos(await fetchTodos());
+      const r = await fetchTodos({
+        page:       params?.page       ?? page,
+        pageSize:   PAGE_SIZE,
+        taskSource: (params?.taskSource !== undefined ? params.taskSource : taskSource) || undefined,
+        bizType:    (params?.bizType    !== undefined ? params.bizType    : bizType)    || undefined,
+        keyword:    (params?.keyword    !== undefined ? params.keyword    : keyword)    || undefined,
+      });
+      setResp(r);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, taskSource, bizType, keyword]);
 
   useEffect(() => { load(); }, [load]);
+
+  const applyFilter = () => {
+    setPage(1);
+    load({ page: 1, taskSource, bizType, keyword });
+  };
+
+  const resetFilter = () => {
+    setTaskSource(""); setBizType(""); setKeyword(""); setPage(1);
+    load({ page: 1, taskSource: "", bizType: "", keyword: "" });
+  };
 
   const openDetail = async (todo: UnifiedTask) => {
     setSelected(todo);
     setComment("");
     setDrawerOpen(true);
-    setDetail(await fetchDetail(todo.instanceId));
+    if (todo.taskSource === "APPROVAL_ENGINE") {
+      setDetail(await fetchDetail(todo.instanceId));
+    } else {
+      setDetail(null);
+    }
   };
 
   const handleApprove = async () => {
@@ -201,114 +260,189 @@ export default function ApprovalTodosPage() {
     }
   };
 
+  const isApprovalEngine = selected?.taskSource === "APPROVAL_ENGINE";
+
   return (
     <div>
       <PageHeader
         title="审批待办"
-        subtitle={`我的待审批任务（${todos.length} 条）`}
+        subtitle={`我的待审批任务（共 ${resp.total} 条）`}
         breadcrumb={["审批中心", "待办"]}
       />
 
       <section className={s.card}>
-        <div className={s.cardBody} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h3 className={s.cardTitle}>待我审批</h3>
-          <button className={s.btnSecondary} onClick={load} disabled={loading}>
-            <RefreshCw size={14} style={{ marginRight: 6 }} />
+        {/* ── 筛选栏 ── */}
+        <div className={s.cardBody} style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+          <select
+            value={taskSource}
+            onChange={e => setTaskSource(e.target.value)}
+            className={s.select}
+            style={{ minWidth: 120 }}
+          >
+            <option value="">全部来源</option>
+            <option value="APPROVAL_ENGINE">审批引擎</option>
+            <option value="WORKFLOW_ENGINE">通用流程</option>
+          </select>
+
+          <select
+            value={bizType}
+            onChange={e => setBizType(e.target.value)}
+            className={s.select}
+            style={{ minWidth: 120 }}
+          >
+            <option value="">全部类型</option>
+            <option value="PR">采购申请</option>
+            <option value="PO">采购订单</option>
+            <option value="PAYMENT">付款申请</option>
+            <option value="FUND">股东资金</option>
+          </select>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 180 }}>
+            <Search size={14} style={{ color: "#9ca3af" }} />
+            <input
+              type="text"
+              value={keyword}
+              onChange={e => setKeyword(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && applyFilter()}
+              placeholder="搜索单号、主题…"
+              className={s.input}
+              style={{ flex: 1 }}
+            />
+          </div>
+
+          <button className={s.btnPrimary} onClick={applyFilter} style={{ fontSize: 12 }}>
+            搜索
+          </button>
+          <button className={s.btnSecondary} onClick={resetFilter} style={{ fontSize: 12 }}>
+            重置
+          </button>
+          <button className={s.btnSecondary} onClick={() => load()} disabled={loading} style={{ fontSize: 12, marginLeft: "auto" }}>
+            <RefreshCw size={13} style={{ marginRight: 5 }} />
             刷新
           </button>
         </div>
 
         {loading ? (
-          <div className={s.cardBody} style={{ textAlign: "center", color: "#9ca3af", padding: 48 }}>
-            加载中…
-          </div>
-        ) : todos.length === 0 ? (
+          <div className={s.cardBody} style={{ textAlign: "center", color: "#9ca3af", padding: 48 }}>加载中…</div>
+        ) : resp.items.length === 0 ? (
           <div className={s.cardBody} style={{ textAlign: "center", color: "#9ca3af", padding: 48 }}>
             <CheckCircle size={36} style={{ margin: "0 auto 12px", opacity: 0.4 }} />
             <p>暂无待审批任务</p>
           </div>
         ) : (
-          <table className={s.table}>
-            <thead>
-              <tr>
-                <th>业务类型</th>
-                <th>单据编号</th>
-                <th>主题</th>
-                <th>金额</th>
-                <th>公司</th>
-                <th>项目</th>
-                <th>需审批角色</th>
-                <th>步骤</th>
-                <th>提交时间</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {todos.map(todo => (
-                <tr key={todo.taskId}>
-                  <td>
-                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      {BIZ_TYPE_ICON[todo.bizType]}
-                      {BIZ_TYPE_LABEL[todo.bizType] ?? todo.bizType}
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{ fontWeight: 600, fontFamily: "monospace", fontSize: 12 }}>
-                      {todo.bizNo || todo.bizId}
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{ fontSize: 12, color: "#374151", maxWidth: 140, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {todo.subject || "-"}
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{ fontWeight: 600, color: "#0f172a", fontSize: 13 }}>
-                      {fmtAmount(todo.amount, todo.currencyCode)}
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
-                      {todo.companyName && <Building2 size={11} style={{ flexShrink: 0 }} />}
-                      {todo.companyName ?? todo.companyCode ?? "-"}
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
-                      {todo.projectName && <FolderOpen size={11} style={{ flexShrink: 0 }} />}
-                      {todo.projectName ?? todo.projectCode ?? "-"}
-                    </span>
-                  </td>
-                  <td>
-                    <code style={{ fontSize: 11, background: "#f1f5f9", padding: "2px 6px", borderRadius: 4 }}>
-                      {todo.requiredRole}
-                    </code>
-                  </td>
-                  <td>
-                    <span style={{ color: "#f59e0b", fontWeight: 600 }}>
-                      {todo.currentStepNo}/{todo.totalSteps}
-                    </span>
-                  </td>
-                  <td style={{ fontSize: 12 }}>{fmtDate(todo.createdAt)}</td>
-                  <td>
-                    <button className={s.btnPrimary} style={{ fontSize: 12 }} onClick={() => openDetail(todo)}>
-                      审批
-                    </button>
-                  </td>
+          <>
+            <table className={s.table}>
+              <thead>
+                <tr>
+                  <th>来源</th>
+                  <th>业务类型</th>
+                  <th>单据编号</th>
+                  <th>主题</th>
+                  <th>金额</th>
+                  <th>公司</th>
+                  <th>项目</th>
+                  <th>需审批角色</th>
+                  <th>步骤</th>
+                  <th>提交时间</th>
+                  <th>操作</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {resp.items.map(todo => (
+                  <tr key={`${todo.taskSource}-${todo.taskId}`}>
+                    <td><TaskSourceBadge source={todo.taskSource} /></td>
+                    <td>
+                      <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        {BIZ_TYPE_ICON[todo.bizType]}
+                        {BIZ_TYPE_LABEL[todo.bizType] ?? todo.bizType ?? "-"}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: 600, fontFamily: "monospace", fontSize: 12 }}>
+                        {todo.bizNo || todo.bizId}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: 12, color: "#374151", maxWidth: 140, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {todo.subject || "-"}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: 600, color: "#0f172a", fontSize: 13 }}>
+                        {fmtAmount(todo.amount, todo.currencyCode)}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                        {todo.companyName && <Building2 size={11} style={{ flexShrink: 0 }} />}
+                        {todo.companyName ?? todo.companyCode ?? "-"}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                        {todo.projectName && <FolderOpen size={11} style={{ flexShrink: 0 }} />}
+                        {todo.projectName ?? todo.projectCode ?? "-"}
+                      </span>
+                    </td>
+                    <td>
+                      <code style={{ fontSize: 11, background: "#f1f5f9", padding: "2px 6px", borderRadius: 4 }}>
+                        {todo.requiredRole || "-"}
+                      </code>
+                    </td>
+                    <td>
+                      {todo.currentStepNo != null && todo.totalSteps != null ? (
+                        <span style={{ color: "#f59e0b", fontWeight: 600 }}>
+                          {todo.currentStepNo}/{todo.totalSteps}
+                        </span>
+                      ) : "-"}
+                    </td>
+                    <td style={{ fontSize: 12 }}>{fmtDate(todo.createdAt)}</td>
+                    <td>
+                      <button className={s.btnPrimary} style={{ fontSize: 12 }} onClick={() => openDetail(todo)}>
+                        {todo.taskSource === "APPROVAL_ENGINE" ? "审批" : "查看"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* 分页 */}
+            {resp.total > PAGE_SIZE && (
+              <div className={s.cardBody} style={{ display: "flex", justifyContent: "flex-end", gap: 8, paddingTop: 12 }}>
+                <button
+                  className={s.btnSecondary}
+                  onClick={() => { const p = Math.max(1, page - 1); setPage(p); load({ page: p }); }}
+                  disabled={page <= 1}
+                  style={{ fontSize: 12 }}
+                >
+                  上一页
+                </button>
+                <span style={{ fontSize: 12, lineHeight: "30px", color: "#6b7280" }}>
+                  第 {page} / {Math.ceil(resp.total / PAGE_SIZE)} 页
+                </span>
+                <button
+                  className={s.btnSecondary}
+                  onClick={() => { const p = page + 1; setPage(p); load({ page: p }); }}
+                  disabled={page >= Math.ceil(resp.total / PAGE_SIZE)}
+                  style={{ fontSize: 12 }}
+                >
+                  下一页
+                </button>
+              </div>
+            )}
+          </>
         )}
       </section>
 
       {/* ── 审批详情侧栏 ── */}
       <RightDrawer
         open={drawerOpen}
-        title={`审批操作 — ${BIZ_TYPE_LABEL[selected?.bizType ?? ""] ?? ""} ${selected?.bizNo ?? ""}`}
+        title={`${isApprovalEngine ? "审批操作" : "任务详情"} — ${BIZ_TYPE_LABEL[selected?.bizType ?? ""] ?? ""} ${selected?.bizNo ?? ""}`}
         onClose={() => setDrawerOpen(false)}
       >
-        {detail && (
+        {/* ApprovalEngine 任务：显示完整审批表单 */}
+        {isApprovalEngine && detail && (
           <div style={{ padding: "0 20px" }}>
             <div className={s.detailSection} style={{ marginBottom: 16 }}>
               <div className={s.detailGrid}>
@@ -342,16 +476,12 @@ export default function ApprovalTodosPage() {
               </div>
             </div>
 
-            <h4 style={{ fontSize: 14, fontWeight: 600, margin: "16px 0 12px", color: "#374151" }}>
-              审批历史
-            </h4>
+            <h4 style={{ fontSize: 14, fontWeight: 600, margin: "16px 0 12px", color: "#374151" }}>审批历史</h4>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
               {detail.steps.map(step => (
                 <div key={step.id} style={{
                   display: "flex", gap: 12, padding: "10px 14px",
-                  background: step.status === "APPROVED" ? "#f0fdf4"
-                    : step.status === "REJECTED" ? "#fef2f2"
-                    : "#f8fafc",
+                  background: step.status === "APPROVED" ? "#f0fdf4" : step.status === "REJECTED" ? "#fef2f2" : "#f8fafc",
                   borderRadius: 8, border: "1px solid #e5e7eb",
                 }}>
                   <div style={{ fontSize: 13, flex: 1 }}>
@@ -368,7 +498,7 @@ export default function ApprovalTodosPage() {
                     </div>
                     {step.comment && (
                       <div style={{ marginTop: 6, fontSize: 12, color: "#374151", fontStyle: "italic" }}>
-                        "{step.comment}"
+                        &ldquo;{step.comment}&rdquo;
                       </div>
                     )}
                     {step.actedAt && (
@@ -379,9 +509,7 @@ export default function ApprovalTodosPage() {
               ))}
             </div>
 
-            <h4 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 12px", color: "#374151" }}>
-              审批意见
-            </h4>
+            <h4 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 12px", color: "#374151" }}>审批意见</h4>
             <textarea
               value={comment}
               onChange={e => setComment(e.target.value)}
@@ -390,27 +518,42 @@ export default function ApprovalTodosPage() {
               rows={3}
               style={{ width: "100%", marginBottom: 16 }}
             />
-
             <div style={{ display: "flex", gap: 12 }}>
-              <button
-                className={s.btnDanger}
-                onClick={handleReject}
-                disabled={submitting}
-                style={{ flex: 1 }}
-              >
-                <XCircle size={14} style={{ marginRight: 6 }} />
-                拒绝
+              <button className={s.btnDanger} onClick={handleReject} disabled={submitting} style={{ flex: 1 }}>
+                <XCircle size={14} style={{ marginRight: 6 }} />拒绝
               </button>
-              <button
-                className={s.btnPrimary}
-                onClick={handleApprove}
-                disabled={submitting}
-                style={{ flex: 2 }}
-              >
+              <button className={s.btnPrimary} onClick={handleApprove} disabled={submitting} style={{ flex: 2 }}>
                 <CheckCircle size={14} style={{ marginRight: 6 }} />
                 {submitting ? "处理中…" : "审批通过"}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* WorkflowEngine 任务：仅显示详情，无审批按钮 */}
+        {!isApprovalEngine && selected && (
+          <div style={{ padding: "0 20px" }}>
+            <div className={s.detailSection}>
+              <div className={s.detailGrid}>
+                <span className={s.detailLabel}>任务来源</span>
+                <span><TaskSourceBadge source={selected.taskSource} /></span>
+                <span className={s.detailLabel}>实例编号</span>
+                <span style={{ fontFamily: "monospace", fontSize: 13 }}>{selected.instanceNo ?? "-"}</span>
+                <span className={s.detailLabel}>业务类型</span>
+                <span>{BIZ_TYPE_LABEL[selected.bizType] ?? selected.bizType ?? "-"}</span>
+                <span className={s.detailLabel}>主题</span>
+                <span style={{ fontSize: 13 }}>{selected.subject ?? "-"}</span>
+                <span className={s.detailLabel}>需审批角色</span>
+                <code style={{ fontSize: 11, background: "#f1f5f9", padding: "2px 6px", borderRadius: 4 }}>
+                  {selected.requiredRole || "-"}
+                </code>
+                <span className={s.detailLabel}>创建时间</span>
+                <span style={{ fontSize: 13 }}>{fmtDate(selected.createdAt)}</span>
+              </div>
+            </div>
+            <p style={{ marginTop: 24, fontSize: 13, color: "#6b7280" }}>
+              通用工作流任务请在对应业务模块中处理。
+            </p>
           </div>
         )}
       </RightDrawer>

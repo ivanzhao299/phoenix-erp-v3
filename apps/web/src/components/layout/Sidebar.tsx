@@ -17,7 +17,7 @@ import {
   Wheat, ScrollText, FlaskConical, ArrowLeftRight, DollarSign,
   History, Box, RefreshCw, TrendingDown, Banknote, Building, ShoppingBag,
   BarChart3, Minus, Network, Smartphone, ToggleRight, Zap,
-  FolderKanban, Globe, Layers3, UploadCloud
+  FolderKanban, Globe, Layers3, UploadCloud, Bell
 } from "lucide-react";
 import styles from "./sidebar.module.css";
 import { useBrand } from "@/contexts/BrandContext";
@@ -183,6 +183,7 @@ const MENU: MenuItem[] = [
   { id: "workflow", Icon: GitMerge, label: "工作流", perm: "MENU_WORKFLOW", children: [
     { id: "wf-approval-todos",   path: "/workflow/todos",   Icon: ClipboardCheck, label: "审批待办", perm: "MENU_WORKFLOW" },
     { id: "wf-approval-history", path: "/workflow/history", Icon: History,        label: "审批历史", perm: "MENU_WORKFLOW" },
+    { id: "wf-notifications",    path: "/notifications",    Icon: Bell,           label: "通知中心", perm: "MENU_WORKFLOW" },
   ]},
   { id: "wholesale", Icon: FileText, label: "批发管理", perm: "MENU_B2B_SALE", children: [
     { id: "ws-ov",        path: "/wholesale",           Icon: LayoutDashboard, label: "批发总览",   perm: "MENU_B2B_SALE" },

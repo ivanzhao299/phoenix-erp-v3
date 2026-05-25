@@ -42,6 +42,8 @@ import { ProcurementV2Module } from './modules/procurement-v2/procurement-v2.mod
 import { OrgModule } from './modules/org/org.module';
 // [RBAC-4] 动态审批引擎
 import { ApprovalEngineModule } from './modules/approval-engine/approval-engine.module';
+// [Workflow Phase B] 站内通知中心
+import { NotificationModule } from './modules/notification/notification.module';
 
 
 @Module({
@@ -94,6 +96,7 @@ import { ApprovalEngineModule } from './modules/approval-engine/approval-engine.
     ProcurementV2Module,
     OrgModule,
     ApprovalEngineModule,
+    NotificationModule,
   ],
   controllers: [DebugController, HealthController],
   providers: [
