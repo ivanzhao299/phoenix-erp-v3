@@ -10,10 +10,11 @@ import { WfApprovalRuleEntity }         from './entities/wf-approval-rule.entity
 import { WfApprovalRuleStepEntity }     from './entities/wf-approval-rule-step.entity';
 import { WfApprovalInstanceEntity }     from './entities/wf-approval-instance.entity';
 import { WfApprovalInstanceStepEntity } from './entities/wf-approval-instance-step.entity';
+import { WorkflowBizRegistryService }   from './workflow-biz-registry.service';
 
 export interface StartApprovalParams {
-  moduleCode: string;
-  bizType: string;          // 'PR' | 'PO' | 'PAYMENT' | 'FUND'
+  moduleCode?: string;
+  bizType: string;
   bizId: string;
   bizNo: string;
   amount: number;
@@ -25,30 +26,6 @@ export interface StartApprovalParams {
   subject?: string;
   conditionOverrides?: Record<string, any>;
 }
-
-// 业务表映射（仅限白名单，防止 SQL 注入）
-const BIZ_TABLE_MAP: Record<string, string> = {
-  PR:      'prc2_purchase_requests',
-  PO:      'prc2_purchase_orders',
-  PAYMENT: 'prc2_payments',
-  FUND:    'prc2_shareholder_funds',
-};
-
-// 模块代码映射
-const BIZ_MODULE_MAP: Record<string, string> = {
-  PR:      'MENU_PRC2_ORDER',
-  PO:      'MENU_PRC2_ORDER',
-  PAYMENT: 'MENU_PRC2_PAYMENT',
-  FUND:    'MENU_PRC2_FUND',
-};
-
-// 审批通过后的业务终态：FUND → CONFIRMED，其余 → APPROVED
-const APPROVED_STATUS_MAP: Record<string, string> = {
-  PR:      'APPROVED',
-  PO:      'APPROVED',
-  PAYMENT: 'APPROVED',
-  FUND:    'CONFIRMED',
-};
 
 @Injectable()
 export class ApprovalEngineService {
@@ -64,6 +41,7 @@ export class ApprovalEngineService {
     @InjectDataSource()
     private readonly ds: DataSource,
     private readonly cls: ClsService,
+    private readonly bizRegistry: WorkflowBizRegistryService,
   ) {}
 
   // ── 工具 ────────────────────────────────────────────────────────────────
@@ -152,7 +130,7 @@ export class ApprovalEngineService {
 
     if (!rule) {
       // 无规则 → 自动审批通过
-      const autoStatus = APPROVED_STATUS_MAP[params.bizType] ?? 'APPROVED';
+      const autoStatus = this.bizRegistry.getApprovedStatus(params.bizType);
       await this.updateBizStatus(params.bizType, params.bizId, autoStatus, mgr);
       return null;
     }
@@ -163,7 +141,7 @@ export class ApprovalEngineService {
     });
 
     if (ruleSteps.length === 0) {
-      const autoStatus = APPROVED_STATUS_MAP[params.bizType] ?? 'APPROVED';
+      const autoStatus = this.bizRegistry.getApprovedStatus(params.bizType);
       await this.updateBizStatus(params.bizType, params.bizId, autoStatus, mgr);
       return null;
     }
@@ -181,7 +159,7 @@ export class ApprovalEngineService {
 
     const instance = mgr.create(WfApprovalInstanceEntity, {
       instanceNo,
-      moduleCode:    params.moduleCode ?? BIZ_MODULE_MAP[params.bizType] ?? 'UNKNOWN',
+      moduleCode:    params.moduleCode ?? this.bizRegistry.getModuleCode(params.bizType),
       bizType:       params.bizType,
       bizId:         params.bizId,
       bizNo:         params.bizNo,
@@ -292,7 +270,7 @@ export class ApprovalEngineService {
         instance.status     = 'APPROVED';
         instance.finishedAt = new Date();
         await mgr.save(WfApprovalInstanceEntity, instance);
-        const bizStatus = APPROVED_STATUS_MAP[instance.bizType] ?? 'APPROVED';
+        const bizStatus = this.bizRegistry.getApprovedStatus(instance.bizType);
         await this.updateBizStatus(instance.bizType, instance.bizId, bizStatus, mgr);
         return { finished: true, approved: true };
       } else {
@@ -453,7 +431,7 @@ export class ApprovalEngineService {
     status: string,
     mgr: EntityManager,
   ): Promise<void> {
-    const table = BIZ_TABLE_MAP[bizType];
+    const table = this.bizRegistry.getTableName(bizType);
     if (!table) return;
     await mgr.query(
       `UPDATE ${table} SET status = $1, updated_at = NOW() WHERE id = $2`,

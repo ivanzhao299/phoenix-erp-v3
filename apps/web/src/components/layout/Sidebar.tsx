@@ -180,18 +180,9 @@ const MENU: MenuItem[] = [
     { id: "pos-ov",    path: "/pos",         Icon: LayoutDashboard, label: "POS 总览",   perm: null },
     { id: "pos-sales", path: "/pos/sales",   Icon: CreditCard,      label: "销售单管理", perm: null },
   ]},
-  { id: "workflow", Icon: GitMerge, label: "工作流", perm: null, children: [
-    // ── 规则驱动审批中心（采购专用）──────────────────────────────────────
-    { id: "wf-approval-todos",   path: "/workflow/todos",   Icon: ClipboardCheck, label: "审批待办",   perm: "MENU_WORKFLOW" },
-    { id: "wf-approval-history", path: "/workflow/history", Icon: History,        label: "审批历史",   perm: "MENU_WORKFLOW" },
-    // ── 通用工作流引擎 ────────────────────────────────────────────────────
-    { id: "wf-start",  path: "/workflow/start",        Icon: FilePlus,        label: "发起申请", perm: null },
-    { id: "wf-todo",   path: "/workflow/tasks/todo",   Icon: ClipboardCheck,  label: "我的待办", perm: null },
-    { id: "wf-done",   path: "/workflow/tasks/done",   Icon: ListChecks,      label: "我的已办", perm: null },
-    { id: "wf-inst",   path: "/workflow/instances",    Icon: ScrollText,      label: "流程实例", perm: null },
-    { id: "wf-def",    path: "/workflow/definitions",  Icon: GitMerge,        label: "流程定义", perm: null },
-    { id: "wf-form",   path: "/workflow/forms",        Icon: FileText,        label: "表单定义", perm: null },
-    { id: "wf-source", path: "/workflow/data-sources", Icon: Database,        label: "数据源",   perm: null },
+  { id: "workflow", Icon: GitMerge, label: "工作流", perm: "MENU_WORKFLOW", children: [
+    { id: "wf-approval-todos",   path: "/workflow/todos",   Icon: ClipboardCheck, label: "审批待办", perm: "MENU_WORKFLOW" },
+    { id: "wf-approval-history", path: "/workflow/history", Icon: History,        label: "审批历史", perm: "MENU_WORKFLOW" },
   ]},
   { id: "wholesale", Icon: FileText, label: "批发管理", perm: "MENU_B2B_SALE", children: [
     { id: "ws-ov",        path: "/wholesale",           Icon: LayoutDashboard, label: "批发总览",   perm: "MENU_B2B_SALE" },

@@ -5,6 +5,8 @@ import { WorkflowRuntimeController } from './workflow-runtime.controller';
 import { WorkflowTaskController } from './workflow-task.controller';
 import { WorkflowDatasourceController } from './workflow-datasource.controller';
 import { WorkflowService } from './workflow.service';
+import { ConditionEngineService } from './condition-engine.service';
+import { WorkflowNotificationService } from './workflow-notification.service';
 
 @Module({
   controllers: [
@@ -14,7 +16,7 @@ import { WorkflowService } from './workflow.service';
     WorkflowTaskController,
     WorkflowDatasourceController,
   ],
-  providers: [WorkflowService],
-  exports: [WorkflowService],
+  providers: [WorkflowService, ConditionEngineService, WorkflowNotificationService],
+  exports:   [WorkflowService, ConditionEngineService, WorkflowNotificationService],
 })
 export class WorkflowModule {}

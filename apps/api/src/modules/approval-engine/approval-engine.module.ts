@@ -6,10 +6,11 @@ import { WfApprovalRuleStepEntity }     from './entities/wf-approval-rule-step.e
 import { WfApprovalInstanceEntity }     from './entities/wf-approval-instance.entity';
 import { WfApprovalInstanceStepEntity } from './entities/wf-approval-instance-step.entity';
 
-import { ApprovalEngineService }    from './approval-engine.service';
-import { ApprovalEngineController } from './approval-engine.controller';
-import { ApprovalRulesService }     from './approval-rules.service';
-import { ApprovalRulesController }  from './approval-rules.controller';
+import { ApprovalEngineService }      from './approval-engine.service';
+import { ApprovalEngineController }   from './approval-engine.controller';
+import { ApprovalRulesService }       from './approval-rules.service';
+import { ApprovalRulesController }    from './approval-rules.controller';
+import { WorkflowBizRegistryService } from './workflow-biz-registry.service';
 
 @Global()
 @Module({
@@ -22,7 +23,7 @@ import { ApprovalRulesController }  from './approval-rules.controller';
     ]),
   ],
   controllers: [ApprovalEngineController, ApprovalRulesController],
-  providers:   [ApprovalEngineService, ApprovalRulesService],
-  exports:     [ApprovalEngineService],
+  providers:   [ApprovalEngineService, ApprovalRulesService, WorkflowBizRegistryService],
+  exports:     [ApprovalEngineService, WorkflowBizRegistryService],
 })
 export class ApprovalEngineModule {}

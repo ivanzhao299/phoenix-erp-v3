@@ -1,5 +1,6 @@
 "use client";
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { crudApi } from "@/lib/api-client";
 import { DataTable } from "@/components/data-table/DataTable";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -13,6 +14,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 const TABLE = "sys_approval_flows";
 export default function Page() {
   const { t } = useLanguage();
+  const router = useRouter();
   const COLUMNS = [{ key: "doc_type", title: t('ui.单据类型', '单据类型'), width: 150 },
       { key: "amount_min", title: t('ui.最低金额', '最低金额'), width: 100 },
       { key: "amount_max", title: t('ui.最高金额', '最高金额'), width: 100 },
@@ -38,6 +40,46 @@ export default function Page() {
   return(<div>
     <PageHeader
         breadcrumb={[t('ui.系统设置', '系统设置'), t('ui.审批流配置', '审批流配置')]} title={t('ui.审批流配置', '审批流配置')} subtitle={t('ui.配置各类单据的审批金额阈值和审批角色链', '配置各类单据的审批金额阈值和审批角色链（表：sys_approval_flows）')} />
+
+    {/* ── 已停用公告 ── */}
+    <div style={{
+      margin: "0 0 20px",
+      padding: "14px 20px",
+      borderRadius: 10,
+      background: "linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.06))",
+      border: "1.5px solid rgba(245,158,11,0.4)",
+      display: "flex",
+      alignItems: "center",
+      gap: 16,
+    }}>
+      <span style={{ fontSize: 22 }}>⚠️</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontWeight: 700, color: "#b45309", fontSize: 14, marginBottom: 4 }}>
+          旧审批流配置已停用（V1）
+        </div>
+        <div style={{ fontSize: 12, color: "#78350f" }}>
+          此页面配置的 <code style={{ background: "#fef3c7", padding: "1px 5px", borderRadius: 3 }}>sys_approval_flows</code> 规则已不再生效。
+          采购模块现已使用"审批规则"（<strong>规则驱动引擎 V2</strong>）。
+        </div>
+      </div>
+      <button
+        onClick={() => router.push("/settings/approval-rules")}
+        style={{
+          padding: "8px 16px",
+          borderRadius: 8,
+          background: "#d97706",
+          color: "#fff",
+          border: "none",
+          cursor: "pointer",
+          fontSize: 13,
+          fontWeight: 600,
+          whiteSpace: "nowrap",
+        }}
+      >
+        前往审批规则 →
+      </button>
+    </div>
+
     <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
     <RightDrawer open={o} title={e?t('ui.编辑审批流配置', '编辑审批流配置'):t('ui.新增审批流配置', '新增审批流配置')} onClose={cl}>
       <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />

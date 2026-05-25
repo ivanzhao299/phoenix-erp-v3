@@ -2,11 +2,13 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { ConditionEngineService, ConditionNode } from './condition-engine.service';
 
 type WorkflowStatus = 'RUNNING' | 'APPROVED' | 'REJECTED' | 'CANCELED';
 type TaskStatus = 'TODO' | 'DONE' | 'CANCELED';
@@ -86,12 +88,20 @@ const FORM_FIELD_TYPES = new Set<FormFieldType>(['text', 'textarea', 'number', '
 
 @Injectable()
 export class WorkflowService implements OnModuleInit {
-  constructor(@InjectEntityManager() private readonly em: EntityManager) {}
+  private readonly logger = new Logger(WorkflowService.name);
+
+  constructor(
+    @InjectEntityManager() private readonly em: EntityManager,
+    private readonly conditionEngine: ConditionEngineService,
+  ) {}
 
   async onModuleInit() {
-    await this.ensureSchema();
+    // Workflow schema is managed by migration.
+    // Run: psql $DATABASE_URL -f migrations/20260525_workflow_schema.sql
+    this.logger.log('WorkflowService initialized. Schema managed by migration file.');
   }
 
+  /** @deprecated Use migration file instead. Kept for reference only. */
   async ensureSchema() {
     const ddl = [
       `CREATE TABLE IF NOT EXISTS wf_form_definition (
@@ -1233,26 +1243,8 @@ export class WorkflowService implements OnModuleInit {
 
   private findNextNode(graph: WorkflowGraph, fromNodeId: string, variables: Record<string, any>) {
     const edges = graph.edges.filter(e => e.from === fromNodeId);
-    const edge = edges.find(e => !e.condition || this.evalCondition(e.condition, variables));
+    const edge = edges.find(e => !e.condition || this.conditionEngine.evaluate(e.condition as ConditionNode, variables));
     return edge ? graph.nodes.find(n => n.id === edge.to) : null;
-  }
-
-  private evalCondition(rule: ConditionRule, variables: Record<string, any>) {
-    if (!rule || !rule.field || !rule.operator) return true;
-    const actual = variables[rule.field];
-    const expected = rule.value;
-    switch (rule.operator) {
-      case '==': return String(actual) === String(expected);
-      case '!=': return String(actual) !== String(expected);
-      case '>': return Number(actual) > Number(expected);
-      case '>=': return Number(actual) >= Number(expected);
-      case '<': return Number(actual) < Number(expected);
-      case '<=': return Number(actual) <= Number(expected);
-      case 'in': return Array.isArray(expected) && expected.map(String).includes(String(actual));
-      case 'notIn': return Array.isArray(expected) && !expected.map(String).includes(String(actual));
-      case 'contains': return String(actual ?? '').includes(String(expected ?? ''));
-      default: return false;
-    }
   }
 
   private async finishInstance(instanceId: number, status: WorkflowStatus, fromNodeId: string | null, toNodeId: string | null, user: WorkflowUser) {
