@@ -8,3 +8,5 @@ export { FinFundTransferEntity }             from './fin-fund-transfer.entity';
 export { FinShareholderContributionEntity }  from './fin-shareholder-contribution.entity';
 export { FinExchangeRateEntity }             from './fin-exchange-rate.entity';
 export { FinShareholderSettlementEntity }    from './fin-shareholder-settlement.entity';
+export { FinExpenseRequestEntity }           from './fin-expense-request.entity';
+export { FinReimbursementEntity }            from './fin-reimbursement.entity';

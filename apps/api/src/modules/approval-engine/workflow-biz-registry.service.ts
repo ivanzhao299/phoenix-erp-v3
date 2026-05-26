@@ -79,6 +79,80 @@ export class WorkflowBizRegistryService implements OnModuleInit {
       cancelledStatus: 'CANCELLED',
     });
 
+    // ── Finance V2 Phase 5 — Expense Runtime ─────────────────────────────
+
+    this.register('EXPENSE_REQUEST', {
+      moduleCode:      'MENU_FIN2_EXPENSE',
+      tableName:       'fin_expense_requests',
+      approvedStatus:  'APPROVED',
+      rejectedStatus:  'REJECTED',
+      cancelledStatus: 'CANCELLED',
+      /**
+       * 审批通过后：在同一事务内自动生成 fin_reimbursements（status=PENDING）。
+       * 使用纯 EntityManager raw SQL，不依赖任何 Service，避免循环引用。
+       */
+      onApproved: async (bizId: string, mgr: EntityManager) => {
+        const [exp] = await mgr.query(
+          `SELECT * FROM fin_expense_requests WHERE id = $1`,
+          [bizId],
+        );
+        if (!exp) return;
+
+        // 已有报销记录则幂等跳过
+        const [exist] = await mgr.query(
+          `SELECT id FROM fin_reimbursements WHERE expense_request_id = $1 LIMIT 1`,
+          [exp.id],
+        );
+        if (exist) return;
+
+        // 生成 reimb_no（advisory lock 防并发冲突）
+        const now    = new Date();
+        const prefix = `RMB-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-`;
+        await mgr.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [prefix]);
+        const [maxRow] = await mgr.query(
+          `SELECT MAX(reimb_no) AS max FROM fin_reimbursements WHERE reimb_no LIKE $1`,
+          [`${prefix}%`],
+        );
+        let seq = 1;
+        const maxVal: string | null = maxRow?.max ?? null;
+        if (maxVal) {
+          const last = parseInt(maxVal.slice(prefix.length), 10);
+          if (!isNaN(last)) seq = last + 1;
+        }
+        const reimbNo = `${prefix}${String(seq).padStart(5, '0')}`;
+
+        await mgr.query(`
+          INSERT INTO fin_reimbursements (
+            reimb_no, expense_request_id, expense_no,
+            employee_id, employee_name,
+            company_code, company_name,
+            currency_code, reimb_amount_original, exchange_rate, reimb_amount_base, base_currency,
+            status, created_at, updated_at
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'PENDING',now(),now())
+        `, [
+          reimbNo,
+          exp.id, exp.expense_no,
+          exp.requester_id,
+          exp.requester_name ?? '未知',
+          exp.company_code,
+          exp.company_name ?? null,
+          exp.currency_code,
+          exp.amount_original,
+          exp.exchange_rate,
+          exp.amount_base,
+          exp.base_currency ?? 'CNY',
+        ]);
+      },
+    });
+
+    this.register('REIMBURSEMENT', {
+      moduleCode:      'MENU_FIN2_EXPENSE',
+      tableName:       'fin_reimbursements',
+      approvedStatus:  'APPROVED',
+      rejectedStatus:  'CANCELLED',
+      cancelledStatus: 'CANCELLED',
+    });
+
     this.logger.log(
       `WorkflowBizRegistry initialized with ${this.registry.size} bizTypes: ${[...this.registry.keys()].join(', ')}`,
     );

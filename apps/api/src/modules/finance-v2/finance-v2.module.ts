@@ -5,6 +5,7 @@ import { FinApController }      from './controllers/fin-ap.controller';
 import { FinArController }      from './controllers/fin-ar.controller';
 import { FinCashController }    from './controllers/fin-cash.controller';
 import { FinShareholderController } from './controllers/fin-shareholder.controller';
+import { FinExpenseController }    from './controllers/fin-expense.controller';
 import { ApAdapterService }     from './services/ap-adapter.service';
 import { ApInvoicesService }    from './services/ap-invoices.service';
 import { ArInvoicesService }    from './services/ar-invoices.service';
@@ -14,6 +15,8 @@ import { CashTransactionsService } from './services/cash-transactions.service';
 import { FundTransfersService } from './services/fund-transfers.service';
 import { ShareholderContributionsService } from './services/shareholder-contributions.service';
 import { ShareholderSettlementsService }   from './services/shareholder-settlements.service';
+import { ExpenseRequestsService }          from './services/expense-requests.service';
+import { ReimbursementsService }           from './services/reimbursements.service';
 import {
   FinApInvoiceEntity,
   FinArInvoiceEntity,
@@ -25,6 +28,8 @@ import {
   FinShareholderContributionEntity,
   FinShareholderSettlementEntity,
   FinExchangeRateEntity,
+  FinExpenseRequestEntity,
+  FinReimbursementEntity,
 } from './entities';
 
 /**
@@ -85,18 +90,21 @@ import {
     FinArController,
     FinCashController,
     FinShareholderController,
+    FinExpenseController,
   ],
   providers: [
     ApAdapterService, ApInvoicesService,
     ArInvoicesService, ArReceiptsService,
     CashAccountsService, CashTransactionsService, FundTransfersService,
     ShareholderContributionsService, ShareholderSettlementsService,
+    ExpenseRequestsService, ReimbursementsService,
   ],
   exports: [
     ApAdapterService, ApInvoicesService,
     ArInvoicesService, ArReceiptsService,
     CashAccountsService, CashTransactionsService, FundTransfersService,
     ShareholderContributionsService, ShareholderSettlementsService,
+    ExpenseRequestsService, ReimbursementsService,
   ],
 })
 export class FinanceV2Module {}

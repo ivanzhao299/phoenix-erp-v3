@@ -9,6 +9,7 @@ import { CashAccountsService }   from '../services/cash-accounts.service';
 import { CashTransactionsService } from '../services/cash-transactions.service';
 import { FundTransfersService }  from '../services/fund-transfers.service';
 import { ShareholderContributionsService } from '../services/shareholder-contributions.service';
+import { ExpenseRequestsService }          from '../services/expense-requests.service';
 
 /**
  * Finance V2 Controller — Phase 4 Shareholder Runtime
@@ -28,6 +29,7 @@ export class FinanceV2Controller {
     private readonly cashTxnSvc:   CashTransactionsService,
     private readonly tfrSvc:       FundTransfersService,
     private readonly shContribSvc: ShareholderContributionsService,
+    private readonly expenseSvc:   ExpenseRequestsService,
     private readonly cls:          ClsService,
   ) {}
 
@@ -45,7 +47,7 @@ export class FinanceV2Controller {
     return {
       status:  'ok',
       module:  'finance-v2',
-      phase:   'phase-4-shareholder-runtime',
+      phase:   'phase-5-expense-runtime',
       tables:  [
         'fin_ap_invoices',
         'fin_ar_invoices',
@@ -54,6 +56,8 @@ export class FinanceV2Controller {
         'fin_fund_transfers',
         'fin_shareholder_contributions',
         'fin_shareholder_settlements',
+        'fin_expense_requests',
+        'fin_reimbursements',
         'fin_exchange_rates',
       ],
       legacy_frozen: [
@@ -79,12 +83,13 @@ export class FinanceV2Controller {
       ? null
       : (u?.dataScope?.companyCodes ?? []);
 
-    const [apSummary, cashSummary, todayCash, pendingTransfers, shSummary] = await Promise.allSettled([
+    const [apSummary, cashSummary, todayCash, pendingTransfers, shSummary, expenseSummary] = await Promise.allSettled([
       this.apInvoices.getSummary(),
       this.cashAccSvc.getSummary(u),
       this.cashTxnSvc.getTodaySummary(companyCodes),
       this.tfrSvc.getPendingCount(companyCodes),
       this.shContribSvc.getSummary(u),
+      this.expenseSvc.getSummary(u),
     ]);
 
     return {
@@ -116,8 +121,10 @@ export class FinanceV2Controller {
           summary:     shSummary.status === 'fulfilled' ? shSummary.value : null,
         },
         expense: {
-          status:      'PLANNED',
-          description: '费用 Runtime — Phase 5 建设',
+          status:      'RUNTIME',
+          description: 'Expense Runtime（fin_expense_requests + fin_reimbursements）',
+          source:      'fin_expense_requests',
+          summary:     expenseSummary.status === 'fulfilled' ? expenseSummary.value : null,
         },
       },
       workflowPlatform: {

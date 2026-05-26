@@ -1,0 +1,362 @@
+'use client';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  Wallet, RefreshCw, ChevronRight, AlertTriangle,
+  CreditCard, CheckCircle, Clock, Ban,
+} from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
+
+// ── 类型 ─────────────────────────────────────────────────────────────────────
+
+interface Reimbursement {
+  id: number;
+  reimb_no: string;
+  expense_request_id: number;
+  expense_no: string;
+  employee_name: string;
+  company_code: string;
+  company_name: string;
+  currency_code: string;
+  reimb_amount_original: string;
+  reimb_amount_base: string;
+  cash_account_code: string | null;
+  payment_txn_id: string | null;
+  status: string;
+  created_at: string;
+  expense_type?: string;
+  expense_date?: string;
+}
+
+interface CashAccount {
+  id: number;
+  account_code: string;
+  account_name: string;
+  current_balance: string;
+  currency_code: string;
+}
+
+interface ReimbSummary {
+  totalReimb: number;
+  pendingReimb: number;
+  approvedReimb: number;
+  paidReimb: number;
+  paidToday: number;
+  paidAmountToday: number;
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+function getToken() {
+  if (typeof window === 'undefined') return '';
+  return sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token') || '';
+}
+
+async function apiFetch<T>(url: string, opts?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}`, ...(opts?.headers ?? {}) },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.message ?? `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+// ── 常量 ─────────────────────────────────────────────────────────────────────
+
+const STATUS_CFG: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
+  PENDING:          { label: '待付款',     color: '#f59e0b', bg: '#fffbeb', icon: Clock },
+  PENDING_APPROVAL: { label: '审批中',     color: '#f59e0b', bg: '#fffbeb', icon: Clock },
+  APPROVED:         { label: '已审批',     color: '#10b981', bg: '#f0fdf4', icon: CheckCircle },
+  PAID:             { label: '已付款',     color: '#6366f1', bg: '#eef2ff', icon: CreditCard },
+  CANCELLED:        { label: '已取消',     color: '#9ca3af', bg: '#f9fafb', icon: Ban },
+};
+
+function fmt(n: string | number | null | undefined): string {
+  return Number(n ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const cfg = STATUS_CFG[status] ?? { label: status, color: '#6b7280', bg: '#f3f4f6', icon: Clock };
+  return (
+    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, color: cfg.color, background: cfg.bg }}>
+      {cfg.label}
+    </span>
+  );
+}
+
+// ── 子组件：付款弹窗 ──────────────────────────────────────────────────────────
+
+function PayModal({
+  reimb, onClose, onPaid,
+}: {
+  reimb: Reimbursement;
+  onClose: () => void;
+  onPaid: () => void;
+}) {
+  const [accounts, setAccounts] = useState<CashAccount[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState('');
+  const [remark, setRemark] = useState('');
+  const [paying, setPaying] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    apiFetch<{ data: CashAccount[] }>('/api/v2/finance/cash/accounts?status=ACTIVE&pageSize=100')
+      .then(r => setAccounts(r.data))
+      .catch(() => {});
+  }, []);
+
+  const pay = async () => {
+    if (!selectedAccount) { setError('请选择付款账户'); return; }
+    setPaying(true); setError('');
+    try {
+      await apiFetch(`/api/v2/finance/expenses/reimbursements/${reimb.id}/pay`, {
+        method: 'POST',
+        body: JSON.stringify({ cashAccountId: selectedAccount, remark: remark || undefined }),
+      });
+      onPaid();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : '付款失败');
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const selected = accounts.find(a => String(a.id) === selectedAccount);
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+      <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 420 }}>
+        <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>执行付款</div>
+        <div style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>报销单号：{reimb.reimb_no}</div>
+
+        <div style={{ background: '#fffbeb', borderRadius: 10, padding: '12px 16px', marginBottom: 20, border: '1.5px solid #fde68a' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e' }}>
+            {reimb.currency_code} {fmt(reimb.reimb_amount_original)}
+          </div>
+          <div style={{ fontSize: 12, color: '#78350f', marginTop: 2 }}>
+            CNY ¥{fmt(reimb.reimb_amount_base)}（基准货币）
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>付款账户 *</div>
+          <select value={selectedAccount} onChange={e => setSelectedAccount(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontSize: 13 }}>
+            <option value="">请选择账户</option>
+            {accounts.map(a => (
+              <option key={a.id} value={String(a.id)}>
+                {a.account_name}（{a.account_code}）余额：¥{fmt(a.current_balance)}
+              </option>
+            ))}
+          </select>
+          {selected && (
+            <div style={{ marginTop: 6, fontSize: 12, color: Number(selected.current_balance) >= Number(reimb.reimb_amount_base) ? '#059669' : '#ef4444', fontWeight: 600 }}>
+              {Number(selected.current_balance) >= Number(reimb.reimb_amount_base) ? '✓ 余额充足' : '✗ 余额不足'}
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>备注</div>
+          <input value={remark} onChange={e => setRemark(e.target.value)} placeholder="选填"
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontSize: 13, boxSizing: 'border-box' }}
+          />
+        </div>
+
+        {error && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 12 }}>{error}</div>}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13 }}>取消</button>
+          <button onClick={() => void pay()} disabled={paying || !selectedAccount}
+            style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#6366f1', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700, opacity: !selectedAccount ? 0.5 : 1 }}>
+            {paying ? '付款中...' : '确认付款'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 主页面 ────────────────────────────────────────────────────────────────────
+
+export default function ReimbursementsPage() {
+  const [items,        setItems]        = useState<Reimbursement[]>([]);
+  const [summary,      setSummary]      = useState<ReimbSummary | null>(null);
+  const [loading,      setLoading]      = useState(true);
+  const [total,        setTotal]        = useState(0);
+  const [page,         setPage]         = useState(1);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [payTarget,    setPayTarget]    = useState<Reimbursement | null>(null);
+  const [actingId,     setActingId]     = useState<number | null>(null);
+  const [error,        setError]        = useState('');
+
+  const pageSize = 20;
+
+  const load = useCallback(async () => {
+    setLoading(true); setError('');
+    try {
+      const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+      if (statusFilter) params.set('status', statusFilter);
+
+      const [list, sum] = await Promise.allSettled([
+        apiFetch<{ data: Reimbursement[]; total: number }>(`/api/v2/finance/expenses/reimbursements?${params}`),
+        apiFetch<ReimbSummary>('/api/v2/finance/expenses/reimbursements/summary'),
+      ]);
+      if (list.status === 'fulfilled') { setItems(list.value.data); setTotal(list.value.total); }
+      if (sum.status === 'fulfilled')  setSummary(sum.value);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : '加载失败');
+    } finally {
+      setLoading(false);
+    }
+  }, [page, statusFilter]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const actionPost = async (id: number, path: string, body: Record<string, unknown> = {}) => {
+    setActingId(id);
+    try {
+      await apiFetch(`/api/v2/finance/expenses/reimbursements/${id}/${path}`, { method: 'POST', body: JSON.stringify(body) });
+      await load();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : '操作失败');
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  return (
+    <div>
+      <PageHeader
+        title="报销管理"
+        subtitle="Finance V2 Phase 5 — Reimbursement Runtime · Cash Runtime 联动"
+        breadcrumb={['Finance V2', '报销管理']}
+        actions={
+          <button onClick={() => void load()} disabled={loading}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#475569' }}>
+            <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
+          </button>
+        }
+      />
+
+      {/* KPI 快览 */}
+      {summary && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 20 }}>
+          {[
+            { label: '报销总数',     value: String(summary.totalReimb),                        color: '#6366f1', bg: '#eef2ff' },
+            { label: '待付款',       value: String(summary.pendingReimb),                       color: '#f59e0b', bg: '#fffbeb' },
+            { label: '已审批',       value: String(summary.approvedReimb),                      color: '#10b981', bg: '#f0fdf4' },
+            { label: '已付款',       value: String(summary.paidReimb),                          color: '#6366f1', bg: '#eef2ff' },
+            { label: '今日付款笔数', value: String(summary.paidToday) + ' 笔',                  color: '#059669', bg: '#f0fdf4' },
+            { label: '今日付款金额', value: `¥ ${fmt(summary.paidAmountToday)}`,                color: '#059669', bg: '#f0fdf4' },
+          ].map(c => (
+            <div key={c.label} style={{ background: c.bg, borderRadius: 12, padding: '12px 16px' }}>
+              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 2 }}>{c.label}</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: c.color }}>{c.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 筛选 */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+          style={{ padding: '7px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontSize: 13, color: '#374151' }}>
+          <option value="">全部状态</option>
+          {Object.entries(STATUS_CFG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+      </div>
+
+      {error && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 12, padding: '10px 14px', background: '#fef2f2', borderRadius: 8 }}><AlertTriangle size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />{error}</div>}
+
+      {/* 列表 */}
+      <div style={{ background: '#fff', borderRadius: 14, border: '1.5px solid #f1f5f9', overflow: 'hidden' }}>
+        {loading && <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8' }}>加载中...</div>}
+        {!loading && items.length === 0 && (
+          <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>
+            <Wallet size={32} style={{ marginBottom: 8, opacity: 0.4 }} />
+            <div>暂无报销记录</div>
+          </div>
+        )}
+        {!loading && items.map((item, i) => {
+          const cfg = STATUS_CFG[item.status] ?? STATUS_CFG.PENDING;
+          const isActing = actingId === item.id;
+          return (
+            <div key={item.id} style={{
+              padding: '16px 20px', borderBottom: i < items.length - 1 ? '1px solid #f1f5f9' : 'none',
+              display: 'flex', alignItems: 'center', gap: 14,
+            }}>
+              <div style={{ width: 36, height: 36, borderRadius: 9, background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <cfg.icon size={16} color={cfg.color} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                  <span style={{ fontWeight: 700, fontSize: 14 }}>{item.reimb_no}</span>
+                  <StatusBadge status={item.status} />
+                </div>
+                <div style={{ fontSize: 12, color: '#64748b', display: 'flex', gap: 12 }}>
+                  <span>{item.employee_name}</span>
+                  <span>{item.expense_no}</span>
+                  <span>{item.company_name ?? item.company_code}</span>
+                </div>
+                {item.cash_account_code && (
+                  <div style={{ fontSize: 11, color: '#6366f1', marginTop: 2 }}>付款账户：{item.cash_account_code}</div>
+                )}
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0, marginRight: 12 }}>
+                <div style={{ fontWeight: 800, fontSize: 15, color: '#0f172a' }}>{item.currency_code} {fmt(item.reimb_amount_original)}</div>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>{new Date(item.created_at).toLocaleDateString('zh-CN')}</div>
+              </div>
+              {/* 操作按钮 */}
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                {['PENDING', 'APPROVED'].includes(item.status) && (
+                  <button
+                    onClick={() => setPayTarget(item)}
+                    disabled={isActing}
+                    style={{ padding: '5px 12px', borderRadius: 7, border: 'none', background: '#6366f1', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                    付款
+                  </button>
+                )}
+                {item.status === 'PENDING' && (
+                  <button
+                    onClick={() => void actionPost(item.id, 'approve-direct')}
+                    disabled={isActing}
+                    style={{ padding: '5px 12px', borderRadius: 7, border: '1.5px solid #10b981', background: '#f0fdf4', color: '#059669', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                    直接审批
+                  </button>
+                )}
+                {['PENDING', 'APPROVED'].includes(item.status) && (
+                  <button
+                    onClick={() => void actionPost(item.id, 'cancel')}
+                    disabled={isActing}
+                    style={{ padding: '5px 12px', borderRadius: 7, border: '1.5px solid #fee2e2', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: 12 }}>
+                    取消
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 分页 */}
+      {total > pageSize && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+          {page > 1 && <button onClick={() => setPage(p => p - 1)} style={{ padding: '6px 14px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13 }}>上一页</button>}
+          <span style={{ padding: '6px 14px', fontSize: 13, color: '#64748b' }}>第 {page} 页 / 共 {Math.ceil(total / pageSize)} 页</span>
+          {page * pageSize < total && <button onClick={() => setPage(p => p + 1)} style={{ padding: '6px 14px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13 }}>下一页</button>}
+        </div>
+      )}
+
+      {/* 付款弹窗 */}
+      {payTarget && (
+        <PayModal
+          reimb={payTarget}
+          onClose={() => setPayTarget(null)}
+          onPaid={() => { setPayTarget(null); void load(); }}
+        />
+      )}
+    </div>
+  );
+}

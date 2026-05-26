@@ -138,6 +138,8 @@ export class ApprovalEngineService {
       // 无规则 → 自动审批通过
       const autoStatus = this.bizRegistry.getApprovedStatus(params.bizType);
       await this.updateBizStatus(params.bizType, params.bizId, autoStatus, mgr);
+      const cfg0 = this.bizRegistry.get(params.bizType);
+      if (cfg0?.onApproved) await cfg0.onApproved(params.bizId, mgr);
       return null;
     }
 
@@ -149,6 +151,8 @@ export class ApprovalEngineService {
     if (ruleSteps.length === 0) {
       const autoStatus = this.bizRegistry.getApprovedStatus(params.bizType);
       await this.updateBizStatus(params.bizType, params.bizId, autoStatus, mgr);
+      const cfg0 = this.bizRegistry.get(params.bizType);
+      if (cfg0?.onApproved) await cfg0.onApproved(params.bizId, mgr);
       return null;
     }
 
@@ -344,6 +348,10 @@ export class ApprovalEngineService {
         const bizStatus = this.bizRegistry.getApprovedStatus(instance.bizType);
         await this.updateBizStatus(instance.bizType, instance.bizId, bizStatus, mgr);
 
+        // onApproved 回调（同一事务）
+        const approvedCfg = this.bizRegistry.get(instance.bizType);
+        if (approvedCfg?.onApproved) await approvedCfg.onApproved(instance.bizId, mgr);
+
         // 通知发起人：审批完成
         const starterUserId = instance.startedBy ?? undefined;
         setImmediate(() => {
@@ -434,6 +442,10 @@ export class ApprovalEngineService {
 
       // 更新业务状态
       await this.updateBizStatus(instance.bizType, instance.bizId, 'REJECTED', mgr);
+
+      // onRejected 回调（同一事务）
+      const rejectedCfg = this.bizRegistry.get(instance.bizType);
+      if (rejectedCfg?.onRejected) await rejectedCfg.onRejected(instance.bizId, mgr);
 
       // 通知发起人：审批被拒绝
       const starterUserId = instance.startedBy ?? undefined;
