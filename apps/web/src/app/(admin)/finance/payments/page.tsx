@@ -1,6 +1,7 @@
 "use client";
 import { useState, useCallback } from "react";
 import { crudApi } from "@/lib/api-client";
+import { LegacyFreezeBanner } from "@/components/finance/LegacyFreezeBanner";
 import { DataTable } from "@/components/data-table/DataTable";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
@@ -49,10 +50,11 @@ export default function Page() {
 
   return (
     <div>
+      <LegacyFreezeBanner redirectPath="/procurement2/payments" redirectLabel="前往采购 V2 付款" />
       <PageHeader
         breadcrumb={[t("ui.财务管理", "财务管理"), t("ui.收款管理", "收款管理")]}
-        title={t("ui.付款单", "付款单")}
-        subtitle={t("ui.管理对外付款单据", "管理对外付款单据（表：fin_payments）")} />
+        title={t("ui.付款单（已冻结）", "付款单（已冻结）")}
+        subtitle={t("ui.管理对外付款单据", "⚠️ 已冻结 — 请使用采购 V2 付款管理")} />
       <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
       <RightDrawer open={o} title={e ? t("ui.编辑付款单", "编辑付款单") : t("ui.新增付款单", "新增付款单")} onClose={cl}>
         <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />

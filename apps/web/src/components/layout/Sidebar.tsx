@@ -17,7 +17,7 @@ import {
   Wheat, ScrollText, FlaskConical, ArrowLeftRight, DollarSign,
   History, Box, RefreshCw, TrendingDown, Banknote, Building, ShoppingBag,
   BarChart3, Minus, Network, Smartphone, ToggleRight, Zap,
-  FolderKanban, Globe, Layers3, UploadCloud, Bell
+  FolderKanban, Globe, Layers3, UploadCloud, Bell, Wallet
 } from "lucide-react";
 import styles from "./sidebar.module.css";
 import { useBrand } from "@/contexts/BrandContext";
@@ -154,7 +154,14 @@ const MENU: MenuItem[] = [
     { id: "mb-coupon", path: "/members/coupons", Icon: Tag,             label: "优惠券",   perm: "MENU_B2B_SALE" },
     { id: "mb-act",    path: "/members/activity",Icon: Megaphone,       label: "营销活动", perm: "MENU_B2B_SALE" },
   ]},
-  { id: "finance", Icon: BarChart2, label: "财务结算", perm: "MENU_FIN_AUDIT", children: [
+  { id: "finance2", Icon: Wallet, label: "Finance V2", perm: "MENU_FIN2", children: [
+    { id: "f2-dash",  path: "/finance2",                  Icon: LayoutDashboard, label: "V2 Dashboard",   perm: "MENU_FIN2" },
+    { id: "f2-ap",    path: "/finance2/ap",               Icon: TrendingDown,    label: "AP 应付账款",    perm: "MENU_FIN2_AP" },
+    { id: "f2-ar",    path: "/finance2",                  Icon: TrendingUp,      label: "AR 应收（规划）", perm: "MENU_FIN2_AR" },
+    { id: "f2-cash",  path: "/finance2/cash-accounts",   Icon: Wallet,          label: "资金账户（规划）", perm: "MENU_FIN2_CASH" },
+    { id: "f2-sf",    path: "/finance2/shareholder-funds", Icon: Users,          label: "股东资金",       perm: "MENU_FIN2_SHAREHOLDER" },
+  ]},
+  { id: "finance", Icon: BarChart2, label: "财务结算（旧）", perm: "MENU_FIN_AUDIT", children: [
     { id: "fn-ov",       path: "/finance",              Icon: LayoutDashboard, label: "财务总览",   perm: "MENU_FIN_AUDIT" },
     { id: "fn-recv",     path: "/finance/receivables",  Icon: TrendingUp,      label: "应收管理",   perm: "MENU_FIN_AUDIT" },
     { id: "fn-pay",      path: "/finance/payables",     Icon: Receipt,         label: "应付管理",   perm: "MENU_FIN_AUDIT" },

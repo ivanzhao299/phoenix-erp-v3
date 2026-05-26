@@ -6,6 +6,7 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { LegacyFreezeBanner } from "@/components/finance/LegacyFreezeBanner";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const STATUS_CLS: Record<string,string> = {
@@ -112,6 +113,7 @@ export default function ReceivablesPage() {
 
   return (
     <div className="animate-fade-in">
+      <LegacyFreezeBanner redirectPath="/finance2/ap" redirectLabel="前往 Finance V2" />
       <PageHeader title={t('ui.应收管理', '应收管理')} subtitle={t('ui.客户欠款追踪与回款登记', '客户欠款追踪与回款登记')} breadcrumb={[t('ui.财务管理', '财务管理'),t('ui.应收管理', '应收管理')]}
         actions={<div style={{ display:"flex",gap:8 }}>
           <button type="button" className={s.btnSecondary} onClick={load} disabled={loading}

@@ -6,6 +6,7 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { LegacyFreezeBanner } from "@/components/finance/LegacyFreezeBanner";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const STATUS_CLS: Record<string,string> = {
@@ -96,6 +97,7 @@ export default function PayablesPage() {
 
   return (
     <div className="animate-fade-in">
+      <LegacyFreezeBanner redirectPath="/procurement2/payments" redirectLabel="前往采购 V2 付款" />
       <PageHeader title={t('ui.应付管理','应付管理')} subtitle={t('ui.供应商付款追踪与付款登记','供应商付款追踪与付款登记')} breadcrumb={[t('ui.财务管理','财务管理'),t('ui.应付管理','应付管理')]}
         actions={
           <div style={{ display:"flex",gap:8 }}>

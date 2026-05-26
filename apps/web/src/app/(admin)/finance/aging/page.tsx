@@ -6,6 +6,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { LegacyFreezeBanner } from "@/components/finance/LegacyFreezeBanner";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const TABLE = "fin_transactions";
@@ -78,6 +79,7 @@ export default function 账龄分析Page() {
 
   return (
     <div>
+      <LegacyFreezeBanner redirectPath="/finance2/ap" redirectLabel="前往 Finance V2 AP" />
       <PageHeader title={TITLE} subtitle={t("ui.按账期维度分析应收款项逾期情况", "按账期维度分析应收款项逾期情况（表：fin_transactions）")} />
       <DataTable
         table={TABLE}

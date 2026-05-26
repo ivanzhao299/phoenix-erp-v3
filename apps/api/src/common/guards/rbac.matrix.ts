@@ -280,6 +280,81 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_CEO:         ['V','X'],
   },
 
+  // ── Finance V2（重构版，Phase 0+）───────────────────────────────────────
+  /** Finance V2 主模块入口 */
+  MENU_FIN2: {
+    ROLE_ADMIN:               ['V','C','E','D','A','X'],
+    ROLE_FIN_CFO:             ['V','C','E','A','X'],
+    ROLE_GROUP_FINANCE:       ['V','C','E','A','X'],
+    ROLE_FACTORY_ACCOUNTANT:  ['V','C','E','X'],
+    ROLE_CEO:                 ['V','A','X'],
+    ROLE_AUDITOR:             ['V','X'],
+  },
+  /** Finance V2 应付账款（AP） */
+  MENU_FIN2_AP: {
+    ROLE_ADMIN:               ['V','C','E','D','A','X'],
+    ROLE_FIN_CFO:             ['V','C','E','A','X'],
+    ROLE_GROUP_FINANCE:       ['V','C','E','A','X'],
+    ROLE_FACTORY_ACCOUNTANT:  ['V','C','E','X'],
+    ROLE_CEO:                 ['V','A','X'],
+    ROLE_AUDITOR:             ['V','X'],
+    ROLE_PRC_BUYER:           ['V'],             // 采购员可看自己的 AP 状态
+  },
+  /** Finance V2 应收账款（AR） */
+  MENU_FIN2_AR: {
+    ROLE_ADMIN:               ['V','C','E','D','A','X'],
+    ROLE_FIN_CFO:             ['V','C','E','A','X'],
+    ROLE_GROUP_FINANCE:       ['V','C','E','A','X'],
+    ROLE_FACTORY_ACCOUNTANT:  ['V','C','E','X'],
+    ROLE_CEO:                 ['V','A','X'],
+    ROLE_AUDITOR:             ['V','X'],
+  },
+  /** Finance V2 资金账户（Cash Accounts） */
+  MENU_FIN2_CASH: {
+    ROLE_ADMIN:               ['V','C','E','D','A','X'],
+    ROLE_FIN_CFO:             ['V','C','E','A','X'],
+    ROLE_GROUP_FINANCE:       ['V','C','E','X'],
+    ROLE_FACTORY_ACCOUNTANT:  ['V','C','X'],
+    ROLE_CEO:                 ['V','X'],
+    ROLE_AUDITOR:             ['V','X'],
+  },
+  /** Finance V2 费用管理（Expense） */
+  MENU_FIN2_EXPENSE: {
+    ROLE_ADMIN:               ['V','C','E','D','A','X'],
+    ROLE_FIN_CFO:             ['V','C','E','A','X'],
+    ROLE_GROUP_FINANCE:       ['V','C','E','A','X'],
+    ROLE_FACTORY_ACCOUNTANT:  ['V','C','E','X'],
+    ROLE_CEO:                 ['V','A','X'],
+    ROLE_FARM_MGR:            ['V','C'],          // 申请费用
+    ROLE_STORE_MGR:           ['V','C'],          // 申请费用
+    ROLE_AUDITOR:             ['V','X'],
+  },
+  /** Finance V2 预算管理（Budget） */
+  MENU_FIN2_BUDGET: {
+    ROLE_ADMIN:               ['V','C','E','D','A','X'],
+    ROLE_FIN_CFO:             ['V','C','E','A','X'],
+    ROLE_GROUP_FINANCE:       ['V','C','E','A','X'],
+    ROLE_CEO:                 ['V','A','X'],
+    ROLE_AUDITOR:             ['V','X'],
+  },
+  /** Finance V2 股东资金（Shareholder Funds） */
+  MENU_FIN2_SHAREHOLDER: {
+    ROLE_ADMIN:               ['V','C','E','D','A','X'],
+    ROLE_FIN_CFO:             ['V','C','E','A','X'],
+    ROLE_GROUP_FINANCE:       ['V','C','E','A','X'],
+    ROLE_CEO:                 ['V','A','X'],
+    ROLE_SHAREHOLDER_VIEW:    ['V'],              // 股东仅查看
+    ROLE_AUDITOR:             ['V','X'],
+  },
+  /** Finance V2 财务报告（Reports） */
+  MENU_FIN2_REPORT: {
+    ROLE_ADMIN:               ['V','X'],
+    ROLE_FIN_CFO:             ['V','X'],
+    ROLE_GROUP_FINANCE:       ['V','X'],
+    ROLE_CEO:                 ['V','X'],
+    ROLE_AUDITOR:             ['V','X'],
+  },
+
   // 订单管理（BFF 层，原 MENU_ORDERS 的 BFF 补充）
   MENU_ORDER_MGR: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],

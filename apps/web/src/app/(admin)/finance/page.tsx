@@ -6,6 +6,7 @@ import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LegacyFreezeBanner } from "@/components/finance/LegacyFreezeBanner";
 
 interface ARRow  { id:number; customer_name?:string; amount?:number; due_date?:string; status?:string; }
 interface APRow  { id:number; supplier_name?:string; amount?:number; due_date?:string; status?:string; }
@@ -79,6 +80,7 @@ export default function FinancePage() {
 
   return (
     <div className="animate-fade-in">
+      <LegacyFreezeBanner redirectPath="/finance2" redirectLabel="前往 Finance V2" />
       <PageHeader title={t('ui.财务管理', '财务管理')} subtitle={t('ui.应收应付·账龄分析·成本核算', '应收应付·账龄分析·成本核算')}
         breadcrumb={[t('ui.财务管理', '财务管理')]}
         actions={<button type="button" className={s.btnSecondary} onClick={load} disabled={loading}

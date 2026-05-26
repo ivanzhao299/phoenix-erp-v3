@@ -6,6 +6,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { LegacyFreezeBanner } from "@/components/finance/LegacyFreezeBanner";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -50,6 +51,7 @@ export default function Page() {
 
   return (
     <div>
+      <LegacyFreezeBanner />
       <PageHeader
         breadcrumb={[t("ui.财务管理", "财务管理"), t("ui.成本核算", "成本核算")]}
         title={t("ui.成本核算", "成本核算")}

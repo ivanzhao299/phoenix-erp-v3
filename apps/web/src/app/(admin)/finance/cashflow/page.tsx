@@ -6,6 +6,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { LegacyFreezeBanner } from "@/components/finance/LegacyFreezeBanner";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 // ✅ V3 表: biz_cash_flow (专用现金流水表)
@@ -72,6 +73,7 @@ export default function CashflowPage() {
 
   return (
     <div>
+      <LegacyFreezeBanner redirectPath="/finance2/cash-accounts" redirectLabel="前往 Finance V2 资金账户" />
       <PageHeader title={t("ui.现金流水", "现金流水")} subtitle={t("ui.记录企业现金收付流水明细", "记录企业现金收付流水明细（表：biz_cash_flow）")} />
       <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit}
         onDelete={handleDelete} showActions refreshKey={refreshKey} />
