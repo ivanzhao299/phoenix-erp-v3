@@ -10,6 +10,15 @@ import PageHeader from '@/components/PageHeader';
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 
+interface ArSummaryData {
+  total_invoices:           number;
+  open_invoices:            number;
+  overdue_invoices:         number;
+  balance_amount_original:  string;
+  overdue_balance:          string;
+  byCurrency:               { currency_code: string }[];
+}
+
 interface HealthData {
   status:   string;
   module:   string;
@@ -96,17 +105,28 @@ function ModuleCard({
 
 // ── 主页面 ─────────────────────────────────────────────────────────────────────
 
+function fmtMoney(val: string | number | null | undefined, currency = 'CNY') {
+  const n = Number(val ?? 0);
+  const sym = currency === 'USD' ? '$' : '¥';
+  return `${currency} ${sym}${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export default function Finance2DashboardPage() {
-  const [health,  setHealth]  = useState<HealthData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState('');
+  const [health,    setHealth]    = useState<HealthData | null>(null);
+  const [arSummary, setArSummary] = useState<ArSummaryData | null>(null);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState('');
 
   const load = async () => {
     setLoading(true);
     setError('');
     try {
-      const h = await apiFetch<HealthData>('/api/v2/finance/health');
-      setHealth(h);
+      const [h, ar] = await Promise.allSettled([
+        apiFetch<HealthData>('/api/v2/finance/health'),
+        apiFetch<ArSummaryData>('/api/v2/finance/ar/summary'),
+      ]);
+      if (h.status === 'fulfilled') setHealth(h.value);
+      if (ar.status === 'fulfilled') setArSummary(ar.value);
     } catch (e: any) {
       setError(e.message ?? '加载失败');
     } finally {
@@ -185,6 +205,39 @@ export default function Finance2DashboardPage() {
         </div>
       )}
 
+      {/* AR KPI 快览 */}
+      <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>
+        AR Runtime KPI（应收账款）
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+        gap: 10, marginBottom: 24 }}>
+        {[
+          { label: 'AR 总笔数',  value: String(arSummary?.total_invoices ?? (loading ? '…' : '—')),    color: '#10b981' },
+          { label: '未收款',     value: String(arSummary?.open_invoices  ?? (loading ? '…' : '—')),    color: '#f59e0b' },
+          { label: '逾期笔数',   value: String(arSummary?.overdue_invoices ?? (loading ? '…' : '—')),  color: '#dc2626' },
+          {
+            label: '待收余额',
+            value: arSummary
+              ? fmtMoney(arSummary.balance_amount_original, arSummary.byCurrency?.[0]?.currency_code ?? 'CNY')
+              : (loading ? '…' : '—'),
+            color: '#ef4444',
+          },
+          {
+            label: '逾期余额',
+            value: arSummary
+              ? fmtMoney(arSummary.overdue_balance, arSummary.byCurrency?.[0]?.currency_code ?? 'CNY')
+              : (loading ? '…' : '—'),
+            color: '#991b1b',
+          },
+        ].map(item => (
+          <div key={item.label} style={{ background: '#fff', borderRadius: 12, padding: '12px 16px',
+            border: '1.5px solid #f1f5f9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>{item.label}</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: item.color }}>{item.value}</div>
+          </div>
+        ))}
+      </div>
+
       {/* 模块路线图 */}
       <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>
         Finance V2 模块路线图
@@ -199,14 +252,14 @@ export default function Finance2DashboardPage() {
           title="AP Runtime（应付账款）"
           phase={1} phaseStatus="ACTIVE"
           path="/finance2/ap"
-          description="fin_ap_invoices + fin_ap_payment_allocations。供应商发票管理、付款核销、多币种。Phase 1 建立 Workflow Native AP 流程。"
+          description="fin_ap_invoices + fin_ap_payment_allocations。供应商发票管理、付款核销、多币种。Phase 1 已上线。"
         />
         <ModuleCard
           icon={TrendingUp} iconColor="#10b981"
           title="AR Runtime（应收账款）"
-          phase={2} phaseStatus="PLANNED"
+          phase={2} phaseStatus="ACTIVE"
           path="/finance2/ar"
-          description="fin_ar_invoices + fin_ar_receipts。客户发票、收款核销、账龄分析。Phase 2 建立。"
+          description="fin_ar_invoices + fin_ar_receipts + 核销分摊。客户发票、收款核销、账龄分析。Phase 2 已上线。"
         />
         <ModuleCard
           icon={Wallet} iconColor="#3b82f6"
@@ -251,6 +304,7 @@ export default function Finance2DashboardPage() {
           { icon: CheckCircle, color: '#059669', title: 'fin_* 表骨架',          desc: '9 张 fin_* 领域表 DDL 已创建，Entity 骨架已注册 TypeORM' },
           { icon: CheckCircle, color: '#059669', title: 'RBAC 矩阵',             desc: 'MENU_FIN2_* 8 个权限条目已注册，CFO/Finance/Accountant 分级管控' },
           { icon: CheckCircle, color: '#059669', title: 'AP Runtime（Phase 1）', desc: 'fin_ap_invoices 正式启用，手工创建/PO导入/状态机/账龄分析全部就绪' },
+          { icon: CheckCircle, color: '#059669', title: 'AR Runtime（Phase 2）', desc: 'fin_ar_invoices + fin_ar_receipts 正式启用，收款核销/账龄分析/事务核销全部就绪' },
           { icon: Database,    color: '#64748b', title: '旧 Finance 废弃',       desc: 'fin_transactions / fin_payments / biz_cash_flow 不再写入，只读废弃' },
         ].map(item => (
           <div key={item.title} style={{

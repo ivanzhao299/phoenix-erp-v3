@@ -6,48 +6,76 @@ import {
 /**
  * 应收发票台账  fin_ar_invoices
  *
- * Finance V2 Phase 0 Clean Baseline
- * Phase 2 正式启用（当前为空表）
+ * Finance V2 Phase 2 — AR Runtime 正式启用
+ *
+ * 来源类型（source_type）：
+ *   SALES_ORDER — 销售订单自动生成（Phase 3）
+ *   MANUAL      — 财务手工录入
+ *   CONTRACT    — 合同应收
+ *   OPENING     — 期初余额导入
+ *
+ * 状态机：
+ *   OPEN → PARTIALLY_RECEIVED → RECEIVED
+ *   OPEN → OVERDUE（到期未收自动标记，后台任务）
+ *   OPEN / PARTIALLY_RECEIVED → DISPUTED
+ *   OPEN / PARTIALLY_RECEIVED → CANCELLED（未收款可取消）
+ *   OVERDUE → WRITTEN_OFF（核销坏账，Phase 3）
+ *
+ * 收款状态（collection_status，冗余便于查询）：
+ *   UNRECEIVED → PARTIAL → RECEIVED
  */
 @Entity('fin_ar_invoices')
 export class FinArInvoiceEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;
 
-  /** AR 编号（格式：AR-YYYYMM-XXXXX） */
   @Column({ name: 'ar_no', type: 'varchar', length: 60, unique: true })
   arNo: string;
+
+  // ── 来源追踪 ─────────────────────────────────────────────────────────────
+  /** SALES_ORDER / MANUAL / CONTRACT / OPENING */
+  @Column({ name: 'source_type', type: 'varchar', length: 30, default: 'MANUAL' })
+  sourceType: string;
+
+  @Column({ name: 'source_id', type: 'bigint', nullable: true })
+  sourceId: string | null;
+
+  @Column({ name: 'source_no', type: 'varchar', length: 80, nullable: true })
+  sourceNo: string | null;
 
   // ── 公司维度 ─────────────────────────────────────────────────────────────
   @Column({ name: 'company_code', type: 'varchar', length: 64 })
   companyCode: string;
 
   @Column({ name: 'company_name', type: 'varchar', length: 256, nullable: true })
-  companyName: string;
+  companyName: string | null;
 
   // ── 项目维度 ─────────────────────────────────────────────────────────────
   @Column({ name: 'project_code', type: 'varchar', length: 64, nullable: true })
-  projectCode: string;
+  projectCode: string | null;
 
   @Column({ name: 'project_name', type: 'varchar', length: 256, nullable: true })
-  projectName: string;
+  projectName: string | null;
 
   // ── 客户 ─────────────────────────────────────────────────────────────────
-  @Column({ name: 'customer_code', type: 'varchar', length: 64 })
-  customerCode: string;
+  @Column({ name: 'customer_id', type: 'bigint', nullable: true })
+  customerId: string | null;
 
-  @Column({ name: 'customer_name', type: 'varchar', length: 256, nullable: true })
+  @Column({ name: 'customer_code', type: 'varchar', length: 64, nullable: true })
+  customerCode: string | null;
+
+  @Column({ name: 'customer_name', type: 'varchar', length: 256 })
   customerName: string;
 
   // ── 发票信息 ─────────────────────────────────────────────────────────────
   @Column({ name: 'invoice_no', type: 'varchar', length: 100, nullable: true })
-  invoiceNo: string;
+  invoiceNo: string | null;
 
-  @Column({ name: 'invoice_date', type: 'date' })
-  invoiceDate: string;
+  @Column({ name: 'invoice_date', type: 'date', nullable: true })
+  invoiceDate: string | null;
 
   @Column({ name: 'due_date', type: 'date', nullable: true })
-  dueDate: string;
+  dueDate: string | null;
 
   // ── 金额三段式 ───────────────────────────────────────────────────────────
   @Column({ name: 'currency_code', type: 'varchar', length: 8, default: 'CNY' })
@@ -65,36 +93,40 @@ export class FinArInvoiceEntity {
   @Column({ name: 'base_currency', type: 'varchar', length: 8, default: 'CNY' })
   baseCurrency: string;
 
-  // ── 收款核销 ─────────────────────────────────────────────────────────────
+  // ── 收款进度 ─────────────────────────────────────────────────────────────
   @Column({ name: 'received_amount_original', type: 'numeric', precision: 18, scale: 2, default: 0 })
   receivedAmountOriginal: number;
+
+  @Column({ name: 'received_amount_base', type: 'numeric', precision: 18, scale: 2, default: 0 })
+  receivedAmountBase: number;
 
   @Column({ name: 'balance_amount_original', type: 'numeric', precision: 18, scale: 2, default: 0 })
   balanceAmountOriginal: number;
 
+  @Column({ name: 'balance_amount_base', type: 'numeric', precision: 18, scale: 2, default: 0 })
+  balanceAmountBase: number;
+
   // ── 状态 ─────────────────────────────────────────────────────────────────
-  /** DRAFT / OPEN / PARTIAL / RECEIVED / OVERDUE / VOID */
+  /** OPEN / PARTIALLY_RECEIVED / RECEIVED / OVERDUE / DISPUTED / WRITTEN_OFF / CANCELLED */
   @Column({ name: 'status', type: 'varchar', length: 32, default: 'OPEN' })
   status: string;
 
+  /** UNRECEIVED / PARTIAL / RECEIVED */
+  @Column({ name: 'collection_status', type: 'varchar', length: 20, default: 'UNRECEIVED' })
+  collectionStatus: string;
+
   // ── 关联 ─────────────────────────────────────────────────────────────────
-  @Column({ name: 'order_no', type: 'varchar', length: 80, nullable: true })
-  orderNo: string;
-
   @Column({ name: 'wf_instance_id', type: 'bigint', nullable: true })
-  wfInstanceId: string;
-
-  @Column({ name: 'tax_amount', type: 'numeric', precision: 18, scale: 2, nullable: true })
-  taxAmount: number;
+  wfInstanceId: string | null;
 
   @Column({ name: 'remark', type: 'text', nullable: true })
-  remark: string;
+  remark: string | null;
 
   @Column({ name: 'created_by', type: 'varchar', length: 80, nullable: true })
-  createdBy: string;
+  createdBy: string | null;
 
   @Column({ name: 'updated_by', type: 'varchar', length: 80, nullable: true })
-  updatedBy: string;
+  updatedBy: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

@@ -39,7 +39,7 @@ export class FinanceV2Controller {
     return {
       status:  'ok',
       module:  'finance-v2',
-      phase:   'phase-1-ap-runtime',
+      phase:   'phase-2-ar-runtime',
       tables:  [
         'fin_ap_invoices',
         'fin_ar_invoices',
