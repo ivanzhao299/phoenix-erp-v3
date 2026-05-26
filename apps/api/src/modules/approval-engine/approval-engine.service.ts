@@ -207,6 +207,10 @@ export class ApprovalEngineService {
         );
       }
 
+      // 计算 due_at：由 sla_hours 决定，默认 48h
+      const slaHours = rs.slaHours ?? 48;
+      const dueAt = new Date(Date.now() + slaHours * 3600 * 1000);
+
       for (const approver of resolved) {
         stepEntities.push(
           mgr.create(WfApprovalInstanceStepEntity, {
@@ -219,6 +223,7 @@ export class ApprovalEngineService {
             requiredRole:       rs.approverRole      ?? null,
             allowAdminOverride: rs.allowAdminOverride ?? false,
             status:             'PENDING',
+            dueAt,
           }),
         );
       }
@@ -482,6 +487,10 @@ export class ApprovalEngineService {
         s.approver_name,
         s.required_role,
         s.status          AS step_status,
+        s.due_at,
+        s.is_overdue,
+        s.reminder_count,
+        s.escalation_level,
         i.id              AS instance_id,
         i.instance_no,
         i.module_code,

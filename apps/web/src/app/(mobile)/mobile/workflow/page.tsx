@@ -99,6 +99,19 @@ function TaskCard({
             }}>
               {bizLabel}
             </span>
+            {/* ── Phase F: SLA 标签 ── */}
+            {task.isOverdue && (
+              <span style={{
+                fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca',
+              }}>⏰ 已超期</span>
+            )}
+            {(task.escalationLevel ?? 0) > 0 && (
+              <span style={{
+                fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                background: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa',
+              }}>🔺 已升级</span>
+            )}
           </div>
           <span style={{ fontSize: 11, color: t.textFaint }}>
             {task.createdAt ? new Date(task.createdAt).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }) : '—'}
@@ -140,6 +153,33 @@ function TaskCard({
         {task.bizNo && (
           <div style={{ fontSize: 11, fontFamily: 'monospace', color: t.textFaint }}>{task.bizNo}</div>
         )}
+
+        {/* ── Phase F: SLA 倒计时 / 超期提示 ── */}
+        {task.dueAt && (() => {
+          const msLeft = new Date(task.dueAt).getTime() - Date.now();
+          const hLeft  = Math.floor(msLeft / 3600000);
+          if (task.isOverdue) {
+            const hOver = Math.abs(hLeft);
+            return (
+              <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                ⏰ 已超期 {hOver >= 24 ? `${Math.floor(hOver / 24)}天` : `${hOver}小时`}
+              </div>
+            );
+          }
+          if (hLeft < 24) {
+            return (
+              <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                ⚡ 剩余 {hLeft}小时截止
+              </div>
+            );
+          }
+          const dLeft = Math.floor(hLeft / 24);
+          return (
+            <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+              ⏱ 剩余 {dLeft}天
+            </div>
+          );
+        })()}
       </div>
 
       {/* 展开：操作按钮 */}

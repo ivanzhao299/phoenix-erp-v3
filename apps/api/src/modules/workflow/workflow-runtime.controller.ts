@@ -63,13 +63,16 @@ export class WorkflowRuntimeController {
         companyName:   t.company_name ?? null,
         projectCode:   t.project_code ?? null,
         projectName:   t.project_name ?? null,
-        requiredRole:  t.approver_role,
-        stepNo:        t.step_no ?? 1,
-        totalSteps:    t.total_steps ?? 1,
-        currentStepNo: t.current_step_no ?? 1,
-        startedBy:     t.started_by ?? null,
-        status:        t.step_status,
-        createdAt:     t.started_at,
+        requiredRole:     t.approver_role,
+        stepNo:           t.step_no ?? 1,
+        totalSteps:       t.total_steps ?? 1,
+        currentStepNo:    t.current_step_no ?? 1,
+        startedBy:        t.started_by ?? null,
+        status:           t.step_status,
+        createdAt:        t.started_at,
+        dueAt:            t.due_at ?? null,
+        isOverdue:        t.is_overdue ?? false,
+        escalationLevel:  t.escalation_level ?? 0,
       }));
     }
 

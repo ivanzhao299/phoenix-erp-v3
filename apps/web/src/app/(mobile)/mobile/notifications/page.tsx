@@ -31,6 +31,10 @@ const TYPE_CONFIG: Record<string, { icon: string; color: string; label: string }
   TASK_COMPLETED:  { icon: '🎉', color: '#10b981', label: '流程完成' },
   TASK_CANCELLED:  { icon: '🚫', color: '#94a3b8', label: '流程取消' },
   REMINDER:        { icon: '⏰', color: '#f59e0b', label: '催办提醒' },
+  // Phase F: SLA 类型
+  TASK_REMINDER:   { icon: '⏰', color: '#f59e0b', label: '审批催办' },
+  TASK_OVERDUE:    { icon: '🔴', color: '#ef4444', label: '审批超期' },
+  TASK_ESCALATED:  { icon: '🔺', color: '#ea580c', label: '审批升级' },
 };
 
 function getTypeConfig(type: string) {

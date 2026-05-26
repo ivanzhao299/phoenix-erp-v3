@@ -29,6 +29,25 @@ export class WfApprovalRuleStepEntity {
   @Column({ name: 'allow_admin_override', default: false })
   allowAdminOverride: boolean;
 
+  // ── SLA 配置（Phase F 新增）──────────────────────────────────────────────
+  @Column({ name: 'sla_hours', default: 48 })
+  slaHours: number;
+
+  @Column({ name: 'reminder_interval_hours', default: 12 })
+  reminderIntervalHours: number;
+
+  @Column({ name: 'max_reminders', default: 3 })
+  maxReminders: number;
+
+  @Column({ name: 'escalation_enabled', default: false })
+  escalationEnabled: boolean;
+
+  @Column({ name: 'escalation_after_hours', nullable: true, type: 'int' })
+  escalationAfterHours: number | null;
+
+  @Column({ name: 'escalation_role', nullable: true, type: 'varchar', length: 128 })
+  escalationRole: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

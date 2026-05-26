@@ -489,9 +489,13 @@ export interface WorkflowTask {
   stepNo:        number | null;
   totalSteps:    number | null;
   currentStepNo: number | null;
-  startedBy:     string | null;
-  status:        string;
-  createdAt:     string;
+  startedBy:       string | null;
+  status:          string;
+  createdAt:       string;
+  // Phase F: SLA
+  dueAt:           string | null;
+  isOverdue:       boolean;
+  escalationLevel: number;
 }
 
 export interface WorkflowTaskPage {

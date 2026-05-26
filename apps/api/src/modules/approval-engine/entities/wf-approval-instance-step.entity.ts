@@ -50,4 +50,23 @@ export class WfApprovalInstanceStepEntity {
 
   @Column({ name: 'approver_type', type: 'varchar', length: 32, default: 'ROLE' })
   approverType: string;
+
+  // ── SLA 追踪（Phase F 新增）──────────────────────────────────────────────
+  @Column({ name: 'due_at', type: 'timestamptz', nullable: true })
+  dueAt: Date | null;
+
+  @Column({ name: 'is_overdue', default: false })
+  isOverdue: boolean;
+
+  @Column({ name: 'reminder_count', default: 0 })
+  reminderCount: number;
+
+  @Column({ name: 'last_reminded_at', type: 'timestamptz', nullable: true })
+  lastRemindedAt: Date | null;
+
+  @Column({ name: 'escalation_level', default: 0 })
+  escalationLevel: number;
+
+  @Column({ name: 'source_task_id', type: 'bigint', nullable: true })
+  sourceTaskId: string | null;
 }
