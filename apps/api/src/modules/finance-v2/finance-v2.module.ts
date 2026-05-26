@@ -5,7 +5,8 @@ import { FinApController }      from './controllers/fin-ap.controller';
 import { FinArController }      from './controllers/fin-ar.controller';
 import { FinCashController }    from './controllers/fin-cash.controller';
 import { FinShareholderController } from './controllers/fin-shareholder.controller';
-import { FinExpenseController }    from './controllers/fin-expense.controller';
+import { FinExpenseController }         from './controllers/fin-expense.controller';
+import { FinancialReportsController }   from './controllers/financial-reports.controller';
 import { ApAdapterService }     from './services/ap-adapter.service';
 import { ApInvoicesService }    from './services/ap-invoices.service';
 import { ArInvoicesService }    from './services/ar-invoices.service';
@@ -17,6 +18,7 @@ import { ShareholderContributionsService } from './services/shareholder-contribu
 import { ShareholderSettlementsService }   from './services/shareholder-settlements.service';
 import { ExpenseRequestsService }          from './services/expense-requests.service';
 import { ReimbursementsService }           from './services/reimbursements.service';
+import { FinancialReportsService }         from './services/financial-reports.service';
 import {
   FinApInvoiceEntity,
   FinArInvoiceEntity,
@@ -33,7 +35,7 @@ import {
 } from './entities';
 
 /**
- * Finance V2 Module — Phase 4 Shareholder Runtime
+ * Finance V2 Module — Phase 6 Financial Reports Runtime
  *
  * Phase 路线图：
  *   Phase 0 — 基线建立：Entity 骨架、API 健康接口、前端页面占位、旧模块废弃       ✅
@@ -41,7 +43,8 @@ import {
  *   Phase 2 — AR Runtime：fin_ar_invoices + fin_ar_receipts + 核销分摊           ✅
  *   Phase 3 — Cash Runtime：fin_cash_accounts + fin_cash_transactions + 转账     ✅
  *   Phase 4 — Shareholder Runtime：fin_shareholder_contributions + settlements   ✅
- *   Phase 5 — Reports：资产负债表 / 利润表 / 现金流量表
+ *   Phase 5 — Expense Runtime：fin_expense_requests + fin_reimbursements         ✅
+ *   Phase 6 — Financial Reports Runtime：经营报表聚合层（12 只读 API）           ✅
  *
  * 设计原则：
  *   - 不引用 fin_transactions / fin_payments / biz_cash_flow（旧表废弃）
@@ -91,6 +94,7 @@ import {
     FinCashController,
     FinShareholderController,
     FinExpenseController,
+    FinancialReportsController,
   ],
   providers: [
     ApAdapterService, ApInvoicesService,
@@ -98,6 +102,7 @@ import {
     CashAccountsService, CashTransactionsService, FundTransfersService,
     ShareholderContributionsService, ShareholderSettlementsService,
     ExpenseRequestsService, ReimbursementsService,
+    FinancialReportsService,
   ],
   exports: [
     ApAdapterService, ApInvoicesService,
@@ -105,6 +110,7 @@ import {
     CashAccountsService, CashTransactionsService, FundTransfersService,
     ShareholderContributionsService, ShareholderSettlementsService,
     ExpenseRequestsService, ReimbursementsService,
+    FinancialReportsService,
   ],
 })
 export class FinanceV2Module {}

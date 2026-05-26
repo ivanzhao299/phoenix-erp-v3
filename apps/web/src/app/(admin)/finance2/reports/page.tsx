@@ -1,181 +1,1021 @@
 'use client';
-import { PieChart, Clock, ArrowRight, BarChart2, FileText, TrendingUp } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  PieChart, BarChart2, TrendingDown, TrendingUp, Wallet,
+  Users, Receipt, Building2, FolderOpen, RefreshCw,
+  AlertTriangle, CheckCircle, DollarSign, ArrowLeftRight,
+} from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 
-const REPORT_CARDS = [
-  {
-    icon: BarChart2,
-    title:  '资产负债表',
-    desc:   '按公司、日期维度的资产负债快照，支持多公司合并',
-    phase:  5,
-    color:  '#6366f1',
-  },
-  {
-    icon: TrendingUp,
-    title:  '利润表',
-    desc:   '收入、成本、费用、利润分析，关联 AR/AP/Expense Runtime',
-    phase:  5,
-    color:  '#10b981',
-  },
-  {
-    icon: PieChart,
-    title:  '现金流量表',
-    desc:   '经营/投资/筹资三类现金流，基于 fin_cash_transactions',
-    phase:  5,
-    color:  '#3b82f6',
-  },
-  {
-    icon: FileText,
-    title:  'AP 账龄报表',
-    desc:   '按供应商 / 公司 / 货币的应付账龄分析（30/60/90/120天）',
-    phase:  1,
-    color:  '#f59e0b',
-  },
-  {
-    icon: FileText,
-    title:  'AR 账龄报表',
-    desc:   '按客户 / 公司 / 货币的应收账龄分析，坏账准备计提',
-    phase:  2,
-    color:  '#ef4444',
-  },
-  {
-    icon: FileText,
-    title:  '资金日报',
-    desc:   '各账户余额快照 + 当日收支汇总，支持多币种',
-    phase:  3,
-    color:  '#0ea5e9',
-  },
-  {
-    icon: BarChart2,
-    title:  '股东资金报表',
-    desc:   '股东出资余额、利息计算、结算进度统计',
-    phase:  4,
-    color:  '#7c3aed',
-  },
-  {
-    icon: BarChart2,
-    title:  '多公司合并报表',
-    desc:   '跨公司财务数据汇总，按项目、公司、货币维度聚合',
-    phase:  5,
-    color:  '#64748b',
-  },
-];
+// ── 工具 ──────────────────────────────────────────────────────────────────────
 
-function PhaseTag({ phase }: { phase: number }) {
-  const map: Record<number, { bg: string; color: string }> = {
-    1: { bg: '#eff6ff', color: '#2563eb' },
-    2: { bg: '#f0fdf4', color: '#16a34a' },
-    3: { bg: '#fff7ed', color: '#ea580c' },
-    4: { bg: '#fdf4ff', color: '#7c3aed' },
-    5: { bg: '#fafafa', color: '#6b7280' },
-  };
-  const cfg = map[phase] ?? { bg: '#f1f5f9', color: '#64748b' };
+function getToken() {
+  if (typeof window === 'undefined') return '';
+  return sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token') || '';
+}
+
+async function apiFetch<T>(url: string): Promise<T> {
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${getToken()}` } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+function fmt(n: number | string | null | undefined, dec = 2): string {
+  return Number(n ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
+function fmtMoney(n: number | null | undefined): string {
+  return `¥ ${fmt(n)}`;
+}
+
+// ── 子组件 ────────────────────────────────────────────────────────────────────
+
+function KpiCard({ label, value, sub, icon: Icon, color }: {
+  label: string; value: string; sub?: string;
+  icon?: React.ElementType; color?: string;
+}) {
   return (
-    <span style={{
-      fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-      background: cfg.bg, color: cfg.color,
+    <div style={{
+      background: '#fff', borderRadius: 14, padding: '16px 18px',
+      border: '1.5px solid #f1f5f9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
     }}>
-      📋 Phase {phase} 规划
-    </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        {Icon && (
+          <div style={{
+            width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+            background: `${color ?? '#6366f1'}18`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Icon size={16} color={color ?? '#6366f1'} />
+          </div>
+        )}
+        <span style={{ fontSize: 11, color: '#64748b' }}>{label}</span>
+      </div>
+      <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{sub}</div>}
+    </div>
   );
 }
 
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: '20px 0 10px' }}>
+      {children}
+    </div>
+  );
+}
+
+function TableWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ overflowX: 'auto', borderRadius: 12, border: '1.5px solid #f1f5f9' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        {children}
+      </table>
+    </div>
+  );
+}
+
+function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
+  return (
+    <th style={{
+      padding: '10px 14px', textAlign: right ? 'right' : 'left',
+      fontSize: 11, fontWeight: 700, color: '#64748b',
+      background: '#f8fafc', borderBottom: '1.5px solid #f1f5f9',
+      whiteSpace: 'nowrap',
+    }}>{children}</th>
+  );
+}
+
+function Td({ children, right, bold }: { children: React.ReactNode; right?: boolean; bold?: boolean }) {
+  return (
+    <td style={{
+      padding: '9px 14px', textAlign: right ? 'right' : 'left',
+      borderBottom: '1px solid #f8fafc', fontWeight: bold ? 700 : 400,
+      color: bold ? '#0f172a' : '#374151', whiteSpace: 'nowrap',
+    }}>{children}</td>
+  );
+}
+
+function AgingBar({ notDue, d030, d3160, d6190, dOver90, total }: {
+  notDue: number; d030: number; d3160: number; d6190: number; dOver90: number; total: number;
+}) {
+  if (!total) return null;
+  const pct = (v: number) => `${Math.round((v / total) * 100)}%`;
+  const segs = [
+    { v: notDue, color: '#10b981', label: '未逾期' },
+    { v: d030,   color: '#f59e0b', label: '0-30天' },
+    { v: d3160,  color: '#f97316', label: '31-60天' },
+    { v: d6190,  color: '#ef4444', label: '61-90天' },
+    { v: dOver90,color: '#7f1d1d', label: '90天+' },
+  ];
+  return (
+    <div style={{ height: 6, borderRadius: 3, display: 'flex', overflow: 'hidden', gap: 1 }}>
+      {segs.filter(s => s.v > 0).map(s => (
+        <div key={s.label} title={`${s.label}: ¥${fmt(s.v)} (${pct(s.v)})`}
+          style={{ width: pct(s.v), background: s.color, height: '100%' }} />
+      ))}
+    </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', padding: '48px', color: '#94a3b8' }}>
+      <RefreshCw size={20} style={{ animation: 'spin 1s linear infinite' }} />
+    </div>
+  );
+}
+
+function Empty({ text = '暂无数据' }: { text?: string }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '32px', color: '#94a3b8', fontSize: 13 }}>
+      {text}
+    </div>
+  );
+}
+
+// ── Tab 内容组件 ──────────────────────────────────────────────────────────────
+
+// --- Tab 0: 总览 ---
+
+interface OverviewData {
+  apOpen: number; arOpen: number; cashBalance: number; shareholderBalance: number;
+  expensePendingCount: number; expensePendingAmount: number;
+  reimbursementPendingCount: number; reimbursementPendingAmount: number;
+  netOperatingPosition: number; todayInflow: number; todayOutflow: number;
+  byCurrency: { currencyCode: string; cashBalance: number }[];
+  byCompany:  { companyCode: string;  cashBalance: number }[];
+}
+
+function OverviewTab() {
+  const [data, setData] = useState<OverviewData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch<OverviewData>('/api/v2/finance/reports/overview')
+      .then(setData).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <Spinner />;
+  if (!data) return <Empty text="加载失败" />;
+
+  const netColor = data.netOperatingPosition >= 0 ? '#10b981' : '#ef4444';
+
+  return (
+    <div>
+      {/* 经营净头寸 主 KPI */}
+      <div style={{
+        background: 'linear-gradient(135deg, #1e3a5f 0%, #0f766e 100%)',
+        borderRadius: 16, padding: '24px 28px', marginBottom: 20, color: '#fff',
+      }}>
+        <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 4 }}>经营净头寸（Net Operating Position）</div>
+        <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: -1 }}>
+          {data.netOperatingPosition >= 0 ? '+' : ''}¥ {fmt(data.netOperatingPosition)}
+        </div>
+        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
+          = 现金余额 + AR待收 − AP待付 − 待报销金额
+        </div>
+        <div style={{ display: 'flex', gap: 20, marginTop: 16, flexWrap: 'wrap' }}>
+          {[
+            { label: '今日流入', value: `+¥${fmt(data.todayInflow)}`, color: '#86efac' },
+            { label: '今日流出', value: `-¥${fmt(data.todayOutflow)}`, color: '#fca5a5' },
+            { label: '今日净额', value: `¥${fmt(data.todayInflow - data.todayOutflow)}`,
+              color: data.todayInflow >= data.todayOutflow ? '#86efac' : '#fca5a5' },
+          ].map(item => (
+            <div key={item.label} style={{ fontSize: 12 }}>
+              <span style={{ opacity: 0.6 }}>{item.label}</span>
+              <span style={{ marginLeft: 6, fontWeight: 700, color: item.color }}>{item.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 20 }}>
+        <KpiCard label="现金账户余额"    value={fmtMoney(data.cashBalance)}    icon={Wallet}      color="#2563eb" />
+        <KpiCard label="AR 待收款"        value={fmtMoney(data.arOpen)}         icon={TrendingUp}  color="#10b981" />
+        <KpiCard label="AP 待付款"        value={fmtMoney(data.apOpen)}         icon={TrendingDown} color="#f59e0b" />
+        <KpiCard label="股东资金余额"     value={fmtMoney(data.shareholderBalance)} icon={Users}   color="#7c3aed" />
+        <KpiCard label="费用待审批"
+          value={`${data.expensePendingCount} 笔`}
+          sub={fmtMoney(data.expensePendingAmount)}
+          icon={Receipt} color="#6366f1" />
+        <KpiCard label="报销待处理"
+          value={`${data.reimbursementPendingCount} 笔`}
+          sub={fmtMoney(data.reimbursementPendingAmount)}
+          icon={ArrowLeftRight} color="#0891b2" />
+      </div>
+
+      {data.byCurrency.length > 0 && (
+        <>
+          <SectionTitle>现金余额 — 按币种</SectionTitle>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+            {data.byCurrency.map(r => (
+              <div key={r.currencyCode} style={{
+                background: '#f8fafc', border: '1.5px solid #e2e8f0',
+                borderRadius: 10, padding: '10px 16px',
+              }}>
+                <div style={{ fontSize: 11, color: '#64748b' }}>{r.currencyCode}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>{fmtMoney(r.cashBalance)}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {data.byCompany.length > 0 && (
+        <>
+          <SectionTitle>现金余额 — 按公司</SectionTitle>
+          <TableWrapper>
+            <thead><tr><Th>公司代码</Th><Th right>现金余额</Th></tr></thead>
+            <tbody>
+              {data.byCompany.map(r => (
+                <tr key={r.companyCode}>
+                  <Td>{r.companyCode}</Td>
+                  <Td right bold>{fmtMoney(r.cashBalance)}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </TableWrapper>
+        </>
+      )}
+    </div>
+  );
+}
+
+// --- Tab 1: AP ---
+
+interface ApAgingRow {
+  supplierName: string; supplierCode?: string; currencyCode: string; companyCode: string;
+  notDue: number; d030: number; d3160: number; d6190: number; dOver90: number; total: number;
+}
+interface ApAgingData {
+  summary: { notDue: number; d030: number; d3160: number; d6190: number; dOver90: number; total: number };
+  rows: ApAgingRow[];
+}
+interface ApTopRow { rank: number; supplierName: string; supplierCode?: string; invoiceCount: number; totalAmount: number; openAmount: number }
+
+function ApTab() {
+  const [aging,      setAging]      = useState<ApAgingData | null>(null);
+  const [topSup,     setTopSup]     = useState<ApTopRow[] | null>(null);
+  const [loadAging,  setLoadAging]  = useState(true);
+  const [loadTop,    setLoadTop]    = useState(true);
+
+  useEffect(() => {
+    apiFetch<ApAgingData>('/api/v2/finance/reports/ap-aging').then(setAging).finally(() => setLoadAging(false));
+    apiFetch<ApTopRow[]>('/api/v2/finance/reports/ap-top-suppliers').then(setTopSup).finally(() => setLoadTop(false));
+  }, []);
+
+  const s = aging?.summary;
+
+  return (
+    <div>
+      {/* 账龄汇总条 */}
+      {s && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 20 }}>
+          <KpiCard label="AP 合计"    value={fmtMoney(s.total)}   icon={TrendingDown} color="#f59e0b" />
+          <KpiCard label="未逾期"     value={fmtMoney(s.notDue)}  icon={CheckCircle}  color="#10b981" />
+          <KpiCard label="0-30 天"   value={fmtMoney(s.d030)}    icon={AlertTriangle} color="#f59e0b" />
+          <KpiCard label="31-60 天"  value={fmtMoney(s.d3160)}   icon={AlertTriangle} color="#f97316" />
+          <KpiCard label="61-90 天"  value={fmtMoney(s.d6190)}   icon={AlertTriangle} color="#ef4444" />
+          <KpiCard label="90 天以上" value={fmtMoney(s.dOver90)} icon={AlertTriangle} color="#7f1d1d" />
+        </div>
+      )}
+
+      <SectionTitle>AP 账龄明细（按供应商）</SectionTitle>
+      {loadAging ? <Spinner /> : !aging?.rows.length ? <Empty /> : (
+        <TableWrapper>
+          <thead>
+            <tr>
+              <Th>供应商</Th><Th>公司</Th><Th>币种</Th>
+              <Th right>未逾期</Th><Th right>0-30天</Th><Th right>31-60天</Th>
+              <Th right>61-90天</Th><Th right>90天+</Th><Th right>合计</Th>
+              <Th>账龄分布</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {aging.rows.map((r, i) => (
+              <tr key={i}>
+                <Td bold>{r.supplierName}</Td>
+                <Td>{r.companyCode}</Td>
+                <Td>{r.currencyCode}</Td>
+                <Td right>{fmt(r.notDue)}</Td>
+                <Td right>{fmt(r.d030)}</Td>
+                <Td right>{fmt(r.d3160)}</Td>
+                <Td right>{fmt(r.d6190)}</Td>
+                <Td right>{fmt(r.dOver90)}</Td>
+                <Td right bold>{fmt(r.total)}</Td>
+                <td style={{ padding: '9px 14px', width: 100 }}>
+                  <AgingBar {...r} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </TableWrapper>
+      )}
+
+      <SectionTitle>TOP 20 供应商</SectionTitle>
+      {loadTop ? <Spinner /> : !topSup?.length ? <Empty /> : (
+        <TableWrapper>
+          <thead>
+            <tr><Th>#</Th><Th>供应商</Th><Th right>发票笔数</Th><Th right>累计金额</Th><Th right>待付余额</Th></tr>
+          </thead>
+          <tbody>
+            {topSup.map(r => (
+              <tr key={r.rank}>
+                <Td>{r.rank}</Td>
+                <Td bold>{r.supplierName}</Td>
+                <Td right>{r.invoiceCount}</Td>
+                <Td right>{fmtMoney(r.totalAmount)}</Td>
+                <Td right bold>{fmtMoney(r.openAmount)}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </TableWrapper>
+      )}
+    </div>
+  );
+}
+
+// --- Tab 2: AR ---
+
+interface ArAgingRow {
+  customerName: string; currencyCode: string; companyCode: string;
+  notDue: number; d030: number; d3160: number; d6190: number; dOver90: number; total: number;
+}
+interface ArAgingData {
+  summary: { notDue: number; d030: number; d3160: number; d6190: number; dOver90: number; total: number };
+  rows: ArAgingRow[];
+}
+interface ArTopRow { rank: number; customerName: string; invoiceCount: number; totalAmount: number; openAmount: number }
+
+function ArTab() {
+  const [aging,    setAging]    = useState<ArAgingData | null>(null);
+  const [topCust,  setTopCust]  = useState<ArTopRow[] | null>(null);
+  const [loadAg,   setLoadAg]   = useState(true);
+  const [loadTop,  setLoadTop]  = useState(true);
+
+  useEffect(() => {
+    apiFetch<ArAgingData>('/api/v2/finance/reports/ar-aging').then(setAging).finally(() => setLoadAg(false));
+    apiFetch<ArTopRow[]>('/api/v2/finance/reports/ar-top-customers').then(setTopCust).finally(() => setLoadTop(false));
+  }, []);
+
+  const s = aging?.summary;
+
+  return (
+    <div>
+      {s && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 20 }}>
+          <KpiCard label="AR 合计"    value={fmtMoney(s.total)}   icon={TrendingUp}   color="#10b981" />
+          <KpiCard label="未逾期"     value={fmtMoney(s.notDue)}  icon={CheckCircle}  color="#10b981" />
+          <KpiCard label="0-30 天"   value={fmtMoney(s.d030)}    icon={AlertTriangle} color="#f59e0b" />
+          <KpiCard label="31-60 天"  value={fmtMoney(s.d3160)}   icon={AlertTriangle} color="#f97316" />
+          <KpiCard label="61-90 天"  value={fmtMoney(s.d6190)}   icon={AlertTriangle} color="#ef4444" />
+          <KpiCard label="90 天以上" value={fmtMoney(s.dOver90)} icon={AlertTriangle} color="#7f1d1d" />
+        </div>
+      )}
+
+      <SectionTitle>AR 账龄明细（按客户）</SectionTitle>
+      {loadAg ? <Spinner /> : !aging?.rows.length ? <Empty /> : (
+        <TableWrapper>
+          <thead>
+            <tr>
+              <Th>客户</Th><Th>公司</Th><Th>币种</Th>
+              <Th right>未逾期</Th><Th right>0-30天</Th><Th right>31-60天</Th>
+              <Th right>61-90天</Th><Th right>90天+</Th><Th right>合计</Th>
+              <Th>账龄分布</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {aging.rows.map((r, i) => (
+              <tr key={i}>
+                <Td bold>{r.customerName}</Td>
+                <Td>{r.companyCode}</Td>
+                <Td>{r.currencyCode}</Td>
+                <Td right>{fmt(r.notDue)}</Td>
+                <Td right>{fmt(r.d030)}</Td>
+                <Td right>{fmt(r.d3160)}</Td>
+                <Td right>{fmt(r.d6190)}</Td>
+                <Td right>{fmt(r.dOver90)}</Td>
+                <Td right bold>{fmt(r.total)}</Td>
+                <td style={{ padding: '9px 14px', width: 100 }}>
+                  <AgingBar {...r} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </TableWrapper>
+      )}
+
+      <SectionTitle>TOP 20 客户</SectionTitle>
+      {loadTop ? <Spinner /> : !topCust?.length ? <Empty /> : (
+        <TableWrapper>
+          <thead>
+            <tr><Th>#</Th><Th>客户</Th><Th right>发票笔数</Th><Th right>累计金额</Th><Th right>待收余额</Th></tr>
+          </thead>
+          <tbody>
+            {topCust.map(r => (
+              <tr key={r.rank}>
+                <Td>{r.rank}</Td>
+                <Td bold>{r.customerName}</Td>
+                <Td right>{r.invoiceCount}</Td>
+                <Td right>{fmtMoney(r.totalAmount)}</Td>
+                <Td right bold>{fmtMoney(r.openAmount)}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </TableWrapper>
+      )}
+    </div>
+  );
+}
+
+// --- Tab 3: Cash ---
+
+interface CashOverviewData {
+  totalBalance: number; activeAccounts: number;
+  byAccountType: { accountType: string; count: number; balance: number }[];
+  byCurrency:    { currencyCode: string; count: number; balance: number }[];
+  byCompany:     { companyCode: string;  count: number; balance: number }[];
+}
+interface DailyFlowRow { date: string; inflow: number; outflow: number; net: number }
+interface DailyFlowData { dateFrom: string; dateTo: string; rows: DailyFlowRow[] }
+
+function CashTab() {
+  const [overview,   setOverview]   = useState<CashOverviewData | null>(null);
+  const [dailyFlow,  setDailyFlow]  = useState<DailyFlowData | null>(null);
+  const [loadOv,     setLoadOv]     = useState(true);
+  const [loadDf,     setLoadDf]     = useState(true);
+
+  useEffect(() => {
+    apiFetch<CashOverviewData>('/api/v2/finance/reports/cash-overview').then(setOverview).finally(() => setLoadOv(false));
+    apiFetch<DailyFlowData>('/api/v2/finance/reports/cash-daily-flow').then(setDailyFlow).finally(() => setLoadDf(false));
+  }, []);
+
+  return (
+    <div>
+      {loadOv ? <Spinner /> : !overview ? null : (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 20 }}>
+            <KpiCard label="账户总余额"  value={fmtMoney(overview.totalBalance)}   icon={Wallet}    color="#2563eb" />
+            <KpiCard label="活跃账户数" value={`${overview.activeAccounts} 个`}   icon={CheckCircle} color="#10b981" />
+          </div>
+
+          <SectionTitle>按账户类型</SectionTitle>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+            {overview.byAccountType.map(r => (
+              <div key={r.accountType} style={{
+                background: '#f8fafc', border: '1.5px solid #e2e8f0',
+                borderRadius: 10, padding: '10px 16px', minWidth: 140,
+              }}>
+                <div style={{ fontSize: 11, color: '#64748b', marginBottom: 2 }}>{r.accountType}</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>{fmtMoney(r.balance)}</div>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>{r.count} 个账户</div>
+              </div>
+            ))}
+          </div>
+
+          <SectionTitle>按公司余额</SectionTitle>
+          <TableWrapper>
+            <thead><tr><Th>公司</Th><Th right>账户数</Th><Th right>余额</Th></tr></thead>
+            <tbody>
+              {overview.byCompany.map(r => (
+                <tr key={r.companyCode}>
+                  <Td bold>{r.companyCode}</Td>
+                  <Td right>{r.count}</Td>
+                  <Td right bold>{fmtMoney(r.balance)}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </TableWrapper>
+        </>
+      )}
+
+      <SectionTitle>资金日度流水（近 30 天）</SectionTitle>
+      {loadDf ? <Spinner /> : !dailyFlow?.rows.length ? <Empty text="近 30 天无流水记录" /> : (
+        <>
+          {/* 简单条形可视化 */}
+          {(() => {
+            const maxVal = Math.max(...dailyFlow.rows.map(r => Math.max(r.inflow, r.outflow)));
+            return (
+              <div style={{ overflowX: 'auto', marginBottom: 16 }}>
+                <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 80, minWidth: dailyFlow.rows.length * 24 }}>
+                  {dailyFlow.rows.map(r => (
+                    <div key={r.date} title={`${r.date}\n流入: ¥${fmt(r.inflow)}\n流出: ¥${fmt(r.outflow)}`}
+                      style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center', flex: 1 }}>
+                      <div style={{
+                        width: '100%', background: '#10b981', borderRadius: '3px 3px 0 0',
+                        height: maxVal ? `${(r.inflow / maxVal) * 60}px` : 0,
+                      }} />
+                      <div style={{
+                        width: '100%', background: '#ef4444', borderRadius: '3px 3px 0 0',
+                        height: maxVal ? `${(r.outflow / maxVal) * 60}px` : 0,
+                      }} />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11, color: '#64748b' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ width: 10, height: 10, background: '#10b981', borderRadius: 2, display: 'inline-block' }} />流入
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ width: 10, height: 10, background: '#ef4444', borderRadius: 2, display: 'inline-block' }} />流出
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+          <TableWrapper>
+            <thead>
+              <tr><Th>日期</Th><Th right>流入</Th><Th right>流出</Th><Th right>净额</Th></tr>
+            </thead>
+            <tbody>
+              {[...dailyFlow.rows].reverse().map(r => (
+                <tr key={r.date}>
+                  <Td>{r.date}</Td>
+                  <Td right>{fmtMoney(r.inflow)}</Td>
+                  <Td right>{fmtMoney(r.outflow)}</Td>
+                  <Td right bold>
+                    <span style={{ color: r.net >= 0 ? '#10b981' : '#ef4444' }}>
+                      {r.net >= 0 ? '+' : ''}{fmtMoney(r.net)}
+                    </span>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </TableWrapper>
+        </>
+      )}
+    </div>
+  );
+}
+
+// --- Tab 4: Expense ---
+
+interface ExpenseSummaryData {
+  byStatus: Record<string, { count: number; amount: number }>;
+  byExpenseType: { expenseType: string; count: number; total: number }[];
+  byCompany:     { companyCode: string;  count: number; total: number }[];
+  byProject:     { projectCode: string;  count: number; total: number }[];
+}
+interface ReimbSummaryData {
+  byStatus: Record<string, { count: number; amount: number }>;
+  avgProcessingDays: number | null;
+}
+
+const EXPENSE_TYPE_LABEL: Record<string, string> = {
+  TRAVEL: '差旅', MEAL: '餐饮', ENTERTAINMENT: '招待', OFFICE: '办公',
+  MATERIAL: '物料', TRANSPORT: '交通', OTHER: '其他',
+};
+const STATUS_LABEL: Record<string, string> = {
+  DRAFT: '草稿', SUBMITTED: '已提交', PENDING_APPROVAL: '审批中',
+  APPROVED: '已审批', REJECTED: '已拒绝', CANCELLED: '已取消', REIMBURSED: '已报销',
+  PENDING: '待处理', PAID: '已付款',
+};
+const STATUS_COLOR: Record<string, string> = {
+  DRAFT: '#94a3b8', SUBMITTED: '#3b82f6', PENDING_APPROVAL: '#f59e0b',
+  APPROVED: '#10b981', REJECTED: '#ef4444', CANCELLED: '#6b7280',
+  REIMBURSED: '#059669', PENDING: '#f59e0b', PENDING_APPROVAL2: '#f97316', PAID: '#059669',
+};
+
+function ExpenseTab() {
+  const [expData,   setExpData]   = useState<ExpenseSummaryData | null>(null);
+  const [reimbData, setReimbData] = useState<ReimbSummaryData | null>(null);
+  const [loadExp,   setLoadExp]   = useState(true);
+  const [loadRe,    setLoadRe]    = useState(true);
+
+  useEffect(() => {
+    apiFetch<ExpenseSummaryData>('/api/v2/finance/reports/expense-summary').then(setExpData).finally(() => setLoadExp(false));
+    apiFetch<ReimbSummaryData>('/api/v2/finance/reports/reimbursement-summary').then(setReimbData).finally(() => setLoadRe(false));
+  }, []);
+
+  return (
+    <div>
+      <SectionTitle>费用申请 — 各状态</SectionTitle>
+      {loadExp ? <Spinner /> : !expData ? <Empty /> : (
+        <>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+            {Object.entries(expData.byStatus).map(([status, d]) => (
+              <div key={status} style={{
+                background: '#f8fafc', border: '1.5px solid #e2e8f0',
+                borderRadius: 10, padding: '10px 16px', minWidth: 130,
+              }}>
+                <div style={{ fontSize: 11, color: STATUS_COLOR[status] ?? '#64748b', fontWeight: 700 }}>
+                  {STATUS_LABEL[status] ?? status}
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>{d.count} 笔</div>
+                <div style={{ fontSize: 11, color: '#64748b' }}>{fmtMoney(d.amount)}</div>
+              </div>
+            ))}
+          </div>
+
+          <SectionTitle>按费用类型</SectionTitle>
+          <TableWrapper>
+            <thead><tr><Th>类型</Th><Th right>笔数</Th><Th right>金额</Th></tr></thead>
+            <tbody>
+              {expData.byExpenseType.map(r => (
+                <tr key={r.expenseType}>
+                  <Td bold>{EXPENSE_TYPE_LABEL[r.expenseType] ?? r.expenseType}</Td>
+                  <Td right>{r.count}</Td>
+                  <Td right>{fmtMoney(r.total)}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </TableWrapper>
+
+          {expData.byCompany.length > 0 && (
+            <>
+              <SectionTitle>按公司</SectionTitle>
+              <TableWrapper>
+                <thead><tr><Th>公司</Th><Th right>笔数</Th><Th right>金额</Th></tr></thead>
+                <tbody>
+                  {expData.byCompany.map(r => (
+                    <tr key={r.companyCode}>
+                      <Td bold>{r.companyCode}</Td>
+                      <Td right>{r.count}</Td>
+                      <Td right>{fmtMoney(r.total)}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </TableWrapper>
+            </>
+          )}
+
+          {expData.byProject.length > 0 && (
+            <>
+              <SectionTitle>按项目（TOP 20）</SectionTitle>
+              <TableWrapper>
+                <thead><tr><Th>项目</Th><Th right>笔数</Th><Th right>金额</Th></tr></thead>
+                <tbody>
+                  {expData.byProject.map(r => (
+                    <tr key={r.projectCode}>
+                      <Td bold>{r.projectCode}</Td>
+                      <Td right>{r.count}</Td>
+                      <Td right>{fmtMoney(r.total)}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </TableWrapper>
+            </>
+          )}
+        </>
+      )}
+
+      <SectionTitle>报销 — 各状态</SectionTitle>
+      {loadRe ? <Spinner /> : !reimbData ? <Empty /> : (
+        <>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+            {Object.entries(reimbData.byStatus).map(([status, d]) => (
+              <div key={status} style={{
+                background: '#f8fafc', border: '1.5px solid #e2e8f0',
+                borderRadius: 10, padding: '10px 16px', minWidth: 130,
+              }}>
+                <div style={{ fontSize: 11, color: STATUS_COLOR[status] ?? '#64748b', fontWeight: 700 }}>
+                  {STATUS_LABEL[status] ?? status}
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>{d.count} 笔</div>
+                <div style={{ fontSize: 11, color: '#64748b' }}>{fmtMoney(d.amount)}</div>
+              </div>
+            ))}
+          </div>
+          {reimbData.avgProcessingDays !== null && (
+            <div style={{
+              background: '#f0fdf4', border: '1.5px solid #bbf7d0',
+              borderRadius: 10, padding: '12px 16px', fontSize: 13, color: '#166534',
+            }}>
+              ⏱ 平均报销处理时长：<strong>{reimbData.avgProcessingDays} 天</strong>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// --- Tab 5: Shareholder ---
+
+interface ShSummaryData {
+  byShareholder: { shareholderName: string; count: number; totalAmount: number; settledAmount: number; balanceAmount: number }[];
+  byContributionType: { contributionType: string; count: number; totalAmount: number; balanceAmount: number }[];
+  upcomingReturns: { shareholderName: string; expectedReturnDate: string; balanceAmount: number; companyCode: string }[];
+}
+
+function ShareholderTab() {
+  const [data, setData] = useState<ShSummaryData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch<ShSummaryData>('/api/v2/finance/reports/shareholder-summary').then(setData).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <Spinner />;
+  if (!data) return <Empty text="加载失败" />;
+
+  const totalBal = data.byShareholder.reduce((s, r) => s + r.balanceAmount, 0);
+  const totalIn  = data.byShareholder.reduce((s, r) => s + r.totalAmount, 0);
+  const totalSt  = data.byShareholder.reduce((s, r) => s + r.settledAmount, 0);
+
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 20 }}>
+        <KpiCard label="出资总额"     value={fmtMoney(totalIn)}  icon={Users}      color="#7c3aed" />
+        <KpiCard label="已结算"       value={fmtMoney(totalSt)}  icon={CheckCircle} color="#10b981" />
+        <KpiCard label="余额"         value={fmtMoney(totalBal)} icon={DollarSign} color="#6d28d9" />
+        <KpiCard label="90天内到期"   value={`${data.upcomingReturns.length} 笔`} icon={AlertTriangle} color="#f59e0b" />
+      </div>
+
+      <SectionTitle>按股东</SectionTitle>
+      {!data.byShareholder.length ? <Empty /> : (
+        <TableWrapper>
+          <thead>
+            <tr><Th>股东</Th><Th right>笔数</Th><Th right>出资总额</Th><Th right>已结算</Th><Th right>余额</Th></tr>
+          </thead>
+          <tbody>
+            {data.byShareholder.map(r => (
+              <tr key={r.shareholderName}>
+                <Td bold>{r.shareholderName}</Td>
+                <Td right>{r.count}</Td>
+                <Td right>{fmtMoney(r.totalAmount)}</Td>
+                <Td right>{fmtMoney(r.settledAmount)}</Td>
+                <Td right bold>{fmtMoney(r.balanceAmount)}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </TableWrapper>
+      )}
+
+      {data.byContributionType.length > 0 && (
+        <>
+          <SectionTitle>按出资类型</SectionTitle>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+            {data.byContributionType.map(r => (
+              <div key={r.contributionType} style={{
+                background: '#f5f3ff', border: '1.5px solid #ddd6fe',
+                borderRadius: 10, padding: '10px 16px', minWidth: 140,
+              }}>
+                <div style={{ fontSize: 11, color: '#7c3aed', fontWeight: 700 }}>{r.contributionType}</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>{fmtMoney(r.totalAmount)}</div>
+                <div style={{ fontSize: 11, color: '#64748b' }}>余额 {fmtMoney(r.balanceAmount)}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {data.upcomingReturns.length > 0 && (
+        <>
+          <SectionTitle>⚠️ 90 天内即将到期</SectionTitle>
+          <TableWrapper>
+            <thead>
+              <tr><Th>股东</Th><Th>公司</Th><Th>预计还款日</Th><Th right>余额</Th></tr>
+            </thead>
+            <tbody>
+              {data.upcomingReturns.map((r, i) => (
+                <tr key={i}>
+                  <Td bold>{r.shareholderName}</Td>
+                  <Td>{r.companyCode}</Td>
+                  <Td>
+                    <span style={{ color: '#f59e0b', fontWeight: 600 }}>
+                      {String(r.expectedReturnDate).slice(0, 10)}
+                    </span>
+                  </Td>
+                  <Td right bold>{fmtMoney(r.balanceAmount)}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </TableWrapper>
+        </>
+      )}
+    </div>
+  );
+}
+
+// --- Tab 6: Project ---
+
+interface ProjectRow {
+  projectCode: string; companyCode: string;
+  apOpen: number; arOpen: number; shBalance: number; expenseTotal: number; netPosition: number;
+}
+
+function ProjectTab() {
+  const [data, setData] = useState<ProjectRow[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('');
+
+  useEffect(() => {
+    apiFetch<ProjectRow[]>('/api/v2/finance/reports/project-finance').then(setData).finally(() => setLoading(false));
+  }, []);
+
+  const rows = data?.filter(r =>
+    !filter || r.projectCode.toLowerCase().includes(filter.toLowerCase()),
+  ) ?? [];
+
+  if (loading) return <Spinner />;
+
+  return (
+    <div>
+      <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
+        <input
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+          placeholder="过滤项目代码…"
+          style={{
+            padding: '7px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0',
+            fontSize: 13, color: '#374151', width: 220, outline: 'none',
+          }}
+        />
+        <span style={{ fontSize: 12, color: '#94a3b8' }}>{rows.length} 个项目</span>
+      </div>
+
+      {!rows.length ? <Empty text="暂无项目财务数据" /> : (
+        <TableWrapper>
+          <thead>
+            <tr>
+              <Th>项目</Th><Th>公司</Th>
+              <Th right>AR 待收</Th><Th right>AP 待付</Th>
+              <Th right>费用总额</Th><Th right>股东资金</Th>
+              <Th right>净头寸</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <Td bold>{r.projectCode}</Td>
+                <Td>{r.companyCode}</Td>
+                <Td right>{fmtMoney(r.arOpen)}</Td>
+                <Td right>{fmtMoney(r.apOpen)}</Td>
+                <Td right>{fmtMoney(r.expenseTotal)}</Td>
+                <Td right>{fmtMoney(r.shBalance)}</Td>
+                <Td right bold>
+                  <span style={{ color: r.netPosition >= 0 ? '#10b981' : '#ef4444' }}>
+                    {r.netPosition >= 0 ? '+' : ''}{fmtMoney(r.netPosition)}
+                  </span>
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </TableWrapper>
+      )}
+
+      <div style={{ marginTop: 12, fontSize: 11, color: '#94a3b8' }}>
+        净头寸 = AR 待收 − AP 待付 − 费用总额
+      </div>
+    </div>
+  );
+}
+
+// --- Tab 7: Company ---
+
+interface CompanyRow {
+  companyCode: string;
+  apOpen: number; arOpen: number; cashBalance: number;
+  shBalance: number; expenseTotal: number; netOperatingPosition: number;
+}
+
+function CompanyTab() {
+  const [data, setData] = useState<CompanyRow[] | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch<CompanyRow[]>('/api/v2/finance/reports/company-finance').then(setData).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <Spinner />;
+  if (!data?.length) return <Empty text="暂无公司财务数据" />;
+
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 20 }}>
+        <KpiCard label="公司总数" value={`${data.length} 家`} icon={Building2} color="#64748b" />
+        <KpiCard label="合计现金余额"
+          value={fmtMoney(data.reduce((s, r) => s + r.cashBalance, 0))}
+          icon={Wallet} color="#2563eb" />
+        <KpiCard label="合计经营净头寸"
+          value={fmtMoney(data.reduce((s, r) => s + r.netOperatingPosition, 0))}
+          icon={PieChart} color="#6366f1" />
+      </div>
+
+      <TableWrapper>
+        <thead>
+          <tr>
+            <Th>公司</Th>
+            <Th right>现金余额</Th><Th right>AR 待收</Th><Th right>AP 待付</Th>
+            <Th right>费用总额</Th><Th right>股东资金</Th>
+            <Th right>经营净头寸</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map(r => (
+            <tr key={r.companyCode}>
+              <Td bold>{r.companyCode}</Td>
+              <Td right>{fmtMoney(r.cashBalance)}</Td>
+              <Td right>{fmtMoney(r.arOpen)}</Td>
+              <Td right>{fmtMoney(r.apOpen)}</Td>
+              <Td right>{fmtMoney(r.expenseTotal)}</Td>
+              <Td right>{fmtMoney(r.shBalance)}</Td>
+              <Td right bold>
+                <span style={{ color: r.netOperatingPosition >= 0 ? '#10b981' : '#ef4444' }}>
+                  {r.netOperatingPosition >= 0 ? '+' : ''}{fmtMoney(r.netOperatingPosition)}
+                </span>
+              </Td>
+            </tr>
+          ))}
+        </tbody>
+      </TableWrapper>
+      <div style={{ marginTop: 12, fontSize: 11, color: '#94a3b8' }}>
+        经营净头寸 = 现金余额 + AR 待收 − AP 待付 − 费用总额
+      </div>
+    </div>
+  );
+}
+
+// ── 主页面 ────────────────────────────────────────────────────────────────────
+
+const TABS = [
+  { key: 'overview',     label: '总览',    icon: PieChart      },
+  { key: 'ap',          label: 'AP',      icon: TrendingDown  },
+  { key: 'ar',          label: 'AR',      icon: TrendingUp    },
+  { key: 'cash',        label: '资金',    icon: Wallet        },
+  { key: 'expense',     label: '费用',    icon: Receipt       },
+  { key: 'shareholder', label: '股东',    icon: Users         },
+  { key: 'project',     label: '项目',    icon: FolderOpen    },
+  { key: 'company',     label: '公司',    icon: Building2     },
+];
+
 export default function Finance2ReportsPage() {
-  const router = useRouter();
+  const [activeTab, setActiveTab] = useState('overview');
 
   return (
     <div>
       <PageHeader
         title="财务报表"
-        subtitle="Finance V2 — 报表中心（Phase 1-5 逐步建立）"
+        subtitle="Finance V2 Phase 6 — Financial Reports Runtime（经营报表层）"
         breadcrumb={['Finance V2', '财务报表']}
       />
 
-      {/* 说明横幅 */}
+      {/* Phase 6 说明横幅 */}
       <div style={{
-        background: 'linear-gradient(135deg, #fafafa 0%, #f1f5f9 100%)',
-        border: '1.5px solid #e2e8f0', borderRadius: 14,
-        padding: '20px 24px', marginBottom: 24,
+        background: 'linear-gradient(135deg, #1e3a5f 0%, #0f766e 100%)',
+        borderRadius: 14, padding: '18px 24px', marginBottom: 20, color: '#fff',
         display: 'flex', alignItems: 'flex-start', gap: 14,
       }}>
-        <div style={{
-          width: 44, height: 44, borderRadius: 10, flexShrink: 0,
-          background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <PieChart size={22} color="#6366f1" />
-        </div>
+        <PieChart size={22} style={{ marginTop: 2, flexShrink: 0, opacity: 0.85 }} />
         <div>
-          <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a', marginBottom: 4 }}>
-            Finance V2 报表中心
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>
+            Finance V2 Phase 6 — Management Reporting Runtime
           </div>
-          <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.7 }}>
-            报表数据将随各 Phase 的 Runtime 建立逐步开放。<br />
-            Phase 0 当前无真实业务数据（fin_* 表为空基线）。<br />
-            AP 账龄报表（Phase 1）→ AR 账龄（Phase 2）→ 资金日报（Phase 3）→ 财务三表（Phase 5）
+          <div style={{ fontSize: 12, opacity: 0.85, lineHeight: 1.7 }}>
+            经营财务报表层 · 12 只读聚合 API · 全部 DataScope 合规 · 无会计凭证/总账/科目体系
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 12, color: '#94a3b8' }}>
-            <Clock size={13} />
-            旧 finance 报表页面已废弃，不再维护
+          <div style={{ display: 'flex', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
+            {['AP 账龄', 'AR 账龄', '资金日报', '费用统计', '股东资金', '项目维度', '公司维度'].map(t => (
+              <span key={t} style={{
+                fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
+                background: 'rgba(255,255,255,0.2)',
+              }}>{t}</span>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* 报表卡片网格 */}
-      <div style={{ marginBottom: 14, fontSize: 13, fontWeight: 600, color: '#374151' }}>
-        报表清单（按 Phase 排序）
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 28 }}>
-        {REPORT_CARDS.map(card => (
-          <div key={card.title} style={{
-            background: '#fff', borderRadius: 14, padding: '18px 20px',
-            border: '1.5px solid #f1f5f9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-            opacity: card.phase <= 2 ? 0.9 : 0.7,
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: 8,
-                background: `${card.color}18`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <card.icon size={18} color={card.color} />
-              </div>
-              <PhaseTag phase={card.phase} />
-            </div>
-            <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', marginBottom: 4 }}>
-              {card.title}
-            </div>
-            <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>
-              {card.desc}
-            </div>
-          </div>
-        ))}
+      {/* Tab 导航 */}
+      <div style={{
+        display: 'flex', gap: 4, marginBottom: 20,
+        borderBottom: '2px solid #f1f5f9', paddingBottom: 0,
+        overflowX: 'auto',
+      }}>
+        {TABS.map(tab => {
+          const active = activeTab === tab.key;
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '10px 16px', fontSize: 13, fontWeight: active ? 700 : 500,
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: active ? '#6366f1' : '#64748b',
+                borderBottom: active ? '2px solid #6366f1' : '2px solid transparent',
+                marginBottom: -2, whiteSpace: 'nowrap', borderRadius: '8px 8px 0 0',
+              }}
+            >
+              <Icon size={14} />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* 导航 */}
-      <div style={{ display: 'flex', gap: 10 }}>
-        <button
-          onClick={() => router.push('/finance2')}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '8px 16px', borderRadius: 8, fontSize: 13,
-            background: '#f1f5f9', border: '1.5px solid #e2e8f0',
-            cursor: 'pointer', color: '#475569',
-          }}
-        >
-          ← Finance V2 Dashboard
-        </button>
-        <button
-          onClick={() => router.push('/finance2/ap')}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '8px 16px', borderRadius: 8, fontSize: 13,
-            background: '#6366f1', color: '#fff', border: 'none', cursor: 'pointer',
-          }}
-        >
-          AP Runtime <ArrowRight size={13} />
-        </button>
+      {/* Tab 内容 */}
+      <div style={{ minHeight: 400 }}>
+        {activeTab === 'overview'     && <OverviewTab />}
+        {activeTab === 'ap'           && <ApTab />}
+        {activeTab === 'ar'           && <ArTab />}
+        {activeTab === 'cash'         && <CashTab />}
+        {activeTab === 'expense'      && <ExpenseTab />}
+        {activeTab === 'shareholder'  && <ShareholderTab />}
+        {activeTab === 'project'      && <ProjectTab />}
+        {activeTab === 'company'      && <CompanyTab />}
       </div>
     </div>
   );

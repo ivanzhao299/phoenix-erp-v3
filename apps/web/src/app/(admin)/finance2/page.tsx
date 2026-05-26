@@ -52,6 +52,16 @@ interface ExpSummaryData {
   paidToday:           number;
 }
 
+interface ReportOverviewData {
+  apOpen:                      number;
+  arOpen:                      number;
+  cashBalance:                 number;
+  netOperatingPosition:        number;
+  todayInflow:                 number;
+  todayOutflow:                number;
+  reimbursementPendingAmount:  number;
+}
+
 interface HealthData {
   status:       string;
   module:       string;
@@ -150,31 +160,34 @@ function fmt(n: number | string | null | undefined): string {
 }
 
 export default function Finance2DashboardPage() {
-  const [health,     setHealth]    = useState<HealthData | null>(null);
-  const [arSummary,  setArSummary] = useState<ArSummaryData | null>(null);
-  const [cashDash,   setCashDash]  = useState<CashDashData | null>(null);
-  const [shSummary,  setShSummary] = useState<ShSummaryData | null>(null);
-  const [expSummary, setExpSummary] = useState<ExpSummaryData | null>(null);
-  const [loading,    setLoading]   = useState(true);
-  const [error,      setError]     = useState('');
+  const [health,        setHealth]       = useState<HealthData | null>(null);
+  const [arSummary,     setArSummary]    = useState<ArSummaryData | null>(null);
+  const [cashDash,      setCashDash]     = useState<CashDashData | null>(null);
+  const [shSummary,     setShSummary]    = useState<ShSummaryData | null>(null);
+  const [expSummary,    setExpSummary]   = useState<ExpSummaryData | null>(null);
+  const [reportOverview, setReportOverview] = useState<ReportOverviewData | null>(null);
+  const [loading,       setLoading]      = useState(true);
+  const [error,         setError]        = useState('');
 
   const load = async () => {
     setLoading(true);
     setError('');
     try {
-      const [h, ar, cashSummary, pendingTfr, sh, exp] = await Promise.allSettled([
+      const [h, ar, cashSummary, pendingTfr, sh, exp, rpt] = await Promise.allSettled([
         apiFetch<HealthData>('/api/v2/finance/health'),
         apiFetch<ArSummaryData>('/api/v2/finance/ar/summary'),
         apiFetch<CashDashData['summary']>('/api/v2/finance/cash/accounts/summary'),
         apiFetch<{ total: number }>('/api/v2/finance/cash/transfers?status=PENDING_APPROVAL&pageSize=1'),
         apiFetch<ShSummaryData>('/api/v2/finance/shareholders/summary'),
         apiFetch<ExpSummaryData>('/api/v2/finance/expenses/summary'),
+        apiFetch<ReportOverviewData>('/api/v2/finance/reports/overview'),
       ]);
 
       if (h.status === 'fulfilled')   setHealth(h.value);
       if (ar.status === 'fulfilled')  setArSummary(ar.value);
       if (sh.status === 'fulfilled')  setShSummary(sh.value);
       if (exp.status === 'fulfilled') setExpSummary(exp.value);
+      if (rpt.status === 'fulfilled') setReportOverview(rpt.value);
 
       setCashDash({
         summary:          cashSummary.status === 'fulfilled' ? cashSummary.value : null,
@@ -195,7 +208,7 @@ export default function Finance2DashboardPage() {
     <div>
       <PageHeader
         title="Finance V2"
-        subtitle="Workflow Native 财务平台 — Phase 5 Expense Runtime"
+        subtitle="Workflow Native 财务平台 — Phase 6 Financial Reports Runtime"
         breadcrumb={['Finance V2', 'Dashboard']}
         actions={
           <button
@@ -214,17 +227,17 @@ export default function Finance2DashboardPage() {
         }
       />
 
-      {/* Phase 5 Banner */}
+      {/* Phase 6 Banner */}
       <div style={{
-        background: 'linear-gradient(135deg, #0f766e 0%, #6d28d9 100%)',
+        background: 'linear-gradient(135deg, #1e3a5f 0%, #0f766e 100%)',
         borderRadius: 16, padding: '22px 28px', marginBottom: 24, color: '#fff',
       }}>
         <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 6 }}>
-          ✅ Finance V2 Phase 5 — Expense Runtime 正式启用
+          ✅ Finance V2 Phase 6 — Financial Reports Runtime 正式启用
         </div>
         <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.8, marginBottom: 14 }}>
-          fin_expense_requests 费用申请 · fin_reimbursements 报销台账<br />
-          Expense 完全 Workflow Native · 审批通过自动生成报销 · 付款联动 Cash Runtime
+          12 只读聚合报表 API · AP/AR/Cash/Expense/Shareholder/Project/Company 统一分析<br />
+          经营净头寸 · 账龄分析 · 项目财务视图 · 公司经营视图 · DataScope 全程合规
         </div>
 
         {/* 底座状态栏 */}
@@ -235,6 +248,7 @@ export default function Finance2DashboardPage() {
             { label: 'Cash Runtime',        value: 'LIVE', ok: true },
             { label: 'Shareholder Runtime', value: 'LIVE', ok: true },
             { label: 'Expense Runtime',     value: 'LIVE', ok: true },
+            { label: 'Reports Runtime',     value: 'LIVE', ok: true },
             { label: 'fin_* 表骨架',        value: loading ? '…' : (health?.status === 'ok' ? 'READY' : 'ERR'), ok: health?.status === 'ok' },
             { label: 'Phase',               value: health?.phase ?? '…', ok: true },
           ].map(item => (
@@ -260,6 +274,51 @@ export default function Finance2DashboardPage() {
           <AlertTriangle size={14} /> {error}
         </div>
       )}
+
+      {/* Phase 6 — 经营净头寸 KPI */}
+      <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>
+        经营资金总览（Phase 6 Reports Runtime）
+      </div>
+      {reportOverview && (
+        <div style={{
+          background: 'linear-gradient(135deg, #1e3a5f 0%, #0f766e 100%)',
+          borderRadius: 14, padding: '18px 22px', marginBottom: 16, color: '#fff',
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16,
+        }}>
+          <div>
+            <div style={{ fontSize: 11, opacity: 0.7 }}>经营净头寸</div>
+            <div style={{ fontSize: 22, fontWeight: 900, marginTop: 2 }}>
+              {reportOverview.netOperatingPosition >= 0 ? '+' : ''}¥ {fmt(reportOverview.netOperatingPosition)}
+            </div>
+            <div style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>= 现金 + AR − AP − 待报销</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, opacity: 0.7 }}>今日流入</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#86efac', marginTop: 2 }}>
+              +¥ {fmt(reportOverview.todayInflow)}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, opacity: 0.7 }}>今日流出</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#fca5a5', marginTop: 2 }}>
+              -¥ {fmt(reportOverview.todayOutflow)}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, opacity: 0.7 }}>AR 待收款</div>
+            <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>¥ {fmt(reportOverview.arOpen)}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, opacity: 0.7 }}>AP 待付款</div>
+            <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>¥ {fmt(reportOverview.apOpen)}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, opacity: 0.7 }}>现金账户余额</div>
+            <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>¥ {fmt(reportOverview.cashBalance)}</div>
+          </div>
+        </div>
+      )}
+      <div style={{ marginBottom: 24 }} />
 
       {/* Shareholder KPI 快览 */}
       <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>
@@ -491,11 +550,11 @@ export default function Finance2DashboardPage() {
           description="报销台账，SERIALIZABLE 付款事务，自动扣减现金账户余额，写 OUT 流水。"
         />
         <ModuleCard
-          icon={PieChart} iconColor="#64748b"
-          title="财务报表"
-          phase={6} phaseStatus="PLANNED"
+          icon={PieChart} iconColor="#0891b2"
+          title="Financial Reports（经营报表）"
+          phase={6} phaseStatus="ACTIVE"
           path="/finance2/reports"
-          description="资产负债表 / 利润表 / 现金流量表 / 多公司合并报表。Phase 5 建立，基于所有 Runtime 数据。"
+          description="12 只读聚合 API。AP/AR 账龄 · 资金日报 · 费用统计 · 股东资金 · 项目财务 · 公司经营净头寸。Phase 6 已上线。"
         />
       </div>
 
@@ -512,6 +571,7 @@ export default function Finance2DashboardPage() {
           { icon: CheckCircle, color: '#059669', title: 'Cash Runtime（Phase 3）',        desc: 'fin_cash_accounts + fin_cash_transactions + fin_fund_transfers 正式启用' },
           { icon: CheckCircle, color: '#059669', title: 'Shareholder Runtime（Phase 4）', desc: 'fin_shareholder_contributions + fin_shareholder_settlements 正式启用，RETURN/OFFSET/WRITE_OFF 结算联动 Cash' },
           { icon: CheckCircle, color: '#059669', title: 'Expense Runtime（Phase 5）',     desc: 'fin_expense_requests + fin_reimbursements 正式启用。完全 Workflow Native，审批通过自动生成报销，付款联动 Cash Runtime' },
+          { icon: CheckCircle, color: '#059669', title: 'Reports Runtime（Phase 6）',     desc: '12 只读聚合端点：AP/AR 账龄、资金日报、费用统计、股东资金、项目财务、公司经营净头寸。DataScope 全程合规' },
           { icon: Database,    color: '#64748b', title: '旧 Finance 废弃',                desc: 'fin_transactions / fin_payments / biz_cash_flow 不再写入，只读废弃' },
         ].map(item => (
           <div key={item.title} style={{ background: '#fff', borderRadius: 12, padding: '14px 16px', border: '1.5px solid #f1f5f9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>

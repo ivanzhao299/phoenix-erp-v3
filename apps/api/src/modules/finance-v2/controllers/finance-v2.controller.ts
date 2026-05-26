@@ -47,7 +47,7 @@ export class FinanceV2Controller {
     return {
       status:  'ok',
       module:  'finance-v2',
-      phase:   'phase-5-expense-runtime',
+      phase:   'phase-6-financial-reports',
       tables:  [
         'fin_ap_invoices',
         'fin_ar_invoices',
@@ -125,6 +125,24 @@ export class FinanceV2Controller {
           description: 'Expense Runtime（fin_expense_requests + fin_reimbursements）',
           source:      'fin_expense_requests',
           summary:     expenseSummary.status === 'fulfilled' ? expenseSummary.value : null,
+        },
+        reports: {
+          status:      'RUNTIME',
+          description: 'Financial Reports Runtime — 12 只读聚合端点（Phase 6）',
+          endpoints:   [
+            'GET /api/v2/finance/reports/overview',
+            'GET /api/v2/finance/reports/ap-aging',
+            'GET /api/v2/finance/reports/ap-top-suppliers',
+            'GET /api/v2/finance/reports/ar-aging',
+            'GET /api/v2/finance/reports/ar-top-customers',
+            'GET /api/v2/finance/reports/cash-overview',
+            'GET /api/v2/finance/reports/cash-daily-flow',
+            'GET /api/v2/finance/reports/expense-summary',
+            'GET /api/v2/finance/reports/reimbursement-summary',
+            'GET /api/v2/finance/reports/shareholder-summary',
+            'GET /api/v2/finance/reports/project-finance',
+            'GET /api/v2/finance/reports/company-finance',
+          ],
         },
       },
       workflowPlatform: {
