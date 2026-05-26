@@ -1,29 +1,44 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { FinanceV2Controller } from './controllers/finance-v2.controller';
 import { ApAdapterService }    from './services/ap-adapter.service';
+import {
+  FinApInvoiceEntity,
+  FinArInvoiceEntity,
+  FinCashAccountEntity,
+  FinCashTransactionEntity,
+  FinShareholderContributionEntity,
+  FinExchangeRateEntity,
+} from './entities';
 
 /**
- * Finance V2 Module — Phase 0 Baseline
+ * Finance V2 Module — Phase 0 Clean Baseline
  *
- * Phase 0 职责：
- *   - 暴露过渡层 AP 只读接口（读取 prc2_ap_ledger）
- *   - 提供 Dashboard 汇总
- *   - 所有接口走 MenuGuard（MENU_FIN2_* 权限体系）
+ * Phase 路线图：
+ *   Phase 0 — 基线建立：Entity 骨架、API 健康接口、前端页面占位、旧模块废弃
+ *   Phase 1 — AP Runtime：fin_ap_invoices + fin_ap_payments + AP Workflow
+ *   Phase 2 — AR Runtime：fin_ar_invoices + fin_ar_receipts
+ *   Phase 3 — Cash Runtime：fin_cash_accounts + fin_cash_transactions
+ *   Phase 4 — Shareholder Runtime：fin_shareholder_contributions + fin_shareholder_settlements
+ *   Phase 5 — Reports：资产负债表 / 利润表 / 现金流量表
  *
- * 后续 Phase：
- *   Phase 1 — AP Runtime（fin_ap_invoices, fin_ap_payments）
- *   Phase 2 — AR Runtime（fin_ar_invoices, fin_ar_receipts）
- *   Phase 3 — Cash Account Center（fin_cash_accounts）
- *   Phase 4 — Expense + Reimbursement（fin_expense_requests）
- *   Phase 5 — Budget Runtime（fin_budgets）
- *
- * 依赖说明：
- *   - OrgModule 为 @Global()，DataScopeHelper 自动注入，无需 import
- *   - ApprovalEngineModule 为 @Global()，Phase 1+ 接入 ApprovalEngine 无需额外 import
- *   - ClsService 由 CLS 全局提供
+ * 设计原则：
+ *   - 不引用 fin_transactions / fin_payments / biz_cash_flow（旧表废弃）
+ *   - 不修改 Procurement V2 运行逻辑（prc2_* 只读参考）
+ *   - OrgModule 为 @Global()，DataScopeHelper 自动注入
+ *   - ApprovalEngineModule 为 @Global()，Phase 1+ 直接接入
  */
 @Module({
-  imports:     [],
+  imports: [
+    TypeOrmModule.forFeature([
+      FinApInvoiceEntity,
+      FinArInvoiceEntity,
+      FinCashAccountEntity,
+      FinCashTransactionEntity,
+      FinShareholderContributionEntity,
+      FinExchangeRateEntity,
+    ]),
+  ],
   controllers: [FinanceV2Controller],
   providers:   [ApAdapterService],
   exports:     [ApAdapterService],

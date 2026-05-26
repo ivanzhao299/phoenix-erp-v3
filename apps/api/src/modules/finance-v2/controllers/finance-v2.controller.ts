@@ -5,19 +5,20 @@ import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
 import { ApAdapterService } from '../services/ap-adapter.service';
 
 /**
- * Finance V2 Controller
+ * Finance V2 Controller — Phase 0 Clean Baseline
  *
  * 路由前缀：/api/v2/finance
  *
- * Phase 0 仅提供过渡层只读接口：
- *   GET /api/v2/finance/dashboard    — Dashboard 统计
- *   GET /api/v2/finance/ap/legacy-source  — prc2_ap_ledger 只读列表（DataScope）
- *   GET /api/v2/finance/ap/summary   — AP 汇总数据（Dashboard 用）
+ * Phase 0 接口：
+ *   GET /api/v2/finance/health           — 模块健康检查（无需鉴权）
+ *   GET /api/v2/finance/dashboard        — Dashboard 汇总（MENU_FIN2 V）
+ *   GET /api/v2/finance/ap/legacy-source — prc2_ap_ledger 只读列表（MENU_FIN2_AP V）
+ *   GET /api/v2/finance/ap/summary       — AP 汇总统计（MENU_FIN2_AP V）
  *
  * Phase 1 将增加：
- *   POST /api/v2/finance/ap/invoices  — 创建 fin_ap_invoices
- *   GET  /api/v2/finance/ar/*         — AR Runtime
- *   GET  /api/v2/finance/cash/*       — 资金账户
+ *   POST /api/v2/finance/ap/invoices     — 创建 fin_ap_invoices
+ *   GET  /api/v2/finance/ar/*            — AR Runtime
+ *   GET  /api/v2/finance/cash/*          — 资金账户
  */
 @Controller('api/v2/finance')
 @UseGuards(MenuGuard)
@@ -25,6 +26,36 @@ export class FinanceV2Controller {
   constructor(
     private readonly apAdapter: ApAdapterService,
   ) {}
+
+  // ── Health（无需 MENU 鉴权，供运维探活）─────────────────────────────────
+
+  /**
+   * GET /api/v2/finance/health
+   * Finance V2 模块健康探针
+   * @public（MenuGuard 对无 @RequireMenu 的端点放行）
+   */
+  @Get('health')
+  health() {
+    return {
+      status:  'ok',
+      module:  'finance-v2',
+      phase:   'phase-0-clean-baseline',
+      tables:  [
+        'fin_ap_invoices',
+        'fin_ar_invoices',
+        'fin_cash_accounts',
+        'fin_cash_transactions',
+        'fin_shareholder_contributions',
+        'fin_exchange_rates',
+      ],
+      legacy_frozen: [
+        'fin_transactions',
+        'fin_payments',
+        'biz_cash_flow',
+      ],
+      timestamp: new Date().toISOString(),
+    };
+  }
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
 

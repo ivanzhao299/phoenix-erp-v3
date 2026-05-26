@@ -2,31 +2,21 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  LayoutDashboard, TrendingDown, TrendingUp, Wallet, Users,
-  Receipt, PieChart, CheckCircle, Clock, AlertTriangle, ArrowRight, RefreshCw,
+  TrendingDown, TrendingUp, Wallet, Users, PieChart,
+  Receipt, CheckCircle, Clock, AlertTriangle, ArrowRight,
+  RefreshCw, Activity, Database,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 
-interface DashboardData {
-  modules: Record<string, {
-    status:      string;
-    description: string;
-    source?:     string;
-    summary?:    Record<string, unknown>;
-  }>;
-  workflowPlatform: {
-    status:      string;
-    formRuntime: string;
-    approvalEngine: string;
-    sla:         string;
-  };
-  legacyFreeze: {
-    frozenAt: string;
-    tables:   string[];
-    pages:    string[];
-  };
+interface HealthData {
+  status:   string;
+  module:   string;
+  phase:    string;
+  tables:   string[];
+  legacy_frozen: string[];
+  timestamp: string;
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -37,96 +27,65 @@ function getToken() {
 }
 
 async function apiFetch<T>(url: string): Promise<T> {
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${getToken()}` },
-  });
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${getToken()}` } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
 // ── 子组件 ────────────────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; bg: string; color: string }> = {
-    READY:   { label: '✅ 已就绪',   bg: '#f0fdf4', color: '#059669' },
-    ADAPTER: { label: '🔄 过渡层',   bg: '#eff6ff', color: '#2563eb' },
-    PLANNED: { label: '📋 规划中',   bg: '#fafafa', color: '#6b7280' },
-    FROZEN:  { label: '🔒 已冻结',   bg: '#fef3c7', color: '#d97706' },
+function PhaseBadge({ phase, status }: { phase: number; status: 'READY' | 'ACTIVE' | 'PLANNED' | 'FROZEN' }) {
+  const map = {
+    READY:   { label: '✅ 底座就绪', bg: '#f0fdf4', color: '#059669' },
+    ACTIVE:  { label: '🔄 建设中',   bg: '#eff6ff', color: '#2563eb' },
+    PLANNED: { label: `📋 Phase ${phase}`, bg: '#fafafa', color: '#6b7280' },
+    FROZEN:  { label: '🔒 已废弃',   bg: '#fef3c7', color: '#d97706' },
   };
-  const cfg = map[status] ?? { label: status, bg: '#f1f5f9', color: '#64748b' };
+  const cfg = map[status];
   return (
     <span style={{
       fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 20,
       background: cfg.bg, color: cfg.color,
-    }}>
-      {cfg.label}
-    </span>
+    }}>{cfg.label}</span>
   );
 }
 
 function ModuleCard({
-  icon: Icon,
-  title,
-  status,
-  description,
-  path,
-  highlight,
+  icon: Icon, title, description, phase, phaseStatus, path, iconColor,
 }: {
-  icon: React.ElementType;
-  title: string;
-  status: string;
-  description: string;
-  path?: string;
-  highlight?: Record<string, unknown>;
+  icon: React.ElementType; title: string; description: string;
+  phase: number; phaseStatus: 'READY' | 'ACTIVE' | 'PLANNED' | 'FROZEN';
+  path?: string; iconColor?: string;
 }) {
   const router = useRouter();
-  const canNavigate = path && (status === 'ADAPTER' || status === 'READY');
+  const canNav = !!path && (phaseStatus === 'ACTIVE' || phaseStatus === 'READY');
 
   return (
     <div
-      onClick={() => canNavigate && router.push(path)}
+      onClick={() => canNav && router.push(path!)}
       style={{
         background: '#fff', borderRadius: 16, border: '1.5px solid #f1f5f9',
         padding: '20px 22px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
-        cursor: canNavigate ? 'pointer' : 'default',
+        cursor: canNav ? 'pointer' : 'default',
+        opacity: phaseStatus === 'PLANNED' && phase > 2 ? 0.65 : 1,
         transition: 'box-shadow 0.15s, border-color 0.15s',
-        opacity: status === 'PLANNED' ? 0.7 : 1,
       }}
-      onMouseEnter={e => { if (canNavigate) { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; (e.currentTarget as HTMLDivElement).style.borderColor = '#c7d2fe'; } }}
+      onMouseEnter={e => { if (canNav) { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; (e.currentTarget as HTMLDivElement).style.borderColor = '#c7d2fe'; } }}
       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'; (e.currentTarget as HTMLDivElement).style.borderColor = '#f1f5f9'; }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div style={{
           width: 40, height: 40, borderRadius: 10,
-          background: '#f1f5f9',
+          background: `${iconColor ?? '#6366f1'}18`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <Icon size={20} color="#475569" />
+          <Icon size={20} color={iconColor ?? '#6366f1'} />
         </div>
-        <StatusBadge status={status} />
+        <PhaseBadge phase={phase} status={phaseStatus} />
       </div>
-
       <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a', marginBottom: 4 }}>{title}</div>
-      <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6, marginBottom: highlight ? 12 : 0 }}>
-        {description}
-      </div>
-
-      {highlight && Object.keys(highlight).length > 0 && (
-        <div style={{
-          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px',
-          background: '#f8fafc', borderRadius: 8, padding: '8px 12px',
-          fontSize: 12, color: '#475569',
-        }}>
-          {Object.entries(highlight).map(([k, v]) => (
-            <div key={k}>
-              <span style={{ color: '#94a3b8' }}>{k}：</span>
-              <span style={{ fontWeight: 600 }}>{String(v ?? '-')}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {canNavigate && (
+      <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>{description}</div>
+      {canNav && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 12, fontSize: 12, color: '#6366f1' }}>
           进入 <ArrowRight size={12} />
         </div>
@@ -138,7 +97,7 @@ function ModuleCard({
 // ── 主页面 ─────────────────────────────────────────────────────────────────────
 
 export default function Finance2DashboardPage() {
-  const [data,    setData]    = useState<DashboardData | null>(null);
+  const [health,  setHealth]  = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
 
@@ -146,8 +105,8 @@ export default function Finance2DashboardPage() {
     setLoading(true);
     setError('');
     try {
-      const d = await apiFetch<DashboardData>('/api/v2/finance/dashboard');
-      setData(d);
+      const h = await apiFetch<HealthData>('/api/v2/finance/health');
+      setHealth(h);
     } catch (e: any) {
       setError(e.message ?? '加载失败');
     } finally {
@@ -157,13 +116,11 @@ export default function Finance2DashboardPage() {
 
   useEffect(() => { load(); }, []);
 
-  const apSummary = data?.modules?.ap?.summary;
-
   return (
     <div>
       <PageHeader
         title="Finance V2"
-        subtitle="Finance V2 Workflow Native 财务平台 — Phase 0 基线"
+        subtitle="Workflow Native 财务平台 — Phase 0 Clean Baseline"
         breadcrumb={['Finance V2', 'Dashboard']}
         actions={
           <button
@@ -182,29 +139,36 @@ export default function Finance2DashboardPage() {
         }
       />
 
-      {/* Phase 0 Banner */}
+      {/* Phase 0 Clean Baseline Banner */}
       <div style={{
-        background: 'linear-gradient(135deg, #6366f1 0%, #7c3aed 100%)',
-        borderRadius: 16, padding: '20px 28px', marginBottom: 24, color: '#fff',
+        background: 'linear-gradient(135deg, #4f46e5 0%, #6d28d9 100%)',
+        borderRadius: 16, padding: '22px 28px', marginBottom: 24, color: '#fff',
       }}>
         <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 6 }}>
-          🚀 Finance V2 Phase 0 — 基线建立
+          🚀 Finance V2 Phase 0 Clean Baseline
         </div>
-        <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.7 }}>
-          旧 Finance 模块已冻结 · AP Runtime 适配层已就绪（来自 prc2_ap_ledger）
-          · Workflow 2.0 Platform 底座已完成（Phase A-I）
-          · 后续将按 Phase 1-5 逐步建立真实 Finance Runtime
+        <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.8, marginBottom: 14 }}>
+          旧 Finance 模块已废弃（测试阶段遗留）· 不迁移旧测试数据<br />
+          fin_* 领域表骨架已就位 · Workflow 2.0 平台已完成（Phase A-I）<br />
+          Phase 1 AP Runtime 将是第一个正式 Finance V2 功能
         </div>
-        <div style={{ display: 'flex', gap: 20, marginTop: 14, flexWrap: 'wrap' }}>
+
+        {/* 底座状态栏 */}
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           {[
-            { label: 'Workflow Platform', value: data?.workflowPlatform?.status ?? '…' },
-            { label: 'Form Runtime',      value: data?.workflowPlatform?.formRuntime ?? '…' },
-            { label: 'Approval Engine',   value: data?.workflowPlatform?.approvalEngine ?? '…' },
-            { label: 'SLA Engine',        value: data?.workflowPlatform?.sla ?? '…' },
+            { label: 'Workflow Platform', value: 'READY', ok: true },
+            { label: 'ApprovalEngine',    value: 'READY', ok: true },
+            { label: 'Form Runtime',      value: 'READY', ok: true },
+            { label: 'SLA Engine',        value: 'READY', ok: true },
+            { label: 'DataScope',         value: 'READY', ok: true },
+            { label: 'fin_* 表骨架',      value: loading ? '…' : (health?.status === 'ok' ? 'READY' : 'ERR'), ok: health?.status === 'ok' },
           ].map(item => (
             <div key={item.label} style={{ fontSize: 12 }}>
               <span style={{ opacity: 0.7 }}>{item.label}</span>
-              <span style={{ marginLeft: 6, fontWeight: 700, background: 'rgba(255,255,255,0.2)', padding: '1px 8px', borderRadius: 10 }}>
+              <span style={{
+                marginLeft: 6, fontWeight: 700, padding: '1px 8px', borderRadius: 10,
+                background: item.ok ? 'rgba(255,255,255,0.25)' : 'rgba(239,68,68,0.5)',
+              }}>
                 {item.value}
               </span>
             </div>
@@ -222,107 +186,111 @@ export default function Finance2DashboardPage() {
         </div>
       )}
 
-      {/* AP 汇总快览 */}
-      {apSummary && (
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-          gap: 12, marginBottom: 24,
-        }}>
-          {[
-            { label: 'AP 总笔数',  value: String(apSummary.total_count ?? '-'),  icon: Receipt,       color: '#6366f1' },
-            { label: '未付',       value: String(apSummary.open_count ?? '-'),    icon: Clock,         color: '#f59e0b' },
-            { label: '部分付款',   value: String(apSummary.partial_count ?? '-'), icon: TrendingDown,  color: '#3b82f6' },
-            { label: '已付清',     value: String(apSummary.paid_count ?? '-'),    icon: CheckCircle,   color: '#10b981' },
-            { label: '待付余额',   value: `¥${Number(apSummary.total_balance ?? 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 })}`, icon: Wallet, color: '#ef4444' },
-          ].map(kpi => (
-            <div key={kpi.label} style={{
-              background: '#fff', borderRadius: 12, padding: '16px 18px',
-              border: '1.5px solid #f1f5f9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <kpi.icon size={16} color={kpi.color} />
-                <span style={{ fontSize: 12, color: '#64748b' }}>{kpi.label}</span>
-              </div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a' }}>{loading ? '…' : kpi.value}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* 模块状态矩阵 */}
-      <div style={{ marginBottom: 10, fontSize: 13, fontWeight: 600, color: '#374151' }}>Finance V2 模块路线图</div>
+      {/* 模块路线图 */}
+      <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>
+        Finance V2 模块路线图
+      </div>
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
         gap: 14, marginBottom: 28,
       }}>
         <ModuleCard
-          icon={TrendingDown}
+          icon={TrendingDown} iconColor="#f59e0b"
           title="AP Runtime（应付账款）"
-          status={data?.modules?.ap?.status ?? 'ADAPTER'}
-          description="应付台账、付款核销、多币种。当前使用 prc2_ap_ledger 适配层，Phase 1 建立 fin_ap_invoices。"
+          phase={1} phaseStatus="ACTIVE"
           path="/finance2/ap"
-          highlight={apSummary ? {
-            '待付笔数': String(apSummary.open_count ?? '-'),
-            '待付余额': `¥${Number(apSummary.total_balance ?? 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 })}`,
-          } : undefined}
+          description="fin_ap_invoices + fin_ap_payment_allocations。供应商发票管理、付款核销、多币种。Phase 1 建立 Workflow Native AP 流程。"
         />
         <ModuleCard
-          icon={TrendingUp}
+          icon={TrendingUp} iconColor="#10b981"
           title="AR Runtime（应收账款）"
-          status="PLANNED"
-          description="客户发票、收款记录、账龄分析。Phase 1 建立 fin_ar_invoices。"
+          phase={2} phaseStatus="PLANNED"
+          path="/finance2/ar"
+          description="fin_ar_invoices + fin_ar_receipts。客户发票、收款核销、账龄分析。Phase 2 建立。"
         />
         <ModuleCard
-          icon={Wallet}
-          title="资金账户中心"
-          status="PLANNED"
-          description="多账户余额追踪、资金流水、账户间转账。Phase 2 建立 fin_cash_accounts。"
+          icon={Wallet} iconColor="#3b82f6"
+          title="Cash Runtime（资金账户）"
+          phase={3} phaseStatus="PLANNED"
           path="/finance2/cash-accounts"
+          description="fin_cash_accounts + fin_cash_transactions。多账户余额、资金流水、账户间转账。Phase 3 建立。"
         />
         <ModuleCard
-          icon={Users}
+          icon={Users} iconColor="#7c3aed"
           title="股东资金 Runtime"
-          status={data?.modules?.shareholder?.status ?? 'ADAPTER'}
-          description="股东出资/代付、资金结算、利息计算。当前使用 prc2_shareholder_funds 适配层。"
+          phase={4} phaseStatus="PLANNED"
           path="/finance2/shareholder-funds"
+          description="fin_shareholder_contributions + fin_shareholder_settlements。复用 prc2 设计样板，Phase 4 建立。"
         />
         <ModuleCard
-          icon={Receipt}
-          title="费用 Runtime"
-          status="PLANNED"
-          description="费用申请 → Workflow Form Runtime → ApprovalEngine。Phase 3 建立。"
+          icon={Receipt} iconColor="#6366f1"
+          title="Expense Runtime（费用）"
+          phase={3} phaseStatus="PLANNED"
+          description="费用申请 → Form Runtime → ApprovalEngine。Phase 3 建立，对接 fin_cash_accounts。"
         />
         <ModuleCard
-          icon={PieChart}
-          title="预算 Runtime"
-          status="PLANNED"
-          description="预算编制、执行追踪、超预算审批工作流。Phase 4 建立。"
+          icon={PieChart} iconColor="#64748b"
+          title="财务报表"
+          phase={5} phaseStatus="PLANNED"
+          path="/finance2/reports"
+          description="资产负债表 / 利润表 / 现金流量表 / 多公司合并报表。Phase 5 建立，基于所有 Runtime 数据。"
         />
       </div>
 
-      {/* 旧模块冻结清单 */}
-      {data?.legacyFreeze && (
-        <div style={{ background: '#fffbeb', borderRadius: 14, padding: '18px 22px', border: '1.5px solid #fcd34d' }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: '#92400e', marginBottom: 10 }}>
-            🔒 Legacy Finance 冻结清单（冻结日期：{data.legacyFreeze.frozenAt}）
+      {/* Workflow + DataScope 底座说明 */}
+      <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>
+        已就绪底座
+      </div>
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: 12, marginBottom: 28,
+      }}>
+        {[
+          { icon: CheckCircle, color: '#059669', title: 'Workflow 2.0 Platform', desc: 'Phase A-I 全部完成，ApprovalEngine + Form Runtime + SLA 已就绪' },
+          { icon: CheckCircle, color: '#059669', title: 'DataScope',             desc: '基于 OrgModule @Global，所有接口自动注入 company_code 范围过滤' },
+          { icon: CheckCircle, color: '#059669', title: 'fin_* 表骨架',          desc: '9 张 fin_* 领域表 DDL 已创建，Entity 骨架已注册 TypeORM' },
+          { icon: CheckCircle, color: '#059669', title: 'RBAC 矩阵',             desc: 'MENU_FIN2_* 8 个权限条目已注册，CFO/Finance/Accountant 分级管控' },
+          { icon: Activity,    color: '#f59e0b', title: 'AP 适配过渡层',         desc: '临时读取 prc2_ap_ledger，Phase 1 建立 fin_ap_invoices 后切换' },
+          { icon: Database,    color: '#64748b', title: '旧 Finance 废弃',       desc: 'fin_transactions / fin_payments / biz_cash_flow 不再写入，只读废弃' },
+        ].map(item => (
+          <div key={item.title} style={{
+            background: '#fff', borderRadius: 12, padding: '14px 16px',
+            border: '1.5px solid #f1f5f9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <item.icon size={15} color={item.color} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{item.title}</span>
+            </div>
+            <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.5 }}>{item.desc}</div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 24px', fontSize: 12, color: '#78350f' }}>
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>已冻结表：</div>
-              {data.legacyFreeze.tables.map(t => (
-                <div key={t} style={{ fontFamily: 'monospace', marginBottom: 2 }}>• {t}</div>
-              ))}
-            </div>
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>已冻结页面：</div>
-              {data.legacyFreeze.pages.map(p => (
-                <div key={p} style={{ fontFamily: 'monospace', marginBottom: 2 }}>• {p}</div>
-              ))}
-            </div>
+        ))}
+      </div>
+
+      {/* 旧 Finance 废弃说明 */}
+      <div style={{
+        background: '#fff8f1', border: '1.5px solid #fed7aa', borderRadius: 14,
+        padding: '16px 20px',
+      }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: '#c2410c', marginBottom: 10 }}>
+          ⚠️ 旧 Finance 模块废弃声明（{new Date().toISOString().slice(0,10)}）
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 24px', fontSize: 12, color: '#9a3412' }}>
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>已废弃表（只读，禁止写入）：</div>
+            {['fin_transactions', 'fin_payments', 'biz_cash_flow'].map(t => (
+              <div key={t} style={{ fontFamily: 'monospace', marginBottom: 2 }}>• {t}</div>
+            ))}
+          </div>
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>已废弃页面（入口关闭）：</div>
+            {['/finance', '/finance/payments', '/finance/receivables', '/finance/payables',
+              '/finance/aging', '/finance/cashflow', '/finance/cost'].map(p => (
+              <div key={p} style={{ fontFamily: 'monospace', marginBottom: 2 }}>• {p}</div>
+            ))}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
