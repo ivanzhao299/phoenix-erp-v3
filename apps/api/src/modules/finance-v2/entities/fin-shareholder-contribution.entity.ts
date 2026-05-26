@@ -6,12 +6,11 @@ import {
 /**
  * 股东出资 / 代付台账  fin_shareholder_contributions
  *
- * Finance V2 Phase 0 Clean Baseline
- * Phase 4 正式启用（当前为空表）
+ * Finance V2 Phase 4 — Shareholder Runtime 正式启用
  *
- * 复用 prc2_shareholder_funds 设计样板，迁移至 Finance V2 领域。
- * 记录股东的出资、借款、代付等各类资金投入，并通过
- * fin_shareholder_settlements 追踪偿还进度。
+ * contribution_type: INVESTMENT | LOAN | ADVANCE | GUARANTEE | PAYMENT_ON_BEHALF
+ * source_type:       MANUAL | PAYMENT | OPENING | IMPORT
+ * status:            DRAFT → PENDING_CONFIRM → CONFIRMED → PARTIALLY_SETTLED → SETTLED | CANCELLED
  */
 @Entity('fin_shareholder_contributions')
 export class FinShareholderContributionEntity {
@@ -21,44 +20,54 @@ export class FinShareholderContributionEntity {
   @Column({ name: 'contribution_no', type: 'varchar', length: 60, unique: true })
   contributionNo: string;
 
+  // ── 股东 ─────────────────────────────────────────────────────────────────
+  @Column({ name: 'shareholder_id', type: 'bigint', nullable: true })
+  shareholderId: string | null;
+
+  @Column({ name: 'shareholder_code', type: 'varchar', length: 64, nullable: true })
+  shareholderCode: string | null;
+
+  @Column({ name: 'shareholder_name', type: 'varchar', length: 200 })
+  shareholderName: string;
+
   // ── 公司维度 ─────────────────────────────────────────────────────────────
   @Column({ name: 'company_code', type: 'varchar', length: 64 })
   companyCode: string;
 
   @Column({ name: 'company_name', type: 'varchar', length: 256, nullable: true })
-  companyName: string;
+  companyName: string | null;
 
   // ── 项目维度 ─────────────────────────────────────────────────────────────
   @Column({ name: 'project_code', type: 'varchar', length: 64, nullable: true })
-  projectCode: string;
+  projectCode: string | null;
 
   @Column({ name: 'project_name', type: 'varchar', length: 256, nullable: true })
-  projectName: string;
+  projectName: string | null;
 
-  // ── 股东 ─────────────────────────────────────────────────────────────────
-  @Column({ name: 'shareholder_code', type: 'varchar', length: 64 })
-  shareholderCode: string;
+  // ── 来源 ─────────────────────────────────────────────────────────────────
+  /** MANUAL | PAYMENT | OPENING | IMPORT */
+  @Column({ name: 'source_type', type: 'varchar', length: 30, default: 'MANUAL' })
+  sourceType: string;
 
-  @Column({ name: 'shareholder_name', type: 'varchar', length: 200 })
-  shareholderName: string;
+  @Column({ name: 'source_id', type: 'bigint', nullable: true })
+  sourceId: string | null;
+
+  @Column({ name: 'source_no', type: 'varchar', length: 80, nullable: true })
+  sourceNo: string | null;
 
   // ── 资金类型 ─────────────────────────────────────────────────────────────
-  /** EQUITY / LOAN / ADVANCE_PAYMENT / GUARANTEE */
+  /** INVESTMENT | LOAN | ADVANCE | GUARANTEE | PAYMENT_ON_BEHALF */
   @Column({ name: 'contribution_type', type: 'varchar', length: 40 })
   contributionType: string;
 
-  // ── 日期 ─────────────────────────────────────────────────────────────────
-  @Column({ name: 'contribution_date', type: 'date' })
-  contributionDate: string;
-
-  @Column({ name: 'maturity_date', type: 'date', nullable: true })
-  maturityDate: string;
+  @Column({ name: 'fund_nature', type: 'varchar', length: 40, nullable: true })
+  fundNature: string | null;
 
   // ── 金额三段式 ───────────────────────────────────────────────────────────
-  @Column({ name: 'currency_code', type: 'varchar', length: 8, default: 'CNY' })
+  @Column({ name: 'currency_code', type: 'varchar', length: 8 })
   currencyCode: string;
 
-  @Column({ name: 'amount_original', type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ name: 'amount_original', type: 'numeric', precision: 18, scale: 2 })
   amountOriginal: number;
 
   @Column({ name: 'exchange_rate', type: 'numeric', precision: 18, scale: 8, default: 1 })
@@ -71,36 +80,44 @@ export class FinShareholderContributionEntity {
   baseCurrency: string;
 
   // ── 偿还进度 ─────────────────────────────────────────────────────────────
-  @Column({ name: 'settled_amount', type: 'numeric', precision: 18, scale: 2, default: 0 })
-  settledAmount: number;
+  @Column({ name: 'settled_amount_original', type: 'numeric', precision: 18, scale: 2, default: 0 })
+  settledAmountOriginal: number;
 
-  @Column({ name: 'balance_amount', type: 'numeric', precision: 18, scale: 2, default: 0 })
-  balanceAmount: number;
+  @Column({ name: 'settled_amount_base', type: 'numeric', precision: 18, scale: 2, default: 0 })
+  settledAmountBase: number;
+
+  @Column({ name: 'balance_amount_original', type: 'numeric', precision: 18, scale: 2, default: 0 })
+  balanceAmountOriginal: number;
+
+  @Column({ name: 'balance_amount_base', type: 'numeric', precision: 18, scale: 2, default: 0 })
+  balanceAmountBase: number;
 
   // ── 利息 ─────────────────────────────────────────────────────────────────
-  @Column({ name: 'interest_rate', type: 'numeric', precision: 8, scale: 4, nullable: true })
-  interestRate: number;
+  @Column({ name: 'expected_return_date', type: 'date', nullable: true })
+  expectedReturnDate: string | null;
 
-  /** SIMPLE / COMPOUND */
-  @Column({ name: 'interest_type', type: 'varchar', length: 20, nullable: true })
-  interestType: string;
+  @Column({ name: 'interest_rate', type: 'numeric', precision: 8, scale: 4, nullable: true })
+  interestRate: number | null;
 
   // ── 状态 ─────────────────────────────────────────────────────────────────
-  /** ACTIVE / PARTIALLY_SETTLED / SETTLED / VOID */
-  @Column({ name: 'status', type: 'varchar', length: 32, default: 'ACTIVE' })
+  /** DRAFT | PENDING_CONFIRM | CONFIRMED | PARTIALLY_SETTLED | SETTLED | CANCELLED */
+  @Column({ name: 'status', type: 'varchar', length: 30, default: 'DRAFT' })
   status: string;
 
   @Column({ name: 'wf_instance_id', type: 'bigint', nullable: true })
-  wfInstanceId: string;
+  wfInstanceId: string | null;
+
+  @Column({ name: 'cash_account_id', type: 'bigint', nullable: true })
+  cashAccountId: string | null;
 
   @Column({ name: 'remark', type: 'text', nullable: true })
-  remark: string;
+  remark: string | null;
 
   @Column({ name: 'created_by', type: 'varchar', length: 80, nullable: true })
-  createdBy: string;
+  createdBy: string | null;
 
   @Column({ name: 'updated_by', type: 'varchar', length: 80, nullable: true })
-  updatedBy: string;
+  updatedBy: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

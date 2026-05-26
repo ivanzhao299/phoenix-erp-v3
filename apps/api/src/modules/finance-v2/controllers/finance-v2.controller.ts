@@ -8,25 +8,27 @@ import { ApInvoicesService }     from '../services/ap-invoices.service';
 import { CashAccountsService }   from '../services/cash-accounts.service';
 import { CashTransactionsService } from '../services/cash-transactions.service';
 import { FundTransfersService }  from '../services/fund-transfers.service';
+import { ShareholderContributionsService } from '../services/shareholder-contributions.service';
 
 /**
- * Finance V2 Controller — Phase 3 Cash Runtime
+ * Finance V2 Controller — Phase 4 Shareholder Runtime
  *
  * 路由前缀：/api/v2/finance
  *
  * 本控制器仅保留通用接口（health / dashboard / ap/legacy-source）。
- * AP 路由 → FinApController，AR 路由 → FinArController，Cash 路由 → FinCashController
+ * AP → FinApController，AR → FinArController，Cash → FinCashController，Shareholder → FinShareholderController
  */
 @Controller('api/v2/finance')
 @UseGuards(MenuGuard)
 export class FinanceV2Controller {
   constructor(
-    private readonly apAdapter:  ApAdapterService,
-    private readonly apInvoices: ApInvoicesService,
-    private readonly cashAccSvc: CashAccountsService,
-    private readonly cashTxnSvc: CashTransactionsService,
-    private readonly tfrSvc:     FundTransfersService,
-    private readonly cls:        ClsService,
+    private readonly apAdapter:    ApAdapterService,
+    private readonly apInvoices:   ApInvoicesService,
+    private readonly cashAccSvc:   CashAccountsService,
+    private readonly cashTxnSvc:   CashTransactionsService,
+    private readonly tfrSvc:       FundTransfersService,
+    private readonly shContribSvc: ShareholderContributionsService,
+    private readonly cls:          ClsService,
   ) {}
 
   private get user() { return this.cls.get('user') as any; }
@@ -43,13 +45,15 @@ export class FinanceV2Controller {
     return {
       status:  'ok',
       module:  'finance-v2',
-      phase:   'phase-3-cash-runtime',
+      phase:   'phase-4-shareholder-runtime',
       tables:  [
         'fin_ap_invoices',
         'fin_ar_invoices',
         'fin_cash_accounts',
         'fin_cash_transactions',
+        'fin_fund_transfers',
         'fin_shareholder_contributions',
+        'fin_shareholder_settlements',
         'fin_exchange_rates',
       ],
       legacy_frozen: [
@@ -75,11 +79,12 @@ export class FinanceV2Controller {
       ? null
       : (u?.dataScope?.companyCodes ?? []);
 
-    const [apSummary, cashSummary, todayCash, pendingTransfers] = await Promise.allSettled([
+    const [apSummary, cashSummary, todayCash, pendingTransfers, shSummary] = await Promise.allSettled([
       this.apInvoices.getSummary(),
       this.cashAccSvc.getSummary(u),
       this.cashTxnSvc.getTodaySummary(companyCodes),
       this.tfrSvc.getPendingCount(companyCodes),
+      this.shContribSvc.getSummary(u),
     ]);
 
     return {
@@ -99,31 +104,28 @@ export class FinanceV2Controller {
           status:      'RUNTIME',
           description: '资金账户中心（fin_cash_accounts + fin_cash_transactions）',
           source:      'fin_cash_accounts',
-          summary:     cashSummary.status === 'fulfilled' ? cashSummary.value : null,
-          todayIn:     todayCash.status === 'fulfilled' ? todayCash.value.todayIn : 0,
-          todayOut:    todayCash.status === 'fulfilled' ? todayCash.value.todayOut : 0,
+          summary:          cashSummary.status === 'fulfilled' ? cashSummary.value : null,
+          todayIn:          todayCash.status === 'fulfilled' ? todayCash.value.todayIn : 0,
+          todayOut:         todayCash.status === 'fulfilled' ? todayCash.value.todayOut : 0,
           pendingTransfers: pendingTransfers.status === 'fulfilled' ? pendingTransfers.value : 0,
         },
         shareholder: {
-          status:      'ADAPTER',
-          description: '股东资金（来自 prc2_shareholder_funds）',
-          source:      'prc2_shareholder_funds',
+          status:      'RUNTIME',
+          description: '股东资金（fin_shareholder_contributions + fin_shareholder_settlements）',
+          source:      'fin_shareholder_contributions',
+          summary:     shSummary.status === 'fulfilled' ? shSummary.value : null,
         },
         expense: {
           status:      'PLANNED',
-          description: '费用 Runtime — Phase 3 建设',
-        },
-        budget: {
-          status:      'PLANNED',
-          description: '预算 Runtime — Phase 4 建设',
+          description: '费用 Runtime — Phase 5 建设',
         },
       },
       workflowPlatform: {
-        status:      'READY',
-        description: 'Workflow 2.0 Phase A-I 已完成，可直接接入',
-        formRuntime: 'READY',
+        status:         'READY',
+        description:    'Workflow 2.0 Phase A-I 已完成，可直接接入',
+        formRuntime:    'READY',
         approvalEngine: 'READY',
-        sla: 'READY',
+        sla:            'READY',
       },
       legacyFreeze: {
         frozenAt:  '2026-05-26',

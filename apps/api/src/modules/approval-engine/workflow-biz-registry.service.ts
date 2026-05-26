@@ -63,6 +63,22 @@ export class WorkflowBizRegistryService implements OnModuleInit {
       cancelledStatus: 'VOID',
     });
 
+    this.register('SHAREHOLDER_CONTRIBUTION', {
+      moduleCode:      'MENU_FIN2_SHAREHOLDER',
+      tableName:       'fin_shareholder_contributions',
+      approvedStatus:  'CONFIRMED',
+      rejectedStatus:  'CANCELLED',
+      cancelledStatus: 'CANCELLED',
+    });
+
+    this.register('SHAREHOLDER_SETTLEMENT', {
+      moduleCode:      'MENU_FIN2_SHAREHOLDER',
+      tableName:       'fin_shareholder_settlements',
+      approvedStatus:  'APPROVED',
+      rejectedStatus:  'CANCELLED',
+      cancelledStatus: 'CANCELLED',
+    });
+
     this.logger.log(
       `WorkflowBizRegistry initialized with ${this.registry.size} bizTypes: ${[...this.registry.keys()].join(', ')}`,
     );

@@ -7,3 +7,4 @@ export { FinCashTransactionEntity }          from './fin-cash-transaction.entity
 export { FinFundTransferEntity }             from './fin-fund-transfer.entity';
 export { FinShareholderContributionEntity }  from './fin-shareholder-contribution.entity';
 export { FinExchangeRateEntity }             from './fin-exchange-rate.entity';
+export { FinShareholderSettlementEntity }    from './fin-shareholder-settlement.entity';

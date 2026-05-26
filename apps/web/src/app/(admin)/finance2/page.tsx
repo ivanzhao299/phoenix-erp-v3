@@ -33,6 +33,15 @@ interface CashDashData {
   pendingTransfers: number;
 }
 
+interface ShSummaryData {
+  totalContributions:    number;
+  confirmedContributions: number;
+  pendingConfirmations:  number;
+  totalAmountOriginal:   number;
+  settledAmountOriginal: number;
+  balanceAmountOriginal: number;
+}
+
 interface HealthData {
   status:       string;
   module:       string;
@@ -134,6 +143,7 @@ export default function Finance2DashboardPage() {
   const [health,     setHealth]    = useState<HealthData | null>(null);
   const [arSummary,  setArSummary] = useState<ArSummaryData | null>(null);
   const [cashDash,   setCashDash]  = useState<CashDashData | null>(null);
+  const [shSummary,  setShSummary] = useState<ShSummaryData | null>(null);
   const [loading,    setLoading]   = useState(true);
   const [error,      setError]     = useState('');
 
@@ -141,20 +151,21 @@ export default function Finance2DashboardPage() {
     setLoading(true);
     setError('');
     try {
-      const [h, ar, cashSummary, todayCash, pendingTfr] = await Promise.allSettled([
+      const [h, ar, cashSummary, pendingTfr, sh] = await Promise.allSettled([
         apiFetch<HealthData>('/api/v2/finance/health'),
         apiFetch<ArSummaryData>('/api/v2/finance/ar/summary'),
         apiFetch<CashDashData['summary']>('/api/v2/finance/cash/accounts/summary'),
-        apiFetch<{ todayIn: number; todayOut: number }>('/api/v2/finance/cash/transactions?pageSize=1'),
         apiFetch<{ total: number }>('/api/v2/finance/cash/transfers?status=PENDING_APPROVAL&pageSize=1'),
+        apiFetch<ShSummaryData>('/api/v2/finance/shareholders/summary'),
       ]);
 
-      if (h.status === 'fulfilled')         setHealth(h.value);
-      if (ar.status === 'fulfilled')        setArSummary(ar.value);
+      if (h.status === 'fulfilled')  setHealth(h.value);
+      if (ar.status === 'fulfilled') setArSummary(ar.value);
+      if (sh.status === 'fulfilled') setShSummary(sh.value);
 
       setCashDash({
         summary:          cashSummary.status === 'fulfilled' ? cashSummary.value : null,
-        todayIn:          0,  // populated from dashboard endpoint
+        todayIn:          0,
         todayOut:         0,
         pendingTransfers: pendingTfr.status === 'fulfilled' ? pendingTfr.value.total : 0,
       });
@@ -171,7 +182,7 @@ export default function Finance2DashboardPage() {
     <div>
       <PageHeader
         title="Finance V2"
-        subtitle="Workflow Native 财务平台 — Phase 3 Cash Runtime"
+        subtitle="Workflow Native 财务平台 — Phase 4 Shareholder Runtime"
         breadcrumb={['Finance V2', 'Dashboard']}
         actions={
           <button
@@ -190,27 +201,28 @@ export default function Finance2DashboardPage() {
         }
       />
 
-      {/* Phase 3 Banner */}
+      {/* Phase 4 Banner */}
       <div style={{
-        background: 'linear-gradient(135deg, #1e40af 0%, #0891b2 100%)',
+        background: 'linear-gradient(135deg, #6d28d9 0%, #1e40af 100%)',
         borderRadius: 16, padding: '22px 28px', marginBottom: 24, color: '#fff',
       }}>
         <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 6 }}>
-          ✅ Finance V2 Phase 3 — Cash Runtime 正式启用
+          ✅ Finance V2 Phase 4 — Shareholder Runtime 正式启用
         </div>
         <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.8, marginBottom: 14 }}>
-          fin_cash_accounts 多账户管理 · fin_cash_transactions Append-only 流水账本<br />
-          fin_fund_transfers 转账审批（DRAFT→PENDING→APPROVED→EXECUTED）· AP/AR 自动联动资金
+          fin_shareholder_contributions 出资台账 · fin_shareholder_settlements 结算台账<br />
+          RETURN / OFFSET / WRITE_OFF 结算工作流 · 联动 Cash Runtime 自动扣款
         </div>
 
         {/* 底座状态栏 */}
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           {[
-            { label: 'AP Runtime',   value: 'LIVE',    ok: true },
-            { label: 'AR Runtime',   value: 'LIVE',    ok: true },
-            { label: 'Cash Runtime', value: 'LIVE',    ok: true },
-            { label: 'fin_* 表骨架', value: loading ? '…' : (health?.status === 'ok' ? 'READY' : 'ERR'), ok: health?.status === 'ok' },
-            { label: 'Phase',        value: health?.phase ?? '…', ok: true },
+            { label: 'AP Runtime',          value: 'LIVE', ok: true },
+            { label: 'AR Runtime',          value: 'LIVE', ok: true },
+            { label: 'Cash Runtime',        value: 'LIVE', ok: true },
+            { label: 'Shareholder Runtime', value: 'LIVE', ok: true },
+            { label: 'fin_* 表骨架',        value: loading ? '…' : (health?.status === 'ok' ? 'READY' : 'ERR'), ok: health?.status === 'ok' },
+            { label: 'Phase',               value: health?.phase ?? '…', ok: true },
           ].map(item => (
             <div key={item.label} style={{ fontSize: 12 }}>
               <span style={{ opacity: 0.7 }}>{item.label}</span>
@@ -234,6 +246,54 @@ export default function Finance2DashboardPage() {
           <AlertTriangle size={14} /> {error}
         </div>
       )}
+
+      {/* Shareholder KPI 快览 */}
+      <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>
+        Shareholder Runtime KPI（股东资金）
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 24 }}>
+        {[
+          {
+            label: '出资总余额',
+            value: shSummary ? `¥ ${fmt(shSummary.balanceAmountOriginal)}` : (loading ? '…' : '—'),
+            icon: <Users size={16} color="#7c3aed" />, bg: '#f5f3ff', border: '#ddd6fe',
+          },
+          {
+            label: '累计出资总额',
+            value: shSummary ? `¥ ${fmt(shSummary.totalAmountOriginal)}` : (loading ? '…' : '—'),
+            icon: <DollarSign size={16} color="#6d28d9" />, bg: '#ede9fe', border: '#c4b5fd',
+          },
+          {
+            label: '已结算总额',
+            value: shSummary ? `¥ ${fmt(shSummary.settledAmountOriginal)}` : (loading ? '…' : '—'),
+            icon: <CheckCircle size={16} color="#059669" />, bg: '#f0fdf4', border: '#bbf7d0',
+          },
+          {
+            label: '已确认出资笔数',
+            value: shSummary ? `${shSummary.confirmedContributions} 笔` : (loading ? '…' : '—'),
+            icon: <Activity size={16} color="#0891b2" />, bg: '#f0fdfa', border: '#a7f3d0',
+          },
+          {
+            label: '待确认出资',
+            value: shSummary ? `${shSummary.pendingConfirmations} 笔` : (loading ? '…' : '—'),
+            icon: <AlertTriangle size={16} color="#d97706" />, bg: '#fffbeb', border: '#fde68a',
+          },
+        ].map(c => (
+          <div key={c.label} style={{
+            background: c.bg, border: `1.5px solid ${c.border}`,
+            borderRadius: 14, padding: '14px 16px',
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <div style={{ width: 36, height: 36, borderRadius: 9, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {c.icon}
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: '#64748b', marginBottom: 1 }}>{c.label}</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>{c.value}</div>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* Cash KPI 快览 */}
       <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>
@@ -350,15 +410,15 @@ export default function Finance2DashboardPage() {
         <ModuleCard
           icon={Users} iconColor="#7c3aed"
           title="股东资金 Runtime"
-          phase={4} phaseStatus="PLANNED"
+          phase={4} phaseStatus="ACTIVE"
           path="/finance2/shareholder-funds"
-          description="fin_shareholder_contributions + fin_shareholder_settlements。Phase 4 建立。"
+          description="fin_shareholder_contributions + fin_shareholder_settlements。出资台账、结算审批（RETURN/OFFSET/WRITE_OFF）、联动 Cash Runtime。"
         />
         <ModuleCard
           icon={Receipt} iconColor="#6366f1"
           title="Expense Runtime（费用）"
-          phase={4} phaseStatus="PLANNED"
-          description="费用申请 → Form Runtime → ApprovalEngine → 对接 fin_cash_accounts。Phase 4 建立。"
+          phase={5} phaseStatus="PLANNED"
+          description="费用申请 → Form Runtime → ApprovalEngine → 对接 fin_cash_accounts。Phase 5 建立。"
         />
         <ModuleCard
           icon={PieChart} iconColor="#64748b"
@@ -379,8 +439,9 @@ export default function Finance2DashboardPage() {
           { icon: CheckCircle, color: '#059669', title: 'RBAC 矩阵',              desc: 'MENU_FIN2_* 8 个权限条目已注册，CFO/Finance/Accountant 分级管控' },
           { icon: CheckCircle, color: '#059669', title: 'AP Runtime（Phase 1）',  desc: 'fin_ap_invoices 正式启用，手工创建/PO导入/状态机/账龄分析全部就绪' },
           { icon: CheckCircle, color: '#059669', title: 'AR Runtime（Phase 2）',  desc: 'fin_ar_invoices + fin_ar_receipts 正式启用，收款核销/账龄分析/事务核销全部就绪' },
-          { icon: CheckCircle, color: '#059669', title: 'Cash Runtime（Phase 3）', desc: 'fin_cash_accounts + fin_cash_transactions + fin_fund_transfers 正式启用' },
-          { icon: Database,    color: '#64748b', title: '旧 Finance 废弃',        desc: 'fin_transactions / fin_payments / biz_cash_flow 不再写入，只读废弃' },
+          { icon: CheckCircle, color: '#059669', title: 'Cash Runtime（Phase 3）',        desc: 'fin_cash_accounts + fin_cash_transactions + fin_fund_transfers 正式启用' },
+          { icon: CheckCircle, color: '#059669', title: 'Shareholder Runtime（Phase 4）', desc: 'fin_shareholder_contributions + fin_shareholder_settlements 正式启用，RETURN/OFFSET/WRITE_OFF 结算联动 Cash' },
+          { icon: Database,    color: '#64748b', title: '旧 Finance 废弃',                desc: 'fin_transactions / fin_payments / biz_cash_flow 不再写入，只读废弃' },
         ].map(item => (
           <div key={item.title} style={{ background: '#fff', borderRadius: 12, padding: '14px 16px', border: '1.5px solid #f1f5f9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
