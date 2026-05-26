@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  Send, CheckCircle, FileText, ArrowLeft, AlertCircle, Copy,
+  Send, CheckCircle, FileText, ArrowLeft, AlertCircle, Copy, PlayCircle,
 } from 'lucide-react';
 import { WorkflowFormRenderer } from '@/components/workflow/WorkflowFormRenderer';
 import type { FormSchema, UiSchema } from '@/components/workflow/WorkflowFormRenderer';
@@ -35,6 +35,15 @@ interface SubmitResult {
   formCode:      string;
   formVersionId: number;
   versionNo:     number;
+  status:        string;
+}
+
+interface StartApprovalResult {
+  submissionId:  number;
+  submissionNo:  string;
+  instanceId:    string | null;
+  instanceNo:    string | null;
+  autoApproved:  boolean;
   status:        string;
 }
 
@@ -76,8 +85,11 @@ export default function FormSubmitPage() {
   const [fieldErrors,  setFieldErrors]  = useState<Record<string, string>>({});
   const [submitting,   setSubmitting]   = useState(false);
   const [submitError,  setSubmitError]  = useState('');
-  const [result,       setResult]       = useState<SubmitResult | null>(null);
-  const [copied,       setCopied]       = useState(false);
+  const [result,         setResult]         = useState<SubmitResult | null>(null);
+  const [copied,         setCopied]         = useState(false);
+  const [approvalResult, setApprovalResult] = useState<StartApprovalResult | null>(null);
+  const [approving,      setApproving]      = useState(false);
+  const [approvalError,  setApprovalError]  = useState('');
 
   // ── 加载表单定义 ──────────────────────────────────────────────────────────
 
@@ -146,6 +158,23 @@ export default function FormSubmitPage() {
     await navigator.clipboard.writeText(result.submissionNo).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleStartApproval = async () => {
+    if (!result) return;
+    setApproving(true);
+    setApprovalError('');
+    try {
+      const res = await apiFetch<StartApprovalResult>(
+        `/api/workflow/forms/submissions/${result.submissionId}/start-approval`,
+        { method: 'POST' },
+      );
+      setApprovalResult(res);
+    } catch (e: any) {
+      setApprovalError(e.message ?? '启动审批失败，请重试');
+    } finally {
+      setApproving(false);
+    }
   };
 
   // ── 渲染 ─────────────────────────────────────────────────────────────────
@@ -240,16 +269,70 @@ export default function FormSubmitPage() {
           <span>表单代码：{result.formCode}</span>
         </div>
 
-        <div style={{ display: 'flex', gap: 12 }}>
+        {/* 审批错误 */}
+        {approvalError && (
+          <div style={{
+            background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
+            padding: '10px 14px', marginBottom: 16,
+            display: 'flex', alignItems: 'center', gap: 8,
+            fontSize: 13, color: '#ef4444',
+          }}>
+            <AlertCircle size={14} />
+            {approvalError}
+          </div>
+        )}
+
+        {/* 审批已启动 */}
+        {approvalResult && (
+          <div style={{
+            background: approvalResult.autoApproved ? '#f0fdf4' : '#eff6ff',
+            border: `1px solid ${approvalResult.autoApproved ? '#bbf7d0' : '#bfdbfe'}`,
+            borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 13,
+          }}>
+            {approvalResult.autoApproved ? (
+              <span style={{ color: '#059669', fontWeight: 600 }}>
+                ✓ 无需审批，已自动通过
+              </span>
+            ) : (
+              <span style={{ color: '#1d4ed8', fontWeight: 600 }}>
+                ✓ 审批流已启动
+                {approvalResult.instanceNo && (
+                  <span style={{ marginLeft: 8, fontFamily: 'monospace', fontWeight: 400 }}>
+                    {approvalResult.instanceNo}
+                  </span>
+                )}
+              </span>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {/* 启动审批按钮（仅在未启动时显示） */}
+          {!approvalResult && (
+            <button
+              onClick={handleStartApproval}
+              disabled={approving}
+              style={{
+                flex: 1, minWidth: 120, padding: '11px', borderRadius: 10,
+                border: 'none', background: approving ? '#94a3b8' : '#7c3aed',
+                color: '#fff', fontSize: 14, fontWeight: 700,
+                cursor: approving ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              }}
+            >
+              <PlayCircle size={15} />
+              {approving ? '启动中…' : '启动审批流'}
+            </button>
+          )}
           <button
-            onClick={() => { setResult(null); setFormData({}); setFieldErrors({}); }}
-            style={{ flex: 1, padding: '11px', borderRadius: 10, border: '1.5px solid #10b981', background: '#fff', color: '#10b981', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+            onClick={() => { setResult(null); setApprovalResult(null); setApprovalError(''); setFormData({}); setFieldErrors({}); }}
+            style={{ flex: 1, minWidth: 100, padding: '11px', borderRadius: 10, border: '1.5px solid #10b981', background: '#fff', color: '#10b981', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
           >
             继续提交
           </button>
           <button
             onClick={() => router.push('/workflow/forms/runtime')}
-            style={{ flex: 1, padding: '11px', borderRadius: 10, border: 'none', background: '#10b981', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+            style={{ flex: 1, minWidth: 100, padding: '11px', borderRadius: 10, border: 'none', background: '#10b981', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
           >
             返回表单列表
           </button>

@@ -97,6 +97,14 @@ export class WorkflowFormController {
     return this.runtimeSvc.getSubmission(Number(id));
   }
 
+  // ── 启动审批（Phase I；静态前缀 submissions/，必须在 /:id 之前声明）─────────
+
+  @Post('submissions/:id/start-approval')
+  @RequireMenu('MENU_WORKFLOW', 'V')
+  startApproval(@Param('id') id: string) {
+    return this.runtimeSvc.startApprovalFromSubmission(Number(id));
+  }
+
   // ── 发布版本（静态前缀 versions/，必须在 /:id 之前声明）────────────────────
 
   @Post('versions/:versionId/publish')

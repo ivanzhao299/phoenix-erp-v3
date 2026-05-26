@@ -505,17 +505,34 @@ export interface WorkflowTaskPage {
   pageSize: number;
 }
 
+export interface FormSubmissionSnapshot {
+  id:              number;
+  submissionNo:    string;
+  formCode:        string;
+  formVersionId:   number;
+  dataJson:        Record<string, unknown>;
+  schemaJson:      Record<string, unknown>;
+  uiSchemaJson:    Record<string, unknown>;
+  status:          string;
+  submittedByName: string | null;
+  formName:        string | null;
+  createdAt:       string;
+}
+
 export interface InstanceDetail {
-  id:          string;
-  instanceNo:  string;
-  bizType:     string;
-  bizId:       string;
-  bizNo:       string | null;
-  subject:     string | null;
-  status:      string;
-  steps:       InstanceStep[];
-  startedBy?:  string | null;
-  startedAt?:  string | null;
+  id:               string;
+  instanceNo:       string;
+  bizType:          string;
+  bizId:            string;
+  bizNo:            string | null;
+  subject:          string | null;
+  status:           string;
+  steps:            InstanceStep[];
+  startedBy?:       string | null;
+  startedAt?:       string | null;
+  formSubmissionId?: string | null;
+  formCode?:         string | null;
+  formSubmission?:   FormSubmissionSnapshot | null;   // Phase I
 }
 
 export interface InstanceStep {

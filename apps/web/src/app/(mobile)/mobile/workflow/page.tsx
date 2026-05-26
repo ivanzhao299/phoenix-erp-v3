@@ -15,6 +15,7 @@ import {
   type WorkflowTaskPage,
   type InstanceDetail,
 } from '@/lib/mobile-api';
+import { WorkflowFormRenderer } from '@/components/workflow/WorkflowFormRenderer';
 
 // ── 常量 ─────────────────────────────────────────────────────────────────────
 
@@ -466,6 +467,39 @@ function DetailSheet({
             <div style={{ fontSize: 13, color: t.textFaint, textAlign: 'center', padding: '10px 0' }}>暂无步骤记录</div>
           )}
         </div>
+
+        {/* Phase I: 关联表单数据（只读展示） */}
+        {detail?.formSubmission && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: t.textSub, marginBottom: 10 }}>
+              表单数据
+              <span style={{
+                marginLeft: 8, fontSize: 10, fontWeight: 500, fontFamily: 'monospace',
+                background: isDark ? '#374151' : '#f1f5f9',
+                color: isDark ? '#9ca3af' : '#64748b',
+                padding: '1px 6px', borderRadius: 4,
+              }}>
+                {detail.formSubmission.formCode}
+              </span>
+            </div>
+            <div style={{
+              background: isDark ? '#1f2937' : '#f9fafb',
+              borderRadius: 10, padding: '14px 16px',
+              border: `1px solid ${t.cardBorder}`,
+            }}>
+              <WorkflowFormRenderer
+                schema={detail.formSubmission.schemaJson as any}
+                uiSchema={detail.formSubmission.uiSchemaJson as any}
+                value={detail.formSubmission.dataJson as Record<string, unknown>}
+                onChange={() => {}}
+                disabled={true}
+              />
+            </div>
+            <div style={{ fontSize: 11, color: t.textFaint, marginTop: 4, textAlign: 'right' }}>
+              提交编号：{detail.formSubmission.submissionNo}
+            </div>
+          </div>
+        )}
 
         {/* 操作按钮 */}
         <div style={{ display: 'flex', gap: 10 }}>

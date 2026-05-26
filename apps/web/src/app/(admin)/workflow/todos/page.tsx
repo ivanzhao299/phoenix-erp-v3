@@ -6,6 +6,7 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { WorkflowFormRenderer } from "@/components/workflow/WorkflowFormRenderer";
 
 // ── 统一任务类型 ───────────────────────────────────────────────────────────────
 interface UnifiedTask {
@@ -39,6 +40,18 @@ interface TaskListResponse {
   pageSize: number;
 }
 
+interface FormSubmissionSnapshot {
+  id:              number;
+  submissionNo:    string;
+  formCode:        string;
+  dataJson:        Record<string, unknown>;
+  schemaJson:      Record<string, unknown>;
+  uiSchemaJson:    Record<string, unknown>;
+  status:          string;
+  submittedByName: string | null;
+  formName:        string | null;
+}
+
 interface InstanceDetail {
   id: string;
   instanceNo: string;
@@ -56,6 +69,7 @@ interface InstanceDetail {
   projectCode: string | null;
   projectName: string | null;
   subject: string | null;
+  formSubmission: FormSubmissionSnapshot | null;   // Phase I
   steps: {
     id: string;
     stepNo: number;
@@ -508,6 +522,35 @@ export default function ApprovalTodosPage() {
                 </div>
               ))}
             </div>
+
+            {/* Phase I: 若关联表单提交，展示只读表单数据 */}
+            {detail.formSubmission && (
+              <div style={{ marginBottom: 20 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 12px", color: "#374151" }}>
+                  表单数据
+                  <span style={{
+                    marginLeft: 8, fontSize: 11, fontWeight: 500, padding: "2px 7px",
+                    borderRadius: 4, background: "#f1f5f9", color: "#64748b",
+                    fontFamily: "monospace",
+                  }}>
+                    {detail.formSubmission.formCode}
+                  </span>
+                </h4>
+                <div style={{ background: "#f9fafb", borderRadius: 10, padding: "16px 18px", border: "1px solid #e5e7eb" }}>
+                  <WorkflowFormRenderer
+                    schema={detail.formSubmission.schemaJson as any}
+                    uiSchema={detail.formSubmission.uiSchemaJson as any}
+                    value={detail.formSubmission.dataJson as Record<string, unknown>}
+                    onChange={() => {}}
+                    disabled={true}
+                  />
+                </div>
+                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6, textAlign: "right" }}>
+                  提交编号：{detail.formSubmission.submissionNo}
+                  {detail.formSubmission.submittedByName && ` · 提交人：${detail.formSubmission.submittedByName}`}
+                </div>
+              </div>
+            )}
 
             <h4 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 12px", color: "#374151" }}>审批意见</h4>
             <textarea

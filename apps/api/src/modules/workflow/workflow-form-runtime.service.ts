@@ -1,10 +1,11 @@
 import {
-  Injectable, Logger, NotFoundException, BadRequestException,
+  Injectable, Logger, NotFoundException, BadRequestException, Inject, forwardRef,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { WorkflowFormValidationService } from './workflow-form-validation.service';
+import { ApprovalEngineService } from '../approval-engine/approval-engine.service';
 
 // ── DTO 类型 ───────────────────────────────────────────────────────────────────
 
@@ -79,6 +80,8 @@ export class WorkflowFormRuntimeService {
     private readonly ds: DataSource,
     private readonly cls: ClsService,
     private readonly validationSvc: WorkflowFormValidationService,
+    @Inject(forwardRef(() => ApprovalEngineService))
+    private readonly approvalEngine: ApprovalEngineService,
   ) {}
 
   // ── 用户上下文 ─────────────────────────────────────────────────────────────
@@ -428,5 +431,111 @@ export class WorkflowFormRuntimeService {
     ]);
 
     return { items: rows, total: Number(total[0]?.cnt ?? 0), page, pageSize };
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // Phase I: 表单提交 → 启动审批流
+  // ────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * 从表单提交记录启动审批流程：
+   *   1. 查询 wf_form_submission + wf_form_version + wf_form_definition
+   *   2. 将表单字段映射为 StartApprovalParams（优先使用表单数据字段）
+   *   3. 在事务中调用 ApprovalEngineService.startApproval()
+   *   4. 回写 wf_approval_instances.form_submission_id / form_code / form_version_id
+   *   5. 回写 wf_form_submission.workflow_instance_id，status → PENDING_APPROVAL
+   *   6. 若无匹配规则（自动通过），status → APPROVED
+   */
+  async startApprovalFromSubmission(submissionId: number) {
+    // ── 1. 查询提交记录 ──────────────────────────────────────────────────────
+    const subRows = await this.ds.query<any[]>(`
+      SELECT s.*,
+             fd.biz_type    AS fd_biz_type,
+             fd.module_code AS fd_module_code,
+             fd.name        AS form_name
+        FROM wf_form_submission s
+        JOIN wf_form_version    fv ON fv.id = s.form_version_id
+        JOIN wf_form_definition fd ON fd.id = fv.form_id
+       WHERE s.id = $1
+       LIMIT 1
+    `, [submissionId]);
+
+    const sub = subRows[0];
+    if (!sub) throw new NotFoundException(`提交记录 ID=${submissionId} 不存在`);
+    if (sub.status !== 'SUBMITTED') {
+      throw new BadRequestException(`提交记录状态为 "${sub.status}"，不能重复启动审批`);
+    }
+    if (sub.workflow_instance_id) {
+      throw new BadRequestException(`提交记录已关联审批实例 #${sub.workflow_instance_id}`);
+    }
+
+    // ── 2. 组装 startApproval 参数（表单字段优先）──────────────────────────
+    const data: Record<string, any> = sub.data_json ?? {};
+
+    const bizType = (sub.biz_type ?? sub.fd_biz_type ?? sub.form_code) as string;
+
+    const params = {
+      moduleCode:   sub.fd_module_code ?? undefined,
+      bizType,
+      bizId:        String(sub.id),               // 以 submission id 作为业务 ID
+      bizNo:        sub.submission_no,
+      amount:       Number(data['amount'] ?? 0),
+      currencyCode: String(data['currencyCode'] ?? 'CNY'),
+      companyCode:  data['companyCode']  ?? sub.company_code  ?? undefined,
+      companyName:  data['companyName']  ?? sub.company_name  ?? undefined,
+      projectCode:  data['projectCode']  ?? sub.project_code  ?? undefined,
+      projectName:  data['projectName']  ?? sub.project_name  ?? undefined,
+      subject:      data['subject']      ?? sub.biz_no        ?? sub.form_name ?? undefined,
+      // 将全部表单字段注入条件上下文，供条件引擎使用
+      conditionOverrides: { ...data },
+    };
+
+    // ── 3 & 4 & 5. 在事务中执行 ────────────────────────────────────────────
+    const instance = await this.ds.transaction(async (mgr) => {
+      const inst = await this.approvalEngine.startApproval(params, mgr);
+
+      if (inst) {
+        // 回写审批实例的表单关联字段
+        await mgr.query(`
+          UPDATE wf_approval_instances
+             SET form_submission_id = $1,
+                 form_code          = $2,
+                 form_version_id    = $3
+           WHERE id = $4
+        `, [sub.id, sub.form_code, sub.form_version_id, inst.id]);
+
+        // 回写提交记录：关联实例 + 状态变更
+        await mgr.query(`
+          UPDATE wf_form_submission
+             SET workflow_instance_id = $1,
+                 status               = 'PENDING_APPROVAL',
+                 updated_at           = NOW()
+           WHERE id = $2
+        `, [inst.id, sub.id]);
+      } else {
+        // 无匹配规则 → 自动通过
+        await mgr.query(`
+          UPDATE wf_form_submission
+             SET status     = 'APPROVED',
+                 updated_at = NOW()
+           WHERE id = $1
+        `, [sub.id]);
+      }
+
+      return inst;
+    });
+
+    this.logger.log(
+      `[FormRuntime] startApproval: submission=${submissionId} → instance=${instance?.id ?? 'AUTO_APPROVED'}`,
+    );
+
+    return {
+      submissionId,
+      submissionNo:   sub.submission_no,
+      instanceId:     instance?.id   ?? null,
+      instanceNo:     instance?.instanceNo ?? null,
+      autoApproved:   !instance,
+      status:         instance ? 'PENDING_APPROVAL' : 'APPROVED',
+    };
   }
 }

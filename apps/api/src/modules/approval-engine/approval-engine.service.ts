@@ -523,7 +523,7 @@ export class ApprovalEngineService {
     return rows;
   }
 
-  /** 获取指定实例详情（含步骤列表） */
+  /** 获取指定实例详情（含步骤列表 + 关联表单提交快照）*/
   async getInstanceDetail(instanceId: string): Promise<any> {
     const instance = await this.instanceRepo.findOne({ where: { id: instanceId } });
     if (!instance) throw new NotFoundException(`审批实例 ${instanceId} 不存在`);
@@ -533,7 +533,25 @@ export class ApprovalEngineService {
       order: { stepNo: 'ASC' },
     });
 
-    return { ...instance, steps };
+    // Phase I: 若审批实例关联了表单提交，一并返回表单快照（含 schema 用于前端渲染）
+    let formSubmission: any = null;
+    if (instance.formSubmissionId) {
+      const rows = await this.ds.query(`
+        SELECT s.id, s.submission_no, s.form_code, s.form_version_id,
+               s.biz_type, s.biz_no, s.submitted_by_name,
+               s.data_json, s.status, s.created_at,
+               fv.schema_json, fv.ui_schema_json,
+               fd.name AS form_name
+          FROM wf_form_submission s
+          JOIN wf_form_version    fv ON fv.id = s.form_version_id
+          JOIN wf_form_definition fd ON fd.id = fv.form_id
+         WHERE s.id = $1
+         LIMIT 1
+      `, [instance.formSubmissionId]);
+      formSubmission = rows[0] ?? null;
+    }
+
+    return { ...instance, steps, formSubmission };
   }
 
   async getInstanceByBiz(bizType: string, bizId: string): Promise<any | null> {
