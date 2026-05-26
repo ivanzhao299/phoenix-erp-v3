@@ -41,3 +41,18 @@ Thumbs.db
 _archive/
 **/_archive/
 *.sql.gz
+
+# 数据库备份（禁止进入 Git）
+backups/
+*.dump
+*.dump.gz
+*.sql.dump
+*.backup
+
+# 测试产物 / 临时输出
+apps/api/*.txt
+*_output.txt
+test_output.txt
+*.tmp
+tmp/
+cache/
