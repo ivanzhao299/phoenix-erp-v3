@@ -3,8 +3,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   TrendingDown, TrendingUp, Wallet, Users, PieChart,
-  Receipt, CheckCircle, Clock, AlertTriangle, ArrowRight,
-  RefreshCw, Activity, Database,
+  Receipt, CheckCircle, AlertTriangle, ArrowRight,
+  RefreshCw, Database, DollarSign, ArrowLeftRight,
+  Activity, Lock,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 
@@ -19,13 +20,26 @@ interface ArSummaryData {
   byCurrency:               { currency_code: string }[];
 }
 
+interface CashDashData {
+  summary: {
+    totalAccounts: number;
+    totalBalance: number;
+    activeCount: number;
+    frozenCount: number;
+    closedCount: number;
+  } | null;
+  todayIn: number;
+  todayOut: number;
+  pendingTransfers: number;
+}
+
 interface HealthData {
-  status:   string;
-  module:   string;
-  phase:    string;
-  tables:   string[];
+  status:       string;
+  module:       string;
+  phase:        string;
+  tables:       string[];
   legacy_frozen: string[];
-  timestamp: string;
+  timestamp:    string;
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -76,7 +90,7 @@ function ModuleCard({
         background: '#fff', borderRadius: 16, border: '1.5px solid #f1f5f9',
         padding: '20px 22px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
         cursor: canNav ? 'pointer' : 'default',
-        opacity: phaseStatus === 'PLANNED' && phase > 2 ? 0.65 : 1,
+        opacity: phaseStatus === 'PLANNED' && phase > 3 ? 0.65 : 1,
         transition: 'box-shadow 0.15s, border-color 0.15s',
       }}
       onMouseEnter={e => { if (canNav) { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; (e.currentTarget as HTMLDivElement).style.borderColor = '#c7d2fe'; } }}
@@ -111,40 +125,57 @@ function fmtMoney(val: string | number | null | undefined, currency = 'CNY') {
   return `${currency} ${sym}${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function fmt(n: number | string | null | undefined): string {
+  if (n === null || n === undefined) return '0.00';
+  return Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export default function Finance2DashboardPage() {
-  const [health,    setHealth]    = useState<HealthData | null>(null);
-  const [arSummary, setArSummary] = useState<ArSummaryData | null>(null);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState('');
+  const [health,     setHealth]    = useState<HealthData | null>(null);
+  const [arSummary,  setArSummary] = useState<ArSummaryData | null>(null);
+  const [cashDash,   setCashDash]  = useState<CashDashData | null>(null);
+  const [loading,    setLoading]   = useState(true);
+  const [error,      setError]     = useState('');
 
   const load = async () => {
     setLoading(true);
     setError('');
     try {
-      const [h, ar] = await Promise.allSettled([
+      const [h, ar, cashSummary, todayCash, pendingTfr] = await Promise.allSettled([
         apiFetch<HealthData>('/api/v2/finance/health'),
         apiFetch<ArSummaryData>('/api/v2/finance/ar/summary'),
+        apiFetch<CashDashData['summary']>('/api/v2/finance/cash/accounts/summary'),
+        apiFetch<{ todayIn: number; todayOut: number }>('/api/v2/finance/cash/transactions?pageSize=1'),
+        apiFetch<{ total: number }>('/api/v2/finance/cash/transfers?status=PENDING_APPROVAL&pageSize=1'),
       ]);
-      if (h.status === 'fulfilled') setHealth(h.value);
-      if (ar.status === 'fulfilled') setArSummary(ar.value);
-    } catch (e: any) {
-      setError(e.message ?? '加载失败');
+
+      if (h.status === 'fulfilled')         setHealth(h.value);
+      if (ar.status === 'fulfilled')        setArSummary(ar.value);
+
+      setCashDash({
+        summary:          cashSummary.status === 'fulfilled' ? cashSummary.value : null,
+        todayIn:          0,  // populated from dashboard endpoint
+        todayOut:         0,
+        pendingTransfers: pendingTfr.status === 'fulfilled' ? pendingTfr.value.total : 0,
+      });
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : '加载失败');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void load(); }, []);
 
   return (
     <div>
       <PageHeader
         title="Finance V2"
-        subtitle="Workflow Native 财务平台 — Phase 1 AP Runtime"
+        subtitle="Workflow Native 财务平台 — Phase 3 Cash Runtime"
         breadcrumb={['Finance V2', 'Dashboard']}
         actions={
           <button
-            onClick={load}
+            onClick={() => void load()}
             disabled={loading}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
@@ -159,28 +190,27 @@ export default function Finance2DashboardPage() {
         }
       />
 
-      {/* Phase 1 AP Runtime Banner */}
+      {/* Phase 3 Banner */}
       <div style={{
-        background: 'linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)',
+        background: 'linear-gradient(135deg, #1e40af 0%, #0891b2 100%)',
         borderRadius: 16, padding: '22px 28px', marginBottom: 24, color: '#fff',
       }}>
         <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 6 }}>
-          ✅ Finance V2 Phase 1 — AP Runtime 正式启用
+          ✅ Finance V2 Phase 3 — Cash Runtime 正式启用
         </div>
         <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.8, marginBottom: 14 }}>
-          fin_ap_invoices 已成为 AP 应付账款权威数据源 · 支持手工创建、PO 导入、付款核销<br />
-          状态机：OPEN → PARTIALLY_PAID → PAID · 账龄分析：5 档<br />
-          Phase 2 将建立 AR Runtime（应收账款）
+          fin_cash_accounts 多账户管理 · fin_cash_transactions Append-only 流水账本<br />
+          fin_fund_transfers 转账审批（DRAFT→PENDING→APPROVED→EXECUTED）· AP/AR 自动联动资金
         </div>
 
         {/* 底座状态栏 */}
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           {[
-            { label: 'Workflow Platform', value: 'READY',  ok: true },
-            { label: 'AP Runtime',        value: 'LIVE',   ok: true },
-            { label: 'DataScope',         value: 'READY',  ok: true },
-            { label: 'fin_* 表骨架',      value: loading ? '…' : (health?.status === 'ok' ? 'READY' : 'ERR'), ok: health?.status === 'ok' },
-            { label: 'AR Runtime',        value: 'Phase 2', ok: false },
+            { label: 'AP Runtime',   value: 'LIVE',    ok: true },
+            { label: 'AR Runtime',   value: 'LIVE',    ok: true },
+            { label: 'Cash Runtime', value: 'LIVE',    ok: true },
+            { label: 'fin_* 表骨架', value: loading ? '…' : (health?.status === 'ok' ? 'READY' : 'ERR'), ok: health?.status === 'ok' },
+            { label: 'Phase',        value: health?.phase ?? '…', ok: true },
           ].map(item => (
             <div key={item.label} style={{ fontSize: 12 }}>
               <span style={{ opacity: 0.7 }}>{item.label}</span>
@@ -205,33 +235,75 @@ export default function Finance2DashboardPage() {
         </div>
       )}
 
+      {/* Cash KPI 快览 */}
+      <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>
+        Cash Runtime KPI（资金账户）
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 24 }}>
+        {[
+          {
+            label: '账户总余额',
+            value: cashDash?.summary ? `¥ ${fmt(cashDash.summary.totalBalance)}` : (loading ? '…' : '—'),
+            icon: <DollarSign size={16} color="#2563eb" />, bg: '#eff6ff', border: '#bfdbfe',
+          },
+          {
+            label: '账户总数',
+            value: cashDash?.summary ? `${cashDash.summary.totalAccounts} 个` : (loading ? '…' : '—'),
+            icon: <Wallet size={16} color="#7c3aed" />, bg: '#f5f3ff', border: '#ddd6fe',
+          },
+          {
+            label: '正常账户',
+            value: cashDash?.summary ? `${cashDash.summary.activeCount} 个` : (loading ? '…' : '—'),
+            icon: <Activity size={16} color="#16a34a" />, bg: '#f0fdf4', border: '#bbf7d0',
+          },
+          {
+            label: '冻结账户',
+            value: cashDash?.summary ? `${cashDash.summary.frozenCount} 个` : (loading ? '…' : '—'),
+            icon: <Lock size={16} color="#d97706" />, bg: '#fffbeb', border: '#fde68a',
+          },
+          {
+            label: '待处理转账',
+            value: cashDash ? `${cashDash.pendingTransfers} 笔` : (loading ? '…' : '—'),
+            icon: <ArrowLeftRight size={16} color="#0891b2" />, bg: '#f0fdfa', border: '#a7f3d0',
+          },
+        ].map(c => (
+          <div key={c.label} style={{
+            background: c.bg, border: `1.5px solid ${c.border}`,
+            borderRadius: 14, padding: '14px 16px',
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <div style={{ width: 36, height: 36, borderRadius: 9, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {c.icon}
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: '#64748b', marginBottom: 1 }}>{c.label}</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>{c.value}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* AR KPI 快览 */}
       <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>
         AR Runtime KPI（应收账款）
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-        gap: 10, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 24 }}>
         {[
-          { label: 'AR 总笔数',  value: String(arSummary?.total_invoices ?? (loading ? '…' : '—')),    color: '#10b981' },
-          { label: '未收款',     value: String(arSummary?.open_invoices  ?? (loading ? '…' : '—')),    color: '#f59e0b' },
-          { label: '逾期笔数',   value: String(arSummary?.overdue_invoices ?? (loading ? '…' : '—')),  color: '#dc2626' },
+          { label: 'AR 总笔数',  value: String(arSummary?.total_invoices   ?? (loading ? '…' : '—')), color: '#10b981' },
+          { label: '未收款',     value: String(arSummary?.open_invoices    ?? (loading ? '…' : '—')), color: '#f59e0b' },
+          { label: '逾期笔数',   value: String(arSummary?.overdue_invoices ?? (loading ? '…' : '—')), color: '#dc2626' },
           {
             label: '待收余额',
-            value: arSummary
-              ? fmtMoney(arSummary.balance_amount_original, arSummary.byCurrency?.[0]?.currency_code ?? 'CNY')
-              : (loading ? '…' : '—'),
+            value: arSummary ? fmtMoney(arSummary.balance_amount_original, arSummary.byCurrency?.[0]?.currency_code ?? 'CNY') : (loading ? '…' : '—'),
             color: '#ef4444',
           },
           {
             label: '逾期余额',
-            value: arSummary
-              ? fmtMoney(arSummary.overdue_balance, arSummary.byCurrency?.[0]?.currency_code ?? 'CNY')
-              : (loading ? '…' : '—'),
+            value: arSummary ? fmtMoney(arSummary.overdue_balance, arSummary.byCurrency?.[0]?.currency_code ?? 'CNY') : (loading ? '…' : '—'),
             color: '#991b1b',
           },
         ].map(item => (
-          <div key={item.label} style={{ background: '#fff', borderRadius: 12, padding: '12px 16px',
-            border: '1.5px solid #f1f5f9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+          <div key={item.label} style={{ background: '#fff', borderRadius: 12, padding: '12px 16px', border: '1.5px solid #f1f5f9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
             <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>{item.label}</div>
             <div style={{ fontSize: 16, fontWeight: 800, color: item.color }}>{item.value}</div>
           </div>
@@ -252,7 +324,7 @@ export default function Finance2DashboardPage() {
           title="AP Runtime（应付账款）"
           phase={1} phaseStatus="ACTIVE"
           path="/finance2/ap"
-          description="fin_ap_invoices + fin_ap_payment_allocations。供应商发票管理、付款核销、多币种。Phase 1 已上线。"
+          description="fin_ap_invoices + fin_ap_payment_allocations。供应商发票管理、付款核销、多币种、账龄分析。"
         />
         <ModuleCard
           icon={TrendingUp} iconColor="#10b981"
@@ -264,22 +336,29 @@ export default function Finance2DashboardPage() {
         <ModuleCard
           icon={Wallet} iconColor="#3b82f6"
           title="Cash Runtime（资金账户）"
-          phase={3} phaseStatus="PLANNED"
+          phase={3} phaseStatus="ACTIVE"
           path="/finance2/cash-accounts"
-          description="fin_cash_accounts + fin_cash_transactions。多账户余额、资金流水、账户间转账。Phase 3 建立。"
+          description="fin_cash_accounts + fin_cash_transactions + fin_fund_transfers。多账户余额、流水账本、转账审批。"
+        />
+        <ModuleCard
+          icon={ArrowLeftRight} iconColor="#0891b2"
+          title="资金转账"
+          phase={3} phaseStatus="ACTIVE"
+          path="/finance2/fund-transfers"
+          description="账户间资金划转，5 状态审批工作流（DRAFT→PENDING→APPROVED→EXECUTED），SERIALIZABLE 事务保障。"
         />
         <ModuleCard
           icon={Users} iconColor="#7c3aed"
           title="股东资金 Runtime"
           phase={4} phaseStatus="PLANNED"
           path="/finance2/shareholder-funds"
-          description="fin_shareholder_contributions + fin_shareholder_settlements。复用 prc2 设计样板，Phase 4 建立。"
+          description="fin_shareholder_contributions + fin_shareholder_settlements。Phase 4 建立。"
         />
         <ModuleCard
           icon={Receipt} iconColor="#6366f1"
           title="Expense Runtime（费用）"
-          phase={3} phaseStatus="PLANNED"
-          description="费用申请 → Form Runtime → ApprovalEngine。Phase 3 建立，对接 fin_cash_accounts。"
+          phase={4} phaseStatus="PLANNED"
+          description="费用申请 → Form Runtime → ApprovalEngine → 对接 fin_cash_accounts。Phase 4 建立。"
         />
         <ModuleCard
           icon={PieChart} iconColor="#64748b"
@@ -290,27 +369,20 @@ export default function Finance2DashboardPage() {
         />
       </div>
 
-      {/* Workflow + DataScope 底座说明 */}
-      <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>
-        已就绪底座
-      </div>
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: 12, marginBottom: 28,
-      }}>
+      {/* 已就绪底座 */}
+      <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>已就绪底座</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 28 }}>
         {[
-          { icon: CheckCircle, color: '#059669', title: 'Workflow 2.0 Platform', desc: 'Phase A-I 全部完成，ApprovalEngine + Form Runtime + SLA 已就绪' },
-          { icon: CheckCircle, color: '#059669', title: 'DataScope',             desc: '基于 OrgModule @Global，所有接口自动注入 company_code 范围过滤' },
-          { icon: CheckCircle, color: '#059669', title: 'fin_* 表骨架',          desc: '9 张 fin_* 领域表 DDL 已创建，Entity 骨架已注册 TypeORM' },
-          { icon: CheckCircle, color: '#059669', title: 'RBAC 矩阵',             desc: 'MENU_FIN2_* 8 个权限条目已注册，CFO/Finance/Accountant 分级管控' },
-          { icon: CheckCircle, color: '#059669', title: 'AP Runtime（Phase 1）', desc: 'fin_ap_invoices 正式启用，手工创建/PO导入/状态机/账龄分析全部就绪' },
-          { icon: CheckCircle, color: '#059669', title: 'AR Runtime（Phase 2）', desc: 'fin_ar_invoices + fin_ar_receipts 正式启用，收款核销/账龄分析/事务核销全部就绪' },
-          { icon: Database,    color: '#64748b', title: '旧 Finance 废弃',       desc: 'fin_transactions / fin_payments / biz_cash_flow 不再写入，只读废弃' },
+          { icon: CheckCircle, color: '#059669', title: 'Workflow 2.0 Platform',  desc: 'Phase A-I 全部完成，ApprovalEngine + Form Runtime + SLA 已就绪' },
+          { icon: CheckCircle, color: '#059669', title: 'DataScope',              desc: '基于 OrgModule @Global，所有接口自动注入 company_code 范围过滤' },
+          { icon: CheckCircle, color: '#059669', title: 'fin_* 表骨架',           desc: '9 张 fin_* 领域表 DDL 已创建，Entity 骨架已注册 TypeORM' },
+          { icon: CheckCircle, color: '#059669', title: 'RBAC 矩阵',              desc: 'MENU_FIN2_* 8 个权限条目已注册，CFO/Finance/Accountant 分级管控' },
+          { icon: CheckCircle, color: '#059669', title: 'AP Runtime（Phase 1）',  desc: 'fin_ap_invoices 正式启用，手工创建/PO导入/状态机/账龄分析全部就绪' },
+          { icon: CheckCircle, color: '#059669', title: 'AR Runtime（Phase 2）',  desc: 'fin_ar_invoices + fin_ar_receipts 正式启用，收款核销/账龄分析/事务核销全部就绪' },
+          { icon: CheckCircle, color: '#059669', title: 'Cash Runtime（Phase 3）', desc: 'fin_cash_accounts + fin_cash_transactions + fin_fund_transfers 正式启用' },
+          { icon: Database,    color: '#64748b', title: '旧 Finance 废弃',        desc: 'fin_transactions / fin_payments / biz_cash_flow 不再写入，只读废弃' },
         ].map(item => (
-          <div key={item.title} style={{
-            background: '#fff', borderRadius: 12, padding: '14px 16px',
-            border: '1.5px solid #f1f5f9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-          }}>
+          <div key={item.title} style={{ background: '#fff', borderRadius: 12, padding: '14px 16px', border: '1.5px solid #f1f5f9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <item.icon size={15} color={item.color} />
               <span style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{item.title}</span>
@@ -321,12 +393,9 @@ export default function Finance2DashboardPage() {
       </div>
 
       {/* 旧 Finance 废弃说明 */}
-      <div style={{
-        background: '#fff8f1', border: '1.5px solid #fed7aa', borderRadius: 14,
-        padding: '16px 20px',
-      }}>
+      <div style={{ background: '#fff8f1', border: '1.5px solid #fed7aa', borderRadius: 14, padding: '16px 20px' }}>
         <div style={{ fontWeight: 700, fontSize: 13, color: '#c2410c', marginBottom: 10 }}>
-          ⚠️ 旧 Finance 模块废弃声明（{new Date().toISOString().slice(0,10)}）
+          ⚠️ 旧 Finance 模块废弃声明（{new Date().toISOString().slice(0, 10)}）
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 24px', fontSize: 12, color: '#9a3412' }}>
           <div>

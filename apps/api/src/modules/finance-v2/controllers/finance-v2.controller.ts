@@ -2,22 +2,20 @@ import {
   Controller, Get, Query, UseGuards,
 } from '@nestjs/common';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
-import { ApAdapterService }  from '../services/ap-adapter.service';
-import { ApInvoicesService } from '../services/ap-invoices.service';
+import { ClsService }            from 'nestjs-cls';
+import { ApAdapterService }      from '../services/ap-adapter.service';
+import { ApInvoicesService }     from '../services/ap-invoices.service';
+import { CashAccountsService }   from '../services/cash-accounts.service';
+import { CashTransactionsService } from '../services/cash-transactions.service';
+import { FundTransfersService }  from '../services/fund-transfers.service';
 
 /**
- * Finance V2 Controller — Phase 1 AP Runtime
+ * Finance V2 Controller — Phase 3 Cash Runtime
  *
  * 路由前缀：/api/v2/finance
  *
  * 本控制器仅保留通用接口（health / dashboard / ap/legacy-source）。
- * AP Runtime 专用接口已移至 FinApController (/api/v2/finance/ap/*)。
- *
- * Phase 1 变更：
- *   - health.phase 更新为 'phase-1-ap-runtime'
- *   - dashboard.ap 从 prc2_ap_ledger 适配层升级为 fin_ap_invoices（ApInvoicesService）
- *   - /ap/legacy-source 保留（只读过渡接口，Phase 2 再下线）
- *   - /ap/summary 已由 FinApController 接管（此处旧版保留兼容）
+ * AP 路由 → FinApController，AR 路由 → FinArController，Cash 路由 → FinCashController
  */
 @Controller('api/v2/finance')
 @UseGuards(MenuGuard)
@@ -25,7 +23,13 @@ export class FinanceV2Controller {
   constructor(
     private readonly apAdapter:  ApAdapterService,
     private readonly apInvoices: ApInvoicesService,
+    private readonly cashAccSvc: CashAccountsService,
+    private readonly cashTxnSvc: CashTransactionsService,
+    private readonly tfrSvc:     FundTransfersService,
+    private readonly cls:        ClsService,
   ) {}
+
+  private get user() { return this.cls.get('user') as any; }
 
   // ── Health（无需 MENU 鉴权，供运维探活）─────────────────────────────────
 
@@ -39,7 +43,7 @@ export class FinanceV2Controller {
     return {
       status:  'ok',
       module:  'finance-v2',
-      phase:   'phase-2-ar-runtime',
+      phase:   'phase-3-cash-runtime',
       tables:  [
         'fin_ap_invoices',
         'fin_ar_invoices',
@@ -66,22 +70,39 @@ export class FinanceV2Controller {
   @Get('dashboard')
   @RequireMenu('MENU_FIN2', 'V')
   async dashboard() {
-    const apSummary = await this.apInvoices.getSummary();
+    const u = this.user;
+    const companyCodes: string[] | null = u?.dataScope?.scopeAll
+      ? null
+      : (u?.dataScope?.companyCodes ?? []);
+
+    const [apSummary, cashSummary, todayCash, pendingTransfers] = await Promise.allSettled([
+      this.apInvoices.getSummary(),
+      this.cashAccSvc.getSummary(u),
+      this.cashTxnSvc.getTodaySummary(companyCodes),
+      this.tfrSvc.getPendingCount(companyCodes),
+    ]);
+
     return {
       modules: {
         ap: {
-          status:      'RUNTIME',        // Phase 1：fin_ap_invoices 正式启用
+          status:      'RUNTIME',
           description: '应付账款（fin_ap_invoices AP Runtime）',
           source:      'fin_ap_invoices',
-          summary:     apSummary,
+          summary:     apSummary.status === 'fulfilled' ? apSummary.value : null,
         },
         ar: {
-          status:      'PLANNED',
-          description: 'AR Runtime — Phase 2 建设',
+          status:      'RUNTIME',
+          description: 'AR Runtime（fin_ar_invoices + fin_ar_receipts）',
+          source:      'fin_ar_invoices',
         },
         cash: {
-          status:      'PLANNED',
-          description: '资金账户中心 — Phase 2 建设',
+          status:      'RUNTIME',
+          description: '资金账户中心（fin_cash_accounts + fin_cash_transactions）',
+          source:      'fin_cash_accounts',
+          summary:     cashSummary.status === 'fulfilled' ? cashSummary.value : null,
+          todayIn:     todayCash.status === 'fulfilled' ? todayCash.value.todayIn : 0,
+          todayOut:    todayCash.status === 'fulfilled' ? todayCash.value.todayOut : 0,
+          pendingTransfers: pendingTransfers.status === 'fulfilled' ? pendingTransfers.value : 0,
         },
         shareholder: {
           status:      'ADAPTER',

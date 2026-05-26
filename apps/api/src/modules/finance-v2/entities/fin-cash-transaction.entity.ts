@@ -1,16 +1,25 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
-  CreateDateColumn,
+  Entity, Column, PrimaryGeneratedColumn, CreateDateColumn,
 } from 'typeorm';
 
 /**
  * 资金流水  fin_cash_transactions
  *
- * Finance V2 Phase 0 Clean Baseline
- * Phase 3 正式启用（当前为空表）
+ * Finance V2 Phase 3 — Cash Runtime 正式启用
  *
- * 每一笔资金进出均记录一条流水，驱动 fin_cash_accounts.current_balance 更新。
- * 不可修改（Append-only），更正使用反向冲销条目。
+ * 设计原则：
+ *   - Append-only：不允许修改任何历史流水
+ *   - amount 恒为正数，方向由 direction (IN/OUT) 决定
+ *   - balance_after 是本条流水发生后的账户余额快照
+ *   - 余额更新必须与流水写入在同一事务内完成
+ *
+ * 来源类型（source_type）：
+ *   AP_PAYMENT  — AP 应付付款
+ *   AR_RECEIPT  — AR 应收收款
+ *   TRANSFER    — 账户间转账
+ *   SHAREHOLDER — 股东资金
+ *   MANUAL      — 手工录入
+ *   OPENING     — 期初余额
  */
 @Entity('fin_cash_transactions')
 export class FinCashTransactionEntity {
@@ -24,69 +33,53 @@ export class FinCashTransactionEntity {
   @Column({ name: 'account_id', type: 'bigint' })
   accountId: string;
 
+  @Column({ name: 'account_code', type: 'varchar', length: 60 })
+  accountCode: string;
+
+  @Column({ name: 'account_name', type: 'varchar', length: 200 })
+  accountName: string;
+
   // ── 公司维度 ─────────────────────────────────────────────────────────────
   @Column({ name: 'company_code', type: 'varchar', length: 64 })
   companyCode: string;
 
   @Column({ name: 'company_name', type: 'varchar', length: 256, nullable: true })
-  companyName: string;
+  companyName: string | null;
 
-  // ── 项目维度 ─────────────────────────────────────────────────────────────
-  @Column({ name: 'project_code', type: 'varchar', length: 64, nullable: true })
-  projectCode: string;
+  // ── 方向与金额 ────────────────────────────────────────────────────────────
+  /** IN / OUT */
+  @Column({ name: 'direction', type: 'varchar', length: 8 })
+  direction: string;
 
-  @Column({ name: 'project_name', type: 'varchar', length: 256, nullable: true })
-  projectName: string;
+  /** AP_PAYMENT / AR_RECEIPT / TRANSFER / SHAREHOLDER / MANUAL / OPENING */
+  @Column({ name: 'source_type', type: 'varchar', length: 30, nullable: true })
+  sourceType: string | null;
 
-  // ── 流水信息 ─────────────────────────────────────────────────────────────
-  @Column({ name: 'txn_date', type: 'date' })
-  txnDate: string;
+  @Column({ name: 'source_id', type: 'bigint', nullable: true })
+  sourceId: string | null;
 
-  /** IN / OUT / TRANSFER_IN / TRANSFER_OUT / ADJUSTMENT */
-  @Column({ name: 'txn_type', type: 'varchar', length: 30 })
-  txnType: string;
+  @Column({ name: 'source_no', type: 'varchar', length: 80, nullable: true })
+  sourceNo: string | null;
 
-  // ── 金额三段式 ───────────────────────────────────────────────────────────
-  @Column({ name: 'currency_code', type: 'varchar', length: 8, default: 'CNY' })
+  @Column({ name: 'currency_code', type: 'varchar', length: 8 })
   currencyCode: string;
 
-  /** 正数=收入，负数=支出 */
-  @Column({ name: 'amount_original', type: 'numeric', precision: 18, scale: 2 })
-  amountOriginal: number;
+  /** 恒为正数，方向由 direction 决定 */
+  @Column({ name: 'amount', type: 'numeric', precision: 18, scale: 2 })
+  amount: number;
 
-  @Column({ name: 'exchange_rate', type: 'numeric', precision: 18, scale: 8, default: 1 })
-  exchangeRate: number;
-
-  @Column({ name: 'amount_base', type: 'numeric', precision: 18, scale: 2 })
-  amountBase: number;
-
-  @Column({ name: 'base_currency', type: 'varchar', length: 8, default: 'CNY' })
-  baseCurrency: string;
-
-  /** 流水发生后的账户余额快照 */
+  /** 本条流水后账户余额快照（Append-only，不可修改） */
   @Column({ name: 'balance_after', type: 'numeric', precision: 18, scale: 2 })
   balanceAfter: number;
 
-  // ── 关联来源 ─────────────────────────────────────────────────────────────
-  /** AP_PAYMENT / AR_RECEIPT / TRANSFER / ADJUSTMENT */
-  @Column({ name: 'reference_type', type: 'varchar', length: 40, nullable: true })
-  referenceType: string;
+  @Column({ name: 'txn_date', type: 'timestamptz', default: () => 'now()' })
+  txnDate: Date;
 
-  @Column({ name: 'reference_id', type: 'bigint', nullable: true })
-  referenceId: string;
-
-  @Column({ name: 'reference_no', type: 'varchar', length: 80, nullable: true })
-  referenceNo: string;
-
-  /** 银行流水号/凭证号 */
-  @Column({ name: 'bank_reference', type: 'varchar', length: 100, nullable: true })
-  bankReference: string;
-
-  @Column({ name: 'description', type: 'text', nullable: true })
-  description: string;
+  @Column({ name: 'remark', type: 'text', nullable: true })
+  remark: string | null;
 
   @Column({ name: 'created_by', type: 'varchar', length: 80, nullable: true })
-  createdBy: string;
+  createdBy: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

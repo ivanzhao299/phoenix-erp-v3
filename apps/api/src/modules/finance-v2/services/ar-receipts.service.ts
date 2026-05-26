@@ -12,7 +12,9 @@ import {
   QueryArReceiptDto,
   ArReceiptAllocationDto,
 } from '../dto/ar-receipt.dto';
-import { ArInvoicesService } from './ar-invoices.service';
+import { ArInvoicesService }     from './ar-invoices.service';
+import { CashAccountsService }   from './cash-accounts.service';
+import { CashTransactionsService } from './cash-transactions.service';
 
 /**
  * ArReceiptsService — Finance V2 Phase 2 AR Runtime
@@ -35,6 +37,8 @@ export class ArReceiptsService {
     private readonly ds: DataSource,
     private readonly cls: ClsService,
     private readonly arInvoicesSvc: ArInvoicesService,
+    private readonly cashAccSvc: CashAccountsService,
+    private readonly cashTxnSvc: CashTransactionsService,
   ) {}
 
   // ── 内部工具 ──────────────────────────────────────────────────────────────
@@ -313,6 +317,43 @@ export class ArReceiptsService {
             [newStatus, newColStatus, alloc.arInvoiceId],
           );
         }
+      }
+
+      // d. 若指定收款账户，更新资金余额并写 IN 流水
+      if (dto.receiveAccountId) {
+        const accRows = await qr.query(
+          `SELECT id, account_code, account_name, company_code, company_name,
+                  currency_code, current_balance, status
+           FROM fin_cash_accounts WHERE id = $1 FOR UPDATE`,
+          [dto.receiveAccountId],
+        );
+        if (!accRows.length) throw new NotFoundException(`资金账户 ${dto.receiveAccountId} 不存在`);
+        const acc = accRows[0];
+        if (acc.status !== 'ACTIVE') {
+          throw new BadRequestException(`资金账户状态 ${acc.status}，不允许入账`);
+        }
+
+        const amount = Number(rec.amount_original);
+        const newBalance = await this.cashAccSvc.applyBalance(
+          qr, dto.receiveAccountId, amount, user.userId,
+        );
+        await this.cashTxnSvc.writeTransaction({
+          qr,
+          accountId: acc.id,
+          accountCode: acc.account_code,
+          accountName: acc.account_name,
+          companyCode: acc.company_code,
+          companyName: acc.company_name,
+          direction: 'IN',
+          sourceType: 'AR_RECEIPT',
+          sourceId: receiptId,
+          sourceNo: rec.receipt_no,
+          currencyCode: acc.currency_code,
+          amount,
+          balanceAfter: newBalance,
+          remark: `AR 收款核销 ${rec.receipt_no}`,
+          createdBy: user.userId,
+        });
       }
 
       await qr.commitTransaction();

@@ -90,6 +90,13 @@ export class ConfirmArReceiptDto {
   @IsArray() @ValidateNested({ each: true })
   @Type(() => ArReceiptAllocationDto)
   allocations: ArReceiptAllocationDto[];
+
+  /**
+   * 可选：收款入账的资金账户 ID（fin_cash_accounts.id）。
+   * 若提供，确认时同步向该账户增加余额并写入 AR_RECEIPT 流水。
+   */
+  @IsOptional() @IsString()
+  receiveAccountId?: string;
 }
 
 // ── 取消收款 ──────────────────────────────────────────────────────────────
