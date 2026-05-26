@@ -65,6 +65,39 @@ export class PushNotificationService implements OnModuleInit {
     return { enabled: true, publicKey: process.env.VAPID_PUBLIC_KEY };
   }
 
+  /** GET /api/notifications/push/health — VAPID + 订阅统计（脱敏） */
+  async getHealth(): Promise<{
+    enabled:                 boolean;
+    hasPublicKey:            boolean;
+    hasPrivateKey:           boolean;
+    subject:                 string | null;
+    subscriptionCount:       number;
+    activeSubscriptionCount: number;
+  }> {
+    let subscriptionCount       = 0;
+    let activeSubscriptionCount = 0;
+    try {
+      const [row] = await this.ds.query<[{ total: string; active: string }]>(`
+        SELECT
+          COUNT(*)                                        AS total,
+          COUNT(*) FILTER (WHERE enabled = TRUE)         AS active
+        FROM sys_push_subscriptions
+      `);
+      subscriptionCount       = Number(row?.total  ?? 0);
+      activeSubscriptionCount = Number(row?.active ?? 0);
+    } catch {
+      // 表可能尚未迁移
+    }
+    return {
+      enabled:                 this.vapidReady,
+      hasPublicKey:            !!process.env.VAPID_PUBLIC_KEY,
+      hasPrivateKey:           !!process.env.VAPID_PRIVATE_KEY,
+      subject:                 process.env.VAPID_SUBJECT ?? null,
+      subscriptionCount,
+      activeSubscriptionCount,
+    };
+  }
+
   /** POST /api/notifications/push/subscribe */
   async subscribe(dto: PushSubscribeDto): Promise<{ ok: boolean }> {
     const userId = this.currentUserId();

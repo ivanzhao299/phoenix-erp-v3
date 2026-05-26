@@ -184,6 +184,7 @@ const MENU: MenuItem[] = [
     { id: "wf-approval-todos",   path: "/workflow/todos",   Icon: ClipboardCheck, label: "审批待办", perm: "MENU_WORKFLOW" },
     { id: "wf-approval-history", path: "/workflow/history", Icon: History,        label: "审批历史", perm: "MENU_WORKFLOW" },
     { id: "wf-notifications",    path: "/notifications",    Icon: Bell,           label: "通知中心", perm: "MENU_WORKFLOW" },
+    { id: "wf-metrics",          path: "/workflow/metrics", Icon: BarChart3,      label: "健康看板", perm: "MENU_WORKFLOW" },
   ]},
   { id: "wholesale", Icon: FileText, label: "批发管理", perm: "MENU_B2B_SALE", children: [
     { id: "ws-ov",        path: "/wholesale",           Icon: LayoutDashboard, label: "批发总览",   perm: "MENU_B2B_SALE" },

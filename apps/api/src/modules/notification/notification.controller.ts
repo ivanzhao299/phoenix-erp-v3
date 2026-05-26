@@ -79,4 +79,11 @@ export class NotificationController {
   async pushUnsubscribe(@Body() body: { endpoint: string }) {
     return this.pushSvc.unsubscribe(body.endpoint);
   }
+
+  /** GET /api/notifications/push/health — VAPID 配置 + 订阅统计（运维健康检查） */
+  @Get('push/health')
+  @RequireMenu('MENU_WORKFLOW', 'V')
+  pushHealth() {
+    return this.pushSvc.getHealth();
+  }
 }

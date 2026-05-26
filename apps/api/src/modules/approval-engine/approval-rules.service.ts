@@ -146,12 +146,19 @@ export class ApprovalRulesService {
           Object.assign(new WfApprovalRuleStepEntity(), {
             ruleId:                saved.id,
             stepNo:                s.stepNo,
-            approverType:          s.approverType         ?? 'ROLE',
-            approverRole:          s.approverRole         ?? null,
-            approverUserId:        (s as any).approverUserId ?? null,
-            orgScope:              s.orgScope             ?? null,
+            approverType:          s.approverType          ?? 'ROLE',
+            approverRole:          s.approverRole          ?? null,
+            approverUserId:        s.approverUserId        ?? null,
+            orgScope:              s.orgScope              ?? null,
             requiredApprovalCount: s.requiredApprovalCount ?? 1,
-            allowAdminOverride:    s.allowAdminOverride   ?? false,
+            allowAdminOverride:    s.allowAdminOverride    ?? false,
+            // SLA 配置（Phase G）
+            slaHours:              s.slaHours              ?? 48,
+            reminderIntervalHours: s.reminderIntervalHours ?? 12,
+            maxReminders:          s.maxReminders          ?? 3,
+            escalationEnabled:     s.escalationEnabled     ?? false,
+            escalationAfterHours:  s.escalationAfterHours  ?? null,
+            escalationRole:        s.escalationRole        ?? null,
           }),
         );
         await mgr.save(WfApprovalRuleStepEntity, stepEntities);
@@ -199,12 +206,19 @@ export class ApprovalRulesService {
             Object.assign(new WfApprovalRuleStepEntity(), {
               ruleId:                id,
               stepNo:                s.stepNo,
-              approverType:          s.approverType         ?? 'ROLE',
-              approverRole:          s.approverRole         ?? null,
-              approverUserId:        (s as any).approverUserId ?? null,
-              orgScope:              s.orgScope             ?? null,
+              approverType:          s.approverType          ?? 'ROLE',
+              approverRole:          s.approverRole          ?? null,
+              approverUserId:        s.approverUserId        ?? null,
+              orgScope:              s.orgScope              ?? null,
               requiredApprovalCount: s.requiredApprovalCount ?? 1,
-              allowAdminOverride:    s.allowAdminOverride   ?? false,
+              allowAdminOverride:    s.allowAdminOverride    ?? false,
+              // SLA 配置（Phase G）
+              slaHours:              s.slaHours              ?? 48,
+              reminderIntervalHours: s.reminderIntervalHours ?? 12,
+              maxReminders:          s.maxReminders          ?? 3,
+              escalationEnabled:     s.escalationEnabled     ?? false,
+              escalationAfterHours:  s.escalationAfterHours  ?? null,
+              escalationRole:        s.escalationRole        ?? null,
             }),
           );
           await mgr.save(WfApprovalRuleStepEntity, stepEntities);

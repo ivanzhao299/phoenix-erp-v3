@@ -39,6 +39,40 @@ export class ApprovalRuleStepDto {
   @IsBoolean()
   @Transform(({ value }) => value === true || value === 'true')
   allowAdminOverride?: boolean;
+
+  // ── SLA 配置（Phase G 开放配置化）──────────────────────────────────────────
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Type(() => Number)
+  slaHours?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Type(() => Number)
+  reminderIntervalHours?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  maxReminders?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === true || value === 'true')
+  escalationEnabled?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Type(() => Number)
+  escalationAfterHours?: number;
+
+  @IsOptional()
+  @IsString()
+  escalationRole?: string;
 }
 
 // ── 查询 DTO ──────────────────────────────────────────────────────────────────

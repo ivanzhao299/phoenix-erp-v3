@@ -110,4 +110,111 @@ export class WorkflowMetricsController {
       avgHours:     r.avg_hours ? Number(Number(r.avg_hours).toFixed(1)) : null,
     }));
   }
+
+  /**
+   * GET /api/workflow/metrics/overdue-tasks
+   * 超期待办任务列表（Top 20），供健康看板展示
+   */
+  @Get('overdue-tasks')
+  @RequireMenu('MENU_WORKFLOW', 'V')
+  async overdueTasks() {
+    const rows = await this.ds.query<{
+      step_id:        string;
+      instance_id:    string;
+      biz_type:       string;
+      biz_no:         string | null;
+      approver_role:  string | null;
+      assignee_id:    string | null;
+      due_at:         string;
+      reminder_count: string;
+      escalation_level: string;
+      created_at:     string;
+    }[]>(`
+      SELECT
+        s.id           AS step_id,
+        i.id           AS instance_id,
+        i.biz_type,
+        i.biz_no,
+        s.approver_role,
+        s.assignee_id,
+        s.due_at,
+        s.reminder_count,
+        s.escalation_level,
+        s.created_at
+      FROM wf_approval_instance_steps s
+      JOIN wf_approval_instances i ON i.id = s.instance_id
+      WHERE s.status = 'PENDING'
+        AND i.status = 'PENDING'
+        AND s.is_overdue = TRUE
+      ORDER BY s.due_at ASC
+      LIMIT 20
+    `);
+
+    return rows.map(r => ({
+      stepId:           r.step_id,
+      instanceId:       r.instance_id,
+      bizType:          r.biz_type,
+      bizNo:            r.biz_no ?? null,
+      approverRole:     r.approver_role ?? null,
+      assigneeId:       r.assignee_id ?? null,
+      dueAt:            r.due_at,
+      reminderCount:    Number(r.reminder_count),
+      escalationLevel:  Number(r.escalation_level),
+      createdAt:        r.created_at,
+      overdueHours:     Math.round((Date.now() - new Date(r.due_at).getTime()) / 3_600_000),
+    }));
+  }
+
+  /**
+   * GET /api/workflow/metrics/escalated-tasks
+   * 已升级待办任务列表（escalation_level > 0），供健康看板展示
+   */
+  @Get('escalated-tasks')
+  @RequireMenu('MENU_WORKFLOW', 'V')
+  async escalatedTasks() {
+    const rows = await this.ds.query<{
+      step_id:          string;
+      instance_id:      string;
+      biz_type:         string;
+      biz_no:           string | null;
+      approver_role:    string | null;
+      assignee_id:      string | null;
+      due_at:           string | null;
+      escalation_level: string;
+      source_task_id:   string | null;
+      created_at:       string;
+    }[]>(`
+      SELECT
+        s.id               AS step_id,
+        i.id               AS instance_id,
+        i.biz_type,
+        i.biz_no,
+        s.approver_role,
+        s.assignee_id,
+        s.due_at,
+        s.escalation_level,
+        s.source_task_id,
+        s.created_at
+      FROM wf_approval_instance_steps s
+      JOIN wf_approval_instances i ON i.id = s.instance_id
+      WHERE s.status = 'PENDING'
+        AND i.status = 'PENDING'
+        AND s.escalation_level > 0
+      ORDER BY s.escalation_level DESC, s.created_at ASC
+      LIMIT 20
+    `);
+
+    return rows.map(r => ({
+      stepId:          r.step_id,
+      instanceId:      r.instance_id,
+      bizType:         r.biz_type,
+      bizNo:           r.biz_no ?? null,
+      approverRole:    r.approver_role ?? null,
+      assigneeId:      r.assignee_id ?? null,
+      dueAt:           r.due_at ?? null,
+      escalationLevel: Number(r.escalation_level),
+      sourceTaskId:    r.source_task_id ?? null,
+      createdAt:       r.created_at,
+    }));
+  }
 }

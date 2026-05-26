@@ -20,6 +20,13 @@ interface RuleStep {
   orgScope: string;
   requiredApprovalCount: number;
   allowAdminOverride: boolean;
+  // Phase G: SLA 配置
+  slaHours: number;
+  reminderIntervalHours: number;
+  maxReminders: number;
+  escalationEnabled: boolean;
+  escalationAfterHours: number | null;
+  escalationRole: string;
 }
 
 interface ApprovalRule {
@@ -147,7 +154,21 @@ function emptyStep(no: number): RuleStep {
     orgScope: "",
     requiredApprovalCount: 1,
     allowAdminOverride: false,
+    slaHours: 48,
+    reminderIntervalHours: 12,
+    maxReminders: 3,
+    escalationEnabled: false,
+    escalationAfterHours: null,
+    escalationRole: "",
   };
+}
+
+/** SLA 摘要文字，显示在步骤卡片中 */
+function slaSummary(st: RuleStep): string {
+  const parts: string[] = [`${st.slaHours ?? 48}h SLA`];
+  if ((st.maxReminders ?? 3) > 0) parts.push(`每${st.reminderIntervalHours ?? 12}h催办`);
+  if (st.escalationEnabled && st.escalationAfterHours) parts.push(`超${st.escalationAfterHours}h升级${st.escalationRole ? ` → ${st.escalationRole}` : ''}`);
+  return parts.join(' / ');
 }
 
 // ── 主组件 ────────────────────────────────────────────────────────────────────
@@ -228,7 +249,18 @@ export default function ApprovalRulesPage() {
       approvalMode: rule.approvalMode,
       priority: String(rule.priority),
       remark: rule.remark ?? "",
-      steps: rule.steps.length ? rule.steps : [emptyStep(1)],
+      steps: rule.steps.length
+        ? rule.steps.map(st => ({
+            ...st,
+            // SLA 字段兼容旧规则（后端默认值）
+            slaHours:              (st as any).slaHours              ?? 48,
+            reminderIntervalHours: (st as any).reminderIntervalHours ?? 12,
+            maxReminders:          (st as any).maxReminders          ?? 3,
+            escalationEnabled:     (st as any).escalationEnabled     ?? false,
+            escalationAfterHours:  (st as any).escalationAfterHours  ?? null,
+            escalationRole:        (st as any).escalationRole        ?? '',
+          }))
+        : [emptyStep(1)],
     });
     setDrawerOpen(true);
   };
@@ -252,13 +284,20 @@ export default function ApprovalRulesPage() {
         priority:     Number(form.priority) || 100,
         remark:       form.remark || undefined,
         steps: form.steps.map(st => ({
-          stepNo:               st.stepNo,
-          approverType:         st.approverType,
-          approverRole:         needsRoleField(st.approverType) ? (st.approverRole || undefined) : undefined,
-          approverUserId:       needsUserField(st.approverType) ? (st.approverUserId || undefined) : undefined,
-          orgScope:             st.orgScope || undefined,
+          stepNo:                st.stepNo,
+          approverType:          st.approverType,
+          approverRole:          needsRoleField(st.approverType) ? (st.approverRole || undefined) : undefined,
+          approverUserId:        needsUserField(st.approverType) ? (st.approverUserId || undefined) : undefined,
+          orgScope:              st.orgScope || undefined,
           requiredApprovalCount: st.requiredApprovalCount,
-          allowAdminOverride:   st.allowAdminOverride,
+          allowAdminOverride:    st.allowAdminOverride,
+          // SLA 字段
+          slaHours:              st.slaHours,
+          reminderIntervalHours: st.reminderIntervalHours,
+          maxReminders:          st.maxReminders,
+          escalationEnabled:     st.escalationEnabled,
+          escalationAfterHours:  st.escalationEnabled ? (st.escalationAfterHours ?? undefined) : undefined,
+          escalationRole:        st.escalationEnabled ? (st.escalationRole || undefined) : undefined,
         })),
       };
       const r = editing
@@ -435,6 +474,10 @@ export default function ApprovalRulesPage() {
                                   ADMIN可代理
                                 </span>
                               )}
+                              {/* SLA 摘要 */}
+                              <span style={{ fontSize: 10, color: "#0369a1", background: "#e0f2fe", padding: "1px 6px", borderRadius: 3, fontFamily: "monospace" }}>
+                                ⏱ {slaSummary(st as RuleStep)}
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -616,6 +659,64 @@ export default function ApprovalRulesPage() {
                   <label htmlFor={`aao-${idx}`} style={{ fontSize: 12, color: "#374151", cursor: "pointer" }}>
                     允许 ADMIN 代理审批（跳过角色校验）
                   </label>
+                </div>
+
+                {/* ── Phase G: SLA 配置 ── */}
+                <div style={{
+                  marginTop: 10, padding: "10px 12px",
+                  background: "#f0f9ff", borderRadius: 8, border: "1px solid #bae6fd",
+                }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#0369a1", marginBottom: 8 }}>⏱ SLA 配置</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                    <div>
+                      <label className={s.label}>SLA 时限（小时）</label>
+                      <input className={s.input} type="number" min={1} value={st.slaHours}
+                        onChange={e => updateStep(idx, { slaHours: Number(e.target.value) || 48 })} />
+                    </div>
+                    <div>
+                      <label className={s.label}>催办间隔（小时）</label>
+                      <input className={s.input} type="number" min={1} value={st.reminderIntervalHours}
+                        onChange={e => updateStep(idx, { reminderIntervalHours: Number(e.target.value) || 12 })} />
+                    </div>
+                    <div>
+                      <label className={s.label}>最多催办次数</label>
+                      <input className={s.input} type="number" min={0} value={st.maxReminders}
+                        onChange={e => updateStep(idx, { maxReminders: Number(e.target.value) })} />
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      id={`esc-${idx}`}
+                      checked={st.escalationEnabled}
+                      onChange={e => updateStep(idx, { escalationEnabled: e.target.checked })}
+                    />
+                    <label htmlFor={`esc-${idx}`} style={{ fontSize: 12, color: "#374151", cursor: "pointer" }}>
+                      启用自动升级（Escalation）
+                    </label>
+                  </div>
+                  {st.escalationEnabled && (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+                      <div>
+                        <label className={s.label}>超时多久后升级（小时）*</label>
+                        <input className={s.input} type="number" min={1}
+                          value={st.escalationAfterHours ?? ""}
+                          onChange={e => updateStep(idx, { escalationAfterHours: Number(e.target.value) || null })}
+                          placeholder="如：72" />
+                      </div>
+                      <div>
+                        <label className={s.label}>升级目标角色 *</label>
+                        <select className={s.select} value={st.escalationRole}
+                          onChange={e => updateStep(idx, { escalationRole: e.target.value })}>
+                          <option value="">-- 选择角色 --</option>
+                          {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ marginTop: 6, fontSize: 11, color: "#0369a1" }}>
+                    摘要：{slaSummary(st)}
+                  </div>
                 </div>
               </div>
             ))}
