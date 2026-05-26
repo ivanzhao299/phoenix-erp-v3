@@ -6,53 +6,75 @@ import {
 /**
  * 应付发票台账  fin_ap_invoices
  *
- * Finance V2 Phase 0 Clean Baseline
- * Phase 1 正式启用（当前为空表，数据通过 AP Workflow Runtime 写入）
+ * Finance V2 Phase 1 — AP Runtime 正式启用
  *
- * 金额三段式：
- *   amount_original  — 原币金额
- *   exchange_rate    — 汇率（对 base_currency）
- *   amount_base      — 折算本位币金额（CNY）
+ * 来源类型（source_type）：
+ *   PO            — 从采购 PO / prc2_ap_ledger 导入
+ *   MANUAL        — 财务手工录入
+ *   EXPENSE       — 费用报销（Phase 3）
+ *   REIMBURSEMENT — 报销（Phase 3）
+ *   OPENING       — 期初余额导入
+ *
+ * 状态机：
+ *   OPEN → PARTIALLY_PAID → PAID
+ *   OPEN → DISPUTED
+ *   OPEN / PARTIALLY_PAID → CANCELLED（未全额付款可取消）
+ *
+ * 付款状态（payment_status，冗余便于查询）：
+ *   UNPAID → PARTIAL → PAID
  */
 @Entity('fin_ap_invoices')
 export class FinApInvoiceEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;
 
-  /** AP 编号（系统生成，格式：AP-YYYYMM-XXXXX） */
   @Column({ name: 'ap_no', type: 'varchar', length: 60, unique: true })
   apNo: string;
+
+  // ── 来源追踪 ─────────────────────────────────────────────────────────────
+  /** PO / MANUAL / EXPENSE / REIMBURSEMENT / OPENING */
+  @Column({ name: 'source_type', type: 'varchar', length: 30, default: 'MANUAL' })
+  sourceType: string;
+
+  @Column({ name: 'source_id', type: 'bigint', nullable: true })
+  sourceId: string | null;
+
+  @Column({ name: 'source_no', type: 'varchar', length: 80, nullable: true })
+  sourceNo: string | null;
 
   // ── 公司维度 ─────────────────────────────────────────────────────────────
   @Column({ name: 'company_code', type: 'varchar', length: 64 })
   companyCode: string;
 
   @Column({ name: 'company_name', type: 'varchar', length: 256, nullable: true })
-  companyName: string;
+  companyName: string | null;
 
   // ── 项目维度 ─────────────────────────────────────────────────────────────
   @Column({ name: 'project_code', type: 'varchar', length: 64, nullable: true })
-  projectCode: string;
+  projectCode: string | null;
 
   @Column({ name: 'project_name', type: 'varchar', length: 256, nullable: true })
-  projectName: string;
+  projectName: string | null;
 
   // ── 供应商 ───────────────────────────────────────────────────────────────
-  @Column({ name: 'supplier_code', type: 'varchar', length: 64 })
-  supplierCode: string;
+  @Column({ name: 'supplier_id', type: 'bigint', nullable: true })
+  supplierId: string | null;
 
-  @Column({ name: 'supplier_name', type: 'varchar', length: 256, nullable: true })
+  @Column({ name: 'supplier_code', type: 'varchar', length: 64, nullable: true })
+  supplierCode: string | null;
+
+  @Column({ name: 'supplier_name', type: 'varchar', length: 256 })
   supplierName: string;
 
   // ── 发票信息 ─────────────────────────────────────────────────────────────
   @Column({ name: 'invoice_no', type: 'varchar', length: 100, nullable: true })
-  invoiceNo: string;
+  invoiceNo: string | null;
 
-  @Column({ name: 'invoice_date', type: 'date' })
-  invoiceDate: string;
+  @Column({ name: 'invoice_date', type: 'date', nullable: true })
+  invoiceDate: string | null;
 
   @Column({ name: 'due_date', type: 'date', nullable: true })
-  dueDate: string;
+  dueDate: string | null;
 
   // ── 金额三段式 ───────────────────────────────────────────────────────────
   @Column({ name: 'currency_code', type: 'varchar', length: 8, default: 'CNY' })
@@ -70,40 +92,47 @@ export class FinApInvoiceEntity {
   @Column({ name: 'base_currency', type: 'varchar', length: 8, default: 'CNY' })
   baseCurrency: string;
 
-  // ── 核销 ─────────────────────────────────────────────────────────────────
+  // ── 付款进度 ─────────────────────────────────────────────────────────────
   @Column({ name: 'paid_amount_original', type: 'numeric', precision: 18, scale: 2, default: 0 })
   paidAmountOriginal: number;
+
+  @Column({ name: 'paid_amount_base', type: 'numeric', precision: 18, scale: 2, default: 0 })
+  paidAmountBase: number;
 
   @Column({ name: 'balance_amount_original', type: 'numeric', precision: 18, scale: 2, default: 0 })
   balanceAmountOriginal: number;
 
+  @Column({ name: 'balance_amount_base', type: 'numeric', precision: 18, scale: 2, default: 0 })
+  balanceAmountBase: number;
+
   // ── 状态 ─────────────────────────────────────────────────────────────────
-  /** DRAFT / OPEN / PARTIAL / PAID / OVERDUE / VOID */
+  /** OPEN / PARTIALLY_PAID / PAID / DISPUTED / CANCELLED */
   @Column({ name: 'status', type: 'varchar', length: 32, default: 'OPEN' })
   status: string;
 
-  // ── 关联 ─────────────────────────────────────────────────────────────────
-  @Column({ name: 'po_no', type: 'varchar', length: 80, nullable: true })
-  poNo: string;
+  /** UNPAID / PARTIAL / PAID */
+  @Column({ name: 'payment_status', type: 'varchar', length: 20, default: 'UNPAID' })
+  paymentStatus: string;
 
-  @Column({ name: 'wf_instance_id', type: 'bigint', nullable: true })
-  wfInstanceId: string;
-
-  // ── 其他 ─────────────────────────────────────────────────────────────────
+  // ── 税费 ─────────────────────────────────────────────────────────────────
   @Column({ name: 'tax_amount', type: 'numeric', precision: 18, scale: 2, nullable: true })
-  taxAmount: number;
+  taxAmount: number | null;
 
   @Column({ name: 'tax_rate', type: 'numeric', precision: 8, scale: 4, nullable: true })
-  taxRate: number;
+  taxRate: number | null;
+
+  // ── 关联 ─────────────────────────────────────────────────────────────────
+  @Column({ name: 'wf_instance_id', type: 'bigint', nullable: true })
+  wfInstanceId: string | null;
 
   @Column({ name: 'remark', type: 'text', nullable: true })
-  remark: string;
+  remark: string | null;
 
   @Column({ name: 'created_by', type: 'varchar', length: 80, nullable: true })
-  createdBy: string;
+  createdBy: string | null;
 
   @Column({ name: 'updated_by', type: 'varchar', length: 80, nullable: true })
-  updatedBy: string;
+  updatedBy: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

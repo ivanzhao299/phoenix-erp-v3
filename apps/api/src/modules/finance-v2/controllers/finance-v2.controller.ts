@@ -2,29 +2,29 @@ import {
   Controller, Get, Query, UseGuards,
 } from '@nestjs/common';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
-import { ApAdapterService } from '../services/ap-adapter.service';
+import { ApAdapterService }  from '../services/ap-adapter.service';
+import { ApInvoicesService } from '../services/ap-invoices.service';
 
 /**
- * Finance V2 Controller — Phase 0 Clean Baseline
+ * Finance V2 Controller — Phase 1 AP Runtime
  *
  * 路由前缀：/api/v2/finance
  *
- * Phase 0 接口：
- *   GET /api/v2/finance/health           — 模块健康检查（无需鉴权）
- *   GET /api/v2/finance/dashboard        — Dashboard 汇总（MENU_FIN2 V）
- *   GET /api/v2/finance/ap/legacy-source — prc2_ap_ledger 只读列表（MENU_FIN2_AP V）
- *   GET /api/v2/finance/ap/summary       — AP 汇总统计（MENU_FIN2_AP V）
+ * 本控制器仅保留通用接口（health / dashboard / ap/legacy-source）。
+ * AP Runtime 专用接口已移至 FinApController (/api/v2/finance/ap/*)。
  *
- * Phase 1 将增加：
- *   POST /api/v2/finance/ap/invoices     — 创建 fin_ap_invoices
- *   GET  /api/v2/finance/ar/*            — AR Runtime
- *   GET  /api/v2/finance/cash/*          — 资金账户
+ * Phase 1 变更：
+ *   - health.phase 更新为 'phase-1-ap-runtime'
+ *   - dashboard.ap 从 prc2_ap_ledger 适配层升级为 fin_ap_invoices（ApInvoicesService）
+ *   - /ap/legacy-source 保留（只读过渡接口，Phase 2 再下线）
+ *   - /ap/summary 已由 FinApController 接管（此处旧版保留兼容）
  */
 @Controller('api/v2/finance')
 @UseGuards(MenuGuard)
 export class FinanceV2Controller {
   constructor(
-    private readonly apAdapter: ApAdapterService,
+    private readonly apAdapter:  ApAdapterService,
+    private readonly apInvoices: ApInvoicesService,
   ) {}
 
   // ── Health（无需 MENU 鉴权，供运维探活）─────────────────────────────────
@@ -39,7 +39,7 @@ export class FinanceV2Controller {
     return {
       status:  'ok',
       module:  'finance-v2',
-      phase:   'phase-0-clean-baseline',
+      phase:   'phase-1-ap-runtime',
       tables:  [
         'fin_ap_invoices',
         'fin_ar_invoices',
@@ -66,18 +66,18 @@ export class FinanceV2Controller {
   @Get('dashboard')
   @RequireMenu('MENU_FIN2', 'V')
   async dashboard() {
-    const apSummary = await this.apAdapter.getApSummary();
+    const apSummary = await this.apInvoices.getSummary();
     return {
       modules: {
         ap: {
-          status:      'ADAPTER',        // 使用过渡适配层
-          description: '应付账款（来自 prc2_ap_ledger）',
-          source:      'prc2_ap_ledger',
+          status:      'RUNTIME',        // Phase 1：fin_ap_invoices 正式启用
+          description: '应付账款（fin_ap_invoices AP Runtime）',
+          source:      'fin_ap_invoices',
           summary:     apSummary,
         },
         ar: {
           status:      'PLANNED',
-          description: 'AR Runtime — Phase 1 建设',
+          description: 'AR Runtime — Phase 2 建设',
         },
         cash: {
           status:      'PLANNED',

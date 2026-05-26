@@ -120,7 +120,7 @@ export default function Finance2DashboardPage() {
     <div>
       <PageHeader
         title="Finance V2"
-        subtitle="Workflow Native 财务平台 — Phase 0 Clean Baseline"
+        subtitle="Workflow Native 财务平台 — Phase 1 AP Runtime"
         breadcrumb={['Finance V2', 'Dashboard']}
         actions={
           <button
@@ -139,35 +139,34 @@ export default function Finance2DashboardPage() {
         }
       />
 
-      {/* Phase 0 Clean Baseline Banner */}
+      {/* Phase 1 AP Runtime Banner */}
       <div style={{
-        background: 'linear-gradient(135deg, #4f46e5 0%, #6d28d9 100%)',
+        background: 'linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)',
         borderRadius: 16, padding: '22px 28px', marginBottom: 24, color: '#fff',
       }}>
         <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 6 }}>
-          🚀 Finance V2 Phase 0 Clean Baseline
+          ✅ Finance V2 Phase 1 — AP Runtime 正式启用
         </div>
         <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.8, marginBottom: 14 }}>
-          旧 Finance 模块已废弃（测试阶段遗留）· 不迁移旧测试数据<br />
-          fin_* 领域表骨架已就位 · Workflow 2.0 平台已完成（Phase A-I）<br />
-          Phase 1 AP Runtime 将是第一个正式 Finance V2 功能
+          fin_ap_invoices 已成为 AP 应付账款权威数据源 · 支持手工创建、PO 导入、付款核销<br />
+          状态机：OPEN → PARTIALLY_PAID → PAID · 账龄分析：5 档<br />
+          Phase 2 将建立 AR Runtime（应收账款）
         </div>
 
         {/* 底座状态栏 */}
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           {[
-            { label: 'Workflow Platform', value: 'READY', ok: true },
-            { label: 'ApprovalEngine',    value: 'READY', ok: true },
-            { label: 'Form Runtime',      value: 'READY', ok: true },
-            { label: 'SLA Engine',        value: 'READY', ok: true },
-            { label: 'DataScope',         value: 'READY', ok: true },
+            { label: 'Workflow Platform', value: 'READY',  ok: true },
+            { label: 'AP Runtime',        value: 'LIVE',   ok: true },
+            { label: 'DataScope',         value: 'READY',  ok: true },
             { label: 'fin_* 表骨架',      value: loading ? '…' : (health?.status === 'ok' ? 'READY' : 'ERR'), ok: health?.status === 'ok' },
+            { label: 'AR Runtime',        value: 'Phase 2', ok: false },
           ].map(item => (
             <div key={item.label} style={{ fontSize: 12 }}>
               <span style={{ opacity: 0.7 }}>{item.label}</span>
               <span style={{
                 marginLeft: 6, fontWeight: 700, padding: '1px 8px', borderRadius: 10,
-                background: item.ok ? 'rgba(255,255,255,0.25)' : 'rgba(239,68,68,0.5)',
+                background: item.ok ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.12)',
               }}>
                 {item.value}
               </span>
@@ -251,7 +250,7 @@ export default function Finance2DashboardPage() {
           { icon: CheckCircle, color: '#059669', title: 'DataScope',             desc: '基于 OrgModule @Global，所有接口自动注入 company_code 范围过滤' },
           { icon: CheckCircle, color: '#059669', title: 'fin_* 表骨架',          desc: '9 张 fin_* 领域表 DDL 已创建，Entity 骨架已注册 TypeORM' },
           { icon: CheckCircle, color: '#059669', title: 'RBAC 矩阵',             desc: 'MENU_FIN2_* 8 个权限条目已注册，CFO/Finance/Accountant 分级管控' },
-          { icon: Activity,    color: '#f59e0b', title: 'AP 适配过渡层',         desc: '临时读取 prc2_ap_ledger，Phase 1 建立 fin_ap_invoices 后切换' },
+          { icon: CheckCircle, color: '#059669', title: 'AP Runtime（Phase 1）', desc: 'fin_ap_invoices 正式启用，手工创建/PO导入/状态机/账龄分析全部就绪' },
           { icon: Database,    color: '#64748b', title: '旧 Finance 废弃',       desc: 'fin_transactions / fin_payments / biz_cash_flow 不再写入，只读废弃' },
         ].map(item => (
           <div key={item.title} style={{
