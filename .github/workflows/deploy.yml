@@ -91,7 +91,14 @@ jobs:
       - name: Run DDL migrations
         working-directory: apps/api
         run: |
+          # 基础 DDL（RBAC / 系统表 / 采购等）
           for f in $(ls ddl/*.sql | sort); do
+            echo "Applying $f..."
+            PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f "$f" 2>&1 \
+              | grep -v "^NOTICE\|already exists\|will create" || true
+          done
+          # Sales V2 Phase 0-8 增量迁移（20260527_* 前缀，含建表+种子数据）
+          for f in $(ls migrations/20260527_*.sql | sort); do
             echo "Applying $f..."
             PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f "$f" 2>&1 \
               | grep -v "^NOTICE\|already exists\|will create" || true
@@ -285,7 +292,15 @@ jobs:
             echo "✅ DB healthy"
 
             # ── DDL 迁移（幂等）────────────────────────────────────────
+            # 基础 DDL
             for f in $(ls apps/api/ddl/*.sql | sort); do
+              docker compose exec -T db sh -c \
+                'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+                < "$f" 2>&1 \
+                | grep -v "already exists\|NOTICE\|will create\|^$" || true
+            done
+            # Sales V2 Phase 0-8 增量迁移
+            for f in $(ls apps/api/migrations/20260527_*.sql | sort); do
               docker compose exec -T db sh -c \
                 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
                 < "$f" 2>&1 \
