@@ -33,10 +33,10 @@ const CREDIT_STATUS: Record<string, { label: string; color: string; bg: string }
 };
 
 // ── Tab 定义 ──────────────────────────────────────────────────────────────────
-type ReportTab = "overdue" | "high-risk" | "frozen" | "aging";
+type ReportTab = "overdue" | "high-risk" | "frozen" | "aging" | "returns";
 
 /**
- * Sales V2 Phase 5 — 销售报表（客户欠款分析）
+ * Sales V2 Phase 5/6 — 销售报表（客户欠款分析 + 退货分析）
  */
 export default function SalesV2ReportsPage() {
   const [tab, setTab] = useState<ReportTab>("overdue");
@@ -45,7 +45,7 @@ export default function SalesV2ReportsPage() {
     <div className="animate-fade-in" style={{ padding: "0 0 40px" }}>
       <PageHeader
         title="销售报表"
-        subtitle="客户欠款分析 · 逾期预警 · 信用风险 · 账龄分布"
+        subtitle="客户欠款分析 · 逾期预警 · 信用风险 · 账龄分布 · 退货分析"
         breadcrumb={["销售系统", "销售报表"]}
       />
 
@@ -56,6 +56,7 @@ export default function SalesV2ReportsPage() {
           { id: "high-risk", label: "● 高风险客户",  icon: <TrendingUp size={13} />    },
           { id: "frozen",    label: "🔒 冻结客户",   icon: <ShieldOff size={13} />     },
           { id: "aging",     label: "账龄分析",      icon: <BarChart2 size={13} />     },
+          { id: "returns",   label: "退货分析",      icon: <RefreshCw size={13} />     },
         ] as { id: ReportTab; label: string; icon: React.ReactNode }[]).map(({ id, label, icon }) => (
           <button key={id} type="button" onClick={() => setTab(id)} style={{
             display: "flex", alignItems: "center", gap: 6, padding: "8px 16px",
@@ -71,6 +72,7 @@ export default function SalesV2ReportsPage() {
       {tab === "high-risk" && <HighRiskReport />}
       {tab === "frozen"    && <FrozenReport />}
       {tab === "aging"     && <AgingReport />}
+      {tab === "returns"   && <ReturnReport />}
     </div>
   );
 }
@@ -529,6 +531,113 @@ function AgingReport() {
 
       <div style={{ fontSize: 11, color: "var(--text-secondary)", textAlign: "center" }}>
         数据来源：Finance V2 fin_ar_invoices · 每日 02:00 AM 自动更新 · 数据权限按公司隔离
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 退货分析报表（Phase 6）
+// ══════════════════════════════════════════════════════════════════════════════
+function ReturnReport() {
+  const [analysis, setAnalysis] = useState<{
+    topCustomers: Array<{ customer_code: string; customer_name: string; return_count: number; total_amount: number }>;
+    topProducts: Array<{ product_code: string; product_name: string; return_count: number; total_qty: number; damaged_qty: number }>;
+    summary: { totalReturns: number; totalAmount: number; deliveryRejectCount: number; damageCount: number; damageRate: string };
+  } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await apiFetch("/api/v2/sales/returns/analysis");
+      setAnalysis(data);
+    } catch { setAnalysis(null); } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const maxCust = Math.max(1, ...(analysis?.topCustomers ?? []).map(c => Number(c.return_count)));
+  const maxProd = Math.max(1, ...(analysis?.topProducts ?? []).map(p => Number(p.return_count)));
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button type="button" className={s.btnSecondary} onClick={load} disabled={loading}
+          style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, padding: "5px 12px" }}>
+          <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} /> 刷新
+        </button>
+      </div>
+
+      {/* 汇总统计 */}
+      {analysis?.summary && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
+          {[
+            { label: "退货总单数",   value: analysis.summary.totalReturns,        color: "#6b7280" },
+            { label: "退货总金额",   value: Number(analysis.summary.totalAmount).toLocaleString(), color: "#3b82f6" },
+            { label: "配送拒收",     value: analysis.summary.deliveryRejectCount,  color: "#f59e0b" },
+            { label: "破损退货",     value: analysis.summary.damageCount,          color: "#ef4444" },
+            { label: "破损率(30天)", value: analysis.summary.damageRate,           color: "#8b5cf6" },
+          ].map(({ label, value, color }) => (
+            <div key={label} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "14px 16px", textAlign: "center" }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color, marginBottom: 4 }}>{value}</div>
+              <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {loading && <div style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>加载中…</div>}
+
+      {/* TOP 退货客户 */}
+      {analysis && (
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: 20 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16 }}>TOP 退货客户（近30天）</div>
+          {analysis.topCustomers.length === 0 ? (
+            <div style={{ color: "var(--text-secondary)", textAlign: "center", padding: 20 }}>暂无数据</div>
+          ) : analysis.topCustomers.map((c, i) => (
+            <div key={c.customer_code} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+              <span style={{ width: 22, height: 22, borderRadius: "50%", background: i < 3 ? "#ef4444" : "#9ca3af", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{c.customer_name ?? c.customer_code}</div>
+                <div style={{ height: 6, background: "var(--bg-muted)", borderRadius: 3 }}>
+                  <div style={{ height: "100%", background: "#ef4444", borderRadius: 3, width: `${(Number(c.return_count) / maxCust) * 100}%`, minWidth: 4 }} />
+                </div>
+              </div>
+              <span style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{c.return_count} 单</span>
+              <span style={{ fontSize: 12, color: "#ef4444", whiteSpace: "nowrap", fontFamily: "monospace" }}>{Number(c.total_amount).toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* TOP 退货产品 */}
+      {analysis && (
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: 20 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16 }}>TOP 退货产品（近30天）</div>
+          {analysis.topProducts.length === 0 ? (
+            <div style={{ color: "var(--text-secondary)", textAlign: "center", padding: 20 }}>暂无数据</div>
+          ) : analysis.topProducts.map((p, i) => (
+            <div key={p.product_code} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+              <span style={{ width: 22, height: 22, borderRadius: "50%", background: i < 3 ? "#f59e0b" : "#9ca3af", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 500 }}>{p.product_name ?? p.product_code}</div>
+                <div style={{ fontSize: 11, color: "var(--text-secondary)", display: "flex", gap: 8, marginTop: 2, marginBottom: 4 }}>
+                  <span>退货 {p.total_qty} 件</span>
+                  <span style={{ color: "#ef4444" }}>破损 {p.damaged_qty} 件</span>
+                </div>
+                <div style={{ height: 6, background: "var(--bg-muted)", borderRadius: 3 }}>
+                  <div style={{ height: "100%", background: "#f59e0b", borderRadius: 3, width: `${(Number(p.return_count) / maxProd) * 100}%`, minWidth: 4 }} />
+                </div>
+              </div>
+              <span style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{p.return_count} 次</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ fontSize: 11, color: "var(--text-secondary)", textAlign: "center" }}>
+        退货数据来源：sal_return_orders + sal_return_items · 统计范围：近 30 天已完成退货
       </div>
     </div>
   );

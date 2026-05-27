@@ -1,0 +1,73 @@
+import {
+  Entity, Column, PrimaryGeneratedColumn, CreateDateColumn,
+} from 'typeorm';
+
+/**
+ * 退货明细  sal_return_items
+ *
+ * Sales V2 Phase 6 — Sales Return Runtime
+ *
+ * inspection_result：PENDING / ACCEPTED / PARTIAL / REJECTED / DAMAGED
+ * restock_status：   PENDING / RESTOCKED / WRITTEN_OFF
+ *
+ * 安全约束：
+ *   · accepted_qty + damaged_qty <= returned_qty
+ *   · damaged_qty 不得入 inv_batches（只写 inv_ledger WRITE_OFF）
+ *   · accepted_qty 正常回库（inv_batches + inv_ledger SALE_RETURN）
+ */
+@Entity('sal_return_items')
+export class SalReturnItemEntity {
+  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
+  id: string;
+
+  @Column({ name: 'return_order_id', type: 'bigint' })
+  returnOrderId: string;
+
+  @Column({ name: 'sales_order_item_id', type: 'bigint', nullable: true })
+  salesOrderItemId: string | null;
+
+  @Column({ name: 'product_code', type: 'varchar', length: 64 })
+  productCode: string;
+
+  @Column({ name: 'product_name', type: 'varchar', length: 256, nullable: true })
+  productName: string | null;
+
+  @Column({ name: 'grade_code', type: 'varchar', length: 32, nullable: true })
+  gradeCode: string | null;
+
+  @Column({ name: 'packaging_spec', type: 'varchar', length: 128, nullable: true })
+  packagingSpec: string | null;
+
+  /** 客户申请退货数量 */
+  @Column({ name: 'returned_qty', type: 'numeric', precision: 18, scale: 2, default: 0 })
+  returnedQty: number;
+
+  /** 质检通过可回库数量 */
+  @Column({ name: 'accepted_qty', type: 'numeric', precision: 18, scale: 2, default: 0 })
+  acceptedQty: number;
+
+  /** 破损/报废数量（写 inv_ledger WRITE_OFF，不回库存） */
+  @Column({ name: 'damaged_qty', type: 'numeric', precision: 18, scale: 2, default: 0 })
+  damagedQty: number;
+
+  @Column({ name: 'unit_price', type: 'numeric', precision: 18, scale: 2, default: 0 })
+  unitPrice: number;
+
+  /** accepted_qty * unit_price — Credit Note 金额依据 */
+  @Column({ name: 'amount', type: 'numeric', precision: 18, scale: 2, default: 0 })
+  amount: number;
+
+  /** PENDING / ACCEPTED / PARTIAL / REJECTED / DAMAGED */
+  @Column({ name: 'inspection_result', type: 'varchar', length: 32, default: 'PENDING' })
+  inspectionResult: string;
+
+  /** PENDING / RESTOCKED / WRITTEN_OFF */
+  @Column({ name: 'restock_status', type: 'varchar', length: 32, default: 'PENDING' })
+  restockStatus: string;
+
+  @Column({ name: 'remark', type: 'text', nullable: true })
+  remark: string | null;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  createdAt: Date;
+}

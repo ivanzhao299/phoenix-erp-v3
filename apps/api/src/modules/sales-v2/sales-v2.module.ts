@@ -8,6 +8,7 @@ import { SalesPriceRuntimeController } from './controllers/sales-price-runtime.c
 import { SalesOrdersController }       from './controllers/sales-orders.controller';
 import { DeliveryOrdersController }    from './controllers/delivery-orders.controller';
 import { CustomerCreditController }    from './controllers/customer-credit.controller';  // Phase 5
+import { SalesReturnsController }      from './controllers/sales-returns.controller';    // Phase 6
 import { SalesV2Service }                    from './services/sales-v2.service';
 import { CustomersService }                  from './services/customers.service';
 import { ChannelsService }                   from './services/channels.service';
@@ -19,7 +20,9 @@ import { DeliveryOrdersService }             from './services/delivery-orders.se
 import { ReceiptsService }                   from './services/receipts.service';
 import { CustomerCreditService }             from './services/customer-credit.service';            // Phase 5
 import { CustomerCreditSchedulerService }    from './services/customer-credit-scheduler.service'; // Phase 5
+import { ReturnOrdersService }               from './services/return-orders.service';             // Phase 6
 import { FinanceArAdapter }                  from './adapters/finance-ar.adapter';
+import { FinanceCreditNoteAdapter }          from './adapters/finance-credit-note.adapter';       // Phase 6
 import {
   SalCustomerEntity,
   SalChannelEntity,
@@ -33,6 +36,9 @@ import {
   SalDeliveryOrderEntity,
   SalDeliveryOrderItemEntity,
   SalReceiptEntity,
+  // Phase 6 — Return Runtime
+  SalReturnOrderEntity,
+  SalReturnItemEntity,
 } from './entities';
 
 /**
@@ -45,7 +51,7 @@ import {
  *   Phase 3 ✅ Sales Order Runtime（状态机 + Price/Credit/Workflow/AR 联动）
  *   Phase 4 ✅ Delivery Runtime：sal_delivery_orders + 时间戳 + 签收
  *   Phase 5 ✅ Credit Control：CustomerCreditService + Scheduler + 信用联动
- *   Phase 6    Sales Return Runtime
+ *   Phase 6 ✅ Sales Return Runtime：退货状态机 + 质检 + 回库 + AR Credit Note
  *   Phase 7    Egg Inventory Enhancement
  *   Phase 8    Sales Reports Runtime
  *   Phase 9    Mobile Sales + Delivery App
@@ -56,6 +62,7 @@ import {
  *   · 严禁引用 ord_customers / b2b_customers（旧表冻结）
  *   · ApprovalEngineModule @Global() → ApprovalEngineService 自动注入
  *   · FinanceArAdapter 内置 DataSource 直写 fin_ar_invoices（避免循环依赖）
+ *   · FinanceCreditNoteAdapter 同上（Credit Note 负数 AR）
  */
 @Module({
   imports: [
@@ -72,6 +79,9 @@ import {
       SalDeliveryOrderEntity,
       SalDeliveryOrderItemEntity,
       SalReceiptEntity,
+      // Phase 6 — Return Runtime
+      SalReturnOrderEntity,
+      SalReturnItemEntity,
     ]),
   ],
   controllers: [
@@ -83,6 +93,7 @@ import {
     SalesOrdersController,
     DeliveryOrdersController,    // Phase 4
     CustomerCreditController,    // Phase 5
+    SalesReturnsController,      // Phase 6
   ],
   providers: [
     SalesV2Service,
@@ -96,7 +107,9 @@ import {
     ReceiptsService,                      // Phase 4
     CustomerCreditService,                // Phase 5
     CustomerCreditSchedulerService,       // Phase 5
+    ReturnOrdersService,                  // Phase 6
     FinanceArAdapter,
+    FinanceCreditNoteAdapter,             // Phase 6
   ],
   exports: [
     SalesV2Service,
@@ -110,7 +123,9 @@ import {
     ReceiptsService,                      // Phase 4
     CustomerCreditService,                // Phase 5
     CustomerCreditSchedulerService,       // Phase 5
+    ReturnOrdersService,                  // Phase 6
     FinanceArAdapter,
+    FinanceCreditNoteAdapter,             // Phase 6
   ],
 })
 export class SalesV2Module {}

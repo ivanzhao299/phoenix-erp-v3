@@ -174,6 +174,17 @@ export class WorkflowBizRegistryService implements OnModuleInit {
       cancelledStatus: 'CANCELLED',
     });
 
+    // ── Sales V2 Phase 6 — Sales Return Runtime ──────────────────────────────
+    // onApproved 回调由 ReturnOrdersService 在运行时执行（直接写 INSPECTING）
+
+    this.register('SALES_RETURN', {
+      moduleCode:      'MENU_SALES2_RETURN',
+      tableName:       'sal_return_orders',
+      approvedStatus:  'INSPECTING',
+      rejectedStatus:  'REJECTED',
+      cancelledStatus: 'CANCELLED',
+    });
+
     this.logger.log(
       `WorkflowBizRegistry initialized with ${this.registry.size} bizTypes: ${[...this.registry.keys()].join(', ')}`,
     );

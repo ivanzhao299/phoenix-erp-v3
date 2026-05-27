@@ -537,6 +537,18 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_AUDITOR:       ['V','X'],
   },
 
+  // ── Sales V2 Phase 6 — 销售退货管理 ────────────────────────────────────────
+  MENU_SALES2_RETURN: {
+    ROLE_ADMIN:         ['V','C','E','D','A','X'],
+    ROLE_CEO:           ['V','X'],
+    ROLE_HQ_FINANCE:    ['V','X'],
+    ROLE_FIN_CFO:       ['V','C','E','A','X'],
+    ROLE_SALES_MGR:     ['V','C','E','D','A','X'],
+    ROLE_SALES_REP:     ['V','C'],
+    ROLE_REGION_MGR:    ['V','A','X'],
+    ROLE_AUDITOR:       ['V'],
+  },
+
   // ── 审批工作流 ──────────────────────────────────────────────────────────
   MENU_WORKFLOW: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],

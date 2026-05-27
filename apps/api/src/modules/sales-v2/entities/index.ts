@@ -10,3 +10,6 @@ export { SalVehicleEntity }           from './sal-vehicle.entity';
 export { SalDeliveryOrderEntity }     from './sal-delivery-order.entity';
 export { SalDeliveryOrderItemEntity } from './sal-delivery-order-item.entity';
 export { SalReceiptEntity }           from './sal-receipt.entity';
+// Phase 6 — Return Runtime
+export { SalReturnOrderEntity }       from './sal-return-order.entity';
+export { SalReturnItemEntity }        from './sal-return-item.entity';
