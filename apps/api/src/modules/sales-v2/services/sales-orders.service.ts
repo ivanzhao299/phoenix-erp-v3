@@ -8,6 +8,7 @@ import { ClsService } from 'nestjs-cls';
 import { ApprovalEngineService } from '../../approval-engine/approval-engine.service';
 import { PriceRuntimeService } from './price-runtime.service';
 import { CustomersService } from './customers.service';
+import { CustomerCreditService } from './customer-credit.service';
 import { FinanceArAdapter } from '../adapters/finance-ar.adapter';
 import {
   CreateSalesOrderDto, UpdateSalesOrderDto, QuerySalesOrderDto,
@@ -40,6 +41,7 @@ export class SalesOrdersService {
     private readonly approvalEngine: ApprovalEngineService,
     private readonly priceRuntime: PriceRuntimeService,
     private readonly customersService: CustomersService,
+    private readonly customerCredit: CustomerCreditService,
     private readonly financeAr: FinanceArAdapter,
   ) {}
 
@@ -406,7 +408,7 @@ export class SalesOrdersService {
     return { ...result[0], items };
   }
 
-  // ── 5. 提交审批 ───────────────────────────────────────────────────────────
+  // ── 5. 提交审批（Phase 5 增强：信用控制 Runtime）────────────────────────
 
   async submit(id: string, _dto: SubmitSalesOrderDto) {
     const rec = await this.assertOwnership(id);
@@ -414,55 +416,75 @@ export class SalesOrdersService {
       throw new BadRequestException(`仅 DRAFT 状态可提交，当前：${rec.status}`);
     }
 
-    // 安全校验：客户状态
-    if (rec.customer_code) {
-      const cRows = await this.ds.query(
-        `SELECT status, credit_limit, credit_used FROM sal_customers
-         WHERE customer_code = $1 AND company_code = $2 LIMIT 1`,
-        [rec.customer_code, rec.company_code],
-      );
-      if (cRows.length) {
-        const cust = cRows[0];
-        if (cust.status === 'BLACKLIST') {
-          throw new ForbiddenException('客户已列入黑名单，禁止下单');
-        }
-        if (cust.status === 'FROZEN') {
-          throw new ForbiddenException('客户账户已冻结，禁止下单');
-        }
-      }
-    }
-
-    // 信用额度检查
+    // ── Phase 5：完整信用评估 ─────────────────────────────────────────────
     let overCredit         = false;
     let needCreditApproval = false;
+    let creditWarning      = false;
+    let creditSnapshot: Record<string, any> | null = null;
+
     if (rec.customer_code) {
       try {
-        const snapshot = await this.customersService.getCreditSnapshotByCode(
+        const eval_ = await this.customerCredit.evaluateCreditStatus(
           rec.customer_code, rec.company_code,
         );
-        if (snapshot && Number(snapshot.creditAvailable) < Number(rec.total_amount)) {
+        const snap = eval_.snapshot;
+        creditSnapshot = {
+          creditStatus:      eval_.creditStatus,
+          totalReceivable:   snap.totalReceivable,
+          overdueReceivable: snap.overdueReceivable,
+          overdueDays:       snap.overdueDays,
+          creditLimit:       snap.creditLimit,
+          creditUsed:        snap.creditUsed,
+          creditAvailable:   snap.creditAvailable,
+          paymentTerms:      snap.paymentTerms,
+          riskLevel:         snap.riskLevel,
+          reason:            eval_.reason,
+          snapshotAt:        snap.snapshotAt,
+        };
+
+        // FROZEN / BLACKLIST → 禁止提交
+        if (!eval_.allowOrder) {
+          throw new ForbiddenException(eval_.reason);
+        }
+        // OVER_LIMIT / OVERDUE → 需要审批
+        if (eval_.requireApproval) {
           overCredit         = true;
           needCreditApproval = true;
         }
-      } catch { /* 无法获取信用快照时不阻断，仅记录 */ }
+        // WARNING → 允许提交，仅标记
+        if (eval_.creditWarning) {
+          creditWarning = true;
+        }
+      } catch (err: any) {
+        // ForbiddenException 直接抛出
+        if (err?.status === 403) throw err;
+        // 其他错误（如网络/数据问题）记录后不阻断
+        this.logger.warn(`[submit] 信用评估失败，不阻断提交: ${err?.message}`);
+      }
     }
 
-    const belowFloor       = !!rec.below_floor_price;
+    const belowFloor        = !!rec.below_floor_price;
     const needPriceApproval = belowFloor;
     const needApproval      = needPriceApproval || needCreditApproval;
 
     let finalRec: any = null;
 
     await this.ds.transaction(async (mgr) => {
-      // 先更新审批标记
+      // 写入信用标记 + 快照
       await mgr.query(
         `UPDATE sal_sales_orders
-         SET over_credit=$1, need_price_approval=$2, need_credit_approval=$3, updated_at=NOW()
-         WHERE id=$4`,
-        [overCredit, needPriceApproval, needCreditApproval, id],
+         SET over_credit=$1, need_price_approval=$2, need_credit_approval=$3,
+             credit_warning=$4, credit_snapshot=$5, updated_at=NOW()
+         WHERE id=$6`,
+        [
+          overCredit, needPriceApproval, needCreditApproval,
+          creditWarning, creditSnapshot ? JSON.stringify(creditSnapshot) : null,
+          id,
+        ],
       );
 
       if (needApproval) {
+        const snap = creditSnapshot ?? {};
         const wf = await this.approvalEngine.startApproval({
           bizType:     'SALES_ORDER',
           bizId:       id,
@@ -472,16 +494,23 @@ export class SalesOrdersService {
           companyName: rec.company_name ?? undefined,
           subject:     `销售订单审批：${rec.order_no}`,
           conditionOverrides: {
-            customerCode:    rec.customer_code,
-            customerName:    rec.customer_name,
-            channelCode:     rec.channel_code,
-            belowFloorPrice: belowFloor,
+            customerCode:      rec.customer_code,
+            customerName:      rec.customer_name,
+            channelCode:       rec.channel_code,
+            belowFloorPrice:   belowFloor,
             overCredit,
+            // Phase 5 信用上下文（审批人可见）
+            totalReceivable:   snap.totalReceivable ?? 0,
+            overdueReceivable: snap.overdueReceivable ?? 0,
+            overdueDays:       snap.overdueDays ?? 0,
+            creditLimit:       snap.creditLimit ?? 0,
+            availableCredit:   snap.creditAvailable ?? 0,
+            creditStatus:      snap.creditStatus ?? 'NORMAL',
+            creditReason:      snap.reason ?? '',
           },
         }, mgr);
 
         if (!wf) {
-          // 无审批规则 → 自动批准
           const rows = await mgr.query(
             `UPDATE sal_sales_orders SET status='APPROVED', updated_at=NOW() WHERE id=$1 RETURNING *`,
             [id],
@@ -497,12 +526,11 @@ export class SalesOrdersService {
           finalRec = rows[0];
         }
       } else {
-        // 无需审批 → 直接 APPROVED
         const rows = await mgr.query(
           `UPDATE sal_sales_orders SET status='APPROVED', updated_at=NOW() WHERE id=$1 RETURNING *`,
           [id],
         );
-        finalRec = { ...rows[0], _note: '无审批要求，已自动批准' };
+        finalRec = { ...rows[0], _note: creditWarning ? '信用预警（WARNING），已批准但需关注' : '无审批要求，已自动批准' };
       }
     });
 

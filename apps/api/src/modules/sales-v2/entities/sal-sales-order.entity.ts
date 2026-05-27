@@ -82,6 +82,15 @@ export class SalSalesOrderEntity {
   @Column({ name: 'wf_instance_id', type: 'bigint', nullable: true })
   wfInstanceId: string | null;
 
+  // ── Phase 5 信用控制字段 ──────────────────────────────────────────────────
+  /** 提交时客户处于 WARNING 状态（有逾期但未超额度） */
+  @Column({ name: 'credit_warning', type: 'boolean', default: false })
+  creditWarning: boolean;
+
+  /** 提交时刻信用快照 JSONB */
+  @Column({ name: 'credit_snapshot', type: 'jsonb', nullable: true })
+  creditSnapshot: Record<string, any> | null;
+
   /** Finance V2 fin_ar_invoices.id — RECEIVED 时由 FinanceArAdapter 写入 */
   @Column({ name: 'ar_invoice_id', type: 'bigint', nullable: true })
   arInvoiceId: string | null;

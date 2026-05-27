@@ -495,90 +495,269 @@ function ChannelsTab() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 信用概览 Tab
+// 信用分析 Tab  (Phase 5 完整版)
 // ══════════════════════════════════════════════════════════════════════════════
+
+const CREDIT_STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
+  NORMAL:     { label: "正常",   color: "#22c55e", bg: "rgba(34,197,94,0.12)"   },
+  WARNING:    { label: "预警",   color: "#f59e0b", bg: "rgba(245,158,11,0.12)"  },
+  OVER_LIMIT: { label: "超额度", color: "#ef4444", bg: "rgba(239,68,68,0.12)"   },
+  OVERDUE:    { label: "逾期",   color: "#dc2626", bg: "rgba(220,38,38,0.12)"   },
+  FROZEN:     { label: "冻结",   color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
+};
+
 function CreditTab() {
-  const [rows, setRows]       = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [keyword, setKeyword] = useState("");
-  const [page, setPage]       = useState(1);
+  const [rows, setRows]         = useState<any[]>([]);
+  const [total, setTotal]       = useState(0);
+  const [loading, setLoading]   = useState(false);
+  const [keyword, setKeyword]   = useState("");
+  const [creditFilter, setCreditFilter] = useState<"" | "overdue" | "high-risk">("");
+  const [page, setPage]         = useState(1);
   const limit = 20;
+
+  // 右侧分析面板
+  const [selected, setSelected]     = useState<any | null>(null);
+  const [analysis, setAnalysis]     = useState<any | null>(null);
+  const [anaLoading, setAnaLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState<string | null>(null);
+  const [unfreezing, setUnfreezing] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), limit: String(limit) });
-      if (keyword) params.set("keyword", keyword);
-      params.set("status", "ACTIVE");
-      const res = await apiFetch(`${API}/customers?${params}`);
+      let res: any;
+      if (creditFilter === "overdue") {
+        const p = new URLSearchParams({ page: String(page), limit: String(limit) });
+        if (keyword) p.set("keyword", keyword);
+        res = await apiFetch(`${API}/credit/overdue-customers?${p}`);
+      } else if (creditFilter === "high-risk") {
+        const p = new URLSearchParams({ page: String(page), limit: String(limit) });
+        if (keyword) p.set("keyword", keyword);
+        res = await apiFetch(`${API}/credit/high-risk-customers?${p}`);
+      } else {
+        const p = new URLSearchParams({ page: String(page), limit: String(limit) });
+        if (keyword) p.set("keyword", keyword);
+        res = await apiFetch(`${API}/customers?${p}`);
+      }
       setRows(res.data ?? []);
+      setTotal(Number(res.total ?? 0));
     } catch { setRows([]); } finally { setLoading(false); }
-  }, [page, keyword]);
+  }, [page, keyword, creditFilter]);
 
   useEffect(() => { load(); }, [load]);
 
+  const openAnalysis = async (row: any) => {
+    setSelected(row);
+    setAnalysis(null);
+    setAnaLoading(true);
+    try {
+      const data = await apiFetch(`${API}/customers/${row.id}/credit-analysis`);
+      setAnalysis(data);
+    } catch { setAnalysis(null); }
+    finally { setAnaLoading(false); }
+  };
+
+  const doRefresh = async (row: any) => {
+    setRefreshing(row.id);
+    try {
+      await apiFetch(`${API}/customers/${row.id}/refresh-credit`, { method: "POST" });
+      await load();
+      if (selected?.id === row.id) await openAnalysis({ ...row });
+    } catch { } finally { setRefreshing(null); }
+  };
+
+  const doUnfreeze = async (row: any) => {
+    setUnfreezing(row.id);
+    try {
+      await apiFetch(`${API}/customers/${row.id}/unfreeze`, { method: "POST" });
+      await load();
+      if (selected?.id === row.id) setSelected(null);
+    } catch { } finally { setUnfreezing(null); }
+  };
+
+  const totalPages = Math.ceil(total / limit);
+
   return (
-    <div>
-      <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-        <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" }} />
-          <input
-            style={{ paddingLeft: 32, height: 34, border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, width: "100%", background: "var(--bg-card)" }}
-            placeholder="搜索客户名称…"
-            value={keyword} onChange={e => { setKeyword(e.target.value); setPage(1); }}
-          />
+    <div style={{ display: "grid", gridTemplateColumns: selected ? "1fr 360px" : "1fr", gap: 16, alignItems: "start" }}>
+      {/* 左侧列表 */}
+      <div>
+        {/* 工具栏 */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
+          {/* 快捷筛选标签 */}
+          {([ ["", "全部客户"], ["overdue", "⚠ 逾期客户"], ["high-risk", "● 高风险客户"] ] as [typeof creditFilter, string][]).map(([f, lbl]) => (
+            <button key={f} type="button"
+              onClick={() => { setCreditFilter(f); setPage(1); setSelected(null); }}
+              style={{
+                padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                border: `1px solid ${creditFilter === f ? "var(--color-primary)" : "var(--border)"}`,
+                background: creditFilter === f ? "var(--color-primary)" : "transparent",
+                color: creditFilter === f ? "#fff" : "var(--text-secondary)",
+              }}>
+              {lbl}
+            </button>
+          ))}
+          <div style={{ position: "relative", flex: 1, minWidth: 160 }}>
+            <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" }} />
+            <input
+              style={{ paddingLeft: 28, height: 32, border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 12, width: "100%", background: "var(--bg-card)" }}
+              placeholder="搜索客户名称…"
+              value={keyword} onChange={e => { setKeyword(e.target.value); setPage(1); }}
+            />
+          </div>
+          <button type="button" className={s.btnSecondary} onClick={load} disabled={loading}
+            style={{ display: "flex", alignItems: "center", gap: 5, height: 32, padding: "0 12px", fontSize: 12 }}>
+            <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} /> 刷新
+          </button>
         </div>
-        <button type="button" className={s.btnSecondary} onClick={load} disabled={loading}
-          style={{ display: "flex", alignItems: "center", gap: 6, height: 34 }}>
-          <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} /> 刷新
-        </button>
+
+        {/* 表格 */}
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: "var(--bg-muted)", borderBottom: "1px solid var(--border)" }}>
+                {["客户名称","信用状态","信用额度","实时欠款","可用额度","逾期金额","账期(天)","操作"].map(h => (
+                  <th key={h} style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading && <tr><td colSpan={8} style={{ textAlign: "center", padding: 32, color: "var(--text-secondary)" }}>加载中…</td></tr>}
+              {!loading && rows.length === 0 && <tr><td colSpan={8} style={{ textAlign: "center", padding: 32, color: "var(--text-secondary)" }}>暂无数据</td></tr>}
+              {rows.map((row, i) => {
+                const cs = CREDIT_STATUS_CFG[row.credit_status ?? "NORMAL"] ?? CREDIT_STATUS_CFG.NORMAL;
+                const lim    = Number(row.credit_limit  ?? 0);
+                const used   = Number(row.credit_used   ?? 0);
+                const avail  = lim - used;
+                const overdue = Number(row.overdue_amount ?? 0);
+                const isSelected = selected?.id === row.id;
+                return (
+                  <tr key={row.id}
+                    style={{ borderBottom: i < rows.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer", background: isSelected ? "rgba(var(--color-primary-rgb),0.06)" : undefined }}
+                    onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = "var(--bg-hover)"; }}
+                    onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = ""; }}
+                    onClick={() => openAnalysis(row)}>
+                    <td style={{ padding: "9px 10px", fontWeight: 600 }}>
+                      {row.customer_name}
+                      {row.auto_frozen && (
+                        <span style={{ marginLeft: 6, fontSize: 10, color: "#6b7280", background: "rgba(107,114,128,0.1)", padding: "1px 5px", borderRadius: 8, fontWeight: 400 }}>自动冻结</span>
+                      )}
+                    </td>
+                    <td style={{ padding: "9px 10px" }}>
+                      <span style={{ padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: cs.bg, color: cs.color }}>{cs.label}</span>
+                    </td>
+                    <td style={{ padding: "9px 10px", textAlign: "right", fontFamily: "monospace", fontSize: 11 }}>{lim > 0 ? lim.toLocaleString() : "—"}</td>
+                    <td style={{ padding: "9px 10px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: used > 0 ? "#f59e0b" : "var(--text-secondary)", fontWeight: used > 0 ? 700 : 400 }}>
+                      {used > 0 ? used.toLocaleString() : "0"}
+                    </td>
+                    <td style={{ padding: "9px 10px", textAlign: "right", fontFamily: "monospace", fontSize: 11, fontWeight: 700, color: avail < 0 ? "#ef4444" : avail < lim * 0.1 ? "#f59e0b" : "#22c55e" }}>
+                      {avail.toLocaleString()}
+                    </td>
+                    <td style={{ padding: "9px 10px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: overdue > 0 ? "#dc2626" : "var(--text-secondary)", fontWeight: overdue > 0 ? 700 : 400 }}>
+                      {overdue > 0 ? overdue.toLocaleString() : "—"}
+                    </td>
+                    <td style={{ padding: "9px 10px", textAlign: "center" }}>{row.payment_terms ?? 0}</td>
+                    <td style={{ padding: "9px 10px" }} onClick={e => e.stopPropagation()}>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button type="button" className={s.btnSecondary}
+                          style={{ padding: "2px 7px", fontSize: 10 }}
+                          disabled={refreshing === row.id}
+                          onClick={() => doRefresh(row)}>
+                          {refreshing === row.id ? "…" : "刷新"}
+                        </button>
+                        {row.status === "FROZEN" && row.auto_frozen && (
+                          <button type="button"
+                            style={{ padding: "2px 7px", fontSize: 10, background: "none", border: "1px solid #22c55e", color: "#22c55e", borderRadius: "var(--radius)", cursor: "pointer" }}
+                            disabled={unfreezing === row.id}
+                            onClick={() => doUnfreeze(row)}>
+                            {unfreezing === row.id ? "…" : "解冻"}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* 分页 */}
+        {totalPages > 1 && (
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12, alignItems: "center", fontSize: 12 }}>
+            <span style={{ color: "var(--text-secondary)" }}>共 {total} 条</span>
+            <button type="button" className={s.btnSecondary} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>上一页</button>
+            <span>第 {page} / {totalPages} 页</span>
+            <button type="button" className={s.btnSecondary} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>下一页</button>
+          </div>
+        )}
       </div>
 
-      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead>
-            <tr style={{ background: "var(--bg-muted)", borderBottom: "1px solid var(--border)" }}>
-              {["客户名称","信用额度","已用额度","可用额度","使用率","账期","风险"].map(h => (
-                <th key={h} style={{ padding: "9px 12px", textAlign: h.includes("额度") || h === "使用率" ? "right" : "left", fontWeight: 600, fontSize: 12, color: "var(--text-secondary)" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading && <tr><td colSpan={7} style={{ textAlign: "center", padding: 32, color: "var(--text-secondary)" }}>加载中…</td></tr>}
-            {!loading && rows.length === 0 && <tr><td colSpan={7} className={s.emptyState}>暂无数据</td></tr>}
-            {rows.map((row, i) => {
-              const limit = Number(row.credit_limit);
-              const used  = Number(row.credit_used);
-              const avail = limit - used;
-              const pct   = limit > 0 ? Math.round((used / limit) * 100) : 0;
-              const risk  = RISK_LEVELS.find(r => r.value === row.risk_level);
-              const barColor = pct >= 90 ? "#ef4444" : pct >= 70 ? "#f59e0b" : "#10b981";
-              return (
-                <tr key={row.id} style={{ borderBottom: i < rows.length - 1 ? "1px solid var(--border)" : "none" }}>
-                  <td style={{ padding: "9px 12px", fontWeight: 600 }}>{row.customer_name}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right" }}>{limit.toLocaleString()}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right" }}>{used.toLocaleString()}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", color: avail < 0 ? "#ef4444" : "inherit" }}>{avail.toLocaleString()}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
-                      <div style={{ width: 60, height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
-                        <div style={{ width: `${Math.min(100, pct)}%`, height: "100%", background: barColor, borderRadius: 3 }} />
-                      </div>
-                      <span style={{ fontSize: 12, color: barColor, fontWeight: 600 }}>{pct}%</span>
-                    </div>
-                  </td>
-                  <td style={{ padding: "9px 12px", textAlign: "center" }}>{row.payment_terms}天</td>
-                  <td style={{ padding: "9px 12px" }}>
-                    <span className={`${s.badge} ${risk?.value === "BLACKLIST" ? s.badgeDanger ?? s.badgeNeutral : risk?.value === "WATCH" ? s.badgeWarning : s.badgeSuccess}`}>
-                      {risk?.label ?? row.risk_level}
+      {/* 右侧信用分析面板 */}
+      {selected && (
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: 16, display: "flex", flexDirection: "column", gap: 12, position: "sticky", top: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>信用分析</div>
+            <button type="button" onClick={() => setSelected(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)", fontSize: 18, lineHeight: 1 }}>×</button>
+          </div>
+          <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text-primary)" }}>{selected.customer_name}</div>
+
+          {anaLoading && (
+            <div style={{ textAlign: "center", padding: 32, color: "var(--text-secondary)", fontSize: 12 }}>分析中…</div>
+          )}
+
+          {!anaLoading && analysis && (() => {
+            const cs = CREDIT_STATUS_CFG[analysis.creditStatus ?? "NORMAL"] ?? CREDIT_STATUS_CFG.NORMAL;
+            return (
+              <>
+                {/* 状态徽章 */}
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <span style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: cs.bg, color: cs.color }}>{cs.label}</span>
+                  {analysis.riskLevel && analysis.riskLevel !== "NORMAL" && (
+                    <span style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+                      风险：{analysis.riskLevel}
                     </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                  )}
+                </div>
+
+                {/* 数据卡片 grid */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  {[
+                    { label: "信用额度",   val: Number(analysis.creditLimit).toLocaleString(),           color: undefined },
+                    { label: "实时欠款",   val: Number(analysis.totalReceivable).toLocaleString(),       color: analysis.totalReceivable > 0 ? "#f59e0b" : undefined },
+                    { label: "可用额度",   val: Number(analysis.creditAvailable).toLocaleString(),       color: analysis.creditAvailable < 0 ? "#ef4444" : "#22c55e" },
+                    { label: "逾期金额",   val: analysis.overdueReceivable > 0 ? Number(analysis.overdueReceivable).toLocaleString() : "无", color: analysis.overdueReceivable > 0 ? "#dc2626" : "#22c55e" },
+                    { label: "账期",       val: `${analysis.paymentTerms ?? 0} 天`,                     color: undefined },
+                    { label: "逾期天数",   val: analysis.overdueDays > 0 ? `${analysis.overdueDays} 天` : "—", color: analysis.overdueDays > 0 ? "#dc2626" : undefined },
+                    { label: "未收发票",   val: `${analysis.openInvoiceCount ?? 0} 张`,                 color: undefined },
+                    { label: "最早逾期",   val: analysis.earliestOverdueDate ? String(analysis.earliestOverdueDate).slice(0,10) : "—", color: analysis.earliestOverdueDate ? "#f59e0b" : undefined },
+                  ].map(({ label, val, color }) => (
+                    <div key={label} style={{ padding: "8px 10px", borderRadius: 8, background: "var(--bg-muted)", border: "1px solid var(--border)" }}>
+                      <div style={{ fontSize: 10, color: "var(--text-secondary)", marginBottom: 3 }}>{label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: color ?? "var(--text-primary)", fontFamily: "monospace" }}>{val}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 最近收款日期 */}
+                {analysis.lastReceiptDate && (
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+                    最近收款：{String(analysis.lastReceiptDate).slice(0,10)}
+                  </div>
+                )}
+
+                {/* 快照时间 */}
+                <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>
+                  快照时间：{new Date(analysis.snapshotAt).toLocaleString("zh-CN")}
+                </div>
+              </>
+            );
+          })()}
+
+          {!anaLoading && !analysis && (
+            <div style={{ textAlign: "center", padding: 24, color: "var(--text-secondary)", fontSize: 12 }}>暂无信用数据（客户可能无 AR 记录）</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

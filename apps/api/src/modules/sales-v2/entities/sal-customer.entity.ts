@@ -63,6 +63,19 @@ export class SalCustomerEntity {
   @Column({ name: 'status', type: 'varchar', length: 32, default: 'ACTIVE' })
   status: string;
 
+  // ── Phase 5 信用控制字段 ──────────────────────────────────────────────────
+  /** NORMAL / WARNING / OVER_LIMIT / OVERDUE / FROZEN（系统计算，禁止手工改 credit_used） */
+  @Column({ name: 'credit_status', type: 'varchar', length: 32, default: 'NORMAL' })
+  creditStatus: string;
+
+  /** 最近一次逾期时间（由每日 Scheduler 写入） */
+  @Column({ name: 'last_overdue_at', type: 'timestamptz', nullable: true })
+  lastOverdueAt: Date | null;
+
+  /** 系统自动冻结标志（区分手工冻结） */
+  @Column({ name: 'auto_frozen', type: 'boolean', default: false })
+  autoFrozen: boolean;
+
   @Column({ name: 'sales_rep_id', type: 'bigint', nullable: true })
   salesRepId: string | null;
 

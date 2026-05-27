@@ -90,15 +90,17 @@ interface Order {
   currency_code: string;
   below_floor_price: boolean;
   over_credit: boolean;
+  credit_warning: boolean;
   need_price_approval: boolean;
   need_credit_approval: boolean;
+  credit_snapshot: Record<string, any> | null;
   ar_invoice_id: string | null;
   created_at: string;
   items?: OrderItem[];
   arInvoice?: any;
 }
 
-interface Customer { customer_code: string; customer_name: string; credit_limit: number; credit_used: number; }
+interface Customer { id: string; customer_code: string; customer_name: string; credit_limit: number; credit_used: number; status: string; }
 interface PriceResult { unitPrice: number; floorPrice: number | null; priceBookId: string | null; }
 
 // ── 主组件 ────────────────────────────────────────────────────────────────────
@@ -159,18 +161,38 @@ export default function SalesV2OrdersPage() {
       .catch(() => {});
   }, []);
 
-  // ── 选择客户时加载信用快照 ──────────────────────────────────────────────────
+  // ── 选择客户时加载实时信用分析（Phase 5：调用 credit-analysis API）────────
 
   useEffect(() => {
     if (!newForm.customerCode) { setCreditInfo(null); return; }
     const cust = customers.find(c => c.customer_code === newForm.customerCode);
-    if (cust) {
-      setCreditInfo({
-        creditLimit: Number(cust.credit_limit),
-        creditUsed:  Number(cust.credit_used),
-        creditAvailable: Number(cust.credit_limit) - Number(cust.credit_used),
-      });
-    }
+    if (!cust) return;
+    // 先用本地快照做即时显示
+    setCreditInfo({
+      creditLimit:      Number(cust.credit_limit),
+      creditUsed:       Number(cust.credit_used),
+      creditAvailable:  Number(cust.credit_limit) - Number(cust.credit_used),
+      creditStatus:     null,
+      totalReceivable:  null,
+      overdueReceivable: null,
+      overdueDays:      null,
+      status:           cust.status,
+      loading:          true,
+    });
+    // 异步拉取实时分析
+    api<any>('GET', `/api/v2/sales/customers/${cust.id}/credit-analysis`)
+      .then(r => setCreditInfo({
+        creditLimit:      Number(r.creditLimit ?? 0),
+        creditUsed:       Number(r.creditUsed ?? 0),
+        creditAvailable:  Number(r.creditAvailable ?? 0),
+        creditStatus:     r.creditStatus ?? 'NORMAL',
+        totalReceivable:  Number(r.totalReceivable ?? 0),
+        overdueReceivable: Number(r.overdueReceivable ?? 0),
+        overdueDays:      Number(r.overdueDays ?? 0),
+        status:           cust.status,
+        loading:          false,
+      }))
+      .catch(() => setCreditInfo((prev: typeof creditInfo) => prev ? { ...prev, loading: false } : null));
   }, [newForm.customerCode, customers]);
 
   // ── 加载详情 ────────────────────────────────────────────────────────────────
@@ -407,19 +429,57 @@ export default function SalesV2OrdersPage() {
               </div>
             </div>
 
-            {/* 信用信息 */}
-            {creditInfo && (
-              <div style={{ padding: '10px 14px', borderRadius: 8, background: creditInfo.creditAvailable < 0 ? 'rgba(239,68,68,0.08)' : 'rgba(34,197,94,0.06)', border: `1px solid ${creditInfo.creditAvailable < 0 ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)'}`, fontSize: 12 }}>
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                  <span>信用额度：<strong>{Number(creditInfo.creditLimit).toLocaleString()}</strong></span>
-                  <span>已用：<strong>{Number(creditInfo.creditUsed).toLocaleString()}</strong></span>
-                  <span style={{ color: creditInfo.creditAvailable < 0 ? '#ef4444' : '#22c55e', fontWeight: 700 }}>
-                    可用：{Number(creditInfo.creditAvailable).toLocaleString()}
-                    {creditInfo.creditAvailable < 0 && ' ⚠ 超额'}
-                  </span>
+            {/* 信用状态面板（Phase 5 实时分析） */}
+            {creditInfo && (() => {
+              const cs  = creditInfo.creditStatus;
+              const isFrozen  = creditInfo.status === 'FROZEN' || creditInfo.status === 'BLACKLIST' || cs === 'FROZEN';
+              const isOverdue = cs === 'OVERDUE';
+              const isOver    = cs === 'OVER_LIMIT';
+              const isWarn    = cs === 'WARNING';
+              const panelBg   = isFrozen ? 'rgba(107,114,128,0.08)' : isOverdue || isOver ? 'rgba(239,68,68,0.07)' : isWarn ? 'rgba(245,158,11,0.07)' : 'rgba(34,197,94,0.06)';
+              const panelBdr  = isFrozen ? 'rgba(107,114,128,0.25)' : isOverdue || isOver ? 'rgba(239,68,68,0.25)' : isWarn ? 'rgba(245,158,11,0.25)' : 'rgba(34,197,94,0.2)';
+              const statusCfg: Record<string, { label: string; color: string }> = {
+                NORMAL:     { label: '信用正常', color: '#22c55e' },
+                WARNING:    { label: '⚠ 逾期预警', color: '#f59e0b' },
+                OVER_LIMIT: { label: '🚫 超信用额度', color: '#ef4444' },
+                OVERDUE:    { label: '🚫 账期逾期', color: '#dc2626' },
+                FROZEN:     { label: '🔒 账户冻结，禁止下单', color: '#6b7280' },
+              };
+              const scf = cs ? (statusCfg[cs] ?? { label: cs, color: '#94a3b8' }) : null;
+              return (
+                <div style={{ padding: '10px 14px', borderRadius: 8, background: panelBg, border: `1px solid ${panelBdr}`, fontSize: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {creditInfo.loading ? (
+                    <span style={{ color: 'var(--text-secondary)' }}>加载信用信息…</span>
+                  ) : (
+                    <>
+                      {scf && <div style={{ fontWeight: 700, color: scf.color, fontSize: 13 }}>{scf.label}</div>}
+                      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                        <span>信用额度：<strong>{Number(creditInfo.creditLimit).toLocaleString()}</strong></span>
+                        <span>实时欠款：<strong style={{ color: creditInfo.totalReceivable > 0 ? '#f59e0b' : undefined }}>{creditInfo.totalReceivable != null ? Number(creditInfo.totalReceivable).toLocaleString() : Number(creditInfo.creditUsed).toLocaleString()}</strong></span>
+                        <span style={{ fontWeight: 700, color: creditInfo.creditAvailable < 0 ? '#ef4444' : '#22c55e' }}>
+                          可用：{Number(creditInfo.creditAvailable).toLocaleString()}
+                        </span>
+                      </div>
+                      {creditInfo.overdueReceivable > 0 && (
+                        <div style={{ color: '#dc2626', fontWeight: 600 }}>
+                          逾期未收：{Number(creditInfo.overdueReceivable).toLocaleString()}（已逾期 {creditInfo.overdueDays} 天）
+                        </div>
+                      )}
+                      {(isOver || isOverdue) && (
+                        <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 12 }}>
+                          ⚠ 提交后将触发信用审批流程
+                        </div>
+                      )}
+                      {isFrozen && (
+                        <div style={{ color: '#6b7280', fontWeight: 700, fontSize: 12 }}>
+                          该客户已冻结，无法提交订单，请联系财务
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* 备注 */}
             <div>
@@ -521,7 +581,8 @@ export default function SalesV2OrdersPage() {
                 <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: sc.bg, color: sc.color }}>{sc.label}</span>
               ); })()}
               {detailOrder.below_floor_price && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>⚠ 低于底价</span>}
-              {detailOrder.over_credit && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}>⚠ 超信用额度</span>}
+              {detailOrder.over_credit && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>🚫 超信用额度</span>}
+              {detailOrder.credit_warning && !detailOrder.over_credit && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}>⚠ 信用预警</span>}
             </div>
 
             {/* 基本信息 */}
@@ -538,6 +599,24 @@ export default function SalesV2OrdersPage() {
                 </div>
               ))}
             </div>
+
+            {/* 信用快照（提交时刻记录） */}
+            {detailOrder.credit_snapshot && (
+              <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', fontSize: 12 }}>
+                <div style={{ fontWeight: 700, color: '#f59e0b', marginBottom: 6, fontSize: 12 }}>提交时信用快照</div>
+                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                  <span>状态：<strong>{detailOrder.credit_snapshot.creditStatus ?? '—'}</strong></span>
+                  <span>实时欠款：<strong>{Number(detailOrder.credit_snapshot.totalReceivable ?? 0).toLocaleString()}</strong></span>
+                  <span>逾期：<strong style={{ color: Number(detailOrder.credit_snapshot.overdueReceivable) > 0 ? '#ef4444' : undefined }}>
+                    {Number(detailOrder.credit_snapshot.overdueReceivable ?? 0).toLocaleString()}
+                  </strong></span>
+                  <span>可用额度：<strong>{Number(detailOrder.credit_snapshot.creditAvailable ?? 0).toLocaleString()}</strong></span>
+                </div>
+                {detailOrder.credit_snapshot.reason && (
+                  <div style={{ marginTop: 4, color: 'var(--text-secondary)' }}>{detailOrder.credit_snapshot.reason}</div>
+                )}
+              </div>
+            )}
 
             {/* AR 信息 */}
             {detailOrder.arInvoice && (

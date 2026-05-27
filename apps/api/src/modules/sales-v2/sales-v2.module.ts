@@ -7,16 +7,19 @@ import { SalesPriceBooksController }   from './controllers/sales-price-books.con
 import { SalesPriceRuntimeController } from './controllers/sales-price-runtime.controller';
 import { SalesOrdersController }       from './controllers/sales-orders.controller';
 import { DeliveryOrdersController }    from './controllers/delivery-orders.controller';
-import { SalesV2Service }           from './services/sales-v2.service';
-import { CustomersService }         from './services/customers.service';
-import { ChannelsService }          from './services/channels.service';
-import { PriceBooksService }        from './services/price-books.service';
-import { PriceItemsService }        from './services/price-items.service';
-import { PriceRuntimeService }      from './services/price-runtime.service';
-import { SalesOrdersService }       from './services/sales-orders.service';
-import { DeliveryOrdersService }    from './services/delivery-orders.service';
-import { ReceiptsService }          from './services/receipts.service';
-import { FinanceArAdapter }         from './adapters/finance-ar.adapter';
+import { CustomerCreditController }    from './controllers/customer-credit.controller';  // Phase 5
+import { SalesV2Service }                    from './services/sales-v2.service';
+import { CustomersService }                  from './services/customers.service';
+import { ChannelsService }                   from './services/channels.service';
+import { PriceBooksService }                 from './services/price-books.service';
+import { PriceItemsService }                 from './services/price-items.service';
+import { PriceRuntimeService }               from './services/price-runtime.service';
+import { SalesOrdersService }                from './services/sales-orders.service';
+import { DeliveryOrdersService }             from './services/delivery-orders.service';
+import { ReceiptsService }                   from './services/receipts.service';
+import { CustomerCreditService }             from './services/customer-credit.service';            // Phase 5
+import { CustomerCreditSchedulerService }    from './services/customer-credit-scheduler.service'; // Phase 5
+import { FinanceArAdapter }                  from './adapters/finance-ar.adapter';
 import {
   SalCustomerEntity,
   SalChannelEntity,
@@ -40,8 +43,8 @@ import {
  *   Phase 1 ✅ Customer + Channel Runtime
  *   Phase 2 ✅ Price Runtime（统一定价引擎 + Workflow 审批 + 移动端动态价格）
  *   Phase 3 ✅ Sales Order Runtime（状态机 + Price/Credit/Workflow/AR 联动）
- *   Phase 4    Delivery Runtime：sal_delivery_orders + 时间戳 + 签收
- *   Phase 5    AR Integration + Credit Control
+ *   Phase 4 ✅ Delivery Runtime：sal_delivery_orders + 时间戳 + 签收
+ *   Phase 5 ✅ Credit Control：CustomerCreditService + Scheduler + 信用联动
  *   Phase 6    Sales Return Runtime
  *   Phase 7    Egg Inventory Enhancement
  *   Phase 8    Sales Reports Runtime
@@ -78,7 +81,8 @@ import {
     SalesPriceBooksController,
     SalesPriceRuntimeController,
     SalesOrdersController,
-    DeliveryOrdersController,   // Phase 4
+    DeliveryOrdersController,    // Phase 4
+    CustomerCreditController,    // Phase 5
   ],
   providers: [
     SalesV2Service,
@@ -88,8 +92,10 @@ import {
     PriceItemsService,
     PriceRuntimeService,
     SalesOrdersService,
-    DeliveryOrdersService,      // Phase 4
-    ReceiptsService,            // Phase 4
+    DeliveryOrdersService,                // Phase 4
+    ReceiptsService,                      // Phase 4
+    CustomerCreditService,                // Phase 5
+    CustomerCreditSchedulerService,       // Phase 5
     FinanceArAdapter,
   ],
   exports: [
@@ -100,8 +106,10 @@ import {
     PriceItemsService,
     PriceRuntimeService,
     SalesOrdersService,
-    DeliveryOrdersService,      // Phase 4
-    ReceiptsService,            // Phase 4
+    DeliveryOrdersService,                // Phase 4
+    ReceiptsService,                      // Phase 4
+    CustomerCreditService,                // Phase 5
+    CustomerCreditSchedulerService,       // Phase 5
     FinanceArAdapter,
   ],
 })
