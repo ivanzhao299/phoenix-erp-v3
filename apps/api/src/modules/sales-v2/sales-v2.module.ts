@@ -6,14 +6,17 @@ import { SalesChannelsController }     from './controllers/sales-channels.contro
 import { SalesPriceBooksController }   from './controllers/sales-price-books.controller';
 import { SalesPriceRuntimeController } from './controllers/sales-price-runtime.controller';
 import { SalesOrdersController }       from './controllers/sales-orders.controller';
-import { SalesV2Service }        from './services/sales-v2.service';
-import { CustomersService }      from './services/customers.service';
-import { ChannelsService }       from './services/channels.service';
-import { PriceBooksService }     from './services/price-books.service';
-import { PriceItemsService }     from './services/price-items.service';
-import { PriceRuntimeService }   from './services/price-runtime.service';
-import { SalesOrdersService }    from './services/sales-orders.service';
-import { FinanceArAdapter }      from './adapters/finance-ar.adapter';
+import { DeliveryOrdersController }    from './controllers/delivery-orders.controller';
+import { SalesV2Service }           from './services/sales-v2.service';
+import { CustomersService }         from './services/customers.service';
+import { ChannelsService }          from './services/channels.service';
+import { PriceBooksService }        from './services/price-books.service';
+import { PriceItemsService }        from './services/price-items.service';
+import { PriceRuntimeService }      from './services/price-runtime.service';
+import { SalesOrdersService }       from './services/sales-orders.service';
+import { DeliveryOrdersService }    from './services/delivery-orders.service';
+import { ReceiptsService }          from './services/receipts.service';
+import { FinanceArAdapter }         from './adapters/finance-ar.adapter';
 import {
   SalCustomerEntity,
   SalChannelEntity,
@@ -21,6 +24,12 @@ import {
   SalPriceItemEntity,
   SalSalesOrderEntity,
   SalOrderItemEntity,
+  // Phase 4 — Delivery Runtime
+  SalDriverEntity,
+  SalVehicleEntity,
+  SalDeliveryOrderEntity,
+  SalDeliveryOrderItemEntity,
+  SalReceiptEntity,
 } from './entities';
 
 /**
@@ -54,6 +63,12 @@ import {
       SalPriceItemEntity,
       SalSalesOrderEntity,
       SalOrderItemEntity,
+      // Phase 4 — Delivery Runtime
+      SalDriverEntity,
+      SalVehicleEntity,
+      SalDeliveryOrderEntity,
+      SalDeliveryOrderItemEntity,
+      SalReceiptEntity,
     ]),
   ],
   controllers: [
@@ -63,6 +78,7 @@ import {
     SalesPriceBooksController,
     SalesPriceRuntimeController,
     SalesOrdersController,
+    DeliveryOrdersController,   // Phase 4
   ],
   providers: [
     SalesV2Service,
@@ -72,6 +88,8 @@ import {
     PriceItemsService,
     PriceRuntimeService,
     SalesOrdersService,
+    DeliveryOrdersService,      // Phase 4
+    ReceiptsService,            // Phase 4
     FinanceArAdapter,
   ],
   exports: [
@@ -82,6 +100,8 @@ import {
     PriceItemsService,
     PriceRuntimeService,
     SalesOrdersService,
+    DeliveryOrdersService,      // Phase 4
+    ReceiptsService,            // Phase 4
     FinanceArAdapter,
   ],
 })

@@ -505,12 +505,24 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_SALES2_ORDER: {
     ROLE_ADMIN:         ['V','C','E','D','A','X'],
     ROLE_CEO:           ['V','A','X'],
-    ROLE_HQ_FINANCE: ['V','X'],
+    ROLE_HQ_FINANCE:    ['V','X'],
     ROLE_FIN_CFO:       ['V','A','X'],
     ROLE_SALES_MGR:     ['V','C','E','D','A','X'],
     ROLE_SALES_REP:     ['V','C','E'],
     ROLE_REGION_MGR:    ['V','A','X'],
     ROLE_LOG_MGR:       ['V','E'],
+    ROLE_AUDITOR:       ['V','X'],
+  },
+  /** Sales V2 配送履约（Delivery Runtime） */
+  MENU_SALES2_DELIVERY: {
+    ROLE_ADMIN:         ['V','C','E','D','A','X'],
+    ROLE_CEO:           ['V','X'],
+    ROLE_HQ_FINANCE:    ['V','X'],
+    ROLE_SALES_MGR:     ['V','C','E','D','A','X'],
+    ROLE_SALES_REP:     ['V','C','E'],
+    ROLE_LOG_MGR:       ['V','C','E','D','X'],
+    ROLE_DRIVER:        ['V','C','E'],
+    ROLE_REGION_MGR:    ['V','X'],
     ROLE_AUDITOR:       ['V','X'],
   },
 

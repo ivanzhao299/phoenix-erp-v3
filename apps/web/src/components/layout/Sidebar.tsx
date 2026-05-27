@@ -145,7 +145,7 @@ const MENU: MenuItem[] = [
     { id: "s2-customers",  path: "/sales2/customers",  Icon: Users,           label: "客户主档 V2",   perm: null },
     { id: "s2-pricing",    path: "/sales2/pricing",    Icon: Tag,             label: "价格管理 V2",   perm: null },
     { id: "s2-orders",     path: "/sales2/orders",     Icon: ShoppingCart,    label: "销售订单 V2",   perm: null },
-    { id: "s2-delivery",   path: "/sales2/delivery",   Icon: Truck,           label: "配送管理 V2",   perm: null },
+    { id: "s2-delivery",   path: "/sales2/delivery",   Icon: Truck,           label: "配送管理 V2",   perm: "MENU_SALES2_DELIVERY" },
     { id: "s2-reports",    path: "/sales2/reports",    Icon: BarChart2,       label: "销售报表 V2",   perm: null },
   ]},
   { id: "order", Icon: ShoppingCart, label: "订货系统", perm: "MENU_ORDER_MGR", children: [

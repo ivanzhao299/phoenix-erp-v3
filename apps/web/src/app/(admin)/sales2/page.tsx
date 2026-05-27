@@ -91,8 +91,8 @@ export default function SalesV2Page() {
       title: "配送管理",
       sub: "sal_delivery_orders",
       phase: "Phase 4",
-      status: "pending",
-      desc: "配送单 + 装车时间 + 签收确认 + 路线规划",
+      status: "done",
+      desc: "配送单 + 装车/发车/到达/签收全状态机 + 司机/车辆档案 + AR 自动生成",
     },
     {
       href: "/sales2/reports",
@@ -109,7 +109,7 @@ export default function SalesV2Page() {
     <div style={{ padding: "24px 32px", maxWidth: 1200 }}>
       <PageHeader
         title="Sales V2"
-        subtitle="Phase 3 已完成 · 客户主档 + 渠道 + 价格引擎 + 销售订单 Runtime"
+        subtitle="Phase 4 已完成 · 客户主档 + 渠道 + 价格引擎 + 销售订单 + 配送履约 Runtime"
       />
 
       {/* Dashboard Stats — Phase 3 */}
@@ -185,7 +185,7 @@ export default function SalesV2Page() {
             "Phase 1 ✅ Customer + Channel Runtime",
             "Phase 2 ✅ Price Runtime",
             "Phase 3 ✅ Sales Order Runtime",
-            "Phase 4    Delivery Runtime",
+            "Phase 4 ✅ Delivery Runtime",
             "Phase 5    AR Integration + Credit Control",
             "Phase 6    Sales Return Runtime",
             "Phase 7    Egg Inventory Enhancement",
