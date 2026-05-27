@@ -85,6 +85,8 @@ import {
       FinShareholderContributionEntity,
       FinShareholderSettlementEntity,
       FinExchangeRateEntity,
+      FinExpenseRequestEntity,   // Phase 5 Expense Runtime
+      FinReimbursementEntity,    // Phase 5 Expense Runtime
     ]),
   ],
   controllers: [

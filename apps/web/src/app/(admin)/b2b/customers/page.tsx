@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Plus, RefreshCw, Users, TrendingUp } from "lucide-react";
 import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -115,6 +116,8 @@ export default function B2BCustomersPage() {
 
   return (
     <div className="animate-fade-in">
+      {/* [LEGACY FREEZE] Sales V2 Phase 0 — 此页面已冻结，迁移至 sal_customers (Phase 1) */}
+      <LegacyFreezeBanner newPath="/sales2/customers" newModuleName="Sales V2 客户主档" migrationPhase="Phase 1" />
       <PageHeader title={t("ui.B2B客户管理", "B2B 客户管理")} subtitle={t("ui.分销商批发客户信用额度等级管理", "分销商·批发客户·信用额度·等级管理")} breadcrumb={[t("ui.B2B批发", "B2B 批发"), t("ui.客户管理", "客户管理")]}
         actions={
           <div style={{ display:"flex",gap:8 }}>

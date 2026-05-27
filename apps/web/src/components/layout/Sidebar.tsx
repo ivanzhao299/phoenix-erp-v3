@@ -17,7 +17,8 @@ import {
   Wheat, ScrollText, FlaskConical, ArrowLeftRight, DollarSign,
   History, Box, RefreshCw, TrendingDown, Banknote, Building, ShoppingBag,
   BarChart3, Minus, Network, Smartphone, ToggleRight, Zap,
-  FolderKanban, Globe, Layers3, UploadCloud, Bell, Wallet
+  FolderKanban, Globe, Layers3, UploadCloud, Bell, Wallet,
+  Rocket,
 } from "lucide-react";
 import styles from "./sidebar.module.css";
 import { useBrand } from "@/contexts/BrandContext";
@@ -137,6 +138,15 @@ const MENU: MenuItem[] = [
     { id: "prc2-shipment", path: "/procurement2/shipments",         Icon: Truck,       label: "物流管理",   perm: "MENU_PRC2_SHIPMENT" },
     { id: "prc2-receipt",  path: "/procurement2/receipts",          Icon: PackageCheck,  label: "收货管理",   perm: "MENU_PRC2_RECEIPT"  },
     { id: "prc2-init",     path: "/procurement2/init",              Icon: UploadCloud,   label: "历史初始化", perm: "MENU_PRC2_INIT"     },
+  ]},
+  // ── Sales V2 (Phase 0 Clean Baseline) ────────────────────────────────────
+  { id: "sales2", Icon: Rocket, label: "Sales V2", perm: null, children: [
+    { id: "s2-overview",   path: "/sales2",            Icon: LayoutDashboard, label: "Sales V2 总览",  perm: null },
+    { id: "s2-customers",  path: "/sales2/customers",  Icon: Users,           label: "客户主档 V2",   perm: null },
+    { id: "s2-pricing",    path: "/sales2/pricing",    Icon: Tag,             label: "价格管理 V2",   perm: null },
+    { id: "s2-orders",     path: "/sales2/orders",     Icon: ShoppingCart,    label: "销售订单 V2",   perm: null },
+    { id: "s2-delivery",   path: "/sales2/delivery",   Icon: Truck,           label: "配送管理 V2",   perm: null },
+    { id: "s2-reports",    path: "/sales2/reports",    Icon: BarChart2,       label: "销售报表 V2",   perm: null },
   ]},
   { id: "order", Icon: ShoppingCart, label: "订货系统", perm: "MENU_ORDER_MGR", children: [
     { id: "ord-center",  path: "/order",               Icon: LayoutDashboard, label: "订单中心",   perm: "MENU_ORDER_MGR" },

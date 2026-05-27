@@ -45,6 +45,8 @@ import { OrgModule } from './modules/org/org.module';
 import { ApprovalEngineModule } from './modules/approval-engine/approval-engine.module';
 // [Workflow Phase B] 站内通知中心
 import { NotificationModule } from './modules/notification/notification.module';
+// [Sales V2 Phase 0] Sales V2 Clean Baseline
+import { SalesV2Module } from './modules/sales-v2/sales-v2.module';
 
 
 @Module({
@@ -99,6 +101,7 @@ import { NotificationModule } from './modules/notification/notification.module';
     OrgModule,
     ApprovalEngineModule,
     NotificationModule,
+    SalesV2Module,          // Sales V2 Phase 0 Clean Baseline
   ],
   controllers: [DebugController, HealthController],
   providers: [

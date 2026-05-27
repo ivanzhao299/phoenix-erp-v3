@@ -240,6 +240,11 @@ export class OrderService {
       }
 
       // 财务联动
+      // TODO [Sales V2 Phase 3]: 切换至 Finance V2 fin_ar_invoices（AR Runtime）
+      //   · RECEIVED → 调用 FinArInvoicesService.create() 生成 fin_ar_invoices
+      //   · RECONCILED → 核销 fin_ar_invoices（status=RECEIVED）
+      //   · 禁止继续向 fin_transactions 写 AR 数据（该表已废弃）
+      //   · 参考：docs/sales-v2-architecture.md § Finance V2 AR 集成路线
       if (toStatus === 'RECEIVED') {
         await manager.query(
           `INSERT INTO "fin_transactions" ("account_code", "type", "amount", "ref_no", "note", "created_at")

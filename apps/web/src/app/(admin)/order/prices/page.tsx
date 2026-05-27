@@ -5,6 +5,7 @@ import { DataTable } from "@/components/data-table/DataTable";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
@@ -51,7 +52,10 @@ export default function Page() {
   },[editing,refresh]);
   const handleDelete=useCallback((row:Record<string,unknown>)=>{setDeleteTarget(row);setConfirmOpen(true);},[]);
   const confirmDelete=useCallback(async()=>{if(!deleteTarget?.id)return;await crudApi.delete(TABLE,deleteTarget.id as number);setConfirmOpen(false);refresh();},[deleteTarget,refresh]);
-  return(<div><PageHeader
+  return(<div>
+    {/* [LEGACY FREEZE] Sales V2 Phase 0 — 此页面已冻结，迁移至 sal_price_books / sal_price_items (Phase 2) */}
+    <LegacyFreezeBanner newPath="/sales2/pricing" newModuleName="Sales V2 价格管理" migrationPhase="Phase 2" />
+    <PageHeader
         breadcrumb={[t("ui.销售","销售"), t("ui.价格管理","价格管理")]} title={t("ui.合同价格","合同价格")} subtitle={t("ui.合同价格副标题","管理客户合同价格档位（表：ord_prices）")} />
     <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit} onDelete={handleDelete} showActions refreshKey={refreshKey} />
     <RightDrawer open={drawerOpen} title={editing?t("ui.编辑合同价格","编辑合同价格"):t("ui.新增合同价格","新增合同价格")} onClose={closeDrawer}>
