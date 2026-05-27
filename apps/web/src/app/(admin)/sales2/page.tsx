@@ -48,7 +48,7 @@ export default function SalesV2Page() {
       title: "客户主档",
       sub: "sal_customers",
       phase: "Phase 1",
-      status: "pending",
+      status: "done",
       desc: "统一客户主档（取代 ord_customers + b2b_customers）",
     },
     {
@@ -57,7 +57,7 @@ export default function SalesV2Page() {
       title: "价格管理",
       sub: "sal_price_books / sal_price_items",
       phase: "Phase 2",
-      status: "pending",
+      status: "done",
       desc: "统一定价引擎（取代 ord_prices + prc_price_items）",
     },
     {
@@ -93,7 +93,7 @@ export default function SalesV2Page() {
     <div style={{ padding: "24px 32px", maxWidth: 1200 }}>
       <PageHeader
         title="Sales V2"
-        subtitle="Phase 0 — Clean Baseline · 销售模块重构基线"
+        subtitle="Phase 2 已完成 · 客户主档 + 渠道 + 统一价格引擎 Runtime"
       />
 
       {/* Health Card */}
@@ -140,10 +140,10 @@ export default function SalesV2Page() {
           SALES V2 路线图
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {(health?.roadmap ?? [
+          {[
             "Phase 0 ✅ Clean Baseline + Legacy Freeze",
-            "Phase 1    Customer + Channel Runtime",
-            "Phase 2    Price Runtime",
+            "Phase 1 ✅ Customer + Channel Runtime",
+            "Phase 2 ✅ Price Runtime",
             "Phase 3    Sales Order Runtime",
             "Phase 4    Delivery Runtime",
             "Phase 5    AR Integration + Credit Control",
@@ -151,7 +151,7 @@ export default function SalesV2Page() {
             "Phase 7    Egg Inventory Enhancement",
             "Phase 8    Sales Reports",
             "Phase 9    Mobile Sales + Delivery App",
-          ]).map((step, i) => {
+          ].map((step, i) => {
             const done = step.includes("✅");
             return (
               <div key={i} style={{
@@ -193,12 +193,14 @@ export default function SalesV2Page() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <c.Icon size={20} style={{ color: "#94a3b8" }} />
+                <c.Icon size={20} style={{ color: c.status === "done" ? "#22c55e" : "#94a3b8" }} />
                 <span style={{
                   fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
-                  background: "rgba(245,158,11,0.15)", color: "#f59e0b", letterSpacing: 0.3,
+                  background: c.status === "done" ? "rgba(34,197,94,0.15)" : "rgba(245,158,11,0.15)",
+                  color: c.status === "done" ? "#22c55e" : "#f59e0b",
+                  letterSpacing: 0.3,
                 }}>
-                  {c.phase}
+                  {c.status === "done" ? "✅ " : ""}{c.phase}
                 </span>
               </div>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{c.title}</div>

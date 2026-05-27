@@ -12,7 +12,7 @@ export class SalesV2Service {
     return {
       status:  'ok',
       module:  'sales-v2',
-      phase:   'phase-0-clean-baseline',
+      phase:   'phase-2-price-runtime',
       tables: {
         new_runtime: [
           'sal_channels',
@@ -50,8 +50,8 @@ export class SalesV2Service {
       },
       roadmap: [
         'Phase 0 ✅ Clean Baseline + Legacy Freeze',
-        'Phase 1    Customer + Channel Runtime',
-        'Phase 2    Price Runtime',
+        'Phase 1 ✅ Customer + Channel Runtime',
+        'Phase 2 ✅ Price Runtime',
         'Phase 3    Sales Order Runtime',
         'Phase 4    Delivery Runtime',
         'Phase 5    AR Integration + Credit Control',
