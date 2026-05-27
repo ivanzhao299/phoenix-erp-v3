@@ -948,8 +948,8 @@ export default function Finance2ReportsPage() {
     <div>
       <PageHeader
         title="财务报表"
-        subtitle="Finance V2 Phase 6 — Financial Reports Runtime（经营报表层）"
-        breadcrumb={['Finance V2', '财务报表']}
+        subtitle="经营报表 · 账龄分析 · 资金日报 · 公司净头寸"
+        breadcrumb={['财务管理', '经营报表']}
       />
 
       {/* Phase 6 说明横幅 */}
@@ -961,13 +961,13 @@ export default function Finance2ReportsPage() {
         <PieChart size={22} style={{ marginTop: 2, flexShrink: 0, opacity: 0.85 }} />
         <div>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>
-            Finance V2 Phase 6 — Management Reporting Runtime
+            财务管理 V2 — 经营报表系统
           </div>
           <div style={{ fontSize: 12, opacity: 0.85, lineHeight: 1.7 }}>
-            经营财务报表层 · 12 只读聚合 API · 全部 DataScope 合规 · 无会计凭证/总账/科目体系
+            经营报表层 · 12 只读聚合报表 · 数据权限全程合规 · 管理报表（非会计凭证/总账）
           </div>
           <div style={{ display: 'flex', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
-            {['AP 账龄', 'AR 账龄', '资金日报', '费用统计', '股东资金', '项目维度', '公司维度'].map(t => (
+            {['应付账龄', '应收账龄', '资金日报', '费用统计', '股东资金', '项目维度', '公司维度'].map(t => (
               <span key={t} style={{
                 fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
                 background: 'rgba(255,255,255,0.2)',

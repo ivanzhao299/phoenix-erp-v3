@@ -127,7 +127,7 @@ const AGING_MAP: Record<string, { label: string; color: string }> = {
 
 const SOURCE_MAP: Record<string, { label: string; color: string }> = {
   MANUAL:        { label: '手工',   color: '#6366f1' },
-  PO:            { label: '采购PO', color: '#0891b2' },
+  PO:            { label: '采购订单', color: '#0891b2' },
   EXPENSE:       { label: '费用',   color: '#d97706' },
   REIMBURSEMENT: { label: '报销',   color: '#7c3aed' },
   OPENING:       { label: '期初',   color: '#475569' },
@@ -252,7 +252,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
         padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>新建手工 AP 发票</div>
+          <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>新建应付发票</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
             <X size={18} color="#94a3b8" />
           </button>
@@ -407,7 +407,7 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
       }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>AP 发票详情</div>
+          <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>应付发票详情</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
             <X size={18} color="#94a3b8" />
           </button>
@@ -529,12 +529,12 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
                       fontSize: 13, cursor: 'pointer', color: '#dc2626',
                     }}
                   >
-                    <Ban size={13} /> 取消此 AP 发票
+                    <Ban size={13} /> 取消应付发票
                   </button>
                 ) : (
                   <div>
                     <div style={{ fontSize: 12, fontWeight: 600, color: '#c2410c', marginBottom: 8 }}>
-                      确认取消 AP 发票
+                      确认取消应付发票
                     </div>
                     <textarea
                       value={cancelReason}
@@ -571,7 +571,7 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
                 padding: '12px 14px', fontSize: 12, color: '#94a3b8',
                 display: 'flex', alignItems: 'center', gap: 6,
               }}>
-                <Ban size={13} /> 此 AP 发票已取消
+                <Ban size={13} /> 此应付发票已取消
               </div>
             )}
           </>
@@ -670,9 +670,9 @@ export default function Finance2ApPage() {
   return (
     <div>
       <PageHeader
-        title="AP Runtime（应付账款）"
-        subtitle="Finance V2 Phase 1 — fin_ap_invoices 正式启用"
-        breadcrumb={['Finance V2', 'AP Runtime']}
+        title="应付账款管理"
+        subtitle="供应商应付账款 · 付款核销 · 账龄分析"
+        breadcrumb={['财务管理', '应付账款']}
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <button
@@ -686,7 +686,7 @@ export default function Finance2ApPage() {
               }}
             >
               <Download size={13} />
-              {importing ? '导入中…' : '从采购 AP 导入'}
+              {importing ? '导入中…' : '从采购单导入'}
             </button>
             <button
               onClick={() => { loadList(page); loadSummary(); }}
@@ -740,7 +740,7 @@ export default function Finance2ApPage() {
         display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
         gap: 12, marginBottom: 22,
       }}>
-        <KpiCard label="AP 总笔数"  value={String(summary?.total_invoices ?? '—')}
+        <KpiCard label="应付账单总数"  value={String(summary?.total_invoices ?? '—')}
           icon={TrendingDown} color="#6366f1" loading={sumLoading} />
         <KpiCard label="待付（未付）" value={String(summary?.open_invoices ?? '—')}
           icon={Clock} color="#f59e0b" loading={sumLoading} />
@@ -797,7 +797,7 @@ export default function Finance2ApPage() {
         >
           <option value="">全部来源</option>
           <option value="MANUAL">手工</option>
-          <option value="PO">采购PO</option>
+          <option value="PO">采购订单</option>
           <option value="EXPENSE">费用</option>
           <option value="OPENING">期初</option>
         </select>
@@ -860,7 +860,7 @@ export default function Finance2ApPage() {
                 <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>
                   暂无 AP 记录。
                   {!status && !keyword && (
-                    <span> 可点击 <strong>从采购 AP 导入</strong> 迁移历史数据，或 <strong>新建 AP</strong>。</span>
+                    <span> 可点击 <strong>从采购单导入</strong> 迁移历史数据，或 <strong>新建应付发票</strong>。</span>
                   )}
                 </td></tr>
               ) : records.map((r, i) => (

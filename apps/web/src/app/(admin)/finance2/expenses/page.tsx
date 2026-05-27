@@ -399,8 +399,8 @@ export default function ExpensesPage() {
     <div>
       <PageHeader
         title="费用申请"
-        subtitle="Finance V2 Phase 5 — Expense Runtime · Workflow Native"
-        breadcrumb={['Finance V2', '费用申请']}
+        subtitle="费用申请 · 审批流程 · 自动生成报销"
+        breadcrumb={['财务管理', '费用申请']}
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => void load()} disabled={loading}

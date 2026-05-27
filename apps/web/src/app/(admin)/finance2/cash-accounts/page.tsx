@@ -403,8 +403,8 @@ export default function CashAccountsPage() {
     <div>
       <PageHeader
         title="资金账户中心"
-        subtitle="Finance V2 Phase 3 — Cash Runtime"
-        breadcrumb={['Finance V2', '资金账户中心']}
+        subtitle="资金账户管理 · 流水账本 · 转账审批"
+        breadcrumb={['财务管理', '资金账户']}
         actions={
           <button
             onClick={() => setShowCreate(true)}

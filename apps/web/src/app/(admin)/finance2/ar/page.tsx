@@ -241,7 +241,7 @@ function CreateArModal({ onClose, onCreated }: { onClose: () => void; onCreated:
       <div style={{ background: '#fff', borderRadius: 16, width: 480, maxWidth: '95vw',
         padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>新建手工 AR 发票</div>
+          <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>新建应收发票</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
             <X size={18} color="#94a3b8" />
           </button>
@@ -771,9 +771,9 @@ export default function Finance2ArPage() {
   return (
     <div>
       <PageHeader
-        title="AR Runtime（应收账款）"
-        subtitle="Finance V2 Phase 2 — fin_ar_invoices 正式启用"
-        breadcrumb={['Finance V2', 'AR Runtime']}
+        title="应收账款管理"
+        subtitle="客户应收账款 · 收款核销 · 账龄分析"
+        breadcrumb={['财务管理', '应收账款']}
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => { loadInvoices(1); loadSummary(); }} disabled={invLoading}
@@ -800,7 +800,7 @@ export default function Finance2ArPage() {
       {/* KPI */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
         gap: 10, marginBottom: 20 }}>
-        <KpiCard label="AR 总笔数" value={String(summary?.total_invoices ?? '—')}
+        <KpiCard label="应收账单总数" value={String(summary?.total_invoices ?? '—')}
           icon={TrendingUp} color="#10b981" loading={sumLoading} />
         <KpiCard label="未收款" value={String(summary?.open_invoices ?? '—')}
           icon={Clock} color="#f59e0b" loading={sumLoading} />

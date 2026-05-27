@@ -380,7 +380,7 @@ export default function PurchaseRequestsPage() {
     <div className="animate-fade-in">
       <PageHeader
         title="采购申请"
-        subtitle={`管理所有采购申请（PR） · 共 ${data.total} 条`}
+        subtitle={`管理所有采购申请 · 共 ${data.total} 条`}
         breadcrumb={["采购 V2", "采购申请"]}
         actions={
           <div style={{ display: "flex", gap: 8 }}>
@@ -864,7 +864,7 @@ export default function PurchaseRequestsPage() {
       </SimpleModal>
 
       {/* ── 转采购订单对话框 ──────────────────────────────────────────────────── */}
-      <SimpleModal open={convertOpen} onClose={() => setConvertOpen(false)} title="从 PR 转采购订单">
+      <SimpleModal open={convertOpen} onClose={() => setConvertOpen(false)} title="从采购申请转采购订单">
         <p style={{ fontSize: 13, margin: "8px 0 12px", color: "var(--text-secondary)" }}>
           PR：<strong style={{ color: "var(--text-primary)" }}>{convertTarget?.reqNo}</strong>
           　{convertTarget?.subject}

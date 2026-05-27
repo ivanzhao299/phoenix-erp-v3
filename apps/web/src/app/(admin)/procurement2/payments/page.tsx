@@ -650,7 +650,7 @@ export default function PaymentsPage() {
                     </td>
                     <td style={tdStyle}>
                       <button type="button" className={s.btnIcon} style={{ fontSize: 11, padding: "2px 6px" }}
-                        onClick={() => openApModal(idx)} title="从未核销 AP 选择">
+                        onClick={() => openApModal(idx)} title="从未核销应付账款选择">
                         <CreditCard size={11} />
                       </button>
                     </td>

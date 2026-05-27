@@ -679,9 +679,9 @@ export default function ShareholderFundsPage() {
   return (
     <div>
       <PageHeader
-        title="股东资金 Runtime"
-        subtitle="Finance V2 Phase 4 — fin_shareholder_contributions + fin_shareholder_settlements"
-        breadcrumb={['Finance V2', '股东资金']}
+        title="股东资金管理"
+        subtitle="股东出资台账 · 结算审批 · 资金账户联动"
+        breadcrumb={['财务管理', '股东资金']}
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => void importFromPrc2()} disabled={importLoading}

@@ -207,9 +207,9 @@ export default function Finance2DashboardPage() {
   return (
     <div>
       <PageHeader
-        title="Finance V2"
-        subtitle="Workflow Native 财务平台 — Phase 6 Financial Reports Runtime"
-        breadcrumb={['Finance V2', 'Dashboard']}
+        title="财务管理 V2"
+        subtitle="一体化财务管理平台 — 应付 · 应收 · 资金账户 · 费用报销 · 股东资金 · 经营报表"
+        breadcrumb={['财务管理', '总览']}
         actions={
           <button
             onClick={() => void load()}
@@ -233,24 +233,24 @@ export default function Finance2DashboardPage() {
         borderRadius: 16, padding: '22px 28px', marginBottom: 24, color: '#fff',
       }}>
         <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 6 }}>
-          ✅ Finance V2 Phase 6 — Financial Reports Runtime 正式启用
+          ✅ 财务管理 V2 — 经营报表层已全面启用
         </div>
         <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.8, marginBottom: 14 }}>
-          12 只读聚合报表 API · AP/AR/Cash/Expense/Shareholder/Project/Company 统一分析<br />
-          经营净头寸 · 账龄分析 · 项目财务视图 · 公司经营视图 · DataScope 全程合规
+          12 只读聚合报表接口 · 应付/应收/资金/费用/股东/项目/公司 统一分析<br />
+          经营净头寸 · 账龄分析 · 项目财务视图 · 公司经营视图 · 数据权限全程合规
         </div>
 
         {/* 底座状态栏 */}
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           {[
-            { label: 'AP Runtime',          value: 'LIVE', ok: true },
-            { label: 'AR Runtime',          value: 'LIVE', ok: true },
-            { label: 'Cash Runtime',        value: 'LIVE', ok: true },
-            { label: 'Shareholder Runtime', value: 'LIVE', ok: true },
-            { label: 'Expense Runtime',     value: 'LIVE', ok: true },
-            { label: 'Reports Runtime',     value: 'LIVE', ok: true },
-            { label: 'fin_* 表骨架',        value: loading ? '…' : (health?.status === 'ok' ? 'READY' : 'ERR'), ok: health?.status === 'ok' },
-            { label: 'Phase',               value: health?.phase ?? '…', ok: true },
+            { label: '应付账款',   value: '运行中', ok: true },
+            { label: '应收账款',   value: '运行中', ok: true },
+            { label: '资金账户',   value: '运行中', ok: true },
+            { label: '股东资金',   value: '运行中', ok: true },
+            { label: '费用报销',   value: '运行中', ok: true },
+            { label: '经营报表',   value: '运行中', ok: true },
+            { label: '数据库骨架', value: loading ? '…' : (health?.status === 'ok' ? '就绪' : '异常'), ok: health?.status === 'ok' },
+            { label: '版本阶段',   value: health?.phase ?? '…', ok: true },
           ].map(item => (
             <div key={item.label} style={{ fontSize: 12 }}>
               <span style={{ opacity: 0.7 }}>{item.label}</span>
@@ -277,7 +277,7 @@ export default function Finance2DashboardPage() {
 
       {/* Phase 6 — 经营净头寸 KPI */}
       <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>
-        经营资金总览（Phase 6 Reports Runtime）
+        经营资金总览
       </div>
       {reportOverview && (
         <div style={{
@@ -290,7 +290,7 @@ export default function Finance2DashboardPage() {
             <div style={{ fontSize: 22, fontWeight: 900, marginTop: 2 }}>
               {reportOverview.netOperatingPosition >= 0 ? '+' : ''}¥ {fmt(reportOverview.netOperatingPosition)}
             </div>
-            <div style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>= 现金 + AR − AP − 待报销</div>
+            <div style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>= 现金 + 应收 − 应付 − 待报销</div>
           </div>
           <div>
             <div style={{ fontSize: 11, opacity: 0.7 }}>今日流入</div>
@@ -305,11 +305,11 @@ export default function Finance2DashboardPage() {
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 11, opacity: 0.7 }}>AR 待收款</div>
+            <div style={{ fontSize: 11, opacity: 0.7 }}>应收待收款</div>
             <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>¥ {fmt(reportOverview.arOpen)}</div>
           </div>
           <div>
-            <div style={{ fontSize: 11, opacity: 0.7 }}>AP 待付款</div>
+            <div style={{ fontSize: 11, opacity: 0.7 }}>应付待付款</div>
             <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>¥ {fmt(reportOverview.apOpen)}</div>
           </div>
           <div>
@@ -322,7 +322,7 @@ export default function Finance2DashboardPage() {
 
       {/* Shareholder KPI 快览 */}
       <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>
-        Shareholder Runtime KPI（股东资金）
+        股东资金概览
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 24 }}>
         {[
@@ -370,7 +370,7 @@ export default function Finance2DashboardPage() {
 
       {/* Expense KPI 快览 */}
       <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>
-        Expense Runtime KPI（费用 · 报销）
+        费用报销概览
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 24 }}>
         {[
@@ -418,7 +418,7 @@ export default function Finance2DashboardPage() {
 
       {/* Cash KPI 快览 */}
       <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>
-        Cash Runtime KPI（资金账户）
+        资金账户概览
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 24 }}>
         {[
@@ -466,11 +466,11 @@ export default function Finance2DashboardPage() {
 
       {/* AR KPI 快览 */}
       <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>
-        AR Runtime KPI（应收账款）
+        应收账款概览
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 24 }}>
         {[
-          { label: 'AR 总笔数',  value: String(arSummary?.total_invoices   ?? (loading ? '…' : '—')), color: '#10b981' },
+          { label: '应收账单总数', value: String(arSummary?.total_invoices   ?? (loading ? '…' : '—')), color: '#10b981' },
           { label: '未收款',     value: String(arSummary?.open_invoices    ?? (loading ? '…' : '—')), color: '#f59e0b' },
           { label: '逾期笔数',   value: String(arSummary?.overdue_invoices ?? (loading ? '…' : '—')), color: '#dc2626' },
           {
@@ -502,59 +502,59 @@ export default function Finance2DashboardPage() {
       }}>
         <ModuleCard
           icon={TrendingDown} iconColor="#f59e0b"
-          title="AP Runtime（应付账款）"
+          title="应付账款管理"
           phase={1} phaseStatus="ACTIVE"
           path="/finance2/ap"
-          description="fin_ap_invoices + fin_ap_payment_allocations。供应商发票管理、付款核销、多币种、账龄分析。"
+          description="供应商发票管理、付款核销、多币种、账龄分析。"
         />
         <ModuleCard
           icon={TrendingUp} iconColor="#10b981"
-          title="AR Runtime（应收账款）"
+          title="应收账款管理"
           phase={2} phaseStatus="ACTIVE"
           path="/finance2/ar"
-          description="fin_ar_invoices + fin_ar_receipts + 核销分摊。客户发票、收款核销、账龄分析。Phase 2 已上线。"
+          description="客户发票、收款核销、账龄分析。"
         />
         <ModuleCard
           icon={Wallet} iconColor="#3b82f6"
-          title="Cash Runtime（资金账户）"
+          title="资金账户管理"
           phase={3} phaseStatus="ACTIVE"
           path="/finance2/cash-accounts"
-          description="fin_cash_accounts + fin_cash_transactions + fin_fund_transfers。多账户余额、流水账本、转账审批。"
+          description="多账户余额管理、流水账本、转账审批。"
         />
         <ModuleCard
           icon={ArrowLeftRight} iconColor="#0891b2"
           title="资金转账"
           phase={3} phaseStatus="ACTIVE"
           path="/finance2/fund-transfers"
-          description="账户间资金划转，5 状态审批工作流（DRAFT→PENDING→APPROVED→EXECUTED），SERIALIZABLE 事务保障。"
+          description="账户间资金划转，5 阶段审批流程（草稿→待审→已批→已执行），事务安全保障。"
         />
         <ModuleCard
           icon={Users} iconColor="#7c3aed"
-          title="股东资金 Runtime"
+          title="股东资金管理"
           phase={4} phaseStatus="ACTIVE"
           path="/finance2/shareholder-funds"
-          description="fin_shareholder_contributions + fin_shareholder_settlements。出资台账、结算审批（RETURN/OFFSET/WRITE_OFF）、联动 Cash Runtime。"
+          description="出资台账、结算审批（退回/抵扣/核销）、联动资金账户。"
         />
         <ModuleCard
           icon={Receipt} iconColor="#6366f1"
-          title="Expense Runtime（费用）"
+          title="费用申请"
           phase={5} phaseStatus="ACTIVE"
           path="/finance2/expenses"
-          description="fin_expense_requests + fin_reimbursements。完全 Workflow Native。审批通过自动生成报销，付款联动 Cash Runtime。"
+          description="费用申请全流程审批，审批通过自动生成报销，付款联动资金账户。"
         />
         <ModuleCard
           icon={ArrowLeftRight} iconColor="#059669"
           title="报销管理"
           phase={5} phaseStatus="ACTIVE"
           path="/finance2/reimbursements"
-          description="报销台账，SERIALIZABLE 付款事务，自动扣减现金账户余额，写 OUT 流水。"
+          description="报销台账，付款事务安全，自动扣减现金账户余额。"
         />
         <ModuleCard
           icon={PieChart} iconColor="#0891b2"
-          title="Financial Reports（经营报表）"
+          title="经营报表"
           phase={6} phaseStatus="ACTIVE"
           path="/finance2/reports"
-          description="12 只读聚合 API。AP/AR 账龄 · 资金日报 · 费用统计 · 股东资金 · 项目财务 · 公司经营净头寸。Phase 6 已上线。"
+          description="12 只读聚合报表。应付/应收账龄 · 资金日报 · 费用统计 · 股东资金 · 项目财务 · 公司经营净头寸。"
         />
       </div>
 
@@ -562,17 +562,17 @@ export default function Finance2DashboardPage() {
       <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: '#374151' }}>已就绪底座</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 28 }}>
         {[
-          { icon: CheckCircle, color: '#059669', title: 'Workflow 2.0 Platform',  desc: 'Phase A-I 全部完成，ApprovalEngine + Form Runtime + SLA 已就绪' },
-          { icon: CheckCircle, color: '#059669', title: 'DataScope',              desc: '基于 OrgModule @Global，所有接口自动注入 company_code 范围过滤' },
-          { icon: CheckCircle, color: '#059669', title: 'fin_* 表骨架',           desc: '9 张 fin_* 领域表 DDL 已创建，Entity 骨架已注册 TypeORM' },
-          { icon: CheckCircle, color: '#059669', title: 'RBAC 矩阵',              desc: 'MENU_FIN2_* 8 个权限条目已注册，CFO/Finance/Accountant 分级管控' },
-          { icon: CheckCircle, color: '#059669', title: 'AP Runtime（Phase 1）',  desc: 'fin_ap_invoices 正式启用，手工创建/PO导入/状态机/账龄分析全部就绪' },
-          { icon: CheckCircle, color: '#059669', title: 'AR Runtime（Phase 2）',  desc: 'fin_ar_invoices + fin_ar_receipts 正式启用，收款核销/账龄分析/事务核销全部就绪' },
-          { icon: CheckCircle, color: '#059669', title: 'Cash Runtime（Phase 3）',        desc: 'fin_cash_accounts + fin_cash_transactions + fin_fund_transfers 正式启用' },
-          { icon: CheckCircle, color: '#059669', title: 'Shareholder Runtime（Phase 4）', desc: 'fin_shareholder_contributions + fin_shareholder_settlements 正式启用，RETURN/OFFSET/WRITE_OFF 结算联动 Cash' },
-          { icon: CheckCircle, color: '#059669', title: 'Expense Runtime（Phase 5）',     desc: 'fin_expense_requests + fin_reimbursements 正式启用。完全 Workflow Native，审批通过自动生成报销，付款联动 Cash Runtime' },
-          { icon: CheckCircle, color: '#059669', title: 'Reports Runtime（Phase 6）',     desc: '12 只读聚合端点：AP/AR 账龄、资金日报、费用统计、股东资金、项目财务、公司经营净头寸。DataScope 全程合规' },
-          { icon: Database,    color: '#64748b', title: '旧 Finance 废弃',                desc: 'fin_transactions / fin_payments / biz_cash_flow 不再写入，只读废弃' },
+          { icon: CheckCircle, color: '#059669', title: '审批流程平台',   desc: '统一审批引擎已就绪，在线表单 + SLA 超时提醒 + 逐级升级' },
+          { icon: CheckCircle, color: '#059669', title: '数据权限隔离',  desc: '所有接口自动按公司范围过滤，多租户数据安全' },
+          { icon: CheckCircle, color: '#059669', title: '财务表骨架',    desc: '9 张财务领域表已创建并注册' },
+          { icon: CheckCircle, color: '#059669', title: '角色权限配置',  desc: '8 个财务权限节点，CFO/财务/会计分级管控' },
+          { icon: CheckCircle, color: '#059669', title: '应付账款',      desc: '供应商发票管理、采购订单导入、状态机、账龄分析全部就绪' },
+          { icon: CheckCircle, color: '#059669', title: '应收账款',      desc: '客户发票、收款核销、账龄分析、事务核销全部就绪' },
+          { icon: CheckCircle, color: '#059669', title: '资金账户',      desc: '多账户余额、流水账本、资金转账审批全部就绪' },
+          { icon: CheckCircle, color: '#059669', title: '股东资金',      desc: '出资台账、结算审批（退回/抵扣/核销）、联动资金账户' },
+          { icon: CheckCircle, color: '#059669', title: '费用报销',      desc: '费用申请全流程审批，审批通过自动生成报销，付款联动资金账户' },
+          { icon: CheckCircle, color: '#059669', title: '经营报表',      desc: '12 只读聚合报表：应付/应收账龄、资金日报、费用统计、股东资金、项目财务、公司净头寸。数据权限全程合规' },
+          { icon: Database,    color: '#64748b', title: '旧财务模块废弃', desc: 'fin_transactions / fin_payments / biz_cash_flow 不再写入，只读废弃' },
         ].map(item => (
           <div key={item.title} style={{ background: '#fff', borderRadius: 12, padding: '14px 16px', border: '1.5px solid #f1f5f9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>

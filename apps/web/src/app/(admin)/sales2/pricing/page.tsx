@@ -53,9 +53,9 @@ export default function SalesV2PricingPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="价格管理 V2"
-        subtitle="sal_price_books · sal_price_items · Price Runtime · DataScope: company_code"
-        breadcrumb={["Sales V2", "价格管理"]}
+        title="价格管理"
+        subtitle="价格册 · 价格明细 · 统一定价引擎 · 按公司隔离数据"
+        breadcrumb={["销售系统", "价格管理"]}
       />
 
       {/* Tab Bar */}
@@ -543,7 +543,7 @@ function AnomalyTab() {
       <AlertTriangle size={36} style={{ margin: "0 auto 14px", color: "#f59e0b" }}/>
       <div style={{ fontWeight: 600, marginBottom: 8 }}>价格异常监控</div>
       <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.8 }}>
-        Phase 3（销售订单 Runtime）完成后启用<br/>
+        Phase 3（销售订单）完成后启用<br/>
         将展示：低于底价的历史成交记录、未走审批的价格异常、频繁报价异常客户
       </div>
     </div>

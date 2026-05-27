@@ -261,9 +261,9 @@ export default function SalesV2OrdersPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="销售订单 V2"
-        subtitle="sal_sales_orders · Price Runtime + Credit + Workflow + AR"
-        breadcrumb={['Sales V2', '销售订单']}
+        title="销售订单"
+        subtitle="统一销售订单 · 定价引擎 · 信用控制 · 审批流程 · 应收联动"
+        breadcrumb={['销售系统', '销售订单']}
       />
 
       {/* 操作栏 */}
@@ -296,7 +296,7 @@ export default function SalesV2OrdersPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: 'var(--bg-page)', borderBottom: '2px solid var(--border)' }}>
-              {['订单号','客户','金额','状态','价格','信用','AR','操作'].map(h => (
+              {['订单号','客户','金额','状态','价格','信用','应收','操作'].map(h => (
                 <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
               ))}
             </tr>
@@ -346,7 +346,7 @@ export default function SalesV2OrdersPage() {
                       )}
                       {o.status === 'DELIVERED' && canTransit && (
                         <button className={s.btnPrimary} style={{ padding: '3px 8px', fontSize: 11 }}
-                          onClick={() => doAction(o.id, 'receive')}>签收+生成AR</button>
+                          onClick={() => doAction(o.id, 'receive')}>确认签收</button>
                       )}
                       {['DRAFT','PENDING_APPROVAL','APPROVED'].includes(o.status) && canCreate && (
                         <button className={s.btnDanger} style={{ padding: '3px 8px', fontSize: 11 }}
@@ -530,7 +530,7 @@ export default function SalesV2OrdersPage() {
                 ['客户', detailOrder.customer_name ?? detailOrder.customer_code ?? '—'],
                 ['渠道', detailOrder.channel_code ?? '—'],
                 ['总金额', `${Number(detailOrder.total_amount).toLocaleString()} ${detailOrder.currency_code}`],
-                ['AR 状态', detailOrder.ar_invoice_id ? `✓ 已生成 (ID: ${detailOrder.ar_invoice_id})` : '未生成'],
+                ['应收状态', detailOrder.ar_invoice_id ? `✓ 已生成应收账款` : '未生成'],
               ].map(([k, v]) => (
                 <div key={k as string}>
                   <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>{k}</div>
@@ -542,9 +542,9 @@ export default function SalesV2OrdersPage() {
             {/* AR 信息 */}
             {detailOrder.arInvoice && (
               <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', fontSize: 12 }}>
-                <div style={{ fontWeight: 700, color: '#22c55e', marginBottom: 6 }}>Finance V2 AR Invoice</div>
+                <div style={{ fontWeight: 700, color: '#22c55e', marginBottom: 6 }}>应收账款记录</div>
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                  <span>AR号：{detailOrder.arInvoice.ar_no}</span>
+                  <span>应收单号：{detailOrder.arInvoice.ar_no}</span>
                   <span>金额：{Number(detailOrder.arInvoice.amount_original).toLocaleString()}</span>
                   <span>到期：{detailOrder.arInvoice.due_date?.slice(0,10)}</span>
                   <span>状态：{detailOrder.arInvoice.status}</span>
@@ -597,7 +597,7 @@ export default function SalesV2OrdersPage() {
               )}
               {detailOrder.status === 'DELIVERED' && canTransit && (
                 <button className={s.btnPrimary} disabled={actionLoading} onClick={() => doAction(detailOrder.id, 'receive')}>
-                  签收并生成 AR Invoice
+                  确认签收
                 </button>
               )}
               {['DRAFT','PENDING_APPROVAL','APPROVED'].includes(detailOrder.status) && canCreate && (

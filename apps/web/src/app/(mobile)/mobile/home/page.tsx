@@ -159,7 +159,7 @@ const NAV_CARDS: NavCard[] = [
   {
     icon: <WorkflowIcon size={28} />,
     titleZh: '审批中心', titleEn: 'Approvals', titleLo: 'ການອະນຸມັດ',
-    desc: '统一审批待办 · Workflow 2.0',
+    desc: '统一审批待办',
     color: '#7c3aed', href: '/mobile/workflow', soon: false,
     pageKey: 'workflow',
     badgeKey: 'todoCount',

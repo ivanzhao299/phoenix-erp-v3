@@ -258,7 +258,7 @@ export default function WorkflowMetricsPage() {
             <BarChart3 size={22} color="#7c3aed" />
           </div>
           <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#0f172a' }}>Workflow 健康指标</h1>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#0f172a' }}>审批流程健康看板</h1>
             <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
               实时 SLA 监控 · 超期检测 · 瓶颈分析
               {refreshingAt && ` · 更新于 ${refreshingAt.toLocaleTimeString('zh-CN')}`}

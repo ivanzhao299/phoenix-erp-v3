@@ -230,8 +230,8 @@ export default function ReimbursementsPage() {
     <div>
       <PageHeader
         title="报销管理"
-        subtitle="Finance V2 Phase 5 — Reimbursement Runtime · Cash Runtime 联动"
-        breadcrumb={['Finance V2', '报销管理']}
+        subtitle="报销台账 · 付款审批 · 资金账户联动"
+        breadcrumb={['财务管理', '报销管理']}
         actions={
           <button onClick={() => void load()} disabled={loading}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#475569' }}>

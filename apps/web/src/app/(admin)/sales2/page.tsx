@@ -108,8 +108,8 @@ export default function SalesV2Page() {
   return (
     <div style={{ padding: "24px 32px", maxWidth: 1200 }}>
       <PageHeader
-        title="Sales V2"
-        subtitle="Phase 4 已完成 · 客户主档 + 渠道 + 价格引擎 + 销售订单 + 配送履约 Runtime"
+        title="销售系统总览"
+        subtitle="Phase 4 已完成 · 客户档案 + 渠道管理 + 价格引擎 + 销售订单 + 配送履约"
       />
 
       {/* Dashboard Stats — Phase 3 */}
@@ -154,7 +154,7 @@ export default function SalesV2Page() {
         <Activity size={18} style={{ color: health?.status === "ok" ? "#22c55e" : "#ef4444" }} />
         <div>
           <div style={{ fontWeight: 700, fontSize: 14, color: health?.status === "ok" ? "#22c55e" : "#ef4444" }}>
-            {loading ? "加载中…" : health?.status === "ok" ? "✅ Sales V2 Health OK" : "❌ Health 异常"}
+            {loading ? "加载中…" : health?.status === "ok" ? "✅ 销售系统运行正常" : "❌ 系统异常"}
           </div>
           {health && (
             <div style={{ fontSize: 12, opacity: 0.6, marginTop: 2 }}>
@@ -165,7 +165,7 @@ export default function SalesV2Page() {
         {health && (
           <div style={{ marginLeft: "auto", display: "flex", gap: 24, fontSize: 12 }}>
             <span style={{ color: "#22c55e" }}>
-              <strong>{health.tables?.new_runtime?.length ?? 0}</strong> 新 Runtime 表
+              <strong>{health.tables?.new_runtime?.length ?? 0}</strong> 新数据表
             </span>
             <span style={{ color: "#f59e0b" }}>
               <strong>{health.tables?.legacy_frozen?.length ?? 0}</strong> Legacy 冻结表
@@ -182,12 +182,12 @@ export default function SalesV2Page() {
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {[
             "Phase 0 ✅ Clean Baseline + Legacy Freeze",
-            "Phase 1 ✅ Customer + Channel Runtime",
-            "Phase 2 ✅ Price Runtime",
-            "Phase 3 ✅ Sales Order Runtime",
-            "Phase 4 ✅ Delivery Runtime",
+            "Phase 1 ✅ 客户档案 + 渠道管理",
+            "Phase 2 ✅ 价格管理",
+            "Phase 3 ✅ 销售订单",
+            "Phase 4 ✅ 配送履约",
             "Phase 5    AR Integration + Credit Control",
-            "Phase 6    Sales Return Runtime",
+            "Phase 6    销售退货",
             "Phase 7    Egg Inventory Enhancement",
             "Phase 8    Sales Reports",
             "Phase 9    Mobile Sales + Delivery App",
@@ -275,7 +275,7 @@ export default function SalesV2Page() {
               { table: "ord_prices",     target: "sal_price_books / sal_price_items", phase: "Phase 2" },
               { table: "log_dispatch",   target: "sal_delivery_orders", phase: "Phase 4" },
               { table: "log_receipts",   target: "sal_receipts",   phase: "Phase 4" },
-              { table: "fin_transactions (AR)", target: "fin_ar_invoices", phase: "Phase 3" },
+              { table: "fin_transactions（旧应收）", target: "fin_ar_invoices", phase: "Phase 3" },
             ].map((r) => (
               <div key={r.table} style={{
                 display: "flex", alignItems: "center", gap: 8, fontSize: 12,

@@ -415,7 +415,7 @@ export default function PurchaseOrdersPage() {
     <div className="animate-fade-in">
       <PageHeader
         title="采购订单"
-        subtitle={`管理所有采购订单（PO） · 共 ${data.total} 条`}
+        subtitle={`管理所有采购订单 · 共 ${data.total} 条`}
         breadcrumb={["采购 V2", "采购订单"]}
         actions={
           <div style={{ display: "flex", gap: 8 }}>
@@ -756,7 +756,7 @@ export default function PurchaseOrdersPage() {
 
       {/* ── 详情抽屉 ─────────────────────────────────────────────────────────── */}
       <RightDrawer open={detailOpen} onClose={() => setDetailOpen(false)}
-        title={detailData ? `PO 详情：${detailData.poNo}` : "详情"} width={700}>
+        title={detailData ? `采购订单详情：${detailData.poNo}` : "详情"} width={700}>
         {detailLoading ? (
           <div style={{ padding: 32, textAlign: "center", color: "var(--text-secondary)" }}>加载中…</div>
         ) : detailData ? (
@@ -881,10 +881,10 @@ export default function PurchaseOrdersPage() {
       </RightDrawer>
 
       {/* ── PR 转 PO 对话框 ────────────────────────────────────────────────── */}
-      <SimpleModal open={convertOpen} onClose={() => setConvertOpen(false)} title="从已审批 PR 转采购订单">
+      <SimpleModal open={convertOpen} onClose={() => setConvertOpen(false)} title="从已审批采购申请转采购订单">
         <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "8px 0" }}>
           <div>
-            <label className={s.lbl}>选择已审批的 PR *</label>
+            <label className={s.lbl}>选择已审批的采购申请 *</label>
             <select className={s.inp} value={selectedPRId} onChange={e => setSelectedPRId(e.target.value)}>
               <option value="">-- 请选择 --</option>
               {approvedPRs.map(pr => (

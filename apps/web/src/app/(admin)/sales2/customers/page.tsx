@@ -62,9 +62,9 @@ export default function SalesV2CustomersPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="客户主档 V2"
-        subtitle="sal_customers · sal_channels · DataScope: company_code"
-        breadcrumb={["Sales V2", "客户主档"]}
+        title="客户档案"
+        subtitle="统一客户主档 · 渠道管理 · 按公司隔离数据"
+        breadcrumb={["销售系统", "客户档案"]}
       />
 
       {/* Tab Bar */}
