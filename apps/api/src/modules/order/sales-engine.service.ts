@@ -168,8 +168,11 @@ export class SalesEngineService {
                ?? itemMap.get(line.product_code);
 
       if (!prc) {
-        // 未找到价格配置时仅记录警告，不阻断
-        line.retail_band_status = 'IN_BAND';
+        // PRD 8.4.1: 指定了 price_book_id 但商品不在价格册内 → 直接阻断
+        errors.push(
+          `Product ${line.product_code} is not found in price book (id=${order.price_book_id}). Order blocked.`,
+        );
+        passed = false;
         continue;
       }
 

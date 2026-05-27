@@ -211,20 +211,22 @@ BLACK_MSG=$(cat /tmp/tse1.json | head -c 300)
 if printf '%s' "$BLACK_MSG" | grep -q -iE "blacklist|黑名单"; then green "  ✓ T7-SE-2 错误文案含 BLACKLIST"; PASS=$((PASS+1)); else red "  ✗ T7-SE-2 缺 BLACKLIST 文案: $BLACK_MSG"; FAIL=$((FAIL+1)); fi
 
 # T7-SE-3: price_book 不在内 → 阻断
-$PSQL $DB -q -c "DELETE FROM prc_price_books WHERE price_book_id='PB-REGR-1';" 2>/dev/null
-$PSQL $DB -q -c "DELETE FROM prc_price_items WHERE price_book_id='PB-REGR-1';" 2>/dev/null
-# 建价盘 + 1 个商品 unit:100 retail_lower:80 retail_upper:120
-$PSQL $DB -q -c "INSERT INTO prc_price_items (item_id, price_book_id, sku_code, retail_lower, retail_upper) VALUES ('PI-REGR-1','PB-REGR-1','REGR-EGG',80,120);" 2>/dev/null
+# Phase 2 起 SalesEngine 读 sal_price_books/sal_price_items，不再读 prc_price_items
+$PSQL $DB -q -c "DELETE FROM sal_price_items WHERE price_book_id IN (SELECT id FROM sal_price_books WHERE price_book_no='PB-REGR-1');" 2>/dev/null
+$PSQL $DB -q -c "DELETE FROM sal_price_books WHERE price_book_no='PB-REGR-1';" 2>/dev/null
+# 建价盘（ACTIVE）+ 1 个商品 REGR-EGG: floor_price=80 ceiling_price=120
+PB_ID=$($PSQL $DB -tA -c "INSERT INTO sal_price_books (price_book_no, price_book_name, company_code, status) VALUES ('PB-REGR-1','Regression Test PB','ALL','ACTIVE') RETURNING id;")
+$PSQL $DB -q -c "INSERT INTO sal_price_items (price_book_id, product_code, unit_price, floor_price, ceiling_price) VALUES ($PB_ID,'REGR-EGG',100,80,120);" >/dev/null
 
-# 低于 retail_lower → 转特价审批 (不阻断)
+# 低于 floor_price → 转特价审批 (不阻断)
 LOWER_PAYLOAD=$(cat <<EOF
-{"customer_code":"$CUST","customer_name":"REGR","price_book_id":"PB-REGR-1",
+{"customer_code":"$CUST","customer_name":"REGR","price_book_id":$PB_ID,
  "lines":[{"product_code":"REGR-EGG","qty":10,"unit_price":50,"price_source":"NORMAL"}]}
 EOF
 )
 RLP=$(curl -s -o /tmp/tse3.json -w '%{http_code}' -X POST "$API/api/orders/submit" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d "$LOWER_PAYLOAD")
-assert_ok "T7-SE-3 低于 retail_lower 转特价审批 (200)" "$RLP"
+assert_ok "T7-SE-3 低于 floor_price 转特价审批 (200)" "$RLP"
 NEED_PA=$(cat /tmp/tse3.json | grep -oE '"need_price_approval":(true|false)' | head -1)
 case "$NEED_PA" in *true*) green "  ✓ T7-SE-4 need_price_approval=true"; PASS=$((PASS+1));; *) red "  ✗ T7-SE-4 应需价格审批: $NEED_PA"; FAIL=$((FAIL+1));; esac
 ORD_LP=$(cat /tmp/tse3.json | grep -oE '"order_no":"[^"]*"' | head -1 | cut -d'"' -f4)
@@ -233,7 +235,7 @@ assert_eq "T7-SE-5 低价订单 status=DRAFT" "DRAFT" "$STAT_LP"
 
 # SKU 不在 price_book → 阻断
 NOT_IN_PB=$(cat <<EOF
-{"customer_code":"$CUST","price_book_id":"PB-REGR-1",
+{"customer_code":"$CUST","price_book_id":$PB_ID,
  "lines":[{"product_code":"UNKNOWN-SKU","qty":1,"unit_price":99,"price_source":"NORMAL"}]}
 EOF
 )
@@ -282,7 +284,8 @@ $PSQL $DB -q -c "DELETE FROM wms_outbound WHERE ref_no IN ('$ORDER_NO','$ORDER_N
 $PSQL $DB -q -c "DELETE FROM fin_transactions WHERE ref_no IN ('$ORDER_NO','$ORDER_NO2');" >/dev/null
 # 清理 SalesEngine 测试数据
 $PSQL $DB -q -c "DELETE FROM ord_customers WHERE customer_code='$BLACK';" >/dev/null 2>&1
-$PSQL $DB -q -c "DELETE FROM prc_price_items WHERE item_id='PI-REGR-1';" >/dev/null 2>&1
+$PSQL $DB -q -c "DELETE FROM sal_price_items WHERE price_book_id IN (SELECT id FROM sal_price_books WHERE price_book_no='PB-REGR-1');" >/dev/null 2>&1
+$PSQL $DB -q -c "DELETE FROM sal_price_books WHERE price_book_no='PB-REGR-1';" >/dev/null 2>&1
 $PSQL $DB -q -c "DELETE FROM ord_orders WHERE order_no='$ORD_LP';" >/dev/null 2>&1
 $PSQL $DB -q -c "DELETE FROM ord_order_items WHERE order_no='$ORD_LP';" >/dev/null 2>&1
 $PSQL $DB -q -c "DELETE FROM ord_approval_log WHERE order_no='$ORD_LP';" >/dev/null 2>&1
