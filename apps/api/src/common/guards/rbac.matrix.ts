@@ -46,6 +46,20 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_FARM_MGR:    ['V','C'],
     ROLE_REGION_MGR:  ['V','X'],
   },
+  // WMS 入库子菜单（InboundController 使用）
+  MENU_WMS_INBOUND: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_WMS_MGR:     ['V','C','E','D','A','X'],
+    ROLE_FARM_MGR:    ['V','C'],
+    ROLE_REGION_MGR:  ['V','X'],
+  },
+  // WMS 出库子菜单（OutboundController 使用）
+  MENU_WMS_OUTBOUND: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_WMS_MGR:     ['V','C','E','D','A','X'],
+    ROLE_FARM_MGR:    ['V','C'],
+    ROLE_REGION_MGR:  ['V','X'],
+  },
   MENU_PDA: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
     ROLE_WMS_MGR:     ['V','C','E','D'],
