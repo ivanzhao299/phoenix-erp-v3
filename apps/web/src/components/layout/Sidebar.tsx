@@ -148,7 +148,7 @@ const MENU: MenuItem[] = [
     { id: "s2-delivery",   path: "/sales2/delivery",   Icon: Truck,           label: "配送管理",      perm: "MENU_SALES2_DELIVERY" },
     { id: "s2-returns",    path: "/sales2/returns",    Icon: RefreshCw,       label: "退货管理",      perm: "MENU_SALES2_RETURN" },
     { id: "s2-inventory",  path: "/sales2/inventory",  Icon: Archive,         label: "库存管理",      perm: "MENU_SALES2_INVENTORY" },
-    { id: "s2-reports",    path: "/sales2/reports",    Icon: BarChart2,       label: "销售报表",      perm: null },
+    { id: "s2-reports",    path: "/sales2/reports",    Icon: BarChart2,       label: "经营分析",      perm: "MENU_SALES2_REPORT" },
   ]},
   { id: "order", Icon: ShoppingCart, label: "订货系统", perm: "MENU_ORDER_MGR", children: [
     { id: "ord-center",  path: "/order",               Icon: LayoutDashboard, label: "订单中心",   perm: "MENU_ORDER_MGR" },

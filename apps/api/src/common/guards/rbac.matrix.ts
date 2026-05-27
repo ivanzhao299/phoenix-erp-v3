@@ -549,6 +549,19 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_AUDITOR:       ['V'],
   },
 
+  // ── Sales V2 Phase 8 — 经营分析报表 ────────────────────────────────────────
+  MENU_SALES2_REPORT: {
+    ROLE_ADMIN:         ['V','X'],
+    ROLE_CEO:           ['V','X'],
+    ROLE_HQ_FINANCE:    ['V','X'],
+    ROLE_FIN_CFO:       ['V','X'],
+    ROLE_SALES_MGR:     ['V','X'],
+    ROLE_SALES_REP:     ['V'],
+    ROLE_REGION_MGR:    ['V','X'],
+    ROLE_AUDITOR:       ['V','X'],
+    ROLE_FARM_MGR:      ['V'],
+  },
+
   // ── Sales V2 Phase 7 — 鸡蛋库存管理 ────────────────────────────────────────
   MENU_SALES2_INVENTORY: {
     ROLE_ADMIN:         ['V','C','E','D','A','X'],

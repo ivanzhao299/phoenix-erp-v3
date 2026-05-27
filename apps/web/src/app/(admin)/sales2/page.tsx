@@ -5,6 +5,7 @@ import {
   Users, Tag, ShoppingCart, Truck, BarChart2,
   CheckCircle, Clock, AlertTriangle, ArrowRight,
   Activity, Database, Shield, FileText, CreditCard,
+  Archive, RefreshCw, TrendingDown, Package,
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 
@@ -27,6 +28,21 @@ interface OrderStats {
   overCreditOrders: number;
 }
 
+interface AnalyticsOverview {
+  totalSalesOrders:     number;
+  totalSalesAmount:     number;
+  totalDelivered:       number;
+  totalReceivable:      number;
+  overdueReceivable:    number;
+  totalReturns:         number;
+  totalLoss:            number;
+  inventoryBalance:     number;
+  inventoryExpiring:    number;
+  averageDeliveryHours: number;
+  onTimeDeliveryRate:   number;
+  returnRate:           number;
+}
+
 function getToken() {
   if (typeof window === "undefined") return "";
   return sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "";
@@ -36,25 +52,23 @@ function getToken() {
  * Sales V2 总览页 — Phase 3 含 Dashboard Stats
  */
 export default function SalesV2Page() {
-  const [health, setHealth] = useState<HealthData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<OrderStats | null>(null);
+  const [health, setHealth]     = useState<HealthData | null>(null);
+  const [loading, setLoading]   = useState(true);
+  const [stats, setStats]       = useState<OrderStats | null>(null);
+  const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
 
   useEffect(() => {
-    fetch("/api/v2/sales/health", {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    })
-      .then((r) => r.json())
-      .then((d) => setHealth(d))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    const h = { Authorization: `Bearer ${getToken()}` };
 
-    fetch("/api/v2/sales/orders/stats", {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    })
-      .then((r) => r.json())
-      .then((d) => setStats(d))
-      .catch(() => {});
+    fetch("/api/v2/sales/health", { headers: h })
+      .then((r) => r.json()).then((d) => setHealth(d)).catch(() => {}).finally(() => setLoading(false));
+
+    fetch("/api/v2/sales/orders/stats", { headers: h })
+      .then((r) => r.json()).then((d) => setStats(d)).catch(() => {});
+
+    // Phase 8 — Analytics Overview
+    fetch("/api/v2/sales/analytics/overview", { headers: h })
+      .then((r) => r.ok ? r.json() : null).then((d) => d && setOverview(d)).catch(() => {});
   }, []);
 
   const cards = [
@@ -97,11 +111,11 @@ export default function SalesV2Page() {
     {
       href: "/sales2/reports",
       Icon: BarChart2,
-      title: "销售报表",
-      sub: "只读聚合层",
+      title: "经营分析",
+      sub: "Analytics Runtime",
       phase: "Phase 8",
-      status: "pending",
-      desc: "日报/欠款账龄/渠道销量/价格异常报表",
+      status: "done",
+      desc: "销量/渠道/价格异常/配送/退货/库存/信用 11维经营分析",
     },
   ];
 
@@ -109,7 +123,7 @@ export default function SalesV2Page() {
     <div style={{ padding: "24px 32px", maxWidth: 1200 }}>
       <PageHeader
         title="销售系统总览"
-        subtitle="Phase 4 已完成 · 客户档案 + 渠道管理 + 价格引擎 + 销售订单 + 配送履约"
+        subtitle="Phase 8 完成 · 客户档案 + 渠道 + 价格引擎 + 订单 + 配送 + 信用 + 退货 + 库存 + 经营分析"
       />
 
       {/* Dashboard Stats — Phase 3 */}
@@ -133,6 +147,36 @@ export default function SalesV2Page() {
               <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>{label}</div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Phase 8 — Analytics Overview Dashboard */}
+      {overview && (
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", letterSpacing: 1, marginBottom: 10 }}>
+            经营概览（Analytics Runtime）
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(148px, 1fr))", gap: 10 }}>
+            {[
+              { label: "今日配送", value: String(overview.totalDelivered ?? "—"),       icon: Truck,       color: "#22c55e" },
+              { label: "应收款",   value: String(overview.totalReceivable?.toLocaleString("zh-CN") ?? "—"),  icon: FileText,    color: "#3b82f6" },
+              { label: "逾期应收", value: String(overview.overdueReceivable?.toLocaleString("zh-CN") ?? "—"), icon: AlertTriangle, color: "#ef4444" },
+              { label: "退货总数", value: String(overview.totalReturns ?? "—"),          icon: RefreshCw,   color: "#9333ea"  },
+              { label: "库存可用（枚）", value: String(overview.inventoryBalance?.toLocaleString("zh-CN") ?? "—"), icon: Archive, color: "#0891b2" },
+              { label: "临期库存（批）", value: String(overview.inventoryExpiring ?? "—"), icon: Package,   color: "#d97706"  },
+              { label: "今日损耗（枚）", value: String(overview.totalLoss?.toLocaleString("zh-CN") ?? "—"), icon: TrendingDown, color: "#be123c" },
+              { label: "准时配送率", value: `${overview.onTimeDeliveryRate ?? 0}%`,       icon: CheckCircle, color: "#22c55e" },
+            ].map(({ label, value, icon: Icon, color }) => (
+              <div key={label} style={{
+                padding: "12px 14px", borderRadius: 10, textAlign: "center",
+                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+              }}>
+                <Icon size={16} style={{ color, marginBottom: 5 }} />
+                <div style={{ fontSize: 18, fontWeight: 800, color }}>{value}</div>
+                <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -183,13 +227,13 @@ export default function SalesV2Page() {
           {[
             "Phase 0 ✅ Clean Baseline + Legacy Freeze",
             "Phase 1 ✅ 客户档案 + 渠道管理",
-            "Phase 2 ✅ 价格管理",
-            "Phase 3 ✅ 销售订单",
-            "Phase 4 ✅ 配送履约",
-            "Phase 5    AR Integration + Credit Control",
-            "Phase 6    销售退货",
-            "Phase 7    Egg Inventory Enhancement",
-            "Phase 8    Sales Reports",
+            "Phase 2 ✅ 统一价格引擎 + Workflow 审批",
+            "Phase 3 ✅ 销售订单 Runtime（状态机 + AR 联动）",
+            "Phase 4 ✅ 配送履约 Runtime（装车/发车/签收）",
+            "Phase 5 ✅ 信用控制 Runtime（评估 + 自动冻结）",
+            "Phase 6 ✅ 退货 Runtime（质检 + 回库 + Credit Note）",
+            "Phase 7 ✅ 鸡蛋库存 Runtime（FIFO + Scheduler）",
+            "Phase 8 ✅ 经营分析 Runtime（11 维分析 + 看板）",
             "Phase 9    Mobile Sales + Delivery App",
           ].map((step, i) => {
             const done = step.includes("✅");

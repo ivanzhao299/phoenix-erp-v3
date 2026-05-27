@@ -1,8 +1,10 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { BarChart2, AlertTriangle, TrendingUp, RefreshCw, Users, ShieldOff } from "lucide-react";
+import {
+  BarChart2, TrendingUp, Package, Truck, RefreshCw,
+  Archive, Shield, AlertTriangle, Users, Tag,
+} from "lucide-react";
 import PageHeader from "@/components/PageHeader";
-import s from "@/components/ui/admin-ui.module.css";
 
 // ── API helper ────────────────────────────────────────────────────────────────
 function tok() {
@@ -10,749 +12,659 @@ function tok() {
   return sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "";
 }
 const BASE = process.env.NEXT_PUBLIC_API_BASE || "";
-async function apiFetch(path: string, opts?: RequestInit) {
+async function apiFetch<T = unknown>(path: string): Promise<T> {
   const res = await fetch(BASE + path, {
     headers: { Authorization: `Bearer ${tok()}`, "Content-Type": "application/json" },
-    ...opts,
   });
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
-    throw new Error(e.message || `HTTP ${res.status}`);
+    throw new Error((e as any).message || `HTTP ${res.status}`);
   }
   const d = await res.json();
-  return d.data ?? d;
+  return (d.data ?? d) as T;
 }
 
-// ── 信用状态颜色 ──────────────────────────────────────────────────────────────
-const CREDIT_STATUS: Record<string, { label: string; color: string; bg: string }> = {
-  NORMAL:     { label: "正常",   color: "#22c55e", bg: "rgba(34,197,94,0.1)"   },
-  WARNING:    { label: "预警",   color: "#f59e0b", bg: "rgba(245,158,11,0.1)"  },
-  OVER_LIMIT: { label: "超额度", color: "#ef4444", bg: "rgba(239,68,68,0.1)"   },
-  OVERDUE:    { label: "逾期",   color: "#dc2626", bg: "rgba(220,38,38,0.1)"   },
-  FROZEN:     { label: "冻结",   color: "#6b7280", bg: "rgba(107,114,128,0.1)" },
+function fmt(n: number | null | undefined, dec = 0): string {
+  if (n == null) return "—";
+  return Number(n).toLocaleString("zh-CN", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
+// ── 共用样式 ──────────────────────────────────────────────────────────────────
+const TH: React.CSSProperties = {
+  padding: "8px 12px", textAlign: "left", fontWeight: 600, fontSize: 12,
+  color: "#374151", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap", background: "#f9fafb",
 };
+const TD: React.CSSProperties = { padding: "8px 12px", fontSize: 13, color: "#374151" };
 
-// ── Tab 定义 ──────────────────────────────────────────────────────────────────
-type ReportTab = "overdue" | "high-risk" | "frozen" | "aging" | "returns" | "inventory";
-
-/**
- * Sales V2 Phase 5/6 — 销售报表（客户欠款分析 + 退货分析）
- */
-export default function SalesV2ReportsPage() {
-  const [tab, setTab] = useState<ReportTab>("overdue");
-
+function KpiCard({ label, value, sub, color = "#374151" }: {
+  label: string; value: string | number; sub?: string; color?: string;
+}) {
   return (
-    <div className="animate-fade-in" style={{ padding: "0 0 40px" }}>
-      <PageHeader
-        title="销售报表"
-        subtitle="客户欠款分析 · 逾期预警 · 信用风险 · 账龄分布 · 退货分析"
-        breadcrumb={["销售系统", "销售报表"]}
-      />
-
-      {/* Tab Bar */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "1px solid var(--border)", paddingBottom: 0 }}>
-        {([
-          { id: "overdue",   label: "⚠ 逾期客户",   icon: <AlertTriangle size={13} /> },
-          { id: "high-risk", label: "● 高风险客户",  icon: <TrendingUp size={13} />    },
-          { id: "frozen",    label: "🔒 冻结客户",   icon: <ShieldOff size={13} />     },
-          { id: "aging",     label: "账龄分析",      icon: <BarChart2 size={13} />     },
-          { id: "returns",   label: "退货分析",      icon: <RefreshCw size={13} />     },
-          { id: "inventory", label: "库存损耗",       icon: <BarChart2 size={13} />     },
-        ] as { id: ReportTab; label: string; icon: React.ReactNode }[]).map(({ id, label, icon }) => (
-          <button key={id} type="button" onClick={() => setTab(id)} style={{
-            display: "flex", alignItems: "center", gap: 6, padding: "8px 16px",
-            border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
-            color: tab === id ? "var(--color-primary)" : "var(--text-secondary)",
-            borderBottom: tab === id ? "2px solid var(--color-primary)" : "2px solid transparent",
-            marginBottom: -1,
-          }}>{icon}{label}</button>
-        ))}
-      </div>
-
-      {tab === "overdue"   && <OverdueReport />}
-      {tab === "high-risk" && <HighRiskReport />}
-      {tab === "frozen"    && <FrozenReport />}
-      {tab === "aging"     && <AgingReport />}
-      {tab === "returns"   && <ReturnReport />}
-      {tab === "inventory" && <InventoryReport />}
+    <div style={{
+      background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10,
+      padding: "16px 20px", minWidth: 130,
+    }}>
+      <div style={{ fontSize: 11, color: "#6b7280" }}>{label}</div>
+      <div style={{ fontSize: 24, fontWeight: 800, color, marginTop: 2 }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>{sub}</div>}
     </div>
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// 逾期客户报表
-// ══════════════════════════════════════════════════════════════════════════════
-function OverdueReport() {
-  const [rows, setRows]     = useState<any[]>([]);
-  const [total, setTotal]   = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage]     = useState(1);
-  const limit = 20;
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const p = new URLSearchParams({ page: String(page), limit: String(limit) });
-      const res = await apiFetch(`/api/v2/sales/credit/overdue-customers?${p}`);
-      setRows(res.data ?? []);
-      setTotal(Number(res.total ?? 0));
-    } catch { setRows([]); } finally { setLoading(false); }
-  }, [page]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const totalPages = Math.ceil(total / limit);
-
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div>
-      {/* 统计头 */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
-        {[
-          { label: "逾期/预警客户", value: total, icon: <AlertTriangle size={20} color="#f59e0b" />, color: "#f59e0b" },
-          { label: "数据来源", value: "Finance V2 AR", icon: <BarChart2 size={20} color="#6366f1" />, color: "#6366f1" },
-          { label: "每日自动更新", value: "02:00 AM", icon: <RefreshCw size={20} color="#22c55e" />, color: "#22c55e" },
-        ].map(({ label, value, icon, color }) => (
-          <div key={label} style={{ padding: "16px 20px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", display: "flex", alignItems: "center", gap: 12 }}>
-            {icon}
-            <div>
-              <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{label}</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color }}>{value}</div>
-            </div>
-          </div>
-        ))}
-      </div>
+    <div style={{ marginBottom: 28 }}>
+      <h4 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: "#111827",
+        borderLeft: "3px solid #2563eb", paddingLeft: 10 }}>{title}</h4>
+      {children}
+    </div>
+  );
+}
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <div style={{ fontWeight: 700, fontSize: 14 }}>逾期 / 预警客户列表（按逾期天数降序）</div>
-        <button type="button" className={s.btnSecondary} onClick={load} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, padding: "5px 12px" }}>
-          <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} /> 刷新
-        </button>
-      </div>
-
-      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-          <thead>
-            <tr style={{ background: "var(--bg-muted)", borderBottom: "1px solid var(--border)" }}>
-              {["客户名称","公司","信用状态","逾期天数","逾期金额","最早逾期日","信用额度","已用额度","账期(天)"].map(h => (
-                <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontWeight: 600, fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{h}</th>
-              ))}
+function Table({ cols, rows }: { cols: string[]; rows: React.ReactNode[][] }) {
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <thead>
+          <tr>{cols.map(c => <th key={c} style={TH}>{c}</th>)}</tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr><td colSpan={cols.length} style={{ ...TD, textAlign: "center", color: "#9ca3af", padding: 24 }}>暂无数据</td></tr>
+          )}
+          {rows.map((row, i) => (
+            <tr key={i} style={{ borderBottom: "1px solid #f3f4f6" }}>
+              {row.map((cell, j) => <td key={j} style={TD}>{cell}</td>)}
             </tr>
-          </thead>
-          <tbody>
-            {loading && <tr><td colSpan={9} style={{ textAlign: "center", padding: 32, color: "var(--text-secondary)" }}>加载中…</td></tr>}
-            {!loading && rows.length === 0 && <tr><td colSpan={9} style={{ textAlign: "center", padding: 32, color: "var(--text-secondary)" }}>暂无逾期客户，系统健康 ✓</td></tr>}
-            {rows.map((row, i) => {
-              const cs = CREDIT_STATUS[row.credit_status ?? "WARNING"] ?? CREDIT_STATUS.WARNING;
-              const overdueDays = Number(row.overdue_days ?? 0);
-              const overdueAmt  = Number(row.overdue_amount ?? 0);
-              return (
-                <tr key={row.id} style={{ borderBottom: i < rows.length - 1 ? "1px solid var(--border)" : "none", background: overdueDays > 90 ? "rgba(220,38,38,0.03)" : undefined }}>
-                  <td style={{ padding: "9px 12px", fontWeight: 600 }}>{row.customer_name}</td>
-                  <td style={{ padding: "9px 12px", color: "var(--text-secondary)" }}>{row.company_code}</td>
-                  <td style={{ padding: "9px 12px" }}>
-                    <span style={{ padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: cs.bg, color: cs.color }}>{cs.label}</span>
-                  </td>
-                  <td style={{ padding: "9px 12px", fontWeight: 700, color: overdueDays > 60 ? "#dc2626" : overdueDays > 30 ? "#f59e0b" : "var(--text-primary)" }}>
-                    {overdueDays > 0 ? `${overdueDays} 天` : "—"}
-                  </td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", color: overdueAmt > 0 ? "#dc2626" : "var(--text-secondary)", fontWeight: 700, fontFamily: "monospace" }}>
-                    {overdueAmt > 0 ? overdueAmt.toLocaleString() : "—"}
-                  </td>
-                  <td style={{ padding: "9px 12px", color: "var(--text-secondary)" }}>
-                    {row.earliest_overdue_date ? String(row.earliest_overdue_date).slice(0, 10) : "—"}
-                  </td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontFamily: "monospace", fontSize: 11 }}>
-                    {Number(row.credit_limit ?? 0).toLocaleString()}
-                  </td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: "#f59e0b" }}>
-                    {Number(row.credit_used ?? 0).toLocaleString()}
-                  </td>
-                  <td style={{ padding: "9px 12px", textAlign: "center" }}>{row.payment_terms ?? 0}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {totalPages > 1 && (
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12, alignItems: "center", fontSize: 12 }}>
-          <span style={{ color: "var(--text-secondary)" }}>共 {total} 条</span>
-          <button type="button" className={s.btnSecondary} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>上一页</button>
-          <span>第 {page} / {totalPages} 页</span>
-          <button type="button" className={s.btnSecondary} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>下一页</button>
-        </div>
-      )}
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 高风险客户报表
+// Tab 1: 总览
 // ══════════════════════════════════════════════════════════════════════════════
-function HighRiskReport() {
-  const [rows, setRows]     = useState<any[]>([]);
-  const [total, setTotal]   = useState(0);
+function OverviewTab() {
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [page, setPage]     = useState(1);
-  const limit = 20;
+  const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const p = new URLSearchParams({ page: String(page), limit: String(limit) });
-      const res = await apiFetch(`/api/v2/sales/credit/high-risk-customers?${p}`);
-      setRows(res.data ?? []);
-      setTotal(Number(res.total ?? 0));
-    } catch { setRows([]); } finally { setLoading(false); }
-  }, [page]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const RISK_CFG: Record<string, { label: string; color: string }> = {
-    NORMAL:    { label: "正常",   color: "#22c55e" },
-    WATCH:     { label: "观察",   color: "#f59e0b" },
-    HIGH:      { label: "高风险", color: "#ef4444" },
-    BLACKLIST: { label: "黑名单", color: "#7f1d1d" },
-  };
-
-  const totalPages = Math.ceil(total / limit);
-
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <div style={{ fontWeight: 700, fontSize: 14 }}>高风险客户（共 {total} 个）</div>
-        <button type="button" className={s.btnSecondary} onClick={load} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, padding: "5px 12px" }}>
-          <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} /> 刷新
-        </button>
-      </div>
-
-      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-          <thead>
-            <tr style={{ background: "var(--bg-muted)", borderBottom: "1px solid var(--border)" }}>
-              {["客户名称","公司","风险等级","信用状态","状态","总欠款","信用额度","账期","已逾期"].map(h => (
-                <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontWeight: 600, fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading && <tr><td colSpan={9} style={{ textAlign: "center", padding: 32, color: "var(--text-secondary)" }}>加载中…</td></tr>}
-            {!loading && rows.length === 0 && <tr><td colSpan={9} style={{ textAlign: "center", padding: 32, color: "var(--text-secondary)" }}>暂无高风险客户 ✓</td></tr>}
-            {rows.map((row, i) => {
-              const riskCfg = RISK_CFG[row.risk_level] ?? RISK_CFG.NORMAL;
-              const cs = CREDIT_STATUS[row.credit_status ?? "NORMAL"] ?? CREDIT_STATUS.NORMAL;
-              const statusLabel = row.status === "FROZEN" ? "冻结" : row.status === "BLACKLIST" ? "黑名单" : "正常";
-              const statusColor = row.status === "FROZEN" ? "#6b7280" : row.status === "BLACKLIST" ? "#7f1d1d" : "#22c55e";
-              return (
-                <tr key={row.id} style={{ borderBottom: i < rows.length - 1 ? "1px solid var(--border)" : "none", background: row.risk_level === "BLACKLIST" ? "rgba(127,29,29,0.04)" : undefined }}>
-                  <td style={{ padding: "9px 12px", fontWeight: 600 }}>{row.customer_name}</td>
-                  <td style={{ padding: "9px 12px", color: "var(--text-secondary)" }}>{row.company_code}</td>
-                  <td style={{ padding: "9px 12px" }}>
-                    <span style={{ padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: "rgba(239,68,68,0.1)", color: riskCfg.color }}>{riskCfg.label}</span>
-                  </td>
-                  <td style={{ padding: "9px 12px" }}>
-                    <span style={{ padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: cs.bg, color: cs.color }}>{cs.label}</span>
-                  </td>
-                  <td style={{ padding: "9px 12px" }}>
-                    <span style={{ fontWeight: 600, color: statusColor }}>{statusLabel}</span>
-                  </td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: "#f59e0b", fontWeight: 700 }}>
-                    {Number(row.total_receivable ?? row.credit_used ?? 0).toLocaleString()}
-                  </td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontFamily: "monospace", fontSize: 11 }}>
-                    {Number(row.credit_limit ?? 0).toLocaleString()}
-                  </td>
-                  <td style={{ padding: "9px 12px", textAlign: "center" }}>{row.payment_terms ?? 0} 天</td>
-                  <td style={{ padding: "9px 12px", textAlign: "center" }}>
-                    {row.last_overdue_at ? <span style={{ color: "#dc2626", fontWeight: 600 }}>是</span> : <span style={{ color: "#22c55e" }}>否</span>}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {totalPages > 1 && (
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12, alignItems: "center", fontSize: 12 }}>
-          <span style={{ color: "var(--text-secondary)" }}>共 {total} 条</span>
-          <button type="button" className={s.btnSecondary} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>上一页</button>
-          <span>第 {page} / {totalPages} 页</span>
-          <button type="button" className={s.btnSecondary} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>下一页</button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// 冻结客户报表
-// ══════════════════════════════════════════════════════════════════════════════
-function FrozenReport() {
-  const [rows, setRows]       = useState<any[]>([]);
-  const [total, setTotal]     = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage]       = useState(1);
-  const limit = 20;
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const p = new URLSearchParams({ page: String(page), limit: String(limit), status: "FROZEN" });
-      const res = await apiFetch(`/api/v2/sales/customers?${p}`);
-      setRows(res.data ?? []);
-      setTotal(Number(res.total ?? 0));
-    } catch { setRows([]); } finally { setLoading(false); }
-  }, [page]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const totalPages = Math.ceil(total / limit);
-
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <div style={{ fontWeight: 700, fontSize: 14 }}>冻结客户（共 {total} 个）</div>
-        <button type="button" className={s.btnSecondary} onClick={load} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, padding: "5px 12px" }}>
-          <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} /> 刷新
-        </button>
-      </div>
-
-      {total > 0 && (
-        <div style={{ padding: "10px 16px", borderRadius: 8, background: "rgba(107,114,128,0.08)", border: "1px solid rgba(107,114,128,0.2)", fontSize: 12, marginBottom: 16, color: "var(--text-secondary)" }}>
-          冻结客户不能下单。自动冻结客户（auto_frozen=true）可由财务在客户信用页手动解冻。
-        </div>
-      )}
-
-      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-          <thead>
-            <tr style={{ background: "var(--bg-muted)", borderBottom: "1px solid var(--border)" }}>
-              {["客户名称","公司","风险等级","信用状态","冻结类型","信用额度","已用额度","最近逾期"].map(h => (
-                <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontWeight: 600, fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading && <tr><td colSpan={8} style={{ textAlign: "center", padding: 32, color: "var(--text-secondary)" }}>加载中…</td></tr>}
-            {!loading && rows.length === 0 && <tr><td colSpan={8} style={{ textAlign: "center", padding: 32, color: "var(--text-secondary)" }}>暂无冻结客户 ✓</td></tr>}
-            {rows.map((row, i) => {
-              const cs = CREDIT_STATUS[row.credit_status ?? "FROZEN"] ?? CREDIT_STATUS.FROZEN;
-              return (
-                <tr key={row.id} style={{ borderBottom: i < rows.length - 1 ? "1px solid var(--border)" : "none" }}>
-                  <td style={{ padding: "9px 12px", fontWeight: 600 }}>{row.customer_name}</td>
-                  <td style={{ padding: "9px 12px", color: "var(--text-secondary)" }}>{row.company_code}</td>
-                  <td style={{ padding: "9px 12px" }}>
-                    <span style={{ fontSize: 11, color: row.risk_level === "BLACKLIST" ? "#7f1d1d" : "#f59e0b", fontWeight: 700 }}>{row.risk_level}</span>
-                  </td>
-                  <td style={{ padding: "9px 12px" }}>
-                    <span style={{ padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: cs.bg, color: cs.color }}>{cs.label}</span>
-                  </td>
-                  <td style={{ padding: "9px 12px" }}>
-                    {row.auto_frozen
-                      ? <span style={{ color: "#dc2626", fontWeight: 600 }}>自动冻结</span>
-                      : <span style={{ color: "#6b7280" }}>手工冻结</span>}
-                  </td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontFamily: "monospace", fontSize: 11 }}>
-                    {Number(row.credit_limit ?? 0).toLocaleString()}
-                  </td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: "#f59e0b" }}>
-                    {Number(row.credit_used ?? 0).toLocaleString()}
-                  </td>
-                  <td style={{ padding: "9px 12px", color: "var(--text-secondary)" }}>
-                    {row.last_overdue_at ? String(row.last_overdue_at).slice(0, 10) : "—"}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {totalPages > 1 && (
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12, alignItems: "center", fontSize: 12 }}>
-          <span style={{ color: "var(--text-secondary)" }}>共 {total} 条</span>
-          <button type="button" className={s.btnSecondary} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>上一页</button>
-          <span>第 {page} / {totalPages} 页</span>
-          <button type="button" className={s.btnSecondary} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>下一页</button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// 全局账龄分析报表
-// ══════════════════════════════════════════════════════════════════════════════
-function AgingReport() {
-  const [rows, setRows]       = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [summary, setSummary] = useState<{
-    totalReceivable: number;
-    overdueTotal: number;
-    normalTotal: number;
-    customerCount: number;
-  } | null>(null);
-
-  // 全量客户逾期汇总（复用 overdue-customers 接口，limit=200）
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await apiFetch("/api/v2/sales/credit/overdue-customers?page=1&limit=200");
-      const data: any[] = res.data ?? [];
-      setRows(data);
-      const totalReceivable = data.reduce((s, r) => s + Number(r.credit_used ?? 0), 0);
-      const overdueTotal    = data.reduce((s, r) => s + Number(r.overdue_amount ?? 0), 0);
-      setSummary({ totalReceivable, overdueTotal, normalTotal: totalReceivable - overdueTotal, customerCount: data.length });
-    } catch { setRows([]); setSummary(null); } finally { setLoading(false); }
+    setLoading(true); setError("");
+    try { setData(await apiFetch("/api/v2/sales/analytics/overview")); }
+    catch (e: unknown) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  // 账龄分桶
-  const BUCKETS = [
-    { key: "notDue",   label: "未到期",     min: -Infinity, max: 0  },
-    { key: "d1_30",    label: "逾期 1-30",   min: 1,  max: 30  },
-    { key: "d31_60",   label: "逾期 31-60",  min: 31, max: 60  },
-    { key: "d61_90",   label: "逾期 61-90",  min: 61, max: 90  },
-    { key: "d91_180",  label: "逾期 91-180", min: 91, max: 180 },
-    { key: "d181plus", label: "逾期 180+",   min: 181, max: Infinity },
-  ];
-
-  const bucketAmounts = BUCKETS.map(b => ({
-    ...b,
-    amount: rows
-      .filter(r => { const d = Number(r.overdue_days ?? 0); return d >= b.min && d <= b.max; })
-      .reduce((s, r) => s + Number(r.overdue_amount ?? 0), 0),
-    count: rows.filter(r => { const d = Number(r.overdue_days ?? 0); return d >= b.min && d <= b.max; }).length,
-  }));
-
-  const maxAmount = Math.max(...bucketAmounts.map(b => b.amount), 1);
-  const BUCKET_COLORS = ["#22c55e","#f59e0b","#fb923c","#ef4444","#dc2626","#7f1d1d"];
+  if (loading) return <Spinner />;
+  if (error)   return <Err msg={error} onRetry={load} />;
+  if (!data)   return null;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {/* 刷新 */}
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button type="button" className={s.btnSecondary} onClick={load} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, padding: "5px 12px" }}>
-          <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} /> 刷新
-        </button>
-      </div>
-
-      {/* 汇总卡片 */}
-      {summary && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-          {[
-            { label: "涉及客户数",   value: summary.customerCount, color: "#6366f1" },
-            { label: "实时欠款合计", value: summary.totalReceivable.toLocaleString(), color: "#f59e0b" },
-            { label: "其中逾期",     value: summary.overdueTotal.toLocaleString(),    color: "#ef4444" },
-            { label: "未到期应收",   value: summary.normalTotal.toLocaleString(),     color: "#22c55e" },
-          ].map(({ label, value, color }) => (
-            <div key={label} style={{ padding: "14px 18px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
-              <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 4 }}>{label}</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color }}>{value}</div>
-            </div>
-          ))}
+    <div>
+      <Section title="核心 KPI">
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <KpiCard label="销售订单总数"   value={fmt(data.totalSalesOrders)}    color="#2563eb" />
+          <KpiCard label="销售总金额"     value={fmt(data.totalSalesAmount)}     color="#2563eb" />
+          <KpiCard label="已交付订单"     value={fmt(data.totalDelivered)}       color="#16a34a" />
+          <KpiCard label="应收款总额"     value={fmt(data.totalReceivable)}      color="#d97706" />
+          <KpiCard label="逾期应收"       value={fmt(data.overdueReceivable)}    color="#dc2626" />
+          <KpiCard label="退货总笔数"     value={fmt(data.totalReturns)}         color="#9333ea" />
+          <KpiCard label="库存可用量（枚）" value={fmt(data.inventoryBalance)}    color="#0891b2" />
+          <KpiCard label="临期库存（批）"  value={fmt(data.inventoryExpiring)}   color="#d97706" />
+          <KpiCard label="平均配送时长"   value={`${fmt(data.averageDeliveryHours, 1)}h`} color="#374151" />
+          <KpiCard label="准时配送率"     value={`${fmt(data.onTimeDeliveryRate, 1)}%`} color="#16a34a" />
+          <KpiCard label="退货率"         value={`${fmt(data.returnRate, 2)}%`}  color="#9333ea" />
+          <KpiCard label="今日损耗（枚）"  value={fmt(data.totalLoss)}           color="#be123c" />
         </div>
-      )}
+      </Section>
 
-      {/* 账龄条形图 */}
-      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "20px 24px" }}>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16 }}>账龄分桶（基于逾期客户）</div>
-        {loading ? (
-          <div style={{ textAlign: "center", padding: 32, color: "var(--text-secondary)" }}>加载中…</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {bucketAmounts.map((b, idx) => {
-              const pct = maxAmount > 0 ? (b.amount / maxAmount) * 100 : 0;
-              return (
-                <div key={b.key} style={{ display: "grid", gridTemplateColumns: "120px 1fr 140px", gap: 12, alignItems: "center" }}>
-                  <div style={{ fontSize: 12, color: "var(--text-secondary)", textAlign: "right" }}>{b.label}</div>
-                  <div style={{ height: 24, background: "var(--bg-muted)", borderRadius: 6, overflow: "hidden" }}>
-                    <div style={{ width: `${pct}%`, height: "100%", background: BUCKET_COLORS[idx], borderRadius: 6, minWidth: b.amount > 0 ? 4 : 0, transition: "width 0.5s" }} />
-                  </div>
-                  <div style={{ fontSize: 12, fontFamily: "monospace", textAlign: "right" }}>
-                    {b.count > 0 ? (
-                      <span>
-                        <strong style={{ color: BUCKET_COLORS[idx] }}>{b.amount.toLocaleString()}</strong>
-                        <span style={{ color: "var(--text-secondary)", marginLeft: 6 }}>({b.count} 客户)</span>
-                      </span>
-                    ) : (
-                      <span style={{ color: "var(--text-secondary)" }}>—</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* 欠款 TOP 20 */}
-      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-        <div style={{ padding: "14px 20px", fontWeight: 700, fontSize: 14, borderBottom: "1px solid var(--border)" }}>
-          欠款 TOP {Math.min(20, rows.length)} 客户
-        </div>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-          <thead>
-            <tr style={{ background: "var(--bg-muted)", borderBottom: "1px solid var(--border)" }}>
-              {["#","客户","公司","信用状态","逾期天数","逾期金额","总欠款"].map(h => (
-                <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, fontSize: 11, color: "var(--text-secondary)" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading && <tr><td colSpan={7} style={{ textAlign: "center", padding: 24, color: "var(--text-secondary)" }}>加载中…</td></tr>}
-            {!loading && rows.length === 0 && <tr><td colSpan={7} style={{ textAlign: "center", padding: 24, color: "var(--text-secondary)" }}>暂无数据 ✓</td></tr>}
-            {rows.slice(0, 20).map((row, i) => {
-              const cs = CREDIT_STATUS[row.credit_status ?? "WARNING"] ?? CREDIT_STATUS.WARNING;
-              return (
-                <tr key={row.id} style={{ borderBottom: i < Math.min(19, rows.length - 1) ? "1px solid var(--border)" : "none" }}>
-                  <td style={{ padding: "8px 12px", color: "var(--text-secondary)", fontWeight: 700, fontSize: 14 }}>{i + 1}</td>
-                  <td style={{ padding: "8px 12px", fontWeight: 600 }}>{row.customer_name}</td>
-                  <td style={{ padding: "8px 12px", color: "var(--text-secondary)" }}>{row.company_code}</td>
-                  <td style={{ padding: "8px 12px" }}>
-                    <span style={{ padding: "1px 7px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: cs.bg, color: cs.color }}>{cs.label}</span>
-                  </td>
-                  <td style={{ padding: "8px 12px", fontWeight: 700, color: Number(row.overdue_days) > 60 ? "#dc2626" : "#f59e0b" }}>
-                    {Number(row.overdue_days ?? 0) > 0 ? `${row.overdue_days} 天` : "—"}
-                  </td>
-                  <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: "#dc2626", fontWeight: 700 }}>
-                    {Number(row.overdue_amount ?? 0) > 0 ? Number(row.overdue_amount).toLocaleString() : "—"}
-                  </td>
-                  <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: "#f59e0b", fontWeight: 700 }}>
-                    {Number(row.credit_used ?? 0).toLocaleString()}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <div style={{ fontSize: 11, color: "var(--text-secondary)", textAlign: "center" }}>
-        数据来源：Finance V2 fin_ar_invoices · 每日 02:00 AM 自动更新 · 数据权限按公司隔离
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+        <Section title="按公司销量 TOP 10">
+          <Table
+            cols={["公司代码", "订单数", "销售金额"]}
+            rows={(data.byCompany ?? []).map((r: any) => [
+              r.company_code, fmt(r.order_count), fmt(r.sales_amount),
+            ])}
+          />
+        </Section>
+        <Section title="按渠道销量 TOP 10">
+          <Table
+            cols={["渠道代码", "订单数", "销售金额"]}
+            rows={(data.byChannel ?? []).map((r: any) => [
+              r.channel_code, fmt(r.order_count), fmt(r.sales_amount),
+            ])}
+          />
+        </Section>
       </div>
     </div>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 退货分析报表（Phase 6）
+// Tab 2: 销量分析
 // ══════════════════════════════════════════════════════════════════════════════
-function ReturnReport() {
-  const [analysis, setAnalysis] = useState<{
-    topCustomers: Array<{ customer_code: string; customer_name: string; return_count: number; total_amount: number }>;
-    topProducts: Array<{ product_code: string; product_name: string; return_count: number; total_qty: number; damaged_qty: number }>;
-    summary: { totalReturns: number; totalAmount: number; deliveryRejectCount: number; damageCount: number; damageRate: string };
-  } | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await apiFetch("/api/v2/sales/returns/analysis");
-      setAnalysis(data);
-    } catch { setAnalysis(null); } finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const maxCust = Math.max(1, ...(analysis?.topCustomers ?? []).map(c => Number(c.return_count)));
-  const maxProd = Math.max(1, ...(analysis?.topProducts ?? []).map(p => Number(p.return_count)));
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button type="button" className={s.btnSecondary} onClick={load} disabled={loading}
-          style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, padding: "5px 12px" }}>
-          <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} /> 刷新
-        </button>
-      </div>
-
-      {/* 汇总统计 */}
-      {analysis?.summary && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
-          {[
-            { label: "退货总单数",   value: analysis.summary.totalReturns,        color: "#6b7280" },
-            { label: "退货总金额",   value: Number(analysis.summary.totalAmount).toLocaleString(), color: "#3b82f6" },
-            { label: "配送拒收",     value: analysis.summary.deliveryRejectCount,  color: "#f59e0b" },
-            { label: "破损退货",     value: analysis.summary.damageCount,          color: "#ef4444" },
-            { label: "破损率(30天)", value: analysis.summary.damageRate,           color: "#8b5cf6" },
-          ].map(({ label, value, color }) => (
-            <div key={label} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "14px 16px", textAlign: "center" }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color, marginBottom: 4 }}>{value}</div>
-              <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{label}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {loading && <div style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>加载中…</div>}
-
-      {/* TOP 退货客户 */}
-      {analysis && (
-        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16 }}>TOP 退货客户（近30天）</div>
-          {analysis.topCustomers.length === 0 ? (
-            <div style={{ color: "var(--text-secondary)", textAlign: "center", padding: 20 }}>暂无数据</div>
-          ) : analysis.topCustomers.map((c, i) => (
-            <div key={c.customer_code} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-              <span style={{ width: 22, height: 22, borderRadius: "50%", background: i < 3 ? "#ef4444" : "#9ca3af", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{c.customer_name ?? c.customer_code}</div>
-                <div style={{ height: 6, background: "var(--bg-muted)", borderRadius: 3 }}>
-                  <div style={{ height: "100%", background: "#ef4444", borderRadius: 3, width: `${(Number(c.return_count) / maxCust) * 100}%`, minWidth: 4 }} />
-                </div>
-              </div>
-              <span style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{c.return_count} 单</span>
-              <span style={{ fontSize: 12, color: "#ef4444", whiteSpace: "nowrap", fontFamily: "monospace" }}>{Number(c.total_amount).toLocaleString()}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* TOP 退货产品 */}
-      {analysis && (
-        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16 }}>TOP 退货产品（近30天）</div>
-          {analysis.topProducts.length === 0 ? (
-            <div style={{ color: "var(--text-secondary)", textAlign: "center", padding: 20 }}>暂无数据</div>
-          ) : analysis.topProducts.map((p, i) => (
-            <div key={p.product_code} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-              <span style={{ width: 22, height: 22, borderRadius: "50%", background: i < 3 ? "#f59e0b" : "#9ca3af", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 500 }}>{p.product_name ?? p.product_code}</div>
-                <div style={{ fontSize: 11, color: "var(--text-secondary)", display: "flex", gap: 8, marginTop: 2, marginBottom: 4 }}>
-                  <span>退货 {p.total_qty} 件</span>
-                  <span style={{ color: "#ef4444" }}>破损 {p.damaged_qty} 件</span>
-                </div>
-                <div style={{ height: 6, background: "var(--bg-muted)", borderRadius: 3 }}>
-                  <div style={{ height: "100%", background: "#f59e0b", borderRadius: 3, width: `${(Number(p.return_count) / maxProd) * 100}%`, minWidth: 4 }} />
-                </div>
-              </div>
-              <span style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{p.return_count} 次</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div style={{ fontSize: 11, color: "var(--text-secondary)", textAlign: "center" }}>
-        退货数据来源：sal_return_orders + sal_return_items · 统计范围：近 30 天已完成退货
-      </div>
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// 库存损耗报表 — Phase 7
-// ══════════════════════════════════════════════════════════════════════════════
-function InventoryReport() {
-  const [stats, setStats]   = useState<any>(null);
-  const [loss, setLoss]     = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState("");
+function SalesTab() {
+  const [trend, setTrend]       = useState<any[]>([]);
+  const [topCust, setTopCust]   = useState<any[]>([]);
+  const [topProd, setTopProd]   = useState<any[]>([]);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+  const [groupBy, setGroupBy]   = useState<"day"|"week"|"month">("day");
+  const [dateFrom, setDateFrom] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0, 10);
+  });
+  const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10));
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const [s, l] = await Promise.all([
-        apiFetch("/api/v2/sales/inventory/stats"),
-        apiFetch("/api/v2/sales/inventory/loss-analysis"),
+      const [t, c, p] = await Promise.all([
+        apiFetch<any[]>(`/api/v2/sales/analytics/sales-trend?dateFrom=${dateFrom}&dateTo=${dateTo}&groupBy=${groupBy}`),
+        apiFetch<any[]>("/api/v2/sales/analytics/top-customers"),
+        apiFetch<any[]>("/api/v2/sales/analytics/top-products"),
       ]);
-      setStats(s); setLoss(l);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      setTrend(t); setTopCust(c); setTopProd(p);
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setLoading(false); }
+  }, [dateFrom, dateTo, groupBy]);
 
   useEffect(() => { load(); }, [load]);
 
-  const fmt = (n: number | null | undefined) =>
-    n == null ? "—" : Number(n).toLocaleString("zh-CN", { maximumFractionDigits: 0 });
-
-  const changeTypeLabel: Record<string, string> = {
-    EXPIRE_WRITEOFF: "过期核销",
-    DAMAGE_WRITEOFF: "破损核销",
-    WRITE_OFF: "手动核销",
-  };
-
-  if (loading) return <div style={{ textAlign: "center", color: "#9ca3af", padding: 40 }}>加载中...</div>;
-  if (error)   return <div style={{ color: "#dc2626", padding: 16 }}>{error}</div>;
-  if (!stats && !loss) return null;
+  if (loading) return <Spinner />;
+  if (error)   return <Err msg={error} onRetry={load} />;
 
   return (
     <div>
-      {/* 汇总统计 */}
-      {stats && (
-        <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
-          {[
-            { label: "活跃批次",       value: fmt(stats.activeBatches),   color: "#374151" },
-            { label: "总可用库存（枚）", value: fmt(stats.totalAvailable),  color: "#2563eb" },
-            { label: "临期批次（≤7天）", value: fmt(stats.expiringBatches), color: "#d97706" },
-            { label: "已过期批次",      value: fmt(stats.expiredBatches),  color: "#dc2626" },
-            { label: "今日过期损耗",    value: fmt(stats.todayExpireLoss), color: "#be123c" },
-            { label: "今日破损损耗",    value: fmt(stats.todayDamageLoss), color: "#b45309" },
-          ].map(({ label, value, color }) => (
-            <div key={label} style={{
-              background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "14px 18px",
-            }}>
-              <div style={{ fontSize: 11, color: "#6b7280" }}>{label}</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color }}>{value}</div>
-            </div>
-          ))}
-        </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+        <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={inputSt} />
+        <span style={{ fontSize: 13, color: "#6b7280" }}>至</span>
+        <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   style={inputSt} />
+        <select value={groupBy} onChange={e => setGroupBy(e.target.value as any)} style={inputSt}>
+          <option value="day">按天</option>
+          <option value="week">按周</option>
+          <option value="month">按月</option>
+        </select>
+        <button onClick={load} style={btnSt("#2563eb")}>查询</button>
+      </div>
+
+      <Section title="销售趋势">
+        <Table
+          cols={["期间", "订单数", "销售金额", "已交付"]}
+          rows={trend.map((r: any) => [
+            String(r.period ?? "").slice(0, 10),
+            fmt(r.order_count),
+            fmt(r.sales_amount),
+            fmt(r.delivered_count),
+          ])}
+        />
+      </Section>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+        <Section title="TOP 20 客户">
+          <Table
+            cols={["客户代码", "客户名称", "订单数", "销售额", "逾期应收"]}
+            rows={topCust.map((r: any) => [
+              r.customerCode, r.customerName,
+              fmt(r.totalOrders), fmt(r.totalSales),
+              <span key="od" style={{ color: r.overdueReceivable > 0 ? "#dc2626" : "#374151" }}>
+                {fmt(r.overdueReceivable)}
+              </span>,
+            ])}
+          />
+        </Section>
+        <Section title="TOP 20 产品">
+          <Table
+            cols={["产品代码", "产品名称", "销售量", "销售额", "退货量"]}
+            rows={topProd.map((r: any) => [
+              r.productCode, r.productName ?? "—",
+              fmt(r.totalQty), fmt(r.totalAmount),
+              <span key="rt" style={{ color: r.returnQty > 0 ? "#9333ea" : "#374151" }}>
+                {fmt(r.returnQty)}
+              </span>,
+            ])}
+          />
+        </Section>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Tab 3: 渠道分析
+// ══════════════════════════════════════════════════════════════════════════════
+function ChannelTab() {
+  const [data, setData] = useState<any[]>([]);
+  const load = useCallback(async () => {
+    try { setData(await apiFetch("/api/v2/sales/analytics/channel-analysis")); } catch {}
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div>
+      <Section title="渠道销售分布">
+        <Table
+          cols={["渠道代码", "客户数", "订单数", "销售金额", "已交付", "退货数", "退货率%", "逾期应收"]}
+          rows={data.map(r => [
+            r.channelCode ?? "直营",
+            fmt(r.customerCount),
+            fmt(r.orderCount),
+            fmt(r.salesAmount),
+            fmt(r.deliveredCount),
+            fmt(r.returnCount),
+            <span key="rate" style={{ color: r.returnRate > 5 ? "#dc2626" : "#374151" }}>
+              {fmt(r.returnRate, 2)}%
+            </span>,
+            <span key="od" style={{ color: r.overdueReceivable > 0 ? "#dc2626" : "#374151" }}>
+              {fmt(r.overdueReceivable)}
+            </span>,
+          ])}
+        />
+      </Section>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Tab 4: 价格异常
+// ══════════════════════════════════════════════════════════════════════════════
+function PriceTab() {
+  const [data, setData]         = useState<any[]>([]);
+  const [threshold, setThreshold] = useState(5);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true); setError("");
+    try { setData(await apiFetch<any[]>(`/api/v2/sales/analytics/price-anomalies?threshold=${threshold}`)); }
+    catch (e: unknown) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setLoading(false); }
+  }, [threshold]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
+        <label style={{ fontSize: 13 }}>
+          偏离阈值（%）：
+          <select value={threshold} onChange={e => setThreshold(Number(e.target.value))} style={{ ...inputSt, marginLeft: 6 }}>
+            {[1, 2, 5, 10, 15, 20].map(v => <option key={v} value={v}>{v}%</option>)}
+          </select>
+        </label>
+        <button onClick={load} style={btnSt("#d97706")}>查询</button>
+      </div>
+      {error && <div style={{ color: "#dc2626", marginBottom: 8 }}>{error}</div>}
+      {loading ? <Spinner /> : (
+        <Section title={`价格异常订单（偏离 ≥ ${threshold}% 或低于底价）`}>
+          <Table
+            cols={["订单号","客户","产品","实际价","标准价","底价","偏离%","日期"]}
+            rows={data.map(r => [
+              r.sales_order_no,
+              r.customer_name ?? r.customer_code,
+              r.product_code,
+              fmt(r.actual_unit_price),
+              fmt(r.resolved_unit_price),
+              <span key="fp" style={{ color: r.below_floor_price ? "#dc2626" : "#374151" }}>
+                {r.floor_price ? fmt(r.floor_price) : "—"}
+                {r.below_floor_price && " ⚠"}
+              </span>,
+              <span key="dr" style={{ color: Math.abs(r.diff_rate) >= threshold ? "#dc2626" : "#374151", fontWeight: 700 }}>
+                {r.diff_rate > 0 ? "+" : ""}{fmt(r.diff_rate, 2)}%
+              </span>,
+              String(r.created_at ?? "").slice(0, 10),
+            ])}
+          />
+        </Section>
       )}
+    </div>
+  );
+}
 
-      {/* 损耗按类型 */}
-      {loss && (
+// ══════════════════════════════════════════════════════════════════════════════
+// Tab 5: 配送分析
+// ══════════════════════════════════════════════════════════════════════════════
+function DeliveryTab() {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true); setError("");
+    try { setData(await apiFetch("/api/v2/sales/analytics/delivery-performance")); }
+    catch (e: unknown) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setLoading(false); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <Spinner />;
+  if (error)   return <Err msg={error} onRetry={load} />;
+  if (!data)   return null;
+
+  return (
+    <div>
+      <Section title="配送 KPI">
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <KpiCard label="总配送单"      value={fmt(data.totalDeliveries)} />
+          <KpiCard label="已完成"        value={fmt(data.completedCount)}  color="#16a34a" />
+          <KpiCard label="平均配送时长"  value={`${fmt(data.averageDeliveryHours, 1)}h`} color="#2563eb" />
+          <KpiCard label="准时率"        value={`${fmt(data.onTimeRate, 1)}%`} color="#16a34a" />
+          <KpiCard label="超时单数"      value={fmt(data.delayedCount)} color="#dc2626" />
+          <KpiCard label="平均超时时长"  value={`${fmt(data.avgDelayedHours, 1)}h`} color="#dc2626" />
+        </div>
+      </Section>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+        <Section title="司机绩效排名">
+          <Table
+            cols={["司机名称","司机代码","完成趟次","平均时长(h)"]}
+            rows={(data.driverRanking ?? []).map((r: any) => [
+              r.driver_name ?? "—", r.driver_code ?? "—",
+              fmt(r.completed_trips), fmt(r.avg_hours, 1),
+            ])}
+          />
+        </Section>
+        <Section title="车辆使用排名">
+          <Table
+            cols={["车牌号","完成趟次","平均时长(h)"]}
+            rows={(data.vehicleRanking ?? []).map((r: any) => [
+              r.vehicle_no, fmt(r.completed_trips), fmt(r.avg_hours, 1),
+            ])}
+          />
+        </Section>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Tab 6: 退货分析
+// ══════════════════════════════════════════════════════════════════════════════
+function ReturnTab() {
+  const [data, setData] = useState<any>(null);
+  const load = useCallback(async () => {
+    try { setData(await apiFetch("/api/v2/sales/analytics/return-analysis")); } catch {}
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  if (!data) return <Spinner />;
+
+  const typeLabel: Record<string, string> = {
+    CUSTOMER_RETURN: "客户退货", DELIVERY_REJECT: "配送拒收",
+    QUALITY_RETURN: "质量退货", DAMAGE_RETURN: "破损退货",
+  };
+
+  return (
+    <div>
+      <Section title="退货 KPI">
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <KpiCard label="已完成退货数"    value={fmt(data.totalReturns)}       color="#9333ea" />
+          <KpiCard label="退货总金额"      value={fmt(data.totalReturnAmount)}  color="#9333ea" />
+          <KpiCard label="退货率"          value={`${fmt(data.returnRate, 2)}%`} color="#dc2626" />
+          <KpiCard label="客户退货"        value={fmt(data.byType?.customerReturn)}  />
+          <KpiCard label="配送拒收"        value={fmt(data.byType?.deliveryReject)}  />
+          <KpiCard label="质量退货"        value={fmt(data.byType?.qualityReturn)}   />
+          <KpiCard label="破损退货"        value={fmt(data.byType?.damageReturn)}    />
+        </div>
+      </Section>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+        <Section title="TOP 退货客户">
+          <Table
+            cols={["客户","退货次","金额"]}
+            rows={(data.topReturnCustomers ?? []).map((r: any) => [
+              r.customer_name ?? r.customer_code,
+              fmt(r.return_count), fmt(r.return_amount),
+            ])}
+          />
+        </Section>
+        <Section title="TOP 退货产品">
+          <Table
+            cols={["产品","退货量","金额"]}
+            rows={(data.topReturnProducts ?? []).map((r: any) => [
+              r.product_code, fmt(r.return_qty), fmt(r.return_amount),
+            ])}
+          />
+        </Section>
+        <Section title="退货原因分布">
+          <Table
+            cols={["原因代码","次数"]}
+            rows={(data.topReturnReasons ?? []).map((r: any) => [
+              r.reason_code, fmt(r.count),
+            ])}
+          />
+        </Section>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Tab 7: 库存分析
+// ══════════════════════════════════════════════════════════════════════════════
+function InventoryTab() {
+  const [turnover, setTurnover] = useState<any>(null);
+  const [loss, setLoss]         = useState<any>(null);
+  const load = useCallback(async () => {
+    try {
+      const [t, l] = await Promise.all([
+        apiFetch("/api/v2/sales/analytics/inventory-turnover"),
+        apiFetch("/api/v2/sales/analytics/loss-analysis"),
+      ]);
+      setTurnover(t); setLoss(l);
+    } catch {}
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  if (!turnover && !loss) return <Spinner />;
+
+  return (
+    <div>
+      {turnover && (
         <>
-          <h4 style={{ margin: "0 0 12px", color: "#374151" }}>损耗类型分布（近30天）</h4>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 24 }}>
-            <thead>
-              <tr style={{ background: "#faf5ff" }}>
-                {["损耗类型","批次数","合计损耗（枚）"].map(h => (
-                  <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, fontSize: 12, color: "#374151", borderBottom: "1px solid #e5e7eb" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(loss.byType ?? []).map((row: any, i: number) => (
-                <tr key={i} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                  <td style={{ padding: "8px 12px" }}>{changeTypeLabel[row.change_type] ?? row.change_type}</td>
-                  <td style={{ padding: "8px 12px" }}>{fmt(row.batch_count)}</td>
-                  <td style={{ padding: "8px 12px", fontWeight: 700, color: "#dc2626" }}>{fmt(row.total_loss)}</td>
-                </tr>
-              ))}
-              {!(loss.byType?.length) && (
-                <tr><td colSpan={3} style={{ textAlign: "center", color: "#9ca3af", padding: 24 }}>近30天无损耗记录</td></tr>
-              )}
-            </tbody>
-          </table>
-
-          {/* 损耗汇总 */}
-          {loss.summary && (
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
-              {[
-                { label: "过期合计损耗", value: fmt(loss.summary.total_expire_loss), color: "#dc2626" },
-                { label: "破损合计损耗", value: fmt(loss.summary.total_damage_loss), color: "#d97706" },
-                { label: "合计总损耗",   value: fmt(loss.summary.total_loss),        color: "#7c3aed" },
-              ].map(({ label, value, color }) => (
-                <div key={label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 16px" }}>
-                  <div style={{ fontSize: 11, color: "#6b7280" }}>{label}（近30天，枚）</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color }}>{value}</div>
-                </div>
-              ))}
+          <Section title="库存周转 KPI">
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <KpiCard label="活跃批次数"       value={fmt(turnover.activeBatches)} color="#2563eb" />
+              <KpiCard label="总可用库存（枚）"  value={fmt(turnover.totalAvailable)} color="#2563eb" />
+              <KpiCard label="临期批次（≤7天）" value={fmt(turnover.expiringBatches)} color="#d97706" sub={`${fmt(turnover.expiringQty)} 枚`} />
+              <KpiCard label="已过期批次"        value={fmt(turnover.expiredBatches)} color="#dc2626" sub={`${fmt(turnover.expiredQty)} 枚`} />
+              <KpiCard label="退货待检批次"      value={fmt(turnover.returnedBatches)} color="#9333ea" />
+              <KpiCard label="平均保质期（天）"  value={fmt(turnover.avgShelfDays, 1)} />
+              <KpiCard label="近30天出库量"      value={fmt(turnover.totalOutbound30d)} color="#0891b2" />
+              <KpiCard label="库存周转率"        value={`${fmt(turnover.turnoverRate, 1)}%`} color="#16a34a" sub="近30天" />
             </div>
-          )}
+          </Section>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <Section title="按质量等级分布">
+              <Table
+                cols={["等级","批次数","可用量（枚）"]}
+                rows={(turnover.byGrade ?? []).map((r: any) => [
+                  r.quality_grade, fmt(r.batch_count), fmt(r.qty_available),
+                ])}
+              />
+            </Section>
+            <Section title="按公司分布">
+              <Table
+                cols={["公司代码","活跃批次","可用量（枚）"]}
+                rows={(turnover.byCompany ?? []).map((r: any) => [
+                  r.company_code, fmt(r.active_batches), fmt(r.qty_available),
+                ])}
+              />
+            </Section>
+          </div>
         </>
       )}
 
-      <div style={{ fontSize: 11, color: "var(--text-secondary)", textAlign: "center", marginTop: 16 }}>
-        库存数据来源：inv_batches + inv_ledger · 统计范围：近 30 天变动记录
+      {loss && (
+        <Section title="损耗分析（近30天）">
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+            <KpiCard label="过期核销（枚）" value={fmt(loss.expiredQty)}  color="#dc2626" />
+            <KpiCard label="破损核销（枚）" value={fmt(loss.damagedQty)}  color="#d97706" />
+            <KpiCard label="手动核销（枚）" value={fmt(loss.writeOffQty)} color="#6b7280" />
+            <KpiCard label="损耗总量（枚）" value={fmt(loss.totalLoss)}   color="#be123c" />
+            <KpiCard label="综合损耗率"    value={`${fmt(loss.lossRate, 2)}%`} color="#be123c" />
+          </div>
+          <Table
+            cols={["日期","过期损耗（枚）","破损损耗（枚）"]}
+            rows={(loss.byDate ?? []).map((r: any) => [
+              String(r.period ?? "").slice(0, 10),
+              <span key="e" style={{ color: r.expire_loss > 0 ? "#dc2626" : "#374151" }}>{fmt(r.expire_loss)}</span>,
+              <span key="d" style={{ color: r.damage_loss > 0 ? "#d97706" : "#374151" }}>{fmt(r.damage_loss)}</span>,
+            ])}
+          />
+        </Section>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Tab 8: 信用风险
+// ══════════════════════════════════════════════════════════════════════════════
+function CreditRiskTab() {
+  const [data, setData] = useState<any>(null);
+  const load = useCallback(async () => {
+    try { setData(await apiFetch("/api/v2/sales/analytics/credit-risk")); } catch {}
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  if (!data) return <Spinner />;
+
+  const { summary, topOverdueCustomers, frozenCustomers } = data;
+
+  return (
+    <div>
+      <Section title="信用风险 KPI">
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <KpiCard label="正常客户"     value={fmt(summary?.normalCount)}    color="#16a34a" />
+          <KpiCard label="预警客户"     value={fmt(summary?.warningCount)}   color="#d97706" />
+          <KpiCard label="超额度客户"   value={fmt(summary?.overLimitCount)} color="#f97316" />
+          <KpiCard label="逾期客户"     value={fmt(summary?.overdueCount)}   color="#dc2626" />
+          <KpiCard label="冻结客户"     value={fmt(summary?.frozenCount)}    color="#6b7280" />
+          <KpiCard label="自动冻结"     value={fmt(summary?.autoFrozenCount)} color="#6b7280" />
+          <KpiCard label="高风险敞口"   value={fmt(summary?.highRiskExposure)} color="#dc2626" />
+        </div>
+      </Section>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+        <Section title="TOP 20 逾期欠款客户">
+          <Table
+            cols={["客户代码","客户名称","逾期金额","逾期发票数","最早逾期日"]}
+            rows={(topOverdueCustomers ?? []).map((r: any) => [
+              r.customer_code,
+              r.customer_name,
+              <span key="od" style={{ color: "#dc2626", fontWeight: 700 }}>{fmt(r.overdue_amount)}</span>,
+              fmt(r.overdue_invoices),
+              String(r.earliest_due_date ?? "").slice(0, 10) || "—",
+            ])}
+          />
+        </Section>
+
+        <Section title="冻结 / 逾期 / 超额度客户">
+          <Table
+            cols={["客户代码","客户名称","信用状态","已用额度","信用额度","自动冻结"]}
+            rows={(frozenCustomers ?? []).map((r: any) => [
+              r.customer_code,
+              r.customer_name,
+              <span key="cs" style={{
+                fontWeight: 700,
+                color: r.credit_status === "FROZEN" ? "#6b7280"
+                     : r.credit_status === "OVERDUE" ? "#dc2626"
+                     : "#f97316",
+              }}>{r.credit_status}</span>,
+              fmt(r.credit_used),
+              fmt(r.credit_limit),
+              r.auto_frozen ? "✅ 是" : "否",
+            ])}
+          />
+        </Section>
+      </div>
+    </div>
+  );
+}
+
+// ── 辅助组件 ──────────────────────────────────────────────────────────────────
+function Spinner() {
+  return <div style={{ textAlign: "center", color: "#9ca3af", padding: 40 }}>加载中...</div>;
+}
+function Err({ msg, onRetry }: { msg: string; onRetry: () => void }) {
+  return (
+    <div style={{ color: "#dc2626", padding: 16 }}>
+      {msg}
+      <button onClick={onRetry} style={{ marginLeft: 12, fontSize: 12, cursor: "pointer" }}>重试</button>
+    </div>
+  );
+}
+const inputSt: React.CSSProperties = {
+  padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13,
+};
+function btnSt(bg: string): React.CSSProperties {
+  return { padding: "6px 14px", background: bg, color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600 };
+}
+
+// ── Tab 定义 ──────────────────────────────────────────────────────────────────
+type TabKey = "overview" | "sales" | "channel" | "price" | "delivery" | "return" | "inventory" | "credit";
+
+const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
+  { key: "overview",   label: "总览",     icon: <BarChart2   size={13} /> },
+  { key: "sales",      label: "销量分析", icon: <TrendingUp  size={13} /> },
+  { key: "channel",    label: "渠道分析", icon: <Users       size={13} /> },
+  { key: "price",      label: "价格异常", icon: <Tag         size={13} /> },
+  { key: "delivery",   label: "配送分析", icon: <Truck       size={13} /> },
+  { key: "return",     label: "退货分析", icon: <RefreshCw   size={13} /> },
+  { key: "inventory",  label: "库存分析", icon: <Archive     size={13} /> },
+  { key: "credit",     label: "信用风险", icon: <Shield      size={13} /> },
+];
+
+/**
+ * Sales V2 Phase 8 — 经营分析 Runtime
+ *
+ * 全面替换 Phase 5/6 的分散报表，升级为统一经营分析平台。
+ */
+export default function SalesV2ReportsPage() {
+  const [tab, setTab] = useState<TabKey>("overview");
+
+  return (
+    <div className="animate-fade-in" style={{ padding: "0 0 40px" }}>
+      <PageHeader
+        title="经营分析 Runtime"
+        subtitle="Phase 8 — 销量 · 渠道 · 价格异常 · 配送 · 退货 · 库存 · 信用风险 · DataScope"
+        breadcrumb={["销售系统", "经营分析"]}
+      />
+
+      {/* Tab Bar */}
+      <div style={{
+        display: "flex", gap: 2, marginBottom: 20,
+        borderBottom: "1px solid var(--border)", flexWrap: "wrap",
+      }}>
+        {TABS.map(({ key, label, icon }) => (
+          <button key={key} onClick={() => setTab(key)} style={{
+            display: "flex", alignItems: "center", gap: 5,
+            padding: "8px 14px", border: "none", background: "none",
+            cursor: "pointer", fontSize: 13, fontWeight: 600,
+            color: tab === key ? "var(--color-primary)" : "var(--text-secondary)",
+            borderBottom: tab === key ? "2px solid var(--color-primary)" : "2px solid transparent",
+            marginBottom: -1,
+          }}>
+            {icon}{label}
+          </button>
+        ))}
+      </div>
+
+      {/* 内容区 */}
+      <div>
+        {tab === "overview"   && <OverviewTab />}
+        {tab === "sales"      && <SalesTab />}
+        {tab === "channel"    && <ChannelTab />}
+        {tab === "price"      && <PriceTab />}
+        {tab === "delivery"   && <DeliveryTab />}
+        {tab === "return"     && <ReturnTab />}
+        {tab === "inventory"  && <InventoryTab />}
+        {tab === "credit"     && <CreditRiskTab />}
       </div>
     </div>
   );
