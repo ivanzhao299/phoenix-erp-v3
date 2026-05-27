@@ -46,10 +46,8 @@ interface GradeEntry {
   unit_price: number;
 }
 
-const DEFAULT_PRICES: Record<string, number> = {
-  '0': 1200, '1': 1100, '2': 1000, '3': 900,
-  '4': 800, '5': 700, 'DIRTY': 300, 'BROKEN': 150,
-};
+// Sales V2 Phase 2: DEFAULT_PRICES 已删除，价格从 /api/v2/sales/pricing/current 动态获取
+// 禁止任何价格硬编码 — 必须通过 Price Runtime API
 
 export default function SalesPage() {
   const router  = useRouter();
@@ -67,6 +65,9 @@ export default function SalesPage() {
   const [selCustomer, setSelCustomer] = useState<FarmCustomer | null>(null);
   const [entries, setEntries]       = useState<Record<string, GradeEntry>>({});
 
+  // Sales V2 Phase 2: 动态价格（从 Price Runtime API 加载，替代 DEFAULT_PRICES 硬编码）
+  const [dynamicPrices, setDynamicPrices] = useState<Record<string, number>>({});
+
   const [history, setHistory]       = useState<FarmSaleRecord[]>([]);
   const [loading, setLoading]       = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -83,6 +84,28 @@ export default function SalesPage() {
       })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sales V2 Phase 2: 加载动态价格（Price Runtime API）
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : null;
+    if (!token) return;
+    fetch('/api/v2/sales/pricing/current', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then((list: Array<{ gradeCode: string | null; packagingSpec: string | null; unitPrice: number }>) => {
+        const priceMap: Record<string, number> = {};
+        for (const item of list) {
+          if (item.gradeCode) {
+            priceMap[item.gradeCode] = item.unitPrice;
+          }
+        }
+        if (Object.keys(priceMap).length > 0) {
+          setDynamicPrices(priceMap);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const loadHistory = useCallback(async (d: string) => {
@@ -106,7 +129,8 @@ export default function SalesPage() {
   if (!allowed) return null;
 
   const getQty   = (g: string) => entries[g]?.qty        ?? 0;
-  const getPrice = (g: string) => entries[g]?.unit_price ?? DEFAULT_PRICES[g] ?? 0;
+  // Sales V2 Phase 2: 优先使用用户录入价格，其次 dynamicPrices（API），不再硬编码
+  const getPrice = (g: string) => entries[g]?.unit_price ?? dynamicPrices[g] ?? 0;
 
   const setEntry = (grade: string, field: 'qty' | 'unit_price', v: number) => {
     setEntries(p => ({

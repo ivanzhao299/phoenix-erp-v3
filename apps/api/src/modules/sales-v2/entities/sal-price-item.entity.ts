@@ -5,9 +5,12 @@ import {
 /**
  * 价格明细  sal_price_items
  *
- * Sales V2 Phase 0 — Clean Baseline
+ * Sales V2 Phase 2 — Price Runtime
  *
- * 支持按品级、包装规格、数量阶梯定价（鸡蛋核心需求）
+ * grade_code:     0/1/2/3/4/5/DIRTY/BROKEN（NULL=不限品级）
+ * packaging_spec: LOOSE/30_PCS_TRAY/360_PCS_CASE（NULL=不限规格）
+ * floor_price:    底价（低于此须走 Workflow 价格审批）
+ * status:         ACTIVE / DISABLED
  */
 @Entity('sal_price_items')
 export class SalPriceItemEntity {
@@ -43,6 +46,9 @@ export class SalPriceItemEntity {
 
   @Column({ name: 'currency_code', type: 'varchar', length: 8, default: 'LAK' })
   currencyCode: string;
+
+  @Column({ name: 'status', type: 'varchar', length: 32, default: 'ACTIVE' })
+  status: string;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

@@ -153,6 +153,16 @@ export class WorkflowBizRegistryService implements OnModuleInit {
       cancelledStatus: 'CANCELLED',
     });
 
+    // ── Sales V2 Phase 2 — Price Runtime ────────────────────────────────
+
+    this.register('PRICE_BOOK_APPROVAL', {
+      moduleCode:      'MENU_SALES2_PRICE',
+      tableName:       'sal_price_books',
+      approvedStatus:  'APPROVED',
+      rejectedStatus:  'DRAFT',       // 拒绝退回草稿，允许修改后重新提交
+      cancelledStatus: 'CANCELLED',
+    });
+
     this.logger.log(
       `WorkflowBizRegistry initialized with ${this.registry.size} bizTypes: ${[...this.registry.keys()].join(', ')}`,
     );

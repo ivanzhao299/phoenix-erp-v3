@@ -1,11 +1,16 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { SalesV2Controller }        from './controllers/sales-v2.controller';
-import { SalesCustomersController } from './controllers/sales-customers.controller';
-import { SalesChannelsController }  from './controllers/sales-channels.controller';
-import { SalesV2Service }     from './services/sales-v2.service';
-import { CustomersService }   from './services/customers.service';
-import { ChannelsService }    from './services/channels.service';
+import { SalesV2Controller }          from './controllers/sales-v2.controller';
+import { SalesCustomersController }   from './controllers/sales-customers.controller';
+import { SalesChannelsController }    from './controllers/sales-channels.controller';
+import { SalesPriceBooksController }  from './controllers/sales-price-books.controller';
+import { SalesPriceRuntimeController } from './controllers/sales-price-runtime.controller';
+import { SalesV2Service }       from './services/sales-v2.service';
+import { CustomersService }     from './services/customers.service';
+import { ChannelsService }      from './services/channels.service';
+import { PriceBooksService }    from './services/price-books.service';
+import { PriceItemsService }    from './services/price-items.service';
+import { PriceRuntimeService }  from './services/price-runtime.service';
 import {
   SalCustomerEntity,
   SalChannelEntity,
@@ -21,6 +26,7 @@ import {
  * Phase 路线图：
  *   Phase 0 — 基线建立：Entity 骨架、Health API、前端占位、Legacy Freeze         ✅
  *   Phase 1 — Customer + Channel Runtime：统一客户主档，DataScope 对齐           ✅
+ *   Phase 2 — Price Runtime：统一定价引擎，Workflow 价格审批，移动端动态价格       ✅
  *   Phase 2 — Price Runtime：统一定价引擎，接入 Workflow 2.0 价格审批
  *   Phase 3 — Sales Order Runtime：状态机、AR 联动（fin_ar_invoices）、Workflow 审批
  *   Phase 4 — Delivery Runtime：sal_delivery_orders + 时间戳 + 订单 FK
@@ -72,16 +78,24 @@ import {
     SalesV2Controller,
     SalesCustomersController,
     SalesChannelsController,
+    SalesPriceBooksController,
+    SalesPriceRuntimeController,
   ],
   providers: [
     SalesV2Service,
     CustomersService,
     ChannelsService,
+    PriceBooksService,
+    PriceItemsService,
+    PriceRuntimeService,
   ],
   exports: [
     SalesV2Service,
     CustomersService,
     ChannelsService,
+    PriceBooksService,
+    PriceItemsService,
+    PriceRuntimeService,
   ],
 })
 export class SalesV2Module {}

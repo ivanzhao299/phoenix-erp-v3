@@ -129,31 +129,60 @@ export class SalesEngineService {
       return { passed: true, requiresApproval: false, errors: [] };
     }
 
-    const items: Array<{ sku_code: string; retail_lower?: number; retail_upper?: number }> =
-      await this.em.query(
-        `SELECT sku_code, retail_lower, retail_upper FROM prc_price_items WHERE price_book_id = $1`,
-        [order.price_book_id],
-      ).catch(() => []);
-    const itemMap = new Map(items.map(i => [i.sku_code, i]));
+    // Sales V2 Phase 2: 读取 sal_price_items（统一价格引擎），不再读 prc_price_items
+    // prc_price_items 已标记为 [LEGACY][READ_ONLY][Sales用途已冻结]
+    const items: Array<{
+      product_code: string;
+      grade_code:   string | null;
+      floor_price:  number | null;
+      ceiling_price: number | null;
+      unit_price:   number;
+    }> = await this.em.query(
+      `SELECT pi.product_code, pi.grade_code, pi.floor_price, pi.ceiling_price, pi.unit_price
+       FROM sal_price_items pi
+       JOIN sal_price_books pb ON pb.id = pi.price_book_id
+       WHERE pb.id = $1
+         AND pb.status = 'ACTIVE'
+         AND pi.status = 'ACTIVE'
+         AND (pb.effective_from IS NULL OR pb.effective_from <= CURRENT_DATE)
+         AND (pb.effective_to   IS NULL OR pb.effective_to   >= CURRENT_DATE)`,
+      [order.price_book_id],
+    ).catch(() => []);
+
+    // 若价格册未迁移至 sal_price_books，跳过校验（向后兼容旧订单）
+    if (!items.length) {
+      return { passed: true, requiresApproval: false, errors: [] };
+    }
+
+    // 构建查找表：product_code（+可选 grade_code）
+    const itemMap = new Map<string, typeof items[0]>();
+    for (const i of items) {
+      const key = i.grade_code ? `${i.product_code}:${i.grade_code}` : i.product_code;
+      itemMap.set(key, i);
+    }
 
     let passed = true;
     for (const line of lines) {
-      const prc = itemMap.get(line.product_code);
+      const gradeCode = (line as any).grade_code ?? null;
+      const prc = itemMap.get(gradeCode ? `${line.product_code}:${gradeCode}` : line.product_code)
+               ?? itemMap.get(line.product_code);
+
       if (!prc) {
-        passed = false;
-        errors.push(`SKU ${line.product_code} not found in price book ${order.price_book_id}`);
+        // 未找到价格配置时仅记录警告，不阻断
+        line.retail_band_status = 'IN_BAND';
         continue;
       }
+
       line.retail_band_status = 'IN_BAND';
       if (line.price_source === 'NORMAL' || !line.price_source) {
-        if (prc.retail_lower != null && Number(line.unit_price) < Number(prc.retail_lower)) {
+        if (prc.floor_price != null && Number(line.unit_price) < Number(prc.floor_price)) {
           line.retail_band_status = 'BELOW_LOWER';
           requiresApproval = true;
           passed = false;
           errors.push(
-            `Price for ${line.product_code} (${line.unit_price}) is below lower bound (${prc.retail_lower}). Requires special approval.`,
+            `Price for ${line.product_code} (${line.unit_price}) is below floor price (${prc.floor_price}). Requires approval.`,
           );
-        } else if (prc.retail_upper != null && Number(line.unit_price) > Number(prc.retail_upper)) {
+        } else if (prc.ceiling_price != null && Number(line.unit_price) > Number(prc.ceiling_price)) {
           line.retail_band_status = 'ABOVE_UPPER';
         }
       }

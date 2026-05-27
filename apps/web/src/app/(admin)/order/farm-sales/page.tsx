@@ -39,9 +39,6 @@ const EGG_GRADES = [
   { code: '3', name: '3号蛋' }, { code: '4', name: '4号蛋' }, { code: '5', name: '5号蛋' },
   { code: 'DIRTY', name: '脏蛋' }, { code: 'BROKEN', name: '破损蛋' },
 ];
-const DEFAULT_PRICES: Record<string, number> = {
-  '0': 1200, '1': 1100, '2': 1000, '3': 900, '4': 800, '5': 700, DIRTY: 300, BROKEN: 150,
-};
 
 const today = () => new Date().toISOString().slice(0, 10);
 const addDays = (d: string, n: number) => { const dt = new Date(d); dt.setDate(dt.getDate() + n); return dt.toISOString().slice(0, 10); };
@@ -70,6 +67,7 @@ export default function FarmSalesPage() {
   const [entries, setEntries]         = useState<Record<string, GradeEntry>>({});
   const [remark, setRemark]           = useState('');
 
+  const [dynamicPrices, setDynamicPrices] = useState<Record<string, number>>({});
   const [history, setHistory]   = useState<FarmSaleRecord[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading]   = useState(false);
@@ -80,6 +78,18 @@ export default function FarmSalesPage() {
   useEffect(() => {
     apiFetch<FarmCustomer[]>('/api/farm/sales/customers')
       .then(list => { setCustomers(list); if (list.length > 0) setSelCustomer(list[0]); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    apiFetch<any[]>('/api/v2/sales/pricing/current')
+      .then(list => {
+        const map: Record<string, number> = {};
+        for (const item of list) {
+          if (item.grade_code) map[item.grade_code] = Number(item.unit_price) || 0;
+        }
+        setDynamicPrices(map);
+      })
       .catch(() => {});
   }, []);
 
@@ -94,7 +104,7 @@ export default function FarmSalesPage() {
     if (tab === 'history') loadHistory(date);
   }, [tab, date, loadHistory]);
 
-  const getEntry = (grade: string): GradeEntry => entries[grade] ?? { qty: 0, unit_price: DEFAULT_PRICES[grade] ?? 0 };
+  const getEntry = (grade: string): GradeEntry => entries[grade] ?? { qty: 0, unit_price: dynamicPrices[grade] ?? 0 };
   const setEntry = (grade: string, patch: Partial<GradeEntry>) => {
     setEntries(p => ({ ...p, [grade]: { ...getEntry(grade), ...patch } }));
     setSuccessNo('');
