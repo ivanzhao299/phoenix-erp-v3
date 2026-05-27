@@ -7,6 +7,7 @@ import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { ApprovalEngineService } from '../../approval-engine/approval-engine.service';
 import { FinanceCreditNoteAdapter } from '../adapters/finance-credit-note.adapter';
+import { EggInventoryService } from './egg-inventory.service';      // Phase 7
 
 /**
  * ReturnOrdersService — Sales V2 Phase 6
@@ -41,6 +42,7 @@ export class ReturnOrdersService {
     private readonly cls: ClsService,
     private readonly approvalEngine: ApprovalEngineService,
     private readonly creditNoteAdapter: FinanceCreditNoteAdapter,
+    private readonly eggInventory: EggInventoryService,             // Phase 7
   ) {}
 
   // ── 内部工具 ─────────────────────────────────────────────────────────────────
@@ -442,72 +444,12 @@ export class ReturnOrdersService {
       throw new BadRequestException(`退货单当前状态 ${rec.status}，不在回库状态`);
     }
 
-    const items = await this.ds.query(
-      `SELECT * FROM sal_return_items WHERE return_order_id=$1`, [id],
+    // Phase 7 — 委托 EggInventoryService 处理 FIFO 回库（含等级降级、损耗流水）
+    await this.eggInventory.processReturnInventory(
+      id,
+      String(rec.return_no),
+      String(rec.company_code ?? 'ALL'),
     );
-
-    const operator = this.currentUser;
-
-    for (const item of items) {
-      const accepted = Number(item.accepted_qty);
-      const damaged  = Number(item.damaged_qty);
-      const batchNo  = `RET-${rec.return_no}-${item.product_code}`;
-
-      // ── 回库：accepted_qty → inv_batches + inv_ledger SALE_RETURN ──────────
-      if (accepted > 0) {
-        // 创建或累加 inv_batches 退货批次
-        await this.ds.query(
-          `INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, store_code)
-           VALUES ($1, $2, $3, $3, 'AVAILABLE', $4)
-           ON CONFLICT (batch_no)
-           DO UPDATE SET qty           = inv_batches.qty           + EXCLUDED.qty,
-                         qty_available = inv_batches.qty_available + EXCLUDED.qty_available,
-                         updated_at    = NOW()`,
-          [batchNo, item.product_code, Math.round(accepted), rec.company_code],
-        );
-
-        // 写 inv_ledger 流水
-        await this.ds.query(
-          `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-           VALUES ($1, 'SALE_RETURN', $2::int, $3, $4, $5, $6)`,
-          [
-            batchNo,
-            Math.round(accepted),
-            operator,
-            rec.company_code,
-            rec.return_no,
-            `退货回库 product=${item.product_code} accepted=${accepted} return=${rec.return_no}`,
-          ],
-        );
-
-        await this.ds.query(
-          `UPDATE sal_return_items SET restock_status='RESTOCKED' WHERE id=$1`,
-          [item.id],
-        );
-      }
-
-      // ── 损耗：damaged_qty → inv_ledger WRITE_OFF（不更新 inv_batches）───────
-      if (damaged > 0) {
-        const damageBatch = `DMG-${rec.return_no}-${item.product_code}`;
-        await this.ds.query(
-          `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-           VALUES ($1, 'WRITE_OFF', $2::int, $3, $4, $5, $6)`,
-          [
-            damageBatch,
-            Math.round(damaged),
-            operator,
-            rec.company_code,
-            rec.return_no,
-            `退货损耗 product=${item.product_code} damaged=${damaged} return=${rec.return_no}`,
-          ],
-        );
-
-        await this.ds.query(
-          `UPDATE sal_return_items SET restock_status='WRITTEN_OFF' WHERE id=$1`,
-          [item.id],
-        );
-      }
-    }
 
     await this.ds.query(
       `UPDATE sal_return_orders

@@ -10,6 +10,7 @@ import { PriceRuntimeService } from './price-runtime.service';
 import { CustomersService } from './customers.service';
 import { CustomerCreditService } from './customer-credit.service';
 import { FinanceArAdapter } from '../adapters/finance-ar.adapter';
+import { EggInventoryService } from './egg-inventory.service';      // Phase 7
 import {
   CreateSalesOrderDto, UpdateSalesOrderDto, QuerySalesOrderDto,
   SubmitSalesOrderDto, CancelSalesOrderDto, TransitionSalesOrderDto,
@@ -43,6 +44,7 @@ export class SalesOrdersService {
     private readonly customersService: CustomersService,
     private readonly customerCredit: CustomerCreditService,
     private readonly financeAr: FinanceArAdapter,
+    private readonly eggInventory: EggInventoryService,             // Phase 7
   ) {}
 
   // ── 当前用户 ──────────────────────────────────────────────────────────────
@@ -545,6 +547,19 @@ export class SalesOrdersService {
       [bizId],
     );
     this.logger.log(`[SalesOrder] 审批通过: orderId=${bizId} → APPROVED`);
+
+    // Phase 7 — FIFO 库存预留（非阻断：失败只记日志）
+    try {
+      const [order] = await mgr.query(
+        `SELECT order_no, company_code FROM sal_sales_orders WHERE id=$1`, [bizId],
+      );
+      if (order) {
+        await this.eggInventory.reserveInventory(bizId, order.order_no, order.company_code);
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`[SalesOrder] FIFO 预留失败（不阻断审批）orderId=${bizId}: ${msg}`);
+    }
   }
 
   // ── 7. 审批拒绝回调（WorkflowBizRegistry onRejected）────────────────────
@@ -565,10 +580,22 @@ export class SalesOrdersService {
       throw new BadRequestException(`状态 ${rec.status} 的订单不可取消（已发货后禁止取消）`);
     }
     if (rec.status === 'CANCELLED') return rec;
+
     const result = await this.ds.query(
       `UPDATE sal_sales_orders SET status='CANCELLED', updated_at=NOW() WHERE id=$1 RETURNING *`,
       [id],
     );
+
+    // Phase 7 — 释放 FIFO 预留库存（仅 APPROVED 后才有预留）
+    if (rec.status === 'APPROVED' || rec.status === 'ALLOCATED') {
+      try {
+        await this.eggInventory.releaseInventory(id, rec.order_no, rec.company_code);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        this.logger.warn(`[SalesOrder] FIFO 释放失败 orderId=${id}: ${msg}`);
+      }
+    }
+
     return result[0];
   }
 

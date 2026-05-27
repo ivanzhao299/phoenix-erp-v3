@@ -9,6 +9,7 @@ import { SalesOrdersController }       from './controllers/sales-orders.controll
 import { DeliveryOrdersController }    from './controllers/delivery-orders.controller';
 import { CustomerCreditController }    from './controllers/customer-credit.controller';  // Phase 5
 import { SalesReturnsController }      from './controllers/sales-returns.controller';    // Phase 6
+import { EggInventoryController }      from './controllers/egg-inventory.controller';    // Phase 7
 import { SalesV2Service }                    from './services/sales-v2.service';
 import { CustomersService }                  from './services/customers.service';
 import { ChannelsService }                   from './services/channels.service';
@@ -21,6 +22,8 @@ import { ReceiptsService }                   from './services/receipts.service';
 import { CustomerCreditService }             from './services/customer-credit.service';            // Phase 5
 import { CustomerCreditSchedulerService }    from './services/customer-credit-scheduler.service'; // Phase 5
 import { ReturnOrdersService }               from './services/return-orders.service';             // Phase 6
+import { EggInventoryService }               from './services/egg-inventory.service';              // Phase 7
+import { EggInventorySchedulerService }      from './services/egg-inventory-scheduler.service';   // Phase 7
 import { FinanceArAdapter }                  from './adapters/finance-ar.adapter';
 import { FinanceCreditNoteAdapter }          from './adapters/finance-credit-note.adapter';       // Phase 6
 import {
@@ -52,7 +55,7 @@ import {
  *   Phase 4 ✅ Delivery Runtime：sal_delivery_orders + 时间戳 + 签收
  *   Phase 5 ✅ Credit Control：CustomerCreditService + Scheduler + 信用联动
  *   Phase 6 ✅ Sales Return Runtime：退货状态机 + 质检 + 回库 + AR Credit Note
- *   Phase 7    Egg Inventory Enhancement
+ *   Phase 7 ✅ Egg Inventory Enhancement（FIFO + Scheduler + 批次 Dashboard）
  *   Phase 8    Sales Reports Runtime
  *   Phase 9    Mobile Sales + Delivery App
  *
@@ -94,6 +97,7 @@ import {
     DeliveryOrdersController,    // Phase 4
     CustomerCreditController,    // Phase 5
     SalesReturnsController,      // Phase 6
+    EggInventoryController,      // Phase 7
   ],
   providers: [
     SalesV2Service,
@@ -108,6 +112,8 @@ import {
     CustomerCreditService,                // Phase 5
     CustomerCreditSchedulerService,       // Phase 5
     ReturnOrdersService,                  // Phase 6
+    EggInventoryService,                  // Phase 7
+    EggInventorySchedulerService,         // Phase 7
     FinanceArAdapter,
     FinanceCreditNoteAdapter,             // Phase 6
   ],
@@ -124,6 +130,8 @@ import {
     CustomerCreditService,                // Phase 5
     CustomerCreditSchedulerService,       // Phase 5
     ReturnOrdersService,                  // Phase 6
+    EggInventoryService,                  // Phase 7
+    EggInventorySchedulerService,         // Phase 7
     FinanceArAdapter,
     FinanceCreditNoteAdapter,             // Phase 6
   ],

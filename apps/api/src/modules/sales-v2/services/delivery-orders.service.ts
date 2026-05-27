@@ -5,6 +5,7 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
+import { EggInventoryService } from './egg-inventory.service';      // Phase 7
 import {
   CreateDeliveryOrderDto, UpdateDeliveryOrderDto, QueryDeliveryOrderDto,
   LoadDeliveryDto, DepartDeliveryDto, ArriveDeliveryDto,
@@ -37,6 +38,7 @@ export class DeliveryOrdersService {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly cls: ClsService,
+    private readonly eggInventory: EggInventoryService,             // Phase 7
   ) {}
 
   // ── 当前用户 ─────────────────────────────────────────────────────────────
@@ -322,6 +324,28 @@ export class DeliveryOrdersService {
       [id],
     );
     this.logger.log(`配送单 ${rec.delivery_no} 装车完成`);
+
+    // Phase 7 — FIFO 正式扣减（LOADED 时物理出库）
+    const soItems = await this.ds.query(
+      `SELECT doi.sales_order_id, so.order_no, so.company_code
+       FROM sal_delivery_order_items doi
+       JOIN sal_sales_orders so ON so.id = doi.sales_order_id
+       WHERE doi.delivery_order_id=$1`, [id],
+    );
+    for (const item of soItems) {
+      try {
+        await this.eggInventory.confirmOutbound(
+          String(item.sales_order_id),
+          String(item.order_no),
+          String(item.company_code ?? 'ALL'),
+          String(rec.delivery_no),
+        );
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        this.logger.warn(`[Delivery] FIFO confirmOutbound 失败 soId=${item.sales_order_id}: ${msg}`);
+      }
+    }
+
     return this.findById(id);
   }
 

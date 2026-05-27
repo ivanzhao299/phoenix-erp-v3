@@ -33,7 +33,7 @@ const CREDIT_STATUS: Record<string, { label: string; color: string; bg: string }
 };
 
 // ── Tab 定义 ──────────────────────────────────────────────────────────────────
-type ReportTab = "overdue" | "high-risk" | "frozen" | "aging" | "returns";
+type ReportTab = "overdue" | "high-risk" | "frozen" | "aging" | "returns" | "inventory";
 
 /**
  * Sales V2 Phase 5/6 — 销售报表（客户欠款分析 + 退货分析）
@@ -57,6 +57,7 @@ export default function SalesV2ReportsPage() {
           { id: "frozen",    label: "🔒 冻结客户",   icon: <ShieldOff size={13} />     },
           { id: "aging",     label: "账龄分析",      icon: <BarChart2 size={13} />     },
           { id: "returns",   label: "退货分析",      icon: <RefreshCw size={13} />     },
+          { id: "inventory", label: "库存损耗",       icon: <BarChart2 size={13} />     },
         ] as { id: ReportTab; label: string; icon: React.ReactNode }[]).map(({ id, label, icon }) => (
           <button key={id} type="button" onClick={() => setTab(id)} style={{
             display: "flex", alignItems: "center", gap: 6, padding: "8px 16px",
@@ -73,6 +74,7 @@ export default function SalesV2ReportsPage() {
       {tab === "frozen"    && <FrozenReport />}
       {tab === "aging"     && <AgingReport />}
       {tab === "returns"   && <ReturnReport />}
+      {tab === "inventory" && <InventoryReport />}
     </div>
   );
 }
@@ -638,6 +640,119 @@ function ReturnReport() {
 
       <div style={{ fontSize: 11, color: "var(--text-secondary)", textAlign: "center" }}>
         退货数据来源：sal_return_orders + sal_return_items · 统计范围：近 30 天已完成退货
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 库存损耗报表 — Phase 7
+// ══════════════════════════════════════════════════════════════════════════════
+function InventoryReport() {
+  const [stats, setStats]   = useState<any>(null);
+  const [loss, setLoss]     = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true); setError("");
+    try {
+      const [s, l] = await Promise.all([
+        apiFetch("/api/v2/sales/inventory/stats"),
+        apiFetch("/api/v2/sales/inventory/loss-analysis"),
+      ]);
+      setStats(s); setLoss(l);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const fmt = (n: number | null | undefined) =>
+    n == null ? "—" : Number(n).toLocaleString("zh-CN", { maximumFractionDigits: 0 });
+
+  const changeTypeLabel: Record<string, string> = {
+    EXPIRE_WRITEOFF: "过期核销",
+    DAMAGE_WRITEOFF: "破损核销",
+    WRITE_OFF: "手动核销",
+  };
+
+  if (loading) return <div style={{ textAlign: "center", color: "#9ca3af", padding: 40 }}>加载中...</div>;
+  if (error)   return <div style={{ color: "#dc2626", padding: 16 }}>{error}</div>;
+  if (!stats && !loss) return null;
+
+  return (
+    <div>
+      {/* 汇总统计 */}
+      {stats && (
+        <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+          {[
+            { label: "活跃批次",       value: fmt(stats.activeBatches),   color: "#374151" },
+            { label: "总可用库存（枚）", value: fmt(stats.totalAvailable),  color: "#2563eb" },
+            { label: "临期批次（≤7天）", value: fmt(stats.expiringBatches), color: "#d97706" },
+            { label: "已过期批次",      value: fmt(stats.expiredBatches),  color: "#dc2626" },
+            { label: "今日过期损耗",    value: fmt(stats.todayExpireLoss), color: "#be123c" },
+            { label: "今日破损损耗",    value: fmt(stats.todayDamageLoss), color: "#b45309" },
+          ].map(({ label, value, color }) => (
+            <div key={label} style={{
+              background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "14px 18px",
+            }}>
+              <div style={{ fontSize: 11, color: "#6b7280" }}>{label}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color }}>{value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 损耗按类型 */}
+      {loss && (
+        <>
+          <h4 style={{ margin: "0 0 12px", color: "#374151" }}>损耗类型分布（近30天）</h4>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 24 }}>
+            <thead>
+              <tr style={{ background: "#faf5ff" }}>
+                {["损耗类型","批次数","合计损耗（枚）"].map(h => (
+                  <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, fontSize: 12, color: "#374151", borderBottom: "1px solid #e5e7eb" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(loss.byType ?? []).map((row: any, i: number) => (
+                <tr key={i} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                  <td style={{ padding: "8px 12px" }}>{changeTypeLabel[row.change_type] ?? row.change_type}</td>
+                  <td style={{ padding: "8px 12px" }}>{fmt(row.batch_count)}</td>
+                  <td style={{ padding: "8px 12px", fontWeight: 700, color: "#dc2626" }}>{fmt(row.total_loss)}</td>
+                </tr>
+              ))}
+              {!(loss.byType?.length) && (
+                <tr><td colSpan={3} style={{ textAlign: "center", color: "#9ca3af", padding: 24 }}>近30天无损耗记录</td></tr>
+              )}
+            </tbody>
+          </table>
+
+          {/* 损耗汇总 */}
+          {loss.summary && (
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+              {[
+                { label: "过期合计损耗", value: fmt(loss.summary.total_expire_loss), color: "#dc2626" },
+                { label: "破损合计损耗", value: fmt(loss.summary.total_damage_loss), color: "#d97706" },
+                { label: "合计总损耗",   value: fmt(loss.summary.total_loss),        color: "#7c3aed" },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 16px" }}>
+                  <div style={{ fontSize: 11, color: "#6b7280" }}>{label}（近30天，枚）</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color }}>{value}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      <div style={{ fontSize: 11, color: "var(--text-secondary)", textAlign: "center", marginTop: 16 }}>
+        库存数据来源：inv_batches + inv_ledger · 统计范围：近 30 天变动记录
       </div>
     </div>
   );

@@ -66,6 +66,15 @@ export class SalOrderItemEntity {
   @Column({ name: 'below_floor_price', type: 'boolean', default: false })
   belowFloorPrice: boolean;
 
+  // ── Phase 7 — FIFO 库存分配字段 ──────────────────────────────────────────
+  /** FIFO 分配的批次号（多批次逗号分隔，取首批） */
+  @Column({ name: 'allocated_batch_no', type: 'varchar', length: 128, nullable: true })
+  allocatedBatchNo: string | null;
+
+  /** 实际分配数量 */
+  @Column({ name: 'allocated_qty', type: 'numeric', precision: 18, scale: 2, default: 0 })
+  allocatedQty: number;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }
