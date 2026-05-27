@@ -63,7 +63,8 @@ $PSQL $DB -q -c "DELETE FROM inv_ledger WHERE batch_no='$BATCH' OR ref_no LIKE '
 $PSQL $DB -q -c "DELETE FROM inv_batches WHERE batch_no='$BATCH';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM ord_order_items WHERE order_no='$ORD';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM ord_orders WHERE order_no='$ORD' OR customer_code='$CUST';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM prc_price_items WHERE price_book_id='$PB';" >/dev/null
+$PSQL $DB -q -c "DELETE FROM sal_price_items WHERE price_book_id IN (SELECT id FROM sal_price_books WHERE price_book_no='$PB');" >/dev/null 2>&1 || true
+$PSQL $DB -q -c "DELETE FROM sal_price_books WHERE price_book_no='$PB';" >/dev/null 2>&1 || true
 $PSQL $DB -q -c "DELETE FROM ord_customers WHERE customer_code='$CUST';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM daily_close WHERE close_no LIKE 'DCL-%-$STORE';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM acc_ledger WHERE ref_no LIKE 'DCL-%-$STORE' OR ref_no='$ORD';" >/dev/null
@@ -75,8 +76,14 @@ $PSQL $DB -q -c "DELETE FROM pos_sales WHERE sale_no LIKE 'POS-E2E-%';" >/dev/nu
 # 客户：信用额度 5000，可用 5000
 $PSQL $DB -q -c "INSERT INTO ord_customers (customer_code, customer_name, credit_limit, credit_used, risk_flag, protection_status, status) VALUES ('$CUST','E2E测试客户',5000,0,'NORMAL','INIT','ACTIVE');" >/dev/null
 
-# 价格簿：retail_lower=10 retail_upper=50
-$PSQL $DB -q -c "INSERT INTO prc_price_items (item_id, price_book_id, sku_code, retail_lower, retail_upper) VALUES ('PI-E2E','$PB','$PROD',10.0,50.0);" >/dev/null
+# 价格簿：floor_price=10 ceiling_price=50（Phase 2 起读 sal_price_books/sal_price_items）
+$PSQL $DB -q -c "INSERT INTO sal_price_books (price_book_no, price_book_name, company_code, status) VALUES ('$PB','E2E Test PB','ALL','ACTIVE') ON CONFLICT (price_book_no) DO UPDATE SET status='ACTIVE';" >/dev/null
+PB_ID=$($PSQL $DB -tA -c "SELECT id FROM sal_price_books WHERE price_book_no='$PB';")
+if [ -z "$PB_ID" ]; then
+  red "ERROR: sal_price_books SELECT 失败，PB_ID 为空（表不存在或 INSERT 失败）"
+  exit 1
+fi
+$PSQL $DB -q -c "INSERT INTO sal_price_items (price_book_id, product_code, unit_price, floor_price, ceiling_price) VALUES ($PB_ID,'$PROD',30,10.0,50.0);" >/dev/null
 
 # 库存：100 件可用
 $PSQL $DB -q -c "INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code) VALUES ('$BATCH','$PROD',100,100,'AVAILABLE','WMS-VTE-MAIN','ALL');" >/dev/null
@@ -92,7 +99,7 @@ cyan "▶ 2) SalesEngine 价格保护：unit_price=5 < retail_lower=10 → 应�
 
 R_LOW=$(curl -s -o /tmp/e2e_pblow.json -w '%{http_code}' -X POST "$API/api/orders/submit" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"customer_code\":\"$CUST\",\"price_book_id\":\"$PB\",\"lines\":[{\"product_code\":\"$PROD\",\"qty\":1,\"unit_price\":5.0}]}")
+  -d "{\"customer_code\":\"$CUST\",\"price_book_id\":$PB_ID,\"lines\":[{\"product_code\":\"$PROD\",\"qty\":1,\"unit_price\":5.0}]}")
 # V3 SalesEngine 低于 retail_lower → status=DRAFT need_price_approval=true
 assert_ok "2.1 低价订单仍 200 (转 DRAFT)" "$R_LOW"
 LOW_NEED_APPR=$(cat /tmp/e2e_pblow.json | grep -oE '"need_price_approval":true' | head -1)
@@ -111,7 +118,7 @@ cyan "▶ 3) 正常下单：50 件 × 30 元 = 1500，信用占用 1500"
 
 R_SUB=$(curl -s -o /tmp/e2e_sub.json -w '%{http_code}' -X POST "$API/api/orders/submit" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"customer_code\":\"$CUST\",\"price_book_id\":\"$PB\",\"total_amount\":1500,\"lines\":[{\"product_code\":\"$PROD\",\"qty\":50,\"unit_price\":30.0}]}")
+  -d "{\"customer_code\":\"$CUST\",\"price_book_id\":$PB_ID,\"total_amount\":1500,\"lines\":[{\"product_code\":\"$PROD\",\"qty\":50,\"unit_price\":30.0}]}")
 assert_ok "3.1 submitOrder 200" "$R_SUB"
 # 捕获服务端生成的实际 order_no（V3 自动生成 ODR-YYYYMMDD-XXXXXX）
 ORD=$(cat /tmp/e2e_sub.json | grep -oE '"order_no":"[^"]*"' | head -1 | cut -d'"' -f4)
@@ -252,7 +259,8 @@ $PSQL $DB -q -c "DELETE FROM inv_ledger WHERE batch_no IN ('$BATCH','$BATCH-POS'
 $PSQL $DB -q -c "DELETE FROM inv_batches WHERE batch_no IN ('$BATCH','$BATCH-POS');" >/dev/null
 $PSQL $DB -q -c "DELETE FROM ord_order_items WHERE order_no='$ORD';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM ord_orders WHERE order_no='$ORD';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM prc_price_items WHERE price_book_id='$PB';" >/dev/null
+$PSQL $DB -q -c "DELETE FROM sal_price_items WHERE price_book_id IN (SELECT id FROM sal_price_books WHERE price_book_no='$PB');" >/dev/null 2>&1 || true
+$PSQL $DB -q -c "DELETE FROM sal_price_books WHERE price_book_no='$PB';" >/dev/null 2>&1 || true
 $PSQL $DB -q -c "DELETE FROM ord_customers WHERE customer_code='$CUST';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM daily_close WHERE close_no LIKE 'DCL-%-$STORE';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM acc_ledger WHERE ref_no LIKE 'DCL-%-$STORE' OR ref_no='$ORD';" >/dev/null
