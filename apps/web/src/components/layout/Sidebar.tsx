@@ -150,7 +150,8 @@ const MENU: MenuItem[] = [
   ]},
   { id: "order", Icon: ShoppingCart, label: "订货系统", perm: "MENU_ORDER_MGR", children: [
     { id: "ord-center",  path: "/order",               Icon: LayoutDashboard, label: "订单中心",   perm: "MENU_ORDER_MGR" },
-    { id: "ord-cust",    path: "/order/customers",     Icon: Users,           label: "客户档案",   perm: "MENU_ORDER_MGR" },
+    // [LEGACY] Sales V2 Phase 1 — 客户档案已迁移至 /sales2/customers (sal_customers)
+    // { id: "ord-cust", path: "/order/customers", Icon: Users, label: "客户档案", perm: "MENU_ORDER_MGR" },
     { id: "ord-price",   path: "/order/prices",        Icon: FileText,        label: "合同价格",   perm: "MENU_ORDER_MGR" },
     { id: "ord-approv",  path: "/order/approval",      Icon: ShieldCheck,     label: "订单审批",   perm: "MENU_ORDER_MGR" },
     { id: "ord-pick",    path: "/order/picking",       Icon: ClipboardCheck,  label: "拣货任务",   perm: "MENU_ORDER_WH" },
@@ -183,7 +184,8 @@ const MENU: MenuItem[] = [
   ]},
   { id: "b2b", Icon: BarChart3, label: "B2B 分销", perm: "MENU_B2B_SALE", children: [
     { id: "b2b-ov",     path: "/b2b",                     Icon: LayoutDashboard, label: "B2B 总览",   perm: "MENU_B2B_SALE" },
-    { id: "b2b-cust",   path: "/b2b/customers",           Icon: Users,           label: "B2B 客户",   perm: "MENU_B2B_SALE" },
+    // [LEGACY] Sales V2 Phase 1 — B2B客户已迁移至 /sales2/customers (sal_customers)
+    // { id: "b2b-cust", path: "/b2b/customers", Icon: Users, label: "B2B 客户", perm: "MENU_B2B_SALE" },
     { id: "b2b-orders", path: "/b2b/orders",              Icon: ShoppingCart,    label: "B2B 订单",   perm: "MENU_B2B_SALE" },
     { id: "b2b-grade",  path: "/b2b/distributor-grading", Icon: Award,           label: "经销商分级", perm: "MENU_B2B_SALE" },
   ]},

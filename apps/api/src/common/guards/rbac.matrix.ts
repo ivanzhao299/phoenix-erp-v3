@@ -458,6 +458,40 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_FACTORY_ACCT:   ['V'],
   },
 
+  // ── Sales V2（重构版，Phase 1+）─────────────────────────────────────────
+  /** Sales V2 主模块入口 */
+  MENU_SALES2: {
+    ROLE_ADMIN:         ['V','C','E','D','A','X'],
+    ROLE_CEO:           ['V','X'],
+    ROLE_GROUP_FINANCE: ['V','X'],
+    ROLE_SALES_MGR:     ['V','C','E','D','A','X'],
+    ROLE_SALES_REP:     ['V','C','E'],
+    ROLE_STORE_MGR:     ['V'],
+    ROLE_REGION_MGR:    ['V','X'],
+    ROLE_AUDITOR:       ['V','X'],
+  },
+  /** Sales V2 客户主档（Customer Runtime） */
+  MENU_SALES2_CUSTOMER: {
+    ROLE_ADMIN:         ['V','C','E','D','A','X'],
+    ROLE_CEO:           ['V','X'],
+    ROLE_GROUP_FINANCE: ['V','X'],
+    ROLE_SALES_MGR:     ['V','C','E','D','A','X'],
+    ROLE_SALES_REP:     ['V','C','E'],
+    ROLE_STORE_MGR:     ['V'],
+    ROLE_REGION_MGR:    ['V','X'],
+    ROLE_AUDITOR:       ['V','X'],
+  },
+  /** Sales V2 销售渠道（Channel Runtime） */
+  MENU_SALES2_CHANNEL: {
+    ROLE_ADMIN:         ['V','C','E','D','A','X'],
+    ROLE_CEO:           ['V','X'],
+    ROLE_GROUP_FINANCE: ['V','X'],
+    ROLE_SALES_MGR:     ['V','C','E','D','A','X'],
+    ROLE_SALES_REP:     ['V'],
+    ROLE_REGION_MGR:    ['V','X'],
+    ROLE_AUDITOR:       ['V','X'],
+  },
+
   // ── 审批工作流 ──────────────────────────────────────────────────────────
   MENU_WORKFLOW: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
