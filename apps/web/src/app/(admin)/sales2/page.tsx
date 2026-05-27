@@ -4,7 +4,7 @@ import Link from "next/link";
 import {
   Users, Tag, ShoppingCart, Truck, BarChart2,
   CheckCircle, Clock, AlertTriangle, ArrowRight,
-  Activity, Database, Zap, Shield,
+  Activity, Database, Shield, FileText, CreditCard,
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 
@@ -17,19 +17,28 @@ interface HealthData {
   timestamp: string;
 }
 
+interface OrderStats {
+  todayOrders:     number;
+  pendingApproval: number;
+  receivedOrders:  number;
+  arPending:       number;
+  arGenerated:     number;
+  lowPriceOrders:  number;
+  overCreditOrders: number;
+}
+
 function getToken() {
   if (typeof window === "undefined") return "";
   return sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "";
 }
 
 /**
- * Sales V2 Phase 0 — 总览占位页
- *
- * 显示：Health API 返回数据 + 模块路线图 + 子模块入口卡片
+ * Sales V2 总览页 — Phase 3 含 Dashboard Stats
  */
 export default function SalesV2Page() {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<OrderStats | null>(null);
 
   useEffect(() => {
     fetch("/api/v2/sales/health", {
@@ -39,6 +48,13 @@ export default function SalesV2Page() {
       .then((d) => setHealth(d))
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    fetch("/api/v2/sales/orders/stats", {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+      .then((r) => r.json())
+      .then((d) => setStats(d))
+      .catch(() => {});
   }, []);
 
   const cards = [
@@ -66,7 +82,7 @@ export default function SalesV2Page() {
       title: "销售订单",
       sub: "sal_sales_orders",
       phase: "Phase 3",
-      status: "pending",
+      status: "done",
       desc: "标准状态机 + AR 联动 + Workflow 审批",
     },
     {
@@ -93,8 +109,32 @@ export default function SalesV2Page() {
     <div style={{ padding: "24px 32px", maxWidth: 1200 }}>
       <PageHeader
         title="Sales V2"
-        subtitle="Phase 2 已完成 · 客户主档 + 渠道 + 统一价格引擎 Runtime"
+        subtitle="Phase 3 已完成 · 客户主档 + 渠道 + 价格引擎 + 销售订单 Runtime"
       />
+
+      {/* Dashboard Stats — Phase 3 */}
+      {stats && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12, marginBottom: 28 }}>
+          {[
+            { label: "今日订单", value: stats.todayOrders,      icon: ShoppingCart, color: "#3b82f6" },
+            { label: "待审批",   value: stats.pendingApproval,  icon: Clock,        color: "#f59e0b" },
+            { label: "已签收",   value: stats.receivedOrders,   icon: CheckCircle,  color: "#22c55e" },
+            { label: "待生成AR", value: stats.arPending,        icon: FileText,     color: "#ef4444" },
+            { label: "已生成AR", value: stats.arGenerated,      icon: FileText,     color: "#22c55e" },
+            { label: "低价审批", value: stats.lowPriceOrders,   icon: AlertTriangle,color: "#ef4444" },
+            { label: "超信用",   value: stats.overCreditOrders, icon: CreditCard,   color: "#f59e0b" },
+          ].map(({ label, value, icon: Icon, color }) => (
+            <div key={label} style={{
+              padding: "14px 16px", borderRadius: 10, textAlign: "center",
+              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+            }}>
+              <Icon size={18} style={{ color, marginBottom: 6 }} />
+              <div style={{ fontSize: 22, fontWeight: 800, color }}>{value}</div>
+              <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Health Card */}
       <div style={{
@@ -144,7 +184,7 @@ export default function SalesV2Page() {
             "Phase 0 ✅ Clean Baseline + Legacy Freeze",
             "Phase 1 ✅ Customer + Channel Runtime",
             "Phase 2 ✅ Price Runtime",
-            "Phase 3    Sales Order Runtime",
+            "Phase 3 ✅ Sales Order Runtime",
             "Phase 4    Delivery Runtime",
             "Phase 5    AR Integration + Credit Control",
             "Phase 6    Sales Return Runtime",

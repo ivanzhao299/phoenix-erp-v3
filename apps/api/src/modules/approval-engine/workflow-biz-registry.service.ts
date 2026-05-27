@@ -163,6 +163,17 @@ export class WorkflowBizRegistryService implements OnModuleInit {
       cancelledStatus: 'CANCELLED',
     });
 
+    // ── Sales V2 Phase 3 — Sales Order Runtime ──────────────────────────
+    // onApproved / onRejected 回调由 SalesOrdersService 在运行时注册
+
+    this.register('SALES_ORDER', {
+      moduleCode:      'MENU_SALES2_ORDER',
+      tableName:       'sal_sales_orders',
+      approvedStatus:  'APPROVED',
+      rejectedStatus:  'REJECTED',
+      cancelledStatus: 'CANCELLED',
+    });
+
     this.logger.log(
       `WorkflowBizRegistry initialized with ${this.registry.size} bizTypes: ${[...this.registry.keys()].join(', ')}`,
     );

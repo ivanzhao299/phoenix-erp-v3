@@ -215,6 +215,47 @@ export class CustomersService {
     return result[0];
   }
 
+  /**
+   * 按 customer_code + company_code 查信用快照（供 SalesOrdersService 内部调用）
+   * 不走 assertOwnership，由调用方保证已做 DataScope 校验
+   */
+  async getCreditSnapshotByCode(customerCode: string, companyCode: string) {
+    const rows = await this.ds.query(
+      `SELECT * FROM sal_customers WHERE customer_code = $1 AND company_code = $2 LIMIT 1`,
+      [customerCode, companyCode],
+    );
+    if (!rows.length) return null;
+    const rec = rows[0];
+
+    const arRows = await this.ds.query(
+      `SELECT
+         COUNT(*) FILTER (WHERE status IN ('OPEN','PARTIALLY_RECEIVED','OVERDUE')) AS open_invoices,
+         COALESCE(SUM(amount_original) FILTER (WHERE status IN ('OPEN','PARTIALLY_RECEIVED','OVERDUE')), 0) AS outstanding_amount,
+         COALESCE(SUM(amount_original - received_amount_original) FILTER (WHERE status = 'OVERDUE'), 0) AS overdue_amount
+       FROM fin_ar_invoices
+       WHERE customer_code = $1`,
+      [rec.customer_no ?? customerCode],
+    );
+    const ar = arRows[0];
+
+    return {
+      customerId:       rec.id,
+      customerCode:     rec.customer_code,
+      customerName:     rec.customer_name,
+      companyCode:      rec.company_code,
+      creditLimit:      Number(rec.credit_limit ?? 0),
+      creditUsed:       Number(rec.credit_used  ?? 0),
+      creditAvailable:  Number(rec.credit_limit ?? 0) - Number(rec.credit_used ?? 0),
+      paymentTerms:     rec.payment_terms,
+      riskLevel:        rec.risk_level,
+      status:           rec.status,
+      openInvoices:     Number(ar.open_invoices),
+      outstandingAmount: Number(ar.outstanding_amount),
+      overdueAmount:    Number(ar.overdue_amount),
+      snapshotAt:       new Date().toISOString(),
+    };
+  }
+
   async getCreditSnapshot(id: string) {
     const rec = await this.assertOwnership(id);
 

@@ -6,18 +6,16 @@ import {
 /**
  * 销售订单  sal_sales_orders
  *
- * Sales V2 Phase 0 — Clean Baseline（基础字段）
- * Phase 3 实装完整业务逻辑（状态机、AR 联动、Workflow 审批）
+ * Sales V2 Phase 3 — Sales Order Runtime（完整字段）
  *
- * 状态机（完整，Phase 3 激活）：
+ * 状态机：
  *   DRAFT → PENDING_APPROVAL → APPROVED
- *         → ALLOCATED → PICKED → LOADED
- *         → SHIPPED / PARTIAL_SHIPPED
+ *         → ALLOCATED → PICKED → LOADED → SHIPPED
  *         → DELIVERED → RECEIVED → RECONCILED
- *         → REJECTED / CANCELLED（终态）
+ *         → REJECTED | CANCELLED（终态）
  *
- * ar_invoice_id: 订单签收后由 Sales V2 Phase 3 填入 fin_ar_invoices.id
- * wf_instance_id: Workflow 2.0 审批（Phase 3 接入）
+ * ar_invoice_id: RECEIVED 时由 FinanceArAdapter 填入 fin_ar_invoices.id
+ * wf_instance_id: Workflow 2.0 审批（低价/超信用时触发）
  */
 @Entity('sal_sales_orders')
 export class SalSalesOrderEntity {
@@ -45,6 +43,15 @@ export class SalSalesOrderEntity {
   @Column({ name: 'channel_code', type: 'varchar', length: 64, nullable: true })
   channelCode: string | null;
 
+  @Column({ name: 'channel_type', type: 'varchar', length: 32, nullable: true })
+  channelType: string | null;
+
+  @Column({ name: 'price_book_id', type: 'bigint', nullable: true })
+  priceBookId: string | null;
+
+  @Column({ name: 'price_book_no', type: 'varchar', length: 64, nullable: true })
+  priceBookNo: string | null;
+
   @Column({ name: 'currency_code', type: 'varchar', length: 8, default: 'LAK' })
   currencyCode: string;
 
@@ -66,12 +73,27 @@ export class SalSalesOrderEntity {
   @Column({ name: 'need_credit_approval', type: 'boolean', default: false })
   needCreditApproval: boolean;
 
+  @Column({ name: 'over_credit', type: 'boolean', default: false })
+  overCredit: boolean;
+
+  @Column({ name: 'below_floor_price', type: 'boolean', default: false })
+  belowFloorPrice: boolean;
+
   @Column({ name: 'wf_instance_id', type: 'bigint', nullable: true })
   wfInstanceId: string | null;
 
-  /** Finance V2 fin_ar_invoices.id — 订单签收后由 Phase 3 填入 */
+  /** Finance V2 fin_ar_invoices.id — RECEIVED 时由 FinanceArAdapter 写入 */
   @Column({ name: 'ar_invoice_id', type: 'bigint', nullable: true })
   arInvoiceId: string | null;
+
+  @Column({ name: 'expected_delivery_date', type: 'date', nullable: true })
+  expectedDeliveryDate: string | null;
+
+  @Column({ name: 'delivered_at', type: 'timestamptz', nullable: true })
+  deliveredAt: Date | null;
+
+  @Column({ name: 'received_at', type: 'timestamptz', nullable: true })
+  receivedAt: Date | null;
 
   @Column({ name: 'delivery_address', type: 'text', nullable: true })
   deliveryAddress: string | null;

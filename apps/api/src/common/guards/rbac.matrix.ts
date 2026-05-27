@@ -501,6 +501,18 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_REGION_MGR:    ['V','X'],
     ROLE_AUDITOR:       ['V','X'],
   },
+  /** Sales V2 销售订单（Sales Order Runtime） */
+  MENU_SALES2_ORDER: {
+    ROLE_ADMIN:         ['V','C','E','D','A','X'],
+    ROLE_CEO:           ['V','A','X'],
+    ROLE_GROUP_FINANCE: ['V','X'],
+    ROLE_FIN_CFO:       ['V','A','X'],
+    ROLE_SALES_MGR:     ['V','C','E','D','A','X'],
+    ROLE_SALES_REP:     ['V','C','E'],
+    ROLE_REGION_MGR:    ['V','A','X'],
+    ROLE_LOG_MGR:       ['V','E'],
+    ROLE_AUDITOR:       ['V','X'],
+  },
 
   // ── 审批工作流 ──────────────────────────────────────────────────────────
   MENU_WORKFLOW: {
