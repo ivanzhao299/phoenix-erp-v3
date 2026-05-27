@@ -9,7 +9,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_BREEDING: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
     ROLE_FARM_MGR:    ['V','C','E','D','A','X'],
-    ROLE_BREEDER:     ['V','C','E'],
+    ROLE_FARMER:      ['V','C','E'],
     ROLE_VET:         ['V','C','E'],
     ROLE_CEO:         ['V','X'],
     ROLE_REGION_MGR:  ['V','X'],
@@ -17,7 +17,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_FARM_DATA: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
     ROLE_FARM_MGR:    ['V','C','E','D','A','X'],
-    ROLE_BREEDER:     ['V','C','E'],
+    ROLE_FARMER:      ['V','C','E'],
     ROLE_VET:         ['V'],
     ROLE_CEO:         ['V','X'],
     ROLE_REGION_MGR:  ['V','X'],
@@ -25,7 +25,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_IOT: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
     ROLE_FARM_MGR:    ['V','E','X'],
-    ROLE_BREEDER:     ['V'],
+    ROLE_FARMER:     ['V'],
     ROLE_CEO:         ['V'],
     ROLE_REGION_MGR:  ['V'],
     ROLE_SYSOPS:      ['V','C','E','D'],
@@ -50,7 +50,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
     ROLE_WMS_MGR:     ['V','C','E','D'],
     ROLE_FARM_MGR:    ['V','C'],
-    ROLE_BREEDER:     ['V','C'],
+    ROLE_FARMER:     ['V','C'],
     ROLE_CASHIER:     ['V'],
   },
 
@@ -198,7 +198,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_PACKAGING: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
     ROLE_FARM_MGR:    ['V','C','E','X'],
-    ROLE_BREEDER:     ['V','C','E'],
+    ROLE_FARMER:     ['V','C','E'],
     ROLE_WMS_MGR:     ['V','C'],
   },
 
@@ -237,7 +237,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   // ── 物流 ──────────────────────────────────────────────────────────────────
   MENU_LOGISTICS: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
-    ROLE_LOGISTICS_MGR:['V','C','E','D','X'],
+    ROLE_LOG_MGR:['V','C','E','D','X'],
     ROLE_DRIVER:      ['V','C'],
     ROLE_REGION_MGR:  ['V','X'],
   },
@@ -285,8 +285,8 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_FIN2: {
     ROLE_ADMIN:               ['V','C','E','D','A','X'],
     ROLE_FIN_CFO:             ['V','C','E','A','X'],
-    ROLE_GROUP_FINANCE:       ['V','C','E','A','X'],
-    ROLE_FACTORY_ACCOUNTANT:  ['V','C','E','X'],
+    ROLE_HQ_FINANCE:       ['V','C','E','A','X'],
+    ROLE_FACTORY_ACCT:  ['V','C','E','X'],
     ROLE_CEO:                 ['V','A','X'],
     ROLE_AUDITOR:             ['V','X'],
   },
@@ -294,8 +294,8 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_FIN2_AP: {
     ROLE_ADMIN:               ['V','C','E','D','A','X'],
     ROLE_FIN_CFO:             ['V','C','E','A','X'],
-    ROLE_GROUP_FINANCE:       ['V','C','E','A','X'],
-    ROLE_FACTORY_ACCOUNTANT:  ['V','C','E','X'],
+    ROLE_HQ_FINANCE:       ['V','C','E','A','X'],
+    ROLE_FACTORY_ACCT:  ['V','C','E','X'],
     ROLE_CEO:                 ['V','A','X'],
     ROLE_AUDITOR:             ['V','X'],
     ROLE_PRC_BUYER:           ['V'],             // 采购员可看自己的 AP 状态
@@ -304,8 +304,8 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_FIN2_AR: {
     ROLE_ADMIN:               ['V','C','E','D','A','X'],
     ROLE_FIN_CFO:             ['V','C','E','A','X'],
-    ROLE_GROUP_FINANCE:       ['V','C','E','A','X'],
-    ROLE_FACTORY_ACCOUNTANT:  ['V','C','E','X'],
+    ROLE_HQ_FINANCE:       ['V','C','E','A','X'],
+    ROLE_FACTORY_ACCT:  ['V','C','E','X'],
     ROLE_CEO:                 ['V','A','X'],
     ROLE_AUDITOR:             ['V','X'],
   },
@@ -313,8 +313,8 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_FIN2_CASH: {
     ROLE_ADMIN:               ['V','C','E','D','A','X'],
     ROLE_FIN_CFO:             ['V','C','E','A','X'],
-    ROLE_GROUP_FINANCE:       ['V','C','E','X'],
-    ROLE_FACTORY_ACCOUNTANT:  ['V','C','X'],
+    ROLE_HQ_FINANCE:       ['V','C','E','X'],
+    ROLE_FACTORY_ACCT:  ['V','C','X'],
     ROLE_CEO:                 ['V','X'],
     ROLE_AUDITOR:             ['V','X'],
   },
@@ -322,8 +322,8 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_FIN2_EXPENSE: {
     ROLE_ADMIN:               ['V','C','E','D','A','X'],
     ROLE_FIN_CFO:             ['V','C','E','A','X'],
-    ROLE_GROUP_FINANCE:       ['V','C','E','A','X'],
-    ROLE_FACTORY_ACCOUNTANT:  ['V','C','E','X'],
+    ROLE_HQ_FINANCE:       ['V','C','E','A','X'],
+    ROLE_FACTORY_ACCT:  ['V','C','E','X'],
     ROLE_CEO:                 ['V','A','X'],
     ROLE_FARM_MGR:            ['V','C'],          // 申请费用
     ROLE_STORE_MGR:           ['V','C'],          // 申请费用
@@ -333,7 +333,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_FIN2_BUDGET: {
     ROLE_ADMIN:               ['V','C','E','D','A','X'],
     ROLE_FIN_CFO:             ['V','C','E','A','X'],
-    ROLE_GROUP_FINANCE:       ['V','C','E','A','X'],
+    ROLE_HQ_FINANCE:       ['V','C','E','A','X'],
     ROLE_CEO:                 ['V','A','X'],
     ROLE_AUDITOR:             ['V','X'],
   },
@@ -341,7 +341,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_FIN2_SHAREHOLDER: {
     ROLE_ADMIN:               ['V','C','E','D','A','X'],
     ROLE_FIN_CFO:             ['V','C','E','A','X'],
-    ROLE_GROUP_FINANCE:       ['V','C','E','A','X'],
+    ROLE_HQ_FINANCE:       ['V','C','E','A','X'],
     ROLE_CEO:                 ['V','A','X'],
     ROLE_SHAREHOLDER_VIEW:    ['V'],              // 股东仅查看
     ROLE_AUDITOR:             ['V','X'],
@@ -350,7 +350,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_FIN2_REPORT: {
     ROLE_ADMIN:               ['V','X'],
     ROLE_FIN_CFO:             ['V','X'],
-    ROLE_GROUP_FINANCE:       ['V','X'],
+    ROLE_HQ_FINANCE:       ['V','X'],
     ROLE_CEO:                 ['V','X'],
     ROLE_AUDITOR:             ['V','X'],
   },
@@ -412,7 +412,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   // 物流主数据
   MENU_LOGISTICS_MASTER: {
     ROLE_ADMIN:           ['V','C','E','D','A','X'],
-    ROLE_LOGISTICS_MGR:   ['V','C','E','D'],
+    ROLE_LOG_MGR:   ['V','C','E','D'],
     ROLE_REGION_MGR:      ['V'],
   },
 
@@ -463,7 +463,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_SALES2: {
     ROLE_ADMIN:         ['V','C','E','D','A','X'],
     ROLE_CEO:           ['V','X'],
-    ROLE_GROUP_FINANCE: ['V','X'],
+    ROLE_HQ_FINANCE: ['V','X'],
     ROLE_SALES_MGR:     ['V','C','E','D','A','X'],
     ROLE_SALES_REP:     ['V','C','E'],
     ROLE_STORE_MGR:     ['V'],
@@ -474,7 +474,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_SALES2_CUSTOMER: {
     ROLE_ADMIN:         ['V','C','E','D','A','X'],
     ROLE_CEO:           ['V','X'],
-    ROLE_GROUP_FINANCE: ['V','X'],
+    ROLE_HQ_FINANCE: ['V','X'],
     ROLE_SALES_MGR:     ['V','C','E','D','A','X'],
     ROLE_SALES_REP:     ['V','C','E'],
     ROLE_STORE_MGR:     ['V'],
@@ -485,7 +485,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_SALES2_PRICE: {
     ROLE_ADMIN:         ['V','C','E','D','A','X'],
     ROLE_CEO:           ['V','A','X'],
-    ROLE_GROUP_FINANCE: ['V','X'],
+    ROLE_HQ_FINANCE: ['V','X'],
     ROLE_SALES_MGR:     ['V','C','E','D','A','X'],
     ROLE_SALES_REP:     ['V'],
     ROLE_REGION_MGR:    ['V','X'],
@@ -495,7 +495,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_SALES2_CHANNEL: {
     ROLE_ADMIN:         ['V','C','E','D','A','X'],
     ROLE_CEO:           ['V','X'],
-    ROLE_GROUP_FINANCE: ['V','X'],
+    ROLE_HQ_FINANCE: ['V','X'],
     ROLE_SALES_MGR:     ['V','C','E','D','A','X'],
     ROLE_SALES_REP:     ['V'],
     ROLE_REGION_MGR:    ['V','X'],
@@ -505,7 +505,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_SALES2_ORDER: {
     ROLE_ADMIN:         ['V','C','E','D','A','X'],
     ROLE_CEO:           ['V','A','X'],
-    ROLE_GROUP_FINANCE: ['V','X'],
+    ROLE_HQ_FINANCE: ['V','X'],
     ROLE_FIN_CFO:       ['V','A','X'],
     ROLE_SALES_MGR:     ['V','C','E','D','A','X'],
     ROLE_SALES_REP:     ['V','C','E'],
@@ -525,6 +525,10 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_FARM_MGR:    ['V'],
     ROLE_STORE_MGR:   ['V'],
     ROLE_PROJECT_MGR: ['V','A'],
+    ROLE_SALES_MGR:   ['V','A'],    // 销售主管需审批工作流
+    ROLE_SALES_REP:   ['V'],        // 业务员查看自己的审批状态
+    ROLE_AUDITOR:     ['V','X'],    // 审计专员查看所有流程历史
+    ROLE_HQ_FINANCE:  ['V','A','X'], // 总部财务审批/导出
   },
 };
 
