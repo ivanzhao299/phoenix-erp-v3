@@ -215,8 +215,16 @@ if printf '%s' "$BLACK_MSG" | grep -q -iE "blacklist|黑名单"; then green "  �
 $PSQL $DB -q -c "DELETE FROM sal_price_items WHERE price_book_id IN (SELECT id FROM sal_price_books WHERE price_book_no='PB-REGR-1');" 2>/dev/null
 $PSQL $DB -q -c "DELETE FROM sal_price_books WHERE price_book_no='PB-REGR-1';" 2>/dev/null
 # 建价盘（ACTIVE）+ 1 个商品 REGR-EGG: floor_price=80 ceiling_price=120
-PB_ID=$($PSQL $DB -tA -c "INSERT INTO sal_price_books (price_book_no, price_book_name, company_code, status) VALUES ('PB-REGR-1','Regression Test PB','ALL','ACTIVE') RETURNING id;")
-$PSQL $DB -q -c "INSERT INTO sal_price_items (price_book_id, product_code, unit_price, floor_price, ceiling_price) VALUES ($PB_ID,'REGR-EGG',100,80,120);" >/dev/null
+# 用 INSERT ... ON CONFLICT + SELECT 分两步获取 id（避免 RETURNING 与某些 psql 版本的兼容问题）
+$PSQL $DB -q -c "INSERT INTO sal_price_books (price_book_no, price_book_name, company_code, status) VALUES ('PB-REGR-1','Regression Test PB','ALL','ACTIVE') ON CONFLICT (price_book_no) DO UPDATE SET status='ACTIVE';" 2>/dev/null
+PB_ID=$($PSQL $DB -tA -c "SELECT id FROM sal_price_books WHERE price_book_no='PB-REGR-1';")
+if [ -z "$PB_ID" ]; then
+  red "ERROR: sal_price_books SELECT 失败，PB_ID 为空 (表不存在或 INSERT 失败)"
+  FAIL=$((FAIL+3))
+else
+  $PSQL $DB -q -c "DELETE FROM sal_price_items WHERE price_book_id=$PB_ID;" 2>/dev/null
+  $PSQL $DB -q -c "INSERT INTO sal_price_items (price_book_id, product_code, unit_price, floor_price, ceiling_price) VALUES ($PB_ID,'REGR-EGG',100,80,120);" >/dev/null
+fi
 
 # 低于 floor_price → 转特价审批 (不阻断)
 LOWER_PAYLOAD=$(cat <<EOF
