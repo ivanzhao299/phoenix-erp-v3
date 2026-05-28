@@ -101,6 +101,11 @@ CREATE TABLE IF NOT EXISTS wf_approval_instances (
   form_version_id    BIGINT
 );
 
+-- Schema migration: 若表已存在（旧版本），补齐在线表单关联列（Phase I 新增）
+ALTER TABLE wf_approval_instances ADD COLUMN IF NOT EXISTS form_submission_id BIGINT;
+ALTER TABLE wf_approval_instances ADD COLUMN IF NOT EXISTS form_code          VARCHAR(80);
+ALTER TABLE wf_approval_instances ADD COLUMN IF NOT EXISTS form_version_id    BIGINT;
+
 CREATE INDEX IF NOT EXISTS idx_wf_inst_biz             ON wf_approval_instances (biz_type, biz_id);
 CREATE INDEX IF NOT EXISTS idx_wf_inst_status           ON wf_approval_instances (status);
 CREATE INDEX IF NOT EXISTS idx_wf_inst_module           ON wf_approval_instances (module_code);
@@ -137,6 +142,15 @@ CREATE TABLE IF NOT EXISTS wf_approval_instance_steps (
   escalation_level     INT          NOT NULL DEFAULT 0,
   source_task_id       BIGINT
 );
+
+-- Schema migration: 若表已存在（旧版本），补齐 SLA 追踪列（Phase F 新增）
+-- 使用 ALTER TABLE ADD COLUMN IF NOT EXISTS 保证幂等
+ALTER TABLE wf_approval_instance_steps ADD COLUMN IF NOT EXISTS due_at              TIMESTAMPTZ;
+ALTER TABLE wf_approval_instance_steps ADD COLUMN IF NOT EXISTS is_overdue          BOOLEAN     NOT NULL DEFAULT FALSE;
+ALTER TABLE wf_approval_instance_steps ADD COLUMN IF NOT EXISTS reminder_count      INT         NOT NULL DEFAULT 0;
+ALTER TABLE wf_approval_instance_steps ADD COLUMN IF NOT EXISTS last_reminded_at    TIMESTAMPTZ;
+ALTER TABLE wf_approval_instance_steps ADD COLUMN IF NOT EXISTS escalation_level    INT         NOT NULL DEFAULT 0;
+ALTER TABLE wf_approval_instance_steps ADD COLUMN IF NOT EXISTS source_task_id      BIGINT;
 
 CREATE INDEX IF NOT EXISTS idx_wf_istep_instance_id    ON wf_approval_instance_steps (instance_id);
 CREATE INDEX IF NOT EXISTS idx_wf_istep_instance_step  ON wf_approval_instance_steps (instance_id, step_no);
