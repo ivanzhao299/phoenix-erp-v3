@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException, ConflictException } 
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
+import { DataScopeContext } from '../../org/services/data-scope.service';
 import { CreateChannelDto, UpdateChannelDto, QueryChannelDto } from '../dto/channel.dto';
 
 @Injectable()
@@ -13,11 +14,12 @@ export class ChannelsService {
 
   private currentUser() {
     const u = this.cls.get('user') as any;
+    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
     return {
       userId: String(u?.userId ?? u?.id ?? '0'),
       roles: (u?.roles ?? (u?.role ? [u.role] : [])) as string[],
-      companyCodes: (u?.companyCodes ?? []) as string[],
-      scopeAll: !!(u?.scopeAll),
+      companyCodes: scope ? scope.allowedCompanyCodes : [] as string[],
+      scopeAll: scope ? scope.isGlobal : false,
     };
   }
 
@@ -29,8 +31,10 @@ export class ChannelsService {
     if (!row?.length) throw new NotFoundException(`渠道 ${id} 不存在`);
     const rec = row[0];
     const user = this.currentUser();
-    if (!user.scopeAll && user.companyCodes.length > 0 && !user.companyCodes.includes(rec.company_code)) {
-      throw new ForbiddenException(`无权访问公司 ${rec.company_code} 的渠道数据`);
+    if (!user.scopeAll) {
+      if (user.companyCodes.length === 0 || !user.companyCodes.includes(rec.company_code)) {
+        throw new ForbiddenException(`无权访问公司 ${rec.company_code} 的渠道数据`);
+      }
     }
     return rec;
   }
@@ -44,9 +48,13 @@ export class ChannelsService {
     const params: any[] = [];
     const where: string[] = ['1=1'];
 
-    if (!user.scopeAll && user.companyCodes.length > 0) {
-      params.push(user.companyCodes);
-      where.push(`company_code = ANY($${params.length})`);
+    if (!user.scopeAll) {
+      if (user.companyCodes.length > 0) {
+        params.push(user.companyCodes);
+        where.push(`company_code = ANY($${params.length})`);
+      } else {
+        where.push('1=0');  // 未配置数据范围 → 拒绝访问
+      }
     }
     if (q.companyCode) { params.push(q.companyCode); where.push(`company_code = $${params.length}`); }
     if (q.keyword) {
@@ -81,8 +89,10 @@ export class ChannelsService {
 
   async create(dto: CreateChannelDto) {
     const user = this.currentUser();
-    if (!user.scopeAll && user.companyCodes.length > 0 && !user.companyCodes.includes(dto.companyCode)) {
-      throw new ForbiddenException(`无权在公司 ${dto.companyCode} 下创建渠道`);
+    if (!user.scopeAll) {
+      if (user.companyCodes.length === 0 || !user.companyCodes.includes(dto.companyCode)) {
+        throw new ForbiddenException(`无权在公司 ${dto.companyCode} 下创建渠道`);
+      }
     }
 
     const existing = await this.ds.query(

@@ -3,6 +3,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard }           from '@nestjs/passport';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
+import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { SalesAnalyticsService } from '../services/sales-analytics.service';
 
 /**
@@ -16,7 +17,7 @@ import { SalesAnalyticsService } from '../services/sales-analytics.service';
  * 全部只读。全部 DataScope（company_code）。
  */
 @Controller('api/v2/sales/analytics')
-@UseGuards(AuthGuard('jwt'), MenuGuard)
+@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
 export class SalesAnalyticsController {
   constructor(private readonly analytics: SalesAnalyticsService) {}
 

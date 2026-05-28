@@ -5,6 +5,7 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
+import { DataScopeContext } from '../../org/services/data-scope.service';
 import { EggInventoryService } from './egg-inventory.service';      // Phase 7
 import {
   CreateDeliveryOrderDto, UpdateDeliveryOrderDto, QueryDeliveryOrderDto,
@@ -45,12 +46,13 @@ export class DeliveryOrdersService {
 
   private currentUser() {
     const u = this.cls.get('user') as any;
+    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
     return {
       userId:       String(u?.userId ?? u?.id ?? '0'),
       userName:     String(u?.name ?? u?.username ?? ''),
       roles:        (u?.roles ?? (u?.role ? [u.role] : [])) as string[],
-      companyCodes: (u?.companyCodes ?? []) as string[],
-      scopeAll:     !!(u?.scopeAll),
+      companyCodes: scope ? scope.allowedCompanyCodes : [] as string[],
+      scopeAll:     scope ? scope.isGlobal : false,
     };
   }
 
@@ -63,8 +65,10 @@ export class DeliveryOrdersService {
     if (!rows?.length) throw new NotFoundException(`配送单 ${id} 不存在`);
     const rec = rows[0];
     const user = this.currentUser();
-    if (!user.scopeAll && user.companyCodes.length > 0 && !user.companyCodes.includes(rec.company_code)) {
-      throw new ForbiddenException(`无权访问公司 ${rec.company_code} 的配送单`);
+    if (!user.scopeAll) {
+      if (user.companyCodes.length === 0 || !user.companyCodes.includes(rec.company_code)) {
+        throw new ForbiddenException(`无权访问公司 ${rec.company_code} 的配送单`);
+      }
     }
     return rec;
   }
@@ -106,8 +110,12 @@ export class DeliveryOrdersService {
     const params: any[] = [];
     const where: string[] = ['1=1'];
 
-    if (!user.scopeAll && user.companyCodes.length > 0) {
-      params.push(user.companyCodes); where.push(`d.company_code = ANY($${params.length})`);
+    if (!user.scopeAll) {
+      if (user.companyCodes.length > 0) {
+        params.push(user.companyCodes); where.push(`d.company_code = ANY($${params.length})`);
+      } else {
+        where.push('1=0');  // 未配置数据范围 → 拒绝访问
+      }
     }
     if (q.companyCode) { params.push(q.companyCode); where.push(`d.company_code = $${params.length}`); }
     if (q.status)      { params.push(q.status);      where.push(`d.status = $${params.length}`); }
@@ -192,7 +200,10 @@ export class DeliveryOrdersService {
     }
 
     // DataScope 检查
-    if (!user.scopeAll && user.companyCodes.length > 0) {
+    if (!user.scopeAll) {
+      if (user.companyCodes.length === 0) {
+        throw new ForbiddenException('包含无权限的销售订单');
+      }
       const out = orders.filter((o: any) => !user.companyCodes.includes(o.company_code));
       if (out.length) throw new ForbiddenException('包含无权限的销售订单');
     }
@@ -495,8 +506,12 @@ export class DeliveryOrdersService {
     const params: any[] = [];
     const where: string[] = ['1=1'];
 
-    if (!user.scopeAll && user.companyCodes.length > 0) {
-      params.push(user.companyCodes); where.push(`company_code = ANY($${params.length})`);
+    if (!user.scopeAll) {
+      if (user.companyCodes.length > 0) {
+        params.push(user.companyCodes); where.push(`company_code = ANY($${params.length})`);
+      } else {
+        where.push('1=0');  // 未配置数据范围 → 拒绝访问
+      }
     }
     if (companyCode) { params.push(companyCode); where.push(`company_code = $${params.length}`); }
 
@@ -532,8 +547,12 @@ export class DeliveryOrdersService {
     const where: string[] = ['1=1'];
     const params: any[] = [];
 
-    if (!user.scopeAll && user.companyCodes.length > 0) {
-      params.push(user.companyCodes); where.push(`company_code = ANY($${params.length})`);
+    if (!user.scopeAll) {
+      if (user.companyCodes.length > 0) {
+        params.push(user.companyCodes); where.push(`company_code = ANY($${params.length})`);
+      } else {
+        where.push('1=0');  // 未配置数据范围 → 拒绝访问
+      }
     }
     if (companyCode) { params.push(companyCode); where.push(`company_code = $${params.length}`); }
 
@@ -584,8 +603,12 @@ export class DeliveryOrdersService {
     const where: string[] = ['1=1'];
     const params: any[] = [];
 
-    if (!user.scopeAll && user.companyCodes.length > 0) {
-      params.push(user.companyCodes); where.push(`company_code = ANY($${params.length})`);
+    if (!user.scopeAll) {
+      if (user.companyCodes.length > 0) {
+        params.push(user.companyCodes); where.push(`company_code = ANY($${params.length})`);
+      } else {
+        where.push('1=0');  // 未配置数据范围 → 拒绝访问
+      }
     }
     if (companyCode) { params.push(companyCode); where.push(`company_code = $${params.length}`); }
 

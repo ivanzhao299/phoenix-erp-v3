@@ -3,6 +3,7 @@ import {
   UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
+import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { PriceBooksService } from '../services/price-books.service';
 import { PriceItemsService } from '../services/price-items.service';
 import {
@@ -13,7 +14,7 @@ import {
 } from '../dto/price-item.dto';
 
 @Controller('api/v2/sales/pricing')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class SalesPriceBooksController {
   constructor(
     private readonly booksSvc: PriceBooksService,

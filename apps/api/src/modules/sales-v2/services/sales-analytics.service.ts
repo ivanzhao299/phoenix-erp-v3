@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
+import { DataScopeContext } from '../../org/services/data-scope.service';
 
 /**
  * SalesAnalyticsService — Sales V2 Phase 8
@@ -35,11 +36,10 @@ export class SalesAnalyticsService {
   // ── 内部工具 ─────────────────────────────────────────────────────────────────
 
   private getScope(): { companyCodes: string[]; scopeAll: boolean } {
-    const u = this.cls.get('user') as any;
-    return {
-      companyCodes: (u?.companyCodes ?? []) as string[],
-      scopeAll:     !!(u?.scopeAll),
-    };
+    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+    return scope
+      ? { companyCodes: scope.allowedCompanyCodes, scopeAll: scope.isGlobal }
+      : { companyCodes: [], scopeAll: false };
   }
 
   /**
@@ -61,9 +61,13 @@ export class SalesAnalyticsService {
     }
 
     // DataScope 控制
-    if (!scopeAll && companyCodes.length > 0) {
-      params.push(companyCodes);
-      return { clause: `AND ${alias}.company_code = ANY($${params.length})`, params };
+    if (!scopeAll) {
+      if (companyCodes.length > 0) {
+        params.push(companyCodes);
+        return { clause: `AND ${alias}.company_code = ANY($${params.length})`, params };
+      } else {
+        return { clause: 'AND 1=0', params };  // 未配置数据范围 → 拒绝访问
+      }
     }
 
     // scopeAll — 无限制

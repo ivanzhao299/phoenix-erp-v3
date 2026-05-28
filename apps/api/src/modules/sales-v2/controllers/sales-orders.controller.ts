@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
+import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { SalesOrdersService } from '../services/sales-orders.service';
 import {
   CreateSalesOrderDto, UpdateSalesOrderDto, QuerySalesOrderDto,
@@ -18,7 +19,7 @@ import {
  * Guard: JWT + MENU_SALES2_ORDER
  */
 @Controller('api/v2/sales/orders')
-@UseGuards(AuthGuard('jwt'), MenuGuard)
+@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
 @RequireMenu('MENU_SALES2_ORDER', 'V')
 export class SalesOrdersController {
   constructor(private readonly svc: SalesOrdersService) {}

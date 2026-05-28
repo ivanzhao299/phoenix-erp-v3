@@ -2,6 +2,7 @@ import { Injectable, Logger, ForbiddenException, NotFoundException } from '@nest
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
+import { DataScopeContext } from '../../org/services/data-scope.service';
 
 /**
  * 客户信用分析快照
@@ -52,13 +53,11 @@ export class CustomerCreditService {
 
   // ── 内部工具 ──────────────────────────────────────────────────────────────
 
-  private currentUser() {
-    const u = this.cls.get('user') as any;
-    return {
-      userId:       String(u?.userId ?? u?.id ?? '0'),
-      companyCodes: (u?.companyCodes ?? []) as string[],
-      scopeAll:     !!(u?.scopeAll),
-    };
+  private getScope(): { companyCodes: string[]; scopeAll: boolean } {
+    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+    return scope
+      ? { companyCodes: scope.allowedCompanyCodes, scopeAll: scope.isGlobal }
+      : { companyCodes: [], scopeAll: false };
   }
 
   /**
@@ -70,9 +69,11 @@ export class CustomerCreditService {
     );
     if (!rows?.length) throw new NotFoundException(`客户 ${id} 不存在`);
     const rec = rows[0];
-    const user = this.currentUser();
-    if (!user.scopeAll && user.companyCodes.length > 0 && !user.companyCodes.includes(rec.company_code)) {
-      throw new ForbiddenException(`无权访问公司 ${rec.company_code} 的客户数据`);
+    const user = this.getScope();
+    if (!user.scopeAll) {
+      if (user.companyCodes.length === 0 || !user.companyCodes.includes(rec.company_code)) {
+        throw new ForbiddenException(`无权访问公司 ${rec.company_code} 的客户数据`);
+      }
     }
     return rec;
   }
@@ -411,13 +412,17 @@ export class CustomerCreditService {
   // ── 6. 逾期客户列表 ───────────────────────────────────────────────────────
 
   async listOverdueCustomers(companyCode?: string, page = 1, limit = 50) {
-    const user = this.currentUser();
+    const user = this.getScope();
     const params: any[] = [];
     const where: string[] = [`c.credit_status IN ('OVERDUE','WARNING','OVER_LIMIT')`];
 
-    if (!user.scopeAll && user.companyCodes.length > 0) {
-      params.push(user.companyCodes);
-      where.push(`c.company_code = ANY($${params.length})`);
+    if (!user.scopeAll) {
+      if (user.companyCodes.length > 0) {
+        params.push(user.companyCodes);
+        where.push(`c.company_code = ANY($${params.length})`);
+      } else {
+        where.push('1=0');  // 未配置数据范围 → 拒绝访问
+      }
     }
     if (companyCode) {
       params.push(companyCode);
@@ -466,13 +471,17 @@ export class CustomerCreditService {
   // ── 7. 高风险客户列表 ─────────────────────────────────────────────────────
 
   async listHighRiskCustomers(companyCode?: string, page = 1, limit = 50) {
-    const user = this.currentUser();
+    const user = this.getScope();
     const params: any[] = [];
     const where: string[] = [`c.risk_level IN ('WATCH','HIGH','BLACKLIST')`];
 
-    if (!user.scopeAll && user.companyCodes.length > 0) {
-      params.push(user.companyCodes);
-      where.push(`c.company_code = ANY($${params.length})`);
+    if (!user.scopeAll) {
+      if (user.companyCodes.length > 0) {
+        params.push(user.companyCodes);
+        where.push(`c.company_code = ANY($${params.length})`);
+      } else {
+        where.push('1=0');  // 未配置数据范围 → 拒绝访问
+      }
     }
     if (companyCode) {
       params.push(companyCode);

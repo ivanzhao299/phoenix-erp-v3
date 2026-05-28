@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
+import { DataScopeContext } from '../../org/services/data-scope.service';
 import { ResolvePriceDto, ValidatePriceDto } from '../dto/price-item.dto';
 
 export interface ResolvedPrice {
@@ -31,12 +32,11 @@ export class PriceRuntimeService {
     private readonly cls: ClsService,
   ) {}
 
-  private currentUser() {
-    const u = this.cls.get('user') as any;
-    return {
-      companyCodes: (u?.companyCodes ?? []) as string[],
-      scopeAll: !!(u?.scopeAll),
-    };
+  private getScope(): { companyCodes: string[]; scopeAll: boolean } {
+    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+    return scope
+      ? { companyCodes: scope.allowedCompanyCodes, scopeAll: scope.isGlobal }
+      : { companyCodes: [], scopeAll: false };
   }
 
   /**
@@ -185,7 +185,7 @@ export class PriceRuntimeService {
    * 按 grade_code + packaging_spec 聚合，返回当前 DataScope 公司的 ACTIVE 价格
    */
   async getCurrentPrices(companyCode?: string): Promise<any[]> {
-    const user = this.currentUser();
+    const user = this.getScope();
 
     let effectiveCompanyCodes: string[] = [];
     if (companyCode) {

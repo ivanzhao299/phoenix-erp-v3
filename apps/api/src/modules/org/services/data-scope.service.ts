@@ -156,7 +156,22 @@ export class DataScopeService {
       // 兜底：无 sys_user_orgs 记录，从 CLS 读 storeCode
       const user = this.cls.get('user') as Record<string, unknown> | undefined;
       const storeCode: string = (user?.['storeCode'] as string | undefined) ?? '';
-      if (storeCode && storeCode !== 'ALL') {
+      if (storeCode === 'ALL') {
+        // C1 修复（RBAC Hardening Phase 1）：
+        //   storeCode='ALL' 语义 = 跨公司全局访问，等同于 GROUP 范围
+        //   直接返回 isGlobal=true，避免空 companyCodes 导致数据全部拒绝
+        const ctx: DataScopeContext = {
+          isGlobal: true,
+          scopeLevel: 'GROUP',
+          allowedCompanyCodes: [],
+          allowedProjectCodes: [],
+          allowedWarehouseCodes: [],
+          userId,
+        };
+        this._setCache(cacheKey, ctx);
+        return ctx;
+      }
+      if (storeCode) {
         storeCode.split(',').forEach((c) => companyCodes.add(c.trim()));
       }
     }

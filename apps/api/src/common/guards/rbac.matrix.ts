@@ -32,6 +32,29 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   },
 
   // ── 仓储物流 ─────────────────────────────────────────────────────────────
+  // WMS 视图权限（Sidebar: MENU_WMS_VIEW — 看板/台账/查询/临期预警）
+  MENU_WMS_VIEW: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_WMS_MGR:     ['V','C','E','D','A','X'],
+    ROLE_FARM_MGR:    ['V','X'],
+    ROLE_FIN_ACCT:    ['V','X'],
+    ROLE_CEO:         ['V','X'],
+    ROLE_REGION_MGR:  ['V','X'],
+    ROLE_AUDITOR:     ['V','X'],
+  },
+  // WMS 出入库操作权限（Sidebar: MENU_WMS_INOUT — 入库/出库/调拨/盘点/日结/报损）
+  MENU_WMS_INOUT: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_WMS_MGR:     ['V','C','E','D','A','X'],
+    ROLE_FARM_MGR:    ['V','C','E'],
+    ROLE_REGION_MGR:  ['V','X'],
+  },
+  // WMS 主数据权限（Sidebar: MENU_WMS_MASTER — 仓库主档/库区/库位）
+  MENU_WMS_MASTER: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_WMS_MGR:     ['V','C','E','D','X'],
+    ROLE_REGION_MGR:  ['V','X'],
+  },
   MENU_INVENTORY: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
     ROLE_WMS_MGR:     ['V','C','E','D','A','X'],
@@ -590,21 +613,132 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   },
 
   // ── 审批工作流 ──────────────────────────────────────────────────────────
+  // H3 修复（RBAC Hardening Phase 1）：
+  //   · ROLE_WORKFLOW_ADMIN 独家管理审批规则（C/E/D）
+  //   · ROLE_CEO / ROLE_FIN_CFO 收窄为"查看+审批"，不可配置规则
   MENU_WORKFLOW: {
-    ROLE_ADMIN:       ['V','C','E','D','A','X'],
-    ROLE_CEO:         ['V','C','E','D','A','X'],   // Phase C：CEO 可管理审批规则
-    ROLE_FIN_CFO:     ['V','C','E','D','A','X'],   // Phase C：CFO 可管理审批规则
-    ROLE_PRC_BUYER:   ['V','A','X'],
-    ROLE_FIN_ACCT:    ['V','X'],
-    ROLE_REGION_MGR:  ['V','A'],
-    ROLE_FARM_MGR:    ['V'],
-    ROLE_STORE_MGR:   ['V'],
-    ROLE_PROJECT_MGR: ['V','A'],
-    ROLE_SALES_MGR:   ['V','A'],    // 销售主管需审批工作流
-    ROLE_SALES_REP:   ['V'],        // 业务员查看自己的审批状态
-    ROLE_AUDITOR:     ['V','X'],    // 审计专员查看所有流程历史
-    ROLE_HQ_FINANCE:  ['V','A','X'], // 总部财务审批/导出
+    ROLE_ADMIN:            ['V','C','E','D','A','X'],
+    ROLE_WORKFLOW_ADMIN:   ['V','C','E','D','A','X'], // 工作流专员：完整规则配置权
+    ROLE_CEO:              ['V','A','X'],              // 仅查看+审批，不可配置规则
+    ROLE_FIN_CFO:          ['V','A','X'],              // 仅查看+审批，不可配置规则
+    ROLE_PRC_BUYER:        ['V','A','X'],
+    ROLE_FIN_ACCT:         ['V','X'],
+    ROLE_REGION_MGR:       ['V','A'],
+    ROLE_FARM_MGR:         ['V'],
+    ROLE_STORE_MGR:        ['V'],
+    ROLE_PROJECT_MGR:      ['V','A'],
+    ROLE_SALES_MGR:        ['V','A'],    // 销售主管需审批工作流
+    ROLE_SALES_REP:        ['V'],        // 业务员查看自己的审批状态
+    ROLE_AUDITOR:          ['V','X'],    // 审计专员查看所有流程历史
+    ROLE_HQ_FINANCE:       ['V','A','X'], // 总部财务审批/导出
   },
+  // ── H5 补充：Sidebar 已使用但矩阵未注册的 MENU（RBAC Hardening Phase 1）──────────
+
+  // 养殖兽医（免疫计划/用药记录）
+  MENU_FARM_VET: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_FARM_MGR:    ['V','C','E','D','A','X'],
+    ROLE_VET:         ['V','C','E'],
+    ROLE_CEO:         ['V','X'],
+    ROLE_REGION_MGR:  ['V','X'],
+  },
+
+  // 设备监控（IoT/环境预警/设备运维）
+  MENU_DEVICE_MONITOR: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_FARM_MGR:    ['V','E','X'],
+    ROLE_FARMER:      ['V'],
+    ROLE_SYSOPS:      ['V','C','E','D'],
+    ROLE_CEO:         ['V'],
+    ROLE_REGION_MGR:  ['V'],
+  },
+
+  // 分级包装操作（包装管理主视图）
+  MENU_PKG_OP: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_FARM_MGR:    ['V','C','E','X'],
+    ROLE_FARMER:      ['V','C','E'],
+    ROLE_WMS_MGR:     ['V','C'],
+  },
+
+  // 分级包装管理（集蛋入库/批次/日报/异常/补打）
+  MENU_PKG_MGR: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_FARM_MGR:    ['V','C','E','D','A','X'],
+    ROLE_WMS_MGR:     ['V','C','E'],
+  },
+
+  // 质检操作（总览/场端/成品）
+  MENU_QA_OP: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_FARM_MGR:    ['V','C','E','X'],
+    ROLE_VET:         ['V','C','E'],
+    ROLE_REGION_MGR:  ['V','X'],
+    ROLE_CEO:         ['V','X'],
+    ROLE_AUDITOR:     ['V','X'],
+  },
+
+  // 质检管理（不合格品处置/正向追溯/反向追溯）
+  MENU_QA_MGR: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_FARM_MGR:    ['V','C','E','D','A','X'],
+    ROLE_VET:         ['V','C','E'],
+    ROLE_REGION_MGR:  ['V','X'],
+    ROLE_AUDITOR:     ['V','X'],
+  },
+
+  // 门店管理（工作台/收货验收/库存/补货/损耗/日结）
+  MENU_STORE_MGR: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_STORE_MGR:   ['V','C','E','D','X'],
+    ROLE_CASHIER:     ['V','C'],
+    ROLE_REGION_MGR:  ['V','X'],
+    ROLE_FIN_ACCT:    ['V','X'],
+  },
+
+  // B2B 销售（会员营销/批发管理/分销商）
+  MENU_B2B_SALE: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_SALES_MGR:   ['V','C','E','D','A','X'],
+    ROLE_SALES_REP:   ['V','C','E'],
+    ROLE_REGION_MGR:  ['V','X'],
+    ROLE_STORE_MGR:   ['V'],
+    ROLE_AUDITOR:     ['V','X'],
+  },
+
+  // 数据分析看板（Sidebar analytics 组）
+  MENU_DASHBOARD: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_CEO:         ['V','X'],
+    ROLE_FIN_CFO:     ['V','X'],
+    ROLE_HQ_FINANCE:  ['V','X'],
+    ROLE_REGION_MGR:  ['V','X'],
+    ROLE_FARM_MGR:    ['V'],
+    ROLE_SALES_MGR:   ['V','X'],
+    ROLE_AUDITOR:     ['V','X'],
+  },
+
+  // 用户管理（settings/users）
+  MENU_SETTINGS_USER: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_SYSOPS:      ['V','C','E'],
+    ROLE_HR_ADMIN:    ['V','C','E','D'],
+  },
+
+  // 旧订货系统 — 财务信用台账（已冻结，保留以兼容历史 Token）
+  MENU_ORDER_FIN: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_FIN_CFO:     ['V','A','X'],
+    ROLE_FIN_ACCT:    ['V','X'],
+  },
+
+  // 旧订货系统 — 仓库拣货/装车（已冻结，保留以兼容历史 Token）
+  MENU_ORDER_WH: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_WMS_MGR:     ['V','C','E','D'],
+    ROLE_FARM_MGR:    ['V','C'],
+  },
+
 };
 
 /**

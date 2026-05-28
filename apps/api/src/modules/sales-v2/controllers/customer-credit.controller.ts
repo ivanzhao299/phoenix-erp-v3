@@ -6,6 +6,7 @@ import { AuthGuard }        from '@nestjs/passport';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource }       from 'typeorm';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
+import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { CustomerCreditService }           from '../services/customer-credit.service';
 import { CustomerCreditSchedulerService }  from '../services/customer-credit-scheduler.service';
 
@@ -20,7 +21,7 @@ import { CustomerCreditSchedulerService }  from '../services/customer-credit-sch
  * 路由：/api/v2/sales/credit/... + /api/v2/sales/customers/:id/credit-*
  */
 @Controller('api/v2/sales')
-@UseGuards(AuthGuard('jwt'), MenuGuard)
+@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
 export class CustomerCreditController {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
@@ -58,7 +59,7 @@ export class CustomerCreditController {
   // ── 3. 刷新客户信用 ──────────────────────────────────────────────────────
 
   @Post('customers/:id/refresh-credit')
-  @RequireMenu('MENU_SALES2_CREDIT', 'V')
+  @RequireMenu('MENU_SALES2_CREDIT', 'E')
   async refreshCredit(@Param('id') id: string) {
     await this.creditService.refreshCustomerCredit(id);
     const { customer_no, company_code } = await this.resolveCustomer(id);
@@ -69,7 +70,7 @@ export class CustomerCreditController {
   // ── 4. 手动解冻客户 ──────────────────────────────────────────────────────
 
   @Post('customers/:id/unfreeze')
-  @RequireMenu('MENU_SALES2_CREDIT', 'V')
+  @RequireMenu('MENU_SALES2_CREDIT', 'A')   // H6 修复：解冻信用是高风险操作，需要 A（Approve）权限
   async unfreeze(@Param('id') id: string) {
     return this.creditService.unfreezeCustomer(id);
   }
@@ -101,7 +102,7 @@ export class CustomerCreditController {
   // ── 7. 手动触发全量信用刷新（管理员 / 财务） ─────────────────────────────
 
   @Post('credit/trigger-refresh')
-  @RequireMenu('MENU_SALES2_CREDIT', 'V')
+  @RequireMenu('MENU_SALES2_CREDIT', 'A')
   async triggerRefresh() {
     return this.schedulerService.runManually();
   }

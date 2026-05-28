@@ -3,6 +3,7 @@ import {
   Param, Query, Body, UseGuards,
 } from '@nestjs/common';
 import { MenuGuard, RequireMenu }    from '../../../common/guards/menu.guard';
+import { DataScopeGuard }            from '../../org/guards/data-scope.guard';
 import { ArInvoicesService }          from '../services/ar-invoices.service';
 import { ArReceiptsService }          from '../services/ar-receipts.service';
 import {
@@ -44,7 +45,7 @@ import {
  * 权限：MENU_FIN2_AR
  */
 @Controller('api/v2/finance/ar')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class FinArController {
   constructor(
     private readonly arInvoicesSvc: ArInvoicesService,
@@ -114,7 +115,7 @@ export class FinArController {
   }
 
   @Post('receipts/:id/confirm')
-  @RequireMenu('MENU_FIN2_AR', 'E')
+  @RequireMenu('MENU_FIN2_AR', 'A')   // H2 修复：收款确认是审批级操作，需要 A（Approve）权限
   confirmReceipt(
     @Param('id') id: string,
     @Body() dto: ConfirmArReceiptDto,

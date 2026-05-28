@@ -2,7 +2,9 @@ import {
   Controller, Get, Query, UseGuards,
 } from '@nestjs/common';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
-import { ClsService }            from 'nestjs-cls';
+import { DataScopeGuard }         from '../../org/guards/data-scope.guard';
+import { DataScopeContext }        from '../../org/services/data-scope.service';
+import { ClsService }             from 'nestjs-cls';
 import { ApAdapterService }      from '../services/ap-adapter.service';
 import { ApInvoicesService }     from '../services/ap-invoices.service';
 import { CashAccountsService }   from '../services/cash-accounts.service';
@@ -20,7 +22,7 @@ import { ExpenseRequestsService }          from '../services/expense-requests.se
  * AP → FinApController，AR → FinArController，Cash → FinCashController，Shareholder → FinShareholderController
  */
 @Controller('api/v2/finance')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class FinanceV2Controller {
   constructor(
     private readonly apAdapter:    ApAdapterService,
@@ -34,6 +36,19 @@ export class FinanceV2Controller {
   ) {}
 
   private get user() { return this.cls.get('user') as any; }
+
+  /** C2 修复：从 CLS DataScope 构建 enrichedUser，提供正确的 scopeAll 和 companyCodes */
+  private get scopedUser() {
+    const user = this.cls.get('user') as any;
+    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+    return {
+      ...user,
+      dataScope: {
+        scopeAll:     scope ? scope.isGlobal : false,
+        companyCodes: scope ? scope.allowedCompanyCodes : [],
+      },
+    };
+  }
 
   // ── Health（无需 MENU 鉴权，供运维探活）─────────────────────────────────
 
@@ -78,10 +93,12 @@ export class FinanceV2Controller {
   @Get('dashboard')
   @RequireMenu('MENU_FIN2', 'V')
   async dashboard() {
-    const u = this.user;
-    const companyCodes: string[] | null = u?.dataScope?.scopeAll
+    const u = this.scopedUser;
+    // C2 修复：从 CLS DataScope 读取（DataScopeGuard 已将正确 scope 写入 CLS）
+    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+    const companyCodes: string[] | null = (!scope || scope.isGlobal)
       ? null
-      : (u?.dataScope?.companyCodes ?? []);
+      : scope.allowedCompanyCodes;
 
     const [apSummary, cashSummary, todayCash, pendingTransfers, shSummary, expenseSummary] = await Promise.allSettled([
       this.apInvoices.getSummary(),

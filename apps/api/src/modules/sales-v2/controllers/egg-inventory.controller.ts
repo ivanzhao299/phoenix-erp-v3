@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard }        from '@nestjs/passport';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
+import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { EggInventoryService }          from '../services/egg-inventory.service';
 import { EggInventorySchedulerService } from '../services/egg-inventory-scheduler.service';
 
@@ -16,7 +17,7 @@ import { EggInventorySchedulerService } from '../services/egg-inventory-schedule
  * 权限：    MENU_SALES2_INVENTORY
  */
 @Controller('api/v2/sales/inventory')
-@UseGuards(AuthGuard('jwt'), MenuGuard)
+@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
 export class EggInventoryController {
   constructor(
     private readonly eggInv:       EggInventoryService,

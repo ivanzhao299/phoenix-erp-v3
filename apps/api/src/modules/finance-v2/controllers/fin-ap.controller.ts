@@ -4,6 +4,7 @@ import {
   ParseIntPipe, DefaultValuePipe,
 } from '@nestjs/common';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
+import { DataScopeGuard }         from '../../org/guards/data-scope.guard';
 import { ApInvoicesService }      from '../services/ap-invoices.service';
 import {
   CreateApInvoiceDto,
@@ -31,7 +32,7 @@ import {
  *   import-from-prc2 额外要求 ROLE_ADMIN / ROLE_FIN_CFO / ROLE_GROUP_FINANCE
  */
 @Controller('api/v2/finance/ap')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class FinApController {
   constructor(private readonly apSvc: ApInvoicesService) {}
 

@@ -143,11 +143,12 @@ const MENU: MenuItem[] = [
     { id: "prc2-init",     path: "/procurement2/init",              Icon: UploadCloud,   label: "历史初始化", perm: "MENU_PRC2_INIT"     },
   ]},
   // ── 销售系统 V2 ───────────────────────────────────────────────────────────
-  { id: "sales2", Icon: Rocket, label: "销售系统", perm: null, children: [
-    { id: "s2-overview",   path: "/sales2",            Icon: LayoutDashboard, label: "销售系统总览",  perm: null },
-    { id: "s2-customers",  path: "/sales2/customers",  Icon: Users,           label: "客户档案",      perm: null },
-    { id: "s2-pricing",    path: "/sales2/pricing",    Icon: Tag,             label: "价格管理",      perm: null },
-    { id: "s2-orders",     path: "/sales2/orders",     Icon: ShoppingCart,    label: "销售订单",      perm: null },
+  // H4 修复（RBAC Hardening Phase 1）：补全 perm:null 的菜单条目
+  { id: "sales2", Icon: Rocket, label: "销售系统", perm: "MENU_SALES2", children: [
+    { id: "s2-overview",   path: "/sales2",            Icon: LayoutDashboard, label: "销售系统总览",  perm: "MENU_SALES2" },
+    { id: "s2-customers",  path: "/sales2/customers",  Icon: Users,           label: "客户档案",      perm: "MENU_SALES2_CUSTOMER" },
+    { id: "s2-pricing",    path: "/sales2/pricing",    Icon: Tag,             label: "价格管理",      perm: "MENU_SALES2_PRICE" },
+    { id: "s2-orders",     path: "/sales2/orders",     Icon: ShoppingCart,    label: "销售订单",      perm: "MENU_SALES2_ORDER" },
     { id: "s2-delivery",   path: "/sales2/delivery",   Icon: Truck,           label: "配送管理",      perm: "MENU_SALES2_DELIVERY" },
     { id: "s2-returns",    path: "/sales2/returns",    Icon: RefreshCw,       label: "退货管理",      perm: "MENU_SALES2_RETURN" },
     { id: "s2-inventory",  path: "/sales2/inventory",  Icon: Archive,         label: "库存管理",      perm: "MENU_SALES2_INVENTORY" },

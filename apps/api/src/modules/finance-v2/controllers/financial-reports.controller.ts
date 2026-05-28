@@ -2,6 +2,8 @@ import {
   Controller, Get, Query, UseGuards,
 } from '@nestjs/common';
 import { MenuGuard, RequireMenu }      from '../../../common/guards/menu.guard';
+import { DataScopeGuard }              from '../../org/guards/data-scope.guard';
+import { DataScopeContext }             from '../../org/services/data-scope.service';
 import { ClsService }                  from 'nestjs-cls';
 import { FinancialReportsService }     from '../services/financial-reports.service';
 
@@ -16,7 +18,7 @@ import { FinancialReportsService }     from '../services/financial-reports.servi
  * 本控制器不做任何写入，不涉及会计凭证/总账/科目体系。
  */
 @Controller('api/v2/finance/reports')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class FinancialReportsController {
   constructor(
     private readonly reportsSvc: FinancialReportsService,
@@ -24,6 +26,19 @@ export class FinancialReportsController {
   ) {}
 
   private get user() { return this.cls.get('user') as any; }
+
+  /** C2 修复：从 CLS DataScope 构建 enrichedUser */
+  private get scopedUser() {
+    const user = this.cls.get('user') as any;
+    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+    return {
+      ...user,
+      dataScope: {
+        scopeAll:     scope ? scope.isGlobal : false,
+        companyCodes: scope ? scope.allowedCompanyCodes : [],
+      },
+    };
+  }
 
   // ── 1. 经营资金总览 ───────────────────────────────────────────────────────
 
@@ -35,7 +50,7 @@ export class FinancialReportsController {
   @Get('overview')
   @RequireMenu('MENU_FIN2_REPORT', 'V')
   getOverview() {
-    return this.reportsSvc.getOverview(this.user);
+    return this.reportsSvc.getOverview(this.scopedUser);
   }
 
   // ── 2. AP 账龄 ────────────────────────────────────────────────────────────
@@ -48,7 +63,7 @@ export class FinancialReportsController {
   @Get('ap-aging')
   @RequireMenu('MENU_FIN2_REPORT', 'V')
   getApAging(@Query('companyCode') companyCode?: string) {
-    return this.reportsSvc.getApAging(this.user, companyCode);
+    return this.reportsSvc.getApAging(this.scopedUser, companyCode);
   }
 
   // ── 3. AP TOP 20 供应商 ───────────────────────────────────────────────────
@@ -60,7 +75,7 @@ export class FinancialReportsController {
   @Get('ap-top-suppliers')
   @RequireMenu('MENU_FIN2_REPORT', 'V')
   getApTopSuppliers() {
-    return this.reportsSvc.getApTopSuppliers(this.user);
+    return this.reportsSvc.getApTopSuppliers(this.scopedUser);
   }
 
   // ── 4. AR 账龄 ────────────────────────────────────────────────────────────
@@ -73,7 +88,7 @@ export class FinancialReportsController {
   @Get('ar-aging')
   @RequireMenu('MENU_FIN2_REPORT', 'V')
   getArAging(@Query('companyCode') companyCode?: string) {
-    return this.reportsSvc.getArAging(this.user, companyCode);
+    return this.reportsSvc.getArAging(this.scopedUser, companyCode);
   }
 
   // ── 5. AR TOP 20 客户 ─────────────────────────────────────────────────────
@@ -85,7 +100,7 @@ export class FinancialReportsController {
   @Get('ar-top-customers')
   @RequireMenu('MENU_FIN2_REPORT', 'V')
   getArTopCustomers() {
-    return this.reportsSvc.getArTopCustomers(this.user);
+    return this.reportsSvc.getArTopCustomers(this.scopedUser);
   }
 
   // ── 6. 资金账户总览 ───────────────────────────────────────────────────────
@@ -97,7 +112,7 @@ export class FinancialReportsController {
   @Get('cash-overview')
   @RequireMenu('MENU_FIN2_REPORT', 'V')
   getCashOverview() {
-    return this.reportsSvc.getCashOverview(this.user);
+    return this.reportsSvc.getCashOverview(this.scopedUser);
   }
 
   // ── 7. 资金日度流水 ───────────────────────────────────────────────────────
@@ -113,7 +128,7 @@ export class FinancialReportsController {
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo')   dateTo?: string,
   ) {
-    return this.reportsSvc.getCashDailyFlow(this.user, dateFrom, dateTo);
+    return this.reportsSvc.getCashDailyFlow(this.scopedUser, dateFrom, dateTo);
   }
 
   // ── 8. 费用汇总 ───────────────────────────────────────────────────────────
@@ -125,7 +140,7 @@ export class FinancialReportsController {
   @Get('expense-summary')
   @RequireMenu('MENU_FIN2_REPORT', 'V')
   getExpenseSummary() {
-    return this.reportsSvc.getExpenseSummary(this.user);
+    return this.reportsSvc.getExpenseSummary(this.scopedUser);
   }
 
   // ── 9. 报销汇总 ───────────────────────────────────────────────────────────
@@ -137,7 +152,7 @@ export class FinancialReportsController {
   @Get('reimbursement-summary')
   @RequireMenu('MENU_FIN2_REPORT', 'V')
   getReimbursementSummary() {
-    return this.reportsSvc.getReimbursementSummary(this.user);
+    return this.reportsSvc.getReimbursementSummary(this.scopedUser);
   }
 
   // ── 10. 股东资金汇总 ──────────────────────────────────────────────────────
@@ -149,7 +164,7 @@ export class FinancialReportsController {
   @Get('shareholder-summary')
   @RequireMenu('MENU_FIN2_REPORT', 'V')
   getShareholderSummary() {
-    return this.reportsSvc.getShareholderSummary(this.user);
+    return this.reportsSvc.getShareholderSummary(this.scopedUser);
   }
 
   // ── 11. 项目维度财务 ──────────────────────────────────────────────────────
@@ -162,7 +177,7 @@ export class FinancialReportsController {
   @Get('project-finance')
   @RequireMenu('MENU_FIN2_REPORT', 'V')
   getProjectFinance(@Query('projectCode') projectCode?: string) {
-    return this.reportsSvc.getProjectFinance(this.user, projectCode);
+    return this.reportsSvc.getProjectFinance(this.scopedUser, projectCode);
   }
 
   // ── 12. 公司维度财务 ──────────────────────────────────────────────────────
@@ -174,6 +189,6 @@ export class FinancialReportsController {
   @Get('company-finance')
   @RequireMenu('MENU_FIN2_REPORT', 'V')
   getCompanyFinance() {
-    return this.reportsSvc.getCompanyFinance(this.user);
+    return this.reportsSvc.getCompanyFinance(this.scopedUser);
   }
 }

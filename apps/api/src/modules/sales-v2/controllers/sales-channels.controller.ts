@@ -3,11 +3,12 @@ import {
   UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
+import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { ChannelsService } from '../services/channels.service';
 import { CreateChannelDto, UpdateChannelDto, QueryChannelDto } from '../dto/channel.dto';
 
 @Controller('api/v2/sales/channels')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class SalesChannelsController {
   constructor(private readonly svc: ChannelsService) {}
 

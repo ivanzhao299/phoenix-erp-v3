@@ -3,6 +3,7 @@ import {
   UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
+import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { CustomersService } from '../services/customers.service';
 import {
   CreateCustomerDto, UpdateCustomerDto, QueryCustomerDto,
@@ -10,7 +11,7 @@ import {
 } from '../dto/customer.dto';
 
 @Controller('api/v2/sales/customers')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class SalesCustomersController {
   constructor(private readonly svc: CustomersService) {}
 

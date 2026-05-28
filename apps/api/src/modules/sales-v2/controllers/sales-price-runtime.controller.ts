@@ -2,11 +2,12 @@ import {
   Controller, Get, Post, Body, Query, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
+import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { PriceRuntimeService } from '../services/price-runtime.service';
 import { ResolvePriceDto, ValidatePriceDto } from '../dto/price-item.dto';
 
 @Controller('api/v2/sales/pricing')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class SalesPriceRuntimeController {
   constructor(private readonly svc: PriceRuntimeService) {}
 

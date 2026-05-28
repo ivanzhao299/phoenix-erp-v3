@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
+import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { DeliveryOrdersService } from '../services/delivery-orders.service';
 import { ReceiptsService }        from '../services/receipts.service';
 import {
@@ -21,7 +22,7 @@ import {
  * Guard: JWT + MENU_SALES2_DELIVERY
  */
 @Controller('api/v2/sales/delivery')
-@UseGuards(AuthGuard('jwt'), MenuGuard)
+@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
 @RequireMenu('MENU_SALES2_DELIVERY', 'V')
 export class DeliveryOrdersController {
   constructor(

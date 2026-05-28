@@ -4,6 +4,7 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
+import { DataScopeContext } from '../../org/services/data-scope.service';
 import {
   CreatePriceItemDto, UpdatePriceItemDto, QueryPriceItemDto, BulkImportPriceItemDto,
 } from '../dto/price-item.dto';
@@ -15,12 +16,11 @@ export class PriceItemsService {
     private readonly cls: ClsService,
   ) {}
 
-  private currentUser() {
-    const u = this.cls.get('user') as any;
-    return {
-      companyCodes: (u?.companyCodes ?? []) as string[],
-      scopeAll:     !!(u?.scopeAll),
-    };
+  private getScope(): { companyCodes: string[]; scopeAll: boolean } {
+    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+    return scope
+      ? { companyCodes: scope.allowedCompanyCodes, scopeAll: scope.isGlobal }
+      : { companyCodes: [], scopeAll: false };
   }
 
   /** 检查价格册归属，同时验证 DataScope */
@@ -30,15 +30,17 @@ export class PriceItemsService {
     );
     if (!rows?.length) throw new NotFoundException(`价格册 ${bookId} 不存在`);
     const book = rows[0];
-    const user = this.currentUser();
-    if (!user.scopeAll && user.companyCodes.length > 0 && !user.companyCodes.includes(book.company_code)) {
-      throw new ForbiddenException(`无权访问公司 ${book.company_code} 的价格册`);
+    const user = this.getScope();
+    if (!user.scopeAll) {
+      if (user.companyCodes.length === 0 || !user.companyCodes.includes(book.company_code)) {
+        throw new ForbiddenException(`无权访问公司 ${book.company_code} 的价格册`);
+      }
     }
     return book;
   }
 
   async listItems(q: QueryPriceItemDto) {
-    const user   = this.currentUser();
+    const user   = this.getScope();
     const page   = Math.max(1, q.page  ?? 1);
     const limit  = Math.min(500, Math.max(1, q.limit ?? 100));
     const offset = (page - 1) * limit;
@@ -53,9 +55,13 @@ export class PriceItemsService {
     if (q.status)      { params.push(q.status);      where.push(`pi.status = $${params.length}`); }
 
     // DataScope 通过 price_book 过滤
-    if (!user.scopeAll && user.companyCodes.length > 0) {
-      params.push(user.companyCodes);
-      where.push(`pb.company_code = ANY($${params.length})`);
+    if (!user.scopeAll) {
+      if (user.companyCodes.length > 0) {
+        params.push(user.companyCodes);
+        where.push(`pb.company_code = ANY($${params.length})`);
+      } else {
+        where.push('1=0');  // 未配置数据范围 → 拒绝访问
+      }
     }
 
     const wc = where.join(' AND ');
@@ -108,9 +114,11 @@ export class PriceItemsService {
     if (!rows?.length) throw new NotFoundException(`价格明细 ${id} 不存在`);
     const item = rows[0];
 
-    const user = this.currentUser();
-    if (!user.scopeAll && user.companyCodes.length > 0 && !user.companyCodes.includes(item.company_code)) {
-      throw new ForbiddenException('无权操作此价格明细');
+    const user = this.getScope();
+    if (!user.scopeAll) {
+      if (user.companyCodes.length === 0 || !user.companyCodes.includes(item.company_code)) {
+        throw new ForbiddenException('无权操作此价格明细');
+      }
     }
     if (item.book_status === 'ACTIVE') {
       throw new ForbiddenException('ACTIVE 价格册的明细不可直接编辑');
@@ -143,9 +151,11 @@ export class PriceItemsService {
     if (!rows?.length) throw new NotFoundException(`价格明细 ${id} 不存在`);
     const item = rows[0];
 
-    const user = this.currentUser();
-    if (!user.scopeAll && user.companyCodes.length > 0 && !user.companyCodes.includes(item.company_code)) {
-      throw new ForbiddenException('无权操作此价格明细');
+    const user = this.getScope();
+    if (!user.scopeAll) {
+      if (user.companyCodes.length === 0 || !user.companyCodes.includes(item.company_code)) {
+        throw new ForbiddenException('无权操作此价格明细');
+      }
     }
 
     const result = await this.ds.query(

@@ -5,6 +5,7 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
+import { DataScopeContext } from '../../org/services/data-scope.service';
 import { ApprovalEngineService } from '../../approval-engine/approval-engine.service';
 import { PriceRuntimeService } from './price-runtime.service';
 import { CustomersService } from './customers.service';
@@ -51,12 +52,13 @@ export class SalesOrdersService {
 
   private currentUser() {
     const u = this.cls.get('user') as any;
+    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
     return {
       userId:       String(u?.userId ?? u?.id ?? '0'),
       userName:     String(u?.name ?? u?.username ?? ''),
       roles:        (u?.roles ?? (u?.role ? [u.role] : [])) as string[],
-      companyCodes: (u?.companyCodes ?? []) as string[],
-      scopeAll:     !!(u?.scopeAll),
+      companyCodes: scope ? scope.allowedCompanyCodes : [] as string[],
+      scopeAll:     scope ? scope.isGlobal : false,
     };
   }
 
@@ -69,8 +71,10 @@ export class SalesOrdersService {
     if (!rows?.length) throw new NotFoundException(`销售订单 ${id} 不存在`);
     const rec = rows[0];
     const user = this.currentUser();
-    if (!user.scopeAll && user.companyCodes.length > 0 && !user.companyCodes.includes(rec.company_code)) {
-      throw new ForbiddenException(`无权访问公司 ${rec.company_code} 的订单`);
+    if (!user.scopeAll) {
+      if (user.companyCodes.length === 0 || !user.companyCodes.includes(rec.company_code)) {
+        throw new ForbiddenException(`无权访问公司 ${rec.company_code} 的订单`);
+      }
     }
     return rec;
   }
@@ -99,8 +103,12 @@ export class SalesOrdersService {
     const where: string[] = ['1=1'];
 
     // DataScope
-    if (!user.scopeAll && user.companyCodes.length > 0) {
-      params.push(user.companyCodes); where.push(`company_code = ANY($${params.length})`);
+    if (!user.scopeAll) {
+      if (user.companyCodes.length > 0) {
+        params.push(user.companyCodes); where.push(`company_code = ANY($${params.length})`);
+      } else {
+        where.push('1=0');  // 未配置数据范围 → 拒绝访问
+      }
     }
     if (q.companyCode)   { params.push(q.companyCode);   where.push(`company_code = $${params.length}`); }
     if (q.status)        { params.push(q.status);         where.push(`status = $${params.length}`); }
@@ -153,8 +161,10 @@ export class SalesOrdersService {
 
   async createDraft(dto: CreateSalesOrderDto) {
     const user = this.currentUser();
-    if (!user.scopeAll && user.companyCodes.length > 0 && !user.companyCodes.includes(dto.companyCode)) {
-      throw new ForbiddenException(`无权在公司 ${dto.companyCode} 下创建订单`);
+    if (!user.scopeAll) {
+      if (user.companyCodes.length === 0 || !user.companyCodes.includes(dto.companyCode)) {
+        throw new ForbiddenException(`无权在公司 ${dto.companyCode} 下创建订单`);
+      }
     }
     if (!dto.items?.length) {
       throw new BadRequestException('订单必须包含至少一条明细');
@@ -698,8 +708,12 @@ export class SalesOrdersService {
     const params: any[] = [];
     const where: string[] = ['1=1'];
 
-    if (!user.scopeAll && user.companyCodes.length > 0) {
-      params.push(user.companyCodes); where.push(`company_code = ANY($${params.length})`);
+    if (!user.scopeAll) {
+      if (user.companyCodes.length > 0) {
+        params.push(user.companyCodes); where.push(`company_code = ANY($${params.length})`);
+      } else {
+        where.push('1=0');  // 未配置数据范围 → 拒绝访问
+      }
     }
     if (companyCode) { params.push(companyCode); where.push(`company_code = $${params.length}`); }
 
