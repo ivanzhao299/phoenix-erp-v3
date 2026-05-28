@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Finance V2 fidelity 回归测试 — AR/AP/aging/3 级审批
-# 覆盖：commit v3-finance-done
+# Finance V2 Runtime 回归测试 — AP/AR/Expense/Reports
+# 覆盖：Finance V2 Runtime（fin_ap_invoices / fin_ar_invoices / fin_ar_receipts / fin_expense_requests）
+# 迁移说明：原 V1 /api/finance/* 端点已于 Runtime Cutover Phase 2A 删除，本脚本改为测试 V2 端点。
 set -u
 
 API="${API_URL:-http://127.0.0.1:3100}"
@@ -29,158 +30,161 @@ green "  ✓ token=${TOKEN:0:30}..."
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
-cyan "▶ Seed"
-PO_NO="PO-REGR-FIN-$(date +%s | tail -c 6)"
-PO_NO2="PO-REGR-FIN-2-$(date +%s | tail -c 6)"
-CUST_CODE="CUST-FIN-$(date +%s | tail -c 5)"
-ACC="CASH-CNY"
+cyan "▶ Seed — 清理旧测试数据"
+CO="REGR-FIN-CO"
 
-$PSQL $DB -q -c "DELETE FROM fin_invoices WHERE invoice_no LIKE 'AP-%' AND ref_no LIKE 'PO-REGR-FIN-%';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM fin_transactions WHERE ref_no LIKE 'PO-REGR-FIN-%' OR ref_no LIKE 'AP-%' OR txn_no LIKE 'EXP-FIN-%' OR txn_no LIKE 'INC-FIN-%' OR note LIKE 'REGR-FIN %';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM fin_accounts WHERE account_code='$ACC';" >/dev/null
-$PSQL $DB -q -c "INSERT INTO fin_accounts (account_code, account_name, currency, balance, status) VALUES ('$ACC','测试现金账户','CNY',10000,'ACTIVE') ON CONFLICT (account_code) DO UPDATE SET balance=EXCLUDED.balance, status='ACTIVE';" >/dev/null
+$PSQL $DB -q -c "DELETE FROM fin_ar_receipt_allocations WHERE receipt_id IN (SELECT id FROM fin_ar_receipts WHERE company_code='$CO');" >/dev/null
+$PSQL $DB -q -c "DELETE FROM fin_ar_receipts WHERE company_code='$CO';" >/dev/null
+$PSQL $DB -q -c "DELETE FROM fin_ar_invoices WHERE company_code='$CO';" >/dev/null
+$PSQL $DB -q -c "DELETE FROM fin_ap_invoices WHERE company_code='$CO';" >/dev/null
+$PSQL $DB -q -c "DELETE FROM fin_expense_requests WHERE company_code='$CO';" >/dev/null
 
-green "  ✓ seed PO=$PO_NO 账户=$ACC 余额=10000"
+green "  ✓ seed 清理完毕 company_code=$CO"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
-cyan "▶ T1: AP 凭证生成 (V2 /ap-invoice)"
-R1=$(curl -s -o /tmp/fin_t1.json -w '%{http_code}' -X POST "$API/api/finance/ap-invoice" \
+cyan "▶ T1: AP Invoice 创建 (V2 POST /api/v2/finance/ap/invoices)"
+R1=$(curl -s -o /tmp/fin_t1.json -w '%{http_code}' -X POST "$API/api/v2/finance/ap/invoices" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"po_no\":\"$PO_NO\",\"supplier\":\"测试供应商\",\"amount\":3000,\"item\":\"测试货物\",\"due_days\":30}")
+  -d "{\"companyCode\":\"$CO\",\"supplierName\":\"测试供应商\",\"currencyCode\":\"CNY\",\"amountOriginal\":3000,\"remark\":\"REGR-FIN AP\"}")
 assert_ok "T1.1 createApInvoice 200" "$R1"
-INV_NO=$(cat /tmp/fin_t1.json | grep -oE '"invoice_no":"[^"]*"' | head -1 | cut -d'"' -f4)
-[ -n "$INV_NO" ] && green "  ✓ T1.1.1 invoice_no=$INV_NO" && PASS=$((PASS+1)) || { red "  ✗ T1.1.1 missing invoice_no"; FAIL=$((FAIL+1)); FAILURES+=("T1.1.1"); }
 
-INV_STATUS=$($PSQL $DB -tA -c "SELECT status FROM fin_invoices WHERE invoice_no='$INV_NO';")
-assert_eq "T1.2 fin_invoices.status=UNPAID" "UNPAID" "$INV_STATUS"
-INV_AMT=$($PSQL $DB -tA -c "SELECT amount::int FROM fin_invoices WHERE invoice_no='$INV_NO';")
-assert_eq "T1.3 fin_invoices.amount=3000" "3000" "$INV_AMT"
+AP_NO=$(cat /tmp/fin_t1.json | grep -oE '"ap_no":"[^"]*"' | head -1 | cut -d'"' -f4)
+AP_ID=$(cat /tmp/fin_t1.json | grep -oE '"id":[0-9]+' | head -1 | awk -F: '{print $2}')
+[ -n "$AP_NO" ] && green "  ✓ T1.1.1 ap_no=$AP_NO" && PASS=$((PASS+1)) || { red "  ✗ T1.1.1 missing ap_no (resp: $(cat /tmp/fin_t1.json | head -c 200))"; FAIL=$((FAIL+1)); FAILURES+=("T1.1.1"); }
 
-# fin_transactions 同步写一条 AP-TRADE DEBIT
-TXN_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM fin_transactions WHERE ref_no='$INV_NO' AND account_code='AP-TRADE' AND type='DEBIT';")
-assert_eq "T1.4 fin_transactions AP-TRADE DEBIT +1" "1" "$TXN_CNT"
+AP_STATUS=$($PSQL $DB -tA -c "SELECT payment_status FROM fin_ap_invoices WHERE ap_no='$AP_NO';")
+assert_eq "T1.2 fin_ap_invoices.payment_status=UNPAID" "UNPAID" "$AP_STATUS"
+AP_AMT=$($PSQL $DB -tA -c "SELECT amount_original::int FROM fin_ap_invoices WHERE ap_no='$AP_NO';")
+assert_eq "T1.3 fin_ap_invoices.amount_original=3000" "3000" "$AP_AMT"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
-cyan "▶ T2: AP 凭证幂等 (同 po_no 重复请求)"
-R2=$(curl -s -o /tmp/fin_t2.json -w '%{http_code}' -X POST "$API/api/finance/ap-invoice" \
+cyan "▶ T2: AP Invoice 取消 (V2 POST /api/v2/finance/ap/invoices/:id/cancel)"
+R2=$(curl -s -o /tmp/fin_t2.json -w '%{http_code}' -X POST "$API/api/v2/finance/ap/invoices/$AP_ID/cancel" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"po_no\":\"$PO_NO\",\"supplier\":\"测试供应商\",\"amount\":3000}")
-assert_ok "T2.1 重复 ap-invoice 200" "$R2"
-SKIP_FLAG=$(cat /tmp/fin_t2.json | grep -oE '"skipped":true')
-[ -n "$SKIP_FLAG" ] && green "  ✓ T2.2 skipped=true" && PASS=$((PASS+1)) || { red "  ✗ T2.2 missing skipped"; FAIL=$((FAIL+1)); FAILURES+=("T2.2"); }
-DUP_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM fin_invoices WHERE ref_no='$PO_NO';")
-assert_eq "T2.3 仍仅 1 张凭证 (无重复)" "1" "$DUP_CNT"
+  -d '{"reason":"回归测试清理"}')
+assert_ok "T2.1 cancelApInvoice 200" "$R2"
+
+AP_STATUS_AFTER=$($PSQL $DB -tA -c "SELECT status FROM fin_ap_invoices WHERE ap_no='$AP_NO';")
+assert_eq "T2.2 fin_ap_invoices.status=CANCELLED" "CANCELLED" "$AP_STATUS_AFTER"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
-cyan "▶ T3: AP 付款核销 (V2 /ap-payment)"
-# 先付 1000 (部分)
-R3=$(curl -s -o /tmp/fin_t3.json -w '%{http_code}' -X POST "$API/api/finance/ap-payment" \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"invoice_no\":\"$INV_NO\",\"paid_amount\":1000}")
-assert_ok "T3.1 ap-payment 1000 200" "$R3"
-PAID_AFTER=$($PSQL $DB -tA -c "SELECT paid_amount::int FROM fin_invoices WHERE invoice_no='$INV_NO';")
-assert_eq "T3.2 paid_amount=1000" "1000" "$PAID_AFTER"
-STATUS_AFTER=$($PSQL $DB -tA -c "SELECT status FROM fin_invoices WHERE invoice_no='$INV_NO';")
-assert_eq "T3.3 status=PARTIAL" "PARTIAL" "$STATUS_AFTER"
-
-# 再付 2000 (剩余)
-R3B=$(curl -s -o /tmp/fin_t3b.json -w '%{http_code}' -X POST "$API/api/finance/ap-payment" \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"invoice_no\":\"$INV_NO\",\"paid_amount\":2000}")
-assert_ok "T3.4 ap-payment 2000 (剩余) 200" "$R3B"
-STATUS_FULL=$($PSQL $DB -tA -c "SELECT status FROM fin_invoices WHERE invoice_no='$INV_NO';")
-assert_eq "T3.5 status=PAID" "PAID" "$STATUS_FULL"
-
-# fin_transactions 应有 2 条 CREDIT (付款)
-PAY_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM fin_transactions WHERE ref_no='$INV_NO' AND account_code='AP-TRADE' AND type='CREDIT';")
-assert_eq "T3.6 fin_transactions CREDIT 2 行" "2" "$PAY_CNT"
-
-# ──────────────────────────────────────────────────────────────────────────
-cyan ""
-cyan "▶ T4: 登记收入 / AR 自动核销 (V2 /income POST)"
-# 先建一个测试订单（不存在则 ord_orders 写入会被忽略，主流程仍通过）
-ORD_NO="ORD-REGR-FIN-$(date +%s | tail -c 5)"
-$PSQL $DB -q -c "INSERT INTO ord_orders (order_no, customer_code, total_amount, paid_amount, status, created_at, updated_at) VALUES ('$ORD_NO','$CUST_CODE',500,0,'received',now(),now()) ON CONFLICT DO NOTHING;" >/dev/null
-
-R4=$(curl -s -o /tmp/fin_t4.json -w '%{http_code}' -X POST "$API/api/finance/income" \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"account_code\":\"$ACC\",\"amount\":500,\"ref_no\":\"$ORD_NO\",\"note\":\"REGR-FIN income\"}")
-assert_ok "T4.1 register income 200" "$R4"
-
-# fin_accounts 余额 +500
-BAL=$($PSQL $DB -tA -c "SELECT balance::int FROM fin_accounts WHERE account_code='$ACC';")
-assert_eq "T4.2 fin_accounts 余额 10000+500=10500" "10500" "$BAL"
-
-# ord_orders.paid_amount 自动核销
-ORD_PAID=$($PSQL $DB -tA -c "SELECT paid_amount::int FROM ord_orders WHERE order_no='$ORD_NO';")
-assert_eq "T4.3 ord_orders.paid_amount=500 (自动核销)" "500" "$ORD_PAID"
-
-# fin_transactions 新流水 CREDIT COMPLETED
-INC_TXN=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM fin_transactions WHERE ref_no='$ORD_NO' AND type='CREDIT' AND status='COMPLETED';")
-assert_eq "T4.4 fin_transactions INCOME CREDIT 1 行" "1" "$INC_TXN"
-
-# ──────────────────────────────────────────────────────────────────────────
-cyan ""
-cyan "▶ T5: 三级费用审批链 (FARM_MGR → REGION_MGR → CEO)"
-# admin (ROLE_ADMIN) 跨级审批：单次 approve-chain 自动推进各级
-EXP_TXN="EXP-FIN-$(date +%s | tail -c 6)"
-$PSQL $DB -q -c "INSERT INTO fin_transactions (txn_no, transaction_no, type, amount, account_code, status, operator, note, created_at) VALUES ('$EXP_TXN','$EXP_TXN','EXPENSE',200,'$ACC','PENDING','test','REGR-FIN expense',now());" >/dev/null
-
-# admin 第一次 approve-chain → 应推进到 approved_by_mgr
-R5A=$(curl -s -o /tmp/fin_t5a.json -w '%{http_code}' -X POST "$API/api/finance/expense/$EXP_TXN/approve-chain" \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"action":"APPROVE","comment":"第一级"}')
-assert_ok "T5.1 admin approve L1 200" "$R5A"
-MGR_VAL=$($PSQL $DB -tA -c "SELECT approved_by_mgr FROM fin_transactions WHERE txn_no='$EXP_TXN';")
-[ "$MGR_VAL" = "admin" ] && green "  ✓ T5.1.1 approved_by_mgr=admin" && PASS=$((PASS+1)) || { red "  ✗ T5.1.1 approved_by_mgr='$MGR_VAL'"; FAIL=$((FAIL+1)); FAILURES+=("T5.1.1"); }
-
-# admin 第二次 approve-chain → 推进到 approved_by_gm
-R5B=$(curl -s -o /tmp/fin_t5b.json -w '%{http_code}' -X POST "$API/api/finance/expense/$EXP_TXN/approve-chain" \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"action":"APPROVE","comment":"第二级"}')
-assert_ok "T5.2 admin approve L2 200" "$R5B"
-GM_VAL=$($PSQL $DB -tA -c "SELECT approved_by_gm FROM fin_transactions WHERE txn_no='$EXP_TXN';")
-[ "$GM_VAL" = "admin" ] && green "  ✓ T5.2.1 approved_by_gm=admin" && PASS=$((PASS+1)) || { red "  ✗ T5.2.1 approved_by_gm='$GM_VAL'"; FAIL=$((FAIL+1)); FAILURES+=("T5.2.1"); }
-
-# admin 第三次 approve-chain → 最终 COMPLETED + 余额扣减
-R5C=$(curl -s -o /tmp/fin_t5c.json -w '%{http_code}' -X POST "$API/api/finance/expense/$EXP_TXN/approve-chain" \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"action":"APPROVE","comment":"第三级"}')
-assert_ok "T5.3 admin approve L3 (COMPLETED) 200" "$R5C"
-TXN_STATUS=$($PSQL $DB -tA -c "SELECT status FROM fin_transactions WHERE txn_no='$EXP_TXN';")
-assert_eq "T5.3.1 fin_transactions.status=COMPLETED" "COMPLETED" "$TXN_STATUS"
-CEO_VAL=$($PSQL $DB -tA -c "SELECT approved_by_ceo FROM fin_transactions WHERE txn_no='$EXP_TXN';")
-[ "$CEO_VAL" = "admin" ] && green "  ✓ T5.3.2 approved_by_ceo=admin" && PASS=$((PASS+1)) || { red "  ✗ T5.3.2"; FAIL=$((FAIL+1)); FAILURES+=("T5.3.2"); }
-BAL_FINAL=$($PSQL $DB -tA -c "SELECT balance::int FROM fin_accounts WHERE account_code='$ACC';")
-assert_eq "T5.3.3 fin_accounts 余额 10500-200=10300" "10300" "$BAL_FINAL"
-
-# fin_approvals 应记录 3 条审批
-APP_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM fin_approvals WHERE txn_id='$EXP_TXN' AND action='APPROVE';")
-assert_eq "T5.4 fin_approvals 3 条审批" "3" "$APP_CNT"
-
-# ──────────────────────────────────────────────────────────────────────────
-cyan ""
-cyan "▶ T6: 单客户 AR 账龄明细"
-R6=$(curl -s -o /tmp/fin_t6.json -w '%{http_code}' \
-  "$API/api/finance/ar-aging/customer/$CUST_CODE" \
+cyan "▶ T3: AP Aging 接口 (V2 GET /api/v2/finance/ap/aging)"
+R3=$(curl -s -o /tmp/fin_t3.json -w '%{http_code}' \
+  "$API/api/v2/finance/ap/aging" \
   -H "Authorization: Bearer $TOKEN")
-assert_ok "T6.1 ar-aging customer 200" "$R6"
-# 该客户 ord_orders 已 paid 500/500 → balance=0 → 不应出现在结果
-HAS_ROW=$(cat /tmp/fin_t6.json | grep -oE '"order_no":"[^"]*"' | head -1 | cut -d'"' -f4)
-[ -z "$HAS_ROW" ] && green "  ✓ T6.2 已全额核销订单不在结果中" && PASS=$((PASS+1)) || { red "  ✗ T6.2 不应有 order_no=$HAS_ROW"; FAIL=$((FAIL+1)); FAILURES+=("T6.2"); }
+assert_ok "T3.1 ap-aging 200" "$R3"
+
+# ──────────────────────────────────────────────────────────────────────────
+cyan ""
+cyan "▶ T4: AR Invoice 创建 (V2 POST /api/v2/finance/ar/invoices)"
+R4=$(curl -s -o /tmp/fin_t4.json -w '%{http_code}' -X POST "$API/api/v2/finance/ar/invoices" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d "{\"companyCode\":\"$CO\",\"customerName\":\"测试客户\",\"customerCode\":\"REGR-CUST\",\"currencyCode\":\"CNY\",\"amountOriginal\":500,\"remark\":\"REGR-FIN AR\"}")
+assert_ok "T4.1 createArInvoice 200" "$R4"
+
+AR_NO=$(cat /tmp/fin_t4.json | grep -oE '"ar_no":"[^"]*"' | head -1 | cut -d'"' -f4)
+AR_ID=$(cat /tmp/fin_t4.json | grep -oE '"id":[0-9]+' | head -1 | awk -F: '{print $2}')
+[ -n "$AR_NO" ] && green "  ✓ T4.1.1 ar_no=$AR_NO" && PASS=$((PASS+1)) || { red "  ✗ T4.1.1 missing ar_no (resp: $(cat /tmp/fin_t4.json | head -c 200))"; FAIL=$((FAIL+1)); FAILURES+=("T4.1.1"); }
+
+AR_COLL=$($PSQL $DB -tA -c "SELECT collection_status FROM fin_ar_invoices WHERE ar_no='$AR_NO';")
+assert_eq "T4.2 fin_ar_invoices.collection_status=UNRECEIVED" "UNRECEIVED" "$AR_COLL"
+AR_AMT=$($PSQL $DB -tA -c "SELECT amount_original::int FROM fin_ar_invoices WHERE ar_no='$AR_NO';")
+assert_eq "T4.3 fin_ar_invoices.amount_original=500" "500" "$AR_AMT"
+
+# ──────────────────────────────────────────────────────────────────────────
+cyan ""
+cyan "▶ T5: AR 收款草稿 (V2 POST /api/v2/finance/ar/receipts)"
+TODAY=$(date +%Y-%m-%d)
+R5=$(curl -s -o /tmp/fin_t5.json -w '%{http_code}' -X POST "$API/api/v2/finance/ar/receipts" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d "{\"companyCode\":\"$CO\",\"customerName\":\"测试客户\",\"customerCode\":\"REGR-CUST\",\"receiptDate\":\"$TODAY\",\"currencyCode\":\"CNY\",\"amountOriginal\":500,\"remark\":\"REGR-FIN receipt\"}")
+assert_ok "T5.1 createArReceipt 200" "$R5"
+
+RECEIPT_ID=$(cat /tmp/fin_t5.json | grep -oE '"id":[0-9]+' | head -1 | awk -F: '{print $2}')
+RECEIPT_NO=$(cat /tmp/fin_t5.json | grep -oE '"receipt_no":"[^"]*"' | head -1 | cut -d'"' -f4)
+[ -n "$RECEIPT_ID" ] && green "  ✓ T5.1.1 receipt_id=$RECEIPT_ID" && PASS=$((PASS+1)) || { red "  ✗ T5.1.1 missing receipt id (resp: $(cat /tmp/fin_t5.json | head -c 200))"; FAIL=$((FAIL+1)); FAILURES+=("T5.1.1"); }
+
+RECEIPT_STATUS=$($PSQL $DB -tA -c "SELECT status FROM fin_ar_receipts WHERE id=$RECEIPT_ID;")
+assert_eq "T5.2 fin_ar_receipts.status=DRAFT" "DRAFT" "$RECEIPT_STATUS"
+
+# ──────────────────────────────────────────────────────────────────────────
+cyan ""
+cyan "▶ T6: AR 收款确认 + AR 核销 (V2 POST /api/v2/finance/ar/receipts/:id/confirm)"
+R6=$(curl -s -o /tmp/fin_t6.json -w '%{http_code}' -X POST "$API/api/v2/finance/ar/receipts/$RECEIPT_ID/confirm" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d "{\"allocations\":[{\"arInvoiceId\":\"$AR_ID\",\"allocatedAmountOriginal\":500}]}")
+assert_ok "T6.1 confirmArReceipt 200" "$R6"
+
+RECEIPT_CONFIRMED=$($PSQL $DB -tA -c "SELECT status FROM fin_ar_receipts WHERE id=$RECEIPT_ID;")
+assert_eq "T6.2 fin_ar_receipts.status=CONFIRMED" "CONFIRMED" "$RECEIPT_CONFIRMED"
+AR_COLL_AFTER=$($PSQL $DB -tA -c "SELECT collection_status FROM fin_ar_invoices WHERE ar_no='$AR_NO';")
+assert_eq "T6.3 fin_ar_invoices.collection_status=RECEIVED (全额核销)" "RECEIVED" "$AR_COLL_AFTER"
+ALLOC_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM fin_ar_receipt_allocations WHERE receipt_id=$RECEIPT_ID;")
+assert_eq "T6.4 fin_ar_receipt_allocations 1 行" "1" "$ALLOC_CNT"
+
+# ──────────────────────────────────────────────────────────────────────────
+cyan ""
+cyan "▶ T7: AR Aging 接口 (V2 GET /api/v2/finance/ar/aging)"
+R7=$(curl -s -o /tmp/fin_t7.json -w '%{http_code}' \
+  "$API/api/v2/finance/ar/aging" \
+  -H "Authorization: Bearer $TOKEN")
+assert_ok "T7.1 ar-aging 200" "$R7"
+
+# ──────────────────────────────────────────────────────────────────────────
+cyan ""
+cyan "▶ T8: 费用申请 创建 (V2 POST /api/v2/finance/expenses)"
+R8=$(curl -s -o /tmp/fin_t8.json -w '%{http_code}' -X POST "$API/api/v2/finance/expenses" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d "{\"companyCode\":\"$CO\",\"expenseType\":\"OFFICE\",\"currencyCode\":\"CNY\",\"amountOriginal\":200,\"description\":\"REGR-FIN expense test\"}")
+assert_ok "T8.1 createExpenseRequest 200" "$R8"
+
+EXP_ID=$(cat /tmp/fin_t8.json | grep -oE '"id":[0-9]+' | head -1 | awk -F: '{print $2}')
+EXP_NO=$(cat /tmp/fin_t8.json | grep -oE '"expense_no":"[^"]*"' | head -1 | cut -d'"' -f4)
+[ -n "$EXP_ID" ] && green "  ✓ T8.1.1 expense_id=$EXP_ID" && PASS=$((PASS+1)) || { red "  ✗ T8.1.1 missing expense id (resp: $(cat /tmp/fin_t8.json | head -c 200))"; FAIL=$((FAIL+1)); FAILURES+=("T8.1.1"); }
+
+EXP_STATUS=$($PSQL $DB -tA -c "SELECT status FROM fin_expense_requests WHERE id=$EXP_ID;")
+assert_eq "T8.2 fin_expense_requests.status=DRAFT" "DRAFT" "$EXP_STATUS"
+EXP_AMT=$($PSQL $DB -tA -c "SELECT amount_original::int FROM fin_expense_requests WHERE id=$EXP_ID;")
+assert_eq "T8.3 fin_expense_requests.amount_original=200" "200" "$EXP_AMT"
+
+# ──────────────────────────────────────────────────────────────────────────
+cyan ""
+cyan "▶ T9: 费用申请 取消 (V2 POST /api/v2/finance/expenses/:id/cancel)"
+R9=$(curl -s -o /tmp/fin_t9.json -w '%{http_code}' -X POST "$API/api/v2/finance/expenses/$EXP_ID/cancel" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"reason":"回归测试取消"}')
+assert_ok "T9.1 cancelExpenseRequest 200" "$R9"
+
+EXP_CANCELLED=$($PSQL $DB -tA -c "SELECT status FROM fin_expense_requests WHERE id=$EXP_ID;")
+assert_eq "T9.2 fin_expense_requests.status=CANCELLED" "CANCELLED" "$EXP_CANCELLED"
+
+# ──────────────────────────────────────────────────────────────────────────
+cyan ""
+cyan "▶ T10: AR 汇总统计 (V2 GET /api/v2/finance/ar/summary)"
+R10=$(curl -s -o /tmp/fin_t10.json -w '%{http_code}' \
+  "$API/api/v2/finance/ar/summary" \
+  -H "Authorization: Bearer $TOKEN")
+assert_ok "T10.1 ar-summary 200" "$R10"
+
+cyan ""
+cyan "▶ T11: AP 汇总统计 (V2 GET /api/v2/finance/ap/summary)"
+R11=$(curl -s -o /tmp/fin_t11.json -w '%{http_code}' \
+  "$API/api/v2/finance/ap/summary" \
+  -H "Authorization: Bearer $TOKEN")
+assert_ok "T11.1 ap-summary 200" "$R11"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
 cyan "▶ Cleanup"
-$PSQL $DB -q -c "DELETE FROM fin_approvals WHERE txn_id LIKE 'EXP-FIN-%';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM fin_transactions WHERE ref_no LIKE 'PO-REGR-FIN-%' OR ref_no LIKE 'AP-%' OR txn_no LIKE 'EXP-FIN-%' OR txn_no LIKE 'INC-FIN-%' OR ref_no='$ORD_NO' OR note LIKE 'REGR-FIN %';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM fin_invoices WHERE ref_no LIKE 'PO-REGR-FIN-%';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM fin_accounts WHERE account_code='$ACC';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM ord_orders WHERE order_no='$ORD_NO';" >/dev/null
-green "  ✓ test data 清理完毕"
+$PSQL $DB -q -c "DELETE FROM fin_ar_receipt_allocations WHERE receipt_id IN (SELECT id FROM fin_ar_receipts WHERE company_code='$CO');" >/dev/null
+$PSQL $DB -q -c "DELETE FROM fin_ar_receipts WHERE company_code='$CO';" >/dev/null
+$PSQL $DB -q -c "DELETE FROM fin_ar_invoices WHERE company_code='$CO';" >/dev/null
+$PSQL $DB -q -c "DELETE FROM fin_ap_invoices WHERE company_code='$CO';" >/dev/null
+$PSQL $DB -q -c "DELETE FROM fin_expense_requests WHERE company_code='$CO';" >/dev/null
+green "  ✓ test data 清理完毕 (company_code=$CO)"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
