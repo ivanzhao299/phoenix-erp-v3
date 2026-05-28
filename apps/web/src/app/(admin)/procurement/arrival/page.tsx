@@ -7,6 +7,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 // V3 表: wms_inbound + wms_inbound_items
 
@@ -126,6 +127,8 @@ export default function ArrivalPage() {
 
   return (
     <div className="animate-fade-in">
+      {/* [LEGACY] Phase 2B — 旧采购页面已冻结 */}
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版采购管理。" newPath="/procurement2/receipts" newModuleName="新版采购管理" />
       <PageHeader title={t("ui.到货收货","到货收货")} subtitle={t("ui.到货收货副标题","采购入库验收·三单比对·收货确认")} breadcrumb={[t("ui.采购管理","采购管理"),t("ui.到货收货","到货收货")]}
         actions={
           <div style={{ display:"flex",gap:8 }}>

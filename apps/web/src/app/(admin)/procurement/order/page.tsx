@@ -7,6 +7,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 // ── 常量 ────────────────���─────────────────────────���──────────────────────────
 
@@ -511,6 +512,8 @@ export default function ProcurementOrderPage() {
 
   return (
     <div className="animate-fade-in">
+      {/* [LEGACY] Phase 2B — 旧采购页面已冻结 */}
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版采购管理。" newPath="/procurement2/orders" newModuleName="新版采购管理" />
       <PageHeader
         title={t("ui.采购订单", "采购订单")}
         subtitle={`管理全部采购订单·状态机流转·${orders.length} 笔`}

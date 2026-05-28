@@ -7,6 +7,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -183,6 +184,8 @@ export default function PaymentsPage() {
 
   return (
     <div className="animate-fade-in">
+      {/* [LEGACY] Phase 2B — 旧采购页面已冻结 */}
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版采购管理。" newPath="/procurement2/payments" newModuleName="新版采购管理" />
       <PageHeader
         title={t("ui.付款管理","付款管理")}
         subtitle={t("ui.付款管理副标题","应付账款·付款记录·逾期预警")}

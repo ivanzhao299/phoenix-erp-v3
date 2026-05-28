@@ -5,6 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 // V3 三单对账：prc_purchase_orders vs wms_inbound
 
@@ -75,6 +76,8 @@ export default function ReconcilePage() {
 
   return (
     <div className="animate-fade-in">
+      {/* [LEGACY] Phase 2B — 旧采购页面已冻结 */}
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版采购管理。" newPath="/procurement2/dashboard" newModuleName="新版采购管理" />
       <PageHeader title={t("ui.三单对账","三单对账")} subtitle={t("ui.三单对账副标题","采购订单 · 入库单 · 财务凭证 — 差异核验")} breadcrumb={[t("ui.采购管理","采购管理"),t("ui.三单对账","三单对账")]}/>
 
       {/* 查询条件 */}

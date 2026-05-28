@@ -9,6 +9,8 @@ interface LegacyFreezeBannerProps {
   newModuleName?: string;
   /** 具体迁移阶段说明（可选） */
   migrationPhase?: string;
+  /** 自定义提示正文（覆盖默认文案；不传则使用默认） */
+  message?: string;
 }
 
 /**
@@ -31,6 +33,7 @@ export function LegacyFreezeBanner({
   newPath = "/sales2",
   newModuleName = "Sales V2",
   migrationPhase,
+  message,
 }: LegacyFreezeBannerProps) {
   return (
     <div
@@ -50,12 +53,18 @@ export function LegacyFreezeBanner({
     >
       <AlertTriangle size={16} style={{ flexShrink: 0 }} />
       <span style={{ flex: 1 }}>
-        <strong>⚠️ 当前模块已冻结（LEGACY / READ_ONLY）</strong>
-        {" — "}
-        数据写入路径已停止扩展，将迁移至{" "}
-        <strong>{newModuleName}</strong>。
-        {migrationPhase && (
-          <span style={{ opacity: 0.8 }}> 预计迁移阶段：{migrationPhase}。</span>
+        {message ? (
+          <span>{message}</span>
+        ) : (
+          <>
+            <strong>⚠️ 当前模块已冻结</strong>
+            {" — "}
+            数据写入路径已停止扩展，请使用{" "}
+            <strong>{newModuleName}</strong>。
+            {migrationPhase && (
+              <span style={{ opacity: 0.8 }}> 预计迁移阶段：{migrationPhase}。</span>
+            )}
+          </>
         )}
       </span>
       <Link

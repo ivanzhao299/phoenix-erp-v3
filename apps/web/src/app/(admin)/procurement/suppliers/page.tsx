@@ -7,6 +7,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 // V3 表: prc_suppliers
 
@@ -133,6 +134,8 @@ export default function SuppliersPage() {
 
   return (
     <div className="animate-fade-in">
+      {/* [LEGACY] Phase 2B — 旧采购页面已冻结 */}
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版采购管理。" newPath="/procurement2/suppliers" newModuleName="新版采购管理" />
       <PageHeader title={t("ui.供应商管理","供应商管理")} subtitle={`${t("ui.供应商管理副标题","维护采购供应商档案·账期·银行信息")} · ${t("ui.共","共")} ${list.length} ${t("ui.家","家")}`}
         breadcrumb={[t("ui.采购管理","采购管理"),t("ui.供应商管理","供应商管理")]}
         actions={

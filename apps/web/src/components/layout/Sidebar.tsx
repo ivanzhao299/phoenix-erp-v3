@@ -118,15 +118,16 @@ const MENU: MenuItem[] = [
     { id: "ql-bwd",  path: "/quality/backward",       Icon: ArrowLeftRight, label: "反向追溯",     perm: "MENU_QA_MGR" },
     { id: "ql-std",  path: "/quality/standards",      Icon: FlaskConical,   label: "质量标准",     perm: "MENU_QA_MASTER" },
   ]},
-  { id: "procurement", Icon: ClipboardList, label: "采购供应", perm: "MENU_PRC_MGR", children: [
-    { id: "pr-ov",       path: "/procurement",              Icon: LayoutDashboard, label: "采购总览",   perm: "MENU_PRC_MGR" },
-    { id: "pr-request",  path: "/procurement/requests",     Icon: FilePlus,        label: "采购申请",   perm: "MENU_PRC_MGR" },
-    { id: "pr-order",    path: "/procurement/order",        Icon: FileText,        label: "采购订单",   perm: "MENU_PRC_MGR" },
-    { id: "pr-arrival",  path: "/procurement/arrival",      Icon: PackagePlus,     label: "到货收货",   perm: "MENU_PRC_MGR" },
-    { id: "pr-pay",      path: "/procurement/payments",     Icon: Banknote,        label: "采购付款",   perm: "MENU_PRC_MGR" },
-    { id: "pr-supplier", path: "/procurement/suppliers",    Icon: Users,           label: "供应商档案", perm: "MENU_PRC_MASTER" },
-    { id: "pr-reconcile",path: "/procurement/reconcile",    Icon: GitMerge,        label: "饲料核对",   perm: "MENU_PRC_MGR" },
-  ]},
+  // [LEGACY] Phase 2B — 旧采购供应菜单已隐藏，正式入口统一至 /procurement2/*
+  // { id: "procurement", Icon: ClipboardList, label: "采购供应", perm: "MENU_PRC_MGR", children: [
+  //   { id: "pr-ov",       path: "/procurement",              Icon: LayoutDashboard, label: "采购总览",   perm: "MENU_PRC_MGR" },
+  //   { id: "pr-request",  path: "/procurement/requests",     Icon: FilePlus,        label: "采购申请",   perm: "MENU_PRC_MGR" },
+  //   { id: "pr-order",    path: "/procurement/order",        Icon: FileText,        label: "采购订单",   perm: "MENU_PRC_MGR" },
+  //   { id: "pr-arrival",  path: "/procurement/arrival",      Icon: PackagePlus,     label: "到货收货",   perm: "MENU_PRC_MGR" },
+  //   { id: "pr-pay",      path: "/procurement/payments",     Icon: Banknote,        label: "采购付款",   perm: "MENU_PRC_MGR" },
+  //   { id: "pr-supplier", path: "/procurement/suppliers",    Icon: Users,           label: "供应商档案", perm: "MENU_PRC_MASTER" },
+  //   { id: "pr-reconcile",path: "/procurement/reconcile",    Icon: GitMerge,        label: "饲料核对",   perm: "MENU_PRC_MGR" },
+  // ]},
   { id: "procurement2", Icon: Layers3, label: "采购 V2", perm: "MENU_PRC2_MASTER", children: [
     { id: "prc2-dashboard", path: "/procurement2/dashboard", Icon: LayoutDashboard, label: "采购看板", perm: "MENU_PRC2" },
     { id: "prc2-supplier",  path: "/procurement2/suppliers", Icon: Globe,           label: "供应商 V2",  perm: "MENU_PRC2_MASTER" },
@@ -154,7 +155,8 @@ const MENU: MenuItem[] = [
     { id: "ord-center",  path: "/order",               Icon: LayoutDashboard, label: "订单中心",   perm: "MENU_ORDER_MGR" },
     // [LEGACY] Sales V2 Phase 1 — 客户档案已迁移至 /sales2/customers (sal_customers)
     // { id: "ord-cust", path: "/order/customers", Icon: Users, label: "客户档案", perm: "MENU_ORDER_MGR" },
-    { id: "ord-price",   path: "/order/prices",        Icon: FileText,        label: "合同价格",   perm: "MENU_ORDER_MGR" },
+    // [LEGACY] Phase 2B — 合同价格已迁移至 /sales2/pricing，页面改为自动重定向
+    // { id: "ord-price",   path: "/order/prices",        Icon: FileText,        label: "合同价格",   perm: "MENU_ORDER_MGR" },
     { id: "ord-approv",  path: "/order/approval",      Icon: ShieldCheck,     label: "订单审批",   perm: "MENU_ORDER_MGR" },
     { id: "ord-pick",    path: "/order/picking",       Icon: ClipboardCheck,  label: "拣货任务",   perm: "MENU_ORDER_WH" },
     { id: "ord-load",    path: "/order/loading",       Icon: PackageCheck,    label: "装车清单",   perm: "MENU_ORDER_WH" },

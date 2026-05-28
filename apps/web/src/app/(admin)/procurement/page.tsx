@@ -6,6 +6,7 @@ import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 const STATUS_CLS: Record<string,string> = {
   DRAFT:"badgeNeutral", PENDING:"badgeWarning", CONFIRMED:"badgeInfo",
@@ -69,6 +70,8 @@ export default function ProcurementPage() {
 
   return (
     <div className="animate-fade-in">
+      {/* [LEGACY] Phase 2B — 旧采购页面已冻结 */}
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版采购管理。" newPath="/procurement2/dashboard" newModuleName="新版采购管理" />
       <PageHeader title={t("ui.采购管理", "采购管理")} subtitle={t("ui.供应商采购订单到货收货三单对账", "供应商·采购订单·到货收货·三单对账")} breadcrumb={[t("ui.采购管理", "采购管理")]}
         actions={<button type="button" className={s.btnSecondary} onClick={load} disabled={loading}
           style={{ display:"flex",alignItems:"center",gap:6 }}>
