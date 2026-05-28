@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/contexts/ToastContext";
 import { RightDrawer } from "@/components/ui/RightDrawer";
-import s from "@/styles/admin-ui.module.css";
+import s from "@/components/ui/admin-ui.module.css";
 import { Search, RefreshCw, Plus, Eye, CheckCircle, X } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
