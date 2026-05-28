@@ -222,7 +222,8 @@ const MENU: MenuItem[] = [
     { id: "stg-dict",        path: "/settings/dict",           Icon: BookOpen,      label: "系统字典",     perm: "MENU_SETTINGS_DATA" },
     { id: "stg-products",    path: "/settings/products",       Icon: Egg,           label: "商品主数据",   perm: null },
     { id: "stg-master",      path: "/settings/master-data",    Icon: Database,      label: "主数据配置",   perm: null },
-    { id: "stg-approvals",      path: "/settings/approval-flows",  Icon: GitMerge,   label: "审批流配置",   perm: "MENU_SETTINGS_IT" },
+    // [Phase 2C] 旧审批流配置入口已隐藏，页面改为自动跳转至审批规则
+    // { id: "stg-approvals", path: "/settings/approval-flows", Icon: GitMerge, label: "审批流配置", perm: "MENU_SETTINGS_IT" },
     { id: "stg-approval-rules", path: "/settings/approval-rules", Icon: ListChecks, label: "审批规则",     perm: "MENU_WORKFLOW" },
     { id: "stg-perms",       path: "/settings/permissions",    Icon: Shield,        label: "权限配置",     perm: "MENU_SETTINGS_IT" },
     { id: "stg-pda",         path: "/settings/pda-terminals",  Icon: Smartphone,    label: "PDA终端",      perm: null },

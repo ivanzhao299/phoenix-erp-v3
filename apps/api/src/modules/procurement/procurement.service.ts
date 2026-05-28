@@ -2,14 +2,12 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { PurchaseOrderEntity } from './entities/purchase-order.entity';
-import { ApprovalService } from '../approval/approval.service';
 import { ClsService } from 'nestjs-cls';
 
 @Injectable()
 export class ProcurementService {
   constructor(
     @InjectEntityManager() private readonly em: EntityManager,
-    private readonly approvalService: ApprovalService,
     private readonly cls: ClsService,
   ) {}
 
@@ -109,24 +107,11 @@ export class ProcurementService {
     } catch { return { code: 200, data: [] }; }
   }
 
-  async submitForApproval(
-    poNo: string,
-    extra?: { approver_id?: number; approver_name?: string; contract_url?: string },
-  ) {
-    const po = await this.em.findOne(PurchaseOrderEntity, { where: { po_no: poNo } });
-    if (!po) throw new BadRequestException('采购单不存在');
-    if (po.status !== 'DRAFT') throw new BadRequestException('只能提交草稿状态的采购单');
-    if (extra?.approver_id)   po.approver_id   = extra.approver_id;
-    if (extra?.approver_name) po.approver_name  = extra.approver_name;
-    if (extra?.contract_url)  po.contract_url   = extra.contract_url;
-    po.status = 'PENDING_APPROVAL';
-    await this.em.save(PurchaseOrderEntity, po);
-    await this.approvalService.submitForApproval({
-      docType: 'PURCHASE_ORDER', docId: Number(po.id),
-      amount: Number(po.total_amount), currencyCode: po.currency_code,
-      submitterId: po.created_by ? Number(po.created_by) : 1,
-    });
-    return { code: 200, msg: '已提交审批', po };
+  // [Phase 2C] 旧采购审批链已停用，接口保留但直接拒绝所有提交请求
+  // 请使用 Procurement V2（/procurement2/*）提交采购申请与审批
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async submitForApproval(_poNo: string, _extra?: unknown) {
+    throw new BadRequestException('旧采购审批已停用，请使用新版采购管理。');
   }
 
   async onApproved(docId: string) {

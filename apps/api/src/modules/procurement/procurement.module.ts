@@ -3,12 +3,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProcurementService } from './procurement.service';
 import { ProcurementController } from './procurement.controller';
 import { PurchaseOrderEntity } from './entities/purchase-order.entity';
-import { ApprovalModule } from '../approval/approval.module';
+// [Phase 2C] ApprovalModule 已移除 — 旧审批链停用，ProcurementService.submitForApproval 直接拒绝请求
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([PurchaseOrderEntity]),
-    ApprovalModule,
   ],
   controllers: [ProcurementController],
   providers: [ProcurementService],

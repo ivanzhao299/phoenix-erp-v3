@@ -38,6 +38,7 @@ export class GenericCrudController {
     'fin_shareholder_',   // Finance V2 Shareholder
     'fin_expense_',       // Finance V2 Expense Requests
     'fin_reimbursement',  // Finance V2 Reimbursements
+    'sys_approval_',      // [Phase 2C] 旧审批规则/日志表已停用，禁止 Generic CRUD 直接访问
   ];
   private static readonly RUNTIME_V2_EXACT = new Set([
     'sys_exchange_rates',  // Procurement V2 汇率表（SysExchangeRateEntity）
