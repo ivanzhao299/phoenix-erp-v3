@@ -530,8 +530,29 @@ CREATE TABLE IF NOT EXISTS prc2_init_batch_rows (
 CREATE INDEX IF NOT EXISTS idx_prc2_ibrow_batch_id     ON prc2_init_batch_rows (batch_id);
 CREATE INDEX IF NOT EXISTS idx_prc2_ibrow_status        ON prc2_init_batch_rows (status);
 
+-- ── 17. 汇率表 sys_exchange_rates ───────────────────────────────
+--  注意：fin_exchange_rates 是 Finance V2 专属汇率（ddl/22）；
+--  sys_exchange_rates 是系统级汇率主档，供 Procurement V2 多币种换算使用。
+CREATE TABLE IF NOT EXISTS sys_exchange_rates (
+  id            BIGSERIAL     PRIMARY KEY,
+  rate_date     DATE          NOT NULL,
+  from_currency VARCHAR(8)    NOT NULL,
+  to_currency   VARCHAR(8)    NOT NULL,
+  exchange_rate NUMERIC(18,8) NOT NULL,
+  source        VARCHAR(32)   NOT NULL DEFAULT 'MANUAL',
+  remark        TEXT,
+  created_by    BIGINT,
+  created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sys_exrate_date_pair
+  ON sys_exchange_rates (rate_date, from_currency, to_currency);
+CREATE INDEX IF NOT EXISTS idx_sys_exrate_date
+  ON sys_exchange_rates (rate_date DESC);
+
 -- ── 确认 ──────────────────────────────────────────────────────────
 DO $$
 BEGIN
-  RAISE NOTICE '✅ DDL 23 Procurement V2 tables applied (16 tables, idempotent)';
+  RAISE NOTICE '✅ DDL 23 Procurement V2 tables applied (17 tables, idempotent)';
 END$$;
