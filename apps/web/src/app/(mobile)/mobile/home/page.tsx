@@ -11,7 +11,7 @@ import { approvalApi, notificationApi } from '@/lib/mobile-api';
 import {
   BarChart2, Package, ShieldCheck, Warehouse,
   Truck, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird, Egg,
-  Sun, Moon, LineChart, PackageCheck, ShoppingCart, ClipboardList, ClipboardCheck,
+  Sun, Moon, LineChart, PackageCheck, ClipboardList,
   Maximize2, Minimize2, ClipboardCheck as WorkflowIcon, Bell,
 } from 'lucide-react';
 
@@ -133,27 +133,11 @@ const NAV_CARDS: NavCard[] = [
     pageKey: 'delivery',
   },
   {
-    icon: <ShoppingCart size={28} />,
-    titleZh: '采购审批', titleEn: 'Procurement', titleLo: 'ການຈັດຊື້',
-    desc: '审批采购单 · 财务确认付款',
-    color: '#7c3aed',
-    href: '/mobile/procurement',
-    soon: false,
-    pageKey: 'procurement',
-  },
-  {
     icon: <ClipboardList size={28} />,
     titleZh: '发起采购', titleEn: 'Request', titleLo: 'ຂໍຈັດຊື້',
     desc: '填报采购需求 · 查看申请进度',
     color: '#059669', href: '/mobile/prc-request', soon: false,
     pageKey: 'prc_request',
-  },
-  {
-    icon: <ClipboardCheck size={28} />,
-    titleZh: '采购审核', titleEn: 'PO Review', titleLo: 'ກວດສອບຈັດຊື້',
-    desc: '处理采购申请 · 转单 / 拒绝',
-    color: '#b45309', href: '/mobile/prc-review', soon: false,
-    pageKey: 'prc_review',
   },
   // ── Workflow 2.0 新增 ──────────────────────────────────────────────────────
   {

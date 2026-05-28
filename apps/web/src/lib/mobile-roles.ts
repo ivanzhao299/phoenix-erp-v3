@@ -147,21 +147,9 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     read:  [R.CEO, R.FARM_MGR, R.QA_MGR],
   },
 
-  /** 采购审批与付款：区域经理/CEO/CFO批准采购单；财务会计仅查看（不负责审批） */
-  procurement: {
-    write: [R.ADMIN, R.REGION_MGR, R.CEO, R.FIN_CFO],
-    read:  [R.FIN_ACCT, R.PRC_BUYER, R.AUDITOR, R.STORE_MGR],
-  },
-
   /** 采购申请发起：场级业务用户提单；采购员/管理层查看审核 */
   prc_request: {
     write: [R.ADMIN, R.FARM_MGR, R.VET, R.BREEDER, R.WMS_MGR, R.PKG_MGR, R.LOG_MGR, R.STORE_MGR, R.PRC_BUYER],
-    read:  [R.CEO, R.REGION_MGR, R.AUDITOR],
-  },
-
-  /** 采购审核（采购员专属）：查看所有申请、转为采购单、拒绝 */
-  prc_review: {
-    write: [R.ADMIN, R.PRC_BUYER],
     read:  [R.CEO, R.REGION_MGR, R.AUDITOR],
   },
 

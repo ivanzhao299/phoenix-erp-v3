@@ -21,7 +21,41 @@ import { ALLOWED_TABLES, TABLE_PERM_MAP } from './crud.constants';
 export class GenericCrudController {
   constructor(private readonly crudService: GenericCrudService) {}
 
+  /**
+   * V2 Runtime 表前缀黑名单 — 禁止通过 Generic CRUD 直接访问。
+   * 这些表由各自的 Runtime API（ProcurementV2、SalesV2、FinanceV2、ApprovalEngine）独家管理，
+   * 任何绕过 Runtime 的直接写入都会破坏业务状态机完整性。
+   * 即使某个表被意外加入 ALLOWED_TABLES，此处也会拦截。
+   */
+  private static readonly RUNTIME_V2_PREFIXES = [
+    'prc2_',              // Procurement V2 Runtime
+    'sal_',               // Sales V2 Runtime (sal_orders, sal_price_books 等)
+    'wf_approval_',       // Approval Engine Runtime
+    'fin_ar_',            // Finance V2 AR (fin_ar_invoices, fin_ar_receipts 等)
+    'fin_ap_',            // Finance V2 AP (fin_ap_invoices)
+    'fin_cash_',          // Finance V2 Cash (fin_cash_accounts, fin_cash_transactions)
+    'fin_fund_',          // Finance V2 Fund Transfers
+    'fin_shareholder_',   // Finance V2 Shareholder
+    'fin_expense_',       // Finance V2 Expense Requests
+    'fin_reimbursement',  // Finance V2 Reimbursements
+  ];
+  private static readonly RUNTIME_V2_EXACT = new Set([
+    'sys_exchange_rates',  // Procurement V2 汇率表（SysExchangeRateEntity）
+    'fin_exchange_rates',  // Finance V2 汇率表
+  ]);
+
   private checkTableAccess(table: string, req: any, method: string) {
+    // ─── V2 Runtime 表强制拦截（优先于 ALLOWED_TABLES 检查）──────────────────
+    const isRuntimeTable =
+      GenericCrudController.RUNTIME_V2_PREFIXES.some(p => table.startsWith(p)) ||
+      GenericCrudController.RUNTIME_V2_EXACT.has(table);
+    if (isRuntimeTable) {
+      throw new ForbiddenException(
+        `Runtime table [${table}] is managed exclusively by its dedicated Runtime API — ` +
+        `direct Generic CRUD access is disabled to protect business state integrity`
+      );
+    }
+
     if (!ALLOWED_TABLES.includes(table)) {
       throw new ForbiddenException('Forbidden Table');
     }

@@ -21,7 +21,6 @@ import { StoreModule } from './modules/store/store.module';
 
 // P2 Modules
 import { ApprovalModule } from './modules/approval/approval.module';
-import { FinanceModule }   from './modules/finance/finance.module';
 import { FinanceV2Module } from './modules/finance-v2/finance-v2.module';
 import { DebugController } from './debug.controller';
 import { HealthController } from './health.controller';
@@ -84,7 +83,6 @@ import { SalesV2Module } from './modules/sales-v2/sales-v2.module';
     OrderModule,
     StoreModule,
     ApprovalModule,
-    FinanceModule,
     FinanceV2Module,       // Finance V2 Phase 0 Baseline
     WmsModule,
     LogisticsModule,
