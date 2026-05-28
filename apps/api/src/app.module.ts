@@ -25,7 +25,6 @@ import { FinanceV2Module } from './modules/finance-v2/finance-v2.module';
 import { DebugController } from './debug.controller';
 import { HealthController } from './health.controller';
 import { WmsModule } from './modules/wms/wms.module';
-import { LogisticsModule } from './modules/logistics/logistics.module';
 import { ProcurementModule } from './modules/procurement/procurement.module';
 import { GenericCrudModule } from './modules/generic-crud/generic-crud.module';
 import { MasterModule } from './modules/master/master.module';
@@ -85,7 +84,6 @@ import { SalesV2Module } from './modules/sales-v2/sales-v2.module';
     ApprovalModule,
     FinanceV2Module,       // Finance V2 Phase 0 Baseline
     WmsModule,
-    LogisticsModule,
     ProcurementModule,
     AuthModule,
     TerminalModule,
