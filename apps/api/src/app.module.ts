@@ -45,6 +45,8 @@ import { ApprovalEngineModule } from './modules/approval-engine/approval-engine.
 import { NotificationModule } from './modules/notification/notification.module';
 // [Sales V2 Phase 0] Sales V2 Clean Baseline
 import { SalesV2Module } from './modules/sales-v2/sales-v2.module';
+// [Production Stabilization Phase 1] 系统监控 + 配置治理 + 错误追踪
+import { SystemMonitorModule } from './modules/system-monitor/system-monitor.module';
 
 
 @Module({
@@ -97,6 +99,7 @@ import { SalesV2Module } from './modules/sales-v2/sales-v2.module';
     ApprovalEngineModule,
     NotificationModule,
     SalesV2Module,          // Sales V2 Phase 0 Clean Baseline
+    SystemMonitorModule,    // Production Stabilization Phase 1
   ],
   controllers: [DebugController, HealthController],
   providers: [

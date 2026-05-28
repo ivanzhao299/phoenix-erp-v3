@@ -93,6 +93,92 @@ const LOG_RULES: LogRule[] = [
     bizType: 'CONFIG',
     actionFn: () => 'MODIFY_BRAND',
   },
+  // ── Sales V2 高危操作（Production Stabilization Phase 1 扩展）────────────
+  // Sales V2 客户解冻（高风险，需 A 权限）
+  {
+    pathPattern: /^\/api\/v2\/sales\/customers\/\d+\/unfreeze/,
+    methods: ['POST'],
+    bizType: 'SAL_CREDIT',
+    actionFn: () => 'UNFREEZE_CUSTOMER',
+  },
+  // Sales V2 信用刷新
+  {
+    pathPattern: /^\/api\/v2\/sales\/customers\/\d+\/refresh-credit/,
+    methods: ['POST'],
+    bizType: 'SAL_CREDIT',
+    actionFn: () => 'REFRESH_CREDIT',
+  },
+  // Sales V2 全量信用刷新（管理员触发）
+  {
+    pathPattern: /^\/api\/v2\/sales\/credit\/trigger-refresh/,
+    methods: ['POST'],
+    bizType: 'SAL_CREDIT',
+    actionFn: () => 'TRIGGER_CREDIT_REFRESH',
+  },
+  // Sales V2 销售订单状态变更（submit / approve / reject / ship / receive）
+  {
+    pathPattern: /^\/api\/v2\/sales\/orders\/\d+\/(submit|approve|reject|ship|receive|cancel)/,
+    methods: ['POST', 'PATCH'],
+    bizType: 'SAL_ORDER',
+    actionFn: (_method, path) => {
+      if (path.endsWith('/submit'))  return 'SUBMIT';
+      if (path.endsWith('/approve')) return 'APPROVE';
+      if (path.endsWith('/reject'))  return 'REJECT';
+      if (path.endsWith('/ship'))    return 'SHIP';
+      if (path.endsWith('/receive')) return 'RECEIVE';
+      if (path.endsWith('/cancel'))  return 'CANCEL';
+      return 'ORDER_ACTION';
+    },
+  },
+  // Sales V2 配送单签收
+  {
+    pathPattern: /^\/api\/v2\/sales\/receipts/,
+    methods: ['POST'],
+    bizType: 'SAL_DELIVERY',
+    actionFn: () => 'SIGN_RECEIPT',
+  },
+  // Sales V2 退货单（创建/审批/拒绝/完成）
+  {
+    pathPattern: /^\/api\/v2\/sales\/returns/,
+    methods: ['POST', 'PATCH'],
+    bizType: 'SAL_RETURN',
+    actionFn: (method, path) => {
+      if (path.includes('/approve'))  return 'APPROVE_RETURN';
+      if (path.includes('/reject'))   return 'REJECT_RETURN';
+      if (path.includes('/complete')) return 'COMPLETE_RETURN';
+      if (method === 'POST')          return 'CREATE_RETURN';
+      return 'RETURN_ACTION';
+    },
+  },
+  // Sales V2 价格手动调价（高危：低价审批相关）
+  {
+    pathPattern: /^\/api\/v2\/sales\/price-books/,
+    methods: ['POST', 'PATCH', 'PUT', 'DELETE'],
+    bizType: 'SAL_PRICE',
+    actionFn: (method) => {
+      if (method === 'POST')   return 'CREATE_PRICEBOOK';
+      if (method === 'DELETE') return 'DELETE_PRICEBOOK';
+      return 'MODIFY_PRICEBOOK';
+    },
+  },
+  // Sales V2 库存调整（FIFO 库存 Batch 手动操作）
+  {
+    pathPattern: /^\/api\/v2\/sales\/inventory/,
+    methods: ['POST', 'PATCH'],
+    bizType: 'SAL_INVENTORY',
+    actionFn: (_method, path) => {
+      if (path.includes('/adjust'))  return 'INVENTORY_ADJUST';
+      if (path.includes('/write-off')) return 'INVENTORY_WRITEOFF';
+      return 'INVENTORY_OP';
+    },
+  },
+  // 系统配置修改（生产配置治理）
+  {
+    pathPattern: /^\/api\/system\/configs\//,
+    methods: ['PATCH'],
+    bizType: 'SYS_CONFIG',
+    actionFn: () => 'MODIFY_CONFIG',
+  },
 ];
 
 /** 从 HTTP method 推导默认操作码 */

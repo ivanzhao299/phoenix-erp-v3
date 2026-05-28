@@ -739,6 +739,20 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_FARM_MGR:    ['V','C'],
   },
 
+  // ── Production Ops Runtime（Production Stabilization Phase 1）──────────────
+
+  /** 系统监控看板（错误日志/慢接口/DB连接池/告警概览） */
+  MENU_SYS_MONITOR: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_SYSOPS:      ['V','A'],               // 运维人员：查看+处理告警
+  },
+
+  /** 生产配置治理（sys_configs 查看/修改） */
+  MENU_SYS_CONFIG: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_SYSOPS:      ['V','E'],               // 运维人员：查看+修改（不可删除）
+  },
+
 };
 
 /**

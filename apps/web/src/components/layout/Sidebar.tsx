@@ -18,7 +18,7 @@ import {
   History, Box, RefreshCw, TrendingDown, Banknote, Building, ShoppingBag,
   BarChart3, Minus, Network, Smartphone, ToggleRight, Zap,
   FolderKanban, Globe, Layers3, UploadCloud, Bell, Wallet,
-  Rocket,
+  Rocket, Server, ShieldAlert, Settings2,
 } from "lucide-react";
 import styles from "./sidebar.module.css";
 import { useBrand } from "@/contexts/BrandContext";
@@ -236,6 +236,13 @@ const MENU: MenuItem[] = [
 
     { id: "stg-brand",       path: "/settings/brand",          Icon: Star,          label: "品牌配置",     perm: "MENU_SETTINGS_IT" },
     { id: "stg-profile",     path: "/settings/profile",        Icon: UserCheck,     label: "个人中心",     perm: null },
+  ]},
+
+  // ── 系统运维（Production Stabilization Phase 1）─────────────────────────────
+  { id: "sysops", Icon: Server, label: "系统运维", perm: "MENU_SYS_MONITOR", children: [
+    { id: "sysops-monitor", path: "/system/health",  Icon: Activity,      label: "监控面板",   perm: "MENU_SYS_MONITOR" },
+    { id: "sysops-alerts",  path: "/system/alerts",  Icon: ShieldAlert,   label: "异常告警",   perm: "MENU_SYS_MONITOR" },
+    { id: "sysops-configs", path: "/system/configs", Icon: Settings2,     label: "生产配置",   perm: "MENU_SYS_CONFIG" },
   ]},
 
 ];
