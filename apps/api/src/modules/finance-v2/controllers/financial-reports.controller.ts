@@ -10,7 +10,7 @@ import { FinancialReportsService }     from '../services/financial-reports.servi
  *
  * 路由前缀：/api/v2/finance/reports
  *
- * 11 个只读聚合端点，全部需要 MENU_FIN2_REPORTS 的 'V' 权限。
+ * 11 个只读聚合端点，全部需要 MENU_FIN2_REPORT 的 'V' 权限。
  * DataScope 在 Service 层按 user.dataScope 自动过滤。
  *
  * 本控制器不做任何写入，不涉及会计凭证/总账/科目体系。
@@ -33,7 +33,7 @@ export class FinancialReportsController {
    * + Net Operating Position + 今日资金流
    */
   @Get('overview')
-  @RequireMenu('MENU_FIN2_REPORTS', 'V')
+  @RequireMenu('MENU_FIN2_REPORT', 'V')
   getOverview() {
     return this.reportsSvc.getOverview(this.user);
   }
@@ -46,7 +46,7 @@ export class FinancialReportsController {
    * Query: companyCode?
    */
   @Get('ap-aging')
-  @RequireMenu('MENU_FIN2_REPORTS', 'V')
+  @RequireMenu('MENU_FIN2_REPORT', 'V')
   getApAging(@Query('companyCode') companyCode?: string) {
     return this.reportsSvc.getApAging(this.user, companyCode);
   }
@@ -58,7 +58,7 @@ export class FinancialReportsController {
    * TOP 20 供应商：totalAp / openBalance / paidAmount
    */
   @Get('ap-top-suppliers')
-  @RequireMenu('MENU_FIN2_REPORTS', 'V')
+  @RequireMenu('MENU_FIN2_REPORT', 'V')
   getApTopSuppliers() {
     return this.reportsSvc.getApTopSuppliers(this.user);
   }
@@ -71,7 +71,7 @@ export class FinancialReportsController {
    * Query: companyCode?
    */
   @Get('ar-aging')
-  @RequireMenu('MENU_FIN2_REPORTS', 'V')
+  @RequireMenu('MENU_FIN2_REPORT', 'V')
   getArAging(@Query('companyCode') companyCode?: string) {
     return this.reportsSvc.getArAging(this.user, companyCode);
   }
@@ -83,7 +83,7 @@ export class FinancialReportsController {
    * TOP 20 客户：totalAr / openBalance / receivedAmount
    */
   @Get('ar-top-customers')
-  @RequireMenu('MENU_FIN2_REPORTS', 'V')
+  @RequireMenu('MENU_FIN2_REPORT', 'V')
   getArTopCustomers() {
     return this.reportsSvc.getArTopCustomers(this.user);
   }
@@ -95,7 +95,7 @@ export class FinancialReportsController {
    * 资金账户总览：totalBalance / byAccountType / byCurrency / byCompany
    */
   @Get('cash-overview')
-  @RequireMenu('MENU_FIN2_REPORTS', 'V')
+  @RequireMenu('MENU_FIN2_REPORT', 'V')
   getCashOverview() {
     return this.reportsSvc.getCashOverview(this.user);
   }
@@ -108,7 +108,7 @@ export class FinancialReportsController {
    * Query: dateFrom? dateTo?
    */
   @Get('cash-daily-flow')
-  @RequireMenu('MENU_FIN2_REPORTS', 'V')
+  @RequireMenu('MENU_FIN2_REPORT', 'V')
   getCashDailyFlow(
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo')   dateTo?: string,
@@ -123,7 +123,7 @@ export class FinancialReportsController {
    * 费用汇总：byExpenseType / byCompany / byProject / 各状态计数
    */
   @Get('expense-summary')
-  @RequireMenu('MENU_FIN2_REPORTS', 'V')
+  @RequireMenu('MENU_FIN2_REPORT', 'V')
   getExpenseSummary() {
     return this.reportsSvc.getExpenseSummary(this.user);
   }
@@ -135,7 +135,7 @@ export class FinancialReportsController {
    * 报销汇总：pending / approved / paid / avgReimbursementDays
    */
   @Get('reimbursement-summary')
-  @RequireMenu('MENU_FIN2_REPORTS', 'V')
+  @RequireMenu('MENU_FIN2_REPORT', 'V')
   getReimbursementSummary() {
     return this.reportsSvc.getReimbursementSummary(this.user);
   }
@@ -147,7 +147,7 @@ export class FinancialReportsController {
    * 股东资金汇总：byShareholder / byContributionType / upcomingReturns
    */
   @Get('shareholder-summary')
-  @RequireMenu('MENU_FIN2_REPORTS', 'V')
+  @RequireMenu('MENU_FIN2_REPORT', 'V')
   getShareholderSummary() {
     return this.reportsSvc.getShareholderSummary(this.user);
   }
@@ -160,7 +160,7 @@ export class FinancialReportsController {
    * Query: projectCode?（不传则全部项目）
    */
   @Get('project-finance')
-  @RequireMenu('MENU_FIN2_REPORTS', 'V')
+  @RequireMenu('MENU_FIN2_REPORT', 'V')
   getProjectFinance(@Query('projectCode') projectCode?: string) {
     return this.reportsSvc.getProjectFinance(this.user, projectCode);
   }
@@ -172,7 +172,7 @@ export class FinancialReportsController {
    * 按 company_code 聚合：AP / AR / Cash / Expense / Shareholder / NetOperatingPosition
    */
   @Get('company-finance')
-  @RequireMenu('MENU_FIN2_REPORTS', 'V')
+  @RequireMenu('MENU_FIN2_REPORT', 'V')
   getCompanyFinance() {
     return this.reportsSvc.getCompanyFinance(this.user);
   }
