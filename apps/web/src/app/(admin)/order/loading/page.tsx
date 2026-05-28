@@ -8,6 +8,7 @@ import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 // ✅ V3 表: log_dispatch
 const TABLE = "log_dispatch";
@@ -84,6 +85,7 @@ export default function LoadingPage() {
   return (
     <div>
       <PageHeader title={t("ui.装车清单","装车清单")} subtitle={t("ui.装车清单副标题","管理配送波次及装车安排")} breadcrumb={[t("ui.物流","物流"), t("ui.装车清单","装车清单")]} />
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版销售管理。" newPath="/sales2/orders" newModuleName="新版销售管理" />
       <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit}
         onDelete={handleDelete} showActions refreshKey={refreshKey} />
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑波次","编辑波次") : t("ui.新建波次","新建波次")} onClose={closeDrawer}>

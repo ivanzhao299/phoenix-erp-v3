@@ -5,6 +5,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ChevronLeft, ChevronRight, RefreshCw, X } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 function tok() {
   if (typeof window === 'undefined') return '';
@@ -146,6 +147,7 @@ export default function FarmSalesPage() {
         subtitle={t('ui.管理农场鲜蛋直销出库订单', '管理农场鲜蛋直销出库订单，独立于B2B和POS渠道（API: /api/farm/sales）')}
         breadcrumb={[t('ui.订单管理', '订单管理'), t('ui.农场直销', '农场直销')]}
       />
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版销售管理。" newPath="/sales2/orders" newModuleName="新版销售管理" />
 
       {/* Tab 栏 + 日期（历史 tab 用） */}
       <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', marginBottom: 20, borderBottom: '2px solid var(--border)', flexWrap: 'wrap' }}>

@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import PageHeader from "@/components/PageHeader";
 import { crudApi } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 const TABLE = "log_receipts";
 
@@ -85,6 +86,7 @@ export default function ReceiptPage() {
   return (
     <div>
       <PageHeader title={t("ui.到店签收", "到店签收")} subtitle={t("ui.管理配送到门店的签收记录", "管理配送到门店的签收记录（表：log_receipts）")} />
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版配送管理。" newPath="/sales2/delivery" newModuleName="新版配送管理" />
       <DataTable<Receipt> table={TABLE} columns={COLS} showActions
         onNew={() => { setEditRow(null); setDrawerOpen(true); }}
         onEdit={r => { setEditRow(r); setDrawerOpen(true); }}

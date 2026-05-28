@@ -7,6 +7,7 @@ import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 // ✅ V3 表: b2b_orders
 const TABLE = "b2b_orders";
@@ -58,6 +59,7 @@ export default function Page() {
   return (
     <div>
       <PageHeader title={t("ui.B2B订单", "B2B 订单")} subtitle={t("ui.管理批发分销订单", "管理批发分销订单（表：b2b_orders）")} />
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版销售管理。" newPath="/sales2/orders" newModuleName="新版销售管理" />
       <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
       <RightDrawer open={o} title={e ? t("ui.编辑B2B订单", "编辑B2B 订单") : t("ui.新增B2B订单", "新增B2B 订单")} onClose={cl}>
         <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />

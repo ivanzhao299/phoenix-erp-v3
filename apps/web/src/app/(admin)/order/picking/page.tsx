@@ -7,6 +7,7 @@ import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 // ✅ V3 表: ord_orders（拣货任务通过订单状态管理）
 const TABLE = "ord_orders";
@@ -77,6 +78,7 @@ export default function PickingPage() {
         title={t("ui.拣货任务","拣货任务")}
         subtitle={t("ui.拣货任务副标题","查看待拣货订单列表（表：ord_orders，状态 approved/locked）")}
       />
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版销售管理。" newPath="/sales2/orders" newModuleName="新版销售管理" />
       <DataTable
         table={TABLE}
         columns={COLUMNS}

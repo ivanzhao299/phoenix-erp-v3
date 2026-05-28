@@ -240,25 +240,24 @@ export class OrderService {
       }
 
       // 财务联动
-      // TODO [Sales V2 Phase 3]: 切换至 Finance V2 fin_ar_invoices（AR Runtime）
-      //   · RECEIVED → 调用 FinArInvoicesService.create() 生成 fin_ar_invoices
-      //   · RECONCILED → 核销 fin_ar_invoices（status=RECEIVED）
-      //   · 禁止继续向 fin_transactions 写 AR 数据（该表已废弃）
-      //   · 参考：docs/sales-v2-architecture.md § Finance V2 AR 集成路线
-      if (toStatus === 'RECEIVED') {
-        await manager.query(
-          `INSERT INTO "fin_transactions" ("account_code", "type", "amount", "ref_no", "note", "created_at")
-           VALUES ('AR-TRADE', 'DEBIT', $1, $2, $3, CURRENT_TIMESTAMP)`,
-          [order.total_amount, orderNo, `订单 ${orderNo} 已签收，应收 ${order.customer_name || order.customer_code} ${order.total_amount}`],
-        ).catch((e: any) => console.warn('[transitionOrder][WARN] fin_transactions failed:', e?.message));
-      }
-      if (toStatus === 'RECONCILED') {
-        await manager.query(
-          `INSERT INTO "fin_transactions" ("account_code", "type", "amount", "ref_no", "note", "created_at")
-           VALUES ('AR-TRADE', 'CREDIT', $1, $2, $3, CURRENT_TIMESTAMP)`,
-          [order.total_amount, orderNo, `订单 ${orderNo} 已对账结清`],
-        ).catch((e: any) => console.warn('[transitionOrder][WARN] fin_transactions failed:', e?.message));
-      }
+      // [Phase 2D] fin_transactions 写入已停用：
+      //   · 旧版通过 fin_transactions 记录 AR 账目（DEBIT/CREDIT）已废弃
+      //   · Sales V2 Phase 3/4 已通过 sal_delivery_orders → fin_ar_invoices 生成规范 AR 发票
+      //   · 旧 ord_orders 状态机生成的 fin_transactions 记录为历史孤儿数据，不再扩展
+      // if (toStatus === 'RECEIVED') {
+      //   await manager.query(
+      //     `INSERT INTO "fin_transactions" ("account_code", "type", "amount", "ref_no", "note", "created_at")
+      //      VALUES ('AR-TRADE', 'DEBIT', $1, $2, $3, CURRENT_TIMESTAMP)`,
+      //     [order.total_amount, orderNo, `订单 ${orderNo} 已签收，应收 ${order.customer_name || order.customer_code} ${order.total_amount}`],
+      //   ).catch((e: any) => console.warn('[transitionOrder][WARN] fin_transactions failed:', e?.message));
+      // }
+      // if (toStatus === 'RECONCILED') {
+      //   await manager.query(
+      //     `INSERT INTO "fin_transactions" ("account_code", "type", "amount", "ref_no", "note", "created_at")
+      //      VALUES ('AR-TRADE', 'CREDIT', $1, $2, $3, CURRENT_TIMESTAMP)`,
+      //     [order.total_amount, orderNo, `订单 ${orderNo} 已对账结清`],
+      //   ).catch((e: any) => console.warn('[transitionOrder][WARN] fin_transactions failed:', e?.message));
+      // }
     });
 
     // A1: APPROVED 时联动 WMS — 推进出库单到 allocated 阶段（建工单）

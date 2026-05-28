@@ -7,6 +7,7 @@ import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 // ✅ V3 表: chn_distributor_grading
 const TABLE = "chn_distributor_grading";
@@ -59,6 +60,7 @@ export default function Page() {
         title={t("ui.经销商分级", "经销商分级")}
         subtitle={t("ui.经销商分级副标题", "管理渠道经销商信用评级和授信额度（仅管理员/区域经理可见）（表：chn_distributor_grading）")}
       />
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版销售管理。" newPath="/sales2/orders" newModuleName="新版销售管理" />
       <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
       <RightDrawer open={o} title={e ? t("ui.编辑经销商分级", "编辑经销商分级") : t("ui.新增经销商分级", "新增经销商分级")} onClose={cl}>
         <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />

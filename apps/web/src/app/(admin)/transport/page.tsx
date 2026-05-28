@@ -64,8 +64,7 @@ export default function TransportPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* [LEGACY FREEZE] Sales V2 Phase 0 — 此页面已冻结，迁移至 sal_delivery_orders (Phase 4) */}
-      <LegacyFreezeBanner newPath="/sales2/delivery" newModuleName="Sales V2 配送管理" migrationPhase="Phase 4" />
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版配送管理。" newPath="/sales2/delivery" newModuleName="新版配送管理" />
       <PageHeader
         title={t("ui.物流配送", "物流配送")}
         subtitle={t("ui.配送波次实时追踪门店签收", "配送波次·实时追踪·门店签收")}

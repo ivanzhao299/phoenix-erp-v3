@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import PageHeader from "@/components/PageHeader";
 import { crudApi } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 const TABLE = "log_dispatch";
 type Row = Record<string, unknown>;
@@ -69,6 +70,7 @@ export default function Page() {
   return (
     <div>
       <PageHeader title={t("ui.配送波次", "配送波次")} subtitle={t("ui.管理每次配送的车辆司机和门店波次计划", "管理每次配送的车辆、司机和门店波次计划")} />
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版配送管理。" newPath="/sales2/delivery" newModuleName="新版配送管理" />
       <DataTable<Row>
         table={TABLE}
         columns={COLS}

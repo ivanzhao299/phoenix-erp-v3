@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import PageHeader from "@/components/PageHeader";
 import { crudApi } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 const TABLE = "log_routes";
 type Row = Record<string, unknown>;
@@ -62,6 +63,7 @@ export default function Page() {
   return (
     <div>
       <PageHeader title={t("ui.配送路线", "配送路线")} subtitle={t("ui.管理配送路线规划及覆盖门店", "管理配送路线规划及覆盖门店（表：log_routes）")} />
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版配送管理。" newPath="/sales2/delivery" newModuleName="新版配送管理" />
       <DataTable<Row>
         table={TABLE}
         columns={COLS}

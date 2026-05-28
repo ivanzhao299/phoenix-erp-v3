@@ -7,6 +7,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 function genOrderNo() {
   const d = new Date();
@@ -148,6 +149,7 @@ export default function OrderPage() {
           </div>
         }
       />
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版销售管理。" newPath="/sales2/orders" newModuleName="新版销售管理" />
 
       {/* 状态筛选 pills */}
       <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>

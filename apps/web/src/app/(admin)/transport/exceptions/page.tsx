@@ -7,6 +7,7 @@ import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 // ✅ V3 表: log_exceptions
 // 实际字段: id, wave_no, store_code, type, description, severity, status
@@ -80,6 +81,7 @@ export default function LogExceptionsPage() {
   return (
     <div>
       <PageHeader title={t("ui.物流异常", "物流异常")} subtitle={t("ui.记录配送波次中的物流异常事件", "记录配送波次中的物流异常事件（表：log_exceptions）")} />
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版配送管理。" newPath="/sales2/delivery" newModuleName="新版配送管理" />
       <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit}
         onDelete={handleDelete} showActions refreshKey={refreshKey} />
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑异常记录", "编辑异常记录") : t("ui.新增异常记录", "新增异常记录")} onClose={closeDrawer}>

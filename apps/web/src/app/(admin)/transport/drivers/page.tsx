@@ -7,6 +7,7 @@ import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 // ✅ V3 表: log_drivers
 // 实际字段: id, driver_id, name, phone, license_no, status
@@ -66,6 +67,7 @@ export default function DriversPage() {
   return (
     <div>
       <PageHeader title={t("ui.司机档案", "司机档案")} subtitle={t("ui.管理配送司机基础信息", "管理配送司机基础信息（表：log_drivers）")} />
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版配送管理。" newPath="/sales2/delivery" newModuleName="新版配送管理" />
       <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit}
         onDelete={handleDelete} showActions refreshKey={refreshKey} />
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑司机", "编辑司机") : t("ui.新增司机", "新增司机")} onClose={closeDrawer}>

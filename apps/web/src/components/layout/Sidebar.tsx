@@ -92,15 +92,17 @@ const MENU: MenuItem[] = [
     { id: "wh-daily",    path: "/warehouse/daily-close",  Icon: ClipboardCheck,  label: "日结对账",   perm: "MENU_WMS_INOUT" },
     { id: "wh-loss",     path: "/warehouse/loss-report",  Icon: TrendingDown,    label: "报损管理",   perm: "MENU_WMS_INOUT" },
   ]},
-  { id: "transport", Icon: Truck, label: "配送运输", perm: "MENU_LOGISTICS", children: [
-    { id: "tp-plan",    path: "/transport",             Icon: Route,       label: "配货计划", perm: "MENU_LOGISTICS" },
-    { id: "tp-wave",    path: "/transport/wave",        Icon: Truck,       label: "配送波次", perm: "MENU_LOGISTICS" },
-    { id: "tp-track",   path: "/transport/tracking",    Icon: MapPin,      label: "配送跟踪", perm: "MENU_LOGISTICS" },
-    { id: "tp-receipt", path: "/transport/receipt",     Icon: Receipt,     label: "到店签收", perm: "MENU_LOGISTICS" },
-    { id: "tp-except",  path: "/transport/exceptions",  Icon: FileWarning, label: "物流异常", perm: "MENU_LOGISTICS" },
-    { id: "tp-vehicle", path: "/transport/vehicles",    Icon: Car,         label: "车辆档案", perm: "MENU_LOGISTICS_MASTER" },
-    { id: "tp-driver",  path: "/transport/drivers",     Icon: UserCheck,   label: "司机档案", perm: "MENU_LOGISTICS_MASTER" },
-  ]},
+  // [Phase 2D] 旧配送运输模块已冻结 — 入口隐藏，页面保留供历史查询
+  // 新版配送管理请使用 /sales2/delivery（Sales V2 Delivery Runtime）
+  // { id: "transport", Icon: Truck, label: "配送运输", perm: "MENU_LOGISTICS", children: [
+  //   { id: "tp-plan",    path: "/transport",             Icon: Route,       label: "配货计划", perm: "MENU_LOGISTICS" },
+  //   { id: "tp-wave",    path: "/transport/wave",        Icon: Truck,       label: "配送波次", perm: "MENU_LOGISTICS" },
+  //   { id: "tp-track",   path: "/transport/tracking",    Icon: MapPin,      label: "配送跟踪", perm: "MENU_LOGISTICS" },
+  //   { id: "tp-receipt", path: "/transport/receipt",     Icon: Receipt,     label: "到店签收", perm: "MENU_LOGISTICS" },
+  //   { id: "tp-except",  path: "/transport/exceptions",  Icon: FileWarning, label: "物流异常", perm: "MENU_LOGISTICS" },
+  //   { id: "tp-vehicle", path: "/transport/vehicles",    Icon: Car,         label: "车辆档案", perm: "MENU_LOGISTICS_MASTER" },
+  //   { id: "tp-driver",  path: "/transport/drivers",     Icon: UserCheck,   label: "司机档案", perm: "MENU_LOGISTICS_MASTER" },
+  // ]},
   { id: "store", Icon: Store, label: "直营门店", perm: null, children: [
     { id: "st-wb",      path: "/store",              Icon: LayoutDashboard, label: "门店工作台", perm: "MENU_STORE_MGR" },
     { id: "st-recv",    path: "/store/receiving",    Icon: PackagePlus,     label: "收货验收",   perm: "MENU_STORE_MGR" },
@@ -151,17 +153,15 @@ const MENU: MenuItem[] = [
     { id: "s2-inventory",  path: "/sales2/inventory",  Icon: Archive,         label: "库存管理",      perm: "MENU_SALES2_INVENTORY" },
     { id: "s2-reports",    path: "/sales2/reports",    Icon: BarChart2,       label: "经营分析",      perm: "MENU_SALES2_REPORT" },
   ]},
-  { id: "order", Icon: ShoppingCart, label: "订货系统", perm: "MENU_ORDER_MGR", children: [
-    { id: "ord-center",  path: "/order",               Icon: LayoutDashboard, label: "订单中心",   perm: "MENU_ORDER_MGR" },
-    // [LEGACY] Sales V2 Phase 1 — 客户档案已迁移至 /sales2/customers (sal_customers)
-    // { id: "ord-cust", path: "/order/customers", Icon: Users, label: "客户档案", perm: "MENU_ORDER_MGR" },
-    // [LEGACY] Phase 2B — 合同价格已迁移至 /sales2/pricing，页面改为自动重定向
-    // { id: "ord-price",   path: "/order/prices",        Icon: FileText,        label: "合同价格",   perm: "MENU_ORDER_MGR" },
-    { id: "ord-approv",  path: "/order/approval",      Icon: ShieldCheck,     label: "订单审批",   perm: "MENU_ORDER_MGR" },
-    { id: "ord-pick",    path: "/order/picking",       Icon: ClipboardCheck,  label: "拣货任务",   perm: "MENU_ORDER_WH" },
-    { id: "ord-load",    path: "/order/loading",       Icon: PackageCheck,    label: "装车清单",   perm: "MENU_ORDER_WH" },
-    { id: "ord-credit",  path: "/order/credit",        Icon: CreditCard,      label: "信用台账",   perm: "MENU_ORDER_FIN" },
-  ]},
+  // [Phase 2D] 旧订货系统已冻结 — 入口隐藏，页面保留供历史查询
+  // 新版销售管理请使用 /sales2（Sales V2 Order Runtime）
+  // { id: "order", Icon: ShoppingCart, label: "订货系统", perm: "MENU_ORDER_MGR", children: [
+  //   { id: "ord-center",  path: "/order",               Icon: LayoutDashboard, label: "订单中心",   perm: "MENU_ORDER_MGR" },
+  //   { id: "ord-approv",  path: "/order/approval",      Icon: ShieldCheck,     label: "订单审批",   perm: "MENU_ORDER_MGR" },
+  //   { id: "ord-pick",    path: "/order/picking",       Icon: ClipboardCheck,  label: "拣货任务",   perm: "MENU_ORDER_WH" },
+  //   { id: "ord-load",    path: "/order/loading",       Icon: PackageCheck,    label: "装车清单",   perm: "MENU_ORDER_WH" },
+  //   { id: "ord-credit",  path: "/order/credit",        Icon: CreditCard,      label: "信用台账",   perm: "MENU_ORDER_FIN" },
+  // ]},
   { id: "members", Icon: Users, label: "会员营销", perm: "MENU_B2B_SALE", children: [
     { id: "mb-ov",     path: "/members",         Icon: LayoutDashboard, label: "会员总览", perm: "MENU_B2B_SALE" },
     { id: "mb-list",   path: "/members/list",    Icon: Users,           label: "会员档案", perm: "MENU_B2B_SALE" },
@@ -186,13 +186,13 @@ const MENU: MenuItem[] = [
     { id: "an-inv",   path: "/analytics/inventory",     Icon: PieChart,        label: "库存周转",   perm: "MENU_DASHBOARD" },
     { id: "an-feed",  path: "/analytics/feed",          Icon: Wheat,           label: "饲料核对",   perm: "MENU_DASHBOARD" },
   ]},
-  { id: "b2b", Icon: BarChart3, label: "B2B 分销", perm: "MENU_B2B_SALE", children: [
-    { id: "b2b-ov",     path: "/b2b",                     Icon: LayoutDashboard, label: "B2B 总览",   perm: "MENU_B2B_SALE" },
-    // [LEGACY] Sales V2 Phase 1 — B2B客户已迁移至 /sales2/customers (sal_customers)
-    // { id: "b2b-cust", path: "/b2b/customers", Icon: Users, label: "B2B 客户", perm: "MENU_B2B_SALE" },
-    { id: "b2b-orders", path: "/b2b/orders",              Icon: ShoppingCart,    label: "B2B 订单",   perm: "MENU_B2B_SALE" },
-    { id: "b2b-grade",  path: "/b2b/distributor-grading", Icon: Award,           label: "经销商分级", perm: "MENU_B2B_SALE" },
-  ]},
+  // [Phase 2D] 旧 B2B 分销模块已冻结 — 入口隐藏，页面保留供历史查询
+  // 新版分销管理请使用 /sales2（Sales V2 Order Runtime）
+  // { id: "b2b", Icon: BarChart3, label: "B2B 分销", perm: "MENU_B2B_SALE", children: [
+  //   { id: "b2b-ov",     path: "/b2b",                     Icon: LayoutDashboard, label: "B2B 总览",   perm: "MENU_B2B_SALE" },
+  //   { id: "b2b-orders", path: "/b2b/orders",              Icon: ShoppingCart,    label: "B2B 订单",   perm: "MENU_B2B_SALE" },
+  //   { id: "b2b-grade",  path: "/b2b/distributor-grading", Icon: Award,           label: "经销商分级", perm: "MENU_B2B_SALE" },
+  // ]},
   { id: "pos", Icon: ShoppingBag, label: "POS 销售", perm: null, children: [
     { id: "pos-ov",    path: "/pos",         Icon: LayoutDashboard, label: "POS 总览",   perm: null },
     { id: "pos-sales", path: "/pos/sales",   Icon: CreditCard,      label: "销售单管理", perm: null },

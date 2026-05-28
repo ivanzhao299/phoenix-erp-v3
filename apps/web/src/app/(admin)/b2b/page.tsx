@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Users, ShoppingCart, Award } from "lucide-react";
 import styles from "./b2b.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 export default function B2BOverviewPage() {
   const { t } = useLanguage();
@@ -38,6 +39,7 @@ export default function B2BOverviewPage() {
   return (
     <div>
       <PageHeader title={t("ui.B2B分销", "B2B 分销")} subtitle={t("ui.批发分销管理中心", "批发分销管理中心（b2b_customers + b2b_orders）")} />
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版销售管理。" newPath="/sales2/orders" newModuleName="新版销售管理" />
       <div className={styles.kpiGrid}>
         {KPIs.map(k => (
           <div key={k.label} className={styles.kpiCard}>

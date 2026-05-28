@@ -7,6 +7,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 interface Order {
   id: number; order_no: string; customer_name?: string; customer_code: string;
@@ -92,6 +93,7 @@ export default function ApprovalPage() {
           </button>
         }
       />
+      <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版销售管理。" newPath="/sales2/orders" newModuleName="新版销售管理" />
 
       {/* 空状态 */}
       {!loading && orders.length === 0 && (

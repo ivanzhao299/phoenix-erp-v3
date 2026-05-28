@@ -39,10 +39,14 @@ export class GenericCrudController {
     'fin_expense_',       // Finance V2 Expense Requests
     'fin_reimbursement',  // Finance V2 Reimbursements
     'sys_approval_',      // [Phase 2C] 旧审批规则/日志表已停用，禁止 Generic CRUD 直接访问
+    'ord_',               // [Phase 2D] 旧销售订单表 — 由 Sales V2 专属 Runtime API 管理
+    'b2b_',               // [Phase 2D] 旧 B2B 分销表 — 由 Sales V2 专属 Runtime API 管理
+    'log_',               // [Phase 2D] 旧配送日志表 — 由 Sales V2 Delivery Runtime 管理
   ];
   private static readonly RUNTIME_V2_EXACT = new Set([
     'sys_exchange_rates',  // Procurement V2 汇率表（SysExchangeRateEntity）
     'fin_exchange_rates',  // Finance V2 汇率表
+    'fin_transactions',    // [Phase 2D] 旧总账流水表 — 已废弃，禁止新增写入
   ]);
 
   private checkTableAccess(table: string, req: any, method: string) {

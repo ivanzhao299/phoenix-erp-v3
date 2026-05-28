@@ -8,6 +8,7 @@ import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { LegacyFreezeBanner } from "@/components/LegacyFreezeBanner";
 
 const STATUS_CLS: Record<string,string> = {"RESERVED":s.badgeWarning, "RELEASED":s.badgeSuccess, "SETTLED":s.badgeNeutral};
 
@@ -43,6 +44,7 @@ export default function Page() {
   const confirmDelete=useCallback(async()=>{if(!deleteTarget?.id)return;await crudApi.delete(TABLE,deleteTarget.id as number);setConfirmOpen(false);refresh();},[deleteTarget,refresh]);
   return(<div><PageHeader
         breadcrumb={[t("ui.销售", "销售"), t("ui.信用台账", "信用台账")]} title={t("ui.信用台账", "信用台账")} subtitle={t("ui.信用台账副标题", "客户信用额度占用记录（表：ord_credit_usage）")} />
+    <LegacyFreezeBanner message="当前模块已冻结，仅保留历史查询，请使用新版销售管理。" newPath="/sales2/orders" newModuleName="新版销售管理" />
     <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit} onDelete={handleDelete} showActions refreshKey={refreshKey} />
     <RightDrawer open={drawerOpen} title={editing?t("ui.编辑信用台账", "编辑信用台账"):t("ui.新增信用台账", "新增信用台账")} onClose={closeDrawer}>
       <CrudForm fields={FIELDS} initialValues={editing??{}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
