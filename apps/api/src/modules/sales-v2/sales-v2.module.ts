@@ -11,6 +11,7 @@ import { CustomerCreditController }    from './controllers/customer-credit.contr
 import { SalesReturnsController }      from './controllers/sales-returns.controller';    // Phase 6
 import { EggInventoryController }      from './controllers/egg-inventory.controller';    // Phase 7
 import { SalesAnalyticsController }   from './controllers/sales-analytics.controller';  // Phase 8
+import { MobileDeliveryController }   from './controllers/mobile-delivery.controller';   // Mobile
 import { SalesV2Service }                    from './services/sales-v2.service';
 import { CustomersService }                  from './services/customers.service';
 import { ChannelsService }                   from './services/channels.service';
@@ -102,6 +103,7 @@ import {
     SalesReturnsController,      // Phase 6
     EggInventoryController,      // Phase 7
     SalesAnalyticsController,    // Phase 8
+    MobileDeliveryController,    // Mobile
   ],
   providers: [
     SalesV2Service,

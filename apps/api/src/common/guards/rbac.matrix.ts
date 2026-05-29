@@ -573,6 +573,16 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_REGION_MGR:    ['V','X'],
     ROLE_AUDITOR:       ['V','X'],
   },
+  /** Mobile Delivery Runtime — 配送司机移动端 */
+  MENU_MOBILE_DELIVERY: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_DRIVER:      ['V','C','E'],
+    ROLE_SALES_MGR:   ['V','C','E','D','A','X'],
+    ROLE_LOG_MGR:     ['V','C','E','D','X'],
+    ROLE_HQ_OPS:      ['V','X'],
+    ROLE_REGION_MGR:  ['V','X'],
+    ROLE_AUDITOR:     ['V','X'],
+  },
   /** Sales V2 信用控制（Credit Control Runtime — Phase 5） */
   MENU_SALES2_CREDIT: {
     ROLE_ADMIN:         ['V','C','E','D','A','X'],

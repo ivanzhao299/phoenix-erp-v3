@@ -1,435 +1,302 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, RefreshCw, Truck, ClipboardList, X, Sun, Moon } from 'lucide-react';
-import { crudApi } from '@/lib/api-client';
-import { useMobileTheme } from '@/contexts/MobileThemeContext';
-import { useMobilePermission } from '@/hooks/useMobilePermission';
-import { MobilePageSkeleton, SkeletonCard, MobileEmptyState } from '@/components/mobile/MobileSkeleton';
-import { useToast } from '@/contexts/ToastContext';
-import { haptic } from '@/lib/haptic';
-import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
-// ── helpers ──────────────────────────────────────────────────────────────────
-
-function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-type Tab = 'waves' | 'receipts';
-
-interface Dispatch {
-  id: number | string;
-  dispatch_no?: string;
-  plate_no?: string;
-  driver?: string;
-  driver_id?: string;
-  date?: string;
-  route?: string;
-  stores?: string;
-  status: string;
-}
-
-interface Receipt {
-  id: number | string;
-  receipt_no?: string;
-  dispatch_no?: string;
-  store_code?: string;
-  receive_date?: string;
-  qty?: number;
-  status: string;
-}
-
-const STATUS_COLOR: Record<string, string> = {
-  PENDING:    '#f59e0b',
-  IN_TRANSIT: '#3b82f6',
-  SIGNED:     '#10b981',
-  EXCEPTION:  '#ef4444',
-  COMPLETED:  '#10b981',
+// ── 颜色常量 ──────────────────────────────────────────────────────────────────
+const C = {
+  bg:      '#070b14',
+  bg2:     '#0f1929',
+  card:    'rgba(255,255,255,0.05)',
+  border:  'rgba(255,255,255,0.10)',
+  text:    '#e2e8f0',
+  textSub: '#94a3b8',
+  orange:  '#f59e0b',
+  blue:    '#3b82f6',
+  green:   '#10b981',
+  red:     '#ef4444',
+  gray:    '#64748b',
 };
 
-// ── ReceiptForm ───────────────────────────────────────────────────────────────
+const STATUS_MAP: Record<string, { label: string; color: string }> = {
+  PLANNED:   { label: '待装车', color: C.orange },
+  LOADING:   { label: '装车中', color: C.blue   },
+  LOADED:    { label: '已装车', color: C.blue   },
+  DEPARTED:  { label: '配送中', color: C.blue   },
+  ARRIVED:   { label: '已到达', color: C.blue   },
+  SIGNING:   { label: '签收中', color: C.orange },
+  COMPLETED: { label: '已完成', color: C.green  },
+  EXCEPTION: { label: '异常',   color: C.red    },
+};
 
-function ReceiptForm({
-  waveNo, onClose, onSaved, readonly,
-}: {
-  waveNo: string;
-  onClose: () => void;
-  onSaved: () => void;
-  readonly: boolean;
-}) {
-  const { t, isDark } = useMobileTheme();
-  const toast = useToast();
-  const today = todayStr();
+const TABS = [
+  { key: 'PLANNED',      label: '待装车' },
+  { key: 'IN_PROGRESS',  label: '配送中' },
+  { key: 'PENDING_SIGN', label: '待签收' },
+  { key: 'COMPLETED',    label: '已完成' },
+  { key: 'EXCEPTION',    label: '异常'   },
+];
 
-  const [storeCode,   setStoreCode]   = useState('');
-  const [receiveDate, setReceiveDate] = useState(today);
-  const [qty,         setQty]         = useState('');
-  const [status,      setStatus]      = useState('SIGNED');
-  const [remark,      setRemark]      = useState('');
-  const [saving,      setSaving]      = useState(false);
-  const [error,       setError]       = useState('');
+interface DashboardStats {
+  totalToday: number;
+  planned: number;
+  inProgress: number;
+  pendingSign: number;
+  completed: number;
+  exception: number;
+}
 
-  const handleSave = useCallback(async () => {
-    if (!storeCode.trim()) { setError('请填写门店编码'); return; }
-    if (!qty || Number(qty) <= 0) { setError('请填写有效的签收数量'); return; }
-    setSaving(true);
-    setError('');
-    try {
-      await crudApi.create('log_receipts', {
-        dispatch_no:  waveNo,
-        store_code:   storeCode.trim(),
-        receive_date: receiveDate,
-        qty:          Number(qty),
-        status,
-        remark:       remark.trim() || undefined,
-      });
-      haptic('success');
-      toast.success('签收记录已提交');
-      onSaved();
-    } catch (e: unknown) {
-      haptic('error');
-      const msg = e instanceof Error ? e.message : '提交失败';
-      toast.error(msg || '提交失败');
-      setError('保存失败，请重试');
-    } finally {
-      setSaving(false);
-    }
-  }, [waveNo, storeCode, receiveDate, qty, status, remark, onSaved]);
+interface DeliveryOrder {
+  id: string;
+  orderNo: string;
+  customerName: string;
+  status: string;
+  waveDate: string;
+  address?: string;
+}
 
-  const inputStyle = {
-    width: '100%', padding: '10px 12px', borderRadius: 10,
-    background: t.inputBg, border: `1px solid ${t.inputBorder}`,
-    color: t.text, fontSize: 15, outline: 'none', boxSizing: 'border-box' as const,
-  };
-  const labelStyle = { fontSize: 13, color: t.textSub, marginBottom: 4, display: 'block' as const };
+function getToken() {
+  if (typeof window === 'undefined') return '';
+  return sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token') || '';
+}
 
+async function apiFetch(path: string) {
+  const token = getToken();
+  const res = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+// ── 统计卡片 ──────────────────────────────────────────────────────────────────
+function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-      display: 'flex', alignItems: 'flex-end', zIndex: 100,
+      flex: '1 1 28%',
+      minWidth: 80,
+      background: C.card,
+      border: `1px solid ${C.border}`,
+      borderRadius: 12,
+      padding: '10px 8px',
+      textAlign: 'center',
     }}>
-      <div style={{
-        width: '100%', background: isDark ? '#1e293b' : '#ffffff',
-        borderRadius: '20px 20px 0 0', padding: '20px 20px 32px',
-        maxHeight: '85svh', overflowY: 'auto',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, color: t.text }}>
-            录入签收 — {waveNo}
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer' }}>
-            <X size={20} />
-          </button>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div>
-            <span style={labelStyle}>门店编码 *</span>
-            <input style={inputStyle} value={storeCode} onChange={e => setStoreCode(e.target.value)} placeholder="如：S001" disabled={readonly} />
-          </div>
-          <div>
-            <span style={labelStyle}>签收日期</span>
-            <input type="date" style={inputStyle} value={receiveDate} onChange={e => setReceiveDate(e.target.value)} disabled={readonly} />
-          </div>
-          <div>
-            <span style={labelStyle}>签收数量 *</span>
-            <input type="number" inputMode="numeric" min="0" style={inputStyle} value={qty} onChange={e => setQty(e.target.value)} placeholder="0" disabled={readonly} />
-          </div>
-          <div>
-            <span style={labelStyle}>状态</span>
-            <select style={inputStyle} value={status} onChange={e => setStatus(e.target.value)} disabled={readonly}>
-              <option value="SIGNED">已签收</option>
-              <option value="EXCEPTION">签收异常</option>
-              <option value="PENDING">待签收</option>
-            </select>
-          </div>
-          <div>
-            <span style={labelStyle}>备注</span>
-            <textarea style={{ ...inputStyle, height: 72, resize: 'none' }} value={remark} onChange={e => setRemark(e.target.value)} placeholder="可填写异常情况" disabled={readonly} />
-          </div>
-
-          {error && (
-            <div style={{ color: '#ef4444', fontSize: 13, background: '#fef2f2', padding: '8px 12px', borderRadius: 8 }}>
-              {error}
-            </div>
-          )}
-
-          {!readonly && (
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              style={{
-                width: '100%', padding: '13px 0', borderRadius: 12, border: 'none',
-                background: saving ? '#94a3b8' : '#0891b2',
-                color: '#fff', fontSize: 16, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {saving ? '保存中…' : '提交签收'}
-            </button>
-          )}
-        </div>
-      </div>
+      <div style={{ fontSize: 22, fontWeight: 700, color }}>{value}</div>
+      <div style={{ fontSize: 11, color: C.textSub, marginTop: 2 }}>{label}</div>
     </div>
   );
 }
 
-// ── WaveCard ──────────────────────────────────────────────────────────────────
-
-function WaveCard({ wave, onSign, readonly }: {
-  wave: Dispatch;
-  onSign: (wave_no: string) => void;
-  readonly: boolean;
-}) {
-  const { t } = useMobileTheme();
-  const statusColor = STATUS_COLOR[wave.status] ?? '#94a3b8';
-
-  const dispatchNo = wave.dispatch_no ?? String(wave.id);
-
+// ── 配送单卡片 ────────────────────────────────────────────────────────────────
+function OrderCard({ order, onClick }: { order: DeliveryOrder; onClick: () => void }) {
+  const statusInfo = STATUS_MAP[order.status] ?? { label: order.status, color: C.gray };
   return (
-    <div style={{
-      background: t.cardBg, borderRadius: 14, padding: '14px 16px',
-      border: `1px solid ${t.cardBorder}`, marginBottom: 10,
-    }}>
+    <div
+      onClick={onClick}
+      style={{
+        background: C.card,
+        border: `1px solid ${C.border}`,
+        borderRadius: 14,
+        padding: '14px 16px',
+        marginBottom: 10,
+        cursor: 'pointer',
+        WebkitTapHighlightColor: 'transparent',
+        userSelect: 'none',
+      }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 15, color: t.text }}>{dispatchNo}</div>
-          {wave.plate_no && (
-            <div style={{ fontSize: 13, color: t.textSub, marginTop: 2 }}>
-              车牌：{wave.plate_no}
-              {wave.driver && <span>　司机：{wave.driver}</span>}
-            </div>
+        <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>{order.orderNo}</div>
+          <div style={{ fontSize: 13, color: C.textSub, marginTop: 4 }}>🏢 {order.customerName}</div>
+          {order.address && (
+            <div style={{ fontSize: 12, color: C.textSub, marginTop: 2 }}>📍 {order.address}</div>
           )}
-          {wave.date && (
-            <div style={{ fontSize: 12, color: t.textFaint, marginTop: 2 }}>日期：{wave.date}</div>
-          )}
-          {wave.route && (
-            <div style={{ fontSize: 12, color: t.textFaint }}>线路：{wave.route}</div>
-          )}
+          <div style={{ fontSize: 12, color: C.textSub, marginTop: 2 }}>📅 {order.waveDate}</div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          <span style={{
-            fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
-            background: `${statusColor}20`, color: statusColor,
-          }}>
-            {wave.status}
-          </span>
-          {!readonly && (
-            <button
-              onClick={() => onSign(dispatchNo)}
-              style={{
-                fontSize: 13, fontWeight: 600, padding: '5px 12px', borderRadius: 20,
-                background: '#0891b2', color: '#fff', border: 'none', cursor: 'pointer',
-              }}
-            >
-              录入签收
-            </button>
-          )}
+        <div style={{
+          background: `${statusInfo.color}22`,
+          color: statusInfo.color,
+          border: `1px solid ${statusInfo.color}55`,
+          borderRadius: 8,
+          padding: '4px 10px',
+          fontSize: 12,
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+          flexShrink: 0,
+        }}>
+          {statusInfo.label}
         </div>
+      </div>
+      <div style={{ textAlign: 'right', marginTop: 8, fontSize: 12, color: C.orange }}>
+        查看详情 →
       </div>
     </div>
   );
 }
 
-// ── ReceiptCard ───────────────────────────────────────────────────────────────
-
-function ReceiptCard({ receipt }: { receipt: Receipt }) {
-  const { t } = useMobileTheme();
-  const statusColor = STATUS_COLOR[receipt.status] ?? '#94a3b8';
-
+// ── 骨架屏 ───────────────────────────────────────────────────────────────────
+function Skeleton() {
   return (
-    <div style={{
-      background: t.cardBg, borderRadius: 14, padding: '14px 16px',
-      border: `1px solid ${t.cardBorder}`, marginBottom: 10,
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 15, color: t.text }}>
-            {receipt.receipt_no ?? `#${receipt.id}`}
-          </div>
-          {receipt.dispatch_no && (
-            <div style={{ fontSize: 13, color: t.textSub, marginTop: 2 }}>配送单：{receipt.dispatch_no}</div>
-          )}
-          {receipt.store_code && (
-            <div style={{ fontSize: 13, color: t.textSub }}>门店：{receipt.store_code}</div>
-          )}
-          {receipt.receive_date && (
-            <div style={{ fontSize: 12, color: t.textFaint, marginTop: 2 }}>{receipt.receive_date}</div>
-          )}
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#0891b2' }}>
-            {receipt.qty ?? 0}
-          </div>
-          <div style={{ fontSize: 11, color: t.textFaint }}>件</div>
-          <span style={{
-            fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-            background: `${statusColor}20`, color: statusColor, marginTop: 4, display: 'inline-block',
-          }}>
-            {receipt.status}
-          </span>
-        </div>
-      </div>
+    <div>
+      {[1, 2, 3].map(i => (
+        <div key={i} style={{
+          background: C.card,
+          border: `1px solid ${C.border}`,
+          borderRadius: 14,
+          height: 90,
+          marginBottom: 10,
+          animation: 'pulse 1.5s ease-in-out infinite',
+          opacity: 1 - i * 0.15,
+        }} />
+      ))}
     </div>
   );
 }
 
-// ── DeliveryPage ──────────────────────────────────────────────────────────────
-
+// ── 主页面 ───────────────────────────────────────────────────────────────────
 export default function DeliveryPage() {
   const router = useRouter();
-  const today  = todayStr();
-  const { isDark, toggle, t } = useMobileTheme();
-  const { allowed, loading: permLoading, readonly } = useMobilePermission('delivery');
-  const toast = useToast();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [orders, setOrders] = useState<DeliveryOrder[]>([]);
+  const [activeTab, setActiveTab] = useState('PLANNED');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
 
-  const [tab,      setTab]      = useState<Tab>('waves');
-  const [waves,    setWaves]    = useState<Dispatch[]>([]);
-  const [receipts, setReceipts] = useState<Receipt[]>([]);
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState('');
-  const [formWave, setFormWave] = useState<string | null>(null);
-
-  const loadWaves = useCallback(async () => {
-    setLoading(true); setError('');
+  const loadStats = useCallback(async () => {
     try {
-      const res = await crudApi.list<Dispatch>('log_dispatch', { limit: 50 });
-      setWaves((res.data ?? []) as Dispatch[]);
+      const data = await apiFetch('/api/v2/mobile/delivery/dashboard');
+      setStats(data.data ?? data);
     } catch {
-      setError('波次数据加载失败');
+      // stats 不阻塞主流程
+    }
+  }, []);
+
+  const loadOrders = useCallback(async (status: string) => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await apiFetch(`/api/v2/mobile/delivery/orders?status=${status}`);
+      setOrders(data.data ?? data.list ?? data ?? []);
+    } catch {
+      setError('加载失败，请下拉重试');
+      setOrders([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const loadReceipts = useCallback(async () => {
-    setLoading(true); setError('');
-    try {
-      const res = await crudApi.list<Receipt>('log_receipts', { limit: 50 });
-      setReceipts((res.data ?? []) as Receipt[]);
-    } catch {
-      setError('签收数据加载失败');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  useEffect(() => { loadStats(); }, [loadStats]);
+  useEffect(() => { loadOrders(activeTab); }, [activeTab, loadOrders]);
 
-  useEffect(() => {
-    if (!allowed || permLoading) return;
-    if (tab === 'waves') loadWaves();
-    else loadReceipts();
-  }, [tab, allowed, permLoading, loadWaves, loadReceipts]);
-
-  const { pullHandlers } = usePullToRefresh(() => {
-    if (tab === 'waves') loadWaves();
-    else loadReceipts();
-  });
-
-  const handleSaved = useCallback(() => {
-    setFormWave(null);
-    loadReceipts();
-    setTab('receipts');
-  }, [loadReceipts]);
-
-  if (permLoading) return <MobilePageSkeleton title="配送签收" tabs={['配送波次', '签收记录']} onBack={() => router.back()} />;
-  if (!allowed) return null;
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([loadStats(), loadOrders(activeTab)]);
+    setRefreshing(false);
+  };
 
   return (
-    <div style={{ minHeight: '100svh', background: t.pageBg, display: 'flex', flexDirection: 'column' }}>
-      {/* AppBar */}
+    <div style={{
+      minHeight: '100svh',
+      background: C.bg,
+      color: C.text,
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+    }}>
+      <style>{`
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+        @keyframes spin   { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+      `}</style>
+
+      {/* 顶部栏 */}
       <div style={{
+        position: 'sticky', top: 0, zIndex: 50,
+        background: C.bg2,
+        borderBottom: `1px solid ${C.border}`,
+        padding: '0 16px',
+        height: 56,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: 'calc(env(safe-area-inset-top) + 12px) 16px 12px', background: t.appBarBg,
-        borderBottom: `1px solid ${t.barBorder}`, position: 'sticky', top: 0, zIndex: 10,
       }}>
-        <button onClick={() => router.push('/mobile/home')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textSub, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <ChevronLeft size={20} />
-          <span style={{ fontSize: 14 }}>返回</span>
-        </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Truck size={18} color="#0891b2" />
-          <span style={{ fontWeight: 700, fontSize: 16, color: t.text }}>配送签收</span>
+          <span style={{ fontSize: 20 }}>🚚</span>
+          <span style={{ fontSize: 17, fontWeight: 700 }}>配送任务</span>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => tab === 'waves' ? loadWaves() : loadReceipts()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textSub }}>
-            <RefreshCw size={18} />
-          </button>
-          <button onClick={toggle} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textSub }}>
-            {isDark ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          style={{
+            background: 'transparent', border: 'none', color: C.orange,
+            fontSize: 22, cursor: refreshing ? 'not-allowed' : 'pointer',
+            padding: 8, lineHeight: 1,
+            display: 'inline-block',
+            animation: refreshing ? 'spin 1s linear infinite' : 'none',
+          }}
+        >
+          ↺
+        </button>
       </div>
 
-      {/* 只读提示 */}
-      {readonly && (
-        <div style={{ background: '#fef3c7', color: '#92400e', fontSize: 13, padding: '8px 16px', textAlign: 'center' }}>
-          只读模式 — 您无权录入签收数据
-        </div>
-      )}
+      <div style={{ padding: '16px 16px 100px' }}>
 
-      {/* 日期标题 */}
-      <div style={{ padding: '12px 16px 4px', color: t.textSub, fontSize: 13 }}>
-        今日：{today}
-      </div>
-
-      {/* Tab */}
-      <div style={{ display: 'flex', margin: '0 16px 12px', background: t.inputBg, borderRadius: 12, padding: 4 }}>
-        {([['waves', '配送波次', Truck], ['receipts', '签收记录', ClipboardList]] as const).map(([key, label, Icon]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            style={{
-              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              padding: '9px 0', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600,
-              background: tab === key ? '#0891b2' : 'transparent',
-              color: tab === key ? '#fff' : t.textSub,
-              transition: 'all 0.2s',
-            }}
-          >
-            <Icon size={15} />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Content */}
-      <div {...pullHandlers} style={{ flex: 1, padding: '0 16px calc(24px + env(safe-area-inset-bottom))', overflowY: 'auto' }}>
-        {loading && (
-          <div style={{ paddingTop: 8 }}>{[1,2,3].map(i => <SkeletonCard key={i} lines={3} />)}</div>
-        )}
-        {error && (
-          <div style={{ color: '#ef4444', background: '#fef2f2', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>
-            {error}
+        {/* 统计卡片 */}
+        {stats && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+            <StatCard label="今日总单" value={stats.totalToday ?? 0} color={C.text}   />
+            <StatCard label="待装车"   value={stats.planned     ?? 0} color={C.orange} />
+            <StatCard label="配送中"   value={stats.inProgress  ?? 0} color={C.blue}   />
+            <StatCard label="待签收"   value={stats.pendingSign ?? 0} color={C.orange} />
+            <StatCard label="已完成"   value={stats.completed   ?? 0} color={C.green}  />
+            <StatCard label="异常单"   value={stats.exception   ?? 0} color={C.red}    />
           </div>
         )}
 
-        {!loading && tab === 'waves' && (
-          waves.length === 0
-            ? <MobileEmptyState icon="🚚" title="暂无配送波次" desc="今日还没有安排配送" />
-            : waves.map(w => (
-              <WaveCard key={w.id} wave={w} onSign={setFormWave} readonly={readonly} />
-            ))
-        )}
+        {/* Tab 切换 */}
+        <div style={{
+          display: 'flex',
+          background: C.card,
+          border: `1px solid ${C.border}`,
+          borderRadius: 12,
+          marginBottom: 16,
+          overflow: 'hidden',
+        }}>
+          {TABS.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                flex: 1,
+                padding: '11px 4px',
+                background: activeTab === tab.key ? C.orange : 'transparent',
+                color: activeTab === tab.key ? '#000' : C.textSub,
+                border: 'none',
+                fontWeight: activeTab === tab.key ? 700 : 400,
+                fontSize: 12,
+                cursor: 'pointer',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-        {!loading && tab === 'receipts' && (
-          receipts.length === 0
-            ? <MobileEmptyState icon="📋" title="暂无签收记录" desc="还没有录入签收数据" />
-            : receipts.map(r => (
-              <ReceiptCard key={r.id} receipt={r} />
-            ))
+        {/* 列表 */}
+        {loading ? (
+          <Skeleton />
+        ) : error ? (
+          <div style={{ textAlign: 'center', color: C.red, padding: 40, fontSize: 14 }}>
+            ⚠ {error}
+          </div>
+        ) : orders.length === 0 ? (
+          <div style={{ textAlign: 'center', color: C.textSub, padding: 60, fontSize: 14 }}>
+            📦 暂无配送单
+          </div>
+        ) : (
+          orders.map(order => (
+            <OrderCard
+              key={order.id}
+              order={order}
+              onClick={() => router.push(`/mobile/delivery/orders/${order.id}`)}
+            />
+          ))
         )}
       </div>
-
-      {/* 签收录入 Sheet */}
-      {formWave && (
-        <ReceiptForm
-          waveNo={formWave}
-          onClose={() => setFormWave(null)}
-          onSaved={handleSaved}
-          readonly={readonly}
-        />
-      )}
     </div>
   );
 }
