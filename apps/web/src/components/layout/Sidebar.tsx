@@ -219,6 +219,21 @@ const MENU: MenuItem[] = [
     { id: "ws-contracts", path: "/wholesale/contracts", Icon: ScrollText,      label: "批发合同",   perm: "MENU_B2B_SALE" },
     { id: "ws-shipments", path: "/wholesale/shipments", Icon: TruckLoad,       label: "发货记录",   perm: "MENU_B2B_SALE" },
   ]},
+  // ── 主数据中心（Master Data Runtime Phase 1）─────────────────────────────────
+  { id: "master-data", Icon: Database, label: "主数据中心", perm: "MENU_MASTER", children: [
+    { id: "mdc-overview",  path: "/master-data",                  Icon: LayoutDashboard, label: "主数据概览",     perm: "MENU_MASTER" },
+    { id: "mdc-customers", path: "/master-data/customers",        Icon: Users,           label: "客户档案",       perm: "MENU_SALES2_CUSTOMER" },
+    { id: "mdc-suppliers", path: "/master-data/suppliers",        Icon: Globe,           label: "供应商档案",     perm: "MENU_PRC2_MASTER" },
+    { id: "mdc-drivers",   path: "/master-data/drivers",          Icon: UserCheck,       label: "司机档案",       perm: "MENU_SALES2_DELIVERY" },
+    { id: "mdc-vehicles",  path: "/master-data/vehicles",         Icon: Car,             label: "车辆档案",       perm: "MENU_SALES2_DELIVERY" },
+    { id: "mdc-warehouses",path: "/master-data/warehouses",       Icon: Warehouse,       label: "仓库档案",       perm: "MENU_WMS_MASTER" },
+    { id: "mdc-cash",      path: "/master-data/cash-accounts",    Icon: Wallet,          label: "资金账户档案",   perm: "MENU_FIN2_CASH" },
+    { id: "mdc-companies", path: "/master-data/companies",        Icon: Building,        label: "公司档案",       perm: "MENU_MASTER" },
+    { id: "mdc-orgs",      path: "/master-data/organizations",    Icon: Network,         label: "组织架构",       perm: "MENU_SYS_ORG" },
+    { id: "mdc-projects",  path: "/master-data/projects",         Icon: FolderKanban,    label: "项目档案",       perm: "MENU_PRC2_MASTER" },
+    { id: "mdc-dict",      path: "/master-data/dictionaries",     Icon: BookOpen,        label: "系统字典",       perm: "MENU_SETTINGS_DATA" },
+  ]},
+  // [Legacy] 旧主数据入口 — 保留供直接跳转
   { id: "master", Icon: Database, label: "主数据", perm: "MENU_MASTER", children: [
     { id: "md-farms",    path: "/master/farms",     Icon: Home,      label: "农场主档",   perm: "MENU_MASTER" },
     { id: "md-products", path: "/master/products",  Icon: Box,       label: "产品品级",   perm: "MENU_MASTER" },

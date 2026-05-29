@@ -1,0 +1,140 @@
+"use client";
+import { useState, useEffect, useCallback } from "react";
+import { Building, Search, RefreshCw, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { usePermission } from "@/hooks/usePermission";
+import PageHeader from "@/components/PageHeader";
+
+/**
+ * 主数据中心 — 公司档案
+ * 数据来源：Org Runtime → GET /api/org/organizations（筛选 orgType=COMPANY）
+ * 完整管理入口：/settings/organizations
+ */
+
+const tok = () =>
+  typeof window !== "undefined"
+    ? sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || ""
+    : "";
+const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${tok()}` });
+
+interface OrgItem {
+  id: string | number;
+  orgCode?: string;
+  orgName?: string;
+  orgType?: string;
+  parentName?: string;
+  description?: string;
+  status?: string;
+}
+
+export default function MdCompaniesPage() {
+  const { canView } = usePermission("MENU_MASTER");
+  const [items, setItems] = useState<OrgItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/org/organizations", { headers: hdr() });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const all: OrgItem[] = Array.isArray(data) ? data : (data.data ?? data.orgs ?? data.items ?? []);
+      // 筛选公司类型（COMPANY / GROUP）
+      const companies = all.filter(o => ["COMPANY", "GROUP"].includes(o.orgType ?? ""));
+      setItems(companies.length > 0 ? companies : all); // 若无分类则展示全部
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "加载失败");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { if (canView) load(); }, [canView, load]);
+
+  if (!canView) return (
+    <div style={{ padding: 40, color: "#94a3b8", textAlign: "center" }}>无权限查看公司档案</div>
+  );
+
+  const filtered = items.filter(o =>
+    !search || (o.orgName ?? "").includes(search) || (o.orgCode ?? "").includes(search)
+  );
+
+  return (
+    <div style={{ padding: "24px 32px", background: "#0f172a", minHeight: "100vh", color: "#e2e8f0" }}>
+      <PageHeader
+        title="公司档案"
+        subtitle="集团公司 · 子公司 · 分支机构 · 法人实体"
+        breadcrumb={["主数据中心", "公司档案"]}
+      />
+
+      {/* 数据来源说明 */}
+      <div style={{ marginBottom: 20, padding: "10px 14px", background: "#162032", border: "1px solid #1e40af44", borderRadius: 8, fontSize: 12, color: "#93c5fd" }}>
+        💡 公司档案来源于组织架构（Org Runtime），如需添加公司请前往 <Link href="/settings/organizations" style={{ color: "#60a5fa" }}>组织架构管理</Link>
+      </div>
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
+        <div style={{ position: "relative", flex: "0 0 260px" }}>
+          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#475569" }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索公司名称 / 编码..." style={{ width: "100%", padding: "7px 10px 7px 32px", background: "#1e293b", border: "1px solid #334155", borderRadius: 7, color: "#e2e8f0", fontSize: 13, outline: "none" }} />
+        </div>
+        <button onClick={load} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "#1e293b", border: "1px solid #334155", borderRadius: 7, color: "#94a3b8", fontSize: 13, cursor: "pointer" }}>
+          <RefreshCw size={13} /> 刷新
+        </button>
+        <div style={{ flex: 1 }} />
+        <Link href="/settings/organizations" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "#64748b", border: "none", borderRadius: 7, color: "#fff", fontSize: 13, cursor: "pointer", textDecoration: "none", fontWeight: 600 }}>
+          <ExternalLink size={13} /> 组织架构管理
+        </Link>
+      </div>
+
+      <div style={{ marginBottom: 12, color: "#64748b", fontSize: 12 }}>
+        共 <span style={{ color: "#94a3b8", fontWeight: 600 }}>{filtered.length}</span> 家公司
+      </div>
+
+      {loading ? (
+        <div style={{ padding: 60, textAlign: "center", color: "#475569" }}>加载中...</div>
+      ) : error ? (
+        <div style={{ padding: 40, textAlign: "center", color: "#ef4444" }}>{error}</div>
+      ) : (
+        <div style={{ background: "#1e293b", borderRadius: 10, border: "1px solid #334155", overflow: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#0f172a", color: "#64748b", fontSize: 12 }}>
+                {["公司编码", "公司名称", "类型", "上级", "描述"].map(h => (
+                  <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap", borderBottom: "1px solid #334155" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={5} style={{ padding: 40, textAlign: "center", color: "#475569" }}>
+                  暂无公司数据
+                  <div style={{ marginTop: 8, fontSize: 12 }}>
+                    <Link href="/settings/organizations" style={{ color: "#60a5fa" }}>前往组织架构管理 →</Link>
+                  </div>
+                </td></tr>
+              ) : filtered.map((o, i) => (
+                <tr key={o.id ?? i} style={{ borderBottom: "1px solid #1e293b" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "#162032")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                >
+                  <td style={{ padding: "10px 14px", color: "#94a3b8", fontFamily: "monospace" }}>{o.orgCode ?? "-"}</td>
+                  <td style={{ padding: "10px 14px", color: "#f1f5f9", fontWeight: 500 }}>{o.orgName ?? "-"}</td>
+                  <td style={{ padding: "10px 14px" }}>
+                    <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(99,102,241,0.15)", color: "#818cf8", fontSize: 11, fontWeight: 600 }}>
+                      {o.orgType === "GROUP" ? "集团" : "公司"}
+                    </span>
+                  </td>
+                  <td style={{ padding: "10px 14px", color: "#64748b" }}>{o.parentName ?? "-"}</td>
+                  <td style={{ padding: "10px 14px", color: "#64748b", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis" }}>{o.description ?? "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
