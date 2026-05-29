@@ -226,7 +226,8 @@ export class ApInvoicesService {
       `SELECT * FROM fin_ap_invoices WHERE ap_no = $1`, [apNo],
     );
     this.logger.log(`[AP] 手工创建 AP Invoice: ${apNo} company=${dto.companyCode}`);
-    return row[0];
+    // bigint → number：node-postgres 将 bigint 序列化为字符串，显式转换确保 JSON 输出为数字
+    return { ...row[0], id: Number(row[0].id) };
   }
 
   // ── 4. 从 PO / prc2_ap_ledger 创建 ───────────────────────────────────────

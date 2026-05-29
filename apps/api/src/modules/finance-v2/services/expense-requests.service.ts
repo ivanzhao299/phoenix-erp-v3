@@ -116,7 +116,8 @@ export class ExpenseRequestsService {
         dto.attachmentUrls ? JSON.stringify(dto.attachmentUrls) : null,
         dto.remark ?? null,
       ]);
-      return inserted;
+      // bigint → number：node-postgres 将 bigint 序列化为字符串，显式转换确保 JSON 输出为数字
+      return { ...inserted, id: Number(inserted.id) };
     });
   }
 

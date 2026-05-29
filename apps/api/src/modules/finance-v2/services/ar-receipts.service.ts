@@ -197,7 +197,8 @@ export class ArReceiptsService {
       `SELECT * FROM fin_ar_receipts WHERE receipt_no = $1`, [receiptNo],
     );
     this.logger.log(`[AR] 创建收款草稿: ${receiptNo}`);
-    return newRec[0];
+    // bigint → number：node-postgres 将 bigint 序列化为字符串，显式转换确保 JSON 输出为数字
+    return { ...newRec[0], id: Number(newRec[0].id) };
   }
 
   // ── 4. 确认收款（核销分摊，全事务）──────────────────────────────────────

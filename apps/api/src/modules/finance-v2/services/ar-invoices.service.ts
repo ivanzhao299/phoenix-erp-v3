@@ -209,7 +209,8 @@ export class ArInvoicesService {
       `SELECT * FROM fin_ar_invoices WHERE ar_no = $1`, [arNo],
     );
     this.logger.log(`[AR] 手工创建 AR Invoice: ${arNo} company=${dto.companyCode}`);
-    return row[0];
+    // bigint → number：node-postgres 将 bigint 序列化为字符串，显式转换确保 JSON 输出为数字
+    return { ...row[0], id: Number(row[0].id) };
   }
 
   // ── 4. 更新（仅 OPEN / PARTIALLY_RECEIVED 可编辑）─────────────────────────
