@@ -49,6 +49,8 @@ import { SalesV2Module } from './modules/sales-v2/sales-v2.module';
 import { SystemMonitorModule } from './modules/system-monitor/system-monitor.module';
 // [Phase E] UAT & Pilot Run Runtime
 import { UatModule } from './modules/uat/uat.module';
+// [Sales V2 Phase 9] 直营店收银作业台
+import { StorePosModule } from './modules/store-pos/store-pos.module';
 
 
 @Module({
@@ -103,6 +105,7 @@ import { UatModule } from './modules/uat/uat.module';
     SalesV2Module,          // Sales V2 Phase 0 Clean Baseline
     SystemMonitorModule,    // Production Stabilization Phase 1
     UatModule,              // Phase E: UAT & Pilot Run Runtime
+    StorePosModule,         // Sales V2 Phase 9: 直营店收银作业台
   ],
   controllers: [DebugController, HealthController],
   providers: [

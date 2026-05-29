@@ -110,6 +110,7 @@ const MENU: MenuItem[] = [
     { id: "st-replenish",path: "/store/replenish",   Icon: ShoppingBag,     label: "补货申请",   perm: "MENU_STORE_MGR" },
     { id: "st-loss",    path: "/store/losses",       Icon: Minus,           label: "损耗记录",   perm: "MENU_STORE_MGR" },
     { id: "st-daily",   path: "/store/daily",        Icon: Receipt,         label: "门店日结",   perm: "MENU_STORE_MGR" },
+    { id: "st-pos",     path: "/store-pos",          Icon: Banknote,        label: "直营店收银", perm: "MENU_STORE_POS" },
   ]},
   { id: "quality", Icon: ShieldCheck, label: "品质追溯", perm: null, children: [
     { id: "ql-ov",   path: "/quality",                Icon: LayoutDashboard,label: "质检总览",     perm: "MENU_QA_OP" },

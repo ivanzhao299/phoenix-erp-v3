@@ -753,6 +753,18 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_SYSOPS:      ['V','E'],               // 运维人员：查看+修改（不可删除）
   },
 
+  // ── Store POS Runtime（Sales V2 Phase 9 — 直营店收银作业台）─────────────────
+  /** 直营店收银：销售单 / 收款 / 日结交班 / 班次历史 */
+  MENU_STORE_POS: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_STORE_MGR:   ['V','C','E','D','A','X'],
+    ROLE_CASHIER:     ['V','C','E'],
+    ROLE_REGION_MGR:  ['V','X'],
+    ROLE_CEO:         ['V','X'],
+    ROLE_AUDITOR:     ['V','X'],
+    ROLE_HQ_FINANCE:  ['V','X'],
+  },
+
   // ── UAT & Pilot Run（Phase E — 用户验收测试与试运行）──────────────────────
   /** UAT 问题反馈 / 培训记录 / 验收清单 / 试运行 / 上线准备度 */
   MENU_UAT: {
