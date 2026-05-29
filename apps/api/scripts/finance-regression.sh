@@ -50,8 +50,8 @@ R1=$(curl -s -o /tmp/fin_t1.json -w '%{http_code}' -X POST "$API/api/v2/finance/
 assert_ok "T1.1 createApInvoice 200" "$R1"
 
 AP_NO=$(cat /tmp/fin_t1.json | grep -oE '"ap_no":"[^"]*"' | head -1 | cut -d'"' -f4)
-# jq 同时兼容 "id":1（数字）和 "id":"1"（字符串，bigint 序列化产物）
-AP_ID=$(jq -r '.id // empty' /tmp/fin_t1.json 2>/dev/null)
+# grep 同时兼容 "id":1（数字）和 "id":"1"（字符串，bigint 序列化产物），无需 jq
+AP_ID=$(grep -oE '"id":"?[0-9]+"?' /tmp/fin_t1.json | head -1 | grep -oE '[0-9]+')
 [ -n "$AP_NO" ] && green "  ✓ T1.1.1 ap_no=$AP_NO" && PASS=$((PASS+1)) || { red "  ✗ T1.1.1 missing ap_no (resp: $(cat /tmp/fin_t1.json | head -c 200))"; FAIL=$((FAIL+1)); FAILURES+=("T1.1.1"); }
 
 AP_STATUS=$($PSQL $DB -tA -c "SELECT payment_status FROM fin_ap_invoices WHERE ap_no='$AP_NO';")
@@ -87,7 +87,7 @@ R4=$(curl -s -o /tmp/fin_t4.json -w '%{http_code}' -X POST "$API/api/v2/finance/
 assert_ok "T4.1 createArInvoice 200" "$R4"
 
 AR_NO=$(cat /tmp/fin_t4.json | grep -oE '"ar_no":"[^"]*"' | head -1 | cut -d'"' -f4)
-AR_ID=$(jq -r '.id // empty' /tmp/fin_t4.json 2>/dev/null)
+AR_ID=$(grep -oE '"id":"?[0-9]+"?' /tmp/fin_t4.json | head -1 | grep -oE '[0-9]+')
 [ -n "$AR_NO" ] && green "  ✓ T4.1.1 ar_no=$AR_NO" && PASS=$((PASS+1)) || { red "  ✗ T4.1.1 missing ar_no (resp: $(cat /tmp/fin_t4.json | head -c 200))"; FAIL=$((FAIL+1)); FAILURES+=("T4.1.1"); }
 
 AR_COLL=$($PSQL $DB -tA -c "SELECT collection_status FROM fin_ar_invoices WHERE ar_no='$AR_NO';")
@@ -104,7 +104,7 @@ R5=$(curl -s -o /tmp/fin_t5.json -w '%{http_code}' -X POST "$API/api/v2/finance/
   -d "{\"companyCode\":\"$CO\",\"customerName\":\"测试客户\",\"customerCode\":\"REGR-CUST\",\"receiptDate\":\"$TODAY\",\"currencyCode\":\"CNY\",\"amountOriginal\":500,\"remark\":\"REGR-FIN receipt\"}")
 assert_ok "T5.1 createArReceipt 200" "$R5"
 
-RECEIPT_ID=$(jq -r '.id // empty' /tmp/fin_t5.json 2>/dev/null)
+RECEIPT_ID=$(grep -oE '"id":"?[0-9]+"?' /tmp/fin_t5.json | head -1 | grep -oE '[0-9]+')
 RECEIPT_NO=$(cat /tmp/fin_t5.json | grep -oE '"receipt_no":"[^"]*"' | head -1 | cut -d'"' -f4)
 [ -n "$RECEIPT_ID" ] && green "  ✓ T5.1.1 receipt_id=$RECEIPT_ID" && PASS=$((PASS+1)) || { red "  ✗ T5.1.1 missing receipt id (resp: $(cat /tmp/fin_t5.json | head -c 200))"; FAIL=$((FAIL+1)); FAILURES+=("T5.1.1"); }
 
@@ -142,7 +142,7 @@ R8=$(curl -s -o /tmp/fin_t8.json -w '%{http_code}' -X POST "$API/api/v2/finance/
   -d "{\"companyCode\":\"$CO\",\"expenseType\":\"OFFICE\",\"currencyCode\":\"CNY\",\"amountOriginal\":200,\"description\":\"REGR-FIN expense test\"}")
 assert_ok "T8.1 createExpenseRequest 200" "$R8"
 
-EXP_ID=$(jq -r '.id // empty' /tmp/fin_t8.json 2>/dev/null)
+EXP_ID=$(grep -oE '"id":"?[0-9]+"?' /tmp/fin_t8.json | head -1 | grep -oE '[0-9]+')
 EXP_NO=$(cat /tmp/fin_t8.json | grep -oE '"expense_no":"[^"]*"' | head -1 | cut -d'"' -f4)
 [ -n "$EXP_ID" ] && green "  ✓ T8.1.1 expense_id=$EXP_ID" && PASS=$((PASS+1)) || { red "  ✗ T8.1.1 missing expense id (resp: $(cat /tmp/fin_t8.json | head -c 200))"; FAIL=$((FAIL+1)); FAILURES+=("T8.1.1"); }
 
