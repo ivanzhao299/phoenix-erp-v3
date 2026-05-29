@@ -47,6 +47,8 @@ import { NotificationModule } from './modules/notification/notification.module';
 import { SalesV2Module } from './modules/sales-v2/sales-v2.module';
 // [Production Stabilization Phase 1] 系统监控 + 配置治理 + 错误追踪
 import { SystemMonitorModule } from './modules/system-monitor/system-monitor.module';
+// [Phase E] UAT & Pilot Run Runtime
+import { UatModule } from './modules/uat/uat.module';
 
 
 @Module({
@@ -100,6 +102,7 @@ import { SystemMonitorModule } from './modules/system-monitor/system-monitor.mod
     NotificationModule,
     SalesV2Module,          // Sales V2 Phase 0 Clean Baseline
     SystemMonitorModule,    // Production Stabilization Phase 1
+    UatModule,              // Phase E: UAT & Pilot Run Runtime
   ],
   controllers: [DebugController, HealthController],
   providers: [

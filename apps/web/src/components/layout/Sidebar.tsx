@@ -238,6 +238,9 @@ const MENU: MenuItem[] = [
     { id: "stg-profile",     path: "/settings/profile",        Icon: UserCheck,     label: "个人中心",     perm: null },
   ]},
 
+  // ── UAT & Pilot Run（Phase E）──────────────────────────────────────────────
+  { id: "uat", path: "/uat", Icon: ClipboardCheck, label: "验收试运行", perm: "MENU_UAT" },
+
   // ── 系统运维（Production Stabilization Phase 1）─────────────────────────────
   { id: "sysops", Icon: Server, label: "系统运维", perm: "MENU_SYS_MONITOR", children: [
     { id: "sysops-monitor", path: "/system/health",  Icon: Activity,      label: "监控面板",   perm: "MENU_SYS_MONITOR" },
