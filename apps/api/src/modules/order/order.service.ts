@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { WmsService } from '../wms/wms.service';
@@ -42,7 +42,6 @@ export class OrderService {
   constructor(
     @InjectEntityManager()
     private readonly entityManager: EntityManager,
-    @Inject(forwardRef(() => WmsService))
     private readonly wmsService: WmsService,
     private readonly salesEngine: SalesEngineService,
   ) {}
