@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, RefreshCw, ArrowLeft, Sun, Moon, Truck } from 'lucide-react';
 import useSWR from 'swr';
 import { mobileApi, QcInspection, FarmLog, FlockRecord, PackagingTrendItem, DeviceAlert, EggStockRow } from '@/lib/mobile-api';
-import { crudApi } from '@/lib/api-client';
+import { authHeader } from '@/lib/mobile-auth-token';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
@@ -51,14 +51,6 @@ const ALERT_LABELS: Record<string, string> = {
   OVER_HIGH: '数值超上限', OVER_LOW: '数值超下限',
   AMMONIA_HIGH: '氨气浓度高', FAN_FAULT: '风机故障',
   WATER_LEAK: '漏水告警', FEED_LOW: '饲料不足',
-};
-
-const DISPATCH_STATUS: Record<string, { label: string; color: string }> = {
-  PENDING:    { label: '待出发',  color: '#f59e0b' },
-  IN_TRANSIT: { label: '在途中',  color: '#3b82f6' },
-  SIGNED:     { label: '已签收',  color: '#10b981' },
-  COMPLETED:  { label: '已完成',  color: '#10b981' },
-  EXCEPTION:  { label: '签收异常', color: '#ef4444' },
 };
 
 // ── 模块可见角色集合（角色字符串直接比较，无需引入 R 对象） ──────────────────
@@ -206,9 +198,16 @@ export default function MobileDashboardPage() {
     useSWR(showFarmFull ? `flocks/${refreshKey}` : null, () => mobileApi.getFlocks(), swrOpts);
   const { data: eggStockRaw } =
     useSWR(showStock    ? `eggstock/${refreshKey}` : null, () => mobileApi.getEggStock(), swrOpts);
-  const { data: dispatchRaw, isLoading: dispatchLoading } =
-    useSWR(showDelivery ? `dispatch/${date}/${refreshKey}` : null,
-      () => crudApi.list('log_dispatch', { limit: 30 }), swrOpts);
+  const { data: deliveryStats, isLoading: dispatchLoading } =
+    useSWR(showDelivery ? `delivery-stats/${refreshKey}` : null,
+      async () => {
+        const base = process.env.NEXT_PUBLIC_API_BASE || '';
+        const res = await fetch(`${base}/api/v2/mobile/delivery/dashboard`, {
+          headers: authHeader() as HeadersInit,
+        });
+        if (!res.ok) return null;
+        return res.json();
+      }, swrOpts);
 
   // ── 数据规范化 ────────────────────────────────────────────────────────────────
   const kpi      = kpiData ?? null;
@@ -223,8 +222,8 @@ export default function MobileDashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const flocks   = useMemo((): FlockRecord[]        => Array.isArray(flocksRaw)   ? (flocksRaw as FlockRecord[]) : ((flocksRaw as any)?.data ?? []), [flocksRaw]);
   const eggStock = useMemo((): EggStockRow[]        => Array.isArray(eggStockRaw) ? (eggStockRaw as EggStockRow[]) : [], [eggStockRaw]);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const dispatches = useMemo(() => (dispatchRaw as any)?.data ?? (Array.isArray(dispatchRaw) ? dispatchRaw : []), [dispatchRaw]);
+  // V2 配送统计（从 sal_delivery_orders 汇总，不再读旧 log_dispatch）
+  const delStats = deliveryStats ?? null;
 
   const kpiErr  = _kpiErr  ? '数据加载失败' : '';
   const pkgErr  = _pkgErr  ? '数据加载失败' : '';
@@ -335,54 +334,36 @@ export default function MobileDashboardPage() {
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}>
         <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }`}</style>
 
-        {/* ══ 今日配送波次（LOG_MGR / DRIVER / ADMIN 专属） ══════════════════════ */}
+        {/* ══ 今日配送概况（LOG_MGR / DRIVER / ADMIN 专属） ══════════════════════ */}
         {showDelivery && (
-          <Section title="今日配送" icon="🚛" color="#0891b2" loading={dispatchLoading}>
-            {dispatches.length === 0 ? (
+          <Section title="今日配送概况" icon="🚛" color="#0891b2" loading={dispatchLoading}>
+            {!delStats ? (
               <div style={{ textAlign: 'center', color: t.textFaint, fontSize: 13, padding: '10px 0' }}>
-                今日暂无配送波次
+                今日暂无配送数据
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {dispatches.slice(0, 10).map((d: any) => {
-                  const no   = d.dispatch_no ?? `#${d.id}`;
-                  const st   = DISPATCH_STATUS[d.status] ?? { label: d.status, color: '#94a3b8' };
-                  return (
-                    <div key={d.id} style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      padding: '10px 12px', borderRadius: 10,
-                      background: 'rgba(8,145,178,0.06)',
-                      border: '1px solid rgba(8,145,178,0.18)',
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {/* 统计格子 */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  {[
+                    { label: '今日配送', value: delStats.todayWave   ?? 0, color: '#0891b2' },
+                    { label: '待装车',   value: delStats.planned      ?? 0, color: '#f59e0b' },
+                    { label: '配送中',   value: delStats.inTransit    ?? 0, color: '#3b82f6' },
+                    { label: '待签收',   value: delStats.pendingSign  ?? 0, color: '#f59e0b' },
+                    { label: '已完成',   value: delStats.todayCompleted ?? delStats.completed ?? 0, color: '#10b981' },
+                    { label: '已取消',   value: delStats.cancelled    ?? 0, color: '#94a3b8' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} style={{
+                      background: `${color}10`,
+                      border: `1px solid ${color}30`,
+                      borderRadius: 10, padding: '10px 8px', textAlign: 'center',
                     }}>
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: '#0891b2' }}>{no}</div>
-                        <div style={{ fontSize: 12, color: t.textSub, marginTop: 2 }}>
-                          {d.plate_no && <span>{d.plate_no}</span>}
-                          {d.driver && <span style={{ marginLeft: 8 }}>司机：{d.driver}</span>}
-                          {d.route  && <span style={{ marginLeft: 8 }}>{d.route}</span>}
-                        </div>
-                      </div>
-                      <span style={{
-                        fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
-                        background: `${st.color}20`, color: st.color, whiteSpace: 'nowrap',
-                      }}>
-                        {st.label}
-                      </span>
+                      <div style={{ fontSize: 10, color: t.textFaint, marginBottom: 4 }}>{label}</div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color, lineHeight: 1.1 }}>{value}</div>
                     </div>
-                  );
-                })}
-                {dispatches.length > 10 && (
-                  <div style={{ textAlign: 'center', fontSize: 12, color: t.textFaint }}>
-                    共 {dispatches.length} 条，
-                    <button
-                      onClick={() => router.push('/mobile/delivery')}
-                      style={{ background: 'none', border: 'none', color: '#0891b2', cursor: 'pointer', fontSize: 12, padding: 0 }}
-                    >
-                      查看全部 →
-                    </button>
-                  </div>
-                )}
+                  ))}
+                </div>
+                {/* 前往按钮 */}
                 <button
                   onClick={() => router.push('/mobile/delivery')}
                   style={{
@@ -393,7 +374,7 @@ export default function MobileDashboardPage() {
                   }}
                 >
                   <Truck size={14} />
-                  前往配送签收页
+                  进入配送管理
                 </button>
               </div>
             )}

@@ -134,11 +134,11 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     read:  [R.CEO, R.QA_MGR, R.AUDITOR],
   },
 
-  /** 配送签收：物流经理录入；仓储/门店/销售/区域/场长/司机/销售员/品控只读 */
+  /** 配送签收：物流经理/司机可操作（装车/发车/到达/签收）；仓储/门店/销售/区域/场长/销售员/品控只读 */
   delivery: {
-    write: [R.ADMIN, R.LOG_MGR],
+    write: [R.ADMIN, R.LOG_MGR, R.DRIVER],
     read:  [R.CEO, R.WMS_MGR, R.FARM_MGR, R.STORE_MGR, R.SALES_MGR,
-            R.REGION_MGR, R.DRIVER, R.AUDITOR, R.SALES_REP, R.QA_MGR],
+            R.REGION_MGR, R.AUDITOR, R.SALES_REP, R.QA_MGR],
   },
 
   /** 包装作业台终端：仅包装相关操作角色可访问；财务/物流等不应看到此入口 */

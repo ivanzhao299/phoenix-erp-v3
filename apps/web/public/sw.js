@@ -11,7 +11,7 @@
 //        非 GET / 跨源    → 透传，不缓存
 //  设计原则：永不缓存敏感 GET（带 Authorization 头的 API 不写缓存）
 // ═══════════════════════════════════════════════════════════════
-const VERSION = 'phoenix-v3-sw-v4';
+const VERSION = 'phoenix-v3-sw-v5';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const OFFLINE_URL = '/offline.html';
