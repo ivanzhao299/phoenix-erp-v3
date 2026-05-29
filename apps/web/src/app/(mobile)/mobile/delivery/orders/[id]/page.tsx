@@ -48,6 +48,8 @@ interface DeliveryItem {
   unitPrice?: number;
   customerCode?: string;
   companyCode?: string;
+  contact_phone?: string;
+  customer_phone?: string;
 }
 
 interface DeliveryOrder {
@@ -151,17 +153,26 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 
 // ── 商品明细行 ────────────────────────────────────────────────────────────────
 function ItemRow({ item }: { item: DeliveryItem }) {
+  const phone = item.contact_phone || item.customer_phone;
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       padding: '10px 0',
       borderBottom: `1px solid ${C.border}`,
     }}>
-      <div>
+      <div style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
         <div style={{ fontSize: 14, color: C.text, fontWeight: 500 }}>{item.productName}</div>
         <div style={{ fontSize: 12, color: C.textSub }}>{item.productCode}</div>
+        {phone && (
+          <a
+            href={`tel:${phone}`}
+            style={{ fontSize: 12, color: C.blue, marginTop: 2, display: 'inline-block', textDecoration: 'none' }}
+          >
+            📞 {phone}
+          </a>
+        )}
       </div>
-      <div style={{ textAlign: 'right' }}>
+      <div style={{ textAlign: 'right', flexShrink: 0 }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: C.orange }}>{item.qty}</div>
         <div style={{ fontSize: 11, color: C.textSub }}>{item.unit}</div>
       </div>
@@ -207,8 +218,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  const buildSignUrl = (itemId: string) =>
-    `/mobile/delivery/orders/${id}/sign?itemId=${itemId}`;
+  const buildSignUrl = (_itemId: string) =>
+    `/mobile/delivery/receipt/${id}`;
 
   const buildExceptionUrl = (item: DeliveryItem) => {
     const params = new URLSearchParams({
@@ -410,6 +421,20 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             ⚠ {actionError}
           </div>
         )}
+
+        {/* 绩效入口 */}
+        <div style={{ textAlign: 'center', marginTop: 8, marginBottom: 8 }}>
+          <button
+            onClick={() => router.push('/mobile/delivery/performance')}
+            style={{
+              background: 'transparent', border: 'none',
+              color: C.gray, fontSize: 12, cursor: 'pointer',
+              textDecoration: 'underline',
+            }}
+          >
+            查看我的配送表现 →
+          </button>
+        </div>
       </div>
 
       {/* 底部固定操作区 */}

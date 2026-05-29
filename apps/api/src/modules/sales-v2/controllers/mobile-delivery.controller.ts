@@ -232,4 +232,29 @@ export class MobileDeliveryController {
     }
     return { code: 200, orderId: id, photoCount: body.photos?.length ?? 0 };
   }
+
+  // ── 司机绩效统计 ──────────────────────────────────────────────────────────────
+  @Get('performance')
+  @RequireMenu(MENU, 'V')
+  async performance(@Query('period') period?: string) {
+    return this.deliverySvc.getDriverPerformance(
+      String(this.user?.userId ?? this.user?.user_id ?? ''),
+      period ?? 'today',
+    );
+  }
+
+  // ── 异常配送记录列表 ──────────────────────────────────────────────────────────
+  @Get('exceptions')
+  @RequireMenu(MENU, 'V')
+  listExceptions(
+    @Query('page')     page?:     string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.deliverySvc.listOrders({
+      status:   'EXCEPTION',
+      page:     page     ? Number(page)     : 1,
+      pageSize: pageSize ? Number(pageSize) : 20,
+      ...this.driverFilter(),
+    } as any);
+  }
 }

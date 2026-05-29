@@ -539,6 +539,82 @@ export class DeliveryOrdersService {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // 12. 司机绩效统计
+  // ─────────────────────────────────────────────────────────────────────────
+
+  async getDriverPerformance(driverId: string, period: string = 'today') {
+    const user = this.currentUser();
+    const params: any[] = [];
+    const where: string[] = ['1=1'];
+
+    if (!user.scopeAll) {
+      if (user.companyCodes.length > 0) {
+        params.push(user.companyCodes);
+        where.push(`company_code = ANY($${params.length})`);
+      } else {
+        where.push('1=0');
+      }
+    }
+    if (driverId) {
+      params.push(driverId);
+      where.push(`driver_id = $${params.length}`);
+    }
+
+    const wc = where.join(' AND ');
+    // JOIN 查询里需要加表名前缀
+    const wcJ = wc.replace(/\b(company_code|driver_id)\b/g, 'd.$1');
+
+    // period 参数预留扩展（目前统计维度固定为今日/本周）
+    void period;
+
+    const [todayDoneRow, weekDoneRow, weekExRow, weekRetRow] = await Promise.all([
+      this.ds.query(
+        `SELECT COUNT(*) AS cnt FROM sal_delivery_orders
+         WHERE ${wc} AND status='COMPLETED' AND wave_date = CURRENT_DATE`,
+        params,
+      ),
+      this.ds.query(
+        `SELECT COUNT(*) AS cnt FROM sal_delivery_orders
+         WHERE ${wc} AND status='COMPLETED'
+           AND wave_date >= date_trunc('week', CURRENT_DATE)::date`,
+        params,
+      ),
+      this.ds.query(
+        `SELECT COUNT(*) AS cnt FROM sal_delivery_orders
+         WHERE ${wc} AND status='EXCEPTION'
+           AND wave_date >= date_trunc('week', CURRENT_DATE)::date`,
+        params,
+      ),
+      (async () => {
+        try {
+          return await this.ds.query(
+            `SELECT COUNT(*) AS cnt
+             FROM sal_return_orders r
+             JOIN sal_delivery_orders d ON d.id::text = r.delivery_order_id::text
+             WHERE ${wcJ} AND r.return_type='DELIVERY_REJECT'
+               AND r.created_at >= date_trunc('week', CURRENT_DATE)`,
+            params,
+          );
+        } catch {
+          return [{ cnt: '0' }];
+        }
+      })(),
+    ]);
+
+    const todayDone  = Number(todayDoneRow[0].cnt);
+    const weekDone   = Number(weekDoneRow[0].cnt);
+    const weekEx     = Number(weekExRow[0].cnt);
+    const weekReturn = Number(weekRetRow[0].cnt);
+    const weekTotal  = weekDone + weekEx;
+
+    const onTimeRate    = weekTotal > 0 ? Math.round(((weekTotal - weekEx) / weekTotal) * 100) : 100;
+    const exceptionRate = weekTotal > 0 ? Math.round((weekEx / weekTotal) * 100) : 0;
+    const returnRate    = weekDone  > 0 ? Math.round((weekReturn / weekDone) * 100) : 0;
+
+    return { todayCompleted: todayDone, weekCompleted: weekDone, onTimeRate, exceptionRate, returnRate };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // 司机 CRUD
   // ─────────────────────────────────────────────────────────────────────────
 

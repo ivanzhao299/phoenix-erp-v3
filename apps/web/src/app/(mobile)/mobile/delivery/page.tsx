@@ -246,6 +246,35 @@ export default function DeliveryPage() {
           </div>
         )}
 
+        {/* 快捷入口 3 宫格 */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
+          {[
+            { icon: '📋', label: '我的配送', href: '/mobile/delivery/orders', color: C.blue },
+            { icon: '⚠️', label: '异常记录', href: '/mobile/delivery/exceptions', color: C.red },
+            { icon: '📊', label: '我的表现', href: '/mobile/delivery/performance', color: C.green },
+          ].map(nav => (
+            <button
+              key={nav.href}
+              onClick={() => router.push(nav.href)}
+              style={{
+                background: C.card,
+                border: `1px solid ${C.border}`,
+                borderRadius: 12,
+                padding: '14px 8px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 6,
+                cursor: 'pointer',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <span style={{ fontSize: 24 }}>{nav.icon}</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: nav.color }}>{nav.label}</span>
+            </button>
+          ))}
+        </div>
+
         {/* Tab 切换 */}
         <div style={{
           display: 'flex',
