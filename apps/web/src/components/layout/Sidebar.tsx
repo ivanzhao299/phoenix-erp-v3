@@ -154,6 +154,9 @@ const MENU: MenuItem[] = [
     { id: "s2-returns",    path: "/sales2/returns",    Icon: RefreshCw,       label: "退货管理",      perm: "MENU_SALES2_RETURN" },
     { id: "s2-inventory",  path: "/sales2/inventory",  Icon: Archive,         label: "库存管理",      perm: "MENU_SALES2_INVENTORY" },
     { id: "s2-reports",    path: "/sales2/reports",    Icon: BarChart2,       label: "经营分析",      perm: "MENU_SALES2_REPORT" },
+    // [Phase 2A] P1: 补全 Sales V2 缺失入口
+    { id: "s2-channels",   path: "/sales2/channels",   Icon: Network,         label: "渠道管理",      perm: "MENU_SALES2_CHANNEL" },
+    { id: "s2-credit",     path: "/sales2/credit",     Icon: CreditCard,      label: "信用管理",      perm: "MENU_SALES2_CREDIT"  },
   ]},
   // [Phase 2D] 旧订货系统已冻结 — 入口隐藏，页面保留供历史查询
   // 新版销售管理请使用 /sales2（Sales V2 Order Runtime）
@@ -175,9 +178,13 @@ const MENU: MenuItem[] = [
     { id: "f2-dash",    path: "/finance2",                    Icon: LayoutDashboard, label: "财务总览",     perm: "MENU_FIN2" },
     { id: "f2-ap",      path: "/finance2/ap",                 Icon: TrendingDown,    label: "应付管理",     perm: "MENU_FIN2_AP" },
     { id: "f2-ar",      path: "/finance2/ar",                 Icon: TrendingUp,      label: "应收管理",     perm: "MENU_FIN2_AR" },
-    { id: "f2-cash",    path: "/finance2/cash-accounts",      Icon: Wallet,          label: "资金账户",     perm: "MENU_FIN2_CASH" },
-    { id: "f2-sf",      path: "/finance2/shareholder-funds",  Icon: Users,           label: "股东资金",     perm: "MENU_FIN2_SHAREHOLDER" },
-    { id: "f2-reports", path: "/finance2/reports",            Icon: PieChart,        label: "财务报表",     perm: "MENU_FIN2_REPORT" },
+    { id: "f2-cash",      path: "/finance2/cash-accounts",      Icon: Wallet,          label: "资金账户",     perm: "MENU_FIN2_CASH" },
+    // [Phase 2A] P1: 补全 Finance V2 缺失入口
+    { id: "f2-fund",      path: "/finance2/fund-transfers",     Icon: ArrowLeftRight,  label: "资金调拨",     perm: "MENU_FIN2_CASH" },
+    { id: "f2-expense",   path: "/finance2/expenses",           Icon: Receipt,         label: "费用管理",     perm: "MENU_FIN2_EXPENSE" },
+    { id: "f2-reimburse", path: "/finance2/reimbursements",     Icon: ScrollText,      label: "报销管理",     perm: "MENU_FIN2_REIMBURSE" },
+    { id: "f2-sf",        path: "/finance2/shareholder-funds",  Icon: Users,           label: "股东资金",     perm: "MENU_FIN2_SHAREHOLDER" },
+    { id: "f2-reports",   path: "/finance2/reports",            Icon: PieChart,        label: "财务报表",     perm: "MENU_FIN2_REPORT" },
   ]},
   // 旧 Finance 模块：已废弃，入口从 Sidebar 隐藏（页面保留避免路由报错，顶部显示废弃提示）
   // { id: "finance", Icon: BarChart2, label: "财务结算（已废弃）", perm: "MENU_FIN_AUDIT", children: [...] },
@@ -195,10 +202,11 @@ const MENU: MenuItem[] = [
   //   { id: "b2b-orders", path: "/b2b/orders",              Icon: ShoppingCart,    label: "B2B 订单",   perm: "MENU_B2B_SALE" },
   //   { id: "b2b-grade",  path: "/b2b/distributor-grading", Icon: Award,           label: "经销商分级", perm: "MENU_B2B_SALE" },
   // ]},
-  { id: "pos", Icon: ShoppingBag, label: "POS 销售", perm: null, children: [
-    { id: "pos-ov",    path: "/pos",         Icon: LayoutDashboard, label: "POS 总览",   perm: null },
-    { id: "pos-sales", path: "/pos/sales",   Icon: CreditCard,      label: "销售单管理", perm: null },
-  ]},
+  // [Phase 2A] P0-1: POS 销售 group 已隐藏 — perm:null 安全漏洞，功能已由 /store-pos（直营店收银）替代
+  // { id: "pos", Icon: ShoppingBag, label: "POS 销售", perm: null, children: [
+  //   { id: "pos-ov",    path: "/pos",       Icon: LayoutDashboard, label: "POS 总览",   perm: null },
+  //   { id: "pos-sales", path: "/pos/sales", Icon: CreditCard,      label: "销售单管理", perm: null },
+  // ]},
   { id: "workflow", Icon: GitMerge, label: "工作流", perm: "MENU_WORKFLOW", children: [
     { id: "wf-approval-todos",   path: "/workflow/todos",          Icon: ClipboardCheck, label: "审批待办",     perm: "MENU_WORKFLOW" },
     { id: "wf-approval-history", path: "/workflow/history",         Icon: History,        label: "审批历史",     perm: "MENU_WORKFLOW" },
@@ -222,16 +230,17 @@ const MENU: MenuItem[] = [
     { id: "stg-orgs",        path: "/settings/organizations",  Icon: Network,       label: "组织架构",     perm: "MENU_SYS_ORG" },
     { id: "stg-data-scopes", path: "/settings/data-scopes",   Icon: ShieldCheck,   label: "数据范围",     perm: "MENU_SYS_ORG" },
     { id: "stg-dict",        path: "/settings/dict",           Icon: BookOpen,      label: "系统字典",     perm: "MENU_SETTINGS_DATA" },
-    { id: "stg-products",    path: "/settings/products",       Icon: Egg,           label: "商品主数据",   perm: null },
-    { id: "stg-master",      path: "/settings/master-data",    Icon: Database,      label: "主数据配置",   perm: null },
+    // [Phase 2A] P0-2: 绑定 perm:null → 正式 MENU 代码
+    { id: "stg-products",    path: "/settings/products",       Icon: Egg,           label: "商品主数据",   perm: "MENU_MASTER" },
+    { id: "stg-master",      path: "/settings/master-data",    Icon: Database,      label: "主数据配置",   perm: "MENU_MASTER" },
     // [Phase 2C] 旧审批流配置入口已隐藏，页面改为自动跳转至审批规则
     // { id: "stg-approvals", path: "/settings/approval-flows", Icon: GitMerge, label: "审批流配置", perm: "MENU_SETTINGS_IT" },
     { id: "stg-approval-rules", path: "/settings/approval-rules", Icon: ListChecks, label: "审批规则",     perm: "MENU_WORKFLOW" },
     { id: "stg-perms",       path: "/settings/permissions",    Icon: Shield,        label: "权限配置",     perm: "MENU_SETTINGS_IT" },
-    { id: "stg-pda",         path: "/settings/pda-terminals",  Icon: Smartphone,    label: "PDA终端",      perm: null },
-    { id: "stg-pos",         path: "/settings/pos-config",     Icon: Store,         label: "POS配置",      perm: null },
-    { id: "stg-stock-cfg",   path: "/settings/store-stock",    Icon: ToggleRight,   label: "分账库存配置", perm: null },
-    { id: "stg-security",    path: "/settings/security",       Icon: ShieldCheck,   label: "安全策略",     perm: null },
+    { id: "stg-pda",         path: "/settings/pda-terminals",  Icon: Smartphone,    label: "PDA终端",      perm: "MENU_SETTINGS_IT" },
+    { id: "stg-pos",         path: "/settings/pos-config",     Icon: Store,         label: "POS配置",      perm: "MENU_SETTINGS_IT" },
+    { id: "stg-stock-cfg",   path: "/settings/store-stock",    Icon: ToggleRight,   label: "分账库存配置", perm: "MENU_SETTINGS_IT" },
+    { id: "stg-security",    path: "/settings/security",       Icon: ShieldCheck,   label: "安全策略",     perm: "MENU_SETTINGS_IT" },
     { id: "stg-health",      path: "/settings/health",         Icon: Activity,      label: "系统健康",     perm: "MENU_SETTINGS_IT" },
     { id: "stg-audit",       path: "/settings/audit-log",      Icon: History,       label: "审计日志",     perm: "MENU_SETTINGS_IT" },
 

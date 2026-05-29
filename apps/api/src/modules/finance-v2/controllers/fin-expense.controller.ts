@@ -23,7 +23,8 @@ import {
   CancelReimbursementDto,
 } from '../dto/expense.dto';
 
-const MENU = 'MENU_FIN2_EXPENSE';
+const MENU       = 'MENU_FIN2_EXPENSE';
+const REIMB_MENU = 'MENU_FIN2_REIMBURSE'; // Phase 2A: 独立报销管理菜单权限
 
 /**
  * Finance V2 Expense Controller — Phase 5
@@ -78,28 +79,28 @@ export class FinExpenseController {
 
   /** GET /api/v2/finance/expenses/reimbursements */
   @Get('reimbursements')
-  @RequireMenu(MENU, 'V')
+  @RequireMenu(REIMB_MENU, 'V')
   listReimbursements(@Query() dto: QueryReimbursementDto) {
     return this.reimbSvc.list(dto, this.scopedUser);
   }
 
   /** GET /api/v2/finance/expenses/reimbursements/summary */
   @Get('reimbursements/summary')
-  @RequireMenu(MENU, 'V')
+  @RequireMenu(REIMB_MENU, 'V')
   reimbSummary() {
     return this.reimbSvc.getSummary(this.scopedUser);
   }
 
   /** GET /api/v2/finance/expenses/reimbursements/:id */
   @Get('reimbursements/:id')
-  @RequireMenu(MENU, 'V')
+  @RequireMenu(REIMB_MENU, 'V')
   getReimbursement(@Param('id') id: string) {
     return this.reimbSvc.findById(id, this.scopedUser);
   }
 
   /** POST /api/v2/finance/expenses/reimbursements/:id/submit */
   @Post('reimbursements/:id/submit')
-  @RequireMenu(MENU, 'E')
+  @RequireMenu(REIMB_MENU, 'E')
   @HttpCode(HttpStatus.OK)
   submitReimbursement(
     @Param('id') id: string,
@@ -110,7 +111,7 @@ export class FinExpenseController {
 
   /** POST /api/v2/finance/expenses/reimbursements/:id/approve-direct */
   @Post('reimbursements/:id/approve-direct')
-  @RequireMenu(MENU, 'A')   // H2 修复：审批动作需要 A（Approve）权限
+  @RequireMenu(REIMB_MENU, 'A')   // H2 修复：审批动作需要 A（Approve）权限
   @HttpCode(HttpStatus.OK)
   approveReimbursement(
     @Param('id') id: string,
@@ -121,7 +122,7 @@ export class FinExpenseController {
 
   /** POST /api/v2/finance/expenses/reimbursements/:id/pay */
   @Post('reimbursements/:id/pay')
-  @RequireMenu(MENU, 'E')
+  @RequireMenu(REIMB_MENU, 'E')
   @HttpCode(HttpStatus.OK)
   payReimbursement(
     @Param('id') id: string,
@@ -132,7 +133,7 @@ export class FinExpenseController {
 
   /** POST /api/v2/finance/expenses/reimbursements/:id/cancel */
   @Post('reimbursements/:id/cancel')
-  @RequireMenu(MENU, 'E')
+  @RequireMenu(REIMB_MENU, 'E')
   @HttpCode(HttpStatus.OK)
   cancelReimbursement(
     @Param('id') id: string,

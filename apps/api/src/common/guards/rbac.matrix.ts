@@ -366,6 +366,17 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_STORE_MGR:           ['V','C'],          // 申请费用
     ROLE_AUDITOR:             ['V','X'],
   },
+  /** Finance V2 报销管理（Reimbursement — Phase 2A 独立菜单权限） */
+  MENU_FIN2_REIMBURSE: {
+    ROLE_ADMIN:               ['V','C','E','D','A','X'],
+    ROLE_FIN_CFO:             ['V','C','E','A','X'],
+    ROLE_HQ_FINANCE:          ['V','C','E','A','X'],
+    ROLE_FACTORY_ACCT:        ['V','C','E','X'],
+    ROLE_CEO:                 ['V','A','X'],
+    ROLE_FARM_MGR:            ['V','C'],           // 提交报销申请
+    ROLE_STORE_MGR:           ['V','C'],           // 提交报销申请
+    ROLE_AUDITOR:             ['V','X'],
+  },
   /** Finance V2 预算管理（Budget） */
   MENU_FIN2_BUDGET: {
     ROLE_ADMIN:               ['V','C','E','D','A','X'],
