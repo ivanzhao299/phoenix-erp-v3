@@ -34,15 +34,12 @@ const GUARDED_PREFIXES = [
   '/breeding',
   '/packaging',
   '/warehouse',
-  '/transport',
   '/store',
   '/quality',
-  '/procurement',
   '/order',
   '/members',
   '/finance',
   '/analytics',
-  '/b2b',
   '/wholesale',
   '/master',
   '/settings',
@@ -50,6 +47,14 @@ const GUARDED_PREFIXES = [
   '/farm',
   '/terminal',
   '/mobile',
+  // V2 routes
+  '/sales2',
+  '/procurement2',
+  '/finance2',
+  '/master-data',
+  '/workflow',
+  '/uat',
+  '/system',
 ];
 
 /** 超级管理员专属路由（需要 ROLE_ADMIN 或 ROLE_SYSOPS） */
