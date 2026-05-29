@@ -64,6 +64,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install system tools (psql + jq)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client jq
+          echo "psql $(psql --version)" && echo "jq $(jq --version)"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
