@@ -7,6 +7,7 @@ import { FinCashController }    from './controllers/fin-cash.controller';
 import { FinShareholderController } from './controllers/fin-shareholder.controller';
 import { FinExpenseController }         from './controllers/fin-expense.controller';
 import { FinancialReportsController }   from './controllers/financial-reports.controller';
+import { FinanceOrderBridgeController } from './controllers/finance-order-bridge.controller';
 import { ApAdapterService }     from './services/ap-adapter.service';
 import { ApInvoicesService }    from './services/ap-invoices.service';
 import { ArInvoicesService }    from './services/ar-invoices.service';
@@ -97,6 +98,7 @@ import {
     FinShareholderController,
     FinExpenseController,
     FinancialReportsController,
+    FinanceOrderBridgeController,
   ],
   providers: [
     ApAdapterService, ApInvoicesService,
