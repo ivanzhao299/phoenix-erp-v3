@@ -1,7 +1,8 @@
 import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
-import { SalesEngineService } from '../order/sales-engine.service';
+// Phase D: SalesEngineService 已迁移至 store-pos 模块，切断 StoreModule → OrderModule 依赖
+import { SalesEngineService } from '../store-pos/services/sales-engine.service';
 
 /**
  * PosService — POS 收银业务服务
