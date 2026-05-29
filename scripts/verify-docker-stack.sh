@@ -109,12 +109,12 @@ if [ "${RUN_REGR:-0}" = "1" ]; then
   cyan ""
   cyan "▶ 5) 容器化回归 (RUN_REGR=1)"
   # 需要先 docker cp 把 scripts 挪进容器，或挂载 volume；此处简化为 host curl
-  for m in system breeding packaging wms pos-store order finance quality pda bi; do
+  # [Phase E] order-regression.sh + e2e-order-flow.sh 已归档至 _archive/
+  #           旧 OrderModule 删除后，Order 链路由 Sales V2 (/api/v2/sales/orders) 覆盖
+  for m in system breeding packaging wms pos-store finance quality pda bi; do
     printf '  %-12s ' "$m"
     bash apps/api/scripts/${m}-regression.sh 2>&1 | tail -2 | head -1 | tr -d '\033' | sed 's/\[[0-9;]*m//g'
   done
-  printf '  %-12s ' "e2e"
-  bash apps/api/scripts/e2e-order-flow.sh 2>&1 | tail -2 | head -1 | tr -d '\033' | sed 's/\[[0-9;]*m//g'
 fi
 
 cyan ""
