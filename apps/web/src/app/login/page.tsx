@@ -61,7 +61,7 @@ const ROLE_HOME: Record<string,string> = {
   ROLE_ADMIN: "/dashboard", ROLE_CEO: "/dashboard", ROLE_FARM_MGR: "/breeding",
   ROLE_VET: "/breeding", ROLE_BREEDER: "/breeding", ROLE_QA_MGR: "/quality",
   ROLE_WMS_MGR: "/warehouse", ROLE_PKG_MGR: "/packaging", ROLE_LOG_MGR: "/sales2/delivery",
-  ROLE_STORE_MGR: "/store", ROLE_CASHIER: "/store-pos", ROLE_SALES_REP: "/order",
+  ROLE_STORE_MGR: "/store", ROLE_CASHIER: "/store-pos", ROLE_SALES_REP: "/sales2/orders",
   ROLE_FIN_CFO: "/finance2", ROLE_FIN_ACCT: "/finance2",
   // 现场作业角色 → Terminal 作业台
   ROLE_PKG_OP:    "/terminal/packaging/dashboard",

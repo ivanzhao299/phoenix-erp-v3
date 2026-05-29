@@ -15,8 +15,9 @@ import { JwtStrategy } from './auth/jwt.strategy';
 import { AuthModule } from './auth/auth.module';
 
 // P1 Modules
+// [Phase E] OrderModule 已删除 — Sales V2 完全替代旧 ord_orders 链路；
+//           ord_* 表保留为只读历史数据（见 docs/legacy-ord-tables-archive.md）
 import { FarmModule } from './modules/farm/farm.module';
-import { OrderModule } from './modules/order/order.module';
 import { StoreModule } from './modules/store/store.module';
 
 // P2 Modules
@@ -85,7 +86,6 @@ import { StorePosModule } from './modules/store-pos/store-pos.module';
     GenericCrudModule,
     MasterModule,
     FarmModule,
-    OrderModule,
     StoreModule,
     FinanceV2Module,       // Finance V2 Phase 0 Baseline
     WmsModule,

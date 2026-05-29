@@ -36,7 +36,6 @@ const GUARDED_PREFIXES = [
   '/warehouse',
   '/store',
   '/quality',
-  '/order',
   '/members',
   '/finance',
   '/analytics',

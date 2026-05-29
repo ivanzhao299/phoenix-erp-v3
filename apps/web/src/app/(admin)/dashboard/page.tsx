@@ -30,7 +30,7 @@ export default function DashboardPage() {
     { path: '/breeding',    label: t('ui.养殖管理','养殖管理'), desc: t('ui.鸡舍 / 鸡群 / 日报','鸡舍 / 鸡群 / 日报'),   color: '#10b981', icon: <Egg size={22} /> },
     { path: '/packaging',   label: t('ui.分级包装','分级包装'), desc: t('ui.集蛋 / 分级 / 包装','集蛋 / 分级 / 包装'),   color: '#3b82f6', icon: <Package size={22} /> },
     { path: '/warehouse',   label: t('ui.仓储库存','仓储库存'), desc: t('ui.入库 / 出库 / 盘点','入库 / 出库 / 盘点'),   color: '#8b5cf6', icon: <Archive size={22} /> },
-    { path: '/order',       label: t('ui.订货系统','订货系统'), desc: t('ui.订单 / 审批 / 拣货','订单 / 审批 / 拣货'),   color: '#f59e0b', icon: <ShoppingCart size={22} /> },
+    { path: '/sales2/orders', label: t('ui.销售订单','销售订单'), desc: t('ui.订单 / 审批 / 配送','订单 / 审批 / 配送'),   color: '#f59e0b', icon: <ShoppingCart size={22} /> },
     { path: '/sales2/delivery', label: t('ui.配送运输','配送运输'), desc: t('ui.波次 / 跟踪 / 签收','波次 / 跟踪 / 签收'),   color: '#06b6d4', icon: <Truck size={22} /> },
     { path: '/finance2',        label: t('ui.财务结算','财务结算'), desc: t('ui.应收 / 应付 / 流水','应收 / 应付 / 流水'),   color: '#f97316', icon: <TrendingUp size={22} /> },
     { path: '/quality',         label: t('ui.品质追溯','品质追溯'), desc: t('ui.质检 / 追溯 / 报表','质检 / 追溯 / 报表'),   color: '#ec4899', icon: <CheckCircle size={22} /> },
