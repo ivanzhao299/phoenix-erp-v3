@@ -43,7 +43,6 @@ const GUARDED_PREFIXES = [
   '/finance',
   '/analytics',
   '/b2b',
-  '/pos',
   '/wholesale',
   '/master',
   '/settings',
