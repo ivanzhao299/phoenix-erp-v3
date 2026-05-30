@@ -84,9 +84,9 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="rounded-2xl border bg-white border-slate-100 p-5 shadow-sm">
+    <div className="rounded-2xl border bg-bg-card border-border/30 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm text-slate-500">{title}</span>
+        <span className="text-sm text-text-muted">{title}</span>
         <div
           className="w-9 h-9 rounded-xl flex items-center justify-center"
           style={{ background: `${color}18` }}
@@ -94,8 +94,8 @@ function StatCard({
           <Icon size={18} color={color} />
         </div>
       </div>
-      <div className="text-2xl font-bold text-slate-800">{value}</div>
-      {sub && <div className="text-xs text-slate-400 mt-1">{sub}</div>}
+      <div className="text-2xl font-bold text-text">{value}</div>
+      {sub && <div className="text-xs text-text-dim mt-1">{sub}</div>}
     </div>
   );
 }
@@ -107,7 +107,7 @@ function CreditBar({ rate }: { rate: number }) {
   const color = pct > 80 ? "#ef4444" : pct > 60 ? "#f59e0b" : "#10b981";
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+      <div className="flex-1 h-2 rounded-full bg-bg-muted overflow-hidden">
         <div
           className="h-full rounded-full transition-all"
           style={{ width: `${pct}%`, background: color }}
@@ -155,7 +155,7 @@ export default function CustomerCreditPage() {
 
   if (!canView) {
     return (
-      <div className="flex items-center justify-center py-20 text-slate-400">
+      <div className="flex items-center justify-center py-20 text-text-dim">
         无权限查看信用管理
       </div>
     );
@@ -175,7 +175,7 @@ export default function CustomerCreditPage() {
           <button
             onClick={() => void load()}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted transition-colors cursor-pointer disabled:opacity-50"
           >
             <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
             刷新
@@ -193,7 +193,7 @@ export default function CustomerCreditPage() {
 
       {/* 加载中 */}
       {loading && !error && (
-        <div className="flex items-center justify-center py-20 text-slate-400">
+        <div className="flex items-center justify-center py-20 text-text-dim">
           <RefreshCw size={20} className="animate-spin mr-2" />
           加载中…
         </div>
@@ -227,19 +227,19 @@ export default function CustomerCreditPage() {
           </div>
 
           {/* 客户信用列表 */}
-          <div className="rounded-2xl border bg-white border-slate-100 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100">
-              <span className="font-semibold text-sm text-slate-700">
+          <div className="rounded-2xl border bg-bg-card border-border/30 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-border/30">
+              <span className="font-semibold text-sm text-text">
                 客户信用列表
               </span>
             </div>
             {customers.length === 0 ? (
-              <div className="py-12 text-center text-sm text-slate-400">暂无数据</div>
+              <div className="py-12 text-center text-sm text-text-dim">暂无数据</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-xs text-slate-500 border-b border-slate-100">
+                    <tr className="text-xs text-text-muted border-b border-border/30">
                       <th className="text-left px-5 py-3 font-medium">客户名称</th>
                       <th className="text-right px-5 py-3 font-medium">信用额度</th>
                       <th className="text-right px-5 py-3 font-medium">已用额度</th>
@@ -254,15 +254,15 @@ export default function CustomerCreditPage() {
                       return (
                         <tr
                           key={c.id}
-                          className="border-b border-border/30 hover:bg-slate-50 hover:bg-bg-muted/30 transition-colors"
+                          className="border-b border-border/30 hover:bg-bg-muted hover:bg-bg-muted/30 transition-colors"
                         >
-                          <td className="px-5 py-3 font-medium text-slate-700">
+                          <td className="px-5 py-3 font-medium text-text">
                             {c.customer_name ?? c.name ?? `客户${c.id}`}
                           </td>
-                          <td className="px-5 py-3 text-right text-slate-600">
+                          <td className="px-5 py-3 text-right text-text-muted">
                             {fmtMoney(c.credit_limit)}
                           </td>
-                          <td className="px-5 py-3 text-right text-slate-700">
+                          <td className="px-5 py-3 text-right text-text">
                             {fmtMoney(c.credit_used)}
                           </td>
                           <td className="px-5 py-3 w-48">

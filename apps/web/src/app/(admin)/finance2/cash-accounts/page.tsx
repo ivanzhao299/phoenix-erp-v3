@@ -149,7 +149,7 @@ function CreateAccountModal({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>新建资金账户</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-            <X size={18} className="text-slate-400" />
+            <X size={18} className="text-text-dim" />
           </button>
         </div>
 
@@ -269,7 +269,7 @@ function TransactionDrawer({
             <div className="text-text-muted" style={{ fontSize: 12, marginTop: 2 }}>{account.accountCode} · {account.currencyCode}</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-            <X size={18} className="text-slate-400" />
+            <X size={18} className="text-text-dim" />
           </button>
         </div>
 
@@ -418,7 +418,7 @@ export default function CashAccountsPage() {
       {/* 筛选栏 */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
-          <Search size={14} className="text-slate-400" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+          <Search size={14} className="text-text-dim" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
           <input
             value={keyword}
             onChange={e => setKeyword(e.target.value)}
@@ -437,7 +437,7 @@ export default function CashAccountsPage() {
               className={`px-3 py-1 rounded-full text-xs cursor-pointer font-medium transition-colors border-0 ${
                 typeFilter === k
                   ? 'bg-blue-600 text-white font-bold'
-                  : 'bg-bg-muted text-text-muted hover:bg-slate-200 dark:hover:bg-slate-600'
+                  : 'bg-bg-muted text-text-muted hover:bg-bg-muted dark:hover:bg-slate-600'
               }`}
             >
               {v}
@@ -454,7 +454,7 @@ export default function CashAccountsPage() {
               className={`px-3 py-1 rounded-full text-xs cursor-pointer font-medium transition-colors border-0 ${
                 statusFilter === k
                   ? 'bg-violet-600 text-white font-bold'
-                  : 'bg-bg-muted text-text-muted hover:bg-slate-200 dark:hover:bg-slate-600'
+                  : 'bg-bg-muted text-text-muted hover:bg-bg-muted dark:hover:bg-slate-600'
               }`}
             >
               {v}
@@ -467,7 +467,7 @@ export default function CashAccountsPage() {
           disabled={loading}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted cursor-pointer transition-colors disabled:opacity-50"
         >
-          <RefreshCw size={14} className="text-slate-400" style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+          <RefreshCw size={14} className="text-text-dim" style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
         </button>
       </div>
 

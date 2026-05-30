@@ -71,7 +71,7 @@ const STATUS_CFG: Record<string, { label: string; accentBg: string; accentIcon: 
   PENDING_APPROVAL: { label: '审批中',     accentBg: 'bg-warning/10',   accentIcon: 'text-amber-500',   icon: Clock },
   APPROVED:         { label: '已审批',     accentBg: 'bg-success/10', accentIcon: 'text-emerald-500', icon: CheckCircle },
   PAID:             { label: '已付款',     accentBg: 'bg-indigo-50 dark:bg-indigo-900/20', accentIcon: 'text-indigo-500',  icon: CreditCard },
-  CANCELLED:        { label: '已取消',     accentBg: 'bg-bg-muted',       accentIcon: 'text-slate-400',   icon: Ban },
+  CANCELLED:        { label: '已取消',     accentBg: 'bg-bg-muted',       accentIcon: 'text-text-dim',   icon: Ban },
 };
 
 function fmt(n: string | number | null | undefined): string {

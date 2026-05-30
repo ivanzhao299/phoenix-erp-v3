@@ -145,7 +145,7 @@ export default function SalesChannelsPage() {
 
   if (!canView) {
     return (
-      <div className="flex items-center justify-center py-20 text-slate-400">
+      <div className="flex items-center justify-center py-20 text-text-dim">
         无权限查看渠道管理
       </div>
     );
@@ -174,7 +174,7 @@ export default function SalesChannelsPage() {
           <button
             onClick={() => void load()}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted transition-colors cursor-pointer disabled:opacity-50"
           >
             <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
             刷新
@@ -192,7 +192,7 @@ export default function SalesChannelsPage() {
 
       {/* 加载中 */}
       {loading && (
-        <div className="flex items-center justify-center py-20 text-slate-400">
+        <div className="flex items-center justify-center py-20 text-text-dim">
           <RefreshCw size={20} className="animate-spin mr-2" />
           加载中…
         </div>
@@ -207,7 +207,7 @@ export default function SalesChannelsPage() {
               return (
                 <div
                   key={type}
-                  className="rounded-2xl border bg-white border-slate-100 p-5 shadow-sm"
+                  className="rounded-2xl border bg-bg-card border-border/30 p-5 shadow-sm"
                 >
                   <div className="flex items-center gap-3 mb-3">
                     <div
@@ -217,18 +217,18 @@ export default function SalesChannelsPage() {
                       <Icon size={20} color={color} />
                     </div>
                     <div>
-                      <div className="font-semibold text-sm text-slate-800">
+                      <div className="font-semibold text-sm text-text">
                         {label}
                       </div>
-                      <div className="text-xs text-slate-400">{type}</div>
+                      <div className="text-xs text-text-dim">{type}</div>
                     </div>
                   </div>
-                  <div className="text-xs text-slate-500 leading-relaxed mb-3">
+                  <div className="text-xs text-text-muted leading-relaxed mb-3">
                     {desc}
                   </div>
                   <div className="text-2xl font-bold" style={{ color }}>
                     {count}
-                    <span className="text-sm font-normal text-slate-400 ml-1">家</span>
+                    <span className="text-sm font-normal text-text-dim ml-1">家</span>
                   </div>
                 </div>
               );
@@ -243,19 +243,19 @@ export default function SalesChannelsPage() {
           )}
 
           {/* 客户列表 */}
-          <div className="rounded-2xl border bg-white border-slate-100 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100">
-              <span className="font-semibold text-sm text-slate-700">
+          <div className="rounded-2xl border bg-bg-card border-border/30 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-border/30">
+              <span className="font-semibold text-sm text-text">
                 {channelsError ? "客户列表" : "渠道客户列表"}
               </span>
             </div>
             {recentCustomers.length === 0 ? (
-              <div className="py-12 text-center text-sm text-slate-400">暂无数据</div>
+              <div className="py-12 text-center text-sm text-text-dim">暂无数据</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-xs text-slate-500 border-b border-slate-100">
+                    <tr className="text-xs text-text-muted border-b border-border/30">
                       <th className="text-left px-5 py-3 font-medium">客户名称</th>
                       <th className="text-left px-5 py-3 font-medium">渠道类型</th>
                       <th className="text-left px-5 py-3 font-medium">状态</th>
@@ -268,9 +268,9 @@ export default function SalesChannelsPage() {
                       return (
                         <tr
                           key={c.id}
-                          className="border-b border-border/30 hover:bg-slate-50 hover:bg-bg-muted/30 transition-colors"
+                          className="border-b border-border/30 hover:bg-bg-muted hover:bg-bg-muted/30 transition-colors"
                         >
-                          <td className="px-5 py-3 font-medium text-slate-700">
+                          <td className="px-5 py-3 font-medium text-text">
                             {c.customer_name ?? c.name ?? `客户${c.id}`}
                           </td>
                           <td className="px-5 py-3">
@@ -282,7 +282,7 @@ export default function SalesChannelsPage() {
                                 {def.label}
                               </span>
                             ) : (
-                              <span className="text-xs text-slate-400">
+                              <span className="text-xs text-text-dim">
                                 {typeStr || "—"}
                               </span>
                             )}
@@ -294,7 +294,7 @@ export default function SalesChannelsPage() {
                                   ? "text-emerald-600 bg-success/10"
                                   : c.status === "FROZEN"
                                   ? "text-red-500 bg-red-50 dark:bg-red-900/20"
-                                  : "text-slate-400 bg-slate-100"
+                                  : "text-text-dim bg-bg-muted"
                               }`}
                             >
                               {c.status === "ACTIVE"

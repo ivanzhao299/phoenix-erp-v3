@@ -214,7 +214,7 @@ function CreateArModal({ onClose, onCreated }: { onClose: () => void; onCreated:
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>新建应收发票</div>
           <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-0">
-            <X size={18} className="text-slate-400" />
+            <X size={18} className="text-text-dim" />
           </button>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -353,7 +353,7 @@ function CreateReceiptModal({
             {selectedAr ? `录入收款 — ${selectedAr.ar_no}` : '新建收款'}
           </div>
           <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-0">
-            <X size={18} className="text-slate-400" />
+            <X size={18} className="text-text-dim" />
           </button>
         </div>
         {selectedAr && (
@@ -481,7 +481,7 @@ function ArDetailDrawer({ invoiceId, onClose, onChanged }: {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>AR 发票详情</div>
           <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-0">
-            <X size={18} className="text-slate-400" />
+            <X size={18} className="text-text-dim" />
           </button>
         </div>
 
@@ -780,7 +780,7 @@ export default function Finance2ArPage() {
             className={`px-5 py-2.5 text-sm font-medium border-b-2 cursor-pointer transition-colors bg-transparent border-x-0 border-t-0 -mb-0.5 ${
               tab === t.key
                 ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500'
-                : 'text-text-muted border-transparent hover:text-slate-700 dark:hover:text-slate-200'
+                : 'text-text-muted border-transparent hover:text-text dark:hover:text-slate-200'
             }`}>
             {t.label}
           </button>
@@ -804,7 +804,7 @@ export default function Finance2ArPage() {
                 className={`px-3 py-1 rounded-full text-xs cursor-pointer font-medium transition-colors border-0 ${
                   status === s.key
                     ? 'bg-emerald-600 text-white font-bold'
-                    : 'bg-bg-muted text-text-muted hover:bg-slate-200 dark:hover:bg-slate-600'
+                    : 'bg-bg-muted text-text-muted hover:bg-bg-muted dark:hover:bg-slate-600'
                 }`}>
                 {s.label}
               </button>

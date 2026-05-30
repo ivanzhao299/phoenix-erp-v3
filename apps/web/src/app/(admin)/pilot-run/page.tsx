@@ -141,7 +141,7 @@ function trendStatusDot(status: string): string {
 // ── KPI Card ─────────────────────────────────────────────────────────────────
 
 function KpiCard({
-  icon: Icon, label, value, sub, color = "text-slate-800",
+  icon: Icon, label, value, sub, color = "text-text",
 }: {
   icon: React.ElementType;
   label: string;
@@ -150,14 +150,14 @@ function KpiCard({
   color?: string;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex items-start gap-3">
-      <div className="shrink-0 w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center">
-        <Icon size={18} className="text-slate-500" />
+    <div className="bg-bg-card rounded-xl border border-border shadow-sm p-4 flex items-start gap-3">
+      <div className="shrink-0 w-9 h-9 rounded-lg bg-bg-muted flex items-center justify-center">
+        <Icon size={18} className="text-text-muted" />
       </div>
       <div className="min-w-0">
-        <div className="text-xs text-slate-400 mb-0.5">{label}</div>
+        <div className="text-xs text-text-dim mb-0.5">{label}</div>
         <div className={`text-xl font-bold leading-tight ${color}`}>{value}</div>
-        {sub && <div className="text-xs text-slate-400 mt-0.5">{sub}</div>}
+        {sub && <div className="text-xs text-text-dim mt-0.5">{sub}</div>}
       </div>
     </div>
   );
@@ -175,7 +175,7 @@ function ScoreGauge({ score, status }: { score: number; status: string }) {
     <div className={`rounded-2xl p-6 flex flex-col items-center justify-center gap-2 ${cls}`}>
       <div className="text-6xl font-black leading-none">{score}</div>
       <div className="text-sm font-medium opacity-70">/ 100</div>
-      <div className="mt-1 px-3 py-1 rounded-full bg-white/60 text-sm font-semibold">
+      <div className="mt-1 px-3 py-1 rounded-full bg-bg-card/60 text-sm font-semibold">
         {STATUS_LABEL[status] ?? status}
       </div>
     </div>
@@ -189,15 +189,15 @@ function DimensionBar({
 }: { label: string; score: number; weight: string }) {
   return (
     <div className="flex items-center gap-2 text-sm">
-      <span className="w-14 text-slate-500 shrink-0">{label}</span>
-      <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+      <span className="w-14 text-text-muted shrink-0">{label}</span>
+      <div className="flex-1 h-2 bg-bg-muted rounded-full overflow-hidden">
         <div
           className={`h-2 rounded-full transition-all ${scoreBarColor(score)}`}
           style={{ width: `${score}%` }}
         />
       </div>
-      <span className="w-8 text-right font-semibold text-slate-700">{score}</span>
-      <span className="w-8 text-xs text-slate-400">{weight}</span>
+      <span className="w-8 text-right font-semibold text-text">{score}</span>
+      <span className="w-8 text-xs text-text-dim">{weight}</span>
     </div>
   );
 }
@@ -206,7 +206,7 @@ function DimensionBar({
 
 function TrendChart({ trend }: { trend: TrendPoint[] }) {
   if (!trend.length) {
-    return <div className="text-center text-slate-400 text-sm py-6">暂无趋势数据</div>;
+    return <div className="text-center text-text-dim text-sm py-6">暂无趋势数据</div>;
   }
   const maxScore = 100;
   const minScore = 0;
@@ -219,7 +219,7 @@ function TrendChart({ trend }: { trend: TrendPoint[] }) {
           const pct = ((p.score - minScore) / (maxScore - minScore)) * height;
           return (
             <div key={p.date} className="flex flex-col items-center gap-1" style={{ width: 40 }}>
-              <div className="text-xs font-bold text-slate-700">{p.score}</div>
+              <div className="text-xs font-bold text-text">{p.score}</div>
               <div
                 className={`w-6 rounded-t-md transition-all ${scoreBarColor(p.score)}`}
                 style={{ height: Math.max(4, pct) }}
@@ -228,7 +228,7 @@ function TrendChart({ trend }: { trend: TrendPoint[] }) {
               <div
                 className={`w-2 h-2 rounded-full shrink-0 ${trendStatusDot(p.status)}`}
               />
-              <div className="text-[10px] text-slate-400 text-center leading-tight">
+              <div className="text-[10px] text-text-dim text-center leading-tight">
                 {p.date.slice(5)}
               </div>
             </div>
@@ -243,13 +243,13 @@ function TrendChart({ trend }: { trend: TrendPoint[] }) {
 
 function DailyReportTable({ reports }: { reports: DailyReport[] }) {
   if (!reports.length) {
-    return <div className="text-center text-slate-400 text-sm py-6">暂无日报数据</div>;
+    return <div className="text-center text-text-dim text-sm py-6">暂无日报数据</div>;
   }
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-slate-100 text-xs text-slate-400">
+          <tr className="border-b border-border/30 text-xs text-text-dim">
             <th className="text-left py-2 pr-3 font-medium">日期</th>
             <th className="text-right py-2 pr-3 font-medium">订单</th>
             <th className="text-right py-2 pr-3 font-medium">销售额</th>
@@ -261,8 +261,8 @@ function DailyReportTable({ reports }: { reports: DailyReport[] }) {
         </thead>
         <tbody>
           {reports.map((r) => (
-            <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50">
-              <td className="py-2 pr-3 font-mono text-slate-600">{r.report_date}</td>
+            <tr key={r.id} className="border-b border-border/20 hover:bg-bg-muted">
+              <td className="py-2 pr-3 font-mono text-text-muted">{r.report_date}</td>
               <td className="text-right py-2 pr-3">{r.order_count}</td>
               <td className="text-right py-2 pr-3">{fmtAmt(Number(r.sales_amount))}</td>
               <td className="text-right py-2 pr-3">{r.delivery_count}</td>
@@ -275,7 +275,7 @@ function DailyReportTable({ reports }: { reports: DailyReport[] }) {
               </td>
               <td className="text-right py-2">
                 <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${STATUS_COLOR[r.score_status] ?? "text-slate-600 bg-slate-50 border-slate-200"}`}
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${STATUS_COLOR[r.score_status] ?? "text-text-muted bg-bg-muted border-border"}`}
                 >
                   {r.score}
                 </span>
@@ -352,7 +352,7 @@ export default function PilotRunPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-96 gap-3 text-slate-400">
+      <div className="flex items-center justify-center min-h-96 gap-3 text-text-dim">
         <Loader2 size={20} className="animate-spin" />
         <span>加载试运行数据…</span>
       </div>
@@ -363,10 +363,10 @@ export default function PilotRunPage() {
     return (
       <div className="max-w-lg mx-auto mt-20 text-center">
         <XCircle size={40} className="text-red-400 mx-auto mb-3" />
-        <p className="text-slate-600 mb-4">{error}</p>
+        <p className="text-text-muted mb-4">{error}</p>
         <button
           onClick={fetchDashboard}
-          className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm hover:bg-slate-700"
+          className="px-4 py-2 bg-text text-bg-page rounded-lg text-sm hover:opacity-80"
         >
           重试
         </button>
@@ -386,14 +386,14 @@ export default function PilotRunPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Rocket size={20} className="text-violet-500" />
-            <h1 className="text-xl font-bold text-slate-800">试运行执行中心</h1>
+            <h1 className="text-xl font-bold text-text">试运行执行中心</h1>
             <span
               className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold border ${STATUS_COLOR[dashboard.scoreStatus]}`}
             >
               {STATUS_LABEL[dashboard.scoreStatus]}
             </span>
           </div>
-          <div className="text-sm text-slate-400">
+          <div className="text-sm text-text-dim">
             {dashboard.runNo} · {dashboard.siteName} · 已运行 {dashboard.daysRunning} 天（剩余 {dashboard.daysRemaining} 天）
             &nbsp;|&nbsp; {dashboard.runStartDate} ~ {dashboard.runEndDate}
           </div>
@@ -401,7 +401,7 @@ export default function PilotRunPage() {
         <button
           onClick={fetchDashboard}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-sm hover:bg-slate-200 disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-muted text-text-muted text-sm hover:bg-bg-muted disabled:opacity-50"
         >
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           刷新
@@ -414,13 +414,13 @@ export default function PilotRunPage() {
           icon={ShoppingCart}
           label="今日订单"
           value={dashboard.todayOrderCount}
-          color={dashboard.todayOrderCount > 0 ? "text-violet-700" : "text-slate-400"}
+          color={dashboard.todayOrderCount > 0 ? "text-violet-700" : "text-text-dim"}
         />
         <KpiCard
           icon={TrendingUp}
           label="今日销售额"
           value={fmtAmt(dashboard.todaySalesAmount)}
-          color={dashboard.todaySalesAmount > 0 ? "text-emerald-700" : "text-slate-400"}
+          color={dashboard.todaySalesAmount > 0 ? "text-emerald-700" : "text-text-dim"}
         />
         <KpiCard
           icon={Truck}
@@ -432,7 +432,7 @@ export default function PilotRunPage() {
           icon={RotateCcw}
           label="今日退货"
           value={dashboard.todayReturnCount}
-          color={dashboard.todayReturnCount > 0 ? "text-amber-600" : "text-slate-400"}
+          color={dashboard.todayReturnCount > 0 ? "text-amber-600" : "text-text-dim"}
         />
         <KpiCard
           icon={Wallet}
@@ -450,7 +450,7 @@ export default function PilotRunPage() {
           icon={CheckCircle2}
           label="今日已解决"
           value={dashboard.resolvedToday}
-          color={dashboard.resolvedToday > 0 ? "text-emerald-700" : "text-slate-400"}
+          color={dashboard.resolvedToday > 0 ? "text-emerald-700" : "text-text-dim"}
         />
         <KpiCard
           icon={PackageCheck}
@@ -470,8 +470,8 @@ export default function PilotRunPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
         {/* Gauge */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-          <div className="text-sm font-semibold text-slate-600 mb-3">今日综合评分</div>
+        <div className="bg-bg-card rounded-xl border border-border shadow-sm p-5">
+          <div className="text-sm font-semibold text-text-muted mb-3">今日综合评分</div>
           <ScoreGauge score={dashboard.score} status={dashboard.scoreStatus} />
           {dashboard.criticalIssues > 0 && (
             <div className="mt-3 text-xs text-red-600 bg-red-50 rounded-lg p-2 text-center">
@@ -481,8 +481,8 @@ export default function PilotRunPage() {
         </div>
 
         {/* Dimensions */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 col-span-2">
-          <div className="text-sm font-semibold text-slate-600 mb-4">6 维评分明细</div>
+        <div className="bg-bg-card rounded-xl border border-border shadow-sm p-5 col-span-2">
+          <div className="text-sm font-semibold text-text-muted mb-4">6 维评分明细</div>
           <div className="space-y-3">
             {(Object.keys(DIMENSION_LABELS) as (keyof ScoreDimensions)[]).map((key) => (
               <DimensionBar
@@ -493,15 +493,15 @@ export default function PilotRunPage() {
               />
             ))}
           </div>
-          <div className="mt-4 text-xs text-slate-400">
+          <div className="mt-4 text-xs text-text-dim">
             权重：销售25% + 库存20% + 配送20% + 财务15% + 审批10% + 稳定性10%
           </div>
         </div>
       </div>
 
       {/* ── 7-day Trend ── */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-        <div className="text-sm font-semibold text-slate-600 mb-3">近 7 天评分趋势</div>
+      <div className="bg-bg-card rounded-xl border border-border shadow-sm p-5">
+        <div className="text-sm font-semibold text-text-muted mb-3">近 7 天评分趋势</div>
         <TrendChart trend={dashboard.scoreTrend} />
       </div>
 
@@ -540,11 +540,11 @@ export default function PilotRunPage() {
       </div>
 
       {/* ── Daily Reports ── */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <div className="bg-bg-card rounded-xl border border-border shadow-sm p-5">
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => setShowReports(!showReports)}
-            className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 hover:text-slate-900"
+            className="flex items-center gap-1.5 text-sm font-semibold text-text hover:text-text"
           >
             <FileText size={16} />
             日报历史
@@ -561,12 +561,12 @@ export default function PilotRunPage() {
         </div>
         {showReports && <DailyReportTable reports={reports} />}
         {!showReports && reports.length > 0 && (
-          <div className="text-xs text-slate-400">
+          <div className="text-xs text-text-dim">
             共 {reports.length} 条日报，点击"日报历史"展开查看
           </div>
         )}
         {!showReports && reports.length === 0 && (
-          <div className="text-xs text-slate-400">暂无日报，点击"生成今日日报"创建第一条</div>
+          <div className="text-xs text-text-dim">暂无日报，点击"生成今日日报"创建第一条</div>
         )}
       </div>
 

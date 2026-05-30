@@ -231,7 +231,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>新建应付发票</div>
           <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-1">
-            <X size={18} className="text-slate-400" />
+            <X size={18} className="text-text-dim" />
           </button>
         </div>
 
@@ -383,7 +383,7 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>应付发票详情</div>
           <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-1">
-            <X size={18} className="text-slate-400" />
+            <X size={18} className="text-text-dim" />
           </button>
         </div>
 
@@ -664,7 +664,7 @@ export default function Finance2ApPage() {
           </span>
           <button onClick={() => setImportResult(null)}
             className="bg-transparent border-0 cursor-pointer p-0.5">
-            <X size={14} className="text-slate-400" />
+            <X size={14} className="text-text-dim" />
           </button>
         </div>
       )}
@@ -709,7 +709,7 @@ export default function Finance2ApPage() {
             className={`px-3 py-1 rounded-full text-xs cursor-pointer font-medium transition-colors border-0 ${
               status === s.key
                 ? 'bg-indigo-600 text-white font-bold'
-                : 'bg-bg-muted text-text-muted hover:bg-slate-200 dark:hover:bg-slate-600'
+                : 'bg-bg-muted text-text-muted hover:bg-bg-muted dark:hover:bg-slate-600'
             }`}>
             {s.label}
           </button>

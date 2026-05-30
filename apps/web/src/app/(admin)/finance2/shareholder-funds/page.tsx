@@ -166,7 +166,7 @@ function CreateContributionModal({ onClose, onCreated }: { onClose: () => void; 
         style={{ borderRadius: 16, padding: 28, width: 520, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>新建股东资金记录</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} className="text-slate-400" /></button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} className="text-text-dim" /></button>
         </div>
         {err && (
           <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger flex items-center gap-2 mb-3.5">
@@ -268,7 +268,7 @@ function CreateSettlementModal({
       <div className="bg-bg-card" style={{ borderRadius: 16, padding: 28, width: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div className="text-text" style={{ fontWeight: 700, fontSize: 15 }}>创建还款/结算</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={17} className="text-slate-400" /></button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={17} className="text-text-dim" /></button>
         </div>
         <div className="bg-bg-muted/50" style={{ borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12 }}>
           <div className="text-text-muted" style={{ fontWeight: 600 }}>{contribution.shareholderName} · {contribution.contributionNo}</div>
@@ -396,7 +396,7 @@ function ContributionDrawer({
             <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>{contribution.shareholderName}</div>
             <div className="text-text-muted" style={{ fontSize: 12, marginTop: 2 }}>{contribution.contributionNo}</div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} className="text-slate-400" /></button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} className="text-text-dim" /></button>
         </div>
 
         {/* 金额总览 */}
@@ -707,7 +707,7 @@ export default function ShareholderFundsPage() {
           <button key={t.key} onClick={() => setTab(t.key)} className={`px-5 py-2 rounded-lg text-sm font-semibold cursor-pointer border-none transition-colors ${
             tab === t.key
               ? 'bg-bg-page text-violet-700 dark:text-violet-300 shadow-sm'
-              : 'bg-transparent text-text-muted hover:text-slate-700 dark:hover:text-slate-200'
+              : 'bg-transparent text-text-muted hover:text-text dark:hover:text-slate-200'
           }`}>
             {t.label}
           </button>
@@ -721,7 +721,7 @@ export default function ShareholderFundsPage() {
           {/* 筛选栏 */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
             <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-              <Search size={14} className="text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Search size={14} className="text-text-dim absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索股东名称/单号…"
                 className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full pl-8" />
             </div>

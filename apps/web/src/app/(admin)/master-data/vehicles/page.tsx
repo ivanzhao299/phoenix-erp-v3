@@ -61,7 +61,7 @@ export default function MdVehiclesPage() {
   useEffect(() => { if (canView) load(); }, [canView, load]);
 
   if (!canView) return (
-    <div className="text-slate-500" style={{ padding: 40, textAlign: "center" }}>无权限查看车辆档案</div>
+    <div className="text-text-muted" style={{ padding: 40, textAlign: "center" }}>无权限查看车辆档案</div>
   );
 
   const filtered = items.filter(v =>
@@ -69,7 +69,7 @@ export default function MdVehiclesPage() {
   );
 
   return (
-    <div className="bg-white text-slate-800 min-h-screen" style={{ padding: "24px 32px" }}>
+    <div className="bg-bg-card text-text min-h-screen" style={{ padding: "24px 32px" }}>
       <PageHeader
         title="车辆档案"
         subtitle="配送管理 · 车辆主档"
@@ -80,10 +80,10 @@ export default function MdVehiclesPage() {
         <div style={{ position: "relative", flex: "0 0 260px" }}>
           <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#475569" }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索车牌 / 车型..."
-            className="bg-slate-50 border border-slate-200 text-slate-800"
+            className="bg-bg-muted border border-border text-text"
             style={{ width: "100%", padding: "7px 10px 7px 32px", borderRadius: 7, fontSize: 13, outline: "none" }} />
         </div>
-        <button onClick={load} className="bg-slate-50 border border-slate-200 text-slate-500" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 7, fontSize: 13, cursor: "pointer" }}>
+        <button onClick={load} className="bg-bg-muted border border-border text-text-muted" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 7, fontSize: 13, cursor: "pointer" }}>
           <RefreshCw size={13} /> 刷新
         </button>
         <div style={{ flex: 1 }} />
@@ -92,7 +92,7 @@ export default function MdVehiclesPage() {
         </Link>
       </div>
 
-      <div className="text-slate-500" style={{ marginBottom: 12, fontSize: 12 }}>
+      <div className="text-text-muted" style={{ marginBottom: 12, fontSize: 12 }}>
         共 <span style={{ fontWeight: 600 }}>{filtered.length}</span> 辆车辆
       </div>
 
@@ -101,12 +101,12 @@ export default function MdVehiclesPage() {
       ) : error ? (
         <div style={{ padding: 40, textAlign: "center", color: "#ef4444" }}>{error}</div>
       ) : (
-        <div className="bg-slate-50 border border-slate-200" style={{ borderRadius: 10, overflow: "auto" }}>
+        <div className="bg-bg-muted border border-border" style={{ borderRadius: 10, overflow: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr className="bg-white text-slate-500" style={{ fontSize: 12 }}>
+              <tr className="bg-bg-card text-text-muted" style={{ fontSize: 12 }}>
                 {["车牌号", "车型", "品牌", "载重(吨)", "常用司机", "状态"].map(h => (
-                  <th key={h} className="border-b border-slate-200" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
+                  <th key={h} className="border-b border-border" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -116,15 +116,15 @@ export default function MdVehiclesPage() {
               ) : filtered.map((v, i) => {
                 const st = STATUS_MAP[v.status ?? "ACTIVE"] ?? { label: v.status ?? "-", color: "#64748b" };
                 return (
-                  <tr key={v.id ?? i} className="border-b border-slate-100"
+                  <tr key={v.id ?? i} className="border-b border-border/30"
                     onMouseEnter={e => (e.currentTarget.style.background = "rgba(148,163,184,0.08)")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                   >
-                    <td className="text-slate-800" style={{ padding: "10px 14px", fontWeight: 600, fontFamily: "monospace" }}>{v.plateNo ?? "-"}</td>
-                    <td className="text-slate-500" style={{ padding: "10px 14px" }}>{v.vehicleType ?? "-"}</td>
-                    <td className="text-slate-500" style={{ padding: "10px 14px" }}>{v.brand ?? "-"}</td>
-                    <td className="text-slate-500" style={{ padding: "10px 14px" }}>{v.loadCapacity ?? v.capacity ?? "-"}</td>
-                    <td className="text-slate-500" style={{ padding: "10px 14px" }}>{v.driverName ?? "-"}</td>
+                    <td className="text-text" style={{ padding: "10px 14px", fontWeight: 600, fontFamily: "monospace" }}>{v.plateNo ?? "-"}</td>
+                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{v.vehicleType ?? "-"}</td>
+                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{v.brand ?? "-"}</td>
+                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{v.loadCapacity ?? v.capacity ?? "-"}</td>
+                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{v.driverName ?? "-"}</td>
                     <td style={{ padding: "10px 14px" }}>
                       <span style={{ padding: "2px 8px", borderRadius: 4, background: `${st.color}22`, color: st.color, fontSize: 11, fontWeight: 600 }}>{st.label}</span>
                     </td>

@@ -813,7 +813,7 @@ function ProjectTab() {
           value={filter}
           onChange={e => setFilter(e.target.value)}
           placeholder="过滤项目代码…"
-          className="text-text-muted border border-border bg-bg-card placeholder:text-text-dim dark:placeholder:text-slate-500"
+          className="text-text-muted border border-border bg-bg-card placeholder:text-text-dim dark:placeholder:text-text-muted"
           style={{
             padding: '7px 12px', borderRadius: 8,
             fontSize: 13, width: 220, outline: 'none',

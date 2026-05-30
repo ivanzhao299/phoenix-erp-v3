@@ -127,7 +127,7 @@ function CreateTransferModal({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>新建资金转账</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-            <X size={18} className="text-slate-400" />
+            <X size={18} className="text-text-dim" />
           </button>
         </div>
 
@@ -279,7 +279,7 @@ export default function FundTransfersPage() {
       {/* 状态筛选 */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
-          <Search size={14} className="text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <Search size={14} className="text-text-dim absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             value={keyword}
             onChange={e => setKeyword(e.target.value)}

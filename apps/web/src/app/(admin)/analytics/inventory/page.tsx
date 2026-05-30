@@ -102,7 +102,7 @@ function StatCard({
         </div>
       </div>
       <div className="text-2xl font-bold text-text">{value}</div>
-      {sub && <div className="text-xs text-slate-400 mt-1">{sub}</div>}
+      {sub && <div className="text-xs text-text-dim mt-1">{sub}</div>}
     </div>
   );
 }
@@ -193,7 +193,7 @@ export default function InventoryAnalyticsPage() {
 
       {/* 加载中 */}
       {loading && !error && (
-        <div className="flex items-center justify-center py-20 text-slate-400">
+        <div className="flex items-center justify-center py-20 text-text-dim">
           <RefreshCw size={20} className="animate-spin mr-2" />
           加载中…
         </div>
@@ -247,7 +247,7 @@ export default function InventoryAnalyticsPage() {
                   <div className="text-xs font-semibold" style={{ color: GRADE_COLORS[g] }}>
                     {g} 级
                   </div>
-                  <div className="text-xs text-slate-400 mt-0.5">批次</div>
+                  <div className="text-xs text-text-dim mt-0.5">批次</div>
                 </div>
               ))}
             </div>
@@ -261,7 +261,7 @@ export default function InventoryAnalyticsPage() {
               </span>
             </div>
             {recent.length === 0 ? (
-              <div className="py-12 text-center text-sm text-slate-400">暂无数据</div>
+              <div className="py-12 text-center text-sm text-text-dim">暂无数据</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -312,7 +312,7 @@ export default function InventoryAnalyticsPage() {
                                 临期 ({days}天)
                               </span>
                             ) : (
-                              <span className="text-xs text-slate-500">{b.status ?? "—"}</span>
+                              <span className="text-xs text-text-muted">{b.status ?? "—"}</span>
                             )}
                           </td>
                         </tr>

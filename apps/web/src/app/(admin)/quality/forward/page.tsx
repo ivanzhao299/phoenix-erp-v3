@@ -31,10 +31,10 @@ function KVSection({
     <div className="mb-5">
       <div className="font-semibold text-sm text-text-muted mb-2">
         {title}
-        <span className="ml-1 text-xs text-slate-400 font-normal">({items.length} {t("ui.条", "条")})</span>
+        <span className="ml-1 text-xs text-text-dim font-normal">({items.length} {t("ui.条", "条")})</span>
       </div>
       {items.length === 0 ? (
-        <div className="text-sm text-slate-400 py-2">{t("common.no_data", "暂无数据")}</div>
+        <div className="text-sm text-text-dim py-2">{t("common.no_data", "暂无数据")}</div>
       ) : (
         <div className="flex flex-col gap-2">
           {items.map((item, i) => (
