@@ -26,9 +26,12 @@ INSERT INTO sys_menu (menu_code, menu_name_zh, menu_name_lo, domain, sort_order,
 ON CONFLICT (menu_code) DO NOTHING;
 
 -- ──────────────────────────────────────────────────────────────
--- 2. 清空旧矩阵，全量重写（idempotent）
+-- 2. 补充缺失的权限条目（真正幂等：仅增不改）
+-- 原来是 DELETE + 全量重写，会触发 fn_bump_user_perms_version 触发器，
+-- 导致所有用户每次部署后 JWT 版本失效，下次 API 请求返回 401 被强制退出。
+-- 修复：改为 ON CONFLICT DO NOTHING，只新增不存在的条目，不修改已有条目。
+-- 如需修改已有权限，请通过管理界面「系统设置 → 角色权限矩阵」操作。
 -- ──────────────────────────────────────────────────────────────
-DELETE FROM sys_role_menu_permission;
 
 -- ──────────────────────────────────────────────────────────────
 -- 3. 批量插入 — 全 35 角色 × 所有菜单 的完整权限矩阵
@@ -343,7 +346,9 @@ FROM (VALUES
 ) AS perm(role_code, menu_code, perm_codes)
 JOIN sys_role r ON r.role_code = perm.role_code
 JOIN sys_menu m ON m.menu_code = perm.menu_code
-ON CONFLICT (role_id, menu_id) DO UPDATE SET perm_codes = EXCLUDED.perm_codes;
+ON CONFLICT (role_id, menu_id) DO NOTHING;
+-- DO NOTHING：已存在的权限条目保持不变，避免触发 perms_version 自增
+-- 如需修改现有权限，请通过管理界面操作（或在此文件 DELETE 特定行后重跑一次）
 
 COMMIT;
 

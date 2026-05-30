@@ -155,7 +155,10 @@ CREATE TRIGGER     trg_bump_perms_user_pset
 DROP TRIGGER IF EXISTS trg_bump_perms_role_menu_perm       ON sys_role_menu_permission;
 CREATE TRIGGER     trg_bump_perms_role_menu_perm
     AFTER INSERT OR UPDATE OR DELETE ON sys_role_menu_permission
-    FOR EACH ROW EXECUTE FUNCTION fn_bump_user_perms_version();
+    FOR EACH ROW
+    -- UPDATE 时只有 perm_codes 真正改变才触发，避免 DO UPDATE 同值写入误 bump
+    WHEN (pg_trigger_depth() = 0)
+    EXECUTE FUNCTION fn_bump_user_perms_version();
 
 DROP TRIGGER IF EXISTS trg_bump_perms_role_pset            ON sys_role_permission_set;
 CREATE TRIGGER     trg_bump_perms_role_pset
