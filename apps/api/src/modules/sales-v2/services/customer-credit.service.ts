@@ -397,8 +397,8 @@ export class CustomerCreditService {
     // 写系统通知
     await this.ds.query(
       `INSERT INTO sys_notifications
-         (notification_type, title, body, company_code, is_read, created_at)
-       VALUES ($1, $2, $3, $4, FALSE, NOW())
+         (notification_type, title, content, company_code, status, created_at)
+       VALUES ($1, $2, $3, $4, 'UNREAD', NOW())
        ON CONFLICT DO NOTHING`,
       [
         'CUSTOMER_FROZEN',

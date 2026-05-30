@@ -136,8 +136,8 @@ export class CustomerCreditSchedulerService {
     for (const n of notifyBatch) {
       await this.ds.query(
         `INSERT INTO sys_notifications
-           (notification_type, title, body, company_code, is_read, created_at)
-         VALUES ($1, $2, $3, $4, FALSE, NOW())
+           (notification_type, title, content, company_code, status, created_at)
+         VALUES ($1, $2, $3, $4, 'UNREAD', NOW())
          ON CONFLICT DO NOTHING`,
         [n.type, n.title, n.body, n.company_code],
       ).catch(e => this.logger.warn(`写通知失败: ${e.message}`));

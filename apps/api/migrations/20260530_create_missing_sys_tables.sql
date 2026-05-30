@@ -20,15 +20,18 @@
 
 CREATE TABLE IF NOT EXISTS sys_notifications (
     id                BIGSERIAL       PRIMARY KEY,
-    user_id           BIGINT          NOT NULL,
+    -- user_id 可为 NULL：系统级/公司级通知（如信用预警、库存临期）无特定收件人
+    user_id           BIGINT,
     notification_type VARCHAR(32)     NOT NULL DEFAULT 'WORKFLOW_TASK',
     title             VARCHAR(256)    NOT NULL,
-    content           TEXT            NOT NULL,
+    content           TEXT            NOT NULL DEFAULT '',
     link_type         VARCHAR(32),
     link_id           VARCHAR(64),
     biz_type          VARCHAR(32),
     biz_id            VARCHAR(64),
     biz_no            VARCHAR(80),
+    -- company_code：公司级通知的过滤键（信用/库存调度器写入）
+    company_code      VARCHAR(64),
     status            VARCHAR(16)     NOT NULL DEFAULT 'UNREAD'
                           CHECK (status IN ('UNREAD','READ','ARCHIVED')),
     read_at           TIMESTAMPTZ,

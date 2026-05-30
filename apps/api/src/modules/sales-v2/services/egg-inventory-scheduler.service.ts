@@ -89,13 +89,14 @@ export class EggInventorySchedulerService {
 
       try {
         await this.ds.query(
-          `INSERT INTO sys_notifications (type, level, title, body, ref_type, ref_id, is_read, created_at)
-           VALUES ('INVENTORY_EXPIRING', $1, $2, $3, 'inv_batch', $4, false, NOW())`,
+          `INSERT INTO sys_notifications
+             (notification_type, title, content, biz_type, biz_id, status, created_at)
+           VALUES ('INVENTORY_EXPIRING', $1, $2, 'inv_batch', $3, $4, NOW())`,
           [
-            level,
             `临期库存预警：${batch.batch_no}`,
             `批次 ${batch.batch_no}（${batch.product_code}）剩余 ${daysRemaining} 天到期，可用数量 ${batch.qty_available}`,
             String(batch.batch_no),
+            level === 'URGENT' ? 'UNREAD' : 'UNREAD',  // 统一写 UNREAD，level 信息在 title 中体现
           ],
         );
         notifications++;
