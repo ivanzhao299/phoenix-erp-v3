@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { useToast } from '@/contexts/ToastContext';
 import styles from '@/components/ui/admin-ui.module.css';
@@ -47,6 +47,12 @@ export default function DataScopesPage() {
   const [newScopeType, setNewScopeType] = useState<string>('COMPANY');
   const [saving, setSaving] = useState(false);
 
+  // ⚠️ 不能把 toast 放入 deps：toast 对象每次渲染都是新引用，
+  // 若放入会导致：toast.error → 重渲染 → 新 toast → fetchScopes 重建
+  // → useEffect 重触发 → 无限循环（表现为页面右侧出现大量相同错误 toast）
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+
   const fetchScopes = useCallback(async () => {
     setLoading(true);
     try {
@@ -57,16 +63,16 @@ export default function DataScopesPage() {
       if (json.code === 200) {
         setScopes(json.data ?? []);
       } else {
-        toast.error('加载数据范围规则失败');
+        toastRef.current.error('加载数据范围规则失败');
       }
     } catch {
-      toast.error('网络错误');
+      toastRef.current.error('网络错误');
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []); // 空 deps：仅依赖稳定的 toastRef，避免无限循环
 
-  useEffect(() => { fetchScopes(); }, [fetchScopes]);
+  useEffect(() => { fetchScopes(); }, []); // 仅挂载时执行一次
 
   // 修改单条规则的 scopeType
   const handleUpdateScope = async (id: number, scopeType: string) => {
