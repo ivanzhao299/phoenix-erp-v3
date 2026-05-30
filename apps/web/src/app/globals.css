@@ -1,3 +1,12 @@
+/* Tailwind CSS v4 */
+@import "tailwindcss";
+
+/*
+ * 暗黑模式：使用 [data-theme="dark"] 属性触发（由 ThemeContext 写入 <html>）
+ * 这使 dark: 变体与 CSS 变量方案保持一致。
+ */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
 /* ══════════════════════════════════════════════════════════════
    Phoenix ERP — Design Tokens
    Single source of truth. No aliases. No duplication.
