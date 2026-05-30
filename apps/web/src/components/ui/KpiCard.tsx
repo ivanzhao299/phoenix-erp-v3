@@ -1,11 +1,13 @@
 'use client';
 /**
- * KpiCard — 标准 KPI 指标卡片
- * ============================
- * 用于所有仪表盘页面的核心指标展示。
- *
- * 用法：
- *   <KpiCard label="现金余额" value="¥ 128,000" icon={Wallet} accentColor="blue" />
+ * KpiCard — 全局标准 KPI 指标卡片 · Design System V2
+ * =====================================================
+ * 设计准则：
+ *   · 图标独立成行（不与文字并列），视觉锚点清晰
+ *   · 标签 text-xs text-text-dim（辅助，弱化）
+ *   · 主值 text-2xl font-bold（核心数字，最大权重）
+ *   · 次级说明 text-sm text-text-muted（可读，不抢镜）
+ *   · 元素间距 mb-1.5 / mb-2 / mt-4，保证足够呼吸感
  */
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
@@ -13,26 +15,16 @@ import { ACCENT_MAP, type AccentColor } from '@/lib/design-tokens';
 import { cn } from '@/lib/utils';
 
 export interface KpiCardProps {
-  /** 指标标签 */
-  label: string;
-  /** 主值（字符串或数字） */
-  value: string | number;
-  /** 次级说明（如单位、来源） */
-  subValue?: string;
-  /** 趋势百分比，正为上涨，负为下跌 */
-  trend?: number;
-  /** 趋势说明文字，如"较昨日" */
-  trendLabel?: string;
-  /** Lucide 图标组件 */
-  icon: React.ElementType;
-  /** 语义强调色，决定图标背景和文字颜色 */
+  label:        string;
+  value:        string | number;
+  subValue?:    string;
+  trend?:       number;
+  trendLabel?:  string;
+  icon:         React.ElementType;
   accentColor?: AccentColor;
-  /** 加载态 */
-  loading?: boolean;
-  /** 可点击跳转 */
-  onClick?: () => void;
-  /** 附加 className */
-  className?: string;
+  loading?:     boolean;
+  onClick?:     () => void;
+  className?:   string;
 }
 
 export function KpiCard({
@@ -48,21 +40,16 @@ export function KpiCard({
   className = '',
 }: KpiCardProps) {
   const ac = ACCENT_MAP[accentColor];
-  const isClickable = !!onClick;
 
+  /* ── 骨架屏 ─────────────────────────────────────────────────── */
   if (loading) {
     return (
-      <div className={cn(
-        'rounded-2xl border border-border',
-        'bg-bg-card p-5 shadow-sm',
-        className,
-      )}>
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-bg-muted animate-pulse flex-shrink-0" />
-          <div className="flex-1 space-y-2">
-            <div className="h-3 bg-bg-muted rounded animate-pulse w-20" />
-            <div className="h-6 bg-bg-muted rounded animate-pulse w-32" />
-          </div>
+      <div className={cn('rounded-2xl border border-border bg-bg-card p-5', className)}>
+        <div className="w-11 h-11 rounded-xl bg-bg-muted animate-pulse mb-4" />
+        <div className="space-y-2.5">
+          <div className="h-3   bg-bg-muted rounded animate-pulse w-3/4" />
+          <div className="h-7   bg-bg-muted rounded animate-pulse w-full" />
+          <div className="h-3.5 bg-bg-muted rounded animate-pulse w-1/2" />
         </div>
       </div>
     );
@@ -72,50 +59,47 @@ export function KpiCard({
     <div
       onClick={onClick}
       className={cn(
-        'rounded-2xl border p-5 shadow-sm transition-all',
-        'bg-bg-card',
+        'rounded-2xl border p-5 transition-all bg-bg-card shadow-card',
         ac.border,
-        isClickable
-          ? 'cursor-pointer hover:shadow-md hover:-translate-y-0.5'
-          : '',
+        onClick ? 'cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5' : '',
         className,
       )}
     >
-      <div className="flex items-start gap-3">
-        {/* 图标区 */}
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${ac.icon}`}>
-          <Icon size={20} className={ac.text} />
-        </div>
-
-        {/* 数值区 */}
-        <div className="flex-1 min-w-0">
-          <div className="text-xs text-text-muted mb-1 truncate">{label}</div>
-          <div className={`text-xl font-extrabold leading-tight ${ac.text} truncate`}>
-            {value}
-          </div>
-          {subValue && (
-            <div className="text-xs text-text-dim mt-0.5 truncate">{subValue}</div>
-          )}
-        </div>
+      {/* 图标 — 独立成行，不与文字并列 */}
+      <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center mb-4', ac.icon)}>
+        <Icon size={20} className={ac.text} />
       </div>
 
-      {/* 趋势区（可选） */}
+      {/* 标签：辅助信息，字号小、颜色淡 */}
+      <div className="text-xs text-text-dim font-medium tracking-wide mb-1.5">
+        {label}
+      </div>
+
+      {/* 主值：最大视觉权重 */}
+      <div className={cn('text-2xl font-bold leading-none mb-2 truncate', ac.text)}>
+        {value}
+      </div>
+
+      {/* 次级说明：text-sm 可读，不用 text-xs */}
+      {subValue && (
+        <div className="text-sm text-text-muted leading-snug">
+          {subValue}
+        </div>
+      )}
+
+      {/* 趋势（可选）*/}
       {trend !== undefined && (
-        <div className="flex items-center gap-1 mt-3 pt-3 border-t border-border">
-          {trend > 0 ? (
-            <TrendingUp size={12} className="text-emerald-500 flex-shrink-0" />
-          ) : trend < 0 ? (
-            <TrendingDown size={12} className="text-red-500 flex-shrink-0" />
-          ) : (
-            <Minus size={12} className="text-text-dim flex-shrink-0" />
-          )}
-          <span className={`text-xs font-semibold ${
-            trend > 0
-              ? 'text-emerald-600 dark:text-emerald-400'
-              : trend < 0
-                ? 'text-red-600 dark:text-red-400'
-                : 'text-text-dim'
-          }`}>
+        <div className="flex items-center gap-1.5 mt-4 pt-3 border-t border-border">
+          {trend > 0
+            ? <TrendingUp   size={13} className="text-success flex-shrink-0" />
+            : trend < 0
+              ? <TrendingDown size={13} className="text-danger  flex-shrink-0" />
+              : <Minus        size={13} className="text-text-dim flex-shrink-0" />
+          }
+          <span className={cn(
+            'text-sm font-semibold',
+            trend > 0 ? 'text-success' : trend < 0 ? 'text-danger' : 'text-text-dim',
+          )}>
             {trend > 0 ? '+' : ''}{trend}%
           </span>
           <span className="text-xs text-text-dim">{trendLabel}</span>

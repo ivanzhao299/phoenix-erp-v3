@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { KpiCard } from '@/components/ui/KpiCard';
+import { NavCard } from '@/components/ui/NavCard';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { AccentColor } from '@/lib/design-tokens';
@@ -35,6 +36,7 @@ const ACCENT: Record<AccentKey, { text: string; icon: string; border: string }> 
 };
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
+// ModuleCard 已由全局 NavCard 组件替代，不再在页面内联定义
 
 interface ArSummaryData {
   total_invoices:           number;
@@ -136,30 +138,7 @@ const MODULES: ModuleItem[] = [
   { icon: PieChart,       title: '经营报表',     path: '/finance2/reports',           accent: 'slate',  description: '12 只读聚合报表。账龄 · 资金日报 · 费用统计 · 净头寸 · 项目财务。' },
 ];
 
-function ModuleCard({ item }: { item: ModuleItem }) {
-  const router = useRouter();
-  const ac = ACCENT[item.accent];
-  return (
-    <div
-      onClick={() => router.push(item.path)}
-      className={cn(
-        'rounded-2xl border bg-bg-card p-5 cursor-pointer',
-        'shadow-card hover:shadow-card-hover hover:-translate-y-0.5',
-        'transition-all duration-150',
-        ac.border,
-      )}
-    >
-      <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center mb-3', ac.icon)}>
-        <item.icon size={20} className={ac.text} />
-      </div>
-      <div className="font-bold text-sm text-text mb-1">{item.title}</div>
-      <div className="text-xs text-text-muted leading-relaxed mb-3">{item.description}</div>
-      <div className={cn('flex items-center gap-1 text-xs font-medium', ac.text)}>
-        进入 <ArrowRight size={12} />
-      </div>
-    </div>
-  );
-}
+// ModuleCard 已删除，改用全局 NavCard 组件
 
 // ── 主页面 ─────────────────────────────────────────────────────────────────────
 
@@ -285,7 +264,7 @@ export default function Finance2DashboardPage() {
       {/* ── 6 大 KPI 指标 ─────────────────────────────────────────────── */}
       <div className="mb-2">
         <SectionLabel>财务核心指标</SectionLabel>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           {kpis.map((kpi) => (
             <KpiCard
               key={kpi.label}
@@ -323,9 +302,16 @@ export default function Finance2DashboardPage() {
 
       {/* ── 功能模块导航 ──────────────────────────────────────────────── */}
       <SectionLabel>功能模块</SectionLabel>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         {MODULES.map((m) => (
-          <ModuleCard key={m.path} item={m} />
+          <NavCard
+            key={m.path}
+            icon={m.icon}
+            title={m.title}
+            description={m.description}
+            href={m.path}
+            accent={m.accent}
+          />
         ))}
       </div>
     </div>
