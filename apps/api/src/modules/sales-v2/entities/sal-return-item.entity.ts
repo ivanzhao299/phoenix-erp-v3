@@ -68,6 +68,11 @@ export class SalReturnItemEntity {
   @Column({ name: 'remark', type: 'text', nullable: true })
   remark: string | null;
 
+  // ── Phase H5 — SKU 接入 ──────────────────────────────────────────────────
+  /** SKU 编码（从原销售明细继承，可选，旧退货单为 NULL） */
+  @Column({ name: 'sku_code', type: 'varchar', length: 64, nullable: true })
+  skuCode: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

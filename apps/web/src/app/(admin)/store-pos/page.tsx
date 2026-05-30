@@ -56,6 +56,9 @@ interface Product {
   packaging_spec?: string;
   unit_price:     number;
   retail_price?:  number;
+  sku_code?:      string | null;   // Phase H5
+  grade_code_std?: string | null;  // Phase H5
+  spec_code?:     string | null;   // Phase H5
 }
 
 interface CartItem extends Product {
@@ -321,7 +324,10 @@ export default function StorePosPage() {
   // ── 购物车操作 ───────────────────────────────────────────────────────────
   const addToCart = (p: Product) => {
     setCart(prev => {
-      const idx = prev.findIndex(c => c.product_code === p.product_code && c.grade_code === p.grade_code);
+      // Phase H5: SKU 路径用 sku_code 去重，旧路径用 product_code+grade_code
+      const idx = p.sku_code
+        ? prev.findIndex(c => c.sku_code === p.sku_code)
+        : prev.findIndex(c => !c.sku_code && c.product_code === p.product_code && c.grade_code === p.grade_code);
       if (idx >= 0) {
         const next = [...prev];
         next[idx] = { ...next[idx], qty: next[idx].qty + 1, amount: (next[idx].qty + 1) * next[idx].unit_price };
@@ -383,6 +389,7 @@ export default function StorePosPage() {
           unitPrice:     c.unit_price,
           amount:        c.amount,
           sortOrder:     i,
+          skuCode:       c.sku_code ?? undefined,  // Phase H5
         })),
       });
 
@@ -456,7 +463,8 @@ export default function StorePosPage() {
   const filteredProducts = products.filter(p =>
     !productQuery ||
     p.product_name.includes(productQuery) ||
-    p.product_code.includes(productQuery),
+    p.product_code.includes(productQuery) ||
+    (p.sku_code ?? '').includes(productQuery),  // Phase H5: 支持按 SKU 搜索
   );
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -575,17 +583,24 @@ export default function StorePosPage() {
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   {filteredProducts.map(p => (
-                    <button key={`${p.product_code}-${p.grade_code}`}
+                    <button key={p.sku_code ?? `${p.product_code}-${p.grade_code}`}
                       onClick={() => addToCart(p)}
                       style={{
-                        padding: '10px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)',
-                        background: 'rgba(255,255,255,0.04)', cursor: 'pointer', textAlign: 'left',
+                        padding: '10px 10px', borderRadius: 8,
+                        border: `1px solid ${p.sku_code ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.08)'}`,
+                        background: p.sku_code ? 'rgba(139,92,246,0.06)' : 'rgba(255,255,255,0.04)',
+                        cursor: 'pointer', textAlign: 'left',
                         transition: 'background 0.15s',
                         color: '#e2e8f0',
                       }}
                     >
                       <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2, lineHeight: 1.3 }}>{p.product_name}</div>
-                      {p.grade_code && <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>{p.grade_code}</div>}
+                      {/* Phase H5: SKU 徽章 */}
+                      {p.sku_code ? (
+                        <div style={{ fontSize: 10, color: '#a78bfa', fontFamily: 'monospace', fontWeight: 700, marginBottom: 3 }}>{p.sku_code}</div>
+                      ) : (
+                        p.grade_code && <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>{p.grade_code}</div>
+                      )}
                       <div style={{ fontSize: 15, fontWeight: 700, color: '#22c55e' }}>¥{fmt(p.unit_price)}</div>
                     </button>
                   ))}
@@ -616,7 +631,10 @@ export default function StorePosPage() {
                   <div key={idx} style={{ display: 'flex', alignItems: 'center', padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.04)', gap: 8 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 500 }}>{item.product_name}</div>
-                      {item.grade_code && <div style={{ fontSize: 11, color: '#94a3b8' }}>{item.grade_code}</div>}
+                      {item.sku_code
+                        ? <div style={{ fontSize: 10, color: '#a78bfa', fontFamily: 'monospace', fontWeight: 700 }}>{item.sku_code}</div>
+                        : item.grade_code && <div style={{ fontSize: 11, color: '#94a3b8' }}>{item.grade_code}</div>
+                      }
                       <div style={{ fontSize: 12, color: '#64748b' }}>¥{fmt(item.unit_price)} × {item.qty}</div>
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: '#22c55e', width: 72, textAlign: 'right' }}>¥{fmt(item.amount)}</div>

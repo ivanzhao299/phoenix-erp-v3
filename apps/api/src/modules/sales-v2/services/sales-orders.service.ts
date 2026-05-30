@@ -194,11 +194,40 @@ export class SalesOrdersService {
       belowFloor: boolean;
       priceBookId: string | null; priceBookNo: string | null;
       amount: number;
+      skuCode: string | null;     // Phase H5
     }> = [];
 
     let anyBelowFloor = false;
 
     for (const item of dto.items) {
+      // Phase H5: SKU 优先推导 — 若传入 skuCode，从 product_skus 自动带出产品/等级/规格
+      let productCode    = item.productCode;
+      let gradeCode      = item.gradeCode ?? null;
+      let packagingSpec  = item.packagingSpec ?? null;
+      let skuCode: string | null = item.skuCode ?? null;
+
+      if (skuCode) {
+        try {
+          const [skuRow] = await this.ds.query(
+            `SELECT product_code, grade_code, spec_code, sku_name
+             FROM product_skus WHERE sku_code=$1 AND status='ACTIVE' LIMIT 1`,
+            [skuCode],
+          );
+          if (skuRow) {
+            productCode   = skuRow.product_code;
+            gradeCode     = skuRow.grade_code;
+            packagingSpec = skuRow.spec_code;
+          } else {
+            this.logger.warn(`[SalesOrder] skuCode ${skuCode} 在 product_skus 中不存在或已停用，降级为旧逻辑`);
+            skuCode = null;
+          }
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          this.logger.warn(`[SalesOrder] SKU 查询失败（不阻断建单）: ${msg}`);
+          skuCode = null;
+        }
+      }
+
       let resolved: any = {
         unitPrice: 0, floorPrice: null, ceilingPrice: null,
         priceBookId: null, priceBookNo: null,
@@ -207,12 +236,13 @@ export class SalesOrdersService {
       try {
         resolved = await this.priceRuntime.resolvePrice({
           companyCode:    dto.companyCode,
-          productCode:    item.productCode,
-          gradeCode:      item.gradeCode,
-          packagingSpec:  item.packagingSpec,
+          productCode,
+          gradeCode:      gradeCode ?? undefined,
+          packagingSpec:  packagingSpec ?? undefined,
           qty:            item.qty,
           customerCode:   dto.customerCode ?? undefined,
           channelCode:    channelCode ?? undefined,
+          skuCode:        skuCode ?? undefined,   // Phase H5: sku_code 优先匹配价格
         });
       } catch { /* 无价格时用 0 */ }
 
@@ -230,10 +260,10 @@ export class SalesOrdersService {
       const amount = Math.round(actualUnitPrice * Number(item.qty) * 100) / 100;
 
       resolvedItems.push({
-        productCode:      item.productCode,
+        productCode,
         productName:      item.productName ?? null,
-        gradeCode:        item.gradeCode ?? null,
-        packagingSpec:    item.packagingSpec ?? null,
+        gradeCode,
+        packagingSpec,
         qty:              Number(item.qty),
         resolvedUnitPrice,
         actualUnitPrice,
@@ -243,6 +273,7 @@ export class SalesOrdersService {
         priceBookId:      resolved.priceBookId ? String(resolved.priceBookId) : null,
         priceBookNo:      resolved.priceBookNo ?? null,
         amount,
+        skuCode,          // Phase H5
       });
     }
 
@@ -298,8 +329,9 @@ export class SalesOrdersService {
            grade_code, packaging_spec, qty,
            resolved_unit_price, actual_unit_price, unit_price,
            floor_price, ceiling_price, amount,
-           price_book_id, price_book_no, below_floor_price
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+           price_book_id, price_book_no, below_floor_price,
+           sku_code
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
         [
           String(order.id),
           item.productCode, item.productName,
@@ -307,6 +339,7 @@ export class SalesOrdersService {
           item.resolvedUnitPrice, item.actualUnitPrice, item.actualUnitPrice,
           item.floorPrice, item.ceilingPrice, item.amount,
           item.priceBookId, item.priceBookNo, item.belowFloor,
+          item.skuCode,   // Phase H5
         ],
       );
     }
@@ -336,15 +369,39 @@ export class SalesOrdersService {
       const channelCode = dto.channelCode ?? rec.channel_code ?? null;
 
       for (const item of dto.items) {
+        // Phase H5: SKU 优先推导
+        let productCode   = item.productCode;
+        let gradeCode     = item.gradeCode ?? null;
+        let packagingSpec = item.packagingSpec ?? null;
+        let skuCode: string | null = item.skuCode ?? null;
+
+        if (skuCode) {
+          try {
+            const [skuRow] = await this.ds.query(
+              `SELECT product_code, grade_code, spec_code
+               FROM product_skus WHERE sku_code=$1 AND status='ACTIVE' LIMIT 1`,
+              [skuCode],
+            );
+            if (skuRow) {
+              productCode   = skuRow.product_code;
+              gradeCode     = skuRow.grade_code;
+              packagingSpec = skuRow.spec_code;
+            } else {
+              skuCode = null;
+            }
+          } catch { skuCode = null; }
+        }
+
         let resolved: any = { unitPrice: 0, floorPrice: null, ceilingPrice: null, priceBookId: null, priceBookNo: null };
         try {
           resolved = await this.priceRuntime.resolvePrice({
-            companyCode, productCode: item.productCode,
-            gradeCode: item.gradeCode ?? undefined,
-            packagingSpec: item.packagingSpec ?? undefined,
-            qty: item.qty,
-            customerCode: dto.customerCode ?? rec.customer_code ?? undefined,
-            channelCode: channelCode ?? undefined,
+            companyCode, productCode,
+            gradeCode:      gradeCode ?? undefined,
+            packagingSpec:  packagingSpec ?? undefined,
+            qty:            item.qty,
+            customerCode:   dto.customerCode ?? rec.customer_code ?? undefined,
+            channelCode:    channelCode ?? undefined,
+            skuCode:        skuCode ?? undefined,  // Phase H5
           });
         } catch { /* fallback 0 */ }
 
@@ -357,11 +414,12 @@ export class SalesOrdersService {
         const amount = Math.round(actualUnitPrice * Number(item.qty) * 100) / 100;
 
         resolvedItems.push({
-          productCode: item.productCode, productName: item.productName ?? null,
-          gradeCode: item.gradeCode ?? null, packagingSpec: item.packagingSpec ?? null,
+          productCode, productName: item.productName ?? null,
+          gradeCode, packagingSpec,
           qty: Number(item.qty), resolvedUnitPrice, actualUnitPrice, floorPrice, ceilingPrice,
           belowFloor, priceBookId: resolved.priceBookId ? String(resolved.priceBookId) : null,
           priceBookNo: resolved.priceBookNo ?? null, amount,
+          skuCode,  // Phase H5
         });
       }
 
@@ -375,14 +433,16 @@ export class SalesOrdersService {
              grade_code, packaging_spec, qty,
              resolved_unit_price, actual_unit_price, unit_price,
              floor_price, ceiling_price, amount,
-             price_book_id, price_book_no, below_floor_price
-           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+             price_book_id, price_book_no, below_floor_price,
+             sku_code
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
           [
             id,
             item.productCode, item.productName, item.gradeCode, item.packagingSpec, item.qty,
             item.resolvedUnitPrice, item.actualUnitPrice, item.actualUnitPrice,
             item.floorPrice, item.ceilingPrice, item.amount,
             item.priceBookId, item.priceBookNo, item.belowFloor,
+            item.skuCode,  // Phase H5
           ],
         );
       }

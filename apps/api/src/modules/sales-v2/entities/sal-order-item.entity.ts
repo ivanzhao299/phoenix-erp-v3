@@ -75,6 +75,11 @@ export class SalOrderItemEntity {
   @Column({ name: 'allocated_qty', type: 'numeric', precision: 18, scale: 2, default: 0 })
   allocatedQty: number;
 
+  // ── Phase H5 — SKU 接入 ──────────────────────────────────────────────────
+  /** SKU 编码（product_skus.sku_code，可选，旧订单为 NULL） */
+  @Column({ name: 'sku_code', type: 'varchar', length: 64, nullable: true })
+  skuCode: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

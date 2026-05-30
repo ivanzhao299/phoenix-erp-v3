@@ -301,7 +301,7 @@ export class EggInventoryService {
       conds.push(`sku_code = $${pi++}`);
       args.push(params.skuCode);
     } else {
-      // Phase H4 PATH B: 旧逻辑（H5 后逐步移除旧路径）
+      // PATH B: 旧逻辑（product+grade 匹配，向后兼容）
       if (params.productCode) { conds.push(`product_code = $${pi++}`); args.push(params.productCode); }
       if (params.gradeCode)   { conds.push(`quality_grade = $${pi++}`); args.push(params.gradeCode); }
     }
@@ -334,7 +334,7 @@ export class EggInventoryService {
    *   - Advisory Lock key: `fifo:${companyCode}:sku:${skuCode}`（更细粒度）
    *   - WHERE sku_code = $N
    *
-   * PATH B（旧 product+grade）：回退逻辑，H5 后标注为 @deprecated
+   * PATH B（旧 product+grade）：回退逻辑，向后兼容旧批次
    *   - Advisory Lock key: `fifo:${companyCode}:${productCode}`（原有）
    *   - WHERE product_code = $1 [AND quality_grade = $N]
    *
@@ -380,7 +380,7 @@ export class EggInventoryService {
       conds.push(`sku_code = $${pi++}`);
       args.push(params.skuCode);
     } else {
-      // Phase H4 PATH B: 旧 product+grade 匹配（向后兼容，H5 后标注 @deprecated）
+      // PATH B: 旧 product+grade 匹配（向后兼容）
       conds.push(`product_code = $${pi++}`);
       args.push(params.productCode);
       if (params.gradeCode) {
@@ -474,8 +474,7 @@ export class EggInventoryService {
           qty,
           refNo:   orderNo,
           note:    `销售订单 ${orderNo} 明细 ${item.id}`,
-          // H5 TODO: 当 sal_order_items 加入 sku_code 字段后，此处传入：
-          // skuCode: item.sku_code ?? undefined,
+          skuCode: item.sku_code ?? undefined,   // Phase H5: SKU PATH A 优先
         }, mgr);
 
         // 记录分配的批次（取首批次作为主批次，多批次逗号分隔）
@@ -635,9 +634,8 @@ export class EggInventoryService {
       const damaged  = Number(item.damaged_qty);
       const batchNo  = `RET-${returnNo}-${item.product_code}`;
 
-      // Phase H4 NOTE: sal_return_items 暂无 sku_code 字段（H5 添加）
-      // H5 TODO: const returnSkuCode = item.sku_code ?? null;
-      const returnSkuCode: string | null = null;
+      // Phase H5: sal_return_items 已有 sku_code（从原销售明细继承）
+      const returnSkuCode: string | null = item.sku_code ?? null;
 
       // ── accepted_qty：回库（RETURNED 状态，需重新质检） ──────────────────────
       if (accepted > 0) {
@@ -658,7 +656,7 @@ export class EggInventoryService {
           [
             batchNo, item.product_code, companyCode, Math.round(accepted), returnGrade, returnNo,
             returnSkuCode,
-            // H5 TODO: 当 sal_return_items 有 sku_code 后，此处传入 sku.grade_code
+            // Phase H5: returnSkuCode 已从 sal_return_items.sku_code 读取
             returnSkuCode ? returnGrade : null,
             returnSkuCode ? item.spec_code ?? null : null,
           ],

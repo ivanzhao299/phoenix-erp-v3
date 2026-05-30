@@ -30,6 +30,8 @@ export interface SaleItemDto {
   packagingSpec?: string;
   qty:            number;
   unitPrice:      number;
+  /** Phase H5: SKU 编码（可选，传入后写入 sal_store_sale_items.sku_code，FIFO 使用 PATH A） */
+  skuCode?:       string;
 }
 
 export interface CreateSaleDto {
@@ -151,11 +153,12 @@ export class StorePosService {
         await mgr.query(
           `INSERT INTO sal_store_sale_items
             (sale_id, product_code, product_name, grade_code, packaging_spec,
-             qty, unit_price, amount, sort_order)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+             qty, unit_price, amount, sort_order, sku_code)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
           [saleId, item.productCode, item.productName,
            item.gradeCode ?? null, item.packagingSpec ?? null,
-           item.qty, item.unitPrice, amount, (idx + 1) * 10],
+           item.qty, item.unitPrice, amount, (idx + 1) * 10,
+           item.skuCode ?? null],  // Phase H5
         );
       }
 
@@ -398,13 +401,18 @@ export class StorePosService {
     return rows[0];
   }
 
-  /** 可用商品列表（从价格本获取，供收银台选择） */
+  /** 可用商品列表（从价格本获取，供收银台选择）
+   *  Phase H5: 新增 sku_code 字段，前端可按 SKU 选商品
+   */
   async getProducts(storeCode: string, companyCode: string) {
     // 从 sal_price_items 获取有效的价格本商品
     const rows = await this.ds.query<any[]>(
       `SELECT pi.product_code, pi.product_name,
               pi.grade_code, pi.packaging_spec,
-              pi.unit_price, pi.currency_code
+              pi.unit_price, pi.currency_code,
+              pi.sku_code,          -- Phase H5: SKU 编码
+              pi.grade_code_std,    -- Phase H5: 标准等级
+              pi.spec_code          -- Phase H5: 标准规格
        FROM sal_price_items pi
        INNER JOIN sal_price_books pb ON pb.id = pi.price_book_id
        WHERE pb.status = 'ACTIVE'
@@ -412,13 +420,13 @@ export class StorePosService {
          AND (pb.valid_from IS NULL OR pb.valid_from <= CURRENT_DATE)
          AND (pb.valid_to IS NULL OR pb.valid_to >= CURRENT_DATE)
          AND pi.unit_price > 0
-       ORDER BY pi.product_code, pi.grade_code`,
+       ORDER BY pi.sku_code NULLS LAST, pi.product_code, pi.grade_code`,
       [companyCode],
     );
-    // 去重（同商品取最新价格）
+    // 去重（SKU 路径：同 sku_code 取最新价格；旧路径：同 product+grade）
     const seen = new Set<string>();
     return rows.filter(r => {
-      const key = `${r.product_code}|${r.grade_code}`;
+      const key = r.sku_code ? `sku:${r.sku_code}` : `${r.product_code}|${r.grade_code}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -443,26 +451,50 @@ export class StorePosService {
       if (qty <= 0) continue;
 
       try {
+        // Phase H5: PATH A（sku_code）优先，PATH B（product+grade）回退
+        const useSkuPath = !!item.sku_code;
+        const lockKey = useSkuPath
+          ? `fifo:${sale.company_code}:sku:${item.sku_code}`
+          : `fifo:${sale.company_code}:${item.product_code}`;
+
         // Advisory Lock 防并发超卖
         await mgr.query(
           `SELECT pg_advisory_xact_lock(hashtext($1))`,
-          [`fifo:${sale.company_code}:${item.product_code}`],
+          [lockKey],
         );
 
         // FIFO 批次查询
-        const batches = await mgr.query(
-          `SELECT batch_no, qty_available, expire_date
-           FROM inv_batches
-           WHERE product_code = $1
-             AND company_code = $2
-             AND status = 'AVAILABLE'
-             AND qty_available > 0
-             AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
-             ${item.grade_code ? `AND quality_grade = '${item.grade_code}'` : ''}
-           ORDER BY expire_date ASC NULLS LAST, created_at ASC
-           FOR UPDATE`,
-          [item.product_code, sale.company_code],
-        );
+        let batches: any[];
+        if (useSkuPath) {
+          // PATH A: 按 sku_code 精确匹配
+          batches = await mgr.query(
+            `SELECT batch_no, qty_available, expire_date
+             FROM inv_batches
+             WHERE sku_code = $1
+               AND company_code = $2
+               AND status = 'AVAILABLE'
+               AND qty_available > 0
+               AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
+             ORDER BY expire_date ASC NULLS LAST, created_at ASC
+             FOR UPDATE`,
+            [item.sku_code, sale.company_code],
+          );
+        } else {
+          // PATH B: 旧 product+grade 匹配
+          batches = await mgr.query(
+            `SELECT batch_no, qty_available, expire_date
+             FROM inv_batches
+             WHERE product_code = $1
+               AND company_code = $2
+               AND status = 'AVAILABLE'
+               AND qty_available > 0
+               AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
+               ${item.grade_code ? `AND quality_grade = '${item.grade_code}'` : ''}
+             ORDER BY expire_date ASC NULLS LAST, created_at ASC
+             FOR UPDATE`,
+            [item.product_code, sale.company_code],
+          );
+        }
 
         let remaining = qty;
         let firstBatch = '';
@@ -479,11 +511,11 @@ export class StorePosService {
             [canTake, batch.batch_no],
           );
 
-          // 写 inv_ledger FIFO_OUT
+          // 写 inv_ledger FIFO_OUT（Phase H5: 传递 sku_code）
           await mgr.query(
             `INSERT INTO inv_ledger
-               (batch_no, change_type, qty_change, operator, store_code, ref_no, note, created_at)
-             VALUES ($1,'FIFO_OUT',$2,$3,$4,$5,$6,NOW())`,
+               (batch_no, change_type, qty_change, operator, store_code, ref_no, note, sku_code, created_at)
+             VALUES ($1,'FIFO_OUT',$2,$3,$4,$5,$6,$7,NOW())`,
             [
               batch.batch_no,
               -canTake,
@@ -491,6 +523,7 @@ export class StorePosService {
               sale.store_code,
               sale.sale_no,
               `门店收银 FIFO 出库 ${sale.sale_no} qty=${canTake}`,
+              item.sku_code ?? null,  // Phase H5
             ],
           );
         }
@@ -498,7 +531,7 @@ export class StorePosService {
         if (remaining > 0) {
           // 库存不足时，记录警告但不阻断（门店允许负库存场景，记录欠账）
           this.logger.warn(
-            `[StorePOS] 库存不足 product=${item.product_code} 缺 ${remaining}，允许继续`,
+            `[StorePOS] 库存不足 ${useSkuPath ? 'sku=' + item.sku_code : 'product=' + item.product_code} 缺 ${remaining}，允许继续`,
           );
         }
 

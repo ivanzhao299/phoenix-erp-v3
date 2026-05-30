@@ -7,6 +7,14 @@ import { Type } from 'class-transformer';
 // ── 订单明细行 ────────────────────────────────────────────────────────────────
 
 export class CreateSalesOrderItemDto {
+  /**
+   * Phase H5: SKU 编码（优先）。
+   * 传入后自动带出 productCode / gradeCode / packagingSpec，
+   * 价格解析也优先按 sku_code 匹配。
+   */
+  @IsOptional() @IsString()
+  skuCode?: string;
+
   @IsString() @IsNotEmpty()
   productCode: string;
 

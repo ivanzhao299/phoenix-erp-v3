@@ -163,6 +163,8 @@ export class ReturnOrdersService {
       returnedQty:       number;
       unitPrice:         number;
       remark?:           string;
+      /** Phase H5: 可选 SKU，优先从原销售明细自动继承 */
+      skuCode?:          string;
     }>;
   }) {
     if (!body.items?.length) {
@@ -231,14 +233,27 @@ export class ReturnOrdersService {
     for (const it of body.items) {
       if (it.returnedQty <= 0) throw new BadRequestException('退货数量必须大于 0');
       const amount = it.returnedQty * it.unitPrice;
+
+      // Phase H5: SKU 继承 — 优先从原销售明细自动读取 sku_code
+      let skuCode: string | null = it.skuCode ?? null;
+      if (!skuCode && it.salesOrderItemId) {
+        try {
+          const [origItem] = await this.ds.query(
+            `SELECT sku_code FROM sal_order_items WHERE id=$1 LIMIT 1`,
+            [it.salesOrderItemId],
+          );
+          skuCode = origItem?.sku_code ?? null;
+        } catch { /* 查询失败不阻断 */ }
+      }
+
       await this.ds.query(
         `INSERT INTO sal_return_items (
            return_order_id, sales_order_item_id,
            product_code, product_name, grade_code, packaging_spec,
            returned_qty, accepted_qty, damaged_qty,
            unit_price, amount,
-           inspection_result, restock_status, remark, created_at
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,0,0,$8,$9,'PENDING','PENDING',$10,NOW())`,
+           inspection_result, restock_status, remark, sku_code, created_at
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,0,0,$8,$9,'PENDING','PENDING',$10,$11,NOW())`,
         [
           ret.id,
           it.salesOrderItemId ?? null,
@@ -250,6 +265,7 @@ export class ReturnOrdersService {
           it.unitPrice,
           amount,
           it.remark ?? null,
+          skuCode,   // Phase H5
         ],
       );
     }

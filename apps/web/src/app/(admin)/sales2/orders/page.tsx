@@ -76,6 +76,7 @@ interface OrderItem {
   floor_price: number | null;
   amount: number;
   below_floor_price: boolean;
+  sku_code?: string | null;   // Phase H5
 }
 
 interface Order {
@@ -102,6 +103,20 @@ interface Order {
 
 interface Customer { id: string; customer_code: string; customer_name: string; credit_limit: number; credit_used: number; status: string; }
 interface PriceResult { unitPrice: number; floorPrice: number | null; priceBookId: string | null; }
+// Phase H5: SKU 主数据
+interface SkuItem { sku_code: string; product_code: string; grade_code: string; spec_code: string; sku_name?: string; }
+
+// Phase H5: SKU 徽章（紫色小标签）
+function SkuBadge({ code }: { code: string | null | undefined }) {
+  if (!code) return null;
+  return (
+    <span style={{
+      display: 'inline-block', padding: '1px 6px', borderRadius: 4, fontSize: 10,
+      fontFamily: 'monospace', fontWeight: 700, background: 'rgba(139,92,246,0.12)',
+      color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.25)', marginLeft: 4,
+    }}>{code}</span>
+  );
+}
 
 // ── 主组件 ────────────────────────────────────────────────────────────────────
 
@@ -133,10 +148,13 @@ export default function SalesV2OrdersPage() {
   });
   const [newItems, setNewItems] = useState<Array<{
     productCode: string; gradeCode: string; qty: string; actualUnitPrice: string;
+    skuCode?: string;   // Phase H5
     _resolved?: PriceResult;
   }>>([{ productCode: '', gradeCode: '', qty: '', actualUnitPrice: '' }]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [creditInfo, setCreditInfo] = useState<any>(null);
+  // Phase H5: SKU 主数据
+  const [skus, setSkus] = useState<SkuItem[]>([]);
 
   // ── 数据加载 ────────────────────────────────────────────────────────────────
 
@@ -158,6 +176,10 @@ export default function SalesV2OrdersPage() {
   useEffect(() => {
     api<any>('GET', '/api/v2/sales/customers?limit=200')
       .then(r => setCustomers(r.data ?? []))
+      .catch(() => {});
+    // Phase H5: 加载 SKU 主数据
+    api<any>('GET', '/api/product-master/skus?limit=500')
+      .then(r => setSkus(Array.isArray(r) ? r : (r.data ?? [])))
       .catch(() => {});
   }, []);
 
@@ -242,6 +264,7 @@ export default function SalesV2OrdersPage() {
         expectedDeliveryDate: newForm.expectedDeliveryDate || undefined,
         deliveryAddress:      newForm.deliveryAddress || undefined,
         items: validItems.map(i => ({
+          skuCode:         i.skuCode || undefined,           // Phase H5
           productCode:     i.productCode,
           gradeCode:       i.gradeCode || undefined,
           qty:             Number(i.qty),
@@ -501,11 +524,39 @@ export default function SalesV2OrdersPage() {
                 const belowFloor = item._resolved?.floorPrice != null && Number(item.actualUnitPrice) > 0 && Number(item.actualUnitPrice) < item._resolved.floorPrice;
                 return (
                   <div key={idx} style={{ padding: 12, borderRadius: 8, border: `1px solid ${belowFloor ? 'rgba(239,68,68,0.4)' : 'var(--border)'}`, marginBottom: 8, background: belowFloor ? 'rgba(239,68,68,0.04)' : undefined }}>
+                    {/* Phase H5: SKU 快速选择器 */}
+                    {skus.length > 0 && (
+                      <div style={{ marginBottom: 8 }}>
+                        <label style={{ fontSize: 11, color: '#8b5cf6', display: 'block', marginBottom: 2 }}>SKU 快速选择（可选）</label>
+                        <select
+                          value={item.skuCode ?? ''}
+                          onChange={e => {
+                            const sku = skus.find(s => s.sku_code === e.target.value);
+                            setNewItems(p => p.map((it, i) => i === idx ? {
+                              ...it,
+                              skuCode:     sku?.sku_code ?? '',
+                              productCode: sku?.product_code ?? it.productCode,
+                              gradeCode:   sku?.grade_code ?? it.gradeCode,
+                              _resolved:   undefined,
+                            } : it));
+                            if (sku) setTimeout(() => resolveItemPrice(idx), 0);
+                          }}
+                          style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(139,92,246,0.3)', background: 'var(--bg-page)', color: 'var(--text-primary)', fontSize: 12 }}>
+                          <option value="">— 不使用 SKU（手动填写）—</option>
+                          {skus.map(s => (
+                            <option key={s.sku_code} value={s.sku_code}>
+                              {s.sku_code}{s.sku_name ? ` · ${s.sku_name}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {item.skuCode && <span style={{ fontSize: 10, color: '#8b5cf6' }}>✓ 已自动填充产品代码和等级</span>}
+                      </div>
+                    )}
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.5fr auto', gap: 8, alignItems: 'end' }}>
                       <div>
                         <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 2 }}>商品代码</label>
                         <input value={item.productCode}
-                          onChange={e => setNewItems(p => p.map((it, i) => i === idx ? { ...it, productCode: e.target.value, _resolved: undefined } : it))}
+                          onChange={e => setNewItems(p => p.map((it, i) => i === idx ? { ...it, productCode: e.target.value, skuCode: '', _resolved: undefined } : it))}
                           onBlur={() => resolveItemPrice(idx)}
                           placeholder="PC001"
                           style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-page)', color: 'var(--text-primary)', fontSize: 12 }} />
@@ -646,7 +697,10 @@ export default function SalesV2OrdersPage() {
                   <tbody>
                     {detailOrder.items.map((item: OrderItem) => (
                       <tr key={item.id} style={{ borderBottom: '1px solid var(--border)', background: item.below_floor_price ? 'rgba(239,68,68,0.03)' : undefined }}>
-                        <td style={{ padding: '6px 8px' }}>{item.product_name || item.product_code}</td>
+                        <td style={{ padding: '6px 8px' }}>
+                          {item.product_name || item.product_code}
+                          <SkuBadge code={item.sku_code} />
+                        </td>
                         <td style={{ padding: '6px 8px' }}>{item.grade_code || '—'}</td>
                         <td style={{ padding: '6px 8px', textAlign: 'right' }}>{Number(item.qty).toLocaleString()}</td>
                         <td style={{ padding: '6px 8px', textAlign: 'right', color: 'var(--text-secondary)' }}>{Number(item.resolved_unit_price).toLocaleString()}</td>

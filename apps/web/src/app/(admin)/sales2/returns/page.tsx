@@ -40,6 +40,7 @@ interface ReturnItem {
   inspection_result: string;
   restock_status: string;
   remark: string | null;
+  sku_code?: string | null;  // Phase H5
 }
 
 interface DashboardStats {
@@ -300,7 +301,15 @@ function InspectionDrawer({ order, onClose, onDone }: { order: ReturnOrder; onCl
         </div>
         {(order.items || []).map((item, i) => (
           <div key={item.id} style={{ background: '#f9fafb', borderRadius: 8, padding: 16, marginBottom: 12 }}>
-            <div style={{ fontWeight: 600, marginBottom: 4 }}>{item.product_code} {item.product_name && `— ${item.product_name}`}</div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+              {item.product_code} {item.product_name && `— ${item.product_name}`}
+              {/* Phase H5: SKU 徽章 */}
+              {item.sku_code && (
+                <span style={{ marginLeft: 6, padding: '1px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'monospace', fontWeight: 700, background: 'rgba(139,92,246,0.1)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.2)' }}>
+                  {item.sku_code}
+                </span>
+              )}
+            </div>
             <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 10 }}>
               申请退货数量：{item.returned_qty} {item.grade_code && `| 等级：${item.grade_code}`}
             </div>
@@ -543,7 +552,15 @@ function ReturnOrdersTab() {
             {(detail.items || []).map(item => (
               <div key={item.id} style={{ background: '#f9fafb', borderRadius: 8, padding: 12, marginBottom: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontWeight: 600 }}>{item.product_code} {item.product_name && `— ${item.product_name}`}</span>
+                  <span style={{ fontWeight: 600 }}>
+                    {item.product_code} {item.product_name && `— ${item.product_name}`}
+                    {/* Phase H5: SKU 徽章 */}
+                    {item.sku_code && (
+                      <span style={{ marginLeft: 6, padding: '1px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'monospace', fontWeight: 700, background: 'rgba(139,92,246,0.1)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.2)' }}>
+                        {item.sku_code}
+                      </span>
+                    )}
+                  </span>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <Badge cfg={INSPECTION_CFG} code={item.inspection_result} />
                   </div>
