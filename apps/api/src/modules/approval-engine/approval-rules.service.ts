@@ -118,6 +118,11 @@ export class ApprovalRulesService {
   // ── 创建 ─────────────────────────────────────────────────────────────────
 
   async create(dto: CreateApprovalRuleDto) {
+    // [Phase R2 — Config Governance] 读取 SLA 全局默认值（规则步骤未配置时使用）
+    const slaDefaultHours     = await this._cfgInt('sla.default_hours', 48);
+    const slaReminderInterval = await this._cfgInt('sla.reminder_interval_minutes', 720) / 60; // 转小时
+    const slaMaxReminders     = await this._cfgInt('sla.max_reminder_count', 3);
+
     return this.ds.transaction(async mgr => {
       const existing = await mgr.findOne(WfApprovalRuleEntity, {
         where: { ruleCode: dto.ruleCode },
@@ -152,10 +157,10 @@ export class ApprovalRulesService {
             orgScope:              s.orgScope              ?? null,
             requiredApprovalCount: s.requiredApprovalCount ?? 1,
             allowAdminOverride:    s.allowAdminOverride    ?? false,
-            // SLA 配置（Phase G）
-            slaHours:              s.slaHours              ?? 48,
-            reminderIntervalHours: s.reminderIntervalHours ?? 12,
-            maxReminders:          s.maxReminders          ?? 3,
+            // SLA 配置（Phase G + R2：未配置时从 sys_configs 全局默认读取）
+            slaHours:              s.slaHours              ?? slaDefaultHours,
+            reminderIntervalHours: s.reminderIntervalHours ?? slaReminderInterval,
+            maxReminders:          s.maxReminders          ?? slaMaxReminders,
             escalationEnabled:     s.escalationEnabled     ?? false,
             escalationAfterHours:  s.escalationAfterHours  ?? null,
             escalationRole:        s.escalationRole        ?? null,
@@ -180,6 +185,11 @@ export class ApprovalRulesService {
   // ── 更新 ─────────────────────────────────────────────────────────────────
 
   async update(id: string, dto: UpdateApprovalRuleDto) {
+    // [Phase R2 — Config Governance] 读取 SLA 全局默认值
+    const slaDefaultHours     = await this._cfgInt('sla.default_hours', 48);
+    const slaReminderInterval = await this._cfgInt('sla.reminder_interval_minutes', 720) / 60;
+    const slaMaxReminders     = await this._cfgInt('sla.max_reminder_count', 3);
+
     return this.ds.transaction(async mgr => {
       const rule = await mgr.findOne(WfApprovalRuleEntity, { where: { id } });
       if (!rule) throw new NotFoundException(`审批规则 ID=${id} 不存在`);
@@ -212,10 +222,10 @@ export class ApprovalRulesService {
               orgScope:              s.orgScope              ?? null,
               requiredApprovalCount: s.requiredApprovalCount ?? 1,
               allowAdminOverride:    s.allowAdminOverride    ?? false,
-              // SLA 配置（Phase G）
-              slaHours:              s.slaHours              ?? 48,
-              reminderIntervalHours: s.reminderIntervalHours ?? 12,
-              maxReminders:          s.maxReminders          ?? 3,
+              // SLA 配置（Phase G + R2：未配置时从 sys_configs 全局默认读取）
+              slaHours:              s.slaHours              ?? slaDefaultHours,
+              reminderIntervalHours: s.reminderIntervalHours ?? slaReminderInterval,
+              maxReminders:          s.maxReminders          ?? slaMaxReminders,
               escalationEnabled:     s.escalationEnabled     ?? false,
               escalationAfterHours:  s.escalationAfterHours  ?? null,
               escalationRole:        s.escalationRole        ?? null,
@@ -275,5 +285,21 @@ export class ApprovalRulesService {
       await mgr.delete(WfApprovalRuleStepEntity, { ruleId: id });
       await mgr.delete(WfApprovalRuleEntity, id);
     });
+  }
+
+  // ── Config Governance helpers ─────────────────────────────────────────────
+  /** [Phase R2] 从 sys_configs 读取整数配置，失败时返回 defaultVal */
+  private async _cfgInt(key: string, defaultVal: number): Promise<number> {
+    try {
+      const rows: Array<{ config_value: string }> = await this.ds.query(
+        `SELECT config_value FROM sys_configs WHERE config_key = $1`, [key],
+      );
+      const v = rows[0]?.config_value;
+      if (v == null) return defaultVal;
+      const n = parseInt(v, 10);
+      return isNaN(n) ? defaultVal : n;
+    } catch {
+      return defaultVal;
+    }
   }
 }

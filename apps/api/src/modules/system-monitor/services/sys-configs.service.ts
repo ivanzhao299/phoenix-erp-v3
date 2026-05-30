@@ -45,6 +45,43 @@ export class SysConfigsService {
     return v.toLowerCase() === 'true' || v === '1';
   }
 
+  /** 读取配置值（字符串，带默认值）— getString 是 getValue 的安全包装 */
+  async getString(key: string, defaultVal: string): Promise<string> {
+    const v = await this.getValue(key);
+    return v ?? defaultVal;
+  }
+
+  /**
+   * 读取配置值并转为浮点数（带默认值）。
+   * 配置格式错误时记录 warn 并返回 defaultVal，不中断主业务。
+   */
+  async getNumber(key: string, defaultVal: number): Promise<number> {
+    const v = await this.getValue(key);
+    if (v == null) return defaultVal;
+    const n = parseFloat(v);
+    if (isNaN(n)) {
+      console.warn(`[SysConfigs] key="${key}" 值 "${v}" 无法解析为数字，使用默认值 ${defaultVal}`);
+      return defaultVal;
+    }
+    return n;
+  }
+
+  /**
+   * 读取配置值并解析为 JSON（带默认值）。
+   * 常用于存储数组/对象型配置（如 ar_aging_buckets）。
+   * 解析失败时记录 warn 并返回 defaultVal。
+   */
+  async getJson<T = unknown>(key: string, defaultVal: T): Promise<T> {
+    const v = await this.getValue(key);
+    if (v == null) return defaultVal;
+    try {
+      return JSON.parse(v) as T;
+    } catch {
+      console.warn(`[SysConfigs] key="${key}" 值 "${v}" 无法解析为 JSON，使用默认值`);
+      return defaultVal;
+    }
+  }
+
   /** 列出配置（按分组，不返回加密值明文） */
   async list(group?: string) {
     const rows = await this.ds.query<any[]>(

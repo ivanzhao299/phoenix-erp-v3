@@ -76,13 +76,16 @@ export class EggInventorySchedulerService {
     // 1. 标记过期批次
     const { expired, written } = await this.eggInventory.markExpiredBatches();
 
-    // 2. 扫描临期库存（<=7天）并写通知
-    const expiringBatches = await this.eggInventory.getExpiringBatches({ days: 7 });
+    // 2. 扫描临期库存并写通知
+    // [Phase R2 — Config Governance] 预警天数从 sys_configs 读取
+    const expiringDays = await this._cfgInt('inventory.expiring_warn_days', 7);
+    const urgentDays   = await this._cfgInt('inventory.urgent_warn_days',   3);
+    const expiringBatches = await this.eggInventory.getExpiringBatches({ days: expiringDays });
     let notifications = 0;
 
     for (const batch of expiringBatches) {
       const daysRemaining = (batch as any).days_remaining ?? 0;
-      const level = daysRemaining <= 3 ? 'URGENT' : 'WARNING';
+      const level = daysRemaining <= urgentDays ? 'URGENT' : 'WARNING';
 
       try {
         await this.ds.query(
@@ -118,5 +121,21 @@ export class EggInventorySchedulerService {
       expiringNotifications: notifications,
       durationMs:            Date.now() - start,
     };
+  }
+
+  // ── Config Governance helpers ─────────────────────────────────────────────
+  /** [Phase R2] 从 sys_configs 读取整数配置，失败时返回 defaultVal */
+  private async _cfgInt(key: string, defaultVal: number): Promise<number> {
+    try {
+      const rows: Array<{ config_value: string }> = await this.ds.query(
+        `SELECT config_value FROM sys_configs WHERE config_key = $1`, [key],
+      );
+      const v = rows[0]?.config_value;
+      if (v == null) return defaultVal;
+      const n = parseInt(v, 10);
+      return isNaN(n) ? defaultVal : n;
+    } catch {
+      return defaultVal;
+    }
   }
 }

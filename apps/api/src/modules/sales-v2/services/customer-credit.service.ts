@@ -376,7 +376,10 @@ export class CustomerCreditService {
 
     const ms = Date.now() - new Date(ag.earliest_overdue).getTime();
     const overdueDays = Math.floor(ms / 86_400_000);
-    const threshold = paymentTerms > 0 ? paymentTerms * 2 : 60;  // 默认 60 天
+    // [Phase R2 — Config Governance] 冻结阈值从 sys_configs 读取，避免硬编码
+    const autoFreezeDays = await this._cfgInt('credit.auto_freeze_days', 60);
+    const freezeMultiplier = await this._cfgInt('credit.freeze_multiplier', 2);
+    const threshold = paymentTerms > 0 ? paymentTerms * freezeMultiplier : autoFreezeDays;
 
     if (overdueDays <= threshold) return false;
 
@@ -587,5 +590,24 @@ export class CustomerCreditService {
     await this.refreshCustomerCredit(customerId);
     this.logger.log(`[Unfreeze] 客户 ${cust.customer_name}(${customerId}) 已手动解冻`);
     return result[0];
+  }
+
+  // ── Config Governance helpers ─────────────────────────────────────────────
+  /**
+   * [Phase R2] 从 sys_configs 读取整数配置，失败时返回 defaultVal。
+   * 不因配置缺失/格式错误中断主业务。
+   */
+  private async _cfgInt(key: string, defaultVal: number): Promise<number> {
+    try {
+      const rows: Array<{ config_value: string }> = await this.ds.query(
+        `SELECT config_value FROM sys_configs WHERE config_key = $1`, [key],
+      );
+      const v = rows[0]?.config_value;
+      if (v == null) return defaultVal;
+      const n = parseInt(v, 10);
+      return isNaN(n) ? defaultVal : n;
+    } catch {
+      return defaultVal;
+    }
   }
 }

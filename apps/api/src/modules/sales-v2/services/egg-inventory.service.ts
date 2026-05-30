@@ -775,6 +775,9 @@ export class EggInventoryService {
   async getDashboardStats(companyCode?: string) {
     const cond = companyCode ? `AND company_code='${companyCode}'` : '';
 
+    // [Phase R2 — Config Governance] 临期预警天数从 sys_configs 读取
+    const expiringDays = await this._cfgInt('inventory.expiring_warn_days', EXPIRING_WARN_DAYS);
+
     const [row] = await this.ds.query(`
       SELECT
         COUNT(*) FILTER (WHERE status='AVAILABLE' AND qty_available > 0)        AS active_batches,
@@ -783,13 +786,13 @@ export class EggInventoryService {
           WHERE status='AVAILABLE' AND qty_available > 0
             AND expire_date IS NOT NULL
             AND expire_date >= CURRENT_DATE
-            AND expire_date <= CURRENT_DATE + INTERVAL '7 days'
+            AND expire_date <= CURRENT_DATE + INTERVAL '${expiringDays} days'
         )                                                                        AS expiring_batches,
         COALESCE(SUM(qty_available) FILTER (
           WHERE status='AVAILABLE' AND qty_available > 0
             AND expire_date IS NOT NULL
             AND expire_date >= CURRENT_DATE
-            AND expire_date <= CURRENT_DATE + INTERVAL '7 days'
+            AND expire_date <= CURRENT_DATE + INTERVAL '${expiringDays} days'
         ), 0)                                                                    AS expiring_qty,
         COUNT(*) FILTER (WHERE status='EXPIRED')                                 AS expired_batches,
         COUNT(*) FILTER (WHERE status='RETURNED')                                AS returned_batches,
@@ -874,5 +877,21 @@ export class EggInventoryService {
       AA: 'A', A: 'B', B: 'B', DIRTY: 'DAMAGED', CRACKED: 'DAMAGED', DAMAGED: 'DAMAGED',
     };
     return ladder[grade] ?? grade;
+  }
+
+  // ── Config Governance helpers ─────────────────────────────────────────────
+  /** [Phase R2] 从 sys_configs 读取整数配置，失败时返回 defaultVal */
+  private async _cfgInt(key: string, defaultVal: number): Promise<number> {
+    try {
+      const rows: Array<{ config_value: string }> = await this.ds.query(
+        `SELECT config_value FROM sys_configs WHERE config_key = $1`, [key],
+      );
+      const v = rows[0]?.config_value;
+      if (v == null) return defaultVal;
+      const n = parseInt(v, 10);
+      return isNaN(n) ? defaultVal : n;
+    } catch {
+      return defaultVal;
+    }
   }
 }
