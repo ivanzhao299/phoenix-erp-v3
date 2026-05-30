@@ -1,11 +1,11 @@
 import { Controller, Get, Post, Body, Query, Param, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { FarmSalesService, CreateFarmSaleDto } from './farm-sales.service';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { RolesGuard } from '../../common/guards/roles.guard';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 
+// [Fix Pack 1 — HIGH-2] 替换 AuthGuard → MenuGuard，添加 RequireMenu
 @Controller('api/farm/sales')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(MenuGuard)
+@RequireMenu('MENU_FARM_DATA', 'V')
 export class FarmSalesController {
   constructor(private svc: FarmSalesService) {}
 
@@ -25,8 +25,7 @@ export class FarmSalesController {
 
   /** POST /api/farm/sales */
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles('ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_SALES_MGR', 'ROLE_SALES_REP')
+  @RequireMenu('MENU_FARM_DATA', 'E')
   async createSale(@Body() dto: CreateFarmSaleDto) {
     const result = await this.svc.createSale(dto);
     return { code: 200, data: result };
@@ -34,8 +33,7 @@ export class FarmSalesController {
 
   /** POST /api/farm/sales/:orderNo/cancel */
   @Post(':orderNo/cancel')
-  @UseGuards(RolesGuard)
-  @Roles('ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_SALES_MGR')
+  @RequireMenu('MENU_FARM_DATA', 'E')
   async cancelSale(
     @Param('orderNo') orderNo: string,
     @Body('operator') operator: string,

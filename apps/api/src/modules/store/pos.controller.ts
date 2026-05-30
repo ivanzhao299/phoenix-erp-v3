@@ -1,14 +1,15 @@
 import { Controller, Post, Get, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { PosService } from './pos.service';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
 
 /**
  * POS 收银控制器
  * 路由前缀 /api/v3/pos
- * 替代之前前端直接走 /api/crud/pos_sales 的 "demo CRUD" 模式
+ * [Fix Pack 1 — HIGH-3] 添加 DataScopeGuard
  */
 @Controller('api/v3/pos')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class PosController {
   constructor(private readonly posService: PosService) {}
 

@@ -1,10 +1,12 @@
 import { Controller, Post, Get, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { TerminalService } from './terminal.service';
 import { PdaTerminalsService } from './pda-terminals.service';
-import { AuthGuard } from '@nestjs/passport';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 
+// [Fix Pack 1 — HIGH-2] 替换 AuthGuard → MenuGuard，添加 RequireMenu
 @Controller('api/pda')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(MenuGuard)
+@RequireMenu('MENU_PDA', 'V')
 export class PdaController {
   constructor(
     private readonly terminalService: TerminalService,

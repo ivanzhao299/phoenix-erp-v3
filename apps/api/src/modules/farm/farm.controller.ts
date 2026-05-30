@@ -1,11 +1,11 @@
 import { Controller, Post, Put, Get, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { FarmService, OrgScope } from './farm.service';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { RolesGuard } from '../../common/guards/roles.guard';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 
+// [Fix Pack 1 — HIGH-2] 替换 AuthGuard → MenuGuard，添加 RequireMenu
 @Controller('api/v3/farm')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(MenuGuard)
+@RequireMenu('MENU_FARM_DATA', 'V')
 export class FarmController {
   constructor(private readonly farmService: FarmService) {}
 
@@ -21,15 +21,13 @@ export class FarmController {
   }
 
   @Post('daily-logs')
-  @UseGuards(RolesGuard)
-  @Roles('ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_VET', 'ROLE_BREEDER')
+  @RequireMenu('MENU_FARM_DATA', 'E')
   async submitBreedingDailyLog(@Body() body: any, @Req() req: any) {
     return await this.farmService.submitBreedingDailyLog(body, this.getScope(req));
   }
 
   @Put('daily-logs/:id')
-  @UseGuards(RolesGuard)
-  @Roles('ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_VET', 'ROLE_BREEDER')
+  @RequireMenu('MENU_FARM_DATA', 'E')
   async updateBreedingDailyLog(@Param('id') id: number, @Body() body: any) {
     return await this.farmService.updateBreedingDailyLog(id, body);
   }

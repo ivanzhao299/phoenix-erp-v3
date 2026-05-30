@@ -16,11 +16,13 @@ export class PackagingService {
 
   // ─── 包装规格配置 ────────────────────────────────────────────────────────────
   async getPackSpecConfig() {
+    // [Fix Pack 1 — CRITICAL] 改为从 packaging_specs 主数据表读取，
+    // 不再读取 sys_dict PKG_PACK_SPEC（原 dict_value 字段不存在，导致空数据）
     try {
       const rows = await this.em.query(
-        `SELECT dict_code AS name, dict_value AS qty, dict_label_zh AS label
-         FROM sys_dict WHERE dict_type = 'PKG_PACK_SPEC' AND status = 'ACTIVE'
-         ORDER BY sort_no ASC`,
+        `SELECT spec_code AS name, spec_name AS label, qty_per_unit AS qty
+         FROM packaging_specs WHERE status = 'ACTIVE'
+         ORDER BY sort_order ASC`,
       );
       const specs = rows.length > 0
         ? rows.map((r: any) => ({ name: r.label || r.name, qty: Number(r.qty) || 30 }))
@@ -499,24 +501,19 @@ export class PackagingService {
     // discrepancy_qty  = plan_qty - packed - presortTotal (差额；正=少 负=多)
     const packedQty = Object.values(gr).reduce((s, v) => s + Math.max(0, Number(v) || 0), 0);
     const presortTotal = presortXl + presortDirty + presortBrk;
-    // 查 sys_dict 拿非可售等级码（与 getGradeConfig 同源）
-    // V2 fidelity 修正：grade_results 的 key 是 cfg.code（短码 "1"/"2"/"X"），
-    // 不是 dict_code（"PKG_EGG_GRADE_1"），所以 nonSaleableCodes 也存 cfg.code
+    // [Fix Pack 1 — HIGH-4] 从 product_grades 主数据表读取非可售等级，
+    // 不再读取 sys_dict PKG_EGG_GRADE（已迁移至 product_grades.is_saleable）
     let nonSaleableCodes = new Set<string>();
     try {
-      const dictRows: Array<{ dict_code: string; config_json: any }> = await this.em.query(
-        `SELECT dict_code, config_json FROM sys_dict
-         WHERE dict_type = 'PKG_EGG_GRADE' AND status = 'ACTIVE'`,
+      const gradeRows: Array<{ grade_code: string; is_saleable: boolean }> = await this.em.query(
+        `SELECT grade_code, is_saleable FROM product_grades WHERE status = 'ACTIVE'`,
       );
-      for (const r of dictRows) {
-        const cfg = typeof r.config_json === 'string' ? JSON.parse(r.config_json || '{}') : (r.config_json || {});
-        if (cfg.saleable === false) {
-          // 兼容两种 grade_results key 写法
-          if (cfg.code) nonSaleableCodes.add(String(cfg.code));
-          nonSaleableCodes.add(r.dict_code);
+      for (const r of gradeRows) {
+        if (!r.is_saleable) {
+          nonSaleableCodes.add(r.grade_code);
         }
       }
-    } catch { /* 字典缺失时 nonSaleable 为空，breakage 只计预分拣破损 */ }
+    } catch { /* product_grades 不可用时 nonSaleable 为空，breakage 只计预分拣破损 */ }
     const nonSaleableQty = Object.entries(gr).reduce(
       (s, [code, v]) => s + (nonSaleableCodes.has(code) ? Math.max(0, Number(v) || 0) : 0),
       0,
@@ -671,20 +668,18 @@ export class PackagingService {
           const dateKey = new Date().toISOString().slice(0, 10).replace(/-/g, '');
           const expireDate = new Date(Date.now() + 7 * 86400 * 1000).toISOString().slice(0, 10);
 
-          // V2 fidelity: 查 sys_dict 拿非可售等级码（cfg.code 与 dict_code 兼容两种 key）
+          // [Fix Pack 1 — HIGH-4] 从 product_grades 主数据表读取非可售等级
           let packNonSaleable = new Set<string>();
           try {
-            const dictRows: Array<{ dict_code: string; config_json: any }> = await this.em.query(
-              `SELECT dict_code, config_json FROM sys_dict WHERE dict_type = 'PKG_EGG_GRADE' AND status = 'ACTIVE'`,
+            const gradeRows: Array<{ grade_code: string; is_saleable: boolean }> = await this.em.query(
+              `SELECT grade_code, is_saleable FROM product_grades WHERE status = 'ACTIVE'`,
             );
-            for (const r of dictRows) {
-              const cfg = typeof r.config_json === 'string' ? JSON.parse(r.config_json || '{}') : (r.config_json || {});
-              if (cfg.saleable === false) {
-                if (cfg.code) packNonSaleable.add(String(cfg.code));
-                packNonSaleable.add(r.dict_code);
+            for (const r of gradeRows) {
+              if (!r.is_saleable) {
+                packNonSaleable.add(r.grade_code);
               }
             }
-          } catch { /* 字典缺失视为全部可售 */ }
+          } catch { /* product_grades 不可用时视为全部可售 */ }
 
           const grades = Object.entries(gr).filter(([, v]) => Number(v) > 0);
           if (grades.length === 0) {

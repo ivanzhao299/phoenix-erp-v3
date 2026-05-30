@@ -1,11 +1,11 @@
 import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { FarmEggService } from './farm-egg.service';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { RolesGuard } from '../../common/guards/roles.guard';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 
+// [Fix Pack 1 — HIGH-2] 替换 AuthGuard → MenuGuard，添加 RequireMenu
 @Controller('api/farm/egg')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(MenuGuard)
+@RequireMenu('MENU_BREEDING', 'V')
 export class FarmEggController {
   constructor(private svc: FarmEggService) {}
 
@@ -33,8 +33,7 @@ export class FarmEggController {
    *  body: { date, items: [{grade, qty, house_code}], operator? }
    */
   @Post('inbound')
-  @UseGuards(RolesGuard)
-  @Roles('ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_WMS_MGR')
+  @RequireMenu('MENU_BREEDING', 'E')
   async inbound(
     @Body() body: { date: string; items: Array<{ grade: string; qty: number; house_code: string }>; operator?: string },
   ) {
@@ -46,8 +45,7 @@ export class FarmEggController {
    *  body: { date, items: [{grade, qty, customer_no}], operator?, ref_no? }
    */
   @Post('outbound')
-  @UseGuards(RolesGuard)
-  @Roles('ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_WMS_MGR')
+  @RequireMenu('MENU_BREEDING', 'E')
   async outbound(
     @Body() body: { date: string; items: Array<{ grade: string; qty: number; customer_no: string }>; operator?: string; ref_no?: string },
   ) {
@@ -59,8 +57,7 @@ export class FarmEggController {
    *  body: { date, items: [{grade, qty, reason}], operator? }
    */
   @Post('write-off')
-  @UseGuards(RolesGuard)
-  @Roles('ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_WMS_MGR')
+  @RequireMenu('MENU_BREEDING', 'E')
   async writeOff(
     @Body() body: { date: string; items: Array<{ grade: string; qty: number; reason: string }>; operator?: string },
   ) {

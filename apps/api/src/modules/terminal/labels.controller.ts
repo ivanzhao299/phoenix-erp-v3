@@ -1,10 +1,12 @@
 import { Controller, Post, Get, Body, Param, Req, UseGuards } from '@nestjs/common';
 import { TerminalService } from './terminal.service';
 import { LabelsService } from './labels.service';
-import { AuthGuard } from '@nestjs/passport';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 
+// [Fix Pack 1 — HIGH-2] 替换 AuthGuard → MenuGuard，添加 RequireMenu
 @Controller('api/labels')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(MenuGuard)
+@RequireMenu('MENU_PKG_MGR', 'V')
 export class LabelsController {
   constructor(
     private readonly terminalService: TerminalService,

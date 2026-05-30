@@ -1,9 +1,11 @@
 import { Controller, Post, Get, Body, Req, UseGuards } from '@nestjs/common';
 import { TerminalService } from './terminal.service';
-import { AuthGuard } from '@nestjs/passport';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 
+// [Fix Pack 1 — HIGH-2] 替换 AuthGuard → MenuGuard，添加 RequireMenu
 @Controller('api/stocktake')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(MenuGuard)
+@RequireMenu('MENU_PKG_MGR', 'V')
 export class StocktakeController {
   constructor(private readonly terminalService: TerminalService) {}
 
@@ -14,7 +16,8 @@ export class StocktakeController {
 }
 
 @Controller('api/dailyClose')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(MenuGuard)
+@RequireMenu('MENU_PKG_MGR', 'E')
 export class DailyCloseController {
   constructor(private readonly terminalService: TerminalService) {}
 

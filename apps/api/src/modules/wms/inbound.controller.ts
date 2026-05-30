@@ -1,9 +1,11 @@
 import { Controller, Get, Post, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { WmsService } from './wms.service';
 import { RequireMenu, MenuGuard } from '../../common/guards/menu.guard';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
 
+// [Fix Pack 1 — HIGH-3] 添加 DataScopeGuard
 @Controller('api/inbound')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class InboundController {
   constructor(private readonly wmsService: WmsService) {}
 

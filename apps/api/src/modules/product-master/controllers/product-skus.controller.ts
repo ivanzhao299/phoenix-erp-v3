@@ -1,20 +1,20 @@
 import { Controller, Get, Post, Put, Body, Param, Query, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
+import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { ProductMasterService, ProductSku } from '../services/product-master.service';
 
 /**
  * ProductSkusController — /api/product-master/skus
  *
  * SKU 主数据 CRUD。
+ * [Fix Pack 1 — HIGH-3] 统一至类级 MenuGuard + DataScopeGuard
  */
 @Controller('api/product-master/skus')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(MenuGuard, DataScopeGuard)
 export class ProductSkusController {
   constructor(private readonly svc: ProductMasterService) {}
 
   @Get()
-  @UseGuards(MenuGuard)
   @RequireMenu('MENU_MASTER_SKU', 'V')
   async list(
     @Query('product_code') product_code?: string,
@@ -27,7 +27,6 @@ export class ProductSkusController {
   }
 
   @Get(':skuCode')
-  @UseGuards(MenuGuard)
   @RequireMenu('MENU_MASTER_SKU', 'V')
   async detail(@Param('skuCode') skuCode: string) {
     const data = await this.svc.getSku(skuCode);
@@ -35,7 +34,6 @@ export class ProductSkusController {
   }
 
   @Post()
-  @UseGuards(MenuGuard)
   @RequireMenu('MENU_MASTER_SKU', 'E')
   async create(@Body() dto: ProductSku) {
     const data = await this.svc.createSku(dto);
@@ -43,7 +41,6 @@ export class ProductSkusController {
   }
 
   @Put(':skuCode')
-  @UseGuards(MenuGuard)
   @RequireMenu('MENU_MASTER_SKU', 'E')
   async update(@Param('skuCode') skuCode: string, @Body() dto: Partial<ProductSku>) {
     const data = await this.svc.updateSku(skuCode, dto);

@@ -2,9 +2,11 @@ import { Controller, Post, Put, Get, Body, Param, Query, Req, UseGuards } from '
 import { StoreService } from './store.service';
 import { StoreDailyCloseEntity } from './entities/store-daily-close.entity';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
 
+// [Fix Pack 1 — HIGH-3] 添加 DataScopeGuard
 @Controller('api/v3/store')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class StoreController {
   constructor(private readonly storeService: StoreService) {}
 

@@ -1,11 +1,11 @@
 import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { FarmMedicineService } from './farm-medicine.service';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { RolesGuard } from '../../common/guards/roles.guard';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 
+// [Fix Pack 1 — HIGH-2] 替换 AuthGuard → MenuGuard，添加 RequireMenu
 @Controller('api/farm/medicine')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(MenuGuard)
+@RequireMenu('MENU_FARM_VET', 'V')
 export class FarmMedicineController {
   constructor(private svc: FarmMedicineService) {}
 
@@ -28,8 +28,7 @@ export class FarmMedicineController {
    *  { date, items: [{medication_code, qty, note?}], operator? }
    */
   @Post('inbound')
-  @UseGuards(RolesGuard)
-  @Roles('ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_VET')
+  @RequireMenu('MENU_FARM_VET', 'E')
   async inbound(@Body() body: { date: string; items: Array<{ medication_code: string; qty: number; note?: string }>; operator?: string }) {
     await this.svc.inbound(body.date, body.items, body.operator ?? 'mobile');
     return { code: 200, message: '入库成功' };
@@ -39,8 +38,7 @@ export class FarmMedicineController {
    *  { date, items: [{medication_code, qty, house_code?, note?}], operator? }
    */
   @Post('outbound')
-  @UseGuards(RolesGuard)
-  @Roles('ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_VET')
+  @RequireMenu('MENU_FARM_VET', 'E')
   async outbound(@Body() body: { date: string; items: Array<{ medication_code: string; qty: number; house_code?: string; note?: string }>; operator?: string }) {
     await this.svc.outbound(body.date, body.items, body.operator ?? 'mobile');
     return { code: 200, message: '出库成功' };

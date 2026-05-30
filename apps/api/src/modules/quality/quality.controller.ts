@@ -1,13 +1,15 @@
 import { Controller, Get, Post, Body, Param, Query, Req, BadRequestException, UseGuards } from '@nestjs/common';
 import { QualityService } from './quality.service';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
 
 /**
  * V2 fidelity QualityController — 来源 _archive/phoenix-backend-v2-sqlite/src/routes/qualityTrace.js
  * 路由前缀 /api/quality
+ * [Fix Pack 1 — HIGH-3] 添加 DataScopeGuard
  */
 @Controller('api/quality')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class QualityController {
   constructor(private readonly qaService: QualityService) {}
 

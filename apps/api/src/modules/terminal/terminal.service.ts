@@ -14,36 +14,27 @@ export class TerminalService {
   ) {}
 
   // ─── 包装与分级配置 ─────────────────────────────────────────────────────────
-  // 真实标准存在 sys_dict.PKG_EGG_GRADE，每行 config_json 含结构化字段：
-  //   { code, nameZh, nameLo, nameEn, weightRange, saleable, productCode }
+  // [Fix Pack 1 — HIGH-4] 从 product_grades 主数据表读取等级配置
+  // 不再读取 sys_dict.PKG_EGG_GRADE（H2 迁移后统一来源为 product_grades）
   // 前端 grading/page.tsx 期望 { grades: [...] } 格式（非 { data: [...] }）
   async getGradeConfig() {
     try {
       const rows = await this.em.query(
-        `SELECT dict_code, dict_label_zh, dict_label_lo, dict_label_en, config_json, sort_no
-         FROM sys_dict
-         WHERE dict_type = 'PKG_EGG_GRADE' AND status = 'ACTIVE'
-         ORDER BY sort_no ASC`,
+        `SELECT grade_code, grade_name, grade_name_lo, sort_order, is_saleable, is_storable
+         FROM product_grades WHERE status = 'ACTIVE'
+         ORDER BY sort_order ASC`,
       );
-      const grades = rows.map((r: any, idx: number) => {
-        let cfg: any = {};
-        try {
-          cfg = typeof r.config_json === 'string'
-            ? JSON.parse(r.config_json)
-            : (r.config_json || {});
-        } catch { cfg = {}; }
-        return {
-          code:        cfg.code        || r.dict_code,
-          name:        cfg.nameZh      || r.dict_label_zh,
-          nameZh:      cfg.nameZh      || r.dict_label_zh,
-          nameLo:      cfg.nameLo      || r.dict_label_lo,
-          nameEn:      cfg.nameEn      || r.dict_label_en,
-          weightRange: cfg.weightRange || '',
-          saleable:    cfg.saleable !== false,
-          productCode: cfg.productCode || '',
-          sort_no:     r.sort_no ?? idx,
-        };
-      });
+      const grades = rows.map((r: any, idx: number) => ({
+        code:        r.grade_code,
+        name:        r.grade_name,
+        nameZh:      r.grade_name,
+        nameLo:      r.grade_name_lo   || '',
+        nameEn:      r.grade_code,
+        weightRange: '',
+        saleable:    r.is_saleable !== false,
+        productCode: `PRD-EGG-${r.grade_code}`,
+        sort_no:     r.sort_order ?? idx,
+      }));
       return { code: 200, grades };
     } catch (e: any) {
       console.warn('[getGradeConfig][WARN]', e?.message);

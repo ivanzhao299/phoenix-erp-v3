@@ -1,10 +1,12 @@
 import { Controller, Get, Post, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { WmsService } from './wms.service';
 import { RequireMenu, MenuGuard } from '../../common/guards/menu.guard';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
 
 // 同步暴露 /api/stocktake/daily-close 给前端 daily-close 页（避免改前端）
+// [Fix Pack 1 — HIGH-3] 添加 DataScopeGuard
 @Controller('api/stocktake')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class StocktakeController {
   constructor(private readonly wmsService: WmsService) {}
 

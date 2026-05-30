@@ -65,7 +65,13 @@ export class FarmSalesService {
   }
 
   /** 创建农场直销单（同步扣减蛋库） */
-  async createSale(dto: CreateFarmSaleDto) {
+  // [Fix Pack 1 — HIGH-1] 农场直销旧写路径已停用
+  // 新建销售单请使用 Sales V2：/api/sales/orders
+  async createSale(_dto: CreateFarmSaleDto): Promise<never> {
+    throw new Error('农场直销旧流程已停用，请使用新版销售管理。');
+  }
+  /** @deprecated 保留签名以避免 TS 编译错误，逻辑已移至 throw 块 */
+  private async _createSaleLegacy(dto: CreateFarmSaleDto) {
     // 生成单号：当日序号
     const [{ cnt }] = await this.ds.query<any[]>(
       `SELECT COUNT(*)::int AS cnt FROM ord_orders

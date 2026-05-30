@@ -1,11 +1,11 @@
 import { Controller, Get, Post, Body, Query, UseGuards, Req } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { FarmFeedService } from './farm-feed.service';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { RolesGuard } from '../../common/guards/roles.guard';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 
+// [Fix Pack 1 — HIGH-2] 替换 AuthGuard → MenuGuard，添加 RequireMenu
 @Controller('api/farm/feed')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(MenuGuard)
+@RequireMenu('MENU_BREEDING', 'V')
 export class FarmFeedController {
   constructor(private readonly feedService: FarmFeedService) {}
 
@@ -18,8 +18,7 @@ export class FarmFeedController {
 
   /** POST /api/farm/feed/ledger  body: { date, items: [...] } */
   @Post('ledger')
-  @UseGuards(RolesGuard)
-  @Roles('ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_VET', 'ROLE_BREEDER')
+  @RequireMenu('MENU_BREEDING', 'E')
   async saveLedger(@Body() body: any, @Req() req: any) {
     const { date, items } = body;
     if (!date || !Array.isArray(items)) return { code: 400, msg: '缺少 date 或 items' };
