@@ -18,6 +18,10 @@ interface InvBatch {
   source_no: string | null;
   created_at: string;
   days_remaining?: number;
+  /** Phase H4 */
+  sku_code?: string | null;
+  grade_code_std?: string | null;
+  spec_code?: string | null;
 }
 
 interface DashboardStats {
@@ -29,18 +33,32 @@ interface DashboardStats {
   returnedBatches: number;
   todayExpireLoss: number;
   todayDamageLoss: number;
+  /** Phase H4 */
+  skuLinkedBatches?: number;
 }
 
 interface LossAnalysis {
   byType: Array<{ change_type: string; total_loss: number; batch_count: number }>;
-  byBatch: Array<{ batch_no: string; product_code: string; total_loss: number; last_event: string }>;
+  byBatch: Array<{ batch_no: string; product_code: string; total_loss: number; last_event: string; sku_code?: string | null }>;
   summary: { total_expire_loss: number; total_damage_loss: number; total_loss: number };
+}
+
+/** Phase H4: SKU 主数据 */
+interface SkuItem {
+  sku_code: string;
+  product_code: string;
+  grade_code: string;
+  spec_code: string;
+  sku_name?: string;
+  status: string;
 }
 
 // ── API helper ────────────────────────────────────────────────────────────────
 
 async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const token = typeof window !== 'undefined'
+    ? localStorage.getItem('phoenix_token') || sessionStorage.getItem('phoenix_token') || null
+    : null;
   const res = await fetch(`/api/v2/sales/inventory${path}`, {
     method,
     headers: {
@@ -54,6 +72,21 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
     throw new Error(err.message ?? res.statusText);
   }
   return res.json() as Promise<T>;
+}
+
+/** Phase H4: 加载 SKU 主数据 */
+async function loadSkus(): Promise<SkuItem[]> {
+  try {
+    const token = typeof window !== 'undefined'
+      ? localStorage.getItem('phoenix_token') || sessionStorage.getItem('phoenix_token') || ''
+      : '';
+    const res = await fetch('/api/product-master/skus', {
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (json.data ?? []) as SkuItem[];
+  } catch { return []; }
 }
 
 function fmt(n: number | null | undefined, dec = 0): string {
@@ -86,6 +119,18 @@ function statusBadge(status: string): React.ReactNode {
   );
 }
 
+/** Phase H4: SKU 徽章 */
+function SkuBadge({ skuCode }: { skuCode?: string | null }) {
+  if (!skuCode) return <span style={{ color: '#9ca3af', fontSize: 11 }}>旧批次</span>;
+  return (
+    <span style={{
+      fontFamily: 'monospace', fontSize: 11, fontWeight: 600,
+      background: 'rgba(99,102,241,0.12)', color: '#818cf8',
+      borderRadius: 4, padding: '2px 6px', border: '1px solid rgba(99,102,241,0.25)',
+    }}>{skuCode}</span>
+  );
+}
+
 // ── 仪表盘统计卡 ───────────────────────────────────────────────────────────────
 
 function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: string }) {
@@ -110,21 +155,33 @@ function BatchesTab() {
   const [productCode, setProductCode] = useState('EGG');
   const [gradeCode, setGradeCode] = useState('');
   const [companyCode, setCompanyCode] = useState('');
+  const [skuCodeFilter, setSkuCodeFilter] = useState('');
 
   // 手动创建批次
   const [showCreate, setShowCreate] = useState(false);
+  const [skus, setSkus] = useState<SkuItem[]>([]);
   const [form, setForm] = useState({
     companyCode: '', eggDate: '', qualityGrade: 'AA',
     packagingSpec: '', productCode: 'EGG', qty: '', shelfDays: '30', sourceNo: '',
+    // Phase H4
+    skuCode: '',
   });
   const [creating, setCreating] = useState(false);
   const [createErr, setCreateErr] = useState('');
 
+  // Phase H4: 加载 SKU 主数据
+  useEffect(() => { loadSkus().then(setSkus); }, []);
+
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const params = new URLSearchParams({ productCode });
-      if (gradeCode) params.set('gradeCode', gradeCode);
+      const params = new URLSearchParams();
+      if (skuCodeFilter) {
+        params.set('skuCode', skuCodeFilter);
+      } else {
+        params.set('productCode', productCode);
+        if (gradeCode) params.set('gradeCode', gradeCode);
+      }
       if (companyCode) params.set('companyCode', companyCode);
       const data = await api<InvBatch[]>('GET', `/batches?${params}`);
       setBatches(data);
@@ -133,24 +190,43 @@ function BatchesTab() {
     } finally {
       setLoading(false);
     }
-  }, [productCode, gradeCode, companyCode]);
+  }, [productCode, gradeCode, companyCode, skuCodeFilter]);
 
   useEffect(() => { load(); }, [load]);
+
+  /** Phase H4: 选择 SKU → 自动填充 productCode/qualityGrade/packagingSpec */
+  const handleSkuSelect = (skuCode: string) => {
+    const sku = skus.find(x => x.sku_code === skuCode);
+    if (sku) {
+      setForm(f => ({
+        ...f,
+        skuCode,
+        productCode:   sku.product_code,
+        qualityGrade:  sku.grade_code,
+        packagingSpec: sku.spec_code,
+      }));
+    } else {
+      setForm(f => ({ ...f, skuCode }));
+    }
+  };
 
   const handleCreate = async () => {
     setCreating(true); setCreateErr('');
     try {
       await api('POST', '/batches', {
-        companyCode: form.companyCode,
-        eggDate: form.eggDate,
-        qualityGrade: form.qualityGrade || undefined,
-        packagingSpec: form.packagingSpec || undefined,
-        productCode: form.productCode,
-        qty: Number(form.qty),
-        shelfDays: form.shelfDays ? Number(form.shelfDays) : undefined,
-        sourceNo: form.sourceNo || undefined,
+        companyCode:  form.companyCode,
+        eggDate:      form.eggDate,
+        qualityGrade: form.skuCode ? undefined : (form.qualityGrade || undefined),
+        packagingSpec:form.skuCode ? undefined : (form.packagingSpec || undefined),
+        productCode:  form.productCode,
+        qty:          Number(form.qty),
+        shelfDays:    form.shelfDays ? Number(form.shelfDays) : undefined,
+        sourceNo:     form.sourceNo || undefined,
+        // Phase H4: 传入 skuCode（可选）
+        skuCode:      form.skuCode || undefined,
       });
       setShowCreate(false);
+      setForm(f => ({ ...f, skuCode: '' }));
       load();
     } catch (e: unknown) {
       setCreateErr(e instanceof Error ? e.message : String(e));
@@ -163,14 +239,26 @@ function BatchesTab() {
     <div>
       {/* 搜索栏 */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input value={productCode} onChange={e => setProductCode(e.target.value)}
-          placeholder="产品代码" style={inputStyle} />
-        <select value={gradeCode} onChange={e => setGradeCode(e.target.value)} style={inputStyle}>
-          <option value="">所有等级</option>
-          {['AA','A','B','DIRTY','CRACKED','DAMAGED'].map(g => (
-            <option key={g} value={g}>{g}</option>
+        {/* Phase H4: SKU 快捷过滤（优先于 product+grade） */}
+        <select value={skuCodeFilter} onChange={e => { setSkuCodeFilter(e.target.value); }}
+          style={{ ...inputStyle, minWidth: 180 }}>
+          <option value="">按商品组合(SKU)过滤...</option>
+          {skus.filter(x => x.status === 'ACTIVE').map(x => (
+            <option key={x.sku_code} value={x.sku_code}>{x.sku_code}</option>
           ))}
         </select>
+        {!skuCodeFilter && (
+          <>
+            <input value={productCode} onChange={e => setProductCode(e.target.value)}
+              placeholder="产品代码" style={inputStyle} />
+            <select value={gradeCode} onChange={e => setGradeCode(e.target.value)} style={inputStyle}>
+              <option value="">所有等级</option>
+              {['AA','A','B','DIRTY','CRACKED','DAMAGED'].map(g => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+          </>
+        )}
         <input value={companyCode} onChange={e => setCompanyCode(e.target.value)}
           placeholder="公司/农场代码" style={inputStyle} />
         <button onClick={load} style={btnStyle('#2563eb')}>查询</button>
@@ -186,6 +274,29 @@ function BatchesTab() {
           padding: 20, marginBottom: 16,
         }}>
           <h4 style={{ margin: '0 0 12px', color: '#15803d' }}>创建生产批次</h4>
+
+          {/* Phase H4: SKU 快捷选择 */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>
+              商品组合（SKU）<span style={{ fontSize: 11, color: '#6b7280', marginLeft: 6 }}>选择后自动填充产品/等级/规格</span>
+            </label>
+            {skus.length === 0 ? (
+              <div style={{ fontSize: 12, color: '#d97706', padding: '6px 10px', background: '#fffbeb', borderRadius: 6, border: '1px solid #fde68a' }}>
+                暂无 SKU 主数据，请先在主数据中心维护商品组合
+              </div>
+            ) : (
+              <select value={form.skuCode} onChange={e => handleSkuSelect(e.target.value)}
+                style={{ ...inputStyle, width: 280 }}>
+                <option value="">— 不使用 SKU 选择器，手动填写 —</option>
+                {skus.filter(x => x.status === 'ACTIVE').map(x => (
+                  <option key={x.sku_code} value={x.sku_code}>
+                    {x.sku_code}{x.sku_name ? ` · ${x.sku_name}` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
             {([
               ['公司代码', 'companyCode', 'text'],
@@ -198,14 +309,19 @@ function BatchesTab() {
             ] as const).map(([label, key, type]) => (
               <label key={key} style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13 }}>
                 {label}
-                <input type={type} value={(form as any)[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
-                  style={inputStyle} />
+                <input type={type}
+                  value={(form as any)[key]}
+                  disabled={!!form.skuCode && ['productCode','packagingSpec'].includes(key)}
+                  onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+                  style={{ ...inputStyle, ...(!!form.skuCode && ['productCode','packagingSpec'].includes(key) ? { background: '#f3f4f6', color: '#9ca3af' } : {}) }} />
               </label>
             ))}
             <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13 }}>
               质量等级
-              <select value={form.qualityGrade} onChange={e => setForm(p => ({ ...p, qualityGrade: e.target.value }))}
-                style={inputStyle}>
+              <select value={form.qualityGrade}
+                disabled={!!form.skuCode}
+                onChange={e => setForm(p => ({ ...p, qualityGrade: e.target.value }))}
+                style={{ ...inputStyle, ...(form.skuCode ? { background: '#f3f4f6', color: '#9ca3af' } : {}) }}>
                 {['AA','A','B','DIRTY','CRACKED','DAMAGED'].map(g => (
                   <option key={g} value={g}>{g}</option>
                 ))}
@@ -217,7 +333,7 @@ function BatchesTab() {
             <button onClick={handleCreate} disabled={creating} style={btnStyle('#16a34a')}>
               {creating ? '创建中...' : '确认创建'}
             </button>
-            <button onClick={() => setShowCreate(false)} style={btnStyle('#6b7280')}>取消</button>
+            <button onClick={() => { setShowCreate(false); setForm(f => ({ ...f, skuCode: '' })); }} style={btnStyle('#6b7280')}>取消</button>
           </div>
         </div>
       )}
@@ -230,18 +346,19 @@ function BatchesTab() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#f9fafb' }}>
-                {['批次号','产品代码','等级','公司','可用量','总量','状态','生产日期','到期日','来源'].map(h => (
+                {['批次号','商品组合','产品代码','等级','公司','可用量','总量','状态','生产日期','到期日','来源'].map(h => (
                   <th key={h} style={thStyle}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {batches.length === 0 && (
-                <tr><td colSpan={10} style={{ textAlign: 'center', color: '#9ca3af', padding: 40 }}>暂无数据</td></tr>
+                <tr><td colSpan={11} style={{ textAlign: 'center', color: '#9ca3af', padding: 40 }}>暂无数据</td></tr>
               )}
               {batches.map(b => (
                 <tr key={b.batch_no} style={{ borderBottom: '1px solid #f3f4f6' }}>
                   <td style={tdStyle}><code style={{ fontSize: 11 }}>{b.batch_no}</code></td>
+                  <td style={tdStyle}><SkuBadge skuCode={b.sku_code} /></td>
                   <td style={tdStyle}>{b.product_code}</td>
                   <td style={tdStyle}>
                     <span style={{ color: gradeColor(b.quality_grade), fontWeight: 600 }}>
@@ -316,14 +433,14 @@ function ExpiringTab() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#fffbeb' }}>
-                {['批次号','产品','等级','公司','可用量','到期日','剩余天数','状态'].map(h => (
+                {['批次号','商品组合','产品','等级','公司','可用量','到期日','剩余天数','状态'].map(h => (
                   <th key={h} style={thStyle}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {batches.length === 0 && (
-                <tr><td colSpan={8} style={{ textAlign: 'center', color: '#9ca3af', padding: 40 }}>无临期库存</td></tr>
+                <tr><td colSpan={9} style={{ textAlign: 'center', color: '#9ca3af', padding: 40 }}>无临期库存</td></tr>
               )}
               {batches.map(b => {
                 const daysLeft = (b as any).days_remaining ?? 0;
@@ -334,6 +451,7 @@ function ExpiringTab() {
                     background: urgent ? '#fff1f2' : '#fffbeb',
                   }}>
                     <td style={tdStyle}><code style={{ fontSize: 11 }}>{b.batch_no}</code></td>
+                    <td style={tdStyle}><SkuBadge skuCode={b.sku_code} /></td>
                     <td style={tdStyle}>{b.product_code}</td>
                     <td style={tdStyle}>
                       <span style={{ color: gradeColor(b.quality_grade), fontWeight: 600 }}>
@@ -361,26 +479,46 @@ function ExpiringTab() {
 // ── Tab: FIFO 出库 ────────────────────────────────────────────────────────────
 
 function FifoTab() {
+  const [skus, setSkus] = useState<SkuItem[]>([]);
   const [form, setForm] = useState({
     productCode: 'EGG', gradeCode: '', companyCode: '', qty: '', refNo: '', note: '',
+    // Phase H4
+    skuCode: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
 
+  useEffect(() => { loadSkus().then(setSkus); }, []);
+
+  /** Phase H4: 选择 SKU → 自动填充 productCode */
+  const handleSkuSelect = (skuCode: string) => {
+    const sku = skus.find(x => x.sku_code === skuCode);
+    if (sku) {
+      setForm(f => ({ ...f, skuCode, productCode: sku.product_code, gradeCode: sku.grade_code }));
+    } else {
+      setForm(f => ({ ...f, skuCode }));
+    }
+  };
+
   const handleAllocate = async () => {
-    if (!form.productCode || !form.companyCode || !form.qty || !form.refNo) {
-      setError('请填写产品代码、公司代码、数量和单号'); return;
+    if (!form.companyCode || !form.qty || !form.refNo) {
+      setError('请填写公司代码、数量和单号'); return;
+    }
+    if (!form.skuCode && !form.productCode) {
+      setError('请选择商品组合或填写产品代码'); return;
     }
     setLoading(true); setError(''); setResult(null);
     try {
       const data = await api<Record<string, unknown>>('POST', '/allocate', {
         productCode: form.productCode,
-        gradeCode: form.gradeCode || undefined,
+        gradeCode:   form.gradeCode || undefined,
         companyCode: form.companyCode,
-        qty: Number(form.qty),
-        refNo: form.refNo,
-        note: form.note || '手动分配',
+        qty:         Number(form.qty),
+        refNo:       form.refNo,
+        note:        form.note || '手动分配',
+        // Phase H4
+        skuCode:     form.skuCode || undefined,
       });
       setResult(data);
     } catch (e: unknown) {
@@ -395,7 +533,25 @@ function FifoTab() {
       <h4 style={{ marginTop: 0, color: '#374151' }}>手动 FIFO 分配（测试 / 调整用）</h4>
       <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
         系统在销售订单审批通过时自动执行 FIFO 预留，此页面仅供管理员手动调整。
+        Phase H4：支持按商品组合（SKU）精确分配。
       </p>
+
+      {/* Phase H4: SKU 快捷选择 */}
+      {skus.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>
+            商品组合（SKU）优先分配
+          </label>
+          <select value={form.skuCode} onChange={e => handleSkuSelect(e.target.value)}
+            style={{ ...inputStyle, width: '100%' }}>
+            <option value="">— 不使用 SKU 路径，手动填写产品代码 —</option>
+            {skus.filter(x => x.status === 'ACTIVE').map(x => (
+              <option key={x.sku_code} value={x.sku_code}>{x.sku_code}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         {([
           ['产品代码', 'productCode', 'text'],
@@ -407,18 +563,21 @@ function FifoTab() {
           <label key={key} style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13 }}>
             {label}
             <input type={type} value={(form as any)[key]}
+              disabled={!!form.skuCode && key === 'productCode'}
               onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
-              style={inputStyle} />
+              style={{ ...inputStyle, ...(form.skuCode && key === 'productCode' ? { background: '#f3f4f6', color: '#9ca3af' } : {}) }} />
           </label>
         ))}
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13 }}>
-          质量等级（可选）
-          <select value={form.gradeCode} onChange={e => setForm(p => ({ ...p, gradeCode: e.target.value }))}
-            style={inputStyle}>
-            <option value="">不限等级</option>
-            {['AA','A','B'].map(g => <option key={g} value={g}>{g}</option>)}
-          </select>
-        </label>
+        {!form.skuCode && (
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13 }}>
+            质量等级（可选）
+            <select value={form.gradeCode} onChange={e => setForm(p => ({ ...p, gradeCode: e.target.value }))}
+              style={inputStyle}>
+              <option value="">不限等级</option>
+              {['AA','A','B'].map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </label>
+        )}
       </div>
       {error && <div style={{ color: '#dc2626', marginTop: 10 }}>{error}</div>}
       <button onClick={handleAllocate} disabled={loading}
@@ -482,14 +641,12 @@ function LossTab() {
         <div style={{ textAlign: 'center', color: '#9ca3af', padding: 40 }}>加载中...</div>
       ) : data && (
         <div>
-          {/* 汇总卡 */}
           <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
             <StatCard label="30日过期损耗（枚）" value={fmt(data.summary.total_expire_loss)} color="#dc2626" />
             <StatCard label="30日破损损耗（枚）" value={fmt(data.summary.total_damage_loss)} color="#d97706" />
             <StatCard label="30日合计损耗（枚）" value={fmt(data.summary.total_loss)} color="#7c3aed" />
           </div>
 
-          {/* 按类型明细 */}
           <h4 style={{ color: '#374151', marginBottom: 8 }}>按损耗类型（近30天）</h4>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 24 }}>
             <thead>
@@ -511,25 +668,25 @@ function LossTab() {
             </tbody>
           </table>
 
-          {/* 按批次明细 */}
           <h4 style={{ color: '#374151', marginBottom: 8 }}>按批次损耗排名（近30天）</h4>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#faf5ff' }}>
-                {['批次号','产品代码','合计损耗','最后事件时间'].map(h => <th key={h} style={thStyle}>{h}</th>)}
+                {['批次号','商品组合','产品代码','合计损耗','最后事件时间'].map(h => <th key={h} style={thStyle}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
               {(data.byBatch ?? []).slice(0, 20).map((row, i) => (
                 <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
                   <td style={tdStyle}><code style={{ fontSize: 11 }}>{row.batch_no}</code></td>
+                  <td style={tdStyle}><SkuBadge skuCode={row.sku_code} /></td>
                   <td style={tdStyle}>{row.product_code}</td>
                   <td style={{ ...tdStyle, fontWeight: 700, color: '#dc2626' }}>{fmt(row.total_loss)}</td>
                   <td style={tdStyle}>{row.last_event ? new Date(row.last_event).toLocaleString('zh-CN') : '—'}</td>
                 </tr>
               ))}
               {(data.byBatch ?? []).length === 0 && (
-                <tr><td colSpan={4} style={{ textAlign: 'center', color: '#9ca3af', padding: 24 }}>暂无数据</td></tr>
+                <tr><td colSpan={5} style={{ textAlign: 'center', color: '#9ca3af', padding: 24 }}>暂无数据</td></tr>
               )}
             </tbody>
           </table>
@@ -584,7 +741,7 @@ export default function InventoryPage() {
           库存管理 — 鸡蛋库存 Runtime
         </h2>
         <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>
-          FIFO 先进先出 · 到期预警 · 损耗分析 · Phase 7
+          FIFO 先进先出 · SKU 精确分配 · 到期预警 · 损耗分析 · Phase 7 + H4
         </p>
       </div>
 
@@ -596,6 +753,10 @@ export default function InventoryPage() {
           <StatCard label="临期批次（≤7天）" value={stats.expiringBatches} color="#d97706" sub={`${fmt(stats.expiringQty)} 枚`} />
           <StatCard label="已过期批次" value={stats.expiredBatches} color="#dc2626" />
           <StatCard label="退货待检批次" value={stats.returnedBatches} color="#9333ea" />
+          {stats.skuLinkedBatches !== undefined && (
+            <StatCard label="已接入 SKU 批次" value={stats.skuLinkedBatches} color="#6366f1"
+              sub="Phase H4" />
+          )}
           <StatCard label="今日过期损耗（枚）" value={fmt(stats.todayExpireLoss)} color="#be123c" />
           <StatCard label="今日破损损耗（枚）" value={fmt(stats.todayDamageLoss)} color="#b45309" />
         </div>

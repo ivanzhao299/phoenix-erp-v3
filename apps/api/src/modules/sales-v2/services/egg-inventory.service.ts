@@ -6,7 +6,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 
 /**
- * EggInventoryService — Sales V2 Phase 7
+ * EggInventoryService — Sales V2 Phase 7 + Phase H4
  *
  * 鸡蛋时效库存 Runtime。
  *
@@ -17,6 +17,12 @@ import { ClsService } from 'nestjs-cls';
  *   · 退货重检：RETURNED 批次不可直接再销售
  *   · qty_available 不允许负数（Advisory Lock 防并发）
  *   · 所有变动写 inv_ledger（完整审计链）
+ *
+ * Phase H4 新增：
+ *   · 批次支持 sku_code / grade_code_std / spec_code（均可选，向后兼容）
+ *   · FIFO 分配支持 PATH A（sku_code 精确匹配）+ PATH B（旧 product+grade 兼容）
+ *   · writeLedger 增加 sku_code 传递，支持 SKU 维度流水追溯
+ *   · createProductionBatch 支持 skuCode 参数，自动推导等级/规格
  *
  * 批次号规则：
  *   生产批次：  EGG-YYYYMMDD-NNNNN
@@ -51,6 +57,12 @@ export interface EggBatch {
   qty_available: number;
   status: string;
   created_at: string;
+  /** Phase H4: 关联 product_skus.sku_code（可选） */
+  sku_code: string | null;
+  /** Phase H4: 标准等级编码（product_grades.grade_code，与旧 quality_grade 并存） */
+  grade_code_std: string | null;
+  /** Phase H4: 标准规格编码（packaging_specs.spec_code，与旧 packaging_spec 并存） */
+  spec_code: string | null;
 }
 
 export interface FifoAllocation {
@@ -59,14 +71,14 @@ export interface FifoAllocation {
   expireDate:    string | null;
   qualityGrade:  string | null;
   remaining:     number;   // 未满足的数量（正常为 0）
+  /** Phase H4 */
+  skuCode:       string | null;
 }
 
 /** 默认保质期：30 天 */
 const DEFAULT_SHELF_DAYS = 30;
 /** 临期预警阈值：7 天 */
 const EXPIRING_WARN_DAYS = 7;
-/** 大额退货审批阈值（LAK） */
-const APPROVAL_THRESHOLD = 500_000;
 
 @Injectable()
 export class EggInventoryService {
@@ -98,18 +110,23 @@ export class EggInventoryService {
     return d.toISOString().slice(0, 10);
   }
 
-  /** 写 inv_ledger 流水（内部） */
+  /**
+   * 写 inv_ledger 流水（内部）
+   * Phase H4：新增 skuCode 传递，支持按 SKU 维度追溯
+   */
   private async writeLedger(
     params: {
-      batchNo:        string;
-      changeType:     string;
-      qtyChange:      number;
-      operator:       string;
-      companyCode:    string;
-      refNo:          string;
-      note:           string;
+      batchNo:         string;
+      changeType:      string;
+      qtyChange:       number;
+      operator:        string;
+      companyCode:     string;
+      refNo:           string;
+      note:            string;
       batchExpireDate?: string | null;
-      qualityGrade?:  string | null;
+      qualityGrade?:   string | null;
+      /** Phase H4: 从批次传递 sku_code，写入 inv_ledger 便于追溯 */
+      skuCode?:        string | null;
     },
     mgr?: EntityManager,
   ) {
@@ -117,8 +134,8 @@ export class EggInventoryService {
     await q(
       `INSERT INTO inv_ledger
          (batch_no, change_type, qty_change, operator, store_code, ref_no, note,
-          batch_expire_date, quality_grade, company_code)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          batch_expire_date, quality_grade, company_code, sku_code)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [
         params.batchNo,
         params.changeType,
@@ -130,25 +147,82 @@ export class EggInventoryService {
         params.batchExpireDate ?? null,
         params.qualityGrade ?? null,
         params.companyCode,
+        params.skuCode ?? null,
       ],
     );
   }
 
+  /**
+   * Phase H4: 根据 sku_code 查询 product_skus，返回推导信息
+   * 仅在 skuCode 参数存在时调用
+   */
+  private async resolveSkuInfo(skuCode: string): Promise<{
+    productCode: string;
+    gradeCode:   string;
+    specCode:    string;
+  }> {
+    const rows = await this.ds.query(
+      `SELECT product_code, grade_code, spec_code FROM product_skus WHERE sku_code = $1 AND status = 'ACTIVE'`,
+      [skuCode],
+    );
+    if (!rows?.length) {
+      throw new BadRequestException(`SKU "${skuCode}" 不存在或已停用，请先在主数据中心维护 SKU 档案`);
+    }
+    return {
+      productCode: rows[0].product_code,
+      gradeCode:   rows[0].grade_code,
+      specCode:    rows[0].spec_code,
+    };
+  }
+
   // ── 1. 创建生产批次 ──────────────────────────────────────────────────────────
 
+  /**
+   * 创建生产批次
+   *
+   * Phase H4 新增参数：skuCode（可选）
+   * - 传入 skuCode 时：自动校验 SKU 存在性，从 product_skus 推导 productCode/grade/spec
+   * - 未传 skuCode 时：使用旧逻辑（productCode + qualityGrade + packagingSpec）
+   */
   async createProductionBatch(params: {
-    companyCode:   string;
+    companyCode:    string;
     warehouseCode?: string;
-    eggDate:       string;
-    qualityGrade?: string;
+    eggDate:        string;
+    qualityGrade?:  string;
     packagingSpec?: string;
-    productCode:   string;
-    qty:           number;
-    shelfDays?:    number;
-    sourceNo?:     string;
+    productCode:    string;
+    qty:            number;
+    shelfDays?:     number;
+    sourceNo?:      string;
+    /** Phase H4: 优先使用 SKU 填充产品/等级/规格 */
+    skuCode?:       string;
+    gradeCodeStd?:  string;
+    specCode?:      string;
   }): Promise<EggBatch> {
     if (params.qty <= 0) throw new BadRequestException('入库数量必须大于 0');
-    const validGrades = ['AA','A','B','DIRTY','CRACKED','DAMAGED'];
+
+    // Phase H4 PATH A: 传入 sku_code → 校验并自动推导字段
+    let productCode  = params.productCode;
+    let gradeCodeStd = params.gradeCodeStd ?? null;
+    let specCode     = params.specCode     ?? null;
+    let skuCode      = params.skuCode      ?? null;
+
+    if (skuCode) {
+      const skuInfo = await this.resolveSkuInfo(skuCode);
+      productCode  = skuInfo.productCode;
+      gradeCodeStd = skuInfo.gradeCode;
+      specCode     = skuInfo.specCode;
+      // 兼容写旧字段：quality_grade 对齐标准等级，packaging_spec 对齐标准规格编码
+      params = {
+        ...params,
+        productCode,
+        qualityGrade:  params.qualityGrade  ?? skuInfo.gradeCode,
+        packagingSpec: params.packagingSpec ?? skuInfo.specCode,
+      };
+    }
+
+    // 质量等级校验（旧逻辑保留，新等级也在白名单内）
+    const validGrades = ['AA', 'A', 'B', 'DIRTY', 'CRACKED', 'DAMAGED'];
     const grade = params.qualityGrade ?? 'A';
     if (!validGrades.includes(grade)) {
       throw new BadRequestException(`无效的质量等级: ${grade}，有效值：${validGrades.join('/')}`);
@@ -158,24 +232,31 @@ export class EggInventoryService {
     const expireDate = this.calcExpireDate(params.eggDate, params.shelfDays ?? DEFAULT_SHELF_DAYS);
     const qty        = Math.round(params.qty);
 
+    // Phase H4: INSERT 增加三个新字段
     const [batch] = await this.ds.query(
       `INSERT INTO inv_batches (
          batch_no, product_code, company_code, warehouse_code,
          egg_date, expire_date, quality_grade, packaging_spec,
          source_type, source_no,
          qty, qty_available, status,
+         sku_code, grade_code_std, spec_code,
          created_at, updated_at
        ) VALUES (
          $1,$2,$3,$4,$5,$6,$7,$8,'PRODUCTION',$9,
-         $10,$10,'AVAILABLE',NOW(),NOW()
+         $10,$10,'AVAILABLE',
+         $11,$12,$13,
+         NOW(),NOW()
        ) RETURNING *`,
       [
-        batchNo, params.productCode, params.companyCode,
+        batchNo, productCode, params.companyCode,
         params.warehouseCode ?? null,
         params.eggDate, expireDate, grade,
         params.packagingSpec ?? null,
         params.sourceNo ?? null,
         qty,
+        skuCode,
+        gradeCodeStd,
+        specCode,
       ],
     );
 
@@ -186,33 +267,46 @@ export class EggInventoryService {
       operator:    this.operator,
       companyCode: params.companyCode,
       refNo:       params.sourceNo ?? batchNo,
-      note:        `生产入库 product=${params.productCode} grade=${grade} qty=${qty} expire=${expireDate}`,
+      note:        `生产入库 product=${productCode} grade=${grade}${skuCode ? ` sku=${skuCode}` : ''} qty=${qty} expire=${expireDate}`,
       batchExpireDate: expireDate,
       qualityGrade:    grade,
+      skuCode,
     });
 
-    this.logger.log(`[EggInv] 生产入库: ${batchNo} qty=${qty} expire=${expireDate}`);
+    this.logger.log(`[EggInv] 生产入库: ${batchNo} qty=${qty} expire=${expireDate}${skuCode ? ` sku=${skuCode}` : ''}`);
     return batch as EggBatch;
   }
 
   // ── 2. 查询可销售批次（FIFO 排序） ──────────────────────────────────────────
 
+  /**
+   * Phase H4: 新增 skuCode 参数（可选）
+   * - 传入 skuCode 时：只返回该 SKU 的批次（PATH A）
+   * - 未传时：按 productCode + gradeCode 过滤（PATH B，旧逻辑）
+   */
   async getAvailableBatches(params: {
-    productCode:  string;
-    companyCode?: string;
-    gradeCode?:   string;
+    productCode?:       string;
+    companyCode?:       string;
+    gradeCode?:         string;
     includingExpiring?: boolean;
+    /** Phase H4: 按 SKU 精确过滤（优先于 productCode + gradeCode） */
+    skuCode?:           string;
   }): Promise<EggBatch[]> {
-    const conds = [
-      `product_code = $1`,
-      `status = 'AVAILABLE'`,
-      `qty_available > 0`,
-    ];
-    const args: unknown[] = [params.productCode];
-    let pi = 2;
+    const conds: string[] = [`status = 'AVAILABLE'`, `qty_available > 0`];
+    const args: unknown[] = [];
+    let pi = 1;
+
+    if (params.skuCode) {
+      // Phase H4 PATH A: SKU 精确匹配
+      conds.push(`sku_code = $${pi++}`);
+      args.push(params.skuCode);
+    } else {
+      // Phase H4 PATH B: 旧逻辑（H5 后逐步移除旧路径）
+      if (params.productCode) { conds.push(`product_code = $${pi++}`); args.push(params.productCode); }
+      if (params.gradeCode)   { conds.push(`quality_grade = $${pi++}`); args.push(params.gradeCode); }
+    }
 
     if (params.companyCode) { conds.push(`company_code = $${pi++}`); args.push(params.companyCode); }
-    if (params.gradeCode)   { conds.push(`quality_grade = $${pi++}`); args.push(params.gradeCode); }
 
     // 过期禁售
     if (!params.includingExpiring) {
@@ -233,6 +327,19 @@ export class EggInventoryService {
 
   // ── 3. FIFO 分配（预占 qty_available） ──────────────────────────────────────
 
+  /**
+   * Phase H4 升级：支持 skuCode 优先路径
+   *
+   * PATH A（sku_code 精确）：当 skuCode 参数存在时，只从该 SKU 批次中分配
+   *   - Advisory Lock key: `fifo:${companyCode}:sku:${skuCode}`（更细粒度）
+   *   - WHERE sku_code = $N
+   *
+   * PATH B（旧 product+grade）：回退逻辑，H5 后标注为 @deprecated
+   *   - Advisory Lock key: `fifo:${companyCode}:${productCode}`（原有）
+   *   - WHERE product_code = $1 [AND quality_grade = $N]
+   *
+   * 注意：PATH B 中 gradeCode 参数仍用 quality_grade 列（旧字段），不改 FIFO 逻辑
+   */
   async allocateByFIFO(
     params: {
       productCode:  string;
@@ -241,6 +348,8 @@ export class EggInventoryService {
       qty:          number;
       refNo:        string;
       note:         string;
+      /** Phase H4: SKU 优先分配路径 */
+      skuCode?:     string;
     },
     mgr?: EntityManager,
   ): Promise<FifoAllocation[]> {
@@ -248,21 +357,36 @@ export class EggInventoryService {
 
     if (params.qty <= 0) throw new BadRequestException('分配数量必须大于 0');
 
-    // Advisory Lock 防并发超卖（key = productCode hash）
-    await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`fifo:${params.companyCode}:${params.productCode}`]);
+    // Advisory Lock 防并发超卖
+    // Phase H4: SKU 路径用更细粒度的 lock key，旧路径继续用 productCode
+    const lockKey = params.skuCode
+      ? `fifo:${params.companyCode}:sku:${params.skuCode}`
+      : `fifo:${params.companyCode}:${params.productCode}`;
+    await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [lockKey]);
 
-    // 查询可用批次（FIFO：expire_date ASC）
-    const conds = [
-      `product_code = $1`,
-      `company_code = $2`,
+    // 构建批次查询条件
+    const conds: string[] = [
+      `company_code = $1`,
       `status = 'AVAILABLE'`,
       `qty_available > 0`,
       `(expire_date IS NULL OR expire_date >= CURRENT_DATE)`,
     ];
-    const args: unknown[] = [params.productCode, params.companyCode];
-    if (params.gradeCode) {
-      conds.push(`quality_grade = $3`);
-      args.push(params.gradeCode);
+    const args: unknown[] = [params.companyCode];
+    let pi = 2;
+
+    if (params.skuCode) {
+      // Phase H4 PATH A: sku_code 精确匹配（最高优先级）
+      // H5 TODO: 当 sal_order_items 全面接入 sku_code 后，PATH B 可逐步移除
+      conds.push(`sku_code = $${pi++}`);
+      args.push(params.skuCode);
+    } else {
+      // Phase H4 PATH B: 旧 product+grade 匹配（向后兼容，H5 后标注 @deprecated）
+      conds.push(`product_code = $${pi++}`);
+      args.push(params.productCode);
+      if (params.gradeCode) {
+        conds.push(`quality_grade = $${pi++}`);
+        args.push(params.gradeCode);
+      }
     }
 
     const batches = await q(
@@ -287,17 +411,18 @@ export class EggInventoryService {
         [canTake, batch.batch_no],
       );
 
-      // 写 inv_ledger RESERVED
+      // 写 inv_ledger RESERVED（Phase H4: 传递 sku_code）
       await this.writeLedger({
-        batchNo:      batch.batch_no,
-        changeType:   'RESERVED',
-        qtyChange:    -canTake,
-        operator:     this.operator,
-        companyCode:  params.companyCode,
-        refNo:        params.refNo,
-        note:         `FIFO 预占 ${params.note} batch=${batch.batch_no} qty=${canTake}`,
+        batchNo:         batch.batch_no,
+        changeType:      'RESERVED',
+        qtyChange:       -canTake,
+        operator:        this.operator,
+        companyCode:     params.companyCode,
+        refNo:           params.refNo,
+        note:            `FIFO 预占 ${params.note} batch=${batch.batch_no} qty=${canTake}${batch.sku_code ? ` sku=${batch.sku_code}` : ''}`,
         batchExpireDate: batch.expire_date,
         qualityGrade:    batch.quality_grade,
+        skuCode:         batch.sku_code ?? null,
       }, mgr);
 
       allocations.push({
@@ -306,13 +431,17 @@ export class EggInventoryService {
         expireDate:   batch.expire_date,
         qualityGrade: batch.quality_grade,
         remaining:    0,
+        skuCode:      batch.sku_code ?? null,
       });
     }
 
     if (remaining > 0) {
       // 库存不足：回滚已预占（抛出异常让事务回滚）
+      const target = params.skuCode
+        ? `sku=${params.skuCode}`
+        : `product=${params.productCode} grade=${params.gradeCode ?? 'ALL'}`;
       throw new ConflictException(
-        `库存不足：product=${params.productCode} grade=${params.gradeCode ?? 'ALL'} 缺少 ${remaining} 个单位`,
+        `库存不足：${target} 缺少 ${remaining} 个单位`,
       );
     }
 
@@ -345,10 +474,12 @@ export class EggInventoryService {
           qty,
           refNo:   orderNo,
           note:    `销售订单 ${orderNo} 明细 ${item.id}`,
+          // H5 TODO: 当 sal_order_items 加入 sku_code 字段后，此处传入：
+          // skuCode: item.sku_code ?? undefined,
         }, mgr);
 
         // 记录分配的批次（取首批次作为主批次，多批次逗号分隔）
-        const batchNos    = allocations.map(a => a.batchNo).join(',');
+        const batchNos     = allocations.map(a => a.batchNo).join(',');
         const allocatedQty = allocations.reduce((s, a) => s + a.allocatedQty, 0);
 
         await q(
@@ -393,6 +524,11 @@ export class EggInventoryService {
         const releaseQty = Math.round(qtyPerBatch);
         if (releaseQty <= 0) continue;
 
+        // Phase H4: 释放时查一下批次 sku_code 用于 ledger 传递
+        const [batchRow] = await q(
+          `SELECT sku_code FROM inv_batches WHERE batch_no=$1`, [batchNo.trim()],
+        );
+
         await q(
           `UPDATE inv_batches
            SET qty_available = LEAST(qty, qty_available + $1), updated_at=NOW()
@@ -408,6 +544,7 @@ export class EggInventoryService {
           companyCode,
           refNo:       orderNo,
           note:        `订单取消释放预占 order=${orderNo} batch=${batchNo}`,
+          skuCode:     batchRow?.sku_code ?? null,
         }, mgr);
       }
 
@@ -446,9 +583,10 @@ export class EggInventoryService {
         const outQty = Math.round(qtyPerBatch);
         if (outQty <= 0) continue;
 
-        // 查当前批次信息
+        // 查当前批次信息（Phase H4: 同时取 sku_code）
         const [batch] = await q(
-          `SELECT qty, expire_date, quality_grade FROM inv_batches WHERE batch_no=$1`, [batchNo.trim()],
+          `SELECT qty, expire_date, quality_grade, sku_code FROM inv_batches WHERE batch_no=$1`,
+          [batchNo.trim()],
         );
 
         // 正式扣减物理库存（qty）
@@ -459,17 +597,18 @@ export class EggInventoryService {
           [outQty, batchNo.trim()],
         );
 
-        // 写 inv_ledger FIFO_OUT
+        // 写 inv_ledger FIFO_OUT（Phase H4: 传递 sku_code）
         await this.writeLedger({
-          batchNo:     batchNo.trim(),
-          changeType:  'FIFO_OUT',
-          qtyChange:   -outQty,
-          operator:    this.operator,
+          batchNo:         batchNo.trim(),
+          changeType:      'FIFO_OUT',
+          qtyChange:       -outQty,
+          operator:        this.operator,
           companyCode,
-          refNo:       deliveryNo,
-          note:        `装车出库 delivery=${deliveryNo} order=${orderNo} batch=${batchNo}`,
+          refNo:           deliveryNo,
+          note:            `装车出库 delivery=${deliveryNo} order=${orderNo} batch=${batchNo}`,
           batchExpireDate: batch?.expire_date ?? null,
           qualityGrade:    batch?.quality_grade ?? null,
+          skuCode:         batch?.sku_code ?? null,
         }, mgr);
       }
     }
@@ -496,22 +635,33 @@ export class EggInventoryService {
       const damaged  = Number(item.damaged_qty);
       const batchNo  = `RET-${returnNo}-${item.product_code}`;
 
+      // Phase H4 NOTE: sal_return_items 暂无 sku_code 字段（H5 添加）
+      // H5 TODO: const returnSkuCode = item.sku_code ?? null;
+      const returnSkuCode: string | null = null;
+
       // ── accepted_qty：回库（RETURNED 状态，需重新质检） ──────────────────────
       if (accepted > 0) {
-        // 退货等级：自动根据到期时间降级
         const originalGrade = item.grade_code ?? 'A';
         const returnGrade   = this.degradeGrade(originalGrade);
 
         await q(
           `INSERT INTO inv_batches
              (batch_no, product_code, company_code, qty, qty_available,
-              quality_grade, source_type, source_no, status, created_at, updated_at)
-           VALUES ($1,$2,$3,$4,$4,$5,'RETURN',$6,'RETURNED',NOW(),NOW())
+              quality_grade, source_type, source_no, status,
+              sku_code, grade_code_std, spec_code,
+              created_at, updated_at)
+           VALUES ($1,$2,$3,$4,$4,$5,'RETURN',$6,'RETURNED',$7,$8,$9,NOW(),NOW())
            ON CONFLICT (batch_no)
            DO UPDATE SET qty          = inv_batches.qty          + EXCLUDED.qty,
                          qty_available = inv_batches.qty_available + EXCLUDED.qty_available,
                          updated_at   = NOW()`,
-          [batchNo, item.product_code, companyCode, Math.round(accepted), returnGrade, returnNo],
+          [
+            batchNo, item.product_code, companyCode, Math.round(accepted), returnGrade, returnNo,
+            returnSkuCode,
+            // H5 TODO: 当 sal_return_items 有 sku_code 后，此处传入 sku.grade_code
+            returnSkuCode ? returnGrade : null,
+            returnSkuCode ? item.spec_code ?? null : null,
+          ],
         );
 
         await this.writeLedger({
@@ -523,6 +673,7 @@ export class EggInventoryService {
           refNo:       returnNo,
           note:        `退货回库 return=${returnNo} product=${item.product_code} accepted=${accepted} grade=${returnGrade}`,
           qualityGrade: returnGrade,
+          skuCode:      returnSkuCode,
         }, mgr);
 
         await q(
@@ -541,6 +692,7 @@ export class EggInventoryService {
           companyCode,
           refNo:       returnNo,
           note:        `退货损耗 return=${returnNo} product=${item.product_code} damaged=${damaged}`,
+          skuCode:     returnSkuCode,
         }, mgr);
 
         await q(
@@ -557,7 +709,6 @@ export class EggInventoryService {
   async markExpiredBatches(companyCode?: string): Promise<{ expired: number; written: number }> {
     const cond = companyCode ? `AND company_code='${companyCode}'` : '';
 
-    // 查询已过期但还是 AVAILABLE 状态的批次
     const expiredBatches = await this.ds.query(
       `SELECT * FROM inv_batches
        WHERE expire_date < CURRENT_DATE
@@ -577,16 +728,18 @@ export class EggInventoryService {
         [batch.batch_no],
       );
 
+      // Phase H4: 过期报废时传递 sku_code
       await this.writeLedger({
-        batchNo:     batch.batch_no,
-        changeType:  'EXPIRE_WRITEOFF',
-        qtyChange:   -qty,
-        operator:    'scheduler',
-        companyCode: batch.company_code ?? companyCode ?? 'ALL',
-        refNo:       batch.batch_no,
-        note:        `过期自动报废 batch=${batch.batch_no} expire=${batch.expire_date} qty=${qty}`,
+        batchNo:         batch.batch_no,
+        changeType:      'EXPIRE_WRITEOFF',
+        qtyChange:       -qty,
+        operator:        'scheduler',
+        companyCode:     batch.company_code ?? companyCode ?? 'ALL',
+        refNo:           batch.batch_no,
+        note:            `过期自动报废 batch=${batch.batch_no} expire=${batch.expire_date} qty=${qty}`,
         batchExpireDate: batch.expire_date,
         qualityGrade:    batch.quality_grade,
+        skuCode:         batch.sku_code ?? null,
       });
 
       written += qty;
@@ -641,7 +794,9 @@ export class EggInventoryService {
             AND expire_date <= CURRENT_DATE + INTERVAL '7 days'
         ), 0)                                                                    AS expiring_qty,
         COUNT(*) FILTER (WHERE status='EXPIRED')                                 AS expired_batches,
-        COUNT(*) FILTER (WHERE status='RETURNED')                                AS returned_batches
+        COUNT(*) FILTER (WHERE status='RETURNED')                                AS returned_batches,
+        -- Phase H4: 统计已接入 SKU 的批次数量
+        COUNT(*) FILTER (WHERE sku_code IS NOT NULL AND status='AVAILABLE')      AS sku_linked_batches
       FROM inv_batches WHERE 1=1 ${cond}
     `);
 
@@ -656,15 +811,17 @@ export class EggInventoryService {
     `);
 
     return {
-      activeBatches:   Number(row.active_batches),
-      totalAvailable:  Number(row.total_available),
-      expiringBatches: Number(row.expiring_batches),
-      expiringQty:     Number(row.expiring_qty),
-      expiredBatches:  Number(row.expired_batches),
-      returnedBatches: Number(row.returned_batches),
-      todayExpireLoss: Number(lossRow.expire_loss),
-      todayDamageLoss: Number(lossRow.damage_loss),
-      todayWriteOff:   Number(lossRow.write_off),
+      activeBatches:    Number(row.active_batches),
+      totalAvailable:   Number(row.total_available),
+      expiringBatches:  Number(row.expiring_batches),
+      expiringQty:      Number(row.expiring_qty),
+      expiredBatches:   Number(row.expired_batches),
+      returnedBatches:  Number(row.returned_batches),
+      /** Phase H4: 已接入 SKU 的活跃批次数 */
+      skuLinkedBatches: Number(row.sku_linked_batches),
+      todayExpireLoss:  Number(lossRow.expire_loss),
+      todayDamageLoss:  Number(lossRow.damage_loss),
+      todayWriteOff:    Number(lossRow.write_off),
     };
   }
 
@@ -687,7 +844,8 @@ export class EggInventoryService {
 
     const byBatch = await this.ds.query(`
       SELECT b.batch_no, b.egg_date, b.expire_date, b.quality_grade,
-             b.product_code, b.qty AS original_qty, b.status
+             b.product_code, b.qty AS original_qty, b.status,
+             b.sku_code
       FROM inv_batches b
       WHERE b.status IN ('EXPIRED','WRITTEN_OFF')
         AND b.created_at >= NOW() - INTERVAL '30 days'

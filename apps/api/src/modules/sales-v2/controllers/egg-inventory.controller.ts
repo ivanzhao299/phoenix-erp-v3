@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Body, Param, Query,
+  Controller, Get, Post, Body, Query,
   UseGuards, ParseIntPipe, DefaultValuePipe,
 } from '@nestjs/common';
 import { AuthGuard }        from '@nestjs/passport';
@@ -9,9 +9,14 @@ import { EggInventoryService }          from '../services/egg-inventory.service'
 import { EggInventorySchedulerService } from '../services/egg-inventory-scheduler.service';
 
 /**
- * EggInventoryController — Sales V2 Phase 7
+ * EggInventoryController — Sales V2 Phase 7 + Phase H4
  *
  * 鸡蛋库存 Runtime REST API。
+ *
+ * Phase H4 新增参数：
+ *   - GET  /batches     支持 skuCode 查询参数（PATH A 精确匹配）
+ *   - POST /batches     支持 skuCode 创建批次（自动推导 product/grade/spec）
+ *   - POST /allocate    支持 skuCode FIFO 分配（PATH A）
  *
  * 路由前缀：/api/v2/sales/inventory
  * 权限：    MENU_SALES2_INVENTORY
@@ -20,8 +25,8 @@ import { EggInventorySchedulerService } from '../services/egg-inventory-schedule
 @UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
 export class EggInventoryController {
   constructor(
-    private readonly eggInv:       EggInventoryService,
-    private readonly scheduler:    EggInventorySchedulerService,
+    private readonly eggInv:    EggInventoryService,
+    private readonly scheduler: EggInventorySchedulerService,
   ) {}
 
   // ── 批次列表 ──────────────────────────────────────────────────────────────
@@ -29,16 +34,19 @@ export class EggInventoryController {
   @Get('batches')
   @RequireMenu('MENU_SALES2_INVENTORY', 'V')
   getBatches(
-    @Query('productCode')  productCode?: string,
-    @Query('companyCode')  companyCode?: string,
-    @Query('gradeCode')    gradeCode?:   string,
+    @Query('productCode')     productCode?:     string,
+    @Query('companyCode')     companyCode?:     string,
+    @Query('gradeCode')       gradeCode?:       string,
     @Query('includeExpiring') includeExpiring?: string,
+    /** Phase H4: SKU 精确过滤（优先于 productCode + gradeCode） */
+    @Query('skuCode')         skuCode?:         string,
   ) {
     return this.eggInv.getAvailableBatches({
-      productCode:       productCode ?? 'EGG',
+      productCode:       productCode ?? (skuCode ? undefined : 'EGG'),
       companyCode,
       gradeCode,
       includingExpiring: includeExpiring === 'true',
+      skuCode,
     });
   }
 
@@ -83,6 +91,10 @@ export class EggInventoryController {
     qty:            number;
     shelfDays?:     number;
     sourceNo?:      string;
+    /** Phase H4: 优先使用 SKU 填充产品/等级/规格 */
+    skuCode?:       string;
+    gradeCodeStd?:  string;
+    specCode?:      string;
   }) {
     return this.eggInv.createProductionBatch(body);
   }
@@ -98,6 +110,8 @@ export class EggInventoryController {
     qty:          number;
     refNo:        string;
     note?:        string;
+    /** Phase H4: SKU 优先分配路径 */
+    skuCode?:     string;
   }) {
     return this.eggInv.allocateByFIFO({
       productCode: body.productCode,
@@ -106,6 +120,7 @@ export class EggInventoryController {
       qty:         body.qty,
       refNo:       body.refNo,
       note:        body.note ?? '手动分配',
+      skuCode:     body.skuCode,
     });
   }
 
