@@ -3,7 +3,7 @@ import Link from "next/link";
 import {
   Users, Globe, UserCheck, Car, Warehouse, Wallet,
   Network, Building, FolderKanban, BookOpen, LayoutDashboard,
-  ArrowRight,
+  ArrowRight, Tag, Package, Layers,
 } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 
@@ -102,6 +102,34 @@ const CARDS = [
     perm: "MENU_SETTINGS_DATA",
     color: "#a78bfa",
     bg: "rgba(167,139,250,0.08)",
+  },
+  // [Phase H2] 产品主数据三件套
+  {
+    icon: Tag,
+    title: "产品等级档案",
+    desc: "AA / A / B / C / DIRTY / CRACKED — 统一 grade_code 值集",
+    href: "/master-data/product-grades",
+    perm: "MENU_MASTER_GRADE",
+    color: "#f59e0b",
+    bg: "rgba(245,158,11,0.08)",
+  },
+  {
+    icon: Package,
+    title: "包装规格档案",
+    desc: "TRAY30 / BOX360 / GIFT12 — 规格主数据含单位换算",
+    href: "/master-data/packaging-specs",
+    perm: "MENU_MASTER_PACKAGING",
+    color: "#34d399",
+    bg: "rgba(52,211,153,0.08)",
+  },
+  {
+    icon: Layers,
+    title: "SKU 档案",
+    desc: "产品 × 等级 × 规格 — 为价格/库存/销售统一维度做准备",
+    href: "/master-data/product-skus",
+    perm: "MENU_MASTER_SKU",
+    color: "#60a5fa",
+    bg: "rgba(96,165,250,0.08)",
   },
 ];
 

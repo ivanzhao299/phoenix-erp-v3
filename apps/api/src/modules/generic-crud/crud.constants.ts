@@ -6,6 +6,7 @@ export const ALLOWED_TABLES = [
   'sys_role', 'sys_user', 'sys_menu', 'sys_user_role', 'sys_role_menu_permission', 'sys_role_conflict',
   'sys_approval_log', 'sys_audit_log', 'sys_store', 'sys_approval_rule', 'sys_settings',
   'mst_stores', 'mst_products',
+  'product_grades', 'packaging_specs', 'product_skus',
   'inv_batches', 'inv_ledger',
   'wms_warehouses', 'wms_locations', 'wms_inbound', 'wms_inbound_items', 'wms_outbound', 'wms_outbound_items', 'wms_stocktake',
   'wms_zones', 'wms_transfer', 'wms_stock_transfers', 'wms_suppliers',
@@ -137,6 +138,11 @@ export const TABLE_PERM_MAP: Record<string, string[]> = {
   // 主数据
   mst_stores:          ['ROLE_ADMIN', 'ROLE_SYSOPS', 'ROLE_REGION_MGR'],
   mst_products:        ['ROLE_ADMIN', 'ROLE_SYSOPS', 'ROLE_PRC_BUYER', 'ROLE_WMS_MGR'],
+
+  // 产品主数据 Phase H2（product_grades / packaging_specs / product_skus）
+  product_grades:      ['ROLE_ADMIN', 'ROLE_PRODUCT_MGR', 'ROLE_WMS_MGR', 'ROLE_PKG_MGR', 'ROLE_QC_INSPECTOR', 'ROLE_AUDITOR'],
+  packaging_specs:     ['ROLE_ADMIN', 'ROLE_PRODUCT_MGR', 'ROLE_WMS_MGR', 'ROLE_PKG_MGR', 'ROLE_AUDITOR'],
+  product_skus:        ['ROLE_ADMIN', 'ROLE_PRODUCT_MGR', 'ROLE_WMS_MGR', 'ROLE_PRC_BUYER', 'ROLE_AUDITOR'],
 
   // 仓储补全
   wms_zones:           ['ROLE_ADMIN', 'ROLE_WMS_MGR', 'ROLE_SYSOPS'],

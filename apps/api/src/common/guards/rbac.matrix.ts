@@ -434,6 +434,53 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_STORE_MGR:   ['V'],
   },
 
+  // ── 产品主数据 Phase H2 — 精细化四个权限维度 ─────────────────────────────
+
+  /** 产品档案总入口（主数据中心 → 产品档案 portal 页）*/
+  MENU_MASTER_PRODUCT: {
+    ROLE_ADMIN:          ['V','C','E','D','A','X'],
+    ROLE_PRODUCT_MGR:    ['V','C','E','D','X'],
+    ROLE_HQ_FINANCE:     ['V','X'],
+    ROLE_AUDITOR:        ['V','X'],
+    ROLE_WMS_MGR:        ['V'],
+    ROLE_PRC_BUYER:      ['V'],
+    ROLE_REGION_MGR:     ['V'],
+    ROLE_CEO:            ['V','X'],
+  },
+
+  /** 产品等级主数据（product_grades CRUD）*/
+  MENU_MASTER_GRADE: {
+    ROLE_ADMIN:          ['V','C','E','D','A','X'],
+    ROLE_PRODUCT_MGR:    ['V','C','E','D','X'],
+    ROLE_HQ_FINANCE:     ['V','X'],
+    ROLE_AUDITOR:        ['V','X'],
+    ROLE_WMS_MGR:        ['V'],
+    ROLE_PKG_MGR:        ['V'],
+    ROLE_QC_INSPECTOR:   ['V'],
+  },
+
+  /** 包装规格主数据（packaging_specs CRUD）*/
+  MENU_MASTER_PACKAGING: {
+    ROLE_ADMIN:          ['V','C','E','D','A','X'],
+    ROLE_PRODUCT_MGR:    ['V','C','E','D','X'],
+    ROLE_HQ_FINANCE:     ['V','X'],
+    ROLE_AUDITOR:        ['V','X'],
+    ROLE_WMS_MGR:        ['V'],
+    ROLE_PKG_MGR:        ['V'],
+  },
+
+  /** SKU 主数据（product_skus CRUD）*/
+  MENU_MASTER_SKU: {
+    ROLE_ADMIN:          ['V','C','E','D','A','X'],
+    ROLE_PRODUCT_MGR:    ['V','C','E','D','X'],
+    ROLE_HQ_FINANCE:     ['V','X'],
+    ROLE_AUDITOR:        ['V','X'],
+    ROLE_WMS_MGR:        ['V'],
+    ROLE_PRC_BUYER:      ['V'],
+    ROLE_REGION_MGR:     ['V'],
+    ROLE_CEO:            ['V','X'],
+  },
+
   // 采购 V1 管理
   MENU_PRC_MGR: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],

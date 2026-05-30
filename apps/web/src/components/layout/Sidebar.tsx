@@ -232,6 +232,10 @@ const MENU: MenuItem[] = [
     { id: "mdc-orgs",      path: "/master-data/organizations",    Icon: Network,         label: "组织架构",       perm: "MENU_SYS_ORG" },
     { id: "mdc-projects",  path: "/master-data/projects",         Icon: FolderKanban,    label: "项目档案",       perm: "MENU_PRC2_MASTER" },
     { id: "mdc-dict",      path: "/master-data/dictionaries",     Icon: BookOpen,        label: "系统字典",       perm: "MENU_SETTINGS_DATA" },
+    // [Phase H2] 产品主数据三件套
+    { id: "mdc-grades",    path: "/master-data/product-grades",   Icon: Tag,             label: "产品等级档案",   perm: "MENU_MASTER_GRADE" },
+    { id: "mdc-pkgspecs",  path: "/master-data/packaging-specs",  Icon: Package,         label: "包装规格档案",   perm: "MENU_MASTER_PACKAGING" },
+    { id: "mdc-skus",      path: "/master-data/product-skus",     Icon: Layers,          label: "SKU 档案",       perm: "MENU_MASTER_SKU" },
   ]},
   // [Legacy] 旧主数据入口 — 保留供直接跳转
   { id: "master", Icon: Database, label: "主数据", perm: "MENU_MASTER", children: [
