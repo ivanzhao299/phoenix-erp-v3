@@ -21,6 +21,8 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_VET:         ['V'],
     ROLE_CEO:         ['V','X'],
     ROLE_REGION_MGR:  ['V','X'],
+    // Navigation Final 2026-05-30: 生产管理合并分级包装+品质追溯，WMS 主管需查看包装入库
+    ROLE_WMS_MGR:     ['V'],
   },
   MENU_IOT: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
