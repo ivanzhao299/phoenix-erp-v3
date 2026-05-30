@@ -874,9 +874,25 @@ export class WholesaleBffController {
 
   @Get('distributors')
   async getDistributors(@Query('limit') limit = '200') {
+    // [Phase G1] 统一读取 sal_customers（customer_type=DISTRIBUTOR）
+    // 字段映射兼容原 b2b_customers 响应结构，前端无感知
     try {
       const data = await this.em.query(
-        `SELECT * FROM b2b_customers ORDER BY created_at DESC LIMIT $1`, [parseInt(limit)],
+        `SELECT id,
+                customer_no       AS customer_code,
+                customer_name,
+                contact_name      AS contact,
+                contact_phone     AS phone,
+                delivery_address  AS address,
+                credit_limit,
+                credit_used,
+                status,
+                created_at,
+                updated_at
+           FROM sal_customers
+          WHERE customer_type = 'DISTRIBUTOR'
+          ORDER BY created_at DESC LIMIT $1`,
+        [parseInt(limit)],
       ).catch(() => []);
       return { code: 200, data };
     } catch { return { code: 200, data: [] }; }

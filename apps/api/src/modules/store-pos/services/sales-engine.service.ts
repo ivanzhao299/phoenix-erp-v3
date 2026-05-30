@@ -9,9 +9,11 @@ import { EntityManager } from 'typeorm';
  *
  * 三大校验：
  *   1. OwnershipValidator (8.4.2)
- *      - 黑名单拦截：customer.risk_flag = 'BLACKLIST' → 阻断
- *      - 归属保护：customer.current_owner_subject_id !== order.seller_subject_id 时阻断
- *        (仅当 protection_status != 'INIT' 时启用归属保护)
+ *      - [Phase G1] 统一读取 sal_customers（正式主档）
+ *        黑名单：risk_level='BLACKLIST' 或 status='BLACKLIST'/'FROZEN' → 阻断
+ *      - [LEGACY FALLBACK] 若 sal_customers 无记录 → 降级读 ord_customers
+ *        Phase G2 数据迁移完成后删除此 fallback 分支
+ *      - 归属保护：protection_status != 'INIT' 时检查 sales_rep_id
  *   2. RegionValidator (8.4.3)
  *      - V2/V3 一期均为 stub，默认通过；二期接 chn_distributor authorizedRegions
  *   3. PriceValidator (8.4.1)
@@ -73,32 +75,78 @@ export class SalesEngineService {
   }
 
   private async validateOwnership(order: ValidationOrder): Promise<{ passed: boolean; errors: string[] }> {
-    const errors: string[] = [];
-    const rows = await this.em.query(
-      `SELECT customer_code, risk_flag, protection_status, current_owner_subject_id
-         FROM ord_customers WHERE customer_code = $1 LIMIT 1`,
+    // ─── [Phase G1] 统一客户主档读取 ───────────────────────────────────────────
+    // 主路径：sal_customers（正式主档，customer_no 或迁移后的 legacy_customer_code）
+    // 降级路径：ord_customers（历史客户，Phase G2 数据迁移完成后删除此分支）
+    // ───────────────────────────────────────────────────────────────────────────
+    let riskLevel      = 'NORMAL';
+    let customerStatus = 'ACTIVE';
+    let protectionStatus: string | null = 'INIT';
+    let ownerSubjectId: string | null   = null;
+    let found = false;
+
+    // 1. 优先查 sal_customers（Phase G1：同时支持 customer_no 和 legacy_customer_code 查找）
+    const salRows = await this.em.query(
+      `SELECT customer_no, risk_level, status, protection_status,
+              sales_rep_id::text AS owner_id
+         FROM sal_customers
+        WHERE customer_no = $1 OR legacy_customer_code = $1
+        LIMIT 1`,
       [order.customer_code],
-    ).catch(() => []);
-    if (rows.length === 0) {
-      return { passed: false, errors: [`Customer ${order.customer_code} not found`] };
-    }
-    const cust = rows[0];
+    ).catch(() => [] as any[]);
 
-    // 黑名单
-    if (cust.risk_flag === 'BLACKLIST') {
-      errors.push('Customer is in blacklist. Order blocked.');
-      return { passed: false, errors };
-    }
+    if (salRows.length > 0) {
+      found          = true;
+      riskLevel      = salRows[0].risk_level      ?? 'NORMAL';
+      customerStatus = salRows[0].status          ?? 'ACTIVE';
+      protectionStatus = salRows[0].protection_status ?? 'INIT';
+      ownerSubjectId   = salRows[0].owner_id      ?? null;
+    } else {
+      // 2. LEGACY FALLBACK — 客户尚未迁入 sal_customers（Phase G2 迁移后删除此分支）
+      //    ⚠️  DO NOT add new business logic here — this path is temporary
+      const legRows = await this.em.query(
+        `SELECT risk_flag, protection_status, current_owner_subject_id
+           FROM ord_customers WHERE customer_code = $1 LIMIT 1`,
+        [order.customer_code],
+      ).catch(() => [] as any[]);
 
-    // 归属保护
-    if (cust.protection_status && cust.protection_status !== 'INIT' && cust.current_owner_subject_id) {
-      if (order.seller_subject_id && cust.current_owner_subject_id !== order.seller_subject_id) {
-        errors.push(`Customer is owned by ${cust.current_owner_subject_id}, you (${order.seller_subject_id}) have no permission to place order.`);
-        return { passed: false, errors };
+      if (legRows.length > 0) {
+        found            = true;
+        // 字段名标准化：ord_customers.risk_flag → unified risk_level
+        riskLevel        = legRows[0].risk_flag             ?? 'NORMAL';
+        customerStatus   = riskLevel === 'BLACKLIST' ? 'BLACKLIST' : 'ACTIVE';
+        protectionStatus = legRows[0].protection_status     ?? 'INIT';
+        ownerSubjectId   = legRows[0].current_owner_subject_id ?? null;
+        console.warn(
+          `[SalesEngine][LEGACY] Customer ${order.customer_code} resolved from ord_customers` +
+          ` — Phase G2 migration pending`,
+        );
       }
     }
 
-    return { passed: true, errors };
+    if (!found) {
+      return { passed: false, errors: [`Customer ${order.customer_code} not found`] };
+    }
+
+    // 黑名单 / 冻结拦截（统一语义：risk_level=BLACKLIST 或 status=BLACKLIST/FROZEN）
+    if (riskLevel === 'BLACKLIST' || customerStatus === 'BLACKLIST' || customerStatus === 'FROZEN') {
+      return { passed: false, errors: ['Customer is blacklisted or frozen. Order blocked.'] };
+    }
+
+    // 归属保护
+    if (protectionStatus && protectionStatus !== 'INIT' && ownerSubjectId) {
+      if (order.seller_subject_id && ownerSubjectId !== order.seller_subject_id) {
+        return {
+          passed: false,
+          errors: [
+            `Customer is owned by ${ownerSubjectId},` +
+            ` you (${order.seller_subject_id}) have no permission to place order.`,
+          ],
+        };
+      }
+    }
+
+    return { passed: true, errors: [] };
   }
 
   private async validateRegion(_order: ValidationOrder): Promise<{ passed: boolean; errors: string[] }> {
