@@ -137,16 +137,16 @@ export default function MasterDataHubPage() {
   const { hasAccess } = usePermission("MENU_MASTER");
 
   return (
-    <div style={{ padding: "32px 40px", minHeight: "100vh", background: "#0f172a", color: "#e2e8f0" }}>
+    <div className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 min-h-screen" style={{ padding: "32px 40px" }}>
       {/* 页头 */}
       <div style={{ marginBottom: 36 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
           <LayoutDashboard size={22} color="#6366f1" />
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: "#f1f5f9", margin: 0 }}>
+          <h1 className="text-slate-900 dark:text-slate-100" style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
             主数据中心
           </h1>
         </div>
-        <p style={{ color: "#64748b", fontSize: 13, margin: 0 }}>
+        <p className="text-slate-500 dark:text-slate-400" style={{ fontSize: 13, margin: 0 }}>
           统一管理全系统业务基础档案 · 客户 · 供应商 · 司机 · 车辆 · 仓库 · 账户 · 组织
         </p>
       </div>
@@ -166,9 +166,8 @@ export default function MasterDataHubPage() {
             style={{ textDecoration: "none" }}
           >
             <div
+              className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
               style={{
-                background: "#1e293b",
-                border: "1px solid #334155",
                 borderRadius: 12,
                 padding: "20px 22px",
                 cursor: "pointer",
@@ -182,7 +181,7 @@ export default function MasterDataHubPage() {
                 (e.currentTarget as HTMLDivElement).style.boxShadow = `0 8px 24px ${color}22`;
               }}
               onMouseLeave={e => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = "#334155";
+                (e.currentTarget as HTMLDivElement).style.borderColor = "";
                 (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
                 (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
               }}
@@ -209,11 +208,11 @@ export default function MasterDataHubPage() {
                 <Icon size={18} color={color} />
               </div>
               {/* 标题 */}
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#f1f5f9", marginBottom: 6 }}>
+              <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>
                 {title}
               </div>
               {/* 描述 */}
-              <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5, marginBottom: 12 }}>
+              <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
                 {desc}
               </div>
               {/* 进入链接 */}

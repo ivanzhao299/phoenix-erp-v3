@@ -170,19 +170,17 @@ function KpiCard({ label, value, sub, icon: Icon, color, loading }: {
   icon: React.ElementType; color: string; loading: boolean;
 }) {
   return (
-    <div style={{
-      background: '#fff', borderRadius: 12, padding: '16px 18px',
-      border: '1.5px solid #f1f5f9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-    }}>
+    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+      style={{ borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <Icon size={16} color={color} />
-        <span style={{ fontSize: 12, color: '#64748b' }}>{label}</span>
+        <span className="text-slate-500 dark:text-slate-400" style={{ fontSize: 12 }}>{label}</span>
       </div>
-      <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>
+      <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 18, fontWeight: 800 }}>
         {loading ? '…' : value}
       </div>
       {sub && !loading && (
-        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{sub}</div>
+        <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11, marginTop: 2 }}>{sub}</div>
       )}
     </div>
   );
@@ -247,12 +245,10 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
     }}>
-      <div style={{
-        background: '#fff', borderRadius: 16, width: 480, maxWidth: '95vw',
-        padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
-      }}>
+      <div className="bg-white dark:bg-slate-800"
+        style={{ borderRadius: 16, width: 480, maxWidth: '95vw', padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>新建应付发票</div>
+          <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>新建应付发票</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
             <X size={18} color="#94a3b8" />
           </button>
@@ -400,27 +396,26 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: 900,
       display: 'flex', justifyContent: 'flex-end',
     }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{
-        width: 480, maxWidth: '95vw', height: '100%', background: '#fff',
-        overflowY: 'auto', boxShadow: '-8px 0 40px rgba(0,0,0,0.12)',
-        padding: 28, display: 'flex', flexDirection: 'column', gap: 18,
-      }}>
+      <div className="bg-white dark:bg-slate-800"
+        style={{ width: 480, maxWidth: '95vw', height: '100%', overflowY: 'auto',
+          boxShadow: '-8px 0 40px rgba(0,0,0,0.12)', padding: 28,
+          display: 'flex', flexDirection: 'column', gap: 18 }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>应付发票详情</div>
+          <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>应付发票详情</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
             <X size={18} color="#94a3b8" />
           </button>
         </div>
 
         {loading && (
-          <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>加载中…</div>
+          <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 40 }}>加载中…</div>
         )}
 
         {!loading && detail && (
           <>
             {/* 基本信息 */}
-            <div style={{ background: '#f8fafc', borderRadius: 10, padding: 16 }}>
+            <div className="bg-slate-50 dark:bg-slate-700" style={{ borderRadius: 10, padding: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#6366f1', fontSize: 14 }}>
                   {detail.ap_no}
@@ -442,27 +437,23 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
                   ['备注', detail.remark ?? '—'],
                 ].map(([k, v]) => (
                   <div key={k}>
-                    <span style={{ color: '#94a3b8' }}>{k}：</span>
-                    <span style={{ color: '#0f172a', fontWeight: 500 }}>{v}</span>
+                    <span className="text-slate-500 dark:text-slate-400">{k}：</span>
+                    <span className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 500 }}>{v}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* 金额 */}
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10,
-            }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
               {[
                 { label: '发票金额', value: fmtMoney(detail.amount_original, detail.currency_code), color: '#0f172a' },
                 { label: '已付金额', value: fmtMoney(detail.paid_amount_original, detail.currency_code), color: '#10b981' },
                 { label: '待付余额', value: fmtMoney(detail.balance_amount_original, detail.currency_code), color: Number(detail.balance_amount_original) > 0 ? '#ef4444' : '#64748b' },
               ].map(item => (
-                <div key={item.label} style={{
-                  background: '#fff', border: '1.5px solid #f1f5f9', borderRadius: 10,
-                  padding: '12px 14px', textAlign: 'center',
-                }}>
-                  <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4 }}>{item.label}</div>
+                <div key={item.label} className="bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
+                  style={{ borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
+                  <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 10, marginBottom: 4 }}>{item.label}</div>
                   <div style={{ fontSize: 13, fontWeight: 800, color: item.color }}>{item.value}</div>
                 </div>
               ))}
@@ -482,11 +473,11 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
 
             {/* 付款核销记录 */}
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
+              <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
                 付款核销记录（{detail.allocations.length} 条）
               </div>
               {detail.allocations.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '16px 0', color: '#94a3b8', fontSize: 12 }}>
+                <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: '16px 0', fontSize: 12 }}>
                   暂无付款记录
                 </div>
               ) : (
@@ -566,12 +557,12 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
             )}
 
             {detail.status === 'CANCELLED' && (
-              <div style={{
-                background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 10,
-                padding: '12px 14px', fontSize: 12, color: '#94a3b8',
-                display: 'flex', alignItems: 'center', gap: 6,
-              }}>
-                <Ban size={13} /> 此应付发票已取消
+              <div className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
+                style={{ borderRadius: 10, padding: '12px 14px', fontSize: 12,
+                  display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span className="text-slate-500 dark:text-slate-400">
+                  <Ban size={13} /> 此应付发票已取消
+                </span>
               </div>
             )}
           </>
@@ -760,11 +751,9 @@ export default function Finance2ApPage() {
       </div>
 
       {/* 筛选栏 */}
-      <div style={{
-        display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
-        marginBottom: 14, padding: '12px 14px',
-        background: '#fff', borderRadius: 10, border: '1.5px solid #f1f5f9',
-      }}>
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+        style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
+          marginBottom: 14, padding: '12px 14px', borderRadius: 10 }}>
         <Filter size={14} color="#64748b" />
 
         {/* 状态快速筛选 */}
@@ -837,27 +826,24 @@ export default function Finance2ApPage() {
       )}
 
       {/* 表格 */}
-      <div style={{
-        background: '#fff', borderRadius: 12, border: '1.5px solid #f1f5f9',
-        overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-      }}>
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+        style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0' }}>
+              <tr className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
                 {['AP编号', '来源', '供应商', '公司', '发票日期', '到期日', '发票金额', '待付余额', '状态'].map(h => (
-                  <th key={h} style={{
-                    padding: '10px 14px', textAlign: 'left',
-                    fontWeight: 600, fontSize: 12, color: '#64748b', whiteSpace: 'nowrap',
-                  }}>{h}</th>
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left',
+                    fontWeight: 600, fontSize: 12, whiteSpace: 'nowrap' }}
+                    className="text-slate-500 dark:text-slate-400">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading && records.length === 0 ? (
-                <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>加载中…</td></tr>
+                <tr><td colSpan={9} className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 40 }}>加载中…</td></tr>
               ) : records.length === 0 ? (
-                <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>
+                <tr><td colSpan={9} className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 40 }}>
                   暂无 AP 记录。
                   {!status && !keyword && (
                     <span> 可点击 <strong>从采购单导入</strong> 迁移历史数据，或 <strong>新建应付发票</strong>。</span>
@@ -883,13 +869,13 @@ export default function Finance2ApPage() {
                     <SourceTag type={r.source_type} />
                   </td>
                   <td style={{ padding: '10px 14px', maxWidth: 160 }}>
-                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{r.supplier_name}</div>
-                    {r.supplier_code && <div style={{ fontSize: 11, color: '#94a3b8' }}>{r.supplier_code}</div>}
+                    <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 600 }}>{r.supplier_name}</div>
+                    {r.supplier_code && <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{r.supplier_code}</div>}
                   </td>
-                  <td style={{ padding: '10px 14px', color: '#475569', whiteSpace: 'nowrap' }}>
+                  <td className="text-slate-500 dark:text-slate-400" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                     {r.company_code}
                   </td>
-                  <td style={{ padding: '10px 14px', color: '#475569', whiteSpace: 'nowrap' }}>
+                  <td className="text-slate-500 dark:text-slate-400" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                     {fmtDate(r.invoice_date)}
                   </td>
                   <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
@@ -898,7 +884,7 @@ export default function Finance2ApPage() {
                     </span>
                     <AgingBadge bucket={r.aging_bucket} />
                   </td>
-                  <td style={{ padding: '10px 14px', fontWeight: 600, color: '#0f172a', whiteSpace: 'nowrap' }}>
+                  <td className="text-slate-900 dark:text-slate-100" style={{ padding: '10px 14px', fontWeight: 600, whiteSpace: 'nowrap' }}>
                     {fmtMoney(r.amount_original, r.currency_code)}
                   </td>
                   <td style={{ padding: '10px 14px', fontWeight: 700, whiteSpace: 'nowrap',
@@ -915,11 +901,9 @@ export default function Finance2ApPage() {
         </div>
 
         {/* 分页 */}
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '12px 16px', borderTop: '1px solid #f1f5f9',
-          fontSize: 13, color: '#64748b',
-        }}>
+        <div className="border-t border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400"
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '12px 16px', fontSize: 13 }}>
           <span>共 {total} 条（第 {page} / {totalPages} 页）</span>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <button

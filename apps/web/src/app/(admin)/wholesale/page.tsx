@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import Link from "next/link";
-import { FileText, Truck, Award } from "lucide-react";
+import { FileText, Truck } from "lucide-react";
 import styles from "./wholesale.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -32,7 +32,6 @@ export default function WholesaleOverviewPage() {
   const QUICK = [
     { path: "/wholesale/contracts", Icon: FileText, label: t("ui.批发合同", "批发合同"), desc: "ws_contracts" },
     { path: "/wholesale/shipments", Icon: Truck,    label: t("ui.发货记录", "发货记录"), desc: "ws_shipments" },
-    { path: "/b2b/distributor-grading", Icon: Award, label: t("ui.经销商分级", "经销商分级"), desc: "chn_distributor_grading" },
   ];
 
   return (

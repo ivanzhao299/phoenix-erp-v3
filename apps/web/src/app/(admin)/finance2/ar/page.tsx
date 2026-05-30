@@ -185,14 +185,14 @@ function KpiCard({ label, value, sub, icon: Icon, color, loading }: {
   icon: React.ElementType; color: string; loading: boolean;
 }) {
   return (
-    <div style={{ background: '#fff', borderRadius: 12, padding: '14px 16px',
-      border: '1.5px solid #f1f5f9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+      style={{ borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
         <Icon size={15} color={color} />
-        <span style={{ fontSize: 11, color: '#64748b' }}>{label}</span>
+        <span className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{label}</span>
       </div>
-      <div style={{ fontSize: 17, fontWeight: 800, color: '#0f172a' }}>{loading ? '…' : value}</div>
-      {sub && !loading && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{sub}</div>}
+      <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 17, fontWeight: 800 }}>{loading ? '…' : value}</div>
+      {sub && !loading && <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11, marginTop: 2 }}>{sub}</div>}
     </div>
   );
 }
@@ -238,10 +238,10 @@ function CreateArModal({ onClose, onCreated }: { onClose: () => void; onCreated:
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ background: '#fff', borderRadius: 16, width: 480, maxWidth: '95vw',
-        padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+      <div className="bg-white dark:bg-slate-800"
+        style={{ borderRadius: 16, width: 480, maxWidth: '95vw', padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>新建应收发票</div>
+          <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>新建应收发票</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
             <X size={18} color="#94a3b8" />
           </button>
@@ -378,10 +378,10 @@ function CreateReceiptModal({
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ background: '#fff', borderRadius: 16, width: 500, maxWidth: '95vw',
-        padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+      <div className="bg-white dark:bg-slate-800"
+        style={{ borderRadius: 16, width: 500, maxWidth: '95vw', padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>
+          <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>
             {selectedAr ? `录入收款 — ${selectedAr.ar_no}` : '新建收款'}
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -507,23 +507,24 @@ function ArDetailDrawer({ invoiceId, onClose, onChanged }: {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: 900,
       display: 'flex', justifyContent: 'flex-end' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ width: 480, maxWidth: '95vw', height: '100%', background: '#fff',
-        overflowY: 'auto', boxShadow: '-8px 0 40px rgba(0,0,0,0.12)',
-        padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="bg-white dark:bg-slate-800"
+        style={{ width: 480, maxWidth: '95vw', height: '100%', overflowY: 'auto',
+          boxShadow: '-8px 0 40px rgba(0,0,0,0.12)', padding: 28,
+          display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>AR 发票详情</div>
+          <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>AR 发票详情</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
             <X size={18} color="#94a3b8" />
           </button>
         </div>
 
-        {loading && <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>加载中…</div>}
+        {loading && <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 40 }}>加载中…</div>}
 
         {!loading && detail && (
           <>
             {/* 基本信息 */}
-            <div style={{ background: '#f8fafc', borderRadius: 10, padding: 16 }}>
+            <div className="bg-slate-50 dark:bg-slate-700" style={{ borderRadius: 10, padding: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#10b981', fontSize: 14 }}>
                   {detail.ar_no}
@@ -544,8 +545,8 @@ function ArDetailDrawer({ invoiceId, onClose, onChanged }: {
                   ['备注', detail.remark ?? '—'],
                 ].map(([k, v]) => (
                   <div key={k}>
-                    <span style={{ color: '#94a3b8' }}>{k}：</span>
-                    <span style={{ color: '#0f172a', fontWeight: 500 }}>{v}</span>
+                    <span className="text-slate-500 dark:text-slate-400">{k}：</span>
+                    <span className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 500 }}>{v}</span>
                   </div>
                 ))}
               </div>
@@ -559,9 +560,9 @@ function ArDetailDrawer({ invoiceId, onClose, onChanged }: {
                 { label: '待收余额', value: fmtMoney(detail.balance_amount_original, detail.currency_code),
                   color: Number(detail.balance_amount_original) > 0 ? '#ef4444' : '#64748b' },
               ].map(item => (
-                <div key={item.label} style={{ background: '#fff', border: '1.5px solid #f1f5f9', borderRadius: 10,
-                  padding: '10px 12px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4 }}>{item.label}</div>
+                <div key={item.label} className="bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
+                  style={{ borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
+                  <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 10, marginBottom: 4 }}>{item.label}</div>
                   <div style={{ fontSize: 12, fontWeight: 800, color: item.color }}>{item.value}</div>
                 </div>
               ))}
@@ -578,11 +579,11 @@ function ArDetailDrawer({ invoiceId, onClose, onChanged }: {
 
             {/* 收款核销记录 */}
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
+              <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
                 收款核销记录（{detail.allocations.length} 条）
               </div>
               {detail.allocations.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '12px 0', color: '#94a3b8', fontSize: 12 }}>暂无收款记录</div>
+                <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: '12px 0', fontSize: 12 }}>暂无收款记录</div>
               ) : detail.allocations.map(a => (
                 <div key={a.id} style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8,
                   padding: '10px 14px', fontSize: 12, marginBottom: 6 }}>
@@ -819,8 +820,8 @@ export default function Finance2ArPage() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 16,
-        borderBottom: '2px solid #f1f5f9' }}>
+      <div className="border-b-2 border-slate-200 dark:border-slate-700"
+        style={{ display: 'flex', gap: 0, marginBottom: 16 }}>
         {([
           { key: 'invoices', label: '应收账单' },
           { key: 'receipts', label: '收款记录' },
@@ -840,9 +841,9 @@ export default function Finance2ArPage() {
       {tab === 'invoices' && (
         <>
           {/* 筛选 */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
-            marginBottom: 12, padding: '10px 14px',
-            background: '#fff', borderRadius: 10, border: '1.5px solid #f1f5f9' }}>
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
+              marginBottom: 12, padding: '10px 14px', borderRadius: 10 }}>
             <Filter size={14} color="#64748b" />
             {[
               { key: 'OPEN',               label: '未收款' },
@@ -883,23 +884,24 @@ export default function Finance2ArPage() {
           )}
 
           {/* 表格 */}
-          <div style={{ background: '#fff', borderRadius: 12, border: '1.5px solid #f1f5f9',
-            overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0' }}>
+                  <tr className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
                     {['AR编号','来源','客户','公司','发票日期','到期日','发票金额','待收余额','状态'].map(h => (
                       <th key={h} style={{ padding: '10px 14px', textAlign: 'left',
-                        fontWeight: 600, fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>{h}</th>
+                        fontWeight: 600, fontSize: 12, whiteSpace: 'nowrap' }}
+                        className="text-slate-500 dark:text-slate-400">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {invLoading && invoices.length === 0 ? (
-                    <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>加载中…</td></tr>
+                    <tr><td colSpan={9} className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 40 }}>加载中…</td></tr>
                   ) : invoices.length === 0 ? (
-                    <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>
+                    <tr><td colSpan={9} className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 40 }}>
                       暂无 AR 记录。可点击 <strong>新建 AR</strong> 手工录入。
                     </td></tr>
                   ) : invoices.map((r, i) => (
@@ -913,18 +915,18 @@ export default function Finance2ArPage() {
                       </td>
                       <td style={{ padding: '10px 14px' }}><SourceTag type={r.source_type} /></td>
                       <td style={{ padding: '10px 14px', maxWidth: 150 }}>
-                        <div style={{ fontWeight: 600, color: '#0f172a' }}>{r.customer_name}</div>
-                        {r.customer_code && <div style={{ fontSize: 11, color: '#94a3b8' }}>{r.customer_code}</div>}
+                        <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 600 }}>{r.customer_name}</div>
+                        {r.customer_code && <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{r.customer_code}</div>}
                       </td>
-                      <td style={{ padding: '10px 14px', color: '#475569', whiteSpace: 'nowrap' }}>{r.company_code}</td>
-                      <td style={{ padding: '10px 14px', color: '#475569', whiteSpace: 'nowrap' }}>{fmtDate(r.invoice_date)}</td>
+                      <td className="text-slate-500 dark:text-slate-400" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>{r.company_code}</td>
+                      <td className="text-slate-500 dark:text-slate-400" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>{fmtDate(r.invoice_date)}</td>
                       <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                         <span style={{ color: isOverdue(r.due_date, r.status) ? '#ef4444' : '#475569' }}>
                           {fmtDate(r.due_date)}
                         </span>
                         <AgingBadge bucket={r.aging_bucket} />
                       </td>
-                      <td style={{ padding: '10px 14px', fontWeight: 600, color: '#0f172a', whiteSpace: 'nowrap' }}>
+                      <td className="text-slate-900 dark:text-slate-100" style={{ padding: '10px 14px', fontWeight: 600, whiteSpace: 'nowrap' }}>
                         {fmtMoney(r.amount_original, r.currency_code)}
                       </td>
                       <td style={{ padding: '10px 14px', fontWeight: 700, whiteSpace: 'nowrap',
@@ -937,8 +939,9 @@ export default function Finance2ArPage() {
                 </tbody>
               </table>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '12px 16px', borderTop: '1px solid #f1f5f9', fontSize: 13, color: '#64748b' }}>
+            <div className="border-t border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400"
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '12px 16px', fontSize: 13 }}>
               <span>共 {invTotal} 条（第 {invPage} / {invTotalPages} 页）</span>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onClick={() => { const p = invPage - 1; setInvPage(p); loadInvoices(p); }}
@@ -964,23 +967,24 @@ export default function Finance2ArPage() {
 
       {/* ── Tab: 收款记录 ── */}
       {tab === 'receipts' && (
-        <div style={{ background: '#fff', borderRadius: 12, border: '1.5px solid #f1f5f9',
-          overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+          style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0' }}>
+                <tr className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
                   {['收款编号','客户','公司','收款日期','收款金额','方式','流水号','状态'].map(h => (
                     <th key={h} style={{ padding: '10px 14px', textAlign: 'left',
-                      fontWeight: 600, fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>{h}</th>
+                      fontWeight: 600, fontSize: 12, whiteSpace: 'nowrap' }}
+                      className="text-slate-500 dark:text-slate-400">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {recLoading && receipts.length === 0 ? (
-                  <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>加载中…</td></tr>
+                  <tr><td colSpan={8} className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 40 }}>加载中…</td></tr>
                 ) : receipts.length === 0 ? (
-                  <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>
+                  <tr><td colSpan={8} className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 40 }}>
                     暂无收款记录。
                   </td></tr>
                 ) : receipts.map((r, i) => (
@@ -989,16 +993,16 @@ export default function Finance2ArPage() {
                     <td style={{ padding: '10px 14px', fontFamily: 'monospace', color: '#10b981', whiteSpace: 'nowrap' }}>
                       {r.receipt_no}
                     </td>
-                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#0f172a', maxWidth: 140 }}>
+                    <td className="text-slate-900 dark:text-slate-100" style={{ padding: '10px 14px', fontWeight: 600, maxWidth: 140 }}>
                       {r.customer_name}
                     </td>
-                    <td style={{ padding: '10px 14px', color: '#475569' }}>{r.company_code}</td>
-                    <td style={{ padding: '10px 14px', color: '#475569', whiteSpace: 'nowrap' }}>{fmtDate(r.receipt_date)}</td>
+                    <td className="text-slate-500 dark:text-slate-400" style={{ padding: '10px 14px' }}>{r.company_code}</td>
+                    <td className="text-slate-500 dark:text-slate-400" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>{fmtDate(r.receipt_date)}</td>
                     <td style={{ padding: '10px 14px', fontWeight: 700, color: '#059669', whiteSpace: 'nowrap' }}>
                       {fmtMoney(r.amount_original, r.currency_code)}
                     </td>
-                    <td style={{ padding: '10px 14px', color: '#475569' }}>{r.receipt_method ?? '—'}</td>
-                    <td style={{ padding: '10px 14px', color: '#475569', fontFamily: 'monospace', fontSize: 12 }}>
+                    <td className="text-slate-500 dark:text-slate-400" style={{ padding: '10px 14px' }}>{r.receipt_method ?? '—'}</td>
+                    <td className="text-slate-500 dark:text-slate-400" style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 12 }}>
                       {r.bank_ref ?? '—'}
                     </td>
                     <td style={{ padding: '10px 14px' }}><ReceiptStatusChip status={r.status} /></td>
@@ -1007,8 +1011,9 @@ export default function Finance2ArPage() {
               </tbody>
             </table>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '12px 16px', borderTop: '1px solid #f1f5f9', fontSize: 13, color: '#64748b' }}>
+          <div className="border-t border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400"
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '12px 16px', fontSize: 13 }}>
             <span>共 {recTotal} 条</span>
             <div style={{ display: 'flex', gap: 6 }}>
               <button onClick={() => { const p = recPage - 1; setRecPage(p); loadReceipts(p); }}
@@ -1035,7 +1040,7 @@ export default function Finance2ArPage() {
       {tab === 'aging' && (
         <div>
           {agingLoading ? (
-            <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>加载中…</div>
+            <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 40 }}>加载中…</div>
           ) : !aging ? null : (
             <>
               {/* 汇总桶 */}
@@ -1048,9 +1053,10 @@ export default function Finance2ArPage() {
                   { key: '61_90',    label: '逾期61-90天', value: aging.buckets?.['61_90'] ?? 0, color: '#dc2626' },
                   { key: '90_PLUS',  label: '逾期>90天',  value: aging.buckets?.['90_PLUS']?? 0, color: '#991b1b' },
                 ].map(b => (
-                  <div key={b.key} style={{ background: '#fff', borderRadius: 10, padding: '12px 14px',
-                    border: `1.5px solid ${b.color}30`, boxShadow: '0 1px 4px rgba(0,0,0,0.04)', textAlign: 'center' }}>
-                    <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>{b.label}</div>
+                  <div key={b.key} className="bg-white dark:bg-slate-800"
+                    style={{ borderRadius: 10, padding: '12px 14px',
+                      border: `1.5px solid ${b.color}30`, boxShadow: '0 1px 4px rgba(0,0,0,0.04)', textAlign: 'center' }}>
+                    <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11, marginBottom: 4 }}>{b.label}</div>
                     <div style={{ fontSize: 16, fontWeight: 800, color: b.color }}>
                       {b.value.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
                     </div>
@@ -1059,33 +1065,35 @@ export default function Finance2ArPage() {
               </div>
 
               {/* 客户明细 */}
-              <div style={{ background: '#fff', borderRadius: 12, border: '1.5px solid #f1f5f9', overflow: 'hidden' }}>
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9',
-                  fontSize: 13, fontWeight: 600, color: '#374151' }}>
+              <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                style={{ borderRadius: 12, overflow: 'hidden' }}>
+                <div className="border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                  style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600 }}>
                   客户账龄明细（截至 {new Date().toLocaleDateString('zh-CN')}）
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
-                      <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0' }}>
+                      <tr className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
                         {['客户','币种','未到期','≤30天','31-60天','61-90天','>90天','合计'].map(h => (
                           <th key={h} style={{ padding: '8px 12px', textAlign: 'right',
-                            fontWeight: 600, fontSize: 11, color: '#64748b', whiteSpace: 'nowrap',
-                            ...(h === '客户' ? { textAlign: 'left' } : {}) }}>{h}</th>
+                            fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap',
+                            ...(h === '客户' ? { textAlign: 'left' } : {}) }}
+                            className="text-slate-500 dark:text-slate-400">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {(aging.byCustomer ?? []).length === 0 ? (
-                        <tr><td colSpan={8} style={{ textAlign: 'center', padding: 30, color: '#94a3b8' }}>暂无账龄数据</td></tr>
+                        <tr><td colSpan={8} className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 30 }}>暂无账龄数据</td></tr>
                       ) : (aging.byCustomer ?? []).map((row: any, i: number) => (
                         <tr key={i} style={{ borderBottom: '1px solid #f1f5f9',
                           background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-                          <td style={{ padding: '8px 12px', fontWeight: 600, color: '#0f172a' }}>
+                          <td style={{ padding: '8px 12px', fontWeight: 600 }} className="text-slate-900 dark:text-slate-100">
                             {row.customer_name ?? '—'}
-                            {row.customer_code && <div style={{ fontSize: 10, color: '#94a3b8' }}>{row.customer_code}</div>}
+                            {row.customer_code && <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 10 }}>{row.customer_code}</div>}
                           </td>
-                          <td style={{ padding: '8px 12px', textAlign: 'right', color: '#64748b' }}>{row.currency_code}</td>
+                          <td className="text-slate-500 dark:text-slate-400" style={{ padding: '8px 12px', textAlign: 'right' }}>{row.currency_code}</td>
                           {['not_due','bucket_0_30','bucket_31_60','bucket_61_90','bucket_90_plus','total_balance'].map(k => (
                             <td key={k} style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'monospace',
                               color: k === 'total_balance' ? '#0f172a' : (Number(row[k] ?? 0) > 0 && k !== 'not_due' ? '#dc2626' : '#475569'),

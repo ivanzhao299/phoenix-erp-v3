@@ -92,6 +92,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+
 function TypeBadge({ type }: { type: string }) {
   const color = ACCOUNT_TYPE_COLORS[type] ?? '#6b7280';
   return (
@@ -164,12 +165,11 @@ function CreateAccountModal({
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
-      <div style={{
-        background: '#fff', borderRadius: 16, padding: 28, width: 520, maxHeight: '90vh',
-        overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-      }}>
+      <div className="bg-white dark:bg-slate-800"
+        style={{ borderRadius: 16, padding: 28, width: 520, maxHeight: '90vh',
+          overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>新建资金账户</div>
+          <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>新建资金账户</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
             <X size={18} color="#94a3b8" />
           </button>
@@ -279,14 +279,13 @@ function TransactionDrawer({
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
       display: 'flex', justifyContent: 'flex-end',
     }}>
-      <div style={{
-        background: '#fff', width: 520, height: '100vh', overflowY: 'auto',
-        padding: 24, boxShadow: '-8px 0 32px rgba(0,0,0,0.1)',
-      }}>
+      <div className="bg-white dark:bg-slate-800"
+        style={{ width: 520, height: '100vh', overflowY: 'auto',
+          padding: 24, boxShadow: '-8px 0 32px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>{account.accountName}</div>
-            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{account.accountCode} · {account.currencyCode}</div>
+            <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>{account.accountName}</div>
+            <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 12, marginTop: 2 }}>{account.accountCode} · {account.currencyCode}</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
             <X size={18} color="#94a3b8" />
@@ -304,12 +303,12 @@ function TransactionDrawer({
           </div>
         </div>
 
-        <div style={{ fontWeight: 600, fontSize: 13, color: '#374151', marginBottom: 12 }}>最近 50 条流水</div>
+        <div className="text-slate-700 dark:text-slate-300" style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>最近 50 条流水</div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8', fontSize: 13 }}>加载中…</div>
+          <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 32, fontSize: 13 }}>加载中…</div>
         ) : txns.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8', fontSize: 13 }}>暂无流水记录</div>
+          <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 32, fontSize: 13 }}>暂无流水记录</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {txns.map(t => (
@@ -436,8 +435,8 @@ export default function CashAccountsPage() {
               {c.icon}
             </div>
             <div>
-              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 2 }}>{c.label}</div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>{c.value}</div>
+              <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11, marginBottom: 2 }}>{c.label}</div>
+              <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 18, fontWeight: 800 }}>{c.value}</div>
             </div>
           </div>
         ))}
@@ -506,9 +505,9 @@ export default function CashAccountsPage() {
 
       {/* 账户列表 */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 48, color: '#94a3b8', fontSize: 14 }}>加载中…</div>
+        <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 48, fontSize: 14 }}>加载中…</div>
       ) : accounts.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 48, color: '#94a3b8', fontSize: 14 }}>
+        <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 48, fontSize: 14 }}>
           <Wallet size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.4 }} />
           暂无资金账户，点击「新建账户」开始管理
         </div>
@@ -518,8 +517,9 @@ export default function CashAccountsPage() {
             <div
               key={acc.id}
               onClick={() => setSelectedAccount(acc)}
+              className="bg-white dark:bg-slate-800"
               style={{
-                background: '#fff', borderRadius: 14,
+                borderRadius: 14,
                 border: `1.5px solid ${acc.status === 'FROZEN' ? '#fde68a' : acc.status === 'CLOSED' ? '#e2e8f0' : '#e8f4fd'}`,
                 padding: '18px 20px', cursor: 'pointer',
                 opacity: acc.status === 'CLOSED' ? 0.65 : 1,
@@ -532,10 +532,10 @@ export default function CashAccountsPage() {
               {/* 顶部行 */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', marginBottom: 4 }}>
+                  <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
                     {acc.accountName}
                   </div>
-                  <div style={{ fontSize: 11, color: '#94a3b8' }}>{acc.accountCode}</div>
+                  <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{acc.accountCode}</div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                   <StatusBadge status={acc.status} />

@@ -129,12 +129,10 @@ function CreateTransferModal({
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
-      <div style={{
-        background: '#fff', borderRadius: 16, padding: 28, width: 480,
-        boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-      }}>
+      <div className="bg-white dark:bg-slate-800"
+        style={{ borderRadius: 16, padding: 28, width: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>新建资金转账</div>
+          <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>新建资金转账</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
             <X size={18} color="#94a3b8" />
           </button>
@@ -333,31 +331,32 @@ export default function FundTransfersPage() {
           <RefreshCw size={14} color="#64748b" style={{ display: 'block' }} />
         </button>
 
-        <span style={{ fontSize: 12, color: '#94a3b8' }}>共 {total} 条</span>
+        <span className="text-slate-500 dark:text-slate-400" style={{ fontSize: 12 }}>共 {total} 条</span>
       </div>
 
       {/* 转账列表 */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: 48, color: '#94a3b8', fontSize: 14 }}>加载中…</div>
       ) : transfers.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 48, color: '#94a3b8', fontSize: 14 }}>
+        <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 48, fontSize: 14 }}>
           <ArrowLeftRight size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.4 }} />
           暂无转账记录
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {transfers.map(t => (
-            <div key={t.id} style={{
-              background: '#fff', borderRadius: 14,
-              border: `1.5px solid ${t.status === 'EXECUTED' ? '#bbf7d0' : t.status === 'CANCELLED' ? '#f1f5f9' : '#e8f4fd'}`,
-              padding: '16px 20px',
-              opacity: t.status === 'CANCELLED' ? 0.65 : 1,
-            }}>
+            <div key={t.id} className="bg-white dark:bg-slate-800"
+              style={{
+                borderRadius: 14,
+                border: `1.5px solid ${t.status === 'EXECUTED' ? '#bbf7d0' : t.status === 'CANCELLED' ? '#e2e8f0' : '#e8f4fd'}`,
+                padding: '16px 20px',
+                opacity: t.status === 'CANCELLED' ? 0.65 : 1,
+              }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 {/* 左侧信息 */}
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                    <span style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>{t.transferNo}</span>
+                    <span className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 13 }}>{t.transferNo}</span>
                     <StatusBadge status={t.status} />
                     <span style={{ fontSize: 11, color: '#94a3b8' }}>
                       {new Date(t.createdAt).toLocaleDateString('zh-CN')} · {t.createdBy ?? '-'}

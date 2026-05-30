@@ -176,11 +176,9 @@ function CreateExpenseModal({
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
     }}>
-      <div style={{
-        background: '#fff', borderRadius: 16, padding: 28, width: 460,
-        maxHeight: '90vh', overflowY: 'auto',
-      }}>
-        <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 20 }}>新建费用申请</div>
+      <div className="bg-white dark:bg-slate-800"
+        style={{ borderRadius: 16, padding: 28, width: 460, maxHeight: '90vh', overflowY: 'auto' }}>
+        <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 800, fontSize: 16, marginBottom: 20 }}>新建费用申请</div>
         {field('公司代码 *', inp('companyCode', 'text', 'e.g. COMP001'))}
         {field('公司名称', inp('companyName', 'text', '选填'))}
         {field('费用类型 *',
@@ -255,13 +253,15 @@ function ExpenseDrawer({
   };
 
   if (loading || !data) return (
-    <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 520, background: '#fff', padding: 28, boxShadow: '-2px 0 16px rgba(0,0,0,0.1)', zIndex: 500 }}>
-      <div style={{ color: '#64748b' }}>加载中...</div>
+    <div className="bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+      style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 520, padding: 28, boxShadow: '-2px 0 16px rgba(0,0,0,0.1)', zIndex: 500 }}>
+      <div>加载中...</div>
     </div>
   );
 
   return (
-    <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 540, background: '#fff', padding: 28, boxShadow: '-2px 0 20px rgba(0,0,0,0.12)', zIndex: 500, overflowY: 'auto' }}>
+    <div className="bg-white dark:bg-slate-800"
+      style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 540, padding: 28, boxShadow: '-2px 0 20px rgba(0,0,0,0.12)', zIndex: 500, overflowY: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
           <div style={{ fontWeight: 800, fontSize: 16 }}>{data.expense_no}</div>
@@ -271,7 +271,7 @@ function ExpenseDrawer({
       </div>
 
       {/* 基本信息 */}
-      <div style={{ background: '#f8fafc', borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
+      <div className="bg-slate-50 dark:bg-slate-700" style={{ borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: 13 }}>
           {[
             ['申请人',   data.requester_name ?? '—'],
@@ -451,10 +451,11 @@ export default function ExpensesPage() {
       {error && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 12, padding: '10px 14px', background: '#fef2f2', borderRadius: 8 }}><AlertTriangle size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />{error}</div>}
 
       {/* 列表 */}
-      <div style={{ background: '#fff', borderRadius: 14, border: '1.5px solid #f1f5f9', overflow: 'hidden' }}>
-        {loading && <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8' }}>加载中...</div>}
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+        style={{ borderRadius: 14, overflow: 'hidden' }}>
+        {loading && <div className="text-slate-500 dark:text-slate-400" style={{ padding: 32, textAlign: 'center' }}>加载中...</div>}
         {!loading && items.length === 0 && (
-          <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>
+          <div className="text-slate-500 dark:text-slate-400" style={{ padding: 40, textAlign: 'center' }}>
             <Receipt size={32} style={{ marginBottom: 8, opacity: 0.4 }} />
             <div>暂无费用申请</div>
           </div>
@@ -489,8 +490,8 @@ export default function ExpensesPage() {
               </div>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontWeight: 800, fontSize: 15, color: '#0f172a' }}>{item.currency_code} {fmt(item.amount_original)}</div>
-              <div style={{ fontSize: 11, color: '#94a3b8' }}>{new Date(item.created_at).toLocaleDateString('zh-CN')}</div>
+              <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 800, fontSize: 15 }}>{item.currency_code} {fmt(item.amount_original)}</div>
+              <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{new Date(item.created_at).toLocaleDateString('zh-CN')}</div>
             </div>
             <ChevronRight size={14} color="#cbd5e1" />
           </div>

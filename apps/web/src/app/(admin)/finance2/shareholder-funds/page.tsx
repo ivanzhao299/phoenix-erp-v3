@@ -168,9 +168,10 @@ function CreateContributionModal({ onClose, onCreated }: { onClose: () => void; 
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 520, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+      <div className="bg-white dark:bg-slate-800"
+        style={{ borderRadius: 16, padding: 28, width: 520, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>新建股东资金记录</div>
+          <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>新建股东资金记录</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} color="#94a3b8" /></button>
         </div>
         {err && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#dc2626', marginBottom: 14 }}>{err}</div>}
@@ -388,11 +389,12 @@ function ContributionDrawer({
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
-      <div style={{ background: '#fff', width: 560, height: '100vh', overflowY: 'auto', padding: 24, boxShadow: '-8px 0 32px rgba(0,0,0,0.1)' }}>
+      <div className="bg-white dark:bg-slate-800"
+        style={{ width: 560, height: '100vh', overflowY: 'auto', padding: 24, boxShadow: '-8px 0 32px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>{contribution.shareholderName}</div>
-            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{contribution.contributionNo}</div>
+            <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>{contribution.shareholderName}</div>
+            <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 12, marginTop: 2 }}>{contribution.contributionNo}</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} color="#94a3b8" /></button>
         </div>
@@ -543,7 +545,7 @@ function ContributionDrawer({
 // ── Summary Tab ───────────────────────────────────────────────────────────────
 
 function SummaryTab({ summary }: { summary: ShSummary | null }) {
-  if (!summary) return <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>加载中…</div>;
+  if (!summary) return <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 32 }}>加载中…</div>;
 
   return (
     <div>
@@ -555,16 +557,17 @@ function SummaryTab({ summary }: { summary: ShSummary | null }) {
           { label: '已确认笔数', value: `${summary.confirmedContributions} 笔`, color: '#2563eb' },
           { label: '待确认', value: `${summary.pendingConfirmations} 笔`, color: '#d97706' },
         ].map(c => (
-          <div key={c.label} style={{ background: '#fff', borderRadius: 12, padding: '14px 16px', border: '1.5px solid #f1f5f9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>{c.label}</div>
+          <div key={c.label} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            style={{ borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11, marginBottom: 4 }}>{c.label}</div>
             <div style={{ fontSize: 18, fontWeight: 800, color: c.color }}>{c.value}</div>
           </div>
         ))}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-        <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', border: '1.5px solid #f1f5f9' }}>
-          <div style={{ fontWeight: 600, fontSize: 13, color: '#374151', marginBottom: 12 }}>按股东分布</div>
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700" style={{ borderRadius: 12, padding: '16px 18px' }}>
+          <div className="text-slate-700 dark:text-slate-300" style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>按股东分布</div>
           {summary.byShareholder.length === 0 ? (
             <div style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center', padding: 16 }}>暂无数据</div>
           ) : summary.byShareholder.map(r => (
@@ -578,8 +581,8 @@ function SummaryTab({ summary }: { summary: ShSummary | null }) {
           ))}
         </div>
 
-        <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', border: '1.5px solid #f1f5f9' }}>
-          <div style={{ fontWeight: 600, fontSize: 13, color: '#374151', marginBottom: 12 }}>按资金类型</div>
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700" style={{ borderRadius: 12, padding: '16px 18px' }}>
+          <div className="text-slate-700 dark:text-slate-300" style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>按资金类型</div>
           {summary.byContributionType.length === 0 ? (
             <div style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center', padding: 16 }}>暂无数据</div>
           ) : summary.byContributionType.map(r => (
@@ -749,9 +752,9 @@ export default function ShareholderFundsPage() {
           </div>
 
           {loading ? (
-            <div style={{ textAlign: 'center', padding: 48, color: '#94a3b8', fontSize: 14 }}>加载中…</div>
+            <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 48, fontSize: 14 }}>加载中…</div>
           ) : contributions.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 48, color: '#94a3b8', fontSize: 14 }}>
+            <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 48, fontSize: 14 }}>
               <Users size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.4 }} />
               暂无股东资金记录
             </div>

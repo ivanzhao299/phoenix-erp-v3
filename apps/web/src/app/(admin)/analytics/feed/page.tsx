@@ -1,106 +1,257 @@
 "use client";
-import { useState, useCallback } from "react";
-import { crudApi } from "@/lib/api-client";
-import { DataTable } from "@/components/data-table/DataTable";
-import { RightDrawer } from "@/components/ui/RightDrawer";
-import { CrudForm, type FormField } from "@/components/ui/CrudForm";
+import { useState, useEffect } from "react";
+import { RefreshCw, Package, Truck, Users, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { useLanguage } from "@/contexts/LanguageContext";
 
-const TABLE = "prc_receipts";
+// ── 类型 ──────────────────────────────────────────────────────────────────────
 
-export default function FeedPage() {
-  const { t } = useLanguage();
-  const TITLE = t('ui.饲料核对', '饲料核对');
+interface Receipt {
+  id: number;
+  receipt_no: string;
+  arrive_date: string;
+  supplier_code: string;
+  item_name: string;
+  net_weight?: number;
+  actual_qty?: number;
+  amount?: number;
+  status?: string;
+}
 
-  const COLUMNS = [
-      { key: "receipt_no", title: t('ui.收货单号', '收货单号') },
-      { key: "item_name", title: t('ui.饲料名称', '饲料名称') },
-      { key: "actual_qty", title: t('ui.到货量kg', '到货量（kg）') },
-      { key: "arrive_date", title: t('ui.到货日期', '到货日期') },
-      { key: "supplier_code", title: t('ui.供应商', '供应商') },
-      { key: "status", title: t('common.status', '状态') },
-  ];
+interface ReceiptsResponse {
+  data?: Receipt[];
+  items?: Receipt[];
+  list?: Receipt[];
+  total?: number;
+}
 
-  const FIELDS: FormField[] = [
-      { key: "receipt_no", label: t('ui.收货单号', '收货单号'), type: "readonly" },
-      { key: "supplier_code", label: t('ui.供应商', '供应商'), type: "text", required: true },
-      { key: "item_name", label: t('ui.饲料物料名称', '饲料/物料名称'), type: "text", required: true },
-      { key: "expected_qty", label: t('ui.计划数量', '计划数量'), type: "number" },
-      { key: "actual_qty", label: t('ui.实收数量', '实收数量'), type: "number", required: true },
-      { key: "arrive_date", label: t('ui.到货日期', '到货日期'), type: "date" },
-      { key: "status", label: t('ui.验收结论', '验收结论'), type: "select", options: [{ label: t('ui.通过', '通过'), value: "ACCEPTED" }, { label: t('ui.部分', '部分'), value: "PARTIAL" }, { label: t('ui.拒收', '拒收'), value: "REJECTED" }] },
-  ];
+// ── API ───────────────────────────────────────────────────────────────────────
 
-  const [drawerOpen, setDrawerOpen]     = useState(false);
-  const [editing, setEditing]           = useState<Record<string, unknown> | null>(null);
-  const [saving, setSaving]             = useState(false);
-  const [refreshKey, setRefreshKey]     = useState(0);
-  const [confirmOpen, setConfirmOpen]   = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Record<string, unknown> | null>(null);
+function getToken() {
+  if (typeof window === "undefined") return "";
+  return (
+    sessionStorage.getItem("phoenix_token") ||
+    localStorage.getItem("phoenix_token") ||
+    ""
+  );
+}
 
-  const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
+async function apiFetch<T>(url: string): Promise<T> {
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
 
-  const openNew  = useCallback(() => { setEditing(null);  setDrawerOpen(true); }, []);
-  const openEdit = useCallback((row: Record<string, unknown>) => { setEditing(row); setDrawerOpen(true); }, []);
-  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+// ── 工具 ─────────────────────────────────────────────────────────────────────
 
-  const handleSave = useCallback(async (values: Record<string, unknown>) => {
-    setSaving(true);
+function getThisMonthStr() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function fmtDate(d: string | null | undefined) {
+  if (!d) return "—";
+  return d.slice(0, 10);
+}
+
+function fmtNum(n: number | null | undefined) {
+  if (n === null || n === undefined) return "0";
+  return Number(n).toLocaleString("zh-CN", { maximumFractionDigits: 1 });
+}
+
+// ── 统计卡片 ──────────────────────────────────────────────────────────────────
+
+function StatCard({
+  icon: Icon,
+  title,
+  value,
+  sub,
+  color,
+}: {
+  icon: React.ElementType;
+  title: string;
+  value: string | number;
+  sub?: string;
+  color: string;
+}) {
+  return (
+    <div className="rounded-2xl border bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 p-5 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm text-slate-500 dark:text-slate-400">{title}</span>
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center"
+          style={{ background: `${color}18` }}
+        >
+          <Icon size={18} color={color} />
+        </div>
+      </div>
+      <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{value}</div>
+      {sub && <div className="text-xs text-slate-400 mt-1">{sub}</div>}
+    </div>
+  );
+}
+
+// ── 主页面 ────────────────────────────────────────────────────────────────────
+
+export default function FeedAnalyticsPage() {
+  const [records, setRecords] = useState<Receipt[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    setError("");
     try {
-      if (editing?.id) {
-        await crudApi.update(TABLE, editing.id as number, values);
+      const raw = await apiFetch<ReceiptsResponse | Receipt[]>(
+        "/api/v2/procurement/receipts?limit=100"
+      );
+      let list: Receipt[] = [];
+      if (Array.isArray(raw)) {
+        list = raw;
       } else {
-        await crudApi.create(TABLE, values);
+        list = raw.data ?? raw.items ?? raw.list ?? [];
       }
-      setDrawerOpen(false);
-      refresh();
+      setRecords(list);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "加载失败");
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
-  }, [editing, refresh]);
+  };
 
-  const handleDelete = useCallback((row: Record<string, unknown>) => {
-    setDeleteTarget(row);
-    setConfirmOpen(true);
+  useEffect(() => {
+    void load();
   }, []);
 
-  const confirmDelete = useCallback(async () => {
-    if (!deleteTarget?.id) return;
-    await crudApi.delete(TABLE, deleteTarget.id as number);
-    setConfirmOpen(false);
-    refresh();
-  }, [deleteTarget, refresh]);
+  // 统计
+  const thisMonth = getThisMonthStr();
+  const monthRecords = records.filter((r) =>
+    (r.arrive_date ?? "").startsWith(thisMonth)
+  );
+  const monthBatches = monthRecords.length;
+  const monthWeight = monthRecords.reduce(
+    (s, r) => s + Number(r.net_weight ?? r.actual_qty ?? 0),
+    0
+  );
+  const supplierSet = new Set(records.map((r) => r.supplier_code).filter(Boolean));
+  const supplierCount = supplierSet.size;
+
+  const recent = [...records]
+    .sort((a, b) => (b.arrive_date ?? "") > (a.arrive_date ?? "") ? 1 : -1)
+    .slice(0, 10);
 
   return (
     <div>
-      <PageHeader title={TITLE} subtitle={t('ui.核对饲料采购到货与设备消耗对比', '核对饲料采购到货与设备消耗对比（表：prc_receipts）')} />
-      <DataTable
-        table={TABLE}
-        columns={COLUMNS}
-        onNew={openNew}
-        onEdit={openEdit}
-        onDelete={handleDelete}
-        showActions
-        refreshKey={refreshKey}
+      <PageHeader
+        title="饲料采购分析"
+        subtitle="采购到货统计 · 饲料品类分布 · 供应商分析"
+        actions={
+          <button
+            onClick={() => void load()}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            刷新
+          </button>
+        }
       />
-      <RightDrawer open={drawerOpen} title={editing ? `${t('common.edit', '编辑')}${TITLE}` : `${t('common.new', '新增')}${TITLE}`} onClose={closeDrawer}>
-        <CrudForm
-          fields={FIELDS}
-          initialValues={editing ?? {}}
-          onSubmit={handleSave}
-          onCancel={closeDrawer}
-          loading={saving}
-        />
-      </RightDrawer>
-      <ConfirmDialog
-        open={confirmOpen}
-        title={t('common.confirm', '确认删除')}
-        message={t('ui.删除后不可恢复确认继续', '删除后不可恢复，确认继续？')}
-        onConfirm={confirmDelete}
-        onCancel={() => setConfirmOpen(false)}
-      />
+
+      {/* 错误提示 */}
+      {error && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+          <AlertCircle size={16} />
+          {error}
+        </div>
+      )}
+
+      {/* 加载中 */}
+      {loading && !error && (
+        <div className="flex items-center justify-center py-20 text-slate-400">
+          <RefreshCw size={20} className="animate-spin mr-2" />
+          加载中…
+        </div>
+      )}
+
+      {!loading && !error && (
+        <>
+          {/* 统计卡片 */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <StatCard
+              icon={Package}
+              title="本月到货批次"
+              value={monthBatches}
+              sub="批"
+              color="#6366f1"
+            />
+            <StatCard
+              icon={Truck}
+              title="本月到货总重量"
+              value={`${fmtNum(monthWeight)} kg`}
+              sub="净重合计"
+              color="#10b981"
+            />
+            <StatCard
+              icon={Users}
+              title="供应商数量"
+              value={supplierCount}
+              sub="家（全部记录）"
+              color="#f59e0b"
+            />
+          </div>
+
+          {/* 最近10条到货记录 */}
+          <div className="rounded-2xl border bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+              <span className="font-semibold text-sm text-slate-700 dark:text-slate-200">
+                最近到货记录
+              </span>
+            </div>
+            {recent.length === 0 ? (
+              <div className="py-12 text-center text-sm text-slate-400">暂无数据</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+                      <th className="text-left px-5 py-3 font-medium">日期</th>
+                      <th className="text-left px-5 py-3 font-medium">供应商</th>
+                      <th className="text-left px-5 py-3 font-medium">饲料品类</th>
+                      <th className="text-right px-5 py-3 font-medium">重量（kg）</th>
+                      <th className="text-right px-5 py-3 font-medium">金额</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recent.map((r) => (
+                      <tr
+                        key={r.id}
+                        className="border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+                      >
+                        <td className="px-5 py-3 text-slate-700 dark:text-slate-300">
+                          {fmtDate(r.arrive_date)}
+                        </td>
+                        <td className="px-5 py-3 text-slate-600 dark:text-slate-400">
+                          {r.supplier_code || "—"}
+                        </td>
+                        <td className="px-5 py-3 text-slate-600 dark:text-slate-400">
+                          {r.item_name || "—"}
+                        </td>
+                        <td className="px-5 py-3 text-right text-slate-700 dark:text-slate-300">
+                          {fmtNum(r.net_weight ?? r.actual_qty)}
+                        </td>
+                        <td className="px-5 py-3 text-right text-slate-700 dark:text-slate-300">
+                          {r.amount != null ? `¥${fmtNum(r.amount)}` : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

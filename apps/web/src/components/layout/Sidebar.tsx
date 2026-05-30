@@ -237,12 +237,12 @@ const MENU: MenuItem[] = [
     { id: "mdc-pkgspecs",  path: "/master-data/packaging-specs",  Icon: Package,         label: "包装规格档案",   perm: "MENU_MASTER_PACKAGING" },
     { id: "mdc-skus",      path: "/master-data/product-skus",     Icon: Layers,          label: "SKU 档案",       perm: "MENU_MASTER_SKU" },
   ]},
-  // [Legacy] 旧主数据入口 — 保留供直接跳转
-  { id: "master", Icon: Database, label: "主数据", perm: "MENU_MASTER", children: [
-    { id: "md-farms",    path: "/master/farms",     Icon: Home,      label: "农场主档",   perm: "MENU_MASTER" },
-    { id: "md-products", path: "/master/products",  Icon: Box,       label: "产品品级",   perm: "MENU_MASTER" },
-    { id: "md-stores",   path: "/master/stores",    Icon: Store,     label: "门店主档",   perm: "MENU_MASTER" },
-  ]},
+  // [Legacy] 旧主数据入口已隐藏 — 统一入口为 /master-data/
+  // { id: "master", Icon: Database, label: "主数据", perm: "MENU_MASTER", children: [
+  //   { id: "md-farms",    path: "/master/farms",     Icon: Home,      label: "农场主档",   perm: "MENU_MASTER" },
+  //   { id: "md-products", path: "/master/products",  Icon: Box,       label: "产品品级",   perm: "MENU_MASTER" },
+  //   { id: "md-stores",   path: "/master/stores",    Icon: Store,     label: "门店主档",   perm: "MENU_MASTER" },
+  // ]},
   { id: "settings", Icon: Settings, label: "系统设置", perm: null, children: [
     { id: "stg-users",       path: "/settings/users",          Icon: Users,         label: "用户管理",     perm: "MENU_SETTINGS_USER" },
     { id: "stg-roles",       path: "/settings/roles",          Icon: Shield,        label: "角色与权限",   perm: "MENU_SETTINGS_IT" },

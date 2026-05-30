@@ -127,9 +127,9 @@ function PayModal({
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 420 }}>
-        <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>执行付款</div>
-        <div style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>报销单号：{reimb.reimb_no}</div>
+      <div className="bg-white dark:bg-slate-800" style={{ borderRadius: 16, padding: 28, width: 420 }}>
+        <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>执行付款</div>
+        <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 13, marginBottom: 20 }}>报销单号：{reimb.reimb_no}</div>
 
         <div style={{ background: '#fffbeb', borderRadius: 10, padding: '12px 16px', marginBottom: 20, border: '1.5px solid #fde68a' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e' }}>
@@ -271,10 +271,11 @@ export default function ReimbursementsPage() {
       {error && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 12, padding: '10px 14px', background: '#fef2f2', borderRadius: 8 }}><AlertTriangle size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />{error}</div>}
 
       {/* 列表 */}
-      <div style={{ background: '#fff', borderRadius: 14, border: '1.5px solid #f1f5f9', overflow: 'hidden' }}>
-        {loading && <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8' }}>加载中...</div>}
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+        style={{ borderRadius: 14, overflow: 'hidden' }}>
+        {loading && <div className="text-slate-500 dark:text-slate-400" style={{ padding: 32, textAlign: 'center' }}>加载中...</div>}
         {!loading && items.length === 0 && (
-          <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>
+          <div className="text-slate-500 dark:text-slate-400" style={{ padding: 40, textAlign: 'center' }}>
             <Wallet size={32} style={{ marginBottom: 8, opacity: 0.4 }} />
             <div>暂无报销记录</div>
           </div>
@@ -305,8 +306,8 @@ export default function ReimbursementsPage() {
                 )}
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0, marginRight: 12 }}>
-                <div style={{ fontWeight: 800, fontSize: 15, color: '#0f172a' }}>{item.currency_code} {fmt(item.reimb_amount_original)}</div>
-                <div style={{ fontSize: 11, color: '#94a3b8' }}>{new Date(item.created_at).toLocaleDateString('zh-CN')}</div>
+                <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 800, fontSize: 15 }}>{item.currency_code} {fmt(item.reimb_amount_original)}</div>
+                <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{new Date(item.created_at).toLocaleDateString('zh-CN')}</div>
               </div>
               {/* 操作按钮 */}
               <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>

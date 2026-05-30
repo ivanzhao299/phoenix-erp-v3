@@ -16,23 +16,26 @@ export default function BackwardTracePage() {
   const TITLE = t("ui.反向追溯","反向追溯");
 
   const COLUMNS = [
-    { key: "batch_no", title: t("ui.批次号","批次号") },
-    { key: "house_code", title: t("ui.来源鸡舍","来源鸡舍") },
-    { key: "grading_date", title: t("ui.分级日期","分级日期") },
-    { key: "sku_code", title: t("ui.品级","品级") },
-    { key: "qty", title: t("ui.数量","数量") },
-    { key: "status", title: t("common.status","状态") },
+    { key: "batch_no",       title: t("ui.批次号","批次号") },
+    { key: "product_code",   title: t("ui.产品编码","产品编码") },
+    { key: "warehouse_code", title: t("ui.仓库","仓库") },
+    { key: "location_code",  title: t("ui.库位","库位") },
+    { key: "qty",            title: t("ui.总数量","总数量") },
+    { key: "qty_available",  title: t("ui.可用数量","可用数量") },
+    { key: "expire_date",    title: t("ui.过期日期","过期日期") },
+    { key: "status",         title: t("common.status","状态") },
   ];
 
   const FIELDS: FormField[] = [
-    { key: "batch_no", label: t("ui.批次号","批次号"), type: "text", required: true },
-    { key: "house_code", label: t("ui.来源鸡舍","来源鸡舍"), type: "text" },
-    { key: "sku_code", label: t("ui.品级编码","品级编码"), type: "text" },
-    { key: "grading_date", label: t("ui.分级日期","分级日期"), type: "date" },
-    { key: "qty", label: t("ui.数量","数量"), type: "number" },
-    { key: "pack_type", label: t("ui.包装类型","包装类型"), type: "text" },
+    { key: "batch_no",       label: t("ui.批次号","批次号"),     type: "text", required: true },
+    { key: "product_code",   label: t("ui.产品编码","产品编码"), type: "text" },
+    { key: "warehouse_code", label: t("ui.仓库编码","仓库编码"), type: "text" },
+    { key: "location_code",  label: t("ui.库位编码","库位编码"), type: "text" },
+    { key: "qty",            label: t("ui.总数量","总数量"),     type: "number" },
+    { key: "qty_available",  label: t("ui.可用数量","可用数量"), type: "number" },
+    { key: "expire_date",    label: t("ui.过期日期","过期日期"), type: "date" },
     { key: "status", label: t("common.status","状态"), type: "select", options: [
-      { label: t("ui.可用","可用"), value: "AVAILABLE" },
+      { label: t("ui.可用","可用"),   value: "AVAILABLE" },
       { label: t("ui.已锁定","已锁定"), value: "LOCKED" },
       { label: t("ui.已出库","已出库"), value: "OUTBOUND" },
       { label: t("ui.已报废","已报废"), value: "SCRAPPED" },
@@ -81,7 +84,7 @@ export default function BackwardTracePage() {
 
   return (
     <div>
-      <PageHeader title={TITLE} subtitle={t("ui.反向追溯副标题","从批次反向追溯到源头生产记录（表：inv_batches）")} />
+      <PageHeader title={TITLE} subtitle={t("ui.反向追溯副标题","从批次号反向查询仓库位置、产品信息及库存状态")} />
       <DataTable
         table={TABLE}
         columns={COLUMNS}

@@ -35,10 +35,8 @@ function KpiCard({ label, value, sub, icon: Icon, color }: {
   icon?: React.ElementType; color?: string;
 }) {
   return (
-    <div style={{
-      background: '#fff', borderRadius: 14, padding: '16px 18px',
-      border: '1.5px solid #f1f5f9', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-    }}>
+    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+      style={{ borderRadius: 14, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         {Icon && (
           <div style={{
@@ -49,17 +47,17 @@ function KpiCard({ label, value, sub, icon: Icon, color }: {
             <Icon size={16} color={color ?? '#6366f1'} />
           </div>
         )}
-        <span style={{ fontSize: 11, color: '#64748b' }}>{label}</span>
+        <span className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{label}</span>
       </div>
-      <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{sub}</div>}
+      <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 18, fontWeight: 800 }}>{value}</div>
+      {sub && <div className="text-slate-400 dark:text-slate-500" style={{ fontSize: 11, marginTop: 2 }}>{sub}</div>}
     </div>
   );
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: '20px 0 10px' }}>
+    <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 13, fontWeight: 600, margin: '20px 0 10px' }}>
       {children}
     </div>
   );
@@ -67,7 +65,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 function TableWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ overflowX: 'auto', borderRadius: 12, border: '1.5px solid #f1f5f9' }}>
+    <div className="border border-slate-200 dark:border-slate-700" style={{ overflowX: 'auto', borderRadius: 12 }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         {children}
       </table>
@@ -77,22 +75,22 @@ function TableWrapper({ children }: { children: React.ReactNode }) {
 
 function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
-    <th style={{
-      padding: '10px 14px', textAlign: right ? 'right' : 'left',
-      fontSize: 11, fontWeight: 700, color: '#64748b',
-      background: '#f8fafc', borderBottom: '1.5px solid #f1f5f9',
-      whiteSpace: 'nowrap',
-    }}>{children}</th>
+    <th className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400"
+      style={{
+        padding: '10px 14px', textAlign: right ? 'right' : 'left',
+        fontSize: 11, fontWeight: 700,
+        whiteSpace: 'nowrap',
+      }}>{children}</th>
   );
 }
 
 function Td({ children, right, bold }: { children: React.ReactNode; right?: boolean; bold?: boolean }) {
   return (
-    <td style={{
-      padding: '9px 14px', textAlign: right ? 'right' : 'left',
-      borderBottom: '1px solid #f8fafc', fontWeight: bold ? 700 : 400,
-      color: bold ? '#0f172a' : '#374151', whiteSpace: 'nowrap',
-    }}>{children}</td>
+    <td className={bold ? 'text-slate-900 dark:text-slate-100 border-b border-slate-100 dark:border-slate-700' : 'text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-700'}
+      style={{
+        padding: '9px 14px', textAlign: right ? 'right' : 'left',
+        fontWeight: bold ? 700 : 400, whiteSpace: 'nowrap',
+      }}>{children}</td>
   );
 }
 
@@ -120,7 +118,7 @@ function AgingBar({ notDue, d030, d3160, d6190, dOver90, total }: {
 
 function Spinner() {
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: '48px', color: '#94a3b8' }}>
+    <div className="text-slate-400 dark:text-slate-500" style={{ display: 'flex', justifyContent: 'center', padding: '48px' }}>
       <RefreshCw size={20} style={{ animation: 'spin 1s linear infinite' }} />
     </div>
   );
@@ -128,7 +126,7 @@ function Spinner() {
 
 function Empty({ text = '暂无数据' }: { text?: string }) {
   return (
-    <div style={{ textAlign: 'center', padding: '32px', color: '#94a3b8', fontSize: 13 }}>
+    <div className="text-slate-400 dark:text-slate-500" style={{ textAlign: 'center', padding: '32px', fontSize: 13 }}>
       {text}
     </div>
   );
@@ -210,12 +208,10 @@ function OverviewTab() {
           <SectionTitle>现金余额 — 按币种</SectionTitle>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
             {data.byCurrency.map(r => (
-              <div key={r.currencyCode} style={{
-                background: '#f8fafc', border: '1.5px solid #e2e8f0',
-                borderRadius: 10, padding: '10px 16px',
-              }}>
-                <div style={{ fontSize: 11, color: '#64748b' }}>{r.currencyCode}</div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>{fmtMoney(r.cashBalance)}</div>
+              <div key={r.currencyCode} className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
+                style={{ borderRadius: 10, padding: '10px 16px' }}>
+                <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{r.currencyCode}</div>
+                <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 16, fontWeight: 800 }}>{fmtMoney(r.cashBalance)}</div>
               </div>
             ))}
           </div>
@@ -463,13 +459,11 @@ function CashTab() {
           <SectionTitle>按账户类型</SectionTitle>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
             {overview.byAccountType.map(r => (
-              <div key={r.accountType} style={{
-                background: '#f8fafc', border: '1.5px solid #e2e8f0',
-                borderRadius: 10, padding: '10px 16px', minWidth: 140,
-              }}>
-                <div style={{ fontSize: 11, color: '#64748b', marginBottom: 2 }}>{r.accountType}</div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>{fmtMoney(r.balance)}</div>
-                <div style={{ fontSize: 11, color: '#94a3b8' }}>{r.count} 个账户</div>
+              <div key={r.accountType} className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
+                style={{ borderRadius: 10, padding: '10px 16px', minWidth: 140 }}>
+                <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11, marginBottom: 2 }}>{r.accountType}</div>
+                <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 15, fontWeight: 800 }}>{fmtMoney(r.balance)}</div>
+                <div className="text-slate-400 dark:text-slate-500" style={{ fontSize: 11 }}>{r.count} 个账户</div>
               </div>
             ))}
           </div>
@@ -513,7 +507,7 @@ function CashTab() {
                     </div>
                   ))}
                 </div>
-                <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11, color: '#64748b' }}>
+                <div className="text-slate-500 dark:text-slate-400" style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ width: 10, height: 10, background: '#10b981', borderRadius: 2, display: 'inline-block' }} />流入
                   </span>
@@ -595,15 +589,13 @@ function ExpenseTab() {
         <>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
             {Object.entries(expData.byStatus).map(([status, d]) => (
-              <div key={status} style={{
-                background: '#f8fafc', border: '1.5px solid #e2e8f0',
-                borderRadius: 10, padding: '10px 16px', minWidth: 130,
-              }}>
+              <div key={status} className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
+                style={{ borderRadius: 10, padding: '10px 16px', minWidth: 130 }}>
                 <div style={{ fontSize: 11, color: STATUS_COLOR[status] ?? '#64748b', fontWeight: 700 }}>
                   {STATUS_LABEL[status] ?? status}
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>{d.count} 笔</div>
-                <div style={{ fontSize: 11, color: '#64748b' }}>{fmtMoney(d.amount)}</div>
+                <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 16, fontWeight: 800 }}>{d.count} 笔</div>
+                <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{fmtMoney(d.amount)}</div>
               </div>
             ))}
           </div>
@@ -665,15 +657,13 @@ function ExpenseTab() {
         <>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
             {Object.entries(reimbData.byStatus).map(([status, d]) => (
-              <div key={status} style={{
-                background: '#f8fafc', border: '1.5px solid #e2e8f0',
-                borderRadius: 10, padding: '10px 16px', minWidth: 130,
-              }}>
+              <div key={status} className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
+                style={{ borderRadius: 10, padding: '10px 16px', minWidth: 130 }}>
                 <div style={{ fontSize: 11, color: STATUS_COLOR[status] ?? '#64748b', fontWeight: 700 }}>
                   {STATUS_LABEL[status] ?? status}
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>{d.count} 笔</div>
-                <div style={{ fontSize: 11, color: '#64748b' }}>{fmtMoney(d.amount)}</div>
+                <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 16, fontWeight: 800 }}>{d.count} 笔</div>
+                <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{fmtMoney(d.amount)}</div>
               </div>
             ))}
           </div>
@@ -748,13 +738,12 @@ function ShareholderTab() {
           <SectionTitle>按出资类型</SectionTitle>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
             {data.byContributionType.map(r => (
-              <div key={r.contributionType} style={{
-                background: '#f5f3ff', border: '1.5px solid #ddd6fe',
-                borderRadius: 10, padding: '10px 16px', minWidth: 140,
-              }}>
+              <div key={r.contributionType}
+                className="border border-violet-200 dark:border-violet-700 bg-violet-50 dark:bg-slate-700"
+                style={{ borderRadius: 10, padding: '10px 16px', minWidth: 140 }}>
                 <div style={{ fontSize: 11, color: '#7c3aed', fontWeight: 700 }}>{r.contributionType}</div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>{fmtMoney(r.totalAmount)}</div>
-                <div style={{ fontSize: 11, color: '#64748b' }}>余额 {fmtMoney(r.balanceAmount)}</div>
+                <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 15, fontWeight: 800 }}>{fmtMoney(r.totalAmount)}</div>
+                <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>余额 {fmtMoney(r.balanceAmount)}</div>
               </div>
             ))}
           </div>
@@ -818,12 +807,13 @@ function ProjectTab() {
           value={filter}
           onChange={e => setFilter(e.target.value)}
           placeholder="过滤项目代码…"
+          className="text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 placeholder:text-slate-400 dark:placeholder:text-slate-500"
           style={{
-            padding: '7px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0',
-            fontSize: 13, color: '#374151', width: 220, outline: 'none',
+            padding: '7px 12px', borderRadius: 8,
+            fontSize: 13, width: 220, outline: 'none',
           }}
         />
-        <span style={{ fontSize: 12, color: '#94a3b8' }}>{rows.length} 个项目</span>
+        <span className="text-slate-400 dark:text-slate-500" style={{ fontSize: 12 }}>{rows.length} 个项目</span>
       </div>
 
       {!rows.length ? <Empty text="暂无项目财务数据" /> : (
@@ -856,7 +846,7 @@ function ProjectTab() {
         </TableWrapper>
       )}
 
-      <div style={{ marginTop: 12, fontSize: 11, color: '#94a3b8' }}>
+      <div className="text-slate-400 dark:text-slate-500" style={{ marginTop: 12, fontSize: 11 }}>
         净头寸 = AR 待收 − AP 待付 − 费用总额
       </div>
     </div>
@@ -921,7 +911,7 @@ function CompanyTab() {
           ))}
         </tbody>
       </TableWrapper>
-      <div style={{ marginTop: 12, fontSize: 11, color: '#94a3b8' }}>
+      <div className="text-slate-400 dark:text-slate-500" style={{ marginTop: 12, fontSize: 11 }}>
         经营净头寸 = 现金余额 + AR 待收 − AP 待付 − 费用总额
       </div>
     </div>
@@ -978,11 +968,8 @@ export default function Finance2ReportsPage() {
       </div>
 
       {/* Tab 导航 */}
-      <div style={{
-        display: 'flex', gap: 4, marginBottom: 20,
-        borderBottom: '2px solid #f1f5f9', paddingBottom: 0,
-        overflowX: 'auto',
-      }}>
+      <div className="border-b-2 border-slate-200 dark:border-slate-700"
+        style={{ display: 'flex', gap: 4, marginBottom: 20, paddingBottom: 0, overflowX: 'auto' }}>
         {TABS.map(tab => {
           const active = activeTab === tab.key;
           const Icon = tab.icon;
@@ -990,11 +977,11 @@ export default function Finance2ReportsPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
+              className={active ? 'text-indigo-500' : 'text-slate-500 dark:text-slate-400'}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 padding: '10px 16px', fontSize: 13, fontWeight: active ? 700 : 500,
                 background: 'none', border: 'none', cursor: 'pointer',
-                color: active ? '#6366f1' : '#64748b',
                 borderBottom: active ? '2px solid #6366f1' : '2px solid transparent',
                 marginBottom: -2, whiteSpace: 'nowrap', borderRadius: '8px 8px 0 0',
               }}

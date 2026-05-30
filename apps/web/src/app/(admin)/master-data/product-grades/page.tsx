@@ -78,29 +78,31 @@ export default function ProductGradesPage() {
     finally { setSaving(false); }
   };
 
-  if (!canView) return <div style={{ padding: 40, color: "#94a3b8", textAlign: "center" }}>无权限查看产品等级档案</div>;
+  if (!canView) return <div className="text-slate-500 dark:text-slate-400" style={{ padding: 40, textAlign: "center" }}>无权限查看产品等级档案</div>;
 
   const filtered = items.filter(g =>
     !search || g.grade_code.toLowerCase().includes(search.toLowerCase()) || g.grade_name.includes(search)
   );
 
-  const inp: React.CSSProperties = { width: "100%", padding: "7px 10px", background: "#1e293b", border: "1px solid #334155", borderRadius: 7, color: "#e2e8f0", fontSize: 13, outline: "none", marginTop: 4 };
-  const lbl: React.CSSProperties = { fontSize: 12, color: "#94a3b8", display: "block", marginTop: 12 };
+  const inp: React.CSSProperties = { width: "100%", padding: "7px 10px", borderRadius: 7, fontSize: 13, outline: "none", marginTop: 4 };
+  const lbl: React.CSSProperties = { fontSize: 12, display: "block", marginTop: 12 };
 
   return (
-    <div style={{ padding: "24px 32px", background: "#0f172a", minHeight: "100vh", color: "#e2e8f0" }}>
+    <div className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 min-h-screen" style={{ padding: "24px 32px" }}>
       <PageHeader title="产品等级档案" subtitle="统一 grade_code 值集 · AA/A/B/C/DIRTY/CRACKED/BROKEN/DAMAGED" breadcrumb={["主数据中心", "产品等级档案"]} />
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
         <div style={{ position: "relative", flex: "0 0 240px" }}>
           <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#475569" }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索等级编码 / 名称..." style={{ ...inp, marginTop: 0, paddingLeft: 32 }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索等级编码 / 名称..."
+            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+            style={{ ...inp, marginTop: 0, paddingLeft: 32 }} />
         </div>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#94a3b8", cursor: "pointer" }}>
+        <label className="text-slate-500 dark:text-slate-400" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
           <input type="checkbox" checked={showAll} onChange={e => setShowAll(e.target.checked)} />
           显示停用
         </label>
-        <button onClick={load} style={{ padding: "7px 12px", background: "#1e293b", border: "1px solid #334155", borderRadius: 7, color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+        <button onClick={load} className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400" style={{ padding: "7px 12px", borderRadius: 7, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
           <RefreshCw size={13} /> 刷新
         </button>
         {canEdit && (
@@ -115,12 +117,12 @@ export default function ProductGradesPage() {
       {loading ? (
         <div style={{ textAlign: "center", padding: 40, color: "#475569" }}>加载中...</div>
       ) : (
-        <div style={{ background: "#1e293b", borderRadius: 10, overflow: "hidden", border: "1px solid #334155" }}>
+        <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" style={{ borderRadius: 10, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr style={{ background: "#0f172a", color: "#94a3b8" }}>
+              <tr className="bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400">
                 {["等级编码","等级名称","排序","可销售","可入库","状态","备注",""].map((h, i) => (
-                  <th key={i} style={{ padding: "10px 14px", textAlign: "left", fontWeight: 500, borderBottom: "1px solid #334155" }}>{h}</th>
+                  <th key={i} className="border-b border-slate-200 dark:border-slate-700" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 500 }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -129,12 +131,12 @@ export default function ProductGradesPage() {
                 <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", color: "#475569" }}>暂无数据</td></tr>
               )}
               {filtered.map((g, i) => (
-                <tr key={g.grade_code} style={{ borderBottom: "1px solid #1e2d3f", background: i % 2 ? "rgba(30,41,59,0.4)" : "transparent" }}>
+                <tr key={g.grade_code} className="border-b border-slate-200 dark:border-slate-700" style={{ background: i % 2 ? "rgba(148,163,184,0.05)" : "transparent" }}>
                   <td style={{ padding: "10px 14px" }}>
-                    <span style={{ background: "#0f172a", border: "1px solid #334155", borderRadius: 5, padding: "2px 8px", fontFamily: "monospace", fontWeight: 600 }}>{g.grade_code}</span>
+                    <span className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700" style={{ borderRadius: 5, padding: "2px 8px", fontFamily: "monospace", fontWeight: 600 }}>{g.grade_code}</span>
                   </td>
                   <td style={{ padding: "10px 14px" }}>{g.grade_name}</td>
-                  <td style={{ padding: "10px 14px", color: "#64748b" }}>{g.sort_order ?? "—"}</td>
+                  <td className="text-slate-500 dark:text-slate-400" style={{ padding: "10px 14px" }}>{g.sort_order ?? "—"}</td>
                   <td style={{ padding: "10px 14px" }}>
                     {g.is_saleable ? <CheckCircle size={16} color="#10b981" /> : <XCircle size={16} color="#64748b" />}
                   </td>
@@ -146,10 +148,10 @@ export default function ProductGradesPage() {
                       {(STATUS_MAP[g.status ?? ""] || STATUS_MAP.INACTIVE).label}
                     </span>
                   </td>
-                  <td style={{ padding: "10px 14px", color: "#64748b", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.remark || "—"}</td>
+                  <td className="text-slate-500 dark:text-slate-400" style={{ padding: "10px 14px", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.remark || "—"}</td>
                   <td style={{ padding: "10px 14px" }}>
                     {canEdit && (
-                      <button onClick={() => openEdit(g)} style={{ background: "none", border: "1px solid #334155", borderRadius: 6, padding: "4px 10px", color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
+                      <button onClick={() => openEdit(g)} className="border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400" style={{ background: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
                         <Edit2 size={12} /> 编辑
                       </button>
                     )}
@@ -164,36 +166,43 @@ export default function ProductGradesPage() {
       {/* Drawer */}
       {drawer && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 50, display: "flex", justifyContent: "flex-end" }}>
-          <div style={{ width: 400, background: "#1e293b", borderLeft: "1px solid #334155", padding: 28, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
+          <div className="bg-slate-50 dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" style={{ width: 400, padding: 28, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{editing ? "编辑等级" : "新增等级"}</h3>
-              <button onClick={() => setDrawer(false)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 20 }}>×</button>
+              <button onClick={() => setDrawer(false)} className="text-slate-500 dark:text-slate-400" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20 }}>×</button>
             </div>
-            <label style={lbl}>等级编码 {!editing && <span style={{ color: "#f87171" }}>*</span>}</label>
-            <input style={{ ...inp, ...(editing ? { background: "#0f172a", color: "#475569" } : {}) }} value={form.grade_code} onChange={e => setForm(p => ({ ...p, grade_code: e.target.value.toUpperCase() }))} disabled={!!editing} placeholder="如：AA / A / DIRTY" />
-            <label style={lbl}>等级名称 <span style={{ color: "#f87171" }}>*</span></label>
-            <input style={inp} value={form.grade_name ?? ""} onChange={e => setForm(p => ({ ...p, grade_name: e.target.value }))} placeholder="如：特级蛋 / 一级蛋" />
-            <label style={lbl}>名称（Lao）</label>
-            <input style={inp} value={form.grade_name_lo ?? ""} onChange={e => setForm(p => ({ ...p, grade_name_lo: e.target.value }))} placeholder="Grade AA" />
-            <label style={lbl}>排序号</label>
-            <input type="number" style={inp} value={form.sort_order ?? 99} onChange={e => setForm(p => ({ ...p, sort_order: Number(e.target.value) }))} />
+            <label className="text-slate-500 dark:text-slate-400" style={lbl}>等级编码 {!editing && <span style={{ color: "#f87171" }}>*</span>}</label>
+            <input
+              className={`bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 ${editing ? "opacity-50" : ""}`}
+              style={inp}
+              value={form.grade_code}
+              onChange={e => setForm(p => ({ ...p, grade_code: e.target.value.toUpperCase() }))}
+              disabled={!!editing}
+              placeholder="如：AA / A / DIRTY"
+            />
+            <label className="text-slate-500 dark:text-slate-400" style={lbl}>等级名称 <span style={{ color: "#f87171" }}>*</span></label>
+            <input className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" style={inp} value={form.grade_name ?? ""} onChange={e => setForm(p => ({ ...p, grade_name: e.target.value }))} placeholder="如：特级蛋 / 一级蛋" />
+            <label className="text-slate-500 dark:text-slate-400" style={lbl}>名称（Lao）</label>
+            <input className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" style={inp} value={form.grade_name_lo ?? ""} onChange={e => setForm(p => ({ ...p, grade_name_lo: e.target.value }))} placeholder="Grade AA" />
+            <label className="text-slate-500 dark:text-slate-400" style={lbl}>排序号</label>
+            <input type="number" className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" style={inp} value={form.sort_order ?? 99} onChange={e => setForm(p => ({ ...p, sort_order: Number(e.target.value) }))} />
             <div style={{ display: "flex", gap: 20, marginTop: 12 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+              <label className="text-slate-800 dark:text-slate-200" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
                 <input type="checkbox" checked={!!form.is_saleable} onChange={e => setForm(p => ({ ...p, is_saleable: e.target.checked }))} />
                 可销售
               </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+              <label className="text-slate-800 dark:text-slate-200" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
                 <input type="checkbox" checked={!!form.is_storable} onChange={e => setForm(p => ({ ...p, is_storable: e.target.checked }))} />
                 可入库
               </label>
             </div>
-            <label style={lbl}>状态</label>
-            <select style={inp} value={form.status ?? "ACTIVE"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
+            <label className="text-slate-500 dark:text-slate-400" style={lbl}>状态</label>
+            <select className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" style={inp} value={form.status ?? "ACTIVE"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
               <option value="ACTIVE">启用</option>
               <option value="INACTIVE">停用</option>
             </select>
-            <label style={lbl}>备注</label>
-            <textarea style={{ ...inp, minHeight: 70, resize: "vertical" }} value={form.remark ?? ""} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))} />
+            <label className="text-slate-500 dark:text-slate-400" style={lbl}>备注</label>
+            <textarea className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" style={{ ...inp, minHeight: 70, resize: "vertical" }} value={form.remark ?? ""} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))} />
             <button onClick={save} disabled={saving} style={{ marginTop: 20, padding: "10px", background: "#f59e0b", border: "none", borderRadius: 8, color: "#0f172a", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
               {saving ? "保存中..." : "保存"}
             </button>
