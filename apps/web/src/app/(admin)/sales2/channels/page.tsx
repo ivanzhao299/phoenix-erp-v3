@@ -44,7 +44,7 @@ export default function SalesChannelsPage() {
           渠道管理功能正在建设中
         </div>
         <div style={{ fontSize: 13 }}>
-          Sales V2 渠道档案 Runtime — 直营 / 经销商 / 代理商 / 电商渠道分类管理
+          渠道档案管理模块 — 直营 / 经销商 / 代理商 / 电商渠道分类管理
         </div>
       </div>
     </div>

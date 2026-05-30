@@ -337,7 +337,7 @@ export default function PaymentsPage() {
       <PageHeader
         title="付款管理"
         subtitle={`采购资金付款台账 · 共 ${data.total} 条`}
-        breadcrumb={["采购 V2", "付款管理"]}
+        breadcrumb={["采购管理", "付款管理"]}
         actions={
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" className={s.btnSecondary} onClick={() => load(page)} disabled={loading}

@@ -30,17 +30,17 @@ export function LegacyFreezeBanner({
       <AlertTriangle size={20} color="#d97706" style={{ flexShrink: 0, marginTop: 1 }} />
       <div style={{ flex: 1 }}>
         <div style={{ fontWeight: 700, fontSize: 14, color: '#92400e', marginBottom: 4 }}>
-          ⚠️ 旧财务模块已冻结 — Finance V2 正在重构中
+          ⚠️ 旧财务模块已停用，请使用新版财务管理
         </div>
         <div style={{ fontSize: 13, color: '#78350f', lineHeight: 1.6 }}>
-          本页面属于旧版财务模块（Legacy Finance），数据来源已废弃（fin_transactions / fin_payments），
+          本页面属于旧版财务模块（已停用），数据来源已废弃，
           <strong>不再接受新增操作</strong>。当前请使用：
           <br />
-          • <strong>采购 V2 → 付款管理</strong>（/procurement2/payments）— 真实付款审批与 AP 核销
+          • <strong>采购管理 → 付款管理</strong>（/procurement2/payments）— 真实付款审批与 AP 核销
           <br />
-          • <strong>采购 V2 → 股东资金</strong>（/procurement2/shareholder-funds）— 股东代付台账
+          • <strong>采购管理 → 股东资金</strong>（/procurement2/shareholder-funds）— 股东代付台账
           <br />
-          • <strong>Finance V2</strong>（/finance2）— 重构中，即将上线
+          • <strong>财务管理</strong>（/finance2）— 应收 / 应付 / 资金 / 报表
         </div>
       </div>
       {redirectPath && redirectLabel && (

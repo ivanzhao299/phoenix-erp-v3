@@ -82,7 +82,7 @@ export default function MdCustomersPage() {
     <div style={{ padding: "24px 32px", background: "#0f172a", minHeight: "100vh", color: "#e2e8f0" }}>
       <PageHeader
         title="客户档案"
-        subtitle="Sales V2 客户主档 · 按公司数据隔离"
+        subtitle="统一客户主档 · 按公司数据隔离"
         breadcrumb={["主数据中心", "客户档案"]}
       />
 

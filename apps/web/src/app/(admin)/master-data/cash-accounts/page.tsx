@@ -83,7 +83,7 @@ export default function MdCashAccountsPage() {
     <div style={{ padding: "24px 32px", background: "#0f172a", minHeight: "100vh", color: "#e2e8f0" }}>
       <PageHeader
         title="资金账户档案"
-        subtitle="Finance V2 Cash Runtime · 现金 / 银行账户 · 余额监控"
+        subtitle="现金 / 银行账户 · 余额监控"
         breadcrumb={["主数据中心", "资金账户档案"]}
       />
 

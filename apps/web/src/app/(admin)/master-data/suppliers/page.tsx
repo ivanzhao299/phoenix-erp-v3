@@ -88,7 +88,7 @@ export default function MdSuppliersPage() {
     <div style={{ padding: "24px 32px", background: "#0f172a", minHeight: "100vh", color: "#e2e8f0" }}>
       <PageHeader
         title="供应商档案"
-        subtitle="Procurement V2 供应商主档 · 多国多币种"
+        subtitle="供应商主档 · 多国多币种"
         breadcrumb={["主数据中心", "供应商档案"]}
       />
 

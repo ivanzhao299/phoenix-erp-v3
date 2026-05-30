@@ -277,7 +277,7 @@ export default function FundTransfersPage() {
       <PageHeader
         title="资金转账"
         subtitle="账户间内部资金划转，5 状态审批工作流"
-        breadcrumb={['Finance V2', '资金转账']}
+        breadcrumb={['财务管理', '资金转账']}
         actions={
           <button
             onClick={() => setShowCreate(true)}

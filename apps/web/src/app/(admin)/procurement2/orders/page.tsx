@@ -416,7 +416,7 @@ export default function PurchaseOrdersPage() {
       <PageHeader
         title="采购订单"
         subtitle={`管理所有采购订单 · 共 ${data.total} 条`}
-        breadcrumb={["采购 V2", "采购订单"]}
+        breadcrumb={["采购管理", "采购订单"]}
         actions={
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" className={s.btnSecondary} onClick={openConvert}

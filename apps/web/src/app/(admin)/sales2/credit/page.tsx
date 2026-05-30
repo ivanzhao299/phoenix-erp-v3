@@ -44,7 +44,7 @@ export default function CustomerCreditPage() {
           信用管理面板正在建设中
         </div>
         <div style={{ fontSize: 13 }}>
-          Sales V2 Credit Control Runtime — 信用评估 + 自动冻结 + 逾期预警 + 账龄报表
+          信用管控模块 — 信用评估 + 自动冻结 + 逾期预警 + 账龄报表
         </div>
       </div>
     </div>

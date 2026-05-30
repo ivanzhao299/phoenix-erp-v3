@@ -961,7 +961,7 @@ export default function Finance2ReportsPage() {
         <PieChart size={22} style={{ marginTop: 2, flexShrink: 0, opacity: 0.85 }} />
         <div>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>
-            财务管理 V2 — 经营报表系统
+            财务管理 — 经营报表系统
           </div>
           <div style={{ fontSize: 12, opacity: 0.85, lineHeight: 1.7 }}>
             经营报表层 · 12 只读聚合报表 · 数据权限全程合规 · 管理报表（非会计凭证/总账）

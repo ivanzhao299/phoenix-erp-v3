@@ -213,9 +213,9 @@ export default function SuppliersPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="供应商管理 V2"
+        title="供应商管理"
         subtitle={`多公司共享 · 公司/项目专用三级范围 · 共 ${data.total} 家`}
-        breadcrumb={["采购 V2", "供应商管理"]}
+        breadcrumb={["采购管理", "供应商管理"]}
         actions={
           <div style={{ display:"flex",gap:8 }}>
             <button type="button" className={s.btnSecondary} onClick={()=>load(page)} disabled={loading}

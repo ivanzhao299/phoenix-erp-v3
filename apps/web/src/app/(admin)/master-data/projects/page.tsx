@@ -77,7 +77,7 @@ export default function MdProjectsPage() {
     <div style={{ padding: "24px 32px", background: "#0f172a", minHeight: "100vh", color: "#e2e8f0" }}>
       <PageHeader
         title="项目档案"
-        subtitle="Procurement V2 项目主档 · 采购项目 · 预算归属"
+        subtitle="项目主档 · 采购项目 · 预算归属"
         breadcrumb={["主数据中心", "项目档案"]}
       />
 

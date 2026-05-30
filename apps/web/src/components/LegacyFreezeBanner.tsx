@@ -5,7 +5,7 @@ import Link from "next/link";
 interface LegacyFreezeBannerProps {
   /** 要迁移到的新模块路径（默认 /sales2） */
   newPath?: string;
-  /** 新模块名称（默认"Sales V2"） */
+  /** 新模块名称（默认"销售管理"） */
   newModuleName?: string;
   /** 具体迁移阶段说明（可选） */
   migrationPhase?: string;
@@ -31,7 +31,7 @@ interface LegacyFreezeBannerProps {
  */
 export function LegacyFreezeBanner({
   newPath = "/sales2",
-  newModuleName = "Sales V2",
+  newModuleName = "销售管理",
   migrationPhase,
   message,
 }: LegacyFreezeBannerProps) {

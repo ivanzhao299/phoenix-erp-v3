@@ -381,7 +381,7 @@ export default function PurchaseRequestsPage() {
       <PageHeader
         title="采购申请"
         subtitle={`管理所有采购申请 · 共 ${data.total} 条`}
-        breadcrumb={["采购 V2", "采购申请"]}
+        breadcrumb={["采购管理", "采购申请"]}
         actions={
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" className={s.btnSecondary} onClick={() => load(page)} disabled={loading}
