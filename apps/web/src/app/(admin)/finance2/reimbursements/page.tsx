@@ -1,10 +1,11 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Wallet, RefreshCw, ChevronRight, AlertTriangle,
+  Wallet, RefreshCw, AlertTriangle,
   CreditCard, CheckCircle, Clock, Ban,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -65,25 +66,16 @@ async function apiFetch<T>(url: string, opts?: RequestInit): Promise<T> {
 
 // ── 常量 ─────────────────────────────────────────────────────────────────────
 
-const STATUS_CFG: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  PENDING:          { label: '待付款',     color: '#f59e0b', bg: '#fffbeb', icon: Clock },
-  PENDING_APPROVAL: { label: '审批中',     color: '#f59e0b', bg: '#fffbeb', icon: Clock },
-  APPROVED:         { label: '已审批',     color: '#10b981', bg: '#f0fdf4', icon: CheckCircle },
-  PAID:             { label: '已付款',     color: '#6366f1', bg: '#eef2ff', icon: CreditCard },
-  CANCELLED:        { label: '已取消',     color: '#9ca3af', bg: '#f9fafb', icon: Ban },
+const STATUS_CFG: Record<string, { label: string; accentBg: string; accentIcon: string; icon: React.ElementType }> = {
+  PENDING:          { label: '待付款',     accentBg: 'bg-amber-50 dark:bg-amber-900/20',   accentIcon: 'text-amber-500',   icon: Clock },
+  PENDING_APPROVAL: { label: '审批中',     accentBg: 'bg-amber-50 dark:bg-amber-900/20',   accentIcon: 'text-amber-500',   icon: Clock },
+  APPROVED:         { label: '已审批',     accentBg: 'bg-emerald-50 dark:bg-emerald-900/20', accentIcon: 'text-emerald-500', icon: CheckCircle },
+  PAID:             { label: '已付款',     accentBg: 'bg-indigo-50 dark:bg-indigo-900/20', accentIcon: 'text-indigo-500',  icon: CreditCard },
+  CANCELLED:        { label: '已取消',     accentBg: 'bg-slate-50 dark:bg-slate-700',       accentIcon: 'text-slate-400',   icon: Ban },
 };
 
 function fmt(n: string | number | null | undefined): string {
   return Number(n ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_CFG[status] ?? { label: status, color: '#6b7280', bg: '#f3f4f6', icon: Clock };
-  return (
-    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, color: cfg.color, background: cfg.bg }}>
-      {cfg.label}
-    </span>
-  );
 }
 
 // ── 子组件：付款弹窗 ──────────────────────────────────────────────────────────
@@ -131,19 +123,20 @@ function PayModal({
         <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>执行付款</div>
         <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 13, marginBottom: 20 }}>报销单号：{reimb.reimb_no}</div>
 
-        <div style={{ background: '#fffbeb', borderRadius: 10, padding: '12px 16px', marginBottom: 20, border: '1.5px solid #fde68a' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e' }}>
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700" style={{ borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
+          <div className="text-amber-800 dark:text-amber-300" style={{ fontSize: 13, fontWeight: 700 }}>
             {reimb.currency_code} {fmt(reimb.reimb_amount_original)}
           </div>
-          <div style={{ fontSize: 12, color: '#78350f', marginTop: 2 }}>
+          <div className="text-amber-700 dark:text-amber-400" style={{ fontSize: 12, marginTop: 2 }}>
             CNY ¥{fmt(reimb.reimb_amount_base)}（基准货币）
           </div>
         </div>
 
         <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>付款账户 *</div>
+          <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 12, marginBottom: 6 }}>付款账户 *</div>
           <select value={selectedAccount} onChange={e => setSelectedAccount(e.target.value)}
-            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontSize: 13 }}>
+            className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 outline-none focus:border-emerald-400 w-full"
+            style={{ boxSizing: 'border-box' }}>
             <option value="">请选择账户</option>
             {accounts.map(a => (
               <option key={a.id} value={String(a.id)}>
@@ -152,24 +145,29 @@ function PayModal({
             ))}
           </select>
           {selected && (
-            <div style={{ marginTop: 6, fontSize: 12, color: Number(selected.current_balance) >= Number(reimb.reimb_amount_base) ? '#059669' : '#ef4444', fontWeight: 600 }}>
+            <div className={`text-xs font-semibold mt-1.5 ${Number(selected.current_balance) >= Number(reimb.reimb_amount_base) ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
               {Number(selected.current_balance) >= Number(reimb.reimb_amount_base) ? '✓ 余额充足' : '✗ 余额不足'}
             </div>
           )}
         </div>
 
         <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>备注</div>
+          <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 12, marginBottom: 6 }}>备注</div>
           <input value={remark} onChange={e => setRemark(e.target.value)} placeholder="选填"
-            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontSize: 13, boxSizing: 'border-box' }}
+            className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 w-full"
+            style={{ boxSizing: 'border-box' }}
           />
         </div>
 
-        {error && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 12 }}>{error}</div>}
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-2" style={{ marginBottom: 12 }}>
+            {error}
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13 }}>取消</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">取消</button>
           <button onClick={() => void pay()} disabled={paying || !selectedAccount}
-            style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#6366f1', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700, opacity: !selectedAccount ? 0.5 : 1 }}>
+            className={`px-4 py-2 rounded-lg border-0 text-sm font-bold text-white cursor-pointer transition-colors ${(paying || !selectedAccount) ? 'bg-indigo-300 cursor-not-allowed opacity-50' : 'bg-indigo-500 hover:bg-indigo-600'}`}>
             {paying ? '付款中...' : '确认付款'}
           </button>
         </div>
@@ -234,7 +232,7 @@ export default function ReimbursementsPage() {
         breadcrumb={['财务管理', '报销管理']}
         actions={
           <button onClick={() => void load()} disabled={loading}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#475569' }}>
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors disabled:opacity-50">
             <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
           </button>
         }
@@ -244,16 +242,16 @@ export default function ReimbursementsPage() {
       {summary && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 20 }}>
           {[
-            { label: '报销总数',     value: String(summary.totalReimb),                        color: '#6366f1', bg: '#eef2ff' },
-            { label: '待付款',       value: String(summary.pendingReimb),                       color: '#f59e0b', bg: '#fffbeb' },
-            { label: '已审批',       value: String(summary.approvedReimb),                      color: '#10b981', bg: '#f0fdf4' },
-            { label: '已付款',       value: String(summary.paidReimb),                          color: '#6366f1', bg: '#eef2ff' },
-            { label: '今日付款笔数', value: String(summary.paidToday) + ' 笔',                  color: '#059669', bg: '#f0fdf4' },
-            { label: '今日付款金额', value: `¥ ${fmt(summary.paidAmountToday)}`,                color: '#059669', bg: '#f0fdf4' },
+            { label: '报销总数',     value: String(summary.totalReimb),                        accent: 'bg-indigo-50 dark:bg-indigo-950/40',   valueClass: 'text-indigo-600 dark:text-indigo-400' },
+            { label: '待付款',       value: String(summary.pendingReimb),                       accent: 'bg-amber-50 dark:bg-amber-950/40',     valueClass: 'text-amber-600 dark:text-amber-400' },
+            { label: '已审批',       value: String(summary.approvedReimb),                      accent: 'bg-emerald-50 dark:bg-emerald-950/40', valueClass: 'text-emerald-600 dark:text-emerald-400' },
+            { label: '已付款',       value: String(summary.paidReimb),                          accent: 'bg-indigo-50 dark:bg-indigo-950/40',   valueClass: 'text-indigo-600 dark:text-indigo-400' },
+            { label: '今日付款笔数', value: String(summary.paidToday) + ' 笔',                  accent: 'bg-emerald-50 dark:bg-emerald-950/40', valueClass: 'text-emerald-600 dark:text-emerald-400' },
+            { label: '今日付款金额', value: `¥ ${fmt(summary.paidAmountToday)}`,                accent: 'bg-emerald-50 dark:bg-emerald-950/40', valueClass: 'text-emerald-600 dark:text-emerald-400' },
           ].map(c => (
-            <div key={c.label} style={{ background: c.bg, borderRadius: 12, padding: '12px 16px' }}>
-              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 2 }}>{c.label}</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: c.color }}>{c.value}</div>
+            <div key={c.label} className={`rounded-xl ${c.accent}`} style={{ padding: '12px 16px' }}>
+              <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11, marginBottom: 2 }}>{c.label}</div>
+              <div className={`font-extrabold ${c.valueClass}`} style={{ fontSize: 16 }}>{c.value}</div>
             </div>
           ))}
         </div>
@@ -262,13 +260,17 @@ export default function ReimbursementsPage() {
       {/* 筛选 */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
         <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
-          style={{ padding: '7px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontSize: 13, color: '#374151' }}>
+          className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 outline-none focus:border-emerald-400">
           <option value="">全部状态</option>
           {Object.entries(STATUS_CFG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
       </div>
 
-      {error && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 12, padding: '10px 14px', background: '#fef2f2', borderRadius: 8 }}><AlertTriangle size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />{error}</div>}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-2" style={{ marginBottom: 12 }}>
+          <AlertTriangle size={13} />{error}
+        </div>
+      )}
 
       {/* 列表 */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
@@ -284,25 +286,24 @@ export default function ReimbursementsPage() {
           const cfg = STATUS_CFG[item.status] ?? STATUS_CFG.PENDING;
           const isActing = actingId === item.id;
           return (
-            <div key={item.id} style={{
-              padding: '16px 20px', borderBottom: i < items.length - 1 ? '1px solid #f1f5f9' : 'none',
-              display: 'flex', alignItems: 'center', gap: 14,
-            }}>
-              <div style={{ width: 36, height: 36, borderRadius: 9, background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <cfg.icon size={16} color={cfg.color} />
+            <div key={item.id}
+              className={`border-b border-slate-50 dark:border-slate-700/50 transition-colors ${i % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-700/20' : ''}`}
+              style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div className={`${cfg.accentBg} rounded-xl flex items-center justify-center flex-shrink-0`} style={{ width: 36, height: 36 }}>
+                <cfg.icon size={16} className={cfg.accentIcon} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                  <span style={{ fontWeight: 700, fontSize: 14 }}>{item.reimb_no}</span>
+                  <span className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 14 }}>{item.reimb_no}</span>
                   <StatusBadge status={item.status} />
                 </div>
-                <div style={{ fontSize: 12, color: '#64748b', display: 'flex', gap: 12 }}>
+                <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 12, display: 'flex', gap: 12 }}>
                   <span>{item.employee_name}</span>
                   <span>{item.expense_no}</span>
                   <span>{item.company_name ?? item.company_code}</span>
                 </div>
                 {item.cash_account_code && (
-                  <div style={{ fontSize: 11, color: '#6366f1', marginTop: 2 }}>付款账户：{item.cash_account_code}</div>
+                  <div className="text-indigo-500 dark:text-indigo-400" style={{ fontSize: 11, marginTop: 2 }}>付款账户：{item.cash_account_code}</div>
                 )}
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0, marginRight: 12 }}>
@@ -315,7 +316,7 @@ export default function ReimbursementsPage() {
                   <button
                     onClick={() => setPayTarget(item)}
                     disabled={isActing}
-                    style={{ padding: '5px 12px', borderRadius: 7, border: 'none', background: '#6366f1', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                    className="px-3 py-1 rounded-lg border-0 bg-indigo-500 text-white text-xs font-bold cursor-pointer hover:bg-indigo-600 transition-colors disabled:opacity-50">
                     付款
                   </button>
                 )}
@@ -323,7 +324,7 @@ export default function ReimbursementsPage() {
                   <button
                     onClick={() => void actionPost(item.id, 'approve-direct')}
                     disabled={isActing}
-                    style={{ padding: '5px 12px', borderRadius: 7, border: '1.5px solid #10b981', background: '#f0fdf4', color: '#059669', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                    className="px-3 py-1 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-50">
                     直接审批
                   </button>
                 )}
@@ -331,7 +332,7 @@ export default function ReimbursementsPage() {
                   <button
                     onClick={() => void actionPost(item.id, 'cancel')}
                     disabled={isActing}
-                    style={{ padding: '5px 12px', borderRadius: 7, border: '1.5px solid #fee2e2', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: 12 }}>
+                    className="px-3 py-1 rounded-lg border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400 text-xs cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50">
                     取消
                   </button>
                 )}
@@ -343,10 +344,20 @@ export default function ReimbursementsPage() {
 
       {/* 分页 */}
       {total > pageSize && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
-          {page > 1 && <button onClick={() => setPage(p => p - 1)} style={{ padding: '6px 14px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13 }}>上一页</button>}
-          <span style={{ padding: '6px 14px', fontSize: 13, color: '#64748b' }}>第 {page} 页 / 共 {Math.ceil(total / pageSize)} 页</span>
-          {page * pageSize < total && <button onClick={() => setPage(p => p + 1)} style={{ padding: '6px 14px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13 }}>下一页</button>}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16, alignItems: 'center' }}>
+          {page > 1 && (
+            <button onClick={() => setPage(p => p - 1)}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-sm px-3 py-1.5">
+              上一页
+            </button>
+          )}
+          <span className="text-slate-500 dark:text-slate-400" style={{ fontSize: 13, padding: '6px 14px' }}>第 {page} 页 / 共 {Math.ceil(total / pageSize)} 页</span>
+          {page * pageSize < total && (
+            <button onClick={() => setPage(p => p + 1)}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-sm px-3 py-1.5">
+              下一页
+            </button>
+          )}
         </div>
       )}
 

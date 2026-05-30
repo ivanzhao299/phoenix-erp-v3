@@ -119,7 +119,8 @@ export type StatusType =
   | 'ACTIVE' | 'FROZEN' | 'CANCELLED' | 'COMPLETED';
 
 /** 状态 → Tailwind 类名（前景 + 背景） */
-export const STATUS_CLASS: Record<StatusType, string> = {
+export const STATUS_CLASS: Record<string, string> = {
+  // 通用状态
   SUCCESS:   'text-emerald-700 bg-emerald-50  dark:text-emerald-300 dark:bg-emerald-950/40',
   WARNING:   'text-amber-700   bg-amber-50    dark:text-amber-300   dark:bg-amber-950/40',
   DANGER:    'text-red-700     bg-red-50      dark:text-red-300     dark:bg-red-950/40',
@@ -132,6 +133,29 @@ export const STATUS_CLASS: Record<StatusType, string> = {
   FROZEN:    'text-blue-700    bg-blue-50     dark:text-blue-300    dark:bg-blue-950/40',
   CANCELLED: 'text-slate-500   bg-slate-100   dark:text-slate-400   dark:bg-slate-800',
   COMPLETED: 'text-violet-700  bg-violet-50   dark:text-violet-300  dark:bg-violet-950/40',
+  // 应收账款状态
+  OPEN:               'text-orange-700 bg-orange-50  dark:text-orange-300 dark:bg-orange-950/40',
+  PARTIALLY_RECEIVED: 'text-blue-700   bg-blue-50    dark:text-blue-300   dark:bg-blue-950/40',
+  RECEIVED:           'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/40',
+  OVERDUE:            'text-red-700    bg-red-50     dark:text-red-300    dark:bg-red-950/40',
+  DISPUTED:           'text-purple-700 bg-purple-50  dark:text-purple-300 dark:bg-purple-950/40',
+  WRITTEN_OFF:        'text-yellow-700 bg-yellow-50  dark:text-yellow-300 dark:bg-yellow-950/40',
+  // 应付账款状态
+  PARTIALLY_PAID: 'text-blue-700   bg-blue-50   dark:text-blue-300   dark:bg-blue-950/40',
+  PAID:           'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/40',
+  // 通用业务状态
+  DRAFT:          'text-slate-600  bg-slate-100 dark:text-slate-400  dark:bg-slate-800',
+  APPROVED:       'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/40',
+  REJECTED:       'text-red-700    bg-red-50    dark:text-red-300    dark:bg-red-950/40',
+  SUBMITTED:      'text-blue-700   bg-blue-50   dark:text-blue-300   dark:bg-blue-950/40',
+  CONFIRMED:      'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/40',
+  EXECUTED:       'text-violet-700 bg-violet-50  dark:text-violet-300 dark:bg-violet-950/40',
+  REIMBURSED:     'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/40',
+  SETTLED:        'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/40',
+  PENDING_APPROVAL:  'text-amber-700 bg-amber-50 dark:text-amber-300 dark:bg-amber-950/40',
+  PENDING_EXECUTION: 'text-blue-700  bg-blue-50  dark:text-blue-300  dark:bg-blue-950/40',
+  NORMAL:         'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/40',
+  CLOSED:         'text-slate-500  bg-slate-100 dark:text-slate-400  dark:bg-slate-800',
 };
 
 /** 状态 → 中文标签 */
@@ -148,14 +172,40 @@ export const STATUS_LABEL: Record<string, string> = {
   FROZEN:    '冻结',
   CANCELLED: '已取消',
   COMPLETED: '已完成',
-  // 业务扩展
+  // 通用业务扩展
   DRAFT:             '草稿',
   APPROVED:          '已审批',
   REJECTED:          '已拒绝',
-  OPEN:              '进行中',
+  OPEN:              '未收款',
   CLOSED:            '已关闭',
   IN_PROGRESS:       '处理中',
   RESOLVED:          '已解决',
+  // 应收/应付账款状态
+  PARTIALLY_RECEIVED: '部分收款',
+  RECEIVED:           '已收清',
+  OVERDUE:            '已逾期',
+  DISPUTED:           '争议中',
+  WRITTEN_OFF:        '已核销',
+  PARTIALLY_PAID:     '部分付款',
+  PAID:               '已付清',
+  // 资金账户状态
+  NORMAL:             '正常',
+  // 费用/报销状态
+  SUBMITTED:          '已提交',
+  REIMBURSED:         '已报销',
+  CONFIRMED:          '已确认',
+  EXECUTED:           '已执行',
+  // 股东资金状态
+  SETTLED:            '已结算',
+  OFFSET:             '已抵扣',
+  REFUNDED:           '已退回',
+  // 转账状态
+  PENDING_APPROVAL:   '待审批',
+  PENDING_EXECUTION:  '待执行',
+  // 收款方式
+  BANK_TRANSFER:      '银行转账',
+  CASH:               '现金',
+  CHECK:              '支票',
 };
 
 // ── 图标尺寸规范 ──────────────────────────────────────────────────────

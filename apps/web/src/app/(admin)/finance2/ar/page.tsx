@@ -6,6 +6,7 @@ import {
   X, AlertCircle, Ban, Receipt,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -109,70 +110,39 @@ function isOverdue(due: string | null | undefined, status: string) {
   return new Date(due) < new Date();
 }
 
-// ── 徽章组件 ──────────────────────────────────────────────────────────────────
+// ── 账龄/来源 辅助组件（无背景色，仅文字色或 opacity tint）──────────────────
 
-const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> = {
-  OPEN:               { label: '未收款',   bg: '#fff7ed', color: '#ea580c' },
-  PARTIALLY_RECEIVED: { label: '部分收款', bg: '#eff6ff', color: '#2563eb' },
-  RECEIVED:           { label: '已收清',   bg: '#f0fdf4', color: '#059669' },
-  OVERDUE:            { label: '已逾期',   bg: '#fef2f2', color: '#dc2626' },
-  DISPUTED:           { label: '争议中',   bg: '#fdf4ff', color: '#9333ea' },
-  WRITTEN_OFF:        { label: '已核销',   bg: '#fefce8', color: '#854d0e' },
-  CANCELLED:          { label: '已取消',   bg: '#f8fafc', color: '#94a3b8' },
+const AGING_MAP: Record<string, { label: string; colorClass: string }> = {
+  NOT_DUE:  { label: '未到期',     colorClass: 'text-emerald-600 dark:text-emerald-400' },
+  '0_30':   { label: '逾期≤30天',  colorClass: 'text-amber-600 dark:text-amber-400' },
+  '31_60':  { label: '逾期31-60',  colorClass: 'text-orange-600 dark:text-orange-400' },
+  '61_90':  { label: '逾期61-90',  colorClass: 'text-red-600 dark:text-red-400' },
+  '90_PLUS':{ label: '逾期>90天',  colorClass: 'text-red-800 dark:text-red-300' },
 };
 
-const RECEIPT_STATUS_MAP: Record<string, { label: string; bg: string; color: string }> = {
-  DRAFT:     { label: '草稿',   bg: '#f8fafc', color: '#64748b' },
-  CONFIRMED: { label: '已确认', bg: '#f0fdf4', color: '#059669' },
-  CANCELLED: { label: '已取消', bg: '#fef2f2', color: '#dc2626' },
+const SOURCE_MAP: Record<string, { label: string; colorClass: string }> = {
+  MANUAL:      { label: '手工',    colorClass: 'text-emerald-700 dark:text-emerald-300' },
+  SALES_ORDER: { label: '销售订单', colorClass: 'text-blue-700 dark:text-blue-300' },
+  CONTRACT:    { label: '合同',    colorClass: 'text-violet-700 dark:text-violet-300' },
+  OPENING:     { label: '期初',    colorClass: 'text-slate-600 dark:text-slate-400' },
 };
-
-const AGING_MAP: Record<string, { label: string; color: string }> = {
-  NOT_DUE:  { label: '未到期',     color: '#059669' },
-  '0_30':   { label: '逾期≤30天', color: '#f59e0b' },
-  '31_60':  { label: '逾期31-60', color: '#ea580c' },
-  '61_90':  { label: '逾期61-90', color: '#dc2626' },
-  '90_PLUS':{ label: '逾期>90天', color: '#991b1b' },
-};
-
-const SOURCE_MAP: Record<string, { label: string; color: string }> = {
-  MANUAL:      { label: '手工',    color: '#10b981' },
-  SALES_ORDER: { label: '销售订单', color: '#3b82f6' },
-  CONTRACT:    { label: '合同',    color: '#7c3aed' },
-  OPENING:     { label: '期初',    color: '#475569' },
-};
-
-function StatusChip({ status }: { status: string }) {
-  const cfg = STATUS_MAP[status] ?? { label: status, bg: '#f1f5f9', color: '#64748b' };
-  return (
-    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-      background: cfg.bg, color: cfg.color, whiteSpace: 'nowrap' }}>
-      {cfg.label}
-    </span>
-  );
-}
-
-function ReceiptStatusChip({ status }: { status: string }) {
-  const cfg = RECEIPT_STATUS_MAP[status] ?? { label: status, bg: '#f1f5f9', color: '#64748b' };
-  return (
-    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-      background: cfg.bg, color: cfg.color, whiteSpace: 'nowrap' }}>
-      {cfg.label}
-    </span>
-  );
-}
 
 function AgingBadge({ bucket }: { bucket: string }) {
   const cfg = AGING_MAP[bucket];
   if (!cfg || bucket === 'NOT_DUE') return null;
-  return <span style={{ fontSize: 10, fontWeight: 700, color: cfg.color, marginLeft: 4 }}>[{cfg.label}]</span>;
+  return (
+    <span className={`text-[10px] font-bold ml-1 ${cfg.colorClass}`}>
+      [{cfg.label}]
+    </span>
+  );
 }
 
-function SourceTag({ type }: { type: string }) {
-  const cfg = SOURCE_MAP[type] ?? { label: type, color: '#64748b' };
+function SourceBadge({ type }: { type: string }) {
+  const cfg = SOURCE_MAP[type] ?? { label: type, colorClass: 'text-slate-600 dark:text-slate-400' };
+  // 用 opacity-based background tint
   return (
-    <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10,
-      background: `${cfg.color}18`, color: cfg.color, whiteSpace: 'nowrap' }}>
+    <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap
+      bg-current/[0.08] ${cfg.colorClass}`}>
       {cfg.label}
     </span>
   );
@@ -196,6 +166,10 @@ function KpiCard({ label, value, sub, icon: Icon, color, loading }: {
     </div>
   );
 }
+
+// ── Modal 通用 input className ────────────────────────────────────────────────
+
+const INP_CLASS = 'w-full px-3 py-2 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 dark:focus:border-emerald-500 box-border';
 
 // ── 创建 AR Modal ─────────────────────────────────────────────────────────────
 
@@ -232,9 +206,6 @@ function CreateArModal({ onClose, onCreated }: { onClose: () => void; onCreated:
     finally { setSaving(false); }
   };
 
-  const inp = { width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13,
-    border: '1.5px solid #e2e8f0', outline: 'none', boxSizing: 'border-box' as const };
-
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
@@ -242,70 +213,70 @@ function CreateArModal({ onClose, onCreated }: { onClose: () => void; onCreated:
         style={{ borderRadius: 16, width: 480, maxWidth: '95vw', padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>新建应收发票</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-            <X size={18} color="#94a3b8" />
+          <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-0">
+            <X size={18} className="text-slate-400" />
           </button>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>
-                公司代码 <span style={{ color: '#ef4444' }}>*</span>
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                公司代码 <span className="text-red-500">*</span>
               </label>
-              <input style={inp} value={form.companyCode} onChange={e => set('companyCode', e.target.value)} placeholder="如 HKJH" />
+              <input className={INP_CLASS} value={form.companyCode} onChange={e => set('companyCode', e.target.value)} placeholder="如 HKJH" />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>货币</label>
-              <select style={inp} value={form.currencyCode} onChange={e => set('currencyCode', e.target.value)}>
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">货币</label>
+              <select className={INP_CLASS} value={form.currencyCode} onChange={e => set('currencyCode', e.target.value)}>
                 {['CNY', 'USD', 'EUR', 'HKD', 'JPY'].map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>
-              客户名称 <span style={{ color: '#ef4444' }}>*</span>
+            <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+              客户名称 <span className="text-red-500">*</span>
             </label>
-            <input style={inp} value={form.customerName} onChange={e => set('customerName', e.target.value)} placeholder="客户全称" />
+            <input className={INP_CLASS} value={form.customerName} onChange={e => set('customerName', e.target.value)} placeholder="客户全称" />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>
-                发票金额 <span style={{ color: '#ef4444' }}>*</span>
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                发票金额 <span className="text-red-500">*</span>
               </label>
-              <input style={inp} type="number" min="0" step="0.01"
+              <input className={INP_CLASS} type="number" min="0" step="0.01"
                 value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>发票号</label>
-              <input style={inp} value={form.invoiceNo} onChange={e => set('invoiceNo', e.target.value)} placeholder="可选" />
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">发票号</label>
+              <input className={INP_CLASS} value={form.invoiceNo} onChange={e => set('invoiceNo', e.target.value)} placeholder="可选" />
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>发票日期</label>
-              <input style={inp} type="date" value={form.invoiceDate} onChange={e => set('invoiceDate', e.target.value)} />
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">发票日期</label>
+              <input className={INP_CLASS} type="date" value={form.invoiceDate} onChange={e => set('invoiceDate', e.target.value)} />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>到期日</label>
-              <input style={inp} type="date" value={form.dueDate} onChange={e => set('dueDate', e.target.value)} />
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">到期日</label>
+              <input className={INP_CLASS} type="date" value={form.dueDate} onChange={e => set('dueDate', e.target.value)} />
             </div>
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>备注</label>
-            <textarea style={{ ...inp, resize: 'none', height: 56 }} value={form.remark} onChange={e => set('remark', e.target.value)} />
+            <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">备注</label>
+            <textarea className={INP_CLASS} style={{ resize: 'none', height: 56 }} value={form.remark} onChange={e => set('remark', e.target.value)} />
           </div>
           {err && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
-              padding: '8px 12px', fontSize: 12, color: '#ef4444', display: 'flex', gap: 6, alignItems: 'center' }}>
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
               <AlertCircle size={13} /> {err}
             </div>
           )}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button onClick={onClose} style={{ padding: '8px 18px', borderRadius: 8, border: '1.5px solid #e2e8f0',
-              background: '#fff', fontSize: 13, cursor: 'pointer', color: '#475569' }}>取消</button>
-            <button onClick={handleSubmit} disabled={saving} style={{ padding: '8px 18px', borderRadius: 8,
-              border: 'none', background: saving ? '#6ee7b7' : '#10b981', color: '#fff',
-              fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>
+            <button onClick={onClose}
+              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+              取消
+            </button>
+            <button onClick={handleSubmit} disabled={saving}
+              className={`px-4 py-2 rounded-lg border-0 text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-emerald-300 dark:bg-emerald-700 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
               {saving ? '创建中…' : '确认创建'}
             </button>
           </div>
@@ -372,9 +343,6 @@ function CreateReceiptModal({
     finally { setSaving(false); }
   };
 
-  const inp = { width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13,
-    border: '1.5px solid #e2e8f0', outline: 'none', boxSizing: 'border-box' as const };
-
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
@@ -384,13 +352,12 @@ function CreateReceiptModal({
           <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>
             {selectedAr ? `录入收款 — ${selectedAr.ar_no}` : '新建收款'}
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-            <X size={18} color="#94a3b8" />
+          <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-0">
+            <X size={18} className="text-slate-400" />
           </button>
         </div>
         {selectedAr && (
-          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8,
-            padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#065f46' }}>
+          <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-2.5 mb-4 text-xs text-emerald-700 dark:text-emerald-300">
             <strong>{selectedAr.customer_name}</strong>｜
             余额 <strong>{fmtMoney(selectedAr.balance_amount_original, selectedAr.currency_code)}</strong>
             {selectedAr.due_date && ` · 到期 ${fmtDate(selectedAr.due_date)}`}
@@ -399,66 +366,65 @@ function CreateReceiptModal({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>公司代码 *</label>
-              <input style={inp} value={form.companyCode} onChange={e => set('companyCode', e.target.value)} />
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">公司代码 *</label>
+              <input className={INP_CLASS} value={form.companyCode} onChange={e => set('companyCode', e.target.value)} />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>货币</label>
-              <select style={inp} value={form.currencyCode} onChange={e => set('currencyCode', e.target.value)}>
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">货币</label>
+              <select className={INP_CLASS} value={form.currencyCode} onChange={e => set('currencyCode', e.target.value)}>
                 {['CNY','USD','EUR','HKD','JPY'].map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>客户名称 *</label>
-            <input style={inp} value={form.customerName} onChange={e => set('customerName', e.target.value)} />
+            <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">客户名称 *</label>
+            <input className={INP_CLASS} value={form.customerName} onChange={e => set('customerName', e.target.value)} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>收款金额 *</label>
-              <input style={inp} type="number" min="0.01" step="0.01"
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">收款金额 *</label>
+              <input className={INP_CLASS} type="number" min="0.01" step="0.01"
                 value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>收款日期 *</label>
-              <input style={inp} type="date" value={form.receiptDate} onChange={e => set('receiptDate', e.target.value)} />
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">收款日期 *</label>
+              <input className={INP_CLASS} type="date" value={form.receiptDate} onChange={e => set('receiptDate', e.target.value)} />
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>收款方式</label>
-              <select style={inp} value={form.receiptMethod} onChange={e => set('receiptMethod', e.target.value)}>
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">收款方式</label>
+              <select className={INP_CLASS} value={form.receiptMethod} onChange={e => set('receiptMethod', e.target.value)}>
                 <option value="">请选择</option>
                 {['银行转账','支票','现金','线上支付','其他'].map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>银行流水号</label>
-              <input style={inp} value={form.bankRef} onChange={e => set('bankRef', e.target.value)} placeholder="可选" />
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">银行流水号</label>
+              <input className={INP_CLASS} value={form.bankRef} onChange={e => set('bankRef', e.target.value)} placeholder="可选" />
             </div>
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>备注</label>
-            <textarea style={{ ...inp, resize: 'none', height: 52 }} value={form.remark} onChange={e => set('remark', e.target.value)} />
+            <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">备注</label>
+            <textarea className={INP_CLASS} style={{ resize: 'none', height: 52 }} value={form.remark} onChange={e => set('remark', e.target.value)} />
           </div>
           {selectedAr && (
-            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8,
-              padding: '8px 12px', fontSize: 11, color: '#1d4ed8' }}>
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
               提交后将自动核销到 <strong>{selectedAr.ar_no}</strong>（草稿 → 立即确认）
             </div>
           )}
           {err && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
-              padding: '8px 12px', fontSize: 12, color: '#ef4444', display: 'flex', gap: 6, alignItems: 'center' }}>
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
               <AlertCircle size={13} /> {err}
             </div>
           )}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button onClick={onClose} style={{ padding: '8px 18px', borderRadius: 8,
-              border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#475569' }}>取消</button>
-            <button onClick={handleSubmit} disabled={saving} style={{ padding: '8px 18px', borderRadius: 8,
-              border: 'none', background: saving ? '#6ee7b7' : '#10b981', color: '#fff',
-              fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>
+            <button onClick={onClose}
+              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+              取消
+            </button>
+            <button onClick={handleSubmit} disabled={saving}
+              className={`px-4 py-2 rounded-lg border-0 text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-emerald-300 dark:bg-emerald-700 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
               {saving ? '处理中…' : '确认收款'}
             </button>
           </div>
@@ -514,8 +480,8 @@ function ArDetailDrawer({ invoiceId, onClose, onChanged }: {
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>AR 发票详情</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-            <X size={18} color="#94a3b8" />
+          <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-0">
+            <X size={18} className="text-slate-400" />
           </button>
         </div>
 
@@ -526,12 +492,12 @@ function ArDetailDrawer({ invoiceId, onClose, onChanged }: {
             {/* 基本信息 */}
             <div className="bg-slate-50 dark:bg-slate-700" style={{ borderRadius: 10, padding: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#10b981', fontSize: 14 }}>
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-sm">
                   {detail.ar_no}
                 </span>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <SourceTag type={detail.source_type} />
-                  <StatusChip status={detail.status} />
+                  <SourceBadge type={detail.source_type} />
+                  <StatusBadge status={detail.status} size="sm" />
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
@@ -555,23 +521,22 @@ function ArDetailDrawer({ invoiceId, onClose, onChanged }: {
             {/* 金额 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
               {[
-                { label: '发票金额', value: fmtMoney(detail.amount_original, detail.currency_code), color: '#0f172a' },
-                { label: '已收金额', value: fmtMoney(detail.received_amount_original, detail.currency_code), color: '#10b981' },
+                { label: '发票金额', value: fmtMoney(detail.amount_original, detail.currency_code), colorClass: 'text-slate-900 dark:text-slate-100' },
+                { label: '已收金额', value: fmtMoney(detail.received_amount_original, detail.currency_code), colorClass: 'text-emerald-600 dark:text-emerald-400' },
                 { label: '待收余额', value: fmtMoney(detail.balance_amount_original, detail.currency_code),
-                  color: Number(detail.balance_amount_original) > 0 ? '#ef4444' : '#64748b' },
+                  colorClass: Number(detail.balance_amount_original) > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400' },
               ].map(item => (
                 <div key={item.label} className="bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
                   style={{ borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
                   <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 10, marginBottom: 4 }}>{item.label}</div>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: item.color }}>{item.value}</div>
+                  <div className={`text-xs font-extrabold ${item.colorClass}`}>{item.value}</div>
                 </div>
               ))}
             </div>
 
             {/* 账龄 */}
             {detail.aging_bucket !== 'NOT_DUE' && (
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
-                padding: '8px 12px', fontSize: 12, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2 text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5">
                 <AlertTriangle size={13} />
                 账龄：{AGING_MAP[detail.aging_bucket]?.label ?? detail.aging_bucket}
               </div>
@@ -585,19 +550,18 @@ function ArDetailDrawer({ invoiceId, onClose, onChanged }: {
               {detail.allocations.length === 0 ? (
                 <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: '12px 0', fontSize: 12 }}>暂无收款记录</div>
               ) : detail.allocations.map(a => (
-                <div key={a.id} style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8,
-                  padding: '10px 14px', fontSize: 12, marginBottom: 6 }}>
+                <div key={a.id} className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-2.5 text-xs mb-1.5">
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ fontFamily: 'monospace', color: '#059669', fontWeight: 600 }}>{a.receipt_no}</span>
-                    <span style={{ fontWeight: 700, color: '#065f46' }}>
+                    <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">{a.receipt_no}</span>
+                    <span className="font-bold text-emerald-800 dark:text-emerald-200">
                       {fmtMoney(a.allocated_amount_original, a.currency_code)}
                     </span>
                   </div>
-                  <div style={{ color: '#64748b' }}>
+                  <div className="text-slate-500 dark:text-slate-400">
                     {fmtDate(a.receipt_date)}
                     {a.receipt_method && <span> · {a.receipt_method}</span>}
                     {a.bank_ref && <span> · {a.bank_ref}</span>}
-                    <span style={{ marginLeft: 6 }}><ReceiptStatusChip status={a.receipt_status} /></span>
+                    <span className="ml-1.5"><StatusBadge status={a.receipt_status} size="sm" /></span>
                   </div>
                 </div>
               ))}
@@ -608,16 +572,12 @@ function ArDetailDrawer({ invoiceId, onClose, onChanged }: {
               Number(detail.balance_amount_original) > 0 && (
               <div>
                 {!showReceipt ? (
-                  <button onClick={() => setShowReceipt(true)} style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '7px 14px', borderRadius: 8,
-                    border: '1.5px solid #bbf7d0', background: '#f0fdf4',
-                    fontSize: 13, cursor: 'pointer', color: '#059669',
-                  }}>
+                  <button onClick={() => setShowReceipt(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-sm text-emerald-700 dark:text-emerald-300 cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors">
                     <Receipt size={13} /> 录入收款
                   </button>
                 ) : (
-                  <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 10, padding: 14 }}>
+                  <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-3.5">
                     <CreateReceiptModal
                       selectedAr={detail}
                       onClose={() => setShowReceipt(false)}
@@ -630,32 +590,26 @@ function ArDetailDrawer({ invoiceId, onClose, onChanged }: {
 
             {/* 取消 */}
             {canCancel && (
-              <div style={{ border: '1.5px solid #fed7aa', borderRadius: 10, padding: 14, background: '#fff8f1' }}>
+              <div className="border border-orange-200 dark:border-orange-800 rounded-xl p-3.5 bg-orange-50 dark:bg-orange-900/20">
                 {!showCancel ? (
-                  <button onClick={() => setShowCancel(true)} style={{
-                    display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8,
-                    border: '1.5px solid #fca5a5', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#dc2626',
-                  }}>
+                  <button onClick={() => setShowCancel(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-red-200 dark:border-red-700 bg-white dark:bg-slate-800 text-sm text-red-600 dark:text-red-400 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                     <Ban size={13} /> 取消此 AR 发票
                   </button>
                 ) : (
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#c2410c', marginBottom: 8 }}>确认取消 AR 发票</div>
+                    <div className="text-xs font-semibold text-orange-700 dark:text-orange-300 mb-2">确认取消 AR 发票</div>
                     <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)}
-                      placeholder="取消原因（可选）" style={{
-                        width: '100%', height: 56, padding: '8px 10px', borderRadius: 8,
-                        border: '1.5px solid #fca5a5', fontSize: 12, resize: 'none',
-                        boxSizing: 'border-box', outline: 'none',
-                      }} />
-                    {cancelErr && <div style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{cancelErr}</div>}
+                      placeholder="取消原因（可选）"
+                      className="w-full h-14 px-2.5 py-2 rounded-lg border border-red-200 dark:border-red-700 bg-white dark:bg-slate-700 text-xs text-slate-800 dark:text-slate-200 resize-none outline-none box-border" />
+                    {cancelErr && <div className="text-xs text-red-500 dark:text-red-400 mt-1">{cancelErr}</div>}
                     <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                      <button onClick={() => { setShowCancel(false); setCancelErr(''); }} style={{
-                        padding: '6px 14px', borderRadius: 8, border: '1.5px solid #e2e8f0',
-                        background: '#fff', fontSize: 12, cursor: 'pointer' }}>放弃</button>
-                      <button onClick={handleCancel} disabled={cancelling} style={{
-                        padding: '6px 14px', borderRadius: 8, border: 'none',
-                        background: cancelling ? '#fca5a5' : '#dc2626', color: '#fff',
-                        fontSize: 12, fontWeight: 600, cursor: cancelling ? 'not-allowed' : 'pointer' }}>
+                      <button onClick={() => { setShowCancel(false); setCancelErr(''); }}
+                        className="px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+                        放弃
+                      </button>
+                      <button onClick={handleCancel} disabled={cancelling}
+                        className={`px-3.5 py-1.5 rounded-lg border-0 text-xs font-semibold text-white transition-colors ${cancelling ? 'bg-red-300 dark:bg-red-800 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 cursor-pointer'}`}>
                         {cancelling ? '处理中…' : '确认取消'}
                       </button>
                     </div>
@@ -778,20 +732,16 @@ export default function Finance2ArPage() {
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => { loadInvoices(1); loadSummary(); }} disabled={invLoading}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8,
-                border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#475569' }}>
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors">
               <RefreshCw size={13} style={{ animation: invLoading ? 'spin 1s linear infinite' : 'none' }} />
               刷新
             </button>
-            <button onClick={() => setShowReceipt(true)} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8,
-              border: '1.5px solid #bbf7d0', background: '#f0fdf4',
-              fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#059669' }}>
+            <button onClick={() => setShowReceipt(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-sm font-semibold text-emerald-700 dark:text-emerald-300 cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors">
               <Receipt size={13} /> 录入收款
             </button>
-            <button onClick={() => setShowCreate(true)} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8,
-              border: 'none', background: '#10b981', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#fff' }}>
+            <button onClick={() => setShowCreate(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-0 bg-emerald-500 text-sm font-semibold text-white cursor-pointer hover:bg-emerald-600 transition-colors">
               <Plus size={13} /> 新建 AR
             </button>
           </div>
@@ -820,20 +770,20 @@ export default function Finance2ArPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b-2 border-slate-200 dark:border-slate-700"
-        style={{ display: 'flex', gap: 0, marginBottom: 16 }}>
+      <div className="border-b-2 border-slate-200 dark:border-slate-700 flex gap-0 mb-4">
         {([
           { key: 'invoices', label: '应收账单' },
           { key: 'receipts', label: '收款记录' },
           { key: 'aging',    label: '账龄分析' },
         ] as { key: TabKey; label: string }[]).map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
-            padding: '10px 20px', border: 'none', background: 'none',
-            fontSize: 13, fontWeight: tab === t.key ? 700 : 400,
-            color:         tab === t.key ? '#10b981' : '#64748b',
-            borderBottom:  tab === t.key ? '2px solid #10b981' : '2px solid transparent',
-            cursor: 'pointer', marginBottom: -2,
-          }}>{t.label}</button>
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className={`px-5 py-2.5 text-sm font-medium border-b-2 cursor-pointer transition-colors bg-transparent border-x-0 border-t-0 -mb-0.5 ${
+              tab === t.key
+                ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500'
+                : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-700 dark:hover:text-slate-200'
+            }`}>
+            {t.label}
+          </button>
         ))}
       </div>
 
@@ -841,10 +791,8 @@ export default function Finance2ArPage() {
       {tab === 'invoices' && (
         <>
           {/* 筛选 */}
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-            style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
-              marginBottom: 12, padding: '10px 14px', borderRadius: 10 }}>
-            <Filter size={14} color="#64748b" />
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex gap-2 flex-wrap items-center mb-3 px-3.5 py-2.5 rounded-xl">
+            <Filter size={14} className="text-slate-400 dark:text-slate-500" />
             {[
               { key: 'OPEN',               label: '未收款' },
               { key: 'PARTIALLY_RECEIVED', label: '部分收款' },
@@ -853,32 +801,29 @@ export default function Finance2ArPage() {
               { key: 'CANCELLED',          label: '已取消' },
             ].map(s => (
               <button key={s.key} onClick={() => { setStatus(p => p === s.key ? '' : s.key); setInvPage(1); }}
-                style={{ padding: '4px 12px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
-                  fontWeight: status === s.key ? 700 : 400,
-                  background: status === s.key ? '#10b981' : '#f1f5f9',
-                  color:      status === s.key ? '#fff'    : '#475569',
-                  border: 'none' }}>{s.label}</button>
+                className={`px-3 py-1 rounded-full text-xs cursor-pointer font-medium transition-colors border-0 ${
+                  status === s.key
+                    ? 'bg-emerald-600 text-white font-bold'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                }`}>
+                {s.label}
+              </button>
             ))}
             <div style={{ flex: 1 }} />
             <div style={{ display: 'flex', gap: 6 }}>
               <input value={searchInput} onChange={e => setSearchInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && (setKeyword(searchInput.trim()), setInvPage(1))}
                 placeholder="AR编号 / 客户 / 发票号…"
-                style={{ padding: '6px 12px', borderRadius: 8, fontSize: 13, width: 200,
-                  border: '1.5px solid #e2e8f0', outline: 'none' }} />
+                className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 dark:focus:border-emerald-500 w-52" />
               <button onClick={() => { setKeyword(searchInput.trim()); setInvPage(1); }}
-                style={{ padding: '6px 12px', borderRadius: 8, fontSize: 13,
-                  background: '#10b981', color: '#fff', border: 'none', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: 4 }}>
+                className="px-3 py-1.5 rounded-lg text-sm bg-emerald-500 text-white border-0 cursor-pointer hover:bg-emerald-600 flex items-center gap-1 transition-colors">
                 <Search size={13} /> 搜索
               </button>
             </div>
           </div>
 
           {invError && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10,
-              padding: '12px 16px', marginBottom: 12, color: '#ef4444', fontSize: 13,
-              display: 'flex', gap: 8 }}>
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 mb-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
               <AlertTriangle size={14} /> {invError}
             </div>
           )}
@@ -906,14 +851,12 @@ export default function Finance2ArPage() {
                     </td></tr>
                   ) : invoices.map((r, i) => (
                     <tr key={r.id} onClick={() => setSelectedInvId(r.id)}
-                      style={{ borderBottom: '1px solid #f1f5f9',
-                        background: i % 2 === 0 ? '#fff' : '#fafafa', cursor: 'pointer' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = '#f0fdf4')}
-                      onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafafa')}>
-                      <td style={{ padding: '10px 14px', fontFamily: 'monospace', color: '#10b981', whiteSpace: 'nowrap' }}>
+                      className={`border-b border-slate-50 dark:border-slate-700/50 cursor-pointer hover:bg-emerald-50 dark:hover:bg-slate-700/50 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-50/50 dark:bg-slate-700/20'}`}>
+                      <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}
+                        className="font-mono text-emerald-600 dark:text-emerald-400">
                         {r.ar_no}
                       </td>
-                      <td style={{ padding: '10px 14px' }}><SourceTag type={r.source_type} /></td>
+                      <td style={{ padding: '10px 14px' }}><SourceBadge type={r.source_type} /></td>
                       <td style={{ padding: '10px 14px', maxWidth: 150 }}>
                         <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 600 }}>{r.customer_name}</div>
                         {r.customer_code && <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{r.customer_code}</div>}
@@ -921,7 +864,7 @@ export default function Finance2ArPage() {
                       <td className="text-slate-500 dark:text-slate-400" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>{r.company_code}</td>
                       <td className="text-slate-500 dark:text-slate-400" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>{fmtDate(r.invoice_date)}</td>
                       <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-                        <span style={{ color: isOverdue(r.due_date, r.status) ? '#ef4444' : '#475569' }}>
+                        <span className={isOverdue(r.due_date, r.status) ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}>
                           {fmtDate(r.due_date)}
                         </span>
                         <AgingBadge bucket={r.aging_bucket} />
@@ -929,34 +872,28 @@ export default function Finance2ArPage() {
                       <td className="text-slate-900 dark:text-slate-100" style={{ padding: '10px 14px', fontWeight: 600, whiteSpace: 'nowrap' }}>
                         {fmtMoney(r.amount_original, r.currency_code)}
                       </td>
-                      <td style={{ padding: '10px 14px', fontWeight: 700, whiteSpace: 'nowrap',
-                        color: Number(r.balance_amount_original) > 0 ? '#ef4444' : '#64748b' }}>
+                      <td style={{ padding: '10px 14px', fontWeight: 700, whiteSpace: 'nowrap' }}
+                        className={Number(r.balance_amount_original) > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}>
                         {fmtMoney(r.balance_amount_original, r.currency_code)}
                       </td>
-                      <td style={{ padding: '10px 14px' }}><StatusChip status={r.status} /></td>
+                      <td style={{ padding: '10px 14px' }}><StatusBadge status={r.status} size="sm" /></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="border-t border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400"
-              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '12px 16px', fontSize: 13 }}>
+            <div className="border-t border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 flex justify-between items-center px-4 py-3 text-sm">
               <span>共 {invTotal} 条（第 {invPage} / {invTotalPages} 页）</span>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onClick={() => { const p = invPage - 1; setInvPage(p); loadInvoices(p); }}
                   disabled={invPage <= 1 || invLoading}
-                  style={{ padding: '4px 10px', borderRadius: 6, border: '1.5px solid #e2e8f0',
-                    background: '#fff', cursor: invPage <= 1 ? 'not-allowed' : 'pointer',
-                    opacity: invPage <= 1 ? 0.4 : 1, display: 'flex', alignItems: 'center' }}>
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center cursor-pointer">
                   <ChevronLeft size={14} />
                 </button>
                 <span style={{ padding: '0 8px' }}>{invPage} / {invTotalPages}</span>
                 <button onClick={() => { const p = invPage + 1; setInvPage(p); loadInvoices(p); }}
                   disabled={invPage >= invTotalPages || invLoading}
-                  style={{ padding: '4px 10px', borderRadius: 6, border: '1.5px solid #e2e8f0',
-                    background: '#fff', cursor: invPage >= invTotalPages ? 'not-allowed' : 'pointer',
-                    opacity: invPage >= invTotalPages ? 0.4 : 1, display: 'flex', alignItems: 'center' }}>
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center cursor-pointer">
                   <ChevronRight size={14} />
                 </button>
               </div>
@@ -988,9 +925,10 @@ export default function Finance2ArPage() {
                     暂无收款记录。
                   </td></tr>
                 ) : receipts.map((r, i) => (
-                  <tr key={r.id} style={{ borderBottom: '1px solid #f1f5f9',
-                    background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-                    <td style={{ padding: '10px 14px', fontFamily: 'monospace', color: '#10b981', whiteSpace: 'nowrap' }}>
+                  <tr key={r.id}
+                    className={`border-b border-slate-50 dark:border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-50/50 dark:bg-slate-700/20'}`}>
+                    <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}
+                      className="font-mono text-emerald-600 dark:text-emerald-400">
                       {r.receipt_no}
                     </td>
                     <td className="text-slate-900 dark:text-slate-100" style={{ padding: '10px 14px', fontWeight: 600, maxWidth: 140 }}>
@@ -998,37 +936,32 @@ export default function Finance2ArPage() {
                     </td>
                     <td className="text-slate-500 dark:text-slate-400" style={{ padding: '10px 14px' }}>{r.company_code}</td>
                     <td className="text-slate-500 dark:text-slate-400" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>{fmtDate(r.receipt_date)}</td>
-                    <td style={{ padding: '10px 14px', fontWeight: 700, color: '#059669', whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '10px 14px', fontWeight: 700, whiteSpace: 'nowrap' }}
+                      className="text-emerald-600 dark:text-emerald-400">
                       {fmtMoney(r.amount_original, r.currency_code)}
                     </td>
                     <td className="text-slate-500 dark:text-slate-400" style={{ padding: '10px 14px' }}>{r.receipt_method ?? '—'}</td>
-                    <td className="text-slate-500 dark:text-slate-400" style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 12 }}>
+                    <td className="text-slate-500 dark:text-slate-400 font-mono" style={{ padding: '10px 14px', fontSize: 12 }}>
                       {r.bank_ref ?? '—'}
                     </td>
-                    <td style={{ padding: '10px 14px' }}><ReceiptStatusChip status={r.status} /></td>
+                    <td style={{ padding: '10px 14px' }}><StatusBadge status={r.status} size="sm" /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div className="border-t border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400"
-            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '12px 16px', fontSize: 13 }}>
+          <div className="border-t border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 flex justify-between items-center px-4 py-3 text-sm">
             <span>共 {recTotal} 条</span>
             <div style={{ display: 'flex', gap: 6 }}>
               <button onClick={() => { const p = recPage - 1; setRecPage(p); loadReceipts(p); }}
                 disabled={recPage <= 1 || recLoading}
-                style={{ padding: '4px 10px', borderRadius: 6, border: '1.5px solid #e2e8f0',
-                  background: '#fff', cursor: recPage <= 1 ? 'not-allowed' : 'pointer',
-                  opacity: recPage <= 1 ? 0.4 : 1, display: 'flex' }}>
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center cursor-pointer">
                 <ChevronLeft size={14} />
               </button>
               <span style={{ padding: '0 8px' }}>{recPage} / {recTotalPages}</span>
               <button onClick={() => { const p = recPage + 1; setRecPage(p); loadReceipts(p); }}
                 disabled={recPage >= recTotalPages || recLoading}
-                style={{ padding: '4px 10px', borderRadius: 6, border: '1.5px solid #e2e8f0',
-                  background: '#fff', cursor: recPage >= recTotalPages ? 'not-allowed' : 'pointer',
-                  opacity: recPage >= recTotalPages ? 0.4 : 1, display: 'flex' }}>
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center cursor-pointer">
                 <ChevronRight size={14} />
               </button>
             </div>
@@ -1047,17 +980,16 @@ export default function Finance2ArPage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
                 gap: 10, marginBottom: 20 }}>
                 {[
-                  { key: 'NOT_DUE',  label: '未到期',     value: aging.buckets?.NOT_DUE  ?? 0, color: '#059669' },
-                  { key: '0_30',     label: '逾期≤30天',  value: aging.buckets?.['0_30']  ?? 0, color: '#f59e0b' },
-                  { key: '31_60',    label: '逾期31-60天', value: aging.buckets?.['31_60'] ?? 0, color: '#ea580c' },
-                  { key: '61_90',    label: '逾期61-90天', value: aging.buckets?.['61_90'] ?? 0, color: '#dc2626' },
-                  { key: '90_PLUS',  label: '逾期>90天',  value: aging.buckets?.['90_PLUS']?? 0, color: '#991b1b' },
+                  { key: 'NOT_DUE',  label: '未到期',     value: aging.buckets?.NOT_DUE  ?? 0, colorClass: 'text-emerald-600 dark:text-emerald-400', borderColor: 'border-emerald-200 dark:border-emerald-800' },
+                  { key: '0_30',     label: '逾期≤30天',  value: aging.buckets?.['0_30']  ?? 0, colorClass: 'text-amber-600 dark:text-amber-400',   borderColor: 'border-amber-200 dark:border-amber-800' },
+                  { key: '31_60',    label: '逾期31-60天', value: aging.buckets?.['31_60'] ?? 0, colorClass: 'text-orange-600 dark:text-orange-400', borderColor: 'border-orange-200 dark:border-orange-800' },
+                  { key: '61_90',    label: '逾期61-90天', value: aging.buckets?.['61_90'] ?? 0, colorClass: 'text-red-600 dark:text-red-400',       borderColor: 'border-red-200 dark:border-red-800' },
+                  { key: '90_PLUS',  label: '逾期>90天',  value: aging.buckets?.['90_PLUS']?? 0, colorClass: 'text-red-800 dark:text-red-300',      borderColor: 'border-red-300 dark:border-red-700' },
                 ].map(b => (
-                  <div key={b.key} className="bg-white dark:bg-slate-800"
-                    style={{ borderRadius: 10, padding: '12px 14px',
-                      border: `1.5px solid ${b.color}30`, boxShadow: '0 1px 4px rgba(0,0,0,0.04)', textAlign: 'center' }}>
-                    <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11, marginBottom: 4 }}>{b.label}</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: b.color }}>
+                  <div key={b.key} className={`bg-white dark:bg-slate-800 border ${b.borderColor} rounded-xl px-3.5 py-3 text-center`}
+                    style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                    <div className="text-slate-500 dark:text-slate-400 text-xs mb-1">{b.label}</div>
+                    <div className={`text-base font-extrabold ${b.colorClass}`}>
                       {b.value.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
                     </div>
                   </div>
@@ -1067,8 +999,7 @@ export default function Finance2ArPage() {
               {/* 客户明细 */}
               <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                 style={{ borderRadius: 12, overflow: 'hidden' }}>
-                <div className="border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
-                  style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600 }}>
+                <div className="border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 px-4 py-3 text-sm font-semibold">
                   客户账龄明细（截至 {new Date().toLocaleDateString('zh-CN')}）
                 </div>
                 <div style={{ overflowX: 'auto' }}>
@@ -1087,8 +1018,7 @@ export default function Finance2ArPage() {
                       {(aging.byCustomer ?? []).length === 0 ? (
                         <tr><td colSpan={8} className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 30 }}>暂无账龄数据</td></tr>
                       ) : (aging.byCustomer ?? []).map((row: any, i: number) => (
-                        <tr key={i} style={{ borderBottom: '1px solid #f1f5f9',
-                          background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                        <tr key={i} className={`border-b border-slate-50 dark:border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-50/50 dark:bg-slate-700/20'}`}>
                           <td style={{ padding: '8px 12px', fontWeight: 600 }} className="text-slate-900 dark:text-slate-100">
                             {row.customer_name ?? '—'}
                             {row.customer_code && <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 10 }}>{row.customer_code}</div>}
@@ -1096,8 +1026,12 @@ export default function Finance2ArPage() {
                           <td className="text-slate-500 dark:text-slate-400" style={{ padding: '8px 12px', textAlign: 'right' }}>{row.currency_code}</td>
                           {['not_due','bucket_0_30','bucket_31_60','bucket_61_90','bucket_90_plus','total_balance'].map(k => (
                             <td key={k} style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'monospace',
-                              color: k === 'total_balance' ? '#0f172a' : (Number(row[k] ?? 0) > 0 && k !== 'not_due' ? '#dc2626' : '#475569'),
-                              fontWeight: k === 'total_balance' ? 700 : 400 }}>
+                              fontWeight: k === 'total_balance' ? 700 : 400 }}
+                              className={k === 'total_balance'
+                                ? 'text-slate-900 dark:text-slate-100'
+                                : (Number(row[k] ?? 0) > 0 && k !== 'not_due'
+                                  ? 'text-red-600 dark:text-red-400'
+                                  : 'text-slate-500 dark:text-slate-400')}>
                               {Number(row[k] ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
                             </td>
                           ))}

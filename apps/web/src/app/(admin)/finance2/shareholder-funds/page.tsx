@@ -70,21 +70,21 @@ const CONTRIBUTION_TYPE_COLORS: Record<string, string> = {
   GUARANTEE: '#0891b2', PAYMENT_ON_BEHALF: '#16a34a',
 };
 
-const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
-  DRAFT:             { label: '草稿',   bg: '#f1f5f9', color: '#475569' },
-  PENDING_CONFIRM:   { label: '待确认', bg: '#fef3c7', color: '#92400e' },
-  CONFIRMED:         { label: '已确认', bg: '#dbeafe', color: '#1e40af' },
-  PARTIALLY_SETTLED: { label: '部分结算', bg: '#e0f2fe', color: '#0369a1' },
-  SETTLED:           { label: '已结清', bg: '#dcfce7', color: '#166534' },
-  CANCELLED:         { label: '已取消', bg: '#f1f5f9', color: '#9ca3af' },
+const STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
+  DRAFT:             { label: '草稿',    badgeClass: 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' },
+  PENDING_CONFIRM:   { label: '待确认',  badgeClass: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300' },
+  CONFIRMED:         { label: '已确认',  badgeClass: 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300' },
+  PARTIALLY_SETTLED: { label: '部分结算', badgeClass: 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300' },
+  SETTLED:           { label: '已结清',  badgeClass: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300' },
+  CANCELLED:         { label: '已取消',  badgeClass: 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500' },
 };
 
-const SETTLEMENT_STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
-  DRAFT:            { label: '草稿',   bg: '#f1f5f9', color: '#475569' },
-  PENDING_APPROVAL: { label: '待审批', bg: '#fef3c7', color: '#92400e' },
-  APPROVED:         { label: '已批准', bg: '#dbeafe', color: '#1e40af' },
-  SETTLED:          { label: '已结清', bg: '#dcfce7', color: '#166534' },
-  CANCELLED:        { label: '已取消', bg: '#f1f5f9', color: '#9ca3af' },
+const SETTLEMENT_STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
+  DRAFT:            { label: '草稿',   badgeClass: 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' },
+  PENDING_APPROVAL: { label: '待审批', badgeClass: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300' },
+  APPROVED:         { label: '已批准', badgeClass: 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300' },
+  SETTLED:          { label: '已结清', badgeClass: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300' },
+  CANCELLED:        { label: '已取消', badgeClass: 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500' },
 };
 
 const SETTLEMENT_TYPE_LABELS: Record<string, string> = {
@@ -98,13 +98,10 @@ function fmt(n: number | string | null | undefined): string {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function StatusBadge({ status, map }: { status: string; map: Record<string, { label: string; bg: string; color: string }> }) {
-  const c = map[status] ?? { label: status, bg: '#f1f5f9', color: '#475569' };
+function StatusBadge({ status, map }: { status: string; map: Record<string, { label: string; badgeClass: string }> }) {
+  const c = map[status] ?? { label: status, badgeClass: 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' };
   return (
-    <span style={{
-      display: 'inline-block', padding: '2px 9px', borderRadius: 20,
-      fontSize: 11, fontWeight: 600, background: c.bg, color: c.color,
-    }}>
+    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${c.badgeClass}`}>
       {c.label}
     </span>
   );
@@ -161,10 +158,7 @@ function CreateContributionModal({ onClose, onCreated }: { onClose: () => void; 
     } finally { setSaving(false); }
   }
 
-  const inp: React.CSSProperties = {
-    width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 13,
-    border: '1.5px solid #e2e8f0', background: '#fff', boxSizing: 'border-box',
-  };
+  const inpClass = "w-full px-3 py-2 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 box-border";
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -172,9 +166,13 @@ function CreateContributionModal({ onClose, onCreated }: { onClose: () => void; 
         style={{ borderRadius: 16, padding: 28, width: 520, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>新建股东资金记录</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} color="#94a3b8" /></button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} className="text-slate-400" /></button>
         </div>
-        {err && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#dc2626', marginBottom: 14 }}>{err}</div>}
+        {err && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-2 mb-3.5">
+            {err}
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           {[
             { label: '股东名称 *', key: 'shareholderName', placeholder: '如：张三' },
@@ -186,13 +184,13 @@ function CreateContributionModal({ onClose, onCreated }: { onClose: () => void; 
             { label: '预计归还日期', key: 'expectedReturnDate', placeholder: 'YYYY-MM-DD' },
           ].map(f => (
             <div key={f.key}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>{f.label}</div>
-              <input value={(form as Record<string, string>)[f.key]} onChange={e => set(f.key, e.target.value)} placeholder={f.placeholder} style={inp} />
+              <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{f.label}</div>
+              <input value={(form as Record<string, string>)[f.key]} onChange={e => set(f.key, e.target.value)} placeholder={f.placeholder} className={inpClass} />
             </div>
           ))}
         </div>
         <div style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>资金类型 *</div>
+          <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>资金类型 <span className="text-red-500">*</span></div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {Object.entries(CONTRIBUTION_TYPE_LABELS).map(([k, v]) => (
               <button key={k} onClick={() => set('contributionType', k)} style={{
@@ -205,13 +203,14 @@ function CreateContributionModal({ onClose, onCreated }: { onClose: () => void; 
           </div>
         </div>
         <div style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>备注</div>
+          <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>备注</div>
           <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder="可选" rows={2}
-            style={{ ...inp, resize: 'none', fontFamily: 'inherit' }} />
+            className={`${inpClass} resize-none`} style={{ fontFamily: 'inherit' }} />
         </div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
-          <button onClick={onClose} style={{ padding: '8px 18px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#374151' }}>取消</button>
-          <button onClick={submit} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600, background: saving ? '#a78bfa' : '#7c3aed', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer' }}>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">取消</button>
+          <button onClick={submit} disabled={saving}
+            className={`px-5 py-2 rounded-lg border-none text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-violet-300 dark:bg-violet-800 cursor-not-allowed' : 'bg-violet-700 hover:bg-violet-800'}`}>
             {saving ? '创建中…' : '创建记录'}
           </button>
         </div>
@@ -262,50 +261,50 @@ function CreateSettlementModal({
     } finally { setSaving(false); }
   }
 
-  const inp: React.CSSProperties = {
-    width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 13,
-    border: '1.5px solid #e2e8f0', background: '#fff', boxSizing: 'border-box',
-  };
+  const inpClass = "w-full px-3 py-2 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 box-border";
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+      <div className="bg-white dark:bg-slate-800" style={{ borderRadius: 16, padding: 28, width: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>创建还款/结算</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={17} color="#94a3b8" /></button>
+          <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 15 }}>创建还款/结算</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={17} className="text-slate-400" /></button>
         </div>
-        <div style={{ background: '#f8fafc', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12 }}>
-          <div style={{ color: '#374151', fontWeight: 600 }}>{contribution.shareholderName} · {contribution.contributionNo}</div>
-          <div style={{ color: '#64748b', marginTop: 2 }}>
+        <div className="bg-slate-50 dark:bg-slate-700/50" style={{ borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12 }}>
+          <div className="text-slate-700 dark:text-slate-300" style={{ fontWeight: 600 }}>{contribution.shareholderName} · {contribution.contributionNo}</div>
+          <div className="text-slate-500 dark:text-slate-400" style={{ marginTop: 2 }}>
             未结余额：{contribution.currencyCode} {fmt(contribution.balanceAmountOriginal)}
           </div>
         </div>
-        {err && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#dc2626', marginBottom: 14 }}>{err}</div>}
+        {err && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-2 mb-3.5">
+            {err}
+          </div>
+        )}
 
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>结算类型</div>
+          <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>结算类型</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {Object.entries(SETTLEMENT_TYPE_LABELS).map(([k, v]) => (
-              <button key={k} onClick={() => set('settlementType', k)} style={{
-                padding: '5px 11px', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                border: `1.5px solid ${form.settlementType === k ? '#2563eb' : '#e2e8f0'}`,
-                background: form.settlementType === k ? '#eff6ff' : '#fff',
-                color: form.settlementType === k ? '#2563eb' : '#6b7280',
-              }}>{v}</button>
+              <button key={k} onClick={() => set('settlementType', k)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border transition-colors ${
+                form.settlementType === k
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                  : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}>{v}</button>
             ))}
           </div>
         </div>
 
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>金额 *</div>
+          <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>金额 <span className="text-red-500">*</span></div>
           <input type="number" min="0.01" step="0.01" value={form.amountOriginal}
-            onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" style={inp} />
+            onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" className={inpClass} />
         </div>
 
         {needsCash && (
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>现金账户 *（RETURN 必填）</div>
-            <select value={form.cashAccountId} onChange={e => set('cashAccountId', e.target.value)} style={inp}>
+            <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>现金账户 <span className="text-red-500">*</span>（RETURN 必填）</div>
+            <select value={form.cashAccountId} onChange={e => set('cashAccountId', e.target.value)} className={inpClass}>
               <option value="">请选择现金账户</option>
               {accounts.map(a => (
                 <option key={a.id} value={a.id}>{a.accountName} ({a.currencyCode} {fmt(a.currentBalance)})</option>
@@ -315,17 +314,18 @@ function CreateSettlementModal({
         )}
 
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
-            备注{needsRemark ? ' *（WRITE_OFF 必填）' : ''}
+          <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+            备注{needsRemark ? <span className="text-red-500"> *（WRITE_OFF 必填）</span> : ''}
           </div>
           <textarea value={form.remark} onChange={e => set('remark', e.target.value)}
             placeholder={needsRemark ? '请填写核销原因' : '可选'} rows={2}
-            style={{ ...inp, resize: 'none', fontFamily: 'inherit' }} />
+            className={`${inpClass} resize-none`} style={{ fontFamily: 'inherit' }} />
         </div>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '8px 18px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#374151' }}>取消</button>
-          <button onClick={submit} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600, background: saving ? '#93c5fd' : '#2563eb', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer' }}>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">取消</button>
+          <button onClick={submit} disabled={saving}
+            className={`px-5 py-2 rounded-lg border-none text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-blue-300 dark:bg-blue-800 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
             {saving ? '创建中…' : '创建'}
           </button>
         </div>
@@ -396,7 +396,7 @@ function ContributionDrawer({
             <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>{contribution.shareholderName}</div>
             <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 12, marginTop: 2 }}>{contribution.contributionNo}</div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} color="#94a3b8" /></button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} className="text-slate-400" /></button>
         </div>
 
         {/* 金额总览 */}
@@ -428,9 +428,9 @@ function ContributionDrawer({
             { label: '公司', value: contribution.companyName ?? contribution.companyCode },
             { label: '来源', value: contribution.sourceType },
           ].map(r => (
-            <div key={r.label} style={{ background: '#f8fafc', borderRadius: 8, padding: '8px 12px' }}>
-              <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 2 }}>{r.label}</div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a' }}>{r.value}</div>
+            <div key={r.label} className="bg-slate-50 dark:bg-slate-700/50" style={{ borderRadius: 8, padding: '8px 12px' }}>
+              <div className="text-slate-400 dark:text-slate-500" style={{ fontSize: 10, marginBottom: 2 }}>{r.label}</div>
+              <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 12, fontWeight: 600 }}>{r.value}</div>
             </div>
           ))}
         </div>
@@ -439,76 +439,76 @@ function ContributionDrawer({
         <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
           {canConfirm && (
             <button onClick={() => doAction('confirm-direct')} disabled={!!actionLoading}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1.5px solid #86efac', background: '#f0fdf4', color: '#166534' }}>
+              className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 disabled:opacity-50 transition-colors">
               <CheckCircle size={12} /> 直接确认
             </button>
           )}
           {contribution.status === 'DRAFT' && (
             <button onClick={() => doAction('submit-confirm')} disabled={!!actionLoading}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1.5px solid #bfdbfe', background: '#eff6ff', color: '#1e40af' }}>
+              className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 disabled:opacity-50 transition-colors">
               <AlertCircle size={12} /> 提交确认
             </button>
           )}
           {canSettle && (
             <button onClick={() => setShowSettle(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1.5px solid #ddd6fe', background: '#f5f3ff', color: '#7c3aed' }}>
+              className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-violet-200 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 transition-colors">
               <ArrowDownLeft size={12} /> 创建结算
             </button>
           )}
           {canCancel && (
             <button onClick={() => { if (confirm('确认取消该股东资金记录？')) void doAction('cancel', {}); }} disabled={!!actionLoading}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1.5px solid #fecaca', background: '#fef2f2', color: '#dc2626' }}>
+              className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 disabled:opacity-50 transition-colors">
               <X size={12} /> 取消
             </button>
           )}
         </div>
 
         {/* 结算记录 */}
-        <div style={{ fontWeight: 600, fontSize: 13, color: '#374151', marginBottom: 10 }}>结算记录</div>
+        <div className="text-slate-700 dark:text-slate-300" style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>结算记录</div>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 24, color: '#94a3b8', fontSize: 13 }}>加载中…</div>
+          <div className="text-slate-400 dark:text-slate-500 text-sm text-center py-6">加载中…</div>
         ) : !detail?.settlements?.length ? (
-          <div style={{ textAlign: 'center', padding: 20, color: '#94a3b8', fontSize: 13, background: '#f8fafc', borderRadius: 10 }}>暂无结算记录</div>
+          <div className="text-slate-400 dark:text-slate-500 text-sm text-center py-5 bg-slate-50 dark:bg-slate-700/30 rounded-xl">暂无结算记录</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {(detail.settlements as Settlement[]).map(s => {
-              const sc = SETTLEMENT_STATUS_CONFIG[s.status] ?? { label: s.status, bg: '#f1f5f9', color: '#475569' };
+              const sc = SETTLEMENT_STATUS_CONFIG[s.status] ?? { label: s.status, badgeClass: 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' };
               return (
-                <div key={s.id} style={{ background: '#f8fafc', borderRadius: 10, padding: '10px 14px', border: '1px solid #e2e8f0' }}>
+                <div key={s.id} className="bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600" style={{ borderRadius: 10, padding: '10px 14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                     <div>
-                      <span style={{ fontWeight: 600, fontSize: 12, color: '#0f172a' }}>{s.settlementNo}</span>
-                      <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 8 }}>{SETTLEMENT_TYPE_LABELS[s.settlementType] ?? s.settlementType}</span>
+                      <span className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 600, fontSize: 12 }}>{s.settlementNo}</span>
+                      <span className="text-slate-400 dark:text-slate-500" style={{ fontSize: 11, marginLeft: 8 }}>{SETTLEMENT_TYPE_LABELS[s.settlementType] ?? s.settlementType}</span>
                     </div>
-                    <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600, background: sc.bg, color: sc.color }}>{sc.label}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${sc.badgeClass}`}>{sc.label}</span>
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: '#1e40af', marginBottom: 4 }}>
+                  <div className="text-blue-700 dark:text-blue-300" style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
                     {s.currencyCode} {fmt(s.amountOriginal)}
                   </div>
-                  {s.cashAccountCode && <div style={{ fontSize: 11, color: '#64748b' }}>现金账户：{s.cashAccountCode}</div>}
+                  {s.cashAccountCode && <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>现金账户：{s.cashAccountCode}</div>}
 
                   {!['SETTLED', 'CANCELLED'].includes(s.status) && (
                     <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                       {s.status === 'DRAFT' && (
                         <button onClick={() => doSettleAction(s.id, 'submit')} disabled={!!actionLoading}
-                          style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: '1.5px solid #bfdbfe', background: '#eff6ff', color: '#1e40af' }}>
+                          className="px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 disabled:opacity-50 transition-colors">
                           提交审批
                         </button>
                       )}
                       {s.status === 'PENDING_APPROVAL' && (
                         <button onClick={() => doSettleAction(s.id, 'approve-direct')} disabled={!!actionLoading}
-                          style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: '1.5px solid #86efac', background: '#f0fdf4', color: '#166534' }}>
+                          className="px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 disabled:opacity-50 transition-colors">
                           直接批准
                         </button>
                       )}
                       {s.status === 'APPROVED' && (
                         <button onClick={() => { if (confirm(`确认执行结算 ${s.settlementNo}？将实际操作资金。`)) void doSettleAction(s.id, 'execute'); }} disabled={!!actionLoading}
-                          style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: '1.5px solid #6ee7b7', background: '#ecfdf5', color: '#065f46' }}>
+                          className="px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer border border-emerald-200 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-900 dark:text-emerald-200 disabled:opacity-50 transition-colors">
                           执行结算
                         </button>
                       )}
                       <button onClick={() => { if (confirm('确认取消此结算？')) void doSettleAction(s.id, 'cancel'); }} disabled={!!actionLoading}
-                        style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: '1.5px solid #fecaca', background: '#fef2f2', color: '#dc2626' }}>
+                        className="px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 disabled:opacity-50 transition-colors">
                         取消
                       </button>
                     </div>
@@ -520,7 +520,7 @@ function ContributionDrawer({
         )}
 
         {contribution.remark && (
-          <div style={{ marginTop: 16, background: '#fffbeb', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#92400e' }}>
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 text-xs text-amber-700 dark:text-amber-300 mt-4">
             备注：{contribution.remark}
           </div>
         )}
@@ -545,22 +545,24 @@ function ContributionDrawer({
 // ── Summary Tab ───────────────────────────────────────────────────────────────
 
 function SummaryTab({ summary }: { summary: ShSummary | null }) {
-  if (!summary) return <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 32 }}>加载中…</div>;
+  if (!summary) return <div className="text-slate-500 dark:text-slate-400 text-sm text-center py-8">加载中…</div>;
+
+  const statCards = [
+    { label: '出资总额',  value: `¥ ${fmt(summary.totalAmountOriginal)}`,    colorClass: 'text-violet-700 dark:text-violet-300' },
+    { label: '已结算',    value: `¥ ${fmt(summary.settledAmountOriginal)}`,   colorClass: 'text-emerald-700 dark:text-emerald-300' },
+    { label: '未结余额',  value: `¥ ${fmt(summary.balanceAmountOriginal)}`,   colorClass: 'text-red-600 dark:text-red-400' },
+    { label: '已确认笔数', value: `${summary.confirmedContributions} 笔`,     colorClass: 'text-blue-700 dark:text-blue-300' },
+    { label: '待确认',    value: `${summary.pendingConfirmations} 笔`,        colorClass: 'text-amber-600 dark:text-amber-400' },
+  ];
 
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginBottom: 24 }}>
-        {[
-          { label: '出资总额', value: `¥ ${fmt(summary.totalAmountOriginal)}`, color: '#7c3aed' },
-          { label: '已结算', value: `¥ ${fmt(summary.settledAmountOriginal)}`, color: '#16a34a' },
-          { label: '未结余额', value: `¥ ${fmt(summary.balanceAmountOriginal)}`, color: '#dc2626' },
-          { label: '已确认笔数', value: `${summary.confirmedContributions} 笔`, color: '#2563eb' },
-          { label: '待确认', value: `${summary.pendingConfirmations} 笔`, color: '#d97706' },
-        ].map(c => (
+        {statCards.map(c => (
           <div key={c.label} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
             style={{ borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
             <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11, marginBottom: 4 }}>{c.label}</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: c.color }}>{c.value}</div>
+            <div className={`text-lg font-extrabold ${c.colorClass}`}>{c.value}</div>
           </div>
         ))}
       </div>
@@ -569,14 +571,14 @@ function SummaryTab({ summary }: { summary: ShSummary | null }) {
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700" style={{ borderRadius: 12, padding: '16px 18px' }}>
           <div className="text-slate-700 dark:text-slate-300" style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>按股东分布</div>
           {summary.byShareholder.length === 0 ? (
-            <div style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center', padding: 16 }}>暂无数据</div>
+            <div className="text-slate-400 dark:text-slate-500 text-xs text-center py-4">暂无数据</div>
           ) : summary.byShareholder.map(r => (
-            <div key={r.shareholder_name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #f1f5f9' }}>
+            <div key={r.shareholder_name} className="border-b border-slate-100 dark:border-slate-700/50" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a' }}>{r.shareholder_name}</div>
-                <div style={{ fontSize: 11, color: '#94a3b8' }}>{r.cnt} 笔</div>
+                <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 12, fontWeight: 600 }}>{r.shareholder_name}</div>
+                <div className="text-slate-400 dark:text-slate-500" style={{ fontSize: 11 }}>{r.cnt} 笔</div>
               </div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#7c3aed' }}>¥ {fmt(r.balance)}</div>
+              <div className="text-violet-700 dark:text-violet-300" style={{ fontSize: 13, fontWeight: 700 }}>¥ {fmt(r.balance)}</div>
             </div>
           ))}
         </div>
@@ -584,30 +586,30 @@ function SummaryTab({ summary }: { summary: ShSummary | null }) {
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700" style={{ borderRadius: 12, padding: '16px 18px' }}>
           <div className="text-slate-700 dark:text-slate-300" style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>按资金类型</div>
           {summary.byContributionType.length === 0 ? (
-            <div style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center', padding: 16 }}>暂无数据</div>
+            <div className="text-slate-400 dark:text-slate-500 text-xs text-center py-4">暂无数据</div>
           ) : summary.byContributionType.map(r => (
-            <div key={r.contribution_type} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #f1f5f9' }}>
+            <div key={r.contribution_type} className="border-b border-slate-100 dark:border-slate-700/50" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <TypeBadge type={r.contribution_type} />
-                <span style={{ fontSize: 11, color: '#94a3b8' }}>{r.cnt} 笔</span>
+                <span className="text-slate-400 dark:text-slate-500" style={{ fontSize: 11 }}>{r.cnt} 笔</span>
               </div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>¥ {fmt(r.total)}</div>
+              <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 13, fontWeight: 700 }}>¥ {fmt(r.total)}</div>
             </div>
           ))}
         </div>
       </div>
 
       {summary.upcomingReturns.length > 0 && (
-        <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', border: '1.5px solid #fde68a' }}>
-          <div style={{ fontWeight: 600, fontSize: 13, color: '#92400e', marginBottom: 12 }}>⚠️ 即将到期归还（30 天内）</div>
+        <div className="bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700" style={{ borderRadius: 12, padding: '16px 18px' }}>
+          <div className="text-amber-800 dark:text-amber-300" style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>⚠️ 即将到期归还（30 天内）</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {summary.upcomingReturns.map(r => (
-              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#fffbeb', borderRadius: 8, border: '1px solid #fde68a' }}>
+              <div key={r.id} className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: 8 }}>
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: 12, color: '#0f172a' }}>{r.contribution_no}</div>
-                  <div style={{ fontSize: 11, color: '#94a3b8' }}>{r.shareholder_name} · 到期：{r.expected_return_date}</div>
+                  <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 600, fontSize: 12 }}>{r.contribution_no}</div>
+                  <div className="text-slate-400 dark:text-slate-500" style={{ fontSize: 11 }}>{r.shareholder_name} · 到期：{r.expected_return_date}</div>
                 </div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: '#d97706' }}>¥ {fmt(r.balance_amount_original)}</div>
+                <div className="text-amber-600 dark:text-amber-400" style={{ fontWeight: 700, fontSize: 14 }}>¥ {fmt(r.balance_amount_original)}</div>
               </div>
             ))}
           </div>
@@ -688,11 +690,11 @@ export default function ShareholderFundsPage() {
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => void importFromPrc2()} disabled={importLoading}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: importLoading ? '#e2e8f0' : '#f1f5f9', color: '#374151', border: '1.5px solid #e2e8f0', cursor: importLoading ? 'not-allowed' : 'pointer' }}>
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 transition-colors ${importLoading ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer'}`}>
               <Upload size={14} /> {importLoading ? '导入中…' : '从采购系统导入'}
             </button>
             <button onClick={() => setShowCreate(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: '#7c3aed', color: '#fff', border: 'none', cursor: 'pointer' }}>
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-violet-700 hover:bg-violet-800 text-white border-none cursor-pointer transition-colors">
               <Plus size={15} /> 新建记录
             </button>
           </div>
@@ -700,14 +702,13 @@ export default function ShareholderFundsPage() {
       />
 
       {/* Tab 切换 */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: '#f1f5f9', borderRadius: 10, padding: 4, width: 'fit-content' }}>
+      <div className="bg-slate-100 dark:bg-slate-800" style={{ display: 'flex', gap: 4, marginBottom: 20, borderRadius: 10, padding: 4, width: 'fit-content' }}>
         {tabs.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
-            padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            border: 'none', background: tab === t.key ? '#fff' : 'transparent',
-            color: tab === t.key ? '#7c3aed' : '#64748b',
-            boxShadow: tab === t.key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-          }}>
+          <button key={t.key} onClick={() => setTab(t.key)} className={`px-5 py-2 rounded-lg text-sm font-semibold cursor-pointer border-none transition-colors ${
+            tab === t.key
+              ? 'bg-white dark:bg-slate-700 text-violet-700 dark:text-violet-300 shadow-sm'
+              : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+          }`}>
             {t.label}
           </button>
         ))}
@@ -720,17 +721,17 @@ export default function ShareholderFundsPage() {
           {/* 筛选栏 */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
             <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-              <Search size={14} color="#94a3b8" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+              <Search size={14} className="text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索股东名称/单号…"
-                style={{ width: '100%', paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8, borderRadius: 8, border: '1.5px solid #e2e8f0', fontSize: 13, background: '#fff', boxSizing: 'border-box' }} />
+                className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 w-full pl-8" />
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {[{ k: '', v: '全部类型' }, ...Object.entries(CONTRIBUTION_TYPE_LABELS).map(([k, v]) => ({ k, v }))].map(({ k, v }) => (
-                <button key={k} onClick={() => setTypeFilter(k)} style={{
-                  padding: '6px 11px', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  border: `1.5px solid ${typeFilter === k ? '#7c3aed' : '#e2e8f0'}`,
-                  background: typeFilter === k ? '#f5f3ff' : '#fff', color: typeFilter === k ? '#7c3aed' : '#6b7280',
-                }}>{v}</button>
+                <button key={k} onClick={() => setTypeFilter(k)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border transition-colors ${
+                  typeFilter === k
+                    ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300'
+                    : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
+                }`}>{v}</button>
               ))}
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
@@ -739,61 +740,64 @@ export default function ShareholderFundsPage() {
                 { k: 'CONFIRMED', v: '已确认' }, { k: 'PARTIALLY_SETTLED', v: '部分结算' },
                 { k: 'SETTLED', v: '已结清' },
               ].map(({ k, v }) => (
-                <button key={k} onClick={() => setStatusFilter(k)} style={{
-                  padding: '6px 11px', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  border: `1.5px solid ${statusFilter === k ? '#2563eb' : '#e2e8f0'}`,
-                  background: statusFilter === k ? '#eff6ff' : '#fff', color: statusFilter === k ? '#2563eb' : '#6b7280',
-                }}>{v}</button>
+                <button key={k} onClick={() => setStatusFilter(k)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border transition-colors ${
+                  statusFilter === k
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                    : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
+                }`}>{v}</button>
               ))}
             </div>
-            <button onClick={() => void loadContributions()} disabled={loading} style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', cursor: 'pointer' }}>
-              <RefreshCw size={14} color="#64748b" />
+            <button onClick={() => void loadContributions()} disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors disabled:opacity-40">
+              <RefreshCw size={14} />
             </button>
           </div>
 
           {loading ? (
-            <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 48, fontSize: 14 }}>加载中…</div>
+            <div className="text-slate-500 dark:text-slate-400 text-sm text-center py-12">加载中…</div>
           ) : contributions.length === 0 ? (
-            <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 48, fontSize: 14 }}>
+            <div className="text-slate-500 dark:text-slate-400 text-sm text-center py-12">
               <Users size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.4 }} />
               暂无股东资金记录
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {contributions.map(c => (
-                <div key={c.id} onClick={() => setSelectedC(c)} style={{
-                  background: '#fff', borderRadius: 14,
-                  border: `1.5px solid ${c.status === 'SETTLED' ? '#e2e8f0' : c.status === 'PENDING_CONFIRM' ? '#fde68a' : '#e8edff'}`,
-                  padding: '14px 18px', cursor: 'pointer', opacity: c.status === 'CANCELLED' ? 0.6 : 1,
-                  transition: 'box-shadow 0.15s',
-                }}
-                  onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 16px rgba(124,58,237,0.10)')}
-                  onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}
+                <div key={c.id}
+                  onClick={() => setSelectedC(c)}
+                  className="bg-white dark:bg-slate-800 hover:shadow-md dark:hover:shadow-slate-700/30 transition-shadow cursor-pointer"
+                  style={{
+                    borderRadius: 14,
+                    border: `1.5px solid ${c.status === 'SETTLED' ? '#e2e8f0' : c.status === 'PENDING_CONFIRM' ? '#fde68a' : '#e8edff'}`,
+                    padding: '14px 18px',
+                    opacity: c.status === 'CANCELLED' ? 0.6 : 1,
+                  }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                    <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>{c.shareholderName}</span>
+                    <span className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 14 }}>{c.shareholderName}</span>
                     <TypeBadge type={c.contributionType} />
                     <StatusBadge status={c.status} map={STATUS_CONFIG} />
-                    <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 'auto' }}>{c.contributionNo}</span>
+                    <span className="text-slate-400 dark:text-slate-500" style={{ fontSize: 11, marginLeft: 'auto' }}>{c.contributionNo}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
                     <div>
-                      <div style={{ fontSize: 10, color: '#94a3b8' }}>出资总额</div>
-                      <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>{c.currencyCode} {fmt(c.amountOriginal)}</div>
+                      <div className="text-slate-400 dark:text-slate-500" style={{ fontSize: 10 }}>出资总额</div>
+                      <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 15 }}>{c.currencyCode} {fmt(c.amountOriginal)}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: 10, color: '#94a3b8' }}>未结余额</div>
-                      <div style={{ fontWeight: 700, fontSize: 15, color: Number(c.balanceAmountOriginal) > 0 ? '#dc2626' : '#16a34a' }}>
+                      <div className="text-slate-400 dark:text-slate-500" style={{ fontSize: 10 }}>未结余额</div>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}
+                        className={Number(c.balanceAmountOriginal) > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}>
                         {c.currencyCode} {fmt(c.balanceAmountOriginal)}
                       </div>
                     </div>
                     {c.expectedReturnDate && (
                       <div>
-                        <div style={{ fontSize: 10, color: '#94a3b8' }}>预计归还</div>
-                        <div style={{ fontSize: 12, color: '#d97706', fontWeight: 600 }}>{c.expectedReturnDate}</div>
+                        <div className="text-slate-400 dark:text-slate-500" style={{ fontSize: 10 }}>预计归还</div>
+                        <div className="text-amber-600 dark:text-amber-400" style={{ fontSize: 12, fontWeight: 600 }}>{c.expectedReturnDate}</div>
                       </div>
                     )}
-                    <ChevronRight size={16} color="#94a3b8" style={{ marginLeft: 'auto' }} />
+                    <ChevronRight size={16} className="text-slate-400 dark:text-slate-500" style={{ marginLeft: 'auto' }} />
                   </div>
                 </div>
               ))}
@@ -805,34 +809,35 @@ export default function ShareholderFundsPage() {
       {tab === 'settlements' && (
         <>
           <div style={{ marginBottom: 18, display: 'flex', gap: 10, alignItems: 'center' }}>
-            <span style={{ fontSize: 13, color: '#64748b' }}>共 {settlements.length} 条结算记录</span>
-            <button onClick={() => void loadSettlements()} style={{ padding: '6px 12px', borderRadius: 7, border: '1.5px solid #e2e8f0', background: '#fff', cursor: 'pointer' }}>
-              <RefreshCw size={13} color="#64748b" />
+            <span className="text-slate-500 dark:text-slate-400" style={{ fontSize: 13 }}>共 {settlements.length} 条结算记录</span>
+            <button onClick={() => void loadSettlements()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors">
+              <RefreshCw size={13} />
             </button>
           </div>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: 48, color: '#94a3b8', fontSize: 14 }}>加载中…</div>
+            <div className="text-slate-400 dark:text-slate-500 text-sm text-center py-12">加载中…</div>
           ) : settlements.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 48, color: '#94a3b8', fontSize: 14 }}>暂无结算记录</div>
+            <div className="text-slate-400 dark:text-slate-500 text-sm text-center py-12">暂无结算记录</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {settlements.map(s => {
-                const sc = SETTLEMENT_STATUS_CONFIG[s.status] ?? { label: s.status, bg: '#f1f5f9', color: '#475569' };
+                const sc = SETTLEMENT_STATUS_CONFIG[s.status] ?? { label: s.status, badgeClass: 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' };
                 return (
-                  <div key={s.id} style={{ background: '#fff', borderRadius: 12, padding: '12px 16px', border: '1.5px solid #f1f5f9' }}>
+                  <div key={s.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700" style={{ borderRadius: 12, padding: '12px 16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                          <span style={{ fontWeight: 600, fontSize: 13, color: '#0f172a' }}>{s.settlementNo}</span>
-                          <span style={{ fontSize: 11, color: '#94a3b8' }}>{SETTLEMENT_TYPE_LABELS[s.settlementType] ?? s.settlementType}</span>
-                          <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600, background: sc.bg, color: sc.color }}>{sc.label}</span>
+                          <span className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 600, fontSize: 13 }}>{s.settlementNo}</span>
+                          <span className="text-slate-400 dark:text-slate-500" style={{ fontSize: 11 }}>{SETTLEMENT_TYPE_LABELS[s.settlementType] ?? s.settlementType}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${sc.badgeClass}`}>{sc.label}</span>
                         </div>
-                        <div style={{ fontSize: 12, color: '#64748b' }}>
+                        <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 12 }}>
                           {s.shareholderName} · 出资单：{s.contributionNo}
                           {s.cashAccountCode ? ` · 现金账户：${s.cashAccountCode}` : ''}
                         </div>
                       </div>
-                      <div style={{ fontWeight: 800, fontSize: 16, color: '#1e40af' }}>
+                      <div className="text-blue-700 dark:text-blue-300" style={{ fontWeight: 800, fontSize: 16 }}>
                         {s.currencyCode} {fmt(s.amountOriginal)}
                       </div>
                     </div>

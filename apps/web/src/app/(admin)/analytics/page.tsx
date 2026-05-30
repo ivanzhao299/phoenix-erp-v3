@@ -8,6 +8,7 @@ import {
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { ACCENT_MAP, type AccentColor } from "@/lib/design-tokens";
 
 // ── 纯 CSS 柱状图 ────────────────────────────────────────────
 function BarChart({ data, valueKey, labelKey, color = "var(--color-primary)", height = 160, noDataLabel }: {
@@ -98,19 +99,20 @@ const EMPTY_DASHBOARD: DashboardData = {
   alerts: { expiry_batches:[], pending_orders:[], mortality_30d:0 },
 };
 
+// 子模块导航卡配置
+const QUICK_CONFIG: { path: string; labelKey: string; labelDefault: string; Icon: React.ElementType; accentColor: AccentColor }[] = [
+  { path:"/analytics/production",   labelKey:"ui.生产报表",   labelDefault:"生产报表",   Icon: BarChart2,  accentColor: 'blue'   },
+  { path:"/analytics/inventory",    labelKey:"ui.库存周转",   labelDefault:"库存周转",   Icon: Package,    accentColor: 'green'  },
+  { path:"/analytics/price-review", labelKey:"ui.价格复盘",   labelDefault:"价格复盘",   Icon: TrendingUp, accentColor: 'amber'  },
+  { path:"/analytics/feed",         labelKey:"ui.饲料用量",   labelDefault:"饲料用量",   Icon: Activity,   accentColor: 'violet' },
+];
+
 export default function AnalyticsDashboard() {
   const router = useRouter();
   const { t } = useLanguage();
   const [dash,    setDash]    = useState<DashboardData>(EMPTY_DASHBOARD);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<string>("");
-
-  const QUICK = [
-    { path:"/analytics/production",   label:t("ui.生产报表","生产报表"),   icon:<BarChart2 size={20}/>,     color:"#3b82f6" },
-    { path:"/analytics/inventory",    label:t("ui.库存周转","库存周转"),   icon:<Package size={20}/>,       color:"#10b981" },
-    { path:"/analytics/price-review", label:t("ui.价格复盘","价格复盘"),   icon:<TrendingUp size={20}/>,    color:"#f59e0b" },
-    { path:"/analytics/feed",         label:t("ui.饲料用量","饲料用量"),   icon:<Activity size={20}/>,      color:"#8b5cf6" },
-  ];
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -129,13 +131,13 @@ export default function AnalyticsDashboard() {
 
   const { kpis: k, production_trend, outbound_trend, alerts } = dash;
 
-  const kpis = [
-    { label:t("ui.近30天集蛋","近30天集蛋"), value:loading?"…":Number(k.eggs_30d).toLocaleString(),           unit:t("ui.枚","枚"),   accent:"#f59e0b", icon:<Egg size={18}/> },
-    { label:t("ui.今日入库","今日入库"),   value:loading?"…":String(k.today_inbound_qty),                    unit:t("ui.枚","枚"),   accent:"#10b981", icon:<PackageCheck size={18}/> },
-    { label:t("ui.今日出库","今日出库"),   value:loading?"…":String(k.today_outbound_qty),                   unit:t("ui.枚","枚"),   accent:"#ef4444", icon:<PackageMinus size={18}/> },
-    { label:t("ui.库存批次","库存批次"),   value:loading?"…":String(k.stock_batches),                        unit:t("ui.批","批"),   accent:"var(--color-primary)", icon:<Package size={18}/> },
-    { label:t("ui.待审批订单","待审批订单"), value:loading?"…":String(k.pending_orders),                       unit:t("ui.单","单"),   accent:"#8b5cf6", icon:<ShoppingCart size={18}/> },
-    { label:t("ui.临期批次","临期批次"),   value:loading?"…":String(k.expiry_batches),                       unit:t("ui.批","批"),   accent:"#dc2626", icon:<AlertTriangle size={18}/> },
+  const kpis: { label: string; value: string; unit: string; accentColor: AccentColor; accentCss: string; icon: React.ReactNode }[] = [
+    { label:t("ui.近30天集蛋","近30天集蛋"), value:loading?"…":Number(k.eggs_30d).toLocaleString(),  unit:t("ui.枚","枚"), accentColor:'amber',  accentCss:'var(--status-warning)',  icon:<Egg size={18}/> },
+    { label:t("ui.今日入库","今日入库"),     value:loading?"…":String(k.today_inbound_qty),           unit:t("ui.枚","枚"), accentColor:'green',  accentCss:'var(--status-success)',  icon:<PackageCheck size={18}/> },
+    { label:t("ui.今日出库","今日出库"),     value:loading?"…":String(k.today_outbound_qty),          unit:t("ui.枚","枚"), accentColor:'red',    accentCss:'var(--status-danger)',   icon:<PackageMinus size={18}/> },
+    { label:t("ui.库存批次","库存批次"),     value:loading?"…":String(k.stock_batches),               unit:t("ui.批","批"), accentColor:'blue',   accentCss:'var(--color-primary)',   icon:<Package size={18}/> },
+    { label:t("ui.待审批订单","待审批订单"), value:loading?"…":String(k.pending_orders),              unit:t("ui.单","单"), accentColor:'violet', accentCss:'var(--status-info)',     icon:<ShoppingCart size={18}/> },
+    { label:t("ui.临期批次","临期批次"),     value:loading?"…":String(k.expiry_batches),              unit:t("ui.批","批"), accentColor:'red',    accentCss:'var(--status-danger)',   icon:<AlertTriangle size={18}/> },
   ];
 
   return (
@@ -154,16 +156,16 @@ export default function AnalyticsDashboard() {
 
       {/* KPI 卡片行 */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))", gap:12, marginBottom:24 }}>
-        {kpis.map(k => (
-          <div key={k.label} style={{ background:"var(--bg-card)", border:"1px solid var(--border)",
-            borderLeft:`4px solid ${k.accent}`, borderRadius:"var(--radius-lg)", padding:"16px 18px" }}>
+        {kpis.map(kp => (
+          <div key={kp.label} style={{ background:"var(--bg-card)", border:"1px solid var(--border)",
+            borderLeft:`4px solid ${kp.accentCss}`, borderRadius:"var(--radius-lg)", padding:"16px 18px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:10 }}>
               <p style={{ fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.6px",
-                color:k.accent, display:"flex", alignItems:"center", gap:5 }}>{k.icon}{k.label}</p>
+                color:kp.accentCss, display:"flex", alignItems:"center", gap:5 }}>{kp.icon}{kp.label}</p>
             </div>
-            <div style={{ fontSize:26, fontWeight:800, color:k.accent, lineHeight:1 }}>
-              {String(k.value)}
-              <span style={{ fontSize:12, fontWeight:500, marginLeft:3, color:"var(--text-secondary)" }}>{k.unit}</span>
+            <div style={{ fontSize:26, fontWeight:800, color:kp.accentCss, lineHeight:1 }}>
+              {String(kp.value)}
+              <span style={{ fontSize:12, fontWeight:500, marginLeft:3, color:"var(--text-secondary)" }}>{kp.unit}</span>
             </div>
           </div>
         ))}
@@ -174,32 +176,32 @@ export default function AnalyticsDashboard() {
         {/* 生产趋势 */}
         <div style={{ background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:"var(--radius-lg)", padding:18 }}>
           <h4 style={{ fontSize:13, fontWeight:700, marginBottom:12 }}>📦 {t("ui.近7日集蛋趋势","近7日集蛋趋势")}</h4>
-          <BarChart data={production_trend as unknown as { [key: string]: unknown }[]} valueKey="value" labelKey="date" color="#f59e0b" noDataLabel={t("ui.暂无数据","暂无数据")}/>
+          <BarChart data={production_trend as unknown as { [key: string]: unknown }[]} valueKey="value" labelKey="date" color="var(--status-warning)" noDataLabel={t("ui.暂无数据","暂无数据")}/>
         </div>
 
         {/* 出库趋势 */}
         <div style={{ background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:"var(--radius-lg)", padding:18 }}>
           <h4 style={{ fontSize:13, fontWeight:700, marginBottom:12 }}>🚚 {t("ui.近7日出库趋势","近7日出库趋势")}</h4>
-          <BarChart data={outbound_trend as unknown as { [key: string]: unknown }[]} valueKey="value" labelKey="date" color="#ef4444" noDataLabel={t("ui.暂无数据","暂无数据")}/>
+          <BarChart data={outbound_trend as unknown as { [key: string]: unknown }[]} valueKey="value" labelKey="date" color="var(--status-danger)" noDataLabel={t("ui.暂无数据","暂无数据")}/>
         </div>
 
         {/* 预警中心 */}
         <div style={{ background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:"var(--radius-lg)", padding:18 }}>
           <h4 style={{ fontSize:13, fontWeight:700, marginBottom:14, display:"flex", alignItems:"center", gap:6 }}>
-            <AlertTriangle size={14} color="#f59e0b"/> {t("ui.预警中心","预警中心")}
+            <AlertTriangle size={14} color="var(--status-warning)"/> {t("ui.预警中心","预警中心")}
           </h4>
           <AlertItem icon={<AlertTriangle size={14}/>} label={t("ui.临期批次","临期批次")}
-            value={k.expiry_batches} color="#ef4444"
+            value={k.expiry_batches} color="var(--status-danger)"
             noDetailLabel={t("ui.暂无明细","暂无明细")}
             items={alerts.expiry_batches.slice(0,5).map(b=>({ key:b.sku_code||"—", val:`${b.qty_available}${t("ui.枚","枚")} ${t("ui.到期","到期")}${b.expire_date?.slice(5)}` }))}
           />
           <AlertItem icon={<ShoppingCart size={14}/>} label={t("ui.待审批订单","待审批订单")}
-            value={k.pending_orders} color="#f59e0b"
+            value={k.pending_orders} color="var(--status-warning)"
             noDetailLabel={t("ui.暂无明细","暂无明细")}
             items={alerts.pending_orders.slice(0,5).map(o=>({ key:o.customer_name||"—", val:`¥${Number(o.total_amount||0).toLocaleString()}` }))}
           />
           <AlertItem icon={<TrendingDown size={14}/>} label={t("ui.近30天死淘","近30天死淘")}
-            value={alerts.mortality_30d} color="#8b5cf6"
+            value={alerts.mortality_30d} color="var(--status-info)"
             noDetailLabel={t("ui.暂无明细","暂无明细")}
             items={[{ key:t("ui.累计死淘","累计死淘"), val:`${alerts.mortality_30d} ${t("ui.羽","羽")}` }]}
           />
@@ -208,20 +210,19 @@ export default function AnalyticsDashboard() {
 
       {/* 子模块快捷入口 */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
-        {QUICK.map(q => (
-          <button key={q.path} type="button" onClick={() => router.push(q.path)}
-            style={{ background:"var(--bg-card)", border:"1px solid var(--border)",
-              borderRadius:"var(--radius-lg)", padding:"18px 14px",
-              display:"flex", flexDirection:"column", alignItems:"center", gap:8,
-              cursor:"pointer", fontWeight:600, fontSize:13, transition:"border-color 0.15s,box-shadow 0.15s",
-              color:q.color }}
-            onMouseEnter={e=>{ (e.currentTarget as HTMLElement).style.borderColor=q.color; (e.currentTarget as HTMLElement).style.boxShadow="var(--shadow-md)"; }}
-            onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.borderColor="var(--border)"; (e.currentTarget as HTMLElement).style.boxShadow="none"; }}>
-            <div style={{ color:q.color, background:`color-mix(in srgb,${q.color} 12%,transparent)`,
-              borderRadius:"var(--radius-md)", padding:10 }}>{q.icon}</div>
-            {q.label}
-          </button>
-        ))}
+        {QUICK_CONFIG.map(q => {
+          const ac = ACCENT_MAP[q.accentColor];
+          const label = t(q.labelKey, q.labelDefault);
+          return (
+            <button key={q.path} type="button" onClick={() => router.push(q.path)}
+              className={`bg-white dark:bg-slate-800 rounded-2xl border p-5 cursor-pointer font-semibold text-sm flex flex-col items-center gap-2 transition-all hover:shadow-md hover:-translate-y-0.5 ${ac.border} ${ac.text}`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${ac.icon}`}>
+                <q.Icon size={20} className={ac.text} />
+              </div>
+              <span className={ac.text}>{label}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

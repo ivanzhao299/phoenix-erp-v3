@@ -6,6 +6,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, Activity,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -62,11 +63,6 @@ const ACCOUNT_TYPE_COLORS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = { ACTIVE: '正常', FROZEN: '冻结', CLOSED: '已关闭' };
-const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
-  ACTIVE: { bg: '#dcfce7', color: '#166534' },
-  FROZEN: { bg: '#fef3c7', color: '#92400e' },
-  CLOSED: { bg: '#f1f5f9', color: '#475569' },
-};
 
 const SOURCE_TYPE_LABELS: Record<string, string> = {
   AP_PAYMENT: 'AP付款', AR_RECEIPT: 'AR收款', TRANSFER: '转账',
@@ -79,19 +75,6 @@ function fmt(n: number | string | null | undefined): string {
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: string }) {
-  const c = STATUS_COLORS[status] ?? { bg: '#f1f5f9', color: '#475569' };
-  return (
-    <span style={{
-      display: 'inline-block', padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
-      background: c.bg, color: c.color,
-    }}>
-      {STATUS_LABELS[status] ?? status}
-    </span>
-  );
-}
-
 
 function TypeBadge({ type }: { type: string }) {
   const color = ACCOUNT_TYPE_COLORS[type] ?? '#6b7280';
@@ -155,11 +138,6 @@ function CreateAccountModal({
     }
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 13,
-    border: '1.5px solid #e2e8f0', background: '#fff', boxSizing: 'border-box',
-  };
-
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
@@ -171,12 +149,12 @@ function CreateAccountModal({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>新建资金账户</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-            <X size={18} color="#94a3b8" />
+            <X size={18} className="text-slate-400" />
           </button>
         </div>
 
         {err && (
-          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#dc2626', marginBottom: 14 }}>
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-2" style={{ marginBottom: 14 }}>
             {err}
           </div>
         )}
@@ -193,19 +171,20 @@ function CreateAccountModal({
             { label: '银行账号', key: 'bankAccountNo', placeholder: '1234 5678 9012 3456' },
           ].map(f => (
             <div key={f.key}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>{f.label}</div>
+              <div className="text-slate-700 dark:text-slate-300 text-xs font-semibold" style={{ marginBottom: 4 }}>{f.label}</div>
               <input
                 value={(form as Record<string, string>)[f.key]}
                 onChange={e => set(f.key, e.target.value)}
                 placeholder={f.placeholder}
-                style={inputStyle}
+                className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 w-full"
+                style={{ boxSizing: 'border-box' }}
               />
             </div>
           ))}
         </div>
 
         <div style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>账户类型 *</div>
+          <div className="text-slate-700 dark:text-slate-300 text-xs font-semibold" style={{ marginBottom: 4 }}>账户类型 *</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {Object.entries(ACCOUNT_TYPE_LABELS).map(([k, v]) => (
               <button
@@ -214,9 +193,10 @@ function CreateAccountModal({
                 style={{
                   padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
                   border: `1.5px solid ${form.accountType === k ? ACCOUNT_TYPE_COLORS[k] : '#e2e8f0'}`,
-                  background: form.accountType === k ? ACCOUNT_TYPE_COLORS[k] + '18' : '#fff',
-                  color: form.accountType === k ? ACCOUNT_TYPE_COLORS[k] : '#6b7280',
+                  background: form.accountType === k ? ACCOUNT_TYPE_COLORS[k] + '18' : undefined,
+                  color: form.accountType === k ? ACCOUNT_TYPE_COLORS[k] : undefined,
                 }}
+                className={form.accountType === k ? '' : 'bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600'}
               >
                 {v}
               </button>
@@ -225,27 +205,28 @@ function CreateAccountModal({
         </div>
 
         <div style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>备注</div>
+          <div className="text-slate-700 dark:text-slate-300 text-xs font-semibold" style={{ marginBottom: 4 }}>备注</div>
           <textarea
             value={form.remark}
             onChange={e => set('remark', e.target.value)}
             placeholder="可选"
             rows={2}
-            style={{ ...inputStyle, resize: 'none', fontFamily: 'inherit' }}
+            className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 w-full"
+            style={{ resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
           />
         </div>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
-          <button onClick={onClose} style={{ padding: '8px 18px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#374151' }}>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
+          >
             取消
           </button>
           <button
             onClick={submit}
             disabled={saving}
-            style={{
-              padding: '8px 20px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600,
-              background: saving ? '#93c5fd' : '#2563eb', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer',
-            }}
+            className={`px-5 py-2 rounded-lg border-0 text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
           >
             {saving ? '创建中…' : '创建账户'}
           </button>
@@ -288,7 +269,7 @@ function TransactionDrawer({
             <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 12, marginTop: 2 }}>{account.accountCode} · {account.currencyCode}</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-            <X size={18} color="#94a3b8" />
+            <X size={18} className="text-slate-400" />
           </button>
         </div>
 
@@ -312,34 +293,33 @@ function TransactionDrawer({
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {txns.map(t => (
-              <div key={t.id} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 12px', borderRadius: 10,
-                background: t.direction === 'IN' ? '#f0fdf4' : '#fff7ed',
-                border: `1px solid ${t.direction === 'IN' ? '#bbf7d0' : '#fed7aa'}`,
-              }}>
+              <div key={t.id} className={t.direction === 'IN' ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800'}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 12px', borderRadius: 10,
+                }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                     {t.direction === 'IN'
-                      ? <TrendingUp size={13} color="#16a34a" />
-                      : <TrendingDown size={13} color="#ea580c" />}
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>
+                      ? <TrendingUp size={13} className="text-green-600 dark:text-green-400" />
+                      : <TrendingDown size={13} className="text-orange-600 dark:text-orange-400" />}
+                    <span className="text-slate-700 dark:text-slate-300" style={{ fontSize: 12, fontWeight: 600 }}>
                       {SOURCE_TYPE_LABELS[t.sourceType ?? ''] ?? t.sourceType ?? '-'}
                     </span>
                     {t.sourceNo && (
-                      <span style={{ fontSize: 11, color: '#94a3b8' }}>{t.sourceNo}</span>
+                      <span className="text-slate-400 dark:text-slate-500" style={{ fontSize: 11 }}>{t.sourceNo}</span>
                     )}
                   </div>
-                  <div style={{ fontSize: 11, color: '#64748b' }}>
+                  <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>
                     {new Date(t.txnDate).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                     {t.remark && ` · ${t.remark}`}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: t.direction === 'IN' ? '#16a34a' : '#ea580c' }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }} className={t.direction === 'IN' ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}>
                     {t.direction === 'IN' ? '+' : '-'}{fmt(t.amount)}
                   </div>
-                  <div style={{ fontSize: 11, color: '#94a3b8' }}>余 {fmt(t.balanceAfter)}</div>
+                  <div className="text-slate-400 dark:text-slate-500" style={{ fontSize: 11 }}>余 {fmt(t.balanceAfter)}</div>
                 </div>
               </div>
             ))}
@@ -407,11 +387,7 @@ export default function CashAccountsPage() {
         actions={
           <button
             onClick={() => setShowCreate(true)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '8px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-              background: '#2563eb', color: '#fff', border: 'none', cursor: 'pointer',
-            }}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white border-0 cursor-pointer hover:bg-blue-700 transition-colors"
           >
             <Plus size={15} /> 新建账户
           </button>
@@ -421,17 +397,14 @@ export default function CashAccountsPage() {
       {/* KPI 卡片 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14, marginBottom: 24 }}>
         {[
-          { label: '账户总余额', value: `¥ ${fmt(totalBalance)}`, icon: <DollarSign size={18} color="#2563eb" />, bg: '#eff6ff', border: '#bfdbfe' },
-          { label: '账户总数', value: `${summary?.totalAccounts ?? 0} 个`, icon: <Wallet size={18} color="#7c3aed" />, bg: '#f5f3ff', border: '#ddd6fe' },
-          { label: '正常账户', value: `${summary?.activeCount ?? 0} 个`, icon: <Activity size={18} color="#16a34a" />, bg: '#f0fdf4', border: '#bbf7d0' },
-          { label: '冻结账户', value: `${summary?.frozenCount ?? 0} 个`, icon: <Lock size={18} color="#d97706" />, bg: '#fffbeb', border: '#fde68a' },
+          { label: '账户总余额', value: `¥ ${fmt(totalBalance)}`, icon: <DollarSign size={18} className="text-blue-500" />, accent: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800' },
+          { label: '账户总数', value: `${summary?.totalAccounts ?? 0} 个`, icon: <Wallet size={18} className="text-violet-500" />, accent: 'bg-violet-50 dark:bg-violet-950/40 border-violet-200 dark:border-violet-800' },
+          { label: '正常账户', value: `${summary?.activeCount ?? 0} 个`, icon: <Activity size={18} className="text-emerald-500" />, accent: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800' },
+          { label: '冻结账户', value: `${summary?.frozenCount ?? 0} 个`, icon: <Lock size={18} className="text-amber-500" />, accent: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800' },
         ].map(c => (
-          <div key={c.label} style={{
-            background: c.bg, border: `1.5px solid ${c.border}`,
-            borderRadius: 14, padding: '16px 18px',
-            display: 'flex', alignItems: 'center', gap: 12,
-          }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div key={c.label} className={`border-[1.5px] rounded-2xl ${c.accent}`}
+            style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
               {c.icon}
             </div>
             <div>
@@ -445,16 +418,13 @@ export default function CashAccountsPage() {
       {/* 筛选栏 */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
-          <Search size={14} color="#94a3b8" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+          <Search size={14} className="text-slate-400" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
           <input
             value={keyword}
             onChange={e => setKeyword(e.target.value)}
             placeholder="搜索账户名称/编号…"
-            style={{
-              width: '100%', paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8,
-              borderRadius: 8, border: '1.5px solid #e2e8f0', fontSize: 13,
-              background: '#fff', boxSizing: 'border-box',
-            }}
+            className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 w-full"
+            style={{ paddingLeft: 32, boxSizing: 'border-box' }}
           />
         </div>
 
@@ -464,12 +434,11 @@ export default function CashAccountsPage() {
             <button
               key={k}
               onClick={() => setTypeFilter(k)}
-              style={{
-                padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                border: `1.5px solid ${typeFilter === k ? '#2563eb' : '#e2e8f0'}`,
-                background: typeFilter === k ? '#eff6ff' : '#fff',
-                color: typeFilter === k ? '#2563eb' : '#6b7280',
-              }}
+              className={`px-3 py-1 rounded-full text-xs cursor-pointer font-medium transition-colors border-0 ${
+                typeFilter === k
+                  ? 'bg-blue-600 text-white font-bold'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+              }`}
             >
               {v}
             </button>
@@ -482,12 +451,11 @@ export default function CashAccountsPage() {
             <button
               key={k}
               onClick={() => setStatusFilter(k)}
-              style={{
-                padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                border: `1.5px solid ${statusFilter === k ? '#7c3aed' : '#e2e8f0'}`,
-                background: statusFilter === k ? '#f5f3ff' : '#fff',
-                color: statusFilter === k ? '#7c3aed' : '#6b7280',
-              }}
+              className={`px-3 py-1 rounded-full text-xs cursor-pointer font-medium transition-colors border-0 ${
+                statusFilter === k
+                  ? 'bg-violet-600 text-white font-bold'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+              }`}
             >
               {v}
             </button>
@@ -497,9 +465,9 @@ export default function CashAccountsPage() {
         <button
           onClick={() => void load()}
           disabled={loading}
-          style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', cursor: 'pointer' }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors disabled:opacity-50"
         >
-          <RefreshCw size={14} color="#64748b" style={{ display: 'block', animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+          <RefreshCw size={14} className="text-slate-400" style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
         </button>
       </div>
 
@@ -517,17 +485,13 @@ export default function CashAccountsPage() {
             <div
               key={acc.id}
               onClick={() => setSelectedAccount(acc)}
-              className="bg-white dark:bg-slate-800"
+              className="bg-white dark:bg-slate-800 hover:shadow-md transition-shadow cursor-pointer"
               style={{
                 borderRadius: 14,
                 border: `1.5px solid ${acc.status === 'FROZEN' ? '#fde68a' : acc.status === 'CLOSED' ? '#e2e8f0' : '#e8f4fd'}`,
-                padding: '18px 20px', cursor: 'pointer',
+                padding: '18px 20px',
                 opacity: acc.status === 'CLOSED' ? 0.65 : 1,
-                transition: 'box-shadow 0.15s',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
               }}
-              onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 16px rgba(37,99,235,0.12)')}
-              onMouseLeave={e => (e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)')}
             >
               {/* 顶部行 */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
@@ -538,27 +502,27 @@ export default function CashAccountsPage() {
                   <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{acc.accountCode}</div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                  <StatusBadge status={acc.status} />
+                  <StatusBadge status={acc.status} label={STATUS_LABELS[acc.status] ?? acc.status} />
                   <TypeBadge type={acc.accountType} />
                 </div>
               </div>
 
               {/* 余额 */}
-              <div style={{
-                background: 'linear-gradient(135deg,#f8fafc,#eff6ff)',
-                borderRadius: 10, padding: '10px 14px', marginBottom: 12,
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              }}>
+              <div className="bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-700 dark:to-slate-600"
+                style={{
+                  borderRadius: 10, padding: '10px 14px', marginBottom: 12,
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                }}>
                 <div>
-                  <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>当前余额</div>
-                  <div style={{ fontWeight: 800, fontSize: 18, color: '#1e40af' }}>
+                  <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 10, marginBottom: 2 }}>当前余额</div>
+                  <div className="text-blue-800 dark:text-blue-300" style={{ fontWeight: 800, fontSize: 18 }}>
                     {acc.currencyCode} {fmt(acc.currentBalance)}
                   </div>
                 </div>
                 {acc.bankName && (
-                  <div style={{ fontSize: 11, color: '#64748b', textAlign: 'right' }}>
+                  <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11, textAlign: 'right' }}>
                     <div>{acc.bankName}</div>
-                    {acc.bankAccountNo && <div style={{ color: '#94a3b8' }}>{acc.bankAccountNo.slice(-4).padStart(acc.bankAccountNo.length, '*')}</div>}
+                    {acc.bankAccountNo && <div className="text-slate-400 dark:text-slate-500">{acc.bankAccountNo.slice(-4).padStart(acc.bankAccountNo.length, '*')}</div>}
                   </div>
                 )}
               </div>
@@ -572,11 +536,7 @@ export default function CashAccountsPage() {
                   <button
                     onClick={() => doAction(acc.id, 'freeze')}
                     disabled={actionLoading === acc.id + 'freeze'}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 4,
-                      padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                      border: '1.5px solid #fde68a', background: '#fffbeb', color: '#92400e',
-                    }}
+                    className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors disabled:opacity-50"
                   >
                     <Lock size={11} /> 冻结
                   </button>
@@ -585,11 +545,7 @@ export default function CashAccountsPage() {
                   <button
                     onClick={() => doAction(acc.id, 'unfreeze')}
                     disabled={actionLoading === acc.id + 'unfreeze'}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 4,
-                      padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                      border: '1.5px solid #bbf7d0', background: '#f0fdf4', color: '#166534',
-                    }}
+                    className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-emerald-200 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
                   >
                     <Unlock size={11} /> 解冻
                   </button>
@@ -601,11 +557,7 @@ export default function CashAccountsPage() {
                         void doAction(acc.id, 'close');
                       }
                     }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 4,
-                      padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                      border: '1.5px solid #e2e8f0', background: '#f8fafc', color: '#475569',
-                    }}
+                    className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
                   >
                     <X size={11} /> 关闭
                   </button>

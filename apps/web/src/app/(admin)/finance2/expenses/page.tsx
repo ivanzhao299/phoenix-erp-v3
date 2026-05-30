@@ -1,11 +1,12 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Receipt, Plus, RefreshCw, CheckCircle, XCircle,
-  Clock, Send, Ban, ChevronRight, AlertTriangle,
-  Paperclip, DollarSign, Calendar, Building2,
+  Receipt, Plus, RefreshCw,
+  Send, ChevronRight, AlertTriangle,
+  DollarSign, Calendar, Building2,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -84,15 +85,6 @@ const EXPENSE_TYPES: Record<string, string> = {
   OFFICE: '办公',  MATERIAL: '物料',  TRANSPORT: '交通',  OTHER: '其他',
 };
 
-const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
-  DRAFT:            { label: '草稿',    color: '#6b7280', bg: '#f3f4f6' },
-  PENDING_APPROVAL: { label: '审批中',  color: '#f59e0b', bg: '#fffbeb' },
-  APPROVED:         { label: '已审批',  color: '#10b981', bg: '#f0fdf4' },
-  REJECTED:         { label: '已拒绝',  color: '#ef4444', bg: '#fef2f2' },
-  CANCELLED:        { label: '已取消',  color: '#9ca3af', bg: '#f9fafb' },
-  REIMBURSED:       { label: '已报销',  color: '#6366f1', bg: '#eef2ff' },
-};
-
 const STEP_STATUS_CFG: Record<string, { color: string; label: string }> = {
   PENDING:  { color: '#f59e0b', label: '待审批' },
   APPROVED: { color: '#10b981', label: '已通过' },
@@ -101,18 +93,6 @@ const STEP_STATUS_CFG: Record<string, { color: string; label: string }> = {
 
 function fmt(n: string | number | null | undefined): string {
   return Number(n ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-// ── 子组件：状态 Badge ──────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_CFG[status] ?? { label: status, color: '#6b7280', bg: '#f3f4f6' };
-  return (
-    <span style={{
-      fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12,
-      color: cfg.color, background: cfg.bg,
-    }}>{cfg.label}</span>
-  );
 }
 
 // ── 子组件：创建弹窗 ──────────────────────────────────────────────────────────
@@ -156,7 +136,7 @@ function CreateExpenseModal({
 
   const field = (label: string, node: React.ReactNode) => (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>{label}</div>
+      <div className="text-slate-500 dark:text-slate-400 text-xs" style={{ marginBottom: 4 }}>{label}</div>
       {node}
     </div>
   );
@@ -164,10 +144,8 @@ function CreateExpenseModal({
   const inp = (key: keyof typeof form, type = 'text', placeholder = '') => (
     <input type={type} placeholder={placeholder} value={form[key]}
       onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-      style={{
-        width: '100%', padding: '8px 10px', borderRadius: 8,
-        border: '1.5px solid #e2e8f0', fontSize: 13, boxSizing: 'border-box',
-      }}
+      className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 w-full"
+      style={{ boxSizing: 'border-box' }}
     />
   );
 
@@ -183,13 +161,15 @@ function CreateExpenseModal({
         {field('公司名称', inp('companyName', 'text', '选填'))}
         {field('费用类型 *',
           <select value={form.expenseType} onChange={e => setForm(f => ({ ...f, expenseType: e.target.value }))}
-            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontSize: 13 }}>
+            className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 outline-none focus:border-emerald-400 w-full"
+            style={{ boxSizing: 'border-box' }}>
             {Object.entries(EXPENSE_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         )}
         {field('币种 *',
           <select value={form.currencyCode} onChange={e => setForm(f => ({ ...f, currencyCode: e.target.value }))}
-            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontSize: 13 }}>
+            className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 outline-none focus:border-emerald-400 w-full"
+            style={{ boxSizing: 'border-box' }}>
             {['CNY', 'USD', 'EUR', 'HKD'].map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         )}
@@ -199,15 +179,20 @@ function CreateExpenseModal({
           <textarea value={form.description}
             onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
             rows={3} placeholder="费用用途、说明..."
-            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }}
+            className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 w-full"
+            style={{ resize: 'vertical', boxSizing: 'border-box' }}
           />
         ))}
         {field('备注', inp('remark', 'text', '选填'))}
-        {error && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 12 }}>{error}</div>}
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-2" style={{ marginBottom: 12 }}>
+            {error}
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13 }}>取消</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">取消</button>
           <button onClick={() => void submit()} disabled={saving}
-            style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#6366f1', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+            className={`px-4 py-2 rounded-lg border-0 text-sm font-bold text-white cursor-pointer transition-colors ${saving ? 'bg-indigo-300 cursor-not-allowed' : 'bg-indigo-500 hover:bg-indigo-600'}`}>
             {saving ? '创建中...' : '创建草稿'}
           </button>
         </div>
@@ -264,10 +249,10 @@ function ExpenseDrawer({
       style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 540, padding: 28, boxShadow: '-2px 0 20px rgba(0,0,0,0.12)', zIndex: 500, overflowY: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
-          <div style={{ fontWeight: 800, fontSize: 16 }}>{data.expense_no}</div>
+          <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 800, fontSize: 16 }}>{data.expense_no}</div>
           <div style={{ marginTop: 4 }}><StatusBadge status={data.status} /></div>
         </div>
-        <button onClick={onClose} style={{ padding: '6px 14px', borderRadius: 8, border: '1.5px solid #e2e8f0', cursor: 'pointer', fontSize: 13 }}>关闭</button>
+        <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">关闭</button>
       </div>
 
       {/* 基本信息 */}
@@ -282,30 +267,34 @@ function ExpenseDrawer({
             ['费用日期', data.expense_date ?? '—'],
             ['创建时间', new Date(data.created_at).toLocaleString('zh-CN')],
           ].map(([k, v]) => (
-            <div key={k}><span style={{ color: '#64748b' }}>{k}：</span><span style={{ fontWeight: 600 }}>{v}</span></div>
+            <div key={k}><span className="text-slate-500 dark:text-slate-400">{k}：</span><span style={{ fontWeight: 600 }}>{v}</span></div>
           ))}
         </div>
         {data.description && (
-          <div style={{ marginTop: 10, fontSize: 13, color: '#374151', borderTop: '1px solid #e2e8f0', paddingTop: 8 }}>
-            <span style={{ color: '#64748b' }}>说明：</span>{data.description}
+          <div className="text-slate-700 dark:text-slate-300" style={{ marginTop: 10, fontSize: 13, borderTop: '1px solid #e2e8f0', paddingTop: 8 }}>
+            <span className="text-slate-500 dark:text-slate-400">说明：</span>{data.description}
           </div>
         )}
       </div>
 
       {/* 操作按钮 */}
-      {error && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 10 }}>{error}</div>}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-2" style={{ marginBottom: 10 }}>
+          {error}
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         {data.status === 'DRAFT' && (
           <button onClick={() => void action(`/api/v2/finance/expenses/${id}/submit`)}
             disabled={acting}
-            style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#6366f1', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-0 bg-indigo-500 text-white text-xs font-bold cursor-pointer hover:bg-indigo-600 transition-colors disabled:opacity-50">
             <Send size={13} /> 提交审批
           </button>
         )}
         {['DRAFT', 'REJECTED'].includes(data.status) && (
           <button onClick={() => void action(`/api/v2/finance/expenses/${id}/cancel`)}
             disabled={acting}
-            style={{ padding: '7px 14px', borderRadius: 8, border: '1.5px solid #fee2e2', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+            className="px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-xs font-bold cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50">
             取消申请
           </button>
         )}
@@ -314,7 +303,7 @@ function ExpenseDrawer({
       {/* Workflow Timeline */}
       {data.wfTimeline && data.wfTimeline.length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: '#374151' }}>审批流程</div>
+          <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>审批流程</div>
           {data.wfTimeline.map((step, i) => {
             const cfg = STEP_STATUS_CFG[step.status] ?? { color: '#6b7280', label: step.status };
             return (
@@ -323,13 +312,13 @@ function ExpenseDrawer({
                   {step.step_no}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{step.approver_name ?? step.approver_role}</div>
-                  <div style={{ fontSize: 11, color: '#64748b' }}>
+                  <div className="text-slate-800 dark:text-slate-200" style={{ fontSize: 13, fontWeight: 600 }}>{step.approver_name ?? step.approver_role}</div>
+                  <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>
                     {cfg.label}
                     {step.actor_username && ` · ${step.actor_username}`}
                     {step.acted_at && ` · ${new Date(step.acted_at).toLocaleString('zh-CN')}`}
                   </div>
-                  {step.comment && <div style={{ fontSize: 11, color: '#374151', marginTop: 2 }}>{step.comment}</div>}
+                  {step.comment && <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 11, marginTop: 2 }}>{step.comment}</div>}
                 </div>
               </div>
             );
@@ -340,12 +329,13 @@ function ExpenseDrawer({
       {/* 关联报销 */}
       {data.reimbursements && data.reimbursements.length > 0 && (
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: '#374151' }}>关联报销</div>
+          <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>关联报销</div>
           {data.reimbursements.map(r => (
-            <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#f8fafc', borderRadius: 10, marginBottom: 6 }}>
+            <div key={r.id} className="bg-slate-50 dark:bg-slate-700"
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderRadius: 10, marginBottom: 6 }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>{r.reimb_no}</div>
-                <div style={{ fontSize: 11, color: '#64748b' }}>¥ {fmt(r.reimb_amount_original)}</div>
+                <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 13, fontWeight: 700 }}>{r.reimb_no}</div>
+                <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>¥ {fmt(r.reimb_amount_original)}</div>
               </div>
               <StatusBadge status={r.status} />
             </div>
@@ -404,11 +394,11 @@ export default function ExpensesPage() {
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => void load()} disabled={loading}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#475569' }}>
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors disabled:opacity-50">
               <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
             </button>
             <button onClick={() => setShowCreate(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, border: 'none', background: '#6366f1', color: '#fff', fontSize: 13, cursor: 'pointer', fontWeight: 700 }}>
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-0 bg-indigo-500 text-white text-sm font-bold cursor-pointer hover:bg-indigo-600 transition-colors">
               <Plus size={13} /> 新建申请
             </button>
           </div>
@@ -419,16 +409,16 @@ export default function ExpensesPage() {
       {summary && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 20 }}>
           {[
-            { label: '申请总数',    value: String(summary.totalExpenses),   color: '#6366f1', bg: '#eef2ff' },
-            { label: '审批中',      value: String(summary.pendingApproval),  color: '#f59e0b', bg: '#fffbeb' },
-            { label: '已审批',      value: String(summary.approved),         color: '#10b981', bg: '#f0fdf4' },
-            { label: '已报销',      value: String(summary.reimbursed),       color: '#6366f1', bg: '#eef2ff' },
-            { label: '待报销',      value: String(summary.pendingReimb),     color: '#f59e0b', bg: '#fffbeb' },
-            { label: '今日已付款',  value: String(summary.paidToday) + ' 笔', color: '#059669', bg: '#f0fdf4' },
+            { label: '申请总数',    value: String(summary.totalExpenses),   accent: 'bg-indigo-50 dark:bg-indigo-950/40', valueClass: 'text-indigo-600 dark:text-indigo-400' },
+            { label: '审批中',      value: String(summary.pendingApproval),  accent: 'bg-amber-50 dark:bg-amber-950/40',   valueClass: 'text-amber-600 dark:text-amber-400' },
+            { label: '已审批',      value: String(summary.approved),         accent: 'bg-emerald-50 dark:bg-emerald-950/40', valueClass: 'text-emerald-600 dark:text-emerald-400' },
+            { label: '已报销',      value: String(summary.reimbursed),       accent: 'bg-indigo-50 dark:bg-indigo-950/40', valueClass: 'text-indigo-600 dark:text-indigo-400' },
+            { label: '待报销',      value: String(summary.pendingReimb),     accent: 'bg-amber-50 dark:bg-amber-950/40',   valueClass: 'text-amber-600 dark:text-amber-400' },
+            { label: '今日已付款',  value: String(summary.paidToday) + ' 笔', accent: 'bg-emerald-50 dark:bg-emerald-950/40', valueClass: 'text-emerald-600 dark:text-emerald-400' },
           ].map(c => (
-            <div key={c.label} style={{ background: c.bg, borderRadius: 12, padding: '12px 16px' }}>
-              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 2 }}>{c.label}</div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: c.color }}>{c.value}</div>
+            <div key={c.label} className={`rounded-xl ${c.accent}`} style={{ padding: '12px 16px' }}>
+              <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11, marginBottom: 2 }}>{c.label}</div>
+              <div className={`text-lg font-extrabold ${c.valueClass}`}>{c.value}</div>
             </div>
           ))}
         </div>
@@ -437,18 +427,27 @@ export default function ExpensesPage() {
       {/* 筛选 */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
-          style={{ padding: '7px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontSize: 13, color: '#374151' }}>
+          className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 outline-none focus:border-emerald-400">
           <option value="">全部状态</option>
-          {Object.entries(STATUS_CFG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          <option value="DRAFT">草稿</option>
+          <option value="PENDING_APPROVAL">审批中</option>
+          <option value="APPROVED">已审批</option>
+          <option value="REJECTED">已拒绝</option>
+          <option value="CANCELLED">已取消</option>
+          <option value="REIMBURSED">已报销</option>
         </select>
         <select value={typeFilter} onChange={e => { setTypeFilter(e.target.value); setPage(1); }}
-          style={{ padding: '7px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontSize: 13, color: '#374151' }}>
+          className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 outline-none focus:border-emerald-400">
           <option value="">全部类型</option>
           {Object.entries(EXPENSE_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
 
-      {error && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 12, padding: '10px 14px', background: '#fef2f2', borderRadius: 8 }}><AlertTriangle size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />{error}</div>}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-2" style={{ marginBottom: 12 }}>
+          <AlertTriangle size={13} />{error}
+        </div>
+      )}
 
       {/* 列表 */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
@@ -463,27 +462,24 @@ export default function ExpensesPage() {
         {!loading && items.map((item, i) => (
           <div key={item.id}
             onClick={() => setSelectedId(item.id)}
+            className={`border-b border-slate-50 dark:border-slate-700/50 transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer ${i % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-700/20' : ''}`}
             style={{
-              padding: '14px 20px', cursor: 'pointer',
-              borderBottom: i < items.length - 1 ? '1px solid #f1f5f9' : 'none',
+              padding: '14px 20px',
               display: 'flex', alignItems: 'center', gap: 14,
-              transition: 'background 0.1s',
             }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
-            <div style={{ width: 36, height: 36, borderRadius: 9, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Receipt size={16} color="#6366f1" />
+            <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center flex-shrink-0" style={{ width: 36, height: 36 }}>
+              <Receipt size={16} className="text-indigo-500" />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                <span style={{ fontWeight: 700, fontSize: 14 }}>{item.expense_no}</span>
+                <span className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 14 }}>{item.expense_no}</span>
                 <StatusBadge status={item.status} />
-                <span style={{ fontSize: 11, background: '#f1f5f9', color: '#64748b', padding: '1px 6px', borderRadius: 6 }}>
+                <span className="bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400" style={{ fontSize: 11, padding: '1px 6px', borderRadius: 6 }}>
                   {EXPENSE_TYPES[item.expense_type] ?? item.expense_type}
                 </span>
               </div>
-              <div style={{ fontSize: 12, color: '#64748b', display: 'flex', gap: 12 }}>
+              <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 12, display: 'flex', gap: 12 }}>
                 <span><Building2 size={11} style={{ verticalAlign: 'middle', marginRight: 2 }} />{item.company_name ?? item.company_code}</span>
                 {item.requester_name && <span>{item.requester_name}</span>}
                 {item.expense_date && <span><Calendar size={11} style={{ verticalAlign: 'middle', marginRight: 2 }} />{item.expense_date}</span>}
@@ -493,17 +489,27 @@ export default function ExpensesPage() {
               <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 800, fontSize: 15 }}>{item.currency_code} {fmt(item.amount_original)}</div>
               <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{new Date(item.created_at).toLocaleDateString('zh-CN')}</div>
             </div>
-            <ChevronRight size={14} color="#cbd5e1" />
+            <ChevronRight size={14} className="text-slate-300 dark:text-slate-600" />
           </div>
         ))}
       </div>
 
       {/* 分页 */}
       {total > pageSize && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
-          {page > 1 && <button onClick={() => setPage(p => p - 1)} style={{ padding: '6px 14px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13 }}>上一页</button>}
-          <span style={{ padding: '6px 14px', fontSize: 13, color: '#64748b' }}>第 {page} 页 / 共 {Math.ceil(total / pageSize)} 页</span>
-          {page * pageSize < total && <button onClick={() => setPage(p => p + 1)} style={{ padding: '6px 14px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13 }}>下一页</button>}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16, alignItems: 'center' }}>
+          {page > 1 && (
+            <button onClick={() => setPage(p => p - 1)}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-sm px-3 py-1.5">
+              上一页
+            </button>
+          )}
+          <span className="text-slate-500 dark:text-slate-400" style={{ fontSize: 13, padding: '6px 14px' }}>第 {page} 页 / 共 {Math.ceil(total / pageSize)} 页</span>
+          {page * pageSize < total && (
+            <button onClick={() => setPage(p => p + 1)}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer text-sm px-3 py-1.5">
+              下一页
+            </button>
+          )}
         </div>
       )}
 

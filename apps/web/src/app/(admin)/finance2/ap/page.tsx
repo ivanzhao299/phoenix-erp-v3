@@ -6,6 +6,7 @@ import {
   Download, X, ChevronDown, AlertCircle, Ban,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -107,59 +108,40 @@ function isOverdue(dueDate: string | null | undefined, status: string) {
   return new Date(dueDate) < new Date();
 }
 
-// ── StatusChip ────────────────────────────────────────────────────────────────
+// ── 账龄/来源 辅助组件 ────────────────────────────────────────────────────────
 
-const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> = {
-  OPEN:           { label: '未付',     bg: '#fff7ed', color: '#ea580c' },
-  PARTIALLY_PAID: { label: '部分付款', bg: '#eff6ff', color: '#2563eb' },
-  PAID:           { label: '已付清',   bg: '#f0fdf4', color: '#059669' },
-  DISPUTED:       { label: '争议中',   bg: '#fdf4ff', color: '#9333ea' },
-  CANCELLED:      { label: '已取消',   bg: '#f8fafc', color: '#94a3b8' },
+const AGING_MAP: Record<string, { label: string; colorClass: string }> = {
+  NOT_DUE:  { label: '未到期',     colorClass: 'text-emerald-600 dark:text-emerald-400' },
+  '0_30':   { label: '逾期 ≤30天',  colorClass: 'text-amber-600 dark:text-amber-400' },
+  '31_60':  { label: '逾期 31-60天', colorClass: 'text-orange-600 dark:text-orange-400' },
+  '61_90':  { label: '逾期 61-90天', colorClass: 'text-red-600 dark:text-red-400' },
+  '90_PLUS':{ label: '逾期 >90天',  colorClass: 'text-red-800 dark:text-red-300' },
 };
 
-const AGING_MAP: Record<string, { label: string; color: string }> = {
-  NOT_DUE:  { label: '未到期',  color: '#059669' },
-  '0_30':   { label: '逾期 ≤30天',  color: '#f59e0b' },
-  '31_60':  { label: '逾期 31-60天', color: '#ea580c' },
-  '61_90':  { label: '逾期 61-90天', color: '#dc2626' },
-  '90_PLUS':{ label: '逾期 >90天',  color: '#991b1b' },
+const SOURCE_MAP: Record<string, { label: string; colorClass: string }> = {
+  MANUAL:        { label: '手工',   colorClass: 'text-indigo-700 dark:text-indigo-300' },
+  PO:            { label: '采购订单', colorClass: 'text-cyan-700 dark:text-cyan-300' },
+  EXPENSE:       { label: '费用',   colorClass: 'text-amber-700 dark:text-amber-300' },
+  REIMBURSEMENT: { label: '报销',   colorClass: 'text-violet-700 dark:text-violet-300' },
+  OPENING:       { label: '期初',   colorClass: 'text-slate-600 dark:text-slate-400' },
 };
-
-const SOURCE_MAP: Record<string, { label: string; color: string }> = {
-  MANUAL:        { label: '手工',   color: '#6366f1' },
-  PO:            { label: '采购订单', color: '#0891b2' },
-  EXPENSE:       { label: '费用',   color: '#d97706' },
-  REIMBURSEMENT: { label: '报销',   color: '#7c3aed' },
-  OPENING:       { label: '期初',   color: '#475569' },
-};
-
-function StatusChip({ status }: { status: string }) {
-  const cfg = STATUS_MAP[status] ?? { label: status, bg: '#f1f5f9', color: '#64748b' };
-  return (
-    <span style={{
-      fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-      background: cfg.bg, color: cfg.color, whiteSpace: 'nowrap',
-    }}>{cfg.label}</span>
-  );
-}
 
 function AgingBadge({ bucket }: { bucket: string }) {
-  const cfg = AGING_MAP[bucket] ?? { label: bucket, color: '#64748b' };
+  const cfg = AGING_MAP[bucket] ?? { label: bucket, colorClass: 'text-slate-500 dark:text-slate-400' };
   if (bucket === 'NOT_DUE') return null;
   return (
-    <span style={{ fontSize: 10, fontWeight: 700, color: cfg.color, marginLeft: 4 }}>
+    <span className={`text-[10px] font-bold ml-1 ${cfg.colorClass}`}>
       [{cfg.label}]
     </span>
   );
 }
 
-function SourceTag({ type }: { type: string }) {
-  const cfg = SOURCE_MAP[type] ?? { label: type, color: '#64748b' };
+function SourceBadge({ type }: { type: string }) {
+  const cfg = SOURCE_MAP[type] ?? { label: type, colorClass: 'text-slate-600 dark:text-slate-400' };
   return (
-    <span style={{
-      fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10,
-      background: `${cfg.color}18`, color: cfg.color, whiteSpace: 'nowrap',
-    }}>{cfg.label}</span>
+    <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap bg-current/[0.08] ${cfg.colorClass}`}>
+      {cfg.label}
+    </span>
   );
 }
 
@@ -185,6 +167,10 @@ function KpiCard({ label, value, sub, icon: Icon, color, loading }: {
     </div>
   );
 }
+
+// ── Modal 通用 input className ────────────────────────────────────────────────
+
+const INP_CLASS = 'w-full px-3 py-2 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-indigo-400 dark:focus:border-indigo-500 box-border';
 
 // ── 创建 AP Modal ─────────────────────────────────────────────────────────────
 
@@ -235,11 +221,6 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
     }
   };
 
-  const inputStyle = {
-    width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13,
-    border: '1.5px solid #e2e8f0', outline: 'none', boxSizing: 'border-box' as const,
-  };
-
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
@@ -249,25 +230,25 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
         style={{ borderRadius: 16, width: 480, maxWidth: '95vw', padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>新建应付发票</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-            <X size={18} color="#94a3b8" />
+          <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-1">
+            <X size={18} className="text-slate-400" />
           </button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>
-                公司代码 <span style={{ color: '#ef4444' }}>*</span>
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                公司代码 <span className="text-red-500">*</span>
               </label>
-              <input style={inputStyle} value={form.companyCode}
+              <input className={INP_CLASS} value={form.companyCode}
                 onChange={e => set('companyCode', e.target.value)} placeholder="如 HKJH" />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>
-                货币 <span style={{ color: '#ef4444' }}>*</span>
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                货币 <span className="text-red-500">*</span>
               </label>
-              <select style={inputStyle} value={form.currencyCode}
+              <select className={INP_CLASS} value={form.currencyCode}
                 onChange={e => set('currencyCode', e.target.value)}>
                 {['CNY', 'USD', 'EUR', 'HKD', 'JPY'].map(c => (
                   <option key={c} value={c}>{c}</option>
@@ -277,73 +258,71 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           </div>
 
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>
-              供应商名称 <span style={{ color: '#ef4444' }}>*</span>
+            <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+              供应商名称 <span className="text-red-500">*</span>
             </label>
-            <input style={inputStyle} value={form.supplierName}
+            <input className={INP_CLASS} value={form.supplierName}
               onChange={e => set('supplierName', e.target.value)} placeholder="供应商全称" />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>
-                发票金额 <span style={{ color: '#ef4444' }}>*</span>
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                发票金额 <span className="text-red-500">*</span>
               </label>
-              <input style={inputStyle} type="number" min="0" step="0.01"
+              <input className={INP_CLASS} type="number" min="0" step="0.01"
                 value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)}
                 placeholder="0.00" />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
                 发票号
               </label>
-              <input style={inputStyle} value={form.invoiceNo}
+              <input className={INP_CLASS} value={form.invoiceNo}
                 onChange={e => set('invoiceNo', e.target.value)} placeholder="可选" />
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
                 发票日期
               </label>
-              <input style={inputStyle} type="date" value={form.invoiceDate}
+              <input className={INP_CLASS} type="date" value={form.invoiceDate}
                 onChange={e => set('invoiceDate', e.target.value)} />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>
+              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
                 到期日
               </label>
-              <input style={inputStyle} type="date" value={form.dueDate}
+              <input className={INP_CLASS} type="date" value={form.dueDate}
                 onChange={e => set('dueDate', e.target.value)} />
             </div>
           </div>
 
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>
+            <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
               备注
             </label>
-            <textarea style={{ ...inputStyle, resize: 'none', height: 60 }} value={form.remark}
+            <textarea className={INP_CLASS} style={{ resize: 'none', height: 60 }} value={form.remark}
               onChange={e => set('remark', e.target.value)} placeholder="可选" />
           </div>
 
           {err && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
-              padding: '8px 12px', fontSize: 12, color: '#ef4444', display: 'flex', gap: 6, alignItems: 'center' }}>
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
               <AlertCircle size={13} /> {err}
             </div>
           )}
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
-            <button onClick={onClose} style={{
-              padding: '8px 18px', borderRadius: 8, border: '1.5px solid #e2e8f0',
-              background: '#fff', fontSize: 13, cursor: 'pointer', color: '#475569',
-            }}>取消</button>
-            <button onClick={handleSubmit} disabled={saving} style={{
-              padding: '8px 18px', borderRadius: 8, border: 'none',
-              background: saving ? '#a5b4fc' : '#6366f1', color: '#fff',
-              fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer',
-            }}>{saving ? '创建中…' : '确认创建'}</button>
+            <button onClick={onClose}
+              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+              取消
+            </button>
+            <button onClick={handleSubmit} disabled={saving}
+              className={`px-4 py-2 rounded-lg border-0 text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-indigo-300 dark:bg-indigo-700 cursor-not-allowed' : 'bg-indigo-500 hover:bg-indigo-600'}`}>
+              {saving ? '创建中…' : '确认创建'}
+            </button>
           </div>
         </div>
       </div>
@@ -403,8 +382,8 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>应付发票详情</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-            <X size={18} color="#94a3b8" />
+          <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-1">
+            <X size={18} className="text-slate-400" />
           </button>
         </div>
 
@@ -417,12 +396,12 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
             {/* 基本信息 */}
             <div className="bg-slate-50 dark:bg-slate-700" style={{ borderRadius: 10, padding: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#6366f1', fontSize: 14 }}>
+                <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm">
                   {detail.ap_no}
                 </span>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <SourceTag type={detail.source_type} />
-                  <StatusChip status={detail.status} />
+                  <SourceBadge type={detail.source_type} />
+                  <StatusBadge status={detail.status} size="sm" />
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
@@ -447,25 +426,21 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
             {/* 金额 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
               {[
-                { label: '发票金额', value: fmtMoney(detail.amount_original, detail.currency_code), color: '#0f172a' },
-                { label: '已付金额', value: fmtMoney(detail.paid_amount_original, detail.currency_code), color: '#10b981' },
-                { label: '待付余额', value: fmtMoney(detail.balance_amount_original, detail.currency_code), color: Number(detail.balance_amount_original) > 0 ? '#ef4444' : '#64748b' },
+                { label: '发票金额', value: fmtMoney(detail.amount_original, detail.currency_code), colorClass: 'text-slate-900 dark:text-slate-100' },
+                { label: '已付金额', value: fmtMoney(detail.paid_amount_original, detail.currency_code), colorClass: 'text-emerald-600 dark:text-emerald-400' },
+                { label: '待付余额', value: fmtMoney(detail.balance_amount_original, detail.currency_code), colorClass: Number(detail.balance_amount_original) > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400' },
               ].map(item => (
                 <div key={item.label} className="bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
                   style={{ borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
                   <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 10, marginBottom: 4 }}>{item.label}</div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: item.color }}>{item.value}</div>
+                  <div className={`text-xs font-extrabold ${item.colorClass}`}>{item.value}</div>
                 </div>
               ))}
             </div>
 
             {/* 账龄 */}
             {detail.aging_bucket !== 'NOT_DUE' && (
-              <div style={{
-                background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
-                padding: '8px 12px', fontSize: 12, color: '#dc2626',
-                display: 'flex', alignItems: 'center', gap: 6,
-              }}>
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2 text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5">
                 <AlertTriangle size={13} />
                 账龄：{AGING_MAP[detail.aging_bucket]?.label ?? detail.aging_bucket}
               </div>
@@ -483,17 +458,14 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {detail.allocations.map(a => (
-                    <div key={a.id} style={{
-                      background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8,
-                      padding: '10px 14px', fontSize: 12,
-                    }}>
+                    <div key={a.id} className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-2.5 text-xs">
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span style={{ fontFamily: 'monospace', color: '#059669', fontWeight: 600 }}>{a.alloc_no}</span>
-                        <span style={{ fontWeight: 700, color: '#065f46' }}>
+                        <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">{a.alloc_no}</span>
+                        <span className="font-bold text-emerald-800 dark:text-emerald-200">
                           {fmtMoney(a.amount_original, a.currency_code)}
                         </span>
                       </div>
-                      <div style={{ color: '#64748b' }}>
+                      <div className="text-slate-500 dark:text-slate-400">
                         {fmtDate(a.payment_date)}
                         {a.payment_method && <span> · {a.payment_method}</span>}
                         {a.reference_no && <span> · {a.reference_no}</span>}
@@ -506,50 +478,37 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
 
             {/* 取消区域 */}
             {canCancel && (
-              <div style={{
-                border: '1.5px solid #fed7aa', borderRadius: 10,
-                padding: 14, background: '#fff8f1',
-              }}>
+              <div className="border border-orange-200 dark:border-orange-800 rounded-xl p-3.5 bg-orange-50 dark:bg-orange-900/20">
                 {!showCancel ? (
                   <button
                     onClick={() => setShowCancel(true)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 6,
-                      padding: '7px 14px', borderRadius: 8,
-                      border: '1.5px solid #fca5a5', background: '#fff',
-                      fontSize: 13, cursor: 'pointer', color: '#dc2626',
-                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-red-200 dark:border-red-700 bg-white dark:bg-slate-800 text-sm text-red-600 dark:text-red-400 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                   >
                     <Ban size={13} /> 取消应付发票
                   </button>
                 ) : (
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#c2410c', marginBottom: 8 }}>
+                    <div className="text-xs font-semibold text-orange-700 dark:text-orange-300 mb-2">
                       确认取消应付发票
                     </div>
                     <textarea
                       value={cancelReason}
                       onChange={e => setCancelReason(e.target.value)}
                       placeholder="取消原因（可选）"
-                      style={{
-                        width: '100%', height: 60, padding: '8px 10px', borderRadius: 8,
-                        border: '1.5px solid #fca5a5', fontSize: 12, resize: 'none',
-                        boxSizing: 'border-box', outline: 'none',
-                      }}
+                      className="w-full h-14 px-2.5 py-2 rounded-lg border border-red-200 dark:border-red-700 bg-white dark:bg-slate-700 text-xs text-slate-800 dark:text-slate-200 resize-none outline-none box-border"
                     />
                     {cancelErr && (
-                      <div style={{ fontSize: 12, color: '#ef4444', marginTop: 6 }}>{cancelErr}</div>
+                      <div className="text-xs text-red-500 dark:text-red-400 mt-1.5">{cancelErr}</div>
                     )}
                     <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                      <button onClick={() => { setShowCancel(false); setCancelErr(''); }} style={{
-                        padding: '6px 14px', borderRadius: 8, border: '1.5px solid #e2e8f0',
-                        background: '#fff', fontSize: 12, cursor: 'pointer',
-                      }}>放弃</button>
-                      <button onClick={handleCancel} disabled={cancelling} style={{
-                        padding: '6px 14px', borderRadius: 8, border: 'none',
-                        background: cancelling ? '#fca5a5' : '#dc2626', color: '#fff',
-                        fontSize: 12, fontWeight: 600, cursor: cancelling ? 'not-allowed' : 'pointer',
-                      }}>{cancelling ? '处理中…' : '确认取消'}</button>
+                      <button onClick={() => { setShowCancel(false); setCancelErr(''); }}
+                        className="px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+                        放弃
+                      </button>
+                      <button onClick={handleCancel} disabled={cancelling}
+                        className={`px-3.5 py-1.5 rounded-lg border-0 text-xs font-semibold text-white transition-colors ${cancelling ? 'bg-red-300 dark:bg-red-800 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 cursor-pointer'}`}>
+                        {cancelling ? '处理中…' : '确认取消'}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -560,7 +519,7 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
               <div className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
                 style={{ borderRadius: 10, padding: '12px 14px', fontSize: 12,
                   display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span className="text-slate-500 dark:text-slate-400">
+                <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                   <Ban size={13} /> 此应付发票已取消
                 </span>
               </div>
@@ -669,12 +628,7 @@ export default function Finance2ApPage() {
             <button
               onClick={handleImport}
               disabled={importing}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '7px 14px', borderRadius: 8,
-                border: '1.5px solid #bae6fd', background: '#f0f9ff',
-                fontSize: 13, cursor: importing ? 'not-allowed' : 'pointer', color: '#0284c7',
-              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-200 dark:border-cyan-700 bg-cyan-50 dark:bg-cyan-900/20 text-sm text-cyan-700 dark:text-cyan-300 transition-colors ${importing ? 'opacity-60 cursor-not-allowed' : 'hover:bg-cyan-100 dark:hover:bg-cyan-900/40 cursor-pointer'}`}
             >
               <Download size={13} />
               {importing ? '导入中…' : '从采购单导入'}
@@ -682,24 +636,14 @@ export default function Finance2ApPage() {
             <button
               onClick={() => { loadList(page); loadSummary(); }}
               disabled={loading}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '7px 14px', borderRadius: 8,
-                border: '1.5px solid #e2e8f0', background: '#fff',
-                fontSize: 13, cursor: 'pointer', color: '#475569',
-              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors"
             >
               <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
               刷新
             </button>
             <button
               onClick={() => setShowCreate(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '7px 14px', borderRadius: 8,
-                border: 'none', background: '#6366f1',
-                fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#fff',
-              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-0 bg-indigo-500 text-sm font-semibold text-white cursor-pointer hover:bg-indigo-600 transition-colors"
             >
               <Plus size={13} /> 新建 AP
             </button>
@@ -709,19 +653,18 @@ export default function Finance2ApPage() {
 
       {/* 导入结果 */}
       {importResult && (
-        <div style={{
-          background: importResult.failed > 0 ? '#fff8f1' : '#f0fdf4',
-          border: `1px solid ${importResult.failed > 0 ? '#fed7aa' : '#bbf7d0'}`,
-          borderRadius: 10, padding: '12px 16px', marginBottom: 16,
-          fontSize: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        }}>
-          <span style={{ color: importResult.failed > 0 ? '#c2410c' : '#065f46' }}>
+        <div className={`flex justify-between items-center px-4 py-3 rounded-xl mb-4 text-xs border ${
+          importResult.failed > 0
+            ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
+            : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+        }`}>
+          <span className={importResult.failed > 0 ? 'text-orange-700 dark:text-orange-300' : 'text-emerald-700 dark:text-emerald-300'}>
             导入完成：共 {importResult.total} 条，成功 {importResult.imported}，
             跳过 {importResult.skipped}，失败 {importResult.failed}
           </span>
           <button onClick={() => setImportResult(null)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
-            <X size={14} color="#94a3b8" />
+            className="bg-transparent border-0 cursor-pointer p-0.5">
+            <X size={14} className="text-slate-400" />
           </button>
         </div>
       )}
@@ -751,10 +694,8 @@ export default function Finance2ApPage() {
       </div>
 
       {/* 筛选栏 */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-        style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
-          marginBottom: 14, padding: '12px 14px', borderRadius: 10 }}>
-        <Filter size={14} color="#64748b" />
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex gap-2 flex-wrap items-center mb-3.5 px-3.5 py-3 rounded-xl">
+        <Filter size={14} className="text-slate-400 dark:text-slate-500" />
 
         {/* 状态快速筛选 */}
         {[
@@ -764,25 +705,23 @@ export default function Finance2ApPage() {
           { key: 'DISPUTED',       label: '争议中' },
           { key: 'CANCELLED',      label: '已取消' },
         ].map(s => (
-          <button key={s.key} onClick={() => handleStatusFilter(s.key)} style={{
-            padding: '4px 12px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
-            fontWeight: status === s.key ? 700 : 400,
-            background: status === s.key ? '#6366f1' : '#f1f5f9',
-            color:      status === s.key ? '#fff'    : '#475569',
-            border: 'none',
-          }}>{s.label}</button>
+          <button key={s.key} onClick={() => handleStatusFilter(s.key)}
+            className={`px-3 py-1 rounded-full text-xs cursor-pointer font-medium transition-colors border-0 ${
+              status === s.key
+                ? 'bg-indigo-600 text-white font-bold'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+            }`}>
+            {s.label}
+          </button>
         ))}
 
-        <div style={{ width: 1, height: 20, background: '#e2e8f0', margin: '0 4px' }} />
+        <div className="w-px h-5 bg-slate-200 dark:bg-slate-600 mx-1" />
 
         {/* 来源类型 */}
         <select
           value={sourceType}
           onChange={e => { setSourceType(e.target.value); setPage(1); }}
-          style={{
-            padding: '4px 10px', borderRadius: 8, border: '1.5px solid #e2e8f0',
-            fontSize: 12, background: '#fff', color: '#475569', cursor: 'pointer',
-          }}
+          className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-600 text-xs bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer outline-none"
         >
           <option value="">全部来源</option>
           <option value="MANUAL">手工</option>
@@ -800,27 +739,17 @@ export default function Finance2ApPage() {
             onChange={e => setSearchInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
             placeholder="AP编号 / 供应商 / 发票号…"
-            style={{
-              padding: '6px 12px', borderRadius: 8, fontSize: 13,
-              border: '1.5px solid #e2e8f0', outline: 'none', width: 210,
-            }}
+            className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-indigo-400 dark:focus:border-indigo-500 w-52"
           />
-          <button onClick={handleSearch} style={{
-            padding: '6px 12px', borderRadius: 8, fontSize: 13,
-            background: '#6366f1', color: '#fff', border: 'none', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 4,
-          }}>
+          <button onClick={handleSearch}
+            className="px-3 py-1.5 rounded-lg text-sm bg-indigo-500 text-white border-0 cursor-pointer hover:bg-indigo-600 flex items-center gap-1 transition-colors">
             <Search size={13} /> 搜索
           </button>
         </div>
       </div>
 
       {error && (
-        <div style={{
-          background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10,
-          padding: '12px 16px', marginBottom: 14, color: '#ef4444', fontSize: 13,
-          display: 'flex', alignItems: 'center', gap: 8,
-        }}>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 mb-3.5 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
           <AlertTriangle size={14} /> {error}
         </div>
       )}
@@ -853,20 +782,14 @@ export default function Finance2ApPage() {
                 <tr
                   key={r.id}
                   onClick={() => setSelectedId(r.id)}
-                  style={{
-                    borderBottom: '1px solid #f1f5f9',
-                    background: i % 2 === 0 ? '#fff' : '#fafafa',
-                    cursor: 'pointer',
-                    transition: 'background 0.1s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#f0f9ff')}
-                  onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafafa')}
+                  className={`border-b border-slate-50 dark:border-slate-700/50 cursor-pointer hover:bg-indigo-50 dark:hover:bg-slate-700/50 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-50/50 dark:bg-slate-700/20'}`}
                 >
-                  <td style={{ padding: '10px 14px', fontFamily: 'monospace', color: '#6366f1', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}
+                    className="font-mono text-indigo-600 dark:text-indigo-400">
                     {r.ap_no}
                   </td>
                   <td style={{ padding: '10px 14px' }}>
-                    <SourceTag type={r.source_type} />
+                    <SourceBadge type={r.source_type} />
                   </td>
                   <td style={{ padding: '10px 14px', maxWidth: 160 }}>
                     <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 600 }}>{r.supplier_name}</div>
@@ -879,7 +802,7 @@ export default function Finance2ApPage() {
                     {fmtDate(r.invoice_date)}
                   </td>
                   <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-                    <span style={{ color: isOverdue(r.due_date, r.status) ? '#ef4444' : '#475569' }}>
+                    <span className={isOverdue(r.due_date, r.status) ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}>
                       {fmtDate(r.due_date)}
                     </span>
                     <AgingBadge bucket={r.aging_bucket} />
@@ -887,12 +810,12 @@ export default function Finance2ApPage() {
                   <td className="text-slate-900 dark:text-slate-100" style={{ padding: '10px 14px', fontWeight: 600, whiteSpace: 'nowrap' }}>
                     {fmtMoney(r.amount_original, r.currency_code)}
                   </td>
-                  <td style={{ padding: '10px 14px', fontWeight: 700, whiteSpace: 'nowrap',
-                    color: Number(r.balance_amount_original) > 0 ? '#ef4444' : '#64748b' }}>
+                  <td style={{ padding: '10px 14px', fontWeight: 700, whiteSpace: 'nowrap' }}
+                    className={Number(r.balance_amount_original) > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}>
                     {fmtMoney(r.balance_amount_original, r.currency_code)}
                   </td>
                   <td style={{ padding: '10px 14px' }}>
-                    <StatusChip status={r.status} />
+                    <StatusBadge status={r.status} size="sm" />
                   </td>
                 </tr>
               ))}
@@ -901,29 +824,19 @@ export default function Finance2ApPage() {
         </div>
 
         {/* 分页 */}
-        <div className="border-t border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400"
-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '12px 16px', fontSize: 13 }}>
+        <div className="border-t border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 flex justify-between items-center px-4 py-3 text-sm">
           <span>共 {total} 条（第 {page} / {totalPages} 页）</span>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <button
               onClick={() => { const p = page - 1; setPage(p); loadList(p); }}
               disabled={page <= 1 || loading}
-              style={{
-                padding: '4px 10px', borderRadius: 6, border: '1.5px solid #e2e8f0',
-                background: '#fff', cursor: page <= 1 ? 'not-allowed' : 'pointer',
-                opacity: page <= 1 ? 0.4 : 1, display: 'flex', alignItems: 'center',
-              }}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center cursor-pointer"
             ><ChevronLeft size={14} /></button>
             <span style={{ padding: '0 8px' }}>{page} / {totalPages}</span>
             <button
               onClick={() => { const p = page + 1; setPage(p); loadList(p); }}
               disabled={page >= totalPages || loading}
-              style={{
-                padding: '4px 10px', borderRadius: 6, border: '1.5px solid #e2e8f0',
-                background: '#fff', cursor: page >= totalPages ? 'not-allowed' : 'pointer',
-                opacity: page >= totalPages ? 0.4 : 1, display: 'flex', alignItems: 'center',
-              }}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center cursor-pointer"
             ><ChevronRight size={14} /></button>
           </div>
         </div>

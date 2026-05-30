@@ -6,6 +6,7 @@ import {
   AlertTriangle, CheckCircle, DollarSign, ArrowLeftRight,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import { TOKENS } from '@/lib/design-tokens';
 
 // ── 工具 ──────────────────────────────────────────────────────────────────────
 
@@ -41,10 +42,10 @@ function KpiCard({ label, value, sub, icon: Icon, color }: {
         {Icon && (
           <div style={{
             width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-            background: `${color ?? '#6366f1'}18`,
+            background: `${color ?? 'var(--color-primary)'}18`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Icon size={16} color={color ?? '#6366f1'} />
+            <Icon size={16} color={color ?? 'var(--color-primary)'} />
           </div>
         )}
         <span className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{label}</span>
@@ -157,7 +158,7 @@ function OverviewTab() {
   if (loading) return <Spinner />;
   if (!data) return <Empty text="加载失败" />;
 
-  const netColor = data.netOperatingPosition >= 0 ? '#10b981' : '#ef4444';
+  const netColor = data.netOperatingPosition >= 0 ? TOKENS.css.statusSuccess : TOKENS.css.statusDanger;
 
   return (
     <div>
@@ -189,18 +190,18 @@ function OverviewTab() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 20 }}>
-        <KpiCard label="现金账户余额"    value={fmtMoney(data.cashBalance)}    icon={Wallet}      color="#2563eb" />
-        <KpiCard label="AR 待收款"        value={fmtMoney(data.arOpen)}         icon={TrendingUp}  color="#10b981" />
-        <KpiCard label="AP 待付款"        value={fmtMoney(data.apOpen)}         icon={TrendingDown} color="#f59e0b" />
-        <KpiCard label="股东资金余额"     value={fmtMoney(data.shareholderBalance)} icon={Users}   color="#7c3aed" />
+        <KpiCard label="现金账户余额"    value={fmtMoney(data.cashBalance)}    icon={Wallet}      color="var(--color-primary)" />
+        <KpiCard label="AR 待收款"        value={fmtMoney(data.arOpen)}         icon={TrendingUp}  color="var(--status-success)" />
+        <KpiCard label="AP 待付款"        value={fmtMoney(data.apOpen)}         icon={TrendingDown} color="var(--status-warning)" />
+        <KpiCard label="股东资金余额"     value={fmtMoney(data.shareholderBalance)} icon={Users}   color="var(--status-info)" />
         <KpiCard label="费用待审批"
           value={`${data.expensePendingCount} 笔`}
           sub={fmtMoney(data.expensePendingAmount)}
-          icon={Receipt} color="#6366f1" />
+          icon={Receipt} color="var(--color-primary)" />
         <KpiCard label="报销待处理"
           value={`${data.reimbursementPendingCount} 笔`}
           sub={fmtMoney(data.reimbursementPendingAmount)}
-          icon={ArrowLeftRight} color="#0891b2" />
+          icon={ArrowLeftRight} color="var(--color-accent)" />
       </div>
 
       {data.byCurrency.length > 0 && (
@@ -268,12 +269,12 @@ function ApTab() {
       {/* 账龄汇总条 */}
       {s && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 20 }}>
-          <KpiCard label="AP 合计"    value={fmtMoney(s.total)}   icon={TrendingDown} color="#f59e0b" />
-          <KpiCard label="未逾期"     value={fmtMoney(s.notDue)}  icon={CheckCircle}  color="#10b981" />
-          <KpiCard label="0-30 天"   value={fmtMoney(s.d030)}    icon={AlertTriangle} color="#f59e0b" />
-          <KpiCard label="31-60 天"  value={fmtMoney(s.d3160)}   icon={AlertTriangle} color="#f97316" />
-          <KpiCard label="61-90 天"  value={fmtMoney(s.d6190)}   icon={AlertTriangle} color="#ef4444" />
-          <KpiCard label="90 天以上" value={fmtMoney(s.dOver90)} icon={AlertTriangle} color="#7f1d1d" />
+          <KpiCard label="AP 合计"    value={fmtMoney(s.total)}   icon={TrendingDown} color="var(--status-warning)" />
+          <KpiCard label="未逾期"     value={fmtMoney(s.notDue)}  icon={CheckCircle}  color="var(--status-success)" />
+          <KpiCard label="0-30 天"   value={fmtMoney(s.d030)}    icon={AlertTriangle} color="var(--status-warning)" />
+          <KpiCard label="31-60 天"  value={fmtMoney(s.d3160)}   icon={AlertTriangle} color="var(--status-warning)" />
+          <KpiCard label="61-90 天"  value={fmtMoney(s.d6190)}   icon={AlertTriangle} color="var(--status-danger)" />
+          <KpiCard label="90 天以上" value={fmtMoney(s.dOver90)} icon={AlertTriangle} color="var(--status-danger)" />
         </div>
       )}
 
@@ -361,12 +362,12 @@ function ArTab() {
     <div>
       {s && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 20 }}>
-          <KpiCard label="AR 合计"    value={fmtMoney(s.total)}   icon={TrendingUp}   color="#10b981" />
-          <KpiCard label="未逾期"     value={fmtMoney(s.notDue)}  icon={CheckCircle}  color="#10b981" />
-          <KpiCard label="0-30 天"   value={fmtMoney(s.d030)}    icon={AlertTriangle} color="#f59e0b" />
-          <KpiCard label="31-60 天"  value={fmtMoney(s.d3160)}   icon={AlertTriangle} color="#f97316" />
-          <KpiCard label="61-90 天"  value={fmtMoney(s.d6190)}   icon={AlertTriangle} color="#ef4444" />
-          <KpiCard label="90 天以上" value={fmtMoney(s.dOver90)} icon={AlertTriangle} color="#7f1d1d" />
+          <KpiCard label="AR 合计"    value={fmtMoney(s.total)}   icon={TrendingUp}   color="var(--status-success)" />
+          <KpiCard label="未逾期"     value={fmtMoney(s.notDue)}  icon={CheckCircle}  color="var(--status-success)" />
+          <KpiCard label="0-30 天"   value={fmtMoney(s.d030)}    icon={AlertTriangle} color="var(--status-warning)" />
+          <KpiCard label="31-60 天"  value={fmtMoney(s.d3160)}   icon={AlertTriangle} color="var(--status-warning)" />
+          <KpiCard label="61-90 天"  value={fmtMoney(s.d6190)}   icon={AlertTriangle} color="var(--status-danger)" />
+          <KpiCard label="90 天以上" value={fmtMoney(s.dOver90)} icon={AlertTriangle} color="var(--status-danger)" />
         </div>
       )}
 
@@ -452,8 +453,8 @@ function CashTab() {
       {loadOv ? <Spinner /> : !overview ? null : (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 20 }}>
-            <KpiCard label="账户总余额"  value={fmtMoney(overview.totalBalance)}   icon={Wallet}    color="#2563eb" />
-            <KpiCard label="活跃账户数" value={`${overview.activeAccounts} 个`}   icon={CheckCircle} color="#10b981" />
+            <KpiCard label="账户总余额"  value={fmtMoney(overview.totalBalance)}   icon={Wallet}    color="var(--color-primary)" />
+            <KpiCard label="活跃账户数" value={`${overview.activeAccounts} 个`}   icon={CheckCircle} color="var(--status-success)" />
           </div>
 
           <SectionTitle>按账户类型</SectionTitle>
@@ -497,11 +498,11 @@ function CashTab() {
                     <div key={r.date} title={`${r.date}\n流入: ¥${fmt(r.inflow)}\n流出: ¥${fmt(r.outflow)}`}
                       style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center', flex: 1 }}>
                       <div style={{
-                        width: '100%', background: '#10b981', borderRadius: '3px 3px 0 0',
+                        width: '100%', background: 'var(--status-success)', borderRadius: '3px 3px 0 0',
                         height: maxVal ? `${(r.inflow / maxVal) * 60}px` : 0,
                       }} />
                       <div style={{
-                        width: '100%', background: '#ef4444', borderRadius: '3px 3px 0 0',
+                        width: '100%', background: 'var(--status-danger)', borderRadius: '3px 3px 0 0',
                         height: maxVal ? `${(r.outflow / maxVal) * 60}px` : 0,
                       }} />
                     </div>
@@ -509,10 +510,10 @@ function CashTab() {
                 </div>
                 <div className="text-slate-500 dark:text-slate-400" style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ width: 10, height: 10, background: '#10b981', borderRadius: 2, display: 'inline-block' }} />流入
+                    <span style={{ width: 10, height: 10, background: 'var(--status-success)', borderRadius: 2, display: 'inline-block' }} />流入
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ width: 10, height: 10, background: '#ef4444', borderRadius: 2, display: 'inline-block' }} />流出
+                    <span style={{ width: 10, height: 10, background: 'var(--status-danger)', borderRadius: 2, display: 'inline-block' }} />流出
                   </span>
                 </div>
               </div>
@@ -529,7 +530,7 @@ function CashTab() {
                   <Td right>{fmtMoney(r.inflow)}</Td>
                   <Td right>{fmtMoney(r.outflow)}</Td>
                   <Td right bold>
-                    <span style={{ color: r.net >= 0 ? '#10b981' : '#ef4444' }}>
+                    <span style={{ color: r.net >= 0 ? TOKENS.css.statusSuccess : TOKENS.css.statusDanger }}>
                       {r.net >= 0 ? '+' : ''}{fmtMoney(r.net)}
                     </span>
                   </Td>
@@ -566,9 +567,16 @@ const STATUS_LABEL: Record<string, string> = {
   PENDING: '待处理', PAID: '已付款',
 };
 const STATUS_COLOR: Record<string, string> = {
-  DRAFT: '#94a3b8', SUBMITTED: '#3b82f6', PENDING_APPROVAL: '#f59e0b',
-  APPROVED: '#10b981', REJECTED: '#ef4444', CANCELLED: '#6b7280',
-  REIMBURSED: '#059669', PENDING: '#f59e0b', PENDING_APPROVAL2: '#f97316', PAID: '#059669',
+  DRAFT:            'var(--status-neutral)',
+  SUBMITTED:        'var(--color-primary)',
+  PENDING_APPROVAL: 'var(--status-warning)',
+  APPROVED:         'var(--status-success)',
+  REJECTED:         'var(--status-danger)',
+  CANCELLED:        'var(--status-neutral)',
+  REIMBURSED:       'var(--status-success)',
+  PENDING:          'var(--status-warning)',
+  PENDING_APPROVAL2:'var(--status-warning)',
+  PAID:             'var(--status-success)',
 };
 
 function ExpenseTab() {
@@ -591,7 +599,7 @@ function ExpenseTab() {
             {Object.entries(expData.byStatus).map(([status, d]) => (
               <div key={status} className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
                 style={{ borderRadius: 10, padding: '10px 16px', minWidth: 130 }}>
-                <div style={{ fontSize: 11, color: STATUS_COLOR[status] ?? '#64748b', fontWeight: 700 }}>
+                <div style={{ fontSize: 11, color: STATUS_COLOR[status] ?? 'var(--status-neutral)', fontWeight: 700 }}>
                   {STATUS_LABEL[status] ?? status}
                 </div>
                 <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 16, fontWeight: 800 }}>{d.count} 笔</div>
@@ -659,7 +667,7 @@ function ExpenseTab() {
             {Object.entries(reimbData.byStatus).map(([status, d]) => (
               <div key={status} className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
                 style={{ borderRadius: 10, padding: '10px 16px', minWidth: 130 }}>
-                <div style={{ fontSize: 11, color: STATUS_COLOR[status] ?? '#64748b', fontWeight: 700 }}>
+                <div style={{ fontSize: 11, color: STATUS_COLOR[status] ?? 'var(--status-neutral)', fontWeight: 700 }}>
                   {STATUS_LABEL[status] ?? status}
                 </div>
                 <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 16, fontWeight: 800 }}>{d.count} 笔</div>
@@ -668,10 +676,8 @@ function ExpenseTab() {
             ))}
           </div>
           {reimbData.avgProcessingDays !== null && (
-            <div style={{
-              background: '#f0fdf4', border: '1.5px solid #bbf7d0',
-              borderRadius: 10, padding: '12px 16px', fontSize: 13, color: '#166534',
-            }}>
+            <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300"
+              style={{ borderRadius: 10, padding: '12px 16px', fontSize: 13 }}>
               ⏱ 平均报销处理时长：<strong>{reimbData.avgProcessingDays} 天</strong>
             </div>
           )}
@@ -707,10 +713,10 @@ function ShareholderTab() {
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 20 }}>
-        <KpiCard label="出资总额"     value={fmtMoney(totalIn)}  icon={Users}      color="#7c3aed" />
-        <KpiCard label="已结算"       value={fmtMoney(totalSt)}  icon={CheckCircle} color="#10b981" />
-        <KpiCard label="余额"         value={fmtMoney(totalBal)} icon={DollarSign} color="#6d28d9" />
-        <KpiCard label="90天内到期"   value={`${data.upcomingReturns.length} 笔`} icon={AlertTriangle} color="#f59e0b" />
+        <KpiCard label="出资总额"     value={fmtMoney(totalIn)}  icon={Users}      color="var(--status-info)" />
+        <KpiCard label="已结算"       value={fmtMoney(totalSt)}  icon={CheckCircle} color="var(--status-success)" />
+        <KpiCard label="余额"         value={fmtMoney(totalBal)} icon={DollarSign} color="var(--status-info)" />
+        <KpiCard label="90天内到期"   value={`${data.upcomingReturns.length} 笔`} icon={AlertTriangle} color="var(--status-warning)" />
       </div>
 
       <SectionTitle>按股东</SectionTitle>
@@ -741,7 +747,7 @@ function ShareholderTab() {
               <div key={r.contributionType}
                 className="border border-violet-200 dark:border-violet-700 bg-violet-50 dark:bg-slate-700"
                 style={{ borderRadius: 10, padding: '10px 16px', minWidth: 140 }}>
-                <div style={{ fontSize: 11, color: '#7c3aed', fontWeight: 700 }}>{r.contributionType}</div>
+                <div className="text-violet-700 dark:text-violet-400" style={{ fontSize: 11, fontWeight: 700 }}>{r.contributionType}</div>
                 <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 15, fontWeight: 800 }}>{fmtMoney(r.totalAmount)}</div>
                 <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>余额 {fmtMoney(r.balanceAmount)}</div>
               </div>
@@ -763,7 +769,7 @@ function ShareholderTab() {
                   <Td bold>{r.shareholderName}</Td>
                   <Td>{r.companyCode}</Td>
                   <Td>
-                    <span style={{ color: '#f59e0b', fontWeight: 600 }}>
+                    <span className="text-amber-600 dark:text-amber-400" style={{ fontWeight: 600 }}>
                       {String(r.expectedReturnDate).slice(0, 10)}
                     </span>
                   </Td>
@@ -836,7 +842,7 @@ function ProjectTab() {
                 <Td right>{fmtMoney(r.expenseTotal)}</Td>
                 <Td right>{fmtMoney(r.shBalance)}</Td>
                 <Td right bold>
-                  <span style={{ color: r.netPosition >= 0 ? '#10b981' : '#ef4444' }}>
+                  <span style={{ color: r.netPosition >= 0 ? TOKENS.css.statusSuccess : TOKENS.css.statusDanger }}>
                     {r.netPosition >= 0 ? '+' : ''}{fmtMoney(r.netPosition)}
                   </span>
                 </Td>
@@ -875,13 +881,13 @@ function CompanyTab() {
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 20 }}>
-        <KpiCard label="公司总数" value={`${data.length} 家`} icon={Building2} color="#64748b" />
+        <KpiCard label="公司总数" value={`${data.length} 家`} icon={Building2} color="var(--status-neutral)" />
         <KpiCard label="合计现金余额"
           value={fmtMoney(data.reduce((s, r) => s + r.cashBalance, 0))}
-          icon={Wallet} color="#2563eb" />
+          icon={Wallet} color="var(--color-primary)" />
         <KpiCard label="合计经营净头寸"
           value={fmtMoney(data.reduce((s, r) => s + r.netOperatingPosition, 0))}
-          icon={PieChart} color="#6366f1" />
+          icon={PieChart} color="var(--color-primary)" />
       </div>
 
       <TableWrapper>
@@ -903,7 +909,7 @@ function CompanyTab() {
               <Td right>{fmtMoney(r.expenseTotal)}</Td>
               <Td right>{fmtMoney(r.shBalance)}</Td>
               <Td right bold>
-                <span style={{ color: r.netOperatingPosition >= 0 ? '#10b981' : '#ef4444' }}>
+                <span style={{ color: r.netOperatingPosition >= 0 ? TOKENS.css.statusSuccess : TOKENS.css.statusDanger }}>
                   {r.netOperatingPosition >= 0 ? '+' : ''}{fmtMoney(r.netOperatingPosition)}
                 </span>
               </Td>
@@ -977,14 +983,13 @@ export default function Finance2ReportsPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={active ? 'text-indigo-500' : 'text-slate-500 dark:text-slate-400'}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '10px 16px', fontSize: 13, fontWeight: active ? 700 : 500,
-                background: 'none', border: 'none', cursor: 'pointer',
-                borderBottom: active ? '2px solid #6366f1' : '2px solid transparent',
-                marginBottom: -2, whiteSpace: 'nowrap', borderRadius: '8px 8px 0 0',
-              }}
+              className={[
+                'inline-flex items-center gap-1.5 px-4 py-2.5 text-sm cursor-pointer bg-transparent border-0',
+                'border-b-2 -mb-0.5 whitespace-nowrap rounded-t-lg transition-colors',
+                active
+                  ? 'text-indigo-600 dark:text-indigo-400 border-indigo-500 font-bold'
+                  : 'text-slate-500 dark:text-slate-400 border-transparent font-medium',
+              ].join(' ')}
             >
               <Icon size={14} />
               {tab.label}
