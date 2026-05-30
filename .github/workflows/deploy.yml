@@ -103,8 +103,8 @@ jobs:
             PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f "$f" 2>&1 \
               | grep -v "^NOTICE\|already exists\|will create" || true
           done
-          # Sales V2 Phase 0-8 增量迁移（20260527_* 前缀，含建表+种子数据）
-          for f in $(ls migrations/20260527_*.sql | sort); do
+          # 增量迁移（所有 2026MMDD_* 前缀 SQL，幂等，按日期排序）
+          for f in $(ls migrations/2026*.sql 2>/dev/null | sort); do
             echo "Applying $f..."
             PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f "$f" 2>&1 \
               | grep -v "^NOTICE\|already exists\|will create" || true
@@ -299,8 +299,8 @@ jobs:
                 < "$f" 2>&1 \
                 | grep -v "already exists\|NOTICE\|will create\|^$" || true
             done
-            # Sales V2 Phase 0-8 增量迁移
-            for f in $(ls apps/api/migrations/20260527_*.sql | sort); do
+            # 增量迁移（所有 2026MMDD_* 前缀 SQL，幂等，按日期排序）
+            for f in $(ls apps/api/migrations/2026*.sql 2>/dev/null | sort); do
               docker compose exec -T db sh -c \
                 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
                 < "$f" 2>&1 \
