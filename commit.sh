@@ -8,3 +8,4 @@ git add -A
 git commit -m "$MSG"
 git push
 echo "✅ 已推送：$MSG"
+# post-commit hook installed: 2026-05-30
