@@ -236,7 +236,8 @@ INSERT INTO sys_doc_state_lock (doc_type, locked_state, locked_fields, unlock_ro
 ('DELIVERY_RECEIPT',   'SIGNED',    '["signer","sign_time","receipt_photo"]'::jsonb,                           'ROLE_ADMIN');
 
 -- ============== Step 7: 初始化 sys_user 凤凰农业人员 ==============
--- 注: password_hash 应替换为实际加密后的密码，以下用占位 (bcrypt)
+-- 注: password 在迁移文件 20260531_fix_user_passwords.sql 中使用 pgcrypto 设置为有效值
+-- ON CONFLICT DO NOTHING 保证每次部署幂等，不会因重复 INSERT 报错
 INSERT INTO sys_user (username, password_hash, real_name, store_code, locale) VALUES
 ('zhuzhaocun',  '$2b$10$placeholder', '朱兆存',  'ALL',           'zh-CN'),
 ('fuqiang',     '$2b$10$placeholder', '伏强',    'AREA-VTE',      'zh-CN'),
@@ -245,13 +246,15 @@ INSERT INTO sys_user (username, password_hash, real_name, store_code, locale) VA
 ('zhuzhao_an',  '$2b$10$placeholder', '朱召安',   'ALL',           'zh-CN'),
 ('liushanjun',  '$2b$10$placeholder', '刘善军',   'FARM-MS',       'zh-CN'),
 ('linhong',     '$2b$10$placeholder', '林宏',    'FARM-MS',       'zh-CN'),
-('amei',        '$2b$10$placeholder', '阿美',    'STORE-VTE-01',  'lo-LA'),
+('amei',        '$2b$10$placeholder', '阿美',    'STORE-VTE-001', 'lo-LA'),
 ('zhuhuiran',   '$2b$10$placeholder', '朱会然',   'AREA-ZHU',      'zh-CN'),
 ('yue',         '$2b$10$placeholder', '岳',      'AREA-YUE',      'zh-CN'),
 ('wanglejin',   '$2b$10$placeholder', '王乐金',   'ALL',           'zh-CN'),
-('ajian',       '$2b$10$placeholder', '阿坚',    'ALL',           'lo-LA');
+('ajian',       '$2b$10$placeholder', '阿坚',    'ALL',           'lo-LA')
+ON CONFLICT (username) DO NOTHING;
 
 -- ============== Step 8: 初始化 sys_user_role 用户角色关联 ==============
+-- ON CONFLICT DO NOTHING 同样保证幂等
 INSERT INTO sys_user_role (user_id, role_id, is_primary)
 SELECT u.user_id, r.role_id, ur.is_primary
 FROM (VALUES
@@ -259,16 +262,17 @@ FROM (VALUES
     ('fuqiang',    'ROLE_REGION_MGR',  TRUE),
     ('wangweihua', 'ROLE_FIN_ACCT',    TRUE),
     ('liuhantao',  'ROLE_FIN_COST',    TRUE),
-    ('zhuzhao_an', 'ROLE_FIN_ACCT',    TRUE),    -- 出纳归 ROLE_FIN_ACCT
+    ('zhuzhao_an', 'ROLE_FIN_ACCT',    TRUE),
     ('liushanjun', 'ROLE_WMS_MGR',     TRUE),
-    ('liushanjun', 'ROLE_FARMER',      FALSE),    -- 双角色
+    ('liushanjun', 'ROLE_FARMER',      FALSE),
     ('linhong',    'ROLE_FARM_MGR',    TRUE),
     ('amei',       'ROLE_STORE_MGR',   TRUE),
-    ('amei',       'ROLE_CASHIER',     FALSE),    -- 双角色
+    ('amei',       'ROLE_CASHIER',     FALSE),
     ('zhuhuiran',  'ROLE_REGION_MGR',  TRUE),
     ('yue',        'ROLE_REGION_MGR',  TRUE),
     ('wanglejin',  'ROLE_PRC_BUYER',   TRUE),
     ('ajian',      'ROLE_DRIVER',      TRUE)
 ) AS ur(username, role_code, is_primary)
 JOIN sys_user u ON u.username = ur.username
-JOIN sys_role r ON r.role_code = ur.role_code;
+JOIN sys_role r ON r.role_code = ur.role_code
+ON CONFLICT (user_id, role_id) DO NOTHING;
