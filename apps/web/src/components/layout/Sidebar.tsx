@@ -94,16 +94,16 @@ const MENU: MenuItem[] = [
 
   // 3. 库存管理 — 仓储库存 + 批次库存 + 临期库存 + 损耗管理
   { id: "inventory", Icon: Warehouse, label: "库存管理", perm: "MENU_WMS_VIEW", children: [
-    { id: "wh-dash",     path: "/warehouse",              Icon: LayoutDashboard, label: "仓库看板",   perm: "MENU_WMS_VIEW"  },
+    { id: "wh-dash",     path: "/warehouse",              Icon: LayoutDashboard, label: "库存总览",   perm: "MENU_WMS_VIEW"  },
     { id: "wh-in",       path: "/warehouse/inbound",      Icon: PackagePlus,     label: "入库管理",   perm: "MENU_WMS_INOUT" },
     { id: "wh-out",      path: "/warehouse/outbound",     Icon: PackageMinus,    label: "出库管理",   perm: "MENU_WMS_INOUT" },
     { id: "wh-transfer", path: "/warehouse/transfer",     Icon: RefreshCw,       label: "调拨管理",   perm: "MENU_WMS_INOUT" },
     { id: "wh-stock",    path: "/warehouse/stocktake",    Icon: ListChecks,      label: "盘点管理",   perm: "MENU_WMS_INOUT" },
-    { id: "wh-ledger",   path: "/warehouse/ledger",       Icon: ScrollText,      label: "库存台账",   perm: "MENU_WMS_VIEW"  },
+    { id: "wh-ledger",   path: "/warehouse/ledger",       Icon: ScrollText,      label: "出入库流水", perm: "MENU_WMS_VIEW"  },
     { id: "wh-query",    path: "/warehouse/query",        Icon: Search,          label: "库存查询",   perm: "MENU_WMS_VIEW"  },
-    { id: "wh-expiry",   path: "/warehouse/expiry",       Icon: AlertTriangle,   label: "临期预警",   perm: "MENU_WMS_VIEW"  },
+    { id: "wh-expiry",   path: "/warehouse/expiry",       Icon: AlertTriangle,   label: "临期库存",   perm: "MENU_WMS_VIEW"  },
     { id: "wh-daily",    path: "/warehouse/daily-close",  Icon: ClipboardCheck,  label: "日结对账",   perm: "MENU_WMS_INOUT" },
-    { id: "wh-loss",     path: "/warehouse/loss-report",  Icon: TrendingDown,    label: "报损管理",   perm: "MENU_WMS_INOUT" },
+    { id: "wh-loss",     path: "/warehouse/loss-report",  Icon: TrendingDown,    label: "损耗管理",   perm: "MENU_WMS_INOUT" },
     { id: "wh-house",    path: "/warehouse/warehouses",   Icon: Warehouse,       label: "仓库主档",   perm: "MENU_WMS_MASTER" },
     { id: "wh-zones",    path: "/warehouse/zones",        Icon: MapPinned,       label: "库区管理",   perm: "MENU_WMS_MASTER" },
     { id: "wh-loc",      path: "/warehouse/locations",    Icon: MapPin,          label: "库位管理",   perm: "MENU_WMS_MASTER" },
@@ -167,13 +167,15 @@ const MENU: MenuItem[] = [
     { id: "ap-metrics", path: "/workflow/metrics",        Icon: BarChart3,      label: "审批看板",   perm: "MENU_WORKFLOW" },
   ]},
 
-  // 8. 经营分析 — BI 驾驶舱 + 多维报表（原"数据分析"改名）
+  // 8. 经营分析 — BI 驾驶舱 + 多维报表（Sales V2 Phase 8 全维度）
   { id: "analytics", Icon: TrendingUp, label: "经营分析", perm: "MENU_DASHBOARD", children: [
-    { id: "an-bi",    path: "/analytics",               Icon: LayoutDashboard, label: "经营总览",   perm: "MENU_DASHBOARD" },
-    { id: "an-price", path: "/analytics/price-review",  Icon: Tag,             label: "价格分析",   perm: "MENU_DASHBOARD" },
-    { id: "an-prod",  path: "/analytics/production",    Icon: BarChart,        label: "生产报表",   perm: "MENU_DASHBOARD" },
-    { id: "an-inv",   path: "/analytics/inventory",     Icon: PieChart,        label: "库存分析",   perm: "MENU_DASHBOARD" },
-    { id: "an-feed",  path: "/analytics/feed",          Icon: Wheat,           label: "饲料核对",   perm: "MENU_DASHBOARD" },
+    { id: "an-bi",       path: "/analytics",             Icon: LayoutDashboard, label: "经营总览",   perm: "MENU_DASHBOARD"       },
+    { id: "an-sales",    path: "/analytics/sales",       Icon: TrendingUp,      label: "销售分析",   perm: "MENU_SALES2_REPORT"   },
+    { id: "an-channel",  path: "/analytics/channels",    Icon: Network,         label: "渠道分析",   perm: "MENU_SALES2_CHANNEL"  },
+    { id: "an-inv",      path: "/analytics/inventory",   Icon: PieChart,        label: "库存分析",   perm: "MENU_DASHBOARD"       },
+    { id: "an-delivery", path: "/analytics/delivery",    Icon: Truck,           label: "配送分析",   perm: "MENU_SALES2_DELIVERY" },
+    { id: "an-finance",  path: "/analytics/finance",     Icon: DollarSign,      label: "财务分析",   perm: "MENU_FIN2_REPORT"     },
+    { id: "an-credit",   path: "/analytics/credit",      Icon: CreditCard,      label: "信用分析",   perm: "MENU_SALES2_CREDIT"   },
   ]},
 
   // 9. 主数据中心 — 全量主数据统一入口
@@ -184,12 +186,12 @@ const MENU: MenuItem[] = [
     { id: "mdc-projects",   path: "/master-data/projects",         Icon: FolderKanban,    label: "项目档案",     perm: "MENU_PRC2_MASTER"     },
     { id: "mdc-customers",  path: "/master-data/customers",        Icon: Users,           label: "客户档案",     perm: "MENU_SALES2_CUSTOMER" },
     { id: "mdc-suppliers",  path: "/master-data/suppliers",        Icon: Globe,           label: "供应商档案",   perm: "MENU_PRC2_MASTER"     },
-    { id: "mdc-products",   path: "/settings/products",            Icon: Egg,             label: "产品档案",     perm: "MENU_MASTER"          },
+    { id: "mdc-products",   path: "/master-data/products",         Icon: Egg,             label: "产品档案",     perm: "MENU_MASTER"          },
     { id: "mdc-grades",     path: "/master-data/product-grades",   Icon: Tag,             label: "等级档案",     perm: "MENU_MASTER_GRADE"    },
     { id: "mdc-pkgspecs",   path: "/master-data/packaging-specs",  Icon: Package,         label: "包装规格",     perm: "MENU_MASTER_PACKAGING" },
     { id: "mdc-skus",       path: "/master-data/product-skus",     Icon: Layers,          label: "SKU档案",      perm: "MENU_MASTER_SKU"      },
     { id: "mdc-warehouses", path: "/master-data/warehouses",       Icon: Warehouse,       label: "仓库档案",     perm: "MENU_WMS_MASTER"      },
-    { id: "mdc-stores",     path: "/master/stores",                Icon: Store,           label: "门店档案",     perm: "MENU_MASTER"          },
+    { id: "mdc-stores",     path: "/master-data/stores",           Icon: Store,           label: "门店档案",     perm: "MENU_MASTER"          },
     { id: "mdc-drivers",    path: "/master-data/drivers",          Icon: UserCheck,       label: "司机档案",     perm: "MENU_SALES2_DELIVERY" },
     { id: "mdc-vehicles",   path: "/master-data/vehicles",         Icon: Car,             label: "车辆档案",     perm: "MENU_SALES2_DELIVERY" },
     { id: "mdc-cash",       path: "/master-data/cash-accounts",    Icon: Wallet,          label: "资金账户档案", perm: "MENU_FIN2_CASH"       },
@@ -207,7 +209,8 @@ const MENU: MenuItem[] = [
     { id: "stg-brand",       path: "/settings/brand",         Icon: Star,        label: "品牌配置",   perm: "MENU_SETTINGS_IT"   },
     { id: "stg-pda",         path: "/settings/pda-terminals", Icon: Smartphone,  label: "终端配置",   perm: "MENU_SETTINGS_IT"   },
     { id: "stg-pos",         path: "/settings/pos-config",    Icon: Store,       label: "收银配置",   perm: "MENU_SETTINGS_IT"   },
-    { id: "stg-stock-cfg",   path: "/settings/store-stock",   Icon: ToggleRight, label: "库存分账",   perm: "MENU_SETTINGS_IT"   },
+    { id: "stg-stock-cfg",   path: "/settings/store-stock",       Icon: ToggleRight, label: "库存分账",   perm: "MENU_SETTINGS_IT"   },
+    { id: "stg-notify",      path: "/settings/notifications",     Icon: Bell,        label: "通知设置",   perm: "MENU_SETTINGS_IT"   },
   ]},
 
   // 11. 验收试运行
@@ -220,8 +223,9 @@ const MENU: MenuItem[] = [
   { id: "sysops", Icon: Server, label: "系统运维", perm: "MENU_SYS_MONITOR", children: [
     { id: "sysops-monitor", path: "/system/health",      Icon: Activity,    label: "系统健康",   perm: "MENU_SYS_MONITOR" },
     { id: "sysops-alerts",  path: "/system/alerts",      Icon: ShieldAlert, label: "告警中心",   perm: "MENU_SYS_MONITOR" },
-    { id: "sysops-logs",    path: "/settings/audit-log", Icon: History,     label: "审计日志",   perm: "MENU_SETTINGS_IT" },
+    { id: "sysops-errors",  path: "/system/error-logs",  Icon: FileWarning, label: "错误日志",   perm: "MENU_SETTINGS_IT" },
     { id: "sysops-configs", path: "/system/configs",     Icon: Settings2,   label: "配置治理",   perm: "MENU_SYS_CONFIG"  },
+    { id: "sysops-backup",  path: "/system/backup",      Icon: Database,    label: "备份策略",   perm: "MENU_SYS_CONFIG"  },
   ]},
 
 ];
