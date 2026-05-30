@@ -1,8 +1,9 @@
 'use client';
 /**
- * DataTableV2 — 标准数据表格
- * ============================
+ * DataTableV2 — 标准数据表格 · Design System V2
+ * ================================================
  * 统一布局：工具栏 → 统计条 → 表格 → 分页 → 空状态/加载态。
+ * 全部颜色来自 @theme inline token，无 dark:slate-* 硬编码。
  *
  * 用法：
  *   <DataTableV2
@@ -21,6 +22,7 @@
  */
 import React from 'react';
 import { RefreshCw, ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // ── 列定义 ────────────────────────────────────────────────────────────────
 export interface TableColumn<T = Record<string, unknown>> {
@@ -73,10 +75,10 @@ function SkeletonRows({ columns, rows = 5 }: { columns: number; rows?: number })
   return (
     <>
       {Array.from({ length: rows }).map((_, i) => (
-        <tr key={i} className="border-b border-slate-100 dark:border-slate-700">
+        <tr key={i} className="border-b border-border">
           {Array.from({ length: columns }).map((_, j) => (
             <td key={j} className="px-4 py-3">
-              <div className="h-3.5 bg-slate-100 dark:bg-slate-700 rounded animate-pulse" />
+              <div className="h-3.5 bg-bg-muted rounded animate-pulse" />
             </td>
           ))}
         </tr>
@@ -115,21 +117,20 @@ export function DataTableV2<T = Record<string, unknown>>({
     align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
 
   return (
-    <div className={[
-      'rounded-2xl border border-slate-200 dark:border-slate-700',
-      'bg-white dark:bg-slate-800 shadow-sm overflow-hidden',
+    <div className={cn(
+      'rounded-2xl border border-border bg-bg-card shadow-card overflow-hidden',
       className,
-    ].join(' ')}>
+    )}>
 
       {/* ── 工具栏 ─────────────────────────────────────────────────────────── */}
       {(title || actions || onRefresh) && (
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-slate-700">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
           <div className="flex items-center gap-3">
             {title && (
-              <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{title}</span>
+              <span className="text-sm font-semibold text-text">{title}</span>
             )}
             {total !== undefined && (
-              <span className="text-xs text-slate-400 dark:text-slate-500">共 {total} 条</span>
+              <span className="text-xs text-text-dim">共 {total} 条</span>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -138,16 +139,15 @@ export function DataTableV2<T = Record<string, unknown>>({
               <button
                 onClick={onRefresh}
                 disabled={loading}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs
-                  border border-slate-200 dark:border-slate-600
-                  bg-white dark:bg-slate-700
-                  text-slate-500 dark:text-slate-400
-                  hover:bg-slate-50 dark:hover:bg-slate-600
-                  disabled:opacity-50 transition-colors cursor-pointer"
+                className={cn(
+                  'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs',
+                  'border border-border bg-bg-page text-text-muted',
+                  'hover:bg-bg-muted disabled:opacity-50 transition-colors cursor-pointer',
+                )}
               >
                 <RefreshCw
                   size={12}
-                  style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}
+                  className={loading ? 'animate-spin' : ''}
                 />
                 刷新
               </button>
@@ -158,11 +158,11 @@ export function DataTableV2<T = Record<string, unknown>>({
 
       {/* ── 统计条 ─────────────────────────────────────────────────────────── */}
       {stats && stats.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-700">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-2.5 bg-bg-muted/50 border-b border-border">
           {stats.map((s) => (
             <div key={s.label} className="flex items-center gap-1.5 text-xs">
-              <span className="text-slate-400 dark:text-slate-500">{s.label}</span>
-              <span className={`font-semibold ${s.highlight ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200'}`}>
+              <span className="text-text-dim">{s.label}</span>
+              <span className={cn('font-semibold', s.highlight ? 'text-danger' : 'text-text-muted')}>
                 {s.value}
               </span>
             </div>
@@ -172,7 +172,7 @@ export function DataTableV2<T = Record<string, unknown>>({
 
       {/* ── 过滤区 ─────────────────────────────────────────────────────────── */}
       {filterBar && (
-        <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800">
+        <div className="px-5 py-3 border-b border-border bg-bg-card">
           {filterBar}
         </div>
       )}
@@ -181,16 +181,15 @@ export function DataTableV2<T = Record<string, unknown>>({
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-700/30">
+            <tr className="border-b border-border bg-bg-muted/40">
               {columns.map((col) => (
                 <th
                   key={col.key}
                   style={{ width: col.width }}
-                  className={[
-                    'px-4 py-2.5 text-xs font-semibold',
-                    'text-slate-500 dark:text-slate-400 whitespace-nowrap',
+                  className={cn(
+                    'px-4 py-2.5 text-xs font-semibold text-text-muted whitespace-nowrap',
                     alignClass(col.align),
-                  ].join(' ')}
+                  )}
                 >
                   {col.title}
                 </th>
@@ -203,7 +202,7 @@ export function DataTableV2<T = Record<string, unknown>>({
             ) : data.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-16 text-center">
-                  <div className="flex flex-col items-center gap-2 text-slate-400 dark:text-slate-500">
+                  <div className="flex flex-col items-center gap-2 text-text-dim">
                     <Inbox size={32} className="opacity-40" />
                     <span className="text-sm">{emptyText}</span>
                   </div>
@@ -213,12 +212,11 @@ export function DataTableV2<T = Record<string, unknown>>({
               data.map((row, index) => (
                 <tr
                   key={getRowKey(row, index)}
-                  className={[
-                    'border-b border-slate-50 dark:border-slate-700/50',
-                    'hover:bg-slate-50 dark:hover:bg-slate-700/30',
-                    'transition-colors',
+                  className={cn(
+                    'border-b border-border/30 hover:bg-bg-muted/30 transition-colors',
                     index === data.length - 1 ? 'border-b-0' : '',
-                  ].join(' ')}
+                    index % 2 !== 0 ? 'bg-bg-muted/15' : '',
+                  )}
                 >
                   {columns.map((col) => {
                     const raw = (row as Record<string, unknown>)[col.key];
@@ -226,11 +224,11 @@ export function DataTableV2<T = Record<string, unknown>>({
                     return (
                       <td
                         key={col.key}
-                        className={[
-                          'px-4 py-3 text-slate-700 dark:text-slate-300',
+                        className={cn(
+                          'px-4 py-3 text-text-muted',
                           alignClass(col.align),
                           col.ellipsis ? 'max-w-[180px] truncate' : '',
-                        ].join(' ')}
+                        )}
                       >
                         {cell}
                       </td>
@@ -245,8 +243,8 @@ export function DataTableV2<T = Record<string, unknown>>({
 
       {/* ── 分页 ───────────────────────────────────────────────────────────── */}
       {totalPages !== undefined && totalPages > 1 && onPageChange && (
-        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800">
-          <span className="text-xs text-slate-400 dark:text-slate-500">
+        <div className="flex items-center justify-between px-5 py-3 border-t border-border bg-bg-card">
+          <span className="text-xs text-text-dim">
             第 {page} / {totalPages} 页
             {total !== undefined && `，共 ${total} 条`}
           </span>
@@ -254,11 +252,11 @@ export function DataTableV2<T = Record<string, unknown>>({
             <button
               disabled={page <= 1 || loading}
               onClick={() => onPageChange(page - 1)}
-              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600
-                text-slate-500 dark:text-slate-400
-                hover:bg-slate-50 dark:hover:bg-slate-700
-                disabled:opacity-40 disabled:cursor-not-allowed
-                transition-colors cursor-pointer"
+              className={cn(
+                'p-1.5 rounded-lg border border-border text-text-muted',
+                'hover:bg-bg-muted disabled:opacity-40 disabled:cursor-not-allowed',
+                'transition-colors cursor-pointer',
+              )}
             >
               <ChevronLeft size={14} />
             </button>
@@ -275,12 +273,12 @@ export function DataTableV2<T = Record<string, unknown>>({
                 <button
                   key={p}
                   onClick={() => onPageChange(p)}
-                  className={[
+                  className={cn(
                     'min-w-[28px] h-7 px-1 rounded-lg text-xs font-medium transition-colors cursor-pointer',
                     p === page
-                      ? 'bg-blue-600 text-white'
-                      : 'border border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700',
-                  ].join(' ')}
+                      ? 'bg-brand text-white'
+                      : 'border border-border text-text-muted hover:bg-bg-muted',
+                  )}
                 >
                   {p}
                 </button>
@@ -290,11 +288,11 @@ export function DataTableV2<T = Record<string, unknown>>({
             <button
               disabled={page >= totalPages || loading}
               onClick={() => onPageChange(page + 1)}
-              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600
-                text-slate-500 dark:text-slate-400
-                hover:bg-slate-50 dark:hover:bg-slate-700
-                disabled:opacity-40 disabled:cursor-not-allowed
-                transition-colors cursor-pointer"
+              className={cn(
+                'p-1.5 rounded-lg border border-border text-text-muted',
+                'hover:bg-bg-muted disabled:opacity-40 disabled:cursor-not-allowed',
+                'transition-colors cursor-pointer',
+              )}
             >
               <ChevronRight size={14} />
             </button>

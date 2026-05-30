@@ -105,10 +105,10 @@ export const ACCENT_MAP: Record<AccentColor, {
     icon:   'bg-cyan-100     dark:bg-cyan-900/50',
   },
   slate:  {
-    text:   'text-slate-600   dark:text-slate-400',
-    bg:     'bg-slate-50      dark:bg-slate-900/40',
-    border: 'border-slate-200 dark:border-slate-700',
-    icon:   'bg-slate-100     dark:bg-slate-800/80',
+    text:   'text-text-muted',
+    bg:     'bg-bg-muted',
+    border: 'border-border',
+    icon:   'bg-bg-muted',
   },
 };
 
@@ -125,13 +125,13 @@ export const STATUS_CLASS: Record<string, string> = {
   WARNING:   'text-amber-700   bg-amber-50    dark:text-amber-300   dark:bg-amber-950/40',
   DANGER:    'text-red-700     bg-red-50      dark:text-red-300     dark:bg-red-950/40',
   INFO:      'text-blue-700    bg-blue-50     dark:text-blue-300    dark:bg-blue-950/40',
-  DISABLED:  'text-slate-500   bg-slate-100   dark:text-slate-400   dark:bg-slate-800',
-  NEUTRAL:   'text-slate-600   bg-slate-100   dark:text-slate-400   dark:bg-slate-800',
+  DISABLED:  'text-text-dim bg-bg-muted',
+  NEUTRAL:   'text-text-muted bg-bg-muted',
   PENDING:   'text-amber-700   bg-amber-50    dark:text-amber-300   dark:bg-amber-950/40',
   RUNNING:   'text-emerald-700 bg-emerald-50  dark:text-emerald-300 dark:bg-emerald-950/40',
   ACTIVE:    'text-emerald-700 bg-emerald-50  dark:text-emerald-300 dark:bg-emerald-950/40',
   FROZEN:    'text-blue-700    bg-blue-50     dark:text-blue-300    dark:bg-blue-950/40',
-  CANCELLED: 'text-slate-500   bg-slate-100   dark:text-slate-400   dark:bg-slate-800',
+  CANCELLED: 'text-text-dim bg-bg-muted',
   COMPLETED: 'text-violet-700  bg-violet-50   dark:text-violet-300  dark:bg-violet-950/40',
   // 应收账款状态
   OPEN:               'text-orange-700 bg-orange-50  dark:text-orange-300 dark:bg-orange-950/40',
@@ -144,7 +144,7 @@ export const STATUS_CLASS: Record<string, string> = {
   PARTIALLY_PAID: 'text-blue-700   bg-blue-50   dark:text-blue-300   dark:bg-blue-950/40',
   PAID:           'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/40',
   // 通用业务状态
-  DRAFT:          'text-slate-600  bg-slate-100 dark:text-slate-400  dark:bg-slate-800',
+  DRAFT:          'text-text-muted bg-bg-muted',
   APPROVED:       'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/40',
   REJECTED:       'text-red-700    bg-red-50    dark:text-red-300    dark:bg-red-950/40',
   SUBMITTED:      'text-blue-700   bg-blue-50   dark:text-blue-300   dark:bg-blue-950/40',
@@ -155,7 +155,7 @@ export const STATUS_CLASS: Record<string, string> = {
   PENDING_APPROVAL:  'text-amber-700 bg-amber-50 dark:text-amber-300 dark:bg-amber-950/40',
   PENDING_EXECUTION: 'text-blue-700  bg-blue-50  dark:text-blue-300  dark:bg-blue-950/40',
   NORMAL:         'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/40',
-  CLOSED:         'text-slate-500  bg-slate-100 dark:text-slate-400  dark:bg-slate-800',
+  CLOSED:         'text-text-dim bg-bg-muted',
 };
 
 /** 状态 → 中文标签 */

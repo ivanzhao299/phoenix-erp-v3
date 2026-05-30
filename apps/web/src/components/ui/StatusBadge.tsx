@@ -32,7 +32,7 @@ export function StatusBadge({
 }: StatusBadgeProps) {
   const key = status?.toUpperCase() ?? '';
   const cls = STATUS_CLASS[key as keyof typeof STATUS_CLASS]
-    ?? 'text-slate-600 bg-slate-100 dark:text-slate-400 dark:bg-slate-800';
+    ?? 'text-text-muted bg-bg-muted';
   const displayLabel = label ?? STATUS_LABEL[key] ?? key;
 
   return (
