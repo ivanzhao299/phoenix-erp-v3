@@ -104,7 +104,7 @@ export default function ProcurementDashboardPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const token = sessionStorage.getItem("phx_token");
+      const token = sessionStorage.getItem("phoenix_token");
       const headers = { Authorization: `Bearer ${token}` };
       const qs = buildQs();
       const base = `${API}/api/v2/procurement/dashboard`;

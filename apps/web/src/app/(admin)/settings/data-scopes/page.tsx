@@ -51,7 +51,7 @@ export default function DataScopesPage() {
     setLoading(true);
     try {
       const res = await fetch('/api/org/data-scopes', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { Authorization: `Bearer ${sessionStorage.getItem('phoenix_token')}` },
       });
       const json = await res.json();
       if (json.code === 200) {
@@ -75,7 +75,7 @@ export default function DataScopesPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${sessionStorage.getItem('phoenix_token')}`,
         },
         body: JSON.stringify({ scopeType }),
       });
@@ -98,7 +98,7 @@ export default function DataScopesPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${sessionStorage.getItem('phoenix_token')}`,
         },
         body: JSON.stringify({ enabled: !scope.enabled }),
       });
@@ -118,7 +118,7 @@ export default function DataScopesPage() {
     try {
       const res = await fetch(`/api/org/data-scopes/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { Authorization: `Bearer ${sessionStorage.getItem('phoenix_token')}` },
       });
       const json = await res.json();
       if (json.code === 200) {
@@ -142,7 +142,7 @@ export default function DataScopesPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${sessionStorage.getItem('phoenix_token')}`,
         },
         body: JSON.stringify({ roleCode: newRoleCode.trim(), moduleCode: newModuleCode.trim(), scopeType: newScopeType }),
       });
