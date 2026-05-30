@@ -91,9 +91,9 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="rounded-2xl border bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 p-5 shadow-sm">
+    <div className="rounded-2xl border bg-bg-card border-border p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm text-slate-500 dark:text-slate-400">{title}</span>
+        <span className="text-sm text-text-muted">{title}</span>
         <div
           className="w-9 h-9 rounded-xl flex items-center justify-center"
           style={{ background: `${color}18` }}
@@ -101,7 +101,7 @@ function StatCard({
           <Icon size={18} color={color} />
         </div>
       </div>
-      <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{value}</div>
+      <div className="text-2xl font-bold text-text">{value}</div>
       {sub && <div className="text-xs text-slate-400 mt-1">{sub}</div>}
     </div>
   );
@@ -175,7 +175,7 @@ export default function InventoryAnalyticsPage() {
           <button
             onClick={() => void load()}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted transition-colors cursor-pointer disabled:opacity-50"
           >
             <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
             刷新
@@ -185,7 +185,7 @@ export default function InventoryAnalyticsPage() {
 
       {/* 错误提示 */}
       {error && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
           <AlertCircle size={16} />
           {error}
         </div>
@@ -227,8 +227,8 @@ export default function InventoryAnalyticsPage() {
           </div>
 
           {/* 等级分布 */}
-          <div className="rounded-2xl border bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm mb-6 p-5">
-            <div className="font-semibold text-sm text-slate-700 dark:text-slate-200 mb-4">
+          <div className="rounded-2xl border bg-bg-card border-border shadow-sm mb-6 p-5">
+            <div className="font-semibold text-sm text-text-muted mb-4">
               等级分布
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -254,9 +254,9 @@ export default function InventoryAnalyticsPage() {
           </div>
 
           {/* 最近批次记录 */}
-          <div className="rounded-2xl border bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
-              <span className="font-semibold text-sm text-slate-700 dark:text-slate-200">
+          <div className="rounded-2xl border bg-bg-card border-border shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <span className="font-semibold text-sm text-text-muted">
                 最近批次记录
               </span>
             </div>
@@ -266,7 +266,7 @@ export default function InventoryAnalyticsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+                    <tr className="text-xs text-text-muted border-b border-border">
                       <th className="text-left px-5 py-3 font-medium">批次号</th>
                       <th className="text-left px-5 py-3 font-medium">等级</th>
                       <th className="text-right px-5 py-3 font-medium">库存量（kg）</th>
@@ -281,9 +281,9 @@ export default function InventoryAnalyticsPage() {
                       return (
                         <tr
                           key={b.id}
-                          className="border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+                          className="border-b border-border/50 hover:bg-bg-muted/30 transition-colors"
                         >
-                          <td className="px-5 py-3 font-mono text-slate-700 dark:text-slate-300">
+                          <td className="px-5 py-3 font-mono text-text-muted">
                             {b.batch_no}
                           </td>
                           <td className="px-5 py-3">
@@ -297,18 +297,18 @@ export default function InventoryAnalyticsPage() {
                               {b.grade ?? b.sku_code ?? "—"}
                             </span>
                           </td>
-                          <td className="px-5 py-3 text-right text-slate-700 dark:text-slate-300">
+                          <td className="px-5 py-3 text-right text-text-muted">
                             {fmtNum(b.quantity_kg ?? b.qty)}
                           </td>
-                          <td className="px-5 py-3 text-slate-600 dark:text-slate-400">
+                          <td className="px-5 py-3 text-text-muted">
                             {fmtDate(b.grading_date)}
                           </td>
-                          <td className="px-5 py-3 text-slate-600 dark:text-slate-400">
+                          <td className="px-5 py-3 text-text-muted">
                             {b.house_code ?? "—"}
                           </td>
                           <td className="px-5 py-3">
                             {days !== null && days < 7 ? (
-                              <span className="text-xs font-semibold text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">
+                              <span className="text-xs font-semibold text-red-500 bg-danger/10 px-2 py-0.5 rounded-full">
                                 临期 ({days}天)
                               </span>
                             ) : (

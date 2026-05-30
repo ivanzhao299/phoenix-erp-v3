@@ -36,7 +36,7 @@ function KpiCard({ label, value, sub, icon: Icon, color }: {
   icon?: React.ElementType; color?: string;
 }) {
   return (
-    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+    <div className="bg-bg-card border border-border"
       style={{ borderRadius: 14, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         {Icon && (
@@ -48,17 +48,17 @@ function KpiCard({ label, value, sub, icon: Icon, color }: {
             <Icon size={16} color={color ?? 'var(--color-primary)'} />
           </div>
         )}
-        <span className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{label}</span>
+        <span className="text-text-muted" style={{ fontSize: 11 }}>{label}</span>
       </div>
-      <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 18, fontWeight: 800 }}>{value}</div>
-      {sub && <div className="text-slate-400 dark:text-slate-500" style={{ fontSize: 11, marginTop: 2 }}>{sub}</div>}
+      <div className="text-text" style={{ fontSize: 18, fontWeight: 800 }}>{value}</div>
+      {sub && <div className="text-text-dim" style={{ fontSize: 11, marginTop: 2 }}>{sub}</div>}
     </div>
   );
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 13, fontWeight: 600, margin: '20px 0 10px' }}>
+    <div className="text-text-muted" style={{ fontSize: 13, fontWeight: 600, margin: '20px 0 10px' }}>
       {children}
     </div>
   );
@@ -66,7 +66,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 function TableWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <div className="border border-slate-200 dark:border-slate-700" style={{ overflowX: 'auto', borderRadius: 12 }}>
+    <div className="border border-border" style={{ overflowX: 'auto', borderRadius: 12 }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         {children}
       </table>
@@ -76,7 +76,7 @@ function TableWrapper({ children }: { children: React.ReactNode }) {
 
 function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
-    <th className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400"
+    <th className="bg-bg-muted border-b border-border text-text-muted"
       style={{
         padding: '10px 14px', textAlign: right ? 'right' : 'left',
         fontSize: 11, fontWeight: 700,
@@ -87,7 +87,7 @@ function Th({ children, right }: { children: React.ReactNode; right?: boolean })
 
 function Td({ children, right, bold }: { children: React.ReactNode; right?: boolean; bold?: boolean }) {
   return (
-    <td className={bold ? 'text-slate-900 dark:text-slate-100 border-b border-slate-100 dark:border-slate-700' : 'text-slate-700 dark:text-slate-300 border-b border-slate-100 dark:border-slate-700'}
+    <td className={bold ? 'text-text border-b border-border' : 'text-text-muted border-b border-border'}
       style={{
         padding: '9px 14px', textAlign: right ? 'right' : 'left',
         fontWeight: bold ? 700 : 400, whiteSpace: 'nowrap',
@@ -119,7 +119,7 @@ function AgingBar({ notDue, d030, d3160, d6190, dOver90, total }: {
 
 function Spinner() {
   return (
-    <div className="text-slate-400 dark:text-slate-500" style={{ display: 'flex', justifyContent: 'center', padding: '48px' }}>
+    <div className="text-text-dim" style={{ display: 'flex', justifyContent: 'center', padding: '48px' }}>
       <RefreshCw size={20} style={{ animation: 'spin 1s linear infinite' }} />
     </div>
   );
@@ -127,7 +127,7 @@ function Spinner() {
 
 function Empty({ text = '暂无数据' }: { text?: string }) {
   return (
-    <div className="text-slate-400 dark:text-slate-500" style={{ textAlign: 'center', padding: '32px', fontSize: 13 }}>
+    <div className="text-text-dim" style={{ textAlign: 'center', padding: '32px', fontSize: 13 }}>
       {text}
     </div>
   );
@@ -209,10 +209,10 @@ function OverviewTab() {
           <SectionTitle>现金余额 — 按币种</SectionTitle>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
             {data.byCurrency.map(r => (
-              <div key={r.currencyCode} className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
+              <div key={r.currencyCode} className="bg-bg-muted border border-border"
                 style={{ borderRadius: 10, padding: '10px 16px' }}>
-                <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{r.currencyCode}</div>
-                <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 16, fontWeight: 800 }}>{fmtMoney(r.cashBalance)}</div>
+                <div className="text-text-muted" style={{ fontSize: 11 }}>{r.currencyCode}</div>
+                <div className="text-text" style={{ fontSize: 16, fontWeight: 800 }}>{fmtMoney(r.cashBalance)}</div>
               </div>
             ))}
           </div>
@@ -460,11 +460,11 @@ function CashTab() {
           <SectionTitle>按账户类型</SectionTitle>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
             {overview.byAccountType.map(r => (
-              <div key={r.accountType} className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
+              <div key={r.accountType} className="bg-bg-muted border border-border"
                 style={{ borderRadius: 10, padding: '10px 16px', minWidth: 140 }}>
-                <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11, marginBottom: 2 }}>{r.accountType}</div>
-                <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 15, fontWeight: 800 }}>{fmtMoney(r.balance)}</div>
-                <div className="text-slate-400 dark:text-slate-500" style={{ fontSize: 11 }}>{r.count} 个账户</div>
+                <div className="text-text-muted" style={{ fontSize: 11, marginBottom: 2 }}>{r.accountType}</div>
+                <div className="text-text" style={{ fontSize: 15, fontWeight: 800 }}>{fmtMoney(r.balance)}</div>
+                <div className="text-text-dim" style={{ fontSize: 11 }}>{r.count} 个账户</div>
               </div>
             ))}
           </div>
@@ -508,7 +508,7 @@ function CashTab() {
                     </div>
                   ))}
                 </div>
-                <div className="text-slate-500 dark:text-slate-400" style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11 }}>
+                <div className="text-text-muted" style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ width: 10, height: 10, background: 'var(--status-success)', borderRadius: 2, display: 'inline-block' }} />流入
                   </span>
@@ -597,13 +597,13 @@ function ExpenseTab() {
         <>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
             {Object.entries(expData.byStatus).map(([status, d]) => (
-              <div key={status} className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
+              <div key={status} className="bg-bg-muted border border-border"
                 style={{ borderRadius: 10, padding: '10px 16px', minWidth: 130 }}>
                 <div style={{ fontSize: 11, color: STATUS_COLOR[status] ?? 'var(--status-neutral)', fontWeight: 700 }}>
                   {STATUS_LABEL[status] ?? status}
                 </div>
-                <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 16, fontWeight: 800 }}>{d.count} 笔</div>
-                <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{fmtMoney(d.amount)}</div>
+                <div className="text-text" style={{ fontSize: 16, fontWeight: 800 }}>{d.count} 笔</div>
+                <div className="text-text-muted" style={{ fontSize: 11 }}>{fmtMoney(d.amount)}</div>
               </div>
             ))}
           </div>
@@ -665,13 +665,13 @@ function ExpenseTab() {
         <>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
             {Object.entries(reimbData.byStatus).map(([status, d]) => (
-              <div key={status} className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
+              <div key={status} className="bg-bg-muted border border-border"
                 style={{ borderRadius: 10, padding: '10px 16px', minWidth: 130 }}>
                 <div style={{ fontSize: 11, color: STATUS_COLOR[status] ?? 'var(--status-neutral)', fontWeight: 700 }}>
                   {STATUS_LABEL[status] ?? status}
                 </div>
-                <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 16, fontWeight: 800 }}>{d.count} 笔</div>
-                <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{fmtMoney(d.amount)}</div>
+                <div className="text-text" style={{ fontSize: 16, fontWeight: 800 }}>{d.count} 笔</div>
+                <div className="text-text-muted" style={{ fontSize: 11 }}>{fmtMoney(d.amount)}</div>
               </div>
             ))}
           </div>
@@ -745,11 +745,11 @@ function ShareholderTab() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
             {data.byContributionType.map(r => (
               <div key={r.contributionType}
-                className="border border-violet-200 dark:border-violet-700 bg-violet-50 dark:bg-slate-700"
+                className="border border-violet-200 dark:border-violet-700 bg-violet-50"
                 style={{ borderRadius: 10, padding: '10px 16px', minWidth: 140 }}>
                 <div className="text-violet-700 dark:text-violet-400" style={{ fontSize: 11, fontWeight: 700 }}>{r.contributionType}</div>
-                <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 15, fontWeight: 800 }}>{fmtMoney(r.totalAmount)}</div>
-                <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>余额 {fmtMoney(r.balanceAmount)}</div>
+                <div className="text-text" style={{ fontSize: 15, fontWeight: 800 }}>{fmtMoney(r.totalAmount)}</div>
+                <div className="text-text-muted" style={{ fontSize: 11 }}>余额 {fmtMoney(r.balanceAmount)}</div>
               </div>
             ))}
           </div>
@@ -769,7 +769,7 @@ function ShareholderTab() {
                   <Td bold>{r.shareholderName}</Td>
                   <Td>{r.companyCode}</Td>
                   <Td>
-                    <span className="text-amber-600 dark:text-amber-400" style={{ fontWeight: 600 }}>
+                    <span className="text-warning" style={{ fontWeight: 600 }}>
                       {String(r.expectedReturnDate).slice(0, 10)}
                     </span>
                   </Td>
@@ -813,13 +813,13 @@ function ProjectTab() {
           value={filter}
           onChange={e => setFilter(e.target.value)}
           placeholder="过滤项目代码…"
-          className="text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+          className="text-text-muted border border-border bg-bg-card placeholder:text-text-dim dark:placeholder:text-slate-500"
           style={{
             padding: '7px 12px', borderRadius: 8,
             fontSize: 13, width: 220, outline: 'none',
           }}
         />
-        <span className="text-slate-400 dark:text-slate-500" style={{ fontSize: 12 }}>{rows.length} 个项目</span>
+        <span className="text-text-dim" style={{ fontSize: 12 }}>{rows.length} 个项目</span>
       </div>
 
       {!rows.length ? <Empty text="暂无项目财务数据" /> : (
@@ -852,7 +852,7 @@ function ProjectTab() {
         </TableWrapper>
       )}
 
-      <div className="text-slate-400 dark:text-slate-500" style={{ marginTop: 12, fontSize: 11 }}>
+      <div className="text-text-dim" style={{ marginTop: 12, fontSize: 11 }}>
         净头寸 = AR 待收 − AP 待付 − 费用总额
       </div>
     </div>
@@ -917,7 +917,7 @@ function CompanyTab() {
           ))}
         </tbody>
       </TableWrapper>
-      <div className="text-slate-400 dark:text-slate-500" style={{ marginTop: 12, fontSize: 11 }}>
+      <div className="text-text-dim" style={{ marginTop: 12, fontSize: 11 }}>
         经营净头寸 = 现金余额 + AR 待收 − AP 待付 − 费用总额
       </div>
     </div>
@@ -974,7 +974,7 @@ export default function Finance2ReportsPage() {
       </div>
 
       {/* Tab 导航 */}
-      <div className="border-b-2 border-slate-200 dark:border-slate-700"
+      <div className="border-b-2 border-border"
         style={{ display: 'flex', gap: 4, marginBottom: 20, paddingBottom: 0, overflowX: 'auto' }}>
         {TABS.map(tab => {
           const active = activeTab === tab.key;
@@ -988,7 +988,7 @@ export default function Finance2ReportsPage() {
                 'border-b-2 -mb-0.5 whitespace-nowrap rounded-t-lg transition-colors',
                 active
                   ? 'text-indigo-600 dark:text-indigo-400 border-indigo-500 font-bold'
-                  : 'text-slate-500 dark:text-slate-400 border-transparent font-medium',
+                  : 'text-text-muted border-transparent font-medium',
               ].join(' ')}
             >
               <Icon size={14} />

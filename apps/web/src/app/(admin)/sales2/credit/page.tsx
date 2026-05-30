@@ -84,9 +84,9 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="rounded-2xl border bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 p-5 shadow-sm">
+    <div className="rounded-2xl border bg-white border-slate-100 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm text-slate-500 dark:text-slate-400">{title}</span>
+        <span className="text-sm text-slate-500">{title}</span>
         <div
           className="w-9 h-9 rounded-xl flex items-center justify-center"
           style={{ background: `${color}18` }}
@@ -94,7 +94,7 @@ function StatCard({
           <Icon size={18} color={color} />
         </div>
       </div>
-      <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{value}</div>
+      <div className="text-2xl font-bold text-slate-800">{value}</div>
       {sub && <div className="text-xs text-slate-400 mt-1">{sub}</div>}
     </div>
   );
@@ -107,7 +107,7 @@ function CreditBar({ rate }: { rate: number }) {
   const color = pct > 80 ? "#ef4444" : pct > 60 ? "#f59e0b" : "#10b981";
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+      <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
         <div
           className="h-full rounded-full transition-all"
           style={{ width: `${pct}%`, background: color }}
@@ -175,7 +175,7 @@ export default function CustomerCreditPage() {
           <button
             onClick={() => void load()}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
           >
             <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
             刷新
@@ -227,9 +227,9 @@ export default function CustomerCreditPage() {
           </div>
 
           {/* 客户信用列表 */}
-          <div className="rounded-2xl border bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
-              <span className="font-semibold text-sm text-slate-700 dark:text-slate-200">
+          <div className="rounded-2xl border bg-white border-slate-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <span className="font-semibold text-sm text-slate-700">
                 客户信用列表
               </span>
             </div>
@@ -239,7 +239,7 @@ export default function CustomerCreditPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+                    <tr className="text-xs text-slate-500 border-b border-slate-100">
                       <th className="text-left px-5 py-3 font-medium">客户名称</th>
                       <th className="text-right px-5 py-3 font-medium">信用额度</th>
                       <th className="text-right px-5 py-3 font-medium">已用额度</th>
@@ -254,15 +254,15 @@ export default function CustomerCreditPage() {
                       return (
                         <tr
                           key={c.id}
-                          className="border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+                          className="border-b border-border/30 hover:bg-slate-50 hover:bg-bg-muted/30 transition-colors"
                         >
-                          <td className="px-5 py-3 font-medium text-slate-700 dark:text-slate-200">
+                          <td className="px-5 py-3 font-medium text-slate-700">
                             {c.customer_name ?? c.name ?? `客户${c.id}`}
                           </td>
-                          <td className="px-5 py-3 text-right text-slate-600 dark:text-slate-400">
+                          <td className="px-5 py-3 text-right text-slate-600">
                             {fmtMoney(c.credit_limit)}
                           </td>
-                          <td className="px-5 py-3 text-right text-slate-700 dark:text-slate-300">
+                          <td className="px-5 py-3 text-right text-slate-700">
                             {fmtMoney(c.credit_used)}
                           </td>
                           <td className="px-5 py-3 w-48">

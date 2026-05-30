@@ -29,7 +29,7 @@ function KVSection({
   const { t } = useLanguage();
   return (
     <div className="mb-5">
-      <div className="font-semibold text-sm text-slate-700 dark:text-slate-200 mb-2">
+      <div className="font-semibold text-sm text-text-muted mb-2">
         {title}
         <span className="ml-1 text-xs text-slate-400 font-normal">({items.length} {t("ui.条", "条")})</span>
       </div>
@@ -40,14 +40,14 @@ function KVSection({
           {items.map((item, i) => (
             <div
               key={i}
-              className="bg-slate-50 dark:bg-slate-700/50 rounded-lg px-4 py-2.5 text-xs flex flex-wrap gap-x-5 gap-y-1"
+              className="bg-bg-muted/50 rounded-lg px-4 py-2.5 text-xs flex flex-wrap gap-x-5 gap-y-1"
             >
               {keys.map(
                 (k) =>
                   item[k] != null && (
                     <span key={k}>
-                      <b className="text-slate-500 dark:text-slate-400">{k}: </b>
-                      <span className="text-slate-700 dark:text-slate-200">{String(item[k])}</span>
+                      <b className="text-text-muted">{k}: </b>
+                      <span className="text-text-muted">{String(item[k])}</span>
                     </span>
                   )
               )}
@@ -102,7 +102,7 @@ export default function ForwardTracePage() {
           onChange={(e) => setBatchNo(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && void trace()}
           placeholder={t("ui.输入批次号", "输入批次号，如：B-20260510-001")}
-          className="flex-1 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 px-4 py-2.5 text-sm outline-none focus:border-indigo-400 dark:focus:border-indigo-500 transition-colors"
+          className="flex-1 rounded-xl border border-border bg-bg-card text-text px-4 py-2.5 text-sm outline-none focus:border-indigo-400 dark:focus:border-indigo-500 transition-colors"
         />
         <button
           type="button"
@@ -117,27 +117,27 @@ export default function ForwardTracePage() {
 
       {/* 错误 */}
       {error && (
-        <div className="mb-4 text-sm text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3">
+        <div className="mb-4 text-sm text-danger bg-danger/10 border border-danger/20 rounded-xl px-4 py-3">
           {t("ui.查询失败", "查询失败")}：{error}
         </div>
       )}
 
       {/* 结果 */}
       {result && (
-        <div className="rounded-2xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm p-5">
+        <div className="rounded-2xl border border-border bg-bg-card shadow-sm p-5">
           {/* 批次信息 */}
           <div className="mb-5">
             <div className="font-semibold text-sm text-indigo-600 dark:text-indigo-400 mb-2">
               📦 {t("ui.批次信息", "批次信息")}
             </div>
             {result.batch ? (
-              <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg px-4 py-2.5 text-xs flex flex-wrap gap-x-5 gap-y-1">
+              <div className="bg-bg-muted/50 rounded-lg px-4 py-2.5 text-xs flex flex-wrap gap-x-5 gap-y-1">
                 {BATCH_KEYS.map(
                   (k) =>
                     result.batch![k] != null && (
                       <span key={k}>
-                        <b className="text-slate-500 dark:text-slate-400">{k}: </b>
-                        <span className="text-slate-700 dark:text-slate-200">{String(result.batch![k])}</span>
+                        <b className="text-text-muted">{k}: </b>
+                        <span className="text-text-muted">{String(result.batch![k])}</span>
                       </span>
                     )
                 )}

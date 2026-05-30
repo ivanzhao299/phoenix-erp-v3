@@ -87,9 +87,9 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="rounded-2xl border bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 p-5 shadow-sm">
+    <div className="rounded-2xl border bg-bg-card border-border p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm text-slate-500 dark:text-slate-400">{title}</span>
+        <span className="text-sm text-text-muted">{title}</span>
         <div
           className="w-9 h-9 rounded-xl flex items-center justify-center"
           style={{ background: `${color}18` }}
@@ -97,7 +97,7 @@ function StatCard({
           <Icon size={18} color={color} />
         </div>
       </div>
-      <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{value}</div>
+      <div className="text-2xl font-bold text-text">{value}</div>
       {sub && <div className="text-xs text-slate-400 mt-1">{sub}</div>}
     </div>
   );
@@ -156,7 +156,7 @@ export default function ProductionAnalyticsPage() {
           <button
             onClick={() => void load()}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted transition-colors cursor-pointer disabled:opacity-50"
           >
             <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
             刷新
@@ -166,7 +166,7 @@ export default function ProductionAnalyticsPage() {
 
       {/* 错误提示 */}
       {error && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
           <AlertCircle size={16} />
           {error}
         </div>
@@ -208,9 +208,9 @@ export default function ProductionAnalyticsPage() {
           </div>
 
           {/* 最近10天日报 */}
-          <div className="rounded-2xl border bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
-              <span className="font-semibold text-sm text-slate-700 dark:text-slate-200">
+          <div className="rounded-2xl border bg-bg-card border-border shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <span className="font-semibold text-sm text-text-muted">
                 最近日报记录
               </span>
             </div>
@@ -220,7 +220,7 @@ export default function ProductionAnalyticsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+                    <tr className="text-xs text-text-muted border-b border-border">
                       <th className="text-left px-5 py-3 font-medium">日期</th>
                       <th className="text-left px-5 py-3 font-medium">鸡舍</th>
                       <th className="text-left px-5 py-3 font-medium">鸡群</th>
@@ -232,21 +232,21 @@ export default function ProductionAnalyticsPage() {
                     {recent.map((r) => (
                       <tr
                         key={r.id}
-                        className="border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+                        className="border-b border-border/50 hover:bg-bg-muted/30 transition-colors"
                       >
-                        <td className="px-5 py-3 text-slate-700 dark:text-slate-300">
+                        <td className="px-5 py-3 text-text-muted">
                           {fmtDate(getDate(r))}
                         </td>
-                        <td className="px-5 py-3 text-slate-600 dark:text-slate-400">
+                        <td className="px-5 py-3 text-text-muted">
                           {r.house_code ?? "—"}
                         </td>
-                        <td className="px-5 py-3 text-slate-600 dark:text-slate-400">
+                        <td className="px-5 py-3 text-text-muted">
                           {r.flock_no ?? "—"}
                         </td>
-                        <td className="px-5 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">
+                        <td className="px-5 py-3 text-right font-semibold text-text-muted">
                           {fmtNum(getEggs(r))}
                         </td>
-                        <td className="px-5 py-3 text-right text-slate-600 dark:text-slate-400">
+                        <td className="px-5 py-3 text-right text-text-muted">
                           {fmtNum(Number(r.dead_count ?? 0) + Number(r.culled_count ?? 0))}
                         </td>
                       </tr>

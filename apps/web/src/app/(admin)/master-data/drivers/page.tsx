@@ -59,7 +59,7 @@ export default function MdDriversPage() {
   useEffect(() => { if (canView) load(); }, [canView, load]);
 
   if (!canView) return (
-    <div className="text-slate-500 dark:text-slate-400" style={{ padding: 40, textAlign: "center" }}>无权限查看司机档案</div>
+    <div className="text-slate-500" style={{ padding: 40, textAlign: "center" }}>无权限查看司机档案</div>
   );
 
   const filtered = items.filter(d => {
@@ -68,7 +68,7 @@ export default function MdDriversPage() {
   });
 
   return (
-    <div className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 min-h-screen" style={{ padding: "24px 32px" }}>
+    <div className="bg-white text-slate-800 min-h-screen" style={{ padding: "24px 32px" }}>
       <PageHeader
         title="司机档案"
         subtitle="配送管理 · 司机主档"
@@ -79,10 +79,10 @@ export default function MdDriversPage() {
         <div style={{ position: "relative", flex: "0 0 260px" }}>
           <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#475569" }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索姓名 / 电话..."
-            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+            className="bg-slate-50 border border-slate-200 text-slate-800"
             style={{ width: "100%", padding: "7px 10px 7px 32px", borderRadius: 7, fontSize: 13, outline: "none" }} />
         </div>
-        <button onClick={load} className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 7, fontSize: 13, cursor: "pointer" }}>
+        <button onClick={load} className="bg-slate-50 border border-slate-200 text-slate-500" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 7, fontSize: 13, cursor: "pointer" }}>
           <RefreshCw size={13} /> 刷新
         </button>
         <div style={{ flex: 1 }} />
@@ -91,7 +91,7 @@ export default function MdDriversPage() {
         </Link>
       </div>
 
-      <div className="text-slate-500 dark:text-slate-400" style={{ marginBottom: 12, fontSize: 12 }}>
+      <div className="text-slate-500" style={{ marginBottom: 12, fontSize: 12 }}>
         共 <span style={{ fontWeight: 600 }}>{filtered.length}</span> 名司机
       </div>
 
@@ -100,12 +100,12 @@ export default function MdDriversPage() {
       ) : error ? (
         <div style={{ padding: 40, textAlign: "center", color: "#ef4444" }}>{error}</div>
       ) : (
-        <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" style={{ borderRadius: 10, overflow: "auto" }}>
+        <div className="bg-slate-50 border border-slate-200" style={{ borderRadius: 10, overflow: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr className="bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400" style={{ fontSize: 12 }}>
+              <tr className="bg-white text-slate-500" style={{ fontSize: 12 }}>
                 {["姓名", "电话", "驾照号", "驾照类型", "状态"].map(h => (
-                  <th key={h} className="border-b border-slate-200 dark:border-slate-700" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
+                  <th key={h} className="border-b border-slate-200" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -115,14 +115,14 @@ export default function MdDriversPage() {
               ) : filtered.map((d, i) => {
                 const st = STATUS_MAP[d.status ?? "ACTIVE"] ?? { label: d.status ?? "-", color: "#64748b" };
                 return (
-                  <tr key={d.id ?? i} className="border-b border-slate-100 dark:border-slate-800"
+                  <tr key={d.id ?? i} className="border-b border-slate-100"
                     onMouseEnter={e => (e.currentTarget.style.background = "rgba(148,163,184,0.08)")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                   >
-                    <td className="text-slate-800 dark:text-slate-200" style={{ padding: "10px 14px", fontWeight: 500 }}>{d.name ?? d.driverName ?? "-"}</td>
-                    <td className="text-slate-500 dark:text-slate-400" style={{ padding: "10px 14px" }}>{d.phone ?? "-"}</td>
-                    <td className="text-slate-500 dark:text-slate-400" style={{ padding: "10px 14px", fontFamily: "monospace" }}>{d.licenseNo ?? "-"}</td>
-                    <td className="text-slate-500 dark:text-slate-400" style={{ padding: "10px 14px" }}>{d.licenseType ?? "-"}</td>
+                    <td className="text-slate-800" style={{ padding: "10px 14px", fontWeight: 500 }}>{d.name ?? d.driverName ?? "-"}</td>
+                    <td className="text-slate-500" style={{ padding: "10px 14px" }}>{d.phone ?? "-"}</td>
+                    <td className="text-slate-500" style={{ padding: "10px 14px", fontFamily: "monospace" }}>{d.licenseNo ?? "-"}</td>
+                    <td className="text-slate-500" style={{ padding: "10px 14px" }}>{d.licenseType ?? "-"}</td>
                     <td style={{ padding: "10px 14px" }}>
                       <span style={{ padding: "2px 8px", borderRadius: 4, background: `${st.color}22`, color: st.color, fontSize: 11, fontWeight: 600 }}>{st.label}</span>
                     </td>

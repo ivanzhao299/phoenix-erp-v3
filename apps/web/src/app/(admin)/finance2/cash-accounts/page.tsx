@@ -143,18 +143,18 @@ function CreateAccountModal({
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
-      <div className="bg-white dark:bg-slate-800"
+      <div className="bg-bg-card"
         style={{ borderRadius: 16, padding: 28, width: 520, maxHeight: '90vh',
           overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>新建资金账户</div>
+          <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>新建资金账户</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
             <X size={18} className="text-slate-400" />
           </button>
         </div>
 
         {err && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-2" style={{ marginBottom: 14 }}>
+          <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger flex items-center gap-2" style={{ marginBottom: 14 }}>
             {err}
           </div>
         )}
@@ -171,12 +171,12 @@ function CreateAccountModal({
             { label: '银行账号', key: 'bankAccountNo', placeholder: '1234 5678 9012 3456' },
           ].map(f => (
             <div key={f.key}>
-              <div className="text-slate-700 dark:text-slate-300 text-xs font-semibold" style={{ marginBottom: 4 }}>{f.label}</div>
+              <div className="text-text-muted text-xs font-semibold" style={{ marginBottom: 4 }}>{f.label}</div>
               <input
                 value={(form as Record<string, string>)[f.key]}
                 onChange={e => set(f.key, e.target.value)}
                 placeholder={f.placeholder}
-                className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 w-full"
+                className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full"
                 style={{ boxSizing: 'border-box' }}
               />
             </div>
@@ -184,7 +184,7 @@ function CreateAccountModal({
         </div>
 
         <div style={{ marginTop: 12 }}>
-          <div className="text-slate-700 dark:text-slate-300 text-xs font-semibold" style={{ marginBottom: 4 }}>账户类型 *</div>
+          <div className="text-text-muted text-xs font-semibold" style={{ marginBottom: 4 }}>账户类型 *</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {Object.entries(ACCOUNT_TYPE_LABELS).map(([k, v]) => (
               <button
@@ -196,7 +196,7 @@ function CreateAccountModal({
                   background: form.accountType === k ? ACCOUNT_TYPE_COLORS[k] + '18' : undefined,
                   color: form.accountType === k ? ACCOUNT_TYPE_COLORS[k] : undefined,
                 }}
-                className={form.accountType === k ? '' : 'bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600'}
+                className={form.accountType === k ? '' : 'bg-bg-page text-text-muted border-border'}
               >
                 {v}
               </button>
@@ -205,13 +205,13 @@ function CreateAccountModal({
         </div>
 
         <div style={{ marginTop: 12 }}>
-          <div className="text-slate-700 dark:text-slate-300 text-xs font-semibold" style={{ marginBottom: 4 }}>备注</div>
+          <div className="text-text-muted text-xs font-semibold" style={{ marginBottom: 4 }}>备注</div>
           <textarea
             value={form.remark}
             onChange={e => set('remark', e.target.value)}
             placeholder="可选"
             rows={2}
-            className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 w-full"
+            className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full"
             style={{ resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
           />
         </div>
@@ -219,7 +219,7 @@ function CreateAccountModal({
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
+            className="px-4 py-2 rounded-lg border border-border bg-bg-page text-text-muted text-sm cursor-pointer hover:bg-bg-muted transition-colors"
           >
             取消
           </button>
@@ -260,13 +260,13 @@ function TransactionDrawer({
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
       display: 'flex', justifyContent: 'flex-end',
     }}>
-      <div className="bg-white dark:bg-slate-800"
+      <div className="bg-bg-card"
         style={{ width: 520, height: '100vh', overflowY: 'auto',
           padding: 24, boxShadow: '-8px 0 32px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
           <div>
-            <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>{account.accountName}</div>
-            <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 12, marginTop: 2 }}>{account.accountCode} · {account.currencyCode}</div>
+            <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>{account.accountName}</div>
+            <div className="text-text-muted" style={{ fontSize: 12, marginTop: 2 }}>{account.accountCode} · {account.currencyCode}</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
             <X size={18} className="text-slate-400" />
@@ -284,16 +284,16 @@ function TransactionDrawer({
           </div>
         </div>
 
-        <div className="text-slate-700 dark:text-slate-300" style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>最近 50 条流水</div>
+        <div className="text-text-muted" style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>最近 50 条流水</div>
 
         {loading ? (
-          <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 32, fontSize: 13 }}>加载中…</div>
+          <div className="text-text-muted" style={{ textAlign: 'center', padding: 32, fontSize: 13 }}>加载中…</div>
         ) : txns.length === 0 ? (
-          <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 32, fontSize: 13 }}>暂无流水记录</div>
+          <div className="text-text-muted" style={{ textAlign: 'center', padding: 32, fontSize: 13 }}>暂无流水记录</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {txns.map(t => (
-              <div key={t.id} className={t.direction === 'IN' ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800'}
+              <div key={t.id} className={t.direction === 'IN' ? 'bg-success/10 border border-green-200 dark:border-green-800' : 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800'}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '10px 12px', borderRadius: 10,
@@ -301,25 +301,25 @@ function TransactionDrawer({
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                     {t.direction === 'IN'
-                      ? <TrendingUp size={13} className="text-green-600 dark:text-green-400" />
+                      ? <TrendingUp size={13} className="text-success" />
                       : <TrendingDown size={13} className="text-orange-600 dark:text-orange-400" />}
-                    <span className="text-slate-700 dark:text-slate-300" style={{ fontSize: 12, fontWeight: 600 }}>
+                    <span className="text-text-muted" style={{ fontSize: 12, fontWeight: 600 }}>
                       {SOURCE_TYPE_LABELS[t.sourceType ?? ''] ?? t.sourceType ?? '-'}
                     </span>
                     {t.sourceNo && (
-                      <span className="text-slate-400 dark:text-slate-500" style={{ fontSize: 11 }}>{t.sourceNo}</span>
+                      <span className="text-text-dim" style={{ fontSize: 11 }}>{t.sourceNo}</span>
                     )}
                   </div>
-                  <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>
+                  <div className="text-text-muted" style={{ fontSize: 11 }}>
                     {new Date(t.txnDate).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                     {t.remark && ` · ${t.remark}`}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 700, fontSize: 14 }} className={t.direction === 'IN' ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }} className={t.direction === 'IN' ? 'text-success' : 'text-orange-600 dark:text-orange-400'}>
                     {t.direction === 'IN' ? '+' : '-'}{fmt(t.amount)}
                   </div>
-                  <div className="text-slate-400 dark:text-slate-500" style={{ fontSize: 11 }}>余 {fmt(t.balanceAfter)}</div>
+                  <div className="text-text-dim" style={{ fontSize: 11 }}>余 {fmt(t.balanceAfter)}</div>
                 </div>
               </div>
             ))}
@@ -400,16 +400,16 @@ export default function CashAccountsPage() {
           { label: '账户总余额', value: `¥ ${fmt(totalBalance)}`, icon: <DollarSign size={18} className="text-blue-500" />, accent: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800' },
           { label: '账户总数', value: `${summary?.totalAccounts ?? 0} 个`, icon: <Wallet size={18} className="text-violet-500" />, accent: 'bg-violet-50 dark:bg-violet-950/40 border-violet-200 dark:border-violet-800' },
           { label: '正常账户', value: `${summary?.activeCount ?? 0} 个`, icon: <Activity size={18} className="text-emerald-500" />, accent: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800' },
-          { label: '冻结账户', value: `${summary?.frozenCount ?? 0} 个`, icon: <Lock size={18} className="text-amber-500" />, accent: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800' },
+          { label: '冻结账户', value: `${summary?.frozenCount ?? 0} 个`, icon: <Lock size={18} className="text-amber-500" />, accent: 'bg-amber-50 dark:bg-amber-950/40 border-warning/20' },
         ].map(c => (
           <div key={c.label} className={`border-[1.5px] rounded-2xl ${c.accent}`}
             style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-bg-page flex items-center justify-center flex-shrink-0">
               {c.icon}
             </div>
             <div>
-              <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11, marginBottom: 2 }}>{c.label}</div>
-              <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 18, fontWeight: 800 }}>{c.value}</div>
+              <div className="text-text-muted" style={{ fontSize: 11, marginBottom: 2 }}>{c.label}</div>
+              <div className="text-text" style={{ fontSize: 18, fontWeight: 800 }}>{c.value}</div>
             </div>
           </div>
         ))}
@@ -423,7 +423,7 @@ export default function CashAccountsPage() {
             value={keyword}
             onChange={e => setKeyword(e.target.value)}
             placeholder="搜索账户名称/编号…"
-            className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 w-full"
+            className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full"
             style={{ paddingLeft: 32, boxSizing: 'border-box' }}
           />
         </div>
@@ -437,7 +437,7 @@ export default function CashAccountsPage() {
               className={`px-3 py-1 rounded-full text-xs cursor-pointer font-medium transition-colors border-0 ${
                 typeFilter === k
                   ? 'bg-blue-600 text-white font-bold'
-                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                  : 'bg-bg-muted text-text-muted hover:bg-slate-200 dark:hover:bg-slate-600'
               }`}
             >
               {v}
@@ -454,7 +454,7 @@ export default function CashAccountsPage() {
               className={`px-3 py-1 rounded-full text-xs cursor-pointer font-medium transition-colors border-0 ${
                 statusFilter === k
                   ? 'bg-violet-600 text-white font-bold'
-                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                  : 'bg-bg-muted text-text-muted hover:bg-slate-200 dark:hover:bg-slate-600'
               }`}
             >
               {v}
@@ -465,7 +465,7 @@ export default function CashAccountsPage() {
         <button
           onClick={() => void load()}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted cursor-pointer transition-colors disabled:opacity-50"
         >
           <RefreshCw size={14} className="text-slate-400" style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
         </button>
@@ -473,9 +473,9 @@ export default function CashAccountsPage() {
 
       {/* 账户列表 */}
       {loading ? (
-        <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 48, fontSize: 14 }}>加载中…</div>
+        <div className="text-text-muted" style={{ textAlign: 'center', padding: 48, fontSize: 14 }}>加载中…</div>
       ) : accounts.length === 0 ? (
-        <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 48, fontSize: 14 }}>
+        <div className="text-text-muted" style={{ textAlign: 'center', padding: 48, fontSize: 14 }}>
           <Wallet size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.4 }} />
           暂无资金账户，点击「新建账户」开始管理
         </div>
@@ -485,7 +485,7 @@ export default function CashAccountsPage() {
             <div
               key={acc.id}
               onClick={() => setSelectedAccount(acc)}
-              className="bg-white dark:bg-slate-800 hover:shadow-md transition-shadow cursor-pointer"
+              className="bg-bg-card hover:shadow-card-hover transition-shadow cursor-pointer"
               style={{
                 borderRadius: 14,
                 border: `1.5px solid ${acc.status === 'FROZEN' ? '#fde68a' : acc.status === 'CLOSED' ? '#e2e8f0' : '#e8f4fd'}`,
@@ -496,10 +496,10 @@ export default function CashAccountsPage() {
               {/* 顶部行 */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                 <div>
-                  <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
+                  <div className="text-text" style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
                     {acc.accountName}
                   </div>
-                  <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{acc.accountCode}</div>
+                  <div className="text-text-muted" style={{ fontSize: 11 }}>{acc.accountCode}</div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                   <StatusBadge status={acc.status} label={STATUS_LABELS[acc.status] ?? acc.status} />
@@ -514,15 +514,15 @@ export default function CashAccountsPage() {
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 }}>
                 <div>
-                  <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 10, marginBottom: 2 }}>当前余额</div>
+                  <div className="text-text-muted" style={{ fontSize: 10, marginBottom: 2 }}>当前余额</div>
                   <div className="text-blue-800 dark:text-blue-300" style={{ fontWeight: 800, fontSize: 18 }}>
                     {acc.currencyCode} {fmt(acc.currentBalance)}
                   </div>
                 </div>
                 {acc.bankName && (
-                  <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11, textAlign: 'right' }}>
+                  <div className="text-text-muted" style={{ fontSize: 11, textAlign: 'right' }}>
                     <div>{acc.bankName}</div>
-                    {acc.bankAccountNo && <div className="text-slate-400 dark:text-slate-500">{acc.bankAccountNo.slice(-4).padStart(acc.bankAccountNo.length, '*')}</div>}
+                    {acc.bankAccountNo && <div className="text-text-dim">{acc.bankAccountNo.slice(-4).padStart(acc.bankAccountNo.length, '*')}</div>}
                   </div>
                 )}
               </div>
@@ -536,7 +536,7 @@ export default function CashAccountsPage() {
                   <button
                     onClick={() => doAction(acc.id, 'freeze')}
                     disabled={actionLoading === acc.id + 'freeze'}
-                    className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-warning/20 bg-warning/10 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors disabled:opacity-50"
                   >
                     <Lock size={11} /> 冻结
                   </button>
@@ -545,7 +545,7 @@ export default function CashAccountsPage() {
                   <button
                     onClick={() => doAction(acc.id, 'unfreeze')}
                     disabled={actionLoading === acc.id + 'unfreeze'}
-                    className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-emerald-200 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-emerald-200 dark:border-emerald-700 bg-success/10 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
                   >
                     <Unlock size={11} /> 解冻
                   </button>
@@ -557,7 +557,7 @@ export default function CashAccountsPage() {
                         void doAction(acc.id, 'close');
                       }
                     }}
-                    className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                    className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-border bg-bg-muted text-text-muted hover:bg-bg-muted transition-colors"
                   >
                     <X size={11} /> 关闭
                   </button>

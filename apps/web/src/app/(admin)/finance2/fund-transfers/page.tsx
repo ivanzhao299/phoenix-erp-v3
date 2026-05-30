@@ -44,11 +44,11 @@ interface CashAccount {
 const API = '/api/v2/finance/cash';
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; badgeClass: string }> = {
-  DRAFT:            { label: '草稿',   badgeClass: 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400',           icon: <Clock size={12} /> },
+  DRAFT:            { label: '草稿',   badgeClass: 'bg-bg-muted text-text-muted',           icon: <Clock size={12} /> },
   PENDING_APPROVAL: { label: '待审批', badgeClass: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300',       icon: <AlertCircle size={12} /> },
   APPROVED:         { label: '已审批', badgeClass: 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300',           icon: <CheckCircle size={12} /> },
   EXECUTED:         { label: '已执行', badgeClass: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300', icon: <CheckCircle size={12} /> },
-  CANCELLED:        { label: '已取消', badgeClass: 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500',           icon: <X size={12} /> },
+  CANCELLED:        { label: '已取消', badgeClass: 'bg-bg-muted text-text-dim',           icon: <X size={12} /> },
 };
 
 function fmt(n: number | string | null | undefined): string {
@@ -59,7 +59,7 @@ function fmt(n: number | string | null | undefined): string {
 // ── Status Badge ─────────────────────────────────────────────────────────────
 
 function LocalStatusBadge({ status }: { status: string }) {
-  const c = STATUS_CONFIG[status] ?? { label: status, badgeClass: 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400', icon: null };
+  const c = STATUS_CONFIG[status] ?? { label: status, badgeClass: 'bg-bg-muted text-text-muted', icon: null };
   return (
     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${c.badgeClass}`}>
       {c.icon}{c.label}
@@ -115,31 +115,31 @@ function CreateTransferModal({
     }
   }
 
-  const selectClass = "w-full px-3 py-2 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 outline-none focus:border-emerald-400 box-border";
+  const selectClass = "w-full px-3 py-2 rounded-lg text-sm border border-border bg-bg-page text-text outline-none focus:border-emerald-400 box-border";
 
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
-      <div className="bg-white dark:bg-slate-800"
+      <div className="bg-bg-card"
         style={{ borderRadius: 16, padding: 28, width: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>新建资金转账</div>
+          <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>新建资金转账</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
             <X size={18} className="text-slate-400" />
           </button>
         </div>
 
         {err && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-2 mb-3.5">
+          <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger flex items-center gap-2 mb-3.5">
             {err}
           </div>
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>转出账户 <span className="text-red-500">*</span></div>
+            <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>转出账户 <span className="text-red-500">*</span></div>
             <select value={form.fromAccountId} onChange={e => set('fromAccountId', e.target.value)} className={selectClass}>
               <option value="">请选择转出账户</option>
               {accounts.map(a => (
@@ -151,13 +151,13 @@ function CreateTransferModal({
           </div>
 
           {fromAcc && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
+            <div className="bg-info/10 rounded-lg px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
               当前余额：{fromAcc.currencyCode} {fmt(fromAcc.currentBalance)}
             </div>
           )}
 
           <div>
-            <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>转入账户 <span className="text-red-500">*</span></div>
+            <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>转入账户 <span className="text-red-500">*</span></div>
             <select value={form.toAccountId} onChange={e => set('toAccountId', e.target.value)} className={selectClass}>
               <option value="">请选择转入账户</option>
               {accounts.filter(a => a.id !== form.fromAccountId).map(a => (
@@ -169,7 +169,7 @@ function CreateTransferModal({
           </div>
 
           <div>
-            <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>转账金额 <span className="text-red-500">*</span></div>
+            <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>转账金额 <span className="text-red-500">*</span></div>
             <input
               type="number" min="0.01" step="0.01"
               value={form.amountOriginal}
@@ -180,7 +180,7 @@ function CreateTransferModal({
           </div>
 
           <div>
-            <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>备注</div>
+            <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>备注</div>
             <textarea
               value={form.remark}
               onChange={e => set('remark', e.target.value)}
@@ -191,12 +191,12 @@ function CreateTransferModal({
           </div>
         </div>
 
-        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 text-xs text-amber-700 dark:text-amber-300 my-3.5 leading-relaxed">
+        <div className="bg-warning/10 border border-warning/20 rounded-xl px-4 py-3 text-xs text-amber-700 dark:text-amber-300 my-3.5 leading-relaxed">
           💡 创建后状态为「草稿」，需提交审批 → 审批通过 → 执行，才会实际扣减账户余额。
         </div>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 6 }}>
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border bg-bg-page text-sm text-text-muted cursor-pointer hover:bg-bg-muted transition-colors">
             取消
           </button>
           <button
@@ -284,7 +284,7 @@ export default function FundTransfersPage() {
             value={keyword}
             onChange={e => setKeyword(e.target.value)}
             placeholder="搜索单号/账户名称…"
-            className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 w-full pl-8"
+            className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full pl-8"
           />
         </div>
 
@@ -296,7 +296,7 @@ export default function FundTransfersPage() {
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border transition-colors ${
                 statusFilter === k
                   ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                  : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
+                  : 'border-border bg-bg-card text-text-muted hover:bg-bg-muted'
               }`}
             >
               {v}
@@ -307,26 +307,26 @@ export default function FundTransfersPage() {
         <button
           onClick={() => void load()}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors disabled:opacity-40"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted cursor-pointer transition-colors disabled:opacity-40"
         >
           <RefreshCw size={14} className="block" />
         </button>
 
-        <span className="text-slate-500 dark:text-slate-400" style={{ fontSize: 12 }}>共 {total} 条</span>
+        <span className="text-text-muted" style={{ fontSize: 12 }}>共 {total} 条</span>
       </div>
 
       {/* 转账列表 */}
       {loading ? (
-        <div className="text-slate-400 dark:text-slate-500 text-sm text-center py-12">加载中…</div>
+        <div className="text-text-dim text-sm text-center py-12">加载中…</div>
       ) : transfers.length === 0 ? (
-        <div className="text-slate-500 dark:text-slate-400 text-sm text-center py-12">
+        <div className="text-text-muted text-sm text-center py-12">
           <ArrowLeftRight size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.4 }} />
           暂无转账记录
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {transfers.map(t => (
-            <div key={t.id} className="bg-white dark:bg-slate-800"
+            <div key={t.id} className="bg-bg-card"
               style={{
                 borderRadius: 14,
                 border: `1.5px solid ${t.status === 'EXECUTED' ? '#bbf7d0' : t.status === 'CANCELLED' ? '#e2e8f0' : '#e8f4fd'}`,
@@ -337,21 +337,21 @@ export default function FundTransfersPage() {
                 {/* 左侧信息 */}
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                    <span className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 13 }}>{t.transferNo}</span>
+                    <span className="text-text" style={{ fontWeight: 700, fontSize: 13 }}>{t.transferNo}</span>
                     <LocalStatusBadge status={t.status} />
-                    <span className="text-slate-400 dark:text-slate-500" style={{ fontSize: 11 }}>
+                    <span className="text-text-dim" style={{ fontSize: 11 }}>
                       {new Date(t.createdAt).toLocaleDateString('zh-CN')} · {t.createdBy ?? '-'}
                     </span>
                   </div>
 
                   {/* 转账路径 */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                    <div className="bg-amber-50 dark:bg-amber-900/20" style={{ borderRadius: 8, padding: '6px 12px', fontSize: 12 }}>
+                    <div className="bg-warning/10" style={{ borderRadius: 8, padding: '6px 12px', fontSize: 12 }}>
                       <div className="text-amber-800 dark:text-amber-300" style={{ fontWeight: 600 }}>{t.fromAccountName}</div>
-                      <div className="text-amber-600 dark:text-amber-400" style={{ fontSize: 11 }}>{t.fromAccountCode}</div>
+                      <div className="text-warning" style={{ fontSize: 11 }}>{t.fromAccountCode}</div>
                     </div>
-                    <ArrowLeftRight size={16} className="text-slate-400 dark:text-slate-500" />
-                    <div className="bg-emerald-50 dark:bg-emerald-900/20" style={{ borderRadius: 8, padding: '6px 12px', fontSize: 12 }}>
+                    <ArrowLeftRight size={16} className="text-text-dim" />
+                    <div className="bg-success/10" style={{ borderRadius: 8, padding: '6px 12px', fontSize: 12 }}>
                       <div className="text-emerald-800 dark:text-emerald-300" style={{ fontWeight: 600 }}>{t.toAccountName}</div>
                       <div className="text-emerald-600 dark:text-emerald-400" style={{ fontSize: 11 }}>{t.toAccountCode}</div>
                     </div>
@@ -364,19 +364,19 @@ export default function FundTransfersPage() {
                   </div>
 
                   {t.remark && (
-                    <div className="text-slate-400 dark:text-slate-500" style={{ fontSize: 11, marginTop: 4 }}>备注：{t.remark}</div>
+                    <div className="text-text-dim" style={{ fontSize: 11, marginTop: 4 }}>备注：{t.remark}</div>
                   )}
                 </div>
               </div>
 
               {/* 操作按钮 */}
               {!['EXECUTED', 'CANCELLED'].includes(t.status) && (
-                <div className="border-t border-slate-100 dark:border-slate-700" style={{ display: 'flex', gap: 8, marginTop: 12, paddingTop: 12 }}>
+                <div className="border-t border-border" style={{ display: 'flex', gap: 8, marginTop: 12, paddingTop: 12 }}>
                   {t.status === 'DRAFT' && (
                     <button
                       onClick={() => doAction(t.id, 'submit', `确认提交转账单 ${t.transferNo} 至审批？`)}
                       disabled={actionLoading === t.id + 'submit'}
-                      className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 disabled:opacity-50 transition-colors"
+                      className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-info/20 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 disabled:opacity-50 transition-colors"
                     >
                       <Send size={12} /> 提交审批
                     </button>
@@ -394,7 +394,7 @@ export default function FundTransfersPage() {
                     <button
                       onClick={() => doAction(t.id, 'execute', `确认执行转账 ${t.transferNo}？将实际划转 ${t.currencyCode} ${fmt(t.amountOriginal)}。`)}
                       disabled={actionLoading === t.id + 'execute'}
-                      className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-emerald-200 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-900 dark:text-emerald-200 disabled:opacity-50 transition-colors"
+                      className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-emerald-200 dark:border-emerald-700 bg-success/10 text-emerald-900 dark:text-emerald-200 disabled:opacity-50 transition-colors"
                     >
                       <Play size={12} /> 执行转账
                     </button>
@@ -402,7 +402,7 @@ export default function FundTransfersPage() {
                   <button
                     onClick={() => doAction(t.id, 'cancel', `确认取消转账单 ${t.transferNo}？`)}
                     disabled={actionLoading === t.id + 'cancel'}
-                    className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-danger/20 bg-danger/10 text-danger disabled:opacity-50 transition-colors"
                   >
                     <X size={12} /> 取消
                   </button>

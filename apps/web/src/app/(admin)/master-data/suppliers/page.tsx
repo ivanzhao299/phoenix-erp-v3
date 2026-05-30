@@ -81,11 +81,11 @@ export default function MdSuppliersPage() {
   useEffect(() => { if (canView) load(); }, [canView, load]);
 
   if (!canView) return (
-    <div className="text-slate-500 dark:text-slate-400" style={{ padding: 40, textAlign: "center" }}>无权限查看供应商档案</div>
+    <div className="text-slate-500" style={{ padding: 40, textAlign: "center" }}>无权限查看供应商档案</div>
   );
 
   return (
-    <div className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 min-h-screen" style={{ padding: "24px 32px" }}>
+    <div className="bg-white text-slate-800 min-h-screen" style={{ padding: "24px 32px" }}>
       <PageHeader
         title="供应商档案"
         subtitle="供应商主档 · 多国多币种"
@@ -99,11 +99,11 @@ export default function MdSuppliersPage() {
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
             placeholder="搜索供应商名称 / 编码..."
-            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+            className="bg-slate-50 border border-slate-200 text-slate-800"
             style={{ width: "100%", padding: "7px 10px 7px 32px", borderRadius: 7, fontSize: 13, outline: "none" }}
           />
         </div>
-        <button onClick={load} className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 7, fontSize: 13, cursor: "pointer" }}>
+        <button onClick={load} className="bg-slate-50 border border-slate-200 text-slate-500" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 7, fontSize: 13, cursor: "pointer" }}>
           <RefreshCw size={13} /> 刷新
         </button>
         <div style={{ flex: 1 }} />
@@ -112,7 +112,7 @@ export default function MdSuppliersPage() {
         </Link>
       </div>
 
-      <div className="text-slate-500 dark:text-slate-400" style={{ marginBottom: 12, fontSize: 12 }}>
+      <div className="text-slate-500" style={{ marginBottom: 12, fontSize: 12 }}>
         共 <span style={{ fontWeight: 600 }}>{total}</span> 家供应商
       </div>
 
@@ -121,12 +121,12 @@ export default function MdSuppliersPage() {
       ) : error ? (
         <div style={{ padding: 40, textAlign: "center", color: "#ef4444" }}>{error}</div>
       ) : (
-        <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" style={{ borderRadius: 10, overflow: "auto" }}>
+        <div className="bg-slate-50 border border-slate-200" style={{ borderRadius: 10, overflow: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr className="bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400" style={{ fontSize: 12 }}>
+              <tr className="bg-white text-slate-500" style={{ fontSize: 12 }}>
                 {["供应商编码", "供应商名称", "类型", "国家", "货币", "共享范围", "联系人", "状态"].map(h => (
-                  <th key={h} className="border-b border-slate-200 dark:border-slate-700" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
+                  <th key={h} className="border-b border-slate-200" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -136,17 +136,17 @@ export default function MdSuppliersPage() {
               ) : items.map((s, i) => {
                 const st = STATUS_MAP[s.status] ?? { label: s.status, color: "#64748b" };
                 return (
-                  <tr key={s.id ?? i} className="border-b border-slate-100 dark:border-slate-800"
+                  <tr key={s.id ?? i} className="border-b border-slate-100"
                     onMouseEnter={e => (e.currentTarget.style.background = "rgba(148,163,184,0.08)")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                   >
-                    <td className="text-slate-500 dark:text-slate-400" style={{ padding: "10px 14px", fontFamily: "monospace" }}>{s.supplierCode}</td>
-                    <td className="text-slate-800 dark:text-slate-200" style={{ padding: "10px 14px", fontWeight: 500 }}>{s.supplierName}{s.supplierNameEn ? <span className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11, marginLeft: 6 }}>{s.supplierNameEn}</span> : null}</td>
-                    <td className="text-slate-500 dark:text-slate-400" style={{ padding: "10px 14px" }}>{TYPE_MAP[s.supplierType ?? ""] ?? s.supplierType ?? "-"}</td>
-                    <td className="text-slate-500 dark:text-slate-400" style={{ padding: "10px 14px" }}>{s.countryCode ?? "-"}</td>
-                    <td className="text-slate-500 dark:text-slate-400" style={{ padding: "10px 14px" }}>{s.defaultCurrency ?? "-"}</td>
-                    <td className="text-slate-500 dark:text-slate-400" style={{ padding: "10px 14px" }}>{SCOPE_MAP[s.sharedScope ?? ""] ?? s.sharedScope ?? "-"}</td>
-                    <td className="text-slate-500 dark:text-slate-400" style={{ padding: "10px 14px" }}>{s.contactName ?? "-"}</td>
+                    <td className="text-slate-500" style={{ padding: "10px 14px", fontFamily: "monospace" }}>{s.supplierCode}</td>
+                    <td className="text-slate-800" style={{ padding: "10px 14px", fontWeight: 500 }}>{s.supplierName}{s.supplierNameEn ? <span className="text-slate-500" style={{ fontSize: 11, marginLeft: 6 }}>{s.supplierNameEn}</span> : null}</td>
+                    <td className="text-slate-500" style={{ padding: "10px 14px" }}>{TYPE_MAP[s.supplierType ?? ""] ?? s.supplierType ?? "-"}</td>
+                    <td className="text-slate-500" style={{ padding: "10px 14px" }}>{s.countryCode ?? "-"}</td>
+                    <td className="text-slate-500" style={{ padding: "10px 14px" }}>{s.defaultCurrency ?? "-"}</td>
+                    <td className="text-slate-500" style={{ padding: "10px 14px" }}>{SCOPE_MAP[s.sharedScope ?? ""] ?? s.sharedScope ?? "-"}</td>
+                    <td className="text-slate-500" style={{ padding: "10px 14px" }}>{s.contactName ?? "-"}</td>
                     <td style={{ padding: "10px 14px" }}>
                       <span style={{ padding: "2px 8px", borderRadius: 4, background: `${st.color}22`, color: st.color, fontSize: 11, fontWeight: 600 }}>{st.label}</span>
                     </td>
@@ -160,9 +160,9 @@ export default function MdSuppliersPage() {
 
       {total > pageSize && (
         <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "center" }}>
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400" style={{ padding: "6px 14px", borderRadius: 6, cursor: "pointer" }}>上一页</button>
-          <span className="text-slate-500 dark:text-slate-400" style={{ padding: "6px 12px", fontSize: 13 }}>第 {page} 页 / 共 {Math.ceil(total / pageSize)} 页</span>
-          <button onClick={() => setPage(p => p + 1)} disabled={page >= Math.ceil(total / pageSize)} className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400" style={{ padding: "6px 14px", borderRadius: 6, cursor: "pointer" }}>下一页</button>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="bg-slate-50 border border-slate-200 text-slate-500" style={{ padding: "6px 14px", borderRadius: 6, cursor: "pointer" }}>上一页</button>
+          <span className="text-slate-500" style={{ padding: "6px 12px", fontSize: 13 }}>第 {page} 页 / 共 {Math.ceil(total / pageSize)} 页</span>
+          <button onClick={() => setPage(p => p + 1)} disabled={page >= Math.ceil(total / pageSize)} className="bg-slate-50 border border-slate-200 text-slate-500" style={{ padding: "6px 14px", borderRadius: 6, cursor: "pointer" }}>下一页</button>
         </div>
       )}
     </div>

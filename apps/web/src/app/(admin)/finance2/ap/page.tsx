@@ -112,9 +112,9 @@ function isOverdue(dueDate: string | null | undefined, status: string) {
 
 const AGING_MAP: Record<string, { label: string; colorClass: string }> = {
   NOT_DUE:  { label: '未到期',     colorClass: 'text-emerald-600 dark:text-emerald-400' },
-  '0_30':   { label: '逾期 ≤30天',  colorClass: 'text-amber-600 dark:text-amber-400' },
+  '0_30':   { label: '逾期 ≤30天',  colorClass: 'text-warning' },
   '31_60':  { label: '逾期 31-60天', colorClass: 'text-orange-600 dark:text-orange-400' },
-  '61_90':  { label: '逾期 61-90天', colorClass: 'text-red-600 dark:text-red-400' },
+  '61_90':  { label: '逾期 61-90天', colorClass: 'text-danger' },
   '90_PLUS':{ label: '逾期 >90天',  colorClass: 'text-red-800 dark:text-red-300' },
 };
 
@@ -123,11 +123,11 @@ const SOURCE_MAP: Record<string, { label: string; colorClass: string }> = {
   PO:            { label: '采购订单', colorClass: 'text-cyan-700 dark:text-cyan-300' },
   EXPENSE:       { label: '费用',   colorClass: 'text-amber-700 dark:text-amber-300' },
   REIMBURSEMENT: { label: '报销',   colorClass: 'text-violet-700 dark:text-violet-300' },
-  OPENING:       { label: '期初',   colorClass: 'text-slate-600 dark:text-slate-400' },
+  OPENING:       { label: '期初',   colorClass: 'text-text-muted' },
 };
 
 function AgingBadge({ bucket }: { bucket: string }) {
-  const cfg = AGING_MAP[bucket] ?? { label: bucket, colorClass: 'text-slate-500 dark:text-slate-400' };
+  const cfg = AGING_MAP[bucket] ?? { label: bucket, colorClass: 'text-text-muted' };
   if (bucket === 'NOT_DUE') return null;
   return (
     <span className={`text-[10px] font-bold ml-1 ${cfg.colorClass}`}>
@@ -137,7 +137,7 @@ function AgingBadge({ bucket }: { bucket: string }) {
 }
 
 function SourceBadge({ type }: { type: string }) {
-  const cfg = SOURCE_MAP[type] ?? { label: type, colorClass: 'text-slate-600 dark:text-slate-400' };
+  const cfg = SOURCE_MAP[type] ?? { label: type, colorClass: 'text-text-muted' };
   return (
     <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap bg-current/[0.08] ${cfg.colorClass}`}>
       {cfg.label}
@@ -152,17 +152,17 @@ function KpiCard({ label, value, sub, icon: Icon, color, loading }: {
   icon: React.ElementType; color: string; loading: boolean;
 }) {
   return (
-    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+    <div className="bg-bg-card border border-border"
       style={{ borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <Icon size={16} color={color} />
-        <span className="text-slate-500 dark:text-slate-400" style={{ fontSize: 12 }}>{label}</span>
+        <span className="text-text-muted" style={{ fontSize: 12 }}>{label}</span>
       </div>
-      <div className="text-slate-900 dark:text-slate-100" style={{ fontSize: 18, fontWeight: 800 }}>
+      <div className="text-text" style={{ fontSize: 18, fontWeight: 800 }}>
         {loading ? '…' : value}
       </div>
       {sub && !loading && (
-        <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11, marginTop: 2 }}>{sub}</div>
+        <div className="text-text-muted" style={{ fontSize: 11, marginTop: 2 }}>{sub}</div>
       )}
     </div>
   );
@@ -170,7 +170,7 @@ function KpiCard({ label, value, sub, icon: Icon, color, loading }: {
 
 // ── Modal 通用 input className ────────────────────────────────────────────────
 
-const INP_CLASS = 'w-full px-3 py-2 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-indigo-400 dark:focus:border-indigo-500 box-border';
+const INP_CLASS = 'w-full px-3 py-2 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-indigo-400 dark:focus:border-indigo-500 box-border';
 
 // ── 创建 AP Modal ─────────────────────────────────────────────────────────────
 
@@ -226,10 +226,10 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
     }}>
-      <div className="bg-white dark:bg-slate-800"
+      <div className="bg-bg-card"
         style={{ borderRadius: 16, width: 480, maxWidth: '95vw', padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>新建应付发票</div>
+          <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>新建应付发票</div>
           <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-1">
             <X size={18} className="text-slate-400" />
           </button>
@@ -238,14 +238,14 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <label className="block mb-1 text-xs font-semibold text-text-muted">
                 公司代码 <span className="text-red-500">*</span>
               </label>
               <input className={INP_CLASS} value={form.companyCode}
                 onChange={e => set('companyCode', e.target.value)} placeholder="如 HKJH" />
             </div>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <label className="block mb-1 text-xs font-semibold text-text-muted">
                 货币 <span className="text-red-500">*</span>
               </label>
               <select className={INP_CLASS} value={form.currencyCode}
@@ -258,7 +258,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           </div>
 
           <div>
-            <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <label className="block mb-1 text-xs font-semibold text-text-muted">
               供应商名称 <span className="text-red-500">*</span>
             </label>
             <input className={INP_CLASS} value={form.supplierName}
@@ -267,7 +267,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <label className="block mb-1 text-xs font-semibold text-text-muted">
                 发票金额 <span className="text-red-500">*</span>
               </label>
               <input className={INP_CLASS} type="number" min="0" step="0.01"
@@ -275,7 +275,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
                 placeholder="0.00" />
             </div>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <label className="block mb-1 text-xs font-semibold text-text-muted">
                 发票号
               </label>
               <input className={INP_CLASS} value={form.invoiceNo}
@@ -285,14 +285,14 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <label className="block mb-1 text-xs font-semibold text-text-muted">
                 发票日期
               </label>
               <input className={INP_CLASS} type="date" value={form.invoiceDate}
                 onChange={e => set('invoiceDate', e.target.value)} />
             </div>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <label className="block mb-1 text-xs font-semibold text-text-muted">
                 到期日
               </label>
               <input className={INP_CLASS} type="date" value={form.dueDate}
@@ -301,7 +301,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           </div>
 
           <div>
-            <label className="block mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <label className="block mb-1 text-xs font-semibold text-text-muted">
               备注
             </label>
             <textarea className={INP_CLASS} style={{ resize: 'none', height: 60 }} value={form.remark}
@@ -309,14 +309,14 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           </div>
 
           {err && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+            <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger flex items-center gap-2">
               <AlertCircle size={13} /> {err}
             </div>
           )}
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
             <button onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+              className="px-4 py-2 rounded-lg border border-border bg-bg-page text-sm text-text-muted cursor-pointer hover:bg-bg-muted transition-colors">
               取消
             </button>
             <button onClick={handleSubmit} disabled={saving}
@@ -375,26 +375,26 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: 900,
       display: 'flex', justifyContent: 'flex-end',
     }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white dark:bg-slate-800"
+      <div className="bg-bg-card"
         style={{ width: 480, maxWidth: '95vw', height: '100%', overflowY: 'auto',
           boxShadow: '-8px 0 40px rgba(0,0,0,0.12)', padding: 28,
           display: 'flex', flexDirection: 'column', gap: 18 }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 700, fontSize: 16 }}>应付发票详情</div>
+          <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>应付发票详情</div>
           <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-1">
             <X size={18} className="text-slate-400" />
           </button>
         </div>
 
         {loading && (
-          <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 40 }}>加载中…</div>
+          <div className="text-text-muted" style={{ textAlign: 'center', padding: 40 }}>加载中…</div>
         )}
 
         {!loading && detail && (
           <>
             {/* 基本信息 */}
-            <div className="bg-slate-50 dark:bg-slate-700" style={{ borderRadius: 10, padding: 16 }}>
+            <div className="bg-bg-muted" style={{ borderRadius: 10, padding: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm">
                   {detail.ap_no}
@@ -416,8 +416,8 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
                   ['备注', detail.remark ?? '—'],
                 ].map(([k, v]) => (
                   <div key={k}>
-                    <span className="text-slate-500 dark:text-slate-400">{k}：</span>
-                    <span className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 500 }}>{v}</span>
+                    <span className="text-text-muted">{k}：</span>
+                    <span className="text-text" style={{ fontWeight: 500 }}>{v}</span>
                   </div>
                 ))}
               </div>
@@ -426,13 +426,13 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
             {/* 金额 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
               {[
-                { label: '发票金额', value: fmtMoney(detail.amount_original, detail.currency_code), colorClass: 'text-slate-900 dark:text-slate-100' },
+                { label: '发票金额', value: fmtMoney(detail.amount_original, detail.currency_code), colorClass: 'text-text' },
                 { label: '已付金额', value: fmtMoney(detail.paid_amount_original, detail.currency_code), colorClass: 'text-emerald-600 dark:text-emerald-400' },
-                { label: '待付余额', value: fmtMoney(detail.balance_amount_original, detail.currency_code), colorClass: Number(detail.balance_amount_original) > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400' },
+                { label: '待付余额', value: fmtMoney(detail.balance_amount_original, detail.currency_code), colorClass: Number(detail.balance_amount_original) > 0 ? 'text-danger' : 'text-text-muted' },
               ].map(item => (
-                <div key={item.label} className="bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
+                <div key={item.label} className="bg-bg-page border border-border"
                   style={{ borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
-                  <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 10, marginBottom: 4 }}>{item.label}</div>
+                  <div className="text-text-muted" style={{ fontSize: 10, marginBottom: 4 }}>{item.label}</div>
                   <div className={`text-xs font-extrabold ${item.colorClass}`}>{item.value}</div>
                 </div>
               ))}
@@ -440,7 +440,7 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
 
             {/* 账龄 */}
             {detail.aging_bucket !== 'NOT_DUE' && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2 text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5">
+              <div className="bg-danger/10 border border-danger/20 rounded-lg px-3 py-2 text-xs text-danger flex items-center gap-1.5">
                 <AlertTriangle size={13} />
                 账龄：{AGING_MAP[detail.aging_bucket]?.label ?? detail.aging_bucket}
               </div>
@@ -448,24 +448,24 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
 
             {/* 付款核销记录 */}
             <div>
-              <div className="text-slate-700 dark:text-slate-300" style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+              <div className="text-text-muted" style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
                 付款核销记录（{detail.allocations.length} 条）
               </div>
               {detail.allocations.length === 0 ? (
-                <div className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: '16px 0', fontSize: 12 }}>
+                <div className="text-text-muted" style={{ textAlign: 'center', padding: '16px 0', fontSize: 12 }}>
                   暂无付款记录
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {detail.allocations.map(a => (
-                    <div key={a.id} className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-2.5 text-xs">
+                    <div key={a.id} className="bg-success/10 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-2.5 text-xs">
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                         <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">{a.alloc_no}</span>
                         <span className="font-bold text-emerald-800 dark:text-emerald-200">
                           {fmtMoney(a.amount_original, a.currency_code)}
                         </span>
                       </div>
-                      <div className="text-slate-500 dark:text-slate-400">
+                      <div className="text-text-muted">
                         {fmtDate(a.payment_date)}
                         {a.payment_method && <span> · {a.payment_method}</span>}
                         {a.reference_no && <span> · {a.reference_no}</span>}
@@ -482,7 +482,7 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
                 {!showCancel ? (
                   <button
                     onClick={() => setShowCancel(true)}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-red-200 dark:border-red-700 bg-white dark:bg-slate-800 text-sm text-red-600 dark:text-red-400 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-danger/20 bg-bg-card text-sm text-danger cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                   >
                     <Ban size={13} /> 取消应付发票
                   </button>
@@ -495,14 +495,14 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
                       value={cancelReason}
                       onChange={e => setCancelReason(e.target.value)}
                       placeholder="取消原因（可选）"
-                      className="w-full h-14 px-2.5 py-2 rounded-lg border border-red-200 dark:border-red-700 bg-white dark:bg-slate-700 text-xs text-slate-800 dark:text-slate-200 resize-none outline-none box-border"
+                      className="w-full h-14 px-2.5 py-2 rounded-lg border border-danger/20 bg-bg-page text-xs text-text resize-none outline-none box-border"
                     />
                     {cancelErr && (
-                      <div className="text-xs text-red-500 dark:text-red-400 mt-1.5">{cancelErr}</div>
+                      <div className="text-xs text-danger mt-1.5">{cancelErr}</div>
                     )}
                     <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                       <button onClick={() => { setShowCancel(false); setCancelErr(''); }}
-                        className="px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+                        className="px-3.5 py-1.5 rounded-lg border border-border bg-bg-page text-xs text-text-muted cursor-pointer hover:bg-bg-muted transition-colors">
                         放弃
                       </button>
                       <button onClick={handleCancel} disabled={cancelling}
@@ -516,10 +516,10 @@ function DetailDrawer({ invoiceId, onClose, onCancelled }: {
             )}
 
             {detail.status === 'CANCELLED' && (
-              <div className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"
+              <div className="bg-bg-muted border border-border"
                 style={{ borderRadius: 10, padding: '12px 14px', fontSize: 12,
                   display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <span className="text-text-muted flex items-center gap-1.5">
                   <Ban size={13} /> 此应付发票已取消
                 </span>
               </div>
@@ -636,7 +636,7 @@ export default function Finance2ApPage() {
             <button
               onClick={() => { loadList(page); loadSummary(); }}
               disabled={loading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted cursor-pointer transition-colors"
             >
               <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
               刷新
@@ -656,7 +656,7 @@ export default function Finance2ApPage() {
         <div className={`flex justify-between items-center px-4 py-3 rounded-xl mb-4 text-xs border ${
           importResult.failed > 0
             ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
-            : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+            : 'bg-success/10 border-emerald-200 dark:border-emerald-800'
         }`}>
           <span className={importResult.failed > 0 ? 'text-orange-700 dark:text-orange-300' : 'text-emerald-700 dark:text-emerald-300'}>
             导入完成：共 {importResult.total} 条，成功 {importResult.imported}，
@@ -694,8 +694,8 @@ export default function Finance2ApPage() {
       </div>
 
       {/* 筛选栏 */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex gap-2 flex-wrap items-center mb-3.5 px-3.5 py-3 rounded-xl">
-        <Filter size={14} className="text-slate-400 dark:text-slate-500" />
+      <div className="bg-bg-card border border-border flex gap-2 flex-wrap items-center mb-3.5 px-3.5 py-3 rounded-xl">
+        <Filter size={14} className="text-text-dim" />
 
         {/* 状态快速筛选 */}
         {[
@@ -709,19 +709,19 @@ export default function Finance2ApPage() {
             className={`px-3 py-1 rounded-full text-xs cursor-pointer font-medium transition-colors border-0 ${
               status === s.key
                 ? 'bg-indigo-600 text-white font-bold'
-                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                : 'bg-bg-muted text-text-muted hover:bg-slate-200 dark:hover:bg-slate-600'
             }`}>
             {s.label}
           </button>
         ))}
 
-        <div className="w-px h-5 bg-slate-200 dark:bg-slate-600 mx-1" />
+        <div className="w-px h-5 bg-border mx-1" />
 
         {/* 来源类型 */}
         <select
           value={sourceType}
           onChange={e => { setSourceType(e.target.value); setPage(1); }}
-          className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-600 text-xs bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer outline-none"
+          className="px-2.5 py-1 rounded-lg border border-border text-xs bg-bg-page text-text-muted cursor-pointer outline-none"
         >
           <option value="">全部来源</option>
           <option value="MANUAL">手工</option>
@@ -739,7 +739,7 @@ export default function Finance2ApPage() {
             onChange={e => setSearchInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
             placeholder="AP编号 / 供应商 / 发票号…"
-            className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-indigo-400 dark:focus:border-indigo-500 w-52"
+            className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-indigo-400 dark:focus:border-indigo-500 w-52"
           />
           <button onClick={handleSearch}
             className="px-3 py-1.5 rounded-lg text-sm bg-indigo-500 text-white border-0 cursor-pointer hover:bg-indigo-600 flex items-center gap-1 transition-colors">
@@ -749,30 +749,30 @@ export default function Finance2ApPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 mb-3.5 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+        <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 mb-3.5 text-sm text-danger flex items-center gap-2">
           <AlertTriangle size={14} /> {error}
         </div>
       )}
 
       {/* 表格 */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+      <div className="bg-bg-card border border-border"
         style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
+              <tr className="bg-bg-muted border-b border-border">
                 {['AP编号', '来源', '供应商', '公司', '发票日期', '到期日', '发票金额', '待付余额', '状态'].map(h => (
                   <th key={h} style={{ padding: '10px 14px', textAlign: 'left',
                     fontWeight: 600, fontSize: 12, whiteSpace: 'nowrap' }}
-                    className="text-slate-500 dark:text-slate-400">{h}</th>
+                    className="text-text-muted">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading && records.length === 0 ? (
-                <tr><td colSpan={9} className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 40 }}>加载中…</td></tr>
+                <tr><td colSpan={9} className="text-text-muted" style={{ textAlign: 'center', padding: 40 }}>加载中…</td></tr>
               ) : records.length === 0 ? (
-                <tr><td colSpan={9} className="text-slate-500 dark:text-slate-400" style={{ textAlign: 'center', padding: 40 }}>
+                <tr><td colSpan={9} className="text-text-muted" style={{ textAlign: 'center', padding: 40 }}>
                   暂无 AP 记录。
                   {!status && !keyword && (
                     <span> 可点击 <strong>从采购单导入</strong> 迁移历史数据，或 <strong>新建应付发票</strong>。</span>
@@ -782,7 +782,7 @@ export default function Finance2ApPage() {
                 <tr
                   key={r.id}
                   onClick={() => setSelectedId(r.id)}
-                  className={`border-b border-slate-50 dark:border-slate-700/50 cursor-pointer hover:bg-indigo-50 dark:hover:bg-slate-700/50 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-50/50 dark:bg-slate-700/20'}`}
+                  className={`border-b border-border/30 cursor-pointer hover:bg-indigo-50 hover:bg-bg-muted/50 transition-colors ${i % 2 === 0 ? '' : 'bg-bg-muted/20'}`}
                 >
                   <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}
                     className="font-mono text-indigo-600 dark:text-indigo-400">
@@ -792,26 +792,26 @@ export default function Finance2ApPage() {
                     <SourceBadge type={r.source_type} />
                   </td>
                   <td style={{ padding: '10px 14px', maxWidth: 160 }}>
-                    <div className="text-slate-900 dark:text-slate-100" style={{ fontWeight: 600 }}>{r.supplier_name}</div>
-                    {r.supplier_code && <div className="text-slate-500 dark:text-slate-400" style={{ fontSize: 11 }}>{r.supplier_code}</div>}
+                    <div className="text-text" style={{ fontWeight: 600 }}>{r.supplier_name}</div>
+                    {r.supplier_code && <div className="text-text-muted" style={{ fontSize: 11 }}>{r.supplier_code}</div>}
                   </td>
-                  <td className="text-slate-500 dark:text-slate-400" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                  <td className="text-text-muted" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                     {r.company_code}
                   </td>
-                  <td className="text-slate-500 dark:text-slate-400" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                  <td className="text-text-muted" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                     {fmtDate(r.invoice_date)}
                   </td>
                   <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-                    <span className={isOverdue(r.due_date, r.status) ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}>
+                    <span className={isOverdue(r.due_date, r.status) ? 'text-danger' : 'text-text-muted'}>
                       {fmtDate(r.due_date)}
                     </span>
                     <AgingBadge bucket={r.aging_bucket} />
                   </td>
-                  <td className="text-slate-900 dark:text-slate-100" style={{ padding: '10px 14px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  <td className="text-text" style={{ padding: '10px 14px', fontWeight: 600, whiteSpace: 'nowrap' }}>
                     {fmtMoney(r.amount_original, r.currency_code)}
                   </td>
                   <td style={{ padding: '10px 14px', fontWeight: 700, whiteSpace: 'nowrap' }}
-                    className={Number(r.balance_amount_original) > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}>
+                    className={Number(r.balance_amount_original) > 0 ? 'text-danger' : 'text-text-muted'}>
                     {fmtMoney(r.balance_amount_original, r.currency_code)}
                   </td>
                   <td style={{ padding: '10px 14px' }}>
@@ -824,19 +824,19 @@ export default function Finance2ApPage() {
         </div>
 
         {/* 分页 */}
-        <div className="border-t border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 flex justify-between items-center px-4 py-3 text-sm">
+        <div className="border-t border-border text-text-muted flex justify-between items-center px-4 py-3 text-sm">
           <span>共 {total} 条（第 {page} / {totalPages} 页）</span>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <button
               onClick={() => { const p = page - 1; setPage(p); loadList(p); }}
               disabled={page <= 1 || loading}
-              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center cursor-pointer"
+              className="p-1.5 rounded-lg border border-border bg-bg-page text-text-muted hover:bg-bg-muted disabled:opacity-40 disabled:cursor-not-allowed flex items-center cursor-pointer"
             ><ChevronLeft size={14} /></button>
             <span style={{ padding: '0 8px' }}>{page} / {totalPages}</span>
             <button
               onClick={() => { const p = page + 1; setPage(p); loadList(p); }}
               disabled={page >= totalPages || loading}
-              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center cursor-pointer"
+              className="p-1.5 rounded-lg border border-border bg-bg-page text-text-muted hover:bg-bg-muted disabled:opacity-40 disabled:cursor-not-allowed flex items-center cursor-pointer"
             ><ChevronRight size={14} /></button>
           </div>
         </div>

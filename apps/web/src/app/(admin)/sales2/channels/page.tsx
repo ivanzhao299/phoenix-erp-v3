@@ -174,7 +174,7 @@ export default function SalesChannelsPage() {
           <button
             onClick={() => void load()}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
           >
             <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
             刷新
@@ -207,7 +207,7 @@ export default function SalesChannelsPage() {
               return (
                 <div
                   key={type}
-                  className="rounded-2xl border bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 p-5 shadow-sm"
+                  className="rounded-2xl border bg-white border-slate-100 p-5 shadow-sm"
                 >
                   <div className="flex items-center gap-3 mb-3">
                     <div
@@ -217,13 +217,13 @@ export default function SalesChannelsPage() {
                       <Icon size={20} color={color} />
                     </div>
                     <div>
-                      <div className="font-semibold text-sm text-slate-800 dark:text-slate-100">
+                      <div className="font-semibold text-sm text-slate-800">
                         {label}
                       </div>
                       <div className="text-xs text-slate-400">{type}</div>
                     </div>
                   </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-3">
+                  <div className="text-xs text-slate-500 leading-relaxed mb-3">
                     {desc}
                   </div>
                   <div className="text-2xl font-bold" style={{ color }}>
@@ -243,9 +243,9 @@ export default function SalesChannelsPage() {
           )}
 
           {/* 客户列表 */}
-          <div className="rounded-2xl border bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
-              <span className="font-semibold text-sm text-slate-700 dark:text-slate-200">
+          <div className="rounded-2xl border bg-white border-slate-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <span className="font-semibold text-sm text-slate-700">
                 {channelsError ? "客户列表" : "渠道客户列表"}
               </span>
             </div>
@@ -255,7 +255,7 @@ export default function SalesChannelsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+                    <tr className="text-xs text-slate-500 border-b border-slate-100">
                       <th className="text-left px-5 py-3 font-medium">客户名称</th>
                       <th className="text-left px-5 py-3 font-medium">渠道类型</th>
                       <th className="text-left px-5 py-3 font-medium">状态</th>
@@ -268,9 +268,9 @@ export default function SalesChannelsPage() {
                       return (
                         <tr
                           key={c.id}
-                          className="border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+                          className="border-b border-border/30 hover:bg-slate-50 hover:bg-bg-muted/30 transition-colors"
                         >
-                          <td className="px-5 py-3 font-medium text-slate-700 dark:text-slate-200">
+                          <td className="px-5 py-3 font-medium text-slate-700">
                             {c.customer_name ?? c.name ?? `客户${c.id}`}
                           </td>
                           <td className="px-5 py-3">
@@ -291,10 +291,10 @@ export default function SalesChannelsPage() {
                             <span
                               className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                                 c.status === "ACTIVE"
-                                  ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20"
+                                  ? "text-emerald-600 bg-success/10"
                                   : c.status === "FROZEN"
                                   ? "text-red-500 bg-red-50 dark:bg-red-900/20"
-                                  : "text-slate-400 bg-slate-100 dark:bg-slate-700"
+                                  : "text-slate-400 bg-slate-100"
                               }`}
                             >
                               {c.status === "ACTIVE"

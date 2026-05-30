@@ -215,7 +215,7 @@ export default function AnalyticsDashboard() {
           const label = t(q.labelKey, q.labelDefault);
           return (
             <button key={q.path} type="button" onClick={() => router.push(q.path)}
-              className={`bg-white dark:bg-slate-800 rounded-2xl border p-5 cursor-pointer font-semibold text-sm flex flex-col items-center gap-2 transition-all hover:shadow-md hover:-translate-y-0.5 ${ac.border} ${ac.text}`}>
+              className={`bg-bg-card rounded-2xl border p-5 cursor-pointer font-semibold text-sm flex flex-col items-center gap-2 transition-all hover:shadow-card-hover hover:-translate-y-0.5 ${ac.border} ${ac.text}`}>
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${ac.icon}`}>
                 <q.Icon size={20} className={ac.text} />
               </div>

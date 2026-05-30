@@ -79,7 +79,7 @@ export default function PackagingSpecsPage() {
     finally { setSaving(false); }
   };
 
-  if (!canView) return <div className="text-slate-500 dark:text-slate-400" style={{ padding: 40, textAlign: "center" }}>无权限查看包装规格档案</div>;
+  if (!canView) return <div className="text-slate-500" style={{ padding: 40, textAlign: "center" }}>无权限查看包装规格档案</div>;
 
   const filtered = items.filter(s =>
     !search || s.spec_code.toLowerCase().includes(search.toLowerCase()) || s.spec_name.includes(search)
@@ -89,21 +89,21 @@ export default function PackagingSpecsPage() {
   const lbl: React.CSSProperties = { fontSize: 12, display: "block", marginTop: 12 };
 
   return (
-    <div className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 min-h-screen" style={{ padding: "24px 32px" }}>
+    <div className="bg-white text-slate-800 min-h-screen" style={{ padding: "24px 32px" }}>
       <PageHeader title="包装规格档案" subtitle="统一 packaging_spec 值集 · 含单位换算关系" breadcrumb={["主数据中心", "包装规格档案"]} />
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
         <div style={{ position: "relative", flex: "0 0 240px" }}>
           <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#475569" }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索规格编码 / 名称..."
-            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+            className="bg-slate-50 border border-slate-200 text-slate-800"
             style={{ ...inp, marginTop: 0, paddingLeft: 32 }} />
         </div>
-        <label className="text-slate-500 dark:text-slate-400" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
+        <label className="text-slate-500" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
           <input type="checkbox" checked={showAll} onChange={e => setShowAll(e.target.checked)} />
           显示停用
         </label>
-        <button onClick={load} className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400" style={{ padding: "7px 12px", borderRadius: 7, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+        <button onClick={load} className="bg-slate-50 border border-slate-200 text-slate-500" style={{ padding: "7px 12px", borderRadius: 7, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
           <RefreshCw size={13} /> 刷新
         </button>
         {canEdit && (
@@ -118,12 +118,12 @@ export default function PackagingSpecsPage() {
       {loading ? (
         <div style={{ textAlign: "center", padding: 40, color: "#475569" }}>加载中...</div>
       ) : (
-        <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" style={{ borderRadius: 10, overflow: "hidden" }}>
+        <div className="bg-slate-50 border border-slate-200" style={{ borderRadius: 10, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr className="bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400">
+              <tr className="bg-white text-slate-500">
                 {["规格编码","规格名称","每单位数量","基础单位","显示单位","排序","状态",""].map((h, i) => (
-                  <th key={i} className="border-b border-slate-200 dark:border-slate-700" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 500 }}>{h}</th>
+                  <th key={i} className="border-b border-slate-200" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 500 }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -132,15 +132,15 @@ export default function PackagingSpecsPage() {
                 <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", color: "#475569" }}>暂无数据</td></tr>
               )}
               {filtered.map((s, i) => (
-                <tr key={s.spec_code} className="border-b border-slate-200 dark:border-slate-700" style={{ background: i % 2 ? "rgba(148,163,184,0.05)" : "transparent" }}>
+                <tr key={s.spec_code} className="border-b border-slate-200" style={{ background: i % 2 ? "rgba(148,163,184,0.05)" : "transparent" }}>
                   <td style={{ padding: "10px 14px" }}>
-                    <span className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700" style={{ borderRadius: 5, padding: "2px 8px", fontFamily: "monospace", fontWeight: 600 }}>{s.spec_code}</span>
+                    <span className="bg-white border border-slate-200" style={{ borderRadius: 5, padding: "2px 8px", fontFamily: "monospace", fontWeight: 600 }}>{s.spec_code}</span>
                   </td>
                   <td style={{ padding: "10px 14px" }}>{s.spec_name}</td>
                   <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "monospace", color: "#f59e0b" }}>{s.qty_per_unit}</td>
-                  <td className="text-slate-500 dark:text-slate-400" style={{ padding: "10px 14px" }}>{s.base_unit}</td>
+                  <td className="text-slate-500" style={{ padding: "10px 14px" }}>{s.base_unit}</td>
                   <td style={{ padding: "10px 14px" }}>{s.display_unit}</td>
-                  <td className="text-slate-500 dark:text-slate-400" style={{ padding: "10px 14px" }}>{s.sort_order}</td>
+                  <td className="text-slate-500" style={{ padding: "10px 14px" }}>{s.sort_order}</td>
                   <td style={{ padding: "10px 14px" }}>
                     <span style={{ background: (STATUS_MAP[s.status ?? ""] || STATUS_MAP.INACTIVE).color + "20", color: (STATUS_MAP[s.status ?? ""] || STATUS_MAP.INACTIVE).color, padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600 }}>
                       {(STATUS_MAP[s.status ?? ""] || STATUS_MAP.INACTIVE).label}
@@ -148,7 +148,7 @@ export default function PackagingSpecsPage() {
                   </td>
                   <td style={{ padding: "10px 14px" }}>
                     {canEdit && (
-                      <button onClick={() => openEdit(s)} className="border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400" style={{ background: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
+                      <button onClick={() => openEdit(s)} className="border border-slate-200 text-slate-500" style={{ background: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
                         <Edit2 size={12} /> 编辑
                       </button>
                     )}
@@ -162,45 +162,45 @@ export default function PackagingSpecsPage() {
 
       {drawer && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 50, display: "flex", justifyContent: "flex-end" }}>
-          <div className="bg-slate-50 dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" style={{ width: 420, padding: 28, overflowY: "auto" }}>
+          <div className="bg-slate-50 border-l border-slate-200 text-slate-800" style={{ width: 420, padding: 28, overflowY: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{editing ? "编辑规格" : "新增规格"}</h3>
-              <button onClick={() => setDrawer(false)} className="text-slate-500 dark:text-slate-400" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20 }}>×</button>
+              <button onClick={() => setDrawer(false)} className="text-slate-500" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20 }}>×</button>
             </div>
-            <label className="text-slate-500 dark:text-slate-400" style={lbl}>规格编码 {!editing && <span style={{ color: "#f87171" }}>*</span>}</label>
+            <label className="text-slate-500" style={lbl}>规格编码 {!editing && <span style={{ color: "#f87171" }}>*</span>}</label>
             <input
-              className={`bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 ${editing ? "opacity-50" : ""}`}
+              className={`bg-slate-50 border border-slate-200 text-slate-800 ${editing ? "opacity-50" : ""}`}
               style={inp}
               value={form.spec_code}
               onChange={e => setForm(p => ({ ...p, spec_code: e.target.value.toUpperCase() }))}
               disabled={!!editing}
               placeholder="如：TRAY30 / BOX360"
             />
-            <label className="text-slate-500 dark:text-slate-400" style={lbl}>规格名称 <span style={{ color: "#f87171" }}>*</span></label>
-            <input className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" style={inp} value={form.spec_name ?? ""} onChange={e => setForm(p => ({ ...p, spec_name: e.target.value }))} placeholder="如：30枚/托" />
-            <label className="text-slate-500 dark:text-slate-400" style={lbl}>名称（Lao）</label>
-            <input className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" style={inp} value={form.spec_name_lo ?? ""} onChange={e => setForm(p => ({ ...p, spec_name_lo: e.target.value }))} placeholder="30 pcs/tray" />
-            <label className="text-slate-500 dark:text-slate-400" style={lbl}>每单位数量（基础单位枚）</label>
-            <input type="number" className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" style={inp} value={form.qty_per_unit ?? 1} onChange={e => setForm(p => ({ ...p, qty_per_unit: Number(e.target.value) }))} placeholder="30" />
+            <label className="text-slate-500" style={lbl}>规格名称 <span style={{ color: "#f87171" }}>*</span></label>
+            <input className="bg-slate-50 border border-slate-200 text-slate-800" style={inp} value={form.spec_name ?? ""} onChange={e => setForm(p => ({ ...p, spec_name: e.target.value }))} placeholder="如：30枚/托" />
+            <label className="text-slate-500" style={lbl}>名称（Lao）</label>
+            <input className="bg-slate-50 border border-slate-200 text-slate-800" style={inp} value={form.spec_name_lo ?? ""} onChange={e => setForm(p => ({ ...p, spec_name_lo: e.target.value }))} placeholder="30 pcs/tray" />
+            <label className="text-slate-500" style={lbl}>每单位数量（基础单位枚）</label>
+            <input type="number" className="bg-slate-50 border border-slate-200 text-slate-800" style={inp} value={form.qty_per_unit ?? 1} onChange={e => setForm(p => ({ ...p, qty_per_unit: Number(e.target.value) }))} placeholder="30" />
             <div style={{ display: "flex", gap: 12 }}>
               <div style={{ flex: 1 }}>
-                <label className="text-slate-500 dark:text-slate-400" style={lbl}>基础单位</label>
-                <input className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" style={inp} value={form.base_unit ?? "枚"} onChange={e => setForm(p => ({ ...p, base_unit: e.target.value }))} />
+                <label className="text-slate-500" style={lbl}>基础单位</label>
+                <input className="bg-slate-50 border border-slate-200 text-slate-800" style={inp} value={form.base_unit ?? "枚"} onChange={e => setForm(p => ({ ...p, base_unit: e.target.value }))} />
               </div>
               <div style={{ flex: 1 }}>
-                <label className="text-slate-500 dark:text-slate-400" style={lbl}>显示单位</label>
-                <input className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" style={inp} value={form.display_unit ?? "枚"} onChange={e => setForm(p => ({ ...p, display_unit: e.target.value }))} />
+                <label className="text-slate-500" style={lbl}>显示单位</label>
+                <input className="bg-slate-50 border border-slate-200 text-slate-800" style={inp} value={form.display_unit ?? "枚"} onChange={e => setForm(p => ({ ...p, display_unit: e.target.value }))} />
               </div>
             </div>
-            <label className="text-slate-500 dark:text-slate-400" style={lbl}>排序号</label>
-            <input type="number" className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" style={inp} value={form.sort_order ?? 99} onChange={e => setForm(p => ({ ...p, sort_order: Number(e.target.value) }))} />
-            <label className="text-slate-500 dark:text-slate-400" style={lbl}>状态</label>
-            <select className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" style={inp} value={form.status ?? "ACTIVE"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
+            <label className="text-slate-500" style={lbl}>排序号</label>
+            <input type="number" className="bg-slate-50 border border-slate-200 text-slate-800" style={inp} value={form.sort_order ?? 99} onChange={e => setForm(p => ({ ...p, sort_order: Number(e.target.value) }))} />
+            <label className="text-slate-500" style={lbl}>状态</label>
+            <select className="bg-slate-50 border border-slate-200 text-slate-800" style={inp} value={form.status ?? "ACTIVE"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
               <option value="ACTIVE">启用</option>
               <option value="INACTIVE">停用</option>
             </select>
-            <label className="text-slate-500 dark:text-slate-400" style={lbl}>备注</label>
-            <textarea className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" style={{ ...inp, minHeight: 60, resize: "vertical" }} value={form.remark ?? ""} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))} />
+            <label className="text-slate-500" style={lbl}>备注</label>
+            <textarea className="bg-slate-50 border border-slate-200 text-slate-800" style={{ ...inp, minHeight: 60, resize: "vertical" }} value={form.remark ?? ""} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))} />
             <button onClick={save} disabled={saving} style={{ marginTop: 20, padding: "10px", width: "100%", background: "#f59e0b", border: "none", borderRadius: 8, color: "#0f172a", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
               {saving ? "保存中..." : "保存"}
             </button>
