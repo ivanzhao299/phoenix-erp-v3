@@ -12,6 +12,7 @@ const card: React.CSSProperties = { background:"var(--bg-card)", border:"1px sol
 const DEFAULT = {
   system_name:  "凤凰农业ERP管理系统",
   company_name: "凤凰农业食品集团",
+  tagline:      "企业级直营运营系统 · Phoenix V3",
   logo_url:     "",
   footer_text:  "© 2026 Phoenix ERP · All rights reserved",
 };
@@ -128,6 +129,20 @@ export default function BrandSettingsPage() {
             <label style={{ display:"block", fontSize:12, fontWeight:600, color:"var(--text-secondary)", marginBottom:6 }}>{t('ui.公司简称', '公司简称')}</label>
             <input value={form.company_name} onChange={e=>f("company_name",e.target.value)} placeholder={t('ui.凤凰农业食品集团', '凤凰农业食品集团')} style={inp}/>
             <div style={{ fontSize:11, color:"var(--text-secondary)", marginTop:4 }}>{t('ui.侧边栏折叠时显示', '侧边栏折叠时显示')}</div>
+          </div>
+        </div>
+        <div>
+          <label style={{ display:"block", fontSize:12, fontWeight:600, color:"var(--text-secondary)", marginBottom:6 }}>
+            {t('ui.登录页副标题', '登录页副标题')}
+          </label>
+          <input
+            value={(form as Record<string,string>).tagline ?? ''}
+            onChange={e => f("tagline", e.target.value)}
+            placeholder="企业级直营运营系统 · Phoenix V3"
+            style={inp}
+          />
+          <div style={{ fontSize:11, color:"var(--text-secondary)", marginTop:4 }}>
+            {t('ui.显示在登录页系统名称下方', '显示在登录页系统名称下方')}
           </div>
         </div>
         <div>

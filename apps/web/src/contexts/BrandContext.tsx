@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 export interface BrandConfig {
   system_name:  string;
   company_name: string;
+  tagline:      string;   // 登录页副标题，如「企业级直营运营系统 · Phoenix V3」
   logo_url:     string;
   footer_text:  string;
   favicon_url:  string;
@@ -12,6 +13,7 @@ export interface BrandConfig {
 const DEFAULT_BRAND: BrandConfig = {
   system_name:  '金凤凰 ERP',
   company_name: '凤凰农业食品集团',
+  tagline:      '企业级直营运营系统 · Phoenix V3',
   logo_url:     '',
   footer_text:  '© 2026 Phoenix ERP · All rights reserved',
   favicon_url:  '',

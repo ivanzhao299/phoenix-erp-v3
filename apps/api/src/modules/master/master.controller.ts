@@ -110,7 +110,7 @@ export class SystemController implements OnModuleInit {
   async updateBrand(@Body() body: any) {
     try {
       await this.ensureTable(); // 防御：确保表存在再写入
-      const allowed = ['system_name','company_name','logo_url','favicon_url','footer_text','primary_color','label_logo_url'];
+      const allowed = ['system_name','company_name','tagline','logo_url','favicon_url','footer_text','primary_color','label_logo_url'];
       for (const key of allowed) {
         if (body[key] !== undefined) {
           await this.em.query(

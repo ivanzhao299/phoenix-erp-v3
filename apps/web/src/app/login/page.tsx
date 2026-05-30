@@ -168,7 +168,7 @@ function LoginInner() {
             </div>
         }
         <div style={{ fontSize:28, fontWeight:900, color:"white", marginBottom:8, letterSpacing:"-0.5px" }}>{brand.system_name || '金凤凰 ERP'}</div>
-        <div style={{ fontSize:13, color:"rgba(255,255,255,0.3)", marginBottom:48 }}>{brand.company_name || '企业级直营运营系统'} · Phoenix V3</div>
+        <div style={{ fontSize:13, color:"rgba(255,255,255,0.3)", marginBottom:48 }}>{brand.tagline || '企业级直营运营系统 · Phoenix V3'}</div>
 
         {/* 快捷测试账号面板（仅开发环境） */}
         {IS_DEV && TEST_GROUPS.length > 0 && (
