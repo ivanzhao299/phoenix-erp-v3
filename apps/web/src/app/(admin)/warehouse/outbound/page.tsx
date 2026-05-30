@@ -131,7 +131,7 @@ export default function OutboundPage() {
     <div>
       <PageHeader
         title={t("ui.出库管理", "出库管理")}
-        subtitle={t("ui.各类出库单管理门店补货团购报废", "各类出库单管理 · 门店补货 · 团购 · 报废（表：wms_outbound）")}
+        subtitle={t("ui.各类出库单管理门店补货团购报废", "各类出库单管理 · 门店补货 · 团购 · 报废")}
         breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.出库管理", "出库管理")]}
         actions={
           <button type="button" className={s.btnPrimary} onClick={openNew}>

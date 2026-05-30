@@ -46,7 +46,7 @@ export default function Page(){
   const del=useCallback((r:Record<string,unknown>)=>{sDt(r);sCo(true);},[]);
   const cDel=useCallback(async()=>{if(!dt?.id)return;await crudApi.delete(TABLE,dt.id as number);sCo(false);rf();},[dt,rf]);
   return(<div><PageHeader
-        breadcrumb={[t('ui.门店管理', '门店管理'), t('ui.日结作业', '日结作业')]} title={t('ui.门店日结', '门店日结')} subtitle={t('ui.管理门店每日结算', '管理门店每日结算（表：daily_close）')} />
+        breadcrumb={[t('ui.门店管理', '门店管理'), t('ui.日结作业', '日结作业')]} title={t('ui.门店日结', '门店日结')} subtitle={t('ui.管理门店每日结算', '管理门店每日结算')} />
     <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
     <RightDrawer open={o} title={e?t('ui.编辑门店日结', '编辑门店日结'):t('ui.新增门店日结', '新增门店日结')} onClose={cl}>
       <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />

@@ -138,7 +138,7 @@ export default function LossReportPage() {
     <div>
       <PageHeader
         title={t("ui.报损管理", "报损管理")}
-        subtitle={t("ui.库存损耗记录与审批管理", "库存损耗记录与审批管理（表：wms_stocktake · LR- 前缀）")}
+        subtitle={t("ui.库存损耗记录与审批管理", "库存损耗记录与审批管理")}
         breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.报损管理", "报损管理")]}
         actions={
           <button type="button" className={s.btnPrimary} onClick={openNew}>

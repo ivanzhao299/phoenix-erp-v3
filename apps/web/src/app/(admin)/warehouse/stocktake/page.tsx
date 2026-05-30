@@ -192,7 +192,7 @@ export default function StocktakePage() {
     <div>
       <PageHeader
         title={t("ui.盘点管理", "盘点管理")}
-        subtitle={t("ui.库存盘点作业差异追踪审批确认", "库存盘点作业 · 差异追踪 · 审批确认（表：wms_stocktake）")}
+        subtitle={t("ui.库存盘点作业差异追踪审批确认", "库存盘点作业 · 差异追踪 · 审批确认")}
         breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.盘点管理", "盘点管理")]}
         actions={
           <div style={{ display: "flex", gap: 8 }}>

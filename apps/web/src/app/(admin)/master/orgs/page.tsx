@@ -214,7 +214,7 @@ export default function OrgsPage() {
     <div>
       <PageHeader
         title={t('ui.组织架构', '组织架构')}
-        subtitle={t('ui.组织架构副标题', '集团层级机构树（sys_orgs）— 类型从数据字典 SYS_ORG_LEVEL 动态加载')}
+        subtitle={t('ui.组织架构副标题', '集团层级机构树 — 类型从数据字典动态加载')}
       />
 
       {/* 统计卡片 — 动态字典驱动 */}

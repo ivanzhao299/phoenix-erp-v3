@@ -40,7 +40,7 @@ export default function Page(){
   const save=useCallback(async(v:Record<string,unknown>)=>{sSv(true);try{e?.id?await crudApi.update(TABLE,e.id as number,v):await crudApi.create(TABLE,v);sO(false);rf();}finally{sSv(false);}},[e,rf]);
   const del=useCallback((r:Record<string,unknown>)=>{sDt(r);sCo(true);},[]);
   const cDel=useCallback(async()=>{if(!dt?.id)return;await crudApi.delete(TABLE,dt.id as number);sCo(false);rf();},[dt,rf]);
-  return(<div><PageHeader title={t('ui.优惠券', '优惠券')} subtitle={t('ui.管理优惠券档案', '管理优惠券档案（表：crm_coupons）')} />
+  return(<div><PageHeader title={t('ui.优惠券', '优惠券')} subtitle={t('ui.管理优惠券档案', '管理优惠券档案')} />
     <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
     <RightDrawer open={o} title={e?t('ui.编辑优惠券', '编辑优惠券'):t('ui.新增优惠券', '新增优惠券')} onClose={cl}>
       <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />

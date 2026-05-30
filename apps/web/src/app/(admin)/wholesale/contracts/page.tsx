@@ -53,7 +53,7 @@ export default function Page() {
 
   return (
     <div>
-      <PageHeader title={t("ui.批发合同", "批发合同")} subtitle={t("ui.管理与大客户的长期批量供货合同", "管理与大客户的长期批量供货合同（锁定价格和周期）（表：ws_contracts）")} />
+      <PageHeader title={t("ui.批发合同", "批发合同")} subtitle={t("ui.管理与大客户的长期批量供货合同", "管理与大客户的长期批量供货合同（锁定价格和周期）")} />
       <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
       <RightDrawer open={o} title={e ? t("ui.编辑批发合同", "编辑批发合同") : t("ui.新增批发合同", "新增批发合同")} onClose={cl}>
         <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />

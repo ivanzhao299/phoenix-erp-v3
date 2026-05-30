@@ -119,7 +119,7 @@ export default function Page() {
       <PageHeader
         breadcrumb={[t("ui.主数据", "主数据"), t("ui.养殖场档案", "养殖场档案")]}
         title={t("ui.农场主档", "农场主档")}
-        subtitle={t("ui.管理养殖场基础信息", "管理养殖场基础信息（表：brd_farms · 主键：farm_code）")}
+        subtitle={t("ui.管理养殖场基础信息", "管理养殖场基础信息")}
       />
       <DataTable
         table={TABLE}

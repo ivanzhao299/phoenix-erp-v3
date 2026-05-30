@@ -60,7 +60,7 @@ export default function PriceReviewPage() {
     <div>
       <PageHeader
         title={t('ui.价格执行复盘', '价格执行复盘')}
-        subtitle={t('ui.对比实际成交价与合同价', '对比实际成交价（ord_order_items）与合同价（ord_prices），识别低于底价的风险订单')}
+        subtitle={t('ui.对比实际成交价与合同价', '对比实际成交价与合同价，识别低于底价的风险订单')}
       />
 
       {/* KPI 摘要 */}

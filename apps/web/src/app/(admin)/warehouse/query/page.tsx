@@ -36,7 +36,7 @@ export default function StockQueryPage() {
     <div>
       <PageHeader
         title={t("ui.库存查询", "库存查询")}
-        subtitle={t("ui.实时查询库存批次余量和状态", "实时查询库存批次余量和状态（表：inv_batches）")}
+        subtitle={t("ui.实时查询库存批次余量和状态", "实时查询库存批次余量和状态")}
       />
       <DataTable<InvBatch>
         table="inv_batches"

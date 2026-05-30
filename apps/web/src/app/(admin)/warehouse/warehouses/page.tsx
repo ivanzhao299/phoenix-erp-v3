@@ -62,7 +62,7 @@ export default function Page() {
   }, [deleteTarget, refresh]);
   return (
     <div>
-      <PageHeader title={t("ui.仓库主档", "仓库主档")} subtitle={t("ui.管理仓库基础信息", "管理仓库基础信息（表：wms_warehouses）")} />
+      <PageHeader title={t("ui.仓库主档", "仓库主档")} subtitle={t("ui.管理仓库基础信息", "管理仓库基础信息")} />
       <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit}
         onDelete={handleDelete} showActions refreshKey={refreshKey} />
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑仓库主档", "编辑仓库主档") : t("ui.新增仓库主档", "新增仓库主档")} onClose={closeDrawer}>

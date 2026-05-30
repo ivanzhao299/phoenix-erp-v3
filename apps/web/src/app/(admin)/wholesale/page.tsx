@@ -30,13 +30,13 @@ export default function WholesaleOverviewPage() {
   ];
 
   const QUICK = [
-    { path: "/wholesale/contracts", Icon: FileText, label: t("ui.批发合同", "批发合同"), desc: "ws_contracts" },
-    { path: "/wholesale/shipments", Icon: Truck,    label: t("ui.发货记录", "发货记录"), desc: "ws_shipments" },
+    { path: "/wholesale/contracts", Icon: FileText, label: t("ui.批发合同", "批发合同"), desc: t("ui.与大客户锁定单价与周期", "与大客户锁定单价与周期") },
+    { path: "/wholesale/shipments", Icon: Truck,    label: t("ui.发货记录", "发货记录"), desc: t("ui.记录每次履约发货情况", "记录每次履约发货情况") },
   ];
 
   return (
     <div>
-      <PageHeader title={t("ui.批发管理", "批发管理")} subtitle={t("ui.批发合同与履约发货记录", "批发合同与履约发货记录（ws_contracts + ws_shipments）")} />
+      <PageHeader title={t("ui.批发管理", "批发管理")} subtitle={t("ui.批发合同与履约发货记录", "批发合同与履约发货记录")} />
       <div className={styles.kpiGrid}>
         {KPIs.map(k => (
           <div key={k.label} className={styles.kpiCard}>

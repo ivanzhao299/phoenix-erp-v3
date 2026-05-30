@@ -147,7 +147,7 @@ export default function InboundPage() {
     <div>
       <PageHeader
         title={t("ui.入库管理", "入库管理")}
-        subtitle={t("ui.管理各类仓库入库单审核数据追踪", "管理各类仓库入库单 · 审核 · 数据追踪（表：wms_inbound）")}
+        subtitle={t("ui.管理各类仓库入库单审核数据追踪", "管理各类仓库入库单 · 审核 · 数据追踪")}
         breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.入库管理", "入库管理")]}
         actions={
           <button type="button" className={s.btnPrimary} onClick={openNew}>

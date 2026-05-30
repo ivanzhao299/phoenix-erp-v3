@@ -139,7 +139,7 @@ export default function TransferPage() {
     <div>
       <PageHeader
         title={t("ui.库存调拨", "库存调拨")}
-        subtitle={t("ui.库区间及仓店间库存调拨管理", "库区间及仓店间库存调拨管理（表：wms_transfer）")}
+        subtitle={t("ui.库区间及仓店间库存调拨管理", "库区间及仓店间库存调拨管理")}
         breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.库存调拨", "库存调拨")]}
         actions={
           <button type="button" className={s.btnPrimary} onClick={openNew}>

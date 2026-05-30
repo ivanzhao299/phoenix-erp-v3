@@ -156,7 +156,7 @@ export default function LocationsPage() {
     <div>
       <PageHeader
         title={t("ui.库位管理", "库位管理")}
-        subtitle={`${t("ui.仓库货位档案维护", "仓库货位档案维护")} · wms_locations · ${t("common.total", "共")} ${active.length} ${t("ui.个库位", "个库位")}`}
+        subtitle={`${t("ui.仓库货位档案维护", "仓库货位档案维护")} · ${t("common.total", "共")} ${active.length} ${t("ui.个库位", "个库位")}`}
         breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.库位管理", "库位管理")]}
         actions={
           <div style={{ display: "flex", gap: 8 }}>

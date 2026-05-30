@@ -42,7 +42,7 @@ export default function Page(){
   const del=useCallback((r:Record<string,unknown>)=>{sDt(r);sCo(true);},[]);
   const cDel=useCallback(async()=>{if(!dt?.id)return;await crudApi.delete(TABLE,dt.id as number);sCo(false);rf();},[dt,rf]);
   return(<div><PageHeader
-        breadcrumb={[t("ui.品质追溯","品质追溯"), t("ui.场端质检","场端质检")]} title={t("ui.场端质检","场端质检")} subtitle={t("ui.场端质检副标题","管理场端质检记录（表：qa_inspections）")} />
+        breadcrumb={[t("ui.品质追溯","品质追溯"), t("ui.场端质检","场端质检")]} title={t("ui.场端质检","场端质检")} subtitle={t("ui.场端质检副标题","管理场端质检记录")} />
     <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
     <RightDrawer open={o} title={e?t("ui.编辑场端质检","编辑场端质检"):t("ui.新增场端质检","新增场端质检")} onClose={cl}>
       <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />

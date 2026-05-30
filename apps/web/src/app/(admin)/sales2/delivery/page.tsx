@@ -399,7 +399,7 @@ export default function DeliveryPage() {
     <div style={{ padding: '24px 32px', maxWidth: 1400 }}>
       <PageHeader
         title="配送管理"
-        subtitle="sal_delivery_orders · Phase 4 · 装车→发车→到达→签收 完整状态机"
+        subtitle="配送单管理 · 装车→发车→到达→签收"
       />
 
       {/* ── Dashboard Stats ── */}

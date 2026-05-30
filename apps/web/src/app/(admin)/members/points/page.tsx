@@ -31,7 +31,7 @@ export default function Page(){
   const save=useCallback(async(v:Record<string,unknown>)=>{sSv(true);try{e?.id?await crudApi.update(TABLE,e.id as number,v):await crudApi.create(TABLE,v);sO(false);rf();}finally{sSv(false);}},[e,rf]);
   const del=useCallback((r:Record<string,unknown>)=>{sDt(r);sCo(true);},[]);
   const cDel=useCallback(async()=>{if(!dt?.id)return;await crudApi.delete(TABLE,dt.id as number);sCo(false);rf();},[dt,rf]);
-  return(<div><PageHeader title={t('ui.积分规则', '积分规则')} subtitle={t('ui.管理积分规则配置', '管理积分规则配置（表：crm_points_rules）')} />
+  return(<div><PageHeader title={t('ui.积分规则', '积分规则')} subtitle={t('ui.管理积分规则配置', '管理积分规则配置')} />
     <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
     <RightDrawer open={o} title={e?t('ui.编辑积分规则', '编辑积分规则'):t('ui.新增积分规则', '新增积分规则')} onClose={cl}>
       <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />

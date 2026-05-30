@@ -92,7 +92,7 @@ export default function PermissionsPage() {
     <div>
       <PageHeader
         title={t('ui.权限配置', '权限配置')}
-        subtitle={t('ui.管理每个角色对每个菜单的VCEDAX细粒度权限条目', '管理每个角色对每个菜单的 VCEDAX 细粒度权限条目（表：sys_permissions）')}
+        subtitle={t('ui.管理每个角色对每个菜单的VCEDAX细粒度权限条目', '管理每个角色对每个菜单的 VCEDAX 细粒度权限条目')}
       />
 
       {/* 顶栏 */}

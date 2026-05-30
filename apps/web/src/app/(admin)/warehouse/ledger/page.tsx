@@ -49,7 +49,7 @@ export default function LedgerPage() {
 
   return (
     <div>
-      <PageHeader title={t("ui.库存台账", "库存台账")} subtitle={t("ui.实时库存进出流水台账", "实时库存进出流水台账（表：inv_ledger，只读）")} />
+      <PageHeader title={t("ui.库存台账", "库存台账")} subtitle={t("ui.实时库存进出流水台账", "实时库存进出流水台账（只读）")} />
       <DataTable<InvLedger> table="inv_ledger" columns={COLS} pageSize={50} emptyText={t("ui.暂无台账记录", "暂无台账记录")} />
     </div>
   );

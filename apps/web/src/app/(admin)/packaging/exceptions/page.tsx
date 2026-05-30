@@ -105,7 +105,7 @@ export default function PackagingExceptionsPage() {
     <div>
       <PageHeader
         title={t("ui.异常品处理", "异常品处理")}
-        subtitle={t("ui.异常品处理副标题", "记录包装过程中的异常蛋品及处置措施（表：pkg_exceptions）")}
+        subtitle={t("ui.异常品处理副标题", "记录包装过程中的异常蛋品及处置措施")}
       />
       <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit}
         onDelete={handleDelete} showActions refreshKey={refreshKey} />

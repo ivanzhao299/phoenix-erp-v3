@@ -49,7 +49,7 @@ export default function Page() {
 
   return (
     <div>
-      <PageHeader title={t("ui.合同发货记录", "合同发货记录")} subtitle={t("ui.按批发合同记录每次发货履约情况", "按批发合同记录每次发货履约情况（表：ws_shipments）")} />
+      <PageHeader title={t("ui.合同发货记录", "合同发货记录")} subtitle={t("ui.按批发合同记录每次发货履约情况", "按批发合同记录每次发货履约情况")} />
       <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
       <RightDrawer open={o} title={e ? t("ui.编辑合同发货记录", "编辑合同发货记录") : t("ui.新增合同发货记录", "新增合同发货记录")} onClose={cl}>
         <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />

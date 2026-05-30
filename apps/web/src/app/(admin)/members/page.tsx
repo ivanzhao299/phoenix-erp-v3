@@ -33,10 +33,10 @@ export default function MembersDashboard() {
   ];
 
   const QUICK = [
-    { path: "/members", Icon: LayoutDashboard, label: t("ui.会员总览","会员总览"), desc: "crm_members" },
-    { path: "/members/list", Icon: Users, label: t("ui.会员档案","会员档案"), desc: "crm_members" },
-    { path: "/members/coupons", Icon: Tag, label: t("ui.优惠券","优惠券"), desc: "crm_coupons" },
-    { path: "/members/activity", Icon: Megaphone, label: t("ui.营销活动","营销活动"), desc: "crm_activities" },
+    { path: "/members/list", Icon: Users, label: t("ui.会员档案","会员档案"), desc: t("ui.查看和管理会员信息","查看和管理会员信息") },
+    { path: "/members/coupons", Icon: Tag, label: t("ui.优惠券","优惠券"), desc: t("ui.发行与管理优惠券","发行与管理优惠券") },
+    { path: "/members/activity", Icon: Megaphone, label: t("ui.营销活动","营销活动"), desc: t("ui.折扣赠品积分活动","折扣·赠品·积分活动") },
+    { path: "/members/points", Icon: LayoutDashboard, label: t("ui.积分规则","积分规则"), desc: t("ui.配置积分获取规则","配置积分获取规则") },
   ];
 
   return (

@@ -48,7 +48,7 @@ export default function Page(){
   const del=useCallback((r:Record<string,unknown>)=>{sDt(r);sCo(true);},[]);
   const cDel=useCallback(async()=>{if(!dt?.id)return;await crudApi.delete(TABLE,dt.id as number);sCo(false);rf();},[dt,rf]);
   return(<div><PageHeader
-        breadcrumb={[t('ui.门店管理', '门店管理'), t('ui.门店库存', '门店库存')]} title={t('ui.门店库存', '门店库存')} subtitle={t('ui.管理门店当前库存', '管理门店当前库存（表：store_inventory）')} />
+        breadcrumb={[t('ui.门店管理', '门店管理'), t('ui.门店库存', '门店库存')]} title={t('ui.门店库存', '门店库存')} subtitle={t('ui.管理门店当前库存', '管理门店当前库存')} />
     <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
     <RightDrawer open={o} title={e?t('ui.编辑门店库存', '编辑门店库存'):t('ui.新增门店库存', '新增门店库存')} onClose={cl}>
       <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />

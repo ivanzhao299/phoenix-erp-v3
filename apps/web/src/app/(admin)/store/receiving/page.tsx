@@ -47,7 +47,7 @@ export default function Page(){
   const del=useCallback((r:Record<string,unknown>)=>{sDt(r);sCo(true);},[]);
   const cDel=useCallback(async()=>{if(!dt?.order_no)return;await crudApi.delete(TABLE,dt.order_no as never);sCo(false);rf();},[dt,rf]);
   return(<div><PageHeader
-        breadcrumb={[t('ui.门店管理', '门店管理'), t('ui.门店收货', '门店收货')]} title={t('ui.收货验收', '收货验收')} subtitle={t('ui.管理门店收货记录', '管理门店收货记录（表：store_receiving）')} />
+        breadcrumb={[t('ui.门店管理', '门店管理'), t('ui.门店收货', '门店收货')]} title={t('ui.收货验收', '收货验收')} subtitle={t('ui.管理门店收货记录', '管理门店收货记录')} />
     <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
     <RightDrawer open={o} title={e?t('ui.编辑收货验收', '编辑收货验收'):t('ui.新增收货验收', '新增收货验收')} onClose={cl}>
       <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />

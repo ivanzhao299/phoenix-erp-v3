@@ -35,7 +35,7 @@ export default function Page(){
   const save=useCallback(async(v:Record<string,unknown>)=>{sSv(true);try{e?.id?await crudApi.update(TABLE,e.id as number,v):await crudApi.create(TABLE,v);sO(false);rf();}finally{sSv(false);}},[e,rf]);
   const del=useCallback((r:Record<string,unknown>)=>{sDt(r);sCo(true);},[]);
   const cDel=useCallback(async()=>{if(!dt?.id)return;await crudApi.delete(TABLE,dt.id as number);sCo(false);rf();},[dt,rf]);
-  return(<div><PageHeader title={t('ui.营销活动', '营销活动')} subtitle={t('ui.管理营销活动档案', '管理营销活动档案（表：crm_activities）')} />
+  return(<div><PageHeader title={t('ui.营销活动', '营销活动')} subtitle={t('ui.管理营销活动档案', '管理营销活动档案')} />
     <DataTable table={TABLE} columns={COLUMNS} onNew={oN} onEdit={oE} onDelete={del} showActions refreshKey={rk} />
     <RightDrawer open={o} title={e?t('ui.编辑营销活动', '编辑营销活动'):t('ui.新增营销活动', '新增营销活动')} onClose={cl}>
       <CrudForm fields={FIELDS} initialValues={e??{}} onSubmit={save} onCancel={cl} loading={sv} />
