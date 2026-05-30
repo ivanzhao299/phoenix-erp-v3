@@ -12,6 +12,7 @@ import {
 import styles from "./admin.module.css";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthFetchInterceptor } from "@/components/AuthFetchInterceptor";
 
 // ── Page title: path → locale key → Chinese fallback ─────────────
 // 使用 menu.<childId> 作为 key，与 Sidebar 共享同一翻译源
@@ -258,6 +259,7 @@ type="button"               className={`${styles.pinBtn} ${pinned ? styles.pinAc
         </div>
       </main>
       <Toaster position="top-right" richColors />
+      <AuthFetchInterceptor />
     </div>
     </TooltipProvider>
   );
