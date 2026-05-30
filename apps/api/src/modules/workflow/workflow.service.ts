@@ -1849,8 +1849,8 @@ export class WorkflowService implements OnModuleInit {
          ('MST_PRODUCTS','产品列表','TABLE','{"table":"mst_products","valueField":"product_code","labelField":"product_name"}'::jsonb),
          ('WMS_WAREHOUSES','仓库列表','TABLE','{"table":"wms_warehouses","valueField":"warehouse_code","labelField":"warehouse_name_zh"}'::jsonb),
          ('PRC_SUPPLIERS','供应商列表','TABLE','{"table":"prc_suppliers","valueField":"supplier_code","labelField":"supplier_name"}'::jsonb),
-         ('ORD_CUSTOMERS','客户列表','TABLE','{"table":"ord_customers","valueField":"customer_code","labelField":"customer_name"}'::jsonb),
-         ('B2B_CUSTOMERS','B2B客户列表','TABLE','{"table":"b2b_customers","valueField":"customer_code","labelField":"customer_name"}'::jsonb)
+         -- [Phase G2] ORD_CUSTOMERS / B2B_CUSTOMERS 已迁入 sal_customers，统一读取正式主档
+         ('SAL_CUSTOMERS','客户档案','TABLE','{"table":"sal_customers","valueField":"customer_no","labelField":"customer_name","statusFields":["status"],"activeValues":["ACTIVE"]}'::jsonb)
        ON CONFLICT (code) DO UPDATE
        SET name=EXCLUDED.name,
            source_type=EXCLUDED.source_type,

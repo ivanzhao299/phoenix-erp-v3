@@ -9,10 +9,10 @@ import { EntityManager } from 'typeorm';
  *
  * 三大校验：
  *   1. OwnershipValidator (8.4.2)
- *      - [Phase G1] 统一读取 sal_customers（正式主档）
+ *      - [Phase G2] 唯一读取 sal_customers（正式主档），LEGACY FALLBACK 已删除
+ *        customer_no 或 legacy_customer_code 双查兼容历史 ord_customers customer_code
  *        黑名单：risk_level='BLACKLIST' 或 status='BLACKLIST'/'FROZEN' → 阻断
- *      - [LEGACY FALLBACK] 若 sal_customers 无记录 → 降级读 ord_customers
- *        Phase G2 数据迁移完成后删除此 fallback 分支
+ *        匿名零售（customer_code=ANONYMOUS 或空）直接通过
  *      - 归属保护：protection_status != 'INIT' 时检查 sales_rep_id
  *   2. RegionValidator (8.4.3)
  *      - V2/V3 一期均为 stub，默认通过；二期接 chn_distributor authorizedRegions
@@ -75,18 +75,13 @@ export class SalesEngineService {
   }
 
   private async validateOwnership(order: ValidationOrder): Promise<{ passed: boolean; errors: string[] }> {
-    // ─── [Phase G1] 统一客户主档读取 ───────────────────────────────────────────
-    // 主路径：sal_customers（正式主档，customer_no 或迁移后的 legacy_customer_code）
-    // 降级路径：ord_customers（历史客户，Phase G2 数据迁移完成后删除此分支）
-    // ───────────────────────────────────────────────────────────────────────────
-    let riskLevel      = 'NORMAL';
-    let customerStatus = 'ACTIVE';
-    let protectionStatus: string | null = 'INIT';
-    let ownerSubjectId: string | null   = null;
-    let found = false;
+    // ─── [Phase G2] sal_customers 唯一读取路径 ────────────────────────────────
+    // G2 数据迁移完成：所有历史 ord_customers 客户已迁入 sal_customers
+    // （通过 legacy_customer_code 字段双查兼容旧 customer_code）
+    // LEGACY FALLBACK 已删除 — 不再读取 ord_customers
+    // ─────────────────────────────────────────────────────────────────────────
 
-    // 1. 优先查 sal_customers（Phase G1：同时支持 customer_no 和 legacy_customer_code 查找）
-    const salRows = await this.em.query(
+    const rows = await this.em.query(
       `SELECT customer_no, risk_level, status, protection_status,
               sales_rep_id::text AS owner_id
          FROM sal_customers
@@ -95,40 +90,22 @@ export class SalesEngineService {
       [order.customer_code],
     ).catch(() => [] as any[]);
 
-    if (salRows.length > 0) {
-      found          = true;
-      riskLevel      = salRows[0].risk_level      ?? 'NORMAL';
-      customerStatus = salRows[0].status          ?? 'ACTIVE';
-      protectionStatus = salRows[0].protection_status ?? 'INIT';
-      ownerSubjectId   = salRows[0].owner_id      ?? null;
-    } else {
-      // 2. LEGACY FALLBACK — 客户尚未迁入 sal_customers（Phase G2 迁移后删除此分支）
-      //    ⚠️  DO NOT add new business logic here — this path is temporary
-      const legRows = await this.em.query(
-        `SELECT risk_flag, protection_status, current_owner_subject_id
-           FROM ord_customers WHERE customer_code = $1 LIMIT 1`,
-        [order.customer_code],
-      ).catch(() => [] as any[]);
-
-      if (legRows.length > 0) {
-        found            = true;
-        // 字段名标准化：ord_customers.risk_flag → unified risk_level
-        riskLevel        = legRows[0].risk_flag             ?? 'NORMAL';
-        customerStatus   = riskLevel === 'BLACKLIST' ? 'BLACKLIST' : 'ACTIVE';
-        protectionStatus = legRows[0].protection_status     ?? 'INIT';
-        ownerSubjectId   = legRows[0].current_owner_subject_id ?? null;
-        console.warn(
-          `[SalesEngine][LEGACY] Customer ${order.customer_code} resolved from ord_customers` +
-          ` — Phase G2 migration pending`,
-        );
+    if (rows.length === 0) {
+      // 未找到客户：匿名零售（无 customer_code）允许现金销售，
+      // 指定客户不存在则拒绝
+      if (!order.customer_code || order.customer_code === 'ANONYMOUS') {
+        return { passed: true, errors: [] };
       }
+      return { passed: false, errors: [`Customer ${order.customer_code} not found in master data`] };
     }
 
-    if (!found) {
-      return { passed: false, errors: [`Customer ${order.customer_code} not found`] };
-    }
+    const cust = rows[0];
+    const riskLevel      = cust.risk_level      ?? 'NORMAL';
+    const customerStatus = cust.status          ?? 'ACTIVE';
+    const protectionStatus = cust.protection_status ?? 'INIT';
+    const ownerSubjectId   = cust.owner_id      ?? null;
 
-    // 黑名单 / 冻结拦截（统一语义：risk_level=BLACKLIST 或 status=BLACKLIST/FROZEN）
+    // 黑名单 / 冻结拦截（统一语义）
     if (riskLevel === 'BLACKLIST' || customerStatus === 'BLACKLIST' || customerStatus === 'FROZEN') {
       return { passed: false, errors: ['Customer is blacklisted or frozen. Order blocked.'] };
     }
