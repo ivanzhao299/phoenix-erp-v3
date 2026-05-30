@@ -268,7 +268,10 @@ const MENU: MenuItem[] = [
   ]},
 
   // ── UAT & Pilot Run（Phase E）──────────────────────────────────────────────
-  { id: "uat", path: "/uat", Icon: ClipboardCheck, label: "验收试运行", perm: "MENU_UAT" },
+  { id: "uat", Icon: ClipboardCheck, label: "验收试运行", perm: "MENU_UAT", children: [
+    { id: "uat-home",       path: "/uat",             Icon: ClipboardCheck, label: "验收管理",   perm: "MENU_UAT" },
+    { id: "uat-pilot-run",  path: "/pilot-run",       Icon: Rocket,         label: "试运行中心", perm: "MENU_UAT" },
+  ]},
 
   // ── 系统运维（Production Stabilization Phase 1）─────────────────────────────
   { id: "sysops", Icon: Server, label: "系统运维", perm: "MENU_SYS_MONITOR", children: [

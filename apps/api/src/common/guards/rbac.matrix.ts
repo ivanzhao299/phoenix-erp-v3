@@ -834,16 +834,17 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   },
 
   // ── UAT & Pilot Run（Phase E — 用户验收测试与试运行）──────────────────────
-  /** UAT 问题反馈 / 培训记录 / 验收清单 / 试运行 / 上线准备度 */
+  /** UAT 问题反馈 / 培训记录 / 验收清单 / 试运行 / 上线准备度 / 试运行执行中心 */
   MENU_UAT: {
-    ROLE_ADMIN:         ['V','C','E','D','A','X'],
-    ROLE_SYSOPS:        ['V','C','E','A'],
-    ROLE_CEO:           ['V','X'],
-    ROLE_FIN_CFO:       ['V','X'],
-    ROLE_HQ_FINANCE:    ['V'],
-    ROLE_SALES_MGR:     ['V','C','E'],
-    ROLE_WORKFLOW_ADMIN:['V','C','E'],
-    ROLE_AUDITOR:       ['V','X'],
+    ROLE_ADMIN:          ['V','C','E','D','A','X'],
+    ROLE_SYSOPS:         ['V','C','E','A'],
+    ROLE_CEO:            ['V','X'],
+    ROLE_FIN_CFO:        ['V','X'],
+    ROLE_HQ_FINANCE:     ['V'],
+    ROLE_SALES_MGR:      ['V','C','E'],
+    ROLE_WORKFLOW_ADMIN: ['V','C','E'],
+    ROLE_AUDITOR:        ['V','X'],
+    ROLE_PILOT_MANAGER:  ['V','C','E'],
   },
 
 };
