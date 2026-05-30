@@ -8,6 +8,17 @@ import {
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 
+// ── Auth helper ───────────────────────────────────────────────────────────────
+function getToken() {
+  if (typeof window === 'undefined') return '';
+  return sessionStorage.getItem('phoenix_token') || '';
+}
+function authHeaders(extra?: Record<string, string>) {
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}`, ...extra };
+}
+
+
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface Contribution {
@@ -138,7 +149,7 @@ function CreateContributionModal({ onClose, onCreated }: { onClose: () => void; 
     setSaving(true); setErr('');
     try {
       const r = await fetch(`${API}/contributions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: authHeaders(),
         body: JSON.stringify({
           shareholderName: form.shareholderName.trim(),
           shareholderCode: form.shareholderCode.trim() || undefined,
@@ -244,7 +255,7 @@ function CreateSettlementModal({
     setSaving(true); setErr('');
     try {
       const r = await fetch(`${API}/settlements`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: authHeaders(),
         body: JSON.stringify({
           contributionId: contribution.id,
           settlementType: form.settlementType,
@@ -353,8 +364,8 @@ function ContributionDrawer({
     setLoading(true);
     try {
       const [d, accs] = await Promise.all([
-        fetch(`${API}/contributions/${contribution.id}`).then(r => r.json()),
-        fetch('/api/v2/finance/cash/accounts?status=ACTIVE&pageSize=100').then(r => r.json()),
+        fetch(`${API}/contributions/${contribution.id}`, { headers: authHeaders() }).then(r => r.json()),
+        fetch('/api/v2/finance/cash/accounts?status=ACTIVE&pageSize=100', { headers: authHeaders() }).then(r => r.json()),
       ]);
       setDetail(d);
       setCashAccounts(accs.items ?? []);
@@ -367,7 +378,7 @@ function ContributionDrawer({
     setActionLoading(action);
     try {
       const r = await fetch(`${API}/contributions/${contribution.id}/${action}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        method: 'POST', headers: authHeaders(), body: JSON.stringify(payload),
       });
       if (!r.ok) { const d = await r.json(); alert(d.message ?? '操作失败'); return; }
       onRefresh(); onClose();
@@ -377,7 +388,7 @@ function ContributionDrawer({
   async function doSettleAction(settlementId: string, action: string) {
     setActionLoading(settlementId + action);
     try {
-      const r = await fetch(`${API}/settlements/${settlementId}/${action}`, { method: 'POST' });
+      const r = await fetch(`${API}/settlements/${settlementId}/${action}`, { method: 'POST', headers: authHeaders() });
       if (!r.ok) { const d = await r.json(); alert(d.message ?? '操作失败'); return; }
       await loadDetail(); onRefresh();
     } finally { setActionLoading(''); }
@@ -643,8 +654,8 @@ export default function ShareholderFundsPage() {
       if (statusFilter) params.set('status', statusFilter);
       params.set('pageSize', '100');
       const [listRes, sumRes] = await Promise.all([
-        fetch(`${API}/contributions?${params}`).then(r => r.json()),
-        fetch(`${API}/summary`).then(r => r.json()),
+        fetch(`${API}/contributions?${params}`, { headers: authHeaders() }).then(r => r.json()),
+        fetch(`${API}/summary`, { headers: authHeaders() }).then(r => r.json()),
       ]);
       setContributions(listRes.items ?? []);
       setSummary(sumRes);
@@ -654,7 +665,7 @@ export default function ShareholderFundsPage() {
   const loadSettlements = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/settlements?pageSize=100`).then(r => r.json());
+      const res = await fetch(`${API}/settlements?pageSize=100`, { headers: authHeaders() }).then(r => r.json());
       setSettlements(res.items ?? []);
     } finally { setLoading(false); }
   }, []);
@@ -668,7 +679,7 @@ export default function ShareholderFundsPage() {
     if (!confirm('确认从 prc2_shareholder_funds 幂等导入股东资金？已导入的记录会被跳过。')) return;
     setImportLoading(true);
     try {
-      const r = await fetch(`${API}/import-from-prc2`, { method: 'POST' });
+      const r = await fetch(`${API}/import-from-prc2`, { method: 'POST', headers: authHeaders() });
       const d = await r.json() as { imported?: number; skipped?: number; failed?: number };
       alert(`导入完成：成功 ${d.imported ?? 0}，跳过 ${d.skipped ?? 0}，失败 ${d.failed ?? 0}`);
       void loadContributions();

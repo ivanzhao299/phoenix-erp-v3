@@ -7,6 +7,17 @@ import {
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 
+// ── Auth helper ───────────────────────────────────────────────────────────────
+function getToken() {
+  if (typeof window === 'undefined') return '';
+  return sessionStorage.getItem('phoenix_token') || '';
+}
+function authHeaders(extra?: Record<string, string>) {
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}`, ...extra };
+}
+
+
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface FundTransfer {
@@ -81,7 +92,7 @@ function CreateTransferModal({
   const [err, setErr] = useState('');
 
   useEffect(() => {
-    fetch(`${API}/accounts?status=ACTIVE&pageSize=100`)
+    fetch(`${API}/accounts?status=ACTIVE&pageSize=100`, { headers: authHeaders() })
       .then(r => r.json())
       .then(d => setAccounts(d.items ?? []));
   }, []);
@@ -98,7 +109,7 @@ function CreateTransferModal({
     setSaving(true); setErr('');
     try {
       const r = await fetch(`${API}/transfers`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: authHeaders(),
         body: JSON.stringify({
           fromAccountId: form.fromAccountId,
           toAccountId: form.toAccountId,
@@ -229,7 +240,7 @@ export default function FundTransfersPage() {
       const params = new URLSearchParams();
       if (statusFilter) params.set('status', statusFilter);
       params.set('pageSize', '50');
-      const res = await fetch(`${API}/transfers?${params}`).then(r => r.json());
+      const res = await fetch(`${API}/transfers?${params}`, { headers: authHeaders() }).then(r => r.json());
       let items: FundTransfer[] = res.items ?? [];
       if (keyword) {
         const kw = keyword.toLowerCase();
@@ -252,7 +263,7 @@ export default function FundTransfersPage() {
     if (msg && !confirm(msg)) return;
     setActionLoading(id + action);
     try {
-      const r = await fetch(`${API}/transfers/${id}/${action}`, { method: 'POST' });
+      const r = await fetch(`${API}/transfers/${id}/${action}`, { method: 'POST', headers: authHeaders() });
       if (!r.ok) { const d = await r.json(); alert(d.message ?? '操作失败'); return; }
       await load();
     } finally {

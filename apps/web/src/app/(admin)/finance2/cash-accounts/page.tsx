@@ -8,6 +8,17 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 
+// ── Auth helper ───────────────────────────────────────────────────────────────
+function getToken() {
+  if (typeof window === 'undefined') return '';
+  return sessionStorage.getItem('phoenix_token') || '';
+}
+function authHeaders(extra?: Record<string, string>) {
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}`, ...extra };
+}
+
+
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface CashAccount {
@@ -126,7 +137,7 @@ function CreateAccountModal({
       if (form.accountCode.trim()) body.accountCode = form.accountCode.trim();
 
       const r = await fetch(`${API}/accounts`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: authHeaders(),
         body: JSON.stringify(body),
       });
       if (!r.ok) { const d = await r.json(); throw new Error(d.message ?? '创建失败'); }
@@ -249,7 +260,7 @@ function TransactionDrawer({
 
   useEffect(() => {
     setLoading(true);
-    fetch(`${API}/transactions?accountId=${account.id}&pageSize=50`)
+    fetch(`${API}/transactions?accountId=${account.id}&pageSize=50`, { headers: authHeaders() })
       .then(r => r.json())
       .then(d => { setTxns(d.items ?? []); })
       .finally(() => setLoading(false));
@@ -353,8 +364,8 @@ export default function CashAccountsPage() {
       params.set('pageSize', '100');
 
       const [listRes, summaryRes] = await Promise.all([
-        fetch(`${API}/accounts?${params}`).then(r => r.json()),
-        fetch(`${API}/accounts/summary`).then(r => r.json()),
+        fetch(`${API}/accounts?${params}`, { headers: authHeaders() }).then(r => r.json()),
+        fetch(`${API}/accounts/summary`, { headers: authHeaders() }).then(r => r.json()),
       ]);
       setAccounts(listRes.items ?? []);
       setSummary(summaryRes);
@@ -368,7 +379,7 @@ export default function CashAccountsPage() {
   async function doAction(id: string, action: string) {
     setActionLoading(id + action);
     try {
-      const r = await fetch(`${API}/accounts/${id}/${action}`, { method: 'POST' });
+      const r = await fetch(`${API}/accounts/${id}/${action}`, { method: 'POST', headers: authHeaders() });
       if (!r.ok) { const d = await r.json(); alert(d.message ?? '操作失败'); return; }
       await load();
     } finally {
