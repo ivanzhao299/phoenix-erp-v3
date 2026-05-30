@@ -36,7 +36,7 @@ async function api<T = any>(method: string, path: string, body?: unknown): Promi
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   PLANNED:          { label: '待装车',    color: '#94a3b8', bg: 'rgba(148,163,184,0.1)', icon: Clock },
   LOADING:          { label: '装车中',    color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  icon: Package },
-  LOADED:           { label: '已装车',    color: '#3b82f6', bg: 'rgba(59,130,246,0.1)',  icon: Package },
+  LOADED:           { label: '已装车',    color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',  icon: Package },
   DEPARTED:         { label: '已发车',    color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)',  icon: Navigation },
   ARRIVED:          { label: '已到达',    color: '#06b6d4', bg: 'rgba(6,182,212,0.1)',   icon: MapPin },
   PARTIALLY_SIGNED: { label: '部分签收',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: AlertTriangle },
@@ -416,7 +416,7 @@ export default function DeliveryPage() {
           ].map(({ label, value, color }) => (
             <div key={label} style={{
               padding: '12px 14px', borderRadius: 8, textAlign: 'center',
-              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+              background: 'var(--bg-muted)', border: '1px solid var(--border)',
             }}>
               <div style={{ fontSize: 20, fontWeight: 800, color }}>{value ?? 0}</div>
               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>{label}</div>
@@ -426,7 +426,7 @@ export default function DeliveryPage() {
       )}
 
       {/* ── Tabs ── */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
         {([
           { key: 'orders', label: '配送单', icon: Truck },
           { key: 'drivers', label: '司机档案', icon: Users },
@@ -435,7 +435,7 @@ export default function DeliveryPage() {
           <button key={key} onClick={() => setTab(key)} style={{
             padding: '8px 20px', fontSize: 13, fontWeight: 600,
             background: 'none', border: 'none', cursor: 'pointer',
-            color: tab === key ? '#3b82f6' : 'rgba(255,255,255,0.5)',
+            color: tab === key ? '#3b82f6' : 'var(--text-secondary)',
             borderBottom: tab === key ? '2px solid #3b82f6' : '2px solid transparent',
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
@@ -459,21 +459,21 @@ export default function DeliveryPage() {
                   onKeyDown={e => e.key === 'Enter' && (setPage(1), loadOrders(1))}
                   placeholder="配送单号 / 司机 / 车牌"
                   style={{ width: '100%', paddingLeft: 32, paddingRight: 12, height: 34, borderRadius: 6,
-                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'var(--bg-muted)', border: '1px solid var(--border)',
                     color: 'inherit', fontSize: 13 }}
                 />
               </div>
               <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); loadOrders(1); }}
-                style={{ height: 34, borderRadius: 6, background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.1)', color: 'inherit', fontSize: 13, padding: '0 8px' }}>
+                style={{ height: 34, borderRadius: 6, background: 'var(--bg-muted)',
+                  border: '1px solid var(--border)', color: 'inherit', fontSize: 13, padding: '0 8px' }}>
                 <option value="">全部状态</option>
                 {Object.entries(STATUS_MAP).map(([k, v]) => (
                   <option key={k} value={k}>{v.label}</option>
                 ))}
               </select>
               <button onClick={() => { setPage(1); loadOrders(1); loadStats(); }}
-                style={{ height: 34, width: 34, borderRadius: 6, background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', display: 'flex',
+                style={{ height: 34, width: 34, borderRadius: 6, background: 'var(--bg-muted)',
+                  border: '1px solid var(--border)', cursor: 'pointer', display: 'flex',
                   alignItems: 'center', justifyContent: 'center' }}>
                 <RefreshCw size={13} style={{ color: '#94a3b8' }} />
               </button>
@@ -495,8 +495,8 @@ export default function DeliveryPage() {
                 <div key={o.id} onClick={() => loadDetail(o)}
                   style={{
                     padding: '12px 16px', borderRadius: 8, cursor: 'pointer',
-                    background: selected?.id === o.id ? 'rgba(59,130,246,0.1)' : 'rgba(255,255,255,0.03)',
-                    border: '1px solid ' + (selected?.id === o.id ? 'rgba(59,130,246,0.4)' : 'rgba(255,255,255,0.08)'),
+                    background: selected?.id === o.id ? 'rgba(59,130,246,0.12)' : 'var(--bg-muted)',
+                    border: '1px solid ' + (selected?.id === o.id ? 'rgba(59,130,246,0.4)' : 'var(--border)'),
                     transition: 'all 0.12s',
                   }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -520,16 +520,16 @@ export default function DeliveryPage() {
             {total > 20 && (
               <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
                 <button disabled={page === 1} onClick={() => { setPage(page - 1); loadOrders(page - 1); }}
-                  style={{ padding: '4px 12px', borderRadius: 4, background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', color: 'inherit', fontSize: 13 }}>
+                  style={{ padding: '4px 12px', borderRadius: 4, background: 'var(--bg-muted)',
+                    border: '1px solid var(--border)', cursor: 'pointer', color: 'inherit', fontSize: 13 }}>
                   上一页
                 </button>
                 <span style={{ fontSize: 12, padding: '4px 8px', opacity: 0.5 }}>
                   第 {page} 页 / 共 {Math.ceil(total / 20)} 页
                 </span>
                 <button disabled={page * 20 >= total} onClick={() => { setPage(page + 1); loadOrders(page + 1); }}
-                  style={{ padding: '4px 12px', borderRadius: 4, background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', color: 'inherit', fontSize: 13 }}>
+                  style={{ padding: '4px 12px', borderRadius: 4, background: 'var(--bg-muted)',
+                    border: '1px solid var(--border)', cursor: 'pointer', color: 'inherit', fontSize: 13 }}>
                   下一页
                 </button>
               </div>
@@ -538,8 +538,8 @@ export default function DeliveryPage() {
 
           {/* 右侧详情 */}
           {selected && (
-            <div style={{ flex: 1, minWidth: 0, background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '20px 24px' }}>
+            <div style={{ flex: 1, minWidth: 0, background: 'var(--bg-muted)',
+              border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px' }}>
 
               {/* 详情头部 */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
@@ -586,12 +586,12 @@ export default function DeliveryPage() {
                   <div key={label} style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
                     <div style={{
                       width: 8, height: 8, borderRadius: '50%', margin: '0 auto 4px',
-                      background: time ? color : 'rgba(255,255,255,0.1)',
-                      border: `2px solid ${time ? color : 'rgba(255,255,255,0.15)'}`,
+                      background: time ? color : 'var(--border)',
+                      border: `2px solid ${time ? color : 'var(--border)'}`,
                     }} />
                     {i < 4 && (
                       <div style={{ position: 'absolute', top: 3, left: '50%', width: '100%',
-                        height: 2, background: 'rgba(255,255,255,0.08)' }} />
+                        height: 2, background: 'var(--border)' }} />
                     )}
                     <div style={{ color: time ? color : '#334155' }}>{label}</div>
                     {time && <div style={{ color: '#64748b', marginTop: 2 }}>
@@ -640,7 +640,7 @@ export default function DeliveryPage() {
                   {items.map(item => (
                     <div key={item.id} style={{
                       padding: '10px 14px', borderRadius: 8,
-                      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
+                      background: 'var(--bg-muted)', border: '1px solid var(--bg-muted)',
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     }}>
                       <div>
@@ -692,7 +692,7 @@ export default function DeliveryPage() {
                     {receipts.map(r => (
                       <div key={r.id} style={{
                         padding: '8px 12px', borderRadius: 6,
-                        background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+                        background: 'var(--bg-muted)', border: '1px solid var(--bg-muted)',
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12,
                       }}>
                         <div>
@@ -743,7 +743,7 @@ export default function DeliveryPage() {
             {drivers.map(d => (
               <div key={d.id} style={{
                 padding: '14px 18px', borderRadius: 10,
-                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                background: 'var(--bg-muted)', border: '1px solid var(--border)',
               }}>
                 <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{d.driver_name}</div>
                 <div style={{ fontSize: 12, color: '#94a3b8' }}>
@@ -788,7 +788,7 @@ export default function DeliveryPage() {
             {vehicles.map(v => (
               <div key={v.id} style={{
                 padding: '14px 18px', borderRadius: 10,
-                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                background: 'var(--bg-muted)', border: '1px solid var(--border)',
               }}>
                 <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
                   <Car size={13} style={{ display: 'inline', marginRight: 5, opacity: 0.6 }} />
@@ -830,7 +830,7 @@ export default function DeliveryPage() {
         }}>
           <div style={{
             width: 520, background: '#1e293b', borderRadius: 12, padding: '28px 32px',
-            border: '1px solid rgba(255,255,255,0.12)', maxHeight: '80vh', overflowY: 'auto',
+            border: '1px solid var(--border)', maxHeight: '80vh', overflowY: 'auto',
           }}>
             <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 20 }}>新建配送单</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -851,8 +851,8 @@ export default function DeliveryPage() {
                       value={(createForm as any)[field]}
                       onChange={e => setCreateForm(f => ({ ...f, [field]: e.target.value }))}
                       rows={field === 'salesOrderIds' ? 3 : 2}
-                      style={{ width: '100%', borderRadius: 6, background: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.1)', color: 'inherit',
+                      style={{ width: '100%', borderRadius: 6, background: 'var(--bg-muted)',
+                        border: '1px solid var(--border)', color: 'inherit',
                         fontSize: 13, padding: '7px 10px', resize: 'vertical', boxSizing: 'border-box' }}
                     />
                   ) : (
@@ -860,8 +860,8 @@ export default function DeliveryPage() {
                       type={type ?? 'text'}
                       value={(createForm as any)[field]}
                       onChange={e => setCreateForm(f => ({ ...f, [field]: e.target.value }))}
-                      style={{ width: '100%', height: 34, borderRadius: 6, background: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.1)', color: 'inherit',
+                      style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--bg-muted)',
+                        border: '1px solid var(--border)', color: 'inherit',
                         fontSize: 13, padding: '0 10px', boxSizing: 'border-box' }}
                     />
                   )}
@@ -871,8 +871,8 @@ export default function DeliveryPage() {
             {createErr && <div style={{ color: '#ef4444', fontSize: 12, marginTop: 10 }}>{createErr}</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
               <button onClick={() => { setShowCreate(false); setCreateErr(''); }}
-                style={{ padding: '8px 18px', borderRadius: 6, background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', color: 'inherit', fontSize: 13 }}>
+                style={{ padding: '8px 18px', borderRadius: 6, background: 'var(--bg-muted)',
+                  border: '1px solid var(--border)', cursor: 'pointer', color: 'inherit', fontSize: 13 }}>
                 取消
               </button>
               <button disabled={createLoading} onClick={submitCreate}
@@ -894,7 +894,7 @@ export default function DeliveryPage() {
         }}>
           <div style={{
             width: 420, background: '#1e293b', borderRadius: 12, padding: '28px 32px',
-            border: '1px solid rgba(255,255,255,0.12)',
+            border: '1px solid var(--border)',
           }}>
             <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 4 }}>客户签收</div>
             <div style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>
@@ -903,13 +903,13 @@ export default function DeliveryPage() {
 
             {/* 签收模式切换 */}
             <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderRadius: 6, overflow: 'hidden',
-              border: '1px solid rgba(255,255,255,0.1)' }}>
+              border: '1px solid var(--border)' }}>
               {(['normal', 'exception'] as const).map(mode => (
                 <button key={mode} onClick={() => setSigningMode(mode)}
                   style={{ flex: 1, padding: '7px 0', fontSize: 13, fontWeight: 600, border: 'none',
                     cursor: 'pointer', transition: 'all 0.1s',
                     background: signingMode === mode ? (mode === 'normal' ? '#22c55e' : '#ef4444') : 'transparent',
-                    color: signingMode === mode ? '#fff' : 'rgba(255,255,255,0.5)',
+                    color: signingMode === mode ? '#fff' : 'var(--text-secondary)',
                   }}>
                   {mode === 'normal' ? '✅ 正常签收' : '⚠️ 异常签收'}
                 </button>
@@ -921,8 +921,8 @@ export default function DeliveryPage() {
                 <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>签收人</div>
                 <input value={signedBy} onChange={e => setSignedBy(e.target.value)}
                   placeholder="客户姓名"
-                  style={{ width: '100%', height: 34, borderRadius: 6, background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.1)', color: 'inherit', fontSize: 13,
+                  style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--bg-muted)',
+                    border: '1px solid var(--border)', color: 'inherit', fontSize: 13,
                     padding: '0 10px', boxSizing: 'border-box' }} />
               </label>
               <label>
@@ -930,8 +930,8 @@ export default function DeliveryPage() {
                   实收数量 *（计划 {signingItem.planned_qty} 件）
                 </div>
                 <input type="number" min={0} value={receivedQty} onChange={e => setReceivedQty(e.target.value)}
-                  style={{ width: '100%', height: 34, borderRadius: 6, background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.1)', color: 'inherit', fontSize: 13,
+                  style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--bg-muted)',
+                    border: '1px solid var(--border)', color: 'inherit', fontSize: 13,
                     padding: '0 10px', boxSizing: 'border-box' }} />
               </label>
               {signingMode === 'exception' && (
@@ -939,15 +939,15 @@ export default function DeliveryPage() {
                   <label>
                     <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>异常数量 *</div>
                     <input type="number" min={0} value={exceptionQty} onChange={e => setExceptionQty(e.target.value)}
-                      style={{ width: '100%', height: 34, borderRadius: 6, background: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.1)', color: 'inherit', fontSize: 13,
+                      style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--bg-muted)',
+                        border: '1px solid var(--border)', color: 'inherit', fontSize: 13,
                         padding: '0 10px', boxSizing: 'border-box' }} />
                   </label>
                   <label>
                     <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>异常类型 *</div>
                     <select value={exceptionType} onChange={e => setExceptionType(e.target.value)}
                       style={{ width: '100%', height: 34, borderRadius: 6, background: '#1e293b',
-                        border: '1px solid rgba(255,255,255,0.1)', color: 'inherit', fontSize: 13,
+                        border: '1px solid var(--border)', color: 'inherit', fontSize: 13,
                         padding: '0 10px', boxSizing: 'border-box' }}>
                       <option value="SHORTAGE">缺货（SHORTAGE）</option>
                       <option value="DAMAGED">破损（DAMAGED）</option>
@@ -961,16 +961,16 @@ export default function DeliveryPage() {
               <label>
                 <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>备注</div>
                 <input value={signRemark} onChange={e => setSignRemark(e.target.value)}
-                  style={{ width: '100%', height: 34, borderRadius: 6, background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.1)', color: 'inherit', fontSize: 13,
+                  style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--bg-muted)',
+                    border: '1px solid var(--border)', color: 'inherit', fontSize: 13,
                     padding: '0 10px', boxSizing: 'border-box' }} />
               </label>
             </div>
             {signErr && <div style={{ color: '#ef4444', fontSize: 12, marginTop: 10 }}>{signErr}</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
               <button onClick={() => { setSigningItem(null); setSignErr(''); }}
-                style={{ padding: '8px 18px', borderRadius: 6, background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', color: 'inherit', fontSize: 13 }}>
+                style={{ padding: '8px 18px', borderRadius: 6, background: 'var(--bg-muted)',
+                  border: '1px solid var(--border)', cursor: 'pointer', color: 'inherit', fontSize: 13 }}>
                 取消
               </button>
               <button disabled={signLoading || !receivedQty} onClick={submitReceipt}
@@ -990,7 +990,7 @@ export default function DeliveryPage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: 400, background: '#1e293b', borderRadius: 12, padding: '28px 32px',
-            border: '1px solid rgba(255,255,255,0.12)' }}>
+            border: '1px solid var(--border)' }}>
             <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 20 }}>新建司机</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
@@ -1000,8 +1000,8 @@ export default function DeliveryPage() {
                 <label key={field}>
                   <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>{label}</div>
                   <input value={(driverForm as any)[field]} onChange={e => setDriverForm(f => ({ ...f, [field]: e.target.value }))}
-                    style={{ width: '100%', height: 34, borderRadius: 6, background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.1)', color: 'inherit', fontSize: 13,
+                    style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--bg-muted)',
+                      border: '1px solid var(--border)', color: 'inherit', fontSize: 13,
                       padding: '0 10px', boxSizing: 'border-box' }} />
                 </label>
               ))}
@@ -1009,8 +1009,8 @@ export default function DeliveryPage() {
             {driverErr && <div style={{ color: '#ef4444', fontSize: 12, marginTop: 10 }}>{driverErr}</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
               <button onClick={() => { setShowDriverForm(false); setDriverErr(''); }}
-                style={{ padding: '8px 18px', borderRadius: 6, background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', color: 'inherit', fontSize: 13 }}>
+                style={{ padding: '8px 18px', borderRadius: 6, background: 'var(--bg-muted)',
+                  border: '1px solid var(--border)', cursor: 'pointer', color: 'inherit', fontSize: 13 }}>
                 取消
               </button>
               <button onClick={submitDriver}
@@ -1028,7 +1028,7 @@ export default function DeliveryPage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: 400, background: '#1e293b', borderRadius: 12, padding: '28px 32px',
-            border: '1px solid rgba(255,255,255,0.12)' }}>
+            border: '1px solid var(--border)' }}>
             <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 20 }}>新建车辆</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
@@ -1040,8 +1040,8 @@ export default function DeliveryPage() {
                   <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>{label}</div>
                   <input type={type ?? 'text'} value={(vehicleForm as any)[field]}
                     onChange={e => setVehicleForm(f => ({ ...f, [field]: e.target.value }))}
-                    style={{ width: '100%', height: 34, borderRadius: 6, background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.1)', color: 'inherit', fontSize: 13,
+                    style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--bg-muted)',
+                      border: '1px solid var(--border)', color: 'inherit', fontSize: 13,
                       padding: '0 10px', boxSizing: 'border-box' }} />
                 </label>
               ))}
@@ -1049,8 +1049,8 @@ export default function DeliveryPage() {
             {vehicleErr && <div style={{ color: '#ef4444', fontSize: 12, marginTop: 10 }}>{vehicleErr}</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
               <button onClick={() => { setShowVehicleForm(false); setVehicleErr(''); }}
-                style={{ padding: '8px 18px', borderRadius: 6, background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', color: 'inherit', fontSize: 13 }}>
+                style={{ padding: '8px 18px', borderRadius: 6, background: 'var(--bg-muted)',
+                  border: '1px solid var(--border)', cursor: 'pointer', color: 'inherit', fontSize: 13 }}>
                 取消
               </button>
               <button onClick={submitVehicle}
