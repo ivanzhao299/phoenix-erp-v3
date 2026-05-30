@@ -131,9 +131,9 @@ const MENU: MenuItem[] = [
   //   { id: "pr-supplier", path: "/procurement/suppliers",    Icon: Users,           label: "供应商档案", perm: "MENU_PRC_MASTER" },
   //   { id: "pr-reconcile",path: "/procurement/reconcile",    Icon: GitMerge,        label: "饲料核对",   perm: "MENU_PRC_MGR" },
   // ]},
-  { id: "procurement2", Icon: Layers3, label: "采购 V2", perm: "MENU_PRC2_MASTER", children: [
+  { id: "procurement2", Icon: Layers3, label: "采购管理", perm: "MENU_PRC2_MASTER", children: [
     { id: "prc2-dashboard", path: "/procurement2/dashboard", Icon: LayoutDashboard, label: "采购看板", perm: "MENU_PRC2" },
-    { id: "prc2-supplier",  path: "/procurement2/suppliers", Icon: Globe,           label: "供应商 V2",  perm: "MENU_PRC2_MASTER" },
+    { id: "prc2-supplier",  path: "/procurement2/suppliers", Icon: Globe,           label: "供应商档案",  perm: "MENU_PRC2_MASTER" },
     { id: "prc2-project",  path: "/procurement2/projects",  Icon: FolderKanban,    label: "采购项目",   perm: "MENU_PRC2_MASTER" },
     { id: "prc2-request",  path: "/procurement2/requests",  Icon: FilePlus,        label: "采购申请",   perm: "MENU_PRC2_MASTER" },
     { id: "prc2-order",    path: "/procurement2/orders",    Icon: ShoppingBag,     label: "采购订单",   perm: "MENU_PRC2_ORDER"   },
@@ -174,7 +174,7 @@ const MENU: MenuItem[] = [
     { id: "mb-coupon", path: "/members/coupons", Icon: Tag,             label: "优惠券",   perm: "MENU_B2B_SALE" },
     { id: "mb-act",    path: "/members/activity",Icon: Megaphone,       label: "营销活动", perm: "MENU_B2B_SALE" },
   ]},
-  { id: "finance2", Icon: Wallet, label: "财务 V2", perm: "MENU_FIN2", children: [
+  { id: "finance2", Icon: Wallet, label: "财务管理", perm: "MENU_FIN2", children: [
     { id: "f2-dash",    path: "/finance2",                    Icon: LayoutDashboard, label: "财务总览",     perm: "MENU_FIN2" },
     { id: "f2-ap",      path: "/finance2/ap",                 Icon: TrendingDown,    label: "应付管理",     perm: "MENU_FIN2_AP" },
     { id: "f2-ar",      path: "/finance2/ar",                 Icon: TrendingUp,      label: "应收管理",     perm: "MENU_FIN2_AR" },
