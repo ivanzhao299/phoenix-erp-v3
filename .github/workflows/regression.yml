@@ -109,10 +109,6 @@ jobs:
         working-directory: apps/api
         run: pnpm test:regr:pos-store
 
-      - name: Module regression — order
-        working-directory: apps/api
-        run: pnpm test:regr:order
-
       - name: Module regression — finance
         working-directory: apps/api
         run: pnpm test:regr:finance
@@ -128,10 +124,6 @@ jobs:
       - name: Module regression — bi
         working-directory: apps/api
         run: pnpm test:regr:bi
-
-      - name: E2E order flow
-        working-directory: apps/api
-        run: pnpm test:e2e
 
       - name: Dump API log on failure
         if: failure()

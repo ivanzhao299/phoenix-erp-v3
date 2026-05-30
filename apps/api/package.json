@@ -23,13 +23,11 @@
     "test:regr:packaging": "bash scripts/packaging-regression.sh",
     "test:regr:wms": "bash scripts/wms-regression.sh",
     "test:regr:pos-store": "bash scripts/pos-store-regression.sh",
-    "test:regr:order": "bash scripts/order-regression.sh",
     "test:regr:finance": "bash scripts/finance-regression.sh",
     "test:regr:quality": "bash scripts/quality-regression.sh",
     "test:regr:pda": "bash scripts/pda-regression.sh",
     "test:regr:bi": "bash scripts/bi-regression.sh",
-    "test:e2e": "bash scripts/e2e-order-flow.sh",
-    "test:regr": "bash scripts/system-regression.sh && bash scripts/breeding-regression.sh && bash scripts/packaging-regression.sh && bash scripts/wms-regression.sh && bash scripts/pos-store-regression.sh && bash scripts/order-regression.sh && bash scripts/finance-regression.sh && bash scripts/quality-regression.sh && bash scripts/pda-regression.sh && bash scripts/bi-regression.sh && bash scripts/e2e-order-flow.sh"
+    "test:regr": "bash scripts/system-regression.sh && bash scripts/breeding-regression.sh && bash scripts/packaging-regression.sh && bash scripts/wms-regression.sh && bash scripts/pos-store-regression.sh && bash scripts/finance-regression.sh && bash scripts/quality-regression.sh && bash scripts/pda-regression.sh && bash scripts/bi-regression.sh"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

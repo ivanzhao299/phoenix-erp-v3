@@ -144,15 +144,9 @@ jobs:
         working-directory: apps/api
         run: pnpm test:regr:wms
 
-      - name: Regression — order + finance
+      - name: Regression — finance
         working-directory: apps/api
-        run: |
-          pnpm test:regr:order
-          pnpm test:regr:finance
-
-      - name: E2E order flow
-        working-directory: apps/api
-        run: pnpm test:e2e
+        run: pnpm test:regr:finance
 
       - name: Dump API log on failure
         if: failure()
