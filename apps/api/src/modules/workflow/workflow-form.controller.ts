@@ -2,6 +2,7 @@ import {
   Body, Controller, Get, Param, Post, Put, Query, Req, UseGuards, ParseIntPipe,
 } from '@nestjs/common';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { WorkflowService } from './workflow.service';
 import {
   WorkflowFormRuntimeService,
@@ -27,8 +28,9 @@ import {
  *   POST   /:id/versions             — 创建新版本（Phase H）
  *   POST   /:code/submit             — 提交表单数据（Phase H）
  */
+// [Phase R1 — HIGH-3] 添加 DataScopeGuard
 @Controller('api/workflow/forms')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class WorkflowFormController {
   constructor(
     private readonly workflow: WorkflowService,

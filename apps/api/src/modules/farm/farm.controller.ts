@@ -1,10 +1,12 @@
 import { Controller, Post, Put, Get, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { FarmService, OrgScope } from './farm.service';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
 
 // [Fix Pack 1 — HIGH-2] 替换 AuthGuard → MenuGuard，添加 RequireMenu
+// [Phase R1 — HIGH-3] 添加 DataScopeGuard
 @Controller('api/v3/farm')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 @RequireMenu('MENU_FARM_DATA', 'V')
 export class FarmController {
   constructor(private readonly farmService: FarmService) {}

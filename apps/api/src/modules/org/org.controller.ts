@@ -18,14 +18,16 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { DataScopeGuard } from './guards/data-scope.guard';
 import { OrgService } from './services/org.service';
 import { CreateOrgDto } from './dto/create-org.dto';
 import { UpdateOrgDto } from './dto/update-org.dto';
 import { AssignUserOrgDto, UpdateUserOrgDto } from './dto/assign-user-org.dto';
 import { CreateDataScopeDto, UpdateDataScopeDto } from './dto/update-data-scope.dto';
 
+// [Phase R1 — HIGH-3] 添加 DataScopeGuard
 @Controller('api/org')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class OrgController {
   constructor(private readonly orgService: OrgService) {}
 

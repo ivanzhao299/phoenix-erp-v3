@@ -5,13 +5,15 @@ import { TerminalService } from './terminal.service';
 import { PackagingService } from './packaging.service';
 import { AuthGuard } from '@nestjs/passport';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // 包装作业 BFF  /api/packaging/*
 // [Fix Pack 1 — HIGH-2] 添加 MenuGuard + RequireMenu 覆盖
+// [Phase R1 — HIGH-3] 添加 DataScopeGuard
 // ──────────────────────────────────────────────────────────────────────────────
 @Controller('api/packaging')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class PackagingController {
   constructor(
     private readonly terminalService: TerminalService,
@@ -136,9 +138,10 @@ export class PackagingController {
 
 // ──────────────────────────────────────────────────────────────────────────────
 // 分级作业 BFF  /api/grading/*
+// [Phase R1 — HIGH-3] 添加 DataScopeGuard
 // ──────────────────────────────────────────────────────────────────────────────
 @Controller('api/grading')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class GradingController {
   constructor(
     private readonly terminalService: TerminalService,

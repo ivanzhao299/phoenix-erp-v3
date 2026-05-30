@@ -1,9 +1,11 @@
 import { Body, Controller, Get, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { WorkflowService } from './workflow.service';
 
+// [Phase R1 — HIGH-3] 添加 DataScopeGuard
 @Controller('api/workflow/data-sources')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class WorkflowDatasourceController {
   constructor(private readonly workflow: WorkflowService) {}
 

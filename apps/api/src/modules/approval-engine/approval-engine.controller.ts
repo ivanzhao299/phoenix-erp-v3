@@ -1,9 +1,11 @@
 import { Controller, Get, Post, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { ApprovalEngineService } from './approval-engine.service';
 
+// [Phase R1 — HIGH-3] 添加 DataScopeGuard
 @Controller('api/approval')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class ApprovalEngineController {
   constructor(private readonly engine: ApprovalEngineService) {}
 

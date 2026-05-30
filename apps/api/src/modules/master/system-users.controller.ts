@@ -4,8 +4,9 @@ import {
 } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
-import { AuthGuard } from '@nestjs/passport';
 import * as bcrypt from 'bcrypt';
+import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
 
 /**
  * V2 fidelity SystemUsersController
@@ -46,8 +47,10 @@ function statusToStr(n: number): string {
   return n === 1 ? 'ACTIVE' : 'FROZEN';
 }
 
+// [Phase R1 — HIGH-3] 替换 AuthGuard('jwt') → MenuGuard + DataScopeGuard，添加 RequireMenu
 @Controller('api/system/users')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(MenuGuard, DataScopeGuard)
+@RequireMenu('MENU_SYSTEM', 'V')
 export class SystemUsersController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 

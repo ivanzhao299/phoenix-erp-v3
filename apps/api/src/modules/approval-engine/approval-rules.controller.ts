@@ -3,6 +3,7 @@ import {
   Param, Query, Body, UseGuards, HttpCode,
 } from '@nestjs/common';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { ApprovalRulesService } from './approval-rules.service';
 import {
   QueryApprovalRuleDto,
@@ -11,8 +12,9 @@ import {
   UpdateApprovalRuleStatusDto,
 } from './dto/approval-rule.dto';
 
+// [Phase R1 — HIGH-3] 添加 DataScopeGuard
 @Controller('api/approval/rules')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 export class ApprovalRulesController {
   constructor(private readonly rulesService: ApprovalRulesService) {}
 

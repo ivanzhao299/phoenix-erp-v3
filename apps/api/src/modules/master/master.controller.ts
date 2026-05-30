@@ -1,8 +1,8 @@
 import { Controller, Get, Put, Body, UseGuards, InternalServerErrorException, OnModuleInit } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
-import { AuthGuard } from '@nestjs/passport';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
 
 const DEFAULT_BRAND = {
   system_name:   '凤凰农业ERP管理系统',
@@ -14,8 +14,9 @@ const DEFAULT_BRAND = {
   label_logo_url:'',
 };
 
+// [Phase R1 — HIGH-3] 替换 AuthGuard('jwt') → MenuGuard + DataScopeGuard
 @Controller('api/master')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(MenuGuard, DataScopeGuard)
 export class MasterController {
   constructor(
     @InjectEntityManager()

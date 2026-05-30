@@ -2,10 +2,12 @@ import { Controller, Post, Get, Body, Param, Req, UseGuards } from '@nestjs/comm
 import { TerminalService } from './terminal.service';
 import { LabelsService } from './labels.service';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
 
 // [Fix Pack 1 — HIGH-2] 替换 AuthGuard → MenuGuard，添加 RequireMenu
+// [Phase R1 — HIGH-3] 添加 DataScopeGuard
 @Controller('api/labels')
-@UseGuards(MenuGuard)
+@UseGuards(MenuGuard, DataScopeGuard)
 @RequireMenu('MENU_PKG_MGR', 'V')
 export class LabelsController {
   constructor(
