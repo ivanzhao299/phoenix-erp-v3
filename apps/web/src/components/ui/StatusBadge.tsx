@@ -11,6 +11,7 @@
  */
 import React from 'react';
 import { STATUS_CLASS, STATUS_LABEL } from '@/lib/design-tokens';
+import { cn } from '@/lib/utils';
 
 export interface StatusBadgeProps {
   /** 状态 key（对应 STATUS_CLASS/STATUS_LABEL 的 key，不区分大小写） */
@@ -36,12 +37,12 @@ export function StatusBadge({
 
   return (
     <span
-      className={[
+      className={cn(
         'inline-flex items-center font-semibold rounded-full',
         size === 'sm' ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-0.5',
         cls,
         className,
-      ].join(' ')}
+      )}
     >
       {displayLabel}
     </span>

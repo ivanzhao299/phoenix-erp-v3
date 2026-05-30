@@ -10,6 +10,7 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { ACCENT_MAP, type AccentColor } from '@/lib/design-tokens';
+import { cn } from '@/lib/utils';
 
 export interface KpiCardProps {
   /** 指标标签 */
@@ -51,16 +52,16 @@ export function KpiCard({
 
   if (loading) {
     return (
-      <div className={[
-        'rounded-2xl border border-slate-100 dark:border-slate-700',
-        'bg-white dark:bg-slate-800 p-5 shadow-sm',
+      <div className={cn(
+        'rounded-2xl border border-border',
+        'bg-bg-card p-5 shadow-sm',
         className,
-      ].join(' ')}>
+      )}>
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 animate-pulse flex-shrink-0" />
+          <div className="w-10 h-10 rounded-xl bg-bg-muted animate-pulse flex-shrink-0" />
           <div className="flex-1 space-y-2">
-            <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded animate-pulse w-20" />
-            <div className="h-6 bg-slate-100 dark:bg-slate-700 rounded animate-pulse w-32" />
+            <div className="h-3 bg-bg-muted rounded animate-pulse w-20" />
+            <div className="h-6 bg-bg-muted rounded animate-pulse w-32" />
           </div>
         </div>
       </div>
@@ -70,15 +71,15 @@ export function KpiCard({
   return (
     <div
       onClick={onClick}
-      className={[
+      className={cn(
         'rounded-2xl border p-5 shadow-sm transition-all',
-        'bg-white dark:bg-slate-800',
+        'bg-bg-card',
         ac.border,
         isClickable
           ? 'cursor-pointer hover:shadow-md hover:-translate-y-0.5'
           : '',
         className,
-      ].join(' ')}
+      )}
     >
       <div className="flex items-start gap-3">
         {/* 图标区 */}
@@ -88,36 +89,36 @@ export function KpiCard({
 
         {/* 数值区 */}
         <div className="flex-1 min-w-0">
-          <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 truncate">{label}</div>
+          <div className="text-xs text-text-muted mb-1 truncate">{label}</div>
           <div className={`text-xl font-extrabold leading-tight ${ac.text} truncate`}>
             {value}
           </div>
           {subValue && (
-            <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">{subValue}</div>
+            <div className="text-xs text-text-dim mt-0.5 truncate">{subValue}</div>
           )}
         </div>
       </div>
 
       {/* 趋势区（可选） */}
       {trend !== undefined && (
-        <div className="flex items-center gap-1 mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+        <div className="flex items-center gap-1 mt-3 pt-3 border-t border-border">
           {trend > 0 ? (
             <TrendingUp size={12} className="text-emerald-500 flex-shrink-0" />
           ) : trend < 0 ? (
             <TrendingDown size={12} className="text-red-500 flex-shrink-0" />
           ) : (
-            <Minus size={12} className="text-slate-400 flex-shrink-0" />
+            <Minus size={12} className="text-text-dim flex-shrink-0" />
           )}
           <span className={`text-xs font-semibold ${
             trend > 0
               ? 'text-emerald-600 dark:text-emerald-400'
               : trend < 0
                 ? 'text-red-600 dark:text-red-400'
-                : 'text-slate-400'
+                : 'text-text-dim'
           }`}>
             {trend > 0 ? '+' : ''}{trend}%
           </span>
-          <span className="text-xs text-slate-400 dark:text-slate-500">{trendLabel}</span>
+          <span className="text-xs text-text-dim">{trendLabel}</span>
         </div>
       )}
     </div>

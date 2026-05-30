@@ -10,6 +10,8 @@ import {
   PanelLeftClose, PanelLeftOpen, Sun, Moon, LogOut, Languages
 } from "lucide-react";
 import styles from "./admin.module.css";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 // ── Page title: path → locale key → Chinese fallback ─────────────
 // 使用 menu.<childId> 作为 key，与 Sidebar 共享同一翻译源
@@ -167,6 +169,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   return (
+    <TooltipProvider delayDuration={300}>
     <div className={styles.shell} style={{ "--sidebar-w": pinned ? FULL_W : RAIL_W } as React.CSSProperties}>
       {/* Spacer div — controls content area width when pinned */}
       <div style={{ width: pinned ? FULL_W : RAIL_W, flexShrink: 0, transition: "width 220ms ease" }} />
@@ -249,6 +252,8 @@ type="button"               className={`${styles.pinBtn} ${pinned ? styles.pinAc
           {children}
         </div>
       </main>
+      <Toaster position="top-right" richColors />
     </div>
+    </TooltipProvider>
   );
 }

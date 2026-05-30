@@ -3,9 +3,90 @@
 
 /*
  * 暗黑模式：使用 [data-theme="dark"] 属性触发（由 ThemeContext 写入 <html>）
- * 这使 dark: 变体与 CSS 变量方案保持一致。
  */
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/*
+ * ── Phoenix Design System V2 — @theme inline 桥接层 ─────────────────
+ * 将 CSS Variables 注册为 Tailwind tokens，消除两套颜色系统的冲突。
+ * 规则：所有组件颜色 class 必须来自此处，禁止使用 Tailwind 内置色板
+ *       (bg-slate-800 / dark:text-slate-400 等)。
+ * 深色模式通过 [data-theme="dark"] 切换 CSS Variables 自动生效。
+ */
+@theme inline {
+  /* ── 背景 ── */
+  --color-bg-card:       var(--bg-card);
+  --color-bg-page:       var(--bg-page);
+  --color-bg-muted:      var(--bg-muted);
+  --color-bg-sidebar:    var(--bg-sidebar);
+
+  /* ── 边框 ── */
+  --color-border:        var(--border);
+
+  /* ── 文字 ── */
+  --color-text:          var(--text-primary);
+  --color-text-muted:    var(--text-secondary);
+  --color-text-dim:      var(--text-disabled);
+  --color-text-on-dark:  var(--text-on-dark);
+
+  /* ── 品牌 / 状态 ── */
+  --color-brand:         var(--color-primary);
+  --color-accent:        var(--color-accent);
+  --color-success:       var(--status-success);
+  --color-warning:       var(--status-warning);
+  --color-danger:        var(--status-danger);
+  --color-info:          var(--status-info);
+
+  /* ── 阴影 ── */
+  --shadow-card:         var(--shadow-sm);
+  --shadow-card-hover:   var(--shadow-md);
+
+  /* ── 圆角 ── */
+  --radius-card:         var(--radius-lg);
+  --radius-btn:          var(--radius-md);
+  --radius-badge:        100px;
+}
+
+/*
+ * ── Radix UI 动画 keyframes ──────────────────────────────────────────
+ * 所有 Dialog / Sheet / Dropdown / Tooltip 的进出动画统一在此定义，
+ * 组件通过 data-state="open/closed" 触发，丝滑感来源。
+ */
+@keyframes phx-fade-in       { from { opacity: 0 }                     to { opacity: 1 } }
+@keyframes phx-fade-out      { from { opacity: 1 }                     to { opacity: 0 } }
+@keyframes phx-zoom-in       { from { opacity: 0; transform: scale(0.95) } to { opacity: 1; transform: scale(1) } }
+@keyframes phx-zoom-out      { from { opacity: 1; transform: scale(1) }    to { opacity: 0; transform: scale(0.95) } }
+@keyframes phx-slide-in-r    { from { transform: translateX(100%) }    to { transform: translateX(0) } }
+@keyframes phx-slide-out-r   { from { transform: translateX(0) }       to { transform: translateX(100%) } }
+@keyframes phx-slide-in-b    { from { transform: translateY(100%) }    to { transform: translateY(0) } }
+@keyframes phx-slide-out-b   { from { transform: translateY(0) }       to { transform: translateY(100%) } }
+@keyframes phx-dialog-in     {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(0.96) }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1) }
+}
+@keyframes phx-dialog-out    {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1) }
+  to   { opacity: 0; transform: translate(-50%, -48%) scale(0.96) }
+}
+
+/* Radix data-state 绑定 */
+[data-state="open"]  > [data-radix-dialog-content]   { animation: phx-dialog-in  0.2s cubic-bezier(0.16,1,0.3,1) }
+[data-state="closed"]> [data-radix-dialog-content]   { animation: phx-dialog-out 0.15s ease-in }
+[data-state="open"]  > [data-radix-sheet-content]    { animation: phx-slide-in-r  0.25s cubic-bezier(0.16,1,0.3,1) }
+[data-state="closed"]> [data-radix-sheet-content]    { animation: phx-slide-out-r 0.2s  ease-in }
+
+/*
+ * ── 全局 Interaction Tokens ──────────────────────────────────────────
+ * 统一过渡时长和缓动曲线，所有组件 hover/focus 体感一致。
+ */
+:root {
+  --duration-fast:    100ms;
+  --duration-base:    150ms;
+  --duration-slow:    250ms;
+  --ease-spring:      cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-smooth:      cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out-back:    cubic-bezier(0.34, 1.56, 0.64, 1);
+}
 
 /* ══════════════════════════════════════════════════════════════
    Phoenix ERP — Design Tokens
