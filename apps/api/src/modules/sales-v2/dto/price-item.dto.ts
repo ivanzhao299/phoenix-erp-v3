@@ -33,6 +33,18 @@ export class CreatePriceItemDto {
 
   @Type(() => Number) @IsNumber() @IsOptional() @Min(0)
   maxQty?: number;
+
+  /** Phase H3: 关联 product_skus.sku_code（填写后自动推导 productCode/gradeCodeStd/specCode） */
+  @IsString() @IsOptional() @MaxLength(64)
+  skuCode?: string;
+
+  /** Phase H3: 标准等级编码（product_grades.grade_code） */
+  @IsString() @IsOptional() @MaxLength(32)
+  gradeCodeStd?: string;
+
+  /** Phase H3: 标准规格编码（packaging_specs.spec_code） */
+  @IsString() @IsOptional() @MaxLength(64)
+  specCode?: string;
 }
 
 export class UpdatePriceItemDto {
@@ -67,6 +79,18 @@ export class QueryPriceItemDto {
 
   @IsString() @IsOptional()
   packagingSpec?: string;
+
+  /** Phase H3: 按 sku_code 筛选 */
+  @IsString() @IsOptional()
+  skuCode?: string;
+
+  /** Phase H3: 按标准等级编码筛选 */
+  @IsString() @IsOptional()
+  gradeCodeStd?: string;
+
+  /** Phase H3: 按标准规格编码筛选 */
+  @IsString() @IsOptional()
+  specCode?: string;
 
   @IsString() @IsOptional() @IsIn(['ACTIVE', 'DISABLED'])
   status?: string;
@@ -104,6 +128,10 @@ export class ResolvePriceDto {
   @IsString() @IsOptional()
   packagingSpec?: string;
 
+  /** Phase H3: 提供后按 sku_code 优先匹配价格（高于 product+grade+spec 组合匹配） */
+  @IsString() @IsOptional()
+  skuCode?: string;
+
   @Type(() => Number) @IsNumber() @IsOptional() @Min(0)
   qty?: number;
 
@@ -129,6 +157,10 @@ export class ValidatePriceDto {
 
   @IsString() @IsOptional()
   packagingSpec?: string;
+
+  /** Phase H3: 提供后按 sku_code 优先匹配价格 */
+  @IsString() @IsOptional()
+  skuCode?: string;
 
   @Type(() => Number) @IsNumber() @Min(0)
   unitPrice: number;

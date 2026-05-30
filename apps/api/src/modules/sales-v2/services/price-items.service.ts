@@ -39,6 +39,26 @@ export class PriceItemsService {
     return book;
   }
 
+  /**
+   * Phase H3: 根据 sku_code 查询 product_skus，返回推导出的 productCode/gradeCodeStd/specCode
+   * 仅在 dto.skuCode 存在时调用
+   */
+  private async resolveSkuInfo(skuCode: string): Promise<{ productCode: string; gradeCodeStd: string; specCode: string }> {
+    const rows = await this.ds.query(
+      `SELECT product_code, grade_code, spec_code FROM product_skus WHERE sku_code = $1 AND status = 'ACTIVE'`,
+      [skuCode],
+    );
+    if (!rows?.length) {
+      throw new BadRequestException(`SKU "${skuCode}" 不存在或已停用，请先在主数据中心维护 SKU 档案`);
+    }
+    const sku = rows[0];
+    return {
+      productCode:  sku.product_code,
+      gradeCodeStd: sku.grade_code,
+      specCode:     sku.spec_code,
+    };
+  }
+
   async listItems(q: QueryPriceItemDto) {
     const user   = this.getScope();
     const page   = Math.max(1, q.page  ?? 1);
@@ -48,11 +68,15 @@ export class PriceItemsService {
     const params: any[] = [];
     const where: string[] = ['pi.status != \'DELETED\''];
 
-    if (q.priceBookId) { params.push(q.priceBookId); where.push(`pi.price_book_id = $${params.length}`); }
-    if (q.productCode) { params.push(q.productCode); where.push(`pi.product_code = $${params.length}`); }
-    if (q.gradeCode)   { params.push(q.gradeCode);   where.push(`pi.grade_code = $${params.length}`); }
-    if (q.packagingSpec) { params.push(q.packagingSpec); where.push(`pi.packaging_spec = $${params.length}`); }
-    if (q.status)      { params.push(q.status);      where.push(`pi.status = $${params.length}`); }
+    if (q.priceBookId)  { params.push(q.priceBookId);  where.push(`pi.price_book_id = $${params.length}`); }
+    if (q.productCode)  { params.push(q.productCode);  where.push(`pi.product_code = $${params.length}`); }
+    if (q.gradeCode)    { params.push(q.gradeCode);    where.push(`pi.grade_code = $${params.length}`); }
+    if (q.packagingSpec){ params.push(q.packagingSpec); where.push(`pi.packaging_spec = $${params.length}`); }
+    // Phase H3 新增筛选项
+    if (q.skuCode)      { params.push(q.skuCode);      where.push(`pi.sku_code = $${params.length}`); }
+    if (q.gradeCodeStd) { params.push(q.gradeCodeStd); where.push(`pi.grade_code_std = $${params.length}`); }
+    if (q.specCode)     { params.push(q.specCode);     where.push(`pi.spec_code = $${params.length}`); }
+    if (q.status)       { params.push(q.status);       where.push(`pi.status = $${params.length}`); }
 
     // DataScope 通过 price_book 过滤
     if (!user.scopeAll) {
@@ -71,7 +95,8 @@ export class PriceItemsService {
         params,
       ),
       this.ds.query(
-        `SELECT pi.*, pb.price_book_no, pb.company_code, pb.status AS book_status
+        `SELECT pi.*,
+                pb.price_book_no, pb.company_code, pb.status AS book_status
          FROM sal_price_items pi
          JOIN sal_price_books pb ON pb.id = pi.price_book_id
          WHERE ${wc}
@@ -90,20 +115,36 @@ export class PriceItemsService {
       throw new ForbiddenException('ACTIVE 价格册不可添加明细，请先失效后操作');
     }
 
+    // Phase H3: 如果提供了 sku_code，校验并自动推导 productCode / gradeCodeStd / specCode
+    let productCode  = dto.productCode;
+    let gradeCodeStd = dto.gradeCodeStd ?? null;
+    let specCode     = dto.specCode     ?? null;
+
+    if (dto.skuCode) {
+      const skuInfo = await this.resolveSkuInfo(dto.skuCode);
+      productCode  = skuInfo.productCode;
+      gradeCodeStd = skuInfo.gradeCodeStd;
+      specCode     = skuInfo.specCode;
+    }
+
     const result = await this.ds.query(`
       INSERT INTO sal_price_items
         (price_book_id, product_code, grade_code, packaging_spec,
          currency_code, unit_price, floor_price, ceiling_price,
-         min_qty, max_qty, status)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ACTIVE')
+         min_qty, max_qty, status,
+         sku_code, grade_code_std, spec_code)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ACTIVE',$11,$12,$13)
       RETURNING *
     `, [
-      dto.priceBookId, dto.productCode,
+      dto.priceBookId, productCode,
       dto.gradeCode    ?? null, dto.packagingSpec ?? null,
       dto.currencyCode ?? 'LAK',
       dto.unitPrice,
       dto.floorPrice   ?? null, dto.ceilingPrice  ?? null,
       dto.minQty       ?? null, dto.maxQty        ?? null,
+      dto.skuCode      ?? null,
+      gradeCodeStd,
+      specCode,
     ]);
     return result[0];
   }
@@ -175,21 +216,42 @@ export class PriceItemsService {
 
     const results: any[] = [];
     for (const item of dto.items) {
+      // Phase H3: 批量导入同样支持 sku_code 推导
+      let productCode  = item.productCode;
+      let gradeCodeStd = item.gradeCodeStd ?? null;
+      let specCode     = item.specCode     ?? null;
+
+      if (item.skuCode) {
+        try {
+          const skuInfo = await this.resolveSkuInfo(item.skuCode);
+          productCode  = skuInfo.productCode;
+          gradeCodeStd = skuInfo.gradeCodeStd;
+          specCode     = skuInfo.specCode;
+        } catch {
+          // SKU 无效时跳过该条，继续处理下一条
+          continue;
+        }
+      }
+
       const r = await this.ds.query(`
         INSERT INTO sal_price_items
           (price_book_id, product_code, grade_code, packaging_spec,
            currency_code, unit_price, floor_price, ceiling_price,
-           min_qty, max_qty, status)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ACTIVE')
+           min_qty, max_qty, status,
+           sku_code, grade_code_std, spec_code)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ACTIVE',$11,$12,$13)
         ON CONFLICT DO NOTHING
         RETURNING *
       `, [
-        dto.priceBookId, item.productCode,
+        dto.priceBookId, productCode,
         item.gradeCode    ?? null, item.packagingSpec ?? null,
         item.currencyCode ?? 'LAK',
         item.unitPrice,
         item.floorPrice   ?? null, item.ceilingPrice  ?? null,
         item.minQty       ?? null, item.maxQty        ?? null,
+        item.skuCode      ?? null,
+        gradeCodeStd,
+        specCode,
       ]);
       if (r?.length) results.push(r[0]);
     }
@@ -203,12 +265,15 @@ export class PriceItemsService {
       throw new ForbiddenException('目标价格册 ACTIVE 状态不可复制');
     }
 
+    // Phase H3: 复制时同步带上 sku_code / grade_code_std / spec_code
     const result = await this.ds.query(`
       INSERT INTO sal_price_items
         (price_book_id, product_code, grade_code, packaging_spec,
-         currency_code, unit_price, floor_price, ceiling_price, min_qty, max_qty, status)
+         currency_code, unit_price, floor_price, ceiling_price, min_qty, max_qty, status,
+         sku_code, grade_code_std, spec_code)
       SELECT $1, product_code, grade_code, packaging_spec,
-             currency_code, unit_price, floor_price, ceiling_price, min_qty, max_qty, 'ACTIVE'
+             currency_code, unit_price, floor_price, ceiling_price, min_qty, max_qty, 'ACTIVE',
+             sku_code, grade_code_std, spec_code
       FROM sal_price_items
       WHERE price_book_id = $2 AND status = 'ACTIVE'
     `, [targetBookId, sourceBookId]);

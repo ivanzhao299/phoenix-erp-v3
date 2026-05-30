@@ -6,15 +6,21 @@ import { DataScopeContext } from '../../org/services/data-scope.service';
 import { ResolvePriceDto, ValidatePriceDto } from '../dto/price-item.dto';
 
 export interface ResolvedPrice {
-  priceBookId:  string;
-  priceBookNo:  string;
-  priceItemId:  string;
-  unitPrice:    number;
-  floorPrice:   number | null;
-  ceilingPrice: number | null;
-  currencyCode: string;
-  sourceType:   'CUSTOMER' | 'CHANNEL' | 'DEFAULT';
-  matchedRule:  string;
+  priceBookId:   string;
+  priceBookNo:   string;
+  priceItemId:   string;
+  unitPrice:     number;
+  floorPrice:    number | null;
+  ceilingPrice:  number | null;
+  currencyCode:  string;
+  sourceType:    'CUSTOMER' | 'CHANNEL' | 'DEFAULT';
+  matchedRule:   string;
+  /** Phase H3: 匹配的 SKU 编码（如果是 sku_code 精确匹配）*/
+  skuCode?:      string | null;
+  /** Phase H3: 标准等级编码 */
+  gradeCodeStd?: string | null;
+  /** Phase H3: 标准规格编码 */
+  specCode?:     string | null;
 }
 
 export interface ValidateResult {
@@ -42,24 +48,33 @@ export class PriceRuntimeService {
   /**
    * 价格解析引擎
    *
-   * 匹配优先级：
+   * 匹配优先级（Phase H3 更新）：
+   *   0. sku_code 精确匹配（最高优先级，Phase H3 新增）
    *   1. customer_code 精确匹配
    *   2. channel_code 匹配
    *   3. 默认价格册（customer_code 和 channel_code 均为 NULL）
    *   4. priority 数字越小越优先
    *   5. 数量阶梯：qty 在 [min_qty, max_qty] 范围内
+   *
+   * 兼容规则：
+   *   - dto.skuCode 为空时，按旧逻辑 product_code + grade_code + packaging_spec 匹配
+   *   - dto.skuCode 非空时，同时尝试 sku_code 精确路径和旧路径，sku_code 路径优先
    */
   async resolvePrice(dto: ResolvePriceDto): Promise<ResolvedPrice> {
-    const qty = dto.qty ?? null;
+    const qty     = dto.qty ?? null;
+    const skuCode = dto.skuCode ?? null;
 
     const rows = await this.ds.query(`
       SELECT
-        pi.id           AS item_id,
+        pi.id              AS item_id,
         pi.unit_price,
         pi.floor_price,
         pi.ceiling_price,
         pi.currency_code,
-        pb.id           AS book_id,
+        pi.sku_code,
+        pi.grade_code_std,
+        pi.spec_code,
+        pb.id              AS book_id,
         pb.price_book_no,
         pb.priority,
         pb.customer_code,
@@ -76,22 +91,36 @@ export class PriceRuntimeService {
         AND pi.status       = 'ACTIVE'
         AND (pb.effective_from IS NULL OR pb.effective_from <= CURRENT_DATE)
         AND (pb.effective_to   IS NULL OR pb.effective_to   >= CURRENT_DATE)
-        AND pi.product_code = $2
-        AND (pi.grade_code      IS NULL OR pi.grade_code      = $3)
-        AND (pi.packaging_spec  IS NULL OR pi.packaging_spec  = $4)
-        AND ($5::numeric IS NULL OR pi.min_qty IS NULL OR pi.min_qty <= $5::numeric)
-        AND ($5::numeric IS NULL OR pi.max_qty IS NULL OR pi.max_qty >= $5::numeric)
         AND (
-              pb.customer_code = $6
-           OR pb.channel_code  = $7
+          -- Phase H3 Path A: sku_code 精确匹配（仅当请求和价格项都有 sku_code 时）
+          ($2::varchar IS NOT NULL AND pi.sku_code = $2::varchar)
+          OR
+          -- Path B: 兼容旧 product+grade+spec 匹配
+          (
+            ($2::varchar IS NULL OR pi.sku_code IS NULL)
+            AND pi.product_code = $3
+            AND (pi.grade_code     IS NULL OR pi.grade_code     = $4)
+            AND (pi.packaging_spec IS NULL OR pi.packaging_spec = $5)
+          )
+        )
+        AND ($6::numeric IS NULL OR pi.min_qty IS NULL OR pi.min_qty <= $6::numeric)
+        AND ($6::numeric IS NULL OR pi.max_qty IS NULL OR pi.max_qty >= $6::numeric)
+        AND (
+              pb.customer_code = $7
+           OR pb.channel_code  = $8
            OR (pb.customer_code IS NULL AND pb.channel_code IS NULL)
         )
-      ORDER BY tier ASC, pb.priority ASC
+      ORDER BY
+        -- Phase H3: sku_code 精确匹配优先于 product+grade+spec 匹配
+        CASE WHEN $2::varchar IS NOT NULL AND pi.sku_code = $2::varchar THEN 0 ELSE 1 END ASC,
+        tier ASC,
+        pb.priority ASC
       LIMIT 1
     `, [
       dto.companyCode,
+      skuCode,
       dto.productCode,
-      dto.gradeCode   ?? null,
+      dto.gradeCode    ?? null,
       dto.packagingSpec ?? null,
       qty,
       dto.customerCode ?? null,
@@ -101,6 +130,7 @@ export class PriceRuntimeService {
     if (!rows?.length) {
       throw new NotFoundException(
         `未找到价格：公司=${dto.companyCode} 产品=${dto.productCode}` +
+        (dto.skuCode       ? ` SKU=${dto.skuCode}` : '') +
         (dto.gradeCode     ? ` 品级=${dto.gradeCode}` : '') +
         (dto.packagingSpec ? ` 规格=${dto.packagingSpec}` : '') +
         (dto.customerCode  ? ` 客户=${dto.customerCode}` : '') +
@@ -123,11 +153,14 @@ export class PriceRuntimeService {
       priceBookNo:  r.price_book_no,
       priceItemId:  String(r.item_id),
       unitPrice:    Number(r.unit_price),
-      floorPrice:   r.floor_price != null ? Number(r.floor_price) : null,
+      floorPrice:   r.floor_price  != null ? Number(r.floor_price)  : null,
       ceilingPrice: r.ceiling_price != null ? Number(r.ceiling_price) : null,
       currencyCode: r.currency_code,
       sourceType,
       matchedRule,
+      skuCode:      r.sku_code      ?? null,
+      gradeCodeStd: r.grade_code_std ?? null,
+      specCode:     r.spec_code     ?? null,
     };
   }
 
@@ -145,6 +178,7 @@ export class PriceRuntimeService {
         productCode:   dto.productCode,
         gradeCode:     dto.gradeCode,
         packagingSpec: dto.packagingSpec,
+        skuCode:       dto.skuCode,
         qty:           dto.qty,
       });
     } catch {
@@ -183,6 +217,7 @@ export class PriceRuntimeService {
   /**
    * 移动端当前生效价格列表
    * 按 grade_code + packaging_spec 聚合，返回当前 DataScope 公司的 ACTIVE 价格
+   * Phase H3 更新：同时返回 sku_code / grade_code_std / spec_code
    */
   async getCurrentPrices(companyCode?: string): Promise<any[]> {
     const user = this.getScope();
@@ -206,7 +241,7 @@ export class PriceRuntimeService {
 
     const rows = await this.ds.query(`
       SELECT DISTINCT ON (pi.product_code, COALESCE(pi.grade_code,''), COALESCE(pi.packaging_spec,''))
-        pi.id            AS item_id,
+        pi.id             AS item_id,
         pi.product_code,
         pi.grade_code,
         pi.packaging_spec,
@@ -214,6 +249,9 @@ export class PriceRuntimeService {
         pi.floor_price,
         pi.ceiling_price,
         pi.currency_code,
+        pi.sku_code,
+        pi.grade_code_std,
+        pi.spec_code,
         pb.price_book_no,
         pb.company_code,
         pb.customer_code,
@@ -240,11 +278,15 @@ export class PriceRuntimeService {
       gradeCode:     r.grade_code,
       packagingSpec: r.packaging_spec,
       unitPrice:     Number(r.unit_price),
-      floorPrice:    r.floor_price  != null ? Number(r.floor_price)  : null,
+      floorPrice:    r.floor_price   != null ? Number(r.floor_price)   : null,
       ceilingPrice:  r.ceiling_price != null ? Number(r.ceiling_price) : null,
       currencyCode:  r.currency_code,
       priceBookNo:   r.price_book_no,
       companyCode:   r.company_code,
+      // Phase H3 新增字段
+      skuCode:       r.sku_code       ?? null,
+      gradeCodeStd:  r.grade_code_std ?? null,
+      specCode:      r.spec_code      ?? null,
     }));
   }
 }
