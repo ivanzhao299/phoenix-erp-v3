@@ -1,9 +1,10 @@
 'use client';
 /**
- * 财务管理驾驶舱
- * ==============
- * 顶部 6 KPI + 功能模块导航，严格遵循 Design System V1。
- * 颜色来源：design-tokens.ts ACCENT_MAP，无硬编码 hex。
+ * 财务管理驾驶舱 — Design System V2
+ * ===================================
+ * · 全部颜色来自 @theme inline token，无 dark:bg-slate-* 硬编码
+ * · 模块卡使用 bg-bg-card + accent token
+ * · 告警条使用 bg-danger/10、bg-warning/10
  */
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -14,7 +15,24 @@ import {
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { KpiCard } from '@/components/ui/KpiCard';
-import { ACCENT_MAP, type AccentColor } from '@/lib/design-tokens';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import type { AccentColor } from '@/lib/design-tokens';
+
+// ── 设计系统 token 映射 ───────────────────────────────────────────────────────
+type AccentKey = "blue" | "green" | "amber" | "red" | "violet" | "indigo" | "cyan" | "teal" | "slate";
+
+const ACCENT: Record<AccentKey, { text: string; icon: string; border: string }> = {
+  blue:   { text: 'text-info',       icon: 'bg-info/10',    border: 'border-info/20'    },
+  green:  { text: 'text-success',    icon: 'bg-success/10', border: 'border-success/20' },
+  amber:  { text: 'text-warning',    icon: 'bg-warning/10', border: 'border-warning/20' },
+  red:    { text: 'text-danger',     icon: 'bg-danger/10',  border: 'border-danger/20'  },
+  violet: { text: 'text-brand',      icon: 'bg-brand/10',   border: 'border-brand/20'   },
+  indigo: { text: 'text-brand',      icon: 'bg-brand/10',   border: 'border-brand/20'   },
+  cyan:   { text: 'text-info',       icon: 'bg-info/10',    border: 'border-info/20'    },
+  teal:   { text: 'text-success',    icon: 'bg-success/10', border: 'border-success/20' },
+  slate:  { text: 'text-text-muted', icon: 'bg-bg-muted',   border: 'border-border'     },
+};
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -87,47 +105,56 @@ function fmt(n: number | string | null | undefined): string {
   return Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// ── 区块标题 ──────────────────────────────────────────────────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-xs font-semibold text-text-dim uppercase tracking-wider mb-3">
+      {children}
+    </div>
+  );
+}
+
 // ── 功能模块导航卡 ────────────────────────────────────────────────────────────
 
 interface ModuleItem {
-  icon: React.ElementType;
-  title: string;
+  icon:        React.ElementType;
+  title:       string;
   description: string;
-  path: string;
-  accentColor: AccentColor;
+  path:        string;
+  accent:      AccentKey;
 }
 
 const MODULES: ModuleItem[] = [
-  { icon: TrendingDown,    title: '应付账款管理',  path: '/finance2/ap',                 accentColor: 'amber',  description: '供应商发票管理、付款核销、多币种、账龄分析。' },
-  { icon: TrendingUp,      title: '应收账款管理',  path: '/finance2/ar',                 accentColor: 'green',  description: '客户发票、收款核销、账龄分析。' },
-  { icon: Wallet,          title: '资金账户管理',  path: '/finance2/cash-accounts',      accentColor: 'blue',   description: '多账户余额管理、流水账本、转账审批。' },
-  { icon: ArrowLeftRight,  title: '资金转账',      path: '/finance2/fund-transfers',     accentColor: 'cyan',   description: '账户间资金划转，5 阶段审批流程，事务安全保障。' },
-  { icon: Users,           title: '股东资金管理',  path: '/finance2/shareholder-funds',  accentColor: 'violet', description: '出资台账、结算审批（退回/抵扣/核销）、联动资金账户。' },
-  { icon: Receipt,         title: '费用申请',      path: '/finance2/expenses',           accentColor: 'indigo', description: '费用申请全流程审批，审批通过自动生成报销，付款联动资金账户。' },
-  { icon: ArrowLeftRight,  title: '报销管理',      path: '/finance2/reimbursements',     accentColor: 'teal',   description: '报销台账，付款事务安全，自动扣减现金账户余额。' },
-  { icon: PieChart,        title: '经营报表',      path: '/finance2/reports',            accentColor: 'slate',  description: '12 只读聚合报表。账龄 · 资金日报 · 费用统计 · 净头寸 · 项目财务。' },
+  { icon: TrendingDown,   title: '应付账款管理', path: '/finance2/ap',                accent: 'amber',  description: '供应商发票管理、付款核销、多币种、账龄分析。' },
+  { icon: TrendingUp,     title: '应收账款管理', path: '/finance2/ar',                accent: 'green',  description: '客户发票、收款核销、账龄分析。' },
+  { icon: Wallet,         title: '资金账户管理', path: '/finance2/cash-accounts',     accent: 'blue',   description: '多账户余额管理、流水账本、转账审批。' },
+  { icon: ArrowLeftRight, title: '资金转账',     path: '/finance2/fund-transfers',    accent: 'cyan',   description: '账户间资金划转，5 阶段审批流程，事务安全保障。' },
+  { icon: Users,          title: '股东资金管理', path: '/finance2/shareholder-funds', accent: 'violet', description: '出资台账、结算审批（退回/抵扣/核销）、联动资金账户。' },
+  { icon: Receipt,        title: '费用申请',     path: '/finance2/expenses',          accent: 'indigo', description: '费用申请全流程审批，审批通过自动生成报销，付款联动资金账户。' },
+  { icon: ArrowLeftRight, title: '报销管理',     path: '/finance2/reimbursements',    accent: 'teal',   description: '报销台账，付款事务安全，自动扣减现金账户余额。' },
+  { icon: PieChart,       title: '经营报表',     path: '/finance2/reports',           accent: 'slate',  description: '12 只读聚合报表。账龄 · 资金日报 · 费用统计 · 净头寸 · 项目财务。' },
 ];
 
 function ModuleCard({ item }: { item: ModuleItem }) {
   const router = useRouter();
-  const ac = ACCENT_MAP[item.accentColor];
+  const ac = ACCENT[item.accent];
   return (
     <div
       onClick={() => router.push(item.path)}
-      className={[
-        'rounded-2xl border p-5 shadow-sm cursor-pointer',
-        'bg-white dark:bg-slate-800',
-        'hover:shadow-md hover:-translate-y-0.5',
-        'transition-all',
+      className={cn(
+        'rounded-2xl border bg-bg-card p-5 cursor-pointer',
+        'shadow-card hover:shadow-card-hover hover:-translate-y-0.5',
+        'transition-all duration-150',
         ac.border,
-      ].join(' ')}
+      )}
     >
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${ac.icon}`}>
+      <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center mb-3', ac.icon)}>
         <item.icon size={20} className={ac.text} />
       </div>
-      <div className="font-bold text-sm text-slate-800 dark:text-slate-100 mb-1">{item.title}</div>
-      <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-3">{item.description}</div>
-      <div className={`flex items-center gap-1 text-xs font-medium ${ac.text}`}>
+      <div className="font-bold text-sm text-text mb-1">{item.title}</div>
+      <div className="text-xs text-text-muted leading-relaxed mb-3">{item.description}</div>
+      <div className={cn('flex items-center gap-1 text-xs font-medium', ac.text)}>
         进入 <ArrowRight size={12} />
       </div>
     </div>
@@ -178,14 +205,14 @@ export default function Finance2DashboardPage() {
 
   useEffect(() => { void load(); }, []);
 
-  // ── 6 核心 KPI ────────────────────────────────────────────────────────
+  // ── 6 核心 KPI ─────────────────────────────────────────────────────────
   const kpis = [
     {
-      label:        '现金账户余额',
-      value:        cashDash?.summary ? `¥ ${fmt(cashDash.summary.totalBalance)}` : '—',
-      subValue:     cashDash?.summary ? `${cashDash.summary.totalAccounts} 个账户` : undefined,
-      icon:         Wallet,
-      accentColor:  'blue' as AccentColor,
+      label:       '现金账户余额',
+      value:       cashDash?.summary ? `¥ ${fmt(cashDash.summary.totalBalance)}` : '—',
+      subValue:    cashDash?.summary ? `${cashDash.summary.totalAccounts} 个账户` : undefined,
+      icon:        Wallet,
+      accentColor: 'blue' as AccentColor,
     },
     {
       label:       '应收待收款',
@@ -236,35 +263,28 @@ export default function Finance2DashboardPage() {
         subtitle="应付 · 应收 · 资金账户 · 费用报销 · 股东资金 · 经营净头寸"
         breadcrumb={['财务管理', '驾驶舱']}
         actions={
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => void load()}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border
-              border-slate-200 dark:border-slate-700
-              bg-white dark:bg-slate-800
-              text-sm text-slate-600 dark:text-slate-300
-              hover:bg-slate-50 dark:hover:bg-slate-700
-              transition-colors cursor-pointer disabled:opacity-50"
           >
-            <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
             刷新
-          </button>
+          </Button>
         }
       />
 
       {/* 错误提示 */}
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800
-          rounded-xl px-4 py-3 mb-5 text-red-500 dark:text-red-400 text-sm flex items-center gap-2">
+        <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 mb-5 text-danger text-sm flex items-center gap-2">
           <AlertTriangle size={14} /> {error}
         </div>
       )}
 
       {/* ── 6 大 KPI 指标 ─────────────────────────────────────────────── */}
       <div className="mb-2">
-        <div className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">
-          财务核心指标
-        </div>
+        <SectionLabel>财务核心指标</SectionLabel>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
           {kpis.map((kpi) => (
             <KpiCard
@@ -282,9 +302,7 @@ export default function Finance2DashboardPage() {
 
       {/* ── 应收账款异常提示（有逾期时高亮） ──────────────────────────── */}
       {!loading && arSummary && arSummary.overdue_invoices > 0 && (
-        <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20
-          border border-red-200 dark:border-red-700
-          rounded-xl px-4 py-3 mb-6 text-sm text-red-600 dark:text-red-400">
+        <div className="flex items-center gap-2 bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 mb-6 text-sm text-danger">
           <AlertTriangle size={15} className="flex-shrink-0" />
           <span>
             当前有 <strong>{arSummary.overdue_invoices}</strong> 笔应收账款逾期，
@@ -295,9 +313,7 @@ export default function Finance2DashboardPage() {
 
       {/* ── 待处理转账提示 ─────────────────────────────────────────────── */}
       {!loading && cashDash && cashDash.pendingTransfers > 0 && (
-        <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20
-          border border-amber-200 dark:border-amber-700
-          rounded-xl px-4 py-3 mb-6 text-sm text-amber-700 dark:text-amber-400">
+        <div className="flex items-center gap-2 bg-warning/10 border border-warning/20 rounded-xl px-4 py-3 mb-6 text-sm text-warning">
           <DollarSign size={15} className="flex-shrink-0" />
           <span>
             有 <strong>{cashDash.pendingTransfers}</strong> 笔转账申请等待审批。
@@ -306,9 +322,7 @@ export default function Finance2DashboardPage() {
       )}
 
       {/* ── 功能模块导航 ──────────────────────────────────────────────── */}
-      <div className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">
-        功能模块
-      </div>
+      <SectionLabel>功能模块</SectionLabel>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {MODULES.map((m) => (
           <ModuleCard key={m.path} item={m} />

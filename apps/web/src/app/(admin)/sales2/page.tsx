@@ -1,9 +1,9 @@
 "use client";
 /**
- * 销售管理驾驶舱
- * ==============
- * 订单状态看板 + 经营概览 + 子模块入口。
- * 颜色来源：design-tokens.ts ACCENT_MAP，无硬编码 hex。
+ * 销售管理驾驶舱 — Design System V2
+ * ===================================
+ * · 全部颜色来自 @theme inline token，无 dark:bg-slate-* 硬编码
+ * · 状态色映射到 success/warning/danger/info/brand token
  */
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -14,9 +14,24 @@ import {
   TrendingDown, Package,
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
-import { ACCENT_MAP, type AccentColor } from "@/lib/design-tokens";
+import { cn } from "@/lib/utils";
 
-// ── 类型 ─────────────────────────────────────────────────────────────────────
+// ── 设计系统 token 映射（只使用 @theme inline 语义 token）────────────────────
+type AccentKey = "blue" | "green" | "amber" | "red" | "violet" | "indigo" | "cyan" | "teal" | "slate";
+
+const ACCENT: Record<AccentKey, { text: string; icon: string; border: string }> = {
+  blue:   { text: "text-info",       icon: "bg-info/10",    border: "border-info/20"    },
+  green:  { text: "text-success",    icon: "bg-success/10", border: "border-success/20" },
+  amber:  { text: "text-warning",    icon: "bg-warning/10", border: "border-warning/20" },
+  red:    { text: "text-danger",     icon: "bg-danger/10",  border: "border-danger/20"  },
+  violet: { text: "text-brand",      icon: "bg-brand/10",   border: "border-brand/20"   },
+  indigo: { text: "text-brand",      icon: "bg-brand/10",   border: "border-brand/20"   },
+  cyan:   { text: "text-info",       icon: "bg-info/10",    border: "border-info/20"    },
+  teal:   { text: "text-success",    icon: "bg-success/10", border: "border-success/20" },
+  slate:  { text: "text-text-muted", icon: "bg-bg-muted",   border: "border-border"     },
+};
+
+// ── 类型 ──────────────────────────────────────────────────────────────────────
 
 interface OrderStats {
   todayOrders:      number;
@@ -44,53 +59,74 @@ function getToken() {
   return sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "";
 }
 
-// ── 小型状态数字卡 ────────────────────────────────────────────────────────────
+// ── 状态数字卡 ────────────────────────────────────────────────────────────────
 
 function StatChip({
-  label,
-  value,
-  icon: Icon,
-  accentColor,
+  label, value, icon: Icon, accent,
 }: {
-  label:       string;
-  value:       string | number;
-  icon:        React.ElementType;
-  accentColor: AccentColor;
+  label:  string;
+  value:  string | number;
+  icon:   React.ElementType;
+  accent: AccentKey;
 }) {
-  const ac = ACCENT_MAP[accentColor];
+  const ac = ACCENT[accent];
   return (
-    <div className={[
-      "rounded-xl border p-3.5 text-center",
-      "bg-white dark:bg-slate-800",
+    <div className={cn(
+      "rounded-xl border bg-bg-card p-3.5 text-center",
+      "transition-shadow duration-150 hover:shadow-card-hover",
       ac.border,
-    ].join(" ")}>
-      <Icon size={16} className={`${ac.text} mx-auto mb-1.5`} />
-      <div className={`text-lg font-extrabold ${ac.text}`}>{value}</div>
-      <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">{label}</div>
+    )}>
+      <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center mx-auto mb-2", ac.icon)}>
+        <Icon size={14} className={ac.text} />
+      </div>
+      <div className={cn("text-lg font-extrabold leading-tight", ac.text)}>{value}</div>
+      <div className="text-xs text-text-dim mt-0.5 leading-tight">{label}</div>
     </div>
   );
 }
 
-// ── 子模块导航卡 ──────────────────────────────────────────────────────────────
+// ── 骨架屏 ────────────────────────────────────────────────────────────────────
+
+function StatChipSkeleton() {
+  return (
+    <div className="rounded-xl border border-border bg-bg-card p-4 h-[88px] animate-pulse">
+      <div className="w-7 h-7 rounded-lg bg-bg-muted mx-auto mb-2" />
+      <div className="h-5 w-10 bg-bg-muted rounded mx-auto mb-1" />
+      <div className="h-3 w-14 bg-bg-muted rounded mx-auto" />
+    </div>
+  );
+}
+
+// ── 子模块导航卡定义 ──────────────────────────────────────────────────────────
 
 interface NavCardDef {
-  href:        string;
-  Icon:        React.ElementType;
-  title:       string;
-  desc:        string;
-  accentColor: AccentColor;
+  href:   string;
+  Icon:   React.ElementType;
+  title:  string;
+  desc:   string;
+  accent: AccentKey;
 }
 
 const NAV_CARDS: NavCardDef[] = [
-  { href: "/sales2/customers", Icon: Users,      title: "客户主档",  accentColor: "indigo", desc: "统一客户主档 · 渠道分类 · 信用档案" },
-  { href: "/sales2/pricing",   Icon: Tag,        title: "价格管理",  accentColor: "green",  desc: "价格本 · 品级单价 · 客户专属价 · 审批工作流" },
-  { href: "/sales2/orders",    Icon: ShoppingCart,title: "销售订单", accentColor: "blue",   desc: "下单 · 审批 · 分配 · 拣货 · 发货 · 签收" },
-  { href: "/sales2/delivery",  Icon: Truck,       title: "配送管理", accentColor: "amber",  desc: "配送单 · 装车 · 发车 · 到达 · 签收 · AR 生成" },
-  { href: "/sales2/credit",    Icon: CreditCard,  title: "信用管理", accentColor: "red",    desc: "信用额度 · 冻结 · 逾期预警 · 信用台账" },
-  { href: "/sales2/reports",   Icon: BarChart2,   title: "经营分析", accentColor: "violet", desc: "销量 · 渠道 · 价格异常 · 配送 · 退货 · 库存" },
+  { href: "/sales2/customers", Icon: Users,        title: "客户主档",  accent: "indigo", desc: "统一客户主档 · 渠道分类 · 信用档案" },
+  { href: "/sales2/pricing",   Icon: Tag,          title: "价格管理",  accent: "green",  desc: "价格本 · 品级单价 · 客户专属价 · 审批工作流" },
+  { href: "/sales2/orders",    Icon: ShoppingCart, title: "销售订单",  accent: "blue",   desc: "下单 · 审批 · 分配 · 拣货 · 发货 · 签收" },
+  { href: "/sales2/delivery",  Icon: Truck,        title: "配送管理",  accent: "amber",  desc: "配送单 · 装车 · 发车 · 到达 · 签收 · AR 生成" },
+  { href: "/sales2/credit",    Icon: CreditCard,   title: "信用管理",  accent: "red",    desc: "信用额度 · 冻结 · 逾期预警 · 信用台账" },
+  { href: "/sales2/reports",   Icon: BarChart2,    title: "经营分析",  accent: "violet", desc: "销量 · 渠道 · 价格异常 · 配送 · 退货 · 库存" },
 ];
 
-// ── 主页面 ─────────────────────────────────────────────────────────────────────
+// ── 区块标题 ──────────────────────────────────────────────────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-xs font-semibold text-text-dim uppercase tracking-wider mb-3">
+      {children}
+    </div>
+  );
+}
+
+// ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function SalesV2Page() {
   const [stats,    setStats]   = useState<OrderStats | null>(null);
@@ -121,73 +157,67 @@ export default function SalesV2Page() {
 
       {/* ── 订单状态看板 ────────────────────────────────────────────────── */}
       <div className="mb-6">
-        <div className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">
-          订单状态
-        </div>
+        <SectionLabel>订单状态</SectionLabel>
         {loading ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-            {Array.from({ length: 7 }).map((_, i) => (
-              <div key={i} className="rounded-xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 h-20 animate-pulse" />
-            ))}
+            {Array.from({ length: 7 }).map((_, i) => <StatChipSkeleton key={i} />)}
           </div>
         ) : stats ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-            <StatChip label="今日订单"   value={stats.todayOrders}      icon={ShoppingCart}   accentColor="blue"   />
-            <StatChip label="待审批"     value={stats.pendingApproval}  icon={Clock}          accentColor="amber"  />
-            <StatChip label="已签收"     value={stats.receivedOrders}   icon={CheckCircle}    accentColor="green"  />
-            <StatChip label="待生成 AR"  value={stats.arPending}        icon={FileText}       accentColor="red"    />
-            <StatChip label="已生成 AR"  value={stats.arGenerated}      icon={FileText}       accentColor="green"  />
-            <StatChip label="低价审批"   value={stats.lowPriceOrders}   icon={AlertTriangle}  accentColor="red"    />
-            <StatChip label="超信用"     value={stats.overCreditOrders} icon={CreditCard}     accentColor="amber"  />
+            <StatChip label="今日订单"  value={stats.todayOrders}      icon={ShoppingCart}  accent="blue"   />
+            <StatChip label="待审批"    value={stats.pendingApproval}  icon={Clock}         accent="amber"  />
+            <StatChip label="已签收"    value={stats.receivedOrders}   icon={CheckCircle}   accent="green"  />
+            <StatChip label="待生成 AR" value={stats.arPending}        icon={FileText}      accent="red"    />
+            <StatChip label="已生成 AR" value={stats.arGenerated}      icon={FileText}      accent="green"  />
+            <StatChip label="低价审批"  value={stats.lowPriceOrders}   icon={AlertTriangle} accent="red"    />
+            <StatChip label="超信用"    value={stats.overCreditOrders} icon={CreditCard}    accent="amber"  />
           </div>
         ) : (
-          <div className="text-sm text-slate-400 dark:text-slate-500 py-4">暂无数据</div>
+          <div className="text-sm text-text-dim py-4">暂无数据</div>
         )}
       </div>
 
       {/* ── 经营概览 ─────────────────────────────────────────────────────── */}
       {overview && (
         <div className="mb-6">
-          <div className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">
-            经营概览
-          </div>
+          <SectionLabel>经营概览</SectionLabel>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-            <StatChip label="今日配送"       value={overview.totalDelivered ?? "—"}                                   icon={Truck}         accentColor="green"  />
-            <StatChip label="应收款"         value={`¥${(overview.totalReceivable ?? 0).toLocaleString("zh-CN")}`}    icon={FileText}      accentColor="blue"   />
-            <StatChip label="逾期应收"       value={`¥${(overview.overdueReceivable ?? 0).toLocaleString("zh-CN")}`}  icon={AlertTriangle} accentColor="red"    />
-            <StatChip label="退货总数"       value={overview.totalReturns ?? "—"}                                     icon={RefreshCw}     accentColor="violet" />
-            <StatChip label="库存可用（枚）" value={(overview.inventoryBalance ?? 0).toLocaleString("zh-CN")}          icon={Archive}       accentColor="cyan"   />
-            <StatChip label="临期库存（批）" value={overview.inventoryExpiring ?? "—"}                                 icon={Package}       accentColor="amber"  />
-            <StatChip label="今日损耗（枚）" value={(overview.totalLoss ?? 0).toLocaleString("zh-CN")}                 icon={TrendingDown}  accentColor="red"    />
-            <StatChip label="准时配送率"     value={`${overview.onTimeDeliveryRate ?? 0}%`}                            icon={CheckCircle}   accentColor="green"  />
+            <StatChip label="今日配送"       value={overview.totalDelivered ?? "—"}                                   icon={Truck}         accent="green"  />
+            <StatChip label="应收款"         value={`¥${(overview.totalReceivable ?? 0).toLocaleString("zh-CN")}`}    icon={FileText}      accent="blue"   />
+            <StatChip label="逾期应收"       value={`¥${(overview.overdueReceivable ?? 0).toLocaleString("zh-CN")}`}  icon={AlertTriangle} accent="red"    />
+            <StatChip label="退货总数"       value={overview.totalReturns ?? "—"}                                     icon={RefreshCw}     accent="violet" />
+            <StatChip label="库存可用（枚）" value={(overview.inventoryBalance ?? 0).toLocaleString("zh-CN")}          icon={Archive}       accent="cyan"   />
+            <StatChip label="临期库存（批）" value={overview.inventoryExpiring ?? "—"}                                 icon={Package}       accent="amber"  />
+            <StatChip label="今日损耗（枚）" value={(overview.totalLoss ?? 0).toLocaleString("zh-CN")}                 icon={TrendingDown}  accent="red"    />
+            <StatChip label="准时配送率"     value={`${overview.onTimeDeliveryRate ?? 0}%`}                            icon={CheckCircle}   accent="green"  />
           </div>
         </div>
       )}
 
       {/* ── 子模块入口 ───────────────────────────────────────────────────── */}
-      <div className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">
-        功能入口
-      </div>
+      <SectionLabel>功能入口</SectionLabel>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {NAV_CARDS.map((c) => {
-          const ac = ACCENT_MAP[c.accentColor];
+          const ac = ACCENT[c.accent];
           return (
             <Link key={c.href} href={c.href} className="block group">
-              <div className={[
-                "rounded-2xl border p-5 shadow-sm",
-                "bg-white dark:bg-slate-800",
-                "hover:shadow-md hover:-translate-y-0.5",
+              <div className={cn(
+                "rounded-2xl border bg-bg-card p-5",
+                "shadow-card hover:shadow-card-hover hover:-translate-y-0.5",
                 "transition-all duration-150",
                 ac.border,
-              ].join(" ")}>
+              )}>
                 <div className="flex items-center justify-between mb-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${ac.icon}`}>
+                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", ac.icon)}>
                     <c.Icon size={20} className={ac.text} />
                   </div>
-                  <ArrowRight size={15} className="text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-400 transition-colors" />
+                  <ArrowRight
+                    size={15}
+                    className="text-text-dim group-hover:text-text-muted transition-colors duration-150"
+                  />
                 </div>
-                <div className="font-semibold text-sm text-slate-800 dark:text-slate-100 mb-1">{c.title}</div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{c.desc}</div>
+                <div className="font-semibold text-sm text-text mb-1">{c.title}</div>
+                <div className="text-xs text-text-muted leading-relaxed">{c.desc}</div>
               </div>
             </Link>
           );
