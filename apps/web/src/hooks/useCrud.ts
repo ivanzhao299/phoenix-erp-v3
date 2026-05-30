@@ -40,6 +40,10 @@ export const useCrud = (table: string) => {
       clearTimeout(timeoutId);
       if (res.ok) {
         return { success: true, data: await res.json().catch(() => ({})) };
+      } else if (res.status === 401) {
+        // 401 由全局 AuthFetchInterceptor 统一拦截并跳转登录，此处静默返回
+        // 避免多个并发请求同时弹出"登录已过期"弹窗
+        return { success: false, error: '__401__' };
       } else {
         const errData = await res.json().catch(() => ({}));
         const msg = errData.msg || errData.message || httpMsg(res.status);
@@ -73,7 +77,7 @@ export const useCrud = (table: string) => {
     }
     const { success, error: reqErr } = await executeReq(`${API_BASE}/${table}`, { method:'POST', body:JSON.stringify(data) });
     if (success && successMsg) await showAlert({ icon:'✅', type:'success', title:t('common.success', '操作成功'), message:successMsg, confirmLabel:t('common.ok', '好的') });
-    else if (!success) await showAlert({ icon:'❌', type:'danger', title:t('crud.err.submitFailTitle', '提交失败'), message:reqErr||t('crud.err.submitFail', '网络连接失败，请检查服务器'), confirmLabel:t('common.close', '关闭') });
+    else if (!success && reqErr !== '__401__') await showAlert({ icon:'❌', type:'danger', title:t('crud.err.submitFailTitle', '提交失败'), message:reqErr||t('crud.err.submitFail', '网络连接失败，请检查服务器'), confirmLabel:t('common.close', '关闭') });
     return success;
   }, [table, showAlert, t]);
 
@@ -86,7 +90,7 @@ export const useCrud = (table: string) => {
   const updateRecord = useCallback(async (id: string | number, data: Record<string, unknown>, idColumn = 'id', successMsg?: string) => {
     const { success, error: reqErr } = await executeReq(`${API_BASE}/${table}/${idColumn}/${id}`, { method:'PUT', body:JSON.stringify(data) });
     if (success && successMsg) await showAlert({ icon:'✅', type:'success', title:t('common.success', '操作成功'), message:successMsg, confirmLabel:t('common.ok', '好的') });
-    if (!success) await showAlert({ icon:'❌', type:'danger', title:t('crud.err.updateFailTitle', '更新失败'), message:reqErr||t('crud.err.updateFail', '更新失败，请稍后重试'), confirmLabel:t('common.close', '关闭') });
+    if (!success && reqErr !== '__401__') await showAlert({ icon:'❌', type:'danger', title:t('crud.err.updateFailTitle', '更新失败'), message:reqErr||t('crud.err.updateFail', '更新失败，请稍后重试'), confirmLabel:t('common.close', '关闭') });
     return success;
   }, [table, showAlert, t]);
 
@@ -100,7 +104,7 @@ export const useCrud = (table: string) => {
     if (!ok) return false;
     const { success, error: reqErr } = await executeReq(`${API_BASE}/${table}/${idColumn}/${id}`, { method:'DELETE' });
     if (success && successMsg) await showAlert({ icon:'✅', type:'success', title:t('common.success', '操作成功'), message:successMsg, confirmLabel:t('common.ok', '好的') });
-    if (!success) await showAlert({ icon:'❌', type:'danger', title:t('crud.err.deleteFailTitle', '删除失败'), message:reqErr||t('crud.err.deleteFail', '删除失败，请稍后重试'), confirmLabel:t('common.close', '关闭') });
+    if (!success && reqErr !== '__401__') await showAlert({ icon:'❌', type:'danger', title:t('crud.err.deleteFailTitle', '删除失败'), message:reqErr||t('crud.err.deleteFail', '删除失败，请稍后重试'), confirmLabel:t('common.close', '关闭') });
     return success;
   }, [table, showAlert, showConfirm, t]);
 

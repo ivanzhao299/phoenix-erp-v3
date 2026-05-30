@@ -195,9 +195,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // 监听 api-client 派发的 401 事件 — 按 subcode 统一友好跳转
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    // 模块级标志：防止多次 api:auth-expired 事件并发触发多次跳转
+    let _redirecting = false;
     const onExpired = (e: Event) => {
+      if (_redirecting) return;                          // 已在跳转中，忽略后续事件
       const path = window.location.pathname;
-      if (path.includes('/login')) return;
+      if (path.includes('/login')) return;              // 已在登录页，不再跳转
+      _redirecting = true;
       const detail = (e as CustomEvent<{ reason?: 'expired' | 'perms_changed' }>).detail;
       const reason = detail?.reason || 'expired';
       sessionStorage.removeItem('phoenix_token');
@@ -209,7 +213,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       window.location.href = `${base}?reason=${reason}${returnParam}`;
     };
     window.addEventListener('api:auth-expired', onExpired);
-    return () => window.removeEventListener('api:auth-expired', onExpired);
+    return () => { window.removeEventListener('api:auth-expired', onExpired); _redirecting = false; };
   }, [logout]);
 
   const isLoggedIn = !!token && !!user;
