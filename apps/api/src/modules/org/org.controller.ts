@@ -74,6 +74,14 @@ export class OrgController {
 
   // ── 用户-组织关系 ────────────────────────────────────────────────────────────
 
+  /** 获取某组织的所有成员（含用户信息 + 数据范围等级） — settings/organizations 页面使用 */
+  @Get('organizations/:orgId/members')
+  @RequireMenu('MENU_SYS_ORG', 'V')
+  async getOrgMembers(@Param('orgId', ParseIntPipe) orgId: number) {
+    const data = await this.orgService.getOrgMembers(orgId);
+    return { code: 200, data };
+  }
+
   @Get('user-orgs/:userId')
   @RequireMenu('MENU_SYS_ORG', 'V')
   async getUserOrgs(@Param('userId', ParseIntPipe) userId: number) {

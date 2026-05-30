@@ -57,13 +57,13 @@ export const WORKFLOW_DATA_CATALOG: WorkflowDataCatalogItem[] = [
     name: "组织部门",
     objectName: "组织/部门",
     source_type: "TABLE",
-    table: "sys_orgs",
+    table: "sys_organizations",   // 已从 sys_orgs（废弃）迁移至 sys_organizations
     valueField: "org_code",
     labelField: "org_name",
     valueFields: ["org_code", "id"],
     labelFields: ["org_name"],
     statusFields: ["status"],
-    activeValues: ["1", "ACTIVE", "ENABLED", "true"],
+    activeValues: ["ACTIVE"],
     description: "用于部门负责人、发起人所属部门、组织范围等动态审批规则。",
     fields: [
       { key: "org_code", label: "组织编码", usage: "作为提交值" },

@@ -65,7 +65,7 @@ export class GenericCrudController {
       throw new ForbiddenException('Forbidden Table');
     }
 
-    if (method === 'GET' && ['sys_dict', 'sys_orgs'].includes(table)) {
+    if (method === 'GET' && ['sys_dict'].includes(table)) {
       return;
     }
 

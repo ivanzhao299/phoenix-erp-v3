@@ -1843,7 +1843,7 @@ export class WorkflowService implements OnModuleInit {
        VALUES
          ('SYS_USERS','系统用户','TABLE','{"table":"sys_user","valueField":"user_id","labelField":"real_name","valueFields":["user_id","id"],"labelFields":["real_name","real_name_zh","username"],"statusFields":["status"],"activeValues":["1","ACTIVE","ENABLED","true"]}'::jsonb),
          ('SYS_ROLES','系统角色','TABLE','{"table":"sys_role","valueField":"role_code","labelField":"role_name_zh","statusFields":["status"],"activeValues":["1","ACTIVE","ENABLED","true"]}'::jsonb),
-         ('SYS_ORGS','组织部门','TABLE','{"table":"sys_orgs","valueField":"org_code","labelField":"org_name","valueFields":["org_code","id"],"labelFields":["org_name"],"statusFields":["status"],"activeValues":["1","ACTIVE","ENABLED","true"]}'::jsonb),
+         ('SYS_ORGS','组织部门','TABLE','{"table":"sys_organizations","valueField":"org_code","labelField":"org_name","valueFields":["org_code","id"],"labelFields":["org_name"],"statusFields":["status"],"activeValues":["ACTIVE"]}'::jsonb),
          ('SYS_DICT_APPROVAL','审批字典','DICT','{"dict_type":"APPROVAL"}'::jsonb),
          ('MST_STORES','门店列表','TABLE','{"table":"mst_stores","valueField":"store_code","labelField":"store_name"}'::jsonb),
          ('MST_PRODUCTS','产品列表','TABLE','{"table":"mst_products","valueField":"product_code","labelField":"product_name"}'::jsonb),

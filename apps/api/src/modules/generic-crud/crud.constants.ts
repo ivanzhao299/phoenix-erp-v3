@@ -1,7 +1,8 @@
 export const ALLOWED_TABLES = [
   // V2 历史名称已下架（sys_users/sys_roles/sys_user_roles 在阶段二收尾时改名为 _v2_archived_*
   // 防止误读；如需查询历史 V2 用户应改走 V3 sys_user / sys_user_role / sys_role）
-  'sys_dict', 'sys_orgs', 'sys_approval_flows', 'sys_approval_logs', 'sys_permissions',
+  'sys_dict', 'sys_approval_flows', 'sys_approval_logs', 'sys_permissions',
+  // sys_orgs 已废弃 — 组织管理已迁移至 sys_organizations，由 /api/org/* 统一提供 CRUD
   // V3 RBAC 真实表（与 ddl/01_create_rbac_tables.sql 一致，单数）
   'sys_role', 'sys_user', 'sys_menu', 'sys_user_role', 'sys_role_menu_permission', 'sys_role_conflict',
   'sys_approval_log', 'sys_audit_log', 'sys_store', 'sys_approval_rule', 'sys_settings',
@@ -40,7 +41,7 @@ export const TABLE_PERM_MAP: Record<string, string[]> = {
   sys_users:        ['ROLE_ADMIN', 'ROLE_HR_ADMIN', 'ROLE_SYSOPS'],
   sys_roles:        ['ROLE_ADMIN', 'ROLE_SYSOPS'],
   sys_permissions:  ['ROLE_ADMIN'],
-  sys_orgs:         ['ROLE_ADMIN', 'ROLE_HR_ADMIN', 'ROLE_SYSOPS'],
+  // sys_orgs 已废弃，已迁移至 sys_organizations 由 OrgController 管理
   sys_dict:         ['ROLE_ADMIN', 'ROLE_SYSOPS'],
   sys_approval_logs:['ROLE_ADMIN', 'ROLE_AUDITOR', 'ROLE_CEO'],
   // V3 真实表名（单数，与 ddl/01_create_rbac_tables.sql 一致；roles/page.tsx 经此调用）

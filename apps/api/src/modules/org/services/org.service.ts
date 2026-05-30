@@ -107,6 +107,42 @@ export class OrgService {
     `, [userId]);
   }
 
+  /** 获取某组织下的所有成员（含用户信息 + 数据范围等级） */
+  async getOrgMembers(orgId: number): Promise<any[]> {
+    return this.ds.query(`
+      SELECT
+        uo.id         AS user_org_id,
+        uo.is_primary,
+        uo.data_scope_level,
+        uo.created_at AS assigned_at,
+        u.user_id     AS id,
+        u.username,
+        u.real_name   AS real_name_zh,
+        u.store_code,
+        u.status      AS user_status,
+        COALESCE(
+          (SELECT r.role_code FROM sys_user_role ur
+           JOIN sys_role r ON ur.role_id = r.role_id
+           WHERE ur.user_id = u.user_id AND ur.is_primary = true LIMIT 1),
+          (SELECT r.role_code FROM sys_user_role ur
+           JOIN sys_role r ON ur.role_id = r.role_id
+           WHERE ur.user_id = u.user_id LIMIT 1)
+        ) AS role,
+        COALESCE(
+          (SELECT r.role_name_zh FROM sys_user_role ur
+           JOIN sys_role r ON ur.role_id = r.role_id
+           WHERE ur.user_id = u.user_id AND ur.is_primary = true LIMIT 1),
+          (SELECT r.role_name_zh FROM sys_user_role ur
+           JOIN sys_role r ON ur.role_id = r.role_id
+           WHERE ur.user_id = u.user_id LIMIT 1)
+        ) AS role_name_zh
+      FROM sys_user_orgs uo
+      JOIN sys_user u ON u.user_id = uo.user_id
+      WHERE uo.org_id = $1
+      ORDER BY uo.is_primary DESC, u.real_name ASC
+    `, [orgId]);
+  }
+
   async assignUserOrg(dto: AssignUserOrgDto): Promise<SysUserOrgEntity> {
     const existing = await this.userOrgRepo.findOne({
       where: { userId: dto.userId, orgId: dto.orgId },

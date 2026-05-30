@@ -44,7 +44,8 @@ export class GenericCrudService implements OnModuleInit {
       // 以下操作幂等（IF NOT EXISTS），每次启动自动修复，安全无副作用。
       // ══════════════════════════════════════════════════════════════════════
       const legacyTables = [
-        'sys_dict', 'sys_orgs',
+        'sys_dict',
+        // sys_orgs 已废弃并从允许表中移除，由 sys_organizations 替代
         'sys_approval_flows', 'sys_approval_logs', 'sys_permissions',
         'mst_stores', 'mst_products',
         'inv_batches', 'inv_ledger',
@@ -1775,68 +1776,9 @@ export class GenericCrudService implements OnModuleInit {
       // error already logged above; do not write to filesystem in server code
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // Phase S1: 组织架构 & 组织类型字典 初始化（幂等，每次启动自动检查）
-    // ══════════════════════════════════════════════════════════════════════
-    try {
-      // 1. 确保 sys_orgs 表存在且拥有完整字段
-      await this.entityManager.query(`
-        CREATE TABLE IF NOT EXISTS sys_orgs (
-          id         SERIAL PRIMARY KEY,
-          org_code   VARCHAR(50)  UNIQUE,
-          org_name   VARCHAR(100) NOT NULL,
-          org_type   VARCHAR(50)  DEFAULT '部门',
-          parent_id  INT          DEFAULT 0,
-          sort_no    INT          DEFAULT 0,
-          remark     TEXT,
-          status     VARCHAR(20)  DEFAULT 'ACTIVE',
-          created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
-        )
-      `).catch(() => {});
-
-      // 补充可能缺失的列（兼容 V2 迁移表）
-      const orgAlters = [
-        `ALTER TABLE sys_orgs ADD COLUMN IF NOT EXISTS org_code   VARCHAR(50)`,
-        `ALTER TABLE sys_orgs ADD COLUMN IF NOT EXISTS parent_id  INT DEFAULT 0`,
-        `ALTER TABLE sys_orgs ADD COLUMN IF NOT EXISTS sort_no    INT DEFAULT 0`,
-        `ALTER TABLE sys_orgs ADD COLUMN IF NOT EXISTS remark     TEXT`,
-        `ALTER TABLE sys_orgs ADD COLUMN IF NOT EXISTS status     VARCHAR(20) DEFAULT 'ACTIVE'`,
-        `ALTER TABLE sys_orgs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
-      ];
-      for (const sql of orgAlters) {
-        await this.entityManager.query(sql).catch(() => {});
-      }
-
-      // 2. 为 sys_dict 补充 SYS_ORG_LEVEL 字典（与 V2 迁移数据 dict_type 保持一致）
-      // 用 WHERE NOT EXISTS 替代 ON CONFLICT，因为 dict_code 列可能无 UNIQUE 约束
-      const orgLevels = [
-        { code: 'SYS_ORG_LEVEL_1',  label_zh: '集团总部',  label_lo: 'ສຳນັກງານໃຫຍ່',       label_en: 'HQ / Group',       sort: 350 },
-        { code: 'SYS_ORG_LEVEL_2',  label_zh: '事业部',    label_lo: 'ຫ່ວຍທຸລະກິດ',         label_en: 'Business Unit',    sort: 351 },
-        { code: 'SYS_ORG_LEVEL_3',  label_zh: '部门',      label_lo: 'ພະແນກ',               label_en: 'Department',       sort: 352 },
-        { code: 'SYS_ORG_LEVEL_4',  label_zh: '大区',      label_lo: 'ເຂດໃຫຍ່',            label_en: 'Region',           sort: 353 },
-        { code: 'SYS_ORG_LEVEL_5',  label_zh: '门店',      label_lo: 'ຮ້ານ',               label_en: 'Store',            sort: 354 },
-        { code: 'SYS_ORG_LEVEL_6',  label_zh: '基地',      label_lo: 'ຖານທີ່',             label_en: 'Base',             sort: 355 },
-        { code: 'SYS_ORG_LEVEL_7',  label_zh: '工厂',      label_lo: 'ໂຮງງານ',             label_en: 'Factory',          sort: 356 },
-        { code: 'SYS_ORG_LEVEL_8',  label_zh: '车队',      label_lo: 'ຂະບວນລົດ',          label_en: 'Fleet',            sort: 357 },
-        { code: 'SYS_ORG_LEVEL_9',  label_zh: '中心',      label_lo: 'ສູນ',               label_en: 'Center',           sort: 358 },
-        { code: 'SYS_ORG_LEVEL_10', label_zh: '项目组',    label_lo: 'ກຸ່ມໂຄງການ',       label_en: 'Project Group',    sort: 359 },
-      ];
-      for (const t of orgLevels) {
-        await this.entityManager.query(`
-          INSERT INTO sys_dict (dict_code, dict_type, name, dict_label_zh, dict_label_lo, dict_label_en, sort_no, status)
-          SELECT $1, 'SYS_ORG_LEVEL', $2, $2, $3, $4, $5, 'ACTIVE'
-          WHERE NOT EXISTS (
-            SELECT 1 FROM sys_dict WHERE dict_code = $1 AND dict_type = 'SYS_ORG_LEVEL'
-          )
-        `, [t.code, t.label_zh, t.label_lo, t.label_en, t.sort])
-          .catch((e: Error) => console.warn(`⚠️ sys_dict SYS_ORG_LEVEL insert failed for ${t.code}:`, e.message));
-      }
-
-      console.log('✅ Phase S1: sys_orgs schema & SYS_ORG_LEVEL dict initialized.');
-    } catch (e2) {
-      console.warn('⚠️  Phase S1 skipped:', (e2 as Error).message);
-    }
+    // Phase S1 已废弃：
+    // sys_orgs 表已通过迁移文件 20260531_migrate_and_drop_sys_orgs.sql 迁移并删除。
+    // 组织管理统一由 sys_organizations 表和 /api/org/* 接口负责，不再在此处自动建表。
 
     // ═══════════════════════════════════════════════════════════════════════════
     // Phase S2: BRD_HOUSE_TYPE 字典种子 + 规范化 brd_houses.house_type

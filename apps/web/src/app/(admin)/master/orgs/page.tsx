@@ -150,7 +150,7 @@ export default function OrgsPage() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await crudApi.list<OrgNode>("sys_orgs", { limit: 500 });
+      const res = await crudApi.list<OrgNode>("sys_organizations", { limit: 500 });
       const data = res.data ?? [];
       setNodes(data);
       setTree(buildTree(data));
@@ -175,15 +175,15 @@ export default function OrgsPage() {
 
   const confirmDelete = useCallback(async () => {
     if (!delTarget) return;
-    await crudApi.delete("sys_orgs", delTarget.id);
+    await crudApi.delete("sys_organizations", delTarget.id);
     setConfirm(false); reload();
   }, [delTarget, reload]);
 
   const handleSave = useCallback(async (values: Record<string, unknown>) => {
     setSaving(true);
     try {
-      if (editing) { await crudApi.update("sys_orgs", editing.id, values); }
-      else         { await crudApi.create("sys_orgs", values); }
+      if (editing) { await crudApi.update("sys_organizations", editing.id, values); }
+      else         { await crudApi.create("sys_organizations", values); }
       setOpen(false); reload();
     } finally { setSaving(false); }
   }, [editing, reload]);

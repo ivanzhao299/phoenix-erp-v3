@@ -113,16 +113,22 @@ export interface MenuRow {
   route?: string;
 }
 
-// ── 组织 sys_orgs ────────────────────────────────────────────
+// ── 组织 sys_organizations（新版，已废弃 sys_orgs）──────────────
 export interface OrgRow {
-  id: number;
-  org_code?: string;
-  org_name: string;
-  org_type: string;
-  parent_id: number;
-  sort_no?: number;
-  remark?: string;
-  status?: string;
+  id:            number;
+  orgCode:       string;
+  orgName:       string;
+  orgType:       'GROUP' | 'COMPANY' | 'FACTORY' | 'PROJECT' | 'WAREHOUSE' | 'STORE' | 'DEPARTMENT';
+  parentId:      number | null;
+  level:         number;
+  path:          string | null;
+  status:        string;
+  companyCode:   string | null;
+  projectCode:   string | null;
+  warehouseCode: string | null;
+  remark:        string | null;
+  managerUserId: number | null;
+  managerName:   string | null;
 }
 
 // ── 审计日志 sys_audit_log ───────────────────────────────────
