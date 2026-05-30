@@ -1,13 +1,20 @@
 'use client';
+/**
+ * 财务管理驾驶舱
+ * ==============
+ * 顶部 6 KPI + 功能模块导航，严格遵循 Design System V1。
+ * 颜色来源：design-tokens.ts ACCENT_MAP，无硬编码 hex。
+ */
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  TrendingDown, TrendingUp, Wallet, Users, PieChart,
-  Receipt, CheckCircle, AlertTriangle, ArrowRight,
-  RefreshCw, DollarSign, ArrowLeftRight,
-  Activity, Lock,
+  TrendingDown, TrendingUp, Wallet, Users,
+  PieChart, Receipt, ArrowRight, RefreshCw,
+  DollarSign, ArrowLeftRight, Activity, AlertTriangle,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import { KpiCard } from '@/components/ui/KpiCard';
+import { ACCENT_MAP, type AccentColor } from '@/lib/design-tokens';
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -23,13 +30,13 @@ interface ArSummaryData {
 interface CashDashData {
   summary: {
     totalAccounts: number;
-    totalBalance: number;
-    activeCount: number;
-    frozenCount: number;
-    closedCount: number;
+    totalBalance:  number;
+    activeCount:   number;
+    frozenCount:   number;
+    closedCount:   number;
   } | null;
-  todayIn: number;
-  todayOut: number;
+  todayIn:          number;
+  todayOut:         number;
   pendingTransfers: number;
 }
 
@@ -75,59 +82,56 @@ async function apiFetch<T>(url: string): Promise<T> {
   return res.json();
 }
 
-// ── 子组件 ────────────────────────────────────────────────────────────────────
-
-function ModuleCard({
-  icon: Icon, title, description, path, iconColor,
-}: {
-  icon: React.ElementType; title: string; description: string;
-  path?: string; iconColor?: string;
-}) {
-  const router = useRouter();
-  const canNav = !!path;
-
-  return (
-    <div
-      onClick={() => canNav && router.push(path!)}
-      className={[
-        'rounded-2xl border p-5 shadow-sm transition-all',
-        'bg-white dark:bg-slate-800',
-        'border-slate-100 dark:border-slate-700',
-        canNav
-          ? 'cursor-pointer hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-600'
-          : '',
-      ].join(' ')}
-    >
-      <div className="mb-3">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ background: `${iconColor ?? '#6366f1'}18` }}
-        >
-          <Icon size={20} color={iconColor ?? '#6366f1'} />
-        </div>
-      </div>
-      <div className="font-bold text-sm text-slate-800 dark:text-slate-100 mb-1">{title}</div>
-      <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{description}</div>
-      {canNav && (
-        <div className="flex items-center gap-1 mt-3 text-xs text-indigo-600 dark:text-indigo-400">
-          进入 <ArrowRight size={12} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── 格式化工具 ─────────────────────────────────────────────────────────────────
-
-function fmtMoney(val: string | number | null | undefined, currency = 'CNY') {
-  const n = Number(val ?? 0);
-  const sym = currency === 'USD' ? '$' : '¥';
-  return `${currency} ${sym}${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
 function fmt(n: number | string | null | undefined): string {
   if (n === null || n === undefined) return '0.00';
   return Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// ── 功能模块导航卡 ────────────────────────────────────────────────────────────
+
+interface ModuleItem {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  path: string;
+  accentColor: AccentColor;
+}
+
+const MODULES: ModuleItem[] = [
+  { icon: TrendingDown,    title: '应付账款管理',  path: '/finance2/ap',                 accentColor: 'amber',  description: '供应商发票管理、付款核销、多币种、账龄分析。' },
+  { icon: TrendingUp,      title: '应收账款管理',  path: '/finance2/ar',                 accentColor: 'green',  description: '客户发票、收款核销、账龄分析。' },
+  { icon: Wallet,          title: '资金账户管理',  path: '/finance2/cash-accounts',      accentColor: 'blue',   description: '多账户余额管理、流水账本、转账审批。' },
+  { icon: ArrowLeftRight,  title: '资金转账',      path: '/finance2/fund-transfers',     accentColor: 'cyan',   description: '账户间资金划转，5 阶段审批流程，事务安全保障。' },
+  { icon: Users,           title: '股东资金管理',  path: '/finance2/shareholder-funds',  accentColor: 'violet', description: '出资台账、结算审批（退回/抵扣/核销）、联动资金账户。' },
+  { icon: Receipt,         title: '费用申请',      path: '/finance2/expenses',           accentColor: 'indigo', description: '费用申请全流程审批，审批通过自动生成报销，付款联动资金账户。' },
+  { icon: ArrowLeftRight,  title: '报销管理',      path: '/finance2/reimbursements',     accentColor: 'teal',   description: '报销台账，付款事务安全，自动扣减现金账户余额。' },
+  { icon: PieChart,        title: '经营报表',      path: '/finance2/reports',            accentColor: 'slate',  description: '12 只读聚合报表。账龄 · 资金日报 · 费用统计 · 净头寸 · 项目财务。' },
+];
+
+function ModuleCard({ item }: { item: ModuleItem }) {
+  const router = useRouter();
+  const ac = ACCENT_MAP[item.accentColor];
+  return (
+    <div
+      onClick={() => router.push(item.path)}
+      className={[
+        'rounded-2xl border p-5 shadow-sm cursor-pointer',
+        'bg-white dark:bg-slate-800',
+        'hover:shadow-md hover:-translate-y-0.5',
+        'transition-all',
+        ac.border,
+      ].join(' ')}
+    >
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${ac.icon}`}>
+        <item.icon size={20} className={ac.text} />
+      </div>
+      <div className="font-bold text-sm text-slate-800 dark:text-slate-100 mb-1">{item.title}</div>
+      <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-3">{item.description}</div>
+      <div className={`flex items-center gap-1 text-xs font-medium ${ac.text}`}>
+        进入 <ArrowRight size={12} />
+      </div>
+    </div>
+  );
 }
 
 // ── 主页面 ─────────────────────────────────────────────────────────────────────
@@ -174,12 +178,63 @@ export default function Finance2DashboardPage() {
 
   useEffect(() => { void load(); }, []);
 
+  // ── 6 核心 KPI ────────────────────────────────────────────────────────
+  const kpis = [
+    {
+      label:        '现金账户余额',
+      value:        cashDash?.summary ? `¥ ${fmt(cashDash.summary.totalBalance)}` : '—',
+      subValue:     cashDash?.summary ? `${cashDash.summary.totalAccounts} 个账户` : undefined,
+      icon:         Wallet,
+      accentColor:  'blue' as AccentColor,
+    },
+    {
+      label:       '应收待收款',
+      value:       arSummary ? `¥ ${fmt(arSummary.balance_amount_original)}` : '—',
+      subValue:    arSummary ? `${arSummary.open_invoices} 笔未收 / ${arSummary.overdue_invoices} 笔逾期` : undefined,
+      icon:        TrendingUp,
+      accentColor: 'green' as AccentColor,
+    },
+    {
+      label:       '应付待付款',
+      value:       reportOverview ? `¥ ${fmt(reportOverview.apOpen)}` : '—',
+      icon:        TrendingDown,
+      accentColor: 'red' as AccentColor,
+    },
+    {
+      label:       '待报销金额',
+      value:       reportOverview ? `¥ ${fmt(reportOverview.reimbursementPendingAmount)}` : '—',
+      subValue:    expSummary ? `${expSummary.pendingReimb} 笔待报销` : undefined,
+      icon:        Receipt,
+      accentColor: 'amber' as AccentColor,
+    },
+    {
+      label:       '经营净头寸',
+      value:       reportOverview
+        ? `${reportOverview.netOperatingPosition >= 0 ? '+' : ''}¥ ${fmt(reportOverview.netOperatingPosition)}`
+        : '—',
+      subValue:    reportOverview
+        ? `今日流入 ¥${fmt(reportOverview.todayInflow)} / 流出 ¥${fmt(reportOverview.todayOutflow)}`
+        : undefined,
+      icon:        Activity,
+      accentColor: reportOverview?.netOperatingPosition !== undefined && reportOverview.netOperatingPosition >= 0
+        ? ('violet' as AccentColor)
+        : ('red' as AccentColor),
+    },
+    {
+      label:       '股东出资余额',
+      value:       shSummary ? `¥ ${fmt(shSummary.balanceAmountOriginal)}` : '—',
+      subValue:    shSummary ? `${shSummary.pendingConfirmations} 笔待确认` : undefined,
+      icon:        Users,
+      accentColor: 'indigo' as AccentColor,
+    },
+  ];
+
   return (
     <div>
       <PageHeader
         title="财务管理"
-        subtitle="一体化财务管理平台 — 应付 · 应收 · 资金账户 · 费用报销 · 股东资金 · 经营报表"
-        breadcrumb={['财务管理', '总览']}
+        subtitle="应付 · 应收 · 资金账户 · 费用报销 · 股东资金 · 经营净头寸"
+        breadcrumb={['财务管理', '驾驶舱']}
         actions={
           <button
             onClick={() => void load()}
@@ -197,18 +252,6 @@ export default function Finance2DashboardPage() {
         }
       />
 
-      {/* 平台简介 Banner */}
-      <div
-        className="rounded-2xl p-6 mb-6 text-white"
-        style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #0f766e 100%)' }}
-      >
-        <div className="font-extrabold text-lg mb-2">财务管理平台</div>
-        <div className="text-sm leading-relaxed opacity-90">
-          一体化财务管理 · 应付 / 应收 / 资金账户 / 费用报销 / 股东资金 统一管理<br />
-          经营净头寸 · 账龄分析 · 项目财务视图 · 公司经营视图 · 数据权限全程合规
-        </div>
-      </div>
-
       {/* 错误提示 */}
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800
@@ -217,305 +260,59 @@ export default function Finance2DashboardPage() {
         </div>
       )}
 
-      {/* 经营资金总览 */}
-      <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">经营资金总览</div>
-      {reportOverview && (
-        <div
-          className="rounded-2xl p-5 mb-6 text-white"
-          style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #0f766e 100%)' }}
-        >
-          <div
-            className="grid gap-4"
-            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}
-          >
-            <div>
-              <div className="text-xs opacity-70">经营净头寸</div>
-              <div className="text-2xl font-black mt-0.5">
-                {reportOverview.netOperatingPosition >= 0 ? '+' : ''}¥{' '}
-                {fmt(reportOverview.netOperatingPosition)}
-              </div>
-              <div className="text-xs opacity-60 mt-0.5">= 现金 + 应收 − 应付 − 待报销</div>
-            </div>
-            <div>
-              <div className="text-xs opacity-70">今日流入</div>
-              <div className="text-xl font-extrabold mt-0.5" style={{ color: '#86efac' }}>
-                +¥ {fmt(reportOverview.todayInflow)}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs opacity-70">今日流出</div>
-              <div className="text-xl font-extrabold mt-0.5" style={{ color: '#fca5a5' }}>
-                -¥ {fmt(reportOverview.todayOutflow)}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs opacity-70">应收待收款</div>
-              <div className="text-lg font-bold mt-0.5">¥ {fmt(reportOverview.arOpen)}</div>
-            </div>
-            <div>
-              <div className="text-xs opacity-70">应付待付款</div>
-              <div className="text-lg font-bold mt-0.5">¥ {fmt(reportOverview.apOpen)}</div>
-            </div>
-            <div>
-              <div className="text-xs opacity-70">现金账户余额</div>
-              <div className="text-lg font-bold mt-0.5">¥ {fmt(reportOverview.cashBalance)}</div>
-            </div>
-          </div>
+      {/* ── 6 大 KPI 指标 ─────────────────────────────────────────────── */}
+      <div className="mb-2">
+        <div className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">
+          财务核心指标
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+          {kpis.map((kpi) => (
+            <KpiCard
+              key={kpi.label}
+              label={kpi.label}
+              value={kpi.value}
+              subValue={kpi.subValue}
+              icon={kpi.icon}
+              accentColor={kpi.accentColor}
+              loading={loading}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* ── 应收账款异常提示（有逾期时高亮） ──────────────────────────── */}
+      {!loading && arSummary && arSummary.overdue_invoices > 0 && (
+        <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20
+          border border-red-200 dark:border-red-700
+          rounded-xl px-4 py-3 mb-6 text-sm text-red-600 dark:text-red-400">
+          <AlertTriangle size={15} className="flex-shrink-0" />
+          <span>
+            当前有 <strong>{arSummary.overdue_invoices}</strong> 笔应收账款逾期，
+            逾期余额 <strong>¥ {fmt(arSummary.overdue_balance)}</strong>，请及时跟进。
+          </span>
         </div>
       )}
 
-      {/* 股东资金概览 */}
-      <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">股东资金概览</div>
-      <div
-        className="grid gap-2.5 mb-6"
-        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}
-      >
-        {[
-          {
-            label: '出资总余额',
-            value: shSummary ? `¥ ${fmt(shSummary.balanceAmountOriginal)}` : (loading ? '…' : '—'),
-            icon: <Users size={16} color="#7c3aed" />,
-            cls: 'bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-700',
-          },
-          {
-            label: '累计出资总额',
-            value: shSummary ? `¥ ${fmt(shSummary.totalAmountOriginal)}` : (loading ? '…' : '—'),
-            icon: <DollarSign size={16} color="#6d28d9" />,
-            cls: 'bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-600',
-          },
-          {
-            label: '已结算总额',
-            value: shSummary ? `¥ ${fmt(shSummary.settledAmountOriginal)}` : (loading ? '…' : '—'),
-            icon: <CheckCircle size={16} color="#059669" />,
-            cls: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700',
-          },
-          {
-            label: '已确认出资笔数',
-            value: shSummary ? `${shSummary.confirmedContributions} 笔` : (loading ? '…' : '—'),
-            icon: <Activity size={16} color="#0891b2" />,
-            cls: 'bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-700',
-          },
-          {
-            label: '待确认出资',
-            value: shSummary ? `${shSummary.pendingConfirmations} 笔` : (loading ? '…' : '—'),
-            icon: <AlertTriangle size={16} color="#d97706" />,
-            cls: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700',
-          },
-        ].map(c => (
-          <div key={c.label} className={`${c.cls} border rounded-2xl p-4 flex items-center gap-2.5`}>
-            <div className="w-9 h-9 rounded-xl bg-white dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
-              {c.icon}
-            </div>
-            <div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">{c.label}</div>
-              <div className="text-sm font-extrabold text-slate-800 dark:text-slate-100">{c.value}</div>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* ── 待处理转账提示 ─────────────────────────────────────────────── */}
+      {!loading && cashDash && cashDash.pendingTransfers > 0 && (
+        <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20
+          border border-amber-200 dark:border-amber-700
+          rounded-xl px-4 py-3 mb-6 text-sm text-amber-700 dark:text-amber-400">
+          <DollarSign size={15} className="flex-shrink-0" />
+          <span>
+            有 <strong>{cashDash.pendingTransfers}</strong> 笔转账申请等待审批。
+          </span>
+        </div>
+      )}
 
-      {/* 费用报销概览 */}
-      <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">费用报销概览</div>
-      <div
-        className="grid gap-2.5 mb-6"
-        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}
-      >
-        {[
-          {
-            label: '费用申请总数',
-            value: expSummary ? `${expSummary.totalExpenses} 笔` : (loading ? '…' : '—'),
-            icon: <Receipt size={16} color="#6366f1" />,
-            cls: 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-700',
-          },
-          {
-            label: '审批中',
-            value: expSummary ? `${expSummary.pendingApproval} 笔` : (loading ? '…' : '—'),
-            icon: <AlertTriangle size={16} color="#f59e0b" />,
-            cls: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700',
-          },
-          {
-            label: '已审批',
-            value: expSummary ? `${expSummary.approved} 笔` : (loading ? '…' : '—'),
-            icon: <CheckCircle size={16} color="#10b981" />,
-            cls: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700',
-          },
-          {
-            label: '待报销',
-            value: expSummary ? `${expSummary.pendingReimb} 笔` : (loading ? '…' : '—'),
-            icon: <Activity size={16} color="#f59e0b" />,
-            cls: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700',
-          },
-          {
-            label: '今日已付款',
-            value: expSummary ? `${expSummary.paidToday} 笔` : (loading ? '…' : '—'),
-            icon: <DollarSign size={16} color="#059669" />,
-            cls: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700',
-          },
-        ].map(c => (
-          <div key={c.label} className={`${c.cls} border rounded-2xl p-4 flex items-center gap-2.5`}>
-            <div className="w-9 h-9 rounded-xl bg-white dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
-              {c.icon}
-            </div>
-            <div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">{c.label}</div>
-              <div className="text-sm font-extrabold text-slate-800 dark:text-slate-100">{c.value}</div>
-            </div>
-          </div>
-        ))}
+      {/* ── 功能模块导航 ──────────────────────────────────────────────── */}
+      <div className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">
+        功能模块
       </div>
-
-      {/* 资金账户概览 */}
-      <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">资金账户概览</div>
-      <div
-        className="grid gap-2.5 mb-6"
-        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}
-      >
-        {[
-          {
-            label: '账户总余额',
-            value: cashDash?.summary ? `¥ ${fmt(cashDash.summary.totalBalance)}` : (loading ? '…' : '—'),
-            icon: <DollarSign size={16} color="#2563eb" />,
-            cls: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700',
-          },
-          {
-            label: '账户总数',
-            value: cashDash?.summary ? `${cashDash.summary.totalAccounts} 个` : (loading ? '…' : '—'),
-            icon: <Wallet size={16} color="#7c3aed" />,
-            cls: 'bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-700',
-          },
-          {
-            label: '正常账户',
-            value: cashDash?.summary ? `${cashDash.summary.activeCount} 个` : (loading ? '…' : '—'),
-            icon: <Activity size={16} color="#16a34a" />,
-            cls: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700',
-          },
-          {
-            label: '冻结账户',
-            value: cashDash?.summary ? `${cashDash.summary.frozenCount} 个` : (loading ? '…' : '—'),
-            icon: <Lock size={16} color="#d97706" />,
-            cls: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700',
-          },
-          {
-            label: '待处理转账',
-            value: cashDash ? `${cashDash.pendingTransfers} 笔` : (loading ? '…' : '—'),
-            icon: <ArrowLeftRight size={16} color="#0891b2" />,
-            cls: 'bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-700',
-          },
-        ].map(c => (
-          <div key={c.label} className={`${c.cls} border rounded-2xl p-4 flex items-center gap-2.5`}>
-            <div className="w-9 h-9 rounded-xl bg-white dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
-              {c.icon}
-            </div>
-            <div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">{c.label}</div>
-              <div className="text-sm font-extrabold text-slate-800 dark:text-slate-100">{c.value}</div>
-            </div>
-          </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {MODULES.map((m) => (
+          <ModuleCard key={m.path} item={m} />
         ))}
-      </div>
-
-      {/* 应收账款概览 */}
-      <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">应收账款概览</div>
-      <div
-        className="grid gap-2.5 mb-6"
-        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}
-      >
-        {[
-          {
-            label: '应收账单总数',
-            value: String(arSummary?.total_invoices ?? (loading ? '…' : '—')),
-            color: 'text-emerald-600 dark:text-emerald-400',
-          },
-          {
-            label: '未收款',
-            value: String(arSummary?.open_invoices ?? (loading ? '…' : '—')),
-            color: 'text-amber-500 dark:text-amber-400',
-          },
-          {
-            label: '逾期笔数',
-            value: String(arSummary?.overdue_invoices ?? (loading ? '…' : '—')),
-            color: 'text-red-600 dark:text-red-400',
-          },
-          {
-            label: '待收余额',
-            value: arSummary
-              ? fmtMoney(arSummary.balance_amount_original, arSummary.byCurrency?.[0]?.currency_code ?? 'CNY')
-              : (loading ? '…' : '—'),
-            color: 'text-red-500 dark:text-red-400',
-          },
-          {
-            label: '逾期余额',
-            value: arSummary
-              ? fmtMoney(arSummary.overdue_balance, arSummary.byCurrency?.[0]?.currency_code ?? 'CNY')
-              : (loading ? '…' : '—'),
-            color: 'text-red-800 dark:text-red-300',
-          },
-        ].map(item => (
-          <div
-            key={item.label}
-            className="bg-white dark:bg-slate-800 rounded-xl p-4
-              border border-slate-100 dark:border-slate-700 shadow-sm"
-          >
-            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{item.label}</div>
-            <div className={`text-base font-extrabold ${item.color}`}>{item.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* 功能模块 */}
-      <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">功能模块</div>
-      <div
-        className="grid gap-3.5 mb-8"
-        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}
-      >
-        <ModuleCard
-          icon={TrendingDown} iconColor="#f59e0b"
-          title="应付账款管理"
-          path="/finance2/ap"
-          description="供应商发票管理、付款核销、多币种、账龄分析。"
-        />
-        <ModuleCard
-          icon={TrendingUp} iconColor="#10b981"
-          title="应收账款管理"
-          path="/finance2/ar"
-          description="客户发票、收款核销、账龄分析。"
-        />
-        <ModuleCard
-          icon={Wallet} iconColor="#3b82f6"
-          title="资金账户管理"
-          path="/finance2/cash-accounts"
-          description="多账户余额管理、流水账本、转账审批。"
-        />
-        <ModuleCard
-          icon={ArrowLeftRight} iconColor="#0891b2"
-          title="资金转账"
-          path="/finance2/fund-transfers"
-          description="账户间资金划转，5 阶段审批流程（草稿→待审→已批→已执行），事务安全保障。"
-        />
-        <ModuleCard
-          icon={Users} iconColor="#7c3aed"
-          title="股东资金管理"
-          path="/finance2/shareholder-funds"
-          description="出资台账、结算审批（退回/抵扣/核销）、联动资金账户。"
-        />
-        <ModuleCard
-          icon={Receipt} iconColor="#6366f1"
-          title="费用申请"
-          path="/finance2/expenses"
-          description="费用申请全流程审批，审批通过自动生成报销，付款联动资金账户。"
-        />
-        <ModuleCard
-          icon={ArrowLeftRight} iconColor="#059669"
-          title="报销管理"
-          path="/finance2/reimbursements"
-          description="报销台账，付款事务安全，自动扣减现金账户余额。"
-        />
-        <ModuleCard
-          icon={PieChart} iconColor="#0891b2"
-          title="经营报表"
-          path="/finance2/reports"
-          description="12 只读聚合报表。应付/应收账龄 · 资金日报 · 费用统计 · 股东资金 · 项目财务 · 公司经营净头寸。"
-        />
       </div>
     </div>
   );
