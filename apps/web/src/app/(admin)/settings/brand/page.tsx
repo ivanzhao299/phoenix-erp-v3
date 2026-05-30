@@ -6,6 +6,17 @@ import { useBrand } from "@/contexts/BrandContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Upload, Save, RefreshCw, Image, Type } from "lucide-react";
 
+// ── Auth helper ───────────────────────────────────────────────────────────────
+function getToken() {
+  if (typeof window === 'undefined') return '';
+  return sessionStorage.getItem('phoenix_token') || '';
+}
+function authHdr(extra?: Record<string, string>) {
+  return { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json', ...extra };
+}
+
+
+
 const inp: React.CSSProperties = { width:"100%", padding:"10px 14px", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", background:"var(--bg-page)", color:"var(--text-primary)", fontSize:14, boxSizing:"border-box", outline:"none" };
 const card: React.CSSProperties = { background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:"var(--radius-lg)", padding:24, marginBottom:20 };
 
@@ -79,9 +90,7 @@ export default function BrandSettingsPage() {
     setSaving(true);
     try {
       // 后端 PUT /api/system/brand 无需 JWT，返回 { ok: true, data }
-      const res  = await fetch("/api/system/brand", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
+      const res  = await fetch("/api/system/brand", { method: "PUT", headers: authHdr(),
         body: JSON.stringify(form),
       });
       const data = await res.json();

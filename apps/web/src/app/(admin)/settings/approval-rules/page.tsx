@@ -10,6 +10,17 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
 
+// ── Auth helper ───────────────────────────────────────────────────────────────
+function getToken() {
+  if (typeof window === 'undefined') return '';
+  return sessionStorage.getItem('phoenix_token') || '';
+}
+function authHdr(extra?: Record<string, string>) {
+  return { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json', ...extra };
+}
+
+
+
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 interface RuleStep {
   id?: string;
@@ -98,15 +109,14 @@ async function fetchRules(bizType?: string, enabled?: string) {
   const p = new URLSearchParams({ page: "1", pageSize: "100" });
   if (bizType) p.set("bizType", bizType);
   if (enabled !== "") p.set("enabled", enabled ?? "");
-  const res = await fetch(`/api/approval/rules?${p}`, { credentials: "include" });
+  const res = await fetch(`/api/approval/rules?${p}`, { headers: authHdr() });
   if (!res.ok) return { items: [], total: 0 };
   return res.json();
 }
 
 async function createRule(body: Record<string, any>) {
   const res = await fetch("/api/approval/rules", {
-    method: "POST", credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    method: "POST", headers: authHdr(),
     body: JSON.stringify(body),
   });
   return res.json();
@@ -114,8 +124,7 @@ async function createRule(body: Record<string, any>) {
 
 async function updateRule(id: string, body: Record<string, any>) {
   const res = await fetch(`/api/approval/rules/${id}`, {
-    method: "PUT", credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    method: "PUT", headers: authHdr(),
     body: JSON.stringify(body),
   });
   return res.json();
@@ -123,8 +132,7 @@ async function updateRule(id: string, body: Record<string, any>) {
 
 async function toggleStatus(id: string, enabled: boolean) {
   const res = await fetch(`/api/approval/rules/${id}/status`, {
-    method: "PATCH", credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    method: "PATCH", headers: authHdr(),
     body: JSON.stringify({ enabled }),
   });
   return res.json();
@@ -132,7 +140,7 @@ async function toggleStatus(id: string, enabled: boolean) {
 
 async function deleteRule(id: string) {
   const res = await fetch(`/api/approval/rules/${id}`, {
-    method: "DELETE", credentials: "include",
+    method: "DELETE", headers: authHdr(),
   });
   return res.ok;
 }

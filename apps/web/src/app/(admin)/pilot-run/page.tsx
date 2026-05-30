@@ -18,6 +18,15 @@ import {
   FileText, ChevronDown, ChevronUp, Loader2,
 } from "lucide-react";
 
+// ── Auth helper ───────────────────────────────────────────────────────────────
+function getToken() {
+  if (typeof window === 'undefined') return '';
+  return sessionStorage.getItem('phoenix_token') || '';
+}
+function authHdr(extra?: Record<string, string>) {
+  return { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json', ...extra };
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface ScoreDimensions {
@@ -304,7 +313,7 @@ export default function PilotRunPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`/api/uat/pilot-runs/${pilotRunId}/dashboard`);
+      const res = await fetch(`/api/uat/pilot-runs/${pilotRunId}/dashboard`, { headers: authHdr() });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.message ?? `HTTP ${res.status}`);
@@ -319,7 +328,7 @@ export default function PilotRunPage() {
 
   const fetchReports = useCallback(async () => {
     try {
-      const res = await fetch(`/api/uat/pilot-runs/${pilotRunId}/daily-reports?limit=14`);
+      const res = await fetch(`/api/uat/pilot-runs/${pilotRunId}/daily-reports?limit=14`, { headers: authHdr() });
       if (!res.ok) return;
       const data = await res.json();
       setReports(data.items ?? []);
@@ -334,9 +343,7 @@ export default function PilotRunPage() {
   const handleGenerateReport = async () => {
     setReporting(true);
     try {
-      const res = await fetch(`/api/uat/pilot-runs/${pilotRunId}/daily-report`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch(`/api/uat/pilot-runs/${pilotRunId}/daily-report`, { method: "POST", headers: authHdr(),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       await fetchReports();

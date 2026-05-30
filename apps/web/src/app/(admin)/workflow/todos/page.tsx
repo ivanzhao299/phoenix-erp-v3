@@ -8,6 +8,17 @@ import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
 import { WorkflowFormRenderer } from "@/components/workflow/WorkflowFormRenderer";
 
+// ── Auth helper ───────────────────────────────────────────────────────────────
+function getToken() {
+  if (typeof window === 'undefined') return '';
+  return sessionStorage.getItem('phoenix_token') || '';
+}
+function authHdr(extra?: Record<string, string>) {
+  return { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json', ...extra };
+}
+
+
+
 // ── 统一任务类型 ───────────────────────────────────────────────────────────────
 interface UnifiedTask {
   taskSource:    string;
@@ -149,21 +160,20 @@ async function fetchTodos(params: {
   if (params.bizType)    p.set("bizType",    params.bizType);
   if (params.keyword)    p.set("keyword",    params.keyword);
 
-  const res = await fetch(`/api/workflow/my-tasks?${p.toString()}`, { credentials: "include" });
+  const res = await fetch(`/api/workflow/my-tasks?${p.toString()}`, { headers: authHdr() });
   if (!res.ok) return { items: [], total: 0, page: 1, pageSize: 20 };
   return res.json();
 }
 
 async function fetchDetail(instanceId: string): Promise<InstanceDetail | null> {
-  const res = await fetch(`/api/approval/instances/${instanceId}`, { credentials: "include" });
+  const res = await fetch(`/api/approval/instances/${instanceId}`, { headers: authHdr() });
   if (!res.ok) return null;
   return res.json();
 }
 
 async function approveInstance(instanceId: string, comment: string) {
   const res = await fetch(`/api/approval/instances/${instanceId}/approve`, {
-    method: "POST", credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    method: "POST", headers: authHdr(),
     body: JSON.stringify({ comment }),
   });
   return res.json();
@@ -171,8 +181,7 @@ async function approveInstance(instanceId: string, comment: string) {
 
 async function rejectInstance(instanceId: string, comment: string) {
   const res = await fetch(`/api/approval/instances/${instanceId}/reject`, {
-    method: "POST", credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    method: "POST", headers: authHdr(),
     body: JSON.stringify({ comment }),
   });
   return res.json();

@@ -7,6 +7,17 @@ import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
 
+// ── Auth helper ───────────────────────────────────────────────────────────────
+function getToken() {
+  if (typeof window === 'undefined') return '';
+  return sessionStorage.getItem('phoenix_token') || '';
+}
+function authHdr(extra?: Record<string, string>) {
+  return { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json', ...extra };
+}
+
+
+
 interface Notification {
   id: string;
   userId: string;
@@ -47,21 +58,21 @@ async function fetchNotifications(params: {
   p.set("pageSize", String(params.pageSize));
   if (params.status)  p.set("status",  params.status);
   if (params.keyword) p.set("keyword", params.keyword);
-  const res = await fetch(`/api/notifications?${p.toString()}`, { credentials: "include" });
+  const res = await fetch(`/api/notifications?${p.toString()}`, { headers: authHdr() });
   if (!res.ok) return { items: [], total: 0 };
   return res.json();
 }
 
 async function markRead(id: string) {
-  await fetch(`/api/notifications/${id}/read`, { method: "POST", credentials: "include" });
+  await fetch(`/api/notifications/${id}/read`, { method: "POST", headers: authHdr() });
 }
 
 async function markAllRead() {
-  await fetch("/api/notifications/read-all", { method: "POST", credentials: "include" });
+  await fetch("/api/notifications/read-all", { method: "POST", headers: authHdr() });
 }
 
 async function archiveNotification(id: string) {
-  await fetch(`/api/notifications/${id}/archive`, { method: "POST", credentials: "include" });
+  await fetch(`/api/notifications/${id}/archive`, { method: "POST", headers: authHdr() });
 }
 
 export default function NotificationsPage() {

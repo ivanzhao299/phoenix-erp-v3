@@ -5,6 +5,17 @@ import { CheckCircle, XCircle, Clock, RefreshCw, ChevronLeft, ChevronRight, Filt
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
 
+// ── Auth helper ───────────────────────────────────────────────────────────────
+function getToken() {
+  if (typeof window === 'undefined') return '';
+  return sessionStorage.getItem('phoenix_token') || '';
+}
+function authHdr(extra?: Record<string, string>) {
+  return { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json', ...extra };
+}
+
+
+
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 interface ApprovalInstance {
   id: string;
@@ -61,7 +72,7 @@ function fmtDate(s: string) {
 async function fetchHistory(page: number, pageSize: number, bizType?: string) {
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   if (bizType) params.set("bizType", bizType);
-  const res = await fetch(`/api/approval/history?${params}`, { credentials: "include" });
+  const res = await fetch(`/api/approval/history?${params}`, { headers: authHdr() });
   if (!res.ok) return { list: [], total: 0, page: 1, pageSize };
   return res.json();
 }

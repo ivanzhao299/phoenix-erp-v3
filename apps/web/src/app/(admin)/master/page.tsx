@@ -6,6 +6,17 @@ import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
 
+// ── Auth helper ───────────────────────────────────────────────────────────────
+function getToken() {
+  if (typeof window === 'undefined') return '';
+  return sessionStorage.getItem('phoenix_token') || '';
+}
+function authHdr(extra?: Record<string, string>) {
+  return { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json', ...extra };
+}
+
+
+
 export default function MasterPage() {
   const router = useRouter();
   const { t } = useLanguage();
@@ -21,7 +32,7 @@ export default function MasterPage() {
   useEffect(() => {
     Promise.all(
       MODULES.map(m =>
-        fetch(`/api/crud/${m.table}?limit=1`)
+        fetch(`/api/crud/${m.table}?limit=1`, { headers: authHdr() })
           .then(r=>r.json())
           .then(d=>({ table: m.table, count: d.total ?? (d.data?.length ?? 0) }))
           .catch(()=>({ table: m.table, count: 0 }))
