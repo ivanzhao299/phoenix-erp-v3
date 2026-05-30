@@ -302,9 +302,16 @@ assert_eq "T10.3 REM_AAA 不被误合 (PENDING)" "PENDING" "$AAA_STATUS"
 cyan ""
 cyan "▶ Phase V2-PKG V2 fidelity — packComplete QUARANTINE + wms_inbound"
 
-# Seed: 加一个 saleable=false 的"X 号蛋" (破损/不合格) 字典项
+# Seed: 加一个 saleable=false 的"X 号蛋" (破损/不合格)
+# Fix Pack 1 (HIGH-4) 后 packComplete 读 product_grades（权威数据源），必须两表同步 seed
 $PSQL $DB -q -c "DELETE FROM sys_dict WHERE dict_type='PKG_EGG_GRADE' AND dict_code='PKG_EGG_GRADE_X';" >/dev/null
 $PSQL $DB -q -c "INSERT INTO sys_dict (dict_type, dict_code, dict_label_zh, name, config_json, status) VALUES ('PKG_EGG_GRADE','PKG_EGG_GRADE_X','破损蛋(测试)','破损蛋','{\"code\":\"X\",\"nameZh\":\"破损蛋\",\"saleable\":false,\"productCode\":\"PRD-EGG-X\"}','ACTIVE');" >/dev/null
+# 权威来源: product_grades.is_saleable — packComplete QUARANTINE 逻辑依赖此表
+$PSQL $DB -q -c "
+  INSERT INTO product_grades (grade_code, grade_name, grade_name_lo, sort_order, is_saleable, is_storable, status, remark)
+  VALUES ('X', '破损蛋(测试)', 'Broken Test', 99, FALSE, FALSE, 'ACTIVE', '回归测试用等级: 不可售，验证 QUARANTINE 隔离')
+  ON CONFLICT (grade_code) DO UPDATE SET is_saleable = FALSE, is_storable = FALSE, status = 'ACTIVE';
+" >/dev/null
 
 # 建 PACKING 任务 — grade_results 含可售 "1"=600 + 不可售 "X"=200
 PACK_V2_TASK="PACK-REGR-V2-${DATEKEY}-$(date +%s | tail -c 5)"
@@ -387,6 +394,7 @@ $PSQL $DB -q -c "DELETE FROM inv_ledger WHERE batch_no LIKE 'EGG-%-${HOUSE}-%' O
 $PSQL $DB -q -c "DELETE FROM inv_batches WHERE batch_no LIKE 'EGG-%-${HOUSE}-%' OR batch_no LIKE 'BAT-%-${HOUSE}-%' OR batch_no LIKE 'PACK-%-${HOUSE}-%' OR batch_no = 'BAT-REGR-PACK';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM wms_inbound WHERE task_no LIKE 'WMS-IB-PACK-REGR-V2-%';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM sys_dict WHERE dict_type='PKG_EGG_GRADE' AND dict_code='PKG_EGG_GRADE_X';" >/dev/null
+$PSQL $DB -q -c "DELETE FROM product_grades WHERE grade_code='X';" >/dev/null
 green "  ✓ test data 清理完毕"
 
 # ──────────────────────────────────────────────────────────────────────────
