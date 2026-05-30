@@ -53,9 +53,25 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   PAID:      { label: "已付款", cls: "badgeSuccess" },
   CANCELLED: { label: "已取消", cls: "badgeNeutral" },
 };
-const PAYER_TYPE_OPTS  = ["COMPANY","SHAREHOLDER","BORROW","INTERNAL"];
-const PAY_METHOD_OPTS  = ["BANK","CASH","TRANSFER","ALIPAY","WECHAT"];
-const FUND_NATURE_OPTS = ["INVESTMENT","LOAN","ADVANCE","NORMAL"];
+const PAYER_TYPE_OPTS: { value: string; label: string }[] = [
+  { value: "COMPANY",     label: "公司" },
+  { value: "SHAREHOLDER", label: "股东" },
+  { value: "BORROW",      label: "借款" },
+  { value: "INTERNAL",    label: "内部" },
+];
+const PAY_METHOD_OPTS: { value: string; label: string }[] = [
+  { value: "BANK",     label: "银行转账" },
+  { value: "CASH",     label: "现金" },
+  { value: "TRANSFER", label: "内部划转" },
+  { value: "ALIPAY",   label: "支付宝" },
+  { value: "WECHAT",   label: "微信支付" },
+];
+const FUND_NATURE_OPTS: { value: string; label: string }[] = [
+  { value: "INVESTMENT", label: "投资款" },
+  { value: "LOAN",       label: "借款" },
+  { value: "ADVANCE",    label: "垫付" },
+  { value: "NORMAL",     label: "普通" },
+];
 const CURRENCY_OPTS    = ["CNY","LAK","THB","USD"];
 const API_PAY = "/api/v2/procurement/payments";
 
@@ -362,7 +378,7 @@ export default function PaymentsPage() {
         </select>
         <select value={fPayerType} onChange={e => setFPayerType(e.target.value)} style={inlineSelect}>
           <option value="">全部付款方</option>
-          {PAYER_TYPE_OPTS.map(t => <option key={t} value={t}>{t}</option>)}
+          {PAYER_TYPE_OPTS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
         <select value={fCurrency} onChange={e => setFCurrency(e.target.value)} style={inlineSelect}>
           <option value="">全部货币</option>
@@ -527,7 +543,7 @@ export default function PaymentsPage() {
             <div className={s.field}>
               <label className={s.lbl}>付款方类型</label>
               <select className={s.inp} value={formPayerType} onChange={e => { setFormPayerType(e.target.value); setFormIsShareholder(e.target.value === "SHAREHOLDER"); }}>
-                {PAYER_TYPE_OPTS.map(t => <option key={t} value={t}>{t}</option>)}
+                {PAYER_TYPE_OPTS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
             <div className={s.field}>
@@ -556,7 +572,7 @@ export default function PaymentsPage() {
             <div className={s.field}>
               <label className={s.lbl}>付款方式</label>
               <select className={s.inp} value={formMethod} onChange={e => setFormMethod(e.target.value)}>
-                {PAY_METHOD_OPTS.map(m => <option key={m} value={m}>{m}</option>)}
+                {PAY_METHOD_OPTS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
               </select>
             </div>
           </div>
@@ -564,7 +580,7 @@ export default function PaymentsPage() {
             <div className={s.field}>
               <label className={s.lbl}>资金性质</label>
               <select className={s.inp} value={formNature} onChange={e => setFormNature(e.target.value)}>
-                {FUND_NATURE_OPTS.map(n => <option key={n} value={n}>{n}</option>)}
+                {FUND_NATURE_OPTS.map(n => <option key={n.value} value={n.value}>{n.label}</option>)}
               </select>
             </div>
             <div className={s.field}>
