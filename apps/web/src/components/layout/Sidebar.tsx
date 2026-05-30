@@ -170,12 +170,12 @@ const MENU: MenuItem[] = [
   // 8. 经营分析 — BI 驾驶舱 + 多维报表（Sales V2 Phase 8 全维度）
   { id: "analytics", Icon: TrendingUp, label: "经营分析", perm: "MENU_DASHBOARD", children: [
     { id: "an-bi",       path: "/analytics",             Icon: LayoutDashboard, label: "经营总览",   perm: "MENU_DASHBOARD"       },
-    { id: "an-sales",    path: "/analytics/sales",       Icon: TrendingUp,      label: "销售分析",   perm: "MENU_SALES2_REPORT"   },
-    { id: "an-channel",  path: "/analytics/channels",    Icon: Network,         label: "渠道分析",   perm: "MENU_SALES2_CHANNEL"  },
+    { id: "an-sales",    path: "/sales2/reports",        Icon: TrendingUp,      label: "销售分析",   perm: "MENU_SALES2_REPORT"   },
+    { id: "an-channel",  path: "/sales2/reports",        Icon: Network,         label: "渠道分析",   perm: "MENU_SALES2_CHANNEL"  },
     { id: "an-inv",      path: "/analytics/inventory",   Icon: PieChart,        label: "库存分析",   perm: "MENU_DASHBOARD"       },
-    { id: "an-delivery", path: "/analytics/delivery",    Icon: Truck,           label: "配送分析",   perm: "MENU_SALES2_DELIVERY" },
-    { id: "an-finance",  path: "/analytics/finance",     Icon: DollarSign,      label: "财务分析",   perm: "MENU_FIN2_REPORT"     },
-    { id: "an-credit",   path: "/analytics/credit",      Icon: CreditCard,      label: "信用分析",   perm: "MENU_SALES2_CREDIT"   },
+    { id: "an-delivery", path: "/sales2/delivery",       Icon: Truck,           label: "配送分析",   perm: "MENU_SALES2_DELIVERY" },
+    { id: "an-finance",  path: "/finance2/reports",      Icon: DollarSign,      label: "财务分析",   perm: "MENU_FIN2_REPORT"     },
+    { id: "an-credit",   path: "/sales2/credit",         Icon: CreditCard,      label: "信用分析",   perm: "MENU_SALES2_CREDIT"   },
   ]},
 
   // 9. 主数据中心 — 全量主数据统一入口
