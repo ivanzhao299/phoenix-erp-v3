@@ -4,6 +4,7 @@
  */
 
 import type { CrudListResponse, PaginationParams } from "@/types";
+import { dispatchAuthExpired } from "@/lib/auth-dispatch";
 
 const API_BASE = "/api";
 
@@ -168,11 +169,10 @@ async function request<T = unknown>(
     const message = errBody.message || '登录已过期，请重新登录';
 
     // 通知全局拦截器；reason 字段决定登录页提示文案
-    if (typeof window !== 'undefined') {
-      const reason = subcode === 'PERMS_CHANGED' ? 'perms_changed'
-                   : subcode === 'TOKEN_EXPIRED' ? 'expired'
-                   : 'expired';
-      window.dispatchEvent(new CustomEvent('api:auth-expired', { detail: { subcode, reason } }));
+    // 通过共享防抖函数派发（与 AuthFetchInterceptor 共用同一个冷却锁，避免重复事件）
+    {
+      const reason = subcode === 'PERMS_CHANGED' ? 'perms_changed' : 'expired';
+      dispatchAuthExpired(reason);
     }
     throw makeError(message, 401, 'AUTH_EXPIRED', subcode);
   }
