@@ -960,7 +960,7 @@ export default function Finance2ReportsPage() {
             {['应付账龄', '应收账龄', '资金日报', '费用统计', '股东资金', '项目维度', '公司维度'].map(t => (
               <span key={t} style={{
                 fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
-                background: 'rgba(255,255,255,0.2)',
+                background: 'var(--bg-muted)',
               }}>{t}</span>
             ))}
           </div>

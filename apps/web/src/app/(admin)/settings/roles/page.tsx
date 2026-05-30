@@ -783,7 +783,7 @@ export default function RoleManagementPage() {
             <div style={{
               display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10,
               padding: "6px 10px", borderRadius: 6,
-              background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)",
+              background: "var(--bg-muted)", border: "1px solid var(--border)",
             }}>
               {PERM_CODE_ORDER.map((c) => {
                 const meta = PERM_CODE_META[c];
