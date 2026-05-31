@@ -1,0 +1,8 @@
+customer_no,customer_name,customer_type,contact_name,phone,region,status
+# 说明：V2 名单仅含用户/角色，未提供正式客户清单。本文件为 4 类客户的标准结构模板。
+# customer_type 取值：DISTRIBUTOR(经销商) / KEY_ACCOUNT(企业客户) / RETAIL(零售客户) / LOGISTICS(物流客户)
+# 下列为各类别示例占位（待业务补充真实客户后填入）；init SQL 不写入占位行，仅保留既有 30 条真实客户。
+CUS-DIST-EXAMPLE,（示例-经销商待补充）,DISTRIBUTOR,,,待补充,DRAFT
+CUS-KA-EXAMPLE,（示例-企业客户待补充）,KEY_ACCOUNT,,,待补充,DRAFT
+CUS-RETAIL-EXAMPLE,（示例-零售客户待补充）,RETAIL,,,待补充,DRAFT
+CUS-LOG-EXAMPLE,（示例-物流客户待补充）,LOGISTICS,,,待补充,DRAFT
