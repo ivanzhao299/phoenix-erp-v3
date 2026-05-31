@@ -521,6 +521,31 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_CEO:      ['V'],
   },
 
+  // ── Organization Runtime Phase 1 — /api/organizations/* 端点所需菜单 ──────
+  // Fix: MENU_ORG_VIEW / MENU_ORG_MANAGE 在 organization.controller.ts 中使用
+  // 但之前未在此矩阵注册，导致 isMenuRegistered() 返回 false →
+  // 所有 /api/organizations/* 端点抛 MENU_PERMISSION_NOT_REGISTERED，含管理员
+  MENU_ORG_VIEW: {
+    ROLE_ADMIN:      ['V','C','E','D','A','X'],
+    ROLE_HR_ADMIN:   ['V','C','E','D'],
+    ROLE_SYSOPS:     ['V','C','E'],
+    ROLE_CEO:        ['V'],
+    ROLE_REGION_MGR: ['V'],
+    ROLE_FARM_MGR:   ['V'],
+    ROLE_STORE_MGR:  ['V'],
+  },
+  MENU_ORG_MANAGE: {
+    ROLE_ADMIN:    ['V','C','E','D','A','X'],
+    ROLE_HR_ADMIN: ['V','C','E','D'],
+    ROLE_SYSOPS:   ['V','C','E'],
+  },
+  MENU_ORG_USER_SCOPE: {
+    ROLE_ADMIN:    ['V','C','E','D','A','X'],
+    ROLE_HR_ADMIN: ['V','C','E','X'],
+    ROLE_SYSOPS:   ['V','C','E'],
+    ROLE_CEO:      ['V'],
+  },
+
   // ── RBAC-2.5 新增：压测专用菜单（无重复键，仅补充之前未覆盖的菜单）────────────
 
   /** 采购V2 采购申请（PR） — requests.controller 原使用 MENU_PRC2_MASTER，此条新增精细化 */
