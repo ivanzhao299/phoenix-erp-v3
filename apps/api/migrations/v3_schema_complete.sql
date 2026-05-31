@@ -458,6 +458,14 @@ CREATE TABLE IF NOT EXISTS wms_stocktake (
 );
 
 -- 缺：wms_outbound (run_full_v3.js 已有同步表，这里补字段)
+-- 修复（Phase C）：全新数据库该表由运行时建，SQL 阶段尚不存在 → 先建最小骨架，
+-- 字段由后续 ALTER ADD COLUMN IF NOT EXISTS 补全（幂等）。
+CREATE TABLE IF NOT EXISTS wms_outbound (
+  id           BIGSERIAL PRIMARY KEY,
+  outbound_no  VARCHAR(64),
+  status       VARCHAR(32) DEFAULT 'PENDING',
+  created_at   TIMESTAMP DEFAULT now()
+);
 ALTER TABLE wms_outbound ADD COLUMN IF NOT EXISTS order_no VARCHAR(64);
 ALTER TABLE wms_outbound ADD COLUMN IF NOT EXISTS operator VARCHAR(64);
 
@@ -575,7 +583,25 @@ CREATE TABLE IF NOT EXISTS cst_credit_warnings (
 
 -- ───────────────────────────────────────────────────────────────────────────────
 -- L. 订单 V3 列补齐 — ord_orders 已存在但缺 V3 字段
+-- 修复（Phase C）：全新数据库这些 legacy 表由运行时建，SQL 阶段尚不存在 →
+-- 先建最小骨架，字段由后续 ALTER 补全（幂等，生产环境表已存在则跳过）。
 -- ───────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS ord_orders (
+  id          BIGSERIAL PRIMARY KEY,
+  order_no    VARCHAR(64),
+  status      VARCHAR(32) DEFAULT 'DRAFT',
+  created_at  TIMESTAMP DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS ord_customers (
+  id            BIGSERIAL PRIMARY KEY,
+  customer_name VARCHAR(128),
+  created_at    TIMESTAMP DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS b2b_customers (
+  id            BIGSERIAL PRIMARY KEY,
+  customer_name VARCHAR(128),
+  created_at    TIMESTAMP DEFAULT now()
+);
 ALTER TABLE ord_orders ADD COLUMN IF NOT EXISTS store_code        VARCHAR(64) DEFAULT 'ALL';
 ALTER TABLE ord_orders ADD COLUMN IF NOT EXISTS customer_id       BIGINT;
 ALTER TABLE ord_orders ADD COLUMN IF NOT EXISTS order_type        VARCHAR(32) DEFAULT 'SALE';
