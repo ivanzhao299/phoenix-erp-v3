@@ -25,7 +25,7 @@ FROM (VALUES
   ('xiejiling',   '谢继领', 'SITE-MENGSAI-LAYER'),
   ('liujie',      '刘杰',   'ORG-GROUP'),
   ('wangweihua',  '王玮华', 'COMP-LAO-AGRI'),
-  ('zhuzhaoan',   '朱召安', 'ORG-GROUP'),   -- ⚠ 待确认：M2 本地曾用 zhuzhao_an，需统一为唯一规范用户名
+  ('zhuzhaoan',   '朱召安', 'ORG-GROUP'),   -- ✅ 已决策：规范用户名 zhuzhaoan（存量 zhuzhao_an 在 M6 前清理，见 99-reconcile）
   ('liushanjun',  '刘善军', 'SITE-MENGSAI-LAYER')  -- ⚠ 仓储归属待确认
 ) AS v(username, real_name, store_code)
 ON CONFLICT (username) DO NOTHING;

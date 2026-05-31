@@ -18,6 +18,7 @@
 ## 2. 执行顺序
 
 ```bash
+psql -d <db> -f 99-reconcile-zhuzhaoan.sql  # 仅 M2 遗留环境：zhuzhao_an→zhuzhaoan 收敛（全新库为 no-op）
 psql -d <db> -f 01-organizations.sql   # 组织树 GROUP/BU/COMPANY/SITE/DEPARTMENT
 psql -d <db> -f 02-users.sql           # 系统用户（随机 bcrypt 密码）
 psql -d <db> -f 03-user-roles.sql      # 用户角色绑定（含缺失角色诊断）
@@ -72,7 +73,7 @@ psql -d <db> -f 90-check-init-data.sql # 校验 PASS/FAIL（只读）
 
 | # | 事项 | 当前默认 | 需确认 |
 |---|------|---------|--------|
-| 1 | 朱召安用户名 | `zhuzhaoan`（M4 规范） | M2 本地曾用 `zhuzhao_an`，需统一为唯一规范用户名，避免重复建人 |
+| 1 | 朱召安用户名 | ✅ **已决策：`zhuzhaoan`** | 存量 `zhuzhao_an`（M2 遗留）在 M6 导入前由 `99-reconcile-zhuzhaoan.sql` 清理，避免重复建人 |
 | 2 | 朱召安数据范围 | ORG-GROUP | 是否应归 FINANCE CENTER |
 | 3 | 刘善军仓储归属 | SITE-MENGSAI-LAYER | 实际仓储场区 |
 | 4 | 王玮华多公司账务 | 仅 COMP-LAO-AGRI | 是否追加 COMP-LAO-FOOD / COMP-LAO-XINGCHI |

@@ -54,7 +54,7 @@
 | 谢继领 | xiejiling | ROLE_FARM_MGR | ROLE_VET | COMP-LAO-AGRI | SITE-MENGSAI-LAYER | SITE | ✅ | ✅(用药) | 中级 | □ | 孟赛场长；技术/防疫/生产统计 |
 | 刘杰 | liujie | ROLE_HQ_FINANCE | ROLE_FIN_ACCT | 集团 | 财务中心 | GROUP | ✅ | ✅ | 高级 | □ | 集团财务；记账/工资/报表。⚠️ 原名单 ROLE_GROUP_FINANCE→映射 ROLE_HQ_FINANCE |
 | 王玮华 | wangweihua | ROLE_FIN_ACCT | — | COMP-LAO-AGRI | 财务中心 | COMPANY | ✅ | ❌ | 中级 | □ | 财务会计 |
-| 朱召安 | zhuzhaoan | ROLE_CASH | — | 集团 | 财务中心 | GROUP | ✅ | ❌ | 初级 | □ | ⚠️ 用户名 zhuzhaoan vs M2 本地 zhuzhao_an，须统一 |
+| 朱召安 | zhuzhaoan | ROLE_CASH | — | 集团 | 财务中心 | GROUP | ✅ | ❌ | 初级 | □ | ✅ 用户名已决策 zhuzhaoan；存量 zhuzhao_an 由 99-reconcile 收敛 |
 | 刘善军 | liushanjun | ROLE_WMS_MGR | — | — | SITE-MENGSAI-LAYER | SITE | ✅ | ❌ | 中级 | □ | ⚠️ 仓储归属待确认（默认孟赛） |
 
 ### 账号分类与总数
@@ -194,7 +194,7 @@
 
 | # | 项 | 建议 |
 |---|----|------|
-| B1 | 朱召安用户名 zhuzhaoan / zhuzhao_an | **导入前必须二选一**，避免重复建人 |
+| B1 | ~~朱召安用户名~~ | ✅ **已决策：zhuzhaoan**；存量 zhuzhao_an 由 `99-reconcile-zhuzhaoan.sql` 安全改名收敛 |
 | B2 | BU-TRADING「商贸/贸易」命名 | 管理层定夺统一 |
 | B3 | 符强姓名 符强/伏强 | 核对后更正 real_name |
 | B4 | 供应商联系人/电话缺失 | 业务补充（不阻断） |
@@ -226,7 +226,7 @@
 
 ### 是否达到 Production Import 条件？
 
-**有条件达到。** 7 类主数据（组织/用户/角色/组织范围/司机/门店/供应商）结构合规、校验通过（M4 16/16 PASS）、不写旧表、无越权账号，**可进入正式导入**；前置硬条件为 **B1 朱召安用户名定夺**。客户/车辆作为「待数据」分批跟进，不阻断。
+**达到（主数据）。** 7 类主数据（组织/用户/角色/组织范围/司机/门店/供应商）结构合规、校验通过（M4 16/16 PASS）、不写旧表、无越权账号，**可进入正式导入**。原前置硬条件 **B1 朱召安用户名已决策为 `zhuzhaoan`**（存量 zhuzhao_an 由 99-reconcile 安全收敛），阻断解除。客户/车辆作为「待数据」分批跟进，不阻断。
 
 ### 是否达到 Pilot Run 条件？
 
@@ -236,7 +236,7 @@
 
 | 优先级 | 缺失信息 | 影响 |
 |:------:|----------|------|
-| 🔴 高 | 朱召安用户名统一决策 | 阻断用户导入 |
+| ✅ 已决策 | 朱召安用户名 = zhuzhaoan | B1 已解除，存量 zhuzhao_an 由 99-reconcile 收敛 |
 | 🔴 高 | 正式客户名录（经销商/企业/零售/物流） | 阻断销售闭环 |
 | 🟡 中 | 门店店长姓名 | 影响店长账号开通 |
 | 🟡 中 | 供应商联系人/电话 | 采购联络不全 |
