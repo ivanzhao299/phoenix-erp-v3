@@ -667,3 +667,171 @@ BEGIN
    );
   RAISE NOTICE '✅ V3 schema_complete: % critical tables present', v_count;
 END $$;
+
+-- ============================================================
+-- Phase C 修复：双重建表 schema 漂移批量补全
+-- ============================================================
+-- 背景：以下表在 v3_schema_complete.sql（简化版）与 generic-crud.service.ts
+--   （完整版）两处建表。v3_schema 先执行 → generic-crud 的 CREATE TABLE
+--   IF NOT EXISTS 跳过 → 完整版多出的列在全新数据库永久缺失，
+--   导致 packaging/wms/finance/breeding 等回归 INSERT 报 column does not exist。
+-- 对策：在所有表建好后，统一以 ADD COLUMN IF NOT EXISTS 幂等补齐缺列。
+--   （UNIQUE 约束此处不补，与 generic-crud 对已存在表的运行时行为保持一致）
+-- 自动生成：扫描两文件同名表列差集，共 108 列 / 28 表。
+-- ============================================================
+
+-- b2b_customers: 补 7 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE b2b_customers ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE b2b_customers ADD COLUMN IF NOT EXISTS contact VARCHAR(100);
+ALTER TABLE b2b_customers ADD COLUMN IF NOT EXISTS credit_limit DECIMAL(12,2) DEFAULT 0;
+ALTER TABLE b2b_customers ADD COLUMN IF NOT EXISTS customer_code VARCHAR(50);
+ALTER TABLE b2b_customers ADD COLUMN IF NOT EXISTS phone VARCHAR(30);
+ALTER TABLE b2b_customers ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'ACTIVE';
+ALTER TABLE b2b_customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+-- brd_daily_logs: 补 8 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS bad_eggs INT DEFAULT 0;
+ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS dirty_eggs INT DEFAULT 0;
+ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS egg_count INT DEFAULT 0;
+ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS farm_code VARCHAR(64);
+ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS farm_name VARCHAR(256);
+ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS feed_consumed DECIMAL(10,2) DEFAULT 0;
+ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS temp DECIMAL(5,2);
+ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS water_consumed DECIMAL(10,2) DEFAULT 0;
+
+-- brd_medications: 补 4 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE brd_medications ADD COLUMN IF NOT EXISTS medication_code VARCHAR(64);
+ALTER TABLE brd_medications ADD COLUMN IF NOT EXISTS medication_name VARCHAR(256);
+ALTER TABLE brd_medications ADD COLUMN IF NOT EXISTS status VARCHAR(32) DEFAULT 'ACTIVE';
+ALTER TABLE brd_medications ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+-- cst_credit_warnings: 补 4 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE cst_credit_warnings ADD COLUMN IF NOT EXISTS credit_limit DECIMAL(18,2) DEFAULT 0;
+ALTER TABLE cst_credit_warnings ADD COLUMN IF NOT EXISTS current_balance DECIMAL(18,2) DEFAULT 0;
+ALTER TABLE cst_credit_warnings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE cst_credit_warnings ADD COLUMN IF NOT EXISTS warning_threshold DECIMAL(5,2) DEFAULT 0;
+
+-- fin_accounts: 补 2 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE fin_accounts ADD COLUMN IF NOT EXISTS currency VARCHAR(8) DEFAULT 'CNY';
+ALTER TABLE fin_accounts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+-- fin_approvals: 补 8 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE fin_approvals ADD COLUMN IF NOT EXISTS action VARCHAR(32);
+ALTER TABLE fin_approvals ADD COLUMN IF NOT EXISTS approver VARCHAR(128);
+ALTER TABLE fin_approvals ADD COLUMN IF NOT EXISTS approver_role VARCHAR(64);
+ALTER TABLE fin_approvals ADD COLUMN IF NOT EXISTS comment TEXT;
+ALTER TABLE fin_approvals ADD COLUMN IF NOT EXISTS doc_id BIGINT;
+ALTER TABLE fin_approvals ADD COLUMN IF NOT EXISTS doc_type VARCHAR(64);
+ALTER TABLE fin_approvals ADD COLUMN IF NOT EXISTS role VARCHAR(64);
+ALTER TABLE fin_approvals ADD COLUMN IF NOT EXISTS txn_id VARCHAR(64);
+
+-- fin_invoices: 补 2 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE fin_invoices ADD COLUMN IF NOT EXISTS customer_or_supplier VARCHAR(256);
+ALTER TABLE fin_invoices ADD COLUMN IF NOT EXISTS ref_no VARCHAR(128);
+
+-- fin_payments: 补 1 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE fin_payments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+-- mst_products: 补 6 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS price_retail DECIMAL(10,4) DEFAULT 0;
+ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS price_wholesale DECIMAL(10,4) DEFAULT 0;
+ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS product_name VARCHAR(100);
+ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS shelf_life_days INT DEFAULT 0;
+ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS unit_lo VARCHAR(20);
+ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS unit_zh VARCHAR(20);
+
+-- mst_stores: 补 2 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE mst_stores ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE mst_stores ADD COLUMN IF NOT EXISTS phone VARCHAR(30);
+
+-- ord_customers: 补 8 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE ord_customers ADD COLUMN IF NOT EXISTS credit_limit DECIMAL(12,2) DEFAULT 0;
+ALTER TABLE ord_customers ADD COLUMN IF NOT EXISTS credit_used DECIMAL(12,2) DEFAULT 0;
+ALTER TABLE ord_customers ADD COLUMN IF NOT EXISTS customer_code VARCHAR(50);
+ALTER TABLE ord_customers ADD COLUMN IF NOT EXISTS phone VARCHAR(30);
+ALTER TABLE ord_customers ADD COLUMN IF NOT EXISTS region VARCHAR(100);
+ALTER TABLE ord_customers ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'ACTIVE';
+ALTER TABLE ord_customers ADD COLUMN IF NOT EXISTS tier VARCHAR(20);
+ALTER TABLE ord_customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+-- ord_orders: 补 5 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE ord_orders ADD COLUMN IF NOT EXISTS customer_code VARCHAR(50);
+ALTER TABLE ord_orders ADD COLUMN IF NOT EXISTS customer_name VARCHAR(100);
+ALTER TABLE ord_orders ADD COLUMN IF NOT EXISTS order_date DATE;
+ALTER TABLE ord_orders ADD COLUMN IF NOT EXISTS total_amount DECIMAL(12,2) DEFAULT 0;
+ALTER TABLE ord_orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+-- pda_sync_log: 补 1 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE pda_sync_log ADD COLUMN IF NOT EXISTS error_msg TEXT;
+
+-- pkg_shifts: 补 13 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS bad_eggs INT DEFAULT 0;
+ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS broken_eggs INT DEFAULT 0;
+ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS broken_qty INT DEFAULT 0;
+ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP;
+ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS completed_time VARCHAR(32);
+ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS dirty_eggs INT DEFAULT 0;
+ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS dirty_qty INT DEFAULT 0;
+ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS eggs_collected INT DEFAULT 0;
+ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS qualified_qty INT DEFAULT 0;
+ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS reopen_reason TEXT;
+ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS shift_time VARCHAR(64);
+ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS total_qty INT DEFAULT 0;
+ALTER TABLE pkg_shifts ADD COLUMN IF NOT EXISTS updated_by BIGINT;
+
+-- pkg_tasks: 补 15 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS anomaly_reason TEXT;
+ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS breakage_qty INT DEFAULT 0;
+ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS breakage_rate NUMERIC(8,4) DEFAULT 0;
+ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP;
+ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS completed_by BIGINT;
+ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS discrepancy_qty INT DEFAULT 0;
+ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS grade_results TEXT;
+ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS graded_at TIMESTAMP;
+ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS graded_by BIGINT;
+ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS output_qty INT DEFAULT 0;
+ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS pack_spec VARCHAR(64);
+ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS presort_broken_qty INT DEFAULT 0;
+ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS presort_dirty_qty INT DEFAULT 0;
+ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS presort_xl_qty INT DEFAULT 0;
+ALTER TABLE pkg_tasks ADD COLUMN IF NOT EXISTS remainder_qty INT DEFAULT 0;
+
+-- prc_price_items: 补 2 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE prc_price_items ADD COLUMN IF NOT EXISTS price_book_id VARCHAR(64);
+ALTER TABLE prc_price_items ADD COLUMN IF NOT EXISTS sku_code VARCHAR(64);
+
+-- prc_purchase_items: 补 1 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE prc_purchase_items ADD COLUMN IF NOT EXISTS amount DECIMAL(18,2) DEFAULT 0;
+
+-- prc_purchase_payments: 补 2 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE prc_purchase_payments ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE prc_purchase_payments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+-- prc_purchase_requests: 补 1 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE prc_purchase_requests ADD COLUMN IF NOT EXISTS request_no VARCHAR(64);
+
+-- prc_returns: 补 1 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE prc_returns ADD COLUMN IF NOT EXISTS qty INT DEFAULT 0;
+
+-- wms_outbound: 补 6 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE wms_outbound ADD COLUMN IF NOT EXISTS item VARCHAR(256);
+ALTER TABLE wms_outbound ADD COLUMN IF NOT EXISTS picker VARCHAR(128);
+ALTER TABLE wms_outbound ADD COLUMN IF NOT EXISTS qty INT DEFAULT 0;
+ALTER TABLE wms_outbound ADD COLUMN IF NOT EXISTS ref_no VARCHAR(128);
+ALTER TABLE wms_outbound ADD COLUMN IF NOT EXISTS type VARCHAR(64);
+ALTER TABLE wms_outbound ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+-- wms_outbound_items: 补 2 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE wms_outbound_items ADD COLUMN IF NOT EXISTS actual_qty INT DEFAULT 0;
+ALTER TABLE wms_outbound_items ADD COLUMN IF NOT EXISTS outbound_no VARCHAR(64);
+
+-- wms_stocktake: 补 5 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE wms_stocktake ADD COLUMN IF NOT EXISTS act_qty INT DEFAULT 0;
+ALTER TABLE wms_stocktake ADD COLUMN IF NOT EXISTS auditor VARCHAR(128);
+ALTER TABLE wms_stocktake ADD COLUMN IF NOT EXISTS date VARCHAR(32);
+ALTER TABLE wms_stocktake ADD COLUMN IF NOT EXISTS item VARCHAR(256);
+ALTER TABLE wms_stocktake ADD COLUMN IF NOT EXISTS sys_qty INT DEFAULT 0;
+
+-- wms_warehouses: 补 2 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
+ALTER TABLE wms_warehouses ADD COLUMN IF NOT EXISTS type VARCHAR(32);
+ALTER TABLE wms_warehouses ADD COLUMN IF NOT EXISTS warehouse_name_zh VARCHAR(128);
