@@ -304,6 +304,11 @@ CREATE TABLE IF NOT EXISTS brd_daily_logs (
   updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS shift VARCHAR(20) DEFAULT '';
+-- 修复（Phase C）：v3_schema 版本缺 farm_code（breeding 回归测试依赖），
+-- 该表先于 generic-crud 建，导致 generic-crud 的完整版被 IF NOT EXISTS 跳过。
+ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS farm_code  VARCHAR(64);
+ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS farm_name  VARCHAR(256);
+ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS store_code VARCHAR(64) DEFAULT 'ALL';
 DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint
@@ -333,6 +338,13 @@ CREATE TABLE IF NOT EXISTS brd_medications (
   operator        VARCHAR(64),
   created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+-- 修复（Phase C）：v3_schema 版本缺 medication_code/medication_name（breeding 回归依赖），
+-- 该表先于 generic-crud 建，导致 generic-crud 完整版被 IF NOT EXISTS 跳过。
+ALTER TABLE brd_medications ADD COLUMN IF NOT EXISTS medication_code VARCHAR(64);
+ALTER TABLE brd_medications ADD COLUMN IF NOT EXISTS medication_name VARCHAR(256);
+ALTER TABLE brd_medications ADD COLUMN IF NOT EXISTS status          VARCHAR(32) DEFAULT 'ACTIVE';
+ALTER TABLE brd_medications ADD COLUMN IF NOT EXISTS store_code      VARCHAR(64) DEFAULT 'ALL';
+ALTER TABLE brd_medications ADD COLUMN IF NOT EXISTS updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 
 -- ───────────────────────────────────────────────────────────────────────────────
 -- G. 采购 (prc_*)
