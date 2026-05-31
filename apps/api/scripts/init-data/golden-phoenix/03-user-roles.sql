@@ -15,6 +15,12 @@ SET LOCAL phx.skip_perms_bump = 'on';
 --   如业务坚持独立的 ROLE_GROUP_FINANCE，请先在 sys_role 播种该角色（role_seed_todo）。
 -- ─────────────────────────────────────────────────────────────────
 
+-- ── 补建缺失角色 ROLE_CASH（出纳）──────────────────────────────────
+--   M2 曾在本地建过此角色，但生产库未含；此处幂等补种，确保朱召安出纳角色可绑定。
+INSERT INTO sys_role (role_code, role_name_zh, role_name_lo, role_type, approval_level)
+VALUES ('ROLE_CASH', '出纳', 'ພະນັກງານເງິນສົດ', 'FINANCE', 1)
+ON CONFLICT (role_code) DO NOTHING;
+
 -- 绑定（username, role_code, is_primary）。缺失角色不会绑定，亦不会报错。
 INSERT INTO sys_user_role (user_id, role_id, is_primary)
 SELECT u.user_id, r.role_id, b.is_primary
