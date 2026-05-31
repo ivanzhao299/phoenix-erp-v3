@@ -545,7 +545,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS pda_terminals_serial_uq ON pda_terminals(seria
 CREATE TABLE IF NOT EXISTS pda_sync_log (
   id              SERIAL PRIMARY KEY,
   op_id           VARCHAR(64),
-  pda_id          INTEGER,
+  pda_id          VARCHAR(64),  -- 修复（Phase C）：运行时/PDA同步发字符串pda_id（如REGR-PDA-1），原INTEGER导致wms回归插入失败
   task_no         VARCHAR(64),
   payload         TEXT,
   status          VARCHAR(20) DEFAULT 'PROCESSED',
@@ -835,3 +835,20 @@ ALTER TABLE wms_stocktake ADD COLUMN IF NOT EXISTS sys_qty INT DEFAULT 0;
 -- wms_warehouses: 补 2 列（generic-crud 完整版被 v3_schema 简化版 IF NOT EXISTS 跳过）
 ALTER TABLE wms_warehouses ADD COLUMN IF NOT EXISTS type VARCHAR(32);
 ALTER TABLE wms_warehouses ADD COLUMN IF NOT EXISTS warehouse_name_zh VARCHAR(128);
+
+-- ============================================================
+-- Phase C 修复：双重建表类型漂移（pda_id INTEGER → VARCHAR）
+-- ============================================================
+-- pda_sync_log.pda_id 在 v3_schema 误建为 INTEGER，但运行时/PDA 同步接口
+-- 发送字符串 pda_id（如 "REGR-PDA-1"），导致 wms 回归 INSERT 报
+-- "invalid input syntax for type integer"。generic-crud 权威版为 VARCHAR(64)。
+-- INTEGER → VARCHAR 转换对任意整数值均安全（全新库为空，生产库整数转文本无损）。
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='pda_sync_log' AND column_name='pda_id' AND data_type='integer'
+  ) THEN
+    ALTER TABLE pda_sync_log ALTER COLUMN pda_id TYPE VARCHAR(64) USING pda_id::VARCHAR;
+  END IF;
+END $$;
