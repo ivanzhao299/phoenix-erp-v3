@@ -312,7 +312,14 @@ jobs:
             docker compose up -d --no-deps --wait api
             docker compose up -d --no-deps --wait web \
               || { docker compose logs web --tail 80; exit 1; }
-            docker image prune -f 2>/dev/null || true
+
+            # ── 清理旧镜像（释放磁盘）──────────────────────────────────────
+            # docker image prune -f 只删悬空镜像（无标签），sha-* 老版本不会被删
+            # 改为删除所有「未被任何容器引用」的镜像（当前运行容器的镜像会被保留）
+            docker image prune -a -f 2>/dev/null || true
+            # 同时清理无用 build cache（buildx 在本机留下的层）
+            docker builder prune -f 2>/dev/null || true
+            echo "✅ Docker 磁盘清理完成"
 
             # ── Nginx：备份 → 写入 → reload（不 restart）────────────────
             cp /etc/nginx/conf.d/cnjinhu-default.conf \
@@ -332,6 +339,14 @@ jobs:
             curl -fsSL --max-time 20 http://127.0.0.1:3000/ -o /dev/null \
               && echo "✅ Web smoke test passed" \
               || { docker compose logs web --tail 20; exit 1; }
+
+            # ── 磁盘用量报告 ─────────────────────────────────────────────
+            echo "📦 Docker 镜像占用："
+            docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | head -20
+            echo "💾 磁盘总览："
+            df -h / | tail -1
+            echo "🐳 Docker 总占用："
+            docker system df 2>/dev/null || true
 
             echo "✅ Deploy complete — $(date '+%Y-%m-%d %H:%M:%S')"
 
