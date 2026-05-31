@@ -196,7 +196,6 @@ jobs:
           images: ${{ env.IMAGE_PREFIX }}/api
           tags: |
             type=raw,value=latest
-            type=sha,prefix=sha-,format=short
 
       - name: Extract metadata — Web
         id: meta-web
@@ -205,7 +204,6 @@ jobs:
           images: ${{ env.IMAGE_PREFIX }}/web
           tags: |
             type=raw,value=latest
-            type=sha,prefix=sha-,format=short
 
       - name: Build & push API image
         uses: docker/build-push-action@v6
@@ -277,9 +275,10 @@ jobs:
             git pull --ff-only origin main
             echo "✅ Code synced"
 
-            # ── 拉取镜像 ────────────────────────────────────────────────
-            # 清理 containerd 残留状态（防止 lease does not exist 错误）
-            docker system prune -f 2>/dev/null || true
+            # ── 拉取新镜像前先清理旧镜像（只保留当前运行容器用到的）────────
+            # 这一步在拉新镜像之前执行，确保拉取时磁盘有足够空间
+            docker image prune -a -f 2>/dev/null || true
+            docker builder prune -f 2>/dev/null || true
 
             echo "${{ secrets.GITHUB_TOKEN }}" | \
               docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
