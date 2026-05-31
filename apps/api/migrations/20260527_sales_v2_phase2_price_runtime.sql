@@ -38,8 +38,12 @@ CREATE INDEX IF NOT EXISTS idx_sal_price_items_grade      ON sal_price_items (gr
 
 -- ── 4. Legacy Freeze 标记 ────────────────────────────────────────────────────
 
-COMMENT ON TABLE ord_prices IS
+DO $$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='ord_prices') THEN
+    COMMENT ON TABLE ord_prices IS
   '[LEGACY][READ_ONLY] 已冻结 — 迁移至 sal_price_books / sal_price_items（Sales V2 Phase 2）';
+  END IF;
+END $$;
 
 COMMENT ON TABLE prc_price_items IS
   '[LEGACY][READ_ONLY][Sales用途已冻结] — Sales 定价已迁移至 sal_price_items（Sales V2 Phase 2）；采购定价仍由 Procurement V2 管理';

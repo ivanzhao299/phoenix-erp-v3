@@ -121,6 +121,12 @@ jobs:
           }
           # 基础 DDL（RBAC / 系统表 / 采购等）
           for f in $(ls ddl/*.sql | sort); do run_migration "$f"; done
+          # 基础业务 Schema（v3_schema_complete 建 inv_batches/mst_products 等34张表）
+          # 修复（Phase C）：原 CI glob 仅 2026*，漏掉 v3_schema_complete.sql，
+          # 导致后续 2026 迁移 ALTER 这些表时表不存在。此处补跑（幂等，全 IF NOT EXISTS）。
+          if [ -f migrations/v3_schema_complete.sql ]; then
+            run_migration "migrations/v3_schema_complete.sql"
+          fi
           # 增量迁移（所有 2026MMDD_* 前缀 SQL，幂等，按日期排序）
           for f in $(ls migrations/2026*.sql 2>/dev/null | sort); do run_migration "$f"; done
           echo "✅ DDL migrations applied (任一失败 CI 已红灯)"
@@ -324,6 +330,10 @@ jobs:
             }
             # 基础 DDL
             for f in $(ls apps/api/ddl/*.sql | sort); do run_db_migration "$f"; done
+            # 基础业务 Schema（v3_schema_complete 建 inv_batches/mst_products 等34张表，幂等）
+            if [ -f apps/api/migrations/v3_schema_complete.sql ]; then
+              run_db_migration "apps/api/migrations/v3_schema_complete.sql"
+            fi
             # 增量迁移（所有 2026MMDD_* 前缀 SQL，幂等，按日期排序）
             for f in $(ls apps/api/migrations/2026*.sql 2>/dev/null | sort); do run_db_migration "$f"; done
             echo "✅ DDL migrations applied (任一失败部署已红灯)"

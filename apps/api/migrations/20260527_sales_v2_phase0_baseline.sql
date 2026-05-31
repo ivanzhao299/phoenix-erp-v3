@@ -268,9 +268,18 @@ CREATE INDEX IF NOT EXISTS idx_sal_order_items_order   ON sal_order_items (sales
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- Legacy Freeze 标记（旧表注释，不删除）
+-- 修复（Phase C）：COMMENT ON TABLE 对不存在的表会报错。这些 legacy 表
+-- （ord_customers/b2b_customers）在全新数据库的 SQL 阶段尚不存在（由运行时建），
+-- 因此用 IF EXISTS 条件保护，表存在才加注释。
 -- ─────────────────────────────────────────────────────────────────────────
-COMMENT ON TABLE ord_customers IS '[LEGACY][READ_ONLY] 已冻结 — 迁移至 sal_customers（Sales V2 Phase 1）';
-COMMENT ON TABLE b2b_customers IS '[LEGACY][READ_ONLY] 已冻结 — 迁移至 sal_customers（Sales V2 Phase 1）';
+DO $$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='ord_customers') THEN
+    COMMENT ON TABLE ord_customers IS '[LEGACY][READ_ONLY] 已冻结 — 迁移至 sal_customers（Sales V2 Phase 1）';
+  END IF;
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='b2b_customers') THEN
+    COMMENT ON TABLE b2b_customers IS '[LEGACY][READ_ONLY] 已冻结 — 迁移至 sal_customers（Sales V2 Phase 1）';
+  END IF;
+END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- 完成标记

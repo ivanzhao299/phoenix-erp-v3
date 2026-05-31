@@ -73,10 +73,18 @@ DO $$ BEGIN
   -- ─────────────────────────────────────────────────────────
   -- 封存标注：ord_customers / b2b_customers 只读注释
   -- ─────────────────────────────────────────────────────────
-  COMMENT ON TABLE ord_customers IS
+  DO $$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='ord_customers') THEN
+    COMMENT ON TABLE ord_customers IS
     '[LEGACY][READ_ONLY][Phase E封存] 禁止新业务写入 — 正式主档见 sal_customers';
-  COMMENT ON TABLE b2b_customers IS
+  END IF;
+END $$;
+  DO $$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='b2b_customers') THEN
+    COMMENT ON TABLE b2b_customers IS
     '[LEGACY][READ_ONLY][Phase E封存] 禁止新业务写入 — 正式主档见 sal_customers (DISTRIBUTOR type)';
+  END IF;
+END $$;
 
   RAISE NOTICE '=== Customer Master G1 Migration DONE ===';
 END $$;

@@ -46,9 +46,13 @@ CREATE INDEX IF NOT EXISTS idx_sal_order_items_order_id       ON sal_order_items
 
 -- ── 4. 旧 ord_orders 冻结注释 (如未已冻结) ───────────────────────────────────
 
-COMMENT ON TABLE ord_orders IS
+DO $$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='ord_orders') THEN
+    COMMENT ON TABLE ord_orders IS
   '[LEGACY][READ_ONLY][Sales V2 Phase 3: 已被 sal_sales_orders 取代][冻结于 2026-05-27]'
 ;
+  END IF;
+END $$;
 
 -- ── 5. fin_ar_invoices source_type 白名单确认 ─────────────────────────────────
 -- fin_ar_invoices.source_type = 'SALES_ORDER' 已在 Finance V2 Phase 2 的 AR DTO 中合法
