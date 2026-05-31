@@ -9,6 +9,22 @@
 --   4. 删除 sys_orgs 表（彻底清理）
 -- ============================================================
 
+-- 修复（Phase C）：sys_orgs 是 generic-crud 运行时建的旧表，全新数据库 SQL 阶段
+-- 不存在 → 后续 FROM sys_orgs 报 relation does not exist。
+-- 补建最小骨架：全新 DB 上该表为空，迁移0行后正常 DROP；
+-- 生产环境表已存在则 CREATE 跳过，正常迁移存量数据。
+CREATE TABLE IF NOT EXISTS sys_orgs (
+  id         SERIAL PRIMARY KEY,
+  org_code   VARCHAR(64),
+  org_name   VARCHAR(128),
+  org_type   VARCHAR(64),
+  parent_id  INTEGER DEFAULT 0,
+  status     VARCHAR(32) DEFAULT 'ACTIVE',
+  remark     TEXT,
+  created_at TIMESTAMP DEFAULT now(),
+  updated_at TIMESTAMP DEFAULT now()
+);
+
 -- ── Step 1: 先把所有顶级节点写进来（parent_id 留 NULL）──────────────────
 INSERT INTO sys_organizations (org_code, org_name, org_type, parent_id, level, status, remark, created_at, updated_at)
 SELECT
