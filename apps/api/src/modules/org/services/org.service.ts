@@ -93,6 +93,90 @@ export class OrgService {
     await this.orgRepo.delete(id);
   }
 
+  // ── Organization Runtime Phase 1 新增方法 ───────────────────────────────────
+
+  /** 返回全部组织（前端构建树），按 level + sortOrder + orgCode 排序 */
+  async getOrgTree(): Promise<SysOrganizationEntity[]> {
+    return this.orgRepo.find({
+      order: { level: 'ASC', sortOrder: 'ASC', orgCode: 'ASC' },
+    });
+  }
+
+  /** 按 orgCode 查询单个组织，不存在时抛 404 */
+  async getOrgByCode(orgCode: string): Promise<SysOrganizationEntity> {
+    const org = await this.orgRepo.findOne({ where: { orgCode } });
+    if (!org) throw new NotFoundException(`Organization "${orgCode}" not found`);
+    return org;
+  }
+
+  /** 停用组织（status → INACTIVE） */
+  async disableOrg(orgCode: string): Promise<void> {
+    const org = await this.getOrgByCode(orgCode);
+    org.status = 'INACTIVE';
+    await this.orgRepo.save(org);
+  }
+
+  /** 启用组织（status → ACTIVE） */
+  async enableOrg(orgCode: string): Promise<void> {
+    const org = await this.getOrgByCode(orgCode);
+    org.status = 'ACTIVE';
+    await this.orgRepo.save(org);
+  }
+
+  /** 按 orgType 过滤 */
+  async getOrgsByType(orgType: string): Promise<SysOrganizationEntity[]> {
+    return this.orgRepo.find({
+      where: { orgType: orgType as SysOrganizationEntity['orgType'] },
+      order: { level: 'ASC', sortOrder: 'ASC', orgCode: 'ASC' },
+    });
+  }
+
+  /**
+   * 查询用户的组织授权范围分桶（用于 DataScope 扩展）
+   * 返回：{ scopeAll, groupCodes, buCodes, companyCodes, siteCodes, departmentCodes }
+   */
+  async getUserOrgScopes(userId: number): Promise<{
+    scopeAll: boolean;
+    groupCodes: string[];
+    buCodes: string[];
+    companyCodes: string[];
+    siteCodes: string[];
+    departmentCodes: string[];
+  }> {
+    const rows: Array<{ org_type: string; org_code: string }> = await this.ds.query(
+      `SELECT o.org_type, o.org_code
+       FROM sys_user_orgs uo
+       JOIN sys_organizations o ON o.id = uo.org_id
+       WHERE uo.user_id = $1`,
+      [userId],
+    );
+
+    const groupCodes: string[] = [];
+    const buCodes: string[] = [];
+    const companyCodes: string[] = [];
+    const siteCodes: string[] = [];
+    const departmentCodes: string[] = [];
+
+    for (const row of rows) {
+      switch (row.org_type) {
+        case 'GROUP':      groupCodes.push(row.org_code);      break;
+        case 'BU':         buCodes.push(row.org_code);         break;
+        case 'COMPANY':    companyCodes.push(row.org_code);    break;
+        case 'SITE':       siteCodes.push(row.org_code);       break;
+        case 'DEPARTMENT': departmentCodes.push(row.org_code); break;
+      }
+    }
+
+    return {
+      scopeAll: groupCodes.length > 0,
+      groupCodes,
+      buCodes,
+      companyCodes,
+      siteCodes,
+      departmentCodes,
+    };
+  }
+
   // ── 用户-组织关系 ───────────────────────────────────────────────────────────
 
   async getUserOrgs(userId: number): Promise<any[]> {

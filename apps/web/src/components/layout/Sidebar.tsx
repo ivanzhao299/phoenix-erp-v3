@@ -18,7 +18,7 @@ import {
   History, RefreshCw, TrendingDown, Banknote, Building, ShoppingBag,
   BarChart3, Minus, Network, Smartphone, ToggleRight, Zap,
   FolderKanban, Globe, Layers3, UploadCloud, Bell, Wallet,
-  Rocket, Server, ShieldAlert, Settings2,
+  Rocket, Server, ShieldAlert, Settings2, Users2,
 } from "lucide-react";
 import styles from "./sidebar.module.css";
 import { useBrand } from "@/contexts/BrandContext";
@@ -196,6 +196,7 @@ const MENU: MenuItem[] = [
     { id: "mdc-vehicles",   path: "/master-data/vehicles",         Icon: Car,             label: "车辆档案",     perm: "MENU_SALES2_DELIVERY" },
     { id: "mdc-cash",       path: "/master-data/cash-accounts",    Icon: Wallet,          label: "资金账户档案", perm: "MENU_FIN2_CASH"       },
     { id: "mdc-dict",       path: "/master-data/dictionaries",     Icon: BookOpen,        label: "系统字典",     perm: "MENU_SETTINGS_DATA"   },
+    { id: "mdc-user-orgs",  path: "/master-data/user-orgs",       Icon: Users2,          label: "用户组织权限", perm: "MENU_ORG_USER_SCOPE"  },
   ]},
 
   // 10. 系统设置 — 用户/角色/权限/安全

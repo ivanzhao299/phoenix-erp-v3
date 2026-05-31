@@ -1,222 +1,1050 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
-import { Network, Search, RefreshCw, ExternalLink, Inbox } from "lucide-react";
-import Link from "next/link";
-import { usePermission } from "@/hooks/usePermission";
-import PageHeader from "@/components/PageHeader";
-import { cn } from "@/lib/utils";
-
 /**
- * 主数据中心 — 组织架构
- * 数据来源：RBAC Org Runtime → GET /api/org/organizations
- * 完整管理入口：/settings/organizations
+ * Phoenix ERP V3 — Organization Runtime Phase 1
+ * 主数据中心 — 组织架构管理
+ *
+ * 功能：
+ *   · 左侧组织树（树形展开/折叠，高亮选中，按类型图标区分）
+ *   · 右侧详情面板（选中组织完整信息 + 操作按钮）
+ *   · 新建/编辑抽屉（RightDrawer）
+ *   · 启用/停用（POST /api/organizations/:code/enable|disable）
+ *
+ * API（Organization Runtime Phase 1）：
+ *   GET  /api/organizations/tree          → 嵌套树结构
+ *   GET  /api/organizations               → 平铺列表（用于上级下拉）
+ *   GET  /api/organizations/:code         → 单条
+ *   POST /api/organizations               → 新建
+ *   PATCH /api/organizations/:code        → 更新
+ *   POST /api/organizations/:code/enable  → 启用
+ *   POST /api/organizations/:code/disable → 停用
  */
 
-const tok = () =>
-  typeof window !== "undefined"
-    ? sessionStorage.getItem("phoenix_token") || ""
-    : "";
-const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${tok()}` });
+import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  Network, Plus, RefreshCw, ChevronRight, ChevronDown,
+  Building2, Layers, Globe, Leaf, Users, Warehouse,
+  LayoutGrid, Info, Edit3, PowerOff, Power, Search,
+  ArrowRight, Inbox, CheckCircle2, XCircle, AlertCircle,
+} from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import RightDrawer from "@/components/RightDrawer";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/contexts/ToastContext";
 
-// 类型徽章：使用语义色 token，深色浅色均自动适配
-const ORG_TYPE_MAP: Record<string, { label: string; cls: string }> = {
-  GROUP:   { label: "集团", cls: "text-brand    bg-brand/10    border-brand/20" },
-  COMPANY: { label: "公司", cls: "text-info     bg-info/10     border-info/20"  },
-  FACTORY: { label: "工厂", cls: "text-success  bg-success/10  border-success/20" },
-  FARM:    { label: "农场", cls: "text-success  bg-success/10  border-success/20" },
-  STORE:   { label: "门店", cls: "text-warning  bg-warning/10  border-warning/20" },
-  DEPT:    { label: "部门", cls: "text-danger   bg-danger/10   border-danger/20"  },
-  REGION:  { label: "区域", cls: "text-info     bg-info/10     border-info/20"    },
-  PROJECT: { label: "项目", cls: "text-brand    bg-brand/10    border-brand/20"   },
-  WAREHOUSE:{ label:"仓库", cls: "text-warning  bg-warning/10  border-warning/20" },
-  OTHER:   { label: "其他", cls: "text-text-muted bg-bg-muted  border-border"    },
-};
+// ── Auth helper ───────────────────────────────────────────────────────────────
 
-interface OrgItem {
-  id: string | number;
-  orgCode?: string;
-  orgName?: string;
-  orgType?: string;
-  parentName?: string;
-  status?: string;
-  description?: string;
-  remark?: string;
+const authHdr = () => ({
+  Authorization: `Bearer ${sessionStorage.getItem("phoenix_token") || ""}`,
+  "Content-Type": "application/json",
+});
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type OrgType =
+  | "GROUP" | "BU" | "COMPANY" | "SITE" | "FACTORY"
+  | "PROJECT" | "WAREHOUSE" | "STORE" | "DEPARTMENT";
+
+type SiteBusinessType =
+  | "BREEDING" | "LAYING" | "PROCESSING" | "LOGISTICS" | "SALES" | "OTHER";
+
+interface OrgNode {
+  id: number;
+  orgCode: string;
+  orgName: string;
+  orgNameCn: string | null;
+  orgShortName: string | null;
+  parentId: number | null;
+  parentCode: string | null;
+  orgType: OrgType;
+  siteCode: string | null;
+  siteBusinessType: SiteBusinessType | null;
+  level: number;
+  path: string | null;
+  status: string;
+  companyCode: string | null;
+  sortOrder: number;
+  remark: string | null;
+  managerName: string | null;
+  children: OrgNode[];
 }
 
-export default function MdOrganizationsPage() {
-  const { canView } = usePermission("MENU_SYS_ORG");
-  const [items, setItems]       = useState<OrgItem[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState("");
-  const [search, setSearch]     = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
+type OrgFlat = Omit<OrgNode, "children">;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/org/organizations", { headers: hdr() });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setItems(Array.isArray(data) ? data : (data.data ?? data.orgs ?? data.items ?? []));
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "加载失败");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+type FilterType = "" | OrgType | "ACTIVE" | "INACTIVE";
 
-  useEffect(() => { if (canView) load(); }, [canView, load]);
+// ── Org type config ───────────────────────────────────────────────────────────
 
-  if (!canView) return (
-    <div className="flex items-center justify-center py-24 text-text-dim text-sm">
-      无权限查看组织架构
-    </div>
+interface OrgTypeConfig {
+  label: string;
+  badgeCls: string;
+  dotCls: string;
+  Icon: React.FC<{ size?: number; className?: string }>;
+}
+
+const ORG_TYPE_CONFIG: Record<OrgType, OrgTypeConfig> = {
+  GROUP:      { label: "集团",   badgeCls: "bg-brand/10     text-brand     border-brand/20",    dotCls: "bg-brand",   Icon: Globe },
+  BU:         { label: "事业群", badgeCls: "bg-info/10      text-info       border-info/20",     dotCls: "bg-info",    Icon: Layers },
+  COMPANY:    { label: "公司",   badgeCls: "bg-info/10      text-info       border-info/20",     dotCls: "bg-info",    Icon: Building2 },
+  SITE:       { label: "场区",   badgeCls: "bg-success/10   text-success    border-success/20",  dotCls: "bg-success", Icon: Leaf },
+  FACTORY:    { label: "工厂",   badgeCls: "bg-warning/10   text-warning    border-warning/20",  dotCls: "bg-warning", Icon: LayoutGrid },
+  PROJECT:    { label: "项目",   badgeCls: "bg-brand/10     text-brand      border-brand/20",    dotCls: "bg-brand",   Icon: LayoutGrid },
+  WAREHOUSE:  { label: "仓库",   badgeCls: "bg-warning/10   text-warning    border-warning/20",  dotCls: "bg-warning", Icon: Warehouse },
+  STORE:      { label: "门店",   badgeCls: "bg-warning/10   text-warning    border-warning/20",  dotCls: "bg-warning", Icon: LayoutGrid },
+  DEPARTMENT: { label: "部门",   badgeCls: "bg-danger/10    text-danger     border-danger/20",   dotCls: "bg-danger",  Icon: Users },
+};
+
+const ORG_TYPES_SELECT: { value: OrgType; label: string }[] = [
+  { value: "GROUP",      label: "集团 (GROUP)" },
+  { value: "BU",         label: "事业群 (BU)" },
+  { value: "COMPANY",    label: "公司 (COMPANY)" },
+  { value: "SITE",       label: "场区 (SITE)" },
+  { value: "FACTORY",    label: "工厂 (FACTORY)" },
+  { value: "PROJECT",    label: "项目 (PROJECT)" },
+  { value: "WAREHOUSE",  label: "仓库 (WAREHOUSE)" },
+  { value: "STORE",      label: "门店 (STORE)" },
+  { value: "DEPARTMENT", label: "部门 (DEPARTMENT)" },
+];
+
+const SITE_BUSINESS_TYPES: { value: SiteBusinessType; label: string }[] = [
+  { value: "BREEDING",   label: "育种 (BREEDING)" },
+  { value: "LAYING",     label: "蛋鸡 (LAYING)" },
+  { value: "PROCESSING", label: "加工 (PROCESSING)" },
+  { value: "LOGISTICS",  label: "物流 (LOGISTICS)" },
+  { value: "SALES",      label: "销售 (SALES)" },
+  { value: "OTHER",      label: "其他 (OTHER)" },
+];
+
+const FILTER_BUTTONS: { value: FilterType; label: string }[] = [
+  { value: "",           label: "全部" },
+  { value: "GROUP",      label: "集团" },
+  { value: "BU",         label: "事业群" },
+  { value: "COMPANY",    label: "公司" },
+  { value: "SITE",       label: "场区" },
+  { value: "DEPARTMENT", label: "部门" },
+  { value: "ACTIVE",     label: "启用" },
+  { value: "INACTIVE",   label: "停用" },
+];
+
+// ── Form state ────────────────────────────────────────────────────────────────
+
+interface OrgForm {
+  orgCode: string;
+  orgName: string;
+  orgShortName: string;
+  orgType: OrgType;
+  parentCode: string;
+  siteBusinessType: SiteBusinessType | "";
+  companyCode: string;
+  sortOrder: string;
+  remark: string;
+}
+
+const emptyForm = (): OrgForm => ({
+  orgCode: "", orgName: "", orgShortName: "", orgType: "DEPARTMENT",
+  parentCode: "", siteBusinessType: "", companyCode: "", sortOrder: "0", remark: "",
+});
+
+// ── Style constants ───────────────────────────────────────────────────────────
+
+const INP = [
+  "w-full px-3 py-2 text-sm rounded-lg",
+  "border border-border bg-bg-card text-text",
+  "outline-none focus:border-brand/60 focus:ring-1 focus:ring-brand/20",
+  "placeholder:text-text-dim transition-colors",
+].join(" ");
+
+const LBL = "block text-xs font-semibold text-text-muted mb-1";
+
+// ── Helper components ─────────────────────────────────────────────────────────
+
+function OrgTypeBadge({ type }: { type: OrgType }) {
+  const cfg = ORG_TYPE_CONFIG[type] ?? ORG_TYPE_CONFIG.DEPARTMENT;
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border",
+      cfg.badgeCls,
+    )}>
+      <cfg.Icon size={10} />
+      {cfg.label}
+    </span>
   );
+}
 
-  const filtered = items.filter(o => {
-    const matchSearch = !search
-      || (o.orgName ?? "").includes(search)
-      || (o.orgCode ?? "").includes(search);
-    const matchType = !typeFilter || o.orgType === typeFilter;
-    return matchSearch && matchType;
-  });
+function StatusBadge({ status }: { status: string }) {
+  if (status === "ACTIVE") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-success/10 text-success border border-success/20">
+        <CheckCircle2 size={10} /> 启用
+      </span>
+    );
+  }
+  if (status === "INACTIVE") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-danger/10 text-danger border border-danger/20">
+        <XCircle size={10} /> 停用
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-bg-muted text-text-muted border border-border">
+      <AlertCircle size={10} /> {status}
+    </span>
+  );
+}
+
+// ── Tree Node ─────────────────────────────────────────────────────────────────
+
+function TreeNode({
+  node, depth, selectedCode, collapsed, filter,
+  onSelect, onToggleCollapse,
+}: {
+  node: OrgNode;
+  depth: number;
+  selectedCode: string | null;
+  collapsed: Set<number>;
+  filter: FilterType;
+  onSelect: (code: string) => void;
+  onToggleCollapse: (id: number) => void;
+}) {
+  const cfg = ORG_TYPE_CONFIG[node.orgType] ?? ORG_TYPE_CONFIG.DEPARTMENT;
+  const isSelected = selectedCode === node.orgCode;
+  const isCollapsed = collapsed.has(node.id);
+  const hasChildren = node.children.length > 0;
+
+  // Apply filter: dim non-matching nodes but keep visible for tree structure
+  const matchesFilter =
+    !filter ||
+    filter === node.orgType ||
+    (filter === "ACTIVE" && node.status === "ACTIVE") ||
+    (filter === "INACTIVE" && node.status === "INACTIVE");
+
+  const displayName = node.orgShortName || node.orgName;
 
   return (
     <div>
+      <div
+        onClick={() => onSelect(node.orgCode)}
+        className={cn(
+          "group flex items-center gap-1.5 py-1.5 pr-2 rounded-lg cursor-pointer transition-all select-none",
+          isSelected
+            ? "bg-brand/10 border-l-[3px] border-brand"
+            : "border-l-[3px] border-transparent hover:bg-bg-muted/60",
+          !matchesFilter && "opacity-40",
+        )}
+        style={{ paddingLeft: `${8 + depth * 16}px` }}
+      >
+        {/* Expand toggle */}
+        <span
+          className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-text-dim hover:text-text transition-colors"
+          onClick={e => {
+            e.stopPropagation();
+            if (hasChildren) onToggleCollapse(node.id);
+          }}
+        >
+          {hasChildren ? (
+            isCollapsed
+              ? <ChevronRight size={12} />
+              : <ChevronDown size={12} />
+          ) : (
+            <span className="w-1.5 h-1.5 rounded-full bg-border inline-block" />
+          )}
+        </span>
+
+        {/* Icon */}
+        <cfg.Icon
+          size={13}
+          className={cn(
+            "flex-shrink-0",
+            isSelected ? "text-brand" : "text-text-muted",
+          )}
+        />
+
+        {/* Name */}
+        <span className={cn(
+          "flex-1 min-w-0 truncate text-sm",
+          isSelected ? "text-brand font-semibold" : "text-text",
+        )}>
+          {displayName}
+        </span>
+
+        {/* Status dot */}
+        {node.status !== "ACTIVE" && (
+          <span className="w-1.5 h-1.5 rounded-full bg-danger flex-shrink-0" title="已停用" />
+        )}
+
+        {/* Type badge (compact, only shown on hover or selected) */}
+        <span className={cn(
+          "flex-shrink-0 transition-opacity",
+          isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+        )}>
+          <OrgTypeBadge type={node.orgType} />
+        </span>
+      </div>
+
+      {/* Children */}
+      {!isCollapsed && hasChildren && (
+        <div>
+          {[...node.children]
+            .sort((a, b) => a.sortOrder - b.sortOrder || a.orgCode.localeCompare(b.orgCode))
+            .map(child => (
+              <TreeNode
+                key={child.id}
+                node={child}
+                depth={depth + 1}
+                selectedCode={selectedCode}
+                collapsed={collapsed}
+                filter={filter}
+                onSelect={onSelect}
+                onToggleCollapse={onToggleCollapse}
+              />
+            ))
+          }
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Detail panel ──────────────────────────────────────────────────────────────
+
+function DetailRow({ label, value, mono = false }: {
+  label: string; value: React.ReactNode; mono?: boolean;
+}) {
+  return (
+    <div className="flex items-start gap-3 py-2.5 border-b border-border/40 last:border-0">
+      <span className="w-28 flex-shrink-0 text-xs font-medium text-text-muted pt-0.5">{label}</span>
+      <span className={cn("flex-1 text-sm text-text break-all", mono && "font-mono text-xs text-text-muted")}>
+        {value ?? <span className="text-text-dim">—</span>}
+      </span>
+    </div>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
+export default function MdOrganizationsPage() {
+  const toast = useToast();
+
+  // Data
+  const [tree, setTree]       = useState<OrgNode[]>([]);
+  const [flat, setFlat]       = useState<OrgFlat[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Tree UI
+  const [selectedCode, setSelectedCode]   = useState<string | null>(null);
+  const [collapsed, setCollapsed]         = useState<Set<number>>(new Set());
+  const [treeSearch, setTreeSearch]       = useState("");
+  const [filter, setFilter]               = useState<FilterType>("");
+
+  // Drawer
+  const [drawerOpen, setDrawerOpen]       = useState(false);
+  const [editingCode, setEditingCode]     = useState<string | null>(null); // null = new
+  const [form, setForm]                   = useState<OrgForm>(emptyForm());
+  const [saving, setSaving]               = useState(false);
+
+  // Status toggle
+  const [toggling, setToggling]           = useState(false);
+
+  // ── Load ────────────────────────────────────────────────────────────────────
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [treeRes, flatRes] = await Promise.all([
+        fetch("/api/organizations/tree",  { headers: authHdr() }),
+        fetch("/api/organizations",       { headers: authHdr() }),
+      ]);
+
+      const treeJson = await treeRes.json();
+      const flatJson = await flatRes.json();
+
+      if (treeJson.code === 200) {
+        // Sort root level
+        const roots: OrgNode[] = (treeJson.data ?? []);
+        roots.sort((a: OrgNode, b: OrgNode) => a.sortOrder - b.sortOrder || a.orgCode.localeCompare(b.orgCode));
+        setTree(roots);
+
+        // Auto-select root
+        if (!selectedCode && roots.length > 0) {
+          setSelectedCode(roots[0].orgCode);
+        }
+      }
+
+      if (flatJson.code === 200) {
+        const list: OrgFlat[] = flatJson.data ?? [];
+        list.sort((a, b) => a.level - b.level || a.sortOrder - b.sortOrder || a.orgCode.localeCompare(b.orgCode));
+        setFlat(list);
+      }
+    } catch (e) {
+      toast.error("加载组织架构失败：" + (e instanceof Error ? e.message : "网络错误"));
+    } finally {
+      setLoading(false);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { load(); }, [load]);
+
+  // ── Derived: selected org ───────────────────────────────────────────────────
+
+  const selectedOrg = useMemo(
+    () => flat.find(o => o.orgCode === selectedCode) ?? null,
+    [flat, selectedCode],
+  );
+
+  const parentOrg = useMemo(
+    () => selectedOrg?.parentCode ? flat.find(o => o.orgCode === selectedOrg.parentCode) ?? null : null,
+    [flat, selectedOrg],
+  );
+
+  // ── Tree search filter ──────────────────────────────────────────────────────
+
+  const filteredTree = useMemo(() => {
+    if (!treeSearch.trim()) return tree;
+    const kw = treeSearch.toLowerCase();
+    function matchNode(node: OrgNode): boolean {
+      return node.orgName.toLowerCase().includes(kw)
+        || node.orgCode.toLowerCase().includes(kw)
+        || (node.orgShortName ?? "").toLowerCase().includes(kw);
+    }
+    function filterTree(nodes: OrgNode[]): OrgNode[] {
+      return nodes.flatMap(n => {
+        const filteredChildren = filterTree(n.children);
+        if (matchNode(n) || filteredChildren.length > 0) {
+          return [{ ...n, children: filteredChildren }];
+        }
+        return [];
+      });
+    }
+    return filterTree(tree);
+  }, [tree, treeSearch]);
+
+  // ── Collapse helpers ────────────────────────────────────────────────────────
+
+  const toggleCollapse = (id: number) => {
+    setCollapsed(prev => {
+      const s = new Set(prev);
+      s.has(id) ? s.delete(id) : s.add(id);
+      return s;
+    });
+  };
+
+  const expandAll = () => setCollapsed(new Set());
+  const collapseAll = () => {
+    const ids = new Set(flat.filter(o => flat.some(c => c.parentId === o.id)).map(o => o.id));
+    setCollapsed(ids);
+  };
+
+  // ── CRUD ────────────────────────────────────────────────────────────────────
+
+  const openNew = () => {
+    setEditingCode(null);
+    setForm({
+      ...emptyForm(),
+      parentCode: selectedOrg?.orgCode ?? "",
+    });
+    setDrawerOpen(true);
+  };
+
+  const openEdit = () => {
+    if (!selectedOrg) return;
+    setEditingCode(selectedOrg.orgCode);
+    setForm({
+      orgCode:          selectedOrg.orgCode,
+      orgName:          selectedOrg.orgName,
+      orgShortName:     selectedOrg.orgShortName ?? "",
+      orgType:          selectedOrg.orgType,
+      parentCode:       selectedOrg.parentCode ?? "",
+      siteBusinessType: (selectedOrg.siteBusinessType ?? "") as SiteBusinessType | "",
+      companyCode:      selectedOrg.companyCode ?? "",
+      sortOrder:        String(selectedOrg.sortOrder ?? 0),
+      remark:           selectedOrg.remark ?? "",
+    });
+    setDrawerOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.orgName.trim()) { toast.error("组织名称不能为空"); return; }
+    if (!editingCode && !form.orgCode.trim()) { toast.error("新建时必须填写组织编码"); return; }
+
+    setSaving(true);
+    try {
+      const body: Record<string, unknown> = {
+        orgName:          form.orgName.trim(),
+        orgShortName:     form.orgShortName.trim() || undefined,
+        orgType:          form.orgType,
+        parentCode:       form.parentCode || undefined,
+        siteBusinessType: form.siteBusinessType || undefined,
+        companyCode:      form.companyCode || undefined,
+        sortOrder:        parseInt(form.sortOrder, 10) || 0,
+        remark:           form.remark || undefined,
+      };
+
+      let url: string;
+      let method: string;
+
+      if (editingCode) {
+        url    = `/api/organizations/${editingCode}`;
+        method = "PATCH";
+      } else {
+        url    = "/api/organizations";
+        method = "POST";
+        body.orgCode = form.orgCode.trim().toUpperCase();
+      }
+
+      const res  = await fetch(url, { method, headers: authHdr(), body: JSON.stringify(body) });
+      const json = await res.json();
+
+      if (json.code === 200) {
+        toast.success(editingCode ? "组织信息已更新" : "组织节点已创建");
+        setDrawerOpen(false);
+        const newCode = editingCode ?? (json.data?.orgCode ?? form.orgCode.toUpperCase());
+        await load();
+        setSelectedCode(newCode);
+      } else {
+        throw new Error(json.message ?? json.msg ?? `HTTP ${res.status}`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "操作失败");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Status toggle ───────────────────────────────────────────────────────────
+
+  const handleToggleStatus = async () => {
+    if (!selectedOrg || toggling) return;
+    const isActive = selectedOrg.status === "ACTIVE";
+    const action = isActive ? "disable" : "enable";
+    const label  = isActive ? "停用" : "启用";
+
+    setToggling(true);
+    try {
+      const res  = await fetch(`/api/organizations/${selectedOrg.orgCode}/${action}`, {
+        method: "POST", headers: authHdr(),
+      });
+      const json = await res.json();
+      if (json.code === 200) {
+        toast.success(`已${label}组织「${selectedOrg.orgShortName || selectedOrg.orgName}」`);
+        await load();
+      } else {
+        throw new Error(json.message ?? `HTTP ${res.status}`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "操作失败");
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  // ── Tree count ───────────────────────────────────────────────────────────────
+
+  const totalCount = flat.length;
+  const activeCount = flat.filter(o => o.status === "ACTIVE").length;
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="flex flex-col gap-0">
       <PageHeader
         title="组织架构"
-        subtitle="集团 / 公司 / 农场 / 门店 / 部门 层级管理"
+        subtitle="维护集团 / 事业群 / 公司 / 场区 / 部门层级树"
         breadcrumb={["主数据中心", "组织架构"]}
+        actions={
+          <button
+            type="button"
+            onClick={openNew}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-lg bg-brand text-white hover:opacity-90 active:opacity-80 transition-opacity"
+          >
+            <Plus size={14} /> 新建组织
+          </button>
+        }
       />
 
-      {/* ── 工具栏 ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2.5 mb-4 flex-wrap">
-        {/* 搜索框 */}
-        <div className="relative flex-none w-60">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-dim pointer-events-none" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="搜索组织名称 / 编码..."
-            className={cn(
-              "w-full pl-8 pr-3 py-1.5 text-sm rounded-lg outline-none",
-              "bg-bg-muted border border-border text-text",
-              "placeholder:text-text-dim focus:border-brand/50 transition-colors",
-            )}
-          />
+      {/* ── Main layout ──────────────────────────────────────────────────────── */}
+      <div className="flex gap-4" style={{ minHeight: 600 }}>
+
+        {/* ── Left: org tree ─────────────────────────────────────────────────── */}
+        <div
+          className="flex flex-col rounded-2xl border border-border bg-bg-card shadow-card overflow-hidden flex-shrink-0"
+          style={{ width: 300 }}
+        >
+          {/* Tree header */}
+          <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border bg-bg-muted/30">
+            <Network size={14} className="text-brand flex-shrink-0" />
+            <span className="font-semibold text-sm text-text flex-1">组织树</span>
+            <span className="text-xs text-text-dim">
+              {activeCount}/{totalCount}
+            </span>
+            <button
+              onClick={load}
+              disabled={loading}
+              title="刷新"
+              className="p-1 rounded text-text-dim hover:text-text hover:bg-bg-muted transition-colors"
+            >
+              <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+            </button>
+          </div>
+
+          {/* Search */}
+          <div className="px-3 py-2 border-b border-border/60">
+            <div className="relative">
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-dim pointer-events-none" />
+              <input
+                value={treeSearch}
+                onChange={e => setTreeSearch(e.target.value)}
+                placeholder="搜索组织名称或编码..."
+                className={cn(
+                  "w-full pl-7 pr-3 py-1.5 text-xs rounded-lg",
+                  "bg-bg-muted border border-border/60 text-text",
+                  "outline-none focus:border-brand/50 placeholder:text-text-dim transition-colors",
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Filter pills */}
+          <div className="flex flex-wrap gap-1 px-3 py-2 border-b border-border/60">
+            {FILTER_BUTTONS.map(f => (
+              <button
+                key={f.value}
+                onClick={() => setFilter(f.value)}
+                className={cn(
+                  "px-2 py-0.5 text-[11px] rounded-full border transition-colors",
+                  filter === f.value
+                    ? "bg-brand text-white border-brand font-semibold"
+                    : "bg-bg-muted text-text-muted border-border hover:bg-bg-card",
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Expand/collapse controls */}
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/40">
+            <button
+              onClick={expandAll}
+              className="text-[11px] text-brand hover:underline"
+            >
+              全部展开
+            </button>
+            <span className="text-border">·</span>
+            <button
+              onClick={collapseAll}
+              className="text-[11px] text-text-muted hover:underline"
+            >
+              全部折叠
+            </button>
+          </div>
+
+          {/* Tree body */}
+          <div className="flex-1 overflow-y-auto p-2">
+            {loading ? (
+              <div className="flex flex-col gap-1.5 p-2">
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div
+                    key={i}
+                    className="h-7 rounded-lg bg-bg-muted animate-pulse"
+                    style={{ marginLeft: i > 1 ? (i > 3 ? 32 : 16) : 0, opacity: 1 - i * 0.1 }}
+                  />
+                ))}
+              </div>
+            ) : filteredTree.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3 text-text-dim">
+                <Inbox size={28} className="opacity-30" />
+                <span className="text-xs text-center">
+                  {treeSearch ? "无匹配结果" : "暂无组织数据"}
+                </span>
+              </div>
+            ) : filteredTree.map(node => (
+              <TreeNode
+                key={node.id}
+                node={node}
+                depth={0}
+                selectedCode={selectedCode}
+                collapsed={collapsed}
+                filter={filter}
+                onSelect={setSelectedCode}
+                onToggleCollapse={toggleCollapse}
+              />
+            ))}
+          </div>
         </div>
 
-        {/* 类型筛选 */}
-        <select
-          value={typeFilter}
-          onChange={e => setTypeFilter(e.target.value)}
-          className={cn(
-            "px-3 py-1.5 text-sm rounded-lg cursor-pointer",
-            "bg-bg-muted border border-border text-text-muted",
-          )}
-        >
-          <option value="">全部类型</option>
-          {Object.entries(ORG_TYPE_MAP).map(([k, v]) => (
-            <option key={k} value={k}>{v.label}</option>
-          ))}
-        </select>
-
-        {/* 刷新 */}
-        <button
-          onClick={load}
-          disabled={loading}
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg",
-            "bg-bg-muted border border-border text-text-muted",
-            "hover:bg-bg-card disabled:opacity-50 transition-colors cursor-pointer",
-          )}
-        >
-          <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-          刷新
-        </button>
-
-        <div className="flex-1" />
-
-        {/* 完整管理跳转 */}
-        <Link
-          href="/settings/organizations"
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg bg-brand text-white hover:opacity-90 transition-opacity"
-        >
-          <ExternalLink size={13} />
-          完整管理
-        </Link>
-      </div>
-
-      {/* 条数统计 */}
-      <p className="text-xs text-text-dim mb-3">
-        共 <span className="font-semibold text-text-muted">{filtered.length}</span> 个组织单元
-      </p>
-
-      {/* ── 表格卡片 ──────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-border bg-bg-card shadow-card overflow-hidden">
-        {loading ? (
-          <div className="py-16 flex flex-col items-center gap-3 text-text-dim">
-            <RefreshCw size={24} className="animate-spin opacity-40" />
-            <span className="text-sm">加载中…</span>
-          </div>
-        ) : error ? (
-          <div className="py-16 text-center text-sm text-danger">{error}</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-bg-muted/40">
-                  {["组织编码", "组织名称", "类型", "上级组织", "描述"].map(h => (
-                    <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-text-muted whitespace-nowrap">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-16 text-center">
-                      <div className="flex flex-col items-center gap-2 text-text-dim">
-                        <Inbox size={32} className="opacity-40" />
-                        <span className="text-sm">暂无数据</span>
+        {/* ── Right: detail panel ────────────────────────────────────────────── */}
+        <div className="flex-1 rounded-2xl border border-border bg-bg-card shadow-card overflow-hidden flex flex-col min-w-0">
+          {selectedOrg ? (
+            <>
+              {/* Detail header */}
+              <div className="px-6 py-4 border-b border-border bg-bg-muted/20">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {/* Icon circle */}
+                    <div className="w-11 h-11 rounded-xl bg-brand/10 flex items-center justify-center flex-shrink-0 border border-brand/15">
+                      {(() => {
+                        const cfg = ORG_TYPE_CONFIG[selectedOrg.orgType] ?? ORG_TYPE_CONFIG.DEPARTMENT;
+                        return <cfg.Icon size={20} className="text-brand" />;
+                      })()}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h2 className="text-base font-bold text-text truncate">
+                          {selectedOrg.orgName}
+                        </h2>
+                        {selectedOrg.orgShortName && selectedOrg.orgShortName !== selectedOrg.orgName && (
+                          <span className="text-sm text-text-muted">
+                            （{selectedOrg.orgShortName}）
+                          </span>
+                        )}
                       </div>
-                    </td>
-                  </tr>
-                ) : filtered.map((o, i) => {
-                  const tp = ORG_TYPE_MAP[o.orgType ?? "OTHER"] ?? ORG_TYPE_MAP.OTHER;
-                  return (
-                    <tr
-                      key={o.id ?? i}
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <OrgTypeBadge type={selectedOrg.orgType} />
+                        <StatusBadge status={selectedOrg.status} />
+                        <span className="text-xs font-mono text-text-dim">
+                          {selectedOrg.orgCode}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* View children */}
+                    {flat.some(o => o.parentId === selectedOrg.id) && (
+                      <button
+                        onClick={() => {
+                          const firstChild = flat.find(o => o.parentId === selectedOrg.id);
+                          if (firstChild) setSelectedCode(firstChild.orgCode);
+                        }}
+                        className={cn(
+                          "flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg transition-colors",
+                          "border border-border text-text-muted bg-bg-page hover:bg-bg-muted",
+                        )}
+                      >
+                        查看下级 <ArrowRight size={11} />
+                      </button>
+                    )}
+
+                    {/* Edit */}
+                    <button
+                      onClick={openEdit}
                       className={cn(
-                        "border-b border-border/30 hover:bg-bg-muted/30 transition-colors",
-                        i === filtered.length - 1 ? "border-b-0" : "",
-                        i % 2 !== 0 ? "bg-bg-muted/15" : "",
+                        "flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors",
+                        "border border-brand/30 text-brand bg-brand/5 hover:bg-brand/10",
                       )}
                     >
-                      <td className="px-4 py-3 font-mono text-xs text-text-muted">{o.orgCode ?? "—"}</td>
-                      <td className="px-4 py-3 font-medium text-text">{o.orgName ?? "—"}</td>
-                      <td className="px-4 py-3">
-                        <span className={cn(
-                          "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border",
-                          tp.cls,
-                        )}>
-                          {tp.label}
+                      <Edit3 size={12} /> 编辑
+                    </button>
+
+                    {/* Enable / Disable */}
+                    <button
+                      onClick={handleToggleStatus}
+                      disabled={toggling}
+                      className={cn(
+                        "flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors disabled:opacity-50",
+                        selectedOrg.status === "ACTIVE"
+                          ? "border border-danger/30 text-danger bg-danger/5 hover:bg-danger/10"
+                          : "border border-success/30 text-success bg-success/5 hover:bg-success/10",
+                      )}
+                    >
+                      {toggling ? (
+                        <RefreshCw size={12} className="animate-spin" />
+                      ) : selectedOrg.status === "ACTIVE" ? (
+                        <><PowerOff size={12} /> 停用</>
+                      ) : (
+                        <><Power size={12} /> 启用</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detail body */}
+              <div className="flex-1 overflow-y-auto px-6 py-2">
+                <div className="grid gap-0 max-w-2xl">
+
+                  {/* Basic info section */}
+                  <div className="mb-4 mt-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Info size={13} className="text-brand" />
+                      <span className="text-xs font-bold text-text-muted uppercase tracking-wider">基本信息</span>
+                    </div>
+                    <div className="rounded-xl border border-border bg-bg-muted/20 px-4">
+                      <DetailRow label="正式全称"     value={selectedOrg.orgName} />
+                      <DetailRow label="简称"         value={selectedOrg.orgShortName} />
+                      <DetailRow label="组织编码"     value={<span className="font-mono text-xs">{selectedOrg.orgCode}</span>} />
+                      <DetailRow label="组织类型"     value={<OrgTypeBadge type={selectedOrg.orgType} />} />
+                      <DetailRow label="状态"         value={<StatusBadge status={selectedOrg.status} />} />
+                      {selectedOrg.orgType === "SITE" && (
+                        <DetailRow
+                          label="场区业务类型"
+                          value={
+                            selectedOrg.siteBusinessType
+                              ? SITE_BUSINESS_TYPES.find(t => t.value === selectedOrg.siteBusinessType)?.label
+                                ?? selectedOrg.siteBusinessType
+                              : null
+                          }
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Hierarchy section */}
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Network size={13} className="text-brand" />
+                      <span className="text-xs font-bold text-text-muted uppercase tracking-wider">层级关系</span>
+                    </div>
+                    <div className="rounded-xl border border-border bg-bg-muted/20 px-4">
+                      <DetailRow
+                        label="上级组织"
+                        value={
+                          parentOrg
+                            ? (
+                              <button
+                                onClick={() => setSelectedCode(parentOrg.orgCode)}
+                                className="inline-flex items-center gap-1 text-brand hover:underline text-sm"
+                              >
+                                {parentOrg.orgShortName || parentOrg.orgName}
+                                <ArrowRight size={11} />
+                              </button>
+                            )
+                            : <span className="text-text-dim text-xs">顶级组织</span>
+                        }
+                      />
+                      <DetailRow
+                        label="层级"
+                        value={
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="w-5 h-5 rounded-full bg-brand/10 text-brand text-[11px] font-bold flex items-center justify-center">
+                              {selectedOrg.level}
+                            </span>
+                            <span className="text-xs text-text-muted">L{selectedOrg.level}</span>
+                          </span>
+                        }
+                      />
+                      <DetailRow
+                        label="路径"
+                        value={selectedOrg.path
+                          ? <span className="text-xs font-mono text-text-muted break-all">{selectedOrg.path}</span>
+                          : null
+                        }
+                      />
+                      <DetailRow label="下级数量" value={
+                        <span className="text-sm font-semibold text-text">
+                          {flat.filter(o => o.parentId === selectedOrg.id).length} 个直属
+                          {" / "}
+                          {flat.filter(o => o.path?.includes(`/${selectedOrg.id}/`) || o.parentId === selectedOrg.id).length} 个全部
                         </span>
-                      </td>
-                      <td className="px-4 py-3 text-text-muted">{o.parentName ?? "—"}</td>
-                      <td className="px-4 py-3 text-text-muted max-w-[220px] truncate">
-                        {o.description ?? o.remark ?? "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                      } />
+                    </div>
+                  </div>
+
+                  {/* Extended info */}
+                  {(selectedOrg.companyCode || selectedOrg.managerName || selectedOrg.remark || selectedOrg.sortOrder !== undefined) && (
+                    <div className="mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <LayoutGrid size={13} className="text-brand" />
+                        <span className="text-xs font-bold text-text-muted uppercase tracking-wider">扩展信息</span>
+                      </div>
+                      <div className="rounded-xl border border-border bg-bg-muted/20 px-4">
+                        {selectedOrg.companyCode  && <DetailRow label="关联公司编码" value={<span className="font-mono text-xs">{selectedOrg.companyCode}</span>} />}
+                        {selectedOrg.managerName  && <DetailRow label="负责人" value={selectedOrg.managerName} />}
+                        <DetailRow label="排序权重" value={selectedOrg.sortOrder ?? 0} />
+                        {selectedOrg.remark && <DetailRow label="备注" value={selectedOrg.remark} />}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            /* Empty state */
+            <div className="flex flex-col items-center justify-center flex-1 gap-4 p-12 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-brand/8 flex items-center justify-center">
+                <Network size={32} className="text-brand opacity-50" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-text-muted">在左侧点击组织节点</p>
+                <p className="text-xs text-text-dim mt-1">查看完整组织信息和层级关系</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* ── Drawer: new / edit ──────────────────────────────────────────────── */}
+      <RightDrawer
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title={editingCode ? `编辑组织 — ${editingCode}` : "新建组织"}
+        width="480px"
+        footer={
+          <div className="flex gap-3 w-full">
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(false)}
+              className={cn(
+                "flex-1 py-2.5 text-sm rounded-lg transition-colors",
+                "border border-border text-text-muted bg-bg-page hover:bg-bg-muted",
+              )}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className={cn(
+                "flex-[2] py-2.5 text-sm font-semibold rounded-lg transition-opacity",
+                "bg-brand text-white hover:opacity-90 disabled:opacity-60",
+              )}
+            >
+              {saving ? (
+                <span className="flex items-center justify-center gap-2">
+                  <RefreshCw size={13} className="animate-spin" />
+                  保存中…
+                </span>
+              ) : editingCode ? "保存修改" : "创建组织"}
+            </button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4">
+
+          {/* Org code — required on create, read-only on edit */}
+          <div>
+            <label className={LBL}>
+              组织编码
+              {!editingCode && <span className="text-danger ml-0.5">*</span>}
+              {editingCode && <span className="ml-1 font-normal text-text-dim">（创建后不可修改）</span>}
+            </label>
+            <input
+              className={cn(INP, editingCode && "opacity-50 cursor-not-allowed bg-bg-muted")}
+              value={form.orgCode}
+              readOnly={!!editingCode}
+              onChange={e => setForm(p => ({ ...p, orgCode: e.target.value.toUpperCase() }))}
+              placeholder="如 GRP-LAODAN、CO-FHA（字母数字连字符）"
+            />
+          </div>
+
+          {/* Org name */}
+          <div>
+            <label className={LBL}>
+              正式全称 <span className="text-danger">*</span>
+            </label>
+            <input
+              className={INP}
+              value={form.orgName}
+              autoFocus={!editingCode}
+              onChange={e => setForm(p => ({ ...p, orgName: e.target.value }))}
+              placeholder="例：老单农业集团有限公司"
+            />
+          </div>
+
+          {/* Org short name */}
+          <div>
+            <label className={LBL}>简称（展示用）</label>
+            <input
+              className={INP}
+              value={form.orgShortName}
+              onChange={e => setForm(p => ({ ...p, orgShortName: e.target.value }))}
+              placeholder="例：老单集团"
+            />
+          </div>
+
+          {/* Org type */}
+          <div>
+            <label className={LBL}>
+              组织类型 <span className="text-danger">*</span>
+            </label>
+            <select
+              className={INP}
+              value={form.orgType}
+              onChange={e => setForm(p => ({ ...p, orgType: e.target.value as OrgType }))}
+            >
+              {ORG_TYPES_SELECT.map(t => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Site business type — only for SITE */}
+          {form.orgType === "SITE" && (
+            <div>
+              <label className={LBL}>场区业务类型</label>
+              <select
+                className={INP}
+                value={form.siteBusinessType}
+                onChange={e => setForm(p => ({ ...p, siteBusinessType: e.target.value as SiteBusinessType | "" }))}
+              >
+                <option value="">请选择（可选）</option>
+                {SITE_BUSINESS_TYPES.map(t => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Parent org */}
+          <div>
+            <label className={LBL}>上级组织</label>
+            <select
+              className={INP}
+              value={form.parentCode}
+              onChange={e => setForm(p => ({ ...p, parentCode: e.target.value }))}
+            >
+              <option value="">无（顶级组织）</option>
+              {flat
+                .filter(o => o.orgCode !== editingCode)
+                .map(o => (
+                  <option key={o.id} value={o.orgCode}>
+                    {"　".repeat(Math.max(0, o.level - 1))}
+                    {ORG_TYPE_CONFIG[o.orgType]?.label ?? o.orgType} · {o.orgShortName || o.orgName}
+                  </option>
+                ))
+              }
+            </select>
+          </div>
+
+          {/* Company code */}
+          <div>
+            <label className={LBL}>关联公司编码（可选）</label>
+            <input
+              className={INP}
+              value={form.companyCode}
+              onChange={e => setForm(p => ({ ...p, companyCode: e.target.value }))}
+              placeholder="如 CO-FHA，用于数据范围过滤"
+            />
+          </div>
+
+          {/* Sort order */}
+          <div>
+            <label className={LBL}>排序权重</label>
+            <input
+              type="number"
+              className={INP}
+              value={form.sortOrder}
+              onChange={e => setForm(p => ({ ...p, sortOrder: e.target.value }))}
+              placeholder="数值越小越靠前，默认 0"
+              min={0}
+            />
+          </div>
+
+          {/* Remark */}
+          <div>
+            <label className={LBL}>备注</label>
+            <textarea
+              className={cn(INP, "resize-none")}
+              rows={2}
+              value={form.remark}
+              onChange={e => setForm(p => ({ ...p, remark: e.target.value }))}
+              placeholder="可选"
+            />
+          </div>
+        </div>
+      </RightDrawer>
     </div>
   );
 }

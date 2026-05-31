@@ -21,7 +21,7 @@ export class SysOrganizationEntity {
   parentId: number | null;
 
   @Column({ name: 'org_type', type: 'varchar', length: 32 })
-  orgType: 'GROUP' | 'COMPANY' | 'FACTORY' | 'PROJECT' | 'WAREHOUSE' | 'STORE' | 'DEPARTMENT';
+  orgType: 'GROUP' | 'BU' | 'COMPANY' | 'SITE' | 'FACTORY' | 'PROJECT' | 'WAREHOUSE' | 'STORE' | 'DEPARTMENT';
 
   @Column({ name: 'level', type: 'integer' })
   level: number;
@@ -49,6 +49,24 @@ export class SysOrganizationEntity {
 
   @Column({ name: 'manager_name', type: 'varchar', length: 128, nullable: true })
   managerName: string | null;
+
+  @Column({ name: 'org_name_cn', type: 'varchar', length: 256, nullable: true })
+  orgNameCn: string | null;
+
+  @Column({ name: 'org_short_name', type: 'varchar', length: 64, nullable: true })
+  orgShortName: string | null;
+
+  @Column({ name: 'parent_code', type: 'varchar', length: 64, nullable: true })
+  parentCode: string | null;
+
+  @Column({ name: 'site_code', type: 'varchar', length: 64, nullable: true })
+  siteCode: string | null;
+
+  @Column({ name: 'site_business_type', type: 'varchar', length: 64, nullable: true })
+  siteBusinessType: string | null;
+
+  @Column({ name: 'sort_order', type: 'integer', default: 0 })
+  sortOrder: number;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

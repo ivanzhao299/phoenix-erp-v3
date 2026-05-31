@@ -7,7 +7,7 @@
 import {
   Users, Globe, UserCheck, Car, Warehouse, Wallet,
   Network, Building, FolderKanban, BookOpen,
-  LayoutDashboard, Tag, Package, Layers,
+  LayoutDashboard, Tag, Package, Layers, ShieldCheck,
 } from "lucide-react";
 import { NavCard, type NavCardAccent } from "@/components/ui/NavCard";
 
@@ -59,6 +59,9 @@ const CARDS: CardDef[] = [
   { icon: Layers,       title: "SKU 档案",      accent: "blue",
     desc: "产品 × 等级 × 规格 — 为价格/库存/销售统一维度",
     href: "/master-data/product-skus" },
+  { icon: ShieldCheck,  title: "用户组织权限",  accent: "indigo",
+    desc: "用户与组织绑定 · 数据可见范围 · 跨组织权限管理",
+    href: "/master-data/user-orgs" },
 ];
 
 export default function MasterDataHubPage() {

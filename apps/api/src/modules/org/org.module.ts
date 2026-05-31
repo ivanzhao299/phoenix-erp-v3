@@ -18,6 +18,7 @@ import { OrgService } from './services/org.service';
 import { DataScopeHelper } from './helpers/data-scope.helper';
 import { DataScopeGuard } from './guards/data-scope.guard';
 import { OrgController } from './org.controller';
+import { OrganizationController } from './organization.controller';
 
 @Global()
 @Module({
@@ -30,7 +31,7 @@ import { OrgController } from './org.controller';
       SysDataScopeEntity,
     ]),
   ],
-  controllers: [OrgController],
+  controllers: [OrgController, OrganizationController],
   providers: [OrgService, DataScopeService, DataScopeHelper, DataScopeGuard],
   exports: [OrgService, DataScopeService, DataScopeHelper, DataScopeGuard],
 })

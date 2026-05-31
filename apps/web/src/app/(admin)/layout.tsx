@@ -113,6 +113,8 @@ const TITLE_KEY_MAP: Record<string, string> = {
   "/settings/notifications":       "menu.stg-notify",
   "/master-data/products":         "menu.mdc-products",
   "/master-data/stores":           "menu.mdc-stores",
+  "/master-data/organizations":    "menu.mdc-orgs",
+  "/master-data/user-orgs":        "menu.mdc-user-orgs",
   "/system/backup":                "menu.sysops-backup",
   "/system/error-logs":            "menu.sysops-errors",
 };
