@@ -254,7 +254,7 @@ export default function ShareholderFundsPage() {
       {/* Filter bar */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12, alignItems: "center" }}>
         <input
-          placeholder="搜索编号 / 股东姓名 / PO编号"
+          placeholder="搜索编号 / 股东姓名 / 采购订单号"
           value={keyword}
           onChange={e => setKeyword(e.target.value)}
           onKeyDown={e => e.key === "Enter" && handleSearch()}

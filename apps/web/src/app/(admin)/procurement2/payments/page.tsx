@@ -629,7 +629,7 @@ export default function PaymentsPage() {
               <thead>
                 <tr style={{ background: "var(--bg-subtle,var(--bg-muted))" }}>
                   <th style={thStyle}>AP 编号</th>
-                  <th style={thStyle}>PO 编号</th>
+                  <th style={thStyle}>采购订单号</th>
                   <th style={thStyle}>项目</th>
                   <th style={{ ...thStyle, textAlign: "right" }}>分摊金额（{formCurrency}）</th>
                   <th style={{ ...thStyle, textAlign: "right" }}>折算 CNY</th>
@@ -742,7 +742,7 @@ export default function PaymentsPage() {
                     <thead>
                       <tr style={{ background: "var(--bg-muted)" }}>
                         <th style={thStyle}>AP 编号</th>
-                        <th style={thStyle}>PO 编号</th>
+                        <th style={thStyle}>采购订单号</th>
                         <th style={thStyle}>项目</th>
                         <th style={{ ...thStyle, textAlign: "right" }}>分摊金额</th>
                         <th style={{ ...thStyle, textAlign: "right" }}>折算 CNY</th>
@@ -811,7 +811,7 @@ export default function PaymentsPage() {
                 <thead>
                   <tr style={{ background: "var(--bg-muted)" }}>
                     <th style={thStyle}>AP 编号</th>
-                    <th style={thStyle}>PO 编号</th>
+                    <th style={thStyle}>采购订单号</th>
                     <th style={thStyle}>供应商</th>
                     <th style={thStyle}>币种</th>
                     <th style={{ ...thStyle, textAlign: "right" }}>应付</th>

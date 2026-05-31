@@ -222,7 +222,7 @@ export default function ShipmentsPage() {
       {/* Filter bar */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12, alignItems: "center" }}>
         <input
-          placeholder="搜索运单号 / PO号 / 运单号 / 承运商"
+          placeholder="搜索运单号 / 采购订单号 / 运单号 / 承运商"
           value={keyword}
           onChange={e => setKeyword(e.target.value)}
           onKeyDown={e => e.key === "Enter" && handleSearch()}
@@ -321,11 +321,11 @@ export default function ShipmentsPage() {
             <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 13 }}>关联采购订单</div>
             <div className={s.fieldRow}>
               <div className={s.field}>
-                <label className={s.lbl}>PO ID <span style={{ color: "var(--color-danger)" }}>*</span></label>
+                <label className={s.lbl}>采购订单 ID <span style={{ color: "var(--color-danger)" }}>*</span></label>
                 <input className={s.inp} value={formData.poId ?? ""} onChange={e => setFormData(p => ({ ...p, poId: e.target.value }))} placeholder="PO内部ID" />
               </div>
               <div className={s.field}>
-                <label className={s.lbl}>PO 编号 <span style={{ color: "var(--color-danger)" }}>*</span></label>
+                <label className={s.lbl}>采购订单号 <span style={{ color: "var(--color-danger)" }}>*</span></label>
                 <input className={s.inp} value={formData.poNo ?? ""} onChange={e => setFormData(p => ({ ...p, poNo: e.target.value }))} placeholder="PO2-..." />
               </div>
             </div>

@@ -322,7 +322,7 @@ export default function PurchaseOrdersPage() {
       const method = editing ? "PATCH" : "POST";
       const res    = await fetch(url, { method, headers: hdr, body: JSON.stringify(body) });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message ?? "保存失败"); }
-      toast.success(editing ? "保存成功" : "PO 已创建");
+      toast.success(editing ? "保存成功" : "采购订单已创建");
       setDrawerOpen(false);
       load(editing ? page : 1);
       if (!editing) setPage(1);
@@ -402,7 +402,7 @@ export default function PurchaseOrdersPage() {
       });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message ?? "转换失败"); }
       const po: PurchaseOrder = await res.json();
-      toast.success(`已转 PO：${po.poNo}`);
+      toast.success(`已转采购订单：${po.poNo}`);
       setConvertOpen(false);
       load(1); setPage(1);
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "转换失败"); }
@@ -421,7 +421,7 @@ export default function PurchaseOrdersPage() {
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" className={s.btnSecondary} onClick={openConvert}
               style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <GitMerge size={14} /> 从PR转单
+              <GitMerge size={14} /> 从采购申请转单
             </button>
             <button type="button" className={s.btnSecondary} onClick={() => load(page)} disabled={loading}
               style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -429,7 +429,7 @@ export default function PurchaseOrdersPage() {
             </button>
             <button type="button" className={s.btnPrimary} onClick={openNew}
               style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Plus size={14} /> 新建 PO
+              <Plus size={14} /> 新建采购订单
             </button>
           </div>
         }
@@ -438,7 +438,7 @@ export default function PurchaseOrdersPage() {
       {/* 筛选栏 */}
       <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
         <input value={fKeyword} onChange={e => setFKeyword(e.target.value)}
-          placeholder="关键字（PO编号/主题/供应商）" style={inlineInput} />
+          placeholder="关键字（采购订单号/主题/供应商）" style={inlineInput} />
         <select value={fStatus} onChange={e => setFStatus(e.target.value)} style={inlineSelect}>
           <option value="">全部状态</option>
           {Object.entries(STATUS_MAP).map(([v, o]) => <option key={v} value={v}>{o.label}</option>)}
@@ -465,7 +465,7 @@ export default function PurchaseOrdersPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              <th>PO 编号</th>
+              <th>采购订单号</th>
               <th>主题</th>
               <th>公司</th>
               <th>供应商</th>
@@ -763,7 +763,7 @@ export default function PurchaseOrdersPage() {
           <div style={{ padding: "0 4px" }}>
             <div className={s.formSection}>订单信息</div>
             {[
-              { label: "PO 编号",  value: detailData.poNo, mono: true },
+              { label: "采购订单号",  value: detailData.poNo, mono: true },
               { label: "主题",     value: detailData.subject },
               { label: "公司",     value: `${detailData.companyCode}  ${detailData.companyName ?? ""}` },
               { label: "供应商",   value: `${detailData.supplierCode}  ${detailData.supplierName ?? ""}` },
@@ -894,7 +894,7 @@ export default function PurchaseOrdersPage() {
               ))}
             </select>
             {approvedPRs.length === 0 && (
-              <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4 }}>暂无 APPROVED 状态的 PR</div>
+              <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4 }}>暂无已审批的采购申请</div>
             )}
           </div>
           <div className={s.fieldRow}>
@@ -1011,7 +1011,7 @@ function SimpleModal({ open, onClose, title, children }: {
 
 function actionLabel(a: string) {
   return ({ SUBMIT: "提交", APPROVE: "批准", REJECT: "拒绝", CANCEL: "取消",
-            CONVERT_TO_PO: "转PO", COMMENT: "备注" } as Record<string, string>)[a] ?? a;
+            CONVERT_TO_PO: "转采购订单", COMMENT: "备注" } as Record<string, string>)[a] ?? a;
 }
 function actionBadgeCls(a: string) {
   return ({ SUBMIT: "badgeInfo", APPROVE: "badgeSuccess", REJECT: "badgeDanger",

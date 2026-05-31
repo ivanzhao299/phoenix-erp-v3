@@ -168,7 +168,7 @@ export default function ProcurementDashboardPage() {
           <KpiCard label="已付金额 (CNY)" value={fmt(summary.paymentAmount, 2)} sub="付款合计" Icon={DollarSign} color="var(--color-success)" />
           <KpiCard label="股东资金" value={fmt(summary.shareholderFundAmount, 2)} sub={`共 ${summary.shareholderFundCount} 笔`} Icon={Users} color="#8b5cf6" />
           <KpiCard label="在途运单" value={fmt(summary.shipmentInTransitCount)} sub={`运单总数 ${summary.shipmentTotalCount}`} Icon={Truck} color="#f97316" />
-          <KpiCard label="待审批" value={fmt(summary.pendingPoApprovalCount)} sub={`待审PR ${summary.pendingPrCount}`} Icon={Clock} color="var(--color-warning)" />
+          <KpiCard label="待审批" value={fmt(summary.pendingPoApprovalCount)} sub={`待审采购申请 ${summary.pendingPrCount}`} Icon={Clock} color="var(--color-warning)" />
         </div>
       )}
 
@@ -274,7 +274,7 @@ export default function ProcurementDashboardPage() {
             <table className={s.table}>
               <thead><tr>
                 <th>项目</th><th>公司</th><th>货币</th>
-                <th style={{ textAlign: "right" }}>PO数</th>
+                <th style={{ textAlign: "right" }}>采购订单数</th>
                 <th style={{ textAlign: "right" }}>合同金额</th>
                 <th style={{ textAlign: "right" }}>已付</th>
                 <th style={{ textAlign: "right" }}>余额</th>
@@ -340,7 +340,7 @@ export default function ProcurementDashboardPage() {
             <div style={{ overflowX: "auto" }}>
               <table className={s.table}>
                 <thead><tr>
-                  <th>供应商</th><th style={{ textAlign: "right" }}>PO数</th>
+                  <th>供应商</th><th style={{ textAlign: "right" }}>采购订单数</th>
                   <th style={{ textAlign: "right" }}>合同额</th>
                   <th style={{ textAlign: "right" }}>待付AP</th>
                 </tr></thead>

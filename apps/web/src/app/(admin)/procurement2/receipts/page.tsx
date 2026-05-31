@@ -198,7 +198,7 @@ export default function ReceiptsPage() {
 
   // ── Save new receipt ───────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!formPoId || !formPoNo) { toast.error("请填写 PO ID 和 PO 编号"); return; }
+    if (!formPoId || !formPoNo) { toast.error("请填写 采购订单 ID 和 采购订单号"); return; }
     if (formItems.length === 0) { toast.error("请至少添加一行收货明细"); return; }
     setFormSaving(true);
     try {
@@ -243,7 +243,7 @@ export default function ReceiptsPage() {
         method: "POST", headers: hdr(), body: JSON.stringify({ comment: confirmComment }),
       });
       if (!res.ok) throw new Error(await res.text());
-      toast.success("收货确认成功，PO 已自动更新");
+      toast.success("收货确认成功，采购订单已自动更新");
       setConfirmTarget(null);
       loadList(page);
     } catch (e) { toast.error(String(e)); }
@@ -287,7 +287,7 @@ export default function ReceiptsPage() {
       {/* Filter bar */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12, alignItems: "center" }}>
         <input
-          placeholder="搜索收货单号 / PO号 / 运单号"
+          placeholder="搜索收货单号 / 采购订单号 / 运单号"
           value={keyword}
           onChange={e => setKeyword(e.target.value)}
           onKeyDown={e => e.key === "Enter" && handleSearch()}
@@ -364,14 +364,14 @@ export default function ReceiptsPage() {
             <div style={blockTitle}>关联信息</div>
             <div className={s.fieldRow}>
               <div className={s.field}>
-                <label className={s.lbl}>PO ID <span style={{ color: "var(--color-danger)" }}>*</span></label>
+                <label className={s.lbl}>采购订单 ID <span style={{ color: "var(--color-danger)" }}>*</span></label>
                 <input className={s.inp} value={formPoId}
                   onChange={e => setFormPoId(e.target.value)}
                   onBlur={() => formPoId && loadPoItems(formPoId)}
-                  placeholder="PO 内部 ID（填完后自动加载明细）" />
+                  placeholder="采购订单内部 ID（填完后自动加载明细）" />
               </div>
               <div className={s.field}>
-                <label className={s.lbl}>PO 编号 <span style={{ color: "var(--color-danger)" }}>*</span></label>
+                <label className={s.lbl}>采购订单号 <span style={{ color: "var(--color-danger)" }}>*</span></label>
                 <input className={s.inp} value={formPoNo} onChange={e => setFormPoNo(e.target.value)} placeholder="PO2-..." />
               </div>
               <div className={s.field}>
@@ -497,7 +497,7 @@ export default function ReceiptsPage() {
 
             {detail.po && (
               <div style={{ marginTop: 16, padding: 12, background: "var(--bg-card)", borderRadius: 8, border: "1px solid var(--border)" }}>
-                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>PO 收货进度</div>
+                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>采购订单收货进度</div>
                 <div style={{ display: "flex", gap: 16, fontSize: 13 }}>
                   <span>计划: {detail.po.planQty}</span>
                   <span>已收: <strong style={{ color: "var(--color-success)" }}>{detail.po.receivedQty}</strong></span>
@@ -559,7 +559,7 @@ export default function ReceiptsPage() {
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>确认收货</div>
             <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 4 }}>收货单：{confirmTarget.receiptNo}</div>
             <div style={{ fontSize: 12, color: "var(--color-warning)", marginBottom: 16, padding: "8px 12px", background: "rgba(245,158,11,0.1)", borderRadius: 6 }}>
-              确认后将自动更新 PO 已收数量及状态，不可撤销。
+              确认后将自动更新采购订单已收数量及状态，不可撤销。
             </div>
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>备注（可选）</label>

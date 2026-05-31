@@ -67,7 +67,7 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   APPROVED:  { label: "已批准", cls: "badgeSuccess" },
   REJECTED:  { label: "已拒绝", cls: "badgeDanger"  },
   CANCELLED: { label: "已取消", cls: "badgeNeutral" },
-  CONVERTED: { label: "已转PO", cls: "badgeSuccess" },
+  CONVERTED: { label: "已转采购订单", cls: "badgeSuccess" },
 };
 const URGENCY_MAP: Record<string, { label: string; cls: string }> = {
   NORMAL:   { label: "普通", cls: "badgeNeutral" },
