@@ -23,6 +23,12 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_REGION_MGR:  ['V','X'],
     // Navigation Final 2026-05-30: 生产管理合并分级包装+品质追溯，WMS 主管需查看包装入库
     ROLE_WMS_MGR:     ['V'],
+    // Phase A 修复：质检/包装角色需要 MENU_FARM_DATA(V) 才能看到「生产管理」一级菜单
+    ROLE_QA_MGR:      ['V'],
+    ROLE_QA_STAFF:    ['V'],
+    ROLE_PKG_MGR:     ['V'],
+    ROLE_PKG_OP:      ['V'],
+    ROLE_FACTORY_MGR: ['V','C','E','D','A'],  // Phase A 新增角色
   },
   MENU_IOT: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
@@ -265,12 +271,26 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
 
   // ── 审批 ──────────────────────────────────────────────────────────────────
   MENU_APPROVAL: {
-    ROLE_ADMIN:       ['V','C','E','D','A','X'],
-    ROLE_CEO:         ['V','A'],
-    ROLE_REGION_MGR:  ['V','A'],
-    ROLE_FARM_MGR:    ['V','A'],
-    ROLE_FIN_CFO:     ['V','A'],
-    ROLE_AUDITOR:     ['V','X'],
+    ROLE_ADMIN:         ['V','C','E','D','A','X'],
+    ROLE_CEO:           ['V','A'],
+    ROLE_REGION_MGR:    ['V','A'],
+    ROLE_FARM_MGR:      ['V','A'],
+    ROLE_FIN_CFO:       ['V','A'],
+    ROLE_HQ_FINANCE:    ['V','A'],        // Phase A 修复：总部财务可审批
+    ROLE_FIN_ACCT:      ['V','A'],        // Phase A 修复：财务会计参与财务审批链
+    ROLE_QA_MGR:        ['V','A'],        // Phase A 修复：品控总监可审批质检申请
+    ROLE_PKG_MGR:       ['V','A'],        // Phase A 修复：包装主管可审批包装操作
+    ROLE_WMS_MGR:       ['V','A'],        // Phase A 修复：仓储经理可审批出入库
+    ROLE_LOG_MGR:       ['V','A'],        // Phase A 修复：物流调度可审批配送任务
+    ROLE_STORE_MGR:     ['V','A'],        // Phase A 修复：门店店长可审批门店操作
+    ROLE_B2B_MGR:       ['V','A'],        // Phase A 修复：大客总监可审批B2B订单
+    ROLE_PRC_BUYER:     ['V','A'],        // Phase A 修复：采购专员是采购审批链第1步
+    ROLE_VET:           ['V','A'],        // Phase A 修复：兽医是用药审批链第1步
+    ROLE_SALES_MGR:     ['V','A'],        // Phase A 新增角色
+    ROLE_BU_AGRI_GM:    ['V','A'],        // Phase A 新增角色
+    ROLE_BU_FOOD_GM:    ['V','A'],        // Phase A 新增角色
+    ROLE_FACTORY_MGR:   ['V','A'],        // Phase A 新增角色
+    ROLE_AUDITOR:       ['V','X'],
   },
 
   // ── 物流 ──────────────────────────────────────────────────────────────────
@@ -324,9 +344,13 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_FIN2: {
     ROLE_ADMIN:               ['V','C','E','D','A','X'],
     ROLE_FIN_CFO:             ['V','C','E','A','X'],
-    ROLE_HQ_FINANCE:       ['V','C','E','A','X'],
-    ROLE_FACTORY_ACCT:  ['V','C','E','X'],
+    ROLE_HQ_FINANCE:          ['V','C','E','A','X'],
+    ROLE_FACTORY_ACCT:        ['V','C','E','X'],
+    ROLE_FIN_ACCT:            ['V','C','E','X'],   // Phase A 修复：财务会计可见财务管理
+    ROLE_FIN_AR:              ['V','C','E'],        // Phase A 修复：应收专员可见财务管理
+    ROLE_FIN_COST:            ['V'],               // Phase A 修复：成本会计可见财务管理（查看）
     ROLE_CEO:                 ['V','A','X'],
+    ROLE_REGION_MGR:          ['V'],               // Phase A 修复：区域督导可查看财务概况
     ROLE_AUDITOR:             ['V','X'],
   },
   /** Finance V2 应付账款（AP） */
@@ -343,8 +367,10 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_FIN2_AR: {
     ROLE_ADMIN:               ['V','C','E','D','A','X'],
     ROLE_FIN_CFO:             ['V','C','E','A','X'],
-    ROLE_HQ_FINANCE:       ['V','C','E','A','X'],
-    ROLE_FACTORY_ACCT:  ['V','C','E','X'],
+    ROLE_HQ_FINANCE:          ['V','C','E','A','X'],
+    ROLE_FACTORY_ACCT:        ['V','C','E','X'],
+    ROLE_FIN_ACCT:            ['V','C','E','X'],   // Phase A 修复
+    ROLE_FIN_AR:              ['V','C','E','D','X'],// Phase A 修复：应收专员核心权限
     ROLE_CEO:                 ['V','A','X'],
     ROLE_AUDITOR:             ['V','X'],
   },
@@ -585,12 +611,17 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_SALES2: {
     ROLE_ADMIN:         ['V','C','E','D','A','X'],
     ROLE_CEO:           ['V','X'],
-    ROLE_HQ_FINANCE: ['V','X'],
+    ROLE_HQ_FINANCE:    ['V','X'],
     ROLE_SALES_MGR:     ['V','C','E','D','A','X'],
     ROLE_SALES_REP:     ['V','C','E'],
     ROLE_STORE_MGR:     ['V'],
     ROLE_REGION_MGR:    ['V','X'],
     ROLE_AUDITOR:       ['V','X'],
+    // Phase A 修复：以下角色需要 MENU_SALES2 才能看到「销售管理」一级菜单
+    ROLE_B2B_MGR:       ['V','C','E','A'],  // 大客总监
+    ROLE_LOG_MGR:       ['V','C','E'],      // 物流调度（配送在销售管理下）
+    ROLE_DRIVER:        ['V'],              // 司机（只看配送任务入口）
+    ROLE_CASHIER:       ['V'],              // 收银员（POS 在销售管理下）
   },
   /** Sales V2 客户主档（Customer Runtime） */
   MENU_SALES2_CUSTOMER: {
@@ -754,6 +785,9 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_FARM_MGR:    ['V','C','E','X'],
     ROLE_FARMER:      ['V','C','E'],
     ROLE_WMS_MGR:     ['V','C'],
+    ROLE_PKG_MGR:     ['V','C','E'],    // Phase A 修复：包装主管可操作包装
+    ROLE_PKG_OP:      ['V','C'],        // Phase A 修复：包装工人可录入
+    ROLE_FACTORY_MGR: ['V','C','E'],    // Phase A 新增角色
   },
 
   // 分级包装管理（集蛋入库/批次/日报/异常/补打）
@@ -761,6 +795,8 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
     ROLE_FARM_MGR:    ['V','C','E','D','A','X'],
     ROLE_WMS_MGR:     ['V','C','E'],
+    ROLE_PKG_MGR:     ['V','C','E','D','A'],  // Phase A 修复：包装主管可管理包装批次
+    ROLE_FACTORY_MGR: ['V','C','E','A'],      // Phase A 新增角色
   },
 
   // 质检操作（总览/场端/成品）
@@ -771,6 +807,9 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_REGION_MGR:  ['V','X'],
     ROLE_CEO:         ['V','X'],
     ROLE_AUDITOR:     ['V','X'],
+    ROLE_QA_MGR:      ['V','C','E','A'],  // Phase A 修复：品控总监核心权限
+    ROLE_QA_STAFF:    ['V','C','E'],       // Phase A 修复：质检专员录入权限
+    ROLE_FACTORY_MGR: ['V','C','E'],       // Phase A 新增角色
   },
 
   // 质检管理（不合格品处置/正向追溯/反向追溯）
@@ -779,6 +818,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_FARM_MGR:    ['V','C','E','D','A','X'],
     ROLE_VET:         ['V','C','E'],
     ROLE_REGION_MGR:  ['V','X'],
+    ROLE_QA_MGR:      ['V','C','E','D','A'], // Phase A 修复：品控总监管理权限
     ROLE_AUDITOR:     ['V','X'],
   },
 
@@ -872,6 +912,24 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_WORKFLOW_ADMIN: ['V','C','E'],
     ROLE_AUDITOR:        ['V','X'],
     ROLE_PILOT_MANAGER:  ['V','C','E'],
+  },
+
+  // ── Role Runtime Phase A — 新增角色权限矩阵 ────────────────────────────────
+  // 新角色：事业群总经理 / 场区经理 / HR经理 / 销售经理
+  // 这些角色在 sys_role 中注册后，此处定义其菜单访问权限
+
+  /** 凤凰农业事业群总经理 — BU-AGRI 最高管理角色 */
+  MENU_BU_AGRI_OVERVIEW: {
+    ROLE_ADMIN:      ['V','C','E','D','A','X'],
+    ROLE_BU_AGRI_GM: ['V','C','E','A','X'],
+    ROLE_CEO:        ['V','X'],
+  },
+
+  /** 凤凰食品事业群总经理 — BU-FOOD 最高管理角色 */
+  MENU_BU_FOOD_OVERVIEW: {
+    ROLE_ADMIN:      ['V','C','E','D','A','X'],
+    ROLE_BU_FOOD_GM: ['V','C','E','A','X'],
+    ROLE_CEO:        ['V','X'],
   },
 
 };

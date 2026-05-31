@@ -63,7 +63,19 @@ const ROLE_HOME: Record<string,string> = {
   ROLE_WMS_MGR: "/warehouse", ROLE_PKG_MGR: "/packaging", ROLE_LOG_MGR: "/sales2/delivery",
   ROLE_STORE_MGR: "/store", ROLE_CASHIER: "/store-pos", ROLE_SALES_REP: "/sales2/orders",
   ROLE_FIN_CFO: "/finance2", ROLE_FIN_ACCT: "/finance2",
-  // 现场作业角色 → Terminal 作业台
+  // Phase A 新增角色首页映射
+  ROLE_BU_AGRI_GM:  "/dashboard",           // 农业事业群总经理 → 仪表盘
+  ROLE_BU_FOOD_GM:  "/dashboard",           // 食品事业群总经理 → 仪表盘
+  ROLE_FACTORY_MGR: "/breeding",            // 场区经理 → 养殖总览（兼顾多类场区）
+  ROLE_HR_MANAGER:  "/settings/users",      // HR经理 → 用户管理
+  ROLE_SALES_MGR:   "/sales2",              // 销售经理 → 销售管理
+  ROLE_QA_STAFF:    "/quality",             // 质检专员 → 质检总览
+  ROLE_DRIVER:      "/sales2/delivery",     // 司机 → 配送管理
+  ROLE_FIN_AR:      "/finance2/ar",         // 应收专员 → 应收账款
+  ROLE_FIN_COST:    "/finance2/reports",    // 成本会计 → 财务报表
+  ROLE_B2B_MGR:     "/sales2",              // 大客总监 → 销售管理
+  ROLE_PRC_BUYER:   "/procurement2",        // 采购专员 → 采购管理
+  // 现场作业角色 → Terminal 作业台（PKG_OP 用 Terminal 而非普通包装页）
   ROLE_PKG_OP:    "/terminal/packaging/dashboard",
   ROLE_QC_INSPECTOR:    "/terminal/packaging/dashboard",
   ROLE_WH_CLERK:        "/terminal/packaging/dashboard",
