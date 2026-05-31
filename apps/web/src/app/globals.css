@@ -94,9 +94,9 @@
    Naming: semantic intent over implementation detail.
 ══════════════════════════════════════════════════════════════ */
 :root {
-  /* Brand */
+  /* Brand — 方案A 专业蓝 */
   --color-primary: #1F3864;
-  --color-accent:  #E91E63;
+  --color-accent:  #2563EB;
 
   /* Status */
   --status-success: #2E7D32;
@@ -148,7 +148,7 @@
 
 [data-theme="dark"] {
   --color-primary: #4A78B5;
-  --color-accent:  #F06292;
+  --color-accent:  #60A5FA;  /* 深色模式用更亮的蓝，保证在深色背景上的可见性 */
 
   --status-success: #66BB6A;
   --status-warning: #FFD54F;

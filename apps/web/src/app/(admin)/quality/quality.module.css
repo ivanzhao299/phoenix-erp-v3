@@ -87,7 +87,7 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 [data-theme="dark"] .quickCard:hover {
-  border-color: #E91E63;
+  border-color: var(--color-accent);
   box-shadow: 0 6px 20px rgba(0,0,0,0.4);
 }
 [data-theme="dark"] .quickIcon { color: #94a3b8; }

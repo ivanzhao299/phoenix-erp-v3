@@ -118,7 +118,7 @@ const ROLE_TYPE_META: Record<string, { label: string; color: string; emoji: stri
   SYSTEM:      { label: "系统管理",  color: "#6366f1", emoji: "⚙️",  order: 0 },
   DECISION:    { label: "决策层",    color: "#d97706", emoji: "🏛️",  order: 1 },
   MANAGEMENT:  { label: "管理层",    color: "#0ea5e9", emoji: "📋",  order: 2 },
-  FINANCE:     { label: "财务",      color: "#ec4899", emoji: "💰",  order: 3 },
+  FINANCE:     { label: "财务",      color: "#0891b2", emoji: "💰",  order: 3 },
   PRODUCTION:  { label: "养殖生产",  color: "#10b981", emoji: "🐔",  order: 4 },
   QUALITY:     { label: "质检追溯",  color: "#84cc16", emoji: "🧪",  order: 5 },
   PACKAGING:   { label: "包装作业",  color: "#14b8a6", emoji: "📦",  order: 6 },

@@ -33,7 +33,7 @@ export default function DashboardPage() {
     { path: '/sales2/orders', label: t('ui.销售订单','销售订单'), desc: t('ui.订单 / 审批 / 配送','订单 / 审批 / 配送'),   color: '#f59e0b', icon: <ShoppingCart size={22} /> },
     { path: '/sales2/delivery', label: t('ui.配送运输','配送运输'), desc: t('ui.波次 / 跟踪 / 签收','波次 / 跟踪 / 签收'),   color: '#06b6d4', icon: <Truck size={22} /> },
     { path: '/finance2',        label: t('ui.财务结算','财务结算'), desc: t('ui.应收 / 应付 / 流水','应收 / 应付 / 流水'),   color: '#f97316', icon: <TrendingUp size={22} /> },
-    { path: '/quality',         label: t('ui.品质追溯','品质追溯'), desc: t('ui.质检 / 追溯 / 报表','质检 / 追溯 / 报表'),   color: '#ec4899', icon: <CheckCircle size={22} /> },
+    { path: '/quality',         label: t('ui.品质追溯','品质追溯'), desc: t('ui.质检 / 追溯 / 报表','质检 / 追溯 / 报表'),   color: '#8b5cf6', icon: <CheckCircle size={22} /> },
     { path: '/procurement2',    label: t('ui.采购管理','采购管理'), desc: t('ui.采购单 / 供应商','采购单 / 供应商'),      color: '#84cc16', icon: <Wheat size={22} /> },
     { path: '/analytics',   label: t('ui.数据分析','数据分析'), desc: t('ui.BI 驾驶舱 / 报表','BI 驾驶舱 / 报表'),    color: '#a855f7', icon: <BarChart2 size={22} /> },
     { path: '/settings',    label: t('ui.系统设置','系统设置'), desc: t('ui.用户 / 权限 / 字典','用户 / 权限 / 字典'),   color: '#94a3b8', icon: <Users size={22} /> },

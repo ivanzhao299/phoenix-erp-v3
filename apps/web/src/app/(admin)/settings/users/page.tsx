@@ -76,7 +76,7 @@ const PAGE_SIZE_OPTIONS = [20, 50, 100];
 
 // ── Role type grouping color (for RolePicker) ────────────────────
 const TYPE_COLOR: Record<string, string> = {
-  SYSTEM: "#d97706", DECISION: "#7c3aed", FINANCE: "#ec4899",
+  SYSTEM: "#d97706", DECISION: "#7c3aed", FINANCE: "#0891b2",
   MANAGEMENT: "#0ea5e9", PRODUCTION: "#10b981", QUALITY: "#84cc16",
   PACKAGING: "#14b8a6", WAREHOUSE: "#f59e0b", LOGISTICS: "#f97316",
   PROCUREMENT: "#8b5cf6", STORE: "#3b82f6", SALES: "#06b6d4",
@@ -87,7 +87,7 @@ const TYPE_COLOR: Record<string, string> = {
 const ROLE_TYPE_META: Record<string, { order: number; label: string; color: string; emoji: string }> = {
   SYSTEM:      { order: 0,  label: "系统管理",  color: "#d97706", emoji: "⚙️" },
   DECISION:    { order: 1,  label: "决策层",    color: "#7c3aed", emoji: "👑" },
-  FINANCE:     { order: 2,  label: "财务",      color: "#ec4899", emoji: "💰" },
+  FINANCE:     { order: 2,  label: "财务",      color: "#0891b2", emoji: "💰" },
   MANAGEMENT:  { order: 3,  label: "管理运营",  color: "#0ea5e9", emoji: "📊" },
   PRODUCTION:  { order: 4,  label: "养殖生产",  color: "#10b981", emoji: "🐔" },
   QUALITY:     { order: 5,  label: "品控质检",  color: "#84cc16", emoji: "🔬" },

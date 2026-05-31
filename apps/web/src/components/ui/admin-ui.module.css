@@ -657,7 +657,7 @@
 .btnPrimaryGrad {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 9px 20px;
-  background: linear-gradient(135deg, var(--color-primary) 0%, #2563eb 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
   color: #fff;
   border: none; border-radius: 8px;
   cursor: pointer; font-weight: 700; font-size: 13px;
@@ -716,7 +716,7 @@
   content: '';
   position: absolute; left: 0; top: 0; bottom: 0;
   width: 4px;
-  background: linear-gradient(to bottom, var(--color-primary), #2563eb);
+  background: linear-gradient(to bottom, var(--color-primary), var(--color-accent));
   border-radius: 2px 0 0 2px;
 }
 .statCardAccent:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
@@ -807,7 +807,7 @@
 }
 .progressBar {
   height: 100%; border-radius: 3px;
-  background: linear-gradient(90deg, var(--color-primary), #2563eb);
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
   transition: width 0.6s var(--ease);
 }
 .progressBarSuccess { background: linear-gradient(90deg, #16a34a, #22c55e); }
@@ -876,7 +876,7 @@
 /* ── 二十九、用户头像 / Avatar ───────────────────── */
 .avatar {
   width: 32px; height: 32px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--color-primary), #2563eb);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   color: white; font-size: 12px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; user-select: none;
@@ -935,7 +935,7 @@
 }
 .topProgressBar {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-primary), #2563eb, #60a5fa);
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent), #60a5fa);
   background-size: 200% 100%;
   animation: topProgressMove 1.2s linear infinite;
   box-shadow: 0 0 8px rgba(31,56,100,0.5);
