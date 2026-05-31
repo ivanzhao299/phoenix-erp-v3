@@ -317,10 +317,15 @@ jobs:
               local f="$1"
               echo "Applying $f..."
               local output status
+              # 修复（Role Audit Recheck）：远程 shell（dash）下 set -e 会在命令替换
+              # 失败时立即退出，导致 $output 错误详情来不及打印（只剩 "exited status 3"）。
+              # 用 set +e 包裹命令替换，确保先捕获退出码并打印错误，再显式 exit 1 红灯。
+              set +e
               output=$(docker compose exec -T db sh -c \
                 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
                 < "$f" 2>&1)
               status=$?
+              set -e
               echo "$output" | grep -v "already exists\|NOTICE\|will create\|^$" || true
               if [ $status -ne 0 ]; then
                 echo "::error::❌ DB Migration FAILED: $f"
@@ -337,6 +342,22 @@ jobs:
             # 增量迁移（所有 2026MMDD_* 前缀 SQL，幂等，按日期排序）
             for f in $(ls apps/api/migrations/2026*.sql 2>/dev/null | sort); do run_db_migration "$f"; done
             echo "✅ DDL migrations applied (任一失败部署已红灯)"
+
+            # ── 生产验证：Role Runtime Phase C 6 项检查（真实落库确认）──────
+            # 修复（Role Audit Recheck）：在生产库执行 check 脚本，任一 ❌ FAIL 红灯。
+            # 这把"Phase C 是否在生产端真实生效"变成可验证的部署门禁。
+            if [ -f scripts/check-role-runtime-phase-c.sql ]; then
+              echo "── 执行 Role Runtime Phase C 生产验证 ──"
+              CHECK_OUT=$(docker compose exec -T db sh -c \
+                'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+                < scripts/check-role-runtime-phase-c.sql 2>&1)
+              echo "$CHECK_OUT"
+              if echo "$CHECK_OUT" | grep -q "❌ FAIL"; then
+                echo "::error::❌ Phase C 生产验证存在 FAIL — Phase C 未在生产端真实生效"
+                exit 1
+              fi
+              echo "✅ Phase C 生产验证：无 FAIL"
+            fi
 
             # ── 滚动重启容器 ─────────────────────────────────────────────
             docker compose up -d --no-deps --wait api

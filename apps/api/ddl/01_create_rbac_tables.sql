@@ -1,5 +1,5 @@
 -- ============== sys_user 用户表 ==============
-CREATE TABLE sys_user (
+CREATE TABLE IF NOT EXISTS sys_user (
     user_id         BIGSERIAL PRIMARY KEY,
     username        VARCHAR(64) UNIQUE NOT NULL,
     password_hash   VARCHAR(256) NOT NULL,
@@ -14,10 +14,10 @@ CREATE TABLE sys_user (
     updated_at      TIMESTAMP NOT NULL DEFAULT NOW(),
     note            TEXT
 );
-CREATE INDEX idx_user_store ON sys_user(store_code);
+CREATE INDEX IF NOT EXISTS idx_user_store ON sys_user(store_code);
 
 -- ============== sys_role 角色表 ==============
-CREATE TABLE sys_role (
+CREATE TABLE IF NOT EXISTS sys_role (
     role_id         BIGSERIAL PRIMARY KEY,
     role_code       VARCHAR(64) UNIQUE NOT NULL,
     role_name_zh    VARCHAR(128) NOT NULL,
@@ -29,7 +29,7 @@ CREATE TABLE sys_role (
 );
 
 -- ============== sys_menu 菜单表 ==============
-CREATE TABLE sys_menu (
+CREATE TABLE IF NOT EXISTS sys_menu (
     menu_id         BIGSERIAL PRIMARY KEY,
     menu_code       VARCHAR(64) UNIQUE NOT NULL,
     menu_name_zh    VARCHAR(128) NOT NULL,
@@ -43,7 +43,7 @@ CREATE TABLE sys_menu (
 );
 
 -- ============== sys_user_role 用户-角色关联 ==============
-CREATE TABLE sys_user_role (
+CREATE TABLE IF NOT EXISTS sys_user_role (
     user_id         BIGINT NOT NULL REFERENCES sys_user(user_id) ON DELETE CASCADE,
     role_id         BIGINT NOT NULL REFERENCES sys_role(role_id) ON DELETE CASCADE,
     is_primary      BOOLEAN NOT NULL DEFAULT FALSE,
@@ -53,7 +53,7 @@ CREATE TABLE sys_user_role (
 );
 
 -- ============== sys_role_menu_permission 角色-菜单-CRUD 三元组 ==============
-CREATE TABLE sys_role_menu_permission (
+CREATE TABLE IF NOT EXISTS sys_role_menu_permission (
     perm_id         BIGSERIAL PRIMARY KEY,
     role_id         BIGINT NOT NULL REFERENCES sys_role(role_id) ON DELETE CASCADE,
     menu_id         BIGINT NOT NULL REFERENCES sys_menu(menu_id) ON DELETE CASCADE,
@@ -62,7 +62,7 @@ CREATE TABLE sys_role_menu_permission (
 );
 
 -- ============== sys_store 机构字典 ==============
-CREATE TABLE sys_store (
+CREATE TABLE IF NOT EXISTS sys_store (
     store_id        BIGSERIAL PRIMARY KEY,
     store_code      VARCHAR(64) UNIQUE NOT NULL,
     store_name_zh   VARCHAR(128) NOT NULL,
@@ -77,7 +77,7 @@ CREATE TABLE sys_store (
 );
 
 -- ============== sys_approval_rule 审批分级规则 ==============
-CREATE TABLE sys_approval_rule (
+CREATE TABLE IF NOT EXISTS sys_approval_rule (
     rule_id         BIGSERIAL PRIMARY KEY,
     doc_type        VARCHAR(64) NOT NULL,
     amount_min      DECIMAL(18, 2) NOT NULL DEFAULT 0,
@@ -89,7 +89,7 @@ CREATE TABLE sys_approval_rule (
 );
 
 -- ============== sys_doc_state_lock 状态机锁配置 ==============
-CREATE TABLE sys_doc_state_lock (
+CREATE TABLE IF NOT EXISTS sys_doc_state_lock (
     lock_id         BIGSERIAL PRIMARY KEY,
     doc_type        VARCHAR(64) NOT NULL,
     locked_state    VARCHAR(32) NOT NULL,
@@ -99,7 +99,7 @@ CREATE TABLE sys_doc_state_lock (
 );
 
 -- ============== sys_audit_log 审计日志 ==============
-CREATE TABLE sys_audit_log (
+CREATE TABLE IF NOT EXISTS sys_audit_log (
     log_id          BIGSERIAL PRIMARY KEY,
     user_id         BIGINT NOT NULL,
     user_name       VARCHAR(64) NOT NULL,
@@ -112,9 +112,9 @@ CREATE TABLE sys_audit_log (
     user_agent      TEXT,
     created_at      TIMESTAMP NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_audit_user ON sys_audit_log(user_id);
-CREATE INDEX idx_audit_entity ON sys_audit_log(entity_type, entity_id);
-CREATE INDEX idx_audit_time ON sys_audit_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_user ON sys_audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_entity ON sys_audit_log(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_audit_time ON sys_audit_log(created_at);
 
 -- 业务表通用字段模板
 -- store_code         数据隔离字段（必填）
@@ -125,7 +125,7 @@ CREATE INDEX idx_audit_time ON sys_audit_log(created_at);
 -- deleted_at         软删除时间戳（NULL 表示未删除）
 
 -- 示例：销售订单表
-CREATE TABLE biz_sales_order (
+CREATE TABLE IF NOT EXISTS biz_sales_order (
     order_id            BIGSERIAL PRIMARY KEY,
     order_no            VARCHAR(64) UNIQUE NOT NULL,
     customer_id         BIGINT NOT NULL,
@@ -141,6 +141,6 @@ CREATE TABLE biz_sales_order (
     deleted_at          TIMESTAMP,
     note                TEXT
 );
-CREATE INDEX idx_so_store ON biz_sales_order(store_code);
-CREATE INDEX idx_so_customer ON biz_sales_order(customer_id);
-CREATE INDEX idx_so_status ON biz_sales_order(status);
+CREATE INDEX IF NOT EXISTS idx_so_store ON biz_sales_order(store_code);
+CREATE INDEX IF NOT EXISTS idx_so_customer ON biz_sales_order(customer_id);
+CREATE INDEX IF NOT EXISTS idx_so_status ON biz_sales_order(status);
