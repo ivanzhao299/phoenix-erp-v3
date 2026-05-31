@@ -87,21 +87,24 @@ END $$;
 -- 删除 sys_orgs 表（IF EXISTS 保证幂等）
 DROP TABLE IF EXISTS sys_orgs CASCADE;
 
--- 清理 wf_data_source 中的旧 SYS_ORGS 条目，替换为新表引用
-UPDATE wf_data_sources
-SET config = jsonb_set(
-  jsonb_set(config, '{table}', '"sys_organizations"'),
-  '{valueField}', '"org_code"'
-)
-WHERE code = 'SYS_ORGS'
-AND   EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'wf_data_sources');
-
--- 替换 wf_data_catalog 中的旧配置（兼容两种表名）
-UPDATE wf_data_catalog
-SET meta = jsonb_set(
-  jsonb_set(meta, '{table}', '"sys_organizations"'),
-  '{valueField}', '"org_code"'
-)
-WHERE code = 'SYS_ORGS'
-AND   meta->>'table' = 'sys_orgs'
-AND   EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'wf_data_catalog');
+-- 清理 wf_data_source / wf_data_catalog 中的旧 SYS_ORGS 条目，替换为新表引用
+-- 修复（Phase C）：原 WHERE ... AND EXISTS(...) 守卫无效——UPDATE 的目标表
+-- 必须存在才能解析。这些 wf_* 表是运行时建的，全新数据库不存在。
+-- 改用 DO 块 + IF EXISTS + EXECUTE 动态 SQL，表不存在时安全跳过。
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'wf_data_sources') THEN
+    EXECUTE $sql$
+      UPDATE wf_data_sources
+      SET config = jsonb_set(jsonb_set(config, '{table}', '"sys_organizations"'), '{valueField}', '"org_code"')
+      WHERE code = 'SYS_ORGS'
+    $sql$;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'wf_data_catalog') THEN
+    EXECUTE $sql$
+      UPDATE wf_data_catalog
+      SET meta = jsonb_set(jsonb_set(meta, '{table}', '"sys_organizations"'), '{valueField}', '"org_code"')
+      WHERE code = 'SYS_ORGS' AND meta->>'table' = 'sys_orgs'
+    $sql$;
+  END IF;
+END $$;
