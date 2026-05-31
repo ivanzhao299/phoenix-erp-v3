@@ -359,7 +359,9 @@ jobs:
                 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
                 < scripts/check-role-runtime-phase-c.sql 2>&1)
               echo "$CHECK_OUT"
-              if echo "$CHECK_OUT" | grep -q "❌ FAIL"; then
+              # 修复（误报）：只匹配真正的检查失败结果行 "❌ FAIL — ..."（带破折号），
+              # 不匹配脚本结尾的说明文字"任一 ❌ FAIL 需排查对应迁移"（含 FAIL 字样但非失败）。
+              if echo "$CHECK_OUT" | grep -q "❌ FAIL —"; then
                 echo "::error::❌ Phase C 生产验证存在 FAIL — Phase C 未在生产端真实生效"
                 exit 1
               fi
