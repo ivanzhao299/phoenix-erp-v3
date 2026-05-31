@@ -73,18 +73,14 @@ DO $$ BEGIN
   -- ─────────────────────────────────────────────────────────
   -- 封存标注：ord_customers / b2b_customers 只读注释
   -- ─────────────────────────────────────────────────────────
-  DO $$ BEGIN
+  -- 修复（Phase C）：本文件整体已是一个 DO $$ PL/pgSQL 块，
+  -- 不能再嵌套 DO；在块内直接用 IF EXISTS ... THEN ... END IF + EXECUTE。
   IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='ord_customers') THEN
-    COMMENT ON TABLE ord_customers IS
-    '[LEGACY][READ_ONLY][Phase E封存] 禁止新业务写入 — 正式主档见 sal_customers';
+    EXECUTE 'COMMENT ON TABLE ord_customers IS ''[LEGACY][READ_ONLY][Phase E封存] 禁止新业务写入 — 正式主档见 sal_customers''';
   END IF;
-END $$;
-  DO $$ BEGIN
   IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='b2b_customers') THEN
-    COMMENT ON TABLE b2b_customers IS
-    '[LEGACY][READ_ONLY][Phase E封存] 禁止新业务写入 — 正式主档见 sal_customers (DISTRIBUTOR type)';
+    EXECUTE 'COMMENT ON TABLE b2b_customers IS ''[LEGACY][READ_ONLY][Phase E封存] 禁止新业务写入 — 正式主档见 sal_customers (DISTRIBUTOR type)''';
   END IF;
-END $$;
 
   RAISE NOTICE '=== Customer Master G1 Migration DONE ===';
 END $$;
