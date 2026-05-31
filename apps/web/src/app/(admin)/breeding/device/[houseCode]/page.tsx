@@ -406,7 +406,7 @@ export default function HouseDetailPage() {
                 background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)',
                 padding: '14px 16px', boxShadow: 'var(--shadow-sm)',
                 border: `1px solid color-mix(in srgb,${color} 18%,var(--border))`,
-                borderLeft: `4px solid ${color}`,
+                borderLeft: `var(--card-accent-width) solid ${color}`,
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>

@@ -112,6 +112,47 @@ export const ACCENT_MAP: Record<AccentColor, {
   },
 };
 
+// ── 原始强调色（用于 inline style 的左强调条 / color-mix 图标盒 / 主色数字）──────
+// 与「生产管理（养殖）」首页统一的卡片配色，是全系统 KpiCard / NavCard 的单一来源。
+// 用法：borderLeft: `4px solid ${ACCENT_SOLID.blue}`
+//      background: `color-mix(in srgb, ${ACCENT_SOLID.blue} 12%, transparent)`
+export const ACCENT_SOLID: Record<AccentColor, string> = {
+  blue:   'var(--color-primary)',
+  green:  '#16a34a',
+  amber:  '#f59e0b',
+  red:    '#dc2626',
+  violet: '#7c3aed',
+  teal:   '#059669',
+  indigo: 'var(--color-primary)',
+  cyan:   '#0891b2',
+  slate:  'var(--text-secondary)',
+};
+
+// ── 旧硬编码 hex 颜色 → 全局语义强调色（迁移本地卡片到全局 KpiCard 用）──────────
+export function hexToAccent(hex?: string): AccentColor {
+  const m: Record<string, AccentColor> = {
+    '#2563eb': 'blue',  '#3b82f6': 'blue',
+    '#16a34a': 'green', '#10b981': 'green', '#22c55e': 'green', '#059669': 'green',
+    '#d97706': 'amber', '#f59e0b': 'amber', '#ea580c': 'amber',
+    '#dc2626': 'red',   '#ef4444': 'red',   '#be123c': 'red',   '#e11d48': 'red',
+    '#9333ea': 'violet','#8b5cf6': 'violet','#7c3aed': 'violet',
+    '#0891b2': 'cyan',  '#06b6d4': 'cyan',
+  };
+  return (hex && m[hex.toLowerCase()]) || 'slate';
+}
+
+// ── 主卡片(KPI)网格标准 ───────────────────────────────────────────────────────
+// 全系统主卡片行统一用此响应式网格：列宽按容器比例自适应(auto-fit 撑满)，
+// 断点 220px 一致，避免各页布局不齐。inline 页面用 KPI_GRID，CSS 类页面用 .kpiGrid。
+import type React from 'react';
+export const KPI_GRID: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+  // 横向列间距 20，纵向行间距 12（换行成多行时行与行不至于隔太开）
+  rowGap: 12,
+  columnGap: 20,
+};
+
 // ── 状态系统 ──────────────────────────────────────────────────────────
 export type StatusType =
   | 'SUCCESS' | 'WARNING' | 'DANGER' | 'INFO'

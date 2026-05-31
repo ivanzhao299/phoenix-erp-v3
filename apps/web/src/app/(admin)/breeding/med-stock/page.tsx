@@ -158,11 +158,11 @@ export default function MedStockPage() {
               style={{ flex: 1, border: 'none', background: 'none', color: 'var(--text-primary)', fontSize: 13, outline: 'none' }} />
           </div>
           <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table className={s.table}>
               <thead>
-                <tr style={{ background: 'var(--bg-page)', borderBottom: '2px solid var(--border)' }}>
+                <tr>
                   {['药品名称', '规格', '库存量', '单位', '状态'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: h === '库存量' ? 'right' : 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>{h}</th>
+                    <th key={h} style={{ textAlign: h === '库存量' ? 'right' : 'left' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -170,12 +170,12 @@ export default function MedStockPage() {
                 {loading ? <tr><td colSpan={5} style={{ padding: 32, textAlign: 'center', color: 'var(--text-secondary)' }}>加载中…</td></tr>
                   : filteredStock.length === 0 ? <tr><td colSpan={5} style={{ padding: 32, textAlign: 'center', color: 'var(--text-secondary)' }}>暂无数据</td></tr>
                   : filteredStock.map(m => (
-                    <tr key={m.medication_code} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '10px 14px', fontWeight: 600 }}>{m.medication_name}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>{m.dosage}</td>
-                      <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: m.qty > 0 ? '#8b5cf6' : 'var(--text-secondary)', fontSize: 16 }}>{m.qty}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>{m.unit}</td>
-                      <td style={{ padding: '10px 14px' }}>
+                    <tr key={m.medication_code}>
+                      <td>{m.medication_name}</td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{m.dosage}</td>
+                      <td style={{ textAlign: 'right', color: m.qty > 0 ? '#8b5cf6' : 'var(--text-secondary)' }}>{m.qty}</td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{m.unit}</td>
+                      <td>
                         <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
                           background: m.qty > 0 ? 'rgba(139,92,246,0.1)' : 'rgba(148,163,184,0.1)',
                           color: m.qty > 0 ? '#8b5cf6' : 'var(--text-secondary)', border: `1px solid ${m.qty > 0 ? 'rgba(139,92,246,0.3)' : 'var(--border)'}` }}>
@@ -193,26 +193,26 @@ export default function MedStockPage() {
       {/* ── 入库 / 出库 Tab ── */}
       {(tab === 'inbound' || tab === 'outbound') && (
         <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table className={s.table}>
             <thead>
-              <tr style={{ background: 'var(--bg-page)', borderBottom: '2px solid var(--border)' }}>
-                <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>药品名称</th>
-                <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>规格</th>
-                <th style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 600 }}>库存</th>
-                <th style={{ padding: '10px 14px', textAlign: 'center', color: 'var(--text-secondary)', fontWeight: 600 }}>数量</th>
-                {tab === 'outbound' && <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>栋舍</th>}
-                <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>备注</th>
+              <tr>
+                <th>药品名称</th>
+                <th>规格</th>
+                <th style={{ textAlign: 'right' }}>库存</th>
+                <th style={{ textAlign: 'center' }}>数量</th>
+                {tab === 'outbound' && <th>栋舍</th>}
+                <th>备注</th>
               </tr>
             </thead>
             <tbody>
               {stock.map(m => {
                 const e = getEntry(m.medication_code);
                 return (
-                  <tr key={m.medication_code} style={{ borderBottom: '1px solid var(--border)', background: e.qty > 0 ? 'rgba(139,92,246,0.04)' : undefined }}>
-                    <td style={{ padding: '9px 14px', fontWeight: 600 }}>{m.medication_name}</td>
-                    <td style={{ padding: '9px 14px', color: 'var(--text-secondary)' }}>{m.dosage}</td>
-                    <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text-secondary)' }}>{m.qty} {m.unit}</td>
-                    <td style={{ padding: '9px 14px', textAlign: 'center' }}>
+                  <tr key={m.medication_code} style={{ background: e.qty > 0 ? 'rgba(139,92,246,0.04)' : undefined }}>
+                    <td>{m.medication_name}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{m.dosage}</td>
+                    <td style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>{m.qty} {m.unit}</td>
+                    <td style={{ textAlign: 'center' }}>
                       {canEdit ? (
                         <input type="number" min="0" value={e.qty || ''}
                           onChange={ev => setEntry(m.medication_code, { qty: Math.max(0, Number(ev.target.value) || 0) })}
@@ -221,7 +221,7 @@ export default function MedStockPage() {
                       ) : e.qty}
                     </td>
                     {tab === 'outbound' && (
-                      <td style={{ padding: '9px 14px' }}>
+                      <td>
                         {canEdit ? (
                           <select value={e.house_code} onChange={ev => setEntry(m.medication_code, { house_code: ev.target.value })}
                             style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-page)', color: 'var(--text-primary)', fontSize: 13 }}>
@@ -230,7 +230,7 @@ export default function MedStockPage() {
                         ) : e.house_code}
                       </td>
                     )}
-                    <td style={{ padding: '9px 14px' }}>
+                    <td>
                       {canEdit ? (
                         <input type="text" value={e.note}
                           onChange={ev => setEntry(m.medication_code, { note: ev.target.value })}
@@ -262,11 +262,11 @@ export default function MedStockPage() {
             </button>
           </div>
           <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table className={s.table}>
               <thead>
-                <tr style={{ background: 'var(--bg-page)', borderBottom: '2px solid var(--border)' }}>
+                <tr>
                   {['日期', '药品名称', '类型', '数量变动', '栋舍', '备注', '操作人'].map(h => (
-                    <th key={h} style={{ padding: '10px 12px', textAlign: h === '数量变动' ? 'right' : 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>{h}</th>
+                    <th key={h} style={{ textAlign: h === '数量变动' ? 'right' : 'left' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -274,22 +274,22 @@ export default function MedStockPage() {
                 {loading ? <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: 'var(--text-secondary)' }}>加载中…</td></tr>
                   : ledger.length === 0 ? <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: 'var(--text-secondary)' }}>暂无数据</td></tr>
                   : ledger.map(e => (
-                    <tr key={e.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>{e.log_date}</td>
-                      <td style={{ padding: '10px 12px', fontWeight: 600 }}>{e.medication_name}</td>
-                      <td style={{ padding: '10px 12px' }}>
+                    <tr key={e.id}>
+                      <td style={{ color: 'var(--text-secondary)' }}>{e.log_date}</td>
+                      <td>{e.medication_name}</td>
+                      <td>
                         <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
                           background: e.change_type === 'MED_INBOUND' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
                           color: e.change_type === 'MED_INBOUND' ? '#10b981' : '#ef4444' }}>
                           {CHANGE_LABELS[e.change_type] ?? e.change_type}
                         </span>
                       </td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: e.qty_change > 0 ? '#10b981' : '#ef4444' }}>
+                      <td style={{ textAlign: 'right', color: e.qty_change > 0 ? '#10b981' : '#ef4444' }}>
                         {e.qty_change > 0 ? '+' : ''}{e.qty_change}
                       </td>
-                      <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>{e.house_code ?? '—'}</td>
-                      <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontSize: 12 }}>{e.note ?? '—'}</td>
-                      <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>{e.operator}</td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{e.house_code ?? '—'}</td>
+                      <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{e.note ?? '—'}</td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{e.operator}</td>
                     </tr>
                   ))}
               </tbody>

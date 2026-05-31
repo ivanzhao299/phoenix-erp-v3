@@ -4,6 +4,7 @@ import PageHeader from "@/components/PageHeader";
 import { Activity, Database, Cpu, Wifi, Clock, RefreshCw, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePolling } from '@/hooks/usePolling';
+import s from "@/components/ui/admin-ui.module.css";
 
 type Status = "ok" | "warn" | "error" | "loading";
 
@@ -21,7 +22,7 @@ function HealthCard({ title, icon, value, unit, status, detail, color }: { title
   const sc = STATUS_COLOR[status];
   const bg = STATUS_BG[status];
   return (
-    <div style={{ backgroundColor:"var(--bg-card)", border:`1px solid ${sc}30`, borderRadius:"var(--radius-lg)", padding:20, borderLeft:`4px solid ${color}` }}>
+    <div style={{ backgroundColor:"var(--bg-card)", border:`1px solid ${sc}30`, borderRadius:"var(--radius-lg)", padding:20, borderLeft:`var(--card-accent-width) solid ${color}` }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
         <div style={{ padding:8, backgroundColor:bg, borderRadius:8, color:sc }}>{icon}</div>
         <span style={{ fontSize:11, fontWeight:700, padding:"2px 8px", borderRadius:10, backgroundColor:bg, color:sc }}>{STATUS_LABEL[status]}</span>
@@ -152,11 +153,11 @@ export default function SystemHealthPage() {
       {/* 端点状态表 */}
       <div style={{ backgroundColor:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:"var(--radius-lg)", padding:20 }}>
         <div style={{ fontWeight:700, fontSize:14, marginBottom:14, color:"var(--text-primary)" }}>{t("ui.关键端点状态","关键端点状态")}</div>
-        <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ backgroundColor:"var(--bg-page)" }}>
+            <tr>
               {[t("ui.端点","端点"), t("ui.用途","用途"), t("common.status","状态")].map(h=>(
-                <th key={h} style={{ padding:"8px 12px", textAlign:"left", color:"var(--text-secondary)", fontWeight:600 }}>{h}</th>
+                <th key={h}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -166,10 +167,10 @@ export default function SystemHealthPage() {
               const color = STATUS_COLOR[st];
               const Icon  = st==="ok"?CheckCircle:st==="error"?XCircle:AlertTriangle;
               return (
-                <tr key={i} style={{ borderTop:"1px solid var(--border)" }}>
-                  <td style={{ padding:"10px 12px", fontFamily:"monospace", fontSize:12, color:"var(--color-primary)" }}>{row.path}</td>
-                  <td style={{ padding:"10px 12px", color:"var(--text-secondary)" }}>{t(row.descKey, row.descFallback)}</td>
-                  <td style={{ padding:"10px 12px" }}>
+                <tr key={i}>
+                  <td style={{ fontFamily:"monospace", fontSize:12, color:"var(--color-primary)" }}>{row.path}</td>
+                  <td style={{ color:"var(--text-secondary)" }}>{t(row.descKey, row.descFallback)}</td>
+                  <td>
                     <span style={{ display:"inline-flex", alignItems:"center", gap:4, color, fontWeight:600, fontSize:12 }}>
                       <Icon size={13}/>{STATUS_LABEL[st]}
                     </span>

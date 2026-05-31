@@ -75,7 +75,7 @@ export default function StorePage() {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))", gap:12, marginBottom:24 }}>
         {kpis.map(k=>(
           <div key={k.label} style={{ background:"var(--bg-card)", border:"1px solid var(--border)",
-            borderLeft:`4px solid ${k.accent}`, borderRadius:"var(--radius-lg)", padding:"16px 18px" }}>
+            borderLeft:`var(--card-accent-width) solid ${k.accent}`, borderRadius:"var(--radius-lg)", padding:"16px 18px" }}>
             <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:8, color:k.accent, fontSize:12, fontWeight:700, textTransform:"uppercase" }}>
               {k.icon}{k.label}
             </div>

@@ -509,24 +509,24 @@ export default function ReceiptsPage() {
             {(detail.items ?? []).length > 0 && (
               <div style={{ marginTop: 16 }}>
                 <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>收货明细</div>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <table className={s.table}>
                   <thead>
-                    <tr style={{ background: "var(--bg-table-head)" }}>
-                      <th style={{ padding: "6px 4px", textAlign: "left" }}>物品</th>
-                      <th style={{ padding: "6px 4px", textAlign: "right" }}>应收</th>
-                      <th style={{ padding: "6px 4px", textAlign: "right" }}>实收</th>
-                      <th style={{ padding: "6px 4px", textAlign: "right" }}>拒收</th>
-                      <th style={{ padding: "6px 4px", textAlign: "left" }}>质检</th>
+                    <tr>
+                      <th>物品</th>
+                      <th style={{ textAlign: "right" }}>应收</th>
+                      <th style={{ textAlign: "right" }}>实收</th>
+                      <th style={{ textAlign: "right" }}>拒收</th>
+                      <th>质检</th>
                     </tr>
                   </thead>
                   <tbody>
                     {detail.items!.map((item, idx) => (
-                      <tr key={idx} style={{ borderBottom: "1px solid var(--border)" }}>
-                        <td style={{ padding: "4px" }}>{item.itemName}</td>
-                        <td style={{ padding: "4px", textAlign: "right" }}>{item.expectedQty}</td>
-                        <td style={{ padding: "4px", textAlign: "right", fontWeight: 600, color: "var(--color-success)" }}>{item.actualQty}</td>
-                        <td style={{ padding: "4px", textAlign: "right", color: "var(--color-danger)" }}>{item.rejectedQty || "0"}</td>
-                        <td style={{ padding: "4px" }}>{QUALITY_LABELS[item.qualityStatus ?? ""] ?? item.qualityStatus ?? "—"}</td>
+                      <tr key={idx}>
+                        <td>{item.itemName}</td>
+                        <td style={{ textAlign: "right" }}>{item.expectedQty}</td>
+                        <td style={{ textAlign: "right", color: "var(--color-success)" }}>{item.actualQty}</td>
+                        <td style={{ textAlign: "right", color: "var(--color-danger)" }}>{item.rejectedQty || "0"}</td>
+                        <td>{QUALITY_LABELS[item.qualityStatus ?? ""] ?? item.qualityStatus ?? "—"}</td>
                       </tr>
                     ))}
                   </tbody>

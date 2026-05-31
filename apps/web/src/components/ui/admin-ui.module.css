@@ -247,6 +247,10 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  /* 全系统主卡片统一高度下限（与全局 KpiCard / 养殖页基准一致） */
+  min-height: 112px;
+  box-sizing: border-box;
+  justify-content: center;
   transition: box-shadow 0.2s, border-color 0.2s;
 }
 .statCard:hover { box-shadow: var(--shadow-md); border-color: var(--color-primary); }
@@ -256,6 +260,8 @@
 
 /* 统计行 Grid */
 .statsRow { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+/* 主卡片(KPI)网格标准：列宽按容器比例自适应、断点 220px 统一（与 JS 常量 KPI_GRID 锁步）*/
+.kpiGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 20px; }
 
 /* ══════════════════════════════════════════════════════
    五、数据表格
@@ -1027,12 +1033,12 @@
 /* ── KPI 统计卡片：左边框强调色变体 ──────────────────
    用法：<div className={`${s.statCard} ${s.statCardSuccess}`}>
    原 style={{ borderLeftColor: "#22c55e" }} 改为此类 */
-.statCardSuccess { border-left-color: #22c55e; border-left-width: 4px; }
-.statCardWarning { border-left-color: #f59e0b; border-left-width: 4px; }
-.statCardDanger  { border-left-color: #ef4444; border-left-width: 4px; }
-.statCardInfo    { border-left-color: #3b82f6; border-left-width: 4px; }
-.statCardPurple  { border-left-color: #8b5cf6; border-left-width: 4px; }
-.statCardPrimary { border-left-color: var(--color-primary); border-left-width: 4px; }
+.statCardSuccess { border-left-color: #22c55e; border-left-width: var(--card-accent-width); }
+.statCardWarning { border-left-color: #f59e0b; border-left-width: var(--card-accent-width); }
+.statCardDanger  { border-left-color: #ef4444; border-left-width: var(--card-accent-width); }
+.statCardInfo    { border-left-color: #3b82f6; border-left-width: var(--card-accent-width); }
+.statCardPurple  { border-left-color: #8b5cf6; border-left-width: var(--card-accent-width); }
+.statCardPrimary { border-left-color: var(--color-primary); border-left-width: var(--card-accent-width); }
 
 /* ── 语义文字色（数值/标签）──────────────────────────
    用法：<div className={s.textSuccess}>123</div>

@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Layers, Search, RefreshCw, Plus, Edit2 } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
+import ui from "@/components/ui/admin-ui.module.css";
 
 /**
  * 主数据中心 — SKU 档案
@@ -154,11 +155,11 @@ export default function ProductSkusPage() {
         <div style={{ textAlign: "center", padding: 40, color: "#475569" }}>加载中...</div>
       ) : (
         <div className="bg-bg-muted border border-border" style={{ borderRadius: 10, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table className={ui.table}>
             <thead>
-              <tr className="bg-bg-card text-text-muted">
+              <tr>
                 {["SKU 编码","SKU 名称","产品","等级","规格","条码","状态",""].map((h, i) => (
-                  <th key={i} className="border-b border-border" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 500 }}>{h}</th>
+                  <th key={i}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -168,24 +169,24 @@ export default function ProductSkusPage() {
               )}
               {filtered.map((s, i) => (
                 <tr key={s.sku_code} className="border-b border-border" style={{ background: i % 2 ? "rgba(148,163,184,0.05)" : "transparent" }}>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td>
                     <span className="bg-bg-card border border-border" style={{ borderRadius: 5, padding: "2px 8px", fontFamily: "monospace", fontWeight: 600, fontSize: 12 }}>{s.sku_code}</span>
                   </td>
-                  <td style={{ padding: "10px 14px" }}>{s.sku_name || "—"}</td>
-                  <td className="text-text-muted" style={{ padding: "10px 14px" }}>{s.product_code}</td>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td>{s.sku_name || "—"}</td>
+                  <td className="text-text-muted">{s.product_code}</td>
+                  <td>
                     <span style={{ background: "#1e3a5f", color: "#60a5fa", padding: "2px 8px", borderRadius: 5, fontSize: 11, fontWeight: 600 }}>{s.grade_code}</span>
                   </td>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td>
                     <span style={{ background: "#1e3a2f", color: "#34d399", padding: "2px 8px", borderRadius: 5, fontSize: 11, fontWeight: 600 }}>{s.spec_code}</span>
                   </td>
-                  <td className="text-text-muted" style={{ padding: "10px 14px", fontFamily: "monospace", fontSize: 12 }}>{s.barcode || "—"}</td>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td className="text-text-muted" style={{ fontFamily: "monospace", fontSize: 12 }}>{s.barcode || "—"}</td>
+                  <td>
                     <span style={{ background: (STATUS_MAP[s.status ?? ""] || STATUS_MAP.INACTIVE).color + "20", color: (STATUS_MAP[s.status ?? ""] || STATUS_MAP.INACTIVE).color, padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600 }}>
                       {(STATUS_MAP[s.status ?? ""] || STATUS_MAP.INACTIVE).label}
                     </span>
                   </td>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td>
                     {canEdit && (
                       <button onClick={() => openEdit(s)} className="border border-border text-text-muted" style={{ background: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
                         <Edit2 size={12} /> 编辑

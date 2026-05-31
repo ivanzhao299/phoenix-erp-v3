@@ -144,37 +144,37 @@ export default function MemberListPage() {
 
       {/* 表格 */}
       <div style={{ background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-lg)",overflow:"auto" }}>
-        <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background:"var(--bg-page)",borderBottom:"1px solid var(--border)" }}>
+            <tr>
               {[t('ui.会员号', '会员号'), t('ui.姓名', '姓名'), t('ui.手机号', '手机号'), t('ui.性别', '性别'), t('ui.生日', '生日'), t('ui.等级', '等级'), t('ui.积分', '积分'), t('ui.累计消费', '累计消费'), t('common.status', '状态'), t('common.operation', '操作')].map(h=>(
-                <th key={h} style={{ padding:"9px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"var(--text-secondary)",whiteSpace:"nowrap" }}>{h}</th>
+                <th key={h} style={{ whiteSpace:"nowrap" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading&&<tr><td colSpan={10} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>{t('common.loading', '加载中…')}</td></tr>}
             {!loading&&filtered.length===0&&<tr><td colSpan={10} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>{t('common.no_data', '暂无会员记录')}</td></tr>}
-            {!loading&&filtered.map((row,i)=>{
+            {!loading&&filtered.map((row)=>{
               const lv  = LEVEL_STYLE[row.level||"SILVER"]||LEVEL_STYLE.SILVER;
               const st  = row.status?.toUpperCase()||"ACTIVE";
               const canUp = row.level!=="PLATINUM";
               return (
-                <tr key={row.id} style={{ borderBottom:"1px solid var(--border)",background:i%2===0?"var(--bg-card)":"var(--bg-page)" }}>
-                  <td style={{ padding:"9px 12px",fontFamily:"monospace",fontSize:11,color:"var(--text-secondary)" }}>{row.member_no}</td>
-                  <td style={{ padding:"9px 12px",fontWeight:700 }}>
+                <tr key={row.id}>
+                  <td style={{ fontFamily:"monospace",fontSize:11,color:"var(--text-secondary)" }}>{row.member_no}</td>
+                  <td>
                     <button type="button" onClick={()=>openEdit(row)} style={{ background:"none",border:"none",color:"var(--color-primary)",cursor:"pointer",fontWeight:700,fontSize:13,padding:0 }}>{row.member_name}</button>
                   </td>
-                  <td style={{ padding:"9px 12px",fontFamily:"monospace",fontSize:12 }}>{row.phone||"—"}</td>
-                  <td style={{ padding:"9px 12px" }}>{row.gender==="male"?t('ui.男', '男'):t('ui.女', '女')}</td>
-                  <td style={{ padding:"9px 12px",fontSize:11 }}>{row.birthday?.slice(0,10)||"—"}</td>
-                  <td style={{ padding:"9px 12px" }}>
+                  <td style={{ fontFamily:"monospace",fontSize:12 }}>{row.phone||"—"}</td>
+                  <td>{row.gender==="male"?t('ui.男', '男'):t('ui.女', '女')}</td>
+                  <td style={{ fontSize:11 }}>{row.birthday?.slice(0,10)||"—"}</td>
+                  <td>
                     <span style={{ fontWeight:700,fontSize:11,color:lv.color,background:lv.bg,borderRadius:6,padding:"3px 8px" }}>{lv.label}</span>
                   </td>
-                  <td style={{ padding:"9px 12px",fontWeight:700,color:"#f59e0b" }}>{Number(row.points||0).toLocaleString()}</td>
-                  <td style={{ padding:"9px 12px",color:"var(--color-primary)" }}>¥{Number(row.total_spent||0).toLocaleString()}</td>
-                  <td style={{ padding:"9px 12px" }}><span className={`${s.badge} ${s[STATUS_CLS[st]||'badgeNeutral']}`}>{STATUS_LABEL[st]||st}</span></td>
-                  <td style={{ padding:"9px 12px",display:"flex",gap:5,flexWrap:"wrap" }}>
+                  <td style={{ color:"#f59e0b" }}>{Number(row.points||0).toLocaleString()}</td>
+                  <td style={{ color:"var(--color-primary)" }}>¥{Number(row.total_spent||0).toLocaleString()}</td>
+                  <td><span className={`${s.badge} ${s[STATUS_CLS[st]||'badgeNeutral']}`}>{STATUS_LABEL[st]||st}</span></td>
+                  <td style={{ display:"flex",gap:5,flexWrap:"wrap" }}>
                     <button type="button" className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>openEdit(row)}>{t('common.edit', '编辑')}</button>
                     {canUp&&<button type="button" className={s.btnSuccess} style={{ padding:"4px 8px",fontSize:11 }} onClick={()=>upgradeLevel(row)}>{t('ui.升级', '升级')}</button>}
                   </td>

@@ -238,11 +238,11 @@ function PriceBooksTab() {
       </div>
 
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background: "var(--bg-muted)", borderBottom: "1px solid var(--border)" }}>
+            <tr>
               {["编号","名称","渠道","客户","优先级","生效日","失效日","状态","操作"].map(h => (
-                <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{h}</th>
+                <th key={h} style={{ whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -252,18 +252,18 @@ function PriceBooksTab() {
             {rows.map((row, i) => {
               const st = BOOK_STATUSES[row.status] ?? { label: row.status, cls: s.badgeNeutral };
               return (
-                <tr key={row.id} style={{ borderBottom: i < rows.length - 1 ? "1px solid var(--border)" : "none" }}
+                <tr key={row.id}
                   onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "var(--bg-hover)"}
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ""}>
-                  <td style={{ padding: "9px 12px", fontFamily: "monospace", fontSize: 11 }}>{row.price_book_no}</td>
-                  <td style={{ padding: "9px 12px", fontWeight: 600 }}>{row.price_book_name}</td>
-                  <td style={{ padding: "9px 12px", color: "var(--text-secondary)" }}>{row.channel_code ?? "—"}</td>
-                  <td style={{ padding: "9px 12px", color: "var(--text-secondary)" }}>{row.customer_code ?? "—"}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "center" }}>{row.priority}</td>
-                  <td style={{ padding: "9px 12px", fontSize: 11 }}>{row.effective_from ?? "—"}</td>
-                  <td style={{ padding: "9px 12px", fontSize: 11 }}>{row.effective_to ?? "—"}</td>
-                  <td style={{ padding: "9px 12px" }}><span className={`${s.badge} ${st.cls}`}>{st.label}</span></td>
-                  <td style={{ padding: "9px 12px" }}>
+                  <td style={{ fontFamily: "monospace", fontSize: 11 }}>{row.price_book_no}</td>
+                  <td>{row.price_book_name}</td>
+                  <td style={{ color: "var(--text-secondary)" }}>{row.channel_code ?? "—"}</td>
+                  <td style={{ color: "var(--text-secondary)" }}>{row.customer_code ?? "—"}</td>
+                  <td style={{ textAlign: "center" }}>{row.priority}</td>
+                  <td style={{ fontSize: 11 }}>{row.effective_from ?? "—"}</td>
+                  <td style={{ fontSize: 11 }}>{row.effective_to ?? "—"}</td>
+                  <td><span className={`${s.badge} ${st.cls}`}>{st.label}</span></td>
+                  <td>
                     <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                       {row.status === "DRAFT" && (
                         <>
@@ -523,11 +523,11 @@ function PriceItemsTab() {
 
       {/* 表格 */}
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background: "var(--bg-muted)", borderBottom: "1px solid var(--border)" }}>
+            <tr>
               {["价格册","SKU / 产品","品级","规格","单价","底价","最高价","数量范围","货币","操作"].map(h => (
-                <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{h}</th>
+                <th key={h} style={{ textAlign: ["单价","底价","最高价"].includes(h) ? "right" : "left", whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -535,29 +535,29 @@ function PriceItemsTab() {
             {loading && <tr><td colSpan={10} style={{ textAlign: "center", padding: 32, color: "var(--text-secondary)" }}>加载中…</td></tr>}
             {!loading && rows.length === 0 && <tr><td colSpan={10} className={s.emptyState}>暂无价格明细（请输入价格册 ID 筛选）</td></tr>}
             {rows.map((row, i) => (
-              <tr key={row.id} style={{ borderBottom: i < rows.length - 1 ? "1px solid var(--border)" : "none" }}
+              <tr key={row.id}
                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "var(--bg-hover)"}
                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ""}>
-                <td style={{ padding: "9px 12px", fontFamily: "monospace", fontSize: 11 }}>{row.price_book_no}</td>
-                <td style={{ padding: "9px 12px" }}>
+                <td style={{ fontFamily: "monospace", fontSize: 11 }}>{row.price_book_no}</td>
+                <td>
                   {row.sku_code
                     ? <span style={{ fontFamily: "monospace", fontSize: 11, background: "rgba(99,102,241,0.12)", color: "#818cf8", borderRadius: 4, padding: "2px 6px" }}>{row.sku_code}</span>
                     : row.product_code}
                 </td>
-                <td style={{ padding: "9px 12px", fontSize: 12 }}>{gradeLabel(row.grade_code_std ?? row.grade_code, master.grades)}</td>
-                <td style={{ padding: "9px 12px", fontSize: 11 }}>{row.spec_code ?? row.packaging_spec ?? "—"}</td>
-                <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>{Number(row.unit_price).toLocaleString()}</td>
-                <td style={{ padding: "9px 12px", textAlign: "right", color: "#f59e0b" }}>
+                <td style={{ fontSize: 12 }}>{gradeLabel(row.grade_code_std ?? row.grade_code, master.grades)}</td>
+                <td style={{ fontSize: 11 }}>{row.spec_code ?? row.packaging_spec ?? "—"}</td>
+                <td style={{ textAlign: "right", fontWeight: 700 }}>{Number(row.unit_price).toLocaleString()}</td>
+                <td style={{ textAlign: "right", color: "#f59e0b" }}>
                   {row.floor_price != null ? Number(row.floor_price).toLocaleString() : "—"}
                 </td>
-                <td style={{ padding: "9px 12px", textAlign: "right" }}>
+                <td style={{ textAlign: "right" }}>
                   {row.ceiling_price != null ? Number(row.ceiling_price).toLocaleString() : "—"}
                 </td>
-                <td style={{ padding: "9px 12px", fontSize: 11 }}>
+                <td style={{ fontSize: 11 }}>
                   {row.min_qty || row.max_qty ? `${row.min_qty ?? 0} ~ ${row.max_qty ?? "∞"}` : "不限"}
                 </td>
-                <td style={{ padding: "9px 12px" }}>{row.currency_code}</td>
-                <td style={{ padding: "9px 12px" }}>
+                <td>{row.currency_code}</td>
+                <td>
                   <div style={{ display: "flex", gap: 4 }}>
                     <button type="button" className={s.btnSecondary} onClick={() => openEdit(row)}
                       style={{ padding: "2px 8px", fontSize: 11 }}>编辑</button>
@@ -744,7 +744,7 @@ function CurrentPricesTab() {
             return (
               <div key={i} style={{
                 background: "var(--bg-card)", border: "1px solid var(--border)",
-                borderLeft: "4px solid var(--color-primary)",
+                borderLeft: "var(--card-accent-width) solid var(--color-primary)",
                 borderRadius: "var(--radius-lg)", padding: "14px 16px",
               }}>
                 {r.skuCode && (

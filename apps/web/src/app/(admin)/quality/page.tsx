@@ -94,7 +94,7 @@ export default function QualityPage() {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))", gap:14, marginBottom:24 }}>
         {kpis.map(k => (
           <div key={k.label} style={{ background:"var(--bg-card)", border:"1px solid var(--border)",
-            borderLeft:`4px solid ${k.accent}`, borderRadius:"var(--radius-lg)",
+            borderLeft:`var(--card-accent-width) solid ${k.accent}`, borderRadius:"var(--radius-lg)",
             padding:"18px 20px", boxShadow:"var(--shadow-sm)" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
               <p style={{ fontSize:12, color:"var(--text-secondary)", fontWeight:600 }}>{k.label}</p>
@@ -165,9 +165,9 @@ export default function QualityPage() {
             {t("ui.查看更多", "查看更多")} <ArrowRight size={12}/>
           </button>
         </div>
-        <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background:"var(--bg-page)" }}>
+            <tr>
               {[
                 t("ui.批次号",   "批次号"),
                 t("ui.检验项",   "检验项"),
@@ -175,8 +175,7 @@ export default function QualityPage() {
                 t("common.date", "检验日期"),
                 t("ui.结果",     "结果"),
               ].map(h => (
-                <th key={h} style={{ padding:"8px 16px", textAlign:"left", fontSize:12,
-                  fontWeight:700, color:"var(--text-secondary)", borderBottom:"1px solid var(--border)" }}>{h}</th>
+                <th key={h}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -190,17 +189,16 @@ export default function QualityPage() {
             {!loading && recentInspections.map((ins, i) => {
               const passed_ = isPassed(ins);
               return (
-                <tr key={ins.id} style={{ borderBottom:"1px solid var(--border)",
-                  background: i%2===0 ? "var(--bg-card)" : "var(--bg-page)" }}>
-                  <td style={{ padding:"10px 16px", fontFamily:"monospace", fontSize:12, color:"var(--color-primary)" }}>
+                <tr key={ins.id}>
+                  <td style={{ fontFamily:"monospace", fontSize:12, color:"var(--color-primary)" }}>
                     {ins.batch_no || "—"}
                   </td>
-                  <td style={{ padding:"10px 16px", color:"var(--text-secondary)" }}>{ins.item_type || t("ui.综合检验", "综合检验")}</td>
-                  <td style={{ padding:"10px 16px" }}>{ins.inspector || "—"}</td>
-                  <td style={{ padding:"10px 16px", color:"var(--text-secondary)", fontSize:12 }}>
+                  <td style={{ color:"var(--text-secondary)" }}>{ins.item_type || t("ui.综合检验", "综合检验")}</td>
+                  <td>{ins.inspector || "—"}</td>
+                  <td style={{ color:"var(--text-secondary)", fontSize:12 }}>
                     {(ins.inspect_date || ins.created_at || "—").slice(0,10)}
                   </td>
-                  <td style={{ padding:"10px 16px" }}>
+                  <td>
                     <span className={`${s.badge} ${passed_ ? s.badgeSuccess : s.badgeDanger}`}>
                       {passed_ ? t("ui.合格", "合格") : t("ui.不合格", "不合格")}
                     </span>

@@ -286,7 +286,7 @@ export default function BreedingPage() {
       </div>
 
       {/* KPI Cards */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))", gap:16, marginBottom:24 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))", gap:16, marginBottom:24 }}>
         {[
           { title:t('ui.存栏总数','存栏总数'),   value:totalBirds.toLocaleString(),    unit:t('ui.羽','羽'),  accent:"var(--color-primary)",  icon:<Users size={22}/> },
           { title:t('ui.今日产蛋','今日产蛋'),   value:todayEggs.toLocaleString(),     unit:t('ui.枚','枚'),  accent:"#f59e0b",               icon:<Home size={22}/> },
@@ -296,7 +296,7 @@ export default function BreedingPage() {
           { title:t('ui.今日免疫任务','今日免疫任务'),value:String(immuneCount),         unit:t('ui.项','项'),  accent:"#059669",               icon:<ClipboardList size={22}/> },
         ].map(c=>(
           <div key={c.title} style={{ background:"var(--bg-card)", borderRadius:"var(--radius-lg)", padding:20,
-            boxShadow:"var(--shadow-sm)", border:"1px solid var(--border)", borderLeft:`4px solid ${c.accent}` }}>
+            boxShadow:"var(--shadow-sm)", border:"1px solid var(--border)", borderLeft:`var(--card-accent-width) solid ${c.accent}` }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
               <p style={{ fontSize:13, color:"var(--text-secondary)", fontWeight:500, marginBottom:12 }}>{c.title}</p>
               <div style={{ width:44, height:44, borderRadius:"var(--radius-md)", display:"flex", alignItems:"center",
@@ -312,7 +312,7 @@ export default function BreedingPage() {
 
         {/* 环境设备卡 */}
         <div style={{ background:"var(--bg-card)", borderRadius:"var(--radius-lg)", padding:20,
-          boxShadow:"var(--shadow-sm)", border:"1px solid var(--border)", borderLeft:"4px solid #0891b2", position:"relative" }}>
+          boxShadow:"var(--shadow-sm)", border:"1px solid var(--border)", borderLeft:"var(--card-accent-width) solid #0891b2", position:"relative" }}>
           <button type="button" onClick={()=>router.push("/breeding/device-alerts")}
             title={t('ui.进入环境预警中心','进入环境预警中心')}
             style={{ position:"absolute", top:12, right:12, background:"none", border:"none",

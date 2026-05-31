@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
 import { Settings2, RefreshCw, Save, Lock } from "lucide-react";
+import s from "@/components/ui/admin-ui.module.css";
 
 interface Config {
   id:           number;
@@ -90,22 +91,22 @@ export default function SystemConfigsPage() {
       />
 
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background: "var(--bg-surface)", borderBottom: "1px solid var(--border)" }}>
+            <tr>
               {["分组", "配置键", "当前值", "类型", "说明", "最后修改", "操作"].map(h => (
-                <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{h}</th>
+                <th key={h} style={{ whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {configs.map((cfg, i) => (
-              <tr key={cfg.id} style={{ borderBottom: "1px solid var(--border)", background: i % 2 === 0 ? "transparent" : "var(--bg-surface)" }}>
-                <td style={{ padding: "10px 14px" }}>
+              <tr key={cfg.id}>
+                <td>
                   <span style={{ padding: "1px 8px", borderRadius: 99, fontSize: 11, fontWeight: 700, background: "#dbeafe", color: "#1d4ed8" }}>{cfg.config_group}</span>
                 </td>
-                <td style={{ padding: "10px 14px", fontFamily: "monospace", fontSize: 12 }}>{cfg.config_key}</td>
-                <td style={{ padding: "10px 14px" }}>
+                <td style={{ fontFamily: "monospace", fontSize: 12 }}>{cfg.config_key}</td>
+                <td>
                   {editId === cfg.id ? (
                     <input
                       value={editValue}
@@ -117,12 +118,12 @@ export default function SystemConfigsPage() {
                     <span style={{ fontFamily: "monospace" }}>{cfg.config_value}</span>
                   )}
                 </td>
-                <td style={{ padding: "10px 14px", color: "var(--text-secondary)", fontSize: 11 }}>{cfg.value_type}</td>
-                <td style={{ padding: "10px 14px", color: "var(--text-secondary)", maxWidth: 200 }}>{cfg.description ?? "—"}</td>
-                <td style={{ padding: "10px 14px", color: "var(--text-secondary)", fontSize: 11, whiteSpace: "nowrap" }}>
+                <td style={{ color: "var(--text-secondary)", fontSize: 11 }}>{cfg.value_type}</td>
+                <td style={{ color: "var(--text-secondary)", maxWidth: 200 }}>{cfg.description ?? "—"}</td>
+                <td style={{ color: "var(--text-secondary)", fontSize: 11, whiteSpace: "nowrap" }}>
                   {cfg.updated_by ? `${cfg.updated_by} · ${new Date(cfg.updated_at!).toLocaleDateString("zh-CN")}` : "—"}
                 </td>
-                <td style={{ padding: "10px 14px" }}>
+                <td>
                   {cfg.is_readonly ? (
                     <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--text-secondary)", fontSize: 11 }}>
                       <Lock size={12} />只读

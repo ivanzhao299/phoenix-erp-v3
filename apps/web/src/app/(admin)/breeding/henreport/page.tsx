@@ -139,11 +139,11 @@ export default function HenReportPage() {
       )}
 
       <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background: 'var(--bg-page)', borderBottom: '2px solid var(--border)' }}>
+            <tr>
               {['栋舍', '批次号', '存栏数(羽)', '日龄(天)', '产蛋(枚)', '产蛋率', '死亡(羽)', '淘汰(羽)', '损耗合计', '饲料(kg)', '淘汰原因'].map(h => (
-                <th key={h} style={{ padding: '10px 12px', textAlign: h === '栋舍' || h === '批次号' || h === '淘汰原因' ? 'left' : 'right', color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                <th key={h} style={{ textAlign: h === '栋舍' || h === '批次号' || h === '淘汰原因' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -155,18 +155,18 @@ export default function HenReportPage() {
             ) : rows.map((row, i) => {
               const rate = parseFloat(row.lay_rate);
               return (
-                <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={{ padding: '10px 12px', fontWeight: 600 }}>{row.house_code}</td>
-                  <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>{row.flock_no}</td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>{row.current_qty.toLocaleString()}</td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-secondary)' }}>{row.age_days ?? '—'}</td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#f59e0b' }}>{row.eggs.toLocaleString()}</td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: rateColor(row.lay_rate) }}>{row.lay_rate}</td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: row.mortality > 0 ? '#ef4444' : 'var(--text-secondary)' }}>{row.mortality}</td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: row.elimination > 0 ? '#f97316' : 'var(--text-secondary)' }}>{row.elimination}</td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: row.total_loss > 0 ? '#dc2626' : 'var(--text-secondary)', fontWeight: row.total_loss > 0 ? 700 : 400 }}>{row.total_loss}</td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: '#8b5cf6' }}>{row.feed}</td>
-                  <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontSize: 12 }}>{row.culling_reason ?? '—'}</td>
+                <tr key={i}>
+                  <td>{row.house_code}</td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{row.flock_no}</td>
+                  <td style={{ textAlign: 'right' }}>{row.current_qty.toLocaleString()}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>{row.age_days ?? '—'}</td>
+                  <td style={{ textAlign: 'right', color: '#f59e0b' }}>{row.eggs.toLocaleString()}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 700, color: rateColor(row.lay_rate) }}>{row.lay_rate}</td>
+                  <td style={{ textAlign: 'right', color: row.mortality > 0 ? '#ef4444' : 'var(--text-secondary)' }}>{row.mortality}</td>
+                  <td style={{ textAlign: 'right', color: row.elimination > 0 ? '#f97316' : 'var(--text-secondary)' }}>{row.elimination}</td>
+                  <td style={{ textAlign: 'right', color: row.total_loss > 0 ? '#dc2626' : 'var(--text-secondary)', fontWeight: row.total_loss > 0 ? 700 : 400 }}>{row.total_loss}</td>
+                  <td style={{ textAlign: 'right', color: '#8b5cf6' }}>{row.feed}</td>
+                  <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{row.culling_reason ?? '—'}</td>
                 </tr>
               );
             })}

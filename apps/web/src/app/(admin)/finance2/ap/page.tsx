@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import s from "@/components/ui/admin-ui.module.css";
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -153,7 +154,7 @@ function KpiCard({ label, value, sub, icon: Icon, color, loading }: {
 }) {
   return (
     <div className="bg-bg-card border border-border"
-      style={{ borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+      style={{ borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', minHeight: 112, boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <Icon size={16} color={color} />
         <span className="text-text-muted" style={{ fontSize: 12 }}>{label}</span>
@@ -758,13 +759,11 @@ export default function Finance2ApPage() {
       <div className="bg-bg-card border border-border"
         style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table className={s.table}>
             <thead>
-              <tr className="bg-bg-muted border-b border-border">
+              <tr>
                 {['AP编号', '来源', '供应商', '公司', '发票日期', '到期日', '发票金额', '待付余额', '状态'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left',
-                    fontWeight: 600, fontSize: 12, whiteSpace: 'nowrap' }}
-                    className="text-text-muted">{h}</th>
+                  <th key={h} style={{ whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -784,37 +783,37 @@ export default function Finance2ApPage() {
                   onClick={() => setSelectedId(r.id)}
                   className={`border-b border-border/30 cursor-pointer hover:bg-indigo-50 hover:bg-bg-muted/50 transition-colors ${i % 2 === 0 ? '' : 'bg-bg-muted/20'}`}
                 >
-                  <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}
+                  <td style={{ whiteSpace: 'nowrap' }}
                     className="font-mono text-indigo-600 dark:text-indigo-400">
                     {r.ap_no}
                   </td>
-                  <td style={{ padding: '10px 14px' }}>
+                  <td>
                     <SourceBadge type={r.source_type} />
                   </td>
-                  <td style={{ padding: '10px 14px', maxWidth: 160 }}>
+                  <td style={{ maxWidth: 160 }}>
                     <div className="text-text" style={{ fontWeight: 600 }}>{r.supplier_name}</div>
                     {r.supplier_code && <div className="text-text-muted" style={{ fontSize: 11 }}>{r.supplier_code}</div>}
                   </td>
-                  <td className="text-text-muted" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                  <td className="text-text-muted" style={{ whiteSpace: 'nowrap' }}>
                     {r.company_code}
                   </td>
-                  <td className="text-text-muted" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                  <td className="text-text-muted" style={{ whiteSpace: 'nowrap' }}>
                     {fmtDate(r.invoice_date)}
                   </td>
-                  <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                  <td style={{ whiteSpace: 'nowrap' }}>
                     <span className={isOverdue(r.due_date, r.status) ? 'text-danger' : 'text-text-muted'}>
                       {fmtDate(r.due_date)}
                     </span>
                     <AgingBadge bucket={r.aging_bucket} />
                   </td>
-                  <td className="text-text" style={{ padding: '10px 14px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  <td className="text-text" style={{ whiteSpace: 'nowrap' }}>
                     {fmtMoney(r.amount_original, r.currency_code)}
                   </td>
-                  <td style={{ padding: '10px 14px', fontWeight: 700, whiteSpace: 'nowrap' }}
+                  <td style={{ whiteSpace: 'nowrap' }}
                     className={Number(r.balance_amount_original) > 0 ? 'text-danger' : 'text-text-muted'}>
                     {fmtMoney(r.balance_amount_original, r.currency_code)}
                   </td>
-                  <td style={{ padding: '10px 14px' }}>
+                  <td>
                     <StatusBadge status={r.status} size="sm" />
                   </td>
                 </tr>

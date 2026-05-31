@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Package, Search, RefreshCw, Plus, Edit2 } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
+import ui from "@/components/ui/admin-ui.module.css";
 
 /**
  * 主数据中心 — 包装规格档案
@@ -119,11 +120,11 @@ export default function PackagingSpecsPage() {
         <div style={{ textAlign: "center", padding: 40, color: "#475569" }}>加载中...</div>
       ) : (
         <div className="bg-bg-muted border border-border" style={{ borderRadius: 10, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table className={ui.table}>
             <thead>
-              <tr className="bg-bg-card text-text-muted">
+              <tr>
                 {["规格编码","规格名称","每单位数量","基础单位","显示单位","排序","状态",""].map((h, i) => (
-                  <th key={i} className="border-b border-border" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 500 }}>{h}</th>
+                  <th key={i} style={h === "每单位数量" ? { textAlign: "right" } : undefined}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -133,20 +134,20 @@ export default function PackagingSpecsPage() {
               )}
               {filtered.map((s, i) => (
                 <tr key={s.spec_code} className="border-b border-border" style={{ background: i % 2 ? "rgba(148,163,184,0.05)" : "transparent" }}>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td>
                     <span className="bg-bg-card border border-border" style={{ borderRadius: 5, padding: "2px 8px", fontFamily: "monospace", fontWeight: 600 }}>{s.spec_code}</span>
                   </td>
-                  <td style={{ padding: "10px 14px" }}>{s.spec_name}</td>
-                  <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: "monospace", color: "#f59e0b" }}>{s.qty_per_unit}</td>
-                  <td className="text-text-muted" style={{ padding: "10px 14px" }}>{s.base_unit}</td>
-                  <td style={{ padding: "10px 14px" }}>{s.display_unit}</td>
-                  <td className="text-text-muted" style={{ padding: "10px 14px" }}>{s.sort_order}</td>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td>{s.spec_name}</td>
+                  <td style={{ textAlign: "right", fontFamily: "monospace", color: "#f59e0b" }}>{s.qty_per_unit}</td>
+                  <td className="text-text-muted">{s.base_unit}</td>
+                  <td>{s.display_unit}</td>
+                  <td className="text-text-muted">{s.sort_order}</td>
+                  <td>
                     <span style={{ background: (STATUS_MAP[s.status ?? ""] || STATUS_MAP.INACTIVE).color + "20", color: (STATUS_MAP[s.status ?? ""] || STATUS_MAP.INACTIVE).color, padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600 }}>
                       {(STATUS_MAP[s.status ?? ""] || STATUS_MAP.INACTIVE).label}
                     </span>
                   </td>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td>
                     {canEdit && (
                       <button onClick={() => openEdit(s)} className="border border-border text-text-muted" style={{ background: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
                         <Edit2 size={12} /> 编辑

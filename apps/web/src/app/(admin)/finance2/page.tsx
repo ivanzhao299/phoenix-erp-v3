@@ -18,7 +18,7 @@ import { KpiCard } from '@/components/ui/KpiCard';
 import { NavCard } from '@/components/ui/NavCard';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { AccentColor } from '@/lib/design-tokens';
+import { KPI_GRID, type AccentColor } from '@/lib/design-tokens';
 
 // ── 设计系统 token 映射 ───────────────────────────────────────────────────────
 type AccentKey = "blue" | "green" | "amber" | "red" | "violet" | "indigo" | "cyan" | "teal" | "slate";
@@ -264,7 +264,7 @@ export default function Finance2DashboardPage() {
       {/* ── 6 大 KPI 指标 ─────────────────────────────────────────────── */}
       <div className="mb-2">
         <SectionLabel>财务核心指标</SectionLabel>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+        <div className="mb-8" style={KPI_GRID}>
           {kpis.map((kpi) => (
             <KpiCard
               key={kpi.label}

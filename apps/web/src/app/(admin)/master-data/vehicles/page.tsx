@@ -4,6 +4,7 @@ import { Car, Search, RefreshCw, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
+import s from "@/components/ui/admin-ui.module.css";
 
 /**
  * 主数据中心 — 车辆档案
@@ -102,11 +103,11 @@ export default function MdVehiclesPage() {
         <div style={{ padding: 40, textAlign: "center", color: "#ef4444" }}>{error}</div>
       ) : (
         <div className="bg-bg-muted border border-border" style={{ borderRadius: 10, overflow: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table className={s.table}>
             <thead>
-              <tr className="bg-bg-card text-text-muted" style={{ fontSize: 12 }}>
+              <tr>
                 {["车牌号", "车型", "品牌", "载重(吨)", "常用司机", "状态"].map(h => (
-                  <th key={h} className="border-b border-border" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
+                  <th key={h} style={h === "载重(吨)" ? { textAlign: "right" } : undefined}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -120,12 +121,12 @@ export default function MdVehiclesPage() {
                     onMouseEnter={e => (e.currentTarget.style.background = "rgba(148,163,184,0.08)")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                   >
-                    <td className="text-text" style={{ padding: "10px 14px", fontWeight: 600, fontFamily: "monospace" }}>{v.plateNo ?? "-"}</td>
-                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{v.vehicleType ?? "-"}</td>
-                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{v.brand ?? "-"}</td>
-                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{v.loadCapacity ?? v.capacity ?? "-"}</td>
-                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{v.driverName ?? "-"}</td>
-                    <td style={{ padding: "10px 14px" }}>
+                    <td className="text-text" style={{ fontFamily: "monospace" }}>{v.plateNo ?? "-"}</td>
+                    <td className="text-text-muted">{v.vehicleType ?? "-"}</td>
+                    <td className="text-text-muted">{v.brand ?? "-"}</td>
+                    <td className="text-text-muted" style={{ textAlign: "right" }}>{v.loadCapacity ?? v.capacity ?? "-"}</td>
+                    <td className="text-text-muted">{v.driverName ?? "-"}</td>
+                    <td>
                       <span style={{ padding: "2px 8px", borderRadius: 4, background: `${st.color}22`, color: st.color, fontSize: 11, fontWeight: 600 }}>{st.label}</span>
                     </td>
                   </tr>

@@ -4,6 +4,7 @@ import { Warehouse, Search, RefreshCw, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
+import s from "@/components/ui/admin-ui.module.css";
 
 /**
  * 主数据中心 — 仓库档案
@@ -99,11 +100,11 @@ export default function MdWarehousesPage() {
         <div style={{ padding: 40, textAlign: "center", color: "#ef4444" }}>{error}</div>
       ) : (
         <div className="bg-bg-muted border border-border" style={{ borderRadius: 10, overflow: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table className={s.table}>
             <thead>
-              <tr className="bg-bg-card text-text-muted" style={{ fontSize: 12 }}>
+              <tr>
                 {["仓库编码", "仓库名称(中)", "仓库名称(老)", "地址", "负责人", "状态"].map(h => (
-                  <th key={h} className="border-b border-border" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
+                  <th key={h} style={{ whiteSpace: "nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -117,12 +118,12 @@ export default function MdWarehousesPage() {
                     onMouseEnter={e => (e.currentTarget.style.background = "rgba(148,163,184,0.08)")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                   >
-                    <td className="text-text-muted" style={{ padding: "10px 14px", fontFamily: "monospace" }}>{w.warehouse_code}</td>
-                    <td className="text-text" style={{ padding: "10px 14px", fontWeight: 500 }}>{w.warehouse_name_zh ?? "-"}</td>
-                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{w.warehouse_name_lo ?? "-"}</td>
-                    <td className="text-text-muted" style={{ padding: "10px 14px", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{w.address ?? "-"}</td>
-                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{w.manager ?? "-"}</td>
-                    <td style={{ padding: "10px 14px" }}>
+                    <td className="text-text-muted" style={{ fontFamily: "monospace" }}>{w.warehouse_code}</td>
+                    <td className="text-text">{w.warehouse_name_zh ?? "-"}</td>
+                    <td className="text-text-muted">{w.warehouse_name_lo ?? "-"}</td>
+                    <td className="text-text-muted" style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{w.address ?? "-"}</td>
+                    <td className="text-text-muted">{w.manager ?? "-"}</td>
+                    <td>
                       <span style={{ padding: "2px 8px", borderRadius: 4, background: `${st.color}22`, color: st.color, fontSize: 11, fontWeight: 600 }}>{st.label}</span>
                     </td>
                   </tr>

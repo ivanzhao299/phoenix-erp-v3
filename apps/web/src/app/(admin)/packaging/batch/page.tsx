@@ -270,7 +270,7 @@ function BatchGenerationPage() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
             {gradeRows.map((g) => (
-              <div key={g.code} className={s.card} style={{ borderLeft: '4px solid var(--color-primary)' }}>
+              <div key={g.code} className={s.card} style={{ borderLeft: 'var(--card-accent-width) solid var(--color-primary)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                   <div>
                     <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 2 }}>{g.name}</div>

@@ -8,6 +8,8 @@ import {
   Navigation, Flag, Ban,
 } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
+import { KpiCard } from '@/components/ui/KpiCard';
+import { hexToAccent, KPI_GRID } from '@/lib/design-tokens';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -404,7 +406,7 @@ export default function DeliveryPage() {
 
       {/* ── Dashboard Stats ── */}
       {stats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10, marginBottom: 24 }}>
+        <div style={{ ...KPI_GRID, marginBottom: 24 }}>
           {[
             { label: '待装车', value: stats.planned,       color: '#94a3b8' },
             { label: '装车中', value: stats.loading,       color: '#f59e0b' },
@@ -414,13 +416,7 @@ export default function DeliveryPage() {
             { label: '今日完成', value: stats.completedToday, color: '#22c55e' },
             { label: '今日总单', value: stats.totalToday,  color: '#64748b' },
           ].map(({ label, value, color }) => (
-            <div key={label} style={{
-              padding: '12px 14px', borderRadius: 8, textAlign: 'center',
-              background: 'var(--bg-muted)', border: '1px solid var(--border)',
-            }}>
-              <div style={{ fontSize: 20, fontWeight: 800, color }}>{value ?? 0}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>{label}</div>
-            </div>
+            <KpiCard key={label} label={label} value={value ?? 0} accentColor={hexToAccent(color)} />
           ))}
         </div>
       )}

@@ -738,26 +738,26 @@ export default function PaymentsPage() {
               <>
                 <div className={s.formSection} style={{ marginTop: 20 }}>AP 分摊明细（{detailData.allocations.length} 条）</div>
                 <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 6 }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <table className={s.table}>
                     <thead>
-                      <tr style={{ background: "var(--bg-muted)" }}>
-                        <th style={thStyle}>AP 编号</th>
-                        <th style={thStyle}>采购订单号</th>
-                        <th style={thStyle}>项目</th>
-                        <th style={{ ...thStyle, textAlign: "right" }}>分摊金额</th>
-                        <th style={{ ...thStyle, textAlign: "right" }}>折算 CNY</th>
+                      <tr>
+                        <th>AP 编号</th>
+                        <th>采购订单号</th>
+                        <th>项目</th>
+                        <th style={{ textAlign: "right" }}>分摊金额</th>
+                        <th style={{ textAlign: "right" }}>折算 CNY</th>
                       </tr>
                     </thead>
                     <tbody>
                       {detailData.allocations.map((a, i) => (
-                        <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
-                          <td style={tdStyle}>{a.apNo ?? "—"}</td>
-                          <td style={tdStyle}>{a.poNo ?? "—"}</td>
-                          <td style={tdStyle}>{a.projectCode ?? "—"}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                        <tr key={i}>
+                          <td>{a.apNo ?? "—"}</td>
+                          <td>{a.poNo ?? "—"}</td>
+                          <td>{a.projectCode ?? "—"}</td>
+                          <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
                             {Number(a.allocatedAmountOriginal).toLocaleString("zh-CN", { minimumFractionDigits: 2 })}
                           </td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--text-secondary)" }}>
+                          <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--text-secondary)" }}>
                             {Number(a.allocatedAmountBase ?? 0).toLocaleString("zh-CN", { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
@@ -807,32 +807,32 @@ export default function PaymentsPage() {
             {apList.length === 0 ? (
               <div style={{ textAlign: "center", padding: 24, color: "var(--text-secondary)" }}>暂无未核销 AP</div>
             ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <table className={s.table}>
                 <thead>
-                  <tr style={{ background: "var(--bg-muted)" }}>
-                    <th style={thStyle}>AP 编号</th>
-                    <th style={thStyle}>采购订单号</th>
-                    <th style={thStyle}>供应商</th>
-                    <th style={thStyle}>币种</th>
-                    <th style={{ ...thStyle, textAlign: "right" }}>应付</th>
-                    <th style={{ ...thStyle, textAlign: "right" }}>余额</th>
-                    <th style={thStyle}>到期日</th>
-                    <th style={thStyle}></th>
+                  <tr>
+                    <th>AP 编号</th>
+                    <th>采购订单号</th>
+                    <th>供应商</th>
+                    <th>币种</th>
+                    <th style={{ textAlign: "right" }}>应付</th>
+                    <th style={{ textAlign: "right" }}>余额</th>
+                    <th>到期日</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {apList.map(ap => (
-                    <tr key={ap.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td style={tdStyle}>{ap.apNo}</td>
-                      <td style={tdStyle}>{ap.poNo ?? "—"}</td>
-                      <td style={tdStyle}>{ap.supplierName ?? "—"}</td>
-                      <td style={tdStyle}>{ap.currencyCode ?? "—"}</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{Number(ap.amountOriginal).toLocaleString()}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>
+                    <tr key={ap.id}>
+                      <td>{ap.apNo}</td>
+                      <td>{ap.poNo ?? "—"}</td>
+                      <td>{ap.supplierName ?? "—"}</td>
+                      <td>{ap.currencyCode ?? "—"}</td>
+                      <td style={{ textAlign: "right" }}>{Number(ap.amountOriginal).toLocaleString()}</td>
+                      <td style={{ textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>
                         {Number(ap.balanceAmountOriginal).toLocaleString()}
                       </td>
-                      <td style={tdStyle}>{fmtDate(ap.dueDate)}</td>
-                      <td style={tdStyle}>
+                      <td>{fmtDate(ap.dueDate)}</td>
+                      <td>
                         <button className={s.btnPrimary} style={{ padding: "2px 8px", fontSize: 11 }}
                           onClick={() => selectAp(ap)}>选择</button>
                       </td>

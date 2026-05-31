@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Tag, Search, RefreshCw, Plus, Edit2, CheckCircle, XCircle } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
+import s from "@/components/ui/admin-ui.module.css";
 
 /**
  * 主数据中心 — 产品等级档案
@@ -118,11 +119,11 @@ export default function ProductGradesPage() {
         <div style={{ textAlign: "center", padding: 40, color: "#475569" }}>加载中...</div>
       ) : (
         <div className="bg-bg-muted border border-border" style={{ borderRadius: 10, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table className={s.table}>
             <thead>
-              <tr className="bg-bg-card text-text-muted">
+              <tr>
                 {["等级编码","等级名称","排序","可销售","可入库","状态","备注",""].map((h, i) => (
-                  <th key={i} className="border-b border-border" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 500 }}>{h}</th>
+                  <th key={i} style={["排序","可销售","可入库"].includes(h) ? { textAlign: "center" } : undefined}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -132,24 +133,24 @@ export default function ProductGradesPage() {
               )}
               {filtered.map((g, i) => (
                 <tr key={g.grade_code} className="border-b border-border" style={{ background: i % 2 ? "rgba(148,163,184,0.05)" : "transparent" }}>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td>
                     <span className="bg-bg-card border border-border" style={{ borderRadius: 5, padding: "2px 8px", fontFamily: "monospace", fontWeight: 600 }}>{g.grade_code}</span>
                   </td>
-                  <td style={{ padding: "10px 14px" }}>{g.grade_name}</td>
-                  <td className="text-text-muted" style={{ padding: "10px 14px" }}>{g.sort_order ?? "—"}</td>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td>{g.grade_name}</td>
+                  <td className="text-text-muted" style={{ textAlign: "center" }}>{g.sort_order ?? "—"}</td>
+                  <td style={{ textAlign: "center" }}>
                     {g.is_saleable ? <CheckCircle size={16} color="#10b981" /> : <XCircle size={16} color="#64748b" />}
                   </td>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td style={{ textAlign: "center" }}>
                     {g.is_storable ? <CheckCircle size={16} color="#10b981" /> : <XCircle size={16} color="#64748b" />}
                   </td>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td>
                     <span style={{ background: (STATUS_MAP[g.status ?? ""] || STATUS_MAP.INACTIVE).color + "20", color: (STATUS_MAP[g.status ?? ""] || STATUS_MAP.INACTIVE).color, padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600 }}>
                       {(STATUS_MAP[g.status ?? ""] || STATUS_MAP.INACTIVE).label}
                     </span>
                   </td>
-                  <td className="text-text-muted" style={{ padding: "10px 14px", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.remark || "—"}</td>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td className="text-text-muted" style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.remark || "—"}</td>
+                  <td>
                     {canEdit && (
                       <button onClick={() => openEdit(g)} className="border border-border text-text-muted" style={{ background: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
                         <Edit2 size={12} /> 编辑

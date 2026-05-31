@@ -8,7 +8,8 @@ import {
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ACCENT_MAP, type AccentColor } from "@/lib/design-tokens";
+import { type AccentColor } from "@/lib/design-tokens";
+import { QuickEntryCard } from "@/components/ui/QuickEntryCard";
 
 // ── 纯 CSS 柱状图 ────────────────────────────────────────────
 function BarChart({ data, valueKey, labelKey, color = "var(--color-primary)", height = 160, noDataLabel }: {
@@ -158,7 +159,7 @@ export default function AnalyticsDashboard() {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))", gap:12, marginBottom:24 }}>
         {kpis.map(kp => (
           <div key={kp.label} style={{ background:"var(--bg-card)", border:"1px solid var(--border)",
-            borderLeft:`4px solid ${kp.accentCss}`, borderRadius:"var(--radius-lg)", padding:"16px 18px" }}>
+            borderLeft:`var(--card-accent-width) solid ${kp.accentCss}`, borderRadius:"var(--radius-lg)", padding:"16px 18px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:10 }}>
               <p style={{ fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.6px",
                 color:kp.accentCss, display:"flex", alignItems:"center", gap:5 }}>{kp.icon}{kp.label}</p>
@@ -209,20 +210,10 @@ export default function AnalyticsDashboard() {
       </div>
 
       {/* 子模块快捷入口 */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
-        {QUICK_CONFIG.map(q => {
-          const ac = ACCENT_MAP[q.accentColor];
-          const label = t(q.labelKey, q.labelDefault);
-          return (
-            <button key={q.path} type="button" onClick={() => router.push(q.path)}
-              className={`bg-bg-card rounded-2xl border p-5 cursor-pointer font-semibold text-sm flex flex-col items-center gap-2 transition-all hover:shadow-card-hover hover:-translate-y-0.5 ${ac.border} ${ac.text}`}>
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${ac.icon}`}>
-                <q.Icon size={20} className={ac.text} />
-              </div>
-              <span className={ac.text}>{label}</span>
-            </button>
-          );
-        })}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))", gap:12 }}>
+        {QUICK_CONFIG.map(q => (
+          <QuickEntryCard key={q.path} icon={q.Icon} label={t(q.labelKey, q.labelDefault)} onClick={() => router.push(q.path)} accent={q.accentColor} />
+        ))}
       </div>
     </div>
   );

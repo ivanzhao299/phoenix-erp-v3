@@ -5,6 +5,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useDialog } from "@/contexts/DialogContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ToggleRight, ToggleLeft, Store, ShieldCheck } from "lucide-react";
+import s from "@/components/ui/admin-ui.module.css";
 
 const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : ""}` });
 
@@ -51,7 +52,7 @@ export default function StoreStockConfigPage() {
     <div className="animate-fade-in">
       <PageHeader title={t('ui.直营店分账库存配置', '直营店分账库存配置')} subtitle={t('ui.强制隔离直营店的门店零售库存与批发渠道库存防止套利冲货', '强制隔离直营店的「门店零售库存」与「批发渠道库存」，防止套利冲货')} breadcrumb={[t('ui.系统设置', '系统设置'), t('ui.分账库存配置', '分账库存配置')]}/>
 
-      <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderLeft: "4px solid #3b82f6", borderRadius: "var(--radius-lg)", padding: 16, display: "flex", gap: 12, marginBottom: 24 }}>
+      <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderLeft: "var(--card-accent-width) solid #3b82f6", borderRadius: "var(--radius-lg)", padding: 16, display: "flex", gap: 12, marginBottom: 24 }}>
         <ShieldCheck color="#2563eb" size={24} style={{ flexShrink: 0, marginTop: 2 }}/>
         <div>
           <h4 style={{ margin: "0 0 4px", color: "#1e40af", fontSize: 15 }}>{t('ui.分账库存规则说明', '分账库存规则说明')}</h4>
@@ -64,11 +65,11 @@ export default function StoreStockConfigPage() {
       </div>
 
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ borderBottom: "1px solid var(--border)" }}>
+            <tr>
               {[t('ui.门店编码', '门店编码'), t('ui.门店名称', '门店名称'), t('ui.属性', '属性'), t('ui.分账库存状态', '分账库存状态'), t('ui.最后操作人', '最后操作人'), t('ui.更新时间', '更新时间')].map(h => (
-                <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontWeight: 600, color: "var(--text-secondary)", fontSize: 12 }}>{h}</th>
+                <th key={h}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -78,17 +79,17 @@ export default function StoreStockConfigPage() {
             ) : data.length === 0 ? (
               <tr><td colSpan={6} style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>{t('common.no_data', '暂无门店数据')}</td></tr>
             ) : data.map(row => (
-              <tr key={row.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                <td style={{ padding: "12px 16px", fontWeight: 700, fontFamily: "monospace" }}>{row.id}</td>
-                <td style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 6 }}>
+              <tr key={row.id}>
+                <td style={{ fontFamily: "monospace" }}>{row.id}</td>
+                <td style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <Store size={14} color="var(--text-secondary)"/>{row.name}
                 </td>
-                <td style={{ padding: "12px 16px" }}>
+                <td>
                   <span style={{ fontSize: 12, background: row.type === "DIRECT" ? "#dcfce7" : "#f3f4f6", color: row.type === "DIRECT" ? "#15803d" : "#4b5563", padding: "3px 8px", borderRadius: 4, fontWeight: 600 }}>
                     {row.type === "DIRECT" ? t('ui.直营店', '直营店') : t('ui.加盟店', '加盟店')}
                   </span>
                 </td>
-                <td style={{ padding: "12px 16px" }}>
+                <td>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <button type="button" onClick={() => toggle(row.id)} style={{ background: "none", border: "none", cursor: row.type === "DIRECT" ? "pointer" : "not-allowed", padding: 0, opacity: row.type === "DIRECT" ? 1 : 0.4 }}>
                       {row.split_stock_enabled
@@ -100,8 +101,8 @@ export default function StoreStockConfigPage() {
                     </span>
                   </div>
                 </td>
-                <td style={{ padding: "12px 16px", color: "var(--text-secondary)" }}>{row.operator}</td>
-                <td style={{ padding: "12px 16px", color: "var(--text-secondary)", fontSize: 12 }}>
+                <td style={{ color: "var(--text-secondary)" }}>{row.operator}</td>
+                <td style={{ color: "var(--text-secondary)", fontSize: 12 }}>
                   {row.last_updated !== "—" ? new Date(row.last_updated).toLocaleString("zh-CN") : "—"}
                 </td>
               </tr>

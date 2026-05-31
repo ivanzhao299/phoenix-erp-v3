@@ -15,7 +15,7 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
-import RightDrawer from "@/components/RightDrawer";
+import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useDialog } from "@/contexts/DialogContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -561,7 +561,7 @@ export default function OrganizationsPage() {
 
       {/* ── 编辑 / 新建抽屉 ─────────────────────────────────────────── */}
       <RightDrawer
-        isOpen={drawer}
+        open={drawer}
         onClose={() => setDrawer(false)}
         title={editing ? `编辑：${editing.orgName}` : (form.parentId ? "新建子节点" : "新建顶级组织")}
         width="440px"
@@ -654,7 +654,7 @@ export default function OrganizationsPage() {
 
       {/* ── 分配人员抽屉 ─────────────────────────────────────────────── */}
       <RightDrawer
-        isOpen={assignDrawer}
+        open={assignDrawer}
         onClose={() => setAssignDrawer(false)}
         title={`分配人员 — ${activeOrg?.orgName ?? ""}`}
         width="460px"

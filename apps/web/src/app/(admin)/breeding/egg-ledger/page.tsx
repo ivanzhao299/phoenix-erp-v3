@@ -235,11 +235,11 @@ export default function EggLedgerPage() {
       {/* ── 库存 Tab ── */}
       {tab === 'stock' && (
         <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table className={s.table}>
             <thead>
-              <tr style={{ background: 'var(--bg-page)', borderBottom: '2px solid var(--border)' }}>
+              <tr>
                 {['等级', '名称', '库存（枚）', '托盘数'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: h.includes('库存') || h.includes('托盘') ? 'right' : 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>{h}</th>
+                  <th key={h} style={{ textAlign: h.includes('库存') || h.includes('托盘') ? 'right' : 'left' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -247,13 +247,13 @@ export default function EggLedgerPage() {
               {loading ? <tr><td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text-secondary)' }}>加载中…</td></tr>
                 : stock.length === 0 ? <tr><td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text-secondary)' }}>暂无数据</td></tr>
                 : stock.map(g => (
-                  <tr key={g.grade} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '10px 14px' }}>
+                  <tr key={g.grade}>
+                    <td>
                       <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, padding: '2px 8px', borderRadius: 6, background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)' }}>{g.grade}</span>
                     </td>
-                    <td style={{ padding: '10px 14px', fontWeight: 600 }}>{g.name}</td>
-                    <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, fontSize: 16, color: g.qty > 0 ? '#f59e0b' : 'var(--text-secondary)' }}>{g.qty.toLocaleString()}</td>
-                    <td style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--text-secondary)' }}>{g.trays}</td>
+                    <td>{g.name}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, color: g.qty > 0 ? '#f59e0b' : 'var(--text-secondary)' }}>{g.qty.toLocaleString()}</td>
+                    <td style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>{g.trays}</td>
                   </tr>
                 ))}
             </tbody>
@@ -264,11 +264,11 @@ export default function EggLedgerPage() {
       {/* ── 入库 Tab（来源栋舍：动态拉取，与移动端共用 /api/farm/feed/houses）── */}
       {tab === 'inbound' && (
         <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table className={s.table}>
             <thead>
-              <tr style={{ background: 'var(--bg-page)', borderBottom: '2px solid var(--border)' }}>
+              <tr>
                 {['等级', '名称', '库存（枚）', '入库数量', '来源栋舍'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>{h}</th>
+                  <th key={h}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -277,20 +277,20 @@ export default function EggLedgerPage() {
                 const e = inboundEntries[g.code] ?? { qty: 0, house_code: houses[0] ?? '' };
                 const stockQty = stock.find(x => x.grade === g.code)?.qty ?? 0;
                 return (
-                  <tr key={g.code} style={{ borderBottom: '1px solid var(--border)', background: e.qty > 0 ? 'rgba(16,185,129,0.03)' : undefined }}>
-                    <td style={{ padding: '9px 14px' }}>
+                  <tr key={g.code} style={{ background: e.qty > 0 ? 'rgba(16,185,129,0.03)' : undefined }}>
+                    <td>
                       <span style={{ fontFamily: 'monospace', fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}>{g.code}</span>
                     </td>
-                    <td style={{ padding: '9px 14px', fontWeight: 600 }}>{g.name}</td>
-                    <td style={{ padding: '9px 14px', color: 'var(--text-secondary)' }}>{stockQty.toLocaleString()}</td>
-                    <td style={{ padding: '9px 14px' }}>
+                    <td>{g.name}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{stockQty.toLocaleString()}</td>
+                    <td>
                       {canEdit ? (
                         <input type="number" min="0" value={e.qty || ''}
                           onChange={ev => setInboundEntries(p => ({ ...p, [g.code]: { ...e, qty: Math.max(0, Number(ev.target.value) || 0) } }))}
                           placeholder="0" style={inputStyle} />
                       ) : e.qty}
                     </td>
-                    <td style={{ padding: '9px 14px' }}>
+                    <td>
                       {canEdit ? (
                         <select value={e.house_code}
                           onChange={ev => setInboundEntries(p => ({ ...p, [g.code]: { ...e, house_code: ev.target.value } }))}
@@ -310,11 +310,11 @@ export default function EggLedgerPage() {
       {/* ── 出库 Tab（客户：动态拉取，与移动端共用 /api/farm/sales/customers）── */}
       {tab === 'outbound' && (
         <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table className={s.table}>
             <thead>
-              <tr style={{ background: 'var(--bg-page)', borderBottom: '2px solid var(--border)' }}>
+              <tr>
                 {['等级', '名称', '库存（枚）', '出库数量', '客户'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>{h}</th>
+                  <th key={h}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -323,20 +323,20 @@ export default function EggLedgerPage() {
                 const e = outboundEntries[g.code] ?? { qty: 0, customer_no: '' };
                 const stockQty = stock.find(x => x.grade === g.code)?.qty ?? 0;
                 return (
-                  <tr key={g.code} style={{ borderBottom: '1px solid var(--border)', background: e.qty > 0 ? 'rgba(245,158,11,0.03)' : undefined }}>
-                    <td style={{ padding: '9px 14px' }}>
+                  <tr key={g.code} style={{ background: e.qty > 0 ? 'rgba(245,158,11,0.03)' : undefined }}>
+                    <td>
                       <span style={{ fontFamily: 'monospace', fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}>{g.code}</span>
                     </td>
-                    <td style={{ padding: '9px 14px', fontWeight: 600 }}>{g.name}</td>
-                    <td style={{ padding: '9px 14px', color: stockQty < (e.qty || 0) ? '#ef4444' : 'var(--text-secondary)', fontWeight: stockQty < (e.qty || 0) ? 700 : 400 }}>{stockQty.toLocaleString()}</td>
-                    <td style={{ padding: '9px 14px' }}>
+                    <td>{g.name}</td>
+                    <td style={{ color: stockQty < (e.qty || 0) ? '#ef4444' : 'var(--text-secondary)', fontWeight: stockQty < (e.qty || 0) ? 700 : 400 }}>{stockQty.toLocaleString()}</td>
+                    <td>
                       {canEdit ? (
                         <input type="number" min="0" value={e.qty || ''}
                           onChange={ev => setOutboundEntries(p => ({ ...p, [g.code]: { ...e, qty: Math.max(0, Number(ev.target.value) || 0) } }))}
                           placeholder="0" style={inputStyle} />
                       ) : e.qty}
                     </td>
-                    <td style={{ padding: '9px 14px' }}>
+                    <td>
                       {canEdit ? (
                         /* 与移动端一致：下拉选择客户，存 customer_code 到 customer_no 字段 */
                         <select value={e.customer_no}
@@ -365,11 +365,11 @@ export default function EggLedgerPage() {
           <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.05)', borderBottom: '1px solid rgba(239,68,68,0.15)', fontSize: 12, color: '#ef4444' }}>
             报损操作将从库存中扣除对应数量，写入 change_type = EGG_WRITE_OFF 流水，不可撤销
           </div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table className={s.table}>
             <thead>
-              <tr style={{ background: 'var(--bg-page)', borderBottom: '2px solid var(--border)' }}>
+              <tr>
                 {['等级', '名称', '当前库存（枚）', '报损数量', '报损原因'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>{h}</th>
+                  <th key={h}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -378,20 +378,20 @@ export default function EggLedgerPage() {
                 const e = writeoffEntries[g.code] ?? { qty: 0, reason: '' };
                 const stockQty = stock.find(x => x.grade === g.code)?.qty ?? 0;
                 return (
-                  <tr key={g.code} style={{ borderBottom: '1px solid var(--border)', background: e.qty > 0 ? 'rgba(239,68,68,0.03)' : undefined }}>
-                    <td style={{ padding: '9px 14px' }}>
+                  <tr key={g.code} style={{ background: e.qty > 0 ? 'rgba(239,68,68,0.03)' : undefined }}>
+                    <td>
                       <span style={{ fontFamily: 'monospace', fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>{g.code}</span>
                     </td>
-                    <td style={{ padding: '9px 14px', fontWeight: 600 }}>{g.name}</td>
-                    <td style={{ padding: '9px 14px', color: 'var(--text-secondary)' }}>{stockQty.toLocaleString()}</td>
-                    <td style={{ padding: '9px 14px' }}>
+                    <td>{g.name}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{stockQty.toLocaleString()}</td>
+                    <td>
                       {canEdit ? (
                         <input type="number" min="0" value={e.qty || ''}
                           onChange={ev => setWriteoffEntries(p => ({ ...p, [g.code]: { ...e, qty: Math.max(0, Number(ev.target.value) || 0) } }))}
                           placeholder="0" style={{ ...inputStyle, border: '1px solid rgba(239,68,68,0.3)' }} />
                       ) : e.qty}
                     </td>
-                    <td style={{ padding: '9px 14px' }}>
+                    <td>
                       {canEdit ? (
                         <input type="text" value={e.reason}
                           onChange={ev => setWriteoffEntries(p => ({ ...p, [g.code]: { ...e, reason: ev.target.value } }))}
@@ -423,11 +423,11 @@ export default function EggLedgerPage() {
             </button>
           </div>
           <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table className={s.table}>
               <thead>
-                <tr style={{ background: 'var(--bg-page)', borderBottom: '2px solid var(--border)' }}>
+                <tr>
                   {['日期', '等级', '类型', '数量变动(枚)', '栋舍/客户', '备注', '操作人'].map(h => (
-                    <th key={h} style={{ padding: '10px 12px', textAlign: h.includes('数量') ? 'right' : 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>{h}</th>
+                    <th key={h} style={{ textAlign: h.includes('数量') ? 'right' : 'left' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -435,12 +435,12 @@ export default function EggLedgerPage() {
                 {loading ? <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: 'var(--text-secondary)' }}>加载中…</td></tr>
                   : ledger.length === 0 ? <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: 'var(--text-secondary)' }}>暂无数据</td></tr>
                   : ledger.map(e => (
-                    <tr key={e.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>{e.log_date}</td>
-                      <td style={{ padding: '10px 12px' }}>
+                    <tr key={e.id}>
+                      <td style={{ color: 'var(--text-secondary)' }}>{e.log_date}</td>
+                      <td>
                         <span style={{ fontFamily: 'monospace', fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}>{e.grade}</span>
                       </td>
-                      <td style={{ padding: '10px 12px' }}>
+                      <td>
                         <span style={{
                           fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
                           background: `${CHANGE_COLOR[e.change_type] ?? '#94a3b8'}20`,
@@ -449,12 +449,12 @@ export default function EggLedgerPage() {
                           {CHANGE_LABELS[e.change_type] ?? e.change_type}
                         </span>
                       </td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: e.qty_change > 0 ? '#10b981' : '#f59e0b' }}>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: e.qty_change > 0 ? '#10b981' : '#f59e0b' }}>
                         {e.qty_change > 0 ? '+' : ''}{e.qty_change.toLocaleString()}
                       </td>
-                      <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontSize: 12 }}>{e.house_code ?? e.customer_no ?? '—'}</td>
-                      <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontSize: 12 }}>{e.note ?? '—'}</td>
-                      <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>{e.operator}</td>
+                      <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{e.house_code ?? e.customer_no ?? '—'}</td>
+                      <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{e.note ?? '—'}</td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{e.operator}</td>
                     </tr>
                   ))}
               </tbody>

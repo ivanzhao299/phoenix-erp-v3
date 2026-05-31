@@ -238,7 +238,7 @@ export default function DashboardKPIs({ initialData }: Props) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {alerts.map(item => (
               <div key={item.id} className={styles.alertItem}
-                style={{ borderLeft: `4px solid var(--status-${item.type === 'danger' ? 'danger' : item.type === 'warning' ? 'warning' : 'info'})` }}>
+                style={{ borderLeft: `var(--card-accent-width) solid var(--status-${item.type === 'danger' ? 'danger' : item.type === 'warning' ? 'warning' : 'info'})` }}>
                 <span>{item.text}</span>
                 <button type="button" className={styles.dismissBtn} onClick={() => setAlerts(prev => prev.filter(a => a.id !== item.id))}>已处理</button>
               </div>

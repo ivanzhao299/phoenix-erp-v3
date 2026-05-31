@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { RefreshCw, CheckCircle, Lock, AlertTriangle, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { usePermission } from "@/hooks/usePermission";
+import { KpiCard as GlobalKpiCard } from "@/components/ui/KpiCard";
+import { hexToAccent } from "@/lib/design-tokens";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -83,21 +85,7 @@ function StatCard({
   sub?: string;
   color: string;
 }) {
-  return (
-    <div className="rounded-2xl border bg-bg-card border-border/30 p-5 shadow-sm">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm text-text-muted">{title}</span>
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center"
-          style={{ background: `${color}18` }}
-        >
-          <Icon size={18} color={color} />
-        </div>
-      </div>
-      <div className="text-2xl font-bold text-text">{value}</div>
-      {sub && <div className="text-xs text-text-dim mt-1">{sub}</div>}
-    </div>
-  );
+  return <GlobalKpiCard label={title} value={value} subValue={sub} icon={Icon} accentColor={hexToAccent(color)} />;
 }
 
 // ── 进度条 ────────────────────────────────────────────────────────────────────

@@ -183,21 +183,21 @@ export default function FeedLedgerPage() {
 
       {/* 主表格 */}
       <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background: 'var(--bg-page)', borderBottom: '2px solid var(--border)' }}>
-              <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>物料名称</th>
-              <th style={{ padding: '10px 8px', textAlign: 'center', color: 'var(--text-secondary)', fontWeight: 600 }}>单位</th>
-              <th style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 600 }}>昨日库存</th>
-              <th style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 600 }}>今日入库</th>
-              <th style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 600 }}>日用量</th>
+            <tr>
+              <th style={{ whiteSpace: 'nowrap' }}>物料名称</th>
+              <th style={{ textAlign: 'center' }}>单位</th>
+              <th style={{ textAlign: 'right' }}>昨日库存</th>
+              <th style={{ textAlign: 'right' }}>今日入库</th>
+              <th style={{ textAlign: 'right' }}>日用量</th>
               {houses.map(h => (
-                <th key={h} style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                <th key={h} style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{h}</th>
               ))}
-              <th style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 600 }}>出库合计</th>
-              <th style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 600 }}>当前库存</th>
-              <th style={{ padding: '10px 8px', textAlign: 'center', color: 'var(--text-secondary)', fontWeight: 600 }}>可用天</th>
-              <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>备注</th>
+              <th style={{ textAlign: 'right' }}>出库合计</th>
+              <th style={{ textAlign: 'right' }}>当前库存</th>
+              <th style={{ textAlign: 'center' }}>可用天</th>
+              <th>备注</th>
             </tr>
           </thead>
           <tbody>
@@ -214,8 +214,8 @@ export default function FeedLedgerPage() {
                 : '#10b981';
               return (
                 <tr key={row.material_name}
-                  style={{ borderBottom: '1px solid var(--border)', background: alertColor ? `${alertColor}06` : undefined }}>
-                  <td style={{ padding: '9px 14px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                  style={{ background: alertColor ? `${alertColor}06` : undefined }}>
+                  <td style={{ whiteSpace: 'nowrap' }}>
                     {row.material_name}
                     {row.alert && (
                       <span style={{ marginLeft: 6, fontSize: 11, padding: '1px 6px', borderRadius: 4, fontWeight: 700,
@@ -224,9 +224,9 @@ export default function FeedLedgerPage() {
                       </span>
                     )}
                   </td>
-                  <td style={{ padding: '9px 8px', textAlign: 'center', color: 'var(--text-secondary)' }}>{row.unit}</td>
-                  <td style={{ padding: '9px 8px', textAlign: 'right', color: 'var(--text-secondary)' }}>{row.prev_stock.toLocaleString()}</td>
-                  <td style={{ padding: '9px 8px', textAlign: 'right' }}>
+                  <td style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>{row.unit}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>{row.prev_stock.toLocaleString()}</td>
+                  <td style={{ textAlign: 'right' }}>
                     {canEdit ? (
                       <input type="number" min="0" value={row.inbound_qty || ''}
                         onChange={e => updateRow(idx, { inbound_qty: Number(e.target.value) || 0 })}
@@ -235,7 +235,7 @@ export default function FeedLedgerPage() {
                           border: '1px solid var(--border)', background: 'var(--bg-page)', color: 'var(--text-primary)', fontSize: 13 }} />
                     ) : <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{row.inbound_qty}</span>}
                   </td>
-                  <td style={{ padding: '9px 8px', textAlign: 'right' }}>
+                  <td style={{ textAlign: 'right' }}>
                     {canEdit ? (
                       <input type="number" min="0" value={row.daily_usage || ''}
                         onChange={e => updateRow(idx, { daily_usage: Number(e.target.value) || 0 })}
@@ -245,7 +245,7 @@ export default function FeedLedgerPage() {
                     ) : <span style={{ color: 'var(--text-primary)' }}>{row.daily_usage}</span>}
                   </td>
                   {houses.map(h => (
-                    <td key={h} style={{ padding: '9px 8px', textAlign: 'right' }}>
+                    <td key={h} style={{ textAlign: 'right' }}>
                       {canEdit ? (
                         <input type="number" min="0" value={row.outbound_detail[h] || ''}
                           onChange={e => updateRow(idx, { outbound_detail: { ...row.outbound_detail, [h]: Number(e.target.value) || 0 } })}
@@ -255,12 +255,12 @@ export default function FeedLedgerPage() {
                       ) : <span>{row.outbound_detail[h] ?? 0}</span>}
                     </td>
                   ))}
-                  <td style={{ padding: '9px 8px', textAlign: 'right', fontWeight: 700, color: '#f59e0b' }}>{row.outbound_total.toLocaleString()}</td>
-                  <td style={{ padding: '9px 8px', textAlign: 'right', fontWeight: 700, color: '#10b981' }}>{row.current_stock.toLocaleString()}</td>
-                  <td style={{ padding: '9px 8px', textAlign: 'center', fontWeight: 700, color: daysColor }}>
+                  <td style={{ textAlign: 'right', fontWeight: 700, color: '#f59e0b' }}>{row.outbound_total.toLocaleString()}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 700, color: '#10b981' }}>{row.current_stock.toLocaleString()}</td>
+                  <td style={{ textAlign: 'center', fontWeight: 700, color: daysColor }}>
                     {row.days_left != null ? `${row.days_left}天` : '—'}
                   </td>
-                  <td style={{ padding: '9px 14px' }}>
+                  <td>
                     {canEdit ? (
                       <input type="text" value={row.note}
                         onChange={e => updateRow(idx, { note: e.target.value })}

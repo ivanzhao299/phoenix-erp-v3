@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
+import s from "@/components/ui/admin-ui.module.css";
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -645,22 +646,12 @@ function FeedbacksTab() {
 
       {/* Table */}
       <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background: "#f3f4f6" }}>
+            <tr>
               {["编号", "标题", "模块", "类型", "严重度", "状态", "报告人", "创建时间", "操作"].map(
                 (h) => (
-                  <th
-                    key={h}
-                    style={{
-                      padding: "10px 12px",
-                      textAlign: "left",
-                      fontWeight: 600,
-                      color: "#374151",
-                      borderBottom: "1px solid #e5e7eb",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                  <th key={h} style={{ whiteSpace: "nowrap" }}>
                     {h}
                   </th>
                 )
@@ -679,41 +670,32 @@ function FeedbacksTab() {
               </tr>
             )}
             {feedbacks.map((fb) => (
-              <tr
-                key={fb.id}
-                style={{ borderBottom: "1px solid #f3f4f6" }}
-                onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLTableRowElement).style.background = "#f9fafb")
-                }
-                onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLTableRowElement).style.background = "")
-                }
-              >
-                <td style={{ padding: "10px 12px", color: "#6b7280", whiteSpace: "nowrap" }}>
+              <tr key={fb.id}>
+                <td style={{ color: "#6b7280", whiteSpace: "nowrap" }}>
                   {fb.feedbackNo}
                 </td>
-                <td style={{ padding: "10px 12px", maxWidth: 200 }}>{fb.title}</td>
-                <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
+                <td style={{ maxWidth: 200 }}>{fb.title}</td>
+                <td style={{ whiteSpace: "nowrap" }}>
                   {MODULE_LABELS[fb.moduleCode] ?? fb.moduleCode}
                 </td>
-                <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{fb.feedbackType}</td>
-                <td style={{ padding: "10px 12px" }}>
+                <td style={{ whiteSpace: "nowrap" }}>{fb.feedbackType}</td>
+                <td>
                   <Badge
                     label={fb.severity}
                     color={SEVERITY_COLOR[fb.severity] ?? "#6b7280"}
                   />
                 </td>
-                <td style={{ padding: "10px 12px" }}>
+                <td>
                   <Badge
                     label={fb.status}
                     color={STATUS_COLOR[fb.status] ?? "#6b7280"}
                   />
                 </td>
-                <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{fb.reporterName}</td>
-                <td style={{ padding: "10px 12px", whiteSpace: "nowrap", color: "#6b7280" }}>
+                <td style={{ whiteSpace: "nowrap" }}>{fb.reporterName}</td>
+                <td style={{ whiteSpace: "nowrap", color: "#6b7280" }}>
                   {fb.createdAt ? new Date(fb.createdAt).toLocaleDateString("zh-CN") : "—"}
                 </td>
-                <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
+                <td style={{ whiteSpace: "nowrap" }}>
                   {updatingId === fb.id ? (
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       <select
@@ -1026,21 +1008,11 @@ function TrainingsTab() {
 
       {/* Table */}
       <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background: "#f3f4f6" }}>
+            <tr>
               {["编号", "培训类型", "标题", "讲师", "参与人数", "日期", "评分", "备注"].map((h) => (
-                <th
-                  key={h}
-                  style={{
-                    padding: "10px 12px",
-                    textAlign: "left",
-                    fontWeight: 600,
-                    color: "#374151",
-                    borderBottom: "1px solid #e5e7eb",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+                <th key={h} style={{ whiteSpace: "nowrap" }}>
                   {h}
                 </th>
               ))}
@@ -1058,29 +1030,20 @@ function TrainingsTab() {
               </tr>
             )}
             {trainings.map((t) => (
-              <tr
-                key={t.id}
-                style={{ borderBottom: "1px solid #f3f4f6" }}
-                onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLTableRowElement).style.background = "#f9fafb")
-                }
-                onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLTableRowElement).style.background = "")
-                }
-              >
-                <td style={{ padding: "10px 12px", color: "#6b7280" }}>{t.trainingNo}</td>
-                <td style={{ padding: "10px 12px" }}>
+              <tr key={t.id}>
+                <td style={{ color: "#6b7280" }}>{t.trainingNo}</td>
+                <td>
                   <Badge label={t.trainingType} color="#2563eb" />
                 </td>
-                <td style={{ padding: "10px 12px" }}>{t.trainingTitle}</td>
-                <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{t.trainerName}</td>
-                <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                <td>{t.trainingTitle}</td>
+                <td style={{ whiteSpace: "nowrap" }}>{t.trainerName}</td>
+                <td style={{ textAlign: "center" }}>
                   {t.participantCount}
                 </td>
-                <td style={{ padding: "10px 12px", whiteSpace: "nowrap", color: "#6b7280" }}>
+                <td style={{ whiteSpace: "nowrap", color: "#6b7280" }}>
                   {t.trainingDate ? new Date(t.trainingDate).toLocaleDateString("zh-CN") : "—"}
                 </td>
-                <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                <td style={{ textAlign: "center" }}>
                   {t.score != null ? (
                     <span
                       style={{
@@ -1094,7 +1057,7 @@ function TrainingsTab() {
                     "—"
                   )}
                 </td>
-                <td style={{ padding: "10px 12px", color: "#6b7280" }}>{t.remark ?? "—"}</td>
+                <td style={{ color: "#6b7280" }}>{t.remark ?? "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -1508,22 +1471,12 @@ function PilotRunTab() {
       )}
 
       <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background: "#f3f4f6" }}>
+            <tr>
               {["编号", "公司", "站点", "开始日期", "结束日期", "状态", "订单数", "配送数", "问题数", "操作"].map(
                 (h) => (
-                  <th
-                    key={h}
-                    style={{
-                      padding: "10px 12px",
-                      textAlign: "left",
-                      fontWeight: 600,
-                      color: "#374151",
-                      borderBottom: "1px solid #e5e7eb",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                  <th key={h} style={{ whiteSpace: "nowrap" }}>
                     {h}
                   </th>
                 )
@@ -1542,41 +1495,32 @@ function PilotRunTab() {
               </tr>
             )}
             {runs.map((run) => (
-              <tr
-                key={run.id}
-                style={{ borderBottom: "1px solid #f3f4f6" }}
-                onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLTableRowElement).style.background = "#f9fafb")
-                }
-                onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLTableRowElement).style.background = "")
-                }
-              >
-                <td style={{ padding: "10px 12px", color: "#6b7280", whiteSpace: "nowrap" }}>
+              <tr key={run.id}>
+                <td style={{ color: "#6b7280", whiteSpace: "nowrap" }}>
                   {run.runNo}
                 </td>
-                <td style={{ padding: "10px 12px" }}>{run.companyCode}</td>
-                <td style={{ padding: "10px 12px" }}>{run.siteName}</td>
-                <td style={{ padding: "10px 12px", whiteSpace: "nowrap", color: "#6b7280" }}>
+                <td>{run.companyCode}</td>
+                <td>{run.siteName}</td>
+                <td style={{ whiteSpace: "nowrap", color: "#6b7280" }}>
                   {run.runStartDate ? new Date(run.runStartDate).toLocaleDateString("zh-CN") : "—"}
                 </td>
-                <td style={{ padding: "10px 12px", whiteSpace: "nowrap", color: "#6b7280" }}>
+                <td style={{ whiteSpace: "nowrap", color: "#6b7280" }}>
                   {run.runEndDate ? new Date(run.runEndDate).toLocaleDateString("zh-CN") : "—"}
                 </td>
-                <td style={{ padding: "10px 12px" }}>
+                <td>
                   <Badge
                     label={run.status}
                     color={PILOT_STATUS_COLOR[run.status] ?? "#6b7280"}
                   />
                 </td>
-                <td style={{ padding: "10px 12px", textAlign: "center" }}>{run.orderCount}</td>
-                <td style={{ padding: "10px 12px", textAlign: "center" }}>{run.deliveryCount}</td>
-                <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                <td style={{ textAlign: "center" }}>{run.orderCount}</td>
+                <td style={{ textAlign: "center" }}>{run.deliveryCount}</td>
+                <td style={{ textAlign: "center" }}>
                   <span style={{ color: run.issueCount > 0 ? "#dc2626" : "#16a34a", fontWeight: 600 }}>
                     {run.issueCount}
                   </span>
                 </td>
-                <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
+                <td style={{ whiteSpace: "nowrap" }}>
                   {updatingId === run.id ? (
                     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                       <select
@@ -1765,20 +1709,11 @@ function ReadinessTab({
             评分维度明细
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <table className={s.table}>
               <thead>
-                <tr style={{ background: "#f3f4f6" }}>
+                <tr>
                   {["维度", "权重", "通过/总计", "评分", "加权"].map((h) => (
-                    <th
-                      key={h}
-                      style={{
-                        padding: "10px 14px",
-                        textAlign: "left",
-                        fontWeight: 600,
-                        color: "#374151",
-                        borderBottom: "1px solid #e5e7eb",
-                      }}
-                    >
+                    <th key={h}>
                       {h}
                     </th>
                   ))}
@@ -1786,27 +1721,18 @@ function ReadinessTab({
               </thead>
               <tbody>
                 {readiness.dimensions.map((d, i) => (
-                  <tr
-                    key={i}
-                    style={{ borderBottom: "1px solid #f3f4f6" }}
-                    onMouseEnter={(e) =>
-                      ((e.currentTarget as HTMLTableRowElement).style.background = "#f9fafb")
-                    }
-                    onMouseLeave={(e) =>
-                      ((e.currentTarget as HTMLTableRowElement).style.background = "")
-                    }
-                  >
-                    <td style={{ padding: "12px 14px", fontWeight: 500 }}>
+                  <tr key={i}>
+                    <td>
                       {d.dimensionName}
                     </td>
-                    <td style={{ padding: "12px 14px", color: "#6b7280" }}>
+                    <td style={{ color: "#6b7280" }}>
                       {(d.weight * 100).toFixed(0)}%
                     </td>
-                    <td style={{ padding: "12px 14px" }}>
+                    <td>
                       <span style={{ fontWeight: 600 }}>{d.passed}</span>
                       <span style={{ color: "#9ca3af" }}> / {d.total}</span>
                     </td>
-                    <td style={{ padding: "12px 14px" }}>
+                    <td>
                       <span
                         style={{
                           fontWeight: 700,
@@ -1821,18 +1747,17 @@ function ReadinessTab({
                         {d.score.toFixed(1)}
                       </span>
                     </td>
-                    <td style={{ padding: "12px 14px", color: "#374151" }}>
+                    <td style={{ color: "#374151" }}>
                       {d.weighted.toFixed(2)}
                     </td>
                   </tr>
                 ))}
                 <tr style={{ background: "#f9fafb", borderTop: "2px solid #e5e7eb" }}>
-                  <td colSpan={4} style={{ padding: "12px 14px", fontWeight: 700 }}>
+                  <td colSpan={4} style={{ fontWeight: 700 }}>
                     综合评分
                   </td>
                   <td
                     style={{
-                      padding: "12px 14px",
                       fontWeight: 800,
                       fontSize: 16,
                       color: scoreColor,

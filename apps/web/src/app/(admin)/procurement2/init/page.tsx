@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
+import s from "@/components/ui/admin-ui.module.css";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 type BatchType = "HISTORICAL_PO" | "HISTORICAL_PAYMENT" | "HISTORICAL_SHAREHOLDER_FUND" | "HISTORICAL_RECEIPT";
@@ -230,10 +231,6 @@ export default function InitPage() {
     }
   };
 
-  // ── 样式 ─────────────────────────────────────────────────────────────────────
-  const cellSt: React.CSSProperties = { padding: "8px 10px", borderBottom: "1px solid var(--border)", fontSize: 13 };
-  const thSt:   React.CSSProperties = { ...cellSt, fontWeight: 600, background: "var(--bg-subtle)", whiteSpace: "nowrap" };
-
   return (
     <div style={{ padding: 24, maxWidth: 1200 }}>
       {/* 页头 */}
@@ -294,37 +291,44 @@ export default function InitPage() {
 
       {/* 批次列表 */}
       <div style={{ border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table className={s.table}>
           <thead>
             <tr>
-              {["批次号","类型","文件名","状态","总行数","成功","失败","创建人","创建时间","操作"].map(h => (
-                <th key={h} style={thSt}>{h}</th>
-              ))}
+              <th>批次号</th>
+              <th>类型</th>
+              <th>文件名</th>
+              <th>状态</th>
+              <th style={{ textAlign: "right" }}>总行数</th>
+              <th style={{ textAlign: "right" }}>成功</th>
+              <th style={{ textAlign: "right" }}>失败</th>
+              <th>创建人</th>
+              <th>创建时间</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={10} style={{ ...cellSt, textAlign: "center", color: "var(--text-secondary)" }}>加载中…</td></tr>
+              <tr><td colSpan={10} style={{ textAlign: "center", color: "var(--text-secondary)" }}>加载中…</td></tr>
             )}
             {!loading && batches.length === 0 && (
-              <tr><td colSpan={10} style={{ ...cellSt, textAlign: "center", color: "var(--text-secondary)" }}>暂无数据</td></tr>
+              <tr><td colSpan={10} style={{ textAlign: "center", color: "var(--text-secondary)" }}>暂无数据</td></tr>
             )}
             {batches.map(b => (
               <tr key={b.id} style={{ cursor: "pointer" }} onClick={() => openDetail(b.id)}>
-                <td style={{ ...cellSt, fontWeight: 500 }}>{b.batchNo}</td>
-                <td style={cellSt}>{BATCH_TYPE_LABELS[b.batchType] ?? b.batchType}</td>
-                <td style={{ ...cellSt, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.fileName || "—"}</td>
-                <td style={cellSt}>
+                <td>{b.batchNo}</td>
+                <td>{BATCH_TYPE_LABELS[b.batchType] ?? b.batchType}</td>
+                <td style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.fileName || "—"}</td>
+                <td>
                   <span style={{ background: STATUS_COLORS[b.status] + "22", color: STATUS_COLORS[b.status], padding: "2px 8px", borderRadius: 4, fontSize: 12, fontWeight: 600 }}>
                     {b.status}
                   </span>
                 </td>
-                <td style={{ ...cellSt, textAlign: "right" }}>{b.totalRows}</td>
-                <td style={{ ...cellSt, textAlign: "right", color: "var(--color-success)" }}>{b.successRows}</td>
-                <td style={{ ...cellSt, textAlign: "right", color: b.failedRows > 0 ? "var(--color-danger)" : "inherit" }}>{b.failedRows}</td>
-                <td style={cellSt}>{b.createdByName}</td>
-                <td style={{ ...cellSt, fontSize: 12, color: "var(--text-secondary)" }}>{b.createdAt?.slice(0, 16)}</td>
-                <td style={cellSt} onClick={e => e.stopPropagation()}>
+                <td style={{ textAlign: "right" }}>{b.totalRows}</td>
+                <td style={{ textAlign: "right", color: "var(--color-success)" }}>{b.successRows}</td>
+                <td style={{ textAlign: "right", color: b.failedRows > 0 ? "var(--color-danger)" : "inherit" }}>{b.failedRows}</td>
+                <td>{b.createdByName}</td>
+                <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{b.createdAt?.slice(0, 16)}</td>
+                <td onClick={e => e.stopPropagation()}>
                   <div style={{ display: "flex", gap: 6 }}>
                     {isAdmin && ['VALIDATED','FAILED'].includes(b.status) && (
                       <button onClick={() => { void openDetail(b.id); }}
@@ -475,23 +479,23 @@ export default function InitPage() {
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>错误行列表</div>
                   <div style={{ border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                    <table className={s.table}>
                       <thead>
                         <tr>
                           {["行号","状态","错误信息","关联单号"].map(h => (
-                            <th key={h} style={{ ...thSt, fontSize: 12 }}>{h}</th>
+                            <th key={h}>{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {errorRows.map(r => (
                           <tr key={r.id}>
-                            <td style={cellSt}>{r.rowNo}</td>
-                            <td style={cellSt}>
+                            <td>{r.rowNo}</td>
+                            <td>
                               <span style={{ color: ROW_STATUS_COLORS[r.status] ?? "inherit", fontWeight: 600 }}>{r.status}</span>
                             </td>
-                            <td style={{ ...cellSt, color: "var(--color-danger)", maxWidth: 240, wordBreak: "break-word" }}>{r.errorMessage}</td>
-                            <td style={{ ...cellSt, fontSize: 11 }}>{r.relatedPoNo || r.relatedPayNo || r.relatedFundNo || r.relatedReceiptNo || "—"}</td>
+                            <td style={{ color: "var(--color-danger)", maxWidth: 240, wordBreak: "break-word" }}>{r.errorMessage}</td>
+                            <td style={{ fontSize: 11 }}>{r.relatedPoNo || r.relatedPayNo || r.relatedFundNo || r.relatedReceiptNo || "—"}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -506,23 +510,23 @@ export default function InitPage() {
                   全部行（共 {detailBatch.rows?.length ?? 0} 行）
                 </div>
                 <div style={{ border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden", maxHeight: 360, overflowY: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <table className={s.table}>
                     <thead>
                       <tr>
                         {["行号","状态","关联单号","错误信息"].map(h => (
-                          <th key={h} style={{ ...thSt, fontSize: 12, position: "sticky", top: 0, zIndex: 1 }}>{h}</th>
+                          <th key={h} style={{ position: "sticky", top: 0, zIndex: 1 }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {(detailBatch.rows ?? []).map(r => (
                         <tr key={r.id}>
-                          <td style={cellSt}>{r.rowNo}</td>
-                          <td style={cellSt}>
+                          <td>{r.rowNo}</td>
+                          <td>
                             <span style={{ color: ROW_STATUS_COLORS[r.status] ?? "inherit", fontWeight: 600, fontSize: 11 }}>{r.status}</span>
                           </td>
-                          <td style={{ ...cellSt, fontSize: 11 }}>{r.relatedPoNo || r.relatedPayNo || r.relatedFundNo || r.relatedReceiptNo || "—"}</td>
-                          <td style={{ ...cellSt, color: "var(--color-danger)", fontSize: 11, maxWidth: 200, wordBreak: "break-word" }}>{r.errorMessage || "—"}</td>
+                          <td style={{ fontSize: 11 }}>{r.relatedPoNo || r.relatedPayNo || r.relatedFundNo || r.relatedReceiptNo || "—"}</td>
+                          <td style={{ color: "var(--color-danger)", fontSize: 11, maxWidth: 200, wordBreak: "break-word" }}>{r.errorMessage || "—"}</td>
                         </tr>
                       ))}
                     </tbody>

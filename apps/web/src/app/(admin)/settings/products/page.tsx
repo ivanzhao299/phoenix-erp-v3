@@ -3,11 +3,12 @@ import type { ProductRow } from "@/types";
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import PageHeader from "@/components/PageHeader";
-import RightDrawer from "@/components/RightDrawer";
+import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useDialog } from "@/contexts/DialogContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Package, Plus, Edit2, Trash2, Filter, Egg, Languages, Save, Globe, Layers, AlertTriangle, CheckCircle, X } from "lucide-react";
+import s from "@/components/ui/admin-ui.module.css";
 
 const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : ""}` });
 
@@ -125,11 +126,11 @@ export default function ProductsPage() {
 
           {/* 表格 */}
           <div style={{ flex: 1, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <table className={s.table}>
               <thead>
-                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                <tr>
                   {[t('ui.商品编码', '商品编码'), t('ui.名称双语', '名称（双语）'), t('ui.分类', '分类'), t('ui.规格保质期', '规格 / 保质期'), t('ui.零售价', '零售价'), t('common.status', '状态'), t('common.operation', '操作')].map(h => (
-                    <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, color: "var(--text-secondary)", fontSize: 12 }}>{h}</th>
+                    <th key={h}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -139,28 +140,26 @@ export default function ProductsPage() {
                 ) : filtered.length === 0 ? (
                   <tr><td colSpan={7} style={{ padding: 60, textAlign: "center", color: "var(--text-secondary)" }}>{t('common.no_data', '暂无商品数据')}</td></tr>
                 ) : filtered.map(row => (
-                  <tr key={row.id} style={{ borderBottom: "1px solid var(--border)" }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-page)")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                    <td style={{ padding: "12px 14px", fontFamily: "monospace", fontWeight: 600, color: "var(--text-secondary)", fontSize: 12 }}>{row.code}</td>
-                    <td style={{ padding: "12px 14px" }}>
+                  <tr key={row.id}>
+                    <td style={{ fontFamily: "monospace", color: "var(--text-secondary)", fontSize: 12 }}>{row.code}</td>
+                    <td>
                       <div style={{ fontWeight: 600 }}>{row.name_zh}</div>
                       <div style={{ fontSize: 12, color: row.name_lo ? "var(--text-secondary)" : "#ef4444" }}>{row.name_lo || `⚠ ${t('ui.缺老挝语', '缺老挝语')}`}</div>
                     </td>
-                    <td style={{ padding: "12px 14px" }}>
+                    <td>
                       <span style={{ fontSize: 12, background: "var(--bg-page)", border: "1px solid var(--border)", padding: "2px 8px", borderRadius: 10 }}>{catLabel(row.category_code ?? "")}</span>
                     </td>
-                    <td style={{ padding: "12px 14px" }}>
+                    <td>
                       <div style={{ fontSize: 12 }}>{row.specs || row.unit}</div>
                       <div style={{ fontSize: 11, color: "var(--color-warning)" }}>{t('ui.保质期', '保质期')} {row.shelfLife}{t('ui.天', '天')}</div>
                     </td>
-                    <td style={{ padding: "12px 14px" }}>LAK {row.price}</td>
-                    <td style={{ padding: "12px 14px" }}>
+                    <td>LAK {row.price}</td>
+                    <td>
                       <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 8px", borderRadius: 10, background: row.status === "active" || row.status === "ACTIVE" ? "#dcfce7" : "#fee2e2", color: row.status === "active" || row.status === "ACTIVE" ? "#16a34a" : "#dc2626" }}>
                         {row.status === "active" || row.status === "ACTIVE" ? t('status.active', '启用') : t('status.inactive', '停用')}
                       </span>
                     </td>
-                    <td style={{ padding: "12px 14px" }}>
+                    <td>
                       <div style={{ display: "flex", gap: 6 }}>
                         <button type="button" onClick={() => openEdit(row)} style={{ padding: 6, background: "#ecfeff", color: "#1e40af", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer" }}><Edit2 size={13}/></button>
                         <button type="button" onClick={() => handleDelete(row)} style={{ padding: 6, background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer" }}><Trash2 size={13}/></button>
@@ -218,7 +217,7 @@ export default function ProductsPage() {
       )}
 
       {/* 新增/编辑抽屉 */}
-      <RightDrawer isOpen={drawer} onClose={() => setDrawer(false)} title={editing ? t('ui.编辑商品', '编辑商品') : t('ui.新增商品', '新增商品')} width="560px">
+      <RightDrawer open={drawer} onClose={() => setDrawer(false)} title={editing ? t('ui.编辑商品', '编辑商品') : t('ui.新增商品', '新增商品')} width="560px">
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div style={{ background: "var(--bg-page)", padding: 16, borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
             <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12, color: "#1e40af", display: "flex", alignItems: "center", gap: 6 }}><Languages size={15}/>{t('ui.双语名称', '双语名称')}</div>

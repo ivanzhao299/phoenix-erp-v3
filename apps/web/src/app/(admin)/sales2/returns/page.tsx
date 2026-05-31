@@ -1,5 +1,8 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
+import s from "@/components/ui/admin-ui.module.css";
+import { KpiCard } from "@/components/ui/KpiCard";
+import { hexToAccent, KPI_GRID } from "@/lib/design-tokens";
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 
@@ -87,10 +90,16 @@ const INSPECTION_CFG: Record<string, { label: string; color: string }> = {
 
 // ── API 工具 ──────────────────────────────────────────────────────────────────
 
+function getToken() {
+  if (typeof window === "undefined") return "";
+  return sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "";
+}
+
 async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
+  // 修复（401 踢登录）：补上 Authorization 头，API 鉴权才能通过。
   const res = await fetch(path, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
@@ -425,11 +434,11 @@ function ReturnOrdersTab() {
 
       {/* 列表表格 */}
       <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+            <tr>
               {['退货单号','类型','客户','金额','状态','创建时间','操作'].map(h => (
-                <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 12, color: '#6b7280', fontWeight: 600 }}>{h}</th>
+                <th key={h}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -439,22 +448,22 @@ function ReturnOrdersTab() {
             ) : orders.length === 0 ? (
               <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>暂无退货单</td></tr>
             ) : orders.map(o => (
-              <tr key={o.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                <td style={{ padding: '12px 16px' }}>
+              <tr key={o.id}>
+                <td>
                   <button onClick={() => openDetail(o.id)} style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', fontWeight: 600, padding: 0, fontSize: 14 }}>
                     {o.return_no}
                   </button>
                   {o.sales_order_no && <div style={{ fontSize: 11, color: '#9ca3af' }}>SO: {o.sales_order_no}</div>}
                 </td>
-                <td style={{ padding: '12px 16px' }}><Badge cfg={RETURN_TYPE_CFG} code={o.return_type} /></td>
-                <td style={{ padding: '12px 16px' }}>
+                <td><Badge cfg={RETURN_TYPE_CFG} code={o.return_type} /></td>
+                <td>
                   <div style={{ fontWeight: 500 }}>{o.customer_name ?? o.customer_code ?? '—'}</div>
                   {o.customer_code && o.customer_name && <div style={{ fontSize: 11, color: '#9ca3af' }}>{o.customer_code}</div>}
                 </td>
-                <td style={{ padding: '12px 16px', fontWeight: 600 }}>{fmt(o.subtotal)} {o.currency_code}</td>
-                <td style={{ padding: '12px 16px' }}><Badge cfg={STATUS_CFG} code={o.status} /></td>
-                <td style={{ padding: '12px 16px', color: '#6b7280' }}>{fmtDate(o.created_at)}</td>
-                <td style={{ padding: '12px 16px' }}>
+                <td>{fmt(o.subtotal)} {o.currency_code}</td>
+                <td><Badge cfg={STATUS_CFG} code={o.status} /></td>
+                <td style={{ color: '#6b7280' }}>{fmtDate(o.created_at)}</td>
+                <td>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {o.status === 'DRAFT' && (
                       <button onClick={() => doAction(o.id, 'submit')} disabled={!!actionLoading}
@@ -847,18 +856,15 @@ export default function SalesReturnsPage() {
 
       {/* Dashboard 统计 */}
       {stats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 24 }}>
+        <div style={{ ...KPI_GRID, marginBottom: 24 }}>
           {[
-            { label: '今日退货单', value: stats.todayTotal, color: '#6b7280', bg: '#f3f4f6' },
-            { label: '待审批', value: stats.pendingApproval, color: '#f59e0b', bg: '#fffbeb' },
-            { label: '待质检', value: stats.pendingInspection, color: '#8b5cf6', bg: '#f5f3ff' },
-            { label: '待回库', value: stats.pendingRestock, color: '#06b6d4', bg: '#ecfeff' },
-            { label: '今日 Credit Note', value: `${fmt(stats.todayCreditNoteAmount)}`, color: '#ef4444', bg: '#fef2f2' },
-          ].map(({ label, value, color, bg }) => (
-            <div key={label} style={{ background: bg, border: `1px solid ${color}30`, borderRadius: 12, padding: '16px 20px' }}>
-              <div style={{ fontSize: 28, fontWeight: 800, color, marginBottom: 4 }}>{value}</div>
-              <div style={{ fontSize: 12, color: '#9ca3af' }}>{label}</div>
-            </div>
+            { label: '今日退货单', value: stats.todayTotal, color: '#6b7280' },
+            { label: '待审批', value: stats.pendingApproval, color: '#f59e0b' },
+            { label: '待质检', value: stats.pendingInspection, color: '#8b5cf6' },
+            { label: '待回库', value: stats.pendingRestock, color: '#06b6d4' },
+            { label: '今日 Credit Note', value: `${fmt(stats.todayCreditNoteAmount)}`, color: '#ef4444' },
+          ].map(({ label, value, color }) => (
+            <KpiCard key={label} label={label} value={value} accentColor={hexToAccent(color)} />
           ))}
         </div>
       )}

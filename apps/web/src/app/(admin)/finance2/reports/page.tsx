@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { TOKENS } from '@/lib/design-tokens';
+import s from "@/components/ui/admin-ui.module.css";
 
 // ── 工具 ──────────────────────────────────────────────────────────────────────
 
@@ -37,7 +38,7 @@ function KpiCard({ label, value, sub, icon: Icon, color }: {
 }) {
   return (
     <div className="bg-bg-card border border-border"
-      style={{ borderRadius: 14, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+      style={{ borderRadius: 14, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', minHeight: 112, boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         {Icon && (
           <div style={{
@@ -67,7 +68,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function TableWrapper({ children }: { children: React.ReactNode }) {
   return (
     <div className="border border-border" style={{ overflowX: 'auto', borderRadius: 12 }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+      <table className={s.table}>
         {children}
       </table>
     </div>
@@ -76,21 +77,16 @@ function TableWrapper({ children }: { children: React.ReactNode }) {
 
 function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
-    <th className="bg-bg-muted border-b border-border text-text-muted"
-      style={{
-        padding: '10px 14px', textAlign: right ? 'right' : 'left',
-        fontSize: 11, fontWeight: 700,
-        whiteSpace: 'nowrap',
-      }}>{children}</th>
+    <th style={{ textAlign: right ? 'right' : 'left', whiteSpace: 'nowrap' }}>{children}</th>
   );
 }
 
 function Td({ children, right, bold }: { children: React.ReactNode; right?: boolean; bold?: boolean }) {
   return (
-    <td className={bold ? 'text-text border-b border-border' : 'text-text-muted border-b border-border'}
+    <td className={bold ? 'text-text' : 'text-text-muted'}
       style={{
-        padding: '9px 14px', textAlign: right ? 'right' : 'left',
-        fontWeight: bold ? 700 : 400, whiteSpace: 'nowrap',
+        textAlign: right ? 'right' : 'left',
+        fontWeight: bold ? 700 : undefined, whiteSpace: 'nowrap',
       }}>{children}</td>
   );
 }
@@ -301,7 +297,7 @@ function ApTab() {
                 <Td right>{fmt(r.d6190)}</Td>
                 <Td right>{fmt(r.dOver90)}</Td>
                 <Td right bold>{fmt(r.total)}</Td>
-                <td style={{ padding: '9px 14px', width: 100 }}>
+                <td style={{ width: 100 }}>
                   <AgingBar {...r} />
                 </td>
               </tr>
@@ -394,7 +390,7 @@ function ArTab() {
                 <Td right>{fmt(r.d6190)}</Td>
                 <Td right>{fmt(r.dOver90)}</Td>
                 <Td right bold>{fmt(r.total)}</Td>
-                <td style={{ padding: '9px 14px', width: 100 }}>
+                <td style={{ width: 100 }}>
                   <AgingBar {...r} />
                 </td>
               </tr>

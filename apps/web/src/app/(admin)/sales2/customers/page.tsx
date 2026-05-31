@@ -40,10 +40,21 @@ const CHANNEL_STATUS_MAP: Record<string, { label: string; cls: string }> = {
 };
 
 // ── API helpers ───────────────────────────────────────────────────────────────
+function getToken() {
+  if (typeof window === "undefined") return "";
+  return sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "";
+}
+
 async function apiFetch(path: string, options?: RequestInit) {
+  // 修复（401 踢登录）：原 apiFetch 未携带 Authorization 头，API 鉴权失败返回 401，
+  // 前端按"登录过期"跳回登录页。这里补上 Bearer token，并保证 options.headers 不覆盖它。
   const res = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getToken()}`,
+      ...(options?.headers ?? {}),
+    },
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -230,11 +241,11 @@ function CustomersTab() {
 
       {/* Table */}
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background: "var(--bg-muted)", borderBottom: "1px solid var(--border)" }}>
+            <tr>
               {["客户编号","客户名称","类型","渠道","信用额度","已用额度","账期","风险","状态","操作"].map(h => (
-                <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{h}</th>
+                <th key={h}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -254,7 +265,7 @@ function CustomersTab() {
                   onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "var(--bg-hover)"}
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ""}>
                   <td style={{ padding: "9px 12px", fontFamily: "monospace", fontSize: 12 }}>{row.customer_no}</td>
-                  <td style={{ padding: "9px 12px", fontWeight: 600 }}>{row.customer_name}</td>
+                  <td style={{ padding: "9px 12px" }}>{row.customer_name}</td>
                   <td style={{ padding: "9px 12px" }}><span className={`${s.badge} ${s.badgeInfo}`}>{type?.label ?? row.customer_type}</span></td>
                   <td style={{ padding: "9px 12px", color: "var(--text-secondary)" }}>{row.channel_code ?? "—"}</td>
                   <td style={{ padding: "9px 12px", textAlign: "right" }}>{Number(row.credit_limit).toLocaleString()}</td>
@@ -425,11 +436,11 @@ function ChannelsTab() {
       </div>
 
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background: "var(--bg-muted)", borderBottom: "1px solid var(--border)" }}>
+            <tr>
               {["渠道编码","渠道名称","类型","公司","状态","操作"].map(h => (
-                <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--text-secondary)" }}>{h}</th>
+                <th key={h}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -612,11 +623,11 @@ function CreditTab() {
 
         {/* 表格 */}
         <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <table className={s.table}>
             <thead>
-              <tr style={{ background: "var(--bg-muted)", borderBottom: "1px solid var(--border)" }}>
+              <tr>
                 {["客户名称","信用状态","信用额度","实时欠款","可用额度","逾期金额","账期(天)","操作"].map(h => (
-                  <th key={h} style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{h}</th>
+                  <th key={h} style={{ textAlign: ["信用额度","实时欠款","可用额度","逾期金额"].includes(h) ? "right" : ["账期(天)"].includes(h) ? "center" : "left", whiteSpace: "nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -632,31 +643,31 @@ function CreditTab() {
                 const isSelected = selected?.id === row.id;
                 return (
                   <tr key={row.id}
-                    style={{ borderBottom: i < rows.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer", background: isSelected ? "rgba(var(--color-primary-rgb),0.06)" : undefined }}
+                    style={{ cursor: "pointer", background: isSelected ? "rgba(var(--color-primary-rgb),0.06)" : undefined }}
                     onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = "var(--bg-hover)"; }}
                     onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = ""; }}
                     onClick={() => openAnalysis(row)}>
-                    <td style={{ padding: "9px 10px", fontWeight: 600 }}>
+                    <td>
                       {row.customer_name}
                       {row.auto_frozen && (
                         <span style={{ marginLeft: 6, fontSize: 10, color: "#6b7280", background: "rgba(107,114,128,0.1)", padding: "1px 5px", borderRadius: 8, fontWeight: 400 }}>自动冻结</span>
                       )}
                     </td>
-                    <td style={{ padding: "9px 10px" }}>
+                    <td>
                       <span style={{ padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: cs.bg, color: cs.color }}>{cs.label}</span>
                     </td>
-                    <td style={{ padding: "9px 10px", textAlign: "right", fontFamily: "monospace", fontSize: 11 }}>{lim > 0 ? lim.toLocaleString() : "—"}</td>
-                    <td style={{ padding: "9px 10px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: used > 0 ? "#f59e0b" : "var(--text-secondary)", fontWeight: used > 0 ? 700 : 400 }}>
+                    <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 11 }}>{lim > 0 ? lim.toLocaleString() : "—"}</td>
+                    <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 11, color: used > 0 ? "#f59e0b" : "var(--text-secondary)", fontWeight: used > 0 ? 700 : 400 }}>
                       {used > 0 ? used.toLocaleString() : "0"}
                     </td>
-                    <td style={{ padding: "9px 10px", textAlign: "right", fontFamily: "monospace", fontSize: 11, fontWeight: 700, color: avail < 0 ? "#ef4444" : avail < lim * 0.1 ? "#f59e0b" : "#22c55e" }}>
+                    <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 11, fontWeight: 700, color: avail < 0 ? "#ef4444" : avail < lim * 0.1 ? "#f59e0b" : "#22c55e" }}>
                       {avail.toLocaleString()}
                     </td>
-                    <td style={{ padding: "9px 10px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: overdue > 0 ? "#dc2626" : "var(--text-secondary)", fontWeight: overdue > 0 ? 700 : 400 }}>
+                    <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 11, color: overdue > 0 ? "#dc2626" : "var(--text-secondary)", fontWeight: overdue > 0 ? 700 : 400 }}>
                       {overdue > 0 ? overdue.toLocaleString() : "—"}
                     </td>
-                    <td style={{ padding: "9px 10px", textAlign: "center" }}>{row.payment_terms ?? 0}</td>
-                    <td style={{ padding: "9px 10px" }} onClick={e => e.stopPropagation()}>
+                    <td style={{ textAlign: "center" }}>{row.payment_terms ?? 0}</td>
+                    <td onClick={e => e.stopPropagation()}>
                       <div style={{ display: "flex", gap: 4 }}>
                         <button type="button" className={s.btnSecondary}
                           style={{ padding: "2px 7px", fontSize: 10 }}

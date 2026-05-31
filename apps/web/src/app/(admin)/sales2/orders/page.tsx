@@ -338,11 +338,11 @@ export default function SalesV2OrdersPage() {
 
       {/* 订单列表 */}
       <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background: 'var(--bg-page)', borderBottom: '2px solid var(--border)' }}>
+            <tr>
               {['订单号','客户','金额','状态','价格','信用','应收','操作'].map(h => (
-                <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                <th key={h} style={{ whiteSpace: 'nowrap' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -355,21 +355,21 @@ export default function SalesV2OrdersPage() {
               const sc = statusConf(o.status);
               const nextTarget = TRANSITION_TARGETS[o.status];
               return (
-                <tr key={o.id} style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                <tr key={o.id} style={{ cursor: 'pointer' }}
                   onClick={() => openDetail(o.id)}>
-                  <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--color-primary)' }}>{o.order_no}</td>
-                  <td style={{ padding: '10px 14px' }}>{o.customer_name ?? o.customer_code ?? '—'}</td>
-                  <td style={{ padding: '10px 14px', fontWeight: 600 }}>{Number(o.total_amount).toLocaleString()} {o.currency_code}</td>
-                  <td style={{ padding: '10px 14px' }}>
+                  <td style={{ color: 'var(--color-primary)' }}>{o.order_no}</td>
+                  <td>{o.customer_name ?? o.customer_code ?? '—'}</td>
+                  <td>{Number(o.total_amount).toLocaleString()} {o.currency_code}</td>
+                  <td>
                     <span style={{ padding: '3px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color }}>{sc.label}</span>
                   </td>
-                  <td style={{ padding: '10px 14px' }}>
+                  <td>
                     {o.below_floor_price && <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 700 }}>⚠ 低价</span>}
                   </td>
-                  <td style={{ padding: '10px 14px' }}>
+                  <td>
                     {o.over_credit && <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 700 }}>⚠ 超信用</span>}
                   </td>
-                  <td style={{ padding: '10px 14px' }}>
+                  <td>
                     {o.ar_invoice_id
                       ? <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 700 }}>✓ 已生成</span>
                       : o.status === 'RECEIVED'
@@ -377,7 +377,7 @@ export default function SalesV2OrdersPage() {
                         : <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>—</span>
                     }
                   </td>
-                  <td style={{ padding: '10px 14px' }} onClick={e => e.stopPropagation()}>
+                  <td onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 4 }}>
                       {o.status === 'DRAFT' && canCreate && (
                         <button className={s.btnPrimary} style={{ padding: '3px 8px', fontSize: 11 }}
@@ -686,30 +686,30 @@ export default function SalesV2OrdersPage() {
             {detailOrder.items && detailOrder.items.length > 0 && (
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>订单明细</div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <table className={s.table}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
+                    <tr>
                       {['商品','规格','数量','参考价','实际价','底价','金额'].map(h => (
-                        <th key={h} style={{ padding: '6px 8px', textAlign: h === '商品' || h === '规格' ? 'left' : 'right', fontWeight: 600 }}>{h}</th>
+                        <th key={h} style={{ textAlign: h === '商品' || h === '规格' ? 'left' : 'right' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {detailOrder.items.map((item: OrderItem) => (
-                      <tr key={item.id} style={{ borderBottom: '1px solid var(--border)', background: item.below_floor_price ? 'rgba(239,68,68,0.03)' : undefined }}>
-                        <td style={{ padding: '6px 8px' }}>
+                      <tr key={item.id} style={{ background: item.below_floor_price ? 'rgba(239,68,68,0.03)' : undefined }}>
+                        <td>
                           {item.product_name || item.product_code}
                           <SkuBadge code={item.sku_code} />
                         </td>
-                        <td style={{ padding: '6px 8px' }}>{item.grade_code || '—'}</td>
-                        <td style={{ padding: '6px 8px', textAlign: 'right' }}>{Number(item.qty).toLocaleString()}</td>
-                        <td style={{ padding: '6px 8px', textAlign: 'right', color: 'var(--text-secondary)' }}>{Number(item.resolved_unit_price).toLocaleString()}</td>
-                        <td style={{ padding: '6px 8px', textAlign: 'right', color: item.below_floor_price ? '#ef4444' : undefined, fontWeight: item.below_floor_price ? 700 : 400 }}>
+                        <td>{item.grade_code || '—'}</td>
+                        <td style={{ textAlign: 'right' }}>{Number(item.qty).toLocaleString()}</td>
+                        <td style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>{Number(item.resolved_unit_price).toLocaleString()}</td>
+                        <td style={{ textAlign: 'right', color: item.below_floor_price ? '#ef4444' : undefined, fontWeight: item.below_floor_price ? 700 : 400 }}>
                           {Number(item.actual_unit_price).toLocaleString()}
                           {item.below_floor_price && ' ⚠'}
                         </td>
-                        <td style={{ padding: '6px 8px', textAlign: 'right', color: 'var(--text-secondary)' }}>{item.floor_price != null ? Number(item.floor_price).toLocaleString() : '—'}</td>
-                        <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600 }}>{Number(item.amount).toLocaleString()}</td>
+                        <td style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>{item.floor_price != null ? Number(item.floor_price).toLocaleString() : '—'}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 600 }}>{Number(item.amount).toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>

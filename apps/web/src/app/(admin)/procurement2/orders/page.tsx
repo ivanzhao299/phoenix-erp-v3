@@ -794,26 +794,26 @@ export default function PurchaseOrdersPage() {
               <>
                 <div className={s.formSection} style={{ marginTop: 20 }}>采购明细（{detailData.items.length} 行）</div>
                 <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 6 }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <table className={s.table}>
                     <thead>
-                      <tr style={{ background: "var(--bg-muted)" }}>
-                        <th style={thStyle}>物品名称</th>
-                        <th style={thStyle}>规格</th>
-                        <th style={{ ...thStyle, textAlign: "right" }}>数量</th>
-                        <th style={thStyle}>单位</th>
-                        <th style={{ ...thStyle, textAlign: "right" }}>单价</th>
-                        <th style={{ ...thStyle, textAlign: "right" }}>小计</th>
+                      <tr>
+                        <th>物品名称</th>
+                        <th>规格</th>
+                        <th style={{ textAlign: "right" }}>数量</th>
+                        <th>单位</th>
+                        <th style={{ textAlign: "right" }}>单价</th>
+                        <th style={{ textAlign: "right" }}>小计</th>
                       </tr>
                     </thead>
                     <tbody>
                       {detailData.items.map((it, i) => (
-                        <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
-                          <td style={tdStyle}>{it.itemName}</td>
-                          <td style={tdStyle}>{it.spec ?? "—"}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{it.qty}</td>
-                          <td style={tdStyle}>{it.unit ?? "—"}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{it.unitPrice ?? "—"}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                        <tr key={i}>
+                          <td>{it.itemName}</td>
+                          <td>{it.spec ?? "—"}</td>
+                          <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{it.qty}</td>
+                          <td>{it.unit ?? "—"}</td>
+                          <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{it.unitPrice ?? "—"}</td>
+                          <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
                             {it.amount ? Number(it.amount).toLocaleString("zh-CN") : "—"}
                           </td>
                         </tr>

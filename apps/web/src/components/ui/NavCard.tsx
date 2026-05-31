@@ -1,46 +1,24 @@
 'use client';
 /**
- * NavCard — 全局导航模块卡片 · Design System V2
+ * NavCard — 全系统统一导航模块卡片
  * ================================================
- * 用于所有仪表盘页面的功能模块导航（finance2、sales2、master-data 等）。
- * 统一替代各页面内联定义的 ModuleCard / CardDef，实现全局一致的卡片规格。
- *
- * 设计准则：
- *   · 内边距 p-6（24px），比数据卡大一档，突出模块入口感
- *   · 图标容器 w-12 h-12，视觉锚点适中
- *   · 标题 text-base font-bold，清晰可读
- *   · 描述 text-sm leading-relaxed，14px 正文，不再用 12px
- *   · 进入链接区：字号 text-sm，加 group-hover 动效
+ * 单一标准：与「生产管理（养殖）」首页卡片完全一致 —
+ *   · 白底卡片 + 左侧 4px 主色强调条
+ *   · 淡色图标盒（color-mix 12%）+ 标题 + 描述 + 进入箭头（横向）
+ *   · 悬停：边框转主色 + 阴影加深
+ * 用于所有仪表盘的功能模块导航（finance2 / sales2 / master-data ...）。
  *
  * 用法：
- *   <NavCard
- *     icon={Wallet}
- *     title="资金账户管理"
+ *   <NavCard icon={Wallet} title="资金账户管理"
  *     description="多账户余额管理、流水账本、转账审批。"
- *     href="/finance2/cash-accounts"
- *     accent="blue"
- *   />
+ *     href="/finance2/cash-accounts" accent="blue" />
  */
 import React from 'react';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { ACCENT_SOLID, type AccentColor } from '@/lib/design-tokens';
 
-export type NavCardAccent =
-  | 'blue' | 'green' | 'amber' | 'red'
-  | 'violet' | 'teal' | 'indigo' | 'cyan' | 'slate';
-
-const ACCENT_CLS: Record<NavCardAccent, { text: string; icon: string; border: string }> = {
-  blue:   { text: 'text-info',       icon: 'bg-info/10',    border: 'border-info/20'    },
-  green:  { text: 'text-success',    icon: 'bg-success/10', border: 'border-success/20' },
-  amber:  { text: 'text-warning',    icon: 'bg-warning/10', border: 'border-warning/20' },
-  red:    { text: 'text-danger',     icon: 'bg-danger/10',  border: 'border-danger/20'  },
-  violet: { text: 'text-brand',      icon: 'bg-brand/10',   border: 'border-brand/20'   },
-  indigo: { text: 'text-brand',      icon: 'bg-brand/10',   border: 'border-brand/20'   },
-  cyan:   { text: 'text-info',       icon: 'bg-info/10',    border: 'border-info/20'    },
-  teal:   { text: 'text-success',    icon: 'bg-success/10', border: 'border-success/20' },
-  slate:  { text: 'text-text-muted', icon: 'bg-bg-muted',   border: 'border-border'     },
-};
+export type NavCardAccent = AccentColor;
 
 export interface NavCardProps {
   icon:        React.ElementType;
@@ -67,55 +45,49 @@ export function NavCard({
   badgeColor = 'red',
   className,
 }: NavCardProps) {
-  const ac = ACCENT_CLS[accent];
-
-  const badgeCls = {
-    red:   'bg-danger/10  text-danger  border-danger/20',
-    amber: 'bg-warning/10 text-warning border-warning/20',
-    blue:  'bg-info/10    text-info    border-info/20',
-  }[badgeColor];
+  const color = ACCENT_SOLID[accent];
+  const badgeColorVal = { red: '#dc2626', amber: '#f59e0b', blue: 'var(--color-primary)' }[badgeColor];
 
   const inner = (
-    <div className={cn(
-      'group rounded-2xl border bg-bg-card p-6',
-      'shadow-card hover:shadow-card-hover hover:-translate-y-0.5',
-      'transition-all duration-150 h-full flex flex-col',
-      ac.border,
-      className,
-    )}>
-      {/* 顶部：图标 + 徽章 */}
-      <div className="flex items-start justify-between mb-5">
-        <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0', ac.icon)}>
-          <Icon size={22} className={ac.text} />
+    <div
+      className={`${className ?? ''} group/navcard`}
+      style={{
+        // 导航类（非主卡片）：不使用左强调条——强调条是主卡片专属。
+        // 身份只通过彩色图标盒体现，整体保持中性、轻盈，与顶层 KPI 主卡区分。
+        // 排版比例提炼自「包装日报」kpiCard：紧凑横向 + 40px 圆角图标盒 + 利落字阶。
+        background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', padding: '16px 20px',
+        boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border)',
+        display: 'flex', alignItems: 'center', gap: 14, height: '100%',
+        transition: 'border-color 0.15s, box-shadow 0.15s',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = `color-mix(in srgb, ${color} 40%, var(--border))`; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
+    >
+      <div style={{
+        width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: `color-mix(in srgb, ${color} 14%, transparent)`, color,
+      }}>
+        <Icon size={20} />
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+          <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', letterSpacing: '0.01em' }}>{title}</span>
+          {badge !== undefined && badge !== 0 && (
+            <span style={{
+              fontSize: 11, fontWeight: 600, padding: '1px 8px', borderRadius: 10,
+              color: badgeColorVal, background: `color-mix(in srgb, ${badgeColorVal} 12%, transparent)`,
+              border: `1px solid color-mix(in srgb, ${badgeColorVal} 30%, transparent)`,
+            }}>
+              {badge}
+            </span>
+          )}
         </div>
-        {badge !== undefined && badge !== 0 && (
-          <span className={cn(
-            'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border',
-            badgeCls,
-          )}>
-            {badge}
-          </span>
-        )}
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, letterSpacing: '0.01em' }}>{description}</div>
       </div>
 
-      {/* 标题 */}
-      <div className="text-base font-bold text-text mb-2">
-        {title}
-      </div>
-
-      {/* 描述：text-sm 可读正文，不用 text-xs */}
-      <div className="text-sm text-text-muted leading-relaxed flex-1 mb-5">
-        {description}
-      </div>
-
-      {/* 进入链接 */}
-      <div className={cn(
-        'flex items-center gap-1.5 text-sm font-semibold',
-        ac.text,
-      )}>
-        <span>进入</span>
-        <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
-      </div>
+      <ArrowRight size={17} className="transition-transform group-hover/navcard:translate-x-0.5" style={{ color: 'var(--text-disabled)', flexShrink: 0 }} />
     </div>
   );
 

@@ -4,6 +4,7 @@ import { BookOpen, Search, RefreshCw, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
+import s from "@/components/ui/admin-ui.module.css";
 
 /**
  * 主数据中心 — 系统字典
@@ -127,11 +128,11 @@ export default function MdDictionariesPage() {
         <div style={{ padding: 40, textAlign: "center", color: "#ef4444" }}>{error}</div>
       ) : (
         <div style={{ background: "#1e293b", borderRadius: 10, border: "1px solid #334155", overflow: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table className={s.table}>
             <thead>
-              <tr style={{ background: "#0f172a", color: "#64748b", fontSize: 12 }}>
+              <tr>
                 {["分类", "字典码", "中文标签", "老挝语标签", "英文标签", "排序", "状态"].map(h => (
-                  <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap", borderBottom: "1px solid #334155" }}>{h}</th>
+                  <th key={h} style={h === "排序" ? { textAlign: "center" } : undefined}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -146,17 +147,17 @@ export default function MdDictionariesPage() {
                     onMouseEnter={e => (e.currentTarget.style.background = "#162032")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                   >
-                    <td style={{ padding: "10px 14px" }}>
+                    <td>
                       <span style={{ padding: "2px 8px", borderRadius: 4, background: `${tColor}22`, color: tColor, fontSize: 11, fontWeight: 600 }}>
                         {TYPE_LABEL_MAP[d.dict_type ?? ""] ?? d.dict_type ?? "-"}
                       </span>
                     </td>
-                    <td style={{ padding: "10px 14px", color: "#94a3b8", fontFamily: "monospace", fontSize: 12 }}>{d.dict_code}</td>
-                    <td style={{ padding: "10px 14px", color: "#f1f5f9", fontWeight: 500 }}>{d.dict_label_zh ?? "-"}</td>
-                    <td style={{ padding: "10px 14px", color: "#64748b" }}>{d.dict_label_lo ?? "-"}</td>
-                    <td style={{ padding: "10px 14px", color: "#64748b" }}>{d.dict_label_en ?? "-"}</td>
-                    <td style={{ padding: "10px 14px", color: "#64748b", textAlign: "center" }}>{d.sort_no ?? "-"}</td>
-                    <td style={{ padding: "10px 14px" }}>
+                    <td style={{ color: "#94a3b8", fontFamily: "monospace", fontSize: 12 }}>{d.dict_code}</td>
+                    <td style={{ color: "#f1f5f9" }}>{d.dict_label_zh ?? "-"}</td>
+                    <td style={{ color: "#64748b" }}>{d.dict_label_lo ?? "-"}</td>
+                    <td style={{ color: "#64748b" }}>{d.dict_label_en ?? "-"}</td>
+                    <td style={{ color: "#64748b", textAlign: "center" }}>{d.sort_no ?? "-"}</td>
+                    <td>
                       <span style={{ padding: "2px 8px", borderRadius: 4, background: `${st.color}22`, color: st.color, fontSize: 11, fontWeight: 600 }}>{st.label}</span>
                     </td>
                   </tr>

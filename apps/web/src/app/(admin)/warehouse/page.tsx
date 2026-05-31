@@ -5,6 +5,8 @@ import PageHeader from "@/components/PageHeader";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { QuickEntryCard } from "@/components/ui/QuickEntryCard";
+import type { AccentColor } from "@/lib/design-tokens";
 import {
   PackagePlus, PackageMinus, ListChecks, Search,
   ArrowDown, ArrowUp, Package, AlertTriangle, RefreshCw,
@@ -103,14 +105,14 @@ export default function WarehouseDashboard() {
   ];
 
   const QUICK = [
-    { path: '/warehouse/inbound',  Icon: PackagePlus,      label: t("ui.入库管理",  "入库管理"),  cardCls: s.statCardSuccess },
-    { path: '/warehouse/outbound', Icon: PackageMinus,     label: t("ui.出库管理",  "出库管理"),  cardCls: s.statCardDanger  },
-    { path: '/warehouse/transfer', Icon: MoveHorizontal,   label: t("ui.库存调拨",  "库存调拨"),  cardCls: s.statCardPrimary },
-    { path: '/warehouse/stocktake',Icon: ListChecks,       label: t("ui.盘点管理",  "盘点管理"),  cardCls: s.statCardWarning },
-    { path: '/warehouse/query',    Icon: Search,           label: t("ui.库存查询",  "库存查询"),  cardCls: s.statCardPurple  },
-    { path: '/warehouse/expiry',   Icon: AlertTriangle,    label: t("ui.临期预警",  "临期预警"),  cardCls: s.statCardWarning },
-    { path: '/warehouse/locations',Icon: MapPin,           label: t("ui.库位管理",  "库位管理"),  cardCls: s.statCardPrimary },
-    { path: '/warehouse/ledger',   Icon: Package,          label: t("ui.库存台账",  "库存台账"),  cardCls: s.statCardInfo    },
+    { path: '/warehouse/inbound',  Icon: PackagePlus,      label: t("ui.入库管理",  "入库管理"),  accent: 'green' },
+    { path: '/warehouse/outbound', Icon: PackageMinus,     label: t("ui.出库管理",  "出库管理"),  accent: 'red'  },
+    { path: '/warehouse/transfer', Icon: MoveHorizontal,   label: t("ui.库存调拨",  "库存调拨"),  accent: 'blue' },
+    { path: '/warehouse/stocktake',Icon: ListChecks,       label: t("ui.盘点管理",  "盘点管理"),  accent: 'amber' },
+    { path: '/warehouse/query',    Icon: Search,           label: t("ui.库存查询",  "库存查询"),  accent: 'violet'  },
+    { path: '/warehouse/expiry',   Icon: AlertTriangle,    label: t("ui.临期预警",  "临期预警"),  accent: 'amber' },
+    { path: '/warehouse/locations',Icon: MapPin,           label: t("ui.库位管理",  "库位管理"),  accent: 'blue' },
+    { path: '/warehouse/ledger',   Icon: Package,          label: t("ui.库存台账",  "库存台账"),  accent: 'cyan'    },
   ];
 
   const warningLabel = t("ui.容量预警", "容量预警");
@@ -158,16 +160,9 @@ export default function WarehouseDashboard() {
 
           {/* 快捷入口 */}
           <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: 'var(--text-primary)' }}>{t("ui.快捷入口", "快捷入口")}</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
             {QUICK.map(q => (
-              <Link key={q.path} href={q.path}
-                className={`${s.zoneCardLow} ${q.cardCls}`}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-                  padding: '14px 8px', textDecoration: 'none', fontWeight: 600, fontSize: 13 }}
-              >
-                <q.Icon size={22} />
-                {q.label}
-              </Link>
+              <QuickEntryCard key={q.path} icon={q.Icon} label={q.label} href={q.path} accent={q.accent as AccentColor} />
             ))}
           </div>
         </div>

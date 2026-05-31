@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import PageHeader from "@/components/PageHeader";
-import RightDrawer from "@/components/RightDrawer";
+import { RightDrawer } from "@/components/ui/RightDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -926,7 +926,7 @@ export default function UserManagementPage() {
       )}
 
       {/* Edit drawer */}
-      <RightDrawer isOpen={showDrawer} onClose={() => setShowDrawer(false)}
+      <RightDrawer open={showDrawer} onClose={() => setShowDrawer(false)}
         title={editUser ? t("ui.编辑用户", "编辑用户") : t("ui.新建用户", "新建用户")} width="520px"
         footer={
           <div className={s.drawerFooter}>

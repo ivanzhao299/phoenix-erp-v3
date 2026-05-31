@@ -8,7 +8,8 @@ import styles from "./rightDrawer.module.css";
 interface RightDrawerProps {
   open: boolean;
   title: string;
-  width?: number;
+  /** 数字按 px 处理；也兼容字符串如 "440px"（旧页面迁移用） */
+  width?: number | string;
   onClose: () => void;
   children: React.ReactNode;
   footer?: React.ReactNode;

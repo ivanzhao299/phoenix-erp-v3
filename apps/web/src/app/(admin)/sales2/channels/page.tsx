@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { RefreshCw, Store, Truck, UserCheck, ShoppingBag, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { usePermission } from "@/hooks/usePermission";
+import s from "@/components/ui/admin-ui.module.css";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -207,7 +208,7 @@ export default function SalesChannelsPage() {
               return (
                 <div
                   key={type}
-                  className="rounded-2xl border bg-bg-card border-border/30 p-5 shadow-sm"
+                  className="rounded-2xl border bg-bg-card border-border p-5 shadow-sm"
                 >
                   <div className="flex items-center gap-3 mb-3">
                     <div
@@ -242,23 +243,23 @@ export default function SalesChannelsPage() {
             </div>
           )}
 
-          {/* 客户列表 */}
-          <div className="rounded-2xl border bg-bg-card border-border/30 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-border/30">
-              <span className="font-semibold text-sm text-text">
+          {/* 客户列表 —— 使用全局标准 .card + .cardHeader + .table + .badge */}
+          <div className={s.card}>
+            <div className={s.cardHeader}>
+              <span className={s.cardTitle}>
                 {channelsError ? "客户列表" : "渠道客户列表"}
               </span>
             </div>
             {recentCustomers.length === 0 ? (
               <div className="py-12 text-center text-sm text-text-dim">暂无数据</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div style={{ overflowX: "auto" }}>
+                <table className={s.table}>
                   <thead>
-                    <tr className="text-xs text-text-muted border-b border-border/30">
-                      <th className="text-left px-5 py-3 font-medium">客户名称</th>
-                      <th className="text-left px-5 py-3 font-medium">渠道类型</th>
-                      <th className="text-left px-5 py-3 font-medium">状态</th>
+                    <tr>
+                      <th>客户名称</th>
+                      <th>渠道类型</th>
+                      <th style={{ textAlign: "right" }}>状态</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -266,42 +267,26 @@ export default function SalesChannelsPage() {
                       const typeStr = (c.channel_type ?? c.customer_type ?? "").toUpperCase();
                       const def = CHANNEL_DEFS.find((d) => d.type === typeStr);
                       return (
-                        <tr
-                          key={c.id}
-                          className="border-b border-border/30 hover:bg-bg-muted hover:bg-bg-muted/30 transition-colors"
-                        >
-                          <td className="px-5 py-3 font-medium text-text">
+                        <tr key={c.id}>
+                          <td style={{ fontWeight: 600 }}>
                             {c.customer_name ?? c.name ?? `客户${c.id}`}
                           </td>
-                          <td className="px-5 py-3">
+                          <td>
                             {def ? (
-                              <span
-                                className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                                style={{ color: def.color, background: `${def.color}20` }}
-                              >
+                              <span className={s.badge} style={{ color: def.color, background: `color-mix(in srgb, ${def.color} 12%, transparent)`, borderColor: `color-mix(in srgb, ${def.color} 30%, transparent)` }}>
                                 {def.label}
                               </span>
                             ) : (
-                              <span className="text-xs text-text-dim">
-                                {typeStr || "—"}
-                              </span>
+                              <span className={`${s.badge} ${s.badgeNeutral}`}>{typeStr || "—"}</span>
                             )}
                           </td>
-                          <td className="px-5 py-3">
-                            <span
-                              className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                                c.status === "ACTIVE"
-                                  ? "text-emerald-600 bg-success/10"
-                                  : c.status === "FROZEN"
-                                  ? "text-red-500 bg-red-50 dark:bg-red-900/20"
-                                  : "text-text-dim bg-bg-muted"
-                              }`}
-                            >
-                              {c.status === "ACTIVE"
-                                ? "启用"
-                                : c.status === "FROZEN"
-                                ? "冻结"
-                                : c.status ?? "—"}
+                          <td style={{ textAlign: "right" }}>
+                            <span className={`${s.badge} ${
+                              c.status === "ACTIVE" ? s.badgeSuccess
+                              : c.status === "FROZEN" ? s.badgeDanger
+                              : s.badgeNeutral
+                            }`}>
+                              {c.status === "ACTIVE" ? "启用" : c.status === "FROZEN" ? "冻结" : c.status ?? "—"}
                             </span>
                           </td>
                         </tr>

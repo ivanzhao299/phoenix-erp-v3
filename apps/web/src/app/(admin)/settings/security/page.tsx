@@ -5,6 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Lock, Shield, FileText, AlertTriangle, Database, Users, Clock } from "lucide-react";
+import s from "@/components/ui/admin-ui.module.css";
 
 const hdr = () => ({ Authorization: `Bearer ${typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : ""}` });
 const card: React.CSSProperties = { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: 20, marginBottom: 20 };
@@ -49,7 +50,7 @@ export default function SecurityPolicyPage() {
         <InfoCard icon={<Users size={20}/>} title={t('ui.冻结账户', '冻结账户')} value={loading ? "…" : frozenUsers.length} desc={frozenUsers.length > 0 ? frozenUsers.map(u => u.username).join(", ") : t('ui.无冻结账户', '无冻结账户')} color={frozenUsers.length > 0 ? "#ef4444" : "#22c55e"}/>
         <InfoCard icon={<Lock size={20}/>} title={t('ui.密码加密', '密码加密')} value="bcrypt+Salt" desc={t('ui.独立随机盐无彩虹表风险', '独立随机盐，无彩虹表风险')} color="#22c55e"/>
       </div>
-      <div style={{ ...card, borderLeft: "4px solid var(--color-warning)", padding: "16px 20px" }}>
+      <div style={{ ...card, borderLeft: "var(--card-accent-width) solid var(--color-warning)", padding: "16px 20px" }}>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
           <AlertTriangle size={16} color="var(--color-warning)"/>{t('ui.安全注意事项', '安全注意事项')}
         </div>
@@ -86,22 +87,22 @@ export default function SecurityPolicyPage() {
         {loading ? <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>{t('common.loading', '加载中…')}</div>
           : logs.length === 0 ? <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>{t('ui.暂无审批日志', '暂无审批日志')}</div>
           : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <table className={s.table}>
               <thead>
-                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                <tr>
                   {[t('ui.流程号', '流程号'), t('ui.模块', '模块'), t('ui.操作人', '操作人'), t('ui.操作时间', '操作时间'), t('common.status', '状态')].map(h => (
-                    <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontWeight: 600, color: "var(--text-secondary)", fontSize: 12 }}>{h}</th>
+                    <th key={h}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {logs.map((log, i) => (
-                  <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
-                    <td style={{ padding: "10px 16px", fontFamily: "monospace", fontSize: 11 }}>{log.flow_no || log.record_id || "—"}</td>
-                    <td style={{ padding: "10px 16px" }}>{log.module || log.table_name || "—"}</td>
-                    <td style={{ padding: "10px 16px", fontWeight: 600 }}>{log.submitter || log.operator || "—"}</td>
-                    <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontSize: 12 }}>{log.created_at ? new Date(log.created_at).toLocaleString("zh-CN") : "—"}</td>
-                    <td style={{ padding: "10px 16px" }}>
+                  <tr key={i}>
+                    <td style={{ fontFamily: "monospace", fontSize: 11 }}>{log.flow_no || log.record_id || "—"}</td>
+                    <td>{log.module || log.table_name || "—"}</td>
+                    <td>{log.submitter || log.operator || "—"}</td>
+                    <td style={{ color: "var(--text-secondary)", fontSize: 12 }}>{log.created_at ? new Date(log.created_at).toLocaleString("zh-CN") : "—"}</td>
+                    <td>
                       <span style={{ padding: "3px 8px", borderRadius: 10, fontSize: 12, fontWeight: 700, background: (STATUS_COLOR[log.status ?? ''] || "#94a3b8") + "22", color: STATUS_COLOR[log.status ?? ''] || "#94a3b8" }}>
                         {log.status || "PENDING"}
                       </span>

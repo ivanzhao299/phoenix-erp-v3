@@ -6,6 +6,7 @@ import {
   RefreshCw, CheckCircle, XCircle, Clock, TrendingUp, ShieldAlert,
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import s from "@/components/ui/admin-ui.module.css";
 
 type HealthStatus = "HEALTHY" | "DEGRADED" | "UNKNOWN";
 
@@ -45,7 +46,7 @@ function MetricCard({
   return (
     <div style={{
       background: "var(--bg-card)", border: "1px solid var(--border)",
-      borderLeft: `4px solid ${borderColor ?? "var(--primary)"}`,
+      borderLeft: `var(--card-accent-width) solid ${borderColor ?? "var(--primary)"}`,
       borderRadius: "var(--radius-lg)", padding: "16px 20px",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, color: "var(--text-secondary)" }}>
@@ -216,29 +217,29 @@ export default function SystemHealthPage() {
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <table className={s.table}>
               <thead>
-                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                <tr>
                   {["错误类型", "HTTP状态", "次数", "最近发生"].map(h => (
-                    <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "var(--text-secondary)" }}>{h}</th>
+                    <th key={h}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {errorStats.map((row, i) => (
-                  <tr key={i} style={{ borderBottom: "1px solid var(--border)", background: i % 2 === 0 ? "transparent" : "var(--bg-surface)" }}>
-                    <td style={{ padding: "8px 12px" }}>
+                  <tr key={i}>
+                    <td>
                       <span style={{
                         padding: "1px 8px", borderRadius: 99, fontSize: 11, fontWeight: 700,
                         background: row.error_type === "UNHANDLED" ? "#fee2e2" : "#fef3c7",
                         color: row.error_type === "UNHANDLED" ? "#dc2626" : "#92400e",
                       }}>{row.error_type}</span>
                     </td>
-                    <td style={{ padding: "8px 12px", fontFamily: "monospace" }}>{row.http_status}</td>
-                    <td style={{ padding: "8px 12px", fontWeight: 700, color: Number(row.count) > 10 ? "#dc2626" : "inherit" }}>
+                    <td style={{ fontFamily: "monospace" }}>{row.http_status}</td>
+                    <td style={{ color: Number(row.count) > 10 ? "#dc2626" : "inherit" }}>
                       {row.count}
                     </td>
-                    <td style={{ padding: "8px 12px", color: "var(--text-secondary)", fontSize: 12 }}>
+                    <td style={{ color: "var(--text-secondary)", fontSize: 12 }}>
                       {new Date(row.last_seen).toLocaleString("zh-CN")}
                     </td>
                   </tr>

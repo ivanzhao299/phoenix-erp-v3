@@ -4,6 +4,7 @@ import { Building, Search, RefreshCw, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
+import s from "@/components/ui/admin-ui.module.css";
 
 /**
  * 主数据中心 — 公司档案
@@ -101,11 +102,11 @@ export default function MdCompaniesPage() {
         <div style={{ padding: 40, textAlign: "center", color: "#ef4444" }}>{error}</div>
       ) : (
         <div className="bg-bg-muted border border-border" style={{ borderRadius: 10, overflow: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table className={s.table}>
             <thead>
-              <tr className="bg-bg-card text-text-muted" style={{ fontSize: 12 }}>
+              <tr>
                 {["公司编码", "公司名称", "类型", "上级", "描述"].map(h => (
-                  <th key={h} className="border-b border-border" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
+                  <th key={h}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -122,15 +123,15 @@ export default function MdCompaniesPage() {
                   onMouseEnter={e => (e.currentTarget.style.background = "rgba(148,163,184,0.08)")}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                 >
-                  <td className="text-text-muted" style={{ padding: "10px 14px", fontFamily: "monospace" }}>{o.orgCode ?? "-"}</td>
-                  <td className="text-text" style={{ padding: "10px 14px", fontWeight: 500 }}>{o.orgName ?? "-"}</td>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td className="text-text-muted" style={{ fontFamily: "monospace" }}>{o.orgCode ?? "-"}</td>
+                  <td className="text-text">{o.orgName ?? "-"}</td>
+                  <td>
                     <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(99,102,241,0.15)", color: "#818cf8", fontSize: 11, fontWeight: 600 }}>
                       {o.orgType === "GROUP" ? "集团" : "公司"}
                     </span>
                   </td>
-                  <td className="text-text-muted" style={{ padding: "10px 14px" }}>{o.parentName ?? "-"}</td>
-                  <td className="text-text-muted" style={{ padding: "10px 14px", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis" }}>{o.description ?? "-"}</td>
+                  <td className="text-text-muted">{o.parentName ?? "-"}</td>
+                  <td className="text-text-muted" style={{ maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis" }}>{o.description ?? "-"}</td>
                 </tr>
               ))}
             </tbody>

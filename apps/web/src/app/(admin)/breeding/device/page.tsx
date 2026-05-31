@@ -210,7 +210,7 @@ export default function DeviceOverviewPage() {
         } />
 
       {/* KPI 卡片 */}
-      <div className={s.statsRow} style={{ marginBottom:16 }}>
+      <div className={s.kpiGrid} style={{ marginBottom:16 }}>
         {kpiCards.map(c => (
           <div key={c.label} className={`${s.statCard} ${c.cardCls}`}
             style={c.alarmBg ? { background:'rgba(239,68,68,0.05)' } : {}}>

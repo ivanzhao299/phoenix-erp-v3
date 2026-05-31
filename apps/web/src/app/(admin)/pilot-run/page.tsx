@@ -159,7 +159,7 @@ function KpiCard({
   color?: string;
 }) {
   return (
-    <div className="bg-bg-card rounded-xl border border-border shadow-sm p-4 flex items-start gap-3">
+    <div className="bg-bg-card rounded-xl border border-border shadow-sm p-4 flex items-start gap-3 min-h-[112px] box-border">
       <div className="shrink-0 w-9 h-9 rounded-lg bg-bg-muted flex items-center justify-center">
         <Icon size={18} className="text-text-muted" />
       </div>

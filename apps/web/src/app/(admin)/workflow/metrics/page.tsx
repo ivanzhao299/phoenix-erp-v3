@@ -4,6 +4,7 @@ import {
   Activity, AlertTriangle, CheckCircle, Clock, TrendingUp,
   Users, RefreshCw, BarChart3, ArrowUpCircle, Bell, Wifi, WifiOff,
 } from 'lucide-react';
+import s from "@/components/ui/admin-ui.module.css";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -88,6 +89,8 @@ function KpiCard({
     <div style={{
       background: '#fff',
       borderRadius: 16,
+      minHeight: 112,
+      boxSizing: 'border-box',
       padding: '20px 22px',
       border: `1.5px solid ${alert ? '#fecaca' : '#f1f5f9'}`,
       display: 'flex',
@@ -365,28 +368,24 @@ export default function WorkflowMetricsPage() {
             : overdueTasks.length === 0
             ? <EmptyState msg="暂无超期任务 🎉" />
             : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className={s.table}>
                 <thead>
-                  <tr style={{ background: '#fef2f2' }}>
+                  <tr>
                     {['业务类型', '业务单号', '审批角色', '到期时间', '已超期', '催办次数'].map(h => (
-                      <th key={h} style={{
-                        padding: '11px 18px', textAlign: 'left',
-                        fontSize: 12, fontWeight: 700, color: '#64748b',
-                        borderBottom: '1px solid #fecaca',
-                      }}>{h}</th>
+                      <th key={h}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {overdueTasks.map((t, i) => (
-                    <tr key={t.stepId} style={{ borderBottom: '1px solid #fff5f5', background: i % 2 === 0 ? '#fff' : '#fff8f8' }}>
-                      <td style={{ padding: '12px 18px', fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{t.bizType}</td>
-                      <td style={{ padding: '12px 18px', fontSize: 13, color: '#475569' }}>{t.bizNo ?? '—'}</td>
-                      <td style={{ padding: '12px 18px', fontSize: 13, color: '#475569' }}>{t.approverRole ?? '—'}</td>
-                      <td style={{ padding: '12px 18px', fontSize: 13, color: '#ef4444', fontWeight: 600 }}>
+                    <tr key={t.stepId} style={{ background: i % 2 === 0 ? '#fff' : '#fff8f8' }}>
+                      <td style={{ fontSize: 13, color: '#0f172a' }}>{t.bizType}</td>
+                      <td style={{ fontSize: 13, color: '#475569' }}>{t.bizNo ?? '—'}</td>
+                      <td style={{ fontSize: 13, color: '#475569' }}>{t.approverRole ?? '—'}</td>
+                      <td style={{ fontSize: 13, color: '#ef4444', fontWeight: 600 }}>
                         {fmtDueAt(t.dueAt)}
                       </td>
-                      <td style={{ padding: '12px 18px' }}>
+                      <td>
                         <span style={{
                           display: 'inline-block', padding: '2px 9px', borderRadius: 20,
                           background: '#fef2f2', color: '#ef4444', fontWeight: 700, fontSize: 12,
@@ -397,7 +396,7 @@ export default function WorkflowMetricsPage() {
                             : `${t.overdueHours}h`}
                         </span>
                       </td>
-                      <td style={{ padding: '12px 18px', fontSize: 13, color: '#475569' }}>
+                      <td style={{ fontSize: 13, color: '#475569' }}>
                         {t.reminderCount > 0
                           ? <span style={{ color: '#f59e0b', fontWeight: 700 }}>{t.reminderCount} 次</span>
                           : <span style={{ color: '#94a3b8' }}>0 次</span>}
@@ -430,25 +429,21 @@ export default function WorkflowMetricsPage() {
             : escalatedTasks.length === 0
             ? <EmptyState msg="暂无升级任务 ✅" />
             : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className={s.table}>
                 <thead>
-                  <tr style={{ background: '#fff7ed' }}>
+                  <tr>
                     {['业务类型', '业务单号', '升级审批角色', '升级层级', '到期时间', '创建时间'].map(h => (
-                      <th key={h} style={{
-                        padding: '11px 18px', textAlign: 'left',
-                        fontSize: 12, fontWeight: 700, color: '#64748b',
-                        borderBottom: '1px solid #fed7aa',
-                      }}>{h}</th>
+                      <th key={h}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {escalatedTasks.map((t, i) => (
-                    <tr key={t.stepId} style={{ borderBottom: '1px solid #fff7ed', background: i % 2 === 0 ? '#fff' : '#fffaf5' }}>
-                      <td style={{ padding: '12px 18px', fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{t.bizType}</td>
-                      <td style={{ padding: '12px 18px', fontSize: 13, color: '#475569' }}>{t.bizNo ?? '—'}</td>
-                      <td style={{ padding: '12px 18px', fontSize: 13, color: '#475569' }}>{t.approverRole ?? '—'}</td>
-                      <td style={{ padding: '12px 18px' }}>
+                    <tr key={t.stepId} style={{ background: i % 2 === 0 ? '#fff' : '#fffaf5' }}>
+                      <td style={{ fontSize: 13, color: '#0f172a' }}>{t.bizType}</td>
+                      <td style={{ fontSize: 13, color: '#475569' }}>{t.bizNo ?? '—'}</td>
+                      <td style={{ fontSize: 13, color: '#475569' }}>{t.approverRole ?? '—'}</td>
+                      <td>
                         <span style={{
                           display: 'inline-block', padding: '2px 9px', borderRadius: 20,
                           background: '#fff7ed', color: '#ea580c', fontWeight: 700, fontSize: 12,
@@ -457,10 +452,10 @@ export default function WorkflowMetricsPage() {
                           L{t.escalationLevel}
                         </span>
                       </td>
-                      <td style={{ padding: '12px 18px', fontSize: 13, color: '#475569' }}>
+                      <td style={{ fontSize: 13, color: '#475569' }}>
                         {fmtDueAt(t.dueAt)}
                       </td>
-                      <td style={{ padding: '12px 18px', fontSize: 13, color: '#94a3b8' }}>
+                      <td style={{ fontSize: 13, color: '#94a3b8' }}>
                         {new Date(t.createdAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                       </td>
                     </tr>
@@ -484,31 +479,27 @@ export default function WorkflowMetricsPage() {
           : bottlenecks.length === 0
           ? <EmptyState msg="暂无数据（尚无审批实例）" />
           : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className={s.table}>
               <thead>
-                <tr style={{ background: '#f8fafc' }}>
+                <tr>
                   {['审批角色', '待办量', '超期量', '平均处理时长'].map(h => (
-                    <th key={h} style={{
-                      padding: '12px 20px', textAlign: 'left',
-                      fontSize: 12, fontWeight: 700, color: '#64748b',
-                      borderBottom: '1px solid #f1f5f9',
-                    }}>{h}</th>
+                    <th key={h}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {bottlenecks.map((row, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}>
-                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 600, color: '#0f172a' }}>
+                  <tr key={i}>
+                    <td style={{ fontSize: 14, color: '#0f172a' }}>
                       {row.role}
                     </td>
-                    <td style={{ padding: '14px 20px', fontSize: 14, color: '#475569' }}>
+                    <td style={{ fontSize: 14, color: '#475569' }}>
                       <span style={{
                         display: 'inline-block', padding: '2px 10px', borderRadius: 20,
                         background: '#7c3aed18', color: '#7c3aed', fontWeight: 700,
                       }}>{row.pendingCount}</span>
                     </td>
-                    <td style={{ padding: '14px 20px', fontSize: 14 }}>
+                    <td style={{ fontSize: 14 }}>
                       {row.overdueCount > 0 ? (
                         <span style={{
                           display: 'inline-block', padding: '2px 10px', borderRadius: 20,
@@ -519,7 +510,7 @@ export default function WorkflowMetricsPage() {
                         <span style={{ color: '#94a3b8' }}>—</span>
                       )}
                     </td>
-                    <td style={{ padding: '14px 20px', fontSize: 14, color: '#475569' }}>
+                    <td style={{ fontSize: 14, color: '#475569' }}>
                       {row.avgHours != null ? `${row.avgHours}h` : <span style={{ color: '#94a3b8' }}>—</span>}
                     </td>
                   </tr>

@@ -231,11 +231,11 @@ export default function ProjectsPage() {
 
       {/* 数据表 */}
       <div style={{ background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-lg)",overflow:"auto" }}>
-        <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background:"var(--bg-page)",borderBottom:"1px solid var(--border)" }}>
+            <tr>
               {["公司","项目编号","项目名称","类型","负责人","周期","状态","操作"].map(h=>(
-                <th key={h} style={{ padding:"9px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"var(--text-secondary)",whiteSpace:"nowrap" }}>{h}</th>
+                <th key={h}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -243,8 +243,8 @@ export default function ProjectsPage() {
             {loading && <tr><td colSpan={8} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>加载中…</td></tr>}
             {!loading && data.items.length === 0 && <tr><td colSpan={8} style={{ padding:28,textAlign:"center",color:"var(--text-secondary)" }}>暂无项目记录</td></tr>}
             {!loading && data.items.map((row, i) => (
-              <tr key={row.id} style={{ borderBottom:"1px solid var(--border)",background:i%2===0?"var(--bg-card)":"var(--bg-page)" }}>
-                <td style={{ padding:"8px 12px" }}>
+              <tr key={row.id}>
+                <td>
                   <div style={{ display:"flex",alignItems:"center",gap:6 }}>
                     <Building2 size={13} style={{ color:"var(--text-secondary)" }}/>
                     <div>
@@ -253,24 +253,24 @@ export default function ProjectsPage() {
                     </div>
                   </div>
                 </td>
-                <td style={{ padding:"8px 12px",fontFamily:"monospace",fontSize:11,color:"var(--text-secondary)" }}>{row.projectCode}</td>
-                <td style={{ padding:"8px 12px" }}>
+                <td style={{ fontFamily:"monospace",fontSize:11,color:"var(--text-secondary)" }}>{row.projectCode}</td>
+                <td>
                   <button type="button" onClick={()=>openEdit(row)}
                     style={{ background:"none",border:"none",color:"var(--color-primary)",cursor:"pointer",fontWeight:600,fontSize:13,padding:0 }}>
                     {row.projectName}
                   </button>
                 </td>
-                <td style={{ padding:"8px 12px",fontSize:12 }}>{typeLabel(row.projectType)}</td>
-                <td style={{ padding:"8px 12px",fontSize:12,color:"var(--text-secondary)" }}>
+                <td style={{ fontSize:12 }}>{typeLabel(row.projectType)}</td>
+                <td style={{ fontSize:12,color:"var(--text-secondary)" }}>
                   {row.projectManagerName || <span style={{ opacity:0.4 }}>—</span>}
                 </td>
-                <td style={{ padding:"8px 12px",fontSize:11,color:"var(--text-secondary)" }}>
+                <td style={{ fontSize:11,color:"var(--text-secondary)" }}>
                   {row.startDate ? `${row.startDate} ~ ${row.endDate ?? "—"}` : "—"}
                 </td>
-                <td style={{ padding:"8px 12px" }}>
+                <td>
                   <span className={`${s.badge} ${s[statusCls(row.status)]}`}>{statusLabel(row.status)}</span>
                 </td>
-                <td style={{ padding:"8px 12px",display:"flex",gap:6 }}>
+                <td style={{ display:"flex",gap:6 }}>
                   <button type="button" className={s.btnSecondary} style={{ padding:"3px 8px",fontSize:11 }} onClick={()=>openEdit(row)}>编辑</button>
                   <button type="button"
                     className={row.status === "ACTIVE" ? s.btnDanger : s.btnSecondary}

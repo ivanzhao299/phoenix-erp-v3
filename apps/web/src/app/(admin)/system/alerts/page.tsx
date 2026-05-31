@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
 import { ShieldAlert, CheckCircle, RefreshCw, AlertTriangle, Info } from "lucide-react";
+import s from "@/components/ui/admin-ui.module.css";
 
 interface Alert {
   id:            number;
@@ -94,11 +95,11 @@ export default function SystemAlertsPage() {
       />
 
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background: "var(--bg-surface)", borderBottom: "1px solid var(--border)" }}>
+            <tr>
               {["告警类型", "级别", "标题", "相关路径", "状态", "创建时间", "操作"].map(h => (
-                <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{h}</th>
+                <th key={h} style={{ whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -111,26 +112,26 @@ export default function SystemAlertsPage() {
             ) : alerts.map((a, i) => {
               const sty = SEVERITY_STYLE[a.severity] ?? SEVERITY_STYLE.INFO;
               return (
-                <tr key={a.id} style={{ borderBottom: "1px solid var(--border)", background: i % 2 === 0 ? "transparent" : "var(--bg-surface)" }}>
-                  <td style={{ padding: "10px 14px", fontFamily: "monospace", fontSize: 12 }}>{a.alert_type}</td>
-                  <td style={{ padding: "10px 14px" }}>
+                <tr key={a.id}>
+                  <td style={{ fontFamily: "monospace", fontSize: 12 }}>{a.alert_type}</td>
+                  <td>
                     <span style={{ padding: "1px 8px", borderRadius: 99, fontSize: 11, fontWeight: 700, ...sty }}>
                       {a.severity}
                     </span>
                   </td>
-                  <td style={{ padding: "10px 14px", maxWidth: 260 }}>{a.title}</td>
-                  <td style={{ padding: "10px 14px", fontFamily: "monospace", fontSize: 11, color: "var(--text-secondary)" }}>
+                  <td style={{ maxWidth: 260 }}>{a.title}</td>
+                  <td style={{ fontFamily: "monospace", fontSize: 11, color: "var(--text-secondary)" }}>
                     {a.related_path ?? "—"}
                   </td>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td>
                     {a.resolved
                       ? <span style={{ color: "#16a34a", fontWeight: 600, fontSize: 12 }}>✅ 已处理</span>
                       : <span style={{ color: "#d97706", fontWeight: 600, fontSize: 12 }}>⏳ 待处理</span>}
                   </td>
-                  <td style={{ padding: "10px 14px", color: "var(--text-secondary)", fontSize: 12, whiteSpace: "nowrap" }}>
+                  <td style={{ color: "var(--text-secondary)", fontSize: 12, whiteSpace: "nowrap" }}>
                     {new Date(a.created_at).toLocaleString("zh-CN")}
                   </td>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td>
                     {!a.resolved && (
                       <button
                         onClick={() => handleResolve(a.id)}

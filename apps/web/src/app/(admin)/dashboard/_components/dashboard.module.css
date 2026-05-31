@@ -45,7 +45,7 @@
   font-size: 13px;
   color: var(--text-primary);
   line-height: 1.5;
-  border-left-width: 4px;
+  border-left-width: var(--card-accent-width);
   border-left-style: solid;
 }
 

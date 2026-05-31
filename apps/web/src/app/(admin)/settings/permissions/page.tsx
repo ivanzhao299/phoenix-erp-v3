@@ -7,6 +7,7 @@ import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Shield, Search } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import s from "@/components/ui/admin-ui.module.css";
 
 // ✅ V3 表: sys_permissions — 角色-菜单-权限 三元组配置
 // 字段: id, role_code, menu_code, perm_codes (如 "V,C,E,D,A,X")
@@ -159,21 +160,21 @@ export default function PermissionsPage() {
             </div>
 
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+              <table className={s.table}>
                 <thead>
-                  <tr style={{ borderBottom: "1px solid var(--bg-card)" }}>
-                    <th style={{ padding: "6px 16px", textAlign: "left", color: "var(--text-secondary)", fontWeight: 500 }}>{t('ui.菜单代码', '菜单代码')}</th>
-                    <th style={{ padding: "6px 16px", textAlign: "left", color: "var(--text-secondary)", fontWeight: 500 }}>{t('ui.权限码', '权限码')}</th>
-                    <th style={{ padding: "6px 16px", textAlign: "left", color: "var(--text-secondary)", fontWeight: 500 }}>{t('common.operation', '操作')}</th>
+                  <tr>
+                    <th>{t('ui.菜单代码', '菜单代码')}</th>
+                    <th>{t('ui.权限码', '权限码')}</th>
+                    <th>{t('common.operation', '操作')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.sort((a, b) => a.menu_code.localeCompare(b.menu_code)).map(row => (
-                    <tr key={row.id} style={{ borderBottom: "1px solid var(--bg-card)" }}>
-                      <td style={{ padding: "8px 16px", fontFamily: "monospace", color: "var(--text-primary)" }}>
+                    <tr key={row.id}>
+                      <td style={{ fontFamily: "monospace", color: "var(--text-primary)" }}>
                         {row.menu_code}
                       </td>
-                      <td style={{ padding: "8px 16px" }}>
+                      <td>
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                           {row.perm_codes === "*" ? (
                             <span style={{ padding: "2px 8px", borderRadius: 12,
@@ -195,7 +196,7 @@ export default function PermissionsPage() {
                           })}
                         </div>
                       </td>
-                      <td style={{ padding: "8px 16px" }}>
+                      <td>
                         <div style={{ display: "flex", gap: 6 }}>
                           <button type="button" onClick={() => { setEditing(row); setOpen(true); }} style={{
                             padding: "4px 10px", fontSize: "0.75rem", background: "rgba(59,130,246,0.15)",

@@ -57,7 +57,7 @@ function KpiCard({
   label, value, sub, Icon, color = "var(--color-primary)",
 }: { label: string; value: string; sub?: string; Icon: React.ElementType; color?: string }) {
   return (
-    <div className={s.card} style={{ display: "flex", alignItems: "center", gap: 16, padding: "18px 22px", minWidth: 180 }}>
+    <div className={s.card} style={{ display: "flex", alignItems: "center", gap: 16, padding: "18px 22px", minWidth: 180, minHeight: 112, boxSizing: "border-box" }}>
       <div style={{ width: 46, height: 46, borderRadius: 12, background: `${color}20`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
         <Icon size={22} color={color} />
       </div>

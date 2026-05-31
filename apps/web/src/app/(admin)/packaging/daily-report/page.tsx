@@ -111,7 +111,7 @@ export default function DailyReportPage() {
       </div>
 
       {/* KPI 卡片 */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}>
         {[
           { icon: <Package size={20} />, label: t("ui.今日包装量", "今日包装量"), value: s_total.toLocaleString(), unit: t("ui.枚", "枚"), color: "#3b82f6" },
           { icon: <BarChart2 size={20} />, label: t("ui.计划完成率", "计划完成率"), value: `${s_pct}%`, unit: "", color: s_pct >= 100 ? "#10b981" : "#f59e0b" },

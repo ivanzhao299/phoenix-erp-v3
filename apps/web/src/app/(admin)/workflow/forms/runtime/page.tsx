@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { WorkflowFormRenderer } from '@/components/workflow/WorkflowFormRenderer';
 import type { FormSchema, UiSchema } from '@/components/workflow/WorkflowFormRenderer';
+import ui from "@/components/ui/admin-ui.module.css";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -405,33 +406,33 @@ export default function WorkflowFormRuntimePage() {
                 ) : versions.length === 0 ? (
                   <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>暂无版本，请新建</div>
                 ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <table className={ui.table}>
                     <thead>
-                      <tr style={{ background: '#f8fafc' }}>
+                      <tr>
                         {['版本号', '状态', '发布时间', '创建时间', '操作'].map(h => (
-                          <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#64748b', borderBottom: '1px solid #f1f5f9' }}>{h}</th>
+                          <th key={h}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {versions.map(v => (
-                        <tr key={v.id} style={{ borderBottom: '1px solid #f8fafc' }}>
-                          <td style={{ padding: '12px 16px', fontWeight: 700, color: '#0f172a', fontSize: 13 }}>
+                        <tr key={v.id}>
+                          <td style={{ fontWeight: 700, color: '#0f172a', fontSize: 13 }}>
                             v{v.version_no}
                             {v.id === selected.current_version_id && (
                               <span style={{ marginLeft: 6, fontSize: 11, background: '#7c3aed18', color: '#7c3aed', padding: '1px 6px', borderRadius: 20 }}>当前</span>
                             )}
                           </td>
-                          <td style={{ padding: '12px 16px' }}>
+                          <td>
                             <Badge label={v.status} color={statusColor(v.status)} />
                           </td>
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569' }}>
+                          <td style={{ fontSize: 13, color: '#475569' }}>
                             {v.published_at ? new Date(v.published_at).toLocaleDateString('zh-CN') : '—'}
                           </td>
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: '#94a3b8' }}>
+                          <td style={{ fontSize: 13, color: '#94a3b8' }}>
                             {new Date(v.created_at).toLocaleDateString('zh-CN')}
                           </td>
-                          <td style={{ padding: '12px 16px' }}>
+                          <td>
                             <div style={{ display: 'flex', gap: 8 }}>
                               <button
                                 onClick={() => { setPreviewVer(v); setPreviewData({}); setPreviewErrors({}); }}

@@ -266,11 +266,11 @@ export default function SuppliersPage() {
 
       {/* 数据表 */}
       <div style={{ background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-lg)",overflow:"auto" }}>
-        <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background:"var(--bg-page)",borderBottom:"1px solid var(--border)" }}>
+            <tr>
               {["供应商编码","供应商名称","共享范围","归属","国家","默认货币","状态","操作"].map(h=>(
-                <th key={h} style={{ padding:"9px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"var(--text-secondary)",whiteSpace:"nowrap" }}>{h}</th>
+                <th key={h}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -280,31 +280,31 @@ export default function SuppliersPage() {
             {!loading && data.items.map((row, i) => {
               const si = scopeInfo(row.sharedScope);
               return (
-                <tr key={row.id} style={{ borderBottom:"1px solid var(--border)",background:i%2===0?"var(--bg-card)":"var(--bg-page)" }}>
-                  <td style={{ padding:"8px 12px",fontFamily:"monospace",fontSize:11,color:"var(--text-secondary)" }}>{row.supplierCode}</td>
-                  <td style={{ padding:"8px 12px" }}>
+                <tr key={row.id}>
+                  <td style={{ fontFamily:"monospace",fontSize:11,color:"var(--text-secondary)" }}>{row.supplierCode}</td>
+                  <td>
                     <button type="button" onClick={()=>openEdit(row)}
                       style={{ background:"none",border:"none",color:"var(--color-primary)",cursor:"pointer",fontWeight:600,fontSize:13,padding:0 }}>
                       {row.supplierName}
                     </button>
                     {row.supplierNameEn && <div style={{ fontSize:10,color:"var(--text-secondary)" }}>{row.supplierNameEn}</div>}
                   </td>
-                  <td style={{ padding:"8px 12px" }}>
+                  <td>
                     <span className={`${s.badge} ${s[si.cls]}`} style={{ display:"inline-flex",alignItems:"center",gap:4 }}>
                       {si.icon}{si.label}
                     </span>
                   </td>
-                  <td style={{ padding:"8px 12px",fontSize:11,color:"var(--text-secondary)" }}>
+                  <td style={{ fontSize:11,color:"var(--text-secondary)" }}>
                     {row.sharedScope === "GROUP" ? "全集团" : row.sharedScope === "COMPANY" ? (row.ownerCompanyCode ?? "—") : (row.ownerProjectCode ?? "—")}
                   </td>
-                  <td style={{ padding:"8px 12px",fontSize:12 }}>{row.countryCode}</td>
-                  <td style={{ padding:"8px 12px",fontSize:12,fontWeight:600 }}>{row.defaultCurrency}</td>
-                  <td style={{ padding:"8px 12px" }}>
+                  <td style={{ fontSize:12 }}>{row.countryCode}</td>
+                  <td style={{ fontSize:12,fontWeight:600 }}>{row.defaultCurrency}</td>
+                  <td>
                     <span className={`${s.badge} ${s[statusCls(row.status)]}`}>
                       {STATUS_OPTS.find(o=>o.value===row.status)?.label ?? row.status}
                     </span>
                   </td>
-                  <td style={{ padding:"8px 12px",display:"flex",gap:6 }}>
+                  <td style={{ display:"flex",gap:6 }}>
                     <button type="button" className={s.btnSecondary} style={{ padding:"3px 8px",fontSize:11 }} onClick={()=>openEdit(row)}>编辑</button>
                     <button type="button"
                       className={row.status === "ACTIVE" ? s.btnDanger : s.btnSecondary}

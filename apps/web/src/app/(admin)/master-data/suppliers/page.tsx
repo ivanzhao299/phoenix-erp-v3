@@ -4,6 +4,7 @@ import { Globe, Search, RefreshCw, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
+import ui from "@/components/ui/admin-ui.module.css";
 
 /**
  * 主数据中心 — 供应商档案
@@ -122,11 +123,11 @@ export default function MdSuppliersPage() {
         <div style={{ padding: 40, textAlign: "center", color: "#ef4444" }}>{error}</div>
       ) : (
         <div className="bg-bg-muted border border-border" style={{ borderRadius: 10, overflow: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table className={ui.table}>
             <thead>
-              <tr className="bg-bg-card text-text-muted" style={{ fontSize: 12 }}>
+              <tr>
                 {["供应商编码", "供应商名称", "类型", "国家", "货币", "共享范围", "联系人", "状态"].map(h => (
-                  <th key={h} className="border-b border-border" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
+                  <th key={h} style={{ whiteSpace: "nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -140,14 +141,14 @@ export default function MdSuppliersPage() {
                     onMouseEnter={e => (e.currentTarget.style.background = "rgba(148,163,184,0.08)")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                   >
-                    <td className="text-text-muted" style={{ padding: "10px 14px", fontFamily: "monospace" }}>{s.supplierCode}</td>
-                    <td className="text-text" style={{ padding: "10px 14px", fontWeight: 500 }}>{s.supplierName}{s.supplierNameEn ? <span className="text-text-muted" style={{ fontSize: 11, marginLeft: 6 }}>{s.supplierNameEn}</span> : null}</td>
-                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{TYPE_MAP[s.supplierType ?? ""] ?? s.supplierType ?? "-"}</td>
-                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{s.countryCode ?? "-"}</td>
-                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{s.defaultCurrency ?? "-"}</td>
-                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{SCOPE_MAP[s.sharedScope ?? ""] ?? s.sharedScope ?? "-"}</td>
-                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{s.contactName ?? "-"}</td>
-                    <td style={{ padding: "10px 14px" }}>
+                    <td className="text-text-muted" style={{ fontFamily: "monospace" }}>{s.supplierCode}</td>
+                    <td className="text-text">{s.supplierName}{s.supplierNameEn ? <span className="text-text-muted" style={{ fontSize: 11, marginLeft: 6 }}>{s.supplierNameEn}</span> : null}</td>
+                    <td className="text-text-muted">{TYPE_MAP[s.supplierType ?? ""] ?? s.supplierType ?? "-"}</td>
+                    <td className="text-text-muted">{s.countryCode ?? "-"}</td>
+                    <td className="text-text-muted">{s.defaultCurrency ?? "-"}</td>
+                    <td className="text-text-muted">{SCOPE_MAP[s.sharedScope ?? ""] ?? s.sharedScope ?? "-"}</td>
+                    <td className="text-text-muted">{s.contactName ?? "-"}</td>
+                    <td>
                       <span style={{ padding: "2px 8px", borderRadius: 4, background: `${st.color}22`, color: st.color, fontSize: 11, fontWeight: 600 }}>{st.label}</span>
                     </td>
                   </tr>

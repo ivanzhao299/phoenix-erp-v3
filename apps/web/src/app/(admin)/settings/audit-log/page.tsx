@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
 import { History, User, Clock, RefreshCw, Search, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import s from "@/components/ui/admin-ui.module.css";
 
 const tok = () => (typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : "");
 const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${tok()}` });
@@ -149,11 +150,11 @@ export default function AuditLogPage() {
         </div>
       ) : (
         <div style={{ background: "var(--bg-card)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border)", overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table className={s.table}>
             <thead>
-              <tr style={{ background: "var(--bg-page)" }}>
+              <tr>
                 {[t('ui.操作类型', '操作类型'), t('ui.单据类型', '单据类型'), t('ui.单据号', '单据号'), t('ui.操作者', '操作者'), t('common.remark', '备注'), t('ui.时间', '时间')].map(h => (
-                  <th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-secondary)", fontWeight: 600, borderBottom: "1px solid var(--border)", fontSize: 12 }}>{h}</th>
+                  <th key={h}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -162,29 +163,27 @@ export default function AuditLogPage() {
                 const m = ACTION_META[log.action] ?? { label: log.action, color: "#64748b", bg: "#f1f5f9" };
                 const docLabel = DOC_TYPE_MAP[log.doc_type] || log.doc_type;
                 return (
-                  <tr key={log.id} style={{ borderBottom: "1px solid var(--border)" }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-page)")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                    <td style={{ padding: "12px 16px" }}>
+                  <tr key={log.id}>
+                    <td>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: m.bg, color: m.color }}>{m.label}</span>
                     </td>
-                    <td style={{ padding: "12px 16px", fontWeight: 600, color: "var(--text-primary)" }}>
+                    <td style={{ color: "var(--text-primary)" }}>
                       {docLabel}
                     </td>
-                    <td style={{ padding: "12px 16px" }}>
+                    <td>
                       <span style={{ fontFamily: "monospace", fontSize: 12, color: "var(--color-primary)" }}>#{log.doc_id}</span>
                     </td>
-                    <td style={{ padding: "12px 16px" }}>
+                    <td>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-primary)" }}>
                         <User size={13}/>
                         <span style={{ fontSize: 12 }}>{log.operator || log.approver_role}</span>
                         {log.approver_id && <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>(#{log.approver_id})</span>}
                       </div>
                     </td>
-                    <td style={{ padding: "12px 16px", color: "var(--text-secondary)", fontSize: 12, maxWidth: 200 }}>
+                    <td style={{ color: "var(--text-secondary)", fontSize: 12, maxWidth: 200 }}>
                       {log.comment || <span style={{ opacity: 0.4 }}>—</span>}
                     </td>
-                    <td style={{ padding: "12px 16px" }}>
+                    <td>
                       <div style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--text-secondary)", fontSize: 12 }}>
                         <Clock size={12}/>{new Date(log.created_at).toLocaleString("zh-CN")}
                       </div>

@@ -5,6 +5,15 @@ import {
   Archive, Shield, AlertTriangle, Users, Tag,
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
+import s from "@/components/ui/admin-ui.module.css";
+import { KpiCard as GlobalKpiCard } from "@/components/ui/KpiCard";
+import type { AccentColor } from "@/lib/design-tokens";
+
+// 旧硬编码色 → 全局语义强调色，复用全局 KpiCard 样式
+const COLOR_TO_ACCENT: Record<string, AccentColor> = {
+  "#2563eb": "blue", "#16a34a": "green", "#d97706": "amber", "#dc2626": "red",
+  "#9333ea": "violet", "#0891b2": "cyan", "#be123c": "red", "#374151": "slate",
+};
 
 // ── API helper ────────────────────────────────────────────────────────────────
 function tok() {
@@ -30,24 +39,17 @@ function fmt(n: number | null | undefined, dec = 0): string {
 }
 
 // ── 共用样式 ──────────────────────────────────────────────────────────────────
-const TH: React.CSSProperties = {
-  padding: "8px 12px", textAlign: "left", fontWeight: 600, fontSize: 12,
-  color: "#374151", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap", background: "#f9fafb",
-};
-const TD: React.CSSProperties = { padding: "8px 12px", fontSize: 13, color: "#374151" };
-
+// 薄包装：沿用本页旧 API（label/value/sub/color），内部统一走全局 KpiCard（养殖风）
 function KpiCard({ label, value, sub, color = "#374151" }: {
   label: string; value: string | number; sub?: string; color?: string;
 }) {
   return (
-    <div style={{
-      background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10,
-      padding: "16px 20px", minWidth: 130,
-    }}>
-      <div style={{ fontSize: 11, color: "#6b7280" }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 800, color, marginTop: 2 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>{sub}</div>}
-    </div>
+    <GlobalKpiCard
+      label={label}
+      value={value}
+      subValue={sub}
+      accentColor={COLOR_TO_ACCENT[color] ?? "slate"}
+    />
   );
 }
 
@@ -64,17 +66,17 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Table({ cols, rows }: { cols: string[]; rows: React.ReactNode[][] }) {
   return (
     <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+      <table className={s.table}>
         <thead>
-          <tr>{cols.map(c => <th key={c} style={TH}>{c}</th>)}</tr>
+          <tr>{cols.map(c => <th key={c} style={{ whiteSpace: "nowrap" }}>{c}</th>)}</tr>
         </thead>
         <tbody>
           {rows.length === 0 && (
-            <tr><td colSpan={cols.length} style={{ ...TD, textAlign: "center", color: "#9ca3af", padding: 24 }}>暂无数据</td></tr>
+            <tr><td colSpan={cols.length} style={{ textAlign: "center", color: "var(--text-secondary)", padding: 24 }}>暂无数据</td></tr>
           )}
           {rows.map((row, i) => (
-            <tr key={i} style={{ borderBottom: "1px solid #f3f4f6" }}>
-              {row.map((cell, j) => <td key={j} style={TD}>{cell}</td>)}
+            <tr key={i}>
+              {row.map((cell, j) => <td key={j}>{cell}</td>)}
             </tr>
           ))}
         </tbody>

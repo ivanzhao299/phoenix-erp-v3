@@ -17,7 +17,7 @@
  */
 import { useState, useEffect, useCallback, useMemo } from "react";
 import PageHeader from "@/components/PageHeader";
-import RightDrawer from "@/components/RightDrawer";
+import { RightDrawer } from "@/components/ui/RightDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -629,7 +629,7 @@ export default function RoleManagementPage() {
       </div>
 
       {/* ── 编辑/新建 抽屉 ───────────────────────────────────────────── */}
-      <RightDrawer isOpen={showDrawer} onClose={() => setShowDrawer(false)} title={editCode ? `${t("common.edit","编辑")}：${editCode}` : t("ui.新建角色","新建角色")} width="620px">
+      <RightDrawer open={showDrawer} onClose={() => setShowDrawer(false)} title={editCode ? `${t("common.edit","编辑")}：${editCode}` : t("ui.新建角色","新建角色")} width="620px">
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {/* role_code */}
           <div className={s.field}>
@@ -997,7 +997,7 @@ type="button"               className={s.btnPrimaryGrad}
 // ── 顶部统计胶囊 ─────────────────────────────────────────────────────
 function StatPill({ label, value, color, icon, tip }: { label: string; value: number; color: string; icon: React.ReactNode; tip?: string }) {
   return (
-    <div className={s.statCard} style={{ borderLeft: `4px solid ${color}`, cursor: tip ? "help" : "default" }} title={tip}>
+    <div className={s.statCard} style={{ borderLeft: `var(--card-accent-width) solid ${color}`, cursor: tip ? "help" : "default" }} title={tip}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, color, marginBottom: 4 }}>
         {icon}
         <span className={s.statLabel}>{label}</span>

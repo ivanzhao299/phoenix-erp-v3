@@ -4,6 +4,7 @@ import { Wallet, Search, RefreshCw, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
+import s from "@/components/ui/admin-ui.module.css";
 
 /**
  * 主数据中心 — 资金账户档案
@@ -113,11 +114,11 @@ export default function MdCashAccountsPage() {
         <div style={{ padding: 40, textAlign: "center", color: "#ef4444" }}>{error}</div>
       ) : (
         <div className="bg-bg-muted border border-border" style={{ borderRadius: 10, overflow: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table className={s.table}>
             <thead>
-              <tr className="bg-bg-card text-text-muted" style={{ fontSize: 12 }}>
+              <tr>
                 {["账户名称", "账户类型", "银行名称", "银行账号", "货币", "余额", "所属公司", "状态"].map(h => (
-                  <th key={h} className="border-b border-border" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
+                  <th key={h} style={{ whiteSpace: "nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -133,16 +134,16 @@ export default function MdCashAccountsPage() {
                     onMouseEnter={e => (e.currentTarget.style.background = "rgba(148,163,184,0.08)")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                   >
-                    <td className="text-text" style={{ padding: "10px 14px", fontWeight: 500 }}>{a.accountName}</td>
-                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{ACCOUNT_TYPE_MAP[a.accountType ?? ""] ?? a.accountType ?? "-"}</td>
-                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{a.bankName ?? "-"}</td>
-                    <td className="text-text-muted" style={{ padding: "10px 14px", fontFamily: "monospace", fontSize: 12 }}>{a.bankAccountNo ?? "-"}</td>
-                    <td className="text-text-muted" style={{ padding: "10px 14px" }}>{a.currency ?? "-"}</td>
-                    <td style={{ padding: "10px 14px", color: balColor, fontWeight: 600 }}>
+                    <td className="text-text">{a.accountName}</td>
+                    <td className="text-text-muted">{ACCOUNT_TYPE_MAP[a.accountType ?? ""] ?? a.accountType ?? "-"}</td>
+                    <td className="text-text-muted">{a.bankName ?? "-"}</td>
+                    <td className="text-text-muted" style={{ fontFamily: "monospace", fontSize: 12 }}>{a.bankAccountNo ?? "-"}</td>
+                    <td className="text-text-muted">{a.currency ?? "-"}</td>
+                    <td style={{ color: balColor, fontWeight: 600 }}>
                       {bal != null ? bal.toLocaleString("zh-CN", { minimumFractionDigits: 2 }) : "-"}
                     </td>
-                    <td className="text-text-muted" style={{ padding: "10px 14px", fontSize: 12 }}>{a.companyName ?? a.companyCode ?? "-"}</td>
-                    <td style={{ padding: "10px 14px" }}>
+                    <td className="text-text-muted" style={{ fontSize: 12 }}>{a.companyName ?? a.companyCode ?? "-"}</td>
+                    <td>
                       <span style={{ padding: "2px 8px", borderRadius: 4, background: `${st.color}22`, color: st.color, fontSize: 11, fontWeight: 600 }}>{st.label}</span>
                     </td>
                   </tr>

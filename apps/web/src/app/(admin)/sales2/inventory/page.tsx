@@ -1,5 +1,8 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
+import s from "@/components/ui/admin-ui.module.css";
+import { KpiCard as GlobalKpiCard } from "@/components/ui/KpiCard";
+import { hexToAccent } from "@/lib/design-tokens";
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 
@@ -134,16 +137,7 @@ function SkuBadge({ skuCode }: { skuCode?: string | null }) {
 // ── 仪表盘统计卡 ───────────────────────────────────────────────────────────────
 
 function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: string }) {
-  return (
-    <div style={{
-      background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
-      padding: '16px 20px', minWidth: 140,
-    }}>
-      <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 700, color: color ?? '#111827' }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{sub}</div>}
-    </div>
-  );
+  return <GlobalKpiCard label={label} value={value} subValue={sub} accentColor={hexToAccent(color)} />;
 }
 
 // ── Tab: 批次库存 ─────────────────────────────────────────────────────────────
@@ -343,11 +337,11 @@ function BatchesTab() {
         <div style={{ textAlign: 'center', color: '#9ca3af', padding: 40 }}>加载中...</div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table className={s.table}>
             <thead>
-              <tr style={{ background: '#f9fafb' }}>
+              <tr>
                 {['批次号','商品组合','产品代码','等级','公司','可用量','总量','状态','生产日期','到期日','来源'].map(h => (
-                  <th key={h} style={thStyle}>{h}</th>
+                  <th key={h}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -356,26 +350,25 @@ function BatchesTab() {
                 <tr><td colSpan={11} style={{ textAlign: 'center', color: '#9ca3af', padding: 40 }}>暂无数据</td></tr>
               )}
               {batches.map(b => (
-                <tr key={b.batch_no} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                  <td style={tdStyle}><code style={{ fontSize: 11 }}>{b.batch_no}</code></td>
-                  <td style={tdStyle}><SkuBadge skuCode={b.sku_code} /></td>
-                  <td style={tdStyle}>{b.product_code}</td>
-                  <td style={tdStyle}>
+                <tr key={b.batch_no}>
+                  <td><code style={{ fontSize: 11 }}>{b.batch_no}</code></td>
+                  <td><SkuBadge skuCode={b.sku_code} /></td>
+                  <td>{b.product_code}</td>
+                  <td>
                     <span style={{ color: gradeColor(b.quality_grade), fontWeight: 600 }}>
                       {b.quality_grade ?? '—'}
                     </span>
                   </td>
-                  <td style={tdStyle}>{b.company_code}</td>
-                  <td style={{ ...tdStyle, fontWeight: 700, color: '#2563eb' }}>{fmt(b.qty_available)}</td>
-                  <td style={tdStyle}>{fmt(b.qty)}</td>
-                  <td style={tdStyle}>{statusBadge(b.status)}</td>
-                  <td style={tdStyle}>{b.egg_date ?? '—'}</td>
+                  <td>{b.company_code}</td>
+                  <td style={{ fontWeight: 700, color: '#2563eb' }}>{fmt(b.qty_available)}</td>
+                  <td>{fmt(b.qty)}</td>
+                  <td>{statusBadge(b.status)}</td>
+                  <td>{b.egg_date ?? '—'}</td>
                   <td style={{
-                    ...tdStyle,
-                    color: b.expire_date && new Date(b.expire_date) < new Date() ? '#dc2626' : '#374151',
-                    fontWeight: b.expire_date && new Date(b.expire_date) < new Date() ? 700 : 400,
+                    color: b.expire_date && new Date(b.expire_date) < new Date() ? '#dc2626' : undefined,
+                    fontWeight: b.expire_date && new Date(b.expire_date) < new Date() ? 700 : undefined,
                   }}>{b.expire_date ?? '—'}</td>
-                  <td style={tdStyle}>{b.source_no ?? '—'}</td>
+                  <td>{b.source_no ?? '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -430,11 +423,11 @@ function ExpiringTab() {
         <div style={{ textAlign: 'center', color: '#9ca3af', padding: 40 }}>加载中...</div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table className={s.table}>
             <thead>
-              <tr style={{ background: '#fffbeb' }}>
+              <tr>
                 {['批次号','商品组合','产品','等级','公司','可用量','到期日','剩余天数','状态'].map(h => (
-                  <th key={h} style={thStyle}>{h}</th>
+                  <th key={h}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -447,24 +440,23 @@ function ExpiringTab() {
                 const urgent = daysLeft <= 3;
                 return (
                   <tr key={b.batch_no} style={{
-                    borderBottom: '1px solid #fef3c7',
                     background: urgent ? '#fff1f2' : '#fffbeb',
                   }}>
-                    <td style={tdStyle}><code style={{ fontSize: 11 }}>{b.batch_no}</code></td>
-                    <td style={tdStyle}><SkuBadge skuCode={b.sku_code} /></td>
-                    <td style={tdStyle}>{b.product_code}</td>
-                    <td style={tdStyle}>
+                    <td><code style={{ fontSize: 11 }}>{b.batch_no}</code></td>
+                    <td><SkuBadge skuCode={b.sku_code} /></td>
+                    <td>{b.product_code}</td>
+                    <td>
                       <span style={{ color: gradeColor(b.quality_grade), fontWeight: 600 }}>
                         {b.quality_grade ?? '—'}
                       </span>
                     </td>
-                    <td style={tdStyle}>{b.company_code}</td>
-                    <td style={{ ...tdStyle, fontWeight: 700 }}>{fmt(b.qty_available)}</td>
-                    <td style={tdStyle}>{b.expire_date ?? '—'}</td>
-                    <td style={{ ...tdStyle, color: urgent ? '#dc2626' : '#d97706', fontWeight: 700 }}>
+                    <td>{b.company_code}</td>
+                    <td style={{ fontWeight: 700 }}>{fmt(b.qty_available)}</td>
+                    <td>{b.expire_date ?? '—'}</td>
+                    <td style={{ color: urgent ? '#dc2626' : '#d97706', fontWeight: 700 }}>
                       {daysLeft} 天 {urgent && '⚠ 紧急'}
                     </td>
-                    <td style={tdStyle}>{statusBadge(b.status)}</td>
+                    <td>{statusBadge(b.status)}</td>
                   </tr>
                 );
               })}
@@ -648,18 +640,18 @@ function LossTab() {
           </div>
 
           <h4 style={{ color: '#374151', marginBottom: 8 }}>按损耗类型（近30天）</h4>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 24 }}>
+          <table className={s.table} style={{ marginBottom: 24 }}>
             <thead>
-              <tr style={{ background: '#faf5ff' }}>
-                {['损耗类型','批次数','合计损耗（枚）'].map(h => <th key={h} style={thStyle}>{h}</th>)}
+              <tr>
+                {['损耗类型','批次数','合计损耗（枚）'].map(h => <th key={h}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
               {(data.byType ?? []).map((row, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                  <td style={tdStyle}>{changeTypeLabel[row.change_type] ?? row.change_type}</td>
-                  <td style={tdStyle}>{fmt(row.batch_count)}</td>
-                  <td style={{ ...tdStyle, fontWeight: 700, color: '#dc2626' }}>{fmt(row.total_loss)}</td>
+                <tr key={i}>
+                  <td>{changeTypeLabel[row.change_type] ?? row.change_type}</td>
+                  <td>{fmt(row.batch_count)}</td>
+                  <td style={{ fontWeight: 700, color: '#dc2626' }}>{fmt(row.total_loss)}</td>
                 </tr>
               ))}
               {(data.byType ?? []).length === 0 && (
@@ -669,20 +661,20 @@ function LossTab() {
           </table>
 
           <h4 style={{ color: '#374151', marginBottom: 8 }}>按批次损耗排名（近30天）</h4>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table className={s.table}>
             <thead>
-              <tr style={{ background: '#faf5ff' }}>
-                {['批次号','商品组合','产品代码','合计损耗','最后事件时间'].map(h => <th key={h} style={thStyle}>{h}</th>)}
+              <tr>
+                {['批次号','商品组合','产品代码','合计损耗','最后事件时间'].map(h => <th key={h}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
               {(data.byBatch ?? []).slice(0, 20).map((row, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                  <td style={tdStyle}><code style={{ fontSize: 11 }}>{row.batch_no}</code></td>
-                  <td style={tdStyle}><SkuBadge skuCode={row.sku_code} /></td>
-                  <td style={tdStyle}>{row.product_code}</td>
-                  <td style={{ ...tdStyle, fontWeight: 700, color: '#dc2626' }}>{fmt(row.total_loss)}</td>
-                  <td style={tdStyle}>{row.last_event ? new Date(row.last_event).toLocaleString('zh-CN') : '—'}</td>
+                <tr key={i}>
+                  <td><code style={{ fontSize: 11 }}>{row.batch_no}</code></td>
+                  <td><SkuBadge skuCode={row.sku_code} /></td>
+                  <td>{row.product_code}</td>
+                  <td style={{ fontWeight: 700, color: '#dc2626' }}>{fmt(row.total_loss)}</td>
+                  <td>{row.last_event ? new Date(row.last_event).toLocaleString('zh-CN') : '—'}</td>
                 </tr>
               ))}
               {(data.byBatch ?? []).length === 0 && (
@@ -701,13 +693,6 @@ function LossTab() {
 const inputStyle: React.CSSProperties = {
   padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13,
   outline: 'none', background: '#fff',
-};
-const thStyle: React.CSSProperties = {
-  padding: '8px 12px', textAlign: 'left', fontWeight: 600, fontSize: 12,
-  color: '#374151', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap',
-};
-const tdStyle: React.CSSProperties = {
-  padding: '8px 12px', fontSize: 13, color: '#374151', verticalAlign: 'middle',
 };
 function btnStyle(bg: string): React.CSSProperties {
   return {

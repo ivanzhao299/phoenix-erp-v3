@@ -27,7 +27,7 @@ import {
   ArrowRight, Inbox, CheckCircle2, XCircle, AlertCircle,
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
-import RightDrawer from "@/components/RightDrawer";
+import { RightDrawer } from "@/components/ui/RightDrawer";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 
@@ -876,7 +876,7 @@ export default function MdOrganizationsPage() {
 
       {/* ── Drawer: new / edit ──────────────────────────────────────────────── */}
       <RightDrawer
-        isOpen={drawerOpen}
+        open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         title={editingCode ? `编辑组织 — ${editingCode}` : "新建组织"}
         width="480px"

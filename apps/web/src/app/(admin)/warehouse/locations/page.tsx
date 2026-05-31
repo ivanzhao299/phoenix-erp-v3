@@ -246,9 +246,9 @@ export default function LocationsPage() {
 
       {/* 数据表格 */}
       <div className={s.card} style={{ overflow: "hidden", padding: 0 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background: "var(--bg-page)", borderBottom: "1px solid var(--border)" }}>
+            <tr>
               {[
                 t("ui.库位编码", "库位编码"),
                 t("ui.库位名称", "库位名称"),
@@ -261,7 +261,7 @@ export default function LocationsPage() {
                 t("ui.站点编码", "站点编码"),
                 t("common.operation", "操作"),
               ].map(h => (
-                <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{h}</th>
+                <th key={h} style={{ whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -272,36 +272,33 @@ export default function LocationsPage() {
                 {t("ui.暂无库位数据点击新增库位开始维护仓库档案", "暂无库位数据，点击「新增库位」开始维护仓库档案。")}
               </td></tr>
             )}
-            {!loading && filtered.map((row, i, arr) => {
+            {!loading && filtered.map((row) => {
               const pct = usagePct(String(row.status ?? "EMPTY"));
               return (
-                <tr key={String(row.id)}
-                  style={{ borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none", transition: "background 0.15s" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-page)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                  <td style={{ padding: "12px 14px", fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: "var(--color-primary)" }}>
+                <tr key={String(row.id)}>
+                  <td style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: "var(--color-primary)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}><MapPin size={12} />{String(row.location_code ?? "")}</div>
                   </td>
-                  <td style={{ padding: "12px 14px", fontSize: 13 }}>{String(row.location_name ?? "—")}</td>
-                  <td style={{ padding: "12px 14px", fontSize: 12, color: "var(--text-secondary)" }}>{String(row.warehouse_code ?? "")}</td>
-                  <td style={{ padding: "12px 14px", fontSize: 13, fontWeight: 700 }}>{String(row.zone_code ?? "—")}</td>
-                  <td style={{ padding: "12px 14px", fontSize: 12, color: "var(--text-secondary)" }}>{String(row.store_code ?? "—")}</td>
-                  <td style={{ padding: "12px 14px", fontSize: 13 }}>{row.capacity_qty ? Number(row.capacity_qty).toLocaleString() : "—"}</td>
-                  <td style={{ padding: "12px 14px", minWidth: 110 }}>
+                  <td style={{ fontSize: 13 }}>{String(row.location_name ?? "—")}</td>
+                  <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{String(row.warehouse_code ?? "")}</td>
+                  <td style={{ fontSize: 13, fontWeight: 700 }}>{String(row.zone_code ?? "—")}</td>
+                  <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{String(row.store_code ?? "—")}</td>
+                  <td style={{ fontSize: 13 }}>{row.capacity_qty ? Number(row.capacity_qty).toLocaleString() : "—"}</td>
+                  <td style={{ minWidth: 110 }}>
                     {OCCUPIED.has(row.status as Status) ? (
                       <div><UsageBar pct={pct} slim /><div style={{ fontSize: 10, color: "var(--text-secondary)", marginTop: 3 }}>{pct}%</div></div>
                     ) : <span className={s.textSuccess} style={{ fontSize: 11, fontWeight: 600 }}>{t("ui.空闲", "空闲")}</span>}
                   </td>
-                  <td style={{ padding: "12px 14px" }}>
+                  <td>
                     {/* ✅ STATUS_TEXT_CLS 替代 STATUS_COLOR + badge 类替代 inline span */}
                     <span className={`${s.badge} ${STATUS_TEXT_CLS[row.status as Status] ? (row.status === 'EMPTY' ? s.badgeSuccess : row.status === 'NORMAL' ? s.badgeInfo : row.status === 'LOCKED' ? s.badgeWarning : s.badgeDanger) : s.badgeNeutral}`}>
                       {STATUS_LABEL[row.status as Status] ?? String(row.status ?? "")}
                     </span>
                   </td>
-                  <td style={{ padding: "12px 14px", fontSize: 12, color: "var(--text-secondary)", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <td style={{ fontSize: 12, color: "var(--text-secondary)", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {String(row.store_code ?? "—")}
                   </td>
-                  <td style={{ padding: "12px 14px" }}>
+                  <td>
                     <div style={{ display: "flex", gap: 6 }}>
                       <button type="button" onClick={() => openEdit(row)} className={s.btnSecondary} style={{ padding: "4px 10px", fontSize: 12 }}><Edit2 size={12} />{t("common.edit", "编辑")}</button>
                       <button type="button" onClick={() => { setDeleteTarget(row); setConfirmOpen(true); }} className={s.btnDanger} style={{ padding: "4px 10px", fontSize: 12 }}><Trash2 size={12} />{t("common.delete", "删除")}</button>

@@ -97,7 +97,7 @@ export default function NonconformancePage() {
           {label:t("ui.高严重性","高严重性"),value:String(high),accent:"#dc2626",icon:<AlertTriangle size={18}/>},
           {label:t("ui.今日新增","今日新增"),value:String(todayNcr),accent:"#f59e0b",icon:<Clock size={18}/>},
         ].map(k=>(
-          <div key={k.label} style={{ background:"var(--bg-card)",border:"1px solid var(--border)",borderLeft:`4px solid ${k.accent}`,borderRadius:"var(--radius-lg)",padding:"14px 18px" }}>
+          <div key={k.label} style={{ background:"var(--bg-card)",border:"1px solid var(--border)",borderLeft:`var(--card-accent-width) solid ${k.accent}`,borderRadius:"var(--radius-lg)",padding:"14px 18px" }}>
             <div style={{ display:"flex",alignItems:"center",gap:5,marginBottom:8,color:k.accent,fontSize:11,fontWeight:700,textTransform:"uppercase" }}>{k.icon}{k.label}</div>
             <div style={{ fontSize:26,fontWeight:800,color:k.accent }}>{k.value}</div>
           </div>
@@ -105,11 +105,11 @@ export default function NonconformancePage() {
       </div>
 
       <div style={{ background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"var(--radius-lg)",overflow:"hidden" }}>
-        <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+        <table className={s.table}>
           <thead>
-            <tr style={{ background:"var(--bg-page)",borderBottom:"1px solid var(--border)" }}>
+            <tr>
               {[t("ui.NCR单号","NCR单号"),t("ui.来源","来源"),t("ui.问题描述","问题描述"),t("ui.数量","数量"),t("ui.严重性","严重性"),t("ui.处置","处置"),t("common.status","状态"),t("common.operation","操作")].map(h=>(
-                <th key={h} style={{ padding:"9px 14px",textAlign:"left",fontSize:12,fontWeight:700,color:"var(--text-secondary)" }}>{h}</th>
+                <th key={h}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -120,19 +120,19 @@ export default function NonconformancePage() {
               const st = r.status||"OPEN";
               const isClosed = st.toLowerCase()==="closed";
               return (
-                <tr key={r.id} style={{ borderBottom:"1px solid var(--border)",background:i%2===0?"var(--bg-card)":"var(--bg-page)" }}>
-                  <td style={{ padding:"9px 14px",fontFamily:"monospace",fontSize:12,color:"var(--color-primary)" }}>{r.nc_no||`NCR-${r.id}`}</td>
-                  <td style={{ padding:"9px 14px",color:"var(--text-secondary)" }}>{r.source||"—"}</td>
-                  <td style={{ padding:"9px 14px",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{r.issue_desc||"—"}</td>
-                  <td style={{ padding:"9px 14px" }}>{r.qty||0}</td>
-                  <td style={{ padding:"9px 14px" }}>
+                <tr key={r.id}>
+                  <td style={{ fontFamily:"monospace",fontSize:12,color:"var(--color-primary)" }}>{r.nc_no||`NCR-${r.id}`}</td>
+                  <td style={{ color:"var(--text-secondary)" }}>{r.source||"—"}</td>
+                  <td style={{ maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{r.issue_desc||"—"}</td>
+                  <td>{r.qty||0}</td>
+                  <td>
                     <span className={`${s.badge} ${s[SEVERITY_CLS[r.severity||""]??'badgeNeutral']}`}>{r.severity||"—"}</span>
                   </td>
-                  <td style={{ padding:"9px 14px",color:"var(--text-secondary)",fontSize:12 }}>{r.action_taken||"—"}</td>
-                  <td style={{ padding:"9px 14px" }}>
+                  <td style={{ color:"var(--text-secondary)",fontSize:12 }}>{r.action_taken||"—"}</td>
+                  <td>
                     <span className={`${s.badge} ${s[STATUS_CLS[st]??'badgeNeutral']}`}>{STATUS_LABEL[st]||st}</span>
                   </td>
-                  <td style={{ padding:"9px 14px",display:"flex",gap:6 }}>
+                  <td style={{ display:"flex",gap:6 }}>
                     <button type="button" className={s.btnSecondary} style={{ padding:"4px 8px",fontSize:12 }}
                       onClick={()=>{setEditing(r);setForm({source:r.source||"",issue_desc:r.issue_desc||"",qty:String(r.qty||""),handler:r.handler||"",action_taken:r.action_taken||"评估封存",severity:r.severity||"MEDIUM",batch_no:r.batch_no||""});setDrawerOpen(true);}}>
                       {t("common.edit","编辑")}

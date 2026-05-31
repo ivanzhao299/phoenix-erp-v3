@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, memo } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { FileUploadInput } from "./FileUploadInput";
 import styles from "./crudForm.module.css";
@@ -55,18 +55,17 @@ export const CrudForm = memo(function CrudForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
-  // ✅ 用 ref 存储上一次的 initialValues id，避免引用相等比较失败
-  // 只有当 initialValues 中的 id 字段变化时（真正的编辑/新建切换），才重置表单
-  const prevIdRef = useRef<unknown>(undefined);
+  // 修复（编辑表单空白）：原逻辑只在 initialValues.id 变化时重置，但各页传入的
+  // initialValues 多为映射后的对象（不含 id），导致 id 恒为 undefined、永不重置，
+  // 编辑时带不出原数据。改为按 initialValues 的"内容"（JSON 序列化）判断是否变化：
+  //   · 父组件每次渲染虽生成新对象，但内容相同 → 序列化字符串相同 → 不会误重置（保留用户输入）
+  //   · 切换记录 / 新建↔编辑 → 内容变化 → 重置为该条原数据
+  const initKey = JSON.stringify(initialValues ?? {});
   useEffect(() => {
-    const currentId = initialValues?.id;
-    if (currentId !== prevIdRef.current) {
-      prevIdRef.current = currentId;
-      setValues(buildInitValues(fields, initialValues));
-      setErrors({});
-    }
+    setValues(buildInitValues(fields, initialValues));
+    setErrors({});
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialValues?.id]); // ← 只在 id 真正变化时触发，不监听整个对象
+  }, [initKey]);
 
   const set = useCallback((key: string, val: unknown) => {
     setValues(prev => ({ ...prev, [key]: val }));

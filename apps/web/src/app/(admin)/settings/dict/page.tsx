@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
-import RightDrawer from "@/components/RightDrawer";
+import { RightDrawer } from "@/components/ui/RightDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -380,7 +380,7 @@ export default function DictPage() {
       </div>
 
       {/* 编辑抽屉 */}
-      <RightDrawer isOpen={open} onClose={()=>{setOpen(false);setEdit(null);}}
+      <RightDrawer open={open} onClose={()=>{setOpen(false);setEdit(null);}}
         title={edit ? `${t("common.edit","编辑")}：${edit.dict_label_zh||edit.dict_code}` : cloned ? t("ui.新建条目参照上一条","新建条目（参照上一条）") : t("ui.新建字典条目","新建字典条目")}
         width="460px">
         <div style={{ display:"flex", flexDirection:"column", gap:16 }}>

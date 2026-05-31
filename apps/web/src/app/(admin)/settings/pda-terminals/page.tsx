@@ -15,7 +15,7 @@ interface PdaTerminal {
   enabled_modules?: string[];
 }
 import PageHeader from "@/components/PageHeader";
-import RightDrawer from "@/components/RightDrawer";
+import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useDialog } from "@/contexts/DialogContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -216,7 +216,7 @@ export default function PdaTerminalPage() {
       </div>
 
       {/* 编辑抽屉 */}
-      <RightDrawer isOpen={drawer} onClose={() => setDrawer(false)} title={editing ? `${t('common.edit', '编辑')}：${editing.name}` : t('ui.新增PDA终端', '新增 PDA 终端')} width="540px">
+      <RightDrawer open={drawer} onClose={() => setDrawer(false)} title={editing ? `${t('common.edit', '编辑')}：${editing.name}` : t('ui.新增PDA终端', '新增 PDA 终端')} width="540px">
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div style={{ gridColumn: "1/-1" }}>
@@ -281,7 +281,7 @@ export default function PdaTerminalPage() {
       </RightDrawer>
 
       {/* 系统配置抽屉 */}
-      <RightDrawer isOpen={cfgDrawer} onClose={() => setCfgDrawer(false)} title={t('ui.PDA全局系统配置', 'PDA 全局系统配置')} width="420px">
+      <RightDrawer open={cfgDrawer} onClose={() => setCfgDrawer(false)} title={t('ui.PDA全局系统配置', 'PDA 全局系统配置')} width="420px">
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {[
             { key: "server_url",           label: t('ui.前端服务地址', '前端服务地址'),     placeholder: "http://192.168.31.32:3010" },

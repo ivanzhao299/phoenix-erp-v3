@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import s from "@/components/ui/admin-ui.module.css";
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -156,7 +157,7 @@ function KpiCard({ label, value, sub, icon: Icon, color, loading }: {
 }) {
   return (
     <div className="bg-bg-card border border-border"
-      style={{ borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+      style={{ borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', minHeight: 112, boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
         <Icon size={15} color={color} />
         <span className="text-text-muted" style={{ fontSize: 11 }}>{label}</span>
@@ -832,13 +833,11 @@ export default function Finance2ArPage() {
           <div className="bg-bg-card border border-border"
             style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <table className={s.table}>
                 <thead>
-                  <tr className="bg-bg-muted border-b border-border">
+                  <tr>
                     {['AR编号','来源','客户','公司','发票日期','到期日','发票金额','待收余额','状态'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left',
-                        fontWeight: 600, fontSize: 12, whiteSpace: 'nowrap' }}
-                        className="text-text-muted">{h}</th>
+                      <th key={h} style={{ whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -852,31 +851,31 @@ export default function Finance2ArPage() {
                   ) : invoices.map((r, i) => (
                     <tr key={r.id} onClick={() => setSelectedInvId(r.id)}
                       className={`border-b border-border/30 cursor-pointer hover:bg-emerald-50 hover:bg-bg-muted/50 transition-colors ${i % 2 === 0 ? '' : 'bg-bg-muted/20'}`}>
-                      <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}
+                      <td style={{ whiteSpace: 'nowrap' }}
                         className="font-mono text-emerald-600 dark:text-emerald-400">
                         {r.ar_no}
                       </td>
-                      <td style={{ padding: '10px 14px' }}><SourceBadge type={r.source_type} /></td>
-                      <td style={{ padding: '10px 14px', maxWidth: 150 }}>
+                      <td><SourceBadge type={r.source_type} /></td>
+                      <td style={{ maxWidth: 150 }}>
                         <div className="text-text" style={{ fontWeight: 600 }}>{r.customer_name}</div>
                         {r.customer_code && <div className="text-text-muted" style={{ fontSize: 11 }}>{r.customer_code}</div>}
                       </td>
-                      <td className="text-text-muted" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>{r.company_code}</td>
-                      <td className="text-text-muted" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>{fmtDate(r.invoice_date)}</td>
-                      <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                      <td className="text-text-muted" style={{ whiteSpace: 'nowrap' }}>{r.company_code}</td>
+                      <td className="text-text-muted" style={{ whiteSpace: 'nowrap' }}>{fmtDate(r.invoice_date)}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
                         <span className={isOverdue(r.due_date, r.status) ? 'text-danger' : 'text-text-muted'}>
                           {fmtDate(r.due_date)}
                         </span>
                         <AgingBadge bucket={r.aging_bucket} />
                       </td>
-                      <td className="text-text" style={{ padding: '10px 14px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      <td className="text-text" style={{ whiteSpace: 'nowrap' }}>
                         {fmtMoney(r.amount_original, r.currency_code)}
                       </td>
-                      <td style={{ padding: '10px 14px', fontWeight: 700, whiteSpace: 'nowrap' }}
+                      <td style={{ whiteSpace: 'nowrap' }}
                         className={Number(r.balance_amount_original) > 0 ? 'text-danger' : 'text-text-muted'}>
                         {fmtMoney(r.balance_amount_original, r.currency_code)}
                       </td>
-                      <td style={{ padding: '10px 14px' }}><StatusBadge status={r.status} size="sm" /></td>
+                      <td><StatusBadge status={r.status} size="sm" /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -907,13 +906,11 @@ export default function Finance2ArPage() {
         <div className="bg-bg-card border border-border"
           style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table className={s.table}>
               <thead>
-                <tr className="bg-bg-muted border-b border-border">
+                <tr>
                   {['收款编号','客户','公司','收款日期','收款金额','方式','流水号','状态'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left',
-                      fontWeight: 600, fontSize: 12, whiteSpace: 'nowrap' }}
-                      className="text-text-muted">{h}</th>
+                    <th key={h} style={{ whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -927,24 +924,24 @@ export default function Finance2ArPage() {
                 ) : receipts.map((r, i) => (
                   <tr key={r.id}
                     className={`border-b border-border/30 ${i % 2 === 0 ? '' : 'bg-bg-muted/20'}`}>
-                    <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}
+                    <td style={{ whiteSpace: 'nowrap' }}
                       className="font-mono text-emerald-600 dark:text-emerald-400">
                       {r.receipt_no}
                     </td>
-                    <td className="text-text" style={{ padding: '10px 14px', fontWeight: 600, maxWidth: 140 }}>
+                    <td className="text-text" style={{ maxWidth: 140 }}>
                       {r.customer_name}
                     </td>
-                    <td className="text-text-muted" style={{ padding: '10px 14px' }}>{r.company_code}</td>
-                    <td className="text-text-muted" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>{fmtDate(r.receipt_date)}</td>
-                    <td style={{ padding: '10px 14px', fontWeight: 700, whiteSpace: 'nowrap' }}
+                    <td className="text-text-muted">{r.company_code}</td>
+                    <td className="text-text-muted" style={{ whiteSpace: 'nowrap' }}>{fmtDate(r.receipt_date)}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}
                       className="text-emerald-600 dark:text-emerald-400">
                       {fmtMoney(r.amount_original, r.currency_code)}
                     </td>
-                    <td className="text-text-muted" style={{ padding: '10px 14px' }}>{r.receipt_method ?? '—'}</td>
-                    <td className="text-text-muted font-mono" style={{ padding: '10px 14px', fontSize: 12 }}>
+                    <td className="text-text-muted">{r.receipt_method ?? '—'}</td>
+                    <td className="text-text-muted font-mono" style={{ fontSize: 12 }}>
                       {r.bank_ref ?? '—'}
                     </td>
-                    <td style={{ padding: '10px 14px' }}><StatusBadge status={r.status} size="sm" /></td>
+                    <td><StatusBadge status={r.status} size="sm" /></td>
                   </tr>
                 ))}
               </tbody>
@@ -1003,14 +1000,12 @@ export default function Finance2ArPage() {
                   客户账龄明细（截至 {new Date().toLocaleDateString('zh-CN')}）
                 </div>
                 <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <table className={s.table}>
                     <thead>
-                      <tr className="bg-bg-muted border-b border-border">
+                      <tr>
                         {['客户','币种','未到期','≤30天','31-60天','61-90天','>90天','合计'].map(h => (
-                          <th key={h} style={{ padding: '8px 12px', textAlign: 'right',
-                            fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap',
-                            ...(h === '客户' ? { textAlign: 'left' } : {}) }}
-                            className="text-text-muted">{h}</th>
+                          <th key={h} style={{ whiteSpace: 'nowrap',
+                            textAlign: h === '客户' ? 'left' : 'right' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -1019,13 +1014,13 @@ export default function Finance2ArPage() {
                         <tr><td colSpan={8} className="text-text-muted" style={{ textAlign: 'center', padding: 30 }}>暂无账龄数据</td></tr>
                       ) : (aging.byCustomer ?? []).map((row: any, i: number) => (
                         <tr key={i} className={`border-b border-border/30 ${i % 2 === 0 ? '' : 'bg-bg-muted/20'}`}>
-                          <td style={{ padding: '8px 12px', fontWeight: 600 }} className="text-text">
+                          <td className="text-text">
                             {row.customer_name ?? '—'}
                             {row.customer_code && <div className="text-text-muted" style={{ fontSize: 10 }}>{row.customer_code}</div>}
                           </td>
-                          <td className="text-text-muted" style={{ padding: '8px 12px', textAlign: 'right' }}>{row.currency_code}</td>
+                          <td className="text-text-muted" style={{ textAlign: 'right' }}>{row.currency_code}</td>
                           {['not_due','bucket_0_30','bucket_31_60','bucket_61_90','bucket_90_plus','total_balance'].map(k => (
-                            <td key={k} style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'monospace',
+                            <td key={k} style={{ textAlign: 'right', fontFamily: 'monospace',
                               fontWeight: k === 'total_balance' ? 700 : 400 }}
                               className={k === 'total_balance'
                                 ? 'text-text'
