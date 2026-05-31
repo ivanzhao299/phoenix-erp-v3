@@ -137,10 +137,21 @@ COMMENT ON COLUMN mst_products.has_grade IS '是否按等级管理（TRUE=需选
 COMMENT ON COLUMN mst_products.has_spec  IS '是否按包装规格管理（TRUE=需选 spec_code，FALSE=散装/固定规格）';
 
 -- 迁移 category → category_code（如旧字段有值则回填，幂等）
-UPDATE mst_products
-   SET category_code = category
- WHERE category IS NOT NULL
-   AND category_code IS NULL;
+-- 修复（生产 schema 漂移）：生产库的 mst_products 早已无 legacy `category` 列
+-- （只有 category_code），而本地 v3_schema 建表时带 category → 本地能过、生产
+-- 报 column "category" does not exist。用列存在性守卫：仅当 category 列存在时回填。
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'mst_products' AND column_name = 'category'
+  ) THEN
+    EXECUTE 'UPDATE mst_products
+                SET category_code = category
+              WHERE category IS NOT NULL
+                AND category_code IS NULL';
+  END IF;
+END $$;
 
 
 -- ============================================================

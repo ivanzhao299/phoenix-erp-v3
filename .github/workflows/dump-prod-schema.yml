@@ -1,0 +1,41 @@
+name: Dump Production Schema
+
+# 成本控制 / 生产 schema 漂移根治：
+#   极轻量手动 workflow —— 只 SSH 到生产、pg_dump --schema-only、base64 打到日志。
+#   不构建镜像、不部署，几乎不耗 Actions 分钟数。
+#   用途：把生产真实 schema 取回本地，建忠实副本，让本地迁移验证能预判
+#   "生产 schema 漂移"类错误（本地脚本现建的库复现不了的那一类）。
+#
+# 用法：
+#   gh workflow run dump-prod-schema.yml
+#   gh run view <id> --log  # 提取 ===SCHEMA_DUMP_START=== ~ ===SCHEMA_DUMP_END=== 之间的 base64
+
+on:
+  workflow_dispatch:
+
+jobs:
+  dump-schema:
+    name: Dump prod schema (schema-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: production
+    steps:
+      - name: pg_dump schema via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || 'root' }}
+          proxy_key: ${{ secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          script: |
+            set -e
+            cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+            echo "===SCHEMA_DUMP_START==="
+            docker compose exec -T db sh -c \
+              'pg_dump --schema-only --no-owner --no-privileges -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+              | base64
+            echo "===SCHEMA_DUMP_END==="
