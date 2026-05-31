@@ -151,6 +151,32 @@ export class DataScopeService {
             if (s.companyCode) companyCodes.add(s.companyCode);
           }
         }
+
+        // Phase B 增强：BU 级别展开——向下穿透到 COMPANY 子节点
+        // 当 org 节点本身无 company_code（如 BU-AGRI 这类事业群节点）时，
+        // 查找其下所有 COMPANY 类型子节点，收集它们的 company_code
+        if (!row.company_code && row.org_id) {
+          const childCompanies = await this.orgRepo.manager.query(`
+            SELECT company_code FROM sys_organizations
+            WHERE parent_id = $1 AND org_type = 'COMPANY' AND status = 'ACTIVE'
+              AND company_code IS NOT NULL
+          `, [row.org_id]);
+          for (const c of childCompanies) {
+            if (c.company_code) companyCodes.add(c.company_code);
+          }
+          // 如果还是空（GROUP/HQ 节点），再向下一层
+          if (childCompanies.length === 0) {
+            const grandChildren = await this.orgRepo.manager.query(`
+              SELECT o2.company_code FROM sys_organizations o1
+              JOIN sys_organizations o2 ON o2.parent_id = o1.id
+              WHERE o1.parent_id = $1 AND o2.org_type = 'COMPANY'
+                AND o2.status = 'ACTIVE' AND o2.company_code IS NOT NULL
+            `, [row.org_id]);
+            for (const c of grandChildren) {
+              if (c.company_code) companyCodes.add(c.company_code);
+            }
+          }
+        }
       }
     } else {
       // 兜底：无 sys_user_orgs 记录，从 CLS 读 storeCode
