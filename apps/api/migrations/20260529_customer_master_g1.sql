@@ -73,8 +73,9 @@ DO $$ BEGIN
   -- ─────────────────────────────────────────────────────────
   -- 封存标注：ord_customers / b2b_customers 只读注释
   -- ─────────────────────────────────────────────────────────
-  -- 修复（Phase C）：本文件整体已是一个 DO $$ PL/pgSQL 块，
+  -- 修复（Phase C）：本文件整体已是一个 PL/pgSQL 块（外层 DO 块），
   -- 不能再嵌套 DO；在块内直接用 IF EXISTS ... THEN ... END IF + EXECUTE。
+  -- 注意：本注释内不能出现美元引用符号，否则会提前闭合外层 dollar-quote。
   IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema='public' AND table_name='ord_customers') THEN
     EXECUTE 'COMMENT ON TABLE ord_customers IS ''[LEGACY][READ_ONLY][Phase E封存] 禁止新业务写入 — 正式主档见 sal_customers''';
   END IF;
