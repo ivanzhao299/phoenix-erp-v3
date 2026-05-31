@@ -23,8 +23,9 @@ FROM (VALUES
   ('zhaoyongwei','ROLE_CEO',         FALSE),
   ('zhuzhaocun', 'ROLE_CEO',         TRUE),
   ('zhuzhaocun', 'ROLE_BU_AGRI_GM',  FALSE),
-  ('songlei',    'ROLE_PRC_BUYER',   TRUE),
-  ('songlei',    'ROLE_FIN_AR',      FALSE),
+  ('songlei',    'ROLE_FACTORY_MGR', TRUE),    -- 确认：孟赛负责人为主角色
+  ('songlei',    'ROLE_PRC_BUYER',   FALSE),   -- 保留采购职能
+  ('songlei',    'ROLE_FIN_AR',      FALSE),   -- 保留销售回款职能
   ('fuqiang',    'ROLE_FACTORY_MGR', TRUE),
   ('fuqiang',    'ROLE_SALES_MGR',   FALSE),
   ('xiejiling',  'ROLE_FARM_MGR',    TRUE),
@@ -33,7 +34,8 @@ FROM (VALUES
   ('liujie',     'ROLE_FIN_ACCT',    FALSE),
   ('wangweihua', 'ROLE_FIN_ACCT',    TRUE),
   ('zhuzhaoan',  'ROLE_CASH',        TRUE),
-  ('liushanjun', 'ROLE_WMS_MGR',     TRUE)
+  ('liushanjun', 'ROLE_WMS_MGR',     TRUE),
+  ('songmingguang','ROLE_WMS_MGR',   TRUE)    -- 新增：孟赛仓储负责人
 ) AS b(username, role_code, is_primary)
 JOIN sys_user u ON u.username  = b.username
 JOIN sys_role r ON r.role_code = b.role_code
@@ -47,10 +49,10 @@ SET is_primary = (r.role_code = m.primary_role)
 FROM sys_user u, sys_role r,
   (VALUES
     ('zhaoyongwei','ROLE_ADMIN'),  ('zhuzhaocun','ROLE_CEO'),
-    ('songlei','ROLE_PRC_BUYER'),  ('fuqiang','ROLE_FACTORY_MGR'),
+    ('songlei','ROLE_FACTORY_MGR'),('fuqiang','ROLE_FACTORY_MGR'),
     ('xiejiling','ROLE_FARM_MGR'), ('liujie','ROLE_HQ_FINANCE'),
     ('wangweihua','ROLE_FIN_ACCT'),('zhuzhaoan','ROLE_CASH'),
-    ('liushanjun','ROLE_WMS_MGR')
+    ('liushanjun','ROLE_WMS_MGR'), ('songmingguang','ROLE_WMS_MGR')
   ) AS m(username, primary_role)
 WHERE ur.user_id = u.user_id AND ur.role_id = r.role_id AND u.username = m.username;
 

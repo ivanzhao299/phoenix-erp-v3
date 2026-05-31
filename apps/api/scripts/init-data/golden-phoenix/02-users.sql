@@ -24,9 +24,10 @@ FROM (VALUES
   ('fuqiang',     '符强',   'SITE-DONGPENG-LAYER'),
   ('xiejiling',   '谢继领', 'SITE-MENGSAI-LAYER'),
   ('liujie',      '刘杰',   'ORG-GROUP'),
-  ('wangweihua',  '王玮华', 'COMP-LAO-AGRI'),
+  ('wangweihua',  '王玮华', 'ORG-GROUP'),    -- 确认：集团财务中心，GROUP 范围
   ('zhuzhaoan',   '朱召安', 'ORG-GROUP'),   -- ✅ 已决策：规范用户名 zhuzhaoan（存量 zhuzhao_an 在 M6 前清理，见 99-reconcile）
-  ('liushanjun',  '刘善军', 'SITE-MENGSAI-LAYER')  -- ⚠ 仓储归属待确认
+  ('liushanjun',  '刘善军', 'SITE-DONGPENG-LAYER'),  -- 确认：东鹏仓储负责人
+  ('songmingguang','宋明光', 'SITE-MENGSAI-LAYER')   -- 新增：孟赛仓储负责人（ROLE_WMS_MGR）
 ) AS v(username, real_name, store_code)
 ON CONFLICT (username) DO NOTHING;
 

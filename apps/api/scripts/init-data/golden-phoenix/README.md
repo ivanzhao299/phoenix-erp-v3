@@ -71,16 +71,36 @@ psql -d <db> -f 90-check-init-data.sql # 校验 PASS/FAIL（只读）
 
 ## 6. 待确认事项
 
-| # | 事项 | 当前默认 | 需确认 |
-|---|------|---------|--------|
-| 1 | 朱召安用户名 | ✅ **已决策：`zhuzhaoan`** | 存量 `zhuzhao_an`（M2 遗留）在 M6 导入前由 `99-reconcile-zhuzhaoan.sql` 清理，避免重复建人 |
-| 2 | 朱召安数据范围 | ORG-GROUP | 是否应归 FINANCE CENTER |
-| 3 | 刘善军仓储归属 | SITE-MENGSAI-LAYER | 实际仓储场区 |
-| 4 | 王玮华多公司账务 | 仅 COMP-LAO-AGRI | 是否追加 COMP-LAO-FOOD / COMP-LAO-XINGCHI |
-| 5 | ROLE_GROUP_FINANCE | 映射为 ROLE_HQ_FINANCE | 是否需要独立播种该角色 |
-| 6 | 符强姓名 | 符强 | 系统历史数据曾为「伏强」，需核对 |
-| 7 | 司机 site_code | 存于 remark | sal_drivers 建议加列 site_code |
-| 8 | 门店 company_code/site_code | 存于 region | mst_stores 建议加列 |
+### 已闭环（M5 确认表 + 决策）
+
+| # | 事项 | 结论 |
+|---|------|------|
+| ✅ | 朱召安用户名 | `zhuzhaoan`；存量 `zhuzhao_an` 由 `99-reconcile` 安全改名 |
+| ✅ | BU-TRADING 命名 | 凤凰**商贸**事业群（旧名「贸易」由 99-reconcile 订正） |
+| ✅ | 符强姓名 | 伏强 → 符强（99-reconcile 订正） |
+| ✅ | 刘善军仓储归属 | 东鹏 SITE-DONGPENG-LAYER |
+| ✅ | 王玮华数据范围 | GROUP 集团财务中心 |
+| ✅ | 宋雷角色 | 主 ROLE_FACTORY_MGR + ROLE_PRC_BUYER + ROLE_FIN_AR |
+| ✅ | 朱兆存附加角色 | ROLE_BU_AGRI_GM |
+| ✅ | 新增宋明光 | songmingguang / ROLE_WMS_MGR / 孟赛仓储 |
+| ✅ | 司机归属 | 阿喷·阿哨→星驰；阿通·阿给→凤凰孟赛；含电话 |
+| ✅ | ROLE_GROUP_FINANCE | 映射 ROLE_HQ_FINANCE |
+
+### 仍待补（不阻断主数据导入）
+
+| # | 事项 | 说明 |
+|---|------|------|
+| 1 | 阿坚司机 | 名单未列，暂保留待核（归属/电话） |
+| 2 | 客户疑似重复 | 拉邦吴总/万象吴总、那摩福丽/副丽那摩、khan jun/khnjin lpb、小青系列等，remark 已标记，待人工去重 |
+| 3 | 客户老挝文名/区域 | 多条待补中文译名与区域（remark 标 DATA_INCOMPLETE） |
+| 4 | 散户/物流公司/中铁路/东鹏 | 是否应建为正式客户（非单一主体/疑承运方/疑内部），待确认 |
+| 5 | 供应商个人简称 | 高远/海总/刘总/曾总/匡总/周总等待补全称与联系方式 |
+| 6 | 供应商疑似同一 | 勐泰察姜海/老挝勐泰寮(姜海)、刘涛/刘总，待确认 |
+| 7 | 老挝东鹏县星驰农业 | 疑本集团关联主体，待确认是否外部供应商（关联交易） |
+| 8 | 客户/供应商联系人电话 | 普遍缺失，业务补充 |
+| 9 | 门店店长 | 8 店店长姓名待补 |
+| 10 | 车辆信息 | 全部待现场补录 |
+| 11 | 司机 site_code / 门店 company_code | 表缺列，暂存 remark/region，建议 schema 加列 |
 | 9 | 正式客户清单 | 无（仅模板） | 业务交付真实客户名录 |
 | 10 | 车辆信息 | 无（仅模板） | 现场补录车牌/车型/载重/归属 |
 | 11 | 供应商联系人/电话 | 空（remark=DATA_INCOMPLETE） | 业务补充 |

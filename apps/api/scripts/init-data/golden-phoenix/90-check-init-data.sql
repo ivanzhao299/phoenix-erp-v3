@@ -6,9 +6,9 @@
 \echo ' Golden Phoenix 初始化数据包 · 校验'
 \echo '════════════════════════════════════════════════════════════'
 
-WITH m AS (  -- 矩阵 9 人
+WITH m AS (  -- 矩阵 10 人
   SELECT unnest(ARRAY['zhaoyongwei','zhuzhaocun','songlei','fuqiang','xiejiling',
-                      'liujie','wangweihua','zhuzhaoan','liushanjun']) AS username
+                      'liujie','wangweihua','zhuzhaoan','liushanjun','songmingguang']) AS username
 )
 SELECT * FROM (
   -- 1 组织数量
@@ -22,8 +22,8 @@ SELECT * FROM (
   UNION ALL SELECT 3,'场区数量(=7)',(SELECT count(*)::text FROM sys_organizations WHERE org_type='SITE'),
          CASE WHEN (SELECT count(*) FROM sys_organizations WHERE org_type='SITE')=7 THEN 'PASS' ELSE 'FAIL' END
   -- 4 用户数量
-  UNION ALL SELECT 4,'矩阵用户在册(=9)',(SELECT count(*)::text FROM sys_user u WHERE u.username IN (SELECT username FROM m)),
-         CASE WHEN (SELECT count(*) FROM sys_user u WHERE u.username IN (SELECT username FROM m))=9 THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL SELECT 4,'矩阵用户在册(=10)',(SELECT count(*)::text FROM sys_user u WHERE u.username IN (SELECT username FROM m)),
+         CASE WHEN (SELECT count(*) FROM sys_user u WHERE u.username IN (SELECT username FROM m))=10 THEN 'PASS' ELSE 'FAIL' END
   -- 5 用户角色绑定数量
   UNION ALL SELECT 5,'矩阵用户角色绑定(≥15)',
          (SELECT count(*)::text FROM sys_user_role ur JOIN sys_user u ON u.user_id=ur.user_id WHERE u.username IN (SELECT username FROM m)),
@@ -53,8 +53,8 @@ SELECT * FROM (
   -- 12 客户数量
   UNION ALL SELECT 12,'客户总数(sal_customers)',(SELECT count(*)::text FROM sal_customers),'PASS'
   -- 13 供应商数量
-  UNION ALL SELECT 13,'供应商 SUP-*(=6)',(SELECT count(*)::text FROM prc2_suppliers WHERE supplier_code LIKE 'SUP-%'),
-         CASE WHEN (SELECT count(*) FROM prc2_suppliers WHERE supplier_code LIKE 'SUP-%')=6 THEN 'PASS' ELSE 'FAIL' END
+  UNION ALL SELECT 13,'供应商 SUP-*(=25)',(SELECT count(*)::text FROM prc2_suppliers WHERE supplier_code LIKE 'SUP-%'),
+         CASE WHEN (SELECT count(*) FROM prc2_suppliers WHERE supplier_code LIKE 'SUP-%')=25 THEN 'PASS' ELSE 'FAIL' END
   -- 14 重复客户名称
   UNION ALL SELECT 14,'重复客户名称(应=0)',
          (SELECT count(*)::text FROM (SELECT 1 FROM sal_customers GROUP BY customer_name HAVING count(*)>1) x),

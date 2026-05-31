@@ -23,9 +23,10 @@ FROM (VALUES
   ('fuqiang',    'SITE-DONGPENG-LAYER', 'SITE',    TRUE),
   ('xiejiling',  'SITE-MENGSAI-LAYER',  'SITE',    TRUE),
   ('liujie',     'ORG-GROUP',           'GROUP',   TRUE),
-  ('wangweihua', 'COMP-LAO-AGRI',       'COMPANY', TRUE),    -- 如后续负责多公司账务，可追加 COMP-LAO-FOOD / COMP-LAO-XINGCHI
-  ('zhuzhaoan',  'ORG-GROUP',           'GROUP',   TRUE),    -- ⚠ 待确认：或归 FINANCE CENTER，默认 ORG-GROUP
-  ('liushanjun', 'SITE-MENGSAI-LAYER',  'SITE',    TRUE)     -- ⚠ 待确认：仓储实际归属，默认孟赛
+  ('wangweihua', 'ORG-GROUP',           'GROUP',   TRUE),    -- 确认：集团财务中心，GROUP 范围
+  ('zhuzhaoan',  'ORG-GROUP',           'GROUP',   TRUE),    -- 集团财务中心（出纳）
+  ('liushanjun', 'SITE-DONGPENG-LAYER', 'SITE',    TRUE),    -- 确认：东鹏仓储
+  ('songmingguang','SITE-MENGSAI-LAYER','SITE',    TRUE)     -- 新增：孟赛仓储
 ) AS b(username, org_code, scope, is_primary)
 JOIN sys_user u          ON u.username  = b.username
 JOIN sys_organizations o ON o.org_code  = b.org_code
@@ -42,8 +43,8 @@ FROM sys_user u, sys_organizations o,
     ('zhaoyongwei','ORG-GROUP'),       ('zhuzhaocun','BU-AGRI'),
     ('songlei','SITE-MENGSAI-LAYER'),  ('fuqiang','SITE-DONGPENG-LAYER'),
     ('xiejiling','SITE-MENGSAI-LAYER'),('liujie','ORG-GROUP'),
-    ('wangweihua','COMP-LAO-AGRI'),    ('zhuzhaoan','ORG-GROUP'),
-    ('liushanjun','SITE-MENGSAI-LAYER')
+    ('wangweihua','ORG-GROUP'),        ('zhuzhaoan','ORG-GROUP'),
+    ('liushanjun','SITE-DONGPENG-LAYER'),('songmingguang','SITE-MENGSAI-LAYER')
   ) AS m(username, primary_org)
 WHERE uo.user_id = u.user_id AND uo.org_id = o.id AND u.username = m.username;
 

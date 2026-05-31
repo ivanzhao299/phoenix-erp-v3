@@ -1,14 +1,12 @@
 -- ============================================================
--- Golden Phoenix · 99 朱召安用户名收敛（Reconcile）
--- 决策：朱召安规范用户名 = zhuzhaoan
--- 背景：M2 遗留环境中存在用户名 zhuzhao_an，须在 M6 导入前收敛为唯一规范名。
+-- Golden Phoenix · 99 存量环境数据收敛（Reconcile）
+-- 仅用于已有 M2/M3 遗留数据的环境；全新生产库本脚本均为 no-op。
+-- 处理三项 M5 确认订正：
+--   ① 朱召安用户名 zhuzhao_an → zhuzhaoan（安全改名，保留 user_id 与全部绑定）
+--   ② BU-TRADING 名称 凤凰贸易事业群 → 凤凰商贸事业群
+--   ③ 符强 系统姓名 伏强 → 符强
 --
--- 策略：安全「改名」而非删除——保留 user_id 与其全部角色/组织绑定，零数据丢失。
---   · 仅当存在 zhuzhao_an 且尚无 zhuzhaoan 时：将 zhuzhao_an 重命名为 zhuzhaoan。
---   · 若两者并存：不自动合并（避免误删），仅告警，需人工核对后处理。
---   · 全新生产库（无 zhuzhao_an）：本脚本为 no-op。
---
--- ⚠ 执行时机：在 02-users.sql 之前运行（这样 02 的 INSERT 会因冲突而跳过）。
+-- ⚠ 执行时机：在 01/02 之前运行（这样后续 INSERT 会因冲突而跳过，UPDATE 已就位）。
 -- 用法：psql -d <db> -f 99-reconcile-zhuzhaoan.sql
 -- ============================================================
 BEGIN;
@@ -30,8 +28,18 @@ BEGIN
   END IF;
 END $$;
 
+-- ② BU-TRADING 名称订正（仅当为旧名时）
+UPDATE sys_organizations
+SET org_name = '凤凰商贸事业群', org_name_cn = '凤凰商贸事业群', updated_at = now()
+WHERE org_code = 'BU-TRADING' AND org_name = '凤凰贸易事业群';
+
+-- ③ 符强 姓名订正（伏强 → 符强）
+UPDATE sys_user SET real_name = '符强', updated_at = now()
+WHERE username = 'fuqiang' AND real_name = '伏强';
+
 COMMIT;
 
--- 校验：应仅存在 zhuzhaoan，且 zhuzhao_an 不再存在
-\echo '── 朱召安用户名收敛结果 ──'
-SELECT username, real_name FROM sys_user WHERE username IN ('zhuzhaoan','zhuzhao_an') ORDER BY username;
+-- 校验
+\echo '── 收敛结果 ──'
+SELECT username, real_name FROM sys_user WHERE username IN ('zhuzhaoan','zhuzhao_an','fuqiang') ORDER BY username;
+SELECT org_code, org_name FROM sys_organizations WHERE org_code = 'BU-TRADING';
