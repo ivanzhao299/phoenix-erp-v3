@@ -3,6 +3,29 @@
 -- 全部使用 INSERT ... WHERE NOT EXISTS，可重复执行，不覆盖已有数据
 -- ═══════════════════════════════════════════════════════════════════════════
 
+-- ── 前置：确保 sys_dict 表存在 ─────────────────────────────────────────────
+-- 修复（Phase C）：sys_dict 原由 generic-crud.service.ts 运行时（API启动后）创建，
+-- 但本 seed 文件在 CI 的纯 SQL 阶段（API 启动前）执行 → INSERT 报
+-- "relation sys_dict does not exist"（此前被 deploy.yml `|| true` 吞掉）。
+-- 此处补建表，与 generic-crud.service.ts L1144 定义严格一致（幂等）。
+CREATE TABLE IF NOT EXISTS sys_dict (
+  id             SERIAL PRIMARY KEY,
+  dict_code      VARCHAR(64),
+  dict_type      VARCHAR(64),
+  name           VARCHAR(128),
+  dict_label_zh  VARCHAR(128),
+  dict_label_lo  VARCHAR(128),
+  dict_label_en  VARCHAR(128),
+  dict_value     VARCHAR(64),
+  sort_no        INT DEFAULT 0,
+  status         VARCHAR(32) DEFAULT 'ACTIVE',
+  config_json    TEXT,
+  created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE sys_dict ADD COLUMN IF NOT EXISTS dict_label_lo VARCHAR(128);
+ALTER TABLE sys_dict ADD COLUMN IF NOT EXISTS dict_label_en VARCHAR(128);
+ALTER TABLE sys_dict ADD COLUMN IF NOT EXISTS config_json   TEXT;
+
 -- ── SYS_ORG_LEVEL：组织层级 ────────────────────────────────────────────────
 INSERT INTO sys_dict (dict_code, dict_type, name, dict_label_zh, dict_label_lo, dict_label_en, sort_no, status)
 SELECT 'SYS_ORG_LEVEL_1','SYS_ORG_LEVEL','集团总部','集团总部','ສຳນັກງານໃຫຍ່','HQ / Group',350,'ACTIVE'
