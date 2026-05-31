@@ -44,18 +44,24 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_WMS_VIEW: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
     ROLE_WMS_MGR:     ['V','C','E','D','A','X'],
+    ROLE_WMS_OP:      ['V'],              // Phase C-2.1：仓管货员可查看库存
     ROLE_FARM_MGR:    ['V','X'],
     ROLE_FIN_ACCT:    ['V','X'],
     ROLE_CEO:         ['V','X'],
     ROLE_REGION_MGR:  ['V','X'],
     ROLE_AUDITOR:     ['V','X'],
+    ROLE_BU_AGRI_GM:  ['V','X'],          // Phase C-2.4：农业事业群总经理
+    ROLE_BU_FOOD_GM:  ['V','X'],
+    ROLE_FACTORY_MGR: ['V'],              // 场区经理可查看场区库存
   },
   // WMS 出入库操作权限（Sidebar: MENU_WMS_INOUT — 入库/出库/调拨/盘点/日结/报损）
   MENU_WMS_INOUT: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
     ROLE_WMS_MGR:     ['V','C','E','D','A','X'],
+    ROLE_WMS_OP:      ['V','C','E'],      // Phase C-2.1：仓管货员核心操作权限
     ROLE_FARM_MGR:    ['V','C','E'],
     ROLE_REGION_MGR:  ['V','X'],
+    ROLE_FACTORY_MGR: ['V','C','E'],      // 场区经理出入库操作
   },
   // WMS 主数据权限（Sidebar: MENU_WMS_MASTER — 仓库主档/库区/库位）
   MENU_WMS_MASTER: {
@@ -243,8 +249,13 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_PACKAGING: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
     ROLE_FARM_MGR:    ['V','C','E','X'],
-    ROLE_FARMER:     ['V','C','E'],
+    ROLE_FARMER:      ['V','C','E'],
     ROLE_WMS_MGR:     ['V','C'],
+    // Phase C-2.2：包装角色访问终端 packaging.controller（校验 MENU_PACKAGING）
+    ROLE_PKG_MGR:     ['V','C','E','D','A'],
+    ROLE_PKG_OP:      ['V','C','E'],      // 包装工人作业台读写
+    ROLE_PKG_OPERATOR:['V','C','E'],      // 兼容近义角色
+    ROLE_FACTORY_MGR: ['V','C','E','A'],
   },
 
   // ── BI 分析 ───────────────────────────────────────────────────────────────
@@ -742,21 +753,34 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   // H3 修复（RBAC Hardening Phase 1）：
   //   · ROLE_WORKFLOW_ADMIN 独家管理审批规则（C/E/D）
   //   · ROLE_CEO / ROLE_FIN_CFO 收窄为"查看+审批"，不可配置规则
+  // Phase C-3：审批链修正 — workflow-task.controller 的 approve/reject 端点
+  // 校验 MENU_WORKFLOW 的 'A' 权限（不是 MENU_APPROVAL，后者无任何 controller 使用）。
+  // 联合审计验证一：之前 Phase A 把审批权加到 MENU_APPROVAL（无效），此处迁移到正确位置。
   MENU_WORKFLOW: {
     ROLE_ADMIN:            ['V','C','E','D','A','X'],
     ROLE_WORKFLOW_ADMIN:   ['V','C','E','D','A','X'], // 工作流专员：完整规则配置权
     ROLE_CEO:              ['V','A','X'],              // 仅查看+审批，不可配置规则
-    ROLE_FIN_CFO:          ['V','A','X'],              // 仅查看+审批，不可配置规则
-    ROLE_PRC_BUYER:        ['V','A','X'],
-    ROLE_FIN_ACCT:         ['V','X'],
+    ROLE_FIN_CFO:          ['V','A','X'],
+    ROLE_PRC_BUYER:        ['V','A','X'],              // 采购审批链第1步
+    ROLE_FIN_ACCT:         ['V','A','X'],              // C-3：费用/库存财务步审批人（原仅V,X）
     ROLE_REGION_MGR:       ['V','A'],
-    ROLE_FARM_MGR:         ['V'],
-    ROLE_STORE_MGR:        ['V'],
+    ROLE_FARM_MGR:         ['V','A'],                  // C-3：用药审批链第2步（原仅V）
+    ROLE_STORE_MGR:        ['V','A'],                  // C-3：门店折扣审批链第1步（原仅V）
     ROLE_PROJECT_MGR:      ['V','A'],
-    ROLE_SALES_MGR:        ['V','A'],    // 销售主管需审批工作流
-    ROLE_SALES_REP:        ['V'],        // 业务员查看自己的审批状态
-    ROLE_AUDITOR:          ['V','X'],    // 审计专员查看所有流程历史
-    ROLE_HQ_FINANCE:       ['V','A','X'], // 总部财务审批/导出
+    ROLE_SALES_MGR:        ['V','A'],                  // 销售主管需审批工作流
+    ROLE_SALES_REP:        ['V'],                      // 业务员查看自己的审批状态
+    ROLE_AUDITOR:          ['V','X'],                  // 审计专员查看所有流程历史
+    ROLE_HQ_FINANCE:       ['V','A','X'],              // 总部财务审批/导出
+    // ── C-3 新增审批人（这些角色在内置审批链中被指定为审批节点）──────────────
+    ROLE_VET:              ['V','A'],                  // 用药审批链第1步 vet_review
+    ROLE_QA_MGR:           ['V','A'],                  // 质量异常审批链第1步
+    ROLE_WMS_MGR:          ['V','A'],                  // 库存调整审批链第1步
+    ROLE_LOG_MGR:          ['V','A'],                  // 物流异常审批链第1步
+    ROLE_PKG_MGR:          ['V','A'],                  // 包装异常审批
+    ROLE_SYSOPS:           ['V','A'],                  // 多链审批人
+    ROLE_BU_AGRI_GM:       ['V','A'],                  // 农业事业群审批
+    ROLE_BU_FOOD_GM:       ['V','A'],                  // 食品事业群审批
+    ROLE_FACTORY_MGR:      ['V','A'],                  // 场区级审批
   },
   // ── H5 补充：Sidebar 已使用但矩阵未注册的 MENU（RBAC Hardening Phase 1）──────────
 

@@ -75,12 +75,13 @@ export const TABLE_PERM_MAP: Record<string, string[]> = {
   acc_ledger:     ['ROLE_ADMIN', 'ROLE_FIN_CFO', 'ROLE_FIN_ACCT', 'ROLE_STORE_MGR'],
 
   // 繁育模块
-  brd_farms:        ['ROLE_ADMIN', 'ROLE_FARM_MGR'],
-  brd_flocks:       ['ROLE_ADMIN', 'ROLE_FARM_MGR'],
-  brd_houses:       ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_PKG_MGR', 'ROLE_PKG_OP'],
-  brd_daily_logs:   ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_BREEDER'],
-  brd_vaccinations: ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_VET'],
-  brd_medications:        ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_VET'],
+  // 养殖（Phase C-2.4：补充 ROLE_FACTORY_MGR — 场区经理首页 /breeding 走 brd_*）
+  brd_farms:        ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_BU_AGRI_GM'],
+  brd_flocks:       ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_BU_AGRI_GM'],
+  brd_houses:       ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_PKG_MGR', 'ROLE_PKG_OP'],
+  brd_daily_logs:   ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_BREEDER', 'ROLE_FARMER'],
+  brd_vaccinations: ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_VET'],
+  brd_medications:        ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_VET'],
 
   // 包装 Terminal 作业台表（现场角色可读写）
   pkg_work_shifts:       ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_PKG_OP', 'ROLE_LINE_SUPERVISOR'],
@@ -161,13 +162,13 @@ export const TABLE_PERM_MAP: Record<string, string[]> = {
   log_receipts:    ['ROLE_ADMIN', 'ROLE_LOGISTICS_MGR', 'ROLE_LOG_MGR'],
   log_exceptions:  ['ROLE_ADMIN', 'ROLE_LOGISTICS_MGR', 'ROLE_LOG_MGR'],
 
-  // 质量
-  qa_standards:           ['ROLE_ADMIN', 'ROLE_QA_MGR', 'ROLE_QC_INSPECTOR'],
-  qa_inspections:         ['ROLE_ADMIN', 'ROLE_QA_MGR', 'ROLE_QC_INSPECTOR'],
-  qa_inspection_items:    ['ROLE_ADMIN', 'ROLE_QA_MGR', 'ROLE_QC_INSPECTOR'],
-  qa_product_inspections: ['ROLE_ADMIN', 'ROLE_QA_MGR', 'ROLE_QC_INSPECTOR'],
-  qa_non_conformance:     ['ROLE_ADMIN', 'ROLE_QA_MGR', 'ROLE_QC_INSPECTOR'],
-  qa_standards_history:   ['ROLE_ADMIN', 'ROLE_QA_MGR'],
+  // 质量（Phase C-2.3：补充 ROLE_QA_STAFF — 质检专员进页即用，原仅 QC_INSPECTOR）
+  qa_standards:           ['ROLE_ADMIN', 'ROLE_QA_MGR', 'ROLE_QA_STAFF', 'ROLE_QC_INSPECTOR', 'ROLE_FACTORY_MGR'],
+  qa_inspections:         ['ROLE_ADMIN', 'ROLE_QA_MGR', 'ROLE_QA_STAFF', 'ROLE_QC_INSPECTOR', 'ROLE_FACTORY_MGR'],
+  qa_inspection_items:    ['ROLE_ADMIN', 'ROLE_QA_MGR', 'ROLE_QA_STAFF', 'ROLE_QC_INSPECTOR', 'ROLE_FACTORY_MGR'],
+  qa_product_inspections: ['ROLE_ADMIN', 'ROLE_QA_MGR', 'ROLE_QA_STAFF', 'ROLE_QC_INSPECTOR', 'ROLE_FACTORY_MGR'],
+  qa_non_conformance:     ['ROLE_ADMIN', 'ROLE_QA_MGR', 'ROLE_QA_STAFF', 'ROLE_QC_INSPECTOR', 'ROLE_FACTORY_MGR'],
+  qa_standards_history:   ['ROLE_ADMIN', 'ROLE_QA_MGR', 'ROLE_QA_STAFF'],
 
   // 财务补全
   fin_pay_records: ['ROLE_ADMIN', 'ROLE_FIN_CFO', 'ROLE_FIN_ACCT'],
