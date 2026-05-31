@@ -275,7 +275,12 @@ export default function ReceiptsPage() {
   const removeItem = (idx: number) => setFormItems(prev => prev.filter((_, i) => i !== idx));
 
   const totalPages = Math.ceil(total / pageSize);
-  const cellInp: React.CSSProperties = { padding: "3px 6px", border: "1px solid var(--border)", borderRadius: 4, fontSize: 12, background: "var(--bg-input)", color: "var(--text-primary)", width: "100%" };
+  // 明细单元格输入框（与全局 .inp 同档，企业级留白）
+  const cellInp: React.CSSProperties = { padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 6, fontSize: 13, background: "var(--bg-input)", color: "var(--text-primary)", width: "100%", boxSizing: "border-box", lineHeight: 1.5 };
+  // 表单分组容器与标题（带主色强调条，区块间距充足）
+  const formBlock: React.CSSProperties = { marginBottom: 28 };
+  const blockTitle: React.CSSProperties = { fontSize: 13, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16, paddingLeft: 10, borderLeft: "3px solid var(--color-primary)", lineHeight: 1.25, letterSpacing: "0.02em" };
+  const thStyle: React.CSSProperties = { padding: "10px 8px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", letterSpacing: "0.02em", whiteSpace: "nowrap" };
 
   return (
     <div style={{ padding: 16 }}>
@@ -353,26 +358,24 @@ export default function ReceiptsPage() {
       )}
 
       {/* ── New Receipt Drawer ── */}
-      <RightDrawer open={formOpen} onClose={() => setFormOpen(false)} title="新建收货单" width={760}>
-        <div style={{ padding: "0 24px 24px" }}>
-          <div className={s.formSection}>
-            <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 13 }}>关联信息</div>
+      <RightDrawer open={formOpen} onClose={() => setFormOpen(false)} title="新建收货单" width={880}>
+        <div style={{ padding: "8px 28px 28px" }}>
+          <div style={formBlock}>
+            <div style={blockTitle}>关联信息</div>
             <div className={s.fieldRow}>
               <div className={s.field}>
                 <label className={s.lbl}>PO ID <span style={{ color: "var(--color-danger)" }}>*</span></label>
                 <input className={s.inp} value={formPoId}
                   onChange={e => setFormPoId(e.target.value)}
                   onBlur={() => formPoId && loadPoItems(formPoId)}
-                  placeholder="PO内部ID（填完后自动加载明细）" />
+                  placeholder="PO 内部 ID（填完后自动加载明细）" />
               </div>
               <div className={s.field}>
                 <label className={s.lbl}>PO 编号 <span style={{ color: "var(--color-danger)" }}>*</span></label>
                 <input className={s.inp} value={formPoNo} onChange={e => setFormPoNo(e.target.value)} placeholder="PO2-..." />
               </div>
-            </div>
-            <div className={s.fieldRow}>
               <div className={s.field}>
-                <label className={s.lbl}>运单ID</label>
+                <label className={s.lbl}>运单 ID</label>
                 <input className={s.inp} value={formShipId} onChange={e => setFormShipId(e.target.value)} placeholder="可选" />
               </div>
               <div className={s.field}>
@@ -382,16 +385,16 @@ export default function ReceiptsPage() {
             </div>
           </div>
 
-          <div className={s.formSection} style={{ marginTop: 12 }}>
-            <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 13 }}>收货信息</div>
-            <div className={s.fieldRow}>
+          <div style={formBlock}>
+            <div style={blockTitle}>收货信息</div>
+            <div className={s.fieldRow3}>
               <div className={s.field}>
                 <label className={s.lbl}>仓库</label>
                 <input className={s.inp} value={formWh} onChange={e => setFormWh(e.target.value)} placeholder="仓库代码" />
               </div>
               <div className={s.field}>
                 <label className={s.lbl}>收货人</label>
-                <input className={s.inp} value={formReceiver} onChange={e => setFormReceiver(e.target.value)} />
+                <input className={s.inp} value={formReceiver} onChange={e => setFormReceiver(e.target.value)} placeholder="收货人姓名" />
               </div>
               <div className={s.field}>
                 <label className={s.lbl}>收货日期</label>
@@ -401,57 +404,57 @@ export default function ReceiptsPage() {
           </div>
 
           {/* Receipt items table */}
-          <div className={s.formSection} style={{ marginTop: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <div style={{ fontWeight: 600, fontSize: 13 }}>
-                收货明细 {poItemsLoading && <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>加载中...</span>}
+          <div style={formBlock}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div style={{ ...blockTitle, marginBottom: 0 }}>
+                收货明细 {poItemsLoading && <span style={{ color: "var(--text-secondary)", fontWeight: 400, fontSize: 12 }}>加载中...</span>}
               </div>
-              <button className={s.btnSecondary} onClick={addItem} style={{ fontSize: 12, padding: "3px 10px" }}>+ 添加行</button>
+              <button className={s.btnSecondary} onClick={addItem} style={{ fontSize: 13, padding: "7px 14px", whiteSpace: "nowrap" }}>+ 添加行</button>
             </div>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 8 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
-                  <tr style={{ background: "var(--bg-table-head)" }}>
-                    <th style={{ padding: "6px 4px", textAlign: "left", minWidth: 140 }}>物品名称 *</th>
-                    <th style={{ padding: "6px 4px", textAlign: "right", minWidth: 70 }}>应收数量</th>
-                    <th style={{ padding: "6px 4px", textAlign: "right", minWidth: 70 }}>实收数量 *</th>
-                    <th style={{ padding: "6px 4px", textAlign: "right", minWidth: 70 }}>拒收数量</th>
-                    <th style={{ padding: "6px 4px", textAlign: "left", minWidth: 50 }}>单位</th>
-                    <th style={{ padding: "6px 4px", textAlign: "left", minWidth: 80 }}>质量状态</th>
-                    <th style={{ padding: "6px 4px", width: 28 }}></th>
+                  <tr style={{ background: "var(--bg-table-head)", borderBottom: "1px solid var(--border)" }}>
+                    <th style={{ ...thStyle, minWidth: 180 }}>物品名称 <span style={{ color: "var(--color-danger)" }}>*</span></th>
+                    <th style={{ ...thStyle, textAlign: "right", minWidth: 96 }}>应收数量</th>
+                    <th style={{ ...thStyle, textAlign: "right", minWidth: 96 }}>实收数量 <span style={{ color: "var(--color-danger)" }}>*</span></th>
+                    <th style={{ ...thStyle, textAlign: "right", minWidth: 96 }}>拒收数量</th>
+                    <th style={{ ...thStyle, minWidth: 80 }}>单位</th>
+                    <th style={{ ...thStyle, minWidth: 120 }}>质量状态</th>
+                    <th style={{ ...thStyle, width: 44, textAlign: "center" }}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {formItems.map((item, idx) => (
-                    <tr key={idx} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td style={{ padding: "4px" }}>
+                    <tr key={idx} style={{ borderBottom: idx === formItems.length - 1 ? "none" : "1px solid var(--border)" }}>
+                      <td style={{ padding: "8px" }}>
                         <input style={cellInp} value={item.itemName} onChange={e => setItemField(idx, "itemName", e.target.value)} placeholder="物品名称" />
                       </td>
-                      <td style={{ padding: "4px" }}>
+                      <td style={{ padding: "8px" }}>
                         <input type="number" style={{ ...cellInp, textAlign: "right" }} value={item.expectedQty}
                           onChange={e => setItemField(idx, "expectedQty", Number(e.target.value))} min={0} step="0.0001" />
                       </td>
-                      <td style={{ padding: "4px" }}>
+                      <td style={{ padding: "8px" }}>
                         <input type="number" style={{ ...cellInp, textAlign: "right" }} value={item.actualQty}
                           onChange={e => setItemField(idx, "actualQty", Number(e.target.value))} min={0} step="0.0001" />
                       </td>
-                      <td style={{ padding: "4px" }}>
+                      <td style={{ padding: "8px" }}>
                         <input type="number" style={{ ...cellInp, textAlign: "right" }} value={item.rejectedQty}
                           onChange={e => setItemField(idx, "rejectedQty", Number(e.target.value))} min={0} step="0.0001" />
                       </td>
-                      <td style={{ padding: "4px" }}>
+                      <td style={{ padding: "8px" }}>
                         <input style={cellInp} value={item.unit ?? ""} onChange={e => setItemField(idx, "unit", e.target.value)} placeholder="单位" />
                       </td>
-                      <td style={{ padding: "4px" }}>
+                      <td style={{ padding: "8px" }}>
                         <select style={cellInp} value={item.qualityStatus ?? "PASS"} onChange={e => setItemField(idx, "qualityStatus", e.target.value)}>
                           <option value="PASS">合格</option>
                           <option value="PARTIAL">部分合格</option>
                           <option value="REJECT">不合格</option>
                         </select>
                       </td>
-                      <td style={{ padding: "4px", textAlign: "center" }}>
+                      <td style={{ padding: "8px", textAlign: "center" }}>
                         {formItems.length > 1 && (
-                          <button className={s.btnIconDanger} onClick={() => removeItem(idx)} style={{ padding: 2 }}><X size={11} /></button>
+                          <button className={s.btnIconDanger} onClick={() => removeItem(idx)} style={{ padding: 4 }}><X size={13} /></button>
                         )}
                       </td>
                     </tr>
@@ -461,10 +464,10 @@ export default function ReceiptsPage() {
             </div>
           </div>
 
-          <div className={s.formSection} style={{ marginTop: 12 }}>
-            <div className={s.field}>
-              <label className={s.lbl}>备注</label>
-              <textarea className={s.textarea} rows={2} value={formRemark} onChange={e => setFormRemark(e.target.value)} />
+          <div style={formBlock}>
+            <div style={blockTitle}>备注</div>
+            <div className={s.field} style={{ marginBottom: 0 }}>
+              <textarea className={s.textarea} rows={3} value={formRemark} onChange={e => setFormRemark(e.target.value)} placeholder="选填，补充收货说明" />
             </div>
           </div>
 
