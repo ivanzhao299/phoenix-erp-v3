@@ -10,7 +10,8 @@ INSERT INTO sys_store (store_code, store_name_zh, store_name_lo, store_type, par
 ('AREA-ZHU',     '朱会然片区',              'ເຂດ Zhu',                          'AREA',       'CO-FHA'),
 ('AREA-YUE',     '岳片区',                  'ເຂດ Yue',                          'AREA',       'CO-FHA'),
 ('WH-VTE-01',    '万象成品蛋仓 1 号',         'ສາງໄຂ່ ວຽງຈັນ 01',                'WAREHOUSE',  'CO-FHA'),
-('PKG-MS-01',    '孟赛包装车间 1 号',         'ໂຮງງານຫຸ້ມຫໍ່ ເມືອງໄຊ 01',         'PACKAGING',  'FARM-MS');
+('PKG-MS-01',    '孟赛包装车间 1 号',         'ໂຮງງານຫຸ້ມຫໍ່ ເມືອງໄຊ 01',         'PACKAGING',  'FARM-MS')
+ON CONFLICT DO NOTHING;
 
 -- ============== Step 2: 初始化 sys_role 角色 ==============
 INSERT INTO sys_role (role_code, role_name_zh, role_name_lo, role_type, approval_level) VALUES
@@ -39,7 +40,8 @@ INSERT INTO sys_role (role_code, role_name_zh, role_name_lo, role_type, approval
 ('ROLE_CASHIER',       '前台收银员',      'ພະນັກງານຮັບເງິນ',         'STORE',       1),
 ('ROLE_B2B_MGR',       '大客总监',        'ຜູ້ອຳນວຍການ B2B',          'SALES',       2),
 ('ROLE_SALES_REP',     '业务员',          'ພະນັກງານຂາຍ',             'SALES',       1),
-('ROLE_CUSTOMER_B2B',  '自助订货用户',    'ລູກຄ້າ B2B',               'EXTERNAL',    0);
+('ROLE_CUSTOMER_B2B',  '自助订货用户',    'ລູກຄ້າ B2B',               'EXTERNAL',    0)
+ON CONFLICT DO NOTHING;
 
 -- ============== Step 3: 初始化 sys_menu 菜单 ==============
 INSERT INTO sys_menu (menu_code, menu_name_zh, menu_name_lo, domain, sort_order, icon, route) VALUES
@@ -70,7 +72,8 @@ INSERT INTO sys_menu (menu_code, menu_name_zh, menu_name_lo, domain, sort_order,
 ('MENU_LOG_DISPATCH',  '物流调度',     'ການຈັດສົ່ງ',                  'LOG',    25, 'dispatch',   '/log/dispatch'),
 ('MENU_LOG_REVIEW',    '物流复核',     'ການກວດຄືນຂົນສົ່ງ',           'LOG',    26, 'review',     '/log/review'),
 ('MENU_PRC_MGR',       '采购管理',     'ການຈັດຊື້',                   'PRC',    27, 'buy',        '/prc'),
-('MENU_B2B_SALE',      'B2B 销售',     'ຂາຍ B2B',                      'SALES',  28, 'b2b',        '/b2b');
+('MENU_B2B_SALE',      'B2B 销售',     'ຂາຍ B2B',                      'SALES',  28, 'b2b',        '/b2b')
+ON CONFLICT DO NOTHING;
 
 -- ============== Step 4: 初始化 sys_role_menu_permission（核心权限矩阵） ==============
 -- AI INSTRUCTION: 把 §5.1 JSON 转为以下批量 INSERT
@@ -212,7 +215,8 @@ FROM (VALUES
     ('ROLE_CUSTOMER_B2B',  'MENU_ORDER_MGR',     'V,C')
 ) AS perm(role_code, menu_code, perm_codes)
 JOIN sys_role r ON r.role_code = perm.role_code
-JOIN sys_menu m ON m.menu_code = perm.menu_code;
+JOIN sys_menu m ON m.menu_code = perm.menu_code
+ON CONFLICT (role_id, menu_id) DO NOTHING;
 
 -- ============== Step 5: 初始化 sys_approval_rule 审批规则 ==============
 INSERT INTO sys_approval_rule (doc_type, amount_min, amount_max, currency_code, approver_chain) VALUES
@@ -222,7 +226,8 @@ INSERT INTO sys_approval_rule (doc_type, amount_min, amount_max, currency_code, 
 ('EXPENSE',     50000.01, NULL,     'CNY', '[{"level":1,"role":"ROLE_FARM_MGR"},{"level":2,"role":"ROLE_REGION_MGR"},{"level":3,"role":"ROLE_CEO"}]'::jsonb),
 ('PRC_ORDER',   0,        50000,    'CNY', '[{"level":1,"role":"ROLE_PRC_BUYER"},{"level":2,"role":"ROLE_REGION_MGR"}]'::jsonb),
 ('PRC_ORDER',   50000.01, NULL,     'CNY', '[{"level":1,"role":"ROLE_PRC_BUYER"},{"level":2,"role":"ROLE_REGION_MGR"},{"level":3,"role":"ROLE_CEO"}]'::jsonb),
-('PRICING_NEW', 0,        NULL,     'CNY', '[{"level":1,"role":"ROLE_FIN_COST"},{"level":2,"role":"ROLE_REGION_MGR"},{"level":3,"role":"ROLE_CEO"}]'::jsonb);
+('PRICING_NEW', 0,        NULL,     'CNY', '[{"level":1,"role":"ROLE_FIN_COST"},{"level":2,"role":"ROLE_REGION_MGR"},{"level":3,"role":"ROLE_CEO"}]'::jsonb)
+ON CONFLICT DO NOTHING;
 
 -- ============== Step 6: 初始化 sys_doc_state_lock 状态机锁 ==============
 INSERT INTO sys_doc_state_lock (doc_type, locked_state, locked_fields, unlock_role) VALUES
@@ -233,7 +238,8 @@ INSERT INTO sys_doc_state_lock (doc_type, locked_state, locked_fields, unlock_ro
 ('QA_INSPECTION',      'RELEASED',  '["conclusion","test_items","verdict_value"]'::jsonb,                      'ROLE_QA_MGR'),
 ('QA_INSPECTION',      'REJECTED',  '["conclusion","test_items","verdict_value"]'::jsonb,                      'ROLE_QA_MGR'),
 ('STORE_DAILY_CLOSE',  'CLOSED',    '["total_amount","total_count","deposited_amount"]'::jsonb,                'ROLE_ADMIN'),
-('DELIVERY_RECEIPT',   'SIGNED',    '["signer","sign_time","receipt_photo"]'::jsonb,                           'ROLE_ADMIN');
+('DELIVERY_RECEIPT',   'SIGNED',    '["signer","sign_time","receipt_photo"]'::jsonb,                           'ROLE_ADMIN')
+ON CONFLICT DO NOTHING;
 
 -- ============== Step 7: 初始化 sys_user 凤凰农业人员 ==============
 -- 注: password 在迁移文件 20260531_fix_user_passwords.sql 中使用 pgcrypto 设置为有效值

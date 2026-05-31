@@ -22,8 +22,9 @@ CREATE TABLE IF NOT EXISTS sys_approval_rule (
 -- 插入一条针对采购单 (PURCHASE_ORDER) 的默认测试规则
 INSERT INTO sys_approval_rule (doc_type, amount_min, amount_max, approver_chain)
 VALUES (
-    'PURCHASE_ORDER', 
-    0, 
-    NULL, 
+    'PURCHASE_ORDER',
+    0,
+    NULL,
     '["ROLE_PRC_MGR", "ROLE_FIN_MGR"]'::jsonb
-);
+)
+ON CONFLICT DO NOTHING;

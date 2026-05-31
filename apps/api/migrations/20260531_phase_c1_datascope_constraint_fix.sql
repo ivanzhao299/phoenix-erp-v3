@@ -37,7 +37,10 @@ ALTER TABLE sys_user_orgs ADD COLUMN IF NOT EXISTS org_code   VARCHAR(64);
 ALTER TABLE sys_user_orgs ADD COLUMN IF NOT EXISTS role_scope VARCHAR(32);
 
 -- 同步 role_scope CHECK（删旧加新，确保与 5 层一致）
+-- 修复（成本控制本地双遍验证）：原仅删自动生成名，漏删自定义名 chk_user_org_role_scope，
+-- 存量库二次执行时 ADD 报"constraint already exists"。补 DROP IF EXISTS。
 ALTER TABLE sys_user_orgs DROP CONSTRAINT IF EXISTS sys_user_orgs_role_scope_check;
+ALTER TABLE sys_user_orgs DROP CONSTRAINT IF EXISTS chk_user_org_role_scope;
 ALTER TABLE sys_user_orgs
   ADD CONSTRAINT chk_user_org_role_scope CHECK (
     role_scope IS NULL OR role_scope IN ('GROUP','BU','COMPANY','SITE','DEPARTMENT')

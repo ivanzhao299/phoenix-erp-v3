@@ -16,6 +16,13 @@ on:
         type: boolean
         default: false
 
+# 成本控制（Role Audit Recheck）：同一 ref 的新流水线启动时，自动取消仍在跑的旧流水线，
+# 避免连续推送时多条全流水线（含最耗分钟数的镜像构建）并行烧 Actions 额度。
+# 注：deploy job 已是幂等部署，被取消的旧 run 不会留下半成品状态。
+concurrency:
+  group: cicd-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   REGISTRY: ghcr.io
