@@ -44,19 +44,23 @@ CREATE INDEX IF NOT EXISTS idx_inv_batches_status_exp ON inv_batches(status, exp
 CREATE INDEX IF NOT EXISTS idx_inv_ledger_company     ON inv_ledger(company_code);
 
 -- ── 5. RBAC 种子 ─────────────────────────────────────────────
-INSERT INTO sys_menu (code, name, parent_code, sort_order, is_active, created_at, updated_at)
-VALUES ('MENU_SALES2_INVENTORY', '库存管理', 'MENU_SALES2', 50, true, now(), now())
-ON CONFLICT (code) DO NOTHING;
+INSERT INTO sys_menu (menu_code, menu_name_zh, domain, parent_code, sort_order, route)
+VALUES ('MENU_SALES2_INVENTORY', '库存管理', 'SALES', 'MENU_SALES2', 50, '/sales2/inventory')
+ON CONFLICT (menu_code) DO NOTHING;
 
-INSERT INTO sys_role_menu_permission (role_code, menu_code, perm_codes, created_at, updated_at)
-VALUES
-  ('ROLE_ADMIN',      'MENU_SALES2_INVENTORY', ARRAY['V','C','E','D','A','X'], now(), now()),
-  ('ROLE_CEO',        'MENU_SALES2_INVENTORY', ARRAY['V','X'],                 now(), now()),
-  ('ROLE_HQ_FINANCE', 'MENU_SALES2_INVENTORY', ARRAY['V','X'],                 now(), now()),
-  ('ROLE_FIN_CFO',    'MENU_SALES2_INVENTORY', ARRAY['V','X'],                 now(), now()),
-  ('ROLE_SALES_MGR',  'MENU_SALES2_INVENTORY', ARRAY['V','C','E','A','X'],     now(), now()),
-  ('ROLE_SALES_REP',  'MENU_SALES2_INVENTORY', ARRAY['V'],                     now(), now()),
-  ('ROLE_REGION_MGR', 'MENU_SALES2_INVENTORY', ARRAY['V','X'],                 now(), now()),
-  ('ROLE_AUDITOR',    'MENU_SALES2_INVENTORY', ARRAY['V','X'],                 now(), now()),
-  ('ROLE_FARM_MGR',   'MENU_SALES2_INVENTORY', ARRAY['V','C','E'],             now(), now())
-ON CONFLICT (role_code, menu_code) DO NOTHING;
+INSERT INTO sys_role_menu_permission (role_id, menu_id, perm_codes)
+SELECT r.role_id, m.menu_id, p.perm_codes
+FROM (VALUES
+  ('ROLE_ADMIN', 'V,C,E,D,A,X'),
+  ('ROLE_CEO', 'V,X'),
+  ('ROLE_HQ_FINANCE', 'V,X'),
+  ('ROLE_FIN_CFO', 'V,X'),
+  ('ROLE_SALES_MGR', 'V,C,E,A,X'),
+  ('ROLE_SALES_REP', 'V'),
+  ('ROLE_REGION_MGR', 'V,X'),
+  ('ROLE_AUDITOR', 'V,X'),
+  ('ROLE_FARM_MGR', 'V,C,E')
+) AS p(role_code, perm_codes)
+JOIN sys_role r ON r.role_code = p.role_code
+JOIN sys_menu m ON m.menu_code = 'MENU_SALES2_INVENTORY'
+ON CONFLICT (role_id, menu_id) DO NOTHING;

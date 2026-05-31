@@ -12,19 +12,23 @@ ON CONFLICT (role_code) DO NOTHING;
 ALTER TABLE sal_delivery_orders ADD COLUMN IF NOT EXISTS photo_urls TEXT;
 
 -- ── 3. MENU_MOBILE_DELIVERY 菜单种子（幂等）──────────────────────────────
-INSERT INTO sys_menu (menu_code, menu_name, menu_path, parent_code, sort_order, icon, status)
-VALUES ('MENU_MOBILE_DELIVERY', '配送任务', '/mobile/delivery', 'MENU_MOBILE', 10, 'Truck', 'ACTIVE')
-ON CONFLICT (menu_code) DO UPDATE SET
-  menu_name = EXCLUDED.menu_name,
-  menu_path = EXCLUDED.menu_path;
+-- 修复（Phase C）：sys_menu 实际列为 menu_name_zh/domain/route（非 menu_name/menu_path/status）
+INSERT INTO sys_menu (menu_code, menu_name_zh, domain, route, parent_code, sort_order, icon)
+VALUES ('MENU_MOBILE_DELIVERY', '配送任务', 'LOG', '/mobile/delivery', 'MENU_MOBILE', 10, 'Truck')
+ON CONFLICT (menu_code) DO NOTHING;
 
 -- ── 4. ROLE_DRIVER 菜单权限种子（幂等）───────────────────────────────────
-INSERT INTO sys_role_menu_permission (role_code, menu_code, permissions)
-VALUES
-  ('ROLE_DRIVER',  'MENU_MOBILE_DELIVERY', ARRAY['V','C','E']),
-  ('ROLE_ADMIN',   'MENU_MOBILE_DELIVERY', ARRAY['V','C','E','D','A','X']),
-  ('ROLE_LOG_MGR', 'MENU_MOBILE_DELIVERY', ARRAY['V','C','E','D','X'])
-ON CONFLICT (role_code, menu_code) DO UPDATE SET permissions = EXCLUDED.permissions;
+-- 修复（Phase C）：sys_role_menu_permission 实际列为 role_id/menu_id/perm_codes（逗号字符串）
+INSERT INTO sys_role_menu_permission (role_id, menu_id, perm_codes)
+SELECT r.role_id, m.menu_id, p.perm_codes
+FROM (VALUES
+  ('ROLE_DRIVER',  'V,C,E'),
+  ('ROLE_ADMIN',   'V,C,E,D,A,X'),
+  ('ROLE_LOG_MGR', 'V,C,E,D,X')
+) AS p(role_code, perm_codes)
+JOIN sys_role r ON r.role_code = p.role_code
+JOIN sys_menu m ON m.menu_code = 'MENU_MOBILE_DELIVERY'
+ON CONFLICT (role_id, menu_id) DO NOTHING;
 
 -- ── 5. UAT 验收项（Mobile Delivery — 10 条，幂等）────────────────────────
 -- 注意：uat_checklists 表无 checklist_code 字段，使用 WHERE NOT EXISTS 幂等插入

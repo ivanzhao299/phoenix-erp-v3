@@ -82,19 +82,26 @@ CREATE INDEX IF NOT EXISTS idx_sal_return_items_return_ord  ON sal_return_items(
 CREATE INDEX IF NOT EXISTS idx_sal_return_items_product     ON sal_return_items(product_code);
 
 -- ── 4. RBAC 种子 ─────────────────────────────────────────────
-INSERT INTO sys_menu (code, name, parent_code, sort_order, is_active, created_at, updated_at)
-VALUES ('MENU_SALES2_RETURN', '销售退货管理', 'MENU_SALES2', 60, true, now(), now())
-ON CONFLICT (code) DO NOTHING;
+-- 修复（Phase C）：原 SQL 用了错误的列名（code/name/is_active/role_code/ARRAY[]），
+-- sys_menu 实际列为 menu_code/menu_name_zh/domain，
+-- sys_role_menu_permission 实际列为 role_id/menu_id/perm_codes(逗号字符串)。
+INSERT INTO sys_menu (menu_code, menu_name_zh, domain, parent_code, sort_order, route)
+VALUES ('MENU_SALES2_RETURN', '销售退货管理', 'SALES', 'MENU_SALES2', 60, '/sales2/returns')
+ON CONFLICT (menu_code) DO NOTHING;
 
--- 各角色权限
-INSERT INTO sys_role_menu_permission (role_code, menu_code, perm_codes, created_at, updated_at)
-VALUES
-  ('ROLE_ADMIN',      'MENU_SALES2_RETURN', ARRAY['V','C','E','D','A','X'], now(), now()),
-  ('ROLE_CEO',        'MENU_SALES2_RETURN', ARRAY['V','X'],                 now(), now()),
-  ('ROLE_HQ_FINANCE', 'MENU_SALES2_RETURN', ARRAY['V','X'],                 now(), now()),
-  ('ROLE_FIN_CFO',    'MENU_SALES2_RETURN', ARRAY['V','C','E','A','X'],     now(), now()),
-  ('ROLE_SALES_MGR',  'MENU_SALES2_RETURN', ARRAY['V','C','E','D','A','X'], now(), now()),
-  ('ROLE_SALES_REP',  'MENU_SALES2_RETURN', ARRAY['V','C'],                 now(), now()),
-  ('ROLE_REGION_MGR', 'MENU_SALES2_RETURN', ARRAY['V','A','X'],             now(), now()),
-  ('ROLE_AUDITOR',    'MENU_SALES2_RETURN', ARRAY['V'],                     now(), now())
-ON CONFLICT (role_code, menu_code) DO NOTHING;
+-- 各角色权限（通过 JOIN 解析 role_id/menu_id，perm_codes 用逗号分隔字符串）
+INSERT INTO sys_role_menu_permission (role_id, menu_id, perm_codes)
+SELECT r.role_id, m.menu_id, p.perm_codes
+FROM (VALUES
+  ('ROLE_ADMIN',      'V,C,E,D,A,X'),
+  ('ROLE_CEO',        'V,X'),
+  ('ROLE_HQ_FINANCE', 'V,X'),
+  ('ROLE_FIN_CFO',    'V,C,E,A,X'),
+  ('ROLE_SALES_MGR',  'V,C,E,D,A,X'),
+  ('ROLE_SALES_REP',  'V,C'),
+  ('ROLE_REGION_MGR', 'V,A,X'),
+  ('ROLE_AUDITOR',    'V')
+) AS p(role_code, perm_codes)
+JOIN sys_role r ON r.role_code = p.role_code
+JOIN sys_menu m ON m.menu_code = 'MENU_SALES2_RETURN'
+ON CONFLICT (role_id, menu_id) DO NOTHING;
