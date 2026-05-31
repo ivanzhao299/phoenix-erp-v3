@@ -61,10 +61,16 @@ interface ApprovalRule {
 
 // ── 常量 ─────────────────────────────────────────────────────────────────────
 const BIZ_TYPE_OPTIONS = [
-  { value: "PR",      label: "采购申请" },
-  { value: "PO",      label: "采购订单" },
-  { value: "PAYMENT", label: "付款申请" },
-  { value: "FUND",    label: "股东资金" },
+  { value: "PR",                       label: "采购申请" },
+  { value: "PO",                       label: "采购订单" },
+  { value: "PAYMENT",                  label: "付款申请" },
+  { value: "FUND",                     label: "股东资金" },
+  { value: "EXPENSE_REQUEST",          label: "费用申请" },
+  { value: "REIMBURSEMENT",            label: "报销付款" },
+  { value: "SALES_ORDER",              label: "销售订单" },
+  { value: "SALES_RETURN",             label: "销售退货" },
+  { value: "STORE_POS_VOID",           label: "门店作废" },
+  { value: "CUSTOMER_CREDIT_UNFREEZE", label: "客户信用解冻" },
 ];
 
 const APPROVAL_MODE_OPTIONS = [
@@ -93,6 +99,9 @@ const APPROVER_TYPE_OPTIONS = [
 
 const BIZ_TYPE_LABEL: Record<string, string> = {
   PR: "采购申请", PO: "采购订单", PAYMENT: "付款申请", FUND: "股东资金",
+  EXPENSE_REQUEST: "费用申请", REIMBURSEMENT: "报销付款",
+  SALES_ORDER: "销售订单", SALES_RETURN: "销售退货",
+  STORE_POS_VOID: "门店作废", CUSTOMER_CREDIT_UNFREEZE: "客户信用解冻",
 };
 
 const MODE_LABEL: Record<string, string> = {

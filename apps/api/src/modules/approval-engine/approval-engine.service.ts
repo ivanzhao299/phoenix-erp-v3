@@ -1,5 +1,5 @@
 import {
-  Injectable, ConflictException, NotFoundException, ForbiddenException, Inject, forwardRef,
+  Injectable, ConflictException, NotFoundException, ForbiddenException, BadRequestException, Inject, forwardRef,
 } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
@@ -78,6 +78,25 @@ export class ApprovalEngineService {
     return `${prefix}${String(seq).padStart(5, '0')}`;
   }
 
+  // ── fail-safe 开关 ──────────────────────────────────────────────────────
+  /**
+   * 是否允许「无规则自动通过」（fail-open）。
+   * ⚠ 危险开关：默认 fail-safe（返回 false）——无规则/无步骤时禁止自动批准、禁止提交。
+   * 仅当 sys_configs 中 workflow.fail_open_enabled 被显式设为 'true' 时才放行（生产不建议开启）。
+   * 配置缺失（未配置）时也必须返回 false（安全默认）。
+   */
+  private async isFailOpenEnabled(mgr: EntityManager): Promise<boolean> {
+    try {
+      const rows: Array<{ config_value: string }> = await mgr.query(
+        `SELECT config_value FROM sys_configs WHERE config_key = 'workflow.fail_open_enabled' LIMIT 1`,
+      );
+      return rows?.[0]?.config_value?.trim().toLowerCase() === 'true';
+    } catch {
+      // 查询异常一律按安全默认处理（fail-safe）
+      return false;
+    }
+  }
+
   // ── 规则解析 ─────────────────────────────────────────────────────────────
 
   /**
@@ -135,7 +154,12 @@ export class ApprovalEngineService {
     );
 
     if (!rule) {
-      // 无规则 → 自动审批通过
+      // 无规则 → 默认 fail-safe：禁止自动批准，禁止提交
+      // 仅当 ADMIN/SYSOPS 在 sys_configs 显式开启危险开关 workflow.fail_open_enabled=true 时才放行（生产不建议）
+      if (!(await this.isFailOpenEnabled(mgr))) {
+        throw new BadRequestException('当前业务未配置审批规则，请先在审批规则中配置后再提交。');
+      }
+      // ⚠ fail-open 危险开关已显式开启：保留旧的无规则自动通过行为
       const autoStatus = this.bizRegistry.getApprovedStatus(params.bizType);
       await this.updateBizStatus(params.bizType, params.bizId, autoStatus, mgr);
       const cfg0 = this.bizRegistry.get(params.bizType);
@@ -149,6 +173,11 @@ export class ApprovalEngineService {
     });
 
     if (ruleSteps.length === 0) {
+      // 规则存在但无步骤 → 同样默认 fail-safe，禁止自动批准
+      if (!(await this.isFailOpenEnabled(mgr))) {
+        throw new BadRequestException('当前业务的审批规则未配置任何审批步骤，请先在审批规则中补全步骤后再提交。');
+      }
+      // ⚠ fail-open 危险开关已显式开启：保留旧的无步骤自动通过行为
       const autoStatus = this.bizRegistry.getApprovedStatus(params.bizType);
       await this.updateBizStatus(params.bizType, params.bizId, autoStatus, mgr);
       const cfg0 = this.bizRegistry.get(params.bizType);
