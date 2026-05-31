@@ -97,19 +97,33 @@ jobs:
       - name: Run DDL migrations
         working-directory: apps/api
         run: |
+          # ── 迁移执行函数：SQL 失败时 CI 红灯（不再吞错）──────────────────────
+          # 修复（Role Runtime Phase C）：
+          #   原 `psql ... | grep ... || true` 有两个致命缺陷：
+          #     1. psql 默认不因 SQL 错误返回非零码 → 需 ON_ERROR_STOP=1
+          #     2. `|| true` + 管道末端 grep 退出码，吞掉了所有失败
+          #   导致 Phase B 的 CHECK 约束违规被静默吞掉，"迁移失败但部署成功"。
+          # 修复方案：显式捕获 psql 退出码（ON_ERROR_STOP=1），仅用于显示时过滤噪音。
+          run_migration() {
+            local f="$1"
+            echo "Applying $f..."
+            local output status
+            output=$(PGPASSWORD=$DB_PASSWORD psql -v ON_ERROR_STOP=1 \
+                       -h $DB_HOST -U $DB_USER -d $DB_NAME -f "$f" 2>&1)
+            status=$?
+            # 显示时过滤幂等噪音（NOTICE/already exists），但不影响退出码判定
+            echo "$output" | grep -v "^NOTICE\|already exists\|will create" || true
+            if [ $status -ne 0 ]; then
+              echo "::error::❌ Migration FAILED: $f"
+              echo "$output"
+              exit 1
+            fi
+          }
           # 基础 DDL（RBAC / 系统表 / 采购等）
-          for f in $(ls ddl/*.sql | sort); do
-            echo "Applying $f..."
-            PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f "$f" 2>&1 \
-              | grep -v "^NOTICE\|already exists\|will create" || true
-          done
+          for f in $(ls ddl/*.sql | sort); do run_migration "$f"; done
           # 增量迁移（所有 2026MMDD_* 前缀 SQL，幂等，按日期排序）
-          for f in $(ls migrations/2026*.sql 2>/dev/null | sort); do
-            echo "Applying $f..."
-            PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f "$f" 2>&1 \
-              | grep -v "^NOTICE\|already exists\|will create" || true
-          done
-          echo "✅ DDL migrations applied"
+          for f in $(ls migrations/2026*.sql 2>/dev/null | sort); do run_migration "$f"; done
+          echo "✅ DDL migrations applied (任一失败 CI 已红灯)"
 
       - name: Start API
         working-directory: apps/api
@@ -290,22 +304,29 @@ jobs:
             docker compose up -d --wait db
             echo "✅ DB healthy"
 
-            # ── DDL 迁移（幂等）────────────────────────────────────────
+            # ── DDL 迁移（幂等，SQL 失败时部署红灯）─────────────────────────
+            # 修复（Role Runtime Phase C）：显式捕获 psql 退出码 + ON_ERROR_STOP=1
+            # 不再让 SQL 错误被 `|| true` 吞掉，杜绝"迁移失败但部署成功"。
+            run_db_migration() {
+              local f="$1"
+              echo "Applying $f..."
+              local output status
+              output=$(docker compose exec -T db sh -c \
+                'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+                < "$f" 2>&1)
+              status=$?
+              echo "$output" | grep -v "already exists\|NOTICE\|will create\|^$" || true
+              if [ $status -ne 0 ]; then
+                echo "::error::❌ DB Migration FAILED: $f"
+                echo "$output"
+                exit 1
+              fi
+            }
             # 基础 DDL
-            for f in $(ls apps/api/ddl/*.sql | sort); do
-              docker compose exec -T db sh -c \
-                'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
-                < "$f" 2>&1 \
-                | grep -v "already exists\|NOTICE\|will create\|^$" || true
-            done
+            for f in $(ls apps/api/ddl/*.sql | sort); do run_db_migration "$f"; done
             # 增量迁移（所有 2026MMDD_* 前缀 SQL，幂等，按日期排序）
-            for f in $(ls apps/api/migrations/2026*.sql 2>/dev/null | sort); do
-              docker compose exec -T db sh -c \
-                'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
-                < "$f" 2>&1 \
-                | grep -v "already exists\|NOTICE\|will create\|^$" || true
-            done
-            echo "✅ DDL migrations applied"
+            for f in $(ls apps/api/migrations/2026*.sql 2>/dev/null | sort); do run_db_migration "$f"; done
+            echo "✅ DDL migrations applied (任一失败部署已红灯)"
 
             # ── 滚动重启容器 ─────────────────────────────────────────────
             docker compose up -d --no-deps --wait api
