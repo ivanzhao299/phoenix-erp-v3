@@ -34,8 +34,12 @@ Phase C 的第一项要求是"修复 deploy.yml 吞错"。该修复一旦生效�
 | 非幂等种子 | `02_init_data.sql`（6 处 INSERT）/ `05_fix_p2_approval_rule.sql` 补 `ON CONFLICT DO NOTHING` | 存量库重跑不再 duplicate key |
 | 非幂等约束 | `phase_c1_datascope_constraint_fix.sql` 补 `DROP CONSTRAINT IF EXISTS` | 存量库重跑不再 constraint already exists |
 | 诊断增强 | deploy runner 用 `set +e` 包裹命令替换，远程 dash 下错误详情可见 | 失败可定位 |
+| 生产 schema 漂移 | `product_master_h2.sql` 的 `category→category_code` 回填加**列存在性守卫** | 生产库无 legacy `category` 列不再报错 |
 | 生产验证 | deploy job 内嵌 6 项 Phase C 检查（FAIL 红灯） | 生产验证门禁化 |
-| **成本控制** | 新增 `scripts/local-migration-check.sh`（本地双遍验证）+ deploy.yml `concurrency: cancel-in-progress` | 本地先验证再推，杜绝逐步推送烧 CI |
+| **成本控制** | `scripts/local-migration-check.sh`（**三遍验证**）+ `scripts/fetch-prod-schema.sh` + `dump-prod-schema.yml` + deploy.yml `concurrency: cancel-in-progress` | 本地先验证再推，杜绝逐步推送烧 CI |
+
+> **生产 schema 漂移根治**：本地脚本现建的库与生产多年演化的真实结构不同，"双遍验证"抓不到这类漂移（如生产 `mst_products` 缺 legacy `category` 列）。
+> 对策：`dump-prod-schema.yml`（极轻量手动 workflow，仅 SSH+`pg_dump --schema-only`，不构建不部署）把生产真实 schema 取回本地，`local-migration-check.sh` 新增**生产副本遍**——加载真实生产 schema 后跑全套迁移（完全复刻 deploy），一次抓干净所有漂移。验证结果：三遍（全新库 + 存量库 + 生产副本）全部 0 错误。
 
 ### 1.2 部署确认
 

@@ -49,6 +49,34 @@ run_pass() {
   return $failed
 }
 
+# 生产副本遍：若已 fetch 生产真实 schema，则在其上跑一遍全套迁移，
+# 预判"生产 schema 漂移"类错误（本地现建库复现不了的那一类，如 mst_products
+# 缺 legacy category 列）。用 scripts/fetch-prod-schema.sh 取回。
+PROD_SCHEMA="scripts/.prod-schema.sql"
+run_prod_replica() {
+  [ -f "$PROD_SCHEMA" ] || { echo ""; echo "ℹ️  未找到 $PROD_SCHEMA，跳过生产副本遍（运行 scripts/fetch-prod-schema.sh 启用）"; return 0; }
+  local RDB="phx_prod_replica" failed=0
+  echo ""
+  echo "════════════════════════════════════════════════════════════"
+  echo "  生产副本遍（加载真实生产 schema 后跑全套迁移 = 复刻 deploy）"
+  echo "════════════════════════════════════════════════════════════"
+  dropdb --if-exists "$RDB" 2>/dev/null; createdb "$RDB"
+  psql -X -q -d "$RDB" -f "$PROD_SCHEMA" >/dev/null 2>&1
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    local out status
+    out=$("${PSQL_BASE[@]}" -d "$RDB" -f "$f" 2>&1); status=$?
+    if [ $status -ne 0 ]; then
+      echo "❌ DRIFT FAIL $f"
+      echo "$out" | grep -iE "ERROR|FATAL" | head -3
+      failed=1
+    fi
+  done < <(collect_files)
+  [ $failed -eq 0 ] && echo "✅ 生产副本遍：全套迁移 0 漂移错误"
+  dropdb --if-exists "$RDB" 2>/dev/null
+  return $failed
+}
+
 echo "▶ 重建测试库 $DB ..."
 dropdb --if-exists "$DB" 2>/dev/null
 createdb "$DB" || { echo "createdb 失败（postgres 是否已启动？）"; exit 2; }
@@ -56,13 +84,13 @@ createdb "$DB" || { echo "createdb 失败（postgres 是否已启动？）"; exi
 rc=0
 run_pass 1 || rc=1
 run_pass 2 || rc=1
+dropdb --if-exists "$DB" 2>/dev/null
+run_prod_replica || rc=1
 
 echo ""
 if [ $rc -eq 0 ]; then
-  echo "🎉 两遍全部通过 — 全新库 + 存量库（非幂等）均无错误，可安全推送。"
+  echo "🎉 全部通过 — 全新库 + 存量库（非幂等）+ 生产副本（schema漂移）均无错误，可安全推送。"
 else
   echo "🛑 存在失败迁移（见上方 ❌）。修复后重跑，避免浪费 CI 额度。"
 fi
-
-dropdb --if-exists "$DB" 2>/dev/null
 exit $rc

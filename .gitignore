@@ -56,3 +56,6 @@ test_output.txt
 *.tmp
 tmp/
 cache/
+
+# 生产真实 schema（fetch-prod-schema.sh 取回，本地验证用，不入库）
+scripts/.prod-schema.sql
