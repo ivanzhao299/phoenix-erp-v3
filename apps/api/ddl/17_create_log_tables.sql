@@ -3,6 +3,9 @@
 -- 支持：全量部署（CREATE TABLE IF NOT EXISTS）和增量更新（ALTER … ADD COLUMN IF NOT EXISTS）
 
 -- ① 车辆档案
+-- 修复：序列必须在 CREATE TABLE 之前创建（否则 DEFAULT nextval 引用不存在的序列，
+--       在全新数据库上 CREATE TABLE 失败 — 此前被 deploy.yml `|| true` 吞掉）
+CREATE SEQUENCE IF NOT EXISTS log_vehicles_id_seq;
 CREATE TABLE IF NOT EXISTS log_vehicles (
   plate_no     TEXT          NOT NULL,
   model        TEXT,
@@ -14,7 +17,6 @@ CREATE TABLE IF NOT EXISTS log_vehicles (
   id           BIGINT        DEFAULT nextval('log_vehicles_id_seq'),
   PRIMARY KEY (plate_no)
 );
-CREATE SEQUENCE IF NOT EXISTS log_vehicles_id_seq;
 
 -- ② 司机档案
 CREATE TABLE IF NOT EXISTS log_drivers (
