@@ -82,9 +82,21 @@ CREATE INDEX IF NOT EXISTS idx_sys_ups_user ON sys_user_permission_set (user_id)
 
 -- ════════════════════════════════════════════════════════════════
 -- ⑤ 触发器：任意权限变更 → 自动 perms_version++
+--
+-- 重要：批量迁移（如 role_runtime_phase_a.sql）运行时可临时关闭触发器：
+--   SET LOCAL phx.skip_perms_bump = 'on';
+--   -- 执行批量 INSERT ...
+--   RESET phx.skip_perms_bump;
+-- 这样迁移中的批量 INSERT 不会触发 perms_version 递增，
+-- 避免导致所有在线用户的 JWT 失效。
 -- ════════════════════════════════════════════════════════════════
 CREATE OR REPLACE FUNCTION fn_bump_user_perms_version() RETURNS TRIGGER AS $$
 BEGIN
+    -- 批量迁移模式：跳过 perms_version 递增（防止批量操作踢出所有在线用户）
+    IF current_setting('phx.skip_perms_bump', true) = 'on' THEN
+        RETURN COALESCE(NEW, OLD);
+    END IF;
+
     -- sys_user_role 变更：bump 对应 user
     IF TG_TABLE_NAME = 'sys_user_role' THEN
         IF TG_OP = 'DELETE' THEN

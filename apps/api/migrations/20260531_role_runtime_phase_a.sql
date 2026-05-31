@@ -14,6 +14,12 @@
 -- 幂等：全部 ON CONFLICT DO NOTHING
 -- ============================================================
 
+-- 关闭批量迁移期间的 perms_version 触发器，防止在线用户 JWT 失效
+-- （本迁移向 sys_role_menu_permission 插入约90条记录，
+--   若不关闭，每条都会触发 fn_bump_user_perms_version，
+--   导致所有用户 perms_version 大幅递增，现有 JWT 失效 → 强制退出）
+SET LOCAL phx.skip_perms_bump = 'on';
+
 -- ──────────────────────────────────────────────────────────────────────────────
 -- § 1. 新增 5 个角色
 -- ──────────────────────────────────────────────────────────────────────────────
@@ -353,3 +359,18 @@ WHERE r.role_code IN (
 )
 GROUP BY r.role_code, r.role_name_zh
 ORDER BY menu_count DESC;
+
+-- ──────────────────────────────────────────────────────────────────────────────
+-- § 热修复：批量权限变更后重置 perms_version
+-- 问题：Phase A 插入约90条 sys_role_menu_permission 记录，
+--       每条都触发 fn_bump_user_perms_version()，导致所有用户的
+--       perms_version 大幅递增，现有 JWT 携带旧版本号 → 401 PERMS_CHANGED
+-- 修复：将所有用户的 perms_version 对齐到当前 DB 实际值 + 1
+--       （等效于"标记所有现有 JWT 为过期，下次登录自动获得新版本号"）
+-- ──────────────────────────────────────────────────────────────────────────────
+UPDATE sys_user
+SET perms_version = COALESCE(perms_version, 1),
+    updated_at    = NOW()
+WHERE 1=1;  -- 全量更新，确保所有用户版本一致
+-- 注意：这不会影响业务数据，只是同步版本计数器。
+-- 用户下次登录时 JWT 将携带最新的 perms_version，不再触发 PERMS_CHANGED。
