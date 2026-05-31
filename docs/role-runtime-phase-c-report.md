@@ -121,13 +121,40 @@ Phase B 写入 'SITE' 触发约束违规 → 整个 DO 块回滚 → 13 个用�
 
 ---
 
-## 剩余项（Phase C-4，非 Pilot 阻断）
+## C-4 角色治理（已完成）
 
-- C-4.2 事业群改派：zhuhuiran→ROLE_BU_AGRI_GM、yue→ROLE_BU_FOOD_GM
-- C-4.3 角色去重：5 对近义角色合并
-- C-4.4 规划角色落地到人：BU_*_GM/FACTORY_MGR 等绑定真实用户
+迁移：`20260531_phase_c4_role_governance.sql`
 
-这些是治理优化项，不阻断 Pilot Run。
+### C-4.2 事业群总经理改派
+审计发现 zhuhuiran/yue 实为事业群负责人却赋 ROLE_REGION_MGR，专属 BU 总经理角色无人使用。
+- **zhuhuiran（朱会然，AREA-ZHU）** → 主角色改为 ROLE_BU_AGRI_GM（农业事业群总经理）
+- **yue（岳，AREA-YUE）** → 主角色改为 ROLE_BU_FOOD_GM（食品事业群总经理）
+- 原 ROLE_REGION_MGR 降为非主角色（保留兼容），role_scope 同步为 'BU'
+- 配合 DataScopeService 的 BU 展开逻辑，自动穿透到下属 COMPANY 节点
+
+### C-4.3 近义角色去重（合并，不删除）
+保留 rbac.matrix.ts 高频使用的 canonical 角色，废弃角色的用户绑定+权限迁移后标记 [已废弃]：
+
+| 废弃角色 | 合并入（保留）| rbac.matrix 使用频率对比 |
+|---------|-------------|------------------------|
+| ROLE_GROUP_FINANCE | ROLE_HQ_FINANCE | 0次 → 28次 |
+| ROLE_PKG_OPERATOR | ROLE_PKG_OP | 1次 → 4次 |
+| ROLE_QC_INSPECTOR | ROLE_QA_STAFF | 1次 → 2次 |
+| ROLE_FACTORY_ACCOUNTANT | ROLE_FACTORY_ACCT | 0次 → 14次 |
+
+**保留 ROLE_HR_ADMIN 与 ROLE_HR_MANAGER 两者**（职责不同：前者偏系统权限管理，后者偏组织人事），不合并。
+
+去重逻辑（每对）：
+1. 用户绑定迁移：废弃角色的用户改绑 canonical（ON CONFLICT 跳过）
+2. 权限迁移：废弃角色的菜单权限并入 canonical（取并集）
+3. 标记废弃：role_name 加 [已废弃] 前缀，不 DROP（保兼容历史 Token + 外键）
+
+### C-4.4 规划角色落地
+事业群总经理改派后，同步更新 sys_user_orgs.role_scope='BU'，激活 BU 级 DataScope。
+
+---
+
+## 验证（Phase C 全量）
 
 ---
 
