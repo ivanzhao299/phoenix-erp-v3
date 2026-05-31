@@ -69,7 +69,7 @@
   margin: 0;
 }
 
-/* Select wrapper (language & theme) */
+/* Select wrapper (language — theme 已改为图标按钮) */
 .selectWrap {
   position: relative;
   display: flex;
@@ -79,21 +79,40 @@
   padding: 5px 26px 5px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--bg-card);    /* 修复：--bg-surface → --bg-card */
+  background: var(--bg-card);
   color: var(--text-primary);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   appearance: none;
   outline: none;
-  transition: border-color 0.18s var(--ease);  /* 修复：--transition-fast */
+  transition: border-color 0.18s var(--ease);
 }
 .headerSelect:hover { border-color: var(--color-accent); }
 .selectIcon {
   position: absolute;
   right: 7px;
   pointer-events: none;
-  color: var(--text-secondary);  /* 修复：--text-muted → --text-secondary */
+  color: var(--text-secondary);
+}
+
+/* 主题切换图标按钮 */
+.themeBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.18s var(--ease), color 0.18s var(--ease), transform 0.2s var(--ease);
+}
+.themeBtn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  transform: rotate(15deg);
 }
 
 /* User chip */

@@ -221,20 +221,15 @@ type="button"               className={`${styles.pinBtn} ${pinned ? styles.pinAc
               <Languages size={13} className={styles.selectIcon} />
             </div>
 
-            {/* Theme toggle */}
-            <div className={styles.selectWrap}>
-              <select
-                value={theme}
-                onChange={e => toggleTheme(e.target.value as "dark" | "light")}
-                className={styles.headerSelect}
-              >
-                <option value="dark">🌙 {t('layout.dark_mode', '深色')}</option>
-                <option value="light">☀️ {t('layout.light_mode', '浅色')}</option>
-              </select>
-              {theme === "dark"
-                ? <Moon size={13} className={styles.selectIcon} />
-                : <Sun  size={13} className={styles.selectIcon} />}
-            </div>
+            {/* Theme toggle — 一键切换，无下拉菜单 */}
+            <button
+              type="button"
+              onClick={() => toggleTheme(theme === "dark" ? "light" : "dark")}
+              className={styles.themeBtn}
+              title={theme === "dark" ? t('layout.switch_to_light', '切换浅色模式') : t('layout.switch_to_dark', '切换深色模式')}
+            >
+              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
 
             {/* User info */}
             <div className={styles.userChip}>
