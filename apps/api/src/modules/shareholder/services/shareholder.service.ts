@@ -8,6 +8,7 @@ import { ShrShareholderEntity } from '../entities/shr-shareholder.entity';
 import { ShrProjectEquityEntity } from '../entities/shr-project-equity.entity';
 import { ShrCapitalContributionEntity } from '../entities/shr-capital-contribution.entity';
 import { ShrShareholderScopeEntity } from '../entities/shr-shareholder-scope.entity';
+import { ShrBeneficialEquityEntity } from '../entities/shr-beneficial-equity.entity';
 import {
   CreateProjectDto, UpdateProjectDto, CreateShareholderDto, UpdateShareholderDto,
   CreateEquityDto, UpdateEquityDto, CreateContributionDto, CreateScopeDto,
@@ -21,8 +22,14 @@ export class ShareholderService {
     @InjectRepository(ShrProjectEquityEntity)  private readonly equityRepo: Repository<ShrProjectEquityEntity>,
     @InjectRepository(ShrCapitalContributionEntity) private readonly contribRepo: Repository<ShrCapitalContributionEntity>,
     @InjectRepository(ShrShareholderScopeEntity)    private readonly scopeRepo: Repository<ShrShareholderScopeEntity>,
+    @InjectRepository(ShrBeneficialEquityEntity)    private readonly beneficialRepo: Repository<ShrBeneficialEquityEntity>,
     @InjectDataSource() private readonly ds: DataSource,
   ) {}
+
+  /** 实益出资结构（代持关系） */
+  listBeneficial(projectCode?: string) {
+    return this.beneficialRepo.find({ where: projectCode ? { projectCode } : {}, order: { projectCode: 'ASC' } });
+  }
 
   // ── 项目 ──────────────────────────────────────────────────────────────
   async listProjects() {
@@ -196,6 +203,7 @@ export class ShareholderService {
     const recent = await this.contribRepo.find({
       where: { projectCode, status: 'CONFIRMED' }, order: { contributionDate: 'DESC', createdAt: 'DESC' }, take: 5,
     });
+    const beneficial = await this.beneficialRepo.find({ where: { projectCode } });
     return {
       project: {
         projectCode: detail.projectCode, projectName: detail.projectName,
@@ -218,9 +226,17 @@ export class ShareholderService {
         ledgerPaidIn: paidMap.get(e.shareholderCode) ?? 0, // 逐笔台账累计（核对用）
       })),
       recentContributions: recent,
+      // 实益出资结构（代持）：登记股东 → 实际出资人，与法定股权分离
+      beneficialStructure: beneficial.map(b => ({
+        nomineeShareholderCode: b.nomineeShareholderCode,
+        beneficialShareholderCode: b.beneficialShareholderCode,
+        amount: b.amount != null ? Number(b.amount) : 0,
+        ownershipRatio: b.ownershipRatio != null ? Number(b.ownershipRatio) : null,
+        remark: b.remark,
+      })),
       note: detail.equityStatus === 'PROVISIONAL'
         ? '当前股权比例为暂定，仅供参考，最终股权以最终确认结果为准；实缴资本占比为真实实缴口径(PAID-IN BASIS)。'
-        : '股权已确认；同时展示实缴资本结构。',
+        : '股权已确认；同时展示实缴资本结构与实益出资结构（代持）。',
     };
   }
 

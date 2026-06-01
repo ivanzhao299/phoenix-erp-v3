@@ -28,8 +28,15 @@ export interface ShrScope {
   scopeCode?: string; projectCode?: string; canApprove: boolean; status: string;
 }
 
+export interface ShrBeneficial {
+  id: string; projectCode: string; nomineeShareholderCode: string;
+  beneficialShareholderCode: string; amount?: string; ownershipRatio?: string; remark?: string;
+}
+
 export const shareholderApi = {
   listProjects: () => request<ShrProject[]>('/shareholders/projects'),
+  listBeneficial: (projectCode?: string) =>
+    request<ShrBeneficial[]>(`/shareholders/beneficial${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ''}`),
   getProject: (code: string) => request<ShrProject & { equity: ShrEquity[] }>(`/shareholders/projects/${code}`),
   listShareholders: () => request<ShrShareholder[]>('/shareholders'),
   listEquity: (projectCode?: string) =>

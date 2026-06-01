@@ -6,6 +6,7 @@ import { ShrShareholderEntity } from './entities/shr-shareholder.entity';
 import { ShrProjectEquityEntity } from './entities/shr-project-equity.entity';
 import { ShrCapitalContributionEntity } from './entities/shr-capital-contribution.entity';
 import { ShrShareholderScopeEntity } from './entities/shr-shareholder-scope.entity';
+import { ShrBeneficialEquityEntity } from './entities/shr-beneficial-equity.entity';
 import { ShareholderService } from './services/shareholder.service';
 import { ShareholderController } from './controllers/shareholder.controller';
 
@@ -17,6 +18,7 @@ import { ShareholderController } from './controllers/shareholder.controller';
       ShrProjectEquityEntity,
       ShrCapitalContributionEntity,
       ShrShareholderScopeEntity,
+      ShrBeneficialEquityEntity,
     ]),
   ],
   controllers: [ShareholderController],
