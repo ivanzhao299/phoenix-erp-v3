@@ -15,6 +15,7 @@ const MANAGE  = 'MENU_SHAREHOLDER_MANAGE';
 const CONTRIB = 'MENU_SHAREHOLDER_CONTRIBUTION';
 const SCOPE   = 'MENU_SHAREHOLDER_SCOPE';
 const DASH    = 'MENU_SHAREHOLDER_DASHBOARD';
+const CAPITAL = 'MENU_SHAREHOLDER_CAPITAL';
 
 @Controller('api/shareholders')
 @UseGuards(MenuGuard)
@@ -56,6 +57,15 @@ export class ShareholderController {
   @Get('finance-bridge')           @RequireMenu(VIEW, 'V') financeBridge(@Query('projectCode') p?: string) { return this.svc.financeBridge(p); }
   @Get('capital-summary')          @RequireMenu(VIEW, 'V') capitalSummary(@Query('projectCode') p?: string) { return this.svc.capitalSummary(p); }
   @Get('beneficial')               @RequireMenu(VIEW, 'V') listBeneficial(@Query('projectCode') p?: string) { return this.svc.listBeneficial(p); }
+
+  // ── 资本流引擎（Phase 3）──
+  @Get('capital/stats')            @RequireMenu(CAPITAL, 'V') capitalStats() { return this.svc.capitalStats(); }
+  @Get('capital')                  @RequireMenu(CAPITAL, 'V') listFlows(@Query('projectCode') p?: string, @Query('shareholderCode') s?: string, @Query('status') st?: string) { return this.svc.listFlows({ projectCode: p, shareholderCode: s, status: st }); }
+  @Get('capital/:id')              @RequireMenu(CAPITAL, 'V') getFlow(@Param('id') id: string) { return this.svc.getFlow(id); }
+  @Post('capital')                 @RequireMenu(CAPITAL, 'C') createFlow(@Body() dto: any) { return this.svc.createFlow(dto, this.user.userId); }
+  @Post('capital/:id/submit')      @RequireMenu(CAPITAL, 'E') submitFlow(@Param('id') id: string) { return this.svc.submitFlow(id); }
+  @Post('capital/:id/confirm')     @RequireMenu(CAPITAL, 'E') confirmFlow(@Param('id') id: string) { return this.svc.confirmFlow(id, this.user.userId); }
+  @Post('capital/:id/reverse')     @RequireMenu(CAPITAL, 'E') reverseFlow(@Param('id') id: string, @Body() body: { reason?: string }) { return this.svc.reverseFlow(id, this.user.userId, body?.reason); }
   @Get('dashboard/:projectCode')   @RequireMenu(DASH, 'V') dashboardProject(@Param('projectCode') c: string) { return this.svc.dashboardProject(c, this.user); }
 
   // ── 股东档案（根路径，置于最后避免吞 static 段）──

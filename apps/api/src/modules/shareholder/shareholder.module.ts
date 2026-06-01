@@ -8,6 +8,7 @@ import { ShrCapitalContributionEntity } from './entities/shr-capital-contributio
 import { ShrShareholderScopeEntity } from './entities/shr-shareholder-scope.entity';
 import { ShrBeneficialEquityEntity } from './entities/shr-beneficial-equity.entity';
 import { ShareholderService } from './services/shareholder.service';
+import { CapitalAggregationService } from './services/capital-aggregation.service';
 import { ShareholderController } from './controllers/shareholder.controller';
 
 @Module({
@@ -22,7 +23,7 @@ import { ShareholderController } from './controllers/shareholder.controller';
     ]),
   ],
   controllers: [ShareholderController],
-  providers: [ShareholderService],
+  providers: [ShareholderService, CapitalAggregationService],
   exports: [ShareholderService],
 })
 export class ShareholderModule {}

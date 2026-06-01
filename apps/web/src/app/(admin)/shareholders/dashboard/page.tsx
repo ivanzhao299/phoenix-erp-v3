@@ -1,20 +1,27 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { shareholderApi, ShrProject, ORG_CODE_LABEL, lbl } from '@/lib/shareholder-api';
+import { shareholderApi, ShrProject, CapitalStats, ORG_CODE_LABEL, lbl } from '@/lib/shareholder-api';
 
 const CAP_LABEL: Record<string, string> = { PAID_IN_FULL: '已到位', PARTIALLY_PAID: '部分到位', PENDING_CONFIRMATION: '待确认' };
 const EQ_LABEL: Record<string, string> = { CONFIRMED: '已确认股权', PROVISIONAL: '暂定股权' };
+const money = (v: number) => v.toLocaleString('zh-CN', { minimumFractionDigits: 2 });
 
 export default function ShareholderDashboard() {
   const [projects, setProjects] = useState<ShrProject[]>([]);
   const [scope, setScope] = useState('');
   const [note, setNote] = useState('');
+  const [stats, setStats] = useState<CapitalStats | null>(null);
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [pmap, setPmap] = useState<Record<string, string>>({});
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     shareholderApi.dashboard()
       .then(d => { setProjects(d.projects || []); setScope(d.scope); setNote(d.note || ''); })
       .catch(e => setErr(e?.message || '加载失败')).finally(() => setLoading(false));
+    shareholderApi.capitalStats().then(setStats).catch(() => {});
+    shareholderApi.listShareholders().then(s => setNames(Object.fromEntries(s.map(x => [x.shareholderCode, x.shareholderName])))).catch(() => {});
+    shareholderApi.listProjects().then(p => setPmap(Object.fromEntries(p.map(x => [x.projectCode, x.projectName])))).catch(() => {});
   }, []);
   return (
     <div style={{ padding: 24 }}>
@@ -24,6 +31,35 @@ export default function ShareholderDashboard() {
         {note && <span style={{ color: '#c0392b', marginLeft: 12 }}>{note}</span>}
       </p>
       {err && <div style={{ color: '#c0392b', marginBottom: 12 }}>{err}</div>}
+
+      {stats && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 16, marginBottom: 20 }}>
+          <div style={{ background: '#1F4E79', color: '#fff', borderRadius: 10, padding: 18 }}>
+            <div style={{ fontSize: 12, opacity: .85 }}>本月新增出资（已确认）</div>
+            <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>¥{money(stats.monthAdded.total)}</div>
+            <div style={{ fontSize: 11, opacity: .8, marginTop: 2 }}>{stats.monthAdded.count} 笔</div>
+          </div>
+          <div style={{ background: '#fff', borderRadius: 10, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,.08)' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#1F4E79', marginBottom: 8 }}>股东投入排名</div>
+            {stats.shareholderRanking.slice(0, 5).map((r, i) => (
+              <div key={r.shareholderCode} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '3px 0' }}>
+                <span>{i + 1}. {names[r.shareholderCode] || r.shareholderCode}</span><span style={{ fontWeight: 600 }}>¥{money(r.total)}</span>
+              </div>
+            ))}
+            {stats.shareholderRanking.length === 0 && <div style={{ color: '#999', fontSize: 12 }}>暂无数据</div>}
+          </div>
+          <div style={{ background: '#fff', borderRadius: 10, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,.08)' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#1F4E79', marginBottom: 8 }}>项目投入排名</div>
+            {stats.projectRanking.slice(0, 5).map((r, i) => (
+              <div key={r.projectCode} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '3px 0' }}>
+                <span>{i + 1}. {pmap[r.projectCode] || r.projectCode}</span><span style={{ fontWeight: 600 }}>¥{money(r.total)}</span>
+              </div>
+            ))}
+            {stats.projectRanking.length === 0 && <div style={{ color: '#999', fontSize: 12 }}>暂无数据</div>}
+          </div>
+        </div>
+      )}
+
       {loading ? <div>加载中…</div> : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 16 }}>
           {projects.map(p => (

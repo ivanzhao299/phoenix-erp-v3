@@ -3,6 +3,7 @@ import Link from 'next/link';
 
 const CARDS = [
   { href: '/shareholders/dashboard',     title: '股东驾驶舱', desc: '按查看范围展示可见项目与出资概览' },
+  { href: '/shareholders/capital',       title: '资本流管理', desc: '新增/审批/确认到账/冲销，仅确认参与汇总' },
   { href: '/shareholders/projects',      title: '股东项目',   desc: '项目、公司、场区、出资状态、股东人数、股比合计' },
   { href: '/shareholders/equity',        title: '股权结构',   desc: '按项目展示股东、股比、应缴、实缴、未缴' },
   { href: '/shareholders/contributions', title: '出资台账',   desc: '录入/确认/取消出资，查看来源' },

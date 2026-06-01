@@ -22,6 +22,15 @@ export interface ShrContribution {
   id: string; contributionNo: string; projectCode: string; shareholderCode: string;
   amount: string; currency: string; contributionDate?: string; sourceType: string;
   status: string; remark?: string;
+  capitalFlowNo?: string | null; attachmentCount?: number; wfInstanceId?: string | null;
+  confirmedBy?: string | null; confirmedAt?: string | null; financeBridgeStatus?: string;
+  reversalOfId?: string | null;
+}
+export interface CapitalStats {
+  monthAdded: { total: number; count: number };
+  recent: ShrContribution[];
+  shareholderRanking: { shareholderCode: string; total: number }[];
+  projectRanking: { projectCode: string; total: number }[];
 }
 export interface ShrScope {
   id: string; userId: string; shareholderCode?: string; scopeType: string;
@@ -46,14 +55,16 @@ export const EQUITY_STATUS_LABEL: Record<string, string> = {
   CONFIRMED: '已确认股权', PROVISIONAL: '暂定股权',
 };
 export const SOURCE_TYPE_LABEL: Record<string, string> = {
-  BANK_TRANSFER: '银行转账', DIVIDEND_OFFSET: '分红转投资', SHAREHOLDER_ADVANCE: '股东垫付',
-  CASH: '现金', OTHER: '其他',
+  BANK_TRANSFER: '银行转账', DIVIDEND_OFFSET: '分红转投资', SHAREHOLDER_ADVANCE: '股东垫资',
+  PERSONAL_PAYMENT: '股东个人代付', EQUIPMENT_INVESTMENT: '设备投入', LAND_INVESTMENT: '土地投入',
+  REVERSAL: '冲销', CASH: '现金', OTHER: '其他',
 };
 export const PAID_IN_SOURCE_LABEL: Record<string, string> = {
   LEDGER: '逐笔台账', CAPITAL_SUMMARY_IMPORT: '资本汇总表',
 };
 export const CONTRIB_STATUS_LABEL: Record<string, string> = {
-  DRAFT: '草稿', CONFIRMED: '已确认', CANCELLED: '已取消',
+  DRAFT: '草稿', SUBMITTED: '已提交', APPROVED: '审批通过',
+  CONFIRMED: '已确认到账', CANCELLED: '已取消', REVERSED: '已冲销',
 };
 export const SCOPE_TYPE_LABEL: Record<string, string> = {
   GROUP: '集团', BU: '事业群', COMPANY: '公司', SITE: '场区', PROJECT: '项目',
@@ -78,4 +89,15 @@ export const shareholderApi = {
     request<ShrContribution[]>(`/shareholders/contributions${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ''}`),
   listScopes: () => request<ShrScope[]>('/shareholders/scopes'),
   dashboard: () => request<{ scope: string; count?: number; projects: ShrProject[]; note?: string }>('/shareholders/dashboard'),
+  // 资本流引擎（Phase 3）
+  capitalStats: () => request<CapitalStats>('/shareholders/capital/stats'),
+  listFlows: (q: { projectCode?: string; status?: string } = {}) => {
+    const p = new URLSearchParams(); if (q.projectCode) p.set('projectCode', q.projectCode); if (q.status) p.set('status', q.status);
+    return request<ShrContribution[]>(`/shareholders/capital${p.toString() ? `?${p}` : ''}`);
+  },
+  getFlow: (id: string) => request<ShrContribution>(`/shareholders/capital/${id}`),
+  createFlow: (dto: any) => request<ShrContribution>('/shareholders/capital', { method: 'POST', body: JSON.stringify(dto) }),
+  submitFlow: (id: string) => request<ShrContribution>(`/shareholders/capital/${id}/submit`, { method: 'POST' }),
+  confirmFlow: (id: string) => request<ShrContribution>(`/shareholders/capital/${id}/confirm`, { method: 'POST' }),
+  reverseFlow: (id: string, reason: string) => request<ShrContribution>(`/shareholders/capital/${id}/reverse`, { method: 'POST', body: JSON.stringify({ reason }) }),
 };

@@ -185,6 +185,15 @@ export class WorkflowBizRegistryService implements OnModuleInit {
       cancelledStatus: 'CANCELLED',
     });
 
+    // 股东资本流（Phase 3）：审批通过→APPROVED；之后由股东资金管理员手工「确认到账」→CONFIRMED 触发汇总
+    this.register('SHAREHOLDER_CAPITAL', {
+      moduleCode:      'MENU_SHAREHOLDER_CAPITAL',
+      tableName:       'shr_capital_contributions',
+      approvedStatus:  'APPROVED',
+      rejectedStatus:  'CANCELLED',
+      cancelledStatus: 'CANCELLED',
+    });
+
     this.logger.log(
       `WorkflowBizRegistry initialized with ${this.registry.size} bizTypes: ${[...this.registry.keys()].join(', ')}`,
     );

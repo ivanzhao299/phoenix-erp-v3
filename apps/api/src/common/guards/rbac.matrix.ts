@@ -487,10 +487,20 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_FIN_CFO:         ['V','X'],
     ROLE_HQ_FINANCE:      ['V','X'],
     ROLE_FIN_ACCT:        ['V','X'],
-    ROLE_FACTORY_MGR:     ['V','X'],   // 符强 / 宋雷
+    ROLE_FACTORY_MGR:     ['V','X'],   // 伏强 / 宋雷
     ROLE_CASH:            ['V','X'],   // 朱召安
     ROLE_SHAREHOLDER_VIEW:['V','X'],
+    ROLE_SHAREHOLDER_FINANCE: ['V','X'],
     ROLE_AUDITOR:         ['V','X'],
+  },
+  /** 股东资本流引擎（Phase 3）：录入(SHAREHOLDER_FINANCE) / 审核(HQ_FINANCE) / 批准(CEO） */
+  MENU_SHAREHOLDER_CAPITAL: {
+    ROLE_ADMIN:               ['V','C','E','D','A','X'],
+    ROLE_SHAREHOLDER_FINANCE: ['V','C','E','X'],   // 股东资金管理员：录入/编辑/确认到账/导出
+    ROLE_HQ_FINANCE:          ['V','C','E','A','X'],
+    ROLE_GROUP_FINANCE:       ['V','A','X'],
+    ROLE_CEO:                 ['V','A','X'],
+    ROLE_AUDITOR:             ['V','X'],
   },
 
   // 订单管理（BFF 层，原 MENU_ORDERS 的 BFF 补充）

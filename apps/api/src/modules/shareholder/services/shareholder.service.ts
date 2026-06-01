@@ -2,6 +2,8 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { format } from 'date-fns';
+import { ApprovalEngineService } from '../../approval-engine/approval-engine.service';
+import { CapitalAggregationService } from './capital-aggregation.service';
 
 import { ShrProjectEntity } from '../entities/shr-project.entity';
 import { ShrShareholderEntity } from '../entities/shr-shareholder.entity';
@@ -24,7 +26,131 @@ export class ShareholderService {
     @InjectRepository(ShrShareholderScopeEntity)    private readonly scopeRepo: Repository<ShrShareholderScopeEntity>,
     @InjectRepository(ShrBeneficialEquityEntity)    private readonly beneficialRepo: Repository<ShrBeneficialEquityEntity>,
     @InjectDataSource() private readonly ds: DataSource,
+    private readonly approvalEngine: ApprovalEngineService,
+    private readonly aggregation: CapitalAggregationService,
   ) {}
+
+  // ════════════════ 资本流引擎（Phase 3）════════════════
+  /** 资本流列表（可按项目/股东/状态过滤） */
+  listFlows(opts: { projectCode?: string; shareholderCode?: string; status?: string } = {}) {
+    const where: any = {};
+    if (opts.projectCode) where.projectCode = opts.projectCode;
+    if (opts.shareholderCode) where.shareholderCode = opts.shareholderCode;
+    if (opts.status) where.status = opts.status;
+    return this.contribRepo.find({ where, order: { createdAt: 'DESC' }, take: 500 });
+  }
+  async getFlow(id: string) {
+    const f = await this.contribRepo.findOne({ where: { id } });
+    if (!f) throw new NotFoundException(`资本流不存在: ${id}`);
+    return f;
+  }
+
+  /** 新增资本流（草稿） */
+  async createFlow(dto: any, userId?: string) {
+    return this.ds.transaction(async (mgr) => {
+      const no = await this.genCapitalFlowNo(mgr);
+      const row = mgr.create(ShrCapitalContributionEntity, {
+        capitalFlowNo: no,
+        contributionNo: no,
+        projectCode: dto.projectCode,
+        shareholderCode: dto.shareholderCode,
+        amount: dto.amount,
+        currency: dto.currency ?? 'CNY',
+        contributionDate: dto.contributionDate ?? null,
+        sourceType: dto.sourceType ?? 'BANK_TRANSFER',
+        sourceReference: dto.sourceReference ?? null,
+        attachmentCount: dto.attachmentCount ?? 0,
+        remark: dto.remark ?? null,
+        status: 'DRAFT',
+        createdBy: userId,
+      } as any);
+      return mgr.save(row);
+    });
+  }
+
+  /** 提交审批：DRAFT → SUBMITTED + 发起 Workflow（分档审批） */
+  async submitFlow(id: string) {
+    return this.ds.transaction(async (mgr) => {
+      const f = await mgr.findOne(ShrCapitalContributionEntity, { where: { id } });
+      if (!f) throw new NotFoundException(`资本流不存在: ${id}`);
+      if (!['DRAFT', 'CANCELLED'].includes(f.status)) throw new ConflictException(`仅草稿可提交，当前: ${f.status}`);
+      f.status = 'SUBMITTED';
+      await mgr.save(f);
+      const instance = await this.approvalEngine.startApproval(
+        { bizType: 'SHAREHOLDER_CAPITAL', bizId: String(f.id), amount: Number(f.amount), projectCode: f.projectCode, currencyCode: f.currency } as any,
+        mgr,
+      );
+      if (instance) { f.wfInstanceId = String((instance as any).id); await mgr.save(f); }
+      return mgr.findOne(ShrCapitalContributionEntity, { where: { id } });
+    });
+  }
+
+  /** 确认到账：APPROVED → CONFIRMED + 自动汇总（+amount） */
+  async confirmFlow(id: string, userId?: string) {
+    return this.ds.transaction(async (mgr) => {
+      const f = await mgr.findOne(ShrCapitalContributionEntity, { where: { id } });
+      if (!f) throw new NotFoundException(`资本流不存在: ${id}`);
+      if (f.status !== 'APPROVED') throw new ConflictException(`仅审批通过(APPROVED)可确认到账，当前: ${f.status}`);
+      f.status = 'CONFIRMED';
+      f.confirmedBy = userId as any;
+      f.confirmedAt = new Date();
+      await mgr.save(f);
+      await this.aggregation.applyConfirmed(f.projectCode, f.shareholderCode, Number(f.amount), mgr);
+      return mgr.findOne(ShrCapitalContributionEntity, { where: { id } });
+    });
+  }
+
+  /** 冲销：CONFIRMED → REVERSED + 自动反向汇总（-amount）+ 保留审计轨迹 */
+  async reverseFlow(id: string, userId?: string, reason?: string) {
+    return this.ds.transaction(async (mgr) => {
+      const f = await mgr.findOne(ShrCapitalContributionEntity, { where: { id } });
+      if (!f) throw new NotFoundException(`资本流不存在: ${id}`);
+      if (f.status !== 'CONFIRMED') throw new ConflictException(`仅已确认(CONFIRMED)可冲销，当前: ${f.status}`);
+      f.status = 'REVERSED';
+      f.remark = [f.remark, `冲销: ${reason ?? ''}`].filter(Boolean).join(' | ');
+      await mgr.save(f);
+      // 反向汇总
+      await this.aggregation.applyReversed(f.projectCode, f.shareholderCode, Number(f.amount), mgr);
+      // 审计轨迹：插入 REVERSAL 记录（不参与 CONFIRMED 汇总）
+      const rno = await this.genCapitalFlowNo(mgr);
+      await mgr.save(mgr.create(ShrCapitalContributionEntity, {
+        capitalFlowNo: rno, contributionNo: rno, projectCode: f.projectCode, shareholderCode: f.shareholderCode,
+        amount: f.amount, currency: f.currency, sourceType: 'REVERSAL', status: 'REVERSED',
+        reversalOfId: String(f.id), remark: `冲销 ${f.capitalFlowNo ?? f.contributionNo}: ${reason ?? ''}`, createdBy: userId,
+      } as any));
+      return mgr.findOne(ShrCapitalContributionEntity, { where: { id } });
+    });
+  }
+
+  private async genCapitalFlowNo(mgr: DataSource['manager']): Promise<string> {
+    await mgr.query(`SELECT pg_advisory_xact_lock(hashtext('shr_capital_flow_no'))`);
+    const ymd = format(new Date(), 'yyyyMMdd');
+    const prefix = `CAP-${ymd}-`;
+    const cnt = await mgr.query(
+      `SELECT count(*)::int AS c FROM shr_capital_contributions WHERE capital_flow_no LIKE $1`, [`${prefix}%`]);
+    return `${prefix}${String((cnt[0].c ?? 0) + 1).padStart(5, '0')}`;
+  }
+
+  /** 资本流仪表板统计：本月新增 / 最近 / 股东排名 / 项目排名 */
+  async capitalStats() {
+    const monthAdded = await this.ds.query(
+      `SELECT coalesce(sum(amount),0)::numeric total, count(*)::int cnt
+       FROM shr_capital_contributions
+       WHERE status='CONFIRMED' AND date_trunc('month', coalesce(confirmed_at, created_at)) = date_trunc('month', now())`);
+    const recent = await this.contribRepo.find({ where: { status: 'CONFIRMED' }, order: { confirmedAt: 'DESC', createdAt: 'DESC' }, take: 8 });
+    const byShareholder = await this.ds.query(
+      `SELECT shareholder_code, coalesce(sum(amount),0)::numeric total
+       FROM shr_capital_contributions WHERE status='CONFIRMED' GROUP BY shareholder_code ORDER BY total DESC LIMIT 10`);
+    const byProject = await this.ds.query(
+      `SELECT project_code, coalesce(sum(amount),0)::numeric total
+       FROM shr_capital_contributions WHERE status='CONFIRMED' GROUP BY project_code ORDER BY total DESC`);
+    return {
+      monthAdded: { total: Number(monthAdded[0]?.total ?? 0), count: monthAdded[0]?.cnt ?? 0 },
+      recent,
+      shareholderRanking: byShareholder.map((r: any) => ({ shareholderCode: r.shareholder_code, total: Number(r.total) })),
+      projectRanking: byProject.map((r: any) => ({ projectCode: r.project_code, total: Number(r.total) })),
+    };
+  }
 
   /** 实益出资结构（代持关系） */
   listBeneficial(projectCode?: string) {
