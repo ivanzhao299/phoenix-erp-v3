@@ -1,0 +1,78 @@
+-- ============================================================
+-- Shareholder Runtime Phase 2B — 赵永伟历史实缴出资导入
+-- 数据源：老挝鸡场投资款明细6.1.xlsx（逐笔，未估算、未按股比反推）
+-- 东鹏(特区星驰) 9 笔 = 6,995,840.63；孟赛(凤凰) 55 笔 = 9,589,836.86
+-- 仅赵永伟；status=CONFIRMED；currency=CNY；银行账号已脱敏
+-- 幂等：ON CONFLICT (contribution_no) DO NOTHING
+-- ============================================================
+BEGIN;
+INSERT INTO shr_capital_contributions
+  (contribution_no, project_code, shareholder_code, amount, currency, contribution_date,
+   source_type, source_reference, remark, status, created_by)
+VALUES
+  ('SHR-CB-ZYW-DP-001','SHR-DONGPENG-LAYER','SHR-ZHAO-YONGWEI',1846153.85,'CNY',NULL,'DIVIDEND_OFFSET','','烟台剩余应分款项转特区鸡场出资额','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-DP-002','SHR-DONGPENG-LAYER','SHR-ZHAO-YONGWEI',1000000.0,'CNY','2025-05-12','BANK_TRANSFER','收:中信银行6217****8888 / 付:招商银行6214****6666','','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-DP-003','SHR-DONGPENG-LAYER','SHR-ZHAO-YONGWEI',1000000.0,'CNY','2025-05-12','BANK_TRANSFER','收:中信银行6217****8888 / 付:招商银行6214****6666','','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-DP-004','SHR-DONGPENG-LAYER','SHR-ZHAO-YONGWEI',500000.0,'CNY','2025-06-21','BANK_TRANSFER','收:中信银行6217****8888 / 付:招商银行6214****6666','','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-DP-005','SHR-DONGPENG-LAYER','SHR-ZHAO-YONGWEI',500000.0,'CNY','2025-06-21','BANK_TRANSFER','收:中信银行6217****8888 / 付:招商银行6214****6666','','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-DP-006','SHR-DONGPENG-LAYER','SHR-ZHAO-YONGWEI',1000000.0,'CNY','2025-07-01','BANK_TRANSFER','收:中信银行6217****8888 / 付:招商银行6214****6666','','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-DP-007','SHR-DONGPENG-LAYER','SHR-ZHAO-YONGWEI',532000.0,'CNY','2025-07-01','BANK_TRANSFER','收:中信银行6217****8888 / 付:招商银行6214****6666','','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-DP-008','SHR-DONGPENG-LAYER','SHR-ZHAO-YONGWEI',531749.88,'CNY','2025-08-04','BANK_TRANSFER','收:中信银行6217****8888 / 付:平安银行6230****8888','','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-DP-009','SHR-DONGPENG-LAYER','SHR-ZHAO-YONGWEI',85936.9,'CNY','2025-10-06','DIVIDEND_OFFSET','','宋总垫付，25.10.22星驰分红款扣减85936.90元至宋总账户平账，余款转赵总卡（2025.10.22分红207625.47元）','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-001','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',500000.0,'CNY','2024-12-21','BANK_TRANSFER','收:中信银行6217****8888 / 付:中信银行6217****8888','线上银行无法查询付款账户完整账号','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-002','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',500000.0,'CNY','2024-12-22','BANK_TRANSFER','收:中信银行6217****8888 / 付:中信银行6217****8888','','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-003','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',1000000.0,'CNY','2025-01-10','BANK_TRANSFER','收:中信银行6217****8888 / 付:平安银行6230****8888','','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-004','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',1000000.0,'CNY','2025-02-04','BANK_TRANSFER','收:中信银行6217****8888 / 付:招商银行6214****6666','','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-005','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',1000000.0,'CNY','2025-04-03','BANK_TRANSFER','收:中信银行6217****8888 / 付:招商银行6214****6666','','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-006','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',500000.0,'CNY','2025-11-16','BANK_TRANSFER','收:中信银行6217****8888 / 付:招商银行6214****6666','','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-007','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',237976.41,'CNY','2025-12-21','DIVIDEND_OFFSET','收:中信银行6217****8888','特区星驰分红款转孟赛凤凰鸡场投资','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-008','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',500000.0,'CNY','2026-03-19','BANK_TRANSFER','收:中信银行6217****8888 / 付:中信银行6217****8888','','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-009','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',500000.0,'CNY','2026-03-22','BANK_TRANSFER','收:中信银行6217****8888 / 付:中信银行6217****8888','','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-010','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',200000.0,'CNY','2026-04-22','BANK_TRANSFER','收:中信银行6217****8888 / 付:中信银行6217****8888','','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-011','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',68200.0,'CNY','2026-04-20','OTHER','收:临商银行6223****2190 / 付:中信银行6217****8888','转朱总卡付万象店购二手福田单排车','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-012','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',232206.0,'CNY','2026-04-26','OTHER','收:农商行6217****5765 / 付:中信银行6217****8888','付张鹏户，琅勃拉邦直营店装修款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-013','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',60630.0,'CNY','2026-05-03','OTHER','收:农业银行6228****0775 / 付:兴业银行6229****9214','付尚瑞志，4个直营店用物料','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-014','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',200000.0,'CNY','2026-05-03','OTHER','收:农信社6223****8716 / 付:兴业银行6229****9214','付高永吉料棚款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-015','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',38075.0,'CNY','2026-05-03','OTHER','收:农业银行6230****7877 / 付:兴业银行6229****9214','付王玉芹钢材运费及油款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-016','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',200000.0,'CNY','2026-05-04','OTHER','收:农信社6223****8716 / 付:兴业银行6229****9214','付高永吉料棚款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-017','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',85250.0,'CNY','2026-05-04','OTHER','收:中信银行6217****8468 / 付:兴业银行6229****9214','付徐佰超换美金12500美金*汇率6.82，购波利坎赛店用单排车一辆','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-018','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',200000.0,'CNY','2026-05-05','OTHER','收:农信社6223****8716 / 付:兴业银行6229****9214','付高永吉料棚款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-019','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',96300.0,'CNY','2026-05-06','OTHER','收:工商银行6212****9483 / 付:兴业银行6229****9214','付孟海龙电缆款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-020','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',6500.0,'CNY','2026-05-06','OTHER','收:建设银行6236****2441 / 付:兴业银行6229****9214','付席兆龙打包机款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-021','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',20000.0,'CNY','2026-05-06','OTHER','收:建设银行6236****1711 / 付:兴业银行6229****9214','预付王安庆净水机定金','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-022','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',14000.0,'CNY','2026-05-06','OTHER','收:农业银行6228****7713 / 付:兴业银行6229****9214','付王辉码托机机器13000元+配电箱1000元','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-023','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',11100.0,'CNY','2026-05-07','OTHER','收:农业银行6228****9071 / 付:兴业银行6229****9214','购顾亮亮孟赛养殖场二期用配电柜2套','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-024','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',15000.0,'CNY','2026-05-07','OTHER','收:工商银行6222****5475 / 付:兴业银行6229****9214','购李顺孟赛养殖场二手冷柜1套','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-025','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',1850.0,'CNY','2026-05-09','OTHER','收:建设银行6236****1979 / 付:兴业银行6229****9214','付钱涛零星采购报销','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-026','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',36600.0,'CNY','2026-05-09','OTHER','收:建设银行6236****1711 / 付:兴业银行6229****9214','付王安庆10吨/级净水机滤芯、反渗透膜等全套维保耗材','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-027','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',62000.0,'CNY','2026-05-09','OTHER','收:德州银行6212****1440 / 付:兴业银行6229****9214','付王文章饲料机尾款（全款67000元）','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-028','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',18570.0,'CNY','2026-05-09','OTHER','收:建设银行6236****3852 / 付:兴业银行6229****9214','付刘志艳三鱼深井泵、变频控制柜、压力罐、水暖管件款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-029','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',23600.0,'CNY','2026-05-10','OTHER','收:农业银行6228****0974 / 付:兴业银行6229****9214','付冯德洋4月份钢结构车、钢材报关费用','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-030','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',24960.0,'CNY','2026-05-11','OTHER','收:农业银行 6228****0775 / 付:兴业银行6229****9214','付尚瑞志定制湿巾款，万象6000包孟赛2000包波里坎塞2000包拉邦 3000包一共13000*1.92=24960元','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-031','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',2250.0,'CNY','2026-05-11','OTHER','收:工商银行6222****1180 / 付:兴业银行6229****9214','付姚伟明小票打印机、打印纸款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-032','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',210.0,'CNY','2026-05-11','OTHER','收:临商银行6215****7502 / 付:兴业银行6229****9214','付范镇豪报销购五金件款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-033','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',850.0,'CNY','2026-05-11','OTHER','收:农商行6223****6865 / 付:兴业银行6229****9214','付购王建挖掘机斗齿款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-034','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',2700.0,'CNY','2026-05-11','OTHER','收:农业银行 6228****9319 / 付:兴业银行6229****9214','付购卢锦康电动扳手款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-035','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',1017.0,'CNY','2026-05-12','OTHER','收:建设银行6236****1979 / 付:兴业银行6229****9214','付钱涛报销叉车费、餐费、装卸费','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-036','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',6150.0,'CNY','2026-05-12','OTHER','收:农业银行 6228****5270 / 付:兴业银行6229****9214','付刘誉程二手电脑5台*1200元/台、二手打印机1台*150元/台','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-037','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',189.6,'CNY','2026-05-13','OTHER','收:临商银行6215****7502 / 付:兴业银行6229****9214','付范镇豪报销采购车加油费用','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-038','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',40300.0,'CNY','2026-05-13','OTHER','收:农业银行6228****9473 / 付:兴业银行6229****9214','付吴艳钢板仓车运费26500元、油6桶*230升/桶*10元/升=13800元','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-039','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',1300.0,'CNY','2026-05-13','OTHER','收:农业银行6228****0974 / 付:兴业银行6229****9214','付冯德洋报关费用','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-040','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',300000.0,'CNY','2026-05-14','OTHER','收:招商银行6225****3730 / 付:兴业银行6229****9214','付李涛鞠总豆粕款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-041','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',30000.0,'CNY','2026-05-15','OTHER','收:招商银行6225****3730 / 付:兴业银行6229****9214','付李涛鞠总豆粕款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-042','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',284.95,'CNY','2026-05-17','OTHER','收:建设银行6236****1979 / 付:兴业银行6229****9214','付钱涛报销采购车加油费用','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-043','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',42858.0,'CNY','2026-05-18','OTHER','收:农业银行6230****1379 / 付:兴业银行6229****9214','付马旭辉纸箱10996只款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-044','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',10925.0,'CNY','2026-05-19','OTHER','收:农业银行6228****5219 / 付:兴业银行6229****9214','付孙德锋油5桶*230升/桶*9.5元/升','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-045','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',265600.0,'CNY','2026-05-20','OTHER','收:建设银行4205****0723 / 付:兴业银行6229****9214','付湖北艾格多饲料预混料款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-046','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',200000.0,'CNY','2026-05-23','OTHER','收:招商银行6225****3730 / 付:兴业银行6229****9214','付李涛鞠总豆粕款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-047','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',112600.0,'CNY','2026-05-24','OTHER','收:招商银行6225****3730 / 付:兴业银行6229****9214','付李涛鞠总豆粕款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-048','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',17500.0,'CNY','2026-05-25','OTHER','收:农业银行6228****3319 / 付:兴业银行6229****9214','付崔雪彬预混料河南至磨憨运费','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-049','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',22000.0,'CNY','2026-05-27','OTHER','收:农业银行6228****1114 / 付:兴业银行6229****9214','付周勇油罐款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-050','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',13820.0,'CNY','2026-05-29','OTHER','收:农业银行6228****0179 / 付:兴业银行6229****9214','付郑陶拉帮直营店空调尾款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-051','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',26500.0,'CNY','2026-05-30','OTHER','收:农业银行6228****5614 / 付:兴业银行6229****9214','付管新强钢板仓运费','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-052','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',30.0,'CNY','2026-05-31','OTHER','收:建设银行6236****1979 / 付:兴业银行6229****9214','付钱涛报销喷浆机叉车费','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-053','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',252280.0,'CNY','2026-06-01','OTHER','收:招商银行6225****3730 / 付:兴业银行6229****9214','付李涛鞠总2车豆粕款','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-054','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',415154.9,'CNY','2026-01-16','DIVIDEND_OFFSET','','农贸市场25年分红款转孟赛凤凰鸡场投资','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei')),
+  ('SHR-CB-ZYW-MS-055','SHR-MENGSAI-LAYER','SHR-ZHAO-YONGWEI',472500.0,'CNY','2026-03-28','DIVIDEND_OFFSET','','特区星驰分红款转孟赛凤凰鸡场投资','CONFIRMED',(SELECT user_id FROM sys_user WHERE username='zhaoyongwei'))
+ON CONFLICT (contribution_no) DO NOTHING;
+COMMIT;

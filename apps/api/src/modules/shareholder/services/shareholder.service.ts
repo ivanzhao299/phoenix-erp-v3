@@ -163,7 +163,18 @@ export class ShareholderService {
     }
     const projects = await this.listProjects();
     const visible = access === 'ALL' ? projects : projects.filter(p => (access as string[]).includes(p.projectCode));
-    return { scope: access === 'ALL' ? 'ALL' : 'SCOPED', count: visible.length, projects: visible };
+    // Phase 2B：附带各项目累计实缴 + 最近出资时间（实缴口径）
+    const paidAgg = await this.ds.query(
+      `SELECT project_code, coalesce(sum(amount),0)::numeric AS paid_in, max(contribution_date) AS last_date, count(*)::int AS cnt
+       FROM shr_capital_contributions WHERE status='CONFIRMED' GROUP BY project_code`);
+    const pm = new Map<string, any>(paidAgg.map((r: any) => [r.project_code, r]));
+    const enriched = visible.map(p => ({
+      ...p,
+      paidInTotal: Number(pm.get(p.projectCode)?.paid_in ?? 0),
+      lastContributionDate: pm.get(p.projectCode)?.last_date ?? null,
+      contributionCount: pm.get(p.projectCode)?.cnt ?? 0,
+    }));
+    return { scope: access === 'ALL' ? 'ALL' : 'SCOPED', count: visible.length, projects: enriched };
   }
 
   async dashboardProject(projectCode: string, user: { userId: string; roles: string[] }) {

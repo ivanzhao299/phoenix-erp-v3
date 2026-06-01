@@ -36,7 +36,16 @@ export default function ShareholderDashboard() {
                   {EQ_LABEL[p.equityStatus] || p.equityStatus}
                 </span>
               </div>
-              <div style={{ fontSize: 12, color: '#999', margin: '4px 0 12px' }}>{p.companyCode} / {p.siteCode}</div>
+              <div style={{ fontSize: 12, color: '#999', margin: '4px 0 10px' }}>{p.companyCode} / {p.siteCode}</div>
+              <div style={{ background: '#f5f8fc', borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
+                <div style={{ color: '#999', fontSize: 12 }}>累计实缴金额</div>
+                <div style={{ fontSize: 19, fontWeight: 700, color: '#1F4E79' }}>
+                  ¥{(p.paidInTotal ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
+                </div>
+                <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>
+                  {p.contributionCount ?? 0} 笔 · 最近 {p.lastContributionDate ? String(p.lastContributionDate).slice(0, 10) : '—'}
+                </div>
+              </div>
               <div style={{ display: 'flex', gap: 18, fontSize: 13 }}>
                 <div><div style={{ color: '#999' }}>股东数</div><div style={{ fontWeight: 600 }}>{p.holders ?? 0}</div></div>
                 <div><div style={{ color: '#999' }}>股比合计</div><div style={{ fontWeight: 600 }}>{(p.ratioSum ?? 0).toFixed(2)}%</div></div>

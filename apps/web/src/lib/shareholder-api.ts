@@ -5,6 +5,7 @@ export interface ShrProject {
   projectCode: string; projectName: string; companyCode?: string; siteCode?: string;
   projectType: string; capitalStatus: string; equityStatus: string; status: string; remark?: string;
   holders?: number; ratioSum?: number;
+  paidInTotal?: number; lastContributionDate?: string | null; contributionCount?: number;
 }
 export interface ShrEquity {
   id: string; projectCode: string; shareholderCode: string; equityRatio: string;
