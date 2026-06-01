@@ -4,6 +4,7 @@ import {
   shareholderApi, ShrContribution, ShrProject, ShrShareholder,
   SOURCE_TYPE_LABEL, CONTRIB_STATUS_LABEL, lbl,
 } from '@/lib/shareholder-api';
+import { SummaryBar, sum, yuan } from '../SummaryBar';
 
 const th: React.CSSProperties = { textAlign: 'left', padding: '9px 10px', background: '#1F4E79', color: '#fff', fontSize: 12.5, fontWeight: 600 };
 const td: React.CSSProperties = { padding: '8px 10px', borderBottom: '1px solid #eee', fontSize: 13 };
@@ -78,6 +79,11 @@ export default function CapitalFlowPage() {
         </div>
       )}
 
+      <SummaryBar items={[
+        { label: '合计金额', value: yuan(sum(rows, r => Number(r.amount||0))), accent: true },
+        { label: '已确认到账合计', value: yuan(sum(rows.filter(r=>r.status==='CONFIRMED'), r => Number(r.amount||0))) },
+        { label: '记录笔数', value: String(rows.length) },
+      ]} />
       <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 8, overflow: 'hidden' }}>
         <thead><tr>
           <th style={th}>资本流编号</th><th style={th}>项目</th><th style={th}>股东</th><th style={th}>金额</th>

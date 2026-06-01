@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { shareholderApi, ShrContribution, ShrProject, SOURCE_TYPE_LABEL, CONTRIB_STATUS_LABEL, lbl } from '@/lib/shareholder-api';
+import { SummaryBar, sum, yuan } from '../SummaryBar';
 
 const th: React.CSSProperties = { textAlign: 'left', padding: '10px 12px', background: '#1F4E79', color: '#fff', fontSize: 13, fontWeight: 600 };
 const td: React.CSSProperties = { padding: '9px 12px', borderBottom: '1px solid #eee', fontSize: 13.5 };
@@ -26,6 +27,10 @@ export default function ContributionsPage() {
         </select>
       </div>
       {err && <div style={{ color: '#c0392b', marginBottom: 12 }}>{err}</div>}
+      <SummaryBar items={[
+        { label: '合计出资金额', value: yuan(sum(rows, r => Number(r.amount||0))), accent: true },
+        { label: '记录笔数', value: String(rows.length) },
+      ]} />
       <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 8, overflow: 'hidden' }}>
         <thead><tr>
           <th style={th}>出资单号</th><th style={th}>项目</th><th style={th}>股东</th><th style={th}>金额</th>

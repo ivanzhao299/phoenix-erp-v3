@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { shareholderApi, ShrEquity, ShrProject, ShrBeneficial, EQUITY_STATUS_LABEL, PAID_IN_SOURCE_LABEL, lbl } from '@/lib/shareholder-api';
+import { SummaryBar, sum, yuan } from '../SummaryBar';
 
 const th: React.CSSProperties = { textAlign: 'left', padding: '10px 12px', background: '#1F4E79', color: '#fff', fontSize: 13, fontWeight: 600 };
 const td: React.CSSProperties = { padding: '9px 12px', borderBottom: '1px solid #eee', fontSize: 13.5 };
@@ -55,6 +56,21 @@ export default function EquityPage() {
         </div>
       )}
       {err && <div style={{ color: '#c0392b', marginBottom: 12 }}>{err}</div>}
+
+      {view === 'legal' ? (
+        <SummaryBar items={[
+          { label: '项目总实缴资本', value: yuan(curProject?.totalPaidInCapital ?? sum(rows, r => Number(r.paidInCapital || 0))), accent: true },
+          { label: '法定实缴合计', value: yuan(sum(rows, r => Number(r.paidInCapital || 0))) },
+          { label: '股权比例合计', value: sum(rows, r => Number(r.equityRatio || 0)).toFixed(2) + '%' },
+          { label: '实缴占比合计', value: sum(rows, r => Number(r.capitalRatio || 0)).toFixed(2) + '%' },
+          { label: '股东人数', value: String(rows.length) },
+        ]} />
+      ) : (
+        <SummaryBar items={[
+          { label: '实益出资合计', value: yuan(sum(bene, b => Number(b.amount || 0))), accent: true },
+          { label: '代持记录数', value: String(bene.length) },
+        ]} />
+      )}
 
       {view === 'legal' ? (
         <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 8, overflow: 'hidden' }}>

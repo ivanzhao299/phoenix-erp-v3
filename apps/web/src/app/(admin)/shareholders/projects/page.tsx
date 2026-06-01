@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { shareholderApi, ShrProject, PROJECT_TYPE_LABEL, ORG_CODE_LABEL, lbl } from '@/lib/shareholder-api';
+import { SummaryBar, sum, yuan } from '../SummaryBar';
 
 const CAP_LABEL: Record<string, string> = {
   PAID_IN_FULL: '已到位', PARTIALLY_PAID: '部分到位', PENDING_CONFIRMATION: '待确认',
@@ -21,6 +22,11 @@ export default function ProjectsPage() {
     <div style={{ padding: 24 }}>
       <h1 style={{ fontSize: 20, fontWeight: 700, color: '#1F4E79', marginBottom: 16 }}>股东项目</h1>
       {err && <div style={{ color: '#c0392b', marginBottom: 12 }}>{err}</div>}
+      <SummaryBar items={[
+        { label: '项目总数', value: String(rows.length), accent: true },
+        { label: '各项目总实缴合计', value: yuan(sum(rows, r => Number((r as any).totalPaidInCapital || 0))) },
+        { label: '股东人次合计', value: String(sum(rows, r => Number(r.holders || 0))) },
+      ]} />
       {loading ? <div>加载中…</div> : (
         <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 8, overflow: 'hidden' }}>
           <thead><tr>
