@@ -38,12 +38,14 @@ export default function ShareholderDashboard() {
               </div>
               <div style={{ fontSize: 12, color: '#999', margin: '4px 0 10px' }}>{p.companyCode} / {p.siteCode}</div>
               <div style={{ background: '#f5f8fc', borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
-                <div style={{ color: '#999', fontSize: 12 }}>累计实缴金额</div>
+                <div style={{ color: '#999', fontSize: 12 }}>项目总实缴资本</div>
                 <div style={{ fontSize: 19, fontWeight: 700, color: '#1F4E79' }}>
                   ¥{(p.paidInTotal ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
                 </div>
                 <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>
-                  {p.contributionCount ?? 0} 笔 · 最近 {p.lastContributionDate ? String(p.lastContributionDate).slice(0, 10) : '—'}
+                  {(p.contributionCount ?? 0) > 0
+                    ? `逐笔台账 ${p.contributionCount} 笔 · 最近 ${p.lastContributionDate ? String(p.lastContributionDate).slice(0, 10) : '—'}`
+                    : '来源：实收资本汇总表'}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 18, fontSize: 13 }}>

@@ -170,7 +170,12 @@ export class ShareholderService {
     const pm = new Map<string, any>(paidAgg.map((r: any) => [r.project_code, r]));
     const enriched = visible.map(p => ({
       ...p,
-      paidInTotal: Number(pm.get(p.projectCode)?.paid_in ?? 0),
+      // 项目总实缴资本（实收资本表）优先；无则回退台账累计
+      totalPaidInCapital: (p as any).totalPaidInCapital != null ? Number((p as any).totalPaidInCapital) : null,
+      ledgerPaidIn: Number(pm.get(p.projectCode)?.paid_in ?? 0),
+      paidInTotal: (p as any).totalPaidInCapital != null
+        ? Number((p as any).totalPaidInCapital)
+        : Number(pm.get(p.projectCode)?.paid_in ?? 0),
       lastContributionDate: pm.get(p.projectCode)?.last_date ?? null,
       contributionCount: pm.get(p.projectCode)?.cnt ?? 0,
     }));
