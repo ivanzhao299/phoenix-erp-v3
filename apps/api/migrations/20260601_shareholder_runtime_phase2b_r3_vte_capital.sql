@@ -16,9 +16,15 @@ VALUES ('SHR-XUE-GANG', '薛刚', '万象食品厂股东；实收资本表来源
 ON CONFLICT (shareholder_code) DO NOTHING;
 
 -- 2. 万象 40% 股权行从薛峰改指向薛刚（保留 equity_ratio=40；幂等：已改则 WHERE 不命中）
+-- 自愈幂等：若薛刚(GANG)行已存在(phase1 直接种 / 前次已重指向)，删除可能残留的薛峰(FENG)行，避免重复键
+DELETE FROM shr_project_equity
+WHERE project_code = 'SHR-VTE-FOOD' AND shareholder_code = 'SHR-XUE-FENG'
+  AND EXISTS (SELECT 1 FROM shr_project_equity g WHERE g.project_code = 'SHR-VTE-FOOD' AND g.shareholder_code = 'SHR-XUE-GANG');
+-- 首次重指向：仅当薛刚行尚不存在时，将薛峰行改指向薛刚
 UPDATE shr_project_equity
 SET shareholder_code = 'SHR-XUE-GANG', updated_at = now()
-WHERE project_code = 'SHR-VTE-FOOD' AND shareholder_code = 'SHR-XUE-FENG';
+WHERE project_code = 'SHR-VTE-FOOD' AND shareholder_code = 'SHR-XUE-FENG'
+  AND NOT EXISTS (SELECT 1 FROM shr_project_equity g WHERE g.project_code = 'SHR-VTE-FOOD' AND g.shareholder_code = 'SHR-XUE-GANG');
 
 -- 标记薛峰档案（已被薛刚取代，待确认）
 UPDATE shr_shareholders SET remark = '万象股权已归 SHR-XUE-GANG(薛刚)，疑同一人，待确认', updated_at = now()

@@ -111,10 +111,10 @@ FROM (VALUES
   ('SHR-ZHU-ZHAOCUN','朱兆存','zhuzhaocun',NULL),
   ('SHR-ZHAO-YONGWEI','赵永伟','zhaoyongwei',NULL),
   ('SHR-SONG-LEI','宋雷','songlei',NULL),
-  ('SHR-FU-QIANG','符强','fuqiang',NULL),
+  ('SHR-FU-QIANG','伏强','fuqiang',NULL),
   ('SHR-ZHU-ZHAOAN','朱召安','zhuzhaoan',NULL),
   ('SHR-CHEN-YIFEI','陈逸飞',NULL,'无系统用户，仅建股东档案'),
-  ('SHR-XUE-FENG','薛峰',NULL,'无系统用户，仅建股东档案')
+  ('SHR-XUE-GANG','薛刚',NULL,'万象食品厂股东；实收资本表来源')
 ) AS v(code, name, username, remark)
 LEFT JOIN sys_user u ON u.username = v.username
 ON CONFLICT (shareholder_code) DO NOTHING;
@@ -132,7 +132,7 @@ INSERT INTO shr_project_equity (project_code, shareholder_code, equity_ratio, ca
   ('SHR-MENGSAI-LAYER','SHR-SONG-LEI',25,'PARTIALLY_PAID'),
   ('SHR-VTE-FOOD','SHR-ZHU-ZHAOCUN',30,'PARTIALLY_PAID'),
   ('SHR-VTE-FOOD','SHR-ZHAO-YONGWEI',30,'PARTIALLY_PAID'),
-  ('SHR-VTE-FOOD','SHR-XUE-FENG',40,'PARTIALLY_PAID')
+  ('SHR-VTE-FOOD','SHR-XUE-GANG',40,'PARTIALLY_PAID')
 ON CONFLICT (project_code, shareholder_code) DO NOTHING;
 
 -- 股东查看范围（按项目/公司/场区授权；无系统用户者不建 scope）
