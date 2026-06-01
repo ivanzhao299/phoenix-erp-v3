@@ -38,6 +38,8 @@ import { QualityModule } from './modules/quality/quality.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { ProcurementV2Module } from './modules/procurement-v2/procurement-v2.module';
+// [Shareholder Runtime Phase 1] 股东权益与出资台账
+import { ShareholderModule } from './modules/shareholder/shareholder.module';
 // [RBAC-2] 组织范围 + 数据范围全局模块
 import { OrgModule } from './modules/org/org.module';
 // [RBAC-4] 动态审批引擎
@@ -101,6 +103,7 @@ import { ProductMasterModule } from './modules/product-master/product-master.mod
     WorkflowModule,
     UploadModule,
     ProcurementV2Module,
+    ShareholderModule,     // Shareholder Runtime Phase 1
     OrgModule,
     ApprovalEngineModule,
     NotificationModule,

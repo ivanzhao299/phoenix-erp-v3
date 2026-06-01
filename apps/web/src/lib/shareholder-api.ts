@@ -1,0 +1,38 @@
+import request from '@/lib/api-client';
+
+// 股东权益中心 API 客户端（对接 NestJS @Controller('api/shareholders')，request 自动加 /api 前缀与认证）
+export interface ShrProject {
+  projectCode: string; projectName: string; companyCode?: string; siteCode?: string;
+  projectType: string; capitalStatus: string; status: string; remark?: string;
+  holders?: number; ratioSum?: number;
+}
+export interface ShrEquity {
+  id: string; projectCode: string; shareholderCode: string; equityRatio: string;
+  subscribedCapital?: string; paidInCapital?: string; unpaidCapital?: string;
+  capitalStatus: string; isVotingShareholder: boolean; remark?: string;
+}
+export interface ShrShareholder {
+  shareholderCode: string; shareholderName: string; linkedUserId?: string;
+  phone?: string; status: string; remark?: string;
+}
+export interface ShrContribution {
+  id: string; contributionNo: string; projectCode: string; shareholderCode: string;
+  amount: string; currency: string; contributionDate?: string; sourceType: string;
+  status: string; remark?: string;
+}
+export interface ShrScope {
+  id: string; userId: string; shareholderCode?: string; scopeType: string;
+  scopeCode?: string; projectCode?: string; canApprove: boolean; status: string;
+}
+
+export const shareholderApi = {
+  listProjects: () => request<ShrProject[]>('/shareholders/projects'),
+  getProject: (code: string) => request<ShrProject & { equity: ShrEquity[] }>(`/shareholders/projects/${code}`),
+  listShareholders: () => request<ShrShareholder[]>('/shareholders'),
+  listEquity: (projectCode?: string) =>
+    request<ShrEquity[]>(`/shareholders/equity${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ''}`),
+  listContributions: (projectCode?: string) =>
+    request<ShrContribution[]>(`/shareholders/contributions${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ''}`),
+  listScopes: () => request<ShrScope[]>('/shareholders/scopes'),
+  dashboard: () => request<{ scope: string; count?: number; projects: ShrProject[]; note?: string }>('/shareholders/dashboard'),
+};

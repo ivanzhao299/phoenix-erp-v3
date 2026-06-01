@@ -1,0 +1,30 @@
+'use client';
+import Link from 'next/link';
+
+const CARDS = [
+  { href: '/shareholders/dashboard',     title: '股东驾驶舱', desc: '按查看范围展示可见项目与出资概览' },
+  { href: '/shareholders/projects',      title: '股东项目',   desc: '项目、公司、场区、出资状态、股东人数、股比合计' },
+  { href: '/shareholders/equity',        title: '股权结构',   desc: '按项目展示股东、股比、应缴、实缴、未缴' },
+  { href: '/shareholders/contributions', title: '出资台账',   desc: '录入/确认/取消出资，查看来源' },
+  { href: '/shareholders/scopes',        title: '查看范围',   desc: '绑定用户可查看的项目/公司/场区' },
+];
+
+export default function ShareholderHome() {
+  return (
+    <div style={{ padding: 24 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1F4E79', marginBottom: 4 }}>股东权益中心</h1>
+      <p style={{ color: '#666', marginBottom: 20 }}>股东权益、应缴/实缴/未缴出资、按项目授权的查看范围 — Shareholder Runtime Phase 1</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
+        {CARDS.map(c => (
+          <Link key={c.href} href={c.href} style={{
+            display: 'block', padding: 18, borderRadius: 10, background: '#fff',
+            borderLeft: '4px solid #1F4E79', boxShadow: '0 1px 3px rgba(0,0,0,.08)', textDecoration: 'none',
+          }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#1F4E79' }}>{c.title}</div>
+            <div style={{ fontSize: 13, color: '#666', marginTop: 6 }}>{c.desc}</div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}

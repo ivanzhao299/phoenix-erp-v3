@@ -447,6 +447,52 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_AUDITOR:             ['V','X'],
   },
 
+  // ── 股东权益中心（Shareholder Runtime Phase 1）─────────────────────────────
+  /** 股东/项目/股权查看 */
+  MENU_SHAREHOLDER_VIEW: {
+    ROLE_ADMIN:        ['V','C','E','D','A','X'],
+    ROLE_CEO:          ['V','X'],
+    ROLE_HQ_FINANCE:   ['V','X'],
+    ROLE_FIN_ACCT:     ['V','X'],
+    ROLE_AUDITOR:      ['V','X'],
+  },
+  /** 项目/股东/股权管理 */
+  MENU_SHAREHOLDER_MANAGE: {
+    ROLE_ADMIN:        ['V','C','E','D','A','X'],
+    ROLE_CEO:          ['V','C','E','A','X'],
+    ROLE_HQ_FINANCE:   ['V','C','E','X'],
+    ROLE_FIN_ACCT:     ['V'],
+    ROLE_AUDITOR:      ['V','X'],
+  },
+  /** 出资台账：HQ_FINANCE 确认出资(A)，FIN_ACCT 录入出资(C) */
+  MENU_SHAREHOLDER_CONTRIBUTION: {
+    ROLE_ADMIN:        ['V','C','E','D','A','X'],
+    ROLE_CEO:          ['V','A','X'],
+    ROLE_HQ_FINANCE:   ['V','C','E','A','X'],
+    ROLE_FIN_ACCT:     ['V','C','X'],
+    ROLE_AUDITOR:      ['V','X'],
+  },
+  /** 股东查看范围授权（敏感，管理层维护）*/
+  MENU_SHAREHOLDER_SCOPE: {
+    ROLE_ADMIN:        ['V','C','E','D','A','X'],
+    ROLE_CEO:          ['V','C','E','D','X'],
+    ROLE_HQ_FINANCE:   ['V','C','E','D','X'],
+    ROLE_AUDITOR:      ['V'],
+  },
+  /** 股东驾驶舱：菜单='可打开'，实际可见项目由 shr_shareholder_scopes 控制（无 scope→空）。
+   *  下列角色为实际股东所持角色，可打开驾驶舱后按 scope 过滤数据。 */
+  MENU_SHAREHOLDER_DASHBOARD: {
+    ROLE_ADMIN:           ['V','X'],
+    ROLE_CEO:             ['V','X'],   // 朱兆存
+    ROLE_FIN_CFO:         ['V','X'],
+    ROLE_HQ_FINANCE:      ['V','X'],
+    ROLE_FIN_ACCT:        ['V','X'],
+    ROLE_FACTORY_MGR:     ['V','X'],   // 符强 / 宋雷
+    ROLE_CASH:            ['V','X'],   // 朱召安
+    ROLE_SHAREHOLDER_VIEW:['V','X'],
+    ROLE_AUDITOR:         ['V','X'],
+  },
+
   // 订单管理（BFF 层，原 MENU_ORDERS 的 BFF 补充）
   MENU_ORDER_MGR: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
