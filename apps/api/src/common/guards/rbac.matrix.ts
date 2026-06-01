@@ -389,7 +389,8 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_FIN2_CASH: {
     ROLE_ADMIN:               ['V','C','E','D','A','X'],
     ROLE_FIN_CFO:             ['V','C','E','A','X'],
-    ROLE_HQ_FINANCE:       ['V','C','E','X'],
+    ROLE_HQ_FINANCE:          ['V','X'],            // 财务加固P2：审核者仅查看资金，不执行（职责分离）
+    ROLE_CASH:                ['V','E'],            // 财务加固P2：出纳—资金账户查看+付款执行/确认/现金流水
     ROLE_FACTORY_ACCT:  ['V','C','X'],
     ROLE_CEO:                 ['V','X'],
     ROLE_AUDITOR:             ['V','X'],
@@ -398,10 +399,11 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_FIN2_EXPENSE: {
     ROLE_ADMIN:               ['V','C','E','D','A','X'],
     ROLE_FIN_CFO:             ['V','C','E','A','X'],
-    ROLE_HQ_FINANCE:       ['V','C','E','A','X'],
+    ROLE_HQ_FINANCE:          ['V','A','X'],       // 财务加固P2：审核者—费用查看+审核+导出（不申请/不编辑）
+    ROLE_FIN_ACCT:            ['V','X'],            // 财务加固P2：会计—费用查看+导出（记账经 AR/AP）
     ROLE_FACTORY_ACCT:  ['V','C','E','X'],
     ROLE_CEO:                 ['V','A','X'],
-    ROLE_FARM_MGR:            ['V','C'],          // 申请费用
+    ROLE_FARM_MGR:            ['V','C'],          // 申请费用（谢继领等场长）
     ROLE_STORE_MGR:           ['V','C'],          // 申请费用
     ROLE_AUDITOR:             ['V','X'],
   },
@@ -409,7 +411,9 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_FIN2_REIMBURSE: {
     ROLE_ADMIN:               ['V','C','E','D','A','X'],
     ROLE_FIN_CFO:             ['V','C','E','A','X'],
-    ROLE_HQ_FINANCE:          ['V','C','E','A','X'],
+    ROLE_HQ_FINANCE:          ['V','A','X'],        // 财务加固P2：审核者—报销查看+审核(A)+导出；【禁止付款】移除 E
+    ROLE_CASH:                ['V','E'],             // 财务加固P2：出纳—报销查看+付款执行(pay=E)；【禁止审批】无 A
+    ROLE_FIN_ACCT:            ['V','X'],             // 财务加固P2：会计—报销查看+导出；【禁止付款/审批】无 E/A
     ROLE_FACTORY_ACCT:        ['V','C','E','X'],
     ROLE_CEO:                 ['V','A','X'],
     ROLE_FARM_MGR:            ['V','C'],           // 提交报销申请
@@ -438,6 +442,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_ADMIN:               ['V','X'],
     ROLE_FIN_CFO:             ['V','X'],
     ROLE_HQ_FINANCE:       ['V','X'],
+    ROLE_FIN_ACCT:            ['V','X'],            // 财务加固P2：会计可看/导出财务报表
     ROLE_CEO:                 ['V','X'],
     ROLE_AUDITOR:             ['V','X'],
   },
