@@ -124,6 +124,6 @@ source_type 判定规则（据原始备注）：含「分红/应分款」→DIVI
 
 ## 改动文件
 
-- `apps/api/migrations/20260601_shareholder_phase2b_zhaoyongwei.sql`（64 笔逐笔导入，幂等，账号脱敏）
+- `apps/api/migrations/20260601_shareholder_runtime_phase2b_zhaoyongwei.sql`（64 笔逐笔导入，幂等，账号脱敏）
 - `apps/api/src/modules/shareholder/services/shareholder.service.ts`（dashboard 附带累计实缴/最近出资）
 - `apps/web/src/lib/shareholder-api.ts` + dashboard 页面（展示累计实缴金额/笔数/最近出资）

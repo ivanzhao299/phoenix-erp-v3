@@ -105,7 +105,7 @@ shr_capital_contributions ──[只读查看]──▶ fin_shareholder_contribu
 
 ## 改动文件
 
-- `apps/api/migrations/20260601_shareholder_phase2a_paid_in.sql`（equity_status 字段 + 初始化）
+- `apps/api/migrations/20260601_shareholder_runtime_phase2a_paid_in.sql`（equity_status 字段 + 初始化）
 - `apps/api/src/modules/shareholder/entities/`（project + equity 加 equityStatus）
 - `apps/api/src/modules/shareholder/services/shareholder.service.ts`（dashboardProject 实缴口径 + financeBridge 只读）
 - `apps/api/src/modules/shareholder/controllers/shareholder.controller.ts`（finance-bridge 端点）
