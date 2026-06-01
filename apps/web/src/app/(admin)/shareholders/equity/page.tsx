@@ -1,11 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { shareholderApi, ShrEquity, ShrProject, ShrBeneficial } from '@/lib/shareholder-api';
+import { shareholderApi, ShrEquity, ShrProject, ShrBeneficial, EQUITY_STATUS_LABEL, PAID_IN_SOURCE_LABEL, lbl } from '@/lib/shareholder-api';
 
 const th: React.CSSProperties = { textAlign: 'left', padding: '10px 12px', background: '#1F4E79', color: '#fff', fontSize: 13, fontWeight: 600 };
 const td: React.CSSProperties = { padding: '9px 12px', borderBottom: '1px solid #eee', fontSize: 13.5 };
-const EQ_LABEL: Record<string, string> = { CONFIRMED: '已确认股权', PROVISIONAL: '暂定股权' };
-const SRC_LABEL: Record<string, string> = { LEDGER: '逐笔台账', CAPITAL_SUMMARY_IMPORT: '资本汇总表' };
+const EQ_LABEL = EQUITY_STATUS_LABEL;
 const money = (v?: string | null) => v == null ? '—' : Number(v).toLocaleString('zh-CN', { minimumFractionDigits: 2 });
 
 export default function EquityPage() {
@@ -14,8 +13,13 @@ export default function EquityPage() {
   const [view, setView] = useState<'legal' | 'beneficial'>('legal');
   const [rows, setRows] = useState<ShrEquity[]>([]);
   const [bene, setBene] = useState<ShrBeneficial[]>([]);
+  const [names, setNames] = useState<Record<string, string>>({});
   const [err, setErr] = useState('');
-  useEffect(() => { shareholderApi.listProjects().then(p => { setProjects(p); if (p[0]) setSel(p[0].projectCode); }).catch(e => setErr(e?.message)); }, []);
+  const shName = (code: string) => names[code] || code;
+  useEffect(() => {
+    shareholderApi.listProjects().then(p => { setProjects(p); if (p[0]) setSel(p[0].projectCode); }).catch(e => setErr(e?.message));
+    shareholderApi.listShareholders().then(s => setNames(Object.fromEntries(s.map(x => [x.shareholderCode, x.shareholderName])))).catch(() => {});
+  }, []);
   useEffect(() => {
     if (!sel) return;
     shareholderApi.listEquity(sel).then(setRows).catch(e => setErr(e?.message));
@@ -58,7 +62,7 @@ export default function EquityPage() {
             <tr>
               <th style={th} rowSpan={2}>股东</th>
               <th style={{ ...th, background: '#5b6b7a' }} colSpan={2}>法定股权结构</th>
-              <th style={{ ...th, background: '#1F4E79' }} colSpan={3}>法定实缴资本结构（PAID-IN）</th>
+              <th style={{ ...th, background: '#1F4E79' }} colSpan={3}>法定实缴资本结构（实缴口径）</th>
               <th style={th} rowSpan={2}>表决权</th>
             </tr>
             <tr>
@@ -72,7 +76,7 @@ export default function EquityPage() {
           <tbody>
             {rows.map(e => (
               <tr key={e.id}>
-                <td style={td}>{e.shareholderCode}</td>
+                <td style={td}>{shName(e.shareholderCode)}</td>
                 <td style={{ ...td, fontWeight: 600 }}>{Number(e.equityRatio).toFixed(2)}</td>
                 <td style={td}>
                   <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 12, fontWeight: 600,
@@ -83,7 +87,7 @@ export default function EquityPage() {
                 </td>
                 <td style={td}>{money(e.paidInCapital)}</td>
                 <td style={{ ...td, fontWeight: 600, color: '#1F4E79' }}>{e.capitalRatio != null ? Number(e.capitalRatio).toFixed(2) : '—'}</td>
-                <td style={{ ...td, fontSize: 12, color: '#777' }}>{e.paidInSource ? (SRC_LABEL[e.paidInSource] || e.paidInSource) : '—'}</td>
+                <td style={{ ...td, fontSize: 12, color: '#777' }}>{lbl(PAID_IN_SOURCE_LABEL, e.paidInSource)}</td>
                 <td style={td}>{e.isVotingShareholder ? '是' : '否'}</td>
               </tr>
             ))}
@@ -99,8 +103,8 @@ export default function EquityPage() {
           <tbody>
             {bene.map(b => (
               <tr key={b.id}>
-                <td style={td}>{b.nomineeShareholderCode}</td>
-                <td style={{ ...td, fontWeight: 600 }}>{b.beneficialShareholderCode}</td>
+                <td style={td}>{shName(b.nomineeShareholderCode)}</td>
+                <td style={{ ...td, fontWeight: 600 }}>{shName(b.beneficialShareholderCode)}</td>
                 <td style={td}>{money(b.amount)}</td>
                 <td style={{ ...td, fontWeight: 600, color: '#1F4E79' }}>{b.ownershipRatio != null ? Number(b.ownershipRatio).toFixed(2) : '—'}</td>
                 <td style={{ ...td, fontSize: 12, color: '#777' }}>{b.remark || '—'}</td>
@@ -111,7 +115,7 @@ export default function EquityPage() {
         </table>
       )}
       <p style={{ color: '#999', fontSize: 12, marginTop: 12 }}>
-        注：「法定股权比例」为约定股比；「法定实缴」= 股东直接实缴 ÷ 项目总实缴资本；「实益出资」记录代持关系（名义股东 vs 实际出资人）。Phase 2A/2B 不显示应缴/未缴/差额。
+        注：「法定股权比例」为约定股比；「法定实缴」= 股东直接实缴 ÷ 项目总实缴资本；「实益出资」记录代持关系（名义股东 vs 实际出资人）。本阶段 不显示应缴/未缴/差额。
       </p>
     </div>
   );

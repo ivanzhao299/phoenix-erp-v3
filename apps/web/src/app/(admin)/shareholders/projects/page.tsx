@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { shareholderApi, ShrProject } from '@/lib/shareholder-api';
+import { shareholderApi, ShrProject, PROJECT_TYPE_LABEL, ORG_CODE_LABEL, lbl } from '@/lib/shareholder-api';
 
 const CAP_LABEL: Record<string, string> = {
   PAID_IN_FULL: '已到位', PARTIALLY_PAID: '部分到位', PENDING_CONFIRMATION: '待确认',
@@ -24,18 +24,17 @@ export default function ProjectsPage() {
       {loading ? <div>加载中…</div> : (
         <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 8, overflow: 'hidden' }}>
           <thead><tr>
-            <th style={th}>项目编码</th><th style={th}>项目名称</th><th style={th}>所属公司</th>
+            <th style={th}>项目名称</th><th style={th}>所属公司</th>
             <th style={th}>场区</th><th style={th}>类型</th><th style={th}>股权状态</th>
             <th style={th}>股东数</th><th style={th}>股比合计</th>
           </tr></thead>
           <tbody>
             {rows.map(p => (
               <tr key={p.projectCode}>
-                <td style={td}>{p.projectCode}</td>
-                <td style={td}>{p.projectName}</td>
-                <td style={td}>{p.companyCode || '-'}</td>
-                <td style={td}>{p.siteCode || '-'}</td>
-                <td style={td}>{p.projectType}</td>
+                <td style={{ ...td, fontWeight: 600 }}>{p.projectName}</td>
+                <td style={td}>{lbl(ORG_CODE_LABEL, p.companyCode) }</td>
+                <td style={td}>{lbl(ORG_CODE_LABEL, p.siteCode)}</td>
+                <td style={td}>{lbl(PROJECT_TYPE_LABEL, p.projectType)}</td>
                 <td style={td}>
                   <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 12, fontWeight: 600,
                     background: p.equityStatus === 'CONFIRMED' ? '#e8f5e9' : '#fff4e5',
@@ -49,7 +48,7 @@ export default function ProjectsPage() {
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td style={td} colSpan={8}>暂无项目</td></tr>}
+            {rows.length === 0 && <tr><td style={td} colSpan={7}>暂无项目</td></tr>}
           </tbody>
         </table>
       )}

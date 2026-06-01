@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { shareholderApi, ShrProject } from '@/lib/shareholder-api';
+import { shareholderApi, ShrProject, ORG_CODE_LABEL, lbl } from '@/lib/shareholder-api';
 
 const CAP_LABEL: Record<string, string> = { PAID_IN_FULL: '已到位', PARTIALLY_PAID: '部分到位', PENDING_CONFIRMATION: '待确认' };
 const EQ_LABEL: Record<string, string> = { CONFIRMED: '已确认股权', PROVISIONAL: '暂定股权' };
@@ -36,7 +36,7 @@ export default function ShareholderDashboard() {
                   {EQ_LABEL[p.equityStatus] || p.equityStatus}
                 </span>
               </div>
-              <div style={{ fontSize: 12, color: '#999', margin: '4px 0 10px' }}>{p.companyCode} / {p.siteCode}</div>
+              <div style={{ fontSize: 12, color: '#999', margin: '4px 0 10px' }}>{lbl(ORG_CODE_LABEL, p.companyCode)} / {lbl(ORG_CODE_LABEL, p.siteCode)}</div>
               <div style={{ background: '#f5f8fc', borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
                 <div style={{ color: '#999', fontSize: 12 }}>项目总实缴资本</div>
                 <div style={{ fontSize: 19, fontWeight: 700, color: '#1F4E79' }}>

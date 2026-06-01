@@ -1,14 +1,16 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { shareholderApi, ShrScope } from '@/lib/shareholder-api';
+import { shareholderApi, ShrScope, SCOPE_TYPE_LABEL, ORG_CODE_LABEL, lbl } from '@/lib/shareholder-api';
 
 const th: React.CSSProperties = { textAlign: 'left', padding: '10px 12px', background: '#1F4E79', color: '#fff', fontSize: 13, fontWeight: 600 };
 const td: React.CSSProperties = { padding: '9px 12px', borderBottom: '1px solid #eee', fontSize: 13.5 };
 
 export default function ScopesPage() {
   const [rows, setRows] = useState<ShrScope[]>([]);
+  const [names, setNames] = useState<Record<string,string>>({});
+  const [pmap, setPmap] = useState<Record<string,string>>({});
   const [err, setErr] = useState('');
-  useEffect(() => { shareholderApi.listScopes().then(setRows).catch(e => setErr(e?.message)); }, []);
+  useEffect(() => { shareholderApi.listScopes().then(setRows).catch(e => setErr(e?.message)); shareholderApi.listShareholders().then(s=>setNames(Object.fromEntries(s.map(x=>[x.shareholderCode,x.shareholderName])))).catch(()=>{}); shareholderApi.listProjects().then(p=>setPmap(Object.fromEntries(p.map(x=>[x.projectCode,x.projectName])))).catch(()=>{}); }, []);
   return (
     <div style={{ padding: 24 }}>
       <h1 style={{ fontSize: 20, fontWeight: 700, color: '#1F4E79', marginBottom: 6 }}>股东查看范围</h1>
@@ -16,19 +18,19 @@ export default function ScopesPage() {
       {err && <div style={{ color: '#c0392b', marginBottom: 12 }}>{err}</div>}
       <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 8, overflow: 'hidden' }}>
         <thead><tr>
-          <th style={th}>用户ID</th><th style={th}>股东编码</th><th style={th}>范围类型</th>
-          <th style={th}>范围编码</th><th style={th}>项目</th><th style={th}>可审批</th><th style={th}>状态</th>
+          <th style={th}>用户ID</th><th style={th}>股东</th><th style={th}>范围类型</th>
+          <th style={th}>范围对象</th><th style={th}>项目</th><th style={th}>可审批</th><th style={th}>状态</th>
         </tr></thead>
         <tbody>
           {rows.map(s => (
             <tr key={s.id}>
               <td style={td}>{s.userId}</td>
-              <td style={td}>{s.shareholderCode || '-'}</td>
-              <td style={td}>{s.scopeType}</td>
-              <td style={td}>{s.scopeCode || '-'}</td>
-              <td style={td}>{s.projectCode || '-'}</td>
+              <td style={td}>{s.shareholderCode ? (names[s.shareholderCode]||s.shareholderCode) : '—'}</td>
+              <td style={td}>{lbl(SCOPE_TYPE_LABEL, s.scopeType)}</td>
+              <td style={td}>{s.scopeCode ? (ORG_CODE_LABEL[s.scopeCode]||s.scopeCode) : '—'}</td>
+              <td style={td}>{s.projectCode ? (pmap[s.projectCode]||s.projectCode) : '—'}</td>
               <td style={td}>{s.canApprove ? '是' : '否'}</td>
-              <td style={td}>{s.status}</td>
+              <td style={td}>{s.status === 'ACTIVE' ? '启用' : s.status}</td>
             </tr>
           ))}
           {rows.length === 0 && <tr><td style={td} colSpan={7}>暂无范围绑定</td></tr>}

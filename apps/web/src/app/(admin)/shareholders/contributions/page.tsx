@@ -1,17 +1,19 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { shareholderApi, ShrContribution, ShrProject } from '@/lib/shareholder-api';
+import { shareholderApi, ShrContribution, ShrProject, SOURCE_TYPE_LABEL, CONTRIB_STATUS_LABEL, lbl } from '@/lib/shareholder-api';
 
 const th: React.CSSProperties = { textAlign: 'left', padding: '10px 12px', background: '#1F4E79', color: '#fff', fontSize: 13, fontWeight: 600 };
 const td: React.CSSProperties = { padding: '9px 12px', borderBottom: '1px solid #eee', fontSize: 13.5 };
-const STATUS_LABEL: Record<string, string> = { DRAFT: '草稿', CONFIRMED: '已确认', CANCELLED: '已取消' };
+
 
 export default function ContributionsPage() {
   const [projects, setProjects] = useState<ShrProject[]>([]);
   const [sel, setSel] = useState('');
   const [rows, setRows] = useState<ShrContribution[]>([]);
+  const [names, setNames] = useState<Record<string,string>>({});
+  const pmap = Object.fromEntries(projects.map(p=>[p.projectCode,p.projectName]));
   const [err, setErr] = useState('');
-  useEffect(() => { shareholderApi.listProjects().then(setProjects).catch(e => setErr(e?.message)); }, []);
+  useEffect(() => { shareholderApi.listProjects().then(setProjects).catch(e => setErr(e?.message)); shareholderApi.listShareholders().then(s=>setNames(Object.fromEntries(s.map(x=>[x.shareholderCode,x.shareholderName])))).catch(()=>{}); }, []);
   useEffect(() => { shareholderApi.listContributions(sel || undefined).then(setRows).catch(e => setErr(e?.message)); }, [sel]);
   return (
     <div style={{ padding: 24 }}>
@@ -33,13 +35,13 @@ export default function ContributionsPage() {
           {rows.map(c => (
             <tr key={c.id}>
               <td style={td}>{c.contributionNo}</td>
-              <td style={td}>{c.projectCode}</td>
-              <td style={td}>{c.shareholderCode}</td>
+              <td style={td}>{pmap[c.projectCode] || c.projectCode}</td>
+              <td style={td}>{names[c.shareholderCode] || c.shareholderCode}</td>
               <td style={{ ...td, fontWeight: 600 }}>{Number(c.amount).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</td>
-              <td style={td}>{c.currency}</td>
-              <td style={td}>{c.sourceType}</td>
+              <td style={td}>{c.currency === 'CNY' ? '人民币' : c.currency}</td>
+              <td style={td}>{lbl(SOURCE_TYPE_LABEL, c.sourceType)}</td>
               <td style={td}>{c.contributionDate || '-'}</td>
-              <td style={td}>{STATUS_LABEL[c.status] || c.status}</td>
+              <td style={td}>{lbl(CONTRIB_STATUS_LABEL, c.status)}</td>
             </tr>
           ))}
           {rows.length === 0 && <tr><td style={td} colSpan={8}>暂无出资记录（本阶段先建台账，历史出资款后续导入）</td></tr>}
