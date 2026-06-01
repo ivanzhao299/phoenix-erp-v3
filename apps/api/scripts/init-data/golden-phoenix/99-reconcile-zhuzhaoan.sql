@@ -4,7 +4,7 @@
 -- 处理三项 M5 确认订正：
 --   ① 朱召安用户名 zhuzhao_an → zhuzhaoan（安全改名，保留 user_id 与全部绑定）
 --   ② BU-TRADING 名称 凤凰贸易事业群 → 凤凰商贸事业群
---   ③ 符强 系统姓名 伏强 → 符强
+--   ③ 符强(旧记) 姓名订正为 伏强
 --
 -- ⚠ 执行时机：在 01/02 之前运行（这样后续 INSERT 会因冲突而跳过，UPDATE 已就位）。
 -- 用法：psql -d <db> -f 99-reconcile-zhuzhaoan.sql
@@ -33,9 +33,9 @@ UPDATE sys_organizations
 SET org_name = '凤凰商贸事业群', org_name_cn = '凤凰商贸事业群', updated_at = now()
 WHERE org_code = 'BU-TRADING' AND org_name = '凤凰贸易事业群';
 
--- ③ 符强 姓名订正（伏强 → 符强）
-UPDATE sys_user SET real_name = '符强', updated_at = now()
-WHERE username = 'fuqiang' AND real_name = '伏强';
+-- ③ 符强 姓名订正（符强 → 伏强）
+UPDATE sys_user SET real_name = '伏强', updated_at = now()
+WHERE username = 'fuqiang' AND real_name = '符强';
 
 COMMIT;
 

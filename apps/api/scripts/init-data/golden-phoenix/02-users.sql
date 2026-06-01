@@ -21,7 +21,7 @@ FROM (VALUES
   ('zhaoyongwei', '赵永伟', 'ORG-GROUP'),
   ('zhuzhaocun',  '朱兆存', 'BU-AGRI'),
   ('songlei',     '宋雷',   'SITE-MENGSAI-LAYER'),
-  ('fuqiang',     '符强',   'SITE-DONGPENG-LAYER'),
+  ('fuqiang',     '伏强',   'SITE-DONGPENG-LAYER'),
   ('xiejiling',   '谢继领', 'SITE-MENGSAI-LAYER'),
   ('liujie',      '刘杰',   'ORG-GROUP'),
   ('wangweihua',  '王玮华', 'ORG-GROUP'),    -- 确认：集团财务中心，GROUP 范围
