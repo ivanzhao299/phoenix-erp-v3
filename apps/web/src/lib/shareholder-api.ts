@@ -11,6 +11,7 @@ export interface ShrEquity {
   id: string; projectCode: string; shareholderCode: string; equityRatio: string;
   subscribedCapital?: string; paidInCapital?: string; unpaidCapital?: string;
   capitalStatus: string; equityStatus: string; isVotingShareholder: boolean; remark?: string;
+  capitalRatio?: string | null; paidInSource?: string | null;
 }
 export interface ShrShareholder {
   shareholderCode: string; shareholderName: string; linkedUserId?: string;

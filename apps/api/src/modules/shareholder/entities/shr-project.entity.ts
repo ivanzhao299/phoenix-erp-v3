@@ -32,6 +32,10 @@ export class ShrProjectEntity {
   @Column({ name: 'equity_status', type: 'varchar', length: 32, default: 'PROVISIONAL' })
   equityStatus: string;
 
+  /** 项目总实缴资本（Phase 2B-R2，截止某日实收资本） */
+  @Column({ name: 'total_paid_in_capital', type: 'numeric', precision: 18, scale: 2, nullable: true })
+  totalPaidInCapital: string;
+
   @Column({ name: 'status', type: 'varchar', length: 32, default: 'ACTIVE' })
   status: string;
 

@@ -35,6 +35,14 @@ export class ShrProjectEquityEntity {
   @Column({ name: 'equity_status', type: 'varchar', length: 32, default: 'PROVISIONAL' })
   equityStatus: string;
 
+  /** 实缴资本占比%（Phase 2B-R2）= paid_in_capital / 项目总实缴资本 */
+  @Column({ name: 'capital_ratio', type: 'numeric', precision: 10, scale: 4, nullable: true })
+  capitalRatio: string;
+
+  /** 实缴来源（Phase 2B-R2）：LEDGER=逐笔台账 / CAPITAL_SUMMARY_IMPORT=资本汇总表 */
+  @Column({ name: 'paid_in_source', type: 'varchar', length: 64, nullable: true })
+  paidInSource: string;
+
   @Column({ name: 'is_voting_shareholder', type: 'boolean', default: true })
   isVotingShareholder: boolean;
 

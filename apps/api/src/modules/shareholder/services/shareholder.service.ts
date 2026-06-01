@@ -192,21 +192,53 @@ export class ShareholderService {
       where: { projectCode, status: 'CONFIRMED' }, order: { contributionDate: 'DESC', createdAt: 'DESC' }, take: 5,
     });
     return {
-      project: { projectCode: detail.projectCode, projectName: detail.projectName, equityStatus: detail.equityStatus, capitalStatus: detail.capitalStatus },
+      project: {
+        projectCode: detail.projectCode, projectName: detail.projectName,
+        equityStatus: detail.equityStatus, capitalStatus: detail.capitalStatus,
+        totalPaidInCapital: detail.totalPaidInCapital != null ? Number(detail.totalPaidInCapital) : null,
+      },
       equityStatus: detail.equityStatus,
-      // 实缴口径：仅累计实缴 + 按股东实缴；不返回 应缴/未缴/差额
-      paidInTotal: Number([...paidMap.values()].reduce((a, b) => a + b, 0)),
+      // 项目总实缴资本（实收资本表口径）
+      totalPaidInCapital: detail.totalPaidInCapital != null ? Number(detail.totalPaidInCapital) : null,
+      // 台账累计实缴（逐笔出资合计，仅有逐笔记录的股东）
+      ledgerPaidInTotal: Number([...paidMap.values()].reduce((a, b) => a + b, 0)),
+      // 股权结构 vs 实缴资本结构（同列并陈，不混淆）
       shareholders: detail.equity.map(e => ({
         shareholderCode: e.shareholderCode,
-        equityRatio: Number(e.equityRatio),
+        equityRatio: Number(e.equityRatio),               // 股权比例（暂定/已确认）
         equityStatus: e.equityStatus,
-        paidIn: paidMap.get(e.shareholderCode) ?? 0,
+        paidInCapital: e.paidInCapital != null ? Number(e.paidInCapital) : 0,  // 实缴金额（实收资本表）
+        capitalRatio: e.capitalRatio != null ? Number(e.capitalRatio) : null,  // 实缴资本占比%
+        paidInSource: e.paidInSource ?? null,             // LEDGER / CAPITAL_SUMMARY_IMPORT
+        ledgerPaidIn: paidMap.get(e.shareholderCode) ?? 0, // 逐笔台账累计（核对用）
       })),
       recentContributions: recent,
       note: detail.equityStatus === 'PROVISIONAL'
-        ? '当前股权比例为暂定，最终股权以最终确认结果为准；本阶段仅反映真实实缴出资。'
-        : '股权已确认；本阶段仅显示累计实缴出资。',
+        ? '当前股权比例为暂定，仅供参考，最终股权以最终确认结果为准；实缴资本占比为真实实缴口径(PAID-IN BASIS)。'
+        : '股权已确认；同时展示实缴资本结构。',
     };
+  }
+
+  // ── 资本汇总只读桥接数据（Phase 2B-R2：项目总实缴 + 股东累计实缴 + 最近更新）──
+  async capitalSummary(projectCode?: string) {
+    const projects = await this.projectRepo.find({ where: projectCode ? { projectCode } : {} });
+    const out = [];
+    for (const p of projects) {
+      const equity = await this.equityRepo.find({ where: { projectCode: p.projectCode } });
+      out.push({
+        projectCode: p.projectCode, projectName: p.projectName, equityStatus: p.equityStatus,
+        totalPaidInCapital: p.totalPaidInCapital != null ? Number(p.totalPaidInCapital) : null,
+        lastUpdated: p.updatedAt,
+        shareholders: equity.map(e => ({
+          shareholderCode: e.shareholderCode,
+          equityRatio: Number(e.equityRatio),
+          paidInCapital: e.paidInCapital != null ? Number(e.paidInCapital) : 0,
+          capitalRatio: e.capitalRatio != null ? Number(e.capitalRatio) : null,
+          paidInSource: e.paidInSource ?? null,
+        })),
+      });
+    }
+    return { mode: 'READ_ONLY', note: '只读资本汇总；不生成凭证、不修改财务流水、不回写 Finance V2。', projects: out };
   }
 
   // ── Finance V2 只读桥接（Phase 2A：只读，不自动同步/改账/生成凭证）────────────
