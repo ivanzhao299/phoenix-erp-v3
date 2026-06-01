@@ -53,6 +53,7 @@ export class ShareholderController {
 
   // ── 股东驾驶舱（scope 驱动）──
   @Get('dashboard')                @RequireMenu(DASH, 'V') dashboard() { return this.svc.dashboard(this.user); }
+  @Get('finance-bridge')           @RequireMenu(VIEW, 'V') financeBridge(@Query('projectCode') p?: string) { return this.svc.financeBridge(p); }
   @Get('dashboard/:projectCode')   @RequireMenu(DASH, 'V') dashboardProject(@Param('projectCode') c: string) { return this.svc.dashboardProject(c, this.user); }
 
   // ── 股东档案（根路径，置于最后避免吞 static 段）──

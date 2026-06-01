@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { shareholderApi, ShrProject } from '@/lib/shareholder-api';
 
 const CAP_LABEL: Record<string, string> = { PAID_IN_FULL: '已到位', PARTIALLY_PAID: '部分到位', PENDING_CONFIRMATION: '待确认' };
+const EQ_LABEL: Record<string, string> = { CONFIRMED: '已确认股权', PROVISIONAL: '暂定股权' };
 
 export default function ShareholderDashboard() {
   const [projects, setProjects] = useState<ShrProject[]>([]);
@@ -27,13 +28,20 @@ export default function ShareholderDashboard() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 16 }}>
           {projects.map(p => (
             <div key={p.projectCode} style={{ background: '#fff', borderRadius: 10, borderLeft: '4px solid #1F4E79', boxShadow: '0 1px 3px rgba(0,0,0,.08)', padding: 18 }}>
-              <div style={{ fontSize: 16, fontWeight: 600, color: '#1F4E79' }}>{p.projectName}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 16, fontWeight: 600, color: '#1F4E79' }}>{p.projectName}</div>
+                <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600,
+                  background: p.equityStatus === 'CONFIRMED' ? '#e8f5e9' : '#fff4e5',
+                  color: p.equityStatus === 'CONFIRMED' ? '#2e7d32' : '#e65100' }}>
+                  {EQ_LABEL[p.equityStatus] || p.equityStatus}
+                </span>
+              </div>
               <div style={{ fontSize: 12, color: '#999', margin: '4px 0 12px' }}>{p.companyCode} / {p.siteCode}</div>
               <div style={{ display: 'flex', gap: 18, fontSize: 13 }}>
-                <div><div style={{ color: '#999' }}>出资状态</div><div style={{ fontWeight: 600 }}>{CAP_LABEL[p.capitalStatus] || p.capitalStatus}</div></div>
                 <div><div style={{ color: '#999' }}>股东数</div><div style={{ fontWeight: 600 }}>{p.holders ?? 0}</div></div>
                 <div><div style={{ color: '#999' }}>股比合计</div><div style={{ fontWeight: 600 }}>{(p.ratioSum ?? 0).toFixed(2)}%</div></div>
               </div>
+              <div style={{ fontSize: 11, color: '#bbb', marginTop: 10 }}>实缴口径 · 不显示应缴/未缴</div>
             </div>
           ))}
           {projects.length === 0 && scope !== 'NONE' && <div style={{ color: '#666' }}>暂无可见项目</div>}

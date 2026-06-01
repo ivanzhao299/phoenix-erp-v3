@@ -3,13 +3,13 @@ import request from '@/lib/api-client';
 // 股东权益中心 API 客户端（对接 NestJS @Controller('api/shareholders')，request 自动加 /api 前缀与认证）
 export interface ShrProject {
   projectCode: string; projectName: string; companyCode?: string; siteCode?: string;
-  projectType: string; capitalStatus: string; status: string; remark?: string;
+  projectType: string; capitalStatus: string; equityStatus: string; status: string; remark?: string;
   holders?: number; ratioSum?: number;
 }
 export interface ShrEquity {
   id: string; projectCode: string; shareholderCode: string; equityRatio: string;
   subscribedCapital?: string; paidInCapital?: string; unpaidCapital?: string;
-  capitalStatus: string; isVotingShareholder: boolean; remark?: string;
+  capitalStatus: string; equityStatus: string; isVotingShareholder: boolean; remark?: string;
 }
 export interface ShrShareholder {
   shareholderCode: string; shareholderName: string; linkedUserId?: string;

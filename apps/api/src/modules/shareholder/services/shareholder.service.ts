@@ -171,17 +171,53 @@ export class ShareholderService {
     const allowed = access === 'ALL' || (Array.isArray(access) && access.includes(projectCode));
     if (!allowed) throw new NotFoundException('无权查看该项目（不在股东查看范围内）');
     const detail = await this.getProject(projectCode);
-    const contribAgg = await this.ds.query(
-      `SELECT coalesce(sum(amount),0)::numeric AS confirmed_total
-       FROM shr_capital_contributions WHERE project_code=$1 AND status='CONFIRMED'`, [projectCode]);
+    // Phase 2A：实缴口径 —— 累计实缴 = 已确认出资合计；不计算应缴/未缴/差额
+    const paidByShareholder = await this.ds.query(
+      `SELECT shareholder_code, coalesce(sum(amount),0)::numeric AS paid
+       FROM shr_capital_contributions WHERE project_code=$1 AND status='CONFIRMED'
+       GROUP BY shareholder_code`, [projectCode]);
+    const paidMap = new Map<string, number>(paidByShareholder.map((r: any) => [r.shareholder_code, Number(r.paid)]));
+    const recent = await this.contribRepo.find({
+      where: { projectCode, status: 'CONFIRMED' }, order: { contributionDate: 'DESC', createdAt: 'DESC' }, take: 5,
+    });
     return {
-      project: detail,
-      capital: {
-        subscribedTotal: detail.equity.reduce((a, e) => a + Number(e.subscribedCapital ?? 0), 0),
-        paidInTotal: detail.equity.reduce((a, e) => a + Number(e.paidInCapital ?? 0), 0),
-        unpaidTotal: detail.equity.reduce((a, e) => a + Number(e.unpaidCapital ?? 0), 0),
-        confirmedContributions: Number(contribAgg[0]?.confirmed_total ?? 0),
-      },
+      project: { projectCode: detail.projectCode, projectName: detail.projectName, equityStatus: detail.equityStatus, capitalStatus: detail.capitalStatus },
+      equityStatus: detail.equityStatus,
+      // 实缴口径：仅累计实缴 + 按股东实缴；不返回 应缴/未缴/差额
+      paidInTotal: Number([...paidMap.values()].reduce((a, b) => a + b, 0)),
+      shareholders: detail.equity.map(e => ({
+        shareholderCode: e.shareholderCode,
+        equityRatio: Number(e.equityRatio),
+        equityStatus: e.equityStatus,
+        paidIn: paidMap.get(e.shareholderCode) ?? 0,
+      })),
+      recentContributions: recent,
+      note: detail.equityStatus === 'PROVISIONAL'
+        ? '当前股权比例为暂定，最终股权以最终确认结果为准；本阶段仅反映真实实缴出资。'
+        : '股权已确认；本阶段仅显示累计实缴出资。',
+    };
+  }
+
+  // ── Finance V2 只读桥接（Phase 2A：只读，不自动同步/改账/生成凭证）────────────
+  async financeBridge(projectCode?: string) {
+    // 只读查看 Finance V2 股东资金记录（不写入、不改账）
+    const finRows = await this.ds.query(
+      `SELECT * FROM fin_shareholder_contributions ${projectCode ? 'WHERE project_code = $1' : ''} ORDER BY id DESC LIMIT 200`,
+      projectCode ? [projectCode] : [],
+    ).catch(() => []);
+    const shrRows = await this.contribRepo.find({
+      where: projectCode ? { projectCode } : {}, order: { createdAt: 'DESC' }, take: 200,
+    });
+    return {
+      mode: 'READ_ONLY',
+      note: 'Phase 2A 桥接为只读：不自动同步、不自动改账、不自动生成凭证。',
+      shrCapitalContributions: { count: shrRows.length, rows: shrRows },
+      finShareholderContributions: { count: finRows.length, rows: finRows },
+      gaps: [
+        '两套台账独立：shr_capital_contributions（股东模块）vs fin_shareholder_contributions（Finance V2），暂不互写。',
+        '如需一键同步/反向导入，待 Phase 3 股权最终确认后评估。',
+        'source_type 口径需对齐（BANK_TRANSFER/DIVIDEND_OFFSET/SHAREHOLDER_ADVANCE/OTHER）。',
+      ],
     };
   }
 }

@@ -31,6 +31,10 @@ export class ShrProjectEquityEntity {
   @Column({ name: 'capital_status', type: 'varchar', length: 32, default: 'PENDING_CONFIRMATION' })
   capitalStatus: string;
 
+  /** 股权状态（Phase 2A）：与所属项目一致 CONFIRMED/PROVISIONAL */
+  @Column({ name: 'equity_status', type: 'varchar', length: 32, default: 'PROVISIONAL' })
+  equityStatus: string;
+
   @Column({ name: 'is_voting_shareholder', type: 'boolean', default: true })
   isVotingShareholder: boolean;
 

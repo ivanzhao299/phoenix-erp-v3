@@ -28,6 +28,10 @@ export class ShrProjectEntity {
   @Column({ name: 'capital_status', type: 'varchar', length: 32, default: 'PENDING_CONFIRMATION' })
   capitalStatus: string;
 
+  /** 股权状态（Phase 2A）：CONFIRMED=已确认股权 / PROVISIONAL=暂定股权 */
+  @Column({ name: 'equity_status', type: 'varchar', length: 32, default: 'PROVISIONAL' })
+  equityStatus: string;
+
   @Column({ name: 'status', type: 'varchar', length: 32, default: 'ACTIVE' })
   status: string;
 
