@@ -57,7 +57,7 @@ export const EQUITY_STATUS_LABEL: Record<string, string> = {
 export const SOURCE_TYPE_LABEL: Record<string, string> = {
   BANK_TRANSFER: '银行转账', DIVIDEND_OFFSET: '分红转投资', SHAREHOLDER_ADVANCE: '股东垫资',
   PERSONAL_PAYMENT: '股东个人代付', EQUIPMENT_INVESTMENT: '设备投入', LAND_INVESTMENT: '土地投入',
-  REVERSAL: '冲销', CASH: '现金', OTHER: '其他',
+  REVERSAL: '冲销', CASH: '现金', CAPITAL_SUMMARY_IMPORT: '历史实缴(汇总导入)', OTHER: '其他',
 };
 export const PAID_IN_SOURCE_LABEL: Record<string, string> = {
   LEDGER: '逐笔台账', CAPITAL_SUMMARY_IMPORT: '资本汇总表',
