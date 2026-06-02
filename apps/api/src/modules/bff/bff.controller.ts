@@ -2,6 +2,7 @@ import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req, 
 import { AuthGuard } from '@nestjs/passport';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { PackagingInventoryIntegrationService } from '../sales-v2/services/packaging-inventory-integration.service'; // P1C 包装收口
 
 // ═══════════════════════════════════════════════════════════════
 //  Phoenix ERP V3 — BFF Controller
@@ -911,7 +912,11 @@ export class WholesaleBffController {
 @Controller('api/packaging/terminal')
 @UseGuards(AuthGuard('jwt'))
 export class PackagingTerminalBffController {
-  constructor(@InjectEntityManager() private readonly em: EntityManager) {}
+  constructor(
+    @InjectEntityManager() private readonly em: EntityManager,
+    // P1C 收口：真实车间流 成品交接 → 生成 Sales V2 可售库存（唯一库存入口）
+    private readonly pkgInv: PackagingInventoryIntegrationService,
+  ) {}
 
   private get today() { return new Date().toISOString().slice(0, 10); }
 
@@ -1678,7 +1683,20 @@ export class PackagingTerminalBffController {
       ),
       null,
     );
-    return { code: 200, data: { code } };
+
+    // ── P1C 收口：成品交接完成 = 唯一库存入口 ──────────────────────────────────
+    //   调 PackagingInventoryIntegrationService 生成 Sales V2 可售库存（EGG-YYYYMMDD-*,
+    //   change_type=PACKAGING_INBOUND, 进 FIFO）。幂等键 = packingCode；
+    //   SITE 级模式门控：仅 PACKAGING_INBOUND 模式生成（TEMP 模式跳过，灰度切换）。
+    let inventory: any = null;
+    if (body.packingCode) {
+      inventory = await this.safe(
+        this.pkgInv.completeTerminalPacking(body.packingCode, { companyCode: body.companyCode }),
+        { skipped: true, reason: '库存生成异常（已记录交接，不阻断作业）' } as any,
+      );
+    }
+
+    return { code: 200, data: { code, inventory } };
   }
 
   // ── 数据字典查询 ─────────────────────────────────────────────────────────────

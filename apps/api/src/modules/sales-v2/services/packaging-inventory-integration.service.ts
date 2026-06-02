@@ -73,9 +73,98 @@ export class PackagingInventoryIntegrationService {
   }
 
   /**
-   * 包装完成 → 生成 Sales V2 可售库存批次（幂等）
+   * 【收口核心 · P1C】按等级产出生成 Sales V2 可售库存批次（幂等 + 模式门控）
+   *
+   * 与具体来源（pkg_tasks / BFF 车间流 pkg_packing_records）解耦：调用方只需提供
+   * 等级→数量 映射与上下文，本方法负责 幂等 / 互斥门控 / 不可售隔离 / 统一命名。
+   *
+   * @param refNo        幂等键（包装任务号 task_no 或 BFF 包装记录号 packingCode）→ 写入 packaging_batch_ref
+   * @param gradeOutputs 等级→数量（已归一化为标准 grade_code）
+   * @param opts         companyCode / siteCode（模式解析）/ eggDate / collectionRef / packSpec
+   */
+  async generateSaleableFromOutputs(
+    refNo: string,
+    gradeOutputs: Record<string, number>,
+    opts?: {
+      companyCode?: string;
+      siteCode?: string | null;
+      eggDate?: string;
+      collectionRef?: string | null;
+      packSpec?: string | null;
+    },
+  ): Promise<{
+    refNo: string;
+    idempotent: boolean;
+    companyCode: string;
+    batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }>;
+    skippedNonSaleable: Array<{ grade: string; qty: number }>;
+    totalInbound: number;
+    /** P1A：当前来源模式；skippedByMode=true 表示非包装入库模式，本次未生成可售库存（互斥） */
+    mode?: string;
+    skippedByMode?: boolean;
+  }> {
+    // ── 幂等键：该包装批次是否已生成过可售批次 ──────────────────────────────
+    const existing = await this.ds.query(
+      `SELECT batch_no, product_code, quality_grade, qty, company_code
+         FROM inv_batches
+        WHERE packaging_batch_ref = $1 AND source_type = 'PACKAGING'`,
+      [refNo],
+    );
+    if (existing.length > 0) {
+      this.logger.log(`[PkgInv] 包装批次 ${refNo} 已入库（幂等跳过），批次数=${existing.length}`);
+      return {
+        refNo,
+        idempotent: true,
+        companyCode: existing[0]?.company_code ?? 'ALL',
+        batches: existing.map((b: any) => ({
+          batchNo: b.batch_no, grade: b.quality_grade, qty: Number(b.qty), productCode: b.product_code,
+        })),
+        skippedNonSaleable: [],
+        totalInbound: existing.reduce((s: number, b: any) => s + Number(b.qty), 0),
+      };
+    }
+
+    const companyCode = await this.resolveCompanyCode(opts?.companyCode);
+
+    // ── P1A 互斥门控：仅 PACKAGING_INBOUND 模式允许包装完成生成可售库存（SITE 级灰度）──
+    //   TEMP_PRODUCTION_INBOUND 模式下，库存由日产蛋入库生成，包装完成不再写可售库存（防双写）。
+    const mode = await this.modeSvc.resolveMode({ siteCode: opts?.siteCode ?? null, companyCode });
+    if (mode !== 'PACKAGING_INBOUND') {
+      this.logger.log(`[PkgInv] 包装批次 ${refNo} 当前为 ${mode} 模式，跳过包装可售入库（互斥，防双写）`);
+      return {
+        refNo, idempotent: false, companyCode,
+        batches: [], skippedNonSaleable: [], totalInbound: 0,
+        mode, skippedByMode: true,
+      };
+    }
+
+    const eggDate = opts?.eggDate || new Date().toISOString().slice(0, 10);
+    const collectionRef = opts?.collectionRef ?? null;
+    const packSpec = opts?.packSpec ?? null;
+    const saleable = await this.loadSaleableGrades();
+
+    const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }> = [];
+    const skippedNonSaleable: Array<{ grade: string; qty: number }> = [];
+
+    for (const [gradeCode, qtyValue] of Object.entries(gradeOutputs)) {
+      const qty = Math.max(0, Math.round(Number(qtyValue) || 0));
+      if (qty === 0) continue;
+      if (!saleable.has(gradeCode)) { skippedNonSaleable.push({ grade: gradeCode, qty }); continue; }
+      const b = await this.createSaleableBatch(companyCode, eggDate, gradeCode, qty, refNo, collectionRef, packSpec);
+      batches.push(b);
+    }
+
+    const totalInbound = batches.reduce((s, b) => s + b.qty, 0);
+    this.logger.log(
+      `[PkgInv] 包装批次 ${refNo} 入库完成 company=${companyCode} 可售批次=${batches.length} 入库=${totalInbound} 隔离等级=${skippedNonSaleable.length}`,
+    );
+    return { refNo, idempotent: false, companyCode, batches, skippedNonSaleable, totalInbound, mode, skippedByMode: false };
+  }
+
+  /**
+   * 包装完成（Admin/Service 流 pkg_tasks）→ 生成 Sales V2 可售库存批次（幂等）。
+   * 保留原行为：读 pkg_tasks 后委托 generateSaleableFromOutputs（幂等键仍为 task_no）。
    * @param taskNo  pkg_tasks.task_no（包装任务号）
-   * @param opts    可选：companyCode（生产公司）、operator
    */
   async completePackagingBatch(
     taskNo: string,
@@ -87,32 +176,9 @@ export class PackagingInventoryIntegrationService {
     batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }>;
     skippedNonSaleable: Array<{ grade: string; qty: number }>;
     totalInbound: number;
-    /** P1A：当前来源模式；skippedByMode=true 表示非包装入库模式，本次未生成可售库存（互斥） */
     mode?: string;
     skippedByMode?: boolean;
   }> {
-    // ── 幂等键：该包装任务是否已生成过可售批次 ──────────────────────────────
-    const existing = await this.ds.query(
-      `SELECT batch_no, product_code, quality_grade, qty
-         FROM inv_batches
-        WHERE packaging_batch_ref = $1 AND source_type = 'PACKAGING'`,
-      [taskNo],
-    );
-    if (existing.length > 0) {
-      this.logger.log(`[PkgInv] 任务 ${taskNo} 已入库（幂等跳过），批次数=${existing.length}`);
-      return {
-        taskNo,
-        idempotent: true,
-        companyCode: existing[0]?.company_code ?? 'ALL',
-        batches: existing.map((b: any) => ({
-          batchNo: b.batch_no, grade: b.quality_grade, qty: Number(b.qty), productCode: b.product_code,
-        })),
-        skippedNonSaleable: [],
-        totalInbound: existing.reduce((s: number, b: any) => s + Number(b.qty), 0),
-      };
-    }
-
-    // ── 读取包装任务 ──────────────────────────────────────────────────────────
     const taskRows = await this.ds.query(
       `SELECT task_no, grade_results, house_code, pack_spec, packed_qty, output_qty,
               created_at, shift_id
@@ -124,63 +190,126 @@ export class PackagingInventoryIntegrationService {
     const task = taskRows[0];
     if (!task) throw new NotFoundException(`包装任务不存在：${taskNo}`);
 
-    const companyCode = await this.resolveCompanyCode(opts?.companyCode);
-
-    // ── P1A 互斥门控：仅 PACKAGING_INBOUND 模式允许包装完成生成可售库存 ──────────
-    //   TEMP_PRODUCTION_INBOUND 模式下，库存由日产蛋入库生成，包装完成不再写可售库存（防双写）。
-    const mode = await this.modeSvc.resolveMode({ siteCode: task.house_code ?? null, companyCode });
-    if (mode !== 'PACKAGING_INBOUND') {
-      this.logger.log(`[PkgInv] 任务 ${taskNo} 当前为 ${mode} 模式，跳过包装可售入库（互斥，防双写）`);
-      return {
-        taskNo, idempotent: false, companyCode,
-        batches: [], skippedNonSaleable: [], totalInbound: 0,
-        mode, skippedByMode: true,
-      };
-    }
-
-    const eggDate = task.created_at
-      ? new Date(task.created_at).toISOString().slice(0, 10)
-      : new Date().toISOString().slice(0, 10);
-    const collectionRef = task.shift_id ? `SHIFT-${task.shift_id}` : (task.house_code ?? null);
-
-    // 解析等级产出
+    // 解析等级产出（无明细 → 用 output_qty/packed_qty 整体入等级 A）
     const gr: Record<string, number> = (() => {
       const v = task.grade_results;
       if (!v) return {};
       try { return typeof v === 'string' ? JSON.parse(v) : v; } catch { return {}; }
     })();
-    const saleable = await this.loadSaleableGrades();
-
-    const grades = Object.entries(gr).filter(([, v]) => Number(v) > 0);
-    const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }> = [];
-    const skippedNonSaleable: Array<{ grade: string; qty: number }> = [];
-
-    // 无等级明细 → 用 packed_qty 整体入一条默认可售批次（等级 A）
-    if (grades.length === 0) {
+    let gradeOutputs = Object.fromEntries(
+      Object.entries(gr).filter(([, v]) => Number(v) > 0).map(([k, v]) => [k, Number(v)]),
+    );
+    if (Object.keys(gradeOutputs).length === 0) {
       const qty = Number(task.output_qty) || Number(task.packed_qty) || 0;
-      if (qty > 0) {
-        const b = await this.createSaleableBatch(
-          companyCode, eggDate, 'A', qty, taskNo, collectionRef, task.pack_spec,
-        );
-        batches.push(b);
-      }
-    } else {
-      for (const [gradeCode, qtyValue] of grades) {
-        const qty = Math.max(0, Number(qtyValue) || 0);
-        if (qty === 0) continue;
-        if (!saleable.has(gradeCode)) { skippedNonSaleable.push({ grade: gradeCode, qty }); continue; }
-        const b = await this.createSaleableBatch(
-          companyCode, eggDate, gradeCode, qty, taskNo, collectionRef, task.pack_spec,
-        );
-        batches.push(b);
-      }
+      if (qty > 0) gradeOutputs = { A: qty };
     }
 
-    const totalInbound = batches.reduce((s, b) => s + b.qty, 0);
-    this.logger.log(
-      `[PkgInv] 任务 ${taskNo} 包装入库完成 company=${companyCode} 可售批次=${batches.length} 入库=${totalInbound} 隔离等级=${skippedNonSaleable.length}`,
+    const eggDate = task.created_at
+      ? new Date(task.created_at).toISOString().slice(0, 10)
+      : undefined;
+    const collectionRef = task.shift_id ? `SHIFT-${task.shift_id}` : (task.house_code ?? null);
+
+    const r = await this.generateSaleableFromOutputs(taskNo, gradeOutputs, {
+      companyCode:   opts?.companyCode,
+      siteCode:      task.house_code ?? null,
+      eggDate,
+      collectionRef,
+      packSpec:      task.pack_spec ?? null,
+    });
+    return { ...r, taskNo: r.refNo };
+  }
+
+  /**
+   * 【收口入口 · P1C】BFF 真实车间流 成品交接 → 生成 Sales V2 可售库存（幂等）。
+   * 数据源为 BFF 包装记录 pkg_packing_records.batches_json（[{grade, eggs}]），
+   * 不依赖 Admin 流的 pkg_tasks。幂等键 = packingCode。
+   *
+   * @param packingCode  pkg_packing_records.code（PKG-*），作为幂等键写入 packaging_batch_ref
+   */
+  async completeTerminalPacking(
+    packingCode: string,
+    opts?: { companyCode?: string },
+  ): Promise<{
+    refNo: string;
+    idempotent: boolean;
+    companyCode: string;
+    batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }>;
+    skippedNonSaleable: Array<{ grade: string; qty: number }>;
+    totalInbound: number;
+    mode?: string;
+    skippedByMode?: boolean;
+    note?: string;
+  }> {
+    if (!packingCode) {
+      return { refNo: '', idempotent: false, companyCode: 'ALL', batches: [], skippedNonSaleable: [], totalInbound: 0, note: '无 packingCode，跳过库存生成' };
+    }
+
+    // 读取包装记录
+    const rows = await this.ds.query(
+      `SELECT code, production_date, batches_json, shift_id
+         FROM pkg_packing_records WHERE code = $1 LIMIT 1`,
+      [packingCode],
     );
-    return { taskNo, idempotent: false, companyCode, batches, skippedNonSaleable, totalInbound, mode, skippedByMode: false };
+    const rec = rows[0];
+    if (!rec) {
+      return { refNo: packingCode, idempotent: false, companyCode: 'ALL', batches: [], skippedNonSaleable: [], totalInbound: 0, note: `包装记录不存在：${packingCode}` };
+    }
+
+    // 解析 batches_json → 按等级累加（归一化等级码）
+    const batchesJson: Array<{ grade?: string; eggs?: number }> = (() => {
+      const v = rec.batches_json;
+      if (!v) return [];
+      try { return typeof v === 'string' ? JSON.parse(v) : v; } catch { return []; }
+    })();
+    const keyMap = await this.buildGradeKeyMap();
+    const gradeOutputs: Record<string, number> = {};
+    for (const b of batchesJson) {
+      if (!b?.grade) continue;
+      const g = keyMap[b.grade] ?? b.grade;
+      gradeOutputs[g] = (gradeOutputs[g] || 0) + Number(b.eggs || 0);
+    }
+
+    // 解析 site（pkg_work_shifts.site_id）用于 SITE 级模式门控
+    let siteCode: string | null = null;
+    if (rec.shift_id) {
+      const ws = await this.ds.query(
+        `SELECT site_id FROM pkg_work_shifts WHERE id = $1 LIMIT 1`, [rec.shift_id],
+      );
+      siteCode = ws[0]?.site_id ?? null;
+    }
+
+    const eggDate = rec.production_date
+      ? new Date(rec.production_date).toISOString().slice(0, 10)
+      : undefined;
+    const collectionRef = rec.shift_id ? `SHIFT-${rec.shift_id}` : null;
+
+    const r = await this.generateSaleableFromOutputs(packingCode, gradeOutputs, {
+      companyCode: opts?.companyCode,
+      siteCode,
+      eggDate,
+      collectionRef,
+    });
+    return r;
+  }
+
+  /** 构建等级归一化映射：PKG_EGG_GRADE 字典 config_json.code/terminalCode → dict_code */
+  private async buildGradeKeyMap(): Promise<Record<string, string>> {
+    const map: Record<string, string> = {};
+    try {
+      const dictRows = await this.ds.query(
+        `SELECT dict_code, config_json FROM sys_dict WHERE dict_type IN ('PKG_EGG_GRADE','PKG_EGG_DEFECT')`,
+      );
+      for (const d of dictRows || []) {
+        const dc = d.dict_code as string;
+        map[dc] = dc;
+        try {
+          const cfg = typeof d.config_json === 'string' ? JSON.parse(d.config_json) : (d.config_json ?? {});
+          if (cfg.code)         map[String(cfg.code)]         = dc;
+          if (cfg.terminalCode) map[String(cfg.terminalCode)] = dc;
+        } catch { /* ignore */ }
+      }
+    } catch { /* 字典不可用 → 恒等映射 */ }
+    return map;
   }
 
   /** 生成单条可售批次（走 EggInventoryService 统一命名 + FIFO 体系） */
