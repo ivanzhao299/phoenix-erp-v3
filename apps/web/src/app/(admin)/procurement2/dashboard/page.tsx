@@ -6,9 +6,9 @@ import {
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
+import request from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3100";
 
 // ── 类型定义 ─────────────────────────────────────────────────────────────────
 interface Summary {
@@ -104,22 +104,22 @@ export default function ProcurementDashboardPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const token = sessionStorage.getItem("phoenix_token");
-      const headers = { Authorization: `Bearer ${token}` };
       const qs = buildQs();
-      const base = `${API}/api/v2/procurement/dashboard`;
+      const base = `/v2/procurement/dashboard`;
+      // 走统一 request()：自动带认证 + 401 静默刷新重试（取代原生 fetch 手动读 token）
+      // 非关键 widget 单独容错：某块缺权限(如股东资金需 MENU_PRC2_FUND)或失败时置空，不拖垮整页
+      const safe = <T,>(p: Promise<T>, fb: T): Promise<T> => p.catch(() => fb);
 
       const [s1, s2, s3, s4, s5, s6, s7] = await Promise.all([
-        fetch(`${base}/summary?${qs}`,            { headers }).then(r => r.json()),
-        fetch(`${base}/ap-aging?${qs}`,           { headers }).then(r => r.json()),
-        fetch(`${base}/project-cost?${qs}`,       { headers }).then(r => r.json()),
-        fetch(`${base}/payment-trend?${qs}`,      { headers }).then(r => r.json()),
-        fetch(`${base}/shareholder-summary?${qs}`,{ headers }).then(r => r.json()),
-        fetch(`${base}/shipment-status?${qs}`,    { headers }).then(r => r.json()),
-        fetch(`${base}/supplier-performance?${qs}`,{ headers }).then(r => r.json()),
+        request<any>(`${base}/summary?${qs}`),                          // 关键：失败则整页提示
+        safe(request<any[]>(`${base}/ap-aging?${qs}`), []),
+        safe(request<any[]>(`${base}/project-cost?${qs}`), []),
+        safe(request<any[]>(`${base}/payment-trend?${qs}`), []),
+        safe(request<any[]>(`${base}/shareholder-summary?${qs}`), []),
+        safe(request<any[]>(`${base}/shipment-status?${qs}`), []),
+        safe(request<any[]>(`${base}/supplier-performance?${qs}`), []),
       ]);
 
-      if (s1?.statusCode >= 400) throw new Error(s1.message ?? "加载失败");
       setSummary(s1);
       setAging(Array.isArray(s2) ? s2 : []);
       setProjectCost(Array.isArray(s3) ? s3 : []);
