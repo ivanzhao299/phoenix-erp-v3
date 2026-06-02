@@ -17,6 +17,58 @@
 
 由于无真实数据，重构无需为兼容历史付出复杂度——这是建立正确架构的**唯一窗口期**。
 
+> **R0-A 最高优先级原则 · Real Runtime First**：删减时**优先保留真实业务运行系统（Real Runtime）**，
+> **优先删除历史遗留后台系统（Legacy Admin Runtime）**。**禁止反向处理**（绝不能删真实流去保孤儿流）。
+
+---
+
+## R0-A · Real Runtime First（最高优先级原则）
+
+系统中存在两类：
+- **A 类 Real Runtime**：真实业务运行系统（现场/前台实际在用）。
+- **C 类 Legacy Admin Runtime**：历史遗留后台系统（无人调用 / 重复流程）。
+
+重构铁律：**保留 A，删除 C，禁止反向。**
+
+### ⚠️ 命名陷阱（必须先钉死，防误删）
+
+后端文件**目录名会骗人**——以实际路由绑定与前端调用为准：
+
+| 后端文件 | 路由前缀 | 前端是否调用 | 分类 |
+|---------|---------|------------|------|
+| `bff.controller.ts` · `PackagingTerminalBffController` | `/api/packaging/terminal/*` | ✅ 全部车间页面（经 `packaging-api.ts`） | **A 真实流 · 保护** |
+| `terminal/packaging.service.ts` + `terminal/packaging.controller.ts` · `PackagingController` | `/api/packaging/*`（非 terminal） | ❌ 零调用（grep 实证） | **C 孤儿 admin 流 · 删除候选** |
+
+> 注意：`terminal/packaging.service.ts` 虽在 `terminal/` 目录下，**它是 C 类孤儿 admin 流**，
+> **不是**受保护的真实车间流。真实车间流的后端在 `bff.controller.ts`。**删除时按"路由+调用"判定，不按目录名。**
+
+---
+
+## R0-B · Protected Runtime List（保护清单）
+
+以下模块**禁止直接删除/重写/替换/废弃**，必须 **先审计 → 先迁移 → 先接线 → 最后决定**：
+
+| 保护模块 | 范围 | 理由 |
+|---------|------|------|
+| **`(terminal)/terminal/packaging/*`**（前端）+ `packaging-api.ts` + BFF `PackagingTerminalBffController`（后端） | 开班/集蛋接收/首检/分级/包装/标签打印/成品交接/交班/异常 | 真实车间作业流，Phoenix ERP V3 真实 Runtime |
+| **`mobile/*`** | 移动端现场入口 | 现场真实业务入口，优先迁移不得直删 |
+| **`store-pos/*`** | 门店收银 | 未来直营店销售入口；允许 UI/组件/Token 统一，**禁止重写业务逻辑** |
+
+**包装作业台核心判断**：不是包装作业台有问题，而是 **包装作业台 → 库存生成 → 销售库存 接线错误**。
+→ **允许接线重构（P1C/P1E 已做），禁止功能推翻重建。**
+
+---
+
+## R0-F · 模块三分类（重构优先级）
+
+| 类 | 名称 | 示例 | 处置 |
+|----|------|------|------|
+| **A** | Real Runtime（真实运行） | `terminal/packaging`（前端+BFF）、`store-pos`、`mobile` | **保护**：只接线/收口/统一，最后优化 |
+| **B** | Business Runtime（核心业务） | `sales2`、`finance2`、`procurement2`、inventory(inv_*) | **收口**：去重、统一入口 |
+| **C** | Legacy Runtime（历史遗留） | farm-egg 库存、farm-sales 直扣、孤儿 admin 包装流(`/api/packaging/*`)、EGG-STOCK-*/PRD-EGG-* 命名、legacy_source | **删除** |
+
+**执行顺序：先删 C → 再收口 B → 最后优化 A。**
+
 ---
 
 ## 1. 当前架构问题
@@ -239,6 +291,71 @@ InventorySourceModeService + inv_source_mode；Sales V2 订单/配送/退货/POS
 **6. 是否适合作为正式上线版本？**
 **R0 是蓝图，不是上线版本。** 按 R1–R6 执行落地后（删重复→统一入口→统一扣减→追溯→上线准备），
 即形成可作为正式上线的最终架构。当前阶段产出蓝图与路线图，**为上线建立最终架构基线**。
+
+---
+
+## R0-C · Mobile Runtime Protection
+
+`mobile/*` = 现场移动端，真实业务入口（鸡蛋出入库/集蛋/日报/质检/包装统计等）。
+- **优先迁移，不得直接删除。**
+- 旁路相关（如 `mobile/egg` 的直入库存）随 C 类删除而调整为只读/改走统一入口，但**移动端壳与作业入口保留**。
+
+## R0-D · POS Runtime Protection
+
+`store-pos/*` = 门店收银，未来直营店销售入口。
+- 允许：UI 统一 / 组件统一 / Token 统一（设计系统对齐）。
+- **禁止重写业务逻辑**（FIFO 扣减、Cash/AR/Mixed 收款链路保持）。
+- POS 库存扣减统一走 Sales V2 Inventory Runtime（已是）。
+
+## R0-E · 最终保留模块清单（KEEP / PROTECT）
+
+| 模块 | 类 | 处置 |
+|------|----|------|
+| `(terminal)/terminal/packaging/*` + `packaging-api.ts` + BFF `PackagingTerminalBffController` | A | **保护**：唯一包装主流程，仅接线/收口 |
+| `store-pos/*` | A | **保护**：仅 UI/组件/Token 统一 |
+| `mobile/*` | A | **保护**：优先迁移 |
+| `inv_batches` / `inv_ledger` | B | 保留：唯一库存表 |
+| Sales V2 `EggInventoryService`(FIFO)+Scheduler | B | 保留：唯一销售库存扣减 |
+| `PackagingInventoryIntegrationService`(completeTerminalPacking/generateSaleableFromOutputs) | B | 保留：包装→库存唯一入口 |
+| `InventorySourceModeService` + `inv_source_mode` | B | 保留：模式/灰度治理 |
+| `ProductionInboundService`(TEMP) | B | 过渡保留 |
+| Sales V2 订单/配送/退货 Runtime | B | 保留 |
+| 唯一命名 `EGG-YYYYMMDD-*`(+sku/grade/spec/expire) | B | 保留 |
+
+## R0-F · 最终淘汰模块清单（DELETE / Legacy Candidate）
+
+| 模块 | 类 | 处置 | 阶段 |
+|------|----|------|------|
+| `farm-egg.service.ts` 库存能力(inbound/outbound/writeOff/建批次) + `farm-egg.controller.ts` 写端点 | C | 删除（集蛋记录改纯只读） | R1 |
+| `farm-sales.service.ts` 直扣库存 + `farm-sales.controller.ts` | C | 删除 | R4 |
+| **孤儿 admin 包装流** `terminal/packaging.service.ts` 库存写入方法 + `packaging.controller.ts`(`/api/packaging/*`) + `GradingController`(`/api/grading`) | C | 删除/降级（查询方法可留为后台只读） | R2 |
+| `completePackagingBatch(taskNo)`（pkg_tasks 版入口） | C | 删除（留 completeTerminalPacking） | R2 |
+| `EGG-STOCK-*` / `PRD-EGG-*` 命名体系 + 测试批次 | C | 删除（数据清空） | R1/R2 |
+| `legacy_source` 隔离复杂度 | C | 退役（单命名后 FIFO 去掉 IS NULL 条件） | R4 |
+
+> **再次强调**：被删的"packaging"是 `/api/packaging/*` 孤儿 admin 流，**不是** `/api/packaging/terminal/*` 真实车间流。
+
+---
+
+## 13b. 重新回答（Real Runtime First 视角）
+
+**1. 哪些模块属于 Real Runtime（A）？**
+`(terminal)/terminal/packaging/*`（前端车间台）+ 其 BFF 后端 `PackagingTerminalBffController`；`store-pos/*`；`mobile/*`。
+
+**2. 哪些模块属于 Legacy Runtime（C）？**
+farm-egg 库存能力（EGG-STOCK-*）；farm-sales 直扣；**孤儿 admin 包装流 `/api/packaging/*`（`terminal/packaging.service.ts` + `packaging.controller.ts`，零前端调用）**；`completePackagingBatch(taskNo)`；EGG-STOCK-*/PRD-EGG-* 命名 + legacy_source。
+
+**3. 哪些模块必须保护？**
+Protected Runtime List：`terminal/packaging/*`（真实流）、`mobile/*`、`store-pos/*`。禁直删/直重写/直替换/直废弃；先审计→先迁移→先接线→最后决定。
+
+**4. 哪些模块允许删除？**
+仅 C 类（上方淘汰清单）。**A 类一律不删，只接线/收口/统一。**
+
+**5. 包装作业台是否保留？**
+**保留。** `terminal/packaging/*` 是真实车间运行系统，列入 Protected Runtime。问题在"包装→库存→销售"接线，已由 P1C/P1E 接线收口；只做接线重构，不功能推翻。
+
+**6. 未来唯一包装体系是什么？**
+**`/api/packaging/terminal/*`（BFF terminal 真实车间流）** = 唯一包装主流程；成品交接 `warehouse/confirm` → `completeTerminalPacking` 生成唯一可售库存 `EGG-YYYYMMDD-*`。历史 `/api/packaging/*` admin 流淘汰。
 
 ---
 
