@@ -95,6 +95,13 @@ export type { MobilePageShellProps } from './mobile/MobileKit';
 
 // workbench kit
 export { WorkbenchShell, WorkbenchActionButton, WorkbenchStatusCard } from './workbench/WorkbenchKit';
+export {
+  WorkbenchHeader, WorkbenchProductCard, WorkbenchCartPanel,
+  WorkbenchSummaryBar, WorkbenchKeypad, WorkbenchEmptyState,
+} from './workbench/WorkbenchParts';
+
+// displays
+export { MoneyDisplay, DateDisplay, CompactStatusBadge } from './status/Displays';
 
 // templates
 export { ListPageTemplate, DashboardTemplate, DetailPageTemplate } from './templates/PageTemplates';

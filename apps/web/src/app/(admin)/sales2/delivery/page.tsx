@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import PageHeader from '@/components/PageHeader';
+import { PageHeaderV2 } from '@/components/design-system';
 import {
   Plus, RefreshCw, Search, Truck, Users, Car,
   CheckCircle, Clock, AlertTriangle, Package,
@@ -8,6 +8,7 @@ import {
   Navigation, Flag, Ban,
 } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
+import { ConfirmDialogV2 } from '@/components/design-system';
 import { KpiCard } from '@/components/ui/KpiCard';
 import { hexToAccent, KPI_GRID } from '@/lib/design-tokens';
 
@@ -36,30 +37,30 @@ async function api<T = any>(method: string, path: string, body?: unknown): Promi
 // ── 状态配置 ──────────────────────────────────────────────────────────────────
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string; icon: any }> = {
-  PLANNED:          { label: '待装车',    color: '#94a3b8', bg: 'rgba(148,163,184,0.1)', icon: Clock },
-  LOADING:          { label: '装车中',    color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  icon: Package },
-  LOADED:           { label: '已装车',    color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',  icon: Package },
-  DEPARTED:         { label: '已发车',    color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)',  icon: Navigation },
-  ARRIVED:          { label: '已到达',    color: '#06b6d4', bg: 'rgba(6,182,212,0.1)',   icon: MapPin },
-  PARTIALLY_SIGNED: { label: '部分签收',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: AlertTriangle },
-  COMPLETED:        { label: '已完成',    color: '#22c55e', bg: 'rgba(34,197,94,0.1)',   icon: CheckCircle },
-  CANCELLED:        { label: '已取消',    color: '#64748b', bg: 'rgba(100,116,139,0.1)', icon: Ban },
+  PLANNED:          { label: '待装车',    color: 'var(--text-disabled)', bg: 'rgba(148,163,184,0.1)', icon: Clock },
+  LOADING:          { label: '装车中',    color: 'var(--status-warning)', bg: 'rgba(245,158,11,0.1)',  icon: Package },
+  LOADED:           { label: '已装车',    color: 'var(--color-accent)', bg: 'rgba(59,130,246,0.12)',  icon: Package },
+  DEPARTED:         { label: '已发车',    color: 'var(--status-special)', bg: 'rgba(139,92,246,0.1)',  icon: Navigation },
+  ARRIVED:          { label: '已到达',    color: 'var(--color-accent)', bg: 'rgba(6,182,212,0.1)',   icon: MapPin },
+  PARTIALLY_SIGNED: { label: '部分签收',  color: 'var(--status-warning)', bg: 'rgba(245,158,11,0.12)', icon: AlertTriangle },
+  COMPLETED:        { label: '已完成',    color: 'var(--status-success)', bg: 'rgba(34,197,94,0.1)',   icon: CheckCircle },
+  CANCELLED:        { label: '已取消',    color: 'var(--text-secondary)', bg: 'rgba(100,116,139,0.1)', icon: Ban },
 };
 
 // 状态机操作
 const ACTIONS: Record<string, { label: string; endpoint: string; color: string; icon: any }> = {
-  PLANNED:          { label: '开始装车', endpoint: 'start-loading', color: '#f59e0b', icon: PlayCircle },
-  LOADING:          { label: '装车完成', endpoint: 'finish-loading', color: '#3b82f6', icon: StopCircle },
-  LOADED:           { label: '确认发车', endpoint: 'depart',         color: '#8b5cf6', icon: Navigation },
-  DEPARTED:         { label: '确认到达', endpoint: 'arrive',         color: '#06b6d4', icon: MapPin },
-  ARRIVED:          { label: '强制完成', endpoint: 'complete',       color: '#22c55e', icon: Flag },
-  PARTIALLY_SIGNED: { label: '强制完成', endpoint: 'complete',       color: '#22c55e', icon: Flag },
+  PLANNED:          { label: '开始装车', endpoint: 'start-loading', color: 'var(--status-warning)', icon: PlayCircle },
+  LOADING:          { label: '装车完成', endpoint: 'finish-loading', color: 'var(--color-accent)', icon: StopCircle },
+  LOADED:           { label: '确认发车', endpoint: 'depart',         color: 'var(--status-special)', icon: Navigation },
+  DEPARTED:         { label: '确认到达', endpoint: 'arrive',         color: 'var(--color-accent)', icon: MapPin },
+  ARRIVED:          { label: '强制完成', endpoint: 'complete',       color: 'var(--status-success)', icon: Flag },
+  PARTIALLY_SIGNED: { label: '强制完成', endpoint: 'complete',       color: 'var(--status-success)', icon: Flag },
 };
 
 const RECEIPT_STATUS_MAP: Record<string, { label: string; color: string }> = {
-  SIGNED:    { label: '正常签收', color: '#22c55e' },
-  PARTIAL:   { label: '部分签收', color: '#f59e0b' },
-  EXCEPTION: { label: '异常签收', color: '#ef4444' },
+  SIGNED:    { label: '正常签收', color: 'var(--status-success)' },
+  PARTIAL:   { label: '部分签收', color: 'var(--status-warning)' },
+  EXCEPTION: { label: '异常签收', color: 'var(--status-danger)' },
 };
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
@@ -140,7 +141,7 @@ interface Vehicle {
 // ── 子组件 ────────────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_MAP[status] ?? { label: status, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)', icon: Clock };
+  const cfg = STATUS_MAP[status] ?? { label: status, color: 'var(--text-disabled)', bg: 'rgba(148,163,184,0.1)', icon: Clock };
   const Icon = cfg.icon;
   return (
     <span style={{
@@ -177,6 +178,7 @@ export default function DeliveryPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionErr, setActionErr] = useState('');
+  const [cancelConfirm, setCancelConfirm] = useState(false);
 
   // ── 签收弹窗 ──
   const [signingItem, setSigningItem] = useState<DeliveryItem | null>(null);
@@ -308,8 +310,10 @@ export default function DeliveryPage() {
     } finally { setActionLoading(false); }
   };
 
-  const cancelOrder = async () => {
-    if (!selected || !confirm('确认取消此配送单？')) return;
+  const cancelOrder = () => { if (selected) setCancelConfirm(true); };
+  const doCancelOrder = async () => {
+    setCancelConfirm(false);
+    if (!selected) return;
     setActionLoading(true); setActionErr('');
     try {
       await api('POST', `/api/v2/sales/delivery/${selected.id}/cancel`, {});
@@ -399,7 +403,7 @@ export default function DeliveryPage() {
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 1400 }}>
-      <PageHeader
+      <PageHeaderV2
         title="配送管理"
         subtitle="配送单管理 · 装车→发车→到达→签收"
       />
@@ -408,13 +412,13 @@ export default function DeliveryPage() {
       {stats && (
         <div style={{ ...KPI_GRID, marginBottom: 24 }}>
           {[
-            { label: '待装车', value: stats.planned,       color: '#94a3b8' },
-            { label: '装车中', value: stats.loading,       color: '#f59e0b' },
-            { label: '已装车', value: stats.loaded,        color: '#3b82f6' },
-            { label: '在途中', value: stats.departed,      color: '#8b5cf6' },
-            { label: '已到达', value: stats.arrived,       color: '#06b6d4' },
-            { label: '今日完成', value: stats.completedToday, color: '#22c55e' },
-            { label: '今日总单', value: stats.totalToday,  color: '#64748b' },
+            { label: '待装车', value: stats.planned,       color: 'var(--text-disabled)' },
+            { label: '装车中', value: stats.loading,       color: 'var(--status-warning)' },
+            { label: '已装车', value: stats.loaded,        color: 'var(--color-accent)' },
+            { label: '在途中', value: stats.departed,      color: 'var(--status-special)' },
+            { label: '已到达', value: stats.arrived,       color: 'var(--color-accent)' },
+            { label: '今日完成', value: stats.completedToday, color: 'var(--status-success)' },
+            { label: '今日总单', value: stats.totalToday,  color: 'var(--text-secondary)' },
           ].map(({ label, value, color }) => (
             <KpiCard key={label} label={label} value={value ?? 0} accentColor={hexToAccent(color)} />
           ))}
@@ -431,8 +435,8 @@ export default function DeliveryPage() {
           <button key={key} onClick={() => setTab(key)} style={{
             padding: '8px 20px', fontSize: 13, fontWeight: 600,
             background: 'none', border: 'none', cursor: 'pointer',
-            color: tab === key ? '#3b82f6' : 'var(--text-secondary)',
-            borderBottom: tab === key ? '2px solid #3b82f6' : '2px solid transparent',
+            color: tab === key ? 'var(--color-accent)' : 'var(--text-secondary)',
+            borderBottom: tab === key ? '2px solid var(--color-accent)' : '2px solid transparent',
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
             <Icon size={14} />{label}
@@ -471,11 +475,11 @@ export default function DeliveryPage() {
                 style={{ height: 34, width: 34, borderRadius: 6, background: 'var(--bg-muted)',
                   border: '1px solid var(--border)', cursor: 'pointer', display: 'flex',
                   alignItems: 'center', justifyContent: 'center' }}>
-                <RefreshCw size={13} style={{ color: '#94a3b8' }} />
+                <RefreshCw size={13} style={{ color: 'var(--text-disabled)' }} />
               </button>
               <button onClick={() => setShowCreate(true)}
-                style={{ height: 34, padding: '0 14px', borderRadius: 6, background: '#3b82f6',
-                  border: 'none', cursor: 'pointer', color: '#fff', fontSize: 13, fontWeight: 600,
+                style={{ height: 34, padding: '0 14px', borderRadius: 6, background: 'var(--color-accent)',
+                  border: 'none', cursor: 'pointer', color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600,
                   display: 'flex', alignItems: 'center', gap: 5 }}>
                 <Plus size={13} />新建
               </button>
@@ -499,14 +503,14 @@ export default function DeliveryPage() {
                     <div style={{ fontWeight: 700, fontSize: 13, fontFamily: 'monospace' }}>{o.delivery_no}</div>
                     <StatusBadge status={o.status} />
                   </div>
-                  <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#94a3b8', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text-disabled)', flexWrap: 'wrap' }}>
                     {o.driver_name && <span><Users size={10} style={{ display: 'inline', marginRight: 3 }} />{o.driver_name}</span>}
                     {o.vehicle_no && <span><Car size={10} style={{ display: 'inline', marginRight: 3 }} />{o.vehicle_no}</span>}
                     {o.route_name && <span><MapPin size={10} style={{ display: 'inline', marginRight: 3 }} />{o.route_name}</span>}
                     <span><Package size={10} style={{ display: 'inline', marginRight: 3 }} />{o.total_orders}单 / {o.total_qty}件</span>
                   </div>
                   {o.wave_date && (
-                    <div style={{ marginTop: 4, fontSize: 11, color: '#64748b' }}>波次：{o.wave_date}</div>
+                    <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-secondary)' }}>波次：{o.wave_date}</div>
                   )}
                 </div>
               ))}
@@ -564,8 +568,8 @@ export default function DeliveryPage() {
                   ['完成时间', selected.completed_at ? new Date(selected.completed_at).toLocaleString('zh-CN') : '—'],
                 ].map(([k, v]) => (
                   <div key={k} style={{ fontSize: 12 }}>
-                    <span style={{ color: '#64748b', marginRight: 6 }}>{k}:</span>
-                    <span style={{ color: '#e2e8f0' }}>{v}</span>
+                    <span style={{ color: 'var(--text-secondary)', marginRight: 6 }}>{k}:</span>
+                    <span style={{ color: 'var(--border)' }}>{v}</span>
                   </div>
                 ))}
               </div>
@@ -573,11 +577,11 @@ export default function DeliveryPage() {
               {/* 时间轴 */}
               <div style={{ display: 'flex', gap: 0, marginBottom: 16, fontSize: 11 }}>
                 {[
-                  { label: '创建', time: selected.created_at, color: '#94a3b8' },
-                  { label: '开始装车', time: selected.loading_start_at, color: '#f59e0b' },
-                  { label: '发车', time: selected.departure_at, color: '#8b5cf6' },
-                  { label: '到达', time: selected.actual_arrival_at, color: '#06b6d4' },
-                  { label: '完成', time: selected.completed_at, color: '#22c55e' },
+                  { label: '创建', time: selected.created_at, color: 'var(--text-disabled)' },
+                  { label: '开始装车', time: selected.loading_start_at, color: 'var(--status-warning)' },
+                  { label: '发车', time: selected.departure_at, color: 'var(--status-special)' },
+                  { label: '到达', time: selected.actual_arrival_at, color: 'var(--color-accent)' },
+                  { label: '完成', time: selected.completed_at, color: 'var(--status-success)' },
                 ].map(({ label, time, color }, i) => (
                   <div key={label} style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
                     <div style={{
@@ -589,8 +593,8 @@ export default function DeliveryPage() {
                       <div style={{ position: 'absolute', top: 3, left: '50%', width: '100%',
                         height: 2, background: 'var(--border)' }} />
                     )}
-                    <div style={{ color: time ? color : '#334155' }}>{label}</div>
-                    {time && <div style={{ color: '#64748b', marginTop: 2 }}>
+                    <div style={{ color: time ? color : 'var(--text-primary)' }}>{label}</div>
+                    {time && <div style={{ color: 'var(--text-secondary)', marginTop: 2 }}>
                       {new Date(time).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                     </div>}
                   </div>
@@ -608,7 +612,7 @@ export default function DeliveryPage() {
                         disabled={actionLoading}
                         onClick={() => doAction(act.endpoint)}
                         style={{ padding: '8px 18px', borderRadius: 6, border: 'none', cursor: 'pointer',
-                          background: act.color, color: '#fff', fontSize: 13, fontWeight: 600,
+                          background: act.color, color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600,
                           display: 'flex', alignItems: 'center', gap: 6, opacity: actionLoading ? 0.6 : 1 }}>
                         <Icon size={13} />{act.label}
                       </button>
@@ -617,18 +621,18 @@ export default function DeliveryPage() {
                   {['PLANNED', 'LOADING'].includes(selected.status) && (
                     <button disabled={actionLoading} onClick={cancelOrder}
                       style={{ padding: '8px 14px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.4)',
-                        cursor: 'pointer', background: 'rgba(239,68,68,0.1)', color: '#ef4444',
+                        cursor: 'pointer', background: 'rgba(239,68,68,0.1)', color: 'var(--status-danger)',
                         fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
                       <Ban size={12} />取消
                     </button>
                   )}
                 </div>
               )}
-              {actionErr && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 10 }}>{actionErr}</div>}
+              {actionErr && <div style={{ color: 'var(--status-danger)', fontSize: 12, marginBottom: 10 }}>{actionErr}</div>}
 
               {/* 配送明细 */}
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', letterSpacing: 0.8,
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: 0.8,
                   marginBottom: 8, textTransform: 'uppercase' }}>配送明细</div>
                 {detailLoading && <div style={{ fontSize: 12, opacity: 0.4 }}>加载中…</div>}
                 {!detailLoading && items.length === 0 && <div style={{ fontSize: 12, opacity: 0.4 }}>暂无明细</div>}
@@ -641,7 +645,7 @@ export default function DeliveryPage() {
                     }}>
                       <div>
                         <div style={{ fontSize: 12, fontWeight: 600, fontFamily: 'monospace' }}>{item.sales_order_no}</div>
-                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
                           {item.customer_name ?? '—'} · 计划 {item.planned_qty} 件
                           {item.received_qty !== null && ` · 签收 ${item.received_qty} 件`}
                         </div>
@@ -652,9 +656,9 @@ export default function DeliveryPage() {
                           background: item.status === 'SIGNED' ? 'rgba(34,197,94,0.1)'
                             : item.status === 'EXCEPTION' ? 'rgba(239,68,68,0.1)'
                             : 'rgba(148,163,184,0.1)',
-                          color: item.status === 'SIGNED' ? '#22c55e'
-                            : item.status === 'EXCEPTION' ? '#ef4444'
-                            : '#94a3b8',
+                          color: item.status === 'SIGNED' ? 'var(--status-success)'
+                            : item.status === 'EXCEPTION' ? 'var(--status-danger)'
+                            : 'var(--text-disabled)',
                         }}>
                           {item.status === 'SIGNED' ? '已签收' : item.status === 'EXCEPTION' ? '异常' : '待签收'}
                         </span>
@@ -668,7 +672,7 @@ export default function DeliveryPage() {
                               setExceptionQty(''); setSignRemark(''); setSignErr('');
                             }}
                               style={{ padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(34,197,94,0.4)',
-                                background: 'rgba(34,197,94,0.08)', cursor: 'pointer', color: '#22c55e',
+                                background: 'rgba(34,197,94,0.08)', cursor: 'pointer', color: 'var(--status-success)',
                                 fontSize: 11, fontWeight: 600 }}>
                               签收
                             </button>
@@ -682,7 +686,7 @@ export default function DeliveryPage() {
               {/* 签收记录 */}
               {receipts.length > 0 && (
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', letterSpacing: 0.8,
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: 0.8,
                     marginBottom: 8, textTransform: 'uppercase' }}>签收记录</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {receipts.map(r => (
@@ -693,9 +697,9 @@ export default function DeliveryPage() {
                       }}>
                         <div>
                           <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{r.receipt_no}</span>
-                          {r.signed_by && <span style={{ color: '#64748b', marginLeft: 8 }}>签收人：{r.signed_by}</span>}
+                          {r.signed_by && <span style={{ color: 'var(--text-secondary)', marginLeft: 8 }}>签收人：{r.signed_by}</span>}
                           {r.exception_type && (
-                            <span style={{ color: '#ef4444', marginLeft: 8 }}>
+                            <span style={{ color: 'var(--status-danger)', marginLeft: 8 }}>
                               [{r.exception_type}] 异常 {r.exception_qty} 件
                             </span>
                           )}
@@ -703,13 +707,13 @@ export default function DeliveryPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{
                             fontSize: 11, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
-                            background: RECEIPT_STATUS_MAP[r.status]?.color === '#22c55e'
+                            background: RECEIPT_STATUS_MAP[r.status]?.color === 'var(--status-success)'
                               ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-                            color: RECEIPT_STATUS_MAP[r.status]?.color ?? '#94a3b8',
+                            color: RECEIPT_STATUS_MAP[r.status]?.color ?? 'var(--text-disabled)',
                           }}>
                             {RECEIPT_STATUS_MAP[r.status]?.label ?? r.status}
                           </span>
-                          <span style={{ color: '#64748b', fontSize: 11 }}>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>
                             收 {r.received_qty} 件 · {new Date(r.signed_at).toLocaleDateString('zh-CN')}
                           </span>
                         </div>
@@ -728,8 +732,8 @@ export default function DeliveryPage() {
         <div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
             <button onClick={() => setShowDriverForm(true)}
-              style={{ height: 34, padding: '0 14px', borderRadius: 6, background: '#3b82f6',
-                border: 'none', cursor: 'pointer', color: '#fff', fontSize: 13, fontWeight: 600,
+              style={{ height: 34, padding: '0 14px', borderRadius: 6, background: 'var(--color-accent)',
+                border: 'none', cursor: 'pointer', color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600,
                 display: 'flex', alignItems: 'center', gap: 5 }}>
               <Plus size={13} />新建司机
             </button>
@@ -742,7 +746,7 @@ export default function DeliveryPage() {
                 background: 'var(--bg-muted)', border: '1px solid var(--border)',
               }}>
                 <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{d.driver_name}</div>
-                <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-disabled)' }}>
                   <div>工号：<span style={{ fontFamily: 'monospace' }}>{d.driver_code}</span></div>
                   {d.phone && <div>电话：{d.phone}</div>}
                   {d.license_no && <div>驾照：{d.license_no}</div>}
@@ -752,7 +756,7 @@ export default function DeliveryPage() {
                   <span style={{
                     fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 4,
                     background: d.status === 'ACTIVE' ? 'rgba(34,197,94,0.1)' : 'rgba(100,116,139,0.1)',
-                    color: d.status === 'ACTIVE' ? '#22c55e' : '#64748b',
+                    color: d.status === 'ACTIVE' ? 'var(--status-success)' : 'var(--text-secondary)',
                   }}>
                     {d.status === 'ACTIVE' ? '在职' : '停用'}
                   </span>
@@ -773,8 +777,8 @@ export default function DeliveryPage() {
         <div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
             <button onClick={() => setShowVehicleForm(true)}
-              style={{ height: 34, padding: '0 14px', borderRadius: 6, background: '#3b82f6',
-                border: 'none', cursor: 'pointer', color: '#fff', fontSize: 13, fontWeight: 600,
+              style={{ height: 34, padding: '0 14px', borderRadius: 6, background: 'var(--color-accent)',
+                border: 'none', cursor: 'pointer', color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600,
                 display: 'flex', alignItems: 'center', gap: 5 }}>
               <Plus size={13} />新建车辆
             </button>
@@ -790,7 +794,7 @@ export default function DeliveryPage() {
                   <Car size={13} style={{ display: 'inline', marginRight: 5, opacity: 0.6 }} />
                   {v.vehicle_no}
                 </div>
-                <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-disabled)' }}>
                   {v.plate_no && <div>车牌：{v.plate_no}</div>}
                   {v.vehicle_type && <div>类型：{v.vehicle_type}</div>}
                   {v.capacity && <div>载重：{v.capacity} kg</div>}
@@ -801,8 +805,8 @@ export default function DeliveryPage() {
                     fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 4,
                     background: v.status === 'ACTIVE' ? 'rgba(34,197,94,0.1)'
                       : v.status === 'MAINTENANCE' ? 'rgba(245,158,11,0.1)' : 'rgba(100,116,139,0.1)',
-                    color: v.status === 'ACTIVE' ? '#22c55e'
-                      : v.status === 'MAINTENANCE' ? '#f59e0b' : '#64748b',
+                    color: v.status === 'ACTIVE' ? 'var(--status-success)'
+                      : v.status === 'MAINTENANCE' ? 'var(--status-warning)' : 'var(--text-secondary)',
                   }}>
                     {v.status === 'ACTIVE' ? '可用' : v.status === 'MAINTENANCE' ? '维修中' : '停用'}
                   </span>
@@ -825,7 +829,7 @@ export default function DeliveryPage() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <div style={{
-            width: 520, background: '#1e293b', borderRadius: 12, padding: '28px 32px',
+            width: 520, background: 'var(--text-primary)', borderRadius: 12, padding: '28px 32px',
             border: '1px solid var(--border)', maxHeight: '80vh', overflowY: 'auto',
           }}>
             <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 20 }}>新建配送单</div>
@@ -841,7 +845,7 @@ export default function DeliveryPage() {
                 { label: '备注', field: 'remark', multiline: true },
               ].map(({ label, field, type, multiline }) => (
                 <label key={field}>
-                  <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>{label}</div>
                   {multiline ? (
                     <textarea
                       value={(createForm as any)[field]}
@@ -864,7 +868,7 @@ export default function DeliveryPage() {
                 </label>
               ))}
             </div>
-            {createErr && <div style={{ color: '#ef4444', fontSize: 12, marginTop: 10 }}>{createErr}</div>}
+            {createErr && <div style={{ color: 'var(--status-danger)', fontSize: 12, marginTop: 10 }}>{createErr}</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
               <button onClick={() => { setShowCreate(false); setCreateErr(''); }}
                 style={{ padding: '8px 18px', borderRadius: 6, background: 'var(--bg-muted)',
@@ -872,8 +876,8 @@ export default function DeliveryPage() {
                 取消
               </button>
               <button disabled={createLoading} onClick={submitCreate}
-                style={{ padding: '8px 18px', borderRadius: 6, background: '#3b82f6',
-                  border: 'none', cursor: 'pointer', color: '#fff', fontSize: 13, fontWeight: 600,
+                style={{ padding: '8px 18px', borderRadius: 6, background: 'var(--color-accent)',
+                  border: 'none', cursor: 'pointer', color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600,
                   opacity: createLoading ? 0.6 : 1 }}>
                 {createLoading ? '提交中…' : '确认新建'}
               </button>
@@ -889,11 +893,11 @@ export default function DeliveryPage() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <div style={{
-            width: 420, background: '#1e293b', borderRadius: 12, padding: '28px 32px',
+            width: 420, background: 'var(--text-primary)', borderRadius: 12, padding: '28px 32px',
             border: '1px solid var(--border)',
           }}>
             <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 4 }}>客户签收</div>
-            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>
               {signingItem.sales_order_no} · {signingItem.customer_name}
             </div>
 
@@ -904,8 +908,8 @@ export default function DeliveryPage() {
                 <button key={mode} onClick={() => setSigningMode(mode)}
                   style={{ flex: 1, padding: '7px 0', fontSize: 13, fontWeight: 600, border: 'none',
                     cursor: 'pointer', transition: 'all 0.1s',
-                    background: signingMode === mode ? (mode === 'normal' ? '#22c55e' : '#ef4444') : 'transparent',
-                    color: signingMode === mode ? '#fff' : 'var(--text-secondary)',
+                    background: signingMode === mode ? (mode === 'normal' ? 'var(--status-success)' : 'var(--status-danger)') : 'transparent',
+                    color: signingMode === mode ? 'var(--bg-card)' : 'var(--text-secondary)',
                   }}>
                   {mode === 'normal' ? '✅ 正常签收' : '⚠️ 异常签收'}
                 </button>
@@ -914,7 +918,7 @@ export default function DeliveryPage() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <label>
-                <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>签收人</div>
+                <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>签收人</div>
                 <input value={signedBy} onChange={e => setSignedBy(e.target.value)}
                   placeholder="客户姓名"
                   style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--bg-muted)',
@@ -922,7 +926,7 @@ export default function DeliveryPage() {
                     padding: '0 10px', boxSizing: 'border-box' }} />
               </label>
               <label>
-                <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>
                   实收数量 *（计划 {signingItem.planned_qty} 件）
                 </div>
                 <input type="number" min={0} value={receivedQty} onChange={e => setReceivedQty(e.target.value)}
@@ -933,16 +937,16 @@ export default function DeliveryPage() {
               {signingMode === 'exception' && (
                 <>
                   <label>
-                    <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>异常数量 *</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>异常数量 *</div>
                     <input type="number" min={0} value={exceptionQty} onChange={e => setExceptionQty(e.target.value)}
                       style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--bg-muted)',
                         border: '1px solid var(--border)', color: 'inherit', fontSize: 13,
                         padding: '0 10px', boxSizing: 'border-box' }} />
                   </label>
                   <label>
-                    <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>异常类型 *</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>异常类型 *</div>
                     <select value={exceptionType} onChange={e => setExceptionType(e.target.value)}
-                      style={{ width: '100%', height: 34, borderRadius: 6, background: '#1e293b',
+                      style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--text-primary)',
                         border: '1px solid var(--border)', color: 'inherit', fontSize: 13,
                         padding: '0 10px', boxSizing: 'border-box' }}>
                       <option value="SHORTAGE">缺货（SHORTAGE）</option>
@@ -955,14 +959,14 @@ export default function DeliveryPage() {
                 </>
               )}
               <label>
-                <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>备注</div>
+                <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>备注</div>
                 <input value={signRemark} onChange={e => setSignRemark(e.target.value)}
                   style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--bg-muted)',
                     border: '1px solid var(--border)', color: 'inherit', fontSize: 13,
                     padding: '0 10px', boxSizing: 'border-box' }} />
               </label>
             </div>
-            {signErr && <div style={{ color: '#ef4444', fontSize: 12, marginTop: 10 }}>{signErr}</div>}
+            {signErr && <div style={{ color: 'var(--status-danger)', fontSize: 12, marginTop: 10 }}>{signErr}</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
               <button onClick={() => { setSigningItem(null); setSignErr(''); }}
                 style={{ padding: '8px 18px', borderRadius: 6, background: 'var(--bg-muted)',
@@ -971,8 +975,8 @@ export default function DeliveryPage() {
               </button>
               <button disabled={signLoading || !receivedQty} onClick={submitReceipt}
                 style={{ padding: '8px 18px', borderRadius: 6, border: 'none', cursor: 'pointer',
-                  background: signingMode === 'normal' ? '#22c55e' : '#ef4444',
-                  color: '#fff', fontSize: 13, fontWeight: 600,
+                  background: signingMode === 'normal' ? 'var(--status-success)' : 'var(--status-danger)',
+                  color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600,
                   opacity: (signLoading || !receivedQty) ? 0.6 : 1 }}>
                 {signLoading ? '提交中…' : '确认签收'}
               </button>
@@ -985,7 +989,7 @@ export default function DeliveryPage() {
       {showDriverForm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: 400, background: '#1e293b', borderRadius: 12, padding: '28px 32px',
+          <div style={{ width: 400, background: 'var(--text-primary)', borderRadius: 12, padding: '28px 32px',
             border: '1px solid var(--border)' }}>
             <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 20 }}>新建司机</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -994,7 +998,7 @@ export default function DeliveryPage() {
                 { label: '驾照号', field: 'licenseNo' }, { label: '公司代码 *', field: 'companyCode' },
               ].map(({ label, field }) => (
                 <label key={field}>
-                  <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>{label}</div>
                   <input value={(driverForm as any)[field]} onChange={e => setDriverForm(f => ({ ...f, [field]: e.target.value }))}
                     style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--bg-muted)',
                       border: '1px solid var(--border)', color: 'inherit', fontSize: 13,
@@ -1002,7 +1006,7 @@ export default function DeliveryPage() {
                 </label>
               ))}
             </div>
-            {driverErr && <div style={{ color: '#ef4444', fontSize: 12, marginTop: 10 }}>{driverErr}</div>}
+            {driverErr && <div style={{ color: 'var(--status-danger)', fontSize: 12, marginTop: 10 }}>{driverErr}</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
               <button onClick={() => { setShowDriverForm(false); setDriverErr(''); }}
                 style={{ padding: '8px 18px', borderRadius: 6, background: 'var(--bg-muted)',
@@ -1010,8 +1014,8 @@ export default function DeliveryPage() {
                 取消
               </button>
               <button onClick={submitDriver}
-                style={{ padding: '8px 18px', borderRadius: 6, background: '#3b82f6',
-                  border: 'none', cursor: 'pointer', color: '#fff', fontSize: 13, fontWeight: 600 }}>
+                style={{ padding: '8px 18px', borderRadius: 6, background: 'var(--color-accent)',
+                  border: 'none', cursor: 'pointer', color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600 }}>
                 保存
               </button>
             </div>
@@ -1023,7 +1027,7 @@ export default function DeliveryPage() {
       {showVehicleForm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: 400, background: '#1e293b', borderRadius: 12, padding: '28px 32px',
+          <div style={{ width: 400, background: 'var(--text-primary)', borderRadius: 12, padding: '28px 32px',
             border: '1px solid var(--border)' }}>
             <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 20 }}>新建车辆</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1033,7 +1037,7 @@ export default function DeliveryPage() {
                 { label: '公司代码 *', field: 'companyCode' },
               ].map(({ label, field, type }) => (
                 <label key={field}>
-                  <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>{label}</div>
                   <input type={type ?? 'text'} value={(vehicleForm as any)[field]}
                     onChange={e => setVehicleForm(f => ({ ...f, [field]: e.target.value }))}
                     style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--bg-muted)',
@@ -1042,7 +1046,7 @@ export default function DeliveryPage() {
                 </label>
               ))}
             </div>
-            {vehicleErr && <div style={{ color: '#ef4444', fontSize: 12, marginTop: 10 }}>{vehicleErr}</div>}
+            {vehicleErr && <div style={{ color: 'var(--status-danger)', fontSize: 12, marginTop: 10 }}>{vehicleErr}</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
               <button onClick={() => { setShowVehicleForm(false); setVehicleErr(''); }}
                 style={{ padding: '8px 18px', borderRadius: 6, background: 'var(--bg-muted)',
@@ -1050,14 +1054,24 @@ export default function DeliveryPage() {
                 取消
               </button>
               <button onClick={submitVehicle}
-                style={{ padding: '8px 18px', borderRadius: 6, background: '#3b82f6',
-                  border: 'none', cursor: 'pointer', color: '#fff', fontSize: 13, fontWeight: 600 }}>
+                style={{ padding: '8px 18px', borderRadius: 6, background: 'var(--color-accent)',
+                  border: 'none', cursor: 'pointer', color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600 }}>
                 保存
               </button>
             </div>
           </div>
         </div>
       )}
+
+      <ConfirmDialogV2
+        open={cancelConfirm}
+        title="取消配送单"
+        danger
+        confirmLabel="确认取消"
+        message="确认取消此配送单？此操作不可撤销。"
+        onConfirm={doCancelOrder}
+        onCancel={() => setCancelConfirm(false)}
+      />
     </div>
   );
 }
