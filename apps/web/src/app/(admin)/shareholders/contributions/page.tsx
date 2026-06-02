@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react';
 import { shareholderApi, ShrContribution, ShrProject, SOURCE_TYPE_LABEL, CONTRIB_STATUS_LABEL, lbl } from '@/lib/shareholder-api';
 import { SummaryBar, sum, yuan } from '../SummaryBar';
 
-const th: React.CSSProperties = { textAlign: 'left', padding: '10px 12px', background: '#1F4E79', color: '#fff', fontSize: 13, fontWeight: 600 };
-const td: React.CSSProperties = { padding: '9px 12px', borderBottom: '1px solid #eee', fontSize: 13.5 };
+const th: React.CSSProperties = { textAlign: 'left', padding: '10px 12px', background: 'var(--color-primary)', color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600 };
+const td: React.CSSProperties = { padding: '9px 12px', borderBottom: '1px solid var(--border)', fontSize: 13.5 };
 
 
 export default function ContributionsPage() {
@@ -18,20 +18,20 @@ export default function ContributionsPage() {
   useEffect(() => { shareholderApi.listContributions(sel || undefined).then(setRows).catch(e => setErr(e?.message)); }, [sel]);
   return (
     <div style={{ padding: 24 }}>
-      <h1 style={{ fontSize: 20, fontWeight: 700, color: '#1F4E79', marginBottom: 12 }}>出资台账</h1>
+      <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 12 }}>出资台账</h1>
       <div style={{ marginBottom: 14 }}>
         <label style={{ marginRight: 8, fontSize: 14 }}>项目：</label>
-        <select value={sel} onChange={e => setSel(e.target.value)} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #ccc' }}>
+        <select value={sel} onChange={e => setSel(e.target.value)} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)' }}>
           <option value="">全部</option>
           {projects.map(p => <option key={p.projectCode} value={p.projectCode}>{p.projectName}</option>)}
         </select>
       </div>
-      {err && <div style={{ color: '#c0392b', marginBottom: 12 }}>{err}</div>}
+      {err && <div style={{ color: 'var(--status-danger)', marginBottom: 12 }}>{err}</div>}
       <SummaryBar items={[
         { label: '合计出资金额', value: yuan(sum(rows, r => Number(r.amount||0))), accent: true },
         { label: '记录笔数', value: String(rows.length) },
       ]} />
-      <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 8, overflow: 'hidden' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg-card)', borderRadius: 8, overflow: 'hidden' }}>
         <thead><tr>
           <th style={th}>出资单号</th><th style={th}>项目</th><th style={th}>股东</th><th style={th}>金额</th>
           <th style={th}>币种</th><th style={th}>来源</th><th style={th}>日期</th><th style={th}>状态</th>

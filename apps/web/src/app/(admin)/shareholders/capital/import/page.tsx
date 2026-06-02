@@ -4,8 +4,8 @@ import Link from 'next/link';
 import * as XLSX from 'xlsx';
 import { shareholderApi, ShrProject, ShrShareholder, SOURCE_TYPE_LABEL } from '@/lib/shareholder-api';
 
-const th: React.CSSProperties = { textAlign: 'left', padding: '8px 10px', background: '#1F4E79', color: '#fff', fontSize: 12.5, fontWeight: 600 };
-const td: React.CSSProperties = { padding: '7px 10px', borderBottom: '1px solid #eee', fontSize: 12.5 };
+const th: React.CSSProperties = { textAlign: 'left', padding: '8px 10px', background: 'var(--color-primary)', color: 'var(--text-on-dark)', fontSize: 12.5, fontWeight: 600 };
+const td: React.CSSProperties = { padding: '7px 10px', borderBottom: '1px solid var(--border)', fontSize: 12.5 };
 
 // 来源中文→编码（与 SOURCE_TYPE_LABEL 反向）
 const SOURCE_REVERSE: Record<string, string> = Object.fromEntries(
@@ -98,38 +98,38 @@ export default function CapitalImportPage() {
 
   return (
     <div style={{ padding: 24 }}>
-      <Link href="/shareholders/capital" style={{ color: '#1F4E79', fontSize: 13 }}>← 返回资本流列表</Link>
-      <h1 style={{ fontSize: 20, fontWeight: 700, color: '#1F4E79', margin: '10px 0 8px' }}>导入资本流（Excel / CSV）</h1>
-      <p style={{ color: '#888', fontSize: 12.5, marginBottom: 16 }}>
+      <Link href="/shareholders/capital" style={{ color: 'var(--color-primary)', fontSize: 13 }}>← 返回资本流列表</Link>
+      <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-primary)', margin: '10px 0 8px' }}>导入资本流（Excel / CSV）</h1>
+      <p style={{ color: 'var(--text-secondary)', fontSize: 12.5, marginBottom: 16 }}>
         历史资本流批量导入。表头：项目 / 股东 / 金额 / 日期 / 来源 / 备注。先预览校验（Dry Run），确认无误后导入；每条以<b>草稿</b>状态创建，不覆盖已有资本流，仍需走正常审批→确认流程。
       </p>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <button onClick={downloadTemplate} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #1F4E79', background: '#fff', color: '#1F4E79', fontWeight: 600, cursor: 'pointer' }}>下载模板</button>
-        <label style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#1F4E79', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>
+        <button onClick={downloadTemplate} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--color-primary)', background: 'var(--bg-card)', color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer' }}>下载模板</button>
+        <label style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--color-primary)', color: 'var(--text-on-dark)', fontWeight: 600, cursor: 'pointer' }}>
           选择文件（预览）
           <input type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) parse(f); }} />
         </label>
-        {fileName && <span style={{ alignSelf: 'center', fontSize: 13, color: '#666' }}>已选：{fileName}</span>}
+        {fileName && <span style={{ alignSelf: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>已选：{fileName}</span>}
       </div>
 
-      {err && <div style={{ color: '#c0392b', marginBottom: 12 }}>{err}</div>}
+      {err && <div style={{ color: 'var(--status-danger)', marginBottom: 12 }}>{err}</div>}
 
       {rows.length > 0 && (
         <>
           <div style={{ display: 'flex', gap: 18, marginBottom: 12, fontSize: 14 }}>
             <span>共 <b>{rows.length}</b> 行</span>
-            <span style={{ color: '#27ae60' }}>有效 <b>{validRows.length}</b></span>
-            <span style={{ color: '#c0392b' }}>错误 <b>{invalidRows.length}</b></span>
+            <span style={{ color: 'var(--status-success)' }}>有效 <b>{validRows.length}</b></span>
+            <span style={{ color: 'var(--status-danger)' }}>错误 <b>{invalidRows.length}</b></span>
           </div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg-card)', borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
             <thead><tr>
               <th style={th}>#</th><th style={th}>项目</th><th style={th}>股东</th><th style={th}>金额</th>
               <th style={th}>日期</th><th style={th}>来源</th><th style={th}>备注</th><th style={th}>校验</th>
             </tr></thead>
             <tbody>
               {rows.map((r, i) => (
-                <tr key={i} style={{ background: r.errors.length ? '#fdf2f2' : '#fff' }}>
+                <tr key={i} style={{ background: r.errors.length ? 'color-mix(in srgb, var(--status-danger) 10%, transparent)' : 'var(--bg-card)' }}>
                   <td style={td}>{i + 1}</td>
                   <td style={td}>{r.projectName}</td>
                   <td style={td}>{r.shareholderName}</td>
@@ -137,24 +137,24 @@ export default function CapitalImportPage() {
                   <td style={td}>{r.date || '—'}</td>
                   <td style={td}>{r.source || '银行转账'}</td>
                   <td style={td}>{r.remark || '—'}</td>
-                  <td style={td}>{r.errors.length ? <span style={{ color: '#c0392b' }}>{r.errors.join('；')}</span> : <span style={{ color: '#27ae60' }}>✓ 有效</span>}</td>
+                  <td style={td}>{r.errors.length ? <span style={{ color: 'var(--status-danger)' }}>{r.errors.join('；')}</span> : <span style={{ color: 'var(--status-success)' }}>✓ 有效</span>}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
           <button onClick={doImport} disabled={importing || validRows.length === 0}
-            style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: validRows.length === 0 ? '#aaa' : '#27ae60', color: '#fff', fontWeight: 600, cursor: validRows.length === 0 ? 'not-allowed' : 'pointer' }}>
+            style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: validRows.length === 0 ? 'var(--text-disabled)' : 'var(--status-success)', color: 'var(--text-on-dark)', fontWeight: 600, cursor: validRows.length === 0 ? 'not-allowed' : 'pointer' }}>
             {importing ? '导入中…' : `确认导入 ${validRows.length} 条有效记录（创建草稿）`}
           </button>
-          {invalidRows.length > 0 && <span style={{ marginLeft: 12, fontSize: 12.5, color: '#c0392b' }}>{invalidRows.length} 条错误行将被跳过</span>}
+          {invalidRows.length > 0 && <span style={{ marginLeft: 12, fontSize: 12.5, color: 'var(--status-danger)' }}>{invalidRows.length} 条错误行将被跳过</span>}
         </>
       )}
 
       {result && (
-        <div style={{ marginTop: 16, padding: '12px 16px', background: '#eef9f0', border: '1px solid #b8e0c0', borderRadius: 8 }}>
-          导入完成：成功 <b style={{ color: '#27ae60' }}>{result.ok}</b> 条，失败 <b style={{ color: '#c0392b' }}>{result.fail}</b> 条。
-          <Link href="/shareholders/capital" style={{ marginLeft: 12, color: '#1F4E79' }}>返回查看 →</Link>
+        <div style={{ marginTop: 16, padding: '12px 16px', background: 'color-mix(in srgb, var(--status-success) 12%, transparent)', border: '1px solid var(--status-success)', borderRadius: 8 }}>
+          导入完成：成功 <b style={{ color: 'var(--status-success)' }}>{result.ok}</b> 条，失败 <b style={{ color: 'var(--status-danger)' }}>{result.fail}</b> 条。
+          <Link href="/shareholders/capital" style={{ marginLeft: 12, color: 'var(--color-primary)' }}>返回查看 →</Link>
         </div>
       )}
     </div>

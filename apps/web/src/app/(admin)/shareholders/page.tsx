@@ -13,16 +13,16 @@ const CARDS = [
 export default function ShareholderHome() {
   return (
     <div style={{ padding: 24 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1F4E79', marginBottom: 4 }}>股东权益中心</h1>
-      <p style={{ color: '#666', marginBottom: 20 }}>股东权益、实缴出资台账、实益出资结构、按项目授权的查看范围（实缴口径）</p>
+      <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 4 }}>股东权益中心</h1>
+      <p style={{ color: 'var(--text-secondary)', marginBottom: 20 }}>股东权益、实缴出资台账、实益出资结构、按项目授权的查看范围（实缴口径）</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
         {CARDS.map(c => (
           <Link key={c.href} href={c.href} style={{
-            display: 'block', padding: 18, borderRadius: 10, background: '#fff',
-            borderLeft: '4px solid #1F4E79', boxShadow: '0 1px 3px rgba(0,0,0,.08)', textDecoration: 'none',
+            display: 'block', padding: 18, borderRadius: 10, background: 'var(--bg-card)',
+            borderLeft: '4px solid var(--color-primary)', boxShadow: '0 1px 3px rgba(0,0,0,.08)', textDecoration: 'none',
           }}>
-            <div style={{ fontSize: 16, fontWeight: 600, color: '#1F4E79' }}>{c.title}</div>
-            <div style={{ fontSize: 13, color: '#666', marginTop: 6 }}>{c.desc}</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-primary)' }}>{c.title}</div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 6 }}>{c.desc}</div>
           </Link>
         ))}
       </div>
