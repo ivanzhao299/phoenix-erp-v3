@@ -14,9 +14,18 @@
 // cards
 export { KpiCardV2 } from './cards/KpiCardV2';
 export type { KpiCardV2Props } from './cards/KpiCardV2';
+export { MetricCard } from './cards/MetricCard';
+export type { MetricCardProps } from './cards/MetricCard';
+export { NavCardV2 } from './cards/NavCardV2';
+export type { NavCardV2Props } from './cards/NavCardV2';
+export { WarningCard } from './cards/WarningCard';
+export type { WarningCardProps } from './cards/WarningCard';
+export { StatStripV2, SummaryCard } from './cards/StatStripV2';
+export type { StatStripV2Props, StatStripItem, SummaryCardProps } from './cards/StatStripV2';
 
 // status
 export { StatusBadge } from './status/StatusBadge';
+export { StatusBadge as StatusBadgeV2 } from './status/StatusBadge';   // V2 别名（同一实现）
 export type { StatusBadgeProps } from './status/StatusBadge';
 
 // tables
@@ -34,6 +43,8 @@ export { SelectField, CompanySelector, ProjectSelector, StatusSelector } from '.
 export type { Option, SelectFieldProps } from './forms/SelectField';
 export { AttachmentUploader } from './forms/AttachmentUploader';
 export type { AttachmentUploaderProps } from './forms/AttachmentUploader';
+export { TextInput, SelectInput, DateInput, UserSelector, AttachmentField } from './forms/Inputs';
+export type { TextInputProps } from './forms/Inputs';
 
 // dialogs
 export { ModalV2 } from './dialogs/ModalV2';
@@ -48,10 +59,16 @@ export type { DrawerV2Props } from './drawers/DrawerV2';
 // detail
 export { DetailPanel } from './detail/DetailPanel';
 export type { DetailPanelProps, DetailItem } from './detail/DetailPanel';
+export { DetailGrid } from './detail/DetailGrid';
+export type { DetailGridItem } from './detail/DetailGrid';
 export { AuditTimeline } from './detail/AuditTimeline';
 export type { AuditTimelineProps, TimelineItem } from './detail/AuditTimeline';
 export { AttachmentViewer } from './detail/AttachmentViewer';
 export type { AttachmentViewerProps } from './detail/AttachmentViewer';
+
+// timeline
+export { WorkflowTimeline } from './timeline/WorkflowTimeline';
+export type { WorkflowStep } from './timeline/WorkflowTimeline';
 
 // feedback
 export { EmptyState } from './feedback/EmptyState';
@@ -60,11 +77,25 @@ export { LoadingSkeleton } from './feedback/LoadingSkeleton';
 export type { LoadingSkeletonProps } from './feedback/LoadingSkeleton';
 export { ErrorState } from './feedback/ErrorState';
 export type { ErrorStateProps } from './feedback/ErrorState';
+export { PermissionDeniedState, NoDataState } from './feedback/States';
 
 // layouts
 export { PageShell } from './layouts/PageShell';
 export type { PageShellProps } from './layouts/PageShell';
+export { PageHeaderV2, PageBreadcrumb, PageSection, PageToolbar, PageActions } from './layouts/PageParts';
+export type { PageHeaderV2Props, Crumb } from './layouts/PageParts';
 
 // charts
 export { ChartCard } from './charts/ChartCard';
 export type { ChartCardProps } from './charts/ChartCard';
+
+// mobile kit
+export { MobilePageShell, MobileStatCard, MobileActionButton } from './mobile/MobileKit';
+export type { MobilePageShellProps } from './mobile/MobileKit';
+
+// workbench kit
+export { WorkbenchShell, WorkbenchActionButton, WorkbenchStatusCard } from './workbench/WorkbenchKit';
+
+// templates
+export { ListPageTemplate, DashboardTemplate, DetailPageTemplate } from './templates/PageTemplates';
+export type { ListPageTemplateProps } from './templates/PageTemplates';
