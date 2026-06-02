@@ -1,0 +1,173 @@
+'use client';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import * as XLSX from 'xlsx';
+import { shareholderApi, ShrProject, ShrShareholder, SOURCE_TYPE_LABEL } from '@/lib/shareholder-api';
+
+const th: React.CSSProperties = { textAlign: 'left', padding: '8px 10px', background: '#1F4E79', color: '#fff', fontSize: 12.5, fontWeight: 600 };
+const td: React.CSSProperties = { padding: '7px 10px', borderBottom: '1px solid #eee', fontSize: 12.5 };
+
+// 来源中文→编码（与 SOURCE_TYPE_LABEL 反向）
+const SOURCE_REVERSE: Record<string, string> = Object.fromEntries(
+  Object.entries(SOURCE_TYPE_LABEL).map(([code, zh]) => [zh, code]),
+);
+
+interface ParsedRow {
+  projectName: string; shareholderName: string; amount: string; date: string; source: string; remark: string;
+  projectCode?: string; shareholderCode?: string; sourceType?: string; errors: string[];
+}
+
+export default function CapitalImportPage() {
+  const [projects, setProjects] = useState<ShrProject[]>([]);
+  const [holders, setHolders] = useState<ShrShareholder[]>([]);
+  const [rows, setRows] = useState<ParsedRow[]>([]);
+  const [fileName, setFileName] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState<{ ok: number; fail: number } | null>(null);
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    shareholderApi.listProjects().then(setProjects);
+    shareholderApi.listShareholders().then(setHolders);
+  }, []);
+
+  const validRows = rows.filter(r => r.errors.length === 0);
+  const invalidRows = rows.filter(r => r.errors.length > 0);
+
+  const parse = (file: File) => {
+    setErr(''); setResult(null); setFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: '' });
+        const pByName = new Map(projects.map(p => [p.projectName.trim(), p.projectCode]));
+        const sByName = new Map(holders.map(h => [h.shareholderName.trim(), h.shareholderCode]));
+        const parsed: ParsedRow[] = raw.map((r) => {
+          const projectName = String(r['项目'] ?? r['项目名称'] ?? '').trim();
+          const shareholderName = String(r['股东'] ?? r['股东姓名'] ?? '').trim();
+          const amount = String(r['金额'] ?? r['出资金额'] ?? '').trim();
+          const date = normalizeDate(r['日期'] ?? r['出资日期'] ?? '');
+          const source = String(r['来源'] ?? r['出资来源'] ?? '').trim();
+          const remark = String(r['备注'] ?? '').trim();
+          const projectCode = pByName.get(projectName);
+          const shareholderCode = sByName.get(shareholderName);
+          const sourceType = source ? (SOURCE_REVERSE[source] ?? source) : 'BANK_TRANSFER';
+          const errors: string[] = [];
+          if (!projectName) errors.push('项目为空');
+          else if (!projectCode) errors.push(`项目不存在: ${projectName}`);
+          if (!shareholderName) errors.push('股东为空');
+          else if (!shareholderCode) errors.push(`股东不存在: ${shareholderName}`);
+          if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) errors.push('金额无效');
+          return { projectName, shareholderName, amount, date, source, remark, projectCode, shareholderCode, sourceType, errors };
+        });
+        setRows(parsed);
+        if (parsed.length === 0) setErr('未解析到数据行（请检查表头：项目/股东/金额/日期/来源/备注）');
+      } catch (ex: any) { setErr('解析失败：' + (ex?.message || ex)); }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const doImport = async () => {
+    setImporting(true); setErr(''); setResult(null);
+    let ok = 0, fail = 0;
+    for (const r of validRows) {
+      try {
+        await shareholderApi.createFlow({
+          projectCode: r.projectCode, shareholderCode: r.shareholderCode,
+          amount: Number(r.amount), contributionDate: r.date || null,
+          sourceType: r.sourceType, remark: r.remark || '历史资本流导入',
+        });
+        ok++;
+      } catch { fail++; }
+    }
+    setResult({ ok, fail }); setImporting(false);
+  };
+
+  const downloadTemplate = () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['项目', '股东', '金额', '日期', '来源', '备注'],
+      ['孟赛蛋鸡养殖场', '赵永伟', 500000, '2025-05-12', '银行转账', '示例行（导入前请删除）'],
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '资本流');
+    XLSX.writeFile(wb, '资本流导入模板.xlsx');
+  };
+
+  return (
+    <div style={{ padding: 24 }}>
+      <Link href="/shareholders/capital" style={{ color: '#1F4E79', fontSize: 13 }}>← 返回资本流列表</Link>
+      <h1 style={{ fontSize: 20, fontWeight: 700, color: '#1F4E79', margin: '10px 0 8px' }}>导入资本流（Excel / CSV）</h1>
+      <p style={{ color: '#888', fontSize: 12.5, marginBottom: 16 }}>
+        历史资本流批量导入。表头：项目 / 股东 / 金额 / 日期 / 来源 / 备注。先预览校验（Dry Run），确认无误后导入；每条以<b>草稿</b>状态创建，不覆盖已有资本流，仍需走正常审批→确认流程。
+      </p>
+
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+        <button onClick={downloadTemplate} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #1F4E79', background: '#fff', color: '#1F4E79', fontWeight: 600, cursor: 'pointer' }}>下载模板</button>
+        <label style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#1F4E79', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>
+          选择文件（预览）
+          <input type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) parse(f); }} />
+        </label>
+        {fileName && <span style={{ alignSelf: 'center', fontSize: 13, color: '#666' }}>已选：{fileName}</span>}
+      </div>
+
+      {err && <div style={{ color: '#c0392b', marginBottom: 12 }}>{err}</div>}
+
+      {rows.length > 0 && (
+        <>
+          <div style={{ display: 'flex', gap: 18, marginBottom: 12, fontSize: 14 }}>
+            <span>共 <b>{rows.length}</b> 行</span>
+            <span style={{ color: '#27ae60' }}>有效 <b>{validRows.length}</b></span>
+            <span style={{ color: '#c0392b' }}>错误 <b>{invalidRows.length}</b></span>
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
+            <thead><tr>
+              <th style={th}>#</th><th style={th}>项目</th><th style={th}>股东</th><th style={th}>金额</th>
+              <th style={th}>日期</th><th style={th}>来源</th><th style={th}>备注</th><th style={th}>校验</th>
+            </tr></thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} style={{ background: r.errors.length ? '#fdf2f2' : '#fff' }}>
+                  <td style={td}>{i + 1}</td>
+                  <td style={td}>{r.projectName}</td>
+                  <td style={td}>{r.shareholderName}</td>
+                  <td style={td}>{r.amount}</td>
+                  <td style={td}>{r.date || '—'}</td>
+                  <td style={td}>{r.source || '银行转账'}</td>
+                  <td style={td}>{r.remark || '—'}</td>
+                  <td style={td}>{r.errors.length ? <span style={{ color: '#c0392b' }}>{r.errors.join('；')}</span> : <span style={{ color: '#27ae60' }}>✓ 有效</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <button onClick={doImport} disabled={importing || validRows.length === 0}
+            style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: validRows.length === 0 ? '#aaa' : '#27ae60', color: '#fff', fontWeight: 600, cursor: validRows.length === 0 ? 'not-allowed' : 'pointer' }}>
+            {importing ? '导入中…' : `确认导入 ${validRows.length} 条有效记录（创建草稿）`}
+          </button>
+          {invalidRows.length > 0 && <span style={{ marginLeft: 12, fontSize: 12.5, color: '#c0392b' }}>{invalidRows.length} 条错误行将被跳过</span>}
+        </>
+      )}
+
+      {result && (
+        <div style={{ marginTop: 16, padding: '12px 16px', background: '#eef9f0', border: '1px solid #b8e0c0', borderRadius: 8 }}>
+          导入完成：成功 <b style={{ color: '#27ae60' }}>{result.ok}</b> 条，失败 <b style={{ color: '#c0392b' }}>{result.fail}</b> 条。
+          <Link href="/shareholders/capital" style={{ marginLeft: 12, color: '#1F4E79' }}>返回查看 →</Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function normalizeDate(v: any): string {
+  if (!v) return '';
+  if (typeof v === 'number') {
+    // Excel 序列日期
+    const d = XLSX.SSF.parse_date_code(v);
+    if (d) return `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`;
+  }
+  const s = String(v).trim().replace(/\//g, '-');
+  return s;
+}

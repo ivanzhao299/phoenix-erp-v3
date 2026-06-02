@@ -50,6 +50,10 @@ export class ShrCapitalContributionEntity {
   @Column({ name: 'attachment_count', type: 'int', default: 0 })
   attachmentCount: number;
 
+  /** 附件 URL 列表（jsonb，复用 /api/upload/contract 上传通道；草稿期可增删，审批后只读） */
+  @Column({ name: 'attachment_urls', type: 'jsonb', nullable: true })
+  attachmentUrls: string[] | null;
+
   @Column({ name: 'wf_instance_id', type: 'bigint', nullable: true })
   wfInstanceId: string;
 

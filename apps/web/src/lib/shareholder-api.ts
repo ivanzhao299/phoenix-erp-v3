@@ -22,15 +22,24 @@ export interface ShrContribution {
   id: string; contributionNo: string; projectCode: string; shareholderCode: string;
   amount: string; currency: string; contributionDate?: string; sourceType: string;
   status: string; remark?: string;
-  capitalFlowNo?: string | null; attachmentCount?: number; wfInstanceId?: string | null;
+  capitalFlowNo?: string | null; attachmentCount?: number; attachmentUrls?: string[] | null;
+  wfInstanceId?: string | null;
   confirmedBy?: string | null; confirmedAt?: string | null; financeBridgeStatus?: string;
-  reversalOfId?: string | null;
+  reversalOfId?: string | null; createdAt?: string; updatedAt?: string;
 }
 export interface CapitalStats {
   monthAdded: { total: number; count: number };
   recent: ShrContribution[];
   shareholderRanking: { shareholderCode: string; total: number }[];
   projectRanking: { projectCode: string; total: number }[];
+  monthlyTrend: { ym: string; total: number; count: number }[];
+}
+export interface FinanceBridge {
+  mode: string; note: string;
+  reconciliation: { shrTotal: number; finTotal: number; diff: number; finParsed: boolean; bridgeStatus: string };
+  shrCapitalContributions: { count: number; rows: ShrContribution[] };
+  finShareholderContributions: { count: number; rows: any[] };
+  gaps: string[];
 }
 export interface ShrScope {
   id: string; userId: string; shareholderCode?: string; scopeType: string;
@@ -55,10 +64,17 @@ export const EQUITY_STATUS_LABEL: Record<string, string> = {
   CONFIRMED: '已确认股权', PROVISIONAL: '暂定股权',
 };
 export const SOURCE_TYPE_LABEL: Record<string, string> = {
-  BANK_TRANSFER: '银行转账', DIVIDEND_OFFSET: '分红转投资', SHAREHOLDER_ADVANCE: '股东垫资',
+  BANK_TRANSFER: '银行转账', DIVIDEND_OFFSET: '分红转投资',
+  YANTAI_DIVIDEND_OFFSET: '烟台分红转投资', XINGCHI_DIVIDEND_OFFSET: '星驰分红转投资',
+  SHAREHOLDER_ADVANCE: '股东垫资', GOODS_PAYMENT: '代付货款',
   PERSONAL_PAYMENT: '股东个人代付', EQUIPMENT_INVESTMENT: '设备投入', LAND_INVESTMENT: '土地投入',
   REVERSAL: '冲销', CASH: '现金', CAPITAL_SUMMARY_IMPORT: '历史实缴(汇总导入)', OTHER: '其他',
 };
+/** 新增资本流时的来源下拉选项（按业务排序；历史值仍可正常显示） */
+export const SOURCE_TYPE_OPTIONS = [
+  'BANK_TRANSFER', 'YANTAI_DIVIDEND_OFFSET', 'XINGCHI_DIVIDEND_OFFSET',
+  'SHAREHOLDER_ADVANCE', 'GOODS_PAYMENT', 'EQUIPMENT_INVESTMENT', 'LAND_INVESTMENT', 'OTHER',
+];
 export const PAID_IN_SOURCE_LABEL: Record<string, string> = {
   LEDGER: '逐笔台账', CAPITAL_SUMMARY_IMPORT: '资本汇总表',
 };
@@ -100,4 +116,8 @@ export const shareholderApi = {
   submitFlow: (id: string) => request<ShrContribution>(`/shareholders/capital/${id}/submit`, { method: 'POST' }),
   confirmFlow: (id: string) => request<ShrContribution>(`/shareholders/capital/${id}/confirm`, { method: 'POST' }),
   reverseFlow: (id: string, reason: string) => request<ShrContribution>(`/shareholders/capital/${id}/reverse`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  updateFlowAttachments: (id: string, attachmentUrls: string[]) =>
+    request<ShrContribution>(`/shareholders/capital/${id}/attachments`, { method: 'PATCH', body: JSON.stringify({ attachmentUrls }) }),
+  financeBridge: (projectCode?: string) =>
+    request<FinanceBridge>(`/shareholders/finance-bridge${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ''}`),
 };

@@ -42,7 +42,7 @@ export class ShareholderController {
   @Patch('equity/:id')  @RequireMenu(MANAGE, 'E')  updateEquity(@Param('id') id: string, @Body() dto: UpdateEquityDto) { return this.svc.updateEquity(id, dto); }
 
   // ── 出资台账 ──
-  @Get('contributions')             @RequireMenu(CONTRIB, 'V') listContributions(@Query('projectCode') p?: string, @Query('shareholderCode') s?: string) { return this.svc.listContributions(p, s); }
+  @Get('contributions')             @RequireMenu(CONTRIB, 'V') listContributions(@Query('projectCode') p?: string, @Query('shareholderCode') s?: string) { return this.svc.listContributions(p, s, this.user); }
   @Post('contributions')            @RequireMenu(CONTRIB, 'C') createContribution(@Body() dto: CreateContributionDto) { return this.svc.createContribution(dto, this.user.userId); }
   @Post('contributions/:id/confirm') @RequireMenu(CONTRIB, 'A') confirmContribution(@Param('id') id: string) { return this.svc.confirmContribution(id); }
   @Post('contributions/:id/cancel')  @RequireMenu(CONTRIB, 'E') cancelContribution(@Param('id') id: string) { return this.svc.cancelContribution(id); }
@@ -59,10 +59,11 @@ export class ShareholderController {
   @Get('beneficial')               @RequireMenu(VIEW, 'V') listBeneficial(@Query('projectCode') p?: string) { return this.svc.listBeneficial(p); }
 
   // ── 资本流引擎（Phase 3）──
-  @Get('capital/stats')            @RequireMenu(CAPITAL, 'V') capitalStats() { return this.svc.capitalStats(); }
-  @Get('capital')                  @RequireMenu(CAPITAL, 'V') listFlows(@Query('projectCode') p?: string, @Query('shareholderCode') s?: string, @Query('status') st?: string) { return this.svc.listFlows({ projectCode: p, shareholderCode: s, status: st }); }
-  @Get('capital/:id')              @RequireMenu(CAPITAL, 'V') getFlow(@Param('id') id: string) { return this.svc.getFlow(id); }
+  @Get('capital/stats')            @RequireMenu(CAPITAL, 'V') capitalStats() { return this.svc.capitalStats(this.user); }
+  @Get('capital')                  @RequireMenu(CAPITAL, 'V') listFlows(@Query('projectCode') p?: string, @Query('shareholderCode') s?: string, @Query('status') st?: string) { return this.svc.listFlows({ projectCode: p, shareholderCode: s, status: st }, this.user); }
+  @Get('capital/:id')              @RequireMenu(CAPITAL, 'V') getFlow(@Param('id') id: string) { return this.svc.getFlow(id, this.user); }
   @Post('capital')                 @RequireMenu(CAPITAL, 'C') createFlow(@Body() dto: any) { return this.svc.createFlow(dto, this.user.userId); }
+  @Patch('capital/:id/attachments') @RequireMenu(CAPITAL, 'E') updateFlowAttachments(@Param('id') id: string, @Body() body: { attachmentUrls?: string[] }) { return this.svc.updateFlowAttachments(id, body?.attachmentUrls ?? [], this.user); }
   @Post('capital/:id/submit')      @RequireMenu(CAPITAL, 'E') submitFlow(@Param('id') id: string) { return this.svc.submitFlow(id); }
   @Post('capital/:id/confirm')     @RequireMenu(CAPITAL, 'E') confirmFlow(@Param('id') id: string) { return this.svc.confirmFlow(id, this.user.userId); }
   @Post('capital/:id/reverse')     @RequireMenu(CAPITAL, 'E') reverseFlow(@Param('id') id: string, @Body() body: { reason?: string }) { return this.svc.reverseFlow(id, this.user.userId, body?.reason); }
