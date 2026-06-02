@@ -1,7 +1,18 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
+import { PageHeaderV2, KpiCardV2 } from "@/components/design-system";
+import type { AccentColor } from "@/lib/design-tokens";
+
+// 将 var(--status-*) 颜色提示映射为 KpiCardV2 accentColor 枚举
+function accentFromVar(v?: string): AccentColor {
+  if (!v) return "slate";
+  if (v.includes("danger")) return "red";
+  if (v.includes("success")) return "green";
+  if (v.includes("warning")) return "amber";
+  if (v.includes("accent") || v.includes("primary")) return "blue";
+  return "slate";
+}
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -26,18 +37,18 @@ const MODULE_LABELS: Record<string, string> = {
 };
 
 const SEVERITY_COLOR: Record<string, string> = {
-  LOW: "#6b7280",
-  MEDIUM: "#2563eb",
-  HIGH: "#f97316",
-  CRITICAL: "#dc2626",
+  LOW: "var(--text-secondary)",
+  MEDIUM: "var(--color-accent)",
+  HIGH: "var(--status-warning)",
+  CRITICAL: "var(--status-danger)",
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  OPEN: "#2563eb",
-  IN_PROGRESS: "#f97316",
-  RESOLVED: "#16a34a",
-  CLOSED: "#6b7280",
-  REJECTED: "#dc2626",
+  OPEN: "var(--color-accent)",
+  IN_PROGRESS: "var(--status-warning)",
+  RESOLVED: "var(--status-success)",
+  CLOSED: "var(--text-secondary)",
+  REJECTED: "var(--status-danger)",
 };
 
 function Badge({
@@ -55,7 +66,7 @@ function Badge({
         borderRadius: 12,
         fontSize: 11,
         fontWeight: 600,
-        color: "#fff",
+        color: "var(--text-on-dark)",
         background: color,
         whiteSpace: "nowrap",
       }}
@@ -65,6 +76,7 @@ function Badge({
   );
 }
 
+// UI-2.4：本地 MetricCard 收口为 design-system KpiCardV2（调用点不变，零功能风险）
 function MetricCard({
   title,
   value,
@@ -79,30 +91,8 @@ function MetricCard({
   sub?: string;
 }) {
   return (
-    <div
-      style={{
-        background: "#fff",
-        border: `1px solid ${borderColor ?? "#e5e7eb"}`,
-        borderRadius: 10,
-        padding: "16px 20px",
-        flex: 1,
-        minWidth: 140,
-      }}
-    >
-      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>{title}</div>
-      <div
-        style={{
-          fontSize: 28,
-          fontWeight: 700,
-          color: valueColor ?? "#111827",
-          lineHeight: 1,
-        }}
-      >
-        {value}
-      </div>
-      {sub && (
-        <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>{sub}</div>
-      )}
+    <div style={{ flex: 1, minWidth: 140 }}>
+      <KpiCardV2 title={title} value={value} subValue={sub} accentColor={accentFromVar(valueColor ?? borderColor)} />
     </div>
   );
 }
@@ -262,16 +252,16 @@ export default function UATPage() {
   const readinessScore = readiness?.score ?? null;
   const readinessColor =
     readinessScore === null
-      ? "#6b7280"
+      ? "var(--text-secondary)"
       : readinessScore >= 80
-      ? "#16a34a"
+      ? "var(--status-success)"
       : readinessScore >= 60
-      ? "#d97706"
-      : "#dc2626";
+      ? "var(--status-warning)"
+      : "var(--status-danger)";
 
   return (
     <div style={{ padding: "24px 32px", maxWidth: 1400, margin: "0 auto" }}>
-      <PageHeader
+      <PageHeaderV2
         title="UAT & 试运行"
         subtitle="用户验收测试、培训记录、验收清单与上线准备度管理"
       />
@@ -289,10 +279,10 @@ export default function UATPage() {
           title="未解决问题"
           value={feedbackSummary?.openCount ?? "—"}
           borderColor={
-            feedbackSummary && feedbackSummary.openCount > 0 ? "#f87171" : undefined
+            feedbackSummary && feedbackSummary.openCount > 0 ? "var(--status-danger)" : undefined
           }
           valueColor={
-            feedbackSummary && feedbackSummary.openCount > 0 ? "#dc2626" : undefined
+            feedbackSummary && feedbackSummary.openCount > 0 ? "var(--status-danger)" : undefined
           }
           sub="OPEN + IN_PROGRESS"
         />
@@ -300,10 +290,10 @@ export default function UATPage() {
           title="CRITICAL 问题"
           value={feedbackSummary?.criticalCount ?? "—"}
           borderColor={
-            feedbackSummary && feedbackSummary.criticalCount > 0 ? "#991b1b" : undefined
+            feedbackSummary && feedbackSummary.criticalCount > 0 ? "var(--status-danger)" : undefined
           }
           valueColor={
-            feedbackSummary && feedbackSummary.criticalCount > 0 ? "#991b1b" : undefined
+            feedbackSummary && feedbackSummary.criticalCount > 0 ? "var(--status-danger)" : undefined
           }
           sub="最高严重度"
         />
@@ -339,7 +329,7 @@ export default function UATPage() {
         style={{
           display: "flex",
           gap: 0,
-          borderBottom: "2px solid #e5e7eb",
+          borderBottom: "2px solid var(--border)",
           marginBottom: 24,
         }}
       >
@@ -354,9 +344,9 @@ export default function UATPage() {
               cursor: "pointer",
               fontSize: 14,
               fontWeight: activeTab === t.key ? 700 : 400,
-              color: activeTab === t.key ? "#2563eb" : "#6b7280",
+              color: activeTab === t.key ? "var(--color-accent)" : "var(--text-secondary)",
               borderBottom:
-                activeTab === t.key ? "2px solid #2563eb" : "2px solid transparent",
+                activeTab === t.key ? "2px solid var(--color-accent)" : "2px solid transparent",
               marginBottom: -2,
               transition: "all 0.15s",
             }}
@@ -464,13 +454,13 @@ function FeedbacksTab() {
 
   const inputStyle: React.CSSProperties = {
     padding: "6px 10px",
-    border: "1px solid #d1d5db",
+    border: "1px solid var(--border)",
     borderRadius: 6,
     fontSize: 13,
     outline: "none",
   };
 
-  const selectStyle: React.CSSProperties = { ...inputStyle, background: "#fff" };
+  const selectStyle: React.CSSProperties = { ...inputStyle, background: "var(--bg-card)" };
 
   return (
     <div>
@@ -505,8 +495,8 @@ function FeedbacksTab() {
           style={{
             marginLeft: "auto",
             padding: "7px 18px",
-            background: "#2563eb",
-            color: "#fff",
+            background: "var(--color-accent)",
+            color: "var(--text-on-dark)",
             border: "none",
             borderRadius: 6,
             cursor: "pointer",
@@ -522,8 +512,8 @@ function FeedbacksTab() {
       {showCreateForm && (
         <div
           style={{
-            background: "#f9fafb",
-            border: "1px solid #e5e7eb",
+            background: "var(--bg-muted)",
+            border: "1px solid var(--border)",
             borderRadius: 10,
             padding: 20,
             marginBottom: 20,
@@ -538,7 +528,7 @@ function FeedbacksTab() {
             }}
           >
             <div>
-              <label style={{ fontSize: 12, color: "#6b7280" }}>标题 *</label>
+              <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>标题 *</label>
               <input
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box", marginTop: 4 }}
                 value={form.title}
@@ -547,7 +537,7 @@ function FeedbacksTab() {
               />
             </div>
             <div>
-              <label style={{ fontSize: 12, color: "#6b7280" }}>报告人 *</label>
+              <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>报告人 *</label>
               <input
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box", marginTop: 4 }}
                 value={form.reporterName}
@@ -556,7 +546,7 @@ function FeedbacksTab() {
               />
             </div>
             <div>
-              <label style={{ fontSize: 12, color: "#6b7280" }}>模块</label>
+              <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>模块</label>
               <select
                 style={{ ...selectStyle, width: "100%", boxSizing: "border-box", marginTop: 4 }}
                 value={form.moduleCode}
@@ -570,7 +560,7 @@ function FeedbacksTab() {
               </select>
             </div>
             <div>
-              <label style={{ fontSize: 12, color: "#6b7280" }}>严重度</label>
+              <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>严重度</label>
               <select
                 style={{ ...selectStyle, width: "100%", boxSizing: "border-box", marginTop: 4 }}
                 value={form.severity}
@@ -584,7 +574,7 @@ function FeedbacksTab() {
               </select>
             </div>
             <div>
-              <label style={{ fontSize: 12, color: "#6b7280" }}>类型</label>
+              <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>类型</label>
               <select
                 style={{ ...selectStyle, width: "100%", boxSizing: "border-box", marginTop: 4 }}
                 value={form.feedbackType}
@@ -598,7 +588,7 @@ function FeedbacksTab() {
               </select>
             </div>
             <div>
-              <label style={{ fontSize: 12, color: "#6b7280" }}>公司代码</label>
+              <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>公司代码</label>
               <input
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box", marginTop: 4 }}
                 value={form.companyCode}
@@ -607,7 +597,7 @@ function FeedbacksTab() {
               />
             </div>
             <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ fontSize: 12, color: "#6b7280" }}>描述</label>
+              <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>描述</label>
               <textarea
                 style={{
                   ...inputStyle,
@@ -629,8 +619,8 @@ function FeedbacksTab() {
             style={{
               marginTop: 14,
               padding: "8px 20px",
-              background: "#2563eb",
-              color: "#fff",
+              background: "var(--color-accent)",
+              color: "var(--text-on-dark)",
               border: "none",
               borderRadius: 6,
               cursor: "pointer",
@@ -663,7 +653,7 @@ function FeedbacksTab() {
               <tr>
                 <td
                   colSpan={9}
-                  style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}
+                  style={{ padding: 32, textAlign: "center", color: "var(--text-disabled)" }}
                 >
                   暂无数据
                 </td>
@@ -671,7 +661,7 @@ function FeedbacksTab() {
             )}
             {feedbacks.map((fb) => (
               <tr key={fb.id}>
-                <td style={{ color: "#6b7280", whiteSpace: "nowrap" }}>
+                <td style={{ color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                   {fb.feedbackNo}
                 </td>
                 <td style={{ maxWidth: 200 }}>{fb.title}</td>
@@ -682,17 +672,17 @@ function FeedbacksTab() {
                 <td>
                   <Badge
                     label={fb.severity}
-                    color={SEVERITY_COLOR[fb.severity] ?? "#6b7280"}
+                    color={SEVERITY_COLOR[fb.severity] ?? "var(--text-secondary)"}
                   />
                 </td>
                 <td>
                   <Badge
                     label={fb.status}
-                    color={STATUS_COLOR[fb.status] ?? "#6b7280"}
+                    color={STATUS_COLOR[fb.status] ?? "var(--text-secondary)"}
                   />
                 </td>
                 <td style={{ whiteSpace: "nowrap" }}>{fb.reporterName}</td>
-                <td style={{ whiteSpace: "nowrap", color: "#6b7280" }}>
+                <td style={{ whiteSpace: "nowrap", color: "var(--text-secondary)" }}>
                   {fb.createdAt ? new Date(fb.createdAt).toLocaleDateString("zh-CN") : "—"}
                 </td>
                 <td style={{ whiteSpace: "nowrap" }}>
@@ -729,8 +719,8 @@ function FeedbacksTab() {
                         onClick={() => handleUpdate(fb.id)}
                         style={{
                           padding: "3px 10px",
-                          background: "#16a34a",
-                          color: "#fff",
+                          background: "var(--status-success)",
+                          color: "var(--text-on-dark)",
                           border: "none",
                           borderRadius: 4,
                           cursor: "pointer",
@@ -743,8 +733,8 @@ function FeedbacksTab() {
                         onClick={() => setUpdatingId(null)}
                         style={{
                           padding: "3px 10px",
-                          background: "#e5e7eb",
-                          color: "#374151",
+                          background: "var(--border)",
+                          color: "var(--text-primary)",
                           border: "none",
                           borderRadius: 4,
                           cursor: "pointer",
@@ -768,12 +758,12 @@ function FeedbacksTab() {
                       }}
                       style={{
                         padding: "3px 12px",
-                        background: "#f3f4f6",
-                        border: "1px solid #d1d5db",
+                        background: "var(--bg-muted)",
+                        border: "1px solid var(--border)",
                         borderRadius: 4,
                         cursor: "pointer",
                         fontSize: 12,
-                        color: "#374151",
+                        color: "var(--text-primary)",
                       }}
                     >
                       指派/更新
@@ -855,12 +845,12 @@ function TrainingsTab() {
 
   const inputStyle: React.CSSProperties = {
     padding: "6px 10px",
-    border: "1px solid #d1d5db",
+    border: "1px solid var(--border)",
     borderRadius: 6,
     fontSize: 13,
     outline: "none",
   };
-  const selectStyle: React.CSSProperties = { ...inputStyle, background: "#fff" };
+  const selectStyle: React.CSSProperties = { ...inputStyle, background: "var(--bg-card)" };
 
   const trainingTypes = ["SALES", "DELIVERY", "INVENTORY", "FINANCE", "APPROVAL", "MANAGEMENT"];
 
@@ -873,16 +863,16 @@ function TrainingsTab() {
             <div
               key={t}
               style={{
-                background: "#f9fafb",
-                border: "1px solid #e5e7eb",
+                background: "var(--bg-muted)",
+                border: "1px solid var(--border)",
                 borderRadius: 8,
                 padding: "10px 16px",
                 minWidth: 110,
                 textAlign: "center",
               }}
             >
-              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>{t}</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: "#2563eb" }}>
+              <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 4 }}>{t}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: "var(--color-accent)" }}>
                 {summary.byType[t] ?? 0}
               </div>
             </div>
@@ -909,8 +899,8 @@ function TrainingsTab() {
           style={{
             marginLeft: "auto",
             padding: "7px 18px",
-            background: "#2563eb",
-            color: "#fff",
+            background: "var(--color-accent)",
+            color: "var(--text-on-dark)",
             border: "none",
             borderRadius: 6,
             cursor: "pointer",
@@ -926,8 +916,8 @@ function TrainingsTab() {
       {showCreateForm && (
         <div
           style={{
-            background: "#f9fafb",
-            border: "1px solid #e5e7eb",
+            background: "var(--bg-muted)",
+            border: "1px solid var(--border)",
             borderRadius: 10,
             padding: 20,
             marginBottom: 20,
@@ -960,7 +950,7 @@ function TrainingsTab() {
               { label: "备注", key: "remark", type: "text", placeholder: "可选" },
             ].map((f) => (
               <div key={f.key}>
-                <label style={{ fontSize: 12, color: "#6b7280" }}>{f.label}</label>
+                <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>{f.label}</label>
                 <input
                   type={f.type}
                   style={{ ...inputStyle, width: "100%", boxSizing: "border-box", marginTop: 4 }}
@@ -971,7 +961,7 @@ function TrainingsTab() {
               </div>
             ))}
             <div>
-              <label style={{ fontSize: 12, color: "#6b7280" }}>培训类型</label>
+              <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>培训类型</label>
               <select
                 style={{ ...selectStyle, width: "100%", boxSizing: "border-box", marginTop: 4 }}
                 value={form.trainingType}
@@ -991,8 +981,8 @@ function TrainingsTab() {
             style={{
               marginTop: 14,
               padding: "8px 20px",
-              background: "#2563eb",
-              color: "#fff",
+              background: "var(--color-accent)",
+              color: "var(--text-on-dark)",
               border: "none",
               borderRadius: 6,
               cursor: "pointer",
@@ -1023,7 +1013,7 @@ function TrainingsTab() {
               <tr>
                 <td
                   colSpan={8}
-                  style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}
+                  style={{ padding: 32, textAlign: "center", color: "var(--text-disabled)" }}
                 >
                   暂无数据
                 </td>
@@ -1031,16 +1021,16 @@ function TrainingsTab() {
             )}
             {trainings.map((t) => (
               <tr key={t.id}>
-                <td style={{ color: "#6b7280" }}>{t.trainingNo}</td>
+                <td style={{ color: "var(--text-secondary)" }}>{t.trainingNo}</td>
                 <td>
-                  <Badge label={t.trainingType} color="#2563eb" />
+                  <Badge label={t.trainingType} color="var(--color-accent)" />
                 </td>
                 <td>{t.trainingTitle}</td>
                 <td style={{ whiteSpace: "nowrap" }}>{t.trainerName}</td>
                 <td style={{ textAlign: "center" }}>
                   {t.participantCount}
                 </td>
-                <td style={{ whiteSpace: "nowrap", color: "#6b7280" }}>
+                <td style={{ whiteSpace: "nowrap", color: "var(--text-secondary)" }}>
                   {t.trainingDate ? new Date(t.trainingDate).toLocaleDateString("zh-CN") : "—"}
                 </td>
                 <td style={{ textAlign: "center" }}>
@@ -1048,7 +1038,7 @@ function TrainingsTab() {
                     <span
                       style={{
                         fontWeight: 600,
-                        color: t.score >= 80 ? "#16a34a" : t.score >= 60 ? "#d97706" : "#dc2626",
+                        color: t.score >= 80 ? "var(--status-success)" : t.score >= 60 ? "var(--status-warning)" : "var(--status-danger)",
                       }}
                     >
                       {t.score}
@@ -1057,7 +1047,7 @@ function TrainingsTab() {
                     "—"
                   )}
                 </td>
-                <td style={{ color: "#6b7280" }}>{t.remark ?? "—"}</td>
+                <td style={{ color: "var(--text-secondary)" }}>{t.remark ?? "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -1111,10 +1101,10 @@ function ChecklistsTab({
   };
 
   const ITEM_STATUS_COLOR: Record<string, string> = {
-    NOT_STARTED: "#9ca3af",
-    PASSED: "#16a34a",
-    FAILED: "#dc2626",
-    BLOCKED: "#d97706",
+    NOT_STARTED: "var(--text-disabled)",
+    PASSED: "var(--status-success)",
+    FAILED: "var(--status-danger)",
+    BLOCKED: "var(--status-warning)",
   };
 
   return (
@@ -1122,7 +1112,7 @@ function ChecklistsTab({
       {/* Module progress bars */}
       {progress.length > 0 && (
         <div style={{ marginBottom: 24 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12, color: "#374151" }}>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12, color: "var(--text-primary)" }}>
             模块验收进度
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
@@ -1130,8 +1120,8 @@ function ChecklistsTab({
               <div
                 key={p.moduleCode}
                 style={{
-                  background: "#fff",
-                  border: "1px solid #e5e7eb",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border)",
                   borderRadius: 8,
                   padding: "12px 16px",
                 }}
@@ -1147,14 +1137,14 @@ function ChecklistsTab({
                   <span style={{ fontWeight: 600 }}>
                     {MODULE_LABELS[p.moduleCode] ?? p.moduleCode}
                   </span>
-                  <span style={{ color: "#6b7280" }}>
+                  <span style={{ color: "var(--text-secondary)" }}>
                     {p.passed}/{p.total} ({p.passPct ?? 0}%)
                   </span>
                 </div>
                 <div
                   style={{
                     height: 8,
-                    background: "#f3f4f6",
+                    background: "var(--bg-muted)",
                     borderRadius: 4,
                     overflow: "hidden",
                   }}
@@ -1165,10 +1155,10 @@ function ChecklistsTab({
                       width: `${p.passPct ?? 0}%`,
                       background:
                         (p.passPct ?? 0) >= 80
-                          ? "#16a34a"
+                          ? "var(--status-success)"
                           : (p.passPct ?? 0) >= 50
-                          ? "#d97706"
-                          : "#dc2626",
+                          ? "var(--status-warning)"
+                          : "var(--status-danger)",
                       borderRadius: 4,
                       transition: "width 0.4s",
                     }}
@@ -1182,13 +1172,13 @@ function ChecklistsTab({
 
       {/* Accordion by module */}
       {groups.length === 0 && (
-        <div style={{ color: "#9ca3af", textAlign: "center", padding: 32 }}>暂无验收清单数据</div>
+        <div style={{ color: "var(--text-disabled)", textAlign: "center", padding: 32 }}>暂无验收清单数据</div>
       )}
       {groups.map((group) => (
         <div
           key={group.moduleCode}
           style={{
-            border: "1px solid #e5e7eb",
+            border: "1px solid var(--border)",
             borderRadius: 10,
             marginBottom: 12,
             overflow: "hidden",
@@ -1201,7 +1191,7 @@ function ChecklistsTab({
             style={{
               width: "100%",
               padding: "14px 18px",
-              background: "#f9fafb",
+              background: "var(--bg-muted)",
               border: "none",
               cursor: "pointer",
               display: "flex",
@@ -1209,11 +1199,11 @@ function ChecklistsTab({
               alignItems: "center",
               fontSize: 14,
               fontWeight: 600,
-              color: "#111827",
+              color: "var(--text-primary)",
             }}
           >
             <span>{MODULE_LABELS[group.moduleCode] ?? group.moduleCode}</span>
-            <span style={{ fontSize: 12, color: "#6b7280" }}>
+            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
               {group.items.length} 项 {expanded[group.moduleCode] ? "▲" : "▼"}
             </span>
           </button>
@@ -1224,7 +1214,7 @@ function ChecklistsTab({
                   key={item.id}
                   style={{
                     padding: "14px 18px",
-                    borderTop: "1px solid #f3f4f6",
+                    borderTop: "1px solid var(--bg-muted)",
                     display: "flex",
                     alignItems: "flex-start",
                     gap: 12,
@@ -1233,11 +1223,11 @@ function ChecklistsTab({
                 >
                   <div style={{ flex: 1, minWidth: 180 }}>
                     <div style={{ fontWeight: 500, fontSize: 13 }}>{item.itemName}</div>
-                    <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
+                    <div style={{ fontSize: 11, color: "var(--text-disabled)", marginTop: 2 }}>
                       {item.itemCode} ·{" "}
                       <span
                         style={{
-                          color: ITEM_STATUS_COLOR[item.status] ?? "#6b7280",
+                          color: ITEM_STATUS_COLOR[item.status] ?? "var(--text-secondary)",
                           fontWeight: 600,
                         }}
                       >
@@ -1248,7 +1238,7 @@ function ChecklistsTab({
                   <input
                     style={{
                       padding: "4px 8px",
-                      border: "1px solid #d1d5db",
+                      border: "1px solid var(--border)",
                       borderRadius: 5,
                       fontSize: 12,
                       outline: "none",
@@ -1262,19 +1252,19 @@ function ChecklistsTab({
                   />
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {[
-                      { s: "PASSED", label: "✅ 通过", bg: "#16a34a" },
-                      { s: "FAILED", label: "❌ 失败", bg: "#dc2626" },
-                      { s: "BLOCKED", label: "🚧 阻塞", bg: "#d97706" },
-                      { s: "NOT_STARTED", label: "↩️ 重置", bg: "#6b7280" },
+                      { s: "PASSED", label: "✅ 通过", bg: "var(--status-success)" },
+                      { s: "FAILED", label: "❌ 失败", bg: "var(--status-danger)" },
+                      { s: "BLOCKED", label: "🚧 阻塞", bg: "var(--status-warning)" },
+                      { s: "NOT_STARTED", label: "↩️ 重置", bg: "var(--text-secondary)" },
                     ].map(({ s, label, bg }) => (
                       <button
                         key={s}
                         onClick={() => handleStatus(item.id, s)}
                         style={{
                           padding: "4px 10px",
-                          background: item.status === s ? bg : "#f3f4f6",
-                          color: item.status === s ? "#fff" : "#374151",
-                          border: `1px solid ${item.status === s ? bg : "#d1d5db"}`,
+                          background: item.status === s ? bg : "var(--bg-muted)",
+                          color: item.status === s ? "var(--text-on-dark)" : "var(--text-primary)",
+                          border: `1px solid ${item.status === s ? bg : "var(--border)"}`,
                           borderRadius: 5,
                           cursor: "pointer",
                           fontSize: 12,
@@ -1364,19 +1354,19 @@ function PilotRunTab() {
 
   const inputStyle: React.CSSProperties = {
     padding: "6px 10px",
-    border: "1px solid #d1d5db",
+    border: "1px solid var(--border)",
     borderRadius: 6,
     fontSize: 13,
     outline: "none",
   };
-  const selectStyle: React.CSSProperties = { ...inputStyle, background: "#fff" };
+  const selectStyle: React.CSSProperties = { ...inputStyle, background: "var(--bg-card)" };
 
   const PILOT_STATUS_COLOR: Record<string, string> = {
-    PLANNED: "#6b7280",
-    RUNNING: "#2563eb",
-    PAUSED: "#d97706",
-    COMPLETED: "#16a34a",
-    ABORTED: "#dc2626",
+    PLANNED: "var(--text-secondary)",
+    RUNNING: "var(--color-accent)",
+    PAUSED: "var(--status-warning)",
+    COMPLETED: "var(--status-success)",
+    ABORTED: "var(--status-danger)",
   };
 
   return (
@@ -1399,8 +1389,8 @@ function PilotRunTab() {
           style={{
             marginLeft: "auto",
             padding: "7px 18px",
-            background: "#2563eb",
-            color: "#fff",
+            background: "var(--color-accent)",
+            color: "var(--text-on-dark)",
             border: "none",
             borderRadius: 6,
             cursor: "pointer",
@@ -1415,8 +1405,8 @@ function PilotRunTab() {
       {showCreateForm && (
         <div
           style={{
-            background: "#f9fafb",
-            border: "1px solid #e5e7eb",
+            background: "var(--bg-muted)",
+            border: "1px solid var(--border)",
             borderRadius: 10,
             padding: 20,
             marginBottom: 20,
@@ -1438,7 +1428,7 @@ function PilotRunTab() {
               { label: "备注", key: "remark", type: "text", placeholder: "可选" },
             ].map((f) => (
               <div key={f.key}>
-                <label style={{ fontSize: 12, color: "#6b7280" }}>{f.label}</label>
+                <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>{f.label}</label>
                 <input
                   type={f.type}
                   style={{ ...inputStyle, width: "100%", boxSizing: "border-box", marginTop: 4 }}
@@ -1455,8 +1445,8 @@ function PilotRunTab() {
             style={{
               marginTop: 14,
               padding: "8px 20px",
-              background: "#2563eb",
-              color: "#fff",
+              background: "var(--color-accent)",
+              color: "var(--text-on-dark)",
               border: "none",
               borderRadius: 6,
               cursor: "pointer",
@@ -1488,7 +1478,7 @@ function PilotRunTab() {
               <tr>
                 <td
                   colSpan={10}
-                  style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}
+                  style={{ padding: 32, textAlign: "center", color: "var(--text-disabled)" }}
                 >
                   暂无试运行数据
                 </td>
@@ -1496,27 +1486,27 @@ function PilotRunTab() {
             )}
             {runs.map((run) => (
               <tr key={run.id}>
-                <td style={{ color: "#6b7280", whiteSpace: "nowrap" }}>
+                <td style={{ color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                   {run.runNo}
                 </td>
                 <td>{run.companyCode}</td>
                 <td>{run.siteName}</td>
-                <td style={{ whiteSpace: "nowrap", color: "#6b7280" }}>
+                <td style={{ whiteSpace: "nowrap", color: "var(--text-secondary)" }}>
                   {run.runStartDate ? new Date(run.runStartDate).toLocaleDateString("zh-CN") : "—"}
                 </td>
-                <td style={{ whiteSpace: "nowrap", color: "#6b7280" }}>
+                <td style={{ whiteSpace: "nowrap", color: "var(--text-secondary)" }}>
                   {run.runEndDate ? new Date(run.runEndDate).toLocaleDateString("zh-CN") : "—"}
                 </td>
                 <td>
                   <Badge
                     label={run.status}
-                    color={PILOT_STATUS_COLOR[run.status] ?? "#6b7280"}
+                    color={PILOT_STATUS_COLOR[run.status] ?? "var(--text-secondary)"}
                   />
                 </td>
                 <td style={{ textAlign: "center" }}>{run.orderCount}</td>
                 <td style={{ textAlign: "center" }}>{run.deliveryCount}</td>
                 <td style={{ textAlign: "center" }}>
-                  <span style={{ color: run.issueCount > 0 ? "#dc2626" : "#16a34a", fontWeight: 600 }}>
+                  <span style={{ color: run.issueCount > 0 ? "var(--status-danger)" : "var(--status-success)", fontWeight: 600 }}>
                     {run.issueCount}
                   </span>
                 </td>
@@ -1524,7 +1514,7 @@ function PilotRunTab() {
                   {updatingId === run.id ? (
                     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                       <select
-                        style={{ ...inputStyle, fontSize: 12, padding: "3px 6px", background: "#fff" }}
+                        style={{ ...inputStyle, fontSize: 12, padding: "3px 6px", background: "var(--bg-card)" }}
                         value={(updateValues.status as string) ?? run.status}
                         onChange={(e) =>
                           setUpdateValues((v) => ({ ...v, status: e.target.value }))
@@ -1552,8 +1542,8 @@ function PilotRunTab() {
                         onClick={() => handleUpdate(run.id)}
                         style={{
                           padding: "3px 10px",
-                          background: "#16a34a",
-                          color: "#fff",
+                          background: "var(--status-success)",
+                          color: "var(--text-on-dark)",
                           border: "none",
                           borderRadius: 4,
                           cursor: "pointer",
@@ -1566,8 +1556,8 @@ function PilotRunTab() {
                         onClick={() => setUpdatingId(null)}
                         style={{
                           padding: "3px 10px",
-                          background: "#e5e7eb",
-                          color: "#374151",
+                          background: "var(--border)",
+                          color: "var(--text-primary)",
                           border: "none",
                           borderRadius: 4,
                           cursor: "pointer",
@@ -1590,12 +1580,12 @@ function PilotRunTab() {
                       }}
                       style={{
                         padding: "3px 12px",
-                        background: "#f3f4f6",
-                        border: "1px solid #d1d5db",
+                        background: "var(--bg-muted)",
+                        border: "1px solid var(--border)",
                         borderRadius: 4,
                         cursor: "pointer",
                         fontSize: 12,
-                        color: "#374151",
+                        color: "var(--text-primary)",
                       }}
                     >
                       更新
@@ -1623,7 +1613,7 @@ function ReadinessTab({
 }) {
   const score = readiness?.score ?? null;
   const scoreColor =
-    score === null ? "#6b7280" : score >= 80 ? "#16a34a" : score >= 60 ? "#d97706" : "#dc2626";
+    score === null ? "var(--text-secondary)" : score >= 80 ? "var(--status-success)" : score >= 60 ? "var(--status-warning)" : "var(--status-danger)";
 
   const statusLabel =
     score === null
@@ -1671,12 +1661,12 @@ function ReadinessTab({
           {readiness?.hasCriticalIssues && (
             <div
               style={{
-                background: "#fef2f2",
-                border: "1px solid #fca5a5",
+                background: "color-mix(in srgb, var(--status-danger) 8%, transparent)",
+                border: "1px solid var(--status-danger)",
                 borderRadius: 8,
                 padding: "10px 16px",
                 marginBottom: 12,
-                color: "#991b1b",
+                color: "var(--status-danger)",
                 fontWeight: 600,
                 fontSize: 13,
               }}
@@ -1688,8 +1678,8 @@ function ReadinessTab({
             onClick={onRefresh}
             style={{
               padding: "8px 20px",
-              background: "#2563eb",
-              color: "#fff",
+              background: "var(--color-accent)",
+              color: "var(--text-on-dark)",
               border: "none",
               borderRadius: 6,
               cursor: "pointer",
@@ -1705,7 +1695,7 @@ function ReadinessTab({
       {/* Dimension table */}
       {readiness?.dimensions && readiness.dimensions.length > 0 && (
         <div>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12, color: "#374151" }}>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12, color: "var(--text-primary)" }}>
             评分维度明细
           </div>
           <div style={{ overflowX: "auto" }}>
@@ -1725,12 +1715,12 @@ function ReadinessTab({
                     <td>
                       {d.dimensionName}
                     </td>
-                    <td style={{ color: "#6b7280" }}>
+                    <td style={{ color: "var(--text-secondary)" }}>
                       {(d.weight * 100).toFixed(0)}%
                     </td>
                     <td>
                       <span style={{ fontWeight: 600 }}>{d.passed}</span>
-                      <span style={{ color: "#9ca3af" }}> / {d.total}</span>
+                      <span style={{ color: "var(--text-disabled)" }}> / {d.total}</span>
                     </td>
                     <td>
                       <span
@@ -1738,21 +1728,21 @@ function ReadinessTab({
                           fontWeight: 700,
                           color:
                             d.score >= 80
-                              ? "#16a34a"
+                              ? "var(--status-success)"
                               : d.score >= 60
-                              ? "#d97706"
-                              : "#dc2626",
+                              ? "var(--status-warning)"
+                              : "var(--status-danger)",
                         }}
                       >
                         {d.score.toFixed(1)}
                       </span>
                     </td>
-                    <td style={{ color: "#374151" }}>
+                    <td style={{ color: "var(--text-primary)" }}>
                       {d.weighted.toFixed(2)}
                     </td>
                   </tr>
                 ))}
-                <tr style={{ background: "#f9fafb", borderTop: "2px solid #e5e7eb" }}>
+                <tr style={{ background: "var(--bg-muted)", borderTop: "2px solid var(--border)" }}>
                   <td colSpan={4} style={{ fontWeight: 700 }}>
                     综合评分
                   </td>
@@ -1773,7 +1763,7 @@ function ReadinessTab({
       )}
 
       {!readiness && (
-        <div style={{ color: "#9ca3af", textAlign: "center", padding: 48, fontSize: 14 }}>
+        <div style={{ color: "var(--text-disabled)", textAlign: "center", padding: 48, fontSize: 14 }}>
           暂无准备度数据，请点击「刷新评分」加载
         </div>
       )}
