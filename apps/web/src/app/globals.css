@@ -68,6 +68,8 @@
   from { opacity: 1; transform: translate(-50%, -50%) scale(1) }
   to   { opacity: 0; transform: translate(-50%, -48%) scale(0.96) }
 }
+/* Design System V2 — 骨架屏微光（LoadingSkeleton 用） */
+@keyframes phx-skeleton { 0% { background-position: 100% 50% } 100% { background-position: 0 50% } }
 
 /* Radix data-state 绑定 */
 [data-state="open"]  > [data-radix-dialog-content]   { animation: phx-dialog-in  0.2s cubic-bezier(0.16,1,0.3,1) }
