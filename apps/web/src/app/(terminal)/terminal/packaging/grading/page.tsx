@@ -10,7 +10,7 @@ import TerminalNumPadPanel from '@/components/terminal/TerminalNumPadPanel';
 
 const GRADING_WIP_DATE = new Date().toISOString().slice(0, 10);
 const GRADING_WIP_KEY  = `phoenix_grading_wip3_${GRADING_WIP_DATE}`;
-const SALEABLE_PALETTE = ['#7c3aed', '#2563eb', '#059669', '#d97706', '#f97316', '#ec4899', '#14b8a6'];
+const SALEABLE_PALETTE = ['var(--status-special)', 'var(--color-accent)', 'var(--status-success)', 'var(--status-warning)', 'var(--status-warning)', 'var(--status-special)', 'var(--status-success)'];
 const TOAST_MS = 2500;
 
 type SourceBatch = {
@@ -251,7 +251,7 @@ export default function GradingPage() {
         <div style={{ display:'flex', borderRadius:8, overflow:'hidden', border:`1px solid ${T.BOR}`, flexShrink:0 }}>
           {(['zh', 'en', 'lo'] as const).map((l, i) => (
             <button key={l} type="button" onPointerDown={e => { e.preventDefault(); setAppLanguage(l); }}
-              style={{ padding:'5px 0', width:38, border:'none', borderLeft: i>0 ? `1px solid ${T.BOR}` : 'none', background: lang===l ? T.ACC : 'transparent', color: lang===l ? '#0f172a' : T.MUT, fontSize:12, fontWeight:700, cursor:'pointer', WebkitTapHighlightColor:'transparent', transition:'background 0.15s, color 0.15s', textAlign:'center', flexShrink:0 }}>
+              style={{ padding:'5px 0', width:38, border:'none', borderLeft: i>0 ? `1px solid ${T.BOR}` : 'none', background: lang===l ? T.ACC : 'transparent', color: lang===l ? 'var(--bg-page)' : T.MUT, fontSize:12, fontWeight:700, cursor:'pointer', WebkitTapHighlightColor:'transparent', transition:'background 0.15s, color 0.15s', textAlign:'center', flexShrink:0 }}>
               {l==='zh' ? '中' : l==='en' ? 'EN' : 'ລາວ'}
             </button>
           ))}
@@ -300,8 +300,8 @@ export default function GradingPage() {
                       {h.house_name}
                     </div>
                     <div style={{ fontSize:10, color:T.MUT, marginTop:1, whiteSpace:'nowrap' }}>
-                      {h.dirty_qty > 0 && <span style={{ color:'#f97316', marginRight:5 }}>{t('ui.脏', '脏')} {h.dirty_qty.toLocaleString()}</span>}
-                      {h.cracked_qty > 0 && <span style={{ color:'#f97316', marginRight:5 }}>{t('ui.裂', '裂')} {h.cracked_qty.toLocaleString()}</span>}
+                      {h.dirty_qty > 0 && <span style={{ color:'var(--status-warning)', marginRight:5 }}>{t('ui.脏', '脏')} {h.dirty_qty.toLocaleString()}</span>}
+                      {h.cracked_qty > 0 && <span style={{ color:'var(--status-warning)', marginRight:5 }}>{t('ui.裂', '裂')} {h.cracked_qty.toLocaleString()}</span>}
                       {t('ui.采集', '采集')} {h.received_qty.toLocaleString()}
                     </div>
                   </div>
@@ -310,7 +310,7 @@ export default function GradingPage() {
                       {hoTotal > 0 ? hoTotal.toLocaleString() : '—'}
                       {isDone && remaining === 0 && <span style={{ fontSize:10, fontWeight:400, marginLeft:3, color:T.GRN }}>✓</span>}
                     </div>
-                    <div style={{ fontSize:10, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap', color: remaining < 0 ? T.RED : remaining === 0 ? T.GRN : '#f59e0b' }}>
+                    <div style={{ fontSize:10, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap', color: remaining < 0 ? T.RED : remaining === 0 ? T.GRN : 'var(--status-warning)' }}>
                       {remaining < 0
                         ? `${t('ui.超出', '超出')} ${Math.abs(remaining).toLocaleString()}`
                         : `${t('ui.剩余', '剩余')} ${remaining.toLocaleString()}`}
@@ -387,7 +387,7 @@ export default function GradingPage() {
                 {defectItems.map(d => {
                   const tc = d.code;
                   const qty = outputs[tc] ?? 0;
-                  const color = (d.color as string) || '#ef4444';
+                  const color = (d.color as string) || 'var(--status-danger)';
                   const isSelected = editKey === tc;
                   return (
                     <button type="button" key={tc} onPointerDown={() => setEditKey(tc)}
@@ -429,7 +429,7 @@ export default function GradingPage() {
               </div>
               <div style={{ display:'flex', flexDirection:'column', minWidth:80 }}>
                 <span style={{ color:T.MUT, fontSize:11, whiteSpace:'nowrap' }}>{t('ui.差异', '差异')}</span>
-                <strong style={{ fontSize:16, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap', color:houseAvailable>0 && Math.abs(houseAvailable-totalOutput)>200 ? '#f59e0b' : T.GRN }}>
+                <strong style={{ fontSize:16, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap', color:houseAvailable>0 && Math.abs(houseAvailable-totalOutput)>200 ? 'var(--status-warning)' : T.GRN }}>
                   {houseAvailable > 0 ? (houseAvailable-totalOutput).toLocaleString() : '—'}
                 </strong>
               </div>
@@ -487,12 +487,12 @@ export default function GradingPage() {
         </div>
         {allDone ? (
           <button type="button" onClick={() => router.push('/terminal/packaging/packing')}
-            style={{ padding:'9px 40px', borderRadius:10, border:'none', background:T.GRN, color:'#0f172a', fontSize:16, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
+            style={{ padding:'9px 40px', borderRadius:10, border:'none', background:T.GRN, color:'var(--bg-page)', fontSize:16, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
             → {t('terminal.packing', '前往包装')}
           </button>
         ) : (
           <button type="button" onClick={handleSubmit} disabled={!canSubmit || submitting}
-            style={{ padding:'9px 40px', borderRadius:10, border:'none', background:canSubmit?T.ACC:T.BOR, color:canSubmit?'#0f172a':T.MUT, fontSize:16, fontWeight:700, cursor:canSubmit?'pointer':'not-allowed', opacity:submitting?0.7:1, transition:'background 0.15s, opacity 0.15s', flexShrink:0 }}>
+            style={{ padding:'9px 40px', borderRadius:10, border:'none', background:canSubmit?T.ACC:T.BOR, color:canSubmit?'var(--bg-page)':T.MUT, fontSize:16, fontWeight:700, cursor:canSubmit?'pointer':'not-allowed', opacity:submitting?0.7:1, transition:'background 0.15s, opacity 0.15s', flexShrink:0 }}>
             {submitting ? t('ui.提交中', '提交中...') : `✓ ${t('ui.提交此批次', '提交此鸡舍')}`}
           </button>
         )}

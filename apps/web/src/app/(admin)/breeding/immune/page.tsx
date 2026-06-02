@@ -173,7 +173,7 @@ export default function ImmunePage() {
     { key:'actions',        title: t('common.operation', '操作'), width:'120px', render: (_: unknown, row: ImmunePlan) => (
       <div className={s.tableActions}>
         {can(['ROLE_VET','ROLE_ADMIN']) && normStatus(row.status)==='PENDING' && (
-          <button type="button" className={`${s.btn} ${s.btnSm}`} style={{ background:'var(--status-success)', color:'#fff', border:'none' }}
+          <button type="button" className={`${s.btn} ${s.btnSm}`} style={{ background:'var(--status-success)', color:'var(--text-on-dark)', border:'none' }}
             onClick={() => handleRecordVaccine(row)}><CheckCircle size={12} />{t('ui.执行', '执行')}</button>
         )}
         {can(['ROLE_VET','ROLE_FARM_MGR','ROLE_ADMIN']) && (
@@ -201,7 +201,7 @@ export default function ImmunePage() {
         )} />
 
       {overdueCnt > 0 && (
-        <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', backgroundColor:'color-mix(in srgb,var(--status-danger) 12%,transparent)', border:'1px solid color-mix(in srgb,var(--status-danger) 40%,transparent)', borderRadius:'var(--radius-md)', marginBottom:16, color:'#991b1b', fontSize:13, fontWeight:600 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', backgroundColor:'color-mix(in srgb,var(--status-danger) 12%,transparent)', border:'1px solid color-mix(in srgb,var(--status-danger) 40%,transparent)', borderRadius:'var(--radius-md)', marginBottom:16, color:'var(--status-danger)', fontSize:13, fontWeight:600 }}>
           <AlertTriangle size={16} />{t('ui.注意有免疫计划逾期', `注意：有 ${overdueCnt} 项免疫计划已逾期未执行，请尽快安排！`)}
         </div>
       )}

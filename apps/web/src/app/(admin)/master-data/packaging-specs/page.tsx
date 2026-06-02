@@ -1,4 +1,5 @@
 "use client";
+import { toast } from 'sonner';
 import { useState, useEffect, useCallback } from "react";
 import { Package, Search, RefreshCw, Plus, Edit2 } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
@@ -31,8 +32,8 @@ interface Spec {
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  ACTIVE:   { label: "启用", color: "#10b981" },
-  INACTIVE: { label: "停用", color: "#64748b" },
+  ACTIVE:   { label: "启用", color: "var(--status-success)" },
+  INACTIVE: { label: "停用", color: "var(--text-secondary)" },
 };
 
 const EMPTY: Spec = { spec_code: "", spec_name: "", spec_name_lo: "", qty_per_unit: 1, base_unit: "枚", display_unit: "枚", sort_order: 99, status: "ACTIVE", remark: "" };
@@ -76,7 +77,7 @@ export default function PackagingSpecsPage() {
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.message || `HTTP ${res.status}`); }
       setDrawer(false);
       await load();
-    } catch (e: unknown) { alert(e instanceof Error ? e.message : "保存失败"); }
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "保存失败"); }
     finally { setSaving(false); }
   };
 
@@ -95,7 +96,7 @@ export default function PackagingSpecsPage() {
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
         <div style={{ position: "relative", flex: "0 0 240px" }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#475569" }} />
+          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索规格编码 / 名称..."
             className="bg-bg-muted border border-border text-text"
             style={{ ...inp, marginTop: 0, paddingLeft: 32 }} />
@@ -108,16 +109,16 @@ export default function PackagingSpecsPage() {
           <RefreshCw size={13} /> 刷新
         </button>
         {canEdit && (
-          <button onClick={openCreate} style={{ marginLeft: "auto", padding: "7px 16px", background: "#f59e0b", border: "none", borderRadius: 7, color: "#0f172a", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+          <button onClick={openCreate} style={{ marginLeft: "auto", padding: "7px 16px", background: "var(--status-warning)", border: "none", borderRadius: 7, color: "var(--text-primary)", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
             <Plus size={14} /> 新增规格
           </button>
         )}
       </div>
 
-      {error && <div style={{ background: "#450a0a", border: "1px solid #7f1d1d", borderRadius: 8, padding: "10px 14px", marginBottom: 16, color: "#fca5a5", fontSize: 13 }}>{error}</div>}
+      {error && <div style={{ background: "var(--status-danger)", border: "1px solid var(--status-danger)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, color: "var(--status-danger)", fontSize: 13 }}>{error}</div>}
 
       {loading ? (
-        <div style={{ textAlign: "center", padding: 40, color: "#475569" }}>加载中...</div>
+        <div style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>加载中...</div>
       ) : (
         <div className="bg-bg-muted border border-border" style={{ borderRadius: 10, overflow: "hidden" }}>
           <table className={ui.table}>
@@ -130,7 +131,7 @@ export default function PackagingSpecsPage() {
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", color: "#475569" }}>暂无数据</td></tr>
+                <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)" }}>暂无数据</td></tr>
               )}
               {filtered.map((s, i) => (
                 <tr key={s.spec_code} className="border-b border-border" style={{ background: i % 2 ? "rgba(148,163,184,0.05)" : "transparent" }}>
@@ -138,7 +139,7 @@ export default function PackagingSpecsPage() {
                     <span className="bg-bg-card border border-border" style={{ borderRadius: 5, padding: "2px 8px", fontFamily: "monospace", fontWeight: 600 }}>{s.spec_code}</span>
                   </td>
                   <td>{s.spec_name}</td>
-                  <td style={{ textAlign: "right", fontFamily: "monospace", color: "#f59e0b" }}>{s.qty_per_unit}</td>
+                  <td style={{ textAlign: "right", fontFamily: "monospace", color: "var(--status-warning)" }}>{s.qty_per_unit}</td>
                   <td className="text-text-muted">{s.base_unit}</td>
                   <td>{s.display_unit}</td>
                   <td className="text-text-muted">{s.sort_order}</td>
@@ -168,7 +169,7 @@ export default function PackagingSpecsPage() {
               <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{editing ? "编辑规格" : "新增规格"}</h3>
               <button onClick={() => setDrawer(false)} className="text-text-muted" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20 }}>×</button>
             </div>
-            <label className="text-text-muted" style={lbl}>规格编码 {!editing && <span style={{ color: "#f87171" }}>*</span>}</label>
+            <label className="text-text-muted" style={lbl}>规格编码 {!editing && <span style={{ color: "var(--status-danger)" }}>*</span>}</label>
             <input
               className={`bg-bg-muted border border-border text-text ${editing ? "opacity-50" : ""}`}
               style={inp}
@@ -177,7 +178,7 @@ export default function PackagingSpecsPage() {
               disabled={!!editing}
               placeholder="如：TRAY30 / BOX360"
             />
-            <label className="text-text-muted" style={lbl}>规格名称 <span style={{ color: "#f87171" }}>*</span></label>
+            <label className="text-text-muted" style={lbl}>规格名称 <span style={{ color: "var(--status-danger)" }}>*</span></label>
             <input className="bg-bg-muted border border-border text-text" style={inp} value={form.spec_name ?? ""} onChange={e => setForm(p => ({ ...p, spec_name: e.target.value }))} placeholder="如：30枚/托" />
             <label className="text-text-muted" style={lbl}>名称（Lao）</label>
             <input className="bg-bg-muted border border-border text-text" style={inp} value={form.spec_name_lo ?? ""} onChange={e => setForm(p => ({ ...p, spec_name_lo: e.target.value }))} placeholder="30 pcs/tray" />
@@ -202,7 +203,7 @@ export default function PackagingSpecsPage() {
             </select>
             <label className="text-text-muted" style={lbl}>备注</label>
             <textarea className="bg-bg-muted border border-border text-text" style={{ ...inp, minHeight: 60, resize: "vertical" }} value={form.remark ?? ""} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))} />
-            <button onClick={save} disabled={saving} style={{ marginTop: 20, padding: "10px", width: "100%", background: "#f59e0b", border: "none", borderRadius: 8, color: "#0f172a", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
+            <button onClick={save} disabled={saving} style={{ marginTop: 20, padding: "10px", width: "100%", background: "var(--status-warning)", border: "none", borderRadius: 8, color: "var(--text-primary)", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
               {saving ? "保存中..." : "保存"}
             </button>
           </div>

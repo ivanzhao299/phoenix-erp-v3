@@ -15,7 +15,7 @@ export default function SettingsPage() {
   const SETTINGS_GROUPS = [
     {
       title: t('ui.基础管理', '基础管理'),
-      color: "#3b82f6",
+      color: "var(--color-accent)",
       items: [
         { path:"/settings/profile",      icon:<User size={20}/>,         title:t('ui.个人中心', '个人中心'),     desc:t('ui.修改个人资料与登录密码', '修改个人资料与登录密码') },
         { path:"/settings/users",        icon:<User size={20}/>,         title:t('ui.用户管理', '用户管理'),     desc:t('ui.新增冻结与调配系统账号', '新增、冻结与调配系统账号') },
@@ -25,7 +25,7 @@ export default function SettingsPage() {
     },
     {
       title: t('ui.主数据与业务配置', '主数据与业务配置'),
-      color: "#10b981",
+      color: "var(--status-success)",
       items: [
         { path:"/settings/products",     icon:<Package size={20}/>,      title:t('ui.商品档案', '商品档案'),     desc:t('ui.鲜蛋品级规格SKU双语维护', '鲜蛋品级·规格·SKU双语维护') },
         { path:"/settings/dict",         icon:<Database size={20}/>,     title:t('ui.数据字典', '数据字典'),     desc:t('ui.枚举值单位税率基础参数', '枚举值·单位·税率基础参数') },
@@ -35,7 +35,7 @@ export default function SettingsPage() {
     },
     {
       title: t('ui.系统与安全', '系统与安全'),
-      color: "#8b5cf6",
+      color: "var(--status-special)",
       items: [
         { path:"/settings/security",     icon:<Lock size={20}/>,         title:t('ui.安全策略', '安全策略'),     desc:t('ui.登录限制会话超时日志', '登录限制·会话超时·日志') },
         { path:"/settings/audit-log",    icon:<Activity size={20}/>,     title:t('ui.审计日志', '审计日志'),     desc:t('ui.全量操作日志追踪查询', '全量操作日志追踪查询') },
@@ -45,7 +45,7 @@ export default function SettingsPage() {
     },
     {
       title: t('ui.终端与初始化', '终端与初始化'),
-      color: "#f59e0b",
+      color: "var(--status-warning)",
       items: [
         { path:"/settings/pos-config",   icon:<Smartphone size={20}/>,   title:t('ui.POS终端', 'POS 终端'),     desc:t('ui.门店收银设备参数配置', '门店收银设备参数配置') },
         { path:"/settings/pda-terminals",icon:<Smartphone size={20}/>,   title:t('ui.PDA终端', 'PDA 终端'),     desc:t('ui.工业PDA设备注册管理', '工业 PDA 设备注册管理') },

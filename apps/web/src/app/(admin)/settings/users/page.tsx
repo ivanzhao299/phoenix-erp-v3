@@ -22,9 +22,9 @@ const API = async (path: string, opts: RequestInit = {}) => {
 
 // ── 角色级别颜色 ────────────────────────────────────────────────────────────────
 const LEVEL_COLOR: Record<number, string> = {
-  4: "#d97706", 3: "#7c3aed", 2: "#2563eb", 1: "#16a34a", 0: "#64748b",
+  4: "var(--status-warning)", 3: "var(--status-special)", 2: "var(--color-accent)", 1: "var(--status-success)", 0: "var(--text-secondary)",
 };
-const levelColor = (lv: number) => LEVEL_COLOR[lv] ?? "#64748b";
+const levelColor = (lv: number) => LEVEL_COLOR[lv] ?? "var(--text-secondary)";
 
 function UserTypeBadge({ type }: { type: string }) {
   return type === "TEST" ? (
@@ -76,32 +76,32 @@ const PAGE_SIZE_OPTIONS = [20, 50, 100];
 
 // ── Role type grouping color (for RolePicker) ────────────────────
 const TYPE_COLOR: Record<string, string> = {
-  SYSTEM: "#d97706", DECISION: "#7c3aed", FINANCE: "#0891b2",
-  MANAGEMENT: "#0ea5e9", PRODUCTION: "#10b981", QUALITY: "#84cc16",
-  PACKAGING: "#14b8a6", WAREHOUSE: "#f59e0b", LOGISTICS: "#f97316",
-  PROCUREMENT: "#8b5cf6", STORE: "#3b82f6", SALES: "#06b6d4",
-  EXTERNAL: "#64748b", custom: "#94a3b8",
+  SYSTEM: "var(--status-warning)", DECISION: "var(--status-special)", FINANCE: "var(--color-accent)",
+  MANAGEMENT: "var(--color-accent)", PRODUCTION: "var(--status-success)", QUALITY: "var(--status-success)",
+  PACKAGING: "var(--status-success)", WAREHOUSE: "var(--status-warning)", LOGISTICS: "var(--status-warning)",
+  PROCUREMENT: "var(--status-special)", STORE: "var(--color-accent)", SALES: "var(--color-accent)",
+  EXTERNAL: "var(--text-secondary)", custom: "var(--text-disabled)",
 };
 
 // ── Role type meta (order / label / color / emoji) ────────────────
 const ROLE_TYPE_META: Record<string, { order: number; label: string; color: string; emoji: string }> = {
-  SYSTEM:      { order: 0,  label: "系统管理",  color: "#d97706", emoji: "⚙️" },
-  DECISION:    { order: 1,  label: "决策层",    color: "#7c3aed", emoji: "👑" },
-  FINANCE:     { order: 2,  label: "财务",      color: "#0891b2", emoji: "💰" },
-  MANAGEMENT:  { order: 3,  label: "管理运营",  color: "#0ea5e9", emoji: "📊" },
-  PRODUCTION:  { order: 4,  label: "养殖生产",  color: "#10b981", emoji: "🐔" },
-  QUALITY:     { order: 5,  label: "品控质检",  color: "#84cc16", emoji: "🔬" },
-  PACKAGING:   { order: 6,  label: "包装加工",  color: "#14b8a6", emoji: "📦" },
-  WAREHOUSE:   { order: 7,  label: "仓储物流",  color: "#f59e0b", emoji: "🏭" },
-  LOGISTICS:   { order: 8,  label: "配送运输",  color: "#f97316", emoji: "🚛" },
-  PROCUREMENT: { order: 9,  label: "采购供应",  color: "#8b5cf6", emoji: "🛒" },
-  STORE:       { order: 10, label: "门店零售",  color: "#3b82f6", emoji: "🏪" },
-  SALES:       { order: 11, label: "销售营销",  color: "#06b6d4", emoji: "📈" },
-  EXTERNAL:    { order: 12, label: "外部协作",  color: "#64748b", emoji: "🤝" },
-  custom:      { order: 99, label: "自定义",    color: "#94a3b8", emoji: "🔧" },
+  SYSTEM:      { order: 0,  label: "系统管理",  color: "var(--status-warning)", emoji: "⚙️" },
+  DECISION:    { order: 1,  label: "决策层",    color: "var(--status-special)", emoji: "👑" },
+  FINANCE:     { order: 2,  label: "财务",      color: "var(--color-accent)", emoji: "💰" },
+  MANAGEMENT:  { order: 3,  label: "管理运营",  color: "var(--color-accent)", emoji: "📊" },
+  PRODUCTION:  { order: 4,  label: "养殖生产",  color: "var(--status-success)", emoji: "🐔" },
+  QUALITY:     { order: 5,  label: "品控质检",  color: "var(--status-success)", emoji: "🔬" },
+  PACKAGING:   { order: 6,  label: "包装加工",  color: "var(--status-success)", emoji: "📦" },
+  WAREHOUSE:   { order: 7,  label: "仓储物流",  color: "var(--status-warning)", emoji: "🏭" },
+  LOGISTICS:   { order: 8,  label: "配送运输",  color: "var(--status-warning)", emoji: "🚛" },
+  PROCUREMENT: { order: 9,  label: "采购供应",  color: "var(--status-special)", emoji: "🛒" },
+  STORE:       { order: 10, label: "门店零售",  color: "var(--color-accent)", emoji: "🏪" },
+  SALES:       { order: 11, label: "销售营销",  color: "var(--color-accent)", emoji: "📈" },
+  EXTERNAL:    { order: 12, label: "外部协作",  color: "var(--text-secondary)", emoji: "🤝" },
+  custom:      { order: 99, label: "自定义",    color: "var(--text-disabled)", emoji: "🔧" },
 };
-const TYPE_META_FALLBACK = { order: 98, label: "其他",      color: "#94a3b8", emoji: "👤" };
-const NO_ROLE_META       = { order: 97, label: "未分配角色", color: "#ef4444", emoji: "❓" };
+const TYPE_META_FALLBACK = { order: 98, label: "其他",      color: "var(--text-disabled)", emoji: "👤" };
+const NO_ROLE_META       = { order: 97, label: "未分配角色", color: "var(--status-danger)", emoji: "❓" };
 
 // ── Multi-role picker component ─────────────────────────────────
 function RolePicker({ allRoles, selected, onChange }: {
@@ -209,9 +209,9 @@ function RolePicker({ allRoles, selected, onChange }: {
       <div style={{ maxHeight: 280, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
         {grouped.map(([type, roles]) => (
           <div key={type}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: TYPE_COLOR[type] ?? "#94a3b8",
+            <div style={{ fontSize: 10, fontWeight: 700, color: TYPE_COLOR[type] ?? "var(--text-disabled)",
               textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4,
-              padding: "2px 6px", background: (TYPE_COLOR[type] ?? "#94a3b8") + "15",
+              padding: "2px 6px", background: (TYPE_COLOR[type] ?? "var(--text-disabled)") + "15",
               borderRadius: 4, display: "inline-block" }}>
               {type}
             </div>
@@ -512,7 +512,7 @@ export default function UserManagementPage() {
       <div className={s.card} style={{ marginBottom: 14 }}>
         <div style={{ padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg,#f59e0b,#d97706)",
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg,var(--status-warning),var(--status-warning))",
               display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <Key size={18} color="white"/>
             </div>
@@ -520,8 +520,8 @@ export default function UserManagementPage() {
               <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>{t("ui.用户账号管理台", "用户账号管理台")}</div>
               <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
                 {t("ui.共", "共")} {counts.ALL} {t("ui.个账号", "个账号")} ·{" "}
-                <span style={{ color: "#16a34a", fontWeight: 600 }}>{t("ui.正式", "正式")} {counts.REAL}</span> ·{" "}
-                <span style={{ color: "#7c3aed", fontWeight: 600 }}>{t("ui.测试", "测试")} {counts.TEST}</span>
+                <span style={{ color: "var(--status-success)", fontWeight: 600 }}>{t("ui.正式", "正式")} {counts.REAL}</span> ·{" "}
+                <span style={{ color: "var(--status-special)", fontWeight: 600 }}>{t("ui.测试", "测试")} {counts.TEST}</span>
                 {filtered.length !== users.length && (
                   <span style={{ color: "var(--color-primary)", fontWeight: 600 }}> · {t("ui.筛选结果", "筛选结果")} {filtered.length} {t("ui.条", "条")}</span>
                 )}
@@ -546,7 +546,7 @@ export default function UserManagementPage() {
               style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px",
                 borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600,
                 background: viewMode === mode ? "var(--color-primary)" : "transparent",
-                color: viewMode === mode ? "#fff" : "var(--text-secondary)",
+                color: viewMode === mode ? "var(--bg-card)" : "var(--text-secondary)",
                 transition: "all 0.15s" }}>
               {icon} <span>{label}</span>
             </button>
@@ -599,7 +599,7 @@ export default function UserManagementPage() {
 
         {hasActiveFilters && (
           <button type="button" onClick={() => { setSearch(""); setStatusFilter("ALL"); setRoleFilter(""); }}
-            style={{ fontSize: 12, color: "#ef4444", background: "rgba(239,68,68,0.08)",
+            style={{ fontSize: 12, color: "var(--status-danger)", background: "rgba(239,68,68,0.08)",
               border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6,
               padding: "6px 10px", cursor: "pointer", whiteSpace: "nowrap" }}>
             {t("ui.清除筛选", "清除筛选")}
@@ -905,7 +905,7 @@ export default function UserManagementPage() {
                       style={{ padding: "4px 9px", borderRadius: 6, fontSize: 12, cursor: "pointer",
                         border: page === p ? "1px solid var(--color-primary)" : "1px solid var(--border)",
                         background: page === p ? "var(--color-primary)" : "var(--bg-card)",
-                        color: page === p ? "#fff" : "var(--text-primary)",
+                        color: page === p ? "var(--bg-card)" : "var(--text-primary)",
                         fontWeight: page === p ? 700 : 400 }}>
                       {p}
                     </button>
@@ -959,7 +959,7 @@ export default function UserManagementPage() {
             <>
               <div className={s.formSection}><UserCheck size={12}/>{t("ui.账号类型", "账号类型")}</div>
               <div className={s.field} style={{ display: "flex", gap: 10 }}>
-                {([["REAL", "✅ " + t("ui.正式员工", "正式员工"), "#15803d", "#dcfce7", "#86efac"], ["TEST", "🧪 " + t("ui.测试账号", "测试账号"), "#7c3aed", "#ede9fe", "#c4b5fd"]] as const).map(([val, lbl, col, bg, bc]) => (
+                {([["REAL", "✅ " + t("ui.正式员工", "正式员工"), "var(--status-success)", "color-mix(in srgb, var(--status-success) 14%, transparent)", "var(--status-success)"], ["TEST", "🧪 " + t("ui.测试账号", "测试账号"), "var(--status-special)", "color-mix(in srgb, var(--status-special) 12%, transparent)", "var(--status-special)"]] as const).map(([val, lbl, col, bg, bc]) => (
                   <label key={val} style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8,
                     border: `1.5px solid ${form.user_type === val ? bc : "var(--border)"}`, background: form.user_type === val ? bg : "var(--bg-card)",
                     cursor: "pointer", fontSize: 13, fontWeight: 600, color: form.user_type === val ? col : "var(--text-secondary)", transition: "all 0.18s" }}>
@@ -992,7 +992,7 @@ export default function UserManagementPage() {
           </div>
 
           {/* Password */}
-          <div className={s.formSection} style={{ color: !editUser ? "var(--status-danger)" : form.newPassword ? "#f97316" : "var(--text-secondary)" }}>
+          <div className={s.formSection} style={{ color: !editUser ? "var(--status-danger)" : form.newPassword ? "var(--status-warning)" : "var(--text-secondary)" }}>
             <Key size={12}/>{editUser ? t("ui.重置密码可选", "重置密码（可选）") : t("ui.初始密码", "初始密码")}
           </div>
           <div className={s.field}>
@@ -1011,7 +1011,7 @@ export default function UserManagementPage() {
                 <input type="password" value={form.newPassword} onChange={e => f("newPassword", e.target.value)}
                   placeholder={t("ui.至少8位留空保持原密码", "至少 8 位；留空保持原密码")} className={s.inp}/>
                 <div style={{ fontSize: 11, marginTop: 5,
-                  color: form.newPassword && form.newPassword.length < 8 ? "#f97316" : form.newPassword ? "#16a34a" : "var(--text-secondary)" }}>
+                  color: form.newPassword && form.newPassword.length < 8 ? "var(--status-warning)" : form.newPassword ? "var(--status-success)" : "var(--text-secondary)" }}>
                   {form.newPassword && form.newPassword.length < 8
                     ? `⚠️ ${t("ui.密码长度不足8位", "密码长度不足 8 位")}`
                     : form.newPassword

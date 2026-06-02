@@ -82,12 +82,12 @@ interface MatrixData {
 
 // 权限码元数据
 const PERM_CODE_META: Record<string, { label: string; color: string; tip: string }> = {
-  V: { label: "查看", color: "#3b82f6", tip: "查看（View）" },
-  C: { label: "新增", color: "#22c55e", tip: "新增（Create）" },
-  E: { label: "编辑", color: "#f59e0b", tip: "编辑（Edit）" },
-  D: { label: "删除", color: "#ef4444", tip: "删除（Delete）" },
-  A: { label: "审批", color: "#8b5cf6", tip: "审批（Approve）" },
-  X: { label: "导出", color: "#06b6d4", tip: "导出（eXport）" },
+  V: { label: "查看", color: "var(--color-accent)", tip: "查看（View）" },
+  C: { label: "新增", color: "var(--status-success)", tip: "新增（Create）" },
+  E: { label: "编辑", color: "var(--status-warning)", tip: "编辑（Edit）" },
+  D: { label: "删除", color: "var(--status-danger)", tip: "删除（Delete）" },
+  A: { label: "审批", color: "var(--status-special)", tip: "审批（Approve）" },
+  X: { label: "导出", color: "var(--color-accent)", tip: "导出（eXport）" },
 };
 const PERM_CODE_ORDER: Array<keyof typeof PERM_CODE_META> = ["V", "C", "E", "D", "A", "X"];
 
@@ -115,23 +115,23 @@ const ROLE_TYPE_DEFAULT_DESC: Record<string, string> = {
 
 // ── role_type 分组元数据（展示顺序 / 中文标签 / 颜色）────────────────────
 const ROLE_TYPE_META: Record<string, { label: string; color: string; emoji: string; order: number }> = {
-  SYSTEM:      { label: "系统管理",  color: "#6366f1", emoji: "⚙️",  order: 0 },
-  DECISION:    { label: "决策层",    color: "#d97706", emoji: "🏛️",  order: 1 },
-  MANAGEMENT:  { label: "管理层",    color: "#0ea5e9", emoji: "📋",  order: 2 },
-  FINANCE:     { label: "财务",      color: "#0891b2", emoji: "💰",  order: 3 },
-  PRODUCTION:  { label: "养殖生产",  color: "#10b981", emoji: "🐔",  order: 4 },
-  QUALITY:     { label: "质检追溯",  color: "#84cc16", emoji: "🧪",  order: 5 },
-  PACKAGING:   { label: "包装作业",  color: "#14b8a6", emoji: "📦",  order: 6 },
-  WAREHOUSE:   { label: "仓储",      color: "#f59e0b", emoji: "🏭",  order: 7 },
-  LOGISTICS:   { label: "物流配送",  color: "#f97316", emoji: "🚚",  order: 8 },
-  PROCUREMENT: { label: "采购供应",  color: "#8b5cf6", emoji: "🛒",  order: 9 },
-  STORE:       { label: "门店",      color: "#3b82f6", emoji: "🏪",  order: 10 },
-  SALES:       { label: "销售营销",  color: "#06b6d4", emoji: "📊",  order: 11 },
-  FIELD:       { label: "一线作业",  color: "#64748b", emoji: "🔧",  order: 12 },
-  COMMON:      { label: "通用",      color: "#94a3b8", emoji: "🔗",  order: 13 },
-  EXTERNAL:    { label: "外部合作",  color: "#6b7280", emoji: "🌐",  order: 14 },
+  SYSTEM:      { label: "系统管理",  color: "var(--status-special)", emoji: "⚙️",  order: 0 },
+  DECISION:    { label: "决策层",    color: "var(--status-warning)", emoji: "🏛️",  order: 1 },
+  MANAGEMENT:  { label: "管理层",    color: "var(--color-accent)", emoji: "📋",  order: 2 },
+  FINANCE:     { label: "财务",      color: "var(--color-accent)", emoji: "💰",  order: 3 },
+  PRODUCTION:  { label: "养殖生产",  color: "var(--status-success)", emoji: "🐔",  order: 4 },
+  QUALITY:     { label: "质检追溯",  color: "var(--status-success)", emoji: "🧪",  order: 5 },
+  PACKAGING:   { label: "包装作业",  color: "var(--status-success)", emoji: "📦",  order: 6 },
+  WAREHOUSE:   { label: "仓储",      color: "var(--status-warning)", emoji: "🏭",  order: 7 },
+  LOGISTICS:   { label: "物流配送",  color: "var(--status-warning)", emoji: "🚚",  order: 8 },
+  PROCUREMENT: { label: "采购供应",  color: "var(--status-special)", emoji: "🛒",  order: 9 },
+  STORE:       { label: "门店",      color: "var(--color-accent)", emoji: "🏪",  order: 10 },
+  SALES:       { label: "销售营销",  color: "var(--color-accent)", emoji: "📊",  order: 11 },
+  FIELD:       { label: "一线作业",  color: "var(--text-secondary)", emoji: "🔧",  order: 12 },
+  COMMON:      { label: "通用",      color: "var(--text-disabled)", emoji: "🔗",  order: 13 },
+  EXTERNAL:    { label: "外部合作",  color: "var(--text-secondary)", emoji: "🌐",  order: 14 },
 };
-const TYPE_META_FALLBACK = { label: "其他", color: "#94a3b8", emoji: "📁", order: 99 };
+const TYPE_META_FALLBACK = { label: "其他", color: "var(--text-disabled)", emoji: "📁", order: 99 };
 
 // ── API helpers ─────────────────────────────────────────────────────────
 const tok = () => (typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : "");
@@ -514,9 +514,9 @@ export default function RoleManagementPage() {
       {/* 顶部统计胶囊 */}
       <div className={s.statsRow}>
         <StatPill label={t("ui.角色总数","角色总数")}     value={stats.role_count}      color="var(--color-primary)" icon={<Shield size={14} />}      tip="系统中已定义的角色数量" />
-        <StatPill label={t("ui.菜单定义","菜单定义")}     value={stats.menu_count}      color="#10b981" icon={<Grid size={14} />}           tip="系统注册的菜单/功能点总数" />
-        <StatPill label={t("ui.敏感菜单","敏感菜单")}     value={stats.sensitive_count} color="#ef4444" icon={<Lock size={14} />}            tip="标记为高风险的菜单数（如财务审计、审批、结算等），仅统计数量，不代表错误" />
-        <StatPill label={t("ui.岗位分离规则","岗位分离规则")} value={stats.conflict_count}  color="#f59e0b" icon={<AlertTriangle size={14} />} tip="SoD 红线规则总数（编辑角色权限时实时校验）；仅当两侧菜单均有写权限时才报错" />
+        <StatPill label={t("ui.菜单定义","菜单定义")}     value={stats.menu_count}      color="var(--status-success)" icon={<Grid size={14} />}           tip="系统注册的菜单/功能点总数" />
+        <StatPill label={t("ui.敏感菜单","敏感菜单")}     value={stats.sensitive_count} color="var(--status-danger)" icon={<Lock size={14} />}            tip="标记为高风险的菜单数（如财务审计、审批、结算等），仅统计数量，不代表错误" />
+        <StatPill label={t("ui.岗位分离规则","岗位分离规则")} value={stats.conflict_count}  color="var(--status-warning)" icon={<AlertTriangle size={14} />} tip="SoD 红线规则总数（编辑角色权限时实时校验）；仅当两侧菜单均有写权限时才报错" />
       </div>
 
       {/* 角色卡片 — 按 role_type 分组展示 */}
@@ -572,13 +572,13 @@ export default function RoleManagementPage() {
                           {isAdmin && (
                             <div style={{
                               position: "absolute", top: 6, right: 6, width: 8, height: 8,
-                              background: "#d97706", borderRadius: "50%",
+                              background: "var(--status-warning)", borderRadius: "50%",
                               boxShadow: "0 0 0 3px rgba(217,119,6,0.25)",
                             }} />
                           )}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div className={s.cardTitle} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}>
-                              <Shield size={13} color={isAdmin ? "#d97706" : meta.color} />
+                              <Shield size={13} color={isAdmin ? "var(--status-warning)" : meta.color} />
                               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{role.role_name_zh}</span>
                             </div>
                             <div style={{ fontSize: 10, fontFamily: "monospace", color: "var(--text-secondary)", marginTop: 2 }}>
@@ -741,28 +741,28 @@ export default function RoleManagementPage() {
           {currentConflicts.length > 0 && (
             <div style={{
               padding: 10, borderRadius: 8,
-              background: hasBlockingConflict ? "#fef2f2" : "#fffbeb",
-              border: `1px solid ${hasBlockingConflict ? "#fca5a5" : "#fcd34d"}`,
+              background: hasBlockingConflict ? "color-mix(in srgb, var(--status-danger) 10%, transparent)" : "color-mix(in srgb, var(--status-warning) 12%, transparent)",
+              border: `1px solid ${hasBlockingConflict ? "var(--status-danger)" : "var(--status-warning)"}`,
             }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: hasBlockingConflict ? "#b91c1c" : "#92400e", display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: hasBlockingConflict ? "var(--status-danger)" : "var(--status-warning)", display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
                 <AlertTriangle size={12} /> {t("ui.检测到","检测到")} {currentConflicts.length} {t("ui.项岗位分离冲突","项岗位分离冲突（双侧均有写权限）")}
-                {hasBlockingConflict && <span style={{ marginLeft: 8, padding: "1px 6px", background: "#dc2626", color: "white", borderRadius: 4, fontSize: 10 }}>BLOCK {t("ui.硬阻止","硬阻止")}</span>}
+                {hasBlockingConflict && <span style={{ marginLeft: 8, padding: "1px 6px", background: "var(--status-danger)", color: "white", borderRadius: 4, fontSize: 10 }}>BLOCK {t("ui.硬阻止","硬阻止")}</span>}
               </div>
-              <div style={{ fontSize: 10, color: hasBlockingConflict ? "#991b1b" : "#a16207", marginBottom: 6, lineHeight: 1.4 }}>
+              <div style={{ fontSize: 10, color: hasBlockingConflict ? "var(--status-danger)" : "var(--status-warning)", marginBottom: 6, lineHeight: 1.4 }}>
                 {t("ui.仅当两侧菜单同时持有写操作权限CEDA时触发纯查看V不算冲突","💡 仅当两侧菜单同时持有写操作（C/E/D/A）时触发；纯查看（V）不算冲突")}
               </div>
               {currentConflicts.map((c) => (
-                <div key={c.id} style={{ fontSize: 11, color: hasBlockingConflict ? "#7f1d1d" : "#78350f", lineHeight: 1.6 }}>
+                <div key={c.id} style={{ fontSize: 11, color: hasBlockingConflict ? "var(--status-danger)" : "var(--status-warning)", lineHeight: 1.6 }}>
                   • <code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 4px", borderRadius: 3 }}>{c.menu_a}</code>
                   {" "}+{" "}
                   <code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 4px", borderRadius: 3 }}>{c.menu_b}</code>
                   {" "}
-                  <span style={{ padding: "0 4px", borderRadius: 3, background: c.severity === "BLOCK" ? "#fca5a5" : "#fde68a", fontSize: 10, fontWeight: 700 }}>{c.severity}</span>
+                  <span style={{ padding: "0 4px", borderRadius: 3, background: c.severity === "BLOCK" ? "var(--status-danger)" : "color-mix(in srgb, var(--status-warning) 18%, transparent)", fontSize: 10, fontWeight: 700 }}>{c.severity}</span>
                   {" "}{c.reason_zh}
                 </div>
               ))}
               {hasBlockingConflict && (
-                <div style={{ fontSize: 11, color: "#7f1d1d", marginTop: 6, padding: "4px 8px", background: "#fecaca", borderRadius: 4 }}>
+                <div style={{ fontSize: 11, color: "var(--status-danger)", marginTop: 6, padding: "4px 8px", background: "var(--status-danger)", borderRadius: 4 }}>
                   ⚠️ {t("ui.请取消其中一侧菜单的写权限CEDABlock级别冲突不允许保存","请取消其中一侧菜单的写权限（C/E/D/A），BLOCK 级冲突不允许保存。")}
                 </div>
               )}
@@ -775,7 +775,7 @@ export default function RoleManagementPage() {
               <label className={s.lbl} style={{ margin: 0 }}>{t("ui.菜单CRUD权限","菜单 × CRUD 权限")}</label>
               <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "rgba(99,102,241,0.1)", color: "var(--color-primary)", fontWeight: 600 }}>
                 {t("ui.已配","已配")} {Object.keys(perms).length} / {allMenus.length} {t("ui.菜单","菜单")}
-                {sensitiveCount > 0 && <span style={{ color: "#ef4444", marginLeft: 6 }}>· {sensitiveCount} {t("ui.敏感","敏感")}</span>}
+                {sensitiveCount > 0 && <span style={{ color: "var(--status-danger)", marginLeft: 6 }}>· {sensitiveCount} {t("ui.敏感","敏感")}</span>}
               </span>
             </div>
 
@@ -839,7 +839,7 @@ type="button"                       onClick={() => toggleDomainView(group)}
                           background: set.size > 0 ? `${group.domain_color}10` : "transparent",
                         }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
-                            {menu.sensitive && <Lock size={10} color="#ef4444" />}
+                            {menu.sensitive && <Lock size={10} color="var(--status-danger)" />}
                             <span title={menu.menu_code} style={{ fontWeight: set.size > 0 ? 600 : 400 }}>{menu.menu_name_zh}</span>
                           </div>
                           <div style={{ display: "flex", gap: 2 }}>
@@ -934,7 +934,7 @@ type="button"               className={s.btnPrimaryGrad}
                           minWidth: 60, maxWidth: 60,
                           writingMode: "vertical-rl", textAlign: "left",
                           fontWeight: 600,
-                          background: m.sensitive ? "#fef2f2" : "transparent",
+                          background: m.sensitive ? "color-mix(in srgb, var(--status-danger) 10%, transparent)" : "transparent",
                         }}>
                           {m.menu_name_zh}{m.sensitive ? " 🔒" : ""}
                         </th>
@@ -952,8 +952,8 @@ type="button"               className={s.btnPrimaryGrad}
                           <td key={c.menu_code} style={{
                             padding: "3px 2px", textAlign: "center",
                             borderRight: "1px solid var(--border)", borderBottom: "1px solid var(--border)",
-                            background: c.granted ? (r.is_admin ? "#fbbf24" : "rgba(99,102,241,0.15)") : "transparent",
-                            color: c.granted ? (r.is_admin ? "#78350f" : "var(--color-primary)") : "var(--text-secondary)",
+                            background: c.granted ? (r.is_admin ? "var(--status-warning)" : "rgba(99,102,241,0.15)") : "transparent",
+                            color: c.granted ? (r.is_admin ? "var(--status-warning)" : "var(--color-primary)") : "var(--text-secondary)",
                             fontWeight: c.granted ? 700 : 400,
                             fontSize: 9, fontFamily: "monospace",
                           }}>

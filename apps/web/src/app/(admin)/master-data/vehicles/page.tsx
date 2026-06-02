@@ -19,10 +19,10 @@ const tok = () =>
 const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${tok()}` });
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  ACTIVE:     { label: "正常",   color: "#10b981" },
-  INACTIVE:   { label: "停用",   color: "#64748b" },
-  REPAIR:     { label: "维修",   color: "#f59e0b" },
-  RETIRED:    { label: "报废",   color: "#ef4444" },
+  ACTIVE:     { label: "正常",   color: "var(--status-success)" },
+  INACTIVE:   { label: "停用",   color: "var(--text-secondary)" },
+  REPAIR:     { label: "维修",   color: "var(--status-warning)" },
+  RETIRED:    { label: "报废",   color: "var(--status-danger)" },
 };
 
 interface Vehicle {
@@ -79,7 +79,7 @@ export default function MdVehiclesPage() {
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
         <div style={{ position: "relative", flex: "0 0 260px" }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#475569" }} />
+          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索车牌 / 车型..."
             className="bg-bg-muted border border-border text-text"
             style={{ width: "100%", padding: "7px 10px 7px 32px", borderRadius: 7, fontSize: 13, outline: "none" }} />
@@ -88,7 +88,7 @@ export default function MdVehiclesPage() {
           <RefreshCw size={13} /> 刷新
         </button>
         <div style={{ flex: 1 }} />
-        <Link href="/sales2/delivery" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "#f97316", border: "none", borderRadius: 7, color: "#fff", fontSize: 13, cursor: "pointer", textDecoration: "none", fontWeight: 600 }}>
+        <Link href="/sales2/delivery" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "var(--status-warning)", border: "none", borderRadius: 7, color: "var(--text-on-dark)", fontSize: 13, cursor: "pointer", textDecoration: "none", fontWeight: 600 }}>
           <ExternalLink size={13} /> 配送管理
         </Link>
       </div>
@@ -98,9 +98,9 @@ export default function MdVehiclesPage() {
       </div>
 
       {loading ? (
-        <div style={{ padding: 60, textAlign: "center", color: "#475569" }}>加载中...</div>
+        <div style={{ padding: 60, textAlign: "center", color: "var(--text-secondary)" }}>加载中...</div>
       ) : error ? (
-        <div style={{ padding: 40, textAlign: "center", color: "#ef4444" }}>{error}</div>
+        <div style={{ padding: 40, textAlign: "center", color: "var(--status-danger)" }}>{error}</div>
       ) : (
         <div className="bg-bg-muted border border-border" style={{ borderRadius: 10, overflow: "auto" }}>
           <table className={s.table}>
@@ -113,9 +113,9 @@ export default function MdVehiclesPage() {
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={6} style={{ padding: 40, textAlign: "center", color: "#475569" }}>暂无数据</td></tr>
+                <tr><td colSpan={6} style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>暂无数据</td></tr>
               ) : filtered.map((v, i) => {
-                const st = STATUS_MAP[v.status ?? "ACTIVE"] ?? { label: v.status ?? "-", color: "#64748b" };
+                const st = STATUS_MAP[v.status ?? "ACTIVE"] ?? { label: v.status ?? "-", color: "var(--text-secondary)" };
                 return (
                   <tr key={v.id ?? i} className="border-b border-border/30"
                     onMouseEnter={e => (e.currentTarget.style.background = "rgba(148,163,184,0.08)")}

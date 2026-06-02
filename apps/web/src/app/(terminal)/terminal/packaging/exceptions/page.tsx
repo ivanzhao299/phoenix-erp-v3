@@ -11,7 +11,7 @@ import { usePackagingDicts, buildQuickTypes, FALLBACK_DICTS } from '@/hooks/useP
 import { T } from '@/styles/terminal-theme';
 
 
-const SEV_COLORS = { LOW:'#22c55e', MEDIUM:'#f59e0b', HIGH:'#f97316', CRITICAL:'#ef4444' };
+const SEV_COLORS = { LOW:'var(--status-success)', MEDIUM:'var(--status-warning)', HIGH:'var(--status-warning)', CRITICAL:'var(--status-danger)' };
 
 export default function ExceptionsPage() {
   const router = useRouter();
@@ -80,7 +80,7 @@ export default function ExceptionsPage() {
           <div style={{ fontSize:12, color:T.MUT }}>{t('ui.未关闭', '未关闭')} {openCount} {t('ui.条', '条')} · {t('ui.重大异常未关闭不得交班', '重大异常未关闭不得交班')}</div>
         </div>
         <button type="button" onClick={()=>setShowForm(true)}
-          style={{ padding:'9px 20px', background:T.RED, color:'#fff', border:'none',
+          style={{ padding:'9px 20px', background:T.RED, color:'var(--text-on-dark)', border:'none',
             borderRadius:10, fontSize:15, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
           + {t('ui.上报异常', '上报异常')}
         </button>
@@ -191,7 +191,7 @@ export default function ExceptionsPage() {
                   borderRadius:8, color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('common.cancel', '取消')}</button>
               <button type="button" onClick={handleSubmit} disabled={!form.type||submitting}
                 style={{ flex:2, padding:'14px', background:form.type?T.RED:T.BOR, border:'none',
-                  borderRadius:8, color:form.type?'#fff':T.MUT, fontSize:15, fontWeight:700,
+                  borderRadius:8, color:form.type?'var(--bg-card)':T.MUT, fontSize:15, fontWeight:700,
                   cursor:form.type?'pointer':'not-allowed', opacity:submitting?0.7:1 }}>
                 {submitting ? t('ui.提交中', '提交中...') : `⚠️ ${t('ui.提交异常', '提交异常')}`}
               </button>

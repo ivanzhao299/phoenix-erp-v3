@@ -133,8 +133,8 @@ export default function MedicinePage() {
   const today = todayStr();
 
   const KPI_CARDS = [
-    { label: t('ui.停药期内批次', '停药期内批次'), val:`${records.filter(r => r.status==='inWithdrawal').length} 个`, color:'#f59e0b' },
-    { label: t('ui.今日到期解禁', '今日到期解禁'), val:`${records.filter(r => r.clearDate===today).length} 个`,       color:'#22c55e' },
+    { label: t('ui.停药期内批次', '停药期内批次'), val:`${records.filter(r => r.status==='inWithdrawal').length} 个`, color:'var(--status-warning)' },
+    { label: t('ui.今日到期解禁', '今日到期解禁'), val:`${records.filter(r => r.clearDate===today).length} 个`,       color:'var(--status-success)' },
     { label: t('ui.累计用药记录', '累计用药记录'), val:`${records.length} 条`,                                        color:'var(--color-primary)' },
   ];
 

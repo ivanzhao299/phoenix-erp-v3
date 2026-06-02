@@ -29,9 +29,9 @@ export default function ProfilePage() {
   const strength = (pwd: string) => {
     if (!pwd) return null;
     const score = [pwd.length >= 8, /[A-Z]/.test(pwd), /[a-z]/.test(pwd), /[0-9]/.test(pwd), /[^A-Za-z0-9]/.test(pwd)].filter(Boolean).length;
-    if (score <= 2) return { label: t('ui.弱', '弱'), color: "#dc2626", width: "30%" };
-    if (score === 3) return { label: t('ui.中', '中'), color: "#d97706", width: "60%" };
-    return { label: t('ui.强', '强'), color: "#16a34a", width: "100%" };
+    if (score <= 2) return { label: t('ui.弱', '弱'), color: "var(--status-danger)", width: "30%" };
+    if (score === 3) return { label: t('ui.中', '中'), color: "var(--status-warning)", width: "60%" };
+    return { label: t('ui.强', '强'), color: "var(--status-success)", width: "100%" };
   };
 
   const pwdStrength = strength(pwdForm.newPassword);
@@ -90,9 +90,9 @@ export default function ProfilePage() {
   const INFO_ITEMS = [
     { icon: <User size={16}/>, label: t('ui.登录账号', '登录账号'), value: u?.username || "—",          mono: true,  color: "var(--color-primary)" },
     { icon: <User size={16}/>, label: t('ui.真实姓名', '真实姓名'), value: u?.realNameZh || u?.name || "—", mono: false, color: "var(--text-primary)" },
-    { icon: <Shield size={16}/>, label: t('ui.系统角色', '系统角色'), value: u?.roleNameZh || u?.role || "—", mono: false, color: "#d97706" },
-    { icon: <Building2 size={16}/>, label: t('ui.所属组织', '所属组织'), value: u?.orgName || t('ui.全局无门店限制', '全局（无门店限制）'), mono: false, color: "#10b981" },
-    { icon: <Key size={16}/>, label: t('ui.绑定门店', '绑定门店'), value: u?.storeCode || u?.store_code || "—", mono: true, color: "#6366f1" },
+    { icon: <Shield size={16}/>, label: t('ui.系统角色', '系统角色'), value: u?.roleNameZh || u?.role || "—", mono: false, color: "var(--status-warning)" },
+    { icon: <Building2 size={16}/>, label: t('ui.所属组织', '所属组织'), value: u?.orgName || t('ui.全局无门店限制', '全局（无门店限制）'), mono: false, color: "var(--status-success)" },
+    { icon: <Key size={16}/>, label: t('ui.绑定门店', '绑定门店'), value: u?.storeCode || u?.store_code || "—", mono: true, color: "var(--status-special)" },
     { icon: <Clock size={16}/>, label: t('ui.本次登录', '本次登录'), value: loginInfo.lastLogin, mono: false, color: "var(--text-secondary)" },
   ];
 
@@ -111,7 +111,7 @@ export default function ProfilePage() {
             <>
               {/* 头像 */}
               <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24, padding: 16, background: "var(--bg-page)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border)" }}>
-                <div style={{ width: 56, height: 56, borderRadius: "50%", background: "linear-gradient(135deg, var(--color-primary), #1e3a8a)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, color: "white", flexShrink: 0 }}>
+                <div style={{ width: 56, height: 56, borderRadius: "50%", background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, color: "white", flexShrink: 0 }}>
                   {(u?.realNameZh || u?.username || "U").charAt(0)}
                 </div>
                 <div>
@@ -140,7 +140,7 @@ export default function ProfilePage() {
         {/* 修改密码卡 */}
         <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: 24 }}>
           <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "center", gap: 8, color: "var(--text-primary)" }}>
-            <Lock size={18} color="#d97706"/> {t('ui.修改登录密码', '修改登录密码')}
+            <Lock size={18} color="var(--status-warning)"/> {t('ui.修改登录密码', '修改登录密码')}
           </h3>
           <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 20, lineHeight: 1.6 }}>
             {t('ui.新密码须至少8位包含字母与数字修改后当前Session保持有效下次登录使用新密码', '新密码须至少 8 位，包含字母与数字。修改后当前 Session 保持有效，下次登录使用新密码。')}
@@ -152,9 +152,9 @@ export default function ProfilePage() {
 
             {msg && (
               <div style={{ padding: 12, borderRadius: 8, fontSize: 13, display: "flex", alignItems: "center", gap: 8,
-                backgroundColor: msg.type === "success" ? "#f0fdf4" : "#fef2f2",
-                color: msg.type === "success" ? "#16a34a" : "#dc2626",
-                border: `1px solid ${msg.type === "success" ? "#86efac" : "#fca5a5"}` }}>
+                backgroundColor: msg.type === "success" ? "color-mix(in srgb, var(--status-success) 12%, transparent)" : "color-mix(in srgb, var(--status-danger) 10%, transparent)",
+                color: msg.type === "success" ? "var(--status-success)" : "var(--status-danger)",
+                border: `1px solid ${msg.type === "success" ? "var(--status-success)" : "var(--status-danger)"}` }}>
                 {msg.type === "success" && <CheckCircle size={16}/>}{msg.text}
               </div>
             )}

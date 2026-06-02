@@ -56,8 +56,8 @@ export default function PosConfigPage() {
       <PageHeader title={t('ui.POS终端管理', 'POS 终端管理')} subtitle={t('ui.按门店配置收银机打印税率货币与日结参数', '按门店配置收银机打印、税率、货币与日结参数')} breadcrumb={[t('ui.系统设置', '系统设置'), t('ui.POS终端管理', 'POS终端管理')]}/>
 
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: 20, marginBottom: 20, display: "flex", gap: 16, alignItems: "center" }}>
-        <div style={{ width: 48, height: 48, borderRadius: "var(--radius-md)", background: "linear-gradient(135deg,var(--color-primary),#1e3a8a)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <Smartphone size={24} color="#fff"/>
+        <div style={{ width: 48, height: 48, borderRadius: "var(--radius-md)", background: "linear-gradient(135deg,var(--color-primary),var(--color-accent))", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <Smartphone size={24} color="var(--bg-card)"/>
         </div>
         <div>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{t('ui.当前连接终端数', '当前连接终端数')}：{stores.length} {t('ui.台', '台')}</div>
@@ -82,7 +82,7 @@ export default function PosConfigPage() {
                   <div style={{ fontSize: 12, color: "var(--text-secondary)", fontFamily: "monospace" }}>{store.store_code}</div>
                 </div>
               </div>
-              <button type="button" onClick={() => handleSave(store.store_code)} style={{ padding: "8px 16px", background: saved[store.store_code] ? "#22c55e" : "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, transition: "background 0.3s" }}>
+              <button type="button" onClick={() => handleSave(store.store_code)} style={{ padding: "8px 16px", background: saved[store.store_code] ? "var(--status-success)" : "var(--color-primary)", color: "var(--text-on-dark)", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, transition: "background 0.3s" }}>
                 {saved[store.store_code] ? <><CheckCircle size={14}/>{t('ui.已保存', '已保存')}</> : <><Save size={14}/>{t('ui.保存配置', '保存配置')}</>}
               </button>
             </div>

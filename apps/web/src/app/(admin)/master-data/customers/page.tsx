@@ -19,9 +19,9 @@ const tok = () =>
 const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${tok()}` });
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  ACTIVE:    { label: "正常",  color: "#10b981" },
-  FROZEN:    { label: "冻结",  color: "#f59e0b" },
-  BLACKLIST: { label: "黑名单", color: "#ef4444" },
+  ACTIVE:    { label: "正常",  color: "var(--status-success)" },
+  FROZEN:    { label: "冻结",  color: "var(--status-warning)" },
+  BLACKLIST: { label: "黑名单", color: "var(--status-danger)" },
 };
 const TYPE_MAP: Record<string, string> = {
   DIRECT_STORE: "直营店",
@@ -90,7 +90,7 @@ export default function MdCustomersPage() {
       {/* 工具栏 */}
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
         <div style={{ position: "relative", flex: "0 0 280px" }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#475569" }} />
+          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" }} />
           <input
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
@@ -115,7 +115,7 @@ export default function MdCustomersPage() {
           <RefreshCw size={13} /> 刷新
         </button>
         <div style={{ flex: 1 }} />
-        <Link href="/sales2/customers" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "#3b82f6", border: "none", borderRadius: 7, color: "#fff", fontSize: 13, cursor: "pointer", textDecoration: "none", fontWeight: 600 }}>
+        <Link href="/sales2/customers" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "var(--color-accent)", border: "none", borderRadius: 7, color: "var(--text-on-dark)", fontSize: 13, cursor: "pointer", textDecoration: "none", fontWeight: 600 }}>
           <ExternalLink size={13} /> 完整管理
         </Link>
       </div>
@@ -127,9 +127,9 @@ export default function MdCustomersPage() {
 
       {/* 表格 */}
       {loading ? (
-        <div style={{ padding: 60, textAlign: "center", color: "#475569" }}>加载中...</div>
+        <div style={{ padding: 60, textAlign: "center", color: "var(--text-secondary)" }}>加载中...</div>
       ) : error ? (
-        <div style={{ padding: 40, textAlign: "center", color: "#ef4444" }}>{error}</div>
+        <div style={{ padding: 40, textAlign: "center", color: "var(--status-danger)" }}>{error}</div>
       ) : (
         <div className="bg-bg-muted border border-border" style={{ borderRadius: 10, overflow: "auto" }}>
           <table className={s.table}>
@@ -142,9 +142,9 @@ export default function MdCustomersPage() {
             </thead>
             <tbody>
               {items.length === 0 ? (
-                <tr><td colSpan={7} style={{ padding: 40, textAlign: "center", color: "#475569" }}>暂无数据</td></tr>
+                <tr><td colSpan={7} style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>暂无数据</td></tr>
               ) : items.map((c, i) => {
-                const st = STATUS_MAP[c.status ?? ""] ?? { label: c.status ?? "-", color: "#64748b" };
+                const st = STATUS_MAP[c.status ?? ""] ?? { label: c.status ?? "-", color: "var(--text-secondary)" };
                 return (
                   <tr key={c.id ?? i} className="border-b border-border/30"
                     onMouseEnter={e => (e.currentTarget.style.background = "rgba(148,163,184,0.08)")}

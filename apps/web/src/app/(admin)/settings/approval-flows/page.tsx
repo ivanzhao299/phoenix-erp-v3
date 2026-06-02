@@ -48,7 +48,7 @@ export default function ApprovalFlowsRedirect() {
         padding: '10px 28px',
         borderRadius: 10,
         background: 'var(--color-primary)',
-        color: '#fff',
+        color: 'var(--text-on-dark)',
         fontWeight: 700,
         fontSize: 14,
         cursor: 'pointer',

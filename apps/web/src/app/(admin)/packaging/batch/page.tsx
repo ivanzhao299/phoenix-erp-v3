@@ -1,4 +1,5 @@
 'use client';
+import { toast } from 'sonner';
 /**
  * 成品批次生成 — V3 复刻 V2 phoenix-frontend BatchGeneration.jsx 三步向导
  */
@@ -88,7 +89,7 @@ function BatchGenerationPage() {
     gradeNameMap[code] || (/[一-龥]/.test(code) ? code : `${code} ${t("ui.号蛋","号蛋")}`);
 
   const goToStep2 = async () => {
-    if (!selectedTaskNo) { window.alert(t("ui.请先选择一个分级任务","请先选择一个分级任务")); return; }
+    if (!selectedTaskNo) { toast.error(t("ui.请先选择一个分级任务","请先选择一个分级任务")); return; }
     const task = tasks.find((tx) => tx.task_no === selectedTaskNo);
     if (!task) return;
 
@@ -155,7 +156,7 @@ function BatchGenerationPage() {
             <div style={{ display: 'flex', flex: 1, alignItems: 'center', flexDirection: 'column', gap: 6 }}>
               <div style={{
                 width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: step > i + 1 ? 'var(--status-success, #16a34a)' : step === i + 1 ? 'var(--color-primary, #4f46e5)' : '#e2e8f0',
+                background: step > i + 1 ? 'var(--status-success, var(--status-success))' : step === i + 1 ? 'var(--color-primary, var(--status-special))' : 'var(--text-primary)',
                 color: step >= i + 1 ? 'white' : 'var(--text-secondary)', fontWeight: 700, fontSize: 14,
               }}>
                 {step > i + 1 ? <CheckCircle size={16} /> : i + 1}
@@ -164,7 +165,7 @@ function BatchGenerationPage() {
                 {label}
               </span>
             </div>
-            {i < 2 && <div style={{ height: 2, flex: 1, background: step > i + 1 ? 'var(--status-success, #16a34a)' : '#e2e8f0', marginBottom: 18 }} />}
+            {i < 2 && <div style={{ height: 2, flex: 1, background: step > i + 1 ? 'var(--status-success, var(--status-success))' : 'var(--text-primary)', marginBottom: 18 }} />}
           </div>
         ))}
       </div>
@@ -260,10 +261,10 @@ function BatchGenerationPage() {
       {step === 3 && (
         <div>
           <div style={{
-            background: 'color-mix(in srgb, var(--status-success, #16a34a) 12%, transparent)',
-            border: '1px solid color-mix(in srgb, var(--status-success, #16a34a) 40%, transparent)',
+            background: 'color-mix(in srgb, var(--status-success, var(--status-success)) 12%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--status-success, var(--status-success)) 40%, transparent)',
             borderRadius: 10, padding: '14px 16px', marginBottom: 16,
-            color: 'var(--status-success, #16a34a)', fontWeight: 600, fontSize: 13,
+            color: 'var(--status-success, var(--status-success))', fontWeight: 600, fontSize: 13,
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
             <CheckCircle size={18} /> {t("ui.成品入仓动作已完成","成品入仓动作已完成")}。{t("ui.共","共")} {gradeRows.length} {t("ui.个等级批次落账","个等级批次落账")}，{t("ui.可点击下方按钮下发标签打印","可点击下方按钮下发标签打印")}。

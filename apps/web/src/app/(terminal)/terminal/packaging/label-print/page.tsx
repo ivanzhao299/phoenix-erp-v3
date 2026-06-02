@@ -144,7 +144,7 @@ export default function LabelPrintPage() {
     const prodDateRaw = trace?.productionDate ?? new Date().toISOString().slice(0, 10);
     const expiryDate = addDays(prodDateRaw, cfg.expiryDays);
     const gradeLabel = gradeDisplay(grade);
-    const barcodeSvgRaw = generateCode128SVG(code, { height: 40, showText: false, color: '#000', background: '#fff' });
+    const barcodeSvgRaw = generateCode128SVG(code, { height: 40, showText: false, color: 'var(--text-primary)', background: 'var(--bg-card)' });
     const barcodeSvg = barcodeSvgRaw.replace(/(<svg[^>]*)\bwidth="[^"]*"/, '$1width="100%"');
     const shiftLine = (cfg.showShift && trace?.shift)
       ? `<div class="row"><span class="l">${t('label.班次', '班次')}</span><span class="v">${trace.shift.shiftLabel}${trace.shift.operatorName ? '·' + trace.shift.operatorName : ''}</span></div>` : '';
@@ -217,11 +217,11 @@ export default function LabelPrintPage() {
     const expiryStr   = addDays(new Date().toISOString().slice(0,10), cfg.expiryDays);
 
     // 生成条码后将 width 替换为 100%，使其撑满容器宽度
-    const barSvgRaw = generateCode128SVG(sampleCode, { height: Math.round(H * 0.32), showText: false, color:'#000', background:'#fff' });
+    const barSvgRaw = generateCode128SVG(sampleCode, { height: Math.round(H * 0.32), showText: false, color:'var(--text-primary)', background:'var(--bg-card)' });
     const barSvg = barSvgRaw.replace(/(<svg[^>]*)\bwidth="[^"]*"/, '$1width="100%"');
 
     const row: React.CSSProperties = { display:'flex', gap:2, alignItems:'baseline', whiteSpace:'nowrap', overflow:'hidden', lineHeight:1.4 };
-    const lbl: React.CSSProperties = { fontWeight:700, flexShrink:0, fontSize: fs * 1.0, color:'#444', minWidth: ppm*4 };
+    const lbl: React.CSSProperties = { fontWeight:700, flexShrink:0, fontSize: fs * 1.0, color:'var(--text-secondary)', minWidth: ppm*4 };
     const val: React.CSSProperties = { fontWeight:900, overflow:'hidden', textOverflow:'ellipsis', fontSize: fs * 1.1 };
 
     const infoRows = [
@@ -233,9 +233,9 @@ export default function LabelPrintPage() {
     ].filter(Boolean);
 
     return (
-      <div style={{ width:W, height:H, background:'#fff', color:'#000',
+      <div style={{ width:W, height:H, background:'var(--bg-card)', color:'var(--text-primary)',
         fontFamily:'"Noto Sans SC",Arial,sans-serif', fontSize:fs,
-        overflow:'hidden', position:'relative', border:'0.5px solid #bbb' }}>
+        overflow:'hidden', position:'relative', border:'0.5px solid var(--text-disabled)' }}>
         {/* 顶部品牌栏 */}
         <div style={{ height: H*0.20, padding:`0 ${ppm*1.5}px`, display:'flex', alignItems:'center',
           justifyContent:'space-between', fontSize: fs*1.0, fontWeight:800 }}>
@@ -251,7 +251,7 @@ export default function LabelPrintPage() {
               {brand.company_name || t('ui.brand_name', '凤凰农业')}
             </span>
           </span>
-          <span style={{ background:'#000', color:'#fff', padding:`${ppm*0.3}px ${ppm*1.0}px`,
+          <span style={{ background:'var(--text-primary)', color:'var(--text-on-dark)', padding:`${ppm*0.3}px ${ppm*1.0}px`,
             borderRadius: ppm*0.5, fontSize: fs*0.9, fontWeight:700, flexShrink:0 }}>
             {gradeDisplay(sampleGrade)}
           </span>
@@ -305,7 +305,7 @@ export default function LabelPrintPage() {
 
         {/* 抽屉面板 */}
         <div style={{ position:'fixed', top:0, right:0, width:DRAWER_W, height:'100vh',
-          background:'#0d1e35', borderLeft:`1px solid ${T.BOR}`, zIndex:401,
+          background:'var(--bg-page)', borderLeft:`1px solid ${T.BOR}`, zIndex:401,
           display:'flex', flexDirection:'column' }}>
 
           {/* ── 标题栏 ── */}
@@ -379,12 +379,12 @@ export default function LabelPrintPage() {
                     const p = LABEL_SIZE_PRESETS.find(p => `${p.w}x${p.h}` === e.target.value);
                     if (p) setCfg({ labelW: p.w, labelH: p.h });
                   }}
-                  style={{ width:'100%', background:'#0a1628', border:`1px solid ${T.BOR}`,
+                  style={{ width:'100%', background:'var(--bg-page)', border:`1px solid ${T.BOR}`,
                     borderRadius:10, padding:'11px 36px 11px 14px', color:T.TXT,
                     fontSize:14, fontWeight:600, appearance:'none', WebkitAppearance:'none',
                     cursor:'pointer', outline:'none' }}>
                   {LABEL_SIZE_PRESETS.map(p => (
-                    <option key={p.label} value={`${p.w}x${p.h}`} style={{ background:'#0a1628' }}>
+                    <option key={p.label} value={`${p.w}x${p.h}`} style={{ background:'var(--bg-page)' }}>
                       {p.w}×{p.h} mm — {SIZE_INFO[`${p.w}x${p.h}`] ?? p.label}
                     </option>
                   ))}
@@ -412,7 +412,7 @@ export default function LabelPrintPage() {
                         border:`2px solid ${on ? T.ACC : T.BOR}`,
                         background: on ? T.ACC : 'transparent',
                         display:'flex', alignItems:'center', justifyContent:'center' }}>
-                        {on && <span style={{ fontSize:10, color:'#000', fontWeight:900, lineHeight:1 }}>✓</span>}
+                        {on && <span style={{ fontSize:10, color:'var(--text-primary)', fontWeight:900, lineHeight:1 }}>✓</span>}
                       </div>
                       <div>
                         <div style={{ fontSize:12, fontWeight: on ? 600 : 400, color: on ? T.TXT : T.MUT }}>
@@ -482,7 +482,7 @@ export default function LabelPrintPage() {
                 </div>
                 <div style={{ display:'flex', gap:8 }}>
                   <a href="/downloads/zebra-driver-windows.exe" download
-                    style={{ flex:1, padding:'9px', borderRadius:8, background:T.ACC, color:'#0f172a',
+                    style={{ flex:1, padding:'9px', borderRadius:8, background:T.ACC, color:'var(--bg-page)',
                       fontSize:13, fontWeight:700, textDecoration:'none', textAlign:'center' }}>
                     ⬇ Windows
                   </a>
@@ -501,7 +501,7 @@ export default function LabelPrintPage() {
           <div style={{ padding:'10px 16px', borderTop:`1px solid ${T.BOR}`, flexShrink:0 }}>
             <button type="button" onClick={closeSettings}
               style={{ width:'100%', padding:'13px', background:T.ACC, border:'none', borderRadius:10,
-                color:'#0f172a', fontSize:15, fontWeight:800, cursor:'pointer' }}>
+                color:'var(--bg-page)', fontSize:15, fontWeight:800, cursor:'pointer' }}>
               ✓ {isFirstSetup ? t('ui.保存并开始打印', '保存并开始打印') : t('ui.保存', '保存')}
             </button>
           </div>
@@ -620,7 +620,7 @@ export default function LabelPrintPage() {
                           borderRadius:6, padding:'8px 12px', color:T.TXT, fontSize:13 }} />
                       <button type="button" onClick={() => handleVerify(box.code)}
                         style={{ padding:'8px 14px', borderRadius:6, border:'none',
-                          background:T.GRN, color:'#0f172a', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                          background:T.GRN, color:'var(--bg-page)', fontSize:13, fontWeight:600, cursor:'pointer' }}>
                         {t('ui.校验', '校验')}
                       </button>
                     </div>
@@ -628,7 +628,7 @@ export default function LabelPrintPage() {
                   {!box.printed && (
                     <button type="button" onClick={() => handlePrint(box.code)} disabled={printing === box.code}
                       style={{ padding:'12px 24px', borderRadius:8, border:'none',
-                        background:T.ACC, color:'#0f172a', fontSize:14, fontWeight:700,
+                        background:T.ACC, color:'var(--bg-page)', fontSize:14, fontWeight:700,
                         cursor:'pointer', opacity: printing === box.code ? 0.7 : 1 }}>
                       {printing === box.code ? t('ui.打印中', '打印中...') : `🖨️ ${t('common.print', '打印')}`}
                     </button>
@@ -674,7 +674,7 @@ export default function LabelPrintPage() {
                   borderRadius:8, color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('common.cancel', '取消')}</button>
               <button type="button" onClick={handleReprint} disabled={!reprintReason || !!printing}
                 style={{ flex:2, padding:'14px', background: reprintReason ? T.ACC : T.BOR, border:'none',
-                  borderRadius:8, color: reprintReason ? '#0f172a' : T.MUT, fontSize:15, fontWeight:700,
+                  borderRadius:8, color: reprintReason ? 'var(--bg-page)' : T.MUT, fontSize:15, fontWeight:700,
                   cursor: reprintReason ? 'pointer' : 'not-allowed' }}>
                 {printing ? t('ui.打印中', '打印中...') : t('ui.确认补打', '确认补打')}
               </button>
@@ -694,7 +694,7 @@ export default function LabelPrintPage() {
         </div>
         <button type="button" onClick={() => router.push('/terminal/packaging/warehouse-handover')} disabled={!allDone}
           style={{ padding:'9px 40px', borderRadius:10, border:'none',
-            background: allDone ? T.GRN : T.BOR, color: allDone ? '#0f172a' : T.MUT,
+            background: allDone ? T.GRN : T.BOR, color: allDone ? 'var(--bg-page)' : T.MUT,
             fontSize:16, fontWeight:700, cursor: allDone ? 'pointer' : 'not-allowed' }}>
           → {t('ui.前往入库', '前往入库')}
         </button>

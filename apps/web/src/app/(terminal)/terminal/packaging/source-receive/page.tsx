@@ -43,8 +43,8 @@ type NumField = 'total' | 'dirty' | 'cracked';
 
 const FIELDS: { key: NumField; labelKey: string; labelFb: string; accent: string }[] = [
   { key: 'total',   labelKey: 'ui.总采集数',  labelFb: '总采集数（枚）', accent: T.GRN },
-  { key: 'dirty',   labelKey: 'ui.脏蛋数',    labelFb: '脏蛋数（枚）',   accent: '#f97316' },
-  { key: 'cracked', labelKey: 'ui.裂纹蛋数',  labelFb: '裂纹蛋数（枚）', accent: '#f97316' },
+  { key: 'dirty',   labelKey: 'ui.脏蛋数',    labelFb: '脏蛋数（枚）',   accent: 'var(--status-warning)' },
+  { key: 'cracked', labelKey: 'ui.裂纹蛋数',  labelFb: '裂纹蛋数（枚）', accent: 'var(--status-warning)' },
 ];
 
 export default function EggCollectionPage() {
@@ -282,8 +282,8 @@ export default function EggCollectionPage() {
                           </div>
                           <div style={{ fontSize:10, color:T.MUT, marginTop:'auto' }}>
                             {t('ui.采集', '采集')} {record!.totalQty.toLocaleString()}
-                            {record!.dirtyQty > 0 && <span style={{ color:'#f97316', marginLeft:4 }}>脏{record!.dirtyQty}</span>}
-                            {record!.crackedQty > 0 && <span style={{ color:'#f97316', marginLeft:4 }}>裂{record!.crackedQty}</span>}
+                            {record!.dirtyQty > 0 && <span style={{ color:'var(--status-warning)', marginLeft:4 }}>脏{record!.dirtyQty}</span>}
+                            {record!.crackedQty > 0 && <span style={{ color:'var(--status-warning)', marginLeft:4 }}>裂{record!.crackedQty}</span>}
                           </div>
                         </>
                       ) : (
@@ -358,7 +358,7 @@ export default function EggCollectionPage() {
                   <span style={{ color:T.MUT, fontSize:16 }}>−</span>
                   <div>
                     <div style={{ fontSize:11, color:T.MUT, whiteSpace:'nowrap' }}>{t('ui.脏蛋数', '脏')}+{t('ui.裂纹蛋数', '裂')}</div>
-                    <strong style={{ fontSize:16, color:(dirty+cracked) > 0 ? '#f97316' : T.MUT, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>{dirty+cracked > 0 ? (dirty+cracked).toLocaleString() : '0'}</strong>
+                    <strong style={{ fontSize:16, color:(dirty+cracked) > 0 ? 'var(--status-warning)' : T.MUT, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>{dirty+cracked > 0 ? (dirty+cracked).toLocaleString() : '0'}</strong>
                   </div>
                   <span style={{ color:T.MUT, fontSize:16 }}>=</span>
                   <div>
@@ -371,7 +371,7 @@ export default function EggCollectionPage() {
                   <div style={{ color:T.RED, fontSize:13, fontWeight:600, whiteSpace:'nowrap' }}>⚠️ {t('ui.脏蛋裂纹超过总数', '脏蛋+裂纹超过总数')}</div>
                 )}
                 {alreadyRecorded && !defectExceedsTotal && (
-                  <div style={{ color:'#f59e0b', fontSize:12, whiteSpace:'nowrap' }}>ℹ️ {t('ui.今日已有记录将累加', '将累加')}</div>
+                  <div style={{ color:'var(--status-warning)', fontSize:12, whiteSpace:'nowrap' }}>ℹ️ {t('ui.今日已有记录将累加', '将累加')}</div>
                 )}
               </div>
             </>
@@ -402,7 +402,7 @@ export default function EggCollectionPage() {
         const canConfirm = !!corrReason && !corrBusy;
         return (
           <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.78)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:300 }}>
-            <div style={{ background:'#0d1e35', borderRadius:18, border:`1px solid ${T.BOR}`, width:'min(800px, 96vw)', maxHeight:'90vh', overflow:'hidden', display:'flex', flexDirection:'column' }}>
+            <div style={{ background:'var(--bg-page)', borderRadius:18, border:`1px solid ${T.BOR}`, width:'min(800px, 96vw)', maxHeight:'90vh', overflow:'hidden', display:'flex', flexDirection:'column' }}>
               <div style={{ padding:'16px 24px', borderBottom:`1px solid ${T.BOR}`, display:'flex', alignItems:'center', gap:12 }}>
                 <span style={{ fontSize:22 }}>✏️</span>
                 <div style={{ flex:1 }}>
@@ -475,7 +475,7 @@ export default function EggCollectionPage() {
                   {t('common.cancel', '取消')}
                 </button>
                 <button type="button" onPointerDown={handleCorrect} disabled={!canConfirm}
-                  style={{ flex:2, padding:'14px', borderRadius:10, border:'none', background: canConfirm ? T.ACC : T.BOR, color: canConfirm ? '#0f172a' : T.MUT, fontSize:15, fontWeight:700, cursor: canConfirm ? 'pointer' : 'not-allowed', opacity: corrBusy ? 0.7 : 1, transition:'background 0.15s, opacity 0.15s' }}>
+                  style={{ flex:2, padding:'14px', borderRadius:10, border:'none', background: canConfirm ? T.ACC : T.BOR, color: canConfirm ? 'var(--bg-page)' : T.MUT, fontSize:15, fontWeight:700, cursor: canConfirm ? 'pointer' : 'not-allowed', opacity: corrBusy ? 0.7 : 1, transition:'background 0.15s, opacity 0.15s' }}>
                   {corrBusy ? t('ui.提交中', '提交中...') : `✓ ${t('ui.确认更正', '确认更正')}`}
                 </button>
               </div>
@@ -491,7 +491,7 @@ export default function EggCollectionPage() {
           {t('common.back', '返回')}
         </button>
         <button type="button" onClick={handleSubmit} disabled={!canSubmit || submitting}
-          style={{ padding:'9px 40px', borderRadius:10, border:'none', background: canSubmit ? T.ACC : T.BOR, color: canSubmit ? '#0f172a' : T.MUT, fontSize:16, fontWeight:700, cursor: canSubmit ? 'pointer' : 'not-allowed', opacity: submitting ? 0.7 : 1, minWidth:220, transition:'background 0.15s, opacity 0.15s' }}>
+          style={{ padding:'9px 40px', borderRadius:10, border:'none', background: canSubmit ? T.ACC : T.BOR, color: canSubmit ? 'var(--bg-page)' : T.MUT, fontSize:16, fontWeight:700, cursor: canSubmit ? 'pointer' : 'not-allowed', opacity: submitting ? 0.7 : 1, minWidth:220, transition:'background 0.15s, opacity 0.15s' }}>
           {submitting ? t('ui.提交中', '提交中...') : `✓ ${t('ui.确认录入', '确认录入')} ${selectedHouse?.house_name ?? ''}`}
         </button>
         <div style={{ flex:1 }}>
@@ -505,7 +505,7 @@ export default function EggCollectionPage() {
         {records.length > 0 && (
           <button type="button" disabled={canSubmit}
             onClick={() => !canSubmit && router.push('/terminal/packaging/grading')}
-            style={{ padding:'9px 40px', borderRadius:10, border:'none', outline: canSubmit ? `1px solid ${T.ACC}` : 'none', outlineOffset:'-1px', background: canSubmit ? 'transparent' : T.GRN, color: canSubmit ? T.ACC : '#0f172a', fontSize:16, fontWeight:700, cursor: canSubmit ? 'not-allowed' : 'pointer', opacity: canSubmit ? 0.6 : 1, flexShrink:0, transition:'background 0.15s, color 0.15s, opacity 0.15s' }}>
+            style={{ padding:'9px 40px', borderRadius:10, border:'none', outline: canSubmit ? `1px solid ${T.ACC}` : 'none', outlineOffset:'-1px', background: canSubmit ? 'transparent' : T.GRN, color: canSubmit ? T.ACC : 'var(--bg-page)', fontSize:16, fontWeight:700, cursor: canSubmit ? 'not-allowed' : 'pointer', opacity: canSubmit ? 0.6 : 1, flexShrink:0, transition:'background 0.15s, color 0.15s, opacity 0.15s' }}>
             {t('ui.进入分级作业', '进入分级作业')} ({totalAvailable.toLocaleString()} {t('ui.枚', '枚')}) →
           </button>
         )}

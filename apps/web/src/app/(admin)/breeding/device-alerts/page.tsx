@@ -64,18 +64,18 @@ interface Summary {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const FRESH = {
-  normal:  { color: "#22c55e", label: "实时" },
-  delayed: { color: "#f59e0b", label: "延迟" },
-  stale:   { color: "#ef4444", label: "陈旧" },
-  no_data: { color: "#94a3b8", label: "无数据" },
+  normal:  { color: "var(--status-success)", label: "实时" },
+  delayed: { color: "var(--status-warning)", label: "延迟" },
+  stale:   { color: "var(--status-danger)", label: "陈旧" },
+  no_data: { color: "var(--text-disabled)", label: "无数据" },
 };
 
 const STATUS_DOT_COLOR: Record<string, string> = {
-  normal:   "#22c55e",
-  standby:  "#94a3b8",
-  warning:  "#f59e0b",
-  critical: "#ef4444",
-  no_data:  "#94a3b8",
+  normal:   "var(--status-success)",
+  standby:  "var(--text-disabled)",
+  warning:  "var(--status-warning)",
+  critical: "var(--status-danger)",
+  no_data:  "var(--text-disabled)",
 };
 
 const SYSTEM_CATEGORY_MAP: Record<string, { label: string; cssClass: string; icon: string }> = {
@@ -142,7 +142,7 @@ function getCategoryClass(cssClass: string): string {
 
 function SystemDot({ sys, alarmCount }: { sys: typeof SYSTEM_CODES[0]; alarmCount: number; status?: string }) {
   const isCritical = alarmCount > 0;
-  const color = isCritical ? "#ef4444" : "#22c55e";
+  const color = isCritical ? "var(--status-danger)" : "var(--status-success)";
   return (
     <div
       title={`${sys.label}${alarmCount > 0 ? ` · ${alarmCount} 告警` : " · 正常"}`}
@@ -171,7 +171,7 @@ function CompactHouseCard({ house, onClick }: { house: HouseData; onClick: () =>
       onClick={onClick}
       style={{
         background: "var(--bg-card)",
-        border: "1.5px solid color-mix(in srgb, #ef4444 45%, transparent)",
+        border: "1.5px solid color-mix(in srgb, var(--status-danger) 45%, transparent)",
         borderRadius: 12,
         padding: "14px 16px",
         cursor: "pointer",
@@ -195,7 +195,7 @@ function CompactHouseCard({ house, onClick }: { house: HouseData; onClick: () =>
         <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {house.houseName || house.houseCode}
         </span>
-        <span className={s.severityBadge} style={{ background: "rgba(239,68,68,0.15)", color: "#dc2626", flexShrink: 0, fontSize: 11, padding: "2px 8px", borderRadius: 10 }}>
+        <span className={s.severityBadge} style={{ background: "rgba(239,68,68,0.15)", color: "var(--status-danger)", flexShrink: 0, fontSize: 11, padding: "2px 8px", borderRadius: 10 }}>
           ⚠ {house.alarmCount}
         </span>
       </div>
@@ -203,21 +203,21 @@ function CompactHouseCard({ house, onClick }: { house: HouseData; onClick: () =>
       {/* Metrics */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {house.avgTemp != null && (
-          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 8, background: "rgba(239,68,68,0.1)", color: "#ef4444", fontWeight: 600 }}>
+          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 8, background: "rgba(239,68,68,0.1)", color: "var(--status-danger)", fontWeight: 600 }}>
             🌡 {house.avgTemp.toFixed(1)}°C
           </span>
         )}
         {house.avgHumidity != null && (
-          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 8, background: "rgba(59,130,246,0.1)", color: "#3b82f6", fontWeight: 600 }}>
+          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 8, background: "rgba(59,130,246,0.1)", color: "var(--color-accent)", fontWeight: 600 }}>
             💧 {house.avgHumidity.toFixed(0)}%
           </span>
         )}
         {house.co2 != null ? (
-          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 8, background: "rgba(245,158,11,0.1)", color: "#f59e0b", fontWeight: 600 }}>
+          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 8, background: "rgba(245,158,11,0.1)", color: "var(--status-warning)", fontWeight: 600 }}>
             CO₂ {house.co2.toFixed(0)}
           </span>
         ) : house.ammonia != null ? (
-          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 8, background: "rgba(245,158,11,0.1)", color: "#f59e0b", fontWeight: 600 }}>
+          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 8, background: "rgba(245,158,11,0.1)", color: "var(--status-warning)", fontWeight: 600 }}>
             NH₃ {house.ammonia.toFixed(2)}
           </span>
         ) : null}
@@ -279,7 +279,7 @@ function AlarmRow({ alarm, now }: { alarm: AlarmItem; now: Date }) {
           <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>
             {alarm.property_name}
           </span>
-          <span style={{ fontWeight: 800, fontSize: 16, color: isCritical ? "#ef4444" : "#eab308" }}>
+          <span style={{ fontWeight: 800, fontSize: 16, color: isCritical ? "var(--status-danger)" : "var(--status-warning)" }}>
             {alarm.value != null ? Number(alarm.value).toFixed(1) : "—"} {alarm.unit}
           </span>
         </div>
@@ -476,14 +476,14 @@ export default function DeviceAlertsPage() {
       val:      loading ? "—" : String(summary?.totalAlarms ?? alarms.length),
       sub:      `${summary?.alarmHouses ?? affectedHouses.length} 栋鸡舍受影响`,
       modifier: hasAlarm ? s.statCardDanger : s.statCardSuccess,
-      valColor: hasAlarm ? "#ef4444" : "#22c55e",
+      valColor: hasAlarm ? "var(--status-danger)" : "var(--status-success)",
     },
     {
       label:    "紧急 / 预警",
       val:      loading ? "—" : `${criticalCount} / ${warningCount}`,
       sub:      "按严重程度分类",
       modifier: criticalCount > 0 ? s.statCardDanger : s.statCardWarning,
-      valColor: criticalCount > 0 ? "#ef4444" : "#f59e0b",
+      valColor: criticalCount > 0 ? "var(--status-danger)" : "var(--status-warning)",
     },
     {
       label:    "在线传感器",
@@ -533,7 +533,7 @@ export default function DeviceAlertsPage() {
         <div style={{
           background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)",
           borderRadius: 10, padding: "12px 16px", marginBottom: 20,
-          color: "#ef4444", display: "flex", alignItems: "center", gap: 8, fontSize: 13,
+          color: "var(--status-danger)", display: "flex", alignItems: "center", gap: 8, fontSize: 13,
         }}>
           <WifiOff size={15} />
           IoT 数据获取失败：{error}
@@ -548,7 +548,7 @@ export default function DeviceAlertsPage() {
             letterSpacing: "0.06em", textTransform: "uppercase",
             marginBottom: 12, display: "flex", alignItems: "center", gap: 6,
           }}>
-            <AlertTriangle size={12} style={{ color: "#ef4444" }} />
+            <AlertTriangle size={12} style={{ color: "var(--status-danger)" }} />
             告警鸡舍 {!loading && `(${affectedHouses.length})`}
           </div>
 
@@ -626,8 +626,8 @@ export default function DeviceAlertsPage() {
           </div>
         ) : filteredAlarms.length === 0 ? (
           <div className={s.emptyState} style={{ padding: "60px 20px" }}>
-            <Wifi size={40} style={{ color: "#22c55e", opacity: 0.6 }} />
-            <div className={s.emptyStateText} style={{ color: "#22c55e", fontWeight: 600 }}>
+            <Wifi size={40} style={{ color: "var(--status-success)", opacity: 0.6 }} />
+            <div className={s.emptyStateText} style={{ color: "var(--status-success)", fontWeight: 600 }}>
               {filterMode === "all"
                 ? "✅ 当前所有鸡舍环境指标正常，无告警"
                 : `当前筛选条件下无告警`}

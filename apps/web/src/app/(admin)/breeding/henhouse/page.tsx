@@ -144,7 +144,7 @@ export default function HenHousePage() {
         </div>
         {row.capacity>0 && (
           <div style={{ height:3, background:'var(--border)', borderRadius:2, overflow:'hidden' }}>
-            <div style={{ height:'100%', width:`${Math.min(row.occupancyPct,100)}%`, background: row.isOverload?'#ef4444':row.occupancyPct>90?'#f59e0b':'#22c55e', borderRadius:2, transition:'width 0.4s' }} />
+            <div style={{ height:'100%', width:`${Math.min(row.occupancyPct,100)}%`, background: row.isOverload?'var(--status-danger)':row.occupancyPct>90?'var(--status-warning)':'var(--status-success)', borderRadius:2, transition:'width 0.4s' }} />
           </div>
         )}
       </div>
@@ -157,7 +157,7 @@ export default function HenHousePage() {
         {can(['MENU_DEVICE_MONITOR']) && (
           <button
 type="button"             className={mappedHouses.has(row.code) ? `${s.btn} ${s.btnSm}` : `${s.btn} ${s.btnSm} ${s.btnGhost}`}
-            style={mappedHouses.has(row.code) ? { color:'#16a34a', borderColor:'#bbf7d0', background:'#f0fdf4' } : { opacity:0.5, cursor:'default' }}
+            style={mappedHouses.has(row.code) ? { color:'var(--status-success)', borderColor:'var(--status-success)', background:'color-mix(in srgb, var(--status-success) 12%, transparent)' } : { opacity:0.5, cursor:'default' }}
             onClick={() => mappedHouses.has(row.code) && router.push(`/breeding/device/${row.code}`)}>
             <Activity size={12} />{mappedHouses.has(row.code)?t('ui.实时环境','实时环境'):t('ui.未映射','未映射')}
           </button>

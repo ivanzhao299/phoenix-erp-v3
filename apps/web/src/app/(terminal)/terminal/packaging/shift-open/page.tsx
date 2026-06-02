@@ -195,7 +195,7 @@ export default function ShiftOpenPage() {
                       style={{
                         flex: 1, padding: '12px 6px', borderRadius: 8, border: 'none',
                         background: active ? T.ACC : 'rgba(255,255,255,0.07)',
-                        color: active ? '#0f172a' : T.TXT,
+                        color: active ? 'var(--bg-page)' : T.TXT,
                         cursor: 'pointer', transition: 'background 0.15s',
                         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
                       }}>
@@ -214,7 +214,7 @@ export default function ShiftOpenPage() {
             <div style={{ marginBottom:12 }}>
               <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{t('ui.产线', '产线')}</div>
               <select value={line} onChange={e => setLine(e.target.value)}
-                style={{ width:'100%', background:'#1e293b', border:`1px solid ${T.BOR}`, borderRadius:6,
+                style={{ width:'100%', background:'var(--bg-card)', border:`1px solid ${T.BOR}`, borderRadius:6,
                   padding:'8px 12px', color:T.TXT, fontSize:14 }}>
                 {packLines.map(l => (
                   <option key={l.code} value={l.code}>{l.label}</option>
@@ -225,7 +225,7 @@ export default function ShiftOpenPage() {
               <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{t('ui.班组长', '班组长')}</div>
               {supervisors.length > 0 ? (
                 <select value={supervisor} onChange={e => setSupervisor(e.target.value)}
-                  style={{ width:'100%', background:'#1e293b', border:`1px solid ${T.BOR}`, borderRadius:6,
+                  style={{ width:'100%', background:'var(--bg-card)', border:`1px solid ${T.BOR}`, borderRadius:6,
                     padding:'8px 12px', color:T.TXT, fontSize:14 }}>
                   {supervisors.map(s => (
                     <option key={s.id} value={s.name}>{s.name}</option>
@@ -233,7 +233,7 @@ export default function ShiftOpenPage() {
                 </select>
               ) : (
                 <input value={supervisor} onChange={e => setSupervisor(e.target.value)}
-                  style={{ width:'100%', background:'#1e293b', border:`1px solid ${T.BOR}`, borderRadius:6,
+                  style={{ width:'100%', background:'var(--bg-card)', border:`1px solid ${T.BOR}`, borderRadius:6,
                     padding:'8px 12px', color:T.TXT, fontSize:14, boxSizing:'border-box' }} />
               )}
             </div>
@@ -271,7 +271,7 @@ export default function ShiftOpenPage() {
             </div>
 
             <div style={{ marginTop:16, overflow:'hidden', maxHeight: offline.length > 0 ? 200 : 0, flexShrink: 0 }}>
-              <div style={{ fontSize:12, color:'#fbbf24', marginBottom:6 }}>
+              <div style={{ fontSize:12, color:'var(--status-warning)', marginBottom:6 }}>
                 {t('ui.设备离线请说明原因', '以下设备离线，请说明原因（允许以人工模式继续）：')}
               </div>
               <textarea value={offlineReason} onChange={e => setOfflineReason(e.target.value)}
@@ -311,7 +311,7 @@ export default function ShiftOpenPage() {
         <button type="button" onClick={handleSubmit} disabled={!canSubmit || submitting}
           style={{ padding:'14px 40px', borderRadius:10, border:'none',
             background: canSubmit ? T.ACC : T.BOR,
-            color: canSubmit ? '#0f172a' : T.MUT,
+            color: canSubmit ? 'var(--bg-page)' : T.MUT,
             fontSize:16, fontWeight:700, cursor: canSubmit ? 'pointer' : 'not-allowed',
             opacity: submitting ? 0.7 : 1, transition:'all 0.15s' }}>
           {submitting ? t('ui.开班中', '开班中...') : t('ui.确认开班', '确认开班')}

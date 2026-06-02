@@ -19,10 +19,10 @@ const tok = () =>
 const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${tok()}` });
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  ACTIVE:    { label: "进行中", color: "#10b981" },
-  CLOSED:    { label: "已关闭", color: "#64748b" },
-  PLANNING:  { label: "规划中", color: "#3b82f6" },
-  SUSPENDED: { label: "暂停",   color: "#f59e0b" },
+  ACTIVE:    { label: "进行中", color: "var(--status-success)" },
+  CLOSED:    { label: "已关闭", color: "var(--text-secondary)" },
+  PLANNING:  { label: "规划中", color: "var(--color-accent)" },
+  SUSPENDED: { label: "暂停",   color: "var(--status-warning)" },
 };
 
 interface Project {
@@ -84,7 +84,7 @@ export default function MdProjectsPage() {
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
         <div style={{ position: "relative", flex: "0 0 260px" }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#475569" }} />
+          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索项目名称 / 编码..."
             className="bg-bg-muted border border-border text-text"
             style={{ width: "100%", padding: "7px 10px 7px 32px", borderRadius: 7, fontSize: 13, outline: "none" }} />
@@ -93,7 +93,7 @@ export default function MdProjectsPage() {
           <RefreshCw size={13} /> 刷新
         </button>
         <div style={{ flex: 1 }} />
-        <Link href="/procurement2/projects" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "#14b8a6", border: "none", borderRadius: 7, color: "#fff", fontSize: 13, cursor: "pointer", textDecoration: "none", fontWeight: 600 }}>
+        <Link href="/procurement2/projects" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "var(--status-success)", border: "none", borderRadius: 7, color: "var(--text-on-dark)", fontSize: 13, cursor: "pointer", textDecoration: "none", fontWeight: 600 }}>
           <ExternalLink size={13} /> 完整管理
         </Link>
       </div>
@@ -103,9 +103,9 @@ export default function MdProjectsPage() {
       </div>
 
       {loading ? (
-        <div style={{ padding: 60, textAlign: "center", color: "#475569" }}>加载中...</div>
+        <div style={{ padding: 60, textAlign: "center", color: "var(--text-secondary)" }}>加载中...</div>
       ) : error ? (
-        <div style={{ padding: 40, textAlign: "center", color: "#ef4444" }}>{error}</div>
+        <div style={{ padding: 40, textAlign: "center", color: "var(--status-danger)" }}>{error}</div>
       ) : (
         <div className="bg-bg-muted border border-border" style={{ borderRadius: 10, overflow: "auto" }}>
           <table className={s.table}>
@@ -118,9 +118,9 @@ export default function MdProjectsPage() {
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} style={{ padding: 40, textAlign: "center", color: "#475569" }}>暂无数据</td></tr>
+                <tr><td colSpan={7} style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>暂无数据</td></tr>
               ) : filtered.map((p, i) => {
-                const st = STATUS_MAP[p.status ?? "ACTIVE"] ?? { label: p.status ?? "-", color: "#64748b" };
+                const st = STATUS_MAP[p.status ?? "ACTIVE"] ?? { label: p.status ?? "-", color: "var(--text-secondary)" };
                 return (
                   <tr key={p.id ?? i} className="border-b border-border/30"
                     onMouseEnter={e => (e.currentTarget.style.background = "rgba(148,163,184,0.08)")}

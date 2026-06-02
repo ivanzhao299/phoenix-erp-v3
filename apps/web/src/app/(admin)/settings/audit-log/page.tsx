@@ -1,4 +1,5 @@
 "use client";
+import { toast } from 'sonner';
 import { useEffect, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
 import { History, User, Clock, RefreshCw, Search, Download, ChevronLeft, ChevronRight } from "lucide-react";
@@ -21,14 +22,14 @@ export default function AuditLogPage() {
   const { t } = useLanguage();
 
   const ACTION_META: Record<string, { label: string; color: string; bg: string }> = {
-    APPROVED:  { label: t('status.approved', '已审批'), color: "#16a34a", bg: "#dcfce7" },
-    REJECTED:  { label: t('status.rejected', '已驳回'), color: "#dc2626", bg: "#fee2e2" },
-    SUBMIT:    { label: t('ui.已提交', '已提交'), color: "#2563eb", bg: "#dbeafe" },
-    CANCELLED: { label: t('status.cancelled', '已撤回'), color: "#d97706", bg: "#fef3c7" },
-    CREATE:    { label: t('ui.新建', '新建'),   color: "#7c3aed", bg: "#ede9fe" },
-    UPDATE:    { label: t('ui.修改', '修改'),   color: "#0891b2", bg: "#cffafe" },
-    DELETE:    { label: t('common.delete', '删除'),   color: "#dc2626", bg: "#fee2e2" },
-    LOGIN:     { label: t('ui.登录', '登录'),   color: "#16a34a", bg: "#dcfce7" },
+    APPROVED:  { label: t('status.approved', '已审批'), color: "var(--status-success)", bg: "color-mix(in srgb, var(--status-success) 14%, transparent)" },
+    REJECTED:  { label: t('status.rejected', '已驳回'), color: "var(--status-danger)", bg: "color-mix(in srgb, var(--status-danger) 14%, transparent)" },
+    SUBMIT:    { label: t('ui.已提交', '已提交'), color: "var(--color-accent)", bg: "color-mix(in srgb, var(--color-accent) 14%, transparent)" },
+    CANCELLED: { label: t('status.cancelled', '已撤回'), color: "var(--status-warning)", bg: "color-mix(in srgb, var(--status-warning) 16%, transparent)" },
+    CREATE:    { label: t('ui.新建', '新建'),   color: "var(--status-special)", bg: "color-mix(in srgb, var(--status-special) 12%, transparent)" },
+    UPDATE:    { label: t('ui.修改', '修改'),   color: "var(--color-accent)", bg: "color-mix(in srgb, var(--color-accent) 12%, transparent)" },
+    DELETE:    { label: t('common.delete', '删除'),   color: "var(--status-danger)", bg: "color-mix(in srgb, var(--status-danger) 14%, transparent)" },
+    LOGIN:     { label: t('ui.登录', '登录'),   color: "var(--status-success)", bg: "color-mix(in srgb, var(--status-success) 14%, transparent)" },
   };
 
   const DOC_TYPE_MAP: Record<string, string> = {
@@ -89,7 +90,7 @@ export default function AuditLogPage() {
             <button type="button" onClick={() => load(page)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", cursor: "pointer", fontSize: 13, color: "var(--text-primary)" }}>
               <RefreshCw size={13}/> {t('common.refresh', '刷新')}
             </button>
-            <button type="button" onClick={() => alert(t('ui.导出功能开发中', '导出功能开发中'))} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", cursor: "pointer", fontSize: 13, color: "var(--text-secondary)" }}>
+            <button type="button" onClick={() => toast.error(t('ui.导出功能开发中', '导出功能开发中'))} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-card)", cursor: "pointer", fontSize: 13, color: "var(--text-secondary)" }}>
               <Download size={13}/> {t('common.export', '导出')}
             </button>
           </div>
@@ -160,7 +161,7 @@ export default function AuditLogPage() {
             </thead>
             <tbody>
               {logs.map(log => {
-                const m = ACTION_META[log.action] ?? { label: log.action, color: "#64748b", bg: "#f1f5f9" };
+                const m = ACTION_META[log.action] ?? { label: log.action, color: "var(--text-secondary)", bg: "var(--bg-muted)" };
                 const docLabel = DOC_TYPE_MAP[log.doc_type] || log.doc_type;
                 return (
                   <tr key={log.id}>

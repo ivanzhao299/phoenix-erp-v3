@@ -18,11 +18,11 @@ const hdr = () => ({ Authorization: `Bearer ${tok()}` });
 
 // ── 系统状态点配置 ──────────────────────────────────────────────────────
 const STATUS_DOT: Record<string, { bg:string; border:string; dot:string }> = {
-  normal:   { bg:'#dcfce7', border:'#86efac', dot:'#22c55e' },
-  standby:  { bg:'#f8fafc', border:'#e2e8f0', dot:'#94a3b8' },
-  warning:  { bg:'#fef3c7', border:'#fcd34d', dot:'#f59e0b' },
-  critical: { bg:'#fee2e2', border:'#fca5a5', dot:'#ef4444' },
-  no_data:  { bg:'#f8fafc', border:'#e2e8f0', dot:'#94a3b8' },
+  normal:   { bg:'color-mix(in srgb, var(--status-success) 14%, transparent)', border:'var(--status-success)', dot:'var(--status-success)' },
+  standby:  { bg:'var(--text-primary)', border:'var(--text-primary)', dot:'var(--text-disabled)' },
+  warning:  { bg:'color-mix(in srgb, var(--status-warning) 16%, transparent)', border:'var(--status-warning)', dot:'var(--status-warning)' },
+  critical: { bg:'color-mix(in srgb, var(--status-danger) 14%, transparent)', border:'var(--status-danger)', dot:'var(--status-danger)' },
+  no_data:  { bg:'var(--text-primary)', border:'var(--text-primary)', dot:'var(--text-disabled)' },
 };
 
 // ── 数据新鲜度配置 ──────────────────────────────────────────────────────
@@ -97,7 +97,7 @@ function HouseCard({ house, onClick, freshLabel, noBatchLabel }: { house: IotHou
             <div style={{ display:'flex', gap:10 }}>
               <span>耗料 <strong style={{ color:'var(--text-primary)', fontSize:11 }}>{house.feedToday!=null?`${Number(house.feedToday).toFixed(0)}kg`:'—'}</strong></span>
               <span>饮水 <strong style={{ color:'var(--text-primary)', fontSize:11 }}>{house.waterToday!=null?`${Number(house.waterToday).toFixed(1)}T`:'—'}</strong></span>
-              <span>在线 <strong style={{ fontSize:11, color: (house.onlineRate??0)>0.8?'#22c55e':(house.onlineRate??0)>0.5?'#f59e0b':'#ef4444' }}>{Math.round((house.onlineRate??0)*100)}%</strong></span>
+              <span>在线 <strong style={{ fontSize:11, color: (house.onlineRate??0)>0.8?'var(--status-success)':(house.onlineRate??0)>0.5?'var(--status-warning)':'var(--status-danger)' }}>{Math.round((house.onlineRate??0)*100)}%</strong></span>
             </div>
             <span style={{ fontSize:11, fontWeight:600, color:'var(--color-primary)', display:'flex', alignItems:'center', gap:2 }}>进入总览 <ChevronRight size={11}/></span>
           </div>
@@ -230,10 +230,10 @@ export default function DeviceOverviewPage() {
       <div style={{ display:'flex', gap:16, alignItems:'center', marginBottom:14, padding:'8px 12px', backgroundColor:'var(--bg-card)', borderRadius:'var(--radius-sm)', border:'1px solid var(--border)', flexWrap:'wrap' }}>
         <span style={{ fontSize:11, fontWeight:700, color:'var(--text-secondary)' }}>{t('ui.系统健康点', '系统健康点：')}</span>
         {[
-          { label: t('status.normal', '正常'), dot:'#22c55e' },
-          { label: t('status.warning', '预警'), dot:'#f59e0b' },
-          { label: t('ui.告警', '告警'), dot:'#ef4444' },
-          { label: t('ui.无数据', '无数据'), dot:'#94a3b8' },
+          { label: t('status.normal', '正常'), dot:'var(--status-success)' },
+          { label: t('status.warning', '预警'), dot:'var(--status-warning)' },
+          { label: t('ui.告警', '告警'), dot:'var(--status-danger)' },
+          { label: t('ui.无数据', '无数据'), dot:'var(--text-disabled)' },
         ].map(l => (
           <span key={l.label} style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, color:'var(--text-secondary)' }}>
             <span style={{ width:8, height:8, borderRadius:'50%', backgroundColor:l.dot, display:'inline-block' }}/>{l.label}

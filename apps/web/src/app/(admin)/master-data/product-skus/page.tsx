@@ -1,4 +1,5 @@
 "use client";
+import { toast } from 'sonner';
 import { useState, useEffect, useCallback } from "react";
 import { Layers, Search, RefreshCw, Plus, Edit2 } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
@@ -36,8 +37,8 @@ interface Sku {
 interface SelectOption { value: string; label: string; }
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  ACTIVE:   { label: "启用", color: "#10b981" },
-  INACTIVE: { label: "停用", color: "#64748b" },
+  ACTIVE:   { label: "启用", color: "var(--status-success)" },
+  INACTIVE: { label: "停用", color: "var(--text-secondary)" },
 };
 
 const EMPTY: Sku = { sku_code: "", product_code: "", product_name: "", grade_code: "", spec_code: "", sku_name: "", barcode: "", status: "ACTIVE", remark: "" };
@@ -100,7 +101,7 @@ export default function ProductSkusPage() {
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.message || `HTTP ${res.status}`); }
       setDrawer(false);
       await load();
-    } catch (e: unknown) { alert(e instanceof Error ? e.message : "保存失败"); }
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "保存失败"); }
     finally { setSaving(false); }
   };
 
@@ -118,13 +119,13 @@ export default function ProductSkusPage() {
       <PageHeader title="SKU 档案" subtitle="产品 × 等级 × 包装规格 · 销售/库存/价格统一维度" breadcrumb={["主数据中心", "SKU 档案"]} />
 
       <div className="bg-bg-muted border border-border text-text-muted" style={{ borderRadius: 8, padding: "12px 16px", marginBottom: 18, fontSize: 12 }}>
-        <span style={{ color: "#f59e0b", fontWeight: 600 }}>Phase H2 说明：</span>
+        <span style={{ color: "var(--status-warning)", fontWeight: 600 }}>Phase H2 说明：</span>
         SKU 主档已建立。H3 阶段将把价格表接入 sku_code；H4 阶段将把库存批次统一等级编码。当前 SKU 与交易表暂未强关联。
       </div>
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
         <div style={{ position: "relative", flex: "0 0 240px" }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#475569" }} />
+          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索 SKU 编码 / 名称..."
             className="bg-bg-muted border border-border text-text"
             style={{ ...inp, marginTop: 0, paddingLeft: 32 }} />
@@ -143,16 +144,16 @@ export default function ProductSkusPage() {
           <RefreshCw size={13} /> 刷新
         </button>
         {canEdit && (
-          <button onClick={openCreate} style={{ marginLeft: "auto", padding: "7px 16px", background: "#f59e0b", border: "none", borderRadius: 7, color: "#0f172a", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+          <button onClick={openCreate} style={{ marginLeft: "auto", padding: "7px 16px", background: "var(--status-warning)", border: "none", borderRadius: 7, color: "var(--text-primary)", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
             <Plus size={14} /> 新增 SKU
           </button>
         )}
       </div>
 
-      {error && <div style={{ background: "#450a0a", border: "1px solid #7f1d1d", borderRadius: 8, padding: "10px 14px", marginBottom: 16, color: "#fca5a5", fontSize: 13 }}>{error}</div>}
+      {error && <div style={{ background: "var(--status-danger)", border: "1px solid var(--status-danger)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, color: "var(--status-danger)", fontSize: 13 }}>{error}</div>}
 
       {loading ? (
-        <div style={{ textAlign: "center", padding: 40, color: "#475569" }}>加载中...</div>
+        <div style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>加载中...</div>
       ) : (
         <div className="bg-bg-muted border border-border" style={{ borderRadius: 10, overflow: "hidden" }}>
           <table className={ui.table}>
@@ -165,7 +166,7 @@ export default function ProductSkusPage() {
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", color: "#475569" }}>暂无 SKU 数据 — 点击「新增 SKU」创建</td></tr>
+                <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)" }}>暂无 SKU 数据 — 点击「新增 SKU」创建</td></tr>
               )}
               {filtered.map((s, i) => (
                 <tr key={s.sku_code} className="border-b border-border" style={{ background: i % 2 ? "rgba(148,163,184,0.05)" : "transparent" }}>
@@ -175,10 +176,10 @@ export default function ProductSkusPage() {
                   <td>{s.sku_name || "—"}</td>
                   <td className="text-text-muted">{s.product_code}</td>
                   <td>
-                    <span style={{ background: "#1e3a5f", color: "#60a5fa", padding: "2px 8px", borderRadius: 5, fontSize: 11, fontWeight: 600 }}>{s.grade_code}</span>
+                    <span style={{ background: "var(--border)", color: "var(--color-accent)", padding: "2px 8px", borderRadius: 5, fontSize: 11, fontWeight: 600 }}>{s.grade_code}</span>
                   </td>
                   <td>
-                    <span style={{ background: "#1e3a2f", color: "#34d399", padding: "2px 8px", borderRadius: 5, fontSize: 11, fontWeight: 600 }}>{s.spec_code}</span>
+                    <span style={{ background: "var(--status-success)", color: "var(--status-success)", padding: "2px 8px", borderRadius: 5, fontSize: 11, fontWeight: 600 }}>{s.spec_code}</span>
                   </td>
                   <td className="text-text-muted" style={{ fontFamily: "monospace", fontSize: 12 }}>{s.barcode || "—"}</td>
                   <td>
@@ -208,7 +209,7 @@ export default function ProductSkusPage() {
               <button onClick={() => setDrawer(false)} className="text-text-muted" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20 }}>×</button>
             </div>
             {!editing && <p className="text-text-muted" style={{ fontSize: 12, margin: "0 0 8px" }}>SKU 编码将根据「产品+等级+规格」自动生成（如不填）</p>}
-            <label className="text-text-muted" style={lbl}>产品 <span style={{ color: "#f87171" }}>*</span></label>
+            <label className="text-text-muted" style={lbl}>产品 <span style={{ color: "var(--status-danger)" }}>*</span></label>
             <select
               className={`bg-bg-muted border border-border text-text ${editing ? "opacity-50" : ""}`}
               style={inp}
@@ -219,7 +220,7 @@ export default function ProductSkusPage() {
               <option value="">— 选择产品 —</option>
               {products.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
-            <label className="text-text-muted" style={lbl}>等级 <span style={{ color: "#f87171" }}>*</span></label>
+            <label className="text-text-muted" style={lbl}>等级 <span style={{ color: "var(--status-danger)" }}>*</span></label>
             <select
               className={`bg-bg-muted border border-border text-text ${editing ? "opacity-50" : ""}`}
               style={inp}
@@ -230,7 +231,7 @@ export default function ProductSkusPage() {
               <option value="">— 选择等级 —</option>
               {grades.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
             </select>
-            <label className="text-text-muted" style={lbl}>包装规格 <span style={{ color: "#f87171" }}>*</span></label>
+            <label className="text-text-muted" style={lbl}>包装规格 <span style={{ color: "var(--status-danger)" }}>*</span></label>
             <select
               className={`bg-bg-muted border border-border text-text ${editing ? "opacity-50" : ""}`}
               style={inp}
@@ -261,7 +262,7 @@ export default function ProductSkusPage() {
             </select>
             <label className="text-text-muted" style={lbl}>备注</label>
             <textarea className="bg-bg-muted border border-border text-text" style={{ ...inp, minHeight: 60, resize: "vertical" }} value={form.remark ?? ""} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))} />
-            <button onClick={save} disabled={saving} style={{ marginTop: 20, padding: "10px", width: "100%", background: "#f59e0b", border: "none", borderRadius: 8, color: "#0f172a", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
+            <button onClick={save} disabled={saving} style={{ marginTop: 20, padding: "10px", width: "100%", background: "var(--status-warning)", border: "none", borderRadius: 8, color: "var(--text-primary)", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
               {saving ? "保存中..." : "保存"}
             </button>
           </div>

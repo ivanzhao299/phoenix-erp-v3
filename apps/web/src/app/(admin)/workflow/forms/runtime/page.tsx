@@ -1,4 +1,5 @@
 'use client';
+import { toast } from 'sonner';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -72,9 +73,9 @@ function Badge({ label, color }: { label: string; color: string }) {
 }
 
 function statusColor(s: string) {
-  if (s === 'ACTIVE' || s === 'PUBLISHED') return '#10b981';
-  if (s === 'DRAFT') return '#f59e0b';
-  return '#94a3b8';
+  if (s === 'ACTIVE' || s === 'PUBLISHED') return 'var(--status-success)';
+  if (s === 'DRAFT') return 'var(--status-warning)';
+  return 'var(--text-disabled)';
 }
 
 // ── 主页面 ────────────────────────────────────────────────────────────────────
@@ -221,7 +222,7 @@ export default function WorkflowFormRuntimePage() {
       await apiFetch(`/api/workflow/forms/versions/${versionId}/publish`, { method: 'POST' });
       await loadDetail(selected);
     } catch (e: any) {
-      alert(`发布失败：${e.message}`);
+      toast.error(`发布失败：${e.message}`);
     } finally {
       setPublishing(false);
     }
@@ -259,12 +260,12 @@ export default function WorkflowFormRuntimePage() {
       {/* 标题行 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 12, background: '#7c3aed18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <FileText size={22} color="#7c3aed" />
+          <div style={{ width: 42, height: 42, borderRadius: 12, background: 'var(--status-special)18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <FileText size={22} color="var(--status-special)" />
           </div>
           <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#0f172a' }}>Workflow 表单运行时</h1>
-            <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>Workflow 表单运行时</h1>
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>
               管理表单定义、版本和预览 · {total} 个表单
               {refreshedAt && ` · 更新于 ${refreshedAt.toLocaleTimeString('zh-CN')}`}
             </p>
@@ -274,8 +275,8 @@ export default function WorkflowFormRuntimePage() {
           <button onClick={loadForms} disabled={loading} style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '8px 16px', borderRadius: 10,
-            border: '1.5px solid #e2e8f0', background: '#fff',
-            color: '#475569', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            border: '1.5px solid var(--border)', background: 'var(--bg-card)',
+            color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
           }}>
             <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
             刷新
@@ -283,8 +284,8 @@ export default function WorkflowFormRuntimePage() {
           <button onClick={() => { setShowCreate(true); setCreateError(''); }} style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '8px 16px', borderRadius: 10,
-            border: 'none', background: '#7c3aed',
-            color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            border: 'none', background: 'var(--status-special)',
+            color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
           }}>
             <Plus size={14} /> 新建表单
           </button>
@@ -292,7 +293,7 @@ export default function WorkflowFormRuntimePage() {
       </div>
 
       {error && (
-        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '12px 18px', marginBottom: 20, color: '#ef4444', fontSize: 14 }}>
+        <div style={{ background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)', border: '1px solid var(--status-danger)', borderRadius: 12, padding: '12px 18px', marginBottom: 20, color: 'var(--status-danger)', fontSize: 14 }}>
           {error}
         </div>
       )}
@@ -301,14 +302,14 @@ export default function WorkflowFormRuntimePage() {
       <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24 }}>
 
         {/* ── 左：表单列表 ── */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1.5px solid #f1f5f9', overflow: 'hidden', height: 'fit-content' }}>
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', fontWeight: 700, fontSize: 14, color: '#0f172a' }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 16, border: '1.5px solid var(--bg-muted)', overflow: 'hidden', height: 'fit-content' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--bg-muted)', fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
             表单定义列表
           </div>
           {loading && forms.length === 0 ? (
-            <div style={{ padding: 24, color: '#94a3b8', fontSize: 14, textAlign: 'center' }}>加载中…</div>
+            <div style={{ padding: 24, color: 'var(--text-disabled)', fontSize: 14, textAlign: 'center' }}>加载中…</div>
           ) : forms.length === 0 ? (
-            <div style={{ padding: 24, color: '#94a3b8', fontSize: 14, textAlign: 'center' }}>暂无表单</div>
+            <div style={{ padding: 24, color: 'var(--text-disabled)', fontSize: 14, textAlign: 'center' }}>暂无表单</div>
           ) : (
             <div>
               {forms.map(f => (
@@ -317,14 +318,14 @@ export default function WorkflowFormRuntimePage() {
                   onClick={() => loadDetail(f)}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    width: '100%', padding: '12px 18px', borderBottom: '1px solid #f8fafc',
-                    textAlign: 'left', background: selected?.id === f.id ? '#f5f3ff' : '#fff',
-                    border: 'none', cursor: 'pointer', borderLeft: selected?.id === f.id ? '3px solid #7c3aed' : '3px solid transparent',
+                    width: '100%', padding: '12px 18px', borderBottom: '1px solid var(--bg-muted)',
+                    textAlign: 'left', background: selected?.id === f.id ? 'color-mix(in srgb, var(--status-special) 10%, transparent)' : 'var(--bg-card)',
+                    border: 'none', cursor: 'pointer', borderLeft: selected?.id === f.id ? '3px solid var(--status-special)' : '3px solid transparent',
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{f.name}</div>
-                    <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2, fontFamily: 'monospace' }}>{f.code}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{f.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-disabled)', marginTop: 2, fontFamily: 'monospace' }}>{f.code}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{
@@ -332,7 +333,7 @@ export default function WorkflowFormRuntimePage() {
                       background: statusColor(f.status),
                       display: 'inline-block',
                     }} />
-                    <ChevronRight size={14} color="#94a3b8" />
+                    <ChevronRight size={14} color="var(--text-disabled)" />
                   </div>
                 </button>
               ))}
@@ -344,8 +345,8 @@ export default function WorkflowFormRuntimePage() {
         <div>
           {!selected ? (
             <div style={{
-              background: '#fff', borderRadius: 16, border: '1.5px solid #f1f5f9',
-              padding: '60px 40px', textAlign: 'center', color: '#94a3b8',
+              background: 'var(--bg-card)', borderRadius: 16, border: '1.5px solid var(--bg-muted)',
+              padding: '60px 40px', textAlign: 'center', color: 'var(--text-disabled)',
             }}>
               <FileText size={40} style={{ opacity: 0.3, marginBottom: 12 }} />
               <div style={{ fontSize: 15 }}>请从左侧选择一个表单</div>
@@ -354,11 +355,11 @@ export default function WorkflowFormRuntimePage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
               {/* 表单 meta */}
-              <div style={{ background: '#fff', borderRadius: 16, border: '1.5px solid #f1f5f9', padding: '20px 24px' }}>
+              <div style={{ background: 'var(--bg-card)', borderRadius: 16, border: '1.5px solid var(--bg-muted)', padding: '20px 24px' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
                   <div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a' }}>{selected.name}</div>
-                    <div style={{ fontSize: 13, color: '#94a3b8', fontFamily: 'monospace', marginTop: 2 }}>{selected.code}</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)' }}>{selected.name}</div>
+                    <div style={{ fontSize: 13, color: 'var(--text-disabled)', fontFamily: 'monospace', marginTop: 2 }}>{selected.code}</div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <Badge label={selected.status} color={statusColor(selected.status)} />
@@ -367,34 +368,34 @@ export default function WorkflowFormRuntimePage() {
                       style={{
                         display: 'flex', alignItems: 'center', gap: 5,
                         padding: '6px 14px', borderRadius: 8, border: 'none',
-                        background: '#7c3aed', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                        background: 'var(--status-special)', color: 'var(--text-on-dark)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
                       }}
                     >
                       <Send size={12} /> 去提交
                     </button>
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px,1fr))', gap: '8px 16px', fontSize: 13, color: '#64748b' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px,1fr))', gap: '8px 16px', fontSize: 13, color: 'var(--text-secondary)' }}>
                   {selected.biz_type && <span>业务类型：<b>{selected.biz_type}</b></span>}
                   {selected.module_code && <span>模块：<b>{selected.module_code}</b></span>}
                   {selected.category && <span>分类：<b>{selected.category}</b></span>}
-                  {selected.remark && <span style={{ gridColumn: '1/-1', color: '#94a3b8', fontSize: 12 }}>{selected.remark}</span>}
+                  {selected.remark && <span style={{ gridColumn: '1/-1', color: 'var(--text-disabled)', fontSize: 12 }}>{selected.remark}</span>}
                 </div>
               </div>
 
               {/* 版本列表 */}
-              <div style={{ background: '#fff', borderRadius: 16, border: '1.5px solid #f1f5f9', overflow: 'hidden' }}>
+              <div style={{ background: 'var(--bg-card)', borderRadius: 16, border: '1.5px solid var(--bg-muted)', overflow: 'hidden' }}>
                 <div style={{
-                  padding: '14px 20px', borderBottom: '1px solid #f1f5f9',
+                  padding: '14px 20px', borderBottom: '1px solid var(--bg-muted)',
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>版本管理</span>
+                  <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>版本管理</span>
                   <button
                     onClick={openVersionModal}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 5,
-                      padding: '6px 14px', borderRadius: 8, border: '1.5px solid #7c3aed',
-                      background: '#fff', color: '#7c3aed', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                      padding: '6px 14px', borderRadius: 8, border: '1.5px solid var(--status-special)',
+                      background: 'var(--bg-card)', color: 'var(--status-special)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
                     }}
                   >
                     <Plus size={12} /> 新建版本
@@ -402,9 +403,9 @@ export default function WorkflowFormRuntimePage() {
                 </div>
 
                 {detailLoading ? (
-                  <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>加载中…</div>
+                  <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-disabled)' }}>加载中…</div>
                 ) : versions.length === 0 ? (
-                  <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>暂无版本，请新建</div>
+                  <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-disabled)' }}>暂无版本，请新建</div>
                 ) : (
                   <table className={ui.table}>
                     <thead>
@@ -417,26 +418,26 @@ export default function WorkflowFormRuntimePage() {
                     <tbody>
                       {versions.map(v => (
                         <tr key={v.id}>
-                          <td style={{ fontWeight: 700, color: '#0f172a', fontSize: 13 }}>
+                          <td style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 13 }}>
                             v{v.version_no}
                             {v.id === selected.current_version_id && (
-                              <span style={{ marginLeft: 6, fontSize: 11, background: '#7c3aed18', color: '#7c3aed', padding: '1px 6px', borderRadius: 20 }}>当前</span>
+                              <span style={{ marginLeft: 6, fontSize: 11, background: 'var(--status-special)18', color: 'var(--status-special)', padding: '1px 6px', borderRadius: 20 }}>当前</span>
                             )}
                           </td>
                           <td>
                             <Badge label={v.status} color={statusColor(v.status)} />
                           </td>
-                          <td style={{ fontSize: 13, color: '#475569' }}>
+                          <td style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
                             {v.published_at ? new Date(v.published_at).toLocaleDateString('zh-CN') : '—'}
                           </td>
-                          <td style={{ fontSize: 13, color: '#94a3b8' }}>
+                          <td style={{ fontSize: 13, color: 'var(--text-disabled)' }}>
                             {new Date(v.created_at).toLocaleDateString('zh-CN')}
                           </td>
                           <td>
                             <div style={{ display: 'flex', gap: 8 }}>
                               <button
                                 onClick={() => { setPreviewVer(v); setPreviewData({}); setPreviewErrors({}); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', color: '#475569', fontSize: 12, cursor: 'pointer' }}
+                                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer' }}
                               >
                                 <Eye size={11} /> 预览
                               </button>
@@ -444,7 +445,7 @@ export default function WorkflowFormRuntimePage() {
                                 <button
                                   onClick={() => handlePublish(v.id)}
                                   disabled={publishing}
-                                  style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: 'none', background: '#10b981', color: '#fff', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: 'none', background: 'var(--status-success)', color: 'var(--text-on-dark)', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}
                                 >
                                   <CheckCircle size={11} /> 发布
                                 </button>
@@ -460,15 +461,15 @@ export default function WorkflowFormRuntimePage() {
 
               {/* 表单预览 */}
               {previewVer && previewSchema && (
-                <div style={{ background: '#fff', borderRadius: 16, border: '1.5px solid #f1f5f9', overflow: 'hidden' }}>
-                  <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Eye size={16} color="#7c3aed" />
-                    <span style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>
+                <div style={{ background: 'var(--bg-card)', borderRadius: 16, border: '1.5px solid var(--bg-muted)', overflow: 'hidden' }}>
+                  <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--bg-muted)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Eye size={16} color="var(--status-special)" />
+                    <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>
                       表单预览 — v{previewVer.version_no}
                     </span>
                     <button
                       onClick={() => router.push(`/workflow/forms/submit/${selected.code}`)}
-                      style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 7, border: 'none', background: '#f0fdf4', color: '#10b981', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                      style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 7, border: 'none', background: 'color-mix(in srgb, var(--status-success) 12%, transparent)', color: 'var(--status-success)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
                     >
                       <ArrowRight size={11} /> 进入提交页
                     </button>
@@ -481,7 +482,7 @@ export default function WorkflowFormRuntimePage() {
                       onChange={(key, val) => setPreviewData(prev => ({ ...prev, [key]: val }))}
                       errors={previewErrors}
                     />
-                    <div style={{ marginTop: 20, padding: '12px 16px', background: '#f8fafc', borderRadius: 10, fontSize: 12, color: '#64748b' }}>
+                    <div style={{ marginTop: 20, padding: '12px 16px', background: 'var(--bg-muted)', borderRadius: 10, fontSize: 12, color: 'var(--text-secondary)' }}>
                       📌 当前为预览模式，数据不会保存。请前往「提交页」进行真实提交。
                     </div>
                   </div>
@@ -496,9 +497,9 @@ export default function WorkflowFormRuntimePage() {
       {/* ── 新建表单 Modal ── */}
       {showCreate && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 18, padding: 32, width: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-            <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 800, color: '#0f172a' }}>新建表单定义</h2>
-            {createError && <div style={{ background: '#fef2f2', color: '#ef4444', fontSize: 13, padding: '8px 12px', borderRadius: 8, marginBottom: 14 }}>{createError}</div>}
+          <div style={{ background: 'var(--bg-card)', borderRadius: 18, padding: 32, width: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>新建表单定义</h2>
+            {createError && <div style={{ background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)', color: 'var(--status-danger)', fontSize: 13, padding: '8px 12px', borderRadius: 8, marginBottom: 14 }}>{createError}</div>}
             {[
               { key: 'code',       label: '表单代码 *', placeholder: '大写字母/数字/下划线，如 MY_FORM' },
               { key: 'name',       label: '表单名称 *', placeholder: '中文名称' },
@@ -508,18 +509,18 @@ export default function WorkflowFormRuntimePage() {
               { key: 'remark',     label: '备注',       placeholder: '可选' },
             ].map(({ key, label, placeholder }) => (
               <div key={key} style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 13, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 5 }}>{label}</label>
+                <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', display: 'block', marginBottom: 5 }}>{label}</label>
                 <input
                   value={(createForm as any)[key]}
                   onChange={e => setCreateForm(prev => ({ ...prev, [key]: e.target.value }))}
                   placeholder={placeholder}
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0', fontSize: 13, boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontSize: 13, boxSizing: 'border-box' }}
                 />
               </div>
             ))}
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-              <button onClick={() => setShowCreate(false)} style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1.5px solid #e2e8f0', background: '#fff', color: '#475569', fontSize: 14, cursor: 'pointer' }}>取消</button>
-              <button onClick={handleCreate} disabled={creating} style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#7c3aed', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+              <button onClick={() => setShowCreate(false)} style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 14, cursor: 'pointer' }}>取消</button>
+              <button onClick={handleCreate} disabled={creating} style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: 'var(--status-special)', color: 'var(--text-on-dark)', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
                 {creating ? '创建中…' : '创建'}
               </button>
             </div>
@@ -530,28 +531,28 @@ export default function WorkflowFormRuntimePage() {
       {/* ── 新建版本 Modal ── */}
       {showVersion && selected && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div style={{ background: '#fff', borderRadius: 18, padding: 32, width: '90vw', maxWidth: 900, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-            <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 800, color: '#0f172a' }}>新建表单版本</h2>
-            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#64748b' }}>{selected.name} · 新版本将以 DRAFT 状态创建，发布后生效</p>
-            {verError && <div style={{ background: '#fef2f2', color: '#ef4444', fontSize: 13, padding: '8px 12px', borderRadius: 8, marginBottom: 14 }}>{verError}</div>}
+          <div style={{ background: 'var(--bg-card)', borderRadius: 18, padding: 32, width: '90vw', maxWidth: 900, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>新建表单版本</h2>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-secondary)' }}>{selected.name} · 新版本将以 DRAFT 状态创建，发布后生效</p>
+            {verError && <div style={{ background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)', color: 'var(--status-danger)', fontSize: 13, padding: '8px 12px', borderRadius: 8, marginBottom: 14 }}>{verError}</div>}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
               <div>
-                <label style={{ fontSize: 13, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 6 }}>schema_json（字段定义）</label>
+                <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: 6 }}>schema_json（字段定义）</label>
                 <textarea
                   value={schemaText}
                   onChange={e => setSchemaText(e.target.value)}
                   rows={20}
-                  style={{ width: '100%', fontFamily: 'monospace', fontSize: 12, padding: '10px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0', boxSizing: 'border-box', resize: 'vertical' }}
+                  style={{ width: '100%', fontFamily: 'monospace', fontSize: 12, padding: '10px 12px', borderRadius: 8, border: '1.5px solid var(--border)', boxSizing: 'border-box', resize: 'vertical' }}
                 />
               </div>
               <div>
-                <label style={{ fontSize: 13, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 6 }}>ui_schema_json（控件配置）</label>
+                <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: 6 }}>ui_schema_json（控件配置）</label>
                 <textarea
                   value={uiSchemaText}
                   onChange={e => setUiSchemaText(e.target.value)}
                   rows={20}
-                  style={{ width: '100%', fontFamily: 'monospace', fontSize: 12, padding: '10px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0', boxSizing: 'border-box', resize: 'vertical' }}
+                  style={{ width: '100%', fontFamily: 'monospace', fontSize: 12, padding: '10px 12px', borderRadius: 8, border: '1.5px solid var(--border)', boxSizing: 'border-box', resize: 'vertical' }}
                 />
               </div>
             </div>
@@ -562,8 +563,8 @@ export default function WorkflowFormRuntimePage() {
                 const s = JSON.parse(schemaText) as FormSchema;
                 const u = uiSchemaText.trim() ? JSON.parse(uiSchemaText) as UiSchema : {};
                 return (
-                  <div style={{ marginTop: 20, padding: '16px 20px', background: '#f8fafc', borderRadius: 12 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#64748b', marginBottom: 12 }}>实时预览</div>
+                  <div style={{ marginTop: 20, padding: '16px 20px', background: 'var(--bg-muted)', borderRadius: 12 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 12 }}>实时预览</div>
                     <WorkflowFormRenderer
                       schema={s}
                       uiSchema={u}
@@ -573,13 +574,13 @@ export default function WorkflowFormRuntimePage() {
                   </div>
                 );
               } catch {
-                return <div style={{ marginTop: 14, fontSize: 12, color: '#f59e0b' }}>⚠ JSON 解析失败，请检查格式</div>;
+                return <div style={{ marginTop: 14, fontSize: 12, color: 'var(--status-warning)' }}>⚠ JSON 解析失败，请检查格式</div>;
               }
             })()}
 
             <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
-              <button onClick={() => setShowVersion(false)} style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1.5px solid #e2e8f0', background: '#fff', color: '#475569', fontSize: 14, cursor: 'pointer' }}>取消</button>
-              <button onClick={handleCreateVersion} disabled={savingVer} style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#7c3aed', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+              <button onClick={() => setShowVersion(false)} style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 14, cursor: 'pointer' }}>取消</button>
+              <button onClick={handleCreateVersion} disabled={savingVer} style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: 'var(--status-special)', color: 'var(--text-on-dark)', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
                 {savingVer ? '保存中…' : '保存为草稿'}
               </button>
             </div>

@@ -113,10 +113,10 @@ export default function DailyReportPage() {
       {/* KPI 卡片 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}>
         {[
-          { icon: <Package size={20} />, label: t("ui.今日包装量", "今日包装量"), value: s_total.toLocaleString(), unit: t("ui.枚", "枚"), color: "#3b82f6" },
-          { icon: <BarChart2 size={20} />, label: t("ui.计划完成率", "计划完成率"), value: `${s_pct}%`, unit: "", color: s_pct >= 100 ? "#10b981" : "#f59e0b" },
-          { icon: <CheckCircle2 size={20} />, label: t("ui.完工任务数", "完工任务数"), value: String(s_tasks), unit: t("ui.个", "个"), color: "#8b5cf6" },
-          { icon: <TrendingUp size={20} />, label: t("ui.计划总量", "计划总量"), value: s_plan.toLocaleString(), unit: t("ui.枚", "枚"), color: "#06b6d4" },
+          { icon: <Package size={20} />, label: t("ui.今日包装量", "今日包装量"), value: s_total.toLocaleString(), unit: t("ui.枚", "枚"), color: "var(--color-accent)" },
+          { icon: <BarChart2 size={20} />, label: t("ui.计划完成率", "计划完成率"), value: `${s_pct}%`, unit: "", color: s_pct >= 100 ? "var(--status-success)" : "var(--status-warning)" },
+          { icon: <CheckCircle2 size={20} />, label: t("ui.完工任务数", "完工任务数"), value: String(s_tasks), unit: t("ui.个", "个"), color: "var(--status-special)" },
+          { icon: <TrendingUp size={20} />, label: t("ui.计划总量", "计划总量"), value: s_plan.toLocaleString(), unit: t("ui.枚", "枚"), color: "var(--color-accent)" },
         ].map(kpi => (
           <div key={kpi.label} className={s.kpiCard}>
             <div className={s.kpiIcon} style={{ color: kpi.color, background: `${kpi.color}18` }}>{kpi.icon}</div>

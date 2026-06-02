@@ -51,7 +51,7 @@ export default function PackagingOverviewPage() {
             <button type="button" onClick={load} className={s.btnSecondary}><RefreshCw size={14} /> {t("common.refresh", "刷新")}</button>
             <a href="/terminal/packaging/dashboard" target="_blank"
               style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 18px",
-                borderRadius:8, background:"#f59e0b", color:"#0f172a",
+                borderRadius:8, background:"var(--status-warning)", color:"var(--bg-page)",
                 fontWeight:700, fontSize:14, textDecoration:"none" }}>
               <Monitor size={14} /> {t("ui.进入作业台", "进入作业台")}
             </a>
@@ -62,10 +62,10 @@ export default function PackagingOverviewPage() {
       {/* 统计卡片 */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16, marginBottom:24 }}>
         {[
-          { icon:<Clock size={20}/>, label: t("ui.今日班次", "今日班次"), value:shifts.length, color:"#3b82f6" },
-          { icon:<Package size={20}/>, label: t("ui.来源批次", "来源批次"), value:batches.length, color:"#8b5cf6" },
-          { icon:<CheckCircle size={20}/>, label: t("ui.已接收", "已接收"), value:batches.filter(b =>b.batch_status==="RECEIVED"||b.batch_status==="QC_PASSED").length, color:"#22c55e" },
-          { icon:<AlertCircle size={20}/>, label: t("ui.未关闭异常", "未关闭异常"), value:openExceptions.length, color: openExceptions.length > 0 ? "#ef4444" : "#94a3b8" },
+          { icon:<Clock size={20}/>, label: t("ui.今日班次", "今日班次"), value:shifts.length, color:"var(--color-accent)" },
+          { icon:<Package size={20}/>, label: t("ui.来源批次", "来源批次"), value:batches.length, color:"var(--status-special)" },
+          { icon:<CheckCircle size={20}/>, label: t("ui.已接收", "已接收"), value:batches.filter(b =>b.batch_status==="RECEIVED"||b.batch_status==="QC_PASSED").length, color:"var(--status-success)" },
+          { icon:<AlertCircle size={20}/>, label: t("ui.未关闭异常", "未关闭异常"), value:openExceptions.length, color: openExceptions.length > 0 ? "var(--status-danger)" : "var(--text-disabled)" },
         ].map(item => (
           <div key={item.label} className={s.card} style={{ padding:"20px 24px", display:"flex", alignItems:"center", gap:16 }}>
             <div style={{ width:44, height:44, borderRadius:10, background:`${item.color}15`,
@@ -73,7 +73,7 @@ export default function PackagingOverviewPage() {
               {item.icon}
             </div>
             <div>
-              <div style={{ fontSize:26, fontWeight:800, color:"var(--text-primary,#0f172a)", lineHeight:1 }}>{item.value}</div>
+              <div style={{ fontSize:26, fontWeight:800, color:"var(--text-primary,var(--bg-page))", lineHeight:1 }}>{item.value}</div>
               <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:4 }}>{item.label}</div>
             </div>
           </div>
@@ -83,23 +83,23 @@ export default function PackagingOverviewPage() {
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
         {/* 今日班次列表 */}
         <div className={s.card}>
-          <div style={{ padding:"16px 20px", borderBottom:"1px solid var(--border,#e2e8f0)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <div style={{ padding:"16px 20px", borderBottom:"1px solid var(--border,var(--text-primary))", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <span style={{ fontWeight:600, fontSize:15 }}>{t("ui.今日班次", "今日班次")}</span>
-            <span style={{ fontSize:12, color:"#64748b" }}>{today}</span>
+            <span style={{ fontSize:12, color:"var(--text-secondary)" }}>{today}</span>
           </div>
           <div style={{ padding:"12px 20px" }}>
-            {loading ? <div style={{ color:"#94a3b8", padding:"20px 0", textAlign:"center" }}>{t("common.loading", "加载中...")}</div>
-              : shifts.length === 0 ? <div style={{ color:"#94a3b8", padding:"20px 0", textAlign:"center" }}>{t("ui.今日暂无班次", "今日暂无班次")}</div>
+            {loading ? <div style={{ color:"var(--text-disabled)", padding:"20px 0", textAlign:"center" }}>{t("common.loading", "加载中...")}</div>
+              : shifts.length === 0 ? <div style={{ color:"var(--text-disabled)", padding:"20px 0", textAlign:"center" }}>{t("ui.今日暂无班次", "今日暂无班次")}</div>
               : shifts.map(sh => (
                 <div key={sh.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
-                  padding:"10px 0", borderBottom:"1px solid var(--border,#f1f5f9)" }}>
+                  padding:"10px 0", borderBottom:"1px solid var(--border,var(--text-primary))" }}>
                   <div>
                     <div style={{ fontWeight:600, fontSize:14 }}>{sh.shift_code || sh.id}</div>
-                    <div style={{ fontSize:12, color:"#64748b" }}>{sh.operator_name || "—"} · {sh.line_id || "—"}</div>
+                    <div style={{ fontSize:12, color:"var(--text-secondary)" }}>{sh.operator_name || "—"} · {sh.line_id || "—"}</div>
                   </div>
                   <span style={{ fontSize:12, padding:"3px 10px", borderRadius:20,
-                    background: sh.status === "CLOSED" ? "#f0fdf4" : "#fffbeb",
-                    color: sh.status === "CLOSED" ? "#16a34a" : "#d97706",
+                    background: sh.status === "CLOSED" ? "color-mix(in srgb, var(--status-success) 12%, transparent)" : "color-mix(in srgb, var(--status-warning) 12%, transparent)",
+                    color: sh.status === "CLOSED" ? "var(--status-success)" : "var(--status-warning)",
                     fontWeight:600 }}>
                     {sh.status === "CLOSED" ? t("ui.已交班", "已交班") : t("ui.进行中", "进行中")}
                   </span>
@@ -111,23 +111,23 @@ export default function PackagingOverviewPage() {
 
         {/* 来源批次列表 */}
         <div className={s.card}>
-          <div style={{ padding:"16px 20px", borderBottom:"1px solid var(--border,#e2e8f0)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <div style={{ padding:"16px 20px", borderBottom:"1px solid var(--border,var(--text-primary))", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <span style={{ fontWeight:600, fontSize:15 }}>{t("ui.来源批次", "来源批次")}</span>
-            <span style={{ fontSize:12, color:"#64748b" }}>{t("ui.接收状态", "接收状态")}</span>
+            <span style={{ fontSize:12, color:"var(--text-secondary)" }}>{t("ui.接收状态", "接收状态")}</span>
           </div>
           <div style={{ padding:"12px 20px" }}>
-            {loading ? <div style={{ color:"#94a3b8", padding:"20px 0", textAlign:"center" }}>{t("common.loading", "加载中...")}</div>
-              : batches.length === 0 ? <div style={{ color:"#94a3b8", padding:"20px 0", textAlign:"center" }}>{t("ui.今日暂无批次", "今日暂无批次")}</div>
+            {loading ? <div style={{ color:"var(--text-disabled)", padding:"20px 0", textAlign:"center" }}>{t("common.loading", "加载中...")}</div>
+              : batches.length === 0 ? <div style={{ color:"var(--text-disabled)", padding:"20px 0", textAlign:"center" }}>{t("ui.今日暂无批次", "今日暂无批次")}</div>
               : batches.map(b => (
                 <div key={b.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
-                  padding:"10px 0", borderBottom:"1px solid var(--border,#f1f5f9)" }}>
+                  padding:"10px 0", borderBottom:"1px solid var(--border,var(--text-primary))" }}>
                   <div>
                     <div style={{ fontWeight:600, fontSize:14, fontFamily:"monospace" }}>{b.batch_code || b.id}</div>
-                    <div style={{ fontSize:12, color:"#64748b" }}>{(b.received_qty || 0).toLocaleString()} {t("ui.枚", "枚")} · {b.house_code || "—"}</div>
+                    <div style={{ fontSize:12, color:"var(--text-secondary)" }}>{(b.received_qty || 0).toLocaleString()} {t("ui.枚", "枚")} · {b.house_code || "—"}</div>
                   </div>
                   <span style={{ fontSize:12, padding:"3px 10px", borderRadius:20,
-                    background: b.batch_status === "QC_PASSED" ? "#f0fdf4" : b.batch_status === "RECEIVED" ? "#eff6ff" : "#fffbeb",
-                    color: b.batch_status === "QC_PASSED" ? "#16a34a" : b.batch_status === "RECEIVED" ? "#2563eb" : "#d97706",
+                    background: b.batch_status === "QC_PASSED" ? "color-mix(in srgb, var(--status-success) 12%, transparent)" : b.batch_status === "RECEIVED" ? "color-mix(in srgb, var(--color-accent) 12%, transparent)" : "color-mix(in srgb, var(--status-warning) 12%, transparent)",
+                    color: b.batch_status === "QC_PASSED" ? "var(--status-success)" : b.batch_status === "RECEIVED" ? "var(--color-accent)" : "var(--status-warning)",
                     fontWeight:600 }}>
                     {b.batch_status === "QC_PASSED" ? t("ui.已首检", "已首检") : b.batch_status === "RECEIVED" ? t("ui.已接收", "已接收") : b.batch_status || t("ui.待接收", "待接收")}
                   </span>
@@ -141,20 +141,20 @@ export default function PackagingOverviewPage() {
       {/* 未关闭异常 */}
       {openExceptions.length > 0 && (
         <div className={s.card} style={{ marginTop:16 }}>
-          <div style={{ padding:"16px 20px", borderBottom:"1px solid var(--border,#e2e8f0)", display:"flex", alignItems:"center", gap:8 }}>
-            <AlertCircle size={16} color="#ef4444" />
-            <span style={{ fontWeight:600, fontSize:15, color:"#ef4444" }}>{t("ui.未关闭异常", "未关闭异常")} ({openExceptions.length})</span>
+          <div style={{ padding:"16px 20px", borderBottom:"1px solid var(--border,var(--text-primary))", display:"flex", alignItems:"center", gap:8 }}>
+            <AlertCircle size={16} color="var(--status-danger)" />
+            <span style={{ fontWeight:600, fontSize:15, color:"var(--status-danger)" }}>{t("ui.未关闭异常", "未关闭异常")} ({openExceptions.length})</span>
           </div>
           <div style={{ padding:"12px 20px" }}>
             {openExceptions.map(e => (
               <div key={e.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
-                padding:"10px 0", borderBottom:"1px solid var(--border,#f1f5f9)" }}>
+                padding:"10px 0", borderBottom:"1px solid var(--border,var(--text-primary))" }}>
                 <div>
                   <div style={{ fontWeight:600, fontSize:14 }}>{e.exception_type || e.issue_type || t("ui.异常", "异常")}</div>
-                  <div style={{ fontSize:12, color:"#64748b" }}>{e.description || e.detail || "—"}</div>
+                  <div style={{ fontSize:12, color:"var(--text-secondary)" }}>{e.description || e.detail || "—"}</div>
                 </div>
                 <a href="/terminal/packaging/exceptions" target="_blank"
-                  style={{ fontSize:12, color:"#f59e0b", textDecoration:"none", display:"flex", alignItems:"center", gap:4 }}>
+                  style={{ fontSize:12, color:"var(--status-warning)", textDecoration:"none", display:"flex", alignItems:"center", gap:4 }}>
                   {t("ui.处理", "处理")} <ChevronRight size={12} />
                 </a>
               </div>

@@ -87,19 +87,19 @@ function KpiCard({
 }) {
   return (
     <div style={{
-      background: '#fff',
+      background: 'var(--bg-card)',
       borderRadius: 16,
       minHeight: 112,
       boxSizing: 'border-box',
       padding: '20px 22px',
-      border: `1.5px solid ${alert ? '#fecaca' : '#f1f5f9'}`,
+      border: `1.5px solid ${alert ? 'var(--status-danger)' : 'var(--bg-muted)'}`,
       display: 'flex',
       flexDirection: 'column',
       gap: 8,
-      boxShadow: alert ? '0 0 0 3px #fef2f2' : '0 1px 4px rgba(0,0,0,0.06)',
+      boxShadow: alert ? '0 0 0 3px color-mix(in srgb, var(--status-danger) 10%, transparent)' : '0 1px 4px rgba(0,0,0,0.06)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>{label}</span>
+        <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>{label}</span>
         <div style={{
           width: 36, height: 36, borderRadius: 10,
           background: `${color}18`,
@@ -108,10 +108,10 @@ function KpiCard({
           <Icon size={18} color={color} />
         </div>
       </div>
-      <div style={{ fontSize: 32, fontWeight: 800, color: alert ? '#ef4444' : '#0f172a' }}>
+      <div style={{ fontSize: 32, fontWeight: 800, color: alert ? 'var(--status-danger)' : 'var(--text-primary)' }}>
         {value}
       </div>
-      {sub && <div style={{ fontSize: 12, color: '#94a3b8' }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 12, color: 'var(--text-disabled)' }}>{sub}</div>}
     </div>
   );
 }
@@ -127,15 +127,15 @@ function Section({ title, icon: Icon, iconColor, badge, children }: {
 }) {
   return (
     <div style={{
-      background: '#fff', borderRadius: 18, border: '1.5px solid #f1f5f9',
+      background: 'var(--bg-card)', borderRadius: 18, border: '1.5px solid var(--bg-muted)',
       boxShadow: '0 1px 6px rgba(0,0,0,0.06)', overflow: 'hidden',
     }}>
       <div style={{
-        padding: '18px 24px', borderBottom: '1px solid #f1f5f9',
+        padding: '18px 24px', borderBottom: '1px solid var(--bg-muted)',
         display: 'flex', alignItems: 'center', gap: 10,
       }}>
         <Icon size={18} color={iconColor} />
-        <span style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{title}</span>
+        <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{title}</span>
         {badge}
       </div>
       {children}
@@ -147,7 +147,7 @@ function Section({ title, icon: Icon, iconColor, badge, children }: {
 
 function EmptyState({ msg }: { msg: string }) {
   return (
-    <div style={{ padding: '36px 24px', textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>{msg}</div>
+    <div style={{ padding: '36px 24px', textAlign: 'center', color: 'var(--text-disabled)', fontSize: 14 }}>{msg}</div>
   );
 }
 
@@ -157,8 +157,8 @@ function PushHealthCard({ health }: { health: PushHealth }) {
   const ok = health.enabled && health.hasPublicKey && health.hasPrivateKey;
   return (
     <div style={{
-      background: ok ? '#f0fdf4' : '#fef2f2',
-      border: `1.5px solid ${ok ? '#bbf7d0' : '#fecaca'}`,
+      background: ok ? 'color-mix(in srgb, var(--status-success) 12%, transparent)' : 'color-mix(in srgb, var(--status-danger) 10%, transparent)',
+      border: `1.5px solid ${ok ? 'var(--status-success)' : 'var(--status-danger)'}`,
       borderRadius: 16,
       padding: '20px 24px',
       display: 'flex',
@@ -167,24 +167,24 @@ function PushHealthCard({ health }: { health: PushHealth }) {
     }}>
       <div style={{
         width: 40, height: 40, borderRadius: 10,
-        background: ok ? '#10b98120' : '#ef444420',
+        background: ok ? 'var(--status-success)20' : 'var(--status-danger)20',
         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
       }}>
-        {ok ? <Wifi size={20} color="#10b981" /> : <WifiOff size={20} color="#ef4444" />}
+        {ok ? <Wifi size={20} color="var(--status-success)" /> : <WifiOff size={20} color="var(--status-danger)" />}
       </div>
       <div style={{ flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Web Push 推送</span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Web Push 推送</span>
           <span style={{
             fontSize: 11, fontWeight: 700,
             padding: '2px 8px', borderRadius: 20,
-            background: ok ? '#10b981' : '#ef4444',
-            color: '#fff',
+            background: ok ? 'var(--status-success)' : 'var(--status-danger)',
+            color: 'var(--text-on-dark)',
           }}>
             {ok ? '已启用' : '未配置'}
           </span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px,1fr))', gap: '6px 16px', fontSize: 13, color: '#475569' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px,1fr))', gap: '6px 16px', fontSize: 13, color: 'var(--text-secondary)' }}>
           <span>公钥：{health.hasPublicKey ? '✅ 已配置' : '❌ 缺失'}</span>
           <span>私钥：{health.hasPrivateKey ? '✅ 已配置' : '❌ 缺失'}</span>
           <span>Subject：{health.subject ? `✅ ${health.subject}` : '❌ 缺失'}</span>
@@ -192,7 +192,7 @@ function PushHealthCard({ health }: { health: PushHealth }) {
           <span>活跃订阅：{health.activeSubscriptionCount} 条</span>
         </div>
         {!ok && (
-          <div style={{ marginTop: 8, fontSize: 12, color: '#ef4444' }}>
+          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--status-danger)' }}>
             请在服务器设置 VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT 环境变量后重启服务
           </div>
         )}
@@ -255,14 +255,14 @@ export default function WorkflowMetricsPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 42, height: 42, borderRadius: 12,
-            background: '#7c3aed18',
+            background: 'var(--status-special)18',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <BarChart3 size={22} color="#7c3aed" />
+            <BarChart3 size={22} color="var(--status-special)" />
           </div>
           <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#0f172a' }}>审批流程健康看板</h1>
-            <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>审批流程健康看板</h1>
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>
               实时 SLA 监控 · 超期检测 · 瓶颈分析
               {refreshingAt && ` · 更新于 ${refreshingAt.toLocaleTimeString('zh-CN')}`}
             </p>
@@ -274,8 +274,8 @@ export default function WorkflowMetricsPage() {
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '8px 18px', borderRadius: 10,
-            border: '1.5px solid #e2e8f0', background: loading ? '#f8fafc' : '#fff',
-            color: '#475569', fontSize: 13, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer',
+            border: '1.5px solid var(--border)', background: loading ? 'var(--bg-muted)' : 'var(--bg-card)',
+            color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer',
           }}
         >
           <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
@@ -285,8 +285,8 @@ export default function WorkflowMetricsPage() {
 
       {error && (
         <div style={{
-          background: '#fef2f2', border: '1px solid #fecaca',
-          borderRadius: 12, padding: '12px 18px', marginBottom: 24, color: '#ef4444',
+          background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)', border: '1px solid var(--status-danger)',
+          borderRadius: 12, padding: '12px 18px', marginBottom: 24, color: 'var(--status-danger)',
         }}>
           {error}
         </div>
@@ -307,14 +307,14 @@ export default function WorkflowMetricsPage() {
             value={overview.pendingTasks}
             sub="当前未完成"
             icon={Clock}
-            color="#7c3aed"
+            color="var(--status-special)"
           />
           <KpiCard
             label="超期任务"
             value={overview.overdueTasks}
             sub={`超期率 ${overdueRate}%`}
             icon={AlertTriangle}
-            color="#ef4444"
+            color="var(--status-danger)"
             alert={overview.overdueTasks > 0}
           />
           <KpiCard
@@ -322,14 +322,14 @@ export default function WorkflowMetricsPage() {
             value={overview.completedToday}
             sub="含通过/拒绝"
             icon={CheckCircle}
-            color="#10b981"
+            color="var(--status-success)"
           />
           <KpiCard
             label="升级任务"
             value={overview.escalatedTasks}
             sub="待升级审批人处理"
             icon={ArrowUpCircle}
-            color="#ea580c"
+            color="var(--status-warning)"
             alert={overview.escalatedTasks > 0}
           />
           <KpiCard
@@ -337,14 +337,14 @@ export default function WorkflowMetricsPage() {
             value={overview.avgApprovalHours != null ? `${overview.avgApprovalHours}h` : '—'}
             sub="含进行中"
             icon={TrendingUp}
-            color="#0891b2"
+            color="var(--color-accent)"
           />
           <KpiCard
             label="平均完成时长"
             value={overview.avgCompletionHours != null ? `${overview.avgCompletionHours}h` : '—'}
             sub="仅已完结实例"
             icon={Activity}
-            color="#059669"
+            color="var(--status-success)"
           />
         </div>
       )}
@@ -354,13 +354,13 @@ export default function WorkflowMetricsPage() {
         <Section
           title="超期待办 Top 20"
           icon={AlertTriangle}
-          iconColor="#ef4444"
+          iconColor="var(--status-danger)"
           badge={
             overdueTasks.length > 0
-              ? <span style={{ fontSize: 12, color: '#ef4444', fontWeight: 700, marginLeft: 4 }}>
+              ? <span style={{ fontSize: 12, color: 'var(--status-danger)', fontWeight: 700, marginLeft: 4 }}>
                   {overdueTasks.length} 条
                 </span>
-              : <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 4 }}>按到期时间升序</span>
+              : <span style={{ fontSize: 12, color: 'var(--text-disabled)', marginLeft: 4 }}>按到期时间升序</span>
           }
         >
           {loading && !overdueTasks.length
@@ -378,28 +378,28 @@ export default function WorkflowMetricsPage() {
                 </thead>
                 <tbody>
                   {overdueTasks.map((t, i) => (
-                    <tr key={t.stepId} style={{ background: i % 2 === 0 ? '#fff' : '#fff8f8' }}>
-                      <td style={{ fontSize: 13, color: '#0f172a' }}>{t.bizType}</td>
-                      <td style={{ fontSize: 13, color: '#475569' }}>{t.bizNo ?? '—'}</td>
-                      <td style={{ fontSize: 13, color: '#475569' }}>{t.approverRole ?? '—'}</td>
-                      <td style={{ fontSize: 13, color: '#ef4444', fontWeight: 600 }}>
+                    <tr key={t.stepId} style={{ background: i % 2 === 0 ? 'var(--bg-card)' : 'color-mix(in srgb, var(--status-danger) 8%, transparent)' }}>
+                      <td style={{ fontSize: 13, color: 'var(--text-primary)' }}>{t.bizType}</td>
+                      <td style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{t.bizNo ?? '—'}</td>
+                      <td style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{t.approverRole ?? '—'}</td>
+                      <td style={{ fontSize: 13, color: 'var(--status-danger)', fontWeight: 600 }}>
                         {fmtDueAt(t.dueAt)}
                       </td>
                       <td>
                         <span style={{
                           display: 'inline-block', padding: '2px 9px', borderRadius: 20,
-                          background: '#fef2f2', color: '#ef4444', fontWeight: 700, fontSize: 12,
-                          border: '1px solid #fecaca',
+                          background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)', color: 'var(--status-danger)', fontWeight: 700, fontSize: 12,
+                          border: '1px solid var(--status-danger)',
                         }}>
                           {t.overdueHours >= 24
                             ? `${Math.floor(t.overdueHours / 24)}天${t.overdueHours % 24}h`
                             : `${t.overdueHours}h`}
                         </span>
                       </td>
-                      <td style={{ fontSize: 13, color: '#475569' }}>
+                      <td style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
                         {t.reminderCount > 0
-                          ? <span style={{ color: '#f59e0b', fontWeight: 700 }}>{t.reminderCount} 次</span>
-                          : <span style={{ color: '#94a3b8' }}>0 次</span>}
+                          ? <span style={{ color: 'var(--status-warning)', fontWeight: 700 }}>{t.reminderCount} 次</span>
+                          : <span style={{ color: 'var(--text-disabled)' }}>0 次</span>}
                       </td>
                     </tr>
                   ))}
@@ -415,13 +415,13 @@ export default function WorkflowMetricsPage() {
         <Section
           title="已升级任务"
           icon={ArrowUpCircle}
-          iconColor="#ea580c"
+          iconColor="var(--status-warning)"
           badge={
             escalatedTasks.length > 0
-              ? <span style={{ fontSize: 12, color: '#ea580c', fontWeight: 700, marginLeft: 4 }}>
+              ? <span style={{ fontSize: 12, color: 'var(--status-warning)', fontWeight: 700, marginLeft: 4 }}>
                   {escalatedTasks.length} 条
                 </span>
-              : <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 4 }}>升级层级降序</span>
+              : <span style={{ fontSize: 12, color: 'var(--text-disabled)', marginLeft: 4 }}>升级层级降序</span>
           }
         >
           {loading && !escalatedTasks.length
@@ -439,23 +439,23 @@ export default function WorkflowMetricsPage() {
                 </thead>
                 <tbody>
                   {escalatedTasks.map((t, i) => (
-                    <tr key={t.stepId} style={{ background: i % 2 === 0 ? '#fff' : '#fffaf5' }}>
-                      <td style={{ fontSize: 13, color: '#0f172a' }}>{t.bizType}</td>
-                      <td style={{ fontSize: 13, color: '#475569' }}>{t.bizNo ?? '—'}</td>
-                      <td style={{ fontSize: 13, color: '#475569' }}>{t.approverRole ?? '—'}</td>
+                    <tr key={t.stepId} style={{ background: i % 2 === 0 ? 'var(--bg-card)' : 'color-mix(in srgb, var(--status-warning) 10%, transparent)' }}>
+                      <td style={{ fontSize: 13, color: 'var(--text-primary)' }}>{t.bizType}</td>
+                      <td style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{t.bizNo ?? '—'}</td>
+                      <td style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{t.approverRole ?? '—'}</td>
                       <td>
                         <span style={{
                           display: 'inline-block', padding: '2px 9px', borderRadius: 20,
-                          background: '#fff7ed', color: '#ea580c', fontWeight: 700, fontSize: 12,
-                          border: '1px solid #fed7aa',
+                          background: 'color-mix(in srgb, var(--status-warning) 12%, transparent)', color: 'var(--status-warning)', fontWeight: 700, fontSize: 12,
+                          border: '1px solid color-mix(in srgb, var(--status-warning) 16%, transparent)',
                         }}>
                           L{t.escalationLevel}
                         </span>
                       </td>
-                      <td style={{ fontSize: 13, color: '#475569' }}>
+                      <td style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
                         {fmtDueAt(t.dueAt)}
                       </td>
-                      <td style={{ fontSize: 13, color: '#94a3b8' }}>
+                      <td style={{ fontSize: 13, color: 'var(--text-disabled)' }}>
                         {new Date(t.createdAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                       </td>
                     </tr>
@@ -471,8 +471,8 @@ export default function WorkflowMetricsPage() {
       <Section
         title="瓶颈角色分析"
         icon={Users}
-        iconColor="#7c3aed"
-        badge={<span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 4 }}>按超期量排序</span>}
+        iconColor="var(--status-special)"
+        badge={<span style={{ fontSize: 12, color: 'var(--text-disabled)', marginLeft: 4 }}>按超期量排序</span>}
       >
         {loading && !bottlenecks.length
           ? <EmptyState msg="加载中…" />
@@ -490,28 +490,28 @@ export default function WorkflowMetricsPage() {
               <tbody>
                 {bottlenecks.map((row, i) => (
                   <tr key={i}>
-                    <td style={{ fontSize: 14, color: '#0f172a' }}>
+                    <td style={{ fontSize: 14, color: 'var(--text-primary)' }}>
                       {row.role}
                     </td>
-                    <td style={{ fontSize: 14, color: '#475569' }}>
+                    <td style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
                       <span style={{
                         display: 'inline-block', padding: '2px 10px', borderRadius: 20,
-                        background: '#7c3aed18', color: '#7c3aed', fontWeight: 700,
+                        background: 'var(--status-special)18', color: 'var(--status-special)', fontWeight: 700,
                       }}>{row.pendingCount}</span>
                     </td>
                     <td style={{ fontSize: 14 }}>
                       {row.overdueCount > 0 ? (
                         <span style={{
                           display: 'inline-block', padding: '2px 10px', borderRadius: 20,
-                          background: '#fef2f2', color: '#ef4444', fontWeight: 700,
-                          border: '1px solid #fecaca',
+                          background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)', color: 'var(--status-danger)', fontWeight: 700,
+                          border: '1px solid var(--status-danger)',
                         }}>{row.overdueCount}</span>
                       ) : (
-                        <span style={{ color: '#94a3b8' }}>—</span>
+                        <span style={{ color: 'var(--text-disabled)' }}>—</span>
                       )}
                     </td>
-                    <td style={{ fontSize: 14, color: '#475569' }}>
-                      {row.avgHours != null ? `${row.avgHours}h` : <span style={{ color: '#94a3b8' }}>—</span>}
+                    <td style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
+                      {row.avgHours != null ? `${row.avgHours}h` : <span style={{ color: 'var(--text-disabled)' }}>—</span>}
                     </td>
                   </tr>
                 ))}

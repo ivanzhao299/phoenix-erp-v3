@@ -146,8 +146,8 @@ export default function MedStockPage() {
         )}
       </div>
 
-      {error && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: '#ef4444', fontSize: 13 }}>{error}</div>}
-      {saved && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.08)', color: '#10b981', fontSize: 13 }}>✓ 已保存</div>}
+      {error && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: 'var(--status-danger)', fontSize: 13 }}>{error}</div>}
+      {saved && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.08)', color: 'var(--status-success)', fontSize: 13 }}>✓ 已保存</div>}
 
       {/* ── 库存 Tab ── */}
       {tab === 'stock' && (
@@ -173,12 +173,12 @@ export default function MedStockPage() {
                     <tr key={m.medication_code}>
                       <td>{m.medication_name}</td>
                       <td style={{ color: 'var(--text-secondary)' }}>{m.dosage}</td>
-                      <td style={{ textAlign: 'right', color: m.qty > 0 ? '#8b5cf6' : 'var(--text-secondary)' }}>{m.qty}</td>
+                      <td style={{ textAlign: 'right', color: m.qty > 0 ? 'var(--status-special)' : 'var(--text-secondary)' }}>{m.qty}</td>
                       <td style={{ color: 'var(--text-secondary)' }}>{m.unit}</td>
                       <td>
                         <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
                           background: m.qty > 0 ? 'rgba(139,92,246,0.1)' : 'rgba(148,163,184,0.1)',
-                          color: m.qty > 0 ? '#8b5cf6' : 'var(--text-secondary)', border: `1px solid ${m.qty > 0 ? 'rgba(139,92,246,0.3)' : 'var(--border)'}` }}>
+                          color: m.qty > 0 ? 'var(--status-special)' : 'var(--text-secondary)', border: `1px solid ${m.qty > 0 ? 'rgba(139,92,246,0.3)' : 'var(--border)'}` }}>
                           {m.qty > 0 ? '有库存' : '无库存'}
                         </span>
                       </td>
@@ -280,11 +280,11 @@ export default function MedStockPage() {
                       <td>
                         <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
                           background: e.change_type === 'MED_INBOUND' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                          color: e.change_type === 'MED_INBOUND' ? '#10b981' : '#ef4444' }}>
+                          color: e.change_type === 'MED_INBOUND' ? 'var(--status-success)' : 'var(--status-danger)' }}>
                           {CHANGE_LABELS[e.change_type] ?? e.change_type}
                         </span>
                       </td>
-                      <td style={{ textAlign: 'right', color: e.qty_change > 0 ? '#10b981' : '#ef4444' }}>
+                      <td style={{ textAlign: 'right', color: e.qty_change > 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
                         {e.qty_change > 0 ? '+' : ''}{e.qty_change}
                       </td>
                       <td style={{ color: 'var(--text-secondary)' }}>{e.house_code ?? '—'}</td>

@@ -78,7 +78,7 @@ export default function HenReportPage() {
 
   const rateColor = (rate: string) => {
     const n = parseFloat(rate);
-    return n >= 85 ? '#10b981' : n >= 70 ? '#f59e0b' : '#ef4444';
+    return n >= 85 ? 'var(--status-success)' : n >= 70 ? 'var(--status-warning)' : 'var(--status-danger)';
   };
 
   return (
@@ -111,12 +111,12 @@ export default function HenReportPage() {
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
           {[
             { label: '存栏合计', value: totals.current_qty.toLocaleString(), unit: '羽', color: 'var(--color-primary)' },
-            { label: '产蛋合计', value: totals.eggs.toLocaleString(), unit: '枚', color: '#f59e0b' },
+            { label: '产蛋合计', value: totals.eggs.toLocaleString(), unit: '枚', color: 'var(--status-warning)' },
             { label: '综合产蛋率', value: totals.lay_rate, unit: '', color: rateColor(totals.lay_rate) },
-            { label: '死亡', value: totals.mortality.toLocaleString(), unit: '羽', color: '#ef4444' },
-            { label: '淘汰', value: totals.elimination.toLocaleString(), unit: '羽', color: '#f97316' },
-            { label: '损耗合计', value: totals.total_loss.toLocaleString(), unit: '羽', color: '#dc2626' },
-            { label: '饲料消耗', value: totals.feed.toLocaleString(), unit: 'kg', color: '#8b5cf6' },
+            { label: '死亡', value: totals.mortality.toLocaleString(), unit: '羽', color: 'var(--status-danger)' },
+            { label: '淘汰', value: totals.elimination.toLocaleString(), unit: '羽', color: 'var(--status-warning)' },
+            { label: '损耗合计', value: totals.total_loss.toLocaleString(), unit: '羽', color: 'var(--status-danger)' },
+            { label: '饲料消耗', value: totals.feed.toLocaleString(), unit: 'kg', color: 'var(--status-special)' },
           ].map(c => (
             <div key={c.label} style={{
               background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10,
@@ -133,7 +133,7 @@ export default function HenReportPage() {
 
       {error && (
         <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8,
-          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', fontSize: 13 }}>
+          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: 'var(--status-danger)', fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -160,12 +160,12 @@ export default function HenReportPage() {
                   <td style={{ color: 'var(--text-secondary)' }}>{row.flock_no}</td>
                   <td style={{ textAlign: 'right' }}>{row.current_qty.toLocaleString()}</td>
                   <td style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>{row.age_days ?? '—'}</td>
-                  <td style={{ textAlign: 'right', color: '#f59e0b' }}>{row.eggs.toLocaleString()}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--status-warning)' }}>{row.eggs.toLocaleString()}</td>
                   <td style={{ textAlign: 'right', fontWeight: 700, color: rateColor(row.lay_rate) }}>{row.lay_rate}</td>
-                  <td style={{ textAlign: 'right', color: row.mortality > 0 ? '#ef4444' : 'var(--text-secondary)' }}>{row.mortality}</td>
-                  <td style={{ textAlign: 'right', color: row.elimination > 0 ? '#f97316' : 'var(--text-secondary)' }}>{row.elimination}</td>
-                  <td style={{ textAlign: 'right', color: row.total_loss > 0 ? '#dc2626' : 'var(--text-secondary)', fontWeight: row.total_loss > 0 ? 700 : 400 }}>{row.total_loss}</td>
-                  <td style={{ textAlign: 'right', color: '#8b5cf6' }}>{row.feed}</td>
+                  <td style={{ textAlign: 'right', color: row.mortality > 0 ? 'var(--status-danger)' : 'var(--text-secondary)' }}>{row.mortality}</td>
+                  <td style={{ textAlign: 'right', color: row.elimination > 0 ? 'var(--status-warning)' : 'var(--text-secondary)' }}>{row.elimination}</td>
+                  <td style={{ textAlign: 'right', color: row.total_loss > 0 ? 'var(--status-danger)' : 'var(--text-secondary)', fontWeight: row.total_loss > 0 ? 700 : 400 }}>{row.total_loss}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--status-special)' }}>{row.feed}</td>
                   <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{row.culling_reason ?? '—'}</td>
                 </tr>
               );
@@ -176,12 +176,12 @@ export default function HenReportPage() {
                 <td colSpan={2} style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>合计</td>
                 <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--color-primary)' }}>{totals.current_qty.toLocaleString()}</td>
                 <td style={{ padding: '10px 12px', textAlign: 'right' }}>—</td>
-                <td style={{ padding: '10px 12px', textAlign: 'right', color: '#f59e0b' }}>{totals.eggs.toLocaleString()}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--status-warning)' }}>{totals.eggs.toLocaleString()}</td>
                 <td style={{ padding: '10px 12px', textAlign: 'right', color: rateColor(totals.lay_rate) }}>{totals.lay_rate}</td>
-                <td style={{ padding: '10px 12px', textAlign: 'right', color: '#ef4444' }}>{totals.mortality}</td>
-                <td style={{ padding: '10px 12px', textAlign: 'right', color: '#f97316' }}>{totals.elimination}</td>
-                <td style={{ padding: '10px 12px', textAlign: 'right', color: '#dc2626' }}>{totals.total_loss}</td>
-                <td style={{ padding: '10px 12px', textAlign: 'right', color: '#8b5cf6' }}>{totals.feed}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--status-danger)' }}>{totals.mortality}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--status-warning)' }}>{totals.elimination}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--status-danger)' }}>{totals.total_loss}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--status-special)' }}>{totals.feed}</td>
                 <td style={{ padding: '10px 12px' }} />
               </tr>
             )}

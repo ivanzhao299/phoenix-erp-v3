@@ -72,13 +72,13 @@ export default function MdCompaniesPage() {
       />
 
       {/* 数据来源说明 */}
-      <div style={{ marginBottom: 20, padding: "10px 14px", background: "#162032", border: "1px solid #1e40af44", borderRadius: 8, fontSize: 12, color: "#93c5fd" }}>
-        💡 公司档案来源于组织架构（Org Runtime），如需添加公司请前往 <Link href="/settings/organizations" style={{ color: "#60a5fa" }}>组织架构管理</Link>
+      <div style={{ marginBottom: 20, padding: "10px 14px", background: "var(--bg-card)", border: "1px solid var(--color-accent)44", borderRadius: 8, fontSize: 12, color: "var(--color-accent)" }}>
+        💡 公司档案来源于组织架构（Org Runtime），如需添加公司请前往 <Link href="/settings/organizations" style={{ color: "var(--color-accent)" }}>组织架构管理</Link>
       </div>
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
         <div style={{ position: "relative", flex: "0 0 260px" }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#475569" }} />
+          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索公司名称 / 编码..."
             className="bg-bg-muted border border-border text-text"
             style={{ width: "100%", padding: "7px 10px 7px 32px", borderRadius: 7, fontSize: 13, outline: "none" }} />
@@ -87,7 +87,7 @@ export default function MdCompaniesPage() {
           <RefreshCw size={13} /> 刷新
         </button>
         <div style={{ flex: 1 }} />
-        <Link href="/settings/organizations" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "#64748b", border: "none", borderRadius: 7, color: "#fff", fontSize: 13, cursor: "pointer", textDecoration: "none", fontWeight: 600 }}>
+        <Link href="/settings/organizations" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "var(--text-secondary)", border: "none", borderRadius: 7, color: "var(--text-on-dark)", fontSize: 13, cursor: "pointer", textDecoration: "none", fontWeight: 600 }}>
           <ExternalLink size={13} /> 组织架构管理
         </Link>
       </div>
@@ -97,9 +97,9 @@ export default function MdCompaniesPage() {
       </div>
 
       {loading ? (
-        <div style={{ padding: 60, textAlign: "center", color: "#475569" }}>加载中...</div>
+        <div style={{ padding: 60, textAlign: "center", color: "var(--text-secondary)" }}>加载中...</div>
       ) : error ? (
-        <div style={{ padding: 40, textAlign: "center", color: "#ef4444" }}>{error}</div>
+        <div style={{ padding: 40, textAlign: "center", color: "var(--status-danger)" }}>{error}</div>
       ) : (
         <div className="bg-bg-muted border border-border" style={{ borderRadius: 10, overflow: "auto" }}>
           <table className={s.table}>
@@ -112,10 +112,10 @@ export default function MdCompaniesPage() {
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={5} style={{ padding: 40, textAlign: "center", color: "#475569" }}>
+                <tr><td colSpan={5} style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>
                   暂无公司数据
                   <div style={{ marginTop: 8, fontSize: 12 }}>
-                    <Link href="/settings/organizations" style={{ color: "#60a5fa" }}>前往组织架构管理 →</Link>
+                    <Link href="/settings/organizations" style={{ color: "var(--color-accent)" }}>前往组织架构管理 →</Link>
                   </div>
                 </td></tr>
               ) : filtered.map((o, i) => (
@@ -126,7 +126,7 @@ export default function MdCompaniesPage() {
                   <td className="text-text-muted" style={{ fontFamily: "monospace" }}>{o.orgCode ?? "-"}</td>
                   <td className="text-text">{o.orgName ?? "-"}</td>
                   <td>
-                    <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(99,102,241,0.15)", color: "#818cf8", fontSize: 11, fontWeight: 600 }}>
+                    <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(99,102,241,0.15)", color: "var(--status-special)", fontSize: 11, fontWeight: 600 }}>
                       {o.orgType === "GROUP" ? "集团" : "公司"}
                     </span>
                   </td>

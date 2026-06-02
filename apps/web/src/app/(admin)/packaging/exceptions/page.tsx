@@ -23,7 +23,7 @@ export default function PackagingExceptionsPage() {
     { key: "status",       title: t("ui.处置状态",     "处置状态") },
     { key: "action_taken", title: t("ui.处置措施",     "处置措施") },
     { key: "photo_url",    title: t("ui.照片",         "照片"), width: 60,
-      render: (v: unknown) => v ? <span title={String(v)} style={{ color: "#3b82f6", fontSize: 18 }}>📎</span> : null,
+      render: (v: unknown) => v ? <span title={String(v)} style={{ color: "var(--color-accent)", fontSize: 18 }}>📎</span> : null,
     },
   ];
 

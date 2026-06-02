@@ -25,12 +25,12 @@ export default function PermissionsPage() {
   const { t } = useLanguage();
 
   const PERM_CODE_META: Record<string, { label: string; color: string }> = {
-    V: { label: t('ui.查看', '查看'), color: "#3b82f6" },
-    C: { label: t('common.new', '新增'), color: "#22c55e" },
-    E: { label: t('common.edit', '编辑'), color: "#f59e0b" },
-    D: { label: t('common.delete', '删除'), color: "#ef4444" },
-    A: { label: t('ui.审批', '审批'), color: "#8b5cf6" },
-    X: { label: t('common.export', '导出'), color: "#06b6d4" },
+    V: { label: t('ui.查看', '查看'), color: "var(--color-accent)" },
+    C: { label: t('common.new', '新增'), color: "var(--status-success)" },
+    E: { label: t('common.edit', '编辑'), color: "var(--status-warning)" },
+    D: { label: t('common.delete', '删除'), color: "var(--status-danger)" },
+    A: { label: t('ui.审批', '审批'), color: "var(--status-special)" },
+    X: { label: t('common.export', '导出'), color: "var(--color-accent)" },
   };
 
   const FIELDS: FormField[] = [
@@ -112,16 +112,16 @@ export default function PermissionsPage() {
         </div>
         <button type="button" onClick={() => { setEditing(null); setOpen(true); }} style={{
           background: "var(--color-primary)", border: "none", borderRadius: 8,
-          padding: "8px 18px", color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: "0.85rem",
+          padding: "8px 18px", color: "var(--text-on-dark)", cursor: "pointer", fontWeight: 600, fontSize: "0.85rem",
         }}>+ {t('ui.新增权限条目', '新增权限条目')}</button>
       </div>
 
       {/* 统计 */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
         {[
-          { label: t('ui.权限条目总数', '权限条目总数'),   value: data.length,         color: "#3b82f6" },
-          { label: t('ui.涉及角色数', '涉及角色数'),    value: Object.keys(groups).length, color: "#22c55e" },
-          { label: t('ui.搜索结果', '搜索结果'),      value: filtered.length,      color: "#f59e0b" },
+          { label: t('ui.权限条目总数', '权限条目总数'),   value: data.length,         color: "var(--color-accent)" },
+          { label: t('ui.涉及角色数', '涉及角色数'),    value: Object.keys(groups).length, color: "var(--status-success)" },
+          { label: t('ui.搜索结果', '搜索结果'),      value: filtered.length,      color: "var(--status-warning)" },
         ].map(k => (
           <div key={k.label} style={{
             background: `${k.color}10`, border: `1px solid ${k.color}25`,
@@ -150,8 +150,8 @@ export default function PermissionsPage() {
             <div style={{ padding: "10px 16px", background: "var(--bg-card)",
               borderBottom: "1px solid var(--bg-card)",
               display: "flex", alignItems: "center", gap: 10 }}>
-              <Shield size={14} style={{ color: "#8b5cf6" }} />
-              <span style={{ fontWeight: 700, fontSize: "0.85rem", fontFamily: "monospace", color: "#8b5cf6" }}>
+              <Shield size={14} style={{ color: "var(--status-special)" }} />
+              <span style={{ fontWeight: 700, fontSize: "0.85rem", fontFamily: "monospace", color: "var(--status-special)" }}>
                 {roleCode}
               </span>
               <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
@@ -178,12 +178,12 @@ export default function PermissionsPage() {
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                           {row.perm_codes === "*" ? (
                             <span style={{ padding: "2px 8px", borderRadius: 12,
-                              background: "#ef444420", color: "#ef4444",
+                              background: "var(--status-danger)20", color: "var(--status-danger)",
                               fontSize: "0.72rem", fontWeight: 700 }}>
                               * {t('ui.全部权限', '全部权限')}
                             </span>
                           ) : row.perm_codes.split(",").filter(Boolean).map(code => {
-                            const meta = PERM_CODE_META[code.trim()] ?? { label: code, color: "#94a3b8" };
+                            const meta = PERM_CODE_META[code.trim()] ?? { label: code, color: "var(--text-disabled)" };
                             return (
                               <span key={code} style={{
                                 padding: "2px 8px", borderRadius: 12, fontSize: "0.72rem", fontWeight: 700,
@@ -200,12 +200,12 @@ export default function PermissionsPage() {
                         <div style={{ display: "flex", gap: 6 }}>
                           <button type="button" onClick={() => { setEditing(row); setOpen(true); }} style={{
                             padding: "4px 10px", fontSize: "0.75rem", background: "rgba(59,130,246,0.15)",
-                            color: "#3b82f6", border: "1px solid rgba(59,130,246,0.3)",
+                            color: "var(--color-accent)", border: "1px solid rgba(59,130,246,0.3)",
                             borderRadius: 6, cursor: "pointer",
                           }}>{t('common.edit', '编辑')}</button>
                           <button type="button" onClick={() => { setDelItem(row); setConfirm(true); }} style={{
                             padding: "4px 10px", fontSize: "0.75rem", background: "rgba(239,68,68,0.12)",
-                            color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)",
+                            color: "var(--status-danger)", border: "1px solid rgba(239,68,68,0.3)",
                             borderRadius: 6, cursor: "pointer",
                           }}>{t('common.delete', '删除')}</button>
                         </div>
@@ -221,7 +221,7 @@ export default function PermissionsPage() {
 
       <RightDrawer open={open} title={editing ? t('ui.编辑权限条目', '编辑权限条目') : t('ui.新增权限条目', '新增权限条目')} onClose={() => setOpen(false)}>
         <div style={{ marginBottom: 16, padding: 12, background: "rgba(59,130,246,0.08)",
-          borderRadius: 8, fontSize: "0.78rem", color: "#93c5fd" }}>
+          borderRadius: 8, fontSize: "0.78rem", color: "var(--color-accent)" }}>
           {t('ui.权限码说明', '权限码说明')}：<strong>V</strong>={t('ui.查看', '查看')} <strong>C</strong>={t('common.new', '新增')} <strong>E</strong>={t('common.edit', '编辑')}
           <strong>D</strong>={t('common.delete', '删除')} <strong>A</strong>={t('ui.审批', '审批')} <strong>X</strong>={t('common.export', '导出')}<br />
           {t('ui.多个权限用逗号分隔', '多个权限用逗号分隔，如：')}<code>V,C,E</code>。{t('ui.超管填星号', '超管填')} <code>*</code>。

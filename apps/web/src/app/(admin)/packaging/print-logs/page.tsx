@@ -102,8 +102,8 @@ export default function PrintLogsPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 20 }}>
         {[
           { label: "打印总次数", value: totalCount,   color: "var(--color-primary)", icon: <Printer size={20} /> },
-          { label: "正常打印",   value: normalCount,  color: "#16a34a",              icon: <Printer size={20} /> },
-          { label: "补打次数",   value: reprintCount, color: "#d97706",              icon: <History size={20} /> },
+          { label: "正常打印",   value: normalCount,  color: "var(--status-success)",              icon: <Printer size={20} /> },
+          { label: "补打次数",   value: reprintCount, color: "var(--status-warning)",              icon: <History size={20} /> },
         ].map(c => (
           <div key={c.label} className={s.card}>
             <div className={s.cardBody} style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -165,12 +165,12 @@ export default function PrintLogsPage() {
                     </td>
                     <td>
                       {r.print_type === "REPRINT" ? (
-                        <span style={{ background: "rgba(217,119,6,0.12)", color: "#d97706",
+                        <span style={{ background: "rgba(217,119,6,0.12)", color: "var(--status-warning)",
                           padding: "2px 8px", borderRadius: 99, fontSize: 12, fontWeight: 600 }}>
                           补打
                         </span>
                       ) : (
-                        <span style={{ background: "rgba(22,163,74,0.10)", color: "#16a34a",
+                        <span style={{ background: "rgba(22,163,74,0.10)", color: "var(--status-success)",
                           padding: "2px 8px", borderRadius: 99, fontSize: 12, fontWeight: 600 }}>
                           正常
                         </span>

@@ -1,4 +1,5 @@
 "use client";
+import { toast } from 'sonner';
 import { useState, useEffect, useCallback } from "react";
 import { Tag, Search, RefreshCw, Plus, Edit2, CheckCircle, XCircle } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
@@ -18,8 +19,8 @@ const tok = () =>
 const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${tok()}` });
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  ACTIVE:   { label: "启用", color: "#10b981" },
-  INACTIVE: { label: "停用", color: "#64748b" },
+  ACTIVE:   { label: "启用", color: "var(--status-success)" },
+  INACTIVE: { label: "停用", color: "var(--text-secondary)" },
 };
 
 interface Grade {
@@ -75,7 +76,7 @@ export default function ProductGradesPage() {
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.message || `HTTP ${res.status}`); }
       setDrawer(false);
       await load();
-    } catch (e: unknown) { alert(e instanceof Error ? e.message : "保存失败"); }
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "保存失败"); }
     finally { setSaving(false); }
   };
 
@@ -94,7 +95,7 @@ export default function ProductGradesPage() {
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
         <div style={{ position: "relative", flex: "0 0 240px" }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#475569" }} />
+          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索等级编码 / 名称..."
             className="bg-bg-muted border border-border text-text"
             style={{ ...inp, marginTop: 0, paddingLeft: 32 }} />
@@ -107,16 +108,16 @@ export default function ProductGradesPage() {
           <RefreshCw size={13} /> 刷新
         </button>
         {canEdit && (
-          <button onClick={openCreate} style={{ marginLeft: "auto", padding: "7px 16px", background: "#f59e0b", border: "none", borderRadius: 7, color: "#0f172a", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+          <button onClick={openCreate} style={{ marginLeft: "auto", padding: "7px 16px", background: "var(--status-warning)", border: "none", borderRadius: 7, color: "var(--text-primary)", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
             <Plus size={14} /> 新增等级
           </button>
         )}
       </div>
 
-      {error && <div style={{ background: "#450a0a", border: "1px solid #7f1d1d", borderRadius: 8, padding: "10px 14px", marginBottom: 16, color: "#fca5a5", fontSize: 13 }}>{error}</div>}
+      {error && <div style={{ background: "var(--status-danger)", border: "1px solid var(--status-danger)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, color: "var(--status-danger)", fontSize: 13 }}>{error}</div>}
 
       {loading ? (
-        <div style={{ textAlign: "center", padding: 40, color: "#475569" }}>加载中...</div>
+        <div style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>加载中...</div>
       ) : (
         <div className="bg-bg-muted border border-border" style={{ borderRadius: 10, overflow: "hidden" }}>
           <table className={s.table}>
@@ -129,7 +130,7 @@ export default function ProductGradesPage() {
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", color: "#475569" }}>暂无数据</td></tr>
+                <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)" }}>暂无数据</td></tr>
               )}
               {filtered.map((g, i) => (
                 <tr key={g.grade_code} className="border-b border-border" style={{ background: i % 2 ? "rgba(148,163,184,0.05)" : "transparent" }}>
@@ -139,10 +140,10 @@ export default function ProductGradesPage() {
                   <td>{g.grade_name}</td>
                   <td className="text-text-muted" style={{ textAlign: "center" }}>{g.sort_order ?? "—"}</td>
                   <td style={{ textAlign: "center" }}>
-                    {g.is_saleable ? <CheckCircle size={16} color="#10b981" /> : <XCircle size={16} color="#64748b" />}
+                    {g.is_saleable ? <CheckCircle size={16} color="var(--status-success)" /> : <XCircle size={16} color="var(--text-secondary)" />}
                   </td>
                   <td style={{ textAlign: "center" }}>
-                    {g.is_storable ? <CheckCircle size={16} color="#10b981" /> : <XCircle size={16} color="#64748b" />}
+                    {g.is_storable ? <CheckCircle size={16} color="var(--status-success)" /> : <XCircle size={16} color="var(--text-secondary)" />}
                   </td>
                   <td>
                     <span style={{ background: (STATUS_MAP[g.status ?? ""] || STATUS_MAP.INACTIVE).color + "20", color: (STATUS_MAP[g.status ?? ""] || STATUS_MAP.INACTIVE).color, padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600 }}>
@@ -172,7 +173,7 @@ export default function ProductGradesPage() {
               <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{editing ? "编辑等级" : "新增等级"}</h3>
               <button onClick={() => setDrawer(false)} className="text-text-muted" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20 }}>×</button>
             </div>
-            <label className="text-text-muted" style={lbl}>等级编码 {!editing && <span style={{ color: "#f87171" }}>*</span>}</label>
+            <label className="text-text-muted" style={lbl}>等级编码 {!editing && <span style={{ color: "var(--status-danger)" }}>*</span>}</label>
             <input
               className={`bg-bg-muted border border-border text-text ${editing ? "opacity-50" : ""}`}
               style={inp}
@@ -181,7 +182,7 @@ export default function ProductGradesPage() {
               disabled={!!editing}
               placeholder="如：AA / A / DIRTY"
             />
-            <label className="text-text-muted" style={lbl}>等级名称 <span style={{ color: "#f87171" }}>*</span></label>
+            <label className="text-text-muted" style={lbl}>等级名称 <span style={{ color: "var(--status-danger)" }}>*</span></label>
             <input className="bg-bg-muted border border-border text-text" style={inp} value={form.grade_name ?? ""} onChange={e => setForm(p => ({ ...p, grade_name: e.target.value }))} placeholder="如：特级蛋 / 一级蛋" />
             <label className="text-text-muted" style={lbl}>名称（Lao）</label>
             <input className="bg-bg-muted border border-border text-text" style={inp} value={form.grade_name_lo ?? ""} onChange={e => setForm(p => ({ ...p, grade_name_lo: e.target.value }))} placeholder="Grade AA" />
@@ -204,7 +205,7 @@ export default function ProductGradesPage() {
             </select>
             <label className="text-text-muted" style={lbl}>备注</label>
             <textarea className="bg-bg-muted border border-border text-text" style={{ ...inp, minHeight: 70, resize: "vertical" }} value={form.remark ?? ""} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))} />
-            <button onClick={save} disabled={saving} style={{ marginTop: 20, padding: "10px", background: "#f59e0b", border: "none", borderRadius: 8, color: "#0f172a", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
+            <button onClick={save} disabled={saving} style={{ marginTop: 20, padding: "10px", background: "var(--status-warning)", border: "none", borderRadius: 8, color: "var(--text-primary)", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
               {saving ? "保存中..." : "保存"}
             </button>
           </div>

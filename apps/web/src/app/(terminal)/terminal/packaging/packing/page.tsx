@@ -8,8 +8,8 @@ import { usePackagingDicts, buildGradeMap, FALLBACK_DICTS, getDictLabel } from '
 import { T } from '@/styles/terminal-theme';
 import TerminalNumPadPanel from '@/components/terminal/TerminalNumPadPanel';
 
-const SALEABLE_PALETTE = ['#7c3aed', '#2563eb', '#059669', '#d97706', '#f97316', '#ec4899', '#14b8a6'];
-const DEFECT_PALETTE   = ['#f97316', '#ef4444', '#6b7280', '#0891b2'];
+const SALEABLE_PALETTE = ['var(--status-special)', 'var(--color-accent)', 'var(--status-success)', 'var(--status-warning)', 'var(--status-warning)', 'var(--status-special)', 'var(--status-success)'];
+const DEFECT_PALETTE   = ['var(--status-warning)', 'var(--status-danger)', 'var(--text-secondary)', 'var(--color-accent)'];
 const POLL_MS = 5000;
 
 type GradingSnapshot = {
@@ -48,7 +48,7 @@ export default function PackingPage() {
     qty:   (d.qty as number) ?? 0,
     unit:  (d.unit  as string) ?? t('ui.枚', '枚'),
     icon:  (d.icon  as string) ?? '📦',
-    color: (d.color as string) ?? '#7c3aed',
+    color: (d.color as string) ?? 'var(--status-special)',
   }));
 
   // ── 服务端实时快照（5 s 心跳） ────────────────────────────────────────────
@@ -193,7 +193,7 @@ export default function PackingPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
             <span style={{ fontSize: 11, color: T.MUT }}>{t('ui.本次已包装', '本次已包装（箱）')}</span>
             <span style={{ width: 6, height: 6, borderRadius: '50%', display: 'inline-block', flexShrink: 0,
-              background: snap ? '#22c55e' : '#6b7280',
+              background: snap ? 'var(--status-success)' : 'var(--text-secondary)',
               animation: snap ? 'pulse 2s ease-in-out infinite' : 'none' }} />
           </div>
         </div>
@@ -420,7 +420,7 @@ export default function PackingPage() {
               style={{
                 width: '100%', height: 52, borderRadius: 10, border: 'none',
                 background: canAdd ? T.GRN : T.BOR,
-                color: canAdd ? '#0f172a' : T.MUT,
+                color: canAdd ? 'var(--bg-page)' : T.MUT,
                 fontSize: 17, fontWeight: 800, cursor: canAdd ? 'pointer' : 'not-allowed',
                 transition: 'background 0.15s', WebkitTapHighlightColor: 'transparent',
               }}>
@@ -500,7 +500,7 @@ export default function PackingPage() {
           style={{
             padding: '9px 40px', borderRadius: 10, border: 'none',
             background: items.length > 0 ? T.GRN : T.BOR,
-            color: items.length > 0 ? '#0f172a' : T.MUT,
+            color: items.length > 0 ? 'var(--bg-page)' : T.MUT,
             fontSize: 16, fontWeight: 700,
             cursor: items.length > 0 ? 'pointer' : 'not-allowed',
             opacity: submitting ? 0.7 : 1,

@@ -123,13 +123,13 @@ function fmtAmount(amount: number | string | null, currency: string | null) {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; color: string }> = {
-    PENDING:  { label: "待审批", color: "#f59e0b" },
-    APPROVED: { label: "已通过", color: "#22c55e" },
-    REJECTED: { label: "已拒绝", color: "#ef4444" },
-    SKIPPED:  { label: "已跳过", color: "#9ca3af" },
-    TODO:     { label: "待处理", color: "#f59e0b" },
+    PENDING:  { label: "待审批", color: "var(--status-warning)" },
+    APPROVED: { label: "已通过", color: "var(--status-success)" },
+    REJECTED: { label: "已拒绝", color: "var(--status-danger)" },
+    SKIPPED:  { label: "已跳过", color: "var(--text-disabled)" },
+    TODO:     { label: "待处理", color: "var(--status-warning)" },
   };
-  const cfg = map[status] ?? { label: status, color: "#9ca3af" };
+  const cfg = map[status] ?? { label: status, color: "var(--text-disabled)" };
   return <span style={{ color: cfg.color, fontWeight: 600, fontSize: 12 }}>{cfg.label}</span>;
 }
 
@@ -141,7 +141,7 @@ function TaskSourceBadge({ source }: { source: string }) {
       fontSize: 10, fontWeight: 600, padding: "2px 6px",
       borderRadius: 4,
       background: isAE ? "rgba(245,158,11,0.12)" : "rgba(59,130,246,0.12)",
-      color:      isAE ? "#b45309"               : "#1d4ed8",
+      color:      isAE ? "var(--status-warning)"               : "var(--color-accent)",
     }}>
       {isAE ? "审批引擎" : "通用流程"}
     </span>
@@ -295,7 +295,7 @@ export default function ApprovalTodosPage() {
 
       <section className={s.card}>
         {/* ── 筛选栏 ── */}
-        <div className={s.cardBody} style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <div className={s.cardBody} style={{ borderBottom: "1px solid var(--bg-muted)", paddingBottom: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <select
             value={taskSource}
             onChange={e => setTaskSource(e.target.value)}
@@ -321,7 +321,7 @@ export default function ApprovalTodosPage() {
           </select>
 
           <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 180 }}>
-            <Search size={14} style={{ color: "#9ca3af" }} />
+            <Search size={14} style={{ color: "var(--text-disabled)" }} />
             <input
               type="text"
               value={keyword}
@@ -346,9 +346,9 @@ export default function ApprovalTodosPage() {
         </div>
 
         {loading ? (
-          <div className={s.cardBody} style={{ textAlign: "center", color: "#9ca3af", padding: 48 }}>加载中…</div>
+          <div className={s.cardBody} style={{ textAlign: "center", color: "var(--text-disabled)", padding: 48 }}>加载中…</div>
         ) : resp.items.length === 0 ? (
-          <div className={s.cardBody} style={{ textAlign: "center", color: "#9ca3af", padding: 48 }}>
+          <div className={s.cardBody} style={{ textAlign: "center", color: "var(--text-disabled)", padding: 48 }}>
             <CheckCircle size={36} style={{ margin: "0 auto 12px", opacity: 0.4 }} />
             <p>暂无待审批任务</p>
           </div>
@@ -386,12 +386,12 @@ export default function ApprovalTodosPage() {
                       </span>
                     </td>
                     <td>
-                      <span style={{ fontSize: 12, color: "#374151", maxWidth: 140, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: 12, color: "var(--text-primary)", maxWidth: 140, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {todo.subject || "-"}
                       </span>
                     </td>
                     <td>
-                      <span style={{ fontWeight: 600, color: "#0f172a", fontSize: 13 }}>
+                      <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 13 }}>
                         {fmtAmount(todo.amount, todo.currencyCode)}
                       </span>
                     </td>
@@ -408,13 +408,13 @@ export default function ApprovalTodosPage() {
                       </span>
                     </td>
                     <td>
-                      <code style={{ fontSize: 11, background: "#f1f5f9", padding: "2px 6px", borderRadius: 4 }}>
+                      <code style={{ fontSize: 11, background: "var(--bg-muted)", padding: "2px 6px", borderRadius: 4 }}>
                         {todo.requiredRole || "-"}
                       </code>
                     </td>
                     <td>
                       {todo.currentStepNo != null && todo.totalSteps != null ? (
-                        <span style={{ color: "#f59e0b", fontWeight: 600 }}>
+                        <span style={{ color: "var(--status-warning)", fontWeight: 600 }}>
                           {todo.currentStepNo}/{todo.totalSteps}
                         </span>
                       ) : "-"}
@@ -441,7 +441,7 @@ export default function ApprovalTodosPage() {
                 >
                   上一页
                 </button>
-                <span style={{ fontSize: 12, lineHeight: "30px", color: "#6b7280" }}>
+                <span style={{ fontSize: 12, lineHeight: "30px", color: "var(--text-secondary)" }}>
                   第 {page} / {Math.ceil(resp.total / PAGE_SIZE)} 页
                 </span>
                 <button
@@ -481,7 +481,7 @@ export default function ApprovalTodosPage() {
                 </>}
                 {detail.amount != null && <>
                   <span className={s.detailLabel}>金额</span>
-                  <span style={{ fontWeight: 600, color: "#0f172a" }}>
+                  <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
                     <DollarSign size={12} style={{ marginRight: 2, verticalAlign: "middle" }} />
                     {fmtAmount(detail.amount, detail.currencyCode)}
                   </span>
@@ -499,33 +499,33 @@ export default function ApprovalTodosPage() {
               </div>
             </div>
 
-            <h4 style={{ fontSize: 14, fontWeight: 600, margin: "16px 0 12px", color: "#374151" }}>审批历史</h4>
+            <h4 style={{ fontSize: 14, fontWeight: 600, margin: "16px 0 12px", color: "var(--text-primary)" }}>审批历史</h4>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
               {detail.steps.map(step => (
                 <div key={step.id} style={{
                   display: "flex", gap: 12, padding: "10px 14px",
-                  background: step.status === "APPROVED" ? "#f0fdf4" : step.status === "REJECTED" ? "#fef2f2" : "#f8fafc",
-                  borderRadius: 8, border: "1px solid #e5e7eb",
+                  background: step.status === "APPROVED" ? "color-mix(in srgb, var(--status-success) 12%, transparent)" : step.status === "REJECTED" ? "color-mix(in srgb, var(--status-danger) 10%, transparent)" : "var(--bg-muted)",
+                  borderRadius: 8, border: "1px solid var(--border)",
                 }}>
                   <div style={{ fontSize: 13, flex: 1 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                       <span style={{ fontWeight: 600 }}>步骤 {step.stepNo}</span>
                       <StatusBadge status={step.status} />
                     </div>
-                    <div style={{ color: "#6b7280", fontSize: 12 }}>
+                    <div style={{ color: "var(--text-secondary)", fontSize: 12 }}>
                       <User size={11} style={{ marginRight: 4 }} />
-                      <code style={{ fontSize: 11, background: "#f1f5f9", padding: "1px 4px", borderRadius: 3 }}>
+                      <code style={{ fontSize: 11, background: "var(--bg-muted)", padding: "1px 4px", borderRadius: 3 }}>
                         {step.requiredRole || step.approverRole}
                       </code>
                       {step.approverName && <span style={{ marginLeft: 8 }}>{step.approverName}</span>}
                     </div>
                     {step.comment && (
-                      <div style={{ marginTop: 6, fontSize: 12, color: "#374151", fontStyle: "italic" }}>
+                      <div style={{ marginTop: 6, fontSize: 12, color: "var(--text-primary)", fontStyle: "italic" }}>
                         &ldquo;{step.comment}&rdquo;
                       </div>
                     )}
                     {step.actedAt && (
-                      <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>{fmtDate(step.actedAt)}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-disabled)", marginTop: 4 }}>{fmtDate(step.actedAt)}</div>
                     )}
                   </div>
                 </div>
@@ -535,17 +535,17 @@ export default function ApprovalTodosPage() {
             {/* Phase I: 若关联表单提交，展示只读表单数据 */}
             {detail.formSubmission && (
               <div style={{ marginBottom: 20 }}>
-                <h4 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 12px", color: "#374151" }}>
+                <h4 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 12px", color: "var(--text-primary)" }}>
                   表单数据
                   <span style={{
                     marginLeft: 8, fontSize: 11, fontWeight: 500, padding: "2px 7px",
-                    borderRadius: 4, background: "#f1f5f9", color: "#64748b",
+                    borderRadius: 4, background: "var(--bg-muted)", color: "var(--text-secondary)",
                     fontFamily: "monospace",
                   }}>
                     {detail.formSubmission.formCode}
                   </span>
                 </h4>
-                <div style={{ background: "#f9fafb", borderRadius: 10, padding: "16px 18px", border: "1px solid #e5e7eb" }}>
+                <div style={{ background: "var(--bg-muted)", borderRadius: 10, padding: "16px 18px", border: "1px solid var(--border)" }}>
                   <WorkflowFormRenderer
                     schema={detail.formSubmission.schemaJson as any}
                     uiSchema={detail.formSubmission.uiSchemaJson as any}
@@ -554,14 +554,14 @@ export default function ApprovalTodosPage() {
                     disabled={true}
                   />
                 </div>
-                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6, textAlign: "right" }}>
+                <div style={{ fontSize: 11, color: "var(--text-disabled)", marginTop: 6, textAlign: "right" }}>
                   提交编号：{detail.formSubmission.submissionNo}
                   {detail.formSubmission.submittedByName && ` · 提交人：${detail.formSubmission.submittedByName}`}
                 </div>
               </div>
             )}
 
-            <h4 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 12px", color: "#374151" }}>审批意见</h4>
+            <h4 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 12px", color: "var(--text-primary)" }}>审批意见</h4>
             <textarea
               value={comment}
               onChange={e => setComment(e.target.value)}
@@ -596,14 +596,14 @@ export default function ApprovalTodosPage() {
                 <span className={s.detailLabel}>主题</span>
                 <span style={{ fontSize: 13 }}>{selected.subject ?? "-"}</span>
                 <span className={s.detailLabel}>需审批角色</span>
-                <code style={{ fontSize: 11, background: "#f1f5f9", padding: "2px 6px", borderRadius: 4 }}>
+                <code style={{ fontSize: 11, background: "var(--bg-muted)", padding: "2px 6px", borderRadius: 4 }}>
                   {selected.requiredRole || "-"}
                 </code>
                 <span className={s.detailLabel}>创建时间</span>
                 <span style={{ fontSize: 13 }}>{fmtDate(selected.createdAt)}</span>
               </div>
             </div>
-            <p style={{ marginTop: 24, fontSize: 13, color: "#6b7280" }}>
+            <p style={{ marginTop: 24, fontSize: 13, color: "var(--text-secondary)" }}>
               通用工作流任务请在对应业务模块中处理。
             </p>
           </div>

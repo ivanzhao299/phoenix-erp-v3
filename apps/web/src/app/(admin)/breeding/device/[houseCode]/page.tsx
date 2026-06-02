@@ -17,11 +17,11 @@ const API = '/api/farm-device/cabins';
 
 // ─── palette ─────────────────────────────────────────────────────
 const SC: Record<string, string> = {
-  normal: '#22c55e', warning: '#f59e0b', critical: '#ef4444',
-  no_data: '#94a3b8', standby: '#94a3b8',
+  normal: 'var(--status-success)', warning: 'var(--status-warning)', critical: 'var(--status-danger)',
+  no_data: 'var(--text-disabled)', standby: 'var(--text-disabled)',
 };
 const TREND_CLR: Record<string, string> = {
-  '2001': '#ef4444', '2083': '#3b82f6', '2002': '#8b5cf6', '2003': '#f59e0b',
+  '2001': 'var(--status-danger)', '2083': 'var(--color-accent)', '2002': 'var(--status-special)', '2003': 'var(--status-warning)',
 };
 const ENV_ICON: Record<string, string> = {
   '2001': '🌡', '2083': '💧', '2002': '🌬', '2003': '⚠️',
@@ -94,7 +94,7 @@ function ChartTip({ active, payload, series }: { active?: boolean; payload?: Rec
               ↓{sm.min.toFixed(1)} ~ ↑{sm.max.toFixed(1)}{sm.unit}
               <span style={{
                 marginLeft: 6, fontWeight: 600,
-                color: amplitude > 5 ? '#f59e0b' : 'var(--text-secondary)',
+                color: amplitude > 5 ? 'var(--status-warning)' : 'var(--text-secondary)',
               }}>
                 波幅 {amplitude.toFixed(1)}{sm.unit}
               </span>
@@ -219,7 +219,7 @@ export default function HouseDetailPage() {
           code:          s.propertyCode,
           name:          s.name || s.propertyCode,
           unit:          s.unit || '',
-          color:         TREND_CLR[s.propertyCode] || '#94a3b8',
+          color:         TREND_CLR[s.propertyCode] || 'var(--text-disabled)',
           thresholdHigh: s.thresholdHigh ?? null,
           thresholdLow:  s.thresholdLow  ?? null,
           points: pts,
@@ -346,14 +346,14 @@ export default function HouseDetailPage() {
           <div style={{ display: 'flex', gap: 18, fontSize: 12, color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
             <span>
               {t('ui.数据', '数据')}:&nbsp;
-              <b style={{ color: overview?.dataFreshness === 'normal' ? '#22c55e' : '#f59e0b' }}>
+              <b style={{ color: overview?.dataFreshness === 'normal' ? 'var(--status-success)' : 'var(--status-warning)' }}>
                 {overview?.dataFreshness === 'normal'  ? t('ui.实时', '实时') :
                  overview?.dataFreshness === 'delayed' ? t('ui.延迟', '延迟') : t('ui.陈旧', '陈旧')}
               </b>
             </span>
             <span>
               {t('ui.活跃告警', '活跃告警')}:&nbsp;
-              <b style={{ color: alarms.length > 0 ? '#ef4444' : '#22c55e' }}>{alarms.length}</b>
+              <b style={{ color: alarms.length > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>{alarms.length}</b>
             </span>
             <span>{t('ui.采集时间', '采集时间')}: <b>{lastUpdate || '—'}</b></span>
           </div>
@@ -364,12 +364,12 @@ export default function HouseDetailPage() {
       {alarms.length > 0 && (
         <div style={{
           display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 16px', marginBottom: 16,
-          background: 'color-mix(in srgb,#ef4444 7%,transparent)',
-          border: '1.5px solid color-mix(in srgb,#ef4444 28%,transparent)',
+          background: 'color-mix(in srgb,var(--status-danger) 7%,transparent)',
+          border: '1.5px solid color-mix(in srgb,var(--status-danger) 28%,transparent)',
           borderRadius: 'var(--radius-md)',
         }}>
-          <AlertTriangle size={15} style={{ color: '#ef4444', flexShrink: 0, marginTop: 1 }} />
-          <span style={{ fontWeight: 700, color: '#ef4444', fontSize: 13 }}>
+          <AlertTriangle size={15} style={{ color: 'var(--status-danger)', flexShrink: 0, marginTop: 1 }} />
+          <span style={{ fontWeight: 700, color: 'var(--status-danger)', fontSize: 13 }}>
             {alarms.length} {t('ui.个活跃告警', '个活跃告警')}
           </span>
           <span style={{ color: 'var(--text-secondary)', fontSize: 12, marginLeft: 2 }}>
@@ -399,8 +399,8 @@ export default function HouseDetailPage() {
               : delta > 0.05  ? `↑ ${delta.toFixed(1)}`
               : delta < -0.05 ? `↓ ${Math.abs(delta).toFixed(1)}`
               : '→ 平稳';
-            const trendColor = delta == null ? '#94a3b8'
-              : delta > 0.05 ? '#ef4444' : delta < -0.05 ? '#22c55e' : '#94a3b8';
+            const trendColor = delta == null ? 'var(--text-disabled)'
+              : delta > 0.05 ? 'var(--status-danger)' : delta < -0.05 ? 'var(--status-success)' : 'var(--text-disabled)';
             return (
               <div key={code} style={{
                 background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)',
@@ -459,7 +459,7 @@ export default function HouseDetailPage() {
               padding: '4px 10px', fontSize: 11, borderRadius: 6, cursor: 'pointer', fontWeight: 600,
               border: `1px solid ${trendRange === r ? 'var(--color-primary)' : 'var(--border)'}`,
               background: trendRange === r ? 'var(--color-primary)' : 'transparent',
-              color: trendRange === r ? '#fff' : 'var(--text-secondary)',
+              color: trendRange === r ? 'var(--bg-card)' : 'var(--text-secondary)',
               transition: 'all .15s',
             }}>
               {r === '24h' ? '近24h' : r === '7d' ? '近7天' : '近30天'}
@@ -534,7 +534,7 @@ export default function HouseDetailPage() {
           <div key={i} className={s.shimmer} style={{ height: 88, borderRadius: 'var(--radius-md)' }} />
         )) : systems.length > 0 ? systems.map((sys) => {
           const cfg   = SYS_CFG[sys.code ?? sys.systemCode ?? ''] || { name: sys.name || sys.code || '', icon: '⚙️' };
-          const color = SC[sys.status || 'no_data'] || '#94a3b8';
+          const color = SC[sys.status || 'no_data'] || 'var(--text-disabled)';
           const rate  = sys.onlineRate != null ? Math.round(sys.onlineRate * 100) : null;
           return (
             <div key={sys.code ?? sys.systemCode ?? ''} style={{
@@ -557,7 +557,7 @@ export default function HouseDetailPage() {
               <div style={{ fontSize: 10, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
                 <span>{t('ui.传感器', '传感器')} {sys.sensorCount || 0}{t('ui.个', '个')}</span>
                 {(sys.alarmCount ?? 0) > 0 && (
-                  <span style={{ color: '#ef4444', fontWeight: 700 }}>⚠ {sys.alarmCount ?? 0}</span>
+                  <span style={{ color: 'var(--status-danger)', fontWeight: 700 }}>⚠ {sys.alarmCount ?? 0}</span>
                 )}
               </div>
             </div>
@@ -603,7 +603,7 @@ export default function HouseDetailPage() {
                 </thead>
                 <tbody>
                   {kpis.map((k) => {
-                    const color = SC[k.status || 'no_data'] || '#94a3b8';
+                    const color = SC[k.status || 'no_data'] || 'var(--text-disabled)';
                     return (
                       <tr key={k.code}>
                         <td style={{ fontWeight: 600 }}>{k.title || k.code}</td>

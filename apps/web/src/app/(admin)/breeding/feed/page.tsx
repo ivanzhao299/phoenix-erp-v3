@@ -52,7 +52,7 @@ const addDays = (d: string, n: number) => {
   return dt.toISOString().slice(0, 10);
 };
 
-const ALERT_COLOR: Record<string, string> = { CRITICAL: '#ef4444', WARN: '#f59e0b' };
+const ALERT_COLOR: Record<string, string> = { CRITICAL: 'var(--status-danger)', WARN: 'var(--status-warning)' };
 
 export default function FeedLedgerPage() {
   const { can } = usePermission();
@@ -159,7 +159,7 @@ export default function FeedLedgerPage() {
       {alertRows.length > 0 && (
         <div style={{ marginBottom: 16, padding: '12px 16px', borderRadius: 10,
           background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#ef4444', marginBottom: 6 }}>⚠ 库存预警</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--status-danger)', marginBottom: 6 }}>⚠ 库存预警</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {alertRows.map(r => (
               <span key={r.material_name} style={{
@@ -176,7 +176,7 @@ export default function FeedLedgerPage() {
 
       {error && (
         <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8,
-          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', fontSize: 13 }}>
+          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: 'var(--status-danger)', fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -208,10 +208,10 @@ export default function FeedLedgerPage() {
             ) : rows.map((row, idx) => {
               const alertColor = row.alert ? ALERT_COLOR[row.alert] : undefined;
               const daysColor = row.days_left == null ? 'var(--text-secondary)'
-                : row.days_left <= 3 ? '#ef4444'
-                : row.days_left <= 7 ? '#f59e0b'
-                : row.days_left <= 14 ? '#fbbf24'
-                : '#10b981';
+                : row.days_left <= 3 ? 'var(--status-danger)'
+                : row.days_left <= 7 ? 'var(--status-warning)'
+                : row.days_left <= 14 ? 'var(--status-warning)'
+                : 'var(--status-success)';
               return (
                 <tr key={row.material_name}
                   style={{ background: alertColor ? `${alertColor}06` : undefined }}>
@@ -255,8 +255,8 @@ export default function FeedLedgerPage() {
                       ) : <span>{row.outbound_detail[h] ?? 0}</span>}
                     </td>
                   ))}
-                  <td style={{ textAlign: 'right', fontWeight: 700, color: '#f59e0b' }}>{row.outbound_total.toLocaleString()}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 700, color: '#10b981' }}>{row.current_stock.toLocaleString()}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--status-warning)' }}>{row.outbound_total.toLocaleString()}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--status-success)' }}>{row.current_stock.toLocaleString()}</td>
                   <td style={{ textAlign: 'center', fontWeight: 700, color: daysColor }}>
                     {row.days_left != null ? `${row.days_left}天` : '—'}
                   </td>

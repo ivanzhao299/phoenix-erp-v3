@@ -72,10 +72,10 @@ export default function PdaTerminalPage() {
   const [err, setErr] = useState("");
 
   const STATUS_BADGE: Record<string, { text: string; color: string }> = {
-    active:      { text: t('status.active', '活跃'),   color: "#22c55e" },
-    inactive:    { text: t('status.inactive', '停用'),   color: "#94a3b8" },
-    pending:     { text: t('ui.待审核', '待审核'), color: "#f59e0b" },
-    maintenance: { text: t('ui.维护中', '维护中'), color: "#3b82f6" },
+    active:      { text: t('status.active', '活跃'),   color: "var(--status-success)" },
+    inactive:    { text: t('status.inactive', '停用'),   color: "var(--text-disabled)" },
+    pending:     { text: t('ui.待审核', '待审核'), color: "var(--status-warning)" },
+    maintenance: { text: t('ui.维护中', '维护中'), color: "var(--color-accent)" },
   };
 
   const load = useCallback(async () => {
@@ -142,9 +142,9 @@ export default function PdaTerminalPage() {
       <div style={{ display: "flex", gap: 8, marginBottom: 20, justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", gap: 12 }}>
           {[
-            { label: t('ui.在线', '在线'), value: stats.online,  color: "#22c55e" },
-            { label: t('ui.离线', '离线'), value: stats.offline, color: "#94a3b8" },
-            { label: t('ui.待审核', '待审核'), value: stats.pending, color: "#f59e0b" },
+            { label: t('ui.在线', '在线'), value: stats.online,  color: "var(--status-success)" },
+            { label: t('ui.离线', '离线'), value: stats.offline, color: "var(--text-disabled)" },
+            { label: t('ui.待审核', '待审核'), value: stats.pending, color: "var(--status-warning)" },
             { label: t('common.total', '总计'), value: terminals.length, color: "var(--color-primary)" },
           ].map(s => (
             <div key={s.label} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "10px 16px", textAlign: "center" }}>
@@ -160,7 +160,7 @@ export default function PdaTerminalPage() {
           <button type="button" onClick={() => setCfgDrawer(true)} style={{ padding: "8px 14px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-primary)" }}>
             <Settings size={14}/>{t('ui.系统配置', '系统配置')}
           </button>
-          <button type="button" onClick={openNew} style={{ padding: "8px 16px", background: "var(--color-primary)", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#fff" }}>
+          <button type="button" onClick={openNew} style={{ padding: "8px 16px", background: "var(--color-primary)", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "var(--text-on-dark)" }}>
             <Plus size={14}/>{t('ui.新增终端', '新增终端')}
           </button>
         </div>
@@ -187,7 +187,7 @@ export default function PdaTerminalPage() {
               onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
               <div>
                 <div style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: online ? "#22c55e" : "#475569", display: "inline-block", flexShrink: 0 }}/>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: online ? "var(--status-success)" : "var(--text-secondary)", display: "inline-block", flexShrink: 0 }}/>
                   {terminal.name}
                 </div>
                 {terminal.serial && <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2, fontFamily: "monospace" }}>{terminal.serial}</div>}
@@ -198,7 +198,7 @@ export default function PdaTerminalPage() {
               <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: st.color, fontWeight: 600 }}>
                 {online ? <Wifi size={12}/> : <WifiOff size={12}/>} {st.text}
                 {terminal.status === "pending" && (
-                  <button type="button" onClick={() => handleApprove(terminal.id)} style={{ marginLeft: 4, padding: "2px 6px", background: "#22c55e22", border: "1px solid #22c55e", borderRadius: 4, color: "#22c55e", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>{t('ui.审核', '审核')}</button>
+                  <button type="button" onClick={() => handleApprove(terminal.id)} style={{ marginLeft: 4, padding: "2px 6px", background: "var(--status-success)22", border: "1px solid var(--status-success)", borderRadius: 4, color: "var(--status-success)", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>{t('ui.审核', '审核')}</button>
                 )}
               </div>
               <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{timeAgo(terminal.last_seen ?? "")}</div>
@@ -206,7 +206,7 @@ export default function PdaTerminalPage() {
                 <button type="button" onClick={() => openEdit(terminal)} style={{ padding: 5, background: "transparent", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text-secondary)", cursor: "pointer" }}>
                   <Edit2 size={13}/>
                 </button>
-                <button type="button" onClick={() => handleDelete(terminal)} style={{ padding: 5, background: "transparent", border: "1px solid #dc262633", borderRadius: "var(--radius-sm)", color: "#dc2626", cursor: "pointer" }}>
+                <button type="button" onClick={() => handleDelete(terminal)} style={{ padding: 5, background: "transparent", border: "1px solid var(--status-danger)33", borderRadius: "var(--radius-sm)", color: "var(--status-danger)", cursor: "pointer" }}>
                   <Trash2 size={13}/>
                 </button>
               </div>
@@ -270,10 +270,10 @@ export default function PdaTerminalPage() {
             <label style={lbl}>{t('common.remark', '备注')}</label>
             <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} rows={2} style={{ ...inp, resize: "vertical" }} placeholder={t('ui.可选备注信息', '可选备注信息')}/>
           </div>
-          {err && <div style={{ color: "#dc2626", fontSize: 12 }}>⚠️ {err}</div>}
+          {err && <div style={{ color: "var(--status-danger)", fontSize: 12 }}>⚠️ {err}</div>}
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
             <button type="button" onClick={() => setDrawer(false)} style={{ padding: "10px 20px", background: "var(--bg-page)", color: "var(--text-secondary)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", cursor: "pointer" }}>{t('common.cancel', '取消')}</button>
-            <button type="button" onClick={handleSave} disabled={saving} style={{ padding: "10px 20px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+            <button type="button" onClick={handleSave} disabled={saving} style={{ padding: "10px 20px", background: "var(--color-primary)", color: "var(--text-on-dark)", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
               <Save size={14}/>{saving ? t('ui.保存中', '保存中…') : t('common.save', '保存')}
             </button>
           </div>
@@ -297,7 +297,7 @@ export default function PdaTerminalPage() {
           ))}
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
             <button type="button" onClick={() => setCfgDrawer(false)} style={{ padding: "10px 20px", background: "var(--bg-page)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", cursor: "pointer" }}>{t('common.cancel', '取消')}</button>
-            <button type="button" onClick={() => { toast.success(t('ui.系统配置已保存', '系统配置已保存')); setCfgDrawer(false); }} style={{ padding: "10px 20px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", fontWeight: 700 }}>{t('ui.保存配置', '保存配置')}</button>
+            <button type="button" onClick={() => { toast.success(t('ui.系统配置已保存', '系统配置已保存')); setCfgDrawer(false); }} style={{ padding: "10px 20px", background: "var(--color-primary)", color: "var(--text-on-dark)", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", fontWeight: 700 }}>{t('ui.保存配置', '保存配置')}</button>
           </div>
         </div>
       </RightDrawer>

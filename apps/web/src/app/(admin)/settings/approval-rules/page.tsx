@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
+import { ConfirmDialogV2 } from "@/components/design-system";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
 
@@ -192,6 +193,7 @@ function slaSummary(st: RuleStep): string {
 export default function ApprovalRulesPage() {
   const toast = useToast();
   const [rules, setRules]           = useState<ApprovalRule[]>([]);
+  const [delRule, setDelRule]       = useState<ApprovalRule | null>(null);
   const [total, setTotal]           = useState(0);
   const [loading, setLoading]       = useState(false);
   const [filterBizType, setBizType] = useState("");
@@ -344,8 +346,10 @@ export default function ApprovalRulesPage() {
     }
   };
 
-  const handleDelete = async (rule: ApprovalRule) => {
-    if (!confirm(`确认删除规则「${rule.ruleCode}」？此操作不可撤销。`)) return;
+  const handleDelete = (rule: ApprovalRule) => setDelRule(rule);
+  const doDelete = async () => {
+    const rule = delRule; setDelRule(null);
+    if (!rule) return;
     const ok = await deleteRule(rule.id);
     if (ok) { toast.success("已删除"); load(); }
     else toast.error("删除失败（可能存在进行中的审批实例）");
@@ -415,11 +419,11 @@ export default function ApprovalRulesPage() {
       {/* 规则列表 */}
       {loading ? (
         <section className={s.card}>
-          <div className={s.cardBody} style={{ textAlign: "center", color: "#9ca3af", padding: 48 }}>加载中…</div>
+          <div className={s.cardBody} style={{ textAlign: "center", color: "var(--text-disabled)", padding: 48 }}>加载中…</div>
         </section>
       ) : rules.length === 0 ? (
         <section className={s.card}>
-          <div className={s.cardBody} style={{ textAlign: "center", color: "#9ca3af", padding: 48 }}>
+          <div className={s.cardBody} style={{ textAlign: "center", color: "var(--text-disabled)", padding: 48 }}>
             <Shield size={36} style={{ margin: "0 auto 12px", opacity: 0.4 }} />
             <p>暂无审批规则</p>
           </div>
@@ -439,23 +443,23 @@ export default function ApprovalRulesPage() {
                   <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
                     <span style={{
                       padding: "2px 8px", borderRadius: 4, fontSize: 12, fontWeight: 600,
-                      background: rule.enabled ? "#dbeafe" : "#f3f4f6",
-                      color: rule.enabled ? "#1d4ed8" : "#6b7280",
+                      background: rule.enabled ? "color-mix(in srgb, var(--color-accent) 14%, transparent)" : "var(--bg-muted)",
+                      color: rule.enabled ? "var(--color-accent)" : "var(--text-secondary)",
                     }}>
                       {BIZ_TYPE_LABEL[rule.bizType] ?? rule.bizType}
                     </span>
                     <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 14 }}>{rule.ruleCode}</span>
-                    <span style={{ fontSize: 12, color: "#6b7280" }}>
+                    <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
                       {fmtAmount(rule.minAmount)} ~ {fmtAmount(rule.maxAmount)}
                     </span>
-                    <span style={{ fontSize: 12, color: "#9ca3af" }}>
+                    <span style={{ fontSize: 12, color: "var(--text-disabled)" }}>
                       优先级 {rule.priority} · {MODE_LABEL[rule.approvalMode]} · {rule.steps.length} 步
                     </span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     {rule.enabled
-                      ? <CheckCircle size={16} style={{ color: "#22c55e" }} />
-                      : <XCircle size={16} style={{ color: "#9ca3af" }} />
+                      ? <CheckCircle size={16} style={{ color: "var(--status-success)" }} />
+                      : <XCircle size={16} style={{ color: "var(--text-disabled)" }} />
                     }
                     {isExp ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                   </div>
@@ -463,36 +467,36 @@ export default function ApprovalRulesPage() {
 
                 {/* 展开：步骤 + 操作 */}
                 {isExp && (
-                  <div className={s.cardBody} style={{ borderTop: "1px solid #f3f4f6", paddingTop: 12 }}>
+                  <div className={s.cardBody} style={{ borderTop: "1px solid var(--bg-muted)", paddingTop: 12 }}>
                     {/* 步骤列表 */}
                     {rule.steps.length > 0 && (
                       <div style={{ marginBottom: 12 }}>
-                        <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>审批步骤</p>
+                        <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 8 }}>审批步骤</p>
                         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                           {rule.steps.map(st => (
                             <div key={st.id ?? st.stepNo} style={{
                               display: "flex", gap: 10, alignItems: "center",
-                              padding: "6px 10px", background: "#f8fafc",
+                              padding: "6px 10px", background: "var(--bg-muted)",
                               borderRadius: 6, fontSize: 13, flexWrap: "wrap",
                             }}>
-                              <span style={{ fontWeight: 700, color: "#3b82f6", minWidth: 20 }}>
+                              <span style={{ fontWeight: 700, color: "var(--color-accent)", minWidth: 20 }}>
                                 {st.stepNo}
                               </span>
-                              <span style={{ fontSize: 11, background: "#e5e7eb", color: "#374151", padding: "1px 6px", borderRadius: 4 }}>
+                              <span style={{ fontSize: 11, background: "var(--border)", color: "var(--text-primary)", padding: "1px 6px", borderRadius: 4 }}>
                                 {APPROVER_TYPE_OPTIONS.find(o => o.value === st.approverType)?.label ?? st.approverType}
                               </span>
                               {st.approverRole && (
-                                <code style={{ background: "#e0e7ff", color: "#4338ca", padding: "1px 6px", borderRadius: 4, fontSize: 12 }}>
+                                <code style={{ background: "color-mix(in srgb, var(--status-special) 12%, transparent)", color: "var(--status-special)", padding: "1px 6px", borderRadius: 4, fontSize: 12 }}>
                                   {st.approverRole}
                                 </code>
                               )}
                               {st.allowAdminOverride && (
-                                <span style={{ fontSize: 11, color: "#f59e0b", background: "#fef3c7", padding: "1px 5px", borderRadius: 3 }}>
+                                <span style={{ fontSize: 11, color: "var(--status-warning)", background: "color-mix(in srgb, var(--status-warning) 16%, transparent)", padding: "1px 5px", borderRadius: 3 }}>
                                   ADMIN可代理
                                 </span>
                               )}
                               {/* SLA 摘要 */}
-                              <span style={{ fontSize: 10, color: "#0369a1", background: "#e0f2fe", padding: "1px 6px", borderRadius: 3, fontFamily: "monospace" }}>
+                              <span style={{ fontSize: 10, color: "var(--color-accent)", background: "color-mix(in srgb, var(--color-accent) 12%, transparent)", padding: "1px 6px", borderRadius: 3, fontFamily: "monospace" }}>
                                 ⏱ {slaSummary(st as RuleStep)}
                               </span>
                             </div>
@@ -502,7 +506,7 @@ export default function ApprovalRulesPage() {
                     )}
 
                     {rule.remark && (
-                      <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>备注：{rule.remark}</p>
+                      <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 12 }}>备注：{rule.remark}</p>
                     )}
 
                     {/* 操作按钮 */}
@@ -545,7 +549,7 @@ export default function ApprovalRulesPage() {
       >
         <div style={{ padding: "0 20px 20px" }}>
           {/* 基本信息 */}
-          <h4 style={{ fontSize: 14, fontWeight: 600, margin: "12px 0 8px", color: "#374151" }}>基本信息</h4>
+          <h4 style={{ fontSize: 14, fontWeight: 600, margin: "12px 0 8px", color: "var(--text-primary)" }}>基本信息</h4>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
             <div>
               <label className={s.label}>规则代码 *</label>
@@ -604,7 +608,7 @@ export default function ApprovalRulesPage() {
 
           {/* 审批步骤 */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "16px 0 8px" }}>
-            <h4 style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>审批步骤</h4>
+            <h4 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>审批步骤</h4>
             <button className={s.btnSecondary} style={{ fontSize: 12 }} onClick={addStep}>
               <Plus size={12} style={{ marginRight: 4 }} />添加步骤
             </button>
@@ -613,14 +617,14 @@ export default function ApprovalRulesPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
             {form.steps.map((st, idx) => (
               <div key={idx} style={{
-                padding: "10px 12px", background: "#f8fafc",
-                borderRadius: 8, border: "1px solid #e5e7eb",
+                padding: "10px 12px", background: "var(--bg-muted)",
+                borderRadius: 8, border: "1px solid var(--border)",
               }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ fontWeight: 600, fontSize: 13, color: "#3b82f6" }}>步骤 {st.stepNo}</span>
+                  <span style={{ fontWeight: 600, fontSize: 13, color: "var(--color-accent)" }}>步骤 {st.stepNo}</span>
                   {form.steps.length > 1 && (
                     <button onClick={() => removeStep(idx)} style={{
-                      background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: 0,
+                      background: "none", border: "none", cursor: "pointer", color: "var(--status-danger)", padding: 0,
                     }}>
                       <Trash2 size={13} />
                     </button>
@@ -655,7 +659,7 @@ export default function ApprovalRulesPage() {
                   )}
                   {!needsRoleField(st.approverType) && !needsUserField(st.approverType) && (
                     <div style={{ gridColumn: "1 / -1" }}>
-                      <p style={{ fontSize: 12, color: "#6b7280", background: "#f0fdf4", padding: "6px 10px", borderRadius: 6 }}>
+                      <p style={{ fontSize: 12, color: "var(--text-secondary)", background: "color-mix(in srgb, var(--status-success) 12%, transparent)", padding: "6px 10px", borderRadius: 6 }}>
                         系统将在审批启动时自动解析审批人（无需手动指定）
                       </p>
                     </div>
@@ -673,7 +677,7 @@ export default function ApprovalRulesPage() {
                     checked={st.allowAdminOverride}
                     onChange={e => updateStep(idx, { allowAdminOverride: e.target.checked })}
                   />
-                  <label htmlFor={`aao-${idx}`} style={{ fontSize: 12, color: "#374151", cursor: "pointer" }}>
+                  <label htmlFor={`aao-${idx}`} style={{ fontSize: 12, color: "var(--text-primary)", cursor: "pointer" }}>
                     允许 ADMIN 代理审批（跳过角色校验）
                   </label>
                 </div>
@@ -681,9 +685,9 @@ export default function ApprovalRulesPage() {
                 {/* ── Phase G: SLA 配置 ── */}
                 <div style={{
                   marginTop: 10, padding: "10px 12px",
-                  background: "#f0f9ff", borderRadius: 8, border: "1px solid #bae6fd",
+                  background: "color-mix(in srgb, var(--color-accent) 10%, transparent)", borderRadius: 8, border: "1px solid var(--color-accent)",
                 }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: "#0369a1", marginBottom: 8 }}>⏱ SLA 配置</p>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "var(--color-accent)", marginBottom: 8 }}>⏱ SLA 配置</p>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                     <div>
                       <label className={s.label}>SLA 时限（小时）</label>
@@ -708,7 +712,7 @@ export default function ApprovalRulesPage() {
                       checked={st.escalationEnabled}
                       onChange={e => updateStep(idx, { escalationEnabled: e.target.checked })}
                     />
-                    <label htmlFor={`esc-${idx}`} style={{ fontSize: 12, color: "#374151", cursor: "pointer" }}>
+                    <label htmlFor={`esc-${idx}`} style={{ fontSize: 12, color: "var(--text-primary)", cursor: "pointer" }}>
                       启用自动升级（Escalation）
                     </label>
                   </div>
@@ -731,7 +735,7 @@ export default function ApprovalRulesPage() {
                       </div>
                     </div>
                   )}
-                  <div style={{ marginTop: 6, fontSize: 11, color: "#0369a1" }}>
+                  <div style={{ marginTop: 6, fontSize: 11, color: "var(--color-accent)" }}>
                     摘要：{slaSummary(st)}
                   </div>
                 </div>
@@ -749,6 +753,16 @@ export default function ApprovalRulesPage() {
           </div>
         </div>
       </RightDrawer>
+
+      <ConfirmDialogV2
+        open={delRule != null}
+        title="删除审批规则"
+        danger
+        confirmLabel="确认删除"
+        message={`确认删除规则「${delRule?.ruleCode ?? ''}」？此操作不可撤销。`}
+        onConfirm={doDelete}
+        onCancel={() => setDelRule(null)}
+      />
     </div>
   );
 }

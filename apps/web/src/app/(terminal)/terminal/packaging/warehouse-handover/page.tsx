@@ -84,7 +84,7 @@ export default function WarehouseHandoverPage() {
       <div style={{ fontSize:17, fontWeight:700, color:T.TXT }}>{t('ui.暂无待入库包装批次', '暂无待入库包装批次')}</div>
       <div style={{ fontSize:13, color:T.MUT }}>{t('ui.请先完成包装作业', '请先完成包装作业')}</div>
       <button type="button" onClick={() => router.push('/terminal/packaging/packing')}
-        style={{ marginTop:8, padding:'12px 28px', borderRadius:10, background:T.ACC, color:'#0f172a', border:'none', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+        style={{ marginTop:8, padding:'12px 28px', borderRadius:10, background:T.ACC, color:'var(--bg-page)', border:'none', fontSize:14, fontWeight:700, cursor:'pointer' }}>
         → {t('terminal.packing', '前往包装')}
       </button>
     </div>
@@ -127,7 +127,7 @@ export default function WarehouseHandoverPage() {
                 style={{ flex:1, background:'rgba(255,255,255,0.05)', border:`1px solid ${T.BOR}`,
                   borderRadius:8, padding:'14px 16px', color:T.TXT, fontSize:15 }} />
               <button type="button" onClick={()=>handleScan()}
-                style={{ padding:'14px 24px', background:T.ACC, color:'#0f172a', border:'none',
+                style={{ padding:'14px 24px', background:T.ACC, color:'var(--bg-page)', border:'none',
                   borderRadius:8, fontSize:15, fontWeight:700, cursor:'pointer' }}>{t('ui.扫入', '扫入')}</button>
               <button type="button" onClick={handleConfirmAll}
                 style={{ padding:'14px 20px', background:'rgba(34,197,94,0.15)', color:T.GRN,
@@ -200,7 +200,7 @@ export default function WarehouseHandoverPage() {
             <div style={{ marginTop:12, padding:'8px', borderRadius:8,
               background: allScanned?'rgba(34,197,94,0.1)':'rgba(245,158,11,0.1)',
               textAlign:'center', fontSize:12,
-              color:allScanned?T.GRN:'#fbbf24' }}>
+              color:allScanned?T.GRN:'var(--status-warning)' }}>
               {allScanned
                 ? `✅ ${t('ui.全部箱码已扫', '全部箱码已扫')}`
                 : `${t('ui.还剩', '还剩')} ${pendingBoxes.length - scanned.length} ${t('ui.箱未扫', '箱未扫')}`}
@@ -217,7 +217,7 @@ export default function WarehouseHandoverPage() {
         <div style={{ flex:1 }} />
         <button type="button" onClick={()=>setShowConfirm(true)} disabled={!canSubmit||submitting}
           style={{ padding:'9px 40px', borderRadius:10, border:'none',
-            background:canSubmit?T.GRN:T.BOR, color:canSubmit?'#0f172a':T.MUT,
+            background:canSubmit?T.GRN:T.BOR, color:canSubmit?'var(--bg-page)':T.MUT,
             fontSize:16, fontWeight:700, cursor:canSubmit?'pointer':'not-allowed' }}>
           ✓ {t('ui.确认入库', '确认入库')}
         </button>
@@ -239,7 +239,7 @@ export default function WarehouseHandoverPage() {
                   borderRadius:8, color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('common.cancel', '取消')}</button>
               <button type="button" onClick={()=>{setShowConfirm(false);handleSubmit();}}
                 style={{ flex:2, padding:'14px', background:T.GRN, border:'none',
-                  borderRadius:8, color:'#0f172a', fontSize:15, fontWeight:700, cursor:'pointer' }}>
+                  borderRadius:8, color:'var(--bg-page)', fontSize:15, fontWeight:700, cursor:'pointer' }}>
                 {t('ui.确认入库', '确认入库')}
               </button>
             </div>

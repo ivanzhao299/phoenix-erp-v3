@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import PageHeader from '@/components/PageHeader';
+import { ConfirmDialogV2 } from '@/components/design-system';
 import { useToast } from '@/contexts/ToastContext';
 import styles from '@/components/ui/admin-ui.module.css';
 
@@ -25,11 +26,11 @@ const SCOPE_TYPE_LABELS: Record<string, string> = {
 };
 
 const SCOPE_TYPE_COLORS: Record<string, string> = {
-  SELF:    '#6b7280',
-  PROJECT: '#7c3aed',
-  COMPANY: '#2563eb',
-  REGION:  '#d97706',
-  GROUP:   '#dc2626',
+  SELF:    'var(--text-secondary)',
+  PROJECT: 'var(--status-special)',
+  COMPANY: 'var(--color-accent)',
+  REGION:  'var(--status-warning)',
+  GROUP:   'var(--status-danger)',
 };
 
 const ALL_SCOPE_TYPES = ['SELF', 'PROJECT', 'COMPANY', 'REGION', 'GROUP'] as const;
@@ -46,6 +47,7 @@ export default function DataScopesPage() {
   const [newModuleCode, setNewModuleCode] = useState('');
   const [newScopeType, setNewScopeType] = useState<string>('COMPANY');
   const [saving, setSaving] = useState(false);
+  const [delId, setDelId] = useState<number | null>(null);
 
   // ⚠️ 不能把 toast 放入 deps：toast 对象每次渲染都是新引用，
   // 若放入会导致：toast.error → 重渲染 → 新 toast → fetchScopes 重建
@@ -118,9 +120,11 @@ export default function DataScopesPage() {
     }
   };
 
-  // 删除规则
-  const handleDelete = async (id: number) => {
-    if (!confirm('确认删除此数据范围规则？')) return;
+  // 删除规则（ConfirmDialogV2 确认）
+  const handleDelete = (id: number) => setDelId(id);
+  const doDelete = async () => {
+    const id = delId; setDelId(null);
+    if (id == null) return;
     try {
       const res = await fetch(`/api/org/data-scopes/${id}`, {
         method: 'DELETE',
@@ -234,7 +238,7 @@ export default function DataScopesPage() {
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([moduleCode, rules]) => (
             <div key={moduleCode} className={styles.card} style={{ marginBottom: 16 }}>
-              <h4 style={{ margin: '0 0 12px', fontSize: 14, color: '#64748b', fontFamily: 'monospace' }}>
+              <h4 style={{ margin: '0 0 12px', fontSize: 14, color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
                 {moduleCode}
               </h4>
               <table className={styles.table}>
@@ -250,7 +254,7 @@ export default function DataScopesPage() {
                   {rules.map((s) => (
                     <tr key={s.id} style={{ opacity: s.enabled ? 1 : 0.5 }}>
                       <td>
-                        <code style={{ fontSize: 12, background: '#f1f5f9', padding: '2px 6px', borderRadius: 3 }}>
+                        <code style={{ fontSize: 12, background: 'var(--bg-muted)', padding: '2px 6px', borderRadius: 3 }}>
                           {s.roleCode}
                         </code>
                       </td>
@@ -263,7 +267,7 @@ export default function DataScopesPage() {
                             borderRadius: 4,
                             border: `1px solid ${SCOPE_TYPE_COLORS[s.scopeType]}`,
                             color: SCOPE_TYPE_COLORS[s.scopeType],
-                            background: '#fff',
+                            background: 'var(--bg-card)',
                             cursor: 'pointer',
                           }}
                           onChange={(e) => handleUpdateScope(s.id, e.target.value)}
@@ -279,7 +283,7 @@ export default function DataScopesPage() {
                             display: 'inline-block',
                             width: 10, height: 10,
                             borderRadius: '50%',
-                            background: s.enabled ? '#22c55e' : '#d1d5db',
+                            background: s.enabled ? 'var(--status-success)' : 'var(--border)',
                             marginRight: 6,
                           }}
                         />
@@ -290,8 +294,8 @@ export default function DataScopesPage() {
                           onClick={() => handleToggleEnabled(s)}
                           style={{
                             fontSize: 12, padding: '3px 10px', marginRight: 8,
-                            border: '1px solid #e2e8f0', borderRadius: 4,
-                            background: '#fff', cursor: 'pointer',
+                            border: '1px solid var(--border)', borderRadius: 4,
+                            background: 'var(--bg-card)', cursor: 'pointer',
                           }}
                         >
                           {s.enabled ? '禁用' : '启用'}
@@ -300,8 +304,8 @@ export default function DataScopesPage() {
                           onClick={() => handleDelete(s.id)}
                           style={{
                             fontSize: 12, padding: '3px 10px',
-                            border: '1px solid #fca5a5', borderRadius: 4,
-                            background: '#fff', color: '#ef4444', cursor: 'pointer',
+                            border: '1px solid var(--status-danger)', borderRadius: 4,
+                            background: 'var(--bg-card)', color: 'var(--status-danger)', cursor: 'pointer',
                           }}
                         >
                           删除
@@ -314,6 +318,16 @@ export default function DataScopesPage() {
             </div>
           ))
       )}
+
+      <ConfirmDialogV2
+        open={delId != null}
+        title="删除数据范围规则"
+        danger
+        confirmLabel="确认删除"
+        message="确认删除此数据范围规则？此操作不可撤销。"
+        onConfirm={doDelete}
+        onCancel={() => setDelId(null)}
+      />
     </div>
   );
 }

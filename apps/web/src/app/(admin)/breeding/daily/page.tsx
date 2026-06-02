@@ -406,10 +406,10 @@ export default function DailyPage() {
                 <td>{String(r.date ?? '—')}</td>
                 <td>{String(r.houseName ?? r.house ?? '—')}</td>
                 <td style={{ fontWeight:600 }}>{Number(r.eggs ?? 0).toLocaleString()}</td>
-                <td style={{ color: Number(r.dirtyEggs)>30?'#d97706':'var(--text-primary)' }}>{String(r.dirtyEggs ?? 0)}</td>
+                <td style={{ color: Number(r.dirtyEggs)>30?'var(--status-warning)':'var(--text-primary)' }}>{String(r.dirtyEggs ?? 0)}</td>
                 <td style={{ color: Number(r.brokenEggs)>20?'var(--status-danger)':'var(--text-primary)', fontWeight: Number(r.brokenEggs)>20?700:'normal' }}>{String(r.brokenEggs ?? 0)}</td>
                 <td style={{ color: Number(r.deaths)>8?'var(--status-danger)':'var(--text-primary)' }}>{String(r.deaths ?? '—')}</td>
-                <td style={{ color: Number(r.elimination)>0?'#f59e0b':'var(--text-primary)' }}>{Number(r.elimination) > 0 ? String(r.elimination) : '—'}</td>
+                <td style={{ color: Number(r.elimination)>0?'var(--status-warning)':'var(--text-primary)' }}>{Number(r.elimination) > 0 ? String(r.elimination) : '—'}</td>
                 <td style={{ color:'var(--text-secondary)', fontSize:12 }}>{String(r.cullingReason || '—')}</td>
                 <td>{String(r.feedKg ?? '—')}</td>
                 <td>{String(r.temp ?? '—')}℃</td>

@@ -237,7 +237,7 @@ export default function ShiftClosePage() {
         </div>
         <button type="button" onClick={()=>setShowConfirm(true)} disabled={!canClose||submitting}
           style={{ padding:'14px 40px', borderRadius:10, border:'none',
-            background:canClose?T.ACC:T.BOR, color:canClose?'#0f172a':T.MUT,
+            background:canClose?T.ACC:T.BOR, color:canClose?'var(--bg-page)':T.MUT,
             fontSize:16, fontWeight:700, cursor:canClose?'pointer':'not-allowed' }}>
           📋 {t('ui.提交交班', '提交交班')}
         </button>
@@ -261,7 +261,7 @@ export default function ShiftClosePage() {
                   borderRadius:8, color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('common.cancel', '取消')}</button>
               <button type="button" onClick={()=>{setShowConfirm(false);handleClose();}}
                 style={{ flex:2, padding:'14px', background:T.ACC, border:'none',
-                  borderRadius:8, color:'#0f172a', fontSize:15, fontWeight:700, cursor:'pointer' }}>
+                  borderRadius:8, color:'var(--bg-page)', fontSize:15, fontWeight:700, cursor:'pointer' }}>
                 {t('ui.确认交班', '确认交班')}
               </button>
             </div>

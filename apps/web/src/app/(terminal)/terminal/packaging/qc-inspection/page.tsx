@@ -22,7 +22,7 @@ export default function QCInspectionPage() {
     value:  ((d.terminalCode as string) || d.code) as QCResult,
     label:  d.label,
     desc:   (d.desc as string) ?? '',
-    color:  (d.color as string) ?? '#94a3b8',
+    color:  (d.color as string) ?? 'var(--text-disabled)',
     routeTo:(d.routeTo as string) ?? 'exceptions',
   }));
   const [form, setForm] = useState({
@@ -178,7 +178,7 @@ export default function QCInspectionPage() {
         <button type="button" onClick={handleSubmit} disabled={!form.qcResult || submitting}
           style={{ padding:'14px 40px', borderRadius:10, border:'none',
             background: form.qcResult ? T.ACC : T.BOR,
-            color: form.qcResult ? '#0f172a' : T.MUT,
+            color: form.qcResult ? 'var(--bg-page)' : T.MUT,
             fontSize:16, fontWeight:700, cursor: form.qcResult ? 'pointer' : 'not-allowed',
             opacity: submitting ? 0.7 : 1 }}>
           {submitting ? t('ui.提交中', '提交中...') : t('ui.提交首检结论', '提交首检结论')}

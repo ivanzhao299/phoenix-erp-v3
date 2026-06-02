@@ -111,7 +111,7 @@ export default function BrandSettingsPage() {
       <PageHeader title={t('ui.系统品牌设置', '系统品牌设置')} subtitle={t('ui.自定义系统名称公司简称和Logo', '自定义系统名称、公司简称和 Logo')} breadcrumb={[t('ui.系统设置', '系统设置'), t('ui.品牌配置', '品牌配置')]}/>
 
       {/* 实时预览卡 */}
-      <div style={{ ...card, background:"linear-gradient(135deg,#1a1f2e 0%,#252d40 100%)", border:"none" }}>
+      <div style={{ ...card, background:"linear-gradient(135deg,var(--bg-card) 0%,var(--bg-card) 100%)", border:"none" }}>
         <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:14, letterSpacing:"0.1em" }}>{t('ui.预览', '预 览')}</div>
         <div style={{ display:"flex", alignItems:"center", gap:14 }}>
           {form.logo_url
@@ -119,7 +119,7 @@ export default function BrandSettingsPage() {
             : <div style={{ width:48, height:48, borderRadius:8, background:"rgba(255,255,255,0.08)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>🏢</div>}
           <div>
             <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:2 }}>{form.company_name||t('ui.公司简称', '公司简称')}</div>
-            <div style={{ fontSize:16, fontWeight:800, color:"#f59e0b", lineHeight:1.2 }}>{form.system_name||t('ui.系统名称', '系统名称')}</div>
+            <div style={{ fontSize:16, fontWeight:800, color:"var(--status-warning)", lineHeight:1.2 }}>{form.system_name||t('ui.系统名称', '系统名称')}</div>
           </div>
         </div>
         {form.footer_text && <div style={{ marginTop:16, fontSize:11, color:"rgba(255,255,255,0.25)", borderTop:"1px solid rgba(255,255,255,0.08)", paddingTop:12 }}>{form.footer_text}</div>}
@@ -130,7 +130,7 @@ export default function BrandSettingsPage() {
         <div style={{ fontWeight:700, fontSize:14, marginBottom:18, display:"flex", alignItems:"center", gap:8, color:"var(--text-primary)" }}><Type size={16}/> {t('ui.文字信息', '文字信息')}</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:16 }}>
           <div>
-            <label style={{ display:"block", fontSize:12, fontWeight:600, color:"var(--text-secondary)", marginBottom:6 }}>{t('ui.系统名称', '系统名称')} <span style={{ color:"#dc2626" }}>*</span></label>
+            <label style={{ display:"block", fontSize:12, fontWeight:600, color:"var(--text-secondary)", marginBottom:6 }}>{t('ui.系统名称', '系统名称')} <span style={{ color:"var(--status-danger)" }}>*</span></label>
             <input value={form.system_name} onChange={e=>f("system_name",e.target.value)} placeholder={t('ui.凤凰农业ERP管理系统', '凤凰农业ERP管理系统')} style={inp}/>
             <div style={{ fontSize:11, color:"var(--text-secondary)", marginTop:4 }}>{t('ui.显示在侧边栏登录页浏览器标签', '显示在侧边栏、登录页、浏览器标签')}</div>
           </div>
@@ -180,7 +180,7 @@ export default function BrandSettingsPage() {
             </div>
             <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} style={{ display:"none" }}/>
             {form.logo_url && (
-              <button type="button" onClick={()=>f("logo_url","")} style={{ marginTop:8, fontSize:12, color:"#dc2626", background:"none", border:"none", cursor:"pointer", padding:0 }}>× {t('ui.移除Logo', '移除 Logo')}</button>
+              <button type="button" onClick={()=>f("logo_url","")} style={{ marginTop:8, fontSize:12, color:"var(--status-danger)", background:"none", border:"none", cursor:"pointer", padding:0 }}>× {t('ui.移除Logo', '移除 Logo')}</button>
             )}
           </div>
         </div>

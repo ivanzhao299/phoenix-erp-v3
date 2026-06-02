@@ -264,7 +264,7 @@ export default function BreedingPage() {
   const withdrawalCount = alerts.filter(a=>a.label===t('ui.停药期预警','停药期预警')).length;
   const immuneCount     = alerts.filter(a=>a.label===t('ui.免疫计划','免疫计划')).length;
 
-  const statusColor = (type: string) => ({ danger:"#dc2626", warning:"#f59e0b", info:"#3b82f6", success:"#22c55e" }[type]||"#94a3b8");
+  const statusColor = (type: string) => ({ danger:"var(--status-danger)", warning:"var(--status-warning)", info:"var(--color-accent)", success:"var(--status-success)" }[type]||"var(--text-disabled)");
 
   return (
     <div className="animate-fade-in">
@@ -289,11 +289,11 @@ export default function BreedingPage() {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))", gap:16, marginBottom:24 }}>
         {[
           { title:t('ui.存栏总数','存栏总数'),   value:totalBirds.toLocaleString(),    unit:t('ui.羽','羽'),  accent:"var(--color-primary)",  icon:<Users size={22}/> },
-          { title:t('ui.今日产蛋','今日产蛋'),   value:todayEggs.toLocaleString(),     unit:t('ui.枚','枚'),  accent:"#f59e0b",               icon:<Home size={22}/> },
-          { title:t('ui.有效养殖场','有效养殖场'), value:String(farms.length),           unit:t('ui.个','个'),  accent:"var(--status-success,#22c55e)", icon:<BarChart2 size={22}/> },
-          { title:t('ui.今日死淘','今日死淘'),   value:todayDeaths.toLocaleString(),   unit:t('ui.羽','羽'),  accent:"#dc2626",               icon:<AlertTriangle size={22}/> },
-          { title:t('ui.停药期预警','停药期预警'), value:String(withdrawalCount),        unit:t('ui.批','批'),  accent:"#7c3aed",               icon:<Droplets size={22}/> },
-          { title:t('ui.今日免疫任务','今日免疫任务'),value:String(immuneCount),         unit:t('ui.项','项'),  accent:"#059669",               icon:<ClipboardList size={22}/> },
+          { title:t('ui.今日产蛋','今日产蛋'),   value:todayEggs.toLocaleString(),     unit:t('ui.枚','枚'),  accent:"var(--status-warning)",               icon:<Home size={22}/> },
+          { title:t('ui.有效养殖场','有效养殖场'), value:String(farms.length),           unit:t('ui.个','个'),  accent:"var(--status-success,var(--status-success))", icon:<BarChart2 size={22}/> },
+          { title:t('ui.今日死淘','今日死淘'),   value:todayDeaths.toLocaleString(),   unit:t('ui.羽','羽'),  accent:"var(--status-danger)",               icon:<AlertTriangle size={22}/> },
+          { title:t('ui.停药期预警','停药期预警'), value:String(withdrawalCount),        unit:t('ui.批','批'),  accent:"var(--status-special)",               icon:<Droplets size={22}/> },
+          { title:t('ui.今日免疫任务','今日免疫任务'),value:String(immuneCount),         unit:t('ui.项','项'),  accent:"var(--status-success)",               icon:<ClipboardList size={22}/> },
         ].map(c=>(
           <div key={c.title} style={{ background:"var(--bg-card)", borderRadius:"var(--radius-lg)", padding:20,
             boxShadow:"var(--shadow-sm)", border:"1px solid var(--border)", borderLeft:`var(--card-accent-width) solid ${c.accent}` }}>
@@ -312,7 +312,7 @@ export default function BreedingPage() {
 
         {/* 环境设备卡 */}
         <div style={{ background:"var(--bg-card)", borderRadius:"var(--radius-lg)", padding:20,
-          boxShadow:"var(--shadow-sm)", border:"1px solid var(--border)", borderLeft:"var(--card-accent-width) solid #0891b2", position:"relative" }}>
+          boxShadow:"var(--shadow-sm)", border:"1px solid var(--border)", borderLeft:"var(--card-accent-width) solid var(--color-accent)", position:"relative" }}>
           <button type="button" onClick={()=>router.push("/breeding/device-alerts")}
             title={t('ui.进入环境预警中心','进入环境预警中心')}
             style={{ position:"absolute", top:12, right:12, background:"none", border:"none",
@@ -325,18 +325,18 @@ export default function BreedingPage() {
               <div style={{ display:"flex", gap:20 }}>
                 <div>
                   <div style={{ fontSize:28, fontWeight:700, lineHeight:1,
-                    color: deviceStats.openAlerts>0?"#ea580c":"var(--text-primary)" }}>{deviceStats.openAlerts}</div>
+                    color: deviceStats.openAlerts>0?"var(--status-warning)":"var(--text-primary)" }}>{deviceStats.openAlerts}</div>
                   <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:4 }}>{t('ui.未处理告警','未处理告警')}</div>
                 </div>
                 <div>
                   <div style={{ fontSize:28, fontWeight:700, lineHeight:1,
-                    color: deviceStats.offlineDevices>0?"#dc2626":"var(--text-primary)" }}>{deviceStats.offlineDevices}</div>
+                    color: deviceStats.offlineDevices>0?"var(--status-danger)":"var(--text-primary)" }}>{deviceStats.offlineDevices}</div>
                   <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:4 }}>{t('ui.离线设备','离线设备')}</div>
                 </div>
               </div>
             </div>
             <div style={{ width:48, height:48, borderRadius:"var(--radius-md)", display:"flex", alignItems:"center",
-              justifyContent:"center", background:"color-mix(in srgb,#0891b2 12%,transparent)", color:"#0891b2", flexShrink:0 }}>
+              justifyContent:"center", background:"color-mix(in srgb,var(--color-accent) 12%,transparent)", color:"var(--color-accent)", flexShrink:0 }}>
               <Wifi size={22}/>
             </div>
           </div>
@@ -363,15 +363,15 @@ export default function BreedingPage() {
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--color-primary)"; (e.currentTarget as HTMLElement).style.boxShadow = "var(--shadow-md)"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}>
                 <div style={{ width:48, height:48, borderRadius:"var(--radius-md)", flexShrink:0,
-                  background: farm.status==="warning"?"#fef2f2":"#eff6ff",
+                  background: farm.status==="warning"?"color-mix(in srgb, var(--status-danger) 10%, transparent)":"color-mix(in srgb, var(--color-accent) 12%, transparent)",
                   display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>🐔</div>
                 <div style={{ flex:1 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
                     <span style={{ fontWeight:700, fontSize:15, color:"var(--text-primary)" }}>{farm.name}</span>
                     <span style={{ fontSize:11, fontWeight:600, padding:"2px 8px", borderRadius:12,
-                      background: farm.status==="warning"?"#fef2f2":"#f0fdf4",
-                      color: farm.status==="warning"?"#dc2626":"#16a34a",
-                      border:`1px solid ${farm.status==="warning"?"#fca5a5":"#86efac"}` }}>
+                      background: farm.status==="warning"?"color-mix(in srgb, var(--status-danger) 10%, transparent)":"color-mix(in srgb, var(--status-success) 12%, transparent)",
+                      color: farm.status==="warning"?"var(--status-danger)":"var(--status-success)",
+                      border:`1px solid ${farm.status==="warning"?"var(--status-danger)":"var(--status-success)"}` }}>
                       {farm.status==="warning"?t('ui.需关注','需关注'):t('ui.正常','正常')}
                     </span>
                   </div>
@@ -380,14 +380,14 @@ export default function BreedingPage() {
                   </div>
                   {farmEnvMap[farm.id]&&(farmEnvMap[farm.id].temp!=null||farmEnvMap[farm.id].hum!=null)&&(
                     <div style={{ display:"flex", gap:8, marginTop:8, fontSize:11, fontWeight:600 }}>
-                      {farmEnvMap[farm.id].temp!=null&&<span style={{ background:"#fffbeb", padding:"3px 8px", borderRadius:12, color:"#d97706", border:"1px solid #fde68a" }}>🌡️ {farmEnvMap[farm.id].temp}℃</span>}
-                      {farmEnvMap[farm.id].hum!=null &&<span style={{ background:"#f0fdf4", padding:"3px 8px", borderRadius:12, color:"#16a34a", border:"1px solid #86efac" }}>💧 {farmEnvMap[farm.id].hum}%</span>}
+                      {farmEnvMap[farm.id].temp!=null&&<span style={{ background:"color-mix(in srgb, var(--status-warning) 12%, transparent)", padding:"3px 8px", borderRadius:12, color:"var(--status-warning)", border:"1px solid color-mix(in srgb, var(--status-warning) 18%, transparent)" }}>🌡️ {farmEnvMap[farm.id].temp}℃</span>}
+                      {farmEnvMap[farm.id].hum!=null &&<span style={{ background:"color-mix(in srgb, var(--status-success) 12%, transparent)", padding:"3px 8px", borderRadius:12, color:"var(--status-success)", border:"1px solid var(--status-success)" }}>💧 {farmEnvMap[farm.id].hum}%</span>}
                       {farmEnvMap[farm.id].co2!=null &&<span style={{ background:"var(--bg-page)", padding:"3px 8px", borderRadius:12, color:"var(--text-secondary)", border:"1px solid var(--border)" }}>☁️ {farmEnvMap[farm.id].co2} ppm</span>}
                     </div>
                   )}
                 </div>
                 <div style={{ textAlign:"right", flexShrink:0 }}>
-                  <div style={{ fontSize:22, fontWeight:700, color: typeof farm.layingRate === "string" && isNaN(Number(farm.layingRate)) ? "var(--text-secondary)" : Number(farm.layingRate)<WARN_LAY_RATE_PCT?"#dc2626":"#16a34a" }}>
+                  <div style={{ fontSize:22, fontWeight:700, color: typeof farm.layingRate === "string" && isNaN(Number(farm.layingRate)) ? "var(--text-secondary)" : Number(farm.layingRate)<WARN_LAY_RATE_PCT?"var(--status-danger)":"var(--status-success)" }}>
                     {farm.layingRate}%
                   </div>
                   <div style={{ fontSize:11, color:"var(--text-secondary)" }}>{t('ui.产蛋率','产蛋率')}</div>
@@ -434,9 +434,9 @@ export default function BreedingPage() {
               textTransform:"uppercase", letterSpacing:"0.5px" }}>{t('ui.本周汇总','本周汇总')}</h4>
             {[
               { label:t('ui.累计产蛋','累计产蛋'), val: weekSummary.eggs>0?weekSummary.eggs.toLocaleString()+` ${t('ui.枚','枚')}`:"—",  color:"var(--color-primary)" },
-              { label:t('ui.死淘累计','死淘累计'), val: weekSummary.mortality>0?weekSummary.mortality.toLocaleString()+` ${t('ui.羽','羽')}`:`0 ${t('ui.羽','羽')}`, color:"#dc2626" },
-              { label:t('ui.料蛋比均','料蛋比均'), val: String(weekSummary.feedRatio)||"—",                              color:"#16a34a" },
-              { label:t('ui.完成免疫','完成免疫'), val: weekSummary.immuneTotal>0?`${weekSummary.immuneDone} / ${weekSummary.immuneTotal} ${t('ui.项','项')}`:t('ui.暂无计划','暂无计划'), color:"#f59e0b" },
+              { label:t('ui.死淘累计','死淘累计'), val: weekSummary.mortality>0?weekSummary.mortality.toLocaleString()+` ${t('ui.羽','羽')}`:`0 ${t('ui.羽','羽')}`, color:"var(--status-danger)" },
+              { label:t('ui.料蛋比均','料蛋比均'), val: String(weekSummary.feedRatio)||"—",                              color:"var(--status-success)" },
+              { label:t('ui.完成免疫','完成免疫'), val: weekSummary.immuneTotal>0?`${weekSummary.immuneDone} / ${weekSummary.immuneTotal} ${t('ui.项','项')}`:t('ui.暂无计划','暂无计划'), color:"var(--status-warning)" },
             ].map(item=>(
               <div key={item.label} style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
                 <span style={{ fontSize:13, color:"var(--text-secondary)" }}>{item.label}</span>

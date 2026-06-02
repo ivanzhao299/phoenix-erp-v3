@@ -8,8 +8,8 @@ import s from "@/components/ui/admin-ui.module.css";
 
 type Status = "ok" | "warn" | "error" | "loading";
 
-const STATUS_COLOR: Record<Status, string> = { ok:"#16a34a", warn:"#d97706", error:"#dc2626", loading:"#9ca3af" };
-const STATUS_BG:    Record<Status, string> = { ok:"#dcfce7", warn:"#fef3c7", error:"#fee2e2", loading:"#f3f4f6" };
+const STATUS_COLOR: Record<Status, string> = { ok:"var(--status-success)", warn:"var(--status-warning)", error:"var(--status-danger)", loading:"var(--text-disabled)" };
+const STATUS_BG:    Record<Status, string> = { ok:"color-mix(in srgb, var(--status-success) 14%, transparent)", warn:"color-mix(in srgb, var(--status-warning) 16%, transparent)", error:"color-mix(in srgb, var(--status-danger) 14%, transparent)", loading:"var(--bg-muted)" };
 
 function HealthCard({ title, icon, value, unit, status, detail, color }: { title:string; icon:React.ReactNode; value?:string|number|null; unit?:string; status:Status; detail?:string; color:string }) {
   const { t } = useLanguage();
@@ -117,11 +117,11 @@ export default function SystemHealthPage() {
 
       {/* 健康卡片 */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))", gap:16, marginBottom:24 }}>
-        <HealthCard title={t("ui.API服务","API 服务")}       icon={<Activity size={20}/>} value={health==="ok" ? t("ui.运行中","运行中") : health==="error" ? t("ui.异常","异常") : null} status={health||"loading"} color="#6366f1" detail="GET /api/health"/>
-        <HealthCard title={t("ui.数据库连接","数据库连接")}     icon={<Database size={20}/>} value={ready==="ok" ? t("ui.已就绪","已就绪") : ready==="error" ? t("ui.断开","断开") : null}    status={ready||"loading"}  color="#22c55e" detail="GET /api/readiness (PostgreSQL)"/>
-        <HealthCard title={t("ui.API响应延迟","API 响应延迟")}   icon={<Wifi size={20}/>}     value={apiLatency} unit="ms" status={latencyStatus} color="#f59e0b"
+        <HealthCard title={t("ui.API服务","API 服务")}       icon={<Activity size={20}/>} value={health==="ok" ? t("ui.运行中","运行中") : health==="error" ? t("ui.异常","异常") : null} status={health||"loading"} color="var(--status-special)" detail="GET /api/health"/>
+        <HealthCard title={t("ui.数据库连接","数据库连接")}     icon={<Database size={20}/>} value={ready==="ok" ? t("ui.已就绪","已就绪") : ready==="error" ? t("ui.断开","断开") : null}    status={ready||"loading"}  color="var(--status-success)" detail="GET /api/readiness (PostgreSQL)"/>
+        <HealthCard title={t("ui.API响应延迟","API 响应延迟")}   icon={<Wifi size={20}/>}     value={apiLatency} unit="ms" status={latencyStatus} color="var(--status-warning)"
           detail={avgLatency ? `${t("ui.近","近")}${history.length}${t("ui.次平均","次平均")} ${avgLatency}ms，${t("ui.最高","最高")} ${maxLatency}ms` : t("ui.首次检测","首次检测")}/>
-        <HealthCard title={t("ui.前端内存占用","前端内存占用")}   icon={<Cpu size={20}/>}      value={memUsage?.used} unit="MB" status={memStatus} color="#8b5cf6"
+        <HealthCard title={t("ui.前端内存占用","前端内存占用")}   icon={<Cpu size={20}/>}      value={memUsage?.used} unit="MB" status={memStatus} color="var(--status-special)"
           detail={memUsage ? `${memUsage.pct}% / ${memUsage.limit}MB ${t("ui.上限","上限")}` : t("ui.仅Chromium内核支持","仅 Chromium 内核支持")}/>
       </div>
 
@@ -134,16 +134,16 @@ export default function SystemHealthPage() {
           <div style={{ display:"flex", alignItems:"flex-end", gap:3, height:80 }}>
             {history.map((v,i) => {
               const pct = Math.max(4, (v/sparkMax)*100);
-              const col = v<200?"#22c55e":v<800?"#f59e0b":"#dc2626";
+              const col = v<200?"var(--status-success)":v<800?"var(--status-warning)":"var(--status-danger)";
               return <div key={i} title={`${v}ms`} style={{ flex:1, height:`${pct}%`, backgroundColor:col, borderRadius:"3px 3px 0 0", opacity:i===history.length-1?1:0.65 }}/>;
             })}
           </div>
           <div style={{ display:"flex", justifyContent:"space-between", marginTop:8, fontSize:11, color:"var(--text-secondary)" }}>
             <span>{t("ui.最早","最早")}</span>
             <span style={{ display:"flex", gap:12 }}>
-              <span style={{ color:"#22c55e" }}>● &lt;200ms {t("status.normal","正常")}</span>
-              <span style={{ color:"#f59e0b" }}>● &lt;800ms {t("status.warning","警告")}</span>
-              <span style={{ color:"#dc2626" }}>● &gt;800ms {t("ui.故障","故障")}</span>
+              <span style={{ color:"var(--status-success)" }}>● &lt;200ms {t("status.normal","正常")}</span>
+              <span style={{ color:"var(--status-warning)" }}>● &lt;800ms {t("status.warning","警告")}</span>
+              <span style={{ color:"var(--status-danger)" }}>● &gt;800ms {t("ui.故障","故障")}</span>
             </span>
             <span>{t("ui.最新","最新")}</span>
           </div>

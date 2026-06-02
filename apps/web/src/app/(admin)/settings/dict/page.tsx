@@ -10,7 +10,7 @@ import s from "@/components/ui/admin-ui.module.css";
 
 // TYPE_LABEL 在组件内通过 useTypeLabelMap() 动态生成，支持多语言
 
-const COLORS = ["#3b82f6","#8b5cf6","#10b981","#f59e0b","#ef4444","#06b6d4","#ec4899","#14b8a6","#f97316","#6366f1"];
+const COLORS = ["var(--color-accent)","var(--status-special)","var(--status-success)","var(--status-warning)","var(--status-danger)","var(--color-accent)","var(--status-special)","var(--status-success)","var(--status-warning)","var(--status-special)"];
 const typeColor = (t: string) => COLORS[t.charCodeAt(0) % COLORS.length];
 
 const tok = () => (typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token")||"" : "");
@@ -201,7 +201,7 @@ export default function DictPage() {
   const f  = (k: string, v: unknown) => setForm(p=>({...p,[k]:v}));
   const fc = (k: string, v: unknown) => setForm(p=>({...p, cfg:{...p.cfg,[k]:v}}));
 
-  const selColor = selected ? typeColor(selected) : "#3b82f6";
+  const selColor = selected ? typeColor(selected) : "var(--color-accent)";
   const selLabel = selected ? (TYPE_LABEL[selected]||selected) : "";
 
   return (
@@ -266,7 +266,7 @@ export default function DictPage() {
                       {tp}
                     </div>
                   </div>
-                  <span style={{ fontSize:10, fontWeight:700, color:"#fff",
+                  <span style={{ fontSize:10, fontWeight:700, color:"var(--text-on-dark)",
                     background: isSel ? color : "var(--text-secondary)",
                     padding:"1px 6px", borderRadius:999, flexShrink:0 }}>
                     {items.length}
@@ -295,7 +295,7 @@ export default function DictPage() {
                   <div style={{ fontSize:14, fontWeight:700, color:"var(--text-primary)" }}>{selLabel}</div>
                   <div style={{ fontSize:11, fontFamily:"monospace", color:"var(--text-secondary)", marginTop:1 }}>{selected}</div>
                 </div>
-                <span style={{ fontSize:12, fontWeight:700, color:"#fff",
+                <span style={{ fontSize:12, fontWeight:700, color:"var(--text-on-dark)",
                   background:selColor, padding:"2px 10px", borderRadius:999 }}>
                   {selectedItems.length} {t("ui.条","条")}
                 </span>
@@ -357,7 +357,7 @@ export default function DictPage() {
                                 <Edit2 size={13}/>
                               </button>
                               <button type="button" onClick={()=>setDelRow(r)} className={s.btnIcon}
-                                style={{ color:"#dc2626", borderColor:"rgba(220,38,38,0.2)" }}>
+                                style={{ color:"var(--status-danger)", borderColor:"rgba(220,38,38,0.2)" }}>
                                 <Trash2 size={13}/>
                               </button>
                             </div>

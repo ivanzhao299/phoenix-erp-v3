@@ -47,9 +47,9 @@ const BIZ_TYPE_LABEL: Record<string, string> = {
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  APPROVED:  { label: "已通过", color: "#22c55e", icon: <CheckCircle size={14} /> },
-  REJECTED:  { label: "已拒绝", color: "#ef4444", icon: <XCircle size={14} /> },
-  CANCELLED: { label: "已取消", color: "#9ca3af", icon: <Clock size={14} /> },
+  APPROVED:  { label: "已通过", color: "var(--status-success)", icon: <CheckCircle size={14} /> },
+  REJECTED:  { label: "已拒绝", color: "var(--status-danger)", icon: <XCircle size={14} /> },
+  CANCELLED: { label: "已取消", color: "var(--text-disabled)", icon: <Clock size={14} /> },
 };
 
 const BIZ_TYPE_FILTERS = [
@@ -117,8 +117,8 @@ export default function ApprovalHistoryPage() {
       <section className={s.card}>
         <div className={s.cardBody} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Filter size={14} style={{ color: "#6b7280" }} />
-            <span style={{ fontSize: 13, color: "#6b7280", marginRight: 4 }}>业务类型：</span>
+            <Filter size={14} style={{ color: "var(--text-secondary)" }} />
+            <span style={{ fontSize: 13, color: "var(--text-secondary)", marginRight: 4 }}>业务类型：</span>
             {BIZ_TYPE_FILTERS.map(f => (
               <button
                 key={f.value}
@@ -126,9 +126,9 @@ export default function ApprovalHistoryPage() {
                 style={{
                   padding: "4px 12px", borderRadius: 6, fontSize: 13, cursor: "pointer",
                   border: "1px solid",
-                  borderColor: bizType === f.value ? "#3b82f6" : "#e5e7eb",
-                  background: bizType === f.value ? "#eff6ff" : "#fff",
-                  color: bizType === f.value ? "#3b82f6" : "#374151",
+                  borderColor: bizType === f.value ? "var(--color-accent)" : "var(--border)",
+                  background: bizType === f.value ? "color-mix(in srgb, var(--color-accent) 12%, transparent)" : "var(--bg-card)",
+                  color: bizType === f.value ? "var(--color-accent)" : "var(--text-primary)",
                   fontWeight: bizType === f.value ? 600 : 400,
                 }}
               >
@@ -142,9 +142,9 @@ export default function ApprovalHistoryPage() {
         </div>
 
         {loading ? (
-          <div className={s.cardBody} style={{ textAlign: "center", color: "#9ca3af", padding: 48 }}>加载中…</div>
+          <div className={s.cardBody} style={{ textAlign: "center", color: "var(--text-disabled)", padding: 48 }}>加载中…</div>
         ) : list.length === 0 ? (
-          <div className={s.cardBody} style={{ textAlign: "center", color: "#9ca3af", padding: 48 }}>
+          <div className={s.cardBody} style={{ textAlign: "center", color: "var(--text-disabled)", padding: 48 }}>
             <Clock size={36} style={{ margin: "0 auto 12px", opacity: 0.4 }} />
             <p>暂无审批历史</p>
           </div>
@@ -165,7 +165,7 @@ export default function ApprovalHistoryPage() {
               </thead>
               <tbody>
                 {list.map(inst => {
-                  const cfg = STATUS_CONFIG[inst.status] ?? { label: inst.status, color: "#9ca3af", icon: null };
+                  const cfg = STATUS_CONFIG[inst.status] ?? { label: inst.status, color: "var(--text-disabled)", icon: null };
                   return (
                     <tr key={inst.id}>
                       <td>{BIZ_TYPE_LABEL[inst.bizType] ?? inst.bizType}</td>
@@ -182,14 +182,14 @@ export default function ApprovalHistoryPage() {
                           ? `${Number(inst.amount).toLocaleString("zh-CN", { maximumFractionDigits: 0 })} ${inst.currencyCode ?? ""}`
                           : "-"}
                       </td>
-                      <td style={{ fontSize: 12, color: "#6b7280" }}>{inst.companyName ?? "-"}</td>
+                      <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{inst.companyName ?? "-"}</td>
                       <td>
                         <span style={{ display: "flex", alignItems: "center", gap: 5, color: cfg.color, fontWeight: 600, fontSize: 13 }}>
                           {cfg.icon} {cfg.label}
                         </span>
                       </td>
-                      <td style={{ fontSize: 12, color: "#6b7280" }}>{fmtDate(inst.startedAt)}</td>
-                      <td style={{ fontSize: 12, color: "#6b7280" }}>{fmtDate(inst.finishedAt)}</td>
+                      <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{fmtDate(inst.startedAt)}</td>
+                      <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{fmtDate(inst.finishedAt)}</td>
                     </tr>
                   );
                 })}
@@ -198,7 +198,7 @@ export default function ApprovalHistoryPage() {
 
             {/* 分页 */}
             <div className={s.cardBody} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 13, color: "#6b7280" }}>共 {total} 条</span>
+              <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>共 {total} 条</span>
               <div style={{ display: "flex", gap: 6 }}>
                 <button
                   className={s.btnSecondary}
@@ -208,7 +208,7 @@ export default function ApprovalHistoryPage() {
                 >
                   <ChevronLeft size={14} />
                 </button>
-                <span style={{ padding: "4px 12px", fontSize: 13, color: "#374151" }}>
+                <span style={{ padding: "4px 12px", fontSize: 13, color: "var(--text-primary)" }}>
                   {page} / {totalPages}
                 </span>
                 <button

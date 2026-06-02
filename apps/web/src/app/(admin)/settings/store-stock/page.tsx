@@ -52,11 +52,11 @@ export default function StoreStockConfigPage() {
     <div className="animate-fade-in">
       <PageHeader title={t('ui.直营店分账库存配置', '直营店分账库存配置')} subtitle={t('ui.强制隔离直营店的门店零售库存与批发渠道库存防止套利冲货', '强制隔离直营店的「门店零售库存」与「批发渠道库存」，防止套利冲货')} breadcrumb={[t('ui.系统设置', '系统设置'), t('ui.分账库存配置', '分账库存配置')]}/>
 
-      <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderLeft: "var(--card-accent-width) solid #3b82f6", borderRadius: "var(--radius-lg)", padding: 16, display: "flex", gap: 12, marginBottom: 24 }}>
-        <ShieldCheck color="#2563eb" size={24} style={{ flexShrink: 0, marginTop: 2 }}/>
+      <div style={{ background: "color-mix(in srgb, var(--color-accent) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--color-accent) 16%, transparent)", borderLeft: "var(--card-accent-width) solid var(--color-accent)", borderRadius: "var(--radius-lg)", padding: 16, display: "flex", gap: 12, marginBottom: 24 }}>
+        <ShieldCheck color="var(--color-accent)" size={24} style={{ flexShrink: 0, marginTop: 2 }}/>
         <div>
-          <h4 style={{ margin: "0 0 4px", color: "#1e40af", fontSize: 15 }}>{t('ui.分账库存规则说明', '分账库存规则说明')}</h4>
-          <p style={{ margin: 0, color: "#1e40af", fontSize: 13, lineHeight: 1.7 }}>
+          <h4 style={{ margin: "0 0 4px", color: "var(--color-accent)", fontSize: 15 }}>{t('ui.分账库存规则说明', '分账库存规则说明')}</h4>
+          <p style={{ margin: 0, color: "var(--color-accent)", fontSize: 13, lineHeight: 1.7 }}>
             {t('ui.系统默认所有门店共用统一物理库存', '系统默认所有门店共用统一物理库存。对具有批发职能的')}<strong>{t('ui.直营店', '直营店')}</strong>{t('ui.开启后系统将自动拆分逻辑库存', '开启后，系统将自动拆分逻辑库存：')}<br/>
             1. <strong>{t('ui.零售端POS', '零售端 (POS)')}</strong>：{t('ui.只能消耗RetailStock按零售价结算', '只能消耗 Retail_Stock，按零售价结算；')}<br/>
             2. <strong>{t('ui.渠道端B2B', '渠道端 (B2B)')}</strong>：{t('ui.只能消耗WholesaleStock按渠道价结算', '只能消耗 Wholesale_Stock，按渠道价结算。')}
@@ -85,7 +85,7 @@ export default function StoreStockConfigPage() {
                   <Store size={14} color="var(--text-secondary)"/>{row.name}
                 </td>
                 <td>
-                  <span style={{ fontSize: 12, background: row.type === "DIRECT" ? "#dcfce7" : "#f3f4f6", color: row.type === "DIRECT" ? "#15803d" : "#4b5563", padding: "3px 8px", borderRadius: 4, fontWeight: 600 }}>
+                  <span style={{ fontSize: 12, background: row.type === "DIRECT" ? "color-mix(in srgb, var(--status-success) 14%, transparent)" : "var(--bg-muted)", color: row.type === "DIRECT" ? "var(--status-success)" : "var(--text-secondary)", padding: "3px 8px", borderRadius: 4, fontWeight: 600 }}>
                     {row.type === "DIRECT" ? t('ui.直营店', '直营店') : t('ui.加盟店', '加盟店')}
                   </span>
                 </td>
@@ -93,10 +93,10 @@ export default function StoreStockConfigPage() {
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <button type="button" onClick={() => toggle(row.id)} style={{ background: "none", border: "none", cursor: row.type === "DIRECT" ? "pointer" : "not-allowed", padding: 0, opacity: row.type === "DIRECT" ? 1 : 0.4 }}>
                       {row.split_stock_enabled
-                        ? <ToggleRight size={26} color="#22c55e"/>
-                        : <ToggleLeft size={26} color="#9ca3af"/>}
+                        ? <ToggleRight size={26} color="var(--status-success)"/>
+                        : <ToggleLeft size={26} color="var(--text-disabled)"/>}
                     </button>
-                    <span style={{ fontSize: 13, color: row.split_stock_enabled ? "#22c55e" : "var(--text-secondary)", fontWeight: row.split_stock_enabled ? 700 : 400 }}>
+                    <span style={{ fontSize: 13, color: row.split_stock_enabled ? "var(--status-success)" : "var(--text-secondary)", fontWeight: row.split_stock_enabled ? 700 : 400 }}>
                       {row.split_stock_enabled ? t('ui.已开启双库存池', '已开启（双库存池）') : t('ui.未开启单库存池', '未开启（单库存池）')}
                     </span>
                   </div>

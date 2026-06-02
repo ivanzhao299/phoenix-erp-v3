@@ -40,22 +40,22 @@ export default function TerminalDashboard() {
     : t('ui.箱', '箱');
 
   const PIPELINE = [
-    { label: t('ui.已接收', '已接收'), value: receivedQty, unit: t('ui.枚', '枚'),  color: '#3b82f6' },
-    { label: t('ui.已分级', '已分级'), value: gradedTotal, unit: t('ui.枚', '枚'),   color: '#7c3aed' },
-    { label: t('ui.已包装', '已包装'), value: packedBoxes, unit: packedUnitLabel,    color: '#f59e0b' },
-    { label: t('ui.已入库', '已入库'), value: packedBoxes, unit: packedUnitLabel,    color: '#059669' },
+    { label: t('ui.已接收', '已接收'), value: receivedQty, unit: t('ui.枚', '枚'),  color: 'var(--color-accent)' },
+    { label: t('ui.已分级', '已分级'), value: gradedTotal, unit: t('ui.枚', '枚'),   color: 'var(--status-special)' },
+    { label: t('ui.已包装', '已包装'), value: packedBoxes, unit: packedUnitLabel,    color: 'var(--status-warning)' },
+    { label: t('ui.已入库', '已入库'), value: packedBoxes, unit: packedUnitLabel,    color: 'var(--status-success)' },
   ];
 
   const ACTIONS = [
-    { icon: '📥', label: t('terminal.source_receive', '集蛋接收'), color: '#3b82f6', path: '/terminal/packaging/source-receive',     desc: t('ui.扫码或手动录入', '扫码或手动录入') },
-    { icon: '📊', label: t('terminal.grading', '分级作业'),        color: '#7c3aed', path: '/terminal/packaging/grading',            desc: t('ui.选批次录等级产出', '选批次录等级产出') },
-    { icon: '📦', label: t('terminal.packing', '包装作业'),        color: '#f59e0b', path: '/terminal/packaging/packing',            desc: t('ui.规格选择箱数录入', '规格选择箱数录入') },
-    { icon: '🏷️', label: t('terminal.label_print', '标签打印'),    color: '#059669', path: '/terminal/packaging/label-print',        desc: t('ui.打印补打箱标', '打印/补打箱标') },
-    { icon: '🏭', label: t('terminal.warehouse_handover', '成品入库'), color: '#0891b2', path: '/terminal/packaging/warehouse-handover', desc: t('ui.扫码确认入库', '扫码确认入库') },
+    { icon: '📥', label: t('terminal.source_receive', '集蛋接收'), color: 'var(--color-accent)', path: '/terminal/packaging/source-receive',     desc: t('ui.扫码或手动录入', '扫码或手动录入') },
+    { icon: '📊', label: t('terminal.grading', '分级作业'),        color: 'var(--status-special)', path: '/terminal/packaging/grading',            desc: t('ui.选批次录等级产出', '选批次录等级产出') },
+    { icon: '📦', label: t('terminal.packing', '包装作业'),        color: 'var(--status-warning)', path: '/terminal/packaging/packing',            desc: t('ui.规格选择箱数录入', '规格选择箱数录入') },
+    { icon: '🏷️', label: t('terminal.label_print', '标签打印'),    color: 'var(--status-success)', path: '/terminal/packaging/label-print',        desc: t('ui.打印补打箱标', '打印/补打箱标') },
+    { icon: '🏭', label: t('terminal.warehouse_handover', '成品入库'), color: 'var(--color-accent)', path: '/terminal/packaging/warehouse-handover', desc: t('ui.扫码确认入库', '扫码确认入库') },
     {
       icon: '⚠️',
       label: t('terminal.exceptions', '异常上报'),
-      color: openExceptionCount > 0 ? '#ef4444' : '#64748b',
+      color: openExceptionCount > 0 ? 'var(--status-danger)' : 'var(--text-secondary)',
       path: '/terminal/packaging/exceptions',
       desc: openExceptionCount > 0
         ? `${openExceptionCount} ${t('ui.条未处理', '条未处理')}`
@@ -78,28 +78,28 @@ export default function TerminalDashboard() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{
-                background: 'rgba(16,185,129,0.25)', color: '#10b981',
+                background: 'rgba(16,185,129,0.25)', color: 'var(--status-success)',
                 borderRadius: 8, padding: '5px 14px', fontSize: 18, fontWeight: 800, letterSpacing: 0.5,
               }}>
                 {({ MORNING: t('ui.早班','早班'), AFTERNOON: t('ui.下午班','下午班'), NIGHT: t('ui.夜班','夜班') } as Record<string, string>)[ctx.currentShift.shiftType ?? ''] ?? ctx.currentShift.shiftType ?? ctx.currentShift.code}
               </span>
-              <span style={{ fontSize: 15, color: '#10b981', fontWeight: 700 }}>● {t('ui.进行中', '进行中')}</span>
+              <span style={{ fontSize: 15, color: 'var(--status-success)', fontWeight: 700 }}>● {t('ui.进行中', '进行中')}</span>
             </div>
-            <span style={{ color: '#334155', fontSize: 18 }}>|</span>
+            <span style={{ color: 'var(--border)', fontSize: 18 }}>|</span>
             {ctx.currentShift.lineName && (
-              <div style={{ fontSize: 16, color: '#94a3b8' }}>
-                <span style={{ color: '#64748b', marginRight: 6 }}>{t('ui.线体', '线体')}</span>
-                <span style={{ color: '#e2e8f0', fontWeight: 700 }}>{ctx.currentShift.lineName}</span>
+              <div style={{ fontSize: 16, color: 'var(--text-disabled)' }}>
+                <span style={{ color: 'var(--text-secondary)', marginRight: 6 }}>{t('ui.线体', '线体')}</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{ctx.currentShift.lineName}</span>
               </div>
             )}
             {ctx.currentShift.supervisorName && (
-              <div style={{ fontSize: 16, color: '#94a3b8' }}>
-                <span style={{ color: '#64748b', marginRight: 6 }}>{t('ui.班组长', '班组长')}</span>
-                <span style={{ color: '#e2e8f0', fontWeight: 700 }}>{ctx.currentShift.supervisorName}</span>
+              <div style={{ fontSize: 16, color: 'var(--text-disabled)' }}>
+                <span style={{ color: 'var(--text-secondary)', marginRight: 6 }}>{t('ui.班组长', '班组长')}</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{ctx.currentShift.supervisorName}</span>
               </div>
             )}
             {ctx.currentShift.openedAt && (
-              <div style={{ fontSize: 15, color: '#475569' }}>
+              <div style={{ fontSize: 15, color: 'var(--text-secondary)' }}>
                 {t('ui.开班时间', '开班')} {new Date(ctx.currentShift.openedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}
               </div>
             )}
@@ -107,7 +107,7 @@ export default function TerminalDashboard() {
             <button type="button" onClick={() => router.push('/terminal/packaging/shift-close')}
               style={{
                 background: 'transparent', border: '1px solid rgba(16,185,129,0.4)',
-                color: '#10b981', borderRadius: 8, padding: '10px 24px',
+                color: 'var(--status-success)', borderRadius: 8, padding: '10px 24px',
                 fontSize: 16, fontWeight: 700, cursor: 'pointer',
               }}>
               {t('ui.交班', '交班')}
@@ -120,13 +120,13 @@ export default function TerminalDashboard() {
             display: 'flex', alignItems: 'center', gap: 16,
           }}>
             <span style={{ fontSize: 24 }}>⏰</span>
-            <span style={{ fontSize: 17, color: '#f59e0b', fontWeight: 700 }}>{t('ui.当前无进行中的班次', '当前无进行中的班次')}</span>
-            <span style={{ fontSize: 15, color: '#64748b' }}>{t('ui.请先开班再开始作业', '请先开班再开始作业')}</span>
+            <span style={{ fontSize: 17, color: 'var(--status-warning)', fontWeight: 700 }}>{t('ui.当前无进行中的班次', '当前无进行中的班次')}</span>
+            <span style={{ fontSize: 15, color: 'var(--text-secondary)' }}>{t('ui.请先开班再开始作业', '请先开班再开始作业')}</span>
             <div style={{ flex: 1 }} />
             <button type="button" onClick={() => router.push('/terminal/packaging/shift-open')}
               style={{
-                background: '#f59e0b', border: 'none',
-                color: '#0f172a', borderRadius: 8, padding: '10px 28px',
+                background: 'var(--status-warning)', border: 'none',
+                color: 'var(--bg-page)', borderRadius: 8, padding: '10px 28px',
                 fontSize: 16, fontWeight: 700, cursor: 'pointer',
               }}>
               {t('ui.开班', '开班')}
@@ -191,12 +191,12 @@ export default function TerminalDashboard() {
 
       {/* Exception alert bar */}
       <div style={{
-        background: '#3b1515', borderTop: `1px solid #7f1d1d`,
+        background: 'var(--status-danger)', borderTop: `1px solid var(--status-danger)`,
         padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
         cursor: 'pointer', visibility: openExceptionCount > 0 ? 'visible' : 'hidden',
       }} onClick={() => router.push('/terminal/packaging/exceptions')}>
         <span style={{ fontSize: 20 }}>⚠️</span>
-        <span style={{ color: '#fca5a5', fontSize: 16, fontWeight: 600 }}>
+        <span style={{ color: 'var(--status-danger)', fontSize: 16, fontWeight: 600 }}>
           {t('ui.存在', '存在')} {openExceptionCount} {t('ui.条未关闭异常点击处理', '条未关闭异常 — 点击处理')}
         </span>
       </div>

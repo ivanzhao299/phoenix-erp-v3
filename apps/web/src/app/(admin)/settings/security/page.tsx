@@ -39,7 +39,7 @@ export default function SecurityPolicyPage() {
     </div>
   );
 
-  const STATUS_COLOR: Record<string, string> = { APPROVED: "#16a34a", REJECTED: "#dc2626", PENDING: "#ca8a04", SUBMITTED: "#2563eb", CANCELLED: "#6b7280" };
+  const STATUS_COLOR: Record<string, string> = { APPROVED: "var(--status-success)", REJECTED: "var(--status-danger)", PENDING: "var(--status-warning)", SUBMITTED: "var(--color-accent)", CANCELLED: "var(--text-secondary)" };
 
   return (
     <div className="animate-fade-in">
@@ -47,15 +47,15 @@ export default function SecurityPolicyPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 }}>
         <InfoCard icon={<Clock size={20}/>} title={t('ui.Token有效期', 'Token 有效期')} value={t('ui.8小时', '8 小时')} desc={t('ui.登录状态自动失效时间', '登录状态自动失效时间')}/>
         <InfoCard icon={<Shield size={20}/>} title={t('ui.API请求限制', 'API 请求限制')} value={t('ui.300次15分钟', '300次/15分钟')} desc={t('ui.按IP防暴力破解', '按 IP 防暴力破解')} color="var(--color-warning)"/>
-        <InfoCard icon={<Users size={20}/>} title={t('ui.冻结账户', '冻结账户')} value={loading ? "…" : frozenUsers.length} desc={frozenUsers.length > 0 ? frozenUsers.map(u => u.username).join(", ") : t('ui.无冻结账户', '无冻结账户')} color={frozenUsers.length > 0 ? "#ef4444" : "#22c55e"}/>
-        <InfoCard icon={<Lock size={20}/>} title={t('ui.密码加密', '密码加密')} value="bcrypt+Salt" desc={t('ui.独立随机盐无彩虹表风险', '独立随机盐，无彩虹表风险')} color="#22c55e"/>
+        <InfoCard icon={<Users size={20}/>} title={t('ui.冻结账户', '冻结账户')} value={loading ? "…" : frozenUsers.length} desc={frozenUsers.length > 0 ? frozenUsers.map(u => u.username).join(", ") : t('ui.无冻结账户', '无冻结账户')} color={frozenUsers.length > 0 ? "var(--status-danger)" : "var(--status-success)"}/>
+        <InfoCard icon={<Lock size={20}/>} title={t('ui.密码加密', '密码加密')} value="bcrypt+Salt" desc={t('ui.独立随机盐无彩虹表风险', '独立随机盐，无彩虹表风险')} color="var(--status-success)"/>
       </div>
       <div style={{ ...card, borderLeft: "var(--card-accent-width) solid var(--color-warning)", padding: "16px 20px" }}>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
           <AlertTriangle size={16} color="var(--color-warning)"/>{t('ui.安全注意事项', '安全注意事项')}
         </div>
         <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.9 }}>
-          <li>JWT_SECRET {t('ui.当前为开发模式值正式上线前必须通过环境变量重新配置', '当前为开发模式值，')}<strong style={{ color: "#dc2626" }}>{t('ui.正式上线前必须通过环境变量重新配置', '正式上线前必须通过环境变量重新配置')}</strong></li>
+          <li>JWT_SECRET {t('ui.当前为开发模式值正式上线前必须通过环境变量重新配置', '当前为开发模式值，')}<strong style={{ color: "var(--status-danger)" }}>{t('ui.正式上线前必须通过环境变量重新配置', '正式上线前必须通过环境变量重新配置')}</strong></li>
           <li>{t('ui.API限流已启用请勿在内网场景下关闭防止内部设备密码爆破', 'API 限流已启用，请勿在内网场景下关闭，防止内部设备密码爆破')}</li>
           <li>{t('ui.建议定期轮换管理员密码周期不超过90天', '建议定期轮换管理员密码，周期 ≤ 90 天')}</li>
           <li>{t('ui.系统初始化页面在生产环境应额外二次验证或完全禁用', '系统初始化页面（/settings/system-init）在生产环境应额外二次验证或完全禁用')}</li>
@@ -103,7 +103,7 @@ export default function SecurityPolicyPage() {
                     <td>{log.submitter || log.operator || "—"}</td>
                     <td style={{ color: "var(--text-secondary)", fontSize: 12 }}>{log.created_at ? new Date(log.created_at).toLocaleString("zh-CN") : "—"}</td>
                     <td>
-                      <span style={{ padding: "3px 8px", borderRadius: 10, fontSize: 12, fontWeight: 700, background: (STATUS_COLOR[log.status ?? ''] || "#94a3b8") + "22", color: STATUS_COLOR[log.status ?? ''] || "#94a3b8" }}>
+                      <span style={{ padding: "3px 8px", borderRadius: 10, fontSize: 12, fontWeight: 700, background: (STATUS_COLOR[log.status ?? ''] || "var(--text-disabled)") + "22", color: STATUS_COLOR[log.status ?? ''] || "var(--text-disabled)" }}>
                         {log.status || "PENDING"}
                       </span>
                     </td>

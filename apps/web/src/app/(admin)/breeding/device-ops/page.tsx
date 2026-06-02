@@ -73,16 +73,16 @@ function StatusPill({ active, label }: { active: boolean; label: string }) {
   return (
     <span style={{
       display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700,
-      background: active ? "#dcfce7" : "#f1f5f9", color: active ? "#16a34a" : "#64748b",
+      background: active ? "color-mix(in srgb, var(--status-success) 14%, transparent)" : "var(--text-primary)", color: active ? "var(--status-success)" : "var(--text-secondary)",
     }}>{label}</span>
   );
 }
 function JobStatusPill({ status }: { status: string }) {
   const map: Record<string, [string, string]> = {
-    SUCCESS: ["#dcfce7", "#16a34a"], RUNNING: ["#dbeafe", "#2563eb"],
-    FAILED: ["#fee2e2", "#dc2626"], PARTIAL: ["#fef9c3", "#854d0e"],
+    SUCCESS: ["color-mix(in srgb, var(--status-success) 14%, transparent)", "var(--status-success)"], RUNNING: ["color-mix(in srgb, var(--color-accent) 14%, transparent)", "var(--color-accent)"],
+    FAILED: ["color-mix(in srgb, var(--status-danger) 14%, transparent)", "var(--status-danger)"], PARTIAL: ["color-mix(in srgb, var(--status-warning) 14%, transparent)", "var(--status-warning)"],
   };
-  const [bg, color] = map[status] || ["#f1f5f9", "#64748b"];
+  const [bg, color] = map[status] || ["var(--text-primary)", "var(--text-secondary)"];
   return <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700, background: bg, color }}>{status}</span>;
 }
 function fmtDt(v?: string | null) { return v ? new Date(v).toLocaleString("zh-CN") : "—"; }
@@ -312,8 +312,8 @@ export default function DeviceOpsPage() {
   ];
 
   const OP_TYPE_COLORS: Record<string, string> = {
-    MAPPING: "#6366f1", THRESHOLD: "#f59e0b",
-    ALERT_CONFIG: "#ec4899", MANUAL_SYNC: "#22c55e",
+    MAPPING: "var(--status-special)", THRESHOLD: "var(--status-warning)",
+    ALERT_CONFIG: "var(--status-special)", MANUAL_SYNC: "var(--status-success)",
   };
 
   return (
@@ -339,12 +339,12 @@ export default function DeviceOpsPage() {
       {/* API 认证状态 */}
       {authStatus && (
         <div style={{
-          background: authStatus.hasToken ? "color-mix(in srgb,#22c55e 8%,transparent)" : "color-mix(in srgb,#f59e0b 10%,transparent)",
-          border: `1px solid ${authStatus.hasToken ? "#bbf7d0" : "#fde68a"}`,
+          background: authStatus.hasToken ? "color-mix(in srgb,var(--status-success) 8%,transparent)" : "color-mix(in srgb,var(--status-warning) 10%,transparent)",
+          border: `1px solid ${authStatus.hasToken ? "var(--status-success)" : "color-mix(in srgb, var(--status-warning) 18%, transparent)"}`,
           borderRadius: 8, padding: "10px 16px", marginBottom: 16,
           display: "flex", alignItems: "center", gap: 10, fontSize: 13,
         }}>
-          {authStatus.hasToken ? <Wifi size={14} style={{ color: "#22c55e" }} /> : <WifiOff size={14} style={{ color: "#f59e0b" }} />}
+          {authStatus.hasToken ? <Wifi size={14} style={{ color: "var(--status-success)" }} /> : <WifiOff size={14} style={{ color: "var(--status-warning)" }} />}
           <span style={{ fontWeight: 600 }}>第三方 IoT API：</span>
           {authStatus.hasToken
             ? `${t("ui.已认证", "已认证")} · AppID: ${authStatus.appId} · Token 剩余 ${authStatus.remainMin} min`
@@ -447,8 +447,8 @@ export default function DeviceOpsPage() {
                     <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtDt(row.started_at)}</td>
                     <td>{row.duration_ms != null ? `${row.duration_ms}ms` : "—"}</td>
                     <td>{row.total_houses ?? "—"}</td>
-                    <td style={{ color: "#16a34a", fontWeight: 600 }}>{row.success_count ?? "—"}</td>
-                    <td style={{ color: (row.fail_count ?? 0) > 0 ? "#dc2626" : "var(--text-secondary)", fontWeight: 600 }}>{row.fail_count ?? "—"}</td>
+                    <td style={{ color: "var(--status-success)", fontWeight: 600 }}>{row.success_count ?? "—"}</td>
+                    <td style={{ color: (row.fail_count ?? 0) > 0 ? "var(--status-danger)" : "var(--text-secondary)", fontWeight: 600 }}>{row.fail_count ?? "—"}</td>
                     <td>{row.record_count ?? "—"}</td>
                     <td><JobStatusPill status={row.status} /></td>
                   </tr>
@@ -476,14 +476,14 @@ export default function DeviceOpsPage() {
               </thead>
               <tbody>
                 {offlineDevices.length === 0 ? (
-                  <tr><td colSpan={6} style={{ textAlign: "center", padding: 40, color: "#22c55e" }}>✅ 暂无离线设备</td></tr>
+                  <tr><td colSpan={6} style={{ textAlign: "center", padding: 40, color: "var(--status-success)" }}>✅ 暂无离线设备</td></tr>
                 ) : offlineDevices.map(row => (
                   <tr key={row.id}>
                     <td><code style={{ fontSize: 12 }}>{row.imei}</code></td>
                     <td>{row.device_name || "—"}</td>
                     <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{row.device_type || "—"}</td>
                     <td><code style={{ fontSize: 12 }}>{row.erp_house_code || "—"}</code></td>
-                    <td><span style={{ padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700, background: "#fee2e2", color: "#dc2626" }}>{row.status || "离线"}</span></td>
+                    <td><span style={{ padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700, background: "color-mix(in srgb, var(--status-danger) 14%, transparent)", color: "var(--status-danger)" }}>{row.status || "离线"}</span></td>
                     <td style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{fmtDt(row.last_online_at)}</td>
                   </tr>
                 ))}
@@ -518,12 +518,12 @@ export default function DeviceOpsPage() {
                     <td style={{ fontWeight: 600 }}>{row.name_zh}</td>
                     <td style={{ color: "var(--text-secondary)" }}>{row.unit || "—"}</td>
                     <td style={{ color: "var(--text-secondary)", fontSize: 12 }}>{row.category || "—"}</td>
-                    <td style={{ color: row.threshold_high != null ? "#dc2626" : "var(--text-secondary)" }}>{row.threshold_high ?? "—"}</td>
-                    <td style={{ color: row.threshold_low  != null ? "#2563eb" : "var(--text-secondary)" }}>{row.threshold_low  ?? "—"}</td>
+                    <td style={{ color: row.threshold_high != null ? "var(--status-danger)" : "var(--text-secondary)" }}>{row.threshold_high ?? "—"}</td>
+                    <td style={{ color: row.threshold_low  != null ? "var(--color-accent)" : "var(--text-secondary)" }}>{row.threshold_low  ?? "—"}</td>
                     <td>{(row.alert_min_duration_cycles ?? 3)}次</td>
                     <td>{Math.round(((row.alert_volatility_pct ?? 0.2)) * 100)}%</td>
-                    <td><span style={{ width: 10, height: 10, borderRadius: "50%", display: "inline-block", background: row.alarm_enabled ? "#16a34a" : "#9ca3af" }} /></td>
-                    <td><span style={{ width: 10, height: 10, borderRadius: "50%", display: "inline-block", background: row.trend_enabled ? "#2563eb" : "#9ca3af" }} /></td>
+                    <td><span style={{ width: 10, height: 10, borderRadius: "50%", display: "inline-block", background: row.alarm_enabled ? "var(--status-success)" : "var(--text-disabled)" }} /></td>
+                    <td><span style={{ width: 10, height: 10, borderRadius: "50%", display: "inline-block", background: row.trend_enabled ? "var(--color-accent)" : "var(--text-disabled)" }} /></td>
                     <td>
                       <button type="button" className={s.btnSecondary} style={{ fontSize: 11, padding: "3px 8px" }} onClick={() => setDictEditRow({ ...row })}>
                         {t("ui.编辑","编辑")}
@@ -561,7 +561,7 @@ export default function DeviceOpsPage() {
               </thead>
               <tbody>
                 {opsLog.map(row => {
-                  const color = OP_TYPE_COLORS[row.op_type] || "#9ca3af";
+                  const color = OP_TYPE_COLORS[row.op_type] || "var(--text-disabled)";
                   let detail = row.detail_json || "";
                   try { const d = JSON.parse(row.detail_json || "{}"); detail = JSON.stringify(d).slice(0, 80); } catch { /* noop */ }
                   return (
@@ -573,7 +573,7 @@ export default function DeviceOpsPage() {
                       <td style={{ fontWeight: 500 }}>{row.operator || "—"}</td>
                       <td style={{ maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-secondary)", fontSize: 12 }} title={row.detail_json || ""}>{detail}</td>
                       <td>
-                        <span style={{ padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700, background: row.result === "SUCCESS" ? "#dcfce7" : "#fee2e2", color: row.result === "SUCCESS" ? "#16a34a" : "#dc2626" }}>
+                        <span style={{ padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700, background: row.result === "SUCCESS" ? "color-mix(in srgb, var(--status-success) 14%, transparent)" : "color-mix(in srgb, var(--status-danger) 14%, transparent)", color: row.result === "SUCCESS" ? "var(--status-success)" : "var(--status-danger)" }}>
                           {row.result === "SUCCESS" ? t("ui.成功","成功") : t("ui.失败","失败")}
                         </span>
                       </td>
@@ -624,7 +624,7 @@ export default function DeviceOpsPage() {
               </select>
             </div>
           </div>
-          <div style={{ background: "color-mix(in srgb,#f59e0b 10%,transparent)", borderRadius: 6, padding: "10px 12px", fontSize: 12, color: "#92400e", marginBottom: 16 }}>
+          <div style={{ background: "color-mix(in srgb,var(--status-warning) 10%,transparent)", borderRadius: 6, padding: "10px 12px", fontSize: 12, color: "var(--status-warning)", marginBottom: 16 }}>
             ⚠️ 层级约束：ERP 鸡舍必须属于所选 ERP 场区；第三方 House 必须属于所选第三方 Farm。系统将在保存时验证。
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
