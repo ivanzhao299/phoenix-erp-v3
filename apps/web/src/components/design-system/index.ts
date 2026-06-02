@@ -99,3 +99,11 @@ export { WorkbenchShell, WorkbenchActionButton, WorkbenchStatusCard } from './wo
 // templates
 export { ListPageTemplate, DashboardTemplate, DetailPageTemplate } from './templates/PageTemplates';
 export type { ListPageTemplateProps } from './templates/PageTemplates';
+export {
+  MasterDataTemplate, DocumentTemplate, LedgerTemplate, ApprovalTemplate,
+  ConfigTemplate, DetailTemplate, MobileTemplate, WorkbenchTemplate,
+} from './templates/Templates';
+export type {
+  MasterDataTemplateProps, DocumentTemplateProps, LedgerTemplateProps, ApprovalTemplateProps,
+  ConfigTemplateProps, ConfigSection, DetailTemplateProps, MobileTemplateProps, WorkbenchTemplateProps,
+} from './templates/Templates';
