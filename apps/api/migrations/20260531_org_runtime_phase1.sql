@@ -43,9 +43,11 @@ ALTER TABLE sys_organizations
     org_type IN (
       'GROUP','COMPANY','FACTORY','PROJECT',
       'WAREHOUSE','STORE','DEPARTMENT',
-      'BU','SITE'
+      'BU','SITE','VIRTUAL_ORGANIZATION'
     )
   );
+  -- 注：VIRTUAL_ORGANIZATION 由 Finance Authority Phase1 引入（集团财务中心虚拟组织）。
+  -- 必须在此基础约束中包含，否则累积重跑本迁移时会与已存在的 VIRTUAL_ORGANIZATION 行冲突。
 
 -- ============================================================
 -- § 2. 扩展 sys_user_orgs 字段
