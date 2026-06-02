@@ -265,3 +265,60 @@ export const SPACING = {
   gridGap:       'gap-4',
   gridGapSm:     'gap-3',
 } as const;
+
+// ════════════════════════════════════════════════════════════════════════
+// Design Tokens V2（Phase UI-2.1）— 调色板单一来源
+// ────────────────────────────────────────────────────────────────────────
+// 目的：消灭页面内散落的 STATUS_COLOR / GRADE_COLORS / SEVERITY_COLOR / 图表硬编码色。
+// 说明：图表/分级/风险/实体色无法用 CSS 变量（recharts/canvas 需要具体色值），
+//   故此处为「具体色值的单一来源」；所选均为中间明度，浅色/暗色背景下均可读。
+//   页面/图表今后只能引用这些常量，不得再写字面量 hex。
+// ════════════════════════════════════════════════════════════════════════
+
+/** 品牌主色单一来源说明：业务页面一律用 `var(--color-primary)`（或 TOKENS.css.colorPrimary）。
+ *  历史硬编码 #1F4E79 / #1F3864 应在页面迁移阶段（UI-2.9）收敛到此处，禁止再新增字面量。 */
+export const BRAND = {
+  primaryVar: 'var(--color-primary)',   // 浅色 #1F3864 / 暗色 #4A78B5（由 globals.css 切换）
+  accentVar:  'var(--color-accent)',
+} as const;
+
+/** 图表色板（按业务域 + 通用序列）。Chart 只能引用此处。 */
+export const CHART_PALETTE = {
+  // 业务域主色（同域图表保持一致色相）
+  sales:       '#2563eb', // 销售—蓝
+  procurement: '#7c3aed', // 采购—紫
+  inventory:   '#0891b2', // 库存—青
+  finance:     '#059669', // 财务—绿
+  shareholder: '#d97706', // 股东—琥珀
+  approval:    '#db2777', // 审批—品红
+  dashboard:   '#1F3864', // 驾驶舱—品牌蓝
+  // 多系列序列色（N 条数据系列按序取色，循环使用）
+  series: ['#2563eb', '#059669', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#dc2626', '#64748b'],
+} as const;
+
+/** 分级色板（蛋品/质量分级 AA/A/B/C/D）。替换页面内 GRADE_COLORS。 */
+export const GRADE_PALETTE: Record<string, string> = {
+  AA: '#6366f1', A: '#10b981', B: '#f59e0b', C: '#ef4444', D: '#94a3b8',
+};
+
+/** 风险/告警严重度色板。替换页面内 SEVERITY_COLOR。 */
+export const SEVERITY_PALETTE: Record<string, string> = {
+  CRITICAL: '#dc2626', HIGH: '#f97316', MEDIUM: '#2563eb', LOW: '#64748b', INFO: '#0891b2',
+};
+
+/** 业务实体标识色（实体头像/标签/图例）。 */
+export const ENTITY_PALETTE: Record<string, string> = {
+  customer:    '#2563eb',
+  supplier:    '#7c3aed',
+  product:     '#059669',
+  project:     '#d97706',
+  shareholder: '#1F3864',
+  warehouse:   '#0891b2',
+  employee:    '#db2777',
+};
+
+/** 按索引取序列色（多系列图表用）：getSeriesColor(i) 循环取色。 */
+export function getSeriesColor(i: number): string {
+  const s = CHART_PALETTE.series;
+  return s[((i % s.length) + s.length) % s.length];
+}

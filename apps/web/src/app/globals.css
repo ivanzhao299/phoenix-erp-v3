@@ -157,6 +157,7 @@
   --status-warning: #FFD54F;
   --status-danger:  #EF5350;
   --status-info:    #64B5F6;
+  --status-neutral: #9E9E9E;  /* UI-2.1: 补齐暗色覆盖（浅色 #757575 在深色背景对比不足）*/
   --status-special: #BA68C8;
 
   --text-primary:   #FAFAFA;
