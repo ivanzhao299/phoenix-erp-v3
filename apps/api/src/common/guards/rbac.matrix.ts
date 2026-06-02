@@ -358,6 +358,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_FINANCE_REVIEW_MANAGER: ['V','A','X'],   // 财务审核经理(刘杰)：查看+审批，禁付款/编辑
     ROLE_TREASURY_MANAGER:       ['V'],           // 资金经理(王玮华/朱召安)：仅查看财务总览
     ROLE_FINANCE_ANALYST:        ['V','X'],       // 财务分析经理(刘汉涛)：查看+导出
+    ROLE_COST_ACCOUNTING_MANAGER:['V','X'],       // 成本核算经理(刘汉涛)：查看+导出
     ROLE_FIN_CFO:             ['V','C','E','A','X'],
     ROLE_HQ_FINANCE:          ['V','C','E','A','X'],
     ROLE_FACTORY_ACCT:        ['V','C','E','X'],
@@ -443,6 +444,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_ADMIN:               ['V','C','E','D','A','X'],
     ROLE_FINANCE_REVIEW_MANAGER: ['V','A','X'],   // 审核经理：预算审批
     ROLE_FINANCE_ANALYST:        ['V','X'],       // 分析经理：预算查看+导出
+    ROLE_COST_ACCOUNTING_MANAGER:['V','X'],       // 成本核算经理：预算查看+导出
     ROLE_FIN_CFO:             ['V','C','E','A','X'],
     ROLE_HQ_FINANCE:       ['V','C','E','A','X'],
     ROLE_CEO:                 ['V','A','X'],
@@ -464,6 +466,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_ADMIN:               ['V','X'],
     ROLE_FINANCE_REVIEW_MANAGER: ['V','X'],       // 审核经理：复核财务报表
     ROLE_FINANCE_ANALYST:        ['V','X'],       // 分析经理：利润/成本/经营报表(核算人核心)
+    ROLE_COST_ACCOUNTING_MANAGER:['V','X'],       // 成本核算经理：成本/利润核算报表(核心)
     ROLE_FIN_CFO:             ['V','X'],
     ROLE_HQ_FINANCE:       ['V','X'],
     ROLE_FIN_ACCT:            ['V','X'],            // 财务加固P2：会计可看/导出财务报表
@@ -477,6 +480,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_ADMIN:        ['V','C','E','D','A','X'],
     ROLE_FINANCE_REVIEW_MANAGER: ['V','X'],   // 审核经理：查看股东/项目投资
     ROLE_FINANCE_ANALYST:        ['V','X'],   // 分析经理：查看项目投资/股东数据
+    ROLE_COST_ACCOUNTING_MANAGER:['V','X'],   // 成本核算经理：查看项目投资/股东数据
     ROLE_CEO:          ['V','X'],
     ROLE_HQ_FINANCE:   ['V','X'],
     ROLE_FIN_ACCT:     ['V','X'],
@@ -511,6 +515,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_ADMIN:           ['V','X'],
     ROLE_FINANCE_REVIEW_MANAGER: ['V','X'],   // 审核经理(刘杰)：查看股东驾驶舱
     ROLE_FINANCE_ANALYST:        ['V','X'],   // 分析经理(刘汉涛)：股东驾驶舱
+    ROLE_COST_ACCOUNTING_MANAGER:['V','X'],   // 成本核算经理(刘汉涛)：项目利润/成本驾驶舱
     ROLE_CEO:             ['V','X'],   // 朱兆存
     ROLE_FIN_CFO:         ['V','X'],
     ROLE_HQ_FINANCE:      ['V','X'],
@@ -525,6 +530,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
   MENU_SHAREHOLDER_CAPITAL: {
     ROLE_ADMIN:               ['V','C','E','D','A','X'],
     ROLE_FINANCE_ANALYST:        ['V','C','E','X'],   // 财务分析经理(刘汉涛)：录入/编辑资本流(分析人录入)，【禁止】审批(无A)
+    ROLE_COST_ACCOUNTING_MANAGER:['V','C','E','X'],   // 成本核算经理(刘汉涛)：录入/编辑资本流，【禁止】审批(无A)
     ROLE_FINANCE_REVIEW_MANAGER: ['V','X'],           // 财务审核经理(刘杰)：查看资本流
     ROLE_SHAREHOLDER_FINANCE: ['V','C','E','X'],   // 股东资金管理员：录入/编辑/确认到账/导出
     ROLE_HQ_FINANCE:          ['V','C','E','A','X'],
@@ -961,6 +967,7 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
     ROLE_FINANCE_REVIEW_MANAGER: ['V','X'],   // 审核经理：集团财务驾驶舱
     ROLE_FINANCE_ANALYST:        ['V','X'],   // 分析经理：集团经营驾驶舱
+    ROLE_COST_ACCOUNTING_MANAGER:['V','X'],   // 成本核算经理：项目利润/成本驾驶舱
     ROLE_TREASURY_MANAGER:       ['V','X'],   // 资金经理：资金驾驶舱概览
     ROLE_CEO:         ['V','X'],
     ROLE_FIN_CFO:     ['V','X'],
