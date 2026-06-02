@@ -1684,19 +1684,31 @@ export class PackagingTerminalBffController {
       null,
     );
 
-    // ── P1C 收口：成品交接完成 = 唯一库存入口 ──────────────────────────────────
+    // ── P1C 收口 + P1E 失败显性化：成品交接完成 = 唯一库存入口 ──────────────────
     //   调 PackagingInventoryIntegrationService 生成 Sales V2 可售库存（EGG-YYYYMMDD-*,
     //   change_type=PACKAGING_INBOUND, 进 FIFO）。幂等键 = packingCode；
-    //   SITE 级模式门控：仅 PACKAGING_INBOUND 模式生成（TEMP 模式跳过，灰度切换）。
+    //   SITE 级模式门控：仅 PACKAGING_INBOUND 模式生成（TEMP 模式跳过，属正常，非失败）。
+    //   P1E：库存生成失败不再 safe 吞错 → 明确 error log + 返回 inventoryOk=false + message，
+    //        杜绝"页面显示成功但库存没生成"的静默失败。
     let inventory: any = null;
+    let inventoryOk = true;
+    let message: string | undefined;
     if (body.packingCode) {
-      inventory = await this.safe(
-        this.pkgInv.completeTerminalPacking(body.packingCode, { companyCode: body.companyCode }),
-        { skipped: true, reason: '库存生成异常（已记录交接，不阻断作业）' } as any,
-      );
+      try {
+        inventory = await this.pkgInv.completeTerminalPacking(body.packingCode, { companyCode: body.companyCode });
+      } catch (e: any) {
+        inventoryOk = false;
+        message = '包装交接已记录，但库存生成失败，请联系管理员处理。';
+        // 不再静默吞错：明确记录 error log（含堆栈），便于生产排障
+        console.error(
+          `[warehouse/confirm][ERR] 包装库存生成失败 packingCode=${body.packingCode}: ${e?.message}`,
+          e?.stack,
+        );
+        inventory = { ok: false, error: e?.message ?? '库存生成失败', message };
+      }
     }
 
-    return { code: 200, data: { code, inventory } };
+    return { code: 200, data: { code, inventory, inventoryOk, message } };
   }
 
   // ── 数据字典查询 ─────────────────────────────────────────────────────────────
