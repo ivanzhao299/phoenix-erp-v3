@@ -49,7 +49,19 @@ export default function MdDriversPage() {
       const res = await fetch("/api/v2/sales/delivery/drivers", { headers: hdr() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setItems(Array.isArray(data) ? data : (data.data ?? data.items ?? data.drivers ?? []));
+      const raw: any[] = Array.isArray(data) ? data : (data.data ?? data.items ?? data.drivers ?? []);
+      // 后端 SELECT * 返回 snake_case，归一化为页面所需字段（兼容 camel）
+      setItems(raw.map((r: any) => ({
+        id: r.id,
+        driverCode: r.driver_code ?? r.driverCode,
+        name: r.driver_name ?? r.name ?? r.driverName,
+        driverName: r.driver_name ?? r.driverName,
+        phone: r.phone ?? r.driverPhone,
+        licenseNo: r.license_no ?? r.licenseNo,
+        licenseType: r.license_type ?? r.licenseType,
+        status: r.status,
+        companyCode: r.company_code ?? r.companyCode,
+      })));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "加载失败");
     } finally {

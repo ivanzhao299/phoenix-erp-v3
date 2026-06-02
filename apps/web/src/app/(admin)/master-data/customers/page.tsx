@@ -63,7 +63,20 @@ export default function MdCustomersPage() {
       const res = await fetch(`/api/v2/sales/customers?${q}`, { headers: hdr() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      const arr: Customer[] = Array.isArray(data) ? data : (data.data ?? data.items ?? []);
+      const raw: any[] = Array.isArray(data) ? data : (data.data ?? data.items ?? []);
+      // 后端 list() 走 SELECT * 返回 snake_case 字段，这里归一化为页面所需 camelCase（兼容两种）
+      const arr: Customer[] = raw.map((r: any) => ({
+        id: r.id,
+        customerCode: r.customer_no ?? r.customer_code ?? r.customerCode,
+        customerName: r.customer_name ?? r.customerName,
+        customerType: r.customer_type ?? r.customerType,
+        contactName: r.contact_name ?? r.contactName,
+        contactPhone: r.contact_phone ?? r.contactPhone,
+        creditLimit: r.credit_limit ?? r.creditLimit,
+        creditUsed: r.credit_used ?? r.creditUsed,
+        status: r.status,
+        companyCode: r.company_code ?? r.companyCode,
+      }));
       setItems(arr);
       setTotal(typeof data.total === "number" ? data.total : arr.length);
     } catch (e: unknown) {
