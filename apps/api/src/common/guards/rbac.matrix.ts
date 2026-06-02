@@ -1114,6 +1114,28 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_WMS_OP:      ['V','C'],
   },
 
+  // ── 库存来源模式治理 Phase P1A ────────────────────────────────────────────
+  // 依据：docs/production-inventory-source-mode-phase-p1a.md
+
+  /** 日产蛋入库（生产管理，仅 TEMP_PRODUCTION_INBOUND 模式可用） */
+  MENU_PROD_INBOUND: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_FARM_MGR:    ['V','C','E'],
+    ROLE_FARMER:      ['V','C'],
+    ROLE_FACTORY_MGR: ['V','C','E'],
+    ROLE_CEO:         ['V','X'],
+  },
+
+  /** 库存来源模式（TEMP/PACKAGING 切换 —— 'A' 切换权仅 ADMIN/CEO/FACTORY_MGR） */
+  MENU_INV_SOURCE_MODE: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_CEO:         ['V','A','X'],
+    ROLE_FACTORY_MGR: ['V','A'],
+    ROLE_WMS_MGR:     ['V'],
+    ROLE_PKG_MGR:     ['V'],
+    ROLE_AUDITOR:     ['V','X'],
+  },
+
 };
 
 /**

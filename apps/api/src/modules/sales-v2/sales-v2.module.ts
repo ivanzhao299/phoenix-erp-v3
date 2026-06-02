@@ -10,6 +10,7 @@ import { DeliveryOrdersController }    from './controllers/delivery-orders.contr
 import { CustomerCreditController }    from './controllers/customer-credit.controller';  // Phase 5
 import { SalesReturnsController }      from './controllers/sales-returns.controller';    // Phase 6
 import { EggInventoryController }      from './controllers/egg-inventory.controller';    // Phase 7
+import { InventorySourceController }   from './controllers/inventory-source.controller'; // 库存来源模式 P1A
 import { SalesAnalyticsController }   from './controllers/sales-analytics.controller';  // Phase 8
 import { MobileDeliveryController }   from './controllers/mobile-delivery.controller';   // Mobile
 import { SalesV2Service }                    from './services/sales-v2.service';
@@ -27,6 +28,8 @@ import { ReturnOrdersService }               from './services/return-orders.serv
 import { EggInventoryService }               from './services/egg-inventory.service';              // Phase 7
 import { EggInventorySchedulerService }      from './services/egg-inventory-scheduler.service';   // Phase 7
 import { PackagingInventoryIntegrationService } from './services/packaging-inventory-integration.service'; // 生产链路收口 Phase 1
+import { InventorySourceModeService }        from './services/inventory-source-mode.service';        // 库存来源模式 P1A
+import { ProductionInboundService }          from './services/production-inbound.service';           // 库存来源模式 P1A
 import { SalesAnalyticsService }             from './services/sales-analytics.service';            // Phase 8
 import { FinanceArAdapter }                  from './adapters/finance-ar.adapter';
 import { FinanceCreditNoteAdapter }          from './adapters/finance-credit-note.adapter';       // Phase 6
@@ -103,6 +106,7 @@ import {
     CustomerCreditController,    // Phase 5
     SalesReturnsController,      // Phase 6
     EggInventoryController,      // Phase 7
+    InventorySourceController,   // 库存来源模式 P1A
     SalesAnalyticsController,    // Phase 8
     MobileDeliveryController,    // Mobile
   ],
@@ -122,6 +126,8 @@ import {
     EggInventoryService,                  // Phase 7
     EggInventorySchedulerService,         // Phase 7
     PackagingInventoryIntegrationService, // 生产链路收口 Phase 1
+    InventorySourceModeService,           // 库存来源模式 P1A
+    ProductionInboundService,             // 库存来源模式 P1A
     SalesAnalyticsService,                // Phase 8
     FinanceArAdapter,
     FinanceCreditNoteAdapter,             // Phase 6
@@ -142,6 +148,8 @@ import {
     EggInventoryService,                  // Phase 7
     EggInventorySchedulerService,         // Phase 7
     PackagingInventoryIntegrationService, // 生产链路收口 Phase 1
+    InventorySourceModeService,           // 库存来源模式 P1A
+    ProductionInboundService,             // 库存来源模式 P1A
     SalesAnalyticsService,                // Phase 8
     FinanceArAdapter,
     FinanceCreditNoteAdapter,             // Phase 6

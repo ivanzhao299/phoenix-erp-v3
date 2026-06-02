@@ -77,6 +77,8 @@ const MENU: MenuItem[] = [
     { id: "brd-device-ops", path: "/breeding/device-ops",    Icon: Network,        label: "设备运维",     perm: "MENU_DEVICE_MONITOR" },
     // 集蛋记录（生产链路收口 Phase 1：只记集蛋事实，不形成可售库存）
     { id: "prod-collection",path: "/breeding/egg-ledger",     Icon: Egg,            label: "集蛋记录",     perm: "MENU_PROD_COLLECTION" },
+    // 日产蛋入库（库存来源模式 P1A：临时生产入库模式下直接形成销售库存）
+    { id: "prod-inbound",   path: "/breeding/daily-inbound",  Icon: PackagePlus,    label: "日产蛋入库",   perm: "MENU_PROD_INBOUND" },
     // 分级包装（包装作业中心：包装完成 = 唯一库存入口）
     { id: "pkg-op",         path: "/packaging",               Icon: Egg,            label: "包装作业",     perm: "MENU_PKG_OP"  },
     { id: "pkg-batch",      path: "/packaging/batch",         Icon: Layers,         label: "包装批次",     perm: "MENU_PKG_MGR" },
@@ -97,6 +99,7 @@ const MENU: MenuItem[] = [
   { id: "inventory", Icon: Warehouse, label: "库存管理", perm: "MENU_WMS_VIEW", children: [
     { id: "wh-dash",     path: "/warehouse",              Icon: LayoutDashboard, label: "库存总览",   perm: "MENU_WMS_VIEW"  },
     { id: "inv-batch",   path: "/sales2/inventory",       Icon: Layers,          label: "成品批次",   perm: "MENU_INV_BATCH" },
+    { id: "inv-srcmode", path: "/warehouse/source-mode",  Icon: Settings,        label: "库存来源模式", perm: "MENU_INV_SOURCE_MODE" },
     { id: "wh-in",       path: "/warehouse/inbound",      Icon: PackagePlus,     label: "手工入库",   perm: "MENU_WMS_INOUT" },
     { id: "wh-out",      path: "/warehouse/outbound",     Icon: PackageMinus,    label: "出库管理",   perm: "MENU_WMS_INOUT" },
     { id: "wh-transfer", path: "/warehouse/transfer",     Icon: RefreshCw,       label: "调拨管理",   perm: "MENU_WMS_INOUT" },

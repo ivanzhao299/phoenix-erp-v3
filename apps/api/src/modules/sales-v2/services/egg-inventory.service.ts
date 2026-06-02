@@ -229,8 +229,8 @@ export class EggInventoryService {
       };
     }
 
-    // 质量等级校验（旧逻辑保留；生产链路收口 Phase 1 纳入包装等级体系 C/BROKEN）
-    const validGrades = ['AA', 'A', 'B', 'C', 'DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'];
+    // 质量等级校验（Phase 1 纳入包装等级体系 C/BROKEN；P1A 纳入农场数字蛋等级 0-5 以支持临时生产入库）
+    const validGrades = ['AA', 'A', 'B', 'C', '0', '1', '2', '3', '4', '5', 'DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'];
     const grade = params.qualityGrade ?? 'A';
     if (!validGrades.includes(grade)) {
       throw new BadRequestException(`无效的质量等级: ${grade}，有效值：${validGrades.join('/')}`);

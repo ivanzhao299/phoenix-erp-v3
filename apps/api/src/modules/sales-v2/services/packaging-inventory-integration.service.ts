@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { EggInventoryService } from './egg-inventory.service';
+import { InventorySourceModeService } from './inventory-source-mode.service'; // P1A 互斥门控
 
 /**
  * PackagingInventoryIntegrationService — 生产链路收口 Phase 1
@@ -30,6 +31,7 @@ export class PackagingInventoryIntegrationService {
     @InjectDataSource() private readonly ds: DataSource,
     private readonly cls: ClsService,
     private readonly eggInv: EggInventoryService,
+    private readonly modeSvc: InventorySourceModeService, // P1A 互斥门控
   ) {}
 
   private get operator(): string {
@@ -85,6 +87,9 @@ export class PackagingInventoryIntegrationService {
     batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }>;
     skippedNonSaleable: Array<{ grade: string; qty: number }>;
     totalInbound: number;
+    /** P1A：当前来源模式；skippedByMode=true 表示非包装入库模式，本次未生成可售库存（互斥） */
+    mode?: string;
+    skippedByMode?: boolean;
   }> {
     // ── 幂等键：该包装任务是否已生成过可售批次 ──────────────────────────────
     const existing = await this.ds.query(
@@ -120,6 +125,19 @@ export class PackagingInventoryIntegrationService {
     if (!task) throw new NotFoundException(`包装任务不存在：${taskNo}`);
 
     const companyCode = await this.resolveCompanyCode(opts?.companyCode);
+
+    // ── P1A 互斥门控：仅 PACKAGING_INBOUND 模式允许包装完成生成可售库存 ──────────
+    //   TEMP_PRODUCTION_INBOUND 模式下，库存由日产蛋入库生成，包装完成不再写可售库存（防双写）。
+    const mode = await this.modeSvc.resolveMode({ siteCode: task.house_code ?? null, companyCode });
+    if (mode !== 'PACKAGING_INBOUND') {
+      this.logger.log(`[PkgInv] 任务 ${taskNo} 当前为 ${mode} 模式，跳过包装可售入库（互斥，防双写）`);
+      return {
+        taskNo, idempotent: false, companyCode,
+        batches: [], skippedNonSaleable: [], totalInbound: 0,
+        mode, skippedByMode: true,
+      };
+    }
+
     const eggDate = task.created_at
       ? new Date(task.created_at).toISOString().slice(0, 10)
       : new Date().toISOString().slice(0, 10);
@@ -162,7 +180,7 @@ export class PackagingInventoryIntegrationService {
     this.logger.log(
       `[PkgInv] 任务 ${taskNo} 包装入库完成 company=${companyCode} 可售批次=${batches.length} 入库=${totalInbound} 隔离等级=${skippedNonSaleable.length}`,
     );
-    return { taskNo, idempotent: false, companyCode, batches, skippedNonSaleable, totalInbound };
+    return { taskNo, idempotent: false, companyCode, batches, skippedNonSaleable, totalInbound, mode, skippedByMode: false };
   }
 
   /** 生成单条可售批次（走 EggInventoryService 统一命名 + FIFO 体系） */
