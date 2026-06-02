@@ -1,6 +1,20 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, ForbiddenException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+
+/**
+ * 生产链路收口 Phase 1 — Farm Egg 库存旁路冻结
+ * ────────────────────────────────────────────────────────────────────────
+ * 依据：docs/production-inventory-integration-audit.md（闭环A）
+ * 集蛋曾经通过本服务直接写 EGG-STOCK-* 批次形成可销售库存（绕过分级/包装），
+ * 与包装链路、Sales V2 FIFO 双重计数。Phase 1 起：
+ *   · 禁止 inbound / outbound / writeOff（不再生成/扣减可售库存）
+ *   · 保留 getStock / getLedger 只读（历史数据可见）
+ *   · 集蛋 → 分级 → 包装 → 自动入库 统一走「包装作业中心」
+ */
+const FARM_EGG_FROZEN_MSG =
+  '集蛋入库旁路已冻结（生产链路收口 Phase 1）。请改用「包装作业中心」完成 集蛋→分级→包装→自动入库；' +
+  '销售扣减统一走「销售管理（Sales V2）」。本入口仅保留历史库存与流水查询。';
 
 // 8 个蛋品规格
 export const EGG_GRADES = [
@@ -97,91 +111,34 @@ export class FarmEggService implements OnModuleInit {
     );
   }
 
-  /** 入库：鸡舍 → 鸡蛋库 */
+  /** 入库：鸡舍 → 鸡蛋库
+   *  @deprecated 生产链路收口 Phase 1 已冻结。集蛋请走「包装作业中心」自动入库。 */
   async inbound(
-    logDate: string,
-    items: EggInboundItem[],
-    operator: string,
+    _logDate: string,
+    _items: EggInboundItem[],
+    _operator: string,
   ): Promise<void> {
-    for (const item of items) {
-      if (!item.qty || item.qty <= 0) continue;
-      const bn = batchNo(item.grade);
-      await this.ds.query(
-        `UPDATE inv_batches
-         SET qty           = qty + $1,
-             qty_available = COALESCE(qty_available, qty, 0) + $1,
-             updated_at    = NOW()
-         WHERE batch_no = $2`,
-        [item.qty, bn],
-      );
-      await this.ds.query(
-        `INSERT INTO inv_ledger
-           (batch_no, change_type, qty_change, log_date, warehouse_code, house_code, operator, note)
-         VALUES ($1, 'EGG_INBOUND_HOUSE', $2, $3, $4, $5, $6, $7)`,
-        [bn, item.qty, logDate, WAREHOUSE, item.house_code, operator, `鸡舍入库 ${item.house_code}`],
-      );
-    }
+    throw new ForbiddenException(FARM_EGG_FROZEN_MSG);
   }
 
-  /** 出库：鸡蛋库 → 客户 */
+  /** 出库：鸡蛋库 → 客户
+   *  @deprecated 生产链路收口 Phase 1 已冻结。销售扣减请走「销售管理（Sales V2）」。 */
   async outbound(
-    logDate: string,
-    items: EggOutboundItem[],
-    operator: string,
-    refNo?: string,
+    _logDate: string,
+    _items: EggOutboundItem[],
+    _operator: string,
+    _refNo?: string,
   ): Promise<void> {
-    for (const item of items) {
-      if (!item.qty || item.qty <= 0) continue;
-      const bn = batchNo(item.grade);
-      // 检查库存
-      const [row] = await this.ds.query<any[]>(
-        `SELECT COALESCE(qty_available, qty, 0) AS avail FROM inv_batches WHERE batch_no = $1`,
-        [bn],
-      );
-      const avail = Number(row?.avail ?? 0);
-      if (avail < item.qty) {
-        throw new Error(`${item.grade} 等级库存不足：现有 ${avail} 枚，出库 ${item.qty} 枚`);
-      }
-      await this.ds.query(
-        `UPDATE inv_batches
-         SET qty           = qty - $1,
-             qty_available = COALESCE(qty_available, qty, 0) - $1,
-             updated_at    = NOW()
-         WHERE batch_no = $2`,
-        [item.qty, bn],
-      );
-      await this.ds.query(
-        `INSERT INTO inv_ledger
-           (batch_no, change_type, qty_change, log_date, warehouse_code, customer_no, operator, ref_no, note)
-         VALUES ($1, 'EGG_OUTBOUND_SALE', $2, $3, $4, $5, $6, $7, $8)`,
-        [bn, -item.qty, logDate, WAREHOUSE, item.customer_no, operator, refNo ?? null, `客户出库 ${item.customer_no}`],
-      );
-    }
+    throw new ForbiddenException(FARM_EGG_FROZEN_MSG);
   }
 
-  /** 报损（脏蛋/破损处理）*/
+  /** 报损（脏蛋/破损处理）
+   *  @deprecated 生产链路收口 Phase 1 已冻结。报损请通过「库存管理」处理。 */
   async writeOff(
-    logDate: string,
-    items: Array<{ grade: string; qty: number; reason: string }>,
-    operator: string,
+    _logDate: string,
+    _items: Array<{ grade: string; qty: number; reason: string }>,
+    _operator: string,
   ): Promise<void> {
-    for (const item of items) {
-      if (!item.qty || item.qty <= 0) continue;
-      const bn = batchNo(item.grade);
-      await this.ds.query(
-        `UPDATE inv_batches
-         SET qty           = GREATEST(0, qty - $1),
-             qty_available = GREATEST(0, COALESCE(qty_available, qty, 0) - $1),
-             updated_at    = NOW()
-         WHERE batch_no = $2`,
-        [item.qty, bn],
-      );
-      await this.ds.query(
-        `INSERT INTO inv_ledger
-           (batch_no, change_type, qty_change, log_date, warehouse_code, operator, note)
-         VALUES ($1, 'EGG_WRITE_OFF', $2, $3, $4, $5, $6)`,
-        [bn, -item.qty, logDate, WAREHOUSE, operator, item.reason || '报损'],
-      );
-    }
+    throw new ForbiddenException(FARM_EGG_FROZEN_MSG);
   }
 }

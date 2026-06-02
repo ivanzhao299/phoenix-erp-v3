@@ -5,6 +5,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { RefreshCw } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
+import LegacyFreezeBanner from '@/components/LegacyFreezeBanner';
 
 function tok() {
   if (typeof window === 'undefined') return '';
@@ -188,6 +189,13 @@ export default function EggLedgerPage() {
         title={t('ui.蛋品台账', '蛋品台账（农场）')}
         subtitle="管理农场蛋品库存，按等级录入入库/出库/报损，查看历史流水（API: /api/farm/egg）"
         breadcrumb={[t('ui.养殖生产', '养殖生产'), t('ui.蛋品台账', '蛋品台账')]}
+      />
+
+      {/* 生产链路收口 Phase 1 — Farm Egg 库存旁路已冻结 */}
+      <LegacyFreezeBanner
+        newPath="/pkg/packaging"
+        newModuleName="包装作业中心"
+        message="本入口（集蛋直接入/出库）已冻结。集蛋 → 分级 → 包装 → 自动入库 请使用「包装作业中心」；销售扣减统一走「销售管理」。本页仅保留历史库存与流水查询。"
       />
 
       {/* Tab 栏 */}

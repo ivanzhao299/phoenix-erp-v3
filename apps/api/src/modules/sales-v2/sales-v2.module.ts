@@ -26,6 +26,7 @@ import { CustomerCreditSchedulerService }    from './services/customer-credit-sc
 import { ReturnOrdersService }               from './services/return-orders.service';             // Phase 6
 import { EggInventoryService }               from './services/egg-inventory.service';              // Phase 7
 import { EggInventorySchedulerService }      from './services/egg-inventory-scheduler.service';   // Phase 7
+import { PackagingInventoryIntegrationService } from './services/packaging-inventory-integration.service'; // 生产链路收口 Phase 1
 import { SalesAnalyticsService }             from './services/sales-analytics.service';            // Phase 8
 import { FinanceArAdapter }                  from './adapters/finance-ar.adapter';
 import { FinanceCreditNoteAdapter }          from './adapters/finance-credit-note.adapter';       // Phase 6
@@ -120,6 +121,7 @@ import {
     ReturnOrdersService,                  // Phase 6
     EggInventoryService,                  // Phase 7
     EggInventorySchedulerService,         // Phase 7
+    PackagingInventoryIntegrationService, // 生产链路收口 Phase 1
     SalesAnalyticsService,                // Phase 8
     FinanceArAdapter,
     FinanceCreditNoteAdapter,             // Phase 6
@@ -139,6 +141,7 @@ import {
     ReturnOrdersService,                  // Phase 6
     EggInventoryService,                  // Phase 7
     EggInventorySchedulerService,         // Phase 7
+    PackagingInventoryIntegrationService, // 生产链路收口 Phase 1
     SalesAnalyticsService,                // Phase 8
     FinanceArAdapter,
     FinanceCreditNoteAdapter,             // Phase 6

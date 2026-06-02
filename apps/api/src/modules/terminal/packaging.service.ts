@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { randomBytes } from 'crypto';
+import { PackagingInventoryIntegrationService } from '../sales-v2/services/packaging-inventory-integration.service'; // 生产链路收口 Phase 1
 
 /**
  * PackagingService — V3 包装模块业务服务
@@ -12,6 +13,8 @@ export class PackagingService {
   constructor(
     @InjectEntityManager()
     private readonly em: EntityManager,
+    // 生产链路收口 Phase 1：包装完成 → Sales V2 唯一可售库存入口
+    private readonly pkgInv: PackagingInventoryIntegrationService,
   ) {}
 
   // ─── 包装规格配置 ────────────────────────────────────────────────────────────
@@ -686,10 +689,11 @@ export class PackagingService {
             // 无等级明细 → 用 packed_qty 整体入一条 (默认 AVAILABLE)
             const batchNo = `PACK-${dateKey}-${houseCode}-${String(Date.now()).slice(-4)}-${randomBytes(2).toString('hex')}`;
             const totalQty = Number(body.packed_qty) || 0;
+            // 生产链路收口 Phase 1：PRD-EGG-* 仅为包装中间态，标 legacy_source，FIFO 排除（不作为最终销售库存）
             await this.em.query(
-              `INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, expire_date, store_code, warehouse_code)
-               VALUES ($1, 'PRD-EGG-PACKED', $2::int, $2::int, 'AVAILABLE', $3, 'FACTORY', 'WMS-VTE-MAIN')`,
-              [batchNo, totalQty, expireDate],
+              `INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, expire_date, store_code, warehouse_code, legacy_source, packaging_batch_ref)
+               VALUES ($1, 'PRD-EGG-PACKED', $2::int, $2::int, 'AVAILABLE', $3, 'FACTORY', 'WMS-VTE-MAIN', 'PACKAGING_INTERMEDIATE', $4)`,
+              [batchNo, totalQty, expireDate, task[0].task_no || taskId],
             );
             packBatches.push({ batch_no: batchNo, qty: totalQty, status: 'AVAILABLE' });
           } else {
@@ -705,11 +709,12 @@ export class PackagingService {
               const qtyAvailable = isQuarantine ? 0 : qty;
               const batchNo = `PACK-${dateKey}-${houseCode}-G${gradeCode}-${String(Date.now()).slice(-4)}-${randomBytes(2).toString('hex')}`;
               try {
+                // 生产链路收口 Phase 1：PRD-EGG-*-PACK 仅为包装中间态，标 legacy_source，FIFO 排除
                 await this.em.query(
                   `INSERT INTO inv_batches
-                     (batch_no, product_code, qty, qty_available, status, expire_date, store_code, warehouse_code)
-                   VALUES ($1, $2, $3::int, $4::int, $5, $6, 'FACTORY', 'WMS-VTE-MAIN')`,
-                  [batchNo, `PRD-EGG-${gradeCode}-PACK`, qty, qtyAvailable, batchStatus, expireDate],
+                     (batch_no, product_code, qty, qty_available, status, expire_date, store_code, warehouse_code, legacy_source, packaging_batch_ref)
+                   VALUES ($1, $2, $3::int, $4::int, $5, $6, 'FACTORY', 'WMS-VTE-MAIN', 'PACKAGING_INTERMEDIATE', $7)`,
+                  [batchNo, `PRD-EGG-${gradeCode}-PACK`, qty, qtyAvailable, batchStatus, expireDate, task[0].task_no || taskId],
                 );
                 await this.em.query(
                   `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
@@ -752,7 +757,28 @@ export class PackagingService {
         // 不再静默吞错 — 上次审计就是这种 catch {} 把列错误 bug 埋了 N 个月
         console.error('[packComplete][ERR] inv_batches write failed:', e?.message);
       }
-      return { code: 200, msg: '包装结单成功', data: { pack_batches: packBatches } };
+
+      // 生产链路收口 Phase 1：包装完成 = 唯一库存入口
+      //   调用 PackagingInventoryIntegrationService 生成 Sales V2 统一可售批次
+      //   （EGG-YYYYMMDD-*，PACKAGING_INBOUND，进 FIFO；幂等，重复点击不重复入库）
+      let saleableResult: any = null;
+      try {
+        const taskNoForInv =
+          (await this.em.query(
+            `SELECT task_no FROM pkg_tasks WHERE task_no = $1 OR id::text = $1 LIMIT 1`,
+            [taskId],
+          ))?.[0]?.task_no || taskId;
+        saleableResult = await this.pkgInv.completePackagingBatch(taskNoForInv, {});
+      } catch (e: any) {
+        console.error('[packComplete][ERR] 可售批次生成失败:', e?.message);
+        saleableResult = { error: e?.message ?? '可售批次生成失败' };
+      }
+
+      return {
+        code: 200,
+        msg: '包装结单成功',
+        data: { pack_batches: packBatches, saleable_inventory: saleableResult },
+      };
     } catch (e: any) {
       return { code: 500, msg: e?.message || '结单失败' };
     }

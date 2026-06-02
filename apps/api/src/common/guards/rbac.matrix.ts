@@ -1057,6 +1057,63 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_CEO:        ['V','X'],
   },
 
+  // ── 生产链路收口 Phase 1 — 权限收口（6 个新权限码）────────────────────────
+  // 依据：docs/production-chain-convergence-phase1.md §7
+  // 核心：包装完成入库(MENU_PKG_COMPLETE_INVENTORY) 与 手工库存入库(MENU_INV_MANUAL_INBOUND) 彻底分离。
+
+  /** 集蛋记录（生产管理：只记生产事实/集蛋，不形成可售库存） */
+  MENU_PROD_COLLECTION: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_FARM_MGR:    ['V','C','E'],
+    ROLE_FARMER:      ['V','C'],
+    ROLE_PKG_MGR:     ['V','C','E'],
+    ROLE_FACTORY_MGR: ['V','C','E'],
+    ROLE_CEO:         ['V','X'],
+  },
+
+  /** 包装作业（包装作业中心：分级/包装） */
+  MENU_PKG_PACKAGING: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_PKG_MGR:     ['V','C','E','A'],
+    ROLE_PKG_OP:      ['V','C'],
+    ROLE_FACTORY_MGR: ['V','C','E'],
+    ROLE_FARM_MGR:    ['V','C','E'],
+    ROLE_CEO:         ['V','X'],
+  },
+
+  /** 包装完成入库 —— 唯一库存入口（只授包装主管 + 场区经理 + 管理员；与手工入库分离） */
+  MENU_PKG_COMPLETE_INVENTORY: {
+    ROLE_ADMIN:       ['V','C','E','A','X'],
+    ROLE_PKG_MGR:     ['V','C'],
+    ROLE_FACTORY_MGR: ['V','C'],
+  },
+
+  /** 库存批次（库存管理：成品批次查询/管理） */
+  MENU_INV_BATCH: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_WMS_MGR:     ['V','C','E'],
+    ROLE_WMS_OP:      ['V'],
+    ROLE_SALES_MGR:   ['V'],
+    ROLE_CEO:         ['V','X'],
+    ROLE_AUDITOR:     ['V','X'],
+  },
+
+  /** 库存流水（库存台账，只读为主） */
+  MENU_INV_LEDGER: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_WMS_MGR:     ['V','X'],
+    ROLE_FIN_ACCT:    ['V','X'],
+    ROLE_AUDITOR:     ['V','X'],
+    ROLE_CEO:         ['V','X'],
+  },
+
+  /** 手工库存入库 —— 仅采购/调拨/手工调整（禁止录包装成品；与包装完成入库分离） */
+  MENU_INV_MANUAL_INBOUND: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_WMS_MGR:     ['V','C','E'],
+    ROLE_WMS_OP:      ['V','C'],
+  },
+
 };
 
 /**

@@ -7,6 +7,7 @@ import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
 import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { EggInventoryService }          from '../services/egg-inventory.service';
 import { EggInventorySchedulerService } from '../services/egg-inventory-scheduler.service';
+import { PackagingInventoryIntegrationService } from '../services/packaging-inventory-integration.service'; // 生产链路收口 Phase 1
 
 /**
  * EggInventoryController — Sales V2 Phase 7 + Phase H4
@@ -27,7 +28,16 @@ export class EggInventoryController {
   constructor(
     private readonly eggInv:    EggInventoryService,
     private readonly scheduler: EggInventorySchedulerService,
+    private readonly pkgInv:    PackagingInventoryIntegrationService, // 生产链路收口 Phase 1
   ) {}
+
+  // ── 生产链路收口 Phase 1：包装完成 → 唯一库存入口（幂等） ──────────────────
+  // 权限：MENU_PKG_COMPLETE_INVENTORY（与手工库存入库 MENU_INV_MANUAL_INBOUND 分离）
+  @Post('packaging-complete')
+  @RequireMenu('MENU_PKG_COMPLETE_INVENTORY', 'C')
+  packagingComplete(@Body() body: { taskNo: string; companyCode?: string }) {
+    return this.pkgInv.completePackagingBatch(body.taskNo, { companyCode: body.companyCode });
+  }
 
   // ── 批次列表 ──────────────────────────────────────────────────────────────
 

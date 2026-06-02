@@ -198,6 +198,14 @@ export class EggInventoryService {
     skuCode?:       string;
     gradeCodeStd?:  string;
     specCode?:      string;
+    /** 生产链路收口 Phase 1：来源类型（默认 PRODUCTION，包装入库传 PACKAGING） */
+    sourceType?:    string;
+    /** 生产链路收口 Phase 1：inv_ledger 变动类型（默认 INBOUND，包装入库传 PACKAGING_INBOUND） */
+    ledgerChangeType?: string;
+    /** 生产链路收口 Phase 1：包装批次追溯引用（pkg_tasks.task_no） */
+    packagingBatchRef?:  string;
+    /** 生产链路收口 Phase 1：集蛋批次追溯引用 */
+    collectionBatchRef?: string;
   }): Promise<EggBatch> {
     if (params.qty <= 0) throw new BadRequestException('入库数量必须大于 0');
 
@@ -221,8 +229,8 @@ export class EggInventoryService {
       };
     }
 
-    // 质量等级校验（旧逻辑保留，新等级也在白名单内）
-    const validGrades = ['AA', 'A', 'B', 'DIRTY', 'CRACKED', 'DAMAGED'];
+    // 质量等级校验（旧逻辑保留；生产链路收口 Phase 1 纳入包装等级体系 C/BROKEN）
+    const validGrades = ['AA', 'A', 'B', 'C', 'DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'];
     const grade = params.qualityGrade ?? 'A';
     if (!validGrades.includes(grade)) {
       throw new BadRequestException(`无效的质量等级: ${grade}，有效值：${validGrades.join('/')}`);
@@ -232,7 +240,9 @@ export class EggInventoryService {
     const expireDate = this.calcExpireDate(params.eggDate, params.shelfDays ?? DEFAULT_SHELF_DAYS);
     const qty        = Math.round(params.qty);
 
-    // Phase H4: INSERT 增加三个新字段
+    // Phase H4: INSERT 增加三个 SKU 字段
+    // 生产链路收口 Phase 1: source_type 参数化 + 追溯引用列
+    const sourceType = params.sourceType ?? 'PRODUCTION';
     const [batch] = await this.ds.query(
       `INSERT INTO inv_batches (
          batch_no, product_code, company_code, warehouse_code,
@@ -240,11 +250,13 @@ export class EggInventoryService {
          source_type, source_no,
          qty, qty_available, status,
          sku_code, grade_code_std, spec_code,
+         packaging_batch_ref, collection_batch_ref,
          created_at, updated_at
        ) VALUES (
-         $1,$2,$3,$4,$5,$6,$7,$8,'PRODUCTION',$9,
-         $10,$10,'AVAILABLE',
-         $11,$12,$13,
+         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
+         $11,$11,'AVAILABLE',
+         $12,$13,$14,
+         $15,$16,
          NOW(),NOW()
        ) RETURNING *`,
       [
@@ -252,22 +264,25 @@ export class EggInventoryService {
         params.warehouseCode ?? null,
         params.eggDate, expireDate, grade,
         params.packagingSpec ?? null,
+        sourceType,
         params.sourceNo ?? null,
         qty,
         skuCode,
         gradeCodeStd,
         specCode,
+        params.packagingBatchRef ?? null,
+        params.collectionBatchRef ?? null,
       ],
     );
 
     await this.writeLedger({
       batchNo,
-      changeType:  'INBOUND',
+      changeType:  params.ledgerChangeType ?? 'INBOUND',
       qtyChange:   qty,
       operator:    this.operator,
       companyCode: params.companyCode,
       refNo:       params.sourceNo ?? batchNo,
-      note:        `生产入库 product=${productCode} grade=${grade}${skuCode ? ` sku=${skuCode}` : ''} qty=${qty} expire=${expireDate}`,
+      note:        `${sourceType === 'PACKAGING' ? '包装入库' : '生产入库'} product=${productCode} grade=${grade}${skuCode ? ` sku=${skuCode}` : ''} qty=${qty} expire=${expireDate}${params.packagingBatchRef ? ` pkg=${params.packagingBatchRef}` : ''}`,
       batchExpireDate: expireDate,
       qualityGrade:    grade,
       skuCode,
@@ -365,11 +380,14 @@ export class EggInventoryService {
     await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [lockKey]);
 
     // 构建批次查询条件
+    // 生产链路收口 Phase 1：legacy_source IS NULL —— 销售只认 Sales V2 可售批次，
+    //   排除闭环A(EGG-STOCK-*)/闭环B(PRD-EGG-*-PACK 中间态) 旧库存。
     const conds: string[] = [
       `company_code = $1`,
       `status = 'AVAILABLE'`,
       `qty_available > 0`,
       `(expire_date IS NULL OR expire_date >= CURRENT_DATE)`,
+      `legacy_source IS NULL`,
     ];
     const args: unknown[] = [params.companyCode];
     let pi = 2;

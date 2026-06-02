@@ -123,8 +123,15 @@ export class FarmSalesService {
     return { order_no: orderNo, total_amount: totalAmount };
   }
 
-  /** 撤销销售单（恢复蛋库） */
-  async cancelSale(orderNo: string, operator: string) {
+  /** 撤销销售单（恢复蛋库）
+   *  生产链路收口 Phase 1：农场直销旁路已停用（createSale 早已冻结），
+   *  蛋库旁路 EGG-STOCK-* 已冻结，撤销回补不再适用。
+   *  历史单的撤销/退货请通过「销售管理（Sales V2）」退货流程处理。 */
+  async cancelSale(_orderNo: string, _operator: string): Promise<never> {
+    throw new Error('农场直销旧流程已停用（生产链路收口 Phase 1）。历史单撤销/退货请使用新版销售管理。');
+  }
+  /** @deprecated 保留原撤销逻辑签名以避免 TS 编译错误，逻辑已移至 throw 块 */
+  private async _cancelSaleLegacy(orderNo: string, operator: string) {
     const [order] = await this.ds.query<any[]>(
       `SELECT * FROM ord_orders WHERE order_no = $1 AND order_type = 'FARM_SALE'`,
       [orderNo],

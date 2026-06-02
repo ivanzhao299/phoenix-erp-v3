@@ -75,10 +75,11 @@ const MENU: MenuItem[] = [
     { id: "brd-device",     path: "/breeding/device",         Icon: BarChart2,      label: "设备监控",     perm: "MENU_DEVICE_MONITOR" },
     { id: "brd-alerts",     path: "/breeding/device-alerts",  Icon: AlertTriangle,  label: "环境预警",     perm: "MENU_DEVICE_MONITOR" },
     { id: "brd-device-ops", path: "/breeding/device-ops",    Icon: Network,        label: "设备运维",     perm: "MENU_DEVICE_MONITOR" },
-    // 分级包装
+    // 集蛋记录（生产链路收口 Phase 1：只记集蛋事实，不形成可售库存）
+    { id: "prod-collection",path: "/breeding/egg-ledger",     Icon: Egg,            label: "集蛋记录",     perm: "MENU_PROD_COLLECTION" },
+    // 分级包装（包装作业中心：包装完成 = 唯一库存入口）
     { id: "pkg-op",         path: "/packaging",               Icon: Egg,            label: "包装作业",     perm: "MENU_PKG_OP"  },
-    { id: "pkg-inbound",    path: "/packaging/inbound",       Icon: PackagePlus,    label: "集蛋入库",     perm: "MENU_PKG_MGR" },
-    { id: "pkg-batch",      path: "/packaging/batch",         Icon: Layers,         label: "批次管理",     perm: "MENU_PKG_MGR" },
+    { id: "pkg-batch",      path: "/packaging/batch",         Icon: Layers,         label: "包装批次",     perm: "MENU_PKG_MGR" },
     { id: "pkg-report",     path: "/packaging/daily-report",  Icon: BarChart2,      label: "包装日报",     perm: "MENU_PKG_MGR" },
     { id: "pkg-except",     path: "/packaging/exceptions",    Icon: FileWarning,    label: "异常处理",     perm: "MENU_PKG_MGR" },
     { id: "pkg-printlogs",  path: "/packaging/print-logs",    Icon: ScrollText,     label: "补打日志",     perm: "MENU_PKG_MGR" },
@@ -95,7 +96,8 @@ const MENU: MenuItem[] = [
   // 3. 库存管理 — 仓储库存 + 批次库存 + 临期库存 + 损耗管理
   { id: "inventory", Icon: Warehouse, label: "库存管理", perm: "MENU_WMS_VIEW", children: [
     { id: "wh-dash",     path: "/warehouse",              Icon: LayoutDashboard, label: "库存总览",   perm: "MENU_WMS_VIEW"  },
-    { id: "wh-in",       path: "/warehouse/inbound",      Icon: PackagePlus,     label: "入库管理",   perm: "MENU_WMS_INOUT" },
+    { id: "inv-batch",   path: "/sales2/inventory",       Icon: Layers,          label: "成品批次",   perm: "MENU_INV_BATCH" },
+    { id: "wh-in",       path: "/warehouse/inbound",      Icon: PackagePlus,     label: "手工入库",   perm: "MENU_WMS_INOUT" },
     { id: "wh-out",      path: "/warehouse/outbound",     Icon: PackageMinus,    label: "出库管理",   perm: "MENU_WMS_INOUT" },
     { id: "wh-transfer", path: "/warehouse/transfer",     Icon: RefreshCw,       label: "调拨管理",   perm: "MENU_WMS_INOUT" },
     { id: "wh-stock",    path: "/warehouse/stocktake",    Icon: ListChecks,      label: "盘点管理",   perm: "MENU_WMS_INOUT" },

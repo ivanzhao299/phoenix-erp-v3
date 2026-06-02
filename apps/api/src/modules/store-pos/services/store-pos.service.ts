@@ -475,6 +475,7 @@ export class StorePosService {
                AND status = 'AVAILABLE'
                AND qty_available > 0
                AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
+               AND legacy_source IS NULL
              ORDER BY expire_date ASC NULLS LAST, created_at ASC
              FOR UPDATE`,
             [item.sku_code, sale.company_code],
@@ -489,6 +490,7 @@ export class StorePosService {
                AND status = 'AVAILABLE'
                AND qty_available > 0
                AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
+               AND legacy_source IS NULL
                ${item.grade_code ? `AND quality_grade = '${item.grade_code}'` : ''}
              ORDER BY expire_date ASC NULLS LAST, created_at ASC
              FOR UPDATE`,
