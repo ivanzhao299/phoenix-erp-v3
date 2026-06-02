@@ -110,12 +110,19 @@ export class WorkflowService implements OnModuleInit {
          name VARCHAR(160) NOT NULL,
          description TEXT,
          category VARCHAR(80),
+         biz_type VARCHAR(64),
+         module_code VARCHAR(64),
+         remark TEXT,
          status VARCHAR(20) DEFAULT 'DRAFT',
          current_version_id INT,
          created_by INT,
          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
        )`,
+      // 自愈：旧表(无 biz_type/module_code/remark)补列，避免 listForms/createForm 列不存在(PG→400)
+      `ALTER TABLE wf_form_definition ADD COLUMN IF NOT EXISTS biz_type VARCHAR(64)`,
+      `ALTER TABLE wf_form_definition ADD COLUMN IF NOT EXISTS module_code VARCHAR(64)`,
+      `ALTER TABLE wf_form_definition ADD COLUMN IF NOT EXISTS remark TEXT`,
       `CREATE TABLE IF NOT EXISTS wf_form_version (
          id SERIAL PRIMARY KEY,
          form_id INT NOT NULL REFERENCES wf_form_definition(id) ON DELETE CASCADE,
