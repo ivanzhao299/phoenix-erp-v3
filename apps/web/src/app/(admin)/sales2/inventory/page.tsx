@@ -525,7 +525,7 @@ function FifoTab() {
       <h4 style={{ marginTop: 0, color: '#374151' }}>手动 FIFO 分配（测试 / 调整用）</h4>
       <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
         系统在销售订单审批通过时自动执行 FIFO 预留，此页面仅供管理员手动调整。
-        Phase H4：支持按商品组合（SKU）精确分配。
+        支持按商品组合（SKU）精确分配。
       </p>
 
       {/* Phase H4: SKU 快捷选择 */}
@@ -723,10 +723,10 @@ export default function InventoryPage() {
       {/* 页头 */}
       <div style={{ marginBottom: 20 }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#111827' }}>
-          库存管理 — 鸡蛋库存 Runtime
+          库存管理 — 鸡蛋库存
         </h2>
         <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>
-          FIFO 先进先出 · SKU 精确分配 · 到期预警 · 损耗分析 · Phase 7 + H4
+          先进先出 · SKU 精确分配 · 到期预警 · 损耗分析
         </p>
       </div>
 
@@ -740,7 +740,7 @@ export default function InventoryPage() {
           <StatCard label="退货待检批次" value={stats.returnedBatches} color="#9333ea" />
           {stats.skuLinkedBatches !== undefined && (
             <StatCard label="已接入 SKU 批次" value={stats.skuLinkedBatches} color="#6366f1"
-              sub="Phase H4" />
+              sub="SKU 批次" />
           )}
           <StatCard label="今日过期损耗（枚）" value={fmt(stats.todayExpireLoss)} color="#be123c" />
           <StatCard label="今日破损损耗（枚）" value={fmt(stats.todayDamageLoss)} color="#b45309" />

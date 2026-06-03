@@ -852,7 +852,7 @@ export default function SalesReturnsPage() {
       {/* 页头 */}
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: 'var(--text-primary)' }}>销售退货管理</h1>
-        <p style={{ margin: '4px 0 0', color: 'var(--text-disabled)', fontSize: 14 }}>Sales Return Runtime — 退货 · 质检 · 回库 · AR Credit Note</p>
+        <p style={{ margin: '4px 0 0', color: 'var(--text-disabled)', fontSize: 14 }}>退货 · 质检 · 回库 · 应收信用单</p>
       </div>
 
       {/* Dashboard 统计 */}

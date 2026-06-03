@@ -28,9 +28,11 @@ export { StatusBadge } from './status/StatusBadge';
 export { StatusBadge as StatusBadgeV2 } from './status/StatusBadge';   // V2 别名（同一实现）
 export type { StatusBadgeProps } from './status/StatusBadge';
 
-// tables
-export { DataTableV3 } from './tables/DataTableV3';
-export type { DataTableV3Props, ColumnV3 } from './tables/DataTableV3';
+// tables — F4: 建立官方双轨命名
+// CrudTable = 后端CRUD表格（原 data-table/DataTable，23处引用，接 table 名）
+// PresentationalTable = 前端展示表格（原 DataTableV3，接 rows[]，内置 EmptyState/Loading/排序/格式化）
+export { DataTableV3, DataTableV3 as PresentationalTable } from './tables/DataTableV3';
+export type { DataTableV3Props, ColumnV3, DataTableV3Props as PresentationalTableProps } from './tables/DataTableV3';
 
 // forms
 export { FormField, fieldInputStyle } from './forms/FormField';

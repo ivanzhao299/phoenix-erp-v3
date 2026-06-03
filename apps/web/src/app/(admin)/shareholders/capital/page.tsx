@@ -7,7 +7,7 @@ import {
   SOURCE_TYPE_LABEL, SOURCE_TYPE_OPTIONS, CONTRIB_STATUS_LABEL, lbl,
 } from '@/lib/shareholder-api';
 import {
-  PageHeaderV2, KpiCardV2, StatStripV2, DataTableV3, StatusBadge, DrawerV2, ConfirmDialogV2,
+  PageHeaderV2, KpiCard, StatStripV2, DataTableV3, StatusBadge, DrawerV2, ConfirmDialogV2,
   FormField, SelectField, AmountInput, DateInput, AttachmentUploader, type ColumnV3,
 } from '@/components/design-system';
 import { KPI_GRID } from '@/lib/design-tokens';
@@ -134,12 +134,12 @@ export default function CapitalFlowPage() {
 
       {/* KPI 区 */}
       <div style={{ ...KPI_GRID, marginBottom: 16 }}>
-        <KpiCardV2 title="项目总实缴资本" value={`¥${money(kpis.totalProjectPaidIn)}`} subValue={`共 ${projects.length} 个项目`} icon={Wallet} accentColor="blue" />
-        <KpiCardV2 title="股东累计实缴(已确认)" value={`¥${money(kpis.confirmedTotal)}`} icon={CheckCircle2} accentColor="green" />
-        <KpiCardV2 title="待审批资本流金额" value={`¥${money(kpis.pendingApproval)}`} icon={Clock} accentColor="amber" />
-        <KpiCardV2 title="待确认资本流金额" value={`¥${money(kpis.pendingConfirm)}`} icon={CalendarClock} accentColor="violet" />
-        <KpiCardV2 title="本月新增资本流" value={`¥${money(kpis.monthAdded)}`} subValue={`${stats?.monthAdded?.count ?? 0} 笔`} icon={CalendarPlus} accentColor="teal" />
-        <KpiCardV2 title="最近资本流日期" value={kpis.lastDate} icon={TrendingUp} accentColor="indigo" />
+        <KpiCard title="项目总实缴资本" value={`¥${money(kpis.totalProjectPaidIn)}`} subValue={`共 ${projects.length} 个项目`} icon={Wallet} accentColor="blue" />
+        <KpiCard title="股东累计实缴(已确认)" value={`¥${money(kpis.confirmedTotal)}`} icon={CheckCircle2} accentColor="green" />
+        <KpiCard title="待审批资本流金额" value={`¥${money(kpis.pendingApproval)}`} icon={Clock} accentColor="amber" />
+        <KpiCard title="待确认资本流金额" value={`¥${money(kpis.pendingConfirm)}`} icon={CalendarClock} accentColor="violet" />
+        <KpiCard title="本月新增资本流" value={`¥${money(kpis.monthAdded)}`} subValue={`${stats?.monthAdded?.count ?? 0} 笔`} icon={CalendarPlus} accentColor="teal" />
+        <KpiCard title="最近资本流日期" value={kpis.lastDate} icon={TrendingUp} accentColor="indigo" />
       </div>
 
       <p style={{ color: 'var(--text-secondary)', fontSize: 12.5, marginBottom: 12 }}>资本变化来自业务流+审批流，仅「已确认到账」参与实缴汇总；不可直接修改余额。流程：草稿 → 提交审批 → 审批通过 → 确认到账（自动汇总）。</p>

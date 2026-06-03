@@ -497,7 +497,7 @@ export default function RoleManagementPage() {
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
       <PageHeader
         title={t("ui.角色与权限管理","角色与权限管理")}
-        subtitle={t("ui.V3RBAC角色菜单CRUD三元组含岗位分离红线","V3 RBAC：角色 × 菜单 × CRUD 三元组（V/C/E/D/A/X），含岗位分离红线")}
+        subtitle={t("ui.V3RBAC角色菜单CRUD三元组含岗位分离红线","角色 × 菜单 × 操作权限三维管控（查/创/改/删/审/导），含岗位分离红线")}
         breadcrumb={[t("ui.系统设置","系统设置"), t("ui.角色与权限","角色与权限")]}
         actions={
           <div style={{ display: "flex", gap: "8px" }}>

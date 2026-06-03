@@ -633,8 +633,8 @@ export default function SalesV2ReportsPage() {
   return (
     <div className="animate-fade-in" style={{ padding: "0 0 40px" }}>
       <PageHeader
-        title="经营分析 Runtime"
-        subtitle="Phase 8 — 销量 · 渠道 · 价格异常 · 配送 · 退货 · 库存 · 信用风险 · DataScope"
+        title="经营分析"
+        subtitle="销量 · 渠道 · 价格异常 · 配送 · 退货 · 库存 · 信用风险 · 数据范围"
         breadcrumb={["销售系统", "经营分析"]}
       />
 

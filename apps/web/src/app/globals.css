@@ -149,6 +149,17 @@
   /* Glass */
   --glass-bg:     rgba(255,255,255,0.72);
   --glass-border: rgba(255,255,255,0.20);
+
+  /* ── F4 新增：深色表面 + 遮罩 + 状态背景 Tokens ────────────────
+   * 来源：F4 workflow 审计热点页面 108 处 rgba 裸值，按频率归纳为 6 个 token。
+   * 主要解决 store-pos 深色侧边栏/导航区边框和模态遮罩的 tokenization。
+   */
+  --border-dark:        rgba(255,255,255,0.10);  /* 深色面板边框（store-pos 侧边栏，24次） */
+  --border-dark-faint:  rgba(255,255,255,0.06);  /* 深色面板分割线（16次，0.05~0.08 合并） */
+  --overlay-mask:       rgba(0,0,0,0.60);         /* 模态/抽屉遮罩（8次：delivery/returns/pos） */
+  --status-success-bg:  rgba(34,197,94,0.10);     /* 成功状态浅色背景（8次，delivery STATUS_MAP） */
+  --status-danger-bg:   rgba(239,68,68,0.10);     /* 危险状态浅色背景（7次） */
+  --status-neutral-bg:  rgba(148,163,184,0.10);   /* 中性状态浅色背景（7次） */
 }
 
 [data-theme="dark"] {

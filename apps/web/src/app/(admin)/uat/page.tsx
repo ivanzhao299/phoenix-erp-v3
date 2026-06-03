@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import s from "@/components/ui/admin-ui.module.css";
-import { PageHeaderV2, KpiCardV2 } from "@/components/design-system";
+import { PageHeaderV2, KpiCard } from "@/components/design-system";
 import type { AccentColor } from "@/lib/design-tokens";
 
-// 将 var(--status-*) 颜色提示映射为 KpiCardV2 accentColor 枚举
+// 将 var(--status-*) 颜色提示映射为 KpiCard accentColor 枚举
 function accentFromVar(v?: string): AccentColor {
   if (!v) return "slate";
   if (v.includes("danger")) return "red";
@@ -76,7 +76,7 @@ function Badge({
   );
 }
 
-// UI-2.4：本地 MetricCard 收口为 design-system KpiCardV2（调用点不变，零功能风险）
+// UI-2.4：本地 MetricCard 收口为 design-system KpiCard（调用点不变，零功能风险）
 function MetricCard({
   title,
   value,
@@ -92,7 +92,7 @@ function MetricCard({
 }) {
   return (
     <div style={{ flex: 1, minWidth: 140 }}>
-      <KpiCardV2 title={title} value={value} subValue={sub} accentColor={accentFromVar(valueColor ?? borderColor)} />
+      <KpiCard title={title} value={value} subValue={sub} accentColor={accentFromVar(valueColor ?? borderColor)} />
     </div>
   );
 }
