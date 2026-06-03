@@ -1,147 +1,41 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
-import { FolderKanban, Search, RefreshCw, ExternalLink } from "lucide-react";
-import Link from "next/link";
-import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
-import s from "@/components/ui/admin-ui.module.css";
+import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
 
 /**
- * 主数据中心 — 项目档案
- * 数据来源：Procurement V2 Project Runtime → GET /api/v2/procurement/projects
- * 完整管理入口：/procurement2/projects
+ * 主数据中心 — 项目公司主数据 Runtime（G3-A）
+ * 新增/编辑/提交审批/冻结/归档；编码 PRJ-001 自动生成。
  */
-
-const tok = () =>
-  typeof window !== "undefined"
-    ? sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || ""
-    : "";
-const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${tok()}` });
-
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  ACTIVE:    { label: "进行中", color: "var(--status-success)" },
-  CLOSED:    { label: "已关闭", color: "var(--text-secondary)" },
-  PLANNING:  { label: "规划中", color: "var(--color-accent)" },
-  SUSPENDED: { label: "暂停",   color: "var(--status-warning)" },
-};
-
-interface Project {
-  id: string | number;
-  projectCode?: string;
-  projectName: string;
-  ownerCompanyCode?: string;
-  ownerCompanyName?: string;
-  managerName?: string;
-  budget?: number;
-  currency?: string;
-  startDate?: string;
-  endDate?: string;
-  status?: string;
-}
-
-export default function MdProjectsPage() {
-  const { canView } = usePermission("MENU_PRC2_MASTER");
-  const [items, setItems] = useState<Project[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/v2/procurement/projects?limit=100", { headers: hdr() });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const arr: Project[] = Array.isArray(data) ? data : (data.items ?? data.data ?? []);
-      setItems(arr);
-      setTotal(typeof data.total === "number" ? data.total : arr.length);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "加载失败");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { if (canView) load(); }, [canView, load]);
-
-  if (!canView) return (
-    <div className="text-text-muted" style={{ padding: 40, textAlign: "center" }}>无权限查看项目档案</div>
-  );
-
-  const filtered = items.filter(p =>
-    !search || (p.projectName ?? "").includes(search) || (p.projectCode ?? "").includes(search)
-  );
-
+export default function ProjectRuntimePage() {
   return (
-    <div className="bg-bg-card text-text min-h-screen" style={{ padding: "24px 32px" }}>
-      <PageHeader
-        title="项目档案"
-        subtitle="项目主档 · 采购项目 · 预算归属"
-        breadcrumb={["主数据中心", "项目档案"]}
+    <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
+      <PageHeader title="项目公司主数据" subtitle="股东出资项目统一维护 · 编码自动生成 · 生命周期管控" breadcrumb={["主数据中心", "项目公司主数据"]} />
+      <MasterDataRuntimePanel
+        type="project"
+        title="项目公司"
+        codeKey="project_code"
+        nameKey="project_name"
+        fields={[
+          { key: "project_name", label: "项目名称", required: true },
+          { key: "company_code", label: "所属公司编码" },
+          { key: "site_code", label: "场区编码" },
+          { key: "project_type", label: "项目类型", type: "select", options: [
+            { value: "LAYER_FARM", label: "蛋鸡养殖场" }, { value: "BROILER_FARM", label: "肉鸡养殖场" },
+            { value: "SLAUGHTER", label: "屠宰加工厂" }, { value: "FOOD_FACTORY", label: "食品厂" },
+            { value: "ORGANIC_FERTILIZER", label: "有机肥生产厂" }, { value: "HATCHERY", label: "孵化场" },
+            { value: "FEED_MILL", label: "饲料厂" }, { value: "OTHER", label: "其他" },
+          ] },
+          { key: "effective_date", label: "生效日期", type: "date" },
+          { key: "expire_date", label: "失效日期", type: "date" },
+          { key: "remark", label: "备注" },
+        ]}
+        columns={[
+          { key: "project_name", label: "项目名称" },
+          { key: "company_code", label: "公司" },
+          { key: "site_code", label: "场区" },
+          { key: "project_type", label: "类型" },
+        ]}
       />
-
-      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
-        <div style={{ position: "relative", flex: "0 0 260px" }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索项目名称 / 编码..."
-            className="bg-bg-muted border border-border text-text"
-            style={{ width: "100%", padding: "7px 10px 7px 32px", borderRadius: 7, fontSize: 13, outline: "none" }} />
-        </div>
-        <button onClick={load} className="bg-bg-muted border border-border text-text-muted" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 7, fontSize: 13, cursor: "pointer" }}>
-          <RefreshCw size={13} /> 刷新
-        </button>
-        <div style={{ flex: 1 }} />
-        <Link href="/procurement2/projects" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "var(--status-success)", border: "none", borderRadius: 7, color: "var(--text-on-dark)", fontSize: 13, cursor: "pointer", textDecoration: "none", fontWeight: 600 }}>
-          <ExternalLink size={13} /> 完整管理
-        </Link>
-      </div>
-
-      <div className="text-text-muted" style={{ marginBottom: 12, fontSize: 12 }}>
-        共 <span style={{ fontWeight: 600 }}>{filtered.length}</span> 个项目
-      </div>
-
-      {loading ? (
-        <div style={{ padding: 60, textAlign: "center", color: "var(--text-secondary)" }}>加载中...</div>
-      ) : error ? (
-        <div style={{ padding: 40, textAlign: "center", color: "var(--status-danger)" }}>{error}</div>
-      ) : (
-        <div className="bg-bg-muted border border-border" style={{ borderRadius: 10, overflow: "auto" }}>
-          <table className={s.table}>
-            <thead>
-              <tr>
-                {["项目编码", "项目名称", "归属公司", "负责人", "预算", "货币", "状态"].map(h => (
-                  <th key={h} style={h === "预算" ? { textAlign: "right" } : undefined}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={7} style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>暂无数据</td></tr>
-              ) : filtered.map((p, i) => {
-                const st = STATUS_MAP[p.status ?? "ACTIVE"] ?? { label: p.status ?? "-", color: "var(--text-secondary)" };
-                return (
-                  <tr key={p.id ?? i} className="border-b border-border/30"
-                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(148,163,184,0.08)")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                  >
-                    <td className="text-text-muted" style={{ fontFamily: "monospace" }}>{p.projectCode ?? "-"}</td>
-                    <td className="text-text">{p.projectName}</td>
-                    <td className="text-text-muted">{p.ownerCompanyName ?? p.ownerCompanyCode ?? "-"}</td>
-                    <td className="text-text-muted">{p.managerName ?? "-"}</td>
-                    <td className="text-text" style={{ textAlign: "right" }}>{p.budget != null ? p.budget.toLocaleString() : "-"}</td>
-                    <td className="text-text-muted">{p.currency ?? "-"}</td>
-                    <td>
-                      <span style={{ padding: "2px 8px", borderRadius: 4, background: `${st.color}22`, color: st.color, fontSize: 11, fontWeight: 600 }}>{st.label}</span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 }
