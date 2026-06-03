@@ -5,7 +5,7 @@ import {
   CreditCard, CheckCircle, Clock, Ban,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { StatusBadge } from '@/components/design-system';
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 

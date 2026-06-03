@@ -12,7 +12,7 @@ interface HouseCard {
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
-import StatusBadge from '@/components/StatusBadge';
+import { StatusBadge } from '@/components/design-system';
 import RightDrawer from '@/components/RightDrawer';
 import { useCrud } from '@/hooks/useCrud';
 import { useDictOptions } from '@/hooks/useDictOptions';

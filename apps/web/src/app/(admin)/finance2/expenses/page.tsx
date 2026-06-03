@@ -6,7 +6,7 @@ import {
   DollarSign, Calendar, Building2,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { StatusBadge } from '@/components/design-system';
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 

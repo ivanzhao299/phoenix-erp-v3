@@ -1,8 +1,9 @@
 'use client';
 /**
- * @deprecated F2 设计系统收口：请使用 `@/components/data-table`（canonical，23 处引用）。
- * 迁移：import { DataTable, DataTableColumn } from '@/components/data-table';
- * 本文件保留以兼容现有引用（4 处），待 F3 逐页迁移完成后删除。
+ * @deprecated F3 说明：`@/components/data-table` 是后端 CRUD 表格（需要 table 名/server fetch），
+ * 与本文件的前端展示表格（接 data + searchKeys + filters）API 不兼容，无法直接替换。
+ * 建议 F4 阶段将本文件提升为 `PresentationalTable` 纳入 design-system，
+ * 或将 data-table 抽离展示层 variant。4 处引用暂时保留。
  */
 import React, { useState } from 'react';
 import { Search, ChevronLeft, ChevronRight, Download } from 'lucide-react';

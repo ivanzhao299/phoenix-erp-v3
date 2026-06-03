@@ -11,9 +11,9 @@
  * ════════════════════════════════════════════════════════════════════
  */
 
-// cards
-export { KpiCardV2 } from './cards/KpiCardV2';
-export type { KpiCardV2Props } from './cards/KpiCardV2';
+// cards — F3: KpiCardV2 → KpiCard 别名（现有 KpiCardV2 引用继续生效）
+export { KpiCardV2, KpiCardV2 as KpiCard } from './cards/KpiCardV2';
+export type { KpiCardV2Props, KpiCardV2Props as KpiCardProps } from './cards/KpiCardV2';
 export { MetricCard } from './cards/MetricCard';
 export type { MetricCardProps } from './cards/MetricCard';
 export { NavCardV2 } from './cards/NavCardV2';

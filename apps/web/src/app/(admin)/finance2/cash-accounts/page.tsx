@@ -6,7 +6,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, Activity,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { StatusBadge } from '@/components/design-system';
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 function getToken() {

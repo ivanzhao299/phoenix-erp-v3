@@ -6,7 +6,7 @@ import {
   X, AlertCircle, Ban, Receipt,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { StatusBadge } from '@/components/design-system';
 import s from "@/components/ui/admin-ui.module.css";
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────

@@ -78,7 +78,7 @@ export default function DailyInboundPage() {
     <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
       <PageHeader
         title="日产蛋入库"
-        subtitle="临时生产入库模式 · 日产蛋直接形成销售库存（统一进入 Sales V2 FIFO）"
+        subtitle="临时生产入库模式 · 日产蛋直接形成销售库存（统一进入 FIFO 库存体系）"
         breadcrumb={["生产管理", "日产蛋入库"]}
       />
 
