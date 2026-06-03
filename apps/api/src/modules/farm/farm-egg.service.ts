@@ -1,22 +1,19 @@
-import { Injectable, OnModuleInit, ForbiddenException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 
 /**
- * 生产链路收口 Phase 1 — Farm Egg 库存旁路冻结
+ * Farm Egg — 集蛋记录（只读）
  * ────────────────────────────────────────────────────────────────────────
- * 依据：docs/production-inventory-integration-audit.md（闭环A）
- * 集蛋曾经通过本服务直接写 EGG-STOCK-* 批次形成可销售库存（绕过分级/包装），
- * 与包装链路、Sales V2 FIFO 双重计数。Phase 1 起：
- *   · 禁止 inbound / outbound / writeOff（不再生成/扣减可售库存）
- *   · 保留 getStock / getLedger 只读（历史数据可见）
- *   · 集蛋 → 分级 → 包装 → 自动入库 统一走「包装作业中心」
+ * R1（删除重复库存体系）：Farm Egg 不再作为库存系统。
+ *   · 已删除：onModuleInit 创建 EGG-STOCK-* 批次、inbound/outbound/writeOff 写库存逻辑。
+ *   · 仅保留：getStock / getLedger 只读查询（历史集蛋记录/流水，供台账查看）。
+ *   · 库存来源唯一由 InventorySourceMode 控制：TEMP_PRODUCTION_INBOUND / PACKAGING_INBOUND。
+ *   · 销售扣减统一走 Sales V2 Inventory Runtime（EggInventoryService FIFO）/ Store POS。
+ * 依据：docs/production-runtime-rebuild-phase-r1-delete-duplicate-inventory.md
  */
-const FARM_EGG_FROZEN_MSG =
-  '集蛋入库旁路已冻结（生产链路收口 Phase 1）。请改用「包装作业中心」完成 集蛋→分级→包装→自动入库；' +
-  '销售扣减统一走「销售管理（Sales V2）」。本入口仅保留历史库存与流水查询。';
 
-// 8 个蛋品规格
+// 8 个蛋品规格（仅供只读快照按等级归类）
 export const EGG_GRADES = [
   { code: '0', name: '0号蛋', sort: 0 },
   { code: '1', name: '1号蛋', sort: 1 },
@@ -54,35 +51,11 @@ export interface EggLedgerEntry {
   created_at: string;
 }
 
-export interface EggInboundItem {
-  grade: string;
-  qty: number;         // 枚
-  house_code: string;
-}
-
-export interface EggOutboundItem {
-  grade: string;
-  qty: number;
-  customer_no: string;
-}
-
 @Injectable()
-export class FarmEggService implements OnModuleInit {
+export class FarmEggService {
   constructor(@InjectDataSource() private ds: DataSource) {}
 
-  async onModuleInit() {
-    // 确保每个等级都有对应的库存批次行
-    for (const g of EGG_GRADES) {
-      await this.ds.query(
-        `INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, warehouse_code, status)
-         VALUES ($1, $2, 0, 0, $3, 'AVAILABLE')
-         ON CONFLICT (batch_no) DO NOTHING`,
-        [batchNo(g.code), `EGG-${g.code}`, WAREHOUSE],
-      );
-    }
-  }
-
-  /** 当前库存快照 */
+  /** 当前库存快照（只读·历史 FARM_EGG 仓；R1 后不再新增，仅供台账查看） */
   async getStock(): Promise<EggStockRow[]> {
     const rows = await this.ds.query<any[]>(
       `SELECT batch_no, COALESCE(qty_available, qty, 0) AS qty
@@ -96,7 +69,7 @@ export class FarmEggService implements OnModuleInit {
     });
   }
 
-  /** 按日期范围查询流水 */
+  /** 按日期范围查询流水（只读·历史 FARM_EGG 仓） */
   async getLedger(startDate: string, endDate: string): Promise<EggLedgerEntry[]> {
     return this.ds.query<EggLedgerEntry[]>(
       `SELECT l.id, l.log_date::text, l.change_type, b.product_code AS grade,
@@ -109,36 +82,5 @@ export class FarmEggService implements OnModuleInit {
        ORDER BY l.created_at DESC`,
       [WAREHOUSE, startDate, endDate],
     );
-  }
-
-  /** 入库：鸡舍 → 鸡蛋库
-   *  @deprecated 生产链路收口 Phase 1 已冻结。集蛋请走「包装作业中心」自动入库。 */
-  async inbound(
-    _logDate: string,
-    _items: EggInboundItem[],
-    _operator: string,
-  ): Promise<void> {
-    throw new ForbiddenException(FARM_EGG_FROZEN_MSG);
-  }
-
-  /** 出库：鸡蛋库 → 客户
-   *  @deprecated 生产链路收口 Phase 1 已冻结。销售扣减请走「销售管理（Sales V2）」。 */
-  async outbound(
-    _logDate: string,
-    _items: EggOutboundItem[],
-    _operator: string,
-    _refNo?: string,
-  ): Promise<void> {
-    throw new ForbiddenException(FARM_EGG_FROZEN_MSG);
-  }
-
-  /** 报损（脏蛋/破损处理）
-   *  @deprecated 生产链路收口 Phase 1 已冻结。报损请通过「库存管理」处理。 */
-  async writeOff(
-    _logDate: string,
-    _items: Array<{ grade: string; qty: number; reason: string }>,
-    _operator: string,
-  ): Promise<void> {
-    throw new ForbiddenException(FARM_EGG_FROZEN_MSG);
   }
 }

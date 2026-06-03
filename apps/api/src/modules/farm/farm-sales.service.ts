@@ -1,18 +1,27 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { FarmEggService } from './farm-egg.service';
+
+/**
+ * Farm Sales — 农场直销（已停用直扣库存）
+ * ────────────────────────────────────────────────────────────────────────
+ * R1（删除重复库存体系）：farm-sales 不再直接修改库存。
+ *   · 已删除：createSale/cancelSale 对 FarmEggService.outbound/inbound 的直扣/回补逻辑。
+ *   · 销售扣减库存唯一走 Sales V2 Inventory Runtime（EggInventoryService FIFO）/ Store POS。
+ *   · 仅保留 getCustomers / getSales 只读查询；下单/撤销冻结（引导至新版销售管理）。
+ * 依据：docs/production-runtime-rebuild-phase-r1-delete-duplicate-inventory.md
+ */
 
 export interface FarmSaleItem {
-  grade:        string;   // 蛋品规格 code
-  grade_name:   string;   // 显示名
-  qty:          number;   // 枚
-  trays:        number;   // 提（qty/180，可由前端计算）
-  unit_price:   number;   // 单价（LAK/枚）
+  grade:        string;
+  grade_name:   string;
+  qty:          number;
+  trays:        number;
+  unit_price:   number;
 }
 
 export interface CreateFarmSaleDto {
-  sale_date:     string;          // YYYY-MM-DD
+  sale_date:     string;
   customer_code: string;
   customer_name: string;
   items:         FarmSaleItem[];
@@ -20,18 +29,11 @@ export interface CreateFarmSaleDto {
   operator:      string;
 }
 
-function saleNo(date: string, seq: number): string {
-  return `FS-${date.replace(/-/g, '')}-${String(seq).padStart(4, '0')}`;
-}
-
 @Injectable()
 export class FarmSalesService {
-  constructor(
-    @InjectDataSource() private ds: DataSource,
-    private eggSvc: FarmEggService,
-  ) {}
+  constructor(@InjectDataSource() private ds: DataSource) {}
 
-  /** 获取农场客户列表 */
+  /** 获取农场客户列表（只读） */
   async getCustomers() {
     return this.ds.query<any[]>(
       `SELECT customer_code, customer_name FROM ord_customers
@@ -40,7 +42,7 @@ export class FarmSalesService {
     );
   }
 
-  /** 查询农场销售订单列表（按日期） */
+  /** 查询农场销售订单列表（按日期，只读） */
   async getSales(date: string) {
     return this.ds.query<any[]>(
       `SELECT o.order_no, o.order_date::text, o.customer_code, o.customer_name,
@@ -64,102 +66,13 @@ export class FarmSalesService {
     );
   }
 
-  /** 创建农场直销单（同步扣减蛋库） */
-  // [Fix Pack 1 — HIGH-1] 农场直销旧写路径已停用
-  // 新建销售单请使用 Sales V2：/api/sales/orders
+  /** 创建农场直销单 —— R1 停用（不再直扣库存）。请使用新版销售管理（Sales V2）。 */
   async createSale(_dto: CreateFarmSaleDto): Promise<never> {
-    throw new Error('农场直销旧流程已停用，请使用新版销售管理。');
-  }
-  /** @deprecated 保留签名以避免 TS 编译错误，逻辑已移至 throw 块 */
-  private async _createSaleLegacy(dto: CreateFarmSaleDto) {
-    // 生成单号：当日序号
-    const [{ cnt }] = await this.ds.query<any[]>(
-      `SELECT COUNT(*)::int AS cnt FROM ord_orders
-       WHERE order_type = 'FARM_SALE' AND order_date = $1`,
-      [dto.sale_date],
-    );
-    const orderNo    = saleNo(dto.sale_date, Number(cnt) + 1);
-    const totalAmount = dto.items.reduce((s, it) => s + it.qty * it.unit_price, 0);
-
-    // 插入主单
-    await this.ds.query(
-      `INSERT INTO ord_orders
-         (order_no, customer_code, customer_name, order_date, total_amount,
-          subtotal, status, order_type, order_source, remark, created_by, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$5,'DELIVERED','FARM_SALE','MOBILE',$6,$7,NOW())`,
-      [orderNo, dto.customer_code, dto.customer_name, dto.sale_date,
-       totalAmount, dto.remark ?? null, dto.operator],
-    );
-
-    // 插入明细
-    for (const it of dto.items) {
-      if (!it.qty || it.qty <= 0) continue;
-      const subtotal = it.qty * it.unit_price;
-      await this.ds.query(
-        `INSERT INTO ord_order_items
-           (order_no, product_code, product_name_zh, grade, qty, unit, unit_price, subtotal, amount)
-         VALUES ($1, $2, $3, $4, $5, '枚', $6, $7, $7)`,
-        [orderNo, `EGG-${it.grade}`, it.grade_name, it.grade, it.qty, it.unit_price, subtotal],
-      );
-    }
-
-    // 同步扣减蛋库（只扣有售价行）
-    const outItems = dto.items
-      .filter(it => it.qty > 0)
-      .map(it => ({ grade: it.grade, qty: it.qty, customer_no: dto.customer_code }));
-    if (outItems.length > 0) {
-      try {
-        await this.eggSvc.outbound(dto.sale_date, outItems, dto.operator, orderNo);
-      } catch (err: any) {
-        // 库存不足时不阻断保存，记录 remark（后续对账）
-        await this.ds.query(
-          `UPDATE ord_orders SET remark = COALESCE(remark,'') || ' [库存预警:' || $1 || ']'
-           WHERE order_no = $2`,
-          [err.message, orderNo],
-        );
-      }
-    }
-
-    return { order_no: orderNo, total_amount: totalAmount };
+    throw new Error('农场直销旧流程已停用（R1）。销售扣减统一走「销售管理（Sales V2）」，本入口不再直接修改库存。');
   }
 
-  /** 撤销销售单（恢复蛋库）
-   *  生产链路收口 Phase 1：农场直销旁路已停用（createSale 早已冻结），
-   *  蛋库旁路 EGG-STOCK-* 已冻结，撤销回补不再适用。
-   *  历史单的撤销/退货请通过「销售管理（Sales V2）」退货流程处理。 */
+  /** 撤销农场直销单 —— R1 停用（不再回补库存）。历史单撤销/退货请走 Sales V2 退货流程。 */
   async cancelSale(_orderNo: string, _operator: string): Promise<never> {
-    throw new Error('农场直销旧流程已停用（生产链路收口 Phase 1）。历史单撤销/退货请使用新版销售管理。');
-  }
-  /** @deprecated 保留原撤销逻辑签名以避免 TS 编译错误，逻辑已移至 throw 块 */
-  private async _cancelSaleLegacy(orderNo: string, operator: string) {
-    const [order] = await this.ds.query<any[]>(
-      `SELECT * FROM ord_orders WHERE order_no = $1 AND order_type = 'FARM_SALE'`,
-      [orderNo],
-    );
-    if (!order) throw new Error('销售单不存在');
-    if (order.status === 'CANCELLED') throw new Error('已撤销');
-
-    const items = await this.ds.query<any[]>(
-      `SELECT grade, qty FROM ord_order_items WHERE order_no = $1 AND grade IS NOT NULL`,
-      [orderNo],
-    );
-
-    // 回补库存
-    for (const it of items) {
-      if (Number(it.qty) > 0) {
-        await this.eggSvc.inbound(
-          order.order_date,
-          [{ grade: it.grade, qty: Number(it.qty), house_code: 'CANCEL_REFUND' }],
-          operator,
-        );
-      }
-    }
-
-    await this.ds.query(
-      `UPDATE ord_orders SET status='CANCELLED', updated_at=NOW() WHERE order_no=$1`,
-      [orderNo],
-    );
-
-    return { order_no: orderNo, status: 'CANCELLED' };
+    throw new Error('农场直销旧流程已停用（R1）。历史单撤销/退货请使用新版销售管理（Sales V2）。');
   }
 }

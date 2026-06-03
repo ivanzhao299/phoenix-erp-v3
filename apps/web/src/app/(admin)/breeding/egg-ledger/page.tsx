@@ -191,11 +191,11 @@ export default function EggLedgerPage() {
         breadcrumb={[t('ui.养殖生产', '养殖生产'), t('ui.蛋品台账', '蛋品台账')]}
       />
 
-      {/* 生产链路收口 Phase 1 — Farm Egg 库存旁路已冻结 */}
+      {/* R1 — Farm Egg 库存能力已删除（本入口不再生成库存） */}
       <LegacyFreezeBanner
         newPath="/pkg/packaging"
         newModuleName="包装作业中心"
-        message="本入口（集蛋直接入/出库）已冻结。集蛋 → 分级 → 包装 → 自动入库 请使用「包装作业中心」；销售扣减统一走「销售管理」。本页仅保留历史库存与流水查询。"
+        message="该入口不再生成库存，库存来源由系统模式控制（临时生产入库 / 包装入库）。集蛋请走「包装作业中心」；销售扣减走「销售管理」。本页仅保留集蛋记录与历史流水查询。"
       />
 
       {/* Tab 栏 */}

@@ -31,39 +31,30 @@ export class FarmEggController {
     return { code: 200, data: await this.svc.getLedger(s, e) };
   }
 
-  /** POST /api/farm/egg/inbound
-   *  body: { date, items: [{grade, qty, house_code}], operator? }
-   */
+  // ── R1：Farm Egg 库存写能力已删除 ────────────────────────────────────────
+  //   inbound / outbound / write-off 不再写库存。库存来源唯一由 InventorySourceMode 控制
+  //   （TEMP_PRODUCTION_INBOUND / PACKAGING_INBOUND）。保留端点仅返回冻结提示，避免前端 404。
+  private static readonly FROZEN = {
+    code: 410,
+    message:
+      '鸡蛋库存已由库存来源模式统一管理（本入口不再生成库存）。请使用「日产蛋入库（临时生产入库）」或「包装作业中心」。',
+  };
+
+  /** POST /api/farm/egg/inbound —— R1 冻结（不再写库存） */
   @Post('inbound')
-  @RequireMenu('MENU_BREEDING', 'E')
-  async inbound(
-    @Body() body: { date: string; items: Array<{ grade: string; qty: number; house_code: string }>; operator?: string },
-  ) {
-    await this.svc.inbound(body.date, body.items, body.operator ?? 'mobile');
-    return { code: 200, message: '入库成功' };
+  async inbound() {
+    return FarmEggController.FROZEN;
   }
 
-  /** POST /api/farm/egg/outbound
-   *  body: { date, items: [{grade, qty, customer_no}], operator?, ref_no? }
-   */
+  /** POST /api/farm/egg/outbound —— R1 冻结（不再扣库存） */
   @Post('outbound')
-  @RequireMenu('MENU_BREEDING', 'E')
-  async outbound(
-    @Body() body: { date: string; items: Array<{ grade: string; qty: number; customer_no: string }>; operator?: string; ref_no?: string },
-  ) {
-    await this.svc.outbound(body.date, body.items, body.operator ?? 'mobile', body.ref_no);
-    return { code: 200, message: '出库成功' };
+  async outbound() {
+    return FarmEggController.FROZEN;
   }
 
-  /** POST /api/farm/egg/write-off
-   *  body: { date, items: [{grade, qty, reason}], operator? }
-   */
+  /** POST /api/farm/egg/write-off —— R1 冻结（不再报损库存） */
   @Post('write-off')
-  @RequireMenu('MENU_BREEDING', 'E')
-  async writeOff(
-    @Body() body: { date: string; items: Array<{ grade: string; qty: number; reason: string }>; operator?: string },
-  ) {
-    await this.svc.writeOff(body.date, body.items, body.operator ?? 'mobile');
-    return { code: 200, message: '报损成功' };
+  async writeOff() {
+    return FarmEggController.FROZEN;
   }
 }

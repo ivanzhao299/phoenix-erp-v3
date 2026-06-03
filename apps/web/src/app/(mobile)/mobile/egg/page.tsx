@@ -317,9 +317,9 @@ export default function EggPage() {
         </div>
       )}
 
-      {/* 生产链路收口 Phase 1 — Farm Egg 库存旁路已冻结 */}
+      {/* R1 — Farm Egg 库存能力已删除（本入口不再生成库存） */}
       <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', color: '#d97706', fontSize: 12, lineHeight: 1.5 }}>
-        ⚠️ 集蛋直接入/出库已冻结。请到「包装作业中心」完成 集蛋→分级→包装→自动入库；本页仅供查询。
+        ⚠️ 该入口不再生成库存，库存来源由系统模式控制（临时生产入库 / 包装入库）。请到「包装作业中心」完成集蛋→分级→包装；本页仅供查询。
       </div>
 
       {/* 内容区 */}
