@@ -46,9 +46,16 @@ function readStoredAuth(): { user: AuthUser | null; token: string | null } {
       sessionStorage.setItem('phoenix_session_version', SESSION_VERSION);
       return { user: null, token: null };
     }
-    const storedToken = sessionStorage.getItem('phoenix_token');
-    const storedUser  = sessionStorage.getItem('phoenix_user');
+    // 优先 sessionStorage，fallback localStorage（路由切换/刷新/新标签页时 sessionStorage 可能为空）
+    const storedToken = sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token');
+    const storedUser  = sessionStorage.getItem('phoenix_user')  || localStorage.getItem('phoenix_user');
     if (!storedToken || !storedUser) return { user: null, token: null };
+    // fallback 成功时同步回 sessionStorage，保证后续读取一致
+    if (!sessionStorage.getItem('phoenix_token') && storedToken) {
+      sessionStorage.setItem('phoenix_token', storedToken);
+      sessionStorage.setItem('phoenix_user', storedUser);
+      sessionStorage.setItem('phoenix_session_version', SESSION_VERSION);
+    }
 
     const payload = parseJwtPayload(storedToken);
     if (!payload) throw new Error('invalid token');
@@ -132,10 +139,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
-  // 30 分钟无操作自动登出
+  // 8 小时无操作自动登出（企业 ERP 产品，用户使用周期长，30 分钟过于激进）
   useEffect(() => {
     if (!token) return;
-    const IDLE_TIMEOUT = 30 * 60 * 1000;
+    const IDLE_TIMEOUT = 8 * 60 * 60 * 1000;
     let idleTimer: ReturnType<typeof setTimeout>;
     const resetTimer = () => {
       clearTimeout(idleTimer);
@@ -171,10 +178,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const login = useCallback((tokenStr: string, userInfo: Record<string, unknown>) => {
+    // 同时写 sessionStorage + localStorage，保证刷新/路由切换/包装台标签页都能读到
     sessionStorage.setItem('phoenix_token', tokenStr);
     sessionStorage.setItem('phoenix_user', JSON.stringify(userInfo));
     sessionStorage.setItem('phoenix_lang', String(userInfo.lang || 'zh'));
     sessionStorage.setItem('phoenix_session_version', SESSION_VERSION);
+    localStorage.setItem('phoenix_token', tokenStr);
+    localStorage.setItem('phoenix_user', JSON.stringify(userInfo));
     _setCookieToken(tokenStr);
     setToken(tokenStr);
     setUser(userInfo);
@@ -183,6 +193,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = useCallback((reason?: 'expired' | 'perms_changed' | 'logout') => {
     sessionStorage.removeItem('phoenix_token');
     sessionStorage.removeItem('phoenix_user');
+    localStorage.removeItem('phoenix_token');
+    localStorage.removeItem('phoenix_user');
     // 清除中间件 cookie
     document.cookie = 'phoenix_access_token=; path=/; max-age=0; SameSite=Lax';
     setToken(null);
