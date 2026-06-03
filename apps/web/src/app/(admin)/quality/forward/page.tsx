@@ -2,8 +2,9 @@
 import { useState, useCallback } from "react";
 import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
-import { Search } from "lucide-react";
+import { Search, Package, ClipboardList, ShoppingCart, AlertCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { EmptyState } from "@/components/design-system";
 
 // 正向追溯：从批次 → 质检 → 订单
 interface TraceResult {
@@ -12,49 +13,52 @@ interface TraceResult {
   orders: Record<string, unknown>[];
 }
 
-// 批次实际字段（inv_batches）
-const BATCH_KEYS = ["batch_no", "product_code", "qty", "qty_available", "warehouse_code", "location_code", "expire_date", "status"];
+const BATCH_KEYS   = ["batch_no", "product_code", "qty", "qty_available", "warehouse_code", "expire_date", "status"];
 const INSPECT_KEYS = ["inspect_no", "inspector", "status", "created_at"];
 const ORDER_KEYS   = ["order_no", "customer_code", "total_amount", "status"];
 
-function KVSection({
-  title,
-  items,
-  keys,
-}: {
-  title: string;
-  items: Record<string, unknown>[];
-  keys: string[];
-}) {
-  const { t } = useLanguage();
+/** 通用键值展示行 */
+function KVRow({ item, keys }: { item: Record<string, unknown>; keys: string[] }) {
   return (
-    <div className="mb-5">
-      <div className="font-semibold text-sm text-text-muted mb-2">
-        {title}
-        <span className="ml-1 text-xs text-text-dim font-normal">({items.length} {t("ui.条", "条")})</span>
-      </div>
-      {items.length === 0 ? (
-        <div className="text-sm text-text-dim py-2">{t("common.no_data", "暂无数据")}</div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {items.map((item, i) => (
-            <div
-              key={i}
-              className="bg-bg-muted/50 rounded-lg px-4 py-2.5 text-xs flex flex-wrap gap-x-5 gap-y-1"
-            >
-              {keys.map(
-                (k) =>
-                  item[k] != null && (
-                    <span key={k}>
-                      <b className="text-text-muted">{k}: </b>
-                      <span className="text-text-muted">{String(item[k])}</span>
-                    </span>
-                  )
-              )}
-            </div>
-          ))}
-        </div>
+    <div style={{
+      display: 'flex', flexWrap: 'wrap', gap: '4px 20px',
+      padding: '10px 14px', borderRadius: 8,
+      background: 'var(--bg-muted)', border: '1px solid var(--border)',
+      fontSize: 12,
+    }}>
+      {keys.map((k) =>
+        item[k] != null ? (
+          <span key={k}>
+            <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{k}: </span>
+            <span style={{ color: 'var(--text-primary)', fontFamily: 'monospace' }}>{String(item[k])}</span>
+          </span>
+        ) : null
       )}
+    </div>
+  );
+}
+
+/** 分组展示块 */
+function ResultSection({
+  icon, title, count, children,
+}: {
+  icon: React.ReactNode; title: string; count: number; children: React.ReactNode;
+}) {
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
+        marginBottom: 10,
+      }}>
+        <span style={{ color: 'var(--color-primary)' }}>{icon}</span>
+        {title}
+        <span style={{
+          fontSize: 11, fontWeight: 400, color: 'var(--text-secondary)',
+          background: 'var(--bg-muted)', padding: '1px 8px', borderRadius: 10,
+        }}>{count} 条</span>
+      </div>
+      {children}
     </div>
   );
 }
@@ -67,14 +71,15 @@ export default function ForwardTracePage() {
   const [error, setError]     = useState<string | null>(null);
 
   const trace = useCallback(async () => {
-    if (!batchNo.trim()) return;
+    const q = batchNo.trim();
+    if (!q) return;
     setLoading(true);
     setError(null);
     try {
       const [bRes, iRes, oRes] = await Promise.all([
-        crudApi.list<Record<string, unknown>>("inv_batches",    { batch_no: batchNo, limit: 1 }),
-        crudApi.list<Record<string, unknown>>("qa_inspections", { batch_no: batchNo, limit: 50 }),
-        crudApi.list<Record<string, unknown>>("ord_orders",     { batch_no: batchNo, limit: 20 }),
+        crudApi.list<Record<string, unknown>>("inv_batches",    { batch_no: q, limit: 1 }),
+        crudApi.list<Record<string, unknown>>("qa_inspections", { batch_no: q, limit: 50 }),
+        crudApi.list<Record<string, unknown>>("ord_orders",     { batch_no: q, limit: 20 }),
       ]);
       setResult({
         batch:       (bRes.data ?? [])[0] ?? null,
@@ -95,70 +100,111 @@ export default function ForwardTracePage() {
         subtitle={t("ui.正向追溯副标题", "从批次号正向追溯质检记录和关联订单")}
       />
 
-      {/* 搜索框 */}
-      <div className="flex gap-3 mb-6">
-        <input
-          value={batchNo}
-          onChange={(e) => setBatchNo(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && void trace()}
-          placeholder={t("ui.输入批次号", "输入批次号，如：B-20260510-001")}
-          className="flex-1 rounded-xl border border-border bg-bg-card text-text px-4 py-2.5 text-sm outline-none focus:border-indigo-400 dark:focus:border-indigo-500 transition-colors"
-        />
+      {/* 搜索栏 */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 24, alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: 1 }}>
+          <Search size={15} style={{
+            position: 'absolute', left: 12, top: '50%',
+            transform: 'translateY(-50%)', color: 'var(--text-secondary)',
+          }} />
+          <input
+            value={batchNo}
+            onChange={(e) => setBatchNo(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && void trace()}
+            placeholder={t("ui.输入批次号", "输入批次号，如：EGG-20260601-00001")}
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              padding: '10px 14px 10px 36px',
+              borderRadius: 9, border: '1px solid var(--border)',
+              background: 'var(--bg-card)', color: 'var(--text-primary)',
+              fontSize: 13, outline: 'none',
+            }}
+          />
+        </div>
         <button
           type="button"
           onClick={() => void trace()}
           disabled={loading || !batchNo.trim()}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
+            padding: '10px 22px', borderRadius: 9, border: 'none',
+            background: (!loading && batchNo.trim()) ? 'var(--color-primary)' : 'var(--bg-muted)',
+            color: (!loading && batchNo.trim()) ? 'white' : 'var(--text-disabled)',
+            fontSize: 13, fontWeight: 600,
+            cursor: (!loading && batchNo.trim()) ? 'pointer' : 'not-allowed',
+            transition: 'all 0.15s',
+          }}
         >
-          <Search size={15} />
+          <Search size={14} />
           {loading ? t("ui.查询中", "查询中…") : t("ui.追溯", "追溯")}
         </button>
       </div>
 
-      {/* 错误 */}
+      {/* 错误提示 */}
       {error && (
-        <div className="mb-4 text-sm text-danger bg-danger/10 border border-danger/20 rounded-xl px-4 py-3">
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          marginBottom: 16, padding: '10px 14px', borderRadius: 9,
+          background: 'var(--status-danger-bg)', border: '1px solid var(--status-danger-border)',
+          color: 'var(--status-danger)', fontSize: 13,
+        }}>
+          <AlertCircle size={15} />
           {t("ui.查询失败", "查询失败")}：{error}
         </div>
       )}
 
-      {/* 结果 */}
+      {/* 空态引导（未搜索时） */}
+      {!result && !loading && !error && (
+        <div style={{ paddingTop: 32 }}>
+          <EmptyState
+            title="输入批次号开始追溯"
+            description="输入库存批次号（EGG-YYYYMMDD-*）或包装批次号（PKG-*），回车或点击追溯按钮"
+          />
+        </div>
+      )}
+
+      {/* 追溯结果 */}
       {result && (
-        <div className="rounded-2xl border border-border bg-bg-card shadow-sm p-5">
+        <div style={{
+          borderRadius: 12, border: '1px solid var(--border)',
+          background: 'var(--bg-card)', padding: '20px 20px 4px',
+        }}>
           {/* 批次信息 */}
-          <div className="mb-5">
-            <div className="font-semibold text-sm text-indigo-600 dark:text-indigo-400 mb-2">
-              📦 {t("ui.批次信息", "批次信息")}
-            </div>
+          <ResultSection icon={<Package size={14} />} title="批次信息" count={result.batch ? 1 : 0}>
             {result.batch ? (
-              <div className="bg-bg-muted/50 rounded-lg px-4 py-2.5 text-xs flex flex-wrap gap-x-5 gap-y-1">
-                {BATCH_KEYS.map(
-                  (k) =>
-                    result.batch![k] != null && (
-                      <span key={k}>
-                        <b className="text-text-muted">{k}: </b>
-                        <span className="text-text-muted">{String(result.batch![k])}</span>
-                      </span>
-                    )
-                )}
-              </div>
+              <KVRow item={result.batch} keys={BATCH_KEYS} />
             ) : (
-              <div className="text-sm text-red-500">
-                {t("ui.未找到批次", "未找到批次")}「{batchNo}」
+              <div style={{
+                padding: '10px 14px', borderRadius: 8,
+                background: 'var(--status-danger-bg)', border: '1px solid var(--status-danger-border)',
+                color: 'var(--status-danger)', fontSize: 13,
+              }}>
+                未找到批次「{batchNo}」
               </div>
             )}
-          </div>
+          </ResultSection>
 
-          <KVSection
-            title={`🔬 ${t("ui.质检记录", "质检记录")}`}
-            items={result.inspections}
-            keys={INSPECT_KEYS}
-          />
-          <KVSection
-            title={`📋 ${t("ui.关联订单", "关联订单")}`}
-            items={result.orders}
-            keys={ORDER_KEYS}
-          />
+          {/* 质检记录 */}
+          <ResultSection icon={<ClipboardList size={14} />} title={t("ui.质检记录", "质检记录")} count={result.inspections.length}>
+            {result.inspections.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', padding: '8px 0' }}>暂无质检记录</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {result.inspections.map((item, i) => <KVRow key={i} item={item} keys={INSPECT_KEYS} />)}
+              </div>
+            )}
+          </ResultSection>
+
+          {/* 关联订单 */}
+          <ResultSection icon={<ShoppingCart size={14} />} title={t("ui.关联订单", "关联订单")} count={result.orders.length}>
+            {result.orders.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', padding: '8px 0' }}>暂无关联订单</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {result.orders.map((item, i) => <KVRow key={i} item={item} keys={ORDER_KEYS} />)}
+              </div>
+            )}
+          </ResultSection>
         </div>
       )}
     </div>
