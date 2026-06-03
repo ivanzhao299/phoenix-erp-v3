@@ -8,7 +8,7 @@ import {
   Navigation, Flag, Ban,
 } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
-import { ConfirmDialogV2 } from '@/components/design-system';
+import { ConfirmDialogV2, EmptyState, LoadingSkeleton } from '@/components/design-system'; // F4-B
 import { KpiCard } from '@/components/ui/KpiCard';
 import { hexToAccent, KPI_GRID } from '@/lib/design-tokens';
 
@@ -37,13 +37,13 @@ async function api<T = any>(method: string, path: string, body?: unknown): Promi
 // ── 状态配置 ──────────────────────────────────────────────────────────────────
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string; icon: any }> = {
-  PLANNED:          { label: '待装车',    color: 'var(--text-disabled)', bg: 'rgba(148,163,184,0.1)', icon: Clock },
+  PLANNED:          { label: '待装车',    color: 'var(--text-disabled)', bg: 'var(--status-neutral-bg)', icon: Clock },
   LOADING:          { label: '装车中',    color: 'var(--status-warning)', bg: 'rgba(245,158,11,0.1)',  icon: Package },
   LOADED:           { label: '已装车',    color: 'var(--color-accent)', bg: 'rgba(59,130,246,0.12)',  icon: Package },
-  DEPARTED:         { label: '已发车',    color: 'var(--status-special)', bg: 'rgba(139,92,246,0.1)',  icon: Navigation },
+  DEPARTED:         { label: '已发车',    color: 'var(--status-special)', bg: 'var(--status-info-bg)',  icon: Navigation },
   ARRIVED:          { label: '已到达',    color: 'var(--color-accent)', bg: 'rgba(6,182,212,0.1)',   icon: MapPin },
   PARTIALLY_SIGNED: { label: '部分签收',  color: 'var(--status-warning)', bg: 'rgba(245,158,11,0.12)', icon: AlertTriangle },
-  COMPLETED:        { label: '已完成',    color: 'var(--status-success)', bg: 'rgba(34,197,94,0.1)',   icon: CheckCircle },
+  COMPLETED:        { label: '已完成',    color: 'var(--status-success)', bg: 'var(--status-success-bg)',   icon: CheckCircle },
   CANCELLED:        { label: '已取消',    color: 'var(--text-secondary)', bg: 'rgba(100,116,139,0.1)', icon: Ban },
 };
 
@@ -141,7 +141,7 @@ interface Vehicle {
 // ── 子组件 ────────────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_MAP[status] ?? { label: status, color: 'var(--text-disabled)', bg: 'rgba(148,163,184,0.1)', icon: Clock };
+  const cfg = STATUS_MAP[status] ?? { label: status, color: 'var(--text-disabled)', bg: 'var(--status-neutral-bg)', icon: Clock };
   const Icon = cfg.icon;
   return (
     <span style={{
@@ -487,9 +487,9 @@ export default function DeliveryPage() {
 
             {/* 列表 */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {loading && <div style={{ textAlign: 'center', padding: 40, opacity: 0.4, fontSize: 13 }}>加载中…</div>}
+              {loading && <div style={{ padding: 24 }}><LoadingSkeleton variant="line" rows={5} /></div>}
               {!loading && orders.length === 0 && (
-                <div style={{ textAlign: 'center', padding: 40, opacity: 0.4, fontSize: 13 }}>暂无配送单</div>
+                <EmptyState title="暂无配送单" compact />
               )}
               {orders.map(o => (
                 <div key={o.id} onClick={() => loadDetail(o)}
@@ -653,9 +653,9 @@ export default function DeliveryPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{
                           fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 4,
-                          background: item.status === 'SIGNED' ? 'rgba(34,197,94,0.1)'
+                          background: item.status === 'SIGNED' ? 'var(--status-success-bg)'
                             : item.status === 'EXCEPTION' ? 'rgba(239,68,68,0.1)'
-                            : 'rgba(148,163,184,0.1)',
+                            : 'var(--status-neutral-bg)',
                           color: item.status === 'SIGNED' ? 'var(--status-success)'
                             : item.status === 'EXCEPTION' ? 'var(--status-danger)'
                             : 'var(--text-disabled)',
@@ -708,7 +708,7 @@ export default function DeliveryPage() {
                           <span style={{
                             fontSize: 11, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
                             background: RECEIPT_STATUS_MAP[r.status]?.color === 'var(--status-success)'
-                              ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                              ? 'var(--status-success-bg)' : 'rgba(239,68,68,0.1)',
                             color: RECEIPT_STATUS_MAP[r.status]?.color ?? 'var(--text-disabled)',
                           }}>
                             {RECEIPT_STATUS_MAP[r.status]?.label ?? r.status}
@@ -755,7 +755,7 @@ export default function DeliveryPage() {
                 <div style={{ marginTop: 8 }}>
                   <span style={{
                     fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 4,
-                    background: d.status === 'ACTIVE' ? 'rgba(34,197,94,0.1)' : 'rgba(100,116,139,0.1)',
+                    background: d.status === 'ACTIVE' ? 'var(--status-success-bg)' : 'rgba(100,116,139,0.1)',
                     color: d.status === 'ACTIVE' ? 'var(--status-success)' : 'var(--text-secondary)',
                   }}>
                     {d.status === 'ACTIVE' ? '在职' : '停用'}
@@ -803,7 +803,7 @@ export default function DeliveryPage() {
                 <div style={{ marginTop: 8 }}>
                   <span style={{
                     fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 4,
-                    background: v.status === 'ACTIVE' ? 'rgba(34,197,94,0.1)'
+                    background: v.status === 'ACTIVE' ? 'var(--status-success-bg)'
                       : v.status === 'MAINTENANCE' ? 'rgba(245,158,11,0.1)' : 'rgba(100,116,139,0.1)',
                     color: v.status === 'ACTIVE' ? 'var(--status-success)'
                       : v.status === 'MAINTENANCE' ? 'var(--status-warning)' : 'var(--text-secondary)',
@@ -825,7 +825,7 @@ export default function DeliveryPage() {
       {/* ══════════════════ 新建配送单 弹窗 ══════════════════ */}
       {showCreate && (
         <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000,
+          position: 'fixed', inset: 0, background: 'var(--overlay-mask)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <div style={{
@@ -889,7 +889,7 @@ export default function DeliveryPage() {
       {/* ══════════════════ 签收 弹窗 ══════════════════ */}
       {signingItem && (
         <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000,
+          position: 'fixed', inset: 0, background: 'var(--overlay-mask)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <div style={{
@@ -987,7 +987,7 @@ export default function DeliveryPage() {
 
       {/* ══════════════════ 新建司机 弹窗 ══════════════════ */}
       {showDriverForm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000,
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-mask)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: 400, background: 'var(--text-primary)', borderRadius: 12, padding: '28px 32px',
             border: '1px solid var(--border)' }}>
@@ -1025,7 +1025,7 @@ export default function DeliveryPage() {
 
       {/* ══════════════════ 新建车辆 弹窗 ══════════════════ */}
       {showVehicleForm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000,
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-mask)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: 400, background: 'var(--text-primary)', borderRadius: 12, padding: '28px 32px',
             border: '1px solid var(--border)' }}>

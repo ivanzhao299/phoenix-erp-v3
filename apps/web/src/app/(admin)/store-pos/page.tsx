@@ -119,9 +119,9 @@ const SALE_TYPE_MAP: Record<string, { label: string; color: string }> = {
 };
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  OPEN:      { label: '进行中', color: 'var(--color-accent)', bg: 'rgba(59,130,246,0.1)'  },
-  COMPLETED: { label: '已完成', color: 'var(--status-success)', bg: 'rgba(34,197,94,0.1)'   },
-  VOID:      { label: '已作废', color: 'var(--status-danger)', bg: 'rgba(239,68,68,0.1)'   },
+  OPEN:      { label: '进行中', color: 'var(--color-accent)', bg: 'var(--status-info-bg)'  },
+  COMPLETED: { label: '已完成', color: 'var(--status-success)', bg: 'var(--status-success-bg)'   },
+  VOID:      { label: '已作废', color: 'var(--status-danger)', bg: 'var(--status-danger-bg)'   },
 };
 
 const PAY_STATUS_MAP: Record<string, { label: string; color: string }> = {
@@ -495,7 +495,7 @@ export default function StorePosPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg-page)', color: 'var(--border)', fontFamily: 'system-ui, sans-serif' }}>
 
       {/* ── 顶部工具栏 ─────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', padding: '0 20px', height: 52, background: 'var(--text-primary)', borderBottom: '1px solid rgba(255,255,255,0.08)', gap: 12, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', padding: '0 20px', height: 52, background: 'var(--text-primary)', borderBottom: '1px solid var(--border-dark-faint)', gap: 12, flexShrink: 0 }}>
         <Banknote size={20} color="var(--status-success)" />
         <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--bg-muted)' }}>直营店收银</span>
         {storeCode && (
@@ -544,7 +544,7 @@ export default function StorePosPage() {
           </button>
         ))}
 
-        <button onClick={() => setShowStoreSetup(true)} style={{ padding: '4px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.12)', background: 'transparent', color: 'var(--text-disabled)', fontSize: 12, cursor: 'pointer' }}>
+        <button onClick={() => setShowStoreSetup(true)} style={{ padding: '4px 12px', borderRadius: 6, border: '1px solid var(--border-dark)', background: 'transparent', color: 'var(--text-disabled)', fontSize: 12, cursor: 'pointer' }}>
           设置门店
         </button>
       </div>
@@ -556,17 +556,17 @@ export default function StorePosPage() {
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
           {/* 列 1：商品目录 */}
-          <div style={{ width: 320, borderRight: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-            <div style={{ padding: '10px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 8 }}>
+          <div style={{ width: 320, borderRight: '1px solid var(--border-dark-faint)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+            <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-dark-faint)', display: 'flex', gap: 8 }}>
               <div style={{ flex: 1, position: 'relative' }}>
                 <Search size={14} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
                 <input
                   value={productQuery} onChange={e => setProductQuery(e.target.value)}
                   placeholder="搜索商品..."
-                  style={{ width: '100%', padding: '6px 8px 6px 28px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'var(--border)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '6px 8px 6px 28px', borderRadius: 6, border: '1px solid var(--border-dark)', background: 'var(--border-dark-faint)', color: 'var(--border)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
                 />
               </div>
-              <button onClick={loadProducts} style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-disabled)', cursor: 'pointer' }}>
+              <button onClick={loadProducts} style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border-dark)', background: 'transparent', color: 'var(--text-disabled)', cursor: 'pointer' }}>
                 <RefreshCw size={14} />
               </button>
             </div>
@@ -587,8 +587,8 @@ export default function StorePosPage() {
                       onClick={() => addToCart(p)}
                       style={{
                         padding: '10px 10px', borderRadius: 8,
-                        border: `1px solid ${p.sku_code ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.08)'}`,
-                        background: p.sku_code ? 'rgba(139,92,246,0.06)' : 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${p.sku_code ? 'var(--status-special-border)' : 'var(--border-dark-faint)'}`,
+                        background: p.sku_code ? 'var(--status-special-bg)' : 'var(--surface-dark)',
                         cursor: 'pointer', textAlign: 'left',
                         transition: 'background 0.15s',
                         color: 'var(--border)',
@@ -610,14 +610,14 @@ export default function StorePosPage() {
           </div>
 
           {/* 列 2：购物车 */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid rgba(255,255,255,0.08)', minWidth: 0 }}>
-            <div style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border-dark-faint)', minWidth: 0 }}>
+            <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-dark-faint)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <ShoppingCart size={16} /> 购物车
                 {cart.length > 0 && <span style={{ background: 'var(--color-accent)', color: 'var(--text-on-dark)', borderRadius: '50%', width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>{cart.length}</span>}
               </span>
               {cart.length > 0 && (
-                <button onClick={clearCart} style={{ padding: '3px 10px', borderRadius: 5, border: '1px solid rgba(239,68,68,0.4)', background: 'transparent', color: 'var(--status-danger)', fontSize: 12, cursor: 'pointer' }}>
+                <button onClick={clearCart} style={{ padding: '3px 10px', borderRadius: 5, border: '1px solid var(--status-danger-border)', background: 'transparent', color: 'var(--status-danger)', fontSize: 12, cursor: 'pointer' }}>
                   清空
                 </button>
               )}
@@ -628,7 +628,7 @@ export default function StorePosPage() {
                 <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: 80, fontSize: 13 }}>请从左侧添加商品</div>
               ) : (
                 cart.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', padding: '8px 6px', borderBottom: '1px solid rgba(255,255,255,0.04)', gap: 8 }}>
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', padding: '8px 6px', borderBottom: '1px solid var(--surface-dark)', gap: 8 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 500 }}>{item.product_name}</div>
                       {item.sku_code
@@ -639,9 +639,9 @@ export default function StorePosPage() {
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--status-success)', width: 72, textAlign: 'right' }}>¥{fmt(item.amount)}</div>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      <button onClick={() => updateQty(idx, -1)} style={{ width: 24, height: 24, borderRadius: 4, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={12} /></button>
-                      <button onClick={() => updateQty(idx, +1)} style={{ width: 24, height: 24, borderRadius: 4, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={12} /></button>
-                      <button onClick={() => removeFromCart(idx)} style={{ width: 24, height: 24, borderRadius: 4, border: '1px solid rgba(239,68,68,0.2)', background: 'transparent', color: 'var(--status-danger)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={12} /></button>
+                      <button onClick={() => updateQty(idx, -1)} style={{ width: 24, height: 24, borderRadius: 4, border: '1px solid var(--border-dark)', background: 'transparent', color: 'var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={12} /></button>
+                      <button onClick={() => updateQty(idx, +1)} style={{ width: 24, height: 24, borderRadius: 4, border: '1px solid var(--border-dark)', background: 'transparent', color: 'var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={12} /></button>
+                      <button onClick={() => removeFromCart(idx)} style={{ width: 24, height: 24, borderRadius: 4, border: '1px solid var(--status-danger-border)', background: 'transparent', color: 'var(--status-danger)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={12} /></button>
                     </div>
                   </div>
                 ))
@@ -650,7 +650,7 @@ export default function StorePosPage() {
 
             {/* 小计 */}
             {cart.length > 0 && (
-              <div style={{ padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border-dark-faint)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-disabled)', marginBottom: 4 }}>
                   <span>小计</span><span>¥{fmt(subtotal)}</span>
                 </div>
@@ -661,7 +661,7 @@ export default function StorePosPage() {
                     <input
                       type="number" min="0" value={discountAmount || ''}
                       onChange={e => setDiscountAmount(Math.max(0, Number(e.target.value)))}
-                      style={{ width: 64, padding: '2px 6px', borderRadius: 4, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'var(--border)', fontSize: 13, textAlign: 'right', outline: 'none' }}
+                      style={{ width: 64, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border-dark)', background: 'var(--border-dark-faint)', color: 'var(--border)', fontSize: 13, textAlign: 'right', outline: 'none' }}
                     />
                   </div>
                 </div>
@@ -680,8 +680,8 @@ export default function StorePosPage() {
             <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
               {([['CASH', '现金/转账'], ['CREDIT', '赊销'], ['MIXED', '混合']] as [PayType, string][]).map(([v, l]) => (
                 <button key={v} onClick={() => setPayType(v)} style={{
-                  flex: 1, padding: '7px 0', borderRadius: 6, border: `1px solid ${payType === v ? 'var(--color-accent)' : 'rgba(255,255,255,0.1)'}`,
-                  background: payType === v ? 'rgba(59,130,246,0.15)' : 'transparent',
+                  flex: 1, padding: '7px 0', borderRadius: 6, border: `1px solid ${payType === v ? 'var(--color-accent)' : 'var(--border-dark)'}`,
+                  background: payType === v ? 'var(--status-info-bg)' : 'transparent',
                   color: payType === v ? 'var(--color-accent)' : 'var(--text-disabled)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                 }}>
                   {l}
@@ -696,7 +696,7 @@ export default function StorePosPage() {
                 <input
                   value={customerName} onChange={e => setCustomerName(e.target.value)}
                   placeholder="客户姓名（可选）"
-                  style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'var(--border)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-dark)', background: 'var(--border-dark-faint)', color: 'var(--border)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
                 />
               </div>
             )}
@@ -705,7 +705,7 @@ export default function StorePosPage() {
             {payType !== 'CREDIT' && (
               <div style={{ marginBottom: 10 }}>
                 <label style={{ fontSize: 12, color: 'var(--text-disabled)', display: 'block', marginBottom: 3 }}>支付方式</label>
-                <select value={payMethod} onChange={e => setPayMethod(e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'var(--text-primary)', color: 'var(--border)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}>
+                <select value={payMethod} onChange={e => setPayMethod(e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-dark)', background: 'var(--text-primary)', color: 'var(--border)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}>
                   <option value="CASH">现金</option>
                   <option value="TRANSFER">转账</option>
                   <option value="OTHER">其他</option>
@@ -723,7 +723,7 @@ export default function StorePosPage() {
                   type="number" min="0" value={paidAmount}
                   onChange={e => setPaidAmount(e.target.value)}
                   placeholder={`¥ ${fmt(totalAmount)}`}
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: 'var(--status-success)', fontSize: 18, fontWeight: 700, outline: 'none', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border-dark-strong)', background: 'var(--border-dark-faint)', color: 'var(--status-success)', fontSize: 18, fontWeight: 700, outline: 'none', boxSizing: 'border-box' }}
                 />
                 {payType === 'MIXED' && paidAmount && (
                   <div style={{ fontSize: 12, color: 'var(--status-warning)', marginTop: 3 }}>
@@ -735,7 +735,7 @@ export default function StorePosPage() {
 
             {/* 找零 */}
             {payType === 'CASH' && paidAmount && Number(paidAmount) > totalAmount && (
-              <div style={{ padding: '8px 12px', borderRadius: 6, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', marginBottom: 10 }}>
+              <div style={{ padding: '8px 12px', borderRadius: 6, background: 'var(--status-success-bg)', border: '1px solid var(--status-success-border)', marginBottom: 10 }}>
                 <span style={{ fontSize: 12, color: 'var(--status-success)' }}>找零：</span>
                 <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--status-success)' }}>¥{fmt(Number(paidAmount) - totalAmount)}</span>
               </div>
@@ -745,7 +745,7 @@ export default function StorePosPage() {
 
             {/* 当日汇总 */}
             {summary && (
-              <div style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', marginBottom: 12 }}>
+              <div style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--surface-dark)', border: '1px solid var(--border-dark-faint)', marginBottom: 12 }}>
                 <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6, fontWeight: 600 }}>今日汇总</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px' }}>
                   {[
@@ -769,7 +769,7 @@ export default function StorePosPage() {
               disabled={processing || !cart.length}
               style={{
                 width: '100%', padding: '14px 0', borderRadius: 8, border: 'none', cursor: processing || !cart.length ? 'not-allowed' : 'pointer',
-                background: cart.length ? (processing ? 'var(--color-primary)' : 'var(--color-accent)') : 'rgba(255,255,255,0.06)',
+                background: cart.length ? (processing ? 'var(--color-primary)' : 'var(--color-accent)') : 'var(--border-dark-faint)',
                 color: cart.length ? 'var(--bg-card)' : 'var(--text-secondary)', fontSize: 16, fontWeight: 700,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               }}
@@ -790,7 +790,7 @@ export default function StorePosPage() {
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>销售记录</h2>
-            <button onClick={() => loadSales(1)} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-disabled)', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <button onClick={() => loadSales(1)} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border-dark)', background: 'transparent', color: 'var(--text-disabled)', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
               <RefreshCw size={13} />刷新
             </button>
           </div>
@@ -803,7 +803,7 @@ export default function StorePosPage() {
             <>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <tr style={{ borderBottom: '1px solid var(--border-dark-faint)' }}>
                     {['单号', '类型', '状态', '收款', '金额', '已收', '客户', '时间'].map(h => (
                       <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>{h}</th>
                     ))}
@@ -811,7 +811,7 @@ export default function StorePosPage() {
                 </thead>
                 <tbody>
                   {sales.map(s => (
-                    <tr key={s.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <tr key={s.id} style={{ borderBottom: '1px solid var(--surface-dark)' }}>
                       <td style={{ padding: '8px 10px', color: 'var(--color-accent)', fontFamily: 'monospace', fontSize: 12 }}>{s.sale_no}</td>
                       <td style={{ padding: '8px 10px' }}>
                         <Badge label={SALE_TYPE_MAP[s.sale_type]?.label ?? s.sale_type} color={SALE_TYPE_MAP[s.sale_type]?.color ?? 'var(--text-disabled)'} />
@@ -838,9 +838,9 @@ export default function StorePosPage() {
 
               {salesTotal > 20 && (
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
-                  <button disabled={salesPage <= 1} onClick={() => loadSales(salesPage - 1)} style={{ padding: '5px 12px', borderRadius: 5, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-disabled)', cursor: salesPage > 1 ? 'pointer' : 'not-allowed', fontSize: 13 }}>上一页</button>
+                  <button disabled={salesPage <= 1} onClick={() => loadSales(salesPage - 1)} style={{ padding: '5px 12px', borderRadius: 5, border: '1px solid var(--border-dark)', background: 'transparent', color: 'var(--text-disabled)', cursor: salesPage > 1 ? 'pointer' : 'not-allowed', fontSize: 13 }}>上一页</button>
                   <span style={{ lineHeight: '32px', fontSize: 13, color: 'var(--text-secondary)' }}>第 {salesPage} 页 · 共 {salesTotal} 条</span>
-                  <button disabled={salesPage * 20 >= salesTotal} onClick={() => loadSales(salesPage + 1)} style={{ padding: '5px 12px', borderRadius: 5, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-disabled)', cursor: salesPage * 20 < salesTotal ? 'pointer' : 'not-allowed', fontSize: 13 }}>下一页</button>
+                  <button disabled={salesPage * 20 >= salesTotal} onClick={() => loadSales(salesPage + 1)} style={{ padding: '5px 12px', borderRadius: 5, border: '1px solid var(--border-dark)', background: 'transparent', color: 'var(--text-disabled)', cursor: salesPage * 20 < salesTotal ? 'pointer' : 'not-allowed', fontSize: 13 }}>下一页</button>
                 </div>
               )}
             </>
@@ -866,7 +866,7 @@ export default function StorePosPage() {
                   <LogOut size={13} />交班
                 </button>
               )}
-              <button onClick={() => loadShiftHistory(1)} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-disabled)', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <button onClick={() => loadShiftHistory(1)} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border-dark)', background: 'transparent', color: 'var(--text-disabled)', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
                 <RefreshCw size={13} />刷新
               </button>
             </div>
@@ -874,7 +874,7 @@ export default function StorePosPage() {
 
           {/* 当前班次卡片 */}
           {currentShift && (
-            <div style={{ padding: '14px 18px', borderRadius: 8, background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', marginBottom: 20 }}>
+            <div style={{ padding: '14px 18px', borderRadius: 8, background: 'var(--status-success-bg-faint)', border: '1px solid var(--status-success-border)', marginBottom: 20 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--status-success)', marginBottom: 8 }}>当前班次 · {currentShift.closing_no}</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px 16px' }}>
                 {[
@@ -901,7 +901,7 @@ export default function StorePosPage() {
             <>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <tr style={{ borderBottom: '1px solid var(--border-dark-faint)' }}>
                     {['班次编号', '状态', '开班', '交班', '开班现金', '交班现金', '差异', '总销售', '现金收', '单数'].map(h => (
                       <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
@@ -909,13 +909,13 @@ export default function StorePosPage() {
                 </thead>
                 <tbody>
                   {shiftHistory.map(sh => (
-                    <tr key={sh.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <tr key={sh.id} style={{ borderBottom: '1px solid var(--surface-dark)' }}>
                       <td style={{ padding: '8px 10px', color: 'var(--color-accent)', fontFamily: 'monospace', fontSize: 12 }}>{sh.closing_no}</td>
                       <td style={{ padding: '8px 10px' }}>
                         <Badge
                           label={sh.status === 'OPEN' ? '进行中' : '已完成'}
                           color={sh.status === 'OPEN' ? 'var(--status-success)' : 'var(--text-disabled)'}
-                          bg={sh.status === 'OPEN' ? 'rgba(34,197,94,0.1)' : 'rgba(148,163,184,0.1)'}
+                          bg={sh.status === 'OPEN' ? 'var(--status-success-bg)' : 'var(--status-neutral-bg)'}
                         />
                       </td>
                       <td style={{ padding: '8px 10px', color: 'var(--text-disabled)', fontSize: 12 }}>{fmtDate(sh.opened_at)}</td>
@@ -938,9 +938,9 @@ export default function StorePosPage() {
 
               {shiftTotal > 15 && (
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
-                  <button disabled={shiftPage <= 1} onClick={() => loadShiftHistory(shiftPage - 1)} style={{ padding: '5px 12px', borderRadius: 5, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-disabled)', cursor: shiftPage > 1 ? 'pointer' : 'not-allowed', fontSize: 13 }}>上一页</button>
+                  <button disabled={shiftPage <= 1} onClick={() => loadShiftHistory(shiftPage - 1)} style={{ padding: '5px 12px', borderRadius: 5, border: '1px solid var(--border-dark)', background: 'transparent', color: 'var(--text-disabled)', cursor: shiftPage > 1 ? 'pointer' : 'not-allowed', fontSize: 13 }}>上一页</button>
                   <span style={{ lineHeight: '32px', fontSize: 13, color: 'var(--text-secondary)' }}>第 {shiftPage} 页 · 共 {shiftTotal} 条</span>
-                  <button disabled={shiftPage * 15 >= shiftTotal} onClick={() => loadShiftHistory(shiftPage + 1)} style={{ padding: '5px 12px', borderRadius: 5, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-disabled)', cursor: shiftPage * 15 < shiftTotal ? 'pointer' : 'not-allowed', fontSize: 13 }}>下一页</button>
+                  <button disabled={shiftPage * 15 >= shiftTotal} onClick={() => loadShiftHistory(shiftPage + 1)} style={{ padding: '5px 12px', borderRadius: 5, border: '1px solid var(--border-dark)', background: 'transparent', color: 'var(--text-disabled)', cursor: shiftPage * 15 < shiftTotal ? 'pointer' : 'not-allowed', fontSize: 13 }}>下一页</button>
                 </div>
               )}
             </>
@@ -952,17 +952,17 @@ export default function StorePosPage() {
           Modal: 开班
       ══════════════════════════════════════════════════════════════════════ */}
       {showShiftModal === 'open' && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'var(--text-primary)', borderRadius: 12, padding: 28, width: 360, border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-mask)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--text-primary)', borderRadius: 12, padding: 28, width: 360, border: '1px solid var(--border-dark)' }}>
             <h3 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 600 }}>开班</h3>
             <label style={{ fontSize: 13, color: 'var(--text-disabled)', display: 'block', marginBottom: 4 }}>开班现金（备用金）</label>
             <input
               type="number" min="0" value={openingCash} onChange={e => setOpeningCash(e.target.value)}
               placeholder="0.00"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'var(--border)', fontSize: 15, outline: 'none', boxSizing: 'border-box', marginBottom: 20 }}
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border-dark)', background: 'var(--border-dark-faint)', color: 'var(--border)', fontSize: 15, outline: 'none', boxSizing: 'border-box', marginBottom: 20 }}
             />
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowShiftModal(null)} style={{ padding: '8px 18px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-disabled)', cursor: 'pointer', fontSize: 13 }}>取消</button>
+              <button onClick={() => setShowShiftModal(null)} style={{ padding: '8px 18px', borderRadius: 6, border: '1px solid var(--border-dark)', background: 'transparent', color: 'var(--text-disabled)', cursor: 'pointer', fontSize: 13 }}>取消</button>
               <button onClick={handleOpenShift} style={{ padding: '8px 18px', borderRadius: 6, border: 'none', background: 'var(--status-success)', color: 'var(--text-on-dark)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>确认开班</button>
             </div>
           </div>
@@ -973,12 +973,12 @@ export default function StorePosPage() {
           Modal: 交班/日结
       ══════════════════════════════════════════════════════════════════════ */}
       {showShiftModal === 'close' && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'var(--text-primary)', borderRadius: 12, padding: 28, width: 400, border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-mask)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--text-primary)', borderRadius: 12, padding: 28, width: 400, border: '1px solid var(--border-dark)' }}>
             <h3 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 600 }}>交班 / 日结</h3>
 
             {summary && (
-              <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', marginBottom: 16 }}>
+              <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--surface-dark)', border: '1px solid var(--border-dark-faint)', marginBottom: 16 }}>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>本班统计（参考）</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                   {[
@@ -994,7 +994,7 @@ export default function StorePosPage() {
                   ))}
                 </div>
                 {currentShift && (
-                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 13 }}>
+                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-dark-faint)', fontSize: 13 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--text-disabled)' }}>系统现金（预计）</span>
                       <span style={{ color: 'var(--status-success)', fontWeight: 600 }}>¥{fmt(Number(currentShift.opening_cash) + Number(summary.cash_sales))}</span>
@@ -1008,7 +1008,7 @@ export default function StorePosPage() {
             <input
               type="number" min="0" value={closingCash} onChange={e => setClosingCash(e.target.value)}
               placeholder="0.00"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'var(--border)', fontSize: 15, outline: 'none', boxSizing: 'border-box', marginBottom: 12 }}
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border-dark)', background: 'var(--border-dark-faint)', color: 'var(--border)', fontSize: 15, outline: 'none', boxSizing: 'border-box', marginBottom: 12 }}
             />
 
             <label style={{ fontSize: 13, color: 'var(--text-disabled)', display: 'block', marginBottom: 4 }}>备注</label>
@@ -1016,11 +1016,11 @@ export default function StorePosPage() {
               value={shiftRemark} onChange={e => setShiftRemark(e.target.value)}
               placeholder="可选，如有差异请说明原因"
               rows={2}
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'var(--border)', fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box', marginBottom: 20 }}
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border-dark)', background: 'var(--border-dark-faint)', color: 'var(--border)', fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box', marginBottom: 20 }}
             />
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowShiftModal(null)} style={{ padding: '8px 18px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-disabled)', cursor: 'pointer', fontSize: 13 }}>取消</button>
+              <button onClick={() => setShowShiftModal(null)} style={{ padding: '8px 18px', borderRadius: 6, border: '1px solid var(--border-dark)', background: 'transparent', color: 'var(--text-disabled)', cursor: 'pointer', fontSize: 13 }}>取消</button>
               <button onClick={handleCloseShift} style={{ padding: '8px 18px', borderRadius: 6, border: 'none', background: 'var(--status-warning)', color: 'var(--text-on-dark)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>确认交班</button>
             </div>
           </div>
@@ -1031,8 +1031,8 @@ export default function StorePosPage() {
           Modal: 门店设置
       ══════════════════════════════════════════════════════════════════════ */}
       {showStoreSetup && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'var(--text-primary)', borderRadius: 12, padding: 28, width: 400, border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-mask)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--text-primary)', borderRadius: 12, padding: 28, width: 400, border: '1px solid var(--border-dark)' }}>
             <h3 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 600 }}>门店设置</h3>
             {[
               ['门店编码 *', setupStoreCode, setSetupStoreCode, '例如 STORE_001'],
@@ -1046,12 +1046,12 @@ export default function StorePosPage() {
                   value={val as string}
                   onChange={e => (setter as (v: string) => void)(e.target.value)}
                   placeholder={ph as string}
-                  style={{ width: '100%', padding: '7px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: 'var(--border)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '7px 12px', borderRadius: 6, border: '1px solid var(--border-dark)', background: 'var(--border-dark-faint)', color: 'var(--border)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
                 />
               </div>
             ))}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-              <button onClick={() => setShowStoreSetup(false)} style={{ padding: '8px 18px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-disabled)', cursor: 'pointer', fontSize: 13 }}>取消</button>
+              <button onClick={() => setShowStoreSetup(false)} style={{ padding: '8px 18px', borderRadius: 6, border: '1px solid var(--border-dark)', background: 'transparent', color: 'var(--text-disabled)', cursor: 'pointer', fontSize: 13 }}>取消</button>
               <button onClick={handleSaveSetup} style={{ padding: '8px 18px', borderRadius: 6, border: 'none', background: 'var(--color-accent)', color: 'var(--text-on-dark)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>保存</button>
             </div>
           </div>

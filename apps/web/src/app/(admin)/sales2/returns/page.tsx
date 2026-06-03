@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import s from "@/components/ui/admin-ui.module.css";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { hexToAccent, KPI_GRID } from "@/lib/design-tokens";
+import { EmptyState, LoadingSkeleton } from '@/components/design-system'; // F4-B 统一空状态/加载态
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 
@@ -175,7 +176,7 @@ function CreateReturnDrawer({ onClose, onCreated }: { onClose: () => void; onCre
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 100, display: 'flex', justifyContent: 'flex-end' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-mask)', zIndex: 100, display: 'flex', justifyContent: 'flex-end' }}>
       <div style={{ width: 640, background: 'var(--bg-card)', height: '100%', overflowY: 'auto', padding: 32 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>新建退货单</h2>
@@ -299,7 +300,7 @@ function InspectionDrawer({ order, onClose, onDone }: { order: ReturnOrder; onCl
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 100, display: 'flex', justifyContent: 'flex-end' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-mask)', zIndex: 100, display: 'flex', justifyContent: 'flex-end' }}>
       <div style={{ width: 600, background: 'var(--bg-card)', height: '100%', overflowY: 'auto', padding: 32 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>质检录入 — {order.return_no}</h2>
@@ -315,7 +316,7 @@ function InspectionDrawer({ order, onClose, onDone }: { order: ReturnOrder; onCl
               {item.product_code} {item.product_name && `— ${item.product_name}`}
               {/* Phase H5: SKU 徽章 */}
               {item.sku_code && (
-                <span style={{ marginLeft: 6, padding: '1px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'monospace', fontWeight: 700, background: 'rgba(139,92,246,0.1)', color: 'var(--status-special)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                <span style={{ marginLeft: 6, padding: '1px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'monospace', fontWeight: 700, background: 'var(--status-info-bg)', color: 'var(--status-special)', border: '1px solid var(--status-special-border)' }}>
                   {item.sku_code}
                 </span>
               )}
@@ -445,9 +446,9 @@ function ReturnOrdersTab() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--text-disabled)' }}>加载中...</td></tr>
+              <tr><td colSpan={7} style={{ padding: '24px 0' }}><LoadingSkeleton variant="table" rows={4} /></td></tr>
             ) : orders.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--text-disabled)' }}>暂无退货单</td></tr>
+              <tr><td colSpan={7}><EmptyState title="暂无退货单" compact /></td></tr>
             ) : orders.map(o => (
               <tr key={o.id}>
                 <td>
@@ -518,7 +519,7 @@ function ReturnOrdersTab() {
 
       {/* 详情抽屉 */}
       {detail && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 100, display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-mask)', zIndex: 100, display: 'flex', justifyContent: 'flex-end' }}>
           <div style={{ width: 640, background: 'var(--bg-card)', height: '100%', overflowY: 'auto', padding: 32 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{detail.return_no}</h2>
@@ -566,7 +567,7 @@ function ReturnOrdersTab() {
                     {item.product_code} {item.product_name && `— ${item.product_name}`}
                     {/* Phase H5: SKU 徽章 */}
                     {item.sku_code && (
-                      <span style={{ marginLeft: 6, padding: '1px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'monospace', fontWeight: 700, background: 'rgba(139,92,246,0.1)', color: 'var(--status-special)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                      <span style={{ marginLeft: 6, padding: '1px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'monospace', fontWeight: 700, background: 'var(--status-info-bg)', color: 'var(--status-special)', border: '1px solid var(--status-special-border)' }}>
                         {item.sku_code}
                       </span>
                     )}
@@ -625,9 +626,9 @@ function InspectionTab() {
   return (
     <div>
       <h3 style={{ marginBottom: 16, fontSize: 16, fontWeight: 600 }}>待质检退货单</h3>
-      {loading ? <div style={{ color: 'var(--text-disabled)', textAlign: 'center', padding: 40 }}>加载中...</div> : (
+      {loading ? <div style={{ padding: 32 }}><LoadingSkeleton variant="line" rows={4} /></div> : (
         orders.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-disabled)' }}>暂无待质检退货单 ✓</div>
+          <EmptyState title="暂无待质检退货单" description="所有退货单均已质检完成" compact />
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
             {orders.map(o => (
@@ -702,9 +703,9 @@ function RestockTab() {
   return (
     <div>
       <h3 style={{ marginBottom: 16, fontSize: 16, fontWeight: 600 }}>待回库退货单</h3>
-      {loading ? <div style={{ color: 'var(--text-disabled)', textAlign: 'center', padding: 40 }}>加载中...</div> : (
+      {loading ? <div style={{ padding: 32 }}><LoadingSkeleton variant="line" rows={4} /></div> : (
         orders.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-disabled)' }}>暂无待回库退货单 ✓</div>
+          <EmptyState title="暂无待回库退货单" description="所有退货单均已完成回库" compact />
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
             {orders.map(o => (
