@@ -125,6 +125,9 @@ export default function PaymentsPage() {
   const [editing, setEditing]           = useState<Payment | null>(null);
   const [saving, setSaving]             = useState(false);
 
+  // 主数据：项目列表（从 shr_projects 加载）
+  const [projects, setProjects] = useState<Array<{ project_code: string; project_name: string }>>([]);
+
   // 表单字段
   const [formDate, setFormDate]         = useState("");
   const [formCompCode, setFormCompCode] = useState("");
@@ -189,6 +192,14 @@ export default function PaymentsPage() {
 
   useEffect(() => { load(1); setPage(1); }, [fStatus, fPayerType, fCurrency, fKeyword, fDateFrom, fDateTo]); // eslint-disable-line
   useEffect(() => { load(page); }, [page]); // eslint-disable-line
+
+  // 加载项目主数据（shr_projects），供付款单表单下拉选择，避免手工填写错误
+  useEffect(() => {
+    fetch("/api/generic-crud/shr_projects?limit=100", { headers: hdr })
+      .then(r => r.json())
+      .then(d => setProjects(d.data || []))
+      .catch(() => {});
+  }, []); // eslint-disable-line
 
   // 打开新建
   function openNew() {
@@ -519,21 +530,41 @@ export default function PaymentsPage() {
           <div className={s.fieldRow}>
             <div className={s.field}>
               <label className={s.lbl}>公司代码</label>
-              <input className={s.inp} value={formCompCode} onChange={e => setFormCompCode(e.target.value)} placeholder="PHX_AGRI" />
+              <input className={s.inp} value={formCompCode}
+                onChange={e => setFormCompCode(e.target.value)}
+                placeholder="如 PHX_AGRI" />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>公司名称</label>
-              <input className={s.inp} value={formCompName} onChange={e => setFormCompName(e.target.value)} />
+              <input className={s.inp} value={formCompName}
+                onChange={e => setFormCompName(e.target.value)} />
             </div>
           </div>
+          {/* 项目：从 shr_projects 主数据下拉选择，选中后自动带出名称，避免手工输入出错 */}
           <div className={s.fieldRow}>
             <div className={s.field}>
-              <label className={s.lbl}>项目编码</label>
-              <input className={s.inp} value={formProjCode} onChange={e => setFormProjCode(e.target.value)} />
+              <label className={s.lbl}>项目</label>
+              <select className={s.inp}
+                value={formProjCode}
+                onChange={e => {
+                  const code = e.target.value;
+                  const proj = projects.find(p => p.project_code === code);
+                  setFormProjCode(code);
+                  setFormProjName(proj?.project_name ?? "");
+                }}>
+                <option value="">-- 请选择项目 --</option>
+                {projects.map(p => (
+                  <option key={p.project_code} value={p.project_code}>
+                    {p.project_name}（{p.project_code}）
+                  </option>
+                ))}
+              </select>
             </div>
             <div className={s.field}>
               <label className={s.lbl}>项目名称</label>
-              <input className={s.inp} value={formProjName} onChange={e => setFormProjName(e.target.value)} />
+              <input className={s.inp} value={formProjName} readOnly
+                style={{ background: "var(--bg-muted)", color: "var(--text-secondary)", cursor: "not-allowed" }}
+                placeholder="由项目选择自动填入" />
             </div>
           </div>
 
