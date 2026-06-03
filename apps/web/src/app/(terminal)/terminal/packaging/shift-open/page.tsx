@@ -44,6 +44,9 @@ export default function ShiftOpenPage() {
   const [shiftTypes, setShiftTypes] = useState<ShiftTypeItem[]>([]);
   const [line, setLine] = useState('');
   const [shiftType, setShiftType] = useState('');
+  // R3：真实场站（开班必选，替代默认 site-01）
+  const [sites, setSites] = useState<{ site_id: string; site_name: string }[]>([]);
+  const [siteId, setSiteId] = useState('');
   const [supervisor, setSupervisor] = useState('');
   const [offline, setOffline] = useState<string[]>([]);
   const [offlineReason, setOfflineReason] = useState('');
@@ -52,6 +55,13 @@ export default function ShiftOpenPage() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
+    // R3：加载真实场站
+    packagingApi.getSites().then(list => {
+      const arr = Array.isArray(list) ? list : [];
+      setSites(arr);
+      if (arr.length > 0) setSiteId(prev => prev || arr[0].site_id);
+    }).catch(() => setSites([]));
+
     packagingApi.getDicts(['PKG_PACK_LINE', 'PKG_SHIFT']).then(d => {
       const lines = (d.PKG_PACK_LINE || []).map(i => ({ code: i.code, label: i.label }));
       setPackLines(lines);
@@ -107,7 +117,7 @@ export default function ShiftOpenPage() {
   };
 
   const allChecked = CHECK_ITEMS.every(i => checks[i.key]);
-  const canSubmit = CHECK_ITEMS.filter(i => !['grader','scale'].includes(i.key)).every(i => checks[i.key]);
+  const canSubmit = !!siteId && CHECK_ITEMS.filter(i => !['grader','scale'].includes(i.key)).every(i => checks[i.key]);
 
   const lineName = packLines.find(l => l.code === line)?.label ?? line;
 
@@ -119,7 +129,7 @@ export default function ShiftOpenPage() {
       code:           raw.shift_code ?? raw.code ?? '',
       shiftType:      raw.shift_type ?? shiftType,
       productionDate: raw.production_date ?? '',
-      siteId:         raw.site_id ?? 'site-01',
+      siteId:         raw.site_id ?? siteId,
       siteName:       raw.site_name ?? '',
       lineId:         raw.line_id ?? line,
       lineName:       raw.line_name ?? lineName,
@@ -140,7 +150,7 @@ export default function ShiftOpenPage() {
     setSubmitError('');
     setSubmitting(true);
     try {
-      const raw = await packagingApi.openShift({ lineId: line, shiftType, supervisorName: supervisor });
+      const raw = await packagingApi.openShift({ lineId: line, shiftType, supervisorName: supervisor, siteId });
       applyShiftToContext(raw);
       setDone(true);
       setTimeout(() => router.push('/terminal/packaging/dashboard'), 1500);
@@ -211,6 +221,18 @@ export default function ShiftOpenPage() {
               </div>
             </div>
 
+            {/* R3：场站（必选，写入 pkg_work_shifts.site_id，驱动 SITE 级灰度） */}
+            <div style={{ marginBottom:12 }}>
+              <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{t('ui.场站', '场站')}</div>
+              <select value={siteId} onChange={e => setSiteId(e.target.value)}
+                style={{ width:'100%', background:'var(--bg-card)', border:`1px solid ${T.BOR}`, borderRadius:6,
+                  padding:'8px 12px', color:T.TXT, fontSize:14 }}>
+                {sites.length === 0 && <option value="">（无可选场站）</option>}
+                {sites.map(s => (
+                  <option key={s.site_id} value={s.site_id}>{s.site_name}（{s.site_id}）</option>
+                ))}
+              </select>
+            </div>
             <div style={{ marginBottom:12 }}>
               <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{t('ui.产线', '产线')}</div>
               <select value={line} onChange={e => setLine(e.target.value)}

@@ -1011,7 +1011,8 @@ export class PackagingTerminalBffController {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'OPEN',$9,$10,NOW(),NOW())`,
       [
         shiftCode, shiftType, today,
-        body.siteId || 'site-01',
+        // R3：不再默认 'site-01'；记录真实场站（前端开班必选）。未传则 NULL（模式回落 COMPANY/GROUP）。
+        body.siteId || body.site_id || null,
         lineId,
         operatorId,
         operatorName,
@@ -1709,6 +1710,39 @@ export class PackagingTerminalBffController {
     }
 
     return { code: 200, data: { code, inventory, inventoryOk, message } };
+  }
+
+  // ── R3：真实场站列表（开班场站选择）────────────────────────────────────────
+  // GET /api/packaging/terminal/sites
+  @Get('sites')
+  async getSites() {
+    const rows = await this.safe(
+      this.em.query(
+        `SELECT farm_code AS site_id, farm_name AS site_name
+           FROM brd_farms WHERE status = 'ACTIVE' ORDER BY farm_code`,
+      ),
+      [] as any[],
+    );
+    return { code: 200, data: rows };
+  }
+
+  // ── R3：扫码标签(PKG-*)→ 定位库存批次(EGG-*)──────────────────────────────────
+  // GET /api/packaging/terminal/inventory/by-packing/:packingCode
+  @Get('inventory/by-packing/:packingCode')
+  async getInventoryByPacking(@Param('packingCode') packingCode: string) {
+    const rows = await this.safe(
+      this.em.query(
+        `SELECT batch_no, product_code, sku_code, grade_code_std, spec_code,
+                qty, qty_available, expire_date, company_code,
+                packaging_batch_ref, collection_batch_ref
+           FROM inv_batches
+          WHERE packaging_batch_ref = $1 AND source_type = 'PACKAGING'
+          ORDER BY batch_no`,
+        [packingCode],
+      ),
+      [] as any[],
+    );
+    return { code: 200, data: { packingCode, batches: rows } };
   }
 
   // ── 数据字典查询 ─────────────────────────────────────────────────────────────

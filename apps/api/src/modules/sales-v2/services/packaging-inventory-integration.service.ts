@@ -79,12 +79,14 @@ export class PackagingInventoryIntegrationService {
    * 等级→数量 映射与上下文，本方法负责 幂等 / 互斥门控 / 不可售隔离 / 统一命名。
    *
    * @param refNo        幂等键（包装任务号 task_no 或 BFF 包装记录号 packingCode）→ 写入 packaging_batch_ref
-   * @param gradeOutputs 等级→数量（已归一化为标准 grade_code）
-   * @param opts         companyCode / siteCode（模式解析）/ eggDate / collectionRef / packSpec
+   * @param items  Array<{grade, specName?, qty}>（grade 已归一化；specName 为规格名，用于解析 spec_code/sku_code）
+   * @param opts   companyCode / siteCode（模式解析）/ eggDate / collectionRef
+   *
+   * R3：携带 specName → 解析 spec_code（packaging_specs.spec_name）+ sku_code（product_skus grade+spec）写入库存。
    */
   async generateSaleableFromOutputs(
     refNo: string,
-    gradeOutputs: Record<string, number>,
+    items: Array<{ grade: string; specName?: string | null; qty: number }>,
     opts?: {
       companyCode?: string;
       siteCode?: string | null;
@@ -140,17 +142,29 @@ export class PackagingInventoryIntegrationService {
 
     const eggDate = opts?.eggDate || new Date().toISOString().slice(0, 10);
     const collectionRef = opts?.collectionRef ?? null;
-    const packSpec = opts?.packSpec ?? null;
     const saleable = await this.loadSaleableGrades();
+
+    // R3：按 (grade, specName) 聚合，保留规格维度
+    const agg = new Map<string, { grade: string; specName: string | null; qty: number }>();
+    for (const it of items || []) {
+      const grade = String(it.grade || '').trim();
+      const qty = Math.max(0, Math.round(Number(it.qty) || 0));
+      if (!grade || qty === 0) continue;
+      const specName = it.specName ? String(it.specName).trim() : null;
+      const key = `${grade}__${specName ?? ''}`;
+      const cur = agg.get(key);
+      if (cur) cur.qty += qty; else agg.set(key, { grade, specName, qty });
+    }
 
     const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }> = [];
     const skippedNonSaleable: Array<{ grade: string; qty: number }> = [];
 
-    for (const [gradeCode, qtyValue] of Object.entries(gradeOutputs)) {
-      const qty = Math.max(0, Math.round(Number(qtyValue) || 0));
-      if (qty === 0) continue;
-      if (!saleable.has(gradeCode)) { skippedNonSaleable.push({ grade: gradeCode, qty }); continue; }
-      const b = await this.createSaleableBatch(companyCode, eggDate, gradeCode, qty, refNo, collectionRef, packSpec);
+    for (const { grade, specName, qty } of agg.values()) {
+      if (!saleable.has(grade)) { skippedNonSaleable.push({ grade, qty }); continue; }
+      // R3：解析 spec_code（按规格名）+ sku_code（grade+spec），写入库存批次
+      const specCode = await this.resolveSpecCode(specName);
+      const skuCode  = await this.resolveSku(grade, specCode);
+      const b = await this.createSaleableBatch(companyCode, eggDate, grade, qty, refNo, collectionRef, specCode, skuCode);
       batches.push(b);
     }
 
@@ -190,18 +204,19 @@ export class PackagingInventoryIntegrationService {
     const task = taskRows[0];
     if (!task) throw new NotFoundException(`包装任务不存在：${taskNo}`);
 
-    // 解析等级产出（无明细 → 用 output_qty/packed_qty 整体入等级 A）
+    // 解析等级产出（无明细 → 用 output_qty/packed_qty 整体入等级 A）；规格取 task.pack_spec
     const gr: Record<string, number> = (() => {
       const v = task.grade_results;
       if (!v) return {};
       try { return typeof v === 'string' ? JSON.parse(v) : v; } catch { return {}; }
     })();
-    let gradeOutputs = Object.fromEntries(
-      Object.entries(gr).filter(([, v]) => Number(v) > 0).map(([k, v]) => [k, Number(v)]),
-    );
-    if (Object.keys(gradeOutputs).length === 0) {
+    let items: Array<{ grade: string; specName?: string | null; qty: number }> =
+      Object.entries(gr)
+        .filter(([, v]) => Number(v) > 0)
+        .map(([k, v]) => ({ grade: k, specName: task.pack_spec ?? null, qty: Number(v) }));
+    if (items.length === 0) {
       const qty = Number(task.output_qty) || Number(task.packed_qty) || 0;
-      if (qty > 0) gradeOutputs = { A: qty };
+      if (qty > 0) items = [{ grade: 'A', specName: task.pack_spec ?? null, qty }];
     }
 
     const eggDate = task.created_at
@@ -209,12 +224,11 @@ export class PackagingInventoryIntegrationService {
       : undefined;
     const collectionRef = task.shift_id ? `SHIFT-${task.shift_id}` : (task.house_code ?? null);
 
-    const r = await this.generateSaleableFromOutputs(taskNo, gradeOutputs, {
+    const r = await this.generateSaleableFromOutputs(taskNo, items, {
       companyCode:   opts?.companyCode,
       siteCode:      task.house_code ?? null,
       eggDate,
       collectionRef,
-      packSpec:      task.pack_spec ?? null,
     });
     return { ...r, taskNo: r.refNo };
   }
@@ -255,18 +269,18 @@ export class PackagingInventoryIntegrationService {
       return { refNo: packingCode, idempotent: false, companyCode: 'ALL', batches: [], skippedNonSaleable: [], totalInbound: 0, note: `包装记录不存在：${packingCode}` };
     }
 
-    // 解析 batches_json → 按等级累加（归一化等级码）
-    const batchesJson: Array<{ grade?: string; eggs?: number }> = (() => {
+    // R3：完整解析 batches_json（保留 spec），归一化等级码，按 (grade, spec) 形成 items
+    const batchesJson: Array<{ grade?: string; eggs?: number; spec?: string; specId?: string }> = (() => {
       const v = rec.batches_json;
       if (!v) return [];
       try { return typeof v === 'string' ? JSON.parse(v) : v; } catch { return []; }
     })();
     const keyMap = await this.buildGradeKeyMap();
-    const gradeOutputs: Record<string, number> = {};
+    const items: Array<{ grade: string; specName?: string | null; qty: number }> = [];
     for (const b of batchesJson) {
       if (!b?.grade) continue;
       const g = keyMap[b.grade] ?? b.grade;
-      gradeOutputs[g] = (gradeOutputs[g] || 0) + Number(b.eggs || 0);
+      items.push({ grade: g, specName: b.spec ?? null, qty: Number(b.eggs || 0) });
     }
 
     // 解析 site（pkg_work_shifts.site_id）用于 SITE 级模式门控
@@ -283,13 +297,37 @@ export class PackagingInventoryIntegrationService {
       : undefined;
     const collectionRef = rec.shift_id ? `SHIFT-${rec.shift_id}` : null;
 
-    const r = await this.generateSaleableFromOutputs(packingCode, gradeOutputs, {
+    const r = await this.generateSaleableFromOutputs(packingCode, items, {
       companyCode: opts?.companyCode,
       siteCode,
       eggDate,
       collectionRef,
     });
     return r;
+  }
+
+  /** R3：按规格名解析 packaging_specs.spec_code（用于写 inv_batches.spec_code / 解析 SKU） */
+  private async resolveSpecCode(specName: string | null): Promise<string | null> {
+    if (!specName) return null;
+    try {
+      const rows = await this.ds.query(
+        `SELECT spec_code FROM packaging_specs WHERE spec_name = $1 LIMIT 1`, [specName],
+      );
+      return rows[0]?.spec_code ?? null;
+    } catch { return null; }
+  }
+
+  /** R3：按 (grade, spec_code) 解析 product_skus.sku_code（用于 FIFO PATH A 精确匹配） */
+  private async resolveSku(gradeCode: string, specCode: string | null): Promise<string | null> {
+    if (!specCode) return null;
+    try {
+      const rows = await this.ds.query(
+        `SELECT sku_code FROM product_skus
+          WHERE grade_code = $1 AND spec_code = $2 AND status = 'ACTIVE' LIMIT 1`,
+        [gradeCode, specCode],
+      );
+      return rows[0]?.sku_code ?? null;
+    } catch { return null; }
   }
 
   /** 构建等级归一化映射：PKG_EGG_GRADE 字典 config_json.code/terminalCode → dict_code */
@@ -320,18 +358,20 @@ export class PackagingInventoryIntegrationService {
     qty: number,
     taskNo: string,
     collectionRef: string | null,
-    packSpec: string | null,
+    specCode: string | null,
+    skuCode: string | null,
   ): Promise<{ batchNo: string; grade: string; qty: number; productCode: string }> {
     const productCode = `PRD-EGG-${gradeCode}`;
-    // Phase 1：保留 product_code=PRD-EGG-{grade} + grade_code_std，保证销售 FIFO PATH B（product+grade）可靠匹配；
-    //          不传 skuCode（避免 createProductionBatch 以 SKU 反向覆盖 product_code），SKU 精确匹配留待 Phase 2。
+    // R3：写入 spec_code（按规格）+ sku_code（grade+spec 解析）。
+    //   product_skus.product_code 已对齐 PRD-EGG-{grade}，故即使 createProductionBatch 以 SKU 反解
+    //   product_code，也与 PATH B(product+grade) 一致；sku_code 为空时回退 PATH B。
     const batch = await this.eggInv.createProductionBatch({
       companyCode,
       eggDate,
       qualityGrade:       gradeCode,
       gradeCodeStd:       gradeCode,
-      specCode:           packSpec ?? undefined,
-      packagingSpec:      packSpec ?? undefined,
+      specCode:           specCode ?? undefined,
+      packagingSpec:      specCode ?? undefined,
       productCode,
       qty,
       sourceNo:           taskNo,
@@ -339,6 +379,7 @@ export class PackagingInventoryIntegrationService {
       ledgerChangeType:   'PACKAGING_INBOUND',
       packagingBatchRef:  taskNo,
       collectionBatchRef: collectionRef ?? undefined,
+      skuCode:            skuCode ?? undefined,
     });
     return { batchNo: batch.batch_no, grade: gradeCode, qty, productCode };
   }

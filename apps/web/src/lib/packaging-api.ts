@@ -66,6 +66,7 @@ export const packagingApi = {
 
   // ── 班次 ────────────────────────────────────────────────────────────────────
   getTodayShifts: () => request<any[]>('GET', '/api/packaging/terminal/shifts/today'),
+  getSites: () => request<{ site_id: string; site_name: string }[]>('GET', '/api/packaging/terminal/sites'),
   openShift: (body: Record<string, unknown>) => request<any>('POST', '/api/packaging/terminal/shifts/open', body),
   closeShift: (id: string, body: Record<string, unknown>) => request<any>('POST', `/api/packaging/terminal/shifts/${id}/close`, body),
 
