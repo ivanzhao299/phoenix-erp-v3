@@ -194,6 +194,53 @@ export class WorkflowBizRegistryService implements OnModuleInit {
       cancelledStatus: 'CANCELLED',
     });
 
+    // ── G3-B 主数据审批运行体系：5 类主数据新增审批 ────────────────────────
+    //   审批通过 → status=ACTIVE（主数据生效，可被业务引用）；拒绝 → REJECTED。
+    //   onApproved/onRejected 写入 mst_audit_trail（审计联动），纯 raw SQL 防循环引用。
+    const mdAuditHook = (objectType: string, table: string, codeCol: string, action: string) =>
+      async (bizId: string, mgr: EntityManager) => {
+        try {
+          const [row] = await mgr.query(`SELECT ${codeCol} AS code FROM ${table} WHERE id = $1`, [bizId]);
+          if (!row) return;
+          await mgr.query(
+            `INSERT INTO mst_audit_trail (object_type, object_code, action, after_json, operator)
+             VALUES ($1,$2,$3,$4,$5)`,
+            [objectType, row.code, action, JSON.stringify({ via: 'WORKFLOW' }), 'workflow'],
+          );
+        } catch { /* 审计失败不阻断审批 */ }
+      };
+
+    this.register('MD_CUSTOMER_CREATE', {
+      moduleCode: 'MENU_MASTER_DATA', tableName: 'sal_customers',
+      approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
+      onApproved: mdAuditHook('CUSTOMER', 'sal_customers', 'customer_no', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('CUSTOMER', 'sal_customers', 'customer_no', 'REJECT'),
+    });
+    this.register('MD_SUPPLIER_CREATE', {
+      moduleCode: 'MENU_MASTER_DATA', tableName: 'prc2_suppliers',
+      approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
+      onApproved: mdAuditHook('SUPPLIER', 'prc2_suppliers', 'supplier_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('SUPPLIER', 'prc2_suppliers', 'supplier_code', 'REJECT'),
+    });
+    this.register('MD_PROJECT_CREATE', {
+      moduleCode: 'MENU_MASTER_DATA', tableName: 'shr_projects',
+      approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
+      onApproved: mdAuditHook('PROJECT', 'shr_projects', 'project_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('PROJECT', 'shr_projects', 'project_code', 'REJECT'),
+    });
+    this.register('MD_CASH_ACCOUNT_CREATE', {
+      moduleCode: 'MENU_MD_BANK_ACCOUNT', tableName: 'fin_cash_accounts',
+      approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
+      onApproved: mdAuditHook('CASH_ACCOUNT', 'fin_cash_accounts', 'account_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('CASH_ACCOUNT', 'fin_cash_accounts', 'account_code', 'REJECT'),
+    });
+    this.register('MD_BANK_ACCOUNT_CREATE', {
+      moduleCode: 'MENU_MD_BANK_ACCOUNT', tableName: 'mst_bank_accounts',
+      approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
+      onApproved: mdAuditHook('BANK_ACCOUNT', 'mst_bank_accounts', 'bank_acc_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('BANK_ACCOUNT', 'mst_bank_accounts', 'bank_acc_code', 'REJECT'),
+    });
+
     this.logger.log(
       `WorkflowBizRegistry initialized with ${this.registry.size} bizTypes: ${[...this.registry.keys()].join(', ')}`,
     );

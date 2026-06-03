@@ -215,6 +215,7 @@ const MENU: MenuItem[] = [
     { id: "mdc-cash",       path: "/master-data/cash-accounts",    Icon: Wallet,          label: "资金账户档案", perm: "MENU_FIN2_CASH"       },
     { id: "mdc-bank",       path: "/master-data/bank-accounts",    Icon: Landmark,        label: "银行账户中心", perm: "MENU_MD_BANK_ACCOUNT" },  // G1 三层模型
     { id: "mdc-dict",       path: "/master-data/dictionaries",     Icon: BookOpen,        label: "数据字典中心", perm: "MENU_SETTINGS_DATA"   },
+    { id: "mdc-pending",    path: "/master-data/pending",          Icon: Landmark,        label: "主数据待审批", perm: "MENU_MASTER_DATA"     },  // G3-B 审批
     { id: "mdc-quality",    path: "/master-data/quality",          Icon: ShieldCheck,     label: "数据质量中心", perm: "MENU_MD_QUALITY"      },  // G1 质量看板
     { id: "mdc-user-orgs",  path: "/master-data/user-orgs",       Icon: Users2,          label: "用户组织权限", perm: "MENU_ORG_USER_SCOPE"  },
   ]},

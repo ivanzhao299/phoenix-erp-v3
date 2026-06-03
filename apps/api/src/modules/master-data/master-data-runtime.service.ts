@@ -1,8 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CodeGeneratorService } from './code-generator.service';
 import { MasterDataAuditService } from './master-data-audit.service';
+import { ApprovalEngineService } from '../approval-engine/approval-engine.service';
 
 /**
  * MasterDataRuntimeService — 核心主数据运行体系（G3-A）
@@ -50,12 +51,23 @@ const TYPES: Record<string, MdTypeConfig> = {
 
 const VALID_STATUS = ['DRAFT','PENDING_APPROVAL','ACTIVE','FROZEN','ARCHIVED','REJECTED'];
 
+// type → Workflow bizType（G3-B 主数据审批接入）
+const BIZ_TYPE: Record<string, string> = {
+  customer: 'MD_CUSTOMER_CREATE',
+  supplier: 'MD_SUPPLIER_CREATE',
+  project: 'MD_PROJECT_CREATE',
+  'cash-account': 'MD_CASH_ACCOUNT_CREATE',
+};
+
 @Injectable()
 export class MasterDataRuntimeService {
+  private readonly logger = new Logger(MasterDataRuntimeService.name);
+
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly codeGen: CodeGeneratorService,
     private readonly audit: MasterDataAuditService,
+    private readonly approval: ApprovalEngineService,
   ) {}
 
   private cfg(type: string): MdTypeConfig {
@@ -133,6 +145,34 @@ export class MasterDataRuntimeService {
     const c = this.cfg(type);
     const before = await this.get(type, code);
     const cur = before.status;
+
+    // ── G3-B：submit 接入 Workflow 2.0 审批引擎 ──────────────────────────────
+    if (action === 'submit') {
+      if (!['DRAFT', 'REJECTED'].includes(cur)) {
+        throw new BadRequestException(`当前状态 ${cur} 不允许提交审批`);
+      }
+      const bizType = BIZ_TYPE[type];
+      if (bizType) {
+        try {
+          // 在事务内启动审批：引擎查规则 → 建实例 → 置 PENDING_APPROVAL + 分派审批人
+          await this.ds.transaction(async (mgr) => {
+            await this.approval.startApproval({
+              bizType, bizId: String(before.id), bizNo: code, amount: 0,
+              companyCode: before.company_code ?? undefined,
+              subject: `主数据新增审批：${before[c.nameCol] ?? code}`,
+            }, mgr);
+          });
+          await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before: { status: cur }, after: { status: 'PENDING_APPROVAL' }, operator, reason: '提交审批（Workflow）' });
+          return { status: 'PENDING_APPROVAL' };
+        } catch (e: any) {
+          // 优雅降级：审批规则未配置时直接置 PENDING_APPROVAL，由主数据审批页人工审批，不阻断提交
+          this.logger.warn(`[MdRuntime] ${bizType} 启动 Workflow 失败，降级为直接待审批：${e?.message}`);
+          await this.ds.query(`UPDATE ${c.table} SET status = 'PENDING_APPROVAL', updated_at = NOW() WHERE ${c.codeCol} = $1`, [code]);
+          await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before: { status: cur }, after: { status: 'PENDING_APPROVAL' }, operator, reason: '提交审批（降级·无审批规则）' });
+          return { status: 'PENDING_APPROVAL' };
+        }
+      }
+    }
 
     const MAP: Record<string, { from: string[]; to: string; audit: any }> = {
       submit:  { from: ['DRAFT','REJECTED'],     to: 'PENDING_APPROVAL', audit: 'UPDATE' },

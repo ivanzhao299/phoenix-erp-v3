@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, CheckCircle2, X } from "lucide-react";
+import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import { EmptyState, LoadingSkeleton } from "@/components/design-system";
 import request from "@/lib/api-client";
@@ -85,11 +85,10 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "操作失败"); }
   };
 
-  // 按状态决定可用动作
+  // 按状态决定可用动作（PENDING_APPROVAL 由「审批中心」走 Workflow，面板不直接审批，避免绕过治理）
   const actionsFor = (status: string) => {
     const a: { action: string; label: string; icon: any }[] = [];
     if (status === "DRAFT" || status === "REJECTED") a.push({ action: "submit", label: "提交审批", icon: Send });
-    if (status === "PENDING_APPROVAL") a.push({ action: "approve", label: "审批通过", icon: CheckCircle2 });
     if (status === "ACTIVE") a.push({ action: "freeze", label: "冻结", icon: Snowflake });
     if (status === "FROZEN" || status === "ARCHIVED") a.push({ action: "restore", label: "恢复", icon: RotateCcw });
     if (status !== "ARCHIVED") a.push({ action: "archive", label: "归档", icon: Archive });
