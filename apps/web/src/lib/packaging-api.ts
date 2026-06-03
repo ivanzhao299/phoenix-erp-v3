@@ -13,9 +13,43 @@ export interface PrintLogRow {
   printed_at: string;
 }
 
+/** 读 token：优先 sessionStorage，fallback localStorage（与 api-client.ts 保持一致） */
 function tok(): string {
   if (typeof window === 'undefined') return '';
-  return sessionStorage.getItem('phoenix_token') || '';
+  return sessionStorage.getItem('phoenix_token')
+      || localStorage.getItem('phoenix_token')
+      || '';
+}
+
+/** 写 token：同步写两个存储，保证 sessionStorage + localStorage 一致 */
+function saveTok(t: string) {
+  if (typeof window === 'undefined') return;
+  sessionStorage.setItem('phoenix_token', t);
+  localStorage.setItem('phoenix_token', t);
+}
+
+let _refreshing: Promise<boolean> | null = null;
+
+/** 静默刷新 token（与 api-client.ts 的 ensureFreshToken 逻辑对齐） */
+async function tryRefresh(): Promise<boolean> {
+  if (_refreshing) return _refreshing;
+  _refreshing = (async () => {
+    try {
+      const t = tok();
+      if (!t) return false;
+      const r = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      });
+      if (!r.ok) return false;
+      const d = await r.json();
+      const newToken = d?.access_token || d?.data?.access_token;
+      if (newToken) { saveTok(newToken); return true; }
+      return false;
+    } catch { return false; }
+    finally { setTimeout(() => { _refreshing = null; }, 2000); }
+  })();
+  return _refreshing;
 }
 
 function hdr(): Record<string, string> {
@@ -27,30 +61,34 @@ function hdr(): Record<string, string> {
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
-  const res = await fetch(`${API_BASE}${path}`, {
+  let res = await fetch(`${API_BASE}${path}`, {
     method,
     headers: hdr(),
     body: body ? JSON.stringify(body) : undefined,
   });
+
+  // 401 → 尝试静默刷新一次，成功则重试原请求（与 api-client.ts 行为一致）
   if (res.status === 401) {
-    // 只有 JWT 真正过期才跳登录；权限不足（如管理员访问仅限操作员的 endpoint）
-    // 应继续停留在当前页面，让调用方展示友好错误，不能误把权限 401 当成过期登出。
-    if (typeof window !== 'undefined' && tok()) {
-      const returnParam = window.location.pathname && !window.location.pathname.includes('/login')
-        ? `&return=${encodeURIComponent(window.location.pathname)}`
-        : '';
-      try {
-        const parts = tok().split('.');
-        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-        if (payload.exp && payload.exp * 1000 < Date.now()) {
-          window.location.href = `/login?reason=expired${returnParam}`;
-        }
-      } catch {
-        window.location.href = `/login?reason=expired${returnParam}`;
-      }
+    const refreshed = await tryRefresh();
+    if (refreshed) {
+      res = await fetch(`${API_BASE}${path}`, {
+        method,
+        headers: hdr(),
+        body: body ? JSON.stringify(body) : undefined,
+      });
     }
-    throw new Error('Token expired or unauthorized');
+    // 刷新后仍 401 → 真正过期，跳登录
+    if (res.status === 401) {
+      if (typeof window !== 'undefined') {
+        const returnParam = !window.location.pathname.includes('/login')
+          ? `?return=${encodeURIComponent(window.location.pathname)}`
+          : '';
+        window.location.href = `/login${returnParam}`;
+      }
+      throw new Error('登录已过期，请重新登录');
+    }
   }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ msg: res.statusText }));
     throw new Error(err.msg || `HTTP ${res.status}`);

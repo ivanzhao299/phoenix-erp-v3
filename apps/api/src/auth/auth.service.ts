@@ -13,7 +13,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'DEV_ONLY_INSECURE_FALLBACK_KEY_DO_
 //   - 轮换流程：把旧 secret 移到 JWT_SECRET_PREV，新 secret 写入 JWT_SECRET → 重启
 //                 7 天后（>24h * 2 防夜班 buffer）删除 JWT_SECRET_PREV
 const JWT_SECRET_PREV = process.env.JWT_SECRET_PREV || '';
-const JWT_EXPIRES_IN: jwt.SignOptions['expiresIn'] = (process.env.JWT_EXPIRES_IN || '24h') as jwt.SignOptions['expiresIn'];  // 覆盖夜班 / 跨日操作
+const JWT_EXPIRES_IN: jwt.SignOptions['expiresIn'] = (process.env.JWT_EXPIRES_IN || '7d') as jwt.SignOptions['expiresIn'];  // 7天：企业运营系统不应频繁踢出，可通过 JWT_EXPIRES_IN 环境变量覆盖
 
 /**
  * 双密钥校验：先用 JWT_SECRET 试，失败回退到 JWT_SECRET_PREV（若已配置）。
