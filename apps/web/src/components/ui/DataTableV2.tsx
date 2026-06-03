@@ -1,5 +1,8 @@
 'use client';
 /**
+ * @deprecated F2 设计系统收口：请使用 `@/components/data-table`（canonical）。
+ * 本文件保留以兼容现有引用（1 处），待 F3 完成后删除。
+ *
  * DataTableV2 — 标准数据表格 · Design System V2
  * ================================================
  * 统一布局：工具栏 → 统计条 → 表格 → 分页 → 空状态/加载态。

@@ -324,7 +324,7 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
         {expanded_ && (
           <div className={styles.logoText}>
             <div className={styles.brandName}>{brand.system_name || '金凤凰 ERP'}</div>
-            <div className={styles.brandSub}>Phoenix V3</div>
+            <div className={styles.brandSub}>Phoenix ERP</div>
           </div>
         )}
       </div>

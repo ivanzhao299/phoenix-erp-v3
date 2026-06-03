@@ -1,4 +1,8 @@
 "use client";
+/**
+ * @deprecated F2 设计系统收口：请使用 `@/components/PageHeader`（canonical，140 处引用）。
+ * 本文件 0 引用，可在 F3 直接删除。
+ */
 
 import React from "react";
 import { useLanguage } from "@/contexts/LanguageContext";

@@ -1,4 +1,9 @@
 'use client';
+/**
+ * @deprecated F2 设计系统收口：请使用 `@/components/data-table`（canonical，23 处引用）。
+ * 迁移：import { DataTable, DataTableColumn } from '@/components/data-table';
+ * 本文件保留以兼容现有引用（4 处），待 F3 逐页迁移完成后删除。
+ */
 import React, { useState } from 'react';
 import { Search, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';

@@ -1,5 +1,9 @@
 'use client';
 /**
+ * @deprecated F2 设计系统收口：请使用 `@/components/design-system` 导出的 StatusBadge。
+ * 迁移：import { StatusBadge } from '@/components/design-system';
+ * 本文件保留以兼容现有引用（5 处），待 F3 逐页迁移完成后删除。
+ *
  * StatusBadge — 统一状态徽章
  * ===========================
  * 消费 design-tokens.ts 中的 STATUS_CLASS / STATUS_LABEL，

@@ -1,6 +1,11 @@
 import React from 'react';
 
 /**
+ * @deprecated F2 设计系统收口：请使用 `@/components/design-system` 导出的 StatusBadge。
+ * 迁移：import { StatusBadge } from '@/components/design-system';
+ * 原因：design-system/status/StatusBadge 为唯一 canonical 版本（支持 Dark Mode + CSS 变量）。
+ * 本文件保留以兼容现有引用（4 处），待 F3 逐页迁移完成后删除。
+ *
  * StatusBadge — Server Component
  */
 const colorMap: Record<string, { bg: string; color: string }> = {
