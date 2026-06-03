@@ -9,6 +9,7 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 数据字典统一组件
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 interface ApLedger {
@@ -522,9 +523,8 @@ export default function PaymentsPage() {
             </div>
             <div className={s.field}>
               <label className={s.lbl}>货币 *</label>
-              <select className={s.inp} value={formCurrency} onChange={e => setFormCurrency(e.target.value)}>
-                {CURRENCY_OPTS.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              {/* G2：从 sys_dict(SYS_CURRENCY) 统一加载，替代硬编码 CURRENCY_OPTS */}
+              <DictSelect dictType="SYS_CURRENCY" value={formCurrency} onChange={setFormCurrency} allowEmpty={false} />
             </div>
           </div>
           <div className={s.fieldRow}>
