@@ -9,6 +9,7 @@ import { CheckCircle, Package, Printer, RefreshCw } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import s from '@/components/ui/admin-ui.module.css';
+import { EmptyState, LoadingSkeleton } from '@/components/design-system';
 
 const tok = () => (typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') || '' : '');
 const hdr = () => ({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok() });
@@ -156,8 +157,9 @@ function BatchGenerationPage() {
             <div style={{ display: 'flex', flex: 1, alignItems: 'center', flexDirection: 'column', gap: 6 }}>
               <div style={{
                 width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: step > i + 1 ? 'var(--status-success, var(--status-success))' : step === i + 1 ? 'var(--color-primary, var(--status-special))' : 'var(--text-primary)',
-                color: step >= i + 1 ? 'white' : 'var(--text-secondary)', fontWeight: 700, fontSize: 14,
+                background: step > i + 1 ? 'var(--status-success)' : step === i + 1 ? 'var(--color-primary)' : 'var(--bg-muted)',
+                color: step > i + 1 ? 'white' : step === i + 1 ? 'white' : 'var(--text-secondary)', fontWeight: 700, fontSize: 14,
+                border: step <= i + 1 ? '2px solid var(--border)' : 'none',
               }}>
                 {step > i + 1 ? <CheckCircle size={16} /> : i + 1}
               </div>
@@ -165,7 +167,7 @@ function BatchGenerationPage() {
                 {label}
               </span>
             </div>
-            {i < 2 && <div style={{ height: 2, flex: 1, background: step > i + 1 ? 'var(--status-success, var(--status-success))' : 'var(--text-primary)', marginBottom: 18 }} />}
+            {i < 2 && <div style={{ height: 2, flex: 1, background: step > i + 1 ? 'var(--status-success)' : 'var(--border)', marginBottom: 18 }} />}
           </div>
         ))}
       </div>
@@ -180,13 +182,17 @@ function BatchGenerationPage() {
               <RefreshCw size={12} /> {t("common.refresh","刷新")}
             </button>
           </div>
-          {loading ? <div style={{ padding: 20, color: 'var(--text-secondary)' }}>{t("common.loading","加载中…")}</div>
-            : tasks.length === 0 ? (
-              <div style={{ padding: 20, color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center' }}>
-                📋 {t("ui.暂无已完成的分级任务","暂无已完成的分级任务")}<br />
-                <span style={{ fontSize: 11 }}>{t("ui.请先在分级作业页面完成任务","请先在「分级作业」页面完成至少一个任务")}</span>
-              </div>
-            ) : tasks.map((tx) => {
+          {loading ? (
+            <div style={{ padding: '16px 0' }}><LoadingSkeleton variant="line" rows={3} /></div>
+          ) : tasks.length === 0 ? (
+            <div style={{ padding: '12px 0' }}>
+              <EmptyState
+                title={t("ui.暂无已完成的分级任务","暂无已完成的分级任务")}
+                description={t("ui.请先在分级作业页面完成任务","请先在「分级作业」页面完成至少一个任务")}
+                compact
+              />
+            </div>
+          ) : tasks.map((tx) => {
               const totalGraded = Object.values(tx.grade_results).reduce((sum, v) => sum + Number(v || 0), 0);
               const sel = selectedTaskNo === tx.task_no;
               return (
@@ -212,11 +218,18 @@ function BatchGenerationPage() {
                 </div>
               );
             })}
-          <button type="button" onClick={goToStep2} disabled={!selectedTaskNo}
-            style={{ marginTop: 8, padding: '10px 24px', border: 'none', borderRadius: 10, cursor: selectedTaskNo ? 'pointer' : 'not-allowed',
-              background: selectedTaskNo ? 'var(--color-primary)' : 'var(--text-secondary)', color: 'white', fontWeight: 700 }}>
-            {t("ui.提取等级清单","提取等级清单")} →
-          </button>
+          <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+            <button type="button" onClick={goToStep2} disabled={!selectedTaskNo}
+              style={{ padding: '10px 28px', border: 'none', borderRadius: 10,
+                cursor: selectedTaskNo ? 'pointer' : 'not-allowed',
+                background: selectedTaskNo ? 'var(--color-primary)' : 'var(--bg-muted)',
+                color: selectedTaskNo ? 'white' : 'var(--text-disabled)',
+                fontWeight: 700, fontSize: 14,
+                transition: 'all 0.15s',
+              }}>
+              {t("ui.提取等级清单","提取等级清单")} →
+            </button>
+          </div>
         </div>
       )}
 
