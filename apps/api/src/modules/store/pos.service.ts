@@ -35,7 +35,11 @@ export class PosService {
    *   discount_amount?: number
    * }
    */
-  async createSale(body: any, user: any) {
+  async createSale(body: any, user: any): Promise<any> {
+    // R4.1 旧 POS 旁路冻结：本服务已从 StoreModule 注销（api/v3/pos 不可达）。
+    //   防御：即使被重新注册/直接调用，也禁止旧路直扣库存。POS 请走 Store POS（api/v2/store-sales）。
+    throw new ForbiddenException('旧 POS（api/v3/pos）已停用（R4.1）。门店收银请使用 Store POS（api/v2/store-sales），统一走 Sales V2 FIFO 库存与财务。');
+    // eslint-disable-next-line no-unreachable
     if (!Array.isArray(body?.items) || body.items.length === 0) {
       throw new BadRequestException('items 至少 1 条');
     }

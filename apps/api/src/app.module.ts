@@ -56,6 +56,7 @@ import { UatModule } from './modules/uat/uat.module';
 import { StorePosModule } from './modules/store-pos/store-pos.module';
 // [Product Master Phase H2] 产品主数据基础层（等级/规格/SKU）
 import { ProductMasterModule } from './modules/product-master/product-master.module';
+import { TraceabilityModule } from './modules/traceability/traceability.module';
 
 
 @Module({
@@ -112,6 +113,7 @@ import { ProductMasterModule } from './modules/product-master/product-master.mod
     UatModule,              // Phase E: UAT & Pilot Run Runtime
     StorePosModule,         // Sales V2 Phase 9: 直营店收银作业台
     ProductMasterModule,    // Product Master Phase H2: 等级/规格/SKU 主数据
+    TraceabilityModule,     // R5: 统一追溯 Runtime（鸡舍→…→库存→销售→客户→财务）
   ],
   controllers: [DebugController, HealthController],
   providers: [

@@ -114,6 +114,9 @@ const MENU: MenuItem[] = [
     { id: "wh-loc",      path: "/warehouse/locations",    Icon: MapPin,          label: "库位管理",   perm: "MENU_WMS_MASTER" },
   ]},
 
+  // R5: 全链追溯（鸡舍→集蛋→包装→库存→销售→客户→财务）
+  { id: "traceability", path: "/traceability", Icon: Network, label: "全链追溯", perm: "MENU_TRACEABILITY_VIEW" },
+
   // 4. 采购管理 — Procurement V2 正式入口
   { id: "procurement", Icon: Layers3, label: "采购管理", perm: "MENU_PRC2_MASTER", children: [
     { id: "prc2-dashboard", path: "/procurement2/dashboard",         Icon: LayoutDashboard, label: "采购看板",   perm: "MENU_PRC2"          },

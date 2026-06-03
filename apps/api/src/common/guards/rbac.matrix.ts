@@ -1136,6 +1136,30 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_AUDITOR:     ['V','X'],
   },
 
+  // ── 统一追溯 Runtime（R5）──────────────────────────────────────────────────
+  /** 追溯查看：鸡舍→…→库存→销售→客户→财务 全链；按 DataScope 公司隔离 */
+  MENU_TRACEABILITY_VIEW: {
+    ROLE_ADMIN:        ['V','C','E','D','A','X'],
+    ROLE_CEO:          ['V','X'],
+    ROLE_FACTORY_MGR:  ['V','X'],
+    ROLE_WMS_MGR:      ['V','X'],
+    ROLE_QA_MGR:       ['V','X'],
+    ROLE_QA_STAFF:     ['V'],
+    ROLE_SALES_MGR:    ['V','X'],
+    ROLE_HQ_FINANCE:   ['V','X'],
+    ROLE_FIN_CFO:      ['V','X'],
+    ROLE_AUDITOR:      ['V','X'],
+  },
+  /** 追溯导出 */
+  MENU_TRACEABILITY_EXPORT: {
+    ROLE_ADMIN:        ['V','C','E','D','A','X'],
+    ROLE_CEO:          ['V','X'],
+    ROLE_FACTORY_MGR:  ['V','X'],
+    ROLE_WMS_MGR:      ['V','X'],
+    ROLE_QA_MGR:       ['V','X'],
+    ROLE_HQ_FINANCE:   ['V','X'],
+  },
+
 };
 
 /**
