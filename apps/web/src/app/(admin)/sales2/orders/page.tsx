@@ -7,6 +7,7 @@ import {
   AlertTriangle, CheckCircle, Clock, CreditCard,
 } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
+import { LoadingSkeleton, EmptyState } from '@/components/design-system'; // P1-1 性能快修
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -334,10 +335,27 @@ export default function SalesV2OrdersPage() {
         )}
       </div>
 
-      {error && <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: '#ef4444', fontSize: 13 }}>{error}</div>}
+      {/* P1-1: 错误提示使用 CSS 变量 token */}
+      {error && (
+        <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 8,
+          background: 'var(--status-danger-bg)', border: '1px solid var(--status-danger-border)',
+          color: 'var(--status-danger)', fontSize: 13 }}>
+          {error}
+        </div>
+      )}
 
       {/* 订单列表 */}
       <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+        {/* P1-1: Loading Skeleton — 表头立即显示，数据区骨架屏替代白屏 */}
+        {loading ? (
+          <div style={{ padding: '12px 0 8px' }}>
+            <LoadingSkeleton variant="table" rows={8} />
+          </div>
+        ) : orders.length === 0 ? (
+          <div style={{ padding: '32px 0' }}>
+            <EmptyState title="暂无订单数据" description="当前筛选条件下没有销售订单" compact />
+          </div>
+        ) : (
         <table className={s.table}>
           <thead>
             <tr>
@@ -347,11 +365,7 @@ export default function SalesV2OrdersPage() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
-              <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>加载中…</td></tr>
-            ) : orders.length === 0 ? (
-              <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>暂无订单数据</td></tr>
-            ) : orders.map(o => {
+            {orders.map(o => {
               const sc = statusConf(o.status);
               const nextTarget = TRANSITION_TARGETS[o.status];
               return (
@@ -404,6 +418,7 @@ export default function SalesV2OrdersPage() {
             })}
           </tbody>
         </table>
+        )}
       </div>
 
       {/* 分页 */}

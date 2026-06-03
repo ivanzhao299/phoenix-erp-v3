@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import * as XLSX from 'xlsx';
+// P1-4 性能快修：xlsx 改为动态导入，不进入首屏 bundle，只在用户点击上传/下载时按需加载
 import { shareholderApi, ShrProject, ShrShareholder, SOURCE_TYPE_LABEL } from '@/lib/shareholder-api';
 
 const th: React.CSSProperties = { textAlign: 'left', padding: '8px 10px', background: 'var(--color-primary)', color: 'var(--text-on-dark)', fontSize: 12.5, fontWeight: 600 };
@@ -37,8 +37,9 @@ export default function CapitalImportPage() {
   const parse = (file: File) => {
     setErr(''); setResult(null); setFileName(file.name);
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
+        const XLSX = await import('xlsx'); // 动态加载，仅在用户实际上传文件时才下载 xlsx
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const wb = XLSX.read(data, { type: 'array' });
         const ws = wb.Sheets[wb.SheetNames[0]];
@@ -49,7 +50,7 @@ export default function CapitalImportPage() {
           const projectName = String(r['项目'] ?? r['项目名称'] ?? '').trim();
           const shareholderName = String(r['股东'] ?? r['股东姓名'] ?? '').trim();
           const amount = String(r['金额'] ?? r['出资金额'] ?? '').trim();
-          const date = normalizeDate(r['日期'] ?? r['出资日期'] ?? '');
+          const date = normalizeDate(r['日期'] ?? r['出资日期'] ?? '', XLSX.SSF);
           const source = String(r['来源'] ?? r['出资来源'] ?? '').trim();
           const remark = String(r['备注'] ?? '').trim();
           const projectCode = pByName.get(projectName);
@@ -86,7 +87,8 @@ export default function CapitalImportPage() {
     setResult({ ok, fail }); setImporting(false);
   };
 
-  const downloadTemplate = () => {
+  const downloadTemplate = async () => {
+    const XLSX = await import('xlsx'); // 动态加载，仅在用户点击下载模板时按需加载
     const ws = XLSX.utils.aoa_to_sheet([
       ['项目', '股东', '金额', '日期', '来源', '备注'],
       ['孟赛蛋鸡养殖场', '赵永伟', 500000, '2025-05-12', '银行转账', '示例行（导入前请删除）'],
@@ -161,13 +163,12 @@ export default function CapitalImportPage() {
   );
 }
 
-function normalizeDate(v: any): string {
+// normalizeDate 不依赖全局 XLSX（P1-4 动态导入后 XLSX 在 reader.onload 内按需传入）
+function normalizeDate(v: any, xlsxSsf?: { parse_date_code: (n: number) => any }): string {
   if (!v) return '';
-  if (typeof v === 'number') {
-    // Excel 序列日期
-    const d = XLSX.SSF.parse_date_code(v);
+  if (typeof v === 'number' && xlsxSsf) {
+    const d = xlsxSsf.parse_date_code(v);
     if (d) return `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`;
   }
-  const s = String(v).trim().replace(/\//g, '-');
-  return s;
+  return String(v).trim().replace(/\//g, '-');
 }

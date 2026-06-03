@@ -51,8 +51,10 @@ export class TraceabilityService {
       `SELECT batch_no FROM inv_batches WHERE packaging_batch_ref = $1 ORDER BY batch_no`,
       [packingCode],
     );
-    const traces = [];
-    for (const b of batches) traces.push(await this.traceByBatch(b.batch_no, companyScope));
+    // P1-3 性能快修：N+1 串行 → Promise.all 并行（批次数量越多提速越明显）
+    const traces = await Promise.all(
+      batches.map((b: any) => this.traceByBatch(b.batch_no, companyScope))
+    );
     const [pkg] = await this.q(
       `SELECT code, production_date, total_boxes, total_eggs, shift_id FROM pkg_packing_records WHERE code = $1 LIMIT 1`,
       [packingCode],
@@ -94,8 +96,10 @@ export class TraceabilityService {
       (it.allocated_batch_no ? String(it.allocated_batch_no).split(',') : [])
         .map(s => s.trim()).filter(Boolean).forEach(b => batchNos.add(b));
     }
-    const traces = [];
-    for (const b of batchNos) traces.push(await this.traceByBatch(b, companyScope));
+    // P1-3 性能快修：N+1 串行 → Promise.all 并行
+    const traces = await Promise.all(
+      Array.from(batchNos).map(b => this.traceByBatch(b, companyScope))
+    );
     return { found: true, entry: 'sales-order', key: orderNo, order, items, traces };
   }
 
