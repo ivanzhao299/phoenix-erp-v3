@@ -324,7 +324,7 @@ export default function PaymentsPage() {
     finally { setActionSubmitting(false); }
   }
 
-  // 加载未核销 AP
+  // 加载未核销应付单
   async function openApModal(idx: number) {
     setApAllocIdx(idx);
     try {
@@ -617,7 +617,7 @@ export default function PaymentsPage() {
 
           {/* 分摊行 */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, marginTop: 20 }}>
-            <span className={s.formSection} style={{ margin: 0 }}>AP 分摊明细（{formAllocs.length} 行）</span>
+            <span className={s.formSection} style={{ margin: 0 }}>应付分摊明细（{formAllocs.length} 行）</span>
             <div style={{ display: "flex", gap: 6 }}>
               <button type="button" className={s.btnSecondary}
                 style={{ padding: "3px 10px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}
@@ -628,13 +628,13 @@ export default function PaymentsPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
                 <tr style={{ background: "var(--bg-subtle,var(--bg-muted))" }}>
-                  <th style={thStyle}>AP 编号</th>
+                  <th style={thStyle}>应付单号</th>
                   <th style={thStyle}>采购订单号</th>
                   <th style={thStyle}>项目</th>
                   <th style={{ ...thStyle, textAlign: "right" }}>分摊金额（{formCurrency}）</th>
                   <th style={{ ...thStyle, textAlign: "right" }}>折算 CNY</th>
                   <th style={thStyle}>备注</th>
-                  <th style={{ ...thStyle, width: 50 }}>AP</th>
+                  <th style={{ ...thStyle, width: 50 }}>应付单</th>
                   <th style={{ ...thStyle, width: 28 }}></th>
                 </tr>
               </thead>
@@ -736,12 +736,12 @@ export default function PaymentsPage() {
             {/* 分摊明细 */}
             {detailData.allocations && detailData.allocations.length > 0 && (
               <>
-                <div className={s.formSection} style={{ marginTop: 20 }}>AP 分摊明细（{detailData.allocations.length} 条）</div>
+                <div className={s.formSection} style={{ marginTop: 20 }}>应付分摊明细（{detailData.allocations.length} 条）</div>
                 <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 6 }}>
                   <table className={s.table}>
                     <thead>
                       <tr>
-                        <th>AP 编号</th>
+                        <th>应付单号</th>
                         <th>采购订单号</th>
                         <th>项目</th>
                         <th style={{ textAlign: "right" }}>分摊金额</th>
@@ -802,15 +802,15 @@ export default function PaymentsPage() {
           <div style={{ background: "var(--bg-card)", borderRadius: 10, padding: 20, width: 640, maxHeight: "70vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}
             onClick={e => e.stopPropagation()}>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>
-              <DollarSign size={15} style={{ verticalAlign: "middle", marginRight: 6 }} />选择未核销 AP
+              <DollarSign size={15} style={{ verticalAlign: "middle", marginRight: 6 }} />选择未核销应付单
             </div>
             {apList.length === 0 ? (
-              <div style={{ textAlign: "center", padding: 24, color: "var(--text-secondary)" }}>暂无未核销 AP</div>
+              <div style={{ textAlign: "center", padding: 24, color: "var(--text-secondary)" }}>暂无未核销应付单</div>
             ) : (
               <table className={s.table}>
                 <thead>
                   <tr>
-                    <th>AP 编号</th>
+                    <th>应付单号</th>
                     <th>采购订单号</th>
                     <th>供应商</th>
                     <th>币种</th>
@@ -865,7 +865,7 @@ export default function PaymentsPage() {
           执行付款 <strong>{actionTarget?.payNo}</strong>（{fmtAmt(actionTarget?.amountOriginal, actionTarget?.currencyCode)}）
         </p>
         <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "4px 0 8px" }}>
-          付款后将自动核销对应 AP，此操作不可撤销。
+          付款后将自动核销对应应付单，此操作不可撤销。
         </p>
         <textarea className={s.textarea} rows={2} placeholder="付款备注（可选）"
           value={actionComment} onChange={e => setActionComment(e.target.value)} />
