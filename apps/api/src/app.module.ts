@@ -57,6 +57,7 @@ import { StorePosModule } from './modules/store-pos/store-pos.module';
 // [Product Master Phase H2] 产品主数据基础层（等级/规格/SKU）
 import { ProductMasterModule } from './modules/product-master/product-master.module';
 import { TraceabilityModule } from './modules/traceability/traceability.module';
+import { MasterDataCenterModule } from './modules/master-data/master-data-center.module';
 
 
 @Module({
@@ -114,6 +115,7 @@ import { TraceabilityModule } from './modules/traceability/traceability.module';
     StorePosModule,         // Sales V2 Phase 9: 直营店收银作业台
     ProductMasterModule,    // Product Master Phase H2: 等级/规格/SKU 主数据
     TraceabilityModule,     // R5: 统一追溯 Runtime（鸡舍→…→库存→销售→客户→财务）
+    MasterDataCenterModule, // G1: 主数据中心（编码生成/审计/数据质量）
   ],
   controllers: [DebugController, HealthController],
   providers: [

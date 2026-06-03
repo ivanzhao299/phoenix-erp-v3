@@ -1160,6 +1160,46 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_HQ_FINANCE:   ['V','X'],
   },
 
+  // ── 主数据中心（G1）────────────────────────────────────────────────────────
+  /** 主数据中心（编码生成需 C 权限） */
+  MENU_MASTER_DATA: {
+    ROLE_ADMIN:                  ['V','C','E','D','A','X'],
+    ROLE_MASTER_DATA_ADMIN:      ['V','C','E','A','X'],
+    ROLE_MASTER_DATA_APPROVER:   ['V','A','X'],
+    ROLE_CEO:                    ['V','X'],
+    ROLE_SUPPLIER_MASTER_MGR:    ['V','C','E'],
+    ROLE_CUSTOMER_MASTER_MGR:    ['V','C','E'],
+    ROLE_PRODUCT_MASTER_MGR:     ['V','C','E'],
+    ROLE_WAREHOUSE_MASTER_MGR:   ['V','C','E'],
+    ROLE_FARM_MASTER_MGR:        ['V','C','E'],
+    ROLE_FIN_ACCOUNT_MASTER_MGR: ['V','C','E'],
+  },
+  /** 银行账户中心（三层模型，财务账户管理员维护） */
+  MENU_MD_BANK_ACCOUNT: {
+    ROLE_ADMIN:                  ['V','C','E','D','A','X'],
+    ROLE_MASTER_DATA_ADMIN:      ['V','C','E','X'],
+    ROLE_FIN_ACCOUNT_MASTER_MGR: ['V','C','E','X'],
+    ROLE_FIN_CFO:                ['V','A','X'],
+  },
+  /** 数据字典中心（系统管理员维护，G2 治理） */
+  MENU_MD_DICT_CENTER: {
+    ROLE_ADMIN:                  ['V','C','E','D','X'],
+    ROLE_MASTER_DATA_ADMIN:      ['V','C','E','X'],
+  },
+  /** 数据质量中心（只读看板 + 导出） */
+  MENU_MD_QUALITY: {
+    ROLE_ADMIN:                  ['V','X'],
+    ROLE_MASTER_DATA_ADMIN:      ['V','X'],
+    ROLE_CEO:                    ['V','X'],
+    ROLE_HQ_FINANCE:             ['V','X'],
+  },
+  /** 主数据审计（审计日志查看 + 导出） */
+  MENU_MD_AUDIT: {
+    ROLE_ADMIN:                  ['V','X'],
+    ROLE_MASTER_DATA_ADMIN:      ['V','X'],
+    ROLE_AUDITOR:                ['V','X'],
+  },
+
 };
 
 /**
