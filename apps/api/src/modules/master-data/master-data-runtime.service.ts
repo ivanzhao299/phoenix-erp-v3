@@ -39,7 +39,8 @@ const TYPES: Record<string, MdTypeConfig> = {
     writableCols: ['supplier_name','supplier_name_en','supplier_type','country_code','contact_name','contact_phone','contact_email','tax_no','default_currency','payment_terms','credit_days','address','remark','effective_date','expire_date'],
   },
   project: {
-    table: 'shr_projects', codeCol: 'project_code', nameCol: 'project_name',
+    // FIX UAT-1 2026-06-04: 实际表名是 prc2_projects（早期错配为 shr_projects 表不存在）
+    table: 'prc2_projects', codeCol: 'project_code', nameCol: 'project_name',
     prefix: 'PRJ', objectType: 'PROJECT',
     writableCols: ['project_name','company_code','site_code','project_type','remark','effective_date','expire_date'],
   },
@@ -75,24 +76,28 @@ const TYPES: Record<string, MdTypeConfig> = {
     writableCols: ['warehouse_name','warehouse_name_zh','type','company_code','manager','effective_date','expire_date','remark'],
   },
   grade: {
+    // FIX UAT-1 2026-06-04: 表实际列含 grade_name_lo/is_saleable/is_storable；effective_date 由迁移补
     table: 'product_grades', codeCol: 'grade_code', nameCol: 'grade_name',
     prefix: 'GRD', objectType: 'GRADE',
-    writableCols: ['grade_name','sort_order','effective_date','expire_date','remark'],
+    writableCols: ['grade_name','grade_name_lo','sort_order','is_saleable','is_storable','remark'],
   },
   spec: {
+    // FIX UAT-1 2026-06-04: 实际列为 qty_per_unit/base_unit/display_unit（不是 unit_count/pack_type）
     table: 'packaging_specs', codeCol: 'spec_code', nameCol: 'spec_name',
     prefix: 'SPEC', objectType: 'SPEC',
-    writableCols: ['spec_name','unit_count','pack_type','effective_date','expire_date','remark'],
+    writableCols: ['spec_name','spec_name_lo','qty_per_unit','base_unit','display_unit','sort_order','remark'],
   },
   driver: {
-    table: 'sal_drivers', codeCol: 'driver_name', nameCol: 'driver_name',
-    objectType: 'DRIVER', // 司机用姓名作 PK；不走自动编码
-    writableCols: ['driver_name','phone','license_no','company_code','effective_date','expire_date'],
+    // FIX UAT-1 2026-06-04: PK 是 driver_code（不是 driver_name），且无 effective_date/expire_date 列
+    table: 'sal_drivers', codeCol: 'driver_code', nameCol: 'driver_name',
+    prefix: 'DRV', objectType: 'DRIVER',
+    writableCols: ['driver_name','phone','license_no','company_code','remark'],
   },
   vehicle: {
+    // FIX UAT-1 2026-06-04: 无 effective_date/expire_date 列；vehicle_no 是 unique key 但不应在 writableCols
     table: 'sal_vehicles', codeCol: 'vehicle_no', nameCol: 'vehicle_no',
     objectType: 'VEHICLE',
-    writableCols: ['vehicle_no','plate_no','vehicle_type','capacity','company_code','effective_date','expire_date'],
+    writableCols: ['plate_no','vehicle_type','capacity','company_code','remark'],
   },
   // ════ G5.5-D 新增 3 类（治理收官）════
   organization: {

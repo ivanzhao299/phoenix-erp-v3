@@ -41,20 +41,23 @@ const REFERENCE_MAP: Record<string, Array<{
   linkPattern: string; // 前端跳转 URL 模式
 }>> = {
   CUSTOMER: [
-    { refTable: 'sales_orders',    refDocType: '销售订单', fkColumn: 'customer_code', noField: 'so_no',       linkPattern: '/sales2/orders?keyword=:code' },
-    { refTable: 'fin_ar_invoices', refDocType: 'AR 发票',  fkColumn: 'customer_code', noField: 'ar_no',       linkPattern: '/finance2/ar?keyword=:code' },
-    { refTable: 'fin_ar_receipts', refDocType: '收款单',   fkColumn: 'customer_code', noField: 'receipt_no',  linkPattern: '/finance2/ar?keyword=:code' },
-    { refTable: 'wms_outbound',    refDocType: '出库单',   fkColumn: 'dest',          noField: 'outbound_no', linkPattern: '/warehouse/outbound?keyword=:code' },
+    // FIX UAT-1 2026-06-04: 实际表名 sal_sales_orders
+    { refTable: 'sal_sales_orders', refDocType: '销售订单', fkColumn: 'customer_code', noField: 'so_no',       linkPattern: '/sales2/orders?keyword=:code' },
+    { refTable: 'fin_ar_invoices',  refDocType: 'AR 发票',  fkColumn: 'customer_code', noField: 'ar_no',       linkPattern: '/finance2/ar?keyword=:code' },
+    { refTable: 'fin_ar_receipts',  refDocType: '收款单',   fkColumn: 'customer_code', noField: 'receipt_no',  linkPattern: '/finance2/ar?keyword=:code' },
+    { refTable: 'wms_outbound',     refDocType: '出库单',   fkColumn: 'dest',          noField: 'outbound_no', linkPattern: '/warehouse/outbound?keyword=:code' },
   ],
   SUPPLIER: [
-    { refTable: 'prc_orders',      refDocType: '采购订单', fkColumn: 'supplier_code', noField: 'po_no',       linkPattern: '/procurement2/orders?keyword=:code' },
-    { refTable: 'fin_ap_invoices', refDocType: 'AP 发票',  fkColumn: 'supplier_code', noField: 'ap_no',       linkPattern: '/finance2/ap?keyword=:code' },
-    { refTable: 'prc_payments',    refDocType: '采购付款单', fkColumn: 'payee_name',  noField: 'pay_no',      linkPattern: '/procurement2/payments?keyword=:code' },
+    // FIX UAT-1 2026-06-04: 实际表名 prc2_purchase_orders / prc2_payments
+    { refTable: 'prc2_purchase_orders', refDocType: '采购订单',   fkColumn: 'supplier_code', noField: 'po_no',  linkPattern: '/procurement2/orders?keyword=:code' },
+    { refTable: 'fin_ap_invoices',      refDocType: 'AP 发票',    fkColumn: 'supplier_code', noField: 'ap_no',  linkPattern: '/finance2/ap?keyword=:code' },
+    { refTable: 'prc2_payments',        refDocType: '采购付款单', fkColumn: 'payee_name',    noField: 'pay_no', linkPattern: '/procurement2/payments?keyword=:code' },
   ],
   PROJECT: [
-    { refTable: 'sales_orders',         refDocType: '销售订单', fkColumn: 'project_code', noField: 'so_no',        linkPattern: '/sales2/orders?keyword=:code' },
-    { refTable: 'prc_orders',           refDocType: '采购订单', fkColumn: 'project_code', noField: 'po_no',        linkPattern: '/procurement2/orders?keyword=:code' },
-    { refTable: 'shr_contributions',    refDocType: '股东出资', fkColumn: 'project_code', noField: 'contribution_no', linkPattern: '/finance2/shareholder-funds?keyword=:code' },
+    // FIX UAT-1 2026-06-04: 表名对齐
+    { refTable: 'sal_sales_orders',              refDocType: '销售订单', fkColumn: 'project_code', noField: 'so_no',           linkPattern: '/sales2/orders?keyword=:code' },
+    { refTable: 'prc2_purchase_orders',          refDocType: '采购订单', fkColumn: 'project_code', noField: 'po_no',           linkPattern: '/procurement2/orders?keyword=:code' },
+    { refTable: 'fin_shareholder_contributions', refDocType: '股东出资', fkColumn: 'project_code', noField: 'contribution_no', linkPattern: '/finance2/shareholder-funds?keyword=:code' },
   ],
   CASH_ACCOUNT: [
     { refTable: 'fin_cash_transactions', refDocType: '资金流水', fkColumn: 'account_id', noField: 'txn_no', linkPattern: '/finance2/fund-transfers?keyword=:code' },
@@ -72,9 +75,10 @@ const REFERENCE_MAP: Record<string, Array<{
     { refTable: 'fin_cash_accounts', refDocType: 'ERP 资金账户', fkColumn: 'bank_acc_code', noField: 'account_code', linkPattern: '/master-data/cash-accounts?keyword=:code' },
   ],
   SKU: [
-    { refTable: 'sales_order_items',     refDocType: '销售订单明细', fkColumn: 'sku_code', noField: 'item_id::text',  linkPattern: '/sales2/orders' },
-    { refTable: 'inv_batches',           refDocType: '库存批次',     fkColumn: 'sku_code', noField: 'batch_no',       linkPattern: '/warehouse?keyword=:code' },
-    { refTable: 'wms_inbound',           refDocType: '入库单',       fkColumn: 'item',     noField: 'inbound_no',     linkPattern: '/warehouse/inbound?keyword=:code' },
+    // FIX UAT-1 2026-06-04: 实际表名 sal_order_items
+    { refTable: 'sal_order_items', refDocType: '销售订单明细', fkColumn: 'sku_code', noField: 'id::text',     linkPattern: '/sales2/orders' },
+    { refTable: 'inv_batches',     refDocType: '库存批次',     fkColumn: 'sku_code', noField: 'batch_no',     linkPattern: '/warehouse?keyword=:code' },
+    { refTable: 'wms_inbound',     refDocType: '入库单',       fkColumn: 'item',     noField: 'inbound_no',   linkPattern: '/warehouse/inbound?keyword=:code' },
   ],
   WAREHOUSE: [
     { refTable: 'inv_batches',    refDocType: '库存批次', fkColumn: 'warehouse_code', noField: 'batch_no',    linkPattern: '/warehouse?keyword=:code' },

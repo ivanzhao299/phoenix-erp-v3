@@ -70,7 +70,7 @@ export class ForecastAnalyticsService {
     const sales = await this.safe<{ day: string; v: string }>(
       `SELECT DATE_TRUNC('day', created_at)::date::text AS day,
               COALESCE(SUM(total_amount),0)::text AS v
-         FROM sales_orders WHERE created_at > NOW() - INTERVAL '30 days'
+         FROM sal_sales_orders WHERE created_at > NOW() - INTERVAL '30 days'
          GROUP BY DATE_TRUNC('day', created_at) ORDER BY day`,
     );
 
@@ -88,7 +88,7 @@ export class ForecastAnalyticsService {
            FROM fin_ar_receipts WHERE status='CONFIRMED' AND created_at > NOW() - INTERVAL '30 days'
          UNION ALL
          SELECT DATE_TRUNC('day', created_at)::date AS day, -amount_original AS net
-           FROM prc_payments WHERE status IN ('PAID','EXECUTED') AND created_at > NOW() - INTERVAL '30 days'
+           FROM prc2_payments WHERE status IN ('PAID','EXECUTED') AND created_at > NOW() - INTERVAL '30 days'
        ) x GROUP BY day ORDER BY day`,
     );
 
