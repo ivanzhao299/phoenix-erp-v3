@@ -5,6 +5,10 @@ import s from "@/components/ui/admin-ui.module.css";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { hexToAccent, KPI_GRID } from "@/lib/design-tokens";
 import { EmptyState, LoadingSkeleton } from '@/components/design-system'; // F4-B 统一空状态/加载态
+import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
+import {
+  CompanySelector, CustomerSelector, SkuSelector,
+} from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 
@@ -185,22 +189,30 @@ function CreateReturnDrawer({ onClose, onCreated }: { onClose: () => void; onCre
         {error && <div style={{ background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)', color: 'var(--status-danger)', borderRadius: 8, padding: '8px 12px', marginBottom: 16 }}>{error}</div>}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
-          {[
-            { label: '公司代码 *', field: 'companyCode', ph: 'e.g. HQ' },
-            { label: '销售订单号', field: 'salesOrderNo', ph: 'SO-...' },
-            { label: '客户代码', field: 'customerCode', ph: '' },
-            { label: '客户名称', field: 'customerName', ph: '' },
-          ].map(({ label, field, ph }) => (
-            <div key={field}>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>{label}</div>
-              <input
-                value={(form as Record<string, string>)[field]}
-                placeholder={ph}
-                onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))}
-                style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }}
-              />
-            </div>
-          ))}
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>公司 *</div>
+            {/* G4-C：公司主数据，DataScope 自动过滤 */}
+            <CompanySelector value={form.companyCode}
+              onChange={v => setForm(p => ({ ...p, companyCode: v }))} />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>销售订单号</div>
+            <input value={form.salesOrderNo} placeholder="SO-..."
+              onChange={e => setForm(p => ({ ...p, salesOrderNo: e.target.value }))}
+              style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>客户 *</div>
+            {/* G4-C：客户主数据，自动带出名称 */}
+            <CustomerSelector value={form.customerCode}
+              onChange={v => setForm(p => ({ ...p, customerCode: v }))}
+              onPick={o => setForm(p => ({ ...p, customerName: o?.raw?.name ?? o?.label ?? '' }))} />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>客户名称</div>
+            <input value={form.customerName} readOnly placeholder="由客户选择自动带出"
+              style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', background: 'var(--bg-muted)', color: 'var(--text-secondary)' }} />
+          </div>
           <div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>退货类型 *</div>
             <select
@@ -212,12 +224,11 @@ function CreateReturnDrawer({ onClose, onCreated }: { onClose: () => void; onCre
             </select>
           </div>
           <div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>原因代码</div>
-            <input
-              value={form.reasonCode}
-              onChange={e => setForm(p => ({ ...p, reasonCode: e.target.value }))}
-              style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 14 }}
-            />
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>退货原因 *</div>
+            {/* G4-C：退货原因来自 sys_dict(SAL_RETURN_REASON) */}
+            <DictSelect dictType="SAL_RETURN_REASON" value={form.reasonCode}
+              onChange={v => setForm(p => ({ ...p, reasonCode: v }))}
+              placeholder="请选择退货原因" />
           </div>
         </div>
 
@@ -235,16 +246,29 @@ function CreateReturnDrawer({ onClose, onCreated }: { onClose: () => void; onCre
         </div>
         {items.map((it, i) => (
           <div key={i} style={{ background: 'var(--bg-muted)', borderRadius: 8, padding: 12, marginBottom: 10 }}>
+            {/* G4-C：商品由 SKU 主数据选择，禁止手工录入；自动带出 productCode/productName/gradeCode */}
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: '#8b5cf6', marginBottom: 2 }}>商品（SKU 主数据）*</div>
+              <SkuSelector value={(it as any).skuCode ?? ''}
+                onChange={code => updateItem(i, 'skuCode' as any, code)}
+                onPick={o => {
+                  const raw = o?.raw;
+                  updateItem(i, 'productCode', raw?.product_code ?? '');
+                  updateItem(i, 'productName', raw?.sku_name ?? raw?.product_name ?? '');
+                  updateItem(i, 'gradeCode',   raw?.grade_code ?? '');
+                }}
+                style={{ fontSize: 13, padding: '6px 8px', border: '1px solid rgba(139,92,246,0.3)' }} />
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px 100px', gap: 8, marginBottom: 8 }}>
               <div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>产品代码 *</div>
-                <input value={it.productCode} onChange={e => updateItem(i, 'productCode', e.target.value)}
-                  style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 4, fontSize: 13, boxSizing: 'border-box' }} />
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>产品代码</div>
+                <input value={it.productCode} readOnly placeholder="由 SKU 自动带出"
+                  style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 4, fontSize: 13, boxSizing: 'border-box', background: 'var(--bg-card)', color: 'var(--text-secondary)' }} />
               </div>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>产品名称</div>
-                <input value={it.productName} onChange={e => updateItem(i, 'productName', e.target.value)}
-                  style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 4, fontSize: 13, boxSizing: 'border-box' }} />
+                <input value={it.productName} readOnly placeholder="自动带出"
+                  style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 4, fontSize: 13, boxSizing: 'border-box', background: 'var(--bg-card)', color: 'var(--text-secondary)' }} />
               </div>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>退货数量 *</div>

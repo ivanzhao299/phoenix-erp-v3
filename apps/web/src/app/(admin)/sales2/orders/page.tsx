@@ -8,6 +8,10 @@ import {
 } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import { LoadingSkeleton, EmptyState } from '@/components/design-system'; // P1-1 性能快修
+import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
+import {
+  CompanySelector, CustomerSelector, ChannelSelector, SkuSelector,
+} from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -443,27 +447,29 @@ export default function SalesV2OrdersPage() {
 
             {/* 基本信息 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              {[
-                { label: '公司代码 *', key: 'companyCode', placeholder: 'HQ' },
-                { label: '渠道代码', key: 'channelCode', placeholder: 'CH001' },
-                { label: '预计交货日期', key: 'expectedDeliveryDate', type: 'date' },
-              ].map(f => (
-                <div key={f.key}>
-                  <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>{f.label}</label>
-                  <input type={f.type || 'text'}
-                    value={(newForm as any)[f.key]}
-                    onChange={e => setNewForm(p => ({ ...p, [f.key]: e.target.value }))}
-                    placeholder={f.placeholder}
-                    style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-page)', color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box' }} />
-                </div>
-              ))}
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>公司 *</label>
+                {/* G4-C：公司主数据，DataScope 自动过滤 */}
+                <CompanySelector value={newForm.companyCode}
+                  onChange={v => setNewForm(p => ({ ...p, companyCode: v }))} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>渠道</label>
+                {/* G4-C：渠道主数据(sal_channels，仅 ACTIVE) */}
+                <ChannelSelector value={newForm.channelCode}
+                  onChange={v => setNewForm(p => ({ ...p, channelCode: v }))} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>预计交货日期</label>
+                <input type="date" value={(newForm as any).expectedDeliveryDate ?? ''}
+                  onChange={e => setNewForm(p => ({ ...p, expectedDeliveryDate: e.target.value }))}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-page)', color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box' }} />
+              </div>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>客户</label>
-                <select value={newForm.customerCode} onChange={e => setNewForm(p => ({ ...p, customerCode: e.target.value }))}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-page)', color: 'var(--text-primary)', fontSize: 13 }}>
-                  <option value="">不指定客户</option>
-                  {customers.map(c => <option key={c.customer_code} value={c.customer_code}>{c.customer_name} ({c.customer_code})</option>)}
-                </select>
+                {/* G4-C：客户主数据(仅 ACTIVE)，DataScope 自动过滤 */}
+                <CustomerSelector value={newForm.customerCode}
+                  onChange={v => setNewForm(p => ({ ...p, customerCode: v }))} />
               </div>
             </div>
 
@@ -539,50 +545,38 @@ export default function SalesV2OrdersPage() {
                 const belowFloor = item._resolved?.floorPrice != null && Number(item.actualUnitPrice) > 0 && Number(item.actualUnitPrice) < item._resolved.floorPrice;
                 return (
                   <div key={idx} style={{ padding: 12, borderRadius: 8, border: `1px solid ${belowFloor ? 'rgba(239,68,68,0.4)' : 'var(--border)'}`, marginBottom: 8, background: belowFloor ? 'rgba(239,68,68,0.04)' : undefined }}>
-                    {/* Phase H5: SKU 快速选择器 */}
-                    {skus.length > 0 && (
-                      <div style={{ marginBottom: 8 }}>
-                        <label style={{ fontSize: 11, color: '#8b5cf6', display: 'block', marginBottom: 2 }}>SKU 快速选择（可选）</label>
-                        <select
-                          value={item.skuCode ?? ''}
-                          onChange={e => {
-                            const sku = skus.find(s => s.sku_code === e.target.value);
-                            setNewItems(p => p.map((it, i) => i === idx ? {
-                              ...it,
-                              skuCode:     sku?.sku_code ?? '',
-                              productCode: sku?.product_code ?? it.productCode,
-                              gradeCode:   sku?.grade_code ?? it.gradeCode,
-                              _resolved:   undefined,
-                            } : it));
-                            if (sku) setTimeout(() => resolveItemPrice(idx), 0);
-                          }}
-                          style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(139,92,246,0.3)', background: 'var(--bg-page)', color: 'var(--text-primary)', fontSize: 12 }}>
-                          <option value="">— 不使用 SKU（手动填写）—</option>
-                          {skus.map(s => (
-                            <option key={s.sku_code} value={s.sku_code}>
-                              {s.sku_code}{s.sku_name ? ` · ${s.sku_name}` : ''}
-                            </option>
-                          ))}
-                        </select>
-                        {item.skuCode && <span style={{ fontSize: 10, color: '#8b5cf6' }}>✓ 已自动填充产品代码和等级</span>}
-                      </div>
-                    )}
+                    {/* G4-C：商品 SKU 主数据，禁止手工录入；自动带出 productCode/gradeCode/spec/name */}
+                    <div style={{ marginBottom: 8 }}>
+                      <label style={{ fontSize: 11, color: '#8b5cf6', display: 'block', marginBottom: 2 }}>商品（SKU 主数据）*</label>
+                      <SkuSelector
+                        value={item.skuCode ?? ''}
+                        onChange={code => setNewItems(p => p.map((it, i) => i === idx ? { ...it, skuCode: code, _resolved: undefined } : it))}
+                        onPick={o => {
+                          const raw = o?.raw;
+                          setNewItems(p => p.map((it, i) => i === idx ? {
+                            ...it,
+                            skuCode:     raw?.sku_code ?? '',
+                            productCode: raw?.product_code ?? '',
+                            gradeCode:   raw?.grade_code ?? '',
+                            _resolved:   undefined,
+                          } : it));
+                          if (raw) setTimeout(() => resolveItemPrice(idx), 0);
+                        }}
+                        style={{ fontSize: 12, padding: '6px 8px', border: '1px solid rgba(139,92,246,0.3)' }} />
+                      {item.skuCode && <span style={{ fontSize: 10, color: '#8b5cf6' }}>✓ 已自动填充产品代码 / 等级 / 规格</span>}
+                    </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.5fr auto', gap: 8, alignItems: 'end' }}>
                       <div>
                         <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 2 }}>商品代码</label>
-                        <input value={item.productCode}
-                          onChange={e => setNewItems(p => p.map((it, i) => i === idx ? { ...it, productCode: e.target.value, skuCode: '', _resolved: undefined } : it))}
-                          onBlur={() => resolveItemPrice(idx)}
-                          placeholder="PC001"
-                          style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-page)', color: 'var(--text-primary)', fontSize: 12 }} />
+                        <input value={item.productCode} readOnly
+                          placeholder="由 SKU 自动带出"
+                          style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-muted)', color: 'var(--text-secondary)', fontSize: 12, cursor: 'not-allowed' }} />
                       </div>
                       <div>
-                        <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 2 }}>规格</label>
-                        <input value={item.gradeCode}
-                          onChange={e => setNewItems(p => p.map((it, i) => i === idx ? { ...it, gradeCode: e.target.value } : it))}
-                          onBlur={() => resolveItemPrice(idx)}
-                          placeholder="1"
-                          style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-page)', color: 'var(--text-primary)', fontSize: 12 }} />
+                        <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 2 }}>等级</label>
+                        <input value={item.gradeCode} readOnly
+                          placeholder="自动带出"
+                          style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-muted)', color: 'var(--text-secondary)', fontSize: 12, cursor: 'not-allowed' }} />
                       </div>
                       <div>
                         <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 2 }}>数量</label>

@@ -10,6 +10,8 @@ import {
   LogIn, LogOut, FileText, BarChart2, Loader2, ChevronDown,
 } from 'lucide-react';
 import { usePermission } from '@/hooks/usePermission';
+import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
+import { CustomerSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 客户主数据
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -692,12 +694,11 @@ export default function StorePosPage() {
             {/* 客户信息（赊销/混合时填写） */}
             {(payType === 'CREDIT' || payType === 'MIXED') && (
               <div style={{ marginBottom: 10 }}>
-                <label style={{ fontSize: 12, color: 'var(--text-disabled)', display: 'block', marginBottom: 3 }}>客户姓名</label>
-                <input
-                  value={customerName} onChange={e => setCustomerName(e.target.value)}
-                  placeholder="客户姓名（可选）"
-                  style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-dark)', background: 'var(--border-dark-faint)', color: 'var(--border)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
-                />
+                <label style={{ fontSize: 12, color: 'var(--text-disabled)', display: 'block', marginBottom: 3 }}>客户 *</label>
+                {/* G4-C：客户主数据(仅 ACTIVE)，自动带出名称，禁止手填 */}
+                <CustomerSelector value={customerCode}
+                  onChange={setCustomerCode}
+                  onPick={o => setCustomerName(o?.raw?.name ?? o?.label ?? '')} />
               </div>
             )}
 
@@ -705,11 +706,9 @@ export default function StorePosPage() {
             {payType !== 'CREDIT' && (
               <div style={{ marginBottom: 10 }}>
                 <label style={{ fontSize: 12, color: 'var(--text-disabled)', display: 'block', marginBottom: 3 }}>支付方式</label>
-                <select value={payMethod} onChange={e => setPayMethod(e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-dark)', background: 'var(--text-primary)', color: 'var(--border)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}>
-                  <option value="CASH">现金</option>
-                  <option value="TRANSFER">转账</option>
-                  <option value="OTHER">其他</option>
-                </select>
+                {/* G4-C：支付方式来自 sys_dict(SAL_PAY_METHOD) */}
+                <DictSelect dictType="SAL_PAY_METHOD" value={payMethod}
+                  onChange={setPayMethod} allowEmpty={false} />
               </div>
             )}
 

@@ -233,10 +233,21 @@ function CustomersTab() {
           style={{ display: "flex", alignItems: "center", gap: 6, height: 34 }}>
           <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} /> 刷新
         </button>
-        <button type="button" className={s.btnPrimary} onClick={openNew}
-          style={{ display: "flex", alignItems: "center", gap: 6, height: 34 }}>
-          <Plus size={13} /> 新建客户
-        </button>
+        {/* G4-C：禁止销售页直接建客户；导向 G3 主数据中心 */}
+        <a href="/master-data/customers" className={s.btnPrimary}
+          style={{ display: "flex", alignItems: "center", gap: 6, height: 34, textDecoration: "none" }}>
+          <Plus size={13} /> 前往主数据中心新增
+        </a>
+      </div>
+
+      {/* G4-C：销售视图说明横幅 */}
+      <div style={{
+        background: "var(--bg-info,#eff6ff)", border: "1px solid var(--color-info,#3b82f6)",
+        borderRadius: "var(--radius-md)", padding: "10px 14px", marginBottom: 12, fontSize: 12.5,
+        color: "var(--color-info,#1d4ed8)",
+      }}>
+        <strong>销售视图：</strong>客户主数据已下沉至 <a href="/master-data/customers" style={{ color: "inherit", fontWeight: 600, textDecoration: "underline" }}>主数据中心</a>，
+        请在主数据中心完成新增/审批/资质上传。本页保留浏览、筛选、信用维度的销售侧扩展信息编辑。
       </div>
 
       {/* Table */}

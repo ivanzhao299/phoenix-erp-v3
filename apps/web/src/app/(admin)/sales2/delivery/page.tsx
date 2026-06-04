@@ -11,6 +11,10 @@ import s from '@/components/ui/admin-ui.module.css';
 import { ConfirmDialogV2, EmptyState, LoadingSkeleton } from '@/components/design-system'; // F4-B
 import { KpiCard } from '@/components/ui/KpiCard';
 import { hexToAccent, KPI_GRID } from '@/lib/design-tokens';
+import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
+import {
+  CompanySelector, DriverSelector, VehicleSelector,
+} from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -834,39 +838,68 @@ export default function DeliveryPage() {
           }}>
             <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 20 }}>新建配送单</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {[
-                { label: '公司代码 *', field: 'companyCode', required: true },
-                { label: '销售订单ID（逗号或换行分隔）*', field: 'salesOrderIds', multiline: true },
-                { label: '司机姓名', field: 'driverName' },
-                { label: '车牌号', field: 'vehicleNo' },
-                { label: '路线名称', field: 'routeName' },
-                { label: '波次日期', field: 'waveDate', type: 'date' },
-                { label: '预计到达时间', field: 'expectedArrivalAt', type: 'datetime-local' },
-                { label: '备注', field: 'remark', multiline: true },
-              ].map(({ label, field, type, multiline }) => (
-                <label key={field}>
-                  <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>{label}</div>
-                  {multiline ? (
-                    <textarea
-                      value={(createForm as any)[field]}
-                      onChange={e => setCreateForm(f => ({ ...f, [field]: e.target.value }))}
-                      rows={field === 'salesOrderIds' ? 3 : 2}
-                      style={{ width: '100%', borderRadius: 6, background: 'var(--bg-muted)',
-                        border: '1px solid var(--border)', color: 'inherit',
-                        fontSize: 13, padding: '7px 10px', resize: 'vertical', boxSizing: 'border-box' }}
-                    />
-                  ) : (
-                    <input
-                      type={type ?? 'text'}
-                      value={(createForm as any)[field]}
-                      onChange={e => setCreateForm(f => ({ ...f, [field]: e.target.value }))}
-                      style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--bg-muted)',
-                        border: '1px solid var(--border)', color: 'inherit',
-                        fontSize: 13, padding: '0 10px', boxSizing: 'border-box' }}
-                    />
-                  )}
-                </label>
-              ))}
+              {/* G4-C：公司主数据 */}
+              <label>
+                <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>公司 *</div>
+                <CompanySelector value={createForm.companyCode}
+                  onChange={v => setCreateForm(f => ({ ...f, companyCode: v }))} />
+              </label>
+              <label>
+                <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>销售订单ID（逗号或换行分隔）*</div>
+                <textarea value={createForm.salesOrderIds}
+                  onChange={e => setCreateForm(f => ({ ...f, salesOrderIds: e.target.value }))}
+                  rows={3}
+                  style={{ width: '100%', borderRadius: 6, background: 'var(--bg-muted)',
+                    border: '1px solid var(--border)', color: 'inherit',
+                    fontSize: 13, padding: '7px 10px', resize: 'vertical', boxSizing: 'border-box' }} />
+              </label>
+              {/* G4-C：司机主数据(sal_drivers，仅 ACTIVE) */}
+              <label>
+                <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>司机</div>
+                <DriverSelector value={createForm.driverName}
+                  onChange={v => setCreateForm(f => ({ ...f, driverName: v }))}
+                  companyCode={createForm.companyCode || undefined} />
+              </label>
+              {/* G4-C：车辆主数据(sal_vehicles，仅 ACTIVE) */}
+              <label>
+                <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>车辆</div>
+                <VehicleSelector value={createForm.vehicleNo}
+                  onChange={v => setCreateForm(f => ({ ...f, vehicleNo: v }))}
+                  companyCode={createForm.companyCode || undefined} />
+              </label>
+              <label>
+                <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>路线名称</div>
+                <input value={createForm.routeName}
+                  onChange={e => setCreateForm(f => ({ ...f, routeName: e.target.value }))}
+                  style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--bg-muted)',
+                    border: '1px solid var(--border)', color: 'inherit',
+                    fontSize: 13, padding: '0 10px', boxSizing: 'border-box' }} />
+              </label>
+              <label>
+                <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>波次日期</div>
+                <input type="date" value={createForm.waveDate}
+                  onChange={e => setCreateForm(f => ({ ...f, waveDate: e.target.value }))}
+                  style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--bg-muted)',
+                    border: '1px solid var(--border)', color: 'inherit',
+                    fontSize: 13, padding: '0 10px', boxSizing: 'border-box' }} />
+              </label>
+              <label>
+                <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>预计到达时间</div>
+                <input type="datetime-local" value={createForm.expectedArrivalAt}
+                  onChange={e => setCreateForm(f => ({ ...f, expectedArrivalAt: e.target.value }))}
+                  style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--bg-muted)',
+                    border: '1px solid var(--border)', color: 'inherit',
+                    fontSize: 13, padding: '0 10px', boxSizing: 'border-box' }} />
+              </label>
+              <label>
+                <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>备注</div>
+                <textarea value={createForm.remark}
+                  onChange={e => setCreateForm(f => ({ ...f, remark: e.target.value }))}
+                  rows={2}
+                  style={{ width: '100%', borderRadius: 6, background: 'var(--bg-muted)',
+                    border: '1px solid var(--border)', color: 'inherit',
+                    fontSize: 13, padding: '7px 10px', resize: 'vertical', boxSizing: 'border-box' }} />
+              </label>
             </div>
             {createErr && <div style={{ color: 'var(--status-danger)', fontSize: 12, marginTop: 10 }}>{createErr}</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
@@ -945,16 +978,9 @@ export default function DeliveryPage() {
                   </label>
                   <label>
                     <div style={{ fontSize: 12, color: 'var(--text-disabled)', marginBottom: 4 }}>异常类型 *</div>
-                    <select value={exceptionType} onChange={e => setExceptionType(e.target.value)}
-                      style={{ width: '100%', height: 34, borderRadius: 6, background: 'var(--text-primary)',
-                        border: '1px solid var(--border)', color: 'inherit', fontSize: 13,
-                        padding: '0 10px', boxSizing: 'border-box' }}>
-                      <option value="SHORTAGE">缺货（SHORTAGE）</option>
-                      <option value="DAMAGED">破损（DAMAGED）</option>
-                      <option value="REJECTED">客户拒收（REJECTED）</option>
-                      <option value="LATE">超时（LATE）</option>
-                      <option value="OTHER">其他（OTHER）</option>
-                    </select>
+                    {/* G4-C：异常类型来自 sys_dict(SAL_DELIVERY_EXCEPTION) */}
+                    <DictSelect dictType="SAL_DELIVERY_EXCEPTION" value={exceptionType}
+                      onChange={setExceptionType} allowEmpty={false} />
                   </label>
                 </>
               )}

@@ -198,6 +198,76 @@ export function LocationSelector(p: BaseProps & { warehouseCode?: string; zoneCo
     }} />;
 }
 
+// ── 渠道（sal_channels）──────────────────────────────────────────────────────
+export function ChannelSelector(p: BaseProps) {
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择渠道'}
+    loader={async () => {
+      const r = await request<any>('/v2/sales/channels');
+      const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
+      return list
+        .filter(c => (c.status ?? 'ACTIVE') === 'ACTIVE')
+        .map(c => ({
+          value: c.channel_code ?? c.channelCode,
+          label: `${c.channel_name ?? c.channelName ?? c.channel_code}（${c.channel_code ?? c.channelCode}）`,
+          raw: c,
+        }));
+    }} />;
+}
+
+// ── 门店（mst_stores / sys_store via generic-crud）────────────────────────────
+export function StoreSelector(p: BaseProps & { companyCode?: string }) {
+  const { companyCode, ...rest } = p;
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择门店'}
+    loader={async () => {
+      const r = await request<any>('/crud/mst_stores?status=ACTIVE&pageSize=500');
+      const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
+      return list
+        .filter(st => (st.status ?? 'ACTIVE') === 'ACTIVE')
+        .filter(st => !companyCode || st.company_code === companyCode)
+        .map(st => ({
+          value: st.store_code,
+          label: `${st.store_name ?? st.store_code}（${st.store_code}）`,
+          raw: st,
+        }));
+    }} />;
+}
+
+// ── 司机（sal_drivers）───────────────────────────────────────────────────────
+export function DriverSelector(p: BaseProps & { companyCode?: string }) {
+  const { companyCode, ...rest } = p;
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择司机'}
+    loader={async () => {
+      const r = await request<any>('/v2/sales/delivery/drivers');
+      const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
+      return list
+        .filter(d => (d.status ?? 'ACTIVE') === 'ACTIVE')
+        .filter(d => !companyCode || d.company_code === companyCode)
+        .map(d => ({
+          value: d.driver_name ?? d.driverName,
+          label: `${d.driver_name ?? d.driverName}（${d.phone ?? ''}${d.license_no ?? d.licenseNo ? ' · ' + (d.license_no ?? d.licenseNo) : ''}）`,
+          raw: d,
+        }));
+    }} />;
+}
+
+// ── 车辆（sal_vehicles）─────────────────────────────────────────────────────
+export function VehicleSelector(p: BaseProps & { companyCode?: string }) {
+  const { companyCode, ...rest } = p;
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择车辆'}
+    loader={async () => {
+      const r = await request<any>('/v2/sales/delivery/vehicles');
+      const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
+      return list
+        .filter(v => (v.status ?? 'ACTIVE') === 'ACTIVE')
+        .filter(v => !companyCode || v.company_code === companyCode)
+        .map(v => ({
+          value: v.vehicle_no ?? v.vehicleNo,
+          label: `${v.vehicle_no ?? v.vehicleNo}${v.plate_no ?? v.plateNo ? '（' + (v.plate_no ?? v.plateNo) + '）' : ''}`,
+          raw: v,
+        }));
+    }} />;
+}
+
 // ── SKU（物料主数据，仅 ACTIVE）──────────────────────────────────────────────
 /** value = sku_code；onPick 回传 raw（包含 product_code/product_name/grade_code/spec_code/sku_name） */
 export function SkuSelector(p: BaseProps & { productCode?: string; gradeCode?: string }) {
