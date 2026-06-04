@@ -1018,6 +1018,66 @@ export class WorkflowService implements OnModuleInit {
     return { code: 200, data: { success: true } };
   }
 
+  /**
+   * WF-UAT-1: 退回（退到上一节点）— 标当前 task DONE/RETURN，写 RETURN action，
+   * instance.current_node_id 回退到上节点；最小可用版本（不在 graph 上深度推演）。
+   */
+  async returnTask(taskId: number, body: any, user: WorkflowUser) {
+    const task = await this.findTask(taskId);
+    await this.assertTaskOwner(task, user);
+    if (task.status !== 'TODO') throw new BadRequestException('task is not TODO');
+    const targetNode: string | null = body?.target_node_id || null;
+    await this.em.query(
+      `UPDATE wf_task SET status='DONE', action_result='RETURN', completed_at=CURRENT_TIMESTAMP WHERE id=$1`,
+      [taskId],
+    );
+    await this.em.query(
+      `UPDATE wf_task SET status='CANCELED', action_result='CANCELED', completed_at=CURRENT_TIMESTAMP
+       WHERE instance_id=$1 AND node_id=$2 AND status='TODO' AND id<>$3`,
+      [task.instance_id, task.node_id, taskId],
+    );
+    if (targetNode) {
+      await this.em.query(
+        `UPDATE wf_instance SET current_node_id=$2, updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
+        [task.instance_id, targetNode],
+      );
+    }
+    await this.writeAction(task.instance_id, taskId, 'RETURN', user, task.node_id, targetNode, {
+      comment: body?.comment || '',
+      target_node_id: targetNode,
+    });
+    return { code: 200, data: { success: true } };
+  }
+
+  /**
+   * WF-UAT-1: 加签 — 在当前节点复制一个 task 给指定审批人/角色，写 COUNTERSIGN action。
+   */
+  async countersignTask(taskId: number, body: any, user: WorkflowUser) {
+    const task = await this.findTask(taskId);
+    await this.assertTaskOwner(task, user);
+    if (task.status !== 'TODO') throw new BadRequestException('task is not TODO');
+    if (!body?.assignee_user_id && !body?.assignee_role_code) {
+      throw new BadRequestException('assignee_user_id or assignee_role_code required');
+    }
+    const newTaskNo = `WFT-CS-${Date.now()}-${taskId}`;
+    const inserted = await this.em.query(
+      `INSERT INTO wf_task (task_no, instance_id, node_id, node_name, assignee_user_id, assignee_role_code, status, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,'TODO',CURRENT_TIMESTAMP)
+       RETURNING id, task_no`,
+      [
+        newTaskNo, task.instance_id, task.node_id, task.node_name,
+        body.assignee_user_id || null, body.assignee_role_code || null,
+      ],
+    );
+    const newTaskId = inserted[0]?.id;
+    await this.writeAction(task.instance_id, taskId, 'COUNTERSIGN', user, task.node_id, task.node_id, {
+      ...body,
+      new_task_id: newTaskId,
+      new_task_no: newTaskNo,
+    });
+    return { code: 200, data: { success: true, new_task_id: newTaskId, new_task_no: newTaskNo } };
+  }
+
   async listDataSources(query: QueryDto) {
     await this.refreshAllDataSourceMetadata();
     const { limit, offset } = this.page(query);

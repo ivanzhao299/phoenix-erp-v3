@@ -19,9 +19,21 @@ export default function WorkflowInstancesPage() {
   const searchParams = useSearchParams();
   const [rows, setRows] = useState<WorkflowInstance[]>([]);
   const [status, setStatus] = useState(searchParams.get("status") || "");
+  const [loadError, setLoadError] = useState<string>("");
 
-  const load = useCallback(() => workflowApi.instances(status || undefined).then(res => setRows(res.data || [])), [status]);
-  useEffect(() => { load(); }, [load]);
+  // WF-2 P0：禁止 catch-swallow — 5xx 必须显式提示，不能伪装空
+  const load = useCallback(async () => {
+    setLoadError("");
+    try {
+      const res = await workflowApi.instances(status || undefined);
+      setRows(res.data || []);
+    } catch (err) {
+      console.error('[workflow/instances] load failed:', err);
+      setLoadError(err instanceof Error ? `加载流程实例失败：${err.message}` : '加载流程实例失败');
+      setRows([]);
+    }
+  }, [status]);
+  useEffect(() => { void load(); }, [load]);
 
   const counts = useMemo(() => {
     const map: Record<string, number> = { ALL: rows.length };
@@ -59,6 +71,16 @@ export default function WorkflowInstancesPage() {
           </div>
         </div>
       </section>
+
+      {loadError && (
+        <section className={s.card} style={{ marginBottom: 12, borderLeft: '4px solid #dc2626' }}>
+          <div className={s.cardBody} style={{ color: '#dc2626' }}>
+            <strong>⚠ 数据加载失败</strong>
+            <div style={{ marginTop: 4, fontSize: 13 }}>{loadError}</div>
+            <button type="button" className={s.btnSecondary} style={{ marginTop: 8 }} onClick={() => void load()}>重试</button>
+          </div>
+        </section>
+      )}
 
       <section className={s.card}>
         {rows.length ? (

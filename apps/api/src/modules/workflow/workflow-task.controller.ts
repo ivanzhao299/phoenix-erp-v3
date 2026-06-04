@@ -67,4 +67,18 @@ export class WorkflowTaskController {
   comment(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.workflow.commentTask(Number(id), body, req.user);
   }
+
+  // WF-UAT-1: 退回
+  @Post(':id/return')
+  @RequireMenu('MENU_WORKFLOW', 'A')
+  return(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    return this.workflow.returnTask(Number(id), body, req.user);
+  }
+
+  // WF-UAT-1: 加签
+  @Post(':id/countersign')
+  @RequireMenu('MENU_WORKFLOW', 'A')
+  countersign(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    return this.workflow.countersignTask(Number(id), body, req.user);
+  }
 }

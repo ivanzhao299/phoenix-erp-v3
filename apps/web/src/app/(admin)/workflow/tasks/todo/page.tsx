@@ -24,10 +24,18 @@ export default function WorkflowTodoPage() {
   );
 
   const load = useCallback(async () => {
-    const res = await workflowApi.todo();
-    const nextRows = res.data || [];
-    setRows(nextRows);
-    setSelectedId(current => current && nextRows.some(row => row.id === current) ? current : nextRows[0]?.id || null);
+    // WF-2 P0：禁止 catch-swallow — 5xx 必须显式提示
+    setError("");
+    try {
+      const res = await workflowApi.todo();
+      const nextRows = res.data || [];
+      setRows(nextRows);
+      setSelectedId(current => current && nextRows.some(row => row.id === current) ? current : nextRows[0]?.id || null);
+    } catch (err) {
+      console.error('[workflow/todo] load failed:', err);
+      setError(err instanceof Error ? `加载待办失败：${err.message}` : '加载待办失败');
+      setRows([]);
+    }
   }, []);
 
   useEffect(() => {
