@@ -11,6 +11,7 @@ import { SysDataScopeEntity } from '../entities/sys-data-scope.entity';
 import { SysUserOrgEntity } from '../entities/sys-user-org.entity';
 import { SysUserProjectScopeEntity } from '../entities/sys-user-project-scope.entity';
 import { SysUserWarehouseScopeEntity } from '../entities/sys-user-warehouse-scope.entity';
+import { SysUserFarmScopeEntity } from '../entities/sys-user-farm-scope.entity'; // G4-E
 import { SysOrganizationEntity } from '../entities/sys-organization.entity';
 
 export type ScopeLevel = 'SELF' | 'PROJECT' | 'COMPANY' | 'REGION' | 'GROUP';
@@ -21,6 +22,7 @@ export interface DataScopeContext {
   allowedCompanyCodes: string[];
   allowedProjectCodes: string[];
   allowedWarehouseCodes: string[];
+  allowedFarmCodes: string[]; // G4-E: FarmScope（在 CompanyScope 之下，与 Warehouse 同层）
   userId: string;
 }
 
@@ -51,6 +53,8 @@ export class DataScopeService {
     private readonly userProjRepo: Repository<SysUserProjectScopeEntity>,
     @InjectRepository(SysUserWarehouseScopeEntity)
     private readonly userWhRepo: Repository<SysUserWarehouseScopeEntity>,
+    @InjectRepository(SysUserFarmScopeEntity)
+    private readonly userFarmRepo: Repository<SysUserFarmScopeEntity>, // G4-E
     @InjectRepository(SysOrganizationEntity)
     private readonly orgRepo: Repository<SysOrganizationEntity>,
     private readonly cls: ClsService,
@@ -78,6 +82,7 @@ export class DataScopeService {
         allowedCompanyCodes: [],
         allowedProjectCodes: [],
         allowedWarehouseCodes: [],
+        allowedFarmCodes: [], // G4-E
         userId,
       };
     }
@@ -111,6 +116,7 @@ export class DataScopeService {
         allowedCompanyCodes: [],
         allowedProjectCodes: [],
         allowedWarehouseCodes: [],
+        allowedFarmCodes: [], // G4-E
         userId,
       };
       this._setCache(cacheKey, ctx);
@@ -192,6 +198,7 @@ export class DataScopeService {
           allowedCompanyCodes: [],
           allowedProjectCodes: [],
           allowedWarehouseCodes: [],
+          allowedFarmCodes: [], // G4-E
           userId,
         };
         this._setCache(cacheKey, ctx);
@@ -209,12 +216,18 @@ export class DataScopeService {
     const extraWarehouses = await this.userWhRepo.find({ where: { userId: userIdNum } });
     extraWarehouses.forEach((ew) => warehouseCodes.add(ew.warehouseCode));
 
+    // G4-E：追加场站授权
+    const farmCodes = new Set<string>();
+    const extraFarms = await this.userFarmRepo.find({ where: { userId: userIdNum } });
+    extraFarms.forEach((ef) => farmCodes.add(ef.farmCode));
+
     const ctx: DataScopeContext = {
       isGlobal: false,
       scopeLevel: topLevel,
       allowedCompanyCodes: [...companyCodes],
       allowedProjectCodes: [...projectCodes],
       allowedWarehouseCodes: [...warehouseCodes],
+      allowedFarmCodes: [...farmCodes], // G4-E
       userId,
     };
     this._setCache(cacheKey, ctx);

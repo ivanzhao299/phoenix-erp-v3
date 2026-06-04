@@ -11,6 +11,7 @@ import { SysOrganizationEntity } from './entities/sys-organization.entity';
 import { SysUserOrgEntity } from './entities/sys-user-org.entity';
 import { SysUserProjectScopeEntity } from './entities/sys-user-project-scope.entity';
 import { SysUserWarehouseScopeEntity } from './entities/sys-user-warehouse-scope.entity';
+import { SysUserFarmScopeEntity } from './entities/sys-user-farm-scope.entity'; // G4-E
 import { SysDataScopeEntity } from './entities/sys-data-scope.entity';
 
 import { DataScopeService } from './services/data-scope.service';
@@ -28,6 +29,7 @@ import { OrganizationController } from './organization.controller';
       SysUserOrgEntity,
       SysUserProjectScopeEntity,
       SysUserWarehouseScopeEntity,
+      SysUserFarmScopeEntity, // G4-E
       SysDataScopeEntity,
     ]),
   ],

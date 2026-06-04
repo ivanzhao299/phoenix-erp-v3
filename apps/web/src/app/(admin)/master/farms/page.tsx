@@ -32,9 +32,12 @@ export default function Page() {
     { key: "status",    title: t("common.status", "状态"),     width: 80 },
   ];
 
+  // G4-E：场站主数据 — 公司主数据化 + 负责人 UserSelector
   const FIELDS: FormField[] = [
     { key: "farm_code", label: t("ui.农场编码", "农场编码"), type: "text",   required: true, placeholder: "如：FARM-001" },
     { key: "farm_name", label: t("ui.农场名称", "农场名称"), type: "text",   required: true },
+    { key: "company_code", label: t("ui.所属公司", "所属公司"), type: "company" },
+    { key: "manager", label: t("ui.负责人", "负责人"), type: "user" },
     { key: "location",  label: t("ui.所在地区", "所在地区"), type: "text",   placeholder: t("ui.省市县示例", "如：万象直辖市") },
     { key: "houses",    label: t("ui.规划栋数", "规划栋数"), type: "number", defaultValue: 0 },
     { key: "capacity",  label: t("ui.设计容量羽", "设计容量（羽）"), type: "number", defaultValue: 0 },

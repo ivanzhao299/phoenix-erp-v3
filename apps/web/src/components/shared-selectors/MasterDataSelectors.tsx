@@ -268,6 +268,112 @@ export function VehicleSelector(p: BaseProps & { companyCode?: string }) {
     }} />;
 }
 
+// ── 场站（brd_farms，仅 ACTIVE）─────────────────────────────────────────────
+export function FarmSelector(p: BaseProps) {
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择场站'}
+    loader={async () => {
+      const r = await request<any>('/crud/brd_farms?status=ACTIVE&pageSize=200');
+      const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
+      return list
+        .filter(f => (f.status ?? 'ACTIVE') === 'ACTIVE')
+        .map(f => ({
+          value: f.farm_code,
+          label: `${f.farm_name ?? f.farm_code}（${f.farm_code}）`,
+          raw: f,
+        }));
+    }} />;
+}
+
+// ── 鸡舍（brd_houses）─────────────────────────────────────────────────────────
+export function HouseSelector(p: BaseProps & { farmCode?: string }) {
+  const { farmCode, ...rest } = p;
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择鸡舍'}
+    loader={async () => {
+      const r = await request<any>('/crud/brd_houses?status=ACTIVE&pageSize=500');
+      const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
+      return list
+        .filter(h => (h.status ?? 'ACTIVE') === 'ACTIVE')
+        .filter(h => !farmCode || h.farm_code === farmCode)
+        .map(h => ({
+          value: h.house_code,
+          label: `${h.house_name ?? h.house_code}（${h.house_code}${h.house_type ? ' · ' + h.house_type : ''}）`,
+          raw: h,
+        }));
+    }} />;
+}
+
+// ── 鸡群（brd_flocks）─────────────────────────────────────────────────────────
+export function FlockSelector(p: BaseProps & { farmCode?: string; houseCode?: string }) {
+  const { farmCode, houseCode, ...rest } = p;
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择鸡群'}
+    loader={async () => {
+      const r = await request<any>('/crud/brd_flocks?status=ACTIVE&pageSize=500');
+      const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
+      return list
+        .filter(f => (f.status ?? 'ACTIVE') === 'ACTIVE')
+        .filter(f => !farmCode || f.farm_code === farmCode)
+        .filter(f => !houseCode || f.house_code === houseCode)
+        .map(f => ({
+          value: f.flock_no,
+          label: `${f.flock_no}（${f.house_code ?? ''}${f.current_qty ? ' · ' + f.current_qty + '羽' : ''}）`,
+          raw: f,
+        }));
+    }} />;
+}
+
+// ── 等级（product_grades，仅 ACTIVE）────────────────────────────────────────
+export function GradeSelector(p: BaseProps) {
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择等级'}
+    loader={async () => {
+      const r = await request<any>('/product-master/grades?status=ACTIVE');
+      const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
+      return list
+        .filter(g => (g.status ?? 'ACTIVE') === 'ACTIVE')
+        .map(g => ({
+          value: g.grade_code,
+          label: `${g.grade_name ?? g.grade_code}（${g.grade_code}）`,
+          raw: g,
+        }));
+    }} />;
+}
+
+// ── 规格（packaging_specs，仅 ACTIVE）───────────────────────────────────────
+export function SpecSelector(p: BaseProps) {
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择规格'}
+    loader={async () => {
+      const r = await request<any>('/product-master/specs?status=ACTIVE');
+      const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
+      return list
+        .filter(s => (s.status ?? 'ACTIVE') === 'ACTIVE')
+        .map(s => ({
+          value: s.spec_code,
+          label: `${s.spec_name ?? s.spec_code}（${s.spec_code}）`,
+          raw: s,
+        }));
+    }} />;
+}
+
+// ── 班次（sys_dict.PKG_SHIFT 已有，提供别名 ShiftSelector 便于使用）─────────
+//    用法：import { ShiftSelector } from '@/components/shared-selectors/MasterDataSelectors'
+//          <ShiftSelector value={shift} onChange={setShift} />
+//    内部委托 DictSelect(PKG_SHIFT)；G4-E 统一命名。
+export function ShiftSelector(p: BaseProps) {
+  // 班次实际是字典而非主数据，但用户任务命名要求 ShiftSelector，故在此封装
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择班次'}
+    loader={async () => {
+      const r = await request<any>('/crud/sys_dict?dict_type=PKG_SHIFT&status=ACTIVE');
+      const list: any[] = Array.isArray(r) ? r : (r?.data ?? []);
+      return list
+        .filter(d => (d.status ?? 'ACTIVE') === 'ACTIVE')
+        .sort((a, b) => (Number(a.sort_no) || 0) - (Number(b.sort_no) || 0))
+        .map(d => ({
+          value: d.dict_code,
+          label: d.dict_label_zh ?? d.name ?? d.dict_code,
+          raw: d,
+        }));
+    }} />;
+}
+
 // ── SKU（物料主数据，仅 ACTIVE）──────────────────────────────────────────────
 /** value = sku_code；onPick 回传 raw（包含 product_code/product_name/grade_code/spec_code/sku_name） */
 export function SkuSelector(p: BaseProps & { productCode?: string; gradeCode?: string }) {

@@ -51,10 +51,11 @@ export default function PackagingExceptionsPage() {
       }).catch(() => {});
   }, []);
 
-  // 动态构建 FIELDS（依赖 issueTypeOpts）
+  // G4-E：包装异常单 — 异常类型/原因 → sys_dict；门店 → StoreSelector；照片 → AttachmentUploader
   const FIELDS: FormField[] = [
     { key: "nc_no",        label: t("ui.异常单号",   "异常单号"),   type: "text",     required: false, placeholder: t("ui.留空自动生成", "留空自动生成") },
-    { key: "issue_type",   label: t("ui.异常类型",   "异常类型"),   type: "select",   required: true, options: issueTypeOpts },
+    { key: "issue_type",   label: t("ui.异常类型",   "异常类型"),   type: "dict",     dictType: "PKG_EXCEPTION_TYPE", required: true },
+    { key: "reason_code",  label: t("ui.异常原因",   "异常原因"),   type: "dict",     dictType: "PKG_ANOMALY_REASON" },
     { key: "severity",     label: t("ui.严重级别",   "严重级别"),   type: "select",   required: false,
       options: [
         { label: t("ui.低", "低"), value: "LOW" },
@@ -62,7 +63,8 @@ export default function PackagingExceptionsPage() {
         { label: t("ui.高", "高"), value: "HIGH" },
       ] },
     { key: "batch_no",     label: t("ui.关联批次号", "关联批次号"), type: "text",     required: false },
-    { key: "store_code",   label: t("ui.发现门店",   "发现门店"),   type: "text",     required: false },
+    { key: "store_code",   label: t("ui.发现门店",   "发现门店"),   type: "store" },
+    { key: "operator",     label: t("ui.记录人",     "记录人"),     type: "user" },
     { key: "description",  label: t("ui.异常描述",   "异常描述"),   type: "textarea", required: false, span: 2 },
     { key: "action_taken", label: t("ui.处置措施",   "处置措施"),   type: "select",   required: false,
       options: [
@@ -77,7 +79,7 @@ export default function PackagingExceptionsPage() {
         { label: t("ui.处置中", "处置中"), value: "IN_PROGRESS" },
         { label: t("ui.已关闭", "已关闭"), value: "CLOSED" },
       ] },
-    { key: "photo_url", label: t("ui.异常照片", "异常照片（PDF / 图片，≤15MB）"), type: "upload" as const, span: 2 as const },
+    { key: "photo_url", label: t("ui.异常照片", "异常照片（PDF / 图片，≤15MB）"), type: "attachment", span: 2 as const },
   ];
 
   const refresh     = useCallback(() => setRefreshKey(k => k + 1), []);

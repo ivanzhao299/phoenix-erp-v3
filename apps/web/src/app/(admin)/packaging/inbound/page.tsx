@@ -8,6 +8,9 @@ import { crudApi } from "@/lib/api-client";
 import { Plus, RefreshCw, Package, Scale, Home, Calendar } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+import {
+  HouseSelector, WarehouseSelector, UserSelector,
+} from "@/components/shared-selectors/MasterDataSelectors"; // G4-E 主数据
 
 const TABLE = "wms_inbound";
 type Row = Record<string, unknown>;
@@ -237,15 +240,8 @@ export default function InboundPage() {
 
         <div className={s.field}>
           <label className={s.lbl}>{t("ui.来源鸡舍", "来源鸡舍")} <span style={{ color: "var(--status-danger)" }}>*</span></label>
-          <select className={s.inp} value={form.house_code} onChange={e => set("house_code", e.target.value)}>
-            <option value="">{t("ui.请选择鸡舍", "— 请选择鸡舍 —")}</option>
-            {houses.map(h => <option key={h.code} value={h.code}>{h.name}</option>)}
-            {houses.length === 0 && <option disabled>{t("ui.暂无鸡舍数据", "（暂无鸡舍数据，可手填编码）")}</option>}
-          </select>
-          {houses.length === 0 && (
-            <input className={s.inp} style={{ marginTop: 6 }} placeholder={t("ui.手动输入鸡舍编码", "手动输入鸡舍编码（如 H01）")}
-              value={form.house_code} onChange={e => set("house_code", e.target.value)} />
-          )}
+          {/* G4-E：从 brd_houses 主数据加载，禁手填 */}
+          <HouseSelector value={form.house_code} onChange={v => set("house_code", v)} />
           {errors.house_code && <div style={{ color: "var(--status-danger)", fontSize: 11, marginTop: 3 }}>{errors.house_code}</div>}
         </div>
 
@@ -268,19 +264,13 @@ export default function InboundPage() {
         <div className={s.fieldRow}>
           <div>
             <label className={s.lbl}>{t("ui.入库仓库", "入库仓库")}</label>
-            <select className={s.inp} value={form.warehouse} onChange={e => set("warehouse", e.target.value)}>
-              <option value="">{t("ui.请选择", "— 请选择 —")}</option>
-              {warehouses.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
-              {warehouses.length === 0 && <option value={form.warehouse}>{form.warehouse || t("common.loading", "加载中…")}</option>}
-            </select>
+            {/* G4-E：仓库主数据，仅 ACTIVE，DataScope 自动过滤 */}
+            <WarehouseSelector value={form.warehouse} onChange={v => set("warehouse", v)} />
           </div>
           <div>
             <label className={s.lbl}>{t("ui.作业员", "作业员")}</label>
-            <select className={s.inp} value={form.operator} onChange={e => set("operator", e.target.value)}>
-              <option value="">{t("ui.请选择", "— 请选择 —")}</option>
-              {operators.map(op => <option key={op.username} value={op.username}>{op.real_name_zh}</option>)}
-              {operators.length === 0 && form.operator && <option value={form.operator}>{form.operator}</option>}
-            </select>
+            {/* G4-E：用户主数据（sys_user，仅 ACTIVE） */}
+            <UserSelector value={form.operator} onChange={v => set("operator", v)} />
           </div>
         </div>
 

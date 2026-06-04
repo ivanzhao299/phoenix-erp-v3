@@ -26,6 +26,7 @@ import { useDialog } from '@/contexts/DialogContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Save, Download, Cpu, CheckCircle } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
+import { HouseSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-E 鸡舍主数据
 
 // 纯数字输入列（分前后两段，中间插入淘汰数+淘汰原因）
 const FIELDS_A = ['eggs','dirtyEggs','brokenEggs','deaths'] as const;
@@ -304,11 +305,10 @@ export default function DailyPage() {
             <label className={s.lbl}>{t('common.date','日期')}</label>
             <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)} className={s.inp} style={{ width:160 }} />
           </div>
-          <div>
+          <div style={{ minWidth: 200 }}>
             <label className={s.lbl}>{t('ui.鸡舍','鸡舍')}</label>
-            <select value={selectedHouse} onChange={e => setSelectedHouse(e.target.value)} className={s.inp} style={{ width:160 }}>
-              {houses.map(h => <option key={h.code} value={h.code}>{h.label}</option>)}
-            </select>
+            {/* G4-E：从 brd_houses 主数据加载，仅 ACTIVE */}
+            <HouseSelector value={selectedHouse} onChange={setSelectedHouse} />
           </div>
           {deviceHint && (
             <div style={{ display:'flex', alignItems:'center', gap:12, padding:'6px 12px', backgroundColor:'color-mix(in srgb,var(--color-primary) 10%,transparent)', border:'1px solid color-mix(in srgb,var(--color-primary) 30%,transparent)', borderRadius:'var(--radius-sm)', fontSize:12, color:'var(--color-primary)', flexWrap:'wrap' }}>

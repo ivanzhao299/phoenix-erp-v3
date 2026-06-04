@@ -8,6 +8,10 @@ import {
   CompanySelector, CustomerSelector, SupplierSelector, ProjectSelector,
   WarehouseSelector, ZoneSelector, LocationSelector, SkuSelector,
   UserSelector,
+  // G4-C：销售域
+  StoreSelector, ChannelSelector, DriverSelector, VehicleSelector,
+  // G4-E：生产/包装域
+  FarmSelector, HouseSelector, FlockSelector, GradeSelector, SpecSelector, ShiftSelector,
 } from "@/components/shared-selectors/MasterDataSelectors";
 import { AttachmentUploader } from "@/components/design-system";
 
@@ -23,6 +27,10 @@ export type FieldType =
   | "text" | "number" | "select" | "date" | "datetime" | "textarea" | "readonly" | "upload"
   | "company" | "customer" | "supplier" | "project"
   | "warehouse" | "zone" | "location" | "sku" | "user"
+  // G4-C：销售域
+  | "store" | "channel" | "driver" | "vehicle"
+  // G4-E：生产/包装域
+  | "farm" | "house" | "flock" | "grade" | "spec" | "shift"
   | "dict" | "attachment";
 
 export interface FormField {
@@ -36,7 +44,7 @@ export interface FormField {
   defaultValue?: string | number;
   // G4-D 扩展
   dictType?: string;                                                    // type='dict' 必填
-  filterBy?: { companyField?: string; warehouseField?: string; zoneField?: string };
+  filterBy?: { companyField?: string; warehouseField?: string; zoneField?: string; farmField?: string; houseField?: string };
   valueField?: 'code' | 'id' | 'username';                              // user/cashAccount
   onPickKeys?: Record<string, string>;                                   // 主数据自动带出：{ 目标 key: raw 字段名 }
 }
@@ -257,6 +265,72 @@ export const CrudForm = memo(function CrudForm({
                 value={String(values[field.key] ?? "")}
                 onChange={v => set(field.key, v)}
                 valueField={field.valueField === 'id' ? 'id' : 'username'} />
+            ) : field.type === "farm" ? (
+              <FarmSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                onPick={o => {
+                  Object.entries(field.onPickKeys ?? {}).forEach(([k, rawField]) => {
+                    set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");
+                  });
+                }} />
+            ) : field.type === "house" ? (
+              <HouseSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                farmCode={field.filterBy?.farmField ? String(values[field.filterBy.farmField] ?? "") : undefined}
+                onPick={o => {
+                  Object.entries(field.onPickKeys ?? {}).forEach(([k, rawField]) => {
+                    set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");
+                  });
+                }} />
+            ) : field.type === "flock" ? (
+              <FlockSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                farmCode={field.filterBy?.farmField ? String(values[field.filterBy.farmField] ?? "") : undefined}
+                houseCode={field.filterBy?.houseField ? String(values[field.filterBy.houseField] ?? "") : undefined} />
+            ) : field.type === "grade" ? (
+              <GradeSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                onPick={o => {
+                  Object.entries(field.onPickKeys ?? {}).forEach(([k, rawField]) => {
+                    set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");
+                  });
+                }} />
+            ) : field.type === "spec" ? (
+              <SpecSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                onPick={o => {
+                  Object.entries(field.onPickKeys ?? {}).forEach(([k, rawField]) => {
+                    set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");
+                  });
+                }} />
+            ) : field.type === "shift" ? (
+              <ShiftSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)} />
+            ) : field.type === "store" ? (
+              <StoreSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                companyCode={field.filterBy?.companyField ? String(values[field.filterBy.companyField] ?? "") : undefined} />
+            ) : field.type === "channel" ? (
+              <ChannelSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)} />
+            ) : field.type === "driver" ? (
+              <DriverSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                companyCode={field.filterBy?.companyField ? String(values[field.filterBy.companyField] ?? "") : undefined} />
+            ) : field.type === "vehicle" ? (
+              <VehicleSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                companyCode={field.filterBy?.companyField ? String(values[field.filterBy.companyField] ?? "") : undefined} />
             ) : (
               <input
                 className={`${styles.input} ${errors[field.key] ? styles.hasError : ""}`}
