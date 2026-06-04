@@ -49,7 +49,7 @@ export class MasterDataAuditService {
           ORDER BY created_at DESC LIMIT 200`,
         [objectType, objectCode],
       );
-    } catch { return []; }
+    } catch (e: any) { console.error("[catch-audit] safe() SQL failed:", e?.message); return []; }
   }
 
   /**

@@ -32,7 +32,7 @@ export class InventoryHealthService {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
   private async safe<T = any>(sql: string): Promise<T[]> {
-    try { return await this.em.query(sql); } catch { return []; }
+    try { return await this.em.query(sql); } catch (e: any) { console.error("[catch-audit] safe() SQL failed:", e?.message); return []; }
   }
 
   async compute(): Promise<InventoryHealthReport> {

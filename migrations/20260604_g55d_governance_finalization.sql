@@ -38,10 +38,11 @@ COMMENT ON COLUMN sys_dict.status IS
   'G5.5-D: 字典 5 态生命周期 — DRAFT / PENDING_APPROVAL / ACTIVE / FROZEN / ARCHIVED';
 
 -- ── PART 3：编码序列种子 ───────────────────────────────────────────────────────
-INSERT INTO mst_code_seq (prefix, next_seq, pad, description) VALUES
-  ('ORG',  1, 4, '组织架构编码 — G5.5-D 新增'),
-  ('COMP', 1, 4, '公司档案编码（视图：sys_organizations.org_type=COMPANY）— G5.5-D'),
-  ('DICT', 1, 5, '数据字典编码 — G5.5-D 新增（注：dict_code 业务约定，前缀可选用）')
+-- FIX UAT-P0-Phase1 2026-06-04: 列名对齐 (current_no/pad_len/remark)
+INSERT INTO mst_code_seq (prefix, current_no, pad_len, remark) VALUES
+  ('ORG',  0, 4, '组织架构编码 — G5.5-D 新增'),
+  ('COMP', 0, 4, '公司档案编码（视图：sys_organizations.org_type=COMPANY）— G5.5-D'),
+  ('DICT', 0, 5, '数据字典编码 — G5.5-D 新增（注：dict_code 业务约定，前缀可选用）')
 ON CONFLICT (prefix) DO NOTHING;
 
 -- ── PART 4：治理事件日志（用于驾驶舱趋势分析）──────────────────────────────────

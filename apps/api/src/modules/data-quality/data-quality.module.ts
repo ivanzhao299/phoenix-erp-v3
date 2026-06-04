@@ -48,6 +48,6 @@ import { DataQualityAggregatorService } from './services/data-quality-aggregator
     DataQualityAlertsService,
     DataQualityAggregatorService,
   ],
-  exports: [DataQualityAggregatorService],
+  exports: [DataQualityAggregatorService, DataQualityAlertsService],
 })
 export class DataQualityModule {}

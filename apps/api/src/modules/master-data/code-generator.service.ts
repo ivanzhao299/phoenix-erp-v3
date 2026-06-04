@@ -25,19 +25,36 @@ export class CodeGeneratorService {
    * 生成下一个编码（原子）。使用 UPDATE ... RETURNING 行级锁保证并发安全。
    * @param prefix 编码前缀（须已在 mst_code_seq 注册）
    */
+  /**
+   * FIX UAT-P0-Phase1 2026-06-04:
+   * TypeORM 0.3.x 对 UPDATE/INSERT/DELETE...RETURNING 返回 [rows, affectedCount] 二元组（不是单纯 rows[]）
+   * 之前 rows[0] 解出的是 [{...}] 内部数组 → current_no/pad_len 永远 undefined → 编码恒为 "PREFIX-undefined"
+   */
+  private extractRows(raw: any): any[] {
+    if (!raw) return [];
+    // [rows, count] 形式
+    if (Array.isArray(raw) && raw.length === 2 && Array.isArray(raw[0]) && typeof raw[1] === 'number') {
+      return raw[0];
+    }
+    // 单纯 rows[]
+    if (Array.isArray(raw)) return raw;
+    return [];
+  }
+
   async next(prefix: string): Promise<string> {
     const p = String(prefix || '').toUpperCase().trim();
     if (!p) throw new Error('编码前缀不能为空');
 
     // 原子自增：UPDATE...RETURNING 在单条 SQL 内完成读改写，行级锁防并发重号
-    const rows = await this.ds.query(
+    const raw = await this.ds.query(
       `UPDATE mst_code_seq
           SET current_no = current_no + 1, updated_at = NOW()
         WHERE prefix = $1
         RETURNING current_no, pad_len`,
       [p],
     );
-    if (!rows || rows.length === 0) {
+    const rows = this.extractRows(raw);
+    if (rows.length === 0) {
       throw new Error(`编码前缀未注册：${p}（请先在 mst_code_seq 配置）`);
     }
     const { current_no, pad_len } = rows[0];
@@ -49,14 +66,15 @@ export class CodeGeneratorService {
   async nextBatch(prefix: string, n: number): Promise<string[]> {
     const p = String(prefix || '').toUpperCase().trim();
     const count = Math.max(1, Math.floor(n));
-    const rows = await this.ds.query(
+    const raw = await this.ds.query(
       `UPDATE mst_code_seq
           SET current_no = current_no + $2, updated_at = NOW()
         WHERE prefix = $1
         RETURNING current_no, pad_len`,
       [p, count],
     );
-    if (!rows || rows.length === 0) throw new Error(`编码前缀未注册：${p}`);
+    const rows = this.extractRows(raw);
+    if (rows.length === 0) throw new Error(`编码前缀未注册：${p}`);
     const end = Number(rows[0].current_no);
     const padLen = Number(rows[0].pad_len) || 5;
     const out: string[] = [];

@@ -224,3 +224,23 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 - 遇到 ugrep 之类的工具限制要明说，不要装作没事
 - 一次推完一个 G 阶段：审计 → 改造 → 字典 → 报告 → 验证 → commit + tag
 - 报告必须**回答用户列出的所有问题**（每个 G 阶段都有 7~8 题）
+
+# 完全授权（2026-06-04 起 · /Users/mac/phoenix-erp/** 内）
+
+用户已授权在本项目目录内**拥有全部常规开发操作权限**，不再征求同意：
+- 自由读 / 写 / 编辑文件
+- 自由 git add / commit / tag（post-commit 已自动推 main）
+- 自由跑 pnpm / tsc / lint / curl localhost / docker compose
+- 自由建迁移文件 / 改 service / 改前端
+- 自由跑 G 阶段全闭环（审计→改造→字典→报告→验证→commit→tag）
+
+**仍需先确认才能做的红线**：
+1. **不可逆破坏性操作**：`rm -rf` / `git reset --hard` / `git push --force` /
+   `git checkout --` / `git branch -D` / `git tag -d` / `git rebase -i` /
+   `git commit --amend` 等
+2. **操作项目外**：`/Users/mac/phoenix-erp/` 外的任何文件
+3. **生产数据库写入**：实际在生产 DB 跑 DDL（创建迁移文件 OK，运行迁移需确认）
+4. **改写已发布历史**：删除已 push 的 tag / amend 已推送的 commit
+5. **外发**：ssh / scp / 调用第三方写 API / 上传非临时文件
+
+权限源：`.claude/settings.local.json`（已含 allow / deny 列表）

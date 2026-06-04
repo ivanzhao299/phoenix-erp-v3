@@ -223,10 +223,11 @@ export class WorkflowBizRegistryService implements OnModuleInit {
       onRejected: mdAuditHook('SUPPLIER', 'prc2_suppliers', 'supplier_code', 'REJECT'),
     });
     this.register('MD_PROJECT_CREATE', {
-      moduleCode: 'MENU_MASTER_DATA', tableName: 'shr_projects',
+      // FIX UAT-P0-Phase1 2026-06-04: 实际表名 prc2_projects（shr_projects 不存在）
+      moduleCode: 'MENU_MASTER_DATA', tableName: 'prc2_projects',
       approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
-      onApproved: mdAuditHook('PROJECT', 'shr_projects', 'project_code', 'APPROVE_ACTIVE'),
-      onRejected: mdAuditHook('PROJECT', 'shr_projects', 'project_code', 'REJECT'),
+      onApproved: mdAuditHook('PROJECT', 'prc2_projects', 'project_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('PROJECT', 'prc2_projects', 'project_code', 'REJECT'),
     });
     this.register('MD_CASH_ACCOUNT_CREATE', {
       moduleCode: 'MENU_MD_BANK_ACCOUNT', tableName: 'fin_cash_accounts',
@@ -235,10 +236,79 @@ export class WorkflowBizRegistryService implements OnModuleInit {
       onRejected: mdAuditHook('CASH_ACCOUNT', 'fin_cash_accounts', 'account_code', 'REJECT'),
     });
     this.register('MD_BANK_ACCOUNT_CREATE', {
-      moduleCode: 'MENU_MD_BANK_ACCOUNT', tableName: 'mst_bank_accounts',
+      // FIX UAT-P0-Phase1 2026-06-04: 实际表名 fin_bank_accounts（G5.5-C 已新建；mst_bank_accounts 不存在）
+      moduleCode: 'MENU_MD_BANK_ACCOUNT', tableName: 'fin_bank_accounts',
       approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
-      onApproved: mdAuditHook('BANK_ACCOUNT', 'mst_bank_accounts', 'bank_acc_code', 'APPROVE_ACTIVE'),
-      onRejected: mdAuditHook('BANK_ACCOUNT', 'mst_bank_accounts', 'bank_acc_code', 'REJECT'),
+      onApproved: mdAuditHook('BANK_ACCOUNT', 'fin_bank_accounts', 'bank_account_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('BANK_ACCOUNT', 'fin_bank_accounts', 'bank_account_code', 'REJECT'),
+    });
+
+    // ── UAT-P0-Phase1: 补齐 G5.5-C 9 类 + G5.5-D 2 类 = 11 个 MD_*_CREATE ──
+    this.register('MD_PRODUCT_CREATE', {
+      moduleCode: 'MENU_MASTER_DATA', tableName: 'product_master',
+      approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
+      onApproved: mdAuditHook('PRODUCT', 'product_master', 'product_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('PRODUCT', 'product_master', 'product_code', 'REJECT'),
+    });
+    this.register('MD_STORE_CREATE', {
+      moduleCode: 'MENU_MASTER_DATA', tableName: 'mst_stores',
+      approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
+      onApproved: mdAuditHook('STORE', 'mst_stores', 'store_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('STORE', 'mst_stores', 'store_code', 'REJECT'),
+    });
+    this.register('MD_SKU_CREATE', {
+      moduleCode: 'MENU_MASTER_DATA', tableName: 'product_skus',
+      approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
+      onApproved: mdAuditHook('SKU', 'product_skus', 'sku_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('SKU', 'product_skus', 'sku_code', 'REJECT'),
+    });
+    this.register('MD_WAREHOUSE_CREATE', {
+      moduleCode: 'MENU_MASTER_DATA', tableName: 'wms_warehouses',
+      approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
+      onApproved: mdAuditHook('WAREHOUSE', 'wms_warehouses', 'warehouse_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('WAREHOUSE', 'wms_warehouses', 'warehouse_code', 'REJECT'),
+    });
+    this.register('MD_GRADE_CREATE', {
+      moduleCode: 'MENU_MASTER_DATA', tableName: 'product_grades',
+      approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
+      onApproved: mdAuditHook('GRADE', 'product_grades', 'grade_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('GRADE', 'product_grades', 'grade_code', 'REJECT'),
+    });
+    this.register('MD_SPEC_CREATE', {
+      moduleCode: 'MENU_MASTER_DATA', tableName: 'packaging_specs',
+      approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
+      onApproved: mdAuditHook('SPEC', 'packaging_specs', 'spec_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('SPEC', 'packaging_specs', 'spec_code', 'REJECT'),
+    });
+    this.register('MD_DRIVER_CREATE', {
+      moduleCode: 'MENU_MASTER_DATA', tableName: 'sal_drivers',
+      approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
+      onApproved: mdAuditHook('DRIVER', 'sal_drivers', 'driver_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('DRIVER', 'sal_drivers', 'driver_code', 'REJECT'),
+    });
+    this.register('MD_VEHICLE_CREATE', {
+      moduleCode: 'MENU_MASTER_DATA', tableName: 'sal_vehicles',
+      approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
+      onApproved: mdAuditHook('VEHICLE', 'sal_vehicles', 'vehicle_no', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('VEHICLE', 'sal_vehicles', 'vehicle_no', 'REJECT'),
+    });
+    this.register('MD_ORGANIZATION_CREATE', {
+      moduleCode: 'MENU_MASTER_DATA', tableName: 'sys_organizations',
+      approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
+      onApproved: mdAuditHook('ORGANIZATION', 'sys_organizations', 'org_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('ORGANIZATION', 'sys_organizations', 'org_code', 'REJECT'),
+    });
+    this.register('MD_COMPANY_CREATE', {
+      moduleCode: 'MENU_MASTER_DATA', tableName: 'sys_organizations',
+      approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
+      onApproved: mdAuditHook('COMPANY', 'sys_organizations', 'org_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('COMPANY', 'sys_organizations', 'org_code', 'REJECT'),
+    });
+    this.register('MD_DICT_CREATE', {
+      moduleCode: 'MENU_MASTER_DATA', tableName: 'sys_dict',
+      approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
+      onApproved: mdAuditHook('DICT', 'sys_dict', 'dict_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('DICT', 'sys_dict', 'dict_code', 'REJECT'),
     });
 
     this.logger.log(

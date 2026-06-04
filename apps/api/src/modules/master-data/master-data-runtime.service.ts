@@ -239,12 +239,14 @@ export class MasterDataRuntimeService {
       if (bizType) {
         try {
           // 在事务内启动审批：引擎查规则 → 建实例 → 置 PENDING_APPROVAL + 分派审批人
+          // FIX UAT-P0-Phase1 2026-06-04: startApproval 只建审批实例，业务表 status 必须由本服务同步 UPDATE
           await this.ds.transaction(async (mgr) => {
             await this.approval.startApproval({
               bizType, bizId: String(before.id), bizNo: code, amount: 0,
               companyCode: before.company_code ?? undefined,
               subject: `主数据新增审批：${before[c.nameCol] ?? code}`,
             }, mgr);
+            await mgr.query(`UPDATE ${c.table} SET status = 'PENDING_APPROVAL', updated_at = NOW() WHERE ${c.codeCol} = $1`, [code]);
           });
           await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before: { status: cur }, after: { status: 'PENDING_APPROVAL' }, operator, reason: '提交审批（Workflow）' });
           return { status: 'PENDING_APPROVAL' };

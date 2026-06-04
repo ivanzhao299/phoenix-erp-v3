@@ -42,7 +42,8 @@ const REFERENCE_MAP: Record<string, Array<{
 }>> = {
   CUSTOMER: [
     // FIX UAT-1 2026-06-04: 实际表名 sal_sales_orders
-    { refTable: 'sal_sales_orders', refDocType: '销售订单', fkColumn: 'customer_code', noField: 'so_no',       linkPattern: '/sales2/orders?keyword=:code' },
+    // FIX UAT-P0-Phase1 2026-06-04: 实际列名 order_no（不是 so_no）
+    { refTable: 'sal_sales_orders', refDocType: '销售订单', fkColumn: 'customer_code', noField: 'order_no',    linkPattern: '/sales2/orders?keyword=:code' },
     { refTable: 'fin_ar_invoices',  refDocType: 'AR 发票',  fkColumn: 'customer_code', noField: 'ar_no',       linkPattern: '/finance2/ar?keyword=:code' },
     { refTable: 'fin_ar_receipts',  refDocType: '收款单',   fkColumn: 'customer_code', noField: 'receipt_no',  linkPattern: '/finance2/ar?keyword=:code' },
     { refTable: 'wms_outbound',     refDocType: '出库单',   fkColumn: 'dest',          noField: 'outbound_no', linkPattern: '/warehouse/outbound?keyword=:code' },
@@ -55,7 +56,8 @@ const REFERENCE_MAP: Record<string, Array<{
   ],
   PROJECT: [
     // FIX UAT-1 2026-06-04: 表名对齐
-    { refTable: 'sal_sales_orders',              refDocType: '销售订单', fkColumn: 'project_code', noField: 'so_no',           linkPattern: '/sales2/orders?keyword=:code' },
+    // FIX UAT-P0-Phase1 2026-06-04: 列名 order_no
+    { refTable: 'sal_sales_orders',              refDocType: '销售订单', fkColumn: 'project_code', noField: 'order_no',        linkPattern: '/sales2/orders?keyword=:code' },
     { refTable: 'prc2_purchase_orders',          refDocType: '采购订单', fkColumn: 'project_code', noField: 'po_no',           linkPattern: '/procurement2/orders?keyword=:code' },
     { refTable: 'fin_shareholder_contributions', refDocType: '股东出资', fkColumn: 'project_code', noField: 'contribution_no', linkPattern: '/finance2/shareholder-funds?keyword=:code' },
   ],
@@ -105,7 +107,7 @@ export class MasterDataReferencesService {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
   private async safe<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-    try { return await this.em.query(sql, params); } catch { return []; }
+    try { return await this.em.query(sql, params); } catch (e: any) { console.error("[catch-audit] safe() SQL failed:", e?.message); return []; }
   }
 
   async compute(objectType: string, objectCode: string): Promise<ReferenceReport> {

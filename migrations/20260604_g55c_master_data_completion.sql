@@ -14,32 +14,34 @@
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ── PART 1：mst_code_seq 编码注册表（如不存在） ───────────────────────────────
+-- FIX UAT-P0-Phase1 2026-06-04: 列名对齐 code-generator.service.ts 实际使用的
+-- current_no / pad_len / remark（早期此表已用此 schema 建立；G55C 草稿误用 next_seq/pad/description）
 CREATE TABLE IF NOT EXISTS mst_code_seq (
   prefix      VARCHAR(16) PRIMARY KEY,
-  next_seq    BIGINT NOT NULL DEFAULT 1,
-  pad         INTEGER NOT NULL DEFAULT 5,            -- 补零位数
-  description TEXT,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  current_no  BIGINT NOT NULL DEFAULT 0,
+  pad_len     INTEGER NOT NULL DEFAULT 5,            -- 补零位数
+  remark      TEXT,
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 COMMENT ON TABLE mst_code_seq IS '主数据编码序列注册表（G3-A 编码自动生成）';
 
 -- 全部前缀种子（已有 CUS/SUP/PRJ，新增 G5.5-C 9 个 + 资金账户）
-INSERT INTO mst_code_seq (prefix, next_seq, pad, description) VALUES
-  ('CUS',  1, 5, '客户编码'),
-  ('SUP',  1, 5, '供应商编码'),
-  ('PRJ',  1, 3, '项目编码'),
-  ('PRD',  1, 5, '产品编码 — G5.5-C 新增'),
-  ('STR',  1, 5, '门店编码 — G5.5-C 新增'),
-  ('BANK', 1, 5, '银行账户编码 — G5.5-C 新增'),
-  ('SKU',  1, 6, 'SKU 编码 — G5.5-C 新增'),
-  ('WH',   1, 4, '仓库编码 — G5.5-C 新增'),
-  ('GRD',  1, 3, '产品等级编码 — G5.5-C 新增'),
-  ('SPEC', 1, 4, '包装规格编码 — G5.5-C 新增'),
-  ('DRV',  1, 4, '司机编码 — G5.5-C 新增'),
-  ('VEH',  1, 4, '车辆编码 — G5.5-C 新增'),
-  ('CASH', 1, 5, '资金账户编码（业务格式 CASH-CNY-001 兼容）')
+-- next() 内部做 current_no = current_no + 1，所以种子 current_no=0 表示下一个编码序号=1
+INSERT INTO mst_code_seq (prefix, current_no, pad_len, remark) VALUES
+  ('CUS',  0, 5, '客户编码 CUS-00001'),
+  ('SUP',  0, 5, '供应商编码 SUP-00001'),
+  ('PRJ',  0, 3, '项目编码 PRJ-001'),
+  ('PRD',  0, 5, '产品编码 — G5.5-C 新增'),
+  ('STR',  0, 5, '门店编码 — G5.5-C 新增'),
+  ('BANK', 0, 5, '银行账户编码 — G5.5-C 新增'),
+  ('SKU',  0, 6, 'SKU 编码 — G5.5-C 新增'),
+  ('WH',   0, 4, '仓库编码 — G5.5-C 新增'),
+  ('GRD',  0, 3, '产品等级编码 — G5.5-C 新增'),
+  ('SPEC', 0, 4, '包装规格编码 — G5.5-C 新增'),
+  ('DRV',  0, 4, '司机编码 — G5.5-C 新增'),
+  ('VEH',  0, 4, '车辆编码 — G5.5-C 新增'),
+  ('CASH', 0, 5, '资金账户编码（业务格式 CASH-CNY-001 兼容）')
 ON CONFLICT (prefix) DO NOTHING;
 
 -- ── PART 2：product_master 新表 ───────────────────────────────────────────────
@@ -120,36 +122,28 @@ ALTER TABLE wms_warehouses
 UPDATE wms_warehouses SET status = 'ACTIVE' WHERE status IS NULL;
 
 -- product_grades / packaging_specs / sal_drivers / sal_vehicles 都用同样模式
-DO $$ BEGIN
-  -- product_grades
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='product_grades' AND column_name='status') THEN
-    EXECUTE 'ALTER TABLE product_grades ADD COLUMN status VARCHAR(16) DEFAULT ''ACTIVE''';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='product_grades' AND column_name='effective_date') THEN
-    EXECUTE 'ALTER TABLE product_grades ADD COLUMN effective_date DATE, ADD COLUMN expire_date DATE, ADD COLUMN remark TEXT';
-  END IF;
-  -- packaging_specs
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='packaging_specs' AND column_name='status') THEN
-    EXECUTE 'ALTER TABLE packaging_specs ADD COLUMN status VARCHAR(16) DEFAULT ''ACTIVE''';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='packaging_specs' AND column_name='effective_date') THEN
-    EXECUTE 'ALTER TABLE packaging_specs ADD COLUMN effective_date DATE, ADD COLUMN expire_date DATE, ADD COLUMN remark TEXT';
-  END IF;
-  -- sal_drivers
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sal_drivers' AND column_name='status') THEN
-    EXECUTE 'ALTER TABLE sal_drivers ADD COLUMN status VARCHAR(16) DEFAULT ''ACTIVE''';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sal_drivers' AND column_name='effective_date') THEN
-    EXECUTE 'ALTER TABLE sal_drivers ADD COLUMN effective_date DATE, ADD COLUMN expire_date DATE';
-  END IF;
-  -- sal_vehicles
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sal_vehicles' AND column_name='status') THEN
-    EXECUTE 'ALTER TABLE sal_vehicles ADD COLUMN status VARCHAR(16) DEFAULT ''ACTIVE''';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sal_vehicles' AND column_name='effective_date') THEN
-    EXECUTE 'ALTER TABLE sal_vehicles ADD COLUMN effective_date DATE, ADD COLUMN expire_date DATE';
-  END IF;
-END $$;
+-- FIX UAT-P0-Phase1 2026-06-04: 改用顶层 ADD COLUMN IF NOT EXISTS（PG ≥ 9.6 支持），避免 DO 块整批失败回滚
+ALTER TABLE product_grades
+  ADD COLUMN IF NOT EXISTS status         VARCHAR(16) DEFAULT 'ACTIVE',
+  ADD COLUMN IF NOT EXISTS effective_date DATE,
+  ADD COLUMN IF NOT EXISTS expire_date    DATE,
+  ADD COLUMN IF NOT EXISTS remark         TEXT;
+
+ALTER TABLE packaging_specs
+  ADD COLUMN IF NOT EXISTS status         VARCHAR(16) DEFAULT 'ACTIVE',
+  ADD COLUMN IF NOT EXISTS effective_date DATE,
+  ADD COLUMN IF NOT EXISTS expire_date    DATE,
+  ADD COLUMN IF NOT EXISTS remark         TEXT;
+
+ALTER TABLE sal_drivers
+  ADD COLUMN IF NOT EXISTS status         VARCHAR(16) DEFAULT 'ACTIVE',
+  ADD COLUMN IF NOT EXISTS effective_date DATE,
+  ADD COLUMN IF NOT EXISTS expire_date    DATE;
+
+ALTER TABLE sal_vehicles
+  ADD COLUMN IF NOT EXISTS status         VARCHAR(16) DEFAULT 'ACTIVE',
+  ADD COLUMN IF NOT EXISTS effective_date DATE,
+  ADD COLUMN IF NOT EXISTS expire_date    DATE;
 
 -- fin_cash_accounts 补 effective_date/expire_date（Runtime 委托所需）
 ALTER TABLE fin_cash_accounts
