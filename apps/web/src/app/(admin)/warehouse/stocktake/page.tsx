@@ -35,15 +35,20 @@ export default function StocktakePage() {
     APPROVED:    { cls: s.badgeSuccess,  label: t("status.approved", "已审核") },
   };
 
-  // B2: wms_stocktake 真实列 stocktake_no / sys_qty / act_qty / diff_qty / item / warehouse_code / auditor
+  // G4-D：盘点单 — 仓库/库区/货位/品目/盘点员 主数据化；盘点类型 → sys_dict(INV_COUNT_TYPE)；盘点附件统一上传
   const FIELDS: FormField[] = [
     { key: "stocktake_no",   label: t("ui.盘点单号", "盘点单号"),  type: "text",   placeholder: t("ui.留空自动生成ST", "留空自动生成 ST-XXXXXX") },
-    { key: "warehouse_code", label: t("ui.仓库编码", "仓库编码"),  type: "text",   required: true },
-    { key: "item",           label: t("ui.盘点品目", "盘点品目"),  type: "text"   },
+    { key: "count_type",     label: t("ui.盘点类型", "盘点类型"),  type: "dict",   dictType: "INV_COUNT_TYPE", required: true },
+    { key: "warehouse_code", label: t("ui.仓库",     "仓库"),      type: "warehouse", required: true },
+    { key: "zone_code",      label: t("ui.库区",     "库区"),      type: "zone", filterBy: { warehouseField: "warehouse_code" } },
+    { key: "location_code",  label: t("ui.货位",     "货位"),      type: "location", filterBy: { warehouseField: "warehouse_code", zoneField: "zone_code" } },
+    { key: "item",           label: t("ui.盘点品目", "盘点品目"),  type: "sku",
+      onPickKeys: { item_name: "sku_name", spec_code: "spec_code", grade_code: "grade_code" } },
     { key: "sys_qty",        label: t("ui.账面数量", "账面数量"),  type: "number" },
     { key: "act_qty",        label: t("ui.实际数量", "实际数量"),  type: "number" },
     { key: "diff_qty",       label: t("ui.差异数量", "差异数量"),  type: "number" },
-    { key: "auditor",        label: t("ui.盘点员", "盘点员"),    type: "text"   },
+    { key: "auditor",        label: t("ui.盘点员",   "盘点员"),    type: "user"   },
+    { key: "attachment_url", label: t("ui.盘点附件", "盘点附件"),  type: "attachment" },
     { key: "status", label: t("common.status", "状态"), type: "select", options: [
       { label: t("ui.草稿", "草稿"),   value: "DRAFT"       },
       { label: t("ui.盘点中", "盘点中"), value: "IN_PROGRESS" },

@@ -49,19 +49,16 @@ export default function OutboundPage() {
     CANCELLED: { cls: s.badgeNeutral, label: t("status.cancelled", "已取消") },
   };
 
+  // G4-D：出库单 — 仓库/操作员/去向客户 主数据化；出库类型 → sys_dict(INV_OUTBOUND_TYPE)；出库附件统一上传
   const FIELDS: FormField[] = [
     { key: "outbound_no",    label: t("ui.出库单号", "出库单号"), type: "text",   placeholder: t("ui.留空自动生成WO", "留空自动生成 WO-XXXXXX") },
-    { key: "target_type",    label: t("ui.出库类型", "出库类型"), type: "select", options: [
-      { label: t("ui.销售出库", "销售出库"), value: "SALE"     },
-      { label: t("ui.调拨出库", "调拨出库"), value: "TRANSFER" },
-      { label: t("ui.报废出库", "报废出库"), value: "SCRAP"    },
-      { label: t("ui.退货出库", "退货出库"), value: "RETURN"   },
-    ]},
-    { key: "warehouse_code", label: t("ui.出库仓库", "出库仓库"), type: "text",   required: true },
+    { key: "target_type",    label: t("ui.出库类型", "出库类型"), type: "dict",   dictType: "INV_OUTBOUND_TYPE", required: true },
+    { key: "warehouse_code", label: t("ui.出库仓库", "出库仓库"), type: "warehouse", required: true },
     { key: "batch_no",       label: t("ui.批次号",   "批次号"),   type: "text" },
     { key: "qty",            label: t("ui.出库数量", "出库数量"), type: "number", required: true },
-    { key: "dest",           label: t("ui.去向客户", "去向客户"), type: "text" },
-    { key: "operator",       label: t("ui.操作员",   "操作员"),   type: "text" },
+    { key: "dest",           label: t("ui.去向客户", "去向客户"), type: "customer" },
+    { key: "operator",       label: t("ui.操作员",   "操作员"),   type: "user" },
+    { key: "attachment_url", label: t("ui.出库附件", "出库附件"), type: "attachment" },
     { key: "status", label: t("common.status", "状态"), type: "select", options: [
       { label: t("status.pending",   "待出库"), value: "PENDING"   },
       { label: t("status.picking",   "拣货中"), value: "PICKING"   },

@@ -34,14 +34,20 @@ export default function LossReportPage() {
     APPROVED: { cls: s.badgeSuccess, label: t("status.approved", "已审批") },
   };
 
+  // G4-D：报损单 — 仓库/库区/货位/SKU/报损人 主数据化；报损原因 → sys_dict(INV_LOSS_REASON)；报损证明附件统一上传
   const FIELDS: FormField[] = [
     { key: "stocktake_no",   label: t("ui.报损单号", "报损单号"),   type: "text",   placeholder: t("ui.留空自动生成LR", "留空自动生成 LR-XXXXXX") },
-    { key: "warehouse_code", label: t("ui.对应批次库区", "对应批次/库区"), type: "text", required: true },
-    { key: "zone_code",      label: t("ui.报损品目", "报损品目"),   type: "text"   },
+    { key: "warehouse_code", label: t("ui.报损仓库", "报损仓库"),   type: "warehouse", required: true },
+    { key: "zone_code",      label: t("ui.报损库区", "报损库区"),   type: "zone", filterBy: { warehouseField: "warehouse_code" } },
+    { key: "location_code",  label: t("ui.报损货位", "报损货位"),   type: "location", filterBy: { warehouseField: "warehouse_code", zoneField: "zone_code" } },
+    { key: "item",           label: t("ui.报损品目", "报损品目"),   type: "sku",
+      onPickKeys: { item_name: "sku_name", spec_code: "spec_code", grade_code: "grade_code" } },
     { key: "diff_qty",       label: t("ui.报损数量", "报损数量"),   type: "number", required: true },
     { key: "book_qty",       label: t("ui.损失估值LAK", "损失估值(LAK)"), type: "number" },
     { key: "actual_qty",     label: t("ui.实盘账面量", "实盘账面量"), type: "number" },
-    { key: "operator",       label: t("ui.报损人", "报损人"),     type: "text"   },
+    { key: "reason",         label: t("ui.报损原因", "报损原因"),   type: "dict", dictType: "INV_LOSS_REASON", required: true },
+    { key: "operator",       label: t("ui.报损人",   "报损人"),     type: "user"   },
+    { key: "attachment_url", label: t("ui.报损证明", "报损证明"),   type: "attachment" },
     { key: "status", label: t("common.status", "状态"), type: "select", options: [
       { label: t("ui.草稿", "草稿"),   value: "DRAFT"    },
       { label: t("ui.待审批", "待审批"), value: "DONE"     },

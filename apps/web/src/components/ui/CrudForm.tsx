@@ -3,8 +3,27 @@ import { useState, useEffect, useCallback, memo } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { FileUploadInput } from "./FileUploadInput";
 import styles from "./crudForm.module.css";
+import { DictSelect } from "@/components/shared-selectors/DictSelect";
+import {
+  CompanySelector, CustomerSelector, SupplierSelector, ProjectSelector,
+  WarehouseSelector, ZoneSelector, LocationSelector, SkuSelector,
+  UserSelector,
+} from "@/components/shared-selectors/MasterDataSelectors";
+import { AttachmentUploader } from "@/components/design-system";
 
-export type FieldType = "text" | "number" | "select" | "date" | "datetime" | "textarea" | "readonly" | "upload";
+/**
+ * G4-D：CrudForm 新增主数据 / 字典 / 附件类型
+ *  · 主数据：company / customer / supplier / project / warehouse / zone / location / sku / user
+ *  · 字典：dict（必填 dictType）
+ *  · 附件：attachment（统一 AttachmentUploader，禁 URL 文本框）
+ *  · 联动：filterBy.companyCode / warehouseCode / zoneCode 支持级联
+ *  · 自动带出：onPick(rawField → targetKey) 通过 onPickKeys 配置（如 {"warehouse_name":"warehouse_name"}）
+ */
+export type FieldType =
+  | "text" | "number" | "select" | "date" | "datetime" | "textarea" | "readonly" | "upload"
+  | "company" | "customer" | "supplier" | "project"
+  | "warehouse" | "zone" | "location" | "sku" | "user"
+  | "dict" | "attachment";
 
 export interface FormField {
   key: string;
@@ -15,6 +34,11 @@ export interface FormField {
   options?: { label: string; value: string | number }[];
   span?: 1 | 2;
   defaultValue?: string | number;
+  // G4-D 扩展
+  dictType?: string;                                                    // type='dict' 必填
+  filterBy?: { companyField?: string; warehouseField?: string; zoneField?: string };
+  valueField?: 'code' | 'id' | 'username';                              // user/cashAccount
+  onPickKeys?: Record<string, string>;                                   // 主数据自动带出：{ 目标 key: raw 字段名 }
 }
 
 interface CrudFormProps {
@@ -148,6 +172,91 @@ export const CrudForm = memo(function CrudForm({
                 onChange={url => set(field.key, url)}
                 disabled={false}
               />
+            ) : field.type === "attachment" ? (
+              // G4-D：统一附件上传，禁 URL 文本框
+              <AttachmentUploader
+                value={(() => { const v = values[field.key]; return Array.isArray(v) ? v as string[] : (v ? [String(v)] : []); })()}
+                onChange={urls => set(field.key, urls[urls.length - 1] ?? "")}
+              />
+            ) : field.type === "dict" ? (
+              <DictSelect
+                dictType={field.dictType!}
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                placeholder={field.placeholder}
+                allowEmpty={!field.required}
+              />
+            ) : field.type === "company" ? (
+              <CompanySelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                onPick={o => {
+                  Object.entries(field.onPickKeys ?? {}).forEach(([k, rawField]) => {
+                    set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");
+                  });
+                }} />
+            ) : field.type === "customer" ? (
+              <CustomerSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                onPick={o => {
+                  Object.entries(field.onPickKeys ?? {}).forEach(([k, rawField]) => {
+                    set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");
+                  });
+                }} />
+            ) : field.type === "supplier" ? (
+              <SupplierSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                onPick={o => {
+                  Object.entries(field.onPickKeys ?? {}).forEach(([k, rawField]) => {
+                    set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");
+                  });
+                }} />
+            ) : field.type === "project" ? (
+              <ProjectSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                onPick={o => {
+                  Object.entries(field.onPickKeys ?? {}).forEach(([k, rawField]) => {
+                    set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");
+                  });
+                }} />
+            ) : field.type === "warehouse" ? (
+              <WarehouseSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                companyCode={field.filterBy?.companyField ? String(values[field.filterBy.companyField] ?? "") : undefined}
+                onPick={o => {
+                  Object.entries(field.onPickKeys ?? {}).forEach(([k, rawField]) => {
+                    set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");
+                  });
+                }} />
+            ) : field.type === "zone" ? (
+              <ZoneSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                warehouseCode={field.filterBy?.warehouseField ? String(values[field.filterBy.warehouseField] ?? "") : undefined} />
+            ) : field.type === "location" ? (
+              <LocationSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                warehouseCode={field.filterBy?.warehouseField ? String(values[field.filterBy.warehouseField] ?? "") : undefined}
+                zoneCode={field.filterBy?.zoneField ? String(values[field.filterBy.zoneField] ?? "") : undefined} />
+            ) : field.type === "sku" ? (
+              <SkuSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                onPick={o => {
+                  Object.entries(field.onPickKeys ?? {}).forEach(([k, rawField]) => {
+                    set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");
+                  });
+                }} />
+            ) : field.type === "user" ? (
+              <UserSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                valueField={field.valueField === 'id' ? 'id' : 'username'} />
             ) : (
               <input
                 className={`${styles.input} ${errors[field.key] ? styles.hasError : ""}`}

@@ -34,14 +34,20 @@ export default function TransferPage() {
     CANCELLED: { cls: s.badgeNeutral, label: t("status.cancelled", "已取消") },
   };
 
+  // G4-D：调拨单 — 调出/调入仓库、经办人 主数据化；调拨原因 → sys_dict(INV_TRANSFER_REASON)；交接附件统一上传
   const FIELDS: FormField[] = [
     { key: "transfer_no",    label: t("ui.调拨单号", "调拨单号"),  type: "text",   placeholder: t("ui.留空自动生成WT", "留空自动生成 WT-XXXXXX") },
-    { key: "from_warehouse", label: t("ui.调出仓库", "调出仓库"),  type: "text",   required: true },
-    { key: "to_warehouse",   label: t("ui.调入仓库", "调入仓库"),  type: "text",   required: true },
+    { key: "from_warehouse", label: t("ui.调出仓库", "调出仓库"),  type: "warehouse", required: true },
+    { key: "from_zone",      label: t("ui.调出库区", "调出库区"),  type: "zone", filterBy: { warehouseField: "from_warehouse" } },
+    { key: "from_location",  label: t("ui.调出货位", "调出货位"),  type: "location", filterBy: { warehouseField: "from_warehouse", zoneField: "from_zone" } },
+    { key: "to_warehouse",   label: t("ui.调入仓库", "调入仓库"),  type: "warehouse", required: true },
+    { key: "to_zone",        label: t("ui.调入库区", "调入库区"),  type: "zone", filterBy: { warehouseField: "to_warehouse" } },
+    { key: "to_location",    label: t("ui.调入货位", "调入货位"),  type: "location", filterBy: { warehouseField: "to_warehouse", zoneField: "to_zone" } },
     { key: "batch_no",       label: t("ui.批次号", "批次号"),    type: "text"   },
     { key: "qty",            label: t("ui.调拨数量", "调拨数量"),  type: "number", required: true },
-    { key: "reason",         label: t("ui.调拨原因", "调拨原因"),  type: "text"   },
-    { key: "operator",       label: t("ui.经办人", "经办人"),    type: "text"   },
+    { key: "reason",         label: t("ui.调拨原因", "调拨原因"),  type: "dict", dictType: "INV_TRANSFER_REASON" },
+    { key: "operator",       label: t("ui.经办人", "经办人"),    type: "user" },
+    { key: "attachment_url", label: t("ui.调拨交接附件", "调拨交接附件"), type: "attachment" },
     { key: "status", label: t("common.status", "状态"), type: "select", options: [
       { label: t("status.pending", "待确认"), value: "PENDING"   },
       { label: t("status.done", "已完成"),    value: "DONE"      },

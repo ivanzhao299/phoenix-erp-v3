@@ -52,19 +52,17 @@ export default function InboundPage() {
     CANCELLED:  { cls: s.badgeNeutral, label: t("status.cancelled", "已取消") },
   };
 
+  // G4-D：入库单 — 仓库/品目/操作员 主数据化；入库类型 → sys_dict(INV_INBOUND_TYPE)；入库附件统一上传
   const FIELDS: FormField[] = [
     { key: "inbound_no",     label: t("ui.入库单号", "入库单号"),  type: "text",   placeholder: t("ui.留空自动生成WI", "留空自动生成 WI-XXXXXX") },
-    { key: "type",           label: t("ui.入库类型", "入库类型"),  type: "select", options: [
-      { label: t("ui.生产入库", "生产入库"), value: "PRODUCTION" },
-      { label: t("ui.采购入库", "采购入库"), value: "PURCHASE"  },
-      { label: t("ui.调拨入库", "调拨入库"), value: "TRANSFER"  },
-      { label: t("ui.退货入库", "退货入库"), value: "RETURN"    },
-    ]},
-    { key: "warehouse_code", label: t("ui.入库仓库", "入库仓库"),  type: "text",   required: true },
-    { key: "item",           label: t("ui.品目",     "品目"),      type: "text"   },
-    { key: "qty",            label: t("ui.数量",     "数量"),      type: "number" },
-    { key: "operator",       label: t("ui.操作员",   "操作员"),    type: "text"   },
-    { key: "remark",         label: t("common.remark","备注"),     type: "text"   },
+    { key: "type",           label: t("ui.入库类型", "入库类型"),  type: "dict",   dictType: "INV_INBOUND_TYPE", required: true },
+    { key: "warehouse_code", label: t("ui.入库仓库", "入库仓库"),  type: "warehouse", required: true },
+    { key: "item",           label: t("ui.品目",     "品目"),      type: "sku",
+      onPickKeys: { item_name: "sku_name", spec_code: "spec_code", grade_code: "grade_code" } },
+    { key: "qty",            label: t("ui.数量",     "数量"),      type: "number", required: true },
+    { key: "operator",       label: t("ui.操作员",   "操作员"),    type: "user"   },
+    { key: "attachment_url", label: t("ui.入库附件", "入库附件"),  type: "attachment" },
+    { key: "remark",         label: t("common.remark","备注"),     type: "textarea" },
     { key: "status", label: t("common.status", "状态"), type: "select", options: [
       { label: t("status.pending",   "待审核"), value: "PENDING"    },
       { label: t("ui.审核中",        "审核中"), value: "PROCESSING" },
