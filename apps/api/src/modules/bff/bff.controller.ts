@@ -394,7 +394,10 @@ export class UsersBffController {
         `SELECT
            u.user_id AS id, u.username, u.real_name AS real_name_zh, u.store_code,
            CASE WHEN u.status = 1 THEN 'ACTIVE' ELSE 'FROZEN' END AS status,
-           u.locale, u.email, u.phone, u.org_id,
+           u.locale, u.email, u.phone,
+           -- 主组织 id（FIX 2026-06-04: sys_user 表无 org_id 列；通过 sys_user_orgs 取主组织）
+           (SELECT uo.org_id FROM sys_user_orgs uo
+              WHERE uo.user_id = u.user_id AND uo.is_primary = true LIMIT 1) AS org_id,
            COALESCE(u.note, 'REAL') AS user_type,
            COALESCE(
              (SELECT r.role_code FROM sys_user_role ur
