@@ -44,19 +44,75 @@ const TYPES: Record<string, MdTypeConfig> = {
   },
   'cash-account': {
     table: 'fin_cash_accounts', codeCol: 'account_code', nameCol: 'account_name',
-    objectType: 'CASH_ACCOUNT', // 编码由前端提供（CASH-CNY-001 业务格式）
+    prefix: 'CASH', objectType: 'CASH_ACCOUNT',  // G5.5-C: 改为统一自动生成（CASH-00001）
     writableCols: ['account_name','company_code','company_name','currency_code','account_type','bank_name','bank_account_no','bank_acc_code','holder_code','remark','effective_date','expire_date'],
+  },
+  // ════ G5.5-C 新增 9 类主数据（P0 + P1）════
+  product: {
+    table: 'product_master', codeCol: 'product_code', nameCol: 'product_name',
+    prefix: 'PRD', objectType: 'PRODUCT',
+    writableCols: ['product_name','product_name_en','category','uom','default_grade','shelf_life_days','effective_date','expire_date','remark'],
+  },
+  store: {
+    table: 'mst_stores', codeCol: 'store_code', nameCol: 'store_name',
+    prefix: 'STR', objectType: 'STORE',
+    writableCols: ['store_name','address','phone','company_code','manager','effective_date','expire_date','remark'],
+  },
+  'bank-account': {
+    table: 'fin_bank_accounts', codeCol: 'bank_account_code', nameCol: 'bank_name',
+    prefix: 'BANK', objectType: 'BANK_ACCOUNT',
+    writableCols: ['bank_name','bank_name_en','branch_name','account_no','account_holder','currency_code','country_code','swift_code','iban','company_code','effective_date','expire_date','remark'],
+  },
+  sku: {
+    table: 'product_skus', codeCol: 'sku_code', nameCol: 'sku_name',
+    prefix: 'SKU', objectType: 'SKU',
+    writableCols: ['sku_name','product_code','product_name','grade_code','spec_code','barcode','effective_date','expire_date','remark'],
+  },
+  warehouse: {
+    table: 'wms_warehouses', codeCol: 'warehouse_code', nameCol: 'warehouse_name',
+    prefix: 'WH', objectType: 'WAREHOUSE',
+    writableCols: ['warehouse_name','warehouse_name_zh','type','company_code','manager','effective_date','expire_date','remark'],
+  },
+  grade: {
+    table: 'product_grades', codeCol: 'grade_code', nameCol: 'grade_name',
+    prefix: 'GRD', objectType: 'GRADE',
+    writableCols: ['grade_name','sort_order','effective_date','expire_date','remark'],
+  },
+  spec: {
+    table: 'packaging_specs', codeCol: 'spec_code', nameCol: 'spec_name',
+    prefix: 'SPEC', objectType: 'SPEC',
+    writableCols: ['spec_name','unit_count','pack_type','effective_date','expire_date','remark'],
+  },
+  driver: {
+    table: 'sal_drivers', codeCol: 'driver_name', nameCol: 'driver_name',
+    objectType: 'DRIVER', // 司机用姓名作 PK；不走自动编码
+    writableCols: ['driver_name','phone','license_no','company_code','effective_date','expire_date'],
+  },
+  vehicle: {
+    table: 'sal_vehicles', codeCol: 'vehicle_no', nameCol: 'vehicle_no',
+    objectType: 'VEHICLE',
+    writableCols: ['vehicle_no','plate_no','vehicle_type','capacity','company_code','effective_date','expire_date'],
   },
 };
 
 const VALID_STATUS = ['DRAFT','PENDING_APPROVAL','ACTIVE','FROZEN','ARCHIVED','REJECTED'];
 
-// type → Workflow bizType（G3-B 主数据审批接入）
+// type → Workflow bizType（G3-B 主数据审批接入；G5.5-C 扩展 9 类）
 const BIZ_TYPE: Record<string, string> = {
-  customer: 'MD_CUSTOMER_CREATE',
-  supplier: 'MD_SUPPLIER_CREATE',
-  project: 'MD_PROJECT_CREATE',
-  'cash-account': 'MD_CASH_ACCOUNT_CREATE',
+  customer:        'MD_CUSTOMER_CREATE',
+  supplier:        'MD_SUPPLIER_CREATE',
+  project:         'MD_PROJECT_CREATE',
+  'cash-account':  'MD_CASH_ACCOUNT_CREATE',
+  // G5.5-C 新增
+  product:         'MD_PRODUCT_CREATE',
+  store:           'MD_STORE_CREATE',
+  'bank-account':  'MD_BANK_ACCOUNT_CREATE',
+  sku:             'MD_SKU_CREATE',
+  warehouse:       'MD_WAREHOUSE_CREATE',
+  grade:           'MD_GRADE_CREATE',
+  spec:            'MD_SPEC_CREATE',
+  driver:          'MD_DRIVER_CREATE',
+  vehicle:         'MD_VEHICLE_CREATE',
 };
 
 @Injectable()

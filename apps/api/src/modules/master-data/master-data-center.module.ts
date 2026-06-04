@@ -4,6 +4,7 @@ import { MasterDataRuntimeController } from './master-data-runtime.controller';
 import { CodeGeneratorService } from './code-generator.service';
 import { MasterDataAuditService } from './master-data-audit.service';
 import { MasterDataRuntimeService } from './master-data-runtime.service';
+import { MasterDataReferencesService } from './master-data-references.service'; // G5.5-C
 import { ApprovalEngineModule } from '../approval-engine/approval-engine.module';
 
 /**
@@ -13,7 +14,7 @@ import { ApprovalEngineModule } from '../approval-engine/approval-engine.module'
 @Module({
   imports: [ApprovalEngineModule],   // G3-B：主数据新增审批接入 ApprovalEngine
   controllers: [MasterDataCenterController, MasterDataRuntimeController],
-  providers: [CodeGeneratorService, MasterDataAuditService, MasterDataRuntimeService],
-  exports: [CodeGeneratorService, MasterDataAuditService, MasterDataRuntimeService],
+  providers: [CodeGeneratorService, MasterDataAuditService, MasterDataRuntimeService, MasterDataReferencesService],
+  exports: [CodeGeneratorService, MasterDataAuditService, MasterDataRuntimeService, MasterDataReferencesService],
 })
 export class MasterDataCenterModule {}

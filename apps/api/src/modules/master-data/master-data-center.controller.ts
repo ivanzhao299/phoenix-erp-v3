@@ -3,6 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { CodeGeneratorService } from './code-generator.service';
 import { MasterDataAuditService } from './master-data-audit.service';
+import { MasterDataReferencesService } from './master-data-references.service'; // G5.5-C
 
 /**
  * MasterDataCenterController — 主数据中心后端 API（G1）
@@ -17,7 +18,21 @@ export class MasterDataCenterController {
   constructor(
     private readonly codeGen: CodeGeneratorService,
     private readonly audit: MasterDataAuditService,
+    private readonly refs: MasterDataReferencesService, // G5.5-C
   ) {}
+
+  /**
+   * G5.5-C：引用关系中心
+   * 输入：(objectType, objectCode)；输出：被哪些业务单据引用
+   */
+  @Get('references/:objectType/:objectCode')
+  @RequireMenu('MENU_MASTER_DATA', 'V')
+  async references(
+    @Param('objectType') objectType: string,
+    @Param('objectCode') objectCode: string,
+  ) {
+    return this.refs.compute(objectType, objectCode);
+  }
 
   /** 生成下一个主数据编码 */
   @Post('code/next')
