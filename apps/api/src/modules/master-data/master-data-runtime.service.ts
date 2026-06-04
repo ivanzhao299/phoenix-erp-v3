@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CodeGeneratorService } from './code-generator.service';
 import { MasterDataAuditService } from './master-data-audit.service';
+import { MasterDataReferencesService } from './master-data-references.service'; // G5.5-D
 import { ApprovalEngineService } from '../approval-engine/approval-engine.service';
 
 /**
@@ -93,6 +94,23 @@ const TYPES: Record<string, MdTypeConfig> = {
     objectType: 'VEHICLE',
     writableCols: ['vehicle_no','plate_no','vehicle_type','capacity','company_code','effective_date','expire_date'],
   },
+  // ════ G5.5-D 新增 3 类（治理收官）════
+  organization: {
+    table: 'sys_organizations', codeCol: 'org_code', nameCol: 'org_name',
+    prefix: 'ORG', objectType: 'ORGANIZATION',
+    writableCols: ['org_name','org_name_cn','org_short_name','parent_id','parent_code','org_type','level','company_code','project_code','warehouse_code','manager_user_id','manager_name','site_code','site_business_type','sort_order','effective_date','expire_date','remark'],
+  },
+  company: {
+    // 公司是 sys_organizations 的子集（org_type='COMPANY'）— 用 view 模式
+    table: 'sys_organizations', codeCol: 'org_code', nameCol: 'org_name',
+    prefix: 'COMP', objectType: 'COMPANY',
+    writableCols: ['org_name','org_name_cn','org_short_name','parent_id','parent_code','company_code','manager_user_id','manager_name','effective_date','expire_date','remark'],
+  },
+  dict: {
+    table: 'sys_dict', codeCol: 'dict_code', nameCol: 'dict_label_zh',
+    objectType: 'DICT',  // dict_code 业务约定不走自动编码
+    writableCols: ['dict_code','dict_type','name','dict_label_zh','dict_label_lo','dict_label_en','dict_value','sort_no','config_json','effective_date','expire_date'],
+  },
 };
 
 const VALID_STATUS = ['DRAFT','PENDING_APPROVAL','ACTIVE','FROZEN','ARCHIVED','REJECTED'];
@@ -113,6 +131,10 @@ const BIZ_TYPE: Record<string, string> = {
   spec:            'MD_SPEC_CREATE',
   driver:          'MD_DRIVER_CREATE',
   vehicle:         'MD_VEHICLE_CREATE',
+  // G5.5-D 新增
+  organization:    'MD_ORGANIZATION_CREATE',
+  company:         'MD_COMPANY_CREATE',
+  dict:            'MD_DICT_CREATE',
 };
 
 @Injectable()
@@ -124,6 +146,7 @@ export class MasterDataRuntimeService {
     private readonly codeGen: CodeGeneratorService,
     private readonly audit: MasterDataAuditService,
     private readonly approval: ApprovalEngineService,
+    private readonly refs: MasterDataReferencesService, // G5.5-D 引用治理
   ) {}
 
   private cfg(type: string): MdTypeConfig {
@@ -242,6 +265,38 @@ export class MasterDataRuntimeService {
     if (!rule) throw new BadRequestException(`未知生命周期动作：${action}`);
     if (!rule.from.includes(cur)) throw new BadRequestException(`当前状态 ${cur} 不允许执行 ${action}`);
     if (!VALID_STATUS.includes(rule.to)) throw new BadRequestException('非法目标状态');
+
+    // ── G5.5-D：归档阻断 — 被引用的主数据不允许归档 ─────────────────────────
+    if (action === 'archive') {
+      const report = await this.refs.compute(c.objectType, code);
+      if (report.isReferenced) {
+        // 记录治理事件 + 抛出业务错误
+        await this.ds.query(
+          `INSERT INTO md_governance_events (event_type, object_type, object_code, severity, payload, message)
+           VALUES ('ARCHIVE_BLOCKED', $1, $2, 'HIGH', $3::jsonb, $4)`,
+          [c.objectType, code, JSON.stringify({ refs: report.references }),
+            `归档被阻断：${c.objectType}/${code} 被 ${report.totalReferences} 处业务单据引用`],
+        ).catch(() => {/* 治理日志失败不阻断主流程 */});
+        throw new BadRequestException(
+          `归档被阻断：${code} 仍被 ${report.totalReferences} 处业务单据引用（${
+            report.references.map(r => `${r.refDocType}×${r.refCount}`).join('、')
+          }），请先撤回引用再归档`,
+        );
+      }
+    }
+
+    // ── G5.5-D：冻结风险提示 — 冻结时若有引用，记录治理事件（不阻断）─────────
+    if (action === 'freeze') {
+      const report = await this.refs.compute(c.objectType, code).catch(() => null);
+      if (report?.isReferenced) {
+        await this.ds.query(
+          `INSERT INTO md_governance_events (event_type, object_type, object_code, severity, payload, message)
+           VALUES ('FROZEN_REFERENCED', $1, $2, 'MEDIUM', $3::jsonb, $4)`,
+          [c.objectType, code, JSON.stringify({ refs: report.references }),
+            `冻结风险：${c.objectType}/${code} 被 ${report.totalReferences} 处业务单据引用；冻结后引用方将无法新建相关单据`],
+        ).catch(() => {});
+      }
+    }
 
     await this.ds.query(`UPDATE ${c.table} SET status = $1, updated_at = NOW() WHERE ${c.codeCol} = $2`, [rule.to, code]);
     await this.audit.log({ objectType: c.objectType, objectCode: code, action: rule.audit, before: { status: cur }, after: { status: rule.to }, operator, reason });

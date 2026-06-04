@@ -4,6 +4,8 @@ import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { CodeGeneratorService } from './code-generator.service';
 import { MasterDataAuditService } from './master-data-audit.service';
 import { MasterDataReferencesService } from './master-data-references.service'; // G5.5-C
+import { DictGovernanceService } from './dict-governance.service';               // G5.5-D
+import { MasterDataGovernanceService } from './governance.service';              // G5.5-D
 
 /**
  * MasterDataCenterController — 主数据中心后端 API（G1）
@@ -19,7 +21,24 @@ export class MasterDataCenterController {
     private readonly codeGen: CodeGeneratorService,
     private readonly audit: MasterDataAuditService,
     private readonly refs: MasterDataReferencesService, // G5.5-C
+    private readonly dictGov: DictGovernanceService,    // G5.5-D
+    private readonly gov: MasterDataGovernanceService,  // G5.5-D
   ) {}
+
+  /** G5.5-D 治理驾驶舱：总评分 + 5 子评分 */
+  @Get('governance/scores')
+  @RequireMenu('MENU_MASTER_DATA', 'V')
+  async governanceScores() { return this.gov.computeScores(); }
+
+  /** G5.5-D 字典覆盖率 */
+  @Get('governance/dict-coverage')
+  @RequireMenu('MENU_MASTER_DATA', 'V')
+  async dictCoverage() { return this.dictGov.coverage(); }
+
+  /** G5.5-D 字典依赖图 */
+  @Get('governance/dict-dependency-map')
+  @RequireMenu('MENU_MASTER_DATA', 'V')
+  async dictDependencyMap() { return this.dictGov.dependencyMap(); }
 
   /**
    * G5.5-C：引用关系中心

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X } from "lucide-react";
+import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X, Link2 } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import { EmptyState, LoadingSkeleton } from "@/components/design-system";
 import request from "@/lib/api-client";
@@ -26,6 +26,7 @@ export interface MasterDataRuntimePanelProps {
   nameKey: string;
   fields: MdField[];     // 表单字段（不含编码，编码自动生成）
   columns: { key: string; label: string }[];  // 列表展示列
+  objectType?: string;   // G5.5-D：用于引用关系查询（CUSTOMER/SUPPLIER/...）；默认按 type 推断
 }
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
@@ -38,15 +39,19 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 };
 
 export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
-  const { type, title, codeKey, nameKey, fields, columns } = props;
+  const { type, title, codeKey, nameKey, fields, columns, objectType } = props;
   const { canCreate, canEdit } = usePermission("MENU_MASTER_DATA");
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [editing, setEditing] = useState<Record<string, any> | null>(null); // null=关闭, {}=新增
+  const [editing, setEditing] = useState<Record<string, any> | null>(null);
   const [form, setForm] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
+  // G5.5-D：行内引用计数
+  const [refCounts, setRefCounts] = useState<Record<string, { total: number; loading: boolean }>>({});
+
+  const resolvedObjectType = (objectType ?? type.toUpperCase().replace(/-/g, '_'));
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -58,6 +63,18 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
   }, [type, filterStatus]);
 
   useEffect(() => { load(); }, [load]);
+
+  // G5.5-D：按需懒加载行的引用计数（避免一次性查询全部）
+  const fetchRefCount = useCallback(async (code: string) => {
+    if (refCounts[code]) return;
+    setRefCounts(prev => ({ ...prev, [code]: { total: 0, loading: true } }));
+    try {
+      const r = await request<{ totalReferences: number }>(`/master-data/references/${resolvedObjectType}/${encodeURIComponent(code)}`);
+      setRefCounts(prev => ({ ...prev, [code]: { total: r.totalReferences ?? 0, loading: false } }));
+    } catch {
+      setRefCounts(prev => ({ ...prev, [code]: { total: -1, loading: false } }));
+    }
+  }, [resolvedObjectType, refCounts]);
 
   const openNew = () => { setForm({}); setEditing({}); };
   const openEdit = (row: Record<string, any>) => { setForm({ ...row }); setEditing(row); };
@@ -125,6 +142,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                 <th style={{ textAlign: "left", padding: "10px 14px" }}>编码</th>
                 {columns.map(c => <th key={c.key} style={{ textAlign: "left", padding: "10px 14px" }}>{c.label}</th>)}
                 <th style={{ textAlign: "center", padding: "10px 14px", width: 90 }}>状态</th>
+                <th style={{ textAlign: "center", padding: "10px 14px", width: 80 }}>引用</th>
                 <th style={{ textAlign: "right", padding: "10px 14px", width: 240 }}>操作</th>
               </tr></thead>
               <tbody>
@@ -136,6 +154,22 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                       {columns.map(c => <td key={c.key} style={{ padding: "9px 14px" }}>{r[c.key] ?? "—"}</td>)}
                       <td style={{ padding: "9px 14px", textAlign: "center" }}>
                         <span style={{ fontSize: 12, padding: "2px 9px", borderRadius: 4, fontWeight: 500, background: `${st.color}1a`, color: st.color }}>{st.label}</span>
+                      </td>
+                      <td style={{ padding: "9px 14px", textAlign: "center" }}>
+                        {/* G5.5-D：引用计数（懒加载，悬浮触发） */}
+                        {refCounts[r[codeKey]] ? (
+                          refCounts[r[codeKey]].loading ? <span style={{ fontSize: 11, color: "var(--text-disabled)" }}>…</span> :
+                          refCounts[r[codeKey]].total < 0 ? <span style={{ fontSize: 11, color: "var(--status-danger)" }}>err</span> :
+                          refCounts[r[codeKey]].total === 0 ? <span style={{ fontSize: 11, color: "var(--text-disabled)" }}>0</span> :
+                          <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "var(--status-warning-bg, rgba(245,158,11,0.12))", color: "var(--status-warning, #d97706)", fontWeight: 600 }} title={`被 ${refCounts[r[codeKey]].total} 处业务引用`}>
+                            <Link2 size={9} style={{ display: "inline", marginRight: 2 }} />{refCounts[r[codeKey]].total}
+                          </span>
+                        ) : (
+                          <button onClick={() => fetchRefCount(r[codeKey])}
+                            style={{ fontSize: 11, padding: "1px 8px", borderRadius: 4, background: "var(--bg-muted)", color: "var(--text-secondary)", border: "1px solid var(--border)", cursor: "pointer" }}>
+                            查询
+                          </button>
+                        )}
                       </td>
                       <td style={{ padding: "9px 14px", textAlign: "right" }}>
                         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>

@@ -86,9 +86,10 @@ const GROUPS: CenterGroup[] = [
     title: "治理中心",
     subtitle: "字典 / 审批 / 质量 — 主数据治理闭环",
     cards: [
-      { icon: BookOpen,   title: "数据字典中心", accent: "violet", desc: "sys_dict 统一管理 · 25+ 字典类型",  href: "/master-data/dictionaries" },
-      { icon: CheckSquare,title: "主数据待审批", accent: "amber",  desc: "Workflow 审批入口 · 主数据变更",     href: "/master-data/pending" },
-      { icon: Activity,   title: "数据质量中心", accent: "green",  desc: "G5 · 7 维度健康评分 + 告警",        href: "/data-quality" },
+      { icon: BookOpen,   title: "数据字典中心",     accent: "violet", desc: "sys_dict 统一管理 · 35 字典类型",      href: "/master-data/dictionaries" },
+      { icon: CheckSquare,title: "主数据待审批",     accent: "amber",  desc: "Workflow 审批入口 · 主数据变更",         href: "/master-data/pending" },
+      { icon: Activity,   title: "主数据治理驾驶舱", accent: "indigo", desc: "G5.5-D · 6 维度治理评分 + 字典覆盖率", href: "/master-data/governance" },
+      { icon: ShieldCheck,title: "数据质量中心",     accent: "green",  desc: "G5 · 全局 7 维度健康评分 + 告警",        href: "/data-quality" },
     ],
   },
 ];
