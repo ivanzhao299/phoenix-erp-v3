@@ -8,6 +8,8 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/design-system';
 import s from "@/components/ui/admin-ui.module.css";
+import { DictSelect } from '@/components/shared-selectors/DictSelect';
+import { CompanySelector, CustomerSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -176,7 +178,7 @@ const INP_CLASS = 'w-full px-3 py-2 rounded-lg text-sm border border-border bg-b
 
 function CreateArModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [form, setForm] = useState({
-    companyCode: '', customerName: '', currencyCode: 'CNY',
+    companyCode: '', companyName: '', customerCode: '', customerName: '', currencyCode: 'CNY',
     amountOriginal: '', invoiceNo: '', invoiceDate: '', dueDate: '', remark: '',
   });
   const [saving, setSaving] = useState(false);
@@ -184,8 +186,8 @@ function CreateArModal({ onClose, onCreated }: { onClose: () => void; onCreated:
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSubmit = async () => {
-    if (!form.companyCode.trim()) { setErr('请填写公司代码'); return; }
-    if (!form.customerName.trim()) { setErr('请填写客户名称'); return; }
+    if (!form.companyCode.trim()) { setErr('请选择公司'); return; }
+    if (!form.customerName.trim()) { setErr('请选择客户'); return; }
     if (!form.amountOriginal || Number(form.amountOriginal) <= 0) { setErr('请填写有效的发票金额'); return; }
     setSaving(true); setErr('');
     try {
@@ -193,6 +195,8 @@ function CreateArModal({ onClose, onCreated }: { onClose: () => void; onCreated:
         method: 'POST',
         body: JSON.stringify({
           companyCode:    form.companyCode.trim(),
+          companyName:    form.companyName.trim() || undefined,
+          customerCode:   form.customerCode.trim() || undefined,
           customerName:   form.customerName.trim(),
           currencyCode:   form.currencyCode,
           amountOriginal: Number(form.amountOriginal),
@@ -222,22 +226,27 @@ function CreateArModal({ onClose, onCreated }: { onClose: () => void; onCreated:
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
               <label className="block mb-1 text-xs font-semibold text-text-muted">
-                公司代码 <span className="text-red-500">*</span>
+                公司 <span className="text-red-500">*</span>
               </label>
-              <input className={INP_CLASS} value={form.companyCode} onChange={e => set('companyCode', e.target.value)} placeholder="如 HKJH" />
+              {/* G4-A：从 org_units(COMPANY) 主数据加载，DataScope 自动过滤 */}
+              <CompanySelector value={form.companyCode}
+                onChange={v => set('companyCode', v)}
+                onPick={o => set('companyName', o?.label ?? '')} />
             </div>
             <div>
               <label className="block mb-1 text-xs font-semibold text-text-muted">货币</label>
-              <select className={INP_CLASS} value={form.currencyCode} onChange={e => set('currencyCode', e.target.value)}>
-                {['CNY', 'USD', 'EUR', 'HKD', 'JPY'].map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              {/* G4-A：货币枚举来自 sys_dict(SYS_CURRENCY) */}
+              <DictSelect dictType="SYS_CURRENCY" value={form.currencyCode} onChange={v => set('currencyCode', v)} allowEmpty={false} />
             </div>
           </div>
           <div>
             <label className="block mb-1 text-xs font-semibold text-text-muted">
-              客户名称 <span className="text-red-500">*</span>
+              客户 <span className="text-red-500">*</span>
             </label>
-            <input className={INP_CLASS} value={form.customerName} onChange={e => set('customerName', e.target.value)} placeholder="客户全称" />
+            {/* G4-A：从客户主数据(仅ACTIVE)选择，自动带出名称 */}
+            <CustomerSelector value={form.customerCode}
+              onChange={v => set('customerCode', v)}
+              onPick={o => set('customerName', o?.raw?.name ?? o?.label ?? '')} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
@@ -294,12 +303,13 @@ function CreateReceiptModal({
 }: { selectedAr?: ArInvoice | null; onClose: () => void; onCreated: () => void }) {
   const [form, setForm] = useState({
     companyCode:  selectedAr?.company_code  ?? '',
+    companyName:  selectedAr?.company_name  ?? '',
     customerName: selectedAr?.customer_name ?? '',
     customerCode: selectedAr?.customer_code ?? '',
     currencyCode: selectedAr?.currency_code ?? 'CNY',
     amountOriginal: selectedAr ? selectedAr.balance_amount_original : '',
     receiptDate:  new Date().toISOString().slice(0, 10),
-    receiptMethod: '', bankRef: '', remark: '',
+    receiptMethod: '', receivedAccountCode: '', bankRef: '', remark: '',
   });
   const [saving,    setSaving]    = useState(false);
   const [err,       setErr]       = useState('');
@@ -307,8 +317,8 @@ function CreateReceiptModal({
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSubmit = async () => {
-    if (!form.companyCode.trim()) { setErr('请填写公司代码'); return; }
-    if (!form.customerName.trim()) { setErr('请填写客户名称'); return; }
+    if (!form.companyCode.trim()) { setErr('请选择公司'); return; }
+    if (!form.customerName.trim()) { setErr('请选择客户'); return; }
     if (!form.receiptDate) { setErr('请选择收款日期'); return; }
     if (!form.amountOriginal || Number(form.amountOriginal) <= 0) { setErr('请填写有效收款金额'); return; }
     setSaving(true); setErr('');
@@ -317,12 +327,14 @@ function CreateReceiptModal({
         method: 'POST',
         body: JSON.stringify({
           companyCode:   form.companyCode.trim(),
+          companyName:   form.companyName.trim() || undefined,
           customerName:  form.customerName.trim(),
           customerCode:  form.customerCode.trim() || undefined,
           currencyCode:  form.currencyCode,
           amountOriginal: Number(form.amountOriginal),
           receiptDate:   form.receiptDate,
-          receiptMethod: form.receiptMethod.trim() || undefined,
+          receiptMethod: form.receiptMethod || undefined,
+          receivedAccountCode: form.receivedAccountCode || undefined,
           bankRef:       form.bankRef.trim() || undefined,
           remark:        form.remark.trim() || undefined,
         }),
@@ -367,19 +379,23 @@ function CreateReceiptModal({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">公司代码 *</label>
-              <input className={INP_CLASS} value={form.companyCode} onChange={e => set('companyCode', e.target.value)} />
+              <label className="block mb-1 text-xs font-semibold text-text-muted">公司 *</label>
+              {/* G4-A：公司主数据，DataScope 自动过滤 */}
+              <CompanySelector value={form.companyCode}
+                onChange={v => set('companyCode', v)}
+                onPick={o => set('companyName', o?.label ?? '')} />
             </div>
             <div>
               <label className="block mb-1 text-xs font-semibold text-text-muted">货币</label>
-              <select className={INP_CLASS} value={form.currencyCode} onChange={e => set('currencyCode', e.target.value)}>
-                {['CNY','USD','EUR','HKD','JPY'].map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <DictSelect dictType="SYS_CURRENCY" value={form.currencyCode} onChange={v => set('currencyCode', v)} allowEmpty={false} />
             </div>
           </div>
           <div>
-            <label className="block mb-1 text-xs font-semibold text-text-muted">客户名称 *</label>
-            <input className={INP_CLASS} value={form.customerName} onChange={e => set('customerName', e.target.value)} />
+            <label className="block mb-1 text-xs font-semibold text-text-muted">客户 *</label>
+            {/* G4-A：客户主数据，自动带出名称 */}
+            <CustomerSelector value={form.customerCode}
+              onChange={v => set('customerCode', v)}
+              onPick={o => set('customerName', o?.raw?.name ?? o?.label ?? '')} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
@@ -395,15 +411,20 @@ function CreateReceiptModal({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
               <label className="block mb-1 text-xs font-semibold text-text-muted">收款方式</label>
-              <select className={INP_CLASS} value={form.receiptMethod} onChange={e => set('receiptMethod', e.target.value)}>
-                <option value="">请选择</option>
-                {['银行转账','支票','现金','线上支付','其他'].map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
+              {/* G4-A：收款方式枚举来自 sys_dict(FIN_RECEIPT_METHOD) */}
+              <DictSelect dictType="FIN_RECEIPT_METHOD" value={form.receiptMethod} onChange={v => set('receiptMethod', v)} placeholder="请选择收款方式" />
             </div>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">银行流水号</label>
-              <input className={INP_CLASS} value={form.bankRef} onChange={e => set('bankRef', e.target.value)} placeholder="可选" />
+              <label className="block mb-1 text-xs font-semibold text-text-muted">收款账户</label>
+              {/* G4-A：从资金账户主数据(仅ACTIVE)选择，value=account_code */}
+              <CashAccountSelector value={form.receivedAccountCode}
+                onChange={v => set('receivedAccountCode', v)}
+                currencyCode={form.currencyCode} />
             </div>
+          </div>
+          <div>
+            <label className="block mb-1 text-xs font-semibold text-text-muted">银行流水号</label>
+            <input className={INP_CLASS} value={form.bankRef} onChange={e => set('bankRef', e.target.value)} placeholder="可选" />
           </div>
           <div>
             <label className="block mb-1 text-xs font-semibold text-text-muted">备注</label>

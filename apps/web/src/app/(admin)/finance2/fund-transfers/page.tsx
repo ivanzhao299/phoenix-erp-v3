@@ -6,6 +6,7 @@ import {
   Clock, AlertCircle, Send, Play,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import { CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 function getToken() {
@@ -86,20 +87,12 @@ function CreateTransferModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const [accounts, setAccounts] = useState<CashAccount[]>([]);
   const [form, setForm] = useState({ fromAccountId: '', toAccountId: '', amountOriginal: '', remark: '' });
+  const [fromAcc, setFromAcc] = useState<CashAccount | null>(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
-  useEffect(() => {
-    fetch(`${API}/accounts?status=ACTIVE&pageSize=100`, { headers: authHeaders() })
-      .then(r => r.json())
-      .then(d => setAccounts(d.items ?? []));
-  }, []);
-
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
-
-  const fromAcc = accounts.find(a => a.id === form.fromAccountId);
 
   async function submit() {
     if (!form.fromAccountId) { setErr('请选择转出账户'); return; }
@@ -151,14 +144,10 @@ function CreateTransferModal({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
             <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>转出账户 <span className="text-red-500">*</span></div>
-            <select value={form.fromAccountId} onChange={e => set('fromAccountId', e.target.value)} className={selectClass}>
-              <option value="">请选择转出账户</option>
-              {accounts.map(a => (
-                <option key={a.id} value={a.id}>
-                  {a.accountName} ({a.currencyCode} {fmt(a.currentBalance)})
-                </option>
-              ))}
-            </select>
+            {/* G4-A：资金账户主数据(仅 ACTIVE)，value=id；onPick 同步带出账户币种/余额 */}
+            <CashAccountSelector value={form.fromAccountId} valueField="id"
+              onChange={v => set('fromAccountId', v)}
+              onPick={o => setFromAcc((o?.raw ?? null) as CashAccount | null)} />
           </div>
 
           {fromAcc && (
@@ -169,14 +158,10 @@ function CreateTransferModal({
 
           <div>
             <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>转入账户 <span className="text-red-500">*</span></div>
-            <select value={form.toAccountId} onChange={e => set('toAccountId', e.target.value)} className={selectClass}>
-              <option value="">请选择转入账户</option>
-              {accounts.filter(a => a.id !== form.fromAccountId).map(a => (
-                <option key={a.id} value={a.id}>
-                  {a.accountName} ({a.currencyCode})
-                </option>
-              ))}
-            </select>
+            {/* G4-A：资金账户主数据；同币种过滤（避免跨币种调拨） */}
+            <CashAccountSelector value={form.toAccountId} valueField="id"
+              onChange={v => set('toAccountId', v)}
+              currencyCode={fromAcc?.currencyCode} />
           </div>
 
           <div>

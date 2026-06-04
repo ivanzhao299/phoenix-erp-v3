@@ -10,6 +10,8 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
 import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 数据字典统一组件
+import { CompanySelector, CashAccountSelector, SupplierSelector, ShareholderSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-A 主数据选择器
+import { AttachmentUploader } from "@/components/design-system"; // G4-A 凭证上传
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 interface ApLedger {
@@ -60,20 +62,8 @@ const PAYER_TYPE_OPTS: { value: string; label: string }[] = [
   { value: "BORROW",      label: "借款" },
   { value: "INTERNAL",    label: "内部" },
 ];
-const PAY_METHOD_OPTS: { value: string; label: string }[] = [
-  { value: "BANK",     label: "银行转账" },
-  { value: "CASH",     label: "现金" },
-  { value: "TRANSFER", label: "内部划转" },
-  { value: "ALIPAY",   label: "支付宝" },
-  { value: "WECHAT",   label: "微信支付" },
-];
-const FUND_NATURE_OPTS: { value: string; label: string }[] = [
-  { value: "INVESTMENT", label: "投资款" },
-  { value: "LOAN",       label: "借款" },
-  { value: "ADVANCE",    label: "垫付" },
-  { value: "NORMAL",     label: "普通" },
-];
-const CURRENCY_OPTS    = ["CNY","LAK","THB","USD"];
+// G4-A：PAY_METHOD_OPTS / FUND_NATURE_OPTS / CURRENCY_OPTS 已下沉至 sys_dict
+// (PRC_PAYMENT_METHOD / FIN_FUND_NATURE / SYS_CURRENCY)，通过 <DictSelect> 加载。
 const API_PAY = "/api/v2/procurement/payments";
 
 const emptyAlloc = (): Allocation => ({
@@ -394,7 +384,7 @@ export default function PaymentsPage() {
         </select>
         <select value={fCurrency} onChange={e => setFCurrency(e.target.value)} style={inlineSelect}>
           <option value="">全部货币</option>
-          {CURRENCY_OPTS.map(c => <option key={c} value={c}>{c}</option>)}
+          {["CNY","LAK","THB","USD"].map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         <span style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>付款日：</span>
         <input type="date" style={{ ...inlineSelect, flex: "0 0 130px" }} value={fDateFrom} onChange={e => setFDateFrom(e.target.value)} />
@@ -527,17 +517,19 @@ export default function PaymentsPage() {
               <DictSelect dictType="SYS_CURRENCY" value={formCurrency} onChange={setFormCurrency} allowEmpty={false} />
             </div>
           </div>
+          {/* G4-A：公司从主数据(org COMPANY)选择，自动带出名称，禁止手填 */}
           <div className={s.fieldRow}>
             <div className={s.field}>
-              <label className={s.lbl}>公司代码</label>
-              <input className={s.inp} value={formCompCode}
-                onChange={e => setFormCompCode(e.target.value)}
-                placeholder="如 PHX_AGRI" />
+              <label className={s.lbl}>公司</label>
+              <CompanySelector value={formCompCode}
+                onChange={setFormCompCode}
+                onPick={(o) => setFormCompName(o?.label ?? "")} />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>公司名称</label>
-              <input className={s.inp} value={formCompName}
-                onChange={e => setFormCompName(e.target.value)} />
+              <input className={s.inp} value={formCompName} readOnly
+                style={{ background: "var(--bg-muted)", color: "var(--text-secondary)", cursor: "not-allowed" }}
+                placeholder="由公司选择自动带出" />
             </div>
           </div>
           {/* 项目：从 shr_projects 主数据下拉选择，选中后自动带出名称，避免手工输入出错 */}
@@ -573,9 +565,10 @@ export default function PaymentsPage() {
           <div className={s.fieldRow}>
             <div className={s.field}>
               <label className={s.lbl}>付款方类型</label>
-              <select className={s.inp} value={formPayerType} onChange={e => { setFormPayerType(e.target.value); setFormIsShareholder(e.target.value === "SHAREHOLDER"); }}>
-                {PAYER_TYPE_OPTS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
+              {/* G4-A：付款方类型枚举来自 sys_dict(FIN_PAYER_TYPE) */}
+              <DictSelect dictType="FIN_PAYER_TYPE" value={formPayerType}
+                onChange={v => { setFormPayerType(v); setFormIsShareholder(v === "SHAREHOLDER"); }}
+                allowEmpty={false} />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>付款人 *</label>
@@ -585,11 +578,13 @@ export default function PaymentsPage() {
           <div className={s.fieldRow}>
             <div className={s.field}>
               <label className={s.lbl}>付款账户</label>
-              <input className={s.inp} value={formPayerAccount} onChange={e => setFormPayerAccount(e.target.value)} placeholder="银行账号/支付宝" />
+              {/* G4-A：从资金账户主数据(仅ACTIVE)选择 */}
+              <CashAccountSelector value={formPayerAccount} onChange={setFormPayerAccount} />
             </div>
             <div className={s.field}>
-              <label className={s.lbl}>收款方</label>
-              <input className={s.inp} value={formPayeeName} onChange={e => setFormPayeeName(e.target.value)} placeholder="收款方名称（供应商）" />
+              <label className={s.lbl}>收款方（供应商）</label>
+              {/* G4-A：从供应商主数据(仅ACTIVE)选择，自动带出名称 */}
+              <SupplierSelector value={formPayeeName} onChange={setFormPayeeName} />
             </div>
           </div>
 
@@ -602,21 +597,24 @@ export default function PaymentsPage() {
             </div>
             <div className={s.field}>
               <label className={s.lbl}>付款方式</label>
-              <select className={s.inp} value={formMethod} onChange={e => setFormMethod(e.target.value)}>
-                {PAY_METHOD_OPTS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </select>
+              {/* G4-A：付款方式枚举来自 sys_dict(PRC_PAYMENT_METHOD) */}
+              <DictSelect dictType="PRC_PAYMENT_METHOD" value={formMethod} onChange={setFormMethod} allowEmpty={false} />
             </div>
           </div>
           <div className={s.fieldRow}>
             <div className={s.field}>
               <label className={s.lbl}>资金性质</label>
-              <select className={s.inp} value={formNature} onChange={e => setFormNature(e.target.value)}>
-                {FUND_NATURE_OPTS.map(n => <option key={n.value} value={n.value}>{n.label}</option>)}
-              </select>
+              {/* G4-A：资金性质枚举来自 sys_dict(FIN_FUND_NATURE) */}
+              <DictSelect dictType="FIN_FUND_NATURE" value={formNature} onChange={setFormNature} allowEmpty={false} />
             </div>
             <div className={s.field}>
-              <label className={s.lbl}>凭证 URL</label>
-              <input className={s.inp} value={formVoucherUrl} onChange={e => setFormVoucherUrl(e.target.value)} placeholder="付款凭证图片链接" />
+              <label className={s.lbl}>付款凭证</label>
+              {/* G4-A：禁止 URL 文本框，使用统一附件上传组件 */}
+              <AttachmentUploader
+                value={formVoucherUrl ? [formVoucherUrl] : []}
+                onChange={urls => setFormVoucherUrl(urls[urls.length - 1] ?? "")}
+                label="上传付款凭证（PDF/图片 ≤15MB）"
+              />
             </div>
           </div>
 
@@ -631,12 +629,17 @@ export default function PaymentsPage() {
           {formIsShareholder && (
             <div className={s.fieldRow}>
               <div className={s.field}>
-                <label className={s.lbl}>股东 ID</label>
-                <input className={s.inp} value={formShareholderId} onChange={e => setFormShareholderId(e.target.value)} />
+                <label className={s.lbl}>股东</label>
+                {/* G4-A：从股东主数据选择，自动带出姓名，禁止手填编码 */}
+                <ShareholderSelector value={formShareholderId}
+                  onChange={setFormShareholderId}
+                  onPick={o => setFormShareholderName(o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.label ?? "")} />
               </div>
               <div className={s.field}>
                 <label className={s.lbl}>股东姓名</label>
-                <input className={s.inp} value={formShareholderName} onChange={e => setFormShareholderName(e.target.value)} />
+                <input className={s.inp} value={formShareholderName} readOnly
+                  style={{ background: "var(--bg-muted)", color: "var(--text-secondary)", cursor: "not-allowed" }}
+                  placeholder="由股东选择自动带出" />
               </div>
             </div>
           )}

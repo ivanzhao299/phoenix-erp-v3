@@ -8,6 +8,8 @@ import {
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/design-system';
 import s from "@/components/ui/admin-ui.module.css";
+import { DictSelect } from '@/components/shared-selectors/DictSelect';
+import { CompanySelector, SupplierSelector } from '@/components/shared-selectors/MasterDataSelectors';
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -176,14 +178,16 @@ const INP_CLASS = 'w-full px-3 py-2 rounded-lg text-sm border border-border bg-b
 // ── 创建 AP Modal ─────────────────────────────────────────────────────────────
 
 interface CreateForm {
-  companyCode: string; supplierName: string; currencyCode: string;
+  companyCode: string; companyName: string;
+  supplierCode: string; supplierName: string;
+  currencyCode: string;
   amountOriginal: string; invoiceNo: string; invoiceDate: string;
   dueDate: string; remark: string;
 }
 
 function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [form, setForm] = useState<CreateForm>({
-    companyCode: '', supplierName: '', currencyCode: 'CNY',
+    companyCode: '', companyName: '', supplierCode: '', supplierName: '', currencyCode: 'CNY',
     amountOriginal: '', invoiceNo: '', invoiceDate: '', dueDate: '', remark: '',
   });
   const [saving, setSaving] = useState(false);
@@ -192,8 +196,8 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
   const set = (k: keyof CreateForm, v: string) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSubmit = async () => {
-    if (!form.companyCode.trim()) { setErr('请填写公司代码'); return; }
-    if (!form.supplierName.trim()) { setErr('请填写供应商名称'); return; }
+    if (!form.companyCode.trim()) { setErr('请选择公司'); return; }
+    if (!form.supplierName.trim()) { setErr('请选择供应商'); return; }
     if (!form.amountOriginal || isNaN(Number(form.amountOriginal)) || Number(form.amountOriginal) <= 0) {
       setErr('请填写有效的发票金额'); return;
     }
@@ -204,6 +208,8 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
         method: 'POST',
         body: JSON.stringify({
           companyCode:    form.companyCode.trim(),
+          companyName:    form.companyName.trim() || undefined,
+          supplierCode:   form.supplierCode.trim() || undefined,
           supplierName:   form.supplierName.trim(),
           currencyCode:   form.currencyCode,
           amountOriginal: Number(form.amountOriginal),
@@ -240,30 +246,30 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label className="block mb-1 text-xs font-semibold text-text-muted">
-                公司代码 <span className="text-red-500">*</span>
+                公司 <span className="text-red-500">*</span>
               </label>
-              <input className={INP_CLASS} value={form.companyCode}
-                onChange={e => set('companyCode', e.target.value)} placeholder="如 HKJH" />
+              {/* G4-A：公司主数据(org_units COMPANY)，DataScope 自动过滤 */}
+              <CompanySelector value={form.companyCode}
+                onChange={v => set('companyCode', v)}
+                onPick={o => set('companyName', o?.label ?? '')} />
             </div>
             <div>
               <label className="block mb-1 text-xs font-semibold text-text-muted">
                 货币 <span className="text-red-500">*</span>
               </label>
-              <select className={INP_CLASS} value={form.currencyCode}
-                onChange={e => set('currencyCode', e.target.value)}>
-                {['CNY', 'USD', 'EUR', 'HKD', 'JPY'].map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              {/* G4-A：货币枚举来自 sys_dict(SYS_CURRENCY) */}
+              <DictSelect dictType="SYS_CURRENCY" value={form.currencyCode} onChange={v => set('currencyCode', v)} allowEmpty={false} />
             </div>
           </div>
 
           <div>
             <label className="block mb-1 text-xs font-semibold text-text-muted">
-              供应商名称 <span className="text-red-500">*</span>
+              供应商 <span className="text-red-500">*</span>
             </label>
-            <input className={INP_CLASS} value={form.supplierName}
-              onChange={e => set('supplierName', e.target.value)} placeholder="供应商全称" />
+            {/* G4-A：从供应商主数据(仅ACTIVE)选择，自动带出名称 */}
+            <SupplierSelector value={form.supplierCode}
+              onChange={v => set('supplierCode', v)}
+              onPick={o => set('supplierName', o?.raw?.name ?? o?.label ?? '')} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

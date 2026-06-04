@@ -7,6 +7,9 @@ import {
   TrendingDown, DollarSign, ArrowDownLeft,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import { DictSelect } from '@/components/shared-selectors/DictSelect';
+import { CompanySelector, ShareholderSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
+import { AttachmentUploader } from '@/components/design-system';
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 function getToken() {
@@ -137,14 +140,15 @@ function CreateContributionModal({ onClose, onCreated }: { onClose: () => void; 
     shareholderName: '', shareholderCode: '', companyCode: '', companyName: '',
     contributionType: 'LOAN', currencyCode: 'CNY',
     amountOriginal: '', expectedReturnDate: '', remark: '',
+    voucherUrl: '' as string,
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
   async function submit() {
-    if (!form.shareholderName.trim()) { setErr('请填写股东名称'); return; }
-    if (!form.companyCode.trim()) { setErr('请填写公司编号'); return; }
+    if (!form.shareholderName.trim()) { setErr('请选择股东'); return; }
+    if (!form.companyCode.trim()) { setErr('请选择公司'); return; }
     if (!form.amountOriginal || Number(form.amountOriginal) <= 0) { setErr('请填写金额'); return; }
     setSaving(true); setErr('');
     try {
@@ -160,6 +164,7 @@ function CreateContributionModal({ onClose, onCreated }: { onClose: () => void; 
           amountOriginal: Number(form.amountOriginal),
           expectedReturnDate: form.expectedReturnDate || undefined,
           remark: form.remark.trim() || undefined,
+          voucherUrl: form.voucherUrl || undefined,
         }),
       });
       if (!r.ok) { const d = await r.json(); throw new Error(d.message ?? '创建失败'); }
@@ -185,33 +190,60 @@ function CreateContributionModal({ onClose, onCreated }: { onClose: () => void; 
           </div>
         )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          {[
-            { label: '股东名称 *', key: 'shareholderName', placeholder: '如：张三' },
-            { label: '股东编号', key: 'shareholderCode', placeholder: '可选' },
-            { label: '公司编号 *', key: 'companyCode', placeholder: 'COMP001' },
-            { label: '公司名称', key: 'companyName', placeholder: '可选' },
-            { label: '货币代码 *', key: 'currencyCode', placeholder: 'CNY' },
-            { label: '金额 *', key: 'amountOriginal', placeholder: '0.00' },
-            { label: '预计归还日期', key: 'expectedReturnDate', placeholder: 'YYYY-MM-DD' },
-          ].map(f => (
-            <div key={f.key}>
-              <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{f.label}</div>
-              <input value={(form as Record<string, string>)[f.key]} onChange={e => set(f.key, e.target.value)} placeholder={f.placeholder} className={inpClass} />
-            </div>
-          ))}
+          <div>
+            <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>股东 <span className="text-red-500">*</span></div>
+            {/* G4-A：股东主数据，自动带出姓名 */}
+            <ShareholderSelector value={form.shareholderCode}
+              onChange={v => set('shareholderCode', v)}
+              onPick={o => set('shareholderName', o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.label ?? '')} />
+          </div>
+          <div>
+            <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>股东姓名</div>
+            <input className={inpClass} value={form.shareholderName} readOnly
+              style={{ background: 'var(--bg-muted)', cursor: 'not-allowed' }} placeholder="由股东选择自动带出" />
+          </div>
+          <div>
+            <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>公司 <span className="text-red-500">*</span></div>
+            {/* G4-A：公司主数据，DataScope 自动过滤 */}
+            <CompanySelector value={form.companyCode}
+              onChange={v => set('companyCode', v)}
+              onPick={o => set('companyName', o?.label ?? '')} />
+          </div>
+          <div>
+            <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>公司名称</div>
+            <input className={inpClass} value={form.companyName} readOnly
+              style={{ background: 'var(--bg-muted)', cursor: 'not-allowed' }} placeholder="由公司选择自动带出" />
+          </div>
+          <div>
+            <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>货币 <span className="text-red-500">*</span></div>
+            {/* G4-A：货币枚举来自 sys_dict(SYS_CURRENCY) */}
+            <DictSelect dictType="SYS_CURRENCY" value={form.currencyCode} onChange={v => set('currencyCode', v)} allowEmpty={false} />
+          </div>
+          <div>
+            <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>金额 <span className="text-red-500">*</span></div>
+            <input type="number" min="0.01" step="0.01" value={form.amountOriginal}
+              onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" className={inpClass} />
+          </div>
+          <div>
+            <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>预计归还日期</div>
+            <input type="date" value={form.expectedReturnDate}
+              onChange={e => set('expectedReturnDate', e.target.value)} className={inpClass} />
+          </div>
         </div>
         <div style={{ marginTop: 12 }}>
           <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>资金类型 <span className="text-red-500">*</span></div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {Object.entries(CONTRIBUTION_TYPE_LABELS).map(([k, v]) => (
-              <button key={k} onClick={() => set('contributionType', k)} style={{
-                padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                border: `1.5px solid ${form.contributionType === k ? (CONTRIBUTION_TYPE_COLORS[k] ?? '#6b7280') : '#e2e8f0'}`,
-                background: form.contributionType === k ? (CONTRIBUTION_TYPE_COLORS[k] ?? '#6b7280') + '18' : '#fff',
-                color: form.contributionType === k ? (CONTRIBUTION_TYPE_COLORS[k] ?? '#6b7280') : '#6b7280',
-              }}>{v}</button>
-            ))}
-          </div>
+          {/* G4-A：资金类型枚举来自 sys_dict(FIN_CONTRIBUTION_TYPE) */}
+          <DictSelect dictType="FIN_CONTRIBUTION_TYPE" value={form.contributionType}
+            onChange={v => set('contributionType', v)} allowEmpty={false} />
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>出资凭证</div>
+          {/* G4-A：禁止 URL 文本框，统一附件上传 */}
+          <AttachmentUploader
+            value={form.voucherUrl ? [form.voucherUrl] : []}
+            onChange={urls => set('voucherUrl', urls[urls.length - 1] ?? '')}
+            label="上传出资凭证（PDF/图片 ≤15MB）"
+          />
         </div>
         <div style={{ marginTop: 12 }}>
           <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>备注</div>
@@ -315,12 +347,10 @@ function CreateSettlementModal({
         {needsCash && (
           <div style={{ marginBottom: 12 }}>
             <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>现金账户 <span className="text-red-500">*</span>（RETURN 必填）</div>
-            <select value={form.cashAccountId} onChange={e => set('cashAccountId', e.target.value)} className={inpClass}>
-              <option value="">请选择现金账户</option>
-              {accounts.map(a => (
-                <option key={a.id} value={a.id}>{a.accountName} ({a.currencyCode} {fmt(a.currentBalance)})</option>
-              ))}
-            </select>
+            {/* G4-A：资金账户主数据，value=id；按 contribution 币种过滤 */}
+            <CashAccountSelector value={form.cashAccountId} valueField="id"
+              onChange={v => set('cashAccountId', v)}
+              currencyCode={contribution.currencyCode} />
           </div>
         )}
 

@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/design-system';
+import { DictSelect } from '@/components/shared-selectors/DictSelect';
+import { CompanySelector } from '@/components/shared-selectors/MasterDataSelectors';
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -157,21 +159,21 @@ function CreateExpenseModal({
       <div className="bg-bg-card"
         style={{ borderRadius: 16, padding: 28, width: 460, maxHeight: '90vh', overflowY: 'auto' }}>
         <div className="text-text" style={{ fontWeight: 800, fontSize: 16, marginBottom: 20 }}>新建费用申请</div>
-        {field('公司代码 *', inp('companyCode', 'text', 'e.g. COMP001'))}
-        {field('公司名称', inp('companyName', 'text', '选填'))}
-        {field('费用类型 *',
-          <select value={form.expenseType} onChange={e => setForm(f => ({ ...f, expenseType: e.target.value }))}
-            className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text outline-none focus:border-emerald-400 w-full"
-            style={{ boxSizing: 'border-box' }}>
-            {Object.entries(EXPENSE_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
+        {/* G4-A：公司主数据，自动带出名称，DataScope 自动过滤 */}
+        {field('公司 *',
+          <CompanySelector value={form.companyCode}
+            onChange={v => setForm(f => ({ ...f, companyCode: v }))}
+            onPick={o => setForm(f => ({ ...f, companyName: o?.label ?? '' }))} />
         )}
+        {/* G4-A：费用类型枚举来自 sys_dict(FIN_EXPENSE_TYPE) */}
+        {field('费用类型 *',
+          <DictSelect dictType="FIN_EXPENSE_TYPE" value={form.expenseType}
+            onChange={v => setForm(f => ({ ...f, expenseType: v }))} allowEmpty={false} />
+        )}
+        {/* G4-A：货币枚举来自 sys_dict(SYS_CURRENCY) */}
         {field('币种 *',
-          <select value={form.currencyCode} onChange={e => setForm(f => ({ ...f, currencyCode: e.target.value }))}
-            className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text outline-none focus:border-emerald-400 w-full"
-            style={{ boxSizing: 'border-box' }}>
-            {['CNY', 'USD', 'EUR', 'HKD'].map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <DictSelect dictType="SYS_CURRENCY" value={form.currencyCode}
+            onChange={v => setForm(f => ({ ...f, currencyCode: v }))} allowEmpty={false} />
         )}
         {field('金额 *', inp('amountOriginal', 'number', '0.00'))}
         {field('费用日期', inp('expenseDate', 'date'))}

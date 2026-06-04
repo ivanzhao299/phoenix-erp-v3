@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/design-system';
+import { CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -87,17 +88,11 @@ function PayModal({
   onClose: () => void;
   onPaid: () => void;
 }) {
-  const [accounts, setAccounts] = useState<CashAccount[]>([]);
   const [selectedAccount, setSelectedAccount] = useState('');
+  const [selectedAccRaw, setSelectedAccRaw] = useState<CashAccount | null>(null);
   const [remark, setRemark] = useState('');
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    apiFetch<{ data: CashAccount[] }>('/api/v2/finance/cash/accounts?status=ACTIVE&pageSize=100')
-      .then(r => setAccounts(r.data))
-      .catch(() => {});
-  }, []);
 
   const pay = async () => {
     if (!selectedAccount) { setError('请选择付款账户'); return; }
@@ -115,7 +110,7 @@ function PayModal({
     }
   };
 
-  const selected = accounts.find(a => String(a.id) === selectedAccount);
+  const selected = selectedAccRaw;
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
@@ -134,16 +129,10 @@ function PayModal({
 
         <div style={{ marginBottom: 14 }}>
           <div className="text-text-muted" style={{ fontSize: 12, marginBottom: 6 }}>付款账户 *</div>
-          <select value={selectedAccount} onChange={e => setSelectedAccount(e.target.value)}
-            className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text outline-none focus:border-emerald-400 w-full"
-            style={{ boxSizing: 'border-box' }}>
-            <option value="">请选择账户</option>
-            {accounts.map(a => (
-              <option key={a.id} value={String(a.id)}>
-                {a.account_name}（{a.account_code}）余额：¥{fmt(a.current_balance)}
-              </option>
-            ))}
-          </select>
+          {/* G4-A：资金账户主数据(仅 ACTIVE)，value=id；选中后自动带出余额并校验 */}
+          <CashAccountSelector value={selectedAccount} valueField="id"
+            onChange={setSelectedAccount}
+            onPick={o => setSelectedAccRaw((o?.raw ?? null) as CashAccount | null)} />
           {selected && (
             <div className={`text-xs font-semibold mt-1.5 ${Number(selected.current_balance) >= Number(reimb.reimb_amount_base) ? 'text-emerald-600 dark:text-emerald-400' : 'text-danger'}`}>
               {Number(selected.current_balance) >= Number(reimb.reimb_amount_base) ? '✓ 余额充足' : '✗ 余额不足'}
