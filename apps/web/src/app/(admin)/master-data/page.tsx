@@ -1,138 +1,253 @@
 "use client";
 /**
- * 主数据中心 — 统一导航门户（G5.5-C 重构）
- * ════════════════════════════════════════════════════════
- * · 按 7 大中心分组：组织 / 商业主体 / 产品 / 仓储物流 / 财务主数据 / 治理
- * · 全部卡片直达 Runtime 委托页或治理中心
+ * G5.5-E — 主数据中心首页 · 运营工作台模式
+ * ════════════════════════════════════════════════════
+ * · 全局搜索（跨 12 类主数据）
+ * · 6 中心运营卡（实时显示 对象数 / 待审批 / 异常 / 健康评分）
+ * · 治理 + 运营 入口
  */
+import { useState, useEffect, useCallback } from "react";
 import {
-  Users, Globe, UserCheck, Car, Warehouse, Wallet,
-  Network, Building, FolderKanban, BookOpen,
-  LayoutDashboard, Tag, Package, Layers, ShieldCheck,
-  Store, Egg, Banknote, CheckSquare, Activity,
+  Network, Building, FolderKanban, ShieldCheck,
+  Users, Globe, Store,
+  Egg, Tag, Package, Layers,
+  Warehouse, UserCheck, Car,
+  Wallet, Banknote, BookOpen, CheckSquare, Activity,
+  LayoutDashboard, RefreshCw, Briefcase,
 } from "lucide-react";
-import { NavCard, type NavCardAccent } from "@/components/ui/NavCard";
+import request from "@/lib/api-client";
+import { MasterDataSearch } from "@/components/master-data/MasterDataSearch";
 
-interface CardDef {
-  icon:   React.ElementType;
-  title:  string;
-  desc:   string;
-  href:   string;
-  accent: NavCardAccent;
-}
-
-interface CenterGroup {
+interface CenterStat {
   key: string;
-  title: string;
-  subtitle: string;
-  cards: CardDef[];
+  label: string;
+  objectCount: number;
+  pendingCount: number;
+  riskCount: number;
+  healthScore: number;
+  members: Array<{ type: string; total: number; active: number; pending: number; frozen: number; archived: number }>;
 }
 
-// G5.5-C：7 大中心分组
-const GROUPS: CenterGroup[] = [
-  {
-    key: "org",
-    title: "组织中心",
-    subtitle: "集团 / 公司 / 部门 / 用户授权 — 数据安全边界",
-    cards: [
-      { icon: Network,     title: "组织架构",       accent: "indigo", desc: "集团 → 公司 → BU → 部门 · 层级权限",  href: "/master-data/organizations" },
-      { icon: Building,    title: "公司档案",       accent: "slate",  desc: "集团/子公司/分支机构 · 公司主数据",     href: "/master-data/companies" },
-      { icon: FolderKanban,title: "项目档案",       accent: "teal",   desc: "采购/股东出资项目 · 编码自动 PRJ-XXX",  href: "/master-data/projects" },
-      { icon: ShieldCheck, title: "用户组织权限",    accent: "indigo", desc: "用户绑定 · DataScope 4 维度",          href: "/master-data/user-orgs" },
+const CENTER_META: Record<string, {
+  title: string; subtitle: string; accent: string; icon: any;
+  members: Array<{ type: string; label: string; icon: any; href: string }>;
+}> = {
+  org: {
+    title: '组织中心', subtitle: '集团 / 公司 / 项目 / 用户授权',
+    accent: '#6366f1', icon: Network,
+    members: [
+      { type: 'organization', label: '组织架构', icon: Network,      href: '/master-data/organizations' },
+      { type: 'company',      label: '公司档案', icon: Building,     href: '/master-data/companies' },
+      { type: 'project',      label: '项目档案', icon: FolderKanban, href: '/master-data/projects' },
     ],
   },
-  {
-    key: "biz",
-    title: "商业主体中心",
-    subtitle: "客户 / 供应商 / 门店 — 业务往来主体",
-    cards: [
-      { icon: Users, title: "客户档案",  accent: "blue",  desc: "客户主数据 · CUS-XXXXX · 全 5 态生命周期",     href: "/master-data/customers" },
-      { icon: Globe, title: "供应商档案", accent: "green", desc: "供应商主数据 · SUP-XXXXX · 跨境多币种",        href: "/master-data/suppliers" },
-      { icon: Store, title: "门店档案",   accent: "amber", desc: "门店主数据 · STR-XXXXX · POS/销售引用源",      href: "/master-data/stores" },
+  biz: {
+    title: '商业主体中心', subtitle: '客户 / 供应商 / 门店',
+    accent: '#3b82f6', icon: Users,
+    members: [
+      { type: 'customer', label: '客户档案',   icon: Users, href: '/master-data/customers' },
+      { type: 'supplier', label: '供应商档案', icon: Globe, href: '/master-data/suppliers' },
+      { type: 'store',    label: '门店档案',   icon: Store, href: '/master-data/stores' },
     ],
   },
-  {
-    key: "product",
-    title: "产品中心",
-    subtitle: "产品 / 等级 / 规格 / SKU — 全链路物料统一",
-    cards: [
-      { icon: Egg,    title: "产品档案",   accent: "amber", desc: "产品 SPU · PRD-XXXXX · SKU 父对象",         href: "/master-data/products" },
-      { icon: Tag,    title: "产品等级",   accent: "amber", desc: "等级主数据 · GRD-XXX · SKU 三键之一",        href: "/master-data/product-grades" },
-      { icon: Package,title: "包装规格",   accent: "green", desc: "规格主数据 · SPEC-XXXX · SKU 三键之一",       href: "/master-data/packaging-specs" },
-      { icon: Layers, title: "SKU 档案",  accent: "blue",  desc: "SKU 主档 · 全链路单据物料统一引用源",         href: "/master-data/product-skus" },
+  product: {
+    title: '产品中心', subtitle: '产品 / 等级 / 规格 / SKU',
+    accent: '#f59e0b', icon: Layers,
+    members: [
+      { type: 'product', label: '产品档案', icon: Egg,     href: '/master-data/products' },
+      { type: 'grade',   label: '产品等级', icon: Tag,     href: '/master-data/product-grades' },
+      { type: 'spec',    label: '包装规格', icon: Package, href: '/master-data/packaging-specs' },
+      { type: 'sku',     label: 'SKU 档案', icon: Layers,  href: '/master-data/product-skus' },
     ],
   },
-  {
-    key: "wms",
-    title: "仓储 & 物流中心",
-    subtitle: "仓库 / 司机 / 车辆 — WarehouseScope 数据源",
-    cards: [
-      { icon: Warehouse, title: "仓库档案", accent: "violet", desc: "WMS 仓库 · WH-XXXX · 含 WarehouseScope",  href: "/master-data/warehouses" },
-      { icon: UserCheck, title: "司机档案", accent: "amber",  desc: "销售/配送司机 · 配送单引用源",            href: "/master-data/drivers" },
-      { icon: Car,       title: "车辆档案", accent: "amber",  desc: "销售/配送车辆 · 配送单引用源",            href: "/master-data/vehicles" },
+  wms: {
+    title: '仓储 & 物流中心', subtitle: '仓库 / 司机 / 车辆',
+    accent: '#8b5cf6', icon: Warehouse,
+    members: [
+      { type: 'warehouse', label: '仓库档案', icon: Warehouse, href: '/master-data/warehouses' },
+      { type: 'driver',    label: '司机档案', icon: UserCheck, href: '/master-data/drivers' },
+      { type: 'vehicle',   label: '车辆档案', icon: Car,       href: '/master-data/vehicles' },
     ],
   },
-  {
-    key: "fin",
-    title: "财务主数据中心",
-    subtitle: "资金账户 / 银行账户 — 财务/对账主数据",
-    cards: [
-      { icon: Wallet,   title: "资金账户档案",   accent: "cyan", desc: "ERP 资金账户 · CASH-XXXXX · 实时余额",   href: "/master-data/cash-accounts" },
-      { icon: Banknote, title: "银行账户中心",   accent: "cyan", desc: "境外/跨境结算 · BANK-XXXXX · SWIFT/IBAN", href: "/master-data/bank-accounts" },
+  fin: {
+    title: '财务主数据中心', subtitle: '资金账户 / 银行账户',
+    accent: '#06b6d4', icon: Wallet,
+    members: [
+      { type: 'cash-account', label: '资金账户档案', icon: Wallet,   href: '/master-data/cash-accounts' },
+      { type: 'bank-account', label: '银行账户中心', icon: Banknote, href: '/master-data/bank-accounts' },
     ],
   },
-  {
-    key: "gov",
-    title: "治理中心",
-    subtitle: "字典 / 审批 / 质量 — 主数据治理闭环",
-    cards: [
-      { icon: BookOpen,   title: "数据字典中心",     accent: "violet", desc: "sys_dict 统一管理 · 35 字典类型",      href: "/master-data/dictionaries" },
-      { icon: CheckSquare,title: "主数据待审批",     accent: "amber",  desc: "Workflow 审批入口 · 主数据变更",         href: "/master-data/pending" },
-      { icon: Activity,   title: "主数据治理驾驶舱", accent: "indigo", desc: "G5.5-D · 6 维度治理评分 + 字典覆盖率", href: "/master-data/governance" },
-      { icon: ShieldCheck,title: "数据质量中心",     accent: "green",  desc: "G5 · 全局 7 维度健康评分 + 告警",        href: "/data-quality" },
+  gov: {
+    title: '治理中心', subtitle: '字典 / 审批 / 治理驾驶舱 / 数据质量',
+    accent: '#10b981', icon: ShieldCheck,
+    members: [
+      { type: 'dict', label: '数据字典中心', icon: BookOpen, href: '/master-data/dictionaries' },
     ],
   },
-];
+};
+
+function healthColor(s: number) {
+  if (s >= 90) return '#16a34a';
+  if (s >= 75) return '#2563eb';
+  if (s >= 60) return '#d97706';
+  return '#dc2626';
+}
 
 export default function MasterDataHubPage() {
+  const [centers, setCenters] = useState<CenterStat[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true); setError('');
+    try {
+      setCenters(await request<CenterStat[]>('/master-data/operations/centers'));
+    } catch (e: any) {
+      setError(e?.message || '加载失败');
+    } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
   return (
     <div>
-      {/* 页头 */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center">
-            <LayoutDashboard size={22} className="text-brand" />
+      {/* 顶部页头 + 全局搜索 */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--color-primary)1a',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <LayoutDashboard size={20} style={{ color: 'var(--color-primary)' }} />
           </div>
-          <h1 className="text-xl font-bold text-text">主数据中心</h1>
+          <div style={{ flex: 1 }}>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>主数据运营平台</h1>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+              Phoenix ERP 唯一可信主数据入口 · 6 大中心 · 19 个对象
+            </div>
+          </div>
+          <button onClick={() => void load()} disabled={loading}
+            style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)',
+                     background: 'var(--bg-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+            <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
+          </button>
         </div>
-        <p className="text-sm text-text-muted ml-[52px]">
-          全系统唯一可信主数据入口 · 6 大中心 · 19 个对象 · 统一编码 / 生命周期 / 审批 / 审计
-        </p>
+        <MasterDataSearch />
       </div>
 
-      {/* 6 大中心分组渲染 */}
-      <div className="space-y-10">
-        {GROUPS.map((g) => (
-          <section key={g.key}>
-            <div className="mb-4">
-              <h2 className="text-base font-bold text-text">{g.title}</h2>
-              <p className="text-xs text-text-muted mt-0.5">{g.subtitle}</p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {g.cards.map(({ icon, title, desc, href, accent }) => (
-                <NavCard
-                  key={href}
-                  icon={icon}
-                  title={title}
-                  description={desc}
-                  href={href}
-                  accent={accent}
-                />
-              ))}
-            </div>
-          </section>
-        ))}
+      {/* 运营入口 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
+        <a href="/master-data/operations" style={navTileStyle('#0891b2')}>
+          <Briefcase size={18} style={{ color: '#0891b2' }} />
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>运营工作台</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>待审批 / 补资料 / 风险处理</div>
+          </div>
+        </a>
+        <a href="/master-data/governance" style={navTileStyle('#7c3aed')}>
+          <Activity size={18} style={{ color: '#7c3aed' }} />
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>治理驾驶舱</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>6 维度评分 / 字典覆盖率 / 趋势</div>
+          </div>
+        </a>
+        <a href="/master-data/pending" style={navTileStyle('#d97706')}>
+          <CheckSquare size={18} style={{ color: '#d97706' }} />
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>主数据待审批</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>Workflow 审批入口</div>
+          </div>
+        </a>
+        <a href="/data-quality" style={navTileStyle('#16a34a')}>
+          <ShieldCheck size={18} style={{ color: '#16a34a' }} />
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>G5 数据质量中心</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>7 维度全局健康评分</div>
+          </div>
+        </a>
       </div>
+
+      {error && <div style={{ padding: 10, background: 'rgba(239,68,68,0.08)', color: '#dc2626', borderRadius: 8, marginBottom: 14 }}>{error}</div>}
+
+      {/* 6 中心运营卡 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 14 }}>
+        {centers.map(c => {
+          const meta = CENTER_META[c.key];
+          if (!meta) return null;
+          const Icon = meta.icon;
+          return (
+            <div key={c.key} style={{
+              padding: 18, borderRadius: 14, background: 'var(--bg-card)',
+              border: '1px solid var(--border)', borderTop: `3px solid ${meta.accent}`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                <div style={{ width: 34, height: 34, borderRadius: 8, background: `${meta.accent}15`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon size={17} style={{ color: meta.accent }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700 }}>{meta.title}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 1 }}>{meta.subtitle}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: healthColor(c.healthScore), lineHeight: 1 }}>{c.healthScore}</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>健康度</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
+                <Stat label="对象总数" value={c.objectCount} accent={meta.accent} />
+                <Stat label="待审批" value={c.pendingCount} accent={c.pendingCount > 0 ? '#d97706' : 'var(--text-secondary)'} />
+                <Stat label="风险" value={c.riskCount} accent={c.riskCount > 0 ? '#dc2626' : 'var(--text-secondary)'} />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: meta.members.length > 2 ? 'repeat(2, 1fr)' : '1fr', gap: 6 }}>
+                {meta.members.map(m => {
+                  const memberStat = c.members.find(x => x.type === m.type);
+                  const MemberIcon = m.icon;
+                  return (
+                    <a key={m.type} href={m.href} style={{
+                      padding: '8px 10px', borderRadius: 8, background: 'var(--bg-muted)',
+                      border: '1px solid var(--border)', textDecoration: 'none', color: 'var(--text-primary)',
+                      display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5,
+                    }}>
+                      <MemberIcon size={13} style={{ color: meta.accent, flexShrink: 0 }} />
+                      <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.label}</span>
+                      {memberStat && (
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                          {memberStat.active}/{memberStat.total}
+                        </span>
+                      )}
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {loading && centers.length === 0 && (
+        <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 14 }}>
+          加载中…
+        </div>
+      )}
     </div>
   );
+}
+
+function Stat({ label, value, accent }: { label: string; value: number; accent: string }) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 18, fontWeight: 800, color: accent, lineHeight: 1 }}>{value}</div>
+    </div>
+  );
+}
+
+function navTileStyle(accent: string): React.CSSProperties {
+  return {
+    padding: '14px 16px', borderRadius: 10, background: 'var(--bg-card)',
+    border: `1px solid var(--border)`, borderLeft: `3px solid ${accent}`,
+    textDecoration: 'none', color: 'var(--text-primary)',
+    display: 'flex', alignItems: 'center', gap: 12,
+  };
 }

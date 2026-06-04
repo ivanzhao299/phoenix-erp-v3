@@ -6,6 +6,7 @@ import { MasterDataAuditService } from './master-data-audit.service';
 import { MasterDataReferencesService } from './master-data-references.service'; // G5.5-C
 import { DictGovernanceService } from './dict-governance.service';               // G5.5-D
 import { MasterDataGovernanceService } from './governance.service';              // G5.5-D
+import { MasterDataOperationsService } from './operations.service';              // G5.5-E
 
 /**
  * MasterDataCenterController — 主数据中心后端 API（G1）
@@ -23,7 +24,31 @@ export class MasterDataCenterController {
     private readonly refs: MasterDataReferencesService, // G5.5-C
     private readonly dictGov: DictGovernanceService,    // G5.5-D
     private readonly gov: MasterDataGovernanceService,  // G5.5-D
+    private readonly ops: MasterDataOperationsService,  // G5.5-E
   ) {}
+
+  // ══ G5.5-E 运营平台端点 ════════════════════════════════════════════════════
+  /** 6 中心实时统计（首页运营工作台用） */
+  @Get('operations/centers')
+  @RequireMenu('MENU_MASTER_DATA', 'V')
+  async opsCenters() { return this.ops.getCenters(); }
+
+  /** 全局主数据搜索 */
+  @Get('operations/search')
+  @RequireMenu('MENU_MASTER_DATA', 'V')
+  async opsSearch(@Query('keyword') keyword: string) { return this.ops.search(keyword); }
+
+  /** 30 天趋势 */
+  @Get('operations/trend')
+  @RequireMenu('MENU_MASTER_DATA', 'V')
+  async opsTrend(@Query('days') days?: string) {
+    return this.ops.getTrend(days ? parseInt(days, 10) : 30);
+  }
+
+  /** 运营待办（待审批 / 缺资料 / 重复 / 归档阻断） */
+  @Get('operations/todo')
+  @RequireMenu('MENU_MASTER_DATA', 'V')
+  async opsTodo() { return this.ops.getOperationsTodo(); }
 
   /** G5.5-D 治理驾驶舱：总评分 + 5 子评分 */
   @Get('governance/scores')
