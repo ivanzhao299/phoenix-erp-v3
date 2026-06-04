@@ -58,6 +58,8 @@ import { StorePosModule } from './modules/store-pos/store-pos.module';
 import { ProductMasterModule } from './modules/product-master/product-master.module';
 import { TraceabilityModule } from './modules/traceability/traceability.module';
 import { MasterDataCenterModule } from './modules/master-data/master-data-center.module';
+// [G5] Data Quality Center
+import { DataQualityModule } from './modules/data-quality/data-quality.module';
 
 
 @Module({
@@ -116,6 +118,7 @@ import { MasterDataCenterModule } from './modules/master-data/master-data-center
     ProductMasterModule,    // Product Master Phase H2: 等级/规格/SKU 主数据
     TraceabilityModule,     // R5: 统一追溯 Runtime（鸡舍→…→库存→销售→客户→财务）
     MasterDataCenterModule, // G1: 主数据中心（编码生成/审计/数据质量）
+    DataQualityModule,      // G5: 数据质量中心（7 维度健康评分 + 告警聚合）
   ],
   controllers: [DebugController, HealthController],
   providers: [
