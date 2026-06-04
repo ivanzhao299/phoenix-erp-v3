@@ -5,6 +5,10 @@ import { useToast } from "@/contexts/ToastContext";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
 import { Search, RefreshCw, Plus, Eye, CheckCircle, X } from "lucide-react";
+import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字典
+import {
+  WarehouseSelector, UserSelector, SkuSelector,
+} from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -390,11 +394,13 @@ export default function ReceiptsPage() {
             <div className={s.fieldRow3}>
               <div className={s.field}>
                 <label className={s.lbl}>仓库</label>
-                <input className={s.inp} value={formWh} onChange={e => setFormWh(e.target.value)} placeholder="仓库代码" />
+                {/* G4-B：仓库主数据(wms_warehouses，仅 ACTIVE) */}
+                <WarehouseSelector value={formWh} onChange={setFormWh} />
               </div>
               <div className={s.field}>
                 <label className={s.lbl}>收货人</label>
-                <input className={s.inp} value={formReceiver} onChange={e => setFormReceiver(e.target.value)} placeholder="收货人姓名" />
+                {/* G4-B：用户主数据(sys_user，仅 ACTIVE) */}
+                <UserSelector value={formReceiver} onChange={setFormReceiver} />
               </div>
               <div className={s.field}>
                 <label className={s.lbl}>收货日期</label>
@@ -428,7 +434,14 @@ export default function ReceiptsPage() {
                   {formItems.map((item, idx) => (
                     <tr key={idx} style={{ borderBottom: idx === formItems.length - 1 ? "none" : "1px solid var(--border)" }}>
                       <td style={{ padding: "8px" }}>
-                        <input style={cellInp} value={item.itemName} onChange={e => setItemField(idx, "itemName", e.target.value)} placeholder="物品名称" />
+                        {/* G4-B：物料从 SKU 主数据选择，自动带出 sku_code/name/spec/unit */}
+                        <SkuSelector value={item.itemCode ?? ""}
+                          onChange={code => setItemField(idx, "itemCode", code)}
+                          onPick={o => {
+                            setItemField(idx, "itemName", o?.raw?.sku_name ?? o?.raw?.product_name ?? "");
+                            setItemField(idx, "spec",     o?.raw?.spec_code ?? "");
+                          }}
+                          style={{ fontSize: 13, padding: "5px 8px" }} />
                       </td>
                       <td style={{ padding: "8px" }}>
                         <input type="number" style={{ ...cellInp, textAlign: "right" }} value={item.expectedQty}
@@ -446,11 +459,11 @@ export default function ReceiptsPage() {
                         <input style={cellInp} value={item.unit ?? ""} onChange={e => setItemField(idx, "unit", e.target.value)} placeholder="单位" />
                       </td>
                       <td style={{ padding: "8px" }}>
-                        <select style={cellInp} value={item.qualityStatus ?? "PASS"} onChange={e => setItemField(idx, "qualityStatus", e.target.value)}>
-                          <option value="PASS">合格</option>
-                          <option value="PARTIAL">部分合格</option>
-                          <option value="REJECT">不合格</option>
-                        </select>
+                        {/* G4-B：质量状态来自 sys_dict(PRC_QUALITY_STATUS) */}
+                        <DictSelect dictType="PRC_QUALITY_STATUS"
+                          value={item.qualityStatus ?? "PASS"}
+                          onChange={v => setItemField(idx, "qualityStatus", v)}
+                          allowEmpty={false} />
                       </td>
                       <td style={{ padding: "8px", textAlign: "center" }}>
                         {formItems.length > 1 && (

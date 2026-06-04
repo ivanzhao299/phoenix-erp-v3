@@ -8,6 +8,12 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字典
+import {
+  CompanySelector, ProjectSelector, SupplierSelector,
+  WarehouseSelector, SkuSelector,
+} from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
+import { AttachmentUploader } from "@/components/design-system"; // G4-B 合同附件
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 interface OrderItem {
@@ -580,50 +586,62 @@ export default function PurchaseOrdersPage() {
           </div>
           <div className={s.fieldRow}>
             <div className={s.field}>
-              <label className={s.lbl}>公司代码 *</label>
-              <input className={s.inp} value={fCompanyCode} onChange={e => setFCompanyCode(e.target.value)}
-                placeholder="如 PHX_AGRI" disabled={!!editing} />
+              <label className={s.lbl}>公司 *</label>
+              {/* G4-B：公司主数据，DataScope 自动过滤 */}
+              <CompanySelector value={fCompanyCode}
+                onChange={setFCompanyCode}
+                onPick={o => setFCompanyName(o?.label ?? "")}
+                disabled={!!editing} />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>公司名称 *</label>
-              <input className={s.inp} value={fCompanyName} onChange={e => setFCompanyName(e.target.value)}
-                placeholder="公司名称" disabled={!!editing} />
+              <input className={s.inp} value={fCompanyName} readOnly
+                style={{ background: "var(--bg-muted)", color: "var(--text-secondary)", cursor: "not-allowed" }}
+                placeholder="由公司选择自动带出" />
             </div>
           </div>
           <div className={s.fieldRow}>
             <div className={s.field}>
-              <label className={s.lbl}>项目编码</label>
-              <input className={s.inp} value={fProjectCode} onChange={e => setFProjectCode(e.target.value)} placeholder="可选" />
+              <label className={s.lbl}>项目</label>
+              {/* G4-B：项目主数据(shr_projects)，自动带出名称 */}
+              <ProjectSelector value={fProjectCode}
+                onChange={setFProjectCode}
+                onPick={o => setFProjectName(o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? "")} />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>项目名称</label>
-              <input className={s.inp} value={fProjectName} onChange={e => setFProjectName(e.target.value)} placeholder="可选" />
+              <input className={s.inp} value={fProjectName} readOnly
+                style={{ background: "var(--bg-muted)", color: "var(--text-secondary)", cursor: "not-allowed" }}
+                placeholder="由项目选择自动带出" />
             </div>
           </div>
 
           <div className={s.formSection} style={{ marginTop: 20 }}>供应商 & 采购属性</div>
           <div className={s.fieldRow}>
             <div className={s.field}>
-              <label className={s.lbl}>供应商代码 *</label>
-              <input className={s.inp} value={fSupplierCode} onChange={e => setFSupplierCode(e.target.value)} placeholder="供应商代码" />
+              <label className={s.lbl}>供应商 *</label>
+              {/* G4-B：供应商主数据(仅 ACTIVE)，自动带出名称 */}
+              <SupplierSelector value={fSupplierCode}
+                onChange={setFSupplierCode}
+                onPick={o => setFSupplierName(o?.raw?.name ?? o?.label ?? "")} />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>供应商名称 *</label>
-              <input className={s.inp} value={fSupplierName} onChange={e => setFSupplierName(e.target.value)} placeholder="供应商名称" />
+              <input className={s.inp} value={fSupplierName} readOnly
+                style={{ background: "var(--bg-muted)", color: "var(--text-secondary)", cursor: "not-allowed" }}
+                placeholder="由供应商选择自动带出" />
             </div>
           </div>
           <div className={s.fieldRow}>
             <div className={s.field}>
               <label className={s.lbl}>采购类型</label>
-              <select className={s.inp} value={fPurchaseType} onChange={e => setFPurchaseType(e.target.value)}>
-                {PURCHASE_TYPE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              {/* G4-B：采购类型枚举来自 sys_dict(PRC_PURCHASE_TYPE) */}
+              <DictSelect dictType="PRC_PURCHASE_TYPE" value={fPurchaseType} onChange={setFPurchaseType} allowEmpty={false} />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>货币</label>
-              <select className={s.inp} value={fCurrencyCode} onChange={e => setFCurrencyCode(e.target.value)}>
-                {CURRENCY_OPTS.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              {/* G4-B：货币枚举来自 sys_dict(SYS_CURRENCY) */}
+              <DictSelect dictType="SYS_CURRENCY" value={fCurrencyCode} onChange={setFCurrencyCode} allowEmpty={false} />
             </div>
           </div>
           <div className={s.fieldRow}>
@@ -668,8 +686,12 @@ export default function PurchaseOrdersPage() {
               <input className={s.inp} value={fContractNo} onChange={e => setFContractNo(e.target.value)} placeholder="CT2-..." />
             </div>
             <div className={s.field}>
-              <label className={s.lbl}>合同文件 URL</label>
-              <input className={s.inp} value={fContractUrl} onChange={e => setFContractUrl(e.target.value)} placeholder="https://..." />
+              <label className={s.lbl}>合同附件</label>
+              {/* G4-B：禁止 URL 文本框，使用统一附件上传组件 */}
+              <AttachmentUploader
+                value={fContractUrl ? [fContractUrl] : []}
+                onChange={urls => setFContractUrl(urls[urls.length - 1] ?? "")}
+                label="上传合同附件（PDF/图片 ≤15MB）" />
             </div>
           </div>
           <div className={s.field}>
@@ -707,10 +729,18 @@ export default function PurchaseOrdersPage() {
               <tbody>
                 {formItems.map((it, idx) => (
                   <tr key={idx} style={{ borderBottom: "1px solid var(--border)" }}>
-                    <td style={tdStyle}><input style={cellInp} value={it.itemName}
-                      onChange={e => setItemField(idx, "itemName", e.target.value)} placeholder="物品名称" /></td>
-                    <td style={tdStyle}><input style={{ ...cellInp, width: 80 }} value={it.spec ?? ""}
-                      onChange={e => setItemField(idx, "spec", e.target.value)} /></td>
+                    <td style={tdStyle}>
+                      {/* G4-B：物料从 SKU 主数据选择，自动带出 sku_code/name/spec/unit */}
+                      <SkuSelector value={it.itemCode ?? ""}
+                        onChange={code => setItemField(idx, "itemCode", code)}
+                        onPick={o => {
+                          setItemField(idx, "itemName", o?.raw?.sku_name ?? o?.raw?.product_name ?? "");
+                          setItemField(idx, "spec",     o?.raw?.spec_code ?? "");
+                        }}
+                        style={{ minWidth: 200, fontSize: 12, padding: "3px 6px" }} />
+                    </td>
+                    <td style={tdStyle}><input style={{ ...cellInp, width: 80, background: "var(--bg-muted)" }} value={it.spec ?? ""}
+                      readOnly placeholder="由 SKU 自动带出" /></td>
                     <td style={tdStyle}><input style={{ ...cellInp, width: 70 }} type="number" min="0" value={it.qty}
                       onChange={e => setItemField(idx, "qty", e.target.value)} /></td>
                     <td style={tdStyle}><input style={{ ...cellInp, width: 50 }} value={it.unit ?? ""}
@@ -720,8 +750,13 @@ export default function PurchaseOrdersPage() {
                     <td style={{ ...tdStyle, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--text-secondary)" }}>
                       {it.amount ? Number(it.amount).toLocaleString("zh-CN") : "—"}
                     </td>
-                    <td style={tdStyle}><input style={{ ...cellInp, width: 70 }} value={it.warehouseCode ?? ""}
-                      onChange={e => setItemField(idx, "warehouseCode", e.target.value)} /></td>
+                    <td style={tdStyle}>
+                      {/* G4-B：仓库主数据，按当前公司过滤 */}
+                      <WarehouseSelector value={it.warehouseCode ?? ""}
+                        onChange={code => setItemField(idx, "warehouseCode", code)}
+                        companyCode={fCompanyCode}
+                        style={{ minWidth: 150, fontSize: 12, padding: "3px 6px" }} />
+                    </td>
                     <td style={tdStyle}>
                       <button type="button"
                         style={{ border: "none", background: "none", cursor: "pointer", color: "#ef4444", padding: "0 2px" }}

@@ -9,6 +9,11 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字典
+import {
+  CompanySelector, ProjectSelector, SupplierSelector,
+  WarehouseSelector, SkuSelector,
+} from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 interface ReqItem {
@@ -550,28 +555,33 @@ export default function PurchaseRequestsPage() {
           </div>
           <div className={s.fieldRow}>
             <div className={s.field}>
-              <label className={s.lbl}>公司代码 *</label>
-              <input className={s.inp} value={formCompanyCode}
-                onChange={e => setFormCompanyCode(e.target.value)} placeholder="如 PHX_AGRI"
+              <label className={s.lbl}>公司 *</label>
+              {/* G4-B：公司主数据(org_units COMPANY)，DataScope 自动过滤 */}
+              <CompanySelector value={formCompanyCode}
+                onChange={setFormCompanyCode}
+                onPick={o => setFormCompanyName(o?.label ?? "")}
                 disabled={!!editing} />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>公司名称 *</label>
-              <input className={s.inp} value={formCompanyName}
-                onChange={e => setFormCompanyName(e.target.value)} placeholder="公司名称快照"
-                disabled={!!editing} />
+              <input className={s.inp} value={formCompanyName} readOnly
+                style={{ background: "var(--bg-muted)", color: "var(--text-secondary)", cursor: "not-allowed" }}
+                placeholder="由公司选择自动带出" />
             </div>
           </div>
           <div className={s.fieldRow}>
             <div className={s.field}>
-              <label className={s.lbl}>项目编码</label>
-              <input className={s.inp} value={formProjectCode}
-                onChange={e => setFormProjectCode(e.target.value)} placeholder="可选，如 FARM-2026-001" />
+              <label className={s.lbl}>项目</label>
+              {/* G4-B：项目主数据(shr_projects)，仅 ACTIVE，自动带出项目名称 */}
+              <ProjectSelector value={formProjectCode}
+                onChange={setFormProjectCode}
+                onPick={o => setFormProjectName(o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? "")} />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>项目名称</label>
-              <input className={s.inp} value={formProjectName}
-                onChange={e => setFormProjectName(e.target.value)} placeholder="项目名称快照" />
+              <input className={s.inp} value={formProjectName} readOnly
+                style={{ background: "var(--bg-muted)", color: "var(--text-secondary)", cursor: "not-allowed" }}
+                placeholder="由项目选择自动带出" />
             </div>
           </div>
 
@@ -580,23 +590,20 @@ export default function PurchaseRequestsPage() {
           <div className={s.fieldRow}>
             <div className={s.field}>
               <label className={s.lbl}>采购类型</label>
-              <select className={s.inp} value={formType} onChange={e => setFormType(e.target.value)}>
-                {PURCHASE_TYPE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              {/* G4-B：采购类型枚举来自 sys_dict(PRC_PURCHASE_TYPE) */}
+              <DictSelect dictType="PRC_PURCHASE_TYPE" value={formType} onChange={setFormType} allowEmpty={false} />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>紧急程度</label>
-              <select className={s.inp} value={formUrgency} onChange={e => setFormUrgency(e.target.value)}>
-                {URGENCY_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              {/* G4-B：紧急程度枚举来自 sys_dict(PRC_URGENCY) */}
+              <DictSelect dictType="PRC_URGENCY" value={formUrgency} onChange={setFormUrgency} allowEmpty={false} />
             </div>
           </div>
           <div className={s.fieldRow}>
             <div className={s.field}>
               <label className={s.lbl}>货币</label>
-              <select className={s.inp} value={formCurrency} onChange={e => setFormCurrency(e.target.value)}>
-                {CURRENCY_OPTS.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              {/* G4-B：货币枚举来自 sys_dict(SYS_CURRENCY) */}
+              <DictSelect dictType="SYS_CURRENCY" value={formCurrency} onChange={setFormCurrency} allowEmpty={false} />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>期望到货日</label>
@@ -644,12 +651,18 @@ export default function PurchaseRequestsPage() {
                 {formItems.map((it, idx) => (
                   <tr key={idx} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={tdStyle}>
-                      <input style={cellInpStyle} value={it.itemName}
-                        onChange={e => setItemField(idx, "itemName", e.target.value)} placeholder="物品名称" />
+                      {/* G4-B：物料从 SKU 主数据选择，自动带出 sku_code/name/spec/unit */}
+                      <SkuSelector value={it.itemCode ?? ""}
+                        onChange={code => setItemField(idx, "itemCode", code)}
+                        onPick={o => {
+                          setItemField(idx, "itemName", o?.raw?.sku_name ?? o?.raw?.product_name ?? "");
+                          setItemField(idx, "spec",     o?.raw?.spec_code ?? "");
+                        }}
+                        style={{ minWidth: 200, fontSize: 12, padding: "3px 6px" }} />
                     </td>
                     <td style={tdStyle}>
-                      <input style={{ ...cellInpStyle, width: 80 }} value={it.spec ?? ""}
-                        onChange={e => setItemField(idx, "spec", e.target.value)} placeholder="规格" />
+                      <input style={{ ...cellInpStyle, width: 80, background: "var(--bg-muted)" }} value={it.spec ?? ""}
+                        readOnly placeholder="由 SKU 自动带出" />
                     </td>
                     <td style={tdStyle}>
                       <input style={{ ...cellInpStyle, width: 70 }} type="number" min="0"
@@ -669,8 +682,11 @@ export default function PurchaseRequestsPage() {
                       {it.estimatedAmount ? Number(it.estimatedAmount).toLocaleString("zh-CN") : "—"}
                     </td>
                     <td style={tdStyle}>
-                      <input style={{ ...cellInpStyle, width: 70 }} value={it.warehouseCode ?? ""}
-                        onChange={e => setItemField(idx, "warehouseCode", e.target.value)} placeholder="仓库" />
+                      {/* G4-B：仓库主数据(wms_warehouses)，按当前公司过滤 */}
+                      <WarehouseSelector value={it.warehouseCode ?? ""}
+                        onChange={code => setItemField(idx, "warehouseCode", code)}
+                        companyCode={formCompanyCode}
+                        style={{ minWidth: 150, fontSize: 12, padding: "3px 6px" }} />
                     </td>
                     <td style={tdStyle}>
                       <button type="button"
@@ -872,14 +888,17 @@ export default function PurchaseRequestsPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div className={s.fieldRow} style={{ gap: 8 }}>
             <div className={s.field}>
-              <label className={s.lbl}>供应商代码 *</label>
-              <input className={s.inp} value={convertSupplierCode}
-                onChange={e => setConvertSupplierCode(e.target.value)} placeholder="如 SUP001" />
+              <label className={s.lbl}>供应商 *</label>
+              {/* G4-B：供应商主数据(仅 ACTIVE)，自动带出名称 */}
+              <SupplierSelector value={convertSupplierCode}
+                onChange={setConvertSupplierCode}
+                onPick={o => setConvertSupplierName(o?.raw?.name ?? o?.label ?? "")} />
             </div>
             <div className={s.field}>
-              <label className={s.lbl}>供应商名称 *</label>
-              <input className={s.inp} value={convertSupplierName}
-                onChange={e => setConvertSupplierName(e.target.value)} placeholder="供应商全称" />
+              <label className={s.lbl}>供应商名称</label>
+              <input className={s.inp} value={convertSupplierName} readOnly
+                style={{ background: "var(--bg-muted)", color: "var(--text-secondary)", cursor: "not-allowed" }}
+                placeholder="由供应商选择自动带出" />
             </div>
           </div>
           <div className={s.fieldRow} style={{ gap: 8 }}>

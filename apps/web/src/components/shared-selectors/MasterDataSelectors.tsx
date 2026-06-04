@@ -124,3 +124,97 @@ export function ShareholderSelector(p: BaseProps) {
         .map(s => ({ value: s.shareholderCode ?? s.shareholder_code, label: s.shareholderName ?? s.shareholder_name, raw: s }));
     }} />;
 }
+
+// ── 用户（G4-B：申请人 / 收货人 / 经办人）─────────────────────────────────────
+/** 仅返回 status=ACTIVE 用户；value 默认是 username（与单据 requester_name 等字段一致） */
+export function UserSelector(p: BaseProps & { valueField?: 'username' | 'id' }) {
+  const { valueField = 'username', ...rest } = p;
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择用户'}
+    loader={async () => {
+      const r = await request<any>('/users');
+      const list: any[] = Array.isArray(r) ? r : (r?.data ?? []);
+      return list
+        .filter(u => (u.status ?? 'ACTIVE') === 'ACTIVE')
+        .map(u => ({
+          value: valueField === 'id' ? String(u.id) : u.username,
+          label: `${u.real_name_zh ?? u.username}（${u.username}${u.role ? ' · ' + u.role : ''}）`,
+          raw: u,
+        }));
+    }} />;
+}
+
+// ── 仓库（wms_warehouses，仅 ACTIVE）─────────────────────────────────────────
+export function WarehouseSelector(p: BaseProps & { companyCode?: string }) {
+  const { companyCode, ...rest } = p;
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择仓库'}
+    loader={async () => {
+      const r = await request<any>('/crud/wms_warehouses?status=ACTIVE&pageSize=200');
+      const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
+      return list
+        .filter(w => (w.status ?? 'ACTIVE') === 'ACTIVE')
+        .filter(w => !companyCode || w.company_code === companyCode || w.org_code === companyCode)
+        .map(w => ({
+          value: w.warehouse_code ?? w.code,
+          label: `${w.warehouse_name ?? w.name ?? w.warehouse_code}（${w.warehouse_code ?? w.code}）`,
+          raw: w,
+        }));
+    }} />;
+}
+
+// ── 库区（wms_zones）─────────────────────────────────────────────────────────
+export function ZoneSelector(p: BaseProps & { warehouseCode?: string }) {
+  const { warehouseCode, ...rest } = p;
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择库区'}
+    loader={async () => {
+      const r = await request<any>('/crud/wms_zones?status=ACTIVE&pageSize=500');
+      const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
+      return list
+        .filter(z => (z.status ?? 'ACTIVE') === 'ACTIVE')
+        .filter(z => !warehouseCode || z.warehouse_code === warehouseCode)
+        .map(z => ({
+          value: z.zone_code,
+          label: `${z.zone_name ?? z.zone_code}（${z.zone_code}）`,
+          raw: z,
+        }));
+    }} />;
+}
+
+// ── 货位（wms_locations）─────────────────────────────────────────────────────
+export function LocationSelector(p: BaseProps & { warehouseCode?: string; zoneCode?: string }) {
+  const { warehouseCode, zoneCode, ...rest } = p;
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择货位'}
+    loader={async () => {
+      const r = await request<any>('/crud/wms_locations?status=ACTIVE&pageSize=500');
+      const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
+      return list
+        .filter(l => (l.status ?? 'ACTIVE') === 'ACTIVE')
+        .filter(l => !warehouseCode || l.warehouse_code === warehouseCode)
+        .filter(l => !zoneCode || l.zone_code === zoneCode)
+        .map(l => ({
+          value: l.location_code,
+          label: `${l.location_name ?? l.location_code}（${l.location_code}）`,
+          raw: l,
+        }));
+    }} />;
+}
+
+// ── SKU（物料主数据，仅 ACTIVE）──────────────────────────────────────────────
+/** value = sku_code；onPick 回传 raw（包含 product_code/product_name/grade_code/spec_code/sku_name） */
+export function SkuSelector(p: BaseProps & { productCode?: string; gradeCode?: string }) {
+  const { productCode, gradeCode, ...rest } = p;
+  return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择物料'}
+    loader={async () => {
+      const params = new URLSearchParams({ status: 'ACTIVE' });
+      if (productCode) params.set('product_code', productCode);
+      if (gradeCode) params.set('grade_code', gradeCode);
+      const r = await request<any>(`/product-master/skus?${params}`);
+      const list: any[] = Array.isArray(r) ? r : (r?.data ?? []);
+      return list
+        .filter(s => (s.status ?? 'ACTIVE') === 'ACTIVE')
+        .map(s => ({
+          value: s.sku_code,
+          label: `${s.sku_name ?? s.product_name ?? s.sku_code}（${s.sku_code}${s.spec_code ? ' · ' + s.spec_code : ''}${s.grade_code ? ' · ' + s.grade_code : ''}）`,
+          raw: s,
+        }));
+    }} />;
+}
