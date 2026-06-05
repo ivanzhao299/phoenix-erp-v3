@@ -582,8 +582,9 @@ export default function MdOrganizationsPage() {
         flexDirection: 'row',
         flexWrap: isNarrow ? 'wrap' : 'nowrap',
         gap: 16,
-        minHeight: 600,
+        alignItems: 'flex-start',
         marginTop: 4,
+        height: isNarrow ? 'auto' : 'calc(100vh - 180px)',
       }}>
 
         {/* ── Left: org tree ─────────────────────────────────────────────────── */}
@@ -794,100 +795,68 @@ export default function MdOrganizationsPage() {
                 </div>
               </div>
 
-              {/* Detail body */}
-              <div className="flex-1 overflow-y-auto px-6 py-2">
-                <div className="grid gap-0">
-
-                  {/* Basic info section */}
-                  <div className="mb-4 mt-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Info size={13} className="text-brand" />
-                      <span className="text-xs font-bold text-text-muted uppercase tracking-wider">基本信息</span>
-                    </div>
-                    <div className="rounded-xl border border-border bg-bg-muted/20 px-4">
-                      <DetailRow label="正式全称"     value={selectedOrg.orgName} />
-                      <DetailRow label="简称"         value={selectedOrg.orgShortName} />
-                      <DetailRow label="组织编码"     value={<span className="font-mono text-xs">{selectedOrg.orgCode}</span>} />
-                      <DetailRow label="组织类型"     value={<OrgTypeBadge type={selectedOrg.orgType} />} />
-                      <DetailRow label="状态"         value={<StatusBadge status={selectedOrg.status} />} />
-                      {selectedOrg.orgType === "SITE" && (
-                        <DetailRow
-                          label="场区业务类型"
-                          value={
-                            selectedOrg.siteBusinessType
-                              ? SITE_BUSINESS_TYPES.find(t => t.value === selectedOrg.siteBusinessType)?.label
-                                ?? selectedOrg.siteBusinessType
-                              : null
-                          }
-                        />
-                      )}
-                    </div>
+              {/* Detail body — UIX-PROD-2: 2 列属性网格密集布局 */}
+              <div className="flex-1 overflow-y-auto" style={{ padding: "16px 20px" }}>
+                <div className="rounded-xl border border-border bg-bg-muted/20 overflow-hidden">
+                  {/* Section header: 基本信息 */}
+                  <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-bg-card/40">
+                    <Info size={14} className="text-brand" />
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: 0.2 }}>组织档案</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-secondary)' }}>
+                      {ORG_TYPE_CONFIG[selectedOrg.orgType]?.label} · L{selectedOrg.level}
+                    </span>
                   </div>
 
-                  {/* Hierarchy section */}
-                  <div className="mb-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Network size={13} className="text-brand" />
-                      <span className="text-xs font-bold text-text-muted uppercase tracking-wider">层级关系</span>
-                    </div>
-                    <div className="rounded-xl border border-border bg-bg-muted/20 px-4">
-                      <DetailRow
-                        label="上级组织"
-                        value={
-                          parentOrg
-                            ? (
-                              <button
-                                onClick={() => setSelectedCode(parentOrg.orgCode)}
-                                className="inline-flex items-center gap-1 text-brand hover:underline text-sm"
-                              >
-                                {parentOrg.orgShortName || parentOrg.orgName}
-                                <ArrowRight size={11} />
-                              </button>
-                            )
-                            : <span className="text-text-dim text-xs">顶级组织</span>
-                        }
-                      />
-                      <DetailRow
-                        label="层级"
-                        value={
-                          <span className="inline-flex items-center gap-1.5">
-                            <span className="w-5 h-5 rounded-full bg-brand/10 text-brand text-[11px] font-bold flex items-center justify-center">
-                              {selectedOrg.level}
-                            </span>
-                            <span className="text-xs text-text-muted">L{selectedOrg.level}</span>
-                          </span>
-                        }
-                      />
-                      <DetailRow
-                        label="路径"
-                        value={selectedOrg.path
-                          ? <span className="text-xs font-mono text-text-muted break-all">{selectedOrg.path}</span>
-                          : null
-                        }
-                      />
-                      <DetailRow label="下级数量" value={
-                        <span className="text-sm font-semibold text-text">
-                          {flat.filter(o => o.parentId === selectedOrg.id).length} 个直属
-                          {" / "}
-                          {flat.filter(o => o.path?.includes(`/${selectedOrg.id}/`) || o.parentId === selectedOrg.id).length} 个全部
-                        </span>
-                      } />
-                    </div>
+                  {/* 2 列属性网格 */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0' }}>
+                    <PropCell label="正式全称" value={selectedOrg.orgName} mono={false} />
+                    <PropCell label="简称" value={selectedOrg.orgShortName || '—'} />
+                    <PropCell label="组织编码" value={selectedOrg.orgCode} mono />
+                    <PropCell label="组织类型" value={<OrgTypeBadge type={selectedOrg.orgType} />} />
+                    <PropCell label="状态" value={<StatusBadge status={selectedOrg.status} />} />
+                    <PropCell label="层级" value={
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-brand/10 text-brand text-[11px] font-bold">{selectedOrg.level}</span>
+                        <span className="text-xs text-text-muted">L{selectedOrg.level}</span>
+                      </span>
+                    } />
+                    <PropCell label="上级组织" value={
+                      parentOrg
+                        ? <button onClick={() => setSelectedCode(parentOrg.orgCode)}
+                            className="inline-flex items-center gap-1 text-brand hover:underline" style={{ fontSize: 13, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
+                            {parentOrg.orgShortName || parentOrg.orgName}<ArrowRight size={11} />
+                          </button>
+                        : <span className="text-text-dim text-xs">顶级组织</span>
+                    } />
+                    <PropCell label="下级数量" value={
+                      <span style={{ fontSize: 13 }}>
+                        <strong style={{ color: 'var(--text-primary)' }}>{flat.filter(o => o.parentId === selectedOrg.id).length}</strong>
+                        <span style={{ color: 'var(--text-secondary)', margin: '0 4px' }}>直属 ·</span>
+                        <strong style={{ color: 'var(--text-primary)' }}>{flat.filter(o => o.path?.includes(`/${selectedOrg.id}/`) || o.parentId === selectedOrg.id).length}</strong>
+                        <span style={{ color: 'var(--text-secondary)' }}>全部</span>
+                      </span>
+                    } />
+                    {selectedOrg.companyCode && <PropCell label="关联公司" value={selectedOrg.companyCode} mono />}
+                    {selectedOrg.managerName && <PropCell label="负责人" value={selectedOrg.managerName} />}
+                    <PropCell label="排序权重" value={String(selectedOrg.sortOrder ?? 0)} />
+                    {selectedOrg.orgType === "SITE" && selectedOrg.siteBusinessType && (
+                      <PropCell label="场区业务类型" value={SITE_BUSINESS_TYPES.find(t => t.value === selectedOrg.siteBusinessType)?.label ?? selectedOrg.siteBusinessType} />
+                    )}
                   </div>
 
-                  {/* Extended info */}
-                  {(selectedOrg.companyCode || selectedOrg.managerName || selectedOrg.remark || selectedOrg.sortOrder !== undefined) && (
-                    <div className="mb-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <LayoutGrid size={13} className="text-brand" />
-                        <span className="text-xs font-bold text-text-muted uppercase tracking-wider">扩展信息</span>
-                      </div>
-                      <div className="rounded-xl border border-border bg-bg-muted/20 px-4">
-                        {selectedOrg.companyCode  && <DetailRow label="关联公司编码" value={<span className="font-mono text-xs">{selectedOrg.companyCode}</span>} />}
-                        {selectedOrg.managerName  && <DetailRow label="负责人" value={selectedOrg.managerName} />}
-                        <DetailRow label="排序权重" value={selectedOrg.sortOrder ?? 0} />
-                        {selectedOrg.remark && <DetailRow label="备注" value={selectedOrg.remark} />}
-                      </div>
+                  {/* 路径独占一行 */}
+                  {selectedOrg.path && (
+                    <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'baseline' }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)', minWidth: 56 }}>组织路径</span>
+                      <code style={{ fontSize: 12, color: 'var(--text-secondary)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{selectedOrg.path}</code>
+                    </div>
+                  )}
+
+                  {/* 备注独占一行 */}
+                  {selectedOrg.remark && (
+                    <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'baseline' }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)', minWidth: 56 }}>备注</span>
+                      <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{selectedOrg.remark}</span>
                     </div>
                   )}
                 </div>
@@ -921,28 +890,28 @@ export default function MdOrganizationsPage() {
         }}>
           {/* 组织态势 — Hero 卡 */}
           <div className="rounded-xl overflow-hidden border border-border bg-bg-card" style={{ flex: isNarrow ? '1 1 280px' : 'initial', minWidth: 0 }}>
-            <div className="px-4 py-2.5 border-b border-border bg-gradient-to-r from-brand/10 to-transparent flex items-center gap-2">
+            <div className="px-4 py-2.5 border-b border-border bg-bg-muted/40 flex items-center gap-2">
               <Activity size={13} className="text-brand" />
-              <span className="text-xs font-bold text-text uppercase tracking-wider">组织态势</span>
-              <span className="ml-auto text-[10px] text-text-dim">实时</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: 0.3, textTransform: 'uppercase' }}>组织态势</span>
+              <span className="ml-auto text-[10px] text-text-dim font-medium">实时</span>
             </div>
-            <div className="p-4">
-              <div className="flex items-baseline gap-2 mb-1">
-                <span className="text-3xl font-extrabold text-text leading-none">{totalCount}</span>
-                <span className="text-xs text-text-muted">个组织在管</span>
+            <div style={{ padding: 16 }}>
+              <div className="flex items-baseline gap-2" style={{ marginBottom: 6 }}>
+                <span style={{ fontSize: 36, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: -1 }}>{totalCount}</span>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>个组织在管</span>
               </div>
-              <div className="flex items-center gap-1 mb-3 text-[11px] text-text-muted">
-                <CheckCircle2 size={10} className="text-success" />
-                <span>健康度 <strong className="text-success">{totalCount > 0 ? Math.round((activeCount / totalCount) * 100) : 0}%</strong></span>
+              <div className="flex items-center gap-1.5" style={{ marginBottom: 10, fontSize: 11, color: 'var(--text-secondary)' }}>
+                <CheckCircle2 size={11} className="text-success" />
+                <span>健康度 <strong style={{ color: 'var(--status-success)', fontSize: 12 }}>{totalCount > 0 ? Math.round((activeCount / totalCount) * 100) : 0}%</strong></span>
               </div>
-              <div className="h-1.5 rounded-full bg-bg-muted overflow-hidden flex mb-3">
-                <div className="bg-success h-full" style={{ width: `${totalCount > 0 ? (activeCount / totalCount) * 100 : 0}%` }} />
-                <div className="bg-warning h-full" style={{ width: `${totalCount > 0 ? ((totalCount - activeCount) / totalCount) * 100 : 0}%` }} />
+              <div className="rounded-full overflow-hidden flex" style={{ height: 6, background: 'var(--bg-muted)', marginBottom: 12 }}>
+                <div className="bg-success" style={{ width: `${totalCount > 0 ? (activeCount / totalCount) * 100 : 0}%`, height: '100%' }} />
+                <div className="bg-warning" style={{ width: `${totalCount > 0 ? ((totalCount - activeCount) / totalCount) * 100 : 0}%`, height: '100%' }} />
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-3">
                 <KpiPair label="已启用" value={activeCount} tone="success" />
                 <KpiPair label="已停用" value={totalCount - activeCount} tone={totalCount - activeCount > 0 ? "warning" : "default"} />
-                <KpiPair label="顶级" value={tree.length} />
+                <KpiPair label="顶级数" value={tree.length} />
               </div>
             </div>
           </div>
@@ -1004,6 +973,49 @@ export default function MdOrganizationsPage() {
                 </div>
                 <div className="px-4 py-3 flex flex-col gap-2">
                   {checks.map((c, i) => <RiskItem key={i} ok={c.ok} label={c.ok ? c.label : c.warn} />)}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* 子组织预览 — 第 4 卡（填满右栏并强化业务信息） */}
+          {selectedOrg && (() => {
+            const children = flat
+              .filter(o => o.parentId === selectedOrg.id)
+              .sort((a, b) => a.sortOrder - b.sortOrder || a.orgCode.localeCompare(b.orgCode));
+            return (
+              <div className="rounded-xl border border-border bg-bg-card overflow-hidden" style={{ flex: isNarrow ? '1 1 260px' : '1 1 auto', minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                <div className="px-4 py-2.5 border-b border-border bg-bg-muted/40 flex items-center gap-2">
+                  <Network size={13} className="text-brand" />
+                  <span className="text-xs font-bold text-text uppercase tracking-wider">直属下级</span>
+                  <span className="ml-auto text-[10px] text-text-muted font-semibold">{children.length} 个</span>
+                </div>
+                <div className="overflow-y-auto" style={{ flex: 1, padding: 4 }}>
+                  {children.length === 0 ? (
+                    <div className="text-center text-text-dim text-xs py-6">该组织无下级</div>
+                  ) : (
+                    children.slice(0, 12).map(c => {
+                      const cfg = ORG_TYPE_CONFIG[c.orgType] ?? ORG_TYPE_CONFIG.DEPARTMENT;
+                      return (
+                        <button
+                          key={c.id}
+                          onClick={() => setSelectedCode(c.orgCode)}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-bg-muted transition-colors text-left"
+                          style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+                        >
+                          <cfg.Icon size={12} className="text-text-muted flex-shrink-0" />
+                          <span className="flex-1 min-w-0 truncate text-xs text-text">{c.orgShortName || c.orgName}</span>
+                          <span className={cn(
+                            "text-[10px] px-1.5 py-0.5 rounded flex-shrink-0",
+                            c.status === 'ACTIVE' ? 'bg-success/10 text-success' : 'bg-bg-muted text-text-muted'
+                          )}>{cfg.label}</span>
+                        </button>
+                      );
+                    })
+                  )}
+                  {children.length > 12 && (
+                    <div className="text-center text-[10px] text-text-dim py-2">…还有 {children.length - 12} 个</div>
+                  )}
                 </div>
               </div>
             );
@@ -1216,14 +1228,14 @@ function KpiPair({ label, value, tone = 'default' }: {
   label: string; value: React.ReactNode;
   tone?: 'default' | 'success' | 'warning' | 'danger';
 }) {
-  const color = tone === 'success' ? 'text-success'
-              : tone === 'warning' ? 'text-warning'
-              : tone === 'danger'  ? 'text-danger'
-              : 'text-text';
+  const color = tone === 'success' ? 'var(--status-success)'
+              : tone === 'warning' ? 'var(--status-warning)'
+              : tone === 'danger'  ? 'var(--status-danger)'
+              : 'var(--text-primary)';
   return (
-    <div className="flex flex-col gap-0.5">
-      <div className={cn("text-base font-bold leading-tight", color)}>{value}</div>
-      <div className="text-[10px] text-text-muted">{label}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div style={{ fontSize: 20, fontWeight: 700, color, lineHeight: 1.1 }}>{value}</div>
+      <div style={{ fontSize: 10, color: 'var(--text-secondary)', letterSpacing: 0.2 }}>{label}</div>
     </div>
   );
 }
@@ -1255,6 +1267,32 @@ function RiskItem({ ok, label }: { ok: boolean; label: string }) {
       <span className={ok ? "text-text-muted" : "text-warning"}>
         {ok ? label : `${label}（待补全）`}
       </span>
+    </div>
+  );
+}
+
+// UIX-PROD-2: 属性单元格（2 列网格用）
+function PropCell({ label, value, mono = false }: {
+  label: string; value: React.ReactNode; mono?: boolean;
+}) {
+  return (
+    <div style={{
+      padding: '10px 16px',
+      display: 'flex',
+      gap: 12,
+      alignItems: 'baseline',
+      borderTop: '1px solid var(--border)',
+      borderRight: '1px solid var(--border)',
+    }}>
+      <span style={{ fontSize: 11, color: 'var(--text-secondary)', minWidth: 64, flexShrink: 0 }}>{label}</span>
+      <span style={{
+        fontSize: 13,
+        color: 'var(--text-primary)',
+        fontFamily: mono ? 'monospace' : 'inherit',
+        fontWeight: 500,
+        wordBreak: 'break-word',
+        flex: 1,
+      }}>{value}</span>
     </div>
   );
 }
