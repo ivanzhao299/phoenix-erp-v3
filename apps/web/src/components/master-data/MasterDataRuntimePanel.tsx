@@ -27,6 +27,8 @@ export interface MasterDataRuntimePanelProps {
   fields: MdField[];     // 表单字段（不含编码，编码自动生成）
   columns: { key: string; label: string }[];  // 列表展示列
   objectType?: string;   // G5.5-D：用于引用关系查询（CUSTOMER/SUPPLIER/...）；默认按 type 推断
+  /** UIX-7：点击编码触发详情 drawer（产品化 — 不传则编码列仅显示） */
+  onCodeClick?: (code: string, row: Record<string, any>) => void;
 }
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
@@ -39,7 +41,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 };
 
 export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
-  const { type, title, codeKey, nameKey, fields, columns, objectType } = props;
+  const { type, title, codeKey, nameKey, fields, columns, objectType, onCodeClick } = props;
   const { canCreate, canEdit } = usePermission("MENU_MASTER_DATA");
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,7 +152,19 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                   const st = STATUS_LABEL[r.status] ?? { label: r.status, color: "var(--text-secondary)" };
                   return (
                     <tr key={r[codeKey]} style={{ borderTop: "1px solid var(--border)" }}>
-                      <td style={{ padding: "9px 14px", fontFamily: "monospace", color: "var(--color-primary)" }}>{r[codeKey]}</td>
+                      <td style={{ padding: "9px 14px", fontFamily: "monospace", color: "var(--color-primary)" }}>
+                        {onCodeClick ? (
+                          <button
+                            type="button"
+                            onClick={() => onCodeClick(r[codeKey], r)}
+                            style={{
+                              background: "transparent", border: "none", color: "var(--color-primary)",
+                              fontFamily: "monospace", fontSize: 13, padding: 0, cursor: "pointer",
+                              textDecoration: "underline", textUnderlineOffset: 2,
+                            }}
+                          >{r[codeKey]}</button>
+                        ) : r[codeKey]}
+                      </td>
                       {columns.map(c => <td key={c.key} style={{ padding: "9px 14px" }}>{r[c.key] ?? "—"}</td>)}
                       <td style={{ padding: "9px 14px", textAlign: "center" }}>
                         <span style={{ fontSize: 12, padding: "2px 9px", borderRadius: 4, fontWeight: 500, background: `${st.color}1a`, color: st.color }}>{st.label}</span>

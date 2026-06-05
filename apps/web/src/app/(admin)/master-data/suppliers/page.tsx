@@ -1,20 +1,24 @@
 "use client";
+import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { SupplierDetailDrawer } from "@/components/master-data/SupplierDetailDrawer";
 
 /**
- * 主数据中心 — 供应商主数据 Runtime（G3-A）
- * 新增/编辑/提交审批/冻结/归档；编码 SUP-00001 自动生成。
+ * 主数据中心 — 供应商主数据 Runtime（G3-A + UIX-7 产品化）
+ * 点击编码 → 供应商中心 detail drawer（采购/AP/审计/引用聚合）
  */
 export default function SupplierRuntimePage() {
+  const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
-      <PageHeader title="供应商主数据" subtitle="供应商档案统一维护 · 编码自动生成 · 生命周期管控 · 仅生效供应商可被采购/付款引用" breadcrumb={["主数据中心", "供应商主数据"]} />
+      <PageHeader title="供应商主数据" subtitle="供应商档案统一维护 · 编码自动生成 · 生命周期管控 · 点击编码查看供应商中心" breadcrumb={["主数据中心", "供应商主数据"]} />
       <MasterDataRuntimePanel
         type="supplier"
         title="供应商"
         codeKey="supplier_code"
         nameKey="supplier_name"
+        onCodeClick={(code) => setDetailCode(code)}
         fields={[
           { key: "supplier_name", label: "供应商名称", required: true },
           { key: "supplier_name_en", label: "英文名称" },
@@ -46,6 +50,11 @@ export default function SupplierRuntimePage() {
           { key: "contact_name", label: "联系人" },
           { key: "default_currency", label: "币种" },
         ]}
+      />
+      <SupplierDetailDrawer
+        open={detailCode !== null}
+        supplierCode={detailCode}
+        onClose={() => setDetailCode(null)}
       />
     </div>
   );

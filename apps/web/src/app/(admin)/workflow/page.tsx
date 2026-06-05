@@ -5,6 +5,7 @@ import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowTaskSummary } from "@/lib/workflow-api";
+import { WorkflowMetricsStrip } from "@/components/workflow/WorkflowMetricsStrip";
 
 const smartScenarios = [
   ["采购申请", "PURCHASE_APPROVAL", "采购", "自动带出物料、数量、预算和采购原因草稿"],
@@ -40,6 +41,9 @@ export default function WorkflowHomePage() {
   return (
     <div>
       <PageHeader title="工作流中心" subtitle="发起申请、处理待办，并由管理员维护流程和表单" breadcrumb={["工作流"]} />
+
+      {/* UIX-7 审批工作台化：运营级指标顶部呈现 */}
+      <WorkflowMetricsStrip />
 
       <section style={aiWorkbenchStyle}>
         <div style={aiHeaderStyle}>

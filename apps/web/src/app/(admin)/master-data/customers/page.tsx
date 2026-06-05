@@ -1,20 +1,25 @@
 "use client";
+import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { CustomerDetailDrawer } from "@/components/master-data/CustomerDetailDrawer";
 
 /**
- * 主数据中心 — 客户主数据 Runtime（G3-A）
+ * 主数据中心 — 客户主数据 Runtime（G3-A + UIX-7 产品化）
  * 新增/编辑/提交审批/冻结/归档；编码 CUS-00001 自动生成；生命周期统一。
+ * UIX-7：点击客户编码 → 客户中心 detail drawer（订单/AR/审批/引用聚合）
  */
 export default function CustomerRuntimePage() {
+  const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
-      <PageHeader title="客户主数据" subtitle="客户档案统一维护 · 编码自动生成 · 生命周期管控 · 仅生效客户可被业务引用" breadcrumb={["主数据中心", "客户主数据"]} />
+      <PageHeader title="客户主数据" subtitle="客户档案统一维护 · 编码自动生成 · 生命周期管控 · 点击编码查看客户中心" breadcrumb={["主数据中心", "客户主数据"]} />
       <MasterDataRuntimePanel
         type="customer"
         title="客户"
         codeKey="customer_no"
         nameKey="customer_name"
+        onCodeClick={(code) => setDetailCode(code)}
         fields={[
           { key: "customer_name", label: "客户名称", required: true },
           { key: "customer_type", label: "客户类型", type: "select", options: [
@@ -39,6 +44,11 @@ export default function CustomerRuntimePage() {
           { key: "contact_name", label: "联系人" },
           { key: "contact_phone", label: "电话" },
         ]}
+      />
+      <CustomerDetailDrawer
+        open={detailCode !== null}
+        customerCode={detailCode}
+        onClose={() => setDetailCode(null)}
       />
     </div>
   );
