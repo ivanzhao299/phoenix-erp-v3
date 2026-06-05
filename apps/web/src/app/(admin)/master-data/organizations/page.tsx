@@ -37,7 +37,7 @@ import {
   COCKPIT, cockpitCard, cockpitCardBody, cockpitCardHeader, cockpitCardHeaderTitle,
   cockpitCardHeaderHint, kpiHeroNumber, kpiHeroLabel, propCell, propLabel, propValue,
   kpiMiniNumber, kpiMiniLabel, scoreBadge, riskItem, listRow,
-  primaryActionButton, secondaryActionButton, inlineBadge, pillBadge,
+  primaryActionButton, secondaryActionButton, inputField, formLabel, inlineBadge, pillBadge,
 } from "@/components/design-system/cockpit-styles";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
@@ -155,14 +155,9 @@ const emptyForm = (): OrgForm => ({
 
 // ── Style constants ───────────────────────────────────────────────────────────
 
-const INP = [
-  "w-full px-3 py-2 text-sm rounded-lg",
-  "border border-border bg-bg-card text-text",
-  "outline-none focus:border-brand/60 focus:ring-1 focus:ring-brand/20",
-  "placeholder:text-text-dim transition-colors",
-].join(" ");
-
-const LBL = "block text-xs font-semibold text-text-muted mb-1";
+// 输入框/标签样式：用全局 cockpit-styles token（inputField / formLabel）
+// inputField + readonly 状态合并样式
+const inputFieldDisabled: React.CSSProperties = { ...inputField, opacity: 0.5, cursor: 'not-allowed', background: 'var(--bg-muted)' };
 
 // ── Helper components ─────────────────────────────────────────────────────────
 
@@ -1044,13 +1039,13 @@ export default function MdOrganizationsPage() {
 
           {/* Org code — required on create, read-only on edit */}
           <div>
-            <label className={LBL}>
+            <label style={formLabel}>
               组织编码
               {!editingCode && <span className="text-danger ml-0.5">*</span>}
               {editingCode && <span className="ml-1 font-normal text-text-dim">（创建后不可修改）</span>}
             </label>
             <input
-              className={cn(INP, editingCode && "opacity-50 cursor-not-allowed bg-bg-muted")}
+              style={editingCode ? inputFieldDisabled : inputField}
               value={form.orgCode}
               readOnly={!!editingCode}
               onChange={e => setForm(p => ({ ...p, orgCode: e.target.value.toUpperCase() }))}
@@ -1060,11 +1055,11 @@ export default function MdOrganizationsPage() {
 
           {/* Org name */}
           <div>
-            <label className={LBL}>
+            <label style={formLabel}>
               正式全称 <span className="text-danger">*</span>
             </label>
             <input
-              className={INP}
+              style={inputField}
               value={form.orgName}
               autoFocus={!editingCode}
               onChange={e => setForm(p => ({ ...p, orgName: e.target.value }))}
@@ -1074,9 +1069,9 @@ export default function MdOrganizationsPage() {
 
           {/* Org short name */}
           <div>
-            <label className={LBL}>简称（展示用）</label>
+            <label style={formLabel}>简称（展示用）</label>
             <input
-              className={INP}
+              style={inputField}
               value={form.orgShortName}
               onChange={e => setForm(p => ({ ...p, orgShortName: e.target.value }))}
               placeholder="例：老单集团"
@@ -1085,11 +1080,11 @@ export default function MdOrganizationsPage() {
 
           {/* Org type */}
           <div>
-            <label className={LBL}>
+            <label style={formLabel}>
               组织类型 <span className="text-danger">*</span>
             </label>
             <select
-              className={INP}
+              style={inputField}
               value={form.orgType}
               onChange={e => setForm(p => ({ ...p, orgType: e.target.value as OrgType }))}
             >
@@ -1102,9 +1097,9 @@ export default function MdOrganizationsPage() {
           {/* Site business type — only for SITE */}
           {form.orgType === "SITE" && (
             <div>
-              <label className={LBL}>场区业务类型</label>
+              <label style={formLabel}>场区业务类型</label>
               <select
-                className={INP}
+                style={inputField}
                 value={form.siteBusinessType}
                 onChange={e => setForm(p => ({ ...p, siteBusinessType: e.target.value as SiteBusinessType | "" }))}
               >
@@ -1118,9 +1113,9 @@ export default function MdOrganizationsPage() {
 
           {/* Parent org */}
           <div>
-            <label className={LBL}>上级组织</label>
+            <label style={formLabel}>上级组织</label>
             <select
-              className={INP}
+              style={inputField}
               value={form.parentCode}
               onChange={e => setForm(p => ({ ...p, parentCode: e.target.value }))}
             >
@@ -1139,9 +1134,9 @@ export default function MdOrganizationsPage() {
 
           {/* Company code */}
           <div>
-            <label className={LBL}>关联公司编码（可选）</label>
+            <label style={formLabel}>关联公司编码（可选）</label>
             <input
-              className={INP}
+              style={inputField}
               value={form.companyCode}
               onChange={e => setForm(p => ({ ...p, companyCode: e.target.value }))}
               placeholder="如 CO-FHA，用于数据范围过滤"
@@ -1150,10 +1145,10 @@ export default function MdOrganizationsPage() {
 
           {/* Sort order */}
           <div>
-            <label className={LBL}>排序权重</label>
+            <label style={formLabel}>排序权重</label>
             <input
               type="number"
-              className={INP}
+              style={inputField}
               value={form.sortOrder}
               onChange={e => setForm(p => ({ ...p, sortOrder: e.target.value }))}
               placeholder="数值越小越靠前，默认 0"
@@ -1163,9 +1158,9 @@ export default function MdOrganizationsPage() {
 
           {/* Remark */}
           <div>
-            <label className={LBL}>备注</label>
+            <label style={formLabel}>备注</label>
             <textarea
-              className={cn(INP, "resize-none")}
+              style={{ ...inputField, resize: 'none' }}
               rows={2}
               value={form.remark}
               onChange={e => setForm(p => ({ ...p, remark: e.target.value }))}
