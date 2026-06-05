@@ -551,11 +551,11 @@ export default function MdOrganizationsPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col gap-0">
+    <div className="animate-fade-in flex flex-col gap-0" style={{ padding: "24px 32px" }}>
       <PageHeader
-        title="组织架构"
-        subtitle="维护集团 / 事业群 / 公司 / 场区 / 部门层级树"
-        breadcrumb={["主数据中心", "组织架构"]}
+        title="组织驾驶舱"
+        subtitle="集团 / 事业群 / 公司 / 场区 / 部门 — 组织运营态势 · 合规风险 · 层级治理"
+        breadcrumb={["主数据中心", "组织驾驶舱"]}
         actions={
           <button
             type="button"
@@ -568,12 +568,12 @@ export default function MdOrganizationsPage() {
       />
 
       {/* ── Main layout ──────────────────────────────────────────────────────── */}
-      <div className="flex gap-4" style={{ minHeight: 600 }}>
+      <div className="flex gap-4" style={{ minHeight: 600, marginTop: 4 }}>
 
         {/* ── Left: org tree ─────────────────────────────────────────────────── */}
         <div
           className="flex flex-col rounded-2xl border border-border bg-bg-card shadow-card overflow-hidden flex-shrink-0"
-          style={{ width: 300 }}
+          style={{ width: 280 }}
         >
           {/* Tree header */}
           <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border bg-bg-muted/30">
@@ -684,7 +684,7 @@ export default function MdOrganizationsPage() {
             <>
               {/* Detail header */}
               <div className="px-6 py-4 border-b border-border bg-bg-muted/20">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-3 min-w-0">
                     {/* Icon circle */}
                     <div className="w-11 h-11 rounded-xl bg-brand/10 flex items-center justify-center flex-shrink-0 border border-brand/15">
@@ -715,7 +715,7 @@ export default function MdOrganizationsPage() {
                   </div>
 
                   {/* Action buttons */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
                     {/* View children */}
                     {flat.some(o => o.parentId === selectedOrg.id) && (
                       <button
@@ -780,7 +780,7 @@ export default function MdOrganizationsPage() {
 
               {/* Detail body */}
               <div className="flex-1 overflow-y-auto px-6 py-2">
-                <div className="grid gap-0 max-w-2xl">
+                <div className="grid gap-0">
 
                   {/* Basic info section */}
                   <div className="mb-4 mt-3">

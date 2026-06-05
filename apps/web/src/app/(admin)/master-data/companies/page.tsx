@@ -8,6 +8,7 @@ import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
+import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { companyConfig } from "@/components/master-data/detail-configs";
 
 /**
@@ -66,10 +67,12 @@ export default function MdCompaniesPage() {
     textAlign: "center"
   }}>无权限查看公司档案</div>;
   const filtered = items.filter(o => !search || (o.orgName ?? "").includes(search) || (o.orgCode ?? "").includes(search));
-  return <div className="bg-bg-card text-text min-h-screen" style={{
-    padding: "24px 32px"
+  return <div className="animate-fade-in" style={{
+    padding: "24px 32px",
+    maxWidth: 1200
   }}>
-      <PageHeader title="公司档案" subtitle="集团公司 · 子公司 · 分支机构 · 法人实体" breadcrumb={["主数据中心", "公司档案"]} />
+      <PageHeader title="公司中心" subtitle="集团 / 子公司 / 法人实体 · 业务归属 · 资产覆盖 · 点击编码查看公司全景" breadcrumb={["主数据中心", "公司中心"]} />
+      <MasterDataCenterStrip type="company" />
 
       {/* 数据来源说明 */}
       <div style={{
