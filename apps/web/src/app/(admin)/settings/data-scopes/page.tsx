@@ -1,13 +1,33 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+/**
+ * /settings/data-scopes — V3 RBAC 数据范围配置
+ *
+ * 管理"角色 × 模块 × 范围等级（SELF / PROJECT / COMPANY / REGION / GROUP）"的
+ * 三维数据可见性矩阵。
+ *
+ * 改造点（GLP-1A-2 联调发现）：
+ *   · 角色/菜单不再手填字符串，改 selector 从 sys_role + permissions/menus 拉取
+ *   · 全 cockpit-styles 化（kpiCard / searchToolbar / tableContainer / drawer 系列）
+ *   · 顶部 KPI 5 张统计各 scope 分布
+ *   · 新增表单从顶部内联改为右侧抽屉
+ */
+
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { ConfirmDialogV2 } from '@/components/design-system';
 import { useToast } from '@/contexts/ToastContext';
-import styles from '@/components/ui/admin-ui.module.css';
+import { Shield, Plus, Trash2, Power, Search, X, Users, Briefcase, Building2, Map, Globe } from 'lucide-react';
+import s from '@/components/ui/admin-ui.module.css';
+import {
+  primaryActionButton, secondaryActionButton,
+  inputField, formLabel, inlineBadge,
+  searchToolbar, toolbarFilterPill, toolbarSearchInput,
+  tableContainer, kpiCard,
+  drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
+} from '@/components/design-system/cockpit-styles';
 
-// ── 类型定义 ──────────────────────────────────────────────────────────────────
-import u from "@/styles/uix-utils.module.css";
+// ── 类型 ────────────────────────────────────────────────────────────────────
 interface DataScope {
   id: number;
   roleCode: string;
@@ -16,317 +36,391 @@ interface DataScope {
   enabled: boolean;
   createdAt: string;
 }
-const SCOPE_TYPE_LABELS: Record<string, string> = {
-  SELF: '个人',
-  PROJECT: '项目',
-  COMPANY: '公司',
-  REGION: '区域',
-  GROUP: '集团'
-};
-const SCOPE_TYPE_COLORS: Record<string, string> = {
-  SELF: 'var(--text-secondary)',
-  PROJECT: 'var(--status-special)',
-  COMPANY: 'var(--color-accent)',
-  REGION: 'var(--status-warning)',
-  GROUP: 'var(--status-danger)'
-};
-const ALL_SCOPE_TYPES = ['SELF', 'PROJECT', 'COMPANY', 'REGION', 'GROUP'] as const;
 
-// ── 主组件 ────────────────────────────────────────────────────────────────────
+interface SysRole { role_code: string; role_name_zh: string; role_type?: string; }
+interface SysMenu { menu_code: string; menu_name_zh: string; domain: string; }
+interface MenuGroup { domain: string; menus: SysMenu[]; }
 
+type ScopeType = DataScope['scopeType'];
+
+// ── 常量 ────────────────────────────────────────────────────────────────────
+const SCOPE_TYPES: { code: ScopeType; label: string; tone: 'default' | 'success' | 'warning' | 'danger'; icon: typeof Users }[] = [
+  { code: 'SELF',    label: '个人', tone: 'default', icon: Users },
+  { code: 'PROJECT', label: '项目', tone: 'success', icon: Briefcase },
+  { code: 'COMPANY', label: '公司', tone: 'default', icon: Building2 },
+  { code: 'REGION',  label: '区域', tone: 'warning', icon: Map },
+  { code: 'GROUP',   label: '集团', tone: 'danger',  icon: Globe },
+];
+const SCOPE_TONE: Record<ScopeType, 'default' | 'success' | 'warning' | 'danger'> = Object.fromEntries(
+  SCOPE_TYPES.map(t => [t.code, t.tone])
+) as Record<ScopeType, 'default' | 'success' | 'warning' | 'danger'>;
+
+const authHeaders = () => ({
+  'Content-Type': 'application/json',
+  Authorization: `Bearer ${typeof window === 'undefined' ? '' : sessionStorage.getItem('phoenix_token') || ''}`,
+});
+
+// ── 组件 ────────────────────────────────────────────────────────────────────
 export default function DataScopesPage() {
   const toast = useToast();
-  const [scopes, setScopes] = useState<DataScope[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // 新增规则的表单状态
-  const [newRoleCode, setNewRoleCode] = useState('');
-  const [newModuleCode, setNewModuleCode] = useState('');
-  const [newScopeType, setNewScopeType] = useState<string>('COMPANY');
-  const [saving, setSaving] = useState(false);
-  const [delId, setDelId] = useState<number | null>(null);
-
-  // ⚠️ 不能把 toast 放入 deps：toast 对象每次渲染都是新引用，
-  // 若放入会导致：toast.error → 重渲染 → 新 toast → fetchScopes 重建
-  // → useEffect 重触发 → 无限循环（表现为页面右侧出现大量相同错误 toast）
   const toastRef = useRef(toast);
   toastRef.current = toast;
+
+  const [scopes, setScopes]       = useState<DataScope[]>([]);
+  const [roles, setRoles]         = useState<SysRole[]>([]);
+  const [menus, setMenus]         = useState<SysMenu[]>([]);
+  const [loading, setLoading]     = useState(true);
+
+  const [keyword, setKeyword]     = useState('');
+  const [scopeFilter, setScopeFilter] = useState<ScopeType | ''>('');
+  const [enabledFilter, setEnabledFilter] = useState<'ALL' | 'ENABLED' | 'DISABLED'>('ALL');
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [newRoleCode, setNewRoleCode] = useState('');
+  const [newModuleCode, setNewModuleCode] = useState('');
+  const [newScopeType, setNewScopeType] = useState<ScopeType>('COMPANY');
+  const [saving, setSaving] = useState(false);
+
+  const [delId, setDelId] = useState<number | null>(null);
+
+  // ── 数据加载 ──────────────────────────────────────────────────────────────
   const fetchScopes = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/org/data-scopes', {
-        headers: {
-          Authorization: `Bearer ${sessionStorage.getItem('phoenix_token')}`
-        }
-      });
+      const res = await fetch('/api/org/data-scopes', { headers: authHeaders() });
       const json = await res.json();
-      if (json.code === 200) {
-        setScopes(json.data ?? []);
-      } else {
-        toastRef.current.error('加载数据范围规则失败');
-      }
-    } catch {
-      toastRef.current.error('网络错误');
-    } finally {
-      setLoading(false);
-    }
-  }, []); // 空 deps：仅依赖稳定的 toastRef，避免无限循环
+      if (json.code === 200) setScopes(json.data ?? []);
+      else toastRef.current.error('加载数据范围规则失败');
+    } catch { toastRef.current.error('网络错误'); }
+    finally { setLoading(false); }
+  }, []);
 
   useEffect(() => {
     fetchScopes();
-  }, []); // 仅挂载时执行一次
+    // 角色 + 菜单 selector 数据
+    (async () => {
+      try {
+        const [rolesRes, menusRes] = await Promise.all([
+          fetch('/api/crud/sys_role', { headers: authHeaders() }).then(r => r.json()),
+          fetch('/api/permissions/menus', { headers: authHeaders() }).then(r => r.json()),
+        ]);
+        if (Array.isArray(rolesRes)) setRoles(rolesRes);
+        else if (Array.isArray(rolesRes?.data)) setRoles(rolesRes.data);
+        const menuGroups: MenuGroup[] = menusRes?.data || menusRes || [];
+        const flat: SysMenu[] = [];
+        menuGroups.forEach(g => g.menus?.forEach(m => flat.push(m)));
+        setMenus(flat);
+      } catch { /* selector 加载失败不阻塞主功能 */ }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // 修改单条规则的 scopeType
+  // ── 操作 ──────────────────────────────────────────────────────────────────
   const handleUpdateScope = async (id: number, scopeType: string) => {
     try {
       const res = await fetch(`/api/org/data-scopes/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionStorage.getItem('phoenix_token')}`
-        },
-        body: JSON.stringify({
-          scopeType
-        })
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ scopeType }),
       });
       const json = await res.json();
       if (json.code === 200) {
-        setScopes(prev => prev.map(s => s.id === id ? {
-          ...s,
-          scopeType: scopeType as DataScope['scopeType']
-        } : s));
-        toast.success('更新成功');
-      } else {
-        toast.error('更新失败');
-      }
-    } catch {
-      toast.error('网络错误');
-    }
+        setScopes(prev => prev.map(x => x.id === id ? { ...x, scopeType: scopeType as ScopeType } : x));
+        toast.success('范围已更新');
+      } else toast.error('更新失败');
+    } catch { toast.error('网络错误'); }
   };
 
-  // 切换启用/禁用
-  const handleToggleEnabled = async (scope: DataScope) => {
+  const handleToggle = async (sc: DataScope) => {
     try {
-      const res = await fetch(`/api/org/data-scopes/${scope.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionStorage.getItem('phoenix_token')}`
-        },
-        body: JSON.stringify({
-          enabled: !scope.enabled
-        })
+      const res = await fetch(`/api/org/data-scopes/${sc.id}`, {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ enabled: !sc.enabled }),
       });
       const json = await res.json();
       if (json.code === 200) {
-        setScopes(prev => prev.map(s => s.id === scope.id ? {
-          ...s,
-          enabled: !scope.enabled
-        } : s));
-        toast.success(scope.enabled ? '已禁用' : '已启用');
+        setScopes(prev => prev.map(x => x.id === sc.id ? { ...x, enabled: !sc.enabled } : x));
+        toast.success(sc.enabled ? '已禁用' : '已启用');
       }
-    } catch {
-      toast.error('操作失败');
-    }
+    } catch { toast.error('操作失败'); }
   };
 
-  // 删除规则（ConfirmDialogV2 确认）
-  const handleDelete = (id: number) => setDelId(id);
   const doDelete = async () => {
-    const id = delId;
-    setDelId(null);
+    const id = delId; setDelId(null);
     if (id == null) return;
     try {
-      const res = await fetch(`/api/org/data-scopes/${id}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${sessionStorage.getItem('phoenix_token')}`
-        }
-      });
+      const res = await fetch(`/api/org/data-scopes/${id}`, { method: 'DELETE', headers: authHeaders() });
       const json = await res.json();
       if (json.code === 200) {
-        setScopes(prev => prev.filter(s => s.id !== id));
+        setScopes(prev => prev.filter(x => x.id !== id));
         toast.success('删除成功');
       }
-    } catch {
-      toast.error('删除失败');
-    }
+    } catch { toast.error('删除失败'); }
   };
 
-  // 新增规则
   const handleCreate = async () => {
-    if (!newRoleCode.trim() || !newModuleCode.trim()) {
-      toast.error('角色编码和菜单编码为必填项');
+    if (!newRoleCode || !newModuleCode) {
+      toast.error('请选择角色和菜单');
       return;
     }
     setSaving(true);
     try {
       const res = await fetch('/api/org/data-scopes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionStorage.getItem('phoenix_token')}`
-        },
-        body: JSON.stringify({
-          roleCode: newRoleCode.trim(),
-          moduleCode: newModuleCode.trim(),
-          scopeType: newScopeType
-        })
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ roleCode: newRoleCode, moduleCode: newModuleCode, scopeType: newScopeType }),
       });
       const json = await res.json();
       if (json.code === 200) {
         toast.success('创建成功');
-        setNewRoleCode('');
-        setNewModuleCode('');
-        setNewScopeType('COMPANY');
-        await fetchScopes();
-      } else {
-        toast.error('创建失败');
-      }
-    } catch {
-      toast.error('网络错误');
-    } finally {
-      setSaving(false);
-    }
+        setNewRoleCode(''); setNewModuleCode(''); setNewScopeType('COMPANY');
+        setShowCreate(false);
+        fetchScopes();
+      } else toast.error(json.message || '创建失败');
+    } catch { toast.error('网络错误'); }
+    finally { setSaving(false); }
   };
 
-  // 按模块分组
-  const grouped = scopes.reduce<Record<string, DataScope[]>>((acc, s) => {
-    (acc[s.moduleCode] = acc[s.moduleCode] ?? []).push(s);
-    return acc;
-  }, {});
-  return <div className={styles.pageContainer}>
-      <PageHeader title="数据范围配置" subtitle="管理各角色在不同模块的数据可见范围（SELF / PROJECT / COMPANY / REGION / GROUP）" />
+  // ── 派生 ──────────────────────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    const kw = keyword.trim().toLowerCase();
+    return scopes.filter(x => {
+      if (scopeFilter && x.scopeType !== scopeFilter) return false;
+      if (enabledFilter === 'ENABLED' && !x.enabled) return false;
+      if (enabledFilter === 'DISABLED' && x.enabled) return false;
+      if (kw && !`${x.roleCode} ${x.moduleCode}`.toLowerCase().includes(kw)) return false;
+      return true;
+    });
+  }, [scopes, keyword, scopeFilter, enabledFilter]);
 
-      {/* 新增规则表单 */}
-      <div className={`${styles.card} ${u.mb20}`}>
-        <h3 style={{
-        margin: '0 0 12px',
-        fontSize: 15,
-        fontWeight: 600
-      }}>新增数据范围规则</h3>
-        <div style={{
-        display: 'flex',
-        gap: 12,
-        alignItems: 'flex-end',
-        flexWrap: 'wrap'
-      }}>
-          <div style={{
-          flex: 1,
-          minWidth: 160
-        }}>
-            <label className={styles.formLabel}>角色编码</label>
-            <input className={styles.formInput} placeholder="如 ROLE_PRC_BUYER" value={newRoleCode} onChange={e => setNewRoleCode(e.target.value)} />
-          </div>
-          <div style={{
-          flex: 1,
-          minWidth: 180
-        }}>
-            <label className={styles.formLabel}>菜单/模块编码</label>
-            <input className={styles.formInput} placeholder="如 MENU_PRC2_ORDER" value={newModuleCode} onChange={e => setNewModuleCode(e.target.value)} />
-          </div>
-          <div style={{
-          minWidth: 120
-        }}>
-            <label className={styles.formLabel}>范围等级</label>
-            <select className={styles.formInput} value={newScopeType} onChange={e => setNewScopeType(e.target.value)}>
-              {ALL_SCOPE_TYPES.map(t => <option key={t} value={t}>{t} — {SCOPE_TYPE_LABELS[t]}</option>)}
-            </select>
-          </div>
-          <button className={styles.btnPrimary} onClick={handleCreate} disabled={saving} style={{
-          marginBottom: 2
-        }}>
-            {saving ? '保存中...' : '新增'}
+  const stats = useMemo(() => {
+    const total = scopes.length;
+    const enabled = scopes.filter(x => x.enabled).length;
+    const byScope = SCOPE_TYPES.reduce<Record<ScopeType, number>>(
+      (acc, t) => { acc[t.code] = scopes.filter(x => x.scopeType === t.code).length; return acc; },
+      { SELF: 0, PROJECT: 0, COMPANY: 0, REGION: 0, GROUP: 0 }
+    );
+    return { total, enabled, byScope };
+  }, [scopes]);
+
+  // 角色名 / 菜单名映射（用于显示）
+  const roleNameMap = useMemo(() => Object.fromEntries(roles.map(r => [r.role_code, r.role_name_zh])), [roles]);
+  const menuNameMap = useMemo(() => Object.fromEntries(menus.map(m => [m.menu_code, m.menu_name_zh])), [menus]);
+
+  // ── 渲染 ──────────────────────────────────────────────────────────────────
+  return <div>
+      <PageHeader
+        title="数据范围配置"
+        subtitle="角色 × 模块 × 范围等级（SELF / PROJECT / COMPANY / REGION / GROUP）三维数据可见性矩阵"
+        breadcrumb={['系统设置', '数据范围']}
+        actions={
+          <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
+            <Plus size={13} /> 新增规则
           </button>
+        }
+      />
+
+      {/* KPI 顶卡 — 总数 + 5 个 scope 分布 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
+        <div style={kpiCard}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Shield size={14} color="var(--color-primary)" />
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>总规则数</span>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.2, marginTop: 2 }}>
+            {stats.total}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 'auto' }}>
+            启用 {stats.enabled} / 禁用 {stats.total - stats.enabled}
+          </div>
+        </div>
+        {SCOPE_TYPES.map(t => {
+          const Icon = t.icon;
+          return (
+            <div key={t.code} style={kpiCard}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icon size={14} color={`var(--status-${t.tone === 'default' ? 'info' : t.tone})`} />
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>{t.label} · {t.code}</span>
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.2, marginTop: 2 }}>
+                {stats.byScope[t.code]}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 工具栏 — 搜索 + scope 过滤 + 启用过滤 */}
+      <div style={searchToolbar}>
+        <Search size={14} color="var(--text-secondary)" />
+        <input
+          value={keyword}
+          onChange={e => setKeyword(e.target.value)}
+          placeholder="搜索 ROLE_/ MENU_ 编码…"
+          style={toolbarSearchInput}
+        />
+
+        <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+
+        <button onClick={() => setScopeFilter('')} style={toolbarFilterPill(scopeFilter === '')}>全部</button>
+        {SCOPE_TYPES.map(t => (
+          <button key={t.code} onClick={() => setScopeFilter(t.code)} style={toolbarFilterPill(scopeFilter === t.code)}>
+            {t.code}
+          </button>
+        ))}
+
+        <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+
+        <button onClick={() => setEnabledFilter('ALL')}      style={toolbarFilterPill(enabledFilter === 'ALL')}>全部状态</button>
+        <button onClick={() => setEnabledFilter('ENABLED')}  style={toolbarFilterPill(enabledFilter === 'ENABLED')}>启用</button>
+        <button onClick={() => setEnabledFilter('DISABLED')} style={toolbarFilterPill(enabledFilter === 'DISABLED')}>禁用</button>
+
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+          {filtered.length} / {scopes.length} 条
+        </span>
+      </div>
+
+      {/* 表格 */}
+      <div style={tableContainer}>
+        <div style={{ overflowX: 'auto' }}>
+          <table className={s.table}>
+            <thead>
+              <tr>
+                <th>角色</th>
+                <th>菜单 / 模块</th>
+                <th>范围等级</th>
+                <th>状态</th>
+                <th>创建时间</th>
+                <th style={{ textAlign: 'right' }}>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>加载中…</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
+                  {scopes.length === 0 ? '暂无数据范围规则，点击右上"新增规则"开始配置' : '无匹配结果，调整筛选条件试试'}
+                </td></tr>
+              ) : (
+                filtered.map(sc => (
+                  <tr key={sc.id} style={{ opacity: sc.enabled ? 1 : 0.55 }}>
+                    <td>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {roleNameMap[sc.roleCode] || sc.roleCode}
+                      </div>
+                      <code style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{sc.roleCode}</code>
+                    </td>
+                    <td>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+                        {menuNameMap[sc.moduleCode] || sc.moduleCode}
+                      </div>
+                      <code style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{sc.moduleCode}</code>
+                    </td>
+                    <td>
+                      <select
+                        value={sc.scopeType}
+                        onChange={e => handleUpdateScope(sc.id, e.target.value)}
+                        style={{ ...inlineBadge(SCOPE_TONE[sc.scopeType]), fontSize: 12, padding: '4px 12px', cursor: 'pointer' }}
+                      >
+                        {SCOPE_TYPES.map(t => <option key={t.code} value={t.code}>{t.code} — {t.label}</option>)}
+                      </select>
+                    </td>
+                    <td>
+                      <span style={inlineBadge(sc.enabled ? 'success' : 'default')}>
+                        {sc.enabled ? '启用' : '禁用'}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                      {sc.createdAt ? new Date(sc.createdAt).toLocaleString('zh-CN', { hour12: false }) : '—'}
+                    </td>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button onClick={() => handleToggle(sc)} style={{ ...secondaryActionButton, display: 'inline-flex', padding: '5px 12px', fontSize: 12, marginRight: 6 }}>
+                        <Power size={12} /> {sc.enabled ? '禁用' : '启用'}
+                      </button>
+                      <button onClick={() => setDelId(sc.id)} style={{ ...secondaryActionButton, display: 'inline-flex', padding: '5px 12px', fontSize: 12, color: 'var(--status-danger)', borderColor: 'var(--status-danger)' }}>
+                        <Trash2 size={12} /> 删除
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* 规则列表（按模块分组） */}
-      {loading ? <div className={styles.loadingText}>加载中...</div> : Object.keys(grouped).length === 0 ? <div className={styles.emptyState}>暂无数据范围规则</div> : Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([moduleCode, rules]) => <div key={moduleCode} className={`${styles.card} ${u.mb16}`}>
-              <h4 style={{
-        margin: '0 0 12px',
-        fontSize: 14,
-        color: 'var(--text-secondary)',
-        fontFamily: 'monospace'
-      }}>
-                {moduleCode}
-              </h4>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>角色编码</th>
-                    <th>范围等级</th>
-                    <th>状态</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rules.map(s => <tr key={s.id} style={{
-            opacity: s.enabled ? 1 : 0.5
-          }}>
-                      <td>
-                        <code style={{
-                fontSize: 12,
-                background: 'var(--bg-muted)',
-                padding: '2px 6px',
-                borderRadius: 3
-              }}>
-                          {s.roleCode}
-                        </code>
-                      </td>
-                      <td>
-                        <select value={s.scopeType} style={{
-                fontSize: 13,
-                padding: '3px 8px',
-                borderRadius: 4,
-                border: `1px solid ${SCOPE_TYPE_COLORS[s.scopeType]}`,
-                color: SCOPE_TYPE_COLORS[s.scopeType],
-                background: 'var(--bg-card)',
-                cursor: 'pointer'
-              }} onChange={e => handleUpdateScope(s.id, e.target.value)}>
-                          {ALL_SCOPE_TYPES.map(t => <option key={t} value={t}>{t} — {SCOPE_TYPE_LABELS[t]}</option>)}
-                        </select>
-                      </td>
-                      <td>
-                        <span style={{
-                display: 'inline-block',
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                background: s.enabled ? 'var(--status-success)' : 'var(--border)',
-                marginRight: 6
-              }} />
-                        {s.enabled ? '启用' : '禁用'}
-                      </td>
-                      <td>
-                        <button onClick={() => handleToggleEnabled(s)} style={{
-                fontSize: 12,
-                padding: '3px 10px',
-                marginRight: 8,
-                border: '1px solid var(--border)',
-                borderRadius: 4,
-                background: 'var(--bg-card)',
-                cursor: 'pointer'
-              }}>
-                          {s.enabled ? '禁用' : '启用'}
-                        </button>
-                        <button onClick={() => handleDelete(s.id)} style={{
-                fontSize: 12,
-                padding: '3px 10px',
-                border: '1px solid var(--status-danger)',
-                borderRadius: 4,
-                background: 'var(--bg-card)',
-                color: 'var(--status-danger)',
-                cursor: 'pointer'
-              }}>
-                          删除
-                        </button>
-                      </td>
-                    </tr>)}
-                </tbody>
-              </table>
-            </div>)}
+      {/* 新增抽屉 */}
+      {showCreate && (
+        <div style={drawerMask} onClick={() => setShowCreate(false)}>
+          <div style={drawerPanel(440)} onClick={e => e.stopPropagation()}>
+            <div style={drawerHeader}>
+              <div style={drawerHeaderTitle}>
+                <Shield size={16} /> 新增数据范围规则
+              </div>
+              <button onClick={() => setShowCreate(false)} style={drawerCloseButton}>
+                <X size={18} />
+              </button>
+            </div>
 
-      <ConfirmDialogV2 open={delId != null} title="删除数据范围规则" danger confirmLabel="确认删除" message="确认删除此数据范围规则？此操作不可撤销。" onConfirm={doDelete} onCancel={() => setDelId(null)} />
+            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={formLabel}>角色</label>
+                <select value={newRoleCode} onChange={e => setNewRoleCode(e.target.value)} style={inputField}>
+                  <option value="">请选择角色</option>
+                  {roles.map(r => (
+                    <option key={r.role_code} value={r.role_code}>
+                      {r.role_name_zh}（{r.role_code}）
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={formLabel}>菜单 / 模块</label>
+                <select value={newModuleCode} onChange={e => setNewModuleCode(e.target.value)} style={inputField}>
+                  <option value="">请选择菜单</option>
+                  {menus.map(m => (
+                    <option key={m.menu_code} value={m.menu_code}>
+                      [{m.domain}] {m.menu_name_zh}（{m.menu_code}）
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={formLabel}>范围等级</label>
+                <select value={newScopeType} onChange={e => setNewScopeType(e.target.value as ScopeType)} style={inputField}>
+                  {SCOPE_TYPES.map(t => (
+                    <option key={t.code} value={t.code}>{t.code} — {t.label}</option>
+                  ))}
+                </select>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6, lineHeight: 1.6 }}>
+                  · SELF：仅本人创建的数据<br />
+                  · PROJECT：本人所在项目<br />
+                  · COMPANY：本人所属公司<br />
+                  · REGION：本人所属区域<br />
+                  · GROUP：全集团（最大范围）
+                </div>
+              </div>
+            </div>
+
+            <div style={drawerFooter}>
+              <button onClick={() => setShowCreate(false)} style={secondaryActionButton}>取消</button>
+              <button onClick={handleCreate} disabled={saving} style={{ ...primaryActionButton, opacity: saving ? 0.6 : 1 }}>
+                {saving ? '保存中…' : '创建'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialogV2
+        open={delId != null}
+        title="删除数据范围规则"
+        danger
+        confirmLabel="确认删除"
+        message="确认删除此数据范围规则？此操作不可撤销，可能影响相关角色的数据可见范围。"
+        onConfirm={doDelete}
+        onCancel={() => setDelId(null)}
+      />
     </div>;
 }
