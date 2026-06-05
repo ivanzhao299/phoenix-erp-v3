@@ -1,4 +1,5 @@
 'use client';
+
 import { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
@@ -23,56 +24,75 @@ function shiftDays(s: string, n: number) {
   const dt = new Date(y, m - 1, d + n);
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 }
-
-const SHIFTS = [
-  { key: '早班', label: '早班' },
-  { key: '中班', label: '中班' },
-  { key: '晚班', label: '晚班' },
-];
+const SHIFTS = [{
+  key: '早班',
+  label: '早班'
+}, {
+  key: '中班',
+  label: '中班'
+}, {
+  key: '晚班',
+  label: '晚班'
+}];
 
 // ── NumInput ─────────────────────────────────────────────────────────────────
 
 function NumInput({
-  value, onChange, placeholder = '0', small = false,
+  value,
+  onChange,
+  placeholder = '0',
+  small = false
 }: {
-  value: number | ''; onChange: (v: number) => void; placeholder?: string; small?: boolean;
+  value: number | '';
+  onChange: (v: number) => void;
+  placeholder?: string;
+  small?: boolean;
 }) {
-  const { t } = useMobileTheme();
-  return (
-    <input
-      type="number" inputMode="numeric" min="0"
-      value={value === 0 ? '' : value}
-      placeholder={placeholder}
-      onChange={e => onChange(Math.max(0, Number(e.target.value) || 0))}
-      style={{
-        width: small ? 64 : 80, height: small ? 32 : 40, textAlign: 'center',
-        background: t.inputBg,
-        border: `1px solid ${t.inputBorder}`,
-        borderRadius: 8, color: t.text,
-        fontSize: small ? 13 : 16, fontWeight: 700,
-        outline: 'none', WebkitAppearance: 'none',
-      }}
-    />
-  );
+  const {
+    t
+  } = useMobileTheme();
+  return <input type="number" inputMode="numeric" min="0" value={value === 0 ? '' : value} placeholder={placeholder} onChange={e => onChange(Math.max(0, Number(e.target.value) || 0))} style={{
+    width: small ? 64 : 80,
+    height: small ? 32 : 40,
+    textAlign: 'center',
+    background: t.inputBg,
+    border: `1px solid ${t.inputBorder}`,
+    borderRadius: 8,
+    color: t.text,
+    fontSize: small ? 13 : 16,
+    fontWeight: 700,
+    outline: 'none',
+    WebkitAppearance: 'none'
+  }} />;
 }
 
 // ── types ────────────────────────────────────────────────────────────────────
 
 interface HouseEntry {
-  eggs:     number;
-  bad:      number;
-  dirty:    number;
-  broken:   number;
-  temp:     string;
+  eggs: number;
+  bad: number;
+  dirty: number;
+  broken: number;
+  temp: string;
   humidity: string;
 }
-
-const emptyEntry = (): HouseEntry => ({ eggs: 0, bad: 0, dirty: 0, broken: 0, temp: '', humidity: '' });
+const emptyEntry = (): HouseEntry => ({
+  eggs: 0,
+  bad: 0,
+  dirty: 0,
+  broken: 0,
+  temp: '',
+  humidity: ''
+});
 
 // ── HouseCard ─────────────────────────────────────────────────────────────────
 
 function HouseCard({
-  house, flock_no, entry, onChange, existing,
+  house,
+  flock_no,
+  entry,
+  onChange,
+  existing
 }: {
   house: string;
   flock_no: string;
@@ -80,157 +100,243 @@ function HouseCard({
   onChange: (e: HouseEntry) => void;
   existing: number;
 }) {
-  const { t } = useMobileTheme();
+  const {
+    t
+  } = useMobileTheme();
   const [open, setOpen] = useState(false);
   const hasQuality = entry.bad > 0 || entry.dirty > 0 || entry.broken > 0;
   const hasEnv = entry.temp !== '' || entry.humidity !== '';
   const dirty = entry.eggs !== existing;
-
-  return (
-    <div style={{
-      background: dirty
-        ? 'var(--status-warning-bg-faint)'
-        : t.cardBg,
-      border: `1px solid ${dirty ? 'var(--status-warning-bg-strong)' : t.cardBorder}`,
-      borderRadius: 14,
-      marginBottom: 10,
-      overflow: 'hidden',
-    }}>
+  return <div style={{
+    background: dirty ? 'var(--status-warning-bg-faint)' : t.cardBg,
+    border: `1px solid ${dirty ? 'var(--status-warning-bg-strong)' : t.cardBorder}`,
+    borderRadius: 14,
+    marginBottom: 10,
+    overflow: 'hidden'
+  }}>
       {/* Main row */}
-      <div style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', gap: 10 }}>
+      <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      padding: '12px 14px',
+      gap: 10
+    }}>
         {/* House badge */}
         <div style={{
-          minWidth: 52, height: 36, borderRadius: 8, flexShrink: 0,
-          background: 'var(--status-warning-bg-medium)',
-          border: '1px solid var(--status-warning-bg-strong)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--status-warning)' }}>{house}</span>
+        minWidth: 52,
+        height: 36,
+        borderRadius: 8,
+        flexShrink: 0,
+        background: 'var(--status-warning-bg-medium)',
+        border: '1px solid var(--status-warning-bg-strong)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+          <span style={{
+          fontSize: 12,
+          fontWeight: 700,
+          color: 'var(--status-warning)'
+        }}>{house}</span>
         </div>
 
         {/* Flock */}
         <div className={u.flex1}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{flock_no || house}</div>
-          {existing > 0 && (
-            <div style={{ fontSize: 11, color: t.textFaint }}>
+          <div style={{
+          fontSize: 13,
+          fontWeight: 600,
+          color: t.text
+        }}>{flock_no || house}</div>
+          {existing > 0 && <div style={{
+          fontSize: 11,
+          color: t.textFaint
+        }}>
               已录 {existing.toLocaleString()} 枚
-            </div>
-          )}
+            </div>}
         </div>
 
         {/* Eggs input */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <span style={{ fontSize: 12, color: t.textMuted }}>产蛋</span>
-          <NumInput
-            value={entry.eggs}
-            onChange={v => onChange({ ...entry, eggs: v })}
-          />
-          <span style={{ fontSize: 11, color: t.textFaint }}>枚</span>
+        <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        flexShrink: 0
+      }}>
+          <span style={{
+          fontSize: 12,
+          color: t.textMuted
+        }}>产蛋</span>
+          <NumInput value={entry.eggs} onChange={v => onChange({
+          ...entry,
+          eggs: v
+        })} />
+          <span style={{
+          fontSize: 11,
+          color: t.textFaint
+        }}>枚</span>
         </div>
 
         {/* Expand toggle */}
-        <button
-          onClick={() => setOpen(v => !v)}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: t.textMuted, padding: 4, flexShrink: 0,
-            display: 'flex', alignItems: 'center',
-          }}
-        >
+        <button onClick={() => setOpen(v => !v)} style={{
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        color: t.textMuted,
+        padding: 4,
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center'
+      }}>
           {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
       </div>
 
       {/* Expanded quality / env */}
-      {open && (
-        <div style={{
-          padding: '0 14px 14px',
-          borderTop: `1px solid ${t.divider}`,
-        }}>
+      {open && <div style={{
+      padding: '0 14px 14px',
+      borderTop: `1px solid ${t.divider}`
+    }}>
           {/* Quality breakdown */}
-          <div style={{ marginTop: 10, marginBottom: 8, fontSize: 11, color: t.textMuted, fontWeight: 600 }}>
+          <div style={{
+        marginTop: 10,
+        marginBottom: 8,
+        fontSize: 11,
+        color: t.textMuted,
+        fontWeight: 600
+      }}>
             蛋品质分级
           </div>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            {([
-              { key: 'bad',    label: '破损', color: 'var(--status-danger)' },
-              { key: 'dirty',  label: '脏蛋', color: 'var(--status-warning)' },
-              { key: 'broken', label: '碎蛋', color: 'var(--status-warning)' },
-            ] as const).map(({ key, label, color }) => (
-              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 12, color, fontWeight: 600, minWidth: 30 }}>{label}</span>
-                <NumInput
-                  value={(entry as any)[key]}
-                  onChange={v => onChange({ ...entry, [key]: v })}
-                  small
-                />
-              </div>
-            ))}
+          <div className={u.flexWrap12}>
+            {([{
+          key: 'bad',
+          label: '破损',
+          color: 'var(--status-danger)'
+        }, {
+          key: 'dirty',
+          label: '脏蛋',
+          color: 'var(--status-warning)'
+        }, {
+          key: 'broken',
+          label: '碎蛋',
+          color: 'var(--status-warning)'
+        }] as const).map(({
+          key,
+          label,
+          color
+        }) => <div key={key} className={u.flexRow}>
+                <span style={{
+            fontSize: 12,
+            color,
+            fontWeight: 600,
+            minWidth: 30
+          }}>{label}</span>
+                <NumInput value={(entry as any)[key]} onChange={v => onChange({
+            ...entry,
+            [key]: v
+          })} small />
+              </div>)}
           </div>
 
           {/* Env data */}
-          <div style={{ marginTop: 12, marginBottom: 8, fontSize: 11, color: t.textMuted, fontWeight: 600 }}>
+          <div style={{
+        marginTop: 12,
+        marginBottom: 8,
+        fontSize: 11,
+        color: t.textMuted,
+        fontWeight: 600
+      }}>
             环境（选填）
           </div>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 12, color: t.textSub, minWidth: 30 }}>温度</span>
-              <input
-                type="number" inputMode="decimal" placeholder="℃"
-                value={entry.temp}
-                onChange={e => onChange({ ...entry, temp: e.target.value })}
-                style={{
-                  width: 64, height: 32, textAlign: 'center',
-                  background: t.inputBg,
-                  border: `1px solid ${t.inputBorder}`,
-                  borderRadius: 8, color: t.text, fontSize: 13, fontWeight: 600,
-                  outline: 'none', WebkitAppearance: 'none',
-                }}
-              />
-              <span style={{ fontSize: 11, color: t.textFaint }}>℃</span>
+          <div className={u.flexWrap12}>
+            <div className={u.flexRow}>
+              <span style={{
+            fontSize: 12,
+            color: t.textSub,
+            minWidth: 30
+          }}>温度</span>
+              <input type="number" inputMode="decimal" placeholder="℃" value={entry.temp} onChange={e => onChange({
+            ...entry,
+            temp: e.target.value
+          })} style={{
+            width: 64,
+            height: 32,
+            textAlign: 'center',
+            background: t.inputBg,
+            border: `1px solid ${t.inputBorder}`,
+            borderRadius: 8,
+            color: t.text,
+            fontSize: 13,
+            fontWeight: 600,
+            outline: 'none',
+            WebkitAppearance: 'none'
+          }} />
+              <span style={{
+            fontSize: 11,
+            color: t.textFaint
+          }}>℃</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 12, color: t.textSub, minWidth: 30 }}>湿度</span>
-              <input
-                type="number" inputMode="decimal" placeholder="%"
-                value={entry.humidity}
-                onChange={e => onChange({ ...entry, humidity: e.target.value })}
-                style={{
-                  width: 64, height: 32, textAlign: 'center',
-                  background: t.inputBg,
-                  border: `1px solid ${t.inputBorder}`,
-                  borderRadius: 8, color: t.text, fontSize: 13, fontWeight: 600,
-                  outline: 'none', WebkitAppearance: 'none',
-                }}
-              />
-              <span style={{ fontSize: 11, color: t.textFaint }}>%</span>
+            <div className={u.flexRow}>
+              <span style={{
+            fontSize: 12,
+            color: t.textSub,
+            minWidth: 30
+          }}>湿度</span>
+              <input type="number" inputMode="decimal" placeholder="%" value={entry.humidity} onChange={e => onChange({
+            ...entry,
+            humidity: e.target.value
+          })} style={{
+            width: 64,
+            height: 32,
+            textAlign: 'center',
+            background: t.inputBg,
+            border: `1px solid ${t.inputBorder}`,
+            borderRadius: 8,
+            color: t.text,
+            fontSize: 13,
+            fontWeight: 600,
+            outline: 'none',
+            WebkitAppearance: 'none'
+          }} />
+              <span style={{
+            fontSize: 11,
+            color: t.textFaint
+          }}>%</span>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
+        </div>}
+    </div>;
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function EggLogPage() {
   const router = useRouter();
-  const { user } = useAuth();
-  const { isDark, toggle, t } = useMobileTheme();
-  const { allowed, loading: permLoading, readonly } = useMobilePermission('egglog');
+  const {
+    user
+  } = useAuth();
+  const {
+    isDark,
+    toggle,
+    t
+  } = useMobileTheme();
+  const {
+    allowed,
+    loading: permLoading,
+    readonly
+  } = useMobilePermission('egglog');
   const toast = useToast();
-  const { pullHandlers } = usePullToRefresh(() => loadExisting(date, shift));
-
-  const [date, setDate]     = useState(todayStr());
-  const [shift, setShift]   = useState('早班');
+  const {
+    pullHandlers
+  } = usePullToRefresh(() => loadExisting(date, shift));
+  const [date, setDate] = useState(todayStr());
+  const [shift, setShift] = useState('早班');
   const [flocks, setFlocks] = useState<FlockRecord[]>([]);
   const [entries, setEntries] = useState<Record<string, HouseEntry>>({});
   const [existing, setExisting] = useState<Record<string, number>>({});
-  const [loading, setLoading]   = useState(true);
-  const [saving, setSaving]     = useState(false);
-  const [saved, setSaved]       = useState(false);
-  const [error, setError]       = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
 
   // Load flocks once
   useEffect(() => {
@@ -256,12 +362,12 @@ export default function EggLogPage() {
         if (!key) continue;
         existMap[key] = (existMap[key] || 0) + Number(r.eggs_produced || 0);
         entryMap[key] = {
-          eggs:     (entryMap[key]?.eggs || 0) + Number(r.eggs_produced || 0),
-          bad:      (entryMap[key]?.bad  || 0) + Number((r as any).bad_eggs    || 0),
-          dirty:    (entryMap[key]?.dirty|| 0) + Number((r as any).dirty_eggs  || 0),
-          broken:   (entryMap[key]?.broken||0) + Number((r as any).broken_eggs || 0),
-          temp:     (r as any).temp     != null ? String((r as any).temp)     : '',
-          humidity: (r as any).humidity != null ? String((r as any).humidity) : '',
+          eggs: (entryMap[key]?.eggs || 0) + Number(r.eggs_produced || 0),
+          bad: (entryMap[key]?.bad || 0) + Number((r as any).bad_eggs || 0),
+          dirty: (entryMap[key]?.dirty || 0) + Number((r as any).dirty_eggs || 0),
+          broken: (entryMap[key]?.broken || 0) + Number((r as any).broken_eggs || 0),
+          temp: (r as any).temp != null ? String((r as any).temp) : '',
+          humidity: (r as any).humidity != null ? String((r as any).humidity) : ''
         };
       }
       setExisting(existMap);
@@ -273,26 +379,26 @@ export default function EggLogPage() {
       setLoading(false);
     }
   }, []);
-
-  useEffect(() => { loadExisting(date, shift); }, [date, shift, loadExisting]);
-
+  useEffect(() => {
+    loadExisting(date, shift);
+  }, [date, shift, loadExisting]);
   if (permLoading) return <MobilePageSkeleton title="产蛋录入" onBack={() => router.back()} />;
   if (!allowed) return null;
-
   const getEntry = (house: string) => entries[house] ?? emptyEntry();
-
   const totalEggs = flocks.reduce((sum, f) => {
     const key = f.house_code || f.flock_no;
     return sum + (getEntry(key).eggs || 0);
   }, 0);
-
   const handleSubmit = async () => {
     const toSave = flocks.filter(f => {
       const key = f.house_code || f.flock_no;
       const e = getEntry(key);
       return e.eggs > 0 || e.bad > 0 || e.dirty > 0 || e.broken > 0;
     });
-    if (toSave.length === 0) { setError('没有需要提交的数据'); return; }
+    if (toSave.length === 0) {
+      setError('没有需要提交的数据');
+      return;
+    }
     setSaving(true);
     setError('');
     const operator = user?.name || user?.username || 'SYS';
@@ -302,17 +408,17 @@ export default function EggLogPage() {
       const e = getEntry(key);
       try {
         await mobileApi.submitDailyLog({
-          house_code:    f.house_code || key,
-          flock_no:      f.flock_no,
-          log_date:      date,
+          house_code: f.house_code || key,
+          flock_no: f.flock_no,
+          log_date: date,
           shift,
           eggs_produced: e.eggs,
-          bad_eggs:      e.bad,
-          dirty_eggs:    e.dirty,
-          broken_eggs:   e.broken,
-          temp:          e.temp !== '' ? Number(e.temp) : null,
-          humidity:      e.humidity !== '' ? Number(e.humidity) : null,
-          operator,
+          bad_eggs: e.bad,
+          dirty_eggs: e.dirty,
+          broken_eggs: e.broken,
+          temp: e.temp !== '' ? Number(e.temp) : null,
+          humidity: e.humidity !== '' ? Number(e.humidity) : null,
+          operator
         });
       } catch (err: any) {
         errors.push(`${key}: ${err?.message || '失败'}`);
@@ -323,180 +429,224 @@ export default function EggLogPage() {
       haptic('error');
       setError(errors.join('；'));
     } else {
-      haptic('success'); toast.success('产蛋日报提交成功');
+      haptic('success');
+      toast.success('产蛋日报提交成功');
       setSaved(true);
       await loadExisting(date, shift);
     }
   };
-
-  return (
-    <div style={{
-      minHeight: '100svh',
-      background: t.pageBg,
-      display: 'flex', flexDirection: 'column',
-    }}>
+  return <div style={{
+    minHeight: '100svh',
+    background: t.pageBg,
+    display: 'flex',
+    flexDirection: 'column'
+  }}>
       {/* AppBar */}
       <div style={{
-        display: 'flex', alignItems: 'center',
-        padding: 'calc(env(safe-area-inset-top) + 12px) 16px 12px',
-        background: t.appBarBg, backdropFilter: 'blur(20px)',
-        borderBottom: `1px solid ${t.barBorder}`,
-        position: 'sticky', top: 0, zIndex: 10, gap: 10,
-      }}>
+      display: 'flex',
+      alignItems: 'center',
+      padding: 'calc(env(safe-area-inset-top) + 12px) 16px 12px',
+      background: t.appBarBg,
+      backdropFilter: 'blur(20px)',
+      borderBottom: `1px solid ${t.barBorder}`,
+      position: 'sticky',
+      top: 0,
+      zIndex: 10,
+      gap: 10
+    }}>
         <button onClick={() => router.back()} style={{
-          background: 'none', border: 'none', cursor: 'pointer', padding: 4,
-          color: t.textSub, display: 'flex', alignItems: 'center',
-        }}>
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        padding: 4,
+        color: t.textSub,
+        display: 'flex',
+        alignItems: 'center'
+      }}>
           <ChevronLeft size={22} />
         </button>
-        <div style={{ flex: 1, fontSize: 16, fontWeight: 700, color: t.text }}>产蛋日报录入</div>
-        {totalEggs > 0 && (
-          <div style={{
-            padding: '4px 10px', borderRadius: 8,
-            background: 'var(--status-warning-bg-medium)',
-            border: '1px solid var(--status-warning-bg-strong)',
-            fontSize: 13, fontWeight: 700, color: 'var(--status-warning)',
-          }}>
+        <div style={{
+        flex: 1,
+        fontSize: 16,
+        fontWeight: 700,
+        color: t.text
+      }}>产蛋日报录入</div>
+        {totalEggs > 0 && <div style={{
+        padding: '4px 10px',
+        borderRadius: 8,
+        background: 'var(--status-warning-bg-medium)',
+        border: '1px solid var(--status-warning-bg-strong)',
+        fontSize: 13,
+        fontWeight: 700,
+        color: 'var(--status-warning)'
+      }}>
             {totalEggs.toLocaleString()} 枚
-          </div>
-        )}
+          </div>}
         <button onClick={toggle} style={{
-          background: 'none', border: 'none', cursor: 'pointer', padding: 6,
-          color: t.textSub, display: 'flex', alignItems: 'center',
-        }}>
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        padding: 6,
+        color: t.textSub,
+        display: 'flex',
+        alignItems: 'center'
+      }}>
           {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
       </div>
 
       {/* Date nav + shift */}
       <div style={{
-        padding: '10px 16px', borderBottom: `1px solid ${t.divider}`,
-        display: 'flex', flexDirection: 'column', gap: 8,
-      }}>
+      padding: '10px 16px',
+      borderBottom: `1px solid ${t.divider}`,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8
+    }}>
         {/* Date row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+        <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12
+      }}>
           <button onClick={() => setDate(d => shiftDays(d, -1))} style={{
-            background: t.btnBg, border: `1px solid ${t.btnBorder}`,
-            borderRadius: 8, padding: '6px 10px', cursor: 'pointer',
-            color: t.textSub, display: 'flex', alignItems: 'center',
-          }}><ChevronLeft size={16} /></button>
-          <span style={{ fontSize: 15, fontWeight: 600, color: t.text, minWidth: 110, textAlign: 'center' }}>
+          background: t.btnBg,
+          border: `1px solid ${t.btnBorder}`,
+          borderRadius: 8,
+          padding: '6px 10px',
+          cursor: 'pointer',
+          color: t.textSub,
+          display: 'flex',
+          alignItems: 'center'
+        }}><ChevronLeft size={16} /></button>
+          <span style={{
+          fontSize: 15,
+          fontWeight: 600,
+          color: t.text,
+          minWidth: 110,
+          textAlign: 'center'
+        }}>
             {date}
           </span>
-          <button
-            onClick={() => { if (date < todayStr()) setDate(d => shiftDays(d, 1)); }}
-            disabled={date >= todayStr()}
-            style={{
-              background: t.btnBg, border: `1px solid ${t.btnBorder}`,
-              borderRadius: 8, padding: '6px 10px',
-              cursor: date >= todayStr() ? 'default' : 'pointer',
-              color: date >= todayStr() ? t.textFaint : t.textSub,
-              display: 'flex', alignItems: 'center',
-            }}
-          ><ChevronRight size={16} /></button>
+          <button onClick={() => {
+          if (date < todayStr()) setDate(d => shiftDays(d, 1));
+        }} disabled={date >= todayStr()} style={{
+          background: t.btnBg,
+          border: `1px solid ${t.btnBorder}`,
+          borderRadius: 8,
+          padding: '6px 10px',
+          cursor: date >= todayStr() ? 'default' : 'pointer',
+          color: date >= todayStr() ? t.textFaint : t.textSub,
+          display: 'flex',
+          alignItems: 'center'
+        }}><ChevronRight size={16} /></button>
         </div>
 
         {/* Shift row */}
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-          {SHIFTS.map(s => (
-            <button
-              key={s.key}
-              onClick={() => setShift(s.key)}
-              style={{
-                padding: '6px 20px', borderRadius: 20,
-                border: `1px solid ${shift === s.key ? 'var(--status-warning)' : t.inputBorder}`,
-                background: shift === s.key ? 'var(--status-warning-border)' : t.cardBg,
-                color: shift === s.key ? 'var(--status-warning)' : t.textSub,
-                cursor: 'pointer', fontSize: 13, fontWeight: 600,
-              }}
-            >
+        <div style={{
+        display: 'flex',
+        gap: 8,
+        justifyContent: 'center'
+      }}>
+          {SHIFTS.map(s => <button key={s.key} onClick={() => setShift(s.key)} style={{
+          padding: '6px 20px',
+          borderRadius: 20,
+          border: `1px solid ${shift === s.key ? 'var(--status-warning)' : t.inputBorder}`,
+          background: shift === s.key ? 'var(--status-warning-border)' : t.cardBg,
+          color: shift === s.key ? 'var(--status-warning)' : t.textSub,
+          cursor: 'pointer',
+          fontSize: 13,
+          fontWeight: 600
+        }}>
               {s.label}
-            </button>
-          ))}
+            </button>)}
         </div>
       </div>
 
       {/* House list */}
       <div {...pullHandlers} style={{
-        flex: 1, padding: '12px 16px',
-        paddingBottom: 'calc(88px + env(safe-area-inset-bottom))',
-        overflowY: 'auto',
+      flex: 1,
+      padding: '12px 16px',
+      paddingBottom: 'calc(88px + env(safe-area-inset-bottom))',
+      overflowY: 'auto'
+    }}>
+        {loading ? <div style={{
+        textAlign: 'center',
+        padding: 40,
+        color: t.textFaint,
+        fontSize: 14
       }}>
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: 40, color: t.textFaint, fontSize: 14 }}>
             加载中…
-          </div>
-        ) : flocks.length === 0 ? (
-          <MobileEmptyState icon="🥚" title="暂无产蛋数据" desc="今日还没有记录" />
-        ) : (
-          flocks.map(f => {
-            const key = f.house_code || f.flock_no;
-            return (
-              <HouseCard
-                key={key}
-                house={f.house_code || key}
-                flock_no={f.flock_no}
-                entry={getEntry(key)}
-                onChange={e => setEntries(prev => ({ ...prev, [key]: e }))}
-                existing={existing[key] ?? 0}
-              />
-            );
-          })
-        )}
+          </div> : flocks.length === 0 ? <MobileEmptyState icon="🥚" title="暂无产蛋数据" desc="今日还没有记录" /> : flocks.map(f => {
+        const key = f.house_code || f.flock_no;
+        return <HouseCard key={key} house={f.house_code || key} flock_no={f.flock_no} entry={getEntry(key)} onChange={e => setEntries(prev => ({
+          ...prev,
+          [key]: e
+        }))} existing={existing[key] ?? 0} />;
+      })}
 
-        {error && (
-          <div style={{
-            margin: '8px 0', padding: '12px 14px', borderRadius: 10,
-            background: 'var(--status-danger-bg-light)', border: '1px solid var(--status-danger-bg-strong)',
-            color: 'var(--status-danger)', fontSize: 13,
-          }}>
+        {error && <div style={{
+        margin: '8px 0',
+        padding: '12px 14px',
+        borderRadius: 10,
+        background: 'var(--status-danger-bg-light)',
+        border: '1px solid var(--status-danger-bg-strong)',
+        color: 'var(--status-danger)',
+        fontSize: 13
+      }}>
             {error}
-          </div>
-        )}
+          </div>}
 
-        {saved && (
-          <div style={{
-            margin: '8px 0', padding: '12px 14px', borderRadius: 10,
-            background: 'var(--status-success-bg-medium)', border: '1px solid var(--status-success-bg-strong)',
-            color: 'var(--status-success)', fontSize: 13, textAlign: 'center', fontWeight: 600,
-          }}>
+        {saved && <div style={{
+        margin: '8px 0',
+        padding: '12px 14px',
+        borderRadius: 10,
+        background: 'var(--status-success-bg-medium)',
+        border: '1px solid var(--status-success-bg-strong)',
+        color: 'var(--status-success)',
+        fontSize: 13,
+        textAlign: 'center',
+        fontWeight: 600
+      }}>
             ✓ 提交成功
-          </div>
-        )}
+          </div>}
       </div>
 
       {/* Fixed submit bar */}
       <div style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0,
-        padding: '12px 16px',
-        paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
-        background: t.bottomBarBg, backdropFilter: 'blur(20px)',
-        borderTop: `1px solid ${t.cardBorder}`,
+      position: 'fixed',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      padding: '12px 16px',
+      paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
+      background: t.bottomBarBg,
+      backdropFilter: 'blur(20px)',
+      borderTop: `1px solid ${t.cardBorder}`
+    }}>
+        <button onClick={handleSubmit} disabled={saving || totalEggs === 0} style={{
+        width: '100%',
+        height: 52,
+        borderRadius: 14,
+        background: saving || totalEggs === 0 ? t.btnBg : 'linear-gradient(135deg,var(--status-warning),var(--status-warning))',
+        border: 'none',
+        cursor: saving || totalEggs === 0 ? 'default' : 'pointer',
+        color: saving || totalEggs === 0 ? t.textFaint : 'white',
+        fontSize: 16,
+        fontWeight: 700,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8
       }}>
-        <button
-          onClick={handleSubmit}
-          disabled={saving || totalEggs === 0}
-          style={{
-            width: '100%', height: 52, borderRadius: 14,
-            background: saving || totalEggs === 0
-              ? t.btnBg
-              : 'linear-gradient(135deg,var(--status-warning),var(--status-warning))',
-            border: 'none', cursor: saving || totalEggs === 0 ? 'default' : 'pointer',
-            color: saving || totalEggs === 0 ? t.textFaint : 'white',
-            fontSize: 16, fontWeight: 700,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          }}
-        >
-          {saving ? (
-            <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} />
-          ) : (
-            <Save size={18} />
-          )}
+          {saving ? <RefreshCw size={18} style={{
+          animation: 'spin 1s linear infinite'
+        }} /> : <Save size={18} />}
           {saving ? '提交中…' : `提交 ${shift} 产蛋日报`}
         </button>
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
+    </div>;
 }

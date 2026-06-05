@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useCallback, useEffect } from "react";
 import { crudApi } from "@/lib/api-client";
 import { DataTable, type Column } from "@/components/data-table/DataTable";
@@ -13,194 +14,310 @@ import { useLanguage } from "@/contexts/LanguageContext";
 // ✅ V3 表: wms_stocktake
 // 字段: take_no, warehouse_code, zone_code, book_qty, actual_qty, diff_qty, operator, status, date
 // 权限: ROLE_ADMIN / ROLE_WMS_MGR / ROLE_FIN_CFO 可审批
-
+import u from "@/styles/uix-utils.module.css";
 const TABLE = "wms_stocktake";
-
 const getRole = () => {
-  try { return JSON.parse(sessionStorage.getItem("phoenix_user") || "{}").role || ""; }
-  catch { return ""; }
+  try {
+    return JSON.parse(sessionStorage.getItem("phoenix_user") || "{}").role || "";
+  } catch {
+    return "";
+  }
 };
 const isApprover = () => ["ROLE_ADMIN", "ROLE_WMS_MGR", "ROLE_FIN_CFO"].includes(getRole());
-
 type Row = Record<string, unknown>;
-
 export default function StocktakePage() {
-  const { t } = useLanguage();
+  const {
+    t
+  } = useLanguage();
 
   // ✅ 状态 → 全局 badge CSS 类
-  const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
-    DRAFT:       { cls: s.badgeNeutral,  label: t("ui.草稿", "草稿")   },
-    IN_PROGRESS: { cls: s.badgeInfo,     label: t("ui.盘点中", "盘点中") },
-    DONE:        { cls: s.badgeWarning,  label: t("ui.待审核", "待审核") },
-    APPROVED:    { cls: s.badgeSuccess,  label: t("status.approved", "已审核") },
+  const STATUS_BADGE: Record<string, {
+    cls: string;
+    label: string;
+  }> = {
+    DRAFT: {
+      cls: s.badgeNeutral,
+      label: t("ui.草稿", "草稿")
+    },
+    IN_PROGRESS: {
+      cls: s.badgeInfo,
+      label: t("ui.盘点中", "盘点中")
+    },
+    DONE: {
+      cls: s.badgeWarning,
+      label: t("ui.待审核", "待审核")
+    },
+    APPROVED: {
+      cls: s.badgeSuccess,
+      label: t("status.approved", "已审核")
+    }
   };
 
   // G4-D：盘点单 — 仓库/库区/货位/品目/盘点员 主数据化；盘点类型 → sys_dict(INV_COUNT_TYPE)；盘点附件统一上传
-  const FIELDS: FormField[] = [
-    { key: "stocktake_no",   label: t("ui.盘点单号", "盘点单号"),  type: "text",   placeholder: t("ui.留空自动生成ST", "留空自动生成 ST-XXXXXX") },
-    { key: "count_type",     label: t("ui.盘点类型", "盘点类型"),  type: "dict",   dictType: "INV_COUNT_TYPE", required: true },
-    { key: "warehouse_code", label: t("ui.仓库",     "仓库"),      type: "warehouse", required: true },
-    { key: "zone_code",      label: t("ui.库区",     "库区"),      type: "zone", filterBy: { warehouseField: "warehouse_code" } },
-    { key: "location_code",  label: t("ui.货位",     "货位"),      type: "location", filterBy: { warehouseField: "warehouse_code", zoneField: "zone_code" } },
-    { key: "item",           label: t("ui.盘点品目", "盘点品目"),  type: "sku",
-      onPickKeys: { item_name: "sku_name", spec_code: "spec_code", grade_code: "grade_code" } },
-    { key: "sys_qty",        label: t("ui.账面数量", "账面数量"),  type: "number" },
-    { key: "act_qty",        label: t("ui.实际数量", "实际数量"),  type: "number" },
-    { key: "diff_qty",       label: t("ui.差异数量", "差异数量"),  type: "number" },
-    { key: "auditor",        label: t("ui.盘点员",   "盘点员"),    type: "user"   },
-    { key: "attachment_url", label: t("ui.盘点附件", "盘点附件"),  type: "attachment" },
-    { key: "status", label: t("common.status", "状态"), type: "select", options: [
-      { label: t("ui.草稿", "草稿"),   value: "DRAFT"       },
-      { label: t("ui.盘点中", "盘点中"), value: "IN_PROGRESS" },
-      { label: t("ui.待审核", "待审核"), value: "DONE"        },
-      { label: t("status.approved", "已审核"), value: "APPROVED"    },
-    ]},
-  ];
-
-  const [drawerOpen,    setDrawerOpen]    = useState(false);
-  const [editing,       setEditing]       = useState<Row | null>(null);
-  const [saving,        setSaving]        = useState(false);
-  const [refreshKey,    setRefreshKey]    = useState(0);
-  const [confirmOpen,   setConfirmOpen]   = useState(false);
-  const [deleteTarget,  setDeleteTarget]  = useState<Row | null>(null);
+  const FIELDS: FormField[] = [{
+    key: "stocktake_no",
+    label: t("ui.盘点单号", "盘点单号"),
+    type: "text",
+    placeholder: t("ui.留空自动生成ST", "留空自动生成 ST-XXXXXX")
+  }, {
+    key: "count_type",
+    label: t("ui.盘点类型", "盘点类型"),
+    type: "dict",
+    dictType: "INV_COUNT_TYPE",
+    required: true
+  }, {
+    key: "warehouse_code",
+    label: t("ui.仓库", "仓库"),
+    type: "warehouse",
+    required: true
+  }, {
+    key: "zone_code",
+    label: t("ui.库区", "库区"),
+    type: "zone",
+    filterBy: {
+      warehouseField: "warehouse_code"
+    }
+  }, {
+    key: "location_code",
+    label: t("ui.货位", "货位"),
+    type: "location",
+    filterBy: {
+      warehouseField: "warehouse_code",
+      zoneField: "zone_code"
+    }
+  }, {
+    key: "item",
+    label: t("ui.盘点品目", "盘点品目"),
+    type: "sku",
+    onPickKeys: {
+      item_name: "sku_name",
+      spec_code: "spec_code",
+      grade_code: "grade_code"
+    }
+  }, {
+    key: "sys_qty",
+    label: t("ui.账面数量", "账面数量"),
+    type: "number"
+  }, {
+    key: "act_qty",
+    label: t("ui.实际数量", "实际数量"),
+    type: "number"
+  }, {
+    key: "diff_qty",
+    label: t("ui.差异数量", "差异数量"),
+    type: "number"
+  }, {
+    key: "auditor",
+    label: t("ui.盘点员", "盘点员"),
+    type: "user"
+  }, {
+    key: "attachment_url",
+    label: t("ui.盘点附件", "盘点附件"),
+    type: "attachment"
+  }, {
+    key: "status",
+    label: t("common.status", "状态"),
+    type: "select",
+    options: [{
+      label: t("ui.草稿", "草稿"),
+      value: "DRAFT"
+    }, {
+      label: t("ui.盘点中", "盘点中"),
+      value: "IN_PROGRESS"
+    }, {
+      label: t("ui.待审核", "待审核"),
+      value: "DONE"
+    }, {
+      label: t("status.approved", "已审核"),
+      value: "APPROVED"
+    }]
+  }];
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editing, setEditing] = useState<Row | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
   const [approveTarget, setApproveTarget] = useState<Row | null>(null);
-  const [approveOpen,   setApproveOpen]   = useState(false);
-  const [allRows,       setAllRows]       = useState<Row[]>([]);
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [allRows, setAllRows] = useState<Row[]>([]);
 
   // KPI 数据：独立拉取（DataTable 分页显示，KPI 需全量）
   useEffect(() => {
-    crudApi.list<Row>(TABLE, { limit: 500 })
-      .then(res => setAllRows(res.data ?? []))
-      .catch(() => {});
+    crudApi.list<Row>(TABLE, {
+      limit: 500
+    }).then(res => setAllRows(res.data ?? [])).catch(() => {});
   }, [refreshKey]);
-
-  const refresh     = useCallback(() => setRefreshKey(k => k + 1), []);
-  const openNew     = useCallback(() => { setEditing(null); setDrawerOpen(true); }, []);
-  const openEdit    = useCallback((row: Row) => { setEditing(row); setDrawerOpen(true); }, []);
+  const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
+  const openNew = useCallback(() => {
+    setEditing(null);
+    setDrawerOpen(true);
+  }, []);
+  const openEdit = useCallback((row: Row) => {
+    setEditing(row);
+    setDrawerOpen(true);
+  }, []);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   // CSV 导出
   function exportCSV(rows: Row[]) {
-    const headers = [
-      t("ui.盘点单号", "盘点单号"),
-      t("ui.仓库", "仓库"),
-      t("ui.库区", "库区"),
-      t("ui.账面量", "账面量"),
-      t("ui.实际量", "实际量"),
-      t("ui.差异量", "差异量"),
-      t("ui.差异率%", "差异率%"),
-      t("common.status", "状态"),
-      t("ui.盘点员", "盘点员"),
-    ];
+    const headers = [t("ui.盘点单号", "盘点单号"), t("ui.仓库", "仓库"), t("ui.库区", "库区"), t("ui.账面量", "账面量"), t("ui.实际量", "实际量"), t("ui.差异量", "差异量"), t("ui.差异率%", "差异率%"), t("common.status", "状态"), t("ui.盘点员", "盘点员")];
     const lines = rows.map(r => {
-      const book   = Number(r.sys_qty ?? 0);
+      const book = Number(r.sys_qty ?? 0);
       const actual = Number(r.act_qty ?? 0);
-      const diff   = Number(r.diff_qty ?? 0);
-      const rate   = book > 0 ? (Math.abs(diff) / book * 100).toFixed(2) : "0.00";
+      const diff = Number(r.diff_qty ?? 0);
+      const rate = book > 0 ? (Math.abs(diff) / book * 100).toFixed(2) : "0.00";
       const status = STATUS_BADGE[String(r.status)]?.label ?? String(r.status ?? "");
       return [r.stocktake_no, r.warehouse_code, r.item ?? "", book, actual, diff, rate, status, r.auditor ?? ""].join(",");
     });
-    const csv  = [headers.join(","), ...lines].join("\n");
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
+    const csv = [headers.join(","), ...lines].join("\n");
+    const blob = new Blob(["﻿" + csv], {
+      type: "text/csv;charset=utf-8;"
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
     a.download = `盘点记录_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
-
   const handleSave = useCallback(async (values: Row) => {
     setSaving(true);
     try {
       const diffQty = Number(values.act_qty ?? 0) - Number(values.sys_qty ?? 0);
-      const payload = editing?.id
-        ? { ...values, diff_qty: String(diffQty) }
-        : { ...values,
-            stocktake_no: values.stocktake_no || ("ST-" + Date.now().toString().slice(-6)),
-            status: values.status || "DRAFT",
-            diff_qty: String(diffQty),
-            date: new Date().toISOString().slice(0, 10),
-          };
-      editing?.id
-        ? await crudApi.update(TABLE, editing.id as number, payload)
-        : await crudApi.create(TABLE, payload);
-      setDrawerOpen(false); refresh();
-    } finally { setSaving(false); }
+      const payload = editing?.id ? {
+        ...values,
+        diff_qty: String(diffQty)
+      } : {
+        ...values,
+        stocktake_no: values.stocktake_no || "ST-" + Date.now().toString().slice(-6),
+        status: values.status || "DRAFT",
+        diff_qty: String(diffQty),
+        date: new Date().toISOString().slice(0, 10)
+      };
+      editing?.id ? await crudApi.update(TABLE, editing.id as number, payload) : await crudApi.create(TABLE, payload);
+      setDrawerOpen(false);
+      refresh();
+    } finally {
+      setSaving(false);
+    }
   }, [editing, refresh]);
-
-  const handleDelete   = useCallback((row: Row) => { setDeleteTarget(row); setConfirmOpen(true); }, []);
-  const confirmDelete  = useCallback(async () => {
+  const handleDelete = useCallback((row: Row) => {
+    setDeleteTarget(row);
+    setConfirmOpen(true);
+  }, []);
+  const confirmDelete = useCallback(async () => {
     if (!deleteTarget?.id) return;
     await crudApi.delete(TABLE, deleteTarget.id as number);
-    setConfirmOpen(false); refresh();
+    setConfirmOpen(false);
+    refresh();
   }, [deleteTarget, refresh]);
-
-  const handleApprove  = useCallback((row: Row) => { setApproveTarget(row); setApproveOpen(true); }, []);
+  const handleApprove = useCallback((row: Row) => {
+    setApproveTarget(row);
+    setApproveOpen(true);
+  }, []);
   const confirmApprove = useCallback(async () => {
     if (!approveTarget?.id) return;
-    await crudApi.update(TABLE, approveTarget.id as number, { status: "APPROVED" });
-    setApproveOpen(false); refresh();
+    await crudApi.update(TABLE, approveTarget.id as number, {
+      status: "APPROVED"
+    });
+    setApproveOpen(false);
+    refresh();
   }, [approveTarget, refresh]);
 
   // 统计 KPI（按 wms_stocktake 真实列 sys_qty/act_qty/diff_qty）
-  const pending   = allRows.filter(r => r.status === "DONE").length;
-  const highRisk  = allRows.filter(r => { const b = Number(r.sys_qty ?? 0); return b > 0 && Math.abs(Number(r.diff_qty ?? 0)) / b > 0.05; }).length;
+  const pending = allRows.filter(r => r.status === "DONE").length;
+  const highRisk = allRows.filter(r => {
+    const b = Number(r.sys_qty ?? 0);
+    return b > 0 && Math.abs(Number(r.diff_qty ?? 0)) / b > 0.05;
+  }).length;
   const totalDiff = allRows.reduce((s, r) => s + Math.abs(Number(r.diff_qty ?? 0)), 0);
-
-  const COLUMNS: Column<Row>[] = [
-    { key: "stocktake_no",   title: t("ui.盘点单号", "盘点单号"), width: 160 },
-    { key: "warehouse_code", title: t("ui.仓库", "仓库"),     width: 110 },
-    { key: "item",           title: t("ui.品目", "品目"),     width: 100 },
-    { key: "sys_qty",        title: t("ui.账面量", "账面量"),   width: 80, align: "right" },
-    { key: "act_qty",        title: t("ui.实际量", "实际量"),   width: 80, align: "right" },
-    { key: "diff_qty",       title: t("ui.差异量", "差异量"),   width: 80, align: "right",
-      render: v => {
-        const n = Number(v ?? 0);
-        const cls = n === 0 ? s.textSuccess : n > 0 ? s.textInfo : s.textDanger;
-        return <b className={cls}>{n === 0 ? "—" : (n > 0 ? `+${n}` : String(n))}</b>;
-      }},
-    { key: "_rate",          title: t("ui.差异率", "差异率"),   width: 80, align: "center",
-      render: (_, row) => {
-        const book = Number(row.sys_qty ?? 0);
-        const diff = Number(row.diff_qty ?? 0);
-        const rate = book > 0 ? Math.abs(diff) / book * 100 : 0;
-        const isHigh = rate > 5;
-        // ✅ 差异率彺章也用 badge 类，不用 inline 颜色
-        const cls = rate === 0 ? s.badgeSuccess : isHigh ? s.badgeDanger : s.badgeWarning;
-        return <span className={`${s.badge} ${cls}`}>
+  const COLUMNS: Column<Row>[] = [{
+    key: "stocktake_no",
+    title: t("ui.盘点单号", "盘点单号"),
+    width: 160
+  }, {
+    key: "warehouse_code",
+    title: t("ui.仓库", "仓库"),
+    width: 110
+  }, {
+    key: "item",
+    title: t("ui.品目", "品目"),
+    width: 100
+  }, {
+    key: "sys_qty",
+    title: t("ui.账面量", "账面量"),
+    width: 80,
+    align: "right"
+  }, {
+    key: "act_qty",
+    title: t("ui.实际量", "实际量"),
+    width: 80,
+    align: "right"
+  }, {
+    key: "diff_qty",
+    title: t("ui.差异量", "差异量"),
+    width: 80,
+    align: "right",
+    render: v => {
+      const n = Number(v ?? 0);
+      const cls = n === 0 ? s.textSuccess : n > 0 ? s.textInfo : s.textDanger;
+      return <b className={cls}>{n === 0 ? "—" : n > 0 ? `+${n}` : String(n)}</b>;
+    }
+  }, {
+    key: "_rate",
+    title: t("ui.差异率", "差异率"),
+    width: 80,
+    align: "center",
+    render: (_, row) => {
+      const book = Number(row.sys_qty ?? 0);
+      const diff = Number(row.diff_qty ?? 0);
+      const rate = book > 0 ? Math.abs(diff) / book * 100 : 0;
+      const isHigh = rate > 5;
+      // ✅ 差异率彺章也用 badge 类，不用 inline 颜色
+      const cls = rate === 0 ? s.badgeSuccess : isHigh ? s.badgeDanger : s.badgeWarning;
+      return <span className={`${s.badge} ${cls}`}>
           {rate.toFixed(2)}%{isHigh ? " ⚠️" : ""}
         </span>;
-      }},
-    { key: "status",         title: t("common.status", "状态"),     width: 90, align: "center",
-      render: v => {
-        const cfg = STATUS_BADGE[String(v)] ?? { cls: s.badgeNeutral, label: String(v ?? "—") };
-        return <span className={`${s.badge} ${cfg.cls}`}>{cfg.label}</span>;
-      }},
-    { key: "operator",       title: t("ui.盘点员", "盘点员"),   width: 90  },
-    { key: "_actions",       title: t("common.operation", "操作"),     width: 130, align: "center",
-      render: (_, row) => (
-        <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+    }
+  }, {
+    key: "status",
+    title: t("common.status", "状态"),
+    width: 90,
+    align: "center",
+    render: v => {
+      const cfg = STATUS_BADGE[String(v)] ?? {
+        cls: s.badgeNeutral,
+        label: String(v ?? "—")
+      };
+      return <span className={`${s.badge} ${cfg.cls}`}>{cfg.label}</span>;
+    }
+  }, {
+    key: "operator",
+    title: t("ui.盘点员", "盘点员"),
+    width: 90
+  }, {
+    key: "_actions",
+    title: t("common.operation", "操作"),
+    width: 130,
+    align: "center",
+    render: (_, row) => <div style={{
+      display: "flex",
+      gap: 6,
+      justifyContent: "center"
+    }}>
           <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>
-          {isApprover() && row.status === "DONE" && (
-            <button type="button" className={`${s.btnSuccess} ${s.btnSm}`} onClick={() => handleApprove(row)}>
+          {isApprover() && row.status === "DONE" && <button type="button" className={`${s.btnSuccess} ${s.btnSm}`} onClick={() => handleApprove(row)}>
               <CheckCircle size={11} />{t("ui.审批", "审批")}
-            </button>
-          )}
+            </button>}
           <button type="button" className={`${s.btnDanger} ${s.btnSm}`} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>
         </div>
-      )
-    },
-  ];
-
-  return (
-    <div>
-      <PageHeader
-        title={t("ui.盘点管理", "盘点管理")}
-        subtitle={t("ui.库存盘点作业差异追踪审批确认", "库存盘点作业 · 差异追踪 · 审批确认")}
-        breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.盘点管理", "盘点管理")]}
-        actions={
-          <div style={{ display: "flex", gap: 8 }}>
+  }];
+  return <div>
+      <PageHeader title={t("ui.盘点管理", "盘点管理")} subtitle={t("ui.库存盘点作业差异追踪审批确认", "库存盘点作业 · 差异追踪 · 审批确认")} breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.盘点管理", "盘点管理")]} actions={<div style={{
+      display: "flex",
+      gap: 8
+    }}>
             <button type="button" className={s.btnSecondary} onClick={() => exportCSV(allRows)} disabled={allRows.length === 0}>
               <Download size={14} />{t("common.export", "导出")} CSV
             </button>
@@ -210,12 +327,10 @@ export default function StocktakePage() {
             <button type="button" className={s.btnPrimary} onClick={openNew}>
               <Plus size={14} />{t("ui.新建盘点单", "新建盘点单")}
             </button>
-          </div>
-        }
-      />
+          </div>} />
 
       {/* KPI 统计 */}
-      <div className={s.statsRow} style={{ marginBottom: 20 }}>
+      <div className={`${s.statsRow} ${u.mb20}`}>
         <div className={`${s.statCard} ${s.statCardPrimary}`}>
           <div className={s.statValue}>—</div>
           <div className={s.statLabel}>{t("ui.历史盘点次数", "历史盘点次数")}</div>
@@ -235,27 +350,13 @@ export default function StocktakePage() {
         </div>
       </div>
 
-      <DataTable
-        table={TABLE}
-        columns={COLUMNS}
-        onNew={openNew}
-        onEdit={openEdit}
-        onDelete={handleDelete}
-        showActions={false}
-        refreshKey={refreshKey}
-        emptyText={t("ui.暂无盘点记录", "暂无盘点记录")}
-        pageSize={30}
-      />
+      <DataTable table={TABLE} columns={COLUMNS} onNew={openNew} onEdit={openEdit} onDelete={handleDelete} showActions={false} refreshKey={refreshKey} emptyText={t("ui.暂无盘点记录", "暂无盘点记录")} pageSize={30} />
 
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑盘点单", "编辑盘点单") : t("ui.新建盘点单", "新建盘点单")} onClose={closeDrawer}>
         <CrudForm fields={FIELDS} initialValues={editing ?? {}} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
       </RightDrawer>
 
-      <ConfirmDialog open={confirmOpen} title={t("common.confirm", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}
-        onConfirm={confirmDelete} onCancel={() => setConfirmOpen(false)} />
-      <ConfirmDialog open={approveOpen} title={t("ui.确认审批通过", "确认审批通过")}
-        message={`${t("ui.确认审批盘点单", "确认审批盘点单")}「${approveTarget?.stocktake_no ?? ""}」？${t("ui.可能影响账面库存数据", "可能影响账面库存数据")}`}
-        onConfirm={confirmApprove} onCancel={() => setApproveOpen(false)} />
-    </div>
-  );
+      <ConfirmDialog open={confirmOpen} title={t("common.confirm", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")} onConfirm={confirmDelete} onCancel={() => setConfirmOpen(false)} />
+      <ConfirmDialog open={approveOpen} title={t("ui.确认审批通过", "确认审批通过")} message={`${t("ui.确认审批盘点单", "确认审批盘点单")}「${approveTarget?.stocktake_no ?? ""}」？${t("ui.可能影响账面库存数据", "可能影响账面库存数据")}`} onConfirm={confirmApprove} onCancel={() => setApproveOpen(false)} />
+    </div>;
 }

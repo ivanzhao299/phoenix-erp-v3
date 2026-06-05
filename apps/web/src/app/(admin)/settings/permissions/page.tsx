@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import { crudApi } from "@/lib/api-client";
@@ -14,56 +15,88 @@ import s from "@/components/ui/admin-ui.module.css";
 // 字段: id, role_code, menu_code, perm_codes (如 "V,C,E,D,A,X")
 
 const TABLE = "sys_permissions";
-
 interface PermRow {
   id: number;
   role_code: string;
   menu_code: string;
   perm_codes: string;
 }
-
 export default function PermissionsPage() {
-  const { t } = useLanguage();
-
-  const PERM_CODE_META: Record<string, { label: string; color: string }> = {
-    V: { label: t('ui.查看', '查看'), color: "var(--color-accent)" },
-    C: { label: t('common.new', '新增'), color: "var(--status-success)" },
-    E: { label: t('common.edit', '编辑'), color: "var(--status-warning)" },
-    D: { label: t('common.delete', '删除'), color: "var(--status-danger)" },
-    A: { label: t('ui.审批', '审批'), color: "var(--status-special)" },
-    X: { label: t('common.export', '导出'), color: "var(--color-accent)" },
+  const {
+    t
+  } = useLanguage();
+  const PERM_CODE_META: Record<string, {
+    label: string;
+    color: string;
+  }> = {
+    V: {
+      label: t('ui.查看', '查看'),
+      color: "var(--color-accent)"
+    },
+    C: {
+      label: t('common.new', '新增'),
+      color: "var(--status-success)"
+    },
+    E: {
+      label: t('common.edit', '编辑'),
+      color: "var(--status-warning)"
+    },
+    D: {
+      label: t('common.delete', '删除'),
+      color: "var(--status-danger)"
+    },
+    A: {
+      label: t('ui.审批', '审批'),
+      color: "var(--status-special)"
+    },
+    X: {
+      label: t('common.export', '导出'),
+      color: "var(--color-accent)"
+    }
   };
-
-  const FIELDS: FormField[] = [
-    { key: "role_code",  label: t('ui.角色编码', '角色编码'),   type: "text",   required: true, placeholder: t('ui.如ROLE_FARM_MGR', '如：ROLE_FARM_MGR') },
-    { key: "menu_code",  label: t('ui.菜单代码', '菜单代码'),   type: "text",   required: true, placeholder: t('ui.如MENU_ORDER_MGR', '如：MENU_ORDER_MGR') },
-    { key: "perm_codes", label: t('ui.权限码集合', '权限码集合'), type: "text",   required: true, placeholder: t('ui.逗号分隔VCE或星号', '逗号分隔：V,C,E 或 *') },
-  ];
-
-  const [data,    setData]    = useState<PermRow[]>([]);
-  const [filter,  setFilter]  = useState("");
+  const FIELDS: FormField[] = [{
+    key: "role_code",
+    label: t('ui.角色编码', '角色编码'),
+    type: "text",
+    required: true,
+    placeholder: t('ui.如ROLE_FARM_MGR', '如：ROLE_FARM_MGR')
+  }, {
+    key: "menu_code",
+    label: t('ui.菜单代码', '菜单代码'),
+    type: "text",
+    required: true,
+    placeholder: t('ui.如MENU_ORDER_MGR', '如：MENU_ORDER_MGR')
+  }, {
+    key: "perm_codes",
+    label: t('ui.权限码集合', '权限码集合'),
+    type: "text",
+    required: true,
+    placeholder: t('ui.逗号分隔VCE或星号', '逗号分隔：V,C,E 或 *')
+  }];
+  const [data, setData] = useState<PermRow[]>([]);
+  const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(true);
-  const [open,    setOpen]    = useState(false);
+  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PermRow | null>(null);
-  const [saving,  setSaving]  = useState(false);
+  const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [delItem, setDelItem] = useState<PermRow | null>(null);
-  const [rk,      setRk]      = useState(0);
-
+  const [rk, setRk] = useState(0);
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await crudApi.list<PermRow>(TABLE, { limit: 1000 });
+      const res = await crudApi.list<PermRow>(TABLE, {
+        limit: 1000
+      });
       setData(res.data ?? []);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }, []);
-
-  useEffect(() => { reload(); }, [rk]);
-
-  const filtered = data.filter(r =>
-    !filter || r.role_code.toLowerCase().includes(filter.toLowerCase()) ||
-    r.menu_code.toLowerCase().includes(filter.toLowerCase())
-  );
+  useEffect(() => {
+    reload();
+  }, [rk]);
+  const filtered = data.filter(r => !filter || r.role_code.toLowerCase().includes(filter.toLowerCase()) || r.menu_code.toLowerCase().includes(filter.toLowerCase()));
 
   // 按角色分组
   const groups: Record<string, PermRow[]> = {};
@@ -71,91 +104,143 @@ export default function PermissionsPage() {
     if (!groups[r.role_code]) groups[r.role_code] = [];
     groups[r.role_code].push(r);
   }
-
   const save = useCallback(async (v: Record<string, unknown>) => {
     setSaving(true);
     try {
-      editing
-        ? await crudApi.update(TABLE, editing.id, v)
-        : await crudApi.create(TABLE, v);
+      editing ? await crudApi.update(TABLE, editing.id, v) : await crudApi.create(TABLE, v);
       setOpen(false);
       setRk(k => k + 1);
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   }, [editing]);
-
   const del = useCallback(async () => {
     if (!delItem) return;
     await crudApi.delete(TABLE, delItem.id);
     setConfirm(false);
     setRk(k => k + 1);
   }, [delItem]);
-
-  return (
-    <div>
-      <PageHeader
-        title={t('ui.权限配置', '权限配置')}
-        subtitle={t('ui.管理每个角色对每个菜单的VCEDAX细粒度权限条目', '管理每个角色对每个菜单的 VCEDAX 细粒度权限条目')}
-      />
+  return <div>
+      <PageHeader title={t('ui.权限配置', '权限配置')} subtitle={t('ui.管理每个角色对每个菜单的VCEDAX细粒度权限条目', '管理每个角色对每个菜单的 VCEDAX 细粒度权限条目')} />
 
       {/* 顶栏 */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
-        <div style={{ position: "relative", flex: 1, maxWidth: 360 }}>
-          <Search size={15} style={{ position: "absolute", left: 10, top: "50%",
-            transform: "translateY(-50%)", color: "var(--text-secondary)" }} />
-          <input
-            value={filter}
-            onChange={e => setFilter(e.target.value)}
-            placeholder={t('ui.搜索角色或菜单编码', '搜索角色或菜单编码…')}
-            style={{ width: "100%", padding: "8px 12px 8px 32px",
-              background: "var(--bg-card)", border: "1px solid var(--border)",
-              borderRadius: 8, color: "var(--text-primary)", fontSize: "0.85rem" }}
-          />
+      <div style={{
+      display: "flex",
+      gap: 10,
+      marginBottom: 16,
+      alignItems: "center"
+    }}>
+        <div style={{
+        position: "relative",
+        flex: 1,
+        maxWidth: 360
+      }}>
+          <Search size={15} style={{
+          position: "absolute",
+          left: 10,
+          top: "50%",
+          transform: "translateY(-50%)",
+          color: "var(--text-secondary)"
+        }} />
+          <input value={filter} onChange={e => setFilter(e.target.value)} placeholder={t('ui.搜索角色或菜单编码', '搜索角色或菜单编码…')} style={{
+          width: "100%",
+          padding: "8px 12px 8px 32px",
+          background: "var(--bg-card)",
+          border: "1px solid var(--border)",
+          borderRadius: 8,
+          color: "var(--text-primary)",
+          fontSize: "0.85rem"
+        }} />
         </div>
-        <button type="button" onClick={() => { setEditing(null); setOpen(true); }} style={{
-          background: "var(--color-primary)", border: "none", borderRadius: 8,
-          padding: "8px 18px", color: "var(--text-on-dark)", cursor: "pointer", fontWeight: 600, fontSize: "0.85rem",
-        }}>+ {t('ui.新增权限条目', '新增权限条目')}</button>
+        <button type="button" onClick={() => {
+        setEditing(null);
+        setOpen(true);
+      }} style={{
+        background: "var(--color-primary)",
+        border: "none",
+        borderRadius: 8,
+        padding: "8px 18px",
+        color: "var(--text-on-dark)",
+        cursor: "pointer",
+        fontWeight: 600,
+        fontSize: "0.85rem"
+      }}>+ {t('ui.新增权限条目', '新增权限条目')}</button>
       </div>
 
       {/* 统计 */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-        {[
-          { label: t('ui.权限条目总数', '权限条目总数'),   value: data.length,         color: "var(--color-accent)" },
-          { label: t('ui.涉及角色数', '涉及角色数'),    value: Object.keys(groups).length, color: "var(--status-success)" },
-          { label: t('ui.搜索结果', '搜索结果'),      value: filtered.length,      color: "var(--status-warning)" },
-        ].map(k => (
-          <div key={k.label} style={{
-            background: `${k.color}10`, border: `1px solid ${k.color}25`,
-            borderRadius: 10, padding: "10px 16px",
-          }}>
-            <div style={{ fontSize: "1.5rem", fontWeight: 800, color: k.color }}>{loading ? "—" : k.value}</div>
-            <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: 2 }}>{k.label}</div>
-          </div>
-        ))}
+      <div style={{
+      display: "flex",
+      gap: 10,
+      marginBottom: 16
+    }}>
+        {[{
+        label: t('ui.权限条目总数', '权限条目总数'),
+        value: data.length,
+        color: "var(--color-accent)"
+      }, {
+        label: t('ui.涉及角色数', '涉及角色数'),
+        value: Object.keys(groups).length,
+        color: "var(--status-success)"
+      }, {
+        label: t('ui.搜索结果', '搜索结果'),
+        value: filtered.length,
+        color: "var(--status-warning)"
+      }].map(k => <div key={k.label} style={{
+        background: `${k.color}10`,
+        border: `1px solid ${k.color}25`,
+        borderRadius: 10,
+        padding: "10px 16px"
+      }}>
+            <div style={{
+          fontSize: "1.5rem",
+          fontWeight: 800,
+          color: k.color
+        }}>{loading ? "—" : k.value}</div>
+            <div style={{
+          fontSize: "0.72rem",
+          color: "var(--text-secondary)",
+          marginTop: 2
+        }}>{k.label}</div>
+          </div>)}
       </div>
 
       {/* 分组权限表 */}
-      {loading ? (
-        <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>{t('common.loading', '加载中…')}</div>
-      ) : Object.entries(groups).length === 0 ? (
-        <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>
-          <Shield size={40} style={{ opacity: 0.2, marginBottom: 12 }} />
+      {loading ? <div className={u.emptyPad40}>{t('common.loading', '加载中…')}</div> : Object.entries(groups).length === 0 ? <div className={u.emptyPad40}>
+          <Shield size={40} style={{
+        opacity: 0.2,
+        marginBottom: 12
+      }} />
           <div>{t('ui.暂无权限配置点击新增开始配置', '暂无权限配置，点击「新增」开始配置')}</div>
-        </div>
-      ) : (
-        Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([roleCode, rows]) => (
-          <div key={roleCode} style={{
-            marginBottom: 12, background: "var(--bg-card)",
-            border: "1px solid var(--bg-card)", borderRadius: 10, overflow: "hidden",
-          }}>
-            <div style={{ padding: "10px 16px", background: "var(--bg-card)",
-              borderBottom: "1px solid var(--bg-card)",
-              display: "flex", alignItems: "center", gap: 10 }}>
-              <Shield size={14} style={{ color: "var(--status-special)" }} />
-              <span style={{ fontWeight: 700, fontSize: "0.85rem", fontFamily: "monospace", color: "var(--status-special)" }}>
+        </div> : Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([roleCode, rows]) => <div key={roleCode} style={{
+      marginBottom: 12,
+      background: "var(--bg-card)",
+      border: "1px solid var(--bg-card)",
+      borderRadius: 10,
+      overflow: "hidden"
+    }}>
+            <div style={{
+        padding: "10px 16px",
+        background: "var(--bg-card)",
+        borderBottom: "1px solid var(--bg-card)",
+        display: "flex",
+        alignItems: "center",
+        gap: 10
+      }}>
+              <Shield size={14} style={{
+          color: "var(--status-special)"
+        }} />
+              <span style={{
+          fontWeight: 700,
+          fontSize: "0.85rem",
+          fontFamily: "monospace",
+          color: "var(--status-special)"
+        }}>
                 {roleCode}
               </span>
-              <span style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
+              <span style={{
+          fontSize: "0.72rem",
+          color: "var(--text-secondary)"
+        }}>
                 {rows.length} {t('ui.个菜单权限', '个菜单权限')}
               </span>
             </div>
@@ -170,79 +255,100 @@ export default function PermissionsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.sort((a, b) => a.menu_code.localeCompare(b.menu_code)).map(row => (
-                    <tr key={row.id}>
-                      <td style={{ fontFamily: "monospace", color: "var(--text-primary)" }}>
+                  {rows.sort((a, b) => a.menu_code.localeCompare(b.menu_code)).map(row => <tr key={row.id}>
+                      <td style={{
+                fontFamily: "monospace",
+                color: "var(--text-primary)"
+              }}>
                         {row.menu_code}
                       </td>
                       <td>
-                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                          {row.perm_codes === "*" ? (
-                            <span style={{ padding: "2px 8px", borderRadius: 12,
-                              background: "var(--status-danger)20", color: "var(--status-danger)",
-                              fontSize: "0.72rem", fontWeight: 700 }}>
+                        <div style={{
+                  display: "flex",
+                  gap: 4,
+                  flexWrap: "wrap"
+                }}>
+                          {row.perm_codes === "*" ? <span style={{
+                    padding: "2px 8px",
+                    borderRadius: 12,
+                    background: "var(--status-danger)20",
+                    color: "var(--status-danger)",
+                    fontSize: "0.72rem",
+                    fontWeight: 700
+                  }}>
                               * {t('ui.全部权限', '全部权限')}
-                            </span>
-                          ) : row.perm_codes.split(",").filter(Boolean).map(code => {
-                            const meta = PERM_CODE_META[code.trim()] ?? { label: code, color: "var(--text-disabled)" };
-                            return (
-                              <span key={code} style={{
-                                padding: "2px 8px", borderRadius: 12, fontSize: "0.72rem", fontWeight: 700,
-                                background: `${meta.color}20`, color: meta.color,
-                                border: `1px solid ${meta.color}30`,
-                              }}>
+                            </span> : row.perm_codes.split(",").filter(Boolean).map(code => {
+                    const meta = PERM_CODE_META[code.trim()] ?? {
+                      label: code,
+                      color: "var(--text-disabled)"
+                    };
+                    return <span key={code} style={{
+                      padding: "2px 8px",
+                      borderRadius: 12,
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      background: `${meta.color}20`,
+                      color: meta.color,
+                      border: `1px solid ${meta.color}30`
+                    }}>
                                 {code.trim()} {meta.label}
-                              </span>
-                            );
-                          })}
+                              </span>;
+                  })}
                         </div>
                       </td>
                       <td>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button type="button" onClick={() => { setEditing(row); setOpen(true); }} style={{
-                            padding: "4px 10px", fontSize: "0.75rem", background: "var(--status-info-bg-medium)",
-                            color: "var(--color-accent)", border: "1px solid var(--status-info-bg-medium)",
-                            borderRadius: 6, cursor: "pointer",
-                          }}>{t('common.edit', '编辑')}</button>
-                          <button type="button" onClick={() => { setDelItem(row); setConfirm(true); }} style={{
-                            padding: "4px 10px", fontSize: "0.75rem", background: "var(--status-danger-bg-light)",
-                            color: "var(--status-danger)", border: "1px solid var(--status-danger-bg-strong)",
-                            borderRadius: 6, cursor: "pointer",
-                          }}>{t('common.delete', '删除')}</button>
+                        <div style={{
+                  display: "flex",
+                  gap: 6
+                }}>
+                          <button type="button" onClick={() => {
+                    setEditing(row);
+                    setOpen(true);
+                  }} style={{
+                    padding: "4px 10px",
+                    fontSize: "0.75rem",
+                    background: "var(--status-info-bg-medium)",
+                    color: "var(--color-accent)",
+                    border: "1px solid var(--status-info-bg-medium)",
+                    borderRadius: 6,
+                    cursor: "pointer"
+                  }}>{t('common.edit', '编辑')}</button>
+                          <button type="button" onClick={() => {
+                    setDelItem(row);
+                    setConfirm(true);
+                  }} style={{
+                    padding: "4px 10px",
+                    fontSize: "0.75rem",
+                    background: "var(--status-danger-bg-light)",
+                    color: "var(--status-danger)",
+                    border: "1px solid var(--status-danger-bg-strong)",
+                    borderRadius: 6,
+                    cursor: "pointer"
+                  }}>{t('common.delete', '删除')}</button>
                         </div>
                       </td>
-                    </tr>
-                  ))}
+                    </tr>)}
                 </tbody>
               </table>
             </div>
-          </div>
-        ))
-      )}
+          </div>)}
 
       <RightDrawer open={open} title={editing ? t('ui.编辑权限条目', '编辑权限条目') : t('ui.新增权限条目', '新增权限条目')} onClose={() => setOpen(false)}>
-        <div style={{ marginBottom: 16, padding: 12, background: "var(--status-info-bg-light)",
-          borderRadius: 8, fontSize: "0.78rem", color: "var(--color-accent)" }}>
+        <div style={{
+        marginBottom: 16,
+        padding: 12,
+        background: "var(--status-info-bg-light)",
+        borderRadius: 8,
+        fontSize: "0.78rem",
+        color: "var(--color-accent)"
+      }}>
           {t('ui.权限码说明', '权限码说明')}：<strong>V</strong>={t('ui.查看', '查看')} <strong>C</strong>={t('common.new', '新增')} <strong>E</strong>={t('common.edit', '编辑')}
           <strong>D</strong>={t('common.delete', '删除')} <strong>A</strong>={t('ui.审批', '审批')} <strong>X</strong>={t('common.export', '导出')}<br />
           {t('ui.多个权限用逗号分隔', '多个权限用逗号分隔，如：')}<code>V,C,E</code>。{t('ui.超管填星号', '超管填')} <code>*</code>。
         </div>
-        <CrudForm
-          fields={FIELDS}
-          initialValues={(editing ?? {}) as Record<string,unknown>}
-          onSubmit={save}
-          onCancel={() => setOpen(false)}
-          loading={saving}
-        />
+        <CrudForm fields={FIELDS} initialValues={(editing ?? {}) as Record<string, unknown>} onSubmit={save} onCancel={() => setOpen(false)} loading={saving} />
       </RightDrawer>
 
-      <ConfirmDialog
-        open={confirm}
-        title={t('common.confirm', '确认删除')}
-        message={`${t('ui.删除角色', '删除角色')}「${delItem?.role_code}」${t('ui.在菜单上的权限', '在菜单')}「${delItem?.menu_code}」${t('ui.上的权限', '上的权限')}？`}
-        onConfirm={del}
-        onCancel={() => setConfirm(false)}
-      />
-    </div>
-  );
+      <ConfirmDialog open={confirm} title={t('common.confirm', '确认删除')} message={`${t('ui.删除角色', '删除角色')}「${delItem?.role_code}」${t('ui.在菜单上的权限', '在菜单')}「${delItem?.menu_code}」${t('ui.上的权限', '上的权限')}？`} onConfirm={del} onCancel={() => setConfirm(false)} />
+    </div>;
 }

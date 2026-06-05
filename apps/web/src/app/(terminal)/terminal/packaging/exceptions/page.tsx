@@ -1,4 +1,5 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
@@ -10,47 +11,54 @@ import type { ExceptionType, ExceptionTicket } from '@/types/packaging-terminal'
 import { useTerminalContext } from '@/hooks/useTerminalContext';
 import { usePackagingDicts, buildQuickTypes, FALLBACK_DICTS } from '@/hooks/usePackagingDicts';
 import { T } from '@/styles/terminal-theme';
-
-
-const SEV_COLORS = { LOW:'var(--status-success)', MEDIUM:'var(--status-warning)', HIGH:'var(--status-warning)', CRITICAL:'var(--status-danger)' };
-
+const SEV_COLORS = {
+  LOW: 'var(--status-success)',
+  MEDIUM: 'var(--status-warning)',
+  HIGH: 'var(--status-warning)',
+  CRITICAL: 'var(--status-danger)'
+};
 export default function ExceptionsPage() {
   const router = useRouter();
-  const { user } = useAuth();
-  const { t } = useLanguage();
-  const { ctx } = useTerminalContext();
+  const {
+    user
+  } = useAuth();
+  const {
+    t
+  } = useLanguage();
+  const {
+    ctx
+  } = useTerminalContext();
   // ── 从数据字典加载异常快捷类型 ─────────────────────────────────────────────
-  const { dicts } = usePackagingDicts(['PKG_ANOMALY_REASON']);
-  const QUICK_TYPES = buildQuickTypes(
-    dicts.PKG_ANOMALY_REASON ?? FALLBACK_DICTS.PKG_ANOMALY_REASON
-  ) as { type: ExceptionType; label: string; icon: string }[];
-
-  const STATUS_LABEL: Record<string,string> = {
-    REPORTED:     t('ui.已上报', '已上报'),
+  const {
+    dicts
+  } = usePackagingDicts(['PKG_ANOMALY_REASON']);
+  const QUICK_TYPES = buildQuickTypes(dicts.PKG_ANOMALY_REASON ?? FALLBACK_DICTS.PKG_ANOMALY_REASON) as {
+    type: ExceptionType;
+    label: string;
+    icon: string;
+  }[];
+  const STATUS_LABEL: Record<string, string> = {
+    REPORTED: t('ui.已上报', '已上报'),
     ACKNOWLEDGED: t('ui.已受理', '已受理'),
-    IN_PROGRESS:  t('ui.处理中', '处理中'),
-    RESOLVED:     t('ui.已处理', '已处理'),
-    CLOSED:       t('ui.已关闭', '已关闭'),
-    CANCELLED:    t('ui.已取消', '已取消'),
+    IN_PROGRESS: t('ui.处理中', '处理中'),
+    RESOLVED: t('ui.已处理', '已处理'),
+    CLOSED: t('ui.已关闭', '已关闭'),
+    CANCELLED: t('ui.已取消', '已取消')
   };
-
   const [tickets, setTickets] = useState<ExceptionTicket[]>([]);
   const [ticketsLoading, setTicketsLoading] = useState(true);
-
   useEffect(() => {
-    packagingApi.getTodayExceptions()
-      .then(data => setTickets((Array.isArray(data) ? data : []) as ExceptionTicket[]))
-      .catch(() => setTickets([]))
-      .finally(() => setTicketsLoading(false));
+    packagingApi.getTodayExceptions().then(data => setTickets((Array.isArray(data) ? data : []) as ExceptionTicket[])).catch(() => setTickets([])).finally(() => setTicketsLoading(false));
   }, []);
-
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
-    type:'' as ExceptionType|'', severity:'MEDIUM' as 'LOW'|'MEDIUM'|'HIGH'|'CRITICAL',
-    quantity:'', description:'', batchId: ctx.currentSourceBatch?.code || '',
+    type: '' as ExceptionType | '',
+    severity: 'MEDIUM' as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
+    quantity: '',
+    description: '',
+    batchId: ctx.currentSourceBatch?.code || ''
   });
   const [submitting, setSubmitting] = useState(false);
-
   const handleSubmit = async () => {
     if (!form.type) return;
     setSubmitting(true);
@@ -58,160 +66,360 @@ export default function ExceptionsPage() {
       const result = await packagingApi.reportException({
         type: form.type as ExceptionType,
         severity: form.severity,
-        quantity: Number(form.quantity)||undefined,
+        quantity: Number(form.quantity) || undefined,
         description: form.description,
         relatedBatchId: form.batchId,
         reportedBy: user?.name || user?.username || t('ui.当前用户', '当前用户'),
-        status: 'REPORTED',
+        status: 'REPORTED'
       });
-      setTickets(prev=>[result as ExceptionTicket, ...prev]);
+      setTickets(prev => [result as ExceptionTicket, ...prev]);
       setShowForm(false);
-      setForm({ type:'', severity:'MEDIUM', quantity:'', description:'', batchId: ctx.currentSourceBatch?.code || '' });
-    } finally { setSubmitting(false); }
+      setForm({
+        type: '',
+        severity: 'MEDIUM',
+        quantity: '',
+        description: '',
+        batchId: ctx.currentSourceBatch?.code || ''
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
-
-  const openCount = tickets.filter(t=>!['CLOSED','CANCELLED'].includes(t.status)).length;
-
-  return (
-    <div style={{ height:'100%', display:'flex', flexDirection:'column', background:T.BG, overflow:'hidden' }}>
-      <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'12px 20px', display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
-        <span style={{ fontSize:22 }}>⚠️</span>
+  const openCount = tickets.filter(t => !['CLOSED', 'CANCELLED'].includes(t.status)).length;
+  return <div style={{
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    background: T.BG,
+    overflow: 'hidden'
+  }}>
+      <div style={{
+      background: T.CARD,
+      borderBottom: `1px solid ${T.BOR}`,
+      padding: '12px 20px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      flexShrink: 0
+    }}>
+        <span className={u.fs22}>⚠️</span>
         <div className={u.flex1}>
-          <div style={{ fontSize:17, fontWeight:700, color:T.TXT }}>{t('terminal.exceptions', '异常处理')}</div>
-          <div style={{ fontSize:12, color:T.MUT }}>{t('ui.未关闭', '未关闭')} {openCount} {t('ui.条', '条')} · {t('ui.重大异常未关闭不得交班', '重大异常未关闭不得交班')}</div>
+          <div style={{
+          fontSize: 17,
+          fontWeight: 700,
+          color: T.TXT
+        }}>{t('terminal.exceptions', '异常处理')}</div>
+          <div style={{
+          fontSize: 12,
+          color: T.MUT
+        }}>{t('ui.未关闭', '未关闭')} {openCount} {t('ui.条', '条')} · {t('ui.重大异常未关闭不得交班', '重大异常未关闭不得交班')}</div>
         </div>
-        <button type="button" onClick={()=>setShowForm(true)}
-          style={{ padding:'9px 20px', background:T.RED, color:'var(--text-on-dark)', border:'none',
-            borderRadius:10, fontSize:15, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
+        <button type="button" onClick={() => setShowForm(true)} style={{
+        padding: '9px 20px',
+        background: T.RED,
+        color: 'var(--text-on-dark)',
+        border: 'none',
+        borderRadius: 10,
+        fontSize: 15,
+        fontWeight: 700,
+        cursor: 'pointer',
+        flexShrink: 0
+      }}>
           + {t('ui.上报异常', '上报异常')}
         </button>
-        <div style={{ textAlign:'right', flexShrink:0 }}>
-          <div style={{ fontSize:22, fontWeight:800, color: openCount > 0 ? T.RED : T.GRN, fontVariantNumeric:'tabular-nums' }}>
+        <div style={{
+        textAlign: 'right',
+        flexShrink: 0
+      }}>
+          <div style={{
+          fontSize: 22,
+          fontWeight: 800,
+          color: openCount > 0 ? T.RED : T.GRN,
+          fontVariantNumeric: 'tabular-nums'
+        }}>
             {openCount}
           </div>
-          <div style={{ fontSize:11, color:T.MUT }}>{t('ui.未关闭条', '未关闭（条）')}</div>
+          <div style={{
+          fontSize: 11,
+          color: T.MUT
+        }}>{t('ui.未关闭条', '未关闭（条）')}</div>
         </div>
       </div>
 
-      <div style={{ flex:1, overflow:'hidden', minHeight:0, padding:16 }}>
-        {tickets.length === 0 ? (
-          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:12 }}>
-            <div style={{ fontSize:48 }}>✅</div>
-            <div style={{ color:T.MUT, fontSize:16 }}>{t('common.no_data', '暂无异常记录')}</div>
-          </div>
-        ) : (
-          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-            {tickets.map(ticket=>(
-              <div key={ticket.id} style={{ background:T.CARD, borderRadius:12, padding:16,
-                border:`1px solid ${ticket.status==='CLOSED'?T.BOR:`${SEV_COLORS[ticket.severity]}40`}`,
-                opacity: ticket.status==='CLOSED'?0.6:1 }}>
-                <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
-                  <div style={{ padding:'4px 10px', borderRadius:6, fontSize:11, fontWeight:700,
-                    background:`${SEV_COLORS[ticket.severity]}20`, color:SEV_COLORS[ticket.severity], flexShrink:0 }}>
+      <div style={{
+      flex: 1,
+      overflow: 'hidden',
+      minHeight: 0,
+      padding: 16
+    }}>
+        {tickets.length === 0 ? <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        gap: 12
+      }}>
+            <div style={{
+          fontSize: 48
+        }}>✅</div>
+            <div style={{
+          color: T.MUT,
+          fontSize: 16
+        }}>{t('common.no_data', '暂无异常记录')}</div>
+          </div> : <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10
+      }}>
+            {tickets.map(ticket => <div key={ticket.id} style={{
+          background: T.CARD,
+          borderRadius: 12,
+          padding: 16,
+          border: `1px solid ${ticket.status === 'CLOSED' ? T.BOR : `${SEV_COLORS[ticket.severity]}40`}`,
+          opacity: ticket.status === 'CLOSED' ? 0.6 : 1
+        }}>
+                <div style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 12
+          }}>
+                  <div style={{
+              padding: '4px 10px',
+              borderRadius: 6,
+              fontSize: 11,
+              fontWeight: 700,
+              background: `${SEV_COLORS[ticket.severity]}20`,
+              color: SEV_COLORS[ticket.severity],
+              flexShrink: 0
+            }}>
                     {ticket.severity}
                   </div>
                   <div className={u.flex1}>
-                    <div style={{ fontSize:14, fontWeight:600, color:T.TXT }}>
+                    <div style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: T.TXT
+              }}>
                       {EXCEPTION_TYPE_LABEL[ticket.type]}
                     </div>
-                    {ticket.description && <div style={{ fontSize:12, color:T.MUT, marginTop:2 }}>{ticket.description}</div>}
-                    <div style={{ fontSize:11, color:T.MUT, marginTop:4 }}>
-                      {t('ui.上报人', '上报人')}：{ticket.reportedBy} · {ticket.reportedAt.slice(0,16).replace('T',' ')}
+                    {ticket.description && <div style={{
+                fontSize: 12,
+                color: T.MUT,
+                marginTop: 2
+              }}>{ticket.description}</div>}
+                    <div style={{
+                fontSize: 11,
+                color: T.MUT,
+                marginTop: 4
+              }}>
+                      {t('ui.上报人', '上报人')}：{ticket.reportedBy} · {ticket.reportedAt.slice(0, 16).replace('T', ' ')}
                     </div>
                   </div>
-                  <div style={{ padding:'4px 10px', borderRadius:6, fontSize:11,
-                    background:'var(--overlay-white-06)', color:T.MUT, flexShrink:0 }}>
-                    {STATUS_LABEL[ticket.status]||ticket.status}
+                  <div style={{
+              padding: '4px 10px',
+              borderRadius: 6,
+              fontSize: 11,
+              background: 'var(--overlay-white-06)',
+              color: T.MUT,
+              flexShrink: 0
+            }}>
+                    {STATUS_LABEL[ticket.status] || ticket.status}
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              </div>)}
+          </div>}
       </div>
 
       {/* 快速上报表单 */}
-      {showForm && (
-        <div style={{ position:'fixed', inset:0, background:'var(--overlay-black-30)', display:'flex',
-          alignItems:'center', justifyContent:'center', zIndex:200 }}>
-          <div style={{ background:T.CARD, borderRadius:16, padding:32, width:480,
-            border:`1px solid ${T.BOR}`, maxHeight:'90vh', overflow:'hidden' }}>
-            <div style={{ fontSize:17, fontWeight:700, color:T.TXT, marginBottom:20 }}>{t('ui.快速上报异常', '快速上报异常')}</div>
+      {showForm && <div style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'var(--overlay-black-30)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 200
+    }}>
+          <div style={{
+        background: T.CARD,
+        borderRadius: 16,
+        padding: 32,
+        width: 480,
+        border: `1px solid ${T.BOR}`,
+        maxHeight: '90vh',
+        overflow: 'hidden'
+      }}>
+            <div style={{
+          fontSize: 17,
+          fontWeight: 700,
+          color: T.TXT,
+          marginBottom: 20
+        }}>{t('ui.快速上报异常', '快速上报异常')}</div>
 
             <div className={u.mb16}>
-              <div style={{ fontSize:12, color:T.MUT, marginBottom:8 }}>{t('ui.异常类型', '异常类型')}</div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-                {QUICK_TYPES.map(qt=>(
-                  <button type="button" key={qt.type} onClick={()=>setForm(p=>({...p,type:qt.type}))}
-                    style={{ padding:'12px', borderRadius:8, cursor:'pointer', textAlign:'left',
-                      border:`2px solid ${form.type===qt.type?T.RED:T.BOR}`,
-                      background:form.type===qt.type?'var(--status-danger-bg-light)':'var(--overlay-white-03)',
-                      display:'flex', alignItems:'center', gap:8 }}>
-                    <span style={{ fontSize:18 }}>{qt.icon}</span>
-                    <span style={{ fontSize:13, color:form.type===qt.type?T.RED:T.TXT }}>{qt.label}</span>
-                  </button>
-                ))}
+              <div style={{
+            fontSize: 12,
+            color: T.MUT,
+            marginBottom: 8
+          }}>{t('ui.异常类型', '异常类型')}</div>
+              <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 8
+          }}>
+                {QUICK_TYPES.map(qt => <button type="button" key={qt.type} onClick={() => setForm(p => ({
+              ...p,
+              type: qt.type
+            }))} style={{
+              padding: '12px',
+              borderRadius: 8,
+              cursor: 'pointer',
+              textAlign: 'left',
+              border: `2px solid ${form.type === qt.type ? T.RED : T.BOR}`,
+              background: form.type === qt.type ? 'var(--status-danger-bg-light)' : 'var(--overlay-white-03)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8
+            }}>
+                    <span className={u.fs18}>{qt.icon}</span>
+                    <span style={{
+                fontSize: 13,
+                color: form.type === qt.type ? T.RED : T.TXT
+              }}>{qt.label}</span>
+                  </button>)}
               </div>
             </div>
 
             <div className={u.mb16}>
-              <div style={{ fontSize:12, color:T.MUT, marginBottom:8 }}>{t('ui.严重程度', '严重程度')}</div>
-              <div style={{ display:'flex', gap:8 }}>
-                {(['LOW','MEDIUM','HIGH','CRITICAL'] as const).map(s=>(
-                  <button type="button" key={s} onClick={()=>setForm(p=>({...p,severity:s}))}
-                    style={{ flex:1, padding:'10px', borderRadius:8, cursor:'pointer',
-                      border:`2px solid ${form.severity===s?SEV_COLORS[s]:T.BOR}`,
-                      background:form.severity===s?`${SEV_COLORS[s]}20`:'var(--overlay-white-03)',
-                      color:form.severity===s?SEV_COLORS[s]:T.MUT, fontSize:12, fontWeight:600 }}>
-                    {s==='LOW' ? t('ui.低', '低') : s==='MEDIUM' ? t('ui.中', '中') : s==='HIGH' ? t('ui.高', '高') : t('ui.严重', '严重')}
-                  </button>
-                ))}
+              <div style={{
+            fontSize: 12,
+            color: T.MUT,
+            marginBottom: 8
+          }}>{t('ui.严重程度', '严重程度')}</div>
+              <div style={{
+            display: 'flex',
+            gap: 8
+          }}>
+                {(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const).map(s => <button type="button" key={s} onClick={() => setForm(p => ({
+              ...p,
+              severity: s
+            }))} style={{
+              flex: 1,
+              padding: '10px',
+              borderRadius: 8,
+              cursor: 'pointer',
+              border: `2px solid ${form.severity === s ? SEV_COLORS[s] : T.BOR}`,
+              background: form.severity === s ? `${SEV_COLORS[s]}20` : 'var(--overlay-white-03)',
+              color: form.severity === s ? SEV_COLORS[s] : T.MUT,
+              fontSize: 12,
+              fontWeight: 600
+            }}>
+                    {s === 'LOW' ? t('ui.低', '低') : s === 'MEDIUM' ? t('ui.中', '中') : s === 'HIGH' ? t('ui.高', '高') : t('ui.严重', '严重')}
+                  </button>)}
               </div>
             </div>
 
             <div className={u.mb16}>
-              <div style={{ fontSize:12, color:T.MUT, marginBottom:4 }}>{t('ui.涉及数量枚可选', '涉及数量（枚，可选）')}</div>
-              <input type="number" value={form.quantity} onChange={e=>setForm(p=>({...p,quantity:e.target.value}))}
-                placeholder="0"
-                style={{ width:'100%', background:'var(--overlay-white-05)', border:`1px solid ${T.BOR}`,
-                  borderRadius:8, padding:'12px 14px', color:T.TXT, fontSize:15, boxSizing:'border-box' }} />
+              <div style={{
+            fontSize: 12,
+            color: T.MUT,
+            marginBottom: 4
+          }}>{t('ui.涉及数量枚可选', '涉及数量（枚，可选）')}</div>
+              <input type="number" value={form.quantity} onChange={e => setForm(p => ({
+            ...p,
+            quantity: e.target.value
+          }))} placeholder="0" style={{
+            width: '100%',
+            background: 'var(--overlay-white-05)',
+            border: `1px solid ${T.BOR}`,
+            borderRadius: 8,
+            padding: '12px 14px',
+            color: T.TXT,
+            fontSize: 15,
+            boxSizing: 'border-box'
+          }} />
             </div>
 
-            <div style={{ marginBottom:24 }}>
-              <div style={{ fontSize:12, color:T.MUT, marginBottom:4 }}>{t('ui.异常描述', '异常描述')}</div>
-              <textarea value={form.description} onChange={e=>setForm(p=>({...p,description:e.target.value}))}
-                placeholder={t('ui.描述异常情况', '描述异常情况...')} rows={3}
-                style={{ width:'100%', background:'var(--overlay-white-05)', border:`1px solid ${T.BOR}`,
-                  borderRadius:8, padding:'10px 12px', color:T.TXT, fontSize:13,
-                  resize:'none', boxSizing:'border-box' }} />
+            <div className={u.mb24}>
+              <div style={{
+            fontSize: 12,
+            color: T.MUT,
+            marginBottom: 4
+          }}>{t('ui.异常描述', '异常描述')}</div>
+              <textarea value={form.description} onChange={e => setForm(p => ({
+            ...p,
+            description: e.target.value
+          }))} placeholder={t('ui.描述异常情况', '描述异常情况...')} rows={3} style={{
+            width: '100%',
+            background: 'var(--overlay-white-05)',
+            border: `1px solid ${T.BOR}`,
+            borderRadius: 8,
+            padding: '10px 12px',
+            color: T.TXT,
+            fontSize: 13,
+            resize: 'none',
+            boxSizing: 'border-box'
+          }} />
             </div>
 
-            <div style={{ display:'flex', gap:10 }}>
-              <button type="button" onClick={()=>setShowForm(false)}
-                style={{ flex:1, padding:'14px', background:'transparent', border:`1px solid ${T.BOR}`,
-                  borderRadius:8, color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('common.cancel', '取消')}</button>
-              <button type="button" onClick={handleSubmit} disabled={!form.type||submitting}
-                style={{ flex:2, padding:'14px', background:form.type?T.RED:T.BOR, border:'none',
-                  borderRadius:8, color:form.type?'var(--bg-card)':T.MUT, fontSize:15, fontWeight:700,
-                  cursor:form.type?'pointer':'not-allowed', opacity:submitting?0.7:1 }}>
+            <div style={{
+          display: 'flex',
+          gap: 10
+        }}>
+              <button type="button" onClick={() => setShowForm(false)} style={{
+            flex: 1,
+            padding: '14px',
+            background: 'transparent',
+            border: `1px solid ${T.BOR}`,
+            borderRadius: 8,
+            color: T.MUT,
+            fontSize: 15,
+            cursor: 'pointer'
+          }}>{t('common.cancel', '取消')}</button>
+              <button type="button" onClick={handleSubmit} disabled={!form.type || submitting} style={{
+            flex: 2,
+            padding: '14px',
+            background: form.type ? T.RED : T.BOR,
+            border: 'none',
+            borderRadius: 8,
+            color: form.type ? 'var(--bg-card)' : T.MUT,
+            fontSize: 15,
+            fontWeight: 700,
+            cursor: form.type ? 'pointer' : 'not-allowed',
+            opacity: submitting ? 0.7 : 1
+          }}>
                 {submitting ? t('ui.提交中', '提交中...') : `⚠️ ${t('ui.提交异常', '提交异常')}`}
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </div>}
 
-      <div style={{ background:T.CARD, borderTop:`1px solid ${T.BOR}`, padding:'17px 16px',
-        display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
-        <button type="button" onClick={()=>router.push('/terminal/packaging/dashboard')}
-          style={{ padding:'9px 20px', borderRadius:10, border:`1px solid ${T.BOR}`,
-            background:'transparent', color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('ui.返回首页', '返回首页')}</button>
-        <div style={{ flex:1, fontSize:13, color: openCount>0?T.RED:T.GRN }}>
-          {openCount>0
-            ? `⚠️ ${openCount} ${t('ui.条未关闭异常请尽快处理', '条未关闭异常，请尽快处理')}`
-            : `✅ ${t('ui.无未关闭异常可以交班', '无未关闭异常，可以交班')}`}
+      <div style={{
+      background: T.CARD,
+      borderTop: `1px solid ${T.BOR}`,
+      padding: '17px 16px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      flexShrink: 0
+    }}>
+        <button type="button" onClick={() => router.push('/terminal/packaging/dashboard')} style={{
+        padding: '9px 20px',
+        borderRadius: 10,
+        border: `1px solid ${T.BOR}`,
+        background: 'transparent',
+        color: T.MUT,
+        fontSize: 15,
+        cursor: 'pointer'
+      }}>{t('ui.返回首页', '返回首页')}</button>
+        <div style={{
+        flex: 1,
+        fontSize: 13,
+        color: openCount > 0 ? T.RED : T.GRN
+      }}>
+          {openCount > 0 ? `⚠️ ${openCount} ${t('ui.条未关闭异常请尽快处理', '条未关闭异常，请尽快处理')}` : `✅ ${t('ui.无未关闭异常可以交班', '无未关闭异常，可以交班')}`}
         </div>
       </div>
-    </div>
-  );
+    </div>;
 }

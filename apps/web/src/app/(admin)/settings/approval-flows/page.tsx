@@ -12,13 +12,12 @@
  *   - 停用：POST /workflow/definitions/:id/disable
  *   - 设计器入口：跳 /workflow/designer/[id]
  */
-
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import PageHeader from '@/components/PageHeader';
 import request from '@/lib/api-client';
 import s from '@/components/ui/admin-ui.module.css';
-
+import u from "@/styles/uix-utils.module.css";
 interface DefinitionRow {
   id: number;
   code: string;
@@ -30,34 +29,51 @@ interface DefinitionRow {
   created_at?: string;
   updated_at?: string;
 }
-
-const STATUS_FILTERS = [
-  { label: '全部', value: '' },
-  { label: '草稿',  value: 'DRAFT' },
-  { label: '已发布', value: 'PUBLISHED' },
-  { label: '已停用', value: 'DISABLED' },
-];
-
-const STATUS_LABEL: Record<string, { text: string; color: string }> = {
-  DRAFT:     { text: '草稿',   color: 'var(--text-secondary)' },
-  PUBLISHED: { text: '已发布', color: 'var(--status-success)' },
-  DISABLED:  { text: '已停用', color: 'var(--text-disabled)'  },
+const STATUS_FILTERS = [{
+  label: '全部',
+  value: ''
+}, {
+  label: '草稿',
+  value: 'DRAFT'
+}, {
+  label: '已发布',
+  value: 'PUBLISHED'
+}, {
+  label: '已停用',
+  value: 'DISABLED'
+}];
+const STATUS_LABEL: Record<string, {
+  text: string;
+  color: string;
+}> = {
+  DRAFT: {
+    text: '草稿',
+    color: 'var(--text-secondary)'
+  },
+  PUBLISHED: {
+    text: '已发布',
+    color: 'var(--status-success)'
+  },
+  DISABLED: {
+    text: '已停用',
+    color: 'var(--text-disabled)'
+  }
 };
-
 export default function ApprovalFlowsPage() {
   const [rows, setRows] = useState<DefinitionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [filter, setFilter] = useState('');
-
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await request<{ code: number; data: DefinitionRow[]; total: number }>(
-        '/workflow/definitions',
-      );
+      const res = await request<{
+        code: number;
+        data: DefinitionRow[];
+        total: number;
+      }>('/workflow/definitions');
       setRows(res.data || []);
     } catch (err) {
       console.error('[approval-flows] load failed:', err);
@@ -67,18 +83,21 @@ export default function ApprovalFlowsPage() {
       setLoading(false);
     }
   }, []);
-
-  useEffect(() => { void load(); }, [load]);
-
+  useEffect(() => {
+    void load();
+  }, [load]);
   async function toggleStatus(row: DefinitionRow) {
     const target = row.status === 'PUBLISHED' ? 'disable' : 'publish';
     const action = target === 'publish' ? '启用' : '停用';
-    setError(''); setNotice('');
+    setError('');
+    setNotice('');
     try {
       await request(`/workflow/definitions/${row.id}/${target}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
       });
       setNotice(`${action} ${row.code} 成功`);
       await load();
@@ -86,77 +105,77 @@ export default function ApprovalFlowsPage() {
       setError(err instanceof Error ? `${action}失败：${err.message}` : `${action}失败`);
     }
   }
-
   const filtered = filter ? rows.filter(r => r.status === filter) : rows;
-
-  return (
-    <div>
-      <PageHeader
-        title="流程配置中心"
-        subtitle="审批流程定义 · 启用/停用 · 版本管理"
-        breadcrumb={['系统设置', '流程配置']}
-        actions={
-          <>
+  return <div>
+      <PageHeader title="流程配置中心" subtitle="审批流程定义 · 启用/停用 · 版本管理" breadcrumb={['系统设置', '流程配置']} actions={<>
             <Link href="/workflow/builder" className={s.btnPrimary}>新建流程</Link>
-            <Link href="/settings/approval-rules" className={s.btnSecondary} style={{ marginLeft: 8 }}>审批规则</Link>
-          </>
-        }
-      />
+            <Link href="/settings/approval-rules" className={s.btnSecondary} style={{
+        marginLeft: 8
+      }}>审批规则</Link>
+          </>} />
 
-      {error && (
-        <section className={s.card} style={{ marginBottom: 12, borderLeft: '4px solid var(--status-danger)' }}>
-          <div className={s.cardBody} style={{ color: 'var(--status-danger)' }}>
+      {error && <section className={s.card} style={{
+      marginBottom: 12,
+      borderLeft: '4px solid var(--status-danger)'
+    }}>
+          <div className={s.cardBody} style={{
+        color: 'var(--status-danger)'
+      }}>
             <strong>⚠ 加载失败</strong>
-            <div style={{ marginTop: 4, fontSize: 13 }}>{error}</div>
-            <button type="button" className={s.btnSecondary} style={{ marginTop: 8 }} onClick={() => void load()}>重试</button>
+            <div style={{
+          marginTop: 4,
+          fontSize: 13
+        }}>{error}</div>
+            <button type="button" className={s.btnSecondary} style={{
+          marginTop: 8
+        }} onClick={() => void load()}>重试</button>
           </div>
-        </section>
-      )}
+        </section>}
 
-      {notice && (
-        <section className={s.card} style={{ marginBottom: 12, borderLeft: '4px solid var(--status-success)' }}>
-          <div className={s.cardBody} style={{ color: 'var(--status-success)' }}>
+      {notice && <section className={s.card} style={{
+      marginBottom: 12,
+      borderLeft: '4px solid var(--status-success)'
+    }}>
+          <div className={s.cardBody} style={{
+        color: 'var(--status-success)'
+      }}>
             <strong>✓ </strong>{notice}
           </div>
-        </section>
-      )}
+        </section>}
 
-      <section className={s.card} style={{ marginBottom: 12 }}>
-        <div className={s.cardBody} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+      <section className={`${s.card} ${u.mb12}`}>
+        <div className={s.cardBody} style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 16,
+        flexWrap: 'wrap'
+      }}>
           <div>
             <h3 className={s.cardTitle}>流程列表</h3>
-            <p className={s.modalDesc} style={{ margin: '4px 0 0' }}>
+            <p className={`${s.modalDesc} ${u.mt4}`}>
               当前共 {rows.length} 个流程定义{filter ? `（已筛选：${STATUS_LABEL[filter]?.text || filter}）` : ''}
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {STATUS_FILTERS.map(item => (
-              <button
-                key={item.value || 'ALL'}
-                type="button"
-                className={`${s.tabPill} ${filter === item.value ? s.tabPillActive : ''}`}
-                onClick={() => setFilter(item.value)}
-              >
+          <div style={{
+          display: 'flex',
+          gap: 8
+        }}>
+            {STATUS_FILTERS.map(item => <button key={item.value || 'ALL'} type="button" className={`${s.tabPill} ${filter === item.value ? s.tabPillActive : ''}`} onClick={() => setFilter(item.value)}>
                 {item.label}
-              </button>
-            ))}
+              </button>)}
           </div>
         </div>
       </section>
 
       <section className={s.card}>
-        {loading ? (
-          <div className={s.emptyState}>
+        {loading ? <div className={s.emptyState}>
             <div className={s.emptyStateText}>加载中…</div>
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className={s.emptyState}>
+          </div> : filtered.length === 0 ? <div className={s.emptyState}>
             <div className={s.emptyStateText}>
               {filter ? '当前筛选条件下没有流程' : '尚未配置任何流程，点击"新建流程"开始'}
             </div>
-          </div>
-        ) : (
-          <table className={s.table}>
+          </div> : <table className={s.table}>
             <thead>
               <tr>
                 <th>编码</th>
@@ -170,59 +189,58 @@ export default function ApprovalFlowsPage() {
             </thead>
             <tbody>
               {filtered.map(row => {
-                const status = STATUS_LABEL[row.status] || { text: row.status, color: 'var(--text-secondary)' };
-                return (
-                  <tr key={row.id}>
+            const status = STATUS_LABEL[row.status] || {
+              text: row.status,
+              color: 'var(--text-secondary)'
+            };
+            return <tr key={row.id}>
                     <td><code>{row.code}</code></td>
                     <td>
                       <strong>{row.name}</strong>
-                      {row.description ? (
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>{row.description}</div>
-                      ) : null}
+                      {row.description ? <div style={{
+                  fontSize: 12,
+                  color: 'var(--text-secondary)',
+                  marginTop: 2
+                }}>{row.description}</div> : null}
                     </td>
                     <td>{row.category || '-'}</td>
                     <td>
                       <span style={{
-                        display: 'inline-block', padding: '2px 8px', borderRadius: 4,
-                        fontSize: 12, fontWeight: 600,
-                        background: 'var(--bg-muted)', color: status.color,
-                      }}>{status.text}</span>
+                  display: 'inline-block',
+                  padding: '2px 8px',
+                  borderRadius: 4,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  background: 'var(--bg-muted)',
+                  color: status.color
+                }}>{status.text}</span>
                     </td>
                     <td>{row.current_version_id ? `v${row.current_version_id}` : '-'}</td>
-                    <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    <td className={u.muted12}>
                       {row.updated_at ? new Date(row.updated_at).toLocaleString('zh-CN') : '-'}
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <Link
-                          href={`/workflow/designer/${row.id}`}
-                          className={s.btnSecondary}
-                          style={{ padding: '4px 10px', fontSize: 12 }}
-                        >设计</Link>
-                        {row.status === 'PUBLISHED' ? (
-                          <button
-                            type="button"
-                            className={s.btnDanger}
-                            style={{ padding: '4px 10px', fontSize: 12 }}
-                            onClick={() => toggleStatus(row)}
-                          >停用</button>
-                        ) : (
-                          <button
-                            type="button"
-                            className={s.btnPrimary}
-                            style={{ padding: '4px 10px', fontSize: 12 }}
-                            onClick={() => toggleStatus(row)}
-                          >启用</button>
-                        )}
+                      <div style={{
+                  display: 'flex',
+                  gap: 8
+                }}>
+                        <Link href={`/workflow/designer/${row.id}`} className={s.btnSecondary} style={{
+                    padding: '4px 10px',
+                    fontSize: 12
+                  }}>设计</Link>
+                        {row.status === 'PUBLISHED' ? <button type="button" className={s.btnDanger} style={{
+                    padding: '4px 10px',
+                    fontSize: 12
+                  }} onClick={() => toggleStatus(row)}>停用</button> : <button type="button" className={s.btnPrimary} style={{
+                    padding: '4px 10px',
+                    fontSize: 12
+                  }} onClick={() => toggleStatus(row)}>启用</button>}
                       </div>
                     </td>
-                  </tr>
-                );
-              })}
+                  </tr>;
+          })}
             </tbody>
-          </table>
-        )}
+          </table>}
       </section>
-    </div>
-  );
+    </div>;
 }
