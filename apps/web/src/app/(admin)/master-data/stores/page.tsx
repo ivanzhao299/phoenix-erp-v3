@@ -2,6 +2,7 @@
 import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { storeConfig } from "@/components/master-data/detail-configs";
 
@@ -12,7 +13,8 @@ export default function StoreRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
-      <PageHeader title="门店档案" subtitle="直营门店主档 · 编码自动生成 · 生命周期管控 · 点击编码查看门店中心" breadcrumb={["主数据中心", "门店档案"]} />
+      <PageHeader title="门店中心" subtitle="直营/加盟门店 · 销售态势 · 引用单据 · 点击编码查看门店全景" breadcrumb={["主数据中心", "门店中心"]} />
+      <MasterDataCenterStrip type="store" />
       <MasterDataRuntimePanel
         type="store"
         title="门店"

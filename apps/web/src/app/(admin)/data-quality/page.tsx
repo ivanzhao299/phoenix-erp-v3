@@ -86,7 +86,7 @@ export default function DataQualityPage() {
     <div>
       <PageHeader
         title="数据质量驾驶舱"
-        subtitle="集团级 7 维度数据治理 · 解决「数据是否可信」问题"
+        subtitle="集团 7 维数据治理态势 · 决策可信度 · 异常风险 · 整改优先级"
         breadcrumb={['治理', '数据质量']}
         actions={
           <button onClick={() => void load()} disabled={loading}

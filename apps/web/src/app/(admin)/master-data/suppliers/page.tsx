@@ -2,6 +2,7 @@
 import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { supplierConfig } from "@/components/master-data/detail-configs";
 
@@ -13,7 +14,8 @@ export default function SupplierRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
-      <PageHeader title="供应商主数据" subtitle="供应商档案统一维护 · 编码自动生成 · 生命周期管控 · 点击编码查看供应商中心" breadcrumb={["主数据中心", "供应商主数据"]} />
+      <PageHeader title="供应商中心" subtitle="供应商运营态势 · 采购协作 · AP 风险 · 点击编码查看供应商全景" breadcrumb={["主数据中心", "供应商中心"]} />
+      <MasterDataCenterStrip type="supplier" />
       <MasterDataRuntimePanel
         type="supplier"
         title="供应商"

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { vehicleConfig } from "@/components/master-data/detail-configs";
 
@@ -12,7 +13,8 @@ export default function VehicleRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
-      <PageHeader title="车辆档案" subtitle="销售/配送车辆主档 · 生命周期管控 · 点击车牌查看车辆中心" breadcrumb={["主数据中心", "车辆档案"]} />
+      <PageHeader title="车辆中心" subtitle="销售/配送车辆 · 利用率 · 关联订单 · 点击车牌查看车辆全景" breadcrumb={["主数据中心", "车辆中心"]} />
+      <MasterDataCenterStrip type="vehicle" />
       <MasterDataRuntimePanel
         type="vehicle"
         title="车辆"

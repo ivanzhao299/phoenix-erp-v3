@@ -2,6 +2,7 @@
 import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { cashAccountConfig } from "@/components/master-data/detail-configs";
 
@@ -13,11 +14,8 @@ export default function CashAccountRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
-      <PageHeader
-        title="资金账户档案"
-        subtitle="ERP 资金账户主档 · 编码自动生成 · 生命周期管控 · 点击编码查看资金账户中心"
-        breadcrumb={["主数据中心", "资金账户档案"]}
-      />
+      <PageHeader title="资金账户中心" subtitle="ERP 资金账户 · 流水态势 · 余额风险 · 点击编码查看账户全景" breadcrumb={["主数据中心", "资金账户中心"]} />
+      <MasterDataCenterStrip type="cash-account" />
       <MasterDataRuntimePanel
         type="cash-account"
         title="资金账户"

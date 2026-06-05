@@ -2,6 +2,7 @@
 import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { specConfig } from "@/components/master-data/detail-configs";
 
@@ -12,7 +13,8 @@ export default function PackagingSpecRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
-      <PageHeader title="包装规格" subtitle="包装规格主档 · 编码自动生成 · SKU 三键之一 · 点击编码查看规格中心" breadcrumb={["主数据中心", "包装规格"]} />
+      <PageHeader title="规格中心" subtitle="包装规格主档 · SKU 关联 · 单位换算 · 点击编码查看规格全景" breadcrumb={["主数据中心", "规格中心"]} />
+      <MasterDataCenterStrip type="spec" />
       <MasterDataRuntimePanel
         type="spec"
         title="规格"

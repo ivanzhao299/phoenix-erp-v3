@@ -2,6 +2,7 @@
 import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { warehouseConfig } from "@/components/master-data/detail-configs";
 
@@ -12,7 +13,8 @@ export default function WarehouseRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
-      <PageHeader title="仓库档案" subtitle="WMS 仓库主档 · 编码自动生成 · 生命周期管控 · 点击编码查看仓库中心" breadcrumb={["主数据中心", "仓库档案"]} />
+      <PageHeader title="仓库中心" subtitle="仓储节点 · 在库批次 · 可用率 · 点击编码查看仓库全景" breadcrumb={["主数据中心", "仓库中心"]} />
+      <MasterDataCenterStrip type="warehouse" />
       <MasterDataRuntimePanel
         type="warehouse"
         title="仓库"

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { skuConfig } from "@/components/master-data/detail-configs";
 
@@ -9,7 +10,8 @@ export default function SkuRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
-      <PageHeader title="SKU 档案" subtitle="物料 SKU 主档 · 编码自动生成 · 生命周期管控 · 点击编码查看 SKU 中心" breadcrumb={["主数据中心", "SKU 档案"]} />
+      <PageHeader title="SKU 中心" subtitle="物料 SKU 主档 · 三键唯一 · 库存批次 · 点击编码查看 SKU 全景" breadcrumb={["主数据中心", "SKU 中心"]} />
+      <MasterDataCenterStrip type="sku" />
       <MasterDataRuntimePanel
         type="sku"
         title="SKU"

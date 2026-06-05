@@ -40,21 +40,32 @@ export default function WorkflowHomePage() {
 
   return (
     <div>
-      <PageHeader title="工作流中心" subtitle="发起申请、处理待办，并由管理员维护流程和表单" breadcrumb={["工作流"]} />
+      <PageHeader title="审批工作台" subtitle="我的待办优先 · SLA 实时监控 · 业务驱动审批 · 智能发起常用流程" breadcrumb={["审批工作台"]} />
 
-      {/* UIX-7 审批工作台化：运营级指标顶部呈现 */}
+      {/* UIX-PROD-1 审批工作台化：第一眼是"我要做什么" */}
+      <section className={s.card} style={sectionStyle}>
+        <div className={s.cardBody} style={metricGridStyle}>
+          <Metric label="我的待办" value={summary?.todo ?? 0} href="/workflow/tasks/todo" tone="primary" />
+          <Metric label="抄送未读" value={summary?.ccUnread ?? 0} href="/workflow/tasks/cc" tone="warning" />
+          <Metric label="超时待办" value={summary?.overdueTodo ?? 0} href="/workflow/monitor" tone="danger" />
+          <Metric label="我发起进行中" value={summary?.startedRunning ?? 0} href="/workflow/instances?status=RUNNING" />
+        </div>
+      </section>
+
+      {/* 第二行：SLA 实时监控 */}
       <WorkflowMetricsStrip />
 
+      {/* 第三行：智能发起 */}
       <section style={aiWorkbenchStyle}>
         <div style={aiHeaderStyle}>
           <div>
-            <span className={`${s.badge} ${s.badgeSuccess}`}>AI 自动完成</span>
-            <h3 style={aiTitleStyle}>常用流程一键生成草稿</h3>
+            <span className={`${s.badge} ${s.badgeSuccess}`}>智能发起</span>
+            <h3 style={aiTitleStyle}>常用业务一键提单</h3>
             <p className={s.modalDesc} style={{ margin: 0 }}>
-              从业务场景直接进入发起页，系统会选择对应流程并自动补齐常用表单字段，用户只需要核对和提交。
+              选择业务场景，系统自动选择对应流程并预填表单字段，缩短发起耗时。
             </p>
           </div>
-          <Link href="/workflow/start?smart=1" className={s.btnPrimary}>进入智能发起</Link>
+          <Link href="/workflow/start?smart=1" className={s.btnPrimary}>更多场景</Link>
         </div>
         <div style={scenarioGridStyle}>
           {smartScenarios.map(([label, code, category, desc]) => (
@@ -65,15 +76,6 @@ export default function WorkflowHomePage() {
               <b>选择并生成草稿</b>
             </Link>
           ))}
-        </div>
-      </section>
-
-      <section className={s.card} style={sectionStyle}>
-        <div className={s.cardBody} style={metricGridStyle}>
-          <Metric label="待我处理" value={summary?.todo ?? 0} href="/workflow/tasks/todo" tone="primary" />
-          <Metric label="未读知会" value={summary?.ccUnread ?? 0} href="/workflow/tasks/cc" tone="warning" />
-          <Metric label="超时待办" value={summary?.overdueTodo ?? 0} href="/workflow/monitor" tone="danger" />
-          <Metric label="我发起审批中" value={summary?.startedRunning ?? 0} href="/workflow/instances?status=RUNNING" />
         </div>
       </section>
 

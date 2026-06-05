@@ -2,6 +2,7 @@
 import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { gradeConfig } from "@/components/master-data/detail-configs";
 
@@ -12,7 +13,8 @@ export default function ProductGradeRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
-      <PageHeader title="产品等级" subtitle="蛋品/物料等级主档 · 编码自动生成 · SKU 三键之一 · 点击编码查看等级中心" breadcrumb={["主数据中心", "产品等级"]} />
+      <PageHeader title="等级中心" subtitle="蛋品/物料等级 · SKU 关联 · 业务策略 · 点击编码查看等级全景" breadcrumb={["主数据中心", "等级中心"]} />
+      <MasterDataCenterStrip type="grade" />
       <MasterDataRuntimePanel
         type="grade"
         title="等级"

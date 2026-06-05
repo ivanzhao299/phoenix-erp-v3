@@ -3,6 +3,7 @@ import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
+import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { customerConfig } from "@/components/master-data/detail-configs";
 
 /**
@@ -14,7 +15,8 @@ export default function CustomerRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
-      <PageHeader title="客户主数据" subtitle="客户档案统一维护 · 编码自动生成 · 生命周期管控 · 点击编码查看客户中心" breadcrumb={["主数据中心", "客户主数据"]} />
+      <PageHeader title="客户中心" subtitle="客户运营态势 · 业务关系 · AR 风险 · 点击编码查看客户全景" breadcrumb={["主数据中心", "客户中心"]} />
+      <MasterDataCenterStrip type="customer" />
       <MasterDataRuntimePanel
         type="customer"
         title="客户"

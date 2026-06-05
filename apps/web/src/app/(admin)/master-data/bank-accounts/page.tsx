@@ -2,6 +2,7 @@
 import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { bankAccountConfig } from "@/components/master-data/detail-configs";
 
@@ -12,11 +13,8 @@ export default function BankAccountRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
-      <PageHeader
-        title="银行账户中心"
-        subtitle="境外/跨境结算账户 · 编码自动生成 · 生命周期管控 · 点击编码查看银行账户中心"
-        breadcrumb={["主数据中心", "银行账户中心"]}
-      />
+      <PageHeader title="银行账户中心" subtitle="境外/跨境结算账户 · 币种 · 绑定 ERP 账户 · 点击编码查看银行全景" breadcrumb={["主数据中心", "银行账户中心"]} />
+      <MasterDataCenterStrip type="bank-account" />
       <MasterDataRuntimePanel
         type="bank-account"
         title="银行账户"

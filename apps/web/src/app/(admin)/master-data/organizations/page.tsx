@@ -25,6 +25,7 @@ import {
   Building2, Layers, Globe, Leaf, Users, Warehouse,
   LayoutGrid, Info, Edit3, PowerOff, Power, Search,
   ArrowRight, Inbox, CheckCircle2, XCircle, AlertCircle,
+  Activity, BarChart3, Check,
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -887,6 +888,57 @@ export default function MdOrganizationsPage() {
                 <p className="text-xs text-text-dim mt-1">查看完整组织信息和层级关系</p>
               </div>
             </div>
+
+
+          )}
+        </div>
+
+        {/* ── UIX-PROD-1: 右侧驾驶舱栏（组织运营态势） ───────────────── */}
+        <div className="flex flex-col gap-3 flex-shrink-0" style={{ width: 280 }}>
+          {/* 组织态势 KPI */}
+          <div className="rounded-2xl border border-border bg-bg-card shadow-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Activity size={13} className="text-brand" />
+              <span className="text-xs font-bold text-text-muted uppercase tracking-wider">组织态势</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <RightStat label="在管组织" value={totalCount} />
+              <RightStat label="已启用" value={activeCount} tone="success" />
+              <RightStat label="已停用" value={totalCount - activeCount} tone={totalCount - activeCount > 0 ? "warning" : "default"} />
+              <RightStat label="顶级数" value={tree.length} />
+            </div>
+          </div>
+
+          {/* 当前组织业务统计 */}
+          {selectedOrg && (
+            <div className="rounded-2xl border border-border bg-bg-card shadow-card p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <BarChart3 size={13} className="text-brand" />
+                <span className="text-xs font-bold text-text-muted uppercase tracking-wider">当前组织</span>
+              </div>
+              <div className="flex flex-col gap-2.5">
+                <RightRow label="直属下级" value={`${flat.filter(o => o.parentId === selectedOrg.id).length} 个`} />
+                <RightRow label="所属层级" value={`L${selectedOrg.level}`} />
+                <RightRow label="负责人" value={selectedOrg.managerName ?? "—"} tone={selectedOrg.managerName ? 'default' : 'warning'} />
+                <RightRow label="组织类型" value={ORG_TYPE_CONFIG[selectedOrg.orgType]?.label ?? selectedOrg.orgType} />
+              </div>
+            </div>
+          )}
+
+          {/* 风险提示 */}
+          {selectedOrg && (
+            <div className="rounded-2xl border border-border bg-bg-card shadow-card p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertCircle size={13} className="text-warning" />
+                <span className="text-xs font-bold text-text-muted uppercase tracking-wider">合规风险</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                <RiskItem ok={!!selectedOrg.managerName} label="负责人已指定" />
+                <RiskItem ok={selectedOrg.status === 'ACTIVE'} label="组织已启用" />
+                <RiskItem ok={selectedOrg.orgType !== 'COMPANY' || !!selectedOrg.companyCode} label="公司编码完整" />
+                <RiskItem ok={!!selectedOrg.parentCode || selectedOrg.orgType === 'GROUP'} label="层级归属清晰" />
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -1070,6 +1122,55 @@ export default function MdOrganizationsPage() {
         config={selectedOrg?.orgType === "COMPANY" ? companyConfig : organizationConfig}
         onClose={() => setDetailCode(null)}
       />
+    </div>
+  );
+}
+
+// ── UIX-PROD-1: 右栏驾驶舱 helpers ────────────────────────────
+
+function RightStat({ label, value, tone = 'default' }: {
+  label: string; value: React.ReactNode;
+  tone?: 'default' | 'success' | 'warning' | 'danger';
+}) {
+  const color = tone === 'success' ? 'text-success'
+              : tone === 'warning' ? 'text-warning'
+              : tone === 'danger'  ? 'text-danger'
+              : 'text-text';
+  return (
+    <div className="rounded-lg bg-bg-muted/40 p-2.5">
+      <div className="text-[10px] text-text-muted">{label}</div>
+      <div className={cn("text-lg font-bold leading-tight", color)}>{value}</div>
+    </div>
+  );
+}
+
+function RightRow({ label, value, tone = 'default' }: {
+  label: string; value: React.ReactNode;
+  tone?: 'default' | 'success' | 'warning' | 'danger';
+}) {
+  const color = tone === 'success' ? 'text-success'
+              : tone === 'warning' ? 'text-warning'
+              : tone === 'danger'  ? 'text-danger'
+              : 'text-text';
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-xs text-text-muted">{label}</span>
+      <span className={cn("text-xs font-semibold", color)}>{value}</span>
+    </div>
+  );
+}
+
+function RiskItem({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      {ok ? (
+        <CheckCircle2 size={12} className="text-success flex-shrink-0" />
+      ) : (
+        <AlertCircle size={12} className="text-warning flex-shrink-0" />
+      )}
+      <span className={ok ? "text-text-muted" : "text-warning"}>
+        {ok ? label : `${label}（待补全）`}
+      </span>
     </div>
   );
 }

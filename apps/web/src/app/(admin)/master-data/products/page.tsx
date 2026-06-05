@@ -2,6 +2,7 @@
 import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { productConfig } from "@/components/master-data/detail-configs";
 
@@ -13,7 +14,8 @@ export default function ProductRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
-      <PageHeader title="产品档案" subtitle="蛋品主档 SPU · 编码自动生成 · 生命周期管控 · 点击编码查看产品中心" breadcrumb={["主数据中心", "产品档案"]} />
+      <PageHeader title="产品中心" subtitle="产品 SPU 主档 · SKU 关联 · 上市状态 · 点击编码查看产品全景" breadcrumb={["主数据中心", "产品中心"]} />
+      <MasterDataCenterStrip type="product" />
       <MasterDataRuntimePanel
         type="product"
         title="产品"
