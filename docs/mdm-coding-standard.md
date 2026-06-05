@@ -45,7 +45,6 @@
 | `PRJ_MENGSAI_LAYER` | 孟赛蛋鸡场经营项目 |
 | `PRJ_DONGPENG_LAYER` | 东鹏蛋鸡场经营项目 |
 | `PRJ_VTE_FOOD_FACTORY` | 万象食品工厂项目 |
-| `PRJ_JINHU_PARK` | 金湖产业园项目 |
 | `PRJ_MENGSAI_ORGANIC` | 孟赛有机肥项目 |
 
 **规则细节**：

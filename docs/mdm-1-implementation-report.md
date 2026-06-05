@@ -48,7 +48,6 @@
 | `PRJ_MENGSAI_HATCHERY` | 孟赛孵化场经营项目 | COMP-LAO-AGRI | DRAFT | 孵化场，PLANNED 状态 |
 | `PRJ_MENGSAI_ORGANIC` | 孟赛有机肥生产项目 | COMP-LAO-AGRI | DRAFT | 有机肥，PLANNED 状态 |
 | `PRJ_XINGCHI_LAYER` | 金三角特区星驰养鸡项目 | COMP-LAO-XINGCHI | DRAFT | — |
-| ~~`PRJ_JINHU_PARK`~~ | 金湖科创产业园项目 | **待业务确认** | — | sys_organizations 无对应 COMPANY，未 seed |
 
 ## ⑥ biz_site_aliases 初始映射清单
 
@@ -138,7 +137,6 @@ ssh erp 'docker exec -i phoenix-v3-db psql -U phoenix_v3 -d phoenix_erp -v ON_ER
 
 | # | 待确认 | 影响 |
 |---|---|---|
-| 1 | `PRJ_JINHU_PARK` 金湖科创产业园对应的 COMPANY | sys_organizations 需先建公司 → biz_projects 才能 seed |
 | 2 | `brd_farms.FARM-01`（凤羽一号基地）对应 site_code | 等映射后才能进 alias 表 |
 | 3 | `mst_stores` 8 行门店各自的 company_code + mapped_site_code | 8 个销售门店未映射 |
 | 4 | 是否新建 `biz_company_aliases` 表 | CO-FHA / LPH 等公司旧编码需统一映射 |

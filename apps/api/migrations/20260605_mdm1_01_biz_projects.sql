@@ -102,11 +102,7 @@ SELECT 'PRJ_VIENTIANE_FOOD', '万象食品综合项目', '万象食品', 'OPERAT
        '万象饲料厂/屠宰加工厂/肉鸡养殖场综合经营项目（含 SITE-VTE-FEED/SLAUGHTER/BROILER）'
 WHERE NOT EXISTS (SELECT 1 FROM biz_projects WHERE project_code='PRJ_VIENTIANE_FOOD');
 
--- 3.4 PRJ_JINHU_PARK 金湖科创产业园项目 —— 待业务确认 company_code
--- 当前 sys_organizations 无对应 COMPANY，按业务方要求"如缺失则列为待确认，不要乱填"
--- 此处暂不 seed，等业务方确认后补建 COMPANY 再 seed
-
--- 3.5 PRJ_MENGSAI_HATCHERY 孟赛孵化场项目（业务方可裁剪）
+-- 3.4 PRJ_MENGSAI_HATCHERY 孟赛孵化场项目（业务方可裁剪）
 INSERT INTO biz_projects (project_code, project_name, project_short_name, project_type, company_code, status, sort_order, remark)
 SELECT 'PRJ_MENGSAI_HATCHERY', '孟赛孵化场经营项目', '孟赛孵化', 'OPERATION', 'COMP-LAO-AGRI', 'DRAFT', 40,
        '孟赛孵化场（SITE-MENGSAI-HATCHERY，当前 PLANNED 状态）'
