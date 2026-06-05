@@ -209,7 +209,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
 
       {/* 新增/编辑抽屉 */}
       {editing !== null && (
-        <div style={{ position: "fixed", inset: 0, background: "var(--overlay-mask)", zIndex: 100, display: "flex", justifyContent: "flex-end" }} onClick={() => setEditing(null)}>
+        <div style={{ position: "fixed", inset: 0, background: "var(--overlay-mask)", zIndex: 10010, display: "flex", justifyContent: "flex-end" }} onClick={() => setEditing(null)}>
           <div style={{ width: 480, background: "var(--bg-card)", height: "100%", overflowY: "auto", padding: 28 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{editing[codeKey] ? `编辑${title}` : `新增${title}`}</h2>

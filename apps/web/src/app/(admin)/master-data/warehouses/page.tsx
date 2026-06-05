@@ -12,7 +12,7 @@ import { warehouseConfig } from "@/components/master-data/detail-configs";
 export default function WarehouseRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
-    <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
+    <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
       <PageHeader title="仓库中心" subtitle="仓储节点 · 在库批次 · 可用率 · 点击编码查看仓库全景" breadcrumb={["主数据中心", "仓库中心"]} />
       <MasterDataCenterStrip type="warehouse" />
       <MasterDataRuntimePanel

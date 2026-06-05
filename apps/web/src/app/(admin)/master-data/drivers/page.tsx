@@ -12,7 +12,7 @@ import { driverConfig } from "@/components/master-data/detail-configs";
 export default function DriverRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
-    <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
+    <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
       <PageHeader title="司机中心" subtitle="销售/配送司机 · 配送绩效 · 关联订单 · 点击姓名查看司机全景" breadcrumb={["主数据中心", "司机中心"]} />
       <MasterDataCenterStrip type="driver" />
       <MasterDataRuntimePanel

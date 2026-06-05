@@ -9,7 +9,7 @@ import { skuConfig } from "@/components/master-data/detail-configs";
 export default function SkuRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
-    <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
+    <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
       <PageHeader title="SKU 中心" subtitle="物料 SKU 主档 · 三键唯一 · 库存批次 · 点击编码查看 SKU 全景" breadcrumb={["主数据中心", "SKU 中心"]} />
       <MasterDataCenterStrip type="sku" />
       <MasterDataRuntimePanel

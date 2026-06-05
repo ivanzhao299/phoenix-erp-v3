@@ -12,7 +12,7 @@ import { vehicleConfig } from "@/components/master-data/detail-configs";
 export default function VehicleRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
-    <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
+    <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
       <PageHeader title="车辆中心" subtitle="销售/配送车辆 · 利用率 · 关联订单 · 点击车牌查看车辆全景" breadcrumb={["主数据中心", "车辆中心"]} />
       <MasterDataCenterStrip type="vehicle" />
       <MasterDataRuntimePanel

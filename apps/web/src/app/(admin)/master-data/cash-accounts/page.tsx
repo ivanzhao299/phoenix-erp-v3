@@ -13,7 +13,7 @@ import { cashAccountConfig } from "@/components/master-data/detail-configs";
 export default function CashAccountRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
-    <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
+    <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
       <PageHeader title="资金账户中心" subtitle="ERP 资金账户 · 流水态势 · 余额风险 · 点击编码查看账户全景" breadcrumb={["主数据中心", "资金账户中心"]} />
       <MasterDataCenterStrip type="cash-account" />
       <MasterDataRuntimePanel

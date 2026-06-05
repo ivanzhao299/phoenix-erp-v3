@@ -88,7 +88,7 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-45)', zIndex: 200, display: 'flex', justifyContent: 'flex-end' }}
+      style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-45)', zIndex: 10010, display: 'flex', justifyContent: 'flex-end' }}
       onClick={onClose}
     >
       <div

@@ -12,7 +12,7 @@ import { gradeConfig } from "@/components/master-data/detail-configs";
 export default function ProductGradeRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
-    <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
+    <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
       <PageHeader title="等级中心" subtitle="蛋品/物料等级 · SKU 关联 · 业务策略 · 点击编码查看等级全景" breadcrumb={["主数据中心", "等级中心"]} />
       <MasterDataCenterStrip type="grade" />
       <MasterDataRuntimePanel

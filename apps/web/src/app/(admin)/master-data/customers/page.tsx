@@ -14,7 +14,7 @@ import { customerConfig } from "@/components/master-data/detail-configs";
 export default function CustomerRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
-    <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
+    <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
       <PageHeader title="客户中心" subtitle="客户运营态势 · 业务关系 · AR 风险 · 点击编码查看客户全景" breadcrumb={["主数据中心", "客户中心"]} />
       <MasterDataCenterStrip type="customer" />
       <MasterDataRuntimePanel

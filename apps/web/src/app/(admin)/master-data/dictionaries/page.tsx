@@ -210,7 +210,7 @@ export default function MdDictionariesPage() {
   }
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: 1240 }}>
+    <div style={{ padding: '24px 32px' }}>
       <PageHeader
         title="数据字典中心"
         subtitle="集团业务枚举的统一来源 · 按业务域组织 · 服务全模块表单与流程"

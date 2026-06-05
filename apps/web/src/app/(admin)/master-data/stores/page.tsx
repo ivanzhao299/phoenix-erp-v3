@@ -12,7 +12,7 @@ import { storeConfig } from "@/components/master-data/detail-configs";
 export default function StoreRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
-    <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
+    <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
       <PageHeader title="门店中心" subtitle="直营/加盟门店 · 销售态势 · 引用单据 · 点击编码查看门店全景" breadcrumb={["主数据中心", "门店中心"]} />
       <MasterDataCenterStrip type="store" />
       <MasterDataRuntimePanel

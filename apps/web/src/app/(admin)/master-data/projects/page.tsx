@@ -9,7 +9,7 @@ import { projectConfig } from "@/components/master-data/detail-configs";
 export default function ProjectRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
-    <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
+    <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
       <PageHeader title="项目中心" subtitle="股东出资项目 · 业务归属 · 生命周期 · 点击编码查看项目全景" breadcrumb={["主数据中心", "项目中心"]} />
       <MasterDataCenterStrip type="project" />
       <MasterDataRuntimePanel

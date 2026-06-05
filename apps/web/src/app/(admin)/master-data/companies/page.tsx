@@ -69,8 +69,7 @@ export default function MdCompaniesPage() {
   }}>无权限查看公司档案</div>;
   const filtered = items.filter(o => !search || (o.orgName ?? "").includes(search) || (o.orgCode ?? "").includes(search));
   return <div className="animate-fade-in" style={{
-    padding: "24px 32px",
-    maxWidth: 1200
+    padding: "24px 32px"
   }}>
       <PageHeader title="公司中心" subtitle="集团 / 子公司 / 法人实体 · 业务归属 · 资产覆盖 · 点击编码查看公司全景" breadcrumb={["主数据中心", "公司中心"]} />
       <MasterDataCenterStrip type="company" />
