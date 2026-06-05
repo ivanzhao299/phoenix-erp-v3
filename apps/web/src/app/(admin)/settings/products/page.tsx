@@ -1,5 +1,6 @@
 "use client";
 import type { ProductRow } from "@/types";
+import u from "@/styles/uix-utils.module.css";
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import PageHeader from "@/components/PageHeader";
@@ -143,14 +144,14 @@ export default function ProductsPage() {
                   <tr key={row.id}>
                     <td style={{ fontFamily: "monospace", color: "var(--text-secondary)", fontSize: 12 }}>{row.code}</td>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{row.name_zh}</div>
+                      <div className={u.fw600}>{row.name_zh}</div>
                       <div style={{ fontSize: 12, color: row.name_lo ? "var(--text-secondary)" : "var(--status-danger)" }}>{row.name_lo || `⚠ ${t('ui.缺老挝语', '缺老挝语')}`}</div>
                     </td>
                     <td>
                       <span style={{ fontSize: 12, background: "var(--bg-page)", border: "1px solid var(--border)", padding: "2px 8px", borderRadius: 10 }}>{catLabel(row.category_code ?? "")}</span>
                     </td>
                     <td>
-                      <div style={{ fontSize: 12 }}>{row.specs || row.unit}</div>
+                      <div className={u.fs12}>{row.specs || row.unit}</div>
                       <div style={{ fontSize: 11, color: "var(--color-warning)" }}>{t('ui.保质期', '保质期')} {row.shelfLife}{t('ui.天', '天')}</div>
                     </td>
                     <td>LAK {row.price}</td>
@@ -197,7 +198,7 @@ export default function ProductsPage() {
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px" }}>
               {missingLo.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 40, color: "var(--status-success)" }}><CheckCircle size={48} style={{ display: "block", margin: "0 auto 12px" }}/><div style={{ fontWeight: 600 }}>{t('ui.全部商品双语翻译完整', '全部商品双语翻译完整 🎉')}</div></div>
+                <div style={{ textAlign: "center", padding: 40, color: "var(--status-success)" }}><CheckCircle size={48} style={{ display: "block", margin: "0 auto 12px" }}/><div className={u.fw600}>{t('ui.全部商品双语翻译完整', '全部商品双语翻译完整 🎉')}</div></div>
               ) : missingLo.map(row => (
                 <div key={row.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: "var(--radius-md)", border: "1px solid color-mix(in srgb, var(--status-danger) 14%, transparent)", background: "color-mix(in srgb, var(--status-danger) 8%, transparent)", marginBottom: 8 }}>
                   <div>

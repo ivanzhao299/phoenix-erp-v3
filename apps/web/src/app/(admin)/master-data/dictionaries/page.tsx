@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { BookOpen, Search, RefreshCw, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
@@ -111,7 +112,7 @@ export default function MdDictionariesPage() {
         <button onClick={load} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "var(--text-primary)", border: "1px solid var(--text-primary)", borderRadius: 7, color: "var(--text-disabled)", fontSize: 13, cursor: "pointer" }}>
           <RefreshCw size={13} /> 刷新
         </button>
-        <div style={{ flex: 1 }} />
+        <div className={u.flex1} />
         <Link href="/settings/dict" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "var(--status-special)", border: "none", borderRadius: 7, color: "var(--text-on-dark)", fontSize: 13, cursor: "pointer", textDecoration: "none", fontWeight: 600 }}>
           <ExternalLink size={13} /> 完整管理
         </Link>

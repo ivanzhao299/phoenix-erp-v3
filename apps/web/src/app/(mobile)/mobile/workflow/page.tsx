@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft, RefreshCw, ClipboardCheck, X, CheckCircle,
@@ -417,7 +418,7 @@ function DetailSheet({
         </div>
 
         {/* Timeline */}
-        <div style={{ marginBottom: 16 }}>
+        <div className={u.mb16}>
           <div style={{ fontSize: 13, fontWeight: 700, color: t.textSub, marginBottom: 10 }}>审批流程</div>
           {loading && <div style={{ color: t.textFaint, fontSize: 13, textAlign: 'center', padding: '20px 0' }}>加载中…</div>}
           {err && <div style={{ color: 'var(--status-danger)', fontSize: 13, padding: '8px 0' }}>{err}</div>}
@@ -470,7 +471,7 @@ function DetailSheet({
 
         {/* Phase I: 关联表单数据（只读展示） */}
         {detail?.formSubmission && (
-          <div style={{ marginBottom: 16 }}>
+          <div className={u.mb16}>
             <div style={{ fontSize: 13, fontWeight: 700, color: t.textSub, marginBottom: 10 }}>
               表单数据
               <span style={{
@@ -639,7 +640,7 @@ export default function WorkflowPage() {
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textSub, display: 'flex', alignItems: 'center', gap: 4 }}
         >
           <ChevronLeft size={20} />
-          <span style={{ fontSize: 14 }}>返回</span>
+          <span className={u.fs14}>返回</span>
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

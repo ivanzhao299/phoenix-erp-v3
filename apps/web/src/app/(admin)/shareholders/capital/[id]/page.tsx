@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -35,7 +36,7 @@ export default function CapitalFlowDetail() {
       {f && (
         <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20, alignItems: 'start' }}>
           <div style={{ background: 'var(--bg-card)', borderRadius: 10, padding: '8px 20px 16px', boxShadow: '0 1px 3px var(--overlay-black-08)' }}>
-            <div style={row}><div style={k}>资本流编号</div><div style={{ fontWeight: 600 }}>{f.capitalFlowNo || f.contributionNo}</div></div>
+            <div style={row}><div style={k}>资本流编号</div><div className={u.fw600}>{f.capitalFlowNo || f.contributionNo}</div></div>
             <div style={row}><div style={k}>项目</div><div>{pmap[f.projectCode] || f.projectCode}</div></div>
             <div style={row}><div style={k}>股东</div><div>{names[f.shareholderCode] || f.shareholderCode}</div></div>
             <div style={row}><div style={k}>金额</div><div style={{ fontWeight: 700, color: 'var(--color-primary)', fontSize: 16 }}>¥{money(f.amount)} <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 400 }}>{f.currency === 'CNY' ? '人民币' : f.currency}</span></div></div>

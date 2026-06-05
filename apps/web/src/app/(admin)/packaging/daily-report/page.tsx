@@ -5,6 +5,7 @@
  * 功能：选择日期查询当日包装班次汇总数据
  */
 import { useState, useCallback, useEffect } from "react";
+import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
 import { RefreshCw, BarChart2, Package, CheckCircle2, TrendingUp, Layers } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
@@ -149,7 +150,7 @@ export default function DailyReportPage() {
           <table className={s.table}>
             <thead>
               <tr>
-                <th>{t("ui.统计项", "统计项")}</th><th style={{ textAlign: "right" }}>{t("ui.数值", "数值")}</th>
+                <th>{t("ui.统计项", "统计项")}</th><th className={u.tar}>{t("ui.数值", "数值")}</th>
               </tr>
             </thead>
             <tbody>

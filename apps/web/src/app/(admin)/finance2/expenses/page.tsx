@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import {
   Receipt, Plus, RefreshCw,
   Send, ChevronRight, AlertTriangle,
@@ -304,7 +305,7 @@ function ExpenseDrawer({
 
       {/* Workflow Timeline */}
       {data.wfTimeline && data.wfTimeline.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
+        <div className={u.mb16}>
           <div className="text-text-muted" style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>审批流程</div>
           {data.wfTimeline.map((step, i) => {
             const cfg = STEP_STATUS_CFG[step.status] ?? { color: 'var(--gray-500)', label: step.status };
@@ -313,7 +314,7 @@ function ExpenseDrawer({
                 <div style={{ width: 24, height: 24, borderRadius: '50%', background: `${cfg.color}20`, border: `2px solid ${cfg.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 10, fontWeight: 700, color: cfg.color }}>
                   {step.step_no}
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className={u.flex1}>
                   <div className="text-text" style={{ fontSize: 13, fontWeight: 600 }}>{step.approver_name ?? step.approver_role}</div>
                   <div className="text-text-muted" style={{ fontSize: 11 }}>
                     {cfg.label}

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
@@ -123,7 +124,7 @@ export default function ShiftClosePage() {
     <div style={{ height:'100%', display:'flex', flexDirection:'column', background:T.BG, overflow:'hidden' }}>
       <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'14px 24px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
         <span style={{ fontSize:24 }}>📋</span>
-        <div style={{ flex: 1 }}>
+        <div className={u.flex1}>
           <div style={{ fontSize:18, fontWeight:700, color:T.TXT }}>{t('terminal.shift_close', '交班日报')}</div>
           <div style={{ fontSize:12, color:T.MUT }}>{t('ui.班次', '班次')} {shift?.code || '--'} · {shift?.productionDate || '--'} · {shift?.lineName || shift?.lineId || 'Line-01'}</div>
         </div>

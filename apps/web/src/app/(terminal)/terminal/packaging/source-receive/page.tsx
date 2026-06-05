@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { crudApi } from '@/lib/api-client';
@@ -224,7 +225,7 @@ export default function EggCollectionPage() {
       {/* Header */}
       <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'12px 20px', display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
         <span style={{ fontSize:22 }}>🥚</span>
-        <div style={{ flex:1 }}>
+        <div className={u.flex1}>
           <div style={{ fontSize:17, fontWeight:700, color:T.TXT }}>{t('terminal.source_receive', '集蛋作业')}</div>
           <div style={{ fontSize:12, color:T.MUT }}>{t('ui.按鸡舍逐一录入今日集蛋数量', '按鸡舍逐一录入今日集蛋数量')}</div>
         </div>
@@ -366,7 +367,7 @@ export default function EggCollectionPage() {
                     <strong style={{ fontSize:16, color: available > 0 ? T.GRN : T.MUT, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>{total > 0 ? available.toLocaleString() : '—'}</strong>
                   </div>
                 </div>
-                <div style={{ flex:1 }} />
+                <div className={u.flex1} />
                 {defectExceedsTotal && (
                   <div style={{ color:T.RED, fontSize:13, fontWeight:600, whiteSpace:'nowrap' }}>⚠️ {t('ui.脏蛋裂纹超过总数', '脏蛋+裂纹超过总数')}</div>
                 )}
@@ -405,7 +406,7 @@ export default function EggCollectionPage() {
             <div style={{ background:'var(--bg-page)', borderRadius:18, border:`1px solid ${T.BOR}`, width:'min(800px, 96vw)', maxHeight:'90vh', overflow:'hidden', display:'flex', flexDirection:'column' }}>
               <div style={{ padding:'16px 24px', borderBottom:`1px solid ${T.BOR}`, display:'flex', alignItems:'center', gap:12 }}>
                 <span style={{ fontSize:22 }}>✏️</span>
-                <div style={{ flex:1 }}>
+                <div className={u.flex1}>
                   <div style={{ fontSize:17, fontWeight:700, color:T.TXT }}>{t('ui.更正记录', '更正记录')} — {corrTarget.houseName}</div>
                   <div style={{ fontSize:12, color:T.MUT }}>
                     {t('ui.更正前', '更正前')}：{t('ui.采集', '采集')} {corrTarget.totalQty.toLocaleString()}
@@ -494,7 +495,7 @@ export default function EggCollectionPage() {
           style={{ padding:'9px 40px', borderRadius:10, border:'none', background: canSubmit ? T.ACC : T.BOR, color: canSubmit ? 'var(--bg-page)' : T.MUT, fontSize:16, fontWeight:700, cursor: canSubmit ? 'pointer' : 'not-allowed', opacity: submitting ? 0.7 : 1, minWidth:220, transition:'background 0.15s, opacity 0.15s' }}>
           {submitting ? t('ui.提交中', '提交中...') : `✓ ${t('ui.确认录入', '确认录入')} ${selectedHouse?.house_name ?? ''}`}
         </button>
-        <div style={{ flex:1 }}>
+        <div className={u.flex1}>
           {submitError && <div style={{ fontSize:13, color:T.RED, fontWeight:600 }}>⚠️ {submitError}</div>}
           {canSubmit && records.length > 0 && (
             <div style={{ fontSize:12, color:T.ACC, fontWeight:600 }}>

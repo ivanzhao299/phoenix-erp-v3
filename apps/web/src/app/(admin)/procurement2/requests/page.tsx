@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import {
   Plus, RefreshCw, FileText, CheckCircle, XCircle,
   ChevronLeft, ChevronRight, Pencil, Trash2, Send,
@@ -438,7 +439,7 @@ export default function PurchaseRequestsPage() {
               <th>紧急度</th>
               <th>申请人</th>
               <th>预估金额</th>
-              <th style={{ textAlign: "center" }}>行数</th>
+              <th className={u.tac}>行数</th>
               <th>期望到货</th>
               <th>状态</th>
               <th style={{ width: 160 }}>操作</th>
@@ -469,7 +470,7 @@ export default function PurchaseRequestsPage() {
                   <td style={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                     {fmtAmt(row.estimatedAmount, row.currencyCode ?? "LAK")}
                   </td>
-                  <td style={{ textAlign: "center" }}>{row.itemCount ?? "—"}</td>
+                  <td className={u.tac}>{row.itemCount ?? "—"}</td>
                   <td>{fmtDate(row.expectedDate)}</td>
                   <td><span className={`${s.badge} ${s[st.cls]}`}>{st.label}</span></td>
                   <td>
@@ -773,10 +774,10 @@ export default function PurchaseRequestsPage() {
                       <tr>
                         <th>物品名称</th>
                         <th>规格</th>
-                        <th style={{ textAlign: "right" }}>数量</th>
+                        <th className={u.tar}>数量</th>
                         <th>单位</th>
-                        <th style={{ textAlign: "right" }}>单价</th>
-                        <th style={{ textAlign: "right" }}>小计</th>
+                        <th className={u.tar}>单价</th>
+                        <th className={u.tar}>小计</th>
                         <th>仓库</th>
                       </tr>
                     </thead>

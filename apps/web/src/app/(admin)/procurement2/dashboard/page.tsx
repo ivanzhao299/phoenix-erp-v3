@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import {
   RefreshCw, TrendingUp, TrendingDown, DollarSign,
   Package, Truck, AlertTriangle, Clock, Users, BarChart2,
@@ -184,8 +185,8 @@ export default function ProcurementDashboardPage() {
           ) : (
             <table className={s.table}>
               <thead><tr>
-                <th>账龄区间</th><th style={{ textAlign: "right" }}>笔数</th>
-                <th style={{ textAlign: "right" }}>余额</th><th>货币</th>
+                <th>账龄区间</th><th className={u.tar}>笔数</th>
+                <th className={u.tar}>余额</th><th>货币</th>
               </tr></thead>
               <tbody>
                 {aging.map((r, i) => (
@@ -194,7 +195,7 @@ export default function ProcurementDashboardPage() {
                       <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: AGING_COLOR[r.bucket] ?? "var(--hex-999)", marginRight: 6 }} />
                       {r.bucketLabel}
                     </td>
-                    <td style={{ textAlign: "right" }}>{fmt(r.count)}</td>
+                    <td className={u.tar}>{fmt(r.count)}</td>
                     <td style={{ textAlign: "right", color: r.bucket !== "current" ? "var(--color-danger)" : undefined }}>{fmt(r.balance, 2)}</td>
                     <td>{r.currencyCode}</td>
                   </tr>
@@ -214,14 +215,14 @@ export default function ProcurementDashboardPage() {
           ) : (
             <table className={s.table}>
               <thead><tr>
-                <th>状态</th><th style={{ textAlign: "right" }}>数量</th><th style={{ textAlign: "right" }}>跨境</th>
+                <th>状态</th><th className={u.tar}>数量</th><th className={u.tar}>跨境</th>
               </tr></thead>
               <tbody>
                 {shipment.map((r, i) => (
                   <tr key={i}>
                     <td>{r.statusLabel}</td>
-                    <td style={{ textAlign: "right" }}>{fmt(r.count)}</td>
-                    <td style={{ textAlign: "right" }}>{r.crossBorderCount > 0 ? fmt(r.crossBorderCount) : "—"}</td>
+                    <td className={u.tar}>{fmt(r.count)}</td>
+                    <td className={u.tar}>{r.crossBorderCount > 0 ? fmt(r.crossBorderCount) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -238,22 +239,22 @@ export default function ProcurementDashboardPage() {
         {payTrend.length === 0 ? (
           <div style={{ textAlign: "center", color: "var(--color-text-3)", padding: 24 }}>暂无数据</div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div className={u.scrollX}>
             <table className={s.table}>
               <thead><tr>
                 <th>期间</th><th>货币</th>
-                <th style={{ textAlign: "right" }}>笔数</th>
-                <th style={{ textAlign: "right" }}>原币金额</th>
-                <th style={{ textAlign: "right" }}>折合本位币</th>
+                <th className={u.tar}>笔数</th>
+                <th className={u.tar}>原币金额</th>
+                <th className={u.tar}>折合本位币</th>
               </tr></thead>
               <tbody>
                 {payTrend.map((r, i) => (
                   <tr key={i}>
                     <td>{r.period}</td>
                     <td>{r.currencyCode}</td>
-                    <td style={{ textAlign: "right" }}>{fmt(r.paymentCount)}</td>
-                    <td style={{ textAlign: "right" }}>{fmt(r.amountOriginal, 2)}</td>
-                    <td style={{ textAlign: "right" }}>{fmt(r.amountBase, 2)}</td>
+                    <td className={u.tar}>{fmt(r.paymentCount)}</td>
+                    <td className={u.tar}>{fmt(r.amountOriginal, 2)}</td>
+                    <td className={u.tar}>{fmt(r.amountBase, 2)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -270,14 +271,14 @@ export default function ProcurementDashboardPage() {
         {projectCost.length === 0 ? (
           <div style={{ textAlign: "center", color: "var(--color-text-3)", padding: 24 }}>暂无数据</div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div className={u.scrollX}>
             <table className={s.table}>
               <thead><tr>
                 <th>项目</th><th>公司</th><th>货币</th>
-                <th style={{ textAlign: "right" }}>采购订单数</th>
-                <th style={{ textAlign: "right" }}>合同金额</th>
-                <th style={{ textAlign: "right" }}>已付</th>
-                <th style={{ textAlign: "right" }}>余额</th>
+                <th className={u.tar}>采购订单数</th>
+                <th className={u.tar}>合同金额</th>
+                <th className={u.tar}>已付</th>
+                <th className={u.tar}>余额</th>
               </tr></thead>
               <tbody>
                 {projectCost.map((r, i) => (
@@ -288,8 +289,8 @@ export default function ProcurementDashboardPage() {
                     </td>
                     <td>{r.companyCode || "—"}</td>
                     <td>{r.currencyCode}</td>
-                    <td style={{ textAlign: "right" }}>{fmt(r.poCount)}</td>
-                    <td style={{ textAlign: "right" }}>{fmt(r.poAmount, 2)}</td>
+                    <td className={u.tar}>{fmt(r.poCount)}</td>
+                    <td className={u.tar}>{fmt(r.poAmount, 2)}</td>
                     <td style={{ textAlign: "right", color: "var(--color-success)" }}>{fmt(r.paidAmount, 2)}</td>
                     <td style={{ textAlign: "right", color: r.balance > 0 ? "var(--color-warning)" : undefined }}>{fmt(r.balance, 2)}</td>
                   </tr>
@@ -313,7 +314,7 @@ export default function ProcurementDashboardPage() {
             <table className={s.table}>
               <thead><tr>
                 <th>股东</th><th>类型</th><th>货币</th>
-                <th style={{ textAlign: "right" }}>折合本位币</th>
+                <th className={u.tar}>折合本位币</th>
               </tr></thead>
               <tbody>
                 {shareholder.map((r, i) => (
@@ -321,7 +322,7 @@ export default function ProcurementDashboardPage() {
                     <td>{r.shareholderName}</td>
                     <td>{r.fundNature || "—"}</td>
                     <td>{r.currencyCode}</td>
-                    <td style={{ textAlign: "right" }}>{fmt(r.totalBase, 2)}</td>
+                    <td className={u.tar}>{fmt(r.totalBase, 2)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -337,12 +338,12 @@ export default function ProcurementDashboardPage() {
           {supplier.length === 0 ? (
             <div style={{ textAlign: "center", color: "var(--color-text-3)", padding: 24 }}>暂无数据</div>
           ) : (
-            <div style={{ overflowX: "auto" }}>
+            <div className={u.scrollX}>
               <table className={s.table}>
                 <thead><tr>
-                  <th>供应商</th><th style={{ textAlign: "right" }}>采购订单数</th>
-                  <th style={{ textAlign: "right" }}>合同额</th>
-                  <th style={{ textAlign: "right" }}>待付AP</th>
+                  <th>供应商</th><th className={u.tar}>采购订单数</th>
+                  <th className={u.tar}>合同额</th>
+                  <th className={u.tar}>待付AP</th>
                 </tr></thead>
                 <tbody>
                   {supplier.map((r, i) => (
@@ -351,8 +352,8 @@ export default function ProcurementDashboardPage() {
                         <div style={{ fontWeight: 500 }}>{r.supplierName || r.supplierCode}</div>
                         <div style={{ fontSize: 11, color: "var(--color-text-3)" }}>{r.currencyCode}</div>
                       </td>
-                      <td style={{ textAlign: "right" }}>{fmt(r.poCount)}</td>
-                      <td style={{ textAlign: "right" }}>{fmt(r.poAmount, 2)}</td>
+                      <td className={u.tar}>{fmt(r.poCount)}</td>
+                      <td className={u.tar}>{fmt(r.poAmount, 2)}</td>
                       <td style={{ textAlign: "right", color: r.openApAmount > 0 ? "var(--color-warning)" : undefined }}>{fmt(r.openApAmount, 2)}</td>
                     </tr>
                   ))}

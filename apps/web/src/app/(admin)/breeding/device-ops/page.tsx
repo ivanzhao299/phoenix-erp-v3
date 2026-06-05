@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
 import { RefreshCw, Link2, Settings, ClipboardList, Wifi, WifiOff } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
@@ -345,7 +346,7 @@ export default function DeviceOpsPage() {
           display: "flex", alignItems: "center", gap: 10, fontSize: 13,
         }}>
           {authStatus.hasToken ? <Wifi size={14} style={{ color: "var(--status-success)" }} /> : <WifiOff size={14} style={{ color: "var(--status-warning)" }} />}
-          <span style={{ fontWeight: 600 }}>第三方 IoT API：</span>
+          <span className={u.fw600}>第三方 IoT API：</span>
           {authStatus.hasToken
             ? `${t("ui.已认证", "已认证")} · AppID: ${authStatus.appId} · Token 剩余 ${authStatus.remainMin} min`
             : t("ui.未获取Token", "未获取 Token — 请检查环境变量配置")}
@@ -375,7 +376,7 @@ export default function DeviceOpsPage() {
             <input placeholder={t("ui.搜索", "搜索鸡舍、场区...")} value={search} onChange={e => setSearch(e.target.value)}
               style={{ ...inp, width: 220 }} />
           </div>
-          <div style={{ overflowX: "auto" }}>
+          <div className={u.scrollX}>
             <table className={s.table}>
               <thead>
                 <tr>
@@ -392,8 +393,8 @@ export default function DeviceOpsPage() {
                   <tr><td colSpan={11} style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>暂无映射记录</td></tr>
                 ) : filteredMappings.map(row => (
                   <tr key={row.id}>
-                    <td><code style={{ fontSize: 12 }}>{row.erp_farm_code}</code></td>
-                    <td><code style={{ fontSize: 12 }}>{row.erp_house_code}</code></td>
+                    <td><code className={u.fs12}>{row.erp_farm_code}</code></td>
+                    <td><code className={u.fs12}>{row.erp_house_code}</code></td>
                     <td>{row.house_name || "—"}</td>
                     <td style={{ color: "var(--text-secondary)", fontSize: 12 }}>{row.vendor_farm_id}</td>
                     <td style={{ color: "var(--text-secondary)", fontSize: 12 }}>{row.vendor_house_id}</td>
@@ -427,7 +428,7 @@ export default function DeviceOpsPage() {
             <span className={s.cardTitle}>{t("ui.采集日志", "同步任务日志")}</span>
             <button type="button" className={s.btnSecondary} onClick={loadJobs}><RefreshCw size={13} />{t("ui.刷新","刷新")}</button>
           </div>
-          <div style={{ overflowX: "auto" }}>
+          <div className={u.scrollX}>
             <table className={s.table}>
               <thead>
                 <tr>
@@ -441,9 +442,9 @@ export default function DeviceOpsPage() {
                   <tr><td colSpan={10} style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>暂无日志</td></tr>
                 ) : jobs.map(row => (
                   <tr key={row.id}>
-                    <td><code style={{ fontSize: 11 }}>{row.job_no}</code></td>
-                    <td style={{ fontSize: 12 }}>{row.job_type}</td>
-                    <td style={{ fontSize: 12 }}>{row.triggered_by}</td>
+                    <td><code className={u.fs11}>{row.job_no}</code></td>
+                    <td className={u.fs12}>{row.job_type}</td>
+                    <td className={u.fs12}>{row.triggered_by}</td>
                     <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtDt(row.started_at)}</td>
                     <td>{row.duration_ms != null ? `${row.duration_ms}ms` : "—"}</td>
                     <td>{row.total_houses ?? "—"}</td>
@@ -466,7 +467,7 @@ export default function DeviceOpsPage() {
             <span className={s.cardTitle}>{t("ui.离线设备", "离线设备")} ({offlineDevices.length})</span>
             <button type="button" className={s.btnSecondary} onClick={loadOffline}><RefreshCw size={13} />{t("ui.刷新","刷新")}</button>
           </div>
-          <div style={{ overflowX: "auto" }}>
+          <div className={u.scrollX}>
             <table className={s.table}>
               <thead>
                 <tr>
@@ -479,10 +480,10 @@ export default function DeviceOpsPage() {
                   <tr><td colSpan={6} style={{ textAlign: "center", padding: 40, color: "var(--status-success)" }}>✅ 暂无离线设备</td></tr>
                 ) : offlineDevices.map(row => (
                   <tr key={row.id}>
-                    <td><code style={{ fontSize: 12 }}>{row.imei}</code></td>
+                    <td><code className={u.fs12}>{row.imei}</code></td>
                     <td>{row.device_name || "—"}</td>
                     <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{row.device_type || "—"}</td>
-                    <td><code style={{ fontSize: 12 }}>{row.erp_house_code || "—"}</code></td>
+                    <td><code className={u.fs12}>{row.erp_house_code || "—"}</code></td>
                     <td><span style={{ padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700, background: "color-mix(in srgb, var(--status-danger) 14%, transparent)", color: "var(--status-danger)" }}>{row.status || "离线"}</span></td>
                     <td style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{fmtDt(row.last_online_at)}</td>
                   </tr>
@@ -500,7 +501,7 @@ export default function DeviceOpsPage() {
             <span className={s.cardTitle}>{t("ui.属性字典", "传感器属性字典")} ({propDict.length})</span>
             <button type="button" className={s.btnSecondary} onClick={loadDict}><RefreshCw size={13} />{t("ui.刷新","刷新")}</button>
           </div>
-          <div style={{ overflowX: "auto" }}>
+          <div className={u.scrollX}>
             <table className={s.table}>
               <thead>
                 <tr>
@@ -515,7 +516,7 @@ export default function DeviceOpsPage() {
                 ) : propDict.map(row => (
                   <tr key={row.id}>
                     <td><code style={{ fontSize: 12, color: "var(--color-primary)" }}>{row.property_code}</code></td>
-                    <td style={{ fontWeight: 600 }}>{row.name_zh}</td>
+                    <td className={u.fw600}>{row.name_zh}</td>
                     <td style={{ color: "var(--text-secondary)" }}>{row.unit || "—"}</td>
                     <td style={{ color: "var(--text-secondary)", fontSize: 12 }}>{row.category || "—"}</td>
                     <td style={{ color: row.threshold_high != null ? "var(--status-danger)" : "var(--text-secondary)" }}>{row.threshold_high ?? "—"}</td>
@@ -637,7 +638,7 @@ export default function DeviceOpsPage() {
       {/* ── Modal: 编辑映射 ───────────────────────────────────────────────── */}
       {editRow && (
         <Modal onClose={() => setEditRow(null)}>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 18 }}>{t("ui.修改", "修改映射")}: <code style={{ fontSize: 13 }}>{editRow.erp_house_code}</code></div>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 18 }}>{t("ui.修改", "修改映射")}: <code className={u.fs13}>{editRow.erp_house_code}</code></div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
             <div>
               <Label>{t("ui.ERP场区","ERP 场区")} *</Label>
@@ -723,7 +724,7 @@ export default function DeviceOpsPage() {
       {dictEditRow && (
         <Modal onClose={() => setDictEditRow(null)}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 18 }}>
-            {t("ui.编辑属性","编辑属性")}: {dictEditRow.name_zh} <code style={{ fontSize: 12 }}>({dictEditRow.property_code})</code>
+            {t("ui.编辑属性","编辑属性")}: {dictEditRow.name_zh} <code className={u.fs12}>({dictEditRow.property_code})</code>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
             {([

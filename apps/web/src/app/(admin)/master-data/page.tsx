@@ -7,6 +7,7 @@
  * · 治理 + 运营 入口
  */
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import {
   Network, Building, FolderKanban, ShieldCheck,
   Users, Globe, Store,
@@ -118,7 +119,7 @@ export default function MasterDataHubPage() {
                         display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <LayoutDashboard size={20} style={{ color: 'var(--color-primary)' }} />
           </div>
-          <div style={{ flex: 1 }}>
+          <div className={u.flex1}>
             <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>主数据运营平台</h1>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
               Phoenix ERP 唯一可信主数据入口 · 6 大中心 · 19 个对象
@@ -183,11 +184,11 @@ export default function MasterDataHubPage() {
                               display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Icon size={17} style={{ color: meta.accent }} />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className={u.flex1}>
                   <div style={{ fontSize: 15, fontWeight: 700 }}>{meta.title}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 1 }}>{meta.subtitle}</div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
+                <div className={u.tar}>
                   <div style={{ fontSize: 18, fontWeight: 800, color: healthColor(c.healthScore), lineHeight: 1 }}>{c.healthScore}</div>
                   <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>健康度</div>
                 </div>

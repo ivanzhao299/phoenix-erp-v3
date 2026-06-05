@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import { useBrand } from "@/contexts/BrandContext";
@@ -169,7 +170,7 @@ export default function BrandSettingsPage() {
               ? <img src={form.logo_url} alt="preview" style={{ width:90, height:90, objectFit:"contain", borderRadius:6 }}/>
               : <div style={{ textAlign:"center", color:"var(--text-secondary)" }}><div style={{ fontSize:28, marginBottom:4 }}>🏢</div><div style={{ fontSize:10 }}>{t('ui.暂无Logo', '暂无 Logo')}</div></div>}
           </div>
-          <div style={{ flex:1 }}>
+          <div className={u.flex1}>
             <div onClick={()=>fileRef.current?.click()}
               onMouseEnter={e=>(e.currentTarget.style.borderColor="var(--color-primary)")}
               onMouseLeave={e=>(e.currentTarget.style.borderColor="var(--border)")}

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import {
   PieChart, BarChart2, TrendingDown, TrendingUp, Wallet,
   Users, Receipt, Building2, FolderOpen, RefreshCw,
@@ -177,7 +178,7 @@ function OverviewTab() {
             { label: '今日净额', value: `¥${fmt(data.todayInflow - data.todayOutflow)}`,
               color: data.todayInflow >= data.todayOutflow ? 'var(--status-success)' : 'var(--status-danger)' },
           ].map(item => (
-            <div key={item.label} style={{ fontSize: 12 }}>
+            <div key={item.label} className={u.fs12}>
               <span style={{ opacity: 0.6 }}>{item.label}</span>
               <span style={{ marginLeft: 6, fontWeight: 700, color: item.color }}>{item.value}</span>
             </div>

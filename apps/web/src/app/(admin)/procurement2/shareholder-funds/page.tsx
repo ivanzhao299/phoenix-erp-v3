@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { useToast } from "@/contexts/ToastContext";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
@@ -310,7 +311,7 @@ export default function ShareholderFundsPage() {
       </div>
 
       {/* Table */}
-      <div style={{ overflowX: "auto" }}>
+      <div className={u.scrollX}>
         <table className={s.table}>
           <thead>
             <tr>
@@ -348,7 +349,7 @@ export default function ShareholderFundsPage() {
                 </td>
                 <td style={{ fontFamily: "monospace", fontSize: 12 }}>{row.relatedPoNo || "—"}</td>
                 <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{row.projectName || row.projectCode || "—"}</td>
-                <td style={{ fontSize: 12 }}>{row.occurredDate || "—"}</td>
+                <td className={u.fs12}>{row.occurredDate || "—"}</td>
                 <td><StatusBadge status={row.status} /></td>
                 <td style={{ display: "flex", gap: 4 }}>
                   <button className={s.btnIcon} title="查看详情" onClick={() => openDetail(row)}>

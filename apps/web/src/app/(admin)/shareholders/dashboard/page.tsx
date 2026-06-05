@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { shareholderApi, ShrProject, CapitalStats, ORG_CODE_LABEL, lbl } from '@/lib/shareholder-api';
 
 const EQ_LABEL: Record<string, string> = { CONFIRMED: '已确认股权', PROVISIONAL: '暂定股权' };
@@ -42,7 +43,7 @@ export default function ShareholderDashboard() {
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 8 }}>股东投入排名</div>
             {stats.shareholderRanking.slice(0, 5).map((r, i) => (
               <div key={r.shareholderCode} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '3px 0' }}>
-                <span>{i + 1}. {names[r.shareholderCode] || r.shareholderCode}</span><span style={{ fontWeight: 600 }}>¥{money(r.total)}</span>
+                <span>{i + 1}. {names[r.shareholderCode] || r.shareholderCode}</span><span className={u.fw600}>¥{money(r.total)}</span>
               </div>
             ))}
             {stats.shareholderRanking.length === 0 && <div style={{ color: 'var(--text-disabled)', fontSize: 12 }}>暂无数据</div>}
@@ -51,7 +52,7 @@ export default function ShareholderDashboard() {
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 8 }}>项目投入排名</div>
             {stats.projectRanking.slice(0, 5).map((r, i) => (
               <div key={r.projectCode} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '3px 0' }}>
-                <span>{i + 1}. {pmap[r.projectCode] || r.projectCode}</span><span style={{ fontWeight: 600 }}>¥{money(r.total)}</span>
+                <span>{i + 1}. {pmap[r.projectCode] || r.projectCode}</span><span className={u.fw600}>¥{money(r.total)}</span>
               </div>
             ))}
             {stats.projectRanking.length === 0 && <div style={{ color: 'var(--text-disabled)', fontSize: 12 }}>暂无数据</div>}
@@ -84,8 +85,8 @@ export default function ShareholderDashboard() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 18, fontSize: 13 }}>
-                <div><div style={{ color: 'var(--text-disabled)' }}>股东数</div><div style={{ fontWeight: 600 }}>{p.holders ?? 0}</div></div>
-                <div><div style={{ color: 'var(--text-disabled)' }}>股比合计</div><div style={{ fontWeight: 600 }}>{(p.ratioSum ?? 0).toFixed(2)}%</div></div>
+                <div><div style={{ color: 'var(--text-disabled)' }}>股东数</div><div className={u.fw600}>{p.holders ?? 0}</div></div>
+                <div><div style={{ color: 'var(--text-disabled)' }}>股比合计</div><div className={u.fw600}>{(p.ratioSum ?? 0).toFixed(2)}%</div></div>
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-disabled)', marginTop: 10 }}>实缴口径 · 不显示应缴/未缴</div>
             </div>

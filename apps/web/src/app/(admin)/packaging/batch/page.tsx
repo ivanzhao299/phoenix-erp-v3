@@ -1,5 +1,6 @@
 'use client';
 import { toast } from 'sonner';
+import u from "@/styles/uix-utils.module.css";
 /**
  * 成品批次生成 — V3 复刻 V2 phoenix-frontend BatchGeneration.jsx 三步向导
  */
@@ -204,7 +205,7 @@ function BatchGenerationPage() {
                     display: 'flex', alignItems: 'center', gap: 12,
                   }}>
                   <div style={{ width: 20, height: 20, borderRadius: '50%', border: `2px solid ${sel ? 'var(--color-primary)' : 'var(--border)'}`, background: sel ? 'var(--color-primary)' : 'transparent', flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>
+                  <div className={u.flex1}>
                     <div style={{ fontWeight: 700, fontSize: 13 }}>{tx.source_item}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, fontFamily: 'monospace' }}>{tx.task_no}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>

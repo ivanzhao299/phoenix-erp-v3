@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
@@ -158,7 +159,7 @@ export default function HenReportPage() {
                 <tr key={i}>
                   <td>{row.house_code}</td>
                   <td style={{ color: 'var(--text-secondary)' }}>{row.flock_no}</td>
-                  <td style={{ textAlign: 'right' }}>{row.current_qty.toLocaleString()}</td>
+                  <td className={u.tar}>{row.current_qty.toLocaleString()}</td>
                   <td style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>{row.age_days ?? '—'}</td>
                   <td style={{ textAlign: 'right', color: 'var(--status-warning)' }}>{row.eggs.toLocaleString()}</td>
                   <td style={{ textAlign: 'right', fontWeight: 700, color: rateColor(row.lay_rate) }}>{row.lay_rate}</td>

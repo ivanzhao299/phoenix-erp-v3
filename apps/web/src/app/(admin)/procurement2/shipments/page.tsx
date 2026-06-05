@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { useToast } from "@/contexts/ToastContext";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
@@ -251,7 +252,7 @@ export default function ShipmentsPage() {
       </div>
 
       {/* Table */}
-      <div style={{ overflowX: "auto" }}>
+      <div className={u.scrollX}>
         <table className={s.table}>
           <thead>
             <tr>
@@ -277,11 +278,11 @@ export default function ShipmentsPage() {
                 <td style={{ fontFamily: "monospace", fontSize: 12 }}>{row.poNo}</td>
                 <td>{TYPE_LABELS[row.shipmentType] ?? row.shipmentType}</td>
                 <td>{row.carrierName || "—"}</td>
-                <td style={{ fontSize: 12 }}>{row.trackingNo || "—"}</td>
-                <td style={{ fontSize: 12 }}>{row.originCountry || "—"} → {row.destinationCountry || "—"}</td>
-                <td style={{ fontSize: 12 }}>{row.departureDate || "—"}</td>
-                <td style={{ fontSize: 12 }}>{row.arrivalDate || "—"}</td>
-                <td style={{ fontSize: 12 }}>{row.customsRequired ? (row.customsStatus || "待报关") : "不需要"}</td>
+                <td className={u.fs12}>{row.trackingNo || "—"}</td>
+                <td className={u.fs12}>{row.originCountry || "—"} → {row.destinationCountry || "—"}</td>
+                <td className={u.fs12}>{row.departureDate || "—"}</td>
+                <td className={u.fs12}>{row.arrivalDate || "—"}</td>
+                <td className={u.fs12}>{row.customsRequired ? (row.customsStatus || "待报关") : "不需要"}</td>
                 <td><span className={`${s.badge} ${STATUS_COLOR[row.status] ?? s.badgeNeutral}`}>{STATUS_LABELS[row.status] ?? row.status}</span></td>
                 <td style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                   <button className={s.btnIcon} title="查看详情" onClick={() => openDetail(row)}><Eye size={13} /></button>
@@ -381,7 +382,7 @@ export default function ShipmentsPage() {
               <div className={s.field} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <input type="checkbox" id="custReq" checked={formData.customsRequired ?? false}
                   onChange={e => setFormData(p => ({ ...p, customsRequired: e.target.checked }))} />
-                <label htmlFor="custReq" style={{ fontSize: 13 }}>需要报关</label>
+                <label htmlFor="custReq" className={u.fs13}>需要报关</label>
               </div>
             </div>
             <div className={s.fieldRow}>
@@ -462,18 +463,18 @@ export default function ShipmentsPage() {
               运单：{actionTarget.shipmentNo}
             </div>
             {actionType === "customs" && (
-              <div style={{ marginBottom: 12 }}>
+              <div className={u.mb12}>
                 <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>报关单号</label>
                 <input className={s.inp} value={customsDeclNo} onChange={e => setCustomsDeclNo(e.target.value)} placeholder="可选" style={{ marginTop: 4 }} />
               </div>
             )}
             {actionType === "arrive" && (
-              <div style={{ marginBottom: 12 }}>
+              <div className={u.mb12}>
                 <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>实际到货日期</label>
                 <input type="date" className={s.inp} value={actualArrivalDate} onChange={e => setActualArrivalDate(e.target.value)} style={{ marginTop: 4 }} />
               </div>
             )}
-            <div style={{ marginBottom: 16 }}>
+            <div className={u.mb16}>
               <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>备注（可选）</label>
               <textarea className={s.textarea} rows={2} value={actionComment} onChange={e => setActionComment(e.target.value)} style={{ marginTop: 4 }} />
             </div>

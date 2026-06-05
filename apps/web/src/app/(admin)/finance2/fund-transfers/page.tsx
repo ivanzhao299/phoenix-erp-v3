@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import {
   ArrowLeftRight, Plus, Search, RefreshCw, X, CheckCircle,
   Clock, AlertCircle, Send, Play,
@@ -331,7 +332,7 @@ export default function FundTransfersPage() {
               }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 {/* 左侧信息 */}
-                <div style={{ flex: 1 }}>
+                <div className={u.flex1}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                     <span className="text-text" style={{ fontWeight: 700, fontSize: 13 }}>{t.transferNo}</span>
                     <LocalStatusBadge status={t.status} />

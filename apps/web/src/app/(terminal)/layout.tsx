@@ -6,6 +6,7 @@
  */
 'use client';
 import { useEffect, useState } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useRouter } from 'next/navigation';
@@ -176,7 +177,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
             <div style={{ fontSize: 10, color: 'var(--slate-600)', marginLeft: 12, letterSpacing: 0.3 }}>未开班</div>
           )}
 
-          <div style={{ flex: 1 }} />
+          <div className={u.flex1} />
 
           {/* 语言切换 */}
           <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: '1px solid var(--brand-deep-3)' }}>

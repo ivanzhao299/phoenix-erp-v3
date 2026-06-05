@@ -1,5 +1,6 @@
 'use client';
 import type { FarmRow } from '@/types';
+import u from "@/styles/uix-utils.module.css";
 import { useState, useEffect, useCallback } from 'react';
 
 interface HouseCard {
@@ -131,14 +132,14 @@ export default function HenHousePage() {
       </div>
     )},
     { key: 'farmLabel',  title: t('ui.所属农场','所属农场'), width: '110px', render: (v: unknown) => (
-      <span style={{ fontSize:13 }}>{v != null ? String(v) : '—'}</span>
+      <span className={u.fs13}>{v != null ? String(v) : '—'}</span>
     )},
     { key: 'type',       title: t('ui.舍型','舍型'),     width: '75px',  render: (v: unknown) => houseTypeMap[v as string] ?? (v != null ? String(v) : '—') },
     { key: 'capacity',   title: t('ui.设计容量','设计容量'), width: '90px',  render: (v: unknown) => `${Number(v).toLocaleString()} ${t('ui.羽','羽')}` },
     { key: 'current',    title: t('ui.当前存栏','当前存栏'), width: '120px', render: (v: unknown, row: HouseCard) => (
       <div>
         <div style={{ marginBottom:4 }}>
-          <span style={{ fontWeight:600 }}>{(Number(v)||0).toLocaleString()}</span>
+          <span className={u.fw600}>{(Number(v)||0).toLocaleString()}</span>
           <span style={{ fontSize:11, color:'var(--text-secondary)', marginLeft:2 }}>{t('ui.羽','羽')}</span>
           {row.capacity>0 && <span style={{ fontSize:11, color:row.isOverload?'var(--status-danger)':'var(--text-secondary)', marginLeft:5, fontWeight:row.isOverload?700:400 }}>({row.occupancyPct}%{row.isOverload?' ⚠️':''})</span>}
         </div>

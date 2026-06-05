@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 
 interface PdaTerminal {
   id: number;
@@ -193,7 +194,7 @@ export default function PdaTerminalPage() {
                 {terminal.serial && <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2, fontFamily: "monospace" }}>{terminal.serial}</div>}
               </div>
               <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{[terminal.brand, terminal.model].filter(Boolean).join(" ") || "—"}</div>
-              <div style={{ fontSize: 13 }}>{terminal.location || "—"}</div>
+              <div className={u.fs13}>{terminal.location || "—"}</div>
               <div style={{ fontSize: 12, color: "var(--color-primary)" }}>{PROTOCOLS.find(p => p.value === terminal.scan_protocol)?.label.split("（")[0] || terminal.scan_protocol || "—"}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: st.color, fontWeight: 600 }}>
                 {online ? <Wifi size={12}/> : <WifiOff size={12}/>} {st.text}

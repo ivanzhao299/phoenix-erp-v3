@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { Plus, RefreshCw, Globe, Building2, FolderKanban } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -308,7 +309,7 @@ export default function SuppliersPage() {
                   <td style={{ fontSize:11,color:"var(--text-secondary)" }}>
                     {row.sharedScope === "GROUP" ? "全集团" : row.sharedScope === "COMPANY" ? (row.ownerCompanyCode ?? "—") : (row.ownerProjectCode ?? "—")}
                   </td>
-                  <td style={{ fontSize:12 }}>{row.countryCode}</td>
+                  <td className={u.fs12}>{row.countryCode}</td>
                   <td style={{ fontSize:12,fontWeight:600 }}>{row.defaultCurrency}</td>
                   <td>
                     <span className={`${s.badge} ${s[statusCls(row.status)]}`}>

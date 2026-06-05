@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, FormEvent, useRef, Suspense } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBrand } from "@/contexts/BrandContext";
@@ -234,7 +235,7 @@ function LoginInner() {
           ))}
         </div>
 
-        <div style={{ width:"100%" }}>
+        <div className={u.w100}>
           <h1 style={{ fontSize:22, fontWeight:800, color:"white", marginBottom:6 }}>{t('ui.欢迎回来', '欢迎回来')}</h1>
           <p style={{ fontSize:13, color:"var(--overlay-white-10)", marginBottom:36 }}>{t('ui.登录Phoenix平台', '登录 Phoenix 企业管理平台')}</p>
 
@@ -252,7 +253,7 @@ function LoginInner() {
 
           <form onSubmit={handleSubmit}>
             {/* 账号 */}
-            <div style={{ marginBottom:16 }}>
+            <div className={u.mb16}>
               <label style={{ display:"block", marginBottom:6, color:"var(--overlay-white-10)", fontSize:12, fontWeight:600, letterSpacing:"0.5px" }}>{t('ui.账户名', '账户名')}</label>
               <div style={{ position:"relative" }}>
                 <User size={16} color="var(--hex-555)" style={{ position:"absolute", left:14, top:14 }}/>

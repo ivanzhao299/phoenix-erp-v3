@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { RefreshCw, Store, Truck, UserCheck, ShoppingBag, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { usePermission } from "@/hooks/usePermission";
@@ -253,13 +254,13 @@ export default function SalesChannelsPage() {
             {recentCustomers.length === 0 ? (
               <div className="py-12 text-center text-sm text-text-dim">暂无数据</div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
+              <div className={u.scrollX}>
                 <table className={s.table}>
                   <thead>
                     <tr>
                       <th>客户名称</th>
                       <th>渠道类型</th>
-                      <th style={{ textAlign: "right" }}>状态</th>
+                      <th className={u.tar}>状态</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -268,7 +269,7 @@ export default function SalesChannelsPage() {
                       const def = CHANNEL_DEFS.find((d) => d.type === typeStr);
                       return (
                         <tr key={c.id}>
-                          <td style={{ fontWeight: 600 }}>
+                          <td className={u.fw600}>
                             {c.customer_name ?? c.name ?? `客户${c.id}`}
                           </td>
                           <td>
@@ -280,7 +281,7 @@ export default function SalesChannelsPage() {
                               <span className={`${s.badge} ${s.badgeNeutral}`}>{typeStr || "—"}</span>
                             )}
                           </td>
-                          <td style={{ textAlign: "right" }}>
+                          <td className={u.tar}>
                             <span className={`${s.badge} ${
                               c.status === "ACTIVE" ? s.badgeSuccess
                               : c.status === "FROZEN" ? s.badgeDanger

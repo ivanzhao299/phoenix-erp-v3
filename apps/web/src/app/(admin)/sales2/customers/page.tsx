@@ -1,5 +1,6 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { Users, Layers, CreditCard, Plus, RefreshCw, Search, X } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -677,7 +678,7 @@ function CreditTab() {
                     <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 11, color: overdue > 0 ? "var(--status-danger)" : "var(--text-secondary)", fontWeight: overdue > 0 ? 700 : 400 }}>
                       {overdue > 0 ? overdue.toLocaleString() : "—"}
                     </td>
-                    <td style={{ textAlign: "center" }}>{row.payment_terms ?? 0}</td>
+                    <td className={u.tac}>{row.payment_terms ?? 0}</td>
                     <td onClick={e => e.stopPropagation()}>
                       <div style={{ display: "flex", gap: 4 }}>
                         <button type="button" className={s.btnSecondary}

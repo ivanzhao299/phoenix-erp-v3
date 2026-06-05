@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from "next/navigation";
 import { Building2, Package, Users, Store, Database } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
@@ -68,7 +69,7 @@ export default function MasterPage() {
             }}>
             <div style={{ color:m.color, background:`color-mix(in srgb,${m.color} 14%,transparent)`,
               borderRadius:"var(--radius-md)", padding:12, flexShrink:0 }}>{m.icon}</div>
-            <div style={{ flex:1 }}>
+            <div className={u.flex1}>
               <div style={{ fontWeight:700, fontSize:15, color:"var(--text-primary)", marginBottom:4 }}>{m.label}</div>
               <div style={{ fontSize:12, color:"var(--text-secondary)", marginBottom:10 }}>{m.desc}</div>
               <div style={{ display:"flex", alignItems:"center", gap:6 }}>

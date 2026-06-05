@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
 import request from "@/lib/api-client";
 import {
@@ -95,7 +96,7 @@ export default function OperationsPage() {
                                display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                    <CheckSquare size={16} style={{ color: 'var(--status-warning)' }} />
                  </div>
-                 <div style={{ flex: 1 }}>
+                 <div className={u.flex1}>
                    <div style={{ fontSize: 13, fontWeight: 600 }}>
                      {TYPE_LABEL[p.type] ?? p.type}
                      <span style={{ marginLeft: 6, padding: '1px 8px', borderRadius: 4,
@@ -124,7 +125,7 @@ export default function OperationsPage() {
                 style={cardLinkStyle}>
                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                  <Users size={16} style={{ color: 'var(--status-info)' }} />
-                 <div style={{ flex: 1 }}>
+                 <div className={u.flex1}>
                    <div style={{ fontSize: 13, fontWeight: 600 }}>{TYPE_LABEL[m.source] ?? m.source}</div>
                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
                      <strong style={{ color: 'var(--status-danger)' }}>{m.count}</strong> 条 ACTIVE 记录缺电话

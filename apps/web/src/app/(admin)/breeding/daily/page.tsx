@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 
 interface DailyReport {
   [key: string]: unknown;
@@ -312,7 +313,7 @@ export default function DailyPage() {
           </div>
           {deviceHint && (
             <div style={{ display:'flex', alignItems:'center', gap:12, padding:'6px 12px', backgroundColor:'color-mix(in srgb,var(--color-primary) 10%,transparent)', border:'1px solid color-mix(in srgb,var(--color-primary) 30%,transparent)', borderRadius:'var(--radius-sm)', fontSize:12, color:'var(--color-primary)', flexWrap:'wrap' }}>
-              <span style={{ fontWeight:600 }}>📡 {t('ui.传感器参考：','传感器参考：')}</span>
+              <span className={u.fw600}>📡 {t('ui.传感器参考：','传感器参考：')}</span>
               {deviceHint.temp     && <span>{t('ui.温度','温度')} {deviceHint.temp}℃</span>}
               {deviceHint.humidity && <span>{t('ui.湿度','湿度')} {deviceHint.humidity}%</span>}
               {deviceHint.feedKg   && <span>{t('ui.耗料','耗料')} {deviceHint.feedKg}kg</span>}
@@ -326,7 +327,7 @@ export default function DailyPage() {
               { label:t('ui.合计死淘','合计死淘'), val: total.deaths || '—', unit:t('ui.羽','羽') },
               { label:t('ui.合计饲料','合计饲料'), val: total.feedKg || '—', unit:'kg' },
             ].map(item => (
-              <div key={item.label} style={{ textAlign:'center' }}>
+              <div key={item.label} className={u.tac}>
                 <div style={{ fontSize:20, fontWeight:700, color:'var(--color-primary)' }}>{item.val} <span style={{ fontSize:12, color:'var(--text-secondary)' }}>{item.unit}</span></div>
                 <div style={{ fontSize:11, color:'var(--text-secondary)' }}>{item.label}</div>
               </div>
@@ -340,7 +341,7 @@ export default function DailyPage() {
         <div className={s.cardHeader}>
           <span className={s.cardTitle} style={{ color:'var(--color-primary)' }}>{t('ui.班次数据录入','班次数据录入')}</span>
         </div>
-        <div style={{ overflowX:'auto' }}>
+        <div className={u.scrollX}>
           <table className={s.table}>
             <thead>
               <tr>
@@ -405,7 +406,7 @@ export default function DailyPage() {
               <tr key={i}>
                 <td>{String(r.date ?? '—')}</td>
                 <td>{String(r.houseName ?? r.house ?? '—')}</td>
-                <td style={{ fontWeight:600 }}>{Number(r.eggs ?? 0).toLocaleString()}</td>
+                <td className={u.fw600}>{Number(r.eggs ?? 0).toLocaleString()}</td>
                 <td style={{ color: Number(r.dirtyEggs)>30?'var(--status-warning)':'var(--text-primary)' }}>{String(r.dirtyEggs ?? 0)}</td>
                 <td style={{ color: Number(r.brokenEggs)>20?'var(--status-danger)':'var(--text-primary)', fontWeight: Number(r.brokenEggs)>20?700:'normal' }}>{String(r.brokenEggs ?? 0)}</td>
                 <td style={{ color: Number(r.deaths)>8?'var(--status-danger)':'var(--text-primary)' }}>{String(r.deaths ?? '—')}</td>

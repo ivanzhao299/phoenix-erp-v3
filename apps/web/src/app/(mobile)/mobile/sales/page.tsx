@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, RefreshCw, ChevronLeft, ChevronRight,
@@ -255,7 +256,7 @@ export default function SalesPage() {
             style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 6 }}>
             <ChevronLeft size={18} />
           </button>
-          <div style={{ textAlign: 'center' }}>
+          <div className={u.tac}>
             <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{dateLabel}</div>
             {dateLabel !== date && <div style={{ fontSize: 10, color: t.textMuted }}>{date}</div>}
           </div>
@@ -313,7 +314,7 @@ export default function SalesPage() {
                 background: t.cardBg,
                 fontSize: 11, color: t.textMuted, fontWeight: 600,
               }}>
-                <span>规格</span><span style={{ textAlign: 'right' }}>数量（枚）</span><span style={{ textAlign: 'right' }}>单价（LAK）</span>
+                <span>规格</span><span className={u.tar}>数量（枚）</span><span className={u.tar}>单价（LAK）</span>
               </div>
 
               {EGG_GRADES.map((g, idx) => {
@@ -397,7 +398,7 @@ export default function SalesPage() {
                       <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{rec.customer_name}</div>
                       <div style={{ fontSize: 11, color: t.textFaint, marginTop: 2 }}>{rec.order_no}</div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
+                    <div className={u.tar}>
                       <div style={{ fontSize: 16, fontWeight: 800, color: rec.status === 'CANCELLED' ? t.textFaint : 'var(--status-success)' }}>
                         ₭ {fmtMoney(Number(rec.total_amount))}
                       </div>

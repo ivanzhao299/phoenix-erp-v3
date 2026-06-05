@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight, Plus, Minus, Sun, Moon } from 'lucide-react';
 import { mobileApi, FarmLog } from '@/lib/mobile-api';
@@ -238,7 +239,7 @@ export default function MortalityPage() {
           style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 6 }}>
           <ChevronLeft size={20} />
         </button>
-        <div style={{ textAlign: 'center' }}>
+        <div className={u.tac}>
           <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{dateLabel}</div>
           {dateLabel !== date && <div style={{ fontSize: 11, color: t.textMuted }}>{date}</div>}
         </div>

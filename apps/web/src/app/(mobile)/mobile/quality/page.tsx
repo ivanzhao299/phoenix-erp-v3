@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Sun, Moon } from 'lucide-react';
 import { mobileApi, QcInspection } from '@/lib/mobile-api';
@@ -251,7 +252,7 @@ export default function QualityPage() {
         >
           <ChevronLeft size={20} />
         </button>
-        <div style={{ textAlign: 'center' }}>
+        <div className={u.tac}>
           <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{dateLabel}</div>
           {dateLabel !== date && (
             <div style={{ fontSize: 11, color: t.textMuted }}>{date}</div>

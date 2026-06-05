@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
 import { KpiCard as GlobalKpiCard } from "@/components/ui/KpiCard";
 import { hexToAccent } from "@/lib/design-tokens";
@@ -336,7 +337,7 @@ function BatchesTab() {
       {loading ? (
         <div style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 40 }}>加载中...</div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
+        <div className={u.scrollX}>
           <table className={s.table}>
             <thead>
               <tr>
@@ -351,7 +352,7 @@ function BatchesTab() {
               )}
               {batches.map(b => (
                 <tr key={b.batch_no}>
-                  <td><code style={{ fontSize: 11 }}>{b.batch_no}</code></td>
+                  <td><code className={u.fs11}>{b.batch_no}</code></td>
                   <td><SkuBadge skuCode={b.sku_code} /></td>
                   <td>{b.product_code}</td>
                   <td>
@@ -407,7 +408,7 @@ function ExpiringTab() {
   return (
     <div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center' }}>
-        <label style={{ fontSize: 13 }}>
+        <label className={u.fs13}>
           预警天数：
           <select value={days} onChange={e => setDays(Number(e.target.value))} style={{ ...inputStyle, marginLeft: 6 }}>
             {[3, 5, 7, 10, 14].map(d => <option key={d} value={d}>{d} 天</option>)}
@@ -422,7 +423,7 @@ function ExpiringTab() {
       {loading ? (
         <div style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 40 }}>加载中...</div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
+        <div className={u.scrollX}>
           <table className={s.table}>
             <thead>
               <tr>
@@ -442,7 +443,7 @@ function ExpiringTab() {
                   <tr key={b.batch_no} style={{
                     background: urgent ? 'var(--status-danger-bg-page)' : 'var(--status-warning-bg-page)',
                   }}>
-                    <td><code style={{ fontSize: 11 }}>{b.batch_no}</code></td>
+                    <td><code className={u.fs11}>{b.batch_no}</code></td>
                     <td><SkuBadge skuCode={b.sku_code} /></td>
                     <td>{b.product_code}</td>
                     <td>
@@ -530,7 +531,7 @@ function FifoTab() {
 
       {/* Phase H4: SKU 快捷选择 */}
       {skus.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
+        <div className={u.mb16}>
           <label style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>
             商品组合（SKU）优先分配
           </label>
@@ -670,7 +671,7 @@ function LossTab() {
             <tbody>
               {(data.byBatch ?? []).slice(0, 20).map((row, i) => (
                 <tr key={i}>
-                  <td><code style={{ fontSize: 11 }}>{row.batch_no}</code></td>
+                  <td><code className={u.fs11}>{row.batch_no}</code></td>
                   <td><SkuBadge skuCode={row.sku_code} /></td>
                   <td>{row.product_code}</td>
                   <td style={{ fontWeight: 700, color: 'var(--status-danger)' }}>{fmt(row.total_loss)}</td>

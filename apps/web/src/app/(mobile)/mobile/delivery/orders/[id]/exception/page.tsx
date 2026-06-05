@@ -1,5 +1,6 @@
 'use client';
 import { useState, use, Suspense } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter, useSearchParams } from 'next/navigation';
 
 // ── 颜色常量 ──────────────────────────────────────────────────────────────────
@@ -155,7 +156,7 @@ function ExceptionForm({ id }: { id: string }) {
 
       {/* 正常数量 + 异常数量 */}
       <div style={{ display: 'flex', gap: 12 }}>
-        <div style={{ flex: 1 }}>
+        <div className={u.flex1}>
           <label style={labelStyle}>正常数量 *</label>
           <input
             type="number"
@@ -167,7 +168,7 @@ function ExceptionForm({ id }: { id: string }) {
             placeholder="0"
           />
         </div>
-        <div style={{ flex: 1 }}>
+        <div className={u.flex1}>
           <label style={labelStyle}>异常数量 *</label>
           <input
             type="number"

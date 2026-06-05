@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -174,7 +175,7 @@ export default function ShiftOpenPage() {
       {/* 页头 */}
       <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'14px 24px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
         <span style={{ fontSize:24 }}>🔓</span>
-        <div style={{ flex: 1 }}>
+        <div className={u.flex1}>
           <div style={{ fontSize:18, fontWeight:700, color:T.TXT }}>{t('terminal.shift_open', '开班 / 设备点检')}</div>
           <div style={{ fontSize:12, color:T.MUT }}>{t('ui.完成点检后方可开始作业', '完成点检后方可开始作业')}</div>
         </div>
@@ -185,13 +186,13 @@ export default function ShiftOpenPage() {
         <div style={{ width:280, flexShrink:0 }}>
           <div style={{ background:T.CARD, borderRadius:12, padding:20, border:`1px solid ${T.BOR}` }}>
             <div style={{ fontSize:13, color:T.MUT, marginBottom:16, fontWeight:600 }}>{t('ui.班次基本信息', '班次基本信息')}</div>
-            <div style={{ marginBottom:12 }}>
+            <div className={u.mb12}>
               <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{t('ui.生产日期', '生产日期')}</div>
               <div style={{ background:'var(--overlay-white-05)', borderRadius:6, padding:'8px 12px', color:T.TXT, fontSize:14 }}>
                 {new Date().toLocaleDateString('zh-CN')}
               </div>
             </div>
-            <div style={{ marginBottom:12 }}>
+            <div className={u.mb12}>
               <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{t('ui.班次类型', '班次类型')}</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {(shiftTypes.length > 0 ? shiftTypes : [
@@ -222,7 +223,7 @@ export default function ShiftOpenPage() {
             </div>
 
             {/* R3：场站（必选，写入 pkg_work_shifts.site_id，驱动 SITE 级灰度） */}
-            <div style={{ marginBottom:12 }}>
+            <div className={u.mb12}>
               <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{t('ui.场站', '场站')}</div>
               <select value={siteId} onChange={e => setSiteId(e.target.value)}
                 style={{ width:'100%', background:'var(--bg-card)', border:`1px solid ${T.BOR}`, borderRadius:6,
@@ -233,7 +234,7 @@ export default function ShiftOpenPage() {
                 ))}
               </select>
             </div>
-            <div style={{ marginBottom:12 }}>
+            <div className={u.mb12}>
               <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{t('ui.产线', '产线')}</div>
               <select value={line} onChange={e => setLine(e.target.value)}
                 style={{ width:'100%', background:'var(--bg-card)', border:`1px solid ${T.BOR}`, borderRadius:6,
@@ -243,7 +244,7 @@ export default function ShiftOpenPage() {
                 ))}
               </select>
             </div>
-            <div style={{ marginBottom:12 }}>
+            <div className={u.mb12}>
               <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{t('ui.班组长', '班组长')}</div>
               {supervisors.length > 0 ? (
                 <select value={supervisor} onChange={e => setSupervisor(e.target.value)}
@@ -263,7 +264,7 @@ export default function ShiftOpenPage() {
         </div>
 
         {/* 右：点检清单 */}
-        <div style={{ flex:1 }}>
+        <div className={u.flex1}>
           <div style={{ background:T.CARD, borderRadius:12, padding:20, border:`1px solid ${T.BOR}` }}>
             <div style={{ fontSize:13, color:T.MUT, marginBottom:16, fontWeight:600 }}>{t('ui.设备与卫生点检', '设备与卫生点检')}</div>
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>

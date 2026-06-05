@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { useToast } from "@/contexts/ToastContext";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
@@ -309,7 +310,7 @@ export default function ReceiptsPage() {
       </div>
 
       {/* Table */}
-      <div style={{ overflowX: "auto" }}>
+      <div className={u.scrollX}>
         <table className={s.table}>
           <thead>
             <tr>
@@ -332,11 +333,11 @@ export default function ReceiptsPage() {
                 <td style={{ fontFamily: "monospace", fontSize: 12 }}>{row.receiptNo}</td>
                 <td style={{ fontFamily: "monospace", fontSize: 12 }}>{row.poNo}</td>
                 <td style={{ fontFamily: "monospace", fontSize: 12 }}>{row.shipmentNo || "—"}</td>
-                <td style={{ fontSize: 12 }}>{row.warehouseCode || "—"}</td>
-                <td style={{ fontSize: 12 }}>{row.receiverName || "—"}</td>
-                <td style={{ fontSize: 12 }}>{row.receiptDate || "—"}</td>
+                <td className={u.fs12}>{row.warehouseCode || "—"}</td>
+                <td className={u.fs12}>{row.receiverName || "—"}</td>
+                <td className={u.fs12}>{row.receiptDate || "—"}</td>
                 <td><span className={`${s.badge} ${STATUS_COLOR[row.status] ?? s.badgeNeutral}`}>{STATUS_LABELS[row.status] ?? row.status}</span></td>
-                <td style={{ fontSize: 12 }}>{row.confirmedAt ? new Date(row.confirmedAt).toLocaleString("zh-CN") : "—"}</td>
+                <td className={u.fs12}>{row.confirmedAt ? new Date(row.confirmedAt).toLocaleString("zh-CN") : "—"}</td>
                 <td style={{ display: "flex", gap: 4 }}>
                   <button className={s.btnIcon} title="详情" onClick={() => openDetail(row)}><Eye size={13} /></button>
                   {["DRAFT","PARTIAL"].includes(row.status) && (
@@ -526,9 +527,9 @@ export default function ReceiptsPage() {
                   <thead>
                     <tr>
                       <th>物品</th>
-                      <th style={{ textAlign: "right" }}>应收</th>
-                      <th style={{ textAlign: "right" }}>实收</th>
-                      <th style={{ textAlign: "right" }}>拒收</th>
+                      <th className={u.tar}>应收</th>
+                      <th className={u.tar}>实收</th>
+                      <th className={u.tar}>拒收</th>
                       <th>质检</th>
                     </tr>
                   </thead>
@@ -536,7 +537,7 @@ export default function ReceiptsPage() {
                     {detail.items!.map((item, idx) => (
                       <tr key={idx}>
                         <td>{item.itemName}</td>
-                        <td style={{ textAlign: "right" }}>{item.expectedQty}</td>
+                        <td className={u.tar}>{item.expectedQty}</td>
                         <td style={{ textAlign: "right", color: "var(--color-success)" }}>{item.actualQty}</td>
                         <td style={{ textAlign: "right", color: "var(--color-danger)" }}>{item.rejectedQty || "0"}</td>
                         <td>{QUALITY_LABELS[item.qualityStatus ?? ""] ?? item.qualityStatus ?? "—"}</td>
@@ -574,7 +575,7 @@ export default function ReceiptsPage() {
             <div style={{ fontSize: 12, color: "var(--color-warning)", marginBottom: 16, padding: "8px 12px", background: "var(--status-warning-bg-light)", borderRadius: 6 }}>
               确认后将自动更新采购订单已收数量及状态，不可撤销。
             </div>
-            <div style={{ marginBottom: 16 }}>
+            <div className={u.mb16}>
               <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>备注（可选）</label>
               <textarea className={s.textarea} rows={2} value={confirmComment} onChange={e => setConfirmComment(e.target.value)} style={{ marginTop: 4 }} />
             </div>
@@ -595,7 +596,7 @@ export default function ReceiptsPage() {
           <div style={{ background: "var(--bg-card)", borderRadius: 12, padding: 24, width: 400 }} onClick={e => e.stopPropagation()}>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>取消收货单</div>
             <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16 }}>收货单：{cancelTarget.receiptNo}</div>
-            <div style={{ marginBottom: 16 }}>
+            <div className={u.mb16}>
               <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>原因（可选）</label>
               <textarea className={s.textarea} rows={2} value={cancelComment} onChange={e => setCancelComment(e.target.value)} style={{ marginTop: 4 }} />
             </div>

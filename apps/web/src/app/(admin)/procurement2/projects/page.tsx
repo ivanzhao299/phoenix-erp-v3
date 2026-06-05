@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { Plus, RefreshCw, Building2 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -260,7 +261,7 @@ export default function ProjectsPage() {
                     {row.projectName}
                   </button>
                 </td>
-                <td style={{ fontSize:12 }}>{typeLabel(row.projectType)}</td>
+                <td className={u.fs12}>{typeLabel(row.projectType)}</td>
                 <td style={{ fontSize:12,color:"var(--text-secondary)" }}>
                   {row.projectManagerName || <span style={{ opacity:0.4 }}>—</span>}
                 </td>

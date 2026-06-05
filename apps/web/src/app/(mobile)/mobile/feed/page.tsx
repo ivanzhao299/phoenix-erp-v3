@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Sun, Moon } from 'lucide-react';
 import { mobileApi, FeedLedgerRow } from '@/lib/mobile-api';
@@ -87,7 +88,7 @@ function MaterialCard({
           gap: 10, textAlign: 'left',
         }}
       >
-        <div style={{ flex: 1 }}>
+        <div className={u.flex1}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{row.material_name}</span>
             <span style={{ fontSize: 11, color: t.textFaint }}>{row.unit}</span>
@@ -117,13 +118,13 @@ function MaterialCard({
         <div style={{ padding: '0 14px 14px', borderTop: `1px solid ${t.divider}` }}>
           {/* 前日库存 */}
           <div style={{ display: 'flex', gap: 10, marginTop: 12, marginBottom: 10 }}>
-            <div style={{ flex: 1 }}>
+            <div className={u.flex1}>
               <div style={{ fontSize: 10, color: t.textFaint, marginBottom: 4 }}>昨日库存</div>
               <div style={{ fontSize: 14, color: t.textSub, padding: '8px 10px', background: t.sectionBg, borderRadius: 8, border: `1px solid ${t.divider}` }}>
                 {row.prev_stock.toLocaleString('zh-CN')}
               </div>
             </div>
-            <div style={{ flex: 1 }}>
+            <div className={u.flex1}>
               <div style={{ fontSize: 10, color: t.textFaint, marginBottom: 4 }}>今日入库</div>
               <input
                 type="number" inputMode="numeric" min="0"
@@ -133,7 +134,7 @@ function MaterialCard({
                 style={inputStyle}
               />
             </div>
-            <div style={{ flex: 1 }}>
+            <div className={u.flex1}>
               <div style={{ fontSize: 10, color: t.textFaint, marginBottom: 4 }}>日用量</div>
               <input
                 type="number" inputMode="numeric" min="0"
@@ -334,7 +335,7 @@ export default function FeedLedgerPage() {
           style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 6 }}>
           <ChevronLeft size={20} />
         </button>
-        <div style={{ textAlign: 'center' }}>
+        <div className={u.tac}>
           <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{dateLabel}</div>
           {dateLabel !== date && <div style={{ fontSize: 11, color: t.textMuted }}>{date}</div>}
         </div>

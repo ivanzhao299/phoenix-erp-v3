@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback, use } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 
 const C = {
@@ -328,7 +329,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ orderId: str
             </div>
 
             {/* 签收人 */}
-            <div style={{ marginBottom: 16 }}>
+            <div className={u.mb16}>
               <label style={labelStyle}>签收人 *</label>
               <input
                 type="text"
@@ -340,7 +341,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ orderId: str
             </div>
 
             {/* 实收数量 */}
-            <div style={{ marginBottom: 16 }}>
+            <div className={u.mb16}>
               <label style={labelStyle}>实收数量</label>
               <input
                 type="number"
@@ -352,7 +353,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ orderId: str
             </div>
 
             {/* 异常数量 */}
-            <div style={{ marginBottom: 16 }}>
+            <div className={u.mb16}>
               <label style={labelStyle}>异常数量（0 为正常签收）</label>
               <input
                 type="number"
@@ -365,7 +366,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ orderId: str
 
             {/* 异常原因（仅当 exceptionQty > 0） */}
             {parseInt(exceptionQty) > 0 && (
-              <div style={{ marginBottom: 16 }}>
+              <div className={u.mb16}>
                 <label style={labelStyle}>异常原因</label>
                 <select
                   value={exceptionType}
@@ -380,7 +381,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ orderId: str
             )}
 
             {/* 照片上传 */}
-            <div style={{ marginBottom: 16 }}>
+            <div className={u.mb16}>
               <label style={labelStyle}>照片（最多 3 张）</label>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
                 {photos.map((photo, idx) => (

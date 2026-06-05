@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
 import { PageHeaderV2, KpiCard } from "@/components/design-system";
 import type { AccentColor } from "@/lib/design-tokens";
@@ -635,13 +636,13 @@ function FeedbacksTab() {
       )}
 
       {/* Table */}
-      <div style={{ overflowX: "auto" }}>
+      <div className={u.scrollX}>
         <table className={s.table}>
           <thead>
             <tr>
               {["编号", "标题", "模块", "类型", "严重度", "状态", "报告人", "创建时间", "操作"].map(
                 (h) => (
-                  <th key={h} style={{ whiteSpace: "nowrap" }}>
+                  <th key={h} className={u.nowrap}>
                     {h}
                   </th>
                 )
@@ -665,10 +666,10 @@ function FeedbacksTab() {
                   {fb.feedbackNo}
                 </td>
                 <td style={{ maxWidth: 200 }}>{fb.title}</td>
-                <td style={{ whiteSpace: "nowrap" }}>
+                <td className={u.nowrap}>
                   {MODULE_LABELS[fb.moduleCode] ?? fb.moduleCode}
                 </td>
-                <td style={{ whiteSpace: "nowrap" }}>{fb.feedbackType}</td>
+                <td className={u.nowrap}>{fb.feedbackType}</td>
                 <td>
                   <Badge
                     label={fb.severity}
@@ -681,11 +682,11 @@ function FeedbacksTab() {
                     color={STATUS_COLOR[fb.status] ?? "var(--text-secondary)"}
                   />
                 </td>
-                <td style={{ whiteSpace: "nowrap" }}>{fb.reporterName}</td>
+                <td className={u.nowrap}>{fb.reporterName}</td>
                 <td style={{ whiteSpace: "nowrap", color: "var(--text-secondary)" }}>
                   {fb.createdAt ? new Date(fb.createdAt).toLocaleDateString("zh-CN") : "—"}
                 </td>
-                <td style={{ whiteSpace: "nowrap" }}>
+                <td className={u.nowrap}>
                   {updatingId === fb.id ? (
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       <select
@@ -997,12 +998,12 @@ function TrainingsTab() {
       )}
 
       {/* Table */}
-      <div style={{ overflowX: "auto" }}>
+      <div className={u.scrollX}>
         <table className={s.table}>
           <thead>
             <tr>
               {["编号", "培训类型", "标题", "讲师", "参与人数", "日期", "评分", "备注"].map((h) => (
-                <th key={h} style={{ whiteSpace: "nowrap" }}>
+                <th key={h} className={u.nowrap}>
                   {h}
                 </th>
               ))}
@@ -1026,14 +1027,14 @@ function TrainingsTab() {
                   <Badge label={t.trainingType} color="var(--color-accent)" />
                 </td>
                 <td>{t.trainingTitle}</td>
-                <td style={{ whiteSpace: "nowrap" }}>{t.trainerName}</td>
-                <td style={{ textAlign: "center" }}>
+                <td className={u.nowrap}>{t.trainerName}</td>
+                <td className={u.tac}>
                   {t.participantCount}
                 </td>
                 <td style={{ whiteSpace: "nowrap", color: "var(--text-secondary)" }}>
                   {t.trainingDate ? new Date(t.trainingDate).toLocaleDateString("zh-CN") : "—"}
                 </td>
-                <td style={{ textAlign: "center" }}>
+                <td className={u.tac}>
                   {t.score != null ? (
                     <span
                       style={{
@@ -1134,7 +1135,7 @@ function ChecklistsTab({
                     marginBottom: 6,
                   }}
                 >
-                  <span style={{ fontWeight: 600 }}>
+                  <span className={u.fw600}>
                     {MODULE_LABELS[p.moduleCode] ?? p.moduleCode}
                   </span>
                   <span style={{ color: "var(--text-secondary)" }}>
@@ -1460,13 +1461,13 @@ function PilotRunTab() {
         </div>
       )}
 
-      <div style={{ overflowX: "auto" }}>
+      <div className={u.scrollX}>
         <table className={s.table}>
           <thead>
             <tr>
               {["编号", "公司", "站点", "开始日期", "结束日期", "状态", "订单数", "配送数", "问题数", "操作"].map(
                 (h) => (
-                  <th key={h} style={{ whiteSpace: "nowrap" }}>
+                  <th key={h} className={u.nowrap}>
                     {h}
                   </th>
                 )
@@ -1503,14 +1504,14 @@ function PilotRunTab() {
                     color={PILOT_STATUS_COLOR[run.status] ?? "var(--text-secondary)"}
                   />
                 </td>
-                <td style={{ textAlign: "center" }}>{run.orderCount}</td>
-                <td style={{ textAlign: "center" }}>{run.deliveryCount}</td>
-                <td style={{ textAlign: "center" }}>
+                <td className={u.tac}>{run.orderCount}</td>
+                <td className={u.tac}>{run.deliveryCount}</td>
+                <td className={u.tac}>
                   <span style={{ color: run.issueCount > 0 ? "var(--status-danger)" : "var(--status-success)", fontWeight: 600 }}>
                     {run.issueCount}
                   </span>
                 </td>
-                <td style={{ whiteSpace: "nowrap" }}>
+                <td className={u.nowrap}>
                   {updatingId === run.id ? (
                     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                       <select
@@ -1636,7 +1637,7 @@ function ReadinessTab({
           flexWrap: "wrap",
         }}
       >
-        <div style={{ textAlign: "center" }}>
+        <div className={u.tac}>
           <div
             style={{
               width: 120,
@@ -1698,7 +1699,7 @@ function ReadinessTab({
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12, color: "var(--text-primary)" }}>
             评分维度明细
           </div>
-          <div style={{ overflowX: "auto" }}>
+          <div className={u.scrollX}>
             <table className={s.table}>
               <thead>
                 <tr>
@@ -1719,7 +1720,7 @@ function ReadinessTab({
                       {(d.weight * 100).toFixed(0)}%
                     </td>
                     <td>
-                      <span style={{ fontWeight: 600 }}>{d.passed}</span>
+                      <span className={u.fw600}>{d.passed}</span>
                       <span style={{ color: "var(--text-disabled)" }}> / {d.total}</span>
                     </td>
                     <td>

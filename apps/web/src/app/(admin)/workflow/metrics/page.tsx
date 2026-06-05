@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import {
   Activity, AlertTriangle, CheckCircle, Clock, TrendingUp,
   Users, RefreshCw, BarChart3, ArrowUpCircle, Bell, Wifi, WifiOff,
@@ -172,7 +173,7 @@ function PushHealthCard({ health }: { health: PushHealth }) {
       }}>
         {ok ? <Wifi size={20} color="var(--status-success)" /> : <WifiOff size={20} color="var(--status-danger)" />}
       </div>
-      <div style={{ flex: 1 }}>
+      <div className={u.flex1}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Web Push 推送</span>
           <span style={{
@@ -499,7 +500,7 @@ export default function WorkflowMetricsPage() {
                         background: 'var(--status-special)18', color: 'var(--status-special)', fontWeight: 700,
                       }}>{row.pendingCount}</span>
                     </td>
-                    <td style={{ fontSize: 14 }}>
+                    <td className={u.fs14}>
                       {row.overdueCount > 0 ? (
                         <span style={{
                           display: 'inline-block', padding: '2px 10px', borderRadius: 20,

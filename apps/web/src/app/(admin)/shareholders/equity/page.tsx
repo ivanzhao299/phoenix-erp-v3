@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { shareholderApi, ShrEquity, ShrProject, ShrBeneficial, EQUITY_STATUS_LABEL, PAID_IN_SOURCE_LABEL, lbl } from '@/lib/shareholder-api';
 import { SummaryBar, sum, yuan } from '../SummaryBar';
 
@@ -37,7 +38,7 @@ export default function EquityPage() {
     <div style={{ padding: 24 }}>
       <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 12 }}>股权结构 / 实益出资结构</h1>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
-        <label style={{ fontSize: 14 }}>项目：</label>
+        <label className={u.fs14}>项目：</label>
         <select value={sel} onChange={e => setSel(e.target.value)} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)' }}>
           {projects.map(p => <option key={p.projectCode} value={p.projectCode}>{p.projectName}（{EQ_LABEL[p.equityStatus] || p.equityStatus}）</option>)}
         </select>

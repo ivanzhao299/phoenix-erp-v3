@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Save, RefreshCw, ChevronDown, ChevronUp, Sun, Moon } from 'lucide-react';
 import { mobileApi, FlockRecord, FarmLog } from '@/lib/mobile-api';
@@ -108,7 +109,7 @@ function HouseCard({
         </div>
 
         {/* Flock */}
-        <div style={{ flex: 1 }}>
+        <div className={u.flex1}>
           <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{flock_no || house}</div>
           {existing > 0 && (
             <div style={{ fontSize: 11, color: t.textFaint }}>

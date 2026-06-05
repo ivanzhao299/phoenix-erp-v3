@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import {
   Plus, RefreshCw, FileText, CheckCircle, XCircle, Trash2, Send,
   Eye, Clock, AlertTriangle, ChevronLeft, ChevronRight, Pencil,
@@ -403,11 +404,11 @@ export default function PaymentsPage() {
               <th>付款方</th>
               <th>付款人</th>
               <th>货币</th>
-              <th style={{ textAlign: "right" }}>付款金额</th>
+              <th className={u.tar}>付款金额</th>
               <th>汇率</th>
               <th>方式</th>
               <th>状态</th>
-              <th style={{ textAlign: "center" }}>股东代付</th>
+              <th className={u.tac}>股东代付</th>
               <th style={{ width: 180 }}>操作</th>
             </tr>
           </thead>
@@ -421,9 +422,9 @@ export default function PaymentsPage() {
               return (
                 <tr key={row.id}>
                   <td style={{ fontFamily: "monospace", fontSize: 11, whiteSpace: "nowrap" }}>{row.payNo}</td>
-                  <td style={{ whiteSpace: "nowrap" }}>{fmtDate(row.paymentDate)}</td>
+                  <td className={u.nowrap}>{fmtDate(row.paymentDate)}</td>
                   <td>{row.companyCode ?? "—"}</td>
-                  <td style={{ fontSize: 11 }}>
+                  <td className={u.fs11}>
                     <span className={`${s.badge} ${s.badgeNeutral}`}>{row.payerType}</span>
                   </td>
                   <td>{row.payerName}</td>
@@ -434,7 +435,7 @@ export default function PaymentsPage() {
                   <td style={{ fontVariantNumeric: "tabular-nums" }}>{row.exchangeRate}</td>
                   <td>{row.paymentMethod ?? "—"}</td>
                   <td><span className={`${s.badge} ${s[st.cls]}`}>{st.label}</span></td>
-                  <td style={{ textAlign: "center" }}>
+                  <td className={u.tac}>
                     {row.isShareholderPayment && (
                       <span className={`${s.badge} ${s.badgeWarning}`}>股东</span>
                     )}
@@ -778,8 +779,8 @@ export default function PaymentsPage() {
                         <th>应付单号</th>
                         <th>采购订单号</th>
                         <th>项目</th>
-                        <th style={{ textAlign: "right" }}>分摊金额</th>
-                        <th style={{ textAlign: "right" }}>折算 CNY</th>
+                        <th className={u.tar}>分摊金额</th>
+                        <th className={u.tar}>折算 CNY</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -848,8 +849,8 @@ export default function PaymentsPage() {
                     <th>采购订单号</th>
                     <th>供应商</th>
                     <th>币种</th>
-                    <th style={{ textAlign: "right" }}>应付</th>
-                    <th style={{ textAlign: "right" }}>余额</th>
+                    <th className={u.tar}>应付</th>
+                    <th className={u.tar}>余额</th>
                     <th>到期日</th>
                     <th></th>
                   </tr>
@@ -861,7 +862,7 @@ export default function PaymentsPage() {
                       <td>{ap.poNo ?? "—"}</td>
                       <td>{ap.supplierName ?? "—"}</td>
                       <td>{ap.currencyCode ?? "—"}</td>
-                      <td style={{ textAlign: "right" }}>{Number(ap.amountOriginal).toLocaleString()}</td>
+                      <td className={u.tar}>{Number(ap.amountOriginal).toLocaleString()}</td>
                       <td style={{ textAlign: "right", color: "var(--status-warning)", fontWeight: 600 }}>
                         {Number(ap.balanceAmountOriginal).toLocaleString()}
                       </td>

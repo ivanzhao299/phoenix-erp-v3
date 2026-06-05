@@ -6,6 +6,7 @@
  * 设计：移动优先，浅色，最小化网络依赖
  */
 import { Suspense } from 'react';
+import u from "@/styles/uix-utils.module.css";
 
 interface PageProps {
   params: Promise<{ batchNo: string }>;
@@ -65,7 +66,7 @@ async function TraceContent({ batchNo }: { batchNo: string }) {
         <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--hex-666)' }}>
           <div style={{ fontSize: 64, marginBottom: 12 }}>🔎</div>
           <div style={{ fontWeight: 600, marginBottom: 8 }}>未找到批次「{batchNo}」</div>
-          <div style={{ fontSize: 13 }}>请确认二维码或检查批次号是否正确</div>
+          <div className={u.fs13}>请确认二维码或检查批次号是否正确</div>
         </div>
       </TraceShell>
     );
@@ -99,7 +100,7 @@ async function TraceContent({ batchNo }: { batchNo: string }) {
         <Card title="🛒 销售记录">
           {sales.slice(0, 6).map((s, i) => (
             <div key={i} style={{ padding: '8px 0', borderBottom: i < Math.min(5, sales.length - 1) ? '1px dashed var(--slate-200)' : 'none' }}>
-              <div style={{ fontWeight: 600 }}>门店 {String(s.store_code ?? '—')}</div>
+              <div className={u.fw600}>门店 {String(s.store_code ?? '—')}</div>
               <div style={{ fontSize: 12, color: 'var(--hex-666)', marginTop: 2 }}>
                 {String(s.created_at ?? '').slice(0, 10)} · 数量 {String(s.qty ?? '—')}
               </div>

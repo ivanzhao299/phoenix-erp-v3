@@ -1,5 +1,6 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
+import u from "@/styles/uix-utils.module.css";
 import {
   BookOpen, List, Zap, AlertTriangle,
   Plus, RefreshCw, Search, X, Info, Layers,
@@ -242,7 +243,7 @@ function PriceBooksTab() {
           <thead>
             <tr>
               {["编号","名称","渠道","客户","优先级","生效日","失效日","状态","操作"].map(h => (
-                <th key={h} style={{ whiteSpace: "nowrap" }}>{h}</th>
+                <th key={h} className={u.nowrap}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -259,9 +260,9 @@ function PriceBooksTab() {
                   <td>{row.price_book_name}</td>
                   <td style={{ color: "var(--text-secondary)" }}>{row.channel_code ?? "—"}</td>
                   <td style={{ color: "var(--text-secondary)" }}>{row.customer_code ?? "—"}</td>
-                  <td style={{ textAlign: "center" }}>{row.priority}</td>
-                  <td style={{ fontSize: 11 }}>{row.effective_from ?? "—"}</td>
-                  <td style={{ fontSize: 11 }}>{row.effective_to ?? "—"}</td>
+                  <td className={u.tac}>{row.priority}</td>
+                  <td className={u.fs11}>{row.effective_from ?? "—"}</td>
+                  <td className={u.fs11}>{row.effective_to ?? "—"}</td>
                   <td><span className={`${s.badge} ${st.cls}`}>{st.label}</span></td>
                   <td>
                     <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
@@ -544,16 +545,16 @@ function PriceItemsTab() {
                     ? <span style={{ fontFamily: "monospace", fontSize: 11, background: "var(--status-special-bg-medium)", color: "var(--color-purple-400)", borderRadius: 4, padding: "2px 6px" }}>{row.sku_code}</span>
                     : row.product_code}
                 </td>
-                <td style={{ fontSize: 12 }}>{gradeLabel(row.grade_code_std ?? row.grade_code, master.grades)}</td>
-                <td style={{ fontSize: 11 }}>{row.spec_code ?? row.packaging_spec ?? "—"}</td>
+                <td className={u.fs12}>{gradeLabel(row.grade_code_std ?? row.grade_code, master.grades)}</td>
+                <td className={u.fs11}>{row.spec_code ?? row.packaging_spec ?? "—"}</td>
                 <td style={{ textAlign: "right", fontWeight: 700 }}>{Number(row.unit_price).toLocaleString()}</td>
                 <td style={{ textAlign: "right", color: "var(--status-warning)" }}>
                   {row.floor_price != null ? Number(row.floor_price).toLocaleString() : "—"}
                 </td>
-                <td style={{ textAlign: "right" }}>
+                <td className={u.tar}>
                   {row.ceiling_price != null ? Number(row.ceiling_price).toLocaleString() : "—"}
                 </td>
-                <td style={{ fontSize: 11 }}>
+                <td className={u.fs11}>
                   {row.min_qty || row.max_qty ? `${row.min_qty ?? 0} ~ ${row.max_qty ?? "∞"}` : "不限"}
                 </td>
                 <td>{row.currency_code}</td>

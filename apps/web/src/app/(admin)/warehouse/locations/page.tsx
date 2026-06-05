@@ -1,5 +1,6 @@
 "use client";
 import { useState, useCallback, useEffect, useMemo } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -261,7 +262,7 @@ export default function LocationsPage() {
                 t("ui.站点编码", "站点编码"),
                 t("common.operation", "操作"),
               ].map(h => (
-                <th key={h} style={{ whiteSpace: "nowrap" }}>{h}</th>
+                <th key={h} className={u.nowrap}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -279,11 +280,11 @@ export default function LocationsPage() {
                   <td style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: "var(--color-primary)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}><MapPin size={12} />{String(row.location_code ?? "")}</div>
                   </td>
-                  <td style={{ fontSize: 13 }}>{String(row.location_name ?? "—")}</td>
+                  <td className={u.fs13}>{String(row.location_name ?? "—")}</td>
                   <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{String(row.warehouse_code ?? "")}</td>
                   <td style={{ fontSize: 13, fontWeight: 700 }}>{String(row.zone_code ?? "—")}</td>
                   <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{String(row.store_code ?? "—")}</td>
-                  <td style={{ fontSize: 13 }}>{row.capacity_qty ? Number(row.capacity_qty).toLocaleString() : "—"}</td>
+                  <td className={u.fs13}>{row.capacity_qty ? Number(row.capacity_qty).toLocaleString() : "—"}</td>
                   <td style={{ minWidth: 110 }}>
                     {OCCUPIED.has(row.status as Status) ? (
                       <div><UsageBar pct={pct} slim /><div style={{ fontSize: 10, color: "var(--text-secondary)", marginTop: 3 }}>{pct}%</div></div>

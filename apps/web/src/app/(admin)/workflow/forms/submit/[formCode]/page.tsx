@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useParams, useRouter } from 'next/navigation';
 import {
   Send, CheckCircle, FileText, ArrowLeft, AlertCircle, Copy, PlayCircle,
@@ -211,7 +212,7 @@ export default function FormSubmitPage() {
   if (!detail || !detail.currentVersion) return (
     <div style={{ padding: '40px 32px', maxWidth: 600, margin: '0 auto' }}>
       <div style={{ background: 'color-mix(in srgb, var(--status-warning) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--status-warning) 16%, transparent)', borderRadius: 14, padding: '24px 28px', textAlign: 'center' }}>
-        <FileText size={36} color="var(--status-warning)" style={{ marginBottom: 12 }} />
+        <FileText size={36} color="var(--status-warning)" className={u.mb12} />
         <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--status-warning)', marginBottom: 8 }}>表单暂无可用版本</div>
         <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>表单 "{formCode}" 尚未发布任何版本，无法提交</div>
         <button onClick={() => router.push('/workflow/forms/runtime')} style={{

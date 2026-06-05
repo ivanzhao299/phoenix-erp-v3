@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
 import {
   Activity, Database, Cpu, Server, AlertTriangle,
@@ -216,7 +217,7 @@ export default function SystemHealthPage() {
             <p style={{ margin: "8px 0 0", fontWeight: 600 }}>近 24 小时无错误记录</p>
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div className={u.scrollX}>
             <table className={s.table}>
               <thead>
                 <tr>

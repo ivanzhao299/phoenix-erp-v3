@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
 import { ShieldAlert, CheckCircle, RefreshCw, AlertTriangle, Info } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
@@ -99,7 +100,7 @@ export default function SystemAlertsPage() {
           <thead>
             <tr>
               {["告警类型", "级别", "标题", "相关路径", "状态", "创建时间", "操作"].map(h => (
-                <th key={h} style={{ whiteSpace: "nowrap" }}>{h}</th>
+                <th key={h} className={u.nowrap}>{h}</th>
               ))}
             </tr>
           </thead>

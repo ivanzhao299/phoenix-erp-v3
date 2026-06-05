@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import {
   Plus, RefreshCw, FileText, CheckCircle, XCircle, Trash2, Send,
   Eye, ChevronLeft, ChevronRight, Pencil, GitMerge, Clock, AlertTriangle,
@@ -476,10 +477,10 @@ export default function PurchaseOrdersPage() {
               <th>公司</th>
               <th>供应商</th>
               <th>类型</th>
-              <th style={{ textAlign: "center" }}>跨境</th>
+              <th className={u.tac}>跨境</th>
               <th>币种</th>
               <th>合同金额</th>
-              <th style={{ textAlign: "center" }}>行数</th>
+              <th className={u.tac}>行数</th>
               <th>期望到货</th>
               <th>付款截止</th>
               <th>状态</th>
@@ -503,7 +504,7 @@ export default function PurchaseOrdersPage() {
                     {row.supplierName ?? row.supplierCode}
                   </td>
                   <td>{typeLabel}</td>
-                  <td style={{ textAlign: "center" }}>
+                  <td className={u.tac}>
                     {row.crossBorderFlag
                       ? <span className={`${s.badge} ${s.badgeInfo}`}>跨境</span>
                       : <span className={`${s.badge} ${s.badgeNeutral}`}>本地</span>}
@@ -512,7 +513,7 @@ export default function PurchaseOrdersPage() {
                   <td style={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                     {fmtAmt(row.totalAmount, row.currencyCode ?? "LAK")}
                   </td>
-                  <td style={{ textAlign: "center" }}>{row.itemCount ?? "—"}</td>
+                  <td className={u.tac}>{row.itemCount ?? "—"}</td>
                   <td>{fmtDate(row.expectedDate)}</td>
                   <td>{fmtDate(row.payDeadline)}</td>
                   <td><span className={`${s.badge} ${s[st.cls]}`}>{st.label}</span></td>
@@ -834,10 +835,10 @@ export default function PurchaseOrdersPage() {
                       <tr>
                         <th>物品名称</th>
                         <th>规格</th>
-                        <th style={{ textAlign: "right" }}>数量</th>
+                        <th className={u.tar}>数量</th>
                         <th>单位</th>
-                        <th style={{ textAlign: "right" }}>单价</th>
-                        <th style={{ textAlign: "right" }}>小计</th>
+                        <th className={u.tar}>单价</th>
+                        <th className={u.tar}>小计</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -873,7 +874,7 @@ export default function PurchaseOrdersPage() {
                   ].map(r => (
                     <div key={r.label} style={{ display: "flex", padding: "3px 0" }}>
                       <span style={{ width: 80, flexShrink: 0, color: "var(--text-secondary)", fontSize: 12 }}>{r.label}</span>
-                      <span style={{ flex: 1 }}>{r.value}</span>
+                      <span className={u.flex1}>{r.value}</span>
                     </div>
                   ))}
                   <div style={{ marginTop: 6 }}>

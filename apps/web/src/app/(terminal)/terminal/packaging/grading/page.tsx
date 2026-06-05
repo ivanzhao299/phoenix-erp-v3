@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useMemo } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
@@ -281,7 +282,7 @@ export default function GradingPage() {
             ) : houses.length === 0 ? (
               <div style={{ color:T.MUT, fontSize:13, padding:'16px 6px', lineHeight:1.6 }}>
                 {t('ui.今日尚未录入集蛋数据', '今日尚未录入集蛋数据')}<br/>
-                <span style={{ fontSize:11 }}>{t('ui.可先录入集蛋再返回分级', '可先录入集蛋再返回')}</span>
+                <span className={u.fs11}>{t('ui.可先录入集蛋再返回分级', '可先录入集蛋再返回')}</span>
               </div>
             ) : houses.map(h => {
               const isActive  = h.house_code === activeHouseCode;
@@ -434,7 +435,7 @@ export default function GradingPage() {
                 </strong>
               </div>
             </div>
-            <div style={{ flex:1 }} />
+            <div className={u.flex1} />
             {!balanceOk && (
               <div style={{ color:T.RED, fontSize:13, fontWeight:600, whiteSpace:'nowrap' }}>⚠️ {t('ui.产出超过投入', '产出超过投入')}</div>
             )}
@@ -481,7 +482,7 @@ export default function GradingPage() {
           style={{ padding:'9px 18px', borderRadius:10, border:`1px solid var(--status-danger)`, background:'var(--status-danger-bg-light)', color:T.RED, fontSize:15, cursor:'pointer' }}>
           ⚠️ {t('ui.上报异常', '上报异常')}
         </button>
-        <div style={{ flex:1 }} />
+        <div className={u.flex1} />
         <div style={{ flex:1, fontSize:13, color:T.RED, fontWeight:600, visibility: submitError ? 'visible' : 'hidden', minWidth:0 }}>
           ⚠️ {submitError || ' '}
         </div>

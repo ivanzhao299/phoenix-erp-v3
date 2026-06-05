@@ -1,5 +1,6 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
+import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
 import { Printer, RefreshCw, History } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
@@ -127,7 +128,7 @@ export default function PrintLogsPage() {
             {startDate === endDate ? startDate : `${startDate} — ${endDate}`}
           </span>
         </div>
-        <div style={{ overflowX: "auto" }}>
+        <div className={u.scrollX}>
           {err && (
             <div style={{ padding: "20px 20px", color: "var(--color-danger)", fontSize: 13 }}>⚠️ {err}</div>
           )}

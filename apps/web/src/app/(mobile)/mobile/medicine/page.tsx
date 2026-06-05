@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, RefreshCw, Search,
@@ -235,7 +236,7 @@ export default function MedicinePage() {
                     <div style={{ fontSize: 14, fontWeight: 600, color: m.qty > 0 ? t.text : t.textMuted }}>{m.medication_name}</div>
                     <div style={{ fontSize: 11, color: t.textFaint, marginTop: 2 }}>{m.dosage}</div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
+                  <div className={u.tar}>
                     <div style={{ fontSize: 18, fontWeight: 800, color: m.qty > 0 ? 'var(--color-purple-500)' : t.textFaint }}>
                       {m.qty}
                     </div>

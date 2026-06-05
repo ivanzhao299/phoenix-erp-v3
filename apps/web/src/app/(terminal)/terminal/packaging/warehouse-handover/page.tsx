@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
@@ -102,7 +103,7 @@ export default function WarehouseHandoverPage() {
     <div style={{ height:'100%', display:'flex', flexDirection:'column', background:T.BG, overflow:'hidden' }}>
       <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'12px 20px', display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
         <span style={{ fontSize:22 }}>🏭</span>
-        <div style={{ flex: 1 }}>
+        <div className={u.flex1}>
           <div style={{ fontSize:17, fontWeight:700, color:T.TXT }}>{t('terminal.warehouse_handover', '成品入库')}</div>
           <div style={{ fontSize:12, color:T.MUT }}>{t('ui.逐箱扫码核验仓库确认接收', '逐箱扫码核验，仓库确认接收')}</div>
         </div>
@@ -146,7 +147,7 @@ export default function WarehouseHandoverPage() {
                     borderRadius:8, background: isDone?'var(--status-success-bg-faint)':'var(--overlay-white-03)',
                     border:`1px solid ${isDone?'var(--status-success-bg-strong)':T.BOR}` }}>
                     <span style={{ fontSize:18 }}>{isDone?'✅':'⬜'}</span>
-                    <div style={{ flex:1 }}>
+                    <div className={u.flex1}>
                       <div style={{ fontSize:13, fontWeight:600, color:isDone?T.GRN:T.TXT, fontFamily:'monospace' }}>{box.code}</div>
                       <div style={{ fontSize:11, color:T.MUT }}>{getDictLabel(gradeMap[box.grade], lang) || box.grade} · {box.qty}{t('ui.枚', '枚')}</div>
                     </div>
@@ -214,7 +215,7 @@ export default function WarehouseHandoverPage() {
         <button type="button" onClick={()=>router.push('/terminal/packaging/label-print')}
           style={{ padding:'9px 20px', borderRadius:10, border:`1px solid ${T.BOR}`,
             background:'transparent', color:T.MUT, fontSize:15, cursor:'pointer' }}>{t('common.back', '返回')}</button>
-        <div style={{ flex:1 }} />
+        <div className={u.flex1} />
         <button type="button" onClick={()=>setShowConfirm(true)} disabled={!canSubmit||submitting}
           style={{ padding:'9px 40px', borderRadius:10, border:'none',
             background:canSubmit?T.GRN:T.BOR, color:canSubmit?'var(--bg-page)':T.MUT,

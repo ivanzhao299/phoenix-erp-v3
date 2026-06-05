@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from "next/navigation";
 import {
   Home, Layers, Users, BookOpen, ClipboardList,
@@ -365,7 +366,7 @@ export default function BreedingPage() {
                 <div style={{ width:48, height:48, borderRadius:"var(--radius-md)", flexShrink:0,
                   background: farm.status==="warning"?"color-mix(in srgb, var(--status-danger) 10%, transparent)":"color-mix(in srgb, var(--color-accent) 12%, transparent)",
                   display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>🐔</div>
-                <div style={{ flex:1 }}>
+                <div className={u.flex1}>
                   <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
                     <span style={{ fontWeight:700, fontSize:15, color:"var(--text-primary)" }}>{farm.name}</span>
                     <span style={{ fontSize:11, fontWeight:600, padding:"2px 8px", borderRadius:12,

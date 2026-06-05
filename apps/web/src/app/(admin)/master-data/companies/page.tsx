@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { Building, Search, RefreshCw, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
@@ -86,14 +87,14 @@ export default function MdCompaniesPage() {
         <button onClick={load} className="bg-bg-muted border border-border text-text-muted" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 7, fontSize: 13, cursor: "pointer" }}>
           <RefreshCw size={13} /> 刷新
         </button>
-        <div style={{ flex: 1 }} />
+        <div className={u.flex1} />
         <Link href="/settings/organizations" style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "var(--text-secondary)", border: "none", borderRadius: 7, color: "var(--text-on-dark)", fontSize: 13, cursor: "pointer", textDecoration: "none", fontWeight: 600 }}>
           <ExternalLink size={13} /> 组织架构管理
         </Link>
       </div>
 
       <div className="text-text-muted" style={{ marginBottom: 12, fontSize: 12 }}>
-        共 <span style={{ fontWeight: 600 }}>{filtered.length}</span> 家公司
+        共 <span className={u.fw600}>{filtered.length}</span> 家公司
       </div>
 
       {loading ? (

@@ -1,5 +1,6 @@
 "use client";
 import { toast } from 'sonner';
+import u from "@/styles/uix-utils.module.css";
 import { useEffect, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
 import { History, User, Clock, RefreshCw, Search, Download, ChevronLeft, ChevronRight } from "lucide-react";
@@ -177,7 +178,7 @@ export default function AuditLogPage() {
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-primary)" }}>
                         <User size={13}/>
-                        <span style={{ fontSize: 12 }}>{log.operator || log.approver_role}</span>
+                        <span className={u.fs12}>{log.operator || log.approver_role}</span>
                         {log.approver_id && <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>(#{log.approver_id})</span>}
                       </div>
                     </td>

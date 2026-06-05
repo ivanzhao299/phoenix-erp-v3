@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTerminalContext } from '@/hooks/useTerminalContext';
@@ -180,7 +181,7 @@ export default function PackingPage() {
       {/* Header */}
       <div style={{ background: T.CARD, borderBottom: `1px solid ${T.BOR}`, padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <span style={{ fontSize: 22 }}>📦</span>
-        <div style={{ flex: 1 }}>
+        <div className={u.flex1}>
           <div style={{ fontSize: 17, fontWeight: 700, color: T.TXT }}>{t('terminal.packing', '包装作业')}</div>
           <div style={{ fontSize: 12, color: T.MUT }}>
             {gradingCodes.length > 0
@@ -188,7 +189,7 @@ export default function PackingPage() {
               : t('ui.等待分级数据', '等待分级数据...')}
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
+        <div className={u.tar}>
           <div style={{ fontSize: 22, fontWeight: 800, color: T.ACC, fontVariantNumeric: 'tabular-nums' }}>{totalBoxes}</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
             <span style={{ fontSize: 11, color: T.MUT }}>{t('ui.本次已包装', '本次已包装（箱）')}</span>
@@ -346,7 +347,7 @@ export default function PackingPage() {
             {/* 规格备注 — 固定高度防抖 */}
             <div style={{ height: 20, marginBottom: 8, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
               {selectedGrade && selectedSpec ? (
-                <span style={{ fontSize: 12 }}>
+                <span className={u.fs12}>
                   <span style={{ color: gradeColorMap[selectedGrade] ?? T.ACC, fontWeight: 700 }}>
                     {getDictLabel(gradeMap[selectedGrade], lang) || selectedGrade}
                   </span>
@@ -448,7 +449,7 @@ export default function PackingPage() {
                         background: 'var(--overlay-white-05)', borderRadius: 7, padding: '8px 10px',
                         borderLeft: `3px solid ${bColor}`, gap: 8,
                       }}>
-                        <div style={{ flex: 1 }}>
+                        <div className={u.flex1}>
                           <div style={{ fontSize: 12, fontWeight: 700, color: bColor }}>{getDictLabel(gradeMap[b.grade], lang) || b.grade}</div>
                           <div style={{ fontSize: 10, color: T.MUT }}>{b.spec}</div>
                         </div>

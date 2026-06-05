@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft, RefreshCw, ClipboardList, Save, Send,
@@ -309,7 +310,7 @@ export default function PrcRequestPage() {
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textSub, display: 'flex', alignItems: 'center', gap: 4 }}
         >
           <ChevronLeft size={20} />
-          <span style={{ fontSize: 14 }}>返回</span>
+          <span className={u.fs14}>返回</span>
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <ClipboardList size={18} color="var(--status-success)" />

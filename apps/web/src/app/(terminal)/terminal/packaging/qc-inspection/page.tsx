@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { packagingApi } from '@/lib/packaging-api';
@@ -81,7 +82,7 @@ export default function QCInspectionPage() {
     <div style={{ height:'100%', display:'flex', flexDirection:'column', background:T.BG, overflow:'hidden' }}>
       <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'14px 24px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
         <span style={{ fontSize:24 }}>🔍</span>
-        <div style={{ flex: 1 }}>
+        <div className={u.flex1}>
           <div style={{ fontSize:18, fontWeight:700, color:T.TXT }}>{t('terminal.qc_inspection', '首检录入')}</div>
           <div style={{ fontSize:12, color:T.MUT }}>{t('ui.批次', '批次')} {batch.code} · {'houseName' in batch ? batch.houseName : '--'} · {'layDate' in batch ? batch.layDate : '--'}</div>
         </div>

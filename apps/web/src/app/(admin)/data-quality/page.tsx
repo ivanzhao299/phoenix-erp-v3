@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import request from '@/lib/api-client';
 import { RefreshCw, AlertTriangle, CheckCircle, AlertCircle, ShieldCheck, Database, BookOpen, Link2, Boxes, GitPullRequestArrow, Code2 } from 'lucide-react';
@@ -215,7 +216,7 @@ export default function DataQualityPage() {
                   }}>
                     {a.severity}
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div className={u.flex1}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                       <span style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{a.source}</span>
                       <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>·</span>

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -207,7 +208,7 @@ export default function EggLedgerPage() {
             {tb.label}
           </button>
         ))}
-        <div style={{ flex: 1 }} />
+        <div className={u.flex1} />
         {tab === 'inbound' && canEdit && (
           <button className={saved ? s.btnSecondary : s.btnPrimary} onClick={handleInboundSave}
             disabled={saving || !hasInboundChanges}

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback, use } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 
 // ── 颜色常量 ──────────────────────────────────────────────────────────────────
@@ -343,7 +344,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         >
           ←
         </button>
-        <div style={{ flex: 1 }}>
+        <div className={u.flex1}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>{order.orderNo}</div>
         </div>
         <div style={{

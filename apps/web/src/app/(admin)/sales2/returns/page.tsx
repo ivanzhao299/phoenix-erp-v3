@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { toast } from 'sonner';
 import s from "@/components/ui/admin-ui.module.css";
 import { KpiCard } from "@/components/ui/KpiCard";
@@ -241,7 +242,7 @@ function CreateReturnDrawer({ onClose, onCreated }: { onClose: () => void; onCre
         />
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <span style={{ fontWeight: 600 }}>退货明细</span>
+          <span className={u.fw600}>退货明细</span>
           <button onClick={addItem} style={{ background: 'var(--color-accent)', color: 'var(--text-on-dark)', border: 'none', borderRadius: 6, padding: '4px 12px', cursor: 'pointer', fontSize: 13 }}>+ 添加</button>
         </div>
         {items.map((it, i) => (
@@ -449,7 +450,7 @@ function ReturnOrdersTab() {
           <option value="">全部类型</option>
           {Object.entries(RETURN_TYPE_CFG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
-        <div style={{ flex: 1 }} />
+        <div className={u.flex1} />
         <button onClick={() => setShowCreate(true)}
           style={{ background: 'var(--color-accent)', color: 'var(--text-on-dark)', border: 'none', borderRadius: 8, padding: '8px 20px', cursor: 'pointer', fontWeight: 600 }}>
           + 新建退货单
@@ -573,13 +574,13 @@ function ReturnOrdersTab() {
             {detail.credit_note_id && (
               <div style={{ background: 'color-mix(in srgb, var(--status-success) 12%, transparent)', borderRadius: 8, padding: 12, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ color: 'var(--status-success)', fontWeight: 700 }}>✓</span>
-                <span style={{ fontSize: 13 }}>AR Credit Note 已生成（ID: {detail.credit_note_id}）</span>
+                <span className={u.fs13}>AR Credit Note 已生成（ID: {detail.credit_note_id}）</span>
               </div>
             )}
             {detail.remark && (
               <div style={{ background: 'var(--bg-muted)', borderRadius: 8, padding: 12, marginBottom: 16 }}>
                 <div style={{ fontSize: 11, color: 'var(--text-disabled)', marginBottom: 4 }}>备注</div>
-                <div style={{ fontSize: 14 }}>{detail.remark}</div>
+                <div className={u.fs14}>{detail.remark}</div>
               </div>
             )}
             {/* 明细列表 */}
@@ -587,7 +588,7 @@ function ReturnOrdersTab() {
             {(detail.items || []).map(item => (
               <div key={item.id} style={{ background: 'var(--bg-muted)', borderRadius: 8, padding: 12, marginBottom: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontWeight: 600 }}>
+                  <span className={u.fw600}>
                     {item.product_code} {item.product_name && `— ${item.product_name}`}
                     {/* Phase H5: SKU 徽章 */}
                     {item.sku_code && (
@@ -815,7 +816,7 @@ function AnalysisTab() {
         ) : topCustomers.map((c, i) => (
           <div key={c.customer_code} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
             <span style={{ width: 24, height: 24, borderRadius: '50%', background: i < 3 ? 'var(--status-danger)' : 'var(--text-disabled)', color: 'var(--text-on-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
-            <div style={{ flex: 1 }}>
+            <div className={u.flex1}>
               <div style={{ fontSize: 13, fontWeight: 500 }}>{c.customer_name ?? c.customer_code}</div>
               <div style={{ height: 6, background: 'var(--bg-muted)', borderRadius: 3, marginTop: 4 }}>
                 <div style={{ height: '100%', background: 'var(--status-danger)', borderRadius: 3, width: `${(Number(c.return_count) / maxCustomerCount) * 100}%`, minWidth: 4 }} />
@@ -835,7 +836,7 @@ function AnalysisTab() {
         ) : topProducts.map((p, i) => (
           <div key={p.product_code} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
             <span style={{ width: 24, height: 24, borderRadius: '50%', background: i < 3 ? 'var(--status-warning)' : 'var(--text-disabled)', color: 'var(--text-on-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
-            <div style={{ flex: 1 }}>
+            <div className={u.flex1}>
               <div style={{ fontSize: 13, fontWeight: 500 }}>{p.product_name ?? p.product_code}</div>
               <div style={{ display: 'flex', gap: 8, fontSize: 11, color: 'var(--text-disabled)', marginTop: 2 }}>
                 <span>退货 {p.total_qty} 件</span>

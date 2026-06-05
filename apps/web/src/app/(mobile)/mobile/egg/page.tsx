@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight,
@@ -299,7 +300,7 @@ export default function EggPage() {
             style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 6 }}>
             <ChevronLeft size={18} />
           </button>
-          <div style={{ textAlign: 'center' }}>
+          <div className={u.tac}>
             <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{dateLabel}</div>
             {dateLabel !== date && <div style={{ fontSize: 10, color: t.textMuted }}>{date}</div>}
           </div>
@@ -357,7 +358,7 @@ export default function EggPage() {
                   border: `1px solid ${row.qty > 0 ? 'var(--status-warning-border)' : t.cardBorder}`,
                 }}>
                   <span style={{ fontSize: 14, fontWeight: 600, color: row.qty > 0 ? t.text : t.textMuted }}>{row.name}</span>
-                  <div style={{ textAlign: 'right' }}>
+                  <div className={u.tar}>
                     <div style={{ fontSize: 16, fontWeight: 800, color: row.qty > 0 ? 'var(--status-warning)' : t.textFaint }}>
                       {row.qty.toLocaleString()} <span style={{ fontSize: 11, fontWeight: 400 }}>枚</span>
                     </div>
@@ -455,7 +456,7 @@ export default function EggPage() {
             {/* 规格 × 当前库存参考 */}
             <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid ${t.cardBorder}` }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', padding: '10px 16px', background: t.cardBg, fontSize: 12, color: t.textMuted, fontWeight: 600, gap: 8 }}>
-                <span>规格</span><span style={{ textAlign: 'right' }}>库存</span><span style={{ textAlign: 'right' }}>出库数</span>
+                <span>规格</span><span className={u.tar}>库存</span><span className={u.tar}>出库数</span>
               </div>
               {EGG_GRADES.map((g, idx) => {
                 const stockQty = stock.find(s => s.grade === g.code)?.qty ?? 0;

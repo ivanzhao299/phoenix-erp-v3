@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -75,7 +76,7 @@ export default function ExceptionsPage() {
     <div style={{ height:'100%', display:'flex', flexDirection:'column', background:T.BG, overflow:'hidden' }}>
       <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'12px 20px', display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
         <span style={{ fontSize:22 }}>⚠️</span>
-        <div style={{ flex:1 }}>
+        <div className={u.flex1}>
           <div style={{ fontSize:17, fontWeight:700, color:T.TXT }}>{t('terminal.exceptions', '异常处理')}</div>
           <div style={{ fontSize:12, color:T.MUT }}>{t('ui.未关闭', '未关闭')} {openCount} {t('ui.条', '条')} · {t('ui.重大异常未关闭不得交班', '重大异常未关闭不得交班')}</div>
         </div>
@@ -109,7 +110,7 @@ export default function ExceptionsPage() {
                     background:`${SEV_COLORS[ticket.severity]}20`, color:SEV_COLORS[ticket.severity], flexShrink:0 }}>
                     {ticket.severity}
                   </div>
-                  <div style={{ flex:1 }}>
+                  <div className={u.flex1}>
                     <div style={{ fontSize:14, fontWeight:600, color:T.TXT }}>
                       {EXCEPTION_TYPE_LABEL[ticket.type]}
                     </div>
@@ -137,7 +138,7 @@ export default function ExceptionsPage() {
             border:`1px solid ${T.BOR}`, maxHeight:'90vh', overflow:'hidden' }}>
             <div style={{ fontSize:17, fontWeight:700, color:T.TXT, marginBottom:20 }}>{t('ui.快速上报异常', '快速上报异常')}</div>
 
-            <div style={{ marginBottom:16 }}>
+            <div className={u.mb16}>
               <div style={{ fontSize:12, color:T.MUT, marginBottom:8 }}>{t('ui.异常类型', '异常类型')}</div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
                 {QUICK_TYPES.map(qt=>(
@@ -153,7 +154,7 @@ export default function ExceptionsPage() {
               </div>
             </div>
 
-            <div style={{ marginBottom:16 }}>
+            <div className={u.mb16}>
               <div style={{ fontSize:12, color:T.MUT, marginBottom:8 }}>{t('ui.严重程度', '严重程度')}</div>
               <div style={{ display:'flex', gap:8 }}>
                 {(['LOW','MEDIUM','HIGH','CRITICAL'] as const).map(s=>(
@@ -168,7 +169,7 @@ export default function ExceptionsPage() {
               </div>
             </div>
 
-            <div style={{ marginBottom:16 }}>
+            <div className={u.mb16}>
               <div style={{ fontSize:12, color:T.MUT, marginBottom:4 }}>{t('ui.涉及数量枚可选', '涉及数量（枚，可选）')}</div>
               <input type="number" value={form.quantity} onChange={e=>setForm(p=>({...p,quantity:e.target.value}))}
                 placeholder="0"

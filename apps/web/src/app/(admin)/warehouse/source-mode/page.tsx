@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { Settings2, RefreshCw, AlertTriangle, ArrowRightLeft, ShieldCheck, History } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
@@ -178,12 +179,12 @@ export default function SourceModePage() {
           {risk && (
             <div style={{ padding: 16, borderRadius: 10, background: "var(--bg-muted)", border: "1px solid var(--border)", marginBottom: 14 }}>
               <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 12 }}>
-                <div><span style={{ fontSize: 12, color: "var(--text-secondary)" }}>当前模式</span><div style={{ fontWeight: 600 }}>{MODE_LABEL[risk.currentMode] ?? risk.currentMode}</div></div>
-                <div><span style={{ fontSize: 12, color: "var(--text-secondary)" }}>可售余额</span><div style={{ fontWeight: 600 }}>{risk.balance.toLocaleString()} 枚</div></div>
-                <div><span style={{ fontSize: 12, color: "var(--text-secondary)" }}>最后入库</span><div style={{ fontWeight: 600 }}>{risk.lastInboundDate ?? "-"}</div></div>
-                <div><span style={{ fontSize: 12, color: "var(--text-secondary)" }}>最后包装</span><div style={{ fontWeight: 600 }}>{risk.lastPackagingDate ?? "-"}</div></div>
-                <div><span style={{ fontSize: 12, color: "var(--text-secondary)" }}>未完成包装</span><div style={{ fontWeight: 600 }}>{risk.unfinishedPackagingBatches}</div></div>
-                <div><span style={{ fontSize: 12, color: "var(--text-secondary)" }}>未确认库存</span><div style={{ fontWeight: 600 }}>{risk.unconfirmedInventory}</div></div>
+                <div><span style={{ fontSize: 12, color: "var(--text-secondary)" }}>当前模式</span><div className={u.fw600}>{MODE_LABEL[risk.currentMode] ?? risk.currentMode}</div></div>
+                <div><span style={{ fontSize: 12, color: "var(--text-secondary)" }}>可售余额</span><div className={u.fw600}>{risk.balance.toLocaleString()} 枚</div></div>
+                <div><span style={{ fontSize: 12, color: "var(--text-secondary)" }}>最后入库</span><div className={u.fw600}>{risk.lastInboundDate ?? "-"}</div></div>
+                <div><span style={{ fontSize: 12, color: "var(--text-secondary)" }}>最后包装</span><div className={u.fw600}>{risk.lastPackagingDate ?? "-"}</div></div>
+                <div><span style={{ fontSize: 12, color: "var(--text-secondary)" }}>未完成包装</span><div className={u.fw600}>{risk.unfinishedPackagingBatches}</div></div>
+                <div><span style={{ fontSize: 12, color: "var(--text-secondary)" }}>未确认库存</span><div className={u.fw600}>{risk.unconfirmedInventory}</div></div>
               </div>
               {risk.warnings.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

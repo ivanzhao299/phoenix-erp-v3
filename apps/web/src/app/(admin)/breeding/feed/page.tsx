@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -143,7 +144,7 @@ export default function FeedLedgerPage() {
           style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <RefreshCw size={14} />{t('common.refresh', '刷新')}
         </button>
-        <div style={{ flex: 1 }} />
+        <div className={u.flex1} />
         {canEdit && (
           <button
             className={saved ? s.btnSecondary : s.btnPrimary}
@@ -186,17 +187,17 @@ export default function FeedLedgerPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              <th style={{ whiteSpace: 'nowrap' }}>物料名称</th>
-              <th style={{ textAlign: 'center' }}>单位</th>
-              <th style={{ textAlign: 'right' }}>昨日库存</th>
-              <th style={{ textAlign: 'right' }}>今日入库</th>
-              <th style={{ textAlign: 'right' }}>日用量</th>
+              <th className={u.nowrap}>物料名称</th>
+              <th className={u.tac}>单位</th>
+              <th className={u.tar}>昨日库存</th>
+              <th className={u.tar}>今日入库</th>
+              <th className={u.tar}>日用量</th>
               {houses.map(h => (
                 <th key={h} style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{h}</th>
               ))}
-              <th style={{ textAlign: 'right' }}>出库合计</th>
-              <th style={{ textAlign: 'right' }}>当前库存</th>
-              <th style={{ textAlign: 'center' }}>可用天</th>
+              <th className={u.tar}>出库合计</th>
+              <th className={u.tar}>当前库存</th>
+              <th className={u.tac}>可用天</th>
               <th>备注</th>
             </tr>
           </thead>
@@ -215,7 +216,7 @@ export default function FeedLedgerPage() {
               return (
                 <tr key={row.material_name}
                   style={{ background: alertColor ? `${alertColor}06` : undefined }}>
-                  <td style={{ whiteSpace: 'nowrap' }}>
+                  <td className={u.nowrap}>
                     {row.material_name}
                     {row.alert && (
                       <span style={{ marginLeft: 6, fontSize: 11, padding: '1px 6px', borderRadius: 4, fontWeight: 700,
@@ -226,7 +227,7 @@ export default function FeedLedgerPage() {
                   </td>
                   <td style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>{row.unit}</td>
                   <td style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>{row.prev_stock.toLocaleString()}</td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td className={u.tar}>
                     {canEdit ? (
                       <input type="number" min="0" value={row.inbound_qty || ''}
                         onChange={e => updateRow(idx, { inbound_qty: Number(e.target.value) || 0 })}
@@ -235,7 +236,7 @@ export default function FeedLedgerPage() {
                           border: '1px solid var(--border)', background: 'var(--bg-page)', color: 'var(--text-primary)', fontSize: 13 }} />
                     ) : <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{row.inbound_qty}</span>}
                   </td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td className={u.tar}>
                     {canEdit ? (
                       <input type="number" min="0" value={row.daily_usage || ''}
                         onChange={e => updateRow(idx, { daily_usage: Number(e.target.value) || 0 })}
@@ -245,7 +246,7 @@ export default function FeedLedgerPage() {
                     ) : <span style={{ color: 'var(--text-primary)' }}>{row.daily_usage}</span>}
                   </td>
                   {houses.map(h => (
-                    <td key={h} style={{ textAlign: 'right' }}>
+                    <td key={h} className={u.tar}>
                       {canEdit ? (
                         <input type="number" min="0" value={row.outbound_detail[h] || ''}
                           onChange={e => updateRow(idx, { outbound_detail: { ...row.outbound_detail, [h]: Number(e.target.value) || 0 } })}

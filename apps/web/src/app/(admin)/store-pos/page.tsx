@@ -4,6 +4,7 @@
  * Sales V2 Phase 9: 3 列布局：[商品目录] | [购物车] | [收款结账]
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import {
   ShoppingCart, Banknote, CreditCard, Wallet, X, Plus, Minus,
   Search, RefreshCw, CheckCircle, AlertTriangle, Clock, History,
@@ -533,7 +534,7 @@ export default function StorePosPage() {
           </div>
         )}
 
-        <div style={{ flex: 1 }} />
+        <div className={u.flex1} />
 
         {/* 视图切换 */}
         {(['pos', 'history', 'shift'] as View[]).map(v => (
@@ -740,7 +741,7 @@ export default function StorePosPage() {
               </div>
             )}
 
-            <div style={{ flex: 1 }} />
+            <div className={u.flex1} />
 
             {/* 当日汇总 */}
             {summary && (
@@ -1039,7 +1040,7 @@ export default function StorePosPage() {
               ['公司编码 *', setupCompanyCode, setSetupCompanyCode, '例如 COMPANY_001'],
               ['公司名称', setupCompanyName, setSetupCompanyName, '例如 凤凰生态农业'],
             ].map(([label, val, setter, ph]) => (
-              <div key={label as string} style={{ marginBottom: 12 }}>
+              <div key={label as string} className={u.mb12}>
                 <label style={{ fontSize: 13, color: 'var(--text-disabled)', display: 'block', marginBottom: 3 }}>{label as string}</label>
                 <input
                   value={val as string}

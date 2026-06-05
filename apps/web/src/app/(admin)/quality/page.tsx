@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from "next/navigation";
 import {
   ShieldCheck, AlertTriangle, TrendingUp, ClipboardCheck, BarChart2,
@@ -141,7 +142,7 @@ export default function QualityPage() {
           ) : qualityTrend.length === 0 ? (
             <div style={{ color:"var(--text-secondary)", fontSize:12, textAlign:"center", padding:20 }}>{t("ui.暂无月度数据", "暂无月度数据")}</div>
           ) : qualityTrend.map(m => (
-            <div key={m.month} style={{ marginBottom:12 }}>
+            <div key={m.month} className={u.mb12}>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4, fontSize:12 }}>
                 <span style={{ fontWeight:600, color:"var(--text-primary)" }}>{m.month}</span>
                 <span style={{ fontWeight:700, color: m.rate >= 90 ? "var(--status-success)" : m.rate >= 80 ? "var(--status-warning)" : "var(--status-danger)" }}>{m.rate}%</span>

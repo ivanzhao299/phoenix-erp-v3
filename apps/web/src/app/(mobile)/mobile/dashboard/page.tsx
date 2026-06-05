@@ -1,5 +1,6 @@
 'use client';
 import { useState, useMemo } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, RefreshCw, ArrowLeft, Sun, Moon, Truck } from 'lucide-react';
 import useSWR from 'swr';
@@ -320,7 +321,7 @@ export default function MobileDashboardPage() {
           style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 6 }}>
           <ChevronLeft size={20} />
         </button>
-        <div style={{ textAlign: 'center' }}>
+        <div className={u.tac}>
           <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{dateLabel}</div>
           {dateLabel !== date && <div style={{ fontSize: 11, color: t.textMuted }}>{date}</div>}
         </div>
@@ -493,7 +494,7 @@ export default function MobileDashboardPage() {
               <StatCard label="完成任务数" value={fmt(pkgTasks)} unit="个" />
             </div>
             {byGrade.length > 0 && (
-              <div style={{ marginBottom: 12 }}>
+              <div className={u.mb12}>
                 <div style={{ fontSize: 11, color: t.textFaint, marginBottom: 6 }}>按等级分布</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {byGrade.map(g => (
@@ -552,7 +553,7 @@ export default function MobileDashboardPage() {
                   <span style={{ fontSize: 18 }}>🥚</span>
                   <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>蛋品库存</span>
                 </div>
-                <div style={{ textAlign: 'right' }}>
+                <div className={u.tar}>
                   <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--status-warning)' }}>{totalTrays}</span>
                   <span style={{ fontSize: 11, color: t.textMuted, marginLeft: 3 }}>提</span>
                   <span style={{ fontSize: 13, color: t.textFaint, marginLeft: 6 }}>{totalQty.toLocaleString()} 枚</span>

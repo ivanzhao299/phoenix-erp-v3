@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
 import { Settings2, RefreshCw, Save, Lock } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
@@ -95,7 +96,7 @@ export default function SystemConfigsPage() {
           <thead>
             <tr>
               {["分组", "配置键", "当前值", "类型", "说明", "最后修改", "操作"].map(h => (
-                <th key={h} style={{ whiteSpace: "nowrap" }}>{h}</th>
+                <th key={h} className={u.nowrap}>{h}</th>
               ))}
             </tr>
           </thead>

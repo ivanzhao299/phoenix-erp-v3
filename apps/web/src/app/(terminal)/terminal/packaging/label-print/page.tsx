@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -316,7 +317,7 @@ export default function LabelPrintPage() {
               display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>
               🏷️
             </div>
-            <div style={{ flex:1 }}>
+            <div className={u.flex1}>
               <div style={{ fontSize:15, fontWeight:800, color:T.TXT }}>{t('ui.标签打印设置', '标签打印设置')}</div>
               <div style={{ fontSize:10, color:T.MUT, marginTop:1 }}>
                 {isFirstSetup ? t('ui.初次设置保存提示', '初次设置后自动保存，后续可点⚙️修改') : t('ui.修改后点保存立即生效', '修改后点保存立即生效')}
@@ -552,7 +553,7 @@ export default function LabelPrintPage() {
 
       <div style={{ background:T.CARD, borderBottom:`1px solid ${T.BOR}`, padding:'12px 20px', display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
         <span style={{ fontSize:22 }}>🏷️</span>
-        <div style={{ flex:1 }}>
+        <div className={u.flex1}>
           <div style={{ fontSize:17, fontWeight:700, color:T.TXT }}>{t('terminal.label_print', '标签打印')}</div>
           <div style={{ fontSize:12, color:T.MUT }}>{t('ui.打印后扫码校验全部校验通过后可入库', '打印后扫码校验，全部校验通过后可入库')}</div>
         </div>
@@ -576,7 +577,7 @@ export default function LabelPrintPage() {
             height:'100%', gap:12, color:T.MUT }}>
             <div style={{ fontSize:48 }}>📦</div>
             <div style={{ fontSize:16, fontWeight:600 }}>{t('ui.暂无待打印标签', '暂无待打印标签')}</div>
-            <div style={{ fontSize:13 }}>{t('ui.请先完成包装作业', '请先完成包装作业，再返回此页打印标签')}</div>
+            <div className={u.fs13}>{t('ui.请先完成包装作业', '请先完成包装作业，再返回此页打印标签')}</div>
             <button type="button" onClick={() => router.push('/terminal/packaging/packing')}
               style={{ marginTop:8, padding:'10px 24px', borderRadius:8, border:`1px solid ${T.BOR}`,
                 background:'var(--overlay-white-05)', color:T.MUT, fontSize:14, cursor:'pointer' }}>
@@ -594,7 +595,7 @@ export default function LabelPrintPage() {
                   display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>
                   {box.verified ? '✅' : box.printed ? '🏷️' : '⬜'}
                 </div>
-                <div style={{ flex:1 }}>
+                <div className={u.flex1}>
                   <div style={{ fontSize:15, fontWeight:700, color:T.TXT, fontFamily:'monospace' }}>{box.code}</div>
                   <div style={{ fontSize:12, color:T.MUT }}>{gradeDisplay(box.grade)} · {box.spec}</div>
                   {trace && (

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -159,7 +160,7 @@ export default function PermissionsPage() {
               </span>
             </div>
 
-            <div style={{ overflowX: "auto" }}>
+            <div className={u.scrollX}>
               <table className={s.table}>
                 <thead>
                   <tr>

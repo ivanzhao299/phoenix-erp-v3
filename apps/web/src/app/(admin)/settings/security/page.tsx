@@ -1,5 +1,6 @@
 "use client";
 import type { AuditLogRow, UserRecord } from "@/types";
+import u from "@/styles/uix-utils.module.css";
 import { useState, useEffect } from "react";
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
@@ -74,7 +75,7 @@ export default function SecurityPolicyPage() {
           ].map(item => (
             <div key={item.label} style={{ padding: 12, background: "var(--bg-page)", borderRadius: "var(--radius-md)" }}>
               <div style={{ color: "var(--text-secondary)", marginBottom: 4, fontSize: 12 }}>{item.label}</div>
-              <div style={{ fontWeight: 600 }}>{item.value}</div>
+              <div className={u.fw600}>{item.value}</div>
             </div>
           ))}
         </div>

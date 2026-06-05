@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useParams, useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
 import { ArrowLeft, RefreshCw, AlertTriangle, Wind, Activity, Clock, ChevronDown, ChevronUp } from 'lucide-react';
@@ -606,7 +607,7 @@ export default function HouseDetailPage() {
                     const color = SC[k.status || 'no_data'] || 'var(--text-disabled)';
                     return (
                       <tr key={k.code}>
-                        <td style={{ fontWeight: 600 }}>{k.title || k.code}</td>
+                        <td className={u.fw600}>{k.title || k.code}</td>
                         <td style={{ fontWeight: 700, fontSize: 15, color }}>
                           {k.value != null ? Number(k.value).toFixed(1) : '—'}
                         </td>
@@ -639,7 +640,7 @@ export default function HouseDetailPage() {
           <div style={{ fontWeight: 700, marginBottom: 6 }}>
             {t('ui.鸡舍', '鸡舍')} {houseCode} {t('common.noData', '暂无设备数据')}
           </div>
-          <div style={{ fontSize: 13 }}>
+          <div className={u.fs13}>
             {t('ui.该鸡舍可能未完成设备映射请前往运维管理配置', '该鸡舍可能未完成设备映射，请前往「运维管理」配置')}
           </div>
         </div>

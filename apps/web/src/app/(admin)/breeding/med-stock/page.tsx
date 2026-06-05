@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -131,7 +132,7 @@ export default function MedStockPage() {
             {tb.label}
           </button>
         ))}
-        <div style={{ flex: 1 }} />
+        <div className={u.flex1} />
         {(tab === 'inbound' || tab === 'outbound') && canEdit && (
           <button className={saved ? s.btnSecondary : s.btnPrimary} onClick={handleSave} disabled={saving || !hasChanges}
             style={{ alignSelf: 'flex-start', marginBottom: 2, opacity: hasChanges ? 1 : 0.5 }}>
@@ -198,8 +199,8 @@ export default function MedStockPage() {
               <tr>
                 <th>药品名称</th>
                 <th>规格</th>
-                <th style={{ textAlign: 'right' }}>库存</th>
-                <th style={{ textAlign: 'center' }}>数量</th>
+                <th className={u.tar}>库存</th>
+                <th className={u.tac}>数量</th>
                 {tab === 'outbound' && <th>栋舍</th>}
                 <th>备注</th>
               </tr>
@@ -212,7 +213,7 @@ export default function MedStockPage() {
                     <td>{m.medication_name}</td>
                     <td style={{ color: 'var(--text-secondary)' }}>{m.dosage}</td>
                     <td style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>{m.qty} {m.unit}</td>
-                    <td style={{ textAlign: 'center' }}>
+                    <td className={u.tac}>
                       {canEdit ? (
                         <input type="number" min="0" value={e.qty || ''}
                           onChange={ev => setEntry(m.medication_code, { qty: Math.max(0, Number(ev.target.value) || 0) })}

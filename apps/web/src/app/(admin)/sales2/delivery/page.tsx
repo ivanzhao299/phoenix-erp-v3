@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { PageHeaderV2 } from '@/components/design-system';
 import {
   Plus, RefreshCw, Search, Truck, Users, Car,
@@ -571,7 +572,7 @@ export default function DeliveryPage() {
                   ['实际到达', selected.actual_arrival_at ? new Date(selected.actual_arrival_at).toLocaleString('zh-CN') : '—'],
                   ['完成时间', selected.completed_at ? new Date(selected.completed_at).toLocaleString('zh-CN') : '—'],
                 ].map(([k, v]) => (
-                  <div key={k} style={{ fontSize: 12 }}>
+                  <div key={k} className={u.fs12}>
                     <span style={{ color: 'var(--text-secondary)', marginRight: 6 }}>{k}:</span>
                     <span style={{ color: 'var(--border)' }}>{v}</span>
                   </div>
@@ -635,7 +636,7 @@ export default function DeliveryPage() {
               {actionErr && <div style={{ color: 'var(--status-danger)', fontSize: 12, marginBottom: 10 }}>{actionErr}</div>}
 
               {/* 配送明细 */}
-              <div style={{ marginBottom: 16 }}>
+              <div className={u.mb16}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: 0.8,
                   marginBottom: 8, textTransform: 'uppercase' }}>配送明细</div>
                 {detailLoading && <div style={{ fontSize: 12, opacity: 0.4 }}>加载中…</div>}

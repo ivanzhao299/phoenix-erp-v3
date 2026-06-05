@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import {
   Users, Plus, Search, RefreshCw, X, CheckCircle,
   Clock, AlertCircle, Upload, ChevronRight,
@@ -325,7 +326,7 @@ function CreateSettlementModal({
           </div>
         )}
 
-        <div style={{ marginBottom: 12 }}>
+        <div className={u.mb12}>
           <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>结算类型</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {Object.entries(SETTLEMENT_TYPE_LABELS).map(([k, v]) => (
@@ -338,14 +339,14 @@ function CreateSettlementModal({
           </div>
         </div>
 
-        <div style={{ marginBottom: 12 }}>
+        <div className={u.mb12}>
           <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>金额 <span className="text-red-500">*</span></div>
           <input type="number" min="0.01" step="0.01" value={form.amountOriginal}
             onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" className={inpClass} />
         </div>
 
         {needsCash && (
-          <div style={{ marginBottom: 12 }}>
+          <div className={u.mb12}>
             <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>现金账户 <span className="text-red-500">*</span>（RETURN 必填）</div>
             {/* G4-A：资金账户主数据，value=id；按 contribution 币种过滤 */}
             <CashAccountSelector value={form.cashAccountId} valueField="id"
@@ -354,7 +355,7 @@ function CreateSettlementModal({
           </div>
         )}
 
-        <div style={{ marginBottom: 16 }}>
+        <div className={u.mb16}>
           <div className="text-text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
             备注{needsRemark ? <span className="text-red-500"> *（WRITE_OFF 必填）</span> : ''}
           </div>

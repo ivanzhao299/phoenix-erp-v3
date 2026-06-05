@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -291,7 +292,7 @@ export default function DictPage() {
               <div style={{ display:"flex", alignItems:"center", gap:10,
                 padding:"12px 16px", borderBottom:"1px solid var(--border)", flexShrink:0 }}>
                 <div style={{ width:4, height:20, borderRadius:2, background:selColor }}/>
-                <div style={{ flex:1 }}>
+                <div className={u.flex1}>
                   <div style={{ fontSize:14, fontWeight:700, color:"var(--text-primary)" }}>{selLabel}</div>
                   <div style={{ fontSize:11, fontFamily:"monospace", color:"var(--text-secondary)", marginTop:1 }}>{selected}</div>
                 </div>
@@ -313,7 +314,7 @@ export default function DictPage() {
                   <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
                     justifyContent:"center", height:"100%", gap:8, color:"var(--text-secondary)" }}>
                     <div style={{ fontSize:32 }}>📭</div>
-                    <div style={{ fontSize:13 }}>{t("ui.暂无条目点击新增条目添加","暂无条目，点击「新增条目」添加")}</div>
+                    <div className={u.fs13}>{t("ui.暂无条目点击新增条目添加","暂无条目，点击「新增条目」添加")}</div>
                   </div>
                 ) : (
                   <table className={s.table} style={{ tableLayout:"fixed" }}>
@@ -341,7 +342,7 @@ export default function DictPage() {
                               {r.dict_code}
                             </span>
                           </td>
-                          <td style={{ fontWeight:600 }}>{r.dict_label_zh||r.name||"—"}</td>
+                          <td className={u.fw600}>{r.dict_label_zh||r.name||"—"}</td>
                           <td style={{ fontSize:12, opacity:r.dict_label_lo?1:0.35 }}>{r.dict_label_lo || t("ui.未填","未填")}</td>
                           <td style={{ fontSize:12, opacity:r.dict_label_en?1:0.35 }}>{r.dict_label_en || t("ui.未填","未填")}</td>
                           <td style={{ fontWeight:600, fontSize:12 }}>{r.sort_no||0}</td>
@@ -373,7 +374,7 @@ export default function DictPage() {
             <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
               justifyContent:"center", height:"100%", gap:8, color:"var(--text-secondary)" }}>
               <div style={{ fontSize:32 }}>👈</div>
-              <div style={{ fontSize:13 }}>{t("ui.从左侧选择字典类型查看条目","从左侧选择字典类型查看条目")}</div>
+              <div className={u.fs13}>{t("ui.从左侧选择字典类型查看条目","从左侧选择字典类型查看条目")}</div>
             </div>
           )}
         </div>

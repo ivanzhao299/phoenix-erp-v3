@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import {
   Wallet, Plus, Search, RefreshCw, Lock, Unlock, X,
   TrendingUp, TrendingDown, DollarSign, Activity,
@@ -309,7 +310,7 @@ function TransactionDrawer({
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '10px 12px', borderRadius: 10,
                 }}>
-                <div style={{ flex: 1 }}>
+                <div className={u.flex1}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                     {t.direction === 'IN'
                       ? <TrendingUp size={13} className="text-success" />
@@ -326,7 +327,7 @@ function TransactionDrawer({
                     {t.remark && ` · ${t.remark}`}
                   </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
+                <div className={u.tar}>
                   <div style={{ fontWeight: 700, fontSize: 14 }} className={t.direction === 'IN' ? 'text-success' : 'text-orange-600 dark:text-orange-400'}>
                     {t.direction === 'IN' ? '+' : '-'}{fmt(t.amount)}
                   </div>

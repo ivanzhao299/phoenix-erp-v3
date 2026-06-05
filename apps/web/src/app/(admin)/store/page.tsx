@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from "next/navigation";
 import { ShoppingCart, Package, AlertTriangle, TrendingUp, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
@@ -117,7 +118,7 @@ export default function StorePage() {
                 <div key={r.order_no} style={{ padding:"10px 14px", borderBottom:i<recentRecv.length-1?"1px solid var(--border)":"none",
                   display:"flex", alignItems:"center", gap:10 }}>
                   <Package size={14} color="var(--text-secondary)"/>
-                  <div style={{ flex:1 }}>
+                  <div className={u.flex1}>
                     <div style={{ fontSize:12, fontWeight:700 }}>{t("ui.收货单","收货单")} {r.order_no}</div>
                     <div style={{ fontSize:11, color:"var(--text-secondary)" }}>{(r.created_at||"—").slice(0,10)} · {r.wave_no || r.store_code || "—"}</div>
                   </div>

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import request from '@/lib/api-client';
 import {
@@ -241,7 +242,7 @@ export default function GovernanceDashboardPage() {
                 textDecoration: 'none', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
               }}>
                 <Icon size={14} style={{ color: 'var(--color-accent)' }} />
-                <span style={{ flex: 1 }}>{l.label}</span>
+                <span className={u.flex1}>{l.label}</span>
                 <ExternalLink size={11} style={{ color: 'var(--text-disabled)' }} />
               </a>
             );

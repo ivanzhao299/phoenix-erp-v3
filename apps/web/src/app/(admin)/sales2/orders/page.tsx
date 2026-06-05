@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import { usePermission } from '@/hooks/usePermission';
 import {
@@ -364,7 +365,7 @@ export default function SalesV2OrdersPage() {
           <thead>
             <tr>
               {['订单号','客户','金额','状态','价格','信用','应收','操作'].map(h => (
-                <th key={h} style={{ whiteSpace: 'nowrap' }}>{h}</th>
+                <th key={h} className={u.nowrap}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -373,7 +374,7 @@ export default function SalesV2OrdersPage() {
               const sc = statusConf(o.status);
               const nextTarget = TRANSITION_TARGETS[o.status];
               return (
-                <tr key={o.id} style={{ cursor: 'pointer' }}
+                <tr key={o.id} className={u.pointer}
                   onClick={() => openDetail(o.id)}>
                   <td style={{ color: 'var(--color-primary)' }}>{o.order_no}</td>
                   <td>{o.customer_name ?? o.customer_code ?? '—'}</td>
@@ -655,7 +656,7 @@ export default function SalesV2OrdersPage() {
               ].map(([k, v]) => (
                 <div key={k as string}>
                   <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>{k}</div>
-                  <div style={{ fontWeight: 600 }}>{v}</div>
+                  <div className={u.fw600}>{v}</div>
                 </div>
               ))}
             </div>
@@ -711,7 +712,7 @@ export default function SalesV2OrdersPage() {
                           <SkuBadge code={item.sku_code} />
                         </td>
                         <td>{item.grade_code || '—'}</td>
-                        <td style={{ textAlign: 'right' }}>{Number(item.qty).toLocaleString()}</td>
+                        <td className={u.tar}>{Number(item.qty).toLocaleString()}</td>
                         <td style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>{Number(item.resolved_unit_price).toLocaleString()}</td>
                         <td style={{ textAlign: 'right', color: item.below_floor_price ? 'var(--status-danger)' : undefined, fontWeight: item.below_floor_price ? 700 : 400 }}>
                           {Number(item.actual_unit_price).toLocaleString()}

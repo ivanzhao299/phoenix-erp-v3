@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
 import { RefreshCw, WifiOff, AlertTriangle, ChevronRight, Clock, Activity, Home, Wifi } from 'lucide-react';
@@ -262,7 +263,7 @@ export default function DeviceOverviewPage() {
       ) : (
         <div style={{ padding:60, textAlign:'center', color:'var(--text-secondary)', backgroundColor:'var(--bg-card)', borderRadius:'var(--radius-md)', border:'1px solid var(--border)', marginBottom:24 }}>
           <Activity size={32} style={{ marginBottom:12, opacity:0.4 }}/><div style={{ fontWeight:700, marginBottom:6 }}>{t('ui.暂无已映射鸡舍', '暂无已映射鸡舍')}</div>
-          <div style={{ fontSize:13 }}>{t('ui.请先在运维管理页面完成鸡舍映射', '请先在「运维管理」页面完成鸡舍映射')}</div>
+          <div className={u.fs13}>{t('ui.请先在运维管理页面完成鸡舍映射', '请先在「运维管理」页面完成鸡舍映射')}</div>
         </div>
       )}
 

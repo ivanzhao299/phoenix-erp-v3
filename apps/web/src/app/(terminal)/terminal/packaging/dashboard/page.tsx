@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { packagingApi } from '@/lib/packaging-api';
@@ -103,7 +104,7 @@ export default function TerminalDashboard() {
                 {t('ui.开班时间', '开班')} {new Date(ctx.currentShift.openedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}
               </div>
             )}
-            <div style={{ flex: 1 }} />
+            <div className={u.flex1} />
             <button type="button" onClick={() => router.push('/terminal/packaging/shift-close')}
               style={{
                 background: 'transparent', border: '1px solid var(--status-success)',
@@ -122,7 +123,7 @@ export default function TerminalDashboard() {
             <span style={{ fontSize: 24 }}>⏰</span>
             <span style={{ fontSize: 17, color: 'var(--status-warning)', fontWeight: 700 }}>{t('ui.当前无进行中的班次', '当前无进行中的班次')}</span>
             <span style={{ fontSize: 15, color: 'var(--text-secondary)' }}>{t('ui.请先开班再开始作业', '请先开班再开始作业')}</span>
-            <div style={{ flex: 1 }} />
+            <div className={u.flex1} />
             <button type="button" onClick={() => router.push('/terminal/packaging/shift-open')}
               style={{
                 background: 'var(--status-warning)', border: 'none',

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import u from "@/styles/uix-utils.module.css";
 import {
   BarChart2, TrendingUp, Package, Truck, RefreshCw,
   Archive, Shield, AlertTriangle, Users, Tag,
@@ -65,10 +66,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Table({ cols, rows }: { cols: string[]; rows: React.ReactNode[][] }) {
   return (
-    <div style={{ overflowX: "auto" }}>
+    <div className={u.scrollX}>
       <table className={s.table}>
         <thead>
-          <tr>{cols.map(c => <th key={c} style={{ whiteSpace: "nowrap" }}>{c}</th>)}</tr>
+          <tr>{cols.map(c => <th key={c} className={u.nowrap}>{c}</th>)}</tr>
         </thead>
         <tbody>
           {rows.length === 0 && (
@@ -293,7 +294,7 @@ function PriceTab() {
   return (
     <div>
       <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
-        <label style={{ fontSize: 13 }}>
+        <label className={u.fs13}>
           偏离阈值（%）：
           <select value={threshold} onChange={e => setThreshold(Number(e.target.value))} style={{ ...inputSt, marginLeft: 6 }}>
             {[1, 2, 5, 10, 15, 20].map(v => <option key={v} value={v}>{v}%</option>)}

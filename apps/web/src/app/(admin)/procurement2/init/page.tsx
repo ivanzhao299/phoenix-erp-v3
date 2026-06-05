@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import u from "@/styles/uix-utils.module.css";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
@@ -298,9 +299,9 @@ export default function InitPage() {
               <th>类型</th>
               <th>文件名</th>
               <th>状态</th>
-              <th style={{ textAlign: "right" }}>总行数</th>
-              <th style={{ textAlign: "right" }}>成功</th>
-              <th style={{ textAlign: "right" }}>失败</th>
+              <th className={u.tar}>总行数</th>
+              <th className={u.tar}>成功</th>
+              <th className={u.tar}>失败</th>
               <th>创建人</th>
               <th>创建时间</th>
               <th>操作</th>
@@ -314,7 +315,7 @@ export default function InitPage() {
               <tr><td colSpan={10} style={{ textAlign: "center", color: "var(--text-secondary)" }}>暂无数据</td></tr>
             )}
             {batches.map(b => (
-              <tr key={b.id} style={{ cursor: "pointer" }} onClick={() => openDetail(b.id)}>
+              <tr key={b.id} className={u.pointer} onClick={() => openDetail(b.id)}>
                 <td>{b.batchNo}</td>
                 <td>{BATCH_TYPE_LABELS[b.batchType] ?? b.batchType}</td>
                 <td style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.fileName || "—"}</td>
@@ -323,7 +324,7 @@ export default function InitPage() {
                     {b.status}
                   </span>
                 </td>
-                <td style={{ textAlign: "right" }}>{b.totalRows}</td>
+                <td className={u.tar}>{b.totalRows}</td>
                 <td style={{ textAlign: "right", color: "var(--color-success)" }}>{b.successRows}</td>
                 <td style={{ textAlign: "right", color: b.failedRows > 0 ? "var(--color-danger)" : "inherit" }}>{b.failedRows}</td>
                 <td>{b.createdByName}</td>
@@ -385,7 +386,7 @@ export default function InitPage() {
               <label style={{ fontSize: 13, display: "block", marginBottom: 4 }}>Excel 文件 *</label>
               <input type="file" ref={fileRef} accept=".xlsx,.xls,.csv"
                 onChange={e => setUploadFile(e.target.files?.[0] ?? null)}
-                style={{ fontSize: 13 }} />
+                className={u.fs13} />
               <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4 }}>
                 请先下载对应模板，按格式填写后上传。仅支持 .xlsx / .xls / .csv
               </div>
@@ -495,7 +496,7 @@ export default function InitPage() {
                               <span style={{ color: ROW_STATUS_COLORS[r.status] ?? "inherit", fontWeight: 600 }}>{r.status}</span>
                             </td>
                             <td style={{ color: "var(--color-danger)", maxWidth: 240, wordBreak: "break-word" }}>{r.errorMessage}</td>
-                            <td style={{ fontSize: 11 }}>{r.relatedPoNo || r.relatedPayNo || r.relatedFundNo || r.relatedReceiptNo || "—"}</td>
+                            <td className={u.fs11}>{r.relatedPoNo || r.relatedPayNo || r.relatedFundNo || r.relatedReceiptNo || "—"}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -525,7 +526,7 @@ export default function InitPage() {
                           <td>
                             <span style={{ color: ROW_STATUS_COLORS[r.status] ?? "inherit", fontWeight: 600, fontSize: 11 }}>{r.status}</span>
                           </td>
-                          <td style={{ fontSize: 11 }}>{r.relatedPoNo || r.relatedPayNo || r.relatedFundNo || r.relatedReceiptNo || "—"}</td>
+                          <td className={u.fs11}>{r.relatedPoNo || r.relatedPayNo || r.relatedFundNo || r.relatedReceiptNo || "—"}</td>
                           <td style={{ color: "var(--color-danger)", fontSize: 11, maxWidth: 200, wordBreak: "break-word" }}>{r.errorMessage || "—"}</td>
                         </tr>
                       ))}
