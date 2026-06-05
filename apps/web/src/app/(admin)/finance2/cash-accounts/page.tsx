@@ -6,6 +6,12 @@ import { Wallet, Plus, Search, RefreshCw, Lock, Unlock, X, TrendingUp, TrendingD
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/design-system';
 
+import {
+  primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
+  drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
+  inlineBadge, pillBadge,
+  searchToolbar, toolbarFilterPill,
+} from '@/components/design-system/cockpit-styles';
 // ── Auth helper ───────────────────────────────────────────────────────────────
 function getToken() {
   if (typeof window === 'undefined') return '';
@@ -192,23 +198,8 @@ function CreateAccountModal({
       setSaving(false);
     }
   }
-  return <div style={{
-    position: 'fixed',
-    inset: 0,
-    background: 'var(--overlay-black-45)',
-    zIndex: 1000,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  }}>
-      <div className="bg-bg-card" style={{
-      borderRadius: 16,
-      padding: 28,
-      width: 520,
-      maxHeight: '90vh',
-      overflowY: 'auto',
-      boxShadow: '0 20px 60px var(--overlay-black-20)'
-    }}>
+  return <div style={modalMask}>
+      <div style={modalPanel(520)} onClick={e => e.stopPropagation()}>
         <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -344,14 +335,7 @@ function TransactionDrawer({
       setTxns(d.items ?? []);
     }).finally(() => setLoading(false));
   }, [account.id]);
-  return <div style={{
-    position: 'fixed',
-    inset: 0,
-    background: 'var(--overlay-black-45)',
-    zIndex: 1000,
-    display: 'flex',
-    justifyContent: 'flex-end'
-  }}>
+  return <div style={drawerMask}>
       <div className="bg-bg-card" style={{
       width: 520,
       height: '100vh',
@@ -532,7 +516,7 @@ export default function CashAccountsPage() {
   }
   const totalBalance = summary?.totalBalance ?? 0;
   return <div>
-      <PageHeader title="资金账户中心" subtitle="资金账户管理 · 流水账本 · 转账审批" breadcrumb={['财务管理', '资金账户']} actions={<button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white border-0 cursor-pointer hover:bg-blue-700 transition-colors">
+      <PageHeader title="资金账户中心" subtitle="资金账户管理 · 流水账本 · 转账审批" breadcrumb={['财务管理', '资金账户']} actions={<button onClick={() => setShowCreate(true)} style={primaryActionButton}>
             <Plus size={15} /> 新建账户
           </button>} />
 
@@ -585,56 +569,34 @@ export default function CashAccountsPage() {
           </div>)}
       </div>
 
-      {/* 筛选栏 */}
-      <div style={{
-      display: 'flex',
-      gap: 10,
-      alignItems: 'center',
-      marginBottom: 18,
-      flexWrap: 'wrap'
-    }}>
-        <div style={{
-        position: 'relative',
-        flex: 1,
-        minWidth: 180
-      }}>
-          <Search size={14} className="text-text-dim" style={{
-          position: 'absolute',
-          left: 10,
-          top: '50%',
-          transform: 'translateY(-50%)'
-        }} />
-          <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索账户名称/编号…" className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full" style={{
-          paddingLeft: 32,
-          boxSizing: 'border-box'
-        }} />
+      {/* 筛选 + 搜索 工具栏 */}
+      <div style={searchToolbar}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+          <Search size={14} color="var(--text-secondary)" style={{
+            position: 'absolute',
+            left: 12,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            pointerEvents: 'none',
+          }} />
+          <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索账户名称/编号…" style={{ ...inputField, paddingLeft: 34, fontSize: 13 }} />
         </div>
 
-        {/* 账户类型筛选 */}
-        <div style={{
-        display: 'flex',
-        gap: 6
-      }}>
-          {[{
+        {[{
           k: '',
           v: '全部类型'
         }, ...Object.entries(ACCOUNT_TYPE_LABELS).map(([k, v]) => ({
           k,
           v
-        }))].map(({
-          k,
-          v
-        }) => <button key={k} onClick={() => setTypeFilter(k)} className={`px-3 py-1 rounded-full text-xs cursor-pointer font-medium transition-colors border-0 ${typeFilter === k ? 'bg-blue-600 text-white font-bold' : 'bg-bg-muted text-text-muted hover:bg-bg-muted dark:hover:bg-slate-600'}`}>
-              {v}
-            </button>)}
-        </div>
+        }))].map(({ k, v }) => (
+          <button key={k} onClick={() => setTypeFilter(k)} style={toolbarFilterPill(typeFilter === k)}>
+            {v}
+          </button>
+        ))}
 
-        {/* 状态筛选 */}
-        <div style={{
-        display: 'flex',
-        gap: 6
-      }}>
-          {[{
+        <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+
+        {[{
           k: '',
           v: '全部状态'
         }, {
@@ -646,18 +608,14 @@ export default function CashAccountsPage() {
         }, {
           k: 'CLOSED',
           v: '已关闭'
-        }].map(({
-          k,
-          v
-        }) => <button key={k} onClick={() => setStatusFilter(k)} className={`px-3 py-1 rounded-full text-xs cursor-pointer font-medium transition-colors border-0 ${statusFilter === k ? 'bg-violet-600 text-white font-bold' : 'bg-bg-muted text-text-muted hover:bg-bg-muted dark:hover:bg-slate-600'}`}>
-              {v}
-            </button>)}
-        </div>
+        }].map(({ k, v }) => (
+          <button key={k} onClick={() => setStatusFilter(k)} style={toolbarFilterPill(statusFilter === k)}>
+            {v}
+          </button>
+        ))}
 
-        <button onClick={() => void load()} disabled={loading} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted cursor-pointer transition-colors disabled:opacity-50">
-          <RefreshCw size={14} className="text-text-dim" style={{
-          animation: loading ? 'spin 1s linear infinite' : 'none'
-        }} />
+        <button onClick={() => void load()} disabled={loading} style={secondaryActionButton}>
+          <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
         </button>
       </div>
 

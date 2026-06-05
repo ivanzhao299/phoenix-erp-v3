@@ -8,6 +8,14 @@ import s from "@/components/ui/admin-ui.module.css";
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector, SupplierSelector } from '@/components/shared-selectors/MasterDataSelectors';
 
+import {
+  primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
+  drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
+  inlineBadge, pillBadge,
+  searchToolbar, toolbarFilterPill, toolbarSearchInput,
+  tableContainer, tablePagination,
+  tabBar, tabItem, kpiCard,
+} from '@/components/design-system/cockpit-styles';
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
 interface ApInvoice {
@@ -213,38 +221,33 @@ function KpiCard({
   color: string;
   loading: boolean;
 }) {
-  return <div className="bg-bg-card border border-border" style={{
-    borderRadius: 12,
-    padding: '16px 18px',
-    boxShadow: '0 1px 4px var(--overlay-black-04)',
-    minHeight: 112,
-    boxSizing: 'border-box'
-  }}>
+  return <div style={kpiCard}>
       <div style={{
       display: 'flex',
       alignItems: 'center',
-      gap: 8,
-      marginBottom: 8
+      gap: 8
     }}>
-        <Icon size={16} color={color} />
-        <span className={`text-text-muted ${u.fs12}`}>{label}</span>
+        <Icon size={14} color={color} />
+        <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>{label}</span>
       </div>
-      <div className="text-text" style={{
-      fontSize: 18,
-      fontWeight: 800
+      <div style={{
+      fontSize: 22,
+      fontWeight: 800,
+      color: 'var(--text-primary)',
+      lineHeight: 1.2,
+      marginTop: 2
     }}>
         {loading ? '…' : value}
       </div>
-      {sub && !loading && <div className="text-text-muted" style={{
+      {sub && !loading && <div style={{
       fontSize: 11,
-      marginTop: 2
+      color: 'var(--text-secondary)',
+      marginTop: 'auto'
     }}>{sub}</div>}
     </div>;
 }
 
 // ── Modal 通用 input className ────────────────────────────────────────────────
-
-const INP_CLASS = 'w-full px-3 py-2 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-indigo-400 dark:focus:border-indigo-500 box-border';
 
 // ── 创建 AP Modal ─────────────────────────────────────────────────────────────
 
@@ -324,22 +327,8 @@ function CreateModal({
       setSaving(false);
     }
   };
-  return <div style={{
-    position: 'fixed',
-    inset: 0,
-    background: 'var(--overlay-black-45)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000
-  }}>
-      <div className="bg-bg-card" style={{
-      borderRadius: 16,
-      width: 480,
-      maxWidth: '95vw',
-      padding: 28,
-      boxShadow: '0 20px 60px var(--overlay-black-15)'
-    }}>
+  return <div style={modalMask}>
+      <div style={modalPanel(480)} onClick={e => e.stopPropagation()}>
         <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -366,14 +355,14 @@ function CreateModal({
           gap: 12
         }}>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">
+              <label style={formLabel}>
                 公司 <span className="text-red-500">*</span>
               </label>
               {/* G4-A：公司主数据(org_units COMPANY)，DataScope 自动过滤 */}
               <CompanySelector value={form.companyCode} onChange={v => set('companyCode', v)} onPick={o => set('companyName', o?.label ?? '')} />
             </div>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">
+              <label style={formLabel}>
                 货币 <span className="text-red-500">*</span>
               </label>
               {/* G4-A：货币枚举来自 sys_dict(SYS_CURRENCY) */}
@@ -382,7 +371,7 @@ function CreateModal({
           </div>
 
           <div>
-            <label className="block mb-1 text-xs font-semibold text-text-muted">
+            <label style={formLabel}>
               供应商 <span className="text-red-500">*</span>
             </label>
             {/* G4-A：从供应商主数据(仅ACTIVE)选择，自动带出名称 */}
@@ -395,16 +384,16 @@ function CreateModal({
           gap: 12
         }}>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">
+              <label style={formLabel}>
                 发票金额 <span className="text-red-500">*</span>
               </label>
-              <input className={INP_CLASS} type="number" min="0" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" />
+              <input style={inputField} type="number" min="0" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" />
             </div>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">
+              <label style={formLabel}>
                 发票号
               </label>
-              <input className={INP_CLASS} value={form.invoiceNo} onChange={e => set('invoiceNo', e.target.value)} placeholder="可选" />
+              <input style={inputField} value={form.invoiceNo} onChange={e => set('invoiceNo', e.target.value)} placeholder="可选" />
             </div>
           </div>
 
@@ -414,27 +403,25 @@ function CreateModal({
           gap: 12
         }}>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">
+              <label style={formLabel}>
                 发票日期
               </label>
-              <input className={INP_CLASS} type="date" value={form.invoiceDate} onChange={e => set('invoiceDate', e.target.value)} />
+              <input style={inputField} type="date" value={form.invoiceDate} onChange={e => set('invoiceDate', e.target.value)} />
             </div>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">
+              <label style={formLabel}>
                 到期日
               </label>
-              <input className={INP_CLASS} type="date" value={form.dueDate} onChange={e => set('dueDate', e.target.value)} />
+              <input style={inputField} type="date" value={form.dueDate} onChange={e => set('dueDate', e.target.value)} />
             </div>
           </div>
 
           <div>
-            <label className="block mb-1 text-xs font-semibold text-text-muted">
+            <label style={formLabel}>
               备注
             </label>
-            <textarea className={INP_CLASS} style={{
-            resize: 'none',
-            height: 60
-          }} value={form.remark} onChange={e => set('remark', e.target.value)} placeholder="可选" />
+            <textarea style={{ ...inputField, resize: 'none',
+            height: 60 }} value={form.remark} onChange={e => set('remark', e.target.value)} placeholder="可选" />
           </div>
 
           {err && <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger flex items-center gap-2">
@@ -499,16 +486,7 @@ function DetailDrawer({
     }
   };
   const canCancel = detail && !['PAID', 'CANCELLED'].includes(detail.status) && Number(detail.paid_amount_original) === 0;
-  return <div style={{
-    position: 'fixed',
-    inset: 0,
-    background: 'var(--overlay-black-25)',
-    zIndex: 900,
-    display: 'flex',
-    justifyContent: 'flex-end'
-  }} onClick={e => {
-    if (e.target === e.currentTarget) onClose();
-  }}>
+  return <div style={drawerMask}>
       <div className="bg-bg-card" style={{
       width: 480,
       maxWidth: '95vw',
@@ -795,20 +773,14 @@ export default function Finance2ApPage() {
       display: 'flex',
       gap: 8
     }}>
-            <button onClick={handleImport} disabled={importing} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-200 dark:border-cyan-700 bg-cyan-50 dark:bg-cyan-900/20 text-sm text-cyan-700 dark:text-cyan-300 transition-colors ${importing ? 'opacity-60 cursor-not-allowed' : 'hover:bg-cyan-100 dark:hover:bg-cyan-900/40 cursor-pointer'}`}>
+            <button onClick={handleImport} disabled={importing} style={secondaryActionButton}>
               <Download size={13} />
               {importing ? '导入中…' : '从采购单导入'}
             </button>
-            <button onClick={() => {
-        loadList(page);
-        loadSummary();
-      }} disabled={loading} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted cursor-pointer transition-colors">
-              <RefreshCw size={13} style={{
-          animation: loading ? 'spin 1s linear infinite' : 'none'
-        }} />
-              刷新
+            <button onClick={() => { loadList(page); loadSummary(); }} disabled={loading} style={secondaryActionButton}>
+              <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
             </button>
-            <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-0 bg-indigo-500 text-sm font-semibold text-white cursor-pointer hover:bg-indigo-600 transition-colors">
+            <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
               <Plus size={13} /> 新建 AP
             </button>
           </div>} />
@@ -839,11 +811,10 @@ export default function Finance2ApPage() {
         <KpiCard label="待付余额（综合）" value={summary?.byCurrency?.[0] ? fmtMoney(summary.balance_amount_original, summary.byCurrency[0]?.currency_code) : sumLoading ? '…' : '¥0.00'} sub={(summary?.byCurrency?.length ?? 0) > 1 ? `${summary!.byCurrency.length} 个币种` : undefined} icon={Wallet} color="var(--status-danger)" loading={sumLoading} />
       </div>
 
-      {/* 筛选栏 */}
-      <div className="bg-bg-card border border-border flex gap-2 flex-wrap items-center mb-3.5 px-3.5 py-3 rounded-xl">
-        <Filter size={14} className="text-text-dim" />
+      {/* 筛选 + 搜索 工具栏 */}
+      <div style={searchToolbar}>
+        <Filter size={14} color="var(--text-secondary)" />
 
-        {/* 状态快速筛选 */}
         {[{
         key: 'OPEN',
         label: '未付'
@@ -859,17 +830,18 @@ export default function Finance2ApPage() {
       }, {
         key: 'CANCELLED',
         label: '已取消'
-      }].map(s => <button key={s.key} onClick={() => handleStatusFilter(s.key)} className={`px-3 py-1 rounded-full text-xs cursor-pointer font-medium transition-colors border-0 ${status === s.key ? 'bg-indigo-600 text-white font-bold' : 'bg-bg-muted text-text-muted hover:bg-bg-muted dark:hover:bg-slate-600'}`}>
-            {s.label}
-          </button>)}
+      }].map(sItem => (
+        <button key={sItem.key} onClick={() => handleStatusFilter(sItem.key)} style={toolbarFilterPill(status === sItem.key)}>
+          {sItem.label}
+        </button>
+      ))}
 
-        <div className="w-px h-5 bg-border mx-1" />
+        <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
 
-        {/* 来源类型 */}
         <select value={sourceType} onChange={e => {
         setSourceType(e.target.value);
         setPage(1);
-      }} className="px-2.5 py-1 rounded-lg border border-border text-xs bg-bg-page text-text-muted cursor-pointer outline-none">
+      }} style={{ ...inputField, width: 'auto', padding: '6px 10px', fontSize: 12 }}>
           <option value="">全部来源</option>
           <option value="MANUAL">手工</option>
           <option value="PO">采购订单</option>
@@ -877,27 +849,22 @@ export default function Finance2ApPage() {
           <option value="OPENING">期初</option>
         </select>
 
-        <div className={u.flex1} />
+        <div style={{ flex: 1 }} />
 
-        {/* 关键字搜索 */}
-        <div className={u.flexRow}>
-          <input value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()} placeholder="AP编号 / 供应商 / 发票号…" className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-indigo-400 dark:focus:border-indigo-500 w-52" />
-          <button onClick={handleSearch} className="px-3 py-1.5 rounded-lg text-sm bg-indigo-500 text-white border-0 cursor-pointer hover:bg-indigo-600 flex items-center gap-1 transition-colors">
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()} placeholder="AP编号 / 供应商 / 发票号…" style={toolbarSearchInput} />
+          <button onClick={handleSearch} style={primaryActionButton}>
             <Search size={13} /> 搜索
           </button>
         </div>
       </div>
 
-      {error && <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 mb-3.5 text-sm text-danger flex items-center gap-2">
+      {error && <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 mb-4 text-sm text-danger flex items-center gap-2">
           <AlertTriangle size={14} /> {error}
         </div>}
 
       {/* 表格 */}
-      <div className="bg-bg-card border border-border" style={{
-      borderRadius: 12,
-      overflow: 'hidden',
-      boxShadow: '0 1px 4px var(--overlay-black-04)'
-    }}>
+      <div style={tableContainer}>
         <div className={u.scrollX}>
           <table className={s.table}>
             <thead>
@@ -955,7 +922,7 @@ export default function Finance2ApPage() {
         </div>
 
         {/* 分页 */}
-        <div className="border-t border-border text-text-muted flex justify-between items-center px-4 py-3 text-sm">
+        <div style={tablePagination}>
           <span>共 {total} 条（第 {page} / {totalPages} 页）</span>
           <div className={u.flexRow}>
             <button onClick={() => {

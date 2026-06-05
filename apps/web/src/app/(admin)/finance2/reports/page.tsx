@@ -7,6 +7,14 @@ import PageHeader from '@/components/PageHeader';
 import { TOKENS } from '@/lib/design-tokens';
 import s from "@/components/ui/admin-ui.module.css";
 
+import {
+  primaryActionButton, secondaryActionButton, inputField, formLabel,
+  drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
+  inlineBadge, pillBadge,
+  tableContainer, tablePagination, kpiCard,
+  heroBanner, heroBannerTitle, heroBannerSubtitle, heroBannerKpi, heroTagChip,
+  subTabBar, subTabItem, sectionTitle, statTile, statTileLabel, statTileValue,
+} from '@/components/design-system/cockpit-styles';
 // ── 工具 ──────────────────────────────────────────────────────────────────────
 
 function getToken() {
@@ -47,22 +55,15 @@ function KpiCard({
   icon?: React.ElementType;
   color?: string;
 }) {
-  return <div className="bg-bg-card border border-border" style={{
-    borderRadius: 14,
-    padding: '16px 18px',
-    boxShadow: '0 1px 4px var(--overlay-black-04)',
-    minHeight: 112,
-    boxSizing: 'border-box'
-  }}>
+  return <div style={kpiCard}>
       <div style={{
       display: 'flex',
       alignItems: 'center',
-      gap: 8,
-      marginBottom: 8
+      gap: 8
     }}>
         {Icon && <div style={{
-        width: 32,
-        height: 32,
+        width: 28,
+        height: 28,
         borderRadius: 8,
         flexShrink: 0,
         background: `${color ?? 'var(--color-primary)'}18`,
@@ -70,17 +71,21 @@ function KpiCard({
         alignItems: 'center',
         justifyContent: 'center'
       }}>
-            <Icon size={16} color={color ?? 'var(--color-primary)'} />
+            <Icon size={14} color={color ?? 'var(--color-primary)'} />
           </div>}
-        <span className={`text-text-muted ${u.fs11}`}>{label}</span>
+        <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>{label}</span>
       </div>
-      <div className="text-text" style={{
-      fontSize: 18,
-      fontWeight: 800
+      <div style={{
+      fontSize: 22,
+      fontWeight: 800,
+      color: 'var(--text-primary)',
+      lineHeight: 1.2,
+      marginTop: 2,
     }}>{value}</div>
-      {sub && <div className="text-text-dim" style={{
+      {sub && <div style={{
       fontSize: 11,
-      marginTop: 2
+      color: 'var(--text-secondary)',
+      marginTop: 'auto'
     }}>{sub}</div>}
     </div>;
 }
@@ -89,23 +94,14 @@ function SectionTitle({
 }: {
   children: React.ReactNode;
 }) {
-  return <div className="text-text-muted" style={{
-    fontSize: 13,
-    fontWeight: 600,
-    margin: '20px 0 10px'
-  }}>
-      {children}
-    </div>;
+  return <div style={sectionTitle}>{children}</div>;
 }
 function TableWrapper({
   children
 }: {
   children: React.ReactNode;
 }) {
-  return <div className="border border-border" style={{
-    overflowX: 'auto',
-    borderRadius: 12
-  }}>
+  return <div style={{ ...tableContainer, overflowX: 'auto' }}>
       <table className={s.table}>
         {children}
       </table>
@@ -251,60 +247,33 @@ function OverviewTab() {
   const netColor = data.netOperatingPosition >= 0 ? TOKENS.css.statusSuccess : TOKENS.css.statusDanger;
   return <div>
       {/* 经营净头寸 主 KPI */}
-      <div style={{
-      background: 'linear-gradient(135deg, var(--brand-deep-3) 0%, var(--status-info) 100%)',
-      borderRadius: 16,
-      padding: '24px 28px',
-      marginBottom: 20,
-      color: 'var(--bg-card)'
-    }}>
-        <div style={{
-        fontSize: 12,
-        opacity: 0.75,
-        marginBottom: 4
-      }}>经营净头寸（Net Operating Position）</div>
-        <div style={{
-        fontSize: 36,
-        fontWeight: 900,
-        letterSpacing: -1
-      }}>
+      <div style={{ ...heroBanner, flexDirection: 'column', alignItems: 'stretch' }}>
+        <div style={{ fontSize: 12, opacity: 0.78, marginBottom: 4 }}>经营净头寸（Net Operating Position）</div>
+        <div style={heroBannerKpi(36)}>
           {data.netOperatingPosition >= 0 ? '+' : ''}¥ {fmt(data.netOperatingPosition)}
         </div>
-        <div style={{
-        fontSize: 12,
-        opacity: 0.7,
-        marginTop: 6
-      }}>
+        <div style={{ fontSize: 12, opacity: 0.72, marginTop: 6 }}>
           = 现金余额 + AR待收 − AP待付 − 待报销金额
         </div>
-        <div style={{
-        display: 'flex',
-        gap: 20,
-        marginTop: 16,
-        flexWrap: 'wrap'
-      }}>
+        <div style={{ display: 'flex', gap: 18, marginTop: 14, flexWrap: 'wrap' }}>
           {[{
-          label: '今日流入',
-          value: `+¥${fmt(data.todayInflow)}`,
-          color: 'var(--status-success)'
-        }, {
-          label: '今日流出',
-          value: `-¥${fmt(data.todayOutflow)}`,
-          color: 'var(--status-danger)'
-        }, {
-          label: '今日净额',
-          value: `¥${fmt(data.todayInflow - data.todayOutflow)}`,
-          color: data.todayInflow >= data.todayOutflow ? 'var(--status-success)' : 'var(--status-danger)'
-        }].map(item => <div key={item.label} className={u.fs12}>
-              <span style={{
-            opacity: 0.6
-          }}>{item.label}</span>
-              <span style={{
-            marginLeft: 6,
-            fontWeight: 700,
-            color: item.color
-          }}>{item.value}</span>
-            </div>)}
+            label: '今日流入',
+            value: `+¥${fmt(data.todayInflow)}`,
+            color: 'var(--status-success)'
+          }, {
+            label: '今日流出',
+            value: `-¥${fmt(data.todayOutflow)}`,
+            color: 'var(--status-danger)'
+          }, {
+            label: '今日净额',
+            value: `¥${fmt(data.todayInflow - data.todayOutflow)}`,
+            color: data.todayInflow >= data.todayOutflow ? 'var(--status-success)' : 'var(--status-danger)'
+          }].map(item => (
+            <div key={item.label} style={{ fontSize: 12 }}>
+              <span style={{ opacity: 0.7 }}>{item.label}</span>
+              <span style={{ marginLeft: 6, fontWeight: 700, color: item.color }}>{item.value}</span>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -330,16 +299,12 @@ function OverviewTab() {
         flexWrap: 'wrap',
         marginBottom: 16
       }}>
-            {data.byCurrency.map(r => <div key={r.currencyCode} className="bg-bg-muted border border-border" style={{
-          borderRadius: 10,
-          padding: '10px 16px'
-        }}>
-                <div className={`text-text-muted ${u.fs11}`}>{r.currencyCode}</div>
-                <div className="text-text" style={{
-            fontSize: 16,
-            fontWeight: 800
-          }}>{fmtMoney(r.cashBalance)}</div>
-              </div>)}
+            {data.byCurrency.map(r => (
+              <div key={r.currencyCode} style={statTile}>
+                <div style={statTileLabel}>{r.currencyCode}</div>
+                <div style={statTileValue}>{fmtMoney(r.cashBalance)}</div>
+              </div>
+            ))}
           </div>
         </>}
 
@@ -629,21 +594,13 @@ function CashTab() {
         flexWrap: 'wrap',
         marginBottom: 16
       }}>
-            {overview.byAccountType.map(r => <div key={r.accountType} className="bg-bg-muted border border-border" style={{
-          borderRadius: 10,
-          padding: '10px 16px',
-          minWidth: 140
-        }}>
-                <div className="text-text-muted" style={{
-            fontSize: 11,
-            marginBottom: 2
-          }}>{r.accountType}</div>
-                <div className="text-text" style={{
-            fontSize: 15,
-            fontWeight: 800
-          }}>{fmtMoney(r.balance)}</div>
-                <div className={`text-text-dim ${u.fs11}`}>{r.count} 个账户</div>
-              </div>)}
+            {overview.byAccountType.map(r => (
+              <div key={r.accountType} style={statTile}>
+                <div style={statTileLabel}>{r.accountType}</div>
+                <div style={statTileValue}>{fmtMoney(r.balance)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{r.count} 个账户</div>
+              </div>
+            ))}
           </div>
 
           <SectionTitle>按公司余额</SectionTitle>
@@ -834,24 +791,15 @@ function ExpenseTab() {
         flexWrap: 'wrap',
         marginBottom: 20
       }}>
-            {Object.entries(expData.byStatus).map(([status, d]) => <div key={status} className="bg-bg-muted border border-border" style={{
-          borderRadius: 10,
-          padding: '10px 16px',
-          minWidth: 130
-        }}>
-                <div style={{
-            fontSize: 11,
-            color: STATUS_COLOR[status] ?? 'var(--status-neutral)',
-            fontWeight: 700
-          }}>
+            {Object.entries(expData.byStatus).map(([status, d]) => (
+              <div key={status} style={statTile}>
+                <div style={{ ...statTileLabel, color: STATUS_COLOR[status] ?? 'var(--status-neutral)', fontWeight: 700 }}>
                   {STATUS_LABEL[status] ?? status}
                 </div>
-                <div className="text-text" style={{
-            fontSize: 16,
-            fontWeight: 800
-          }}>{d.count} 笔</div>
-                <div className={`text-text-muted ${u.fs11}`}>{fmtMoney(d.amount)}</div>
-              </div>)}
+                <div style={statTileValue}>{d.count} 笔</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{fmtMoney(d.amount)}</div>
+              </div>
+            ))}
           </div>
 
           <SectionTitle>按费用类型</SectionTitle>
@@ -903,24 +851,15 @@ function ExpenseTab() {
         flexWrap: 'wrap',
         marginBottom: 16
       }}>
-            {Object.entries(reimbData.byStatus).map(([status, d]) => <div key={status} className="bg-bg-muted border border-border" style={{
-          borderRadius: 10,
-          padding: '10px 16px',
-          minWidth: 130
-        }}>
-                <div style={{
-            fontSize: 11,
-            color: STATUS_COLOR[status] ?? 'var(--status-neutral)',
-            fontWeight: 700
-          }}>
+            {Object.entries(reimbData.byStatus).map(([status, d]) => (
+              <div key={status} style={statTile}>
+                <div style={{ ...statTileLabel, color: STATUS_COLOR[status] ?? 'var(--status-neutral)', fontWeight: 700 }}>
                   {STATUS_LABEL[status] ?? status}
                 </div>
-                <div className="text-text" style={{
-            fontSize: 16,
-            fontWeight: 800
-          }}>{d.count} 笔</div>
-                <div className={`text-text-muted ${u.fs11}`}>{fmtMoney(d.amount)}</div>
-              </div>)}
+                <div style={statTileValue}>{d.count} 笔</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{fmtMoney(d.amount)}</div>
+              </div>
+            ))}
           </div>
           {reimbData.avgProcessingDays !== null && <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300" style={{
         borderRadius: 10,
@@ -1004,21 +943,13 @@ function ShareholderTab() {
         flexWrap: 'wrap',
         marginBottom: 16
       }}>
-            {data.byContributionType.map(r => <div key={r.contributionType} className="border border-violet-200 dark:border-violet-700 bg-violet-50" style={{
-          borderRadius: 10,
-          padding: '10px 16px',
-          minWidth: 140
-        }}>
-                <div className="text-violet-700 dark:text-violet-400" style={{
-            fontSize: 11,
-            fontWeight: 700
-          }}>{r.contributionType}</div>
-                <div className="text-text" style={{
-            fontSize: 15,
-            fontWeight: 800
-          }}>{fmtMoney(r.totalAmount)}</div>
-                <div className={`text-text-muted ${u.fs11}`}>余额 {fmtMoney(r.balanceAmount)}</div>
-              </div>)}
+            {data.byContributionType.map(r => (
+              <div key={r.contributionType} style={statTile}>
+                <div style={{ ...statTileLabel, color: 'var(--color-primary)', fontWeight: 700 }}>{r.contributionType}</div>
+                <div style={statTileValue}>{fmtMoney(r.totalAmount)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>余额 {fmtMoney(r.balanceAmount)}</div>
+              </div>
+            ))}
           </div>
         </>}
 
@@ -1072,13 +1003,7 @@ function ProjectTab() {
       gap: 10,
       alignItems: 'center'
     }}>
-        <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="过滤项目代码…" className="text-text-muted border border-border bg-bg-card placeholder:text-text-dim dark:placeholder:text-text-muted" style={{
-        padding: '7px 12px',
-        borderRadius: 8,
-        fontSize: 13,
-        width: 220,
-        outline: 'none'
-      }} />
+        <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="过滤项目代码…" style={{ ...inputField, width: 220, fontSize: 13 }} />
         <span className={`text-text-dim ${u.fs12}`}>{rows.length} 个项目</span>
       </div>
 
@@ -1226,70 +1151,34 @@ export default function Finance2ReportsPage() {
   return <div>
       <PageHeader title="财务报表" subtitle="经营报表 · 账龄分析 · 资金日报 · 公司净头寸" breadcrumb={['财务管理', '经营报表']} />
 
-      {/* Phase 6 说明横幅 */}
-      <div style={{
-      background: 'linear-gradient(135deg, var(--brand-deep-3) 0%, var(--status-info) 100%)',
-      borderRadius: 14,
-      padding: '18px 24px',
-      marginBottom: 20,
-      color: 'var(--bg-card)',
-      display: 'flex',
-      alignItems: 'flex-start',
-      gap: 14
-    }}>
-        <PieChart size={22} style={{
-        marginTop: 2,
-        flexShrink: 0,
-        opacity: 0.85
-      }} />
-        <div>
-          <div style={{
-          fontWeight: 700,
-          fontSize: 15,
-          marginBottom: 4
-        }}>
-            财务管理 — 经营报表系统
-          </div>
-          <div style={{
-          fontSize: 12,
-          opacity: 0.85,
-          lineHeight: 1.7
-        }}>
+      {/* 模块说明横幅 */}
+      <div style={heroBanner}>
+        <PieChart size={22} style={{ marginTop: 2, flexShrink: 0, opacity: 0.85 }} />
+        <div style={{ flex: 1 }}>
+          <div style={heroBannerTitle}>财务管理 — 经营报表系统</div>
+          <div style={heroBannerSubtitle}>
             经营报表层 · 12 只读聚合报表 · 数据权限全程合规 · 管理报表（非会计凭证/总账）
           </div>
-          <div style={{
-          display: 'flex',
-          gap: 12,
-          marginTop: 10,
-          flexWrap: 'wrap'
-        }}>
-            {['应付账龄', '应收账龄', '资金日报', '费用统计', '股东资金', '项目维度', '公司维度'].map(t => <span key={t} style={{
-            fontSize: 11,
-            fontWeight: 600,
-            padding: '2px 8px',
-            borderRadius: 10,
-            background: 'var(--bg-muted)'
-          }}>{t}</span>)}
+          <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+            {['应付账龄', '应收账龄', '资金日报', '费用统计', '股东资金', '项目维度', '公司维度'].map(t => (
+              <span key={t} style={heroTagChip}>{t}</span>
+            ))}
           </div>
         </div>
       </div>
 
       {/* Tab 导航 */}
-      <div className="border-b-2 border-border" style={{
-      display: 'flex',
-      gap: 4,
-      marginBottom: 20,
-      paddingBottom: 0,
-      overflowX: 'auto'
-    }}>
+      <div style={subTabBar}>
         {TABS.map(tab => {
-        const active = activeTab === tab.key;
-        const Icon = tab.icon;
-        return <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={['inline-flex items-center gap-1.5 px-4 py-2.5 text-sm cursor-pointer bg-transparent border-0', 'border-b-2 -mb-0.5 whitespace-nowrap rounded-t-lg transition-colors', active ? 'text-indigo-600 dark:text-indigo-400 border-indigo-500 font-bold' : 'text-text-muted border-transparent font-medium'].join(' ')}>
+          const active = activeTab === tab.key;
+          const Icon = tab.icon;
+          return (
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={subTabItem(active)}>
               <Icon size={14} />
               {tab.label}
-            </button>;
-      })}
+            </button>
+          );
+        })}
       </div>
 
       {/* Tab 内容 */}

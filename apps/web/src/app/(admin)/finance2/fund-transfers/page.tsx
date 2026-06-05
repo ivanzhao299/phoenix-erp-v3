@@ -6,6 +6,13 @@ import { ArrowLeftRight, Plus, Search, RefreshCw, X, CheckCircle, Clock, AlertCi
 import PageHeader from '@/components/PageHeader';
 import { CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 
+import {
+  primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
+  drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
+  inlineBadge, pillBadge,
+  searchToolbar, toolbarFilterPill, toolbarSearchInput,
+  tableContainer,
+} from '@/components/design-system/cockpit-styles';
 // ── Auth helper ───────────────────────────────────────────────────────────────
 function getToken() {
   if (typeof window === 'undefined') return '';
@@ -173,21 +180,8 @@ function CreateTransferModal({
     }
   }
   const selectClass = "w-full px-3 py-2 rounded-lg text-sm border border-border bg-bg-page text-text outline-none focus:border-emerald-400 box-border";
-  return <div style={{
-    position: 'fixed',
-    inset: 0,
-    background: 'var(--overlay-black-45)',
-    zIndex: 1000,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  }}>
-      <div className="bg-bg-card" style={{
-      borderRadius: 16,
-      padding: 28,
-      width: 480,
-      boxShadow: '0 20px 60px var(--overlay-black-20)'
-    }}>
+  return <div style={modalMask}>
+      <div style={modalPanel(480)} onClick={e => e.stopPropagation()}>
         <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -332,50 +326,40 @@ export default function FundTransfersPage() {
     }
   }
   return <div>
-      <PageHeader title="资金转账" subtitle="账户间内部资金划转，5 状态审批工作流" breadcrumb={['财务管理', '资金转账']} actions={<button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white border-none cursor-pointer transition-colors">
+      <PageHeader title="资金转账" subtitle="账户间内部资金划转，5 状态审批工作流" breadcrumb={['财务管理', '资金转账']} actions={<button onClick={() => setShowCreate(true)} style={primaryActionButton}>
             <Plus size={15} /> 新建转账
           </button>} />
 
-      {/* 状态筛选 */}
-      <div style={{
-      display: 'flex',
-      gap: 10,
-      alignItems: 'center',
-      marginBottom: 18,
-      flexWrap: 'wrap'
-    }}>
-        <div style={{
-        position: 'relative',
-        flex: 1,
-        minWidth: 180
-      }}>
-          <Search size={14} className="text-text-dim absolute left-2.5 top-1/2 -translate-y-1/2" />
-          <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索单号/账户名称…" className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full pl-8" />
+      {/* 状态筛选 工具栏 */}
+      <div style={searchToolbar}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+          <Search size={14} color="var(--text-secondary)" style={{
+            position: 'absolute',
+            left: 12,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            pointerEvents: 'none',
+          }} />
+          <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索单号/账户名称…" style={{ ...inputField, paddingLeft: 34, fontSize: 13 }} />
         </div>
 
-        <div style={{
-        display: 'flex',
-        gap: 6
-      }}>
-          {[{
+        {[{
           k: '',
           v: '全部状态'
         }, ...Object.entries(STATUS_CONFIG).map(([k, c]) => ({
           k,
           v: c.label
-        }))].map(({
-          k,
-          v
-        }) => <button key={k} onClick={() => setStatusFilter(k)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border transition-colors ${statusFilter === k ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'border-border bg-bg-card text-text-muted hover:bg-bg-muted'}`}>
-              {v}
-            </button>)}
-        </div>
+        }))].map(({ k, v }) => (
+          <button key={k} onClick={() => setStatusFilter(k)} style={toolbarFilterPill(statusFilter === k)}>
+            {v}
+          </button>
+        ))}
 
-        <button onClick={() => void load()} disabled={loading} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted cursor-pointer transition-colors disabled:opacity-40">
-          <RefreshCw size={14} className="block" />
+        <button onClick={() => void load()} disabled={loading} style={secondaryActionButton}>
+          <RefreshCw size={14} />
         </button>
 
-        <span className={`text-text-muted ${u.fs12}`}>共 {total} 条</span>
+        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>共 {total} 条</span>
       </div>
 
       {/* 转账列表 */}

@@ -6,6 +6,13 @@ import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/design-system';
 import { CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 
+import {
+  primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
+  drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
+  inlineBadge, pillBadge,
+  searchToolbar, toolbarFilterPill,
+  tableContainer,
+} from '@/components/design-system/cockpit-styles';
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
 interface Reimbursement {
@@ -149,20 +156,8 @@ function PayModal({
     }
   };
   const selected = selectedAccRaw;
-  return <div style={{
-    position: 'fixed',
-    inset: 0,
-    background: 'var(--overlay-black-45)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000
-  }}>
-      <div className="bg-bg-card" style={{
-      borderRadius: 16,
-      padding: 28,
-      width: 420
-    }}>
+  return <div style={modalMask}>
+      <div style={modalPanel(420)} onClick={e => e.stopPropagation()}>
         <div className="text-text" style={{
         fontWeight: 800,
         fontSize: 16,
@@ -286,10 +281,8 @@ export default function ReimbursementsPage() {
     }
   };
   return <div>
-      <PageHeader title="报销管理" subtitle="报销台账 · 付款审批 · 资金账户联动" breadcrumb={['财务管理', '报销管理']} actions={<button onClick={() => void load()} disabled={loading} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted cursor-pointer transition-colors disabled:opacity-50">
-            <RefreshCw size={13} style={{
-        animation: loading ? 'spin 1s linear infinite' : 'none'
-      }} /> 刷新
+      <PageHeader title="报销管理" subtitle="报销台账 · 付款审批 · 资金账户联动" breadcrumb={['财务管理', '报销管理']} actions={<button onClick={() => void load()} disabled={loading} style={secondaryActionButton}>
+            <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
           </button>} />
 
       {/* KPI 快览 */}
@@ -340,16 +333,12 @@ export default function ReimbursementsPage() {
             </div>)}
         </div>}
 
-      {/* 筛选 */}
-      <div style={{
-      display: 'flex',
-      gap: 10,
-      marginBottom: 16
-    }}>
+      {/* 筛选 工具栏 */}
+      <div style={searchToolbar}>
         <select value={statusFilter} onChange={e => {
         setStatusFilter(e.target.value);
         setPage(1);
-      }} className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text-muted outline-none focus:border-emerald-400">
+      }} style={{ ...inputField, width: 'auto', padding: '6px 12px', fontSize: 13 }}>
           <option value="">全部状态</option>
           {Object.entries(STATUS_CFG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
@@ -360,10 +349,7 @@ export default function ReimbursementsPage() {
         </div>}
 
       {/* 列表 */}
-      <div className="bg-bg-card border border-border" style={{
-      borderRadius: 14,
-      overflow: 'hidden'
-    }}>
+      <div style={tableContainer}>
         {loading && <div className="text-text-muted" style={{
         padding: 32,
         textAlign: 'center'
@@ -440,7 +426,7 @@ export default function ReimbursementsPage() {
             gap: 6,
             flexShrink: 0
           }}>
-                {['PENDING', 'APPROVED'].includes(item.status) && <button onClick={() => setPayTarget(item)} disabled={isActing} className="px-3 py-1 rounded-lg border-0 bg-indigo-500 text-white text-xs font-bold cursor-pointer hover:bg-indigo-600 transition-colors disabled:opacity-50">
+                {['PENDING', 'APPROVED'].includes(item.status) && <button onClick={() => setPayTarget(item)} disabled={isActing} style={primaryActionButton}>
                     付款
                   </button>}
                 {item.status === 'PENDING' && <button onClick={() => void actionPost(item.id, 'approve-direct')} disabled={isActing} className="px-3 py-1 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-success/10 text-emerald-700 dark:text-emerald-400 text-xs font-bold cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-50">

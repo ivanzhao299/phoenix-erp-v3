@@ -234,6 +234,86 @@ export const formLabel: CSSProperties = {
   fontWeight: 500,
 };
 
+// ── Drawer / Modal mask（毛玻璃覆盖层；zIndex > sidebar 10001） ──
+export const drawerMask: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  background: 'var(--overlay-mask)',
+  zIndex: 10010,
+  display: 'flex',
+  justifyContent: 'flex-end',
+};
+
+// ── Drawer 右侧滑出面板 ─────────────────────────────────
+export const drawerPanel = (width: number = 460): CSSProperties => ({
+  width,
+  maxWidth: '95vw',
+  background: 'var(--bg-card)',
+  height: '100%',
+  overflowY: 'auto',
+  padding: 24,
+  boxShadow: '0 0 40px var(--overlay-black-25)',
+});
+
+// ── Drawer 顶部 header（title + 关闭按钮） ─────────────
+export const drawerHeader: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginBottom: 20,
+  paddingBottom: 14,
+  borderBottom: '1px solid var(--border)',
+};
+
+export const drawerHeaderTitle: CSSProperties = {
+  margin: 0,
+  fontSize: 16,
+  fontWeight: 700,
+  color: 'var(--text-primary)',
+};
+
+export const drawerCloseButton: CSSProperties = {
+  background: 'transparent',
+  border: 'none',
+  cursor: 'pointer',
+  color: 'var(--text-secondary)',
+  padding: 4,
+  borderRadius: 6,
+  display: 'inline-flex',
+};
+
+// ── Drawer footer（取消 / 确认 按钮组） ─────────────────
+export const drawerFooter: CSSProperties = {
+  display: 'flex',
+  gap: 10,
+  marginTop: 24,
+  paddingTop: 16,
+  borderTop: '1px solid var(--border)',
+};
+
+// ── 中央 Modal mask（dialog 风格，居中显示） ────────────
+export const modalMask: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  background: 'var(--overlay-black-45)',
+  zIndex: 10010,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+};
+
+// ── 中央 Modal panel（cardbox 风格） ───────────────────
+export const modalPanel = (width: number = 480): CSSProperties => ({
+  width,
+  maxWidth: '95vw',
+  maxHeight: '90vh',
+  overflowY: 'auto',
+  background: 'var(--bg-card)',
+  borderRadius: 14,
+  padding: 28,
+  boxShadow: '0 20px 60px var(--overlay-black-25)',
+});
+
 // ── 内联 badge（label/value 中表示"未指定"等状态） ───
 export const inlineBadge = (tone: 'default' | 'success' | 'warning' | 'danger' = 'default'): CSSProperties => ({
   display: 'inline-block',
@@ -280,4 +360,241 @@ export const pillBadgeWithTone = (tone: 'default' | 'success' | 'warning' | 'dan
   };
   const t = TONE[tone];
   return { ...pillBadge, background: t.bg, color: t.fg, borderColor: t.border };
+};
+
+// ── 搜索 / 筛选工具栏（卡片样式，统一搜索区） ────────
+export const searchToolbar: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  flexWrap: 'wrap',
+  padding: '14px 16px',
+  background: 'var(--bg-card)',
+  border: '1px solid var(--border)',
+  borderRadius: 12,
+  marginBottom: 16,
+};
+
+// ── 工具栏内筛选 pill（active / inactive） ───────────
+export const toolbarFilterPill = (active: boolean): CSSProperties => ({
+  padding: '6px 14px',
+  borderRadius: 100,
+  fontSize: 12,
+  fontWeight: active ? 700 : 500,
+  cursor: 'pointer',
+  border: '1px solid',
+  borderColor: active ? 'var(--color-primary)' : 'var(--border)',
+  background: active ? 'var(--color-primary)' : 'var(--bg-card)',
+  color: active ? 'var(--text-on-dark, white)' : 'var(--text-secondary)',
+  transition: 'all 0.12s',
+  lineHeight: 1.4,
+});
+
+// ── 工具栏内搜索输入框（高度对齐按钮） ───────────
+export const toolbarSearchInput: CSSProperties = {
+  ...inputField,
+  width: 240,
+  padding: '8px 14px',
+  fontSize: 13,
+};
+
+// ── 表格容器（与工具栏统一边框 / 间距） ───────────
+export const tableContainer: CSSProperties = {
+  background: 'var(--bg-card)',
+  border: '1px solid var(--border)',
+  borderRadius: 12,
+  overflow: 'hidden',
+};
+
+// ── 表格表头单元格 ───────────────────────────────
+export const tableHeaderCell: CSSProperties = {
+  padding: '12px 14px',
+  textAlign: 'left',
+  fontSize: 12,
+  fontWeight: 700,
+  color: 'var(--text-secondary)',
+  background: 'var(--bg-muted)',
+  borderBottom: '1px solid var(--border)',
+  textTransform: 'uppercase',
+  letterSpacing: 0.3,
+  whiteSpace: 'nowrap',
+};
+
+// ── 表格数据单元格 ───────────────────────────────
+export const tableBodyCell: CSSProperties = {
+  padding: '12px 14px',
+  fontSize: 13,
+  color: 'var(--text-primary)',
+  borderBottom: '1px solid var(--border)',
+  verticalAlign: 'middle',
+};
+
+// ── 标签页 Tab 容器 + Tab 项 ──────────────────────
+export const tabBar: CSSProperties = {
+  display: 'flex',
+  gap: 0,
+  borderBottom: '1px solid var(--border)',
+  marginBottom: 16,
+};
+
+export const tabItem = (active: boolean): CSSProperties => ({
+  padding: '12px 22px',
+  fontSize: 13,
+  fontWeight: active ? 700 : 500,
+  color: active ? 'var(--color-primary)' : 'var(--text-secondary)',
+  background: 'transparent',
+  border: 'none',
+  borderBottom: active ? '2px solid var(--color-primary)' : '2px solid transparent',
+  marginBottom: -1,
+  cursor: 'pointer',
+  transition: 'color 0.12s',
+});
+
+// ── Hero Banner（渐变标题卡，主页/报表/模块入口共用） ──
+export const heroBanner: CSSProperties = {
+  background: 'linear-gradient(135deg, var(--brand-deep-3) 0%, var(--status-info) 100%)',
+  borderRadius: 16,
+  padding: '22px 26px',
+  marginBottom: 20,
+  color: 'var(--text-on-dark, #fff)',
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: 16,
+  boxShadow: '0 4px 16px var(--overlay-black-08)',
+};
+
+export const heroBannerTitle: CSSProperties = {
+  fontWeight: 700,
+  fontSize: 16,
+  marginBottom: 4,
+  letterSpacing: 0.2,
+};
+
+export const heroBannerSubtitle: CSSProperties = {
+  fontSize: 12.5,
+  opacity: 0.88,
+  lineHeight: 1.7,
+};
+
+export const heroBannerKpi = (heroBig: number = 32): CSSProperties => ({
+  fontSize: heroBig,
+  fontWeight: 900,
+  letterSpacing: -0.5,
+  lineHeight: 1.1,
+});
+
+// 渐变 hero 内部的 tag chips
+export const heroTagChip: CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  padding: '3px 10px',
+  borderRadius: 100,
+  background: 'rgba(255,255,255,0.18)',
+  color: 'var(--text-on-dark, #fff)',
+  letterSpacing: 0.2,
+};
+
+// ── 子 Tab 导航（含图标，与 tabBar 并列共用） ──────
+export const subTabBar: CSSProperties = {
+  display: 'flex',
+  gap: 4,
+  marginBottom: 20,
+  borderBottom: '1px solid var(--border)',
+  overflowX: 'auto',
+};
+
+export const subTabItem = (active: boolean): CSSProperties => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  padding: '10px 16px',
+  fontSize: 13,
+  fontWeight: active ? 700 : 500,
+  color: active ? 'var(--color-primary)' : 'var(--text-secondary)',
+  background: 'transparent',
+  border: 'none',
+  borderBottom: active ? '2px solid var(--color-primary)' : '2px solid transparent',
+  marginBottom: -1,
+  whiteSpace: 'nowrap',
+  cursor: 'pointer',
+  borderRadius: '8px 8px 0 0',
+  transition: 'color 0.12s',
+});
+
+// ── 小标题（卡片区段 / TableWrapper 头部） ──────────
+export const sectionTitle: CSSProperties = {
+  fontSize: 13,
+  fontWeight: 600,
+  color: 'var(--text-secondary)',
+  margin: '20px 0 10px',
+  letterSpacing: 0.3,
+};
+
+// ── 列表式数据卡片（Reports/SHF 的统计 mini-card） ──
+export const statTile: CSSProperties = {
+  background: 'var(--bg-muted)',
+  border: '1px solid var(--border)',
+  borderRadius: 10,
+  padding: '12px 16px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 4,
+  minWidth: 120,
+};
+
+export const statTileLabel: CSSProperties = {
+  fontSize: 11,
+  color: 'var(--text-secondary)',
+  fontWeight: 500,
+};
+
+export const statTileValue: CSSProperties = {
+  fontSize: 16,
+  fontWeight: 800,
+  color: 'var(--text-primary)',
+};
+
+// ── 业务列表行卡片（SHF 出资 / 转账 / 报销） ────────
+export const businessListCard = (tone: 'default' | 'success' | 'warning' | 'danger' | 'info' = 'default'): CSSProperties => {
+  const TONE: Record<string, string> = {
+    default: 'var(--border)',
+    success: 'var(--status-success)',
+    warning: 'var(--status-warning)',
+    danger:  'var(--status-danger)',
+    info:    'var(--status-info)',
+  };
+  return {
+    background: 'var(--bg-card)',
+    borderRadius: 14,
+    border: `1px solid ${TONE[tone]}`,
+    padding: '16px 20px',
+    cursor: 'pointer',
+    transition: 'box-shadow 0.12s',
+  };
+};
+
+// ── 表格分页栏（与表头表体对齐 padding） ──────────
+export const tablePagination: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: '16px 20px',
+  fontSize: 13,
+  color: 'var(--text-secondary)',
+  borderTop: '1px solid var(--border)',
+  background: 'var(--bg-card)',
+};
+
+// ── KPI 卡片（统一 padding 充足、不挤） ──────────
+export const kpiCard: CSSProperties = {
+  background: 'var(--bg-card)',
+  border: '1px solid var(--border)',
+  borderRadius: 12,
+  padding: '16px 18px',
+  boxShadow: '0 1px 4px var(--overlay-black-04)',
+  minHeight: 96,
+  boxSizing: 'border-box',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 6,
 };

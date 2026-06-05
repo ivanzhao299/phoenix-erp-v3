@@ -8,6 +8,14 @@ import s from "@/components/ui/admin-ui.module.css";
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector, CustomerSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 
+import {
+  primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
+  drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
+  inlineBadge, pillBadge,
+  searchToolbar, toolbarFilterPill, toolbarSearchInput,
+  tableContainer, tableHeaderCell, tableBodyCell, tablePagination,
+  tabBar, tabItem, kpiCard,
+} from '@/components/design-system/cockpit-styles';
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
 interface ArInvoice {
@@ -217,36 +225,31 @@ function KpiCard({
   color: string;
   loading: boolean;
 }) {
-  return <div className="bg-bg-card border border-border" style={{
-    borderRadius: 12,
-    padding: '14px 16px',
-    boxShadow: '0 1px 4px var(--overlay-black-04)',
-    minHeight: 112,
-    boxSizing: 'border-box'
-  }}>
+  return <div style={kpiCard}>
       <div style={{
       display: 'flex',
       alignItems: 'center',
-      gap: 8,
-      marginBottom: 6
+      gap: 8
     }}>
-        <Icon size={15} color={color} />
-        <span className={`text-text-muted ${u.fs11}`}>{label}</span>
+        <Icon size={14} color={color} />
+        <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>{label}</span>
       </div>
-      <div className="text-text" style={{
-      fontSize: 17,
-      fontWeight: 800
+      <div style={{
+      fontSize: 22,
+      fontWeight: 800,
+      color: 'var(--text-primary)',
+      lineHeight: 1.2,
+      marginTop: 2,
     }}>{loading ? '…' : value}</div>
-      {sub && !loading && <div className="text-text-muted" style={{
+      {sub && !loading && <div style={{
       fontSize: 11,
-      marginTop: 2
+      color: 'var(--text-secondary)',
+      marginTop: 'auto',
     }}>{sub}</div>}
     </div>;
 }
 
 // ── Modal 通用 input className ────────────────────────────────────────────────
-
-const INP_CLASS = 'w-full px-3 py-2 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 dark:focus:border-emerald-500 box-border';
 
 // ── 创建 AR Modal ─────────────────────────────────────────────────────────────
 
@@ -314,22 +317,8 @@ function CreateArModal({
       setSaving(false);
     }
   };
-  return <div style={{
-    position: 'fixed',
-    inset: 0,
-    background: 'var(--overlay-black-45)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000
-  }}>
-      <div className="bg-bg-card" style={{
-      borderRadius: 16,
-      width: 480,
-      maxWidth: '95vw',
-      padding: 28,
-      boxShadow: '0 20px 60px var(--overlay-black-15)'
-    }}>
+  return <div style={modalMask}>
+      <div style={modalPanel(480)} onClick={e => e.stopPropagation()}>
         <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -355,20 +344,20 @@ function CreateArModal({
           gap: 10
         }}>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">
+              <label style={formLabel}>
                 公司 <span className="text-red-500">*</span>
               </label>
               {/* G4-A：从 org_units(COMPANY) 主数据加载，DataScope 自动过滤 */}
               <CompanySelector value={form.companyCode} onChange={v => set('companyCode', v)} onPick={o => set('companyName', o?.label ?? '')} />
             </div>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">货币</label>
+              <label style={formLabel}>货币</label>
               {/* G4-A：货币枚举来自 sys_dict(SYS_CURRENCY) */}
               <DictSelect dictType="SYS_CURRENCY" value={form.currencyCode} onChange={v => set('currencyCode', v)} allowEmpty={false} />
             </div>
           </div>
           <div>
-            <label className="block mb-1 text-xs font-semibold text-text-muted">
+            <label style={formLabel}>
               客户 <span className="text-red-500">*</span>
             </label>
             {/* G4-A：从客户主数据(仅ACTIVE)选择，自动带出名称 */}
@@ -380,14 +369,14 @@ function CreateArModal({
           gap: 10
         }}>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">
+              <label style={formLabel}>
                 发票金额 <span className="text-red-500">*</span>
               </label>
-              <input className={INP_CLASS} type="number" min="0" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" />
+              <input style={inputField} type="number" min="0" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" />
             </div>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">发票号</label>
-              <input className={INP_CLASS} value={form.invoiceNo} onChange={e => set('invoiceNo', e.target.value)} placeholder="可选" />
+              <label style={formLabel}>发票号</label>
+              <input style={inputField} value={form.invoiceNo} onChange={e => set('invoiceNo', e.target.value)} placeholder="可选" />
             </div>
           </div>
           <div style={{
@@ -396,20 +385,18 @@ function CreateArModal({
           gap: 10
         }}>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">发票日期</label>
-              <input className={INP_CLASS} type="date" value={form.invoiceDate} onChange={e => set('invoiceDate', e.target.value)} />
+              <label style={formLabel}>发票日期</label>
+              <input style={inputField} type="date" value={form.invoiceDate} onChange={e => set('invoiceDate', e.target.value)} />
             </div>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">到期日</label>
-              <input className={INP_CLASS} type="date" value={form.dueDate} onChange={e => set('dueDate', e.target.value)} />
+              <label style={formLabel}>到期日</label>
+              <input style={inputField} type="date" value={form.dueDate} onChange={e => set('dueDate', e.target.value)} />
             </div>
           </div>
           <div>
-            <label className="block mb-1 text-xs font-semibold text-text-muted">备注</label>
-            <textarea className={INP_CLASS} style={{
-            resize: 'none',
-            height: 56
-          }} value={form.remark} onChange={e => set('remark', e.target.value)} />
+            <label style={formLabel}>备注</label>
+            <textarea style={{ ...inputField, resize: 'none',
+            height: 56 }} value={form.remark} onChange={e => set('remark', e.target.value)} />
           </div>
           {err && <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger flex items-center gap-2">
               <AlertCircle size={13} /> {err}
@@ -517,22 +504,8 @@ function CreateReceiptModal({
       setSaving(false);
     }
   };
-  return <div style={{
-    position: 'fixed',
-    inset: 0,
-    background: 'var(--overlay-black-45)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000
-  }}>
-      <div className="bg-bg-card" style={{
-      borderRadius: 16,
-      width: 500,
-      maxWidth: '95vw',
-      padding: 28,
-      boxShadow: '0 20px 60px var(--overlay-black-15)'
-    }}>
+  return <div style={modalMask}>
+      <div style={modalPanel(500)} onClick={e => e.stopPropagation()}>
         <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -565,17 +538,17 @@ function CreateReceiptModal({
           gap: 10
         }}>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">公司 *</label>
+              <label style={formLabel}>公司 *</label>
               {/* G4-A：公司主数据，DataScope 自动过滤 */}
               <CompanySelector value={form.companyCode} onChange={v => set('companyCode', v)} onPick={o => set('companyName', o?.label ?? '')} />
             </div>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">货币</label>
+              <label style={formLabel}>货币</label>
               <DictSelect dictType="SYS_CURRENCY" value={form.currencyCode} onChange={v => set('currencyCode', v)} allowEmpty={false} />
             </div>
           </div>
           <div>
-            <label className="block mb-1 text-xs font-semibold text-text-muted">客户 *</label>
+            <label style={formLabel}>客户 *</label>
             {/* G4-A：客户主数据，自动带出名称 */}
             <CustomerSelector value={form.customerCode} onChange={v => set('customerCode', v)} onPick={o => set('customerName', o?.raw?.name ?? o?.label ?? '')} />
           </div>
@@ -585,12 +558,12 @@ function CreateReceiptModal({
           gap: 10
         }}>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">收款金额 *</label>
-              <input className={INP_CLASS} type="number" min="0.01" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} />
+              <label style={formLabel}>收款金额 *</label>
+              <input style={inputField} type="number" min="0.01" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} />
             </div>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">收款日期 *</label>
-              <input className={INP_CLASS} type="date" value={form.receiptDate} onChange={e => set('receiptDate', e.target.value)} />
+              <label style={formLabel}>收款日期 *</label>
+              <input style={inputField} type="date" value={form.receiptDate} onChange={e => set('receiptDate', e.target.value)} />
             </div>
           </div>
           <div style={{
@@ -599,26 +572,24 @@ function CreateReceiptModal({
           gap: 10
         }}>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">收款方式</label>
+              <label style={formLabel}>收款方式</label>
               {/* G4-A：收款方式枚举来自 sys_dict(FIN_RECEIPT_METHOD) */}
               <DictSelect dictType="FIN_RECEIPT_METHOD" value={form.receiptMethod} onChange={v => set('receiptMethod', v)} placeholder="请选择收款方式" />
             </div>
             <div>
-              <label className="block mb-1 text-xs font-semibold text-text-muted">收款账户</label>
+              <label style={formLabel}>收款账户</label>
               {/* G4-A：从资金账户主数据(仅ACTIVE)选择，value=account_code */}
               <CashAccountSelector value={form.receivedAccountCode} onChange={v => set('receivedAccountCode', v)} currencyCode={form.currencyCode} />
             </div>
           </div>
           <div>
-            <label className="block mb-1 text-xs font-semibold text-text-muted">银行流水号</label>
-            <input className={INP_CLASS} value={form.bankRef} onChange={e => set('bankRef', e.target.value)} placeholder="可选" />
+            <label style={formLabel}>银行流水号</label>
+            <input style={inputField} value={form.bankRef} onChange={e => set('bankRef', e.target.value)} placeholder="可选" />
           </div>
           <div>
-            <label className="block mb-1 text-xs font-semibold text-text-muted">备注</label>
-            <textarea className={INP_CLASS} style={{
-            resize: 'none',
-            height: 52
-          }} value={form.remark} onChange={e => set('remark', e.target.value)} />
+            <label style={formLabel}>备注</label>
+            <textarea style={{ ...inputField, resize: 'none',
+            height: 52 }} value={form.remark} onChange={e => set('remark', e.target.value)} />
           </div>
           {selectedAr && <div className="bg-info/10 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
               提交后将自动核销到 <strong>{selectedAr.ar_no}</strong>（草稿 → 立即确认）
@@ -687,16 +658,7 @@ function ArDetailDrawer({
     }
   };
   const canCancel = detail && !['RECEIVED', 'CANCELLED', 'WRITTEN_OFF'].includes(detail.status) && Number(detail.received_amount_original) === 0;
-  return <div style={{
-    position: 'fixed',
-    inset: 0,
-    background: 'var(--overlay-black-25)',
-    zIndex: 900,
-    display: 'flex',
-    justifyContent: 'flex-end'
-  }} onClick={e => {
-    if (e.target === e.currentTarget) onClose();
-  }}>
+  return <div style={drawerMask}>
       <div className="bg-bg-card" style={{
       width: 480,
       maxWidth: '95vw',
@@ -1006,19 +968,13 @@ export default function Finance2ArPage() {
       display: 'flex',
       gap: 8
     }}>
-            <button onClick={() => {
-        loadInvoices(1);
-        loadSummary();
-      }} disabled={invLoading} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted cursor-pointer transition-colors">
-              <RefreshCw size={13} style={{
-          animation: invLoading ? 'spin 1s linear infinite' : 'none'
-        }} />
-              刷新
+            <button onClick={() => { loadInvoices(1); loadSummary(); }} disabled={invLoading} style={secondaryActionButton}>
+              <RefreshCw size={13} style={{ animation: invLoading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
             </button>
-            <button onClick={() => setShowReceipt(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-700 bg-success/10 text-sm font-semibold text-emerald-700 dark:text-emerald-300 cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors">
+            <button onClick={() => setShowReceipt(true)} style={secondaryActionButton}>
               <Receipt size={13} /> 录入收款
             </button>
-            <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-0 bg-emerald-500 text-sm font-semibold text-white cursor-pointer hover:bg-emerald-600 transition-colors">
+            <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
               <Plus size={13} /> 新建 AR
             </button>
           </div>} />
@@ -1039,7 +995,7 @@ export default function Finance2ArPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b-2 border-border flex gap-0 mb-4">
+      <div style={tabBar}>
         {([{
         key: 'invoices',
         label: '应收账单'
@@ -1052,16 +1008,18 @@ export default function Finance2ArPage() {
       }] as {
         key: TabKey;
         label: string;
-      }[]).map(t => <button key={t.key} onClick={() => setTab(t.key)} className={`px-5 py-2.5 text-sm font-medium border-b-2 cursor-pointer transition-colors bg-transparent border-x-0 border-t-0 -mb-0.5 ${tab === t.key ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500' : 'text-text-muted border-transparent hover:text-text dark:hover:text-slate-200'}`}>
-            {t.label}
-          </button>)}
+      }[]).map(t => (
+        <button key={t.key} onClick={() => setTab(t.key)} style={tabItem(tab === t.key)}>
+          {t.label}
+        </button>
+      ))}
       </div>
 
       {/* ── Tab: 应收账单 ── */}
       {tab === 'invoices' && <>
-          {/* 筛选 */}
-          <div className="bg-bg-card border border-border flex gap-2 flex-wrap items-center mb-3 px-3.5 py-2.5 rounded-xl">
-            <Filter size={14} className="text-text-dim" />
+          {/* 筛选 + 搜索 工具栏 */}
+          <div style={searchToolbar}>
+            <Filter size={14} color="var(--text-secondary)" />
             {[{
           key: 'OPEN',
           label: '未收款'
@@ -1077,37 +1035,32 @@ export default function Finance2ArPage() {
         }, {
           key: 'CANCELLED',
           label: '已取消'
-        }].map(s => <button key={s.key} onClick={() => {
-          setStatus(p => p === s.key ? '' : s.key);
-          setInvPage(1);
-        }} className={`px-3 py-1 rounded-full text-xs cursor-pointer font-medium transition-colors border-0 ${status === s.key ? 'bg-emerald-600 text-white font-bold' : 'bg-bg-muted text-text-muted hover:bg-bg-muted dark:hover:bg-slate-600'}`}>
-                {s.label}
-              </button>)}
-            <div className={u.flex1} />
-            <div style={{
-          display: 'flex',
-          gap: 6
-        }}>
-              <input value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (setKeyword(searchInput.trim()), setInvPage(1))} placeholder="AR编号 / 客户 / 发票号…" className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 dark:focus:border-emerald-500 w-52" />
+        }].map(sItem => (
+          <button key={sItem.key} onClick={() => {
+            setStatus(p => p === sItem.key ? '' : sItem.key);
+            setInvPage(1);
+          }} style={toolbarFilterPill(status === sItem.key)}>
+            {sItem.label}
+          </button>
+        ))}
+            <div style={{ flex: 1 }} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (setKeyword(searchInput.trim()), setInvPage(1))} placeholder="AR编号 / 客户 / 发票号…" style={toolbarSearchInput} />
               <button onClick={() => {
             setKeyword(searchInput.trim());
             setInvPage(1);
-          }} className="px-3 py-1.5 rounded-lg text-sm bg-emerald-500 text-white border-0 cursor-pointer hover:bg-emerald-600 flex items-center gap-1 transition-colors">
+          }} style={primaryActionButton}>
                 <Search size={13} /> 搜索
               </button>
             </div>
           </div>
 
-          {invError && <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 mb-3 text-sm text-danger flex items-center gap-2">
+          {invError && <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 mb-4 text-sm text-danger flex items-center gap-2">
               <AlertTriangle size={14} /> {invError}
             </div>}
 
           {/* 表格 */}
-          <div className="bg-bg-card border border-border" style={{
-        borderRadius: 12,
-        overflow: 'hidden',
-        boxShadow: '0 1px 4px var(--overlay-black-04)'
-      }}>
+          <div style={tableContainer}>
             <div className={u.scrollX}>
               <table className={s.table}>
                 <thead>
@@ -1154,7 +1107,7 @@ export default function Finance2ArPage() {
                 </tbody>
               </table>
             </div>
-            <div className="border-t border-border text-text-muted flex justify-between items-center px-4 py-3 text-sm">
+            <div style={tablePagination}>
               <span>共 {invTotal} 条（第 {invPage} / {invTotalPages} 页）</span>
               <div style={{
             display: 'flex',
@@ -1183,11 +1136,7 @@ export default function Finance2ArPage() {
         </>}
 
       {/* ── Tab: 收款记录 ── */}
-      {tab === 'receipts' && <div className="bg-bg-card border border-border" style={{
-      borderRadius: 12,
-      overflow: 'hidden',
-      boxShadow: '0 1px 4px var(--overlay-black-04)'
-    }}>
+      {tab === 'receipts' && <div style={tableContainer}>
           <div className={u.scrollX}>
             <table className={s.table}>
               <thead>
@@ -1227,7 +1176,7 @@ export default function Finance2ArPage() {
               </tbody>
             </table>
           </div>
-          <div className="border-t border-border text-text-muted flex justify-between items-center px-4 py-3 text-sm">
+          <div style={tablePagination}>
             <span>共 {recTotal} 条</span>
             <div style={{
           display: 'flex',
@@ -1310,10 +1259,7 @@ export default function Finance2ArPage() {
               </div>
 
               {/* 客户明细 */}
-              <div className="bg-bg-card border border-border" style={{
-          borderRadius: 12,
-          overflow: 'hidden'
-        }}>
+              <div style={tableContainer}>
                 <div className="border-b border-border text-text-muted px-4 py-3 text-sm font-semibold">
                   客户账龄明细（截至 {new Date().toLocaleDateString('zh-CN')}）
                 </div>

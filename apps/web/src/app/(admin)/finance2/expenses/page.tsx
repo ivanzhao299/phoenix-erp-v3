@@ -8,6 +8,13 @@ import { StatusBadge } from '@/components/design-system';
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector } from '@/components/shared-selectors/MasterDataSelectors';
 
+import {
+  primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
+  drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
+  inlineBadge, pillBadge,
+  searchToolbar, toolbarFilterPill, toolbarSearchInput,
+  tableContainer, tablePagination,
+} from '@/components/design-system/cockpit-styles';
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 
 interface ExpenseRequest {
@@ -172,22 +179,8 @@ function CreateExpenseModal({
   }))} className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full" style={{
     boxSizing: 'border-box'
   }} />;
-  return <div style={{
-    position: 'fixed',
-    inset: 0,
-    background: 'var(--overlay-black-45)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000
-  }}>
-      <div className="bg-bg-card" style={{
-      borderRadius: 16,
-      padding: 28,
-      width: 460,
-      maxHeight: '90vh',
-      overflowY: 'auto'
-    }}>
+  return <div style={modalMask}>
+      <div style={modalPanel(460)} onClick={e => e.stopPropagation()}>
         <div className="text-text" style={{
         fontWeight: 800,
         fontSize: 16,
@@ -358,7 +351,7 @@ function ExpenseDrawer({
       marginBottom: 16,
       flexWrap: 'wrap'
     }}>
-        {data.status === 'DRAFT' && <button onClick={() => void action(`/api/v2/finance/expenses/${id}/submit`)} disabled={acting} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-0 bg-indigo-500 text-white text-xs font-bold cursor-pointer hover:bg-indigo-600 transition-colors disabled:opacity-50">
+        {data.status === 'DRAFT' && <button onClick={() => void action(`/api/v2/finance/expenses/${id}/submit`)} disabled={acting} style={primaryActionButton}>
             <Send size={13} /> 提交审批
           </button>}
         {['DRAFT', 'REJECTED'].includes(data.status) && <button onClick={() => void action(`/api/v2/finance/expenses/${id}/cancel`)} disabled={acting} className="px-3 py-1.5 rounded-lg border border-danger/20 bg-danger/10 text-danger text-xs font-bold cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50">
@@ -493,12 +486,10 @@ export default function ExpensesPage() {
       display: 'flex',
       gap: 8
     }}>
-            <button onClick={() => void load()} disabled={loading} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted cursor-pointer transition-colors disabled:opacity-50">
-              <RefreshCw size={13} style={{
-          animation: loading ? 'spin 1s linear infinite' : 'none'
-        }} /> 刷新
+            <button onClick={() => void load()} disabled={loading} style={secondaryActionButton}>
+              <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
             </button>
-            <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-0 bg-indigo-500 text-white text-sm font-bold cursor-pointer hover:bg-indigo-600 transition-colors">
+            <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
               <Plus size={13} /> 新建申请
             </button>
           </div>} />
@@ -551,17 +542,12 @@ export default function ExpensesPage() {
             </div>)}
         </div>}
 
-      {/* 筛选 */}
-      <div style={{
-      display: 'flex',
-      gap: 10,
-      marginBottom: 16,
-      flexWrap: 'wrap'
-    }}>
+      {/* 筛选 工具栏 */}
+      <div style={searchToolbar}>
         <select value={statusFilter} onChange={e => {
         setStatusFilter(e.target.value);
         setPage(1);
-      }} className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text-muted outline-none focus:border-emerald-400">
+      }} style={{ ...inputField, width: 'auto', padding: '6px 12px', fontSize: 13 }}>
           <option value="">全部状态</option>
           <option value="DRAFT">草稿</option>
           <option value="PENDING_APPROVAL">审批中</option>
@@ -573,7 +559,7 @@ export default function ExpensesPage() {
         <select value={typeFilter} onChange={e => {
         setTypeFilter(e.target.value);
         setPage(1);
-      }} className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text-muted outline-none focus:border-emerald-400">
+      }} style={{ ...inputField, width: 'auto', padding: '6px 12px', fontSize: 13 }}>
           <option value="">全部类型</option>
           {Object.entries(EXPENSE_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
@@ -584,10 +570,7 @@ export default function ExpensesPage() {
         </div>}
 
       {/* 列表 */}
-      <div className="bg-bg-card border border-border" style={{
-      borderRadius: 14,
-      overflow: 'hidden'
-    }}>
+      <div style={tableContainer}>
         {loading && <div className="text-text-muted" style={{
         padding: 32,
         textAlign: 'center'

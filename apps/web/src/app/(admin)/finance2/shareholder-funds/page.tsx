@@ -8,6 +8,15 @@ import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector, ShareholderSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { AttachmentUploader } from '@/components/design-system';
 
+import {
+  primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
+  drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
+  inlineBadge, pillBadge,
+  tabBar, tabItem,
+  searchToolbar, toolbarFilterPill, sectionTitle,
+  statTile, statTileLabel, statTileValue, kpiCard, businessListCard,
+  tableContainer,
+} from '@/components/design-system/cockpit-styles';
 // ── Auth helper ───────────────────────────────────────────────────────────────
 function getToken() {
   if (typeof window === 'undefined') return '';
@@ -277,23 +286,8 @@ function CreateContributionModal({
     }
   }
   const inpClass = "w-full px-3 py-2 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 box-border";
-  return <div style={{
-    position: 'fixed',
-    inset: 0,
-    background: 'var(--overlay-black-45)',
-    zIndex: 1000,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  }}>
-      <div className="bg-bg-card" style={{
-      borderRadius: 16,
-      padding: 28,
-      width: 520,
-      maxHeight: '90vh',
-      overflowY: 'auto',
-      boxShadow: '0 20px 60px var(--overlay-black-20)'
-    }}>
+  return <div style={modalMask}>
+      <div style={modalPanel(520)} onClick={e => e.stopPropagation()}>
         <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -499,21 +493,8 @@ function CreateSettlementModal({
     }
   }
   const inpClass = "w-full px-3 py-2 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 box-border";
-  return <div style={{
-    position: 'fixed',
-    inset: 0,
-    background: 'var(--overlay-black-45)',
-    zIndex: 1100,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  }}>
-      <div className="bg-bg-card" style={{
-      borderRadius: 16,
-      padding: 28,
-      width: 460,
-      boxShadow: '0 20px 60px var(--overlay-black-20)'
-    }}>
+  return <div style={modalMask}>
+      <div style={modalPanel(460)} onClick={e => e.stopPropagation()}>
         <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -688,14 +669,7 @@ function ContributionDrawer({
   const canConfirm = ['DRAFT', 'PENDING_CONFIRM'].includes(contribution.status);
   const canSettle = ['CONFIRMED', 'PARTIALLY_SETTLED'].includes(contribution.status);
   const canCancel = ['DRAFT', 'PENDING_CONFIRM'].includes(contribution.status);
-  return <div style={{
-    position: 'fixed',
-    inset: 0,
-    background: 'var(--overlay-black-45)',
-    zIndex: 1000,
-    display: 'flex',
-    justifyContent: 'flex-end'
-  }}>
+  return <div style={drawerMask}>
       <div className="bg-bg-card" style={{
       width: 560,
       height: '100vh',
@@ -950,17 +924,12 @@ function SummaryTab({
       gap: 12,
       marginBottom: 24
     }}>
-        {statCards.map(c => <div key={c.label} className="bg-bg-card border border-border" style={{
-        borderRadius: 12,
-        padding: '14px 16px',
-        boxShadow: '0 1px 4px var(--overlay-black-04)'
-      }}>
-            <div className="text-text-muted" style={{
-          fontSize: 11,
-          marginBottom: 4
-        }}>{c.label}</div>
-            <div className={`text-lg font-extrabold ${c.colorClass}`}>{c.value}</div>
-          </div>)}
+        {statCards.map(c => (
+          <div key={c.label} style={kpiCard}>
+            <div style={statTileLabel}>{c.label}</div>
+            <div className={`font-extrabold ${c.colorClass}`} style={{ fontSize: 20, lineHeight: 1.2, marginTop: 2 }}>{c.value}</div>
+          </div>
+        ))}
       </div>
 
       <div style={{
@@ -969,15 +938,8 @@ function SummaryTab({
       gap: 16,
       marginBottom: 24
     }}>
-        <div className="bg-bg-card border border-border" style={{
-        borderRadius: 12,
-        padding: '16px 18px'
-      }}>
-          <div className="text-text-muted" style={{
-          fontWeight: 600,
-          fontSize: 13,
-          marginBottom: 12
-        }}>按股东分布</div>
+        <div style={{ ...tableContainer, padding: '16px 18px' }}>
+          <div style={sectionTitle}>按股东分布</div>
           {summary.byShareholder.length === 0 ? <div className="text-text-dim text-xs text-center py-4">暂无数据</div> : summary.byShareholder.map(r => <div key={r.shareholder_name} className="border-b border-border/50" style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -998,15 +960,8 @@ function SummaryTab({
             </div>)}
         </div>
 
-        <div className="bg-bg-card border border-border" style={{
-        borderRadius: 12,
-        padding: '16px 18px'
-      }}>
-          <div className="text-text-muted" style={{
-          fontWeight: 600,
-          fontSize: 13,
-          marginBottom: 12
-        }}>按资金类型</div>
+        <div style={{ ...tableContainer, padding: '16px 18px' }}>
+          <div style={sectionTitle}>按资金类型</div>
           {summary.byContributionType.length === 0 ? <div className="text-text-dim text-xs text-center py-4">暂无数据</div> : summary.byContributionType.map(r => <div key={r.contribution_type} className="border-b border-border/50" style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -1025,9 +980,10 @@ function SummaryTab({
         </div>
       </div>
 
-      {summary.upcomingReturns.length > 0 && <div className="bg-bg-card border border-amber-300 dark:border-amber-700" style={{
-      borderRadius: 12,
-      padding: '16px 18px'
+      {summary.upcomingReturns.length > 0 && <div style={{
+      ...tableContainer,
+      borderColor: 'var(--status-warning)',
+      padding: '16px 18px',
     }}>
           <div className="text-amber-800 dark:text-amber-300" style={{
         fontWeight: 600,
@@ -1146,88 +1102,71 @@ export default function ShareholderFundsPage() {
       display: 'flex',
       gap: 8
     }}>
-            <button onClick={() => void importFromPrc2()} disabled={importLoading} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold border border-border transition-colors ${importLoading ? 'bg-bg-muted text-text-dim cursor-not-allowed' : 'bg-bg-muted text-text-muted hover:bg-bg-muted cursor-pointer'}`}>
+            <button onClick={() => void importFromPrc2()} disabled={importLoading} style={secondaryActionButton}>
               <Upload size={14} /> {importLoading ? '导入中…' : '从采购系统导入'}
             </button>
-            <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-violet-700 hover:bg-violet-800 text-white border-none cursor-pointer transition-colors">
+            <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
               <Plus size={15} /> 新建记录
             </button>
           </div>} />
 
       {/* Tab 切换 */}
-      <div className="bg-bg-muted" style={{
-      display: 'flex',
-      gap: 4,
-      marginBottom: 20,
-      borderRadius: 10,
-      padding: 4,
-      width: 'fit-content'
-    }}>
-        {tabs.map(t => <button key={t.key} onClick={() => setTab(t.key)} className={`px-5 py-2 rounded-lg text-sm font-semibold cursor-pointer border-none transition-colors ${tab === t.key ? 'bg-bg-page text-violet-700 dark:text-violet-300 shadow-sm' : 'bg-transparent text-text-muted hover:text-text dark:hover:text-slate-200'}`}>
+      <div style={tabBar}>
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} style={tabItem(tab === t.key)}>
             {t.label}
-          </button>)}
+          </button>
+        ))}
       </div>
 
       {tab === 'summary' && <SummaryTab summary={summary} />}
 
       {tab === 'contributions' && <>
-          {/* 筛选栏 */}
-          <div style={{
-        display: 'flex',
-        gap: 10,
-        alignItems: 'center',
-        marginBottom: 18,
-        flexWrap: 'wrap'
-      }}>
-            <div style={{
-          position: 'relative',
-          flex: 1,
-          minWidth: 200
-        }}>
-              <Search size={14} className="text-text-dim absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索股东名称/单号…" className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full pl-8" />
+          {/* 筛选 工具栏 */}
+          <div style={searchToolbar}>
+            <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+              <Search size={14} color="var(--text-secondary)" style={{
+                position: 'absolute',
+                left: 12,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                pointerEvents: 'none',
+              }} />
+              <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索股东名称/单号…" style={{ ...inputField, paddingLeft: 34, fontSize: 13 }} />
             </div>
-            <div style={{
-          display: 'flex',
-          gap: 6,
-          flexWrap: 'wrap'
-        }}>
-              {[{
-            k: '',
-            v: '全部类型'
-          }, ...Object.entries(CONTRIBUTION_TYPE_LABELS).map(([k, v]) => ({
-            k,
-            v
-          }))].map(({
-            k,
-            v
-          }) => <button key={k} onClick={() => setTypeFilter(k)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border transition-colors ${typeFilter === k ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300' : 'border-border bg-bg-card text-text-muted hover:bg-bg-muted'}`}>{v}</button>)}
-            </div>
-            <div style={{
-          display: 'flex',
-          gap: 6
-        }}>
-              {[{
-            k: '',
-            v: '全部'
-          }, {
-            k: 'PENDING_CONFIRM',
-            v: '待确认'
-          }, {
-            k: 'CONFIRMED',
-            v: '已确认'
-          }, {
-            k: 'PARTIALLY_SETTLED',
-            v: '部分结算'
-          }, {
-            k: 'SETTLED',
-            v: '已结清'
-          }].map(({
-            k,
-            v
-          }) => <button key={k} onClick={() => setStatusFilter(k)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border transition-colors ${statusFilter === k ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'border-border bg-bg-card text-text-muted hover:bg-bg-muted'}`}>{v}</button>)}
-            </div>
-            <button onClick={() => void loadContributions()} disabled={loading} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted cursor-pointer transition-colors disabled:opacity-40">
+
+            {[{
+              k: '',
+              v: '全部类型'
+            }, ...Object.entries(CONTRIBUTION_TYPE_LABELS).map(([k, v]) => ({
+              k,
+              v
+            }))].map(({ k, v }) => (
+              <button key={k} onClick={() => setTypeFilter(k)} style={toolbarFilterPill(typeFilter === k)}>{v}</button>
+            ))}
+
+            <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+
+            {[{
+              k: '',
+              v: '全部'
+            }, {
+              k: 'PENDING_CONFIRM',
+              v: '待确认'
+            }, {
+              k: 'CONFIRMED',
+              v: '已确认'
+            }, {
+              k: 'PARTIALLY_SETTLED',
+              v: '部分结算'
+            }, {
+              k: 'SETTLED',
+              v: '已结清'
+            }].map(({ k, v }) => (
+              <button key={k} onClick={() => setStatusFilter(k)} style={toolbarFilterPill(statusFilter === k)}>{v}</button>
+            ))}
+
+            <button onClick={() => void loadContributions()} disabled={loading} style={secondaryActionButton}>
               <RefreshCw size={14} />
             </button>
           </div>
@@ -1244,12 +1183,16 @@ export default function ShareholderFundsPage() {
         flexDirection: 'column',
         gap: 10
       }}>
-              {contributions.map(c => <div key={c.id} onClick={() => setSelectedC(c)} className="bg-bg-card hover:shadow-card-hover dark:hover:shadow-slate-700/30 transition-shadow cursor-pointer" style={{
-          borderRadius: 14,
-          border: `1.5px solid ${c.status === 'SETTLED' ? 'var(--slate-200)' : c.status === 'PENDING_CONFIRM' ? 'var(--status-warning-bg-faint)' : 'var(--status-info-bg-page)'}`,
-          padding: '14px 18px',
-          opacity: c.status === 'CANCELLED' ? 0.6 : 1
-        }}>
+              {contributions.map(c => {
+                const tone: Parameters<typeof businessListCard>[0] =
+                  c.status === 'SETTLED' ? 'default' :
+                  c.status === 'PENDING_CONFIRM' ? 'warning' :
+                  c.status === 'PARTIALLY_SETTLED' ? 'info' :
+                  c.status === 'CONFIRMED' ? 'success' : 'default';
+                return <div key={c.id} onClick={() => setSelectedC(c)} style={{
+                  ...businessListCard(tone),
+                  opacity: c.status === 'CANCELLED' ? 0.6 : 1,
+                }}>
                   <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -1299,7 +1242,8 @@ export default function ShareholderFundsPage() {
               marginLeft: 'auto'
             }} />
                   </div>
-                </div>)}
+                </div>;
+              })}
             </div>}
         </>}
 
@@ -1311,7 +1255,7 @@ export default function ShareholderFundsPage() {
         alignItems: 'center'
       }}>
             <span className={`text-text-muted ${u.fs13}`}>共 {settlements.length} 条结算记录</span>
-            <button onClick={() => void loadSettlements()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted cursor-pointer transition-colors">
+            <button onClick={() => void loadSettlements()} style={secondaryActionButton}>
               <RefreshCw size={13} />
             </button>
           </div>
