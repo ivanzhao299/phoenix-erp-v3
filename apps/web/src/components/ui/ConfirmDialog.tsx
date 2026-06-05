@@ -33,7 +33,7 @@ export function ConfirmDialog({
     <div className={styles.mask} onClick={e => { if (e.target === e.currentTarget) onCancel(); }}>
       <div className={styles.dialog}>
         <div className={styles.icon}>
-          <AlertTriangle size={24} color={danger ? "#ef4444" : "#f59e0b"} />
+          <AlertTriangle size={24} color={danger ? "var(--status-danger)" : "var(--status-warning)"} />
         </div>
         <h4 className={styles.title}>{title}</h4>
         <p className={styles.message}>{message}</p>

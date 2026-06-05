@@ -69,7 +69,7 @@ function TrendBadge({ current, prev }: { current: number; prev: number }) {
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 2,
       fontSize: 11, fontWeight: 600,
-      color: up ? '#10b981' : '#ef4444',
+      color: up ? 'var(--status-success)' : 'var(--status-danger)',
     }}>
       {up ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
       {up ? '+' : ''}{pct}%
@@ -152,7 +152,7 @@ export default function AnalyticsPage() {
 
   const layRateNum  = parseFloat(s?.lay_rate ?? '0');
   const prevRateNum = parseFloat(s?.prev_lay_rate ?? '0');
-  const rateColor   = layRateNum >= 85 ? '#10b981' : layRateNum >= 70 ? '#f59e0b' : '#ef4444';
+  const rateColor   = layRateNum >= 85 ? 'var(--status-success)' : layRateNum >= 70 ? 'var(--status-warning)' : 'var(--status-danger)';
 
   return (
     <div style={{ minHeight: '100svh', background: t.pageBg, display: 'flex', flexDirection: 'column' }}>
@@ -193,9 +193,9 @@ export default function AnalyticsPage() {
         {PERIODS.map(p => (
           <button key={p.days} onClick={() => setDays(p.days)} style={{
             padding: '6px 20px', borderRadius: 20, cursor: 'pointer',
-            border: `1px solid ${days === p.days ? '#f59e0b' : t.btnBorder}`,
+            border: `1px solid ${days === p.days ? 'var(--status-warning)' : t.btnBorder}`,
             background: days === p.days ? 'rgba(245,158,11,0.15)' : t.btnBg,
-            color: days === p.days ? '#f59e0b' : t.textSub,
+            color: days === p.days ? 'var(--status-warning)' : t.textSub,
             fontSize: 13, fontWeight: 600,
           }}>
             {p.label}
@@ -221,7 +221,7 @@ export default function AnalyticsPage() {
           <div style={{
             padding: '12px 14px', borderRadius: 10, marginBottom: 10,
             background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-            color: '#ef4444', fontSize: 13, textAlign: 'center',
+            color: 'var(--status-danger)', fontSize: 13, textAlign: 'center',
           }}>{error}</div>
         )}
 
@@ -245,11 +245,11 @@ export default function AnalyticsPage() {
               label="日均产蛋"
               value={s.avg_eggs.toLocaleString()}
               unit="枚"
-              color="#f59e0b"
+              color="var(--status-warning)"
               prev={s.prev_avg_eggs}
             >
               {rows.length > 0 && (
-                <BarChart data={rows} valueKey="eggs" color="#f59e0b" height={60} />
+                <BarChart data={rows} valueKey="eggs" color="var(--status-warning)" height={60} />
               )}
             </StatCard>
 
@@ -258,10 +258,10 @@ export default function AnalyticsPage() {
               label="日均死淘"
               value={s.avg_mortality + s.avg_elimination}
               unit="只"
-              color="#ef4444"
+              color="var(--status-danger)"
             >
               {rows.length > 0 && (
-                <BarChart data={rows} valueKey="mortality" color="#ef4444" height={52} />
+                <BarChart data={rows} valueKey="mortality" color="var(--status-danger)" height={52} />
               )}
             </StatCard>
 
@@ -270,10 +270,10 @@ export default function AnalyticsPage() {
               label="日均饲料消耗"
               value={s.avg_feed.toLocaleString()}
               unit="kg"
-              color="#10b981"
+              color="var(--status-success)"
             >
               {rows.length > 0 && (
-                <BarChart data={rows} valueKey="feed" color="#10b981" height={52} />
+                <BarChart data={rows} valueKey="feed" color="var(--status-success)" height={52} />
               )}
             </StatCard>
 

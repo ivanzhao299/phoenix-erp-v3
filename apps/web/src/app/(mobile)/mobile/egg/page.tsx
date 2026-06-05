@@ -49,7 +49,7 @@ function QtyInput({ value, onChange }: { value: number; onChange: (v: number) =>
         width: 70, height: 34, textAlign: 'center',
         background: value > 0 ? 'rgba(245,158,11,0.1)' : t.inputBg,
         border: `1px solid ${value > 0 ? 'rgba(245,158,11,0.4)' : t.inputBorder}`,
-        borderRadius: 8, color: value > 0 ? '#f59e0b' : t.textSub,
+        borderRadius: 8, color: value > 0 ? 'var(--status-warning)' : t.textSub,
         fontSize: 14, fontWeight: 700, outline: 'none', WebkitAppearance: 'none',
       }}
     />
@@ -251,7 +251,7 @@ export default function EggPage() {
               padding: '8px 14px', borderRadius: 10,
               background: saved ? 'rgba(16,185,129,0.2)' : canSave ? 'rgba(245,158,11,0.15)' : t.btnBg,
               border: `1px solid ${saved ? 'rgba(16,185,129,0.4)' : canSave ? 'rgba(245,158,11,0.35)' : t.btnBorder}`,
-              color: saved ? '#10b981' : canSave ? '#f59e0b' : t.textFaint,
+              color: saved ? 'var(--status-success)' : canSave ? 'var(--status-warning)' : t.textFaint,
               cursor: canSave ? 'pointer' : 'default', fontSize: 13, fontWeight: 700,
             }}
           >
@@ -277,8 +277,8 @@ export default function EggPage() {
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
               padding: '12px 0',
               background: tab === tab_.key ? 'rgba(245,158,11,0.1)' : 'none',
-              border: 'none', borderBottom: `2px solid ${tab === tab_.key ? '#f59e0b' : 'transparent'}`,
-              color: tab === tab_.key ? '#f59e0b' : t.textMuted,
+              border: 'none', borderBottom: `2px solid ${tab === tab_.key ? 'var(--status-warning)' : 'transparent'}`,
+              color: tab === tab_.key ? 'var(--status-warning)' : t.textMuted,
               cursor: 'pointer', fontSize: 13, fontWeight: 700,
             }}
           >
@@ -312,13 +312,13 @@ export default function EggPage() {
 
       {/* 错误提示 */}
       {error && (
-        <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', fontSize: 12 }}>
+        <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--status-danger)', fontSize: 12 }}>
           {error}
         </div>
       )}
 
       {/* R1 — Farm Egg 库存能力已删除（本入口不再生成库存） */}
-      <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', color: '#d97706', fontSize: 12, lineHeight: 1.5 }}>
+      <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', color: 'var(--status-warning)', fontSize: 12, lineHeight: 1.5 }}>
         ⚠️ 该入口不再生成库存，库存来源由系统模式控制（临时生产入库 / 包装入库）。请到「包装作业中心」完成集蛋→分级→包装；本页仅供查询。
       </div>
 
@@ -336,11 +336,11 @@ export default function EggPage() {
             }}>
               <div style={{ padding: '12px 14px', borderRadius: 14, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
                 <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>总库存（枚）</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#f59e0b' }}>{totalStock.toLocaleString()}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--status-warning)' }}>{totalStock.toLocaleString()}</div>
               </div>
               <div style={{ padding: '12px 14px', borderRadius: 14, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
                 <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>总提数</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#f59e0b' }}>{totalTrays} <span style={{ fontSize: 12, fontWeight: 400 }}>提</span></div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--status-warning)' }}>{totalTrays} <span style={{ fontSize: 12, fontWeight: 400 }}>提</span></div>
               </div>
             </div>
 
@@ -358,7 +358,7 @@ export default function EggPage() {
                 }}>
                   <span style={{ fontSize: 14, fontWeight: 600, color: row.qty > 0 ? t.text : t.textMuted }}>{row.name}</span>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: row.qty > 0 ? '#f59e0b' : t.textFaint }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: row.qty > 0 ? 'var(--status-warning)' : t.textFaint }}>
                       {row.qty.toLocaleString()} <span style={{ fontSize: 11, fontWeight: 400 }}>枚</span>
                     </div>
                     {row.trays > 0 && (
@@ -377,7 +377,7 @@ export default function EggPage() {
             {inboundTotal > 0 && (
               <div style={{ padding: '10px 14px', borderRadius: 12, marginBottom: 12, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 13, color: t.textSub }}>本次入库合计</span>
-                <span style={{ fontSize: 18, fontWeight: 800, color: '#10b981' }}>{inboundTotal.toLocaleString()} 枚</span>
+                <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--status-success)' }}>{inboundTotal.toLocaleString()} 枚</span>
               </div>
             )}
 
@@ -391,7 +391,7 @@ export default function EggPage() {
                       flexShrink: 0, padding: '7px 14px', borderRadius: 10,
                       background: selectedHouse === h ? 'rgba(16,185,129,0.15)' : t.btnBg,
                       border: `1px solid ${selectedHouse === h ? 'rgba(16,185,129,0.4)' : t.btnBorder}`,
-                      color: selectedHouse === h ? '#10b981' : t.textSub,
+                      color: selectedHouse === h ? 'var(--status-success)' : t.textSub,
                       cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
                     }}>
                     {h}{houseTotal > 0 ? ` (${houseTotal})` : ''}
@@ -429,7 +429,7 @@ export default function EggPage() {
             {outboundTotal > 0 && (
               <div style={{ padding: '10px 14px', borderRadius: 12, marginBottom: 12, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 13, color: t.textSub }}>本次出库合计</span>
-                <span style={{ fontSize: 18, fontWeight: 800, color: '#f87171' }}>{outboundTotal.toLocaleString()} 枚</span>
+                <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--status-danger)' }}>{outboundTotal.toLocaleString()} 枚</span>
               </div>
             )}
 
@@ -443,7 +443,7 @@ export default function EggPage() {
                       flexShrink: 0, padding: '7px 14px', borderRadius: 10,
                       background: selectedCustomer === c.customer_code ? 'rgba(239,68,68,0.15)' : t.btnBg,
                       border: `1px solid ${selectedCustomer === c.customer_code ? 'rgba(239,68,68,0.4)' : t.btnBorder}`,
-                      color: selectedCustomer === c.customer_code ? '#f87171' : t.textSub,
+                      color: selectedCustomer === c.customer_code ? 'var(--status-danger)' : t.textSub,
                       cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
                     }}>
                     {c.customer_name}{custTotal > 0 ? ` (${custTotal})` : ''}
@@ -478,7 +478,7 @@ export default function EggPage() {
                         onChange={v => setOutbound(selectedCustomer, g.code, v)}
                       />
                       {overStock && outQty > 0 && (
-                        <div style={{ position: 'absolute', top: -16, right: 0, fontSize: 9, color: '#f87171', whiteSpace: 'nowrap' }}>超库存!</div>
+                        <div style={{ position: 'absolute', top: -16, right: 0, fontSize: 9, color: 'var(--status-danger)', whiteSpace: 'nowrap' }}>超库存!</div>
                       )}
                     </div>
                   </div>
@@ -504,7 +504,7 @@ export default function EggPage() {
                         {e.customer_no || e.house_code || ''}
                       </span>
                     </div>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: e.qty_change > 0 ? '#10b981' : '#f87171' }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: e.qty_change > 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
                       {e.qty_change > 0 ? '+' : ''}{e.qty_change}
                     </span>
                   </div>

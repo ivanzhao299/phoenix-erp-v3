@@ -774,21 +774,21 @@ export default function Finance2ArPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
         gap: 10, marginBottom: 20 }}>
         <KpiCard label="应收账单总数" value={String(summary?.total_invoices ?? '—')}
-          icon={TrendingUp} color="#10b981" loading={sumLoading} />
+          icon={TrendingUp} color="var(--status-success)" loading={sumLoading} />
         <KpiCard label="未收款" value={String(summary?.open_invoices ?? '—')}
-          icon={Clock} color="#f59e0b" loading={sumLoading} />
+          icon={Clock} color="var(--status-warning)" loading={sumLoading} />
         <KpiCard label="部分收款" value={String(summary?.partial_invoices ?? '—')}
-          icon={TrendingUp} color="#3b82f6" loading={sumLoading} />
+          icon={TrendingUp} color="var(--status-info)" loading={sumLoading} />
         <KpiCard label="已收清" value={String(summary?.received_invoices ?? '—')}
-          icon={CheckCircle} color="#10b981" loading={sumLoading} />
+          icon={CheckCircle} color="var(--status-success)" loading={sumLoading} />
         <KpiCard label="逾期笔数" value={String(summary?.overdue_invoices ?? '—')}
-          icon={AlertTriangle} color="#dc2626" loading={sumLoading} />
+          icon={AlertTriangle} color="var(--status-danger)" loading={sumLoading} />
         <KpiCard label="待收余额"
           value={summary?.byCurrency?.[0]
             ? fmtMoney(summary.balance_amount_original, summary.byCurrency[0].currency_code)
             : (sumLoading ? '…' : '—')}
           sub={(summary?.byCurrency?.length ?? 0) > 1 ? `${summary!.byCurrency.length} 个币种` : undefined}
-          icon={Wallet} color="#ef4444" loading={sumLoading} />
+          icon={Wallet} color="var(--status-danger)" loading={sumLoading} />
       </div>
 
       {/* Tabs */}

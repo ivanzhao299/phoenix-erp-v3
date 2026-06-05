@@ -74,7 +74,7 @@ export default function WorkflowInstancesPage() {
 
       {loadError && (
         <section className={s.card} style={{ marginBottom: 12, borderLeft: '4px solid #dc2626' }}>
-          <div className={s.cardBody} style={{ color: '#dc2626' }}>
+          <div className={s.cardBody} style={{ color: 'var(--status-danger)' }}>
             <strong>⚠ 数据加载失败</strong>
             <div style={{ marginTop: 4, fontSize: 13 }}>{loadError}</div>
             <button type="button" className={s.btnSecondary} style={{ marginTop: 8 }} onClick={() => void load()}>重试</button>

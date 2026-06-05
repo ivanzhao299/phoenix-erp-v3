@@ -38,9 +38,9 @@ interface PageResult { items: Supplier[]; total: number; page: number; pageSize:
 
 // ── 常量 ─────────────────────────────────────────────────────────────────────
 const SCOPE_OPTS = [
-  { value: "GROUP",   label: "集团共享",  icon: <Globe size={12}/>,         cls: "badgeInfo",    accent: "#3b82f6" },
-  { value: "COMPANY", label: "公司专用",  icon: <Building2 size={12}/>,     cls: "badgeSuccess", accent: "#10b981" },
-  { value: "PROJECT", label: "项目专用",  icon: <FolderKanban size={12}/>,  cls: "badgeWarning", accent: "#f59e0b" },
+  { value: "GROUP",   label: "集团共享",  icon: <Globe size={12}/>,         cls: "badgeInfo",    accent: "var(--status-info)" },
+  { value: "COMPANY", label: "公司专用",  icon: <Building2 size={12}/>,     cls: "badgeSuccess", accent: "var(--status-success)" },
+  { value: "PROJECT", label: "项目专用",  icon: <FolderKanban size={12}/>,  cls: "badgeWarning", accent: "var(--status-warning)" },
 ];
 const CURRENCY_OPTS = ["LAK","CNY","THB","USD","VND"];
 const COUNTRY_OPTS  = [{ value:"LA",label:"老挝 LA"},{ value:"CN",label:"中国 CN"},{ value:"TH",label:"泰国 TH"},{ value:"VN",label:"越南 VN"},{ value:"US",label:"美国 US"},{ value:"OTHER",label:"其他"}];

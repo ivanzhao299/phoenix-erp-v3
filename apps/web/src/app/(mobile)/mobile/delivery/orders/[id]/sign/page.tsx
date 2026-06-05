@@ -11,9 +11,9 @@ const C = {
   border:  'rgba(255,255,255,0.10)',
   text:    '#e2e8f0',
   textSub: '#94a3b8',
-  orange:  '#f59e0b',
-  green:   '#10b981',
-  red:     '#ef4444',
+  orange:  'var(--status-warning)',
+  green:   'var(--status-success)',
+  red:     'var(--status-danger)',
 };
 
 function getToken() {

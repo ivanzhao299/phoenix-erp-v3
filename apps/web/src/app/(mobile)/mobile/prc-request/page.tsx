@@ -61,11 +61,11 @@ type Tab = 'form' | 'records';
 
 const STATUS_COLOR: Record<string, string> = {
   DRAFT:       '#6b7280',
-  SUBMITTED:   '#f59e0b',
-  IN_REVIEW:   '#f59e0b',
-  APPROVED:    '#3b82f6',
-  REJECTED:    '#ef4444',
-  PO_CREATED:  '#10b981',
+  SUBMITTED:   'var(--status-warning)',
+  IN_REVIEW:   'var(--status-warning)',
+  APPROVED:    'var(--status-info)',
+  REJECTED:    'var(--status-danger)',
+  PO_CREATED:  'var(--status-success)',
   CANCELLED:   '#94a3b8',
 };
 const STATUS_LABEL: Record<string, string> = {
@@ -472,7 +472,7 @@ export default function PrcRequestPage() {
                     {!readonly && items.length > 1 && (
                       <button
                         onClick={() => removeItem(row.key)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 2 }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-danger)', padding: 2 }}
                       >
                         <Trash2 size={15} />
                       </button>
@@ -538,7 +538,7 @@ export default function PrcRequestPage() {
 
             {/* 错误 / 成功 */}
             {formError && (
-              <div style={{ color: '#ef4444', background: '#fef2f2', padding: '10px 14px', borderRadius: 10, fontSize: 13 }}>
+              <div style={{ color: 'var(--status-danger)', background: '#fef2f2', padding: '10px 14px', borderRadius: 10, fontSize: 13 }}>
                 {formError}
               </div>
             )}
@@ -555,7 +555,7 @@ export default function PrcRequestPage() {
           <div>
             {recLoading && <div>{[1,2,3].map(i => <SkeletonCard key={i} lines={2} />)}</div>}
             {recError && (
-              <div style={{ color: '#ef4444', background: '#fef2f2', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>
+              <div style={{ color: 'var(--status-danger)', background: '#fef2f2', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>
                 {recError}
               </div>
             )}

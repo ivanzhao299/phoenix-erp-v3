@@ -158,7 +158,7 @@ export default function MedicinePage() {
               padding: '8px 14px', borderRadius: 10,
               background: saved ? 'rgba(16,185,129,0.2)' : hasChanges ? 'rgba(245,158,11,0.15)' : t.btnBg,
               border: `1px solid ${saved ? 'rgba(16,185,129,0.4)' : hasChanges ? 'rgba(245,158,11,0.35)' : t.btnBorder}`,
-              color: saved ? '#10b981' : hasChanges ? '#f59e0b' : t.textFaint,
+              color: saved ? 'var(--status-success)' : hasChanges ? 'var(--status-warning)' : t.textFaint,
               cursor: hasChanges ? 'pointer' : 'default', fontSize: 13, fontWeight: 700,
             }}
           >
@@ -207,7 +207,7 @@ export default function MedicinePage() {
 
       {/* 错误 */}
       {error && (
-        <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', fontSize: 12 }}>
+        <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--status-danger)', fontSize: 12 }}>
           {error}
         </div>
       )}
@@ -251,7 +251,7 @@ export default function MedicinePage() {
         {(tab === 'inbound' || tab === 'outbound') && (
           <>
             {saved && (
-              <div style={{ padding: '10px 14px', borderRadius: 12, marginBottom: 12, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', color: '#10b981', fontSize: 13 }}>
+              <div style={{ padding: '10px 14px', borderRadius: 12, marginBottom: 12, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', color: 'var(--status-success)', fontSize: 13 }}>
                 ✓ 已保存
               </div>
             )}
@@ -351,7 +351,7 @@ export default function MedicinePage() {
                     {e.note ? ` · ${e.note}` : ''}
                   </div>
                 </div>
-                <span style={{ fontSize: 14, fontWeight: 700, color: e.qty_change > 0 ? '#8b5cf6' : '#f87171' }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: e.qty_change > 0 ? '#8b5cf6' : 'var(--status-danger)' }}>
                   {e.qty_change > 0 ? '+' : ''}{e.qty_change}
                 </span>
               </div>

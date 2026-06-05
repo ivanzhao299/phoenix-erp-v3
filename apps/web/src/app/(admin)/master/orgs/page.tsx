@@ -95,15 +95,15 @@ function OrgTreeNode({
 
         <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
           <button type="button" onClick={e => { e.stopPropagation(); onAddChild(node.org_code); }}
-            style={{ background: "none", border: "none", color: "#22c55e", cursor: "pointer", padding: 4, borderRadius: 4, opacity: 0.7 }} title={addChildTitle}>
+            style={{ background: "none", border: "none", color: "var(--status-success)", cursor: "pointer", padding: 4, borderRadius: 4, opacity: 0.7 }} title={addChildTitle}>
             <Plus size={13} />
           </button>
           <button type="button" onClick={e => { e.stopPropagation(); onEdit(node); }}
-            style={{ background: "none", border: "none", color: "#3b82f6", cursor: "pointer", padding: 4, borderRadius: 4, opacity: 0.7 }} title={editTitle}>
+            style={{ background: "none", border: "none", color: "var(--status-info)", cursor: "pointer", padding: 4, borderRadius: 4, opacity: 0.7 }} title={editTitle}>
             <Edit2 size={13} />
           </button>
           <button type="button" onClick={e => { e.stopPropagation(); onDelete(node); }}
-            style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 4, borderRadius: 4, opacity: 0.7 }} title={deleteTitle}>
+            style={{ background: "none", border: "none", color: "var(--status-danger)", cursor: "pointer", padding: 4, borderRadius: 4, opacity: 0.7 }} title={deleteTitle}>
             <Trash2 size={13} />
           </button>
         </div>

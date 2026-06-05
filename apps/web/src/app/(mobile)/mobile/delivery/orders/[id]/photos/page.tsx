@@ -10,10 +10,10 @@ const C = {
   border:  'rgba(255,255,255,0.10)',
   text:    '#e2e8f0',
   textSub: '#94a3b8',
-  orange:  '#f59e0b',
-  green:   '#10b981',
-  red:     '#ef4444',
-  blue:    '#3b82f6',
+  orange:  'var(--status-warning)',
+  green:   'var(--status-success)',
+  red:     'var(--status-danger)',
+  blue:    'var(--status-info)',
 };
 
 const MAX_SIZE_BYTES = 300 * 1024; // 300 KB

@@ -450,7 +450,7 @@ export default function PaymentsPage() {
                             <Pencil size={13} />
                           </button>
                           <button className={s.btnIcon} title="提交审批"
-                            style={{ borderColor: "#22c55e", color: "#22c55e" }}
+                            style={{ borderColor: "var(--status-success)", color: "var(--status-success)" }}
                             onClick={() => handleSubmit(row)}>
                             <Send size={13} />
                           </button>
@@ -459,7 +459,7 @@ export default function PaymentsPage() {
                       {row.status === "SUBMITTED" && (
                         <>
                           <button className={s.btnIcon} title="审批通过"
-                            style={{ borderColor: "#22c55e", color: "#22c55e" }}
+                            style={{ borderColor: "var(--status-success)", color: "var(--status-success)" }}
                             onClick={() => openApprove(row)}>
                             <CheckCircle size={13} />
                           </button>
@@ -705,7 +705,7 @@ export default function PaymentsPage() {
                       </button>
                     </td>
                     <td style={tdStyle}>
-                      <button type="button" style={{ border: "none", background: "none", cursor: "pointer", color: "#ef4444" }}
+                      <button type="button" style={{ border: "none", background: "none", cursor: "pointer", color: "var(--status-danger)" }}
                         onClick={() => removeAllocRow(idx)}><Trash2 size={12} /></button>
                     </td>
                   </tr>
@@ -862,7 +862,7 @@ export default function PaymentsPage() {
                       <td>{ap.supplierName ?? "—"}</td>
                       <td>{ap.currencyCode ?? "—"}</td>
                       <td style={{ textAlign: "right" }}>{Number(ap.amountOriginal).toLocaleString()}</td>
-                      <td style={{ textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>
+                      <td style={{ textAlign: "right", color: "var(--status-warning)", fontWeight: 600 }}>
                         {Number(ap.balanceAmountOriginal).toLocaleString()}
                       </td>
                       <td>{fmtDate(ap.dueDate)}</td>
@@ -895,7 +895,7 @@ export default function PaymentsPage() {
 
       <SimpleModal open={payOpen} onClose={() => setPayOpen(false)} title="确认付款">
         <p style={{ fontSize: 13, margin: "8px 0", display: "flex", alignItems: "center", gap: 6 }}>
-          <AlertTriangle size={14} color="#f59e0b" />
+          <AlertTriangle size={14} color="var(--status-warning)" />
           执行付款 <strong>{actionTarget?.payNo}</strong>（{fmtAmt(actionTarget?.amountOriginal, actionTarget?.currencyCode)}）
         </p>
         <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "4px 0 8px" }}>

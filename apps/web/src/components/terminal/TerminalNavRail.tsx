@@ -121,12 +121,12 @@ export default function TerminalNavRail() {
             <step.icon
               size={28}
               strokeWidth={active ? 2.5 : 1.8}
-              color={active ? '#f59e0b' : '#475569'}
+              color={active ? 'var(--status-warning)' : '#475569'}
               style={{ marginBottom: 5, flexShrink: 0 }}
             />
             <span style={{
               fontSize: 13, lineHeight: 1.3, textAlign: 'center',
-              color: active ? '#f59e0b' : '#64748b',
+              color: active ? 'var(--status-warning)' : '#64748b',
               fontWeight: active ? 700 : 400,
               letterSpacing: 0.2,
             }}>{t(step.labelKey, step.labelFb)}</span>
@@ -134,7 +134,7 @@ export default function TerminalNavRail() {
             {isException && openExceptionCount > 0 && (
               <span style={{
                 position: 'absolute', top: 8, right: 8,
-                background: '#ef4444', color: '#fff',
+                background: 'var(--status-danger)', color: '#fff',
                 borderRadius: 99, fontSize: 10, fontWeight: 700,
                 minWidth: 18, height: 18, padding: '0 4px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -152,7 +152,7 @@ export default function TerminalNavRail() {
         {showLogout && (
           <button type="button" onClick={handleLogout}
             style={{
-              background: '#ef4444', color: '#fff', border: 'none',
+              background: 'var(--status-danger)', color: '#fff', border: 'none',
               borderRadius: 7, fontSize: 11, padding: '5px 8px', cursor: 'pointer',
               whiteSpace: 'nowrap', fontWeight: 600,
             }}

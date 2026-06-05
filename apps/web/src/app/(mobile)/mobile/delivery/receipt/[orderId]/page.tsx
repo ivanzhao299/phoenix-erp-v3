@@ -9,10 +9,10 @@ const C = {
   border:  'rgba(255,255,255,0.10)',
   text:    '#e2e8f0',
   textSub: '#94a3b8',
-  orange:  '#f59e0b',
-  blue:    '#3b82f6',
-  green:   '#10b981',
-  red:     '#ef4444',
+  orange:  'var(--status-warning)',
+  blue:    'var(--status-info)',
+  green:   'var(--status-success)',
+  red:     'var(--status-danger)',
   gray:    '#64748b',
 };
 

@@ -6,9 +6,9 @@ import { usePolling } from '@/hooks/usePolling';
 
 const CARD_THEMES = [
   { accent: '#0ea5e9', bg: 'rgba(14,165,233,0.08)',  glow: 'rgba(14,165,233,0.18)' },  // 蓝：产蛋
-  { accent: '#10b981', bg: 'rgba(16,185,129,0.08)',  glow: 'rgba(16,185,129,0.18)' },  // 绿：库存
-  { accent: '#f59e0b', bg: 'rgba(245,158,11,0.08)',  glow: 'rgba(245,158,11,0.18)' },  // 琥珀：POS
-  { accent: '#ef4444', bg: 'rgba(239,68,68,0.08)',   glow: 'rgba(239,68,68,0.18)'  },  // 红：预警
+  { accent: 'var(--status-success)', bg: 'rgba(16,185,129,0.08)',  glow: 'rgba(16,185,129,0.18)' },  // 绿：库存
+  { accent: 'var(--status-warning)', bg: 'rgba(245,158,11,0.08)',  glow: 'rgba(245,158,11,0.18)' },  // 琥珀：POS
+  { accent: 'var(--status-danger)', bg: 'rgba(239,68,68,0.08)',   glow: 'rgba(239,68,68,0.18)'  },  // 红：预警
   { accent: '#8b5cf6', bg: 'rgba(139,92,246,0.08)',  glow: 'rgba(139,92,246,0.18)' },  // 紫：农场直销
 ];
 
@@ -155,12 +155,12 @@ export default function DashboardKPIs({ initialData }: Props) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>总分</span>
-              <span style={{ fontSize: 24, fontWeight: 800, color: integrity.score >= 90 ? '#16a34a' : integrity.score >= 75 ? '#d97706' : '#dc2626' }}>
+              <span style={{ fontSize: 24, fontWeight: 800, color: integrity.score >= 90 ? 'var(--status-success)' : integrity.score >= 75 ? 'var(--status-warning)' : 'var(--status-danger)' }}>
                 {integrity.score}
               </span>
               <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, fontWeight: 700,
                 background: integrity.grade === 'A' ? '#dcfce7' : integrity.grade === 'B' ? '#fef3c7' : '#fee2e2',
-                color: integrity.grade === 'A' ? '#16a34a' : integrity.grade === 'B' ? '#d97706' : '#dc2626' }}>
+                color: integrity.grade === 'A' ? 'var(--status-success)' : integrity.grade === 'B' ? 'var(--status-warning)' : 'var(--status-danger)' }}>
                 {integrity.grade}级
               </span>
             </div>
@@ -168,7 +168,7 @@ export default function DashboardKPIs({ initialData }: Props) {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {integrity.dimensions.map(d => {
               const pct = Math.round((d.score / d.maxScore) * 100);
-              const col = pct >= 80 ? '#16a34a' : pct >= 60 ? '#f59e0b' : '#dc2626';
+              const col = pct >= 80 ? 'var(--status-success)' : pct >= 60 ? 'var(--status-warning)' : 'var(--status-danger)';
               return (
                 <div key={d.name} title={d.detail} style={{ flex: '1', minWidth: 120, padding: '8px 10px', background: 'var(--bg-page)', borderRadius: 'var(--radius-md)', border: `1px solid ${pct >= 80 ? '#bbf7d0' : pct >= 60 ? '#fde68a' : '#fecaca'}` }}>
                   <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4, fontWeight: 600 }}>{d.name}</div>
@@ -197,7 +197,7 @@ export default function DashboardKPIs({ initialData }: Props) {
                 <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--color-primary)', display: 'inline-block' }} />产蛋(千枚)
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#f59e0b', display: 'inline-block' }} />POS收银(LAK)
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--status-warning)', display: 'inline-block' }} />POS收银(LAK)
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ width: 10, height: 10, borderRadius: 2, background: '#8b5cf6', display: 'inline-block' }} />农场直销(LAK)

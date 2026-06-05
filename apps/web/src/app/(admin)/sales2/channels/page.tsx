@@ -68,14 +68,14 @@ const CHANNEL_DEFS = [
     type: "DISTRIBUTOR",
     label: "经销商",
     icon: Truck,
-    color: "#10b981",
+    color: "var(--status-success)",
     desc: "区域代理，批发分销",
   },
   {
     type: "AGENT",
     label: "代理商",
     icon: UserCheck,
-    color: "#f59e0b",
+    color: "var(--status-warning)",
     desc: "品牌代理，佣金模式",
   },
   {

@@ -218,7 +218,7 @@ export default function MortalityPage() {
             padding: '8px 14px', borderRadius: 10,
             background: saved ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.15)',
             border: `1px solid ${saved ? 'rgba(16,185,129,0.4)' : 'rgba(245,158,11,0.35)'}`,
-            color: saved ? '#10b981' : '#f59e0b',
+            color: saved ? 'var(--status-success)' : 'var(--status-warning)',
             cursor: saving ? 'wait' : 'pointer', fontSize: 13, fontWeight: 700,
           }}
         >
@@ -264,7 +264,7 @@ export default function MortalityPage() {
               border: `1px solid ${totalMort > 0 ? 'rgba(239,68,68,0.25)' : 'rgba(16,185,129,0.2)'}`,
             }}>
               <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>死亡合计</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: totalMort > 0 ? '#f87171' : '#10b981' }}>{totalMort} 只</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: totalMort > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>{totalMort} 只</div>
             </div>
             <div style={{
               padding: '12px 14px', borderRadius: 14,
@@ -272,7 +272,7 @@ export default function MortalityPage() {
               border: `1px solid ${totalElim > 0 ? 'rgba(251,146,60,0.3)' : 'rgba(16,185,129,0.2)'}`,
             }}>
               <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>淘汰合计</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: totalElim > 0 ? '#fb923c' : '#10b981' }}>{totalElim} 只</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: totalElim > 0 ? '#fb923c' : 'var(--status-success)' }}>{totalElim} 只</div>
             </div>
             {totalLoss > 0 && (
               <div style={{
@@ -281,7 +281,7 @@ export default function MortalityPage() {
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               }}>
                 <span style={{ fontSize: 12, color: t.textMuted }}>今日总损耗 · {houseList.length} 栋</span>
-                <span style={{ fontSize: 16, fontWeight: 800, color: '#f87171' }}>{totalLoss} 只</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--status-danger)' }}>{totalLoss} 只</span>
               </div>
             )}
           </div>
@@ -294,7 +294,7 @@ export default function MortalityPage() {
         )}
 
         {error && (
-          <div style={{ marginBottom: 12, padding: 12, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', fontSize: 13 }}>
+          <div style={{ marginBottom: 12, padding: 12, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--status-danger)', fontSize: 13 }}>
             {error}
           </div>
         )}
@@ -327,8 +327,8 @@ export default function MortalityPage() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontSize: 18 }}>💀</span>
-                      <span style={{ fontSize: 13, color: mort > 0 ? '#f87171' : t.textSub }}>死亡</span>
-                      {mort > 10 && <span style={{ fontSize: 10, color: '#f87171' }}>⚠ 数量较大</span>}
+                      <span style={{ fontSize: 13, color: mort > 0 ? 'var(--status-danger)' : t.textSub }}>死亡</span>
+                      {mort > 10 && <span style={{ fontSize: 10, color: 'var(--status-danger)' }}>⚠ 数量较大</span>}
                     </div>
                     <NumStepper
                       value={mort}
@@ -392,7 +392,7 @@ export default function MortalityPage() {
                   padding: '0 14px', borderRadius: 8,
                   background: 'rgba(245,158,11,0.15)',
                   border: '1px solid rgba(245,158,11,0.3)',
-                  color: '#f59e0b', cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                  color: 'var(--status-warning)', cursor: 'pointer', fontSize: 13, fontWeight: 700,
                 }}
               >
                 添加

@@ -25,8 +25,8 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  ACTIVE: '#16a34a', DRAFT: '#94a3b8', PENDING_APPROVAL: '#d97706',
-  FROZEN: '#3b82f6', ARCHIVED: '#94a3b8', REJECTED: '#dc2626',
+  ACTIVE: 'var(--status-success)', DRAFT: '#94a3b8', PENDING_APPROVAL: 'var(--status-warning)',
+  FROZEN: 'var(--status-info)', ARCHIVED: '#94a3b8', REJECTED: 'var(--status-danger)',
 };
 
 export function MasterDataSearch({ placeholder = '搜索客户 / 供应商 / SKU / 仓库 / 账户…', autoFocus = false }:

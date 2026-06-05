@@ -302,7 +302,7 @@ function CustomersTab() {
                       )}
                       {row.status !== "BLACKLIST" && (
                         <button type="button" onClick={() => doBlacklist(row)}
-                          style={{ padding: "2px 8px", fontSize: 11, background: "none", border: "1px solid #ef4444", color: "#ef4444", borderRadius: "var(--radius)", cursor: "pointer" }}>
+                          style={{ padding: "2px 8px", fontSize: 11, background: "none", border: "1px solid #ef4444", color: "var(--status-danger)", borderRadius: "var(--radius)", cursor: "pointer" }}>
                           黑名单
                         </button>
                       )}
@@ -521,10 +521,10 @@ function ChannelsTab() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 const CREDIT_STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
-  NORMAL:     { label: "正常",   color: "#22c55e", bg: "rgba(34,197,94,0.12)"   },
-  WARNING:    { label: "预警",   color: "#f59e0b", bg: "rgba(245,158,11,0.12)"  },
-  OVER_LIMIT: { label: "超额度", color: "#ef4444", bg: "rgba(239,68,68,0.12)"   },
-  OVERDUE:    { label: "逾期",   color: "#dc2626", bg: "rgba(220,38,38,0.12)"   },
+  NORMAL:     { label: "正常",   color: "var(--status-success)", bg: "rgba(34,197,94,0.12)"   },
+  WARNING:    { label: "预警",   color: "var(--status-warning)", bg: "rgba(245,158,11,0.12)"  },
+  OVER_LIMIT: { label: "超额度", color: "var(--status-danger)", bg: "rgba(239,68,68,0.12)"   },
+  OVERDUE:    { label: "逾期",   color: "var(--status-danger)", bg: "rgba(220,38,38,0.12)"   },
   FROZEN:     { label: "冻结",   color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
 };
 
@@ -668,13 +668,13 @@ function CreditTab() {
                       <span style={{ padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: cs.bg, color: cs.color }}>{cs.label}</span>
                     </td>
                     <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 11 }}>{lim > 0 ? lim.toLocaleString() : "—"}</td>
-                    <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 11, color: used > 0 ? "#f59e0b" : "var(--text-secondary)", fontWeight: used > 0 ? 700 : 400 }}>
+                    <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 11, color: used > 0 ? "var(--status-warning)" : "var(--text-secondary)", fontWeight: used > 0 ? 700 : 400 }}>
                       {used > 0 ? used.toLocaleString() : "0"}
                     </td>
-                    <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 11, fontWeight: 700, color: avail < 0 ? "#ef4444" : avail < lim * 0.1 ? "#f59e0b" : "#22c55e" }}>
+                    <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 11, fontWeight: 700, color: avail < 0 ? "var(--status-danger)" : avail < lim * 0.1 ? "var(--status-warning)" : "var(--status-success)" }}>
                       {avail.toLocaleString()}
                     </td>
-                    <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 11, color: overdue > 0 ? "#dc2626" : "var(--text-secondary)", fontWeight: overdue > 0 ? 700 : 400 }}>
+                    <td style={{ textAlign: "right", fontFamily: "monospace", fontSize: 11, color: overdue > 0 ? "var(--status-danger)" : "var(--text-secondary)", fontWeight: overdue > 0 ? 700 : 400 }}>
                       {overdue > 0 ? overdue.toLocaleString() : "—"}
                     </td>
                     <td style={{ textAlign: "center" }}>{row.payment_terms ?? 0}</td>
@@ -688,7 +688,7 @@ function CreditTab() {
                         </button>
                         {row.status === "FROZEN" && row.auto_frozen && (
                           <button type="button"
-                            style={{ padding: "2px 7px", fontSize: 10, background: "none", border: "1px solid #22c55e", color: "#22c55e", borderRadius: "var(--radius)", cursor: "pointer" }}
+                            style={{ padding: "2px 7px", fontSize: 10, background: "none", border: "1px solid #22c55e", color: "var(--status-success)", borderRadius: "var(--radius)", cursor: "pointer" }}
                             disabled={unfreezing === row.id}
                             onClick={() => doUnfreeze(row)}>
                             {unfreezing === row.id ? "…" : "解冻"}
@@ -735,7 +735,7 @@ function CreditTab() {
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   <span style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: cs.bg, color: cs.color }}>{cs.label}</span>
                   {analysis.riskLevel && analysis.riskLevel !== "NORMAL" && (
-                    <span style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+                    <span style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "rgba(239,68,68,0.1)", color: "var(--status-danger)" }}>
                       风险：{analysis.riskLevel}
                     </span>
                   )}
@@ -745,13 +745,13 @@ function CreditTab() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   {[
                     { label: "信用额度",   val: Number(analysis.creditLimit).toLocaleString(),           color: undefined },
-                    { label: "实时欠款",   val: Number(analysis.totalReceivable).toLocaleString(),       color: analysis.totalReceivable > 0 ? "#f59e0b" : undefined },
-                    { label: "可用额度",   val: Number(analysis.creditAvailable).toLocaleString(),       color: analysis.creditAvailable < 0 ? "#ef4444" : "#22c55e" },
-                    { label: "逾期金额",   val: analysis.overdueReceivable > 0 ? Number(analysis.overdueReceivable).toLocaleString() : "无", color: analysis.overdueReceivable > 0 ? "#dc2626" : "#22c55e" },
+                    { label: "实时欠款",   val: Number(analysis.totalReceivable).toLocaleString(),       color: analysis.totalReceivable > 0 ? "var(--status-warning)" : undefined },
+                    { label: "可用额度",   val: Number(analysis.creditAvailable).toLocaleString(),       color: analysis.creditAvailable < 0 ? "var(--status-danger)" : "var(--status-success)" },
+                    { label: "逾期金额",   val: analysis.overdueReceivable > 0 ? Number(analysis.overdueReceivable).toLocaleString() : "无", color: analysis.overdueReceivable > 0 ? "var(--status-danger)" : "var(--status-success)" },
                     { label: "账期",       val: `${analysis.paymentTerms ?? 0} 天`,                     color: undefined },
-                    { label: "逾期天数",   val: analysis.overdueDays > 0 ? `${analysis.overdueDays} 天` : "—", color: analysis.overdueDays > 0 ? "#dc2626" : undefined },
+                    { label: "逾期天数",   val: analysis.overdueDays > 0 ? `${analysis.overdueDays} 天` : "—", color: analysis.overdueDays > 0 ? "var(--status-danger)" : undefined },
                     { label: "未收发票",   val: `${analysis.openInvoiceCount ?? 0} 张`,                 color: undefined },
-                    { label: "最早逾期",   val: analysis.earliestOverdueDate ? String(analysis.earliestOverdueDate).slice(0,10) : "—", color: analysis.earliestOverdueDate ? "#f59e0b" : undefined },
+                    { label: "最早逾期",   val: analysis.earliestOverdueDate ? String(analysis.earliestOverdueDate).slice(0,10) : "—", color: analysis.earliestOverdueDate ? "var(--status-warning)" : undefined },
                   ].map(({ label, val, color }) => (
                     <div key={label} style={{ padding: "8px 10px", borderRadius: 8, background: "var(--bg-muted)", border: "1px solid var(--border)" }}>
                       <div style={{ fontSize: 10, color: "var(--text-secondary)", marginBottom: 3 }}>{label}</div>

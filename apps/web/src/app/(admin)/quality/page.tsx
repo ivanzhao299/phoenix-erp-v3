@@ -24,10 +24,10 @@ export default function QualityPage() {
 
   const QUICK_LINKS = [
     { title: t("ui.质检标准库", "质检标准库"), path:"/quality/standards", icon:"📋", desc: t("ui.管理检验标准与判定规则", "管理检验标准与判定规则"), color:"var(--color-primary)" },
-    { title: t("ui.场端质检",   "场端质检"),   path:"/quality/farm",      icon:"🐔", desc: t("ui.养殖场日常巡检记录",     "养殖场日常巡检记录"),     color:"#10b981" },
-    { title: t("ui.成品质检",   "成品质检"),   path:"/quality/product",   icon:"🥚", desc: t("ui.包装成品质量检验",       "包装成品质量检验"),       color:"#f59e0b" },
-    { title: t("ui.不合格品处置","不合格品处置"),path:"/quality/nonconformance",icon:"🚫",desc: t("ui.不合格品追踪与处置", "不合格品追踪与处置"), color:"#ef4444" },
-    { title: t("ui.正向追溯",   "正向追溯"),   path:"/quality/forward",   icon:"🔍", desc: t("ui.从养殖到终端全链路追踪", "从养殖到终端全链路追踪"), color:"#3b82f6" },
+    { title: t("ui.场端质检",   "场端质检"),   path:"/quality/farm",      icon:"🐔", desc: t("ui.养殖场日常巡检记录",     "养殖场日常巡检记录"),     color:"var(--status-success)" },
+    { title: t("ui.成品质检",   "成品质检"),   path:"/quality/product",   icon:"🥚", desc: t("ui.包装成品质量检验",       "包装成品质量检验"),       color:"var(--status-warning)" },
+    { title: t("ui.不合格品处置","不合格品处置"),path:"/quality/nonconformance",icon:"🚫",desc: t("ui.不合格品追踪与处置", "不合格品追踪与处置"), color:"var(--status-danger)" },
+    { title: t("ui.正向追溯",   "正向追溯"),   path:"/quality/forward",   icon:"🔍", desc: t("ui.从养殖到终端全链路追踪", "从养殖到终端全链路追踪"), color:"var(--status-info)" },
     { title: t("ui.逆向追溯",   "逆向追溯"),   path:"/quality/backward",  icon:"🔄", desc: t("ui.从终端反查生产批次",     "从终端反查生产批次"),     color:"#8b5cf6" },
   ];
 
@@ -77,9 +77,9 @@ export default function QualityPage() {
 
   const kpis = [
     { label: t("ui.本月检验批次", "本月检验批次"), value:loading?"…":inspections.length, unit: t("ui.批", "批"),  accent:"var(--color-primary)", icon:<ClipboardCheck size={20}/> },
-    { label: t("ui.合格率",       "合格率"),       value:loading?"…":passRate,            unit:"%",               accent:"#10b981",              icon:<ShieldCheck size={20}/> },
-    { label: t("ui.不合格批次",   "不合格批次"),   value:loading?"…":failed,              unit: t("ui.批", "批"), accent:"#ef4444",              icon:<AlertTriangle size={20}/> },
-    { label: t("ui.今日检验",     "今日检验"),     value:loading?"…":todayCount,          unit: t("ui.次", "次"), accent:"#3b82f6",              icon:<TrendingUp size={20}/> },
+    { label: t("ui.合格率",       "合格率"),       value:loading?"…":passRate,            unit:"%",               accent:"var(--status-success)",              icon:<ShieldCheck size={20}/> },
+    { label: t("ui.不合格批次",   "不合格批次"),   value:loading?"…":failed,              unit: t("ui.批", "批"), accent:"var(--status-danger)",              icon:<AlertTriangle size={20}/> },
+    { label: t("ui.今日检验",     "今日检验"),     value:loading?"…":todayCount,          unit: t("ui.次", "次"), accent:"var(--status-info)",              icon:<TrendingUp size={20}/> },
   ];
 
   return (
@@ -144,7 +144,7 @@ export default function QualityPage() {
             <div key={m.month} style={{ marginBottom:12 }}>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4, fontSize:12 }}>
                 <span style={{ fontWeight:600, color:"var(--text-primary)" }}>{m.month}</span>
-                <span style={{ fontWeight:700, color: m.rate >= 90 ? "#10b981" : m.rate >= 80 ? "#f59e0b" : "#ef4444" }}>{m.rate}%</span>
+                <span style={{ fontWeight:700, color: m.rate >= 90 ? "var(--status-success)" : m.rate >= 80 ? "var(--status-warning)" : "var(--status-danger)" }}>{m.rate}%</span>
               </div>
               <div className={s.progressWrap} style={{ height:8 }}>
                 <div className={`${s.progressBar} ${m.rate >= 90 ? s.progressBarSuccess : m.rate >= 80 ? s.progressBarWarning : s.progressBarDanger}`}

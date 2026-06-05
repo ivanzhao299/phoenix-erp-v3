@@ -527,7 +527,7 @@ export default function PurchaseOrdersPage() {
                             <Pencil size={13} />
                           </button>
                           <button className={s.btnIcon} title="提交审批"
-                            style={{ borderColor: "#22c55e", color: "#22c55e" }}
+                            style={{ borderColor: "var(--status-success)", color: "var(--status-success)" }}
                             onClick={() => handleSubmit(row)}>
                             <Send size={13} />
                           </button>
@@ -536,7 +536,7 @@ export default function PurchaseOrdersPage() {
                       {row.status === "SUBMITTED" && (
                         <>
                           <button className={s.btnIcon} title="审批通过"
-                            style={{ borderColor: "#22c55e", color: "#22c55e" }}
+                            style={{ borderColor: "var(--status-success)", color: "var(--status-success)" }}
                             onClick={() => openApprove(row)}>
                             <CheckCircle size={13} />
                           </button>
@@ -759,7 +759,7 @@ export default function PurchaseOrdersPage() {
                     </td>
                     <td style={tdStyle}>
                       <button type="button"
-                        style={{ border: "none", background: "none", cursor: "pointer", color: "#ef4444", padding: "0 2px" }}
+                        style={{ border: "none", background: "none", cursor: "pointer", color: "var(--status-danger)", padding: "0 2px" }}
                         onClick={() => setFormItems(p => p.length > 1 ? p.filter((_, i) => i !== idx) : p)}>
                         <Trash2 size={12} />
                       </button>
@@ -991,7 +991,7 @@ export default function PurchaseOrdersPage() {
       {/* ── 拒绝对话框 ─────────────────────────────────────────────────────── */}
       <SimpleModal open={rejectOpen} onClose={() => setRejectOpen(false)} title="拒绝采购订单">
         <p style={{ fontSize: 13, margin: "8px 0", display: "flex", alignItems: "center", gap: 6 }}>
-          <AlertTriangle size={14} color="#f59e0b" /> 拒绝 <strong>{actionTarget?.poNo}</strong>，请填写原因：
+          <AlertTriangle size={14} color="var(--status-warning)" /> 拒绝 <strong>{actionTarget?.poNo}</strong>，请填写原因：
         </p>
         <textarea className={s.textarea} rows={3} placeholder="拒绝原因（必填）"
           value={actionComment} onChange={e => setActionComment(e.target.value)} />

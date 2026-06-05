@@ -88,9 +88,9 @@ const EXPENSE_TYPES: Record<string, string> = {
 };
 
 const STEP_STATUS_CFG: Record<string, { color: string; label: string }> = {
-  PENDING:  { color: '#f59e0b', label: '待审批' },
-  APPROVED: { color: '#10b981', label: '已通过' },
-  REJECTED: { color: '#ef4444', label: '已拒绝' },
+  PENDING:  { color: 'var(--status-warning)', label: '待审批' },
+  APPROVED: { color: 'var(--status-success)', label: '已通过' },
+  REJECTED: { color: 'var(--status-danger)', label: '已拒绝' },
 };
 
 function fmt(n: string | number | null | undefined): string {

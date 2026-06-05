@@ -483,7 +483,7 @@ export default function PurchaseRequestsPage() {
                             <Pencil size={13} />
                           </button>
                           <button className={s.btnIcon} title="提交审批"
-                            style={{ borderColor: "#22c55e", color: "#22c55e" }}
+                            style={{ borderColor: "var(--status-success)", color: "var(--status-success)" }}
                             onClick={() => handleSubmit(row)}>
                             <Send size={13} />
                           </button>
@@ -492,7 +492,7 @@ export default function PurchaseRequestsPage() {
                       {row.status === "SUBMITTED" && (
                         <>
                           <button className={s.btnIcon} title="批准"
-                            style={{ borderColor: "#22c55e", color: "#22c55e" }}
+                            style={{ borderColor: "var(--status-success)", color: "var(--status-success)" }}
                             onClick={() => openApprove(row)}>
                             <CheckCircle size={13} />
                           </button>
@@ -849,7 +849,7 @@ export default function PurchaseRequestsPage() {
       {/* ── 拒绝对话框 ─────────────────────────────────────────────────────────── */}
       <SimpleModal open={rejectOpen} onClose={() => setRejectOpen(false)} title="拒绝采购申请">
         <p style={{ fontSize: 13, margin: "8px 0", display: "flex", alignItems: "center", gap: 6 }}>
-          <AlertTriangle size={14} color="#f59e0b" />
+          <AlertTriangle size={14} color="var(--status-warning)" />
           拒绝 <strong>{actionTarget?.reqNo}</strong>，请填写原因：
         </p>
         <textarea className={s.textarea} rows={3} placeholder="拒绝原因（必填）"

@@ -31,7 +31,7 @@ export const viewport: Viewport = {
   maximumScale: 1,        // 禁止用户捏合缩放（会触发页面位移）
   userScalable: false,
   viewportFit: "cover",  // 支持刘海/安全区 env(safe-area-inset-*)
-  themeColor: "#f59e0b",
+  themeColor: "var(--status-warning)",
 };
 
 export default function RootLayout({

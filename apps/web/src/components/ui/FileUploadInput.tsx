@@ -87,7 +87,7 @@ export function FileUploadInput({
           fontSize: 13,
         }}>
           {isImage
-            ? <ImageIcon size={14} color="#3b82f6" style={{ flexShrink: 0 }} />
+            ? <ImageIcon size={14} color="var(--status-info)" style={{ flexShrink: 0 }} />
             : <FileText  size={14} color="#6366f1" style={{ flexShrink: 0 }} />
           }
           <a
@@ -133,7 +133,7 @@ export function FileUploadInput({
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  color: '#ef4444',
+                  color: 'var(--status-danger)',
                   padding: 2,
                   flexShrink: 0,
                   lineHeight: 1,
@@ -175,7 +175,7 @@ export function FileUploadInput({
       )}
 
       {error && (
-        <span style={{ fontSize: 12, color: '#ef4444', marginTop: 2 }}>{error}</span>
+        <span style={{ fontSize: 12, color: 'var(--status-danger)', marginTop: 2 }}>{error}</span>
       )}
 
       {/* 图片预览（仅图片���式） */}

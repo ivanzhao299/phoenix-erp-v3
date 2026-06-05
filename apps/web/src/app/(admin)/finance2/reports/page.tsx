@@ -97,10 +97,10 @@ function AgingBar({ notDue, d030, d3160, d6190, dOver90, total }: {
   if (!total) return null;
   const pct = (v: number) => `${Math.round((v / total) * 100)}%`;
   const segs = [
-    { v: notDue, color: '#10b981', label: '未逾期' },
-    { v: d030,   color: '#f59e0b', label: '0-30天' },
+    { v: notDue, color: 'var(--status-success)', label: '未逾期' },
+    { v: d030,   color: 'var(--status-warning)', label: '0-30天' },
     { v: d3160,  color: '#f97316', label: '31-60天' },
-    { v: d6190,  color: '#ef4444', label: '61-90天' },
+    { v: d6190,  color: 'var(--status-danger)', label: '61-90天' },
     { v: dOver90,color: '#7f1d1d', label: '90天+' },
   ];
   return (

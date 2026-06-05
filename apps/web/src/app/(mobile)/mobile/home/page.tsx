@@ -35,21 +35,21 @@ const NAV_CARDS: NavCard[] = [
     icon: <BarChart2 size={28} />,
     titleZh: '每日看板', titleEn: 'Daily Board', titleLo: 'ກະດານປະຈໍາວັນ',
     desc: '生产·包装·品质·销售',
-    color: '#10b981', href: '/mobile/dashboard', soon: false,
+    color: 'var(--status-success)', href: '/mobile/dashboard', soon: false,
     pageKey: 'dashboard',
   },
   {
     icon: <Wheat size={28} />,
     titleZh: '饲料台账', titleEn: 'Feed Ledger', titleLo: 'ບັນທຶກອາຫານ',
     desc: '出入库登记·库存预警',
-    color: '#f59e0b', href: '/mobile/feed', soon: false,
+    color: 'var(--status-warning)', href: '/mobile/feed', soon: false,
     pageKey: 'feed',
   },
   {
     icon: <Skull size={28} />,
     titleZh: '死淘快录', titleEn: 'Mortality', titleLo: 'ບັນທຶກຕາຍ',
     desc: '各栋死淘数量快速录入',
-    color: '#ef4444', href: '/mobile/mortality', soon: false,
+    color: 'var(--status-danger)', href: '/mobile/mortality', soon: false,
     pageKey: 'mortality',
   },
   {
@@ -70,7 +70,7 @@ const NAV_CARDS: NavCard[] = [
     icon: <Warehouse size={28} />,
     titleZh: '鸡蛋台账', titleEn: 'Egg Ledger', titleLo: 'ບັນທຶກໄຂ່',
     desc: '出入库登记·分级库存',
-    color: '#3b82f6', href: '/mobile/egg', soon: false,
+    color: 'var(--status-info)', href: '/mobile/egg', soon: false,
     pageKey: 'egg',
   },
   {
@@ -91,7 +91,7 @@ const NAV_CARDS: NavCard[] = [
     icon: <Monitor size={28} />,
     titleZh: '包装作业台', titleEn: 'Pkg Terminal', titleLo: 'Terminal',
     desc: '前往现场作业终端',
-    color: '#f59e0b',
+    color: 'var(--status-warning)',
     href: '/terminal/packaging/dashboard',
     soon: false,
     pageKey: 'terminal',
@@ -109,7 +109,7 @@ const NAV_CARDS: NavCard[] = [
     icon: <Egg size={28} />,
     titleZh: '产蛋录入', titleEn: 'Egg Entry', titleLo: 'ບັນທຶກໄຂ່',
     desc: '各栋产蛋数量·班次录入',
-    color: '#f59e0b',
+    color: 'var(--status-warning)',
     href: '/mobile/egglog',
     soon: false,
     pageKey: 'egglog',
@@ -152,7 +152,7 @@ const NAV_CARDS: NavCard[] = [
     icon: <Bell size={28} />,
     titleZh: '通知中心', titleEn: 'Notifications', titleLo: 'ການແຈ້ງເຕືອນ',
     desc: '审批提醒 · 系统通知',
-    color: '#f59e0b', href: '/mobile/notifications', soon: false,
+    color: 'var(--status-warning)', href: '/mobile/notifications', soon: false,
     pageKey: 'notifications',
     badgeKey: 'notifCount',
   },
@@ -308,7 +308,7 @@ export default function MobileHomePage() {
                 : (lang === 'en' ? 'Fullscreen' : '全屏')}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer', padding: 6,
-                color: isFullscreen ? '#f59e0b' : t.textSub,
+                color: isFullscreen ? 'var(--status-warning)' : t.textSub,
                 display: 'flex', alignItems: 'center',
                 transition: 'color 0.2s',
               }}
@@ -341,8 +341,8 @@ export default function MobileHomePage() {
           background: 'rgba(245,158,11,0.1)',
           border: '1px solid rgba(245,158,11,0.25)',
         }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
-          <span style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--status-warning)' }} />
+          <span style={{ fontSize: 12, color: 'var(--status-warning)', fontWeight: 600 }}>
             {user?.roleNameZh || user?.role || '管理员'}
           </span>
         </div>
@@ -404,7 +404,7 @@ export default function MobileHomePage() {
               </div>
               {card.badgeKey && (badgeCounts[card.badgeKey] ?? 0) > 0 && (
                 <span style={{
-                  background: '#ef4444', color: '#fff',
+                  background: 'var(--status-danger)', color: '#fff',
                   borderRadius: 12, padding: '2px 7px',
                   fontSize: 11, fontWeight: 800, lineHeight: 1.4,
                 }}>

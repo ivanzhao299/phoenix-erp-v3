@@ -67,9 +67,9 @@ export default function PriceReviewPage() {
       {/* KPI 摘要 */}
       <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
         {[
-          { label: t('ui.合同价档位', '合同价档位'), value: prices.length,        color: "#3b82f6" },
-          { label: t('ui.分析订单行', '分析订单行'), value: review.length,        color: "#22c55e" },
-          { label: t('ui.低于底价', '低于底价'),   value: belowFloorCount,      color: belowFloorCount > 0 ? "#ef4444" : "#22c55e" },
+          { label: t('ui.合同价档位', '合同价档位'), value: prices.length,        color: "var(--status-info)" },
+          { label: t('ui.分析订单行', '分析订单行'), value: review.length,        color: "var(--status-success)" },
+          { label: t('ui.低于底价', '低于底价'),   value: belowFloorCount,      color: belowFloorCount > 0 ? "var(--status-danger)" : "var(--status-success)" },
         ].map(k => (
           <div key={k.label} style={{
             background: "var(--bg-card)", border: "1px solid var(--bg-card)",
@@ -100,17 +100,17 @@ export default function PriceReviewPage() {
               <tr key={i} style={{ background: r!.belowFloor ? "rgba(239,68,68,0.06)" : "transparent" }}>
                 <td>{r!.order_no}</td>
                 <td>{r!.product_code}</td>
-                <td style={{ fontWeight: 700, color: r!.belowFloor ? "#ef4444" : "var(--text-primary)" }}>{Number(r!.unit_price).toFixed(2)}</td>
+                <td style={{ fontWeight: 700, color: r!.belowFloor ? "var(--status-danger)" : "var(--text-primary)" }}>{Number(r!.unit_price).toFixed(2)}</td>
                 <td style={{ color: "var(--text-secondary)" }}>{Number(r!.contract_price).toFixed(2)}</td>
                 <td style={{ color: "var(--text-secondary)" }}>{Number(r!.floor_price).toFixed(2)}</td>
-                <td style={{ fontWeight: 700, color: r!.diff >= 0 ? "#22c55e" : "#ef4444" }}>
+                <td style={{ fontWeight: 700, color: r!.diff >= 0 ? "var(--status-success)" : "var(--status-danger)" }}>
                   {r!.diff >= 0 ? <TrendingUp size={12} style={{ marginRight: 4 }} /> : <TrendingDown size={12} style={{ marginRight: 4 }} />}
                   {Number(r!.diff).toFixed(2)}
                 </td>
                 <td>
                   {r!.belowFloor
-                    ? <span style={{ fontSize: "0.72rem", background: "#ef4444", color: "#fff", padding: "2px 8px", borderRadius: 4, fontWeight: 700 }}>{t('ui.低于底价', '低于底价')}</span>
-                    : <span style={{ fontSize: "0.72rem", color: "#22c55e" }}>{t('status.normal', '正常')}</span>}
+                    ? <span style={{ fontSize: "0.72rem", background: "var(--status-danger)", color: "#fff", padding: "2px 8px", borderRadius: 4, fontWeight: 700 }}>{t('ui.低于底价', '低于底价')}</span>
+                    : <span style={{ fontSize: "0.72rem", color: "var(--status-success)" }}>{t('status.normal', '正常')}</span>}
                 </td>
               </tr>
             ))}

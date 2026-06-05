@@ -27,12 +27,12 @@ const BIZ_TYPE_LABEL: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  PENDING:   '#f59e0b',
-  APPROVED:  '#10b981',
-  REJECTED:  '#ef4444',
+  PENDING:   'var(--status-warning)',
+  APPROVED:  'var(--status-success)',
+  REJECTED:  'var(--status-danger)',
   CANCELLED: '#94a3b8',
-  TODO:      '#f59e0b',
-  DONE:      '#10b981',
+  TODO:      'var(--status-warning)',
+  DONE:      'var(--status-success)',
 };
 
 // ── 安全摘要：股东资金不暴露金额/银行字段 ─────────────────────────────────────
@@ -104,7 +104,7 @@ function TaskCard({
             {task.isOverdue && (
               <span style={{
                 fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca',
+                background: '#fef2f2', color: 'var(--status-danger)', border: '1px solid #fecaca',
               }}>⏰ 已超期</span>
             )}
             {(task.escalationLevel ?? 0) > 0 && (
@@ -162,14 +162,14 @@ function TaskCard({
           if (task.isOverdue) {
             const hOver = Math.abs(hLeft);
             return (
-              <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ fontSize: 11, color: 'var(--status-danger)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
                 ⏰ 已超期 {hOver >= 24 ? `${Math.floor(hOver / 24)}天` : `${hOver}小时`}
               </div>
             );
           }
           if (hLeft < 24) {
             return (
-              <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ fontSize: 11, color: 'var(--status-warning)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
                 ⚡ 剩余 {hLeft}小时截止
               </div>
             );
@@ -206,7 +206,7 @@ function TaskCard({
             onClick={e => { e.stopPropagation(); onApprove(task); }}
             style={{
               flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
-              background: '#10b981', color: '#fff',
+              background: 'var(--status-success)', color: '#fff',
               fontSize: 13, fontWeight: 700, cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
             }}
@@ -218,7 +218,7 @@ function TaskCard({
             style={{
               flex: 1, padding: '10px 0', borderRadius: 10,
               border: '1.5px solid #ef4444', background: 'transparent',
-              color: '#ef4444', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              color: 'var(--status-danger)', fontSize: 13, fontWeight: 700, cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
             }}
           >
@@ -276,7 +276,7 @@ function ActionSheet({
   }
 
   const isApprove = mode === 'approve';
-  const accentColor = isApprove ? '#10b981' : '#ef4444';
+  const accentColor = isApprove ? 'var(--status-success)' : 'var(--status-danger)';
 
   return (
     <div style={{
@@ -292,7 +292,7 @@ function ActionSheet({
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 16, color: isApprove ? '#10b981' : '#ef4444' }}>
+            <div style={{ fontWeight: 700, fontSize: 16, color: isApprove ? 'var(--status-success)' : 'var(--status-danger)' }}>
               {isApprove ? '✓ 确认审批通过' : '✗ 拒绝审批'}
             </div>
             <div style={{ fontSize: 12, color: t.textSub, marginTop: 2 }}>
@@ -315,7 +315,7 @@ function ActionSheet({
             style={{
               width: '100%', boxSizing: 'border-box',
               padding: '10px 12px', borderRadius: 10,
-              border: `1.5px solid ${err ? '#ef4444' : isDark ? '#374151' : '#d1d5db'}`,
+              border: `1.5px solid ${err ? 'var(--status-danger)' : isDark ? '#374151' : '#d1d5db'}`,
               background: isDark ? '#1f2937' : '#f9fafb',
               color: t.text, fontSize: 14, outline: 'none', resize: 'none', height: 88,
             }}
@@ -323,7 +323,7 @@ function ActionSheet({
         </div>
 
         {err && (
-          <div style={{ color: '#ef4444', fontSize: 13, marginTop: 8, padding: '6px 10px', background: '#fef2f2', borderRadius: 8 }}>
+          <div style={{ color: 'var(--status-danger)', fontSize: 13, marginTop: 8, padding: '6px 10px', background: '#fef2f2', borderRadius: 8 }}>
             {err}
           </div>
         )}
@@ -372,7 +372,7 @@ function DetailSheet({
     return () => { cancelled = true; };
   }, [task.instanceId]);
 
-  const stepStatusColor = (s: string) => s === 'APPROVED' ? '#10b981' : s === 'REJECTED' ? '#ef4444' : s === 'PENDING' ? '#f59e0b' : '#94a3b8';
+  const stepStatusColor = (s: string) => s === 'APPROVED' ? 'var(--status-success)' : s === 'REJECTED' ? 'var(--status-danger)' : s === 'PENDING' ? 'var(--status-warning)' : '#94a3b8';
   const stepStatusLabel = (s: string) => s === 'APPROVED' ? '已通过' : s === 'REJECTED' ? '已拒绝' : s === 'PENDING' ? '待审批' : s;
 
   return (
@@ -420,7 +420,7 @@ function DetailSheet({
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: t.textSub, marginBottom: 10 }}>审批流程</div>
           {loading && <div style={{ color: t.textFaint, fontSize: 13, textAlign: 'center', padding: '20px 0' }}>加载中…</div>}
-          {err && <div style={{ color: '#ef4444', fontSize: 13, padding: '8px 0' }}>{err}</div>}
+          {err && <div style={{ color: 'var(--status-danger)', fontSize: 13, padding: '8px 0' }}>{err}</div>}
           {detail?.steps?.map((step, idx) => (
             <div key={step.id} style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 24, flexShrink: 0 }}>
@@ -507,7 +507,7 @@ function DetailSheet({
             onClick={() => { onClose(); setTimeout(onApprove, 150); }}
             style={{
               flex: 1, padding: '13px 0', borderRadius: 12, border: 'none',
-              background: '#10b981', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer',
+              background: 'var(--status-success)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer',
             }}
           >
             ✓ 通过
@@ -517,7 +517,7 @@ function DetailSheet({
             style={{
               flex: 1, padding: '13px 0', borderRadius: 12,
               border: '1.5px solid #ef4444', background: 'transparent',
-              color: '#ef4444', fontWeight: 700, fontSize: 15, cursor: 'pointer',
+              color: 'var(--status-danger)', fontWeight: 700, fontSize: 15, cursor: 'pointer',
             }}
           >
             ✗ 拒绝
@@ -647,7 +647,7 @@ export default function WorkflowPage() {
           <span style={{ fontWeight: 700, fontSize: 16, color: t.text }}>审批中心</span>
           {tab === 'todos' && total > 0 && (
             <span style={{
-              background: '#ef4444', color: '#fff', borderRadius: 12,
+              background: 'var(--status-danger)', color: '#fff', borderRadius: 12,
               padding: '1px 7px', fontSize: 11, fontWeight: 700,
             }}>{total}</span>
           )}
@@ -684,7 +684,7 @@ export default function WorkflowPage() {
             {label}
             {key === 'todos' && cnt > 0 && (
               <span style={{
-                background: tab === 'todos' ? 'rgba(255,255,255,0.3)' : '#ef4444',
+                background: tab === 'todos' ? 'rgba(255,255,255,0.3)' : 'var(--status-danger)',
                 color: '#fff', fontSize: 10, fontWeight: 800,
                 padding: '1px 5px', borderRadius: 10, lineHeight: 1.4,
               }}>{cnt}</span>
@@ -697,7 +697,7 @@ export default function WorkflowPage() {
       <div style={{ flex: 1, padding: '12px 16px calc(24px + env(safe-area-inset-bottom))' }}>
         {loading && [1, 2, 3].map(i => <SkeletonCard key={i} lines={3} />)}
         {!loading && err && (
-          <div style={{ color: '#ef4444', background: '#fef2f2', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 12 }}>
+          <div style={{ color: 'var(--status-danger)', background: '#fef2f2', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 12 }}>
             {err}
           </div>
         )}

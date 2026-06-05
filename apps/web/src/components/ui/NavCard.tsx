@@ -46,7 +46,7 @@ export function NavCard({
   className,
 }: NavCardProps) {
   const color = ACCENT_SOLID[accent];
-  const badgeColorVal = { red: '#dc2626', amber: '#f59e0b', blue: 'var(--color-primary)' }[badgeColor];
+  const badgeColorVal = { red: 'var(--status-danger)', amber: 'var(--status-warning)', blue: 'var(--color-primary)' }[badgeColor];
 
   const inner = (
     <div

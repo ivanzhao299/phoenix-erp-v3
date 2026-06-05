@@ -33,7 +33,7 @@ function NetworkBanner() {
       position: 'fixed', bottom: 'env(safe-area-inset-bottom, 0px)',
       left: 0, right: 0, zIndex: 9999,
       padding: '10px 16px',
-      background: offline ? '#ef4444' : '#10b981',
+      background: offline ? 'var(--status-danger)' : 'var(--status-success)',
       color: '#fff', fontSize: 13, fontWeight: 600,
       textAlign: 'center',
       transition: 'background 0.3s',
@@ -76,7 +76,7 @@ function MobileLoadingScreen() {
           🐦
         </div>
         <span style={{
-          color: '#f59e0b',
+          color: 'var(--status-warning)',
           fontWeight: 800,
           fontSize: 18,
           letterSpacing: 0.6,
@@ -92,7 +92,7 @@ function MobileLoadingScreen() {
           width: 32,
           height: 32,
           border: '2.5px solid rgba(255,255,255,0.07)',
-          borderTopColor: '#f59e0b',
+          borderTopColor: 'var(--status-warning)',
           borderRadius: '50%',
         }}
       />

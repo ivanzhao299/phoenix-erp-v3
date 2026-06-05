@@ -233,8 +233,8 @@ export default function SalesPage() {
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
               padding: '12px 0', background: tab === tab_.key ? 'rgba(16,185,129,0.1)' : 'none',
-              border: 'none', borderBottom: `2px solid ${tab === tab_.key ? '#10b981' : 'transparent'}`,
-              color: tab === tab_.key ? '#10b981' : t.textMuted,
+              border: 'none', borderBottom: `2px solid ${tab === tab_.key ? 'var(--status-success)' : 'transparent'}`,
+              color: tab === tab_.key ? 'var(--status-success)' : t.textMuted,
               cursor: 'pointer', fontSize: 13, fontWeight: 700,
             }}
           >
@@ -268,12 +268,12 @@ export default function SalesPage() {
 
       {/* 错误 / 成功 */}
       {error && (
-        <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', fontSize: 12 }}>
+        <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--status-danger)', fontSize: 12 }}>
           {error}
         </div>
       )}
       {successNo && (
-        <div style={{ margin: '8px 16px 0', padding: 12, borderRadius: 10, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', color: '#10b981', fontSize: 13, fontWeight: 600 }}>
+        <div style={{ margin: '8px 16px 0', padding: 12, borderRadius: 10, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', color: 'var(--status-success)', fontSize: 13, fontWeight: 600 }}>
           ✓ 出库单已创建：{successNo}
         </div>
       )}
@@ -296,7 +296,7 @@ export default function SalesPage() {
                       padding: '8px 14px', borderRadius: 10,
                       background: selCustomer?.customer_code === c.customer_code ? 'rgba(16,185,129,0.15)' : t.btnBg,
                       border: `1px solid ${selCustomer?.customer_code === c.customer_code ? 'rgba(16,185,129,0.4)' : t.btnBorder}`,
-                      color: selCustomer?.customer_code === c.customer_code ? '#10b981' : t.textSub,
+                      color: selCustomer?.customer_code === c.customer_code ? 'var(--status-success)' : t.textSub,
                       cursor: 'pointer', fontSize: 13, fontWeight: 600,
                     }}>
                     {c.customer_name}
@@ -329,7 +329,7 @@ export default function SalesPage() {
                   }}>
                     <div>
                       <div style={{ fontSize: 14, color: qty > 0 ? t.text : t.textSub }}>{g.name}</div>
-                      {sub > 0 && <div style={{ fontSize: 10, color: '#10b981' }}>小计 {fmtMoney(sub)}</div>}
+                      {sub > 0 && <div style={{ fontSize: 10, color: 'var(--status-success)' }}>小计 {fmtMoney(sub)}</div>}
                     </div>
                     <input
                       type="number" inputMode="numeric" min="0"
@@ -340,7 +340,7 @@ export default function SalesPage() {
                         height: 34, textAlign: 'right', padding: '0 8px',
                         background: qty > 0 ? 'rgba(16,185,129,0.1)' : t.inputBg,
                         border: `1px solid ${qty > 0 ? 'rgba(16,185,129,0.3)' : t.inputBorder}`,
-                        borderRadius: 8, color: qty > 0 ? '#10b981' : t.textSub,
+                        borderRadius: 8, color: qty > 0 ? 'var(--status-success)' : t.textSub,
                         fontSize: 14, fontWeight: 700, outline: 'none', WebkitAppearance: 'none',
                       }}
                     />
@@ -373,7 +373,7 @@ export default function SalesPage() {
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               }}>
                 <span style={{ fontSize: 12, color: t.textMuted }}>今日合计 · {history.length} 单</span>
-                <span style={{ fontSize: 18, fontWeight: 800, color: '#10b981' }}>₭ {fmtMoney(historyTotal)}</span>
+                <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--status-success)' }}>₭ {fmtMoney(historyTotal)}</span>
               </div>
             )}
 
@@ -398,11 +398,11 @@ export default function SalesPage() {
                       <div style={{ fontSize: 11, color: t.textFaint, marginTop: 2 }}>{rec.order_no}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: rec.status === 'CANCELLED' ? t.textFaint : '#10b981' }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: rec.status === 'CANCELLED' ? t.textFaint : 'var(--status-success)' }}>
                         ₭ {fmtMoney(Number(rec.total_amount))}
                       </div>
                       {rec.status === 'CANCELLED' && (
-                        <div style={{ fontSize: 10, color: '#f87171' }}>已撤销</div>
+                        <div style={{ fontSize: 10, color: 'var(--status-danger)' }}>已撤销</div>
                       )}
                     </div>
                   </div>
@@ -428,7 +428,7 @@ export default function SalesPage() {
                             marginTop: 10, padding: '6px 14px', borderRadius: 8,
                             background: 'rgba(239,68,68,0.1)',
                             border: '1px solid rgba(239,68,68,0.3)',
-                            color: '#f87171', cursor: 'pointer', fontSize: 12,
+                            color: 'var(--status-danger)', cursor: 'pointer', fontSize: 12,
                             display: 'flex', alignItems: 'center', gap: 4,
                           }}>
                           <X size={12} /> 撤销此单
@@ -456,7 +456,7 @@ export default function SalesPage() {
             <div style={{ fontSize: 11, color: t.textFaint }}>
               {totalQty > 0 ? `${totalQty.toLocaleString()} 枚` : '未填写数量'}
             </div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: totalAmount > 0 ? '#10b981' : t.textFaint }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: totalAmount > 0 ? 'var(--status-success)' : t.textFaint }}>
               ₭ {fmtMoney(totalAmount)}
             </div>
           </div>
@@ -467,7 +467,7 @@ export default function SalesPage() {
               flex: 1, maxWidth: 160, height: 48, borderRadius: 14,
               background: totalQty > 0 ? 'rgba(16,185,129,0.2)' : t.btnBg,
               border: `1px solid ${totalQty > 0 ? 'rgba(16,185,129,0.5)' : t.btnBorder}`,
-              color: totalQty > 0 ? '#10b981' : t.textFaint,
+              color: totalQty > 0 ? 'var(--status-success)' : t.textFaint,
               cursor: totalQty > 0 ? 'pointer' : 'default',
               fontSize: 15, fontWeight: 800,
             }}

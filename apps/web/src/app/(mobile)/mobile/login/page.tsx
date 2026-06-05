@@ -13,7 +13,7 @@ const IS_DEV = process.env.NODE_ENV !== 'production';
 const TEST_GROUPS = IS_DEV ? [
   {
     label: '管理层',
-    color: { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.35)', text: '#f59e0b' },
+    color: { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.35)', text: 'var(--status-warning)' },
     accounts: [
       { u: 'admin',         p: 'admin123', label: '🔑 超管',   sub: 'ROLE_ADMIN' },
       { u: 'test_ceo',      p: '123456',   label: '👑 总裁',   sub: 'ROLE_CEO' },
@@ -159,7 +159,7 @@ function MobileLoginInner() {
               fontSize: 12, padding: '4px 10px', borderRadius: 8,
               border: `1px solid ${th.inputBorder}`,
               background: lang === l ? 'rgba(245,158,11,0.2)' : th.appBarBg,
-              color: lang === l ? '#f59e0b' : th.textMuted,
+              color: lang === l ? 'var(--status-warning)' : th.textMuted,
               cursor: 'pointer', fontWeight: lang === l ? 700 : 400,
               backdropFilter: 'blur(8px)',
             }}>
@@ -204,7 +204,7 @@ function MobileLoginInner() {
         </p>
 
         {error && (
-          <div style={{ marginBottom: 16, padding: 12, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, color: '#f87171', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ marginBottom: 16, padding: 12, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, color: 'var(--status-danger)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
             <AlertTriangle size={15} /> {error}
           </div>
         )}
@@ -332,14 +332,14 @@ function LoginFallback() {
           fontSize: 34,
           boxShadow: '0 0 40px rgba(245,158,11,0.4)',
         }}>🐦</div>
-        <span style={{ color: '#f59e0b', fontWeight: 800, fontSize: 16, letterSpacing: 0.5 }}>
+        <span style={{ color: 'var(--status-warning)', fontWeight: 800, fontSize: 16, letterSpacing: 0.5 }}>
           Phoenix ERP
         </span>
       </div>
       <div className="mobile-spin" style={{
         width: 28, height: 28,
         border: '2.5px solid rgba(255,255,255,0.07)',
-        borderTopColor: '#f59e0b',
+        borderTopColor: 'var(--status-warning)',
         borderRadius: '50%',
       }} />
     </div>

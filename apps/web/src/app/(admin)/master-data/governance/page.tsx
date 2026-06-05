@@ -48,10 +48,10 @@ interface DictCoverage {
 }
 
 function scoreColor(s: number): { bg: string; fg: string; label: string } {
-  if (s >= 90) return { bg: 'rgba(34,197,94,0.12)',  fg: '#16a34a', label: '优秀' };
-  if (s >= 75) return { bg: 'rgba(59,130,246,0.12)', fg: '#2563eb', label: '良好' };
-  if (s >= 60) return { bg: 'rgba(245,158,11,0.12)', fg: '#d97706', label: '及格' };
-  return         { bg: 'rgba(239,68,68,0.12)',   fg: '#dc2626', label: '需整改' };
+  if (s >= 90) return { bg: 'rgba(34,197,94,0.12)',  fg: 'var(--status-success)', label: '优秀' };
+  if (s >= 75) return { bg: 'rgba(59,130,246,0.12)', fg: 'var(--color-accent)', label: '良好' };
+  if (s >= 60) return { bg: 'rgba(245,158,11,0.12)', fg: 'var(--status-warning)', label: '及格' };
+  return         { bg: 'rgba(239,68,68,0.12)',   fg: 'var(--status-danger)', label: '需整改' };
 }
 
 export default function GovernanceDashboardPage() {
@@ -100,7 +100,7 @@ export default function GovernanceDashboardPage() {
       />
 
       {error && (
-        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: '#dc2626', marginBottom: 16, fontSize: 13 }}>
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: 'var(--status-danger)', marginBottom: 16, fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -136,15 +136,15 @@ export default function GovernanceDashboardPage() {
             border: `1px solid ${scores.highAlertCount > 0 ? '#dc262633' : '#16a34a33'}`,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-              <AlertTriangle size={20} style={{ color: scores.highAlertCount > 0 ? '#dc2626' : '#16a34a' }} />
+              <AlertTriangle size={20} style={{ color: scores.highAlertCount > 0 ? 'var(--status-danger)' : 'var(--status-success)' }} />
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>近 7 天治理事件</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-              <div style={{ fontSize: 56, fontWeight: 800, color: scores.highAlertCount > 0 ? '#dc2626' : '#16a34a', lineHeight: 1 }}>
+              <div style={{ fontSize: 56, fontWeight: 800, color: scores.highAlertCount > 0 ? 'var(--status-danger)' : 'var(--status-success)', lineHeight: 1 }}>
                 {scores.alertCount}
               </div>
               <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-                {scores.highAlertCount > 0 && <span style={{ color: '#dc2626', fontWeight: 700 }}>{scores.highAlertCount} 高危 · </span>}
+                {scores.highAlertCount > 0 && <span style={{ color: 'var(--status-danger)', fontWeight: 700 }}>{scores.highAlertCount} 高危 · </span>}
                 未解决
               </div>
             </div>
@@ -198,7 +198,7 @@ export default function GovernanceDashboardPage() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
             {dict.details.map(d => {
-              const color = d.status === 'ACTIVE' ? '#16a34a' : d.status === 'EMPTY' ? '#d97706' : '#dc2626';
+              const color = d.status === 'ACTIVE' ? 'var(--status-success)' : d.status === 'EMPTY' ? 'var(--status-warning)' : 'var(--status-danger)';
               return (
                 <div key={d.dictType} style={{
                   padding: '8px 12px', borderRadius: 6,
@@ -214,7 +214,7 @@ export default function GovernanceDashboardPage() {
             })}
           </div>
           {dict.missingDictTypes.length > 0 && (
-            <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', fontSize: 12, color: '#dc2626' }}>
+            <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', fontSize: 12, color: 'var(--status-danger)' }}>
               <strong>缺失字典（{dict.missingDictTypes.length}）：</strong> {dict.missingDictTypes.join('、')}
             </div>
           )}

@@ -39,16 +39,16 @@ async function api<T = any>(method: string, path: string, body?: unknown): Promi
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   DRAFT:            { label: '草稿',    color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
-  PENDING_APPROVAL: { label: '审批中',  color: '#f59e0b', bg: 'rgba(245,158,11,0.1)'  },
-  APPROVED:         { label: '已批准',  color: '#22c55e', bg: 'rgba(34,197,94,0.1)'   },
-  ALLOCATED:        { label: '已分配',  color: '#3b82f6', bg: 'rgba(59,130,246,0.1)'  },
+  PENDING_APPROVAL: { label: '审批中',  color: 'var(--status-warning)', bg: 'rgba(245,158,11,0.1)'  },
+  APPROVED:         { label: '已批准',  color: 'var(--status-success)', bg: 'rgba(34,197,94,0.1)'   },
+  ALLOCATED:        { label: '已分配',  color: 'var(--status-info)', bg: 'rgba(59,130,246,0.1)'  },
   PICKED:           { label: '已拣货',  color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)'  },
   LOADED:           { label: '已装车',  color: '#06b6d4', bg: 'rgba(6,182,212,0.1)'   },
   SHIPPED:          { label: '已发货',  color: '#0ea5e9', bg: 'rgba(14,165,233,0.1)'  },
-  DELIVERED:        { label: '已送达',  color: '#10b981', bg: 'rgba(16,185,129,0.1)'  },
-  RECEIVED:         { label: '已签收',  color: '#22c55e', bg: 'rgba(34,197,94,0.12)'  },
+  DELIVERED:        { label: '已送达',  color: 'var(--status-success)', bg: 'rgba(16,185,129,0.1)'  },
+  RECEIVED:         { label: '已签收',  color: 'var(--status-success)', bg: 'rgba(34,197,94,0.12)'  },
   RECONCILED:       { label: '已对账',  color: '#6366f1', bg: 'rgba(99,102,241,0.1)'  },
-  REJECTED:         { label: '已拒绝',  color: '#ef4444', bg: 'rgba(239,68,68,0.1)'   },
+  REJECTED:         { label: '已拒绝',  color: 'var(--status-danger)', bg: 'rgba(239,68,68,0.1)'   },
   CANCELLED:        { label: '已取消',  color: '#64748b', bg: 'rgba(100,116,139,0.1)' },
 };
 
@@ -382,16 +382,16 @@ export default function SalesV2OrdersPage() {
                     <span style={{ padding: '3px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color }}>{sc.label}</span>
                   </td>
                   <td>
-                    {o.below_floor_price && <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 700 }}>⚠ 低价</span>}
+                    {o.below_floor_price && <span style={{ fontSize: 11, color: 'var(--status-danger)', fontWeight: 700 }}>⚠ 低价</span>}
                   </td>
                   <td>
-                    {o.over_credit && <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 700 }}>⚠ 超信用</span>}
+                    {o.over_credit && <span style={{ fontSize: 11, color: 'var(--status-warning)', fontWeight: 700 }}>⚠ 超信用</span>}
                   </td>
                   <td>
                     {o.ar_invoice_id
-                      ? <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 700 }}>✓ 已生成</span>
+                      ? <span style={{ fontSize: 11, color: 'var(--status-success)', fontWeight: 700 }}>✓ 已生成</span>
                       : o.status === 'RECEIVED'
-                        ? <span style={{ fontSize: 11, color: '#f59e0b' }}>待生成</span>
+                        ? <span style={{ fontSize: 11, color: 'var(--status-warning)' }}>待生成</span>
                         : <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>—</span>
                     }
                   </td>
@@ -443,7 +443,7 @@ export default function SalesV2OrdersPage() {
               <button onClick={() => setShowCreate(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={18} /></button>
             </div>
 
-            {actionError && <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: '#ef4444', fontSize: 13 }}>{actionError}</div>}
+            {actionError && <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: 'var(--status-danger)', fontSize: 13 }}>{actionError}</div>}
 
             {/* 基本信息 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -483,10 +483,10 @@ export default function SalesV2OrdersPage() {
               const panelBg   = isFrozen ? 'rgba(107,114,128,0.08)' : isOverdue || isOver ? 'rgba(239,68,68,0.07)' : isWarn ? 'rgba(245,158,11,0.07)' : 'rgba(34,197,94,0.06)';
               const panelBdr  = isFrozen ? 'rgba(107,114,128,0.25)' : isOverdue || isOver ? 'rgba(239,68,68,0.25)' : isWarn ? 'rgba(245,158,11,0.25)' : 'rgba(34,197,94,0.2)';
               const statusCfg: Record<string, { label: string; color: string }> = {
-                NORMAL:     { label: '信用正常', color: '#22c55e' },
-                WARNING:    { label: '⚠ 逾期预警', color: '#f59e0b' },
-                OVER_LIMIT: { label: '🚫 超信用额度', color: '#ef4444' },
-                OVERDUE:    { label: '🚫 账期逾期', color: '#dc2626' },
+                NORMAL:     { label: '信用正常', color: 'var(--status-success)' },
+                WARNING:    { label: '⚠ 逾期预警', color: 'var(--status-warning)' },
+                OVER_LIMIT: { label: '🚫 超信用额度', color: 'var(--status-danger)' },
+                OVERDUE:    { label: '🚫 账期逾期', color: 'var(--status-danger)' },
                 FROZEN:     { label: '🔒 账户冻结，禁止下单', color: '#6b7280' },
               };
               const scf = cs ? (statusCfg[cs] ?? { label: cs, color: '#94a3b8' }) : null;
@@ -499,18 +499,18 @@ export default function SalesV2OrdersPage() {
                       {scf && <div style={{ fontWeight: 700, color: scf.color, fontSize: 13 }}>{scf.label}</div>}
                       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                         <span>信用额度：<strong>{Number(creditInfo.creditLimit).toLocaleString()}</strong></span>
-                        <span>实时欠款：<strong style={{ color: creditInfo.totalReceivable > 0 ? '#f59e0b' : undefined }}>{creditInfo.totalReceivable != null ? Number(creditInfo.totalReceivable).toLocaleString() : Number(creditInfo.creditUsed).toLocaleString()}</strong></span>
-                        <span style={{ fontWeight: 700, color: creditInfo.creditAvailable < 0 ? '#ef4444' : '#22c55e' }}>
+                        <span>实时欠款：<strong style={{ color: creditInfo.totalReceivable > 0 ? 'var(--status-warning)' : undefined }}>{creditInfo.totalReceivable != null ? Number(creditInfo.totalReceivable).toLocaleString() : Number(creditInfo.creditUsed).toLocaleString()}</strong></span>
+                        <span style={{ fontWeight: 700, color: creditInfo.creditAvailable < 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>
                           可用：{Number(creditInfo.creditAvailable).toLocaleString()}
                         </span>
                       </div>
                       {creditInfo.overdueReceivable > 0 && (
-                        <div style={{ color: '#dc2626', fontWeight: 600 }}>
+                        <div style={{ color: 'var(--status-danger)', fontWeight: 600 }}>
                           逾期未收：{Number(creditInfo.overdueReceivable).toLocaleString()}（已逾期 {creditInfo.overdueDays} 天）
                         </div>
                       )}
                       {(isOver || isOverdue) && (
-                        <div style={{ color: '#ef4444', fontWeight: 700, fontSize: 12 }}>
+                        <div style={{ color: 'var(--status-danger)', fontWeight: 700, fontSize: 12 }}>
                           ⚠ 提交后将触发信用审批流程
                         </div>
                       )}
@@ -586,17 +586,17 @@ export default function SalesV2OrdersPage() {
                           style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-page)', color: 'var(--text-primary)', fontSize: 12 }} />
                       </div>
                       <div>
-                        <label style={{ fontSize: 11, color: `${belowFloor ? '#ef4444' : 'var(--text-secondary)'}`, display: 'block', marginBottom: 2 }}>
+                        <label style={{ fontSize: 11, color: `${belowFloor ? 'var(--status-danger)' : 'var(--text-secondary)'}`, display: 'block', marginBottom: 2 }}>
                           实际单价 {item._resolved?.floorPrice != null ? `(底价: ${item._resolved.floorPrice})` : ''}
                         </label>
                         <input type="number" value={item.actualUnitPrice}
                           onChange={e => setNewItems(p => p.map((it, i) => i === idx ? { ...it, actualUnitPrice: e.target.value } : it))}
                           placeholder={item._resolved ? String(item._resolved.unitPrice) : '0'}
-                          style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: `1px solid ${belowFloor ? '#ef4444' : 'var(--border)'}`, background: 'var(--bg-page)', color: belowFloor ? '#ef4444' : 'var(--text-primary)', fontSize: 12, fontWeight: belowFloor ? 700 : 400 }} />
-                        {belowFloor && <div style={{ fontSize: 11, color: '#ef4444', marginTop: 2 }}>⚠ 低于底价，需审批</div>}
+                          style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: `1px solid ${belowFloor ? 'var(--status-danger)' : 'var(--border)'}`, background: 'var(--bg-page)', color: belowFloor ? 'var(--status-danger)' : 'var(--text-primary)', fontSize: 12, fontWeight: belowFloor ? 700 : 400 }} />
+                        {belowFloor && <div style={{ fontSize: 11, color: 'var(--status-danger)', marginTop: 2 }}>⚠ 低于底价，需审批</div>}
                       </div>
                       <button onClick={() => setNewItems(p => p.filter((_, i) => i !== idx))}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', paddingBottom: 2 }}>
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-danger)', paddingBottom: 2 }}>
                         <X size={14} />
                       </button>
                     </div>
@@ -633,16 +633,16 @@ export default function SalesV2OrdersPage() {
               <button onClick={() => setDetailOrder(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={18} /></button>
             </div>
 
-            {actionError && <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: '#ef4444', fontSize: 13 }}>{actionError}</div>}
+            {actionError && <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: 'var(--status-danger)', fontSize: 13 }}>{actionError}</div>}
 
             {/* 状态 + 预警 */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {(() => { const sc = statusConf(detailOrder.status); return (
                 <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: sc.bg, color: sc.color }}>{sc.label}</span>
               ); })()}
-              {detailOrder.below_floor_price && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>⚠ 低于底价</span>}
-              {detailOrder.over_credit && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>🚫 超信用额度</span>}
-              {detailOrder.credit_warning && !detailOrder.over_credit && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}>⚠ 信用预警</span>}
+              {detailOrder.below_floor_price && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: 'rgba(239,68,68,0.1)', color: 'var(--status-danger)' }}>⚠ 低于底价</span>}
+              {detailOrder.over_credit && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: 'rgba(239,68,68,0.1)', color: 'var(--status-danger)' }}>🚫 超信用额度</span>}
+              {detailOrder.credit_warning && !detailOrder.over_credit && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: 'rgba(245,158,11,0.1)', color: 'var(--status-warning)' }}>⚠ 信用预警</span>}
             </div>
 
             {/* 基本信息 */}
@@ -663,11 +663,11 @@ export default function SalesV2OrdersPage() {
             {/* 信用快照（提交时刻记录） */}
             {detailOrder.credit_snapshot && (
               <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', fontSize: 12 }}>
-                <div style={{ fontWeight: 700, color: '#f59e0b', marginBottom: 6, fontSize: 12 }}>提交时信用快照</div>
+                <div style={{ fontWeight: 700, color: 'var(--status-warning)', marginBottom: 6, fontSize: 12 }}>提交时信用快照</div>
                 <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                   <span>状态：<strong>{detailOrder.credit_snapshot.creditStatus ?? '—'}</strong></span>
                   <span>实时欠款：<strong>{Number(detailOrder.credit_snapshot.totalReceivable ?? 0).toLocaleString()}</strong></span>
-                  <span>逾期：<strong style={{ color: Number(detailOrder.credit_snapshot.overdueReceivable) > 0 ? '#ef4444' : undefined }}>
+                  <span>逾期：<strong style={{ color: Number(detailOrder.credit_snapshot.overdueReceivable) > 0 ? 'var(--status-danger)' : undefined }}>
                     {Number(detailOrder.credit_snapshot.overdueReceivable ?? 0).toLocaleString()}
                   </strong></span>
                   <span>可用额度：<strong>{Number(detailOrder.credit_snapshot.creditAvailable ?? 0).toLocaleString()}</strong></span>
@@ -681,7 +681,7 @@ export default function SalesV2OrdersPage() {
             {/* AR 信息 */}
             {detailOrder.arInvoice && (
               <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', fontSize: 12 }}>
-                <div style={{ fontWeight: 700, color: '#22c55e', marginBottom: 6 }}>应收账款记录</div>
+                <div style={{ fontWeight: 700, color: 'var(--status-success)', marginBottom: 6 }}>应收账款记录</div>
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                   <span>应收单号：{detailOrder.arInvoice.ar_no}</span>
                   <span>金额：{Number(detailOrder.arInvoice.amount_original).toLocaleString()}</span>
@@ -713,7 +713,7 @@ export default function SalesV2OrdersPage() {
                         <td>{item.grade_code || '—'}</td>
                         <td style={{ textAlign: 'right' }}>{Number(item.qty).toLocaleString()}</td>
                         <td style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>{Number(item.resolved_unit_price).toLocaleString()}</td>
-                        <td style={{ textAlign: 'right', color: item.below_floor_price ? '#ef4444' : undefined, fontWeight: item.below_floor_price ? 700 : 400 }}>
+                        <td style={{ textAlign: 'right', color: item.below_floor_price ? 'var(--status-danger)' : undefined, fontWeight: item.below_floor_price ? 700 : 400 }}>
                           {Number(item.actual_unit_price).toLocaleString()}
                           {item.below_floor_price && ' ⚠'}
                         </td>

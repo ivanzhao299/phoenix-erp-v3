@@ -22,11 +22,11 @@ export default function StorePage() {
   const [loading,   setLoading]  = useState(true);
 
   const QUICK = [
-    { path:"/store/receiving",  icon:"📦", label:t("ui.门店收货","门店收货"),   desc:t("ui.核收来自仓库的补货","核收来自仓库的补货"), color:"#3b82f6" },
-    { path:"/store/inventory",  icon:"🗃️",  label:t("ui.门店库存","门店库存"),   desc:t("ui.本店当前库存状态","本店当前库存状态"),   color:"#10b981" },
-    { path:"/store/daily",      icon:"📋", label:t("ui.日结作业","日结作业"),   desc:t("ui.当日营业汇总结账","当日营业汇总结账"),   color:"#f59e0b" },
+    { path:"/store/receiving",  icon:"📦", label:t("ui.门店收货","门店收货"),   desc:t("ui.核收来自仓库的补货","核收来自仓库的补货"), color:"var(--status-info)" },
+    { path:"/store/inventory",  icon:"🗃️",  label:t("ui.门店库存","门店库存"),   desc:t("ui.本店当前库存状态","本店当前库存状态"),   color:"var(--status-success)" },
+    { path:"/store/daily",      icon:"📋", label:t("ui.日结作业","日结作业"),   desc:t("ui.当日营业汇总结账","当日营业汇总结账"),   color:"var(--status-warning)" },
     { path:"/store/replenish",  icon:"🔄", label:t("ui.补货申请","补货申请"),   desc:t("ui.向仓库发起补货请求","向仓库发起补货请求"), color:"#8b5cf6" },
-    { path:"/store/losses",     icon:"⚠️", label:t("ui.损耗上报","损耗上报"),   desc:t("ui.破损临期损耗记录","破损·临期损耗记录"), color:"#ef4444" },
+    { path:"/store/losses",     icon:"⚠️", label:t("ui.损耗上报","损耗上报"),   desc:t("ui.破损临期损耗记录","破损·临期损耗记录"), color:"var(--status-danger)" },
   ];
 
   const load = () => {
@@ -53,10 +53,10 @@ export default function StorePage() {
   const nearExpiry   = batches.filter(b=>b.expire_date&&b.expire_date<=in7&&b.expire_date>=today).length;
 
   const kpis = [
-    { label:t("ui.今日销售额","今日销售额"), value:loading?"…":`¥${todayRevenue.toLocaleString()}`, accent:"#10b981", icon:<TrendingUp size={18}/> },
-    { label:t("ui.今日单数","今日单数"),   value:loading?"…":String(todaySales.length), unit:t("ui.单","单"), accent:"#3b82f6", icon:<ShoppingCart size={18}/> },
-    { label:t("ui.待收货","待收货"),     value:loading?"…":String(pendingRecv),       unit:t("ui.批","批"), accent:"#f59e0b", icon:<Package size={18}/> },
-    { label:t("ui.近效期库存","近效期库存"), value:loading?"…":String(nearExpiry),        unit:t("ui.批","批"), accent:"#ef4444", icon:<AlertTriangle size={18}/> },
+    { label:t("ui.今日销售额","今日销售额"), value:loading?"…":`¥${todayRevenue.toLocaleString()}`, accent:"var(--status-success)", icon:<TrendingUp size={18}/> },
+    { label:t("ui.今日单数","今日单数"),   value:loading?"…":String(todaySales.length), unit:t("ui.单","单"), accent:"var(--status-info)", icon:<ShoppingCart size={18}/> },
+    { label:t("ui.待收货","待收货"),     value:loading?"…":String(pendingRecv),       unit:t("ui.批","批"), accent:"var(--status-warning)", icon:<Package size={18}/> },
+    { label:t("ui.近效期库存","近效期库存"), value:loading?"…":String(nearExpiry),        unit:t("ui.批","批"), accent:"var(--status-danger)", icon:<AlertTriangle size={18}/> },
   ];
 
   const recentRecv = useMemo(()=>

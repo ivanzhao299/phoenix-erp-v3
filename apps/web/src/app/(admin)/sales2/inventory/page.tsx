@@ -99,18 +99,18 @@ function fmt(n: number | null | undefined, dec = 0): string {
 
 function gradeColor(grade: string | null): string {
   const map: Record<string, string> = {
-    AA: '#2563eb', A: '#16a34a', B: '#d97706',
-    DIRTY: '#9333ea', CRACKED: '#dc2626', DAMAGED: '#be123c',
+    AA: 'var(--color-accent)', A: 'var(--status-success)', B: 'var(--status-warning)',
+    DIRTY: '#9333ea', CRACKED: 'var(--status-danger)', DAMAGED: '#be123c',
   };
   return map[grade ?? ''] ?? '#6b7280';
 }
 
 function statusBadge(status: string): React.ReactNode {
   const cfg: Record<string, { label: string; color: string }> = {
-    AVAILABLE:   { label: '可用', color: '#16a34a' },
-    LOCKED:      { label: '锁定', color: '#d97706' },
+    AVAILABLE:   { label: '可用', color: 'var(--status-success)' },
+    LOCKED:      { label: '锁定', color: 'var(--status-warning)' },
     RETURNED:    { label: '退货待检', color: '#9333ea' },
-    EXPIRED:     { label: '已过期', color: '#dc2626' },
+    EXPIRED:     { label: '已过期', color: 'var(--status-danger)' },
     WRITTEN_OFF: { label: '已核销', color: '#6b7280' },
   };
   const c = cfg[status] ?? { label: status, color: '#6b7280' };
@@ -255,11 +255,11 @@ function BatchesTab() {
         )}
         <input value={companyCode} onChange={e => setCompanyCode(e.target.value)}
           placeholder="公司/农场代码" style={inputStyle} />
-        <button onClick={load} style={btnStyle('#2563eb')}>查询</button>
-        <button onClick={() => setShowCreate(true)} style={btnStyle('#16a34a')}>+ 创建批次</button>
+        <button onClick={load} style={btnStyle('var(--color-accent)')}>查询</button>
+        <button onClick={() => setShowCreate(true)} style={btnStyle('var(--status-success)')}>+ 创建批次</button>
       </div>
 
-      {error && <div style={{ color: '#dc2626', marginBottom: 8 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--status-danger)', marginBottom: 8 }}>{error}</div>}
 
       {/* 创建批次表单 */}
       {showCreate && (
@@ -275,7 +275,7 @@ function BatchesTab() {
               商品组合（SKU）<span style={{ fontSize: 11, color: '#6b7280', marginLeft: 6 }}>选择后自动填充产品/等级/规格</span>
             </label>
             {skus.length === 0 ? (
-              <div style={{ fontSize: 12, color: '#d97706', padding: '6px 10px', background: '#fffbeb', borderRadius: 6, border: '1px solid #fde68a' }}>
+              <div style={{ fontSize: 12, color: 'var(--status-warning)', padding: '6px 10px', background: '#fffbeb', borderRadius: 6, border: '1px solid #fde68a' }}>
                 暂无 SKU 主数据，请先在主数据中心维护商品组合
               </div>
             ) : (
@@ -322,9 +322,9 @@ function BatchesTab() {
               </select>
             </label>
           </div>
-          {createErr && <div style={{ color: '#dc2626', marginTop: 8 }}>{createErr}</div>}
+          {createErr && <div style={{ color: 'var(--status-danger)', marginTop: 8 }}>{createErr}</div>}
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button onClick={handleCreate} disabled={creating} style={btnStyle('#16a34a')}>
+            <button onClick={handleCreate} disabled={creating} style={btnStyle('var(--status-success)')}>
               {creating ? '创建中...' : '确认创建'}
             </button>
             <button onClick={() => { setShowCreate(false); setForm(f => ({ ...f, skuCode: '' })); }} style={btnStyle('#6b7280')}>取消</button>
@@ -360,12 +360,12 @@ function BatchesTab() {
                     </span>
                   </td>
                   <td>{b.company_code}</td>
-                  <td style={{ fontWeight: 700, color: '#2563eb' }}>{fmt(b.qty_available)}</td>
+                  <td style={{ fontWeight: 700, color: 'var(--color-accent)' }}>{fmt(b.qty_available)}</td>
                   <td>{fmt(b.qty)}</td>
                   <td>{statusBadge(b.status)}</td>
                   <td>{b.egg_date ?? '—'}</td>
                   <td style={{
-                    color: b.expire_date && new Date(b.expire_date) < new Date() ? '#dc2626' : undefined,
+                    color: b.expire_date && new Date(b.expire_date) < new Date() ? 'var(--status-danger)' : undefined,
                     fontWeight: b.expire_date && new Date(b.expire_date) < new Date() ? 700 : undefined,
                   }}>{b.expire_date ?? '—'}</td>
                   <td>{b.source_no ?? '—'}</td>
@@ -415,9 +415,9 @@ function ExpiringTab() {
         </label>
         <input value={companyCode} onChange={e => setCompanyCode(e.target.value)}
           placeholder="公司代码" style={inputStyle} />
-        <button onClick={load} style={btnStyle('#d97706')}>查询</button>
+        <button onClick={load} style={btnStyle('var(--status-warning)')}>查询</button>
       </div>
-      {error && <div style={{ color: '#dc2626', marginBottom: 8 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--status-danger)', marginBottom: 8 }}>{error}</div>}
 
       {loading ? (
         <div style={{ textAlign: 'center', color: '#9ca3af', padding: 40 }}>加载中...</div>
@@ -453,7 +453,7 @@ function ExpiringTab() {
                     <td>{b.company_code}</td>
                     <td style={{ fontWeight: 700 }}>{fmt(b.qty_available)}</td>
                     <td>{b.expire_date ?? '—'}</td>
-                    <td style={{ color: urgent ? '#dc2626' : '#d97706', fontWeight: 700 }}>
+                    <td style={{ color: urgent ? 'var(--status-danger)' : 'var(--status-warning)', fontWeight: 700 }}>
                       {daysLeft} 天 {urgent && '⚠ 紧急'}
                     </td>
                     <td>{statusBadge(b.status)}</td>
@@ -571,9 +571,9 @@ function FifoTab() {
           </label>
         )}
       </div>
-      {error && <div style={{ color: '#dc2626', marginTop: 10 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--status-danger)', marginTop: 10 }}>{error}</div>}
       <button onClick={handleAllocate} disabled={loading}
-        style={{ ...btnStyle('#2563eb'), marginTop: 16 }}>
+        style={{ ...btnStyle('var(--color-accent)'), marginTop: 16 }}>
         {loading ? '分配中...' : '执行 FIFO 分配'}
       </button>
       {result && (
@@ -627,15 +627,15 @@ function LossTab() {
           placeholder="公司代码（可选）" style={inputStyle} />
         <button onClick={load} style={btnStyle('#7c3aed')}>刷新</button>
       </div>
-      {error && <div style={{ color: '#dc2626', marginBottom: 8 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--status-danger)', marginBottom: 8 }}>{error}</div>}
 
       {loading ? (
         <div style={{ textAlign: 'center', color: '#9ca3af', padding: 40 }}>加载中...</div>
       ) : data && (
         <div>
           <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-            <StatCard label="30日过期损耗（枚）" value={fmt(data.summary.total_expire_loss)} color="#dc2626" />
-            <StatCard label="30日破损损耗（枚）" value={fmt(data.summary.total_damage_loss)} color="#d97706" />
+            <StatCard label="30日过期损耗（枚）" value={fmt(data.summary.total_expire_loss)} color="var(--status-danger)" />
+            <StatCard label="30日破损损耗（枚）" value={fmt(data.summary.total_damage_loss)} color="var(--status-warning)" />
             <StatCard label="30日合计损耗（枚）" value={fmt(data.summary.total_loss)} color="#7c3aed" />
           </div>
 
@@ -651,7 +651,7 @@ function LossTab() {
                 <tr key={i}>
                   <td>{changeTypeLabel[row.change_type] ?? row.change_type}</td>
                   <td>{fmt(row.batch_count)}</td>
-                  <td style={{ fontWeight: 700, color: '#dc2626' }}>{fmt(row.total_loss)}</td>
+                  <td style={{ fontWeight: 700, color: 'var(--status-danger)' }}>{fmt(row.total_loss)}</td>
                 </tr>
               ))}
               {(data.byType ?? []).length === 0 && (
@@ -673,7 +673,7 @@ function LossTab() {
                   <td><code style={{ fontSize: 11 }}>{row.batch_no}</code></td>
                   <td><SkuBadge skuCode={row.sku_code} /></td>
                   <td>{row.product_code}</td>
-                  <td style={{ fontWeight: 700, color: '#dc2626' }}>{fmt(row.total_loss)}</td>
+                  <td style={{ fontWeight: 700, color: 'var(--status-danger)' }}>{fmt(row.total_loss)}</td>
                   <td>{row.last_event ? new Date(row.last_event).toLocaleString('zh-CN') : '—'}</td>
                 </tr>
               ))}
@@ -734,9 +734,9 @@ export default function InventoryPage() {
       {stats && (
         <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
           <StatCard label="活跃批次" value={stats.activeBatches} />
-          <StatCard label="总可用库存（枚）" value={fmt(stats.totalAvailable)} color="#2563eb" />
-          <StatCard label="临期批次（≤7天）" value={stats.expiringBatches} color="#d97706" sub={`${fmt(stats.expiringQty)} 枚`} />
-          <StatCard label="已过期批次" value={stats.expiredBatches} color="#dc2626" />
+          <StatCard label="总可用库存（枚）" value={fmt(stats.totalAvailable)} color="var(--color-accent)" />
+          <StatCard label="临期批次（≤7天）" value={stats.expiringBatches} color="var(--status-warning)" sub={`${fmt(stats.expiringQty)} 枚`} />
+          <StatCard label="已过期批次" value={stats.expiredBatches} color="var(--status-danger)" />
           <StatCard label="退货待检批次" value={stats.returnedBatches} color="#9333ea" />
           {stats.skuLinkedBatches !== undefined && (
             <StatCard label="已接入 SKU 批次" value={stats.skuLinkedBatches} color="#6366f1"
@@ -753,7 +753,7 @@ export default function InventoryPage() {
           <button key={t.key} onClick={() => setTab(t.key)} style={{
             padding: '8px 18px', border: 'none', borderRadius: '6px 6px 0 0',
             cursor: 'pointer', fontSize: 14, fontWeight: 600,
-            background: tab === t.key ? '#2563eb' : 'transparent',
+            background: tab === t.key ? 'var(--color-accent)' : 'transparent',
             color: tab === t.key ? '#fff' : '#6b7280',
             borderBottom: tab === t.key ? '2px solid #2563eb' : '2px solid transparent',
             marginBottom: -2,

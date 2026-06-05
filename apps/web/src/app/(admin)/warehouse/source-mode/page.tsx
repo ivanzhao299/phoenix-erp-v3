@@ -188,7 +188,7 @@ export default function SourceModePage() {
               {risk.warnings.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {risk.warnings.map((w, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#d97706" }}><AlertTriangle size={13} />{w}</div>
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--status-warning)" }}><AlertTriangle size={13} />{w}</div>
                   ))}
                 </div>
               )}

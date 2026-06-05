@@ -28,7 +28,7 @@ interface ErrorStat {
 }
 
 function StatusBadge({ status }: { status: HealthStatus }) {
-  const color = status === "HEALTHY" ? "#16a34a" : status === "DEGRADED" ? "#d97706" : "#9ca3af";
+  const color = status === "HEALTHY" ? "var(--status-success)" : status === "DEGRADED" ? "var(--status-warning)" : "#9ca3af";
   const bg    = status === "HEALTHY" ? "#dcfce7" : status === "DEGRADED" ? "#fef3c7" : "#f3f4f6";
   const label = status === "HEALTHY" ? "正常" : status === "DEGRADED" ? "降级" : "未知";
   return (
@@ -100,7 +100,7 @@ export default function SystemHealthPage() {
   }, [fetchData]);
 
   const overall: HealthStatus = summary?.status ?? "UNKNOWN";
-  const overallColor = overall === "HEALTHY" ? "#16a34a" : overall === "DEGRADED" ? "#d97706" : "#9ca3af";
+  const overallColor = overall === "HEALTHY" ? "var(--status-success)" : overall === "DEGRADED" ? "var(--status-warning)" : "#9ca3af";
 
   return (
     <div>
@@ -152,7 +152,7 @@ export default function SystemHealthPage() {
           icon={<Database size={16} />}
           title="数据库连接"
           value={summary?.database.connected ? "在线" : "离线"}
-          borderColor={summary?.database.connected ? "#16a34a" : "#dc2626"}
+          borderColor={summary?.database.connected ? "var(--status-success)" : "var(--status-danger)"}
           sub={`连接池 total: ${summary?.database.pool?.total ?? "—"} / idle: ${summary?.database.pool?.idle ?? "—"}`}
         />
         <MetricCard
@@ -161,8 +161,8 @@ export default function SystemHealthPage() {
           value={summary?.memory.heapUsedMB ?? "—"}
           unit="MB"
           borderColor={
-            (summary?.memory.usedPct ?? 0) > 85 ? "#dc2626"
-            : (summary?.memory.usedPct ?? 0) > 70 ? "#d97706" : "#2563eb"
+            (summary?.memory.usedPct ?? 0) > 85 ? "var(--status-danger)"
+            : (summary?.memory.usedPct ?? 0) > 70 ? "var(--status-warning)" : "var(--color-accent)"
           }
           sub={`已用 ${summary?.memory.usedPct ?? "—"}%，共 ${summary?.memory.heapTotalMB ?? "—"} MB`}
         />
@@ -178,14 +178,14 @@ export default function SystemHealthPage() {
           icon={<AlertTriangle size={16} />}
           title="近 1h 错误数"
           value={summary?.recentErrors ?? "—"}
-          borderColor={(summary?.recentErrors ?? 0) > 0 ? "#dc2626" : "#16a34a"}
+          borderColor={(summary?.recentErrors ?? 0) > 0 ? "var(--status-danger)" : "var(--status-success)"}
           sub="系统 500/PG 错误"
         />
         <MetricCard
           icon={<ShieldAlert size={16} />}
           title="未处理告警"
           value={summary?.openAlerts ?? "—"}
-          borderColor={(summary?.openAlerts ?? 0) > 0 ? "#d97706" : "#16a34a"}
+          borderColor={(summary?.openAlerts ?? 0) > 0 ? "var(--status-warning)" : "var(--status-success)"}
           sub="点击告警页面处理"
         />
         <MetricCard
@@ -211,7 +211,7 @@ export default function SystemHealthPage() {
         </div>
 
         {errorStats.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "32px 0", color: "#16a34a" }}>
+          <div style={{ textAlign: "center", padding: "32px 0", color: "var(--status-success)" }}>
             <CheckCircle size={32} />
             <p style={{ margin: "8px 0 0", fontWeight: 600 }}>近 24 小时无错误记录</p>
           </div>
@@ -232,11 +232,11 @@ export default function SystemHealthPage() {
                       <span style={{
                         padding: "1px 8px", borderRadius: 99, fontSize: 11, fontWeight: 700,
                         background: row.error_type === "UNHANDLED" ? "#fee2e2" : "#fef3c7",
-                        color: row.error_type === "UNHANDLED" ? "#dc2626" : "#92400e",
+                        color: row.error_type === "UNHANDLED" ? "var(--status-danger)" : "#92400e",
                       }}>{row.error_type}</span>
                     </td>
                     <td style={{ fontFamily: "monospace" }}>{row.http_status}</td>
-                    <td style={{ color: Number(row.count) > 10 ? "#dc2626" : "inherit" }}>
+                    <td style={{ color: Number(row.count) > 10 ? "var(--status-danger)" : "inherit" }}>
                       {row.count}
                     </td>
                     <td style={{ color: "var(--text-secondary)", fontSize: 12 }}>

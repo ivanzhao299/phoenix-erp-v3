@@ -30,7 +30,7 @@ function numInput(val: number | string): string {
   return val === 0 || val === '0' ? '' : String(val);
 }
 
-const ALERT_COLOR = { CRITICAL: '#ef4444', WARN: '#f59e0b' } as const;
+const ALERT_COLOR = { CRITICAL: 'var(--status-danger)', WARN: 'var(--status-warning)' } as const;
 
 // ── 单行编辑卡片 ──────────────────────────────────────────────────────────────
 
@@ -51,10 +51,10 @@ function MaterialCard({
     ? `${row.days_left}天`
     : '—';
   const daysColor = row.days_left == null ? t.textFaint
-    : row.days_left <= 3  ? '#ef4444'
-    : row.days_left <= 7  ? '#f59e0b'
+    : row.days_left <= 3  ? 'var(--status-danger)'
+    : row.days_left <= 7  ? 'var(--status-warning)'
     : row.days_left <= 14 ? '#fbbf24'
-    : '#10b981';
+    : 'var(--status-success)';
 
   const setOutbound = (house: string, val: string) => {
     const detail = { ...row.outbound_detail, [house]: Number(val) || 0 };
@@ -165,9 +165,9 @@ function MaterialCard({
           {/* 合计行 */}
           <div style={{ display: 'flex', gap: 10, marginTop: 10, padding: '8px 10px', background: t.sectionBg, borderRadius: 8 }}>
             <span style={{ fontSize: 12, color: t.textMuted }}>出库合计</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b' }}>{row.outbound_total.toLocaleString('zh-CN')}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--status-warning)' }}>{row.outbound_total.toLocaleString('zh-CN')}</span>
             <span style={{ marginLeft: 'auto', fontSize: 12, color: t.textMuted }}>→ 库存</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#10b981' }}>{row.current_stock.toLocaleString('zh-CN')}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--status-success)' }}>{row.current_stock.toLocaleString('zh-CN')}</span>
           </div>
 
           {/* 备注 */}
@@ -314,7 +314,7 @@ export default function FeedLedgerPage() {
             padding: '8px 14px', borderRadius: 10,
             background: saved ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.15)',
             border: `1px solid ${saved ? 'rgba(16,185,129,0.4)' : 'rgba(245,158,11,0.35)'}`,
-            color: saved ? '#10b981' : '#f59e0b',
+            color: saved ? 'var(--status-success)' : 'var(--status-warning)',
             cursor: saving ? 'wait' : 'pointer', fontSize: 13, fontWeight: 700,
           }}
         >
@@ -355,13 +355,13 @@ export default function FeedLedgerPage() {
             marginBottom: 12, padding: '12px 14px', borderRadius: 12,
             background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
           }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#f87171', marginBottom: 6 }}>⚠ 库存预警</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--status-danger)', marginBottom: 6 }}>⚠ 库存预警</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {alertRows.map(r => (
                 <div key={r.material_name} style={{
                   padding: '4px 10px', borderRadius: 8, fontSize: 12,
                   background: r.alert === 'CRITICAL' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.12)',
-                  color: r.alert === 'CRITICAL' ? '#f87171' : '#f59e0b', fontWeight: 600,
+                  color: r.alert === 'CRITICAL' ? 'var(--status-danger)' : 'var(--status-warning)', fontWeight: 600,
                 }}>
                   {r.material_name}
                   <span style={{ marginLeft: 4, fontWeight: 400, opacity: 0.7 }}>
@@ -374,7 +374,7 @@ export default function FeedLedgerPage() {
         )}
 
         {error && (
-          <div style={{ marginBottom: 12, padding: 12, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', fontSize: 13 }}>
+          <div style={{ marginBottom: 12, padding: 12, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--status-danger)', fontSize: 13 }}>
             {error}
           </div>
         )}

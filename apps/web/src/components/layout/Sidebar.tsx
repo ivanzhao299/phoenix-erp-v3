@@ -422,7 +422,7 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
                         borderRadius: 8,
                         background: "linear-gradient(135deg, rgba(245,158,11,0.18), rgba(245,158,11,0.08))",
                         border: "1px solid rgba(245,158,11,0.35)",
-                        color: "#f59e0b",
+                        color: "var(--status-warning)",
                         textDecoration: "none",
                         fontSize: 12,
                         fontWeight: 700,

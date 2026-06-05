@@ -5,11 +5,11 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 // ── Per-type color config — no light/dark split needed (CSS vars handle it) ──
 const TYPE_CFG: Record<string, { accent: string; iconBg: string; confirmBg: string; confirmShadow: string }> = {
-  danger:  { accent:'#ef4444', iconBg:'rgba(239,68,68,0.12)',  confirmBg:'linear-gradient(135deg,#ef4444,#b91c1c)', confirmShadow:'rgba(239,68,68,0.28)'  },
-  warning: { accent:'#f59e0b', iconBg:'rgba(245,158,11,0.12)', confirmBg:'linear-gradient(135deg,#f59e0b,#d97706)', confirmShadow:'rgba(245,158,11,0.28)' },
-  success: { accent:'#22c55e', iconBg:'rgba(34,197,94,0.12)',  confirmBg:'linear-gradient(135deg,#22c55e,#16a34a)', confirmShadow:'rgba(34,197,94,0.28)'  },
-  confirm: { accent:'#3b82f6', iconBg:'rgba(59,130,246,0.12)', confirmBg:'linear-gradient(135deg,#3b82f6,#2563eb)', confirmShadow:'rgba(59,130,246,0.28)' },
-  alert:   { accent:'#3b82f6', iconBg:'rgba(59,130,246,0.12)', confirmBg:'linear-gradient(135deg,#3b82f6,#2563eb)', confirmShadow:'rgba(59,130,246,0.28)' },
+  danger:  { accent:'var(--status-danger)', iconBg:'rgba(239,68,68,0.12)',  confirmBg:'linear-gradient(135deg,#ef4444,#b91c1c)', confirmShadow:'rgba(239,68,68,0.28)'  },
+  warning: { accent:'var(--status-warning)', iconBg:'rgba(245,158,11,0.12)', confirmBg:'linear-gradient(135deg,#f59e0b,#d97706)', confirmShadow:'rgba(245,158,11,0.28)' },
+  success: { accent:'var(--status-success)', iconBg:'rgba(34,197,94,0.12)',  confirmBg:'linear-gradient(135deg,#22c55e,#16a34a)', confirmShadow:'rgba(34,197,94,0.28)'  },
+  confirm: { accent:'var(--status-info)', iconBg:'rgba(59,130,246,0.12)', confirmBg:'linear-gradient(135deg,#3b82f6,#2563eb)', confirmShadow:'rgba(59,130,246,0.28)' },
+  alert:   { accent:'var(--status-info)', iconBg:'rgba(59,130,246,0.12)', confirmBg:'linear-gradient(135deg,#3b82f6,#2563eb)', confirmShadow:'rgba(59,130,246,0.28)' },
 };
 
 interface PhoenixDialogProps {

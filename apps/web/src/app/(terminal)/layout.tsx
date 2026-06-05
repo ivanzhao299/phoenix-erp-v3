@@ -24,7 +24,7 @@ function TerminalClock() {
   }, []);
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-      <span style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b', fontVariantNumeric: 'tabular-nums', letterSpacing: 1 }}>
+      <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-warning)', fontVariantNumeric: 'tabular-nums', letterSpacing: 1 }}>
         {now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
       </span>
       <span style={{ fontSize: 11, color: '#475569' }}>
@@ -157,7 +157,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 12 }}>
               <span style={{
                 fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
-                background: 'rgba(16,185,129,0.18)', color: '#10b981',
+                background: 'rgba(16,185,129,0.18)', color: 'var(--status-success)',
                 borderRadius: 4, padding: '2px 7px',
               }}>
                 ● {SHIFT_LABELS[ctx.currentShift.shiftType ?? ''] ?? ctx.currentShift.shiftType ?? ctx.currentShift.code}
@@ -184,7 +184,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
               <button key={l} type="button" onPointerDown={() => setAppLanguage(l)}
                 style={{
                   padding: '4px 10px', fontSize: 11, fontWeight: 700,
-                  background: lang === l ? '#f59e0b' : 'transparent',
+                  background: lang === l ? 'var(--status-warning)' : 'transparent',
                   color: lang === l ? '#0f172a' : '#475569',
                   border: 'none', cursor: 'pointer',
                   borderRight: l !== 'lo' ? '1px solid #1e3a5f' : 'none',

@@ -105,7 +105,7 @@ export default function ApprovalFlowsPage() {
 
       {error && (
         <section className={s.card} style={{ marginBottom: 12, borderLeft: '4px solid #dc2626' }}>
-          <div className={s.cardBody} style={{ color: '#dc2626' }}>
+          <div className={s.cardBody} style={{ color: 'var(--status-danger)' }}>
             <strong>⚠ 加载失败</strong>
             <div style={{ marginTop: 4, fontSize: 13 }}>{error}</div>
             <button type="button" className={s.btnSecondary} style={{ marginTop: 8 }} onClick={() => void load()}>重试</button>
@@ -115,7 +115,7 @@ export default function ApprovalFlowsPage() {
 
       {notice && (
         <section className={s.card} style={{ marginBottom: 12, borderLeft: '4px solid #16a34a' }}>
-          <div className={s.cardBody} style={{ color: '#16a34a' }}>
+          <div className={s.cardBody} style={{ color: 'var(--status-success)' }}>
             <strong>✓ </strong>{notice}
           </div>
         </section>

@@ -18,9 +18,9 @@ interface Alert {
 }
 
 const SEVERITY_STYLE: Record<string, { bg: string; color: string }> = {
-  CRITICAL: { bg: "#fee2e2", color: "#dc2626" },
-  WARNING:  { bg: "#fef3c7", color: "#d97706" },
-  INFO:     { bg: "#dbeafe", color: "#2563eb" },
+  CRITICAL: { bg: "#fee2e2", color: "var(--status-danger)" },
+  WARNING:  { bg: "#fef3c7", color: "var(--status-warning)" },
+  INFO:     { bg: "#dbeafe", color: "var(--color-accent)" },
 };
 
 export default function SystemAlertsPage() {
@@ -105,7 +105,7 @@ export default function SystemAlertsPage() {
           </thead>
           <tbody>
             {alerts.length === 0 ? (
-              <tr><td colSpan={7} style={{ textAlign: "center", padding: 48, color: "#16a34a" }}>
+              <tr><td colSpan={7} style={{ textAlign: "center", padding: 48, color: "var(--status-success)" }}>
                 <CheckCircle size={28} />
                 <p style={{ margin: "8px 0 0", fontWeight: 600 }}>无告警记录</p>
               </td></tr>
@@ -125,8 +125,8 @@ export default function SystemAlertsPage() {
                   </td>
                   <td>
                     {a.resolved
-                      ? <span style={{ color: "#16a34a", fontWeight: 600, fontSize: 12 }}>✅ 已处理</span>
-                      : <span style={{ color: "#d97706", fontWeight: 600, fontSize: 12 }}>⏳ 待处理</span>}
+                      ? <span style={{ color: "var(--status-success)", fontWeight: 600, fontSize: 12 }}>✅ 已处理</span>
+                      : <span style={{ color: "var(--status-warning)", fontWeight: 600, fontSize: 12 }}>⏳ 待处理</span>}
                   </td>
                   <td style={{ color: "var(--text-secondary)", fontSize: 12, whiteSpace: "nowrap" }}>
                     {new Date(a.created_at).toLocaleString("zh-CN")}
@@ -138,7 +138,7 @@ export default function SystemAlertsPage() {
                         disabled={resolving === a.id}
                         style={{
                           padding: "4px 12px", borderRadius: "var(--radius-md)", fontSize: 12,
-                          background: "#16a34a", color: "#fff", border: "none",
+                          background: "var(--status-success)", color: "#fff", border: "none",
                           cursor: resolving === a.id ? "not-allowed" : "pointer", fontWeight: 600,
                         }}
                       >

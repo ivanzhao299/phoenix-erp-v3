@@ -46,7 +46,7 @@ function InspectionCard({ item }: { item: QcInspection }) {
   const isFail = item.result === 'FAIL';
   const hasFailItems = item.fail_items_json != null;
 
-  const resultColor  = isPass ? '#10b981' : isFail ? '#ef4444' : t.textSub;
+  const resultColor  = isPass ? 'var(--status-success)' : isFail ? 'var(--status-danger)' : t.textSub;
   const resultBg     = isPass ? 'rgba(16,185,129,0.1)' : isFail ? 'rgba(239,68,68,0.1)' : t.sectionBg;
   const resultBorder = isPass ? 'rgba(16,185,129,0.25)' : isFail ? 'rgba(239,68,68,0.25)' : t.inputBorder;
   const resultText   = isPass ? '✓ 合格' : isFail ? '✗ 不合格' : item.result;
@@ -192,9 +192,9 @@ export default function QualityPage() {
   const passRate  = total > 0 ? Math.round((passCount / total) * 100) : 100;
 
   const passRateColor =
-    passRate >= 95 ? '#10b981' :
-    passRate >= 80 ? '#f59e0b' :
-    '#ef4444';
+    passRate >= 95 ? 'var(--status-success)' :
+    passRate >= 80 ? 'var(--status-warning)' :
+    'var(--status-danger)';
 
   // ── 类型筛选 chip 列表 ──────────────────────────────────────────────────────
   const typeSet = Array.from(new Set(items.map(i => i.checkType)));
@@ -282,7 +282,7 @@ export default function QualityPage() {
           <div style={{
             marginBottom: 12, padding: 12, borderRadius: 10,
             background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-            color: '#f87171', fontSize: 13,
+            color: 'var(--status-danger)', fontSize: 13,
           }}>
             {error}
           </div>
@@ -306,8 +306,8 @@ export default function QualityPage() {
               {/* 合格率 */}
               <div style={{
                 padding: '12px 10px', borderRadius: 14, textAlign: 'center',
-                background: `rgba(${passRateColor === '#10b981' ? '16,185,129' : passRateColor === '#f59e0b' ? '245,158,11' : '239,68,68'},0.08)`,
-                border: `1px solid rgba(${passRateColor === '#10b981' ? '16,185,129' : passRateColor === '#f59e0b' ? '245,158,11' : '239,68,68'},0.22)`,
+                background: `rgba(${passRateColor === 'var(--status-success)' ? '16,185,129' : passRateColor === 'var(--status-warning)' ? '245,158,11' : '239,68,68'},0.08)`,
+                border: `1px solid rgba(${passRateColor === 'var(--status-success)' ? '16,185,129' : passRateColor === 'var(--status-warning)' ? '245,158,11' : '239,68,68'},0.22)`,
               }}>
                 <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 5 }}>合格率</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: passRateColor }}>
@@ -322,7 +322,7 @@ export default function QualityPage() {
                 border: `1px solid ${failCount > 0 ? 'rgba(239,68,68,0.22)' : 'rgba(16,185,129,0.18)'}`,
               }}>
                 <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 5 }}>不合格</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: failCount > 0 ? '#ef4444' : '#10b981' }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: failCount > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>
                   {failCount}
                 </div>
               </div>

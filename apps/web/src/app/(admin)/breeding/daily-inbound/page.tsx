@@ -86,7 +86,7 @@ export default function DailyInboundPage() {
       {loadingMode ? (
         <div style={{ padding: 14, color: "var(--text-secondary)" }}>加载库存来源模式...</div>
       ) : isPackagingMode ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", marginBottom: 18, borderRadius: 10, background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.4)", color: "#d97706" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", marginBottom: 18, borderRadius: 10, background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.4)", color: "var(--status-warning)" }}>
           <Package size={18} />
           <div style={{ flex: 1, fontSize: 13, lineHeight: 1.5 }}>
             <strong>已启用包装入库模式（PACKAGING_INBOUND）</strong><br />

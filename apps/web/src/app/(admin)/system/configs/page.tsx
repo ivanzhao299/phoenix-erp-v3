@@ -133,7 +133,7 @@ export default function SystemConfigsPage() {
                       <button
                         onClick={() => handleSave(cfg.config_key)}
                         disabled={saving}
-                        style={{ padding: "3px 10px", borderRadius: "var(--radius-sm)", background: "#16a34a", color: "#fff", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600 }}
+                        style={{ padding: "3px 10px", borderRadius: "var(--radius-sm)", background: "var(--status-success)", color: "#fff", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600 }}
                       >
                         <Save size={11} />
                       </button>

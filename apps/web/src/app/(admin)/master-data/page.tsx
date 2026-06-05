@@ -43,7 +43,7 @@ const CENTER_META: Record<string, {
   },
   biz: {
     title: '商业主体中心', subtitle: '客户 / 供应商 / 门店',
-    accent: '#3b82f6', icon: Users,
+    accent: 'var(--status-info)', icon: Users,
     members: [
       { type: 'customer', label: '客户档案',   icon: Users, href: '/master-data/customers' },
       { type: 'supplier', label: '供应商档案', icon: Globe, href: '/master-data/suppliers' },
@@ -52,7 +52,7 @@ const CENTER_META: Record<string, {
   },
   product: {
     title: '产品中心', subtitle: '产品 / 等级 / 规格 / SKU',
-    accent: '#f59e0b', icon: Layers,
+    accent: 'var(--status-warning)', icon: Layers,
     members: [
       { type: 'product', label: '产品档案', icon: Egg,     href: '/master-data/products' },
       { type: 'grade',   label: '产品等级', icon: Tag,     href: '/master-data/product-grades' },
@@ -79,7 +79,7 @@ const CENTER_META: Record<string, {
   },
   gov: {
     title: '治理中心', subtitle: '字典 / 审批 / 治理驾驶舱 / 数据质量',
-    accent: '#10b981', icon: ShieldCheck,
+    accent: 'var(--status-success)', icon: ShieldCheck,
     members: [
       { type: 'dict', label: '数据字典中心', icon: BookOpen, href: '/master-data/dictionaries' },
     ],
@@ -87,10 +87,10 @@ const CENTER_META: Record<string, {
 };
 
 function healthColor(s: number) {
-  if (s >= 90) return '#16a34a';
-  if (s >= 75) return '#2563eb';
-  if (s >= 60) return '#d97706';
-  return '#dc2626';
+  if (s >= 90) return 'var(--status-success)';
+  if (s >= 75) return 'var(--color-accent)';
+  if (s >= 60) return 'var(--status-warning)';
+  return 'var(--status-danger)';
 }
 
 export default function MasterDataHubPage() {
@@ -149,15 +149,15 @@ export default function MasterDataHubPage() {
             <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>6 维度评分 / 字典覆盖率 / 趋势</div>
           </div>
         </a>
-        <a href="/master-data/pending" style={navTileStyle('#d97706')}>
-          <CheckSquare size={18} style={{ color: '#d97706' }} />
+        <a href="/master-data/pending" style={navTileStyle('var(--status-warning)')}>
+          <CheckSquare size={18} style={{ color: 'var(--status-warning)' }} />
           <div>
             <div style={{ fontSize: 14, fontWeight: 700 }}>主数据待审批</div>
             <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>Workflow 审批入口</div>
           </div>
         </a>
-        <a href="/data-quality" style={navTileStyle('#16a34a')}>
-          <ShieldCheck size={18} style={{ color: '#16a34a' }} />
+        <a href="/data-quality" style={navTileStyle('var(--status-success)')}>
+          <ShieldCheck size={18} style={{ color: 'var(--status-success)' }} />
           <div>
             <div style={{ fontSize: 14, fontWeight: 700 }}>G5 数据质量中心</div>
             <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>7 维度全局健康评分</div>
@@ -165,7 +165,7 @@ export default function MasterDataHubPage() {
         </a>
       </div>
 
-      {error && <div style={{ padding: 10, background: 'rgba(239,68,68,0.08)', color: '#dc2626', borderRadius: 8, marginBottom: 14 }}>{error}</div>}
+      {error && <div style={{ padding: 10, background: 'rgba(239,68,68,0.08)', color: 'var(--status-danger)', borderRadius: 8, marginBottom: 14 }}>{error}</div>}
 
       {/* 6 中心运营卡 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 14 }}>
@@ -195,8 +195,8 @@ export default function MasterDataHubPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
                 <Stat label="对象总数" value={c.objectCount} accent={meta.accent} />
-                <Stat label="待审批" value={c.pendingCount} accent={c.pendingCount > 0 ? '#d97706' : 'var(--text-secondary)'} />
-                <Stat label="风险" value={c.riskCount} accent={c.riskCount > 0 ? '#dc2626' : 'var(--text-secondary)'} />
+                <Stat label="待审批" value={c.pendingCount} accent={c.pendingCount > 0 ? 'var(--status-warning)' : 'var(--text-secondary)'} />
+                <Stat label="风险" value={c.riskCount} accent={c.riskCount > 0 ? 'var(--status-danger)' : 'var(--text-secondary)'} />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: meta.members.length > 2 ? 'repeat(2, 1fr)' : '1fr', gap: 6 }}>

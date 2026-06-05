@@ -170,6 +170,25 @@
   --status-special-bg:  rgba(139,92,246,0.06);    /* 特殊/紫色极浅背景 */
 }
 
+/* ── UIX-2 P8 · 集团主题预设 ──────────────────────────────────
+ * 用法：在 <html data-theme="brand-green"> 或 data-theme="brand-red" / "brand-blue"
+ * 由 ThemeContext 写入；与 dark 主题正交（深色叠加 brand 颜色仍生效）。
+ * 不动 token 结构，只覆盖品牌主色 + 强调色。
+ */
+[data-theme="brand-green"] {
+  --color-primary: #2E7D32;   /* 农牧绿 */
+  --color-accent:  #43A047;
+}
+[data-theme="brand-red"] {
+  --color-primary: #C62828;   /* 食品红 */
+  --color-accent:  #E53935;
+}
+[data-theme="brand-blue"] {
+  --color-primary: #1565C0;   /* 金融蓝 */
+  --color-accent:  #1E88E5;
+}
+/* dark 主题可与 brand-* 叠加（dark 优先于 brand 调整文字/背景） */
+
 [data-theme="dark"] {
   --color-primary: #4A78B5;
   --color-accent:  #60A5FA;  /* 深色模式用更亮的蓝，保证在深色背景上的可见性 */

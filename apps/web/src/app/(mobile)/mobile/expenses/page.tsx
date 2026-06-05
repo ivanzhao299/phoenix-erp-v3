@@ -42,9 +42,9 @@ const EXPENSE_TYPES: Record<string, string> = {
 
 const STATUS_CFG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   DRAFT:            { label: '草稿',   color: '#6b7280', icon: Receipt },
-  PENDING_APPROVAL: { label: '审批中', color: '#f59e0b', icon: Clock },
-  APPROVED:         { label: '已审批', color: '#10b981', icon: CheckCircle },
-  REJECTED:         { label: '已拒绝', color: '#ef4444', icon: XCircle },
+  PENDING_APPROVAL: { label: '审批中', color: 'var(--status-warning)', icon: Clock },
+  APPROVED:         { label: '已审批', color: 'var(--status-success)', icon: CheckCircle },
+  REJECTED:         { label: '已拒绝', color: 'var(--status-danger)', icon: XCircle },
   CANCELLED:        { label: '已取消', color: '#9ca3af', icon: XCircle },
   REIMBURSED:       { label: '已报销', color: '#6366f1', icon: Wallet },
 };
@@ -278,7 +278,7 @@ export default function MobileExpensesPage() {
       {/* 列表 Tab */}
       {tab === 'list' && (
         <>
-          {error && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 12 }}>{error}</div>}
+          {error && <div style={{ color: 'var(--status-danger)', fontSize: 13, marginBottom: 12 }}>{error}</div>}
           {loading ? (
             <div style={{ textAlign: 'center', color: sub, paddingTop: 60 }}>加载中...</div>
           ) : records.length === 0 ? (
@@ -363,7 +363,7 @@ export default function MobileExpensesPage() {
             />
           </div>
 
-          {saveErr && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 12 }}>{saveErr}</div>}
+          {saveErr && <div style={{ color: 'var(--status-danger)', fontSize: 13, marginBottom: 12 }}>{saveErr}</div>}
 
           <button onClick={() => void createExpense()} disabled={saving}
             style={{ width: '100%', padding: '13px', borderRadius: 12, border: 'none', background: '#6366f1', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>

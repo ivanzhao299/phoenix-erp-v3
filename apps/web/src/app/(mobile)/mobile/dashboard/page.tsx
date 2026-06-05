@@ -39,7 +39,7 @@ function fmt(n: number | string | undefined | null, decimals = 0): string {
 }
 
 const GRADE_COLORS: Record<string, string> = {
-  AAA: '#f59e0b', AA: '#3b82f6', A: '#10b981',
+  AAA: 'var(--status-warning)', AA: 'var(--status-info)', A: 'var(--status-success)',
   B: '#f97316', C: '#8b5cf6',
 };
 
@@ -92,12 +92,12 @@ function MiniBarChart({ data, selectedDate }: { data: PackagingTrendItem[]; sele
                 <div style={{
                   width: '100%', minHeight: 2,
                   height: `${pct}%`,
-                  background: isSelected ? '#f59e0b' : isToday ? 'rgba(245,158,11,0.5)' : 'rgba(245,158,11,0.25)',
+                  background: isSelected ? 'var(--status-warning)' : isToday ? 'rgba(245,158,11,0.5)' : 'rgba(245,158,11,0.25)',
                   borderRadius: '3px 3px 0 0',
                   transition: 'height 0.3s',
                 }} />
               </div>
-              <div style={{ fontSize: 9, color: isSelected ? '#f59e0b' : t.textFaint, fontWeight: isSelected ? 700 : 400 }}>
+              <div style={{ fontSize: 9, color: isSelected ? 'var(--status-warning)' : t.textFaint, fontWeight: isSelected ? 700 : 400 }}>
                 {day.date.slice(8)}
               </div>
             </div>
@@ -347,10 +347,10 @@ export default function MobileDashboardPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                   {[
                     { label: '今日配送', value: delStats.todayWave   ?? 0, color: '#0891b2' },
-                    { label: '待装车',   value: delStats.planned      ?? 0, color: '#f59e0b' },
-                    { label: '配送中',   value: delStats.inTransit    ?? 0, color: '#3b82f6' },
-                    { label: '待签收',   value: delStats.pendingSign  ?? 0, color: '#f59e0b' },
-                    { label: '已完成',   value: delStats.todayCompleted ?? delStats.completed ?? 0, color: '#10b981' },
+                    { label: '待装车',   value: delStats.planned      ?? 0, color: 'var(--status-warning)' },
+                    { label: '配送中',   value: delStats.inTransit    ?? 0, color: 'var(--status-info)' },
+                    { label: '待签收',   value: delStats.pendingSign  ?? 0, color: 'var(--status-warning)' },
+                    { label: '已完成',   value: delStats.todayCompleted ?? delStats.completed ?? 0, color: 'var(--status-success)' },
                     { label: '已取消',   value: delStats.cancelled    ?? 0, color: '#94a3b8' },
                   ].map(({ label, value, color }) => (
                     <div key={label} style={{
@@ -383,16 +383,16 @@ export default function MobileDashboardPage() {
 
         {/* ══ 生产概况（农场 / 管理层） ══════════════════════════════════════════ */}
         {showFarm && (
-          <Section title="生产概况" icon="🐔" color="#10b981" loading={kpiLoading} error={kpiErr}>
+          <Section title="生产概况" icon="🐔" color="var(--status-success)" loading={kpiLoading} error={kpiErr}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
-              <StatCard label="今日产蛋" value={fmt(todayEggs)} unit="枚" color="#f59e0b" />
-              <StatCard label="产蛋率" value={layRate != null ? `${layRate}%` : '—'} color="#10b981" />
+              <StatCard label="今日产蛋" value={fmt(todayEggs)} unit="枚" color="var(--status-warning)" />
+              <StatCard label="产蛋率" value={layRate != null ? `${layRate}%` : '—'} color="var(--status-success)" />
               <StatCard label="存栏数" value={fmt(layingTotal)} unit="只" />
               <StatCard
                 label="今日死淘"
                 value={showFarmFull ? (farm.length > 0 ? fmt(farmMortality) : '—') : '—'}
                 unit="只"
-                color={farmMortality > 0 ? '#ef4444' : undefined}
+                color={farmMortality > 0 ? 'var(--status-danger)' : undefined}
               />
             </div>
 
@@ -425,9 +425,9 @@ export default function MobileDashboardPage() {
                       <tbody>
                         {houseRows.map(([key, v]) => (
                           <tr key={key} style={{ borderTop: `1px solid ${t.divider}` }}>
-                            <td style={{ padding: '5px 6px', color: '#f59e0b', fontWeight: 600 }}>{key}</td>
+                            <td style={{ padding: '5px 6px', color: 'var(--status-warning)', fontWeight: 600 }}>{key}</td>
                             <td style={{ padding: '5px 6px', textAlign: 'right', color: t.text }}>{v.eggs > 0 ? fmt(v.eggs) : '—'}</td>
-                            <td style={{ padding: '5px 6px', textAlign: 'right', color: v.mortality > 0 ? '#f87171' : t.textMuted }}>{v.mortality > 0 ? v.mortality : '0'}</td>
+                            <td style={{ padding: '5px 6px', textAlign: 'right', color: v.mortality > 0 ? 'var(--status-danger)' : t.textMuted }}>{v.mortality > 0 ? v.mortality : '0'}</td>
                             <td style={{ padding: '5px 6px', textAlign: 'right', color: t.textSub }}>{(v.dirty + v.broken) > 0 ? v.dirty + v.broken : '—'}</td>
                             <td style={{ padding: '5px 6px', textAlign: 'right', color: t.textSub }}>{v.feed > 0 ? fmt(v.feed, 1) : '—'}</td>
                           </tr>
@@ -466,11 +466,11 @@ export default function MobileDashboardPage() {
                           const lr = f.current_lay_rate != null ? Number(f.current_lay_rate) : null;
                           return (
                             <tr key={f.flock_no} style={{ borderTop: `1px solid ${t.divider}` }}>
-                              <td style={{ padding: '5px 6px', color: '#f59e0b', fontWeight: 600 }}>{f.flock_no}</td>
+                              <td style={{ padding: '5px 6px', color: 'var(--status-warning)', fontWeight: 600 }}>{f.flock_no}</td>
                               <td style={{ padding: '5px 6px', textAlign: 'right', color: t.textSub }}>{f.house_code || '—'}</td>
                               <td style={{ padding: '5px 6px', textAlign: 'right', color: t.textMuted }}>{fmt(f.initial_qty)}</td>
                               <td style={{ padding: '5px 6px', textAlign: 'right', color: t.text }}>{fmt(f.current_qty)}</td>
-                              <td style={{ padding: '5px 6px', textAlign: 'right', color: lr != null ? (lr >= 80 ? '#10b981' : lr >= 60 ? '#f59e0b' : '#ef4444') : t.textFaint }}>
+                              <td style={{ padding: '5px 6px', textAlign: 'right', color: lr != null ? (lr >= 80 ? 'var(--status-success)' : lr >= 60 ? 'var(--status-warning)' : 'var(--status-danger)') : t.textFaint }}>
                                 {lr != null ? `${lr.toFixed(1)}%` : '—'}
                               </td>
                             </tr>
@@ -487,9 +487,9 @@ export default function MobileDashboardPage() {
 
         {/* ══ 包装产出 ══════════════════════════════════════════════════════════ */}
         {showPkg && (
-          <Section title="包装产出" icon="📦" color="#f59e0b" loading={pkgLoading} error={pkgErr}>
+          <Section title="包装产出" icon="📦" color="var(--status-warning)" loading={pkgLoading} error={pkgErr}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8, marginBottom: 10 }}>
-              <StatCard label="完成箱数" value={fmt(pkgTotal)} unit="箱" color="#f59e0b" />
+              <StatCard label="完成箱数" value={fmt(pkgTotal)} unit="箱" color="var(--status-warning)" />
               <StatCard label="完成任务数" value={fmt(pkgTasks)} unit="个" />
             </div>
             {byGrade.length > 0 && (
@@ -526,9 +526,9 @@ export default function MobileDashboardPage() {
               <StatCard
                 label="合格率"
                 value={qcRate != null ? `${qcRate}%` : '—'}
-                color={qcRate != null ? (qcRate >= 95 ? '#10b981' : qcRate >= 80 ? '#f59e0b' : '#ef4444') : undefined}
+                color={qcRate != null ? (qcRate >= 95 ? 'var(--status-success)' : qcRate >= 80 ? 'var(--status-warning)' : 'var(--status-danger)') : undefined}
               />
-              <StatCard label="不合格" value={fmt(qcFail)} unit="次" color={qcFail > 0 ? '#ef4444' : undefined} />
+              <StatCard label="不合格" value={fmt(qcFail)} unit="次" color={qcFail > 0 ? 'var(--status-danger)' : undefined} />
             </div>
             {qcTotal === 0 && !qcLoading && (
               <div style={{ marginTop: 8, fontSize: 12, color: t.textFaint, textAlign: 'center' }}>当日暂无检测记录</div>
@@ -553,7 +553,7 @@ export default function MobileDashboardPage() {
                   <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>蛋品库存</span>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b' }}>{totalTrays}</span>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--status-warning)' }}>{totalTrays}</span>
                   <span style={{ fontSize: 11, color: t.textMuted, marginLeft: 3 }}>提</span>
                   <span style={{ fontSize: 13, color: t.textFaint, marginLeft: 6 }}>{totalQty.toLocaleString()} 枚</span>
                 </div>
@@ -566,7 +566,7 @@ export default function MobileDashboardPage() {
                     border: '1px solid rgba(245,158,11,0.2)',
                   }}>
                     <div style={{ fontSize: 11, color: t.textMuted }}>{r.name}</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#f59e0b' }}>{r.qty.toLocaleString()}</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--status-warning)' }}>{r.qty.toLocaleString()}</div>
                   </div>
                 ))}
                 {nonEmpty.length === 0 && (
@@ -579,19 +579,19 @@ export default function MobileDashboardPage() {
 
         {/* ══ 销售情况 ══════════════════════════════════════════════════════════ */}
         {showSales && (
-          <Section title="销售情况" icon="💰" color="#3b82f6" loading={kpiLoading} error={kpiErr}>
+          <Section title="销售情况" icon="💰" color="var(--status-info)" loading={kpiLoading} error={kpiErr}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
               <StatCard
                 label="今日销售额"
                 value={salesVal != null ? fmt(Number(salesVal)) : '—'}
                 unit={salesUnit?.split(' ')[0] || 'LAK'}
-                color="#3b82f6"
+                color="var(--status-info)"
               />
               <StatCard
                 label="今日告警"
                 value={String(alerts.length || kpi?.stats?.alerts?.value || 0)}
                 unit="条"
-                color={alerts.length > 0 ? '#ef4444' : undefined}
+                color={alerts.length > 0 ? 'var(--status-danger)' : undefined}
               />
             </div>
             <div style={{ marginTop: 8, fontSize: 11, color: t.textFaint, textAlign: 'center' }}>
@@ -613,8 +613,8 @@ export default function MobileDashboardPage() {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 18 }}>⚠️</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#f87171' }}>设备告警</span>
-                <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 10, background: 'rgba(239,68,68,0.2)', color: '#f87171', fontWeight: 700 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--status-danger)' }}>设备告警</span>
+                <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 10, background: 'rgba(239,68,68,0.2)', color: 'var(--status-danger)', fontWeight: 700 }}>
                   {alerts.length} 条未处理
                 </span>
               </div>
@@ -628,7 +628,7 @@ export default function MobileDashboardPage() {
                     padding: '10px 12px', background: t.cardBg, borderRadius: 10, borderLeft: '3px solid #ef4444',
                   }}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#f87171' }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--status-danger)' }}>
                         {ALERT_LABELS[a.alert_type] || a.alert_type}
                       </div>
                       <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>
@@ -636,7 +636,7 @@ export default function MobileDashboardPage() {
                       </div>
                     </div>
                     {a.value != null && (
-                      <div style={{ fontSize: 12, color: '#f87171', fontWeight: 700, textAlign: 'right' }}>
+                      <div style={{ fontSize: 12, color: 'var(--status-danger)', fontWeight: 700, textAlign: 'right' }}>
                         {String(a.value)}
                         {a.threshold != null && <div style={{ fontSize: 10, color: t.textFaint, fontWeight: 400 }}>阈值 {String(a.threshold)}</div>}
                       </div>

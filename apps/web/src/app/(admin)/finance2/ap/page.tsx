@@ -684,20 +684,20 @@ export default function Finance2ApPage() {
         <KpiCard label="应付账单总数"  value={String(summary?.total_invoices ?? '—')}
           icon={TrendingDown} color="#6366f1" loading={sumLoading} />
         <KpiCard label="待付（未付）" value={String(summary?.open_invoices ?? '—')}
-          icon={Clock} color="#f59e0b" loading={sumLoading} />
+          icon={Clock} color="var(--status-warning)" loading={sumLoading} />
         <KpiCard label="部分付款" value={String(summary?.partial_invoices ?? '—')}
-          icon={TrendingDown} color="#3b82f6" loading={sumLoading} />
+          icon={TrendingDown} color="var(--status-info)" loading={sumLoading} />
         <KpiCard label="已付清" value={String(summary?.paid_invoices ?? '—')}
-          icon={CheckCircle} color="#10b981" loading={sumLoading} />
+          icon={CheckCircle} color="var(--status-success)" loading={sumLoading} />
         <KpiCard label="逾期笔数" value={String(summary?.overdue_invoices ?? '—')}
-          icon={AlertTriangle} color="#dc2626" loading={sumLoading} />
+          icon={AlertTriangle} color="var(--status-danger)" loading={sumLoading} />
         <KpiCard
           label="待付余额（综合）"
           value={summary?.byCurrency?.[0]
             ? fmtMoney(summary.balance_amount_original, summary.byCurrency[0]?.currency_code)
             : (sumLoading ? '…' : '¥0.00')}
           sub={(summary?.byCurrency?.length ?? 0) > 1 ? `${summary!.byCurrency.length} 个币种` : undefined}
-          icon={Wallet} color="#ef4444" loading={sumLoading} />
+          icon={Wallet} color="var(--status-danger)" loading={sumLoading} />
       </div>
 
       {/* 筛选栏 */}

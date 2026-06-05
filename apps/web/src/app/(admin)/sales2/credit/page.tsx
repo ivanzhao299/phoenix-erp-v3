@@ -61,13 +61,13 @@ function getUsageRate(c: Customer): number {
 
 function getCreditStatus(c: Customer): { label: string; color: string; bg: string } {
   if (c.status === "FROZEN" || c.risk_flag === "BLACKLIST") {
-    return { label: "冻结", color: "#ef4444", bg: "#ef444420" };
+    return { label: "冻结", color: "var(--status-danger)", bg: "#ef444420" };
   }
   const rate = getUsageRate(c);
   if (rate > 0.8) {
-    return { label: "预警", color: "#f59e0b", bg: "#f59e0b20" };
+    return { label: "预警", color: "var(--status-warning)", bg: "#f59e0b20" };
   }
-  return { label: "正常", color: "#10b981", bg: "#10b98120" };
+  return { label: "正常", color: "var(--status-success)", bg: "#10b98120" };
 }
 
 // ── 统计卡片 ──────────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ function StatCard({
 
 function CreditBar({ rate }: { rate: number }) {
   const pct = Math.min(100, rate * 100);
-  const color = pct > 80 ? "#ef4444" : pct > 60 ? "#f59e0b" : "#10b981";
+  const color = pct > 80 ? "var(--status-danger)" : pct > 60 ? "var(--status-warning)" : "var(--status-success)";
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 h-2 rounded-full bg-bg-muted overflow-hidden">
@@ -196,21 +196,21 @@ export default function CustomerCreditPage() {
               title="正常客户"
               value={normalCount}
               sub="信用使用率 ≤ 80%"
-              color="#10b981"
+              color="var(--status-success)"
             />
             <StatCard
               icon={Lock}
               title="冻结客户"
               value={frozenCount}
               sub="账户已冻结"
-              color="#ef4444"
+              color="var(--status-danger)"
             />
             <StatCard
               icon={AlertTriangle}
               title="信用预警"
               value={warnCount}
               sub="信用使用率 > 80%"
-              color="#f59e0b"
+              color="var(--status-warning)"
             />
           </div>
 

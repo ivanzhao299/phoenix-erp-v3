@@ -68,6 +68,12 @@ export type { AuditTimelineProps, TimelineItem } from './detail/AuditTimeline';
 export { AttachmentViewer } from './detail/AttachmentViewer';
 export type { AttachmentViewerProps } from './detail/AttachmentViewer';
 
+// UIX-2 P6 新增：ReferenceGraph / HealthPanel
+export { ReferenceGraph } from './detail/ReferenceGraph';
+export type { ReferenceGraphProps, ReferenceItem } from './detail/ReferenceGraph';
+export { HealthPanel } from './detail/HealthPanel';
+export type { HealthPanelProps, HealthDimension } from './detail/HealthPanel';
+
 // timeline
 export { WorkflowTimeline } from './timeline/WorkflowTimeline';
 export type { WorkflowStep } from './timeline/WorkflowTimeline';
@@ -86,6 +92,17 @@ export { PageShell } from './layouts/PageShell';
 export type { PageShellProps } from './layouts/PageShell';
 export { PageHeaderV2, PageBreadcrumb, PageSection, PageToolbar, PageActions } from './layouts/PageParts';
 export type { PageHeaderV2Props, Crumb } from './layouts/PageParts';
+
+// UIX-2 P6 新增：SearchBar / FilterBar / Toolbar 标准组件
+export { SearchBar } from './layouts/SearchBar';
+export type { SearchBarProps } from './layouts/SearchBar';
+export { FilterBar } from './layouts/FilterBar';
+export type { FilterBarProps, FilterItem } from './layouts/FilterBar';
+export { Toolbar } from './layouts/Toolbar';
+export type { ToolbarProps } from './layouts/Toolbar';
+
+// UIX-2 P6 合入：PageHeader（148 文件引用的事实标准 — 通过 DS 单一入口）
+export { default as PageHeader } from '../PageHeader';
 
 // charts
 export { ChartCard } from './charts/ChartCard';
@@ -116,3 +133,7 @@ export type {
   MasterDataTemplateProps, DocumentTemplateProps, LedgerTemplateProps, ApprovalTemplateProps,
   ConfigTemplateProps, ConfigSection, DetailTemplateProps, MobileTemplateProps, WorkbenchTemplateProps,
 } from './templates/Templates';
+
+// UIX-2 P6 新增：TreePage + TreePanel
+export { TreePage, TreePanel } from './templates/TreePage';
+export type { TreePageProps, TreePanelProps, TreeNode } from './templates/TreePage';

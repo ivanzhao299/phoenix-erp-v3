@@ -249,7 +249,7 @@ export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
         <div style={{
           marginTop: 12, padding: '10px 14px', borderRadius: 8,
           background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
-          fontSize: 12, color: '#d97706', display: 'flex', alignItems: 'center', gap: 6,
+          fontSize: 12, color: 'var(--status-warning)', display: 'flex', alignItems: 'center', gap: 6,
         }}>
           <AlertCircle size={13} />
           <strong>风险提示：</strong>该主数据被 {refs.totalReferences} 处业务单据引用，归档将被阻断；冻结将触发引用方告警
@@ -266,7 +266,7 @@ function QualityCard({ label, value, ok }: { label: string; value: string; ok: b
       background: ok ? 'rgba(34,197,94,0.05)' : 'rgba(239,68,68,0.05)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-        {ok ? <CheckCircle size={13} style={{ color: '#16a34a' }} /> : <AlertCircle size={13} style={{ color: '#dc2626' }} />}
+        {ok ? <CheckCircle size={13} style={{ color: 'var(--status-success)' }} /> : <AlertCircle size={13} style={{ color: 'var(--status-danger)' }} />}
         <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{label}</div>
       </div>
       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{value}</div>

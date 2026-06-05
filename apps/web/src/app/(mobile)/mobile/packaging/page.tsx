@@ -38,9 +38,9 @@ function fmt(n: number | string | undefined | null, decimals = 0): string {
 // ── 常量 ──────────────────────────────────────────────────────────────────────
 
 const GRADE_COLORS: Record<string, string> = {
-  AAA: '#f59e0b',
-  AA:  '#3b82f6',
-  A:   '#10b981',
+  AAA: 'var(--status-warning)',
+  AA:  'var(--status-info)',
+  A:   'var(--status-success)',
   B:   '#f97316',
   C:   '#8b5cf6',
 };
@@ -80,7 +80,7 @@ function MiniBarChart({
                   style={{
                     width: '100%',
                     height: `${pct}%`,
-                    background: isSelected ? '#f59e0b' : 'rgba(245,158,11,0.25)',
+                    background: isSelected ? 'var(--status-warning)' : 'rgba(245,158,11,0.25)',
                     borderRadius: '3px 3px 0 0',
                     transition: 'height 0.3s',
                     minHeight: 2,
@@ -90,7 +90,7 @@ function MiniBarChart({
               <div
                 style={{
                   fontSize: 9,
-                  color: isSelected ? '#f59e0b' : t.textFaint,
+                  color: isSelected ? 'var(--status-warning)' : t.textFaint,
                   fontWeight: isSelected ? 700 : 400,
                 }}
               >
@@ -338,7 +338,7 @@ export default function MobilePackagingPage() {
               {/* 完成箱数 */}
               <div style={{ background: t.cardBg, borderRadius: 10, padding: '10px 12px' }}>
                 <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>完成箱数</div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: '#f59e0b', lineHeight: 1.1 }}>
+                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--status-warning)', lineHeight: 1.1 }}>
                   {fmt(pkgTotal)}
                 </div>
                 <div style={{ fontSize: 10, color: t.textFaint, marginTop: 2 }}>箱</div>
@@ -481,7 +481,7 @@ export default function MobilePackagingPage() {
             background: 'rgba(245,158,11,0.12)',
             border: '1px solid rgba(245,158,11,0.3)',
             borderRadius: 12,
-            color: '#f59e0b',
+            color: 'var(--status-warning)',
             fontSize: 14,
             fontWeight: 700,
             textDecoration: 'none',

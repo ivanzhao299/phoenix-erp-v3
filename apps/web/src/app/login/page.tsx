@@ -12,24 +12,24 @@ const IS_DEV   = process.env.NODE_ENV !== "production";
 
 // ── 快捷测试账号（仅开发环境） ──────────────────────────────────────────────
 const TEST_GROUPS = IS_DEV ? [
-  { label: "集团管理层", color: { bg: "rgba(245,158,11,0.1)", border: "rgba(245,158,11,0.3)", text: "#d97706" }, accounts: [
+  { label: "集团管理层", color: { bg: "rgba(245,158,11,0.1)", border: "rgba(245,158,11,0.3)", text: "var(--status-warning)" }, accounts: [
     { u: "admin",        p: "admin123", label: "🔑 系统超管",   sub: "ROLE_ADMIN" },
     { u: "test_ceo",     p: "123456",   label: "👑 集团总裁",   sub: "ROLE_CEO" },
     { u: "test_auditor", p: "123456",   label: "🕵 审计专员",   sub: "ROLE_AUDITOR" },
     { u: "test_sysops",  p: "123456",   label: "🖥 运维管理员", sub: "ROLE_SYSOPS" },
   ]},
-  { label: "养殖品控线", color: { bg: "rgba(34,197,94,0.08)", border: "rgba(34,197,94,0.25)", text: "#16a34a" }, accounts: [
+  { label: "养殖品控线", color: { bg: "rgba(34,197,94,0.08)", border: "rgba(34,197,94,0.25)", text: "var(--status-success)" }, accounts: [
     { u: "test_farm",   p: "123456", label: "🏡 养殖场长", sub: "ROLE_FARM_MGR" },
     { u: "test_vet",    p: "123456", label: "💉 驻场兽医", sub: "ROLE_VET" },
     { u: "test_qa_mgr", p: "123456", label: "🔬 品控总监", sub: "ROLE_QA_MGR" },
   ]},
-  { label: "包装 · 仓储 · 物流", color: { bg: "rgba(59,130,246,0.08)", border: "rgba(59,130,246,0.25)", text: "#2563eb" }, accounts: [
+  { label: "包装 · 仓储 · 物流", color: { bg: "rgba(59,130,246,0.08)", border: "rgba(59,130,246,0.25)", text: "var(--color-accent)" }, accounts: [
     { u: "test_pkg",  p: "123456", label: "📦 车间主任", sub: "ROLE_PKG_MGR" },
     { u: "test_wms",  p: "123456", label: "🏗 仓储经理", sub: "ROLE_WMS_MGR" },
     { u: "test_log",  p: "123456", label: "🚛 物流调度", sub: "ROLE_LOG_MGR" },
     { u: "test_buyer",p: "123456", label: "🛒 采购专员", sub: "ROLE_PRC_BUYER" },
   ]},
-  { label: "🖥️ 现场作业台（Terminal自动跳转）", color: { bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.3)", text: "#d97706" }, accounts: [
+  { label: "🖥️ 现场作业台（Terminal自动跳转）", color: { bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.3)", text: "var(--status-warning)" }, accounts: [
     { u: "test_pkg_op",  p: "123456", label: "📦 包装操作员",  sub: "ROLE_PKG_OP"    },
     { u: "test_qc",      p: "123456", label: "🔍 质检员",      sub: "ROLE_QC_INSPECTOR"    },
     { u: "test_wh_clk",  p: "123456", label: "🏭 仓管员",      sub: "ROLE_WH_CLERK"        },
@@ -228,7 +228,7 @@ function LoginInner() {
             <button key={l} type="button" onClick={() => setAppLanguage(l)}
               style={{ fontSize:11, padding:"3px 8px", borderRadius:6, border:"1px solid rgba(255,255,255,0.12)",
                 background: lang===l ? "rgba(245,158,11,0.2)" : "transparent",
-                color: lang===l ? "#f59e0b" : "rgba(255,255,255,0.3)", cursor:"pointer", fontWeight: lang===l ? 700 : 400 }}>
+                color: lang===l ? "var(--status-warning)" : "rgba(255,255,255,0.3)", cursor:"pointer", fontWeight: lang===l ? 700 : 400 }}>
               {l==='zh'?'中文':l==='lo'?'ລາວ':'EN'}
             </button>
           ))}
@@ -239,7 +239,7 @@ function LoginInner() {
           <p style={{ fontSize:13, color:"rgba(255,255,255,0.3)", marginBottom:36 }}>{t('ui.登录Phoenix平台', '登录 Phoenix 企业管理平台')}</p>
 
           {error && (
-            <div style={{ marginBottom:20, padding:14, background:"#fee2e2", border:"1px solid rgba(239,68,68,0.3)", borderRadius:10, color:"#dc2626", fontSize:13, display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ marginBottom:20, padding:14, background:"#fee2e2", border:"1px solid rgba(239,68,68,0.3)", borderRadius:10, color:"var(--status-danger)", fontSize:13, display:"flex", alignItems:"center", gap:8 }}>
               <AlertTriangle size={16}/> {error}
             </div>
           )}

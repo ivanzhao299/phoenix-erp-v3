@@ -62,7 +62,7 @@ const inputBase: React.CSSProperties = {
 
 const inputError: React.CSSProperties = {
   ...inputBase,
-  borderColor: '#ef4444',
+  borderColor: 'var(--status-danger)',
   background: '#fff5f5',
 };
 
@@ -76,12 +76,12 @@ const labelStyle: React.CSSProperties = {
 
 const errorStyle: React.CSSProperties = {
   fontSize: 12,
-  color: '#ef4444',
+  color: 'var(--status-danger)',
   marginTop: 4,
 };
 
 const requiredMark = (
-  <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>
+  <span style={{ color: 'var(--status-danger)', marginLeft: 2 }}>*</span>
 );
 
 // ── 字段渲染逻辑 ───────────────────────────────────────────────────────────────

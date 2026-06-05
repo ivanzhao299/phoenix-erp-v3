@@ -196,14 +196,14 @@ export default function ProductionAnalyticsPage() {
               title="日均产蛋量"
               value={fmtNum(avgDailyEggs, 0)}
               sub="枚/天"
-              color="#10b981"
+              color="var(--status-success)"
             />
             <StatCard
               icon={TrendingDown}
               title="平均死淘数"
               value={fmtNum(avgMortality, 1)}
               sub="只/天（死亡+淘汰）"
-              color="#f59e0b"
+              color="var(--status-warning)"
             />
           </div>
 

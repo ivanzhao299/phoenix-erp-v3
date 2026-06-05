@@ -39,14 +39,14 @@ interface Alert {
 }
 
 function scoreColor(s: number): { bg: string; fg: string; label: string } {
-  if (s >= 90) return { bg: 'rgba(34,197,94,0.12)',  fg: '#16a34a', label: '优秀' };
-  if (s >= 75) return { bg: 'rgba(59,130,246,0.12)', fg: '#2563eb', label: '良好' };
-  if (s >= 60) return { bg: 'rgba(245,158,11,0.12)', fg: '#d97706', label: '及格' };
-  return         { bg: 'rgba(239,68,68,0.12)',   fg: '#dc2626', label: '需整改' };
+  if (s >= 90) return { bg: 'rgba(34,197,94,0.12)',  fg: 'var(--status-success)', label: '优秀' };
+  if (s >= 75) return { bg: 'rgba(59,130,246,0.12)', fg: 'var(--color-accent)', label: '良好' };
+  if (s >= 60) return { bg: 'rgba(245,158,11,0.12)', fg: 'var(--status-warning)', label: '及格' };
+  return         { bg: 'rgba(239,68,68,0.12)',   fg: 'var(--status-danger)', label: '需整改' };
 }
 
 function severityColor(s: 'LOW'|'MEDIUM'|'HIGH'): string {
-  return s === 'HIGH' ? '#dc2626' : s === 'MEDIUM' ? '#d97706' : '#2563eb';
+  return s === 'HIGH' ? 'var(--status-danger)' : s === 'MEDIUM' ? 'var(--status-warning)' : 'var(--color-accent)';
 }
 
 export default function DataQualityPage() {
@@ -96,7 +96,7 @@ export default function DataQualityPage() {
       />
 
       {error && (
-        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: '#dc2626', marginBottom: 16, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: 'var(--status-danger)', marginBottom: 16, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
           <AlertCircle size={14} /> {error}
         </div>
       )}
@@ -134,15 +134,15 @@ export default function DataQualityPage() {
             border: `1px solid ${scores.highAlertCount > 0 ? '#dc262633' : '#16a34a33'}`,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-              <AlertTriangle size={20} style={{ color: scores.highAlertCount > 0 ? '#dc2626' : '#16a34a' }} />
+              <AlertTriangle size={20} style={{ color: scores.highAlertCount > 0 ? 'var(--status-danger)' : 'var(--status-success)' }} />
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>实时告警</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-              <div style={{ fontSize: 56, fontWeight: 800, color: scores.highAlertCount > 0 ? '#dc2626' : '#16a34a', lineHeight: 1 }}>
+              <div style={{ fontSize: 56, fontWeight: 800, color: scores.highAlertCount > 0 ? 'var(--status-danger)' : 'var(--status-success)', lineHeight: 1 }}>
                 {scores.alertCount}
               </div>
               <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-                {scores.highAlertCount > 0 && <span style={{ color: '#dc2626', fontWeight: 700 }}>{scores.highAlertCount} 高危 · </span>}
+                {scores.highAlertCount > 0 && <span style={{ color: 'var(--status-danger)', fontWeight: 700 }}>{scores.highAlertCount} 高危 · </span>}
                 总告警条数
               </div>
             </div>

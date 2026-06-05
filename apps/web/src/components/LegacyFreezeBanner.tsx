@@ -46,7 +46,7 @@ export function LegacyFreezeBanner({
         borderRadius: 8,
         background: "linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.06))",
         border: "1px solid rgba(245,158,11,0.4)",
-        color: "#d97706",
+        color: "var(--status-warning)",
         fontSize: 13,
         lineHeight: 1.5,
       }}

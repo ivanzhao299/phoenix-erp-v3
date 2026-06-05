@@ -92,10 +92,10 @@ export default function NonconformancePage() {
       {/* KPI */}
       <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:12,marginBottom:20 }}>
         {[
-          {label:t("status.pending","待处置"),value:String(open),accent:"#ef4444",icon:<AlertTriangle size={18}/>},
-          {label:t("ui.已关闭","已关闭"),value:String(closed),accent:"#10b981",icon:<CheckCircle size={18}/>},
-          {label:t("ui.高严重性","高严重性"),value:String(high),accent:"#dc2626",icon:<AlertTriangle size={18}/>},
-          {label:t("ui.今日新增","今日新增"),value:String(todayNcr),accent:"#f59e0b",icon:<Clock size={18}/>},
+          {label:t("status.pending","待处置"),value:String(open),accent:"var(--status-danger)",icon:<AlertTriangle size={18}/>},
+          {label:t("ui.已关闭","已关闭"),value:String(closed),accent:"var(--status-success)",icon:<CheckCircle size={18}/>},
+          {label:t("ui.高严重性","高严重性"),value:String(high),accent:"var(--status-danger)",icon:<AlertTriangle size={18}/>},
+          {label:t("ui.今日新增","今日新增"),value:String(todayNcr),accent:"var(--status-warning)",icon:<Clock size={18}/>},
         ].map(k=>(
           <div key={k.label} style={{ background:"var(--bg-card)",border:"1px solid var(--border)",borderLeft:`var(--card-accent-width) solid ${k.accent}`,borderRadius:"var(--radius-lg)",padding:"14px 18px" }}>
             <div style={{ display:"flex",alignItems:"center",gap:5,marginBottom:8,color:k.accent,fontSize:11,fontWeight:700,textTransform:"uppercase" }}>{k.icon}{k.label}</div>

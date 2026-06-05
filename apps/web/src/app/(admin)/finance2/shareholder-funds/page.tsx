@@ -80,8 +80,8 @@ const CONTRIBUTION_TYPE_LABELS: Record<string, string> = {
   GUARANTEE: '担保金', PAYMENT_ON_BEHALF: '代付',
 };
 const CONTRIBUTION_TYPE_COLORS: Record<string, string> = {
-  INVESTMENT: '#7c3aed', LOAN: '#2563eb', ADVANCE: '#d97706',
-  GUARANTEE: '#0891b2', PAYMENT_ON_BEHALF: '#16a34a',
+  INVESTMENT: '#7c3aed', LOAN: 'var(--color-accent)', ADVANCE: 'var(--status-warning)',
+  GUARANTEE: '#0891b2', PAYMENT_ON_BEHALF: 'var(--status-success)',
 };
 
 const STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {

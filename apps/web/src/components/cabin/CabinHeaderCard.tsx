@@ -2,7 +2,7 @@
 import { RefreshCw } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-const freshnessColor: Record<string,string> = { normal:'#22c55e', delayed:'#f59e0b', stale:'#ef4444', no_data:'#94a3b8' };
+const freshnessColor: Record<string,string> = { normal:'var(--status-success)', delayed:'var(--status-warning)', stale:'var(--status-danger)', no_data:'#94a3b8' };
 
 interface Header {
   dataFreshness?: string; lastUpdateTime?: string;
@@ -40,7 +40,7 @@ export default function CabinHeaderCard({ header, houseCode, onRefresh }: Props)
       </div>
       <div style={{ display:'flex', alignItems:'center', gap:24 }}>
         <div style={{ textAlign:'center' }}>
-          <div style={{ fontSize:22, fontWeight:800, color: rate>80?'#22c55e':'#f59e0b' }}>{rate}%</div>
+          <div style={{ fontSize:22, fontWeight:800, color: rate>80?'var(--status-success)':'var(--status-warning)' }}>{rate}%</div>
           <div style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>{t('ui.传感器在线', '传感器在线')} ({sensorOnline}/{sensorTotal})</div>
         </div>
         {deviceTotal > 0 && (
@@ -50,7 +50,7 @@ export default function CabinHeaderCard({ header, houseCode, onRefresh }: Props)
           </div>
         )}
         <div style={{ textAlign:'center' }}>
-          <div style={{ fontSize:22, fontWeight:800, color:(header?.alarmCount||0)>0?'#ef4444':'#22c55e' }}>{header?.alarmCount||0}</div>
+          <div style={{ fontSize:22, fontWeight:800, color:(header?.alarmCount||0)>0?'var(--status-danger)':'var(--status-success)' }}>{header?.alarmCount||0}</div>
           <div style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>{t('ui.当前告警', '当前告警')}</div>
         </div>
         <button type="button" onClick={onRefresh} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', backgroundColor:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:'var(--radius-md)', color:'rgba(255,255,255,0.7)', cursor:'pointer', fontSize:12 }}

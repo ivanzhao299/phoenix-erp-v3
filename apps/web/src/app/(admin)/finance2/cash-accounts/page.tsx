@@ -69,7 +69,7 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   SHAREHOLDER: '股东账户', INTERNAL: '内部账户',
 };
 const ACCOUNT_TYPE_COLORS: Record<string, string> = {
-  BANK: '#2563eb', CASH: '#16a34a', VIRTUAL: '#9333ea',
+  BANK: 'var(--color-accent)', CASH: 'var(--status-success)', VIRTUAL: '#9333ea',
   SHAREHOLDER: '#ea580c', INTERNAL: '#0891b2',
 };
 

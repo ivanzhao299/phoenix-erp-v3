@@ -210,8 +210,8 @@ function PriceBooksTab() {
   return (
     <div>
       {errorMsg && (
-        <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: "var(--radius)", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444", fontSize: 13 }}>
-          {errorMsg} <button type="button" onClick={() => setErrorMsg("")} style={{ marginLeft: 8, background: "none", border: "none", cursor: "pointer", color: "#ef4444" }}><X size={12}/></button>
+        <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: "var(--radius)", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "var(--status-danger)", fontSize: 13 }}>
+          {errorMsg} <button type="button" onClick={() => setErrorMsg("")} style={{ marginLeft: 8, background: "none", border: "none", cursor: "pointer", color: "var(--status-danger)" }}><X size={12}/></button>
         </div>
       )}
 
@@ -283,7 +283,7 @@ function PriceBooksTab() {
                       )}
                       {!["CANCELLED", "ACTIVE"].includes(row.status) && (
                         <button type="button" onClick={() => doAction(row.id, "cancel", "取消")}
-                          style={{ padding: "2px 8px", fontSize: 11, background: "none", border: "1px solid rgba(239,68,68,0.4)", color: "#ef4444", borderRadius: "var(--radius)", cursor: "pointer" }}>取消</button>
+                          style={{ padding: "2px 8px", fontSize: 11, background: "none", border: "1px solid rgba(239,68,68,0.4)", color: "var(--status-danger)", borderRadius: "var(--radius)", cursor: "pointer" }}>取消</button>
                       )}
                     </div>
                   </td>
@@ -497,8 +497,8 @@ function PriceItemsTab() {
   return (
     <div>
       {errorMsg && (
-        <div style={{ marginBottom: 10, padding: "8px 12px", borderRadius: "var(--radius)", background: "rgba(239,68,68,0.08)", color: "#ef4444", fontSize: 12 }}>
-          {errorMsg} <button type="button" onClick={() => setErrorMsg("")} style={{ marginLeft: 6, background: "none", border: "none", cursor: "pointer", color: "#ef4444" }}><X size={11}/></button>
+        <div style={{ marginBottom: 10, padding: "8px 12px", borderRadius: "var(--radius)", background: "rgba(239,68,68,0.08)", color: "var(--status-danger)", fontSize: 12 }}>
+          {errorMsg} <button type="button" onClick={() => setErrorMsg("")} style={{ marginLeft: 6, background: "none", border: "none", cursor: "pointer", color: "var(--status-danger)" }}><X size={11}/></button>
         </div>
       )}
 
@@ -547,7 +547,7 @@ function PriceItemsTab() {
                 <td style={{ fontSize: 12 }}>{gradeLabel(row.grade_code_std ?? row.grade_code, master.grades)}</td>
                 <td style={{ fontSize: 11 }}>{row.spec_code ?? row.packaging_spec ?? "—"}</td>
                 <td style={{ textAlign: "right", fontWeight: 700 }}>{Number(row.unit_price).toLocaleString()}</td>
-                <td style={{ textAlign: "right", color: "#f59e0b" }}>
+                <td style={{ textAlign: "right", color: "var(--status-warning)" }}>
                   {row.floor_price != null ? Number(row.floor_price).toLocaleString() : "—"}
                 </td>
                 <td style={{ textAlign: "right" }}>
@@ -562,7 +562,7 @@ function PriceItemsTab() {
                     <button type="button" className={s.btnSecondary} onClick={() => openEdit(row)}
                       style={{ padding: "2px 8px", fontSize: 11 }}>编辑</button>
                     <button type="button" onClick={() => doDisable(row.id)}
-                      style={{ padding: "2px 8px", fontSize: 11, background: "none", border: "1px solid rgba(239,68,68,0.4)", color: "#ef4444", borderRadius: "var(--radius)", cursor: "pointer" }}>停用</button>
+                      style={{ padding: "2px 8px", fontSize: 11, background: "none", border: "1px solid rgba(239,68,68,0.4)", color: "var(--status-danger)", borderRadius: "var(--radius)", cursor: "pointer" }}>停用</button>
                   </div>
                 </td>
               </tr>
@@ -594,8 +594,8 @@ function PriceItemsTab() {
                 </span>
               </label>
               {master.skus.length === 0 && !master.loading ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#f59e0b", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: "var(--radius)", padding: "8px 10px" }}>
-                  <Info size={13} /> 请先在<a href="/master-data/product-skus" target="_blank" style={{ color: "#f59e0b", textDecoration: "underline" }}>主数据中心 → SKU 档案</a>维护商品组合
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--status-warning)", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: "var(--radius)", padding: "8px 10px" }}>
+                  <Info size={13} /> 请先在<a href="/master-data/product-skus" target="_blank" style={{ color: "var(--status-warning)", textDecoration: "underline" }}>主数据中心 → SKU 档案</a>维护商品组合
                 </div>
               ) : (
                 <select style={inp} value={form.skuCode} onChange={e => handleSkuChange(e.target.value)}>
@@ -610,13 +610,13 @@ function PriceItemsTab() {
             </div>
           )}
 
-          <label style={lbl}>价格册 ID <span style={{ color: "#ef4444" }}>*</span></label>
+          <label style={lbl}>价格册 ID <span style={{ color: "var(--status-danger)" }}>*</span></label>
           <input type="number" style={{ ...inp, ...(editing ? { background: "var(--bg-muted)", color: "var(--text-secondary)" } : {}) }}
             value={form.priceBookId} disabled={!!editing}
             onChange={e => setForm(f => ({ ...f, priceBookId: e.target.value }))} placeholder="输入价格册 ID" />
 
           <label style={lbl}>
-            产品编码 {!form.skuCode && <span style={{ color: "#ef4444" }}>*</span>}
+            产品编码 {!form.skuCode && <span style={{ color: "var(--status-danger)" }}>*</span>}
             {form.skuCode && <span style={{ fontSize: 11, color: "#818cf8", marginLeft: 6 }}>（由 SKU 自动填充）</span>}
           </label>
           <input style={{ ...inp, ...(form.skuCode ? { background: "var(--bg-muted)", color: "var(--text-secondary)" } : {}) }}
@@ -639,7 +639,7 @@ function PriceItemsTab() {
             {specOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
 
-          <label style={lbl}>单价 <span style={{ color: "#ef4444" }}>*</span></label>
+          <label style={lbl}>单价 <span style={{ color: "var(--status-danger)" }}>*</span></label>
           <input type="number" style={inp} min={0}
             value={form.unitPrice} onChange={e => setForm(f => ({ ...f, unitPrice: e.target.value }))} placeholder="0" />
 
@@ -669,7 +669,7 @@ function PriceItemsTab() {
             onChange={e => setForm(f => ({ ...f, currencyCode: e.target.value }))} placeholder="LAK" />
 
           {errorMsg && (
-            <div style={{ marginTop: 8, fontSize: 12, color: "#ef4444", background: "rgba(239,68,68,0.08)", borderRadius: "var(--radius)", padding: "8px 10px" }}>{errorMsg}</div>
+            <div style={{ marginTop: 8, fontSize: 12, color: "var(--status-danger)", background: "rgba(239,68,68,0.08)", borderRadius: "var(--radius)", padding: "8px 10px" }}>{errorMsg}</div>
           )}
 
           <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
@@ -761,7 +761,7 @@ function CurrentPricesTab() {
                   <span style={{ fontSize: 11, marginLeft: 4, color: "var(--text-secondary)", fontWeight: 400 }}>{r.currencyCode}</span>
                 </div>
                 {r.floorPrice != null && (
-                  <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 4 }}>
+                  <div style={{ fontSize: 11, color: "var(--status-warning)", marginTop: 4 }}>
                     底价 {Number(r.floorPrice).toLocaleString()}
                   </div>
                 )}
@@ -781,7 +781,7 @@ function CurrentPricesTab() {
 function AnomalyTab() {
   return (
     <div style={{ padding: "40px 0", textAlign: "center", opacity: 0.5 }}>
-      <AlertTriangle size={36} style={{ margin: "0 auto 14px", color: "#f59e0b" }}/>
+      <AlertTriangle size={36} style={{ margin: "0 auto 14px", color: "var(--status-warning)" }}/>
       <div style={{ fontWeight: 600, marginBottom: 8 }}>价格异常监控</div>
       <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.8 }}>
         Phase 3（销售订单）完成后启用<br/>

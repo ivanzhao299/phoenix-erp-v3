@@ -104,7 +104,7 @@ function HouseCard({
           border: '1px solid rgba(245,158,11,0.3)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b' }}>{house}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--status-warning)' }}>{house}</span>
         </div>
 
         {/* Flock */}
@@ -152,7 +152,7 @@ function HouseCard({
           </div>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {([
-              { key: 'bad',    label: '破损', color: '#ef4444' },
+              { key: 'bad',    label: '破损', color: 'var(--status-danger)' },
               { key: 'dirty',  label: '脏蛋', color: '#f97316' },
               { key: 'broken', label: '碎蛋', color: '#eab308' },
             ] as const).map(({ key, label, color }) => (
@@ -354,7 +354,7 @@ export default function EggLogPage() {
             padding: '4px 10px', borderRadius: 8,
             background: 'rgba(245,158,11,0.15)',
             border: '1px solid rgba(245,158,11,0.3)',
-            fontSize: 13, fontWeight: 700, color: '#f59e0b',
+            fontSize: 13, fontWeight: 700, color: 'var(--status-warning)',
           }}>
             {totalEggs.toLocaleString()} 枚
           </div>
@@ -403,9 +403,9 @@ export default function EggLogPage() {
               onClick={() => setShift(s.key)}
               style={{
                 padding: '6px 20px', borderRadius: 20,
-                border: `1px solid ${shift === s.key ? '#f59e0b' : t.inputBorder}`,
+                border: `1px solid ${shift === s.key ? 'var(--status-warning)' : t.inputBorder}`,
                 background: shift === s.key ? 'rgba(245,158,11,0.2)' : t.cardBg,
-                color: shift === s.key ? '#f59e0b' : t.textSub,
+                color: shift === s.key ? 'var(--status-warning)' : t.textSub,
                 cursor: 'pointer', fontSize: 13, fontWeight: 600,
               }}
             >
@@ -447,7 +447,7 @@ export default function EggLogPage() {
           <div style={{
             margin: '8px 0', padding: '12px 14px', borderRadius: 10,
             background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-            color: '#ef4444', fontSize: 13,
+            color: 'var(--status-danger)', fontSize: 13,
           }}>
             {error}
           </div>
@@ -457,7 +457,7 @@ export default function EggLogPage() {
           <div style={{
             margin: '8px 0', padding: '12px 14px', borderRadius: 10,
             background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)',
-            color: '#10b981', fontSize: 13, textAlign: 'center', fontWeight: 600,
+            color: 'var(--status-success)', fontSize: 13, textAlign: 'center', fontWeight: 600,
           }}>
             ✓ 提交成功
           </div>

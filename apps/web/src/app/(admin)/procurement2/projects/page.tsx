@@ -184,8 +184,8 @@ export default function ProjectsPage() {
       {/* KPI 统计条 */}
       {[
         { label: "项目总数",  value: data.total, accent: "var(--color-primary)" },
-        { label: "进行中",    value: data.items.filter(i => i.status === "ACTIVE").length,   accent: "#10b981" },
-        { label: "已暂停",    value: data.items.filter(i => i.status === "INACTIVE").length, accent: "#f59e0b" },
+        { label: "进行中",    value: data.items.filter(i => i.status === "ACTIVE").length,   accent: "var(--status-success)" },
+        { label: "已暂停",    value: data.items.filter(i => i.status === "INACTIVE").length, accent: "var(--status-warning)" },
         { label: "已关闭",    value: data.items.filter(i => i.status === "CLOSED").length,   accent: "#6b7280" },
       ].reduce<React.ReactNode[]>((acc, k) => [
         ...acc,
@@ -200,8 +200,8 @@ export default function ProjectsPage() {
       <div style={{ display:"flex",gap:12,marginBottom:16,flexWrap:"wrap" }}>
         {[
           { label:"项目总数", value:data.total, accent:"var(--color-primary)" },
-          { label:"进行中",   value:data.items.filter(i=>i.status==="ACTIVE").length,   accent:"#10b981" },
-          { label:"已暂停",   value:data.items.filter(i=>i.status==="INACTIVE").length, accent:"#f59e0b" },
+          { label:"进行中",   value:data.items.filter(i=>i.status==="ACTIVE").length,   accent:"var(--status-success)" },
+          { label:"已暂停",   value:data.items.filter(i=>i.status==="INACTIVE").length, accent:"var(--status-warning)" },
           { label:"已关闭",   value:data.items.filter(i=>i.status==="CLOSED").length,   accent:"#6b7280" },
         ].map(k=>(
           <div key={k.label} style={{ background:"var(--bg-card)",border:"1px solid var(--border)",borderLeft:`3px solid ${k.accent}`,borderRadius:"var(--radius-md)",padding:"10px 16px",display:"flex",alignItems:"center",gap:10 }}>

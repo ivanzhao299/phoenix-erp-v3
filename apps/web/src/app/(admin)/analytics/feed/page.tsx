@@ -190,14 +190,14 @@ export default function FeedAnalyticsPage() {
               title="本月到货总重量"
               value={`${fmtNum(monthWeight)} kg`}
               sub="净重合计"
-              color="#10b981"
+              color="var(--status-success)"
             />
             <StatCard
               icon={Users}
               title="供应商数量"
               value={supplierCount}
               sub="家（全部记录）"
-              color="#f59e0b"
+              color="var(--status-warning)"
             />
           </div>
 

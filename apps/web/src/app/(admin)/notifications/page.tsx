@@ -213,7 +213,7 @@ export default function NotificationsPage() {
                 {/* 未读标记点 */}
                 <div style={{
                   width: 8, height: 8, borderRadius: "50%",
-                  background: n.status === "UNREAD" ? "#3b82f6" : "transparent",
+                  background: n.status === "UNREAD" ? "var(--status-info)" : "transparent",
                   flexShrink: 0, marginTop: 6,
                 }} />
 

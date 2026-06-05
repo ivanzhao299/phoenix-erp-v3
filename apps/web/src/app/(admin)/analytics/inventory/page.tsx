@@ -70,9 +70,9 @@ function getRemainingDays(batch: Batch): number | null {
 
 const GRADE_COLORS: Record<string, string> = {
   AA: "#6366f1",
-  A: "#10b981",
-  B: "#f59e0b",
-  C: "#ef4444",
+  A: "var(--status-success)",
+  B: "var(--status-warning)",
+  C: "var(--status-danger)",
 };
 
 // ── 统计卡片 ──────────────────────────────────────────────────────────────────
@@ -215,14 +215,14 @@ export default function InventoryAnalyticsPage() {
               title="总库存量"
               value={`${fmtNum(totalQty)} kg`}
               sub="所有批次合计"
-              color="#10b981"
+              color="var(--status-success)"
             />
             <StatCard
               icon={AlertTriangle}
               title="临期批次"
               value={expiringBatches.length}
               sub="剩余天数 < 7 天"
-              color="#ef4444"
+              color="var(--status-danger)"
             />
           </div>
 

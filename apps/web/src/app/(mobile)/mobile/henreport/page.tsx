@@ -32,7 +32,7 @@ function HouseCard({ row }: { row: HenReportRow }) {
   const { t } = useMobileTheme();
   const [open, setOpen] = useState(false);
   const layRateNum = parseFloat(row.lay_rate);
-  const rateColor = layRateNum >= 85 ? '#10b981' : layRateNum >= 70 ? '#f59e0b' : '#ef4444';
+  const rateColor = layRateNum >= 85 ? 'var(--status-success)' : layRateNum >= 70 ? 'var(--status-warning)' : 'var(--status-danger)';
 
   return (
     <div style={{
@@ -59,7 +59,7 @@ function HouseCard({ row }: { row: HenReportRow }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
         }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b' }}>{row.house_code}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--status-warning)' }}>{row.house_code}</span>
         </div>
 
         {/* Flock + age */}
@@ -92,11 +92,11 @@ function HouseCard({ row }: { row: HenReportRow }) {
       {/* Expanded detail */}
       {open && (
         <div style={{ padding: '0 14px 14px', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <MetaChip label="产蛋" value={row.eggs.toLocaleString()} color="#f59e0b" />
-          <MetaChip label="死亡" value={row.mortality} color="#ef4444" />
+          <MetaChip label="产蛋" value={row.eggs.toLocaleString()} color="var(--status-warning)" />
+          <MetaChip label="死亡" value={row.mortality} color="var(--status-danger)" />
           <MetaChip label="淘汰" value={row.elimination} color="#f97316" />
-          <MetaChip label="合计损耗" value={row.total_loss} color="#dc2626" />
-          <MetaChip label="饲料(kg)" value={row.feed > 0 ? row.feed.toFixed(1) : '—'} color="#10b981" />
+          <MetaChip label="合计损耗" value={row.total_loss} color="var(--status-danger)" />
+          <MetaChip label="饲料(kg)" value={row.feed > 0 ? row.feed.toFixed(1) : '—'} color="var(--status-success)" />
           {row.culling_reason && (
             <div style={{
               width: '100%', marginTop: 4,
@@ -124,12 +124,12 @@ function TotalsBar({ totals }: { totals: DailyHenReport['totals'] }) {
       borderBottom: `1px solid ${t.divider}`,
     }}>
       {[
-        { label: '总存栏', value: totals.current_qty.toLocaleString() + '只', color: '#f59e0b' },
-        { label: '总产蛋', value: totals.eggs.toLocaleString() + '枚', color: '#10b981' },
-        { label: '综合产蛋率', value: totals.lay_rate + '%', color: parseFloat(totals.lay_rate) >= 80 ? '#10b981' : '#ef4444' },
-        { label: '死亡', value: String(totals.mortality), color: '#ef4444' },
+        { label: '总存栏', value: totals.current_qty.toLocaleString() + '只', color: 'var(--status-warning)' },
+        { label: '总产蛋', value: totals.eggs.toLocaleString() + '枚', color: 'var(--status-success)' },
+        { label: '综合产蛋率', value: totals.lay_rate + '%', color: parseFloat(totals.lay_rate) >= 80 ? 'var(--status-success)' : 'var(--status-danger)' },
+        { label: '死亡', value: String(totals.mortality), color: 'var(--status-danger)' },
         { label: '淘汰', value: String(totals.elimination), color: '#f97316' },
-        { label: '今日损耗', value: String(totals.total_loss), color: '#dc2626' },
+        { label: '今日损耗', value: String(totals.total_loss), color: 'var(--status-danger)' },
       ].map(item => (
         <div key={item.label} style={{
           background: `${item.color}10`, border: `1px solid ${item.color}25`,
@@ -255,7 +255,7 @@ export default function DailyHenReportPage() {
           <div style={{
             margin: '20px 0', padding: '14px 16px', borderRadius: 12,
             background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-            color: '#ef4444', fontSize: 13, textAlign: 'center',
+            color: 'var(--status-danger)', fontSize: 13, textAlign: 'center',
           }}>
             {error}
           </div>
