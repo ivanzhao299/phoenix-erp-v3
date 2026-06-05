@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X, Link2, MoreHorizontal } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import { EmptyState, LoadingSkeleton } from "@/components/design-system";
-import { primaryActionButton, inlineBadge } from "@/components/design-system/cockpit-styles";
+import { primaryActionButton, secondaryActionButton, inputField, formLabel, inlineBadge } from "@/components/design-system/cockpit-styles";
 import request from "@/lib/api-client";
 
 /**
@@ -219,23 +219,25 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
             {!editing[codeKey] && <div style={{ marginBottom: 14, fontSize: 12, color: "var(--text-secondary)" }}>编码将在保存时自动生成（不可手填）</div>}
             {fields.map(f => (
               <div key={f.key} style={{ marginBottom: 14 }}>
-                <label style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginBottom: 5 }}>{f.label}{f.required && <span style={{ color: "var(--status-danger)" }}> *</span>}</label>
+                <label style={formLabel}>
+                  {f.label}{f.required && <span style={{ color: "var(--status-danger)", marginLeft: 4 }}>*</span>}
+                </label>
                 {f.type === "select" ? (
-                  <select value={form[f.key] ?? ""} onChange={e => setForm({ ...form, [f.key]: e.target.value })}
-                    className="bg-bg-card border border-border text-text" style={{ width: "100%", padding: "8px 12px", borderRadius: 7, fontSize: 13, boxSizing: "border-box" }}>
+                  <select value={form[f.key] ?? ""} onChange={e => setForm({ ...form, [f.key]: e.target.value })} style={inputField}>
                     <option value="">请选择</option>
                     {(f.options ?? []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 ) : (
                   <input type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
-                    value={form[f.key] ?? ""} onChange={e => setForm({ ...form, [f.key]: e.target.value })}
-                    className="bg-bg-card border border-border text-text" style={{ width: "100%", padding: "8px 12px", borderRadius: 7, fontSize: 13, boxSizing: "border-box" }} />
+                    value={form[f.key] ?? ""} onChange={e => setForm({ ...form, [f.key]: e.target.value })} style={inputField} />
                 )}
               </div>
             ))}
             <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-              <button onClick={() => setEditing(null)} className="bg-bg-muted border border-border text-text" style={{ flex: 1, padding: "10px 0", borderRadius: 8, fontSize: 14, cursor: "pointer" }}>取消</button>
-              <button onClick={save} disabled={saving} style={{ flex: 2, padding: "10px 0", borderRadius: 8, background: "var(--color-primary)", color: "white", border: "none", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>{saving ? "保存中…" : "保存草稿"}</button>
+              <button onClick={() => setEditing(null)} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>取消</button>
+              <button onClick={save} disabled={saving} style={{ ...primaryActionButton, flex: 2, justifyContent: "center", opacity: saving ? 0.6 : 1 }}>
+                {saving ? "保存中…" : "保存草稿"}
+              </button>
             </div>
           </div>
         </div>

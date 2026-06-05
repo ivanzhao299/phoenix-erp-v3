@@ -182,19 +182,56 @@ export const riskItem: CSSProperties = {
 };
 
 // ── 全局主操作按钮（"+ 新建/新增 XXX"） ──────────────
-// 对齐 MasterDataRuntimePanel:130 现有样式
 export const primaryActionButton: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 6,
   padding: '7px 18px',
-  borderRadius: 7,
+  borderRadius: 8,
   background: 'var(--color-primary)',
   color: 'var(--text-on-dark, white)',
   border: 'none',
   fontSize: 13,
   fontWeight: 600,
   cursor: 'pointer',
+};
+
+// ── 次级按钮（"取消" / 灰底） ──────────────────────────
+export const secondaryActionButton: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  padding: '7px 18px',
+  borderRadius: 8,
+  background: 'var(--bg-muted)',
+  color: 'var(--text-primary)',
+  border: '1px solid var(--border)',
+  fontSize: 13,
+  fontWeight: 500,
+  cursor: 'pointer',
+};
+
+// ── 输入框（input / textarea / select 共用） ──────────
+export const inputField: CSSProperties = {
+  width: '100%',
+  padding: '8px 12px',
+  borderRadius: 8,
+  fontSize: 14,
+  background: 'var(--bg-card)',
+  border: '1px solid var(--border)',
+  color: 'var(--text-primary)',
+  outline: 'none',
+  boxSizing: 'border-box',
+  transition: 'border-color 0.12s',
+};
+
+// ── 表单 label ────────────────────────────────────────
+export const formLabel: CSSProperties = {
+  display: 'block',
+  fontSize: 12,
+  color: 'var(--text-secondary)',
+  marginBottom: 6,
+  fontWeight: 500,
 };
 
 // ── 内联 badge（label/value 中表示"未指定"等状态） ───

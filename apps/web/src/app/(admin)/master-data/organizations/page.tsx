@@ -37,7 +37,7 @@ import {
   COCKPIT, cockpitCard, cockpitCardBody, cockpitCardHeader, cockpitCardHeaderTitle,
   cockpitCardHeaderHint, kpiHeroNumber, kpiHeroLabel, propCell, propLabel, propValue,
   kpiMiniNumber, kpiMiniLabel, scoreBadge, riskItem, listRow,
-  primaryActionButton, inlineBadge, pillBadge,
+  primaryActionButton, secondaryActionButton, inlineBadge, pillBadge,
 } from "@/components/design-system/cockpit-styles";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
@@ -846,7 +846,7 @@ export default function MdOrganizationsPage() {
           order: isNarrow ? -1 : 0,
         }}>
           {/* 组织态势 — Hero 卡（UIX-PROD-2 共用 cockpit-styles） */}
-          <div style={{ ...cockpitCard, flex: isNarrow ? '1 1 280px' : 'initial', minWidth: 0 }}>
+          <div style={{ ...cockpitCard, flex: isNarrow ? '1 1 280px' : '0 0 auto', minWidth: 0 }}>
             <div style={cockpitCardHeader}>
               <Activity size={14} style={{ color: 'var(--color-primary)' }} />
               <span style={cockpitCardHeaderTitle}>组织态势</span>
@@ -884,7 +884,7 @@ export default function MdOrganizationsPage() {
 
           {/* 当前组织 KPI（共用 cockpit-styles 属性单元格风格） */}
           {selectedOrg && (
-            <div style={{ ...cockpitCard, flex: isNarrow ? '1 1 260px' : 'initial', minWidth: 0 }}>
+            <div style={{ ...cockpitCard, flex: isNarrow ? '1 1 260px' : '0 0 auto', minWidth: 0 }}>
               <div style={cockpitCardHeader}>
                 <BarChart3 size={14} style={{ color: 'var(--status-info)' }} />
                 <span style={cockpitCardHeaderTitle}>当前组织</span>
@@ -927,7 +927,7 @@ export default function MdOrganizationsPage() {
             const score = Math.round((checks.length - fails.length) / checks.length * 100);
             const passing = fails.length === 0;
             return (
-              <div style={{ ...cockpitCard, flex: isNarrow ? '1 1 260px' : 'initial', minWidth: 0 }}>
+              <div style={{ ...cockpitCard, flex: isNarrow ? '1 1 260px' : '0 0 auto', minWidth: 0 }}>
                 <div style={cockpitCardHeader}>
                   {passing
                     ? <CheckCircle2 size={14} style={{ color: 'var(--status-success)' }} />
@@ -1020,10 +1020,7 @@ export default function MdOrganizationsPage() {
             <button
               type="button"
               onClick={() => setDrawerOpen(false)}
-              className={cn(
-                "flex-1 py-2.5 text-sm rounded-lg transition-colors",
-                "border border-border text-text-muted bg-bg-page hover:bg-bg-muted",
-              )}
+              style={{ ...secondaryActionButton, flex: 1, justifyContent: 'center', padding: '10px 18px' }}
             >
               取消
             </button>
@@ -1031,16 +1028,13 @@ export default function MdOrganizationsPage() {
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className={cn(
-                "flex-[2] py-2.5 text-sm font-semibold rounded-lg transition-opacity",
-                "bg-brand text-white hover:opacity-90 disabled:opacity-60",
-              )}
+              style={{ ...primaryActionButton, flex: 2, justifyContent: 'center', padding: '10px 18px', opacity: saving ? 0.6 : 1 }}
             >
               {saving ? (
-                <span className="flex items-center justify-center gap-2">
+                <>
                   <RefreshCw size={13} className="animate-spin" />
                   保存中…
-                </span>
+                </>
               ) : editingCode ? "保存修改" : "创建组织"}
             </button>
           </div>
