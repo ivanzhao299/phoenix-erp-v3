@@ -1,18 +1,17 @@
 'use client';
 
 /**
- * MasterDataCenterStrip — UIX-PROD-1 主数据中心运营 KPI 条
+ * MasterDataCenterStrip — UIX-PROD-2 升级为金融驾驶舱 KPI 风格
  *
- * 在 11 类主数据列表页顶部展示"运营 KPI"卡片（总数 / 启用 / 待审批 / 风险），
- * 让用户第一眼看到的不是表格而是业务态势。
- *
- * 单独 fetch /master-data/operations/centers（与工作台同源），按 type pick KPI。
- * 失败静默，不阻塞列表渲染。
+ * 4 张 KpiCardV2：在管 / 运行（含进度条+健康度）/ 待审批 / 风险冻结
+ * 与工作台 /master-data/operations/centers 同源
  */
 
 import { useEffect, useState } from 'react';
 import { Activity, CheckCircle2, Clock, Snowflake } from 'lucide-react';
 import request from '@/lib/api-client';
+import { KpiCardV2 } from '@/components/design-system/KpiCardV2';
+import { CockpitGrid } from '@/components/design-system/CockpitGrid';
 
 interface MemberStat {
   type: string;
@@ -22,22 +21,9 @@ interface MemberStat {
   frozen: number;
   archived: number;
 }
-interface CenterStat {
-  key: string;
-  label: string;
-  members: MemberStat[];
-}
+interface CenterStat { members: MemberStat[]; }
 
-type Tone = 'default' | 'success' | 'warning' | 'danger';
-
-const TONE_COLOR: Record<Tone, string> = {
-  default: 'var(--text-primary)',
-  success: 'var(--status-success)',
-  warning: 'var(--status-warning)',
-  danger:  'var(--status-danger)',
-};
-
-export function MasterDataCenterStrip({ type, centerLabel }: { type: string; centerLabel?: string }) {
+export function MasterDataCenterStrip({ type }: { type: string }) {
   const [stat, setStat] = useState<MemberStat | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -46,21 +32,23 @@ export function MasterDataCenterStrip({ type, centerLabel }: { type: string; cen
     request<CenterStat[]>('/master-data/operations/centers')
       .then(centers => {
         if (cancelled) return;
-        const found = centers.flatMap(c => c.members).find(m => m.type === type);
-        setStat(found ?? null);
+        setStat(centers.flatMap(c => c.members).find(m => m.type === type) ?? null);
       })
-      .catch(() => { /* 静默 */ })
+      .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [type]);
 
   if (loading) {
     return (
-      <div style={wrapperStyle} aria-hidden>
-        {[0,1,2,3].map(i => (
-          <div key={i} style={{ ...cardStyle, opacity: 0.4, background: 'var(--bg-muted)' }} />
+      <CockpitGrid cols={4} minItemWidth={180}>
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} style={{
+            minHeight: 86, borderRadius: 'var(--radius-card)',
+            background: 'var(--bg-muted)', opacity: 0.4,
+          }} />
         ))}
-      </div>
+      </CockpitGrid>
     );
   }
   if (!stat) return null;
@@ -68,88 +56,45 @@ export function MasterDataCenterStrip({ type, centerLabel }: { type: string; cen
   const live = Math.max(stat.total - stat.archived, 0);
   const health = live > 0 ? Math.round((stat.active / live) * 100) : 100;
 
-  const items: Array<{ label: string; icon: any; value: number | string; suffix?: string; tone?: Tone; hint?: string }> = [
-    { label: '在管总数',  icon: Activity,    value: stat.total,        suffix: '条' },
-    { label: '运行中',    icon: CheckCircle2, value: stat.active,      suffix: '条', tone: 'success', hint: `健康度 ${health}%` },
-    { label: '待审批',    icon: Clock,        value: stat.pending,     suffix: '单', tone: stat.pending > 0 ? 'warning' : 'default' },
-    { label: '冻结/风险', icon: Snowflake,    value: stat.frozen,      suffix: '条', tone: stat.frozen > 0 ? 'danger' : 'default' },
-  ];
-
   return (
-    <div style={wrapperStyle}>
-      {items.map((it, i) => (
-        <div key={i} style={cardStyle}>
-          <div style={cardHeaderStyle}>
-            <it.icon size={14} />
-            <span style={cardLabelStyle}>{it.label}</span>
-          </div>
-          <div style={{ ...cardValueStyle, color: TONE_COLOR[it.tone || 'default'] }}>
-            {it.value}
-            {it.suffix && <span style={cardSuffixStyle}> {it.suffix}</span>}
-          </div>
-          {it.hint && <div style={cardHintStyle}>{it.hint}</div>}
-        </div>
-      ))}
-      {centerLabel && (
-        <div style={centerLabelStyle}>
-          <span>{centerLabel}</span>
-        </div>
-      )}
+    <div style={{ marginBottom: 16 }}>
+      <CockpitGrid cols={4} minItemWidth={180}>
+        <KpiCardV2
+          tone="default"
+          icon={<Activity size={14} />}
+          label="在管总数"
+          value={stat.total}
+          suffix="条"
+          hint={`含归档 ${stat.archived} 条`}
+        />
+        <KpiCardV2
+          tone="success"
+          icon={<CheckCircle2 size={14} />}
+          label="运行中"
+          value={stat.active}
+          suffix="条"
+          progress={{ value: health }}
+          hint={<>健康度 <strong style={{ color: 'var(--status-success)' }}>{health}%</strong></>}
+        />
+        <KpiCardV2
+          tone={stat.pending > 0 ? 'warning' : 'default'}
+          icon={<Clock size={14} />}
+          label="待审批"
+          value={stat.pending}
+          suffix="单"
+          hint={stat.pending > 0 ? '需要处理' : '暂无积压'}
+        />
+        <KpiCardV2
+          tone={stat.frozen > 0 ? 'danger' : 'default'}
+          icon={<Snowflake size={14} />}
+          label="冻结 · 风险"
+          value={stat.frozen}
+          suffix="条"
+          hint={stat.frozen > 0 ? '关注异常' : '无风险'}
+        />
+      </CockpitGrid>
     </div>
   );
 }
-
-const wrapperStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-  gap: 12,
-  marginBottom: 20,
-};
-
-const cardStyle: React.CSSProperties = {
-  padding: '14px 16px',
-  background: 'var(--bg-card)',
-  border: '1px solid var(--border)',
-  borderRadius: 'var(--radius-card)',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 4,
-  minHeight: 76,
-};
-
-const cardHeaderStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 6,
-  color: 'var(--text-secondary)',
-};
-
-const cardLabelStyle: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 500,
-};
-
-const cardValueStyle: React.CSSProperties = {
-  fontSize: 22,
-  fontWeight: 700,
-  lineHeight: 1.2,
-};
-
-const cardSuffixStyle: React.CSSProperties = {
-  fontSize: 11,
-  color: 'var(--text-secondary)',
-  fontWeight: 500,
-  marginLeft: 2,
-};
-
-const cardHintStyle: React.CSSProperties = {
-  fontSize: 10,
-  color: 'var(--text-secondary)',
-};
-
-const centerLabelStyle: React.CSSProperties = {
-  position: 'absolute',
-  display: 'none',
-};
 
 export default MasterDataCenterStrip;

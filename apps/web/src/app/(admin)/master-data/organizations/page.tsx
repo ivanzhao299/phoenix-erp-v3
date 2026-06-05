@@ -351,6 +351,15 @@ export default function MdOrganizationsPage() {
   // UIX-9A — Detail drawer
   const [detailCode, setDetailCode]       = useState<string | null>(null);
 
+  // UIX-PROD-2 — 响应式：窄屏（<1280）右栏折叠到顶部横排
+  const [isNarrow, setIsNarrow]           = useState(false);
+  useEffect(() => {
+    const update = () => setIsNarrow(window.innerWidth < 1280);
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
   // ── Load ────────────────────────────────────────────────────────────────────
 
   const load = useCallback(async () => {
@@ -567,13 +576,20 @@ export default function MdOrganizationsPage() {
         }
       />
 
-      {/* ── Main layout ──────────────────────────────────────────────────────── */}
-      <div className="flex gap-4" style={{ minHeight: 600, marginTop: 4 }}>
+      {/* ── Main layout（UIX-PROD-2 响应式 flex-wrap：窄屏右栏 width 100% 自然换行到顶；宽屏 3 栏一行） ──────── */}
+      <div style={{
+        display: 'flex',
+        flexDirection: 'row',
+        flexWrap: isNarrow ? 'wrap' : 'nowrap',
+        gap: 16,
+        minHeight: 600,
+        marginTop: 4,
+      }}>
 
         {/* ── Left: org tree ─────────────────────────────────────────────────── */}
         <div
           className="flex flex-col rounded-2xl border border-border bg-bg-card shadow-card overflow-hidden flex-shrink-0"
-          style={{ width: 280 }}
+          style={{ width: isNarrow ? 240 : 280 }}
         >
           {/* Tree header */}
           <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border bg-bg-muted/30">
@@ -893,10 +909,18 @@ export default function MdOrganizationsPage() {
           )}
         </div>
 
-        {/* ── UIX-PROD-1: 右侧驾驶舱栏（组织运营态势） ───────────────── */}
-        <div className="flex flex-col gap-3 flex-shrink-0" style={{ width: 300 }}>
+        {/* ── UIX-PROD-1/2: 驾驶舱栏（宽屏右侧 300 / 窄屏顶部横排） ───────── */}
+        <div style={{
+          display: 'flex',
+          flexDirection: isNarrow ? 'row' : 'column',
+          flexWrap: isNarrow ? 'wrap' : 'nowrap',
+          gap: 12,
+          width: isNarrow ? '100%' : 300,
+          flexShrink: 0,
+          order: isNarrow ? -1 : 0,
+        }}>
           {/* 组织态势 — Hero 卡 */}
-          <div className="rounded-xl overflow-hidden border border-border bg-bg-card">
+          <div className="rounded-xl overflow-hidden border border-border bg-bg-card" style={{ flex: isNarrow ? '1 1 280px' : 'initial', minWidth: 0 }}>
             <div className="px-4 py-2.5 border-b border-border bg-gradient-to-r from-brand/10 to-transparent flex items-center gap-2">
               <Activity size={13} className="text-brand" />
               <span className="text-xs font-bold text-text uppercase tracking-wider">组织态势</span>
@@ -925,7 +949,7 @@ export default function MdOrganizationsPage() {
 
           {/* 当前组织 KPI */}
           {selectedOrg && (
-            <div className="rounded-xl border border-border bg-bg-card overflow-hidden">
+            <div className="rounded-xl border border-border bg-bg-card overflow-hidden" style={{ flex: isNarrow ? '1 1 260px' : 'initial', minWidth: 0 }}>
               <div className="px-4 py-2.5 border-b border-border bg-gradient-to-r from-info/10 to-transparent flex items-center gap-2">
                 <BarChart3 size={13} className="text-info" />
                 <span className="text-xs font-bold text-text uppercase tracking-wider">当前组织</span>
@@ -956,6 +980,7 @@ export default function MdOrganizationsPage() {
 
           {/* 合规风险 — 用 banner 风格突出问题 */}
           {selectedOrg && (() => {
+            // wrapper 应用 flex 配合 isNarrow（包裹 div 由 IIFE 返回，下方 div 加 style）
             const checks = [
               { ok: !!selectedOrg.managerName, label: "负责人已指定", warn: "请指定负责人" },
               { ok: selectedOrg.status === 'ACTIVE', label: "组织已启用", warn: "组织当前停用" },
@@ -965,7 +990,7 @@ export default function MdOrganizationsPage() {
             const fails = checks.filter(c => !c.ok);
             const score = Math.round((checks.length - fails.length) / checks.length * 100);
             return (
-              <div className="rounded-xl border border-border bg-bg-card overflow-hidden">
+              <div className="rounded-xl border border-border bg-bg-card overflow-hidden" style={{ flex: isNarrow ? '1 1 260px' : 'initial', minWidth: 0 }}>
                 <div className={cn(
                   "px-4 py-2.5 border-b border-border flex items-center gap-2",
                   fails.length === 0 ? "bg-gradient-to-r from-success/15 to-transparent" : "bg-gradient-to-r from-warning/15 to-transparent"

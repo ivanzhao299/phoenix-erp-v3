@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X, Link2 } from "lucide-react";
+import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X, Link2, MoreHorizontal } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import { EmptyState, LoadingSkeleton } from "@/components/design-system";
 import request from "@/lib/api-client";
@@ -139,20 +139,21 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
         {loading ? <div style={{ padding: 16 }}><LoadingSkeleton variant="table" rows={6} /></div>
           : rows.length === 0 ? <div style={{ padding: 32 }}><EmptyState title={`暂无${title}数据`} compact /></div>
           : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, tableLayout: "auto" }}>
               <thead><tr style={{ background: "var(--bg-muted)", color: "var(--text-secondary)" }}>
-                <th style={{ textAlign: "left", padding: "10px 14px" }}>编码</th>
-                {columns.map(c => <th key={c.key} style={{ textAlign: "left", padding: "10px 14px" }}>{c.label}</th>)}
-                <th style={{ textAlign: "center", padding: "10px 14px", width: 90 }}>状态</th>
-                <th style={{ textAlign: "center", padding: "10px 14px", width: 80 }}>引用</th>
-                <th style={{ textAlign: "right", padding: "10px 14px", width: 240 }}>操作</th>
+                <th style={thStyle}>编码</th>
+                {columns.map(c => <th key={c.key} style={thStyle}>{c.label}</th>)}
+                <th style={{ ...thStyle, textAlign: "center", width: 80 }}>状态</th>
+                <th style={{ ...thStyle, textAlign: "center", width: 60 }}>引用</th>
+                <th style={{ ...thStyle, textAlign: "right", width: 130 }}>操作</th>
               </tr></thead>
               <tbody>
                 {rows.map(r => {
                   const st = STATUS_LABEL[r.status] ?? { label: r.status, color: "var(--text-secondary)" };
                   return (
                     <tr key={r[codeKey]} style={{ borderTop: "1px solid var(--border)" }}>
-                      <td style={{ padding: "9px 14px", fontFamily: "monospace", color: "var(--color-primary)" }}>
+                      <td style={{ ...tdStyle, fontFamily: "monospace", color: "var(--color-primary)" }}>
                         {onCodeClick ? (
                           <button
                             type="button"
@@ -161,15 +162,16 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                               background: "transparent", border: "none", color: "var(--color-primary)",
                               fontFamily: "monospace", fontSize: 13, padding: 0, cursor: "pointer",
                               textDecoration: "underline", textUnderlineOffset: 2,
+                              whiteSpace: "nowrap",
                             }}
                           >{r[codeKey]}</button>
                         ) : r[codeKey]}
                       </td>
-                      {columns.map(c => <td key={c.key} style={{ padding: "9px 14px" }}>{r[c.key] ?? "—"}</td>)}
-                      <td style={{ padding: "9px 14px", textAlign: "center" }}>
-                        <span style={{ fontSize: 12, padding: "2px 9px", borderRadius: 4, fontWeight: 500, background: `${st.color}1a`, color: st.color }}>{st.label}</span>
+                      {columns.map(c => <td key={c.key} style={tdStyle} title={String(r[c.key] ?? "")}>{r[c.key] ?? "—"}</td>)}
+                      <td style={{ ...tdStyle, textAlign: "center" }}>
+                        <span style={{ fontSize: 12, padding: "2px 9px", borderRadius: 4, fontWeight: 500, background: `${st.color}1a`, color: st.color, whiteSpace: "nowrap" }}>{st.label}</span>
                       </td>
-                      <td style={{ padding: "9px 14px", textAlign: "center" }}>
+                      <td style={{ ...tdStyle, textAlign: "center" }}>
                         {/* G5.5-D：引用计数（懒加载，悬浮触发） */}
                         {refCounts[r[codeKey]] ? (
                           refCounts[r[codeKey]].loading ? <span style={{ fontSize: 11, color: "var(--text-disabled)" }}>…</span> :
@@ -185,24 +187,21 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                           </button>
                         )}
                       </td>
-                      <td style={{ padding: "9px 14px", textAlign: "right" }}>
-                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                          {canEdit && r.status !== "ARCHIVED" && (
-                            <button onClick={() => openEdit(r)} title="编辑" style={iconBtn}><Pencil size={13} /></button>
-                          )}
-                          {canEdit && actionsFor(r.status).map(a => (
-                            <button key={a.action} onClick={() => doTransition(r, a.action)} title={a.label}
-                              style={{ ...iconBtn, fontSize: 11, width: "auto", padding: "0 8px", gap: 4 }}>
-                              <a.icon size={12} /> {a.label}
-                            </button>
-                          ))}
-                        </div>
+                      <td style={{ ...tdStyle, textAlign: "right" }}>
+                        <RowActions
+                          row={r}
+                          canEdit={canEdit}
+                          onEdit={() => openEdit(r)}
+                          transitions={actionsFor(r.status)}
+                          onTransition={(action) => doTransition(r, action)}
+                        />
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+            </div>
           )}
       </div>
 
@@ -248,5 +247,87 @@ const iconBtn: React.CSSProperties = {
   width: 28, height: 26, borderRadius: 6, border: "1px solid var(--border)",
   background: "var(--bg-muted)", color: "var(--text-secondary)", cursor: "pointer",
 };
+
+// UIX-PROD-2: 紧凑表格单元格
+const thStyle: React.CSSProperties = {
+  textAlign: "left",
+  padding: "9px 12px",
+  fontSize: 11,
+  fontWeight: 600,
+  whiteSpace: "nowrap",
+  textTransform: "uppercase",
+  letterSpacing: 0.3,
+};
+
+const tdStyle: React.CSSProperties = {
+  padding: "9px 12px",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  maxWidth: 240,
+};
+
+// UIX-PROD-2: 行操作（编辑 + dropdown）
+function RowActions({ row, canEdit, onEdit, transitions, onTransition }: {
+  row: Record<string, any>;
+  canEdit: boolean;
+  onEdit: () => void;
+  transitions: { action: string; label: string; icon: any }[];
+  onTransition: (action: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const archived = row.status === "ARCHIVED";
+
+  if (!canEdit) return null;
+
+  return (
+    <div style={{ display: "inline-flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
+      {!archived && (
+        <button onClick={onEdit} title="编辑" style={iconBtn}>
+          <Pencil size={13} />
+        </button>
+      )}
+      {transitions.length > 0 && (
+        <div style={{ position: "relative" }}>
+          <button
+            type="button"
+            onClick={() => setOpen(o => !o)}
+            title="更多操作"
+            style={iconBtn}
+            onBlur={() => setTimeout(() => setOpen(false), 150)}
+          >
+            <MoreHorizontal size={14} />
+          </button>
+          {open && (
+            <div style={{
+              position: "absolute", right: 0, top: 30, zIndex: 10,
+              background: "var(--bg-card)", border: "1px solid var(--border)",
+              borderRadius: 8, padding: 4, minWidth: 130,
+              boxShadow: "0 4px 16px var(--overlay-black-15)",
+            }}>
+              {transitions.map(a => (
+                <button
+                  key={a.action}
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); onTransition(a.action); setOpen(false); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8, width: "100%",
+                    padding: "7px 10px", background: "transparent", border: "none",
+                    color: "var(--text-primary)", fontSize: 12, cursor: "pointer",
+                    borderRadius: 6, textAlign: "left",
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--bg-muted)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                >
+                  <a.icon size={12} /> {a.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default MasterDataRuntimePanel;
