@@ -29,13 +29,13 @@ export default function PageHeader({ title, subtitle, breadcrumb, actions }: Pag
             ))}
           </nav>
         )}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-primary)', lineHeight: 1.2, margin: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-primary)', lineHeight: 1.2, margin: 0, letterSpacing: -0.3 }}>
             {title}
           </h1>
           {subtitle && (
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-              <span style={{ marginRight: 6, opacity: 0.5 }}>·</span>{subtitle}
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+              <span style={{ marginRight: 8, opacity: 0.5 }}>·</span>{subtitle}
             </span>
           )}
         </div>
