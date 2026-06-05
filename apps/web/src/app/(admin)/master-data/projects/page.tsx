@@ -1,20 +1,21 @@
 "use client";
+import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
+import { projectConfig } from "@/components/master-data/detail-configs";
 
-/**
- * 主数据中心 — 项目公司主数据 Runtime（G3-A）
- * 新增/编辑/提交审批/冻结/归档；编码 PRJ-001 自动生成。
- */
 export default function ProjectRuntimePage() {
+  const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
-      <PageHeader title="项目公司主数据" subtitle="股东出资项目统一维护 · 编码自动生成 · 生命周期管控" breadcrumb={["主数据中心", "项目公司主数据"]} />
+      <PageHeader title="项目公司主数据" subtitle="股东出资项目统一维护 · 编码自动生成 · 生命周期管控 · 点击编码查看项目中心" breadcrumb={["主数据中心", "项目公司主数据"]} />
       <MasterDataRuntimePanel
         type="project"
         title="项目公司"
         codeKey="project_code"
         nameKey="project_name"
+        onCodeClick={(code) => setDetailCode(code)}
         fields={[
           { key: "project_name", label: "项目名称", required: true },
           { key: "company_code", label: "所属公司编码" },
@@ -35,6 +36,12 @@ export default function ProjectRuntimePage() {
           { key: "site_code", label: "场区" },
           { key: "project_type", label: "类型" },
         ]}
+      />
+      <MasterDataDetailDrawer
+        open={detailCode !== null}
+        code={detailCode}
+        config={projectConfig}
+        onClose={() => setDetailCode(null)}
       />
     </div>
   );

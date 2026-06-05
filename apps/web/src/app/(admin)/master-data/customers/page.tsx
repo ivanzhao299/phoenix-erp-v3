@@ -2,7 +2,8 @@
 import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
-import { CustomerDetailDrawer } from "@/components/master-data/CustomerDetailDrawer";
+import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
+import { customerConfig } from "@/components/master-data/detail-configs";
 
 /**
  * 主数据中心 — 客户主数据 Runtime（G3-A + UIX-7 产品化）
@@ -45,9 +46,10 @@ export default function CustomerRuntimePage() {
           { key: "contact_phone", label: "电话" },
         ]}
       />
-      <CustomerDetailDrawer
+      <MasterDataDetailDrawer
         open={detailCode !== null}
-        customerCode={detailCode}
+        code={detailCode}
+        config={customerConfig}
         onClose={() => setDetailCode(null)}
       />
     </div>

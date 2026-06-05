@@ -1,20 +1,24 @@
 "use client";
+import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
+import { warehouseConfig } from "@/components/master-data/detail-configs";
 
 /**
- * G5.5-C — 仓库档案（Runtime 化）
- * 原 138 行自建页 → Panel 委托；统一编码 WH-XXXX + 5 态生命周期 + Workflow
+ * 仓库档案 + UIX-8 仓库中心 detail（库存/批次/可用率聚合）
  */
 export default function WarehouseRuntimePage() {
+  const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
-      <PageHeader title="仓库档案" subtitle="WMS 仓库主档 · 编码自动生成 · 生命周期管控 · WarehouseScope 数据源" breadcrumb={["主数据中心", "仓库档案"]} />
+      <PageHeader title="仓库档案" subtitle="WMS 仓库主档 · 编码自动生成 · 生命周期管控 · 点击编码查看仓库中心" breadcrumb={["主数据中心", "仓库档案"]} />
       <MasterDataRuntimePanel
         type="warehouse"
         title="仓库"
         codeKey="warehouse_code"
         nameKey="warehouse_name"
+        onCodeClick={(code) => setDetailCode(code)}
         fields={[
           { key: "warehouse_name", label: "仓库名称（英）", required: true },
           { key: "warehouse_name_zh", label: "仓库名称（中文）" },
@@ -35,6 +39,12 @@ export default function WarehouseRuntimePage() {
           { key: "type", label: "类型" },
           { key: "company_code", label: "公司" },
         ]}
+      />
+      <MasterDataDetailDrawer
+        open={detailCode !== null}
+        code={detailCode}
+        config={warehouseConfig}
+        onClose={() => setDetailCode(null)}
       />
     </div>
   );

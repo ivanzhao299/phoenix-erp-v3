@@ -2,7 +2,8 @@
 import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
-import { SupplierDetailDrawer } from "@/components/master-data/SupplierDetailDrawer";
+import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
+import { supplierConfig } from "@/components/master-data/detail-configs";
 
 /**
  * 主数据中心 — 供应商主数据 Runtime（G3-A + UIX-7 产品化）
@@ -51,9 +52,10 @@ export default function SupplierRuntimePage() {
           { key: "default_currency", label: "币种" },
         ]}
       />
-      <SupplierDetailDrawer
+      <MasterDataDetailDrawer
         open={detailCode !== null}
-        supplierCode={detailCode}
+        code={detailCode}
+        config={supplierConfig}
         onClose={() => setDetailCode(null)}
       />
     </div>
