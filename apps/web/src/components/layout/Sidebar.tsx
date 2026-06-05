@@ -374,10 +374,21 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
             <div key={item.id}>
               {item.children ? (
                 <div
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isOpen}
+                  aria-label={t('menu.' + item.id, item.label)}
                   className={`${styles.groupHeader} ${isThisActive ? styles.groupActive : ""}`}
                   onClick={() => {
                     toggle(item.id);
                     router.push(item.children![0].path!);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggle(item.id);
+                      router.push(item.children![0].path!);
+                    }
                   }}
                 >
                   {/* size=18 — same as rail mode, no visual jump */}
