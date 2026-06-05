@@ -368,7 +368,7 @@ export default function MobileDashboardPage() {
                   onClick={() => router.push('/mobile/delivery')}
                   style={{
                     width: '100%', padding: '10px 0', borderRadius: 10, border: 'none',
-                    background: 'rgba(8,145,178,0.1)', color: 'var(--status-info)',
+                    background: 'var(--status-info-bg)', color: 'var(--status-info)',
                     fontSize: 13, fontWeight: 600, cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                   }}

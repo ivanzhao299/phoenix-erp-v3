@@ -263,7 +263,7 @@ function QualityCard({ label, value, ok }: { label: string; value: string; ok: b
   return (
     <div style={{
       padding: 12, borderRadius: 8, border: `1px solid ${ok ? 'var(--status-success-bg-strong)' : 'var(--status-danger-bg-strong)'}`,
-      background: ok ? 'rgba(34,197,94,0.05)' : 'var(--status-danger-bg-faint)',
+      background: ok ? 'var(--status-success-bg-faint)' : 'var(--status-danger-bg-faint)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
         {ok ? <CheckCircle size={13} style={{ color: 'var(--status-success)' }} /> : <AlertCircle size={13} style={{ color: 'var(--status-danger)' }} />}

@@ -281,7 +281,7 @@ function ActionSheet({
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 300,
-      background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end',
+      background: 'var(--overlay-black-50)', display: 'flex', alignItems: 'flex-end',
     }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -378,7 +378,7 @@ function DetailSheet({
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 300,
-      background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end',
+      background: 'var(--overlay-black-50)', display: 'flex', alignItems: 'flex-end',
     }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >

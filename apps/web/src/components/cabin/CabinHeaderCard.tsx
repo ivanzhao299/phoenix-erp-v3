@@ -27,9 +27,9 @@ export default function CabinHeaderCard({ header, houseCode, onRefresh }: Props)
   const rate = sensorTotal > 0 ? Math.round(sensorOnline / sensorTotal * 100) : 0;
 
   return (
-    <div style={{ background:'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)', borderRadius:'var(--radius-lg)', padding:'18px 24px', marginBottom:20, display:'flex', alignItems:'center', justifyContent:'space-between', border:'1px solid var(--overlay-white-08)' }}>
+    <div style={{ background:'linear-gradient(135deg,var(--slate-900) 0%,var(--slate-800) 100%)', borderRadius:'var(--radius-lg)', padding:'18px 24px', marginBottom:20, display:'flex', alignItems:'center', justifyContent:'space-between', border:'1px solid var(--overlay-white-08)' }}>
       <div style={{ display:'flex', alignItems:'center', gap:20 }}>
-        <div style={{ width:48, height:48, borderRadius:12, backgroundColor:'rgba(99,102,241,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>🏚</div>
+        <div style={{ width:48, height:48, borderRadius:12, backgroundColor:'var(--status-special-bg-medium)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>🏚</div>
         <div>
           <div style={{ fontSize:20, fontWeight:800, color:'white' }}>{houseCode} {t('ui.鸡舍', '鸡舍')}</div>
           <div style={{ fontSize:12, color:'var(--overlay-white-50)', marginTop:2 }}>{t('ui.最后更新', '最后更新')}：{header?.lastUpdateTime || '—'}</div>

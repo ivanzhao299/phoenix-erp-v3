@@ -441,7 +441,7 @@ function ContributionDrawer({
         </div>
 
         {/* 金额总览 */}
-        <div style={{ background: 'linear-gradient(135deg,#4c1d95,#7c3aed)', borderRadius: 12, padding: '16px 20px', marginBottom: 18, color: 'var(--bg-card)' }}>
+        <div style={{ background: 'linear-gradient(135deg,var(--violet-900),var(--color-purple-600))', borderRadius: 12, padding: '16px 20px', marginBottom: 18, color: 'var(--bg-card)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, textAlign: 'center' }}>
             {[
               { label: '出资总额', value: fmt(contribution.amountOriginal) },

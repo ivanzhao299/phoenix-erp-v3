@@ -122,7 +122,7 @@ export default function BrandSettingsPage() {
             <div style={{ fontSize:16, fontWeight:800, color:"var(--status-warning)", lineHeight:1.2 }}>{form.system_name||t('ui.系统名称', '系统名称')}</div>
           </div>
         </div>
-        {form.footer_text && <div style={{ marginTop:16, fontSize:11, color:"rgba(255,255,255,0.25)", borderTop:"1px solid var(--overlay-white-08)", paddingTop:12 }}>{form.footer_text}</div>}
+        {form.footer_text && <div style={{ marginTop:16, fontSize:11, color:"var(--overlay-white-15)", borderTop:"1px solid var(--overlay-white-08)", paddingTop:12 }}>{form.footer_text}</div>}
       </div>
 
       {/* 文字字段 */}

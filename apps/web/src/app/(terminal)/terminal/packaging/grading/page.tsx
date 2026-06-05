@@ -293,7 +293,7 @@ export default function GradingPage() {
               return (
                 <button type="button" key={h.house_code}
                   onPointerDown={() => { if (!isDone) setActiveHouseCode(h.house_code); }}
-                  style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 10px', borderRadius:10, marginBottom:4, border:`1px solid ${isActive ? T.ACC : isDone ? 'rgba(34,197,94,0.35)' : T.BOR}`, background: isActive ? `${T.ACC}18` : isDone ? 'var(--status-success-bg-faint)' : T.CARD, cursor: isDone ? 'default' : 'pointer', textAlign:'left', WebkitTapHighlightColor:'transparent', transition:'border-color 0.15s, background 0.15s', boxSizing:'border-box' }}>
+                  style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 10px', borderRadius:10, marginBottom:4, border:`1px solid ${isActive ? T.ACC : isDone ? 'var(--status-success-bg-strong-2)' : T.BOR}`, background: isActive ? `${T.ACC}18` : isDone ? 'var(--status-success-bg-faint)' : T.CARD, cursor: isDone ? 'default' : 'pointer', textAlign:'left', WebkitTapHighlightColor:'transparent', transition:'border-color 0.15s, background 0.15s', boxSizing:'border-box' }}>
                   <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background:statusColor }} />
                   <div style={{ flex:1, overflow:'hidden' }}>
                     <div style={{ fontSize:13, fontWeight:700, color: isActive ? T.ACC : isDone ? T.GRN : T.TXT, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>

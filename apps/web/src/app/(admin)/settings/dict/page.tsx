@@ -353,7 +353,7 @@ export default function DictPage() {
                           <td>
                             <div style={{ display:"flex", gap:6 }}>
                               <button type="button" onClick={()=>openEdit(r)} className={s.btnIcon}
-                                style={{ color:"var(--color-primary)", borderColor:"rgba(31,56,100,0.2)" }}>
+                                style={{ color:"var(--color-primary)", borderColor:"var(--status-info-bg-medium)" }}>
                                 <Edit2 size={13}/>
                               </button>
                               <button type="button" onClick={()=>setDelRow(r)} className={s.btnIcon}

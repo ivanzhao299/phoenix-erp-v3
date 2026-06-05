@@ -299,7 +299,7 @@ export default function ShiftOpenPage() {
               <textarea value={offlineReason} onChange={e => setOfflineReason(e.target.value)}
                 placeholder={t('ui.设备离线原因示例', '例：电子秤故障，已联系维修，本班手工称重...')}
                 rows={3}
-                style={{ width:'100%', background:'rgba(251,191,36,0.05)', border:`1px solid rgba(251,191,36,0.3)`,
+                style={{ width:'100%', background:'var(--status-warning-bg-faint)', border:`1px solid var(--status-warning-bg-strong)`,
                   borderRadius:8, padding:'10px 12px', color:T.TXT, fontSize:13,
                   resize:'none', boxSizing:'border-box' }} />
             </div>

@@ -285,7 +285,7 @@ function TransactionDrawer({
         </div>
 
         {/* 余额卡片 */}
-        <div style={{ background: 'linear-gradient(135deg,#1e40af,var(--status-info))', borderRadius: 12, padding: '16px 20px', marginBottom: 18, color: 'var(--bg-card)' }}>
+        <div style={{ background: 'linear-gradient(135deg,var(--color-accent),var(--status-info))', borderRadius: 12, padding: '16px 20px', marginBottom: 18, color: 'var(--bg-card)' }}>
           <div style={{ fontSize: 12, opacity: 0.8 }}>当前余额</div>
           <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: -1 }}>
             {account.currencyCode} {fmt(account.currentBalance)}

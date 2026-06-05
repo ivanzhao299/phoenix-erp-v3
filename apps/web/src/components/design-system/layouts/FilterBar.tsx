@@ -63,7 +63,7 @@ export function FilterBar({ items, value, onChange, size = 'md', inline = false 
               <span style={{
                 fontSize: fontSize - 1, opacity: 0.85,
                 padding: '0 6px', borderRadius: 100,
-                background: active ? 'rgba(255,255,255,0.18)' : 'var(--bg-muted)',
+                background: active ? 'var(--overlay-white-15)' : 'var(--bg-muted)',
               }}>{item.count}</span>
             ) : null}
           </button>

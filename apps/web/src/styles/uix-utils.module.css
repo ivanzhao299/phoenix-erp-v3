@@ -1,0 +1,79 @@
+/**
+ * Phoenix Design System — UIX-4 utility classes
+ * ════════════════════════════════════════════════════════════════════
+ * 替代业务页高频 inline style 的工具类。
+ * 全部使用 Design Tokens（var(--*)）。
+ * 用法：import s from '@/styles/uix-utils.module.css';
+ *      <div className={s.flexRow}>...</div>
+ *      <div className={s.muted12}>...</div>
+ * ════════════════════════════════════════════════════════════════════
+ */
+
+/* ── 文本 ─────────────────────────────────────────────────── */
+.muted12          { font-size: 12px; color: var(--text-secondary); }
+.muted13          { font-size: 13px; color: var(--text-secondary); }
+.muted            { color: var(--text-secondary); }
+.fs11             { font-size: 11px; }
+.fs12             { font-size: 12px; }
+.fs13             { font-size: 13px; }
+.fs14             { font-size: 14px; }
+.fw600            { font-weight: 600; }
+.tar              { text-align: right; }
+.tac              { text-align: center; }
+.nowrap           { white-space: nowrap; }
+.ellipsis         { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 复合：fontSize 12 + 次级文字 + 块级 + 下间距 4（最高频 27 次）*/
+.label12          { font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px; }
+
+/* ── flex 布局 ───────────────────────────────────────────── */
+.flex1            { flex: 1; }
+.flexRow          { display: flex; align-items: center; gap: 6px; }
+.flexRow8         { display: flex; align-items: center; gap: 8px; }
+.flexRow12        { display: flex; align-items: center; gap: 12px; }
+.flexBetween      { display: flex; align-items: center; justify-content: space-between; }
+.flexCol          { display: flex; flex-direction: column; }
+.flexColGap8      { display: flex; flex-direction: column; gap: 8px; }
+.flexCenter       { display: flex; align-items: center; justify-content: center; }
+.flexWrap         { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ── grid 布局 ───────────────────────────────────────────── */
+.gridAuto         { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.grid2            { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* ── 间距 ────────────────────────────────────────────────── */
+.mb4              { margin-bottom: 4px; }
+.mb8              { margin-bottom: 8px; }
+.mb12             { margin-bottom: 12px; }
+.mb16             { margin-bottom: 16px; }
+.mt4              { margin: 4px 0 0; }
+.mtAuto           { margin-top: auto; }
+
+/* ── 按钮 / 可点击 ───────────────────────────────────────── */
+.pointer          { cursor: pointer; }
+.borderNone       { border: none; }
+.borderCard       { border: 1px solid var(--border); }
+.bgTransparent    { background: transparent; }
+
+/* ── 卡片 / 容器 ─────────────────────────────────────────── */
+.cardBg           { background: var(--bg-card); }
+.cardMuted        { background: var(--bg-muted); }
+.cardRound        { border-radius: var(--radius-card); }
+.btnRound         { border-radius: var(--radius-btn); }
+
+/* ── 状态文字色 ─────────────────────────────────────────── */
+.tDanger          { color: var(--status-danger); }
+.tWarning         { color: var(--status-warning); }
+.tSuccess         { color: var(--status-success); }
+.tInfo            { color: var(--status-info); }
+
+/* ── 空状态 / 加载 ───────────────────────────────────────── */
+.emptyCenter      { text-align: center; padding: 32px; color: var(--text-secondary); }
+.emptyPad40       { text-align: center; padding: 40px; color: var(--text-secondary); }
+
+/* ── 滚动 ────────────────────────────────────────────────── */
+.scrollX          { overflow-x: auto; }
+.scrollY          { overflow-y: auto; }
+
+/* ── width 100% ──────────────────────────────────────────── */
+.w100             { width: 100%; }

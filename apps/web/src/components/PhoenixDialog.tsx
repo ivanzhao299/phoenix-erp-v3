@@ -7,7 +7,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 const TYPE_CFG: Record<string, { accent: string; iconBg: string; confirmBg: string; confirmShadow: string }> = {
   danger:  { accent:'var(--status-danger)', iconBg:'var(--status-danger-bg-light)',  confirmBg:'linear-gradient(135deg,var(--status-danger),var(--status-danger-dark))', confirmShadow:'rgba(239,68,68,0.28)'  },
   warning: { accent:'var(--status-warning)', iconBg:'var(--status-warning-bg-light)', confirmBg:'linear-gradient(135deg,var(--status-warning),var(--status-warning))', confirmShadow:'rgba(245,158,11,0.28)' },
-  success: { accent:'var(--status-success)', iconBg:'var(--status-success-bg-light)',  confirmBg:'linear-gradient(135deg,var(--status-success),var(--status-success))', confirmShadow:'rgba(34,197,94,0.28)'  },
+  success: { accent:'var(--status-success)', iconBg:'var(--status-success-bg-light)',  confirmBg:'linear-gradient(135deg,var(--status-success),var(--status-success))', confirmShadow:'var(--status-success-bg-strong)'  },
   confirm: { accent:'var(--status-info)', iconBg:'var(--status-info-bg)', confirmBg:'linear-gradient(135deg,var(--status-info),var(--color-accent))', confirmShadow:'var(--status-info-bg-medium)' },
   alert:   { accent:'var(--status-info)', iconBg:'var(--status-info-bg)', confirmBg:'linear-gradient(135deg,var(--status-info),var(--color-accent))', confirmShadow:'var(--status-info-bg-medium)' },
 };
@@ -45,7 +45,7 @@ function PhoenixDialog({
       onClick={e => { if (e.target === e.currentTarget && onCancel) onCancel(); }}
       style={{
         position: 'fixed', inset: 0, zIndex: 999999,
-        background: 'rgba(0,0,0,0.48)',
+        background: 'var(--overlay-black-45)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         backdropFilter: 'blur(6px)',
         padding: '16px',

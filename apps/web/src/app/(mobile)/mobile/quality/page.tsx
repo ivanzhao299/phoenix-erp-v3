@@ -71,7 +71,7 @@ function InspectionCard({ item }: { item: QcInspection }) {
           <span style={{
             display: 'inline-block',
             padding: '2px 8px', borderRadius: 6, fontSize: 12, fontWeight: 600,
-            background: 'rgba(99,179,237,0.12)', color: 'var(--status-info)',
+            background: 'var(--status-info-bg)', color: 'var(--status-info)',
             border: '1px solid var(--overlay-blue-25)',
           }}>
             {checkTypeLabel(item.checkType)}
@@ -242,8 +242,8 @@ export default function QualityPage() {
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '10px 16px',
-        background: 'rgba(99,179,237,0.04)',
-        borderBottom: '1px solid rgba(99,179,237,0.1)',
+        background: 'var(--status-info-bg-page)',
+        borderBottom: '1px solid var(--status-info-bg)',
       }}>
         <button
           onClick={() => setDate(d => fmtDate(addDays(toDate(d), -1)))}

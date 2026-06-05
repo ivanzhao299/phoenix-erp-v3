@@ -129,7 +129,7 @@ function SkuBadge({ skuCode }: { skuCode?: string | null }) {
     <span style={{
       fontFamily: 'monospace', fontSize: 11, fontWeight: 600,
       background: 'var(--status-special-bg-medium)', color: 'var(--color-purple-400)',
-      borderRadius: 4, padding: '2px 6px', border: '1px solid rgba(99,102,241,0.25)',
+      borderRadius: 4, padding: '2px 6px', border: '1px solid var(--status-special-border)',
     }}>{skuCode}</span>
   );
 }

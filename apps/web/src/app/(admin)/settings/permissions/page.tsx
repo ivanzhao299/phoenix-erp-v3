@@ -199,7 +199,7 @@ export default function PermissionsPage() {
                       <td>
                         <div style={{ display: "flex", gap: 6 }}>
                           <button type="button" onClick={() => { setEditing(row); setOpen(true); }} style={{
-                            padding: "4px 10px", fontSize: "0.75rem", background: "rgba(59,130,246,0.15)",
+                            padding: "4px 10px", fontSize: "0.75rem", background: "var(--status-info-bg-medium)",
                             color: "var(--color-accent)", border: "1px solid var(--status-info-bg-medium)",
                             borderRadius: 6, cursor: "pointer",
                           }}>{t('common.edit', '编辑')}</button>

@@ -103,7 +103,7 @@ const emptyEditForm = (): EditFormState => ({
 function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div onClick={onClose} style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.48)", zIndex: 1000,
+      position: "fixed", inset: 0, background: "var(--overlay-black-45)", zIndex: 1000,
       display: "flex", alignItems: "center", justifyContent: "center",
     }}>
       <div onClick={e => e.stopPropagation()} style={{

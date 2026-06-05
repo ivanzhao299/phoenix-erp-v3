@@ -32,7 +32,7 @@ export default function KpiMetricCard({ kpi, onClick, selected }: Props) {
         </div>
         <div style={{ display:'flex', alignItems:'baseline', gap:3 }}>
           <span style={{ fontSize:26, fontWeight:800, fontVariantNumeric:'tabular-nums', color: selected?'white':s.val }}>{display}</span>
-          <span style={{ fontSize:11, color: selected?'rgba(255,255,255,0.6)':'var(--text-secondary)' }}>{kpi?.unit}</span>
+          <span style={{ fontSize:11, color: selected?'var(--overlay-white-50)':'var(--text-secondary)' }}>{kpi?.unit}</span>
         </div>
         {kpi?.compareTarget != null && val != null && (
           <div style={{ fontSize:10, marginTop:4, color: selected?'var(--overlay-white-50)':'var(--text-secondary)' }}>

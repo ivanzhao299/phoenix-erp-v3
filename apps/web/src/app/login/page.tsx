@@ -18,12 +18,12 @@ const TEST_GROUPS = IS_DEV ? [
     { u: "test_auditor", p: "123456",   label: "🕵 审计专员",   sub: "ROLE_AUDITOR" },
     { u: "test_sysops",  p: "123456",   label: "🖥 运维管理员", sub: "ROLE_SYSOPS" },
   ]},
-  { label: "养殖品控线", color: { bg: "var(--status-success-bg-faint)", border: "rgba(34,197,94,0.25)", text: "var(--status-success)" }, accounts: [
+  { label: "养殖品控线", color: { bg: "var(--status-success-bg-faint)", border: "var(--status-success-bg-strong)", text: "var(--status-success)" }, accounts: [
     { u: "test_farm",   p: "123456", label: "🏡 养殖场长", sub: "ROLE_FARM_MGR" },
     { u: "test_vet",    p: "123456", label: "💉 驻场兽医", sub: "ROLE_VET" },
     { u: "test_qa_mgr", p: "123456", label: "🔬 品控总监", sub: "ROLE_QA_MGR" },
   ]},
-  { label: "包装 · 仓储 · 物流", color: { bg: "var(--status-info-bg-light)", border: "rgba(59,130,246,0.25)", text: "var(--color-accent)" }, accounts: [
+  { label: "包装 · 仓储 · 物流", color: { bg: "var(--status-info-bg-light)", border: "var(--status-info-bg-medium)", text: "var(--color-accent)" }, accounts: [
     { u: "test_pkg",  p: "123456", label: "📦 车间主任", sub: "ROLE_PKG_MGR" },
     { u: "test_wms",  p: "123456", label: "🏗 仓储经理", sub: "ROLE_WMS_MGR" },
     { u: "test_log",  p: "123456", label: "🚛 物流调度", sub: "ROLE_LOG_MGR" },
@@ -166,7 +166,7 @@ function LoginInner() {
     <div style={{ minHeight:"100vh", display:"flex", background:"var(--brand-deep-1)" }}>
 
       {/* ── 左侧品牌区 ─────────────────────────────────────────────────── */}
-      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"48px", background:"linear-gradient(145deg,var(--brand-deep-2) 0%,#0a0f1e 100%)", borderRight:"1px solid var(--overlay-white-05)" }}>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"48px", background:"linear-gradient(145deg,var(--brand-deep-2) 0%,var(--deep-blue-1) 100%)", borderRight:"1px solid var(--overlay-white-05)" }}>
         {/* Logo — 动态品牌 */}
         {brand.logo_url
           ? <img src={brand.logo_url} alt="logo"
@@ -185,7 +185,7 @@ function LoginInner() {
         {/* 快捷测试账号面板（仅开发环境） */}
         {IS_DEV && TEST_GROUPS.length > 0 && (
           <div style={{ width:"100%", maxWidth:480 }}>
-            <div style={{ fontSize:11, color:"rgba(255,255,255,0.2)", textTransform:"uppercase", letterSpacing:2, marginBottom:14, textAlign:"center" }}>
+            <div style={{ fontSize:11, color:"var(--overlay-white-15)", textTransform:"uppercase", letterSpacing:2, marginBottom:14, textAlign:"center" }}>
               测试账号面板 · 请选择测试角色
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>

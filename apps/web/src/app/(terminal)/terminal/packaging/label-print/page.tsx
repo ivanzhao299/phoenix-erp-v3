@@ -537,7 +537,7 @@ export default function LabelPrintPage() {
                 </div>
               );
             })()}
-            <div style={{ marginTop:14, color:'rgba(255,255,255,0.35)', fontSize:11 }}>
+            <div style={{ marginTop:14, color:'var(--overlay-white-15)', fontSize:11 }}>
               {cfg.labelW}×{cfg.labelH} mm · {t('ui.放大预览标注', '5× 放大 · 点击关闭')}
             </div>
           </div>
@@ -649,7 +649,7 @@ export default function LabelPrintPage() {
 
       {/* 补打原因弹窗 */}
       {reprintTarget && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', display:'flex',
+        <div style={{ position:'fixed', inset:0, background:'var(--overlay-black-50)', display:'flex',
           alignItems:'center', justifyContent:'center', zIndex:200 }}>
           <div style={{ background:T.CARD, borderRadius:16, padding:32, width:400, border:`1px solid ${T.BOR}` }}>
             <div style={{ fontSize:16, fontWeight:700, color:T.TXT, marginBottom:4 }}>{t('ui.补打原因', '补打原因')}</div>

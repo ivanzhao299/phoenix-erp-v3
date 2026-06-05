@@ -153,7 +153,7 @@ export default function NumPad({
                   ? 'var(--status-danger-bg-deep)'
                   : isBksp
                   ? 'var(--status-warning-bg-medium)'
-                  : 'rgba(255,255,255,0.09)',
+                  : 'var(--overlay-white-08)',
                 color: isClear ? T.RED : isBksp ? T.ACC : T.TXT,
                 opacity: disabled ? 0.4 : 1,
                 WebkitTapHighlightColor: 'transparent',

@@ -221,7 +221,7 @@ export default function DashboardKPIs({ initialData }: Props) {
                     <div title={`POS收银 ${d.sales.toLocaleString()} LAK`}
                       style={{ width: 11, background: 'linear-gradient(180deg,var(--status-warning),var(--status-warning))', borderRadius: '4px 4px 0 0', height: `${(d.sales / maxVal) * 100}%`, transition: 'height 0.8s ease-out 0.15s' }} />
                     <div title={`农场直销 ${(d.farmSales ?? 0).toLocaleString()} LAK`}
-                      style={{ width: 11, background: 'linear-gradient(180deg,#8b5cf6,var(--color-purple-400))', borderRadius: '4px 4px 0 0', height: `${((d.farmSales ?? 0) / maxVal) * 100}%`, transition: 'height 0.8s ease-out 0.3s' }} />
+                      style={{ width: 11, background: 'linear-gradient(180deg,var(--color-purple-500),var(--color-purple-400))', borderRadius: '4px 4px 0 0', height: `${((d.farmSales ?? 0) / maxVal) * 100}%`, transition: 'height 0.8s ease-out 0.3s' }} />
                   </div>
                   <span style={{ fontSize: 11, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{d.day}</span>
                 </div>

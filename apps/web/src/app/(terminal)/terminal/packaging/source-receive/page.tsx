@@ -254,8 +254,8 @@ export default function EggCollectionPage() {
                   const record     = records.find(r => r.houseCode === h.house_code);
                   const isSelected = selectedHouse?.house_code === h.house_code;
                   const isDone     = !!record;
-                  const borderColor = isSelected ? T.ACC : isDone ? 'rgba(34,197,94,0.5)' : T.BOR;
-                  const bg = isSelected ? `${T.ACC}18` : isDone ? 'rgba(34,197,94,0.07)' : T.CARD;
+                  const borderColor = isSelected ? T.ACC : isDone ? 'var(--status-success)' : T.BOR;
+                  const bg = isSelected ? `${T.ACC}18` : isDone ? 'var(--status-success-bg-faint)' : T.CARD;
                   const nameColor = isSelected ? T.ACC : isDone ? T.GRN : T.TXT;
                   return (
                     <button type="button" key={h.id}

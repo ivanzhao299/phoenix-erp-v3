@@ -262,7 +262,7 @@ export default function MedicinePage() {
                 <div key={m.medication_code} style={{
                   borderRadius: 14, marginBottom: 8, overflow: 'hidden',
                   background: e.qty > 0 ? 'rgba(139,92,246,0.07)' : t.cardBg,
-                  border: `1px solid ${e.qty > 0 ? 'rgba(139,92,246,0.25)' : t.cardBorder}`,
+                  border: `1px solid ${e.qty > 0 ? 'var(--status-special-border)' : t.cardBorder}`,
                 }}>
                   {/* 药品名 + 库存参考 */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px 6px' }}>
@@ -284,7 +284,7 @@ export default function MedicinePage() {
                         placeholder="0"
                         style={{
                           width: 72, height: 34, textAlign: 'center',
-                          background: e.qty > 0 ? 'rgba(139,92,246,0.12)' : t.inputBg,
+                          background: e.qty > 0 ? 'var(--status-special-bg-medium)' : t.inputBg,
                           border: `1px solid ${e.qty > 0 ? 'rgba(139,92,246,0.4)' : t.inputBorder}`,
                           borderRadius: 8, color: e.qty > 0 ? 'var(--color-purple-400)' : t.textSub,
                           fontSize: 14, fontWeight: 700, outline: 'none', WebkitAppearance: 'none',

@@ -117,8 +117,8 @@ function SkuBadge({ code }: { code: string | null | undefined }) {
   return (
     <span style={{
       display: 'inline-block', padding: '1px 6px', borderRadius: 4, fontSize: 10,
-      fontFamily: 'monospace', fontWeight: 700, background: 'rgba(139,92,246,0.12)',
-      color: 'var(--color-purple-500)', border: '1px solid rgba(139,92,246,0.25)', marginLeft: 4,
+      fontFamily: 'monospace', fontWeight: 700, background: 'var(--status-special-bg-medium)',
+      color: 'var(--color-purple-500)', border: '1px solid var(--status-special-border)', marginLeft: 4,
     }}>{code}</span>
   );
 }
