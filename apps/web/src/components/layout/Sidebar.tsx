@@ -60,8 +60,11 @@ type MenuItem = {
 // 12 个一级菜单，全部业务中文命名，无技术术语
 const MENU: MenuItem[] = [
 
-  // 1. 工作台
-  { id: "dashboard", path: "/dashboard", Icon: LayoutDashboard, label: "工作台", perm: "MENU_DASHBOARD" },
+  // 0. HOME-1 企业运营工作台（统一首页，登录直达）
+  { id: "home", path: "/home", Icon: LayoutDashboard, label: "运营工作台", perm: "MENU_DASHBOARD" },
+
+  // 1. 经营仪表盘 = 集团总部经营驾驶舱，仅财务高层 / CFO / CEO 可见；普通业务员登录直达 /home
+  { id: "dashboard", path: "/dashboard", Icon: LayoutDashboard, label: "经营仪表盘", perm: "MENU_FIN_AUDIT" },
 
   // 2. 生产管理 — 养殖生产 + 分级包装 + 品质追溯 统一入口
   { id: "production", Icon: Egg, label: "生产管理", perm: "MENU_FARM_DATA", children: [
