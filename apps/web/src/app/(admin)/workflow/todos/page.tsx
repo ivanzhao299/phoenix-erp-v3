@@ -140,7 +140,7 @@ function TaskSourceBadge({ source }: { source: string }) {
       display: "inline-flex", alignItems: "center", gap: 3,
       fontSize: 10, fontWeight: 600, padding: "2px 6px",
       borderRadius: 4,
-      background: isAE ? "rgba(245,158,11,0.12)" : "rgba(59,130,246,0.12)",
+      background: isAE ? "var(--status-warning-bg-light)" : "var(--status-info-bg)",
       color:      isAE ? "var(--status-warning)"               : "var(--color-accent)",
     }}>
       {isAE ? "审批引擎" : "通用流程"}

@@ -74,7 +74,7 @@ function KpiCard({
 const AGING_COLOR: Record<string, string> = {
   current:        "var(--color-success)",
   overdue_1_30:   "var(--color-warning)",
-  overdue_31_60:  "#f97316",
+  overdue_31_60:  "var(--status-warning)",
   overdue_61_90:  "var(--color-danger)",
   overdue_90_plus:"#991b1b",
 };
@@ -166,8 +166,8 @@ export default function ProcurementDashboardPage() {
           <KpiCard label="采购订单数" value={fmt(summary.poCount)} sub={`合同金额 ${fmt(summary.poAmount, 2)}`} Icon={Package} color="var(--color-primary)" />
           <KpiCard label="应付余额 (CNY)" value={fmt(summary.apOpenAmount, 2)} sub="待付账款" Icon={AlertTriangle} color="var(--color-danger)" />
           <KpiCard label="已付金额 (CNY)" value={fmt(summary.paymentAmount, 2)} sub="付款合计" Icon={DollarSign} color="var(--color-success)" />
-          <KpiCard label="股东资金" value={fmt(summary.shareholderFundAmount, 2)} sub={`共 ${summary.shareholderFundCount} 笔`} Icon={Users} color="#8b5cf6" />
-          <KpiCard label="在途运单" value={fmt(summary.shipmentInTransitCount)} sub={`运单总数 ${summary.shipmentTotalCount}`} Icon={Truck} color="#f97316" />
+          <KpiCard label="股东资金" value={fmt(summary.shareholderFundAmount, 2)} sub={`共 ${summary.shareholderFundCount} 笔`} Icon={Users} color="var(--color-purple-500)" />
+          <KpiCard label="在途运单" value={fmt(summary.shipmentInTransitCount)} sub={`运单总数 ${summary.shipmentTotalCount}`} Icon={Truck} color="var(--status-warning)" />
           <KpiCard label="待审批" value={fmt(summary.pendingPoApprovalCount)} sub={`待审采购申请 ${summary.pendingPrCount}`} Icon={Clock} color="var(--color-warning)" />
         </div>
       )}
@@ -207,7 +207,7 @@ export default function ProcurementDashboardPage() {
         {/* 运单状态 */}
         <div className={s.card} style={{ padding: "18px 20px" }}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
-            <Truck size={16} color="#f97316" /> 运单状态分布
+            <Truck size={16} color="var(--status-warning)" /> 运单状态分布
           </div>
           {shipment.length === 0 ? (
             <div style={{ textAlign: "center", color: "var(--color-text-3)", padding: 24 }}>暂无数据</div>
@@ -305,7 +305,7 @@ export default function ProcurementDashboardPage() {
         {/* 股东资金汇总 */}
         <div className={s.card} style={{ padding: "18px 20px" }}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
-            <Users size={16} color="#8b5cf6" /> 股东资金汇总
+            <Users size={16} color="var(--color-purple-500)" /> 股东资金汇总
           </div>
           {shareholder.length === 0 ? (
             <div style={{ textAlign: "center", color: "var(--color-text-3)", padding: 24 }}>暂无数据</div>

@@ -312,8 +312,8 @@ export default function FeedLedgerPage() {
           style={{
             display: 'flex', alignItems: 'center', gap: 5,
             padding: '8px 14px', borderRadius: 10,
-            background: saved ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.15)',
-            border: `1px solid ${saved ? 'rgba(16,185,129,0.4)' : 'rgba(245,158,11,0.35)'}`,
+            background: saved ? 'var(--status-success-bg-strong)' : 'var(--status-warning-bg-medium)',
+            border: `1px solid ${saved ? 'var(--status-success)' : 'var(--status-warning-bg-strong)'}`,
             color: saved ? 'var(--status-success)' : 'var(--status-warning)',
             cursor: saving ? 'wait' : 'pointer', fontSize: 13, fontWeight: 700,
           }}
@@ -327,8 +327,8 @@ export default function FeedLedgerPage() {
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '10px 16px',
-        background: 'rgba(245,158,11,0.06)',
-        borderBottom: '1px solid rgba(245,158,11,0.1)',
+        background: 'var(--status-warning-bg-faint)',
+        borderBottom: '1px solid var(--status-warning-bg-light)',
       }}>
         <button onClick={prevDay}
           style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 6 }}>
@@ -353,14 +353,14 @@ export default function FeedLedgerPage() {
         {alertRows.length > 0 && (
           <div style={{
             marginBottom: 12, padding: '12px 14px', borderRadius: 12,
-            background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+            background: 'var(--status-danger-bg-faint)', border: '1px solid rgba(239,68,68,0.25)',
           }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--status-danger)', marginBottom: 6 }}>⚠ 库存预警</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {alertRows.map(r => (
                 <div key={r.material_name} style={{
                   padding: '4px 10px', borderRadius: 8, fontSize: 12,
-                  background: r.alert === 'CRITICAL' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.12)',
+                  background: r.alert === 'CRITICAL' ? 'var(--status-danger-bg-medium)' : 'var(--status-warning-bg-light)',
                   color: r.alert === 'CRITICAL' ? 'var(--status-danger)' : 'var(--status-warning)', fontWeight: 600,
                 }}>
                   {r.material_name}
@@ -374,7 +374,7 @@ export default function FeedLedgerPage() {
         )}
 
         {error && (
-          <div style={{ marginBottom: 12, padding: 12, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--status-danger)', fontSize: 13 }}>
+          <div style={{ marginBottom: 12, padding: 12, borderRadius: 10, background: 'var(--status-danger-bg-light)', border: '1px solid var(--status-danger-bg-strong)', color: 'var(--status-danger)', fontSize: 13 }}>
             {error}
           </div>
         )}

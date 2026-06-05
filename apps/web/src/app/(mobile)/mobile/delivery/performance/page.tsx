@@ -3,17 +3,17 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 const C = {
-  bg:      '#070b14',
-  bg2:     '#0f1929',
-  card:    'rgba(255,255,255,0.05)',
-  border:  'rgba(255,255,255,0.10)',
-  text:    '#e2e8f0',
-  textSub: '#94a3b8',
+  bg:      'var(--brand-deep-1)',
+  bg2:     'var(--brand-deep-2)',
+  card:    'var(--overlay-white-05)',
+  border:  'var(--overlay-white-10)',
+  text:    'var(--slate-200)',
+  textSub: 'var(--slate-400)',
   orange:  'var(--status-warning)',
   blue:    'var(--status-info)',
   green:   'var(--status-success)',
   red:     'var(--status-danger)',
-  gray:    '#64748b',
+  gray:    'var(--slate-500)',
 };
 
 interface PerformanceData {
@@ -167,7 +167,7 @@ export default function PerformancePage() {
                 <span style={{ fontSize: 13, color: C.textSub }}>准时率</span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: rateColor(onTimeRate) }}>{onTimeRate.toFixed(1)}%</span>
               </div>
-              <div style={{ height: 8, background: 'rgba(255,255,255,0.1)', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ height: 8, background: 'var(--overlay-white-10)', borderRadius: 4, overflow: 'hidden' }}>
                 <div style={{
                   height: '100%',
                   width: `${Math.min(onTimeRate, 100)}%`,

@@ -86,7 +86,7 @@ export default function DailyInboundPage() {
       {loadingMode ? (
         <div style={{ padding: 14, color: "var(--text-secondary)" }}>加载库存来源模式...</div>
       ) : isPackagingMode ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", marginBottom: 18, borderRadius: 10, background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.4)", color: "var(--status-warning)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", marginBottom: 18, borderRadius: 10, background: "var(--status-warning-bg-light)", border: "1px solid var(--status-warning)", color: "var(--status-warning)" }}>
           <Package size={18} />
           <div style={{ flex: 1, fontSize: 13, lineHeight: 1.5 }}>
             <strong>已启用包装入库模式（PACKAGING_INBOUND）</strong><br />
@@ -95,7 +95,7 @@ export default function DailyInboundPage() {
           <Link href="/packaging" style={{ padding: "7px 14px", borderRadius: 7, background: "var(--status-warning)", color: "var(--text-on-dark)", textDecoration: "none", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>前往包装作业</Link>
         </div>
       ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", marginBottom: 18, borderRadius: 8, background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", color: "var(--status-success)", fontSize: 13 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", marginBottom: 18, borderRadius: 8, background: "var(--status-success-bg-medium)", border: "1px solid rgba(16,185,129,0.3)", color: "var(--status-success)", fontSize: 13 }}>
           <Egg size={16} /> 当前为 <strong>临时生产入库模式</strong>，录入即直接形成可销售库存。
         </div>
       )}
@@ -172,7 +172,7 @@ export default function DailyInboundPage() {
             </div>
           </div>
 
-          {error && <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 8, background: "rgba(239,68,68,0.08)", color: "var(--status-danger)", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}><AlertTriangle size={15} />{error}</div>}
+          {error && <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 8, background: "var(--status-danger-bg-faint)", color: "var(--status-danger)", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}><AlertTriangle size={15} />{error}</div>}
 
           <button onClick={submit} disabled={saving || !canCreate}
             style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 22px", borderRadius: 8, background: canCreate ? "var(--color-primary)" : "var(--text-disabled)", color: "var(--text-on-dark)", border: "none", fontSize: 14, fontWeight: 600, cursor: canCreate && !saving ? "pointer" : "not-allowed" }}>

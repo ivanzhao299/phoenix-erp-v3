@@ -12,13 +12,13 @@ const IS_DEV   = process.env.NODE_ENV !== "production";
 
 // ── 快捷测试账号（仅开发环境） ──────────────────────────────────────────────
 const TEST_GROUPS = IS_DEV ? [
-  { label: "集团管理层", color: { bg: "rgba(245,158,11,0.1)", border: "rgba(245,158,11,0.3)", text: "var(--status-warning)" }, accounts: [
+  { label: "集团管理层", color: { bg: "var(--status-warning-bg-light)", border: "var(--status-warning-bg-strong)", text: "var(--status-warning)" }, accounts: [
     { u: "admin",        p: "admin123", label: "🔑 系统超管",   sub: "ROLE_ADMIN" },
     { u: "test_ceo",     p: "123456",   label: "👑 集团总裁",   sub: "ROLE_CEO" },
     { u: "test_auditor", p: "123456",   label: "🕵 审计专员",   sub: "ROLE_AUDITOR" },
     { u: "test_sysops",  p: "123456",   label: "🖥 运维管理员", sub: "ROLE_SYSOPS" },
   ]},
-  { label: "养殖品控线", color: { bg: "rgba(34,197,94,0.08)", border: "rgba(34,197,94,0.25)", text: "var(--status-success)" }, accounts: [
+  { label: "养殖品控线", color: { bg: "var(--status-success-bg-faint)", border: "rgba(34,197,94,0.25)", text: "var(--status-success)" }, accounts: [
     { u: "test_farm",   p: "123456", label: "🏡 养殖场长", sub: "ROLE_FARM_MGR" },
     { u: "test_vet",    p: "123456", label: "💉 驻场兽医", sub: "ROLE_VET" },
     { u: "test_qa_mgr", p: "123456", label: "🔬 品控总监", sub: "ROLE_QA_MGR" },
@@ -29,13 +29,13 @@ const TEST_GROUPS = IS_DEV ? [
     { u: "test_log",  p: "123456", label: "🚛 物流调度", sub: "ROLE_LOG_MGR" },
     { u: "test_buyer",p: "123456", label: "🛒 采购专员", sub: "ROLE_PRC_BUYER" },
   ]},
-  { label: "🖥️ 现场作业台（Terminal自动跳转）", color: { bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.3)", text: "var(--status-warning)" }, accounts: [
+  { label: "🖥️ 现场作业台（Terminal自动跳转）", color: { bg: "var(--status-warning-bg-faint)", border: "var(--status-warning-bg-strong)", text: "var(--status-warning)" }, accounts: [
     { u: "test_pkg_op",  p: "123456", label: "📦 包装操作员",  sub: "ROLE_PKG_OP"    },
     { u: "test_qc",      p: "123456", label: "🔍 质检员",      sub: "ROLE_QC_INSPECTOR"    },
     { u: "test_wh_clk",  p: "123456", label: "🏭 仓管员",      sub: "ROLE_WH_CLERK"        },
     { u: "test_sup",     p: "123456", label: "👷 班组长",      sub: "ROLE_LINE_SUPERVISOR" },
   ]},
-  { label: "销售 & 订货", color: { bg: "rgba(168,85,247,0.08)", border: "rgba(168,85,247,0.25)", text: "#9333ea" }, accounts: [
+  { label: "销售 & 订货", color: { bg: "rgba(168,85,247,0.08)", border: "rgba(168,85,247,0.25)", text: "var(--color-purple-600)" }, accounts: [
     { u: "test_sales_rep", p: "123456", label: "💼 业务员",   sub: "ROLE_SALES_REP" },
     { u: "test_sales_mgr", p: "123456", label: "📊 销售主管", sub: "ROLE_SALES_MGR" },
     { u: "test_b2b",       p: "123456", label: "🤝 大客户总监",sub: "ROLE_B2B_MGR" },
@@ -163,24 +163,24 @@ function LoginInner() {
   const handleSubmit = (e: FormEvent) => { e.preventDefault(); doLogin(username, password); };
 
   return (
-    <div style={{ minHeight:"100vh", display:"flex", background:"#070b14" }}>
+    <div style={{ minHeight:"100vh", display:"flex", background:"var(--brand-deep-1)" }}>
 
       {/* ── 左侧品牌区 ─────────────────────────────────────────────────── */}
-      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"48px", background:"linear-gradient(145deg,#0f1929 0%,#0a0f1e 100%)", borderRight:"1px solid rgba(255,255,255,0.04)" }}>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"48px", background:"linear-gradient(145deg,#0f1929 0%,#0a0f1e 100%)", borderRight:"1px solid var(--overlay-white-05)" }}>
         {/* Logo — 动态品牌 */}
         {brand.logo_url
           ? <img src={brand.logo_url} alt="logo"
               style={{ width:80, height:80, objectFit:"contain", borderRadius:20,
                 background:"rgba(255,255,255,0.06)", padding:8, marginBottom:24,
-                boxShadow:"0 16px 40px rgba(0,0,0,0.4)" }} />
+                boxShadow:"0 16px 40px var(--overlay-black-45)" }} />
           : <div style={{ width:80, height:80, borderRadius:20, background:"linear-gradient(135deg,#f59e0b,#d97706)",
-              boxShadow:"0 16px 40px rgba(245,158,11,0.3)", display:"flex", alignItems:"center",
+              boxShadow:"0 16px 40px var(--status-warning-bg-strong)", display:"flex", alignItems:"center",
               justifyContent:"center", marginBottom:24 }}>
               <Shield size={40} color="white"/>
             </div>
         }
         <div style={{ fontSize:28, fontWeight:900, color:"white", marginBottom:8, letterSpacing:"-0.5px" }}>{brand.system_name || '金凤凰 ERP'}</div>
-        <div style={{ fontSize:13, color:"rgba(255,255,255,0.3)", marginBottom:48 }}>{brand.tagline || '企业级直营运营系统 · Phoenix ERP'}</div>
+        <div style={{ fontSize:13, color:"var(--overlay-white-10)", marginBottom:48 }}>{brand.tagline || '企业级直营运营系统 · Phoenix ERP'}</div>
 
         {/* 快捷测试账号面板（仅开发环境） */}
         {IS_DEV && TEST_GROUPS.length > 0 && (
@@ -203,9 +203,9 @@ function LoginInner() {
                     <div style={{ padding:"8px 12px 12px", display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6 }}>
                       {grp.accounts.map(acc => (
                         <button type="button" key={acc.u} onClick={() => { setUsername(acc.u); setPassword(acc.p); doLogin(acc.u, acc.p); }}
-                          style={{ padding:"8px 6px", background:"rgba(0,0,0,0.3)", border:`1px solid ${grp.color.border}`, borderRadius:8, cursor:"pointer", textAlign:"left" }}>
+                          style={{ padding:"8px 6px", background:"var(--overlay-black-30)", border:`1px solid ${grp.color.border}`, borderRadius:8, cursor:"pointer", textAlign:"left" }}>
                           <div style={{ fontSize:12, color:grp.color.text, fontWeight:600, marginBottom:2 }}>{acc.label}</div>
-                          <div style={{ fontSize:10, color:"rgba(255,255,255,0.3)", fontFamily:"monospace" }}>{acc.u}</div>
+                          <div style={{ fontSize:10, color:"var(--overlay-white-10)", fontFamily:"monospace" }}>{acc.u}</div>
                         </button>
                       ))}
                     </div>
@@ -214,7 +214,7 @@ function LoginInner() {
               ))}
             </div>
             <div style={{ marginTop:12, textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.15)" }}>
-              统一密码: <code style={{ color:"rgba(255,255,255,0.3)" }}>123456</code> · 超管: <code style={{ color:"rgba(255,255,255,0.3)" }}>admin123</code>
+              统一密码: <code style={{ color:"var(--overlay-white-10)" }}>123456</code> · 超管: <code style={{ color:"var(--overlay-white-10)" }}>admin123</code>
             </div>
           </div>
         )}
@@ -227,8 +227,8 @@ function LoginInner() {
           {(['zh','lo','en'] as const).map(l => (
             <button key={l} type="button" onClick={() => setAppLanguage(l)}
               style={{ fontSize:11, padding:"3px 8px", borderRadius:6, border:"1px solid rgba(255,255,255,0.12)",
-                background: lang===l ? "rgba(245,158,11,0.2)" : "transparent",
-                color: lang===l ? "var(--status-warning)" : "rgba(255,255,255,0.3)", cursor:"pointer", fontWeight: lang===l ? 700 : 400 }}>
+                background: lang===l ? "var(--status-warning-border)" : "transparent",
+                color: lang===l ? "var(--status-warning)" : "var(--overlay-white-10)", cursor:"pointer", fontWeight: lang===l ? 700 : 400 }}>
               {l==='zh'?'中文':l==='lo'?'ລາວ':'EN'}
             </button>
           ))}
@@ -236,16 +236,16 @@ function LoginInner() {
 
         <div style={{ width:"100%" }}>
           <h1 style={{ fontSize:22, fontWeight:800, color:"white", marginBottom:6 }}>{t('ui.欢迎回来', '欢迎回来')}</h1>
-          <p style={{ fontSize:13, color:"rgba(255,255,255,0.3)", marginBottom:36 }}>{t('ui.登录Phoenix平台', '登录 Phoenix 企业管理平台')}</p>
+          <p style={{ fontSize:13, color:"var(--overlay-white-10)", marginBottom:36 }}>{t('ui.登录Phoenix平台', '登录 Phoenix 企业管理平台')}</p>
 
           {error && (
-            <div style={{ marginBottom:20, padding:14, background:"#fee2e2", border:"1px solid rgba(239,68,68,0.3)", borderRadius:10, color:"var(--status-danger)", fontSize:13, display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ marginBottom:20, padding:14, background:"var(--status-danger-bg-faint)", border:"1px solid var(--status-danger-bg-strong)", borderRadius:10, color:"var(--status-danger)", fontSize:13, display:"flex", alignItems:"center", gap:8 }}>
               <AlertTriangle size={16}/> {error}
             </div>
           )}
 
           {!error && notice && (
-            <div style={{ marginBottom:20, padding:14, background:"rgba(59,130,246,0.08)", border:"1px solid rgba(59,130,246,0.3)", borderRadius:10, color:"#60a5fa", fontSize:13, display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ marginBottom:20, padding:14, background:"rgba(59,130,246,0.08)", border:"1px solid rgba(59,130,246,0.3)", borderRadius:10, color:"var(--status-info)", fontSize:13, display:"flex", alignItems:"center", gap:8 }}>
               <Info size={16}/> {notice}
             </div>
           )}
@@ -253,33 +253,33 @@ function LoginInner() {
           <form onSubmit={handleSubmit}>
             {/* 账号 */}
             <div style={{ marginBottom:16 }}>
-              <label style={{ display:"block", marginBottom:6, color:"rgba(255,255,255,0.4)", fontSize:12, fontWeight:600, letterSpacing:"0.5px" }}>{t('ui.账户名', '账户名')}</label>
+              <label style={{ display:"block", marginBottom:6, color:"var(--overlay-white-10)", fontSize:12, fontWeight:600, letterSpacing:"0.5px" }}>{t('ui.账户名', '账户名')}</label>
               <div style={{ position:"relative" }}>
                 <User size={16} color="#555" style={{ position:"absolute", left:14, top:14 }}/>
                 <input value={username} onChange={e=>{ setUsername(e.target.value); setError(""); }}
                   type="text" placeholder={t('ui.输入账户名', '输入账户名')} autoComplete="username" required
-                  style={{ width:"100%", padding:"13px 14px 13px 40px", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:10, color:"white", outline:"none", fontSize:14, boxSizing:"border-box" }}/>
+                  style={{ width:"100%", padding:"13px 14px 13px 40px", background:"var(--overlay-white-05)", border:"1px solid var(--overlay-white-08)", borderRadius:10, color:"white", outline:"none", fontSize:14, boxSizing:"border-box" }}/>
               </div>
             </div>
 
             {/* 密码 */}
             <div style={{ marginBottom:28 }}>
-              <label style={{ display:"block", marginBottom:6, color:"rgba(255,255,255,0.4)", fontSize:12, fontWeight:600, letterSpacing:"0.5px" }}>{t('ui.密码', '密码')}</label>
+              <label style={{ display:"block", marginBottom:6, color:"var(--overlay-white-10)", fontSize:12, fontWeight:600, letterSpacing:"0.5px" }}>{t('ui.密码', '密码')}</label>
               <div style={{ position:"relative" }}>
                 <Lock size={16} color="#555" style={{ position:"absolute", left:14, top:14 }}/>
                 <input ref={passwordRef} value={password} onChange={e=>{ setPassword(e.target.value); setError(""); setNotice(""); }}
                   type="password" placeholder={t('ui.输入密码', '输入密码')} autoComplete="current-password" required
-                  style={{ width:"100%", padding:"13px 14px 13px 40px", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:10, color:"white", outline:"none", fontSize:14, boxSizing:"border-box" }}/>
+                  style={{ width:"100%", padding:"13px 14px 13px 40px", background:"var(--overlay-white-05)", border:"1px solid var(--overlay-white-08)", borderRadius:10, color:"white", outline:"none", fontSize:14, boxSizing:"border-box" }}/>
               </div>
             </div>
 
             <button id="submit-btn" type="submit" disabled={loading}
-              style={{ width:"100%", padding:15, background:"linear-gradient(135deg,#f59e0b,#d97706)", color:"white", border:"none", borderRadius:10, fontSize:15, fontWeight:800, cursor:loading?"not-allowed":"pointer", boxShadow:"0 8px 24px rgba(245,158,11,0.3)", opacity:loading?0.7:1, letterSpacing:"0.5px" }}>
+              style={{ width:"100%", padding:15, background:"linear-gradient(135deg,#f59e0b,#d97706)", color:"white", border:"none", borderRadius:10, fontSize:15, fontWeight:800, cursor:loading?"not-allowed":"pointer", boxShadow:"0 8px 24px var(--status-warning-bg-strong)", opacity:loading?0.7:1, letterSpacing:"0.5px" }}>
               {loading ? t('ui.登录中', '登录中...') : t('ui.登录', '登  录')}
             </button>
           </form>
 
-          <div style={{ marginTop:32, paddingTop:20, borderTop:"1px solid rgba(255,255,255,0.05)", textAlign:"center" }}>
+          <div style={{ marginTop:32, paddingTop:20, borderTop:"1px solid var(--overlay-white-05)", textAlign:"center" }}>
             <div style={{ fontSize:11, color:"rgba(255,255,255,0.15)" }}>Phoenix ERP · 企业级管理系统</div>
           </div>
         </div>
@@ -294,7 +294,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div style={{ minHeight: "100vh", display: "flex", background: "#070b14" }} />
+        <div style={{ minHeight: "100vh", display: "flex", background: "var(--brand-deep-1)" }} />
       }
     >
       <LoginInner />

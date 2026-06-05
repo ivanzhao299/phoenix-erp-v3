@@ -13,7 +13,7 @@ const IS_DEV = process.env.NODE_ENV !== 'production';
 const TEST_GROUPS = IS_DEV ? [
   {
     label: '管理层',
-    color: { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.35)', text: 'var(--status-warning)' },
+    color: { bg: 'var(--status-warning-bg-light)', border: 'var(--status-warning-bg-strong)', text: 'var(--status-warning)' },
     accounts: [
       { u: 'admin',         p: 'admin123', label: '🔑 超管',   sub: 'ROLE_ADMIN' },
       { u: 'test_ceo',      p: '123456',   label: '👑 总裁',   sub: 'ROLE_CEO' },
@@ -23,7 +23,7 @@ const TEST_GROUPS = IS_DEV ? [
   },
   {
     label: '现场作业台',
-    color: { bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.3)', text: '#60a5fa' },
+    color: { bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.3)', text: 'var(--status-info)' },
     accounts: [
       { u: 'test_pkg_op', p: '123456', label: '📦 操作员', sub: 'ROLE_PKG_OP' },
       { u: 'test_sup',    p: '123456', label: '👷 班组长', sub: 'ROLE_LINE_SUPERVISOR' },
@@ -158,7 +158,7 @@ function MobileLoginInner() {
             style={{
               fontSize: 12, padding: '4px 10px', borderRadius: 8,
               border: `1px solid ${th.inputBorder}`,
-              background: lang === l ? 'rgba(245,158,11,0.2)' : th.appBarBg,
+              background: lang === l ? 'var(--status-warning-border)' : th.appBarBg,
               color: lang === l ? 'var(--status-warning)' : th.textMuted,
               cursor: 'pointer', fontWeight: lang === l ? 700 : 400,
               backdropFilter: 'blur(8px)',
@@ -173,7 +173,7 @@ function MobileLoginInner() {
         <div style={{
           width: 72, height: 72, borderRadius: 20,
           background: 'linear-gradient(135deg,#f59e0b,#d97706)',
-          boxShadow: '0 16px 40px rgba(245,158,11,0.35)',
+          boxShadow: '0 16px 40px var(--status-warning-bg-strong)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           margin: '0 auto 14px',
         }}>
@@ -204,12 +204,12 @@ function MobileLoginInner() {
         </p>
 
         {error && (
-          <div style={{ marginBottom: 16, padding: 12, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, color: 'var(--status-danger)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ marginBottom: 16, padding: 12, background: 'var(--status-danger-bg-light)', border: '1px solid var(--status-danger-bg-strong)', borderRadius: 10, color: 'var(--status-danger)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
             <AlertTriangle size={15} /> {error}
           </div>
         )}
         {!error && notice && (
-          <div style={{ marginBottom: 16, padding: 12, background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 10, color: '#60a5fa', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ marginBottom: 16, padding: 12, background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 10, color: 'var(--status-info)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Info size={15} /> {notice}
           </div>
         )}
@@ -257,11 +257,11 @@ function MobileLoginInner() {
             disabled={loading}
             style={{
               width: '100%', height: 56,
-              background: loading ? 'rgba(245,158,11,0.4)' : 'linear-gradient(135deg,#f59e0b,#d97706)',
+              background: loading ? 'var(--status-warning)' : 'linear-gradient(135deg,#f59e0b,#d97706)',
               color: 'white', border: 'none', borderRadius: 14,
               fontSize: 16, fontWeight: 800,
               cursor: loading ? 'not-allowed' : 'pointer',
-              boxShadow: loading ? 'none' : '0 8px 24px rgba(245,158,11,0.35)',
+              boxShadow: loading ? 'none' : '0 8px 24px var(--status-warning-bg-strong)',
               letterSpacing: '0.5px',
             }}
           >
@@ -330,7 +330,7 @@ function LoginFallback() {
           background: 'linear-gradient(135deg,#f59e0b,#d97706)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 34,
-          boxShadow: '0 0 40px rgba(245,158,11,0.4)',
+          boxShadow: '0 0 40px var(--status-warning)',
         }}>🐦</div>
         <span style={{ color: 'var(--status-warning)', fontWeight: 800, fontSize: 16, letterSpacing: 0.5 }}>
           Phoenix ERP

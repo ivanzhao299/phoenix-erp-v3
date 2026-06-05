@@ -34,7 +34,7 @@ const CENTER_META: Record<string, {
 }> = {
   org: {
     title: '组织中心', subtitle: '集团 / 公司 / 项目 / 用户授权',
-    accent: '#6366f1', icon: Network,
+    accent: 'var(--color-accent)', icon: Network,
     members: [
       { type: 'organization', label: '组织架构', icon: Network,      href: '/master-data/organizations' },
       { type: 'company',      label: '公司档案', icon: Building,     href: '/master-data/companies' },
@@ -62,7 +62,7 @@ const CENTER_META: Record<string, {
   },
   wms: {
     title: '仓储 & 物流中心', subtitle: '仓库 / 司机 / 车辆',
-    accent: '#8b5cf6', icon: Warehouse,
+    accent: 'var(--color-purple-500)', icon: Warehouse,
     members: [
       { type: 'warehouse', label: '仓库档案', icon: Warehouse, href: '/master-data/warehouses' },
       { type: 'driver',    label: '司机档案', icon: UserCheck, href: '/master-data/drivers' },
@@ -71,7 +71,7 @@ const CENTER_META: Record<string, {
   },
   fin: {
     title: '财务主数据中心', subtitle: '资金账户 / 银行账户',
-    accent: '#06b6d4', icon: Wallet,
+    accent: 'var(--status-info)', icon: Wallet,
     members: [
       { type: 'cash-account', label: '资金账户档案', icon: Wallet,   href: '/master-data/cash-accounts' },
       { type: 'bank-account', label: '银行账户中心', icon: Banknote, href: '/master-data/bank-accounts' },
@@ -135,15 +135,15 @@ export default function MasterDataHubPage() {
 
       {/* 运营入口 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
-        <a href="/master-data/operations" style={navTileStyle('#0891b2')}>
-          <Briefcase size={18} style={{ color: '#0891b2' }} />
+        <a href="/master-data/operations" style={navTileStyle('var(--status-info)')}>
+          <Briefcase size={18} style={{ color: 'var(--status-info)' }} />
           <div>
             <div style={{ fontSize: 14, fontWeight: 700 }}>运营工作台</div>
             <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>待审批 / 补资料 / 风险处理</div>
           </div>
         </a>
-        <a href="/master-data/governance" style={navTileStyle('#7c3aed')}>
-          <Activity size={18} style={{ color: '#7c3aed' }} />
+        <a href="/master-data/governance" style={navTileStyle('var(--color-purple-600)')}>
+          <Activity size={18} style={{ color: 'var(--color-purple-600)' }} />
           <div>
             <div style={{ fontSize: 14, fontWeight: 700 }}>治理驾驶舱</div>
             <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>6 维度评分 / 字典覆盖率 / 趋势</div>
@@ -165,7 +165,7 @@ export default function MasterDataHubPage() {
         </a>
       </div>
 
-      {error && <div style={{ padding: 10, background: 'rgba(239,68,68,0.08)', color: 'var(--status-danger)', borderRadius: 8, marginBottom: 14 }}>{error}</div>}
+      {error && <div style={{ padding: 10, background: 'var(--status-danger-bg-faint)', color: 'var(--status-danger)', borderRadius: 8, marginBottom: 14 }}>{error}</div>}
 
       {/* 6 中心运营卡 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 14 }}>

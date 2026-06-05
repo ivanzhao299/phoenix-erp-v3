@@ -159,7 +159,7 @@ function KpiCard({ label, value, sub, icon: Icon, color, loading }: {
 }) {
   return (
     <div className="bg-bg-card border border-border"
-      style={{ borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', minHeight: 112, boxSizing: 'border-box' }}>
+      style={{ borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 4px var(--overlay-black-04)', minHeight: 112, boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
         <Icon size={15} color={color} />
         <span className="text-text-muted" style={{ fontSize: 11 }}>{label}</span>
@@ -212,7 +212,7 @@ function CreateArModal({ onClose, onCreated }: { onClose: () => void; onCreated:
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+    <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-45)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
       <div className="bg-bg-card"
         style={{ borderRadius: 16, width: 480, maxWidth: '95vw', padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
@@ -357,7 +357,7 @@ function CreateReceiptModal({
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+    <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-45)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
       <div className="bg-bg-card"
         style={{ borderRadius: 16, width: 500, maxWidth: '95vw', padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
@@ -852,7 +852,7 @@ export default function Finance2ArPage() {
 
           {/* 表格 */}
           <div className="bg-bg-card border border-border"
-            style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px var(--overlay-black-04)' }}>
             <div style={{ overflowX: 'auto' }}>
               <table className={s.table}>
                 <thead>
@@ -925,7 +925,7 @@ export default function Finance2ArPage() {
       {/* ── Tab: 收款记录 ── */}
       {tab === 'receipts' && (
         <div className="bg-bg-card border border-border"
-          style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+          style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px var(--overlay-black-04)' }}>
           <div style={{ overflowX: 'auto' }}>
             <table className={s.table}>
               <thead>
@@ -1005,7 +1005,7 @@ export default function Finance2ArPage() {
                   { key: '90_PLUS',  label: '逾期>90天',  value: aging.buckets?.['90_PLUS']?? 0, colorClass: 'text-red-800 dark:text-red-300',      borderColor: 'border-red-300 dark:border-red-700' },
                 ].map(b => (
                   <div key={b.key} className={`bg-bg-card border ${b.borderColor} rounded-xl px-3.5 py-3 text-center`}
-                    style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                    style={{ boxShadow: '0 1px 4px var(--overlay-black-04)' }}>
                     <div className="text-text-muted text-xs mb-1">{b.label}</div>
                     <div className={`text-base font-extrabold ${b.colorClass}`}>
                       {b.value.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}

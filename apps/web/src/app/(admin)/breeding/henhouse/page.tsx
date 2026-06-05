@@ -191,7 +191,7 @@ type="button"             className={mappedHouses.has(row.code) ? `${s.btn} ${s.
       {/* KPI 统计卡片 */}
       <div className={s.statsRow}>
         {KPI_CARDS.map(c => (
-          <div key={c.label} className={`${s.statCard} ${c.cardCls}`} style={c.alarmBg?{background:'rgba(239,68,68,0.05)'}:{}}>
+          <div key={c.label} className={`${s.statCard} ${c.cardCls}`} style={c.alarmBg?{background:'var(--status-danger-bg-faint)'}:{}}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6 }}>
               <div className={`${s.statValue} ${c.valCls}`} style={{ fontSize:28, lineHeight:1, letterSpacing:'-0.5px' }}>{c.val}</div>
               <c.Icon size={15} style={{ color:'var(--text-secondary)', opacity:0.4, marginTop:3, flexShrink:0 }} />

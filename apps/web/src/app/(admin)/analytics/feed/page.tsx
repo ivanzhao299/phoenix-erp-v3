@@ -183,7 +183,7 @@ export default function FeedAnalyticsPage() {
               title="本月到货批次"
               value={monthBatches}
               sub="批"
-              color="#6366f1"
+              color="var(--color-accent)"
             />
             <StatCard
               icon={Truck}

@@ -53,8 +53,8 @@ const inputBase: React.CSSProperties = {
   borderRadius: 8,
   border: '1.5px solid #e2e8f0',
   fontSize: 14,
-  color: '#0f172a',
-  background: '#fff',
+  color: 'var(--slate-900)',
+  background: 'var(--bg-card)',
   outline: 'none',
   boxSizing: 'border-box',
   transition: 'border-color 0.15s',
@@ -70,7 +70,7 @@ const labelStyle: React.CSSProperties = {
   display: 'block',
   fontSize: 13,
   fontWeight: 600,
-  color: '#374151',
+  color: 'var(--gray-700)',
   marginBottom: 6,
 };
 
@@ -110,7 +110,7 @@ export function WorkflowFormRenderer({
 }: WorkflowFormRendererProps) {
   if (!schema?.properties) {
     return (
-      <div style={{ color: '#94a3b8', fontSize: 14, padding: 16 }}>
+      <div style={{ color: 'var(--slate-400)', fontSize: 14, padding: 16 }}>
         表单结构未定义（schema.properties 为空）
       </div>
     );
@@ -132,7 +132,7 @@ export function WorkflowFormRenderer({
 
         const baseStyle  = hasError ? inputError : inputBase;
         const disabledStyle: React.CSSProperties = disabled
-          ? { background: '#f8fafc', cursor: 'not-allowed', color: '#94a3b8' }
+          ? { background: 'var(--slate-50)', cursor: 'not-allowed', color: 'var(--slate-400)' }
           : {};
 
         return (
@@ -148,7 +148,7 @@ export function WorkflowFormRenderer({
                 {ui?.prefix && (
                   <span style={{
                     position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
-                    fontSize: 13, color: '#64748b', pointerEvents: 'none',
+                    fontSize: 13, color: 'var(--slate-500)', pointerEvents: 'none',
                   }}>{ui.prefix}</span>
                 )}
                 <input
@@ -186,7 +186,7 @@ export function WorkflowFormRenderer({
                 {ui?.prefix && (
                   <span style={{
                     position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
-                    fontSize: 13, color: '#64748b', pointerEvents: 'none',
+                    fontSize: 13, color: 'var(--slate-500)', pointerEvents: 'none',
                   }}>{ui.prefix}</span>
                 )}
                 <input
@@ -206,7 +206,7 @@ export function WorkflowFormRenderer({
                 {ui?.suffix && (
                   <span style={{
                     position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                    fontSize: 13, color: '#64748b', pointerEvents: 'none',
+                    fontSize: 13, color: 'var(--slate-500)', pointerEvents: 'none',
                   }}>{ui.suffix}</span>
                 )}
               </div>
@@ -247,7 +247,7 @@ export function WorkflowFormRenderer({
               <label style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 cursor: disabled ? 'not-allowed' : 'pointer',
-                color: disabled ? '#94a3b8' : '#0f172a',
+                color: disabled ? 'var(--slate-400)' : 'var(--slate-900)',
                 fontSize: 14,
               }}>
                 <input
@@ -268,7 +268,7 @@ export function WorkflowFormRenderer({
 
             {/* maxLength 提示 */}
             {!hasError && propSchema.maxLength && (widget === 'input' || widget === 'textarea') && (
-              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 3, textAlign: 'right' }}>
+              <div style={{ fontSize: 11, color: 'var(--slate-400)', marginTop: 3, textAlign: 'right' }}>
                 {String(fieldValue ?? '').length} / {propSchema.maxLength}
               </div>
             )}

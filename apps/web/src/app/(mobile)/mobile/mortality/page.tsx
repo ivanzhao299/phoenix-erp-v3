@@ -216,8 +216,8 @@ export default function MortalityPage() {
           style={{
             display: 'flex', alignItems: 'center', gap: 5,
             padding: '8px 14px', borderRadius: 10,
-            background: saved ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.15)',
-            border: `1px solid ${saved ? 'rgba(16,185,129,0.4)' : 'rgba(245,158,11,0.35)'}`,
+            background: saved ? 'var(--status-success-bg-strong)' : 'var(--status-warning-bg-medium)',
+            border: `1px solid ${saved ? 'var(--status-success)' : 'var(--status-warning-bg-strong)'}`,
             color: saved ? 'var(--status-success)' : 'var(--status-warning)',
             cursor: saving ? 'wait' : 'pointer', fontSize: 13, fontWeight: 700,
           }}
@@ -232,7 +232,7 @@ export default function MortalityPage() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '10px 16px',
         background: 'rgba(239,68,68,0.04)',
-        borderBottom: '1px solid rgba(239,68,68,0.1)',
+        borderBottom: '1px solid var(--status-danger-bg-light)',
       }}>
         <button onClick={() => setDate(d => fmtDate(addDays(toDate(d), -1)))}
           style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 6 }}>
@@ -260,8 +260,8 @@ export default function MortalityPage() {
           }}>
             <div style={{
               padding: '12px 14px', borderRadius: 14,
-              background: totalMort > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.06)',
-              border: `1px solid ${totalMort > 0 ? 'rgba(239,68,68,0.25)' : 'rgba(16,185,129,0.2)'}`,
+              background: totalMort > 0 ? 'var(--status-danger-bg-faint)' : 'rgba(16,185,129,0.06)',
+              border: `1px solid ${totalMort > 0 ? 'rgba(239,68,68,0.25)' : 'var(--status-success-bg-strong)'}`,
             }}>
               <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>死亡合计</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: totalMort > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>{totalMort} 只</div>
@@ -269,15 +269,15 @@ export default function MortalityPage() {
             <div style={{
               padding: '12px 14px', borderRadius: 14,
               background: totalElim > 0 ? 'rgba(251,146,60,0.08)' : 'rgba(16,185,129,0.06)',
-              border: `1px solid ${totalElim > 0 ? 'rgba(251,146,60,0.3)' : 'rgba(16,185,129,0.2)'}`,
+              border: `1px solid ${totalElim > 0 ? 'rgba(251,146,60,0.3)' : 'var(--status-success-bg-strong)'}`,
             }}>
               <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>淘汰合计</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: totalElim > 0 ? '#fb923c' : 'var(--status-success)' }}>{totalElim} 只</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: totalElim > 0 ? 'var(--status-warning)' : 'var(--status-success)' }}>{totalElim} 只</div>
             </div>
             {totalLoss > 0 && (
               <div style={{
                 gridColumn: '1/-1', padding: '8px 14px', borderRadius: 10,
-                background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)',
+                background: 'var(--status-danger-bg-faint)', border: '1px solid var(--status-danger-bg-medium)',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               }}>
                 <span style={{ fontSize: 12, color: t.textMuted }}>今日总损耗 · {houseList.length} 栋</span>
@@ -294,7 +294,7 @@ export default function MortalityPage() {
         )}
 
         {error && (
-          <div style={{ marginBottom: 12, padding: 12, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--status-danger)', fontSize: 13 }}>
+          <div style={{ marginBottom: 12, padding: 12, borderRadius: 10, background: 'var(--status-danger-bg-light)', border: '1px solid var(--status-danger-bg-strong)', color: 'var(--status-danger)', fontSize: 13 }}>
             {error}
           </div>
         )}
@@ -318,7 +318,7 @@ export default function MortalityPage() {
                 <div key={house} style={{
                   padding: '14px 16px', borderRadius: 14, marginBottom: 10,
                   background: hasLoss ? 'rgba(239,68,68,0.06)' : t.sectionBg,
-                  border: `1px solid ${hasLoss ? 'rgba(239,68,68,0.2)' : t.cardBorder}`,
+                  border: `1px solid ${hasLoss ? 'var(--status-danger-bg-medium)' : t.cardBorder}`,
                 }}>
                   {/* 栋舍名 */}
                   <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 12 }}>{house}</div>
@@ -340,7 +340,7 @@ export default function MortalityPage() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: elim > 0 ? 10 : 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontSize: 18 }}>🔄</span>
-                      <span style={{ fontSize: 13, color: elim > 0 ? '#fb923c' : t.textSub }}>淘汰</span>
+                      <span style={{ fontSize: 13, color: elim > 0 ? 'var(--status-warning)' : t.textSub }}>淘汰</span>
                     </div>
                     <NumStepper
                       value={elim}
@@ -390,8 +390,8 @@ export default function MortalityPage() {
                 onClick={handleAddHouse}
                 style={{
                   padding: '0 14px', borderRadius: 8,
-                  background: 'rgba(245,158,11,0.15)',
-                  border: '1px solid rgba(245,158,11,0.3)',
+                  background: 'var(--status-warning-bg-medium)',
+                  border: '1px solid var(--status-warning-bg-strong)',
                   color: 'var(--status-warning)', cursor: 'pointer', fontSize: 13, fontWeight: 700,
                 }}
               >

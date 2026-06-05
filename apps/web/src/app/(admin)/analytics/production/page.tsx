@@ -189,7 +189,7 @@ export default function ProductionAnalyticsPage() {
               title="近30天总产蛋量"
               value={fmtNum(totalEggs)}
               sub="枚"
-              color="#6366f1"
+              color="var(--color-accent)"
             />
             <StatCard
               icon={Calendar}

@@ -74,7 +74,7 @@ export default function RightDrawer({
           position: 'fixed',
           top: 56, left: 0, right: 0, bottom: 0,
           zIndex: 10100,
-          background: 'rgba(0,0,0,0.45)',
+          background: 'var(--overlay-black-45)',
           animation: 'phxFadeIn 0.22s ease forwards',
         }}
       />

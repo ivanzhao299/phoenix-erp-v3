@@ -109,7 +109,7 @@ export default function PriceReviewPage() {
                 </td>
                 <td>
                   {r!.belowFloor
-                    ? <span style={{ fontSize: "0.72rem", background: "var(--status-danger)", color: "#fff", padding: "2px 8px", borderRadius: 4, fontWeight: 700 }}>{t('ui.低于底价', '低于底价')}</span>
+                    ? <span style={{ fontSize: "0.72rem", background: "var(--status-danger)", color: "var(--bg-card)", padding: "2px 8px", borderRadius: 4, fontWeight: 700 }}>{t('ui.低于底价', '低于底价')}</span>
                     : <span style={{ fontSize: "0.72rem", color: "var(--status-success)" }}>{t('status.normal', '正常')}</span>}
                 </td>
               </tr>

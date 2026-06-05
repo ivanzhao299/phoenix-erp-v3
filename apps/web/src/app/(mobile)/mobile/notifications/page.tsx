@@ -25,20 +25,20 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 // ── 通知类型配置 ──────────────────────────────────────────────────────────────
 
 const TYPE_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
-  TASK_CREATED:    { icon: '📋', color: '#7c3aed', label: '新审批任务' },
+  TASK_CREATED:    { icon: '📋', color: 'var(--color-purple-600)', label: '新审批任务' },
   TASK_APPROVED:   { icon: '✅', color: 'var(--status-success)', label: '审批通过' },
   TASK_REJECTED:   { icon: '❌', color: 'var(--status-danger)', label: '审批拒绝' },
   TASK_COMPLETED:  { icon: '🎉', color: 'var(--status-success)', label: '流程完成' },
-  TASK_CANCELLED:  { icon: '🚫', color: '#94a3b8', label: '流程取消' },
+  TASK_CANCELLED:  { icon: '🚫', color: 'var(--slate-400)', label: '流程取消' },
   REMINDER:        { icon: '⏰', color: 'var(--status-warning)', label: '催办提醒' },
   // Phase F: SLA 类型
   TASK_REMINDER:   { icon: '⏰', color: 'var(--status-warning)', label: '审批催办' },
   TASK_OVERDUE:    { icon: '🔴', color: 'var(--status-danger)', label: '审批超期' },
-  TASK_ESCALATED:  { icon: '🔺', color: '#ea580c', label: '审批升级' },
+  TASK_ESCALATED:  { icon: '🔺', color: 'var(--status-warning)', label: '审批升级' },
 };
 
 function getTypeConfig(type: string) {
-  return TYPE_CONFIG[type] ?? { icon: '🔔', color: '#6b7280', label: type };
+  return TYPE_CONFIG[type] ?? { icon: '🔔', color: 'var(--gray-500)', label: type };
 }
 
 // ── 通知卡片 ──────────────────────────────────────────────────────────────────
@@ -289,7 +289,7 @@ export default function NotificationsPage() {
           <span style={{ fontWeight: 700, fontSize: 16, color: t.text }}>通知中心</span>
           {unread > 0 && (
             <span style={{
-              background: 'var(--status-danger)', color: '#fff', borderRadius: 12,
+              background: 'var(--status-danger)', color: 'var(--bg-card)', borderRadius: 12,
               padding: '1px 7px', fontSize: 11, fontWeight: 700,
             }}>{unread}</span>
           )}
@@ -324,7 +324,7 @@ export default function NotificationsPage() {
               flex: 1, padding: '9px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
               fontSize: 14, fontWeight: 600,
               background: filter === key ? 'var(--status-warning)' : 'transparent',
-              color: filter === key ? '#fff' : t.textSub,
+              color: filter === key ? 'var(--bg-card)' : t.textSub,
               transition: 'all 0.2s',
             }}
           >
@@ -345,7 +345,7 @@ export default function NotificationsPage() {
             {pushStatus === 'subscribed'
               ? <BellRing size={18} color="var(--status-success)" />
               : pushStatus === 'unsupported' || pushStatus === 'denied'
-                ? <BellOff size={18} color="#94a3b8" />
+                ? <BellOff size={18} color="var(--slate-400)" />
                 : <Bell size={18} color="var(--status-warning)" />
             }
             <span style={{ fontSize: 13, color: t.text }}>
@@ -362,8 +362,8 @@ export default function NotificationsPage() {
               style={{
                 flexShrink: 0,
                 padding: '7px 14px', borderRadius: 8, border: 'none', cursor: pushWorking ? 'not-allowed' : 'pointer',
-                background: pushStatus === 'subscribed' ? (isDark ? '#1e293b' : '#f1f5f9') : '#059669',
-                color: pushStatus === 'subscribed' ? t.textSub : '#fff',
+                background: pushStatus === 'subscribed' ? (isDark ? 'var(--slate-800)' : 'var(--slate-100)') : 'var(--status-success)',
+                color: pushStatus === 'subscribed' ? t.textSub : 'var(--bg-card)',
                 fontSize: 13, fontWeight: 600, opacity: pushWorking ? 0.6 : 1,
               }}
             >
@@ -377,7 +377,7 @@ export default function NotificationsPage() {
       <div style={{ flex: 1, padding: '12px 16px calc(24px + env(safe-area-inset-bottom))' }}>
         {loading && [1, 2, 3, 4].map(i => <SkeletonCard key={i} lines={2} />)}
         {!loading && err && (
-          <div style={{ color: 'var(--status-danger)', background: '#fef2f2', borderRadius: 10, padding: '10px 14px', fontSize: 13 }}>
+          <div style={{ color: 'var(--status-danger)', background: 'var(--status-danger-bg-faint)', borderRadius: 10, padding: '10px 14px', fontSize: 13 }}>
             {err}
           </div>
         )}

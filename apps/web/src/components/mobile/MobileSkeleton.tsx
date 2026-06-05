@@ -35,10 +35,10 @@ export function SkeletonCard({ lines = 2 }: { lines?: number }) {
   const { t, isDark } = useMobileTheme();
   return (
     <div style={{
-      background: isDark ? '#1f2937' : '#fff',
+      background: isDark ? 'var(--gray-800)' : 'var(--bg-card)',
       borderRadius: 14,
       padding: '14px 14px 12px',
-      border: `1px solid ${isDark ? '#374151' : '#e5e7eb'}`,
+      border: `1px solid ${isDark ? 'var(--gray-700)' : 'var(--gray-200)'}`,
       marginBottom: 10,
       display: 'flex', flexDirection: 'column', gap: 10,
     }}>
@@ -62,9 +62,9 @@ export function SkeletonStatGrid({ count = 4 }: { count?: number }) {
     }}>
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} style={{
-          background: isDark ? '#1f2937' : '#fff',
+          background: isDark ? 'var(--gray-800)' : 'var(--bg-card)',
           borderRadius: 14, padding: '14px',
-          border: `1px solid ${isDark ? '#374151' : '#e5e7eb'}`,
+          border: `1px solid ${isDark ? 'var(--gray-700)' : 'var(--gray-200)'}`,
           display: 'flex', flexDirection: 'column', gap: 8,
         }}>
           <SkeletonBlock width="60%" height={11} />
@@ -107,12 +107,12 @@ export function MobilePageSkeleton({
   const { t, isDark } = useMobileTheme();
 
   return (
-    <div style={{ minHeight: '100vh', background: isDark ? '#0f172a' : '#f1f5f9' }}>
+    <div style={{ minHeight: '100vh', background: isDark ? 'var(--slate-900)' : 'var(--slate-100)' }}>
       {/* ── 顶栏（真实内容，立即渲染） ── */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 100,
-        background: isDark ? '#1e293b' : '#fff',
-        borderBottom: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+        background: isDark ? 'var(--slate-800)' : 'var(--bg-card)',
+        borderBottom: `1px solid ${isDark ? 'var(--slate-700)' : 'var(--slate-200)'}`,
         padding: '12px 16px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
@@ -135,13 +135,13 @@ export function MobilePageSkeleton({
       {tabs && tabs.length > 0 && (
         <div style={{
           display: 'flex', margin: '12px 16px 0',
-          background: isDark ? '#1e293b' : '#e2e8f0',
+          background: isDark ? 'var(--slate-800)' : 'var(--slate-200)',
           borderRadius: 12, padding: 4, gap: 4,
         }}>
           {tabs.map((label, i) => (
             <div key={i} style={{
               flex: 1, padding: '9px 0', borderRadius: 9,
-              background: i === 0 ? (isDark ? '#374151' : '#d1d5db') : 'transparent',
+              background: i === 0 ? (isDark ? 'var(--gray-700)' : 'var(--gray-300)') : 'transparent',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <span style={{ fontSize: 13, color: t.textSub, opacity: 0.7 }}>{label}</span>

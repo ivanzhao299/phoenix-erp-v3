@@ -84,7 +84,7 @@ export function ReferenceGraph({ centerLabel, centerType, references }: Referenc
                 <div style={{ fontSize: 13, fontWeight: 600 }}>
                   {r.refDocType}
                   <span style={{ marginLeft: 8, padding: '1px 8px', borderRadius: 4,
-                                 background: 'var(--status-warning-bg, rgba(245,158,11,0.12))',
+                                 background: 'var(--status-warning-bg, var(--status-warning-bg-light))',
                                  color: 'var(--status-warning, #d97706)', fontSize: 11 }}>
                     × {r.refCount}
                   </span>

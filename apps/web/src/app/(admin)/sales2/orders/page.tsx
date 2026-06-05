@@ -38,18 +38,18 @@ async function api<T = any>(method: string, path: string, body?: unknown): Promi
 // ── 状态配置 ──────────────────────────────────────────────────────────────────
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  DRAFT:            { label: '草稿',    color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
-  PENDING_APPROVAL: { label: '审批中',  color: 'var(--status-warning)', bg: 'rgba(245,158,11,0.1)'  },
+  DRAFT:            { label: '草稿',    color: 'var(--slate-400)', bg: 'rgba(148,163,184,0.1)' },
+  PENDING_APPROVAL: { label: '审批中',  color: 'var(--status-warning)', bg: 'var(--status-warning-bg-light)'  },
   APPROVED:         { label: '已批准',  color: 'var(--status-success)', bg: 'rgba(34,197,94,0.1)'   },
   ALLOCATED:        { label: '已分配',  color: 'var(--status-info)', bg: 'rgba(59,130,246,0.1)'  },
-  PICKED:           { label: '已拣货',  color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)'  },
-  LOADED:           { label: '已装车',  color: '#06b6d4', bg: 'rgba(6,182,212,0.1)'   },
+  PICKED:           { label: '已拣货',  color: 'var(--color-purple-500)', bg: 'rgba(139,92,246,0.1)'  },
+  LOADED:           { label: '已装车',  color: 'var(--status-info)', bg: 'rgba(6,182,212,0.1)'   },
   SHIPPED:          { label: '已发货',  color: '#0ea5e9', bg: 'rgba(14,165,233,0.1)'  },
-  DELIVERED:        { label: '已送达',  color: 'var(--status-success)', bg: 'rgba(16,185,129,0.1)'  },
+  DELIVERED:        { label: '已送达',  color: 'var(--status-success)', bg: 'var(--status-success-bg-medium)'  },
   RECEIVED:         { label: '已签收',  color: 'var(--status-success)', bg: 'rgba(34,197,94,0.12)'  },
-  RECONCILED:       { label: '已对账',  color: '#6366f1', bg: 'rgba(99,102,241,0.1)'  },
-  REJECTED:         { label: '已拒绝',  color: 'var(--status-danger)', bg: 'rgba(239,68,68,0.1)'   },
-  CANCELLED:        { label: '已取消',  color: '#64748b', bg: 'rgba(100,116,139,0.1)' },
+  RECONCILED:       { label: '已对账',  color: 'var(--color-accent)', bg: 'rgba(99,102,241,0.1)'  },
+  REJECTED:         { label: '已拒绝',  color: 'var(--status-danger)', bg: 'var(--status-danger-bg-light)'   },
+  CANCELLED:        { label: '已取消',  color: 'var(--slate-500)', bg: 'rgba(100,116,139,0.1)' },
 };
 
 const TRANSITION_LABELS: Record<string, string> = {
@@ -118,7 +118,7 @@ function SkuBadge({ code }: { code: string | null | undefined }) {
     <span style={{
       display: 'inline-block', padding: '1px 6px', borderRadius: 4, fontSize: 10,
       fontFamily: 'monospace', fontWeight: 700, background: 'rgba(139,92,246,0.12)',
-      color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.25)', marginLeft: 4,
+      color: 'var(--color-purple-500)', border: '1px solid rgba(139,92,246,0.25)', marginLeft: 4,
     }}>{code}</span>
   );
 }
@@ -306,7 +306,7 @@ export default function SalesV2OrdersPage() {
 
   // ── 渲染 ──────────────────────────────────────────────────────────────────
 
-  const statusConf = (st: string) => STATUS_MAP[st] ?? { label: st, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
+  const statusConf = (st: string) => STATUS_MAP[st] ?? { label: st, color: 'var(--slate-400)', bg: 'rgba(148,163,184,0.1)' };
 
   return (
     <div className="animate-fade-in">
@@ -436,14 +436,14 @@ export default function SalesV2OrdersPage() {
 
       {/* ── 新建订单抽屉 ── */}
       {showCreate && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-50)', zIndex: 100, display: 'flex', justifyContent: 'flex-end' }}>
           <div style={{ width: 560, background: 'var(--bg-card)', height: '100%', overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>新建销售订单</div>
               <button onClick={() => setShowCreate(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={18} /></button>
             </div>
 
-            {actionError && <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: 'var(--status-danger)', fontSize: 13 }}>{actionError}</div>}
+            {actionError && <div style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--status-danger-bg-faint)', color: 'var(--status-danger)', fontSize: 13 }}>{actionError}</div>}
 
             {/* 基本信息 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -481,15 +481,15 @@ export default function SalesV2OrdersPage() {
               const isOver    = cs === 'OVER_LIMIT';
               const isWarn    = cs === 'WARNING';
               const panelBg   = isFrozen ? 'rgba(107,114,128,0.08)' : isOverdue || isOver ? 'rgba(239,68,68,0.07)' : isWarn ? 'rgba(245,158,11,0.07)' : 'rgba(34,197,94,0.06)';
-              const panelBdr  = isFrozen ? 'rgba(107,114,128,0.25)' : isOverdue || isOver ? 'rgba(239,68,68,0.25)' : isWarn ? 'rgba(245,158,11,0.25)' : 'rgba(34,197,94,0.2)';
+              const panelBdr  = isFrozen ? 'rgba(107,114,128,0.25)' : isOverdue || isOver ? 'rgba(239,68,68,0.25)' : isWarn ? 'var(--status-warning-border)' : 'rgba(34,197,94,0.2)';
               const statusCfg: Record<string, { label: string; color: string }> = {
                 NORMAL:     { label: '信用正常', color: 'var(--status-success)' },
                 WARNING:    { label: '⚠ 逾期预警', color: 'var(--status-warning)' },
                 OVER_LIMIT: { label: '🚫 超信用额度', color: 'var(--status-danger)' },
                 OVERDUE:    { label: '🚫 账期逾期', color: 'var(--status-danger)' },
-                FROZEN:     { label: '🔒 账户冻结，禁止下单', color: '#6b7280' },
+                FROZEN:     { label: '🔒 账户冻结，禁止下单', color: 'var(--gray-500)' },
               };
-              const scf = cs ? (statusCfg[cs] ?? { label: cs, color: '#94a3b8' }) : null;
+              const scf = cs ? (statusCfg[cs] ?? { label: cs, color: 'var(--slate-400)' }) : null;
               return (
                 <div style={{ padding: '10px 14px', borderRadius: 8, background: panelBg, border: `1px solid ${panelBdr}`, fontSize: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {creditInfo.loading ? (
@@ -515,7 +515,7 @@ export default function SalesV2OrdersPage() {
                         </div>
                       )}
                       {isFrozen && (
-                        <div style={{ color: '#6b7280', fontWeight: 700, fontSize: 12 }}>
+                        <div style={{ color: 'var(--gray-500)', fontWeight: 700, fontSize: 12 }}>
                           该客户已冻结，无法提交订单，请联系财务
                         </div>
                       )}
@@ -544,10 +544,10 @@ export default function SalesV2OrdersPage() {
               {newItems.map((item, idx) => {
                 const belowFloor = item._resolved?.floorPrice != null && Number(item.actualUnitPrice) > 0 && Number(item.actualUnitPrice) < item._resolved.floorPrice;
                 return (
-                  <div key={idx} style={{ padding: 12, borderRadius: 8, border: `1px solid ${belowFloor ? 'rgba(239,68,68,0.4)' : 'var(--border)'}`, marginBottom: 8, background: belowFloor ? 'rgba(239,68,68,0.04)' : undefined }}>
+                  <div key={idx} style={{ padding: 12, borderRadius: 8, border: `1px solid ${belowFloor ? 'var(--status-danger)' : 'var(--border)'}`, marginBottom: 8, background: belowFloor ? 'rgba(239,68,68,0.04)' : undefined }}>
                     {/* G4-C：商品 SKU 主数据，禁止手工录入；自动带出 productCode/gradeCode/spec/name */}
                     <div style={{ marginBottom: 8 }}>
-                      <label style={{ fontSize: 11, color: '#8b5cf6', display: 'block', marginBottom: 2 }}>商品（SKU 主数据）*</label>
+                      <label style={{ fontSize: 11, color: 'var(--color-purple-500)', display: 'block', marginBottom: 2 }}>商品（SKU 主数据）*</label>
                       <SkuSelector
                         value={item.skuCode ?? ''}
                         onChange={code => setNewItems(p => p.map((it, i) => i === idx ? { ...it, skuCode: code, _resolved: undefined } : it))}
@@ -563,7 +563,7 @@ export default function SalesV2OrdersPage() {
                           if (raw) setTimeout(() => resolveItemPrice(idx), 0);
                         }}
                         style={{ fontSize: 12, padding: '6px 8px', border: '1px solid rgba(139,92,246,0.3)' }} />
-                      {item.skuCode && <span style={{ fontSize: 10, color: '#8b5cf6' }}>✓ 已自动填充产品代码 / 等级 / 规格</span>}
+                      {item.skuCode && <span style={{ fontSize: 10, color: 'var(--color-purple-500)' }}>✓ 已自动填充产品代码 / 等级 / 规格</span>}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.5fr auto', gap: 8, alignItems: 'end' }}>
                       <div>
@@ -623,7 +623,7 @@ export default function SalesV2OrdersPage() {
 
       {/* ── 订单详情抽屉 ── */}
       {detailOrder && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-50)', zIndex: 100, display: 'flex', justifyContent: 'flex-end' }}>
           <div style={{ width: 560, background: 'var(--bg-card)', height: '100%', overflow: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -633,16 +633,16 @@ export default function SalesV2OrdersPage() {
               <button onClick={() => setDetailOrder(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={18} /></button>
             </div>
 
-            {actionError && <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: 'var(--status-danger)', fontSize: 13 }}>{actionError}</div>}
+            {actionError && <div style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--status-danger-bg-faint)', color: 'var(--status-danger)', fontSize: 13 }}>{actionError}</div>}
 
             {/* 状态 + 预警 */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {(() => { const sc = statusConf(detailOrder.status); return (
                 <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: sc.bg, color: sc.color }}>{sc.label}</span>
               ); })()}
-              {detailOrder.below_floor_price && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: 'rgba(239,68,68,0.1)', color: 'var(--status-danger)' }}>⚠ 低于底价</span>}
-              {detailOrder.over_credit && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: 'rgba(239,68,68,0.1)', color: 'var(--status-danger)' }}>🚫 超信用额度</span>}
-              {detailOrder.credit_warning && !detailOrder.over_credit && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: 'rgba(245,158,11,0.1)', color: 'var(--status-warning)' }}>⚠ 信用预警</span>}
+              {detailOrder.below_floor_price && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: 'var(--status-danger-bg-light)', color: 'var(--status-danger)' }}>⚠ 低于底价</span>}
+              {detailOrder.over_credit && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: 'var(--status-danger-bg-light)', color: 'var(--status-danger)' }}>🚫 超信用额度</span>}
+              {detailOrder.credit_warning && !detailOrder.over_credit && <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: 'var(--status-warning-bg-light)', color: 'var(--status-warning)' }}>⚠ 信用预警</span>}
             </div>
 
             {/* 基本信息 */}
@@ -662,7 +662,7 @@ export default function SalesV2OrdersPage() {
 
             {/* 信用快照（提交时刻记录） */}
             {detailOrder.credit_snapshot && (
-              <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', fontSize: 12 }}>
+              <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--status-warning-bg-faint)', border: '1px solid var(--status-warning-border)', fontSize: 12 }}>
                 <div style={{ fontWeight: 700, color: 'var(--status-warning)', marginBottom: 6, fontSize: 12 }}>提交时信用快照</div>
                 <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                   <span>状态：<strong>{detailOrder.credit_snapshot.creditStatus ?? '—'}</strong></span>

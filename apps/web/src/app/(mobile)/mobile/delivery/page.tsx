@@ -4,17 +4,17 @@ import { useRouter } from 'next/navigation';
 
 // ── 颜色常量 ──────────────────────────────────────────────────────────────────
 const C = {
-  bg:      '#070b14',
-  bg2:     '#0f1929',
-  card:    'rgba(255,255,255,0.05)',
-  border:  'rgba(255,255,255,0.10)',
-  text:    '#e2e8f0',
-  textSub: '#94a3b8',
+  bg:      'var(--brand-deep-1)',
+  bg2:     'var(--brand-deep-2)',
+  card:    'var(--overlay-white-05)',
+  border:  'var(--overlay-white-10)',
+  text:    'var(--slate-200)',
+  textSub: 'var(--slate-400)',
   orange:  'var(--status-warning)',
   blue:    'var(--status-info)',
   green:   'var(--status-success)',
   red:     'var(--status-danger)',
-  gray:    '#64748b',
+  gray:    'var(--slate-500)',
 };
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {

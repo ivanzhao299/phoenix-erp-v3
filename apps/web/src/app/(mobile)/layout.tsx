@@ -34,7 +34,7 @@ function NetworkBanner() {
       left: 0, right: 0, zIndex: 9999,
       padding: '10px 16px',
       background: offline ? 'var(--status-danger)' : 'var(--status-success)',
-      color: '#fff', fontSize: 13, fontWeight: 600,
+      color: 'var(--bg-card)', fontSize: 13, fontWeight: 600,
       textAlign: 'center',
       transition: 'background 0.3s',
     }}>
@@ -71,7 +71,7 @@ function MobileLoadingScreen() {
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: 38,
-          boxShadow: '0 0 48px rgba(245,158,11,0.45), 0 12px 28px rgba(0,0,0,0.5)',
+          boxShadow: '0 0 48px rgba(245,158,11,0.45), 0 12px 28px var(--overlay-black-50)',
         }}>
           🐦
         </div>

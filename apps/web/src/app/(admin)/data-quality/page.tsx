@@ -40,9 +40,9 @@ interface Alert {
 
 function scoreColor(s: number): { bg: string; fg: string; label: string } {
   if (s >= 90) return { bg: 'rgba(34,197,94,0.12)',  fg: 'var(--status-success)', label: '优秀' };
-  if (s >= 75) return { bg: 'rgba(59,130,246,0.12)', fg: 'var(--color-accent)', label: '良好' };
-  if (s >= 60) return { bg: 'rgba(245,158,11,0.12)', fg: 'var(--status-warning)', label: '及格' };
-  return         { bg: 'rgba(239,68,68,0.12)',   fg: 'var(--status-danger)', label: '需整改' };
+  if (s >= 75) return { bg: 'var(--status-info-bg)', fg: 'var(--color-accent)', label: '良好' };
+  if (s >= 60) return { bg: 'var(--status-warning-bg-light)', fg: 'var(--status-warning)', label: '及格' };
+  return         { bg: 'var(--status-danger-bg-light)',   fg: 'var(--status-danger)', label: '需整改' };
 }
 
 function severityColor(s: 'LOW'|'MEDIUM'|'HIGH'): string {
@@ -96,7 +96,7 @@ export default function DataQualityPage() {
       />
 
       {error && (
-        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: 'var(--status-danger)', marginBottom: 16, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--status-danger-bg-faint)', color: 'var(--status-danger)', marginBottom: 16, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
           <AlertCircle size={14} /> {error}
         </div>
       )}
@@ -130,7 +130,7 @@ export default function DataQualityPage() {
           {/* 告警计数大卡 */}
           <div style={{
             padding: 24, borderRadius: 16,
-            background: scores.highAlertCount > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(34,197,94,0.08)',
+            background: scores.highAlertCount > 0 ? 'var(--status-danger-bg-faint)' : 'var(--status-success-bg-faint)',
             border: `1px solid ${scores.highAlertCount > 0 ? '#dc262633' : '#16a34a33'}`,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
@@ -205,7 +205,7 @@ export default function DataQualityPage() {
               return (
                 <div key={i} style={{
                   padding: '12px 14px', borderRadius: 8,
-                  background: a.severity === 'HIGH' ? 'rgba(239,68,68,0.05)' : 'var(--bg-muted)',
+                  background: a.severity === 'HIGH' ? 'var(--status-danger-bg-faint)' : 'var(--bg-muted)',
                   border: `1px solid ${sev}22`,
                   display: 'flex', alignItems: 'flex-start', gap: 12,
                 }}>

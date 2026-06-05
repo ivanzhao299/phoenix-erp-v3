@@ -27,7 +27,7 @@ function TerminalClock() {
       <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--status-warning)', fontVariantNumeric: 'tabular-nums', letterSpacing: 1 }}>
         {now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
       </span>
-      <span style={{ fontSize: 11, color: '#475569' }}>
+      <span style={{ fontSize: 11, color: 'var(--slate-600)' }}>
         {now.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'short' })}
       </span>
     </div>
@@ -98,10 +98,10 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
       >
         <div style={{ fontSize: 72, lineHeight: 1 }}>⛶</div>
         <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#f1f5f9', letterSpacing: 0.5 }}>
+          <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--slate-100)', letterSpacing: 0.5 }}>
             {t('terminal.enter_fullscreen', '点击进入全屏模式')}
           </div>
-          <div style={{ fontSize: 14, color: '#475569' }}>
+          <div style={{ fontSize: 14, color: 'var(--slate-600)' }}>
             {t('terminal.fullscreen_hint', '包装作业台运行于全屏模式')}
           </div>
         </div>
@@ -109,7 +109,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
           marginTop: 8,
           padding: '14px 48px', borderRadius: 12,
           background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-          color: '#fff', fontSize: 17, fontWeight: 700,
+          color: 'var(--bg-card)', fontSize: 17, fontWeight: 700,
           boxShadow: '0 4px 20px rgba(59,130,246,0.4)',
         }}>
           {t('terminal.tap_to_start', '点击屏幕继续')}
@@ -124,8 +124,8 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
       width: '100vw',
       height: '100vh',
       overflow: 'hidden',
-      background: '#0f172a',
-      color: '#f1f5f9',
+      background: 'var(--slate-900)',
+      color: 'var(--slate-100)',
       fontFamily: '"Noto Sans SC", "Inter", sans-serif',
       touchAction: 'none',          // kiosk: block ALL browser touch gestures
       userSelect: 'none',
@@ -163,17 +163,17 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
                 ● {SHIFT_LABELS[ctx.currentShift.shiftType ?? ''] ?? ctx.currentShift.shiftType ?? ctx.currentShift.code}
               </span>
               {ctx.currentShift.lineName && (
-                <span style={{ fontSize: 11, color: '#94a3b8' }}>{ctx.currentShift.lineName}</span>
+                <span style={{ fontSize: 11, color: 'var(--slate-400)' }}>{ctx.currentShift.lineName}</span>
               )}
               {ctx.currentShift.supervisorName && (
                 <>
-                  <span style={{ color: '#334155', fontSize: 10 }}>·</span>
-                  <span style={{ fontSize: 11, color: '#64748b' }}>{ctx.currentShift.supervisorName}</span>
+                  <span style={{ color: 'var(--slate-700)', fontSize: 10 }}>·</span>
+                  <span style={{ fontSize: 11, color: 'var(--slate-500)' }}>{ctx.currentShift.supervisorName}</span>
                 </>
               )}
             </div>
           ) : (
-            <div style={{ fontSize: 10, color: '#475569', marginLeft: 12, letterSpacing: 0.3 }}>未开班</div>
+            <div style={{ fontSize: 10, color: 'var(--slate-600)', marginLeft: 12, letterSpacing: 0.3 }}>未开班</div>
           )}
 
           <div style={{ flex: 1 }} />
@@ -185,7 +185,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
                 style={{
                   padding: '4px 10px', fontSize: 11, fontWeight: 700,
                   background: lang === l ? 'var(--status-warning)' : 'transparent',
-                  color: lang === l ? '#0f172a' : '#475569',
+                  color: lang === l ? 'var(--slate-900)' : 'var(--slate-600)',
                   border: 'none', cursor: 'pointer',
                   borderRight: l !== 'lo' ? '1px solid #1e3a5f' : 'none',
                   WebkitTapHighlightColor: 'transparent', minWidth: 30, textAlign: 'center',
@@ -196,7 +196,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
           </div>
 
           {/* 分隔 */}
-          <span style={{ width: 1, height: 16, background: '#1e3a5f', flexShrink: 0 }} />
+          <span style={{ width: 1, height: 16, background: 'var(--brand-deep-3)', flexShrink: 0 }} />
 
           {/* 用户 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -204,11 +204,11 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
               width: 24, height: 24, borderRadius: '50%',
               background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 11, color: '#fff', fontWeight: 700, flexShrink: 0,
+              fontSize: 11, color: 'var(--bg-card)', fontWeight: 700, flexShrink: 0,
             }}>
               {(user?.name || user?.username || '?').charAt(0).toUpperCase()}
             </div>
-            <span style={{ fontSize: 12, color: '#64748b' }}>
+            <span style={{ fontSize: 12, color: 'var(--slate-500)' }}>
               {user?.name || user?.username}
             </span>
           </div>
@@ -218,7 +218,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
             style={{
               padding: '4px 12px', borderRadius: 6,
               border: '1px solid #1e3a5f',
-              background: 'transparent', color: '#475569',
+              background: 'transparent', color: 'var(--slate-600)',
               fontSize: 11, fontWeight: 500, cursor: 'pointer',
               WebkitTapHighlightColor: 'transparent',
             }}>

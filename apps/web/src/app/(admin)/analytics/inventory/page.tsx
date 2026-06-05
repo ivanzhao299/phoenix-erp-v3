@@ -69,7 +69,7 @@ function getRemainingDays(batch: Batch): number | null {
 }
 
 const GRADE_COLORS: Record<string, string> = {
-  AA: "#6366f1",
+  AA: "var(--color-accent)",
   A: "var(--status-success)",
   B: "var(--status-warning)",
   C: "var(--status-danger)",
@@ -208,7 +208,7 @@ export default function InventoryAnalyticsPage() {
               title="活跃批次数"
               value={activeBatches.length}
               sub="批"
-              color="#6366f1"
+              color="var(--color-accent)"
             />
             <StatCard
               icon={BarChart2}
@@ -290,8 +290,8 @@ export default function InventoryAnalyticsPage() {
                             <span
                               className="text-xs font-semibold px-2 py-0.5 rounded-full"
                               style={{
-                                background: `${GRADE_COLORS[b.grade?.toUpperCase() ?? ""] ?? "#94a3b8"}18`,
-                                color: GRADE_COLORS[b.grade?.toUpperCase() ?? ""] ?? "#94a3b8",
+                                background: `${GRADE_COLORS[b.grade?.toUpperCase() ?? ""] ?? "var(--slate-400)"}18`,
+                                color: GRADE_COLORS[b.grade?.toUpperCase() ?? ""] ?? "var(--slate-400)",
                               }}
                             >
                               {b.grade ?? b.sku_code ?? "—"}

@@ -183,7 +183,7 @@ function CompactHouseCard({ house, onClick }: { house: HouseData; onClick: () =>
       }}
       onMouseEnter={e => {
         (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-        (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 24px rgba(239,68,68,0.15)";
+        (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 24px var(--status-danger-bg-medium)";
       }}
       onMouseLeave={e => {
         (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
@@ -195,7 +195,7 @@ function CompactHouseCard({ house, onClick }: { house: HouseData; onClick: () =>
         <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {house.houseName || house.houseCode}
         </span>
-        <span className={s.severityBadge} style={{ background: "rgba(239,68,68,0.15)", color: "var(--status-danger)", flexShrink: 0, fontSize: 11, padding: "2px 8px", borderRadius: 10 }}>
+        <span className={s.severityBadge} style={{ background: "var(--status-danger-bg-medium)", color: "var(--status-danger)", flexShrink: 0, fontSize: 11, padding: "2px 8px", borderRadius: 10 }}>
           ⚠ {house.alarmCount}
         </span>
       </div>
@@ -203,7 +203,7 @@ function CompactHouseCard({ house, onClick }: { house: HouseData; onClick: () =>
       {/* Metrics */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {house.avgTemp != null && (
-          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 8, background: "rgba(239,68,68,0.1)", color: "var(--status-danger)", fontWeight: 600 }}>
+          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 8, background: "var(--status-danger-bg-light)", color: "var(--status-danger)", fontWeight: 600 }}>
             🌡 {house.avgTemp.toFixed(1)}°C
           </span>
         )}
@@ -213,11 +213,11 @@ function CompactHouseCard({ house, onClick }: { house: HouseData; onClick: () =>
           </span>
         )}
         {house.co2 != null ? (
-          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 8, background: "rgba(245,158,11,0.1)", color: "var(--status-warning)", fontWeight: 600 }}>
+          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 8, background: "var(--status-warning-bg-light)", color: "var(--status-warning)", fontWeight: 600 }}>
             CO₂ {house.co2.toFixed(0)}
           </span>
         ) : house.ammonia != null ? (
-          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 8, background: "rgba(245,158,11,0.1)", color: "var(--status-warning)", fontWeight: 600 }}>
+          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 8, background: "var(--status-warning-bg-light)", color: "var(--status-warning)", fontWeight: 600 }}>
             NH₃ {house.ammonia.toFixed(2)}
           </span>
         ) : null}
@@ -531,7 +531,7 @@ export default function DeviceAlertsPage() {
       {/* Error banner */}
       {error && (
         <div style={{
-          background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)",
+          background: "var(--status-danger-bg-faint)", border: "1px solid var(--status-danger-bg-strong)",
           borderRadius: 10, padding: "12px 16px", marginBottom: 20,
           color: "var(--status-danger)", display: "flex", alignItems: "center", gap: 8, fontSize: 13,
         }}>

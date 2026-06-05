@@ -63,7 +63,7 @@ function BarChart({
 function TrendBadge({ current, prev }: { current: number; prev: number }) {
   if (prev === 0) return null;
   const pct = Math.round(((current - prev) / prev) * 100);
-  if (pct === 0) return <Minus size={13} color="#9ca3af" />;
+  if (pct === 0) return <Minus size={13} color="var(--gray-400)" />;
   const up = pct > 0;
   return (
     <span style={{
@@ -194,7 +194,7 @@ export default function AnalyticsPage() {
           <button key={p.days} onClick={() => setDays(p.days)} style={{
             padding: '6px 20px', borderRadius: 20, cursor: 'pointer',
             border: `1px solid ${days === p.days ? 'var(--status-warning)' : t.btnBorder}`,
-            background: days === p.days ? 'rgba(245,158,11,0.15)' : t.btnBg,
+            background: days === p.days ? 'var(--status-warning-bg-medium)' : t.btnBg,
             color: days === p.days ? 'var(--status-warning)' : t.textSub,
             fontSize: 13, fontWeight: 600,
           }}>
@@ -220,7 +220,7 @@ export default function AnalyticsPage() {
         {!loading && error && (
           <div style={{
             padding: '12px 14px', borderRadius: 10, marginBottom: 10,
-            background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+            background: 'var(--status-danger-bg-light)', border: '1px solid var(--status-danger-bg-strong)',
             color: 'var(--status-danger)', fontSize: 13, textAlign: 'center',
           }}>{error}</div>
         )}

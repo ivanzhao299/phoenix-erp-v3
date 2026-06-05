@@ -159,7 +159,7 @@ function Toast({ msg, type, onClose }: { msg: string; type: 'success' | 'error';
       position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
       padding: '12px 20px', borderRadius: 8, maxWidth: 380,
       background: type === 'success' ? 'var(--status-success)' : 'var(--status-danger)',
-      color: 'var(--text-on-dark)', fontSize: 14, boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+      color: 'var(--text-on-dark)', fontSize: 14, boxShadow: '0 4px 16px var(--overlay-black-30)',
       display: 'flex', alignItems: 'center', gap: 8,
     }}>
       {type === 'success' ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}

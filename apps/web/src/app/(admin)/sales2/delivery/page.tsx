@@ -42,11 +42,11 @@ async function api<T = any>(method: string, path: string, body?: unknown): Promi
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   PLANNED:          { label: '待装车',    color: 'var(--text-disabled)', bg: 'var(--status-neutral-bg)', icon: Clock },
-  LOADING:          { label: '装车中',    color: 'var(--status-warning)', bg: 'rgba(245,158,11,0.1)',  icon: Package },
-  LOADED:           { label: '已装车',    color: 'var(--color-accent)', bg: 'rgba(59,130,246,0.12)',  icon: Package },
+  LOADING:          { label: '装车中',    color: 'var(--status-warning)', bg: 'var(--status-warning-bg-light)',  icon: Package },
+  LOADED:           { label: '已装车',    color: 'var(--color-accent)', bg: 'var(--status-info-bg)',  icon: Package },
   DEPARTED:         { label: '已发车',    color: 'var(--status-special)', bg: 'var(--status-info-bg)',  icon: Navigation },
   ARRIVED:          { label: '已到达',    color: 'var(--color-accent)', bg: 'rgba(6,182,212,0.1)',   icon: MapPin },
-  PARTIALLY_SIGNED: { label: '部分签收',  color: 'var(--status-warning)', bg: 'rgba(245,158,11,0.12)', icon: AlertTriangle },
+  PARTIALLY_SIGNED: { label: '部分签收',  color: 'var(--status-warning)', bg: 'var(--status-warning-bg-light)', icon: AlertTriangle },
   COMPLETED:        { label: '已完成',    color: 'var(--status-success)', bg: 'var(--status-success-bg)',   icon: CheckCircle },
   CANCELLED:        { label: '已取消',    color: 'var(--text-secondary)', bg: 'rgba(100,116,139,0.1)', icon: Ban },
 };
@@ -499,7 +499,7 @@ export default function DeliveryPage() {
                 <div key={o.id} onClick={() => loadDetail(o)}
                   style={{
                     padding: '12px 16px', borderRadius: 8, cursor: 'pointer',
-                    background: selected?.id === o.id ? 'rgba(59,130,246,0.12)' : 'var(--bg-muted)',
+                    background: selected?.id === o.id ? 'var(--status-info-bg)' : 'var(--bg-muted)',
                     border: '1px solid ' + (selected?.id === o.id ? 'rgba(59,130,246,0.4)' : 'var(--border)'),
                     transition: 'all 0.12s',
                   }}>
@@ -624,8 +624,8 @@ export default function DeliveryPage() {
                   })()}
                   {['PLANNED', 'LOADING'].includes(selected.status) && (
                     <button disabled={actionLoading} onClick={cancelOrder}
-                      style={{ padding: '8px 14px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.4)',
-                        cursor: 'pointer', background: 'rgba(239,68,68,0.1)', color: 'var(--status-danger)',
+                      style={{ padding: '8px 14px', borderRadius: 6, border: '1px solid var(--status-danger)',
+                        cursor: 'pointer', background: 'var(--status-danger-bg-light)', color: 'var(--status-danger)',
                         fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
                       <Ban size={12} />取消
                     </button>
@@ -658,7 +658,7 @@ export default function DeliveryPage() {
                         <span style={{
                           fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 4,
                           background: item.status === 'SIGNED' ? 'var(--status-success-bg)'
-                            : item.status === 'EXCEPTION' ? 'rgba(239,68,68,0.1)'
+                            : item.status === 'EXCEPTION' ? 'var(--status-danger-bg-light)'
                             : 'var(--status-neutral-bg)',
                           color: item.status === 'SIGNED' ? 'var(--status-success)'
                             : item.status === 'EXCEPTION' ? 'var(--status-danger)'
@@ -676,7 +676,7 @@ export default function DeliveryPage() {
                               setExceptionQty(''); setSignRemark(''); setSignErr('');
                             }}
                               style={{ padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(34,197,94,0.4)',
-                                background: 'rgba(34,197,94,0.08)', cursor: 'pointer', color: 'var(--status-success)',
+                                background: 'var(--status-success-bg-faint)', cursor: 'pointer', color: 'var(--status-success)',
                                 fontSize: 11, fontWeight: 600 }}>
                               签收
                             </button>
@@ -712,7 +712,7 @@ export default function DeliveryPage() {
                           <span style={{
                             fontSize: 11, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
                             background: RECEIPT_STATUS_MAP[r.status]?.color === 'var(--status-success)'
-                              ? 'var(--status-success-bg)' : 'rgba(239,68,68,0.1)',
+                              ? 'var(--status-success-bg)' : 'var(--status-danger-bg-light)',
                             color: RECEIPT_STATUS_MAP[r.status]?.color ?? 'var(--text-disabled)',
                           }}>
                             {RECEIPT_STATUS_MAP[r.status]?.label ?? r.status}
@@ -808,7 +808,7 @@ export default function DeliveryPage() {
                   <span style={{
                     fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 4,
                     background: v.status === 'ACTIVE' ? 'var(--status-success-bg)'
-                      : v.status === 'MAINTENANCE' ? 'rgba(245,158,11,0.1)' : 'rgba(100,116,139,0.1)',
+                      : v.status === 'MAINTENANCE' ? 'var(--status-warning-bg-light)' : 'rgba(100,116,139,0.1)',
                     color: v.status === 'ACTIVE' ? 'var(--status-success)'
                       : v.status === 'MAINTENANCE' ? 'var(--status-warning)' : 'var(--text-secondary)',
                   }}>

@@ -27,18 +27,18 @@ export class ErrorBoundary extends React.Component<
       <div style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         justifyContent: 'center', height: '100vh', gap: 16,
-        fontFamily: 'sans-serif', color: '#374151', background: '#f9fafb',
+        fontFamily: 'sans-serif', color: 'var(--gray-700)', background: 'var(--gray-50)',
       }}>
         <div style={{ fontSize: 48 }}>⚠️</div>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>页面出现了意外错误</h2>
-        <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
+        <p style={{ margin: 0, fontSize: 14, color: 'var(--gray-500)' }}>
           请刷新页面重试，或联系系统管理员
         </p>
         <button
 type="button"           onClick={() => window.location.reload()}
           style={{
             padding: '10px 24px', borderRadius: 8, border: 'none',
-            background: 'var(--status-warning)', color: '#fff', fontSize: 14,
+            background: 'var(--status-warning)', color: 'var(--bg-card)', fontSize: 14,
             fontWeight: 600, cursor: 'pointer',
           }}
         >

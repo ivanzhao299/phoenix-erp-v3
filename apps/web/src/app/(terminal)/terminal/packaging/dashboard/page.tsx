@@ -72,7 +72,7 @@ export default function TerminalDashboard() {
         {/* 班次状态卡 */}
         {ctx.currentShift?.status === 'OPEN' ? (
           <div style={{
-            background: 'rgba(16,185,129,0.10)', borderRadius: 12, padding: '16px 24px',
+            background: 'var(--status-success-bg-medium)', borderRadius: 12, padding: '16px 24px',
             border: '1px solid rgba(16,185,129,0.35)', flexShrink: 0,
             display: 'flex', alignItems: 'center', gap: 20,
           }}>
@@ -106,7 +106,7 @@ export default function TerminalDashboard() {
             <div style={{ flex: 1 }} />
             <button type="button" onClick={() => router.push('/terminal/packaging/shift-close')}
               style={{
-                background: 'transparent', border: '1px solid rgba(16,185,129,0.4)',
+                background: 'transparent', border: '1px solid var(--status-success)',
                 color: 'var(--status-success)', borderRadius: 8, padding: '10px 24px',
                 fontSize: 16, fontWeight: 700, cursor: 'pointer',
               }}>
@@ -115,8 +115,8 @@ export default function TerminalDashboard() {
           </div>
         ) : (
           <div style={{
-            background: 'rgba(245,158,11,0.08)', borderRadius: 12, padding: '16px 24px',
-            border: '1px solid rgba(245,158,11,0.25)', flexShrink: 0,
+            background: 'var(--status-warning-bg-faint)', borderRadius: 12, padding: '16px 24px',
+            border: '1px solid var(--status-warning-border)', flexShrink: 0,
             display: 'flex', alignItems: 'center', gap: 16,
           }}>
             <span style={{ fontSize: 24 }}>⏰</span>

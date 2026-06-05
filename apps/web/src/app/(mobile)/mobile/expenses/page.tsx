@@ -41,12 +41,12 @@ const EXPENSE_TYPES: Record<string, string> = {
 };
 
 const STATUS_CFG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  DRAFT:            { label: '草稿',   color: '#6b7280', icon: Receipt },
+  DRAFT:            { label: '草稿',   color: 'var(--gray-500)', icon: Receipt },
   PENDING_APPROVAL: { label: '审批中', color: 'var(--status-warning)', icon: Clock },
   APPROVED:         { label: '已审批', color: 'var(--status-success)', icon: CheckCircle },
   REJECTED:         { label: '已拒绝', color: 'var(--status-danger)', icon: XCircle },
-  CANCELLED:        { label: '已取消', color: '#9ca3af', icon: XCircle },
-  REIMBURSED:       { label: '已报销', color: '#6366f1', icon: Wallet },
+  CANCELLED:        { label: '已取消', color: 'var(--gray-400)', icon: XCircle },
+  REIMBURSED:       { label: '已报销', color: 'var(--color-accent)', icon: Wallet },
 };
 
 function fmt(n: string | number | null | undefined): string {
@@ -81,11 +81,11 @@ export default function MobileExpensesPage() {
 
   // ── 颜色主题 ──────────────────────────────────────────────────────────────
 
-  const bg    = isDark ? '#111827' : '#f8fafc';
-  const card  = isDark ? '#1f2937' : '#fff';
-  const text  = isDark ? '#f9fafb' : '#0f172a';
-  const sub   = isDark ? '#9ca3af' : '#64748b';
-  const border= isDark ? '#374151' : '#f1f5f9';
+  const bg    = isDark ? 'var(--gray-900)' : 'var(--slate-50)';
+  const card  = isDark ? 'var(--gray-800)' : 'var(--bg-card)';
+  const text  = isDark ? 'var(--gray-50)' : 'var(--slate-900)';
+  const sub   = isDark ? 'var(--gray-400)' : 'var(--slate-500)';
+  const border= isDark ? 'var(--gray-700)' : 'var(--slate-100)';
 
   // ── 数据加载 ──────────────────────────────────────────────────────────────
 
@@ -218,7 +218,7 @@ export default function MobileExpensesPage() {
 
             {detail.status === 'DRAFT' && (
               <button onClick={() => void submitApproval(detail.id)}
-                style={{ width: '100%', padding: '13px', borderRadius: 12, border: 'none', background: '#6366f1', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
+                style={{ width: '100%', padding: '13px', borderRadius: 12, border: 'none', background: 'var(--color-accent)', color: 'var(--bg-card)', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
                 <Send size={16} /> 提交审批
               </button>
             )}
@@ -262,11 +262,11 @@ export default function MobileExpensesPage() {
       </div>
 
       {/* Tab */}
-      <div style={{ display: 'flex', background: isDark ? '#374151' : '#e2e8f0', borderRadius: 10, padding: 3, marginBottom: 20 }}>
+      <div style={{ display: 'flex', background: isDark ? 'var(--gray-700)' : 'var(--slate-200)', borderRadius: 10, padding: 3, marginBottom: 20 }}>
         {(['list', 'create'] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-            background: tab === t ? (isDark ? '#1f2937' : '#fff') : 'transparent',
+            background: tab === t ? (isDark ? 'var(--gray-800)' : 'var(--bg-card)') : 'transparent',
             color: tab === t ? text : sub,
             boxShadow: tab === t ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
           }}>
@@ -366,7 +366,7 @@ export default function MobileExpensesPage() {
           {saveErr && <div style={{ color: 'var(--status-danger)', fontSize: 13, marginBottom: 12 }}>{saveErr}</div>}
 
           <button onClick={() => void createExpense()} disabled={saving}
-            style={{ width: '100%', padding: '13px', borderRadius: 12, border: 'none', background: '#6366f1', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+            style={{ width: '100%', padding: '13px', borderRadius: 12, border: 'none', background: 'var(--color-accent)', color: 'var(--bg-card)', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
             {saving ? '创建中...' : '创建草稿'}
           </button>
           <div style={{ fontSize: 12, color: sub, textAlign: 'center', marginTop: 8 }}>创建后可在「我的申请」中提交审批</div>

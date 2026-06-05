@@ -5,12 +5,12 @@ import { Suspense } from 'react';
 
 // ── 颜色常量 ──────────────────────────────────────────────────────────────────
 const C = {
-  bg:      '#070b14',
-  bg2:     '#0f1929',
-  card:    'rgba(255,255,255,0.05)',
-  border:  'rgba(255,255,255,0.10)',
-  text:    '#e2e8f0',
-  textSub: '#94a3b8',
+  bg:      'var(--brand-deep-1)',
+  bg2:     'var(--brand-deep-2)',
+  card:    'var(--overlay-white-05)',
+  border:  'var(--overlay-white-10)',
+  text:    'var(--slate-200)',
+  textSub: 'var(--slate-400)',
   orange:  'var(--status-warning)',
   green:   'var(--status-success)',
   red:     'var(--status-danger)',
@@ -140,8 +140,8 @@ function SignForm({ id }: { id: string }) {
       {error && (
         <div style={{
           color: C.red,
-          background: 'rgba(239,68,68,0.10)',
-          border: `1px solid rgba(239,68,68,0.3)`,
+          background: 'var(--status-danger-bg-light)',
+          border: `1px solid var(--status-danger-bg-strong)`,
           borderRadius: 10, padding: '10px 14px', fontSize: 13,
         }}>
           ⚠ {error}
@@ -157,8 +157,8 @@ function SignForm({ id }: { id: string }) {
           height: 52,
           borderRadius: 12,
           border: 'none',
-          background: submitting ? '#64748b' : C.green,
-          color: '#fff',
+          background: submitting ? 'var(--slate-500)' : C.green,
+          color: 'var(--bg-card)',
           fontSize: 16,
           fontWeight: 700,
           cursor: submitting ? 'not-allowed' : 'pointer',

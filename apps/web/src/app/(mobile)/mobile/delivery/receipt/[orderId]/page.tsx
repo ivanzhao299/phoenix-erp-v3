@@ -3,17 +3,17 @@ import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
 
 const C = {
-  bg:      '#070b14',
-  bg2:     '#0f1929',
-  card:    'rgba(255,255,255,0.05)',
-  border:  'rgba(255,255,255,0.10)',
-  text:    '#e2e8f0',
-  textSub: '#94a3b8',
+  bg:      'var(--brand-deep-1)',
+  bg2:     'var(--brand-deep-2)',
+  card:    'var(--overlay-white-05)',
+  border:  'var(--overlay-white-10)',
+  text:    'var(--slate-200)',
+  textSub: 'var(--slate-400)',
   orange:  'var(--status-warning)',
   blue:    'var(--status-info)',
   green:   'var(--status-success)',
   red:     'var(--status-danger)',
-  gray:    '#64748b',
+  gray:    'var(--slate-500)',
 };
 
 const EXCEPTION_TYPES = ['缺货', '破损', '拒收', '超期', '其他'];
@@ -396,7 +396,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ orderId: str
                       style={{
                         position: 'absolute', top: -8, right: -8,
                         width: 22, height: 22, borderRadius: '50%',
-                        background: C.red, border: 'none', color: '#fff',
+                        background: C.red, border: 'none', color: 'var(--bg-card)',
                         fontSize: 14, cursor: 'pointer', lineHeight: 1,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}
@@ -443,7 +443,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ orderId: str
             {/* 错误提示 */}
             {submitError && (
               <div style={{
-                color: C.red, background: 'rgba(239,68,68,0.1)',
+                color: C.red, background: 'var(--status-danger-bg-light)',
                 border: `1px solid ${C.red}44`, borderRadius: 10,
                 padding: '10px 14px', marginBottom: 16, fontSize: 13,
               }}>
@@ -488,7 +488,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ orderId: str
               borderRadius: 12,
               border: 'none',
               background: submitting ? C.gray : (parseInt(exceptionQty) > 0 ? C.red : C.green),
-              color: '#fff',
+              color: 'var(--bg-card)',
               fontSize: 16,
               fontWeight: 700,
               cursor: submitting ? 'not-allowed' : 'pointer',

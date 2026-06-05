@@ -5,11 +5,11 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 // ── Per-type color config — no light/dark split needed (CSS vars handle it) ──
 const TYPE_CFG: Record<string, { accent: string; iconBg: string; confirmBg: string; confirmShadow: string }> = {
-  danger:  { accent:'var(--status-danger)', iconBg:'rgba(239,68,68,0.12)',  confirmBg:'linear-gradient(135deg,#ef4444,#b91c1c)', confirmShadow:'rgba(239,68,68,0.28)'  },
-  warning: { accent:'var(--status-warning)', iconBg:'rgba(245,158,11,0.12)', confirmBg:'linear-gradient(135deg,#f59e0b,#d97706)', confirmShadow:'rgba(245,158,11,0.28)' },
+  danger:  { accent:'var(--status-danger)', iconBg:'var(--status-danger-bg-light)',  confirmBg:'linear-gradient(135deg,#ef4444,#b91c1c)', confirmShadow:'rgba(239,68,68,0.28)'  },
+  warning: { accent:'var(--status-warning)', iconBg:'var(--status-warning-bg-light)', confirmBg:'linear-gradient(135deg,#f59e0b,#d97706)', confirmShadow:'rgba(245,158,11,0.28)' },
   success: { accent:'var(--status-success)', iconBg:'rgba(34,197,94,0.12)',  confirmBg:'linear-gradient(135deg,#22c55e,#16a34a)', confirmShadow:'rgba(34,197,94,0.28)'  },
-  confirm: { accent:'var(--status-info)', iconBg:'rgba(59,130,246,0.12)', confirmBg:'linear-gradient(135deg,#3b82f6,#2563eb)', confirmShadow:'rgba(59,130,246,0.28)' },
-  alert:   { accent:'var(--status-info)', iconBg:'rgba(59,130,246,0.12)', confirmBg:'linear-gradient(135deg,#3b82f6,#2563eb)', confirmShadow:'rgba(59,130,246,0.28)' },
+  confirm: { accent:'var(--status-info)', iconBg:'var(--status-info-bg)', confirmBg:'linear-gradient(135deg,#3b82f6,#2563eb)', confirmShadow:'rgba(59,130,246,0.28)' },
+  alert:   { accent:'var(--status-info)', iconBg:'var(--status-info-bg)', confirmBg:'linear-gradient(135deg,#3b82f6,#2563eb)', confirmShadow:'rgba(59,130,246,0.28)' },
 };
 
 interface PhoenixDialogProps {
@@ -68,7 +68,7 @@ function PhoenixDialog({
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.08)',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.18), 0 4px 16px var(--overlay-black-08)',
         animation: 'phxScaleIn 0.18s cubic-bezier(0.34,1.45,0.64,1)',
       }}>
 
@@ -146,7 +146,7 @@ type="button"             onClick={onConfirm}
             style={{
               padding: '9px 28px', fontSize: 13.5, fontWeight: 600,
               border: 'none', borderRadius: 8,
-              background: cfg.confirmBg, color: '#fff',
+              background: cfg.confirmBg, color: 'var(--bg-card)',
               cursor: 'pointer',
               boxShadow: `0 2px 10px ${cfg.confirmShadow}`,
               transition: 'opacity 0.15s, transform 0.15s, box-shadow 0.15s',

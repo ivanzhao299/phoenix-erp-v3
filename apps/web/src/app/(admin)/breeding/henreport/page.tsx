@@ -133,7 +133,7 @@ export default function HenReportPage() {
 
       {error && (
         <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8,
-          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: 'var(--status-danger)', fontSize: 13 }}>
+          background: 'var(--status-danger-bg-faint)', border: '1px solid var(--status-danger-bg-medium)', color: 'var(--status-danger)', fontSize: 13 }}>
           {error}
         </div>
       )}

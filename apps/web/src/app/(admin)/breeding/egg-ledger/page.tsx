@@ -237,8 +237,8 @@ export default function EggLedgerPage() {
         )}
       </div>
 
-      {error && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: 'var(--status-danger)', fontSize: 13 }}>{error}</div>}
-      {saved && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.08)', color: 'var(--status-success)', fontSize: 13 }}>✓ 已保存</div>}
+      {error && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: 'var(--status-danger-bg-faint)', color: 'var(--status-danger)', fontSize: 13 }}>{error}</div>}
+      {saved && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: 'var(--status-success-bg-medium)', color: 'var(--status-success)', fontSize: 13 }}>✓ 已保存</div>}
 
       {/* ── 库存 Tab ── */}
       {tab === 'stock' && (
@@ -257,7 +257,7 @@ export default function EggLedgerPage() {
                 : stock.map(g => (
                   <tr key={g.grade}>
                     <td>
-                      <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, padding: '2px 8px', borderRadius: 6, background: 'rgba(245,158,11,0.1)', color: 'var(--status-warning)', border: '1px solid rgba(245,158,11,0.25)' }}>{g.grade}</span>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, padding: '2px 8px', borderRadius: 6, background: 'var(--status-warning-bg-light)', color: 'var(--status-warning)', border: '1px solid var(--status-warning-border)' }}>{g.grade}</span>
                     </td>
                     <td>{g.name}</td>
                     <td style={{ textAlign: 'right', fontWeight: 700, color: g.qty > 0 ? 'var(--status-warning)' : 'var(--text-secondary)' }}>{g.qty.toLocaleString()}</td>
@@ -287,7 +287,7 @@ export default function EggLedgerPage() {
                 return (
                   <tr key={g.code} style={{ background: e.qty > 0 ? 'rgba(16,185,129,0.03)' : undefined }}>
                     <td>
-                      <span style={{ fontFamily: 'monospace', fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(245,158,11,0.1)', color: 'var(--status-warning)' }}>{g.code}</span>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'var(--status-warning-bg-light)', color: 'var(--status-warning)' }}>{g.code}</span>
                     </td>
                     <td>{g.name}</td>
                     <td style={{ color: 'var(--text-secondary)' }}>{stockQty.toLocaleString()}</td>
@@ -333,7 +333,7 @@ export default function EggLedgerPage() {
                 return (
                   <tr key={g.code} style={{ background: e.qty > 0 ? 'rgba(245,158,11,0.03)' : undefined }}>
                     <td>
-                      <span style={{ fontFamily: 'monospace', fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(245,158,11,0.1)', color: 'var(--status-warning)' }}>{g.code}</span>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'var(--status-warning-bg-light)', color: 'var(--status-warning)' }}>{g.code}</span>
                     </td>
                     <td>{g.name}</td>
                     <td style={{ color: stockQty < (e.qty || 0) ? 'var(--status-danger)' : 'var(--text-secondary)', fontWeight: stockQty < (e.qty || 0) ? 700 : 400 }}>{stockQty.toLocaleString()}</td>
@@ -370,7 +370,7 @@ export default function EggLedgerPage() {
       {/* ── 报损 Tab（与移动端共用 /api/farm/egg/write-off，change_type = EGG_WRITE_OFF）── */}
       {tab === 'writeoff' && (
         <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'auto' }}>
-          <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.05)', borderBottom: '1px solid rgba(239,68,68,0.15)', fontSize: 12, color: 'var(--status-danger)' }}>
+          <div style={{ padding: '10px 14px', background: 'var(--status-danger-bg-faint)', borderBottom: '1px solid var(--status-danger-bg-medium)', fontSize: 12, color: 'var(--status-danger)' }}>
             报损操作将从库存中扣除对应数量，写入 change_type = EGG_WRITE_OFF 流水，不可撤销
           </div>
           <table className={s.table}>
@@ -388,7 +388,7 @@ export default function EggLedgerPage() {
                 return (
                   <tr key={g.code} style={{ background: e.qty > 0 ? 'rgba(239,68,68,0.03)' : undefined }}>
                     <td>
-                      <span style={{ fontFamily: 'monospace', fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'rgba(239,68,68,0.1)', color: 'var(--status-danger)' }}>{g.code}</span>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'var(--status-danger-bg-light)', color: 'var(--status-danger)' }}>{g.code}</span>
                     </td>
                     <td>{g.name}</td>
                     <td style={{ color: 'var(--text-secondary)' }}>{stockQty.toLocaleString()}</td>
@@ -396,7 +396,7 @@ export default function EggLedgerPage() {
                       {canEdit ? (
                         <input type="number" min="0" value={e.qty || ''}
                           onChange={ev => setWriteoffEntries(p => ({ ...p, [g.code]: { ...e, qty: Math.max(0, Number(ev.target.value) || 0) } }))}
-                          placeholder="0" style={{ ...inputStyle, border: '1px solid rgba(239,68,68,0.3)' }} />
+                          placeholder="0" style={{ ...inputStyle, border: '1px solid var(--status-danger-bg-strong)' }} />
                       ) : e.qty}
                     </td>
                     <td>
@@ -446,7 +446,7 @@ export default function EggLedgerPage() {
                     <tr key={e.id}>
                       <td style={{ color: 'var(--text-secondary)' }}>{e.log_date}</td>
                       <td>
-                        <span style={{ fontFamily: 'monospace', fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(245,158,11,0.1)', color: 'var(--status-warning)' }}>{e.grade}</span>
+                        <span style={{ fontFamily: 'monospace', fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'var(--status-warning-bg-light)', color: 'var(--status-warning)' }}>{e.grade}</span>
                       </td>
                       <td>
                         <span style={{

@@ -112,17 +112,17 @@ export default function BrandSettingsPage() {
 
       {/* 实时预览卡 */}
       <div style={{ ...card, background:"linear-gradient(135deg,var(--bg-card) 0%,var(--bg-card) 100%)", border:"none" }}>
-        <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:14, letterSpacing:"0.1em" }}>{t('ui.预览', '预 览')}</div>
+        <div style={{ fontSize:11, color:"var(--overlay-white-10)", marginBottom:14, letterSpacing:"0.1em" }}>{t('ui.预览', '预 览')}</div>
         <div style={{ display:"flex", alignItems:"center", gap:14 }}>
           {form.logo_url
-            ? <img src={form.logo_url} alt="logo" style={{ width:48, height:48, objectFit:"contain", borderRadius:8, background:"rgba(255,255,255,0.08)", padding:4 }}/>
-            : <div style={{ width:48, height:48, borderRadius:8, background:"rgba(255,255,255,0.08)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>🏢</div>}
+            ? <img src={form.logo_url} alt="logo" style={{ width:48, height:48, objectFit:"contain", borderRadius:8, background:"var(--overlay-white-08)", padding:4 }}/>
+            : <div style={{ width:48, height:48, borderRadius:8, background:"var(--overlay-white-08)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>🏢</div>}
           <div>
-            <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:2 }}>{form.company_name||t('ui.公司简称', '公司简称')}</div>
+            <div style={{ fontSize:11, color:"var(--overlay-white-10)", marginBottom:2 }}>{form.company_name||t('ui.公司简称', '公司简称')}</div>
             <div style={{ fontSize:16, fontWeight:800, color:"var(--status-warning)", lineHeight:1.2 }}>{form.system_name||t('ui.系统名称', '系统名称')}</div>
           </div>
         </div>
-        {form.footer_text && <div style={{ marginTop:16, fontSize:11, color:"rgba(255,255,255,0.25)", borderTop:"1px solid rgba(255,255,255,0.08)", paddingTop:12 }}>{form.footer_text}</div>}
+        {form.footer_text && <div style={{ marginTop:16, fontSize:11, color:"rgba(255,255,255,0.25)", borderTop:"1px solid var(--overlay-white-08)", paddingTop:12 }}>{form.footer_text}</div>}
       </div>
 
       {/* 文字字段 */}

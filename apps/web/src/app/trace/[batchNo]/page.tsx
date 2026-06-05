@@ -128,8 +128,8 @@ function TraceShell({ title, children }: { title: string; children?: React.React
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: '#fff', borderRadius: 16, padding: '18px 18px 14px', marginBottom: 14, boxShadow: '0 4px 16px rgba(0,0,0,0.04)', border: '1px solid #fde68a' }}>
-      <div style={{ fontWeight: 700, color: '#92400e', marginBottom: 12, fontSize: 14 }}>{title}</div>
+    <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: '18px 18px 14px', marginBottom: 14, boxShadow: '0 4px 16px var(--overlay-black-04)', border: '1px solid #fde68a' }}>
+      <div style={{ fontWeight: 700, color: 'var(--status-warning)', marginBottom: 12, fontSize: 14 }}>{title}</div>
       {children}
     </div>
   );
@@ -138,7 +138,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', alignItems: 'baseline', borderBottom: '1px dashed #f3f4f6' }}>
-      <span style={{ fontSize: 12, color: '#9ca3af' }}>{label}</span>
+      <span style={{ fontSize: 12, color: 'var(--gray-400)' }}>{label}</span>
       <span style={{ fontSize: 13, fontWeight: 600, color: '#111', fontFamily: mono ? 'ui-monospace,monospace' : 'inherit', textAlign: 'right', maxWidth: '60%', wordBreak: 'break-all' }}>{value}</span>
     </div>
   );

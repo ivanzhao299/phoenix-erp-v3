@@ -6,10 +6,10 @@ import { usePolling } from '@/hooks/usePolling';
 
 const CARD_THEMES = [
   { accent: '#0ea5e9', bg: 'rgba(14,165,233,0.08)',  glow: 'rgba(14,165,233,0.18)' },  // 蓝：产蛋
-  { accent: 'var(--status-success)', bg: 'rgba(16,185,129,0.08)',  glow: 'rgba(16,185,129,0.18)' },  // 绿：库存
-  { accent: 'var(--status-warning)', bg: 'rgba(245,158,11,0.08)',  glow: 'rgba(245,158,11,0.18)' },  // 琥珀：POS
-  { accent: 'var(--status-danger)', bg: 'rgba(239,68,68,0.08)',   glow: 'rgba(239,68,68,0.18)'  },  // 红：预警
-  { accent: '#8b5cf6', bg: 'rgba(139,92,246,0.08)',  glow: 'rgba(139,92,246,0.18)' },  // 紫：农场直销
+  { accent: 'var(--status-success)', bg: 'var(--status-success-bg-medium)',  glow: 'rgba(16,185,129,0.18)' },  // 绿：库存
+  { accent: 'var(--status-warning)', bg: 'var(--status-warning-bg-faint)',  glow: 'rgba(245,158,11,0.18)' },  // 琥珀：POS
+  { accent: 'var(--status-danger)', bg: 'var(--status-danger-bg-faint)',   glow: 'rgba(239,68,68,0.18)'  },  // 红：预警
+  { accent: 'var(--color-purple-500)', bg: 'rgba(139,92,246,0.08)',  glow: 'rgba(139,92,246,0.18)' },  // 紫：农场直销
 ];
 
 function StatCard({ title, value, unit, icon, trend, alert: isAlert, loading, themeIdx = 0 }: {
@@ -24,7 +24,7 @@ function StatCard({ title, value, unit, icon, trend, alert: isAlert, loading, th
           {icon}
         </div>
         {trend && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 2, color: 'var(--status-success)', fontSize: 13, fontWeight: 700, background: 'rgba(16,185,129,0.08)', padding: '3px 8px', borderRadius: 20 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 2, color: 'var(--status-success)', fontSize: 13, fontWeight: 700, background: 'var(--status-success-bg-medium)', padding: '3px 8px', borderRadius: 20 }}>
             <ArrowUpRight size={13} />+{trend}%
           </span>
         )}
@@ -159,7 +159,7 @@ export default function DashboardKPIs({ initialData }: Props) {
                 {integrity.score}
               </span>
               <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, fontWeight: 700,
-                background: integrity.grade === 'A' ? '#dcfce7' : integrity.grade === 'B' ? '#fef3c7' : '#fee2e2',
+                background: integrity.grade === 'A' ? '#dcfce7' : integrity.grade === 'B' ? 'var(--status-warning-bg-faint)' : 'var(--status-danger-bg-faint)',
                 color: integrity.grade === 'A' ? 'var(--status-success)' : integrity.grade === 'B' ? 'var(--status-warning)' : 'var(--status-danger)' }}>
                 {integrity.grade}级
               </span>
@@ -170,7 +170,7 @@ export default function DashboardKPIs({ initialData }: Props) {
               const pct = Math.round((d.score / d.maxScore) * 100);
               const col = pct >= 80 ? 'var(--status-success)' : pct >= 60 ? 'var(--status-warning)' : 'var(--status-danger)';
               return (
-                <div key={d.name} title={d.detail} style={{ flex: '1', minWidth: 120, padding: '8px 10px', background: 'var(--bg-page)', borderRadius: 'var(--radius-md)', border: `1px solid ${pct >= 80 ? '#bbf7d0' : pct >= 60 ? '#fde68a' : '#fecaca'}` }}>
+                <div key={d.name} title={d.detail} style={{ flex: '1', minWidth: 120, padding: '8px 10px', background: 'var(--bg-page)', borderRadius: 'var(--radius-md)', border: `1px solid ${pct >= 80 ? '#bbf7d0' : pct >= 60 ? 'var(--status-warning-bg-faint)' : '#fecaca'}` }}>
                   <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4, fontWeight: 600 }}>{d.name}</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ height: 4, flex: 1, background: 'var(--border)', borderRadius: 4, marginRight: 6, overflow: 'hidden' }}>
@@ -200,7 +200,7 @@ export default function DashboardKPIs({ initialData }: Props) {
                 <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--status-warning)', display: 'inline-block' }} />POS收银(LAK)
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#8b5cf6', display: 'inline-block' }} />农场直销(LAK)
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--color-purple-500)', display: 'inline-block' }} />农场直销(LAK)
               </span>
             </div>
           </div>

@@ -321,7 +321,7 @@ export default function PackingPage() {
                   style={{
                     padding: '9px 10px', borderRadius: 8, cursor: 'pointer', textAlign: 'left',
                     border: `2px solid ${selectedSpec?.id === spec.id ? spec.color : T.BOR}`,
-                    background: selectedSpec?.id === spec.id ? `${spec.color}15` : 'rgba(255,255,255,0.03)',
+                    background: selectedSpec?.id === spec.id ? `${spec.color}15` : 'var(--overlay-white-03)',
                     display: 'flex', alignItems: 'center', gap: 7,
                     WebkitTapHighlightColor: 'transparent',
                   }}>
@@ -364,7 +364,7 @@ export default function PackingPage() {
               const activeColor = selectedGrade ? (gradeColorMap[selectedGrade] ?? T.ACC) : T.ACC;
               return (
                 <div style={{
-                  background: 'rgba(255,255,255,0.05)', borderRadius: 10,
+                  background: 'var(--overlay-white-05)', borderRadius: 10,
                   border: `1px solid ${selectedGrade && selectedSpec ? activeColor + '50' : T.BOR}`,
                   height: 96, display: 'flex', alignItems: 'center', justifyContent: 'center',
                   marginBottom: 10, overflow: 'hidden',
@@ -445,7 +445,7 @@ export default function PackingPage() {
                     return (
                       <div key={i} style={{
                         display: 'flex', alignItems: 'center',
-                        background: 'rgba(255,255,255,0.04)', borderRadius: 7, padding: '8px 10px',
+                        background: 'var(--overlay-white-05)', borderRadius: 7, padding: '8px 10px',
                         borderLeft: `3px solid ${bColor}`, gap: 8,
                       }}>
                         <div style={{ flex: 1 }}>

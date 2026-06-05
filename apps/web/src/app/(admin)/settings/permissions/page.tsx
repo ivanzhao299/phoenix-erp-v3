@@ -204,8 +204,8 @@ export default function PermissionsPage() {
                             borderRadius: 6, cursor: "pointer",
                           }}>{t('common.edit', '编辑')}</button>
                           <button type="button" onClick={() => { setDelItem(row); setConfirm(true); }} style={{
-                            padding: "4px 10px", fontSize: "0.75rem", background: "rgba(239,68,68,0.12)",
-                            color: "var(--status-danger)", border: "1px solid rgba(239,68,68,0.3)",
+                            padding: "4px 10px", fontSize: "0.75rem", background: "var(--status-danger-bg-light)",
+                            color: "var(--status-danger)", border: "1px solid var(--status-danger-bg-strong)",
                             borderRadius: 6, cursor: "pointer",
                           }}>{t('common.delete', '删除')}</button>
                         </div>

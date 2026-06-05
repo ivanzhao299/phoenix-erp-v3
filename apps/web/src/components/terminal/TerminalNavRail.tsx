@@ -95,10 +95,10 @@ export default function TerminalNavRail() {
       }}>
         {brand.logo_url
           ? <img src={brand.logo_url} alt={brand.company_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : <Egg size={28} color="#0f172a" strokeWidth={2.5} />
+          : <Egg size={28} color="var(--slate-900)" strokeWidth={2.5} />
         }
       </div>
-      <div style={{ width: 52, height: 1, background: '#1e3a5f', margin: '20px 0 16px', flexShrink: 0 }} />
+      <div style={{ width: 52, height: 1, background: 'var(--brand-deep-3)', margin: '20px 0 16px', flexShrink: 0 }} />
 
       {/* Nav items */}
       {STEPS.map(step => {
@@ -110,7 +110,7 @@ export default function TerminalNavRail() {
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               width: '100%', minHeight: 72, padding: '8px 4px',
               textDecoration: 'none', position: 'relative',
-              background: active ? '#0f172a' : 'transparent',
+              background: active ? 'var(--slate-900)' : 'transparent',
               borderLeft: active ? '3px solid #f59e0b' : '3px solid transparent',
               borderRadius: active ? '12px 0 0 12px' : 0,
               marginRight: active ? -1 : 0,
@@ -121,12 +121,12 @@ export default function TerminalNavRail() {
             <step.icon
               size={28}
               strokeWidth={active ? 2.5 : 1.8}
-              color={active ? 'var(--status-warning)' : '#475569'}
+              color={active ? 'var(--status-warning)' : 'var(--slate-600)'}
               style={{ marginBottom: 5, flexShrink: 0 }}
             />
             <span style={{
               fontSize: 13, lineHeight: 1.3, textAlign: 'center',
-              color: active ? 'var(--status-warning)' : '#64748b',
+              color: active ? 'var(--status-warning)' : 'var(--slate-500)',
               fontWeight: active ? 700 : 400,
               letterSpacing: 0.2,
             }}>{t(step.labelKey, step.labelFb)}</span>
@@ -134,7 +134,7 @@ export default function TerminalNavRail() {
             {isException && openExceptionCount > 0 && (
               <span style={{
                 position: 'absolute', top: 8, right: 8,
-                background: 'var(--status-danger)', color: '#fff',
+                background: 'var(--status-danger)', color: 'var(--bg-card)',
                 borderRadius: 99, fontSize: 10, fontWeight: 700,
                 minWidth: 18, height: 18, padding: '0 4px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -152,7 +152,7 @@ export default function TerminalNavRail() {
         {showLogout && (
           <button type="button" onClick={handleLogout}
             style={{
-              background: 'var(--status-danger)', color: '#fff', border: 'none',
+              background: 'var(--status-danger)', color: 'var(--bg-card)', border: 'none',
               borderRadius: 7, fontSize: 11, padding: '5px 8px', cursor: 'pointer',
               whiteSpace: 'nowrap', fontWeight: 600,
             }}
@@ -168,16 +168,16 @@ export default function TerminalNavRail() {
             width: 42, height: 42, borderRadius: '50%',
             background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 16, color: '#fff', fontWeight: 700, cursor: 'pointer',
+            fontSize: 16, color: 'var(--bg-card)', fontWeight: 700, cursor: 'pointer',
             userSelect: 'none',
           }}
         >
           {(user?.name || user?.username || '?').charAt(0).toUpperCase()}
         </div>
-        <div style={{ fontSize: 11, color: '#475569', textAlign: 'center', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: 11, color: 'var(--slate-600)', textAlign: 'center', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {user?.name || user?.username}
         </div>
-        <div style={{ fontSize: 10, color: '#334155', textAlign: 'center', lineHeight: 1.3, whiteSpace: 'pre-line', marginTop: 4 }}>
+        <div style={{ fontSize: 10, color: 'var(--slate-700)', textAlign: 'center', lineHeight: 1.3, whiteSpace: 'pre-line', marginTop: 4 }}>
           {t('terminal.title', '包装\n作业台')}
         </div>
       </div>

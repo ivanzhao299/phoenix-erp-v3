@@ -470,7 +470,7 @@ export default function PaymentsPage() {
                       )}
                       {row.status === "APPROVED" && (
                         <button className={s.btnIcon} title="确认付款"
-                          style={{ borderColor: "#8b5cf6", color: "#8b5cf6" }}
+                          style={{ borderColor: "var(--color-purple-500)", color: "var(--color-purple-500)" }}
                           onClick={() => openPay(row)}>
                           <PlayCircle size={13} />
                         </button>
@@ -831,9 +831,9 @@ export default function PaymentsPage() {
 
       {/* ── AP 选择弹窗 ────────────────────────────────────────────────────────── */}
       {apModalOpen && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center" }}
+        <div style={{ position: "fixed", inset: 0, background: "var(--overlay-black-50)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center" }}
           onClick={() => setApModalOpen(false)}>
-          <div style={{ background: "var(--bg-card)", borderRadius: 10, padding: 20, width: 640, maxHeight: "70vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}
+          <div style={{ background: "var(--bg-card)", borderRadius: 10, padding: 20, width: 640, maxHeight: "70vh", overflowY: "auto", boxShadow: "0 8px 32px var(--overlay-black-30)" }}
             onClick={e => e.stopPropagation()}>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>
               <DollarSign size={15} style={{ verticalAlign: "middle", marginRight: 6 }} />选择未核销应付单
@@ -906,7 +906,7 @@ export default function PaymentsPage() {
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
           <button type="button" className={s.btnSecondary} onClick={() => setPayOpen(false)}>取消</button>
           <button type="button" className={s.btnPrimary} disabled={actionSubmitting}
-            style={{ background: "#8b5cf6" }}
+            style={{ background: "var(--color-purple-500)" }}
             onClick={() => execAction("pay", actionComment, "付款执行成功，AP 已核销")}>
             {actionSubmitting ? "处理中…" : "确认付款"}
           </button>
@@ -947,9 +947,9 @@ function SimpleModal({ open, onClose, title, children }: {
 }) {
   if (!open) return null;
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
+    <div style={{ position: "fixed", inset: 0, background: "var(--overlay-black-50)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
       onClick={onClose}>
-      <div style={{ background: "var(--bg-card)", borderRadius: 10, padding: 20, width: 460, boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}
+      <div style={{ background: "var(--bg-card)", borderRadius: 10, padding: 20, width: 460, boxShadow: "0 8px 32px var(--overlay-black-30)" }}
         onClick={e => e.stopPropagation()}>
         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
           <FileText size={16} /> {title}

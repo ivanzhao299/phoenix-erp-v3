@@ -301,7 +301,7 @@ export default function LabelPrintPage() {
       <>
         {/* 遮罩 */}
         <div onClick={closeSettings}
-          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:400 }} />
+          style={{ position:'fixed', inset:0, background:'var(--overlay-black-50)', zIndex:400 }} />
 
         {/* 抽屉面板 */}
         <div style={{ position:'fixed', top:0, right:0, width:DRAWER_W, height:'100vh',
@@ -312,7 +312,7 @@ export default function LabelPrintPage() {
           <div style={{ padding:'12px 16px', borderBottom:`1px solid ${T.BOR}`, flexShrink:0,
             display:'flex', alignItems:'center', gap:10 }}>
             <div style={{ width:36, height:36, borderRadius:10, flexShrink:0,
-              background:'rgba(245,158,11,0.15)', border:`1px solid rgba(245,158,11,0.35)`,
+              background:'var(--status-warning-bg-medium)', border:`1px solid var(--status-warning-bg-strong)`,
               display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>
               🏷️
             </div>
@@ -356,7 +356,7 @@ export default function LabelPrintPage() {
                       style={{ padding:0, border:'none', background:'transparent', cursor:'zoom-in',
                         display:'block', width:displayW, height:displayH, overflow:'hidden',
                         borderRadius:2, flexShrink:0,
-                        boxShadow:'0 2px 16px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08)' }}>
+                        boxShadow:'0 2px 16px var(--overlay-black-50), 0 0 0 1px var(--overlay-white-08)' }}>
                       <LabelPreview ppm={MM_TO_PX} />
                     </button>
                   </div>
@@ -406,7 +406,7 @@ export default function LabelPrintPage() {
                     <button type="button" key={key} onClick={() => setCfg({ [key]: !on })}
                       style={{ padding:'8px 10px', borderRadius:9, cursor:'pointer', textAlign:'left',
                         border:`1.5px solid ${on ? T.ACC + '70' : T.BOR}`,
-                        background: on ? 'rgba(245,158,11,0.08)' : 'rgba(255,255,255,0.02)',
+                        background: on ? 'var(--status-warning-bg-faint)' : 'rgba(255,255,255,0.02)',
                         display:'flex', alignItems:'center', gap:8 }}>
                       <div style={{ width:18, height:18, borderRadius:5, flexShrink:0,
                         border:`2px solid ${on ? T.ACC : T.BOR}`,
@@ -438,14 +438,14 @@ export default function LabelPrintPage() {
                       style={{ flex:1, padding:'9px 0', borderRadius:8, fontSize:12,
                         fontWeight: cfg.expiryDays === d ? 700 : 400, cursor:'pointer',
                         border:`1.5px solid ${cfg.expiryDays === d ? T.ACC : T.BOR}`,
-                        background: cfg.expiryDays === d ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.03)',
+                        background: cfg.expiryDays === d ? 'var(--status-warning-bg-light)' : 'var(--overlay-white-03)',
                         color: cfg.expiryDays === d ? T.ACC : T.MUT }}>
                       {d}{t('ui.天', '天')}
                     </button>
                   ))}
                   <input type="number" min={1} max={365} value={cfg.expiryDays}
                     onChange={e => setCfg({ expiryDays: Math.max(1, parseInt(e.target.value) || 28) })}
-                    style={{ width:52, background:'rgba(255,255,255,0.05)', border:`1px solid ${T.BOR}`,
+                    style={{ width:52, background:'var(--overlay-white-05)', border:`1px solid ${T.BOR}`,
                       borderRadius:8, padding:'8px 6px', color:T.TXT, fontSize:12, textAlign:'center' }} />
                 </div>
               </section>
@@ -461,7 +461,7 @@ export default function LabelPrintPage() {
                   fontSize:14, lineHeight:1, pointerEvents:'none', userSelect:'none' }}>🖨️</span>
                 <input value={cfg.printerName} onChange={e => setCfg({ printerName: e.target.value })}
                   placeholder={t('ui.留空使用系统默认打印机', '留空使用系统默认打印机')}
-                  style={{ width:'100%', background:'rgba(255,255,255,0.05)', border:`1px solid ${T.BOR}`,
+                  style={{ width:'100%', background:'var(--overlay-white-05)', border:`1px solid ${T.BOR}`,
                     borderRadius:10, padding:'10px 14px 10px 36px', color:T.TXT,
                     fontSize:13, boxSizing:'border-box' }} />
               </div>
@@ -469,8 +469,8 @@ export default function LabelPrintPage() {
 
             {/* 管理员：驱动下载 */}
             {isAdmin && (
-              <section style={{ background:'rgba(245,158,11,0.06)',
-                border:`1px solid rgba(245,158,11,0.25)`, borderRadius:12, padding:'16px' }}>
+              <section style={{ background:'var(--status-warning-bg-faint)',
+                border:`1px solid var(--status-warning-border)`, borderRadius:12, padding:'16px' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
                   <span style={{ fontSize:16 }}>🔧</span>
                   <div style={{ fontSize:13, fontWeight:700, color:T.ACC }}>{t('ui.打印机驱动', '打印机驱动')}</div>
@@ -558,7 +558,7 @@ export default function LabelPrintPage() {
         </div>
         <button type="button" onClick={() => setShowSettings(v => !v)}
           style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${showSettings ? T.ACC : T.BOR}`,
-            background: showSettings ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)',
+            background: showSettings ? 'var(--status-warning-bg-light)' : 'var(--overlay-white-05)',
             color: showSettings ? T.ACC : T.MUT, fontSize:13, cursor:'pointer', flexShrink:0 }}>
           ⚙️ {t('ui.标签设置', '标签设置')}
         </button>
@@ -579,7 +579,7 @@ export default function LabelPrintPage() {
             <div style={{ fontSize:13 }}>{t('ui.请先完成包装作业', '请先完成包装作业，再返回此页打印标签')}</div>
             <button type="button" onClick={() => router.push('/terminal/packaging/packing')}
               style={{ marginTop:8, padding:'10px 24px', borderRadius:8, border:`1px solid ${T.BOR}`,
-                background:'rgba(255,255,255,0.05)', color:T.MUT, fontSize:14, cursor:'pointer' }}>
+                background:'var(--overlay-white-05)', color:T.MUT, fontSize:14, cursor:'pointer' }}>
               ← {t('ui.前往包装', '前往包装')}
             </button>
           </div>
@@ -590,7 +590,7 @@ export default function LabelPrintPage() {
                 border:`1px solid ${box.verified ? 'rgba(34,197,94,0.3)' : T.BOR}`,
                 display:'flex', alignItems:'center', gap:16 }}>
                 <div style={{ width:48, height:48, borderRadius:10, flexShrink:0,
-                  background: box.verified ? 'rgba(34,197,94,0.15)' : box.printed ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.05)',
+                  background: box.verified ? 'rgba(34,197,94,0.15)' : box.printed ? 'var(--status-warning-bg-medium)' : 'var(--overlay-white-05)',
                   display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>
                   {box.verified ? '✅' : box.printed ? '🏷️' : '⬜'}
                 </div>
@@ -616,7 +616,7 @@ export default function LabelPrintPage() {
                       <input value={verifyInput} onChange={e => setVerifyInput(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && handleVerify(box.code)}
                         placeholder={t('ui.扫码校验', '扫码校验...')}
-                        style={{ width:180, background:'rgba(255,255,255,0.05)', border:`1px solid ${T.BOR}`,
+                        style={{ width:180, background:'var(--overlay-white-05)', border:`1px solid ${T.BOR}`,
                           borderRadius:6, padding:'8px 12px', color:T.TXT, fontSize:13 }} />
                       <button type="button" onClick={() => handleVerify(box.code)}
                         style={{ padding:'8px 14px', borderRadius:6, border:'none',
@@ -661,7 +661,7 @@ export default function LabelPrintPage() {
                   <button type="button" key={key} onClick={() => setReprintReason(label)}
                     style={{ padding:'12px 16px', borderRadius:8, cursor:'pointer', textAlign:'left',
                       border:`2px solid ${reprintReason === label ? T.ACC : T.BOR}`,
-                      background: reprintReason === label ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.03)',
+                      background: reprintReason === label ? 'var(--status-warning-bg-medium)' : 'var(--overlay-white-03)',
                       color: reprintReason === label ? T.ACC : T.TXT, fontSize:14 }}>
                     {label}
                   </button>

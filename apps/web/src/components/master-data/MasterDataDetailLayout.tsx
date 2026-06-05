@@ -248,7 +248,7 @@ export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
       {refs && !refs.canArchive && status !== 'ARCHIVED' && (
         <div style={{
           marginTop: 12, padding: '10px 14px', borderRadius: 8,
-          background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
+          background: 'var(--status-warning-bg-faint)', border: '1px solid var(--status-warning-bg-strong)',
           fontSize: 12, color: 'var(--status-warning)', display: 'flex', alignItems: 'center', gap: 6,
         }}>
           <AlertCircle size={13} />
@@ -262,8 +262,8 @@ export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
 function QualityCard({ label, value, ok }: { label: string; value: string; ok: boolean }) {
   return (
     <div style={{
-      padding: 12, borderRadius: 8, border: `1px solid ${ok ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
-      background: ok ? 'rgba(34,197,94,0.05)' : 'rgba(239,68,68,0.05)',
+      padding: 12, borderRadius: 8, border: `1px solid ${ok ? 'rgba(34,197,94,0.3)' : 'var(--status-danger-bg-strong)'}`,
+      background: ok ? 'rgba(34,197,94,0.05)' : 'var(--status-danger-bg-faint)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
         {ok ? <CheckCircle size={13} style={{ color: 'var(--status-success)' }} /> : <AlertCircle size={13} style={{ color: 'var(--status-danger)' }} />}

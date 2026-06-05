@@ -144,7 +144,7 @@ export default function ExceptionsPage() {
                   <button type="button" key={qt.type} onClick={()=>setForm(p=>({...p,type:qt.type}))}
                     style={{ padding:'12px', borderRadius:8, cursor:'pointer', textAlign:'left',
                       border:`2px solid ${form.type===qt.type?T.RED:T.BOR}`,
-                      background:form.type===qt.type?'rgba(239,68,68,0.1)':'rgba(255,255,255,0.03)',
+                      background:form.type===qt.type?'var(--status-danger-bg-light)':'var(--overlay-white-03)',
                       display:'flex', alignItems:'center', gap:8 }}>
                     <span style={{ fontSize:18 }}>{qt.icon}</span>
                     <span style={{ fontSize:13, color:form.type===qt.type?T.RED:T.TXT }}>{qt.label}</span>
@@ -160,7 +160,7 @@ export default function ExceptionsPage() {
                   <button type="button" key={s} onClick={()=>setForm(p=>({...p,severity:s}))}
                     style={{ flex:1, padding:'10px', borderRadius:8, cursor:'pointer',
                       border:`2px solid ${form.severity===s?SEV_COLORS[s]:T.BOR}`,
-                      background:form.severity===s?`${SEV_COLORS[s]}20`:'rgba(255,255,255,0.03)',
+                      background:form.severity===s?`${SEV_COLORS[s]}20`:'var(--overlay-white-03)',
                       color:form.severity===s?SEV_COLORS[s]:T.MUT, fontSize:12, fontWeight:600 }}>
                     {s==='LOW' ? t('ui.低', '低') : s==='MEDIUM' ? t('ui.中', '中') : s==='HIGH' ? t('ui.高', '高') : t('ui.严重', '严重')}
                   </button>
@@ -172,7 +172,7 @@ export default function ExceptionsPage() {
               <div style={{ fontSize:12, color:T.MUT, marginBottom:4 }}>{t('ui.涉及数量枚可选', '涉及数量（枚，可选）')}</div>
               <input type="number" value={form.quantity} onChange={e=>setForm(p=>({...p,quantity:e.target.value}))}
                 placeholder="0"
-                style={{ width:'100%', background:'rgba(255,255,255,0.05)', border:`1px solid ${T.BOR}`,
+                style={{ width:'100%', background:'var(--overlay-white-05)', border:`1px solid ${T.BOR}`,
                   borderRadius:8, padding:'12px 14px', color:T.TXT, fontSize:15, boxSizing:'border-box' }} />
             </div>
 
@@ -180,7 +180,7 @@ export default function ExceptionsPage() {
               <div style={{ fontSize:12, color:T.MUT, marginBottom:4 }}>{t('ui.异常描述', '异常描述')}</div>
               <textarea value={form.description} onChange={e=>setForm(p=>({...p,description:e.target.value}))}
                 placeholder={t('ui.描述异常情况', '描述异常情况...')} rows={3}
-                style={{ width:'100%', background:'rgba(255,255,255,0.05)', border:`1px solid ${T.BOR}`,
+                style={{ width:'100%', background:'var(--overlay-white-05)', border:`1px solid ${T.BOR}`,
                   borderRadius:8, padding:'10px 12px', color:T.TXT, fontSize:13,
                   resize:'none', boxSizing:'border-box' }} />
             </div>

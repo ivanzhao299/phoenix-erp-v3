@@ -12,7 +12,7 @@ import type { AccentColor } from "@/lib/design-tokens";
 // 旧硬编码色 → 全局语义强调色，复用全局 KpiCard 样式
 const COLOR_TO_ACCENT: Record<string, AccentColor> = {
   "var(--color-accent)": "blue", "var(--status-success)": "green", "var(--status-warning)": "amber", "var(--status-danger)": "red",
-  "#9333ea": "violet", "#0891b2": "cyan", "#be123c": "red", "#374151": "slate",
+  "var(--color-purple-600)": "violet", "var(--status-info)": "cyan", "var(--gray-700)": "slate",
 };
 
 // ── API helper ────────────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ function fmt(n: number | null | undefined, dec = 0): string {
 
 // ── 共用样式 ──────────────────────────────────────────────────────────────────
 // 薄包装：沿用本页旧 API（label/value/sub/color），内部统一走全局 KpiCard（养殖风）
-function KpiCard({ label, value, sub, color = "#374151" }: {
+function KpiCard({ label, value, sub, color = "var(--gray-700)" }: {
   label: string; value: string | number; sub?: string; color?: string;
 }) {
   return (
@@ -56,7 +56,7 @@ function KpiCard({ label, value, sub, color = "#374151" }: {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 28 }}>
-      <h4 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: "#111827",
+      <h4 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: "var(--gray-900)",
         borderLeft: "3px solid #2563eb", paddingLeft: 10 }}>{title}</h4>
       {children}
     </div>
@@ -115,13 +115,13 @@ function OverviewTab() {
           <KpiCard label="已交付订单"     value={fmt(data.totalDelivered)}       color="var(--status-success)" />
           <KpiCard label="应收款总额"     value={fmt(data.totalReceivable)}      color="var(--status-warning)" />
           <KpiCard label="逾期应收"       value={fmt(data.overdueReceivable)}    color="var(--status-danger)" />
-          <KpiCard label="退货总笔数"     value={fmt(data.totalReturns)}         color="#9333ea" />
-          <KpiCard label="库存可用量（枚）" value={fmt(data.inventoryBalance)}    color="#0891b2" />
+          <KpiCard label="退货总笔数"     value={fmt(data.totalReturns)}         color="var(--color-purple-600)" />
+          <KpiCard label="库存可用量（枚）" value={fmt(data.inventoryBalance)}    color="var(--status-info)" />
           <KpiCard label="临期库存（批）"  value={fmt(data.inventoryExpiring)}   color="var(--status-warning)" />
-          <KpiCard label="平均配送时长"   value={`${fmt(data.averageDeliveryHours, 1)}h`} color="#374151" />
+          <KpiCard label="平均配送时长"   value={`${fmt(data.averageDeliveryHours, 1)}h`} color="var(--gray-700)" />
           <KpiCard label="准时配送率"     value={`${fmt(data.onTimeDeliveryRate, 1)}%`} color="var(--status-success)" />
-          <KpiCard label="退货率"         value={`${fmt(data.returnRate, 2)}%`}  color="#9333ea" />
-          <KpiCard label="今日损耗（枚）"  value={fmt(data.totalLoss)}           color="#be123c" />
+          <KpiCard label="退货率"         value={`${fmt(data.returnRate, 2)}%`}  color="var(--color-purple-600)" />
+          <KpiCard label="今日损耗（枚）"  value={fmt(data.totalLoss)}           color="var(--status-danger)" />
         </div>
       </Section>
 
@@ -185,7 +185,7 @@ function SalesTab() {
     <div>
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={inputSt} />
-        <span style={{ fontSize: 13, color: "#6b7280" }}>至</span>
+        <span style={{ fontSize: 13, color: "var(--gray-500)" }}>至</span>
         <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   style={inputSt} />
         <select value={groupBy} onChange={e => setGroupBy(e.target.value as any)} style={inputSt}>
           <option value="day">按天</option>
@@ -214,7 +214,7 @@ function SalesTab() {
             rows={topCust.map((r: any) => [
               r.customerCode, r.customerName,
               fmt(r.totalOrders), fmt(r.totalSales),
-              <span key="od" style={{ color: r.overdueReceivable > 0 ? "var(--status-danger)" : "#374151" }}>
+              <span key="od" style={{ color: r.overdueReceivable > 0 ? "var(--status-danger)" : "var(--gray-700)" }}>
                 {fmt(r.overdueReceivable)}
               </span>,
             ])}
@@ -226,7 +226,7 @@ function SalesTab() {
             rows={topProd.map((r: any) => [
               r.productCode, r.productName ?? "—",
               fmt(r.totalQty), fmt(r.totalAmount),
-              <span key="rt" style={{ color: r.returnQty > 0 ? "#9333ea" : "#374151" }}>
+              <span key="rt" style={{ color: r.returnQty > 0 ? "var(--color-purple-600)" : "var(--gray-700)" }}>
                 {fmt(r.returnQty)}
               </span>,
             ])}
@@ -259,10 +259,10 @@ function ChannelTab() {
             fmt(r.salesAmount),
             fmt(r.deliveredCount),
             fmt(r.returnCount),
-            <span key="rate" style={{ color: r.returnRate > 5 ? "var(--status-danger)" : "#374151" }}>
+            <span key="rate" style={{ color: r.returnRate > 5 ? "var(--status-danger)" : "var(--gray-700)" }}>
               {fmt(r.returnRate, 2)}%
             </span>,
-            <span key="od" style={{ color: r.overdueReceivable > 0 ? "var(--status-danger)" : "#374151" }}>
+            <span key="od" style={{ color: r.overdueReceivable > 0 ? "var(--status-danger)" : "var(--gray-700)" }}>
               {fmt(r.overdueReceivable)}
             </span>,
           ])}
@@ -312,11 +312,11 @@ function PriceTab() {
               r.product_code,
               fmt(r.actual_unit_price),
               fmt(r.resolved_unit_price),
-              <span key="fp" style={{ color: r.below_floor_price ? "var(--status-danger)" : "#374151" }}>
+              <span key="fp" style={{ color: r.below_floor_price ? "var(--status-danger)" : "var(--gray-700)" }}>
                 {r.floor_price ? fmt(r.floor_price) : "—"}
                 {r.below_floor_price && " ⚠"}
               </span>,
-              <span key="dr" style={{ color: Math.abs(r.diff_rate) >= threshold ? "var(--status-danger)" : "#374151", fontWeight: 700 }}>
+              <span key="dr" style={{ color: Math.abs(r.diff_rate) >= threshold ? "var(--status-danger)" : "var(--gray-700)", fontWeight: 700 }}>
                 {r.diff_rate > 0 ? "+" : ""}{fmt(r.diff_rate, 2)}%
               </span>,
               String(r.created_at ?? "").slice(0, 10),
@@ -404,8 +404,8 @@ function ReturnTab() {
     <div>
       <Section title="退货 KPI">
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <KpiCard label="已完成退货数"    value={fmt(data.totalReturns)}       color="#9333ea" />
-          <KpiCard label="退货总金额"      value={fmt(data.totalReturnAmount)}  color="#9333ea" />
+          <KpiCard label="已完成退货数"    value={fmt(data.totalReturns)}       color="var(--color-purple-600)" />
+          <KpiCard label="退货总金额"      value={fmt(data.totalReturnAmount)}  color="var(--color-purple-600)" />
           <KpiCard label="退货率"          value={`${fmt(data.returnRate, 2)}%`} color="var(--status-danger)" />
           <KpiCard label="客户退货"        value={fmt(data.byType?.customerReturn)}  />
           <KpiCard label="配送拒收"        value={fmt(data.byType?.deliveryReject)}  />
@@ -474,9 +474,9 @@ function InventoryTab() {
               <KpiCard label="总可用库存（枚）"  value={fmt(turnover.totalAvailable)} color="var(--color-accent)" />
               <KpiCard label="临期批次（≤7天）" value={fmt(turnover.expiringBatches)} color="var(--status-warning)" sub={`${fmt(turnover.expiringQty)} 枚`} />
               <KpiCard label="已过期批次"        value={fmt(turnover.expiredBatches)} color="var(--status-danger)" sub={`${fmt(turnover.expiredQty)} 枚`} />
-              <KpiCard label="退货待检批次"      value={fmt(turnover.returnedBatches)} color="#9333ea" />
+              <KpiCard label="退货待检批次"      value={fmt(turnover.returnedBatches)} color="var(--color-purple-600)" />
               <KpiCard label="平均保质期（天）"  value={fmt(turnover.avgShelfDays, 1)} />
-              <KpiCard label="近30天出库量"      value={fmt(turnover.totalOutbound30d)} color="#0891b2" />
+              <KpiCard label="近30天出库量"      value={fmt(turnover.totalOutbound30d)} color="var(--status-info)" />
               <KpiCard label="库存周转率"        value={`${fmt(turnover.turnoverRate, 1)}%`} color="var(--status-success)" sub="近30天" />
             </div>
           </Section>
@@ -507,16 +507,16 @@ function InventoryTab() {
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
             <KpiCard label="过期核销（枚）" value={fmt(loss.expiredQty)}  color="var(--status-danger)" />
             <KpiCard label="破损核销（枚）" value={fmt(loss.damagedQty)}  color="var(--status-warning)" />
-            <KpiCard label="手动核销（枚）" value={fmt(loss.writeOffQty)} color="#6b7280" />
-            <KpiCard label="损耗总量（枚）" value={fmt(loss.totalLoss)}   color="#be123c" />
-            <KpiCard label="综合损耗率"    value={`${fmt(loss.lossRate, 2)}%`} color="#be123c" />
+            <KpiCard label="手动核销（枚）" value={fmt(loss.writeOffQty)} color="var(--gray-500)" />
+            <KpiCard label="损耗总量（枚）" value={fmt(loss.totalLoss)}   color="var(--status-danger)" />
+            <KpiCard label="综合损耗率"    value={`${fmt(loss.lossRate, 2)}%`} color="var(--status-danger)" />
           </div>
           <Table
             cols={["日期","过期损耗（枚）","破损损耗（枚）"]}
             rows={(loss.byDate ?? []).map((r: any) => [
               String(r.period ?? "").slice(0, 10),
-              <span key="e" style={{ color: r.expire_loss > 0 ? "var(--status-danger)" : "#374151" }}>{fmt(r.expire_loss)}</span>,
-              <span key="d" style={{ color: r.damage_loss > 0 ? "var(--status-warning)" : "#374151" }}>{fmt(r.damage_loss)}</span>,
+              <span key="e" style={{ color: r.expire_loss > 0 ? "var(--status-danger)" : "var(--gray-700)" }}>{fmt(r.expire_loss)}</span>,
+              <span key="d" style={{ color: r.damage_loss > 0 ? "var(--status-warning)" : "var(--gray-700)" }}>{fmt(r.damage_loss)}</span>,
             ])}
           />
         </Section>
@@ -544,10 +544,10 @@ function CreditRiskTab() {
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <KpiCard label="正常客户"     value={fmt(summary?.normalCount)}    color="var(--status-success)" />
           <KpiCard label="预警客户"     value={fmt(summary?.warningCount)}   color="var(--status-warning)" />
-          <KpiCard label="超额度客户"   value={fmt(summary?.overLimitCount)} color="#f97316" />
+          <KpiCard label="超额度客户"   value={fmt(summary?.overLimitCount)} color="var(--status-warning)" />
           <KpiCard label="逾期客户"     value={fmt(summary?.overdueCount)}   color="var(--status-danger)" />
-          <KpiCard label="冻结客户"     value={fmt(summary?.frozenCount)}    color="#6b7280" />
-          <KpiCard label="自动冻结"     value={fmt(summary?.autoFrozenCount)} color="#6b7280" />
+          <KpiCard label="冻结客户"     value={fmt(summary?.frozenCount)}    color="var(--gray-500)" />
+          <KpiCard label="自动冻结"     value={fmt(summary?.autoFrozenCount)} color="var(--gray-500)" />
           <KpiCard label="高风险敞口"   value={fmt(summary?.highRiskExposure)} color="var(--status-danger)" />
         </div>
       </Section>
@@ -574,9 +574,9 @@ function CreditRiskTab() {
               r.customer_name,
               <span key="cs" style={{
                 fontWeight: 700,
-                color: r.credit_status === "FROZEN" ? "#6b7280"
+                color: r.credit_status === "FROZEN" ? "var(--gray-500)"
                      : r.credit_status === "OVERDUE" ? "var(--status-danger)"
-                     : "#f97316",
+                     : "var(--status-warning)",
               }}>{r.credit_status}</span>,
               fmt(r.credit_used),
               fmt(r.credit_limit),
@@ -591,7 +591,7 @@ function CreditRiskTab() {
 
 // ── 辅助组件 ──────────────────────────────────────────────────────────────────
 function Spinner() {
-  return <div style={{ textAlign: "center", color: "#9ca3af", padding: 40 }}>加载中...</div>;
+  return <div style={{ textAlign: "center", color: "var(--gray-400)", padding: 40 }}>加载中...</div>;
 }
 function Err({ msg, onRetry }: { msg: string; onRetry: () => void }) {
   return (
@@ -605,7 +605,7 @@ const inputSt: React.CSSProperties = {
   padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13,
 };
 function btnSt(bg: string): React.CSSProperties {
-  return { padding: "6px 14px", background: bg, color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600 };
+  return { padding: "6px 14px", background: bg, color: "var(--bg-card)", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600 };
 }
 
 // ── Tab 定义 ──────────────────────────────────────────────────────────────────

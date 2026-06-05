@@ -124,7 +124,7 @@ export default function WarehouseHandoverPage() {
                 onKeyDown={e=>e.key==='Enter'&&handleScan()}
                 placeholder={t('ui.扫描箱码如BOX', '扫描箱码（如 BOX-20260516-001）')}
                 autoFocus
-                style={{ flex:1, background:'rgba(255,255,255,0.05)', border:`1px solid ${T.BOR}`,
+                style={{ flex:1, background:'var(--overlay-white-05)', border:`1px solid ${T.BOR}`,
                   borderRadius:8, padding:'14px 16px', color:T.TXT, fontSize:15 }} />
               <button type="button" onClick={()=>handleScan()}
                 style={{ padding:'14px 24px', background:T.ACC, color:'var(--bg-page)', border:'none',
@@ -143,7 +143,7 @@ export default function WarehouseHandoverPage() {
                 const isDone = scanned.includes(box.code);
                 return (
                   <div key={box.code} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 12px',
-                    borderRadius:8, background: isDone?'rgba(34,197,94,0.08)':'rgba(255,255,255,0.03)',
+                    borderRadius:8, background: isDone?'var(--status-success-bg-faint)':'var(--overlay-white-03)',
                     border:`1px solid ${isDone?'rgba(34,197,94,0.3)':T.BOR}` }}>
                     <span style={{ fontSize:18 }}>{isDone?'✅':'⬜'}</span>
                     <div style={{ flex:1 }}>
@@ -175,7 +175,7 @@ export default function WarehouseHandoverPage() {
                 <div key={f.key}>
                   <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{f.label}</div>
                   <input value={f.state} onChange={e=>f.set(e.target.value)} placeholder={f.ph}
-                    style={{ width:'100%', background:'rgba(255,255,255,0.05)', border:`1px solid ${T.BOR}`,
+                    style={{ width:'100%', background:'var(--overlay-white-05)', border:`1px solid ${T.BOR}`,
                       borderRadius:8, padding:'12px 14px', color:T.TXT, fontSize:14, boxSizing:'border-box' }} />
                 </div>
               ))}
@@ -192,13 +192,13 @@ export default function WarehouseHandoverPage() {
               { label: t('ui.已扫箱数', '已扫箱数'), value:`${scanned.length} ${t('ui.箱', '箱')}`, color:T.GRN },
               { label: t('ui.总枚数', '总枚数'),   value:`${totalQty} ${t('ui.枚', '枚')}` },
             ].map(item=>(
-              <div key={item.label} style={{ padding:'10px 0', borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
+              <div key={item.label} style={{ padding:'10px 0', borderBottom:`1px solid var(--overlay-white-05)` }}>
                 <div style={{ fontSize:11, color:T.MUT }}>{item.label}</div>
                 <div style={{ fontSize:20, fontWeight:700, color:item.color||T.TXT, fontVariantNumeric:'tabular-nums' }}>{item.value}</div>
               </div>
             ))}
             <div style={{ marginTop:12, padding:'8px', borderRadius:8,
-              background: allScanned?'rgba(34,197,94,0.1)':'rgba(245,158,11,0.1)',
+              background: allScanned?'rgba(34,197,94,0.1)':'var(--status-warning-bg-light)',
               textAlign:'center', fontSize:12,
               color:allScanned?T.GRN:'var(--status-warning)' }}>
               {allScanned

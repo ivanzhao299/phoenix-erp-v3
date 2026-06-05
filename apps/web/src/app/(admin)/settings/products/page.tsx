@@ -176,7 +176,7 @@ export default function ProductsPage() {
       {/* 双语检查 Modal —— 通过 Portal 挂载到 body */}
       {bilingualModal && typeof window !== "undefined" && createPortal(
         <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
+          style={{ position: "fixed", inset: 0, background: "var(--overlay-black-50)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
           onClick={() => setBilingualModal(false)}
         >
           <div

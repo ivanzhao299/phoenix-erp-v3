@@ -156,8 +156,8 @@ export default function MedicinePage() {
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
               padding: '8px 14px', borderRadius: 10,
-              background: saved ? 'rgba(16,185,129,0.2)' : hasChanges ? 'rgba(245,158,11,0.15)' : t.btnBg,
-              border: `1px solid ${saved ? 'rgba(16,185,129,0.4)' : hasChanges ? 'rgba(245,158,11,0.35)' : t.btnBorder}`,
+              background: saved ? 'var(--status-success-bg-strong)' : hasChanges ? 'var(--status-warning-bg-medium)' : t.btnBg,
+              border: `1px solid ${saved ? 'var(--status-success)' : hasChanges ? 'var(--status-warning-bg-strong)' : t.btnBorder}`,
               color: saved ? 'var(--status-success)' : hasChanges ? 'var(--status-warning)' : t.textFaint,
               cursor: hasChanges ? 'pointer' : 'default', fontSize: 13, fontWeight: 700,
             }}
@@ -179,8 +179,8 @@ export default function MedicinePage() {
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
               padding: '12px 0',
               background: tab === tab_.key ? 'rgba(139,92,246,0.1)' : 'none',
-              border: 'none', borderBottom: `2px solid ${tab === tab_.key ? '#8b5cf6' : 'transparent'}`,
-              color: tab === tab_.key ? '#8b5cf6' : t.textMuted,
+              border: 'none', borderBottom: `2px solid ${tab === tab_.key ? 'var(--color-purple-500)' : 'transparent'}`,
+              color: tab === tab_.key ? 'var(--color-purple-500)' : t.textMuted,
               cursor: 'pointer', fontSize: 13, fontWeight: 700,
             }}
           >
@@ -207,7 +207,7 @@ export default function MedicinePage() {
 
       {/* 错误 */}
       {error && (
-        <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--status-danger)', fontSize: 12 }}>
+        <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'var(--status-danger-bg-light)', border: '1px solid var(--status-danger-bg-strong)', color: 'var(--status-danger)', fontSize: 12 }}>
           {error}
         </div>
       )}
@@ -236,7 +236,7 @@ export default function MedicinePage() {
                     <div style={{ fontSize: 11, color: t.textFaint, marginTop: 2 }}>{m.dosage}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: m.qty > 0 ? '#8b5cf6' : t.textFaint }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: m.qty > 0 ? 'var(--color-purple-500)' : t.textFaint }}>
                       {m.qty}
                     </div>
                     <div style={{ fontSize: 10, color: t.textFaint }}>{m.unit}</div>
@@ -251,7 +251,7 @@ export default function MedicinePage() {
         {(tab === 'inbound' || tab === 'outbound') && (
           <>
             {saved && (
-              <div style={{ padding: '10px 14px', borderRadius: 12, marginBottom: 12, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', color: 'var(--status-success)', fontSize: 13 }}>
+              <div style={{ padding: '10px 14px', borderRadius: 12, marginBottom: 12, background: 'var(--status-success-bg-medium)', border: '1px solid rgba(16,185,129,0.3)', color: 'var(--status-success)', fontSize: 13 }}>
                 ✓ 已保存
               </div>
             )}
@@ -286,7 +286,7 @@ export default function MedicinePage() {
                           width: 72, height: 34, textAlign: 'center',
                           background: e.qty > 0 ? 'rgba(139,92,246,0.12)' : t.inputBg,
                           border: `1px solid ${e.qty > 0 ? 'rgba(139,92,246,0.4)' : t.inputBorder}`,
-                          borderRadius: 8, color: e.qty > 0 ? '#a78bfa' : t.textSub,
+                          borderRadius: 8, color: e.qty > 0 ? 'var(--color-purple-400)' : t.textSub,
                           fontSize: 14, fontWeight: 700, outline: 'none', WebkitAppearance: 'none',
                         }}
                       />
@@ -351,7 +351,7 @@ export default function MedicinePage() {
                     {e.note ? ` · ${e.note}` : ''}
                   </div>
                 </div>
-                <span style={{ fontSize: 14, fontWeight: 700, color: e.qty_change > 0 ? '#8b5cf6' : 'var(--status-danger)' }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: e.qty_change > 0 ? 'var(--color-purple-500)' : 'var(--status-danger)' }}>
                   {e.qty_change > 0 ? '+' : ''}{e.qty_change}
                 </span>
               </div>

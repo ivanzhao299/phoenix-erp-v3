@@ -158,7 +158,7 @@ export default function NotificationsPage() {
           </select>
 
           <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 180 }}>
-            <Search size={14} style={{ color: "#9ca3af" }} />
+            <Search size={14} style={{ color: "var(--gray-400)" }} />
             <input
               type="text"
               value={keyword}
@@ -187,9 +187,9 @@ export default function NotificationsPage() {
 
         {/* 列表 */}
         {loading ? (
-          <div className={s.cardBody} style={{ textAlign: "center", color: "#9ca3af", padding: 48 }}>加载中…</div>
+          <div className={s.cardBody} style={{ textAlign: "center", color: "var(--gray-400)", padding: 48 }}>加载中…</div>
         ) : resp.items.length === 0 ? (
-          <div className={s.cardBody} style={{ textAlign: "center", color: "#9ca3af", padding: 48 }}>
+          <div className={s.cardBody} style={{ textAlign: "center", color: "var(--gray-400)", padding: 48 }}>
             <BellOff size={36} style={{ margin: "0 auto 12px", opacity: 0.4 }} />
             <p>暂无通知</p>
           </div>
@@ -219,22 +219,22 @@ export default function NotificationsPage() {
 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                    <span style={{ fontWeight: n.status === "UNREAD" ? 700 : 500, fontSize: 14, color: "#1f2937" }}>
+                    <span style={{ fontWeight: n.status === "UNREAD" ? 700 : 500, fontSize: 14, color: "var(--gray-800)" }}>
                       {n.title}
                     </span>
-                    <span style={{ fontSize: 11, color: "#9ca3af", whiteSpace: "nowrap", marginLeft: 12 }}>
+                    <span style={{ fontSize: 11, color: "var(--gray-400)", whiteSpace: "nowrap", marginLeft: 12 }}>
                       {fmtDate(n.createdAt)}
                     </span>
                   </div>
 
-                  <p style={{ fontSize: 12, color: "#6b7280", margin: "0 0 6px", lineHeight: 1.6 }}>
+                  <p style={{ fontSize: 12, color: "var(--gray-500)", margin: "0 0 6px", lineHeight: 1.6 }}>
                     {n.content}
                   </p>
 
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <span style={{
                       fontSize: 10, padding: "1px 6px", borderRadius: 4, fontWeight: 600,
-                      background: "#f1f5f9", color: "#64748b",
+                      background: "var(--slate-100)", color: "var(--slate-500)",
                     }}>
                       {TYPE_LABEL[n.notificationType] ?? n.notificationType}
                     </span>
@@ -254,8 +254,8 @@ export default function NotificationsPage() {
                       onClick={e => handleArchive(n.id, e)}
                       style={{
                         width: 28, height: 28, borderRadius: 6, border: "1px solid #e2e8f0",
-                        background: "#fff", cursor: "pointer", display: "flex", alignItems: "center",
-                        justifyContent: "center", color: "#94a3b8",
+                        background: "var(--bg-card)", cursor: "pointer", display: "flex", alignItems: "center",
+                        justifyContent: "center", color: "var(--slate-400)",
                       }}
                     >
                       <Archive size={13} />
@@ -276,7 +276,7 @@ export default function NotificationsPage() {
               disabled={page <= 1}
               style={{ fontSize: 12 }}
             >上一页</button>
-            <span style={{ fontSize: 12, lineHeight: "30px", color: "#6b7280" }}>
+            <span style={{ fontSize: 12, lineHeight: "30px", color: "var(--gray-500)" }}>
               第 {page} / {Math.ceil(resp.total / PAGE_SIZE)} 页，共 {resp.total} 条
             </span>
             <button

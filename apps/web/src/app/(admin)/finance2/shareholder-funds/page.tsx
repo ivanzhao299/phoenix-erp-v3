@@ -80,8 +80,8 @@ const CONTRIBUTION_TYPE_LABELS: Record<string, string> = {
   GUARANTEE: '担保金', PAYMENT_ON_BEHALF: '代付',
 };
 const CONTRIBUTION_TYPE_COLORS: Record<string, string> = {
-  INVESTMENT: '#7c3aed', LOAN: 'var(--color-accent)', ADVANCE: 'var(--status-warning)',
-  GUARANTEE: '#0891b2', PAYMENT_ON_BEHALF: 'var(--status-success)',
+  INVESTMENT: 'var(--color-purple-600)', LOAN: 'var(--color-accent)', ADVANCE: 'var(--status-warning)',
+  GUARANTEE: 'var(--status-info)', PAYMENT_ON_BEHALF: 'var(--status-success)',
 };
 
 const STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
@@ -122,7 +122,7 @@ function StatusBadge({ status, map }: { status: string; map: Record<string, { la
 }
 
 function TypeBadge({ type }: { type: string }) {
-  const color = CONTRIBUTION_TYPE_COLORS[type] ?? '#6b7280';
+  const color = CONTRIBUTION_TYPE_COLORS[type] ?? 'var(--gray-500)';
   return (
     <span style={{
       display: 'inline-block', padding: '1px 8px', borderRadius: 6,
@@ -177,7 +177,7 @@ function CreateContributionModal({ onClose, onCreated }: { onClose: () => void; 
   const inpClass = "w-full px-3 py-2 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 box-border";
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div className="bg-bg-card"
         style={{ borderRadius: 16, padding: 28, width: 520, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -307,7 +307,7 @@ function CreateSettlementModal({
   const inpClass = "w-full px-3 py-2 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 box-border";
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div className="bg-bg-card" style={{ borderRadius: 16, padding: 28, width: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div className="text-text" style={{ fontWeight: 700, fontSize: 15 }}>创建还款/结算</div>
@@ -429,7 +429,7 @@ function ContributionDrawer({
   const canCancel  = ['DRAFT', 'PENDING_CONFIRM'].includes(contribution.status);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-45)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
       <div className="bg-bg-card"
         style={{ width: 560, height: '100vh', overflowY: 'auto', padding: 24, boxShadow: '-8px 0 32px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
@@ -441,7 +441,7 @@ function ContributionDrawer({
         </div>
 
         {/* 金额总览 */}
-        <div style={{ background: 'linear-gradient(135deg,#4c1d95,#7c3aed)', borderRadius: 12, padding: '16px 20px', marginBottom: 18, color: '#fff' }}>
+        <div style={{ background: 'linear-gradient(135deg,#4c1d95,#7c3aed)', borderRadius: 12, padding: '16px 20px', marginBottom: 18, color: 'var(--bg-card)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, textAlign: 'center' }}>
             {[
               { label: '出资总额', value: fmt(contribution.amountOriginal) },
@@ -601,7 +601,7 @@ function SummaryTab({ summary }: { summary: ShSummary | null }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginBottom: 24 }}>
         {statCards.map(c => (
           <div key={c.label} className="bg-bg-card border border-border"
-            style={{ borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            style={{ borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 4px var(--overlay-black-04)' }}>
             <div className="text-text-muted" style={{ fontSize: 11, marginBottom: 4 }}>{c.label}</div>
             <div className={`text-lg font-extrabold ${c.colorClass}`}>{c.value}</div>
           </div>
@@ -809,7 +809,7 @@ export default function ShareholderFundsPage() {
                   className="bg-bg-card hover:shadow-card-hover dark:hover:shadow-slate-700/30 transition-shadow cursor-pointer"
                   style={{
                     borderRadius: 14,
-                    border: `1.5px solid ${c.status === 'SETTLED' ? '#e2e8f0' : c.status === 'PENDING_CONFIRM' ? '#fde68a' : '#e8edff'}`,
+                    border: `1.5px solid ${c.status === 'SETTLED' ? 'var(--slate-200)' : c.status === 'PENDING_CONFIRM' ? 'var(--status-warning-bg-faint)' : '#e8edff'}`,
                     padding: '14px 18px',
                     opacity: c.status === 'CANCELLED' ? 0.6 : 1,
                   }}

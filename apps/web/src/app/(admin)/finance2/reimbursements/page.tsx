@@ -113,7 +113,7 @@ function PayModal({
   const selected = selectedAccRaw;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
       <div className="bg-bg-card" style={{ borderRadius: 16, padding: 28, width: 420 }}>
         <div className="text-text" style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>执行付款</div>
         <div className="text-text-muted" style={{ fontSize: 13, marginBottom: 20 }}>报销单号：{reimb.reimb_no}</div>

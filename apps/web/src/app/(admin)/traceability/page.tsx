@@ -147,7 +147,7 @@ export default function TraceabilityPage() {
         </button>
       </div>
 
-      {error && <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(239,68,68,0.08)", color: "var(--status-danger)", fontSize: 13, marginBottom: 14 }}>{error}</div>}
+      {error && <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--status-danger-bg-faint)", color: "var(--status-danger)", fontSize: 13, marginBottom: 14 }}>{error}</div>}
 
       {/* 结果 */}
       {data && data.found !== false && (

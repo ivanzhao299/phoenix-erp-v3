@@ -232,7 +232,7 @@ export default function SalesPage() {
           <button key={tab_.key} onClick={() => setTab(tab_.key)}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-              padding: '12px 0', background: tab === tab_.key ? 'rgba(16,185,129,0.1)' : 'none',
+              padding: '12px 0', background: tab === tab_.key ? 'var(--status-success-bg-medium)' : 'none',
               border: 'none', borderBottom: `2px solid ${tab === tab_.key ? 'var(--status-success)' : 'transparent'}`,
               color: tab === tab_.key ? 'var(--status-success)' : t.textMuted,
               cursor: 'pointer', fontSize: 13, fontWeight: 700,
@@ -249,7 +249,7 @@ export default function SalesPage() {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '8px 16px',
           background: 'rgba(16,185,129,0.03)',
-          borderBottom: '1px solid rgba(16,185,129,0.1)',
+          borderBottom: '1px solid var(--status-success-bg-medium)',
         }}>
           <button onClick={() => setDate(d => fmtDate(addDays(toDate(d), -1)))}
             style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 6 }}>
@@ -268,12 +268,12 @@ export default function SalesPage() {
 
       {/* 错误 / 成功 */}
       {error && (
-        <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--status-danger)', fontSize: 12 }}>
+        <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'var(--status-danger-bg-light)', border: '1px solid var(--status-danger-bg-strong)', color: 'var(--status-danger)', fontSize: 12 }}>
           {error}
         </div>
       )}
       {successNo && (
-        <div style={{ margin: '8px 16px 0', padding: 12, borderRadius: 10, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', color: 'var(--status-success)', fontSize: 13, fontWeight: 600 }}>
+        <div style={{ margin: '8px 16px 0', padding: 12, borderRadius: 10, background: 'var(--status-success-bg-medium)', border: '1px solid rgba(16,185,129,0.3)', color: 'var(--status-success)', fontSize: 13, fontWeight: 600 }}>
           ✓ 出库单已创建：{successNo}
         </div>
       )}
@@ -295,7 +295,7 @@ export default function SalesPage() {
                     style={{
                       padding: '8px 14px', borderRadius: 10,
                       background: selCustomer?.customer_code === c.customer_code ? 'rgba(16,185,129,0.15)' : t.btnBg,
-                      border: `1px solid ${selCustomer?.customer_code === c.customer_code ? 'rgba(16,185,129,0.4)' : t.btnBorder}`,
+                      border: `1px solid ${selCustomer?.customer_code === c.customer_code ? 'var(--status-success)' : t.btnBorder}`,
                       color: selCustomer?.customer_code === c.customer_code ? 'var(--status-success)' : t.textSub,
                       cursor: 'pointer', fontSize: 13, fontWeight: 600,
                     }}>
@@ -338,7 +338,7 @@ export default function SalesPage() {
                       placeholder="0"
                       style={{
                         height: 34, textAlign: 'right', padding: '0 8px',
-                        background: qty > 0 ? 'rgba(16,185,129,0.1)' : t.inputBg,
+                        background: qty > 0 ? 'var(--status-success-bg-medium)' : t.inputBg,
                         border: `1px solid ${qty > 0 ? 'rgba(16,185,129,0.3)' : t.inputBorder}`,
                         borderRadius: 8, color: qty > 0 ? 'var(--status-success)' : t.textSub,
                         fontSize: 14, fontWeight: 700, outline: 'none', WebkitAppearance: 'none',
@@ -369,7 +369,7 @@ export default function SalesPage() {
             {history.length > 0 && (
               <div style={{
                 padding: '10px 14px', borderRadius: 12, marginBottom: 12,
-                background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)',
+                background: 'var(--status-success-bg-medium)', border: '1px solid var(--status-success-bg-strong)',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               }}>
                 <span style={{ fontSize: 12, color: t.textMuted }}>今日合计 · {history.length} 单</span>
@@ -386,7 +386,7 @@ export default function SalesPage() {
                 <div key={rec.order_no} style={{
                   borderRadius: 14, marginBottom: 10,
                   background: rec.status === 'CANCELLED' ? t.cardBg : 'rgba(16,185,129,0.05)',
-                  border: `1px solid ${rec.status === 'CANCELLED' ? t.cardBorder : 'rgba(16,185,129,0.2)'}`,
+                  border: `1px solid ${rec.status === 'CANCELLED' ? t.cardBorder : 'var(--status-success-bg-strong)'}`,
                   opacity: rec.status === 'CANCELLED' ? 0.6 : 1,
                 }}>
                   <div
@@ -426,8 +426,8 @@ export default function SalesPage() {
                           onClick={() => handleCancel(rec.order_no)}
                           style={{
                             marginTop: 10, padding: '6px 14px', borderRadius: 8,
-                            background: 'rgba(239,68,68,0.1)',
-                            border: '1px solid rgba(239,68,68,0.3)',
+                            background: 'var(--status-danger-bg-light)',
+                            border: '1px solid var(--status-danger-bg-strong)',
                             color: 'var(--status-danger)', cursor: 'pointer', fontSize: 12,
                             display: 'flex', alignItems: 'center', gap: 4,
                           }}>
@@ -465,7 +465,7 @@ export default function SalesPage() {
             disabled={submitting || totalQty === 0 || !selCustomer}
             style={{
               flex: 1, maxWidth: 160, height: 48, borderRadius: 14,
-              background: totalQty > 0 ? 'rgba(16,185,129,0.2)' : t.btnBg,
+              background: totalQty > 0 ? 'var(--status-success-bg-strong)' : t.btnBg,
               border: `1px solid ${totalQty > 0 ? 'rgba(16,185,129,0.5)' : t.btnBorder}`,
               color: totalQty > 0 ? 'var(--status-success)' : t.textFaint,
               cursor: totalQty > 0 ? 'pointer' : 'default',

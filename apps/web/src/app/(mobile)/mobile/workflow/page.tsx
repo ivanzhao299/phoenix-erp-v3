@@ -30,7 +30,7 @@ const STATUS_COLOR: Record<string, string> = {
   PENDING:   'var(--status-warning)',
   APPROVED:  'var(--status-success)',
   REJECTED:  'var(--status-danger)',
-  CANCELLED: '#94a3b8',
+  CANCELLED: 'var(--slate-400)',
   TODO:      'var(--status-warning)',
   DONE:      'var(--status-success)',
 };
@@ -89,14 +89,14 @@ function TaskCard({
             <span style={{
               fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
               background: task.taskSource === 'APPROVAL_ENGINE' ? '#7c3aed22' : '#0891b222',
-              color:      task.taskSource === 'APPROVAL_ENGINE' ? '#7c3aed'   : '#0891b2',
+              color:      task.taskSource === 'APPROVAL_ENGINE' ? 'var(--color-purple-600)'   : 'var(--status-info)',
             }}>
               {task.taskSource === 'APPROVAL_ENGINE' ? '审批引擎' : '工作流'}
             </span>
             <span style={{
               fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-              background: `${STATUS_COLOR[task.status] ?? '#94a3b8'}22`,
-              color: STATUS_COLOR[task.status] ?? '#94a3b8',
+              background: `${STATUS_COLOR[task.status] ?? 'var(--slate-400)'}22`,
+              color: STATUS_COLOR[task.status] ?? 'var(--slate-400)',
             }}>
               {bizLabel}
             </span>
@@ -104,13 +104,13 @@ function TaskCard({
             {task.isOverdue && (
               <span style={{
                 fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                background: '#fef2f2', color: 'var(--status-danger)', border: '1px solid #fecaca',
+                background: 'var(--status-danger-bg-faint)', color: 'var(--status-danger)', border: '1px solid #fecaca',
               }}>⏰ 已超期</span>
             )}
             {(task.escalationLevel ?? 0) > 0 && (
               <span style={{
                 fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                background: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa',
+                background: '#fff7ed', color: 'var(--status-warning)', border: '1px solid #fed7aa',
               }}>🔺 已升级</span>
             )}
           </div>
@@ -126,7 +126,7 @@ function TaskCard({
 
         {/* 金额 */}
         {amountStr && (
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#7c3aed', marginBottom: 6 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--color-purple-600)', marginBottom: 6 }}>
             {amountStr}
           </div>
         )}
@@ -206,7 +206,7 @@ function TaskCard({
             onClick={e => { e.stopPropagation(); onApprove(task); }}
             style={{
               flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
-              background: 'var(--status-success)', color: '#fff',
+              background: 'var(--status-success)', color: 'var(--bg-card)',
               fontSize: 13, fontWeight: 700, cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
             }}
@@ -286,7 +286,7 @@ function ActionSheet({
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{
-        width: '100%', background: isDark ? '#111827' : '#fff',
+        width: '100%', background: isDark ? 'var(--gray-900)' : 'var(--bg-card)',
         borderRadius: '20px 20px 0 0',
         padding: '24px 16px calc(24px + env(safe-area-inset-bottom))',
       }}>
@@ -315,15 +315,15 @@ function ActionSheet({
             style={{
               width: '100%', boxSizing: 'border-box',
               padding: '10px 12px', borderRadius: 10,
-              border: `1.5px solid ${err ? 'var(--status-danger)' : isDark ? '#374151' : '#d1d5db'}`,
-              background: isDark ? '#1f2937' : '#f9fafb',
+              border: `1.5px solid ${err ? 'var(--status-danger)' : isDark ? 'var(--gray-700)' : 'var(--gray-300)'}`,
+              background: isDark ? 'var(--gray-800)' : 'var(--gray-50)',
               color: t.text, fontSize: 14, outline: 'none', resize: 'none', height: 88,
             }}
           />
         </div>
 
         {err && (
-          <div style={{ color: 'var(--status-danger)', fontSize: 13, marginTop: 8, padding: '6px 10px', background: '#fef2f2', borderRadius: 8 }}>
+          <div style={{ color: 'var(--status-danger)', fontSize: 13, marginTop: 8, padding: '6px 10px', background: 'var(--status-danger-bg-faint)', borderRadius: 8 }}>
             {err}
           </div>
         )}
@@ -333,8 +333,8 @@ function ActionSheet({
           disabled={submitting}
           style={{
             marginTop: 16, width: '100%', padding: '14px 0',
-            background: submitting ? '#9ca3af' : accentColor,
-            border: 'none', borderRadius: 12, color: '#fff',
+            background: submitting ? 'var(--gray-400)' : accentColor,
+            border: 'none', borderRadius: 12, color: 'var(--bg-card)',
             fontWeight: 700, fontSize: 15, cursor: submitting ? 'not-allowed' : 'pointer',
           }}
         >
@@ -372,7 +372,7 @@ function DetailSheet({
     return () => { cancelled = true; };
   }, [task.instanceId]);
 
-  const stepStatusColor = (s: string) => s === 'APPROVED' ? 'var(--status-success)' : s === 'REJECTED' ? 'var(--status-danger)' : s === 'PENDING' ? 'var(--status-warning)' : '#94a3b8';
+  const stepStatusColor = (s: string) => s === 'APPROVED' ? 'var(--status-success)' : s === 'REJECTED' ? 'var(--status-danger)' : s === 'PENDING' ? 'var(--status-warning)' : 'var(--slate-400)';
   const stepStatusLabel = (s: string) => s === 'APPROVED' ? '已通过' : s === 'REJECTED' ? '已拒绝' : s === 'PENDING' ? '待审批' : s;
 
   return (
@@ -384,7 +384,7 @@ function DetailSheet({
     >
       <div style={{
         width: '100%', maxHeight: '85vh', overflowY: 'auto',
-        background: isDark ? '#111827' : '#fff',
+        background: isDark ? 'var(--gray-900)' : 'var(--bg-card)',
         borderRadius: '20px 20px 0 0',
         padding: '20px 16px calc(24px + env(safe-area-inset-bottom))',
       }}>
@@ -397,7 +397,7 @@ function DetailSheet({
         </div>
 
         {/* 业务摘要 */}
-        <div style={{ background: isDark ? '#1f2937' : '#f9fafb', borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
+        <div style={{ background: isDark ? 'var(--gray-800)' : 'var(--gray-50)', borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: t.text, marginBottom: 8 }}>
             {safeSubject(task)}
           </div>
@@ -428,13 +428,13 @@ function DetailSheet({
                   width: 20, height: 20, borderRadius: '50%',
                   background: stepStatusColor(step.status),
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontSize: 10, fontWeight: 700,
+                  color: 'var(--bg-card)', fontSize: 10, fontWeight: 700,
                   flexShrink: 0,
                 }}>
                   {idx + 1}
                 </div>
                 {idx < (detail.steps.length - 1) && (
-                  <div style={{ width: 1, flex: 1, background: isDark ? '#374151' : '#e5e7eb', marginTop: 2 }} />
+                  <div style={{ width: 1, flex: 1, background: isDark ? 'var(--gray-700)' : 'var(--gray-200)', marginTop: 2 }} />
                 )}
               </div>
               <div style={{ flex: 1, paddingBottom: 4 }}>
@@ -475,15 +475,15 @@ function DetailSheet({
               表单数据
               <span style={{
                 marginLeft: 8, fontSize: 10, fontWeight: 500, fontFamily: 'monospace',
-                background: isDark ? '#374151' : '#f1f5f9',
-                color: isDark ? '#9ca3af' : '#64748b',
+                background: isDark ? 'var(--gray-700)' : 'var(--slate-100)',
+                color: isDark ? 'var(--gray-400)' : 'var(--slate-500)',
                 padding: '1px 6px', borderRadius: 4,
               }}>
                 {detail.formSubmission.formCode}
               </span>
             </div>
             <div style={{
-              background: isDark ? '#1f2937' : '#f9fafb',
+              background: isDark ? 'var(--gray-800)' : 'var(--gray-50)',
               borderRadius: 10, padding: '14px 16px',
               border: `1px solid ${t.cardBorder}`,
             }}>
@@ -507,7 +507,7 @@ function DetailSheet({
             onClick={() => { onClose(); setTimeout(onApprove, 150); }}
             style={{
               flex: 1, padding: '13px 0', borderRadius: 12, border: 'none',
-              background: 'var(--status-success)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer',
+              background: 'var(--status-success)', color: 'var(--bg-card)', fontWeight: 700, fontSize: 15, cursor: 'pointer',
             }}
           >
             ✓ 通过
@@ -532,7 +532,7 @@ function DetailSheet({
 
 function HistoryCard({ task }: { task: WorkflowTask }) {
   const { t } = useMobileTheme();
-  const statusColor = STATUS_COLOR[task.status] ?? '#94a3b8';
+  const statusColor = STATUS_COLOR[task.status] ?? 'var(--slate-400)';
   const statusLabel = task.status === 'APPROVED' ? '已通过' : task.status === 'REJECTED' ? '已拒绝' : task.status;
 
   return (
@@ -643,11 +643,11 @@ export default function WorkflowPage() {
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <ClipboardCheck size={18} color="#7c3aed" />
+          <ClipboardCheck size={18} color="var(--color-purple-600)" />
           <span style={{ fontWeight: 700, fontSize: 16, color: t.text }}>审批中心</span>
           {tab === 'todos' && total > 0 && (
             <span style={{
-              background: 'var(--status-danger)', color: '#fff', borderRadius: 12,
+              background: 'var(--status-danger)', color: 'var(--bg-card)', borderRadius: 12,
               padding: '1px 7px', fontSize: 11, fontWeight: 700,
             }}>{total}</span>
           )}
@@ -675,8 +675,8 @@ export default function WorkflowPage() {
             style={{
               flex: 1, padding: '9px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
               fontSize: 14, fontWeight: 600,
-              background: tab === key ? '#7c3aed' : 'transparent',
-              color: tab === key ? '#fff' : t.textSub,
+              background: tab === key ? 'var(--color-purple-600)' : 'transparent',
+              color: tab === key ? 'var(--bg-card)' : t.textSub,
               transition: 'all 0.2s',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             }}
@@ -684,8 +684,8 @@ export default function WorkflowPage() {
             {label}
             {key === 'todos' && cnt > 0 && (
               <span style={{
-                background: tab === 'todos' ? 'rgba(255,255,255,0.3)' : 'var(--status-danger)',
-                color: '#fff', fontSize: 10, fontWeight: 800,
+                background: tab === 'todos' ? 'var(--overlay-white-10)' : 'var(--status-danger)',
+                color: 'var(--bg-card)', fontSize: 10, fontWeight: 800,
                 padding: '1px 5px', borderRadius: 10, lineHeight: 1.4,
               }}>{cnt}</span>
             )}
@@ -697,7 +697,7 @@ export default function WorkflowPage() {
       <div style={{ flex: 1, padding: '12px 16px calc(24px + env(safe-area-inset-bottom))' }}>
         {loading && [1, 2, 3].map(i => <SkeletonCard key={i} lines={3} />)}
         {!loading && err && (
-          <div style={{ color: 'var(--status-danger)', background: '#fef2f2', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 12 }}>
+          <div style={{ color: 'var(--status-danger)', background: 'var(--status-danger-bg-faint)', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 12 }}>
             {err}
           </div>
         )}

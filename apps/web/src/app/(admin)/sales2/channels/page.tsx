@@ -61,7 +61,7 @@ const CHANNEL_DEFS = [
     type: "DIRECT",
     label: "直营门店",
     icon: Store,
-    color: "#6366f1",
+    color: "var(--color-accent)",
     desc: "公司自营，直接面向消费者",
   },
   {
@@ -82,7 +82,7 @@ const CHANNEL_DEFS = [
     type: "ECOMMERCE",
     label: "电商",
     icon: ShoppingBag,
-    color: "#8b5cf6",
+    color: "var(--color-purple-500)",
     desc: "线上平台，第三方渠道",
   },
 ] as const;

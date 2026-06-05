@@ -86,7 +86,7 @@ function OrgTreeNode({
             </span>
           )}
           {node.status === "INACTIVE" && (
-            <span style={{ marginLeft: 6, fontSize: "0.68rem", color: "#94a3b8",
+            <span style={{ marginLeft: 6, fontSize: "0.68rem", color: "var(--slate-400)",
               background: "rgba(148,163,184,0.12)", padding: "1px 6px", borderRadius: 10 }}>
               {inactiveLabel}
             </span>
@@ -232,7 +232,7 @@ export default function OrgsPage() {
         ))}
         <button type="button" onClick={() => openNew()} style={{
           background: "var(--color-primary)", border: "none", borderRadius: 10,
-          padding: "10px 20px", color: "#fff", cursor: "pointer", fontWeight: 700,
+          padding: "10px 20px", color: "var(--bg-card)", cursor: "pointer", fontWeight: 700,
           display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", alignSelf: "center",
         }}>
           <Plus size={15} /> {t('ui.新增根节点', '新增根节点')}

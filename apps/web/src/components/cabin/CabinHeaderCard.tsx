@@ -2,7 +2,7 @@
 import { RefreshCw } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-const freshnessColor: Record<string,string> = { normal:'var(--status-success)', delayed:'var(--status-warning)', stale:'var(--status-danger)', no_data:'#94a3b8' };
+const freshnessColor: Record<string,string> = { normal:'var(--status-success)', delayed:'var(--status-warning)', stale:'var(--status-danger)', no_data:'var(--slate-400)' };
 
 interface Header {
   dataFreshness?: string; lastUpdateTime?: string;
@@ -27,7 +27,7 @@ export default function CabinHeaderCard({ header, houseCode, onRefresh }: Props)
   const rate = sensorTotal > 0 ? Math.round(sensorOnline / sensorTotal * 100) : 0;
 
   return (
-    <div style={{ background:'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)', borderRadius:'var(--radius-lg)', padding:'18px 24px', marginBottom:20, display:'flex', alignItems:'center', justifyContent:'space-between', border:'1px solid rgba(255,255,255,0.08)' }}>
+    <div style={{ background:'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)', borderRadius:'var(--radius-lg)', padding:'18px 24px', marginBottom:20, display:'flex', alignItems:'center', justifyContent:'space-between', border:'1px solid var(--overlay-white-08)' }}>
       <div style={{ display:'flex', alignItems:'center', gap:20 }}>
         <div style={{ width:48, height:48, borderRadius:12, backgroundColor:'rgba(99,102,241,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>🏚</div>
         <div>
@@ -41,21 +41,21 @@ export default function CabinHeaderCard({ header, houseCode, onRefresh }: Props)
       <div style={{ display:'flex', alignItems:'center', gap:24 }}>
         <div style={{ textAlign:'center' }}>
           <div style={{ fontSize:22, fontWeight:800, color: rate>80?'var(--status-success)':'var(--status-warning)' }}>{rate}%</div>
-          <div style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>{t('ui.传感器在线', '传感器在线')} ({sensorOnline}/{sensorTotal})</div>
+          <div style={{ fontSize:10, color:'var(--overlay-white-10)' }}>{t('ui.传感器在线', '传感器在线')} ({sensorOnline}/{sensorTotal})</div>
         </div>
         {deviceTotal > 0 && (
           <div style={{ textAlign:'center' }}>
             <div style={{ fontSize:22, fontWeight:800, color:'var(--status-success)' }}>{deviceOnline}</div>
-            <div style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>{t('ui.设备运行', '设备运行')} /{deviceTotal}</div>
+            <div style={{ fontSize:10, color:'var(--overlay-white-10)' }}>{t('ui.设备运行', '设备运行')} /{deviceTotal}</div>
           </div>
         )}
         <div style={{ textAlign:'center' }}>
           <div style={{ fontSize:22, fontWeight:800, color:(header?.alarmCount||0)>0?'var(--status-danger)':'var(--status-success)' }}>{header?.alarmCount||0}</div>
-          <div style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>{t('ui.当前告警', '当前告警')}</div>
+          <div style={{ fontSize:10, color:'var(--overlay-white-10)' }}>{t('ui.当前告警', '当前告警')}</div>
         </div>
-        <button type="button" onClick={onRefresh} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', backgroundColor:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:'var(--radius-md)', color:'rgba(255,255,255,0.7)', cursor:'pointer', fontSize:12 }}
+        <button type="button" onClick={onRefresh} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', backgroundColor:'var(--overlay-white-08)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:'var(--radius-md)', color:'rgba(255,255,255,0.7)', cursor:'pointer', fontSize:12 }}
           onMouseEnter={e => (e.currentTarget.style.backgroundColor='rgba(255,255,255,0.15)')}
-          onMouseLeave={e => (e.currentTarget.style.backgroundColor='rgba(255,255,255,0.08)')}>
+          onMouseLeave={e => (e.currentTarget.style.backgroundColor='var(--overlay-white-08)')}>
           <RefreshCw size={13} /> {t('common.refresh', '刷新')}
         </button>
       </div>

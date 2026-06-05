@@ -158,13 +158,13 @@ export default function FeedLedgerPage() {
       {/* 库存预警 */}
       {alertRows.length > 0 && (
         <div style={{ marginBottom: 16, padding: '12px 16px', borderRadius: 10,
-          background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
+          background: 'rgba(239,68,68,0.06)', border: '1px solid var(--status-danger-bg-medium)' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--status-danger)', marginBottom: 6 }}>⚠ 库存预警</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {alertRows.map(r => (
               <span key={r.material_name} style={{
                 padding: '3px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-                background: r.alert === 'CRITICAL' ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)',
+                background: r.alert === 'CRITICAL' ? 'var(--status-danger-bg-light)' : 'var(--status-warning-bg-light)',
                 color: ALERT_COLOR[r.alert!],
               }}>
                 {r.material_name} · {r.days_left}天
@@ -176,7 +176,7 @@ export default function FeedLedgerPage() {
 
       {error && (
         <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8,
-          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: 'var(--status-danger)', fontSize: 13 }}>
+          background: 'var(--status-danger-bg-faint)', border: '1px solid var(--status-danger-bg-medium)', color: 'var(--status-danger)', fontSize: 13 }}>
           {error}
         </div>
       )}

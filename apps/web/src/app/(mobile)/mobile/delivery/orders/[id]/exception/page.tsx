@@ -4,12 +4,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 // ── 颜色常量 ──────────────────────────────────────────────────────────────────
 const C = {
-  bg:      '#070b14',
-  bg2:     '#0f1929',
-  card:    'rgba(255,255,255,0.05)',
-  border:  'rgba(255,255,255,0.10)',
-  text:    '#e2e8f0',
-  textSub: '#94a3b8',
+  bg:      'var(--brand-deep-1)',
+  bg2:     'var(--brand-deep-2)',
+  card:    'var(--overlay-white-05)',
+  border:  'var(--overlay-white-10)',
+  text:    'var(--slate-200)',
+  textSub: 'var(--slate-400)',
   orange:  'var(--status-warning)',
   green:   'var(--status-success)',
   red:     'var(--status-danger)',
@@ -173,7 +173,7 @@ function ExceptionForm({ id }: { id: string }) {
             type="number"
             inputMode="numeric"
             min="1"
-            style={{ ...inputStyle, borderColor: 'rgba(239,68,68,0.4)' }}
+            style={{ ...inputStyle, borderColor: 'var(--status-danger)' }}
             value={exceptionQty}
             onChange={e => setExceptionQty(e.target.value)}
             placeholder="0"
@@ -210,8 +210,8 @@ function ExceptionForm({ id }: { id: string }) {
       {error && (
         <div style={{
           color: C.red,
-          background: 'rgba(239,68,68,0.10)',
-          border: `1px solid rgba(239,68,68,0.3)`,
+          background: 'var(--status-danger-bg-light)',
+          border: `1px solid var(--status-danger-bg-strong)`,
           borderRadius: 10, padding: '10px 14px', fontSize: 13,
         }}>
           ⚠ {error}
@@ -227,8 +227,8 @@ function ExceptionForm({ id }: { id: string }) {
           height: 52,
           borderRadius: 12,
           border: 'none',
-          background: submitting ? '#64748b' : C.red,
-          color: '#fff',
+          background: submitting ? 'var(--slate-500)' : C.red,
+          color: 'var(--bg-card)',
           fontSize: 16,
           fontWeight: 700,
           cursor: submitting ? 'not-allowed' : 'pointer',

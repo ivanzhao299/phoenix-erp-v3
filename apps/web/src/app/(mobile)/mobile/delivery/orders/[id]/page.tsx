@@ -4,17 +4,17 @@ import { useRouter } from 'next/navigation';
 
 // ── 颜色常量 ──────────────────────────────────────────────────────────────────
 const C = {
-  bg:      '#070b14',
-  bg2:     '#0f1929',
-  card:    'rgba(255,255,255,0.05)',
-  border:  'rgba(255,255,255,0.10)',
-  text:    '#e2e8f0',
-  textSub: '#94a3b8',
+  bg:      'var(--brand-deep-1)',
+  bg2:     'var(--brand-deep-2)',
+  card:    'var(--overlay-white-05)',
+  border:  'var(--overlay-white-10)',
+  text:    'var(--slate-200)',
+  textSub: 'var(--slate-400)',
   orange:  'var(--status-warning)',
   blue:    'var(--status-info)',
   green:   'var(--status-success)',
   red:     'var(--status-danger)',
-  gray:    '#64748b',
+  gray:    'var(--slate-500)',
 };
 
 // ── 状态机定义 ────────────────────────────────────────────────────────────────
@@ -120,7 +120,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
                   width: 24, height: 24, borderRadius: '50%',
                   background: dotColor,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 12, color: '#fff', fontWeight: 700,
+                  fontSize: 12, color: 'var(--bg-card)', fontWeight: 700,
                   border: active ? `2px solid ${dotColor}88` : 'none',
                   boxShadow: active ? `0 0 0 3px ${dotColor}33` : 'none',
                 }}>
@@ -141,7 +141,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
             <div style={{
               width: 24, height: 24, borderRadius: '50%',
               background: C.red, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 12, color: '#fff', fontWeight: 700,
+              fontSize: 12, color: 'var(--bg-card)', fontWeight: 700,
             }}>!</div>
             <div style={{ fontSize: 10, color: C.red }}>异常</div>
           </div>
@@ -240,7 +240,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     borderRadius: 12,
     border: 'none',
     background: disabled ? C.gray : color,
-    color: '#fff',
+    color: 'var(--bg-card)',
     fontSize: 16,
     fontWeight: 700,
     cursor: disabled ? 'not-allowed' : 'pointer',
@@ -417,7 +417,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
         {/* 操作错误提示 */}
         {actionError && (
-          <div style={{ color: C.red, background: 'rgba(239,68,68,0.1)', border: `1px solid ${C.red}44`, borderRadius: 10, padding: '10px 14px', marginBottom: 12, fontSize: 13 }}>
+          <div style={{ color: C.red, background: 'var(--status-danger-bg-light)', border: `1px solid ${C.red}44`, borderRadius: 10, padding: '10px 14px', marginBottom: 12, fontSize: 13 }}>
             ⚠ {actionError}
           </div>
         )}

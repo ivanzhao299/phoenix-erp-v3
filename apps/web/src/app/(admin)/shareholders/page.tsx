@@ -19,7 +19,7 @@ export default function ShareholderHome() {
         {CARDS.map(c => (
           <Link key={c.href} href={c.href} style={{
             display: 'block', padding: 18, borderRadius: 10, background: 'var(--bg-card)',
-            borderLeft: '4px solid var(--color-primary)', boxShadow: '0 1px 3px rgba(0,0,0,.08)', textDecoration: 'none',
+            borderLeft: '4px solid var(--color-primary)', boxShadow: '0 1px 3px var(--overlay-black-08)', textDecoration: 'none',
           }}>
             <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-primary)' }}>{c.title}</div>
             <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 6 }}>{c.desc}</div>

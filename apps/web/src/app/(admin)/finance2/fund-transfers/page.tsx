@@ -123,7 +123,7 @@ function CreateTransferModal({
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
+      position: 'fixed', inset: 0, background: 'var(--overlay-black-45)', zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <div className="bg-bg-card"
@@ -325,7 +325,7 @@ export default function FundTransfersPage() {
             <div key={t.id} className="bg-bg-card"
               style={{
                 borderRadius: 14,
-                border: `1.5px solid ${t.status === 'EXECUTED' ? '#bbf7d0' : t.status === 'CANCELLED' ? '#e2e8f0' : '#e8f4fd'}`,
+                border: `1.5px solid ${t.status === 'EXECUTED' ? '#bbf7d0' : t.status === 'CANCELLED' ? 'var(--slate-200)' : '#e8f4fd'}`,
                 padding: '16px 20px',
                 opacity: t.status === 'CANCELLED' ? 0.65 : 1,
               }}>

@@ -29,7 +29,7 @@ export function LegacyFreezeBanner({
     }}>
       <AlertTriangle size={20} color="var(--status-warning)" style={{ flexShrink: 0, marginTop: 1 }} />
       <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: '#92400e', marginBottom: 4 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--status-warning)', marginBottom: 4 }}>
           ⚠️ 旧财务模块已停用，请使用新版财务管理
         </div>
         <div style={{ fontSize: 13, color: '#78350f', lineHeight: 1.6 }}>
@@ -50,7 +50,7 @@ export function LegacyFreezeBanner({
             display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
             padding: '7px 14px', borderRadius: 8,
             border: '1.5px solid #d97706', background: 'var(--status-warning)',
-            color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            color: 'var(--bg-card)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
             whiteSpace: 'nowrap',
           }}
         >

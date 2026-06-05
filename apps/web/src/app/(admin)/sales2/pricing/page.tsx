@@ -210,7 +210,7 @@ function PriceBooksTab() {
   return (
     <div>
       {errorMsg && (
-        <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: "var(--radius)", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "var(--status-danger)", fontSize: 13 }}>
+        <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: "var(--radius)", background: "var(--status-danger-bg-faint)", border: "1px solid var(--status-danger-bg-medium)", color: "var(--status-danger)", fontSize: 13 }}>
           {errorMsg} <button type="button" onClick={() => setErrorMsg("")} style={{ marginLeft: 8, background: "none", border: "none", cursor: "pointer", color: "var(--status-danger)" }}><X size={12}/></button>
         </div>
       )}
@@ -283,7 +283,7 @@ function PriceBooksTab() {
                       )}
                       {!["CANCELLED", "ACTIVE"].includes(row.status) && (
                         <button type="button" onClick={() => doAction(row.id, "cancel", "取消")}
-                          style={{ padding: "2px 8px", fontSize: 11, background: "none", border: "1px solid rgba(239,68,68,0.4)", color: "var(--status-danger)", borderRadius: "var(--radius)", cursor: "pointer" }}>取消</button>
+                          style={{ padding: "2px 8px", fontSize: 11, background: "none", border: "1px solid var(--status-danger)", color: "var(--status-danger)", borderRadius: "var(--radius)", cursor: "pointer" }}>取消</button>
                       )}
                     </div>
                   </td>
@@ -497,7 +497,7 @@ function PriceItemsTab() {
   return (
     <div>
       {errorMsg && (
-        <div style={{ marginBottom: 10, padding: "8px 12px", borderRadius: "var(--radius)", background: "rgba(239,68,68,0.08)", color: "var(--status-danger)", fontSize: 12 }}>
+        <div style={{ marginBottom: 10, padding: "8px 12px", borderRadius: "var(--radius)", background: "var(--status-danger-bg-faint)", color: "var(--status-danger)", fontSize: 12 }}>
           {errorMsg} <button type="button" onClick={() => setErrorMsg("")} style={{ marginLeft: 6, background: "none", border: "none", cursor: "pointer", color: "var(--status-danger)" }}><X size={11}/></button>
         </div>
       )}
@@ -541,7 +541,7 @@ function PriceItemsTab() {
                 <td style={{ fontFamily: "monospace", fontSize: 11 }}>{row.price_book_no}</td>
                 <td>
                   {row.sku_code
-                    ? <span style={{ fontFamily: "monospace", fontSize: 11, background: "rgba(99,102,241,0.12)", color: "#818cf8", borderRadius: 4, padding: "2px 6px" }}>{row.sku_code}</span>
+                    ? <span style={{ fontFamily: "monospace", fontSize: 11, background: "rgba(99,102,241,0.12)", color: "var(--color-purple-400)", borderRadius: 4, padding: "2px 6px" }}>{row.sku_code}</span>
                     : row.product_code}
                 </td>
                 <td style={{ fontSize: 12 }}>{gradeLabel(row.grade_code_std ?? row.grade_code, master.grades)}</td>
@@ -562,7 +562,7 @@ function PriceItemsTab() {
                     <button type="button" className={s.btnSecondary} onClick={() => openEdit(row)}
                       style={{ padding: "2px 8px", fontSize: 11 }}>编辑</button>
                     <button type="button" onClick={() => doDisable(row.id)}
-                      style={{ padding: "2px 8px", fontSize: 11, background: "none", border: "1px solid rgba(239,68,68,0.4)", color: "var(--status-danger)", borderRadius: "var(--radius)", cursor: "pointer" }}>停用</button>
+                      style={{ padding: "2px 8px", fontSize: 11, background: "none", border: "1px solid var(--status-danger)", color: "var(--status-danger)", borderRadius: "var(--radius)", cursor: "pointer" }}>停用</button>
                   </div>
                 </td>
               </tr>
@@ -589,12 +589,12 @@ function PriceItemsTab() {
             <div style={{ marginBottom: 8 }}>
               <label style={lbl}>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <Layers size={12} color="#818cf8" /> SKU 快捷选择
+                  <Layers size={12} color="var(--color-purple-400)" /> SKU 快捷选择
                   <span style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 400 }}>（可选·选择后自动填充产品/品级/规格）</span>
                 </span>
               </label>
               {master.skus.length === 0 && !master.loading ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--status-warning)", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: "var(--radius)", padding: "8px 10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--status-warning)", background: "var(--status-warning-bg-faint)", border: "1px solid var(--status-warning-border)", borderRadius: "var(--radius)", padding: "8px 10px" }}>
                   <Info size={13} /> 请先在<a href="/master-data/product-skus" target="_blank" style={{ color: "var(--status-warning)", textDecoration: "underline" }}>主数据中心 → SKU 档案</a>维护商品组合
                 </div>
               ) : (
@@ -617,7 +617,7 @@ function PriceItemsTab() {
 
           <label style={lbl}>
             产品编码 {!form.skuCode && <span style={{ color: "var(--status-danger)" }}>*</span>}
-            {form.skuCode && <span style={{ fontSize: 11, color: "#818cf8", marginLeft: 6 }}>（由 SKU 自动填充）</span>}
+            {form.skuCode && <span style={{ fontSize: 11, color: "var(--color-purple-400)", marginLeft: 6 }}>（由 SKU 自动填充）</span>}
           </label>
           <input style={{ ...inp, ...(form.skuCode ? { background: "var(--bg-muted)", color: "var(--text-secondary)" } : {}) }}
             value={form.productCode} disabled={!!form.skuCode}
@@ -669,7 +669,7 @@ function PriceItemsTab() {
             onChange={e => setForm(f => ({ ...f, currencyCode: e.target.value }))} placeholder="LAK" />
 
           {errorMsg && (
-            <div style={{ marginTop: 8, fontSize: 12, color: "var(--status-danger)", background: "rgba(239,68,68,0.08)", borderRadius: "var(--radius)", padding: "8px 10px" }}>{errorMsg}</div>
+            <div style={{ marginTop: 8, fontSize: 12, color: "var(--status-danger)", background: "var(--status-danger-bg-faint)", borderRadius: "var(--radius)", padding: "8px 10px" }}>{errorMsg}</div>
           )}
 
           <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
@@ -748,7 +748,7 @@ function CurrentPricesTab() {
                 borderRadius: "var(--radius-lg)", padding: "14px 16px",
               }}>
                 {r.skuCode && (
-                  <div style={{ fontSize: 10, fontFamily: "monospace", color: "#818cf8", background: "rgba(99,102,241,0.1)", borderRadius: 3, padding: "1px 6px", marginBottom: 4, display: "inline-block" }}>
+                  <div style={{ fontSize: 10, fontFamily: "monospace", color: "var(--color-purple-400)", background: "rgba(99,102,241,0.1)", borderRadius: 3, padding: "1px 6px", marginBottom: 4, display: "inline-block" }}>
                     {r.skuCode}
                   </div>
                 )}

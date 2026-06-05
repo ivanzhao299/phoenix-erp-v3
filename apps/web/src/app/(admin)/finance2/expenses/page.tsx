@@ -153,7 +153,7 @@ function CreateExpenseModal({
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+      position: 'fixed', inset: 0, background: 'var(--overlay-black-45)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
     }}>
       <div className="bg-bg-card"
@@ -307,7 +307,7 @@ function ExpenseDrawer({
         <div style={{ marginBottom: 16 }}>
           <div className="text-text-muted" style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>审批流程</div>
           {data.wfTimeline.map((step, i) => {
-            const cfg = STEP_STATUS_CFG[step.status] ?? { color: '#6b7280', label: step.status };
+            const cfg = STEP_STATUS_CFG[step.status] ?? { color: 'var(--gray-500)', label: step.status };
             return (
               <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
                 <div style={{ width: 24, height: 24, borderRadius: '50%', background: `${cfg.color}20`, border: `2px solid ${cfg.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 10, fontWeight: 700, color: cfg.color }}>

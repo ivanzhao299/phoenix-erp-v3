@@ -56,14 +56,14 @@ const NAV_CARDS: NavCard[] = [
     icon: <Package size={28} />,
     titleZh: '包装统计', titleEn: 'Packaging', titleLo: 'ຫຸ້ມຫໍ່',
     desc: '班次产出、等级分布',
-    color: '#a78bfa', href: '/mobile/packaging', soon: false,
+    color: 'var(--color-purple-400)', href: '/mobile/packaging', soon: false,
     pageKey: 'packaging',
   },
   {
     icon: <ShieldCheck size={28} />,
     titleZh: '品质检测', titleEn: 'Quality', titleLo: 'ຄຸນນະພາບ',
     desc: '首检、过程检、出库检',
-    color: '#8b5cf6', href: '/mobile/quality', soon: false,
+    color: 'var(--color-purple-500)', href: '/mobile/quality', soon: false,
     pageKey: 'quality',
   },
   {
@@ -77,14 +77,14 @@ const NAV_CARDS: NavCard[] = [
     icon: <Truck size={28} />,
     titleZh: '销售出库', titleEn: 'Sales', titleLo: 'ການຂາຍ',
     desc: '农场直销·出库开单',
-    color: '#06b6d4', href: '/mobile/sales', soon: false,
+    color: 'var(--status-info)', href: '/mobile/sales', soon: false,
     pageKey: 'sales',
   },
   {
     icon: <CheckSquare size={28} />,
     titleZh: '药品台账', titleEn: 'Medicine', titleLo: 'ຢາ',
     desc: '药品库存·出入库登记',
-    color: '#8b5cf6', href: '/mobile/medicine', soon: false,
+    color: 'var(--color-purple-500)', href: '/mobile/medicine', soon: false,
     pageKey: 'medicine',
   },
   {
@@ -118,7 +118,7 @@ const NAV_CARDS: NavCard[] = [
     icon: <LineChart size={28} />,
     titleZh: '生产趋势', titleEn: 'Analytics', titleLo: 'ທ່າອ່ຽງ',
     desc: '7/14/30天产蛋·死淘·饲料',
-    color: '#6366f1',
+    color: 'var(--color-accent)',
     href: '/mobile/analytics',
     soon: false,
     pageKey: 'analytics',
@@ -127,7 +127,7 @@ const NAV_CARDS: NavCard[] = [
     icon: <PackageCheck size={28} />,
     titleZh: '配送签收', titleEn: 'Delivery', titleLo: 'ການຈັດສົ່ງ',
     desc: '查看配送波次 · 录入签收记录',
-    color: '#0891b2',
+    color: 'var(--status-info)',
     href: '/mobile/delivery',
     soon: false,
     pageKey: 'delivery',
@@ -136,7 +136,7 @@ const NAV_CARDS: NavCard[] = [
     icon: <ClipboardList size={28} />,
     titleZh: '发起采购', titleEn: 'Request', titleLo: 'ຂໍຈັດຊື້',
     desc: '填报采购需求 · 查看申请进度',
-    color: '#059669', href: '/mobile/prc-request', soon: false,
+    color: 'var(--status-success)', href: '/mobile/prc-request', soon: false,
     pageKey: 'prc_request',
   },
   // ── Workflow 2.0 新增 ──────────────────────────────────────────────────────
@@ -144,7 +144,7 @@ const NAV_CARDS: NavCard[] = [
     icon: <WorkflowIcon size={28} />,
     titleZh: '审批中心', titleEn: 'Approvals', titleLo: 'ການອະນຸມັດ',
     desc: '统一审批待办',
-    color: '#7c3aed', href: '/mobile/workflow', soon: false,
+    color: 'var(--color-purple-600)', href: '/mobile/workflow', soon: false,
     pageKey: 'workflow',
     badgeKey: 'todoCount',
   },
@@ -338,8 +338,8 @@ export default function MobileHomePage() {
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
           padding: '6px 12px', borderRadius: 8,
-          background: 'rgba(245,158,11,0.1)',
-          border: '1px solid rgba(245,158,11,0.25)',
+          background: 'var(--status-warning-bg-light)',
+          border: '1px solid var(--status-warning-border)',
         }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--status-warning)' }} />
           <span style={{ fontSize: 12, color: 'var(--status-warning)', fontWeight: 600 }}>
@@ -404,7 +404,7 @@ export default function MobileHomePage() {
               </div>
               {card.badgeKey && (badgeCounts[card.badgeKey] ?? 0) > 0 && (
                 <span style={{
-                  background: 'var(--status-danger)', color: '#fff',
+                  background: 'var(--status-danger)', color: 'var(--bg-card)',
                   borderRadius: 12, padding: '2px 7px',
                   fontSize: 11, fontWeight: 800, lineHeight: 1.4,
                 }}>

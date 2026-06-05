@@ -60,13 +60,13 @@ interface V2PrRecord {
 type Tab = 'form' | 'records';
 
 const STATUS_COLOR: Record<string, string> = {
-  DRAFT:       '#6b7280',
+  DRAFT:       'var(--gray-500)',
   SUBMITTED:   'var(--status-warning)',
   IN_REVIEW:   'var(--status-warning)',
   APPROVED:    'var(--status-info)',
   REJECTED:    'var(--status-danger)',
   PO_CREATED:  'var(--status-success)',
-  CANCELLED:   '#94a3b8',
+  CANCELLED:   'var(--slate-400)',
 };
 const STATUS_LABEL: Record<string, string> = {
   DRAFT:       '草稿',
@@ -312,7 +312,7 @@ export default function PrcRequestPage() {
           <span style={{ fontSize: 14 }}>返回</span>
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <ClipboardList size={18} color="#059669" />
+          <ClipboardList size={18} color="var(--status-success)" />
           <span style={{ fontWeight: 700, fontSize: 16, color: t.text }}>发起采购申请</span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -329,7 +329,7 @@ export default function PrcRequestPage() {
 
       {/* 只读提示 */}
       {readonly && (
-        <div style={{ background: '#fef3c7', color: '#92400e', fontSize: 13, padding: '8px 16px', textAlign: 'center' }}>
+        <div style={{ background: 'var(--status-warning-bg-faint)', color: 'var(--status-warning)', fontSize: 13, padding: '8px 16px', textAlign: 'center' }}>
           只读模式 — 您无权提交采购申请
         </div>
       )}
@@ -343,8 +343,8 @@ export default function PrcRequestPage() {
             style={{
               flex: 1, padding: '9px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
               fontSize: 14, fontWeight: 600,
-              background: tab === key ? '#059669' : 'transparent',
-              color: tab === key ? '#fff' : t.textSub,
+              background: tab === key ? 'var(--status-success)' : 'transparent',
+              color: tab === key ? 'var(--bg-card)' : t.textSub,
               transition: 'all 0.2s',
             }}
           >
@@ -452,7 +452,7 @@ export default function PrcRequestPage() {
                     onClick={addItem}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 4,
-                      background: '#059669', color: '#fff', border: 'none', borderRadius: 8,
+                      background: 'var(--status-success)', color: 'var(--bg-card)', border: 'none', borderRadius: 8,
                       padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                     }}
                   >
@@ -463,9 +463,9 @@ export default function PrcRequestPage() {
 
               {items.map((row, idx) => (
                 <div key={row.key} style={{
-                  background: isDark ? '#1e293b' : '#f8fafc',
+                  background: isDark ? 'var(--slate-800)' : 'var(--slate-50)',
                   borderRadius: 10, padding: '10px 12px',
-                  border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+                  border: `1px solid ${isDark ? 'var(--slate-700)' : 'var(--slate-200)'}`,
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: t.textSub }}>明细 {idx + 1}</span>
@@ -517,7 +517,7 @@ export default function PrcRequestPage() {
 
                     {/* 行小计 */}
                     {row.qty && row.estimatedUnitPrice && (
-                      <div style={{ textAlign: 'right', fontSize: 12, color: '#059669', fontWeight: 600 }}>
+                      <div style={{ textAlign: 'right', fontSize: 12, color: 'var(--status-success)', fontWeight: 600 }}>
                         小计：{((parseFloat(row.qty) || 0) * (parseFloat(row.estimatedUnitPrice) || 0)).toLocaleString()} {currencyCode}
                       </div>
                     )}
@@ -538,7 +538,7 @@ export default function PrcRequestPage() {
 
             {/* 错误 / 成功 */}
             {formError && (
-              <div style={{ color: 'var(--status-danger)', background: '#fef2f2', padding: '10px 14px', borderRadius: 10, fontSize: 13 }}>
+              <div style={{ color: 'var(--status-danger)', background: 'var(--status-danger-bg-faint)', padding: '10px 14px', borderRadius: 10, fontSize: 13 }}>
                 {formError}
               </div>
             )}
@@ -555,7 +555,7 @@ export default function PrcRequestPage() {
           <div>
             {recLoading && <div>{[1,2,3].map(i => <SkeletonCard key={i} lines={2} />)}</div>}
             {recError && (
-              <div style={{ color: 'var(--status-danger)', background: '#fef2f2', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>
+              <div style={{ color: 'var(--status-danger)', background: 'var(--status-danger-bg-faint)', padding: '10px 14px', borderRadius: 10, fontSize: 13, marginBottom: 12 }}>
                 {recError}
               </div>
             )}
@@ -564,7 +564,7 @@ export default function PrcRequestPage() {
             )}
             {!recLoading && records.map(row => {
               const st      = (row.status || 'DRAFT').toUpperCase();
-              const stColor = STATUS_COLOR[st] ?? '#94a3b8';
+              const stColor = STATUS_COLOR[st] ?? 'var(--slate-400)';
               const stLabel = STATUS_LABEL[st] ?? st;
               const createdAt = row.created_at ?? row.createdAt;
               const total     = row.total_amount ?? row.totalAmount;
@@ -618,7 +618,7 @@ export default function PrcRequestPage() {
             onClick={handleSaveDraft}
             disabled={saving || submitting}
             style={{
-              flex: 1, padding: '13px 0', borderRadius: 12, border: `1.5px solid ${isDark ? '#374151' : '#d1d5db'}`,
+              flex: 1, padding: '13px 0', borderRadius: 12, border: `1.5px solid ${isDark ? 'var(--gray-700)' : 'var(--gray-300)'}`,
               background: 'transparent', color: t.text,
               fontSize: 15, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: saving ? 0.6 : 1,
@@ -632,8 +632,8 @@ export default function PrcRequestPage() {
             disabled={saving || submitting}
             style={{
               flex: 2, padding: '13px 0', borderRadius: 12, border: 'none',
-              background: submitting ? '#94a3b8' : '#059669',
-              color: '#fff', fontSize: 15, fontWeight: 700,
+              background: submitting ? 'var(--slate-400)' : 'var(--status-success)',
+              color: 'var(--bg-card)', fontSize: 15, fontWeight: 700,
               cursor: submitting ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             }}

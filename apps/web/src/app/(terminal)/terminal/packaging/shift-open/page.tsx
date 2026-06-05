@@ -187,7 +187,7 @@ export default function ShiftOpenPage() {
             <div style={{ fontSize:13, color:T.MUT, marginBottom:16, fontWeight:600 }}>{t('ui.班次基本信息', '班次基本信息')}</div>
             <div style={{ marginBottom:12 }}>
               <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{t('ui.生产日期', '生产日期')}</div>
-              <div style={{ background:'rgba(255,255,255,0.05)', borderRadius:6, padding:'8px 12px', color:T.TXT, fontSize:14 }}>
+              <div style={{ background:'var(--overlay-white-05)', borderRadius:6, padding:'8px 12px', color:T.TXT, fontSize:14 }}>
                 {new Date().toLocaleDateString('zh-CN')}
               </div>
             </div>
@@ -273,7 +273,7 @@ export default function ShiftOpenPage() {
                   <button type="button" key={item.key} onClick={() => toggleCheck(item.key)}
                     style={{
                       display:'flex', alignItems:'center', gap:14, padding:'16px 20px',
-                      background: checked ? 'rgba(34,197,94,0.08)' : 'rgba(255,255,255,0.03)',
+                      background: checked ? 'var(--status-success-bg-faint)' : 'var(--overlay-white-03)',
                       border: `2px solid ${checked ? 'rgba(34,197,94,0.4)' : T.BOR}`,
                       borderRadius:10, cursor:'pointer', textAlign:'left', transition:'all 0.15s',
                     }}>
@@ -312,7 +312,7 @@ export default function ShiftOpenPage() {
         display:'flex', flexDirection:'column', gap:10, flexShrink:0 }}>
         {submitError && (
           <div style={{
-            background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)',
+            background: 'var(--status-danger-bg-light)', border: '1px solid rgba(239,68,68,0.35)',
             borderRadius: 8, padding: '10px 16px',
             fontSize: 14, color: T.RED, fontWeight: 500,
           }}>

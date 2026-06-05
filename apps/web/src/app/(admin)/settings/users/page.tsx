@@ -599,8 +599,8 @@ export default function UserManagementPage() {
 
         {hasActiveFilters && (
           <button type="button" onClick={() => { setSearch(""); setStatusFilter("ALL"); setRoleFilter(""); }}
-            style={{ fontSize: 12, color: "var(--status-danger)", background: "rgba(239,68,68,0.08)",
-              border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6,
+            style={{ fontSize: 12, color: "var(--status-danger)", background: "var(--status-danger-bg-faint)",
+              border: "1px solid var(--status-danger-bg-medium)", borderRadius: 6,
               padding: "6px 10px", cursor: "pointer", whiteSpace: "nowrap" }}>
             {t("ui.清除筛选", "清除筛选")}
           </button>

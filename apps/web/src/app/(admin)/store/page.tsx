@@ -25,7 +25,7 @@ export default function StorePage() {
     { path:"/store/receiving",  icon:"📦", label:t("ui.门店收货","门店收货"),   desc:t("ui.核收来自仓库的补货","核收来自仓库的补货"), color:"var(--status-info)" },
     { path:"/store/inventory",  icon:"🗃️",  label:t("ui.门店库存","门店库存"),   desc:t("ui.本店当前库存状态","本店当前库存状态"),   color:"var(--status-success)" },
     { path:"/store/daily",      icon:"📋", label:t("ui.日结作业","日结作业"),   desc:t("ui.当日营业汇总结账","当日营业汇总结账"),   color:"var(--status-warning)" },
-    { path:"/store/replenish",  icon:"🔄", label:t("ui.补货申请","补货申请"),   desc:t("ui.向仓库发起补货请求","向仓库发起补货请求"), color:"#8b5cf6" },
+    { path:"/store/replenish",  icon:"🔄", label:t("ui.补货申请","补货申请"),   desc:t("ui.向仓库发起补货请求","向仓库发起补货请求"), color:"var(--color-purple-500)" },
     { path:"/store/losses",     icon:"⚠️", label:t("ui.损耗上报","损耗上报"),   desc:t("ui.破损临期损耗记录","破损·临期损耗记录"), color:"var(--status-danger)" },
   ];
 

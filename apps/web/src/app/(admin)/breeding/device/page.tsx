@@ -213,7 +213,7 @@ export default function DeviceOverviewPage() {
       <div className={s.kpiGrid} style={{ marginBottom:16 }}>
         {kpiCards.map(c => (
           <div key={c.label} className={`${s.statCard} ${c.cardCls}`}
-            style={c.alarmBg ? { background:'rgba(239,68,68,0.05)' } : {}}>
+            style={c.alarmBg ? { background:'var(--status-danger-bg-faint)' } : {}}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6 }}>
               <div className={`${s.statValue} ${c.valCls}`} style={{ fontSize:28, lineHeight:1, letterSpacing:'-0.5px' }}>
                 {c.value}

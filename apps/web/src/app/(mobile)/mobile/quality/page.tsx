@@ -47,14 +47,14 @@ function InspectionCard({ item }: { item: QcInspection }) {
   const hasFailItems = item.fail_items_json != null;
 
   const resultColor  = isPass ? 'var(--status-success)' : isFail ? 'var(--status-danger)' : t.textSub;
-  const resultBg     = isPass ? 'rgba(16,185,129,0.1)' : isFail ? 'rgba(239,68,68,0.1)' : t.sectionBg;
+  const resultBg     = isPass ? 'var(--status-success-bg-medium)' : isFail ? 'var(--status-danger-bg-light)' : t.sectionBg;
   const resultBorder = isPass ? 'rgba(16,185,129,0.25)' : isFail ? 'rgba(239,68,68,0.25)' : t.inputBorder;
   const resultText   = isPass ? '✓ 合格' : isFail ? '✗ 不合格' : item.result;
 
   return (
     <div style={{
       borderRadius: 14, marginBottom: 10,
-      background: isFail ? 'rgba(239,68,68,0.05)' : t.sectionBg,
+      background: isFail ? 'var(--status-danger-bg-faint)' : t.sectionBg,
       border: `1px solid ${isFail ? 'rgba(239,68,68,0.18)' : t.cardBorder}`,
       overflow: 'hidden',
     }}>
@@ -71,7 +71,7 @@ function InspectionCard({ item }: { item: QcInspection }) {
           <span style={{
             display: 'inline-block',
             padding: '2px 8px', borderRadius: 6, fontSize: 12, fontWeight: 600,
-            background: 'rgba(99,179,237,0.12)', color: '#63b3ed',
+            background: 'rgba(99,179,237,0.12)', color: 'var(--status-info)',
             border: '1px solid rgba(99,179,237,0.25)',
           }}>
             {checkTypeLabel(item.checkType)}
@@ -104,12 +104,12 @@ function InspectionCard({ item }: { item: QcInspection }) {
       {hasFailItems && expanded && (
         <div style={{
           padding: '0 14px 12px',
-          borderTop: '1px solid rgba(239,68,68,0.15)',
+          borderTop: '1px solid var(--status-danger-bg-medium)',
         }}>
           <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 6, marginTop: 10 }}>不合格项详情</div>
           <pre style={{
             margin: 0, fontSize: 11, lineHeight: 1.6,
-            color: '#fca5a5',
+            color: 'var(--status-danger)',
             background: 'rgba(239,68,68,0.06)',
             padding: '10px 12px', borderRadius: 8,
             overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
@@ -281,7 +281,7 @@ export default function QualityPage() {
         {error && (
           <div style={{
             marginBottom: 12, padding: 12, borderRadius: 10,
-            background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+            background: 'var(--status-danger-bg-light)', border: '1px solid var(--status-danger-bg-strong)',
             color: 'var(--status-danger)', fontSize: 13,
           }}>
             {error}
@@ -318,7 +318,7 @@ export default function QualityPage() {
               {/* 不合格次数 */}
               <div style={{
                 padding: '12px 10px', borderRadius: 14, textAlign: 'center',
-                background: failCount > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.05)',
+                background: failCount > 0 ? 'var(--status-danger-bg-faint)' : 'rgba(16,185,129,0.05)',
                 border: `1px solid ${failCount > 0 ? 'rgba(239,68,68,0.22)' : 'rgba(16,185,129,0.18)'}`,
               }}>
                 <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 5 }}>不合格</div>
@@ -343,7 +343,7 @@ export default function QualityPage() {
                     flexShrink: 0, padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
                     cursor: 'pointer', border: 'none',
                     background: activeType === 'ALL' ? 'rgba(99,179,237,0.25)' : t.btnBg,
-                    color: activeType === 'ALL' ? '#63b3ed' : t.textSub,
+                    color: activeType === 'ALL' ? 'var(--status-info)' : t.textSub,
                     outline: activeType === 'ALL' ? '1px solid rgba(99,179,237,0.45)' : `1px solid ${t.btnBorder}`,
                   }}
                 >
@@ -360,7 +360,7 @@ export default function QualityPage() {
                         flexShrink: 0, padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
                         cursor: 'pointer', border: 'none',
                         background: active ? 'rgba(99,179,237,0.25)' : t.btnBg,
-                        color: active ? '#63b3ed' : t.textSub,
+                        color: active ? 'var(--status-info)' : t.textSub,
                         outline: active ? '1px solid rgba(99,179,237,0.45)' : `1px solid ${t.btnBorder}`,
                       }}
                     >

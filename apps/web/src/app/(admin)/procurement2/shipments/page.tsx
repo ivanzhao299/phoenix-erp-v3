@@ -445,7 +445,7 @@ export default function ShipmentsPage() {
       {/* ── Action Modal ── */}
       {actionTarget && (
         <div style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000,
+          position: "fixed", inset: 0, background: "var(--overlay-black-50)", zIndex: 1000,
           display: "flex", alignItems: "center", justifyContent: "center",
         }} onClick={() => setActionTarget(null)}>
           <div style={{

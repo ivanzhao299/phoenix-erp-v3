@@ -106,7 +106,7 @@ export default function QCInspectionPage() {
                   <div style={{ fontSize:11, color:T.MUT, marginBottom:4 }}>{f.label}</div>
                   <input type="number" value={(form as any)[f.key]}
                     onChange={e=>setNum(f.key, e.target.value)}
-                    style={{ width:'100%', background:'rgba(255,255,255,0.05)', border:`1px solid ${T.BOR}`,
+                    style={{ width:'100%', background:'var(--overlay-white-05)', border:`1px solid ${T.BOR}`,
                       borderRadius:8, padding:'12px 14px', color:T.TXT, fontSize:18,
                       fontWeight:600, boxSizing:'border-box' }} />
                 </div>
@@ -126,7 +126,7 @@ export default function QCInspectionPage() {
                 <button type="button" key={item.key} onClick={()=>setForm(p=>({...p,[item.key]:!(p as any)[item.key]}))}
                   style={{ padding:'12px 20px', borderRadius:8, cursor:'pointer', transition:'all 0.15s',
                     border:`2px solid ${(form as any)[item.key] ? T.GRN : T.BOR}`,
-                    background:(form as any)[item.key] ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.03)',
+                    background:(form as any)[item.key] ? 'rgba(34,197,94,0.1)' : 'var(--overlay-white-03)',
                     color:(form as any)[item.key] ? T.GRN : T.MUT, fontSize:14 }}>
                   {item.label}
                 </button>
@@ -144,7 +144,7 @@ export default function QCInspectionPage() {
                 <button type="button" key={r.value} onClick={()=>setForm(p=>({...p,qcResult:r.value}))}
                   style={{ padding:'14px 16px', borderRadius:10, cursor:'pointer', textAlign:'left',
                     border:`2px solid ${form.qcResult===r.value ? r.color : T.BOR}`,
-                    background: form.qcResult===r.value ? `${r.color}15` : 'rgba(255,255,255,0.03)',
+                    background: form.qcResult===r.value ? `${r.color}15` : 'var(--overlay-white-03)',
                     transition:'all 0.15s' }}>
                   <div style={{ fontSize:14, fontWeight:600, color: form.qcResult===r.value ? r.color : T.TXT }}>
                     {r.label}
@@ -158,7 +158,7 @@ export default function QCInspectionPage() {
             <div style={{ fontSize:13, color:T.MUT, marginBottom:8, fontWeight:600 }}>{t('ui.检验备注', '检验备注')}</div>
             <textarea value={form.comment} onChange={e=>setForm(p=>({...p,comment:e.target.value}))}
               placeholder={t('ui.填写检验意见', '填写检验意见...')} rows={4}
-              style={{ width:'100%', background:'rgba(255,255,255,0.05)', border:`1px solid ${T.BOR}`,
+              style={{ width:'100%', background:'var(--overlay-white-05)', border:`1px solid ${T.BOR}`,
                 borderRadius:8, padding:'10px 12px', color:T.TXT, fontSize:13,
                 resize:'none', boxSizing:'border-box' }} />
           </div>

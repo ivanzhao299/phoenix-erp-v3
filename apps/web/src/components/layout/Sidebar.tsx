@@ -314,7 +314,7 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
       className={`phoenix-sidebar ${styles.sidebar}`}
       style={{
         width: expanded_ ? "220px" : "56px",
-        boxShadow: isOverlay ? "4px 0 24px rgba(0,0,0,0.5)" : "none",
+        boxShadow: isOverlay ? "4px 0 24px var(--overlay-black-50)" : "none",
       }}
     >
       {/* Logo — 动态品牌，数据来自 BrandContext → /api/system/brand */}
@@ -420,8 +420,8 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
                         padding: "9px 12px 9px 28px",
                         margin: "6px 8px 2px",
                         borderRadius: 8,
-                        background: "linear-gradient(135deg, rgba(245,158,11,0.18), rgba(245,158,11,0.08))",
-                        border: "1px solid rgba(245,158,11,0.35)",
+                        background: "linear-gradient(135deg, rgba(245,158,11,0.18), var(--status-warning-bg-faint))",
+                        border: "1px solid var(--status-warning-bg-strong)",
                         color: "var(--status-warning)",
                         textDecoration: "none",
                         fontSize: 12,

@@ -69,8 +69,8 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   SHAREHOLDER: '股东账户', INTERNAL: '内部账户',
 };
 const ACCOUNT_TYPE_COLORS: Record<string, string> = {
-  BANK: 'var(--color-accent)', CASH: 'var(--status-success)', VIRTUAL: '#9333ea',
-  SHAREHOLDER: '#ea580c', INTERNAL: '#0891b2',
+  BANK: 'var(--color-accent)', CASH: 'var(--status-success)', VIRTUAL: 'var(--color-purple-600)',
+  SHAREHOLDER: 'var(--status-warning)', INTERNAL: 'var(--status-info)',
 };
 
 const STATUS_LABELS: Record<string, string> = { ACTIVE: '正常', FROZEN: '冻结', CLOSED: '已关闭' };
@@ -88,7 +88,7 @@ function fmt(n: number | string | null | undefined): string {
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function TypeBadge({ type }: { type: string }) {
-  const color = ACCOUNT_TYPE_COLORS[type] ?? '#6b7280';
+  const color = ACCOUNT_TYPE_COLORS[type] ?? 'var(--gray-500)';
   return (
     <span style={{
       display: 'inline-block', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
@@ -151,7 +151,7 @@ function CreateAccountModal({
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
+      position: 'fixed', inset: 0, background: 'var(--overlay-black-45)', zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <div className="bg-bg-card"
@@ -203,7 +203,7 @@ function CreateAccountModal({
                 onClick={() => set('accountType', k)}
                 style={{
                   padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  border: `1.5px solid ${form.accountType === k ? ACCOUNT_TYPE_COLORS[k] : '#e2e8f0'}`,
+                  border: `1.5px solid ${form.accountType === k ? ACCOUNT_TYPE_COLORS[k] : 'var(--slate-200)'}`,
                   background: form.accountType === k ? ACCOUNT_TYPE_COLORS[k] + '18' : undefined,
                   color: form.accountType === k ? ACCOUNT_TYPE_COLORS[k] : undefined,
                 }}
@@ -268,7 +268,7 @@ function TransactionDrawer({
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
+      position: 'fixed', inset: 0, background: 'var(--overlay-black-45)', zIndex: 1000,
       display: 'flex', justifyContent: 'flex-end',
     }}>
       <div className="bg-bg-card"
@@ -285,7 +285,7 @@ function TransactionDrawer({
         </div>
 
         {/* 余额卡片 */}
-        <div style={{ background: 'linear-gradient(135deg,#1e40af,#3b82f6)', borderRadius: 12, padding: '16px 20px', marginBottom: 18, color: '#fff' }}>
+        <div style={{ background: 'linear-gradient(135deg,#1e40af,#3b82f6)', borderRadius: 12, padding: '16px 20px', marginBottom: 18, color: 'var(--bg-card)' }}>
           <div style={{ fontSize: 12, opacity: 0.8 }}>当前余额</div>
           <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: -1 }}>
             {account.currencyCode} {fmt(account.currentBalance)}
@@ -499,7 +499,7 @@ export default function CashAccountsPage() {
               className="bg-bg-card hover:shadow-card-hover transition-shadow cursor-pointer"
               style={{
                 borderRadius: 14,
-                border: `1.5px solid ${acc.status === 'FROZEN' ? '#fde68a' : acc.status === 'CLOSED' ? '#e2e8f0' : '#e8f4fd'}`,
+                border: `1.5px solid ${acc.status === 'FROZEN' ? 'var(--status-warning-bg-faint)' : acc.status === 'CLOSED' ? 'var(--slate-200)' : '#e8f4fd'}`,
                 padding: '18px 20px',
                 opacity: acc.status === 'CLOSED' ? 0.65 : 1,
               }}

@@ -474,11 +474,11 @@ export default function GradingPage() {
             setHouseOutputsMap(prev => ({ ...prev, [activeHouseCode]: { ...emptyOutputs } }));
             setEditKey(allGradeKeys[0] ?? null);
           }}
-          style={{ padding:'9px 20px', borderRadius:10, border:`1px solid rgba(239,68,68,0.35)`, background:'rgba(239,68,68,0.08)', color:T.RED, fontSize:15, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap', WebkitTapHighlightColor:'transparent' }}>
+          style={{ padding:'9px 20px', borderRadius:10, border:`1px solid rgba(239,68,68,0.35)`, background:'var(--status-danger-bg-faint)', color:T.RED, fontSize:15, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap', WebkitTapHighlightColor:'transparent' }}>
           ↺ {t('ui.清零', '清零')}
         </button>
         <button type="button" onClick={() => router.push('/terminal/packaging/exceptions')}
-          style={{ padding:'9px 18px', borderRadius:10, border:`1px solid rgba(239,68,68,0.4)`, background:'rgba(239,68,68,0.1)', color:T.RED, fontSize:15, cursor:'pointer' }}>
+          style={{ padding:'9px 18px', borderRadius:10, border:`1px solid var(--status-danger)`, background:'var(--status-danger-bg-light)', color:T.RED, fontSize:15, cursor:'pointer' }}>
           ⚠️ {t('ui.上报异常', '上报异常')}
         </button>
         <div style={{ flex:1 }} />

@@ -239,7 +239,7 @@ export default function InitPage() {
         {isAdmin && (
           <button
             onClick={() => setShowUpload(true)}
-            style={{ padding: "7px 16px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600 }}
+            style={{ padding: "7px 16px", background: "var(--color-primary)", color: "var(--bg-card)", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600 }}
           >
             + 上传初始化文件
           </button>
@@ -367,7 +367,7 @@ export default function InitPage() {
 
       {/* ── 上传面板（Modal） ────────────────────────────────────────────────── */}
       {showUpload && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "fixed", inset: 0, background: "var(--overlay-black-50)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ background: "var(--bg-base)", borderRadius: 10, padding: 28, width: 460, boxShadow: "0 8px 32px rgba(0,0,0,.2)" }}>
             <h3 style={{ margin: "0 0 18px", fontSize: 16, fontWeight: 600 }}>上传初始化文件</h3>
 
@@ -408,7 +408,7 @@ export default function InitPage() {
                 取消
               </button>
               <button onClick={handleValidate} disabled={uploading}
-                style={{ padding: "7px 16px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: 6, cursor: uploading ? "wait" : "pointer", fontSize: 13, fontWeight: 600 }}>
+                style={{ padding: "7px 16px", background: "var(--color-primary)", color: "var(--bg-card)", border: "none", borderRadius: 6, cursor: uploading ? "wait" : "pointer", fontSize: 13, fontWeight: 600 }}>
                 {uploading ? "校验中…" : "上传并校验"}
               </button>
             </div>
@@ -419,7 +419,7 @@ export default function InitPage() {
       {/* ── 批次详情抽屉 ────────────────────────────────────────────────────── */}
       {(detailBatch || loadingDetail) && (
         <div style={{ position: "fixed", inset: 0, display: "flex", zIndex: 150 }}>
-          <div style={{ flex: 1, background: "rgba(0,0,0,.3)" }} onClick={() => setDetailBatch(null)} />
+          <div style={{ flex: 1, background: "var(--overlay-black-30)" }} onClick={() => setDetailBatch(null)} />
           <div style={{ width: 720, background: "var(--bg-base)", overflowY: "auto", padding: 28, display: "flex", flexDirection: "column", gap: 16 }}>
             {loadingDetail && <div style={{ color: "var(--text-secondary)", fontSize: 13 }}>加载中…</div>}
             {detailBatch && !loadingDetail && (<>
@@ -455,7 +455,7 @@ export default function InitPage() {
                 <div style={{ display: "flex", gap: 10 }}>
                   {['VALIDATED','FAILED'].includes(detailBatch.status) && (
                     <button onClick={handleImport} disabled={importing}
-                      style={{ padding: "7px 18px", background: "var(--color-primary)", color: "#fff", border: "none", borderRadius: 6, cursor: importing ? "wait" : "pointer", fontSize: 13, fontWeight: 600 }}>
+                      style={{ padding: "7px 18px", background: "var(--color-primary)", color: "var(--bg-card)", border: "none", borderRadius: 6, cursor: importing ? "wait" : "pointer", fontSize: 13, fontWeight: 600 }}>
                       {importing ? "导入中…" : "执行导入"}
                     </button>
                   )}

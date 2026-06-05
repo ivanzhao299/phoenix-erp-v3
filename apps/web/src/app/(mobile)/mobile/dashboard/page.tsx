@@ -40,7 +40,7 @@ function fmt(n: number | string | undefined | null, decimals = 0): string {
 
 const GRADE_COLORS: Record<string, string> = {
   AAA: 'var(--status-warning)', AA: 'var(--status-info)', A: 'var(--status-success)',
-  B: '#f97316', C: '#8b5cf6',
+  B: 'var(--status-warning)', C: 'var(--color-purple-500)',
 };
 
 const ALERT_LABELS: Record<string, string> = {
@@ -92,7 +92,7 @@ function MiniBarChart({ data, selectedDate }: { data: PackagingTrendItem[]; sele
                 <div style={{
                   width: '100%', minHeight: 2,
                   height: `${pct}%`,
-                  background: isSelected ? 'var(--status-warning)' : isToday ? 'rgba(245,158,11,0.5)' : 'rgba(245,158,11,0.25)',
+                  background: isSelected ? 'var(--status-warning)' : isToday ? 'rgba(245,158,11,0.5)' : 'var(--status-warning-border)',
                   borderRadius: '3px 3px 0 0',
                   transition: 'height 0.3s',
                 }} />
@@ -313,8 +313,8 @@ export default function MobileDashboardPage() {
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '10px 16px',
-        background: 'rgba(245,158,11,0.06)',
-        borderBottom: '1px solid rgba(245,158,11,0.1)',
+        background: 'var(--status-warning-bg-faint)',
+        borderBottom: '1px solid var(--status-warning-bg-light)',
       }}>
         <button onClick={prevDay}
           style={{ background: 'none', border: 'none', color: t.textSub, cursor: 'pointer', padding: 6 }}>
@@ -336,7 +336,7 @@ export default function MobileDashboardPage() {
 
         {/* ══ 今日配送概况（LOG_MGR / DRIVER / ADMIN 专属） ══════════════════════ */}
         {showDelivery && (
-          <Section title="今日配送概况" icon="🚛" color="#0891b2" loading={dispatchLoading}>
+          <Section title="今日配送概况" icon="🚛" color="var(--status-info)" loading={dispatchLoading}>
             {!delStats ? (
               <div style={{ textAlign: 'center', color: t.textFaint, fontSize: 13, padding: '10px 0' }}>
                 今日暂无配送数据
@@ -346,12 +346,12 @@ export default function MobileDashboardPage() {
                 {/* 统计格子 */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                   {[
-                    { label: '今日配送', value: delStats.todayWave   ?? 0, color: '#0891b2' },
+                    { label: '今日配送', value: delStats.todayWave   ?? 0, color: 'var(--status-info)' },
                     { label: '待装车',   value: delStats.planned      ?? 0, color: 'var(--status-warning)' },
                     { label: '配送中',   value: delStats.inTransit    ?? 0, color: 'var(--status-info)' },
                     { label: '待签收',   value: delStats.pendingSign  ?? 0, color: 'var(--status-warning)' },
                     { label: '已完成',   value: delStats.todayCompleted ?? delStats.completed ?? 0, color: 'var(--status-success)' },
-                    { label: '已取消',   value: delStats.cancelled    ?? 0, color: '#94a3b8' },
+                    { label: '已取消',   value: delStats.cancelled    ?? 0, color: 'var(--slate-400)' },
                   ].map(({ label, value, color }) => (
                     <div key={label} style={{
                       background: `${color}10`,
@@ -368,7 +368,7 @@ export default function MobileDashboardPage() {
                   onClick={() => router.push('/mobile/delivery')}
                   style={{
                     width: '100%', padding: '10px 0', borderRadius: 10, border: 'none',
-                    background: 'rgba(8,145,178,0.1)', color: '#0891b2',
+                    background: 'rgba(8,145,178,0.1)', color: 'var(--status-info)',
                     fontSize: 13, fontWeight: 600, cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                   }}
@@ -499,11 +499,11 @@ export default function MobileDashboardPage() {
                   {byGrade.map(g => (
                     <div key={g.grade} style={{
                       flex: '1 1 auto', minWidth: 60,
-                      background: `${GRADE_COLORS[g.grade] || '#6b7280'}18`,
-                      border: `1px solid ${GRADE_COLORS[g.grade] || '#6b7280'}40`,
+                      background: `${GRADE_COLORS[g.grade] || 'var(--gray-500)'}18`,
+                      border: `1px solid ${GRADE_COLORS[g.grade] || 'var(--gray-500)'}40`,
                       borderRadius: 8, padding: '8px 10px', textAlign: 'center',
                     }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: GRADE_COLORS[g.grade] || '#9ca3af' }}>{g.grade}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: GRADE_COLORS[g.grade] || 'var(--gray-400)' }}>{g.grade}</div>
                       <div style={{ fontSize: 16, fontWeight: 800, color: t.text }}>{fmt(g.qty)}</div>
                       <div style={{ fontSize: 10, color: t.textFaint }}>枚</div>
                     </div>
@@ -520,7 +520,7 @@ export default function MobileDashboardPage() {
 
         {/* ══ 品质检测 ══════════════════════════════════════════════════════════ */}
         {showQuality && (
-          <Section title="品质检测" icon="🛡️" color="#8b5cf6" loading={qcLoading} error={qcErr}>
+          <Section title="品质检测" icon="🛡️" color="var(--color-purple-500)" loading={qcLoading} error={qcErr}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
               <StatCard label="今日检测" value={fmt(qcTotal)} unit="次" />
               <StatCard
@@ -544,7 +544,7 @@ export default function MobileDashboardPage() {
           return (
             <div style={{
               background: t.cardBg,
-              border: '1px solid rgba(245,158,11,0.3)',
+              border: '1px solid var(--status-warning-bg-strong)',
               borderRadius: 16, padding: '16px', marginBottom: 12,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -562,8 +562,8 @@ export default function MobileDashboardPage() {
                 {nonEmpty.map(r => (
                   <div key={r.grade} style={{
                     padding: '6px 10px', borderRadius: 8,
-                    background: 'rgba(245,158,11,0.08)',
-                    border: '1px solid rgba(245,158,11,0.2)',
+                    background: 'var(--status-warning-bg-faint)',
+                    border: '1px solid var(--status-warning-border)',
                   }}>
                     <div style={{ fontSize: 11, color: t.textMuted }}>{r.name}</div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--status-warning)' }}>{r.qty.toLocaleString()}</div>
@@ -604,7 +604,7 @@ export default function MobileDashboardPage() {
         {showAlerts && alerts.length > 0 && (
           <div style={{
             background: 'rgba(239,68,68,0.06)',
-            border: '1px solid rgba(239,68,68,0.2)',
+            border: '1px solid var(--status-danger-bg-medium)',
             borderRadius: 16, padding: '14px 16px', marginBottom: 12,
           }}>
             <button
@@ -614,7 +614,7 @@ export default function MobileDashboardPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 18 }}>⚠️</span>
                 <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--status-danger)' }}>设备告警</span>
-                <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 10, background: 'rgba(239,68,68,0.2)', color: 'var(--status-danger)', fontWeight: 700 }}>
+                <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 10, background: 'var(--status-danger-bg-medium)', color: 'var(--status-danger)', fontWeight: 700 }}>
                   {alerts.length} 条未处理
                 </span>
               </div>

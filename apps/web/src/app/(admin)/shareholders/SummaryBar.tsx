@@ -6,7 +6,7 @@ export function SummaryBar({ items }: { items: { label: string; value: string; a
   return (
     <div style={{
       display: 'flex', flexWrap: 'wrap', gap: 0, background: 'var(--bg-card)', borderRadius: 10,
-      boxShadow: '0 1px 3px rgba(0,0,0,.08)', padding: '4px 0', marginBottom: 14, overflow: 'hidden',
+      boxShadow: '0 1px 3px var(--overlay-black-08)', padding: '4px 0', marginBottom: 14, overflow: 'hidden',
     }}>
       {items.map((it, i) => (
         <div key={i} style={{

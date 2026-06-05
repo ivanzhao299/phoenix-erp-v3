@@ -137,7 +137,7 @@ export default function ShiftClosePage() {
             {[[t('ui.接收总量', '接收总量'), `${summary.receivedQty.toLocaleString()} ${t('ui.枚', '枚')}`],
               [t('ui.接收重量', '接收重量'), `${summary.receivedWeight} kg`]].map(([k,v])=>(
               <div key={k} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0',
-                borderBottom:`1px solid rgba(255,255,255,0.04)`, fontSize:13 }}>
+                borderBottom:`1px solid var(--overlay-white-05)`, fontSize:13 }}>
                 <span style={{ color:T.MUT }}>{k}</span>
                 <span style={{ color:T.TXT, fontWeight:600, fontVariantNumeric:'tabular-nums' }}>{v}</span>
               </div>
@@ -154,7 +154,7 @@ export default function ShiftClosePage() {
               [t('ui.破损', '破损'),  summary.broken.toLocaleString()],
               [t('ui.脏污', '脏污'),  summary.dirty.toLocaleString()]].map(([k,v])=>(
               <div key={k} style={{ display:'flex', justifyContent:'space-between', padding:'4px 0',
-                borderBottom:`1px solid rgba(255,255,255,0.04)`, fontSize:12 }}>
+                borderBottom:`1px solid var(--overlay-white-05)`, fontSize:12 }}>
                 <span style={{ color:T.MUT }}>{k}</span>
                 <span style={{ color:T.TXT }}>{v} {t('ui.枚', '枚')}</span>
               </div>
@@ -169,7 +169,7 @@ export default function ShiftClosePage() {
               [t('ui.已入库', '已入库'), `${summary.warehousedBoxes} ${t('ui.箱', '箱')}`],
               [t('ui.托盘数', '托盘数'), `${summary.warehousedPallets} ${t('ui.托', '托')}`]].map(([k,v])=>(
               <div key={k} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0',
-                borderBottom:`1px solid rgba(255,255,255,0.04)`, fontSize:13 }}>
+                borderBottom:`1px solid var(--overlay-white-05)`, fontSize:13 }}>
                 <span style={{ color:T.MUT }}>{k}</span>
                 <span style={{ color:T.TXT, fontWeight:600, fontVariantNumeric:'tabular-nums' }}>{v}</span>
               </div>
@@ -180,7 +180,7 @@ export default function ShiftClosePage() {
         {/* 差异 & 异常 */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
           <div style={{ background:T.CARD, borderRadius:12, padding:16,
-            border:`1px solid ${hasVariance?'rgba(245,158,11,0.4)':T.BOR}` }}>
+            border:`1px solid ${hasVariance?'var(--status-warning)':T.BOR}` }}>
             <div style={{ fontSize:12, color:T.MUT, marginBottom:10, fontWeight:600 }}>
               ⚖️ {t('ui.投入产出差异', '投入产出差异')} {hasVariance && <span style={{ color:T.ACC }}>({summary.variancePct}%)</span>}
             </div>
@@ -189,7 +189,7 @@ export default function ShiftClosePage() {
             </div>
             {hasVariance && (
               <div style={{ padding:'8px 12px', borderRadius:8,
-                background:'rgba(245,158,11,0.08)', border:`1px solid rgba(245,158,11,0.25)`,
+                background:'var(--status-warning-bg-faint)', border:`1px solid var(--status-warning-border)`,
                 fontSize:12, color:T.ACC }}>
                 {t('ui.中途换班差异正常可交班', '中途换班差异属正常情况，不影响交班。剩余未包装量由下班继续处理。')}
               </div>
@@ -197,7 +197,7 @@ export default function ShiftClosePage() {
           </div>
 
           <div style={{ background:T.CARD, borderRadius:12, padding:16,
-            border:`1px solid ${hasOpenException?'rgba(239,68,68,0.4)':T.BOR}` }}>
+            border:`1px solid ${hasOpenException?'var(--status-danger)':T.BOR}` }}>
             <div style={{ fontSize:12, color:T.MUT, marginBottom:10, fontWeight:600 }}>⚠️ {t('ui.异常汇总', '异常汇总')}</div>
             <div style={{ fontSize:14, color:T.TXT, marginBottom:8 }}>
               {t('ui.未关闭', '未关闭')} <strong style={{ color:hasOpenException?T.RED:T.GRN }}>{summary.openExceptions}</strong> {t('ui.条', '条')} /
@@ -205,7 +205,7 @@ export default function ShiftClosePage() {
             </div>
             <div style={{ overflow:'hidden', maxHeight: hasOpenException ? 120 : 0 }}>
               <div style={{ padding:'10px 12px', borderRadius:8,
-                background:'rgba(239,68,68,0.1)', border:`1px solid rgba(239,68,68,0.3)`,
+                background:'var(--status-danger-bg-light)', border:`1px solid var(--status-danger-bg-strong)`,
                 fontSize:13, color:T.RED }}>
                 ⚠️ {t('ui.存在未关闭异常必须先处理', '存在未关闭异常，必须先处理后才能交班')}
                 <br />
@@ -223,7 +223,7 @@ export default function ShiftClosePage() {
       <div style={{ background:T.CARD, borderTop:`1px solid ${T.BOR}`, padding:'16px 24px',
         display:'flex', flexDirection:'column', gap:8, flexShrink:0 }}>
         {submitError && (
-          <div style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)',
+          <div style={{ background:'var(--status-danger-bg-light)', border:'1px solid var(--status-danger-bg-strong)',
             borderRadius:8, padding:'10px 16px', fontSize:14, color:T.RED }}>
             ⚠️ {submitError}
           </div>

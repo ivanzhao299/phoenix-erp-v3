@@ -49,9 +49,9 @@ interface DictCoverage {
 
 function scoreColor(s: number): { bg: string; fg: string; label: string } {
   if (s >= 90) return { bg: 'rgba(34,197,94,0.12)',  fg: 'var(--status-success)', label: '优秀' };
-  if (s >= 75) return { bg: 'rgba(59,130,246,0.12)', fg: 'var(--color-accent)', label: '良好' };
-  if (s >= 60) return { bg: 'rgba(245,158,11,0.12)', fg: 'var(--status-warning)', label: '及格' };
-  return         { bg: 'rgba(239,68,68,0.12)',   fg: 'var(--status-danger)', label: '需整改' };
+  if (s >= 75) return { bg: 'var(--status-info-bg)', fg: 'var(--color-accent)', label: '良好' };
+  if (s >= 60) return { bg: 'var(--status-warning-bg-light)', fg: 'var(--status-warning)', label: '及格' };
+  return         { bg: 'var(--status-danger-bg-light)',   fg: 'var(--status-danger)', label: '需整改' };
 }
 
 export default function GovernanceDashboardPage() {
@@ -100,7 +100,7 @@ export default function GovernanceDashboardPage() {
       />
 
       {error && (
-        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: 'var(--status-danger)', marginBottom: 16, fontSize: 13 }}>
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--status-danger-bg-faint)', color: 'var(--status-danger)', marginBottom: 16, fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -132,7 +132,7 @@ export default function GovernanceDashboardPage() {
 
           <div style={{
             padding: 24, borderRadius: 16,
-            background: scores.highAlertCount > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(34,197,94,0.08)',
+            background: scores.highAlertCount > 0 ? 'var(--status-danger-bg-faint)' : 'var(--status-success-bg-faint)',
             border: `1px solid ${scores.highAlertCount > 0 ? '#dc262633' : '#16a34a33'}`,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
@@ -214,7 +214,7 @@ export default function GovernanceDashboardPage() {
             })}
           </div>
           {dict.missingDictTypes.length > 0 && (
-            <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', fontSize: 12, color: 'var(--status-danger)' }}>
+            <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 6, background: 'var(--status-danger-bg-faint)', fontSize: 12, color: 'var(--status-danger)' }}>
               <strong>缺失字典（{dict.missingDictTypes.length}）：</strong> {dict.missingDictTypes.join('、')}
             </div>
           )}

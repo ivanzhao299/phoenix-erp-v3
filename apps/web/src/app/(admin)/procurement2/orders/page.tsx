@@ -1028,12 +1028,12 @@ function SimpleModal({ open, onClose, title, children }: {
   if (!open) return null;
   return (
     <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000,
+      position: "fixed", inset: 0, background: "var(--overlay-black-50)", zIndex: 1000,
       display: "flex", alignItems: "center", justifyContent: "center",
     }} onClick={onClose}>
       <div style={{
         background: "var(--bg-card)", borderRadius: 10, padding: 20, width: 480,
-        boxShadow: "0 8px 32px rgba(0,0,0,0.3)", maxHeight: "90vh", overflowY: "auto",
+        boxShadow: "0 8px 32px var(--overlay-black-30)", maxHeight: "90vh", overflowY: "auto",
       }} onClick={e => e.stopPropagation()}>
         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
           <FileText size={16} /> {title}

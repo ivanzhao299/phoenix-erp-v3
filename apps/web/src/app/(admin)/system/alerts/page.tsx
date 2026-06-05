@@ -18,8 +18,8 @@ interface Alert {
 }
 
 const SEVERITY_STYLE: Record<string, { bg: string; color: string }> = {
-  CRITICAL: { bg: "#fee2e2", color: "var(--status-danger)" },
-  WARNING:  { bg: "#fef3c7", color: "var(--status-warning)" },
+  CRITICAL: { bg: "var(--status-danger-bg-faint)", color: "var(--status-danger)" },
+  WARNING:  { bg: "var(--status-warning-bg-faint)", color: "var(--status-warning)" },
   INFO:     { bg: "#dbeafe", color: "var(--color-accent)" },
 };
 
@@ -84,7 +84,7 @@ export default function SystemAlertsPage() {
               disabled={loading}
               style={{
                 display: "flex", alignItems: "center", gap: 6, padding: "6px 14px",
-                borderRadius: "var(--radius-md)", background: "var(--primary)", color: "#fff",
+                borderRadius: "var(--radius-md)", background: "var(--primary)", color: "var(--bg-card)",
                 border: "none", cursor: loading ? "not-allowed" : "pointer", fontSize: 13,
               }}
             >
@@ -138,7 +138,7 @@ export default function SystemAlertsPage() {
                         disabled={resolving === a.id}
                         style={{
                           padding: "4px 12px", borderRadius: "var(--radius-md)", fontSize: 12,
-                          background: "var(--status-success)", color: "#fff", border: "none",
+                          background: "var(--status-success)", color: "var(--bg-card)", border: "none",
                           cursor: resolving === a.id ? "not-allowed" : "pointer", fontWeight: 600,
                         }}
                       >

@@ -248,7 +248,7 @@ function CreateReturnDrawer({ onClose, onCreated }: { onClose: () => void; onCre
           <div key={i} style={{ background: 'var(--bg-muted)', borderRadius: 8, padding: 12, marginBottom: 10 }}>
             {/* G4-C：商品由 SKU 主数据选择，禁止手工录入；自动带出 productCode/productName/gradeCode */}
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 11, color: '#8b5cf6', marginBottom: 2 }}>商品（SKU 主数据）*</div>
+              <div style={{ fontSize: 11, color: 'var(--color-purple-500)', marginBottom: 2 }}>商品（SKU 主数据）*</div>
               <SkuSelector value={(it as any).skuCode ?? ''}
                 onChange={code => updateItem(i, 'skuCode' as any, code)}
                 onPick={o => {

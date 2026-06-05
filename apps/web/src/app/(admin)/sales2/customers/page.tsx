@@ -522,10 +522,10 @@ function ChannelsTab() {
 
 const CREDIT_STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
   NORMAL:     { label: "正常",   color: "var(--status-success)", bg: "rgba(34,197,94,0.12)"   },
-  WARNING:    { label: "预警",   color: "var(--status-warning)", bg: "rgba(245,158,11,0.12)"  },
-  OVER_LIMIT: { label: "超额度", color: "var(--status-danger)", bg: "rgba(239,68,68,0.12)"   },
+  WARNING:    { label: "预警",   color: "var(--status-warning)", bg: "var(--status-warning-bg-light)"  },
+  OVER_LIMIT: { label: "超额度", color: "var(--status-danger)", bg: "var(--status-danger-bg-light)"   },
   OVERDUE:    { label: "逾期",   color: "var(--status-danger)", bg: "rgba(220,38,38,0.12)"   },
-  FROZEN:     { label: "冻结",   color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
+  FROZEN:     { label: "冻结",   color: "var(--gray-500)", bg: "rgba(107,114,128,0.12)" },
 };
 
 function CreditTab() {
@@ -613,7 +613,7 @@ function CreditTab() {
                 padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer",
                 border: `1px solid ${creditFilter === f ? "var(--color-primary)" : "var(--border)"}`,
                 background: creditFilter === f ? "var(--color-primary)" : "transparent",
-                color: creditFilter === f ? "#fff" : "var(--text-secondary)",
+                color: creditFilter === f ? "var(--bg-card)" : "var(--text-secondary)",
               }}>
               {lbl}
             </button>
@@ -661,7 +661,7 @@ function CreditTab() {
                     <td>
                       {row.customer_name}
                       {row.auto_frozen && (
-                        <span style={{ marginLeft: 6, fontSize: 10, color: "#6b7280", background: "rgba(107,114,128,0.1)", padding: "1px 5px", borderRadius: 8, fontWeight: 400 }}>自动冻结</span>
+                        <span style={{ marginLeft: 6, fontSize: 10, color: "var(--gray-500)", background: "rgba(107,114,128,0.1)", padding: "1px 5px", borderRadius: 8, fontWeight: 400 }}>自动冻结</span>
                       )}
                     </td>
                     <td>
@@ -735,7 +735,7 @@ function CreditTab() {
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   <span style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: cs.bg, color: cs.color }}>{cs.label}</span>
                   {analysis.riskLevel && analysis.riskLevel !== "NORMAL" && (
-                    <span style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "rgba(239,68,68,0.1)", color: "var(--status-danger)" }}>
+                    <span style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "var(--status-danger-bg-light)", color: "var(--status-danger)" }}>
                       风险：{analysis.riskLevel}
                     </span>
                   )}

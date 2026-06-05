@@ -205,8 +205,8 @@ export default function SourceModePage() {
             </div>
           )}
 
-          {msg && <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(16,185,129,0.1)", color: "var(--status-success)", fontSize: 13 }}>{msg}</div>}
-          {error && <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(239,68,68,0.08)", color: "var(--status-danger)", fontSize: 13 }}>{error}</div>}
+          {msg && <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--status-success-bg-medium)", color: "var(--status-success)", fontSize: 13 }}>{msg}</div>}
+          {error && <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--status-danger-bg-faint)", color: "var(--status-danger)", fontSize: 13 }}>{error}</div>}
         </div>
       )}
 

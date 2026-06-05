@@ -28,7 +28,7 @@ export function ModalV2({ open, title, width = 520, onClose, children, footer, c
     <div
       onClick={(e) => { if (closeOnBackdrop && e.target === e.currentTarget) onClose(); }}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
+        position: 'fixed', inset: 0, background: 'var(--overlay-black-45)', zIndex: 1000,
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
         animation: 'phx-fade-in .15s ease',
       }}

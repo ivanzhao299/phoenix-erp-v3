@@ -566,12 +566,12 @@ export default function ReceiptsPage() {
 
       {/* ── Confirm Modal ── */}
       {confirmTarget && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
+        <div style={{ position: "fixed", inset: 0, background: "var(--overlay-black-50)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
           onClick={() => setConfirmTarget(null)}>
           <div style={{ background: "var(--bg-card)", borderRadius: 12, padding: 24, width: 400 }} onClick={e => e.stopPropagation()}>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>确认收货</div>
             <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 4 }}>收货单：{confirmTarget.receiptNo}</div>
-            <div style={{ fontSize: 12, color: "var(--color-warning)", marginBottom: 16, padding: "8px 12px", background: "rgba(245,158,11,0.1)", borderRadius: 6 }}>
+            <div style={{ fontSize: 12, color: "var(--color-warning)", marginBottom: 16, padding: "8px 12px", background: "var(--status-warning-bg-light)", borderRadius: 6 }}>
               确认后将自动更新采购订单已收数量及状态，不可撤销。
             </div>
             <div style={{ marginBottom: 16 }}>
@@ -590,7 +590,7 @@ export default function ReceiptsPage() {
 
       {/* ── Cancel Modal ── */}
       {cancelTarget && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
+        <div style={{ position: "fixed", inset: 0, background: "var(--overlay-black-50)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
           onClick={() => setCancelTarget(null)}>
           <div style={{ background: "var(--bg-card)", borderRadius: 12, padding: 24, width: 400 }} onClick={e => e.stopPropagation()}>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>取消收货单</div>

@@ -902,13 +902,13 @@ type="button"               className={s.btnPrimaryGrad}
       {showMatrix && (
         <div onClick={() => setShowMatrix(false)} style={{
           position: "fixed", inset: 0, zIndex: 1000,
-          background: "rgba(0,0,0,0.5)", backdropFilter: "blur(2px)",
+          background: "var(--overlay-black-50)", backdropFilter: "blur(2px)",
           display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
         }}>
           <div onClick={(e) => e.stopPropagation()} style={{
             background: "var(--bg-card)", borderRadius: 12,
             width: "95vw", height: "92vh", display: "flex", flexDirection: "column",
-            boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+            boxShadow: "0 20px 50px var(--overlay-black-30)",
           }}>
             <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div className={s.cardTitle} style={{ display: "flex", alignItems: "center", gap: 6 }}>

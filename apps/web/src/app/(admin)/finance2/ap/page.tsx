@@ -156,7 +156,7 @@ function KpiCard({ label, value, sub, icon: Icon, color, loading }: {
 }) {
   return (
     <div className="bg-bg-card border border-border"
-      style={{ borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', minHeight: 112, boxSizing: 'border-box' }}>
+      style={{ borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 4px var(--overlay-black-04)', minHeight: 112, boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <Icon size={16} color={color} />
         <span className="text-text-muted" style={{ fontSize: 12 }}>{label}</span>
@@ -230,7 +230,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+      position: 'fixed', inset: 0, background: 'var(--overlay-black-45)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
     }}>
       <div className="bg-bg-card"
@@ -682,7 +682,7 @@ export default function Finance2ApPage() {
         gap: 12, marginBottom: 22,
       }}>
         <KpiCard label="应付账单总数"  value={String(summary?.total_invoices ?? '—')}
-          icon={TrendingDown} color="#6366f1" loading={sumLoading} />
+          icon={TrendingDown} color="var(--color-accent)" loading={sumLoading} />
         <KpiCard label="待付（未付）" value={String(summary?.open_invoices ?? '—')}
           icon={Clock} color="var(--status-warning)" loading={sumLoading} />
         <KpiCard label="部分付款" value={String(summary?.partial_invoices ?? '—')}
@@ -763,7 +763,7 @@ export default function Finance2ApPage() {
 
       {/* 表格 */}
       <div className="bg-bg-card border border-border"
-        style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+        style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px var(--overlay-black-04)' }}>
         <div style={{ overflowX: 'auto' }}>
           <table className={s.table}>
             <thead>

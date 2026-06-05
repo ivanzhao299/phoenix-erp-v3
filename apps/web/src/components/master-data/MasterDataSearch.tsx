@@ -25,8 +25,8 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  ACTIVE: 'var(--status-success)', DRAFT: '#94a3b8', PENDING_APPROVAL: 'var(--status-warning)',
-  FROZEN: 'var(--status-info)', ARCHIVED: '#94a3b8', REJECTED: 'var(--status-danger)',
+  ACTIVE: 'var(--status-success)', DRAFT: 'var(--slate-400)', PENDING_APPROVAL: 'var(--status-warning)',
+  FROZEN: 'var(--status-info)', ARCHIVED: 'var(--slate-400)', REJECTED: 'var(--status-danger)',
 };
 
 export function MasterDataSearch({ placeholder = '搜索客户 / 供应商 / SKU / 仓库 / 账户…', autoFocus = false }:
@@ -138,8 +138,8 @@ export function MasterDataSearch({ placeholder = '搜索客户 / 供应商 / SKU
                   </div>
                   <span style={{
                     fontSize: 10, padding: '2px 6px', borderRadius: 3,
-                    background: `${STATUS_COLOR[r.status] ?? '#94a3b8'}1a`,
-                    color: STATUS_COLOR[r.status] ?? '#94a3b8',
+                    background: `${STATUS_COLOR[r.status] ?? 'var(--slate-400)'}1a`,
+                    color: STATUS_COLOR[r.status] ?? 'var(--slate-400)',
                     fontWeight: 600,
                   }}>{r.status}</span>
                   <ExternalLink size={12} style={{ color: 'var(--text-disabled)' }} />

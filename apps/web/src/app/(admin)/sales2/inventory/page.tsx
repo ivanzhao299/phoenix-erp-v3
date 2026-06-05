@@ -100,20 +100,20 @@ function fmt(n: number | null | undefined, dec = 0): string {
 function gradeColor(grade: string | null): string {
   const map: Record<string, string> = {
     AA: 'var(--color-accent)', A: 'var(--status-success)', B: 'var(--status-warning)',
-    DIRTY: '#9333ea', CRACKED: 'var(--status-danger)', DAMAGED: '#be123c',
+    DIRTY: 'var(--color-purple-600)', CRACKED: 'var(--status-danger)', DAMAGED: 'var(--status-danger)',
   };
-  return map[grade ?? ''] ?? '#6b7280';
+  return map[grade ?? ''] ?? 'var(--gray-500)';
 }
 
 function statusBadge(status: string): React.ReactNode {
   const cfg: Record<string, { label: string; color: string }> = {
     AVAILABLE:   { label: '可用', color: 'var(--status-success)' },
     LOCKED:      { label: '锁定', color: 'var(--status-warning)' },
-    RETURNED:    { label: '退货待检', color: '#9333ea' },
+    RETURNED:    { label: '退货待检', color: 'var(--color-purple-600)' },
     EXPIRED:     { label: '已过期', color: 'var(--status-danger)' },
-    WRITTEN_OFF: { label: '已核销', color: '#6b7280' },
+    WRITTEN_OFF: { label: '已核销', color: 'var(--gray-500)' },
   };
-  const c = cfg[status] ?? { label: status, color: '#6b7280' };
+  const c = cfg[status] ?? { label: status, color: 'var(--gray-500)' };
   return (
     <span style={{
       display: 'inline-block', padding: '1px 8px', borderRadius: 12,
@@ -124,11 +124,11 @@ function statusBadge(status: string): React.ReactNode {
 
 /** Phase H4: SKU 徽章 */
 function SkuBadge({ skuCode }: { skuCode?: string | null }) {
-  if (!skuCode) return <span style={{ color: '#9ca3af', fontSize: 11 }}>旧批次</span>;
+  if (!skuCode) return <span style={{ color: 'var(--gray-400)', fontSize: 11 }}>旧批次</span>;
   return (
     <span style={{
       fontFamily: 'monospace', fontSize: 11, fontWeight: 600,
-      background: 'rgba(99,102,241,0.12)', color: '#818cf8',
+      background: 'rgba(99,102,241,0.12)', color: 'var(--color-purple-400)',
       borderRadius: 4, padding: '2px 6px', border: '1px solid rgba(99,102,241,0.25)',
     }}>{skuCode}</span>
   );
@@ -272,7 +272,7 @@ function BatchesTab() {
           {/* Phase H4: SKU 快捷选择 */}
           <div style={{ marginBottom: 14 }}>
             <label style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>
-              商品组合（SKU）<span style={{ fontSize: 11, color: '#6b7280', marginLeft: 6 }}>选择后自动填充产品/等级/规格</span>
+              商品组合（SKU）<span style={{ fontSize: 11, color: 'var(--gray-500)', marginLeft: 6 }}>选择后自动填充产品/等级/规格</span>
             </label>
             {skus.length === 0 ? (
               <div style={{ fontSize: 12, color: 'var(--status-warning)', padding: '6px 10px', background: '#fffbeb', borderRadius: 6, border: '1px solid #fde68a' }}>
@@ -307,7 +307,7 @@ function BatchesTab() {
                   value={(form as any)[key]}
                   disabled={!!form.skuCode && ['productCode','packagingSpec'].includes(key)}
                   onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
-                  style={{ ...inputStyle, ...(!!form.skuCode && ['productCode','packagingSpec'].includes(key) ? { background: '#f3f4f6', color: '#9ca3af' } : {}) }} />
+                  style={{ ...inputStyle, ...(!!form.skuCode && ['productCode','packagingSpec'].includes(key) ? { background: 'var(--gray-100)', color: 'var(--gray-400)' } : {}) }} />
               </label>
             ))}
             <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13 }}>
@@ -315,7 +315,7 @@ function BatchesTab() {
               <select value={form.qualityGrade}
                 disabled={!!form.skuCode}
                 onChange={e => setForm(p => ({ ...p, qualityGrade: e.target.value }))}
-                style={{ ...inputStyle, ...(form.skuCode ? { background: '#f3f4f6', color: '#9ca3af' } : {}) }}>
+                style={{ ...inputStyle, ...(form.skuCode ? { background: 'var(--gray-100)', color: 'var(--gray-400)' } : {}) }}>
                 {['AA','A','B','DIRTY','CRACKED','DAMAGED'].map(g => (
                   <option key={g} value={g}>{g}</option>
                 ))}
@@ -327,14 +327,14 @@ function BatchesTab() {
             <button onClick={handleCreate} disabled={creating} style={btnStyle('var(--status-success)')}>
               {creating ? '创建中...' : '确认创建'}
             </button>
-            <button onClick={() => { setShowCreate(false); setForm(f => ({ ...f, skuCode: '' })); }} style={btnStyle('#6b7280')}>取消</button>
+            <button onClick={() => { setShowCreate(false); setForm(f => ({ ...f, skuCode: '' })); }} style={btnStyle('var(--gray-500)')}>取消</button>
           </div>
         </div>
       )}
 
       {/* 批次表格 */}
       {loading ? (
-        <div style={{ textAlign: 'center', color: '#9ca3af', padding: 40 }}>加载中...</div>
+        <div style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 40 }}>加载中...</div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table className={s.table}>
@@ -347,7 +347,7 @@ function BatchesTab() {
             </thead>
             <tbody>
               {batches.length === 0 && (
-                <tr><td colSpan={11} style={{ textAlign: 'center', color: '#9ca3af', padding: 40 }}>暂无数据</td></tr>
+                <tr><td colSpan={11} style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 40 }}>暂无数据</td></tr>
               )}
               {batches.map(b => (
                 <tr key={b.batch_no}>
@@ -420,7 +420,7 @@ function ExpiringTab() {
       {error && <div style={{ color: 'var(--status-danger)', marginBottom: 8 }}>{error}</div>}
 
       {loading ? (
-        <div style={{ textAlign: 'center', color: '#9ca3af', padding: 40 }}>加载中...</div>
+        <div style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 40 }}>加载中...</div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table className={s.table}>
@@ -433,7 +433,7 @@ function ExpiringTab() {
             </thead>
             <tbody>
               {batches.length === 0 && (
-                <tr><td colSpan={9} style={{ textAlign: 'center', color: '#9ca3af', padding: 40 }}>无临期库存</td></tr>
+                <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 40 }}>无临期库存</td></tr>
               )}
               {batches.map(b => {
                 const daysLeft = (b as any).days_remaining ?? 0;
@@ -522,8 +522,8 @@ function FifoTab() {
 
   return (
     <div style={{ maxWidth: 560 }}>
-      <h4 style={{ marginTop: 0, color: '#374151' }}>手动 FIFO 分配（测试 / 调整用）</h4>
-      <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
+      <h4 style={{ marginTop: 0, color: 'var(--gray-700)' }}>手动 FIFO 分配（测试 / 调整用）</h4>
+      <p style={{ fontSize: 13, color: 'var(--gray-500)', marginBottom: 16 }}>
         系统在销售订单审批通过时自动执行 FIFO 预留，此页面仅供管理员手动调整。
         支持按商品组合（SKU）精确分配。
       </p>
@@ -557,7 +557,7 @@ function FifoTab() {
             <input type={type} value={(form as any)[key]}
               disabled={!!form.skuCode && key === 'productCode'}
               onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
-              style={{ ...inputStyle, ...(form.skuCode && key === 'productCode' ? { background: '#f3f4f6', color: '#9ca3af' } : {}) }} />
+              style={{ ...inputStyle, ...(form.skuCode && key === 'productCode' ? { background: 'var(--gray-100)', color: 'var(--gray-400)' } : {}) }} />
           </label>
         ))}
         {!form.skuCode && (
@@ -625,21 +625,21 @@ function LossTab() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, alignItems: 'center' }}>
         <input value={companyCode} onChange={e => setCompanyCode(e.target.value)}
           placeholder="公司代码（可选）" style={inputStyle} />
-        <button onClick={load} style={btnStyle('#7c3aed')}>刷新</button>
+        <button onClick={load} style={btnStyle('var(--color-purple-600)')}>刷新</button>
       </div>
       {error && <div style={{ color: 'var(--status-danger)', marginBottom: 8 }}>{error}</div>}
 
       {loading ? (
-        <div style={{ textAlign: 'center', color: '#9ca3af', padding: 40 }}>加载中...</div>
+        <div style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 40 }}>加载中...</div>
       ) : data && (
         <div>
           <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
             <StatCard label="30日过期损耗（枚）" value={fmt(data.summary.total_expire_loss)} color="var(--status-danger)" />
             <StatCard label="30日破损损耗（枚）" value={fmt(data.summary.total_damage_loss)} color="var(--status-warning)" />
-            <StatCard label="30日合计损耗（枚）" value={fmt(data.summary.total_loss)} color="#7c3aed" />
+            <StatCard label="30日合计损耗（枚）" value={fmt(data.summary.total_loss)} color="var(--color-purple-600)" />
           </div>
 
-          <h4 style={{ color: '#374151', marginBottom: 8 }}>按损耗类型（近30天）</h4>
+          <h4 style={{ color: 'var(--gray-700)', marginBottom: 8 }}>按损耗类型（近30天）</h4>
           <table className={s.table} style={{ marginBottom: 24 }}>
             <thead>
               <tr>
@@ -655,12 +655,12 @@ function LossTab() {
                 </tr>
               ))}
               {(data.byType ?? []).length === 0 && (
-                <tr><td colSpan={3} style={{ textAlign: 'center', color: '#9ca3af', padding: 24 }}>近30天无损耗记录</td></tr>
+                <tr><td colSpan={3} style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 24 }}>近30天无损耗记录</td></tr>
               )}
             </tbody>
           </table>
 
-          <h4 style={{ color: '#374151', marginBottom: 8 }}>按批次损耗排名（近30天）</h4>
+          <h4 style={{ color: 'var(--gray-700)', marginBottom: 8 }}>按批次损耗排名（近30天）</h4>
           <table className={s.table}>
             <thead>
               <tr>
@@ -678,7 +678,7 @@ function LossTab() {
                 </tr>
               ))}
               {(data.byBatch ?? []).length === 0 && (
-                <tr><td colSpan={5} style={{ textAlign: 'center', color: '#9ca3af', padding: 24 }}>暂无数据</td></tr>
+                <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 24 }}>暂无数据</td></tr>
               )}
             </tbody>
           </table>
@@ -692,11 +692,11 @@ function LossTab() {
 
 const inputStyle: React.CSSProperties = {
   padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13,
-  outline: 'none', background: '#fff',
+  outline: 'none', background: 'var(--bg-card)',
 };
 function btnStyle(bg: string): React.CSSProperties {
   return {
-    padding: '6px 14px', background: bg, color: '#fff', border: 'none',
+    padding: '6px 14px', background: bg, color: 'var(--bg-card)', border: 'none',
     borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600,
   };
 }
@@ -719,13 +719,13 @@ export default function InventoryPage() {
   }, []);
 
   return (
-    <div style={{ padding: 24, background: '#f9fafb', minHeight: '100vh' }}>
+    <div style={{ padding: 24, background: 'var(--gray-50)', minHeight: '100vh' }}>
       {/* 页头 */}
       <div style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#111827' }}>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--gray-900)' }}>
           库存管理 — 鸡蛋库存
         </h2>
-        <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>
+        <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--gray-500)' }}>
           先进先出 · SKU 精确分配 · 到期预警 · 损耗分析
         </p>
       </div>
@@ -737,12 +737,12 @@ export default function InventoryPage() {
           <StatCard label="总可用库存（枚）" value={fmt(stats.totalAvailable)} color="var(--color-accent)" />
           <StatCard label="临期批次（≤7天）" value={stats.expiringBatches} color="var(--status-warning)" sub={`${fmt(stats.expiringQty)} 枚`} />
           <StatCard label="已过期批次" value={stats.expiredBatches} color="var(--status-danger)" />
-          <StatCard label="退货待检批次" value={stats.returnedBatches} color="#9333ea" />
+          <StatCard label="退货待检批次" value={stats.returnedBatches} color="var(--color-purple-600)" />
           {stats.skuLinkedBatches !== undefined && (
-            <StatCard label="已接入 SKU 批次" value={stats.skuLinkedBatches} color="#6366f1"
+            <StatCard label="已接入 SKU 批次" value={stats.skuLinkedBatches} color="var(--color-accent)"
               sub="SKU 批次" />
           )}
-          <StatCard label="今日过期损耗（枚）" value={fmt(stats.todayExpireLoss)} color="#be123c" />
+          <StatCard label="今日过期损耗（枚）" value={fmt(stats.todayExpireLoss)} color="var(--status-danger)" />
           <StatCard label="今日破损损耗（枚）" value={fmt(stats.todayDamageLoss)} color="#b45309" />
         </div>
       )}
@@ -754,7 +754,7 @@ export default function InventoryPage() {
             padding: '8px 18px', border: 'none', borderRadius: '6px 6px 0 0',
             cursor: 'pointer', fontSize: 14, fontWeight: 600,
             background: tab === t.key ? 'var(--color-accent)' : 'transparent',
-            color: tab === t.key ? '#fff' : '#6b7280',
+            color: tab === t.key ? 'var(--bg-card)' : 'var(--gray-500)',
             borderBottom: tab === t.key ? '2px solid #2563eb' : '2px solid transparent',
             marginBottom: -2,
           }}>
@@ -764,7 +764,7 @@ export default function InventoryPage() {
       </div>
 
       {/* 内容区 */}
-      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: 20 }}>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid #e5e7eb', borderRadius: 10, padding: 20 }}>
         {tab === 'batches'  && <BatchesTab />}
         {tab === 'expiring' && <ExpiringTab />}
         {tab === 'fifo'     && <FifoTab />}

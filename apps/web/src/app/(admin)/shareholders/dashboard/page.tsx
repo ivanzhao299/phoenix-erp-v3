@@ -38,7 +38,7 @@ export default function ShareholderDashboard() {
             <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>¥{money(stats.monthAdded.total)}</div>
             <div style={{ fontSize: 11, opacity: .8, marginTop: 2 }}>{stats.monthAdded.count} 笔</div>
           </div>
-          <div style={{ background: 'var(--bg-card)', borderRadius: 10, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,.08)' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 10, padding: 16, boxShadow: '0 1px 3px var(--overlay-black-08)' }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 8 }}>股东投入排名</div>
             {stats.shareholderRanking.slice(0, 5).map((r, i) => (
               <div key={r.shareholderCode} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '3px 0' }}>
@@ -47,7 +47,7 @@ export default function ShareholderDashboard() {
             ))}
             {stats.shareholderRanking.length === 0 && <div style={{ color: 'var(--text-disabled)', fontSize: 12 }}>暂无数据</div>}
           </div>
-          <div style={{ background: 'var(--bg-card)', borderRadius: 10, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,.08)' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 10, padding: 16, boxShadow: '0 1px 3px var(--overlay-black-08)' }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 8 }}>项目投入排名</div>
             {stats.projectRanking.slice(0, 5).map((r, i) => (
               <div key={r.projectCode} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '3px 0' }}>
@@ -62,7 +62,7 @@ export default function ShareholderDashboard() {
       {loading ? <div>加载中…</div> : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 16 }}>
           {projects.map(p => (
-            <div key={p.projectCode} style={{ background: 'var(--bg-card)', borderRadius: 10, borderLeft: '4px solid var(--color-primary)', boxShadow: '0 1px 3px rgba(0,0,0,.08)', padding: 18 }}>
+            <div key={p.projectCode} style={{ background: 'var(--bg-card)', borderRadius: 10, borderLeft: '4px solid var(--color-primary)', boxShadow: '0 1px 3px var(--overlay-black-08)', padding: 18 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-primary)' }}>{p.projectName}</div>
                 <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600,

@@ -80,7 +80,7 @@ export default function SystemConfigsPage() {
               disabled={loading}
               style={{
                 display: "flex", alignItems: "center", gap: 6, padding: "6px 14px",
-                borderRadius: "var(--radius-md)", background: "var(--primary)", color: "#fff",
+                borderRadius: "var(--radius-md)", background: "var(--primary)", color: "var(--bg-card)",
                 border: "none", cursor: "pointer", fontSize: 13,
               }}
             >
@@ -103,7 +103,7 @@ export default function SystemConfigsPage() {
             {configs.map((cfg, i) => (
               <tr key={cfg.id}>
                 <td>
-                  <span style={{ padding: "1px 8px", borderRadius: 99, fontSize: 11, fontWeight: 700, background: "#dbeafe", color: "#1d4ed8" }}>{cfg.config_group}</span>
+                  <span style={{ padding: "1px 8px", borderRadius: 99, fontSize: 11, fontWeight: 700, background: "#dbeafe", color: "var(--color-accent)" }}>{cfg.config_group}</span>
                 </td>
                 <td style={{ fontFamily: "monospace", fontSize: 12 }}>{cfg.config_key}</td>
                 <td>
@@ -133,7 +133,7 @@ export default function SystemConfigsPage() {
                       <button
                         onClick={() => handleSave(cfg.config_key)}
                         disabled={saving}
-                        style={{ padding: "3px 10px", borderRadius: "var(--radius-sm)", background: "var(--status-success)", color: "#fff", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600 }}
+                        style={{ padding: "3px 10px", borderRadius: "var(--radius-sm)", background: "var(--status-success)", color: "var(--bg-card)", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600 }}
                       >
                         <Save size={11} />
                       </button>
@@ -147,7 +147,7 @@ export default function SystemConfigsPage() {
                   ) : (
                     <button
                       onClick={() => handleEdit(cfg)}
-                      style={{ padding: "3px 10px", borderRadius: "var(--radius-sm)", background: "var(--primary)", color: "#fff", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600 }}
+                      style={{ padding: "3px 10px", borderRadius: "var(--radius-sm)", background: "var(--primary)", color: "var(--bg-card)", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600 }}
                     >
                       编辑
                     </button>

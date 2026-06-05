@@ -37,7 +37,7 @@ export default function TerminalNumPadPanel({
     }}>
       {!hideDisplay && (
       <div style={{
-        background: warning ? 'rgba(245,158,11,0.15)' : `${accentColor}12`,
+        background: warning ? 'var(--status-warning-bg-medium)' : `${accentColor}12`,
         border: `1px solid ${warning ? 'rgba(245,158,11,0.6)' : `${accentColor}40`}`,
         borderRadius: 10, padding: '12px 16px',
         display: 'flex', alignItems: 'center', gap: 8,

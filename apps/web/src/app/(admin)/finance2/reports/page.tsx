@@ -38,7 +38,7 @@ function KpiCard({ label, value, sub, icon: Icon, color }: {
 }) {
   return (
     <div className="bg-bg-card border border-border"
-      style={{ borderRadius: 14, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', minHeight: 112, boxSizing: 'border-box' }}>
+      style={{ borderRadius: 14, padding: '16px 18px', boxShadow: '0 1px 4px var(--overlay-black-04)', minHeight: 112, boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         {Icon && (
           <div style={{
@@ -99,7 +99,7 @@ function AgingBar({ notDue, d030, d3160, d6190, dOver90, total }: {
   const segs = [
     { v: notDue, color: 'var(--status-success)', label: '未逾期' },
     { v: d030,   color: 'var(--status-warning)', label: '0-30天' },
-    { v: d3160,  color: '#f97316', label: '31-60天' },
+    { v: d3160,  color: 'var(--status-warning)', label: '31-60天' },
     { v: d6190,  color: 'var(--status-danger)', label: '61-90天' },
     { v: dOver90,color: '#7f1d1d', label: '90天+' },
   ];
@@ -161,7 +161,7 @@ function OverviewTab() {
       {/* 经营净头寸 主 KPI */}
       <div style={{
         background: 'linear-gradient(135deg, #1e3a5f 0%, #0f766e 100%)',
-        borderRadius: 16, padding: '24px 28px', marginBottom: 20, color: '#fff',
+        borderRadius: 16, padding: '24px 28px', marginBottom: 20, color: 'var(--bg-card)',
       }}>
         <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 4 }}>经营净头寸（Net Operating Position）</div>
         <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: -1 }}>
@@ -172,10 +172,10 @@ function OverviewTab() {
         </div>
         <div style={{ display: 'flex', gap: 20, marginTop: 16, flexWrap: 'wrap' }}>
           {[
-            { label: '今日流入', value: `+¥${fmt(data.todayInflow)}`, color: '#86efac' },
-            { label: '今日流出', value: `-¥${fmt(data.todayOutflow)}`, color: '#fca5a5' },
+            { label: '今日流入', value: `+¥${fmt(data.todayInflow)}`, color: 'var(--status-success)' },
+            { label: '今日流出', value: `-¥${fmt(data.todayOutflow)}`, color: 'var(--status-danger)' },
             { label: '今日净额', value: `¥${fmt(data.todayInflow - data.todayOutflow)}`,
-              color: data.todayInflow >= data.todayOutflow ? '#86efac' : '#fca5a5' },
+              color: data.todayInflow >= data.todayOutflow ? 'var(--status-success)' : 'var(--status-danger)' },
           ].map(item => (
             <div key={item.label} style={{ fontSize: 12 }}>
               <span style={{ opacity: 0.6 }}>{item.label}</span>
@@ -947,7 +947,7 @@ export default function Finance2ReportsPage() {
       {/* Phase 6 说明横幅 */}
       <div style={{
         background: 'linear-gradient(135deg, #1e3a5f 0%, #0f766e 100%)',
-        borderRadius: 14, padding: '18px 24px', marginBottom: 20, color: '#fff',
+        borderRadius: 14, padding: '18px 24px', marginBottom: 20, color: 'var(--bg-card)',
         display: 'flex', alignItems: 'flex-start', gap: 14,
       }}>
         <PieChart size={22} style={{ marginTop: 2, flexShrink: 0, opacity: 0.85 }} />

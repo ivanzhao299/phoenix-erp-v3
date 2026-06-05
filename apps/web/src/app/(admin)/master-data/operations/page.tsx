@@ -72,15 +72,15 @@ export default function OperationsPage() {
         }
       />
 
-      {error && <div style={{ padding: 10, background: 'rgba(239,68,68,0.08)', color: 'var(--status-danger)', borderRadius: 8, marginBottom: 14 }}>{error}</div>}
+      {error && <div style={{ padding: 10, background: 'var(--status-danger-bg-faint)', color: 'var(--status-danger)', borderRadius: 8, marginBottom: 14 }}>{error}</div>}
 
       {/* 4 大统计卡 */}
       {summary && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
           <KpiCard label="待审批主数据" value={summary.pendingTotal} icon={CheckSquare} accent="var(--status-warning)" />
-          <KpiCard label="缺联系信息" value={summary.missingTotal} icon={Users} accent="#0891b2" />
+          <KpiCard label="缺联系信息" value={summary.missingTotal} icon={Users} accent="var(--status-info)" />
           <KpiCard label="重复编码风险" value={summary.duplicateTotal} icon={Copy} accent="var(--status-danger)" />
-          <KpiCard label="近 7 天归档阻断" value={summary.blockedTotal} icon={Lock} accent="#8b5cf6" />
+          <KpiCard label="近 7 天归档阻断" value={summary.blockedTotal} icon={Lock} accent="var(--color-purple-500)" />
         </div>
       )}
 
@@ -91,7 +91,7 @@ export default function OperationsPage() {
            {todo?.pendingApprovals.map(p => (
              <a key={p.type} href={p.href} style={cardLinkStyle}>
                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                 <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(245,158,11,0.15)',
+                 <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--status-warning-bg-medium)',
                                display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                    <CheckSquare size={16} style={{ color: 'var(--status-warning)' }} />
                  </div>
@@ -99,7 +99,7 @@ export default function OperationsPage() {
                    <div style={{ fontSize: 13, fontWeight: 600 }}>
                      {TYPE_LABEL[p.type] ?? p.type}
                      <span style={{ marginLeft: 6, padding: '1px 8px', borderRadius: 4,
-                                    background: 'rgba(245,158,11,0.15)', color: 'var(--status-warning)', fontSize: 11 }}>
+                                    background: 'var(--status-warning-bg-medium)', color: 'var(--status-warning)', fontSize: 11 }}>
                        × {p.count}
                      </span>
                    </div>
@@ -123,7 +123,7 @@ export default function OperationsPage() {
              <a key={m.source} href={m.source === 'customer' ? '/master-data/customers' : '/master-data/suppliers'}
                 style={cardLinkStyle}>
                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                 <Users size={16} style={{ color: '#0891b2' }} />
+                 <Users size={16} style={{ color: 'var(--status-info)' }} />
                  <div style={{ flex: 1 }}>
                    <div style={{ fontSize: 13, fontWeight: 600 }}>{TYPE_LABEL[m.source] ?? m.source}</div>
                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
@@ -144,8 +144,8 @@ export default function OperationsPage() {
          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
            {todo?.duplicateCodes.filter(d => d.count > 0).map(d => (
              <div key={d.source} style={{ padding: '10px 14px', borderRadius: 10,
-                                          background: 'rgba(239,68,68,0.05)',
-                                          border: '1px solid rgba(239,68,68,0.2)' }}>
+                                          background: 'var(--status-danger-bg-faint)',
+                                          border: '1px solid var(--status-danger-bg-medium)' }}>
                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                  <Copy size={14} style={{ color: 'var(--status-danger)' }} />
                  <div style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{TYPE_LABEL[d.source] ?? d.source}</div>
@@ -167,7 +167,7 @@ export default function OperationsPage() {
                                    background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                  <span style={{ padding: '1px 8px', borderRadius: 4,
-                                background: 'rgba(139,92,246,0.15)', color: '#7c3aed',
+                                background: 'rgba(139,92,246,0.15)', color: 'var(--color-purple-600)',
                                 fontSize: 11, fontWeight: 600 }}>{e.object_type}</span>
                  <span style={{ fontSize: 13, fontFamily: 'monospace', color: 'var(--color-primary)', fontWeight: 600 }}>{e.object_code}</span>
                  <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-secondary)' }}>

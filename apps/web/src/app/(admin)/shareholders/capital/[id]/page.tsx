@@ -34,7 +34,7 @@ export default function CapitalFlowDetail() {
       {err && <div style={{ color: 'var(--status-danger)' }}>{err}</div>}
       {f && (
         <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20, alignItems: 'start' }}>
-          <div style={{ background: 'var(--bg-card)', borderRadius: 10, padding: '8px 20px 16px', boxShadow: '0 1px 3px rgba(0,0,0,.08)' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 10, padding: '8px 20px 16px', boxShadow: '0 1px 3px var(--overlay-black-08)' }}>
             <div style={row}><div style={k}>资本流编号</div><div style={{ fontWeight: 600 }}>{f.capitalFlowNo || f.contributionNo}</div></div>
             <div style={row}><div style={k}>项目</div><div>{pmap[f.projectCode] || f.projectCode}</div></div>
             <div style={row}><div style={k}>股东</div><div>{names[f.shareholderCode] || f.shareholderCode}</div></div>
@@ -70,7 +70,7 @@ export default function CapitalFlowDetail() {
             </div>
           </div>
 
-          <div style={{ background: 'var(--bg-card)', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,.08)' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 3px var(--overlay-black-08)' }}>
             <div style={{ fontWeight: 600, color: 'var(--color-primary)', marginBottom: 14 }}>资本流时间轴</div>
             <div style={{ position: 'relative', paddingLeft: 20 }}>
               {timeline.map((t, i) => (

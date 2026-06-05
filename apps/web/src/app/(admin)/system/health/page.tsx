@@ -28,8 +28,8 @@ interface ErrorStat {
 }
 
 function StatusBadge({ status }: { status: HealthStatus }) {
-  const color = status === "HEALTHY" ? "var(--status-success)" : status === "DEGRADED" ? "var(--status-warning)" : "#9ca3af";
-  const bg    = status === "HEALTHY" ? "#dcfce7" : status === "DEGRADED" ? "#fef3c7" : "#f3f4f6";
+  const color = status === "HEALTHY" ? "var(--status-success)" : status === "DEGRADED" ? "var(--status-warning)" : "var(--gray-400)";
+  const bg    = status === "HEALTHY" ? "#dcfce7" : status === "DEGRADED" ? "var(--status-warning-bg-faint)" : "var(--gray-100)";
   const label = status === "HEALTHY" ? "正常" : status === "DEGRADED" ? "降级" : "未知";
   return (
     <span style={{ padding: "2px 10px", borderRadius: 99, background: bg, color, fontWeight: 700, fontSize: 13 }}>
@@ -100,7 +100,7 @@ export default function SystemHealthPage() {
   }, [fetchData]);
 
   const overall: HealthStatus = summary?.status ?? "UNKNOWN";
-  const overallColor = overall === "HEALTHY" ? "var(--status-success)" : overall === "DEGRADED" ? "var(--status-warning)" : "#9ca3af";
+  const overallColor = overall === "HEALTHY" ? "var(--status-success)" : overall === "DEGRADED" ? "var(--status-warning)" : "var(--gray-400)";
 
   return (
     <div>
@@ -114,7 +114,7 @@ export default function SystemHealthPage() {
             style={{
               display: "flex", alignItems: "center", gap: 6,
               padding: "8px 16px", borderRadius: "var(--radius-md)",
-              background: "var(--primary)", color: "#fff", border: "none",
+              background: "var(--primary)", color: "var(--bg-card)", border: "none",
               cursor: loading ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600,
             }}
           >
@@ -171,7 +171,7 @@ export default function SystemHealthPage() {
           title="进程内存 (RSS)"
           value={summary?.memory.rssMB ?? "—"}
           unit="MB"
-          borderColor="#7c3aed"
+          borderColor="var(--color-purple-600)"
           sub="Node.js 进程驻留集"
         />
         <MetricCard
@@ -193,7 +193,7 @@ export default function SystemHealthPage() {
           title="CPU 用户态"
           value={summary?.cpu.userMs ?? "—"}
           unit="ms"
-          borderColor="#0891b2"
+          borderColor="var(--status-info)"
           sub={`系统态: ${summary?.cpu.systemMs ?? "—"} ms`}
         />
       </div>
@@ -231,8 +231,8 @@ export default function SystemHealthPage() {
                     <td>
                       <span style={{
                         padding: "1px 8px", borderRadius: 99, fontSize: 11, fontWeight: 700,
-                        background: row.error_type === "UNHANDLED" ? "#fee2e2" : "#fef3c7",
-                        color: row.error_type === "UNHANDLED" ? "var(--status-danger)" : "#92400e",
+                        background: row.error_type === "UNHANDLED" ? "var(--status-danger-bg-faint)" : "var(--status-warning-bg-faint)",
+                        color: row.error_type === "UNHANDLED" ? "var(--status-danger)" : "var(--status-warning)",
                       }}>{row.error_type}</span>
                     </td>
                     <td style={{ fontFamily: "monospace" }}>{row.http_status}</td>

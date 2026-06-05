@@ -28,7 +28,7 @@ export default function QualityPage() {
     { title: t("ui.成品质检",   "成品质检"),   path:"/quality/product",   icon:"🥚", desc: t("ui.包装成品质量检验",       "包装成品质量检验"),       color:"var(--status-warning)" },
     { title: t("ui.不合格品处置","不合格品处置"),path:"/quality/nonconformance",icon:"🚫",desc: t("ui.不合格品追踪与处置", "不合格品追踪与处置"), color:"var(--status-danger)" },
     { title: t("ui.正向追溯",   "正向追溯"),   path:"/quality/forward",   icon:"🔍", desc: t("ui.从养殖到终端全链路追踪", "从养殖到终端全链路追踪"), color:"var(--status-info)" },
-    { title: t("ui.逆向追溯",   "逆向追溯"),   path:"/quality/backward",  icon:"🔄", desc: t("ui.从终端反查生产批次",     "从终端反查生产批次"),     color:"#8b5cf6" },
+    { title: t("ui.逆向追溯",   "逆向追溯"),   path:"/quality/backward",  icon:"🔄", desc: t("ui.从终端反查生产批次",     "从终端反查生产批次"),     color:"var(--color-purple-500)" },
   ];
 
   useEffect(() => {

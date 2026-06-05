@@ -88,9 +88,9 @@ function HouseCard({
   return (
     <div style={{
       background: dirty
-        ? 'rgba(245,158,11,0.06)'
+        ? 'var(--status-warning-bg-faint)'
         : t.cardBg,
-      border: `1px solid ${dirty ? 'rgba(245,158,11,0.3)' : t.cardBorder}`,
+      border: `1px solid ${dirty ? 'var(--status-warning-bg-strong)' : t.cardBorder}`,
       borderRadius: 14,
       marginBottom: 10,
       overflow: 'hidden',
@@ -100,8 +100,8 @@ function HouseCard({
         {/* House badge */}
         <div style={{
           minWidth: 52, height: 36, borderRadius: 8, flexShrink: 0,
-          background: 'rgba(245,158,11,0.15)',
-          border: '1px solid rgba(245,158,11,0.3)',
+          background: 'var(--status-warning-bg-medium)',
+          border: '1px solid var(--status-warning-bg-strong)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--status-warning)' }}>{house}</span>
@@ -153,7 +153,7 @@ function HouseCard({
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {([
               { key: 'bad',    label: '破损', color: 'var(--status-danger)' },
-              { key: 'dirty',  label: '脏蛋', color: '#f97316' },
+              { key: 'dirty',  label: '脏蛋', color: 'var(--status-warning)' },
               { key: 'broken', label: '碎蛋', color: '#eab308' },
             ] as const).map(({ key, label, color }) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -352,8 +352,8 @@ export default function EggLogPage() {
         {totalEggs > 0 && (
           <div style={{
             padding: '4px 10px', borderRadius: 8,
-            background: 'rgba(245,158,11,0.15)',
-            border: '1px solid rgba(245,158,11,0.3)',
+            background: 'var(--status-warning-bg-medium)',
+            border: '1px solid var(--status-warning-bg-strong)',
             fontSize: 13, fontWeight: 700, color: 'var(--status-warning)',
           }}>
             {totalEggs.toLocaleString()} 枚
@@ -404,7 +404,7 @@ export default function EggLogPage() {
               style={{
                 padding: '6px 20px', borderRadius: 20,
                 border: `1px solid ${shift === s.key ? 'var(--status-warning)' : t.inputBorder}`,
-                background: shift === s.key ? 'rgba(245,158,11,0.2)' : t.cardBg,
+                background: shift === s.key ? 'var(--status-warning-border)' : t.cardBg,
                 color: shift === s.key ? 'var(--status-warning)' : t.textSub,
                 cursor: 'pointer', fontSize: 13, fontWeight: 600,
               }}
@@ -446,7 +446,7 @@ export default function EggLogPage() {
         {error && (
           <div style={{
             margin: '8px 0', padding: '12px 14px', borderRadius: 10,
-            background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+            background: 'var(--status-danger-bg-light)', border: '1px solid var(--status-danger-bg-strong)',
             color: 'var(--status-danger)', fontSize: 13,
           }}>
             {error}
@@ -456,7 +456,7 @@ export default function EggLogPage() {
         {saved && (
           <div style={{
             margin: '8px 0', padding: '12px 14px', borderRadius: 10,
-            background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)',
+            background: 'var(--status-success-bg-medium)', border: '1px solid rgba(16,185,129,0.3)',
             color: 'var(--status-success)', fontSize: 13, textAlign: 'center', fontWeight: 600,
           }}>
             ✓ 提交成功

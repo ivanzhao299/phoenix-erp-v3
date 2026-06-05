@@ -432,7 +432,7 @@ export default function EggCollectionPage() {
                       );
                     })}
                   </div>
-                  <div style={{ background: newAvail > 0 ? 'rgba(34,197,94,0.08)' : 'rgba(255,255,255,0.03)', border:`2px solid ${newAvail > 0 ? 'rgba(34,197,94,0.4)' : T.BOR}`, borderRadius:10, padding:'10px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <div style={{ background: newAvail > 0 ? 'var(--status-success-bg-faint)' : 'var(--overlay-white-03)', border:`2px solid ${newAvail > 0 ? 'rgba(34,197,94,0.4)' : T.BOR}`, borderRadius:10, padding:'10px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                     <span style={{ fontSize:13, color:T.MUT }}>{t('ui.更正后可分级', '更正后可分级')}</span>
                     <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
                       <span style={{ fontSize:32, fontWeight:900, color: newAvail > 0 ? T.GRN : T.BOR, fontVariantNumeric:'tabular-nums' }}>{newAvail.toLocaleString()}</span>
@@ -446,14 +446,14 @@ export default function EggCollectionPage() {
                     <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                       {CORR_REASONS.map(r => (
                         <button type="button" key={r} onPointerDown={() => setCorrReason(r)}
-                          style={{ padding:'10px 14px', borderRadius:8, cursor:'pointer', textAlign:'left', border:`2px solid ${corrReason === r ? T.ACC : T.BOR}`, background: corrReason === r ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.03)', color: corrReason === r ? T.ACC : T.TXT, fontSize:13, transition:'border-color 0.12s, background 0.12s', WebkitTapHighlightColor:'transparent' }}>
+                          style={{ padding:'10px 14px', borderRadius:8, cursor:'pointer', textAlign:'left', border:`2px solid ${corrReason === r ? T.ACC : T.BOR}`, background: corrReason === r ? 'var(--status-warning-bg-medium)' : 'var(--overlay-white-03)', color: corrReason === r ? T.ACC : T.TXT, fontSize:13, transition:'border-color 0.12s, background 0.12s', WebkitTapHighlightColor:'transparent' }}>
                           {t(CORR_REASON_I18N_KEYS[r] ?? r, r)}
                         </button>
                       ))}
                     </div>
                   </div>
                   {corrError && (
-                    <div style={{ fontSize:13, color:T.RED, padding:'8px 12px', background:'rgba(239,68,68,0.1)', borderRadius:6 }}>⚠ {corrError}</div>
+                    <div style={{ fontSize:13, color:T.RED, padding:'8px 12px', background:'var(--status-danger-bg-light)', borderRadius:6 }}>⚠ {corrError}</div>
                   )}
                 </div>
                 <TerminalNumPadPanel

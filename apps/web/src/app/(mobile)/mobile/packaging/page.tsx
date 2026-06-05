@@ -41,8 +41,8 @@ const GRADE_COLORS: Record<string, string> = {
   AAA: 'var(--status-warning)',
   AA:  'var(--status-info)',
   A:   'var(--status-success)',
-  B:   '#f97316',
-  C:   '#8b5cf6',
+  B:   'var(--status-warning)',
+  C:   'var(--color-purple-500)',
 };
 
 // ── 迷你柱状图 ────────────────────────────────────────────────────────────────
@@ -80,7 +80,7 @@ function MiniBarChart({
                   style={{
                     width: '100%',
                     height: `${pct}%`,
-                    background: isSelected ? 'var(--status-warning)' : 'rgba(245,158,11,0.25)',
+                    background: isSelected ? 'var(--status-warning)' : 'var(--status-warning-border)',
                     borderRadius: '3px 3px 0 0',
                     transition: 'height 0.3s',
                     minHeight: 2,
@@ -262,8 +262,8 @@ export default function MobilePackagingPage() {
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '10px 16px',
-          background: 'rgba(245,158,11,0.06)',
-          borderBottom: '1px solid rgba(245,158,11,0.1)',
+          background: 'var(--status-warning-bg-faint)',
+          borderBottom: '1px solid var(--status-warning-bg-light)',
         }}
       >
         <button
@@ -312,7 +312,7 @@ export default function MobilePackagingPage() {
         <div
           style={{
             background: t.cardBg,
-            border: '1px solid rgba(245,158,11,0.2)',
+            border: '1px solid var(--status-warning-border)',
             borderRadius: 16,
             padding: 16,
             marginBottom: 12,
@@ -361,7 +361,7 @@ export default function MobilePackagingPage() {
         <div
           style={{
             background: t.cardBg,
-            border: '1px solid rgba(245,158,11,0.12)',
+            border: '1px solid var(--status-warning-bg-light)',
             borderRadius: 16,
             padding: 16,
             marginBottom: 12,
@@ -393,7 +393,7 @@ export default function MobilePackagingPage() {
               }}
             >
               {byGrade.map(g => {
-                const color = GRADE_COLORS[g.grade] || '#6b7280';
+                const color = GRADE_COLORS[g.grade] || 'var(--gray-500)';
                 return (
                   <div
                     key={g.grade}
@@ -436,7 +436,7 @@ export default function MobilePackagingPage() {
         <div
           style={{
             background: t.cardBg,
-            border: '1px solid rgba(245,158,11,0.12)',
+            border: '1px solid var(--status-warning-bg-light)',
             borderRadius: 16,
             padding: 16,
             marginBottom: 16,
@@ -478,8 +478,8 @@ export default function MobilePackagingPage() {
             display: 'block',
             textAlign: 'center',
             padding: '13px 0',
-            background: 'rgba(245,158,11,0.12)',
-            border: '1px solid rgba(245,158,11,0.3)',
+            background: 'var(--status-warning-bg-light)',
+            border: '1px solid var(--status-warning-bg-strong)',
             borderRadius: 12,
             color: 'var(--status-warning)',
             fontSize: 14,

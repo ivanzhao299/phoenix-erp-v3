@@ -88,7 +88,7 @@ export function FileUploadInput({
         }}>
           {isImage
             ? <ImageIcon size={14} color="var(--status-info)" style={{ flexShrink: 0 }} />
-            : <FileText  size={14} color="#6366f1" style={{ flexShrink: 0 }} />
+            : <FileText  size={14} color="var(--color-accent)" style={{ flexShrink: 0 }} />
           }
           <a
             href={fullUrl}

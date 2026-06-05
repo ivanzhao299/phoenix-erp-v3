@@ -112,7 +112,7 @@ export default function NumPad({
 
       {!hideDisplay && (
         <div style={{
-          background: 'rgba(0,0,0,0.45)', borderRadius: 12, padding: '10px 18px',
+          background: 'var(--overlay-black-45)', borderRadius: 12, padding: '10px 18px',
           border: `2px solid ${display ? accentColor + '80' : T.BOR}`,
           textAlign: 'right', minHeight: 64,
           display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
@@ -152,7 +152,7 @@ export default function NumPad({
                 background: isClear
                   ? 'rgba(239,68,68,0.18)'
                   : isBksp
-                  ? 'rgba(245,158,11,0.15)'
+                  ? 'var(--status-warning-bg-medium)'
                   : 'rgba(255,255,255,0.09)',
                 color: isClear ? T.RED : isBksp ? T.ACC : T.TXT,
                 opacity: disabled ? 0.4 : 1,
@@ -173,7 +173,7 @@ export default function NumPad({
           style={{
             height: 58, borderRadius: 12, border: 'none',
             background: (valid && !disabled) ? accentColor : T.BOR,
-            color: (valid && !disabled) ? '#0f172a' : T.MUT,
+            color: (valid && !disabled) ? 'var(--slate-900)' : T.MUT,
             fontSize: 18, fontWeight: 800,
             cursor: (valid && !disabled) ? 'pointer' : 'not-allowed',
             transition: 'background 0.15s',

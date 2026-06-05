@@ -4,12 +4,12 @@ import { useRouter } from 'next/navigation';
 
 // ── 颜色常量 ──────────────────────────────────────────────────────────────────
 const C = {
-  bg:      '#070b14',
-  bg2:     '#0f1929',
-  card:    'rgba(255,255,255,0.05)',
-  border:  'rgba(255,255,255,0.10)',
-  text:    '#e2e8f0',
-  textSub: '#94a3b8',
+  bg:      'var(--brand-deep-1)',
+  bg2:     'var(--brand-deep-2)',
+  card:    'var(--overlay-white-05)',
+  border:  'var(--overlay-white-10)',
+  text:    'var(--slate-200)',
+  textSub: 'var(--slate-400)',
   orange:  'var(--status-warning)',
   green:   'var(--status-success)',
   red:     'var(--status-danger)',
@@ -192,7 +192,7 @@ export default function PhotosPage({ params }: { params: Promise<{ id: string }>
                     borderRadius: '50%',
                     background: 'rgba(0,0,0,0.7)',
                     border: 'none',
-                    color: '#fff',
+                    color: 'var(--bg-card)',
                     fontSize: 16, lineHeight: 1,
                     cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -240,8 +240,8 @@ export default function PhotosPage({ params }: { params: Promise<{ id: string }>
         {error && (
           <div style={{
             color: C.red,
-            background: 'rgba(239,68,68,0.10)',
-            border: `1px solid rgba(239,68,68,0.3)`,
+            background: 'var(--status-danger-bg-light)',
+            border: `1px solid var(--status-danger-bg-strong)`,
             borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 16,
           }}>
             ⚠ {error}
@@ -304,8 +304,8 @@ export default function PhotosPage({ params }: { params: Promise<{ id: string }>
             height: 52,
             borderRadius: 12,
             border: 'none',
-            background: (saving || photos.length === 0) ? '#1e293b' : C.green,
-            color: (saving || photos.length === 0) ? C.textSub : '#fff',
+            background: (saving || photos.length === 0) ? 'var(--slate-800)' : C.green,
+            color: (saving || photos.length === 0) ? C.textSub : 'var(--bg-card)',
             fontSize: 16,
             fontWeight: 700,
             cursor: (saving || photos.length === 0) ? 'not-allowed' : 'pointer',

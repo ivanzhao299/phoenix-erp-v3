@@ -146,8 +146,8 @@ export default function MedStockPage() {
         )}
       </div>
 
-      {error && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: 'var(--status-danger)', fontSize: 13 }}>{error}</div>}
-      {saved && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.08)', color: 'var(--status-success)', fontSize: 13 }}>✓ 已保存</div>}
+      {error && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: 'var(--status-danger-bg-faint)', color: 'var(--status-danger)', fontSize: 13 }}>{error}</div>}
+      {saved && <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: 'var(--status-success-bg-medium)', color: 'var(--status-success)', fontSize: 13 }}>✓ 已保存</div>}
 
       {/* ── 库存 Tab ── */}
       {tab === 'stock' && (
@@ -279,7 +279,7 @@ export default function MedStockPage() {
                       <td>{e.medication_name}</td>
                       <td>
                         <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
-                          background: e.change_type === 'MED_INBOUND' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                          background: e.change_type === 'MED_INBOUND' ? 'var(--status-success-bg-medium)' : 'var(--status-danger-bg-light)',
                           color: e.change_type === 'MED_INBOUND' ? 'var(--status-success)' : 'var(--status-danger)' }}>
                           {CHANGE_LABELS[e.change_type] ?? e.change_type}
                         </span>
