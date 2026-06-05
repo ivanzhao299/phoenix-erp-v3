@@ -50,24 +50,25 @@ WHERE NOT EXISTS (SELECT 1 FROM brd_houses WHERE house_code='LPH_MS_H6');
 
 -- ── 3. brd_flocks（鸡群 — 5 群，2-6 号舍各 1） ───────────────────────────
 -- placement_date 反推自 Excel 2026-06-01 当日"日龄"列
-INSERT INTO brd_flocks (flock_no, house_code, farm_code, farm_name, strain, placement_date, placement_age, initial_qty, current_qty, status, start_date, target_weeks)
-SELECT 'LPH_MS_F02','LPH_MS_H2','LPH_MENGSAI','孟赛蛋鸡场','海兰褐','2025-10-06',1,45600,45551,'ACTIVE','2025-10-06',80
+-- 注：本地 brd_flocks schema 无 farm_name 字段（与生产环境差异），故不写入
+INSERT INTO brd_flocks (flock_no, house_code, farm_code, strain, placement_date, placement_age, initial_qty, current_qty, status, start_date, target_weeks)
+SELECT 'LPH_MS_F02','LPH_MS_H2','LPH_MENGSAI','海兰褐','2025-10-06',1,45600,45551,'ACTIVE','2025-10-06',80
 WHERE NOT EXISTS (SELECT 1 FROM brd_flocks WHERE flock_no='LPH_MS_F02');
 
-INSERT INTO brd_flocks (flock_no, house_code, farm_code, farm_name, strain, placement_date, placement_age, initial_qty, current_qty, status, start_date, target_weeks)
-SELECT 'LPH_MS_F03','LPH_MS_H3','LPH_MENGSAI','孟赛蛋鸡场','海兰褐','2025-07-06',1,37500,37336,'ACTIVE','2025-07-06',80
+INSERT INTO brd_flocks (flock_no, house_code, farm_code, strain, placement_date, placement_age, initial_qty, current_qty, status, start_date, target_weeks)
+SELECT 'LPH_MS_F03','LPH_MS_H3','LPH_MENGSAI','海兰褐','2025-07-06',1,37500,37336,'ACTIVE','2025-07-06',80
 WHERE NOT EXISTS (SELECT 1 FROM brd_flocks WHERE flock_no='LPH_MS_F03');
 
-INSERT INTO brd_flocks (flock_no, house_code, farm_code, farm_name, strain, placement_date, placement_age, initial_qty, current_qty, status, start_date, target_weeks)
-SELECT 'LPH_MS_F04','LPH_MS_H4','LPH_MENGSAI','孟赛蛋鸡场','海兰褐','2025-07-06',1,44000,43816,'ACTIVE','2025-07-06',80
+INSERT INTO brd_flocks (flock_no, house_code, farm_code, strain, placement_date, placement_age, initial_qty, current_qty, status, start_date, target_weeks)
+SELECT 'LPH_MS_F04','LPH_MS_H4','LPH_MENGSAI','海兰褐','2025-07-06',1,44000,43816,'ACTIVE','2025-07-06',80
 WHERE NOT EXISTS (SELECT 1 FROM brd_flocks WHERE flock_no='LPH_MS_F04');
 
-INSERT INTO brd_flocks (flock_no, house_code, farm_code, farm_name, strain, placement_date, placement_age, initial_qty, current_qty, status, start_date, target_weeks)
-SELECT 'LPH_MS_F05','LPH_MS_H5','LPH_MENGSAI','孟赛蛋鸡场','海兰褐','2025-12-24',1,42500,42368,'ACTIVE','2025-12-24',80
+INSERT INTO brd_flocks (flock_no, house_code, farm_code, strain, placement_date, placement_age, initial_qty, current_qty, status, start_date, target_weeks)
+SELECT 'LPH_MS_F05','LPH_MS_H5','LPH_MENGSAI','海兰褐','2025-12-24',1,42500,42368,'ACTIVE','2025-12-24',80
 WHERE NOT EXISTS (SELECT 1 FROM brd_flocks WHERE flock_no='LPH_MS_F05');
 
-INSERT INTO brd_flocks (flock_no, house_code, farm_code, farm_name, strain, placement_date, placement_age, initial_qty, current_qty, status, start_date, target_weeks)
-SELECT 'LPH_MS_F06','LPH_MS_H6','LPH_MENGSAI','孟赛蛋鸡场','海兰褐','2025-12-24',1,41700,41500,'ACTIVE','2025-12-24',80
+INSERT INTO brd_flocks (flock_no, house_code, farm_code, strain, placement_date, placement_age, initial_qty, current_qty, status, start_date, target_weeks)
+SELECT 'LPH_MS_F06','LPH_MS_H6','LPH_MENGSAI','海兰褐','2025-12-24',1,41700,41500,'ACTIVE','2025-12-24',80
 WHERE NOT EXISTS (SELECT 1 FROM brd_flocks WHERE flock_no='LPH_MS_F06');
 
 -- ── 4. mst_products（饲料 7 + 蛋托 1 + 柴油 1） ──────────────────────────
