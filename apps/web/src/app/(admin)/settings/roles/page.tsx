@@ -24,6 +24,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Shield, Plus, Trash2, Edit2, Save, Copy, Grid, AlertTriangle, Users, Lock, X, ChevronDown, ChevronRight } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
+import { modalMask } from "@/components/design-system/cockpit-styles";
 
 // ── 类型定义 ─────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -1255,15 +1256,9 @@ export default function RoleManagementPage() {
 
       {/* ── 权限矩阵全景 ────────────────────────────────────────────── */}
       {showMatrix && <div onClick={() => setShowMatrix(false)} style={{
-      position: "fixed",
-      inset: 0,
-      zIndex: 1000,
-      background: "var(--overlay-black-50)",
+      ...modalMask,
       backdropFilter: "blur(2px)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 20
+      padding: 20,
     }}>
           <div onClick={e => e.stopPropagation()} style={{
         background: "var(--bg-card)",
