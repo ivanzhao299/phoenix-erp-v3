@@ -894,52 +894,95 @@ export default function MdOrganizationsPage() {
         </div>
 
         {/* ── UIX-PROD-1: 右侧驾驶舱栏（组织运营态势） ───────────────── */}
-        <div className="flex flex-col gap-3 flex-shrink-0" style={{ width: 280 }}>
-          {/* 组织态势 KPI */}
-          <div className="rounded-2xl border border-border bg-bg-card shadow-card p-4">
-            <div className="flex items-center gap-2 mb-3">
+        <div className="flex flex-col gap-3 flex-shrink-0" style={{ width: 300 }}>
+          {/* 组织态势 — Hero 卡 */}
+          <div className="rounded-xl overflow-hidden border border-border bg-bg-card">
+            <div className="px-4 py-2.5 border-b border-border bg-gradient-to-r from-brand/10 to-transparent flex items-center gap-2">
               <Activity size={13} className="text-brand" />
-              <span className="text-xs font-bold text-text-muted uppercase tracking-wider">组织态势</span>
+              <span className="text-xs font-bold text-text uppercase tracking-wider">组织态势</span>
+              <span className="ml-auto text-[10px] text-text-dim">实时</span>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <RightStat label="在管组织" value={totalCount} />
-              <RightStat label="已启用" value={activeCount} tone="success" />
-              <RightStat label="已停用" value={totalCount - activeCount} tone={totalCount - activeCount > 0 ? "warning" : "default"} />
-              <RightStat label="顶级数" value={tree.length} />
+            <div className="p-4">
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-3xl font-extrabold text-text leading-none">{totalCount}</span>
+                <span className="text-xs text-text-muted">个组织在管</span>
+              </div>
+              <div className="flex items-center gap-1 mb-3 text-[11px] text-text-muted">
+                <CheckCircle2 size={10} className="text-success" />
+                <span>健康度 <strong className="text-success">{totalCount > 0 ? Math.round((activeCount / totalCount) * 100) : 0}%</strong></span>
+              </div>
+              <div className="h-1.5 rounded-full bg-bg-muted overflow-hidden flex mb-3">
+                <div className="bg-success h-full" style={{ width: `${totalCount > 0 ? (activeCount / totalCount) * 100 : 0}%` }} />
+                <div className="bg-warning h-full" style={{ width: `${totalCount > 0 ? ((totalCount - activeCount) / totalCount) * 100 : 0}%` }} />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <KpiPair label="已启用" value={activeCount} tone="success" />
+                <KpiPair label="已停用" value={totalCount - activeCount} tone={totalCount - activeCount > 0 ? "warning" : "default"} />
+                <KpiPair label="顶级" value={tree.length} />
+              </div>
             </div>
           </div>
 
-          {/* 当前组织业务统计 */}
+          {/* 当前组织 KPI */}
           {selectedOrg && (
-            <div className="rounded-2xl border border-border bg-bg-card shadow-card p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <BarChart3 size={13} className="text-brand" />
-                <span className="text-xs font-bold text-text-muted uppercase tracking-wider">当前组织</span>
+            <div className="rounded-xl border border-border bg-bg-card overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-border bg-gradient-to-r from-info/10 to-transparent flex items-center gap-2">
+                <BarChart3 size={13} className="text-info" />
+                <span className="text-xs font-bold text-text uppercase tracking-wider">当前组织</span>
+                <code className="ml-auto text-[10px] text-text-dim font-mono">{selectedOrg.orgCode}</code>
               </div>
-              <div className="flex flex-col gap-2.5">
-                <RightRow label="直属下级" value={`${flat.filter(o => o.parentId === selectedOrg.id).length} 个`} />
-                <RightRow label="所属层级" value={`L${selectedOrg.level}`} />
-                <RightRow label="负责人" value={selectedOrg.managerName ?? "—"} tone={selectedOrg.managerName ? 'default' : 'warning'} />
-                <RightRow label="组织类型" value={ORG_TYPE_CONFIG[selectedOrg.orgType]?.label ?? selectedOrg.orgType} />
+              <div className="px-4 py-3 flex flex-col gap-2.5">
+                <RightRow label="直属下级" value={
+                  <span className="inline-flex items-center gap-1">
+                    <strong>{flat.filter(o => o.parentId === selectedOrg.id).length}</strong>
+                    <span className="text-text-dim text-[10px]">个</span>
+                  </span>
+                } />
+                <RightRow label="所属层级" value={
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-brand/10 text-brand text-[11px] font-bold">{selectedOrg.level}</span>
+                    <span className="text-[11px] text-text-muted">L{selectedOrg.level}</span>
+                  </span>
+                } />
+                <RightRow label="负责人" value={selectedOrg.managerName ?? "未指定"} tone={selectedOrg.managerName ? 'default' : 'warning'} />
+                <RightRow label="组织类型" value={
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-bg-muted text-text">
+                    {ORG_TYPE_CONFIG[selectedOrg.orgType]?.label ?? selectedOrg.orgType}
+                  </span>
+                } />
               </div>
             </div>
           )}
 
-          {/* 风险提示 */}
-          {selectedOrg && (
-            <div className="rounded-2xl border border-border bg-bg-card shadow-card p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <AlertCircle size={13} className="text-warning" />
-                <span className="text-xs font-bold text-text-muted uppercase tracking-wider">合规风险</span>
+          {/* 合规风险 — 用 banner 风格突出问题 */}
+          {selectedOrg && (() => {
+            const checks = [
+              { ok: !!selectedOrg.managerName, label: "负责人已指定", warn: "请指定负责人" },
+              { ok: selectedOrg.status === 'ACTIVE', label: "组织已启用", warn: "组织当前停用" },
+              { ok: selectedOrg.orgType !== 'COMPANY' || !!selectedOrg.companyCode, label: "公司编码完整", warn: "缺公司编码" },
+              { ok: !!selectedOrg.parentCode || selectedOrg.orgType === 'GROUP', label: "层级归属清晰", warn: "未指定上级" },
+            ];
+            const fails = checks.filter(c => !c.ok);
+            const score = Math.round((checks.length - fails.length) / checks.length * 100);
+            return (
+              <div className="rounded-xl border border-border bg-bg-card overflow-hidden">
+                <div className={cn(
+                  "px-4 py-2.5 border-b border-border flex items-center gap-2",
+                  fails.length === 0 ? "bg-gradient-to-r from-success/15 to-transparent" : "bg-gradient-to-r from-warning/15 to-transparent"
+                )}>
+                  {fails.length === 0 ? <CheckCircle2 size={13} className="text-success" /> : <AlertCircle size={13} className="text-warning" />}
+                  <span className="text-xs font-bold text-text uppercase tracking-wider">合规风险</span>
+                  <span className={cn(
+                    "ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded",
+                    fails.length === 0 ? "bg-success/15 text-success" : "bg-warning/15 text-warning",
+                  )}>{score} 分</span>
+                </div>
+                <div className="px-4 py-3 flex flex-col gap-2">
+                  {checks.map((c, i) => <RiskItem key={i} ok={c.ok} label={c.ok ? c.label : c.warn} />)}
+                </div>
               </div>
-              <div className="flex flex-col gap-2">
-                <RiskItem ok={!!selectedOrg.managerName} label="负责人已指定" />
-                <RiskItem ok={selectedOrg.status === 'ACTIVE'} label="组织已启用" />
-                <RiskItem ok={selectedOrg.orgType !== 'COMPANY' || !!selectedOrg.companyCode} label="公司编码完整" />
-                <RiskItem ok={!!selectedOrg.parentCode || selectedOrg.orgType === 'GROUP'} label="层级归属清晰" />
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       </div>
 
@@ -1140,6 +1183,22 @@ function RightStat({ label, value, tone = 'default' }: {
     <div className="rounded-lg bg-bg-muted/40 p-2.5">
       <div className="text-[10px] text-text-muted">{label}</div>
       <div className={cn("text-lg font-bold leading-tight", color)}>{value}</div>
+    </div>
+  );
+}
+
+function KpiPair({ label, value, tone = 'default' }: {
+  label: string; value: React.ReactNode;
+  tone?: 'default' | 'success' | 'warning' | 'danger';
+}) {
+  const color = tone === 'success' ? 'text-success'
+              : tone === 'warning' ? 'text-warning'
+              : tone === 'danger'  ? 'text-danger'
+              : 'text-text';
+  return (
+    <div className="flex flex-col gap-0.5">
+      <div className={cn("text-base font-bold leading-tight", color)}>{value}</div>
+      <div className="text-[10px] text-text-muted">{label}</div>
     </div>
   );
 }
