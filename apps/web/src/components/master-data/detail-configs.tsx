@@ -226,20 +226,20 @@ export const productConfig: MasterDataConfig = {
     },
     {
       label: '计量单位', icon: <Layers size={16} />,
-      value: (info) => ({ display: info?.uom || '—' }),
+      value: (info) => ({ display: info?.unit_zh || info?.unit_lo || '—' }),
     },
     {
       label: '类目', icon: <BookOpen size={16} />,
-      value: (info) => ({ display: info?.category || '—' }),
+      value: (info) => ({ display: info?.category_code || '—' }),
     },
   ],
   basicFields: [
-    { key: 'product_name_en', label: '英文名' },
-    { key: 'category',        label: '类目' },
-    { key: 'uom',             label: '计量单位' },
-    { key: 'default_grade',   label: '默认等级' },
+    { key: 'product_name_zh', label: '中文名' },
+    { key: 'product_name_lo', label: '老挝语名' },
+    { key: 'category_code',   label: '品类' },
+    { key: 'unit_zh',         label: '计量单位' },
     { key: 'shelf_life_days', label: '保质期(天)' },
-    { key: 'effective_date',  label: '生效日期', format: dateStr },
+    { key: 'price_retail',    label: '零售价' },
   ],
   sections: [
     {

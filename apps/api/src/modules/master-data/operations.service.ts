@@ -67,7 +67,7 @@ export class MasterDataOperationsService {
     {
       key: 'product', label: '产品中心',
       members: [
-        { type: 'product', table: 'product_master',  codeCol: 'product_code', href: '/master-data/products' },
+        { type: 'product', table: 'mst_products',    codeCol: 'product_code', href: '/master-data/products' },
         { type: 'grade',   table: 'product_grades',  codeCol: 'grade_code',   href: '/master-data/product-grades' },
         { type: 'spec',    table: 'packaging_specs', codeCol: 'spec_code',    href: '/master-data/packaging-specs' },
         { type: 'sku',     table: 'product_skus',    codeCol: 'sku_code',     href: '/master-data/product-skus' },
@@ -147,7 +147,7 @@ export class MasterDataOperationsService {
     const queries = [
       { type: 'customer',  sql: `SELECT customer_no AS code, customer_name AS name, status FROM sal_customers WHERE customer_no ILIKE $1 OR customer_name ILIKE $1 LIMIT 5`, href: '/master-data/customers' },
       { type: 'supplier',  sql: `SELECT supplier_code AS code, supplier_name AS name, status FROM prc2_suppliers WHERE supplier_code ILIKE $1 OR supplier_name ILIKE $1 LIMIT 5`, href: '/master-data/suppliers' },
-      { type: 'product',   sql: `SELECT product_code AS code, product_name AS name, status FROM product_master WHERE product_code ILIKE $1 OR product_name ILIKE $1 LIMIT 5`, href: '/master-data/products' },
+      { type: 'product',   sql: `SELECT product_code AS code, COALESCE(product_name_zh, product_name) AS name, status FROM mst_products WHERE product_code ILIKE $1 OR product_name ILIKE $1 OR product_name_zh ILIKE $1 LIMIT 5`, href: '/master-data/products' },
       { type: 'sku',       sql: `SELECT sku_code AS code, COALESCE(sku_name,product_name) AS name, status FROM product_skus WHERE sku_code ILIKE $1 OR sku_name ILIKE $1 OR product_name ILIKE $1 LIMIT 5`, href: '/master-data/product-skus' },
       { type: 'warehouse', sql: `SELECT warehouse_code AS code, COALESCE(warehouse_name_zh,warehouse_name) AS name, status FROM wms_warehouses WHERE warehouse_code ILIKE $1 OR warehouse_name ILIKE $1 OR warehouse_name_zh ILIKE $1 LIMIT 5`, href: '/master-data/warehouses' },
       { type: 'store',     sql: `SELECT store_code AS code, store_name AS name, status FROM mst_stores WHERE store_code ILIKE $1 OR store_name ILIKE $1 LIMIT 5`, href: '/master-data/stores' },

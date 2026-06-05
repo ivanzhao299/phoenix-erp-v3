@@ -51,9 +51,11 @@ const TYPES: Record<string, MdTypeConfig> = {
   },
   // ════ G5.5-C 新增 9 类主数据（P0 + P1）════
   product: {
-    table: 'product_master', codeCol: 'product_code', nameCol: 'product_name',
+    // FIX 2026-06-05: 真实表名是 mst_products（不是 product_master，后者根本不存在 → HTTP 500）
+    // writableCols 按 mst_products 实际列校正（无 product_name_en/uom/default_grade/effective_date/expire_date/remark）
+    table: 'mst_products', codeCol: 'product_code', nameCol: 'product_name',
     prefix: 'PRD', objectType: 'PRODUCT',
-    writableCols: ['product_name','product_name_en','category','uom','default_grade','shelf_life_days','effective_date','expire_date','remark'],
+    writableCols: ['product_name','product_name_zh','product_name_lo','category_code','unit_zh','unit_lo','shelf_life_days','price_retail','price_wholesale','has_grade','has_spec','image_url','specs'],
   },
   store: {
     table: 'mst_stores', codeCol: 'store_code', nameCol: 'store_name',

@@ -245,10 +245,11 @@ export class WorkflowBizRegistryService implements OnModuleInit {
 
     // ── UAT-P0-Phase1: 补齐 G5.5-C 9 类 + G5.5-D 2 类 = 11 个 MD_*_CREATE ──
     this.register('MD_PRODUCT_CREATE', {
-      moduleCode: 'MENU_MASTER_DATA', tableName: 'product_master',
+      // FIX 2026-06-05: 真实表名是 mst_products（不是 product_master）
+      moduleCode: 'MENU_MASTER_DATA', tableName: 'mst_products',
       approvedStatus: 'ACTIVE', rejectedStatus: 'REJECTED',
-      onApproved: mdAuditHook('PRODUCT', 'product_master', 'product_code', 'APPROVE_ACTIVE'),
-      onRejected: mdAuditHook('PRODUCT', 'product_master', 'product_code', 'REJECT'),
+      onApproved: mdAuditHook('PRODUCT', 'mst_products', 'product_code', 'APPROVE_ACTIVE'),
+      onRejected: mdAuditHook('PRODUCT', 'mst_products', 'product_code', 'REJECT'),
     });
     this.register('MD_STORE_CREATE', {
       moduleCode: 'MENU_MASTER_DATA', tableName: 'mst_stores',
