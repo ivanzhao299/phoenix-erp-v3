@@ -36,13 +36,16 @@ UPDATE brd_farms SET mapped_site_code='SITE-DONGPENG-LAYER'
 DO $$
 DECLARE
   unmapped INT;
+  rec RECORD;
 BEGIN
   SELECT count(*) INTO unmapped FROM brd_farms
    WHERE mapped_site_code IS NULL OR mapped_site_code = '';
   IF unmapped > 0 THEN
-    RAISE NOTICE 'brd_farms 仍有 % 行未映射 site_code（需业务方确认），见：', unmapped;
-    PERFORM (SELECT format('  farm_code=% farm_name=%', farm_code, farm_name)
-               FROM brd_farms WHERE mapped_site_code IS NULL OR mapped_site_code='');
+    RAISE NOTICE 'brd_farms 仍有 % 行未映射 site_code（需业务方确认）：', unmapped;
+    FOR rec IN SELECT farm_code, farm_name FROM brd_farms
+                WHERE mapped_site_code IS NULL OR mapped_site_code='' LOOP
+      RAISE NOTICE '  · farm_code=% farm_name=%', rec.farm_code, rec.farm_name;
+    END LOOP;
   END IF;
 END $$;
 
