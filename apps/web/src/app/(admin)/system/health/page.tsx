@@ -29,7 +29,7 @@ interface ErrorStat {
 
 function StatusBadge({ status }: { status: HealthStatus }) {
   const color = status === "HEALTHY" ? "var(--status-success)" : status === "DEGRADED" ? "var(--status-warning)" : "var(--gray-400)";
-  const bg    = status === "HEALTHY" ? "#dcfce7" : status === "DEGRADED" ? "var(--status-warning-bg-faint)" : "var(--gray-100)";
+  const bg    = status === "HEALTHY" ? "var(--status-success-bg-faint)" : status === "DEGRADED" ? "var(--status-warning-bg-faint)" : "var(--gray-100)";
   const label = status === "HEALTHY" ? "正常" : status === "DEGRADED" ? "降级" : "未知";
   return (
     <span style={{ padding: "2px 10px", borderRadius: 99, background: bg, color, fontWeight: 700, fontSize: 13 }}>

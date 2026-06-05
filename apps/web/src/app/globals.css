@@ -224,6 +224,59 @@
   --status-warning-border:   rgba(245,158,11,0.20);
   --status-success-bg-medium:rgba(16,185,129,0.10);
   --status-success-bg-strong:rgba(16,185,129,0.20);
+
+  /* ── UIX-3 收尾 token：覆盖剩余 352 颜色债务的"长尾" ── */
+  /* hex 短记 */
+  --black: #000000;
+  --hex-999: #999999;
+  --hex-666: #666666;
+  --hex-555: #555555;
+  --hex-111: #111111;
+  /* status 浅背景补全（fef9c3/fff7ed/fff5f5/...) */
+  --status-warning-bg-page:  rgba(245,158,11,0.04);
+  --status-success-bg-page:  rgba(16,185,129,0.04);
+  --status-danger-bg-page:   rgba(239,68,68,0.04);
+  --status-info-bg-page:     rgba(59,130,246,0.04);
+  /* danger / warning 深色（#b91c1c / #b45309 等） */
+  --status-danger-dark:  #B91C1C;
+  --status-warning-dark: #B45309;
+  --status-success-dark: #15803D;
+  /* 完整 overlay 阶梯 */
+  --overlay-black-02: rgba(0,0,0,0.02);
+  --overlay-black-06: rgba(0,0,0,0.06);
+  --overlay-black-10: rgba(0,0,0,0.10);
+  --overlay-black-12: rgba(0,0,0,0.12);
+  --overlay-black-15: rgba(0,0,0,0.15);
+  --overlay-black-20: rgba(0,0,0,0.20);
+  --overlay-black-25: rgba(0,0,0,0.25);
+  --overlay-white-02: rgba(255,255,255,0.02);
+  --overlay-white-06: rgba(255,255,255,0.06);
+  --overlay-white-07: rgba(255,255,255,0.07);
+  --overlay-white-15: rgba(255,255,255,0.15);
+  --overlay-white-50: rgba(255,255,255,0.50);
+  --overlay-white-70: rgba(255,255,255,0.70);
+  /* 状态色完整层级补完 */
+  --status-success-bg-faint:    rgba(34,197,94,0.06);
+  --status-success-bg-light:    rgba(34,197,94,0.10);
+  --status-success-bg-strong-2: rgba(34,197,94,0.40);
+  --status-info-bg-light:       rgba(59,130,246,0.08);
+  --status-info-bg-medium:      rgba(59,130,246,0.30);
+  --status-special-bg-medium:   rgba(99,102,241,0.10);
+  --status-neutral-bg-light:    rgba(100,116,139,0.10);
+  --status-warning-bg-deep:     rgba(245,158,11,0.18);
+  --status-danger-bg-deep:      rgba(239,68,68,0.18);
+  --status-success-bg-deep:     rgba(16,185,129,0.18);
+  --overlay-blue-25:            rgba(99,179,237,0.25);
+  /* 深底蓝（dashboard / store-pos 顶栏）*/
+  --deep-blue-1: #0A0F1E;
+  --deep-blue-2: #070F1C;
+  --deep-blue-3: #0A1120;
+  --deep-blue-4: #0A1628;
+  /* indigo / violet 补完（紫色系剩余 #a855f7 / #4c1d95 等）*/
+  --indigo-300: #A5B4FC;
+  --indigo-500: #6366F1;
+  --violet-500: #A855F7;
+  --violet-900: #4C1D95;
 }
 
 /* ── UIX-2 P8 · 集团主题预设 ──────────────────────────────────

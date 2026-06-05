@@ -690,7 +690,7 @@ export default function PurchaseRequestsPage() {
                     </td>
                     <td style={tdStyle}>
                       <button type="button"
-                        style={{ border: "none", background: "none", cursor: "pointer", color: "var(--color-danger,#ef4444)", padding: "0 2px" }}
+                        style={{ border: "none", background: "none", cursor: "pointer", color: "var(--color-danger,var(--status-danger))", padding: "0 2px" }}
                         onClick={() => removeItemRow(idx)} title="删除行">
                         <Trash2 size={12} />
                       </button>

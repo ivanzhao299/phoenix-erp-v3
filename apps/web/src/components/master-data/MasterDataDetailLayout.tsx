@@ -262,7 +262,7 @@ export function MasterDataDetailLayout(props: MasterDataDetailLayoutProps) {
 function QualityCard({ label, value, ok }: { label: string; value: string; ok: boolean }) {
   return (
     <div style={{
-      padding: 12, borderRadius: 8, border: `1px solid ${ok ? 'rgba(34,197,94,0.3)' : 'var(--status-danger-bg-strong)'}`,
+      padding: 12, borderRadius: 8, border: `1px solid ${ok ? 'var(--status-success-bg-strong)' : 'var(--status-danger-bg-strong)'}`,
       background: ok ? 'rgba(34,197,94,0.05)' : 'var(--status-danger-bg-faint)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>

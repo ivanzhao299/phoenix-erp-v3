@@ -202,7 +202,7 @@ export default function PhotosPage({ params }: { params: Promise<{ id: string }>
                 </button>
                 <div style={{
                   position: 'absolute', bottom: 4, left: 6,
-                  fontSize: 11, color: 'rgba(255,255,255,0.7)',
+                  fontSize: 11, color: 'var(--overlay-white-70)',
                 }}>
                   {idx + 1}/{photos.length}
                 </div>

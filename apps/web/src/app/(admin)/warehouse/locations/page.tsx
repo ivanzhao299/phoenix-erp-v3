@@ -318,18 +318,18 @@ export default function LocationsPage() {
       {modal && (
         <div style={{ position: "fixed", inset: 0, background: "var(--overlay-black-45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
           onClick={e => e.target === e.currentTarget && closeModal()}>
-          <div style={{ background: "var(--bg-card, #fff)", borderRadius: 16, padding: "28px 32px", width: 520, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 25px 50px rgba(0,0,0,0.25)" }}>
+          <div style={{ background: "var(--bg-card, var(--bg-card))", borderRadius: 16, padding: "28px 32px", width: 520, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 25px 50px var(--overlay-black-25)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>{modal === "add" ? t("ui.新增库位", "新增库位") : t("ui.编辑库位", "编辑库位")}</h2>
               <button type="button" onClick={closeModal} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)", padding: 4 }}><X size={18} /></button>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div style={{ gridColumn: "1/-1" }}>
-                <label style={labelStyle}>{t("ui.库位编码", "库位编码")} <span style={{ color: "var(--status-danger, #ef4444)" }}>*</span></label>
+                <label style={labelStyle}>{t("ui.库位编码", "库位编码")} <span style={{ color: "var(--status-danger, var(--status-danger))" }}>*</span></label>
                 <input value={String(form.location_code ?? "")} onChange={e => setForm(f => ({ ...f, location_code: e.target.value }))} placeholder={t("ui.如LOCA0101", "如 LOC-A-01-01")} style={inputStyle} disabled={modal === "edit"} />
               </div>
               <div><label style={labelStyle}>{t("ui.库位名称", "库位名称")}</label><input value={String(form.location_name ?? "")} onChange={e => setForm(f => ({ ...f, location_name: e.target.value }))} placeholder={t("ui.如A区1排1层", "如 A区1排1层")} style={inputStyle} /></div>
-              <div><label style={labelStyle}>{t("ui.仓库编码", "仓库编码")} <span style={{ color: "var(--status-danger, #ef4444)" }}>*</span></label><input value={String(form.warehouse_code ?? "")} onChange={e => setForm(f => ({ ...f, warehouse_code: e.target.value }))} placeholder={t("ui.如WMSVTEMAIN", "如 WMS-VTE-MAIN")} style={inputStyle} /></div>
+              <div><label style={labelStyle}>{t("ui.仓库编码", "仓库编码")} <span style={{ color: "var(--status-danger, var(--status-danger))" }}>*</span></label><input value={String(form.warehouse_code ?? "")} onChange={e => setForm(f => ({ ...f, warehouse_code: e.target.value }))} placeholder={t("ui.如WMSVTEMAIN", "如 WMS-VTE-MAIN")} style={inputStyle} /></div>
               <div><label style={labelStyle}>{t("ui.库区", "库区")}</label><input value={String(form.zone_code ?? "")} onChange={e => setForm(f => ({ ...f, zone_code: e.target.value }))} placeholder={t("ui.如AB冷库", "如 A / B / 冷库")} style={inputStyle} /></div>
               <div><label style={labelStyle}>{t("common.status", "状态")}</label>
                 <select value={String(form.status ?? "EMPTY")} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={inputStyle}>

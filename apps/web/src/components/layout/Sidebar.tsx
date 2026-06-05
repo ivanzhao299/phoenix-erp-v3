@@ -44,7 +44,7 @@ function Accordion({ open, children }: { open: boolean; children: React.ReactNod
     }
   }, [open]);
   return (
-    <div ref={ref} style={{ maxHeight: maxH, overflow: "hidden", transition: "max-height 240ms cubic-bezier(0.4,0,0.2,1)", background: "rgba(0,0,0,0.18)" }}>
+    <div ref={ref} style={{ maxHeight: maxH, overflow: "hidden", transition: "max-height 240ms cubic-bezier(0.4,0,0.2,1)", background: "var(--overlay-black-15)" }}>
       {visible && children}
     </div>
   );
@@ -420,7 +420,7 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
                         padding: "9px 12px 9px 28px",
                         margin: "6px 8px 2px",
                         borderRadius: 8,
-                        background: "linear-gradient(135deg, rgba(245,158,11,0.18), var(--status-warning-bg-faint))",
+                        background: "linear-gradient(135deg, var(--status-warning-bg-deep), var(--status-warning-bg-faint))",
                         border: "1px solid var(--status-warning-bg-strong)",
                         color: "var(--status-warning)",
                         textDecoration: "none",

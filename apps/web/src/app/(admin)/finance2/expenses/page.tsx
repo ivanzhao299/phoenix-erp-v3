@@ -241,14 +241,14 @@ function ExpenseDrawer({
 
   if (loading || !data) return (
     <div className="bg-bg-card text-text-muted"
-      style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 520, padding: 28, boxShadow: '-2px 0 16px rgba(0,0,0,0.1)', zIndex: 500 }}>
+      style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 520, padding: 28, boxShadow: '-2px 0 16px var(--overlay-black-10)', zIndex: 500 }}>
       <div>加载中...</div>
     </div>
   );
 
   return (
     <div className="bg-bg-card"
-      style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 540, padding: 28, boxShadow: '-2px 0 20px rgba(0,0,0,0.12)', zIndex: 500, overflowY: 'auto' }}>
+      style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 540, padding: 28, boxShadow: '-2px 0 20px var(--overlay-black-12)', zIndex: 500, overflowY: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
           <div className="text-text" style={{ fontWeight: 800, fontSize: 16 }}>{data.expense_no}</div>
@@ -273,7 +273,7 @@ function ExpenseDrawer({
           ))}
         </div>
         {data.description && (
-          <div className="text-text-muted" style={{ marginTop: 10, fontSize: 13, borderTop: '1px solid #e2e8f0', paddingTop: 8 }}>
+          <div className="text-text-muted" style={{ marginTop: 10, fontSize: 13, borderTop: '1px solid var(--slate-200)', paddingTop: 8 }}>
             <span className="text-text-muted">说明：</span>{data.description}
           </div>
         )}

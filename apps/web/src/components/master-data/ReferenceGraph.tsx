@@ -32,7 +32,7 @@ export function ReferenceGraph({ centerLabel, centerType, references }: Referenc
         position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)',
         width: 200, padding: '14px 18px', borderRadius: 12,
         background: 'var(--color-primary)', color: 'var(--text-on-dark, white)',
-        boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
+        boxShadow: '0 4px 14px var(--overlay-black-15)',
         textAlign: 'center', zIndex: 2,
       }}>
         <div style={{ fontSize: 11, opacity: 0.8 }}>{centerType}</div>
@@ -85,7 +85,7 @@ export function ReferenceGraph({ centerLabel, centerType, references }: Referenc
                   {r.refDocType}
                   <span style={{ marginLeft: 8, padding: '1px 8px', borderRadius: 4,
                                  background: 'var(--status-warning-bg, var(--status-warning-bg-light))',
-                                 color: 'var(--status-warning, #d97706)', fontSize: 11 }}>
+                                 color: 'var(--status-warning, var(--status-warning))', fontSize: 11 }}>
                     × {r.refCount}
                   </span>
                 </div>

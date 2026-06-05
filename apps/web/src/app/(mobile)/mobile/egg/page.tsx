@@ -292,7 +292,7 @@ export default function EggPage() {
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '8px 16px',
-          background: 'rgba(245,158,11,0.03)',
+          background: 'var(--status-warning-bg-page)',
           borderBottom: '1px solid var(--status-warning-bg-light)',
         }}>
           <button onClick={() => setDate(d => fmtDate(addDays(toDate(d), -1)))}
@@ -389,7 +389,7 @@ export default function EggPage() {
                   <button key={h} onClick={() => setSelectedHouse(h)}
                     style={{
                       flexShrink: 0, padding: '7px 14px', borderRadius: 10,
-                      background: selectedHouse === h ? 'rgba(16,185,129,0.15)' : t.btnBg,
+                      background: selectedHouse === h ? 'var(--status-success-bg-medium)' : t.btnBg,
                       border: `1px solid ${selectedHouse === h ? 'var(--status-success)' : t.btnBorder}`,
                       color: selectedHouse === h ? 'var(--status-success)' : t.textSub,
                       cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',

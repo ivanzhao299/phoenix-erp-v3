@@ -95,7 +95,7 @@ export default function DailyInboundPage() {
           <Link href="/packaging" style={{ padding: "7px 14px", borderRadius: 7, background: "var(--status-warning)", color: "var(--text-on-dark)", textDecoration: "none", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>前往包装作业</Link>
         </div>
       ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", marginBottom: 18, borderRadius: 8, background: "var(--status-success-bg-medium)", border: "1px solid rgba(16,185,129,0.3)", color: "var(--status-success)", fontSize: 13 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", marginBottom: 18, borderRadius: 8, background: "var(--status-success-bg-medium)", border: "1px solid var(--status-success-bg-strong)", color: "var(--status-success)", fontSize: 13 }}>
           <Egg size={16} /> 当前为 <strong>临时生产入库模式</strong>，录入即直接形成可销售库存。
         </div>
       )}

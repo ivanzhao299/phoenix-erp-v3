@@ -69,7 +69,7 @@ function SignForm({ id }: { id: string }) {
     width: '100%',
     padding: '13px 14px',
     borderRadius: 10,
-    background: 'rgba(255,255,255,0.07)',
+    background: 'var(--overlay-white-07)',
     border: `1px solid ${C.border}`,
     color: C.text,
     fontSize: 15,

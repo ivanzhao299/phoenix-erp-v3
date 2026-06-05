@@ -32,7 +32,7 @@ export default function CabinHeaderCard({ header, houseCode, onRefresh }: Props)
         <div style={{ width:48, height:48, borderRadius:12, backgroundColor:'rgba(99,102,241,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>🏚</div>
         <div>
           <div style={{ fontSize:20, fontWeight:800, color:'white' }}>{houseCode} {t('ui.鸡舍', '鸡舍')}</div>
-          <div style={{ fontSize:12, color:'rgba(255,255,255,0.5)', marginTop:2 }}>{t('ui.最后更新', '最后更新')}：{header?.lastUpdateTime || '—'}</div>
+          <div style={{ fontSize:12, color:'var(--overlay-white-50)', marginTop:2 }}>{t('ui.最后更新', '最后更新')}：{header?.lastUpdateTime || '—'}</div>
         </div>
         <div style={{ padding:'4px 12px', borderRadius:20, backgroundColor:`${freshnessColor[f]}20`, border:`1px solid ${freshnessColor[f]}40`, fontSize:11, fontWeight:700, color:freshnessColor[f] }}>
           ● {freshnessLabel[f]}
@@ -53,8 +53,8 @@ export default function CabinHeaderCard({ header, houseCode, onRefresh }: Props)
           <div style={{ fontSize:22, fontWeight:800, color:(header?.alarmCount||0)>0?'var(--status-danger)':'var(--status-success)' }}>{header?.alarmCount||0}</div>
           <div style={{ fontSize:10, color:'var(--overlay-white-10)' }}>{t('ui.当前告警', '当前告警')}</div>
         </div>
-        <button type="button" onClick={onRefresh} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', backgroundColor:'var(--overlay-white-08)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:'var(--radius-md)', color:'rgba(255,255,255,0.7)', cursor:'pointer', fontSize:12 }}
-          onMouseEnter={e => (e.currentTarget.style.backgroundColor='rgba(255,255,255,0.15)')}
+        <button type="button" onClick={onRefresh} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', backgroundColor:'var(--overlay-white-08)', border:'1px solid var(--overlay-white-10)', borderRadius:'var(--radius-md)', color:'var(--overlay-white-70)', cursor:'pointer', fontSize:12 }}
+          onMouseEnter={e => (e.currentTarget.style.backgroundColor='var(--overlay-white-15)')}
           onMouseLeave={e => (e.currentTarget.style.backgroundColor='var(--overlay-white-08)')}>
           <RefreshCw size={13} /> {t('common.refresh', '刷新')}
         </button>

@@ -101,6 +101,9 @@ export type { FilterBarProps, FilterItem } from './layouts/FilterBar';
 export { Toolbar } from './layouts/Toolbar';
 export type { ToolbarProps } from './layouts/Toolbar';
 
+// UIX-3 P8 新增：ThemeSwitcher
+export { ThemeSwitcher } from './layouts/ThemeSwitcher';
+
 // UIX-2 P6 合入：PageHeader（148 文件引用的事实标准 — 通过 DS 单一入口）
 export { default as PageHeader } from '../PageHeader';
 

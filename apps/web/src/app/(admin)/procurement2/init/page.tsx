@@ -368,7 +368,7 @@ export default function InitPage() {
       {/* ── 上传面板（Modal） ────────────────────────────────────────────────── */}
       {showUpload && (
         <div style={{ position: "fixed", inset: 0, background: "var(--overlay-black-50)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "var(--bg-base)", borderRadius: 10, padding: 28, width: 460, boxShadow: "0 8px 32px rgba(0,0,0,.2)" }}>
+          <div style={{ background: "var(--bg-base)", borderRadius: 10, padding: 28, width: 460, boxShadow: "0 8px 32px var(--overlay-black-20)" }}>
             <h3 style={{ margin: "0 0 18px", fontSize: 16, fontWeight: 600 }}>上传初始化文件</h3>
 
             <div style={{ marginBottom: 14 }}>

@@ -312,6 +312,6 @@ const selectedFieldStyle: React.CSSProperties = { display: "grid", gap: 4, paddi
 const runtimePreviewStyle: React.CSSProperties = { padding: 14, border: "1px solid var(--border)", borderRadius: "var(--radius-md)", background: "var(--bg-page)" };
 const checkStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, fontSize: 13 };
 const hintStyle: React.CSSProperties = { color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.6 };
-const modalMaskStyle: React.CSSProperties = { position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 };
+const modalMaskStyle: React.CSSProperties = { position: "fixed", inset: 0, zIndex: 1000, background: "var(--overlay-black-30)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 };
 const modalStyle: React.CSSProperties = { width: "min(900px, 92vw)", maxHeight: "88vh", overflow: "auto", padding: 16 };
 const textareaStyle: React.CSSProperties = { minHeight: 440, fontFamily: "monospace", marginBottom: 12 };

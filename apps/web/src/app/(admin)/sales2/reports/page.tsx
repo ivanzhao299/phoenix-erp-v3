@@ -57,7 +57,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <div style={{ marginBottom: 28 }}>
       <h4 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: "var(--gray-900)",
-        borderLeft: "3px solid #2563eb", paddingLeft: 10 }}>{title}</h4>
+        borderLeft: "3px solid var(--color-accent)", paddingLeft: 10 }}>{title}</h4>
       {children}
     </div>
   );
@@ -602,7 +602,7 @@ function Err({ msg, onRetry }: { msg: string; onRetry: () => void }) {
   );
 }
 const inputSt: React.CSSProperties = {
-  padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13,
+  padding: "6px 10px", border: "1px solid var(--gray-300)", borderRadius: 6, fontSize: 13,
 };
 function btnSt(bg: string): React.CSSProperties {
   return { padding: "6px 14px", background: bg, color: "var(--bg-card)", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600 };

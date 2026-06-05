@@ -28,7 +28,7 @@ export function DrawerV2({ open, title, width = 560, onClose, children, footer, 
     <div
       onClick={(e) => { if (closeOnBackdrop && e.target === e.currentTarget) onClose(); }}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 950,
+        position: 'fixed', inset: 0, background: 'var(--overlay-black-30)', zIndex: 950,
         display: 'flex', justifyContent: 'flex-end', animation: 'phx-fade-in .15s ease',
       }}
     >

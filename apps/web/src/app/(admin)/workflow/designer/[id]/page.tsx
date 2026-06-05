@@ -1162,6 +1162,6 @@ const fieldChipGridStyle: React.CSSProperties = { display: "flex", gap: 8, flexW
 const fieldHelpStyle: React.CSSProperties = { color: "var(--text-secondary)", fontSize: 12, lineHeight: 1.5 };
 const smallButtonGridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 };
 const dividerStyle: React.CSSProperties = { border: 0, borderTop: "1px solid var(--border)", margin: "16px 0" };
-const modalMaskStyle: React.CSSProperties = { position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 };
+const modalMaskStyle: React.CSSProperties = { position: "fixed", inset: 0, zIndex: 1000, background: "var(--overlay-black-30)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 };
 const modalStyle: React.CSSProperties = { width: "min(900px, 92vw)", maxHeight: "88vh", overflow: "auto", padding: 16 };
 const textareaStyle: React.CSSProperties = { minHeight: 440, fontFamily: "monospace", marginBottom: 12 };

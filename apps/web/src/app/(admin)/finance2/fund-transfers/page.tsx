@@ -127,7 +127,7 @@ function CreateTransferModal({
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <div className="bg-bg-card"
-        style={{ borderRadius: 16, padding: 28, width: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+        style={{ borderRadius: 16, padding: 28, width: 480, boxShadow: '0 20px 60px var(--overlay-black-20)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>新建资金转账</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -325,7 +325,7 @@ export default function FundTransfersPage() {
             <div key={t.id} className="bg-bg-card"
               style={{
                 borderRadius: 14,
-                border: `1.5px solid ${t.status === 'EXECUTED' ? '#bbf7d0' : t.status === 'CANCELLED' ? 'var(--slate-200)' : '#e8f4fd'}`,
+                border: `1.5px solid ${t.status === 'EXECUTED' ? 'var(--status-success-bg-light)' : t.status === 'CANCELLED' ? 'var(--slate-200)' : 'var(--status-info-bg-page)'}`,
                 padding: '16px 20px',
                 opacity: t.status === 'CANCELLED' ? 0.65 : 1,
               }}>

@@ -543,7 +543,7 @@ export default function PrcRequestPage() {
               </div>
             )}
             {formSuccess && (
-              <div style={{ color: '#065f46', background: '#d1fae5', padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600 }}>
+              <div style={{ color: 'var(--status-success-dark)', background: 'var(--status-success-bg-faint)', padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600 }}>
                 ✅ {formSuccess}
               </div>
             )}

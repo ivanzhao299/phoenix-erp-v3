@@ -92,7 +92,7 @@ export default function RightDrawer({
           zIndex: 10100,
           background: 'var(--bg-card)',
           borderLeft: '1px solid var(--border)',
-          boxShadow: '-8px 0 40px rgba(0,0,0,0.18)',
+          boxShadow: '-8px 0 40px var(--overlay-black-15)',
           display: 'flex',
           flexDirection: 'column',
           animation: 'phxSlideInRight 0.26s cubic-bezier(0.4,0,0.2,1) forwards',
@@ -110,7 +110,7 @@ export default function RightDrawer({
           alignItems: 'center',
           justifyContent: 'space-between',
           flexShrink: 0,
-          background: 'var(--bg-card, #f9fafb)',
+          background: 'var(--bg-card, var(--gray-50))',
         }}>
           <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
             {title}
@@ -131,7 +131,7 @@ type="button"             onClick={onClose}
               flexShrink: 0,
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.background = 'var(--bg-muted, #f3f4f6)';
+              e.currentTarget.style.background = 'var(--bg-muted, var(--gray-100))';
               e.currentTarget.style.color = 'var(--text-primary)';
             }}
             onMouseLeave={e => {
@@ -164,7 +164,7 @@ type="button"             onClick={onClose}
             gap: 10,
             padding: '14px 20px',
             borderTop: '1px solid var(--border)',
-            background: 'var(--bg-card, #f9fafb)',
+            background: 'var(--bg-card, var(--gray-50))',
             flexShrink: 0,
           }}>
             {footer}

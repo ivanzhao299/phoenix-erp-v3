@@ -103,7 +103,7 @@ export default function SystemConfigsPage() {
             {configs.map((cfg, i) => (
               <tr key={cfg.id}>
                 <td>
-                  <span style={{ padding: "1px 8px", borderRadius: 99, fontSize: 11, fontWeight: 700, background: "#dbeafe", color: "var(--color-accent)" }}>{cfg.config_group}</span>
+                  <span style={{ padding: "1px 8px", borderRadius: 99, fontSize: 11, fontWeight: 700, background: "var(--status-info-bg)", color: "var(--color-accent)" }}>{cfg.config_group}</span>
                 </td>
                 <td style={{ fontFamily: "monospace", fontSize: 12 }}>{cfg.config_key}</td>
                 <td>

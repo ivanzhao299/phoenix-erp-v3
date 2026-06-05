@@ -248,7 +248,7 @@ export default function SalesPage() {
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '8px 16px',
-          background: 'rgba(16,185,129,0.03)',
+          background: 'var(--status-success-bg-page)',
           borderBottom: '1px solid var(--status-success-bg-medium)',
         }}>
           <button onClick={() => setDate(d => fmtDate(addDays(toDate(d), -1)))}
@@ -273,7 +273,7 @@ export default function SalesPage() {
         </div>
       )}
       {successNo && (
-        <div style={{ margin: '8px 16px 0', padding: 12, borderRadius: 10, background: 'var(--status-success-bg-medium)', border: '1px solid rgba(16,185,129,0.3)', color: 'var(--status-success)', fontSize: 13, fontWeight: 600 }}>
+        <div style={{ margin: '8px 16px 0', padding: 12, borderRadius: 10, background: 'var(--status-success-bg-medium)', border: '1px solid var(--status-success-bg-strong)', color: 'var(--status-success)', fontSize: 13, fontWeight: 600 }}>
           ✓ 出库单已创建：{successNo}
         </div>
       )}
@@ -294,7 +294,7 @@ export default function SalesPage() {
                     onClick={() => setSelCustomer(c)}
                     style={{
                       padding: '8px 14px', borderRadius: 10,
-                      background: selCustomer?.customer_code === c.customer_code ? 'rgba(16,185,129,0.15)' : t.btnBg,
+                      background: selCustomer?.customer_code === c.customer_code ? 'var(--status-success-bg-medium)' : t.btnBg,
                       border: `1px solid ${selCustomer?.customer_code === c.customer_code ? 'var(--status-success)' : t.btnBorder}`,
                       color: selCustomer?.customer_code === c.customer_code ? 'var(--status-success)' : t.textSub,
                       cursor: 'pointer', fontSize: 13, fontWeight: 600,
@@ -339,7 +339,7 @@ export default function SalesPage() {
                       style={{
                         height: 34, textAlign: 'right', padding: '0 8px',
                         background: qty > 0 ? 'var(--status-success-bg-medium)' : t.inputBg,
-                        border: `1px solid ${qty > 0 ? 'rgba(16,185,129,0.3)' : t.inputBorder}`,
+                        border: `1px solid ${qty > 0 ? 'var(--status-success-bg-strong)' : t.inputBorder}`,
                         borderRadius: 8, color: qty > 0 ? 'var(--status-success)' : t.textSub,
                         fontSize: 14, fontWeight: 700, outline: 'none', WebkitAppearance: 'none',
                       }}
@@ -385,7 +385,7 @@ export default function SalesPage() {
               history.map(rec => (
                 <div key={rec.order_no} style={{
                   borderRadius: 14, marginBottom: 10,
-                  background: rec.status === 'CANCELLED' ? t.cardBg : 'rgba(16,185,129,0.05)',
+                  background: rec.status === 'CANCELLED' ? t.cardBg : 'var(--status-success-bg-faint)',
                   border: `1px solid ${rec.status === 'CANCELLED' ? t.cardBorder : 'var(--status-success-bg-strong)'}`,
                   opacity: rec.status === 'CANCELLED' ? 0.6 : 1,
                 }}>

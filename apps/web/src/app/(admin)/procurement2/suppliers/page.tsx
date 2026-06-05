@@ -233,9 +233,9 @@ export default function SuppliersPage() {
 
       {/* G4-B：采购视图说明 */}
       <div style={{
-        background:"var(--bg-info,#eff6ff)", border:"1px solid var(--color-info,#3b82f6)",
+        background:"var(--bg-info,var(--status-info-bg-page))", border:"1px solid var(--color-info,var(--status-info))",
         borderRadius:"var(--radius-md)", padding:"10px 14px", marginBottom:12, fontSize:12.5,
-        color:"var(--color-info,#1d4ed8)",
+        color:"var(--color-info,var(--color-accent))",
       }}>
         <strong>采购视图（只读）：</strong>供应商主数据已下沉至 <a href="/master-data/suppliers" style={{ color:"inherit",fontWeight:600,textDecoration:"underline" }}>主数据中心</a>，
         请在主数据中心完成新增/审批/资质上传。本页保留浏览、筛选、停用/启用、采购侧扩展信息编辑能力。

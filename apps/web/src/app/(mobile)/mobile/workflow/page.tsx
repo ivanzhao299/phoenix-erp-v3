@@ -104,13 +104,13 @@ function TaskCard({
             {task.isOverdue && (
               <span style={{
                 fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                background: 'var(--status-danger-bg-faint)', color: 'var(--status-danger)', border: '1px solid #fecaca',
+                background: 'var(--status-danger-bg-faint)', color: 'var(--status-danger)', border: '1px solid var(--status-danger-bg-light)',
               }}>⏰ 已超期</span>
             )}
             {(task.escalationLevel ?? 0) > 0 && (
               <span style={{
                 fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                background: '#fff7ed', color: 'var(--status-warning)', border: '1px solid #fed7aa',
+                background: 'var(--status-warning-bg-page)', color: 'var(--status-warning)', border: '1px solid var(--status-warning-bg-medium)',
               }}>🔺 已升级</span>
             )}
           </div>
@@ -217,7 +217,7 @@ function TaskCard({
             onClick={e => { e.stopPropagation(); onReject(task); }}
             style={{
               flex: 1, padding: '10px 0', borderRadius: 10,
-              border: '1.5px solid #ef4444', background: 'transparent',
+              border: '1.5px solid var(--status-danger)', background: 'transparent',
               color: 'var(--status-danger)', fontSize: 13, fontWeight: 700, cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
             }}
@@ -516,7 +516,7 @@ function DetailSheet({
             onClick={() => { onClose(); setTimeout(onReject, 150); }}
             style={{
               flex: 1, padding: '13px 0', borderRadius: 12,
-              border: '1.5px solid #ef4444', background: 'transparent',
+              border: '1.5px solid var(--status-danger)', background: 'transparent',
               color: 'var(--status-danger)', fontWeight: 700, fontSize: 15, cursor: 'pointer',
             }}
           >

@@ -177,8 +177,8 @@ export default function MedStockPage() {
                       <td style={{ color: 'var(--text-secondary)' }}>{m.unit}</td>
                       <td>
                         <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
-                          background: m.qty > 0 ? 'rgba(139,92,246,0.1)' : 'rgba(148,163,184,0.1)',
-                          color: m.qty > 0 ? 'var(--status-special)' : 'var(--text-secondary)', border: `1px solid ${m.qty > 0 ? 'rgba(139,92,246,0.3)' : 'var(--border)'}` }}>
+                          background: m.qty > 0 ? 'var(--status-special-bg)' : 'var(--status-neutral-bg-light)',
+                          color: m.qty > 0 ? 'var(--status-special)' : 'var(--text-secondary)', border: `1px solid ${m.qty > 0 ? 'var(--status-special-border)' : 'var(--border)'}` }}>
                           {m.qty > 0 ? '有库存' : '无库存'}
                         </span>
                       </td>

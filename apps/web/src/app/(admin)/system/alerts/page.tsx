@@ -20,7 +20,7 @@ interface Alert {
 const SEVERITY_STYLE: Record<string, { bg: string; color: string }> = {
   CRITICAL: { bg: "var(--status-danger-bg-faint)", color: "var(--status-danger)" },
   WARNING:  { bg: "var(--status-warning-bg-faint)", color: "var(--status-warning)" },
-  INFO:     { bg: "#dbeafe", color: "var(--color-accent)" },
+  INFO:     { bg: "var(--status-info-bg)", color: "var(--color-accent)" },
 };
 
 export default function SystemAlertsPage() {

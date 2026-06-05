@@ -161,7 +161,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                           refCounts[r[codeKey]].loading ? <span style={{ fontSize: 11, color: "var(--text-disabled)" }}>…</span> :
                           refCounts[r[codeKey]].total < 0 ? <span style={{ fontSize: 11, color: "var(--status-danger)" }}>err</span> :
                           refCounts[r[codeKey]].total === 0 ? <span style={{ fontSize: 11, color: "var(--text-disabled)" }}>0</span> :
-                          <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "var(--status-warning-bg, var(--status-warning-bg-light))", color: "var(--status-warning, #d97706)", fontWeight: 600 }} title={`被 ${refCounts[r[codeKey]].total} 处业务引用`}>
+                          <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "var(--status-warning-bg, var(--status-warning-bg-light))", color: "var(--status-warning, var(--status-warning))", fontWeight: 600 }} title={`被 ${refCounts[r[codeKey]].total} 处业务引用`}>
                             <Link2 size={9} style={{ display: "inline", marginRight: 2 }} />{refCounts[r[codeKey]].total}
                           </span>
                         ) : (

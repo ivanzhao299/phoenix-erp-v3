@@ -285,7 +285,7 @@ export default function EggLedgerPage() {
                 const e = inboundEntries[g.code] ?? { qty: 0, house_code: houses[0] ?? '' };
                 const stockQty = stock.find(x => x.grade === g.code)?.qty ?? 0;
                 return (
-                  <tr key={g.code} style={{ background: e.qty > 0 ? 'rgba(16,185,129,0.03)' : undefined }}>
+                  <tr key={g.code} style={{ background: e.qty > 0 ? 'var(--status-success-bg-page)' : undefined }}>
                     <td>
                       <span style={{ fontFamily: 'monospace', fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'var(--status-warning-bg-light)', color: 'var(--status-warning)' }}>{g.code}</span>
                     </td>
@@ -331,7 +331,7 @@ export default function EggLedgerPage() {
                 const e = outboundEntries[g.code] ?? { qty: 0, customer_no: '' };
                 const stockQty = stock.find(x => x.grade === g.code)?.qty ?? 0;
                 return (
-                  <tr key={g.code} style={{ background: e.qty > 0 ? 'rgba(245,158,11,0.03)' : undefined }}>
+                  <tr key={g.code} style={{ background: e.qty > 0 ? 'var(--status-warning-bg-page)' : undefined }}>
                     <td>
                       <span style={{ fontFamily: 'monospace', fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'var(--status-warning-bg-light)', color: 'var(--status-warning)' }}>{g.code}</span>
                     </td>
@@ -386,7 +386,7 @@ export default function EggLedgerPage() {
                 const e = writeoffEntries[g.code] ?? { qty: 0, reason: '' };
                 const stockQty = stock.find(x => x.grade === g.code)?.qty ?? 0;
                 return (
-                  <tr key={g.code} style={{ background: e.qty > 0 ? 'rgba(239,68,68,0.03)' : undefined }}>
+                  <tr key={g.code} style={{ background: e.qty > 0 ? 'var(--status-danger-bg-page)' : undefined }}>
                     <td>
                       <span style={{ fontFamily: 'monospace', fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'var(--status-danger-bg-light)', color: 'var(--status-danger)' }}>{g.code}</span>
                     </td>

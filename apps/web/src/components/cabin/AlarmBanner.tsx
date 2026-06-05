@@ -9,7 +9,7 @@ export default function AlarmBanner({ alarms, onViewAll }: Props) {
   const { t } = useLanguage();
   if (!alarms || alarms.length === 0) return null;
   return (
-    <div style={{ backgroundColor:'#fff1f2', border:'1px solid color-mix(in srgb,var(--status-danger) 40%,transparent)', borderRadius:'var(--radius-md)', padding:'12px 16px', marginBottom:16, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+    <div style={{ backgroundColor:'var(--status-danger-bg-page)', border:'1px solid color-mix(in srgb,var(--status-danger) 40%,transparent)', borderRadius:'var(--radius-md)', padding:'12px 16px', marginBottom:16, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
       <div style={{ display:'flex', alignItems:'center', gap:12 }}>
         <AlertTriangle size={18} color="var(--status-danger)" />
         <div>

@@ -292,7 +292,7 @@ export default function DeliveryPage() {
                 flex: 1,
                 padding: '11px 4px',
                 background: activeTab === tab.key ? C.orange : 'transparent',
-                color: activeTab === tab.key ? '#000' : C.textSub,
+                color: activeTab === tab.key ? 'var(--black)' : C.textSub,
                 border: 'none',
                 fontWeight: activeTab === tab.key ? 700 : 400,
                 fontSize: 12,

@@ -257,7 +257,7 @@ function CreateReturnDrawer({ onClose, onCreated }: { onClose: () => void; onCre
                   updateItem(i, 'productName', raw?.sku_name ?? raw?.product_name ?? '');
                   updateItem(i, 'gradeCode',   raw?.grade_code ?? '');
                 }}
-                style={{ fontSize: 13, padding: '6px 8px', border: '1px solid rgba(139,92,246,0.3)' }} />
+                style={{ fontSize: 13, padding: '6px 8px', border: '1px solid var(--status-special-border)' }} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px 100px', gap: 8, marginBottom: 8 }}>
               <div>

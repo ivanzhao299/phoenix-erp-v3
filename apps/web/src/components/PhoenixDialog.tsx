@@ -5,11 +5,11 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 // ── Per-type color config — no light/dark split needed (CSS vars handle it) ──
 const TYPE_CFG: Record<string, { accent: string; iconBg: string; confirmBg: string; confirmShadow: string }> = {
-  danger:  { accent:'var(--status-danger)', iconBg:'var(--status-danger-bg-light)',  confirmBg:'linear-gradient(135deg,#ef4444,#b91c1c)', confirmShadow:'rgba(239,68,68,0.28)'  },
-  warning: { accent:'var(--status-warning)', iconBg:'var(--status-warning-bg-light)', confirmBg:'linear-gradient(135deg,#f59e0b,#d97706)', confirmShadow:'rgba(245,158,11,0.28)' },
-  success: { accent:'var(--status-success)', iconBg:'rgba(34,197,94,0.12)',  confirmBg:'linear-gradient(135deg,#22c55e,#16a34a)', confirmShadow:'rgba(34,197,94,0.28)'  },
-  confirm: { accent:'var(--status-info)', iconBg:'var(--status-info-bg)', confirmBg:'linear-gradient(135deg,#3b82f6,#2563eb)', confirmShadow:'rgba(59,130,246,0.28)' },
-  alert:   { accent:'var(--status-info)', iconBg:'var(--status-info-bg)', confirmBg:'linear-gradient(135deg,#3b82f6,#2563eb)', confirmShadow:'rgba(59,130,246,0.28)' },
+  danger:  { accent:'var(--status-danger)', iconBg:'var(--status-danger-bg-light)',  confirmBg:'linear-gradient(135deg,var(--status-danger),var(--status-danger-dark))', confirmShadow:'rgba(239,68,68,0.28)'  },
+  warning: { accent:'var(--status-warning)', iconBg:'var(--status-warning-bg-light)', confirmBg:'linear-gradient(135deg,var(--status-warning),var(--status-warning))', confirmShadow:'rgba(245,158,11,0.28)' },
+  success: { accent:'var(--status-success)', iconBg:'var(--status-success-bg-light)',  confirmBg:'linear-gradient(135deg,var(--status-success),var(--status-success))', confirmShadow:'rgba(34,197,94,0.28)'  },
+  confirm: { accent:'var(--status-info)', iconBg:'var(--status-info-bg)', confirmBg:'linear-gradient(135deg,var(--status-info),var(--color-accent))', confirmShadow:'var(--status-info-bg-medium)' },
+  alert:   { accent:'var(--status-info)', iconBg:'var(--status-info-bg)', confirmBg:'linear-gradient(135deg,var(--status-info),var(--color-accent))', confirmShadow:'var(--status-info-bg-medium)' },
 };
 
 interface PhoenixDialogProps {
@@ -68,7 +68,7 @@ function PhoenixDialog({
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.18), 0 4px 16px var(--overlay-black-08)',
+        boxShadow: '0 20px 60px var(--overlay-black-15), 0 4px 16px var(--overlay-black-08)',
         animation: 'phxScaleIn 0.18s cubic-bezier(0.34,1.45,0.64,1)',
       }}>
 

@@ -156,7 +156,7 @@ function CreateAccountModal({
     }}>
       <div className="bg-bg-card"
         style={{ borderRadius: 16, padding: 28, width: 520, maxHeight: '90vh',
-          overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+          overflowY: 'auto', boxShadow: '0 20px 60px var(--overlay-black-20)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>新建资金账户</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -273,7 +273,7 @@ function TransactionDrawer({
     }}>
       <div className="bg-bg-card"
         style={{ width: 520, height: '100vh', overflowY: 'auto',
-          padding: 24, boxShadow: '-8px 0 32px rgba(0,0,0,0.1)' }}>
+          padding: 24, boxShadow: '-8px 0 32px var(--overlay-black-10)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
           <div>
             <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>{account.accountName}</div>
@@ -285,7 +285,7 @@ function TransactionDrawer({
         </div>
 
         {/* 余额卡片 */}
-        <div style={{ background: 'linear-gradient(135deg,#1e40af,#3b82f6)', borderRadius: 12, padding: '16px 20px', marginBottom: 18, color: 'var(--bg-card)' }}>
+        <div style={{ background: 'linear-gradient(135deg,#1e40af,var(--status-info))', borderRadius: 12, padding: '16px 20px', marginBottom: 18, color: 'var(--bg-card)' }}>
           <div style={{ fontSize: 12, opacity: 0.8 }}>当前余额</div>
           <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: -1 }}>
             {account.currencyCode} {fmt(account.currentBalance)}
@@ -499,7 +499,7 @@ export default function CashAccountsPage() {
               className="bg-bg-card hover:shadow-card-hover transition-shadow cursor-pointer"
               style={{
                 borderRadius: 14,
-                border: `1.5px solid ${acc.status === 'FROZEN' ? 'var(--status-warning-bg-faint)' : acc.status === 'CLOSED' ? 'var(--slate-200)' : '#e8f4fd'}`,
+                border: `1.5px solid ${acc.status === 'FROZEN' ? 'var(--status-warning-bg-faint)' : acc.status === 'CLOSED' ? 'var(--slate-200)' : 'var(--status-info-bg-page)'}`,
                 padding: '18px 20px',
                 opacity: acc.status === 'CLOSED' ? 0.65 : 1,
               }}

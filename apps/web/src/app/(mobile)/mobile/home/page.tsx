@@ -100,7 +100,7 @@ const NAV_CARDS: NavCard[] = [
     icon: <Bird size={28} />,
     titleZh: '存栏日报', titleEn: 'Hen Report', titleLo: 'ລາຍງານໄກ່',
     desc: '母鸡存栏·产蛋率·死淘',
-    color: '#22d3ee',
+    color: 'var(--status-info)',
     href: '/mobile/henreport',
     soon: false,
     pageKey: 'henreport',
@@ -271,7 +271,7 @@ export default function MobileHomePage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 36, height: 36, borderRadius: 10,
-            background: 'linear-gradient(135deg,#f59e0b,#d97706)',
+            background: 'linear-gradient(135deg,var(--status-warning),var(--status-warning))',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0,
           }}>

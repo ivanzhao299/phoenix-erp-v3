@@ -78,7 +78,7 @@ export default function TerminalDashboard() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{
-                background: 'rgba(16,185,129,0.25)', color: 'var(--status-success)',
+                background: 'var(--status-success-bg-strong)', color: 'var(--status-success)',
                 borderRadius: 8, padding: '5px 14px', fontSize: 18, fontWeight: 800, letterSpacing: 0.5,
               }}>
                 {({ MORNING: t('ui.早班','早班'), AFTERNOON: t('ui.下午班','下午班'), NIGHT: t('ui.夜班','夜班') } as Record<string, string>)[ctx.currentShift.shiftType ?? ''] ?? ctx.currentShift.shiftType ?? ctx.currentShift.code}

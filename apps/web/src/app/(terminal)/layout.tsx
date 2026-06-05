@@ -88,7 +88,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
         onClick={enterFullscreen}
         style={{
           position: 'fixed', inset: 0,
-          background: '#0a1120',
+          background: 'var(--deep-blue-3)',
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', gap: 28,
@@ -108,9 +108,9 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
         <div style={{
           marginTop: 8,
           padding: '14px 48px', borderRadius: 12,
-          background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+          background: 'linear-gradient(135deg, var(--status-info), var(--color-accent))',
           color: 'var(--bg-card)', fontSize: 17, fontWeight: 700,
-          boxShadow: '0 4px 20px rgba(59,130,246,0.4)',
+          boxShadow: '0 4px 20px var(--status-info)',
         }}>
           {t('terminal.tap_to_start', '点击屏幕继续')}
         </div>
@@ -144,8 +144,8 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
         {/* 全局顶栏：时钟 | 语言 | 用户 | 退出 */}
         <div style={{
           height: 46, flexShrink: 0,
-          background: '#070f1c',
-          borderBottom: '1px solid #1e3a5f',
+          background: 'var(--deep-blue-2)',
+          borderBottom: '1px solid var(--brand-deep-3)',
           display: 'flex', alignItems: 'center',
           padding: '0 16px', gap: 12,
         }}>
@@ -157,7 +157,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 12 }}>
               <span style={{
                 fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
-                background: 'rgba(16,185,129,0.18)', color: 'var(--status-success)',
+                background: 'var(--status-success-bg-deep)', color: 'var(--status-success)',
                 borderRadius: 4, padding: '2px 7px',
               }}>
                 ● {SHIFT_LABELS[ctx.currentShift.shiftType ?? ''] ?? ctx.currentShift.shiftType ?? ctx.currentShift.code}
@@ -179,7 +179,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
           <div style={{ flex: 1 }} />
 
           {/* 语言切换 */}
-          <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: '1px solid #1e3a5f' }}>
+          <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: '1px solid var(--brand-deep-3)' }}>
             {LANG_ORDER.map(l => (
               <button key={l} type="button" onPointerDown={() => setAppLanguage(l)}
                 style={{
@@ -187,7 +187,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
                   background: lang === l ? 'var(--status-warning)' : 'transparent',
                   color: lang === l ? 'var(--slate-900)' : 'var(--slate-600)',
                   border: 'none', cursor: 'pointer',
-                  borderRight: l !== 'lo' ? '1px solid #1e3a5f' : 'none',
+                  borderRight: l !== 'lo' ? '1px solid var(--brand-deep-3)' : 'none',
                   WebkitTapHighlightColor: 'transparent', minWidth: 30, textAlign: 'center',
                 }}>
                 {LANG_LABELS[l]}
@@ -202,7 +202,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <div style={{
               width: 24, height: 24, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+              background: 'linear-gradient(135deg, var(--status-info), var(--color-accent))',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 11, color: 'var(--bg-card)', fontWeight: 700, flexShrink: 0,
             }}>
@@ -217,7 +217,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
           <button type="button" onClick={handleLogout}
             style={{
               padding: '4px 12px', borderRadius: 6,
-              border: '1px solid #1e3a5f',
+              border: '1px solid var(--brand-deep-3)',
               background: 'transparent', color: 'var(--slate-600)',
               fontSize: 11, fontWeight: 500, cursor: 'pointer',
               WebkitTapHighlightColor: 'transparent',

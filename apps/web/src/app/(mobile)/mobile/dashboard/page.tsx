@@ -603,7 +603,7 @@ export default function MobileDashboardPage() {
         {/* ══ 设备告警（农场 / 农场经理 / 兽医 / 品控专属） ════════════════════ */}
         {showAlerts && alerts.length > 0 && (
           <div style={{
-            background: 'rgba(239,68,68,0.06)',
+            background: 'var(--status-danger-bg-faint)',
             border: '1px solid var(--status-danger-bg-medium)',
             borderRadius: 16, padding: '14px 16px', marginBottom: 12,
           }}>
@@ -625,7 +625,7 @@ export default function MobileDashboardPage() {
                 {alerts.slice(0, 15).map(a => (
                   <div key={a.id} style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '10px 12px', background: t.cardBg, borderRadius: 10, borderLeft: '3px solid #ef4444',
+                    padding: '10px 12px', background: t.cardBg, borderRadius: 10, borderLeft: '3px solid var(--status-danger)',
                   }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--status-danger)' }}>

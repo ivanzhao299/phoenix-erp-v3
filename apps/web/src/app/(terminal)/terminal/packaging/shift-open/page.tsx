@@ -204,7 +204,7 @@ export default function ShiftOpenPage() {
                     <button key={st.code} type="button" onClick={() => setShiftType(st.code)}
                       style={{
                         flex: 1, padding: '12px 6px', borderRadius: 8, border: 'none',
-                        background: active ? T.ACC : 'rgba(255,255,255,0.07)',
+                        background: active ? T.ACC : 'var(--overlay-white-07)',
                         color: active ? 'var(--bg-page)' : T.TXT,
                         cursor: 'pointer', transition: 'background 0.15s',
                         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
@@ -274,7 +274,7 @@ export default function ShiftOpenPage() {
                     style={{
                       display:'flex', alignItems:'center', gap:14, padding:'16px 20px',
                       background: checked ? 'var(--status-success-bg-faint)' : 'var(--overlay-white-03)',
-                      border: `2px solid ${checked ? 'rgba(34,197,94,0.4)' : T.BOR}`,
+                      border: `2px solid ${checked ? 'var(--status-success-bg-strong-2)' : T.BOR}`,
                       borderRadius:10, cursor:'pointer', textAlign:'left', transition:'all 0.15s',
                     }}>
                     <div style={{ width:28, height:28, borderRadius:6,
@@ -312,7 +312,7 @@ export default function ShiftOpenPage() {
         display:'flex', flexDirection:'column', gap:10, flexShrink:0 }}>
         {submitError && (
           <div style={{
-            background: 'var(--status-danger-bg-light)', border: '1px solid rgba(239,68,68,0.35)',
+            background: 'var(--status-danger-bg-light)', border: '1px solid var(--status-danger-bg-strong)',
             borderRadius: 8, padding: '10px 16px',
             fontSize: 14, color: T.RED, fontWeight: 500,
           }}>

@@ -33,7 +33,7 @@ export default function TerminalNumPadPanel({
     <div style={{
       width: 430, flexShrink: 0, borderLeft: `1px solid ${T.BOR}`,
       padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10,
-      background: '#0a1628', position: 'relative',
+      background: 'var(--deep-blue-4)', position: 'relative',
     }}>
       {!hideDisplay && (
       <div style={{

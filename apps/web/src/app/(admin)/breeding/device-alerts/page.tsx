@@ -208,7 +208,7 @@ function CompactHouseCard({ house, onClick }: { house: HouseData; onClick: () =>
           </span>
         )}
         {house.avgHumidity != null && (
-          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 8, background: "rgba(59,130,246,0.1)", color: "var(--color-accent)", fontWeight: 600 }}>
+          <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 8, background: "var(--status-info-bg)", color: "var(--color-accent)", fontWeight: 600 }}>
             💧 {house.avgHumidity.toFixed(0)}%
           </span>
         )}

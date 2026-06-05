@@ -150,7 +150,7 @@ export default function NumPad({
                 userSelect: 'none',
                 WebkitUserSelect: 'none',
                 background: isClear
-                  ? 'rgba(239,68,68,0.18)'
+                  ? 'var(--status-danger-bg-deep)'
                   : isBksp
                   ? 'var(--status-warning-bg-medium)'
                   : 'rgba(255,255,255,0.09)',

@@ -126,7 +126,7 @@ export default function QCInspectionPage() {
                 <button type="button" key={item.key} onClick={()=>setForm(p=>({...p,[item.key]:!(p as any)[item.key]}))}
                   style={{ padding:'12px 20px', borderRadius:8, cursor:'pointer', transition:'all 0.15s',
                     border:`2px solid ${(form as any)[item.key] ? T.GRN : T.BOR}`,
-                    background:(form as any)[item.key] ? 'rgba(34,197,94,0.1)' : 'var(--overlay-white-03)',
+                    background:(form as any)[item.key] ? 'var(--status-success-bg-light)' : 'var(--overlay-white-03)',
                     color:(form as any)[item.key] ? T.GRN : T.MUT, fontSize:14 }}>
                   {item.label}
                 </button>

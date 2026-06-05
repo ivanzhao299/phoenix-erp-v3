@@ -245,7 +245,7 @@ export default function ShiftClosePage() {
       </div>
 
       {showConfirm && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.8)', display:'flex',
+        <div style={{ position:'fixed', inset:0, background:'var(--overlay-black-30)', display:'flex',
           alignItems:'center', justifyContent:'center', zIndex:200 }}>
           <div style={{ background:T.CARD, borderRadius:16, padding:32, width:360, border:`1px solid ${T.BOR}`, textAlign:'center' }}>
             <div style={{ fontSize:48, marginBottom:12 }}>📋</div>

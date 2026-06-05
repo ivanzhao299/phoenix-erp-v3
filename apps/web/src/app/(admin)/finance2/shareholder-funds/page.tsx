@@ -179,7 +179,7 @@ function CreateContributionModal({ onClose, onCreated }: { onClose: () => void; 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div className="bg-bg-card"
-        style={{ borderRadius: 16, padding: 28, width: 520, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+        style={{ borderRadius: 16, padding: 28, width: 520, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px var(--overlay-black-20)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>新建股东资金记录</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} className="text-text-dim" /></button>
@@ -308,7 +308,7 @@ function CreateSettlementModal({
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="bg-bg-card" style={{ borderRadius: 16, padding: 28, width: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+      <div className="bg-bg-card" style={{ borderRadius: 16, padding: 28, width: 460, boxShadow: '0 20px 60px var(--overlay-black-20)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div className="text-text" style={{ fontWeight: 700, fontSize: 15 }}>创建还款/结算</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={17} className="text-text-dim" /></button>
@@ -431,7 +431,7 @@ function ContributionDrawer({
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-45)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
       <div className="bg-bg-card"
-        style={{ width: 560, height: '100vh', overflowY: 'auto', padding: 24, boxShadow: '-8px 0 32px rgba(0,0,0,0.1)' }}>
+        style={{ width: 560, height: '100vh', overflowY: 'auto', padding: 24, boxShadow: '-8px 0 32px var(--overlay-black-10)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
           <div>
             <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>{contribution.shareholderName}</div>
@@ -809,7 +809,7 @@ export default function ShareholderFundsPage() {
                   className="bg-bg-card hover:shadow-card-hover dark:hover:shadow-slate-700/30 transition-shadow cursor-pointer"
                   style={{
                     borderRadius: 14,
-                    border: `1.5px solid ${c.status === 'SETTLED' ? 'var(--slate-200)' : c.status === 'PENDING_CONFIRM' ? 'var(--status-warning-bg-faint)' : '#e8edff'}`,
+                    border: `1.5px solid ${c.status === 'SETTLED' ? 'var(--slate-200)' : c.status === 'PENDING_CONFIRM' ? 'var(--status-warning-bg-faint)' : 'var(--status-info-bg-page)'}`,
                     padding: '14px 18px',
                     opacity: c.status === 'CANCELLED' ? 0.6 : 1,
                   }}

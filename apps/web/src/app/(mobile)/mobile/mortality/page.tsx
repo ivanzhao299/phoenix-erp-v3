@@ -231,7 +231,7 @@ export default function MortalityPage() {
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '10px 16px',
-        background: 'rgba(239,68,68,0.04)',
+        background: 'var(--status-danger-bg-page)',
         borderBottom: '1px solid var(--status-danger-bg-light)',
       }}>
         <button onClick={() => setDate(d => fmtDate(addDays(toDate(d), -1)))}
@@ -260,15 +260,15 @@ export default function MortalityPage() {
           }}>
             <div style={{
               padding: '12px 14px', borderRadius: 14,
-              background: totalMort > 0 ? 'var(--status-danger-bg-faint)' : 'rgba(16,185,129,0.06)',
-              border: `1px solid ${totalMort > 0 ? 'rgba(239,68,68,0.25)' : 'var(--status-success-bg-strong)'}`,
+              background: totalMort > 0 ? 'var(--status-danger-bg-faint)' : 'var(--status-success-bg-faint)',
+              border: `1px solid ${totalMort > 0 ? 'var(--status-danger-bg-medium)' : 'var(--status-success-bg-strong)'}`,
             }}>
               <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>死亡合计</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: totalMort > 0 ? 'var(--status-danger)' : 'var(--status-success)' }}>{totalMort} 只</div>
             </div>
             <div style={{
               padding: '12px 14px', borderRadius: 14,
-              background: totalElim > 0 ? 'rgba(251,146,60,0.08)' : 'rgba(16,185,129,0.06)',
+              background: totalElim > 0 ? 'var(--status-warning-bg-faint)' : 'var(--status-success-bg-faint)',
               border: `1px solid ${totalElim > 0 ? 'rgba(251,146,60,0.3)' : 'var(--status-success-bg-strong)'}`,
             }}>
               <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>淘汰合计</div>
@@ -317,7 +317,7 @@ export default function MortalityPage() {
               return (
                 <div key={house} style={{
                   padding: '14px 16px', borderRadius: 14, marginBottom: 10,
-                  background: hasLoss ? 'rgba(239,68,68,0.06)' : t.sectionBg,
+                  background: hasLoss ? 'var(--status-danger-bg-faint)' : t.sectionBg,
                   border: `1px solid ${hasLoss ? 'var(--status-danger-bg-medium)' : t.cardBorder}`,
                 }}>
                   {/* 栋舍名 */}
@@ -357,7 +357,7 @@ export default function MortalityPage() {
                       placeholder="淘汰原因（如：产蛋率低、受伤等）"
                       style={{
                         width: '100%', height: 36, padding: '0 10px', boxSizing: 'border-box',
-                        background: 'rgba(251,146,60,0.08)',
+                        background: 'var(--status-warning-bg-faint)',
                         border: '1px solid rgba(251,146,60,0.25)',
                         borderRadius: 8, color: t.text, fontSize: 12, outline: 'none',
                       }}

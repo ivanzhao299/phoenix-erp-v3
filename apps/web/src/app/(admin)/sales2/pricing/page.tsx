@@ -541,7 +541,7 @@ function PriceItemsTab() {
                 <td style={{ fontFamily: "monospace", fontSize: 11 }}>{row.price_book_no}</td>
                 <td>
                   {row.sku_code
-                    ? <span style={{ fontFamily: "monospace", fontSize: 11, background: "rgba(99,102,241,0.12)", color: "var(--color-purple-400)", borderRadius: 4, padding: "2px 6px" }}>{row.sku_code}</span>
+                    ? <span style={{ fontFamily: "monospace", fontSize: 11, background: "var(--status-special-bg-medium)", color: "var(--color-purple-400)", borderRadius: 4, padding: "2px 6px" }}>{row.sku_code}</span>
                     : row.product_code}
                 </td>
                 <td style={{ fontSize: 12 }}>{gradeLabel(row.grade_code_std ?? row.grade_code, master.grades)}</td>
@@ -748,7 +748,7 @@ function CurrentPricesTab() {
                 borderRadius: "var(--radius-lg)", padding: "14px 16px",
               }}>
                 {r.skuCode && (
-                  <div style={{ fontSize: 10, fontFamily: "monospace", color: "var(--color-purple-400)", background: "rgba(99,102,241,0.1)", borderRadius: 3, padding: "1px 6px", marginBottom: 4, display: "inline-block" }}>
+                  <div style={{ fontSize: 10, fontFamily: "monospace", color: "var(--color-purple-400)", background: "var(--status-special-bg-medium)", borderRadius: 3, padding: "1px 6px", marginBottom: 4, display: "inline-block" }}>
                     {r.skuCode}
                   </div>
                 )}

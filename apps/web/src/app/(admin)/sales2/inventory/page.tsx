@@ -128,7 +128,7 @@ function SkuBadge({ skuCode }: { skuCode?: string | null }) {
   return (
     <span style={{
       fontFamily: 'monospace', fontSize: 11, fontWeight: 600,
-      background: 'rgba(99,102,241,0.12)', color: 'var(--color-purple-400)',
+      background: 'var(--status-special-bg-medium)', color: 'var(--color-purple-400)',
       borderRadius: 4, padding: '2px 6px', border: '1px solid rgba(99,102,241,0.25)',
     }}>{skuCode}</span>
   );
@@ -264,10 +264,10 @@ function BatchesTab() {
       {/* 创建批次表单 */}
       {showCreate && (
         <div style={{
-          background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10,
+          background: 'var(--status-success-bg-page)', border: '1px solid var(--status-success)', borderRadius: 10,
           padding: 20, marginBottom: 16,
         }}>
-          <h4 style={{ margin: '0 0 12px', color: '#15803d' }}>创建生产批次</h4>
+          <h4 style={{ margin: '0 0 12px', color: 'var(--status-success-dark)' }}>创建生产批次</h4>
 
           {/* Phase H4: SKU 快捷选择 */}
           <div style={{ marginBottom: 14 }}>
@@ -275,7 +275,7 @@ function BatchesTab() {
               商品组合（SKU）<span style={{ fontSize: 11, color: 'var(--gray-500)', marginLeft: 6 }}>选择后自动填充产品/等级/规格</span>
             </label>
             {skus.length === 0 ? (
-              <div style={{ fontSize: 12, color: 'var(--status-warning)', padding: '6px 10px', background: '#fffbeb', borderRadius: 6, border: '1px solid #fde68a' }}>
+              <div style={{ fontSize: 12, color: 'var(--status-warning)', padding: '6px 10px', background: 'var(--status-warning-bg-page)', borderRadius: 6, border: '1px solid var(--status-warning-bg-medium)' }}>
                 暂无 SKU 主数据，请先在主数据中心维护商品组合
               </div>
             ) : (
@@ -440,7 +440,7 @@ function ExpiringTab() {
                 const urgent = daysLeft <= 3;
                 return (
                   <tr key={b.batch_no} style={{
-                    background: urgent ? '#fff1f2' : '#fffbeb',
+                    background: urgent ? 'var(--status-danger-bg-page)' : 'var(--status-warning-bg-page)',
                   }}>
                     <td><code style={{ fontSize: 11 }}>{b.batch_no}</code></td>
                     <td><SkuBadge skuCode={b.sku_code} /></td>
@@ -578,10 +578,10 @@ function FifoTab() {
       </button>
       {result && (
         <div style={{
-          marginTop: 16, background: '#f0fdf4', border: '1px solid #86efac',
+          marginTop: 16, background: 'var(--status-success-bg-page)', border: '1px solid var(--status-success)',
           borderRadius: 8, padding: 16, fontSize: 13,
         }}>
-          <strong style={{ color: '#15803d' }}>分配成功</strong>
+          <strong style={{ color: 'var(--status-success-dark)' }}>分配成功</strong>
           <pre style={{ margin: '8px 0 0', fontSize: 12, overflow: 'auto' }}>
             {JSON.stringify(result, null, 2)}
           </pre>
@@ -691,7 +691,7 @@ function LossTab() {
 // ── 共用样式 ──────────────────────────────────────────────────────────────────
 
 const inputStyle: React.CSSProperties = {
-  padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13,
+  padding: '6px 10px', border: '1px solid var(--gray-300)', borderRadius: 6, fontSize: 13,
   outline: 'none', background: 'var(--bg-card)',
 };
 function btnStyle(bg: string): React.CSSProperties {
@@ -743,19 +743,19 @@ export default function InventoryPage() {
               sub="SKU 批次" />
           )}
           <StatCard label="今日过期损耗（枚）" value={fmt(stats.todayExpireLoss)} color="var(--status-danger)" />
-          <StatCard label="今日破损损耗（枚）" value={fmt(stats.todayDamageLoss)} color="#b45309" />
+          <StatCard label="今日破损损耗（枚）" value={fmt(stats.todayDamageLoss)} color="var(--status-warning-dark)" />
         </div>
       )}
 
       {/* 标签页 */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '2px solid #e5e7eb' }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '2px solid var(--gray-200)' }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} style={{
             padding: '8px 18px', border: 'none', borderRadius: '6px 6px 0 0',
             cursor: 'pointer', fontSize: 14, fontWeight: 600,
             background: tab === t.key ? 'var(--color-accent)' : 'transparent',
             color: tab === t.key ? 'var(--bg-card)' : 'var(--gray-500)',
-            borderBottom: tab === t.key ? '2px solid #2563eb' : '2px solid transparent',
+            borderBottom: tab === t.key ? '2px solid var(--color-accent)' : '2px solid transparent',
             marginBottom: -2,
           }}>
             {t.label}
@@ -764,7 +764,7 @@ export default function InventoryPage() {
       </div>
 
       {/* 内容区 */}
-      <div style={{ background: 'var(--bg-card)', border: '1px solid #e5e7eb', borderRadius: 10, padding: 20 }}>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--gray-200)', borderRadius: 10, padding: 20 }}>
         {tab === 'batches'  && <BatchesTab />}
         {tab === 'expiring' && <ExpiringTab />}
         {tab === 'fifo'     && <FifoTab />}

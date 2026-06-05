@@ -51,7 +51,7 @@ const inputBase: React.CSSProperties = {
   width: '100%',
   padding: '9px 12px',
   borderRadius: 8,
-  border: '1.5px solid #e2e8f0',
+  border: '1.5px solid var(--slate-200)',
   fontSize: 14,
   color: 'var(--slate-900)',
   background: 'var(--bg-card)',
@@ -63,7 +63,7 @@ const inputBase: React.CSSProperties = {
 const inputError: React.CSSProperties = {
   ...inputBase,
   borderColor: 'var(--status-danger)',
-  background: '#fff5f5',
+  background: 'var(--status-danger-bg-page)',
 };
 
 const labelStyle: React.CSSProperties = {

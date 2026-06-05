@@ -75,8 +75,8 @@ export default function TerminalNavRail() {
     <nav style={{
       width: 88,
       height: '100vh',
-      background: '#0a1628',
-      borderRight: '1px solid #1e3a5f',
+      background: 'var(--deep-blue-4)',
+      borderRight: '1px solid var(--brand-deep-3)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -89,7 +89,7 @@ export default function TerminalNavRail() {
       {/* Logo */}
       <div style={{
         width: 56, height: 56, borderRadius: 14,
-        background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+        background: 'linear-gradient(135deg, var(--status-warning), var(--status-warning))',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         marginBottom: 0, flexShrink: 0, overflow: 'hidden',
       }}>
@@ -111,7 +111,7 @@ export default function TerminalNavRail() {
               width: '100%', minHeight: 72, padding: '8px 4px',
               textDecoration: 'none', position: 'relative',
               background: active ? 'var(--slate-900)' : 'transparent',
-              borderLeft: active ? '3px solid #f59e0b' : '3px solid transparent',
+              borderLeft: active ? '3px solid var(--status-warning)' : '3px solid transparent',
               borderRadius: active ? '12px 0 0 12px' : 0,
               marginRight: active ? -1 : 0,
               zIndex: active ? 1 : 0,
@@ -166,7 +166,7 @@ export default function TerminalNavRail() {
           onClick={() => setShowLogout(v => !v)}
           style={{
             width: 42, height: 42, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+            background: 'linear-gradient(135deg, var(--status-info), var(--color-accent))',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 16, color: 'var(--bg-card)', fontWeight: 700, cursor: 'pointer',
             userSelect: 'none',

@@ -53,7 +53,7 @@ function MaterialCard({
   const daysColor = row.days_left == null ? t.textFaint
     : row.days_left <= 3  ? 'var(--status-danger)'
     : row.days_left <= 7  ? 'var(--status-warning)'
-    : row.days_left <= 14 ? '#fbbf24'
+    : row.days_left <= 14 ? 'var(--status-warning)'
     : 'var(--status-success)';
 
   const setOutbound = (house: string, val: string) => {
@@ -353,7 +353,7 @@ export default function FeedLedgerPage() {
         {alertRows.length > 0 && (
           <div style={{
             marginBottom: 12, padding: '12px 14px', borderRadius: 12,
-            background: 'var(--status-danger-bg-faint)', border: '1px solid rgba(239,68,68,0.25)',
+            background: 'var(--status-danger-bg-faint)', border: '1px solid var(--status-danger-bg-medium)',
           }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--status-danger)', marginBottom: 6 }}>⚠ 库存预警</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>

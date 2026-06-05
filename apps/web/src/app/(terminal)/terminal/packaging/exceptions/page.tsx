@@ -119,7 +119,7 @@ export default function ExceptionsPage() {
                     </div>
                   </div>
                   <div style={{ padding:'4px 10px', borderRadius:6, fontSize:11,
-                    background:'rgba(255,255,255,0.06)', color:T.MUT, flexShrink:0 }}>
+                    background:'var(--overlay-white-06)', color:T.MUT, flexShrink:0 }}>
                     {STATUS_LABEL[ticket.status]||ticket.status}
                   </div>
                 </div>
@@ -131,7 +131,7 @@ export default function ExceptionsPage() {
 
       {/* 快速上报表单 */}
       {showForm && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.8)', display:'flex',
+        <div style={{ position:'fixed', inset:0, background:'var(--overlay-black-30)', display:'flex',
           alignItems:'center', justifyContent:'center', zIndex:200 }}>
           <div style={{ background:T.CARD, borderRadius:16, padding:32, width:480,
             border:`1px solid ${T.BOR}`, maxHeight:'90vh', overflow:'hidden' }}>

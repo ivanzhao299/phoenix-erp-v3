@@ -101,7 +101,7 @@ function AgingBar({ notDue, d030, d3160, d6190, dOver90, total }: {
     { v: d030,   color: 'var(--status-warning)', label: '0-30天' },
     { v: d3160,  color: 'var(--status-warning)', label: '31-60天' },
     { v: d6190,  color: 'var(--status-danger)', label: '61-90天' },
-    { v: dOver90,color: '#7f1d1d', label: '90天+' },
+    { v: dOver90,color: 'var(--status-danger-dark)', label: '90天+' },
   ];
   return (
     <div style={{ height: 6, borderRadius: 3, display: 'flex', overflow: 'hidden', gap: 1 }}>
@@ -160,7 +160,7 @@ function OverviewTab() {
     <div>
       {/* 经营净头寸 主 KPI */}
       <div style={{
-        background: 'linear-gradient(135deg, #1e3a5f 0%, #0f766e 100%)',
+        background: 'linear-gradient(135deg, var(--brand-deep-3) 0%, var(--status-info) 100%)',
         borderRadius: 16, padding: '24px 28px', marginBottom: 20, color: 'var(--bg-card)',
       }}>
         <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 4 }}>经营净头寸（Net Operating Position）</div>
@@ -946,7 +946,7 @@ export default function Finance2ReportsPage() {
 
       {/* Phase 6 说明横幅 */}
       <div style={{
-        background: 'linear-gradient(135deg, #1e3a5f 0%, #0f766e 100%)',
+        background: 'linear-gradient(135deg, var(--brand-deep-3) 0%, var(--status-info) 100%)',
         borderRadius: 14, padding: '18px 24px', marginBottom: 20, color: 'var(--bg-card)',
         display: 'flex', alignItems: 'flex-start', gap: 14,
       }}>

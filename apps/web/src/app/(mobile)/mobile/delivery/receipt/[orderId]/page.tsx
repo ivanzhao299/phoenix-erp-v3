@@ -280,7 +280,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ orderId: str
                     key={item.id}
                     onClick={() => !isSigned && handleSelectItem(item)}
                     style={{
-                      background: isSigned ? 'rgba(255,255,255,0.02)' : C.card,
+                      background: isSigned ? 'var(--overlay-white-02)' : C.card,
                       border: `1px solid ${isSigned ? C.gray + '44' : C.border}`,
                       borderRadius: 14,
                       padding: '14px 16px',

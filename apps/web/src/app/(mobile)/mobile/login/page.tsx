@@ -23,7 +23,7 @@ const TEST_GROUPS = IS_DEV ? [
   },
   {
     label: '现场作业台',
-    color: { bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.3)', text: 'var(--status-info)' },
+    color: { bg: 'var(--status-info-bg)', border: 'var(--status-info-bg-medium)', text: 'var(--status-info)' },
     accounts: [
       { u: 'test_pkg_op', p: '123456', label: '📦 操作员', sub: 'ROLE_PKG_OP' },
       { u: 'test_sup',    p: '123456', label: '👷 班组长', sub: 'ROLE_LINE_SUPERVISOR' },
@@ -172,7 +172,7 @@ function MobileLoginInner() {
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <div style={{
           width: 72, height: 72, borderRadius: 20,
-          background: 'linear-gradient(135deg,#f59e0b,#d97706)',
+          background: 'linear-gradient(135deg,var(--status-warning),var(--status-warning))',
           boxShadow: '0 16px 40px var(--status-warning-bg-strong)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           margin: '0 auto 14px',
@@ -209,7 +209,7 @@ function MobileLoginInner() {
           </div>
         )}
         {!error && notice && (
-          <div style={{ marginBottom: 16, padding: 12, background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 10, color: 'var(--status-info)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ marginBottom: 16, padding: 12, background: 'var(--status-info-bg-light)', border: '1px solid var(--status-info-bg-medium)', borderRadius: 10, color: 'var(--status-info)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Info size={15} /> {notice}
           </div>
         )}
@@ -257,7 +257,7 @@ function MobileLoginInner() {
             disabled={loading}
             style={{
               width: '100%', height: 56,
-              background: loading ? 'var(--status-warning)' : 'linear-gradient(135deg,#f59e0b,#d97706)',
+              background: loading ? 'var(--status-warning)' : 'linear-gradient(135deg,var(--status-warning),var(--status-warning))',
               color: 'white', border: 'none', borderRadius: 14,
               fontSize: 16, fontWeight: 800,
               cursor: loading ? 'not-allowed' : 'pointer',
@@ -317,7 +317,7 @@ function LoginFallback() {
   return (
     <div style={{
       minHeight: '100svh',
-      background: 'linear-gradient(160deg,#070b14 0%,#0f1929 100%)',
+      background: 'linear-gradient(160deg,var(--brand-deep-1) 0%,var(--brand-deep-2) 100%)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -327,7 +327,7 @@ function LoginFallback() {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
         <div style={{
           width: 64, height: 64, borderRadius: 20,
-          background: 'linear-gradient(135deg,#f59e0b,#d97706)',
+          background: 'linear-gradient(135deg,var(--status-warning),var(--status-warning))',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 34,
           boxShadow: '0 0 40px var(--status-warning)',
@@ -338,7 +338,7 @@ function LoginFallback() {
       </div>
       <div className="mobile-spin" style={{
         width: 28, height: 28,
-        border: '2.5px solid rgba(255,255,255,0.07)',
+        border: '2.5px solid var(--overlay-white-07)',
         borderTopColor: 'var(--status-warning)',
         borderRadius: '50%',
       }} />

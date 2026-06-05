@@ -497,7 +497,7 @@ export default function WorkflowFormRuntimePage() {
       {/* ── 新建表单 Modal ── */}
       {showCreate && (
         <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'var(--bg-card)', borderRadius: 18, padding: 32, width: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 18, padding: 32, width: 480, boxShadow: '0 20px 60px var(--overlay-black-20)' }}>
             <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>新建表单定义</h2>
             {createError && <div style={{ background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)', color: 'var(--status-danger)', fontSize: 13, padding: '8px 12px', borderRadius: 8, marginBottom: 14 }}>{createError}</div>}
             {[
@@ -531,7 +531,7 @@ export default function WorkflowFormRuntimePage() {
       {/* ── 新建版本 Modal ── */}
       {showVersion && selected && (
         <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div style={{ background: 'var(--bg-card)', borderRadius: 18, padding: 32, width: '90vw', maxWidth: 900, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 18, padding: 32, width: '90vw', maxWidth: 900, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px var(--overlay-black-20)' }}>
             <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>新建表单版本</h2>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-secondary)' }}>{selected.name} · 新版本将以 DRAFT 状态创建，发布后生效</p>
             {verError && <div style={{ background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)', color: 'var(--status-danger)', fontSize: 13, padding: '8px 12px', borderRadius: 8, marginBottom: 14 }}>{verError}</div>}

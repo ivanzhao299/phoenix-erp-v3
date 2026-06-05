@@ -104,7 +104,7 @@ export function MasterDataSearch({ placeholder = '搜索客户 / 供应商 / SKU
           position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
           maxHeight: 480, overflowY: 'auto',
           background: 'var(--bg-card)', border: '1px solid var(--border)',
-          borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 100,
+          borderRadius: 10, boxShadow: '0 8px 24px var(--overlay-black-12)', zIndex: 100,
         }}>
           {results.length === 0 && !loading && (
             <div style={{ padding: 20, color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center' }}>

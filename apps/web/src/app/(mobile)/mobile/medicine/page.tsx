@@ -178,7 +178,7 @@ export default function MedicinePage() {
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
               padding: '12px 0',
-              background: tab === tab_.key ? 'rgba(139,92,246,0.1)' : 'none',
+              background: tab === tab_.key ? 'var(--status-special-bg)' : 'none',
               border: 'none', borderBottom: `2px solid ${tab === tab_.key ? 'var(--color-purple-500)' : 'transparent'}`,
               color: tab === tab_.key ? 'var(--color-purple-500)' : t.textMuted,
               cursor: 'pointer', fontSize: 13, fontWeight: 700,
@@ -251,7 +251,7 @@ export default function MedicinePage() {
         {(tab === 'inbound' || tab === 'outbound') && (
           <>
             {saved && (
-              <div style={{ padding: '10px 14px', borderRadius: 12, marginBottom: 12, background: 'var(--status-success-bg-medium)', border: '1px solid rgba(16,185,129,0.3)', color: 'var(--status-success)', fontSize: 13 }}>
+              <div style={{ padding: '10px 14px', borderRadius: 12, marginBottom: 12, background: 'var(--status-success-bg-medium)', border: '1px solid var(--status-success-bg-strong)', color: 'var(--status-success)', fontSize: 13 }}>
                 ✓ 已保存
               </div>
             )}

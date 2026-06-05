@@ -242,9 +242,9 @@ function CustomersTab() {
 
       {/* G4-C：销售视图说明横幅 */}
       <div style={{
-        background: "var(--bg-info,#eff6ff)", border: "1px solid var(--color-info,#3b82f6)",
+        background: "var(--bg-info,var(--status-info-bg-page))", border: "1px solid var(--color-info,var(--status-info))",
         borderRadius: "var(--radius-md)", padding: "10px 14px", marginBottom: 12, fontSize: 12.5,
-        color: "var(--color-info,#1d4ed8)",
+        color: "var(--color-info,var(--color-accent))",
       }}>
         <strong>销售视图：</strong>客户主数据已下沉至 <a href="/master-data/customers" style={{ color: "inherit", fontWeight: 600, textDecoration: "underline" }}>主数据中心</a>，
         请在主数据中心完成新增/审批/资质上传。本页保留浏览、筛选、信用维度的销售侧扩展信息编辑。
@@ -302,7 +302,7 @@ function CustomersTab() {
                       )}
                       {row.status !== "BLACKLIST" && (
                         <button type="button" onClick={() => doBlacklist(row)}
-                          style={{ padding: "2px 8px", fontSize: 11, background: "none", border: "1px solid #ef4444", color: "var(--status-danger)", borderRadius: "var(--radius)", cursor: "pointer" }}>
+                          style={{ padding: "2px 8px", fontSize: 11, background: "none", border: "1px solid var(--status-danger)", color: "var(--status-danger)", borderRadius: "var(--radius)", cursor: "pointer" }}>
                           黑名单
                         </button>
                       )}
@@ -521,7 +521,7 @@ function ChannelsTab() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 const CREDIT_STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
-  NORMAL:     { label: "正常",   color: "var(--status-success)", bg: "rgba(34,197,94,0.12)"   },
+  NORMAL:     { label: "正常",   color: "var(--status-success)", bg: "var(--status-success-bg-light)"   },
   WARNING:    { label: "预警",   color: "var(--status-warning)", bg: "var(--status-warning-bg-light)"  },
   OVER_LIMIT: { label: "超额度", color: "var(--status-danger)", bg: "var(--status-danger-bg-light)"   },
   OVERDUE:    { label: "逾期",   color: "var(--status-danger)", bg: "rgba(220,38,38,0.12)"   },
@@ -688,7 +688,7 @@ function CreditTab() {
                         </button>
                         {row.status === "FROZEN" && row.auto_frozen && (
                           <button type="button"
-                            style={{ padding: "2px 7px", fontSize: 10, background: "none", border: "1px solid #22c55e", color: "var(--status-success)", borderRadius: "var(--radius)", cursor: "pointer" }}
+                            style={{ padding: "2px 7px", fontSize: 10, background: "none", border: "1px solid var(--status-success)", color: "var(--status-success)", borderRadius: "var(--radius)", cursor: "pointer" }}
                             disabled={unfreezing === row.id}
                             onClick={() => doUnfreeze(row)}>
                             {unfreezing === row.id ? "…" : "解冻"}

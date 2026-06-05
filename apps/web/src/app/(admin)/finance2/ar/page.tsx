@@ -215,7 +215,7 @@ function CreateArModal({ onClose, onCreated }: { onClose: () => void; onCreated:
     <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-45)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
       <div className="bg-bg-card"
-        style={{ borderRadius: 16, width: 480, maxWidth: '95vw', padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+        style={{ borderRadius: 16, width: 480, maxWidth: '95vw', padding: 28, boxShadow: '0 20px 60px var(--overlay-black-15)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>新建应收发票</div>
           <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-0">
@@ -360,7 +360,7 @@ function CreateReceiptModal({
     <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-45)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
       <div className="bg-bg-card"
-        style={{ borderRadius: 16, width: 500, maxWidth: '95vw', padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+        style={{ borderRadius: 16, width: 500, maxWidth: '95vw', padding: 28, boxShadow: '0 20px 60px var(--overlay-black-15)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>
             {selectedAr ? `录入收款 — ${selectedAr.ar_no}` : '新建收款'}
@@ -492,12 +492,12 @@ function ArDetailDrawer({ invoiceId, onClose, onChanged }: {
     Number(detail.received_amount_original) === 0;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: 900,
+    <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-25)', zIndex: 900,
       display: 'flex', justifyContent: 'flex-end' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-bg-card"
         style={{ width: 480, maxWidth: '95vw', height: '100%', overflowY: 'auto',
-          boxShadow: '-8px 0 40px rgba(0,0,0,0.12)', padding: 28,
+          boxShadow: '-8px 0 40px var(--overlay-black-12)', padding: 28,
           display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

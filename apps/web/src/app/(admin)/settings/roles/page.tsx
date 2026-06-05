@@ -753,9 +753,9 @@ export default function RoleManagementPage() {
               </div>
               {currentConflicts.map((c) => (
                 <div key={c.id} style={{ fontSize: 11, color: hasBlockingConflict ? "var(--status-danger)" : "var(--status-warning)", lineHeight: 1.6 }}>
-                  • <code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 4px", borderRadius: 3 }}>{c.menu_a}</code>
+                  • <code style={{ background: "var(--overlay-black-06)", padding: "1px 4px", borderRadius: 3 }}>{c.menu_a}</code>
                   {" "}+{" "}
-                  <code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 4px", borderRadius: 3 }}>{c.menu_b}</code>
+                  <code style={{ background: "var(--overlay-black-06)", padding: "1px 4px", borderRadius: 3 }}>{c.menu_b}</code>
                   {" "}
                   <span style={{ padding: "0 4px", borderRadius: 3, background: c.severity === "BLOCK" ? "var(--status-danger)" : "color-mix(in srgb, var(--status-warning) 18%, transparent)", fontSize: 10, fontWeight: 700 }}>{c.severity}</span>
                   {" "}{c.reason_zh}
@@ -773,7 +773,7 @@ export default function RoleManagementPage() {
           <div className={s.field}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <label className={s.lbl} style={{ margin: 0 }}>{t("ui.菜单CRUD权限","菜单 × CRUD 权限")}</label>
-              <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "rgba(99,102,241,0.1)", color: "var(--color-primary)", fontWeight: 600 }}>
+              <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "var(--status-special-bg-medium)", color: "var(--color-primary)", fontWeight: 600 }}>
                 {t("ui.已配","已配")} {Object.keys(perms).length} / {allMenus.length} {t("ui.菜单","菜单")}
                 {sensitiveCount > 0 && <span style={{ color: "var(--status-danger)", marginLeft: 6 }}>· {sensitiveCount} {t("ui.敏感","敏感")}</span>}
               </span>
@@ -952,7 +952,7 @@ type="button"               className={s.btnPrimaryGrad}
                           <td key={c.menu_code} style={{
                             padding: "3px 2px", textAlign: "center",
                             borderRight: "1px solid var(--border)", borderBottom: "1px solid var(--border)",
-                            background: c.granted ? (r.is_admin ? "var(--status-warning)" : "rgba(99,102,241,0.15)") : "transparent",
+                            background: c.granted ? (r.is_admin ? "var(--status-warning)" : "var(--status-special-bg-medium)") : "transparent",
                             color: c.granted ? (r.is_admin ? "var(--status-warning)" : "var(--color-primary)") : "var(--text-secondary)",
                             fontWeight: c.granted ? 700 : 400,
                             fontSize: 9, fontFamily: "monospace",

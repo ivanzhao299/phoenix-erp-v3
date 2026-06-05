@@ -96,7 +96,7 @@ function KpiCard({
       display: 'flex',
       flexDirection: 'column',
       gap: 8,
-      boxShadow: alert ? '0 0 0 3px color-mix(in srgb, var(--status-danger) 10%, transparent)' : '0 1px 4px rgba(0,0,0,0.06)',
+      boxShadow: alert ? '0 0 0 3px color-mix(in srgb, var(--status-danger) 10%, transparent)' : '0 1px 4px var(--overlay-black-06)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>{label}</span>
@@ -128,7 +128,7 @@ function Section({ title, icon: Icon, iconColor, badge, children }: {
   return (
     <div style={{
       background: 'var(--bg-card)', borderRadius: 18, border: '1.5px solid var(--bg-muted)',
-      boxShadow: '0 1px 6px rgba(0,0,0,0.06)', overflow: 'hidden',
+      boxShadow: '0 1px 6px var(--overlay-black-06)', overflow: 'hidden',
     }}>
       <div style={{
         padding: '18px 24px', borderBottom: '1px solid var(--bg-muted)',

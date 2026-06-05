@@ -53,7 +53,7 @@ function MobileLoadingScreen() {
     <div style={{
       position: 'absolute',
       inset: 0,
-      background: 'linear-gradient(160deg,#070b14 0%,#0f1929 100%)',
+      background: 'linear-gradient(160deg,var(--brand-deep-1) 0%,var(--brand-deep-2) 100%)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -66,7 +66,7 @@ function MobileLoadingScreen() {
           width: 72,
           height: 72,
           borderRadius: 22,
-          background: 'linear-gradient(135deg,#f59e0b 0%,#d97706 100%)',
+          background: 'linear-gradient(135deg,var(--status-warning) 0%,var(--status-warning) 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -91,7 +91,7 @@ function MobileLoadingScreen() {
         style={{
           width: 32,
           height: 32,
-          border: '2.5px solid rgba(255,255,255,0.07)',
+          border: '2.5px solid var(--overlay-white-07)',
           borderTopColor: 'var(--status-warning)',
           borderRadius: '50%',
         }}

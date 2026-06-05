@@ -154,7 +154,7 @@ function HouseCard({
             {([
               { key: 'bad',    label: '破损', color: 'var(--status-danger)' },
               { key: 'dirty',  label: '脏蛋', color: 'var(--status-warning)' },
-              { key: 'broken', label: '碎蛋', color: '#eab308' },
+              { key: 'broken', label: '碎蛋', color: 'var(--status-warning)' },
             ] as const).map(({ key, label, color }) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontSize: 12, color, fontWeight: 600, minWidth: 30 }}>{label}</span>
@@ -456,7 +456,7 @@ export default function EggLogPage() {
         {saved && (
           <div style={{
             margin: '8px 0', padding: '12px 14px', borderRadius: 10,
-            background: 'var(--status-success-bg-medium)', border: '1px solid rgba(16,185,129,0.3)',
+            background: 'var(--status-success-bg-medium)', border: '1px solid var(--status-success-bg-strong)',
             color: 'var(--status-success)', fontSize: 13, textAlign: 'center', fontWeight: 600,
           }}>
             ✓ 提交成功
@@ -479,7 +479,7 @@ export default function EggLogPage() {
             width: '100%', height: 52, borderRadius: 14,
             background: saving || totalEggs === 0
               ? t.btnBg
-              : 'linear-gradient(135deg,#f59e0b,#d97706)',
+              : 'linear-gradient(135deg,var(--status-warning),var(--status-warning))',
             border: 'none', cursor: saving || totalEggs === 0 ? 'default' : 'pointer',
             color: saving || totalEggs === 0 ? t.textFaint : 'white',
             fontSize: 16, fontWeight: 700,

@@ -144,7 +144,7 @@ export default function NotificationsPage() {
 
       <section className={s.card}>
         {/* 工具栏 */}
-        <div className={s.cardBody} style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <div className={s.cardBody} style={{ borderBottom: "1px solid var(--slate-100)", paddingBottom: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <select
             value={status}
             onChange={e => setStatus(e.target.value)}
@@ -201,14 +201,14 @@ export default function NotificationsPage() {
                 onClick={() => handleClick(n)}
                 style={{
                   padding: "14px 20px",
-                  borderBottom: "1px solid #f1f5f9",
+                  borderBottom: "1px solid var(--slate-100)",
                   cursor: n.linkType ? "pointer" : "default",
-                  background: n.status === "UNREAD" ? "rgba(59,130,246,0.04)" : "transparent",
+                  background: n.status === "UNREAD" ? "var(--status-info-bg-page)" : "transparent",
                   display: "flex", gap: 14, alignItems: "flex-start",
                   transition: "background 0.15s",
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = "rgba(59,130,246,0.08)")}
-                onMouseLeave={e => (e.currentTarget.style.background = n.status === "UNREAD" ? "rgba(59,130,246,0.04)" : "transparent")}
+                onMouseEnter={e => (e.currentTarget.style.background = "var(--status-info-bg-light)")}
+                onMouseLeave={e => (e.currentTarget.style.background = n.status === "UNREAD" ? "var(--status-info-bg-page)" : "transparent")}
               >
                 {/* 未读标记点 */}
                 <div style={{
@@ -239,7 +239,7 @@ export default function NotificationsPage() {
                       {TYPE_LABEL[n.notificationType] ?? n.notificationType}
                     </span>
                     {n.bizType && (
-                      <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "#fef9c3", color: "#854d0e" }}>
+                      <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "var(--status-warning-bg-faint)", color: "var(--status-warning-dark)" }}>
                         {n.bizType}{n.bizNo ? ` ${n.bizNo}` : ""}
                       </span>
                     )}
@@ -253,7 +253,7 @@ export default function NotificationsPage() {
                       title="归档"
                       onClick={e => handleArchive(n.id, e)}
                       style={{
-                        width: 28, height: 28, borderRadius: 6, border: "1px solid #e2e8f0",
+                        width: 28, height: 28, borderRadius: 6, border: "1px solid var(--slate-200)",
                         background: "var(--bg-card)", cursor: "pointer", display: "flex", alignItems: "center",
                         justifyContent: "center", color: "var(--slate-400)",
                       }}

@@ -97,7 +97,7 @@ export default function PriceReviewPage() {
             ) : review.length === 0 ? (
               <tr><td colSpan={7} style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>{t('ui.暂无可对比数据', '暂无可对比数据（需先维护合同价档位）')}</td></tr>
             ) : review.map((r, i) => (
-              <tr key={i} style={{ background: r!.belowFloor ? "rgba(239,68,68,0.06)" : "transparent" }}>
+              <tr key={i} style={{ background: r!.belowFloor ? "var(--status-danger-bg-faint)" : "transparent" }}>
                 <td>{r!.order_no}</td>
                 <td>{r!.product_code}</td>
                 <td style={{ fontWeight: 700, color: r!.belowFloor ? "var(--status-danger)" : "var(--text-primary)" }}>{Number(r!.unit_price).toFixed(2)}</td>

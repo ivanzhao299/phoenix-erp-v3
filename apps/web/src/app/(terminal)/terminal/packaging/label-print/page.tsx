@@ -324,7 +324,7 @@ export default function LabelPrintPage() {
             </div>
             <button type="button" onClick={closeSettings}
               style={{ width:34, height:34, borderRadius:9, border:`1px solid ${T.BOR}`,
-                background:'rgba(255,255,255,0.06)', color:T.MUT, fontSize:16,
+                background:'var(--overlay-white-06)', color:T.MUT, fontSize:16,
                 cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
               ✕
             </button>
@@ -350,7 +350,7 @@ export default function LabelPrintPage() {
                   </div>
                   {/* 居中显示，虚线框给出尺寸感 */}
                   <div style={{ display:'flex', justifyContent:'center', alignItems:'center',
-                    padding:'14px 0', background:'rgba(255,255,255,0.02)',
+                    padding:'14px 0', background:'var(--overlay-white-02)',
                     borderRadius:8, border:`1px dashed ${T.BOR}` }}>
                     <button type="button" onClick={() => setShowPreviewLarge(true)}
                       style={{ padding:0, border:'none', background:'transparent', cursor:'zoom-in',
@@ -406,7 +406,7 @@ export default function LabelPrintPage() {
                     <button type="button" key={key} onClick={() => setCfg({ [key]: !on })}
                       style={{ padding:'8px 10px', borderRadius:9, cursor:'pointer', textAlign:'left',
                         border:`1.5px solid ${on ? T.ACC + '70' : T.BOR}`,
-                        background: on ? 'var(--status-warning-bg-faint)' : 'rgba(255,255,255,0.02)',
+                        background: on ? 'var(--status-warning-bg-faint)' : 'var(--overlay-white-02)',
                         display:'flex', alignItems:'center', gap:8 }}>
                       <div style={{ width:18, height:18, borderRadius:5, flexShrink:0,
                         border:`2px solid ${on ? T.ACC : T.BOR}`,
@@ -475,7 +475,7 @@ export default function LabelPrintPage() {
                   <span style={{ fontSize:16 }}>🔧</span>
                   <div style={{ fontSize:13, fontWeight:700, color:T.ACC }}>{t('ui.打印机驱动', '打印机驱动')}</div>
                   <div style={{ fontSize:10, color:T.MUT, padding:'2px 7px', borderRadius:20,
-                    background:'rgba(255,255,255,0.06)', border:`1px solid ${T.BOR}` }}>{t('ui.仅管理员', '仅管理员')}</div>
+                    background:'var(--overlay-white-06)', border:`1px solid ${T.BOR}` }}>{t('ui.仅管理员', '仅管理员')}</div>
                 </div>
                 <div style={{ fontSize:12, color:T.MUT, marginBottom:12, lineHeight:1.6 }}>
                   {t('ui.斑马打印机驱动描述', '斑马 ZD420 / ZD621 热敏打印机驱动，安装后设为系统默认打印机，可实现静默直打无弹窗。')}
@@ -488,7 +488,7 @@ export default function LabelPrintPage() {
                   </a>
                   <a href="/downloads/zebra-driver-macos.pkg" download
                     style={{ flex:1, padding:'9px', borderRadius:8, border:`1px solid ${T.BOR}`,
-                      background:'rgba(255,255,255,0.06)', color:T.TXT,
+                      background:'var(--overlay-white-06)', color:T.TXT,
                       fontSize:13, fontWeight:700, textDecoration:'none', textAlign:'center' }}>
                     ⬇ macOS
                   </a>
@@ -514,7 +514,7 @@ export default function LabelPrintPage() {
               display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
               zIndex:600, cursor:'zoom-out' }}>
             {/* 说明文字 */}
-            <div style={{ color:'rgba(255,255,255,0.5)', fontSize:12, marginBottom:16 }}>
+            <div style={{ color:'var(--overlay-white-50)', fontSize:12, marginBottom:16 }}>
               {t('ui.点击任意处关闭', '点击任意处关闭')}
             </div>
             {/* 5× 实际尺寸预览 */}
@@ -532,7 +532,7 @@ export default function LabelPrintPage() {
               return (
                 <div onClick={e => e.stopPropagation()}
                   style={{ width:dW, height:dH, cursor:'default',
-                    boxShadow:'0 8px 64px rgba(0,0,0,0.8)', borderRadius:4, overflow:'hidden' }}>
+                    boxShadow:'0 8px 64px var(--overlay-black-30)', borderRadius:4, overflow:'hidden' }}>
                   <LabelPreview ppm={ppm} />
                 </div>
               );
@@ -587,10 +587,10 @@ export default function LabelPrintPage() {
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             {boxes.map(box => (
               <div key={box.code} style={{ background:T.CARD, borderRadius:12, padding:16,
-                border:`1px solid ${box.verified ? 'rgba(34,197,94,0.3)' : T.BOR}`,
+                border:`1px solid ${box.verified ? 'var(--status-success-bg-strong)' : T.BOR}`,
                 display:'flex', alignItems:'center', gap:16 }}>
                 <div style={{ width:48, height:48, borderRadius:10, flexShrink:0,
-                  background: box.verified ? 'rgba(34,197,94,0.15)' : box.printed ? 'var(--status-warning-bg-medium)' : 'var(--overlay-white-05)',
+                  background: box.verified ? 'var(--status-success-bg-medium)' : box.printed ? 'var(--status-warning-bg-medium)' : 'var(--overlay-white-05)',
                   display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>
                   {box.verified ? '✅' : box.printed ? '🏷️' : '⬜'}
                 </div>

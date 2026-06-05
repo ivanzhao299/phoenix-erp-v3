@@ -5,10 +5,10 @@ import styles from './dashboard.module.css';
 import { usePolling } from '@/hooks/usePolling';
 
 const CARD_THEMES = [
-  { accent: '#0ea5e9', bg: 'rgba(14,165,233,0.08)',  glow: 'rgba(14,165,233,0.18)' },  // 蓝：产蛋
-  { accent: 'var(--status-success)', bg: 'var(--status-success-bg-medium)',  glow: 'rgba(16,185,129,0.18)' },  // 绿：库存
-  { accent: 'var(--status-warning)', bg: 'var(--status-warning-bg-faint)',  glow: 'rgba(245,158,11,0.18)' },  // 琥珀：POS
-  { accent: 'var(--status-danger)', bg: 'var(--status-danger-bg-faint)',   glow: 'rgba(239,68,68,0.18)'  },  // 红：预警
+  { accent: 'var(--status-info)', bg: 'rgba(14,165,233,0.08)',  glow: 'rgba(14,165,233,0.18)' },  // 蓝：产蛋
+  { accent: 'var(--status-success)', bg: 'var(--status-success-bg-medium)',  glow: 'var(--status-success-bg-deep)' },  // 绿：库存
+  { accent: 'var(--status-warning)', bg: 'var(--status-warning-bg-faint)',  glow: 'var(--status-warning-bg-deep)' },  // 琥珀：POS
+  { accent: 'var(--status-danger)', bg: 'var(--status-danger-bg-faint)',   glow: 'var(--status-danger-bg-deep)'  },  // 红：预警
   { accent: 'var(--color-purple-500)', bg: 'rgba(139,92,246,0.08)',  glow: 'rgba(139,92,246,0.18)' },  // 紫：农场直销
 ];
 
@@ -159,7 +159,7 @@ export default function DashboardKPIs({ initialData }: Props) {
                 {integrity.score}
               </span>
               <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, fontWeight: 700,
-                background: integrity.grade === 'A' ? '#dcfce7' : integrity.grade === 'B' ? 'var(--status-warning-bg-faint)' : 'var(--status-danger-bg-faint)',
+                background: integrity.grade === 'A' ? 'var(--status-success-bg-faint)' : integrity.grade === 'B' ? 'var(--status-warning-bg-faint)' : 'var(--status-danger-bg-faint)',
                 color: integrity.grade === 'A' ? 'var(--status-success)' : integrity.grade === 'B' ? 'var(--status-warning)' : 'var(--status-danger)' }}>
                 {integrity.grade}级
               </span>
@@ -170,7 +170,7 @@ export default function DashboardKPIs({ initialData }: Props) {
               const pct = Math.round((d.score / d.maxScore) * 100);
               const col = pct >= 80 ? 'var(--status-success)' : pct >= 60 ? 'var(--status-warning)' : 'var(--status-danger)';
               return (
-                <div key={d.name} title={d.detail} style={{ flex: '1', minWidth: 120, padding: '8px 10px', background: 'var(--bg-page)', borderRadius: 'var(--radius-md)', border: `1px solid ${pct >= 80 ? '#bbf7d0' : pct >= 60 ? 'var(--status-warning-bg-faint)' : '#fecaca'}` }}>
+                <div key={d.name} title={d.detail} style={{ flex: '1', minWidth: 120, padding: '8px 10px', background: 'var(--bg-page)', borderRadius: 'var(--radius-md)', border: `1px solid ${pct >= 80 ? 'var(--status-success-bg-light)' : pct >= 60 ? 'var(--status-warning-bg-faint)' : 'var(--status-danger-bg-light)'}` }}>
                   <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4, fontWeight: 600 }}>{d.name}</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ height: 4, flex: 1, background: 'var(--border)', borderRadius: 4, marginRight: 6, overflow: 'hidden' }}>
@@ -219,9 +219,9 @@ export default function DashboardKPIs({ initialData }: Props) {
                     <div title={`产蛋 ${d.prod}k`}
                       style={{ width: 11, background: 'var(--color-primary)', borderRadius: '4px 4px 0 0', height: `${(d.prod / maxVal) * 100}%`, transition: 'height 0.8s ease-out', boxShadow: '0 0 8px rgba(14,165,233,0.3)' }} />
                     <div title={`POS收银 ${d.sales.toLocaleString()} LAK`}
-                      style={{ width: 11, background: 'linear-gradient(180deg,#f59e0b,#fbbf24)', borderRadius: '4px 4px 0 0', height: `${(d.sales / maxVal) * 100}%`, transition: 'height 0.8s ease-out 0.15s' }} />
+                      style={{ width: 11, background: 'linear-gradient(180deg,var(--status-warning),var(--status-warning))', borderRadius: '4px 4px 0 0', height: `${(d.sales / maxVal) * 100}%`, transition: 'height 0.8s ease-out 0.15s' }} />
                     <div title={`农场直销 ${(d.farmSales ?? 0).toLocaleString()} LAK`}
-                      style={{ width: 11, background: 'linear-gradient(180deg,#8b5cf6,#a78bfa)', borderRadius: '4px 4px 0 0', height: `${((d.farmSales ?? 0) / maxVal) * 100}%`, transition: 'height 0.8s ease-out 0.3s' }} />
+                      style={{ width: 11, background: 'linear-gradient(180deg,#8b5cf6,var(--color-purple-400))', borderRadius: '4px 4px 0 0', height: `${((d.farmSales ?? 0) / maxVal) * 100}%`, transition: 'height 0.8s ease-out 0.3s' }} />
                   </div>
                   <span style={{ fontSize: 11, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{d.day}</span>
                 </div>

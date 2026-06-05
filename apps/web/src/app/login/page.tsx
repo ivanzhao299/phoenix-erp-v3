@@ -23,7 +23,7 @@ const TEST_GROUPS = IS_DEV ? [
     { u: "test_vet",    p: "123456", label: "💉 驻场兽医", sub: "ROLE_VET" },
     { u: "test_qa_mgr", p: "123456", label: "🔬 品控总监", sub: "ROLE_QA_MGR" },
   ]},
-  { label: "包装 · 仓储 · 物流", color: { bg: "rgba(59,130,246,0.08)", border: "rgba(59,130,246,0.25)", text: "var(--color-accent)" }, accounts: [
+  { label: "包装 · 仓储 · 物流", color: { bg: "var(--status-info-bg-light)", border: "rgba(59,130,246,0.25)", text: "var(--color-accent)" }, accounts: [
     { u: "test_pkg",  p: "123456", label: "📦 车间主任", sub: "ROLE_PKG_MGR" },
     { u: "test_wms",  p: "123456", label: "🏗 仓储经理", sub: "ROLE_WMS_MGR" },
     { u: "test_log",  p: "123456", label: "🚛 物流调度", sub: "ROLE_LOG_MGR" },
@@ -40,7 +40,7 @@ const TEST_GROUPS = IS_DEV ? [
     { u: "test_sales_mgr", p: "123456", label: "📊 销售主管", sub: "ROLE_SALES_MGR" },
     { u: "test_b2b",       p: "123456", label: "🤝 大客户总监",sub: "ROLE_B2B_MGR" },
   ]},
-  { label: "门店 & 财务", color: { bg: "rgba(236,72,153,0.08)", border: "rgba(236,72,153,0.25)", text: "#db2777" }, accounts: [
+  { label: "门店 & 财务", color: { bg: "rgba(236,72,153,0.08)", border: "rgba(236,72,153,0.25)", text: "var(--status-danger)" }, accounts: [
     { u: "test_store",   p: "123456", label: "🏪 直营店长",   sub: "ROLE_STORE_MGR" },
     { u: "test_cashier", p: "123456", label: "💳 门店收银",   sub: "ROLE_CASHIER" },
     { u: "test_cfo",     p: "123456", label: "💰 财务总监",   sub: "ROLE_FIN_CFO" },
@@ -166,14 +166,14 @@ function LoginInner() {
     <div style={{ minHeight:"100vh", display:"flex", background:"var(--brand-deep-1)" }}>
 
       {/* ── 左侧品牌区 ─────────────────────────────────────────────────── */}
-      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"48px", background:"linear-gradient(145deg,#0f1929 0%,#0a0f1e 100%)", borderRight:"1px solid var(--overlay-white-05)" }}>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"48px", background:"linear-gradient(145deg,var(--brand-deep-2) 0%,#0a0f1e 100%)", borderRight:"1px solid var(--overlay-white-05)" }}>
         {/* Logo — 动态品牌 */}
         {brand.logo_url
           ? <img src={brand.logo_url} alt="logo"
               style={{ width:80, height:80, objectFit:"contain", borderRadius:20,
-                background:"rgba(255,255,255,0.06)", padding:8, marginBottom:24,
+                background:"var(--overlay-white-06)", padding:8, marginBottom:24,
                 boxShadow:"0 16px 40px var(--overlay-black-45)" }} />
-          : <div style={{ width:80, height:80, borderRadius:20, background:"linear-gradient(135deg,#f59e0b,#d97706)",
+          : <div style={{ width:80, height:80, borderRadius:20, background:"linear-gradient(135deg,var(--status-warning),var(--status-warning))",
               boxShadow:"0 16px 40px var(--status-warning-bg-strong)", display:"flex", alignItems:"center",
               justifyContent:"center", marginBottom:24 }}>
               <Shield size={40} color="white"/>
@@ -213,7 +213,7 @@ function LoginInner() {
                 </div>
               ))}
             </div>
-            <div style={{ marginTop:12, textAlign:"center", fontSize:11, color:"rgba(255,255,255,0.15)" }}>
+            <div style={{ marginTop:12, textAlign:"center", fontSize:11, color:"var(--overlay-white-15)" }}>
               统一密码: <code style={{ color:"var(--overlay-white-10)" }}>123456</code> · 超管: <code style={{ color:"var(--overlay-white-10)" }}>admin123</code>
             </div>
           </div>
@@ -226,7 +226,7 @@ function LoginInner() {
         <div style={{ position:"absolute", top:24, right:24, display:"flex", alignItems:"center", gap:4 }}>
           {(['zh','lo','en'] as const).map(l => (
             <button key={l} type="button" onClick={() => setAppLanguage(l)}
-              style={{ fontSize:11, padding:"3px 8px", borderRadius:6, border:"1px solid rgba(255,255,255,0.12)",
+              style={{ fontSize:11, padding:"3px 8px", borderRadius:6, border:"1px solid var(--overlay-white-10)",
                 background: lang===l ? "var(--status-warning-border)" : "transparent",
                 color: lang===l ? "var(--status-warning)" : "var(--overlay-white-10)", cursor:"pointer", fontWeight: lang===l ? 700 : 400 }}>
               {l==='zh'?'中文':l==='lo'?'ລາວ':'EN'}
@@ -245,7 +245,7 @@ function LoginInner() {
           )}
 
           {!error && notice && (
-            <div style={{ marginBottom:20, padding:14, background:"rgba(59,130,246,0.08)", border:"1px solid rgba(59,130,246,0.3)", borderRadius:10, color:"var(--status-info)", fontSize:13, display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ marginBottom:20, padding:14, background:"var(--status-info-bg-light)", border:"1px solid var(--status-info-bg-medium)", borderRadius:10, color:"var(--status-info)", fontSize:13, display:"flex", alignItems:"center", gap:8 }}>
               <Info size={16}/> {notice}
             </div>
           )}
@@ -255,7 +255,7 @@ function LoginInner() {
             <div style={{ marginBottom:16 }}>
               <label style={{ display:"block", marginBottom:6, color:"var(--overlay-white-10)", fontSize:12, fontWeight:600, letterSpacing:"0.5px" }}>{t('ui.账户名', '账户名')}</label>
               <div style={{ position:"relative" }}>
-                <User size={16} color="#555" style={{ position:"absolute", left:14, top:14 }}/>
+                <User size={16} color="var(--hex-555)" style={{ position:"absolute", left:14, top:14 }}/>
                 <input value={username} onChange={e=>{ setUsername(e.target.value); setError(""); }}
                   type="text" placeholder={t('ui.输入账户名', '输入账户名')} autoComplete="username" required
                   style={{ width:"100%", padding:"13px 14px 13px 40px", background:"var(--overlay-white-05)", border:"1px solid var(--overlay-white-08)", borderRadius:10, color:"white", outline:"none", fontSize:14, boxSizing:"border-box" }}/>
@@ -266,7 +266,7 @@ function LoginInner() {
             <div style={{ marginBottom:28 }}>
               <label style={{ display:"block", marginBottom:6, color:"var(--overlay-white-10)", fontSize:12, fontWeight:600, letterSpacing:"0.5px" }}>{t('ui.密码', '密码')}</label>
               <div style={{ position:"relative" }}>
-                <Lock size={16} color="#555" style={{ position:"absolute", left:14, top:14 }}/>
+                <Lock size={16} color="var(--hex-555)" style={{ position:"absolute", left:14, top:14 }}/>
                 <input ref={passwordRef} value={password} onChange={e=>{ setPassword(e.target.value); setError(""); setNotice(""); }}
                   type="password" placeholder={t('ui.输入密码', '输入密码')} autoComplete="current-password" required
                   style={{ width:"100%", padding:"13px 14px 13px 40px", background:"var(--overlay-white-05)", border:"1px solid var(--overlay-white-08)", borderRadius:10, color:"white", outline:"none", fontSize:14, boxSizing:"border-box" }}/>
@@ -274,13 +274,13 @@ function LoginInner() {
             </div>
 
             <button id="submit-btn" type="submit" disabled={loading}
-              style={{ width:"100%", padding:15, background:"linear-gradient(135deg,#f59e0b,#d97706)", color:"white", border:"none", borderRadius:10, fontSize:15, fontWeight:800, cursor:loading?"not-allowed":"pointer", boxShadow:"0 8px 24px var(--status-warning-bg-strong)", opacity:loading?0.7:1, letterSpacing:"0.5px" }}>
+              style={{ width:"100%", padding:15, background:"linear-gradient(135deg,var(--status-warning),var(--status-warning))", color:"white", border:"none", borderRadius:10, fontSize:15, fontWeight:800, cursor:loading?"not-allowed":"pointer", boxShadow:"0 8px 24px var(--status-warning-bg-strong)", opacity:loading?0.7:1, letterSpacing:"0.5px" }}>
               {loading ? t('ui.登录中', '登录中...') : t('ui.登录', '登  录')}
             </button>
           </form>
 
           <div style={{ marginTop:32, paddingTop:20, borderTop:"1px solid var(--overlay-white-05)", textAlign:"center" }}>
-            <div style={{ fontSize:11, color:"rgba(255,255,255,0.15)" }}>Phoenix ERP · 企业级管理系统</div>
+            <div style={{ fontSize:11, color:"var(--overlay-white-15)" }}>Phoenix ERP · 企业级管理系统</div>
           </div>
         </div>
       </div>

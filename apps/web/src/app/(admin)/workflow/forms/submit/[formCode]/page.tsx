@@ -378,7 +378,7 @@ export default function FormSubmitPage() {
       </div>
 
       {/* 表单卡片 */}
-      <div style={{ background: 'var(--bg-card)', borderRadius: 18, border: '1.5px solid var(--bg-muted)', padding: '28px 32px', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
+      <div style={{ background: 'var(--bg-card)', borderRadius: 18, border: '1.5px solid var(--bg-muted)', padding: '28px 32px', boxShadow: '0 1px 6px var(--overlay-black-06)' }}>
 
         {submitError && (
           <div style={{

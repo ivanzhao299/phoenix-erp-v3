@@ -38,18 +38,18 @@ async function api<T = any>(method: string, path: string, body?: unknown): Promi
 // ── 状态配置 ──────────────────────────────────────────────────────────────────
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  DRAFT:            { label: '草稿',    color: 'var(--slate-400)', bg: 'rgba(148,163,184,0.1)' },
+  DRAFT:            { label: '草稿',    color: 'var(--slate-400)', bg: 'var(--status-neutral-bg-light)' },
   PENDING_APPROVAL: { label: '审批中',  color: 'var(--status-warning)', bg: 'var(--status-warning-bg-light)'  },
-  APPROVED:         { label: '已批准',  color: 'var(--status-success)', bg: 'rgba(34,197,94,0.1)'   },
-  ALLOCATED:        { label: '已分配',  color: 'var(--status-info)', bg: 'rgba(59,130,246,0.1)'  },
-  PICKED:           { label: '已拣货',  color: 'var(--color-purple-500)', bg: 'rgba(139,92,246,0.1)'  },
-  LOADED:           { label: '已装车',  color: 'var(--status-info)', bg: 'rgba(6,182,212,0.1)'   },
-  SHIPPED:          { label: '已发货',  color: '#0ea5e9', bg: 'rgba(14,165,233,0.1)'  },
+  APPROVED:         { label: '已批准',  color: 'var(--status-success)', bg: 'var(--status-success-bg-light)'   },
+  ALLOCATED:        { label: '已分配',  color: 'var(--status-info)', bg: 'var(--status-info-bg)'  },
+  PICKED:           { label: '已拣货',  color: 'var(--color-purple-500)', bg: 'var(--status-special-bg)'  },
+  LOADED:           { label: '已装车',  color: 'var(--status-info)', bg: 'var(--status-info-bg)'   },
+  SHIPPED:          { label: '已发货',  color: 'var(--status-info)', bg: 'rgba(14,165,233,0.1)'  },
   DELIVERED:        { label: '已送达',  color: 'var(--status-success)', bg: 'var(--status-success-bg-medium)'  },
-  RECEIVED:         { label: '已签收',  color: 'var(--status-success)', bg: 'rgba(34,197,94,0.12)'  },
-  RECONCILED:       { label: '已对账',  color: 'var(--color-accent)', bg: 'rgba(99,102,241,0.1)'  },
+  RECEIVED:         { label: '已签收',  color: 'var(--status-success)', bg: 'var(--status-success-bg-light)'  },
+  RECONCILED:       { label: '已对账',  color: 'var(--color-accent)', bg: 'var(--status-special-bg-medium)'  },
   REJECTED:         { label: '已拒绝',  color: 'var(--status-danger)', bg: 'var(--status-danger-bg-light)'   },
-  CANCELLED:        { label: '已取消',  color: 'var(--slate-500)', bg: 'rgba(100,116,139,0.1)' },
+  CANCELLED:        { label: '已取消',  color: 'var(--slate-500)', bg: 'var(--status-neutral-bg-light)' },
 };
 
 const TRANSITION_LABELS: Record<string, string> = {
@@ -306,7 +306,7 @@ export default function SalesV2OrdersPage() {
 
   // ── 渲染 ──────────────────────────────────────────────────────────────────
 
-  const statusConf = (st: string) => STATUS_MAP[st] ?? { label: st, color: 'var(--slate-400)', bg: 'rgba(148,163,184,0.1)' };
+  const statusConf = (st: string) => STATUS_MAP[st] ?? { label: st, color: 'var(--slate-400)', bg: 'var(--status-neutral-bg-light)' };
 
   return (
     <div className="animate-fade-in">
@@ -480,8 +480,8 @@ export default function SalesV2OrdersPage() {
               const isOverdue = cs === 'OVERDUE';
               const isOver    = cs === 'OVER_LIMIT';
               const isWarn    = cs === 'WARNING';
-              const panelBg   = isFrozen ? 'rgba(107,114,128,0.08)' : isOverdue || isOver ? 'rgba(239,68,68,0.07)' : isWarn ? 'rgba(245,158,11,0.07)' : 'rgba(34,197,94,0.06)';
-              const panelBdr  = isFrozen ? 'rgba(107,114,128,0.25)' : isOverdue || isOver ? 'rgba(239,68,68,0.25)' : isWarn ? 'var(--status-warning-border)' : 'rgba(34,197,94,0.2)';
+              const panelBg   = isFrozen ? 'rgba(107,114,128,0.08)' : isOverdue || isOver ? 'rgba(239,68,68,0.07)' : isWarn ? 'rgba(245,158,11,0.07)' : 'var(--status-success-bg-faint)';
+              const panelBdr  = isFrozen ? 'rgba(107,114,128,0.25)' : isOverdue || isOver ? 'var(--status-danger-bg-medium)' : isWarn ? 'var(--status-warning-border)' : 'var(--status-success-bg-strong)';
               const statusCfg: Record<string, { label: string; color: string }> = {
                 NORMAL:     { label: '信用正常', color: 'var(--status-success)' },
                 WARNING:    { label: '⚠ 逾期预警', color: 'var(--status-warning)' },
@@ -544,7 +544,7 @@ export default function SalesV2OrdersPage() {
               {newItems.map((item, idx) => {
                 const belowFloor = item._resolved?.floorPrice != null && Number(item.actualUnitPrice) > 0 && Number(item.actualUnitPrice) < item._resolved.floorPrice;
                 return (
-                  <div key={idx} style={{ padding: 12, borderRadius: 8, border: `1px solid ${belowFloor ? 'var(--status-danger)' : 'var(--border)'}`, marginBottom: 8, background: belowFloor ? 'rgba(239,68,68,0.04)' : undefined }}>
+                  <div key={idx} style={{ padding: 12, borderRadius: 8, border: `1px solid ${belowFloor ? 'var(--status-danger)' : 'var(--border)'}`, marginBottom: 8, background: belowFloor ? 'var(--status-danger-bg-page)' : undefined }}>
                     {/* G4-C：商品 SKU 主数据，禁止手工录入；自动带出 productCode/gradeCode/spec/name */}
                     <div style={{ marginBottom: 8 }}>
                       <label style={{ fontSize: 11, color: 'var(--color-purple-500)', display: 'block', marginBottom: 2 }}>商品（SKU 主数据）*</label>
@@ -562,7 +562,7 @@ export default function SalesV2OrdersPage() {
                           } : it));
                           if (raw) setTimeout(() => resolveItemPrice(idx), 0);
                         }}
-                        style={{ fontSize: 12, padding: '6px 8px', border: '1px solid rgba(139,92,246,0.3)' }} />
+                        style={{ fontSize: 12, padding: '6px 8px', border: '1px solid var(--status-special-border)' }} />
                       {item.skuCode && <span style={{ fontSize: 10, color: 'var(--color-purple-500)' }}>✓ 已自动填充产品代码 / 等级 / 规格</span>}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.5fr auto', gap: 8, alignItems: 'end' }}>
@@ -680,7 +680,7 @@ export default function SalesV2OrdersPage() {
 
             {/* AR 信息 */}
             {detailOrder.arInvoice && (
-              <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', fontSize: 12 }}>
+              <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--status-success-bg-faint)', border: '1px solid var(--status-success-bg-strong)', fontSize: 12 }}>
                 <div style={{ fontWeight: 700, color: 'var(--status-success)', marginBottom: 6 }}>应收账款记录</div>
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                   <span>应收单号：{detailOrder.arInvoice.ar_no}</span>
@@ -705,7 +705,7 @@ export default function SalesV2OrdersPage() {
                   </thead>
                   <tbody>
                     {detailOrder.items.map((item: OrderItem) => (
-                      <tr key={item.id} style={{ background: item.below_floor_price ? 'rgba(239,68,68,0.03)' : undefined }}>
+                      <tr key={item.id} style={{ background: item.below_floor_price ? 'var(--status-danger-bg-page)' : undefined }}>
                         <td>
                           {item.product_name || item.product_code}
                           <SkuBadge code={item.sku_code} />

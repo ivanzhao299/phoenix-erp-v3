@@ -130,8 +130,8 @@ export default function WarehouseHandoverPage() {
                 style={{ padding:'14px 24px', background:T.ACC, color:'var(--bg-page)', border:'none',
                   borderRadius:8, fontSize:15, fontWeight:700, cursor:'pointer' }}>{t('ui.扫入', '扫入')}</button>
               <button type="button" onClick={handleConfirmAll}
-                style={{ padding:'14px 20px', background:'rgba(34,197,94,0.15)', color:T.GRN,
-                  border:`1px solid rgba(34,197,94,0.3)`, borderRadius:8, fontSize:13,
+                style={{ padding:'14px 20px', background:'var(--status-success-bg-medium)', color:T.GRN,
+                  border:`1px solid var(--status-success-bg-strong)`, borderRadius:8, fontSize:13,
                   fontWeight:600, cursor:'pointer', whiteSpace:'nowrap',
                   visibility: allScanned ? 'hidden' : 'visible' }}>{t('ui.全部确认', '全部确认')}</button>
             </div>
@@ -144,7 +144,7 @@ export default function WarehouseHandoverPage() {
                 return (
                   <div key={box.code} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 12px',
                     borderRadius:8, background: isDone?'var(--status-success-bg-faint)':'var(--overlay-white-03)',
-                    border:`1px solid ${isDone?'rgba(34,197,94,0.3)':T.BOR}` }}>
+                    border:`1px solid ${isDone?'var(--status-success-bg-strong)':T.BOR}` }}>
                     <span style={{ fontSize:18 }}>{isDone?'✅':'⬜'}</span>
                     <div style={{ flex:1 }}>
                       <div style={{ fontSize:13, fontWeight:600, color:isDone?T.GRN:T.TXT, fontFamily:'monospace' }}>{box.code}</div>
@@ -198,7 +198,7 @@ export default function WarehouseHandoverPage() {
               </div>
             ))}
             <div style={{ marginTop:12, padding:'8px', borderRadius:8,
-              background: allScanned?'rgba(34,197,94,0.1)':'var(--status-warning-bg-light)',
+              background: allScanned?'var(--status-success-bg-light)':'var(--status-warning-bg-light)',
               textAlign:'center', fontSize:12,
               color:allScanned?T.GRN:'var(--status-warning)' }}>
               {allScanned

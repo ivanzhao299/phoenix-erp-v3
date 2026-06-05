@@ -660,7 +660,7 @@ export default function UserManagementPage() {
                         const rolesSorted = [...(u.roles_detail || [])].sort((a, b) => b.approval_level - a.approval_level);
                         return (
                           <tr key={u.id} className={`${s.rowEnter} ${s.rowEnterStagger}`}
-                            style={{ "--i": i, background: u.status === "FROZEN" ? "rgba(239,68,68,0.04)" : u.user_type === "TEST" ? "rgba(124,58,237,0.03)" : "transparent" } as any}>
+                            style={{ "--i": i, background: u.status === "FROZEN" ? "var(--status-danger-bg-page)" : u.user_type === "TEST" ? "rgba(124,58,237,0.03)" : "transparent" } as any}>
                             <td>
                               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <span className={s.code}>{u.username}</span>
@@ -796,7 +796,7 @@ export default function UserManagementPage() {
                 const rolesSorted = [...(u.roles_detail || [])].sort((a, b) => b.approval_level - a.approval_level);
                 return (
                   <tr key={u.id} className={`${s.rowEnter} ${s.rowEnterStagger}`}
-                    style={{ "--i": i, background: u.status === "FROZEN" ? "rgba(239,68,68,0.04)" : u.user_type === "TEST" ? "rgba(124,58,237,0.03)" : "transparent" } as any}>
+                    style={{ "--i": i, background: u.status === "FROZEN" ? "var(--status-danger-bg-page)" : u.user_type === "TEST" ? "rgba(124,58,237,0.03)" : "transparent" } as any}>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span className={s.code}>{u.username}</span>

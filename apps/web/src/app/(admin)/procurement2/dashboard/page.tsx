@@ -76,7 +76,7 @@ const AGING_COLOR: Record<string, string> = {
   overdue_1_30:   "var(--color-warning)",
   overdue_31_60:  "var(--status-warning)",
   overdue_61_90:  "var(--color-danger)",
-  overdue_90_plus:"#991b1b",
+  overdue_90_plus:"var(--status-danger-dark)",
 };
 
 export default function ProcurementDashboardPage() {
@@ -191,7 +191,7 @@ export default function ProcurementDashboardPage() {
                 {aging.map((r, i) => (
                   <tr key={i}>
                     <td>
-                      <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: AGING_COLOR[r.bucket] ?? "#999", marginRight: 6 }} />
+                      <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: AGING_COLOR[r.bucket] ?? "var(--hex-999)", marginRight: 6 }} />
                       {r.bucketLabel}
                     </td>
                     <td style={{ textAlign: "right" }}>{fmt(r.count)}</td>

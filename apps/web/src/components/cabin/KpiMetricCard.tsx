@@ -23,7 +23,7 @@ export default function KpiMetricCard({ kpi, onClick, selected }: Props) {
       <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3, backgroundColor: selected?'white':s.badge }} />
       <div style={{ paddingLeft:4 }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
-          <div style={{ fontSize:11, fontWeight:600, color: selected?'rgba(255,255,255,0.7)':'var(--text-secondary)' }}>{kpi?.title}</div>
+          <div style={{ fontSize:11, fontWeight:600, color: selected?'var(--overlay-white-70)':'var(--text-secondary)' }}>{kpi?.title}</div>
           {!selected && kpi?.status && kpi.status !== 'normal' && (
             <span style={{ fontSize:10, fontWeight:700, padding:'2px 6px', borderRadius:10, backgroundColor:s.badgeBg, color:s.badge }}>
               {kpi.status==='critical'?t('ui.告警','告警'):kpi.status==='warning'?t('ui.预警','预警'):t('ui.离线','离线')}
@@ -35,7 +35,7 @@ export default function KpiMetricCard({ kpi, onClick, selected }: Props) {
           <span style={{ fontSize:11, color: selected?'rgba(255,255,255,0.6)':'var(--text-secondary)' }}>{kpi?.unit}</span>
         </div>
         {kpi?.compareTarget != null && val != null && (
-          <div style={{ fontSize:10, marginTop:4, color: selected?'rgba(255,255,255,0.5)':'var(--text-secondary)' }}>
+          <div style={{ fontSize:10, marginTop:4, color: selected?'var(--overlay-white-50)':'var(--text-secondary)' }}>
             {t('ui.目标', '目标')} {kpi.compareTarget} · {t('ui.偏差', '偏差')} {(val - kpi.compareTarget).toFixed(1)}{kpi.unit}
           </div>
         )}

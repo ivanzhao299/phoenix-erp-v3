@@ -200,7 +200,7 @@ export default function PermissionsPage() {
                         <div style={{ display: "flex", gap: 6 }}>
                           <button type="button" onClick={() => { setEditing(row); setOpen(true); }} style={{
                             padding: "4px 10px", fontSize: "0.75rem", background: "rgba(59,130,246,0.15)",
-                            color: "var(--color-accent)", border: "1px solid rgba(59,130,246,0.3)",
+                            color: "var(--color-accent)", border: "1px solid var(--status-info-bg-medium)",
                             borderRadius: 6, cursor: "pointer",
                           }}>{t('common.edit', '编辑')}</button>
                           <button type="button" onClick={() => { setDelItem(row); setConfirm(true); }} style={{
@@ -220,7 +220,7 @@ export default function PermissionsPage() {
       )}
 
       <RightDrawer open={open} title={editing ? t('ui.编辑权限条目', '编辑权限条目') : t('ui.新增权限条目', '新增权限条目')} onClose={() => setOpen(false)}>
-        <div style={{ marginBottom: 16, padding: 12, background: "rgba(59,130,246,0.08)",
+        <div style={{ marginBottom: 16, padding: 12, background: "var(--status-info-bg-light)",
           borderRadius: 8, fontSize: "0.78rem", color: "var(--color-accent)" }}>
           {t('ui.权限码说明', '权限码说明')}：<strong>V</strong>={t('ui.查看', '查看')} <strong>C</strong>={t('common.new', '新增')} <strong>E</strong>={t('common.edit', '编辑')}
           <strong>D</strong>={t('common.delete', '删除')} <strong>A</strong>={t('ui.审批', '审批')} <strong>X</strong>={t('common.export', '导出')}<br />

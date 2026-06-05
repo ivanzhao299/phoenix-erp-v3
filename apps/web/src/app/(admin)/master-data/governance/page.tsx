@@ -48,7 +48,7 @@ interface DictCoverage {
 }
 
 function scoreColor(s: number): { bg: string; fg: string; label: string } {
-  if (s >= 90) return { bg: 'rgba(34,197,94,0.12)',  fg: 'var(--status-success)', label: '优秀' };
+  if (s >= 90) return { bg: 'var(--status-success-bg-light)',  fg: 'var(--status-success)', label: '优秀' };
   if (s >= 75) return { bg: 'var(--status-info-bg)', fg: 'var(--color-accent)', label: '良好' };
   if (s >= 60) return { bg: 'var(--status-warning-bg-light)', fg: 'var(--status-warning)', label: '及格' };
   return         { bg: 'var(--status-danger-bg-light)',   fg: 'var(--status-danger)', label: '需整改' };

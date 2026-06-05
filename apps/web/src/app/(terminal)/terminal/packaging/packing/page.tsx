@@ -390,7 +390,7 @@ export default function PackingPage() {
 
             {/* 计算过程 — 固定高度防抖 */}
             <div style={{
-              background: 'rgba(0,0,0,0.25)', borderRadius: 8,
+              background: 'var(--overlay-black-25)', borderRadius: 8,
               height: 44, marginBottom: 12,
               display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
             }}>

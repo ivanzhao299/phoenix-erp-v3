@@ -126,7 +126,7 @@ export default function MdCompaniesPage() {
                   <td className="text-text-muted" style={{ fontFamily: "monospace" }}>{o.orgCode ?? "-"}</td>
                   <td className="text-text">{o.orgName ?? "-"}</td>
                   <td>
-                    <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(99,102,241,0.15)", color: "var(--status-special)", fontSize: 11, fontWeight: 600 }}>
+                    <span style={{ padding: "2px 8px", borderRadius: 4, background: "var(--status-special-bg-medium)", color: "var(--status-special)", fontSize: 11, fontWeight: 600 }}>
                       {o.orgType === "GROUP" ? "集团" : "公司"}
                     </span>
                   </td>

@@ -349,7 +349,7 @@ export default function EggCollectionPage() {
               </div>
 
               {/* 平衡栏 */}
-              <div style={{ background:T.CARD, borderRadius:12, padding:'12px 18px', border:`1px solid ${defectExceedsTotal ? T.RED : available > 0 ? 'rgba(34,197,94,0.4)' : T.BOR}`, display:'flex', alignItems:'center', gap:20, flexShrink:0, height:56, boxSizing:'border-box' }}>
+              <div style={{ background:T.CARD, borderRadius:12, padding:'12px 18px', border:`1px solid ${defectExceedsTotal ? T.RED : available > 0 ? 'var(--status-success-bg-strong-2)' : T.BOR}`, display:'flex', alignItems:'center', gap:20, flexShrink:0, height:56, boxSizing:'border-box' }}>
                 <div style={{ display:'flex', gap:24, alignItems:'center' }}>
                   <div>
                     <div style={{ fontSize:11, color:T.MUT, whiteSpace:'nowrap' }}>{t('ui.总采集数', '总采集')}</div>
@@ -432,7 +432,7 @@ export default function EggCollectionPage() {
                       );
                     })}
                   </div>
-                  <div style={{ background: newAvail > 0 ? 'var(--status-success-bg-faint)' : 'var(--overlay-white-03)', border:`2px solid ${newAvail > 0 ? 'rgba(34,197,94,0.4)' : T.BOR}`, borderRadius:10, padding:'10px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <div style={{ background: newAvail > 0 ? 'var(--status-success-bg-faint)' : 'var(--overlay-white-03)', border:`2px solid ${newAvail > 0 ? 'var(--status-success-bg-strong-2)' : T.BOR}`, borderRadius:10, padding:'10px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                     <span style={{ fontSize:13, color:T.MUT }}>{t('ui.更正后可分级', '更正后可分级')}</span>
                     <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
                       <span style={{ fontSize:32, fontWeight:900, color: newAvail > 0 ? T.GRN : T.BOR, fontVariantNumeric:'tabular-nums' }}>{newAvail.toLocaleString()}</span>

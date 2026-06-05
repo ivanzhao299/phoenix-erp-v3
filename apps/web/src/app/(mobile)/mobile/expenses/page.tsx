@@ -268,7 +268,7 @@ export default function MobileExpensesPage() {
             flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
             background: tab === t ? (isDark ? 'var(--gray-800)' : 'var(--bg-card)') : 'transparent',
             color: tab === t ? text : sub,
-            boxShadow: tab === t ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+            boxShadow: tab === t ? '0 1px 4px var(--overlay-black-10)' : 'none',
           }}>
             {t === 'list' ? '我的申请' : '+ 新建'}
           </button>
