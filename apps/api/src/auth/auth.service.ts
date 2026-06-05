@@ -92,6 +92,7 @@ export class AuthService {
                      json_build_object(
                        'role_code', r.role_code,
                        'role_name_zh', r.role_name_zh,
+                       'role_type', r.role_type,
                        'is_primary', ur.is_primary,
                        'is_visible', COALESCE(ur.is_visible, true)
                      )
@@ -101,7 +102,26 @@ export class AuthService {
             JOIN sys_role r ON r.role_id = ur.role_id
             WHERE ur.user_id = u.user_id),
            '[]'::json
-         ) as roles_info
+         ) as roles_info,
+         -- 主组织（用于"所属组织"显示）
+         (SELECT json_build_object('org_code', o.org_code, 'org_name', o.org_name_cn, 'org_type', o.org_type)
+            FROM sys_user_orgs uo
+            JOIN sys_organizations o ON o.id = uo.org_id
+           WHERE uo.user_id = u.user_id AND uo.is_primary = true
+           LIMIT 1) AS primary_org,
+         -- 绑定的生产场站（brd_farms.farm_code）
+         COALESCE(
+           (SELECT json_agg(ufs.farm_code) FROM sys_user_farm_scopes ufs WHERE ufs.user_id = u.user_id),
+           '[]'::json
+         ) AS bound_farm_codes,
+         -- 绑定 SITE 类型组织（生产站点；store_code 字段可能存的是 SITE 代码）
+         COALESCE(
+           (SELECT json_agg(json_build_object('site_code', o.org_code, 'site_name', o.org_name_cn))
+              FROM sys_user_orgs uo
+              JOIN sys_organizations o ON o.id = uo.org_id
+             WHERE uo.user_id = u.user_id AND o.org_type='SITE'),
+           '[]'::json
+         ) AS bound_sites
        FROM sys_user u
        WHERE u.username = $1 AND u.status = 1
        LIMIT 1`,
@@ -219,6 +239,15 @@ export class AuthService {
     // 构建 JWT payload（完全兼容 V2.0 格式，并新增 V3.0 字段）
     // 注意：roles 数组用 rolesInfo（全量），权限计算依然按全部已绑角色；
     //       仅 role/roleNameZh（前台显示用）走 visibleRoles 过滤。
+    // 判定用户类型：用于前端区分"绑定生产站点"vs"绑定门店"等文案
+    // 优先级：visibleRoles[0].role_type → 全量 rolesInfo[0].role_type
+    const primaryRoleType: string = primaryRoleInfo?.role_type ?? '';
+    const isProductionUser = ['PRODUCTION', 'PACKAGING', 'QUALITY', 'FIELD']
+      .includes(primaryRoleType);
+    const isStoreUser = ['STORE', 'SALES'].includes(primaryRoleType);
+    const userKind: 'production' | 'store' | 'office' =
+      isProductionUser ? 'production' : isStoreUser ? 'store' : 'office';
+
     const payload = {
       userId: user.id,
       username: user.username,
@@ -227,15 +256,21 @@ export class AuthService {
       role: primaryRole,
       roleNameZh: roleNameZh,
       roleNameLo: '',
+      roleType: primaryRoleType,
+      userKind,
       storeCode: user.store_code,
       permissions,
       // V3.0 新增字段（向后兼容）
       roles: rolesInfo.map((r: any) => r.role_code),
       // 可见角色列表（前台显示用，权限不变）
       visibleRoles: visibleRoles.map((r: any) => ({
-        role_code: r.role_code, role_name_zh: r.role_name_zh, is_primary: r.is_primary,
+        role_code: r.role_code, role_name_zh: r.role_name_zh, role_type: r.role_type, is_primary: r.is_primary,
       })),
       store_code: user.store_code,
+      // 组织 / 场站绑定（个人中心展示用）
+      primaryOrg: user.primary_org || null,
+      boundFarmCodes: user.bound_farm_codes || [],
+      boundSites: user.bound_sites || [],
       locale: user.locale || 'zh-CN',
       sub: user.id,
       // V3 完整方案：JWT 失效机制

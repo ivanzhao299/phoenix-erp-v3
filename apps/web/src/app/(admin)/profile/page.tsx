@@ -96,6 +96,28 @@ export default function ProfilePage() {
   // 隐藏角色 = 在 allRoles 但不在 visibleRoles
   const hiddenRoleCodes = allRoles.filter((rc: string) => !visibleRoles.some((vr: any) => vr.role_code === rc));
 
+  // 用户类型 + 绑定数据（生产/销售人员显示不同卡片）
+  const userKind: 'production' | 'store' | 'office' = (user as any)?.userKind || 'office';
+  const primaryOrg = (user as any)?.primaryOrg || null;
+  const boundSites = (user as any)?.boundSites || [];
+  const boundFarmCodes = (user as any)?.boundFarmCodes || [];
+  const storeCode = (user as any)?.storeCode || (user as any)?.store_code || '';
+  // 所属组织：取 primaryOrg 的中文名；若拿不到，回退到 storeCode（避免显示"全局"）
+  const orgDisplay = primaryOrg?.org_name
+    ? `${primaryOrg.org_name}（${primaryOrg.org_code}）`
+    : (storeCode && storeCode !== 'ALL' ? storeCode : '—');
+  // 生产/销售人员的"绑定"字段
+  const isProduction = userKind === 'production';
+  const isStore = userKind === 'store';
+  // 主站点（SITE 类型组织）
+  const primarySite = boundSites[0] || null;
+  const siteDisplay = primarySite
+    ? `${primarySite.site_name}（${primarySite.site_code}）`
+    : (storeCode && storeCode !== 'ALL' ? storeCode : '—');
+  const farmDisplay = boundFarmCodes.length > 0
+    ? boundFarmCodes.join(' / ')
+    : '—';
+
   return (
     <div>
       <PageHeader
@@ -113,10 +135,47 @@ export default function ProfilePage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
           <ReadOnlyField label="姓名" value={(user as any)?.realNameZh || (user as any)?.name || '—'} />
           <ReadOnlyField label="账号" value={(user as any)?.username || '—'} />
-          <ReadOnlyField label="主角色" value={(user as any)?.roleNameZh || '—'} />
-          <ReadOnlyField label="所属门店" value={(user as any)?.storeCode || '—'} />
+          <ReadOnlyField label="系统角色" value={(user as any)?.roleNameZh || '—'} />
+          <ReadOnlyField label="所属组织" value={orgDisplay} />
+          {isProduction && (
+            <ReadOnlyField label="绑定生产站点" value={siteDisplay} />
+          )}
+          {isStore && (
+            <ReadOnlyField label="绑定门店" value={storeCode || '—'} />
+          )}
+          {!isProduction && !isStore && (
+            <ReadOnlyField label="所属站点" value={storeCode || '—'} />
+          )}
           <ReadOnlyField label="语言偏好" value={(user as any)?.locale || 'zh-CN'} />
         </div>
+
+        {/* 数据范围：生产人员单独 section 展示场站 + 鸡舍范围 */}
+        {isProduction && (
+          <div style={{ marginTop: 18, padding: '14px 16px', background: 'var(--bg-muted)', borderRadius: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 8 }}>
+              数据范围（仅可访问以下范围内的生产数据）
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, fontSize: 12 }}>
+              <div>
+                <span style={{ color: 'var(--text-secondary)' }}>公司：</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{primaryOrg?.org_name || '—'}</span>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-secondary)' }}>养殖场：</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{farmDisplay}</span>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-secondary)' }}>鸡舍：</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                  {boundFarmCodes.length > 0 ? '1-6 号鸡舍（按场站主数据）' : '—'}
+                </span>
+              </div>
+            </div>
+            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+              说明：你仅能查看 / 录入 / 提交本养殖场内的生产数据；不可跨场查看东鹏、万象等其它养殖场。
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 2. 主题偏好 */}
