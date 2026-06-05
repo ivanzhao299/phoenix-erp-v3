@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X, Link2, MoreHorizontal } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import { EmptyState, LoadingSkeleton } from "@/components/design-system";
+import { primaryActionButton, inlineBadge } from "@/components/design-system/cockpit-styles";
 import request from "@/lib/api-client";
 
 /**
@@ -31,13 +32,14 @@ export interface MasterDataRuntimePanelProps {
   onCodeClick?: (code: string, row: Record<string, any>) => void;
 }
 
-const STATUS_LABEL: Record<string, { label: string; color: string }> = {
-  DRAFT:            { label: "草稿",     color: "var(--text-secondary)" },
-  PENDING_APPROVAL: { label: "待审批",   color: "var(--status-warning)" },
-  ACTIVE:           { label: "已生效",   color: "var(--status-success)" },
-  FROZEN:           { label: "已冻结",   color: "var(--status-info)" },
-  ARCHIVED:         { label: "已归档",   color: "var(--text-disabled)" },
-  REJECTED:         { label: "已驳回",   color: "var(--status-danger)" },
+type StatusTone = 'default' | 'success' | 'warning' | 'danger';
+const STATUS_LABEL: Record<string, { label: string; tone: StatusTone }> = {
+  DRAFT:            { label: "草稿",     tone: 'default' },
+  PENDING_APPROVAL: { label: "待审批",   tone: 'warning' },
+  ACTIVE:           { label: "已生效",   tone: 'success' },
+  FROZEN:           { label: "已冻结",   tone: 'default' },
+  ARCHIVED:         { label: "已归档",   tone: 'default' },
+  REJECTED:         { label: "已驳回",   tone: 'danger' },
 };
 
 export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
@@ -127,7 +129,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
           <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> 刷新
         </button>
         {canCreate && (
-          <button onClick={openNew} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 18px", borderRadius: 7, background: "var(--color-primary)", color: "white", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>
+          <button onClick={openNew} style={{ ...primaryActionButton, marginLeft: "auto" }}>
             <Plus size={14} /> 新增{title}
           </button>
         )}
@@ -150,7 +152,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
               </tr></thead>
               <tbody>
                 {rows.map(r => {
-                  const st = STATUS_LABEL[r.status] ?? { label: r.status, color: "var(--text-secondary)" };
+                  const st = STATUS_LABEL[r.status] ?? { label: r.status, tone: 'default' as StatusTone };
                   return (
                     <tr key={r[codeKey]} style={{ borderTop: "1px solid var(--border)" }}>
                       <td style={{ ...tdStyle, fontFamily: "monospace", color: "var(--color-primary)" }}>
@@ -169,7 +171,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                       </td>
                       {columns.map(c => <td key={c.key} style={tdStyle} title={String(r[c.key] ?? "")}>{r[c.key] ?? "—"}</td>)}
                       <td style={{ ...tdStyle, textAlign: "center" }}>
-                        <span style={{ fontSize: 12, padding: "2px 9px", borderRadius: 4, fontWeight: 500, background: `${st.color}1a`, color: st.color, whiteSpace: "nowrap" }}>{st.label}</span>
+                        <span style={{ ...inlineBadge(st.tone), whiteSpace: "nowrap" }}>{st.label}</span>
                       </td>
                       <td style={{ ...tdStyle, textAlign: "center" }}>
                         {/* G5.5-D：引用计数（懒加载，悬浮触发） */}

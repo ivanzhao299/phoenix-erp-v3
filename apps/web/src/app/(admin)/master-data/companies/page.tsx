@@ -9,6 +9,7 @@ import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
+import { primaryActionButton, inlineBadge } from "@/components/design-system/cockpit-styles";
 import { companyConfig } from "@/components/master-data/detail-configs";
 
 /**
@@ -127,20 +128,7 @@ export default function MdCompaniesPage() {
           <RefreshCw size={13} /> 刷新
         </button>
         <div className={u.flex1} />
-        <Link href="/settings/organizations" style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "7px 14px",
-        background: "var(--text-secondary)",
-        border: "none",
-        borderRadius: 7,
-        color: "var(--text-on-dark)",
-        fontSize: 13,
-        cursor: "pointer",
-        textDecoration: "none",
-        fontWeight: 600
-      }}>
+        <Link href="/settings/organizations" style={{ ...primaryActionButton, textDecoration: "none" }}>
           <ExternalLink size={13} /> 组织架构管理
         </Link>
       </div>
@@ -193,14 +181,7 @@ export default function MdCompaniesPage() {
                   </td>
                   <td className="text-text">{o.orgName ?? "-"}</td>
                   <td>
-                    <span style={{
-                padding: "2px 8px",
-                borderRadius: 4,
-                background: "var(--status-special-bg-medium)",
-                color: "var(--status-special)",
-                fontSize: 11,
-                fontWeight: 600
-              }}>
+                    <span style={inlineBadge('default')}>
                       {o.orgType === "GROUP" ? "集团" : "公司"}
                     </span>
                   </td>
