@@ -100,6 +100,17 @@ const REFERENCE_MAP: Record<string, Array<{
   VEHICLE: [
     { refTable: 'sal_delivery_orders', refDocType: '配送单', fkColumn: 'vehicle_no', noField: 'delivery_no', linkPattern: '/sales2/delivery?keyword=:code' },
   ],
+  ORGANIZATION: [
+    { refTable: 'sys_organizations', refDocType: '下级组织', fkColumn: 'parent_code', noField: 'org_code', linkPattern: '/master-data/organizations?keyword=:code' },
+  ],
+  COMPANY: [
+    { refTable: 'sys_organizations',  refDocType: '子组织',     fkColumn: 'parent_code',  noField: 'org_code',          linkPattern: '/master-data/organizations?keyword=:code' },
+    { refTable: 'prc2_projects',      refDocType: '项目',       fkColumn: 'company_code', noField: 'project_code',      linkPattern: '/master-data/projects?keyword=:code' },
+    { refTable: 'wms_warehouses',     refDocType: '仓库',       fkColumn: 'company_code', noField: 'warehouse_code',    linkPattern: '/master-data/warehouses?keyword=:code' },
+    { refTable: 'mst_stores',         refDocType: '门店',       fkColumn: 'company_code', noField: 'store_code',        linkPattern: '/master-data/stores?keyword=:code' },
+    { refTable: 'fin_cash_accounts',  refDocType: '资金账户',   fkColumn: 'company_code', noField: 'account_code',      linkPattern: '/master-data/cash-accounts?keyword=:code' },
+    { refTable: 'fin_bank_accounts',  refDocType: '银行账户',   fkColumn: 'company_code', noField: 'bank_account_code', linkPattern: '/master-data/bank-accounts?keyword=:code' },
+  ],
 };
 
 @Injectable()

@@ -30,6 +30,8 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
+import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
+import { organizationConfig, companyConfig } from "@/components/master-data/detail-configs";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 
@@ -344,6 +346,9 @@ export default function MdOrganizationsPage() {
 
   // Status toggle
   const [toggling, setToggling]           = useState(false);
+
+  // UIX-9A — Detail drawer
+  const [detailCode, setDetailCode]       = useState<string | null>(null);
 
   // ── Load ────────────────────────────────────────────────────────────────────
 
@@ -726,6 +731,18 @@ export default function MdOrganizationsPage() {
                       </button>
                     )}
 
+                    {/* UIX-9A — Open in master-data center drawer */}
+                    <button
+                      onClick={() => setDetailCode(selectedOrg.orgCode)}
+                      className={cn(
+                        "flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors",
+                        "border border-border text-text bg-bg-page hover:bg-bg-muted",
+                      )}
+                      title={selectedOrg.orgType === "COMPANY" ? "公司中心 — 关联项目/仓库/账户" : "组织中心 — KPI/引用/审计"}
+                    >
+                      <Info size={12} /> {selectedOrg.orgType === "COMPANY" ? "公司中心" : "组织中心"}
+                    </button>
+
                     {/* Edit */}
                     <button
                       onClick={openEdit}
@@ -1045,6 +1062,14 @@ export default function MdOrganizationsPage() {
           </div>
         </div>
       </RightDrawer>
+
+      {/* UIX-9A — 主数据中心统一详情抽屉 */}
+      <MasterDataDetailDrawer
+        open={detailCode !== null}
+        code={detailCode}
+        config={selectedOrg?.orgType === "COMPANY" ? companyConfig : organizationConfig}
+        onClose={() => setDetailCode(null)}
+      />
     </div>
   );
 }

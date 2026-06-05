@@ -12,6 +12,7 @@ import {
   Phone, User, Building2, Calendar, ShoppingCart, ShoppingBag,
   Receipt, CreditCard, Activity, AlertCircle, Package, Layers,
   Warehouse, FolderOpen, Banknote, BookOpen, Snowflake,
+  Network, Truck, MapPin, Coins, Wallet, Tag, Box, Users, Globe,
 } from 'lucide-react';
 
 export interface KpiSpec {
@@ -342,6 +343,381 @@ export const projectConfig: MasterDataConfig = {
     {
       label: '公司归属', icon: <Building2 size={16} />,
       value: (info) => ({ display: info?.company_code || '—' }),
+    },
+  ],
+};
+
+// ── 配置：组织（UIX-9A）─────────────────────────────────
+export const organizationConfig: MasterDataConfig = {
+  type: 'organization',
+  centerName: '组织中心',
+  nameKey: 'org_name',
+  referenceObjectType: 'ORGANIZATION',
+  kpis: [
+    { label: '组织类型', icon: <Network size={16} />, value: (info) => ({ display: info?.org_type || '—' }) },
+    { label: '层级',     icon: <Layers size={16} />,  value: (info) => ({ display: info?.level ?? '—' }) },
+    { label: '上级',     icon: <FolderOpen size={16} />, value: (info) => ({ display: info?.parent_code || '顶级' }) },
+    { label: '负责人',   icon: <User size={16} />,    value: (info) => ({ display: info?.manager_name || info?.manager || '—' }) },
+  ],
+  basicFields: [
+    { key: 'org_short_name', label: '简称' },
+    { key: 'org_type',       label: '类型' },
+    { key: 'parent_code',    label: '上级组织' },
+    { key: 'company_code',   label: '关联公司' },
+    { key: 'sort_order',     label: '排序权重' },
+    { key: 'remark',         label: '备注' },
+  ],
+};
+
+// ── 配置：公司（UIX-9A）─────────────────────────────────
+export const companyConfig: MasterDataConfig = {
+  type: 'company',
+  centerName: '公司中心',
+  nameKey: 'org_name',
+  referenceObjectType: 'COMPANY',
+  kpis: [
+    { label: '公司编码', icon: <Building2 size={16} />, value: (info) => ({ display: info?.org_code || '—' }) },
+    { label: '负责人',   icon: <User size={16} />, value: (info) => ({ display: info?.manager_name || info?.manager || '—' }) },
+    { label: '层级',     icon: <Layers size={16} />, value: (info) => ({ display: info?.level ?? '—' }) },
+    { label: '状态',     icon: <Activity size={16} />, value: (info) => ({ display: info?.status || '—' }) },
+  ],
+  basicFields: [
+    { key: 'org_short_name', label: '简称' },
+    { key: 'parent_code',    label: '上级集团' },
+    { key: 'company_code',   label: '公司编码' },
+    { key: 'manager_name',   label: '负责人' },
+    { key: 'sort_order',     label: '排序权重' },
+    { key: 'remark',         label: '备注' },
+  ],
+};
+
+// ── 配置：资金账户（UIX-9A）─────────────────────────────
+export const cashAccountConfig: MasterDataConfig = {
+  type: 'cash-account',
+  centerName: '资金账户中心',
+  nameKey: 'account_name',
+  referenceObjectType: 'CASH_ACCOUNT',
+  extraApis: [
+    { key: 'txns', label: '资金流水', path: '/v2/finance/cash/transactions?account_code=:code&limit=10' },
+  ],
+  kpis: [
+    { label: '币种', icon: <Coins size={16} />, value: (info) => ({ display: info?.currency_code || '—' }) },
+    { label: '账户类型', icon: <Wallet size={16} />, value: (info) => ({ display: info?.account_type || '—' }) },
+    { label: '所属公司', icon: <Building2 size={16} />, value: (info) => ({ display: info?.company_code || '—' }) },
+    {
+      label: '近期流水', icon: <Activity size={16} />,
+      value: (_i, extra) => { const list = arr(extra.txns); return { display: list.length, suffix: '笔 (近期)' }; },
+    },
+  ],
+  basicFields: [
+    { key: 'company_code',    label: '所属公司' },
+    { key: 'currency_code',   label: '币种' },
+    { key: 'account_type',    label: '账户类型' },
+    { key: 'bank_name',       label: '开户行' },
+    { key: 'bank_account_no', label: '银行账号' },
+    { key: 'bank_acc_code',   label: '绑定银行账户' },
+  ],
+  sections: [
+    {
+      title: '最近流水',
+      render: (extra) => {
+        const rows = arr(extra.txns).slice(0, 8);
+        return (
+          <RecentRows
+            rows={rows}
+            getKey={(r) => String(r.id || r.txn_no)}
+            getLabel={(r) => <code style={{ fontSize: 12, color: 'var(--color-primary)' }}>{r.txn_no}</code>}
+            getSub={(r) => dateTime(r.created_at || r.txn_date)}
+            getRight={(r) => {
+              const amt = Number(r.amount_original || r.amount || 0);
+              const tone = amt < 0 ? 'var(--status-danger)' : 'var(--status-success)';
+              return <strong style={{ fontSize: 14, color: tone }}>{yuan(Math.abs(amt))}</strong>;
+            }}
+          />
+        );
+      },
+    },
+  ],
+};
+
+// ── 配置：银行账户（UIX-9A）─────────────────────────────
+export const bankAccountConfig: MasterDataConfig = {
+  type: 'bank-account',
+  centerName: '银行账户中心',
+  nameKey: 'bank_name',
+  referenceObjectType: 'BANK_ACCOUNT',
+  extraApis: [
+    { key: 'linked', label: '绑定 ERP 账户', path: '/master-data/runtime/cash-account?bank_acc_code=:code&limit=10' },
+  ],
+  kpis: [
+    { label: '币种',     icon: <Coins size={16} />, value: (info) => ({ display: info?.currency_code || '—' }) },
+    { label: '国家',     icon: <Globe size={16} />, value: (info) => ({ display: info?.country_code || '—' }) },
+    {
+      label: '绑定账户', icon: <Wallet size={16} />,
+      value: (_i, extra) => { const list = arr(extra.linked); return { display: list.length, suffix: '个' }; },
+    },
+    { label: '所属公司', icon: <Building2 size={16} />, value: (info) => ({ display: info?.company_code || '—' }) },
+  ],
+  basicFields: [
+    { key: 'bank_name_en',    label: 'Bank Name' },
+    { key: 'branch_name',     label: '支行' },
+    { key: 'account_no',      label: '账号' },
+    { key: 'account_holder',  label: '开户名' },
+    { key: 'currency_code',   label: '币种' },
+    { key: 'country_code',    label: '国家' },
+    { key: 'swift_code',      label: 'SWIFT' },
+    { key: 'company_code',    label: '所属公司' },
+  ],
+  sections: [
+    {
+      title: '绑定 ERP 资金账户',
+      render: (extra) => {
+        const rows = arr(extra.linked).slice(0, 8);
+        return (
+          <RecentRows
+            rows={rows}
+            getKey={(r) => String(r.id || r.account_code)}
+            getLabel={(r) => <code style={{ fontSize: 12, color: 'var(--color-primary)' }}>{r.account_code}</code>}
+            getSub={(r) => `${r.account_name || ''} · ${r.currency_code || ''}`}
+            getRight={(r) => <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{r.account_type || ''}</span>}
+          />
+        );
+      },
+    },
+  ],
+};
+
+// ── 配置：门店（UIX-9A）─────────────────────────────────
+export const storeConfig: MasterDataConfig = {
+  type: 'store',
+  centerName: '门店中心',
+  nameKey: 'store_name',
+  referenceObjectType: 'STORE',
+  extraApis: [
+    { key: 'orders', label: '销售订单', path: '/v2/sales/orders?store_code=:code&limit=10' },
+    { key: 'pos',    label: 'POS 销售', path: '/crud/pos_sales?store_code=:code&limit=10' },
+  ],
+  kpis: [
+    { label: '负责人', icon: <User size={16} />, value: (info) => ({ display: info?.manager || '—' }) },
+    { label: '电话',   icon: <Phone size={16} />, value: (info) => ({ display: info?.phone || '—' }) },
+    {
+      label: '订单数', icon: <ShoppingCart size={16} />,
+      value: (_i, extra) => { const list = arr(extra.orders); return { display: list.length, suffix: '单 (近期)' }; },
+    },
+    {
+      label: '销售额', icon: <Activity size={16} />,
+      value: (_i, extra) => {
+        const total = arr(extra.orders).reduce((s, o) => s + Number(o.total_amount || 0), 0);
+        return { display: total > 0 ? yuan(total) : '—' };
+      },
+    },
+  ],
+  basicFields: [
+    { key: 'company_code',   label: '所属公司' },
+    { key: 'manager',        label: '店长' },
+    { key: 'phone',          label: '联系电话' },
+    { key: 'address',        label: '地址' },
+    { key: 'effective_date', label: '生效日期', format: dateStr },
+    { key: 'expire_date',    label: '失效日期', format: (v) => v ? dateStr(v) : '长期' },
+  ],
+  sections: [
+    {
+      title: '最近订单',
+      render: (extra) => {
+        const rows = arr(extra.orders).slice(0, 6);
+        return (
+          <RecentRows
+            rows={rows}
+            getKey={(r) => String(r.id)}
+            getLabel={(r) => <code style={{ fontSize: 12, color: 'var(--color-primary)' }}>{r.order_no}</code>}
+            getSub={(r) => dateTime(r.created_at)}
+            getRight={(r) => (
+              <>
+                <strong style={{ fontSize: 14, color: 'var(--text-primary)' }}>{yuan(r.total_amount)}</strong>
+                <span style={{ padding: '1px 7px', fontSize: 11, fontWeight: 600, background: 'var(--bg-muted)', color: 'var(--text-secondary)', borderRadius: 100 }}>{r.status}</span>
+              </>
+            )}
+          />
+        );
+      },
+    },
+  ],
+};
+
+// ── 配置：司机（UIX-9A）─────────────────────────────────
+export const driverConfig: MasterDataConfig = {
+  type: 'driver',
+  centerName: '司机中心',
+  nameKey: 'driver_name',
+  referenceObjectType: 'DRIVER',
+  extraApis: [
+    { key: 'deliveries', label: '配送单', path: '/crud/sal_delivery_orders?driver_name=:code&limit=10' },
+  ],
+  kpis: [
+    { label: '电话',   icon: <Phone size={16} />, value: (info) => ({ display: info?.phone || '—' }) },
+    { label: '驾照',   icon: <Tag size={16} />,  value: (info) => ({ display: info?.license_no || '—' }) },
+    {
+      label: '配送次数', icon: <Truck size={16} />,
+      value: (_i, extra) => { const list = arr(extra.deliveries); return { display: list.length, suffix: '单 (近期)' }; },
+    },
+    { label: '所属公司', icon: <Building2 size={16} />, value: (info) => ({ display: info?.company_code || '—' }) },
+  ],
+  basicFields: [
+    { key: 'phone',          label: '联系电话' },
+    { key: 'license_no',     label: '驾照号' },
+    { key: 'company_code',   label: '所属公司' },
+    { key: 'effective_date', label: '生效日期', format: dateStr },
+    { key: 'expire_date',    label: '失效日期', format: (v) => v ? dateStr(v) : '长期' },
+  ],
+  sections: [
+    {
+      title: '最近配送',
+      render: (extra) => {
+        const rows = arr(extra.deliveries).slice(0, 6);
+        return (
+          <RecentRows
+            rows={rows}
+            getKey={(r) => String(r.id || r.delivery_no)}
+            getLabel={(r) => <code style={{ fontSize: 12, color: 'var(--color-primary)' }}>{r.delivery_no}</code>}
+            getSub={(r) => `${r.vehicle_no || '—'} · ${dateTime(r.delivered_at || r.created_at)}`}
+            getRight={(r) => <span style={{ padding: '1px 7px', fontSize: 11, fontWeight: 600, background: 'var(--bg-muted)', color: 'var(--text-secondary)', borderRadius: 100 }}>{r.status || '—'}</span>}
+          />
+        );
+      },
+    },
+  ],
+};
+
+// ── 配置：车辆（UIX-9A）─────────────────────────────────
+export const vehicleConfig: MasterDataConfig = {
+  type: 'vehicle',
+  centerName: '车辆中心',
+  nameKey: 'vehicle_no',
+  referenceObjectType: 'VEHICLE',
+  extraApis: [
+    { key: 'deliveries', label: '配送单', path: '/crud/sal_delivery_orders?vehicle_no=:code&limit=10' },
+  ],
+  kpis: [
+    { label: '车牌',   icon: <Truck size={16} />, value: (info) => ({ display: info?.plate_no || '—' }) },
+    { label: '类型',   icon: <Layers size={16} />, value: (info) => ({ display: info?.vehicle_type || '—' }) },
+    { label: '载重',   icon: <Box size={16} />, value: (info) => ({ display: info?.capacity ? `${info.capacity} kg` : '—' }) },
+    {
+      label: '配送次数', icon: <Activity size={16} />,
+      value: (_i, extra) => { const list = arr(extra.deliveries); return { display: list.length, suffix: '单 (近期)' }; },
+    },
+  ],
+  basicFields: [
+    { key: 'plate_no',       label: '车牌号' },
+    { key: 'vehicle_type',   label: '车辆类型' },
+    { key: 'capacity',       label: '载重(kg)' },
+    { key: 'company_code',   label: '所属公司' },
+    { key: 'effective_date', label: '生效日期', format: dateStr },
+    { key: 'expire_date',    label: '失效日期', format: (v) => v ? dateStr(v) : '长期' },
+  ],
+  sections: [
+    {
+      title: '最近配送',
+      render: (extra) => {
+        const rows = arr(extra.deliveries).slice(0, 6);
+        return (
+          <RecentRows
+            rows={rows}
+            getKey={(r) => String(r.id || r.delivery_no)}
+            getLabel={(r) => <code style={{ fontSize: 12, color: 'var(--color-primary)' }}>{r.delivery_no}</code>}
+            getSub={(r) => `${r.driver_name || '—'} · ${dateTime(r.delivered_at || r.created_at)}`}
+            getRight={(r) => <span style={{ padding: '1px 7px', fontSize: 11, fontWeight: 600, background: 'var(--bg-muted)', color: 'var(--text-secondary)', borderRadius: 100 }}>{r.status || '—'}</span>}
+          />
+        );
+      },
+    },
+  ],
+};
+
+// ── 配置：等级（UIX-9A）─────────────────────────────────
+export const gradeConfig: MasterDataConfig = {
+  type: 'grade',
+  centerName: '等级中心',
+  nameKey: 'grade_name',
+  referenceObjectType: 'GRADE',
+  extraApis: [
+    { key: 'skus', label: '关联 SKU', path: '/product-master/skus?grade_code=:code&limit=10' },
+  ],
+  kpis: [
+    {
+      label: '关联 SKU', icon: <Package size={16} />,
+      value: (_i, extra) => { const list = arr(extra.skus); return { display: list.length, suffix: '个' }; },
+    },
+    { label: '排序', icon: <Layers size={16} />, value: (info) => ({ display: info?.sort_order ?? '—' }) },
+    { label: '可销售', icon: <ShoppingCart size={16} />, value: (info) => ({ display: info?.is_saleable === false ? '否' : '是' }) },
+    { label: '可入库', icon: <Warehouse size={16} />, value: (info) => ({ display: info?.is_storable === false ? '否' : '是' }) },
+  ],
+  basicFields: [
+    { key: 'grade_name',  label: '等级名称' },
+    { key: 'sort_order',  label: '排序' },
+    { key: 'is_saleable', label: '可销售', format: (v) => v === false ? '否' : '是' },
+    { key: 'is_storable', label: '可入库', format: (v) => v === false ? '否' : '是' },
+    { key: 'remark',      label: '备注' },
+  ],
+  sections: [
+    {
+      title: '关联 SKU',
+      render: (extra) => {
+        const rows = arr(extra.skus).slice(0, 8);
+        return (
+          <RecentRows
+            rows={rows}
+            getKey={(r) => String(r.id || r.sku_code)}
+            getLabel={(r) => <code style={{ fontSize: 12, color: 'var(--color-primary)' }}>{r.sku_code}</code>}
+            getSub={(r) => `${r.product_code || '—'} · ${r.spec_code || '—'}`}
+            getRight={(r) => <span style={{ fontSize: 12, color: 'var(--text-primary)' }}>{r.sku_name || ''}</span>}
+          />
+        );
+      },
+    },
+  ],
+};
+
+// ── 配置：规格（UIX-9A）─────────────────────────────────
+export const specConfig: MasterDataConfig = {
+  type: 'spec',
+  centerName: '规格中心',
+  nameKey: 'spec_name',
+  referenceObjectType: 'SPEC',
+  extraApis: [
+    { key: 'skus', label: '关联 SKU', path: '/product-master/skus?spec_code=:code&limit=10' },
+  ],
+  kpis: [
+    {
+      label: '关联 SKU', icon: <Package size={16} />,
+      value: (_i, extra) => { const list = arr(extra.skus); return { display: list.length, suffix: '个' }; },
+    },
+    { label: '单位数量', icon: <Box size={16} />, value: (info) => ({ display: info?.qty_per_unit ?? info?.unit_count ?? '—' }) },
+    { label: '基本单位', icon: <Tag size={16} />, value: (info) => ({ display: info?.base_unit || '—' }) },
+    { label: '排序', icon: <Layers size={16} />, value: (info) => ({ display: info?.sort_order ?? '—' }) },
+  ],
+  basicFields: [
+    { key: 'spec_name',    label: '规格名称' },
+    { key: 'qty_per_unit', label: '单位数量', format: (v, info) => String(v ?? info?.unit_count ?? '—') },
+    { key: 'base_unit',    label: '基本单位' },
+    { key: 'display_unit', label: '展示单位' },
+    { key: 'sort_order',   label: '排序' },
+    { key: 'remark',       label: '备注' },
+  ],
+  sections: [
+    {
+      title: '关联 SKU',
+      render: (extra) => {
+        const rows = arr(extra.skus).slice(0, 8);
+        return (
+          <RecentRows
+            rows={rows}
+            getKey={(r) => String(r.id || r.sku_code)}
+            getLabel={(r) => <code style={{ fontSize: 12, color: 'var(--color-primary)' }}>{r.sku_code}</code>}
+            getSub={(r) => `${r.product_code || '—'} · ${r.grade_code || '—'}`}
+            getRight={(r) => <span style={{ fontSize: 12, color: 'var(--text-primary)' }}>{r.sku_name || ''}</span>}
+          />
+        );
+      },
     },
   ],
 };

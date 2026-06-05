@@ -1,21 +1,24 @@
 "use client";
+import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
+import { driverConfig } from "@/components/master-data/detail-configs";
 
 /**
- * G5.5-C — 司机档案（Runtime 化）
- * 原 151 行自建页 → Panel 委托；统一 5 态生命周期 + Workflow
- * 司机用 driver_name 作 codeKey（业务约定）
+ * UIX-9A — 司机中心（接入 MasterDataDetailDrawer）
  */
 export default function DriverRuntimePage() {
+  const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
-      <PageHeader title="司机档案" subtitle="销售/配送司机主档 · 生命周期管控 · 配送单引用源" breadcrumb={["主数据中心", "司机档案"]} />
+      <PageHeader title="司机档案" subtitle="销售/配送司机主档 · 生命周期管控 · 点击姓名查看司机中心" breadcrumb={["主数据中心", "司机档案"]} />
       <MasterDataRuntimePanel
         type="driver"
         title="司机"
         codeKey="driver_name"
         nameKey="driver_name"
+        onCodeClick={(code) => setDetailCode(code)}
         fields={[
           { key: "driver_name", label: "司机姓名", required: true, readOnlyOnEdit: true },
           { key: "phone", label: "联系电话" },
@@ -29,6 +32,12 @@ export default function DriverRuntimePage() {
           { key: "license_no", label: "驾照" },
           { key: "company_code", label: "公司" },
         ]}
+      />
+      <MasterDataDetailDrawer
+        open={detailCode !== null}
+        code={detailCode}
+        config={driverConfig}
+        onClose={() => setDetailCode(null)}
       />
     </div>
   );

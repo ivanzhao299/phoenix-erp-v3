@@ -1,20 +1,24 @@
 "use client";
+import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
+import { vehicleConfig } from "@/components/master-data/detail-configs";
 
 /**
- * G5.5-C — 车辆档案（Runtime 化）
- * 原 141 行自建页 → Panel 委托；统一 5 态生命周期 + Workflow
+ * UIX-9A — 车辆中心（接入 MasterDataDetailDrawer）
  */
 export default function VehicleRuntimePage() {
+  const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
-      <PageHeader title="车辆档案" subtitle="销售/配送车辆主档 · 生命周期管控 · 配送单引用源" breadcrumb={["主数据中心", "车辆档案"]} />
+      <PageHeader title="车辆档案" subtitle="销售/配送车辆主档 · 生命周期管控 · 点击车牌查看车辆中心" breadcrumb={["主数据中心", "车辆档案"]} />
       <MasterDataRuntimePanel
         type="vehicle"
         title="车辆"
         codeKey="vehicle_no"
         nameKey="vehicle_no"
+        onCodeClick={(code) => setDetailCode(code)}
         fields={[
           { key: "vehicle_no", label: "车辆编号", required: true, readOnlyOnEdit: true },
           { key: "plate_no", label: "车牌号" },
@@ -33,6 +37,12 @@ export default function VehicleRuntimePage() {
           { key: "capacity", label: "载重" },
           { key: "company_code", label: "公司" },
         ]}
+      />
+      <MasterDataDetailDrawer
+        open={detailCode !== null}
+        code={detailCode}
+        config={vehicleConfig}
+        onClose={() => setDetailCode(null)}
       />
     </div>
   );

@@ -1,19 +1,21 @@
 "use client";
+import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
+import { cashAccountConfig } from "@/components/master-data/detail-configs";
 
 /**
  * G5.5-C — 资金账户档案（Runtime 化）
- * 原 158 行自建页 → 替换为 Panel 委托
- * 后端 Runtime 已注册 cash-account（G3-A），G5.5-C 前端整改即统一治理
- * 编码统一改 CASH-00001（保留对历史 CASH-CNY-001 业务格式的查询兼容）
+ * UIX-9A — 接入 MasterDataDetailDrawer（资金账户中心，点击编码看流水/绑定）
  */
 export default function CashAccountRuntimePage() {
+  const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
       <PageHeader
         title="资金账户档案"
-        subtitle="ERP 资金账户主档 · 编码自动生成 · 生命周期管控 · 与银行账户中心绑定"
+        subtitle="ERP 资金账户主档 · 编码自动生成 · 生命周期管控 · 点击编码查看资金账户中心"
         breadcrumb={["主数据中心", "资金账户档案"]}
       />
       <MasterDataRuntimePanel
@@ -21,6 +23,7 @@ export default function CashAccountRuntimePage() {
         title="资金账户"
         codeKey="account_code"
         nameKey="account_name"
+        onCodeClick={(code) => setDetailCode(code)}
         fields={[
           { key: "account_name", label: "账户名称", required: true },
           { key: "company_code", label: "所属公司编码", required: true },
@@ -50,6 +53,12 @@ export default function CashAccountRuntimePage() {
           { key: "account_type", label: "类型" },
           { key: "bank_name", label: "开户行" },
         ]}
+      />
+      <MasterDataDetailDrawer
+        open={detailCode !== null}
+        code={detailCode}
+        config={cashAccountConfig}
+        onClose={() => setDetailCode(null)}
       />
     </div>
   );

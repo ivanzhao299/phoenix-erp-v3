@@ -7,6 +7,8 @@ import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
+import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
+import { companyConfig } from "@/components/master-data/detail-configs";
 
 /**
  * 主数据中心 — 公司档案
@@ -36,6 +38,7 @@ export default function MdCompaniesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [detailCode, setDetailCode] = useState<string | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -176,9 +179,15 @@ export default function MdCompaniesPage() {
                 }}>前往组织架构管理 →</Link>
                   </div>
                 </td></tr> : filtered.map((o, i) => <tr key={o.id ?? i} className="border-b border-border/30" onMouseEnter={e => e.currentTarget.style.background = "rgba(148,163,184,0.08)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  <td className="text-text-muted" style={{
-              fontFamily: "monospace"
-            }}>{o.orgCode ?? "-"}</td>
+                  <td style={{ fontFamily: "monospace" }}>
+                    {o.orgCode ? (
+                      <button
+                        type="button"
+                        onClick={() => setDetailCode(o.orgCode ?? null)}
+                        style={{ background: "transparent", border: "none", color: "var(--color-primary)", cursor: "pointer", padding: 0, fontFamily: "monospace", fontSize: "inherit", textDecoration: "underline" }}
+                      >{o.orgCode}</button>
+                    ) : "-"}
+                  </td>
                   <td className="text-text">{o.orgName ?? "-"}</td>
                   <td>
                     <span style={{
@@ -202,5 +211,11 @@ export default function MdCompaniesPage() {
             </tbody>
           </table>
         </div>}
+      <MasterDataDetailDrawer
+        open={detailCode !== null}
+        code={detailCode}
+        config={companyConfig}
+        onClose={() => setDetailCode(null)}
+      />
     </div>;
 }

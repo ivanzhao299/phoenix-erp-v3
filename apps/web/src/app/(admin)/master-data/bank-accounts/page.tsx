@@ -1,18 +1,20 @@
 "use client";
+import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
+import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
+import { bankAccountConfig } from "@/components/master-data/detail-configs";
 
 /**
- * G5.5-C — 银行账户中心
- * 全新建立；统一编码 BANK-00001 + 5 态生命周期 + Workflow
- * 与 fin_cash_accounts 通过 bank_acc_code 关联（境外/跨境结算）
+ * UIX-9A — 银行账户中心接入 MasterDataDetailDrawer
  */
 export default function BankAccountRuntimePage() {
+  const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px", maxWidth: 1200 }}>
       <PageHeader
         title="银行账户中心"
-        subtitle="境外/跨境结算账户 · 编码自动生成 · 生命周期管控 · 与 ERP 资金账户绑定"
+        subtitle="境外/跨境结算账户 · 编码自动生成 · 生命周期管控 · 点击编码查看银行账户中心"
         breadcrumb={["主数据中心", "银行账户中心"]}
       />
       <MasterDataRuntimePanel
@@ -20,6 +22,7 @@ export default function BankAccountRuntimePage() {
         title="银行账户"
         codeKey="bank_account_code"
         nameKey="bank_name"
+        onCodeClick={(code) => setDetailCode(code)}
         fields={[
           { key: "bank_name", label: "开户行（中文）", required: true },
           { key: "bank_name_en", label: "Bank Name (EN)" },
@@ -50,6 +53,12 @@ export default function BankAccountRuntimePage() {
           { key: "country_code", label: "国家" },
           { key: "company_code", label: "公司" },
         ]}
+      />
+      <MasterDataDetailDrawer
+        open={detailCode !== null}
+        code={detailCode}
+        config={bankAccountConfig}
+        onClose={() => setDetailCode(null)}
       />
     </div>
   );
