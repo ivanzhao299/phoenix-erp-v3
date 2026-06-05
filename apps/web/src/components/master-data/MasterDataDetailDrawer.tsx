@@ -65,13 +65,15 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
       safe<any>(`/master-data/runtime/${config.type}/${encodeURIComponent(code)}`, '基础'),
       safe<{ totalReferences: number; references: ReferenceItem[]; canArchive: boolean }>(
         `/master-data/references/${config.referenceObjectType}/${encodeURIComponent(code)}`, '引用'),
-      safe<AuditItem[]>(`/master-data/audit?type=${config.referenceObjectType}&code=${encodeURIComponent(code)}`, '审计'),
+      safe<{ items: AuditItem[] }>(
+        `/master-data/audit/${config.referenceObjectType}/${encodeURIComponent(code)}`, '审计'),
       ...extraCalls,
     ]).then(results => {
       const [infoR, refsR, auditR, ...extras] = results;
       setInfo(infoR);
       setRefs(refsR || { totalReferences: 0, references: [], canArchive: true });
-      setAudit(Array.isArray(auditR) ? auditR.slice(0, 8) : []);
+      const auditItems = Array.isArray(auditR) ? auditR : (auditR?.items ?? []);
+      setAudit(auditItems.slice(0, 8));
       const extraMap: Record<string, any> = {};
       (config.extraApis || []).forEach((api, i) => { extraMap[api.key] = extras[i]; });
       setExtra(extraMap);
