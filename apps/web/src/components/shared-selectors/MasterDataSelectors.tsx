@@ -66,10 +66,33 @@ export function SupplierSelector(p: BaseProps) {
     loader={async () => (await request<any[]>('/master-data/runtime/supplier/active')).map(r => ({ value: r.code, label: `${r.name}（${r.code}）`, raw: r }))} />;
 }
 
-// ── 项目公司（仅 ACTIVE）──────────────────────────────────────────────────────
-export function ProjectSelector(p: BaseProps) {
-  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择项目'}
-    loader={async () => (await request<any[]>('/master-data/runtime/project/active')).map(r => ({ value: r.code, label: `${r.name}（${r.code}）`, raw: r }))} />;
+// ── 项目（MDM-1 切换为 biz_projects 统一项目主表，按 company_code 过滤）─────
+// 注：原 /master-data/runtime/project/active 从 prc2_projects 取（空表），
+//      已切换为 /biz/projects（biz_projects 数据源），按 status=ACTIVE 过滤；
+//      若 biz_projects 表暂未建（业务方未授权 migration 执行），端点 fallback
+//      返回空数组，前端下拉显示"暂无项目"。
+export interface ProjectSelectorProps extends BaseProps {
+  companyCode?: string;  // 选公司后过滤；不传则返回全部 ACTIVE 项目
+}
+export function ProjectSelector(p: ProjectSelectorProps) {
+  const { companyCode, ...base } = p;
+  return <ScopedSelect {...base} placeholder={base.placeholder ?? '请选择项目'}
+    loader={async () => {
+      const url = companyCode
+        ? `/biz/projects/active?company_code=${encodeURIComponent(companyCode)}`
+        : '/biz/projects/active';
+      try {
+        const list = await request<any[]>(url);
+        return (list || []).map(r => ({
+          value: r.project_code,
+          label: `${r.project_name}（${r.project_code}）`,
+          raw: r,
+        }));
+      } catch {
+        // 兼容：表未建或端点未部署时返回空，前端显示"暂无项目"
+        return [];
+      }
+    }} />;
 }
 
 // ── 公司（org_units COMPANY 类型，DataScope 由后端鉴权）────────────────────────

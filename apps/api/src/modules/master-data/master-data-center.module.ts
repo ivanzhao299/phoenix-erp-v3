@@ -8,6 +8,7 @@ import { MasterDataReferencesService } from './master-data-references.service'; 
 import { DictGovernanceService } from './dict-governance.service';              // G5.5-D
 import { MasterDataGovernanceService } from './governance.service';             // G5.5-D
 import { MasterDataOperationsService } from './operations.service';             // G5.5-E
+import { BizProjectsController } from './biz-projects.controller';              // MDM-1
 import { ApprovalEngineModule } from '../approval-engine/approval-engine.module';
 
 /**
@@ -21,7 +22,7 @@ import { ApprovalEngineModule } from '../approval-engine/approval-engine.module'
  */
 @Module({
   imports: [ApprovalEngineModule],
-  controllers: [MasterDataCenterController, MasterDataRuntimeController],
+  controllers: [MasterDataCenterController, MasterDataRuntimeController, BizProjectsController],
   providers: [
     CodeGeneratorService, MasterDataAuditService, MasterDataRuntimeService,
     MasterDataReferencesService,
