@@ -12,7 +12,6 @@ import {
 import styles from "./admin.module.css";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ThemeSwitcher } from "@/components/design-system";
 import { AuthFetchInterceptor } from "@/components/AuthFetchInterceptor";
 
 // ── Page title: path → locale key → Chinese fallback ─────────────
@@ -226,11 +225,16 @@ type="button"               className={`${styles.pinBtn} ${pinned ? styles.pinAc
               {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
             </button>
 
-            {/* UIX-3 P8: 集团主题切换器（5 主题：默认/深色/农牧绿/食品红/金融蓝）*/}
-            <ThemeSwitcher />
-
-            {/* User info */}
-            <div className={styles.userChip}>
+            {/* User info — 点击进入个人中心 /profile（主题切换迁移到个人中心，topbar 不再放）*/}
+            <div
+              className={styles.userChip}
+              role="button"
+              tabIndex={0}
+              onClick={() => router.push('/profile')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') router.push('/profile'); }}
+              title={t('layout.go_to_profile', '进入个人中心')}
+              style={{ cursor: 'pointer' }}
+            >
               <div className={styles.headerAvatar}>{avatarChar}</div>
               <div>
                 <div className={styles.headerName}>{user.name}</div>

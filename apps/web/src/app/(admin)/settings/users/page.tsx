@@ -10,6 +10,7 @@ import {
   Users, Shield, Plus, Lock, Unlock, Key, Edit2, UserCheck,
   FlaskConical, RefreshCw, Search, ChevronUp, ChevronDown,
   ChevronsUpDown, Star, X as XIcon, Info, LayoutGrid, List, ChevronRight,
+  Eye, EyeOff,
 } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 
@@ -50,6 +51,7 @@ interface UserRole {
   role_name_zh: string;
   approval_level: number;
   is_primary: boolean;
+  is_visible?: boolean;  // 前台是否显示该角色名（默认 true）
 }
 interface UserRecord {
   id: number;
@@ -159,6 +161,13 @@ function RolePicker({ allRoles, selected, onChange }: {
     onChange(selected.map(r => ({ ...r, is_primary: r.role_code === code })));
   };
 
+  // 切换该角色"是否在前台显示角色名"（is_visible，纯显示，不影响权限）
+  const toggleVisible = (code: string) => {
+    onChange(selected.map(r =>
+      r.role_code === code ? { ...r, is_visible: r.is_visible === false ? true : false } : r
+    ));
+  };
+
   return (
     <div>
       {/* Already selected tags */}
@@ -170,10 +179,21 @@ function RolePicker({ allRoles, selected, onChange }: {
               <div key={r.role_code} style={{ display: "flex", alignItems: "center", gap: 4,
                 padding: "4px 8px 4px 10px", borderRadius: 20,
                 background: col + "18", border: `1.5px solid ${col}44`,
-                fontSize: 12, color: col, fontWeight: 600 }}>
+                fontSize: 12, color: col, fontWeight: 600,
+                opacity: r.is_visible === false ? 0.55 : 1,
+                textDecoration: r.is_visible === false ? "line-through" : "none" }}>
                 {r.is_primary && <Star size={10} style={{ fill: col }}/>}
                 {r.role_name_zh}
                 <LevelBadge level={r.approval_level}/>
+                {/* 👁 toggle 前台显示开关（不影响权限）*/}
+                <button type="button" onClick={() => toggleVisible(r.role_code)}
+                  title={r.is_visible === false
+                    ? t("ui.前台已隐藏点击恢复显示", "前台已隐藏，点击恢复显示")
+                    : t("ui.前台已显示点击隐藏不影响权限", "前台已显示，点击隐藏（不影响权限）")}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: "0 2px",
+                    color: col, opacity: 0.7, display: "inline-flex", alignItems: "center" }}>
+                  {r.is_visible === false ? <EyeOff size={11}/> : <Eye size={11}/>}
+                </button>
                 {!r.is_primary && selected.length > 1 && (
                   <button type="button" onClick={() => setPrimary(r.role_code)}
                     title={t("ui.设为主角色", "设为主角色")}
@@ -440,6 +460,17 @@ export default function UserManagementPage() {
         } else if (res.code === 200 && selectedRoles.length === 0) {
           // 清除所有角色（传空数组）
           await API(`/${editUser.id}/roles`, { method: "PUT", body: JSON.stringify({ roles: [] }) });
+        }
+        // 同步角色显示开关（is_visible，纯前台显示控制，不影响权限）
+        if (res.code === 200 && selectedRoles.length > 0) {
+          const visItems = selectedRoles.map(r => ({
+            role_code: r.role_code,
+            is_visible: r.is_visible !== false,  // undefined / true → 显示；false → 隐藏
+          }));
+          await API(`/${editUser.id}/role-visibility`, {
+            method: "PUT",
+            body: JSON.stringify({ items: visItems }),
+          }).catch(() => { /* 显示开关失败不影响主流程 */ });
         }
         // 可选：重置密码
         if (res.code === 200 && form.newPassword && form.newPassword.length >= 8) {

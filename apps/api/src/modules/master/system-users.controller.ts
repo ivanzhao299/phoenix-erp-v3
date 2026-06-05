@@ -81,7 +81,20 @@ export class SystemUsersController {
                   JOIN sys_role r ON ur.role_id = r.role_id
                  WHERE ur.user_id = u.user_id),
                '[]'::json
-             ) AS roles
+             ) AS roles,
+             COALESCE(
+               (SELECT json_agg(json_build_object(
+                                  'role_code', r.role_code,
+                                  'role_name_zh', r.role_name_zh,
+                                  'approval_level', COALESCE(r.approval_level, 0),
+                                  'is_primary', ur.is_primary,
+                                  'is_visible', COALESCE(ur.is_visible, true)
+                                ) ORDER BY ur.is_primary DESC, r.approval_level DESC NULLS LAST)
+                  FROM sys_user_role ur
+                  JOIN sys_role r ON ur.role_id = r.role_id
+                 WHERE ur.user_id = u.user_id),
+               '[]'::json
+             ) AS roles_detail
         FROM sys_user u
        ORDER BY u.created_at DESC
     `).catch(() => []);
@@ -239,5 +252,41 @@ export class SystemUsersController {
     );
     if (result.length === 0) throw new NotFoundException(`用户 ${id} 不存在`);
     return { code: 200, msg: '用户信息已更新' };
+  }
+
+  /**
+   * PUT /api/system/users/:id/role-visibility
+   * 仅改 sys_user_role.is_visible（前台显示开关），不影响权限。
+   * body: { items: [{ role_code: string, is_visible: boolean }] }
+   */
+  @Put(':id/role-visibility')
+  async updateRoleVisibility(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    this.requireRole(req.user, MGMT_ROLES);
+    const items: { role_code: string; is_visible: boolean }[] = body?.items || [];
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new BadRequestException('items 不能为空');
+    }
+
+    await this.em.transaction(async (mgr) => {
+      for (const it of items) {
+        if (typeof it?.role_code !== 'string' || typeof it?.is_visible !== 'boolean') continue;
+        await mgr.query(
+          `UPDATE sys_user_role ur
+              SET is_visible = $1
+             FROM sys_role r
+            WHERE ur.role_id = r.role_id
+              AND ur.user_id = $2
+              AND r.role_code = $3`,
+          [it.is_visible, id, it.role_code],
+        );
+      }
+      // 触发 token 重算，让前台立即看到效果
+      await mgr.query(
+        `UPDATE sys_user SET perms_version = COALESCE(perms_version,0) + 1, updated_at = now() WHERE user_id = $1`,
+        [id],
+      );
+    });
+
+    return { code: 200, msg: '角色显示状态已更新', data: { id, updated: items.length } };
   }
 }

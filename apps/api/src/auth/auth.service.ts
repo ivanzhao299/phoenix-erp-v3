@@ -89,7 +89,12 @@ export class AuthService {
          u.store_code, u.status, u.locale, u.perms_version,
          COALESCE(
            (SELECT json_agg(
-                     json_build_object('role_code', r.role_code, 'role_name_zh', r.role_name_zh, 'is_primary', ur.is_primary)
+                     json_build_object(
+                       'role_code', r.role_code,
+                       'role_name_zh', r.role_name_zh,
+                       'is_primary', ur.is_primary,
+                       'is_visible', COALESCE(ur.is_visible, true)
+                     )
                      ORDER BY ur.is_primary DESC, r.approval_level DESC NULLS LAST, r.role_id ASC
                    )
             FROM sys_user_role ur
@@ -135,8 +140,14 @@ export class AuthService {
     // 取出主角色（兼容 V2 的单角色机制）
     // roles_info 已按 is_primary DESC, approval_level DESC 排序，[0] 即最高优先角色
     const rolesInfo = user.roles_info || [];
-    // 优先取 is_primary=true 的角色；若无，取排序后的第一个
-    const primaryRoleInfo = rolesInfo.find((r: any) => r.is_primary) ?? rolesInfo[0];
+    // 用于前台显示文案：仅 is_visible=true 的角色（不影响权限计算）
+    const visibleRoles = rolesInfo.filter((r: any) => r.is_visible !== false);
+    // 优先取 is_primary=true 且可见的角色；其次取首个可见；再 fallback 全量首个
+    const primaryRoleInfo =
+      visibleRoles.find((r: any) => r.is_primary) ??
+      visibleRoles[0] ??
+      rolesInfo.find((r: any) => r.is_primary) ??
+      rolesInfo[0];
     const primaryRole = primaryRoleInfo?.role_code ?? 'ROLE_ADMIN';
     const roleNameZh  = primaryRoleInfo?.role_name_zh ?? '管理员';
 
@@ -206,6 +217,8 @@ export class AuthService {
     }
 
     // 构建 JWT payload（完全兼容 V2.0 格式，并新增 V3.0 字段）
+    // 注意：roles 数组用 rolesInfo（全量），权限计算依然按全部已绑角色；
+    //       仅 role/roleNameZh（前台显示用）走 visibleRoles 过滤。
     const payload = {
       userId: user.id,
       username: user.username,
@@ -218,6 +231,10 @@ export class AuthService {
       permissions,
       // V3.0 新增字段（向后兼容）
       roles: rolesInfo.map((r: any) => r.role_code),
+      // 可见角色列表（前台显示用，权限不变）
+      visibleRoles: visibleRoles.map((r: any) => ({
+        role_code: r.role_code, role_name_zh: r.role_name_zh, is_primary: r.is_primary,
+      })),
       store_code: user.store_code,
       locale: user.locale || 'zh-CN',
       sub: user.id,
