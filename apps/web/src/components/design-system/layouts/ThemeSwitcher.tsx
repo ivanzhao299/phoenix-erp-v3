@@ -1,16 +1,16 @@
 'use client';
 
 /**
- * ThemeSwitcher — Phoenix DS（UIX-3 P8）
- * 5 套主题在 Header 一键切换：
- *   默认 (default) / 深色 (dark) / 农牧绿 (brand-green) / 食品红 (brand-red) / 金融蓝 (brand-blue)
+ * ThemeSwitcher — Phoenix DS（UIX-3 P8 · 品牌金扩展）
+ * 6 套主题在 Header 一键切换：
+ *   默认 / 深色 / 农牧绿 / 食品红 / 金融蓝 / 品牌金
  * 主题写入 <html data-theme> + localStorage("phoenix-theme")
  */
 
 import { useEffect, useState } from 'react';
 import { Palette, Check } from 'lucide-react';
 
-type Theme = '' | 'dark' | 'brand-green' | 'brand-red' | 'brand-blue';
+type Theme = '' | 'dark' | 'brand-green' | 'brand-red' | 'brand-blue' | 'brand-gold';
 
 const THEMES: Array<{ key: Theme; label: string; swatch: string }> = [
   { key: '',             label: '默认主题', swatch: 'var(--color-primary)' },
@@ -18,6 +18,7 @@ const THEMES: Array<{ key: Theme; label: string; swatch: string }> = [
   { key: 'brand-green',  label: '农牧绿',   swatch: '#2E7D32' },
   { key: 'brand-red',    label: '食品红',   swatch: '#C62828' },
   { key: 'brand-blue',   label: '金融蓝',   swatch: '#1565C0' },
+  { key: 'brand-gold',   label: '品牌金',   swatch: '#B8860B' },
 ];
 
 const STORAGE_KEY = 'phoenix-theme';
