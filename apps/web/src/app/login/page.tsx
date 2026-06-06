@@ -302,12 +302,24 @@ function LoginInner() {
       // 避免超管同时持有其他角色时被错误路由到 terminal/packaging
       const isAdmin = allRoles.includes("ROLE_ADMIN") || info?.permissions?.includes("*");
       const effectiveRole = isAdmin ? "ROLE_ADMIN" : info?.role || allRoles[0] || "";
-      const roleDest = ROLE_HOME[effectiveRole] || "/dashboard";
-      // returnUrl='/dashboard' 是 middleware 对 '/' 的通用兜底，不代表真实意图
-      // terminal 操作员的 returnUrl 不应覆盖他们专属的 terminal 首页
-      const isGenericDashboard = returnUrl === "/dashboard";
+      // HOME-1 强化：
+      // · ROLE_ADMIN → /dashboard（集团驾驶舱）
+      // · terminal → 专属页面
+      // · 其它一律 /home（运营工作台），**忽略 returnUrl**——避免历史 sessionStorage
+      //   残留把普通用户带到 /dashboard 等高权限页面
       const isTerminalRole = TERMINAL_ROLES.has(effectiveRole);
-      const dest = returnUrl && returnUrl.startsWith("/") && !isGenericDashboard && !isTerminalRole ? returnUrl : roleDest;
+      let dest: string;
+      if (isAdmin) {
+        dest = '/dashboard';
+      } else if (isTerminalRole) {
+        dest = ROLE_HOME[effectiveRole] || '/terminal/packaging/dashboard';
+      } else {
+        // 普通用户：只允许 returnUrl 是非 /dashboard 的同源路径，否则强制 /home
+        const safeReturn = returnUrl && returnUrl.startsWith('/')
+          && returnUrl !== '/dashboard'
+          && !returnUrl.startsWith('/dashboard/');
+        dest = safeReturn ? returnUrl : '/home';
+      }
       router.replace(dest);
     } catch {
       setError(t('ui.网络连接失败', '网络连接失败，请重试'));

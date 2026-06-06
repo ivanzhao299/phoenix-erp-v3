@@ -18,6 +18,7 @@ import {
   Layers, GitBranch, ArrowRight, Sparkles,
   CircleDollarSign, Receipt, CreditCard, Package, CheckCircle2,
   Zap, Bell, Target, ChevronRight,
+  ClipboardList as ClipboardListIcon,
 } from "lucide-react";
 import request from "@/lib/api-client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -43,7 +44,19 @@ const SHORTCUTS: Array<{ key: string; label: string; href: string; icon: any; ac
 ];
 
 // ── 角色对应主 CTA + 默认入口 ────────────────────────
+// 优先：每日工作台（高频用户专用）→ 待办 → 角色专属页面
 function ctaFor(role: string | undefined, todo: number): { label: string; href: string; icon: any } {
+  // 高频作业角色：直接送到每日工作台（一站式录入入口）
+  if (role && (
+    role.includes('PRODUCTION_DATA_SUPERVISOR') ||
+    role.includes('FARM') ||
+    role.includes('PKG') ||
+    role.includes('FARMER') ||
+    role.includes('CASHIER') ||
+    role.includes('STORE_MGR')
+  )) {
+    return { label: '进入每日工作台', href: '/daily-work', icon: ClipboardListIcon };
+  }
   if (todo > 0) return { label: `立即处理 ${todo} 个待办`, href: '/workflow/tasks/todo', icon: Inbox };
   if (!role)                 return { label: '进入主数据中心', href: '/master-data', icon: Sparkles };
   if (role.includes('CASH') || role.includes('TREASURY')) return { label: '进入资金账户中心', href: '/finance2/cash-accounts', icon: Wallet };
@@ -51,7 +64,6 @@ function ctaFor(role: string | undefined, todo: number): { label: string; href: 
   if (role.includes('PRC'))  return { label: '进入采购中心', href: '/procurement2', icon: ShoppingBag };
   if (role.includes('SALES'))return { label: '进入销售中心', href: '/sales2', icon: ShoppingCart };
   if (role.includes('WMS'))  return { label: '进入库存中心', href: '/warehouse', icon: Warehouse };
-  if (role.includes('FARM') || role.includes('PKG')) return { label: '进入生产管理', href: '/breeding', icon: Package };
   return { label: '进入数据质量驾驶舱', href: '/data-quality', icon: ShieldAlert };
 }
 

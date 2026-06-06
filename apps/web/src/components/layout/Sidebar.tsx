@@ -62,6 +62,8 @@ const MENU: MenuItem[] = [
 
   // 0. HOME-1 企业运营工作台（统一首页，登录直达）
   { id: "home", path: "/home", Icon: LayoutDashboard, label: "运营工作台", perm: "MENU_DASHBOARD" },
+  // 0.1 每日工作台 — 一站式高频录入入口（生产/销售/办公人员均可见）
+  { id: "daily-work", path: "/daily-work", Icon: ClipboardList, label: "每日工作台", perm: "MENU_DASHBOARD" },
 
   // 1. 经营仪表盘 = 集团总部经营驾驶舱，仅财务高层 / CFO / CEO 可见；普通业务员登录直达 /home
   { id: "dashboard", path: "/dashboard", Icon: LayoutDashboard, label: "经营仪表盘", perm: "MENU_FIN_AUDIT" },
