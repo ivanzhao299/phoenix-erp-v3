@@ -1747,15 +1747,9 @@ export class GenericCrudService implements OnModuleInit {
       }
       console.log('✅ Phase 3: All business tables verified / created successfully.');
 
-      // ──────────────────────────────────────────────────────────────────────
-      // 已禁用（2026-06-06 由 audit 发现）：
-      //   原 Phase 10E 每次启动 INSERT brd_farms FARM-01 / brd_houses A001-B001
-      //   + brd_flocks FLK-*-2026，**ON CONFLICT DO UPDATE** 覆盖删除/编辑。
-      //   导致：业务方在主数据中心删的鸡舍每次 API 重启又自动回来；mapped_site_code
-      //   等 MDM-1 后人工补的字段被覆盖为 NULL。
-      //   主数据应当由业务方通过 /master-data 中心人工维护，不应靠启动 seed。
-      // ──────────────────────────────────────────────────────────────────────
-      console.log('⏭️  Phase 10E Breeding seed skipped (manual maintenance via /master-data)');
+      // Phase 10E Breeding Data Onboarding 完全移除（2026-06-06）：
+      //   原 INSERT brd_farms FARM-01 + brd_houses A001-B001 + brd_flocks 的 startup seed
+      //   全部废弃。养殖场/鸡舍/鸡群主数据由 /master-data 中心人工维护。
     } catch (e) {
       console.error('❌ Failed to execute Phase 10E Onboarding:', (e as Error).message);
       // error already logged above; do not write to filesystem in server code
@@ -2042,26 +2036,8 @@ export class GenericCrudService implements OnModuleInit {
               b.expectedQty, b.expectedWeight, b.containerCount]).catch(() => {});
         }
 
-        // 已禁用（2026-06-06）：startup seed 强制 ON CONFLICT DO UPDATE 覆盖
-        // 用户在主数据中心的删除/编辑动作，造成"删完又回来"。改为主数据中心维护。
-        const houses: any[] = [];
-        for (const h of houses) {
-          await this.entityManager.query(`
-            INSERT INTO brd_houses (house_code, house_name, capacity, house_type, status, created_at, updated_at)
-            VALUES ($1,$2,$3,'LAYING','ACTIVE',NOW(),NOW())
-            ON CONFLICT (house_code) DO UPDATE SET status='ACTIVE', updated_at=NOW()
-          `, [h.code, h.name, h.capacity]).catch(() => {});
-        }
-
-        // 鸡群基础数据（同样禁用启动 seed）
-        const flocks: any[] = [];
-        for (const f of flocks) {
-          await this.entityManager.query(`
-            INSERT INTO brd_flocks (flock_no, house_code, breed_type, start_date, initial_qty, current_qty, status)
-            VALUES ($1,$2,$3,$4,$5,$5,'LAYING')
-            ON CONFLICT (flock_no) DO UPDATE SET status='LAYING', current_qty=$5
-          `, [f.no, f.houseCode, f.breedType, f.startDate, f.qty]).catch(() => {});
-        }
+        // Phase T1 中原 H-01/02/03 + FL-2024-001/002/003 测试 seed 完全移除
+        // （与上方 Phase 10E 同因废弃）。如需测试数据请在 dev 环境手动创建。
 
         console.log(`✅ Phase T1-4: Today's test source batches seeded (${today}).`);
       }
