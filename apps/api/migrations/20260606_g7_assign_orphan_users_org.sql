@@ -32,7 +32,7 @@ BEGIN
   SELECT count(*) INTO total_before FROM sys_user_orgs;
 
   -- ── 1. ALL 范围 + 管理类（10 用户） → ORG-GROUP (id=9) ──────────────────────
-  EXECUTE $$INSERT INTO sys_user_orgs (user_id, org_id, org_code, is_primary, org_type, data_scope_level, created_at)
+  EXECUTE $$INSERT INTO sys_user_orgs (user_id, org_id, org_code, is_primary, role_scope, data_scope_level, created_at)
             SELECT u.user_id, 9, 'ORG-GROUP', true, 'GROUP', 'GROUP', now()
               FROM sys_user u
              WHERE u.username IN ('admin','xuefeng','guodapeng','songshoujiang','tangzhiwen',
@@ -40,7 +40,7 @@ BEGIN
                AND NOT EXISTS (SELECT 1 FROM sys_user_orgs uo WHERE uo.user_id=u.user_id)$$;
 
   -- ── 2. 孟赛试运行 + 孟赛门店（8 用户） → SITE-MENGSAI-LAYER (id=18) ────────
-  EXECUTE $$INSERT INTO sys_user_orgs (user_id, org_id, org_code, is_primary, org_type, data_scope_level, created_at)
+  EXECUTE $$INSERT INTO sys_user_orgs (user_id, org_id, org_code, is_primary, role_scope, data_scope_level, created_at)
             SELECT u.user_id, 18, 'SITE-MENGSAI-LAYER', true, 'SITE', 'SITE', now()
               FROM sys_user u
              WHERE u.username IN ('chenling','pilot_sales','pilot_cashier','pilot_driver',
@@ -49,7 +49,7 @@ BEGIN
 
   -- ── 3. 万象/波利坎赛/沙耶武里门店用户（6 用户） → 暂绑 ORG-GROUP ───────────
   --     业务方应在主数据中心调整到对应具体门店 SITE
-  EXECUTE $$INSERT INTO sys_user_orgs (user_id, org_id, org_code, is_primary, org_type, data_scope_level, created_at)
+  EXECUTE $$INSERT INTO sys_user_orgs (user_id, org_id, org_code, is_primary, role_scope, data_scope_level, created_at)
             SELECT u.user_id, 9, 'ORG-GROUP', true, 'GROUP', 'GROUP', now()
               FROM sys_user u
              WHERE u.username IN ('store_mgr1','cashier','alue','bouavanh','langshipei','xiaolan')
