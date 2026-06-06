@@ -30,6 +30,20 @@ export const ROLE_MENU_MATRIX: Record<string, Record<string, string[]>> = {
     ROLE_PKG_OP:      ['V'],
     ROLE_FACTORY_MGR: ['V','C','E','D','A'],  // Phase A 新增角色
   },
+  // 2026-06-06 新增：日报录入业务菜单（区别于 MENU_FARM_DATA "养殖场/鸡舍主数据维护"）。
+  // 日报 POST/PUT /api/v3/farm/daily-logs 用此守卫；业务录入角色（孟赛生产数据主管等）
+  // 可仅持 MENU_FARM_DAILY:E 即可录日报，无需 MENU_FARM_DATA:E（后者含编辑养殖场主数据）。
+  MENU_FARM_DAILY: {
+    ROLE_ADMIN:       ['V','C','E','D','A','X'],
+    ROLE_FARM_MGR:    ['V','C','E','D','A'],
+    ROLE_FARMER:      ['V','C','E'],
+    ROLE_VET:         ['V','C','E'],
+    ROLE_CEO:         ['V'],
+    ROLE_REGION_MGR:  ['V'],
+    ROLE_FACTORY_MGR: ['V','C','E','D','A'],
+    ROLE_QA_MGR:      ['V'],
+    ROLE_QA_STAFF:    ['V'],
+  },
   MENU_IOT: {
     ROLE_ADMIN:       ['V','C','E','D','A','X'],
     ROLE_FARM_MGR:    ['V','E','X'],
