@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Egg, Plus, Trash2, Save, RefreshCw, AlertTriangle, Package } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Egg, Save, RefreshCw, AlertTriangle, Package } from "lucide-react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
+import { useDictOptions } from "@/hooks/useDictOptions";
 import PageHeader from "@/components/PageHeader";
 import request from "@/lib/api-client";
 
@@ -12,31 +13,22 @@ import request from "@/lib/api-client";
  * 仅在 inventory_source_mode = TEMP_PRODUCTION_INBOUND 时可用；
  * 直接形成 Sales V2 销售库存（EGG-YYYYMMDD-*，change_type=TEMP_PRODUCTION_INBOUND）。
  * 包装入库模式（PACKAGING_INBOUND）下禁用，提示改走包装作业中心。
+ *
+ * 等级来源：sys_dict.PKG_EGG_GRADE（XL/L/M/S/XS/DIRTY/BROKEN）— 后端动态拉取，
+ * 字典加载失败时回退到内置 7 档以保证可用性。
  */
 import u from "@/styles/uix-utils.module.css";
-const EGG_GRADES = [{
-  code: "0",
-  name: "0号蛋"
-}, {
-  code: "1",
-  name: "1号蛋"
-}, {
-  code: "2",
-  name: "2号蛋"
-}, {
-  code: "3",
-  name: "3号蛋"
-}, {
-  code: "4",
-  name: "4号蛋"
-}, {
-  code: "5",
-  name: "5号蛋"
-}];
-interface Row {
-  grade: string;
-  qty: string;
-}
+
+const FALLBACK_GRADES = [
+  { value: "XL", label: "特大蛋" },
+  { value: "L", label: "一号蛋" },
+  { value: "M", label: "二号蛋" },
+  { value: "S", label: "三号蛋" },
+  { value: "XS", label: "四号蛋" },
+  { value: "DIRTY", label: "脏蛋" },
+  { value: "BROKEN", label: "破损蛋" },
+];
+
 function today() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -46,14 +38,17 @@ export default function DailyInboundPage() {
     canView,
     canCreate
   } = usePermission("MENU_PROD_INBOUND");
+  const { optionPairs: dictGrades, loading: dictLoading } = useDictOptions("PKG_EGG_GRADE");
+  const grades = dictGrades.length > 0 ? dictGrades : FALLBACK_GRADES;
+  const labelMap = useMemo(
+    () => Object.fromEntries(grades.map(g => [g.value, g.label])),
+    [grades]
+  );
   const [mode, setMode] = useState<string>("");
   const [loadingMode, setLoadingMode] = useState(true);
   const [eggDate, setEggDate] = useState(today());
   const [houseCode, setHouseCode] = useState("");
-  const [rows, setRows] = useState<Row[]>([{
-    grade: "0",
-    qty: ""
-  }]);
+  const [qtyMap, setQtyMap] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<{
@@ -80,17 +75,17 @@ export default function DailyInboundPage() {
   useEffect(() => {
     if (canView) loadMode();
   }, [canView, loadMode]);
-  const totalQty = rows.reduce((s, r) => s + (Number(r.qty) || 0), 0);
+  const totalQty = grades.reduce((s, g) => s + (Number(qtyMap[g.value]) || 0), 0);
+  const filledRows = grades.filter(g => Number(qtyMap[g.value]) > 0).length;
   const isPackagingMode = mode === "PACKAGING_INBOUND";
   const submit = async () => {
     setError("");
     setResult(null);
-    const items = rows.filter(r => Number(r.qty) > 0).map(r => ({
-      grade: r.grade,
-      qty: Number(r.qty)
-    }));
+    const items = grades
+      .filter(g => Number(qtyMap[g.value]) > 0)
+      .map(g => ({ grade: g.value, qty: Number(qtyMap[g.value]) }));
     if (items.length === 0) {
-      setError("请至少录入一条有效数量");
+      setError("请至少录入一档数量");
       return;
     }
     setSaving(true);
@@ -114,10 +109,7 @@ export default function DailyInboundPage() {
         })
       });
       setResult(r);
-      setRows([{
-        grade: "0",
-        qty: ""
-      }]);
+      setQtyMap({});
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "入库失败");
     } finally {
@@ -240,11 +232,11 @@ export default function DailyInboundPage() {
         background: "var(--bg-muted)",
         border: "1px solid var(--border)"
       }}>
-            <div><span className={u.muted12}>明细行</span><div style={{
+            <div><span className={u.muted12}>已录等级</span><div style={{
             fontSize: 20,
             fontWeight: 700,
             color: "var(--text-primary)"
-          }}>{rows.filter(r => Number(r.qty) > 0).length}</div></div>
+          }}>{filledRows} / {grades.length}</div></div>
             <div><span className={u.muted12}>合计入库（枚）</span><div style={{
             fontSize: 20,
             fontWeight: 700,
@@ -257,7 +249,7 @@ export default function DailyInboundPage() {
           }}>{Math.floor(totalQty / 180).toLocaleString()}</div></div>
           </div>
 
-          {/* 明细表 */}
+          {/* 明细表 — 后端 PKG_EGG_GRADE 字典全档预渲染 */}
           <div className="bg-bg-card border border-border" style={{
         borderRadius: 10,
         overflow: "hidden",
@@ -282,80 +274,60 @@ export default function DailyInboundPage() {
                 textAlign: "left",
                 padding: "10px 14px",
                 color: "var(--text-secondary)",
+                fontWeight: 600,
+                width: 110
+              }}>编码</th>
+                  <th style={{
+                textAlign: "left",
+                padding: "10px 14px",
+                color: "var(--text-secondary)",
                 fontWeight: 600
               }}>数量（枚）</th>
-                  <th style={{
-                width: 60
-              }} />
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, i) => <tr key={i} style={{
-              borderTop: "1px solid var(--border)"
-            }}>
+                {dictLoading && dictGrades.length === 0 ? (
+                  <tr><td colSpan={3} style={{
+                    padding: "16px 14px",
+                    color: "var(--text-secondary)",
+                    fontSize: 13
+                  }}>加载等级字典中…</td></tr>
+                ) : grades.map(g => (
+                  <tr key={g.value} style={{ borderTop: "1px solid var(--border)" }}>
                     <td style={{
-                padding: "8px 14px"
-              }}>
-                      <select value={row.grade} onChange={e => setRows(rs => rs.map((r, j) => j === i ? {
-                  ...r,
-                  grade: e.target.value
-                } : r))} className="bg-bg-muted border border-border text-text" style={{
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  fontSize: 13,
-                  outline: "none"
-                }}>
-                        {EGG_GRADES.map(g => <option key={g.code} value={g.code}>{g.name}</option>)}
-                      </select>
-                    </td>
+                      padding: "8px 14px",
+                      fontWeight: 500,
+                      color: "var(--text-primary)"
+                    }}>{g.label}</td>
                     <td style={{
-                padding: "8px 14px"
-              }}>
-                      <input type="number" min={0} value={row.qty} onChange={e => setRows(rs => rs.map((r, j) => j === i ? {
-                  ...r,
-                  qty: e.target.value
-                } : r))} placeholder="0" className="bg-bg-muted border border-border text-text" style={{
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  fontSize: 13,
-                  outline: "none",
-                  width: 140
-                }} />
+                      padding: "8px 14px",
+                      fontFamily: "monospace",
+                      color: "var(--text-secondary)",
+                      fontSize: 12
+                    }}>{g.value}</td>
+                    <td style={{ padding: "8px 14px" }}>
+                      <input
+                        type="number"
+                        min={0}
+                        inputMode="numeric"
+                        value={qtyMap[g.value] ?? ""}
+                        onChange={e => setQtyMap(m => ({ ...m, [g.value]: e.target.value }))}
+                        placeholder="0"
+                        className="bg-bg-muted border border-border text-text"
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: 6,
+                          fontSize: 13,
+                          outline: "none",
+                          width: 180,
+                          textAlign: "right"
+                        }}
+                      />
                     </td>
-                    <td style={{
-                padding: "8px 14px",
-                textAlign: "center"
-              }}>
-                      {rows.length > 1 && <button onClick={() => setRows(rs => rs.filter((_, j) => j !== i))} style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--status-danger)",
-                  cursor: "pointer"
-                }}><Trash2 size={15} /></button>}
-                    </td>
-                  </tr>)}
+                  </tr>
+                ))}
               </tbody>
             </table>
-            <div style={{
-          padding: "10px 14px",
-          borderTop: "1px solid var(--border)"
-        }}>
-              <button onClick={() => setRows(rs => [...rs, {
-            grade: "0",
-            qty: ""
-          }])} className="text-text-muted" style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            background: "none",
-            border: "none",
-            fontSize: 13,
-            cursor: "pointer",
-            color: "var(--color-primary)"
-          }}>
-                <Plus size={14} /> 添加一行
-              </button>
-            </div>
           </div>
 
           {error && <div style={{
@@ -430,7 +402,7 @@ export default function DailyInboundPage() {
               }}>{b.batchNo}</td>
                       <td style={{
                 padding: "4px 8px"
-              }}>{b.grade}号蛋</td>
+              }}>{labelMap[b.grade] || b.grade}</td>
                       <td style={{
                 padding: "4px 8px"
               }}>{b.qty.toLocaleString()}</td>
