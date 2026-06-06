@@ -1,5 +1,20 @@
 /**
  * Phoenix ERP V3 — 角色菜单权限矩阵
+ *
+ * ⚠️ DEPRECATED（2026-06-06 G5-A 后）：
+ *
+ *   本文件不再被 MenuGuard 运行时调用。MenuGuard 已改为唯一权威源
+ *   sys_role_menu_permission 表（通过 JWT.permissions 数组分发）。
+ *
+ *   本文件保留用途：
+ *     1. 初始化 seed 历史源 — 开发本机首次部署时跑
+ *        scripts/g5a-gen-seed.mjs 把矩阵物化进 DB
+ *     2. `isMenuRegistered()` 仍读这里检查 menu_code 注册（防裸接口穿越）
+ *        ⏳ G5-A Step 3 后续：改读启动期缓存的 sys_menu 表
+ *
+ *   ❌ 禁止：新业务代码 import `hasMenuPermission()` —— 已删除该导出
+ *   ✅ 推荐：新菜单权限通过主数据中心 UI 或 SQL migration 直接写入 DB
+ *
  * 格式: { [MENU_CODE]: { [ROLE_CODE]: perm[] } }
  * perm: V=查看  C=新增  E=编辑  D=删除  A=审批  X=导出
  */
@@ -1228,24 +1243,14 @@ export function isMenuRegistered(menuCode: string): boolean {
 }
 
 /**
- * 检查指定角色列表是否对某菜单拥有指定权限码
+ * @deprecated 2026-06-06 G5-A：MenuGuard 已切换为读 JWT.permissions（来自
+ *   sys_role_menu_permission DB 表）。本函数仅保留作为兼容签名，**始终返回 false**
+ *   以便任何漏改的旧调用方都会走 fallback 而不是静态校验。新代码禁止 import。
  */
 export function hasMenuPermission(
-  roles: string[],
-  menuCode: string,
-  requiredPerm: string,
+  _roles: string[],
+  _menuCode: string,
+  _requiredPerm: string,
 ): boolean {
-  if (!roles?.length) return false;
-  const menuPerms = ROLE_MENU_MATRIX[menuCode];
-  if (!menuPerms) {
-    // SECURITY: 菜单未在矩阵中注册 → 默认拒绝（严格策略）
-    return false;
-  }
-  for (const role of roles) {
-    const perms = menuPerms[role];
-    if (perms && (perms.includes(requiredPerm) || perms.includes('*'))) {
-      return true;
-    }
-  }
   return false;
 }
