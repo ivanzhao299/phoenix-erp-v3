@@ -30,6 +30,13 @@ const ALLOWED_DAILY_COLS = new Set([
   'elimination_qty', 'culling_reason',
   // 2026-06-06：按 product_grades 9 档分解的产蛋数量（JSONB）
   'eggs_by_grade',
+  // G9：孟赛 Excel 实有字段（业务方手动录或自动派生）
+  'self_use_qty',   // 自用蛋数（手动录）
+  'opening_qty',    // 开栏存栏（自动派生：前一天 closing - 今天 mortality - elimination）
+  'closing_qty',    // 封栏存栏（自动派生）
+  'lay_rate',       // 产蛋率% （自动派生：eggs_produced / closing_qty × 100）
+  'business_date',  // 业务日期（默认 = log_date）
+  'site_code', 'company_code', 'project_code',  // MDM-1 主数据回填
 ]);
 
 @Injectable()
@@ -69,7 +76,41 @@ export class FarmService {
 
     const eggs = Number(body.eggs_produced) || 0;
     const mortality = Number(body.mortality_qty) || 0;
+    const elimination = Number(body.elimination_qty) || 0;
     const flock_no = body.flock_no || body.house_code;
+
+    // G9 自动派生 opening_qty / closing_qty / lay_rate（业务方无需手动算）
+    // opening = 前一天同舍 closing（或 brd_flocks.current_qty）
+    // closing = opening - mortality - elimination
+    // lay_rate = eggs_produced / closing × 100
+    // business_date 默认 = log_date
+    if (body.opening_qty == null && body.house_code) {
+      try {
+        const prev: Array<{ closing_qty: number }> = await this.entityManager.query(
+          `SELECT closing_qty FROM brd_daily_logs
+            WHERE house_code=$1 AND log_date < $2 AND closing_qty IS NOT NULL
+            ORDER BY log_date DESC, shift DESC LIMIT 1`,
+          [body.house_code, body.log_date],
+        );
+        if (prev.length > 0 && prev[0].closing_qty) {
+          body.opening_qty = Number(prev[0].closing_qty);
+        } else {
+          // 首日 / 无历史：从 brd_flocks.current_qty 取
+          const flockRow: Array<{ current_qty: number }> = await this.entityManager.query(
+            `SELECT current_qty FROM brd_flocks WHERE house_code=$1 OR flock_no=$1 LIMIT 1`,
+            [body.house_code],
+          );
+          if (flockRow.length > 0) body.opening_qty = Number(flockRow[0].current_qty) || 0;
+        }
+      } catch { /* 派生失败不阻塞，留 NULL */ }
+    }
+    if (body.opening_qty != null && body.closing_qty == null) {
+      body.closing_qty = Math.max(0, Number(body.opening_qty) - mortality - elimination);
+    }
+    if (body.lay_rate == null && body.closing_qty && Number(body.closing_qty) > 0 && eggs > 0) {
+      body.lay_rate = +((eggs / Number(body.closing_qty)) * 100).toFixed(2);
+    }
+    if (body.business_date == null) body.business_date = body.log_date;
 
     // 安全校验：非全局用户只能写自己农场的数据
     if (!scope.isGlobal && scope.farmCode) {

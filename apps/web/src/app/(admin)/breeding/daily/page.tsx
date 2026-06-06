@@ -33,7 +33,7 @@ import { useDictOptions } from '@/hooks/useDictOptions'; // 班次字典化
 
 // 纯数字输入列（分前后两段，中间插入淘汰数+淘汰原因）
 const FIELDS_A = ['eggs', 'dirtyEggs', 'brokenEggs', 'deaths'] as const;
-const FIELDS_B = ['feedKg', 'waterL', 'temp', 'humidity'] as const;
+const FIELDS_B = ['feedKg', 'waterL', 'selfUse', 'temp', 'humidity'] as const;
 const mkRow = (id: number, shift: string) => ({
   id,
   shift,
@@ -46,6 +46,7 @@ const mkRow = (id: number, shift: string) => ({
   // 手机端 mortality 写入的字段
   feedKg: '',
   waterL: '',
+  selfUse: '',  // G9：自用蛋数（孟赛 Excel 实有列）
   temp: '',
   humidity: '',
   remark: ''
@@ -83,7 +84,7 @@ export default function DailyPage() {
   // 移动端 mortality 写入 elimination_qty
   t('ui.淘汰原因', '淘汰原因'),
   // 移动端 mortality 写入 culling_reason
-  t('ui.饲料(kg)', '饲料(kg)'), t('ui.用水(L)', '用水(L)'), t('ui.温度(℃)', '温度(℃)'), t('ui.湿度(%)', '湿度(%)'), `${t('common.remark', '备注')}...`];
+  t('ui.饲料(kg)', '饲料(kg)'), t('ui.用水(L)', '用水(L)'), t('ui.自用蛋(枚)', '自用蛋(枚)'), t('ui.温度(℃)', '温度(℃)'), t('ui.湿度(%)', '湿度(%)'), `${t('common.remark', '备注')}...`];
   const {
     fetchRecords: fetchHouses
   } = useCrud('brd_houses');
@@ -236,6 +237,7 @@ export default function DailyPage() {
         shift: r.shift,
         feed_consumed: Number(r.feedKg) || 0,
         water_consumed: Number(r.waterL) || 0,
+        self_use_qty: Number(r.selfUse) || 0,  // G9：自用蛋数
         mortality_qty: Number(r.deaths) || 0,
         elimination_qty: Number(r.elimination) || 0,
         // 淘汰数（与手机端 mortality 字段一致）
