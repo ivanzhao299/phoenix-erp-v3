@@ -149,15 +149,45 @@ export function ShareholderSelector(p: BaseProps) {
 }
 
 // ── 用户（G4-B：申请人 / 收货人 / 经办人）─────────────────────────────────────
-/** 仅返回 status=ACTIVE 用户；value 默认是 username（与单据 requester_name 等字段一致） */
-export function UserSelector(p: BaseProps & { valueField?: 'username' | 'id' }) {
-  const { valueField = 'username', ...rest } = p;
+/**
+ * 仅返回 status=ACTIVE 用户。
+ *
+ * 数据范围（前端兜底）：
+ *   · scopeStore（默认 true）→ 仅当前登录用户同 store_code 的人
+ *   · scopeStore=false → 全集团（仅 ROLE_ADMIN 等高权限场景使用）
+ *
+ * 注：后端 /api/users 当前不做 store_code 过滤，前端兜底；
+ *     后续 MDM-3 阶段加 DataScopeGuard 时可移除前端过滤。
+ */
+export function UserSelector(p: BaseProps & {
+  valueField?: 'username' | 'id';
+  scopeStore?: boolean;  // 默认 true：同站点过滤
+}) {
+  const { valueField = 'username', scopeStore = true, ...rest } = p;
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择用户'}
     loader={async () => {
       const r = await request<any>('/users');
       const list: any[] = Array.isArray(r) ? r : (r?.data ?? []);
+      // 当前登录用户的 store_code（从 JWT/sessionStorage 取）
+      let myStore = '';
+      try {
+        const raw = typeof window !== 'undefined'
+          ? sessionStorage.getItem('phoenix_user') || localStorage.getItem('phoenix_user')
+          : null;
+        if (raw) {
+          const me = JSON.parse(raw);
+          myStore = me?.storeCode || me?.store_code || '';
+        }
+      } catch { /* */ }
+
       return list
         .filter(u => (u.status ?? 'ACTIVE') === 'ACTIVE')
+        // 站点过滤：仅显示同 store_code（或 store_code='ALL' 的全局用户）
+        .filter(u => {
+          if (!scopeStore || !myStore || myStore === 'ALL') return true;
+          const userStore = u.store_code || u.storeCode || '';
+          return userStore === myStore || userStore === 'ALL';
+        })
         .map(u => ({
           value: valueField === 'id' ? String(u.id) : u.username,
           label: `${u.real_name_zh ?? u.username}（${u.username}${u.role ? ' · ' + u.role : ''}）`,

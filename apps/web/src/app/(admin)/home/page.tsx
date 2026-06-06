@@ -69,7 +69,8 @@ function ctaFor(role: string | undefined, todo: number): { label: string; href: 
 
 // ── 主组件 ───────────────────────────────────────────
 export default function HomePage() {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
+  const hasMasterPerm = hasPermission('MENU_MASTER');
   const [summary, setSummary] = useState<WorkflowSummary | null>(null);
   const [scores, setScores] = useState<QualityScores | null>(null);
   const [centers, setCenters] = useState<CenterStat[]>([]);
@@ -131,6 +132,7 @@ export default function HomePage() {
         todoCount={todoCount}
         overdueCount={summary?.overdueTodo ?? 0}
         highAlertCount={scores?.highAlertCount ?? 0}
+        hasMasterPerm={hasMasterPerm}
       />
 
       {/* ───── 不对称双栏 ───── */}
@@ -160,10 +162,11 @@ export default function HomePage() {
 // ══════════════════════════════════════════════════════
 // Hero 欢迎横幅
 // ══════════════════════════════════════════════════════
-function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, todoCount, overdueCount, highAlertCount }: {
+function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, todoCount, overdueCount, highAlertCount, hasMasterPerm }: {
   greeting: string; userName: string; briefing: string;
   ctaLabel: string; ctaHref: string; CtaIcon: any;
   todoCount: number; overdueCount: number; highAlertCount: number;
+  hasMasterPerm: boolean;
 }) {
   return (
     <div style={{
@@ -217,14 +220,17 @@ function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, 
           }}>
             <CtaIcon size={14} /> {ctaLabel} <ArrowRight size={12} />
           </Link>
-          <Link href="/master-data" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '7px 16px', borderRadius: 8,
-            background: 'var(--bg-muted)', border: '1px solid var(--border)',
-            color: 'var(--text-primary)', fontSize: 13, fontWeight: 500, textDecoration: 'none',
-          }}>
-            <Sparkles size={12} /> 主数据中心
-          </Link>
+          {/* 主数据中心副 CTA — 仅持有 MENU_MASTER 权限的用户可见（避免普通业务员误入） */}
+          {hasMasterPerm && (
+            <Link href="/master-data" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '7px 16px', borderRadius: 8,
+              background: 'var(--bg-muted)', border: '1px solid var(--border)',
+              color: 'var(--text-primary)', fontSize: 13, fontWeight: 500, textDecoration: 'none',
+            }}>
+              <Sparkles size={12} /> 主数据中心
+            </Link>
+          )}
         </div>
       </div>
 
