@@ -102,11 +102,11 @@ export default function DailyPage() {
   const [flockByHouse, setFlockByHouse] = useState<Record<string, string>>({});
   const [farmCodeByHouse, setFarmCodeByHouse] = useState<Record<string, string>>({});
   const [formDate, setFormDate] = useState(today);
-  // 班次字典化：BRD_SHIFT (DAY/NIGHT)，与后端 sys_dict 同步
+  // 班次字典化：BRD_SHIFT，与后端 sys_dict 同步（既有 codes: MORNING/EVENING/NIGHT/DAY）
   const { optionPairs: shiftOptions } = useDictOptions('BRD_SHIFT');
   const shiftRows = shiftOptions.length > 0
     ? shiftOptions.map((opt, i) => mkRow(i + 1, opt.value))
-    : [mkRow(1, 'DAY'), mkRow(2, 'NIGHT')];
+    : [mkRow(1, 'BRD_SHIFT_MORNING'), mkRow(2, 'BRD_SHIFT_EVENING')];
   const [rows, setRows] = useState(shiftRows);
   // 字典加载完后同步 rows（首次加载从 fallback DAY/NIGHT 切到 dict 实际值）
   useEffect(() => {
@@ -286,7 +286,7 @@ export default function DailyPage() {
       setApproved(false);
       setTimeout(() => setSubmitted(false), 3000);
       if (rejected.length === 0) {
-        const codes = shiftOptions.length > 0 ? shiftOptions.map(o => o.value) : ['DAY', 'NIGHT'];
+        const codes = shiftOptions.length > 0 ? shiftOptions.map(o => o.value) : ['BRD_SHIFT_MORNING', 'BRD_SHIFT_EVENING'];
         setRows(codes.map((c, i) => mkRow(i + 1, c)));
       }
       loadData();
