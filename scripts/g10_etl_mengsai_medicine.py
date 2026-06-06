@@ -76,7 +76,7 @@ for row in ws.iter_rows(min_row=3, values_only=True):
     end_str     = row[5]   # 期末库存
 
     if not isinstance(no, (int, float)): continue
-    code = f"MED-{int(no):03d}"
+    code = f"LPH-MED-{int(no):03d}"  # G11.5：孟赛专属前缀，避免与全局 MED-* 模板冲突
     name_clean = name.strip() if name else f'未知{int(no)}'
 
     # G11：苍蝇药 AB 特殊处理 — 拆 2 个 SKU（Excel 标注 "各100袋"）
