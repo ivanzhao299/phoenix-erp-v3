@@ -2117,7 +2117,10 @@ export class GenericCrudService implements OnModuleInit {
 
     const SAFE_KEY = /^[a-zA-Z0-9_]+$/;
     for (const [key, val] of Object.entries(query)) {
-      if (['limit', 'offset', 'page', 'sortBy', 'sortDesc', '_t'].includes(key)) continue;
+      // 分页/排序/反缓存类 query param 不参与 WHERE 拼接
+      // pageSize / pageNumber 等是前端 selectors（HouseSelector 等）的约定，
+      // 漏过滤会被当列名拼到 SQL 抛 "column does not exist" 500 — 此前导致 brd_houses 下拉全空。
+      if (['limit', 'offset', 'page', 'pageSize', 'pageNumber', 'pageNo', 'size', 'sortBy', 'sortDesc', 'orderBy', 'orderDir', '_t', '_'].includes(key)) continue;
       // Support LIKE prefix filter: key ending with __like → column = key minus suffix, value used as-is
       if (key.endsWith('__like')) {
         const col = key.slice(0, -6);

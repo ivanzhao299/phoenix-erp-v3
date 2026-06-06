@@ -14,6 +14,9 @@
 -- 注 2：placement_date / 初始数量按 Excel 6.1 当日反推；批次起始信息以 Excel
 --      首日数据为依据，若真实建群日期不同，业务方应通过主数据中心修订。
 -- 注 3：fin_cash_accounts.opening_balance 一律置 0，期初余额留由现金结转单录入。
+-- 注 4：2026-06-06 同步生产 DB 真实 codes：house_code 改为 HOUSE_MS_01..06；
+--       flock_no 仍为 LPH_MS_F02..F06（与生产 + ETL 对齐）；同步镜像到
+--       apps/api/migrations/ 让 CI 测试库一同建好。
 -- ═════════════════════════════════════════════════════════════════════════════
 
 BEGIN;
@@ -25,50 +28,50 @@ WHERE NOT EXISTS (SELECT 1 FROM brd_farms WHERE farm_code='LPH_MENGSAI');
 
 -- ── 2. brd_houses（鸡舍 1-6 号） ───────────────────────────────────────────
 INSERT INTO brd_houses (house_code, house_name, farm_code, farm_name, house_type, capacity, current_birds, status, updated_at)
-SELECT 'LPH_MS_H1','1号鸡舍','LPH_MENGSAI','孟赛蛋鸡场','LAYING',45000,0,'ACTIVE',CURRENT_TIMESTAMP
-WHERE NOT EXISTS (SELECT 1 FROM brd_houses WHERE house_code='LPH_MS_H1');
+SELECT 'HOUSE_MS_01','1号鸡舍','LPH_MENGSAI','孟赛蛋鸡场','LAYING',45000,0,'ACTIVE',CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM brd_houses WHERE house_code='HOUSE_MS_01');
 
 INSERT INTO brd_houses (house_code, house_name, farm_code, farm_name, house_type, capacity, current_birds, status, updated_at)
-SELECT 'LPH_MS_H2','2号鸡舍','LPH_MENGSAI','孟赛蛋鸡场','LAYING',46000,45551,'ACTIVE',CURRENT_TIMESTAMP
-WHERE NOT EXISTS (SELECT 1 FROM brd_houses WHERE house_code='LPH_MS_H2');
+SELECT 'HOUSE_MS_02','2号鸡舍','LPH_MENGSAI','孟赛蛋鸡场','LAYING',46000,45551,'ACTIVE',CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM brd_houses WHERE house_code='HOUSE_MS_02');
 
 INSERT INTO brd_houses (house_code, house_name, farm_code, farm_name, house_type, capacity, current_birds, status, updated_at)
-SELECT 'LPH_MS_H3','3号鸡舍','LPH_MENGSAI','孟赛蛋鸡场','LAYING',40000,37336,'ACTIVE',CURRENT_TIMESTAMP
-WHERE NOT EXISTS (SELECT 1 FROM brd_houses WHERE house_code='LPH_MS_H3');
+SELECT 'HOUSE_MS_03','3号鸡舍','LPH_MENGSAI','孟赛蛋鸡场','LAYING',40000,37336,'ACTIVE',CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM brd_houses WHERE house_code='HOUSE_MS_03');
 
 INSERT INTO brd_houses (house_code, house_name, farm_code, farm_name, house_type, capacity, current_birds, status, updated_at)
-SELECT 'LPH_MS_H4','4号鸡舍','LPH_MENGSAI','孟赛蛋鸡场','LAYING',45000,43816,'ACTIVE',CURRENT_TIMESTAMP
-WHERE NOT EXISTS (SELECT 1 FROM brd_houses WHERE house_code='LPH_MS_H4');
+SELECT 'HOUSE_MS_04','4号鸡舍','LPH_MENGSAI','孟赛蛋鸡场','LAYING',45000,43816,'ACTIVE',CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM brd_houses WHERE house_code='HOUSE_MS_04');
 
 INSERT INTO brd_houses (house_code, house_name, farm_code, farm_name, house_type, capacity, current_birds, status, updated_at)
-SELECT 'LPH_MS_H5','5号鸡舍','LPH_MENGSAI','孟赛蛋鸡场','LAYING',44000,42368,'ACTIVE',CURRENT_TIMESTAMP
-WHERE NOT EXISTS (SELECT 1 FROM brd_houses WHERE house_code='LPH_MS_H5');
+SELECT 'HOUSE_MS_05','5号鸡舍','LPH_MENGSAI','孟赛蛋鸡场','LAYING',44000,42368,'ACTIVE',CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM brd_houses WHERE house_code='HOUSE_MS_05');
 
 INSERT INTO brd_houses (house_code, house_name, farm_code, farm_name, house_type, capacity, current_birds, status, updated_at)
-SELECT 'LPH_MS_H6','6号鸡舍','LPH_MENGSAI','孟赛蛋鸡场','LAYING',43000,41500,'ACTIVE',CURRENT_TIMESTAMP
-WHERE NOT EXISTS (SELECT 1 FROM brd_houses WHERE house_code='LPH_MS_H6');
+SELECT 'HOUSE_MS_06','6号鸡舍','LPH_MENGSAI','孟赛蛋鸡场','LAYING',43000,41500,'ACTIVE',CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM brd_houses WHERE house_code='HOUSE_MS_06');
 
 -- ── 3. brd_flocks（鸡群 — 5 群，2-6 号舍各 1） ───────────────────────────
 -- placement_date 反推自 Excel 2026-06-01 当日"日龄"列
 -- 注：本地 brd_flocks schema 无 farm_name 字段（与生产环境差异），故不写入
 INSERT INTO brd_flocks (flock_no, house_code, farm_code, strain, placement_date, placement_age, initial_qty, current_qty, status, start_date, target_weeks)
-SELECT 'LPH_MS_F02','LPH_MS_H2','LPH_MENGSAI','海兰褐','2025-10-06',1,45600,45551,'ACTIVE','2025-10-06',80
+SELECT 'LPH_MS_F02','HOUSE_MS_02','LPH_MENGSAI','海兰褐','2025-10-06',1,45600,45551,'ACTIVE','2025-10-06',80
 WHERE NOT EXISTS (SELECT 1 FROM brd_flocks WHERE flock_no='LPH_MS_F02');
 
 INSERT INTO brd_flocks (flock_no, house_code, farm_code, strain, placement_date, placement_age, initial_qty, current_qty, status, start_date, target_weeks)
-SELECT 'LPH_MS_F03','LPH_MS_H3','LPH_MENGSAI','海兰褐','2025-07-06',1,37500,37336,'ACTIVE','2025-07-06',80
+SELECT 'LPH_MS_F03','HOUSE_MS_03','LPH_MENGSAI','海兰褐','2025-07-06',1,37500,37336,'ACTIVE','2025-07-06',80
 WHERE NOT EXISTS (SELECT 1 FROM brd_flocks WHERE flock_no='LPH_MS_F03');
 
 INSERT INTO brd_flocks (flock_no, house_code, farm_code, strain, placement_date, placement_age, initial_qty, current_qty, status, start_date, target_weeks)
-SELECT 'LPH_MS_F04','LPH_MS_H4','LPH_MENGSAI','海兰褐','2025-07-06',1,44000,43816,'ACTIVE','2025-07-06',80
+SELECT 'LPH_MS_F04','HOUSE_MS_04','LPH_MENGSAI','海兰褐','2025-07-06',1,44000,43816,'ACTIVE','2025-07-06',80
 WHERE NOT EXISTS (SELECT 1 FROM brd_flocks WHERE flock_no='LPH_MS_F04');
 
 INSERT INTO brd_flocks (flock_no, house_code, farm_code, strain, placement_date, placement_age, initial_qty, current_qty, status, start_date, target_weeks)
-SELECT 'LPH_MS_F05','LPH_MS_H5','LPH_MENGSAI','海兰褐','2025-12-24',1,42500,42368,'ACTIVE','2025-12-24',80
+SELECT 'LPH_MS_F05','HOUSE_MS_05','LPH_MENGSAI','海兰褐','2025-12-24',1,42500,42368,'ACTIVE','2025-12-24',80
 WHERE NOT EXISTS (SELECT 1 FROM brd_flocks WHERE flock_no='LPH_MS_F05');
 
 INSERT INTO brd_flocks (flock_no, house_code, farm_code, strain, placement_date, placement_age, initial_qty, current_qty, status, start_date, target_weeks)
-SELECT 'LPH_MS_F06','LPH_MS_H6','LPH_MENGSAI','海兰褐','2025-12-24',1,41700,41500,'ACTIVE','2025-12-24',80
+SELECT 'LPH_MS_F06','HOUSE_MS_06','LPH_MENGSAI','海兰褐','2025-12-24',1,41700,41500,'ACTIVE','2025-12-24',80
 WHERE NOT EXISTS (SELECT 1 FROM brd_flocks WHERE flock_no='LPH_MS_F06');
 
 -- ── 4. mst_products（饲料 7 + 蛋托 1 + 柴油 1） ──────────────────────────
