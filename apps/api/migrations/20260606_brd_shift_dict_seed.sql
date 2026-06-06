@@ -19,16 +19,15 @@ BEGIN
     RETURN;
   END IF;
 
+  -- sys_dict 表无 (dict_code, dict_type) unique 约束 → 用 WHERE NOT EXISTS 兜底
+  -- 与 20260605_glp1a2_production_extension.sql 风格一致。
   EXECUTE $$INSERT INTO sys_dict (dict_code, dict_type, dict_label_zh, dict_label_lo, dict_label_en, sort_no, status)
-            VALUES
-              ('DAY',   'BRD_SHIFT', '早班', 'ກະເຊົ້າ', 'Day shift',   10, 'ACTIVE'),
-              ('NIGHT', 'BRD_SHIFT', '晚班', 'ກະຄ່ຳ',  'Night shift', 20, 'ACTIVE')
-            ON CONFLICT (dict_code, dict_type) DO UPDATE
-              SET dict_label_zh = EXCLUDED.dict_label_zh,
-                  dict_label_lo = EXCLUDED.dict_label_lo,
-                  dict_label_en = EXCLUDED.dict_label_en,
-                  sort_no       = EXCLUDED.sort_no,
-                  status        = 'ACTIVE'$$;
+            SELECT 'DAY', 'BRD_SHIFT', '早班', 'ກະເຊົ້າ', 'Day shift', 10, 'ACTIVE'
+            WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE dict_code='DAY' AND dict_type='BRD_SHIFT')$$;
+
+  EXECUTE $$INSERT INTO sys_dict (dict_code, dict_type, dict_label_zh, dict_label_lo, dict_label_en, sort_no, status)
+            SELECT 'NIGHT', 'BRD_SHIFT', '晚班', 'ກະຄ່ຳ', 'Night shift', 20, 'ACTIVE'
+            WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE dict_code='NIGHT' AND dict_type='BRD_SHIFT')$$;
 
   RAISE NOTICE '[brd_shift_dict_seed] BRD_SHIFT 2 档 DAY/NIGHT 已 seed';
 END $body$;
