@@ -8,30 +8,41 @@ import {
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { ClsService } from 'nestjs-cls';
-// 2026-06-06 G5-A：弃用静态 rbac.matrix.ts 路径，改纯走 JWT.permissions (来自
-// sys_role_menu_permission 表，登录时由 auth.service 解析合并)。矩阵已通过
-// 20260606_g5a_rbac_matrix_backfill.sql 全量 seed 进 DB，自定义角色与老角色等同对待。
-// G5-A++（2026-06-06）：isMenuRegistered 改读 sys_menu 启动期缓存（menu-registry.service），
-// 不再读 rbac.matrix.ts。rbac.matrix.ts 仅保留作 seed 历史源。
 import { isMenuRegistered } from './menu-registry.service';
+import { hasPerm, PermCode } from '../../auth/permissions.util';
 
-// === Decorators ===
+/**
+ * MenuGuard — RBAC 权限守卫（G6 收紧 · 2026-06-06）
+ * ════════════════════════════════════════════════════════════════════════
+ * 唯一权威源：JWT.permissions 字符串数组（来自 sys_role_menu_permission DB 表，
+ * auth.service 登录时由 permissions-resolver 合并产出）。
+ *
+ * 已弃用：编译时 rbac.matrix.ts（G5-A 切动态后整文件 G6 删除）。
+ *
+ * 流程：
+ *   1. @Public()              → 直接放行
+ *   2. JWT 失败               → 401
+ *   3. 无 @RequireMenu         → 仅需登录即可
+ *   4. menu_code 未注册        → 403 MENU_PERMISSION_NOT_REGISTERED
+ *   5. JWT.permissions 不含    → 403 MENU_PERMISSION_DENIED
+ *   6. 命中 / '*' 通配         → 放行
+ */
+
 export const REQUIRE_MENU_KEY = 'require_menu';
 export const IS_PUBLIC_KEY = 'is_public';
 
 export interface MenuRequirement {
   menu: string;
-  perm: 'V' | 'C' | 'E' | 'D' | 'A' | 'X';
+  perm: PermCode;
 }
 
 /** @RequireMenu('MENU_FARM_DATA', 'V') */
-export const RequireMenu = (menu: string, perm: MenuRequirement['perm']) =>
+export const RequireMenu = (menu: string, perm: PermCode) =>
   SetMetadata(REQUIRE_MENU_KEY, { menu, perm });
 
 /** @Public() — 无需 Token 的公开接口 */
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
-// === Guard ===
 @Injectable()
 export class MenuGuard extends AuthGuard('jwt') implements CanActivate {
   constructor(
@@ -42,50 +53,35 @@ export class MenuGuard extends AuthGuard('jwt') implements CanActivate {
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // 公开接口直接放行
+    // 1. 公开接口直接放行
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
     if (isPublic) return true;
 
-    // JWT 校验
+    // 2. JWT 校验
     const isAuthenticated = await super.canActivate(context);
     if (!isAuthenticated) return false;
 
-    // 将已验证的用户写入 CLS，使 Service 层可通过 cls.get('user.*') 读取
+    // 写 user 到 CLS 供 service 层 cls.get('user.*') 用
     const req = context.switchToHttp().getRequest();
     if (req.user) this.cls.set('user', req.user);
 
-    // 无 @RequireMenu → 仅需登录
+    // 3. 无 @RequireMenu → 仅需登录
     const requirement = this.reflector.get<MenuRequirement>(REQUIRE_MENU_KEY, context.getHandler());
     if (!requirement) return true;
 
     const user = req.user;
     if (!user) throw new ForbiddenException('User context not found.');
 
-    // 检查 MENU 是否注册（防止裸接口穿越）
-    // 注：isMenuRegistered 目前仍读 rbac.matrix.ts。下一步可改读启动期缓存的
-    // sys_menu 表使其与 DB 完全同步；但矩阵已通过 g5a backfill 与 DB 数据一致，
-    // 当前不阻塞 RBAC 校验，留 G5-A Step 3 处理。
+    // 4. menu_code 注册检查（防裸接口穿越，源 = sys_menu 启动期缓存）
     if (!isMenuRegistered(requirement.menu)) {
       throw new ForbiddenException('MENU_PERMISSION_NOT_REGISTERED');
     }
 
-    // ──────────────────────────────────────────────────────────────────
-    // 唯一权威源：JWT.permissions （来自 sys_role_menu_permission 表，
-    // 登录时由 auth.service.permissions-resolver 解析合并）。
-    // 格式：['MENU_FARM_DATA:V', 'MENU_PROD_INBOUND:V,C,E', '*']
-    // - '*' 表示超管全权（admin）
-    // - 'MENU_XXX:V,C,E' 表示对该菜单的 V/C/E 操作有权限
-    // ──────────────────────────────────────────────────────────────────
-    const perms: string[] = Array.isArray(user.permissions) ? user.permissions : [];
-    if (perms.includes('*')) return true;
-    const entry = perms.find(p => p.startsWith(requirement.menu + ':'));
-    if (entry) {
-      const granted = (entry.split(':')[1] || '').split(',').map(s => s.trim());
-      if (granted.includes(requirement.perm)) return true;
-    }
+    // 5. RBAC 检查（统一 util）
+    if (hasPerm(user.permissions, requirement.menu, requirement.perm)) return true;
 
     throw new ForbiddenException('MENU_PERMISSION_DENIED');
   }

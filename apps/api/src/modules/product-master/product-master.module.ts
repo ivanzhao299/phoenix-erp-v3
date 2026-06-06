@@ -5,6 +5,7 @@ import { PackagingSpecsController } from './controllers/packaging-specs.controll
 import { ProductSkusController } from './controllers/product-skus.controller';
 import { ProductCatalogController } from './controllers/product-catalog.controller';
 import { LookupController } from './controllers/lookup.controller';
+import { MenuAdminController } from './controllers/menu-admin.controller';
 
 /**
  * ProductMasterModule — Phase H2
@@ -24,6 +25,7 @@ import { LookupController } from './controllers/lookup.controller';
     ProductSkusController,
     ProductCatalogController,
     LookupController,
+    MenuAdminController,
   ],
   providers: [ProductMasterService],
   exports: [ProductMasterService],

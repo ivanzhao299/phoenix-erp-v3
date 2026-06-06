@@ -36,6 +36,17 @@ export const ALLOWED_TABLES = [
 ];
 
 
+/**
+ * @deprecated G6 收紧（2026-06-06）— 硬编码角色白名单，与 sys_role_menu_permission 双轨。
+ *
+ * 自定义角色（如孟赛生产数据主管）无 TABLE_PERM_MAP 记录 → 走 generic-crud.controller
+ * RBAC fallback（按表名前缀映射 menu_code → JWT.permissions 检查）即可放行。
+ *
+ * 计划：
+ *   - 现状：fallback 优先级低于此白名单，老角色行为不变
+ *   - G6+ 1 月：所有表确认走 tableToFallbackMenu 覆盖后，本常量整段删除
+ *   - 新业务不要往这里加表 — 加在 tableToFallbackMenu 即可
+ */
 export const TABLE_PERM_MAP: Record<string, string[]> = {
   // 系统管理（仅管理员）— V2 历史名（兼容老 settings/* 页面）
   sys_users:        ['ROLE_ADMIN', 'ROLE_HR_ADMIN', 'ROLE_SYSOPS'],

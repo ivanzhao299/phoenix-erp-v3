@@ -15,6 +15,7 @@ import {
 import { GenericCrudService } from './generic-crud.service';
 import { AuthGuard } from '@nestjs/passport';
 import { ALLOWED_TABLES, TABLE_PERM_MAP } from './crud.constants';
+import { hasPerm, PermCode } from '../../auth/permissions.util';
 
 @Controller('api/crud')
 @UseGuards(AuthGuard('jwt'))
@@ -94,20 +95,14 @@ export class GenericCrudController {
     if (hasAccess) return;
 
     // ──────────────────────────────────────────────────────────────────
-    // RBAC fallback（2026-06-06）：原硬编码 TABLE_PERM_MAP 角色白名单与
-    // sys_role_menu_permission 矩阵脱钩，导致新自定义角色（如
-    // ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR）即便在 RBAC 中有相关菜单
-    // V/C/E 权限，也被硬白名单 403。
-    // 兜底：按表名前缀映射到业务菜单 menu_code，若用户持有对应权限即放行。
+    // G6 收紧：RBAC fallback 用统一 util hasPerm（与 MenuGuard 同源）
+    // TABLE_PERM_MAP 是历史硬编码白名单，已 @deprecated，未来移除；
+    // 业务上所有 generic-crud 访问只需 menu_code → JWT.permissions 链路即可。
     // ──────────────────────────────────────────────────────────────────
     const fallbackMenu = this.tableToFallbackMenu(table);
     if (fallbackMenu) {
-      const requiredOp = method === 'GET' ? 'V' : method === 'POST' ? 'C' : 'E';
-      const entry = perms.find(p => p.startsWith(fallbackMenu + ':'));
-      if (entry) {
-        const granted = (entry.split(':')[1] || '').split(',').map(s => s.trim());
-        if (granted.includes(requiredOp)) return;
-      }
+      const requiredOp: PermCode = method === 'GET' ? 'V' : method === 'POST' ? 'C' : 'E';
+      if (hasPerm(perms, fallbackMenu, requiredOp)) return;
     }
 
     throw new ForbiddenException(`权限不足：您的角色无权访问 [${table}] 表`);
