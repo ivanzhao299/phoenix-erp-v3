@@ -4,6 +4,7 @@ import { ProductGradesController } from './controllers/product-grades.controller
 import { PackagingSpecsController } from './controllers/packaging-specs.controller';
 import { ProductSkusController } from './controllers/product-skus.controller';
 import { ProductCatalogController } from './controllers/product-catalog.controller';
+import { LookupController } from './controllers/lookup.controller';
 
 /**
  * ProductMasterModule — Phase H2
@@ -22,6 +23,7 @@ import { ProductCatalogController } from './controllers/product-catalog.controll
     PackagingSpecsController,
     ProductSkusController,
     ProductCatalogController,
+    LookupController,
   ],
   providers: [ProductMasterService],
   exports: [ProductMasterService],

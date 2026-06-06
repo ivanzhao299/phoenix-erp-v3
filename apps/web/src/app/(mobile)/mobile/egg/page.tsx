@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import {
@@ -10,6 +10,7 @@ import {
 import { mobileApi, EggStockRow, EggLedgerEntry, FarmCustomer } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { useProductGrades } from '@/hooks/useProductGrades';
 
 function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -22,16 +23,8 @@ function toDate(s: string): Date {
   return new Date(y, m - 1, d);
 }
 
-const EGG_GRADES = [
-  { code: '0', name: '0号蛋' },
-  { code: '1', name: '1号蛋' },
-  { code: '2', name: '2号蛋' },
-  { code: '3', name: '3号蛋' },
-  { code: '4', name: '4号蛋' },
-  { code: '5', name: '5号蛋' },
-  { code: 'DIRTY',  name: '脏蛋'  },
-  { code: 'BROKEN', name: '破损蛋' },
-];
+// 历史：硬编码 0-5/DIRTY/BROKEN 已废，等级改从 product_grades 主数据动态拉
+// （见组件内 useProductGrades）— 与 inv_batches.grade_code_std 同源。
 
 type Tab = 'stock' | 'inbound' | 'outbound';
 
@@ -62,6 +55,12 @@ export default function EggPage() {
   const today  = fmtDate(new Date());
   const { isDark, toggle, t } = useMobileTheme();
   const { allowed, loading: permLoading, readonly } = useMobilePermission('egg');
+
+  const { grades: productGrades } = useProductGrades();
+  const EGG_GRADES = useMemo(
+    () => productGrades.map(g => ({ code: g.grade_code, name: g.grade_name })),
+    [productGrades]
+  );
 
   const [tab, setTab]     = useState<Tab>('stock');
   const [date, setDate]   = useState(today);

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useProductGrades } from '@/hooks/useProductGrades';
 import { RefreshCw } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import LegacyFreezeBanner from '@/components/LegacyFreezeBanner';
@@ -55,31 +56,8 @@ interface FarmCustomer {
   customer_code: string;
   customer_name: string;
 }
-const EGG_GRADES = [{
-  code: '0',
-  name: '0号蛋'
-}, {
-  code: '1',
-  name: '1号蛋'
-}, {
-  code: '2',
-  name: '2号蛋'
-}, {
-  code: '3',
-  name: '3号蛋'
-}, {
-  code: '4',
-  name: '4号蛋'
-}, {
-  code: '5',
-  name: '5号蛋'
-}, {
-  code: 'DIRTY',
-  name: '脏蛋'
-}, {
-  code: 'BROKEN',
-  name: '破损蛋'
-}];
+// 历史：硬编码 0-5/DIRTY/BROKEN 已废，等级改从 product_grades 主数据动态拉
+// （见组件内 useProductGrades）— 与 inv_batches.grade_code_std 同源。
 const today = () => new Date().toISOString().slice(0, 10);
 type Tab = 'stock' | 'inbound' | 'outbound' | 'writeoff' | 'ledger';
 
@@ -107,6 +85,12 @@ export default function EggLedgerPage() {
     t
   } = useLanguage();
   const canEdit = can(['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_WMS_MGR']);
+  // 全档展示（入库/出库/报损都需要包含脏/破/损等不可销售档）
+  const { grades: productGrades } = useProductGrades();
+  const EGG_GRADES = useMemo(
+    () => productGrades.map(g => ({ code: g.grade_code, name: g.grade_name })),
+    [productGrades]
+  );
   const [tab, setTab] = useState<Tab>('stock');
   const [stock, setStock] = useState<EggStock[]>([]);
   const [ledger, setLedger] = useState<EggLedger[]>([]);

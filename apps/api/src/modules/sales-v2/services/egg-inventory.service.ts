@@ -84,12 +84,41 @@ const EXPIRING_WARN_DAYS = 7;
 export class EggInventoryService {
   private readonly logger = new Logger(EggInventoryService.name);
 
+  /** 等级缓存：5 分钟 TTL，运维改 product_grades 后 ≤5min 生效 */
+  private _gradeCache: { codes: string[]; expireAt: number } = { codes: [], expireAt: 0 };
+
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly cls: ClsService,
   ) {}
 
   // ── 内部工具 ─────────────────────────────────────────────────────────────────
+
+  /**
+   * 从 product_grades 主数据动态读取合法等级集合（带 5min 缓存）。
+   * 兼容历史：若旧批次写入了 0-5 数字蛋档（P1A 临时生产入库遗留），
+   * 这些值已不在 product_grades 中 → 新写入会被拦截，旧批次读取不受影响。
+   */
+  private async getValidGrades(): Promise<string[]> {
+    const now = Date.now();
+    if (this._gradeCache.codes.length > 0 && this._gradeCache.expireAt > now) {
+      return this._gradeCache.codes;
+    }
+    try {
+      const rows: Array<{ grade_code: string }> = await this.ds.query(
+        `SELECT grade_code FROM product_grades WHERE status='ACTIVE' ORDER BY sort_order`,
+      );
+      const codes = rows.map(r => r.grade_code).filter(Boolean);
+      if (codes.length > 0) {
+        this._gradeCache = { codes, expireAt: now + 5 * 60 * 1000 };
+        return codes;
+      }
+    } catch (e) {
+      this.logger.warn(`getValidGrades fallback to defaults: ${(e as Error).message}`);
+    }
+    // 兜底（product_grades 表不可用 / CI 测试库）：返回 product_grades seed 同款 8 档
+    return ['AA', 'A', 'B', 'C', 'DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'];
+  }
 
   private get operator(): string {
     try { return (this.cls.get('user') as any)?.username ?? 'system'; } catch { return 'system'; }
@@ -229,8 +258,9 @@ export class EggInventoryService {
       };
     }
 
-    // 质量等级校验（Phase 1 纳入包装等级体系 C/BROKEN；P1A 纳入农场数字蛋等级 0-5 以支持临时生产入库）
-    const validGrades = ['AA', 'A', 'B', 'C', '0', '1', '2', '3', '4', '5', 'DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'];
+    // 质量等级校验（2026-06-06 收口）：从 product_grades 权威源动态读取，弃用
+    // 硬编码 14 档混杂表（含历史遗留 0-5 数字蛋档）。带 5 分钟模块级缓存。
+    const validGrades = await this.getValidGrades();
     const grade = params.qualityGrade ?? 'A';
     if (!validGrades.includes(grade)) {
       throw new BadRequestException(`无效的质量等级: ${grade}，有效值：${validGrades.join('/')}`);

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Egg, Save, RefreshCw, AlertTriangle, Package } from "lucide-react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
-import { useDictOptions } from "@/hooks/useDictOptions";
+import { useProductGrades } from "@/hooks/useProductGrades";
 import PageHeader from "@/components/PageHeader";
 import request from "@/lib/api-client";
 
@@ -14,20 +14,10 @@ import request from "@/lib/api-client";
  * 直接形成 Sales V2 销售库存（EGG-YYYYMMDD-*，change_type=TEMP_PRODUCTION_INBOUND）。
  * 包装入库模式（PACKAGING_INBOUND）下禁用，提示改走包装作业中心。
  *
- * 等级来源：sys_dict.PKG_EGG_GRADE（XL/L/M/S/XS/DIRTY/BROKEN）— 后端动态拉取，
- * 字典加载失败时回退到内置 7 档以保证可用性。
+ * 等级来源：product_grades 主数据表（AA/A/B/C/DIRTY/CRACKED/BROKEN/DAMAGED）—
+ * 与 inv_batches.grade_code_std / packaging.service 同源，杜绝多源漂移。
  */
 import u from "@/styles/uix-utils.module.css";
-
-const FALLBACK_GRADES = [
-  { value: "XL", label: "特大蛋" },
-  { value: "L", label: "一号蛋" },
-  { value: "M", label: "二号蛋" },
-  { value: "S", label: "三号蛋" },
-  { value: "XS", label: "四号蛋" },
-  { value: "DIRTY", label: "脏蛋" },
-  { value: "BROKEN", label: "破损蛋" },
-];
 
 function today() {
   const d = new Date();
@@ -38,11 +28,11 @@ export default function DailyInboundPage() {
     canView,
     canCreate
   } = usePermission("MENU_PROD_INBOUND");
-  const { optionPairs: dictGrades, loading: dictLoading } = useDictOptions("PKG_EGG_GRADE");
-  const grades = dictGrades.length > 0 ? dictGrades : FALLBACK_GRADES;
+  // 日产蛋入库默认仅展示可销售等级（脏/裂/破/损走另外的次品/废损通道）
+  const { grades: productGrades, loading: gradesLoading } = useProductGrades({ onlySaleable: true });
   const labelMap = useMemo(
-    () => Object.fromEntries(grades.map(g => [g.value, g.label])),
-    [grades]
+    () => Object.fromEntries(productGrades.map(g => [g.grade_code, g.grade_name])),
+    [productGrades]
   );
   const [mode, setMode] = useState<string>("");
   const [loadingMode, setLoadingMode] = useState(true);
@@ -75,15 +65,15 @@ export default function DailyInboundPage() {
   useEffect(() => {
     if (canView) loadMode();
   }, [canView, loadMode]);
-  const totalQty = grades.reduce((s, g) => s + (Number(qtyMap[g.value]) || 0), 0);
-  const filledRows = grades.filter(g => Number(qtyMap[g.value]) > 0).length;
+  const totalQty = productGrades.reduce((s, g) => s + (Number(qtyMap[g.grade_code]) || 0), 0);
+  const filledRows = productGrades.filter(g => Number(qtyMap[g.grade_code]) > 0).length;
   const isPackagingMode = mode === "PACKAGING_INBOUND";
   const submit = async () => {
     setError("");
     setResult(null);
-    const items = grades
-      .filter(g => Number(qtyMap[g.value]) > 0)
-      .map(g => ({ grade: g.value, qty: Number(qtyMap[g.value]) }));
+    const items = productGrades
+      .filter(g => Number(qtyMap[g.grade_code]) > 0)
+      .map(g => ({ grade: g.grade_code, qty: Number(qtyMap[g.grade_code]) }));
     if (items.length === 0) {
       setError("请至少录入一档数量");
       return;
@@ -236,7 +226,7 @@ export default function DailyInboundPage() {
             fontSize: 20,
             fontWeight: 700,
             color: "var(--text-primary)"
-          }}>{filledRows} / {grades.length}</div></div>
+          }}>{filledRows} / {productGrades.length}</div></div>
             <div><span className={u.muted12}>合计入库（枚）</span><div style={{
             fontSize: 20,
             fontWeight: 700,
@@ -249,7 +239,7 @@ export default function DailyInboundPage() {
           }}>{Math.floor(totalQty / 180).toLocaleString()}</div></div>
           </div>
 
-          {/* 明细表 — 后端 PKG_EGG_GRADE 字典全档预渲染 */}
+          {/* 明细表 — product_grades 主数据全档可售等级预渲染 */}
           <div className="bg-bg-card border border-border" style={{
         borderRadius: 10,
         overflow: "hidden",
@@ -286,32 +276,32 @@ export default function DailyInboundPage() {
                 </tr>
               </thead>
               <tbody>
-                {dictLoading && dictGrades.length === 0 ? (
+                {gradesLoading && productGrades.length === 0 ? (
                   <tr><td colSpan={3} style={{
                     padding: "16px 14px",
                     color: "var(--text-secondary)",
                     fontSize: 13
-                  }}>加载等级字典中…</td></tr>
-                ) : grades.map(g => (
-                  <tr key={g.value} style={{ borderTop: "1px solid var(--border)" }}>
+                  }}>加载等级主数据中…</td></tr>
+                ) : productGrades.map(g => (
+                  <tr key={g.grade_code} style={{ borderTop: "1px solid var(--border)" }}>
                     <td style={{
                       padding: "8px 14px",
                       fontWeight: 500,
                       color: "var(--text-primary)"
-                    }}>{g.label}</td>
+                    }}>{g.grade_name}</td>
                     <td style={{
                       padding: "8px 14px",
                       fontFamily: "monospace",
                       color: "var(--text-secondary)",
                       fontSize: 12
-                    }}>{g.value}</td>
+                    }}>{g.grade_code}</td>
                     <td style={{ padding: "8px 14px" }}>
                       <input
                         type="number"
                         min={0}
                         inputMode="numeric"
-                        value={qtyMap[g.value] ?? ""}
-                        onChange={e => setQtyMap(m => ({ ...m, [g.value]: e.target.value }))}
+                        value={qtyMap[g.grade_code] ?? ""}
+                        onChange={e => setQtyMap(m => ({ ...m, [g.grade_code]: e.target.value }))}
                         placeholder="0"
                         className="bg-bg-muted border border-border text-text"
                         style={{

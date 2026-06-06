@@ -1762,10 +1762,44 @@ export class PackagingTerminalBffController {
       'QC_INSPECT_TYPE', 'QC_INSPECT_CATEGORY', 'QC_NC_SOURCE',
       'PRD_PRODUCT_GRADE', 'PRD_PRODUCT_TYPE',
     ];
-    const requested = (typesParam || '').split(',').map(t => t.trim()).filter(t => allowedTypes.includes(t));
+    let requested = (typesParam || '').split(',').map(t => t.trim()).filter(t => allowedTypes.includes(t));
     if (requested.length === 0) {
       return { code: 200, data: {} };
     }
+    const result: Record<string, any[]> = {};
+
+    // 2026-06-06 收口：PKG_EGG_GRADE 改读 product_grades 主数据，
+    // 与 inv_batches.grade_code_std / terminal.service / packaging.service 同源，
+    // 杜绝 sys_dict.PKG_EGG_GRADE（XL/L/M/S/XS）与 product_grades（AA/A/B/C/...）漂移。
+    if (requested.includes('PKG_EGG_GRADE')) {
+      const gradeRows: Array<{
+        grade_code: string; grade_name: string; grade_name_lo: string | null;
+        sort_order: number; is_saleable: boolean; is_storable: boolean;
+      }> = await this.safe(
+        this.em.query(
+          `SELECT grade_code, grade_name, grade_name_lo, sort_order, is_saleable, is_storable
+             FROM product_grades WHERE status='ACTIVE' ORDER BY sort_order, grade_code`,
+        ),
+        [] as any[],
+      );
+      result['PKG_EGG_GRADE'] = gradeRows.map(r => ({
+        code:            r.grade_code,
+        label:           r.grade_name,
+        labelLo:         r.grade_name_lo || '',
+        sortNo:          r.sort_order,
+        terminalCode:    r.grade_code,
+        isTerminalGrade: true,
+        saleable:        r.is_saleable,
+        storable:        r.is_storable,
+        icon:            '🥚',
+      }));
+      requested = requested.filter(t => t !== 'PKG_EGG_GRADE');
+    }
+
+    if (requested.length === 0) {
+      return { code: 200, data: result };
+    }
+
     const placeholders = requested.map((_, i) => `$${i + 1}`).join(',');
     const rows = await this.safe(
       this.em.query(
@@ -1778,7 +1812,6 @@ export class PackagingTerminalBffController {
       [] as any[],
     );
     // 按 dict_type 分组返回
-    const result: Record<string, any[]> = {};
     for (const row of rows) {
       if (!result[row.dict_type]) result[row.dict_type] = [];
       let cfg: any = {};

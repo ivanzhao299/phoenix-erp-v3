@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, ChevronLeft, ChevronRight, ShoppingCart, List, X, Sun, Moon } from 'lucide-react';
 import { mobileApi, FarmCustomer, FarmSaleRecord, FarmSaleItem } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
+import { useProductGrades } from '@/hooks/useProductGrades';
 import { MobilePageSkeleton, SkeletonCard, MobileEmptyState } from '@/components/mobile/MobileSkeleton';
 import { useToast } from '@/contexts/ToastContext';
 import { haptic } from '@/lib/haptic';
@@ -25,31 +26,8 @@ function fmtMoney(n: number): string {
     maximumFractionDigits: 0
   });
 }
-const EGG_GRADES = [{
-  code: '0',
-  name: '0号蛋'
-}, {
-  code: '1',
-  name: '1号蛋'
-}, {
-  code: '2',
-  name: '2号蛋'
-}, {
-  code: '3',
-  name: '3号蛋'
-}, {
-  code: '4',
-  name: '4号蛋'
-}, {
-  code: '5',
-  name: '5号蛋'
-}, {
-  code: 'DIRTY',
-  name: '脏蛋'
-}, {
-  code: 'BROKEN',
-  name: '破损蛋'
-}];
+// 历史：硬编码 0-5/DIRTY/BROKEN 已废，等级改从 product_grades 主数据动态拉
+// （见组件内 useProductGrades）— 与 inv_batches.grade_code_std 同源。
 type Tab = 'new' | 'history';
 
 // 每个规格的录入状态
@@ -75,6 +53,11 @@ export default function SalesPage() {
     readonly
   } = useMobilePermission('sales');
   const toast = useToast();
+  const { grades: productGrades } = useProductGrades();
+  const EGG_GRADES = useMemo(
+    () => productGrades.map(g => ({ code: g.grade_code, name: g.grade_name })),
+    [productGrades]
+  );
   const [tab, setTab] = useState<Tab>('new');
   const [date, setDate] = useState(today);
   const isToday = date === today;
