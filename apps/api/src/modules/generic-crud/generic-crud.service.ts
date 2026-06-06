@@ -1747,39 +1747,15 @@ export class GenericCrudService implements OnModuleInit {
       }
       console.log('✅ Phase 3: All business tables verified / created successfully.');
 
-      const farmCode = 'FARM-01';
-
-      await this.entityManager.query(`
-        INSERT INTO brd_farms (farm_code, farm_name, location, status)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (farm_code) DO NOTHING
-      `, [farmCode, '凤羽一号基地', '老挝万象生态农业园', 'ACTIVE']);
-
-      const houses = [
-        { code: 'A001', name: '一号鸡舍', capacity: 50000 },
-        { code: 'A002', name: '二号鸡舍', capacity: 50000 },
-        { code: 'A003', name: '三号鸡舍', capacity: 50000 },
-        { code: 'A004', name: '四号鸡舍', capacity: 50000 },
-        { code: 'A005', name: '五号鸡舍', capacity: 50000 },
-        { code: 'A006', name: '六号鸡舍', capacity: 50000 },
-        { code: 'B001', name: '七号鸡舍', capacity: 60000 },
-      ];
-
-      for (const h of houses) {
-        await this.entityManager.query(`
-          INSERT INTO brd_houses (house_code, house_name, farm_code, capacity, status)
-          VALUES ($1, $2, $3, $4, $5)
-          ON CONFLICT (house_code) DO UPDATE SET house_name = EXCLUDED.house_name, capacity = EXCLUDED.capacity
-        `, [h.code, h.name, farmCode, h.capacity, 'ACTIVE']);
-
-        const flockNo = `FLK-${h.code}-${new Date().getFullYear()}`;
-        await this.entityManager.query(`
-          INSERT INTO brd_flocks (flock_no, house_code, farm_code, strain, placement_date, placement_age, initial_qty, current_qty, status)
-          VALUES ($1, $2, $3, $4, CURRENT_DATE - interval '100 days', $5, $6, $6, $7)
-          ON CONFLICT (flock_no) DO NOTHING
-        `, [flockNo, h.code, farmCode, 'Hy-Line Brown', 1, h.capacity, 'ACTIVE']);
-      }
-      console.log('✅ Phase 10E Breeding Data Onboarding completed successfully!');
+      // ──────────────────────────────────────────────────────────────────────
+      // 已禁用（2026-06-06 由 audit 发现）：
+      //   原 Phase 10E 每次启动 INSERT brd_farms FARM-01 / brd_houses A001-B001
+      //   + brd_flocks FLK-*-2026，**ON CONFLICT DO UPDATE** 覆盖删除/编辑。
+      //   导致：业务方在主数据中心删的鸡舍每次 API 重启又自动回来；mapped_site_code
+      //   等 MDM-1 后人工补的字段被覆盖为 NULL。
+      //   主数据应当由业务方通过 /master-data 中心人工维护，不应靠启动 seed。
+      // ──────────────────────────────────────────────────────────────────────
+      console.log('⏭️  Phase 10E Breeding seed skipped (manual maintenance via /master-data)');
     } catch (e) {
       console.error('❌ Failed to execute Phase 10E Onboarding:', (e as Error).message);
       // error already logged above; do not write to filesystem in server code
@@ -2066,12 +2042,9 @@ export class GenericCrudService implements OnModuleInit {
               b.expectedQty, b.expectedWeight, b.containerCount]).catch(() => {});
         }
 
-        // 鸡舍基础数据（幂等）—— 实际列名: house_code, house_name, capacity, house_type, status
-        const houses = [
-          { code: 'H-01', name: '1号蛋鸡舍', capacity: 5000 },
-          { code: 'H-02', name: '2号蛋鸡舍', capacity: 8000 },
-          { code: 'H-03', name: '3号蛋鸡舍', capacity: 6000 },
-        ];
+        // 已禁用（2026-06-06）：startup seed 强制 ON CONFLICT DO UPDATE 覆盖
+        // 用户在主数据中心的删除/编辑动作，造成"删完又回来"。改为主数据中心维护。
+        const houses: any[] = [];
         for (const h of houses) {
           await this.entityManager.query(`
             INSERT INTO brd_houses (house_code, house_name, capacity, house_type, status, created_at, updated_at)
@@ -2080,12 +2053,8 @@ export class GenericCrudService implements OnModuleInit {
           `, [h.code, h.name, h.capacity]).catch(() => {});
         }
 
-        // 鸡群基础数据（幂等）—— 实际列名: flock_no, house_code, breed_type, start_date, current_qty, status
-        const flocks = [
-          { no: 'FL-2024-001', houseCode: 'H-01', breedType: '罗曼褐', startDate: '2024-03-01', qty: 4800 },
-          { no: 'FL-2024-002', houseCode: 'H-02', breedType: '海兰灰', startDate: '2024-02-15', qty: 7600 },
-          { no: 'FL-2024-003', houseCode: 'H-03', breedType: '伊莎褐', startDate: '2024-04-01', qty: 5700 },
-        ];
+        // 鸡群基础数据（同样禁用启动 seed）
+        const flocks: any[] = [];
         for (const f of flocks) {
           await this.entityManager.query(`
             INSERT INTO brd_flocks (flock_no, house_code, breed_type, start_date, initial_qty, current_qty, status)
