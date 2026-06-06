@@ -46,25 +46,25 @@ UNIT_RE = re.compile(r'^([\d.]+)\s*(.+?)$')
 QTY_TYPO_RE = re.compile(r'各\s*(\d+)')  # "各100袋" → 100 (per A/B)
 
 def parse_qty_unit(s):
-    """返回 (整数 qty, 单位描述, 原始字符串). 0 / 空 → (0, '', '')"""
-    if s is None: return 0, '', ''
+    """返回 (qty NUMERIC 字符串, 单位描述, 原始字符串). G11 升级 NUMERIC 保留小数 2 位"""
+    if s is None: return '0', '', ''
     s = str(s).strip()
-    if not s or s == '0': return 0, '', ''
-    # 苍蝇药AB 各100袋 → 200 袋
-    m = QTY_TYPO_RE.match(s)
-    if m:
-        return int(m.group(1)) * 2, '袋', s
-    # 数字+单位
+    if not s or s == '0': return '0', '', ''
+    # 苍蝇药 "各100袋" 不在这里处理 — 单独逻辑拆 A/B 两 SKU
     m = UNIT_RE.match(s)
     if m:
         raw_qty = float(m.group(1))
         unit = m.group(2).strip()
-        # 公斤小数 → 取整数
-        qty = int(round(raw_qty))
-        return qty, unit, s
-    return 0, '', s
+        # G11：保留小数 2 位（inv_batches.qty NUMERIC(12,3) 升级配合）
+        qty_str = f'{raw_qty:.3f}'.rstrip('0').rstrip('.') or '0'
+        return qty_str, unit, s
+    return '0', '', s
 
 # 解析 47 行（跳标题 2 行）
+# G11 业务确认：
+#   - 6/3 没有出库（Excel 无该列即为 0，不是漏录）
+#   - 苍蝇药 AB 拆 2 SKU（MED-041A 苍蝇药A、MED-041B 苍蝇药B 各 100 袋）
+#   - 小数公斤保留精度（inv_batches.qty 升级 NUMERIC(12,3)）
 medications = []
 for row in ws.iter_rows(min_row=3, values_only=True):
     if not row or not row[0]: continue
@@ -77,6 +77,23 @@ for row in ws.iter_rows(min_row=3, values_only=True):
 
     if not isinstance(no, (int, float)): continue
     code = f"MED-{int(no):03d}"
+    name_clean = name.strip() if name else f'未知{int(no)}'
+
+    # G11：苍蝇药 AB 特殊处理 — 拆 2 个 SKU（Excel 标注 "各100袋"）
+    if '苍蝇药AB' in name_clean or '苍蝇药A B' in name_clean:
+        for suffix, label in [('A', '苍蝇药A'), ('B', '苍蝇药B')]:
+            medications.append({
+                'code': f"{code}{suffix}",
+                'name': label,
+                'unit': '袋',
+                'init_qty':  '100',
+                'out_62':    '0',
+                'out_64':    '0',
+                'end_qty':   '100',
+                'note': f'Excel: 苍蝇药AB 各100袋（G11 拆 2 SKU），原值={initial_str}',
+            })
+        continue
+
     init_qty, init_unit, init_raw = parse_qty_unit(initial_str)
     out62_qty, _, out62_raw = parse_qty_unit(out_62_str)
     out64_qty, _, out64_raw = parse_qty_unit(out_64_str)
@@ -84,16 +101,17 @@ for row in ws.iter_rows(min_row=3, values_only=True):
 
     medications.append({
         'code': code,
-        'name': name.strip() if name else f'未知{int(no)}',
+        'name': name_clean,
         'unit': init_unit or '瓶',  # 单位以期初为准
         'init_qty':  init_qty,
         'out_62':    out62_qty,
         'out_64':    out64_qty,
         'end_qty':   end_qty,
-        'note': f'Excel: 期初={init_raw}, 6.2出={out62_raw or "0"}, 6.4出={out64_raw or "0"}, 期末={end_raw}',
+        # G11：6/3 业务确认无出库（不是漏录）
+        'note': f'Excel: 期初={init_raw}, 6.2出={out62_raw or "0"}, 6.3=0(无出库), 6.4出={out64_raw or "0"}, 期末={end_raw}',
     })
 
-print(f'解析 {len(medications)} 个药品 SKU')
+print(f'解析 {len(medications)} 个药品 SKU（含苍蝇药拆分）')
 
 # 生成 SQL
 sql = []
@@ -184,12 +202,12 @@ sql.append('  END IF;')
 sql.append('')
 for m in medications:
     bn = f"MED-STOCK-{m['code']}"
-    if m['out_62'] > 0:
+    if float(m['out_62']) > 0:
         note = m['note'].replace("'", "''")
         sql.append(f"  INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, log_date, warehouse_code, company_code, note)")
         sql.append(f"  SELECT '{bn}', 'FARM_OUT_MEDICATION', -{m['out_62']}, 'ETL_INITIAL', 'SITE-MENGSAI-LAYER', '2026-06-02', 'MEDICINE', 'COMP-LAO-AGRI', '{note}'")
         sql.append(f"   WHERE NOT EXISTS (SELECT 1 FROM inv_ledger WHERE batch_no='{bn}' AND log_date='2026-06-02' AND change_type='FARM_OUT_MEDICATION');")
-    if m['out_64'] > 0:
+    if float(m['out_64']) > 0:
         note = m['note'].replace("'", "''")
         sql.append(f"  INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, log_date, warehouse_code, company_code, note)")
         sql.append(f"  SELECT '{bn}', 'FARM_OUT_MEDICATION', -{m['out_64']}, 'ETL_INITIAL', 'SITE-MENGSAI-LAYER', '2026-06-04', 'MEDICINE', 'COMP-LAO-AGRI', '{note}'")
@@ -218,6 +236,6 @@ with open('migrations/20260606_g10_mengsai_medicine_initial.sql', 'w', encoding=
 print(f"✅ 已生成 migrations/20260606_g10_mengsai_medicine_initial.sql")
 print(f"   - 45 brd_medications")
 print(f"   - 45 inv_batches (MEDICINE warehouse)")
-out_lines = sum(1 for m in medications if m['out_62'] > 0) + sum(1 for m in medications if m['out_64'] > 0)
+out_lines = sum(1 for m in medications if float(m['out_62']) > 0) + sum(1 for m in medications if float(m['out_64']) > 0)
 print(f"   - {out_lines} inv_ledger 出库流水")
 print(f"   - 1 sys_role_menu_permission（宋明光 MENU_FARM_VET:V,C,E）")

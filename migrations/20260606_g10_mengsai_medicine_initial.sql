@@ -156,8 +156,11 @@ BEGIN
   SELECT 'MED-040', '鼻炎水苗', '瓶', 'ACTIVE', 'SITE-MENGSAI-LAYER'
    WHERE NOT EXISTS (SELECT 1 FROM brd_medications WHERE medication_code='MED-040');
   INSERT INTO brd_medications (medication_code, medication_name, dosage, status, store_code)
-  SELECT 'MED-041', '苍蝇药AB', '袋', 'ACTIVE', 'SITE-MENGSAI-LAYER'
-   WHERE NOT EXISTS (SELECT 1 FROM brd_medications WHERE medication_code='MED-041');
+  SELECT 'MED-041A', '苍蝇药A', '袋', 'ACTIVE', 'SITE-MENGSAI-LAYER'
+   WHERE NOT EXISTS (SELECT 1 FROM brd_medications WHERE medication_code='MED-041A');
+  INSERT INTO brd_medications (medication_code, medication_name, dosage, status, store_code)
+  SELECT 'MED-041B', '苍蝇药B', '袋', 'ACTIVE', 'SITE-MENGSAI-LAYER'
+   WHERE NOT EXISTS (SELECT 1 FROM brd_medications WHERE medication_code='MED-041B');
   INSERT INTO brd_medications (medication_code, medication_name, dosage, status, store_code)
   SELECT 'MED-042', '鱼肝油', '袋', 'ACTIVE', 'SITE-MENGSAI-LAYER'
    WHERE NOT EXISTS (SELECT 1 FROM brd_medications WHERE medication_code='MED-042');
@@ -242,22 +245,22 @@ BEGIN
   SELECT 'MED-STOCK-MED-020', 'MED-020', 208, 208, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-020');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
-  SELECT 'MED-STOCK-MED-021', 'MED-021', 11, 11, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
+  SELECT 'MED-STOCK-MED-021', 'MED-021', 11.25, 11.25, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-021');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
-  SELECT 'MED-STOCK-MED-022', 'MED-022', 14, 14, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
+  SELECT 'MED-STOCK-MED-022', 'MED-022', 14.3, 14.3, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-022');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
-  SELECT 'MED-STOCK-MED-023', 'MED-023', 7, 7, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
+  SELECT 'MED-STOCK-MED-023', 'MED-023', 7.2, 7.2, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-023');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
-  SELECT 'MED-STOCK-MED-024', 'MED-024', 14, 14, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
+  SELECT 'MED-STOCK-MED-024', 'MED-024', 13.9, 13.9, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-024');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
-  SELECT 'MED-STOCK-MED-025', 'MED-025', 18, 18, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
+  SELECT 'MED-STOCK-MED-025', 'MED-025', 17.6, 17.6, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-025');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
-  SELECT 'MED-STOCK-MED-026', 'MED-026', 8, 8, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
+  SELECT 'MED-STOCK-MED-026', 'MED-026', 7.65, 7.65, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-026');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
   SELECT 'MED-STOCK-MED-027', 'MED-027', 0, 0, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
@@ -266,13 +269,13 @@ BEGIN
   SELECT 'MED-STOCK-MED-028', 'MED-028', 35, 35, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-028');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
-  SELECT 'MED-STOCK-MED-029', 'MED-029', 2, 2, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
+  SELECT 'MED-STOCK-MED-029', 'MED-029', 2.1, 2.1, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-029');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
   SELECT 'MED-STOCK-MED-030', 'MED-030', 63, 63, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-030');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
-  SELECT 'MED-STOCK-MED-031', 'MED-031', 3, 3, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
+  SELECT 'MED-STOCK-MED-031', 'MED-031', 2.6, 2.6, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-031');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
   SELECT 'MED-STOCK-MED-032', 'MED-032', 1, 1, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
@@ -290,10 +293,10 @@ BEGIN
   SELECT 'MED-STOCK-MED-036', 'MED-036', 120, 120, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-036');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
-  SELECT 'MED-STOCK-MED-037', 'MED-037', 45, 45, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
+  SELECT 'MED-STOCK-MED-037', 'MED-037', 44.8, 44.8, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-037');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
-  SELECT 'MED-STOCK-MED-038', 'MED-038', 11, 11, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
+  SELECT 'MED-STOCK-MED-038', 'MED-038', 10.6, 10.6, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-038');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
   SELECT 'MED-STOCK-MED-039', 'MED-039', 14, 14, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
@@ -302,8 +305,11 @@ BEGIN
   SELECT 'MED-STOCK-MED-040', 'MED-040', 0, 0, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-040');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
-  SELECT 'MED-STOCK-MED-041', 'MED-041', 200, 200, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
-   WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-041');
+  SELECT 'MED-STOCK-MED-041A', 'MED-041A', 100, 100, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
+   WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-041A');
+  INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
+  SELECT 'MED-STOCK-MED-041B', 'MED-041B', 100, 100, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
+   WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-041B');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
   SELECT 'MED-STOCK-MED-042', 'MED-042', 500, 500, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-042');
@@ -311,7 +317,7 @@ BEGIN
   SELECT 'MED-STOCK-MED-043', 'MED-043', 160, 160, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-043');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
-  SELECT 'MED-STOCK-MED-044', 'MED-044', 25, 25, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
+  SELECT 'MED-STOCK-MED-044', 'MED-044', 24.95, 24.95, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
    WHERE NOT EXISTS (SELECT 1 FROM inv_batches WHERE batch_no='MED-STOCK-MED-044');
   INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, store_code, company_code, source_type, source_no)
   SELECT 'MED-STOCK-MED-045', 'MED-045', 182, 182, 'AVAILABLE', 'MEDICINE', 'SITE-MENGSAI-LAYER', 'COMP-LAO-AGRI', 'INITIAL', 'ETL_G10'
@@ -334,19 +340,19 @@ BEGIN
   END IF;
 
   INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, log_date, warehouse_code, company_code, note)
-  SELECT 'MED-STOCK-MED-019', 'FARM_OUT_MEDICATION', -63, 'ETL_INITIAL', 'SITE-MENGSAI-LAYER', '2026-06-02', 'MEDICINE', 'COMP-LAO-AGRI', 'Excel: 期初=140瓶, 6.2出=63瓶, 6.4出=0, 期末=77瓶'
+  SELECT 'MED-STOCK-MED-019', 'FARM_OUT_MEDICATION', -63, 'ETL_INITIAL', 'SITE-MENGSAI-LAYER', '2026-06-02', 'MEDICINE', 'COMP-LAO-AGRI', 'Excel: 期初=140瓶, 6.2出=63瓶, 6.3=0(无出库), 6.4出=0, 期末=77瓶'
    WHERE NOT EXISTS (SELECT 1 FROM inv_ledger WHERE batch_no='MED-STOCK-MED-019' AND log_date='2026-06-02' AND change_type='FARM_OUT_MEDICATION');
   INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, log_date, warehouse_code, company_code, note)
-  SELECT 'MED-STOCK-MED-021', 'FARM_OUT_MEDICATION', -4, 'ETL_INITIAL', 'SITE-MENGSAI-LAYER', '2026-06-02', 'MEDICINE', 'COMP-LAO-AGRI', 'Excel: 期初=17.55公斤, 6.2出=3.8公斤, 6.4出=2.5公斤, 期末=11.25公斤'
+  SELECT 'MED-STOCK-MED-021', 'FARM_OUT_MEDICATION', -3.8, 'ETL_INITIAL', 'SITE-MENGSAI-LAYER', '2026-06-02', 'MEDICINE', 'COMP-LAO-AGRI', 'Excel: 期初=17.55公斤, 6.2出=3.8公斤, 6.3=0(无出库), 6.4出=2.5公斤, 期末=11.25公斤'
    WHERE NOT EXISTS (SELECT 1 FROM inv_ledger WHERE batch_no='MED-STOCK-MED-021' AND log_date='2026-06-02' AND change_type='FARM_OUT_MEDICATION');
   INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, log_date, warehouse_code, company_code, note)
-  SELECT 'MED-STOCK-MED-021', 'FARM_OUT_MEDICATION', -2, 'ETL_INITIAL', 'SITE-MENGSAI-LAYER', '2026-06-04', 'MEDICINE', 'COMP-LAO-AGRI', 'Excel: 期初=17.55公斤, 6.2出=3.8公斤, 6.4出=2.5公斤, 期末=11.25公斤'
+  SELECT 'MED-STOCK-MED-021', 'FARM_OUT_MEDICATION', -2.5, 'ETL_INITIAL', 'SITE-MENGSAI-LAYER', '2026-06-04', 'MEDICINE', 'COMP-LAO-AGRI', 'Excel: 期初=17.55公斤, 6.2出=3.8公斤, 6.3=0(无出库), 6.4出=2.5公斤, 期末=11.25公斤'
    WHERE NOT EXISTS (SELECT 1 FROM inv_ledger WHERE batch_no='MED-STOCK-MED-021' AND log_date='2026-06-04' AND change_type='FARM_OUT_MEDICATION');
   INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, log_date, warehouse_code, company_code, note)
-  SELECT 'MED-STOCK-MED-024', 'FARM_OUT_MEDICATION', -4, 'ETL_INITIAL', 'SITE-MENGSAI-LAYER', '2026-06-02', 'MEDICINE', 'COMP-LAO-AGRI', 'Excel: 期初=20.2公斤, 6.2出=3.8公斤, 6.4出=2.5公斤, 期末=13.9公斤'
+  SELECT 'MED-STOCK-MED-024', 'FARM_OUT_MEDICATION', -3.8, 'ETL_INITIAL', 'SITE-MENGSAI-LAYER', '2026-06-02', 'MEDICINE', 'COMP-LAO-AGRI', 'Excel: 期初=20.2公斤, 6.2出=3.8公斤, 6.3=0(无出库), 6.4出=2.5公斤, 期末=13.9公斤'
    WHERE NOT EXISTS (SELECT 1 FROM inv_ledger WHERE batch_no='MED-STOCK-MED-024' AND log_date='2026-06-02' AND change_type='FARM_OUT_MEDICATION');
   INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, log_date, warehouse_code, company_code, note)
-  SELECT 'MED-STOCK-MED-024', 'FARM_OUT_MEDICATION', -2, 'ETL_INITIAL', 'SITE-MENGSAI-LAYER', '2026-06-04', 'MEDICINE', 'COMP-LAO-AGRI', 'Excel: 期初=20.2公斤, 6.2出=3.8公斤, 6.4出=2.5公斤, 期末=13.9公斤'
+  SELECT 'MED-STOCK-MED-024', 'FARM_OUT_MEDICATION', -2.5, 'ETL_INITIAL', 'SITE-MENGSAI-LAYER', '2026-06-04', 'MEDICINE', 'COMP-LAO-AGRI', 'Excel: 期初=20.2公斤, 6.2出=3.8公斤, 6.3=0(无出库), 6.4出=2.5公斤, 期末=13.9公斤'
    WHERE NOT EXISTS (SELECT 1 FROM inv_ledger WHERE batch_no='MED-STOCK-MED-024' AND log_date='2026-06-04' AND change_type='FARM_OUT_MEDICATION');
 END $body$;
 

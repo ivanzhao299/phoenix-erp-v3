@@ -32,15 +32,16 @@ interface CenterStat { key: string; label: string; objectCount: number; pendingC
 interface TodoTask { task_no: string; title: string; node_name: string; created_at: string; due_at?: string; starter_name?: string; }
 
 // ── 8 大业务中心 ─────────────────────────────────────
-const SHORTCUTS: Array<{ key: string; label: string; href: string; icon: any; accent: string; gradient: string }> = [
-  { key: 'customer',  label: '客户中心',     href: '/master-data/customers',  icon: Users,       accent: '#3B82F6', gradient: 'linear-gradient(135deg, #3B82F622 0%, transparent 60%)' },
-  { key: 'supplier',  label: '供应商中心',   href: '/master-data/suppliers',  icon: Building2,   accent: '#06B6D4', gradient: 'linear-gradient(135deg, #06B6D422 0%, transparent 60%)' },
-  { key: 'procure',   label: '采购中心',     href: '/procurement2',           icon: ShoppingBag, accent: '#A855F7', gradient: 'linear-gradient(135deg, #A855F722 0%, transparent 60%)' },
-  { key: 'sales',     label: '销售中心',     href: '/sales2',                 icon: ShoppingCart, accent: '#10B981', gradient: 'linear-gradient(135deg, #10B98122 0%, transparent 60%)' },
-  { key: 'finance',   label: '财务中心',     href: '/finance2',               icon: Wallet,      accent: '#F59E0B', gradient: 'linear-gradient(135deg, #F59E0B22 0%, transparent 60%)' },
-  { key: 'inventory', label: '库存中心',     href: '/warehouse',              icon: Warehouse,   accent: '#EAB308', gradient: 'linear-gradient(135deg, #EAB30822 0%, transparent 60%)' },
-  { key: 'workflow',  label: '审批工作台',   href: '/workflow',               icon: GitBranch,   accent: '#EC4899', gradient: 'linear-gradient(135deg, #EC489922 0%, transparent 60%)' },
-  { key: 'quality',   label: '数据质量',     href: '/data-quality',           icon: ShieldAlert, accent: '#EF4444', gradient: 'linear-gradient(135deg, #EF444422 0%, transparent 60%)' },
+// G11：每个 shortcut 加 perm 字段，按用户权限动态过滤
+const SHORTCUTS: Array<{ key: string; label: string; href: string; icon: any; accent: string; gradient: string; perm: string }> = [
+  { key: 'customer',  label: '客户中心',     href: '/master-data/customers',  icon: Users,       accent: '#3B82F6', gradient: 'linear-gradient(135deg, #3B82F622 0%, transparent 60%)', perm: 'MENU_MASTER' },
+  { key: 'supplier',  label: '供应商中心',   href: '/master-data/suppliers',  icon: Building2,   accent: '#06B6D4', gradient: 'linear-gradient(135deg, #06B6D422 0%, transparent 60%)', perm: 'MENU_MASTER' },
+  { key: 'procure',   label: '采购中心',     href: '/procurement2',           icon: ShoppingBag, accent: '#A855F7', gradient: 'linear-gradient(135deg, #A855F722 0%, transparent 60%)', perm: 'MENU_PRC2' },
+  { key: 'sales',     label: '销售中心',     href: '/sales2',                 icon: ShoppingCart, accent: '#10B981', gradient: 'linear-gradient(135deg, #10B98122 0%, transparent 60%)', perm: 'MENU_SALES2' },
+  { key: 'finance',   label: '财务中心',     href: '/finance2',               icon: Wallet,      accent: '#F59E0B', gradient: 'linear-gradient(135deg, #F59E0B22 0%, transparent 60%)', perm: 'MENU_FIN2' },
+  { key: 'inventory', label: '库存中心',     href: '/warehouse',              icon: Warehouse,   accent: '#EAB308', gradient: 'linear-gradient(135deg, #EAB30822 0%, transparent 60%)', perm: 'MENU_WMS_VIEW' },
+  { key: 'workflow',  label: '审批工作台',   href: '/workflow',               icon: GitBranch,   accent: '#EC4899', gradient: 'linear-gradient(135deg, #EC489922 0%, transparent 60%)', perm: 'MENU_WORKFLOW' },
+  { key: 'quality',   label: '数据质量',     href: '/data-quality',           icon: ShieldAlert, accent: '#EF4444', gradient: 'linear-gradient(135deg, #EF444422 0%, transparent 60%)', perm: 'MENU_DATA_QUALITY' },
 ];
 
 // ── 角色对应主 CTA + 默认入口 ────────────────────────
@@ -71,24 +72,35 @@ function ctaFor(role: string | undefined, todo: number): { label: string; href: 
 export default function HomePage() {
   const { user, hasPermission } = useAuth();
   const hasMasterPerm = hasPermission('MENU_MASTER');
+  // G11：数据质量驾驶舱 + 高危告警 + 主数据健康度 只对持 MENU_DATA_QUALITY/MENU_MASTER 的角色显示
+  // 业务录入用户（孟赛生产数据主管等）不应看到这些治理类组件
+  const hasQualityPerm = hasPermission('MENU_DATA_QUALITY') || hasPermission('MENU_MD_QUALITY');
+  const hasCentersPerm = hasPermission('MENU_MD_CENTER') || hasMasterPerm;
   const [summary, setSummary] = useState<WorkflowSummary | null>(null);
   const [scores, setScores] = useState<QualityScores | null>(null);
   const [centers, setCenters] = useState<CenterStat[]>([]);
   const [todoList, setTodoList] = useState<TodoTask[]>([]);
 
   useEffect(() => {
-    Promise.all([
+    // G11：按权限懒加载 — 无权用户不发对应请求
+    const requests: Promise<any>[] = [
       request<{ data: WorkflowSummary }>('/workflow/tasks/summary').then(r => r.data).catch(() => null),
-      request<QualityScores>('/data-quality/scores').catch(() => null),
-      request<CenterStat[]>('/master-data/operations/centers').catch(() => []),
       request<{ data: TodoTask[] }>('/workflow/tasks/todo?limit=6').then(r => r.data || []).catch(() => [] as TodoTask[]),
-    ]).then(([s, q, c, t]) => {
+    ];
+    requests.push(hasQualityPerm
+      ? request<QualityScores>('/data-quality/scores').catch(() => null)
+      : Promise.resolve(null));
+    requests.push(hasCentersPerm
+      ? request<CenterStat[]>('/master-data/operations/centers').catch(() => [])
+      : Promise.resolve([]));
+
+    Promise.all(requests).then(([s, t, q, c]) => {
       setSummary(s);
+      setTodoList(Array.isArray(t) ? t.slice(0, 6) : []);
       setScores(q);
       setCenters(c || []);
-      setTodoList(Array.isArray(t) ? t.slice(0, 6) : []);
     });
-  }, []);
+  }, [hasQualityPerm, hasCentersPerm]);
 
   const totalObjects = useMemo(() => centers.reduce((s, c) => s + c.objectCount, 0), [centers]);
   const totalRisk = useMemo(() => centers.reduce((s, c) => s + c.riskCount, 0), [centers]);
@@ -108,16 +120,16 @@ export default function HomePage() {
     return '晚上好';
   }, []);
 
-  // 今日要点（智能文案）
+  // 今日要点（智能文案）— G11：高危告警/主数据待审批 仅治理类角色可见
   const todayBriefing = useMemo(() => {
     const parts: string[] = [];
     if (todoCount > 0)                          parts.push(`${todoCount} 个待办待处理`);
     if ((summary?.overdueTodo ?? 0) > 0)        parts.push(`${summary?.overdueTodo} 个超时`);
-    if ((scores?.highAlertCount ?? 0) > 0)      parts.push(`${scores?.highAlertCount} 项高危告警`);
-    if (totalPending > 0)                       parts.push(`${totalPending} 单主数据待审批`);
+    if (hasQualityPerm && (scores?.highAlertCount ?? 0) > 0)  parts.push(`${scores?.highAlertCount} 项高危告警`);
+    if (hasCentersPerm && totalPending > 0)     parts.push(`${totalPending} 单主数据待审批`);
     if (parts.length === 0) return '今天没有紧急事项，可以专注做事。';
     return '今天有 ' + parts.join('、') + '，请优先处理。';
-  }, [todoCount, summary, scores, totalPending]);
+  }, [todoCount, summary, scores, totalPending, hasQualityPerm, hasCentersPerm]);
 
   return (
     <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -133,28 +145,43 @@ export default function HomePage() {
         overdueCount={summary?.overdueTodo ?? 0}
         highAlertCount={scores?.highAlertCount ?? 0}
         hasMasterPerm={hasMasterPerm}
+        showAlertBubble={hasQualityPerm}
       />
 
-      {/* ───── 不对称双栏 ───── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: 12 }}>
-        {/* 左栏：事务流 + 经营概览 */}
+      {/* ───── 主体布局：按权限渲染双栏或单栏 ───── */}
+      {hasQualityPerm || hasCentersPerm ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: 12 }}>
+          {/* 左栏：事务流 + 经营概览 */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <TodoTimeline todoList={todoList} todoCount={todoCount} />
+            <BusinessOverview />
+          </div>
+          {/* 右栏：治理类组件 — 仅治理类角色可见 */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {hasQualityPerm && (
+              <>
+                <QualityScoreCard score={scores?.overall ?? 0} masterDataScore={scores?.masterData ?? 0} />
+                {(scores?.highAlertCount ?? 0) > 0 && (
+                  <RiskAlertBanner highAlertCount={scores?.highAlertCount ?? 0} totalAlertCount={scores?.alertCount ?? 0} />
+                )}
+              </>
+            )}
+            {hasCentersPerm && (
+              <HealthCard healthScore={avgHealth} totalObjects={totalObjects} totalRisk={totalRisk} />
+            )}
+          </div>
+        </div>
+      ) : (
+        // G11：业务录入用户（孟赛生产数据主管等）只看事务流 + 经营概览，
+        // 不显示数据质量驾驶舱 / 高危告警 / 主数据健康度
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <TodoTimeline todoList={todoList} todoCount={todoCount} />
           <BusinessOverview />
         </div>
+      )}
 
-        {/* 右栏：数据质量驾驶舱 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <QualityScoreCard score={scores?.overall ?? 0} masterDataScore={scores?.masterData ?? 0} />
-          {(scores?.highAlertCount ?? 0) > 0 && (
-            <RiskAlertBanner highAlertCount={scores?.highAlertCount ?? 0} totalAlertCount={scores?.alertCount ?? 0} />
-          )}
-          <HealthCard healthScore={avgHealth} totalObjects={totalObjects} totalRisk={totalRisk} />
-        </div>
-      </div>
-
-      {/* ───── 8 大业务中心 ───── */}
-      <ShortcutsGrid />
+      {/* ───── 业务中心 — 按角色 perm 过滤 ───── */}
+      <ShortcutsGrid hasPermission={hasPermission} />
     </div>
   );
 }
@@ -162,11 +189,11 @@ export default function HomePage() {
 // ══════════════════════════════════════════════════════
 // Hero 欢迎横幅
 // ══════════════════════════════════════════════════════
-function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, todoCount, overdueCount, highAlertCount, hasMasterPerm }: {
+function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, todoCount, overdueCount, highAlertCount, hasMasterPerm, showAlertBubble }: {
   greeting: string; userName: string; briefing: string;
   ctaLabel: string; ctaHref: string; CtaIcon: any;
   todoCount: number; overdueCount: number; highAlertCount: number;
-  hasMasterPerm: boolean;
+  hasMasterPerm: boolean; showAlertBubble: boolean;
 }) {
   return (
     <div style={{
@@ -234,11 +261,13 @@ function HeroBanner({ greeting, userName, briefing, ctaLabel, ctaHref, CtaIcon, 
         </div>
       </div>
 
-      {/* 右：3 个数字气泡 */}
+      {/* 右：数字气泡 — G11：高危告警仅治理类角色可见 */}
       <div style={{ position: 'relative', display: 'flex', gap: 8 }}>
         <NumberBubble icon={<Inbox size={13} />} label="待办" value={todoCount} tone="brand" />
         <NumberBubble icon={<Clock size={13} />} label="超时" value={overdueCount} tone={overdueCount > 0 ? 'danger' : 'default'} />
-        <NumberBubble icon={<Bell size={13} />} label="高危告警" value={highAlertCount} tone={highAlertCount > 0 ? 'warning' : 'default'} />
+        {showAlertBubble && (
+          <NumberBubble icon={<Bell size={13} />} label="高危告警" value={highAlertCount} tone={highAlertCount > 0 ? 'warning' : 'default'} />
+        )}
       </div>
     </div>
   );
@@ -513,7 +542,10 @@ function HealthCard({ healthScore, totalObjects, totalRisk }: { healthScore: num
 // ══════════════════════════════════════════════════════
 // 8 大业务中心 tile 阵列
 // ══════════════════════════════════════════════════════
-function ShortcutsGrid() {
+function ShortcutsGrid({ hasPermission }: { hasPermission: (m: string) => boolean }) {
+  // G11：按权限过滤业务中心 — 无权访问的不显示
+  const visible = SHORTCUTS.filter(s => hasPermission(s.perm));
+  if (visible.length === 0) return null;
   return (
     <div style={{ ...cockpitCard, padding: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -524,11 +556,11 @@ function ShortcutsGrid() {
         }}>
           <Sparkles size={14} />
         </span>
-        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>8 大业务中心</h3>
-        <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 4 }}>· 一键直达</span>
+        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>业务中心</h3>
+        <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 4 }}>· 一键直达（{visible.length}）</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
-        {SHORTCUTS.map(s => (
+        {visible.map(s => (
           <Link key={s.key} href={s.href} style={{
             position: 'relative', overflow: 'hidden',
             padding: 12, borderRadius: 10,
