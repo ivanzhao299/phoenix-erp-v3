@@ -3,12 +3,19 @@ import { useState, useEffect } from 'react';
 import request from '@/lib/api-client';
 
 /**
- * 统一主数据选择器（G4-A 财务单据主数据驱动）
+ * 统一主数据选择器（G4-A 财务单据主数据驱动 + G5-B Lookup 范式化 + G7 收口）
  * ════════════════════════════════════════════════════════════════════════
  * 所有选择器只加载 ACTIVE 主数据；选中后通过 onChange(code) + onPick(item) 回传，
  * 业务表单据此自动带出名称等字段，杜绝裸字段手填。
  *
- * 复用 G3-A 的 /master-data/runtime/:type/active（仅 ACTIVE + 生效期内）。
+ * 数据源（G5-B 后）：
+ *   - 业务录入用必备 (公司/客户/供应商/仓库/门店/场站/鸡舍/鸡群/字典) → /api/lookup/*
+ *   - 项目                                                          → /biz/projects/active
+ *   - 等级/规格                                                     → /lookup/product-grades, /lookup/packaging-specs
+ *   - 资金账户/用户                                                 → /lookup/cash-accounts, /lookup/users
+ *   - 渠道/司机/车辆/股东（管理员路径）                              → V2 Runtime 专属 endpoint
+ *
+ * 所有 /api/lookup/* 端点都仅 JWT 守卫，业务录入用户可拉，与主数据写权限解耦。
  */
 
 interface Opt { value: string; label: string; raw?: any }

@@ -116,6 +116,9 @@ check_write_method() {
 # 写操作仅检验"能命中守卫"，不实际改变业务数据（POST 故意拼一个会被 400 拒绝的合理 body）
 check_write_method "$admin_token" POST '/api/product-master/grades' 400 'admin · POST grades (400 = 守卫通过，body 校验拒)' '{"intentional":"empty"}'
 
+# G7 新加：menu-registry stats 端点
+check "$admin_token" GET '/api/sys/menu-registry/stats' 200 'admin · /sys/menu-registry/stats (G6 新端点)'
+
 echo
 
 # ────────────────────────────────────────────────────────────────────────────

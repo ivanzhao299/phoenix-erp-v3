@@ -258,12 +258,12 @@ const MENU: MenuItem[] = [
 ];
 
 /**
- * 权限检查 — 委托给 AuthContext.hasPermission
- * hasPermission 已内置:
- *   1. perm 为 null/undefined → true
- *   2. ROLE_ADMIN → true
- *   3. ROLE_MENU_MATRIX 匹配
- *   4. 无 matrix 条目 → true（兼容模式）
+ * 权限检查 — 委托给 AuthContext.hasPermission（G6 后唯一权威）
+ * 链路：JWT.permissions → AuthContext → hasPermission(menuCode)
+ *   1. perm 为 null/undefined → true（无要求）
+ *   2. permissions 含 '*' → true（admin 通配）
+ *   3. permissions 含 'MENU_XXX:V' → true（命中）
+ *   4. 否则 → false（不渲染该菜单项）
  */
 
 // ── Sidebar Component ────────────────────────────────────────────

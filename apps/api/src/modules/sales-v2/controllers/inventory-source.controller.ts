@@ -51,7 +51,7 @@ export class InventorySourceController {
     return this.modeSvc.assessSwitchRisk(body.scopeLevel, body.scopeCode, body.newMode);
   }
 
-  // 切换需 'A' 权限（rbac.matrix 中仅 ADMIN/CEO/FACTORY_MGR 拥有 MENU_INV_SOURCE_MODE 的 A）
+  // 切换需 'A' 权限（sys_role_menu_permission 中仅 ADMIN/CEO/FACTORY_MGR 持有 MENU_INV_SOURCE_MODE:A）
   @Post('source/switch')
   @RequireMenu('MENU_INV_SOURCE_MODE', 'A')
   switchMode(@Body() body: {
