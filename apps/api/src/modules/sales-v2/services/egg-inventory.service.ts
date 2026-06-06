@@ -116,8 +116,8 @@ export class EggInventoryService {
     } catch (e) {
       this.logger.warn(`getValidGrades fallback to defaults: ${(e as Error).message}`);
     }
-    // 兜底（product_grades 表不可用 / CI 测试库）：返回 product_grades seed 同款 8 档
-    return ['AA', 'A', 'B', 'C', 'DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'];
+    // 兜底（product_grades 表不可用 / CI 测试库）：孟赛业务尺寸档 + 异常档
+    return ['XL', 'L', 'M', 'S', 'XS', 'DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'];
   }
 
   private get operator(): string {
@@ -261,7 +261,8 @@ export class EggInventoryService {
     // 质量等级校验（2026-06-06 收口）：从 product_grades 权威源动态读取，弃用
     // 硬编码 14 档混杂表（含历史遗留 0-5 数字蛋档）。带 5 分钟模块级缓存。
     const validGrades = await this.getValidGrades();
-    const grade = params.qualityGrade ?? 'A';
+    // 默认 'L'（一号蛋）— 孟赛主流销售档；非孟赛业务建议显式传 qualityGrade
+    const grade = params.qualityGrade ?? 'L';
     if (!validGrades.includes(grade)) {
       throw new BadRequestException(`无效的质量等级: ${grade}，有效值：${validGrades.join('/')}`);
     }

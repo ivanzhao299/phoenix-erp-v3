@@ -82,7 +82,8 @@ export class ProductionInboundService {
     for (const item of dto.items) {
       const qty = Math.max(0, Math.round(Number(item.qty) || 0));
       if (qty === 0) continue;
-      const grade = String(item.grade || 'A').trim();
+      // 默认 'L'（一号蛋）— 2026-06-06 product_grades 回归孟赛业务口径后主流销售档
+      const grade = String(item.grade || 'L').trim();
       const productCode = `PRD-EGG-${grade}`;
       const batch = await this.eggInv.createProductionBatch({
         companyCode,

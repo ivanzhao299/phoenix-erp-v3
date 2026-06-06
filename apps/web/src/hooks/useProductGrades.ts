@@ -46,16 +46,17 @@ const _cache: { data: ProductGrade[] | null; expireAt: number; promise: Promise<
 };
 const TTL_MS = 5 * 60 * 1000;
 
-/** 兜底：API 失败时与 product_grades seed 同款 8 档 */
+/** 兜底：API 失败时与 product_grades realign 后 seed 同款（孟赛业务口径） */
 const FALLBACK: ProductGrade[] = [
-  { grade_code: 'AA',      grade_name: '特级蛋',   sort_order: 10, is_saleable: true,  is_storable: true,  status: 'ACTIVE' },
-  { grade_code: 'A',       grade_name: '一级蛋',   sort_order: 20, is_saleable: true,  is_storable: true,  status: 'ACTIVE' },
-  { grade_code: 'B',       grade_name: '二级蛋',   sort_order: 30, is_saleable: true,  is_storable: true,  status: 'ACTIVE' },
-  { grade_code: 'C',       grade_name: '三级蛋',   sort_order: 40, is_saleable: true,  is_storable: true,  status: 'ACTIVE' },
-  { grade_code: 'DIRTY',   grade_name: '脏蛋',     sort_order: 50, is_saleable: false, is_storable: true,  status: 'ACTIVE' },
-  { grade_code: 'CRACKED', grade_name: '裂缝蛋',   sort_order: 60, is_saleable: false, is_storable: true,  status: 'ACTIVE' },
-  { grade_code: 'BROKEN',  grade_name: '破蛋',     sort_order: 70, is_saleable: false, is_storable: false, status: 'ACTIVE' },
-  { grade_code: 'DAMAGED', grade_name: '损坏蛋',   sort_order: 80, is_saleable: false, is_storable: false, status: 'ACTIVE' },
+  { grade_code: 'XL',      grade_name: '特大蛋',   sort_order: 10, is_saleable: true,  is_storable: true,  status: 'ACTIVE' },
+  { grade_code: 'L',       grade_name: '一号蛋',   sort_order: 20, is_saleable: true,  is_storable: true,  status: 'ACTIVE' },
+  { grade_code: 'M',       grade_name: '二号蛋',   sort_order: 30, is_saleable: true,  is_storable: true,  status: 'ACTIVE' },
+  { grade_code: 'S',       grade_name: '三号蛋',   sort_order: 40, is_saleable: true,  is_storable: true,  status: 'ACTIVE' },
+  { grade_code: 'XS',      grade_name: '四号蛋',   sort_order: 50, is_saleable: true,  is_storable: true,  status: 'ACTIVE' },
+  { grade_code: 'DIRTY',   grade_name: '脏蛋',     sort_order: 60, is_saleable: false, is_storable: true,  status: 'ACTIVE' },
+  { grade_code: 'CRACKED', grade_name: '裂缝蛋',   sort_order: 70, is_saleable: false, is_storable: true,  status: 'ACTIVE' },
+  { grade_code: 'BROKEN',  grade_name: '破蛋',     sort_order: 80, is_saleable: false, is_storable: false, status: 'ACTIVE' },
+  { grade_code: 'DAMAGED', grade_name: '损坏蛋',   sort_order: 90, is_saleable: false, is_storable: false, status: 'ACTIVE' },
 ];
 
 export function useProductGrades(opts: UseProductGradesOpts = {}) {

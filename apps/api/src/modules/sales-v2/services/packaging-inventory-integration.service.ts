@@ -216,7 +216,8 @@ export class PackagingInventoryIntegrationService {
         .map(([k, v]) => ({ grade: k, specName: task.pack_spec ?? null, qty: Number(v) }));
     if (items.length === 0) {
       const qty = Number(task.output_qty) || Number(task.packed_qty) || 0;
-      if (qty > 0) items = [{ grade: 'A', specName: task.pack_spec ?? null, qty }];
+      // 默认 'L'（一号蛋）— 2026-06-06 product_grades 回归孟赛业务口径后主流销售档
+      if (qty > 0) items = [{ grade: 'L', specName: task.pack_spec ?? null, qty }];
     }
 
     const eggDate = task.created_at
