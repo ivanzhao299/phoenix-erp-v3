@@ -23,6 +23,7 @@ export interface DataScopeContext {
   allowedProjectCodes: string[];
   allowedWarehouseCodes: string[];
   allowedFarmCodes: string[]; // G4-E: FarmScope（在 CompanyScope 之下，与 Warehouse 同层）
+  allowedSiteCodes: string[]; // G5-D: SiteScope（MDM-1 后 SITE 是独立维度，sys_user_orgs 含 SITE 类型行）
   userId: string;
 }
 
@@ -83,6 +84,7 @@ export class DataScopeService {
         allowedProjectCodes: [],
         allowedWarehouseCodes: [],
         allowedFarmCodes: [], // G4-E
+        allowedSiteCodes: [], // G5-D
         userId,
       };
     }
@@ -117,6 +119,7 @@ export class DataScopeService {
         allowedProjectCodes: [],
         allowedWarehouseCodes: [],
         allowedFarmCodes: [], // G4-E
+        allowedSiteCodes: [], // G5-D
         userId,
       };
       this._setCache(cacheKey, ctx);
@@ -126,13 +129,16 @@ export class DataScopeService {
     // 展开组织范围
     const userIdNum = parseInt(userId, 10);
     // 使用 raw JOIN 查询（避免 TypeORM relations 依赖）
+    // G5-D：增加 org_type 与 site_code（业务 SITE 维度），让 SITE 类型组织绑定能进入 scope
     const userOrgRows: Array<{
       org_id: number; is_primary: boolean; data_scope_level: string;
       company_code: string | null; project_code: string | null;
       warehouse_code: string | null; parent_id: number | null;
+      org_type: string | null; site_code: string | null; org_code: string;
     }> = await this.orgRepo.manager.query(`
       SELECT uo.org_id, uo.is_primary, uo.data_scope_level,
-             o.company_code, o.project_code, o.warehouse_code, o.parent_id
+             o.company_code, o.project_code, o.warehouse_code, o.parent_id,
+             o.org_type, o.site_code, o.org_code
       FROM sys_user_orgs uo
       JOIN sys_organizations o ON o.id = uo.org_id
       WHERE uo.user_id = $1
@@ -141,12 +147,16 @@ export class DataScopeService {
     const companyCodes = new Set<string>();
     const projectCodes = new Set<string>();
     const warehouseCodes = new Set<string>();
+    const siteCodes = new Set<string>();  // G5-D
 
     if (userOrgRows.length > 0) {
       for (const row of userOrgRows) {
         if (row.company_code) companyCodes.add(row.company_code);
         if (row.project_code) projectCodes.add(row.project_code);
         if (row.warehouse_code) warehouseCodes.add(row.warehouse_code);
+        // G5-D：SITE 类型组织绑定 → 用 org_code（如 'SITE-MENGSAI-LAYER'）作为 site_code
+        if (row.org_type === 'SITE') siteCodes.add(row.org_code);
+        else if (row.site_code) siteCodes.add(row.site_code); // 兼容 SITE 字段
 
         // REGION 级别：展开同一父节点下所有子公司
         if (topLevel === 'REGION' && row.parent_id) {
@@ -199,6 +209,7 @@ export class DataScopeService {
           allowedProjectCodes: [],
           allowedWarehouseCodes: [],
           allowedFarmCodes: [], // G4-E
+          allowedSiteCodes: [], // G5-D
           userId,
         };
         this._setCache(cacheKey, ctx);
@@ -228,6 +239,7 @@ export class DataScopeService {
       allowedProjectCodes: [...projectCodes],
       allowedWarehouseCodes: [...warehouseCodes],
       allowedFarmCodes: [...farmCodes], // G4-E
+      allowedSiteCodes: [...siteCodes], // G5-D
       userId,
     };
     this._setCache(cacheKey, ctx);
