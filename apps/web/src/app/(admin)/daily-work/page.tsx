@@ -74,7 +74,7 @@ export default function DailyWorkPage() {
     },
     {
       key: 'feed_log', title: '饲料消耗登记', desc: '玉米 / 豆粕 / 预混料 · 按鸡舍分配',
-      icon: Wheat, href: '/warehouse/inout?type=feed&date=today', accent: '#10B981',
+      icon: Wheat, href: '/warehouse/outbound?action=create&type=feed&date=today', accent: '#10B981',
       todayCount: stats.feed_log,
     },
     {

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, QueryRunner } from 'typeorm';
 
@@ -212,6 +212,71 @@ export class CashTransactionsService {
     return {
       todayIn: Number(inRow?.total ?? 0),
       todayOut: Number(outRow?.total ?? 0),
+    };
+  }
+
+  /**
+   * 手工录入零散现金流水（出纳日常工作）
+   * 不走 AR/AP 业务单据，直接写 fin_cash_transactions。
+   * body: { account_code, direction (IN|OUT), amount, txn_date?, remark }
+   */
+  async createManual(body: any, userId: number, username: string) {
+    const {
+      account_code, direction, amount, txn_date, remark,
+    } = body || {};
+    if (!account_code || !direction || !amount) {
+      throw new BadRequestException('account_code / direction / amount 必填');
+    }
+    if (direction !== 'IN' && direction !== 'OUT') {
+      throw new BadRequestException('direction 必须为 IN 或 OUT');
+    }
+    const amt = Number(amount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      throw new BadRequestException('amount 必须为正数');
+    }
+
+    // 加载账户
+    const accRows = await this.ds.query(
+      `SELECT id, account_code, account_name, company_code, company_name,
+              currency_code, current_balance
+         FROM fin_cash_accounts WHERE account_code=$1 LIMIT 1`,
+      [account_code],
+    );
+    const acc = accRows[0];
+    if (!acc) throw new BadRequestException(`资金账户 ${account_code} 不存在`);
+
+    const before = Number(acc.current_balance || 0);
+    const after = direction === 'IN' ? before + amt : before - amt;
+
+    // 生成单号
+    const dt = txn_date ? new Date(txn_date) : new Date();
+    const txnNo = `MAN-${dt.getFullYear()}${String(dt.getMonth() + 1).padStart(2, '0')}${String(dt.getDate()).padStart(2, '0')}-${Date.now().toString().slice(-6)}`;
+
+    // 事务：写流水 + 更新账户余额
+    await this.ds.transaction(async (mgr) => {
+      await mgr.query(
+        `INSERT INTO fin_cash_transactions
+           (txn_no, account_id, account_code, account_name, company_code, company_name,
+            direction, source_type, currency_code, amount, balance_after, txn_date,
+            remark, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'MANUAL', $8, $9, $10, $11, $12, $13)`,
+        [txnNo, acc.id, acc.account_code, acc.account_name,
+         acc.company_code, acc.company_name,
+         direction, acc.currency_code, amt, after,
+         dt.toISOString(), remark || '手工录入', username],
+      );
+      await mgr.query(
+        `UPDATE fin_cash_accounts
+            SET current_balance = $1, updated_at = now(), updated_by = $2
+          WHERE id = $3`,
+        [after, username, acc.id],
+      );
+    });
+
+    return {
+      code: 200,
+      msg: '已录入',
+      data: { txn_no: txnNo, balance_after: after },
     };
   }
 }

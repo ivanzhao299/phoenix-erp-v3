@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Param, Body, Query,
+  Controller, Get, Post, Patch, Param, Body, Query, Req,
   UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
@@ -143,6 +143,21 @@ export class FinCashController {
       ? null
       : scope.allowedCompanyCodes;
     return this.txnSvc.list(dto, companyCodes);
+  }
+
+  /**
+   * POST /api/v2/finance/cash/transactions/manual
+   *
+   * 手工录入零散现金流水（孟赛生产数据主管等"出纳"角色用）。
+   * 不走 AR/AP 业务单据，直接写 fin_cash_transactions。
+   * 需要 MENU_FIN2_CASH 的 'C' 权限。
+   */
+  @Post('transactions/manual')
+  @RequireMenu(MENU, 'C')
+  async createManualTransaction(@Body() body: any, @Req() req: any) {
+    const userId = req?.user?.userId || req?.user?.id;
+    const username = req?.user?.username || 'unknown';
+    return this.txnSvc.createManual(body, userId, username);
   }
 
   // ════════════════════════════════════════════════════════════════════════

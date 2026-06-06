@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useToast } from '@/contexts/ToastContext';
 import u from "@/styles/uix-utils.module.css";
 import { Wallet, Plus, Search, RefreshCw, Lock, Unlock, X, TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
@@ -475,6 +476,18 @@ export default function CashAccountsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<CashAccount | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // 现金流水录入模态（出纳日常工作 — 由 daily-work 卡片 ?action=receive/pay 触发，或顶部按钮）
+  const [txnModal, setTxnModal] = useState<{ direction: 'IN' | 'OUT' } | null>(null);
+
+  // 接收 ?action=receive / pay 自动打开模态
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const sp = new URLSearchParams(window.location.search);
+    const act = sp.get('action');
+    if (act === 'receive') setTxnModal({ direction: 'IN' });
+    else if (act === 'pay') setTxnModal({ direction: 'OUT' });
+  }, []);
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -516,9 +529,19 @@ export default function CashAccountsPage() {
   }
   const totalBalance = summary?.totalBalance ?? 0;
   return <div>
-      <PageHeader title="资金账户中心" subtitle="资金账户管理 · 流水账本 · 转账审批" breadcrumb={['财务管理', '资金账户']} actions={<button onClick={() => setShowCreate(true)} style={primaryActionButton}>
+      <PageHeader title="资金账户中心" subtitle="资金账户管理 · 流水账本 · 转账审批" breadcrumb={['财务管理', '资金账户']} actions={
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => setTxnModal({ direction: 'IN' })} style={{ ...secondaryActionButton, color: 'var(--status-success)', borderColor: 'var(--status-success)' }}>
+            <Plus size={13} /> 收款
+          </button>
+          <button onClick={() => setTxnModal({ direction: 'OUT' })} style={{ ...secondaryActionButton, color: 'var(--status-danger)', borderColor: 'var(--status-danger)' }}>
+            <Plus size={13} /> 付款
+          </button>
+          <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
             <Plus size={15} /> 新建账户
-          </button>} />
+          </button>
+        </div>
+      } />
 
       {/* KPI 卡片 */}
       <div style={{
@@ -732,5 +755,105 @@ export default function CashAccountsPage() {
     }} />}
 
       {selectedAccount && <TransactionDrawer account={selectedAccount} onClose={() => setSelectedAccount(null)} />}
+
+      {/* 手工录流水模态 — 出纳日常 */}
+      {txnModal && <ManualTxnModal direction={txnModal.direction} accounts={accounts} onClose={() => {
+        setTxnModal(null);
+        // 移除 URL 中的 action 参数避免刷新重复弹出
+        const url = new URL(window.location.href);
+        url.searchParams.delete('action');
+        window.history.replaceState({}, '', url.toString());
+      }} onCreated={() => {
+        setTxnModal(null);
+        const url = new URL(window.location.href);
+        url.searchParams.delete('action');
+        window.history.replaceState({}, '', url.toString());
+        void load();
+      }} />}
     </div>;
+}
+
+// ── 手工现金流水录入模态 ────────────────────────────────────────────────────
+function _useToastSafe(): any {
+  try { return useToast(); } catch { return { success: () => {}, error: () => {} }; }
+}
+const _tokSafe = () => (typeof window === 'undefined' ? '' : sessionStorage.getItem('phoenix_token') || '');
+
+function ManualTxnModal({ direction, accounts, onClose, onCreated }: {
+  direction: 'IN' | 'OUT';
+  accounts: CashAccount[];
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const toast = _useToastSafe();
+  const [accountCode, setAccountCode] = useState('');
+  const [amount, setAmount] = useState('');
+  const [txnDate, setTxnDate] = useState(new Date().toISOString().split('T')[0]);
+  const [remark, setRemark] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const label = direction === 'IN' ? '收款' : '付款';
+  const color = direction === 'IN' ? 'var(--status-success)' : 'var(--status-danger)';
+
+  const submit = async () => {
+    if (!accountCode) return toast.error('请选择资金账户');
+    const amt = Number(amount);
+    if (!Number.isFinite(amt) || amt <= 0) return toast.error('金额必须为正数');
+    setSaving(true);
+    try {
+      const res = await fetch(`${API}/transactions/manual`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_tokSafe()}` },
+        body: JSON.stringify({ account_code: accountCode, direction, amount: amt, txn_date: txnDate, remark }),
+      });
+      const json = await res.json();
+      if (json.code === 200) {
+        toast.success(`${label}已入账：${json.data.txn_no}`);
+        onCreated();
+      } else toast.error(json.msg || '录入失败');
+    } catch { toast.error('网络错误'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div onClick={onClose} style={modalMask}>
+      <div onClick={(e) => e.stopPropagation()} style={{ ...modalPanel(440), padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color }}>{label}录入</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={16} /></button>
+        </div>
+        <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={formLabel}>资金账户 <span style={{ color: 'var(--status-danger)' }}>*</span></label>
+            <select style={inputField} value={accountCode} onChange={e => setAccountCode(e.target.value)}>
+              <option value="">请选择账户</option>
+              {accounts.filter(a => a.status === 'ACTIVE').map(a => (
+                <option key={a.accountCode} value={a.accountCode}>
+                  {a.accountName}（{a.accountCode} · {a.currencyCode}）
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={formLabel}>金额 <span style={{ color: 'var(--status-danger)' }}>*</span></label>
+            <input type="number" min="0" step="0.01" style={inputField} value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" autoFocus />
+          </div>
+          <div>
+            <label style={formLabel}>日期</label>
+            <input type="date" style={inputField} value={txnDate} onChange={e => setTxnDate(e.target.value)} />
+          </div>
+          <div>
+            <label style={formLabel}>摘要 / 备注</label>
+            <input style={inputField} value={remark} onChange={e => setRemark(e.target.value)} placeholder={`如：${direction === 'IN' ? '收直营店现金' : '付柴油款'}`} />
+          </div>
+        </div>
+        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={onClose} style={secondaryActionButton}>取消</button>
+          <button onClick={submit} disabled={saving} style={{ ...primaryActionButton, background: color, opacity: saving ? 0.6 : 1 }}>
+            {saving ? '保存中…' : `确认${label}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }

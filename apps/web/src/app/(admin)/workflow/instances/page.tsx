@@ -29,18 +29,36 @@ export default function WorkflowInstancesPage() {
   const [status, setStatus] = useState(searchParams.get("status") || "");
   const [loadError, setLoadError] = useState<string>("");
 
+  // owner=me: 仅显示当前用户发起的实例（每日工作台"我的提交记录"卡片触发）
+  const ownerFilter = searchParams.get("owner");
+  const myUserId = typeof window !== 'undefined'
+    ? (() => {
+        try {
+          const raw = sessionStorage.getItem('phoenix_user') || localStorage.getItem('phoenix_user');
+          if (!raw) return null;
+          const u = JSON.parse(raw);
+          return u.userId || u.id || null;
+        } catch { return null; }
+      })()
+    : null;
+
   // WF-2 P0：禁止 catch-swallow — 5xx 必须显式提示，不能伪装空
   const load = useCallback(async () => {
     setLoadError("");
     try {
       const res = await workflowApi.instances(status || undefined);
-      setRows(res.data || []);
+      let data = res.data || [];
+      // owner=me 时前端过滤启动人
+      if (ownerFilter === 'me' && myUserId) {
+        data = data.filter((r: any) => String(r.startedBy || r.starterId || r.starter_id) === String(myUserId));
+      }
+      setRows(data);
     } catch (err) {
       console.error('[workflow/instances] load failed:', err);
       setLoadError(err instanceof Error ? `加载流程实例失败：${err.message}` : '加载流程实例失败');
       setRows([]);
     }
-  }, [status]);
+  }, [status, ownerFilter, myUserId]);
   useEffect(() => {
     void load();
   }, [load]);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import u from "@/styles/uix-utils.module.css";
 interface DailyReport {
   [key: string]: unknown;
@@ -62,6 +63,21 @@ export default function DailyPage() {
   } = useLanguage();
   const today = new Date().toISOString().split('T')[0];
   const historyRef = useRef<HTMLHeadingElement>(null);
+  const formRef = useRef<HTMLDivElement>(null);
+
+  // /daily-work?action=create / mortality 接入：mount 后自动滚到表单 + 提示
+  const sp = useSearchParams();
+  useEffect(() => {
+    const action = sp.get('action');
+    if (action === 'create' || action === 'mortality') {
+      setTimeout(() => {
+        formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        toast.success(action === 'mortality' ? '已定位到死淘登记表单' : '已定位到日报录入表单');
+      }, 300);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const HEADS = [t('ui.班次', '班次'), t('ui.产蛋数(枚)', '产蛋数(枚)'), `🟡${t('ui.脏蛋(枚)', '脏蛋(枚)')}`, `🔴${t('ui.破损蛋(枚)', '破损蛋(枚)')}`, t('ui.死亡(羽)', '死亡(羽)'), t('ui.淘汰数(羽)', '淘汰数(羽)'),
   // 移动端 mortality 写入 elimination_qty
   t('ui.淘汰原因', '淘汰原因'),
@@ -399,7 +415,7 @@ export default function DailyPage() {
         </div>}
 
       {/* 表单头部 */}
-      <div className={`${s.card} ${u.mb16}`}>
+      <div ref={formRef} className={`${s.card} ${u.mb16}`}>
         <div className={s.cardBody} style={{
         display: 'flex',
         gap: 20,
