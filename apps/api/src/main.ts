@@ -64,6 +64,16 @@ async function bootstrap() {
     transformOptions: { enableImplicitConversion: true },
   }));
 
+  // ── G5-A++ MenuRegistry hydrate（启动期从 sys_menu 加载 menu_code 注册表） ──
+  try {
+    const { DataSource } = await import('typeorm');
+    const { hydrateMenuRegistry } = await import('./common/guards/menu-registry.service');
+    const ds: InstanceType<typeof DataSource> = app.get(DataSource);
+    await hydrateMenuRegistry(ds.manager);
+  } catch (e) {
+    console.warn('[MenuRegistry] hydrate skipped:', (e as Error).message);
+  }
+
   // ── 启动 ─────────────────────────────────────────────────────────────────────
   const port = parseInt(process.env.PORT || '3100');
   await app.listen(port, '0.0.0.0');

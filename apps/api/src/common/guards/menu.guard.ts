@@ -11,8 +11,9 @@ import { ClsService } from 'nestjs-cls';
 // 2026-06-06 G5-A：弃用静态 rbac.matrix.ts 路径，改纯走 JWT.permissions (来自
 // sys_role_menu_permission 表，登录时由 auth.service 解析合并)。矩阵已通过
 // 20260606_g5a_rbac_matrix_backfill.sql 全量 seed 进 DB，自定义角色与老角色等同对待。
-// rbac.matrix.ts 文件保留作为开发本机首次部署时的 seed 历史源，不再被守卫调用。
-import { isMenuRegistered } from './rbac.matrix';
+// G5-A++（2026-06-06）：isMenuRegistered 改读 sys_menu 启动期缓存（menu-registry.service），
+// 不再读 rbac.matrix.ts。rbac.matrix.ts 仅保留作 seed 历史源。
+import { isMenuRegistered } from './menu-registry.service';
 
 // === Decorators ===
 export const REQUIRE_MENU_KEY = 'require_menu';

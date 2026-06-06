@@ -68,11 +68,52 @@ BEGIN
               WHERE NOT EXISTS (SELECT 1 FROM mst_products p WHERE p.product_code=v.code)$$;
   END IF;
 
-  -- 5. prc2_suppliers / 6. sal_customers / 7. fin_cash_accounts
-  -- 这三表非养殖核心，本次 fix 仅同步 brd_* codes，其余保留根 migrations/ 版本即可
-  -- 若 CI 环境也希望测，后续可再加 IF EXISTS 块。
+  -- 5. prc2_suppliers（2026-06-06 镜像补全，避免根 migrations/ 版本独占）
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='prc2_suppliers') THEN
+    EXECUTE $$INSERT INTO prc2_suppliers (supplier_code, supplier_name, country_code, supplier_type, default_currency, status, is_active, shared_scope, credit_days)
+              SELECT v.code, v.name, v.cc, v.type, v.ccy, 'ACTIVE', true, 'GROUP', 30
+              FROM (VALUES
+                ('SUP_ZHONGLIANG','中粮鞠德清','CN','RAW_MATERIAL','CNY'),
+                ('SUP_XU','胥总','LA','RAW_MATERIAL','LAK'),
+                ('SUP_VTE_TRAY','万象蛋托厂','LA','PACKAGING','LAK')
+              ) v(code, name, cc, type, ccy)
+              WHERE NOT EXISTS (SELECT 1 FROM prc2_suppliers s WHERE s.supplier_code=v.code)$$;
+  END IF;
 
-  RAISE NOTICE '[glp1a2_meng_sai] OK: brd_farms/houses/flocks/products 已写入或保持现状';
+  -- 6. sal_customers
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='sal_customers') THEN
+    EXECUTE $$INSERT INTO sal_customers (customer_no, customer_name, customer_type, company_code, company_name, status, risk_level)
+              SELECT v.no, v.name, v.type, 'LPH', '老挝凤凰农业', 'ACTIVE', 'NORMAL'
+              FROM (VALUES
+                ('CUS_MH_AF','蒙混阿峰','WHOLESALE'),
+                ('CUS_MH_PP','蒙混胖胖','WHOLESALE'),
+                ('CUS_SY','沙耶武里','WHOLESALE'),
+                ('CUS_LB_STORE','拉邦直营店','STORE'),
+                ('CUS_MS_STORE','孟赛直营店','STORE'),
+                ('CUS_VTE_STORE','万象直营店','STORE'),
+                ('CUS_BLK_STORE','波利坎赛合营店','STORE'),
+                ('CUS_DP_HX','东鹏（会晒）','WHOLESALE'),
+                ('CUS_VTE_LB','万象刘彬','WHOLESALE'),
+                ('CUS_FSL','风沙里文代','WHOLESALE'),
+                ('CUS_RETAIL','零售','RETAIL')
+              ) v(no, name, type)
+              WHERE NOT EXISTS (SELECT 1 FROM sal_customers c WHERE c.customer_no=v.no)$$;
+  END IF;
+
+  -- 7. fin_cash_accounts
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='fin_cash_accounts') THEN
+    EXECUTE $$INSERT INTO fin_cash_accounts (account_code, account_name, company_code, company_name, currency_code, account_type, opening_balance, current_balance, status, remark)
+              SELECT v.code, v.name, 'LPH', '老挝凤凰农业', v.ccy, v.type, 0, 0, 'ACTIVE', v.rmk
+              FROM (VALUES
+                ('CASH_LAK',  '老挝币现金','LAK','CASH',    'Excel 现金收支表 — 老挝币现金账户'),
+                ('WECHAT_LAK','老挝币微信','LAK','EWALLET', 'Excel 现金收支表 — 老挝币微信钱包'),
+                ('CASH_CNY',  '人民币现金','CNY','CASH',    'Excel 现金收支表 — 人民币现金账户'),
+                ('WECHAT_CNY','人民币微信','CNY','EWALLET', 'Excel 现金收支表 — 人民币微信钱包')
+              ) v(code, name, ccy, type, rmk)
+              WHERE NOT EXISTS (SELECT 1 FROM fin_cash_accounts a WHERE a.account_code=v.code)$$;
+  END IF;
+
+  RAISE NOTICE '[glp1a2_meng_sai] OK: brd/products/suppliers/customers/cash_accounts 已写入或保持现状';
 END $body$;
 
 -- ─── 回滚 ───────────────────────────────────────────

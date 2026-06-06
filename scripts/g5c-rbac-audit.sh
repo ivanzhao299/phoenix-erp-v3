@@ -92,6 +92,30 @@ check "$admin_token" GET '/api/lookup/dict/BRD_SHIFT'                  200 'admi
 check "$admin_token" GET '/api/lookup/product-grades'                  200 'admin · /lookup/product-grades'
 check "$admin_token" GET '/api/crud/brd_houses?status=ACTIVE&pageSize=500' 200 'admin · /crud/brd_houses 含 pageSize'
 check "$admin_token" GET '/api/v3/farm/daily-logs/eggs-breakdown?date=2026-06-04&houseCode=HOUSE_MS_02' 200 'admin · /eggs-breakdown'
+
+# 写操作覆盖（G5-C++ 2026-06-06）— admin 应能 POST/PUT 主数据
+check_write_method() {
+  local token="$1" method="$2" path="$3" expected="$4" label="$5" body="$6"
+  local actual
+  actual=$(curl -s -m 10 -o "$TMP/body" -w '%{http_code}' \
+    -X "$method" "$API_BASE$path" \
+    -H "Authorization: Bearer $token" \
+    -H 'Content-Type: application/json' \
+    -d "$body")
+  if [ "$actual" = "$expected" ]; then
+    printf "${G}✓${N} %s | %s %s | expected=%s actual=%s\n" "$label" "$method" "$path" "$expected" "$actual"
+    pass=$((pass + 1))
+  else
+    printf "${R}✗${N} %s | %s %s | expected=%s actual=%s\n" "$label" "$method" "$path" "$expected" "$actual"
+    fail=$((fail + 1))
+    failed_cases+=("$label")
+    head -c 200 "$TMP/body" | sed 's/^/   /'; echo
+  fi
+}
+
+# 写操作仅检验"能命中守卫"，不实际改变业务数据（POST 故意拼一个会被 400 拒绝的合理 body）
+check_write_method "$admin_token" POST '/api/product-master/grades' 400 'admin · POST grades (400 = 守卫通过，body 校验拒)' '{"intentional":"empty"}'
+
 echo
 
 # ────────────────────────────────────────────────────────────────────────────
