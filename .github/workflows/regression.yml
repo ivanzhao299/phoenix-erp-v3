@@ -125,6 +125,13 @@ jobs:
         working-directory: apps/api
         run: pnpm test:regr:bi
 
+      # G5-C 自动化 RBAC 巡检：admin/老角色访问关键 endpoint 应 200
+      # 失败原因常见：lookup endpoint 路由缺失 / RBAC 守卫与 sys_role_menu_permission 不同步
+      - name: G5-C RBAC audit (admin + key endpoints)
+        env:
+          API_BASE: http://localhost:3100
+        run: bash scripts/g5c-rbac-audit.sh "$API_BASE"
+
       - name: Dump API log on failure
         if: failure()
         run: |
