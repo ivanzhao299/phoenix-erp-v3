@@ -91,9 +91,49 @@ export class GenericCrudController {
     }
 
     const hasAccess = requiredRoles.some((r) => userRoles.includes(r) || userRole === r);
-    if (!hasAccess) {
-      throw new ForbiddenException(`权限不足：您的角色无权访问 [${table}] 表`);
+    if (hasAccess) return;
+
+    // ──────────────────────────────────────────────────────────────────
+    // RBAC fallback（2026-06-06）：原硬编码 TABLE_PERM_MAP 角色白名单与
+    // sys_role_menu_permission 矩阵脱钩，导致新自定义角色（如
+    // ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR）即便在 RBAC 中有相关菜单
+    // V/C/E 权限，也被硬白名单 403。
+    // 兜底：按表名前缀映射到业务菜单 menu_code，若用户持有对应权限即放行。
+    // ──────────────────────────────────────────────────────────────────
+    const fallbackMenu = this.tableToFallbackMenu(table);
+    if (fallbackMenu) {
+      const requiredOp = method === 'GET' ? 'V' : method === 'POST' ? 'C' : 'E';
+      const entry = perms.find(p => p.startsWith(fallbackMenu + ':'));
+      if (entry) {
+        const granted = (entry.split(':')[1] || '').split(',').map(s => s.trim());
+        if (granted.includes(requiredOp)) return;
+      }
     }
+
+    throw new ForbiddenException(`权限不足：您的角色无权访问 [${table}] 表`);
+  }
+
+  /**
+   * 表名 → 业务菜单 menu_code 映射（与 sidebar perm 一致）
+   * 用于 RBAC fallback：持有该菜单对应操作权限即可访问该表。
+   */
+  private tableToFallbackMenu(table: string): string | null {
+    if (table.startsWith('brd_'))            return 'MENU_FARM_DATA';
+    if (table.startsWith('fin_cash_'))       return 'MENU_FIN2_CASH';
+    if (table.startsWith('fin_ar_'))         return 'MENU_FIN2_AR';
+    if (table.startsWith('fin_ap_'))         return 'MENU_FIN2_AP';
+    if (table.startsWith('fin_expense'))     return 'MENU_FIN2_EXPENSE';
+    if (table.startsWith('fin_shareholder')) return 'MENU_FIN2_SHAREHOLDER';
+    if (table.startsWith('fin_'))            return 'MENU_FIN2';
+    if (table === 'inv_batches' || table === 'inv_ledger') return 'MENU_WMS_VIEW';
+    if (table.startsWith('inv_'))            return 'MENU_WMS_VIEW';
+    if (table.startsWith('wms_'))            return 'MENU_WMS_INOUT';
+    if (table.startsWith('prc2_purchase'))   return 'MENU_PRC2_ORDER';
+    if (table.startsWith('prc2_'))           return 'MENU_PRC2';
+    if (table.startsWith('sal_'))            return 'MENU_SALES2';
+    if (table.startsWith('pkg_'))            return 'MENU_PKG_OP';
+    if (table.startsWith('mst_'))            return 'MENU_MASTER';
+    return null;
   }
 
   private filterBlockedFields(table: string, body: any) {
@@ -128,10 +168,28 @@ export class GenericCrudController {
       (req.user?.permissions || []).includes('*') ||
       req.user?.username === 'admin';
 
-    // Determine scope field: brd_* tables use farm_code; all others use store_code
-    const scopeField = table.startsWith('brd_') ? 'farm_code' : 'store_code';
+    // 行级 scope 字段映射（2026-06-06 修）：
+    // 历史上 brd_* 一律按 farm_code 过滤，但 userStoreCode 是 SITE 维度（如
+    // 'SITE-MENGSAI-LAYER'），而 brd_daily_logs.farm_code 是 farm 维度（如
+    // 'LPH_MENGSAI'），永远不匹配 → 宋明光"数据看不见"假象。
+    // MDM-1 后 brd_daily_logs 有 site_code、brd_farms 有 mapped_site_code，
+    // 改按这些列过滤即可与 userStoreCode 同维度对齐。
+    const BRD_SCOPE_FIELD: Record<string, string | null> = {
+      brd_daily_logs:   'site_code',         // mdm1_05 已加 + 回填
+      brd_farms:        'mapped_site_code',  // mdm1_03 已加 + 回填
+      brd_medications:  'store_code',        // v3_schema 已有
+      brd_vaccinations: 'store_code',
+      brd_houses:       null,                // 无可靠 site 列，暂不行级隔离（受 RBAC 限制）
+      brd_flocks:       null,
+    };
+    let scopeField: string | null;
+    if (table.startsWith('brd_')) {
+      scopeField = table in BRD_SCOPE_FIELD ? BRD_SCOPE_FIELD[table] : 'store_code';
+    } else {
+      scopeField = 'store_code';
+    }
 
-    const effectiveQuery = isGlobal
+    const effectiveQuery = (isGlobal || !scopeField)
       ? query
       : { ...query, [scopeField]: userStoreCode };
 
