@@ -28,6 +28,8 @@ const ALLOWED_DAILY_COLS = new Set([
   'note', 'operator', 'farm_code', 'house_code', 'egg_count',
   'updated_at', 'farm_name', 'dirty_eggs', 'broken_eggs',
   'elimination_qty', 'culling_reason',
+  // 2026-06-06：按 product_grades 9 档分解的产蛋数量（JSONB）
+  'eggs_by_grade',
 ]);
 
 @Injectable()
@@ -51,6 +53,20 @@ export class FarmService {
   }
 
   async submitBreedingDailyLog(body: any, scope: OrgScope = { isGlobal: true, farmCode: null }) {
+    // 2026-06-06: 若提供了 eggs_by_grade，自动派生 eggs_produced/dirty_eggs/broken_eggs
+    // 保持向后兼容；权威字段是 eggs_by_grade（与 product_grades 同源）。
+    if (body.eggs_by_grade && typeof body.eggs_by_grade === 'object') {
+      const ebg = body.eggs_by_grade as Record<string, unknown>;
+      const num = (k: string) => Math.max(0, Number(ebg[k]) || 0);
+      const saleableSum = num('XL') + num('L') + num('M') + num('S') + num('XS');
+      // 仅在前端未显式传 eggs_produced/dirty/broken 时回填，避免覆盖业务方手动校正
+      if (body.eggs_produced == null) body.eggs_produced = saleableSum;
+      if (body.dirty_eggs == null)    body.dirty_eggs    = num('DIRTY');
+      if (body.broken_eggs == null)   body.broken_eggs   = num('BROKEN');
+      // 序列化为 JSON 字符串供 INSERT JSONB 列
+      body.eggs_by_grade = JSON.stringify(ebg);
+    }
+
     const eggs = Number(body.eggs_produced) || 0;
     const mortality = Number(body.mortality_qty) || 0;
     const flock_no = body.flock_no || body.house_code;
@@ -238,6 +254,44 @@ export class FarmService {
 
       return { code: 200, msg: '日报更新成功' };
     });
+  }
+
+  /**
+   * 按日期 + 鸡舍 聚合 eggs_by_grade，合并所有班次（早/晚班）。
+   * 用于 daily-inbound 页"从今日日报预填"按钮 — 业务方录完日报后，
+   * 入库页能一键拉到 9 档数量预填，减少二次录入。
+   */
+  async getEggsBreakdown(
+    date: string,
+    houseCode: string | null,
+    scope: OrgScope = { isGlobal: true, farmCode: null },
+  ): Promise<{ code: number; date: string; houseCode: string | null; eggsByGrade: Record<string, number>; total: number; logs: number }> {
+    if (!date) throw new BadRequestException('date 参数必填');
+
+    const params: any[] = [date];
+    const where: string[] = [`log_date = $1`, `eggs_by_grade IS NOT NULL`];
+    if (houseCode) { params.push(houseCode); where.push(`house_code = $${params.length}`); }
+    if (!scope.isGlobal && scope.farmCode) {
+      params.push(scope.farmCode);
+      where.push(`farm_code = $${params.length}`);
+    }
+
+    const rows: Array<{ eggs_by_grade: any }> = await this.entityManager.query(
+      `SELECT eggs_by_grade FROM brd_daily_logs WHERE ${where.join(' AND ')}`,
+      params,
+    );
+
+    const aggregated: Record<string, number> = {};
+    for (const r of rows) {
+      const ebg = typeof r.eggs_by_grade === 'string' ? JSON.parse(r.eggs_by_grade) : r.eggs_by_grade;
+      if (!ebg || typeof ebg !== 'object') continue;
+      for (const [grade, qty] of Object.entries(ebg)) {
+        const n = Math.max(0, Number(qty) || 0);
+        aggregated[grade] = (aggregated[grade] || 0) + n;
+      }
+    }
+    const total = Object.values(aggregated).reduce((s, n) => s + n, 0);
+    return { code: 200, date, houseCode, eggsByGrade: aggregated, total, logs: rows.length };
   }
 
   async getDailyHenReport(date: string, scope: OrgScope = { isGlobal: true, farmCode: null }) {

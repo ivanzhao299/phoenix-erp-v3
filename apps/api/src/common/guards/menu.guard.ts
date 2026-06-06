@@ -70,10 +70,24 @@ export class MenuGuard extends AuthGuard('jwt') implements CanActivate {
 
     // 静态 RBAC 矩阵校验（零 DB 查询）
     const allowed = hasMenuPermission(userRoles, requirement.menu, requirement.perm);
-    if (!allowed) {
-      throw new ForbiddenException('MENU_PERMISSION_DENIED');
+    if (allowed) return true;
+
+    // ──────────────────────────────────────────────────────────────────
+    // RBAC 动态 fallback（2026-06-06）：rbac.matrix.ts 是编译时静态矩阵，
+    // 自定义角色（如 ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR）即便在
+    // sys_role_menu_permission 表中持有正确权限，因不在静态矩阵中
+    // → MenuGuard 必拒。
+    // 兜底：检查 JWT.permissions 数组（'MENU_XXX:V,C,E' 字符串），
+    // 命中所需 menu + perm 即放行，与 generic-crud RBAC fallback 同思路。
+    // ──────────────────────────────────────────────────────────────────
+    const perms: string[] = Array.isArray(user.permissions) ? user.permissions : [];
+    if (perms.includes('*')) return true;
+    const entry = perms.find(p => p.startsWith(requirement.menu + ':'));
+    if (entry) {
+      const granted = (entry.split(':')[1] || '').split(',').map(s => s.trim());
+      if (granted.includes(requirement.perm)) return true;
     }
 
-    return true;
+    throw new ForbiddenException('MENU_PERMISSION_DENIED');
   }
 }

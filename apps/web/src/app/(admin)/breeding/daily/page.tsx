@@ -29,6 +29,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Save, Download, Cpu, CheckCircle } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import { HouseSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-E 鸡舍主数据
+import { useDictOptions } from '@/hooks/useDictOptions'; // 班次字典化
 
 // 纯数字输入列（分前后两段，中间插入淘汰数+淘汰原因）
 const FIELDS_A = ['eggs', 'dirtyEggs', 'brokenEggs', 'deaths'] as const;
@@ -101,7 +102,22 @@ export default function DailyPage() {
   const [flockByHouse, setFlockByHouse] = useState<Record<string, string>>({});
   const [farmCodeByHouse, setFarmCodeByHouse] = useState<Record<string, string>>({});
   const [formDate, setFormDate] = useState(today);
-  const [rows, setRows] = useState([mkRow(1, t('ui.早班', '早班')), mkRow(2, t('ui.晚班', '晚班'))]);
+  // 班次字典化：BRD_SHIFT (DAY/NIGHT)，与后端 sys_dict 同步
+  const { optionPairs: shiftOptions } = useDictOptions('BRD_SHIFT');
+  const shiftRows = shiftOptions.length > 0
+    ? shiftOptions.map((opt, i) => mkRow(i + 1, opt.value))
+    : [mkRow(1, 'DAY'), mkRow(2, 'NIGHT')];
+  const [rows, setRows] = useState(shiftRows);
+  // 字典加载完后同步 rows（首次加载从 fallback DAY/NIGHT 切到 dict 实际值）
+  useEffect(() => {
+    if (shiftOptions.length === 0) return;
+    setRows(prev => {
+      if (prev.length === shiftOptions.length && prev.every((r, i) => r.shift === shiftOptions[i].value)) return prev;
+      return shiftOptions.map((opt, i) => mkRow(i + 1, opt.value));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shiftOptions.length]);
+  const shiftLabel = (code: string) => shiftOptions.find(o => o.value === code)?.label || code;
   const [submitted, setSubmitted] = useState(false);
   const [approved, setApproved] = useState(false);
   const [reports, setReports] = useState<DailyReport[]>([]);
@@ -270,14 +286,15 @@ export default function DailyPage() {
       setApproved(false);
       setTimeout(() => setSubmitted(false), 3000);
       if (rejected.length === 0) {
-        setRows([mkRow(1, t('ui.早班', '早班')), mkRow(2, t('ui.晚班', '晚班'))]);
+        const codes = shiftOptions.length > 0 ? shiftOptions.map(o => o.value) : ['DAY', 'NIGHT'];
+        setRows(codes.map((c, i) => mkRow(i + 1, c)));
       }
       loadData();
     }
   };
   const handleExport = () => {
     const headers = [t('ui.班次', '班次'), t('ui.产蛋数', '产蛋数'), t('ui.脏蛋', '脏蛋'), t('ui.破损蛋', '破损蛋'), t('ui.死亡', '死亡'), t('ui.淘汰数', '淘汰数'), t('ui.淘汰原因', '淘汰原因'), t('ui.饲料kg', '饲料kg'), t('ui.用水L', '用水L'), t('ui.温度', '温度'), t('ui.湿度', '湿度'), t('common.remark', '备注')];
-    const rowData = rows.map(r => [r.shift, r.eggs || 0, r.dirtyEggs || 0, r.brokenEggs || 0, r.deaths || 0, r.elimination || 0, r.elimReason || '', r.feedKg || 0, r.waterL || 0, r.temp || 0, r.humidity || 0, r.remark]);
+    const rowData = rows.map(r => [shiftLabel(r.shift), r.eggs || 0, r.dirtyEggs || 0, r.brokenEggs || 0, r.deaths || 0, r.elimination || 0, r.elimReason || '', r.feedKg || 0, r.waterL || 0, r.temp || 0, r.humidity || 0, r.remark]);
     const csv = [headers, ...rowData].map(r => r.join(',')).join('\n');
     const blob = new Blob(['﻿' + csv], {
       type: 'text/csv;charset=utf-8'
@@ -512,7 +529,7 @@ export default function DailyPage() {
                 fontWeight: 600,
                 color: 'var(--text-primary)',
                 whiteSpace: 'nowrap'
-              }}>{row.shift}</td>
+              }}>{shiftLabel(row.shift)}</td>
                   {/* 第一段：产蛋/脏蛋/破损蛋/死亡 */}
                   {FIELDS_A.map(field => <td key={field} style={{
                 padding: '6px 8px'

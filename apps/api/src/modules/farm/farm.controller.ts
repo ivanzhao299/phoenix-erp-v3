@@ -22,16 +22,33 @@ export class FarmController {
     return { isGlobal, farmCode: isGlobal ? null : storeCode };
   }
 
+  // 2026-06-06 调整：日报录入应归 MENU_FARM_DAILY（业务字面对齐），不归
+  // MENU_FARM_DATA（后者是养殖场/鸡舍/鸡群主数据维护权，业务录入用户不该有 E）。
   @Post('daily-logs')
-  @RequireMenu('MENU_FARM_DATA', 'E')
+  @RequireMenu('MENU_FARM_DAILY', 'E')
   async submitBreedingDailyLog(@Body() body: any, @Req() req: any) {
     return await this.farmService.submitBreedingDailyLog(body, this.getScope(req));
   }
 
   @Put('daily-logs/:id')
-  @RequireMenu('MENU_FARM_DATA', 'E')
+  @RequireMenu('MENU_FARM_DAILY', 'E')
   async updateBreedingDailyLog(@Param('id') id: number, @Body() body: any) {
     return await this.farmService.updateBreedingDailyLog(id, body);
+  }
+
+  /**
+   * GET /api/v3/farm/daily-logs/eggs-breakdown?date=&houseCode=
+   * 拉指定日期+鸡舍的"按 9 档分解"产蛋数据，供日产蛋入库页"从今日日报预填"按钮使用。
+   * 返回多班次聚合后的 grade → qty 映射（含 saleable + 异常档）。
+   */
+  @Get('daily-logs/eggs-breakdown')
+  @RequireMenu('MENU_FARM_DAILY', 'V')
+  async getEggsBreakdown(
+    @Query('date') date: string,
+    @Query('houseCode') houseCode: string,
+    @Req() req: any,
+  ) {
+    return await this.farmService.getEggsBreakdown(date, houseCode, this.getScope(req));
   }
 
   @Get('daily-hen-report')

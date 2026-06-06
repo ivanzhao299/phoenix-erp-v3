@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Egg, Save, RefreshCw, AlertTriangle, Package } from "lucide-react";
+import { Egg, Save, RefreshCw, AlertTriangle, Package, FileDown } from "lucide-react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import { useProductGrades } from "@/hooks/useProductGrades";
@@ -40,6 +40,7 @@ export default function DailyInboundPage() {
   const [houseCode, setHouseCode] = useState("");
   const [qtyMap, setQtyMap] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [prefilling, setPrefilling] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<{
     batches: {
@@ -49,6 +50,35 @@ export default function DailyInboundPage() {
     }[];
     totalInbound: number;
   } | null>(null);
+  const prefillFromDaily = useCallback(async () => {
+    setError("");
+    setPrefilling(true);
+    try {
+      const qs = new URLSearchParams({ date: eggDate });
+      if (houseCode) qs.set('houseCode', houseCode);
+      const r = await request<{
+        eggsByGrade: Record<string, number>;
+        total: number;
+        logs: number;
+      }>(`/v3/farm/daily-logs/eggs-breakdown?${qs.toString()}`);
+      if (!r.logs || r.total === 0) {
+        setError(`${eggDate}${houseCode ? ` · ${houseCode}` : ''} 暂无日报或未按 9 档录入`);
+        return;
+      }
+      // 用 eggsByGrade 覆盖现有 qtyMap（仅 productGrades 中已知 grade）
+      const next: Record<string, string> = {};
+      for (const g of productGrades) {
+        const q = r.eggsByGrade[g.grade_code];
+        if (q != null && q > 0) next[g.grade_code] = String(q);
+      }
+      setQtyMap(next);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : '拉取日报数据失败');
+    } finally {
+      setPrefilling(false);
+    }
+  }, [eggDate, houseCode, productGrades]);
+
   const loadMode = useCallback(async () => {
     setLoadingMode(true);
     try {
@@ -209,6 +239,18 @@ export default function DailyInboundPage() {
           cursor: "pointer"
         }}>
               <RefreshCw size={13} /> 刷新模式
+            </button>
+            <button onClick={prefillFromDaily} disabled={prefilling} className="bg-bg-muted border border-border text-text-muted" style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "7px 14px",
+          borderRadius: 7,
+          fontSize: 13,
+          cursor: prefilling ? "not-allowed" : "pointer",
+          opacity: prefilling ? 0.6 : 1,
+        }} title="从所选日期+鸡舍的当日生产日报拉取按 9 档分解的产蛋数量，预填到下方表格">
+              <FileDown size={13} /> {prefilling ? '拉取中...' : '从日报预填'}
             </button>
           </div>
 

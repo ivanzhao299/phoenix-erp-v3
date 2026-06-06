@@ -99,10 +99,11 @@ export function ProjectSelector(p: ProjectSelectorProps) {
 export function CompanySelector(p: BaseProps) {
   return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择公司'}
     loader={async () => {
-      const list = await request<any[]>('/org/organizations?type=COMPANY');
+      // 2026-06-06：改用 /api/lookup/companies（无 MENU_SYS_ORG 限制），
+      // 业务录入用户（如孟赛生产数据主管）也能拉到公司下拉。
+      const list = await request<any[]>('/lookup/companies');
       return (Array.isArray(list) ? list : [])
-        .filter(o => (o.status ?? 'ACTIVE') === 'ACTIVE')
-        .map(o => ({ value: o.orgCode ?? o.org_code, label: o.orgName ?? o.org_name, raw: o }));
+        .map(o => ({ value: o.orgCode, label: o.orgNameCn || o.orgName, raw: o }));
     }} />;
 }
 
