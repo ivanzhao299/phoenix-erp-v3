@@ -54,16 +54,16 @@ function ScopedSelect({
   );
 }
 
-// ── 客户（仅 ACTIVE）──────────────────────────────────────────────────────────
+// ── 客户（仅 ACTIVE，G5-B 切 /api/lookup）─────────────────────────────────────
 export function CustomerSelector(p: BaseProps) {
   return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择客户'}
-    loader={async () => (await request<any[]>('/master-data/runtime/customer/active')).map(r => ({ value: r.code, label: `${r.name}（${r.code}）`, raw: r }))} />;
+    loader={async () => (await request<any[]>('/lookup/customers')).map(r => ({ value: r.code, label: `${r.name}（${r.code}）`, raw: r }))} />;
 }
 
-// ── 供应商（仅 ACTIVE）────────────────────────────────────────────────────────
+// ── 供应商（仅 ACTIVE，G5-B 切 /api/lookup）───────────────────────────────────
 export function SupplierSelector(p: BaseProps) {
   return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择供应商'}
-    loader={async () => (await request<any[]>('/master-data/runtime/supplier/active')).map(r => ({ value: r.code, label: `${r.name}（${r.code}）`, raw: r }))} />;
+    loader={async () => (await request<any[]>('/lookup/suppliers')).map(r => ({ value: r.code, label: `${r.name}（${r.code}）`, raw: r }))} />;
 }
 
 // ── 项目（MDM-1 切换为 biz_projects 统一项目主表，按 company_code 过滤）─────
@@ -118,20 +118,18 @@ export function CashAccountSelector(p: BaseProps & { valueField?: 'code' | 'id';
   const { valueField = 'code', currencyCode, ...rest } = p;
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择资金账户'}
     loader={async () => {
-      const r = await request<any>('/v2/finance/cash/accounts');
-      const list: any[] = Array.isArray(r) ? r : (r?.items ?? r?.data ?? []);
-      return list
-        .filter(a => (a.status ?? 'ACTIVE') === 'ACTIVE')
-        .filter(a => !currencyCode || (a.currency_code ?? a.currencyCode) === currencyCode)
+      // G5-B 切 /api/lookup/cash-accounts；支持 currency query 直接过滤
+      const url = currencyCode ? `/lookup/cash-accounts?currency=${encodeURIComponent(currencyCode)}` : '/lookup/cash-accounts';
+      const list = await request<any[]>(url);
+      return (Array.isArray(list) ? list : [])
         .map(a => {
-          const code = a.account_code ?? a.accountCode;
-          const id   = a.id;
-          const name = a.account_name ?? a.accountName;
-          const ccy  = a.currency_code ?? a.currencyCode ?? '';
-          const bal  = a.current_balance ?? a.currentBalance;
-          const balStr = bal !== undefined ? `｜余额 ${Number(bal).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}` : '';
+          const code = a.accountCode;
+          const name = a.accountName;
+          const ccy  = a.currencyCode ?? '';
+          const bal  = a.currentBalance;
+          const balStr = bal !== undefined && bal !== null ? `｜余额 ${Number(bal).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}` : '';
           return {
-            value: valueField === 'id' ? id : code,
+            value: valueField === 'id' ? (a as any).id : code,
             label: `${name}（${code}${ccy ? ' ' + ccy : ''}）${balStr}`,
             raw: a,
           };
@@ -167,8 +165,8 @@ export function UserSelector(p: BaseProps & {
   const { valueField = 'username', scopeStore = true, ...rest } = p;
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择用户'}
     loader={async () => {
-      const r = await request<any>('/users');
-      const list: any[] = Array.isArray(r) ? r : (r?.data ?? []);
+      // G5-B 切 /api/lookup/users（无 MENU_USER_MGR:V 限制）
+      const list = await request<any[]>('/lookup/users');
       // 当前登录用户的 store_code（从 JWT/sessionStorage 取）
       let myStore = '';
       try {
@@ -181,35 +179,32 @@ export function UserSelector(p: BaseProps & {
         }
       } catch { /* */ }
 
-      return list
-        .filter(u => (u.status ?? 'ACTIVE') === 'ACTIVE')
+      return (Array.isArray(list) ? list : [])
         // 站点过滤：仅显示同 store_code（或 store_code='ALL' 的全局用户）
         .filter(u => {
           if (!scopeStore || !myStore || myStore === 'ALL') return true;
-          const userStore = u.store_code || u.storeCode || '';
+          const userStore = u.storeCode || '';
           return userStore === myStore || userStore === 'ALL';
         })
         .map(u => ({
-          value: valueField === 'id' ? String(u.id) : u.username,
-          label: `${u.real_name_zh ?? u.username}（${u.username}${u.role ? ' · ' + u.role : ''}）`,
+          value: valueField === 'id' ? String(u.userId) : u.username,
+          label: `${u.realName ?? u.username}（${u.username}）`,
           raw: u,
         }));
     }} />;
 }
 
-// ── 仓库（wms_warehouses，仅 ACTIVE）─────────────────────────────────────────
+// ── 仓库（wms_warehouses，G5-B 切 /api/lookup）────────────────────────────────
 export function WarehouseSelector(p: BaseProps & { companyCode?: string }) {
   const { companyCode, ...rest } = p;
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择仓库'}
     loader={async () => {
-      const r = await request<any>('/crud/wms_warehouses?status=ACTIVE&pageSize=200');
-      const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
-      return list
-        .filter(w => (w.status ?? 'ACTIVE') === 'ACTIVE')
-        .filter(w => !companyCode || w.company_code === companyCode || w.org_code === companyCode)
+      const url = companyCode ? `/lookup/warehouses?companyCode=${encodeURIComponent(companyCode)}` : '/lookup/warehouses';
+      const list = await request<any[]>(url);
+      return (Array.isArray(list) ? list : [])
         .map(w => ({
-          value: w.warehouse_code ?? w.code,
-          label: `${w.warehouse_name ?? w.name ?? w.warehouse_code}（${w.warehouse_code ?? w.code}）`,
+          value: w.warehouseCode,
+          label: `${w.warehouseName ?? w.warehouseCode}（${w.warehouseCode}）`,
           raw: w,
         }));
     }} />;
@@ -268,19 +263,17 @@ export function ChannelSelector(p: BaseProps) {
     }} />;
 }
 
-// ── 门店（mst_stores / sys_store via generic-crud）────────────────────────────
+// ── 门店（mst_stores，G5-B 切 /api/lookup）────────────────────────────────────
 export function StoreSelector(p: BaseProps & { companyCode?: string }) {
   const { companyCode, ...rest } = p;
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择门店'}
     loader={async () => {
-      const r = await request<any>('/crud/mst_stores?status=ACTIVE&pageSize=500');
-      const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
-      return list
-        .filter(st => (st.status ?? 'ACTIVE') === 'ACTIVE')
-        .filter(st => !companyCode || st.company_code === companyCode)
+      const url = companyCode ? `/lookup/stores?companyCode=${encodeURIComponent(companyCode)}` : '/lookup/stores';
+      const list = await request<any[]>(url);
+      return (Array.isArray(list) ? list : [])
         .map(st => ({
-          value: st.store_code,
-          label: `${st.store_name ?? st.store_code}（${st.store_code}）`,
+          value: st.storeCode,
+          label: `${st.storeName ?? st.storeCode}（${st.storeCode}）`,
           raw: st,
         }));
     }} />;
@@ -322,54 +315,50 @@ export function VehicleSelector(p: BaseProps & { companyCode?: string }) {
     }} />;
 }
 
-// ── 场站（brd_farms，仅 ACTIVE）─────────────────────────────────────────────
+// ── 场站（brd_farms，G5-B 切 /api/lookup）────────────────────────────────────
 export function FarmSelector(p: BaseProps) {
   return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择场站'}
     loader={async () => {
-      const r = await request<any>('/crud/brd_farms?status=ACTIVE&pageSize=200');
-      const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
-      return list
-        .filter(f => (f.status ?? 'ACTIVE') === 'ACTIVE')
+      const list = await request<any[]>('/lookup/farms');
+      return (Array.isArray(list) ? list : [])
         .map(f => ({
-          value: f.farm_code,
-          label: `${f.farm_name ?? f.farm_code}（${f.farm_code}）`,
+          value: f.farmCode,
+          label: `${f.farmName ?? f.farmCode}（${f.farmCode}）`,
           raw: f,
         }));
     }} />;
 }
 
-// ── 鸡舍（brd_houses）─────────────────────────────────────────────────────────
+// ── 鸡舍（brd_houses，G5-B 切 /api/lookup）────────────────────────────────────
 export function HouseSelector(p: BaseProps & { farmCode?: string }) {
   const { farmCode, ...rest } = p;
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择鸡舍'}
     loader={async () => {
-      const r = await request<any>('/crud/brd_houses?status=ACTIVE&pageSize=500');
-      const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
-      return list
-        .filter(h => (h.status ?? 'ACTIVE') === 'ACTIVE')
-        .filter(h => !farmCode || h.farm_code === farmCode)
+      const url = farmCode ? `/lookup/houses?farmCode=${encodeURIComponent(farmCode)}` : '/lookup/houses';
+      const list = await request<any[]>(url);
+      return (Array.isArray(list) ? list : [])
         .map(h => ({
-          value: h.house_code,
-          label: `${h.house_name ?? h.house_code}（${h.house_code}${h.house_type ? ' · ' + h.house_type : ''}）`,
+          value: h.houseCode,
+          label: `${h.houseName ?? h.houseCode}（${h.houseCode}${h.houseType ? ' · ' + h.houseType : ''}）`,
           raw: h,
         }));
     }} />;
 }
 
-// ── 鸡群（brd_flocks）─────────────────────────────────────────────────────────
+// ── 鸡群（brd_flocks，G5-B 切 /api/lookup）────────────────────────────────────
 export function FlockSelector(p: BaseProps & { farmCode?: string; houseCode?: string }) {
   const { farmCode, houseCode, ...rest } = p;
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择鸡群'}
     loader={async () => {
-      const r = await request<any>('/crud/brd_flocks?status=ACTIVE&pageSize=500');
-      const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
-      return list
-        .filter(f => (f.status ?? 'ACTIVE') === 'ACTIVE')
-        .filter(f => !farmCode || f.farm_code === farmCode)
-        .filter(f => !houseCode || f.house_code === houseCode)
+      const qs = new URLSearchParams();
+      if (houseCode) qs.set('houseCode', houseCode);
+      if (farmCode)  qs.set('farmCode',  farmCode);
+      const url = qs.toString() ? `/lookup/flocks?${qs.toString()}` : '/lookup/flocks';
+      const list = await request<any[]>(url);
+      return (Array.isArray(list) ? list : [])
         .map(f => ({
-          value: f.flock_no,
-          label: `${f.flock_no}（${f.house_code ?? ''}${f.current_qty ? ' · ' + f.current_qty + '羽' : ''}）`,
+          value: f.flockNo,
+          label: `${f.flockNo}（${f.houseCode ?? ''}${f.currentQty ? ' · ' + f.currentQty + '羽' : ''}）`,
           raw: f,
         }));
     }} />;
