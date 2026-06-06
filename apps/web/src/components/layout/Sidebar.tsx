@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -281,7 +281,9 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
   const expanded_ = pinned || hovered;
   const isOverlay = hovered && !pinned;
 
-  const visibleMenu = MENU.map(item => {
+  // G8 性能优化：visibleMenu 仅在 user.permissions 变化时重算，
+  // 不再随 hovered/pinned 等高频 state 重渲染都跑一遍 hasPermission（O(MENU×perms)）。
+  const visibleMenu = useMemo(() => MENU.map(item => {
     if (item.perm && !hasPermission(item.perm)) return null;
     if (item.children) {
       const kids = item.children.filter(c => !c.perm || hasPermission(c.perm));
@@ -289,7 +291,7 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
       return { ...item, children: kids };
     }
     return item;
-  }).filter(Boolean) as MenuItem[];
+  }).filter(Boolean) as MenuItem[], [hasPermission]);
 
   const getActive = useCallback((path?: string) => {
     if (!path) return false;

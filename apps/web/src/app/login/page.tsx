@@ -225,7 +225,20 @@ const ROLE_HOME: Record<string, string> = {
   ROLE_PKG_OP: "/terminal/packaging/dashboard",
   ROLE_QC_INSPECTOR: "/terminal/packaging/dashboard",
   ROLE_WH_CLERK: "/terminal/packaging/dashboard",
-  ROLE_LINE_SUPERVISOR: "/terminal/packaging/dashboard"
+  ROLE_LINE_SUPERVISOR: "/terminal/packaging/dashboard",
+  // G8 补全（2026-06-06 SSH 实测发现 11 个生产角色无 ROLE_HOME 映射，登录后被
+  // fallback 误送 /home 而非业务专属页）
+  ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR: "/daily-work", // 孟赛生产数据主管 → 日常工作台
+  ROLE_PILOT_MANAGER: "/daily-work",                       // 试运行项目负责人 → 日常工作台
+  ROLE_FARMER: "/breeding/daily",                          // 饲养员 → 日报直达
+  ROLE_REGION_MGR: "/dashboard",                           // 大区经理 → 集团驾驶舱
+  ROLE_HQ_FINANCE: "/finance2",                            // 总部财务 → 财务中心
+  ROLE_FINANCE_ANALYST: "/finance2/reports",               // 财务分析师 → 财务报表
+  ROLE_FINANCE_REVIEW_MANAGER: "/finance2",                // 财务复核经理 → 财务中心
+  ROLE_COST_ACCOUNTING_MANAGER: "/finance2/reports",       // 成本会计经理 → 财务报表
+  ROLE_TREASURY_MANAGER: "/finance2/cash",                 // 资金经理 → 现金管理
+  ROLE_CASH: "/finance2/cash",                             // 出纳 → 现金管理
+  ROLE_MASTER_DATA_APPROVER: "/master-data",               // 主数据审批人 → 主数据中心
 };
 function LoginInner() {
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";

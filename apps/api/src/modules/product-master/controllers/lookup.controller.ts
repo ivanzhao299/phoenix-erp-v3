@@ -24,17 +24,32 @@ export class LookupController {
     @InjectEntityManager() private readonly em: EntityManager,
   ) {}
 
+  // G8 性能：进程内 5min 缓存
+  // 业务录入页面下拉调用极高频（每次进入页面），主数据变化频率低（小时到天级）。
+  // 缓存命中 → 0ms，未命中走 DB（实测 2-5ms）。
+  // 主数据更新场景靠 TTL 到期自然刷新，关键性强一致场景走原 /api/product-master/* 写端点。
+  private static readonly TTL_MS = 5 * 60 * 1000;
+  private cache = new Map<string, { data: any; expireAt: number }>();
+  private async cached<T>(key: string, loader: () => Promise<T>): Promise<T> {
+    const now = Date.now();
+    const hit = this.cache.get(key);
+    if (hit && hit.expireAt > now) return hit.data;
+    const data = await loader();
+    this.cache.set(key, { data, expireAt: now + LookupController.TTL_MS });
+    return data;
+  }
+
   /** GET /api/lookup/product-grades — 仅 ACTIVE 等级，供前端下拉 */
   @Get('product-grades')
   async productGrades() {
-    const data = await this.svc.listGrades();
+    const data = await this.cached('product-grades', () => this.svc.listGrades());
     return { code: 200, data };
   }
 
   /** GET /api/lookup/packaging-specs — 仅 ACTIVE 规格 */
   @Get('packaging-specs')
   async packagingSpecs() {
-    const data = await this.svc.listSpecs();
+    const data = await this.cached('packaging-specs', () => this.svc.listSpecs());
     return { code: 200, data };
   }
 
@@ -45,13 +60,13 @@ export class LookupController {
    */
   @Get('companies')
   async companies() {
-    const rows = await this.em.query(
+    const rows = await this.cached('companies', () => this.em.query(
       `SELECT org_code AS "orgCode", org_name AS "orgName", org_name_cn AS "orgNameCn",
               org_short_name AS "orgShortName", status
          FROM sys_organizations
          WHERE org_type='COMPANY' AND status='ACTIVE'
          ORDER BY sort_order NULLS LAST, org_code`,
-    );
+    ));
     return { code: 200, data: rows };
   }
 
@@ -165,13 +180,13 @@ export class LookupController {
   /** GET /api/lookup/farms — 养殖场下拉（替代 /crud/brd_farms） */
   @Get('farms')
   async farms() {
-    const rows = await this.em.query(
+    const rows = await this.cached('farms', () => this.em.query(
       `SELECT farm_code AS "farmCode", farm_name AS "farmName", location, status,
               houses, capacity
          FROM brd_farms
          WHERE status='ACTIVE'
          ORDER BY farm_code`,
-    );
+    ));
     return { code: 200, data: rows };
   }
 
