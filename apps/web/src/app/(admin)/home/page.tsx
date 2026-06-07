@@ -162,7 +162,22 @@ export default function HomePage() {
 
   return (
     <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* G19-E：养殖运营 KPI 卡片网格（持 MENU_FARM_DATA 权限才显示） */}
+      {/* ───── HERO 欢迎横幅（页面顶部，统一入口）───── */}
+      <HeroBanner
+        greeting={greeting}
+        userName={displayName}
+        briefing={todayBriefing}
+        ctaLabel={cta.label}
+        ctaHref={cta.href}
+        CtaIcon={cta.icon}
+        todoCount={todoCount}
+        overdueCount={summary?.overdueTodo ?? 0}
+        highAlertCount={scores?.highAlertCount ?? 0}
+        hasMasterPerm={hasMasterPerm}
+        showAlertBubble={hasQualityPerm}
+      />
+
+      {/* G19-E / G20-2：养殖运营 KPI 卡片网格（HeroBanner 之下） */}
       {hasPermission('MENU_FARM_DATA') && farmKpi && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
           {[
@@ -189,21 +204,6 @@ export default function HomePage() {
           ))}
         </div>
       )}
-
-      {/* ───── HERO 欢迎横幅 ───── */}
-      <HeroBanner
-        greeting={greeting}
-        userName={displayName}
-        briefing={todayBriefing}
-        ctaLabel={cta.label}
-        ctaHref={cta.href}
-        CtaIcon={cta.icon}
-        todoCount={todoCount}
-        overdueCount={summary?.overdueTodo ?? 0}
-        highAlertCount={scores?.highAlertCount ?? 0}
-        hasMasterPerm={hasMasterPerm}
-        showAlertBubble={hasQualityPerm}
-      />
 
       {/* ───── 主体布局：按权限渲染双栏或单栏 ───── */}
       {hasQualityPerm || hasCentersPerm ? (
