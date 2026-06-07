@@ -68,14 +68,20 @@ function ctaFor(role: string | undefined, todo: number): { label: string; href: 
   return { label: '进入数据质量驾驶舱', href: '/data-quality', icon: ShieldAlert };
 }
 
+// G12：业务录入用户的 /home 直接渲染每日工作台（最短路径直达录入）
+// 治理类用户（admin / 持 MENU_DATA_QUALITY/MENU_MASTER）才看仪表板风格 home
+import DailyWorkPage from '../daily-work/page';
+
 // ── 主组件 ───────────────────────────────────────────
 export default function HomePage() {
   const { user, hasPermission } = useAuth();
   const hasMasterPerm = hasPermission('MENU_MASTER');
   // G11：数据质量驾驶舱 + 高危告警 + 主数据健康度 只对持 MENU_DATA_QUALITY/MENU_MASTER 的角色显示
-  // 业务录入用户（孟赛生产数据主管等）不应看到这些治理类组件
   const hasQualityPerm = hasPermission('MENU_DATA_QUALITY') || hasPermission('MENU_MD_QUALITY');
   const hasCentersPerm = hasPermission('MENU_MD_CENTER') || hasMasterPerm;
+  // G12：业务录入用户（无任何治理权 + 无 admin '*'）直接看工作台
+  const isOpsUser = !hasQualityPerm && !hasCentersPerm && !hasPermission('MENU_DASHBOARD', 'X');
+  if (isOpsUser) return <DailyWorkPage />;
   const [summary, setSummary] = useState<WorkflowSummary | null>(null);
   const [scores, setScores] = useState<QualityScores | null>(null);
   const [centers, setCenters] = useState<CenterStat[]>([]);

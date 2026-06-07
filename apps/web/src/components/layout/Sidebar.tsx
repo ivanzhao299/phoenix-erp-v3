@@ -281,15 +281,19 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
   const expanded_ = pinned || hovered;
   const isOverlay = hovered && !pinned;
 
-  // G8 性能优化：visibleMenu 仅在 user.permissions 变化时重算，
-  // 不再随 hovered/pinned 等高频 state 重渲染都跑一遍 hasPermission（O(MENU×perms)）。
+  // G12 父守卫 OR 逻辑：父项 perm 不再严格检查，子项过滤后非空即显示父项。
+  // 之前问题：宋明光持 MENU_FIN2_CASH 但缺 MENU_FIN2 父权 → 整段财务节点被剔除。
+  // PBAC 颗粒度原则：父节点只是分组容器，权限以叶子为准。
+  // G8 性能：visibleMenu 仅在 user.permissions 变化时重算。
   const visibleMenu = useMemo(() => MENU.map(item => {
-    if (item.perm && !hasPermission(item.perm)) return null;
     if (item.children) {
+      // 父项：先过滤可见子项，无可见则整段剔除（不再检查父项 perm）
       const kids = item.children.filter(c => !c.perm || hasPermission(c.perm));
       if (!kids.length) return null;
       return { ...item, children: kids };
     }
+    // 叶子项：严格按 perm 检查
+    if (item.perm && !hasPermission(item.perm)) return null;
     return item;
   }).filter(Boolean) as MenuItem[], [hasPermission]);
 

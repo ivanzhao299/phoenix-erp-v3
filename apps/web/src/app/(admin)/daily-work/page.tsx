@@ -1,27 +1,23 @@
 'use client';
 
 /**
- * /daily-work — 每日工作台
+ * /daily-work — 每日工作台（G12 重设：按 RBAC 持权动态生成卡片）
  *
- * 一站式录入入口，按用户类型显示不同的高频卡片组：
- * · 生产/养殖人员（userKind=production）→ 生产日报 / 鸡蛋分级 / 饲料消耗 / 死淘记录 / 现金收支 / 异常上报 / 我的提交
- * · 销售/门店人员（userKind=store） → 销售出库 / 收款记录 / 库存查询 / 我的销售统计
- * · 办公（office）→ 待办 / 审批中心 / 我的发起
- *
- * 设计要点：
- * · 大卡片 + 大图标，移动友好
- * · 卡片右上角 today_count 徽章（今日已录条数）
- * · 点击直接跳到对应录入页（带预设上下文 ?date=today&farm=LPH_MENGSAI 等）
+ * 设计原则（用户明确）：
+ * · 基层效率第一，最短路径直达录入
+ * · 不再按 userKind 静态映射，改按用户实际持有的 menu_code + perm 动态生成卡片
+ * · 卡片右上 today_count 徽章（今日已录条数）
  * · 顶部"今日待办"banner 显示未完成项
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
 import {
   ClipboardList, Egg, Wheat, AlertTriangle, Wallet, FileSearch, Send,
   ShoppingCart, Receipt, Warehouse, Inbox, CheckCircle2, Clock,
+  Pill, PackagePlus, PackageMinus, Feather, Syringe,
 } from 'lucide-react';
 import {
   sectionTitle, tableContainer, inlineBadge,
@@ -34,17 +30,67 @@ interface QuickCard {
   icon: React.ElementType;
   href: string;
   accent: string;
+  perm: string;                       // 必需的菜单权限
+  permOp?: 'V' | 'C' | 'E';          // 默认 'V'，录入类用 'C'
   todayCount?: number;
 }
 
 const tok = () => (typeof window === 'undefined' ? '' : sessionStorage.getItem('phoenix_token') || '');
 
+// G12：所有可能的快捷卡片（与 sidebar menu_code 对齐，按 perm 过滤）
+const ALL_CARDS: QuickCard[] = [
+  // ───── 养殖生产 ─────
+  { key: 'daily_log',   title: '生产日报录入',     desc: '存栏 / 死亡 / 淘汰 / 产蛋 / 产蛋率',
+    icon: ClipboardList, href: '/breeding/daily?action=create&date=today',           accent: '#2563EB', perm: 'MENU_FARM_DAILY',         permOp: 'E' },
+  { key: 'flock',       title: '鸡群档案',          desc: '入栏批次 / 当前存栏 / 强制换羽',
+    icon: Feather,       href: '/breeding/flock',                                     accent: '#0EA5E9', perm: 'MENU_FARM_DATA',          permOp: 'V' },
+  { key: 'mortality',   title: '死淘快速登记',     desc: '紧急死亡 / 淘汰登记 · 含原因',
+    icon: AlertTriangle, href: '/breeding/daily?action=mortality',                    accent: '#EF4444', perm: 'MENU_FARM_DAILY',         permOp: 'E' },
+  { key: 'feed_log',    title: '饲料消耗登记',     desc: '玉米 / 豆粕 / 预混料 · 按鸡舍分配',
+    icon: Wheat,         href: '/breeding/feed?action=create&date=today',             accent: '#10B981', perm: 'MENU_FARM_FEED',          permOp: 'C' },
+  { key: 'vet_record',  title: '兽药使用记录',     desc: '日常用药 / 治疗记录',
+    icon: Pill,          href: '/breeding/medicine?action=create&date=today',         accent: '#22C55E', perm: 'MENU_FARM_VET',           permOp: 'C' },
+  { key: 'vaccine',     title: '免疫疫苗记录',     desc: '免疫计划 / 接种记录',
+    icon: Syringe,       href: '/breeding/immune',                                    accent: '#84CC16', perm: 'MENU_FARM_VET',           permOp: 'V' },
+  { key: 'med_stock',   title: '药品库存',          desc: '入库 / 出库 / 库存查询',
+    icon: Pill,          href: '/breeding/med-stock',                                 accent: '#16A34A', perm: 'MENU_FARM_VET',           permOp: 'V' },
+  { key: 'egg_collect', title: '鸡蛋集蛋记录',     desc: '集蛋台账 · 各鸡舍当日',
+    icon: Egg,           href: '/breeding/egg-ledger?action=create&date=today',       accent: '#F59E0B', perm: 'MENU_PROD_COLLECTION',    permOp: 'C' },
+  { key: 'egg_inbound', title: '日产蛋入库',        desc: '7 等级分级入库',
+    icon: PackagePlus,   href: '/breeding/daily-inbound?action=create&date=today',    accent: '#F97316', perm: 'MENU_PROD_INBOUND',       permOp: 'C' },
+
+  // ───── 仓储与库存 ─────
+  { key: 'manual_in',   title: '原料入库',          desc: '饲料 / 兽药 / 包材手工入库',
+    icon: PackagePlus,   href: '/warehouse/inbound?action=create&date=today',         accent: '#8B5CF6', perm: 'MENU_INV_MANUAL_INBOUND', permOp: 'E' },
+  { key: 'wms_out',     title: '出库管理',          desc: '原料出库 / 调拨出库',
+    icon: PackageMinus,  href: '/warehouse/outbound?action=create&date=today',        accent: '#A855F7', perm: 'MENU_WMS_INOUT',          permOp: 'E' },
+  { key: 'inv_query',   title: '库存查询',          desc: '批次 / 临期 / 流水',
+    icon: Warehouse,     href: '/warehouse/query',                                    accent: '#EAB308', perm: 'MENU_WMS_VIEW',           permOp: 'V' },
+
+  // ───── 财务现金 ─────
+  { key: 'cash_in',     title: '现金收款',          desc: '直营店 / 客户收款 · 老币+人民币',
+    icon: Wallet,        href: '/finance2/cash-accounts?action=receive',              accent: '#06B6D4', perm: 'MENU_FIN2_CASH',          permOp: 'C' },
+  { key: 'cash_out',    title: '现金付款',          desc: '采购 / 工资 / 运费',
+    icon: Receipt,       href: '/finance2/cash-accounts?action=pay',                  accent: '#7C3AED', perm: 'MENU_FIN2_CASH',          permOp: 'C' },
+
+  // ───── 销售 ─────
+  { key: 'sale_create', title: '销售出库',          desc: '客户订单 / 散户零售',
+    icon: ShoppingCart,  href: '/sales2/orders?action=create',                        accent: '#10B981', perm: 'MENU_SALES2_ORDER',       permOp: 'C' },
+  { key: 'sale_receipt',title: '应收收款',          desc: '客户回款登记',
+    icon: Receipt,       href: '/finance2/ar?action=receipt',                         accent: '#059669', perm: 'MENU_FIN2_AR',            permOp: 'C' },
+
+  // ───── 通用 ─────
+  { key: 'todo',        title: '我的待办',          desc: '待处理审批任务',
+    icon: Inbox,         href: '/workflow/tasks/todo',                                accent: '#3B82F6', perm: 'MENU_WORKFLOW',           permOp: 'V' },
+  { key: 'my_submit',   title: '我的提交',          desc: '本人发起的所有单据 · 审批进度',
+    icon: Send,          href: '/workflow/instances?owner=me',                        accent: '#6B7280', perm: 'MENU_WORKFLOW',           permOp: 'V' },
+];
+
 export default function DailyWorkPage() {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<Record<string, number>>({});
 
-  const userKind: 'production' | 'store' | 'office' = (user as any)?.userKind || 'office';
   const userName = (user as any)?.realNameZh || (user as any)?.name || '用户';
   const today = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
 
@@ -60,58 +106,13 @@ export default function DailyWorkPage() {
     })();
   }, []);
 
-  // 卡片定义：按 userKind 切换
-  const cards: QuickCard[] = userKind === 'production' ? [
-    {
-      key: 'daily_log', title: '生产日报录入', desc: '存栏 / 死亡 / 淘汰 / 产蛋 / 产蛋率',
-      icon: ClipboardList, href: '/breeding/daily?action=create&date=today', accent: '#2563EB',
-      todayCount: stats.daily_log,
-    },
-    {
-      key: 'egg_inbound', title: '鸡蛋分级入库', desc: '7 等级 · 各鸡舍当日产蛋分级',
-      icon: Egg, href: '/breeding/egg-ledger?action=create&date=today', accent: '#F59E0B',
-      todayCount: stats.egg_inbound,
-    },
-    {
-      key: 'feed_log', title: '饲料消耗登记', desc: '玉米 / 豆粕 / 预混料 · 按鸡舍分配',
-      icon: Wheat, href: '/warehouse/outbound?action=create&type=feed&date=today', accent: '#10B981',
-      todayCount: stats.feed_log,
-    },
-    {
-      key: 'mortality', title: '死淘快速登记', desc: '紧急死亡 / 淘汰登记 · 含原因',
-      icon: AlertTriangle, href: '/breeding/daily?action=mortality', accent: '#EF4444',
-      todayCount: stats.mortality,
-    },
-    {
-      key: 'cash_in', title: '现金收款', desc: '直营店 / 客户收款 · 老币 + 人民币',
-      icon: Wallet, href: '/finance2/cash-accounts?action=receive', accent: '#0EA5E9',
-      todayCount: stats.cash_in,
-    },
-    {
-      key: 'cash_out', title: '现金付款', desc: '采购 / 工资 / 运费 · 老币 + 人民币',
-      icon: Receipt, href: '/finance2/cash-accounts?action=pay', accent: '#7C3AED',
-      todayCount: stats.cash_out,
-    },
-    {
-      key: 'exception', title: '异常上报', desc: '设备故障 / 鸡群异常 / 质检不合格',
-      icon: AlertTriangle, href: '/breeding?action=qa', accent: '#DC2626',
-      todayCount: stats.exception,
-    },
-    {
-      key: 'my_submit', title: '我的提交记录', desc: '查看本人发起的所有单据 · 审批进度',
-      icon: Send, href: '/workflow/instances?owner=me', accent: '#6B7280',
-      todayCount: stats.my_submit,
-    },
-  ] : userKind === 'store' ? [
-    { key: 'sale_create', title: '销售出库', desc: '客户订单 / 散户零售', icon: ShoppingCart, href: '/sales2/orders?action=create', accent: '#2563EB', todayCount: stats.sale_create },
-    { key: 'receipt', title: '收款记录', desc: '应收回款登记', icon: Receipt, href: '/finance2/ar?action=receipt', accent: '#10B981', todayCount: stats.receipt },
-    { key: 'inv_query', title: '库存查询', desc: '门店实时库存', icon: Warehouse, href: '/sales2/inventory', accent: '#F59E0B' },
-    { key: 'my_submit', title: '我的销售统计', desc: '今日 / 本周 / 本月汇总', icon: FileSearch, href: '/sales2/report?owner=me', accent: '#6B7280' },
-  ] : [
-    { key: 'todo', title: '我的待办', desc: '待处理审批任务', icon: Inbox, href: '/workflow/tasks/todo', accent: '#2563EB', todayCount: stats.todo },
-    { key: 'approval', title: '审批中心', desc: '查看所有审批流', icon: CheckCircle2, href: '/approval', accent: '#10B981' },
-    { key: 'my_submit', title: '我的发起', desc: '本人发起的单据', icon: Send, href: '/workflow/instances?owner=me', accent: '#6B7280' },
-  ];
+  // G12 核心：按持权动态生成卡片，附上 today_count
+  const visibleCards = useMemo(
+    () => ALL_CARDS
+      .filter(c => hasPermission(c.perm, c.permOp || 'V'))
+      .map(c => ({ ...c, todayCount: stats[c.key] })),
+    [hasPermission, stats]
+  );
 
   const todoCount = (stats.todo || 0) + (stats.overdue || 0);
 
@@ -119,7 +120,7 @@ export default function DailyWorkPage() {
     <div>
       <PageHeader
         title={`${userName}的每日工作台`}
-        subtitle={`${today} · 一站式录入所有高频业务数据`}
+        subtitle={`${today} · 一站式录入 · ${visibleCards.length} 项可用功能`}
         breadcrumb={['每日工作台']}
       />
 
@@ -143,84 +144,85 @@ export default function DailyWorkPage() {
         </div>
       )}
 
-      {/* 卡片网格 */}
-      <div style={{ ...sectionTitle, marginTop: 0 }}>常用录入入口</div>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-        gap: 14,
-      }}>
-        {cards.map(c => {
-          const Icon = c.icon;
-          return (
-            <button
-              key={c.key}
-              onClick={() => router.push(c.href)}
-              style={{
-                ...tableContainer,
-                textAlign: 'left',
-                padding: '18px 20px',
-                background: 'var(--bg-card)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 14,
-                transition: 'all 0.15s',
-                borderLeftWidth: 3,
-                borderLeftStyle: 'solid',
-                borderLeftColor: c.accent,
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
-                (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 24px var(--overlay-black-08)';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.transform = '';
-                (e.currentTarget as HTMLButtonElement).style.boxShadow = '';
-              }}
-            >
-              <div style={{
-                width: 44, height: 44, borderRadius: 10,
-                background: `${c.accent}18`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0,
-              }}>
-                <Icon size={22} color={c.accent} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{
-                  fontSize: 15, fontWeight: 700, color: 'var(--text-primary)',
-                  marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8,
-                }}>
-                  {c.title}
-                  {c.todayCount !== undefined && c.todayCount > 0 && (
-                    <span style={{
-                      ...inlineBadge('success'), fontSize: 10, padding: '2px 8px',
+      {visibleCards.length === 0 ? (
+        <div style={{
+          marginTop: 40, textAlign: 'center', padding: 40,
+          background: 'var(--bg-muted)', borderRadius: 12,
+          color: 'var(--text-secondary)', fontSize: 14,
+        }}>
+          <FileSearch size={48} style={{ opacity: 0.3, marginBottom: 12 }} />
+          <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>暂无可用功能</div>
+          <div>你的角色暂无任何录入权限，请联系管理员调整。</div>
+        </div>
+      ) : (
+        <>
+          <div style={{ ...sectionTitle, marginTop: 0 }}>常用录入入口 · 按你的角色权限自动显示</div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: 14,
+          }}>
+            {visibleCards.map(c => {
+              const Icon = c.icon;
+              return (
+                <button
+                  key={c.key}
+                  onClick={() => router.push(c.href)}
+                  style={{
+                    ...tableContainer,
+                    textAlign: 'left',
+                    padding: '18px 20px',
+                    background: 'var(--bg-card)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 14,
+                    transition: 'all 0.15s',
+                    borderLeftWidth: 3,
+                    borderLeftStyle: 'solid',
+                    borderLeftColor: c.accent,
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 24px var(--overlay-black-08)';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.transform = '';
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow = '';
+                  }}
+                >
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 10,
+                    background: `${c.accent}18`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    <Icon size={22} color={c.accent} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: 15, fontWeight: 700, color: 'var(--text-primary)',
+                      marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8,
                     }}>
-                      今日 {c.todayCount}
-                    </span>
-                  )}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                  {c.desc}
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* 使用说明（首次访问温馨提示） */}
-      <div style={{
-        marginTop: 28, padding: '16px 20px', borderRadius: 10,
-        background: 'var(--bg-muted)',
-        fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.8,
-      }}>
-        <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>使用提示</div>
-        点击任何卡片可直接打开对应录入页面，默认日期已自动填为今天。
-        所有录入数据会自动写入正确的公司 / 项目 / 站点（按你的所属组织自动绑定）。
-        如某些卡片暂未显示，说明你的角色暂无该项权限，请联系管理员调整。
-      </div>
+                      {c.title}
+                      {c.todayCount !== undefined && c.todayCount > 0 && (
+                        <span style={{
+                          ...inlineBadge('success'), fontSize: 10, padding: '2px 8px',
+                        }}>
+                          今日 {c.todayCount}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                      {c.desc}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }
