@@ -48,20 +48,17 @@ BEGIN
                   company_code      = EXCLUDED.company_code,
                   status            = 'ACTIVE'$$;
 
-  -- § 3. 迁移历史 inv_batches 数据到正确仓
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='inv_batches') THEN
-    -- MEDICINE 旧码 → LPH_MS_MEDICINE
-    EXECUTE $$UPDATE inv_batches
-                 SET warehouse_code='LPH_MS_MEDICINE'
-               WHERE warehouse_code='MEDICINE'$$;
-    -- SITE-MENGSAI-LAYER 旧码（鸡蛋销售批次）→ LPH_MS_EGG_SALES
-    EXECUTE $$UPDATE inv_batches
-                 SET warehouse_code='LPH_MS_EGG_SALES'
-               WHERE warehouse_code='SITE-MENGSAI-LAYER' AND product_code='EGG'$$;
-    -- inv_ledger 同步
-    EXECUTE $$UPDATE inv_ledger
-                 SET warehouse_code='LPH_MS_MEDICINE'
-               WHERE warehouse_code='MEDICINE'$$;
+  -- § 3. 迁移历史 inv_batches 数据到正确仓（列存在性守卫，CI 测试库缺列跳过）
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='inv_batches')
+     AND EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_name='inv_batches' AND column_name='warehouse_code') THEN
+    EXECUTE $$UPDATE inv_batches SET warehouse_code='LPH_MS_MEDICINE'  WHERE warehouse_code='MEDICINE'$$;
+    EXECUTE $$UPDATE inv_batches SET warehouse_code='LPH_MS_EGG_SALES' WHERE warehouse_code='SITE-MENGSAI-LAYER' AND product_code='EGG'$$;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='inv_ledger')
+     AND EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_name='inv_ledger' AND column_name='warehouse_code') THEN
+    EXECUTE $$UPDATE inv_ledger SET warehouse_code='LPH_MS_MEDICINE' WHERE warehouse_code='MEDICINE'$$;
   END IF;
 
   RAISE NOTICE '[g15] 孟赛 7 类仓 seed 完成 + 历史 inv_batches/inv_ledger 已迁码';
