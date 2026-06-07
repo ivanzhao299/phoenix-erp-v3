@@ -113,7 +113,7 @@ LEDGER_IN=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE batch_no LIK
 assert_eq "T2.6 TRANSFER_IN 流水 +1" "1" "$LEDGER_IN"
 
 # 库存守恒: 源 1200 + 目标 300 = 总 1500 (即入库后的量)
-TOTAL=$($PSQL $DB -tA -c "SELECT SUM(qty) FROM inv_batches WHERE batch_no='$BATCH_NO' OR batch_no LIKE '$BATCH_NO-T-%';")
+TOTAL=$($PSQL $DB -tA -c "SELECT SUM(qty)::integer FROM inv_batches WHERE batch_no='$BATCH_NO' OR batch_no LIKE '$BATCH_NO-T-%';")
 assert_eq "T2.7 总量守恒 (1200+300=1500)" "1500" "$TOTAL"
 
 # ──────────────────────────────────────────────────────────────────────────
