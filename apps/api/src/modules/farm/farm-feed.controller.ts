@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Query, UseGuards, Req } from '@nestjs/comm
 import { FarmFeedService } from './farm-feed.service';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
+import { deriveOrgScope } from './farm.service';
 
 // [Fix Pack 1 — HIGH-2] 替换 AuthGuard → MenuGuard，添加 RequireMenu
 // [Phase R1 — HIGH-3] 添加 DataScopeGuard
@@ -35,15 +36,14 @@ export class FarmFeedController {
     return this.feedService.getLedgerRange(start, end);
   }
 
-  /** GET /api/farm/feed/houses — 返回当前用户所属农场的栋舍列表 */
+  /** GET /api/farm/feed/houses — 返回当前用户所属农场/场区的栋舍列表
+   *   G16-2：storeCode 可能是 LPH_*（farm）或 SITE-*（site），过去一律
+   *           当 farm_code 比较 → SITE 用户拿不到任何鸡舍，fallback 写错。
+   */
   @Get('houses')
   async getHouses(@Req() req: any) {
-    const storeCode: string | undefined = req.user?.storeCode;
-    const isGlobal =
-      !storeCode ||
-      storeCode === 'ALL' ||
-      (req.user?.permissions || []).includes('*') ||
-      req.user?.username === 'admin';
-    return this.feedService.getHouses(isGlobal ? undefined : storeCode);
+    const scope = deriveOrgScope(req);
+    if (scope.isGlobal) return this.feedService.getHouses();
+    return this.feedService.getHouses(scope.farmCode || undefined, scope.siteCode || undefined);
   }
 }

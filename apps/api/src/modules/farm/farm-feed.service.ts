@@ -123,12 +123,17 @@ export class FarmFeedService {
   }
 
   // ── 获取栋舍列表（从 brd_houses 表读取，按农场隔离） ────────────────────────
-  async getHouses(farmCode?: string) {
+  // G16-2：支持按 farm_code 或 site_code 过滤
+  async getHouses(farmCode?: string, siteCode?: string) {
     const params: any[] = [];
     let where = `WHERE status = 'ACTIVE'`;
     if (farmCode) {
       params.push(farmCode);
-      where += ` AND farm_code = $1`;
+      where += ` AND farm_code = $${params.length}`;
+    }
+    if (siteCode) {
+      params.push(siteCode);
+      where += ` AND site_code = $${params.length}`;
     }
     const rows = await this.em.query(
       `SELECT house_code FROM brd_houses ${where} ORDER BY house_code`,

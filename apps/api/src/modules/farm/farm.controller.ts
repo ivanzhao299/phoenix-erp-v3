@@ -1,5 +1,5 @@
 import { Controller, Post, Put, Get, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
-import { FarmService, OrgScope } from './farm.service';
+import { FarmService, OrgScope, deriveOrgScope } from './farm.service';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
 
@@ -11,16 +11,8 @@ import { DataScopeGuard } from '../org/guards/data-scope.guard';
 export class FarmController {
   constructor(private readonly farmService: FarmService) {}
 
-  /** 从 JWT 派生组织作用域 */
-  private getScope(req: any): OrgScope {
-    const storeCode: string | undefined = req.user?.storeCode;
-    const isGlobal =
-      !storeCode ||
-      storeCode === 'ALL' ||
-      (req.user?.permissions || []).includes('*') ||
-      req.user?.username === 'admin';
-    return { isGlobal, farmCode: isGlobal ? null : storeCode };
-  }
+  /** 从 JWT 派生组织作用域 — G16-2 改用 deriveOrgScope，按前缀区分 farmCode/siteCode */
+  private getScope(req: any): OrgScope { return deriveOrgScope(req); }
 
   // 2026-06-06 调整：日报录入应归 MENU_FARM_DAILY（业务字面对齐），不归
   // MENU_FARM_DATA（后者是养殖场/鸡舍/鸡群主数据维护权，业务录入用户不该有 E）。

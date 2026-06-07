@@ -15,10 +15,34 @@ import { EntityManager } from 'typeorm';
  *   - B4: 动态字段名拼接加白名单校验，杜绝 SQL 注入
  */
 
-/** 组织作用域 — 从 JWT storeCode 派生 */
+/** 组织作用域 — 从 JWT storeCode 派生
+ *  G16-2：storeCode 可能是 LPH_*（farm）或 SITE-*（site）两类不同维度，
+ *         必须按前缀区分；过去把 storeCode 直接当 farmCode 比较，导致
+ *         site 用户提交 LPH_ 农场数据被误判为"无权写入其他农场"。
+ */
 export interface OrgScope {
   isGlobal: boolean;
-  farmCode: string | null;
+  farmCode: string | null;   // LPH_ 开头才赋值
+  siteCode: string | null;   // SITE- 开头才赋值
+}
+
+/** 从 req.user 派生 OrgScope — farm/farm-feed 等 controller 共用 */
+export function deriveOrgScope(req: any): OrgScope {
+  const storeCode: string | undefined = req.user?.storeCode;
+  const isGlobal =
+    !storeCode ||
+    storeCode === 'ALL' ||
+    storeCode.startsWith('ORG-GROUP') ||
+    (req.user?.permissions || []).includes('*') ||
+    req.user?.username === 'admin';
+  if (isGlobal) return { isGlobal: true, farmCode: null, siteCode: null };
+  const isFarm = storeCode!.startsWith('LPH_') || storeCode!.startsWith('LPH-');
+  const isSite = storeCode!.startsWith('SITE-');
+  return {
+    isGlobal: false,
+    farmCode: isFarm ? storeCode! : null,
+    siteCode: isSite ? storeCode! : null,
+  };
 }
 
 // brd_daily_logs 允许写入的列（白名单 — 任何前端伪造的列名都会被丢弃）
@@ -59,7 +83,7 @@ export class FarmService {
     return { fields, values };
   }
 
-  async submitBreedingDailyLog(body: any, scope: OrgScope = { isGlobal: true, farmCode: null }) {
+  async submitBreedingDailyLog(body: any, scope: OrgScope = { isGlobal: true, farmCode: null, siteCode: null }) {
     // 2026-06-06: 若提供了 eggs_by_grade，自动派生 eggs_produced/dirty_eggs/broken_eggs
     // 保持向后兼容；权威字段是 eggs_by_grade（与 product_grades 同源）。
     if (body.eggs_by_grade && typeof body.eggs_by_grade === 'object') {
@@ -112,13 +136,28 @@ export class FarmService {
     }
     if (body.business_date == null) body.business_date = body.log_date;
 
-    // 安全校验：非全局用户只能写自己农场的数据
-    if (!scope.isGlobal && scope.farmCode) {
-      if (body.farm_code && body.farm_code !== scope.farmCode) {
-        throw new BadRequestException('无权写入其他农场的数据');
+    // G16-2 安全校验：从 house_code 反查 brd_houses.{farm_code, site_code}，
+    //   再用 scope.farmCode / scope.siteCode 比对真实归属，避免把 SITE-*
+    //   误当 LPH_* 比较导致同农场用户被拒。
+    if (!scope.isGlobal && body.house_code) {
+      const houseRow: Array<{ farm_code: string | null; site_code: string | null }> =
+        await this.entityManager.query(
+          `SELECT farm_code, site_code FROM brd_houses WHERE house_code=$1 LIMIT 1`,
+          [body.house_code],
+        );
+      if (houseRow.length === 0) {
+        throw new BadRequestException(`鸡舍不存在：${body.house_code}`);
       }
-      // 自动补全 farm_code
-      body.farm_code = scope.farmCode;
+      const realFarm = houseRow[0].farm_code;
+      const realSite = houseRow[0].site_code;
+      if (scope.farmCode && realFarm && realFarm !== scope.farmCode) {
+        throw new BadRequestException(`无权写入其他农场的数据（鸡舍 ${body.house_code} 属于 ${realFarm}）`);
+      }
+      if (scope.siteCode && realSite && realSite !== scope.siteCode) {
+        throw new BadRequestException(`无权写入其他场区的数据（鸡舍 ${body.house_code} 属于 ${realSite}）`);
+      }
+      // 自动补全 farm_code（防止前端漏传）
+      if (!body.farm_code && realFarm) body.farm_code = realFarm;
     }
 
     if (eggs < 0 || mortality < 0) {
@@ -305,16 +344,16 @@ export class FarmService {
   async getEggsBreakdown(
     date: string,
     houseCode: string | null,
-    scope: OrgScope = { isGlobal: true, farmCode: null },
+    scope: OrgScope = { isGlobal: true, farmCode: null, siteCode: null },
   ): Promise<{ code: number; date: string; houseCode: string | null; eggsByGrade: Record<string, number>; total: number; logs: number }> {
     if (!date) throw new BadRequestException('date 参数必填');
 
     const params: any[] = [date];
     const where: string[] = [`log_date = $1`, `eggs_by_grade IS NOT NULL`];
     if (houseCode) { params.push(houseCode); where.push(`house_code = $${params.length}`); }
-    if (!scope.isGlobal && scope.farmCode) {
-      params.push(scope.farmCode);
-      where.push(`farm_code = $${params.length}`);
+    if (!scope.isGlobal) {
+      if (scope.farmCode) { params.push(scope.farmCode); where.push(`farm_code = $${params.length}`); }
+      if (scope.siteCode) { params.push(scope.siteCode); where.push(`site_code = $${params.length}`); }
     }
 
     const rows: Array<{ eggs_by_grade: any }> = await this.entityManager.query(
@@ -335,13 +374,13 @@ export class FarmService {
     return { code: 200, date, houseCode, eggsByGrade: aggregated, total, logs: rows.length };
   }
 
-  async getDailyHenReport(date: string, scope: OrgScope = { isGlobal: true, farmCode: null }) {
+  async getDailyHenReport(date: string, scope: OrgScope = { isGlobal: true, farmCode: null, siteCode: null }) {
     // ── 鸡群查询 ──────────────────────────────────────────────
     const flockParams: any[] = [];
     let flockWhere = `WHERE status IN ('LAYING','ACTIVE','laying','active')`;
-    if (!scope.isGlobal && scope.farmCode) {
-      flockParams.push(scope.farmCode);
-      flockWhere += ` AND farm_code = $1`;
+    if (!scope.isGlobal) {
+      if (scope.farmCode) { flockParams.push(scope.farmCode); flockWhere += ` AND farm_code = $${flockParams.length}`; }
+      if (scope.siteCode) { flockParams.push(scope.siteCode); flockWhere += ` AND site_code = $${flockParams.length}`; }
     }
     const flocks = await this.entityManager.query(
       `SELECT flock_no, house_code, current_qty, initial_qty, placement_date, current_lay_rate
@@ -352,9 +391,9 @@ export class FarmService {
     // ── 日报查询 ──────────────────────────────────────────────
     const logParams: any[] = [date];
     let logWhere = `WHERE log_date = $1`;
-    if (!scope.isGlobal && scope.farmCode) {
-      logParams.push(scope.farmCode);
-      logWhere += ` AND farm_code = $${logParams.length}`;
+    if (!scope.isGlobal) {
+      if (scope.farmCode) { logParams.push(scope.farmCode); logWhere += ` AND farm_code = $${logParams.length}`; }
+      if (scope.siteCode) { logParams.push(scope.siteCode); logWhere += ` AND site_code = $${logParams.length}`; }
     }
     const logs = await this.entityManager.query(
       `SELECT
@@ -426,14 +465,14 @@ export class FarmService {
     return { code: 200, date, rows, totals };
   }
 
-  async getFarmTrend(days: number, scope: OrgScope = { isGlobal: true, farmCode: null }) {
+  async getFarmTrend(days: number, scope: OrgScope = { isGlobal: true, farmCode: null, siteCode: null }) {
     const safeDays = Math.min(Math.max(Number(days) || 7, 1), 90);
 
     const trendParams: any[] = [safeDays];
     let trendWhere = `WHERE log_date >= (CURRENT_DATE - ($1 * 2 - 1) * INTERVAL '1 day')`;
-    if (!scope.isGlobal && scope.farmCode) {
-      trendParams.push(scope.farmCode);
-      trendWhere += ` AND farm_code = $${trendParams.length}`;
+    if (!scope.isGlobal) {
+      if (scope.farmCode) { trendParams.push(scope.farmCode); trendWhere += ` AND farm_code = $${trendParams.length}`; }
+      if (scope.siteCode) { trendParams.push(scope.siteCode); trendWhere += ` AND site_code = $${trendParams.length}`; }
     }
     const rows = await this.entityManager.query(
       `SELECT
@@ -463,12 +502,12 @@ export class FarmService {
     const avg = (arr: typeof rows, field: string) =>
       arr.length ? Math.round(arr.reduce((s: number, r: any) => s + Number(r[field] || 0), 0) / arr.length) : 0;
 
-    // flock 存栏数也按农场过滤
+    // flock 存栏数也按农场/场区过滤
     const flockParams: any[] = [];
     let flockWhere = `WHERE status IN ('LAYING','ACTIVE','laying','active')`;
-    if (!scope.isGlobal && scope.farmCode) {
-      flockParams.push(scope.farmCode);
-      flockWhere += ` AND farm_code = $1`;
+    if (!scope.isGlobal) {
+      if (scope.farmCode) { flockParams.push(scope.farmCode); flockWhere += ` AND farm_code = $${flockParams.length}`; }
+      if (scope.siteCode) { flockParams.push(scope.siteCode); flockWhere += ` AND site_code = $${flockParams.length}`; }
     }
     const flockSum = await this.entityManager.query(
       `SELECT COALESCE(SUM(current_qty),0)::int AS total FROM brd_flocks ${flockWhere}`,
