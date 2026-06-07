@@ -243,6 +243,12 @@ export default function HouseDetailPage() {
   const [sensorOpen, setSensorOpen] = useState(false);
   const [autoRef, setAutoRef] = useState(false);
   const [lastUpdate, setLastUpdate] = useState('');
+  // G16：饲料/水累计读数日差额
+  const [dailyUsage, setDailyUsage] = useState<{
+    todayFeedCum: number | null; yestFeedCum: number | null;
+    todayWaterCum: number | null; yestWaterCum: number | null;
+    feedDiff: number | null; waterDiffL: number | null;
+  } | null>(null);
   const kpis = useMemo(() => overview?.kpis || [], [overview]);
   const getKpi = (code: string) => kpis.find(k => k.code === code);
   const SL: Record<string, string> = {
@@ -311,6 +317,27 @@ export default function HouseDetailPage() {
       if (sys?.ok) setSystems(sys.data?.systems || []);
       if (alm?.ok) setAlarms(alm.data?.items || []);
       setLastUpdate(new Date().toLocaleTimeString('zh-CN'));
+
+      // G16：拉饲料/水的日差额
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const dRes = await fetch(`${API}/daily-report/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...hdr() },
+          body: JSON.stringify({ house_code: houseCode, log_date: today }),
+        });
+        const dJson = dRes.ok ? await dRes.json() : null;
+        if (dJson?.ok) {
+          setDailyUsage({
+            todayFeedCum:  dJson._debug?.todayFeedCum ?? null,
+            yestFeedCum:   dJson._debug?.yestFeedCum ?? null,
+            todayWaterCum: dJson._debug?.todayWaterCum ?? null,
+            yestWaterCum:  dJson._debug?.yestWaterCum ?? null,
+            feedDiff:      dJson.feedKg != null ? Number(dJson.feedKg) : null,
+            waterDiffL:    dJson.waterL != null ? Number(dJson.waterL) : null,
+          });
+        }
+      } catch {}
     } catch {} finally {
       setLoading(false);
     }
@@ -923,11 +950,20 @@ export default function HouseDetailPage() {
       }}>
               <table className={s.table}>
                 <thead>
-                  <tr>{[t('ui.传感器名称', '传感器名称'), t('ui.当前值', '当前值'), t('ui.单位', '单位'), t('common.status', '状态'), t('ui.数据新鲜度', '数据新鲜度')].map(h => <th key={h}>{h}</th>)}</tr>
+                  <tr>{[t('ui.传感器名称', '传感器名称'), t('ui.当前值', '当前值'), t('ui.单位', '单位'), t('ui.昨日累计', '昨日累计'), t('ui.日用量', '日用量'), t('common.status', '状态'), t('ui.数据新鲜度', '数据新鲜度')].map(h => <th key={h}>{h}</th>)}</tr>
                 </thead>
                 <tbody>
                   {kpis.map(k => {
               const color = SC[k.status || 'no_data'] || 'var(--text-disabled)';
+              // G16：仅对累计读数（2488=饲料 2532=饲料alt 2484=水）显示日用量
+              const isFeed  = k.code === '2488' || k.code === '2532';
+              const isWater = k.code === '2484';
+              const yestCum = isFeed ? dailyUsage?.yestFeedCum
+                           : isWater ? dailyUsage?.yestWaterCum
+                           : null;
+              const dayUse  = isFeed ? dailyUsage?.feedDiff
+                           : isWater ? (dailyUsage?.waterDiffL != null ? dailyUsage.waterDiffL / 1000 : null)
+                           : null;
               return <tr key={k.code}>
                         <td className={u.fw600}>{k.title || k.code}</td>
                         <td style={{
@@ -938,6 +974,12 @@ export default function HouseDetailPage() {
                           {k.value != null ? Number(k.value).toFixed(1) : '—'}
                         </td>
                         <td className={u.muted}>{k.unit || '—'}</td>
+                        <td className={u.muted}>
+                          {yestCum != null ? Number(yestCum).toFixed(2) : (isFeed || isWater ? '—' : '')}
+                        </td>
+                        <td style={{ fontWeight: 700, color: dayUse != null ? 'var(--status-success)' : 'var(--text-disabled)' }}>
+                          {dayUse != null ? `${Number(dayUse).toFixed(2)} ${isWater ? 'm³' : k.unit || ''}` : (isFeed || isWater ? '—' : '')}
+                        </td>
                         <td>
                           <span style={{
                     fontSize: 11,

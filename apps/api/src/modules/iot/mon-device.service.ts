@@ -163,68 +163,129 @@ export class MonDeviceService {
     }
   }
 
-  async generateDailyReportFromIoT(houseCode: string, logDate: string) {
+  // G16：日差额算法
+  //   feed/water 是累计读数（单调递增）→ 当日用量 = 今日累计 − 昨日累计
+  //   temp/hum  是瞬时读数        → 当日均值 = AVG(当日 history)
+  //   snapshotHour 可选：限定时点（例如每日 17:00 集蛋后），以该时点前的累计差计当日用量
+  async generateDailyReportFromIoT(
+    houseCode: string,
+    logDate: string,
+    opts?: { snapshotHour?: number }
+  ) {
     try {
       if (!houseCode || !logDate) return { ok: false, error: 'missing parameters' };
+      const snapshotHour = opts?.snapshotHour;
+      const hourFilter = snapshotHour != null
+        ? ` AND EXTRACT(HOUR FROM log_ts) <= ${Number(snapshotHour)}`
+        : '';
+      const yest = new Date(`${logDate}T00:00:00Z`);
+      yest.setUTCDate(yest.getUTCDate() - 1);
+      const yestStr = yest.toISOString().slice(0, 10);
+      const today = new Date().toISOString().slice(0, 10);
 
-      // 1. 先尝试查询当天是否已经有了日终聚合数据
-      const aggs = await this.entityManager.query(
-        `SELECT property_code, avg_val, max_val FROM mon_device_property_daily_agg 
-         WHERE erp_house_code = $1 AND agg_date = $2`,
-        [houseCode, logDate]
-      );
+      const P = { temp: '2001', hum: '2083', feed: '2488', water: '2484' };
 
-      let temp, hum, feed, water;
-
-      if (aggs.length > 0) {
-        temp = aggs.find((a:any) => a.property_code === '2001')?.avg_val;
-        hum  = aggs.find((a:any) => a.property_code === '2083')?.avg_val;
-        feed = aggs.find((a:any) => a.property_code === '2488')?.max_val; // 今日累加值
-        water= aggs.find((a:any) => a.property_code === '2484')?.max_val;
-      }
-
-      // 2. 如果聚合表没有数据（比如今天是当前天），回退查询实时快照和历史表
-      if (!temp && !feed) {
-        const today = new Date().toISOString().slice(0, 10);
-        if (logDate === today) {
-          // 如果是今天，直接从最新快照里拿当天的累加值和当前温湿度作为参考
-          const snaps = await this.entityManager.query(
-            `SELECT property_code, value FROM mon_device_realtime_snapshot WHERE erp_house_code = $1`,
-            [houseCode]
+      // —— 累计读数取值：优先 daily_agg（无 hour 限制时），其次 history（可加 hour 限制），最后快照（仅今日且无 hour 限制）
+      const fetchMaxCum = async (date: string, prop: string): Promise<number | null> => {
+        if (snapshotHour == null) {
+          const aggs = await this.entityManager.query(
+            `SELECT max_val FROM mon_device_property_daily_agg
+              WHERE erp_house_code=$1 AND agg_date=$2 AND property_code=$3`,
+            [houseCode, date, prop]
           );
-          temp = snaps.find((s:any) => s.property_code === '2001')?.value;
-          hum  = snaps.find((s:any) => s.property_code === '2083')?.value;
-          feed = snaps.find((s:any) => s.property_code === '2488')?.value;
-          water= snaps.find((s:any) => s.property_code === '2484')?.value;
-        } else {
-          // 如果是过去的历史天数，查询 history 表计算
-          const hists = await this.entityManager.query(
-            `SELECT property_code, AVG(value) as avg_v, MAX(value) as max_v 
-             FROM mon_device_property_history 
-             WHERE erp_house_code = $1 AND log_date = $2 
-             GROUP BY property_code`,
-            [houseCode, logDate]
-          );
-          temp = hists.find((s:any) => s.property_code === '2001')?.avg_v;
-          hum  = hists.find((s:any) => s.property_code === '2083')?.avg_v;
-          feed = hists.find((s:any) => s.property_code === '2488')?.max_v;
-          water= hists.find((s:any) => s.property_code === '2484')?.max_v;
+          if (aggs[0]?.max_val != null) return Number(aggs[0].max_val);
         }
-      }
-
-      const result = {
-        ok: true,
-        avgTemp: temp ? Number(temp).toFixed(2) : null,
-        avgHum: hum ? Number(hum).toFixed(2) : null,
-        feedKg: feed ? Number(feed).toFixed(2) : null,
-        waterL: water ? Number(water * 1000).toFixed(2) : null, // 假设数据库存的是吨(T)，转升(L)
-        message: '已从物联设备提取汇总数据'
+        const hists = await this.entityManager.query(
+          `SELECT MAX(value) AS max_v FROM mon_device_property_history
+            WHERE erp_house_code=$1 AND log_date=$2 AND property_code=$3${hourFilter}`,
+          [houseCode, date, prop]
+        );
+        if (hists[0]?.max_v != null) return Number(hists[0].max_v);
+        if (date === today && snapshotHour == null) {
+          const snaps = await this.entityManager.query(
+            `SELECT value FROM mon_device_realtime_snapshot
+              WHERE erp_house_code=$1 AND property_code=$2`,
+            [houseCode, prop]
+          );
+          if (snaps[0]?.value != null) return Number(snaps[0].value);
+        }
+        return null;
       };
 
-      return result;
+      // —— 瞬时读数均值
+      const fetchAvg = async (prop: string): Promise<number | null> => {
+        if (snapshotHour == null) {
+          const aggs = await this.entityManager.query(
+            `SELECT avg_val FROM mon_device_property_daily_agg
+              WHERE erp_house_code=$1 AND agg_date=$2 AND property_code=$3`,
+            [houseCode, logDate, prop]
+          );
+          if (aggs[0]?.avg_val != null) return Number(aggs[0].avg_val);
+        }
+        const hists = await this.entityManager.query(
+          `SELECT AVG(value) AS avg_v FROM mon_device_property_history
+            WHERE erp_house_code=$1 AND log_date=$2 AND property_code=$3${hourFilter}`,
+          [houseCode, logDate, prop]
+        );
+        if (hists[0]?.avg_v != null) return Number(hists[0].avg_v);
+        if (logDate === today && snapshotHour == null) {
+          const snaps = await this.entityManager.query(
+            `SELECT value FROM mon_device_realtime_snapshot
+              WHERE erp_house_code=$1 AND property_code=$2`,
+            [houseCode, prop]
+          );
+          if (snaps[0]?.value != null) return Number(snaps[0].value);
+        }
+        return null;
+      };
+
+      const [todayFeed, yestFeed, todayWater, yestWater, avgTemp, avgHum] = await Promise.all([
+        fetchMaxCum(logDate, P.feed),
+        fetchMaxCum(yestStr, P.feed),
+        fetchMaxCum(logDate, P.water),
+        fetchMaxCum(yestStr, P.water),
+        fetchAvg(P.temp),
+        fetchAvg(P.hum),
+      ]);
+
+      const feedDiff  = todayFeed != null && yestFeed != null
+        ? Math.max(0, todayFeed - yestFeed) : todayFeed;
+      const waterDiff = todayWater != null && yestWater != null
+        ? Math.max(0, todayWater - yestWater) : todayWater;
+
+      return {
+        ok: true,
+        avgTemp: avgTemp != null ? Number(avgTemp).toFixed(2) : null,
+        avgHum:  avgHum  != null ? Number(avgHum).toFixed(2)  : null,
+        feedKg:  feedDiff  != null ? Number(feedDiff).toFixed(2)  : null,
+        waterL:  waterDiff != null ? Number(waterDiff * 1000).toFixed(2) : null,
+        _debug: {
+          todayFeedCum:  todayFeed,
+          yestFeedCum:   yestFeed,
+          todayWaterCum: todayWater,
+          yestWaterCum:  yestWater,
+          snapshotHour:  snapshotHour ?? null,
+        },
+        message: snapshotHour != null
+          ? `已按 ${String(snapshotHour).padStart(2,'0')}:00 时点取累计差为当日用量`
+          : '已按当日累计 − 昨日累计计当日用量',
+      };
     } catch (e: any) {
       return { ok: false, error: e.message };
     }
+  }
+
+  // G16：批量按鸡舍取
+  async generateDailyReportBatchFromIoT(
+    houseCodes: string[],
+    logDate: string,
+    opts?: { snapshotHour?: number }
+  ) {
+    const out: Record<string, any> = {};
+    for (const hc of houseCodes || []) {
+      out[hc] = await this.generateDailyReportFromIoT(hc, logDate, opts);
+    }
+    return { ok: true, data: out };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -345,6 +406,28 @@ export class MonDeviceService {
         return r ? Number(r.value) : null;
       };
 
+      // G16：拉今日/昨日累计 max，算日差额（一次性查 + JS 索引）
+      const today = new Date().toISOString().slice(0, 10);
+      const yest  = new Date(Date.now() - 86400_000).toISOString().slice(0, 10);
+      const dailyAggs = await this.entityManager.query(
+        `SELECT erp_house_code, property_code, agg_date, max_val
+           FROM mon_device_property_daily_agg
+          WHERE agg_date IN ($1, $2) AND property_code IN ('2488','2532','2484')`,
+        [today, yest]
+      ).catch(() => []);
+      const aggIdx: Record<string, number> = {};
+      for (const a of dailyAggs) {
+        aggIdx[`${a.erp_house_code}|${a.property_code}|${a.agg_date instanceof Date ? a.agg_date.toISOString().slice(0,10) : String(a.agg_date).slice(0,10)}`] = Number(a.max_val);
+      }
+      const diffFor = (houseCode: string, code: string): number | null => {
+        const t = aggIdx[`${houseCode}|${code}|${today}`];
+        const y = aggIdx[`${houseCode}|${code}|${yest}`];
+        if (t == null && y == null) return null;
+        if (t != null && y != null) return Math.max(0, t - y);
+        if (t != null) return t;
+        return null;
+      };
+
       const houseCards = houses.map((h: any) => {
         const rows = snapByHouse[h.erp_house_code] || [];
         if (!rows.length) return {
@@ -386,8 +469,11 @@ export class MonDeviceService {
           systems, kpis,
           avgTemp: getVal(rows, '2001'), avgHumidity: getVal(rows, '2083'),
           co2: getVal(rows, '2090'), ammonia: getVal(rows, '2096'),
-          feedToday: getVal(rows, '2488') ?? getVal(rows, '2532'),
-          waterToday: getVal(rows, '2484'),
+          // G16：feedToday/waterToday 改为日差额（今日 max − 昨日 max），含累计读数 fallback
+          feedToday:    diffFor(h.erp_house_code, '2488') ?? diffFor(h.erp_house_code, '2532'),
+          waterToday:   diffFor(h.erp_house_code, '2484'),
+          feedCumNow:   getVal(rows, '2488') ?? getVal(rows, '2532'),
+          waterCumNow:  getVal(rows, '2484'),
         };
       });
 

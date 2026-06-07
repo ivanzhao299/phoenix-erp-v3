@@ -38,7 +38,19 @@ export class MonDeviceController {
   }
 
   @Post('daily-report/generate')
-  async generateDailyReport(@Body() body: { house_code: string; log_date: string }) {
-    return this.monDeviceService.generateDailyReportFromIoT(body.house_code, body.log_date);
+  async generateDailyReport(@Body() body: { house_code: string; log_date: string; snapshot_hour?: number }) {
+    return this.monDeviceService.generateDailyReportFromIoT(
+      body.house_code, body.log_date,
+      body.snapshot_hour != null ? { snapshotHour: body.snapshot_hour } : undefined,
+    );
+  }
+
+  // G16：批量
+  @Post('daily-report/batch-generate')
+  async batchGenerate(@Body() body: { house_codes: string[]; log_date: string; snapshot_hour?: number }) {
+    return this.monDeviceService.generateDailyReportBatchFromIoT(
+      body.house_codes || [], body.log_date,
+      body.snapshot_hour != null ? { snapshotHour: body.snapshot_hour } : undefined,
+    );
   }
 }

@@ -133,6 +133,9 @@ export default function DailyPage() {
   const [deviceHint, setDeviceHint] = useState<Record<string, string> | null>(null);
   const [generating, setGenerating] = useState(false);
   const [genResult, setGenResult] = useState<any>(null);
+  // G16：设备一键填入 — 选时点（默认 17:00 集蛋后）
+  const [showGenModal, setShowGenModal] = useState(false);
+  const [genHour, setGenHour] = useState<number | ''>(17);
   // G14：当前舍存栏（拉自 brd_flocks.current_qty）+ 9 档 modal
   const [currentQty, setCurrentQty] = useState<number>(0);
   const [gradeModalRowId, setGradeModalRowId] = useState<number | null>(null);
@@ -402,19 +405,18 @@ export default function DailyPage() {
     setApproved(true);
     setTimeout(() => setApproved(false), 3000);
   };
+  // G16：设备一键填入 — 选时点 + 调日差额 endpoint，填入第一行（晨班）
   const handleGenerateFromDevice = async () => {
     if (!selectedHouse) {
       toast.error(t('ui.请先选择鸡舍', '请先选择鸡舍'));
       return;
     }
-    const ok = await showConfirm({
-      icon: '✅',
-      type: 'confirm',
-      title: t('ui.确认操作', '确认操作'),
-      message: `${t('ui.将从', '将从')}「${selectedHouse}」${t('ui.的实时设备快照生成/更新', '的实时设备快照生成/更新')} ${formDate} ${t('ui.日报，继续？', '日报，继续？')}`,
-      confirmLabel: t('common.confirm', '确认')
-    });
-    if (!ok) return;
+    const hour = genHour === '' ? null : Number(genHour);
+    if (hour != null && (Number.isNaN(hour) || hour < 0 || hour > 23)) {
+      toast.error(t('ui.时点须为 0-23', '时点须为 0-23'));
+      return;
+    }
+    setShowGenModal(false);
     setGenerating(true);
     setGenResult(null);
     try {
@@ -423,13 +425,12 @@ export default function DailyPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? {
-            Authorization: `Bearer ${token}`
-          } : {})
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           house_code: selectedHouse,
-          log_date: formDate
+          log_date: formDate,
+          ...(hour != null ? { snapshot_hour: hour } : {})
         })
       });
       const d = await res.json();
@@ -472,11 +473,14 @@ export default function DailyPage() {
             {can(['ROLE_FARM_MGR', 'ROLE_CEO', 'ROLE_QA_MGR', 'ROLE_ADMIN']) && <button type="button" className={s.btnSecondary} onClick={handleExport}>
                 <Download size={14} />{t('ui.导出报表', '导出报表')}
               </button>}
-            {can(['ROLE_FARM_MGR', 'ROLE_CEO', 'ROLE_ADMIN']) && <button type="button" className={s.btnSecondary} onClick={handleGenerateFromDevice} disabled={generating || !selectedHouse} style={{
+            {can(['ROLE_FARM_MGR', 'ROLE_CEO', 'ROLE_ADMIN']) && <button type="button" onClick={() => setShowGenModal(true)} disabled={generating || !selectedHouse} style={{
         opacity: generating || !selectedHouse ? 0.6 : 1,
-        cursor: generating || !selectedHouse ? 'not-allowed' : 'pointer'
+        cursor: generating || !selectedHouse ? 'not-allowed' : 'pointer',
+        padding: '8px 16px', borderRadius: 6, fontSize: 13, fontWeight: 600,
+        background: 'linear-gradient(135deg, #06B6D4, #2563EB)', color: '#fff',
+        border: 'none', display: 'inline-flex', alignItems: 'center', gap: 6,
       }}>
-                <Cpu size={14} />{generating ? t('ui.生成中...', '生成中...') : t('ui.从设备生成日报', '从设备生成日报')}
+                <Cpu size={15} />{generating ? t('ui.生成中...', '生成中...') : t('ui.⚡ 设备数据一键填入', '⚡ 设备数据一键填入')}
               </button>}
             {can(['ROLE_FARM_MGR', 'ROLE_FARMER', 'ROLE_VET', 'ROLE_CEO', 'ROLE_QA_MGR', 'ROLE_ADMIN']) && <button type="button" className={s.btnPrimary} onClick={handleSubmit}>
                 <Save size={15} />{t('ui.提交日报', '提交日报')}
@@ -668,20 +672,20 @@ export default function DailyPage() {
                 </div>
                 {/* 第一行：业务核心 6 字段 */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 10 }}>
-                  <div style={cellStyle}><span style={labelStyle}>{t('ui.产蛋数(枚)', '产蛋数(枚)')}</span>{numInput('eggs', 100)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>🟡 {t('ui.脏蛋(枚)', '脏蛋(枚)')}</span>{numInput('dirtyEggs', 100)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>🔴 {t('ui.破损蛋(枚)', '破损蛋(枚)')}</span>{numInput('brokenEggs', 100)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>{t('ui.死亡(羽)', '死亡(羽)')}</span>{numInput('deaths', 100)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>{t('ui.淘汰(羽)', '淘汰(羽)')}</span>{numInput('elimination', 100)}</div>
+                  <div style={cellStyle}><span style={labelStyle}>{t('ui.产蛋数(枚)', '产蛋数(枚)')}</span>{numInput('eggs', 130)}</div>
+                  <div style={cellStyle}><span style={labelStyle}>🟡 {t('ui.脏蛋(枚)', '脏蛋(枚)')}</span>{numInput('dirtyEggs', 130)}</div>
+                  <div style={cellStyle}><span style={labelStyle}>🔴 {t('ui.破损蛋(枚)', '破损蛋(枚)')}</span>{numInput('brokenEggs', 130)}</div>
+                  <div style={cellStyle}><span style={labelStyle}>{t('ui.死亡(羽)', '死亡(羽)')}</span>{numInput('deaths', 130)}</div>
+                  <div style={cellStyle}><span style={labelStyle}>{t('ui.淘汰(羽)', '淘汰(羽)')}</span>{numInput('elimination', 130)}</div>
                   <div style={cellStyle}><span style={labelStyle}>{t('ui.淘汰原因', '淘汰原因')}</span>{textInput('elimReason', t('ui.淘汰原因', '淘汰原因'), 160)}</div>
                 </div>
                 {/* 第二行：次要 6 字段 */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 10 }}>
-                  <div style={cellStyle}><span style={labelStyle}>{t('ui.饲料(kg)', '饲料(kg)')}</span>{numInput('feedKg', 100)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>{t('ui.用水(L)', '用水(L)')}</span>{numInput('waterL', 100)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>{t('ui.自用蛋(枚)', '自用蛋(枚)')}</span>{numInput('selfUse', 100)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>{t('ui.温度(℃)', '温度(℃)')}</span>{numInput('temp', 100)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>{t('ui.湿度(%)', '湿度(%)')}</span>{numInput('humidity', 100)}</div>
+                  <div style={cellStyle}><span style={labelStyle}>{t('ui.饲料(kg)', '饲料(kg)')}</span>{numInput('feedKg', 130)}</div>
+                  <div style={cellStyle}><span style={labelStyle}>{t('ui.用水(L)', '用水(L)')}</span>{numInput('waterL', 130)}</div>
+                  <div style={cellStyle}><span style={labelStyle}>{t('ui.自用蛋(枚)', '自用蛋(枚)')}</span>{numInput('selfUse', 130)}</div>
+                  <div style={cellStyle}><span style={labelStyle}>{t('ui.温度(℃)', '温度(℃)')}</span>{numInput('temp', 130)}</div>
+                  <div style={cellStyle}><span style={labelStyle}>{t('ui.湿度(%)', '湿度(%)')}</span>{numInput('humidity', 130)}</div>
                   <div style={cellStyle}><span style={labelStyle}>{t('common.remark', '备注')}</span>{textInput('remark', `${t('common.remark', '备注')}...`, 160)}</div>
                 </div>
               </div>
@@ -834,5 +838,59 @@ export default function DailyPage() {
           </div>
         );
       })()}
+
+      {/* G16：设备数据一键填入 — 选时点 modal */}
+      {showGenModal && (
+        <div onClick={() => setShowGenModal(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: 'var(--bg-card)', borderRadius: 12, padding: 24,
+            minWidth: 420, maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <Cpu size={18} color="var(--color-primary)" />
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
+                {t('ui.设备数据一键填入', '设备数据一键填入')}
+              </h3>
+            </div>
+            <div style={{ padding: 12, background: 'var(--bg-muted)', borderRadius: 8, fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.6 }}>
+              <div>· {t('ui.饲料/用水', '饲料/用水')} = {t('ui.今日累计读数 − 昨日累计读数（当日用量）', '今日累计读数 − 昨日累计读数（当日用量）')}</div>
+              <div>· {t('ui.温度/湿度', '温度/湿度')} = {t('ui.当日均值', '当日均值')}</div>
+              <div>· {t('ui.填入晨班行；如需分摊到其它班次请手动拆分', '填入晨班行；如需分摊到其它班次请手动拆分')}</div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', display: 'block', marginBottom: 6 }}>
+                {t('ui.采集时点（0-23 小时，留空 = 全天 24h 累计）', '采集时点（0-23 小时，留空 = 全天 24h 累计）')}
+              </label>
+              <input
+                type="number" min={0} max={23} step={1}
+                value={genHour}
+                onChange={e => {
+                  const v = e.target.value;
+                  if (v === '') { setGenHour(''); return; }
+                  const n = Number(v);
+                  if (!Number.isNaN(n) && n >= 0 && n <= 23) setGenHour(n);
+                }}
+                placeholder="17"
+                className={s.inp}
+                style={{ width: '100%', padding: '8px 12px', fontSize: 14 }}
+              />
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                {t('ui.建议每天 17:00 集蛋后采集一次', '建议每天 17:00 集蛋后采集一次')}
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" className={s.btnSecondary} onClick={() => setShowGenModal(false)}>
+                {t('common.cancel', '取消')}
+              </button>
+              <button type="button" className={s.btnPrimary} onClick={handleGenerateFromDevice}>
+                <Cpu size={14} />{t('common.confirm', '确认')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>;
 }

@@ -20,6 +20,14 @@ import request from '@/lib/api-client';
 
 interface Opt { value: string; label: string; raw?: any }
 
+// G16：兼容 /lookup/* 端点的 { code, data } 包装与原始数组两种格式
+async function lookupArr<T = any>(path: string): Promise<T[]> {
+  const j: any = await request<any>(path);
+  if (Array.isArray(j)) return j as T[];
+  if (Array.isArray(j?.data)) return j.data as T[];
+  return [];
+}
+
 interface BaseProps {
   value: string;
   onChange: (value: string) => void;
@@ -64,13 +72,13 @@ function ScopedSelect({
 // ── 客户（仅 ACTIVE，G5-B 切 /api/lookup）─────────────────────────────────────
 export function CustomerSelector(p: BaseProps) {
   return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择客户'}
-    loader={async () => (await request<any[]>('/lookup/customers')).map(r => ({ value: r.code, label: `${r.name}（${r.code}）`, raw: r }))} />;
+    loader={async () => (await lookupArr('/lookup/customers')).map((r: any) => ({ value: r.code, label: `${r.name}（${r.code}）`, raw: r }))} />;
 }
 
 // ── 供应商（仅 ACTIVE，G5-B 切 /api/lookup）───────────────────────────────────
 export function SupplierSelector(p: BaseProps) {
   return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择供应商'}
-    loader={async () => (await request<any[]>('/lookup/suppliers')).map(r => ({ value: r.code, label: `${r.name}（${r.code}）`, raw: r }))} />;
+    loader={async () => (await lookupArr('/lookup/suppliers')).map((r: any) => ({ value: r.code, label: `${r.name}（${r.code}）`, raw: r }))} />;
 }
 
 // ── 项目（MDM-1 切换为 biz_projects 统一项目主表，按 company_code 过滤）─────
@@ -108,7 +116,7 @@ export function CompanySelector(p: BaseProps) {
     loader={async () => {
       // 2026-06-06：改用 /api/lookup/companies（无 MENU_SYS_ORG 限制），
       // 业务录入用户（如孟赛生产数据主管）也能拉到公司下拉。
-      const list = await request<any[]>('/lookup/companies');
+      const list = await lookupArr<any>('/lookup/companies');
       return (Array.isArray(list) ? list : [])
         .map(o => ({ value: o.orgCode, label: o.orgNameCn || o.orgName, raw: o }));
     }} />;
@@ -127,8 +135,8 @@ export function CashAccountSelector(p: BaseProps & { valueField?: 'code' | 'id';
     loader={async () => {
       // G5-B 切 /api/lookup/cash-accounts；支持 currency query 直接过滤
       const url = currencyCode ? `/lookup/cash-accounts?currency=${encodeURIComponent(currencyCode)}` : '/lookup/cash-accounts';
-      const list = await request<any[]>(url);
-      return (Array.isArray(list) ? list : [])
+      const list = await lookupArr<any>(url);
+      return list
         .map(a => {
           const code = a.accountCode;
           const name = a.accountName;
@@ -173,7 +181,7 @@ export function UserSelector(p: BaseProps & {
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择用户'}
     loader={async () => {
       // G5-B 切 /api/lookup/users（无 MENU_USER_MGR:V 限制）
-      const list = await request<any[]>('/lookup/users');
+      const list = await lookupArr<any>('/lookup/users');
       // 当前登录用户的 store_code（从 JWT/sessionStorage 取）
       let myStore = '';
       try {
@@ -212,7 +220,7 @@ export function WarehouseSelector(p: BaseProps & { companyCode?: string; siteCod
       if (siteCode)    qs.set('siteCode',    siteCode);
       if (type)        qs.set('type',        type);
       const url = qs.toString() ? `/lookup/warehouses?${qs.toString()}` : '/lookup/warehouses';
-      const list = await request<any[]>(url);
+      const list = await lookupArr<any>(url);
       return (Array.isArray(list) ? list : [])
         .map(w => ({
           value: w.warehouseCode,
@@ -281,7 +289,7 @@ export function StoreSelector(p: BaseProps & { companyCode?: string }) {
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择门店'}
     loader={async () => {
       const url = companyCode ? `/lookup/stores?companyCode=${encodeURIComponent(companyCode)}` : '/lookup/stores';
-      const list = await request<any[]>(url);
+      const list = await lookupArr<any>(url);
       return (Array.isArray(list) ? list : [])
         .map(st => ({
           value: st.storeCode,
@@ -331,7 +339,7 @@ export function VehicleSelector(p: BaseProps & { companyCode?: string }) {
 export function FarmSelector(p: BaseProps) {
   return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择场站'}
     loader={async () => {
-      const list = await request<any[]>('/lookup/farms');
+      const list = await lookupArr<any>('/lookup/farms');
       return (Array.isArray(list) ? list : [])
         .map(f => ({
           value: f.farmCode,
@@ -347,8 +355,8 @@ export function HouseSelector(p: BaseProps & { farmCode?: string }) {
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择鸡舍'}
     loader={async () => {
       const url = farmCode ? `/lookup/houses?farmCode=${encodeURIComponent(farmCode)}` : '/lookup/houses';
-      const list = await request<any[]>(url);
-      return (Array.isArray(list) ? list : [])
+      const list = await lookupArr<any>(url);
+      return list
         .map(h => ({
           value: h.houseCode,
           label: `${h.houseName ?? h.houseCode}（${h.houseCode}${h.houseType ? ' · ' + h.houseType : ''}）`,
@@ -366,7 +374,7 @@ export function FlockSelector(p: BaseProps & { farmCode?: string; houseCode?: st
       if (houseCode) qs.set('houseCode', houseCode);
       if (farmCode)  qs.set('farmCode',  farmCode);
       const url = qs.toString() ? `/lookup/flocks?${qs.toString()}` : '/lookup/flocks';
-      const list = await request<any[]>(url);
+      const list = await lookupArr<any>(url);
       return (Array.isArray(list) ? list : [])
         .map(f => ({
           value: f.flockNo,
