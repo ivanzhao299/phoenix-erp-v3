@@ -259,8 +259,12 @@ export class IotSyncService implements OnModuleInit {
      let totalDays = 0;
      let current = new Date(startDate);
      const end = new Date(endDate);
+     let isFirst = true;
 
      while (current <= end) {
+       // G16-3：vendor 限流"同 houseId 间隔 10s"。首次不 sleep，之后强制 11s。
+       if (!isFirst) await new Promise(r => setTimeout(r, 11000));
+       isFirst = false;
        const dateStr = current.toISOString().slice(0, 10);
        try {
           const resp: any = await this.request('/open/api/house/device/property/date/data/history', {
@@ -357,7 +361,9 @@ export class IotSyncService implements OnModuleInit {
     }
   }
 
-  /** 批量回填所有 ACTIVE 鸡舍最近 N 天历史 — 供 admin endpoint 一键触发 */
+  /** 批量回填所有 ACTIVE 鸡舍最近 N 天历史 — 供 admin endpoint 一键触发
+   *  G16-3：限流是 per-vendorHouseId，不同房舍可并行 → Promise.all
+   */
   async backfillAllHistory(days = 7, propertyCodes: string[] = ['2001','2083','2002','2003','2488','2484','2532']) {
     const end = new Date().toISOString().slice(0, 10);
     const start = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
@@ -365,11 +371,9 @@ export class IotSyncService implements OnModuleInit {
       SELECT erp_house_code FROM mon_house_device_mapping
        WHERE status = 'ACTIVE' AND vendor_house_id IS NOT NULL
     `);
-    const results: any[] = [];
-    for (const m of maps) {
-      const r = await this.syncHistoryCatchUp(m.erp_house_code, start, end, propertyCodes);
-      results.push(r);
-    }
+    const results = await Promise.all(
+      maps.map((m: any) => this.syncHistoryCatchUp(m.erp_house_code, start, end, propertyCodes))
+    );
     return { ok: true, days, start, end, houses: results.length, results };
   }
 
