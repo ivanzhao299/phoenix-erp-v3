@@ -303,6 +303,7 @@ export class IotSyncService implements OnModuleInit {
             }
 
             for (const s of snapshots) {
+              const safeCt = (s.collect_time && !isNaN(Number(s.collect_time))) ? Number(s.collect_time) : Date.now();
               await this.entityManager.query(`
                 INSERT INTO mon_device_realtime_snapshot
                   (id, erp_house_code, property_code, value, is_alarm, collect_time, created_at, updated_at)
@@ -312,10 +313,22 @@ export class IotSyncService implements OnModuleInit {
                   is_alarm = EXCLUDED.is_alarm,
                   collect_time = EXCLUDED.collect_time,
                   updated_at = CURRENT_TIMESTAMP
-              `, [s.erp_house_code, s.property_code, s.value, s.is_alarm,
-                // 防御性保护：确保 collect_time 始终是合法 bigint，避免 API 返回空字符串报错
-                (s.collect_time && !isNaN(Number(s.collect_time))) ? Number(s.collect_time) : Date.now()
-              ]);
+              `, [s.erp_house_code, s.property_code, s.value, s.is_alarm, safeCt]);
+
+              // G16-3：同步双写到 history 表，供 trends 折线图使用
+              //   按小时桶去重（同小时同 house+prop 只保留 1 条最新）
+              //   去重避免 5min cron × 24h × 4prop = 1152 行/舍/天 膨胀
+              await this.entityManager.query(`
+                INSERT INTO mon_device_property_history
+                  (id, erp_house_code, property_code, value, collect_time, log_date, created_at)
+                SELECT gen_random_uuid(), $1, $2, $3, $4, $5::date, CURRENT_TIMESTAMP
+                WHERE NOT EXISTS (
+                  SELECT 1 FROM mon_device_property_history
+                   WHERE erp_house_code=$1 AND property_code=$2
+                     AND (collect_time / 3600000) = ($4::bigint / 3600000)
+                )
+              `, [s.erp_house_code, s.property_code, s.value, safeCt,
+                  new Date(safeCt).toISOString().slice(0, 10)]).catch(() => {});
 
               // ── 真实预警事件生成 ──────────────────────────────────────────────
               if (s.is_alarm === 1 || s.is_alarm === true) {

@@ -25,9 +25,11 @@ export class MonDeviceController {
   async getTrends(
     @Param('houseCode') houseCode: string,
     @Query('properties') properties: string,
+    @Query('codes') codes: string,        // 前端历史命名兼容
     @Query('range') range: string,
   ) {
-    const props = properties ? properties.split(',') : [];
+    const raw = properties || codes || '';
+    const props = raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
     return this.monDeviceService.getHouseTrendsV3(houseCode, props, range);
   }
 
