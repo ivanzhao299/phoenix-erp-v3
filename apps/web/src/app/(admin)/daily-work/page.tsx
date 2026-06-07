@@ -54,8 +54,7 @@ const ALL_CARDS: QuickCard[] = [
     icon: Syringe,       href: '/breeding/immune',                                    accent: '#84CC16', perm: 'MENU_FARM_VET',           permOp: 'V' },
   { key: 'med_stock',   title: '药品库存',          desc: '入库 / 出库 / 库存查询',
     icon: Pill,          href: '/breeding/med-stock',                                 accent: '#16A34A', perm: 'MENU_FARM_VET',           permOp: 'V' },
-  { key: 'egg_collect', title: '鸡蛋集蛋记录',     desc: '集蛋台账 · 各鸡舍当日',
-    icon: Egg,           href: '/breeding/egg-ledger?action=create&date=today',       accent: '#F59E0B', perm: 'MENU_PROD_COLLECTION',    permOp: 'C' },
+  // G15：集蛋记录已合并到日生产日报，不再单独显示
   { key: 'egg_inbound', title: '日产蛋入库',        desc: '7 等级分级入库',
     icon: PackagePlus,   href: '/breeding/daily-inbound?action=create&date=today',    accent: '#F97316', perm: 'MENU_PROD_INBOUND',       permOp: 'C' },
 

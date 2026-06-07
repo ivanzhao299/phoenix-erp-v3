@@ -143,17 +143,29 @@ export class LookupController {
     return { code: 200, data: rows };
   }
 
-  /** GET /api/lookup/warehouses?companyCode= — 仓库下拉（替代 /crud/wms_warehouses） */
+  /**
+   * GET /api/lookup/warehouses?companyCode=&siteCode=&type=
+   * 仓库下拉 — G15 后支持按 site / type 过滤
+   * type 枚举：EGG_FARM / EGG_SALES / MEDICINE / FEED / RAW_MATERIAL / PURCHASE_RECV / FINISHED
+   */
   @Get('warehouses')
-  async warehouses(@Query('companyCode') companyCode?: string) {
+  async warehouses(
+    @Query('companyCode') companyCode?: string,
+    @Query('siteCode') siteCode?: string,
+    @Query('type') type?: string,
+  ) {
     const params: any[] = [];
-    let where = `status='ACTIVE'`;
-    if (companyCode) { params.push(companyCode); where += ` AND company_code=$${params.length}`; }
+    const conds: string[] = [`status='ACTIVE'`];
+    if (companyCode) { params.push(companyCode); conds.push(`company_code=$${params.length}`); }
+    if (siteCode)    { params.push(siteCode);    conds.push(`site_code=$${params.length}`); }
+    if (type)        { params.push(type);        conds.push(`type=$${params.length}`); }
     const rows = await this.em.query(
-      `SELECT warehouse_code AS "warehouseCode", warehouse_name AS "warehouseName",
-              company_code AS "companyCode", warehouse_type AS "warehouseType", status
+      `SELECT warehouse_code AS "warehouseCode",
+              COALESCE(warehouse_name_zh, warehouse_name) AS "warehouseName",
+              company_code AS "companyCode", site_code AS "siteCode",
+              type AS "warehouseType", status
          FROM wms_warehouses
-         WHERE ${where}
+         WHERE ${conds.join(' AND ')}
          ORDER BY warehouse_code`,
       params,
     );

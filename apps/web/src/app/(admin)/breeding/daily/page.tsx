@@ -339,6 +339,44 @@ export default function DailyPage() {
       setSubmitted(true);
       setApproved(false);
       setTimeout(() => setSubmitted(false), 3000);
+      // G15：日报提交成功后，若任一班次填了 9 档 → 弹窗确认是否同步入销售库存
+      // 仅 TEMP_PRODUCTION_INBOUND 模式可用；PACKAGING_INBOUND 模式提示前往包装中心
+      const rowsWithGrades = rowsToSubmit.filter(r => Object.values(r.gradeQty || {}).some(v => Number(v) > 0));
+      if (rowsWithGrades.length > 0) {
+        const totalSum = rowsWithGrades.reduce((s, r) => s + gradeSumOf(r.gradeQty), 0);
+        const ok = await showConfirm({
+          type: 'confirm', icon: '📦',
+          title: '日报已保存 — 是否同步入销售库存？',
+          message: `共 ${rowsWithGrades.length} 个班次填了 9 档分级，合计 ${totalSum.toLocaleString()} 枚。\n\n确认 → 自动写入鸡蛋销售成品仓（LPH_MS_EGG_SALES），可直接销售。\n取消 → 仅保存日报数据，稍后去「日产蛋入库」分级入库。`,
+          confirmLabel: '同步入销售库存',
+          cancelLabel: '仅保存日报',
+        });
+        if (ok) {
+          // 调 daily-inbound endpoint 一键入库
+          const allItems = rowsWithGrades.flatMap(r =>
+            Object.entries(r.gradeQty).filter(([, v]) => Number(v) > 0).map(([grade, qty]) => ({ grade, qty: Number(qty) }))
+          );
+          try {
+            const res = await fetch(`${API_BASE}/api/v2/inventory/production-inbound`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+              body: JSON.stringify({ eggDate: formDate, houseCode: selectedHouse || undefined, items: allItems }),
+            });
+            const j = await res.json();
+            if (res.ok && j.code === 200) {
+              toast.success(`✓ 已入库 ${allItems.length} 个批次，合计 ${totalSum.toLocaleString()} 枚`);
+            } else {
+              if (j.message?.includes('PACKAGING_INBOUND')) {
+                toast.error('当前 SITE 是包装入库模式，请去包装作业中心完成');
+              } else {
+                toast.error(`入库失败：${j.message || res.statusText}`);
+              }
+            }
+          } catch (e: any) {
+            toast.error(`入库失败：${e.message}`);
+          }
+        }
+      }
       if (rejected.length === 0) {
         const codes = shiftOptions.length > 0 ? shiftOptions.map(o => o.value) : ['BRD_SHIFT_MORNING', 'BRD_SHIFT_EVENING'];
         setRows(codes.map((c, i) => mkRow(i + 1, c)));

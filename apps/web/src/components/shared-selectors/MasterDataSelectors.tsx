@@ -201,12 +201,17 @@ export function UserSelector(p: BaseProps & {
     }} />;
 }
 
-// ── 仓库（wms_warehouses，G5-B 切 /api/lookup）────────────────────────────────
-export function WarehouseSelector(p: BaseProps & { companyCode?: string }) {
-  const { companyCode, ...rest } = p;
+// ── 仓库（wms_warehouses，G5-B 切 /api/lookup，G15 支持 type 过滤）─────────────
+// type 枚举：EGG_FARM / EGG_SALES / MEDICINE / FEED / RAW_MATERIAL / PURCHASE_RECV / FINISHED
+export function WarehouseSelector(p: BaseProps & { companyCode?: string; siteCode?: string; type?: string }) {
+  const { companyCode, siteCode, type, ...rest } = p;
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择仓库'}
     loader={async () => {
-      const url = companyCode ? `/lookup/warehouses?companyCode=${encodeURIComponent(companyCode)}` : '/lookup/warehouses';
+      const qs = new URLSearchParams();
+      if (companyCode) qs.set('companyCode', companyCode);
+      if (siteCode)    qs.set('siteCode',    siteCode);
+      if (type)        qs.set('type',        type);
+      const url = qs.toString() ? `/lookup/warehouses?${qs.toString()}` : '/lookup/warehouses';
       const list = await request<any[]>(url);
       return (Array.isArray(list) ? list : [])
         .map(w => ({
