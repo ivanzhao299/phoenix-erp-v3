@@ -172,7 +172,11 @@ export default function DailyPage() {
         label: f.house_code ? `${f.house_code}${f.farm_name ? ' · ' + f.farm_name : ''}` : f.flock_no as string
       }));
       setHouses(houseList);
-      setSelectedHouse(houseList[0]?.code || '');
+      // G13：admin/全局用户默认"全部鸡舍"（空字符串=全部），业务录入用户默认选第一个
+      // 让初始数据可被 admin/CEO 等全局视角直接看到，无需手动切换
+      const userStore = (typeof window !== 'undefined' ? JSON.parse(sessionStorage.getItem('phoenix_user') || '{}')?.storeCode : '') || '';
+      const isGlobalUser = userStore === 'ALL' || userStore.startsWith('ORG-GROUP');
+      setSelectedHouse(isGlobalUser ? '' : (houseList[0]?.code || ''));
     }).catch(() => {});
     loadData();
   }, []);
