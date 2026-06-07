@@ -67,7 +67,7 @@ SALE_NO=$(cat /tmp/t1.json | grep -oE '"sale_no":"[^"]*"' | head -1 | cut -d'"' 
 [ -n "$SALE_NO" ] && green "  ✓ T1.2 sale_no=$SALE_NO" && PASS=$((PASS+1)) || { red "  ✗ T1.2 sale_no 空"; FAIL=$((FAIL+1)); }
 
 # batch 减 10
-B_AFTER=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no='$BATCH_NO';")
+B_AFTER=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
 assert_eq "T1.3 batch 1000-10=990" "990" "$B_AFTER"
 
 # pos_sale_items 应有 1 行
@@ -75,7 +75,7 @@ ITEM_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM pos_sale_items WHERE sale_no='
 assert_eq "T1.4 pos_sale_items +1" "1" "$ITEM_CNT"
 
 # inv_ledger SALE_OUT 流水
-LEDGER_SALE=$($PSQL $DB -tA -c "SELECT qty_change FROM inv_ledger WHERE ref_no='$SALE_NO' AND change_type='SALE_OUT';")
+LEDGER_SALE=$($PSQL $DB -tA -c "SELECT qty_change::integer FROM inv_ledger WHERE ref_no='$SALE_NO' AND change_type='SALE_OUT';")
 assert_eq "T1.5 SALE_OUT ledger -10" "-10" "$LEDGER_SALE"
 
 # pos_sales.net_amount = 10*5.5 = 55.00
@@ -94,7 +94,7 @@ R2=$(curl -s -o /tmp/t2.json -w '%{http_code}' -X POST "$API/api/v3/pos/sales" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d "$HUGE_PAYLOAD")
 assert_fail "T2.1 余量不足返非 2xx" "$R2"
 
-B_AFTER2=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no='$BATCH_NO';")
+B_AFTER2=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
 assert_eq "T2.2 batch 未变 (仍 990)" "990" "$B_AFTER2"
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -104,10 +104,10 @@ R3=$(curl -s -o /tmp/t3.json -w '%{http_code}' -X POST "$API/api/v3/pos/sales/$S
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"reason":"regression test"}')
 assert_ok "T3.1 refund 200" "$R3"
 
-B_REFUND=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no='$BATCH_NO';")
+B_REFUND=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
 assert_eq "T3.2 batch 990+10=1000 (库存还原)" "1000" "$B_REFUND"
 
-LEDGER_REFUND=$($PSQL $DB -tA -c "SELECT qty_change FROM inv_ledger WHERE ref_no='$SALE_NO' AND change_type='SALE_REFUND';")
+LEDGER_REFUND=$($PSQL $DB -tA -c "SELECT qty_change::integer FROM inv_ledger WHERE ref_no='$SALE_NO' AND change_type='SALE_REFUND';")
 assert_eq "T3.3 SALE_REFUND ledger +10" "10" "$LEDGER_REFUND"
 
 POS_STATUS=$($PSQL $DB -tA -c "SELECT status FROM pos_sales WHERE sale_no='$SALE_NO';")
@@ -133,10 +133,10 @@ R4=$(curl -s -o /tmp/t4.json -w '%{http_code}' -X POST "$API/api/v3/pos/losses/$
   -d "{\"batch_no\":\"$BATCH_NO\",\"item\":\"$PRODUCT\",\"qty\":5,\"store_code\":\"$STORE\",\"reason\":\"过期\"}")
 assert_ok "T4.1 approveStoreLoss 200" "$R4"
 
-LOSS_BATCH=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no='$BATCH_NO';")
+LOSS_BATCH=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
 assert_eq "T4.2 batch 1000-5=995" "995" "$LOSS_BATCH"
 
-LEDGER_LOSS=$($PSQL $DB -tA -c "SELECT qty_change FROM inv_ledger WHERE ref_no='$LOSS_NO' AND change_type='STORE_LOSS';")
+LEDGER_LOSS=$($PSQL $DB -tA -c "SELECT qty_change::integer FROM inv_ledger WHERE ref_no='$LOSS_NO' AND change_type='STORE_LOSS';")
 assert_eq "T4.3 STORE_LOSS ledger -5" "-5" "$LEDGER_LOSS"
 
 LOSS_STATUS=$($PSQL $DB -tA -c "SELECT status FROM store_losses WHERE loss_no='$LOSS_NO';")
@@ -156,7 +156,7 @@ assert_ok "T5.1 confirmReceiving 200" "$R5"
 RECV_STATUS=$($PSQL $DB -tA -c "SELECT status FROM store_receiving WHERE order_no='$RECV_NO';")
 assert_eq "T5.2 store_receiving.status=ACCEPTED" "ACCEPTED" "$RECV_STATUS"
 
-LEDGER_RECV=$($PSQL $DB -tA -c "SELECT qty_change FROM inv_ledger WHERE ref_no='$RECV_NO' AND change_type='STORE_RECV';")
+LEDGER_RECV=$($PSQL $DB -tA -c "SELECT qty_change::integer FROM inv_ledger WHERE ref_no='$RECV_NO' AND change_type='STORE_RECV';")
 assert_eq "T5.3 STORE_RECV ledger +20" "20" "$LEDGER_RECV"
 
 # 二次确认应拒绝
@@ -232,7 +232,7 @@ PB_OK=$(curl -s -o /tmp/v2_pb_ok.json -w '%{http_code}' -X POST "$API/api/v3/pos
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d "{\"sale_no\":\"POS-REGR-V2-IDEM-1\",\"store_code\":\"$STORE\",\"session_no\":\"$SESSION_NO\",\"items\":[{\"product_code\":\"$PRODUCT\",\"batch_no\":\"$BATCH2\",\"qty\":3,\"unit_price\":10.0}]}")
 assert_ok "T7-V2.5 首次销售 200" "$PB_OK"
-QTY_AFTER1=$($PSQL $DB -tA -c "SELECT qty_available FROM inv_batches WHERE batch_no='$BATCH2';")
+QTY_AFTER1=$($PSQL $DB -tA -c "SELECT qty_available::integer FROM inv_batches WHERE batch_no='$BATCH2';")
 assert_eq "T7-V2.5.1 首次后 qty_available=497" "497" "$QTY_AFTER1"
 
 # 重发同 sale_no
@@ -242,7 +242,7 @@ PB_IDEM=$(curl -s -o /tmp/v2_pb_idem.json -w '%{http_code}' -X POST "$API/api/v3
 assert_ok "T7-V2.5.2 重发幂等 200" "$PB_IDEM"
 IDEM_FLAG=$(cat /tmp/v2_pb_idem.json | grep -oE '"idempotent":true')
 [ -n "$IDEM_FLAG" ] && green "  ✓ T7-V2.5.3 idempotent=true" && PASS=$((PASS+1)) || { red "  ✗ T7-V2.5.3 missing idempotent"; FAIL=$((FAIL+1)); FAILURES+=("T7-V2.5.3"); }
-QTY_AFTER2=$($PSQL $DB -tA -c "SELECT qty_available FROM inv_batches WHERE batch_no='$BATCH2';")
+QTY_AFTER2=$($PSQL $DB -tA -c "SELECT qty_available::integer FROM inv_batches WHERE batch_no='$BATCH2';")
 assert_eq "T7-V2.5.4 重发后 qty_available 不变 (仍 497)" "497" "$QTY_AFTER2"
 
 # T7-V2.6 closeSession — 汇总 net_amount 并归档
@@ -350,7 +350,7 @@ if [ "$DELTA" -ge 4 ]; then green "  ✓ E-01 ledger 新增 $DELTA 条 (≥4 条
 
 # E-02: batch 库存守恒 (排除 STORE_RECV — 它影响 store_inventory 而非 inv_batches.qty)
 # Seed=1000 +SaleOut(-10) +Refund(+10) +Loss(-5) = 995
-FINAL=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no='$BATCH_NO';")
+FINAL=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
 LEDGER_SUM=$($PSQL $DB -tA -c "SELECT COALESCE(SUM(qty_change),0) FROM inv_ledger WHERE batch_no='$BATCH_NO' AND change_type NOT IN ('STORE_RECV','STORE_TRANSFER');")
 EXPECTED=$((1000 + LEDGER_SUM))
 assert_eq "E-02 守恒 (1000+Σledger除STORE_RECV=qty)" "$EXPECTED" "$FINAL"

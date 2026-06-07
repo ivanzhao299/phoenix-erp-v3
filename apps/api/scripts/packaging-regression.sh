@@ -88,11 +88,11 @@ SHIFT_STATUS=$($PSQL $DB -tA -c "SELECT status FROM pkg_shifts WHERE id=$SHIFT_I
 assert_eq "T1.4 pkg_shifts.status=DONE" "DONE" "$SHIFT_STATUS"
 
 # inv_batches 有原料批次
-INV_BATCH=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no='$BATCH_NO';")
+INV_BATCH=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
 assert_eq "T1.5 inv_batches 鲜蛋批次 qty=2950" "2950" "$INV_BATCH"
 
 # inv_ledger FARM_IN
-LEDGER_IN=$($PSQL $DB -tA -c "SELECT qty_change FROM inv_ledger WHERE batch_no='$BATCH_NO' AND change_type='EGG_IN' LIMIT 1;")
+LEDGER_IN=$($PSQL $DB -tA -c "SELECT qty_change::integer FROM inv_ledger WHERE batch_no='$BATCH_NO' AND change_type='EGG_IN' LIMIT 1;")
 assert_eq "T1.6 inv_ledger EGG_IN +2950" "2950" "$LEDGER_IN"
 
 # pkg_tasks 自动建分级任务
@@ -191,7 +191,7 @@ cyan ""
 cyan "▶ T5: reopenShift 副作用清理 (commit d584979)"
 # 看现在的活跃 GRADING 任务（应有 1 条 from T1）
 ACTIVE_BEFORE=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM pkg_tasks WHERE shift_id=$SHIFT_ID AND status<>'CANCELLED' AND task_type='GRADING';")
-INV_BEFORE=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no='$BATCH_NO';")
+INV_BEFORE=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
 
 # reopen
 RE_RES=$(curl -s -X POST "$API/api/packaging/shifts/$SHIFT_ID/reopen" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"reason":"regression test"}')
@@ -203,11 +203,11 @@ ACTIVE_AFTER=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM pkg_tasks WHERE shift_id=$
 assert_eq "T5.2 reopen 后无活跃 GRADING 任务" "0" "$ACTIVE_AFTER"
 
 # inv_batches.qty=0
-INV_AFTER=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no='$BATCH_NO';")
+INV_AFTER=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
 assert_eq "T5.3 reopen 后 inv_batches.qty=0" "0" "$INV_AFTER"
 
 # 反向 EGG_REVERSED ledger
-REV=$($PSQL $DB -tA -c "SELECT qty_change FROM inv_ledger WHERE batch_no='$BATCH_NO' AND change_type='EGG_REVERSED' LIMIT 1;")
+REV=$($PSQL $DB -tA -c "SELECT qty_change::integer FROM inv_ledger WHERE batch_no='$BATCH_NO' AND change_type='EGG_REVERSED' LIMIT 1;")
 assert_eq "T5.4 EGG_REVERSED 反向 ledger -2950" "-2950" "$REV"
 
 # shift 回 PENDING
@@ -330,9 +330,9 @@ X_BATCH_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_batches WHERE batch_no 
 assert_eq "T11-V2.2 X 等级生成 1 个 batch" "1" "$X_BATCH_CNT"
 X_STATUS=$($PSQL $DB -tA -c "SELECT status FROM inv_batches WHERE batch_no LIKE 'PACK-${DATEKEY}-${HOUSE}-GX-%' LIMIT 1;")
 assert_eq "T11-V2.3 X batch.status=QUARANTINE" "QUARANTINE" "$X_STATUS"
-X_AVAIL=$($PSQL $DB -tA -c "SELECT qty_available FROM inv_batches WHERE batch_no LIKE 'PACK-${DATEKEY}-${HOUSE}-GX-%' LIMIT 1;")
+X_AVAIL=$($PSQL $DB -tA -c "SELECT qty_available::integer FROM inv_batches WHERE batch_no LIKE 'PACK-${DATEKEY}-${HOUSE}-GX-%' LIMIT 1;")
 assert_eq "T11-V2.4 X batch.qty_available=0" "0" "$X_AVAIL"
-X_QTY=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no LIKE 'PACK-${DATEKEY}-${HOUSE}-GX-%' LIMIT 1;")
+X_QTY=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no LIKE 'PACK-${DATEKEY}-${HOUSE}-GX-%' LIMIT 1;")
 assert_eq "T11-V2.5 X batch.qty=200" "200" "$X_QTY"
 
 # 1 号蛋应入 AVAILABLE batch

@@ -76,7 +76,7 @@ R1=$(curl -s -o /tmp/r1.json -w '%{http_code}' -X POST "$API/api/inbound/confirm
 assert_ok "T1.1 confirmInbound 200" "$R1"
 
 # UPSERT: $BATCH_NO 原 1000 + 入库 500 = 1500
-QTY_AFTER=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no='$BATCH_NO';")
+QTY_AFTER=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
 assert_eq "T1.2 UPSERT 累加 1000+500=1500" "1500" "$QTY_AFTER"
 
 # inv_ledger 应有新的 INBOUND 流水
@@ -96,14 +96,14 @@ R2=$(curl -s -o /tmp/r2.json -w '%{http_code}' -X POST "$API/api/inventory/trans
 assert_ok "T2.1 confirmTransfer 200" "$R2"
 
 # 源 batch 减 300: 1500 - 300 = 1200
-SRC_QTY=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no='$BATCH_NO';")
+SRC_QTY=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
 assert_eq "T2.2 源 batch 1500-300=1200" "1200" "$SRC_QTY"
 
 # 目标新建一个 BATCH_NO-T-XXX batch
 DST_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_batches WHERE batch_no LIKE '$BATCH_NO-T-%' AND warehouse_code='$WH_B';")
 assert_eq "T2.3 目标新建 1 个 batch 在 WH_B" "1" "$DST_CNT"
 
-DST_QTY=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no LIKE '$BATCH_NO-T-%' LIMIT 1;")
+DST_QTY=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no LIKE '$BATCH_NO-T-%' LIMIT 1;")
 assert_eq "T2.4 目标 batch qty=300" "300" "$DST_QTY"
 
 # 双向 ledger
@@ -126,7 +126,7 @@ case "$R3" in 5*|4*) green "  ✓ T3.1 余量不足返非 2xx (HTTP $R3)"; PASS=
   *) red "  ✗ T3.1 应失败但返 $R3"; FAIL=$((FAIL+1)); FAILURES+=("T3.1 expected non-2xx got $R3") ;;
 esac
 
-SRC_UNCHANGED=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no='$BATCH_NO';")
+SRC_UNCHANGED=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
 assert_eq "T3.2 源 batch 未变 (仍 1200)" "1200" "$SRC_UNCHANGED"
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -140,7 +140,7 @@ R4=$(curl -s -o /tmp/r4.json -w '%{http_code}' -X POST "$API/api/inventory/stock
   -d "{\"stocktake_no\":\"$STK_NO\",\"batch_no\":\"$BATCH_NO\",\"diff_qty\":-2,\"item\":\"REGR-PROD\"}")
 assert_ok "T4.1 approveStocktake 200" "$R4"
 
-STK_QTY=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no='$BATCH_NO';")
+STK_QTY=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
 assert_eq "T4.2 batch.qty 1200-2=1198" "1198" "$STK_QTY"
 
 STK_LEDGER=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE batch_no='$BATCH_NO' AND change_type='STOCKTAKE_DOWN' AND ref_no='$STK_NO';")
@@ -160,7 +160,7 @@ R5=$(curl -s -o /tmp/r5.json -w '%{http_code}' -X POST "$API/api/inventory/loss/
   -d "{\"loss_no\":\"$LR_NO\",\"batch_no\":\"$BATCH_NO\",\"loss_qty\":50,\"reason\":\"过期报损\"}")
 assert_ok "T5.1 approveLoss 200" "$R5"
 
-LOSS_QTY=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no='$BATCH_NO';")
+LOSS_QTY=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
 assert_eq "T5.2 batch.qty 1198-50=1148" "1148" "$LOSS_QTY"
 
 LOSS_LEDGER=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE batch_no='$BATCH_NO' AND change_type='LOSS';")
@@ -209,15 +209,15 @@ R_V2_2=$(curl -s -o /tmp/v2_ib2.json -w '%{http_code}' -X POST "$API/api/inbound
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d "{\"task_no\":\"$TASK_V2\",\"items\":[{\"batch_no\":\"$BATCH_V2\",\"product_code\":\"REGR-PROD\",\"actual_qty\":80,\"broken_qty\":20,\"expected_qty\":100,\"warehouse_code\":\"$WH_A\"}]}")
 assert_ok "T8-V2.2 严格校验通过 confirmInbound 200" "$R_V2_2"
-QTY_AV=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no='$BATCH_V2';")
+QTY_AV=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_V2';")
 assert_eq "T8-V2.2.1 AVAILABLE batch qty=80" "80" "$QTY_AV"
 STAT_AV=$($PSQL $DB -tA -c "SELECT status FROM inv_batches WHERE batch_no='$BATCH_V2';")
 assert_eq "T8-V2.2.2 AVAILABLE batch.status=AVAILABLE" "AVAILABLE" "$STAT_AV"
-QTY_BRK=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no='$BATCH_V2-BROKEN';")
+QTY_BRK=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_V2-BROKEN';")
 assert_eq "T8-V2.2.3 QUARANTINE batch qty=20" "20" "$QTY_BRK"
 STAT_BRK=$($PSQL $DB -tA -c "SELECT status FROM inv_batches WHERE batch_no='$BATCH_V2-BROKEN';")
 assert_eq "T8-V2.2.4 QUARANTINE batch.status=QUARANTINE" "QUARANTINE" "$STAT_BRK"
-AVAIL_BRK=$($PSQL $DB -tA -c "SELECT qty_available FROM inv_batches WHERE batch_no='$BATCH_V2-BROKEN';")
+AVAIL_BRK=$($PSQL $DB -tA -c "SELECT qty_available::integer FROM inv_batches WHERE batch_no='$BATCH_V2-BROKEN';")
 assert_eq "T8-V2.2.5 QUARANTINE batch.qty_available=0" "0" "$AVAIL_BRK"
 
 # T8-V2.3 幂等：再次 confirmInbound → 拒绝
@@ -240,7 +240,7 @@ R_V2_4=$(curl -s -o /tmp/v2_ib4.json -w '%{http_code}' -X POST "$API/api/inbound
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d "{\"task_no\":\"$TASK_V2_LK\",\"items\":[{\"batch_no\":\"$LOCKED_BATCH\",\"product_code\":\"REGR-PROD\",\"actual_qty\":30,\"expected_qty\":30,\"warehouse_code\":\"$WH_A\"}]}")
 case "$R_V2_4" in 5*|4*) green "  ✓ T8-V2.4 LOCKED 批次入库拦截 (HTTP $R_V2_4)"; PASS=$((PASS+1));; *) red "  ✗ T8-V2.4 应拦截 HTTP=$R_V2_4"; FAIL=$((FAIL+1)); FAILURES+=("T8-V2.4");; esac
-LOCKED_QTY_AFTER=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no='$LOCKED_BATCH';")
+LOCKED_QTY_AFTER=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$LOCKED_BATCH';")
 assert_eq "T8-V2.4.1 LOCKED batch qty 未变 (仍 50)" "50" "$LOCKED_QTY_AFTER"
 
 # T8-V2.5 PDA 同步幂等 — 两次推送同 op_id 应只处理一次
@@ -274,7 +274,7 @@ else
 fi
 
 # E-02: 源 + 目标 + 各种调整后总账与 ledger SUM 守恒
-SRC_FINAL=$($PSQL $DB -tA -c "SELECT qty FROM inv_batches WHERE batch_no='$BATCH_NO';")
+SRC_FINAL=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
 DST_FINAL=$($PSQL $DB -tA -c "SELECT COALESCE(SUM(qty),0) FROM inv_batches WHERE batch_no LIKE '$BATCH_NO-T-%';")
 TOTAL_FINAL=$((SRC_FINAL + DST_FINAL))
 LEDGER_SUM=$($PSQL $DB -tA -c "SELECT COALESCE(SUM(qty_change),0) FROM inv_ledger WHERE batch_no='$BATCH_NO' OR batch_no LIKE '$BATCH_NO-T-%';")
