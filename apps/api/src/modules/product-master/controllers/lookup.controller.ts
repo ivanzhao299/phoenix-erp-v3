@@ -202,15 +202,18 @@ export class LookupController {
     return { code: 200, data: rows };
   }
 
-  /** GET /api/lookup/houses?farmCode= — 鸡舍下拉（替代 /crud/brd_houses） */
+  /** GET /api/lookup/houses?farmCode=&siteCode= — 鸡舍下拉
+   *   G17: 加 siteCode 支持。宋明光 store_code='SITE-MENGSAI-LAYER' 走 siteCode 过滤。
+   */
   @Get('houses')
-  async houses(@Query('farmCode') farmCode?: string) {
+  async houses(@Query('farmCode') farmCode?: string, @Query('siteCode') siteCode?: string) {
     const params: any[] = [];
     let where = `status='ACTIVE'`;
     if (farmCode) { params.push(farmCode); where += ` AND farm_code=$${params.length}`; }
+    if (siteCode) { params.push(siteCode); where += ` AND site_code=$${params.length}`; }
     const rows = await this.em.query(
       `SELECT house_code AS "houseCode", house_name AS "houseName",
-              farm_code AS "farmCode", house_type AS "houseType",
+              farm_code AS "farmCode", site_code AS "siteCode", house_type AS "houseType",
               capacity, current_birds AS "currentBirds", status
          FROM brd_houses
          WHERE ${where}
@@ -220,13 +223,14 @@ export class LookupController {
     return { code: 200, data: rows };
   }
 
-  /** GET /api/lookup/flocks?houseCode=&farmCode= — 鸡群下拉（替代 /crud/brd_flocks） */
+  /** GET /api/lookup/flocks?houseCode=&farmCode=&siteCode= — 鸡群下拉 */
   @Get('flocks')
-  async flocks(@Query('houseCode') houseCode?: string, @Query('farmCode') farmCode?: string) {
+  async flocks(@Query('houseCode') houseCode?: string, @Query('farmCode') farmCode?: string, @Query('siteCode') siteCode?: string) {
     const params: any[] = [];
     let where = `status='ACTIVE'`;
     if (houseCode) { params.push(houseCode); where += ` AND house_code=$${params.length}`; }
     if (farmCode)  { params.push(farmCode);  where += ` AND farm_code=$${params.length}`; }
+    if (siteCode)  { params.push(siteCode);  where += ` AND site_code=$${params.length}`; }
     const rows = await this.em.query(
       `SELECT flock_no AS "flockNo", house_code AS "houseCode", farm_code AS "farmCode",
               strain, placement_date AS "placementDate", current_qty AS "currentQty", status

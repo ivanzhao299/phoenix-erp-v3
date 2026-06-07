@@ -44,7 +44,11 @@ export interface FormField {
   defaultValue?: string | number;
   // G4-D 扩展
   dictType?: string;                                                    // type='dict' 必填
-  filterBy?: { companyField?: string; warehouseField?: string; zoneField?: string; farmField?: string; houseField?: string };
+  // G17：filterBy 同时支持「字段引用」(*Field) 和「固定值」(直传 siteCode/farmCode/companyCode)
+  filterBy?: {
+    companyField?: string; warehouseField?: string; zoneField?: string; farmField?: string; houseField?: string;
+    siteCode?: string; farmCode?: string; companyCode?: string;
+  };
   valueField?: 'code' | 'id' | 'username';                              // user/cashAccount
   onPickKeys?: Record<string, string>;                                   // 主数据自动带出：{ 目标 key: raw 字段名 }
 }
@@ -234,7 +238,8 @@ export const CrudForm = memo(function CrudForm({
               <WarehouseSelector
                 value={String(values[field.key] ?? "")}
                 onChange={v => set(field.key, v)}
-                companyCode={field.filterBy?.companyField ? String(values[field.filterBy.companyField] ?? "") : undefined}
+                companyCode={field.filterBy?.companyField ? String(values[field.filterBy.companyField] ?? "") : field.filterBy?.companyCode}
+                siteCode={field.filterBy?.siteCode}
                 onPick={o => {
                   Object.entries(field.onPickKeys ?? {}).forEach(([k, rawField]) => {
                     set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");
@@ -278,7 +283,8 @@ export const CrudForm = memo(function CrudForm({
               <HouseSelector
                 value={String(values[field.key] ?? "")}
                 onChange={v => set(field.key, v)}
-                farmCode={field.filterBy?.farmField ? String(values[field.filterBy.farmField] ?? "") : undefined}
+                farmCode={field.filterBy?.farmField ? String(values[field.filterBy.farmField] ?? "") : field.filterBy?.farmCode}
+                siteCode={field.filterBy?.siteCode}
                 onPick={o => {
                   Object.entries(field.onPickKeys ?? {}).forEach(([k, rawField]) => {
                     set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");

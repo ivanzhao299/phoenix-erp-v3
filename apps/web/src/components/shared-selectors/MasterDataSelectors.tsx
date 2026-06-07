@@ -349,12 +349,15 @@ export function FarmSelector(p: BaseProps) {
     }} />;
 }
 
-// ── 鸡舍（brd_houses，G5-B 切 /api/lookup）────────────────────────────────────
-export function HouseSelector(p: BaseProps & { farmCode?: string }) {
-  const { farmCode, ...rest } = p;
+// ── 鸡舍（brd_houses，G5-B 切 /api/lookup；G17 加 siteCode 支持）─────────────
+export function HouseSelector(p: BaseProps & { farmCode?: string; siteCode?: string }) {
+  const { farmCode, siteCode, ...rest } = p;
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择鸡舍'}
     loader={async () => {
-      const url = farmCode ? `/lookup/houses?farmCode=${encodeURIComponent(farmCode)}` : '/lookup/houses';
+      const qs = new URLSearchParams();
+      if (farmCode) qs.set('farmCode', farmCode);
+      if (siteCode) qs.set('siteCode', siteCode);
+      const url = qs.toString() ? `/lookup/houses?${qs.toString()}` : '/lookup/houses';
       const list = await lookupArr<any>(url);
       return list
         .map(h => ({
@@ -366,11 +369,12 @@ export function HouseSelector(p: BaseProps & { farmCode?: string }) {
 }
 
 // ── 鸡群（brd_flocks，G5-B 切 /api/lookup）────────────────────────────────────
-export function FlockSelector(p: BaseProps & { farmCode?: string; houseCode?: string }) {
-  const { farmCode, houseCode, ...rest } = p;
+export function FlockSelector(p: BaseProps & { farmCode?: string; houseCode?: string; siteCode?: string }) {
+  const { farmCode, houseCode, siteCode, ...rest } = p;
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择鸡群'}
     loader={async () => {
       const qs = new URLSearchParams();
+      if (siteCode) qs.set('siteCode', siteCode);
       if (houseCode) qs.set('houseCode', houseCode);
       if (farmCode)  qs.set('farmCode',  farmCode);
       const url = qs.toString() ? `/lookup/flocks?${qs.toString()}` : '/lookup/flocks';

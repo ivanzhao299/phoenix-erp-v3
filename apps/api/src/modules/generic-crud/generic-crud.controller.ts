@@ -177,9 +177,17 @@ export class GenericCrudController {
       brd_houses:       null,                // 无可靠 site 列，暂不行级隔离（受 RBAC 限制）
       brd_flocks:       null,
     };
+    // G17：WMS / INV 类表按 site_code 隔离（与 SITE-* storeCode 同维度）
+    const WMS_SCOPE_FIELD: Record<string, string | null> = {
+      wms_outbound: 'site_code',
+      wms_inbound:  'site_code',
+      // 其余 wms_* 默认 store_code（不在 map 走默认）
+    };
     let scopeField: string | null;
     if (table.startsWith('brd_')) {
       scopeField = table in BRD_SCOPE_FIELD ? BRD_SCOPE_FIELD[table] : 'store_code';
+    } else if (table in WMS_SCOPE_FIELD) {
+      scopeField = WMS_SCOPE_FIELD[table];
     } else {
       scopeField = 'store_code';
     }
@@ -199,6 +207,11 @@ export class GenericCrudController {
     // Auto populate store_code if not present, and auto populated created_by
     if (!body.store_code && req.user?.storeCode) {
         body.store_code = req.user.storeCode;
+    }
+    // G17：wms_outbound/inbound 走 site_code 隔离 — 自动注入 site_code
+    const sc: string | undefined = req.user?.storeCode;
+    if ((table === 'wms_outbound' || table === 'wms_inbound') && !body.site_code && sc && sc.startsWith('SITE-')) {
+      body.site_code = sc;
     }
     
     // Minimal safety check
