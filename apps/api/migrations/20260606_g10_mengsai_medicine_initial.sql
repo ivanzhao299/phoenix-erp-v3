@@ -338,6 +338,12 @@ BEGIN
     RAISE NOTICE '[g10] inv_ledger 不存在（CI），跳过';
     RETURN;
   END IF;
+  -- CI 测试库 inv_ledger 简化版无 log_date 列，跳过整段（生产端有）
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_name='inv_ledger' AND column_name='log_date') THEN
+    RAISE NOTICE '[g10] inv_ledger.log_date 不存在（CI 测试库），跳过 § 4';
+    RETURN;
+  END IF;
 
   INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, log_date, warehouse_code, company_code, note)
   SELECT 'MED-STOCK-LPH-MED-019', 'FARM_OUT_MEDICATION', -63, 'ETL_INITIAL', 'SITE-MENGSAI-LAYER', '2026-06-02', 'MEDICINE', 'COMP-LAO-AGRI', 'Excel: 期初=140瓶, 6.2出=63瓶, 6.3=0(无出库), 6.4出=0, 期末=77瓶'

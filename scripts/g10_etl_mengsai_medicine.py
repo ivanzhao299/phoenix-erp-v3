@@ -199,6 +199,12 @@ sql.append("                  WHERE table_schema='public' AND table_name='inv_le
 sql.append("    RAISE NOTICE '[g10] inv_ledger 不存在（CI），跳过';")
 sql.append("    RETURN;")
 sql.append('  END IF;')
+sql.append('  -- CI 测试库 inv_ledger 简化版无 log_date 列，跳过整段（生产端有）')
+sql.append('  IF NOT EXISTS (SELECT 1 FROM information_schema.columns')
+sql.append("                  WHERE table_name='inv_ledger' AND column_name='log_date') THEN")
+sql.append("    RAISE NOTICE '[g10] inv_ledger.log_date 不存在（CI 测试库），跳过 § 4';")
+sql.append('    RETURN;')
+sql.append('  END IF;')
 sql.append('')
 for m in medications:
     bn = f"MED-STOCK-{m['code']}"
