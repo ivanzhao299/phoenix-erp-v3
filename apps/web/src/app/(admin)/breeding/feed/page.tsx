@@ -129,7 +129,26 @@ export default function FeedLedgerPage() {
   };
   const alertRows = rows.filter(r => r.alert);
   return <div className="animate-fade-in">
-      <PageHeader title={t('ui.饲料台账', '饲料台账')} subtitle={t('ui.管理每日饲料入库出库及库存', '管理每日饲料入库、出库及库存预警（API: /api/farm/feed）')} breadcrumb={[t('ui.养殖生产', '养殖生产'), t('ui.饲料台账', '饲料台账')]} />
+      <PageHeader
+        title={t('ui.饲料台账', '饲料台账')}
+        subtitle={t('ui.每日饲料台账', '每日饲料入库/出库/库存预警 · 直接在表格内编辑当日数据后点"保存"')}
+        breadcrumb={[t('ui.养殖生产', '养殖生产'), t('ui.饲料台账', '饲料台账')]}
+        actions={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <a href="/warehouse/inbound?action=create&type=FEED" className={s.btnPrimary} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+              <Save size={14} />{t('ui.新建饲料入库', '+ 新建饲料入库')}
+            </a>
+            <a href="/warehouse/outbound?action=create&type=FEED_DISTRIBUTION" className={s.btnSecondary} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+              {t('ui.新建饲料发放', '+ 新建饲料发放')}
+            </a>
+          </div>
+        }
+      />
+      {/* G19-B 业务方使用指引 — 解决"涣散无登记入口"困惑 */}
+      <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 8, background: 'var(--bg-muted)', border: '1px solid var(--border)', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+        💡 <strong>{t('ui.台账使用说明', '使用说明')}：</strong>
+        {t('ui.feed指引', '本页是「饲料日台账」— 自动汇总当日入库/出库/库存。要登记新的入库/发放，请点右上"+ 新建饲料入库 / 发放"按钮（走标准 WMS 流程）。已有物料的余量可直接在表格里调整后点"保存"。')}
+      </div>
 
       {/* 工具栏 */}
       <div style={{

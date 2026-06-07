@@ -87,6 +87,8 @@ export default function HomePage() {
   const [scores, setScores] = useState<QualityScores | null>(null);
   const [centers, setCenters] = useState<CenterStat[]>([]);
   const [todoList, setTodoList] = useState<TodoTask[]>([]);
+  // G19-E：养殖运营 KPI（拼合现有 farm/iot endpoint，不新建后端）
+  const [farmKpi, setFarmKpi] = useState<{ totalStock?: number; layRate?: number; eggsToday?: number; feedToday?: number; waterToday?: number; alarmCount?: number } | null>(null);
 
   useEffect(() => {
     // G11：按权限懒加载 — 无权用户不发对应请求
@@ -107,7 +109,27 @@ export default function HomePage() {
       setScores(q);
       setCenters(c || []);
     });
-  }, [hasQualityPerm, hasCentersPerm]);
+
+    // G19-E：拼养殖 KPI（hasPermission('MENU_FARM_DATA') 则拉）
+    if (hasPermission('MENU_FARM_DATA')) {
+      const today = new Date().toISOString().slice(0, 10);
+      Promise.all([
+        request<any>(`/v3/farm/daily-hen-report?date=${today}`).catch(() => null),
+        request<any>(`/v3/iot/devices/all-summary`).catch(() => null),
+      ]).then(([hen, iot]) => {
+        const rows = hen?.data || hen?.rows || hen || [];
+        const totalStock = Array.isArray(rows) ? rows.reduce((s: number, r: any) => s + (Number(r.current_qty) || Number(r.total_qty) || 0), 0) : 0;
+        const eggsToday  = Array.isArray(rows) ? rows.reduce((s: number, r: any) => s + (Number(r.eggs) || 0), 0) : 0;
+        const layRate    = totalStock > 0 ? +(eggsToday / totalStock * 100).toFixed(1) : 0;
+        const summary    = iot?.data?.summary;
+        const houses     = iot?.data?.houses || [];
+        const feedToday  = Array.isArray(houses) ? houses.reduce((s: number, h: any) => s + (Number(h.feedToday) || 0), 0) : 0;
+        const waterToday = Array.isArray(houses) ? houses.reduce((s: number, h: any) => s + (Number(h.waterToday) || 0), 0) : 0;
+        const alarmCount = summary?.totalAlarms ?? 0;
+        setFarmKpi({ totalStock, layRate, eggsToday, feedToday, waterToday, alarmCount });
+      });
+    }
+  }, [hasQualityPerm, hasCentersPerm, hasPermission]);
 
   const totalObjects = useMemo(() => centers.reduce((s, c) => s + c.objectCount, 0), [centers]);
   const totalRisk = useMemo(() => centers.reduce((s, c) => s + c.riskCount, 0), [centers]);
@@ -140,6 +162,34 @@ export default function HomePage() {
 
   return (
     <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* G19-E：养殖运营 KPI 卡片网格（持 MENU_FARM_DATA 权限才显示） */}
+      {hasPermission('MENU_FARM_DATA') && farmKpi && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+          {[
+            { label: '当前总存栏', value: farmKpi.totalStock?.toLocaleString() ?? '—', unit: '羽', accent: '#3B82F6', icon: '🐔' },
+            { label: '今日产蛋', value: farmKpi.eggsToday?.toLocaleString() ?? '—', unit: '枚', accent: '#10B981', icon: '🥚' },
+            { label: '今日产蛋率', value: farmKpi.layRate != null ? farmKpi.layRate.toFixed(1) : '—', unit: '%', accent: '#10B981', icon: '📈' },
+            { label: '今日饲料消耗', value: farmKpi.feedToday != null ? farmKpi.feedToday.toFixed(0) : '—', unit: 'kg', accent: '#F59E0B', icon: '🌾' },
+            { label: '今日用水', value: farmKpi.waterToday != null ? farmKpi.waterToday.toFixed(1) : '—', unit: 'L', accent: '#06B6D4', icon: '💧' },
+            { label: '设备告警', value: farmKpi.alarmCount?.toString() ?? '0', unit: '条', accent: (farmKpi.alarmCount ?? 0) > 0 ? '#EF4444' : '#10B981', icon: '⚠️' },
+          ].map(k => (
+            <div key={k.label} style={{
+              background: 'var(--bg-card)', border: '1px solid var(--border)',
+              borderLeftWidth: 3, borderLeftStyle: 'solid', borderLeftColor: k.accent,
+              borderRadius: 10, padding: '14px 18px',
+            }}>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: 14 }}>{k.icon}</span> {k.label}
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                {k.value}
+                <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>{k.unit}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ───── HERO 欢迎横幅 ───── */}
       <HeroBanner
         greeting={greeting}

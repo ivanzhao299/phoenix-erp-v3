@@ -51,7 +51,7 @@ const ALLOWED_DAILY_COLS = new Set([
   'mortality_qty', 'eggs_produced', 'bad_eggs', 'temp', 'humidity',
   'note', 'operator', 'farm_code', 'house_code', 'egg_count',
   'updated_at', 'farm_name', 'dirty_eggs', 'broken_eggs',
-  'elimination_qty', 'culling_reason',
+  'elimination_qty', 'culling_reason', 'mortality_reason',  // G19-A 死亡原因（独立列）
   // 2026-06-06：按 product_grades 9 档分解的产蛋数量（JSONB）
   'eggs_by_grade',
   // G9：孟赛 Excel 实有字段（业务方手动录或自动派生）

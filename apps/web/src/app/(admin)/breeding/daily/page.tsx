@@ -30,6 +30,7 @@ import { Save, Download, Cpu, CheckCircle, X as XIcon } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import { HouseSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-E 鸡舍主数据
 import { useDictOptions } from '@/hooks/useDictOptions'; // 班次字典化
+import DictSelect from '@/components/shared-selectors/DictSelect'; // G19-A 死亡/淘汰原因字典化
 import { useProductGrades } from '@/hooks/useProductGrades'; // G14 9 档分级
 
 // 纯数字输入列（分前后两段，中间插入淘汰数+淘汰原因）
@@ -42,6 +43,7 @@ const mkRow = (id: number, shift: string) => ({
   dirtyEggs: '',
   brokenEggs: '',
   deaths: '',
+  mortalityReason: '',   // G19-A 死亡原因（DictSelect BRD_MORTALITY_REASON）
   elimination: '',
   elimReason: '',
   // 手机端 mortality 写入的字段
@@ -155,6 +157,7 @@ export default function DailyPage() {
       dirtyEggs: d.dirty_eggs || 0,
       brokenEggs: d.broken_eggs || 0,
       deaths: d.mortality_qty || 0,
+      mortalityReason: d.mortality_reason || '',   // G19-A
       elimination: d.elimination_qty || 0,
       // 手机端 mortality 写入
       cullingReason: d.culling_reason || '',
@@ -294,6 +297,7 @@ export default function DailyPage() {
         water_consumed: Number(r.waterL) || 0,
         self_use_qty: Number(r.selfUse) || 0,  // G9：自用蛋数
         mortality_qty: Number(r.deaths) || 0,
+        mortality_reason: r.mortalityReason || null,   // G19-A
         elimination_qty: Number(r.elimination) || 0,
         culling_reason: r.elimReason || null,
         eggs_produced: Number(r.eggs) || 0,
@@ -670,23 +674,70 @@ export default function DailyPage() {
                     {gradeSum > 0 ? <><CheckCircle size={14} />{t('ui.9 档', '9 档')} {gradeSum}枚</> : <>{t('ui.按 9 档分级', '按 9 档分级')}</>}
                   </button>
                 </div>
-                {/* 第一行：业务核心 6 字段 */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 10 }}>
-                  <div style={cellStyle}><span style={labelStyle}>{t('ui.产蛋数(枚)', '产蛋数(枚)')}</span>{numInput('eggs', 130)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>🟡 {t('ui.脏蛋(枚)', '脏蛋(枚)')}</span>{numInput('dirtyEggs', 130)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>🔴 {t('ui.破损蛋(枚)', '破损蛋(枚)')}</span>{numInput('brokenEggs', 130)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>{t('ui.死亡(羽)', '死亡(羽)')}</span>{numInput('deaths', 130)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>{t('ui.淘汰(羽)', '淘汰(羽)')}</span>{numInput('elimination', 130)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>{t('ui.淘汰原因', '淘汰原因')}</span>{textInput('elimReason', t('ui.淘汰原因', '淘汰原因'), 160)}</div>
+                {/* G19-A 三组分块 — 产蛋区 / 死淘区 / 环境区 — 用色块区分业务语义 */}
+                {/* 产蛋区（绿） */}
+                <div style={{
+                  border: '1px solid color-mix(in srgb, var(--status-success) 30%, transparent)',
+                  borderLeftWidth: 3, borderLeftColor: 'var(--status-success)',
+                  borderRadius: 8, padding: '10px 12px',
+                  background: 'color-mix(in srgb, var(--status-success) 4%, transparent)',
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--status-success)', marginBottom: 8, letterSpacing: 0.5 }}>
+                    🥚 {t('ui.产蛋区', '产蛋区')}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
+                    <div style={cellStyle}><span style={labelStyle}>{t('ui.产蛋数(枚)', '产蛋数(枚)')}</span>{numInput('eggs', 130)}</div>
+                    <div style={cellStyle}><span style={labelStyle}>🟡 {t('ui.脏蛋(枚)', '脏蛋(枚)')}</span>{numInput('dirtyEggs', 130)}</div>
+                    <div style={cellStyle}><span style={labelStyle}>🔴 {t('ui.破损蛋(枚)', '破损蛋(枚)')}</span>{numInput('brokenEggs', 130)}</div>
+                    <div style={cellStyle}><span style={labelStyle}>{t('ui.自用蛋(枚)', '自用蛋(枚)')}</span>{numInput('selfUse', 130)}</div>
+                  </div>
                 </div>
-                {/* 第二行：次要 6 字段 */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 10 }}>
-                  <div style={cellStyle}><span style={labelStyle}>{t('ui.饲料(kg)', '饲料(kg)')}</span>{numInput('feedKg', 130)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>{t('ui.用水(L)', '用水(L)')}</span>{numInput('waterL', 130)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>{t('ui.自用蛋(枚)', '自用蛋(枚)')}</span>{numInput('selfUse', 130)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>{t('ui.温度(℃)', '温度(℃)')}</span>{numInput('temp', 130)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>{t('ui.湿度(%)', '湿度(%)')}</span>{numInput('humidity', 130)}</div>
-                  <div style={cellStyle}><span style={labelStyle}>{t('common.remark', '备注')}</span>{textInput('remark', `${t('common.remark', '备注')}...`, 160)}</div>
+
+                {/* 死淘区（红）— 死亡/淘汰 + 各自原因走字典 */}
+                <div style={{
+                  border: '1px solid color-mix(in srgb, var(--status-danger) 30%, transparent)',
+                  borderLeftWidth: 3, borderLeftColor: 'var(--status-danger)',
+                  borderRadius: 8, padding: '10px 12px',
+                  background: 'color-mix(in srgb, var(--status-danger) 4%, transparent)',
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--status-danger)', marginBottom: 8, letterSpacing: 0.5 }}>
+                    ⚠️ {t('ui.死淘区', '死淘登记区')}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
+                    <div style={cellStyle}><span style={labelStyle}>{t('ui.死亡(羽)', '死亡(羽)')}</span>{numInput('deaths', 130)}</div>
+                    <div style={cellStyle}><span style={labelStyle}>{t('ui.死亡原因', '死亡原因')}</span>
+                      <DictSelect dictType="BRD_MORTALITY_REASON"
+                        value={String(row.mortalityReason ?? '')}
+                        onChange={v => updateRow(row.id, 'mortalityReason', v)}
+                        placeholder={t('ui.请选择', '请选择')} />
+                    </div>
+                    <div style={cellStyle}><span style={labelStyle}>{t('ui.淘汰(羽)', '淘汰(羽)')}</span>{numInput('elimination', 130)}</div>
+                    <div style={cellStyle}><span style={labelStyle}>{t('ui.淘汰原因', '淘汰原因')}</span>
+                      <DictSelect dictType="BRD_CULLING_REASON"
+                        value={String(row.elimReason ?? '')}
+                        onChange={v => updateRow(row.id, 'elimReason', v)}
+                        placeholder={t('ui.请选择', '请选择')} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 环境区（蓝）— 设备数据来源 */}
+                <div style={{
+                  border: '1px solid color-mix(in srgb, var(--color-primary) 30%, transparent)',
+                  borderLeftWidth: 3, borderLeftColor: 'var(--color-primary)',
+                  borderRadius: 8, padding: '10px 12px',
+                  background: 'color-mix(in srgb, var(--color-primary) 4%, transparent)',
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 8, letterSpacing: 0.5 }}>
+                    🌡 {t('ui.环境区', '环境与消耗（可从设备一键填入）')}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
+                    <div style={cellStyle}><span style={labelStyle}>{t('ui.饲料(kg)', '饲料(kg)')}</span>{numInput('feedKg', 130)}</div>
+                    <div style={cellStyle}><span style={labelStyle}>{t('ui.用水(L)', '用水(L)')}</span>{numInput('waterL', 130)}</div>
+                    <div style={cellStyle}><span style={labelStyle}>{t('ui.温度(℃)', '温度(℃)')}</span>{numInput('temp', 130)}</div>
+                    <div style={cellStyle}><span style={labelStyle}>{t('ui.湿度(%)', '湿度(%)')}</span>{numInput('humidity', 130)}</div>
+                    <div style={cellStyle}><span style={labelStyle}>{t('common.remark', '备注')}</span>{textInput('remark', `${t('common.remark', '备注')}...`, 160)}</div>
+                  </div>
                 </div>
               </div>
             );

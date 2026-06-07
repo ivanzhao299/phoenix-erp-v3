@@ -84,28 +84,28 @@ export class GenericCrudController {
       return;
     }
 
-    const requiredRoles = TABLE_PERM_MAP[table];
-
-    // 默认拒绝：表未在 TABLE_PERM_MAP 中配置 → 403，防止新增表意外暴露
-    if (!requiredRoles) {
-      throw new ForbiddenException(`权限未配置：表 [${table}] 未在权限矩阵中定义`);
-    }
-
-    const hasAccess = requiredRoles.some((r) => userRoles.includes(r) || userRole === r);
-    if (hasAccess) return;
-
-    // ──────────────────────────────────────────────────────────────────
-    // G6 收紧：RBAC fallback 用统一 util hasPerm（与 MenuGuard 同源）
-    // TABLE_PERM_MAP 是历史硬编码白名单，已 @deprecated，未来移除；
-    // 业务上所有 generic-crud 访问只需 menu_code → JWT.permissions 链路即可。
-    // ──────────────────────────────────────────────────────────────────
+    // G19-D 治理重构：从 RBAC-first 改为 PBAC-first。
+    //   过去：TABLE_PERM_MAP 是首道闸（未配 → 403），fallback PBAC 兜底。
+    //         新增角色（如孟赛宋明光）若未在 100+ 行 hardcode 白名单中即被拒，
+    //         即便 JWT 持菜单权限也不通过 → 治理欠债。
+    //   现在：PBAC（菜单权限）作为主路径，TABLE_PERM_MAP 仅作历史兼容白名单。
+    //   流程：
+    //     1) PBAC 通过 → return（推荐路径，仅依赖 JWT.permissions）
+    //     2) PBAC 失败 → 尝试 TABLE_PERM_MAP role 白名单（历史兼容）
+    //     3) 都失败 → 403
     const fallbackMenu = this.tableToFallbackMenu(table);
     if (fallbackMenu) {
       const requiredOp: PermCode = method === 'GET' ? 'V' : method === 'POST' ? 'C' : 'E';
       if (hasPerm(perms, fallbackMenu, requiredOp)) return;
     }
 
-    throw new ForbiddenException(`权限不足：您的角色无权访问 [${table}] 表`);
+    const requiredRoles = TABLE_PERM_MAP[table];
+    if (requiredRoles) {
+      const hasAccess = requiredRoles.some((r) => userRoles.includes(r) || userRole === r);
+      if (hasAccess) return;
+    }
+
+    throw new ForbiddenException(`权限不足：您（角色=${userRole}）无权 ${method} 访问 [${table}]，需 menu=${fallbackMenu ?? '-'} 的对应权限`);
   }
 
   /**
