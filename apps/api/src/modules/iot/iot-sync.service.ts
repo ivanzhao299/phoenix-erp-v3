@@ -311,14 +311,17 @@ export class IotSyncService implements OnModuleInit {
           let written = 0;
           for (const p of points) {
             try {
+              // G16-3：所有参数显式 cast，避免 PG "inconsistent types deduced for parameter"
+              //   (同一参数 $N 在 SELECT 与 WHERE 两处出现，PG 推断分歧)
               const r = await this.entityManager.query(`
                 INSERT INTO mon_device_property_history
                   (id, erp_house_code, property_code, value, collect_time, log_date, created_at)
-                SELECT gen_random_uuid(), $1, $2, $3, $4, $5::date, CURRENT_TIMESTAMP
+                SELECT gen_random_uuid(), $1::varchar, $2::varchar, $3::numeric, $4::bigint, $5::date, CURRENT_TIMESTAMP
                 WHERE NOT EXISTS (
-                  SELECT 1 FROM mon_device_property_history
-                   WHERE erp_house_code=$1 AND property_code=$2
-                     AND (collect_time / 3600000) = ($4::bigint / 3600000)
+                  SELECT 1 FROM mon_device_property_history h
+                   WHERE h.erp_house_code = $1::varchar
+                     AND h.property_code  = $2::varchar
+                     AND (h.collect_time / 3600000) = ($4::bigint / 3600000)
                 )
                 RETURNING id
               `, [houseCode, p.property_code, p.value, p.collect_time,
@@ -424,17 +427,16 @@ export class IotSyncService implements OnModuleInit {
                   updated_at = CURRENT_TIMESTAMP
               `, [s.erp_house_code, s.property_code, s.value, s.is_alarm, safeCt]);
 
-              // G16-3：同步双写到 history 表，供 trends 折线图使用
-              //   按小时桶去重（同小时同 house+prop 只保留 1 条最新）
-              //   去重避免 5min cron × 24h × 4prop = 1152 行/舍/天 膨胀
+              // G16-3：同步双写到 history 表 — 所有参数显式 cast 避免 PG 类型推断冲突
               await this.entityManager.query(`
                 INSERT INTO mon_device_property_history
                   (id, erp_house_code, property_code, value, collect_time, log_date, created_at)
-                SELECT gen_random_uuid(), $1, $2, $3, $4, $5::date, CURRENT_TIMESTAMP
+                SELECT gen_random_uuid(), $1::varchar, $2::varchar, $3::numeric, $4::bigint, $5::date, CURRENT_TIMESTAMP
                 WHERE NOT EXISTS (
-                  SELECT 1 FROM mon_device_property_history
-                   WHERE erp_house_code=$1 AND property_code=$2
-                     AND (collect_time / 3600000) = ($4::bigint / 3600000)
+                  SELECT 1 FROM mon_device_property_history h
+                   WHERE h.erp_house_code = $1::varchar
+                     AND h.property_code  = $2::varchar
+                     AND (h.collect_time / 3600000) = ($4::bigint / 3600000)
                 )
               `, [s.erp_house_code, s.property_code, s.value, safeCt,
                   new Date(safeCt).toISOString().slice(0, 10)]).catch(() => {});
