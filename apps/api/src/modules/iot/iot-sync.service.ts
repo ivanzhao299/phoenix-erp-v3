@@ -237,35 +237,117 @@ export class IotSyncService implements OnModuleInit {
   }
 
   /**
-   * 历史断点追跑 (由于云端数据量大，本接口可供后续定时任务调用)
+   * 历史断点追跑 — 从 vendor /history API 真实拉取并写入 history 表
+   * G16-3：实现 TODO 写入逻辑（之前注释 "留待完善" 导致 trends 折线永空）
+   *
+   * 容错解析：vendor history API 可能返回多种格式
+   *   1) [{ code, value, time }]           — 单点
+   *   2) [{ propertys: [{ code, value, time }] }]  — 设备容器（同 realtime）
+   *   3) [{ code, points: [{ value, time }] }]     — 时序分组
+   *   4) [{ code, datas/data: [{ value, time }] }] — 时序分组（别名）
+   * 用 tolerant 解析覆盖所有可能形状。
    */
   async syncHistoryCatchUp(houseCode: string, startDate: string, endDate: string, propertyCodes: string[]) {
      this.logger.log(`Catching up history for ${houseCode} from ${startDate} to ${endDate}...`);
      const vendorHouseId = await this.getVendorHouseId(houseCode);
-     if (!vendorHouseId) return;
+     if (!vendorHouseId) {
+       this.logger.warn(`No vendor_house_id for ${houseCode}, skip`);
+       return { houseCode, points: 0, days: 0, error: 'no vendor mapping' };
+     }
 
-     // 循环按天请求
+     let totalPoints = 0;
+     let totalDays = 0;
      let current = new Date(startDate);
      const end = new Date(endDate);
-     
+
      while (current <= end) {
        const dateStr = current.toISOString().slice(0, 10);
        try {
-          const resp = await this.request('/open/api/house/device/property/date/data/history', {
+          const resp: any = await this.request('/open/api/house/device/property/date/data/history', {
             houseId: vendorHouseId,
             date: dateStr,
-            propertyCodes: propertyCodes
+            propertyCodes: propertyCodes,
           });
-          
-          if (resp && resp.length > 0) {
-            // 批量插入 mon_device_property_history (忽略这里复杂的具体 SQL，留待后续完善)
-            this.logger.log(`Fetched ${resp.length} device histories for ${dateStr}`);
+
+          // tolerant 解析为统一 { property_code, value, collect_time }[]
+          const points: Array<{ property_code: string; value: number; collect_time: number }> = [];
+          const arr = Array.isArray(resp) ? resp : [];
+          for (const item of arr) {
+            if (!item || typeof item !== 'object') continue;
+            const itemCode = item.code || item.propertyCode || item.property_code;
+            const pushPoint = (code: string, v: any, ts: any) => {
+              if (v == null || v === '' || !code) return;
+              const vn = Number(v);
+              if (Number.isNaN(vn)) return;
+              const tsn = Number(ts);
+              const safeTs = !Number.isNaN(tsn) && tsn > 0 ? tsn : Date.now();
+              points.push({ property_code: String(code), value: vn, collect_time: safeTs });
+            };
+            // 格式 1: 单点
+            if (itemCode && item.value != null) {
+              pushPoint(itemCode, item.value, item.time ?? item.lastUpdateTime ?? item.collectTime);
+            }
+            // 格式 2: 设备容器
+            if (Array.isArray(item.propertys)) {
+              for (const p of item.propertys) {
+                pushPoint(p.code || p.propertyCode, p.value, p.time ?? p.lastUpdateTime);
+              }
+            }
+            // 格式 3+4: 时序分组
+            const seq = item.points || item.datas || item.data || item.records;
+            if (Array.isArray(seq) && itemCode) {
+              for (const p of seq) {
+                pushPoint(itemCode, p.value, p.time ?? p.collectTime ?? p.lastUpdateTime);
+              }
+            }
           }
+
+          // 批量插入 history（按 hour 桶去重，避免同小时多点膨胀）
+          let written = 0;
+          for (const p of points) {
+            try {
+              const r = await this.entityManager.query(`
+                INSERT INTO mon_device_property_history
+                  (id, erp_house_code, property_code, value, collect_time, log_date, created_at)
+                SELECT gen_random_uuid(), $1, $2, $3, $4, $5::date, CURRENT_TIMESTAMP
+                WHERE NOT EXISTS (
+                  SELECT 1 FROM mon_device_property_history
+                   WHERE erp_house_code=$1 AND property_code=$2
+                     AND (collect_time / 3600000) = ($4::bigint / 3600000)
+                )
+                RETURNING id
+              `, [houseCode, p.property_code, p.value, p.collect_time,
+                  new Date(p.collect_time).toISOString().slice(0, 10)]);
+              if (r.length > 0) written++;
+            } catch (e: any) {
+              this.logger.warn(`history insert fail ${houseCode}/${p.property_code}: ${e.message}`);
+            }
+          }
+          totalPoints += written;
+          totalDays++;
+          this.logger.log(`Backfill ${houseCode} ${dateStr}: vendor=${arr.length} parsed=${points.length} written=${written}`);
        } catch (e: any) {
-          this.logger.warn(`Failed to fetch history for ${dateStr}: ${e.message}`);
+          this.logger.warn(`Failed to fetch history for ${houseCode} ${dateStr}: ${e.message}`);
        }
        current.setDate(current.getDate() + 1);
      }
+     return { houseCode, points: totalPoints, days: totalDays };
+  }
+
+  /** 批量回填所有 ACTIVE 鸡舍最近 N 天历史 — 供 admin endpoint 一键触发 */
+  async backfillAllHistory(days = 7, propertyCodes: string[] = ['2001','2083','2002','2003','2488','2484','2532']) {
+    const end = new Date().toISOString().slice(0, 10);
+    const start = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
+    const maps = await this.entityManager.query(`
+      SELECT erp_house_code FROM mon_house_device_mapping
+       WHERE status = 'ACTIVE' AND vendor_house_id IS NOT NULL
+    `);
+    const results: any[] = [];
+    for (const m of maps) {
+      const r = await this.syncHistoryCatchUp(m.erp_house_code, start, end, propertyCodes);
+      results.push(r);
+    }
+    return { ok: true, days, start, end, houses: results.length, results };
   }
 
   /**

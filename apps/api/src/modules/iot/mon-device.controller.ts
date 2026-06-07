@@ -39,6 +39,21 @@ export class MonDeviceController {
     return { ok: true, success: result.successHouses, records: result.totalUpdated, error: result.error };
   }
 
+  // G16-3：admin 一键回填全部鸡舍历史（vendor /history API 真数据）
+  @Post('history/backfill')
+  async backfillHistory(@Body() body: { days?: number; propertyCodes?: string[]; houseCode?: string }) {
+    const days = Math.min(Math.max(Number(body.days) || 7, 1), 30);
+    const codes = body.propertyCodes && body.propertyCodes.length
+      ? body.propertyCodes
+      : ['2001','2083','2002','2003','2488','2484','2532'];
+    if (body.houseCode) {
+      const end = new Date().toISOString().slice(0, 10);
+      const start = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
+      return this.iotSyncService.syncHistoryCatchUp(body.houseCode, start, end, codes);
+    }
+    return this.iotSyncService.backfillAllHistory(days, codes);
+  }
+
   @Post('daily-report/generate')
   async generateDailyReport(@Body() body: { house_code: string; log_date: string; snapshot_hour?: number }) {
     return this.monDeviceService.generateDailyReportFromIoT(
