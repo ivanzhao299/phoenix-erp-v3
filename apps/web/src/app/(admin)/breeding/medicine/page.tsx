@@ -40,9 +40,10 @@ const EMPTY_FORM = {
 };
 const todayStr = () => new Date().toISOString().slice(0, 10);
 export default function MedicinePage() {
+  // G18-1：从 role check 改为 PBAC menu perm check（宋明光持 MENU_FARM_VET:C,E 但无 ROLE_VET，旧 role check 拒之门外）
   const {
-    can
-  } = usePermission();
+    canCreate, canEdit
+  } = usePermission('MENU_FARM_VET');
   const {
     t
   } = useLanguage();
@@ -280,10 +281,10 @@ export default function MedicinePage() {
     key: 'actions',
     title: t('common.operation', '操作'),
     width: '70px',
-    render: (_: unknown, row: MedicineRecord) => can(['ROLE_VET', 'ROLE_FARM_MGR', 'ROLE_ADMIN']) ? <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button> : null
+    render: (_: unknown, row: MedicineRecord) => canEdit ? <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button> : null
   }];
   return <div className="animate-fade-in">
-      <PageHeader title={t('ui.用药记录', '用药记录')} subtitle={t('ui.记录所有鸡群用药情况及停药期管理', '记录所有鸡群用药情况及停药期管理')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.用药记录', '用药记录')]} actions={can(['ROLE_VET', 'ROLE_FARM_MGR', 'ROLE_ADMIN']) && <button type="button" className={s.btnPrimary} onClick={() => {
+      <PageHeader title={t('ui.用药记录', '用药记录')} subtitle={t('ui.记录所有鸡群用药情况及停药期管理', '记录所有鸡群用药情况及停药期管理')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.用药记录', '用药记录')]} actions={canCreate && <button type="button" className={s.btnPrimary} onClick={() => {
       setEditId(null);
       setForm({
         ...EMPTY_FORM,

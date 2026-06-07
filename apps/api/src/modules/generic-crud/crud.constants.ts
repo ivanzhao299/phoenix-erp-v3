@@ -87,12 +87,14 @@ export const TABLE_PERM_MAP: Record<string, string[]> = {
 
   // 繁育模块
   // 养殖（Phase C-2.4：补充 ROLE_FACTORY_MGR — 场区经理首页 /breeding 走 brd_*）
-  brd_farms:        ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_BU_AGRI_GM'],
-  brd_flocks:       ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_BU_AGRI_GM'],
-  brd_houses:       ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_PKG_MGR', 'ROLE_PKG_OP'],
-  brd_daily_logs:   ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_BREEDER', 'ROLE_FARMER'],
-  brd_vaccinations: ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_VET'],
-  brd_medications:        ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_VET'],
+  // G18-2 加 ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR — 宋明光（孟赛生产数据主管）持有 MENU_FARM_DATA:V,C,E
+  //   理论上 fallback PBAC 应通过，但保险起见加白名单避免 perm 缓存陈旧时被拒。
+  brd_farms:        ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_BU_AGRI_GM', 'ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR'],
+  brd_flocks:       ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_BU_AGRI_GM', 'ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR'],
+  brd_houses:       ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_PKG_MGR', 'ROLE_PKG_OP', 'ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR'],
+  brd_daily_logs:   ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_BREEDER', 'ROLE_FARMER', 'ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR'],
+  brd_vaccinations: ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_VET', 'ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR'],
+  brd_medications:  ['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_FACTORY_MGR', 'ROLE_VET', 'ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR'],
 
   // 包装 Terminal 作业台表（现场角色可读写）
   pkg_work_shifts:       ['ROLE_ADMIN', 'ROLE_PKG_MGR', 'ROLE_PKG_OP', 'ROLE_LINE_SUPERVISOR'],

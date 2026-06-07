@@ -68,9 +68,10 @@ function ctaFor(role: string | undefined, todo: number): { label: string; href: 
   return { label: '进入数据质量驾驶舱', href: '/data-quality', icon: ShieldAlert };
 }
 
-// G12：业务录入用户的 /home 直接渲染每日工作台（最短路径直达录入）
-// 治理类用户（admin / 持 MENU_DATA_QUALITY/MENU_MASTER）才看仪表板风格 home
-import DailyWorkPage from '../daily-work/page';
+// G18-4 IA：home 不再 redirect 到 daily-work。
+//   home = 企业运营 KPI 看板（数字驱动）；daily-work = 录入入口（任务驱动）。
+//   两者业务边界划清，所有用户进 home 都看 KPI（按权限过滤数据源），
+//   有快速入口的 CTA 引导到 daily-work。
 
 // ── 主组件 ───────────────────────────────────────────
 export default function HomePage() {
@@ -79,9 +80,9 @@ export default function HomePage() {
   // G11：数据质量驾驶舱 + 高危告警 + 主数据健康度 只对持 MENU_DATA_QUALITY/MENU_MASTER 的角色显示
   const hasQualityPerm = hasPermission('MENU_DATA_QUALITY') || hasPermission('MENU_MD_QUALITY');
   const hasCentersPerm = hasPermission('MENU_MD_CENTER') || hasMasterPerm;
-  // G12：业务录入用户（无任何治理权 + 无 admin '*'）直接看工作台
-  const isOpsUser = !hasQualityPerm && !hasCentersPerm && !hasPermission('MENU_DASHBOARD', 'X');
-  if (isOpsUser) return <DailyWorkPage />;
+  // G18-4：移除"ops 用户直接 return DailyWorkPage"逻辑。
+  //   home 始终展示企业 KPI 看板（hero + 概览），与 daily-work 划清边界。
+  //   ops 用户看到的 SHORTCUTS 仅含他有权进入的业务中心，hero CTA 引导到 daily-work。
   const [summary, setSummary] = useState<WorkflowSummary | null>(null);
   const [scores, setScores] = useState<QualityScores | null>(null);
   const [centers, setCenters] = useState<CenterStat[]>([]);
