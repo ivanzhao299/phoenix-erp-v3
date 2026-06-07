@@ -118,7 +118,7 @@ export default function DailyWorkPage() {
   return (
     <div>
       <PageHeader
-        title={`${userName}的每日工作台`}
+        title="每日工作台"
         subtitle={`${today} · 一站式录入 · ${visibleCards.length} 项可用功能`}
         breadcrumb={['每日工作台']}
       />
