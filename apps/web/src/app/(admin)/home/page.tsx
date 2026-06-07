@@ -154,7 +154,7 @@ export default function HomePage() {
           {/* 左栏：事务流 + 经营概览 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <TodoTimeline todoList={todoList} todoCount={todoCount} />
-            <BusinessOverview />
+            <BusinessOverview hasPermission={hasPermission} />
           </div>
           {/* 右栏：治理类组件 — 仅治理类角色可见 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -176,7 +176,7 @@ export default function HomePage() {
         // 不显示数据质量驾驶舱 / 高危告警 / 主数据健康度
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <TodoTimeline todoList={todoList} todoCount={todoCount} />
-          <BusinessOverview />
+          <BusinessOverview hasPermission={hasPermission} />
         </div>
       )}
 
@@ -378,14 +378,19 @@ function TodoTimeline({ todoList, todoCount }: { todoList: TodoTask[]; todoCount
 // ══════════════════════════════════════════════════════
 // 经营概览（紧凑 5 卡 horizontal）
 // ══════════════════════════════════════════════════════
-function BusinessOverview() {
-  const cards = [
-    { label: '销售', icon: ShoppingCart,     accent: '#10B981', href: '/sales2',         sub: '订单 · 收款' },
-    { label: '库存', icon: Package,          accent: '#EAB308', href: '/warehouse',      sub: '批次 · 调拨' },
-    { label: '现金', icon: CircleDollarSign, accent: '#3B82F6', href: '/finance2/cash',  sub: '账户 · 流水' },
-    { label: '应收', icon: Receipt,          accent: '#06B6D4', href: '/finance2/ar',    sub: '发票 · 账龄' },
-    { label: '应付', icon: CreditCard,       accent: '#A855F7', href: '/finance2/ap',    sub: '账期 · 付款' },
+function BusinessOverview({ hasPermission }: { hasPermission: (m: string) => boolean }) {
+  // G12：经营概览卡片加 perm 字段按权限过滤 + 修复 cash 错路径
+  // 之前 /finance2/cash 不存在（实际是 cash-accounts）→ admin/宋明光都 404
+  // 之前不按权限过滤 → 宋明光看到应收/应付但无权访问点击触发 404
+  const allCards = [
+    { label: '销售', icon: ShoppingCart,     accent: '#10B981', href: '/sales2',                sub: '订单 · 收款',  perm: 'MENU_SALES2' },
+    { label: '库存', icon: Package,          accent: '#EAB308', href: '/warehouse',             sub: '批次 · 调拨',  perm: 'MENU_WMS_VIEW' },
+    { label: '现金', icon: CircleDollarSign, accent: '#3B82F6', href: '/finance2/cash-accounts', sub: '账户 · 流水',  perm: 'MENU_FIN2_CASH' },
+    { label: '应收', icon: Receipt,          accent: '#06B6D4', href: '/finance2/ar',           sub: '发票 · 账龄',  perm: 'MENU_FIN2_AR' },
+    { label: '应付', icon: CreditCard,       accent: '#A855F7', href: '/finance2/ap',           sub: '账期 · 付款',  perm: 'MENU_FIN2_AP' },
   ];
+  const cards = allCards.filter(c => hasPermission(c.perm));
+  if (cards.length === 0) return null;
   return (
     <div style={{ ...cockpitCard, padding: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -397,9 +402,9 @@ function BusinessOverview() {
           <TrendingUp size={14} />
         </span>
         <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>经营概览</h3>
-        <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 4 }}>· 业务全景</span>
+        <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 4 }}>· 业务全景（{cards.length}）</span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(cards.length, 5)}, 1fr)`, gap: 10 }}>
         {cards.map((c, i) => (
           <Link key={i} href={c.href} style={{
             position: 'relative', padding: 14, borderRadius: 12,
