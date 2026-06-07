@@ -293,11 +293,12 @@ export class IotSyncService implements OnModuleInit {
                 pushPoint(p.code || p.propertyCode, p.value, p.time ?? p.lastUpdateTime);
               }
             }
-            // 格式 3+4: 时序分组
+            // 格式 3+4: 时序分组（vendor 实测：{ propertyCode, datas: [{ data, time }] }）
+            //   值字段：data（vendor 用，string 类型）/ value（其他） — pushPoint 内 Number() 转
             const seq = item.points || item.datas || item.data || item.records;
             if (Array.isArray(seq) && itemCode) {
               for (const p of seq) {
-                pushPoint(itemCode, p.value, p.time ?? p.collectTime ?? p.lastUpdateTime);
+                pushPoint(itemCode, p.data ?? p.value, p.time ?? p.collectTime ?? p.lastUpdateTime);
               }
             }
           }
