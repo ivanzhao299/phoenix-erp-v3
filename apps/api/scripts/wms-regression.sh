@@ -275,9 +275,9 @@ fi
 
 # E-02: 源 + 目标 + 各种调整后总账与 ledger SUM 守恒
 SRC_FINAL=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
-DST_FINAL=$($PSQL $DB -tA -c "SELECT COALESCE(SUM(qty),0) FROM inv_batches WHERE batch_no LIKE '$BATCH_NO-T-%';")
+DST_FINAL=$($PSQL $DB -tA -c "SELECT COALESCE(SUM(qty),0)::integer::integer FROM inv_batches WHERE batch_no LIKE '$BATCH_NO-T-%';")
 TOTAL_FINAL=$((SRC_FINAL + DST_FINAL))
-LEDGER_SUM=$($PSQL $DB -tA -c "SELECT COALESCE(SUM(qty_change),0) FROM inv_ledger WHERE batch_no='$BATCH_NO' OR batch_no LIKE '$BATCH_NO-T-%';")
+LEDGER_SUM=$($PSQL $DB -tA -c "SELECT COALESCE(SUM(qty_change),0)::integer::integer FROM inv_ledger WHERE batch_no='$BATCH_NO' OR batch_no LIKE '$BATCH_NO-T-%';")
 # 1000 (seed) + ledger_sum 应 = total_final
 EXPECTED=$((1000 + LEDGER_SUM))
 assert_eq "E-02 库存守恒 (seed 1000 + Σledger = 总库存)" "$EXPECTED" "$TOTAL_FINAL"

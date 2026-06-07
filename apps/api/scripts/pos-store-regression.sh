@@ -351,7 +351,7 @@ if [ "$DELTA" -ge 4 ]; then green "  ✓ E-01 ledger 新增 $DELTA 条 (≥4 条
 # E-02: batch 库存守恒 (排除 STORE_RECV — 它影响 store_inventory 而非 inv_batches.qty)
 # Seed=1000 +SaleOut(-10) +Refund(+10) +Loss(-5) = 995
 FINAL=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
-LEDGER_SUM=$($PSQL $DB -tA -c "SELECT COALESCE(SUM(qty_change),0) FROM inv_ledger WHERE batch_no='$BATCH_NO' AND change_type NOT IN ('STORE_RECV','STORE_TRANSFER');")
+LEDGER_SUM=$($PSQL $DB -tA -c "SELECT COALESCE(SUM(qty_change),0)::integer FROM inv_ledger WHERE batch_no='$BATCH_NO' AND change_type NOT IN ('STORE_RECV','STORE_TRANSFER');")
 EXPECTED=$((1000 + LEDGER_SUM))
 assert_eq "E-02 守恒 (1000+Σledger除STORE_RECV=qty)" "$EXPECTED" "$FINAL"
 
