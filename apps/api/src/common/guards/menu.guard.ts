@@ -34,11 +34,14 @@ export const IS_PUBLIC_KEY = 'is_public';
 export interface MenuRequirement {
   menu: string;
   perm: PermCode;
+  altMenus?: string[];  // G20-1: 备选 menu code 数组（OR 关系），用于跨域兼容（如 sales2/inventory ↔ wms_view）
 }
 
-/** @RequireMenu('MENU_FARM_DATA', 'V') */
-export const RequireMenu = (menu: string, perm: PermCode) =>
-  SetMetadata(REQUIRE_MENU_KEY, { menu, perm });
+/** @RequireMenu('MENU_FARM_DATA', 'V')
+ *  @RequireMenu('MENU_SALES2_INVENTORY', 'V', ['MENU_WMS_VIEW'])  // G20-1 备选 OR
+ */
+export const RequireMenu = (menu: string, perm: PermCode, altMenus?: string[]) =>
+  SetMetadata(REQUIRE_MENU_KEY, { menu, perm, altMenus });
 
 /** @Public() — 无需 Token 的公开接口 */
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
@@ -80,8 +83,13 @@ export class MenuGuard extends AuthGuard('jwt') implements CanActivate {
       throw new ForbiddenException('MENU_PERMISSION_NOT_REGISTERED');
     }
 
-    // 5. RBAC 检查（统一 util）
+    // 5. RBAC 检查（统一 util） — 主 menu 或 altMenus 任一 OR 通过即放行
     if (hasPerm(user.permissions, requirement.menu, requirement.perm)) return true;
+    if (requirement.altMenus && requirement.altMenus.length > 0) {
+      for (const alt of requirement.altMenus) {
+        if (isMenuRegistered(alt) && hasPerm(user.permissions, alt, requirement.perm)) return true;
+      }
+    }
 
     throw new ForbiddenException('MENU_PERMISSION_DENIED');
   }

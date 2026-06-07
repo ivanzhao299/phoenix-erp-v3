@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
+import { useProductGrades } from "@/hooks/useProductGrades"; // G20-1 等级走 product_grades
 import { KpiCard as GlobalKpiCard } from "@/components/ui/KpiCard";
 import { hexToAccent } from "@/lib/design-tokens";
 
@@ -220,6 +221,7 @@ function BatchesTab() {
   const [error, setError] = useState('');
   const [productCode, setProductCode] = useState('EGG');
   const [gradeCode, setGradeCode] = useState('');
+  const { grades: productGrades } = useProductGrades(); // G20-1 9 档权威源
   const [companyCode, setCompanyCode] = useState('');
   const [skuCodeFilter, setSkuCodeFilter] = useState('');
 
@@ -324,21 +326,25 @@ function BatchesTab() {
       flexWrap: 'wrap',
       alignItems: 'center'
     }}>
-        {/* Phase H4: SKU 快捷过滤（优先于 product+grade） */}
+        {/* G20-1：SKU 过滤器加 sku_name 显示；等级走 product_grades 9 档而非硬编码枚举 */}
         <select value={skuCodeFilter} onChange={e => {
         setSkuCodeFilter(e.target.value);
       }} style={{
         ...inputStyle,
-        minWidth: 180
+        minWidth: 240
       }}>
           <option value="">按商品组合(SKU)过滤...</option>
-          {skus.filter(x => x.status === 'ACTIVE').map(x => <option key={x.sku_code} value={x.sku_code}>{x.sku_code}</option>)}
+          {skus.filter(x => x.status === 'ACTIVE').map(x => (
+            <option key={x.sku_code} value={x.sku_code}>
+              {x.sku_name ? `${x.sku_name}（${x.sku_code}）` : x.sku_code}
+            </option>
+          ))}
         </select>
         {!skuCodeFilter && <>
             <input value={productCode} onChange={e => setProductCode(e.target.value)} placeholder="产品代码" style={inputStyle} />
             <select value={gradeCode} onChange={e => setGradeCode(e.target.value)} style={inputStyle}>
               <option value="">所有等级</option>
-              {['AA', 'A', 'B', 'DIRTY', 'CRACKED', 'DAMAGED'].map(g => <option key={g} value={g}>{g}</option>)}
+              {productGrades.map(g => <option key={g.grade_code} value={g.grade_code}>{g.grade_name}</option>)}
             </select>
           </>}
         <input value={companyCode} onChange={e => setCompanyCode(e.target.value)} placeholder="公司/农场代码" style={inputStyle} />

@@ -42,7 +42,7 @@ export class EggInventoryController {
   // ── 批次列表 ──────────────────────────────────────────────────────────────
 
   @Get('batches')
-  @RequireMenu('MENU_SALES2_INVENTORY', 'V')
+  @RequireMenu('MENU_SALES2_INVENTORY', 'V', ['MENU_WMS_VIEW', 'MENU_INV_BATCH'])
   getBatches(
     @Query('productCode')     productCode?:     string,
     @Query('companyCode')     companyCode?:     string,
@@ -63,7 +63,7 @@ export class EggInventoryController {
   // ── 临期库存 ──────────────────────────────────────────────────────────────
 
   @Get('expiring')
-  @RequireMenu('MENU_SALES2_INVENTORY', 'V')
+  @RequireMenu('MENU_SALES2_INVENTORY', 'V', ['MENU_WMS_VIEW', 'MENU_INV_BATCH'])
   getExpiring(
     @Query('companyCode') companyCode?: string,
     @Query('days', new DefaultValuePipe(7), ParseIntPipe) days?: number,
@@ -74,7 +74,7 @@ export class EggInventoryController {
   // ── Dashboard 统计 ────────────────────────────────────────────────────────
 
   @Get('stats')
-  @RequireMenu('MENU_SALES2_INVENTORY', 'V')
+  @RequireMenu('MENU_SALES2_INVENTORY', 'V', ['MENU_WMS_VIEW', 'MENU_INV_BATCH'])
   getStats(@Query('companyCode') companyCode?: string) {
     return this.eggInv.getDashboardStats(companyCode);
   }
@@ -82,7 +82,7 @@ export class EggInventoryController {
   // ── 损耗分析 ──────────────────────────────────────────────────────────────
 
   @Get('loss-analysis')
-  @RequireMenu('MENU_SALES2_INVENTORY', 'V')
+  @RequireMenu('MENU_SALES2_INVENTORY', 'V', ['MENU_WMS_VIEW', 'MENU_INV_BATCH'])
   getLossAnalysis(@Query('companyCode') companyCode?: string) {
     return this.eggInv.getLossAnalysis(companyCode);
   }

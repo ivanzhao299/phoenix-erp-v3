@@ -30,6 +30,9 @@ export interface DataTableProps<T = Record<string, unknown>> {
   showActions?: boolean;
   newLabel?: string;
   refreshKey?: number;
+  // G20-1：toolbar 新建按钮默认隐藏（PageHeader 已是统一入口，防止双按钮）。
+  //   旧页面若没 PageHeader 按钮，传 true 保留兜底。
+  showNewInToolbar?: boolean;
 }
 
 // ── DataTable ────────────────────────────────────────────────
@@ -47,6 +50,7 @@ export function DataTable<T = Record<string, unknown>>({
   showActions = false,
   newLabel: _newLabel,
   refreshKey = 0,
+  showNewInToolbar = false,
 }: DataTableProps<T>) {
   const { t } = useLanguage();
   const emptyText = _emptyText ?? t('common.no_data', '暂无数据');
@@ -147,7 +151,9 @@ type="button"                 className={styles.deleteBtn}
           <button type="button" className={styles.refreshBtn} onClick={() => { const ctrl = new AbortController(); load(ctrl.signal); }} title={t('common.refresh', '刷新')}>
             <RefreshCw size={14} />
           </button>
-          {onNew && (
+          {/* G20-1: 仅当 showNewInToolbar=true 才渲染 toolbar 新建按钮，
+                防止与 PageHeader 按钮重复。 */}
+          {onNew && showNewInToolbar && (
             <button type="button" className={styles.newBtn} onClick={onNew}>
               <Plus size={15} />
               {newLabel}
