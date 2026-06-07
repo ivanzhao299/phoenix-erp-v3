@@ -39,6 +39,16 @@ export class MonDeviceController {
     return { ok: true, success: result.successHouses, records: result.totalUpdated, error: result.error };
   }
 
+  // G16-3 debug: dump vendor /history 原始返回（查 vendor 真数据形状）
+  @Post('history/dump')
+  async dumpHistory(@Body() body: { houseCode: string; date?: string; propertyCodes?: string[] }) {
+    const date = body.date || new Date(Date.now() - 86400_000).toISOString().slice(0, 10);
+    const codes = body.propertyCodes && body.propertyCodes.length
+      ? body.propertyCodes
+      : ['2001','2083','2002','2003','2488','2484'];
+    return this.iotSyncService.dumpVendorHistory(body.houseCode, date, codes);
+  }
+
   // G16-3：admin 一键回填全部鸡舍历史（vendor /history API 真数据）
   @Post('history/backfill')
   async backfillHistory(@Body() body: { days?: number; propertyCodes?: string[]; houseCode?: string }) {

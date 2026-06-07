@@ -334,6 +334,28 @@ export class IotSyncService implements OnModuleInit {
      return { houseCode, points: totalPoints, days: totalDays };
   }
 
+  /** G16-3 调试：dump vendor /history 原始返回（不解析），用于查 vendor 真实数据形状 */
+  async dumpVendorHistory(houseCode: string, date: string, propertyCodes: string[]) {
+    const vendorHouseId = await (this as any).getVendorHouseId(houseCode);
+    if (!vendorHouseId) return { ok: false, error: 'no vendor mapping for ' + houseCode };
+    try {
+      const resp = await (this as any).request('/open/api/house/device/property/date/data/history', {
+        houseId: vendorHouseId, date, propertyCodes,
+      });
+      return {
+        ok: true,
+        vendorHouseId,
+        request: { houseId: vendorHouseId, date, propertyCodes },
+        respType: Array.isArray(resp) ? 'array' : typeof resp,
+        respLen:  Array.isArray(resp) ? resp.length : (resp && typeof resp === 'object' ? Object.keys(resp).length : null),
+        respKeys: resp && typeof resp === 'object' && !Array.isArray(resp) ? Object.keys(resp) : null,
+        sampleFirst: Array.isArray(resp) ? resp.slice(0, 2) : resp,
+      };
+    } catch (e: any) {
+      return { ok: false, error: e.message };
+    }
+  }
+
   /** 批量回填所有 ACTIVE 鸡舍最近 N 天历史 — 供 admin endpoint 一键触发 */
   async backfillAllHistory(days = 7, propertyCodes: string[] = ['2001','2083','2002','2003','2488','2484','2532']) {
     const end = new Date().toISOString().slice(0, 10);
