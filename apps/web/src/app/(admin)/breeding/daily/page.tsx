@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Fragment, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import u from "@/styles/uix-utils.module.css";
 interface DailyReport {
@@ -26,10 +26,11 @@ import { usePermission } from '@/hooks/usePermission';
 import { useToast } from '@/contexts/ToastContext';
 import { useDialog } from '@/contexts/DialogContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Save, Download, Cpu, CheckCircle } from 'lucide-react';
+import { Save, Download, Cpu, CheckCircle, X as XIcon } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import { HouseSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-E 鸡舍主数据
 import { useDictOptions } from '@/hooks/useDictOptions'; // 班次字典化
+import { useProductGrades } from '@/hooks/useProductGrades'; // G14 9 档分级
 
 // 纯数字输入列（分前后两段，中间插入淘汰数+淘汰原因）
 const FIELDS_A = ['eggs', 'dirtyEggs', 'brokenEggs', 'deaths'] as const;
@@ -49,7 +50,9 @@ const mkRow = (id: number, shift: string) => ({
   selfUse: '',  // G9：自用蛋数（孟赛 Excel 实有列）
   temp: '',
   humidity: '',
-  remark: ''
+  remark: '',
+  // G14：按 9 档分解的产蛋数量（可选；填了则提交时携带 eggs_by_grade JSON）
+  gradeQty: {} as Record<string, string>,
 });
 export default function DailyPage() {
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
@@ -80,11 +83,9 @@ export default function DailyPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const HEADS = [t('ui.班次', '班次'), t('ui.产蛋数(枚)', '产蛋数(枚)'), `🟡${t('ui.脏蛋(枚)', '脏蛋(枚)')}`, `🔴${t('ui.破损蛋(枚)', '破损蛋(枚)')}`, t('ui.死亡(羽)', '死亡(羽)'), t('ui.淘汰数(羽)', '淘汰数(羽)'),
-  // 移动端 mortality 写入 elimination_qty
-  t('ui.淘汰原因', '淘汰原因'),
-  // 移动端 mortality 写入 culling_reason
-  t('ui.饲料(kg)', '饲料(kg)'), t('ui.用水(L)', '用水(L)'), t('ui.自用蛋(枚)', '自用蛋(枚)'), t('ui.温度(℃)', '温度(℃)'), t('ui.湿度(%)', '湿度(%)'), `${t('common.remark', '备注')}...`];
+  // G14：表头分两行 — 第一行业务核心 6 列，第二行次要 5 列
+  const HEADS_ROW1 = [t('ui.班次', '班次'), t('ui.产蛋数(枚)', '产蛋数(枚)'), `🟡${t('ui.脏蛋(枚)', '脏蛋(枚)')}`, `🔴${t('ui.破损蛋(枚)', '破损蛋(枚)')}`, t('ui.死亡(羽)', '死亡(羽)'), t('ui.淘汰(羽)', '淘汰(羽)'), t('ui.淘汰原因', '淘汰原因'), t('ui.9 档分级', '9 档分级')];
+  const HEADS_ROW2 = [t('ui.饲料(kg)', '饲料(kg)'), t('ui.用水(L)', '用水(L)'), t('ui.自用蛋(枚)', '自用蛋(枚)'), t('ui.温度(℃)', '温度(℃)'), t('ui.湿度(%)', '湿度(%)'), `${t('common.remark', '备注')}...`];
   const {
     fetchRecords: fetchHouses
   } = useCrud('brd_houses');
@@ -118,13 +119,24 @@ export default function DailyPage() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shiftOptions.length]);
-  const shiftLabel = (code: string) => shiftOptions.find(o => o.value === code)?.label || code;
+  // G14：字典加载失败时用内置中文 fallback，避免显示 'BRD_SHIFT_MORNING' 字典码
+  const FALLBACK_SHIFT_LABELS: Record<string, string> = {
+    'BRD_SHIFT_MORNING': '早班', 'BRD_SHIFT_EVENING': '晚班',
+    'BRD_SHIFT_NIGHT':   '夜班', 'BRD_SHIFT_DAY':     '全天',
+    'DAY': '早班', 'NIGHT': '晚班',
+  };
+  const shiftLabel = (code: string) =>
+    shiftOptions.find(o => o.value === code)?.label || FALLBACK_SHIFT_LABELS[code] || code;
   const [submitted, setSubmitted] = useState(false);
   const [approved, setApproved] = useState(false);
   const [reports, setReports] = useState<DailyReport[]>([]);
   const [deviceHint, setDeviceHint] = useState<Record<string, string> | null>(null);
   const [generating, setGenerating] = useState(false);
   const [genResult, setGenResult] = useState<any>(null);
+  // G14：当前舍存栏（拉自 brd_flocks.current_qty）+ 9 档 modal
+  const [currentQty, setCurrentQty] = useState<number>(0);
+  const [gradeModalRowId, setGradeModalRowId] = useState<number | null>(null);
+  const { grades: productGrades } = useProductGrades();
   const loadData = useCallback(async () => {
     const [data, allHouses] = await Promise.all([fetchRecords(), fetchHouses()]);
     const houseNameMap: Record<string, string> = {};
@@ -180,6 +192,14 @@ export default function DailyPage() {
     }).catch(() => {});
     loadData();
   }, []);
+  // G14：拉当前选中舍的存栏数（brd_flocks.current_qty），供产蛋率实时计算
+  useEffect(() => {
+    if (!selectedHouse) { setCurrentQty(0); return; }
+    fetchFlocks().then((flocks: Record<string, unknown>[]) => {
+      const flock = (flocks || []).find(f => f.house_code === selectedHouse);
+      setCurrentQty(Number(flock?.current_qty) || 0);
+    }).catch(() => setCurrentQty(0));
+  }, [selectedHouse, fetchFlocks]);
   useEffect(() => {
     if (!selectedHouse) return;
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : '';
@@ -217,6 +237,10 @@ export default function DailyPage() {
     ...r,
     [field]: val
   } : r));
+  // G14：9 档 sum 计算
+  const gradeSumOf = (gradeQty: Record<string, string>): number =>
+    Object.values(gradeQty || {}).reduce((s, v) => s + (Number(v) || 0), 0);
+
   const handleSubmit = async () => {
     const hasData = rows.some(r => r.eggs || r.deaths || r.feedKg || r.dirtyEggs || r.brokenEggs || r.waterL);
     if (!hasData) {
@@ -228,12 +252,36 @@ export default function DailyPage() {
       toast.error(t('ui.产蛋数、死淘数及耗材等数据不能录入负数！', '产蛋数、死淘数及耗材等数据不能录入负数！'));
       return;
     }
+    // G14：9 档录入校验 — sum(9档) vs eggs_produced 偏差 > 3% 弹窗确认
+    for (const r of rows) {
+      const eggs = Number(r.eggs) || 0;
+      const gradeSum = gradeSumOf(r.gradeQty);
+      if (gradeSum > 0 && eggs > 0) {
+        const diff = Math.abs(gradeSum - eggs);
+        const tolerance = Math.max(3, eggs * 0.03);
+        if (diff > tolerance) {
+          const ok = await showConfirm({
+            type: 'confirm', icon: '⚠️',
+            title: `${shiftLabel(r.shift)}：9 档分级总数与产蛋数不一致`,
+            message: `9 档分级 sum = ${gradeSum} 枚\n产蛋总数 = ${eggs} 枚\n差 ${diff} 枚（容差 ${Math.round(tolerance)}）\n\n是否继续提交？`,
+            confirmLabel: '继续提交',
+          });
+          if (!ok) return;
+        }
+      }
+    }
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : '';
     const userStr = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_user') : '{}';
     const user = userStr ? JSON.parse(userStr) : {};
     const operatorName = user.realNameZh || user.username || t('ui.未知操作人', '未知操作人');
     const submitOne = async (r: typeof rows[number]) => {
-      const payload = {
+      // G14：构建 eggs_by_grade JSON（仅含 qty>0 的档）
+      const eggsByGrade: Record<string, number> = {};
+      for (const [code, qty] of Object.entries(r.gradeQty || {})) {
+        const n = Number(qty) || 0;
+        if (n > 0) eggsByGrade[code] = n;
+      }
+      const payload: Record<string, unknown> = {
         house_code: selectedHouse,
         flock_no: flockByHouse[selectedHouse] || selectedHouse,
         farm_code: farmCodeByHouse[selectedHouse] || '',
@@ -244,17 +292,17 @@ export default function DailyPage() {
         self_use_qty: Number(r.selfUse) || 0,  // G9：自用蛋数
         mortality_qty: Number(r.deaths) || 0,
         elimination_qty: Number(r.elimination) || 0,
-        // 淘汰数（与手机端 mortality 字段一致）
         culling_reason: r.elimReason || null,
-        // 淘汰原因（与手机端 mortality 字段一致）
         eggs_produced: Number(r.eggs) || 0,
         dirty_eggs: Number(r.dirtyEggs) || 0,
         broken_eggs: Number(r.brokenEggs) || 0,
         temp: Number(r.temp) || 25,
         humidity: Number(r.humidity) || 60,
         note: r.remark,
-        operator: operatorName
+        operator: operatorName,
       };
+      // G14：携带 9 档分级 JSON，让生产终端可一键消费
+      if (Object.keys(eggsByGrade).length > 0) payload.eggs_by_grade = eggsByGrade;
       const res = await fetch(`${API_BASE}/api/v3/farm/daily-logs`, {
         method: 'POST',
         headers: {
@@ -486,27 +534,33 @@ export default function DailyPage() {
           gap: 24
         }}>
             {[{
+            label: t('ui.当前存栏', '当前存栏'),
+            val: currentQty > 0 ? currentQty.toLocaleString() : '—',
+            unit: t('ui.羽', '羽'),
+            accent: 'var(--text-primary)',
+          }, {
             label: t('ui.合计产蛋', '合计产蛋'),
             val: total.eggs || '—',
-            unit: t('ui.枚', '枚')
+            unit: t('ui.枚', '枚'),
+            accent: 'var(--color-primary)',
+          }, {
+            label: t('ui.产蛋率', '产蛋率'),
+            val: (currentQty > 0 && total.eggs > 0) ? (total.eggs / currentQty * 100).toFixed(1) : '—',
+            unit: '%',
+            accent: 'var(--status-success)',
           }, {
             label: t('ui.合计死淘', '合计死淘'),
             val: total.deaths || '—',
-            unit: t('ui.羽', '羽')
+            unit: t('ui.羽', '羽'),
+            accent: 'var(--text-primary)',
           }, {
             label: t('ui.合计饲料', '合计饲料'),
             val: total.feedKg || '—',
-            unit: 'kg'
+            unit: 'kg',
+            accent: 'var(--text-primary)',
           }].map(item => <div key={item.label} className={u.tac}>
-                <div style={{
-              fontSize: 20,
-              fontWeight: 700,
-              color: 'var(--color-primary)'
-            }}>{item.val} <span className={u.muted12}>{item.unit}</span></div>
-                <div style={{
-              fontSize: 11,
-              color: 'var(--text-secondary)'
-            }}>{item.label}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: item.accent }}>{item.val} <span className={u.muted12}>{item.unit}</span></div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{item.label}</div>
               </div>)}
           </div>
         </div>
@@ -522,71 +576,67 @@ export default function DailyPage() {
           color: 'var(--color-primary)'
         }}>{t('ui.班次数据录入', '班次数据录入')}</span>
         </div>
+        {/* G14：表头双行 — 第一行业务核心 6 列 + 9 档分级列；第二行 5 次要列 */}
         <div className={u.scrollX}>
           <table className={s.table}>
             <thead>
-              <tr>
-                {HEADS.map(h => <th key={h}>{h}</th>)}
-              </tr>
+              <tr>{HEADS_ROW1.map((h, i) => <th key={'r1-' + h} rowSpan={i === 0 || i === HEADS_ROW1.length - 1 ? 2 : 1}>{h}</th>)}</tr>
+              <tr>{HEADS_ROW2.map(h => <th key={'r2-' + h}>{h}</th>)}</tr>
             </thead>
             <tbody>
-              {rows.map(row => <tr key={row.id}>
-                  <td style={{
-                fontWeight: 600,
-                color: 'var(--text-primary)',
-                whiteSpace: 'nowrap'
-              }}>{shiftLabel(row.shift)}</td>
-                  {/* 第一段：产蛋/脏蛋/破损蛋/死亡 */}
-                  {FIELDS_A.map(field => <td key={field} style={{
-                padding: '6px 8px'
-              }}>
-                      <input type="number" onFocus={e => e.currentTarget.select()} value={(row as any)[field]} onChange={e => updateRow(row.id, field, e.target.value)} className={s.inp} style={{
-                  textAlign: 'right',
-                  width: '80px',
-                  padding: '6px 8px'
-                }} placeholder="0" />
+              {rows.map(row => {
+                const gradeSum = gradeSumOf(row.gradeQty);
+                const eggsNum = Number(row.eggs) || 0;
+                const gradeCellAccent = gradeSum > 0
+                  ? (eggsNum > 0 && Math.abs(gradeSum - eggsNum) > Math.max(3, eggsNum * 0.03)
+                    ? 'var(--status-warning)' : 'var(--status-success)')
+                  : 'var(--text-secondary)';
+                return <Fragment key={row.id}>
+                  <tr>
+                    <td rowSpan={2} style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>
+                      {shiftLabel(row.shift)}
+                    </td>
+                    {FIELDS_A.map(field => <td key={field} style={{ padding: '6px 8px' }}>
+                      <input type="number" onFocus={e => e.currentTarget.select()} value={(row as any)[field]} onChange={e => updateRow(row.id, field, e.target.value)} className={s.inp} style={{ textAlign: 'right', width: 80, padding: '6px 8px' }} placeholder="0" />
                     </td>)}
-                  {/* 淘汰数（手机端 mortality → elimination_qty） */}
-                  <td style={{
-                padding: '6px 8px'
-              }}>
-                    <input type="number" onFocus={e => e.currentTarget.select()} value={row.elimination} onChange={e => updateRow(row.id, 'elimination', e.target.value)} className={s.inp} style={{
-                  textAlign: 'right',
-                  width: '80px',
-                  padding: '6px 8px'
-                }} placeholder="0" />
-                  </td>
-                  {/* 淘汰原因（手机端 mortality → culling_reason） */}
-                  <td style={{
-                padding: '6px 8px'
-              }}>
-                    <input value={row.elimReason} onChange={e => updateRow(row.id, 'elimReason', e.target.value)} className={s.inp} style={{
-                  width: '100px',
-                  padding: '6px 8px'
-                }} placeholder={t('ui.淘汰原因', '淘汰原因')} />
-                  </td>
-                  {/* 第二段：饲料/用水/温度/湿度 */}
-                  {FIELDS_B.map(field => <td key={field} style={{
-                padding: '6px 8px'
-              }}>
-                      <input type="number" onFocus={e => e.currentTarget.select()} value={(row as any)[field]} onChange={e => updateRow(row.id, field, e.target.value)} className={s.inp} style={{
-                  textAlign: 'right',
-                  width: '80px',
-                  padding: '6px 8px'
-                }} placeholder="0" />
+                    <td style={{ padding: '6px 8px' }}>
+                      <input type="number" onFocus={e => e.currentTarget.select()} value={row.elimination} onChange={e => updateRow(row.id, 'elimination', e.target.value)} className={s.inp} style={{ textAlign: 'right', width: 80, padding: '6px 8px' }} placeholder="0" />
+                    </td>
+                    <td style={{ padding: '6px 8px' }}>
+                      <input value={row.elimReason} onChange={e => updateRow(row.id, 'elimReason', e.target.value)} className={s.inp} style={{ width: 110, padding: '6px 8px' }} placeholder={t('ui.淘汰原因', '淘汰原因')} />
+                    </td>
+                    {/* G14：9 档分级触发按钮 — 展开 modal 录入；显示当前 sum + 与产蛋数的一致性提示 */}
+                    <td rowSpan={2} style={{ padding: '6px 8px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                      <button type="button" onClick={() => setGradeModalRowId(row.id)} style={{
+                        padding: '6px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                        background: 'var(--bg-card)', border: `1px solid ${gradeCellAccent}`, color: gradeCellAccent,
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                      }}>
+                        {gradeSum > 0 ? <><CheckCircle size={12} />{gradeSum}枚</> : <>分级</>}
+                      </button>
+                    </td>
+                  </tr>
+                  <tr>
+                    {FIELDS_B.map(field => <td key={field} style={{ padding: '6px 8px' }}>
+                      <input type="number" onFocus={e => e.currentTarget.select()} value={(row as any)[field]} onChange={e => updateRow(row.id, field, e.target.value)} className={s.inp} style={{ textAlign: 'right', width: 80, padding: '6px 8px' }} placeholder="0" />
                     </td>)}
-                  <td style={{
-                padding: '6px 8px'
-              }}>
-                    <input value={row.remark} onChange={e => updateRow(row.id, 'remark', e.target.value)} className={s.inp} style={{
-                  width: '120px',
-                  padding: '6px 8px'
-                }} placeholder={`${t('common.remark', '备注')}...`} />
-                  </td>
-                </tr>)}
+                    <td style={{ padding: '6px 8px' }}>
+                      <input value={row.remark} onChange={e => updateRow(row.id, 'remark', e.target.value)} className={s.inp} style={{ width: 130, padding: '6px 8px' }} placeholder={`${t('common.remark', '备注')}...`} />
+                    </td>
+                  </tr>
+                </Fragment>;
+              })}
             </tbody>
           </table>
         </div>
+        {/* G14：底部大型保存按钮（PageHeader 顶部按钮另保留） */}
+        {can(['ROLE_FARM_MGR', 'ROLE_FARMER', 'ROLE_VET', 'ROLE_CEO', 'ROLE_QA_MGR', 'ROLE_ADMIN', 'ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR']) && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0', borderTop: '1px solid var(--border)' }}>
+            <button type="button" className={s.btnPrimary} onClick={handleSubmit} style={{ minWidth: 240, padding: '12px 32px', fontSize: 15, fontWeight: 700, gap: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Save size={18} /> {t('ui.提交日报', '提交日报')}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 历史记录 */}
@@ -652,5 +702,74 @@ export default function DailyPage() {
           </tbody>
         </table>
       </div>
+
+      {/* G14：9 档分级录入 modal */}
+      {gradeModalRowId !== null && (() => {
+        const row = rows.find(r => r.id === gradeModalRowId);
+        if (!row) return null;
+        const eggsNum = Number(row.eggs) || 0;
+        const gradeSum = gradeSumOf(row.gradeQty);
+        const diff = gradeSum - eggsNum;
+        const tolerance = Math.max(3, eggsNum * 0.03);
+        const inTolerance = eggsNum === 0 || Math.abs(diff) <= tolerance;
+        return (
+          <div onClick={() => setGradeModalRowId(null)} style={{
+            position: 'fixed', inset: 0, background: 'var(--overlay-black-50)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+          }}>
+            <div onClick={e => e.stopPropagation()} style={{
+              background: 'var(--bg-card)', borderRadius: 12, padding: 24,
+              minWidth: 560, maxWidth: '90vw', maxHeight: '85vh', overflowY: 'auto',
+              boxShadow: '0 20px 60px var(--overlay-black-30)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
+                  {shiftLabel(row.shift)} · {t('ui.9 档分级录入', '9 档分级录入')}
+                </h3>
+                <button type="button" onClick={() => setGradeModalRowId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6 }}>
+                  <XIcon size={18} />
+                </button>
+              </div>
+              <div style={{ marginBottom: 12, padding: 12, borderRadius: 8, background: 'var(--bg-muted)', fontSize: 13 }}>
+                <div>{t('ui.产蛋总数', '产蛋总数')}：<strong>{eggsNum.toLocaleString()}</strong> 枚 · {t('ui.9 档 sum', '9 档 sum')}：<strong style={{ color: inTolerance ? 'var(--status-success)' : 'var(--status-warning)' }}>{gradeSum.toLocaleString()}</strong> 枚</div>
+                {eggsNum > 0 && !inTolerance && (
+                  <div style={{ marginTop: 6, color: 'var(--status-warning)', fontSize: 12 }}>
+                    ⚠️ {t('ui.差', '差')} {Math.abs(diff)} 枚（{t('ui.容差', '容差')} {Math.round(tolerance)}），{t('ui.提交时会弹窗确认', '提交时会弹窗确认')}
+                  </div>
+                )}
+              </div>
+              <table className={s.table} style={{ width: '100%' }}>
+                <thead>
+                  <tr><th>{t('ui.等级', '等级')}</th><th>{t('ui.编码', '编码')}</th><th style={{ textAlign: 'right' }}>{t('ui.数量(枚)', '数量(枚)')}</th></tr>
+                </thead>
+                <tbody>
+                  {productGrades.map(g => (
+                    <tr key={g.grade_code}>
+                      <td style={{ fontWeight: 500 }}>{g.grade_name}</td>
+                      <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-secondary)' }}>{g.grade_code}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right' }}>
+                        <input type="number" min={0} value={row.gradeQty[g.grade_code] ?? ''} onChange={e => {
+                          const newGradeQty = { ...row.gradeQty, [g.grade_code]: e.target.value };
+                          setRows(rs => rs.map(r => r.id === row.id ? { ...r, gradeQty: newGradeQty } : r));
+                        }} className={s.inp} style={{ textAlign: 'right', width: 120, padding: '6px 8px' }} placeholder="0" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+                <button type="button" className={s.btnSecondary} onClick={() => {
+                  setRows(rs => rs.map(r => r.id === row.id ? { ...r, gradeQty: {} } : r));
+                }}>
+                  {t('ui.清空', '清空')}
+                </button>
+                <button type="button" className={s.btnPrimary} onClick={() => setGradeModalRowId(null)}>
+                  {t('ui.确定', '确定')}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>;
 }
