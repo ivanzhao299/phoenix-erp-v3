@@ -179,6 +179,10 @@ export class GenericCrudController {
     const GLOBAL_TABLES = new Set([
       'sys_dict', 'sys_menu', 'sys_role', 'sys_organizations', 'sys_approval_flows', 'sys_permissions',
       'mst_currencies', 'product_grades', 'product_specs', 'product_packaging',
+      // G30：仓储主数据无 store_code 列（cause warehouse 看板 500），统一全局可读
+      'wms_warehouses', 'wms_zones', 'wms_locations',
+      // 其他常用主数据表
+      'mst_skus', 'mst_products', 'mst_customers', 'mst_suppliers',
     ]);
     let scopeField: string | null;
     if (GLOBAL_TABLES.has(table)) {

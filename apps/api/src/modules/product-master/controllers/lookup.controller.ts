@@ -130,15 +130,25 @@ export class LookupController {
     return { code: 200, data: rows };
   }
 
-  /** GET /api/lookup/users — 操作员/用户下拉（替代 /users） */
+  /** GET /api/lookup/users?storeCode= — 操作员/用户下拉
+   *   G30：加 storeCode 过滤（如 SITE-MENGSAI-LAYER），防止业务页"操作员"下拉拉全集团。
+   *   不传 storeCode 时返全部（admin 管理用）
+   */
   @Get('users')
-  async users() {
+  async users(@Query('storeCode') storeCode?: string) {
+    const params: any[] = [];
+    let where = `status=1`;
+    if (storeCode) {
+      params.push(storeCode);
+      where += ` AND store_code=$${params.length}`;
+    }
     const rows = await this.em.query(
       `SELECT user_id AS "userId", username, real_name AS "realName",
               store_code AS "storeCode", status
          FROM sys_user
-         WHERE status=1
+         WHERE ${where}
          ORDER BY username`,
+      params,
     );
     return { code: 200, data: rows };
   }

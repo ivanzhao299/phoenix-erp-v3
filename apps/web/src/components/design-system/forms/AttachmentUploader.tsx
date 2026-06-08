@@ -25,12 +25,25 @@ export function AttachmentUploader({ value, onChange, readOnly, label = '上传�
   const upload = async (file: File) => {
     setErr(''); setUploading(true);
     try {
+      // G30：客户端预检大小，避免 nginx client_max_body_size 拦截返 500 HTML
+      const MAX_MB = 10;
+      if (file.size > MAX_MB * 1024 * 1024) {
+        setErr(`文件超出 ${MAX_MB}MB 上限（当前 ${(file.size / 1024 / 1024).toFixed(1)}MB），请压缩后重传`);
+        return;
+      }
       const fd = new FormData();
       fd.append('file', file);
       const res = await fetch(`${base}/api/upload/contract`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : undefined, body: fd });
-      const json = await res.json();
+      // G30：5xx 返 text/HTML，不强 JSON.parse（防 "Unexpected token 'I', "Internal S"" 报错）
+      const ct = res.headers.get('content-type') || '';
+      if (!res.ok) {
+        const detail = ct.includes('application/json') ? (await res.json().catch(() => ({})))?.message : await res.text().catch(() => '');
+        setErr(`上传失败 (${res.status})${detail ? '：' + String(detail).slice(0, 120) : ''}`);
+        return;
+      }
+      const json = ct.includes('application/json') ? await res.json() : {};
       if (json?.url) onChange([...value, json.url]);
-      else setErr(json?.message || '上传失败');
+      else setErr(json?.message || '上传失败：服务端未返回 url');
     } catch (e: any) { setErr(e?.message || '上传失败'); }
     finally { setUploading(false); }
   };

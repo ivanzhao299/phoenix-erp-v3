@@ -52,13 +52,17 @@ export default function InboundPage() {
     CANCELLED:  { cls: s.badgeNeutral, label: t("status.cancelled", "已取消") },
   };
 
-  // G4-D：入库单 — 仓库/品目/操作员 主数据化；入库类型 → sys_dict(INV_INBOUND_TYPE)；入库附件统一上传
+  // G30：入库单"品目"业务模型修正
+  //   旧：type='sku' 绑 product_skus（28 行全是鸡蛋成品 SKU）
+  //       → 手工入库饲料/兽药/原料时下拉无可选项 → 业务方报"数据混乱"
+  //   新：type='text' 自由文本（物料名或编码均可），物料主数据完整后再切回
+  //   2026-06-03 seed 的 product_skus 仍保留供"包装/销售"用，不删
   const FIELDS: FormField[] = [
     { key: "inbound_no",     label: t("ui.入库单号", "入库单号"),  type: "text",   placeholder: t("ui.留空自动生成WI", "留空自动生成 WI-XXXXXX") },
     { key: "type",           label: t("ui.入库类型", "入库类型"),  type: "dict",   dictType: "INV_INBOUND_TYPE", required: true },
     { key: "warehouse_code", label: t("ui.入库仓库", "入库仓库"),  type: "warehouse", required: true },
-    { key: "item",           label: t("ui.品目",     "品目"),      type: "sku",
-      onPickKeys: { item_name: "sku_name", spec_code: "spec_code", grade_code: "grade_code" } },
+    { key: "item",           label: t("ui.物料/品目", "物料/品目"), type: "text", required: true,
+      placeholder: t("ui.物料品目placeholder", "如：玉米/豆粕/兽药编码/包材...") },
     { key: "qty",            label: t("ui.数量",     "数量"),      type: "number", required: true },
     { key: "operator",       label: t("ui.操作员",   "操作员"),    type: "user"   },
     { key: "attachment_url", label: t("ui.入库附件", "入库附件"),  type: "attachment" },
