@@ -135,7 +135,7 @@ const MODULES: ModuleItem[] = [
   { icon: Users,          title: '股东资金管理', path: '/finance2/shareholder-funds', accent: 'violet', description: '出资台账、结算审批（退回/抵扣/核销）、联动资金账户。' },
   { icon: Receipt,        title: '费用申请',     path: '/finance2/expenses',          accent: 'indigo', description: '费用申请全流程审批，审批通过自动生成报销，付款联动资金账户。' },
   { icon: ArrowLeftRight, title: '报销管理',     path: '/finance2/reimbursements',    accent: 'teal',   description: '报销台账，付款事务安全，自动扣减现金账户余额。' },
-  { icon: PieChart,       title: '经营报表',     path: '/finance2/reports',           accent: 'slate',  description: '12 只读聚合报表。账龄 · 资金日报 · 费用统计 · 净头寸 · 项目财务。' },
+  { icon: PieChart,       title: '经营报表',     path: '/finance2/reports',           accent: 'slate',  description: '12 只读聚合报表。账龄 · 资金日报 · 费用统计 · 可支配资金 · 项目财务。' },
 ];
 
 // ModuleCard 已删除，改用全局 NavCard 组件
@@ -214,7 +214,7 @@ export default function Finance2DashboardPage() {
       accentColor: 'amber' as AccentColor,
     },
     {
-      label:       '经营净头寸',
+      label:       '可支配资金',
       value:       reportOverview
         ? `${reportOverview.netOperatingPosition >= 0 ? '+' : ''}¥ ${fmt(reportOverview.netOperatingPosition)}`
         : '—',
@@ -239,7 +239,7 @@ export default function Finance2DashboardPage() {
     <div>
       <PageHeader
         title="财务管理"
-        subtitle="应付 · 应收 · 资金账户 · 费用报销 · 股东资金 · 经营净头寸"
+        subtitle="应付 · 应收 · 资金账户 · 费用报销 · 股东资金 · 可支配资金"
         breadcrumb={['财务管理', '驾驶舱']}
         actions={
           <Button

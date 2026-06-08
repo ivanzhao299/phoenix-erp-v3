@@ -246,9 +246,9 @@ function OverviewTab() {
   if (!data) return <Empty text="加载失败" />;
   const netColor = data.netOperatingPosition >= 0 ? TOKENS.css.statusSuccess : TOKENS.css.statusDanger;
   return <div>
-      {/* 经营净头寸 主 KPI */}
+      {/* 可支配资金 主 KPI */}
       <div style={{ ...heroBanner, flexDirection: 'column', alignItems: 'stretch' }}>
-        <div style={{ fontSize: 12, opacity: 0.78, marginBottom: 4 }}>经营净头寸（Net Operating Position）</div>
+        <div style={{ fontSize: 12, opacity: 0.78, marginBottom: 4 }}>可支配资金（Net Operating Position）</div>
         <div style={heroBannerKpi(36)}>
           {data.netOperatingPosition >= 0 ? '+' : ''}¥ {fmt(data.netOperatingPosition)}
         </div>
@@ -1013,7 +1013,7 @@ function ProjectTab() {
               <Th>项目</Th><Th>公司</Th>
               <Th right>AR 待收</Th><Th right>AP 待付</Th>
               <Th right>费用总额</Th><Th right>股东资金</Th>
-              <Th right>净头寸</Th>
+              <Th right>可支配资金</Th>
             </tr>
           </thead>
           <tbody>
@@ -1039,7 +1039,7 @@ function ProjectTab() {
       marginTop: 12,
       fontSize: 11
     }}>
-        净头寸 = AR 待收 − AP 待付 − 费用总额
+        可支配资金 = AR 待收 − AP 待付 − 费用总额
       </div>
     </div>;
 }
@@ -1072,7 +1072,7 @@ function CompanyTab() {
     }}>
         <KpiCard label="公司总数" value={`${data.length} 家`} icon={Building2} color="var(--status-neutral)" />
         <KpiCard label="合计现金余额" value={fmtMoney(data.reduce((s, r) => s + r.cashBalance, 0))} icon={Wallet} color="var(--color-primary)" />
-        <KpiCard label="合计经营净头寸" value={fmtMoney(data.reduce((s, r) => s + r.netOperatingPosition, 0))} icon={PieChart} color="var(--color-primary)" />
+        <KpiCard label="合计可支配资金" value={fmtMoney(data.reduce((s, r) => s + r.netOperatingPosition, 0))} icon={PieChart} color="var(--color-primary)" />
       </div>
 
       <TableWrapper>
@@ -1081,7 +1081,7 @@ function CompanyTab() {
             <Th>公司</Th>
             <Th right>现金余额</Th><Th right>AR 待收</Th><Th right>AP 待付</Th>
             <Th right>费用总额</Th><Th right>股东资金</Th>
-            <Th right>经营净头寸</Th>
+            <Th right>可支配资金</Th>
           </tr>
         </thead>
         <tbody>
@@ -1106,7 +1106,7 @@ function CompanyTab() {
       marginTop: 12,
       fontSize: 11
     }}>
-        经营净头寸 = 现金余额 + AR 待收 − AP 待付 − 费用总额
+        可支配资金 = 现金余额 + AR 待收 − AP 待付 − 费用总额
       </div>
     </div>;
 }
@@ -1149,7 +1149,7 @@ const TABS = [{
 export default function Finance2ReportsPage() {
   const [activeTab, setActiveTab] = useState('overview');
   return <div>
-      <PageHeader title="财务报表" subtitle="经营报表 · 账龄分析 · 资金日报 · 公司净头寸" breadcrumb={['财务管理', '经营报表']} />
+      <PageHeader title="财务报表" subtitle="经营报表 · 账龄分析 · 资金日报 · 公司可支配资金" breadcrumb={['财务管理', '经营报表']} />
 
       {/* 模块说明横幅 */}
       <div style={heroBanner}>
