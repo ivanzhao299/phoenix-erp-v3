@@ -196,8 +196,9 @@ export default function MortalityPage() {
             shift: 'ALL',
             eggs_produced: existingEggs,
             mortality_qty: mortEdits[house] ?? 0,
+            mortality_reason: reasonEdits[house] || null,  // G22-4：与 PC G19-A 对齐
             elimination_qty: elimEdits[house] ?? 0,
-            culling_reason: reasonEdits[house] || null,
+            culling_reason: reasonEdits[house] || null,    // mobile 死淘共用一个 reason 字段
             operator: 'mobile'
           })
         }).then(r => r.json());

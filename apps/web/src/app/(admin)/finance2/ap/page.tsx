@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { TrendingDown, Clock, CheckCircle, Wallet, Search, RefreshCw, AlertTriangle, ChevronLeft, ChevronRight, Filter, Plus, Download, X, ChevronDown, AlertCircle, Ban } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/design-system';
+import { usePermission } from '@/hooks/usePermission'; // G23-A 子 menu 分流
 import s from "@/components/ui/admin-ui.module.css";
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector, SupplierSelector } from '@/components/shared-selectors/MasterDataSelectors';
@@ -675,6 +676,10 @@ function DetailDrawer({
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function Finance2ApPage() {
+  // G23-A：按子 menu 分流
+  //   新建 AP → MENU_FIN2_AP_MASTER:C
+  //   付款记账 → MENU_FIN2_AP_TXN:C（暂未细化付款按钮，保留 master 兼容）
+  const { canCreate: canCreateAp } = usePermission('MENU_FIN2_AP_MASTER');
   const [records, setRecords] = useState<ApInvoice[]>([]);
   const [summary, setSummary] = useState<ApSummary | null>(null);
   const [total, setTotal] = useState(0);
@@ -780,9 +785,11 @@ export default function Finance2ApPage() {
             <button onClick={() => { loadList(page); loadSummary(); }} disabled={loading} style={secondaryActionButton}>
               <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
             </button>
-            <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
-              <Plus size={13} /> 新建 AP
-            </button>
+            {canCreateAp && (
+              <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
+                <Plus size={13} /> 新建 AP
+              </button>
+            )}
           </div>} />
 
       {/* 导入结果 */}

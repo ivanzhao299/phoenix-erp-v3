@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { GenericCrudService } from './generic-crud.service';
 import { AuthGuard } from '@nestjs/passport';
-import { ALLOWED_TABLES, TABLE_PERM_MAP } from './crud.constants';
+import { ALLOWED_TABLES } from './crud.constants';
 import { hasPerm, PermCode } from '../../auth/permissions.util';
 
 @Controller('api/crud')
@@ -84,25 +84,14 @@ export class GenericCrudController {
       return;
     }
 
-    // G19-D 治理重构：从 RBAC-first 改为 PBAC-first。
-    //   过去：TABLE_PERM_MAP 是首道闸（未配 → 403），fallback PBAC 兜底。
-    //         新增角色（如孟赛宋明光）若未在 100+ 行 hardcode 白名单中即被拒，
-    //         即便 JWT 持菜单权限也不通过 → 治理欠债。
-    //   现在：PBAC（菜单权限）作为主路径，TABLE_PERM_MAP 仅作历史兼容白名单。
-    //   流程：
-    //     1) PBAC 通过 → return（推荐路径，仅依赖 JWT.permissions）
-    //     2) PBAC 失败 → 尝试 TABLE_PERM_MAP role 白名单（历史兼容）
-    //     3) 都失败 → 403
+    // G21-1：彻底走 PBAC（菜单权限），删除 TABLE_PERM_MAP role 白名单。
+    //   G19-D 已 PBAC-first 并验证稳定（a08af4e/b7c34fa），白名单 fallback 已无价值。
+    //   新角色必须走菜单权限赋权（sys_role_menu_permission），不能再靠加 hardcode 白名单。
+    //   流程：JWT.permissions menu+op check 通过 → 放行；否则 403。
     const fallbackMenu = this.tableToFallbackMenu(table);
     if (fallbackMenu) {
       const requiredOp: PermCode = method === 'GET' ? 'V' : method === 'POST' ? 'C' : 'E';
       if (hasPerm(perms, fallbackMenu, requiredOp)) return;
-    }
-
-    const requiredRoles = TABLE_PERM_MAP[table];
-    if (requiredRoles) {
-      const hasAccess = requiredRoles.some((r) => userRoles.includes(r) || userRole === r);
-      if (hasAccess) return;
     }
 
     throw new ForbiddenException(`权限不足：您（角色=${userRole}）无权 ${method} 访问 [${table}]，需 menu=${fallbackMenu ?? '-'} 的对应权限`);
@@ -172,7 +161,8 @@ export class GenericCrudController {
     const BRD_SCOPE_FIELD: Record<string, string | null> = {
       brd_daily_logs:   'site_code',         // mdm1_05 已加 + 回填
       brd_farms:        'mapped_site_code',  // mdm1_03 已加 + 回填
-      brd_medications:  'store_code',        // v3_schema 已有
+      brd_medications:        'store_code',  // v3_schema 已有（主档表）
+      brd_medication_records: 'site_code',   // G21-4 业务记录表按 site 隔离
       brd_vaccinations: 'store_code',
       brd_houses:       null,                // 无可靠 site 列，暂不行级隔离（受 RBAC 限制）
       brd_flocks:       null,
@@ -183,8 +173,17 @@ export class GenericCrudController {
       wms_inbound:  'site_code',
       // 其余 wms_* 默认 store_code（不在 map 走默认）
     };
+    // G21-NEW：sys_* / mst_* / 字典/产品/等级等全局系统表无 store_code 列 → scopeField=null 不做行级过滤
+    //   之前 sys_dict 走默认 'store_code' → 注入 WHERE store_code='SITE-MENGSAI-LAYER'
+    //   → 列不存在 SQL 报错 → DictSelect 全失败 → 入库类型/出库类型等下拉空
+    const GLOBAL_TABLES = new Set([
+      'sys_dict', 'sys_menu', 'sys_role', 'sys_organizations', 'sys_approval_flows', 'sys_permissions',
+      'mst_currencies', 'product_grades', 'product_specs', 'product_packaging',
+    ]);
     let scopeField: string | null;
-    if (table.startsWith('brd_')) {
+    if (GLOBAL_TABLES.has(table)) {
+      scopeField = null;  // 全局表不做行级过滤
+    } else if (table.startsWith('brd_')) {
       scopeField = table in BRD_SCOPE_FIELD ? BRD_SCOPE_FIELD[table] : 'store_code';
     } else if (table in WMS_SCOPE_FIELD) {
       scopeField = WMS_SCOPE_FIELD[table];

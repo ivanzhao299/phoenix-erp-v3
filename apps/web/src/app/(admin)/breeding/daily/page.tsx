@@ -62,9 +62,10 @@ export default function DailyPage() {
   const {
     showConfirm
   } = useDialog();
+  // G23-B：can(role[]) → PBAC（menu+op）；保留 can 兼容性
   const {
-    can
-  } = usePermission();
+    can, canCreate, canEdit, canExport
+  } = usePermission('MENU_FARM_DAILY');
   const {
     t
   } = useLanguage();
@@ -474,10 +475,10 @@ export default function DailyPage() {
             <button type="button" className={s.btnSecondary} onClick={() => historyRef.current?.scrollIntoView({
         behavior: 'smooth'
       })}>{t('ui.历史记录', '历史记录')}</button>
-            {can(['ROLE_FARM_MGR', 'ROLE_CEO', 'ROLE_QA_MGR', 'ROLE_ADMIN']) && <button type="button" className={s.btnSecondary} onClick={handleExport}>
+            {canExport && <button type="button" className={s.btnSecondary} onClick={handleExport}>
                 <Download size={14} />{t('ui.导出报表', '导出报表')}
               </button>}
-            {can(['ROLE_FARM_MGR', 'ROLE_CEO', 'ROLE_ADMIN']) && <button type="button" onClick={() => setShowGenModal(true)} disabled={generating || !selectedHouse} style={{
+            {canEdit && <button type="button" onClick={() => setShowGenModal(true)} disabled={generating || !selectedHouse} style={{
         opacity: generating || !selectedHouse ? 0.6 : 1,
         cursor: generating || !selectedHouse ? 'not-allowed' : 'pointer',
         padding: '8px 16px', borderRadius: 6, fontSize: 13, fontWeight: 600,
@@ -486,7 +487,7 @@ export default function DailyPage() {
       }}>
                 <Cpu size={15} />{generating ? t('ui.生成中...', '生成中...') : t('ui.⚡ 设备数据一键填入', '⚡ 设备数据一键填入')}
               </button>}
-            {can(['ROLE_FARM_MGR', 'ROLE_FARMER', 'ROLE_VET', 'ROLE_CEO', 'ROLE_QA_MGR', 'ROLE_ADMIN']) && <button type="button" className={s.btnPrimary} onClick={handleSubmit}>
+            {canEdit && <button type="button" className={s.btnPrimary} onClick={handleSubmit}>
                 <Save size={15} />{t('ui.提交日报', '提交日报')}
               </button>}
           </div>} />
@@ -744,7 +745,7 @@ export default function DailyPage() {
           })}
         </div>
         {/* G14：底部大型保存按钮（PageHeader 顶部按钮另保留） */}
-        {can(['ROLE_FARM_MGR', 'ROLE_FARMER', 'ROLE_VET', 'ROLE_CEO', 'ROLE_QA_MGR', 'ROLE_ADMIN', 'ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR']) && (
+        {canEdit && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0', borderTop: '1px solid var(--border)' }}>
             <button type="button" className={s.btnPrimary} onClick={handleSubmit} style={{ minWidth: 240, padding: '12px 32px', fontSize: 15, fontWeight: 700, gap: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
               <Save size={18} /> {t('ui.提交日报', '提交日报')}

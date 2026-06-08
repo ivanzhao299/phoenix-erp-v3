@@ -83,7 +83,7 @@ export default function MedicinePage() {
     fetchRecords,
     createRecord,
     updateRecord
-  } = useCrud('brd_medications');
+  } = useCrud('brd_medication_records');  // G21-4 切到新建的用药记录表（主档独立）
   const {
     fetchRecords: fetchFlocks
   } = useCrud('brd_flocks');
@@ -127,8 +127,8 @@ export default function MedicinePage() {
       return {
         id: d.id,
         batchNo: d.batch_no || t('ui.未知', '未知'),
-        farmHouse: d.farm_house || d.farmHouse || '—',
-        medicine: d.medicine,
+        farmHouse: d.flock_no || d.house_code || '—',  // G21-4 新表用 flock_no/house_code
+        medicine: d.medication_code || d.medicine,  // G21-4 新表用 medication_code
         disease: d.disease,
         startDate: d.start_date,
         endDate: d.end_date,
@@ -152,7 +152,7 @@ export default function MedicinePage() {
     setForm({
       batchNo: s(r.batch_no),
       farmHouse: s(r.farm_house),
-      medicine: s(r.medicine),
+      medicine: s(r.medication_code || r.medicine),  // G21-4
       disease: s(r.disease),
       startDate: s(r.start_date),
       daysUsed: s(r.days_used, '5'),
@@ -166,20 +166,21 @@ export default function MedicinePage() {
     const eDate = new Date(sDate.getTime() + (Number(form.daysUsed) - 1) * 86400000);
     const cDate = new Date(eDate.getTime() + Number(form.withdrawDays) * 86400000);
     const fi = flockMap[form.batchNo || form.farmHouse] || {};
+    // G21-4：字段映射对齐 brd_medication_records 真实列
+    //   medicine → medication_code、删 farm_house（house_code 已足够）
     const payload = {
-      flock_no: form.batchNo || form.farmHouse,
-      batch_no: form.batchNo || form.farmHouse,
-      farm_house: fi.house_code || form.farmHouse,
-      house_code: fi.house_code || null,
-      farm_code: fi.farm_code || null,
-      medicine: form.medicine,
-      disease: form.disease,
-      start_date: sDate.toISOString().slice(0, 10),
-      end_date: eDate.toISOString().slice(0, 10),
-      days_used: Number(form.daysUsed),
-      withdraw_days: Number(form.withdrawDays),
-      clear_date: cDate.toISOString().slice(0, 10),
-      dose: form.dose
+      flock_no:        form.batchNo || form.farmHouse,
+      batch_no:        form.batchNo || form.farmHouse,
+      house_code:      fi.house_code || null,
+      farm_code:       fi.farm_code || null,
+      medication_code: form.medicine,
+      disease:         form.disease,
+      start_date:      sDate.toISOString().slice(0, 10),
+      end_date:        eDate.toISOString().slice(0, 10),
+      days_used:       Number(form.daysUsed),
+      withdraw_days:   Number(form.withdrawDays),
+      clear_date:      cDate.toISOString().slice(0, 10),
+      dose:            form.dose,
     };
     const userStr = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_user') : '{}';
     const user = userStr ? JSON.parse(userStr) : {};

@@ -49,6 +49,8 @@ export default function HenHousePage() {
   const {
     can
   } = usePermission();
+  // G23-B：can(role[]) → PBAC
+  const { canEdit: canEditHouse } = usePermission('MENU_FARM_DATA');
   const {
     t
   } = useLanguage();
@@ -324,7 +326,7 @@ export default function HenHousePage() {
       }} onClick={() => mappedHouses.has(row.code) && router.push(`/breeding/device/${row.code}`)}>
             <Activity size={12} />{mappedHouses.has(row.code) ? t('ui.实时环境', '实时环境') : t('ui.未映射', '未映射')}
           </button>}
-        {can(['ROLE_FARM_MGR', 'ROLE_ADMIN']) && <>
+        {canEditHouse && <>
           <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>
           <button type="button" className={s.btnIconDanger} onClick={() => handleDelete(row)}><Trash2 size={12} /></button>
         </>}
@@ -365,7 +367,7 @@ export default function HenHousePage() {
     alarmBg: hasWarn
   }];
   return <div className="animate-fade-in">
-      <PageHeader title={t('ui.鸡舍管理', '鸡舍管理')} subtitle={`${t('ui.共', '共')} ${housesList.length} ${t('ui.栋鸡舍', '栋鸡舍')}`} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.鸡舍管理', '鸡舍管理')]} actions={can(['ROLE_FARM_MGR', 'ROLE_ADMIN']) && <button type="button" className={s.btnPrimary} onClick={() => {
+      <PageHeader title={t('ui.鸡舍管理', '鸡舍管理')} subtitle={`${t('ui.共', '共')} ${housesList.length} ${t('ui.栋鸡舍', '栋鸡舍')}`} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.鸡舍管理', '鸡舍管理')]} actions={canEditHouse && <button type="button" className={s.btnPrimary} onClick={() => {
       setEditId(null);
       setEditRow(null);
       setForm({

@@ -49,7 +49,9 @@ export default function FlockPage() {
   } = useDialog();
   const {
     can
-  } = usePermission();
+  } = usePermission('MENU_FARM_DATA');
+  // G23-B：can(role[]) → PBAC
+  const { canCreate: canCreateFlock, canEdit: canEditFlock } = usePermission('MENU_FARM_DATA');
   const {
     t
   } = useLanguage();
@@ -336,13 +338,13 @@ export default function FlockPage() {
     key: 'actions',
     title: t('common.operation', '操作'),
     width: '100px',
-    render: (_: unknown, row: FlockCard) => can(['ROLE_FARM_MGR', 'ROLE_ADMIN']) ? <div className={s.tableActions}>
+    render: (_: unknown, row: FlockCard) => canEditFlock ? <div className={s.tableActions}>
         <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>
         <button type="button" className={s.btnIconDanger} onClick={() => handleDelete(row)}><Trash2 size={12} /></button>
       </div> : null
   }];
   return <div className="animate-fade-in">
-      <PageHeader title={t('ui.鸡群档案', '鸡群档案')} subtitle={`${t('ui.当前共', '当前共')} ${flocks.length} ${t('ui.个鸡群批次', '个鸡群批次')}`} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.鸡群档案', '鸡群档案')]} actions={can(['ROLE_FARM_MGR', 'ROLE_ADMIN']) && <button type="button" className={s.btnPrimary} onClick={() => {
+      <PageHeader title={t('ui.鸡群档案', '鸡群档案')} subtitle={`${t('ui.当前共', '当前共')} ${flocks.length} ${t('ui.个鸡群批次', '个鸡群批次')}`} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.鸡群档案', '鸡群档案')]} actions={canEditFlock && <button type="button" className={s.btnPrimary} onClick={() => {
       setEditId(null);
       setForm(emptyForm());
       setShowDrawer(true);

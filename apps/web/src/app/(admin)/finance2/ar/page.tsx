@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, Clock, CheckCircle, Wallet, Search, RefreshCw, AlertTriangle, ChevronLeft, ChevronRight, Filter, Plus, X, AlertCircle, Ban, Receipt } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/design-system';
+import { usePermission } from '@/hooks/usePermission'; // G23-A 子 menu 分流
 import s from "@/components/ui/admin-ui.module.css";
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector, CustomerSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
@@ -849,6 +850,11 @@ type TabKey = 'invoices' | 'receipts' | 'aging';
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function Finance2ArPage() {
+  // G23-A：按子 menu 分流（A1 治理）
+  //   新建 AR    → MENU_FIN2_AR_MASTER:C
+  //   录入收款  → MENU_FIN2_AR_TXN:C
+  const { canCreate: canCreateAr }    = usePermission('MENU_FIN2_AR_MASTER');
+  const { canCreate: canCreateArTxn } = usePermission('MENU_FIN2_AR_TXN');
   const [tab, setTab] = useState<TabKey>('invoices');
 
   // AR 列表
@@ -971,12 +977,16 @@ export default function Finance2ArPage() {
             <button onClick={() => { loadInvoices(1); loadSummary(); }} disabled={invLoading} style={secondaryActionButton}>
               <RefreshCw size={13} style={{ animation: invLoading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
             </button>
-            <button onClick={() => setShowReceipt(true)} style={secondaryActionButton}>
-              <Receipt size={13} /> 录入收款
-            </button>
-            <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
-              <Plus size={13} /> 新建 AR
-            </button>
+            {canCreateArTxn && (
+              <button onClick={() => setShowReceipt(true)} style={secondaryActionButton}>
+                <Receipt size={13} /> 录入收款
+              </button>
+            )}
+            {canCreateAr && (
+              <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
+                <Plus size={13} /> 新建 AR
+              </button>
+            )}
           </div>} />
 
       {/* KPI */}

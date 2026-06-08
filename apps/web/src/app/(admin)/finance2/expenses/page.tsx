@@ -5,6 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import { Receipt, Plus, RefreshCw, Send, ChevronRight, AlertTriangle, DollarSign, Calendar, Building2 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/design-system';
+import { usePermission } from '@/hooks/usePermission'; // G23-A 子 menu 分流
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector } from '@/components/shared-selectors/MasterDataSelectors';
 
@@ -442,6 +443,9 @@ function ExpenseDrawer({
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function ExpensesPage() {
+  // G23-A：按子 menu 分流
+  //   新建费用申请 → MENU_FIN2_EXPENSE_MASTER:C
+  const { canCreate: canCreateExpense } = usePermission('MENU_FIN2_EXPENSE_MASTER');
   const [items, setItems] = useState<ExpenseRequest[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -489,9 +493,11 @@ export default function ExpensesPage() {
             <button onClick={() => void load()} disabled={loading} style={secondaryActionButton}>
               <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
             </button>
-            <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
-              <Plus size={13} /> 新建申请
-            </button>
+            {canCreateExpense && (
+              <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
+                <Plus size={13} /> 新建申请
+              </button>
+            )}
           </div>} />
 
       {/* KPI 快览 */}

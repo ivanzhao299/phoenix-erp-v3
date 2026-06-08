@@ -1,4 +1,15 @@
 'use client';
+/**
+ * @deprecated G21-3 — 新业务页一律使用 crudApi (lib/api-client.ts) + CrudPage 模板，
+ *   不再用 useCrud hook。本 hook 暂保留兼容 daily/flock/medicine/immune/henhouse 5 个
+ *   遗留页面，G23 阶段全部迁移完后整 hook 删除。
+ *
+ * 迁移指引：
+ *   旧：const { fetchRecords, createRecord, updateRecord } = useCrud('brd_xxx')
+ *       await createRecord(payload)
+ *   新：import { crudApi } from '@/lib/api-client'
+ *       await crudApi.create('brd_xxx', payload)
+ */
 import { useState, useCallback } from 'react';
 import { useDialog } from '../contexts/DialogContext';
 import { useLanguage } from '../contexts/LanguageContext';
