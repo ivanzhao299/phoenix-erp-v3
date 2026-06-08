@@ -185,6 +185,12 @@ G4-D 后支持 11 种 FieldType：text / number / select / date / datetime / tex
 - **不要**自己再加 `git push`
 - 如果要"只本地提交不推"需要先看 hook 决定怎么改（在 `.git/hooks/`）
 
+### 新 mig 必须放 `apps/api/migrations/`（G36 锁定）
+- 生产 Deploy 跑 `apps/api/migrations/2026*.sql`，**不跑顶级 /migrations/**
+- 顶级 /migrations/ 自 G34 起冻结（46 个历史 SQL，由 `.allowlist` 锁定）
+- CI step "Lock top-level migrations/ allowlist (F5-1)" 会检测顶级目录变动 → 红灯
+- 写新 SQL 时记得用 `apps/api/migrations/YYYYMMDD_*.sql`
+
 ### 中文 docx 文件经常无关变动
 - `docs/金凤凰ERP-生产初始化导入确认表-M5.docx` 会显示 modified 但不应入 commit
 - staging 时只 `git add` 当阶段相关文件，**不要** `git add -A`

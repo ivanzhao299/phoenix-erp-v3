@@ -71,6 +71,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # G36 · F5-1 治理：顶级 /migrations/ 自 G34 起冻结，新 SQL 必须 apps/api/migrations/
+      #   背景：G34 前 4 个 mig 误放顶级 → 生产 Deploy 跑 apps/api/migrations/ 不跑顶级 →
+      #         手动 SSH 修；同时老 mig 重置王玮华，G34 时间戳覆盖才解。
+      #   本 step：用 allowlist 锁住顶级目录文件清单，禁增删。
+      - name: Lock top-level migrations/ allowlist (F5-1)
+        run: |
+          if [ ! -f migrations/.allowlist ]; then
+            echo "::error::missing migrations/.allowlist (G36 治理基线缺失)"
+            exit 1
+          fi
+          actual=$(ls migrations/ 2>/dev/null | grep -v '^\.allowlist$' | sort)
+          expected=$(sort migrations/.allowlist)
+          if ! diff <(echo "$actual") <(echo "$expected") > /tmp/_diff.log 2>&1; then
+            echo "::error::❌ 顶级 migrations/ 文件清单与 allowlist 不符。新 SQL 必须放 apps/api/migrations/"
+            cat /tmp/_diff.log
+            exit 1
+          fi
+          echo "✅ 顶级 migrations/ 已锁定（46 个历史 SQL）"
+
       - name: Install system tools (psql + jq)
         run: |
           sudo apt-get update -qq
