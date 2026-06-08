@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useParams, useRouter } from 'next/navigation';
 import { Send, CheckCircle, FileText, ArrowLeft, AlertCircle, Copy, PlayCircle } from 'lucide-react';
+import PageHeader from '@/components/PageHeader'; // G28：全局化 + 业务用户感受一致
 import { WorkflowFormRenderer } from '@/components/workflow/WorkflowFormRenderer';
 import type { FormSchema, UiSchema } from '@/components/workflow/WorkflowFormRenderer';
 
@@ -491,63 +492,27 @@ export default function FormSubmitPage() {
     </div>;
 
   // 表单渲染
-  return <div style={{
-    padding: '28px 32px',
-    maxWidth: 680,
-    margin: '0 auto'
-  }}>
-
-      {/* 返回 + 标题 */}
-      <div className={u.mb24}>
-        <button onClick={() => router.push('/workflow/forms/runtime')} style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        padding: '6px 12px',
-        borderRadius: 8,
-        border: '1.5px solid var(--border)',
-        background: 'var(--bg-card)',
-        color: 'var(--text-secondary)',
-        fontSize: 13,
-        cursor: 'pointer',
-        marginBottom: 16
-      }}>
-          <ArrowLeft size={13} /> 返回表单列表
-        </button>
-
-        <div className={u.flexRow12}>
-          <div style={{
-          width: 44,
-          height: 44,
-          borderRadius: 12,
-          background: 'var(--status-special)18',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-            <FileText size={22} color="var(--status-special)" />
-          </div>
-          <div>
-            <h1 style={{
-            margin: 0,
-            fontSize: 20,
-            fontWeight: 800,
-            color: 'var(--text-primary)'
-          }}>{form.name}</h1>
-            <div style={{
-            fontSize: 12,
-            color: 'var(--text-disabled)',
-            marginTop: 2
+  return <div>
+      {/* G28：全局 PageHeader 替换自定义标题 */}
+      <PageHeader
+        title={form.name}
+        subtitle={`${form.code} · v${currentVersion.version_no}${form.biz_type ? ` · ${form.biz_type}` : ''}`}
+        breadcrumb={['工作流', '表单列表', form.name]}
+        actions={
+          <button onClick={() => router.push('/workflow/forms/runtime')} style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '6px 12px', borderRadius: 8,
+            border: '1.5px solid var(--border)',
+            background: 'var(--bg-card)',
+            color: 'var(--text-secondary)',
+            fontSize: 13, cursor: 'pointer',
           }}>
-              <span style={{
-              fontFamily: 'monospace'
-            }}>{form.code}</span>
-              {' · v'}{currentVersion.version_no}
-              {form.biz_type && ` · ${form.biz_type}`}
-            </div>
-          </div>
-        </div>
-      </div>
+            <ArrowLeft size={13} /> 返回列表
+          </button>
+        }
+      />
+
+      <div style={{ maxWidth: 680, margin: '0 auto' }}>
 
       {/* 表单卡片 */}
       <div style={{
@@ -630,5 +595,6 @@ export default function FormSubmitPage() {
     }}>
         提交后数据将保存为快照（版本 v{currentVersion.version_no}），不受后续版本变更影响
       </div>
+      </div> {/* G28：关闭 maxWidth 容器 */}
     </div>;
 }

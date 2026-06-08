@@ -1,11 +1,13 @@
 'use client';
 
-import { toast } from 'sonner';
+// G28：替换 sonner 第三方 toast → 项目 useToast 统一（全局化收口）
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileText, Plus, RefreshCw, ChevronRight, CheckCircle, Clock, Tag, Send, Eye, ArrowRight } from 'lucide-react';
 import { WorkflowFormRenderer } from '@/components/workflow/WorkflowFormRenderer';
 import type { FormSchema, UiSchema } from '@/components/workflow/WorkflowFormRenderer';
+import PageHeader from '@/components/PageHeader';
+import { useToast } from '@/contexts/ToastContext';
 import ui from "@/components/ui/admin-ui.module.css";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
@@ -86,6 +88,7 @@ function statusColor(s: string) {
 
 export default function WorkflowFormRuntimePage() {
   const router = useRouter();
+  const toast = useToast(); // G28：项目 useToast 替换 sonner
 
   // ── 列表状态 ──
   const [forms, setForms] = useState<FormDef[]>([]);
@@ -281,94 +284,24 @@ export default function WorkflowFormRuntimePage() {
 
   // ── 渲染 ────────────────────────────────────────────────────────────────────
 
-  return <div style={{
-    padding: '28px 32px',
-    maxWidth: 1400,
-    margin: '0 auto'
-  }}>
-
-      {/* 标题行 */}
-      <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 28
-    }}>
-        <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10
-      }}>
-          <div style={{
-          width: 42,
-          height: 42,
-          borderRadius: 12,
-          background: 'var(--status-special)18',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-            <FileText size={22} color="var(--status-special)" />
+  return <div>
+      {/* G28：替换自定义标题行为全局 PageHeader 组件 */}
+      <PageHeader
+        title="Workflow 表单运行时"
+        subtitle={`管理表单定义、版本和预览 · ${total} 个表单${refreshedAt ? ` · 更新于 ${refreshedAt.toLocaleTimeString('zh-CN')}` : ''}`}
+        breadcrumb={['工作流', '表单运行时']}
+        actions={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={loadForms} disabled={loading} className={ui.btnSecondary}>
+              <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+              刷新
+            </button>
+            <button onClick={() => { setShowCreate(true); setCreateError(''); }} className={ui.btnPrimary}>
+              <Plus size={14} /> 新建表单
+            </button>
           </div>
-          <div>
-            <h1 style={{
-            margin: 0,
-            fontSize: 22,
-            fontWeight: 800,
-            color: 'var(--text-primary)'
-          }}>Workflow 表单运行时</h1>
-            <p style={{
-            margin: 0,
-            fontSize: 13,
-            color: 'var(--text-secondary)'
-          }}>
-              管理表单定义、版本和预览 · {total} 个表单
-              {refreshedAt && ` · 更新于 ${refreshedAt.toLocaleTimeString('zh-CN')}`}
-            </p>
-          </div>
-        </div>
-        <div style={{
-        display: 'flex',
-        gap: 10
-      }}>
-          <button onClick={loadForms} disabled={loading} style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          padding: '8px 16px',
-          borderRadius: 10,
-          border: '1.5px solid var(--border)',
-          background: 'var(--bg-card)',
-          color: 'var(--text-secondary)',
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: 'pointer'
-        }}>
-            <RefreshCw size={14} style={{
-            animation: loading ? 'spin 1s linear infinite' : 'none'
-          }} />
-            刷新
-          </button>
-          <button onClick={() => {
-          setShowCreate(true);
-          setCreateError('');
-        }} style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          padding: '8px 16px',
-          borderRadius: 10,
-          border: 'none',
-          background: 'var(--status-special)',
-          color: 'var(--text-on-dark)',
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: 'pointer'
-        }}>
-            <Plus size={14} /> 新建表单
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {error && <div style={{
       background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)',
