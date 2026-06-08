@@ -404,7 +404,10 @@ export class FarmService {
          SUM(COALESCE(elimination_qty,0))::int AS elimination,
          SUM(feed_consumed)::numeric(12,2) AS feed,
          string_agg(DISTINCT culling_reason, '；')
-           FILTER (WHERE culling_reason IS NOT NULL AND culling_reason <> '') AS culling_reason
+           FILTER (WHERE culling_reason IS NOT NULL AND culling_reason <> '') AS culling_reason,
+         -- G27-D：mobile/henreport 显示 mortality_reason（G19-A 字段同步）
+         string_agg(DISTINCT mortality_reason, '；')
+           FILTER (WHERE mortality_reason IS NOT NULL AND mortality_reason <> '') AS mortality_reason
        FROM brd_daily_logs
        ${logWhere}
        GROUP BY COALESCE(house_code, flock_no), flock_no`,

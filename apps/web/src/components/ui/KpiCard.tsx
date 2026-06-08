@@ -1,13 +1,21 @@
 'use client';
 /**
- * KpiCard — 全系统统一 KPI 指标卡片
+ * @deprecated G27-A — 旧版 KpiCard。
+ *
+ * 新业务页一律使用 design-system/KpiCardV2（tone-based 接口）：
+ *   import { KpiCardV2 } from '@/components/design-system/KpiCardV2';
+ *
+ * 本文件保留是因为 7 个老业务页（finance2/sales2/*）大量使用 accentColor 接口，
+ * props 不兼容 V2，强迁移工作量大且无业务价值。
+ * 等业务方报视觉一致性问题时再单独迁移单页。
+ *
+ * KpiCard — 全系统统一 KPI 指标卡片（旧 API）
  * =====================================================
  * 单一标准：与「生产管理（养殖）」首页卡片完全一致 —
  *   · 白底卡片 + 左侧 4px 主色强调条（borderLeft）
  *   · 右上淡色图标盒（color-mix 12%）
  *   · 大号主色数字（28px，最大视觉权重）
  *   · 克制配色，不用大面积粉彩底
- * 改这一个文件即可统一所有引用页面（finance2 / sales2 / master-data ...）。
  */
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';

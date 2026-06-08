@@ -97,6 +97,17 @@ function HouseCard({ row }: { row: HenReportRow }) {
           <MetaChip label="淘汰" value={row.elimination} color="var(--status-warning)" />
           <MetaChip label="合计损耗" value={row.total_loss} color="var(--status-danger)" />
           <MetaChip label="饲料(kg)" value={row.feed > 0 ? row.feed.toFixed(1) : '—'} color="var(--status-success)" />
+          {row.mortality_reason && (
+            <div style={{
+              width: '100%', marginTop: 4,
+              padding: '8px 10px', borderRadius: 8,
+              background: 'rgba(239,68,68,0.08)',
+              border: '1px solid rgba(239,68,68,0.2)',
+              fontSize: 12, color: t.textSub,
+            }}>
+              死亡原因：{row.mortality_reason}
+            </div>
+          )}
           {row.culling_reason && (
             <div style={{
               width: '100%', marginTop: 4,

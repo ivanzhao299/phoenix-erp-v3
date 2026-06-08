@@ -21,7 +21,7 @@ import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/design-system';
 import RightDrawer from '@/components/RightDrawer';
-import { useCrud } from '@/hooks/useCrud';
+import { crudApi } from '@/lib/api-client'; // G27-C：useCrud → crudApi
 import { useDictOptions } from '@/hooks/useDictOptions';
 import { usePermission } from '@/hooks/usePermission';
 import { useToast } from '@/contexts/ToastContext';
@@ -88,17 +88,18 @@ export default function ImmunePage() {
       label: t('ui.已计划', '已计划')
     }
   };
-  const {
-    fetchRecords,
-    createRecord,
-    updateRecord
-  } = useCrud('brd_vaccinations');
-  const {
-    fetchRecords: fetchHouses
-  } = useCrud('brd_houses');
-  const {
-    fetchRecords: fetchFlocks
-  } = useCrud('brd_flocks');
+  // G27-C：useCrud → crudApi （deprecation 收口示范）
+  const fetchRecords = useCallback(() => crudApi.list('brd_vaccinations', { pageSize: 1000 }).then(r => r.data), []);
+  const fetchHouses  = useCallback(() => crudApi.list('brd_houses', { pageSize: 1000 }).then(r => r.data), []);
+  const fetchFlocks  = useCallback(() => crudApi.list('brd_flocks', { pageSize: 1000 }).then(r => r.data), []);
+  const createRecord = useCallback(async (data: Record<string, unknown>, _msg?: string) => {
+    try { await crudApi.create('brd_vaccinations', data); toast.success(_msg || t('common.success', '操作成功')); return true; }
+    catch { return false; /* G25-B 全局 toast 已捕获 error */ }
+  }, []);
+  const updateRecord = useCallback(async (id: number, data: Record<string, unknown>, _col?: string, _msg?: string) => {
+    try { await crudApi.update('brd_vaccinations', id, data); toast.success(_msg || t('common.success', '操作成功')); return true; }
+    catch { return false; }
+  }, []);
   const {
     options: vaccineOpts
   } = useDictOptions('BRD_VACCINE_TYPE');
@@ -165,8 +166,8 @@ export default function ImmunePage() {
       setFlockMap(map);
       if (f?.[0]) setForm(p => ({
         ...p,
-        batchNo: p.batchNo || f[0].flock_no,
-        farmHouse: p.farmHouse || f[0].house_code || ''
+        batchNo: p.batchNo || String(f[0].flock_no ?? ''),
+        farmHouse: p.farmHouse || String(f[0].house_code ?? '')
       }));
     }).catch(() => {});
   }, []);

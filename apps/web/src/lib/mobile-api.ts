@@ -257,6 +257,7 @@ export interface HenReportRow {
   elimination:    number;
   total_loss:     number;
   culling_reason: string | null;
+  mortality_reason: string | null;  // G27-D: 与 PC G19-A 同步
   feed:           number;
 }
 
