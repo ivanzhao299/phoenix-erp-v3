@@ -71,7 +71,8 @@ export default function MedStockPage() {
   const {
     t
   } = useLanguage();
-  const canEdit = can(['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_VET', 'ROLE_QA_MGR']);
+  // G24-A：PBAC 收口 — 药品库存归 MENU_FARM_VET 域
+  const { canEdit } = usePermission('MENU_FARM_VET');
   const [tab, setTab] = useState<Tab>('stock');
   const [search, setSearch] = useState('');
   const [stock, setStock] = useState<MedStock[]>([]);

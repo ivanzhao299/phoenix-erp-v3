@@ -59,6 +59,8 @@ export default function ImmunePage() {
   const {
     can
   } = usePermission();
+  // G24-A：can(role[]) → PBAC（MENU_FARM_VET：免疫记录归兽医防疫域）
+  const { canCreate: canCreateImm, canEdit: canEditImm } = usePermission('MENU_FARM_VET');
   const [filter, setFilter] = useState('all');
   const [showDrawer, setShowDrawer] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -354,12 +356,12 @@ export default function ImmunePage() {
     title: t('common.operation', '操作'),
     width: '120px',
     render: (_: unknown, row: ImmunePlan) => <div className={s.tableActions}>
-        {can(['ROLE_VET', 'ROLE_ADMIN']) && normStatus(row.status) === 'PENDING' && <button type="button" className={`${s.btn} ${s.btnSm}`} style={{
+        {canEditImm && normStatus(row.status) === 'PENDING' && <button type="button" className={`${s.btn} ${s.btnSm}`} style={{
         background: 'var(--status-success)',
         color: 'var(--text-on-dark)',
         border: 'none'
       }} onClick={() => handleRecordVaccine(row)}><CheckCircle size={12} />{t('ui.执行', '执行')}</button>}
-        {can(['ROLE_VET', 'ROLE_FARM_MGR', 'ROLE_ADMIN']) && <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>}
+        {canCreateImm && <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>}
       </div>
   }];
   const KPI_CARDS = [{
@@ -380,7 +382,7 @@ export default function ImmunePage() {
     color: 'var(--status-success)'
   }];
   return <div className="animate-fade-in">
-      <PageHeader title={t('ui.免疫计划', '免疫计划')} subtitle={t('ui.管理所有鸡群的疫苗免疫计划与执行记录', '管理所有鸡群的疫苗免疫计划与执行记录')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.免疫计划', '免疫计划')]} actions={can(['ROLE_VET', 'ROLE_FARM_MGR', 'ROLE_ADMIN']) && <button type="button" className={s.btnPrimary} onClick={() => {
+      <PageHeader title={t('ui.免疫计划', '免疫计划')} subtitle={t('ui.管理所有鸡群的疫苗免疫计划与执行记录', '管理所有鸡群的疫苗免疫计划与执行记录')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.免疫计划', '免疫计划')]} actions={canCreateImm && <button type="button" className={s.btnPrimary} onClick={() => {
       setEditId(null);
       setForm({
         ...EMPTY_FORM,

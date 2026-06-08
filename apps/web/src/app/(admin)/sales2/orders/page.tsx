@@ -202,9 +202,8 @@ export default function SalesV2OrdersPage() {
   const {
     can
   } = usePermission();
-  const canCreate = can(['ROLE_ADMIN', 'ROLE_SALES_MGR', 'ROLE_SALES_REP']);
-  const canApprove = can(['ROLE_ADMIN', 'ROLE_SALES_MGR', 'ROLE_CEO', 'ROLE_FIN_CFO']);
-  const canTransit = can(['ROLE_ADMIN', 'ROLE_SALES_MGR', 'ROLE_LOG_MGR']);
+  // G24-A：PBAC 收口（销售订单域 MENU_SALES2_ORDER）
+  const { canCreate, canApprove, canEdit: canTransit } = usePermission('MENU_SALES2_ORDER');
 
   // 列表状态
   const [orders, setOrders] = useState<Order[]>([]);

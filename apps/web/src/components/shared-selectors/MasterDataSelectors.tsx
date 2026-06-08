@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import request from '@/lib/api-client';
+import { fetchDictMap } from '@/lib/dict-cache'; // G25-A 字典异步缓存
 
 /**
  * 统一主数据选择器（G4-A 财务单据主数据驱动 + G5-B Lookup 范式化 + G7 收口）
@@ -349,13 +350,9 @@ export function FarmSelector(p: BaseProps) {
     }} />;
 }
 
-// ── 鸡舍（brd_houses，G5-B 切 /api/lookup；G17 加 siteCode 支持；G18-1 label 去英文）
-//   houseType (LAYER/BREEDER/...) 走 BRD_HOUSE_TYPE 字典中文映射；
-//   字典未 seed 时优雅退化为不显示类型，避免英文 enum 字面值 dump 到下拉。
-const HOUSE_TYPE_ZH: Record<string, string> = {
-  LAYER: '蛋鸡舍', BREEDER: '种鸡舍', HATCHERY: '孵化舍',
-  PULLET: '育雏舍', GROWER: '育成舍', BROILER: '肉鸡舍',
-};
+// ── 鸡舍（brd_houses）— G25-A 字典完整化（D1 治理收口）
+//   houseType 走 sys_dict.BRD_HOUSE_TYPE 异步拉取 + 模块级 5min 缓存
+//   彻底删除 HOUSE_TYPE_ZH 硬编码 map；字典 seed 改动无需改前端
 export function HouseSelector(p: BaseProps & { farmCode?: string; siteCode?: string }) {
   const { farmCode, siteCode, ...rest } = p;
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择鸡舍'}
@@ -364,16 +361,18 @@ export function HouseSelector(p: BaseProps & { farmCode?: string; siteCode?: str
       if (farmCode) qs.set('farmCode', farmCode);
       if (siteCode) qs.set('siteCode', siteCode);
       const url = qs.toString() ? `/lookup/houses?${qs.toString()}` : '/lookup/houses';
-      const list = await lookupArr<any>(url);
-      return list
-        .map(h => {
-          const typeZh = h.houseType ? (HOUSE_TYPE_ZH[h.houseType] ?? '') : '';
-          return {
-            value: h.houseCode,
-            label: typeZh ? `${h.houseName ?? h.houseCode} · ${typeZh}` : (h.houseName ?? h.houseCode),
-            raw: h,
-          };
-        });
+      const [list, typeMap] = await Promise.all([
+        lookupArr<any>(url),
+        fetchDictMap('BRD_HOUSE_TYPE'),
+      ]);
+      return list.map(h => {
+        const typeZh = h.houseType ? (typeMap[h.houseType] ?? '') : '';
+        return {
+          value: h.houseCode,
+          label: typeZh ? `${h.houseName ?? h.houseCode} · ${typeZh}` : (h.houseName ?? h.houseCode),
+          raw: h,
+        };
+      });
     }} />;
 }
 

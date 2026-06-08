@@ -96,6 +96,13 @@ export interface ApiError extends Error {
 function makeError(message: string, status?: number, code?: ApiError['code'], subcode?: AuthSubcode): ApiError {
   const e = new Error(message) as ApiError;
   e.status = status; e.code = code; e.subcode = subcode;
+  // G25-B：派发全局 api-error 事件，ToastContext 自动 show error toast
+  //   401 已有专门 dispatchAuthExpired 处理（跳登录），这里不重复
+  if (typeof window !== 'undefined' && status !== 401) {
+    window.dispatchEvent(new CustomEvent('api-error', {
+      detail: { message, status, code, subcode }
+    }));
+  }
   return e;
 }
 

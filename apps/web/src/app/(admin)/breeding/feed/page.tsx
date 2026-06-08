@@ -68,7 +68,8 @@ export default function FeedLedgerPage() {
   const {
     t
   } = useLanguage();
-  const canEdit = can(['ROLE_ADMIN', 'ROLE_FARM_MGR', 'ROLE_VET']);
+  // G24-A：PBAC 收口
+  const { canEdit } = usePermission('MENU_FARM_FEED');
   const [date, setDate] = useState(today());
   const [rows, setRows] = useState<FeedRow[]>([]);
   const [houses, setHouses] = useState<string[]>([]);

@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 
 interface Toast { id: number; type: string; message: string; }
@@ -9,10 +9,10 @@ const ToastContext = createContext<ReturnType<typeof buildToast> | null>(null);
 
 const ICONS: Record<string, string> = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
 const COLORS: Record<string, ToastColor> = {
-  success: { border:'#10b981', bg:'rgba(16,185,129,0.08)' },
-  error:   { border:'#ef4444', bg:'rgba(239,68,68,0.08)' },
-  warning: { border:'#f59e0b', bg:'rgba(245,158,11,0.08)' },
-  info:    { border:'#3b82f6', bg:'rgba(59,130,246,0.08)' },
+  success: { border:'var(--status-success)', bg:'rgba(16,185,129,0.08)' },
+  error:   { border:'var(--status-danger)', bg:'rgba(239,68,68,0.08)' },
+  warning: { border:'var(--status-warning)', bg:'rgba(245,158,11,0.08)' },
+  info:    { border:'var(--status-info)', bg:'rgba(59,130,246,0.08)' },
 };
 
 function buildToast(add: (type: string, message: string) => void) {
@@ -80,6 +80,19 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const remove = useCallback((id: number) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
+
+  // G25-B：监听 api-client 派发的全局 api-error 事件，自动显示后端错误 toast
+  //   解决 F2 欠债：之前后端 error 静默丢失（页面 catch 不一定 toast），调试困难
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { message: string; status?: number; code?: string };
+      const prefix = detail.status ? `[${detail.status}] ` : '';
+      add('error', `${prefix}${detail.message ?? 'API 请求失败'}`);
+    };
+    window.addEventListener('api-error', handler);
+    return () => window.removeEventListener('api-error', handler);
+  }, [add]);
+
   const toast = buildToast(add);
   return (
     <ToastContext.Provider value={toast}>
