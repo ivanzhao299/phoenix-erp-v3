@@ -436,12 +436,13 @@ function TodoTimeline({ todoList, todoCount }: { todoList: TodoTask[]; todoCount
 // 经营概览（紧凑 5 卡 horizontal）
 // ══════════════════════════════════════════════════════
 function BusinessOverview({ hasPermission }: { hasPermission: (m: string) => boolean }) {
-  // G12：经营概览卡片加 perm 字段按权限过滤 + 修复 cash 错路径
-  // 之前 /finance2/cash 不存在（实际是 cash-accounts）→ admin/宋明光都 404
-  // 之前不按权限过滤 → 宋明光看到应收/应付但无权访问点击触发 404
+  // G20-3 IA 立宪（B1 欠债治理）：经营概览 vs 业务中心导航职责划清
+  //   · BusinessOverview = 财务指标导航（销售/现金/应收/应付）
+  //   · SHORTCUTS         = 业务中心 8 大入口（客户/供应商/采购/销售/财务/库存/工作流/数据质量）
+  //   删"库存"卡 — 与 SHORTCUTS.inventory 完全重叠（同 href / 同 perm，纯重复）
+  //   后续 G21+ 计划：BusinessOverview 进一步改为纯指标卡（带今日数字、删 href），与 SHORTCUTS 完全分离
   const allCards = [
     { label: '销售', icon: ShoppingCart,     accent: '#10B981', href: '/sales2',                sub: '订单 · 收款',  perm: 'MENU_SALES2' },
-    { label: '库存', icon: Package,          accent: '#EAB308', href: '/warehouse',             sub: '批次 · 调拨',  perm: 'MENU_WMS_VIEW' },
     { label: '现金', icon: CircleDollarSign, accent: '#3B82F6', href: '/finance2/cash-accounts', sub: '账户 · 流水',  perm: 'MENU_FIN2_CASH' },
     { label: '应收', icon: Receipt,          accent: '#06B6D4', href: '/finance2/ar',           sub: '发票 · 账龄',  perm: 'MENU_FIN2_AR' },
     { label: '应付', icon: CreditCard,       accent: '#A855F7', href: '/finance2/ap',           sub: '账期 · 付款',  perm: 'MENU_FIN2_AP' },

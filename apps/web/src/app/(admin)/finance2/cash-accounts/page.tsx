@@ -6,6 +6,7 @@ import u from "@/styles/uix-utils.module.css";
 import { Wallet, Plus, Search, RefreshCw, Lock, Unlock, X, TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/design-system';
+import { usePermission } from '@/hooks/usePermission'; // G20-2 子 menu 按钮分流
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -467,6 +468,12 @@ function TransactionDrawer({
 // ── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CashAccountsPage() {
+  // G20-2：按钮按子 menu 分流（A1 欠债治理）
+  //   新建账户 → MENU_FIN2_CASH_MASTER:C
+  //   收/付款  → MENU_FIN2_CASH_TXN:C
+  //   宋明光持 TXN:C 但不持 MASTER:C，可记账不可建账户
+  const { canCreate: canCreateAccount } = usePermission('MENU_FIN2_CASH_MASTER');
+  const { canCreate: canCreateTxn }     = usePermission('MENU_FIN2_CASH_TXN');
   const [accounts, setAccounts] = useState<CashAccount[]>([]);
   const [summary, setSummary] = useState<AccountSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -531,15 +538,21 @@ export default function CashAccountsPage() {
   return <div>
       <PageHeader title="资金账户中心" subtitle="资金账户管理 · 流水账本 · 转账审批" breadcrumb={['财务管理', '资金账户']} actions={
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => setTxnModal({ direction: 'IN' })} style={{ ...secondaryActionButton, color: 'var(--status-success)', borderColor: 'var(--status-success)' }}>
-            <Plus size={13} /> 收款
-          </button>
-          <button onClick={() => setTxnModal({ direction: 'OUT' })} style={{ ...secondaryActionButton, color: 'var(--status-danger)', borderColor: 'var(--status-danger)' }}>
-            <Plus size={13} /> 付款
-          </button>
-          <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
-            <Plus size={15} /> 新建账户
-          </button>
+          {canCreateTxn && (
+            <button onClick={() => setTxnModal({ direction: 'IN' })} style={{ ...secondaryActionButton, color: 'var(--status-success)', borderColor: 'var(--status-success)' }}>
+              <Plus size={13} /> 收款
+            </button>
+          )}
+          {canCreateTxn && (
+            <button onClick={() => setTxnModal({ direction: 'OUT' })} style={{ ...secondaryActionButton, color: 'var(--status-danger)', borderColor: 'var(--status-danger)' }}>
+              <Plus size={13} /> 付款
+            </button>
+          )}
+          {canCreateAccount && (
+            <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
+              <Plus size={15} /> 新建账户
+            </button>
+          )}
         </div>
       } />
 
