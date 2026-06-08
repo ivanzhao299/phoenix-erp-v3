@@ -29,21 +29,22 @@ function authHeaders(extra?: Record<string, string>) {
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+// G36-5: API 返回 snake_case，对齐字段名（避免 21 卡片字段全空 bug 复发）
 interface CashAccount {
   id: string;
-  accountCode: string;
-  accountName: string;
-  companyCode: string;
-  companyName: string | null;
-  currencyCode: string;
-  accountType: string;
-  openingBalance: string | number;
-  currentBalance: string | number;
-  bankName: string | null;
-  bankAccountNo: string | null;
+  account_code: string;
+  account_name: string;
+  company_code: string;
+  company_name: string | null;
+  currency_code: string;
+  account_type: string;
+  opening_balance: string | number;
+  current_balance: string | number;
+  bank_name: string | null;
+  bank_account_no: string | null;
   status: string;
   remark: string | null;
-  createdAt: string;
+  created_at: string;
 }
 interface AccountSummary {
   totalAccounts: number;
@@ -59,15 +60,15 @@ interface AccountSummary {
 }
 interface Transaction {
   id: string;
-  txnNo: string;
+  txn_no: string;
   direction: string;
-  sourceType: string;
-  sourceNo: string | null;
+  source_type: string;
+  source_no: string | null;
   amount: string | number;
-  balanceAfter: string | number;
-  txnDate: string;
+  balance_after: string | number;
+  txn_date: string;
   remark: string | null;
-  createdAt: string;
+  created_at: string;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -355,11 +356,11 @@ function TransactionDrawer({
             <div className="text-text" style={{
             fontWeight: 700,
             fontSize: 16
-          }}>{account.accountName}</div>
+          }}>{account.account_name}</div>
             <div className="text-text-muted" style={{
             fontSize: 12,
             marginTop: 2
-          }}>{account.accountCode} · {account.currencyCode}</div>
+          }}>{account.account_code} · {account.currency_code}</div>
           </div>
           <button onClick={onClose} style={{
           background: 'none',
@@ -387,14 +388,14 @@ function TransactionDrawer({
           fontWeight: 800,
           letterSpacing: -1
         }}>
-            {account.currencyCode} {fmt(account.currentBalance)}
+            {account.currency_code} {fmt(account.current_balance)}
           </div>
           <div style={{
           fontSize: 12,
           opacity: 0.7,
           marginTop: 4
         }}>
-            期初余额 {fmt(account.openingBalance)}
+            期初余额 {fmt(account.opening_balance)}
           </div>
         </div>
 
@@ -436,12 +437,12 @@ function TransactionDrawer({
                 fontSize: 12,
                 fontWeight: 600
               }}>
-                      {SOURCE_TYPE_LABELS[t.sourceType ?? ''] ?? t.sourceType ?? '-'}
+                      {SOURCE_TYPE_LABELS[t.source_type ?? ''] ?? t.source_type ?? '-'}
                     </span>
-                    {t.sourceNo && <span className={`text-text-dim ${u.fs11}`}>{t.sourceNo}</span>}
+                    {t.source_no && <span className={`text-text-dim ${u.fs11}`}>{t.source_no}</span>}
                   </div>
                   <div className={`text-text-muted ${u.fs11}`}>
-                    {new Date(t.txnDate).toLocaleString('zh-CN', {
+                    {new Date(t.txn_date).toLocaleString('zh-CN', {
                 month: '2-digit',
                 day: '2-digit',
                 hour: '2-digit',
@@ -457,7 +458,7 @@ function TransactionDrawer({
             }} className={t.direction === 'IN' ? 'text-success' : 'text-orange-600 dark:text-orange-400'}>
                     {t.direction === 'IN' ? '+' : '-'}{fmt(t.amount)}
                   </div>
-                  <div className={`text-text-dim ${u.fs11}`}>余 {fmt(t.balanceAfter)}</div>
+                  <div className={`text-text-dim ${u.fs11}`}>余 {fmt(t.balance_after)}</div>
                 </div>
               </div>)}
           </div>}
@@ -695,9 +696,9 @@ export default function CashAccountsPage() {
               fontSize: 14,
               marginBottom: 4
             }}>
-                    {acc.accountName}
+                    {acc.account_name}
                   </div>
-                  <div className={`text-text-muted ${u.fs11}`}>{acc.accountCode}</div>
+                  <div className={`text-text-muted ${u.fs11}`}>{acc.account_code}</div>
                 </div>
                 <div style={{
             display: 'flex',
@@ -706,7 +707,7 @@ export default function CashAccountsPage() {
             gap: 4
           }}>
                   <StatusBadge status={acc.status} label={STATUS_LABELS[acc.status] ?? acc.status} />
-                  <TypeBadge type={acc.accountType} />
+                  <TypeBadge type={acc.account_type} />
                 </div>
               </div>
 
@@ -728,15 +729,15 @@ export default function CashAccountsPage() {
               fontWeight: 800,
               fontSize: 18
             }}>
-                    {acc.currencyCode} {fmt(acc.currentBalance)}
+                    {acc.currency_code} {fmt(acc.current_balance)}
                   </div>
                 </div>
-                {acc.bankName && <div className="text-text-muted" style={{
+                {acc.bank_name && <div className="text-text-muted" style={{
             fontSize: 11,
             textAlign: 'right'
           }}>
-                    <div>{acc.bankName}</div>
-                    {acc.bankAccountNo && <div className="text-text-dim">{acc.bankAccountNo.slice(-4).padStart(acc.bankAccountNo.length, '*')}</div>}
+                    <div>{acc.bank_name}</div>
+                    {acc.bank_account_no && <div className="text-text-dim">{acc.bank_account_no.slice(-4).padStart(acc.bank_account_no.length, '*')}</div>}
                   </div>}
               </div>
 
@@ -752,7 +753,7 @@ export default function CashAccountsPage() {
                     <Unlock size={11} /> 解冻
                   </button>}
                 {acc.status !== 'CLOSED' && <button onClick={() => {
-            if (confirm(`确认关闭账户「${acc.accountName}」？关闭后不可恢复，且余额必须为零。`)) {
+            if (confirm(`确认关闭账户「${acc.account_name}」？关闭后不可恢复，且余额必须为零。`)) {
               void doAction(acc.id, 'close');
             }
           }} className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-border bg-bg-muted text-text-muted hover:bg-bg-muted transition-colors">
@@ -841,8 +842,8 @@ function ManualTxnModal({ direction, accounts, onClose, onCreated }: {
             <select style={inputField} value={accountCode} onChange={e => setAccountCode(e.target.value)}>
               <option value="">请选择账户</option>
               {accounts.filter(a => a.status === 'ACTIVE').map(a => (
-                <option key={a.accountCode} value={a.accountCode}>
-                  {a.accountName}（{a.accountCode} · {a.currencyCode}）
+                <option key={a.account_code} value={a.account_code}>
+                  {a.account_name}（{a.account_code} · {a.currency_code}）
                 </option>
               ))}
             </select>
