@@ -27,17 +27,19 @@ DECLARE
   role_id_var    INTEGER;
 BEGIN
   -- § 1. 加子 menu
+  -- sys_menu 实列：menu_id/menu_code/menu_name_zh/menu_name_lo/domain/parent_code/sort_order/icon/route
+  -- 无 menu_name_en / status 列（之前 mig 写法错）
   IF NOT EXISTS (SELECT 1 FROM sys_menu WHERE menu_code='MENU_FIN2_CASH_MASTER') THEN
-    INSERT INTO sys_menu (menu_code, menu_name_zh, menu_name_lo, menu_name_en, parent_code, status, sort_order)
-    VALUES ('MENU_FIN2_CASH_MASTER', '现金账户主档', '', 'Cash Account Master', 'MENU_FIN2_CASH', 'ACTIVE', 10);
+    INSERT INTO sys_menu (menu_code, menu_name_zh, menu_name_lo, domain, parent_code, sort_order)
+    VALUES ('MENU_FIN2_CASH_MASTER', '现金账户主档', '', 'FIN2', 'MENU_FIN2_CASH', 10);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM sys_menu WHERE menu_code='MENU_FIN2_CASH_TXN') THEN
-    INSERT INTO sys_menu (menu_code, menu_name_zh, menu_name_lo, menu_name_en, parent_code, status, sort_order)
-    VALUES ('MENU_FIN2_CASH_TXN', '现金收付记账', '', 'Cash Transaction', 'MENU_FIN2_CASH', 'ACTIVE', 20);
+    INSERT INTO sys_menu (menu_code, menu_name_zh, menu_name_lo, domain, parent_code, sort_order)
+    VALUES ('MENU_FIN2_CASH_TXN', '现金收付记账', '', 'FIN2', 'MENU_FIN2_CASH', 20);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM sys_menu WHERE menu_code='MENU_FIN2_CASH_VIEW') THEN
-    INSERT INTO sys_menu (menu_code, menu_name_zh, menu_name_lo, menu_name_en, parent_code, status, sort_order)
-    VALUES ('MENU_FIN2_CASH_VIEW', '现金账户查看', '', 'Cash Account View', 'MENU_FIN2_CASH', 'ACTIVE', 30);
+    INSERT INTO sys_menu (menu_code, menu_name_zh, menu_name_lo, domain, parent_code, sort_order)
+    VALUES ('MENU_FIN2_CASH_VIEW', '现金账户查看', '', 'FIN2', 'MENU_FIN2_CASH', 30);
   END IF;
 
   RAISE NOTICE '[g20-2] § 1 现金子 menu 已 seed';
