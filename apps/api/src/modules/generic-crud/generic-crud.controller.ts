@@ -216,7 +216,21 @@ export class GenericCrudController {
     if ((table === 'wms_outbound' || table === 'wms_inbound') && !body.site_code && sc && sc.startsWith('SITE-')) {
       body.site_code = sc;
     }
-    
+
+    // G31：自动注入 operator/picker/auditor/executor/creator 默认 = 当前登录用户
+    //   业务方原话："谁操作不就应该默认是谁吗？还需要选择吗？"
+    //   策略：前端字段保留（代录入场景仍可改），未填则后端自动用 req.user.username
+    const currentUser: string = req.user?.username || '';
+    const OPERATOR_FIELDS = ['operator', 'picker', 'auditor', 'executor', 'creator', 'created_by', 'recorded_by'];
+    if (currentUser) {
+      for (const f of OPERATOR_FIELDS) {
+        if (body[f] === undefined || body[f] === null || body[f] === '') {
+          // 仅当字段在该表 INSERT 上下文中可写时填（generic-crud.service 会丢未知列）
+          body[f] = currentUser;
+        }
+      }
+    }
+
     // Minimal safety check
     const fields = Object.keys(body);
     if (!fields.every((f) => /^[a-zA-Z0-9_]+$/.test(f))) {

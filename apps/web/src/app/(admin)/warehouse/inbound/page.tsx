@@ -64,7 +64,8 @@ export default function InboundPage() {
     { key: "item",           label: t("ui.物料/品目", "物料/品目"), type: "text", required: true,
       placeholder: t("ui.物料品目placeholder", "如：玉米/豆粕/兽药编码/包材...") },
     { key: "qty",            label: t("ui.数量",     "数量"),      type: "number", required: true },
-    { key: "operator",       label: t("ui.操作员",   "操作员"),    type: "user"   },
+    // G31: 默认自动取当前登录用户（generic-crud 后端注入），手动选可代录入
+    { key: "operator",       label: t("ui.操作员",   "操作员（留空=当前用户）"),    type: "user"   },
     { key: "attachment_url", label: t("ui.入库附件", "入库附件"),  type: "attachment" },
     { key: "remark",         label: t("common.remark","备注"),     type: "textarea" },
     { key: "status", label: t("common.status", "状态"), type: "select", options: [
