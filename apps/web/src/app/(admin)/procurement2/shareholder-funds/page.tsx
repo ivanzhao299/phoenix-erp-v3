@@ -8,6 +8,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { Search, RefreshCw, Eye, Plus, Send } from "lucide-react";
 import { DictSelect } from "@/components/shared-selectors/DictSelect";
 import { CompanySelector, ShareholderSelector, ProjectSelector } from "@/components/shared-selectors/MasterDataSelectors";
+import { inputFieldClass } from "@/components/design-system/cockpit-styles";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -640,101 +641,41 @@ export default function ShareholderFundsPage() {
         flexDirection: "column",
         gap: 14
       }}>
-          {/* G4-A：股东 = 主数据，自动带出股东姓名 */}
-          <label style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 4
-        }}>
-            <span className={u.muted12}>股东 *</span>
-            <ShareholderSelector value={createForm.shareholderId ?? ""} onChange={v => setCreateForm(prev => ({
-            ...prev,
-            shareholderId: v
-          }))} onPick={o => setCreateForm(prev => ({
-            ...prev,
-            shareholderName: o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.label ?? ""
-          }))} />
-          </label>
-          <label style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 4
-        }}>
-            <span className={u.muted12}>股东姓名</span>
-            <input value={createForm.shareholderName} readOnly placeholder="由股东选择自动带出" style={{
-            padding: "7px 10px",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            fontSize: 13,
-            background: "var(--bg-muted)",
-            color: "var(--text-secondary)"
-          }} />
-          </label>
-          <label style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 4
-        }}>
-            <span className={u.muted12}>金额 *</span>
-            <input type="number" placeholder="输入原币金额" value={createForm.amountOriginal} onChange={e => setCreateForm(prev => ({
-            ...prev,
-            amountOriginal: e.target.value
-          }))} style={{
-            padding: "7px 10px",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            fontSize: 13,
-            background: "var(--bg-input)",
-            color: "var(--text-primary)"
-          }} />
-          </label>
-          <label style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 4
-        }}>
-            <span className={u.muted12}>汇率</span>
-            <input type="number" placeholder="对基准货币汇率，默认1" value={createForm.exchangeRate} onChange={e => setCreateForm(prev => ({
-            ...prev,
-            exchangeRate: e.target.value
-          }))} style={{
-            padding: "7px 10px",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            fontSize: 13,
-            background: "var(--bg-input)",
-            color: "var(--text-primary)"
-          }} />
-          </label>
-          {/* G4-A：公司主数据，DataScope 自动过滤 */}
-          <label style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 4
-        }}>
+          {/* G39：公司前置 → 切公司清空股东/项目，股东与项目随公司收窄 */}
+          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span className={u.muted12}>公司</span>
             <CompanySelector value={createForm.companyCode} onChange={v => setCreateForm(prev => ({
-            ...prev,
-            companyCode: v
-          }))} onPick={o => setCreateForm(prev => ({
-            ...prev,
-            companyName: o?.label ?? ""
-          }))} />
+              ...prev, companyCode: v, shareholderId: "", shareholderName: "", projectCode: "", projectName: ""
+            }))} onPick={o => setCreateForm(prev => ({ ...prev, companyName: o?.label ?? "" }))} />
           </label>
-          <label style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 4
-        }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span className={u.muted12}>公司名称</span>
-            <input value={createForm.companyName} readOnly placeholder="由公司选择自动带出" style={{
-            padding: "7px 10px",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            fontSize: 13,
-            background: "var(--bg-muted)",
-            color: "var(--text-secondary)"
-          }} />
+            <input value={createForm.companyName} readOnly placeholder="由公司选择自动带出"
+              className={inputFieldClass} style={{ background: "var(--bg-muted)", color: "var(--text-secondary)", cursor: "not-allowed" }} />
+          </label>
+          {/* G39：股东按公司过滤（先选公司） */}
+          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span className={u.muted12}>股东 *</span>
+            <ShareholderSelector companyCode={createForm.companyCode} disabled={!createForm.companyCode}
+              value={createForm.shareholderId ?? ""} onChange={v => setCreateForm(prev => ({ ...prev, shareholderId: v }))}
+              onPick={o => setCreateForm(prev => ({ ...prev, shareholderName: o?.raw?.name ?? o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.label ?? "" }))} />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span className={u.muted12}>股东姓名</span>
+            <input value={createForm.shareholderName} readOnly placeholder={createForm.companyCode ? "由股东选择自动带出" : "请先选择公司"}
+              className={inputFieldClass} style={{ background: "var(--bg-muted)", color: "var(--text-secondary)", cursor: "not-allowed" }} />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span className={u.muted12}>金额 *</span>
+            <input type="number" placeholder="输入原币金额" value={createForm.amountOriginal} onChange={e => setCreateForm(prev => ({
+              ...prev, amountOriginal: e.target.value
+            }))} className={inputFieldClass} />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span className={u.muted12}>汇率</span>
+            <input type="number" placeholder="对基准货币汇率，默认1" value={createForm.exchangeRate} onChange={e => setCreateForm(prev => ({
+              ...prev, exchangeRate: e.target.value
+            }))} className={inputFieldClass} />
           </label>
           {/* G4-A：项目主数据(shr_projects)，自动带出名称 */}
           <label style={{
@@ -743,7 +684,8 @@ export default function ShareholderFundsPage() {
           gap: 4
         }}>
             <span className={u.muted12}>项目</span>
-            <ProjectSelector value={createForm.projectCode} onChange={v => setCreateForm(prev => ({
+            {/* G39：项目也按公司过滤 */}
+            <ProjectSelector companyCode={createForm.companyCode} value={createForm.projectCode} onChange={v => setCreateForm(prev => ({
             ...prev,
             projectCode: v
           }))} onPick={o => setCreateForm(prev => ({
@@ -751,56 +693,22 @@ export default function ShareholderFundsPage() {
             projectName: o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? ""
           }))} />
           </label>
-          <label style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 4
-        }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span className={u.muted12}>项目名称</span>
-            <input value={createForm.projectName} readOnly placeholder="由项目选择自动带出" style={{
-            padding: "7px 10px",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            fontSize: 13,
-            background: "var(--bg-muted)",
-            color: "var(--text-secondary)"
-          }} />
+            <input value={createForm.projectName} readOnly placeholder="由项目选择自动带出"
+              className={inputFieldClass} style={{ background: "var(--bg-muted)", color: "var(--text-secondary)", cursor: "not-allowed" }} />
           </label>
-          <label style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 4
-        }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span className={u.muted12}>发生日期</span>
             <input type="date" value={createForm.occurredDate} onChange={e => setCreateForm(prev => ({
-            ...prev,
-            occurredDate: e.target.value
-          }))} style={{
-            padding: "7px 10px",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            fontSize: 13,
-            background: "var(--bg-input)",
-            color: "var(--text-primary)"
-          }} />
+              ...prev, occurredDate: e.target.value
+            }))} className={inputFieldClass} />
           </label>
-          <label style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 4
-        }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span className={u.muted12}>备注</span>
             <input type="text" placeholder="可选" value={createForm.remark} onChange={e => setCreateForm(prev => ({
-            ...prev,
-            remark: e.target.value
-          }))} style={{
-            padding: "7px 10px",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            fontSize: 13,
-            background: "var(--bg-input)",
-            color: "var(--text-primary)"
-          }} />
+              ...prev, remark: e.target.value
+            }))} className={inputFieldClass} />
           </label>
           {/* G4-A：资金性质来自 sys_dict(FIN_FUND_NATURE) */}
           <label style={{

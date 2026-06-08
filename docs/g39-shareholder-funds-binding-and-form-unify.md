@@ -49,5 +49,9 @@
 - 运行期冒烟（需服务起后）：选公司→股东下拉只列该公司股东；换公司→股东清空重列；
   所有控件等高对齐。
 
-## 五、登账（未本阶段处理）
-- `procurement2/shareholder-funds` 是同名兄弟页，若也走「新建股东资金记录」，可比照本阶段统一。
+## 五、兄弟页同步（G39-2 已处理）
+- `procurement2/shareholder-funds`「新建股东资金（手工登记）」抽屉同款收口：
+  - 公司前置；股东 + 项目均按公司过滤（ShareholderSelector.companyCode / ProjectSelector.companyCode）；
+    切公司清空股东+项目；未选公司禁用股东。
+  - 抽屉内 7px/10px 内联 input 全部收口为 `inputFieldClass`（与选择器/DictSelect 等高同款）。
+  - Web tsc 0。
