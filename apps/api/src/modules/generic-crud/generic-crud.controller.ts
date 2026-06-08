@@ -88,9 +88,15 @@ export class GenericCrudController {
     //   G19-D 已 PBAC-first 并验证稳定（a08af4e/b7c34fa），白名单 fallback 已无价值。
     //   新角色必须走菜单权限赋权（sys_role_menu_permission），不能再靠加 hardcode 白名单。
     //   流程：JWT.permissions menu+op check 通过 → 放行；否则 403。
+    // G33-A：method → PermCode 映射独立 DELETE='D'（防 'E' 权限误开删除权）
+    //   旧：PUT/DELETE 都用 'E' → 持 E 权角色可 DELETE 生产数据（宋明光被实证可删 brd_flocks）
+    //   新：DELETE 需独立 'D' perm；多数业务方角色不持 'D'，admin '*' 永远通过
     const fallbackMenu = this.tableToFallbackMenu(table);
     if (fallbackMenu) {
-      const requiredOp: PermCode = method === 'GET' ? 'V' : method === 'POST' ? 'C' : 'E';
+      const requiredOp: PermCode = method === 'GET' ? 'V'
+        : method === 'POST'   ? 'C'
+        : method === 'DELETE' ? 'D'   // G33-A：DELETE 升级为 D 权限
+        : 'E';
       if (hasPerm(perms, fallbackMenu, requiredOp)) return;
     }
 
@@ -102,7 +108,14 @@ export class GenericCrudController {
    * 用于 RBAC fallback：持有该菜单对应操作权限即可访问该表。
    */
   private tableToFallbackMenu(table: string): string | null {
+    // G33-B：brd_* 主档 vs 业务记录拆分（A1 menu 粒度收口）
+    //   主档表（houses/farms/flocks 档案）→ MENU_FARM_MASTER（高权限）
+    //   业务记录表（daily_logs/medication_records/vaccinations）→ MENU_FARM_DATA（业务录入权）
+    //   宋明光持 MENU_FARM_DATA:V,C,E 但不持 MENU_FARM_MASTER → 主档建/改/删都拒
+    if (table === 'brd_houses' || table === 'brd_farms') return 'MENU_FARM_MASTER';
     if (table.startsWith('brd_'))            return 'MENU_FARM_DATA';
+    // G33-D：product_grades / product_specs 等等级/规格主档
+    if (table === 'product_grades' || table === 'product_specs' || table === 'product_packaging') return 'MENU_MASTER_GRADE';
     if (table.startsWith('fin_cash_'))       return 'MENU_FIN2_CASH';
     if (table.startsWith('fin_ar_'))         return 'MENU_FIN2_AR';
     if (table.startsWith('fin_ap_'))         return 'MENU_FIN2_AP';
@@ -163,7 +176,7 @@ export class GenericCrudController {
       brd_farms:        'mapped_site_code',  // mdm1_03 已加 + 回填
       brd_medications:        'store_code',  // v3_schema 已有（主档表）
       brd_medication_records: 'site_code',   // G21-4 业务记录表按 site 隔离
-      brd_vaccinations: 'store_code',
+      brd_vaccinations: null,  // G33-C：表无 store_code/site_code 列，注入 SQL 500；scope 留待 schema 补 site_code 列
       brd_houses:       null,                // 无可靠 site 列，暂不行级隔离（受 RBAC 限制）
       brd_flocks:       null,
     };
