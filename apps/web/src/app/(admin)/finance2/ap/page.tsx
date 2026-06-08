@@ -758,7 +758,7 @@ export default function Finance2ApPage() {
     setPage(1);
   };
   const handleImport = async () => {
-    if (!confirm('将从 prc2_ap_ledger 幂等导入历史 AP 数据，已存在的记录会跳过。确认执行？')) return;
+    if (!confirm('将从 prc2_ap_ledger 幂等导入历史应付数据，已存在的记录会跳过。确认执行？')) return;
     setImporting(true);
     setImportResult(null);
     try {
@@ -787,7 +787,7 @@ export default function Finance2ApPage() {
             </button>
             {canCreateAp && (
               <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
-                <Plus size={13} /> 新建 AP
+                <Plus size={13} /> 新建应付发票
               </button>
             )}
           </div>} />
@@ -859,7 +859,7 @@ export default function Finance2ApPage() {
         <div style={{ flex: 1 }} />
 
         <div style={{ display: 'flex', gap: 8 }}>
-          <input value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()} placeholder="AP编号 / 供应商 / 发票号…" style={toolbarSearchInput} />
+          <input value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()} placeholder="应付编号 / 供应商 / 发票号…" style={toolbarSearchInput} />
           <button onClick={handleSearch} style={primaryActionButton}>
             <Search size={13} /> 搜索
           </button>
@@ -876,7 +876,7 @@ export default function Finance2ApPage() {
           <table className={s.table}>
             <thead>
               <tr>
-                {['AP编号', '来源', '供应商', '公司', '发票日期', '到期日', '发票金额', '待付余额', '状态'].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
+                {['应付编号', '来源', '供应商', '公司', '发票日期', '到期日', '发票金额', '待付余额', '状态'].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -887,7 +887,7 @@ export default function Finance2ApPage() {
                 textAlign: 'center',
                 padding: 40
               }}>
-                  暂无 AP 记录。
+                  暂无应付记录。
                   {!status && !keyword && <span> 可点击 <strong>从采购单导入</strong> 迁移历史数据，或 <strong>新建应付发票</strong>。</span>}
                 </td></tr> : records.map((r, i) => <tr key={r.id} onClick={() => setSelectedId(r.id)} className={`border-b border-border/30 cursor-pointer hover:bg-indigo-50 hover:bg-bg-muted/50 transition-colors ${i % 2 === 0 ? '' : 'bg-bg-muted/20'}`}>
                   <td className={`font-mono text-indigo-600 dark:text-indigo-400 ${u.nowrap}`}>

@@ -1337,7 +1337,7 @@ export default function PaymentsPage() {
           <button type="button" className={s.btnSecondary} onClick={() => setPayOpen(false)}>取消</button>
           <button type="button" className={s.btnPrimary} disabled={actionSubmitting} style={{
           background: "var(--color-purple-500)"
-        }} onClick={() => execAction("pay", actionComment, "付款执行成功，AP 已核销")}>
+        }} onClick={() => execAction("pay", actionComment, "付款执行成功，应付已核销")}>
             {actionSubmitting ? "处理中…" : "确认付款"}
           </button>
         </div>

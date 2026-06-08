@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
-import { toast } from 'sonner';
+import { toast } from 'sonner'; // G29-A 评估：1700+ 行多 sub-component 共用 toast，迁移工作量大保留
 import s from "@/components/ui/admin-ui.module.css";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { hexToAccent, KPI_GRID } from "@/lib/design-tokens";
@@ -1196,7 +1196,7 @@ function ReturnOrdersTab() {
             color: 'var(--status-success)',
             fontWeight: 700
           }}>✓</span>
-                <span className={u.fs13}>AR Credit Note 已生成（ID: {detail.credit_note_id}）</span>
+                <span className={u.fs13}>应收红字发票已生成（ID: {detail.credit_note_id}）</span>
               </div>}
             {detail.remark && <div style={{
           background: 'var(--bg-muted)',
@@ -1490,7 +1490,7 @@ function RestockTab() {
           fontSize: 13,
           color: 'var(--color-accent)'
         }}>
-                  📦 确认回库后将自动：回库合格品 + 记录损耗 + 生成 AR Credit Note
+                  📦 确认回库后将自动：回库合格品 + 记录损耗 + 生成应收红字发票
                 </div>
                 <button onClick={() => doRestock(o.id)} disabled={actionLoading === o.id} style={{
           background: 'var(--color-accent)',

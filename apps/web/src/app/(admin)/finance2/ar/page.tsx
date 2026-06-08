@@ -676,7 +676,7 @@ function ArDetailDrawer({
           <div className="text-text" style={{
           fontWeight: 700,
           fontSize: 16
-        }}>AR 发票详情</div>
+        }}>应收发票详情</div>
           <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-0">
             <X size={18} className="text-text-dim" />
           </button>
@@ -809,9 +809,9 @@ function ArDetailDrawer({
             {/* 取消 */}
             {canCancel && <div className="border border-orange-200 dark:border-orange-800 rounded-xl p-3.5 bg-orange-50 dark:bg-orange-900/20">
                 {!showCancel ? <button onClick={() => setShowCancel(true)} className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-danger/20 bg-bg-card text-sm text-danger cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                    <Ban size={13} /> 取消此 AR 发票
+                    <Ban size={13} /> 取消此应收发票
                   </button> : <div>
-                    <div className="text-xs font-semibold text-orange-700 dark:text-orange-300 mb-2">确认取消 AR 发票</div>
+                    <div className="text-xs font-semibold text-orange-700 dark:text-orange-300 mb-2">确认取消应收发票</div>
                     <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} placeholder="取消原因（可选）" className="w-full h-14 px-2.5 py-2 rounded-lg border border-danger/20 bg-bg-page text-xs text-text resize-none outline-none box-border" />
                     {cancelErr && <div className="text-xs text-danger mt-1">{cancelErr}</div>}
                     <div style={{
@@ -984,7 +984,7 @@ export default function Finance2ArPage() {
             )}
             {canCreateAr && (
               <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
-                <Plus size={13} /> 新建 AR
+                <Plus size={13} /> 新建应收发票
               </button>
             )}
           </div>} />
@@ -1055,7 +1055,7 @@ export default function Finance2ArPage() {
         ))}
             <div style={{ flex: 1 }} />
             <div style={{ display: 'flex', gap: 8 }}>
-              <input value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (setKeyword(searchInput.trim()), setInvPage(1))} placeholder="AR编号 / 客户 / 发票号…" style={toolbarSearchInput} />
+              <input value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (setKeyword(searchInput.trim()), setInvPage(1))} placeholder="应收编号 / 客户 / 发票号…" style={toolbarSearchInput} />
               <button onClick={() => {
             setKeyword(searchInput.trim());
             setInvPage(1);
@@ -1075,7 +1075,7 @@ export default function Finance2ArPage() {
               <table className={s.table}>
                 <thead>
                   <tr>
-                    {['AR编号', '来源', '客户', '公司', '发票日期', '到期日', '发票金额', '待收余额', '状态'].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
+                    {['应收编号', '来源', '客户', '公司', '发票日期', '到期日', '发票金额', '待收余额', '状态'].map(h => <th key={h} className={u.nowrap}>{h}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -1086,7 +1086,7 @@ export default function Finance2ArPage() {
                   textAlign: 'center',
                   padding: 40
                 }}>
-                      暂无 AR 记录。可点击 <strong>新建 AR</strong> 手工录入。
+                      暂无应收记录。可点击 <strong>新建应收发票</strong> 手工录入。
                     </td></tr> : invoices.map((r, i) => <tr key={r.id} onClick={() => setSelectedInvId(r.id)} className={`border-b border-border/30 cursor-pointer hover:bg-emerald-50 hover:bg-bg-muted/50 transition-colors ${i % 2 === 0 ? '' : 'bg-bg-muted/20'}`}>
                       <td className={`font-mono text-emerald-600 dark:text-emerald-400 ${u.nowrap}`}>
                         {r.ar_no}

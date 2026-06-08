@@ -93,8 +93,8 @@ const STATUS_LABELS: Record<string, string> = {
   CLOSED: '已关闭'
 };
 const SOURCE_TYPE_LABELS: Record<string, string> = {
-  AP_PAYMENT: 'AP付款',
-  AR_RECEIPT: 'AR收款',
+  AP_PAYMENT: '应付付款',
+  AR_RECEIPT: '应收收款',
   TRANSFER: '转账',
   SHAREHOLDER: '股东资金',
   MANUAL: '手工',

@@ -1223,7 +1223,7 @@ export default function PurchaseOrdersPage() {
             {detailData.apLedger && <>
                 <div className={s.formSection} style={{
             marginTop: 20
-          }}>应付账款（AP 台账）</div>
+          }}>应付账款台账</div>
                 <div style={{
             background: "var(--bg-muted)",
             borderRadius: 6,
@@ -1231,7 +1231,7 @@ export default function PurchaseOrdersPage() {
             fontSize: 13
           }}>
                   {[{
-              label: "AP 编号",
+              label: "应付编号",
               value: detailData.apLedger.apNo
             }, {
               label: "应付金额",
@@ -1389,7 +1389,7 @@ export default function PurchaseOrdersPage() {
         <p style={{
         fontSize: 13,
         margin: "8px 0"
-      }}>确认批准 <strong>{actionTarget?.poNo}</strong>？审批通过后将生成 AP 应付台账。</p>
+      }}>确认批准 <strong>{actionTarget?.poNo}</strong>？审批通过后将生成应付台账。</p>
         <textarea className={s.textarea} rows={2} placeholder="审批意见（可选）" value={actionComment} onChange={e => setActionComment(e.target.value)} />
         <div style={{
         display: "flex",
@@ -1398,7 +1398,7 @@ export default function PurchaseOrdersPage() {
         marginTop: 12
       }}>
           <button type="button" className={s.btnSecondary} onClick={() => setApproveOpen(false)}>取消</button>
-          <button type="button" className={s.btnPrimary} disabled={actionSubmitting} onClick={() => execAction("approve", actionComment, "已批准，AP 台账已生成")}>
+          <button type="button" className={s.btnPrimary} disabled={actionSubmitting} onClick={() => execAction("approve", actionComment, "已批准，应付台账已生成")}>
             {actionSubmitting ? "处理中…" : "确认批准"}
           </button>
         </div>

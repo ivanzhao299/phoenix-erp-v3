@@ -14,7 +14,7 @@ export default function SupplierRuntimePage() {
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
-      <PageHeader title="供应商中心" subtitle="供应商运营态势 · 采购协作 · AP 风险 · 点击编码查看供应商全景" breadcrumb={["主数据中心", "供应商中心"]} />
+      <PageHeader title="供应商中心" subtitle="供应商运营态势 · 采购协作 · 应付风险 · 点击编码查看供应商全景" breadcrumb={["主数据中心", "供应商中心"]} />
       <MasterDataCenterStrip type="supplier" />
       <MasterDataRuntimePanel
         type="supplier"

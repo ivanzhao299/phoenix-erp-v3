@@ -58,7 +58,7 @@ const NAV_CARDS: NavCardDef[] = [
   { href: "/sales2/customers", Icon: Users,        title: "客户主档",  accent: "indigo", desc: "统一客户主档 · 渠道分类 · 信用档案" },
   { href: "/sales2/pricing",   Icon: Tag,          title: "价格管理",  accent: "green",  desc: "价格本 · 品级单价 · 客户专属价 · 审批工作流" },
   { href: "/sales2/orders",    Icon: ShoppingCart, title: "销售订单",  accent: "blue",   desc: "下单 · 审批 · 分配 · 拣货 · 发货 · 签收" },
-  { href: "/sales2/delivery",  Icon: Truck,        title: "配送管理",  accent: "amber",  desc: "配送单 · 装车 · 发车 · 到达 · 签收 · AR 生成" },
+  { href: "/sales2/delivery",  Icon: Truck,        title: "配送管理",  accent: "amber",  desc: "配送单 · 装车 · 发车 · 到达 · 签收 · 应收生成" },
   { href: "/sales2/credit",    Icon: CreditCard,   title: "信用管理",  accent: "red",    desc: "信用额度 · 冻结 · 逾期预警 · 信用台账" },
   { href: "/sales2/reports",   Icon: BarChart2,    title: "经营分析",  accent: "violet", desc: "销量 · 渠道 · 价格异常 · 配送 · 退货 · 库存" },
 ];
@@ -116,8 +116,8 @@ export default function SalesV2Page() {
             <KpiCard label="今日订单"  value={stats.todayOrders      ?? 0} icon={ShoppingCart}  accentColor="blue"   />
             <KpiCard label="待审批"    value={stats.pendingApproval  ?? 0} icon={Clock}         accentColor="amber"  />
             <KpiCard label="已签收"    value={stats.receivedOrders   ?? 0} icon={CheckCircle}   accentColor="green"  />
-            <KpiCard label="待生成 AR" value={stats.arPending        ?? 0} icon={FileText}      accentColor="red"    />
-            <KpiCard label="已生成 AR" value={stats.arGenerated      ?? 0} icon={FileText}      accentColor="green"  />
+            <KpiCard label="待生成应收" value={stats.arPending        ?? 0} icon={FileText}      accentColor="red"    />
+            <KpiCard label="已生成应收" value={stats.arGenerated      ?? 0} icon={FileText}      accentColor="green"  />
             <KpiCard label="低价审批"  value={stats.lowPriceOrders   ?? 0} icon={AlertTriangle} accentColor="red"    />
             <KpiCard label="超信用"    value={stats.overCreditOrders ?? 0} icon={CreditCard}    accentColor="amber"  />
           </div>

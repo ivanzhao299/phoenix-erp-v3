@@ -36,7 +36,7 @@ export function LegacyFreezeBanner({
           本页面属于旧版财务模块（已停用），数据来源已废弃，
           <strong>不再接受新增操作</strong>。当前请使用：
           <br />
-          • <strong>采购管理 → 付款管理</strong>（/procurement2/payments）— 真实付款审批与 AP 核销
+          • <strong>采购管理 → 付款管理</strong>（/procurement2/payments）— 真实付款审批与应付核销
           <br />
           • <strong>采购管理 → 股东资金</strong>（/procurement2/shareholder-funds）— 股东代付台账
           <br />

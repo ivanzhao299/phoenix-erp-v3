@@ -88,7 +88,7 @@ export const customerConfig: MasterDataConfig = {
   referenceObjectType: 'CUSTOMER',
   extraApis: [
     { key: 'orders',    label: '订单',  path: '/v2/sales/orders?customer_code=:code&limit=5' },
-    { key: 'arSummary', label: 'AR',    path: '/v2/finance/ar/summary?customer_code=:code' },
+    { key: 'arSummary', label: '应收',  path: '/v2/finance/ar/summary?customer_code=:code' },
   ],
   kpis: [
     {
@@ -100,7 +100,7 @@ export const customerConfig: MasterDataConfig = {
       value: (_i, extra) => { const total = arr(extra.orders).reduce((s, o) => s + Number(o.total_amount || 0), 0); return { display: total > 0 ? yuan(total) : '—' }; },
     },
     {
-      label: 'AR 余额', icon: <Receipt size={16} />,
+      label: '应收余额', icon: <Receipt size={16} />,
       value: (_i, extra) => {
         const bal = extra.arSummary?.balance_amount_original;
         return { display: bal ? yuan(bal) : '—', tone: Number(bal || 0) > 0 ? 'warning' : 'default' };
@@ -166,7 +166,7 @@ export const supplierConfig: MasterDataConfig = {
       value: (_i, extra) => { const total = arr(extra.pos).reduce((s, o) => s + Number(o.total_amount || 0), 0); return { display: total > 0 ? yuan(total) : '—' }; },
     },
     {
-      label: 'AP 余额', icon: <CreditCard size={16} />,
+      label: '应付余额', icon: <CreditCard size={16} />,
       value: (_i, extra) => { const bal = extra.apSummary?.balance_amount_original; return { display: bal ? yuan(bal) : '—', tone: Number(bal || 0) > 0 ? 'warning' : 'default' }; },
     },
     {

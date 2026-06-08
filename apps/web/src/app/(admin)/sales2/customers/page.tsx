@@ -1319,7 +1319,7 @@ function CreditTab() {
         padding: 24,
         color: "var(--text-secondary)",
         fontSize: 12
-      }}>暂无信用数据（客户可能无 AR 记录）</div>}
+      }}>暂无信用数据（客户可能无应收记录）</div>}
         </div>}
     </div>;
 }

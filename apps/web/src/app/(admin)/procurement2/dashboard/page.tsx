@@ -279,7 +279,7 @@ export default function ProcurementDashboardPage() {
           alignItems: "center",
           gap: 8
         }}>
-            <TrendingDown size={16} color="var(--color-danger)" /> AP 账龄分布
+            <TrendingDown size={16} color="var(--color-danger)" /> 应付账龄分布
           </div>
           {aging.length === 0 ? <div style={{
           textAlign: "center",

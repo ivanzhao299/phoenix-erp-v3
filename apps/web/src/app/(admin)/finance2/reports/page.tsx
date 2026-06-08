@@ -253,7 +253,7 @@ function OverviewTab() {
           {data.netOperatingPosition >= 0 ? '+' : ''}¥ {fmt(data.netOperatingPosition)}
         </div>
         <div style={{ fontSize: 12, opacity: 0.72, marginTop: 6 }}>
-          = 现金余额 + AR待收 − AP待付 − 待报销金额
+          = 现金余额 + 应收待收 − 应付待付 − 待报销金额
         </div>
         <div style={{ display: 'flex', gap: 18, marginTop: 14, flexWrap: 'wrap' }}>
           {[{
@@ -284,8 +284,8 @@ function OverviewTab() {
       marginBottom: 20
     }}>
         <KpiCard label="现金账户余额" value={fmtMoney(data.cashBalance)} icon={Wallet} color="var(--color-primary)" />
-        <KpiCard label="AR 待收款" value={fmtMoney(data.arOpen)} icon={TrendingUp} color="var(--status-success)" />
-        <KpiCard label="AP 待付款" value={fmtMoney(data.apOpen)} icon={TrendingDown} color="var(--status-warning)" />
+        <KpiCard label="应收待收款" value={fmtMoney(data.arOpen)} icon={TrendingUp} color="var(--status-success)" />
+        <KpiCard label="应付待付款" value={fmtMoney(data.apOpen)} icon={TrendingDown} color="var(--status-warning)" />
         <KpiCard label="股东资金余额" value={fmtMoney(data.shareholderBalance)} icon={Users} color="var(--status-info)" />
         <KpiCard label="费用待审批" value={`${data.expensePendingCount} 笔`} sub={fmtMoney(data.expensePendingAmount)} icon={Receipt} color="var(--color-primary)" />
         <KpiCard label="报销待处理" value={`${data.reimbursementPendingCount} 笔`} sub={fmtMoney(data.reimbursementPendingAmount)} icon={ArrowLeftRight} color="var(--color-accent)" />
@@ -374,7 +374,7 @@ function ApTab() {
       gap: 10,
       marginBottom: 20
     }}>
-          <KpiCard label="AP 合计" value={fmtMoney(s.total)} icon={TrendingDown} color="var(--status-warning)" />
+          <KpiCard label="应付合计" value={fmtMoney(s.total)} icon={TrendingDown} color="var(--status-warning)" />
           <KpiCard label="未逾期" value={fmtMoney(s.notDue)} icon={CheckCircle} color="var(--status-success)" />
           <KpiCard label="0-30 天" value={fmtMoney(s.d030)} icon={AlertTriangle} color="var(--status-warning)" />
           <KpiCard label="31-60 天" value={fmtMoney(s.d3160)} icon={AlertTriangle} color="var(--status-warning)" />
@@ -382,7 +382,7 @@ function ApTab() {
           <KpiCard label="90 天以上" value={fmtMoney(s.dOver90)} icon={AlertTriangle} color="var(--status-danger)" />
         </div>}
 
-      <SectionTitle>AP 账龄明细（按供应商）</SectionTitle>
+      <SectionTitle>应付账龄明细（按供应商）</SectionTitle>
       {loadAging ? <Spinner /> : !aging?.rows.length ? <Empty /> : <TableWrapper>
           <thead>
             <tr>
@@ -478,7 +478,7 @@ function ArTab() {
       gap: 10,
       marginBottom: 20
     }}>
-          <KpiCard label="AR 合计" value={fmtMoney(s.total)} icon={TrendingUp} color="var(--status-success)" />
+          <KpiCard label="应收合计" value={fmtMoney(s.total)} icon={TrendingUp} color="var(--status-success)" />
           <KpiCard label="未逾期" value={fmtMoney(s.notDue)} icon={CheckCircle} color="var(--status-success)" />
           <KpiCard label="0-30 天" value={fmtMoney(s.d030)} icon={AlertTriangle} color="var(--status-warning)" />
           <KpiCard label="31-60 天" value={fmtMoney(s.d3160)} icon={AlertTriangle} color="var(--status-warning)" />
@@ -486,7 +486,7 @@ function ArTab() {
           <KpiCard label="90 天以上" value={fmtMoney(s.dOver90)} icon={AlertTriangle} color="var(--status-danger)" />
         </div>}
 
-      <SectionTitle>AR 账龄明细（按客户）</SectionTitle>
+      <SectionTitle>应收账龄明细（按客户）</SectionTitle>
       {loadAg ? <Spinner /> : !aging?.rows.length ? <Empty /> : <TableWrapper>
           <thead>
             <tr>
@@ -1011,7 +1011,7 @@ function ProjectTab() {
           <thead>
             <tr>
               <Th>项目</Th><Th>公司</Th>
-              <Th right>AR 待收</Th><Th right>AP 待付</Th>
+              <Th right>应收待收</Th><Th right>应付待付</Th>
               <Th right>费用总额</Th><Th right>股东资金</Th>
               <Th right>可支配资金</Th>
             </tr>
@@ -1039,7 +1039,7 @@ function ProjectTab() {
       marginTop: 12,
       fontSize: 11
     }}>
-        可支配资金 = AR 待收 − AP 待付 − 费用总额
+        可支配资金 = 应收待收 − 应付待付 − 费用总额
       </div>
     </div>;
 }
@@ -1079,7 +1079,7 @@ function CompanyTab() {
         <thead>
           <tr>
             <Th>公司</Th>
-            <Th right>现金余额</Th><Th right>AR 待收</Th><Th right>AP 待付</Th>
+            <Th right>现金余额</Th><Th right>应收待收</Th><Th right>应付待付</Th>
             <Th right>费用总额</Th><Th right>股东资金</Th>
             <Th right>可支配资金</Th>
           </tr>
@@ -1106,7 +1106,7 @@ function CompanyTab() {
       marginTop: 12,
       fontSize: 11
     }}>
-        可支配资金 = 现金余额 + AR 待收 − AP 待付 − 费用总额
+        可支配资金 = 现金余额 + 应收待收 − 应付待付 − 费用总额
       </div>
     </div>;
 }
@@ -1119,11 +1119,11 @@ const TABS = [{
   icon: PieChart
 }, {
   key: 'ap',
-  label: 'AP',
+  label: '应付',
   icon: TrendingDown
 }, {
   key: 'ar',
-  label: 'AR',
+  label: '应收',
   icon: TrendingUp
 }, {
   key: 'cash',

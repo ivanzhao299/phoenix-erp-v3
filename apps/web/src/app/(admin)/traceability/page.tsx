@@ -315,7 +315,7 @@ export default function TraceabilityPage() {
             label: "时间"
           }]} /></div>
         </Section>
-        <Section icon={<Banknote size={14} />} title="财务域（AR / 现金）">
+        <Section icon={<Banknote size={14} />} title="财务域（应收 / 现金）">
           <div className={u.mb8}><Table rows={fi.ar} cols={[{
             k: "source_no",
             label: "来源单"
