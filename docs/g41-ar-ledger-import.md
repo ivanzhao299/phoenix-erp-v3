@@ -36,7 +36,20 @@
   ```
 - 跑后刘杰需重新登录刷新菜单权限。
 
-## 六、登账（后续可做）
-- 资金账户 39 个 → 导入 fin_cash_accounts（需补使用部门/持卡人映射）。
+## 六、G42 资金账户导入（已并入）
+- `20260608_g42_liujie_cash_accounts.sql`：凤凰 27 + 东鹏 10 = **37 账户** → fin_cash_accounts。
+  FH-/DP- 前缀避免与 G34（王玮华 WWH-* 17）撞码；持卡人/部门/原编码入 remark；余额 0；
+  币种按名称推断（CNY/THB/USD/LAK）。幂等。
+
+## 七、本地库已执行（用户授权·OCR 不再预审）
+按用户授权直接在本地库执行（2026-06-08）：
+- `20260608_g41_fin_ar_ledger.sql` → 建表 + 菜单 + 7 角色授权 ✅
+- `20260608_g41_fin_ar_ledger_seed.sql` → 应收总账 **50 行** ✅
+- `20260608_g42_liujie_cash_accounts.sql` → 资金账户 **37 行** ✅
+刘杰登录后在「财务管理 → 应收总账」核对；OCR 数据状态仍为 OCR_PENDING_VERIFY，
+系统内核对后可改 VERIFIED。**生产库下次 Deploy 自动跑这三个迁移**（幂等）。
+
+## 八、登账（后续可做）
 - 名单客户零售点 → sal_customers 主数据；供应商 → prc2_suppliers 补联系人。
-- OCR 核对后将 source 改 VERIFIED；后续可做"日快照→趋势"图。
+- 资金账户余额（Excel 无）→ 后续按对账补。
+- 后续可做"日快照→趋势"图、应收账龄分析。
