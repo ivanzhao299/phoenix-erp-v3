@@ -56,8 +56,8 @@ export function KpiCard({
     boxShadow: 'var(--shadow-sm)',
     border: '1px solid var(--border)',
     borderLeft: `var(--card-accent-width) solid ${color}`,
-    // 全系统主卡片统一高度下限（与养殖页基准一致），宽度由各页网格自适应。
-    minHeight: 112,
+    // G36-2：原 112 不够装大额本币（老挝币上亿）→ 128 给 value 换行余量
+    minHeight: 128,
     boxSizing: 'border-box',
   };
 
@@ -96,8 +96,20 @@ export function KpiCard({
         )}
       </div>
 
-      {/* 主值：大号主色数字 */}
-      <div className="truncate" style={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color }}>
+      {/* 主值：大号主色数字
+          G36-2 修：原 truncate + fontSize 28 → 老挝币 / 大额本币被截。
+          改为允许 wrap + 字号 22 + hover 完整数 + 长串字号自适应。*/}
+      <div
+        title={typeof value === 'string' || typeof value === 'number' ? String(value) : undefined}
+        style={{
+          fontSize: typeof value === 'string' && value.length > 14 ? 18 : 22,
+          fontWeight: 700,
+          lineHeight: 1.15,
+          color,
+          wordBreak: 'break-all',
+          whiteSpace: 'normal',
+        }}
+      >
         {value}
       </div>
 
