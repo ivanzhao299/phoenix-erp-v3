@@ -153,14 +153,12 @@ export function CashAccountSelector(p: BaseProps & { valueField?: 'code' | 'id';
     }} />;
 }
 
-// ── 股东 ──────────────────────────────────────────────────────────────────────
+// ── 股东（G36-fix：切 /api/lookup/shareholders，仅 JWT 不绑 MENU）──────────────
+// 原走 /shareholders（需 MENU_SHAREHOLDER_VIEW:V）→ 出纳/财务录入用户拉不到股东。
 export function ShareholderSelector(p: BaseProps) {
   return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择股东'}
-    loader={async () => {
-      const list = await request<any[]>('/shareholders');
-      return (Array.isArray(list) ? list : [])
-        .map(s => ({ value: s.shareholderCode ?? s.shareholder_code, label: s.shareholderName ?? s.shareholder_name, raw: s }));
-    }} />;
+    loader={async () => (await lookupArr('/lookup/shareholders'))
+      .map((s: any) => ({ value: s.code, label: s.name, raw: s }))} />;
 }
 
 // ── 用户（G4-B：申请人 / 收货人 / 经办人）─────────────────────────────────────

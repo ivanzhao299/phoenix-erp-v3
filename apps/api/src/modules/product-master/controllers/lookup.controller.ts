@@ -2,7 +2,9 @@ import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { AuthGuard } from '@nestjs/passport';
+import { ClsService } from 'nestjs-cls';
 import { ProductMasterService } from '../services/product-master.service';
+import { DataScopeService } from '../../org/services/data-scope.service';
 
 /**
  * LookupController — /api/lookup/*
@@ -22,7 +24,29 @@ export class LookupController {
   constructor(
     private readonly svc: ProductMasterService,
     @InjectEntityManager() private readonly em: EntityManager,
+    private readonly cls: ClsService,
+    private readonly dataScope: DataScopeService,
   ) {}
+
+  /**
+   * 解析当前登录用户的公司 DataScope。
+   * user 由全局 AuditLogInterceptor 在 handler 前写入 CLS；本路由只挂 AuthGuard，
+   * 不经 DataScopeGuard，故此处主动调 DataScopeService.resolve 取 allowedCompanyCodes。
+   * 解析失败 → 兜底 isGlobal=true（不因解析异常把下拉清空）。
+   */
+  private async resolveCompanyScope(): Promise<{ isGlobal: boolean; companyCodes: string[] }> {
+    try {
+      const user = this.cls.get('user') as Record<string, unknown> | undefined;
+      if (!user) return { isGlobal: true, companyCodes: [] };
+      const roles: string[] = (user['roles'] as string[] | undefined)
+        ?? (user['role'] ? [user['role'] as string] : []);
+      const userId = String(user['userId'] ?? user['id'] ?? '');
+      const scope = await this.dataScope.resolve(userId, roles, 'MENU_MASTER_DATA');
+      return { isGlobal: !!scope.isGlobal, companyCodes: scope.allowedCompanyCodes ?? [] };
+    } catch {
+      return { isGlobal: true, companyCodes: [] };
+    }
+  }
 
   // G8 性能：进程内 5min 缓存
   // 业务录入页面下拉调用极高频（每次进入页面），主数据变化频率低（小时到天级）。
@@ -60,12 +84,29 @@ export class LookupController {
    */
   @Get('companies')
   async companies() {
-    const rows = await this.cached('companies', () => this.em.query(
+    // G37：公司下拉按 DataScope 过滤。
+    // 原实现返回全集团公司 → 出纳王玮华等受限用户能在股东资金/财务单据里选到
+    // 不归属自己的公司（如万象食品厂 COMP-LAO-FOOD）。非全局用户只返回 allowedCompanyCodes。
+    const scope = await this.resolveCompanyScope();
+    if (scope.isGlobal) {
+      const rows = await this.cached('companies:global', () => this.em.query(
+        `SELECT org_code AS "orgCode", org_name AS "orgName", org_name_cn AS "orgNameCn",
+                org_short_name AS "orgShortName", status
+           FROM sys_organizations
+           WHERE org_type='COMPANY' AND status='ACTIVE'
+           ORDER BY sort_order NULLS LAST, org_code`,
+      ));
+      return { code: 200, data: rows };
+    }
+    if (!scope.companyCodes.length) return { code: 200, data: [] };
+    const key = `companies:${[...scope.companyCodes].sort().join(',')}`;
+    const rows = await this.cached(key, () => this.em.query(
       `SELECT org_code AS "orgCode", org_name AS "orgName", org_name_cn AS "orgNameCn",
               org_short_name AS "orgShortName", status
          FROM sys_organizations
-         WHERE org_type='COMPANY' AND status='ACTIVE'
+         WHERE org_type='COMPANY' AND status='ACTIVE' AND org_code = ANY($1)
          ORDER BY sort_order NULLS LAST, org_code`,
+      [scope.companyCodes],
     ));
     return { code: 200, data: rows };
   }
@@ -127,6 +168,22 @@ export class LookupController {
          WHERE status='ACTIVE' AND is_active=true
          ORDER BY supplier_code`,
     );
+    return { code: 200, data: rows };
+  }
+
+  /**
+   * GET /api/lookup/shareholders — 股东下拉
+   * 替代 /api/shareholders（需 MENU_SHAREHOLDER_VIEW:V，出纳/财务录入用户拉不到 → 股东下拉空）。
+   * 仅 JWT 守卫；股东资金记录等财务录入页据此选股东。
+   */
+  @Get('shareholders')
+  async shareholders() {
+    const rows = await this.cached('shareholders', () => this.em.query(
+      `SELECT shareholder_code AS code, shareholder_name AS name, status
+         FROM shr_shareholders
+         WHERE status='ACTIVE'
+         ORDER BY shareholder_code`,
+    ));
     return { code: 200, data: rows };
   }
 

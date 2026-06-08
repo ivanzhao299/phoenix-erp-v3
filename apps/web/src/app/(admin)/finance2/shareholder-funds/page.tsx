@@ -9,7 +9,7 @@ import { CompanySelector, ShareholderSelector, CashAccountSelector } from '@/com
 import { AttachmentUploader } from '@/components/design-system';
 
 import {
-  primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
+  primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, inputFieldClass, formLabel,
   drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
   inlineBadge, pillBadge,
   tabBar, tabItem,
@@ -285,7 +285,7 @@ function CreateContributionModal({
       setSaving(false);
     }
   }
-  const inpClass = "w-full px-3 py-2 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 box-border";
+  const inpClass = inputFieldClass;  // G37：收口为 cockpit-styles 单一来源
   return <div style={modalMask}>
       <div style={modalPanel(520)} onClick={e => e.stopPropagation()}>
         <div style={{
@@ -492,7 +492,7 @@ function CreateSettlementModal({
       setSaving(false);
     }
   }
-  const inpClass = "w-full px-3 py-2 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 box-border";
+  const inpClass = inputFieldClass;  // G37：收口为 cockpit-styles 单一来源
   return <div style={modalMask}>
       <div style={modalPanel(460)} onClick={e => e.stopPropagation()}>
         <div style={{
