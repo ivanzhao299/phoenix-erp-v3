@@ -8,6 +8,7 @@ import { FinShareholderController } from './controllers/fin-shareholder.controll
 import { FinExpenseController }         from './controllers/fin-expense.controller';
 import { FinancialReportsController }   from './controllers/financial-reports.controller';
 import { FinanceOrderBridgeController } from './controllers/finance-order-bridge.controller';
+import { FinArLedgerController }        from './controllers/fin-ar-ledger.controller';
 import { ApAdapterService }     from './services/ap-adapter.service';
 import { ApInvoicesService }    from './services/ap-invoices.service';
 import { ArInvoicesService }    from './services/ar-invoices.service';
@@ -20,6 +21,7 @@ import { ShareholderSettlementsService }   from './services/shareholder-settleme
 import { ExpenseRequestsService }          from './services/expense-requests.service';
 import { ReimbursementsService }           from './services/reimbursements.service';
 import { FinancialReportsService }         from './services/financial-reports.service';
+import { ArLedgerService }                 from './services/ar-ledger.service';
 import {
   FinApInvoiceEntity,
   FinArInvoiceEntity,
@@ -33,6 +35,7 @@ import {
   FinExchangeRateEntity,
   FinExpenseRequestEntity,
   FinReimbursementEntity,
+  FinArLedgerEntity,
 } from './entities';
 
 /**
@@ -88,6 +91,7 @@ import {
       FinExchangeRateEntity,
       FinExpenseRequestEntity,   // Phase 5 Expense Runtime
       FinReimbursementEntity,    // Phase 5 Expense Runtime
+      FinArLedgerEntity,         // G41 应收总账
     ]),
   ],
   controllers: [
@@ -99,6 +103,7 @@ import {
     FinExpenseController,
     FinancialReportsController,
     FinanceOrderBridgeController,
+    FinArLedgerController,
   ],
   providers: [
     ApAdapterService, ApInvoicesService,
@@ -107,6 +112,7 @@ import {
     ShareholderContributionsService, ShareholderSettlementsService,
     ExpenseRequestsService, ReimbursementsService,
     FinancialReportsService,
+    ArLedgerService,
   ],
   exports: [
     ApAdapterService, ApInvoicesService,

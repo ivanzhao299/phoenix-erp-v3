@@ -10,3 +10,4 @@ export { FinExchangeRateEntity }             from './fin-exchange-rate.entity';
 export { FinShareholderSettlementEntity }    from './fin-shareholder-settlement.entity';
 export { FinExpenseRequestEntity }           from './fin-expense-request.entity';
 export { FinReimbursementEntity }            from './fin-reimbursement.entity';
+export { FinArLedgerEntity }                 from './fin-ar-ledger.entity';
