@@ -732,17 +732,10 @@ export default function WorkflowFormRuntimePage() {
             display: 'block',
             marginBottom: 5
           }}>{label}</label>
-                <input value={(createForm as any)[key]} onChange={e => setCreateForm(prev => ({
+                <input className={ui.inp} value={(createForm as any)[key]} onChange={e => setCreateForm(prev => ({
             ...prev,
             [key]: e.target.value
-          }))} placeholder={placeholder} style={{
-            width: '100%',
-            padding: '8px 12px',
-            borderRadius: 8,
-            border: '1.5px solid var(--border)',
-            fontSize: 13,
-            boxSizing: 'border-box'
-          }} />
+          }))} placeholder={placeholder} />
               </div>)}
             <div style={{
           display: 'flex',

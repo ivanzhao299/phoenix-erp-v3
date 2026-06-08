@@ -9,6 +9,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { useToast } from '@/contexts/ToastContext';
+import s from '@/components/ui/admin-ui.module.css'; // G28: 表格样式全局化
 import { Bell, FileText, Mail, ListChecks, Play, RefreshCw } from 'lucide-react';
 import {
   primaryActionButton, secondaryActionButton, inputField, formLabel, inlineBadge,
@@ -99,16 +100,16 @@ function RulesTab() {
         <button style={secondaryActionButton} onClick={load}><RefreshCw size={13} /> 刷新</button>
       </div>
       <div style={tableContainer}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <table className={s.table}>
           <thead style={{ background: 'var(--bg-muted)' }}>
             <tr>
-              <th style={th}>规则编码 / 名称</th>
-              <th style={th}>分类</th>
-              <th style={th}>触发</th>
-              <th style={th}>接收人</th>
-              <th style={th}>渠道</th>
-              <th style={th}>状态</th>
-              <th style={{ ...th, textAlign: 'right' }}>操作</th>
+              <th>规则编码 / 名称</th>
+              <th>分类</th>
+              <th>触发</th>
+              <th>接收人</th>
+              <th>渠道</th>
+              <th>状态</th>
+              <th style={{ textAlign: 'right' }}>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -245,15 +246,15 @@ function ChannelsTab() {
   };
   return (
     <div style={tableContainer}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+      <table className={s.table}>
         <thead style={{ background: 'var(--bg-muted)' }}>
           <tr>
-            <th style={th}>渠道</th>
-            <th style={th}>状态</th>
-            <th style={th}>每日限额</th>
-            <th style={th}>每分钟限额</th>
-            <th style={th}>说明</th>
-            <th style={{ ...th, textAlign: 'right' }}>操作</th>
+            <th>渠道</th>
+            <th>状态</th>
+            <th>每日限额</th>
+            <th>每分钟限额</th>
+            <th>说明</th>
+            <th style={{ textAlign: 'right' }}>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -310,15 +311,15 @@ function LogsTab() {
         <button style={secondaryActionButton} onClick={load}><RefreshCw size={13} /> 刷新</button>
       </div>
       <div style={tableContainer}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <table className={s.table} style={{ fontSize: 12 }}>
           <thead style={{ background: 'var(--bg-muted)' }}>
             <tr>
-              <th style={th}>时间</th>
-              <th style={th}>规则</th>
-              <th style={th}>接收人</th>
-              <th style={th}>渠道</th>
-              <th style={th}>状态</th>
-              <th style={th}>标题</th>
+              <th>时间</th>
+              <th>规则</th>
+              <th>接收人</th>
+              <th>渠道</th>
+              <th>状态</th>
+              <th>标题</th>
             </tr>
           </thead>
           <tbody>
@@ -350,5 +351,5 @@ function LogsTab() {
   );
 }
 
-const th: React.CSSProperties = { padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', borderBottom: '1px solid var(--border)' };
+// G28: th 局部对象删除，统一走 admin-ui.module.css .table th
 const td: React.CSSProperties = { padding: '12px', borderBottom: '1px solid var(--border)', verticalAlign: 'top' };
