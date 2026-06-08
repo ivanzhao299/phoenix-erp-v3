@@ -313,95 +313,59 @@ function CreateContributionModal({
         gap: 12
       }}>
           <div>
-            <div className="text-text-muted" style={{
-            fontSize: 12,
-            fontWeight: 600,
-            marginBottom: 4
-          }}>股东 <span className="text-red-500">*</span></div>
-            {/* G4-A：股东主数据，自动带出姓名 */}
-            <ShareholderSelector value={form.shareholderCode} onChange={v => set('shareholderCode', v)} onPick={o => set('shareholderName', o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.label ?? '')} />
+            <div style={formLabel}>公司 <span className="text-red-500">*</span></div>
+            {/* G39：公司前置；切换公司清空股东，股东随公司收窄 */}
+            <CompanySelector value={form.companyCode}
+              onChange={v => { set('companyCode', v); set('shareholderCode', ''); set('shareholderName', ''); }}
+              onPick={o => set('companyName', o?.label ?? '')} />
           </div>
           <div>
-            <div className="text-text-muted" style={{
-            fontSize: 12,
-            fontWeight: 600,
-            marginBottom: 4
-          }}>股东姓名</div>
-            <input className={inpClass} value={form.shareholderName} readOnly style={{
-            background: 'var(--bg-muted)',
-            cursor: 'not-allowed'
-          }} placeholder="由股东选择自动带出" />
-          </div>
-          <div>
-            <div className="text-text-muted" style={{
-            fontSize: 12,
-            fontWeight: 600,
-            marginBottom: 4
-          }}>公司 <span className="text-red-500">*</span></div>
-            {/* G4-A：公司主数据，DataScope 自动过滤 */}
-            <CompanySelector value={form.companyCode} onChange={v => set('companyCode', v)} onPick={o => set('companyName', o?.label ?? '')} />
-          </div>
-          <div>
-            <div className="text-text-muted" style={{
-            fontSize: 12,
-            fontWeight: 600,
-            marginBottom: 4
-          }}>公司名称</div>
+            <div style={formLabel}>公司名称</div>
             <input className={inpClass} value={form.companyName} readOnly style={{
             background: 'var(--bg-muted)',
             cursor: 'not-allowed'
           }} placeholder="由公司选择自动带出" />
           </div>
           <div>
-            <div className="text-text-muted" style={{
-            fontSize: 12,
-            fontWeight: 600,
-            marginBottom: 4
-          }}>货币 <span className="text-red-500">*</span></div>
+            <div style={formLabel}>股东 <span className="text-red-500">*</span></div>
+            {/* G39：先选公司 → 股东按 shr_project_equity 权威投资关系过滤 */}
+            <ShareholderSelector companyCode={form.companyCode} disabled={!form.companyCode}
+              value={form.shareholderCode} onChange={v => set('shareholderCode', v)}
+              onPick={o => set('shareholderName', o?.raw?.name ?? o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.label ?? '')} />
+          </div>
+          <div>
+            <div style={formLabel}>股东姓名</div>
+            <input className={inpClass} value={form.shareholderName} readOnly style={{
+            background: 'var(--bg-muted)',
+            cursor: 'not-allowed'
+          }} placeholder={form.companyCode ? '由股东选择自动带出' : '请先选择公司'} />
+          </div>
+          <div>
+            <div style={formLabel}>货币 <span className="text-red-500">*</span></div>
             {/* G4-A：货币枚举来自 sys_dict(SYS_CURRENCY) */}
             <DictSelect dictType="SYS_CURRENCY" value={form.currencyCode} onChange={v => set('currencyCode', v)} allowEmpty={false} />
           </div>
           <div>
-            <div className="text-text-muted" style={{
-            fontSize: 12,
-            fontWeight: 600,
-            marginBottom: 4
-          }}>金额 <span className="text-red-500">*</span></div>
+            <div style={formLabel}>金额 <span className="text-red-500">*</span></div>
             <input type="number" min="0.01" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" className={inpClass} />
           </div>
           <div>
-            <div className="text-text-muted" style={{
-            fontSize: 12,
-            fontWeight: 600,
-            marginBottom: 4
-          }}>预计归还日期</div>
+            <div style={formLabel}>预计归还日期</div>
             <input type="date" value={form.expectedReturnDate} onChange={e => set('expectedReturnDate', e.target.value)} className={inpClass} />
           </div>
         </div>
         <div className={u.mt12}>
-          <div className="text-text-muted" style={{
-          fontSize: 12,
-          fontWeight: 600,
-          marginBottom: 4
-        }}>资金类型 <span className="text-red-500">*</span></div>
+          <div style={formLabel}>资金类型 <span className="text-red-500">*</span></div>
           {/* G4-A：资金类型枚举来自 sys_dict(FIN_CONTRIBUTION_TYPE) */}
           <DictSelect dictType="FIN_CONTRIBUTION_TYPE" value={form.contributionType} onChange={v => set('contributionType', v)} allowEmpty={false} />
         </div>
         <div className={u.mt12}>
-          <div className="text-text-muted" style={{
-          fontSize: 12,
-          fontWeight: 600,
-          marginBottom: 4
-        }}>出资凭证</div>
+          <div style={formLabel}>出资凭证</div>
           {/* G4-A：禁止 URL 文本框，统一附件上传 */}
           <AttachmentUploader value={form.voucherUrl ? [form.voucherUrl] : []} onChange={urls => set('voucherUrl', urls[urls.length - 1] ?? '')} label="上传出资凭证（PDF/图片 ≤15MB）" />
         </div>
         <div className={u.mt12}>
-          <div className="text-text-muted" style={{
-          fontSize: 12,
-          fontWeight: 600,
-          marginBottom: 4
-        }}>备注</div>
+          <div style={formLabel}>备注</div>
           <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder="可选" rows={2} className={`${inpClass} resize-none`} style={{
           fontFamily: 'inherit'
         }} />
@@ -529,11 +493,7 @@ function CreateSettlementModal({
           </div>}
 
         <div className={u.mb12}>
-          <div className="text-text-muted" style={{
-          fontSize: 12,
-          fontWeight: 600,
-          marginBottom: 4
-        }}>结算类型</div>
+          <div style={formLabel}>结算类型</div>
           <div style={{
           display: 'flex',
           gap: 8,
@@ -544,30 +504,18 @@ function CreateSettlementModal({
         </div>
 
         <div className={u.mb12}>
-          <div className="text-text-muted" style={{
-          fontSize: 12,
-          fontWeight: 600,
-          marginBottom: 4
-        }}>金额 <span className="text-red-500">*</span></div>
+          <div style={formLabel}>金额 <span className="text-red-500">*</span></div>
           <input type="number" min="0.01" step="0.01" value={form.amountOriginal} onChange={e => set('amountOriginal', e.target.value)} placeholder="0.00" className={inpClass} />
         </div>
 
         {needsCash && <div className={u.mb12}>
-            <div className="text-text-muted" style={{
-          fontSize: 12,
-          fontWeight: 600,
-          marginBottom: 4
-        }}>现金账户 <span className="text-red-500">*</span>（RETURN 必填）</div>
+            <div style={formLabel}>现金账户 <span className="text-red-500">*</span>（RETURN 必填）</div>
             {/* G4-A：资金账户主数据，value=id；按 contribution 币种过滤 */}
             <CashAccountSelector value={form.cashAccountId} valueField="id" onChange={v => set('cashAccountId', v)} currencyCode={contribution.currencyCode} />
           </div>}
 
         <div className={u.mb16}>
-          <div className="text-text-muted" style={{
-          fontSize: 12,
-          fontWeight: 600,
-          marginBottom: 4
-        }}>
+          <div style={formLabel}>
             备注{needsRemark ? <span className="text-red-500"> *（WRITE_OFF 必填）</span> : ''}
           </div>
           <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder={needsRemark ? '请填写核销原因' : '可选'} rows={2} className={`${inpClass} resize-none`} style={{

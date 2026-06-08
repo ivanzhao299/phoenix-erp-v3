@@ -172,12 +172,29 @@ export class LookupController {
   }
 
   /**
-   * GET /api/lookup/shareholders — 股东下拉
+   * GET /api/lookup/shareholders?companyCode= — 股东下拉
    * 替代 /api/shareholders（需 MENU_SHAREHOLDER_VIEW:V，出纳/财务录入用户拉不到 → 股东下拉空）。
    * 仅 JWT 守卫；股东资金记录等财务录入页据此选股东。
+   *
+   * G39：传 companyCode 时，仅返回「在该公司名下项目持股」的股东
+   * （shr_project_equity → shr_projects.company_code 派生，权威投资关系）。
+   * 股东资金记录抽屉「先选公司 → 股东按公司收窄」即用此过滤，杜绝股东/公司错配。
+   * 不传 companyCode 时返回全部 ACTIVE（兼容付款单等其它调用方）。
    */
   @Get('shareholders')
-  async shareholders() {
+  async shareholders(@Query('companyCode') companyCode?: string) {
+    if (companyCode) {
+      const rows = await this.cached(`shareholders:${companyCode}`, () => this.em.query(
+        `SELECT DISTINCT s.shareholder_code AS code, s.shareholder_name AS name, s.status
+           FROM shr_shareholders s
+           JOIN shr_project_equity e ON e.shareholder_code = s.shareholder_code
+           JOIN shr_projects p ON p.project_code = e.project_code
+          WHERE s.status='ACTIVE' AND p.company_code = $1
+          ORDER BY s.shareholder_code`,
+        [companyCode],
+      ));
+      return { code: 200, data: rows };
+    }
     const rows = await this.cached('shareholders', () => this.em.query(
       `SELECT shareholder_code AS code, shareholder_name AS name, status
          FROM shr_shareholders

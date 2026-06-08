@@ -48,8 +48,8 @@ const selStyle: React.CSSProperties = {
 /** 通用：从端点加载 {value,label} 选项的下拉 */
 function ScopedSelect({
   value, onChange, onPick, placeholder = '请选择', disabled, className, style,
-  loader,
-}: BaseProps & { loader: () => Promise<Opt[]> }) {
+  loader, reloadDeps,
+}: BaseProps & { loader: () => Promise<Opt[]>; reloadDeps?: any[] }) {
   const [opts, setOpts] = useState<Opt[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -59,7 +59,7 @@ function ScopedSelect({
     loader().then(list => { if (alive) setOpts(list); }).catch(() => { if (alive) setOpts([]); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, []); // eslint-disable-line
+  }, reloadDeps ?? []); // eslint-disable-line
 
   return (
     <select className={className} style={{ ...selStyle, ...style }} value={value} disabled={disabled || loading}
@@ -155,10 +155,18 @@ export function CashAccountSelector(p: BaseProps & { valueField?: 'code' | 'id';
 
 // ── 股东（G36-fix：切 /api/lookup/shareholders，仅 JWT 不绑 MENU）──────────────
 // 原走 /shareholders（需 MENU_SHAREHOLDER_VIEW:V）→ 出纳/财务录入用户拉不到股东。
-export function ShareholderSelector(p: BaseProps) {
-  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择股东'}
-    loader={async () => (await lookupArr('/lookup/shareholders'))
-      .map((s: any) => ({ value: s.code, label: s.name, raw: s }))} />;
+// G39：传 companyCode 时仅列该公司名下持股股东（先选公司→股东按公司收窄），
+//      随 companyCode 变化自动重载。不传则列全部 ACTIVE（付款单等兼容）。
+export function ShareholderSelector(p: BaseProps & { companyCode?: string }) {
+  const { companyCode, ...base } = p;
+  return <ScopedSelect {...base} placeholder={base.placeholder ?? '请选择股东'}
+    reloadDeps={[companyCode]}
+    loader={async () => {
+      const url = companyCode
+        ? `/lookup/shareholders?companyCode=${encodeURIComponent(companyCode)}`
+        : '/lookup/shareholders';
+      return (await lookupArr(url)).map((s: any) => ({ value: s.code, label: s.name, raw: s }));
+    }} />;
 }
 
 // ── 用户（G4-B：申请人 / 收货人 / 经办人）─────────────────────────────────────

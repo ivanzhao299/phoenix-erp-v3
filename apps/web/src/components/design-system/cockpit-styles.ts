@@ -226,9 +226,10 @@ export const inputField: CSSProperties = {
 };
 
 // ── 输入框 className 版（抽屉/表单内与 DictSelect/Selector 视觉对齐）──────────
-// G37：收口各页自定义的 `const inpClass` 局部副本，统一为单一来源。
+// G37 建立、G39 对齐：token 与 ScopedSelect/DictSelect 完全一致
+// （padding 8/12、圆角 7、字号 13、bg-card），消除同行 input 与 select 错位。
 export const inputFieldClass =
-  'w-full px-3 py-2 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 box-border';
+  'w-full px-3 py-2 rounded-[7px] text-[13px] border border-border bg-bg-card text-text placeholder:text-text-dim outline-none focus:border-emerald-400 box-border';
 
 // ── 表单 label ────────────────────────────────────────
 export const formLabel: CSSProperties = {
