@@ -14,6 +14,7 @@ import request from "@/lib/api-client";
  * 实际审批在「审批中心」待办完成（Workflow 2.0）。
  */
 import u from "@/styles/uix-utils.module.css";
+import s from '@/components/ui/admin-ui.module.css'; // G29-B
 const TYPES = [{
   type: "customer",
   label: "客户",
@@ -148,11 +149,7 @@ export default function MasterDataPendingPage() {
           overflow: "hidden",
           background: "var(--bg-card)"
         }}>
-                  <table style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: 13
-          }}>
+                  <table className={s.table}>
                     <thead><tr style={{
                 background: "var(--bg-muted)",
                 color: "var(--text-secondary)"

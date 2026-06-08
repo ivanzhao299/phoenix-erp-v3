@@ -12,6 +12,7 @@ import request from "@/lib/api-client";
  * 展示：生产 → 包装 → 标签 → 库存 → 销售/POS → 财务 → 退货 全链树。
  */
 import u from "@/styles/uix-utils.module.css";
+import s from '@/components/ui/admin-ui.module.css'; // G29-B
 const ENTRIES = [{
   key: "batch",
   label: "库存批次",
@@ -109,11 +110,7 @@ function Table({
   if (!rows || rows.length === 0) return <span style={{
     color: "var(--text-disabled)"
   }}>无</span>;
-  return <table style={{
-    width: "100%",
-    borderCollapse: "collapse",
-    fontSize: 12
-  }}>
+  return <table className={s.table} style={{ fontSize: 12 }}>
       <thead><tr style={{
         color: "var(--text-disabled)"
       }}>{cols.map(c => <th key={c.k} style={{

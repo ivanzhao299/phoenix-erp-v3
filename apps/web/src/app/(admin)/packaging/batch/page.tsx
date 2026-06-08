@@ -1,5 +1,5 @@
 'use client';
-import { toast } from 'sonner';
+import { useToast } from '@/contexts/ToastContext'; // G29-A: sonner → useToast
 import u from "@/styles/uix-utils.module.css";
 /**
  * 成品批次生成 — V3 复刻 V2 phoenix-frontend BatchGeneration.jsx 三步向导
@@ -34,6 +34,7 @@ export default function BatchGenerationRoute() {
 }
 
 function BatchGenerationPage() {
+  const toast = useToast();
   const router = useRouter();
   const { t } = useLanguage();
   const [step, setStep] = useState<1 | 2 | 3>(1);

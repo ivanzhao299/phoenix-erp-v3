@@ -21,6 +21,7 @@ import {
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
+import s from '@/components/ui/admin-ui.module.css'; // G29-B
 
 interface DictRow {
   id?: number;
@@ -305,7 +306,7 @@ export default function MdDictionariesPage() {
                   <code style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{type}</code>
                   <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-secondary)' }}>{rows.length} 项</span>
                 </header>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <table className={s.table}>
                   <thead>
                     <tr style={{ color: 'var(--text-secondary)' }}>
                       <th style={cellHeadStyle}>编码</th>

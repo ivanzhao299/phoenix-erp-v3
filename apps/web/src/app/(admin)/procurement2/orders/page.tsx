@@ -989,11 +989,7 @@ export default function PurchaseOrdersPage() {
           border: "1px solid var(--border)",
           borderRadius: 6
         }}>
-            <table style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: 12
-          }}>
+            <table className={s.table} style={{ fontSize: 12 }}>
               <thead>
                 <tr style={{
                 background: "var(--bg-muted)"

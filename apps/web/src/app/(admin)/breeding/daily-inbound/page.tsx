@@ -18,6 +18,7 @@ import request from "@/lib/api-client";
  * 与 inv_batches.grade_code_std / packaging.service 同源，杜绝多源漂移。
  */
 import u from "@/styles/uix-utils.module.css";
+import s from '@/components/ui/admin-ui.module.css'; // G29-B 全局表格
 
 function today() {
   const d = new Date();
@@ -287,11 +288,7 @@ export default function DailyInboundPage() {
         overflow: "hidden",
         marginBottom: 16
       }}>
-            <table style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          fontSize: 13
-        }}>
+            <table className={s.table}>
               <thead>
                 <tr style={{
               background: "var(--bg-muted)"
@@ -409,11 +406,7 @@ export default function DailyInboundPage() {
           color: "var(--status-success)",
           marginBottom: 10
         }}>✓ 入库成功 · 合计 {result.totalInbound.toLocaleString()} 枚，生成 {result.batches.length} 个可售批次</div>
-              <table style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          fontSize: 12
-        }}>
+              <table className={s.table} style={{ fontSize: 12 }}>
                 <thead><tr className={u.muted}><th style={{
                 textAlign: "left",
                 padding: "4px 8px"

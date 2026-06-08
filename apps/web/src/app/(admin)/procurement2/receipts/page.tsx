@@ -585,11 +585,7 @@ export default function ReceiptsPage() {
             border: "1px solid var(--border)",
             borderRadius: 8
           }}>
-              <table style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: 13
-            }}>
+              <table className={s.table}>
                 <thead>
                   <tr style={{
                   background: "var(--bg-table-head)",

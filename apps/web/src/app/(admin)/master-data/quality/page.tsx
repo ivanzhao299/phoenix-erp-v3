@@ -12,6 +12,7 @@ import request from "@/lib/api-client";
  * 检查重复客户/供应商、缺联系人/账户、未绑定账号股东等数据质量问题。
  */
 import u from "@/styles/uix-utils.module.css";
+import s from '@/components/ui/admin-ui.module.css'; // G29-B
 interface QualityCheck {
   key: string;
   label: string;
@@ -144,11 +145,7 @@ export default function MasterDataQualityPage() {
         overflow: "hidden",
         background: "var(--bg-card)"
       }}>
-            <table style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          fontSize: 13.5
-        }}>
+            <table className={s.table} style={{ fontSize: 13.5 }}>
               <thead>
                 <tr style={{
               background: "var(--bg-muted)",

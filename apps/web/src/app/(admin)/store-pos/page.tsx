@@ -6,6 +6,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
+import s from '@/components/ui/admin-ui.module.css'; // G29-B: 表格全局样式
 import { ShoppingCart, Banknote, CreditCard, Wallet, X, Plus, Minus, Search, RefreshCw, CheckCircle, AlertTriangle, Clock, History, LogIn, LogOut, FileText, BarChart2, Loader2, ChevronDown } from 'lucide-react';
 import { usePermission } from '@/hooks/usePermission';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
@@ -1255,11 +1256,7 @@ export default function StorePosPage() {
           marginLeft: 8
         }}>加载中...</span>
             </div> : <>
-              <table style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          fontSize: 13
-        }}>
+              <table className={s.table}>
                 <thead>
                   <tr style={{
               borderBottom: '1px solid var(--border-dark-faint)'
@@ -1477,11 +1474,7 @@ export default function StorePosPage() {
           marginLeft: 8
         }}>加载中...</span>
             </div> : <>
-              <table style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          fontSize: 13
-        }}>
+              <table className={s.table}>
                 <thead>
                   <tr style={{
               borderBottom: '1px solid var(--border-dark-faint)'

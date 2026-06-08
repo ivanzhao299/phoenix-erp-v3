@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from 'sonner';
+import { useToast } from '@/contexts/ToastContext'; // G29-A: sonner → useToast
 import u from "@/styles/uix-utils.module.css";
 import { useEffect, useState, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
@@ -25,6 +25,7 @@ interface LogItem {
   operator?: string;
 }
 export default function AuditLogPage() {
+  const toast = useToast();
   const {
     t
   } = useLanguage();
