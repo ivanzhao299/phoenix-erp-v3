@@ -77,16 +77,20 @@ const API = '/api/v2/finance/cash';
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   BANK: '银行账户',
   CASH: '现金账户',
+  EWALLET: '电子钱包',
   VIRTUAL: '虚拟账户',
   SHAREHOLDER: '股东账户',
-  INTERNAL: '内部账户'
+  INTERNAL: '内部账户',
+  PERSONAL_AGENT: '个人代收代付',
 };
 const ACCOUNT_TYPE_COLORS: Record<string, string> = {
   BANK: 'var(--color-accent)',
   CASH: 'var(--status-success)',
+  EWALLET: 'var(--status-info)',
   VIRTUAL: 'var(--color-purple-600)',
   SHAREHOLDER: 'var(--status-warning)',
-  INTERNAL: 'var(--status-info)'
+  INTERNAL: 'var(--status-info)',
+  PERSONAL_AGENT: 'var(--color-purple-600)',
 };
 const STATUS_LABELS: Record<string, string> = {
   ACTIVE: '正常',
