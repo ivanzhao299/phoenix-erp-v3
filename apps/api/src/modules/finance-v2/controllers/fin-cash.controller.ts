@@ -25,7 +25,11 @@ import {
   QueryFundTransferDto,
 } from '../dto/fund-transfer.dto';
 
-const MENU = 'MENU_FIN2_CASH';
+// G35 父子菜单粒度治理：17 endpoint 按子菜单细分（替代旧 MENU_FIN2_CASH 父菜单）
+const MENU_VIEW     = 'MENU_FIN2_CASH_VIEW';      // 账户列表/详情/汇总
+const MENU_MASTER   = 'MENU_FIN2_CASH_MASTER';    // 账户主档（建/改/冻/关）
+const MENU_TXN      = 'MENU_FIN2_CASH_TXN';       // 流水（查/录）
+const MENU_TRANSFER = 'MENU_FIN2_CASH_TRANSFER';  // 资金转账（查/建/审/执/撤）
 
 @Controller('api/v2/finance/cash')
 @UseGuards(MenuGuard, DataScopeGuard)
@@ -58,28 +62,28 @@ export class FinCashController {
 
   /** GET /api/v2/finance/cash/accounts */
   @Get('accounts')
-  @RequireMenu(MENU, 'V')
+  @RequireMenu(MENU_VIEW, 'V')
   listAccounts(@Query() dto: QueryCashAccountDto) {
     return this.accSvc.list(dto, this.scopedUser);
   }
 
   /** GET /api/v2/finance/cash/accounts/summary */
   @Get('accounts/summary')
-  @RequireMenu(MENU, 'V')
+  @RequireMenu(MENU_VIEW, 'V')
   accountSummary() {
     return this.accSvc.getSummary(this.scopedUser);
   }
 
   /** GET /api/v2/finance/cash/accounts/:id */
   @Get('accounts/:id')
-  @RequireMenu(MENU, 'V')
+  @RequireMenu(MENU_VIEW, 'V')
   getAccount(@Param('id') id: string) {
     return this.accSvc.findById(id, this.scopedUser);
   }
 
   /** POST /api/v2/finance/cash/accounts */
   @Post('accounts')
-  @RequireMenu(MENU, 'E')
+  @RequireMenu(MENU_MASTER, 'C')
   async createAccount(@Body() dto: CreateCashAccountDto) {
     const acc = await this.accSvc.create(dto, this.scopedUser);
     // 如果有期初余额，写 OPENING 流水
@@ -100,14 +104,14 @@ export class FinCashController {
 
   /** PATCH /api/v2/finance/cash/accounts/:id */
   @Patch('accounts/:id')
-  @RequireMenu(MENU, 'E')
+  @RequireMenu(MENU_MASTER, 'E')
   updateAccount(@Param('id') id: string, @Body() dto: UpdateCashAccountDto) {
     return this.accSvc.update(id, dto, this.scopedUser);
   }
 
   /** POST /api/v2/finance/cash/accounts/:id/freeze */
   @Post('accounts/:id/freeze')
-  @RequireMenu(MENU, 'E')
+  @RequireMenu(MENU_MASTER, 'E')
   @HttpCode(HttpStatus.OK)
   freezeAccount(@Param('id') id: string) {
     return this.accSvc.freeze(id, this.scopedUser);
@@ -115,7 +119,7 @@ export class FinCashController {
 
   /** POST /api/v2/finance/cash/accounts/:id/unfreeze */
   @Post('accounts/:id/unfreeze')
-  @RequireMenu(MENU, 'E')
+  @RequireMenu(MENU_MASTER, 'E')
   @HttpCode(HttpStatus.OK)
   unfreezeAccount(@Param('id') id: string) {
     return this.accSvc.unfreeze(id, this.scopedUser);
@@ -123,7 +127,7 @@ export class FinCashController {
 
   /** POST /api/v2/finance/cash/accounts/:id/close */
   @Post('accounts/:id/close')
-  @RequireMenu(MENU, 'E')
+  @RequireMenu(MENU_MASTER, 'E')
   @HttpCode(HttpStatus.OK)
   closeAccount(@Param('id') id: string) {
     return this.accSvc.close(id, this.scopedUser);
@@ -135,7 +139,7 @@ export class FinCashController {
 
   /** GET /api/v2/finance/cash/transactions */
   @Get('transactions')
-  @RequireMenu(MENU, 'V')
+  @RequireMenu(MENU_TXN, 'V')
   listTransactions(@Query() dto: QueryCashTransactionDto) {
     // C2 修复：从 CLS DataScope 读取（DataScopeGuard 已写入正确 scope）
     const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
@@ -148,12 +152,12 @@ export class FinCashController {
   /**
    * POST /api/v2/finance/cash/transactions/manual
    *
-   * 手工录入零散现金流水（孟赛生产数据主管等"出纳"角色用）。
+   * 手工录入零散现金流水（出纳角色用）。
    * 不走 AR/AP 业务单据，直接写 fin_cash_transactions。
-   * 需要 MENU_FIN2_CASH 的 'C' 权限。
+   * G35：需要 MENU_FIN2_CASH_TXN:C
    */
   @Post('transactions/manual')
-  @RequireMenu(MENU, 'C')
+  @RequireMenu(MENU_TXN, 'C')
   async createManualTransaction(@Body() body: any, @Req() req: any) {
     const userId = req?.user?.userId || req?.user?.id;
     const username = req?.user?.username || 'unknown';
@@ -166,28 +170,28 @@ export class FinCashController {
 
   /** GET /api/v2/finance/cash/transfers */
   @Get('transfers')
-  @RequireMenu(MENU, 'V')
+  @RequireMenu(MENU_TRANSFER, 'V')
   listTransfers(@Query() dto: QueryFundTransferDto) {
     return this.tfrSvc.list(dto, this.scopedUser);
   }
 
   /** GET /api/v2/finance/cash/transfers/:id */
   @Get('transfers/:id')
-  @RequireMenu(MENU, 'V')
+  @RequireMenu(MENU_TRANSFER, 'V')
   getTransfer(@Param('id') id: string) {
     return this.tfrSvc.findById(id, this.scopedUser);
   }
 
   /** POST /api/v2/finance/cash/transfers */
   @Post('transfers')
-  @RequireMenu(MENU, 'E')
+  @RequireMenu(MENU_TRANSFER, 'C')
   createTransfer(@Body() dto: CreateFundTransferDto) {
     return this.tfrSvc.create(dto, this.scopedUser);
   }
 
   /** POST /api/v2/finance/cash/transfers/:id/submit */
   @Post('transfers/:id/submit')
-  @RequireMenu(MENU, 'E')
+  @RequireMenu(MENU_TRANSFER, 'E')
   @HttpCode(HttpStatus.OK)
   submitTransfer(@Param('id') id: string) {
     return this.tfrSvc.submit(id, this.scopedUser);
@@ -195,7 +199,7 @@ export class FinCashController {
 
   /** POST /api/v2/finance/cash/transfers/:id/approve */
   @Post('transfers/:id/approve')
-  @RequireMenu(MENU, 'A')
+  @RequireMenu(MENU_TRANSFER, 'A')
   @HttpCode(HttpStatus.OK)
   approveTransfer(@Param('id') id: string, @Body() dto: ApproveFundTransferDto) {
     return this.tfrSvc.approve(id, dto, this.scopedUser);
@@ -203,7 +207,7 @@ export class FinCashController {
 
   /** POST /api/v2/finance/cash/transfers/:id/execute */
   @Post('transfers/:id/execute')
-  @RequireMenu(MENU, 'E')
+  @RequireMenu(MENU_TRANSFER, 'E')
   @HttpCode(HttpStatus.OK)
   executeTransfer(@Param('id') id: string) {
     return this.tfrSvc.execute(id, this.scopedUser);
@@ -211,7 +215,7 @@ export class FinCashController {
 
   /** POST /api/v2/finance/cash/transfers/:id/cancel */
   @Post('transfers/:id/cancel')
-  @RequireMenu(MENU, 'E')
+  @RequireMenu(MENU_TRANSFER, 'E')
   @HttpCode(HttpStatus.OK)
   cancelTransfer(@Param('id') id: string, @Body() dto: CancelFundTransferDto) {
     return this.tfrSvc.cancel(id, dto, this.scopedUser);
