@@ -25,10 +25,7 @@ export default function CustomerRuntimePage() {
         onCodeClick={(code) => setDetailCode(code)}
         fields={[
           { key: "customer_name", label: "客户名称", required: true },
-          { key: "customer_type", label: "客户类型", type: "select", options: [
-            { value: "DIRECT_STORE", label: "直营门店" }, { value: "DISTRIBUTOR", label: "经销商" },
-            { value: "AGENT", label: "代理商" }, { value: "KEY_ACCOUNT", label: "大客户" }, { value: "RETAIL", label: "零售客户" },
-          ] },
+          { key: "customer_type", label: "客户类型", dictType: "SAL_CUSTOMER_TYPE" },  // G66 走字典(消除硬编码重复)
           { key: "company_code", label: "所属公司编码", required: true },
           { key: "contact_name", label: "联系人" },
           { key: "contact_phone", label: "联系电话" },

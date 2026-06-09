@@ -2,8 +2,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X, Link2, MoreHorizontal } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
+import DictSelect from "@/components/shared-selectors/DictSelect";  // G66 字段挂字典
 import { EmptyState, LoadingSkeleton } from "@/components/design-system";
-import { primaryActionButton, secondaryActionButton, inputField, formLabel, inlineBadge } from "@/components/design-system/cockpit-styles";
+import {
+  primaryActionButton, secondaryActionButton, inputField, formLabel, inlineBadge,
+  drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
+} from "@/components/design-system/cockpit-styles";
 import request from "@/lib/api-client";
 
 /**
@@ -207,13 +211,13 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
           )}
       </div>
 
-      {/* 新增/编辑抽屉 */}
+      {/* 新增/编辑抽屉 — 全局 drawer token */}
       {editing !== null && (
-        <div style={{ position: "fixed", inset: 0, background: "var(--overlay-mask)", zIndex: 10010, display: "flex", justifyContent: "flex-end" }} onClick={() => setEditing(null)}>
-          <div style={{ width: 480, background: "var(--bg-card)", height: "100%", overflowY: "auto", padding: 28 }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{editing[codeKey] ? `编辑${title}` : `新增${title}`}</h2>
-              <button onClick={() => setEditing(null)} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--text-secondary)" }}><X size={20} /></button>
+        <div style={drawerMask} onClick={() => setEditing(null)}>
+          <div style={drawerPanel(480)} onClick={e => e.stopPropagation()}>
+            <div style={drawerHeader}>
+              <h2 style={drawerHeaderTitle}>{editing[codeKey] ? `编辑${title}` : `新增${title}`}</h2>
+              <button onClick={() => setEditing(null)} style={drawerCloseButton}><X size={20} /></button>
             </div>
             {editing[codeKey] && <div style={{ marginBottom: 14, fontSize: 12, color: "var(--text-secondary)" }}>编码：<span style={{ fontFamily: "monospace", color: "var(--color-primary)" }}>{editing[codeKey]}</span>（自动生成，不可修改）</div>}
             {!editing[codeKey] && <div style={{ marginBottom: 14, fontSize: 12, color: "var(--text-secondary)" }}>编码将在保存时自动生成（不可手填）</div>}
@@ -222,7 +226,11 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                 <label style={formLabel}>
                   {f.label}{f.required && <span style={{ color: "var(--status-danger)", marginLeft: 4 }}>*</span>}
                 </label>
-                {f.type === "select" ? (
+                {f.dictType ? (
+                  // G66：字段挂字典 → 走 DictSelect（仅 ACTIVE），消除硬编码 options 重复
+                  <DictSelect dictType={f.dictType} value={form[f.key] ?? ""}
+                    onChange={(v: string) => setForm({ ...form, [f.key]: v })} allowEmpty />
+                ) : f.type === "select" ? (
                   <select value={form[f.key] ?? ""} onChange={e => setForm({ ...form, [f.key]: e.target.value })} style={inputField}>
                     <option value="">请选择</option>
                     {(f.options ?? []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -233,7 +241,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                 )}
               </div>
             ))}
-            <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+            <div style={drawerFooter}>
               <button onClick={() => setEditing(null)} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>取消</button>
               <button onClick={save} disabled={saving} style={{ ...primaryActionButton, flex: 2, justifyContent: "center", opacity: saving ? 0.6 : 1 }}>
                 {saving ? "保存中…" : "保存草稿"}
