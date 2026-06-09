@@ -7,6 +7,7 @@ import PageHeader from '@/components/PageHeader';
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector, ShareholderSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { AttachmentUploader } from '@/components/design-system';
+import { usePermission } from '@/hooks/usePermission';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, inputFieldClass, formLabel,
@@ -970,6 +971,10 @@ function SummaryTab({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ShareholderFundsPage() {
+  // 权限门控（G47）：新建/导入股东资金记录受 MENU_FIN2_SHAREHOLDER:E 约束，
+  // 刘杰等仅查看角色(V,X)不应看到写入口。
+  const { canCreate, canEdit } = usePermission('MENU_FIN2_SHAREHOLDER');
+  const canWrite = canCreate || canEdit;
   const [tab, setTab] = useState<'contributions' | 'settlements' | 'summary'>('contributions');
   const [contributions, setContributions] = useState<Contribution[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
@@ -1050,12 +1055,16 @@ export default function ShareholderFundsPage() {
       display: 'flex',
       gap: 8
     }}>
-            <button onClick={() => void importFromPrc2()} disabled={importLoading} style={secondaryActionButton}>
-              <Upload size={14} /> {importLoading ? '导入中…' : '从采购系统导入'}
-            </button>
-            <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
-              <Plus size={15} /> 新建记录
-            </button>
+            {canWrite && (
+              <button onClick={() => void importFromPrc2()} disabled={importLoading} style={secondaryActionButton}>
+                <Upload size={14} /> {importLoading ? '导入中…' : '从采购系统导入'}
+              </button>
+            )}
+            {canWrite && (
+              <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
+                <Plus size={15} /> 新建记录
+              </button>
+            )}
           </div>} />
 
       {/* Tab 切换 */}

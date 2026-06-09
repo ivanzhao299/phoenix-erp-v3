@@ -5,6 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import { ArrowLeftRight, Plus, Search, RefreshCw, X, CheckCircle, Clock, AlertCircle, Send, Play } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
+import { usePermission } from '@/hooks/usePermission';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -277,6 +278,9 @@ function CreateTransferModal({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function FundTransfersPage() {
+  // 权限门控（G47）：新建转账受 MENU_FIN2_CASH_TRANSFER:C 约束，
+  // 刘杰等仅查看/审核角色(无该菜单)不应看到新建入口。
+  const { canCreate } = usePermission('MENU_FIN2_CASH_TRANSFER');
   const [transfers, setTransfers] = useState<FundTransfer[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -326,9 +330,9 @@ export default function FundTransfersPage() {
     }
   }
   return <div>
-      <PageHeader title="资金转账" subtitle="账户间内部资金划转，5 状态审批工作流" breadcrumb={['财务管理', '资金转账']} actions={<button onClick={() => setShowCreate(true)} style={primaryActionButton}>
+      <PageHeader title="资金转账" subtitle="账户间内部资金划转，5 状态审批工作流" breadcrumb={['财务管理', '资金转账']} actions={canCreate ? <button onClick={() => setShowCreate(true)} style={primaryActionButton}>
             <Plus size={15} /> 新建转账
-          </button>} />
+          </button> : undefined} />
 
       {/* 状态筛选 工具栏 */}
       <div style={searchToolbar}>
