@@ -10,6 +10,7 @@ import { MasterDataGovernanceService } from './governance.service';             
 import { MasterDataOperationsService } from './operations.service';             // G5.5-E
 import { BizProjectsController } from './biz-projects.controller';              // MDM-1
 import { ApprovalEngineModule } from '../approval-engine/approval-engine.module';
+import { MasterDataTypeGuard } from '../../common/guards/master-data-type.guard'; // G56-B 项级原子鉴权
 
 /**
  * MasterDataCenterModule
@@ -28,6 +29,7 @@ import { ApprovalEngineModule } from '../approval-engine/approval-engine.module'
     MasterDataReferencesService,
     DictGovernanceService, MasterDataGovernanceService,
     MasterDataOperationsService,
+    MasterDataTypeGuard, // G56-B
   ],
   exports: [
     CodeGeneratorService, MasterDataAuditService, MasterDataRuntimeService,

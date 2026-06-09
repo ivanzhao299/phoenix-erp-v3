@@ -53,7 +53,10 @@ function Accordion({ open, children }: { open: boolean; children: React.ReactNod
 // ── Menu Tree (Lucide icons) ─────────────────────────────────────
 type MenuItem = {
   id: string; path?: string; Icon: LucideIcon; label: string;
-  perm: string | null; children?: MenuItem[];
+  perm: string | null;
+  // G56-B：超级码兜底——持有 superPerm 即可见（如主数据各叶子的 MENU_MASTER_DATA "管理全部"）
+  superPerm?: string;
+  children?: MenuItem[];
 };
 
 // ── V3 最终菜单架构 — Navigation Final 2026-05-30 ─────────────────
@@ -202,27 +205,27 @@ const MENU: MenuItem[] = [
   ]},
 
   // 9. 主数据中心 — 全量主数据统一入口
-  // G56 RBAC 项级原子化：主数据中心叶子的侧边栏 perm 对齐到后端真实 @RequireMenu，
-  //   消除"借运营码点亮菜单但后端要 MENU_MASTER_DATA→点进去403"的前后端不一致。
-  //   14 个 /master-data/runtime/:type 页面 → 后端统一 MENU_MASTER_DATA；
-  //   公司/用户组织/组织架构走 /api/org → MENU_SYS_ORG；字典/质量/待审批保持各自专属码。
+  // G56-B RBAC 项级原子化：主数据每实体用专属码 MENU_MD_<TYPE>，superPerm=MENU_MASTER_DATA
+  //   作"管理全部主数据"超级兜底（持超级码即见全部；按实体授权者只见对应叶子）。
+  //   与后端 MasterDataTypeGuard 完全对齐（per-type OR 超级码）。
+  //   组织/公司/用户组织走 /api/org → MENU_SYS_ORG；字典→MENU_SETTINGS_DATA；概览/待审批=超级码本身。
   { id: "master-data", Icon: Database, label: "主数据中心", perm: "MENU_MASTER_DATA", children: [
     { id: "mdc-overview",   path: "/master-data",                  Icon: LayoutDashboard, label: "主数据概览",   perm: "MENU_MASTER_DATA"     },
     { id: "mdc-orgs",       path: "/master-data/organizations",    Icon: Network,         label: "组织架构",     perm: "MENU_SYS_ORG"         },
     { id: "mdc-companies",  path: "/master-data/companies",        Icon: Building,        label: "公司档案",     perm: "MENU_SYS_ORG"         },
-    { id: "mdc-projects",   path: "/master-data/projects",         Icon: FolderKanban,    label: "项目档案",     perm: "MENU_MASTER_DATA"     },
-    { id: "mdc-customers",  path: "/master-data/customers",        Icon: Users,           label: "客户档案",     perm: "MENU_MASTER_DATA"     },
-    { id: "mdc-suppliers",  path: "/master-data/suppliers",        Icon: Globe,           label: "供应商档案",   perm: "MENU_MASTER_DATA"     },
-    { id: "mdc-products",   path: "/master-data/products",         Icon: Egg,             label: "产品档案",     perm: "MENU_MASTER_DATA"     },
-    { id: "mdc-grades",     path: "/master-data/product-grades",   Icon: Tag,             label: "等级档案",     perm: "MENU_MASTER_DATA"     },
-    { id: "mdc-pkgspecs",   path: "/master-data/packaging-specs",  Icon: Package,         label: "包装规格",     perm: "MENU_MASTER_DATA"     },
-    { id: "mdc-skus",       path: "/master-data/product-skus",     Icon: Layers,          label: "SKU档案",      perm: "MENU_MASTER_DATA"     },
-    { id: "mdc-warehouses", path: "/master-data/warehouses",       Icon: Warehouse,       label: "仓库档案",     perm: "MENU_MASTER_DATA"     },
-    { id: "mdc-stores",     path: "/master-data/stores",           Icon: Store,           label: "门店档案",     perm: "MENU_MASTER_DATA"     },
-    { id: "mdc-drivers",    path: "/master-data/drivers",          Icon: UserCheck,       label: "司机档案",     perm: "MENU_MASTER_DATA"     },
-    { id: "mdc-vehicles",   path: "/master-data/vehicles",         Icon: Car,             label: "车辆档案",     perm: "MENU_MASTER_DATA"     },
-    { id: "mdc-cash",       path: "/master-data/cash-accounts",    Icon: Wallet,          label: "资金账户档案", perm: "MENU_MASTER_DATA"     },
-    { id: "mdc-bank",       path: "/master-data/bank-accounts",    Icon: Landmark,        label: "银行账户中心", perm: "MENU_MASTER_DATA"     },
+    { id: "mdc-projects",   path: "/master-data/projects",         Icon: FolderKanban,    label: "项目档案",     perm: "MENU_MD_PROJECT",     superPerm: "MENU_MASTER_DATA" },
+    { id: "mdc-customers",  path: "/master-data/customers",        Icon: Users,           label: "客户档案",     perm: "MENU_MD_CUSTOMER",    superPerm: "MENU_MASTER_DATA" },
+    { id: "mdc-suppliers",  path: "/master-data/suppliers",        Icon: Globe,           label: "供应商档案",   perm: "MENU_MD_SUPPLIER",    superPerm: "MENU_MASTER_DATA" },
+    { id: "mdc-products",   path: "/master-data/products",         Icon: Egg,             label: "产品档案",     perm: "MENU_MD_PRODUCT",     superPerm: "MENU_MASTER_DATA" },
+    { id: "mdc-grades",     path: "/master-data/product-grades",   Icon: Tag,             label: "等级档案",     perm: "MENU_MD_GRADE",       superPerm: "MENU_MASTER_DATA" },
+    { id: "mdc-pkgspecs",   path: "/master-data/packaging-specs",  Icon: Package,         label: "包装规格",     perm: "MENU_MD_PACKAGING",   superPerm: "MENU_MASTER_DATA" },
+    { id: "mdc-skus",       path: "/master-data/product-skus",     Icon: Layers,          label: "SKU档案",      perm: "MENU_MD_SKU",         superPerm: "MENU_MASTER_DATA" },
+    { id: "mdc-warehouses", path: "/master-data/warehouses",       Icon: Warehouse,       label: "仓库档案",     perm: "MENU_MD_WAREHOUSE",   superPerm: "MENU_MASTER_DATA" },
+    { id: "mdc-stores",     path: "/master-data/stores",           Icon: Store,           label: "门店档案",     perm: "MENU_MD_STORE",       superPerm: "MENU_MASTER_DATA" },
+    { id: "mdc-drivers",    path: "/master-data/drivers",          Icon: UserCheck,       label: "司机档案",     perm: "MENU_MD_DRIVER",      superPerm: "MENU_MASTER_DATA" },
+    { id: "mdc-vehicles",   path: "/master-data/vehicles",         Icon: Car,             label: "车辆档案",     perm: "MENU_MD_VEHICLE",     superPerm: "MENU_MASTER_DATA" },
+    { id: "mdc-cash",       path: "/master-data/cash-accounts",    Icon: Wallet,          label: "资金账户档案", perm: "MENU_MD_CASH_ACCOUNT", superPerm: "MENU_MASTER_DATA" },
+    { id: "mdc-bank",       path: "/master-data/bank-accounts",    Icon: Landmark,        label: "银行账户中心", perm: "MENU_MD_BANK_ACCOUNT", superPerm: "MENU_MASTER_DATA" },
     { id: "mdc-dict",       path: "/master-data/dictionaries",     Icon: BookOpen,        label: "数据字典中心", perm: "MENU_SETTINGS_DATA"   },
     { id: "mdc-pending",    path: "/master-data/pending",          Icon: Landmark,        label: "主数据待审批", perm: "MENU_MASTER_DATA"     },  // G3-B 审批
     { id: "mdc-quality",    path: "/master-data/quality",          Icon: ShieldCheck,     label: "数据质量中心", perm: "MENU_MD_QUALITY"      },  // G1 质量看板
@@ -292,7 +295,9 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
   const visibleMenu = useMemo(() => MENU.map(item => {
     if (item.children) {
       // 父项：先过滤可见子项，无可见则整段剔除（不再检查父项 perm）
-      const kids = item.children.filter(c => !c.perm || hasPermission(c.perm));
+      // G56-B：叶子有 superPerm 时，持有 superPerm 亦可见（超级码"管理全部"兜底）
+      const kids = item.children.filter(c =>
+        !c.perm || hasPermission(c.perm) || (!!c.superPerm && hasPermission(c.superPerm)));
       if (!kids.length) return null;
       return { ...item, children: kids };
     }

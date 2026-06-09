@@ -1,11 +1,10 @@
 import { Controller, Get, Post, Put, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
-import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { MasterDataTypeGuard } from '../../common/guards/master-data-type.guard';
 import { MasterDataRuntimeService } from './master-data-runtime.service';
 
 /**
  * MasterDataRuntimeController — 核心主数据 Runtime API（G3-A）
- * 路由前缀：/api/master-data/runtime/:type   （type ∈ customer|supplier|project|cash-account）
+ * 路由前缀：/api/master-data/runtime/:type
  *   GET    /:type                 列表（?status=&keyword=）
  *   GET    /:type/active          仅 ACTIVE（供 Selector 引用治理）
  *   GET    /:type/:code           详情
@@ -13,10 +12,12 @@ import { MasterDataRuntimeService } from './master-data-runtime.service';
  *   PUT    /:type/:code           编辑
  *   POST   /:type/:code/transition  生命周期流转（submit/approve/reject/freeze/archive/restore）
  *
- * 权限按主数据类型映射到对应治理菜单（C=新增、E=编辑、A=审批）。
+ * 鉴权（G56-B 项级原子）：MasterDataTypeGuard 按 :type 动态解析专属码
+ *   MENU_MD_<TYPE>（如 customer→MENU_MD_CUSTOMER），并以 MENU_MASTER_DATA 为超级兜底。
+ *   操作码自动推导：GET→V、POST 新增→C、PUT/transition→E。
  */
 @Controller('api/master-data/runtime')
-@UseGuards(AuthGuard('jwt'), MenuGuard)
+@UseGuards(MasterDataTypeGuard)
 export class MasterDataRuntimeController {
   constructor(private readonly rt: MasterDataRuntimeService) {}
 
@@ -25,37 +26,31 @@ export class MasterDataRuntimeController {
   }
 
   @Get(':type')
-  @RequireMenu('MENU_MASTER_DATA', 'V')
   list(@Param('type') type: string, @Query('status') status?: string, @Query('keyword') keyword?: string) {
     return this.rt.list(type, { status, keyword });
   }
 
   @Get(':type/active')
-  @RequireMenu('MENU_MASTER_DATA', 'V')
   listActive(@Param('type') type: string) {
     return this.rt.listActive(type);
   }
 
   @Get(':type/:code')
-  @RequireMenu('MENU_MASTER_DATA', 'V')
   get(@Param('type') type: string, @Param('code') code: string) {
     return this.rt.get(type, code);
   }
 
   @Post(':type')
-  @RequireMenu('MENU_MASTER_DATA', 'C')
   create(@Param('type') type: string, @Body() dto: Record<string, any>, @Req() req: any) {
     return this.rt.create(type, dto, this.operator(req));
   }
 
   @Put(':type/:code')
-  @RequireMenu('MENU_MASTER_DATA', 'E')
   update(@Param('type') type: string, @Param('code') code: string, @Body() dto: Record<string, any>, @Req() req: any) {
     return this.rt.update(type, code, dto, this.operator(req));
   }
 
   @Post(':type/:code/transition')
-  @RequireMenu('MENU_MASTER_DATA', 'E')
   transition(
     @Param('type') type: string, @Param('code') code: string,
     @Body() body: { action: string; reason?: string }, @Req() req: any,
