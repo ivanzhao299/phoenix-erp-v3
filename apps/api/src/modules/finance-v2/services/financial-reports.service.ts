@@ -62,7 +62,7 @@ export class FinancialReportsService {
     const run = (sql: string, extraParams: any[] = []) =>
       this.ds.query(sql, [...extraParams, ...sp]);
 
-    const [apRow, arRow, cashRow, shRow, expRow, reimbRow, todayRows, byCurrRows, byCompRows] =
+    const [apRow, arRow, cashRow, shRow, expRow, reimbRow, todayRows, byCurrRows, byCompRows, arLedgerRow] =
       await Promise.all([
         // AP 未付款余额
         run(`SELECT COALESCE(SUM(balance_amount_base),0) AS v FROM fin_ap_invoices WHERE status NOT IN ('PAID','CANCELLED') ${sf}`),
@@ -82,10 +82,17 @@ export class FinancialReportsService {
         run(`SELECT currency_code, COALESCE(SUM(current_balance),0) AS v FROM fin_cash_accounts WHERE status='ACTIVE' ${sf} GROUP BY currency_code ORDER BY v DESC`),
         // 按公司现金余额
         run(`SELECT company_code, COALESCE(SUM(current_balance),0) AS v FROM fin_cash_accounts WHERE status='ACTIVE' ${sf} GROUP BY company_code ORDER BY v DESC`),
+        // G61：应收总账(OCR快照) — 每客户最新期间期末本币(CNY)，并入应收待收（fin_ar_invoices 之外的应收来源）
+        run(`SELECT COALESCE(SUM(closing_amount_base),0) AS v FROM (
+               SELECT DISTINCT ON (farm_code, counterparty_code) closing_amount_base
+               FROM fin_ar_ledger WHERE 1=1 ${sf}
+               ORDER BY farm_code, counterparty_code, period_date DESC
+             ) t`),
       ]);
 
     const apOpen    = Number(apRow[0]?.v   ?? 0);
-    const arOpen    = Number(arRow[0]?.v   ?? 0);
+    // G61：应收待收 = 发票应收(fin_ar_invoices) + 应收总账OCR快照最新期末(fin_ar_ledger)
+    const arOpen    = Number(arRow[0]?.v   ?? 0) + Number(arLedgerRow[0]?.v ?? 0);
     const cashBal   = Number(cashRow[0]?.v ?? 0);
     const shBal     = Number(shRow[0]?.v   ?? 0);
     const reimbPend = Number(reimbRow[0]?.v ?? 0);

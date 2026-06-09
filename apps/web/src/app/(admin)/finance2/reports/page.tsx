@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import { currencySymbol } from '@/lib/currency';  // G61 多币种符号
 import u from "@/styles/uix-utils.module.css";
 import { PieChart, BarChart2, TrendingDown, TrendingUp, Wallet, Users, Receipt, Building2, FolderOpen, RefreshCw, AlertTriangle, CheckCircle, DollarSign, ArrowLeftRight } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
@@ -39,6 +40,20 @@ function fmt(n: number | string | null | undefined, dec = 2): string {
 function fmtMoney(n: number | null | undefined): string {
   return `¥ ${fmt(n)}`;
 }
+// G61：按币种金额（修 fmtMoney 一律贴 ¥ 导致 LAK/USD 符号错）
+function fmtCcy(n: number | null | undefined, ccy: string): string {
+  return `${currencySymbol(ccy)}${fmt(n)}`;
+}
+// G61：多币种金额堆叠多行渲染（可支配资金/现金账户跨币种不可裸求和成单一 ¥）
+function renderCcyRows(rows: { ccy: string; amount: number }[], fontSize = 18): ReactNode {
+  if (rows.length === 0) return '—';
+  if (rows.length === 1) return fmtCcy(rows[0].amount, rows[0].ccy);
+  return (
+    <span style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize, lineHeight: 1.3 }}>
+      {rows.map(r => <span key={r.ccy} style={{ whiteSpace: 'nowrap' }}>{fmtCcy(r.amount, r.ccy)}</span>)}
+    </span>
+  );
+}
 
 // ── 子组件 ────────────────────────────────────────────────────────────────────
 
@@ -50,7 +65,7 @@ function KpiCard({
   color
 }: {
   label: string;
-  value: string;
+  value: ReactNode;   // G61 支持多币种堆叠 JSX
   sub?: string;
   icon?: React.ElementType;
   color?: string;
@@ -245,15 +260,27 @@ function OverviewTab() {
   if (loading) return <Spinner />;
   if (!data) return <Empty text="加载失败" />;
   const netColor = data.netOperatingPosition >= 0 ? TOKENS.css.statusSuccess : TOKENS.css.statusDanger;
+  // G61：现金/可支配资金按币种（跨币种不可裸求和成单一 ¥）。
+  //   现金 = byCurrency；可支配 = 现金各币种 + CNY 行并入 (应收 − 应付 − 待报销)（本币口径）。
+  const cashRows = (data.byCurrency ?? []).map(r => ({ ccy: r.currencyCode, amount: r.cashBalance }));
+  const cnyAdj = (data.arOpen ?? 0) - (data.apOpen ?? 0) - (data.reimbursementPendingAmount ?? 0);
+  const disposableRows = cashRows.length > 0
+    ? cashRows.map(r => ({ ccy: r.ccy, amount: r.amount + (r.ccy === 'CNY' ? cnyAdj : 0) }))
+    : [];
+  if (cnyAdj !== 0 && cashRows.length > 0 && !disposableRows.some(r => r.ccy === 'CNY')) {
+    disposableRows.push({ ccy: 'CNY', amount: cnyAdj });
+  }
   return <div>
-      {/* 可支配资金 主 KPI */}
+      {/* 可支配资金 主 KPI（按币种） */}
       <div style={{ ...heroBanner, flexDirection: 'column', alignItems: 'stretch' }}>
-        <div style={{ fontSize: 12, opacity: 0.78, marginBottom: 4 }}>可支配资金（Net Operating Position）</div>
-        <div style={heroBannerKpi(36)}>
-          {data.netOperatingPosition >= 0 ? '+' : ''}¥ {fmt(data.netOperatingPosition)}
+        <div style={{ fontSize: 12, opacity: 0.78, marginBottom: 4 }}>可支配资金（Net Operating Position）· 按币种</div>
+        <div style={{ ...heroBannerKpi(disposableRows.length > 1 ? 22 : 36) }}>
+          {disposableRows.length > 0
+            ? renderCcyRows(disposableRows, disposableRows.length > 1 ? 22 : 36)
+            : `¥ ${fmt(data.netOperatingPosition)}`}
         </div>
         <div style={{ fontSize: 12, opacity: 0.72, marginTop: 6 }}>
-          = 现金余额 + 应收待收 − 应付待付 − 待报销金额
+          = 现金余额 + 应收待收 − 应付待付 − 待报销金额（外币不折算本币，按币种列示）
         </div>
         <div style={{ display: 'flex', gap: 18, marginTop: 14, flexWrap: 'wrap' }}>
           {[{
@@ -283,7 +310,7 @@ function OverviewTab() {
       gap: 10,
       marginBottom: 20
     }}>
-        <KpiCard label="现金账户余额" value={fmtMoney(data.cashBalance)} icon={Wallet} color="var(--color-primary)" />
+        <KpiCard label="现金账户余额" value={cashRows.length > 0 ? renderCcyRows(cashRows, 16) : fmtMoney(data.cashBalance)} icon={Wallet} color="var(--color-primary)" />
         <KpiCard label="应收待收款" value={fmtMoney(data.arOpen)} icon={TrendingUp} color="var(--status-success)" />
         <KpiCard label="应付待付款" value={fmtMoney(data.apOpen)} icon={TrendingDown} color="var(--status-warning)" />
         <KpiCard label="股东资金余额" value={fmtMoney(data.shareholderBalance)} icon={Users} color="var(--status-info)" />
@@ -302,7 +329,7 @@ function OverviewTab() {
             {data.byCurrency.map(r => (
               <div key={r.currencyCode} style={statTile}>
                 <div style={statTileLabel}>{r.currencyCode}</div>
-                <div style={statTileValue}>{fmtMoney(r.cashBalance)}</div>
+                <div style={statTileValue}>{fmtCcy(r.cashBalance, r.currencyCode)}</div>
               </div>
             ))}
           </div>
