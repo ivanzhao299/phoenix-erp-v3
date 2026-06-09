@@ -7,6 +7,7 @@ import { Wallet, Plus, Search, RefreshCw, Lock, Unlock, X, TrendingUp, TrendingD
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission'; // G20-2 子 menu 按钮分流
+import { currencySymbol } from '@/lib/currency';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -54,6 +55,11 @@ interface AccountSummary {
   closedCount: number;
   byType: Array<{
     account_type: string;
+    cnt: string;
+    balance: string;
+  }>;
+  byCurrency?: Array<{
+    currency_code: string;
     cnt: string;
     balance: string;
   }>;
@@ -392,7 +398,7 @@ function TransactionDrawer({
           fontWeight: 800,
           letterSpacing: -1
         }}>
-            {account.currency_code} {fmt(account.current_balance)}
+            {currencySymbol(account.currency_code)}{fmt(account.current_balance)}
           </div>
           <div style={{
           fontSize: 12,
@@ -539,7 +545,14 @@ export default function CashAccountsPage() {
       setActionLoading(null);
     }
   }
-  const totalBalance = summary?.totalBalance ?? 0;
+  // 账户总余额跨币种，单一符号会误导(USD/THB 账户被当人民币)。按币种分组展示。
+  const totalBalanceDisplay = (() => {
+    const rows = (summary?.byCurrency ?? []).filter(r => Number(r.balance) !== 0 || Number(r.cnt) > 0);
+    if (rows.length === 0) return fmt(summary?.totalBalance ?? 0);
+    return rows
+      .map(r => `${currencySymbol(r.currency_code)}${fmt(r.balance)}`)
+      .join('  /  ');
+  })();
   return <div>
       <PageHeader title="资金账户中心" subtitle="资金账户管理 · 流水账本 · 转账审批" breadcrumb={['财务管理', '资金账户']} actions={
         <div style={{ display: 'flex', gap: 8 }}>
@@ -570,7 +583,7 @@ export default function CashAccountsPage() {
     }}>
         {[{
         label: '账户总余额',
-        value: `¥ ${fmt(totalBalance)}`,
+        value: totalBalanceDisplay,
         icon: <DollarSign size={18} className="text-blue-500" />,
         accent: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800'
       }, {
@@ -733,7 +746,7 @@ export default function CashAccountsPage() {
               fontWeight: 800,
               fontSize: 18
             }}>
-                    {acc.currency_code} {fmt(acc.current_balance)}
+                    {currencySymbol(acc.currency_code)}{fmt(acc.current_balance)}
                   </div>
                 </div>
                 {acc.bank_name && <div className="text-text-muted" style={{

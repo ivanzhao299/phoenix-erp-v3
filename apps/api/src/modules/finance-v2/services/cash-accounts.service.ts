@@ -240,7 +240,7 @@ export class CashAccountsService {
       params.push(companyCodes);
     }
 
-    const [totals, byType, byStatus] = await Promise.all([
+    const [totals, byType, byStatus, byCurrency] = await Promise.all([
       this.ds.query(
         `SELECT COUNT(*) total_accounts,
                 SUM(current_balance) total_balance,
@@ -262,6 +262,15 @@ export class CashAccountsService {
          GROUP BY status`,
         params,
       ),
+      // 按币种分组小计：total_balance 是跨币种裸 SUM，不可直接贴单一符号；
+      // 前端按此明细分币种展示，避免 USD/THB 账户被当成人民币。
+      this.ds.query(
+        `SELECT currency_code, COUNT(*) cnt, SUM(current_balance) balance
+         FROM fin_cash_accounts WHERE ${where}
+         GROUP BY currency_code
+         ORDER BY currency_code`,
+        params,
+      ),
     ]);
 
     return {
@@ -272,6 +281,7 @@ export class CashAccountsService {
       closedCount: Number(totals[0]?.closed_count ?? 0),
       byType,
       byStatus,
+      byCurrency,
     };
   }
 }

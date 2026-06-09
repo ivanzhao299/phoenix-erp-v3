@@ -19,6 +19,7 @@ import {
 } from '@/components/design-system/cockpit-styles';
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
+import { currencySymbol } from '@/lib/currency';
 interface ArInvoice {
   id: string;
   ar_no: string;
@@ -120,7 +121,7 @@ async function apiFetch<T>(url: string, opts?: RequestInit): Promise<T> {
 }
 function fmtMoney(val: string | number | null | undefined, currency = 'CNY') {
   const n = Number(val ?? 0);
-  const sym = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '¥';
+  const sym = currencySymbol(currency);
   return `${currency} ${sym}${n.toLocaleString('zh-CN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2

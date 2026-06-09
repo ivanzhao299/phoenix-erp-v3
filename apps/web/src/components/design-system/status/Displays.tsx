@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { STATUS_CLASS, STATUS_LABEL } from '@/lib/design-tokens';
+import { currencySymbol } from '@/lib/currency';
 
 /**
  * 轻量展示组件（Design System V2 · UI-2.5）。
@@ -10,13 +11,12 @@ import { STATUS_CLASS, STATUS_LABEL } from '@/lib/design-tokens';
 export function MoneyDisplay({ value, currency = 'CNY', colorBySign, bold }: {
   value: number | string | null | undefined; currency?: string; colorBySign?: boolean; bold?: boolean;
 }) {
-  const sym: Record<string, string> = { CNY: '¥', USD: '$', LAK: '₭', EUR: '€' };
   if (value == null || value === '') return <span>—</span>;
   const n = Number(value);
   const color = colorBySign ? (n < 0 ? 'var(--status-danger)' : 'var(--text-primary)') : undefined;
   return (
     <span style={{ color, fontWeight: bold ? 700 : undefined, fontVariantNumeric: 'tabular-nums' }}>
-      {sym[currency] || currency}{n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      {currencySymbol(currency)}{n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
     </span>
   );
 }
