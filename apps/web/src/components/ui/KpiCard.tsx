@@ -24,7 +24,8 @@ import { cn } from '@/lib/utils';
 
 export interface KpiCardProps {
   label:        string;
-  value:        string | number;
+  // G58：支持 ReactNode —— 多币种金额按币种堆叠多行（避免 break-all 拦腰截断数字）
+  value:        React.ReactNode;
   subValue?:    string;
   trend?:       number;
   trendLabel?:  string;

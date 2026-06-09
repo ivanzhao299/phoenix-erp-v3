@@ -17,6 +17,8 @@ import PageHeader from '@/components/PageHeader';
 import { KpiCard } from '@/components/ui/KpiCard';
 import { NavCard } from '@/components/ui/NavCard';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { usePermission } from '@/hooks/usePermission';  // G58 现金收付款入口门控
 import { cn } from '@/lib/utils';
 import { KPI_GRID, type AccentColor } from '@/lib/design-tokens';
 import { currencySymbol } from '@/lib/currency';
@@ -89,6 +91,7 @@ interface ReportOverviewData {
   todayInflow:                number;
   todayOutflow:               number;
   reimbursementPendingAmount: number;
+  byCurrency?:                { currencyCode: string; cashBalance: number }[];  // G58 可支配资金按币种
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -145,6 +148,7 @@ const MODULES: ModuleItem[] = [
 // ── 主页面 ─────────────────────────────────────────────────────────────────────
 
 export default function Finance2DashboardPage() {
+  const { canCreate: canCreateTxn } = usePermission('MENU_FIN2_CASH_TXN');  // G58 出纳现金收付款入口
   const [arSummary,      setArSummary]      = useState<ArSummaryData | null>(null);
   const [cashDash,       setCashDash]       = useState<CashDashData | null>(null);
   const [shSummary,      setShSummary]      = useState<ShSummaryData | null>(null);
@@ -186,13 +190,45 @@ export default function Finance2DashboardPage() {
 
   useEffect(() => { void load(); }, []);
 
+  // G58 多币种金额按币种堆叠多行渲染（避免单行 break-all 拦腰截断数字）。
+  const renderMultiCcy = (rows: { ccy: string; amount: number }[]): React.ReactNode => {
+    if (rows.length === 0) return '—';
+    if (rows.length === 1) return `${currencySymbol(rows[0].ccy)}${fmt(rows[0].amount)}`;
+    return (
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 17, lineHeight: 1.35 }}>
+        {rows.map(r => (
+          <span key={r.ccy} style={{ whiteSpace: 'nowrap' }}>{currencySymbol(r.ccy)}{fmt(r.amount)}</span>
+        ))}
+      </span>
+    );
+  };
+
   // 现金账户余额跨币种：按币种分组展示，避免 USD/THB 账户被贴成人民币符号。
   const cashBalanceDisplay = (() => {
     const s = cashDash?.summary;
     if (!s) return '—';
-    const rows = (s.byCurrency ?? []).filter(r => Number(r.cnt) > 0);
+    const rows = (s.byCurrency ?? []).filter(r => Number(r.cnt) > 0)
+      .map(r => ({ ccy: r.currency_code, amount: Number(r.balance) }));
     if (rows.length === 0) return fmt(s.totalBalance);
-    return rows.map(r => `${currencySymbol(r.currency_code)}${fmt(r.balance)}`).join('  /  ');
+    return renderMultiCcy(rows);
+  })();
+
+  // G58 可支配资金按币种：现金 byCurrency，CNY 行并入 (AR - AP - 待报销)（这些为本币口径）。
+  const disposableDisplay = (() => {
+    const o = reportOverview;
+    if (!o) return '—';
+    const cnyAdj = (o.arOpen ?? 0) - (o.apOpen ?? 0) - (o.reimbursementPendingAmount ?? 0);
+    const rows = (o.byCurrency ?? []).map(r => ({
+      ccy: r.currencyCode,
+      amount: r.cashBalance + (r.currencyCode === 'CNY' ? cnyAdj : 0),
+    }));
+    if (rows.length === 0) {
+      // 无现金币种明细时退回单一本币净头寸
+      return `${o.netOperatingPosition >= 0 ? '+' : ''}¥ ${fmt(o.netOperatingPosition)}`;
+    }
+    // CNY 不在 byCurrency 但有调整时补一行
+    if (cnyAdj !== 0 && !rows.some(r => r.ccy === 'CNY')) rows.push({ ccy: 'CNY', amount: cnyAdj });
+    return renderMultiCcy(rows);
   })();
 
   // ── 6 核心 KPI ─────────────────────────────────────────────────────────
@@ -226,9 +262,7 @@ export default function Finance2DashboardPage() {
     },
     {
       label:       '可支配资金',
-      value:       reportOverview
-        ? `${reportOverview.netOperatingPosition >= 0 ? '+' : ''}¥ ${fmt(reportOverview.netOperatingPosition)}`
-        : '—',
+      value:       disposableDisplay,
       subValue:    reportOverview
         ? `今日流入 ¥${fmt(reportOverview.todayInflow)} / 流出 ¥${fmt(reportOverview.todayOutflow)}`
         : undefined,
@@ -253,15 +287,30 @@ export default function Finance2DashboardPage() {
         subtitle="应付 · 应收 · 资金账户 · 费用报销 · 股东资金 · 可支配资金"
         breadcrumb={['财务管理', '驾驶舱']}
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void load()}
-            disabled={loading}
-          >
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-            刷新
-          </Button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {/* G58 出纳每日操作入口：现金收付款逐笔录入（CASH_TXN:C） */}
+            {canCreateTxn && (
+              <Link
+                href="/finance2/cash-accounts"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                  background: 'var(--accent-primary, #4f46e5)', color: '#fff', textDecoration: 'none',
+                }}
+              >
+                <Wallet size={14} /> 现金收付款
+              </Link>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void load()}
+              disabled={loading}
+            >
+              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+              刷新
+            </Button>
+          </div>
         }
       />
 
