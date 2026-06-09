@@ -165,13 +165,28 @@ export default function Finance2DashboardPage() {
         apiFetch<ArSummaryData>('/api/v2/finance/ar/summary'),
         apiFetch<CashDashData['summary']>('/api/v2/finance/cash/accounts/summary'),
         apiFetch<{ total: number }>('/api/v2/finance/cash/transfers?status=PENDING_APPROVAL&pageSize=1'),
-        apiFetch<ShSummaryData>('/api/v2/finance/shareholders/summary'),
+        apiFetch<ShSummaryData>('/api/v2/finance/shareholders/contributions/summary'),
         apiFetch<ExpSummaryData>('/api/v2/finance/expenses/summary'),
         apiFetch<ReportOverviewData>('/api/v2/finance/reports/overview'),
       ]);
 
       if (ar.status  === 'fulfilled') setArSummary(ar.value);
-      if (sh.status  === 'fulfilled') setShSummary(sh.value);
+      // G60：后端 contributions/summary 返回 {totals,byType,byStatus}，适配为 ShSummaryData
+      if (sh.status  === 'fulfilled') {
+        const raw = sh.value as unknown as { totals?: Record<string, unknown>; byStatus?: Array<Record<string, unknown>> } | null;
+        if (raw?.totals) {
+          const t = raw.totals; const bs = raw.byStatus ?? [];
+          const cntOf = (sts: string[]) => bs.filter(s => sts.includes(String(s.status))).reduce((a, s) => a + Number(s.cnt ?? 0), 0);
+          setShSummary({
+            totalContributions:     Number(t.total_count ?? 0),
+            confirmedContributions: cntOf(['CONFIRMED', 'ACTIVE', 'SETTLED']),
+            pendingConfirmations:   cntOf(['PENDING_CONFIRM', 'PENDING_CONFIRMATION', 'PENDING', 'DRAFT']),
+            totalAmountOriginal:    Number(t.total_amount_original ?? 0),
+            settledAmountOriginal:  Number(t.total_settled ?? 0),
+            balanceAmountOriginal:  Number(t.total_balance ?? 0),
+          });
+        }
+      }
       if (exp.status === 'fulfilled') setExpSummary(exp.value);
       if (rpt.status === 'fulfilled') setReportOverview(rpt.value);
 

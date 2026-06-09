@@ -996,11 +996,30 @@ export default function ShareholderFundsPage() {
       params.set('pageSize', '100');
       const [listRes, sumRes] = await Promise.all([fetch(`${API}/contributions?${params}`, {
         headers: authHeaders()
-      }).then(r => r.json()), fetch(`${API}/summary`, {
+      }).then(r => r.json()), fetch(`${API}/contributions/summary`, {
         headers: authHeaders()
-      }).then(r => r.json())]);
+      }).then(r => r.ok ? r.json() : null)]);   // G60 防御：非2xx 不把错误体当 summary
       setContributions(listRes.items ?? []);
-      setSummary(sumRes);
+      // G60：后端 contributions/summary 返回 {totals,byType,byStatus}，适配为前端 ShSummary 形状。
+      //   byShareholder / upcomingReturns 后端无对应源 → 空数组（页面对应区显示"暂无数据"）。
+      const raw = sumRes as { totals?: Record<string, unknown>; byType?: Array<Record<string, unknown>>; byStatus?: Array<Record<string, unknown>> } | null;
+      if (raw && raw.totals) {
+        const t = raw.totals; const byStatus = raw.byStatus ?? [];
+        const cntOf = (sts: string[]) => byStatus.filter(s => sts.includes(String(s.status))).reduce((a, s) => a + Number(s.cnt ?? 0), 0);
+        setSummary({
+          totalContributions:    Number(t.total_count ?? 0),
+          confirmedContributions: cntOf(['CONFIRMED', 'ACTIVE', 'SETTLED']),
+          pendingConfirmations:   cntOf(['PENDING_CONFIRM', 'PENDING_CONFIRMATION', 'PENDING', 'DRAFT']),
+          totalAmountOriginal:    Number(t.total_amount_original ?? 0),
+          settledAmountOriginal:  Number(t.total_settled ?? 0),
+          balanceAmountOriginal:  Number(t.total_balance ?? 0),
+          byShareholder:      [],
+          byContributionType: (raw.byType ?? []).map(x => ({ contribution_type: String(x.contribution_type ?? ''), cnt: String(x.cnt ?? 0), total: String(x.amount ?? 0) })),
+          upcomingReturns:    [],
+        });
+      } else {
+        setSummary(null);
+      }
     } finally {
       setLoading(false);
     }
