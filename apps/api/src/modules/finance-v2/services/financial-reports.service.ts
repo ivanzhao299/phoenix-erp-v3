@@ -77,7 +77,7 @@ export class FinancialReportsService {
         // 报销待处理
         run(`SELECT COUNT(*) AS cnt, COALESCE(SUM(reimb_amount_base),0) AS v FROM fin_reimbursements WHERE status IN ('PENDING','PENDING_APPROVAL','APPROVED') ${sf}`),
         // 今日现金流
-        run(`SELECT direction, COALESCE(SUM(amount_base),0) AS v FROM fin_cash_transactions WHERE DATE(created_at)=CURRENT_DATE ${sf} GROUP BY direction`),
+        run(`SELECT direction, COALESCE(SUM(amount),0) AS v FROM fin_cash_transactions WHERE DATE(created_at)=CURRENT_DATE ${sf} GROUP BY direction`),
         // 按币种现金余额
         run(`SELECT currency_code, COALESCE(SUM(current_balance),0) AS v FROM fin_cash_accounts WHERE status='ACTIVE' ${sf} GROUP BY currency_code ORDER BY v DESC`),
         // 按公司现金余额
@@ -342,7 +342,7 @@ export class FinancialReportsService {
     const to   = dateTo   ?? new Date().toISOString().slice(0, 10);
 
     const rows: any[] = await this.ds.query(
-      `SELECT DATE(created_at) AS txn_date, direction, COALESCE(SUM(amount_base),0) AS v
+      `SELECT DATE(created_at) AS txn_date, direction, COALESCE(SUM(amount),0) AS v
        FROM fin_cash_transactions
        WHERE DATE(created_at) BETWEEN $1 AND $2
        ${filter}
