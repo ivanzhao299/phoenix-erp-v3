@@ -19,6 +19,7 @@ import { NavCard } from '@/components/ui/NavCard';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { KPI_GRID, type AccentColor } from '@/lib/design-tokens';
+import { currencySymbol } from '@/lib/currency';
 
 // ── 设计系统 token 映射 ───────────────────────────────────────────────────────
 type AccentKey = "blue" | "green" | "amber" | "red" | "violet" | "indigo" | "cyan" | "teal" | "slate";
@@ -54,6 +55,7 @@ interface CashDashData {
     activeCount:   number;
     frozenCount:   number;
     closedCount:   number;
+    byCurrency?:   { currency_code: string; cnt: string; balance: string }[];
   } | null;
   todayIn:          number;
   todayOut:         number;
@@ -184,11 +186,20 @@ export default function Finance2DashboardPage() {
 
   useEffect(() => { void load(); }, []);
 
+  // 现金账户余额跨币种：按币种分组展示，避免 USD/THB 账户被贴成人民币符号。
+  const cashBalanceDisplay = (() => {
+    const s = cashDash?.summary;
+    if (!s) return '—';
+    const rows = (s.byCurrency ?? []).filter(r => Number(r.cnt) > 0);
+    if (rows.length === 0) return fmt(s.totalBalance);
+    return rows.map(r => `${currencySymbol(r.currency_code)}${fmt(r.balance)}`).join('  /  ');
+  })();
+
   // ── 6 核心 KPI ─────────────────────────────────────────────────────────
   const kpis = [
     {
       label:       '现金账户余额',
-      value:       cashDash?.summary ? `¥ ${fmt(cashDash.summary.totalBalance)}` : '—',
+      value:       cashBalanceDisplay,
       subValue:    cashDash?.summary ? `${cashDash.summary.totalAccounts} 个账户` : undefined,
       icon:        Wallet,
       accentColor: 'blue' as AccentColor,

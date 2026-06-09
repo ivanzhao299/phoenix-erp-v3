@@ -161,7 +161,135 @@ export class CashAccountsService {
     if (dto.remark !== undefined) acc.remark = dto.remark ?? null;
     (acc as any).updatedBy = user?.username ?? null;
 
-    return this.repo.save(acc);
+    // 期初余额修正：写入新期初后按 期初 + Σ签名流水 重算当前余额 + 重建 balance_after 链
+    const openingChanged =
+      dto.openingBalance !== undefined &&
+      Number(dto.openingBalance) !== Number(acc.openingBalance);
+    if (dto.openingBalance !== undefined) {
+      acc.openingBalance = Number(dto.openingBalance);
+    }
+    const saved = await this.repo.save(acc);
+
+    if (openingChanged) {
+      const opening = Number(dto.openingBalance);
+      await this.ds.transaction(async (mgr) => {
+        // 同步 OPENING 期初流水金额(若存在)，保持台账自洽
+        await mgr.query(
+          `UPDATE fin_cash_transactions SET amount = $1
+             WHERE account_code = $2 AND source_type = 'OPENING'`,
+          [opening, acc.accountCode],
+        );
+        await this.rebuildChain(mgr, acc.accountCode, opening, user?.username ?? null);
+      });
+      const fresh = await this.repo.findOne({ where: { id } });
+      return fresh ?? saved;
+    }
+    return saved;
+  }
+
+  // ── 余额修正：重算 + 改挂账户（初始数据导入错误时用） ─────────────────────────
+
+  /**
+   * 按 期初 + Σ签名流水 重建账户的 balance_after 链与 current_balance。
+   * 必须在事务内调用（mgr 为事务 EntityManager）。
+   * - 按 (txn_date, id) 升序累加：IN 加、OUT 减
+   * - source_type='OPENING' 的流水不计入累加（期初已作为 base），其快照 = 期初
+   */
+  private async rebuildChain(
+    mgr: import('typeorm').EntityManager,
+    accountCode: string,
+    openingBalance: number,
+    updatedBy: string | null,
+  ): Promise<{ accountCode: string; currentBalance: number; txnCount: number }> {
+    const txns = await mgr.query(
+      `SELECT id, direction, amount, source_type
+         FROM fin_cash_transactions
+        WHERE account_code = $1
+        ORDER BY txn_date ASC, id ASC
+        FOR UPDATE`,
+      [accountCode],
+    );
+    let running = Number(openingBalance);
+    for (const t of txns) {
+      if (t.source_type === 'OPENING') {
+        await mgr.query(
+          `UPDATE fin_cash_transactions SET balance_after = $1 WHERE id = $2`,
+          [openingBalance, t.id],
+        );
+        continue;
+      }
+      running += t.direction === 'IN' ? Number(t.amount) : -Number(t.amount);
+      await mgr.query(
+        `UPDATE fin_cash_transactions SET balance_after = $1 WHERE id = $2`,
+        [running, t.id],
+      );
+    }
+    await mgr.query(
+      `UPDATE fin_cash_accounts
+          SET current_balance = $1, updated_by = $2, updated_at = now()
+        WHERE account_code = $3`,
+      [running, updatedBy, accountCode],
+    );
+    return { accountCode, currentBalance: running, txnCount: txns.length };
+  }
+
+  /** 重算单个账户余额（独立入口，供「重算余额」按钮调用）。 */
+  async recalcBalance(id: string, user: any) {
+    const acc = await this.findById(id, user); // 含 DataScope 归属校验
+    return this.ds.transaction((mgr) =>
+      this.rebuildChain(mgr, acc.accountCode, Number(acc.openingBalance), user?.username ?? null),
+    );
+  }
+
+  /**
+   * 流水改挂账户：把一条挂错账户的流水迁移到正确账户，并重算两边余额。
+   * 约束：源/目标账户归属当前用户 DataScope；币种必须一致。
+   */
+  async reassignTransaction(txnId: string, targetAccountId: string, user: any) {
+    const txnRows = await this.ds.query(
+      `SELECT id, account_code, company_code, currency_code FROM fin_cash_transactions WHERE id = $1`,
+      [txnId],
+    );
+    const txn = txnRows[0];
+    if (!txn) throw new NotFoundException(`流水 ${txnId} 不存在`);
+
+    const target = await this.repo.findOne({ where: { id: targetAccountId } });
+    if (!target) throw new NotFoundException(`目标账户 ${targetAccountId} 不存在`);
+    if (target.status === 'CLOSED') throw new BadRequestException('目标账户已关闭，不可接收流水');
+
+    this.assertOwnership(txn.company_code, user);
+    this.assertOwnership(target.companyCode, user);
+
+    if (txn.account_code === target.accountCode) {
+      throw new BadRequestException('目标账户与当前账户相同');
+    }
+    if (txn.currency_code !== target.currencyCode) {
+      throw new BadRequestException(
+        `币种不一致：流水 ${txn.currency_code} ≠ 目标账户 ${target.currencyCode}`,
+      );
+    }
+
+    const oldAccountCode = txn.account_code;
+    await this.ds.transaction(async (mgr) => {
+      await mgr.query(
+        `UPDATE fin_cash_transactions
+            SET account_id = $1, account_code = $2, account_name = $3,
+                company_code = $4, company_name = $5
+          WHERE id = $6`,
+        [target.id, target.accountCode, target.accountName,
+         target.companyCode, target.companyName, txnId],
+      );
+      const oldAcc = await mgr.query(
+        `SELECT opening_balance FROM fin_cash_accounts WHERE account_code = $1`,
+        [oldAccountCode],
+      );
+      if (oldAcc[0]) {
+        await this.rebuildChain(mgr, oldAccountCode, Number(oldAcc[0].opening_balance), user?.username ?? null);
+      }
+      await this.rebuildChain(mgr, target.accountCode, Number(target.openingBalance), user?.username ?? null);
+    });
+
+    return { ok: true, txnId, from: oldAccountCode, to: target.accountCode };
   }
 
   async freeze(id: string, user: any): Promise<FinCashAccountEntity> {
@@ -240,7 +368,7 @@ export class CashAccountsService {
       params.push(companyCodes);
     }
 
-    const [totals, byType, byStatus] = await Promise.all([
+    const [totals, byType, byStatus, byCurrency] = await Promise.all([
       this.ds.query(
         `SELECT COUNT(*) total_accounts,
                 SUM(current_balance) total_balance,
@@ -262,6 +390,15 @@ export class CashAccountsService {
          GROUP BY status`,
         params,
       ),
+      // 按币种分组小计：total_balance 是跨币种裸 SUM，不可直接贴单一符号；
+      // 前端按此明细分币种展示，避免 USD/THB 账户被当成人民币。
+      this.ds.query(
+        `SELECT currency_code, COUNT(*) cnt, SUM(current_balance) balance
+         FROM fin_cash_accounts WHERE ${where}
+         GROUP BY currency_code
+         ORDER BY currency_code`,
+        params,
+      ),
     ]);
 
     return {
@@ -272,6 +409,7 @@ export class CashAccountsService {
       closedCount: Number(totals[0]?.closed_count ?? 0),
       byType,
       byStatus,
+      byCurrency,
     };
   }
 }
