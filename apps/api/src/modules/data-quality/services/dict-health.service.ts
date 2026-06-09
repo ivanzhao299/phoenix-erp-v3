@@ -42,7 +42,9 @@ export class DictHealthService {
     'INV_INBOUND_TYPE', 'INV_OUTBOUND_TYPE', 'INV_TRANSFER_REASON',
     'INV_LOSS_REASON', 'INV_COUNT_TYPE', 'INV_STOCK_STATUS',
     // 包装 / 养殖 G2 + G4-E
-    'PKG_PACK_LINE', 'PKG_SHIFT', 'PKG_EGG_GRADE', 'PKG_EGG_DEFECT',
+    // G65：移除 PKG_EGG_GRADE（已迁 product_grades 主数据，不再是字典）
+    //      移除 PKG_EGG_DEFECT（幻影：真字典是 PKG_DEFECT，避免恒报 MISSING 假阳性）
+    'PKG_PACK_LINE', 'PKG_SHIFT',
     'PKG_DEFECT', 'PKG_ANOMALY_REASON', 'PKG_EXCEPTION_TYPE',
     'BRD_HOUSE_TYPE', 'BRD_FLOCK_STATUS',
   ];
