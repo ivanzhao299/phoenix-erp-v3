@@ -1777,8 +1777,9 @@ export class PackagingTerminalBffController {
         sort_order: number; is_saleable: boolean; is_storable: boolean; weight_range: string | null;
       }> = await this.safe(
         this.em.query(
+          // G69：只取可售（1~5号），缺陷走 PKG_EGG_DEFECT
           `SELECT grade_code, grade_name, grade_name_lo, sort_order, is_saleable, is_storable, weight_range
-             FROM product_grades WHERE status='ACTIVE' ORDER BY sort_order, grade_code`,
+             FROM product_grades WHERE status='ACTIVE' AND is_saleable=true ORDER BY sort_order, grade_code`,
         ),
         [] as any[],
       );
@@ -1795,6 +1796,33 @@ export class PackagingTerminalBffController {
         icon:            '🥚',
       }));
       requested = requested.filter(t => t !== 'PKG_EGG_GRADE');
+    }
+
+    // G69：缺陷等级统一读 product_grades（is_saleable=false），杜绝包装终端
+    //   PKG_EGG_DEFECT 与 product_grades 缺陷双源漂移（脏/裂/破/损坏）。
+    if (requested.includes('PKG_EGG_DEFECT')) {
+      const defectRows: Array<{
+        grade_code: string; grade_name: string; grade_name_lo: string | null;
+        sort_order: number; is_storable: boolean;
+      }> = await this.safe(
+        this.em.query(
+          `SELECT grade_code, grade_name, grade_name_lo, sort_order, is_storable
+             FROM product_grades WHERE status='ACTIVE' AND is_saleable=false ORDER BY sort_order, grade_code`,
+        ),
+        [] as any[],
+      );
+      result['PKG_EGG_DEFECT'] = defectRows.map(r => ({
+        code:            r.grade_code,
+        label:           r.grade_name,
+        labelLo:         r.grade_name_lo || '',
+        sortNo:          r.sort_order,
+        terminalCode:    r.grade_code,
+        isTerminalGrade: true,
+        isDefect:        true,
+        storable:        r.is_storable,
+        icon:            '⚠️',
+      }));
+      requested = requested.filter(t => t !== 'PKG_EGG_DEFECT');
     }
 
     if (requested.length === 0) {

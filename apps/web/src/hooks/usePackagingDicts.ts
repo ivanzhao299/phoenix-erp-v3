@@ -17,11 +17,12 @@ export const FALLBACK_DICTS: DictMap = {
     { code:'GRADE_4', label:'4号蛋', labelEn:'Grade 4', labelLo:'ໄຂ່ຊັ້ນ 4', terminalCode:'GRADE_4', color:'#d97706', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'40-46g' },
     { code:'GRADE_5', label:'5号蛋', labelEn:'Grade 5', labelLo:'ໄຂ່ຊັ້ນ 5', terminalCode:'GRADE_5', color:'#f97316', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'30-40g' },
   ],
+  // G69：码对齐 product_grades 缺陷等级（DIRTY/CRACKED/BROKEN/DAMAGED）。仅 API 失败兜底用。
   PKG_EGG_DEFECT: [
-    { code:'PKG_DEFECT_DIRTY',    label:'脏污蛋', labelEn:'Dirty',    labelLo:'ໄຂ່ສົກ',      terminalCode:'DIRTY',    color:'#f97316', icon:'💧', isTerminalGrade:true, isDefect:true },
-    { code:'PKG_DEFECT_BROKEN',   label:'破损蛋', labelEn:'Broken',   labelLo:'ໄຂ່ແຕກ',     terminalCode:'BROKEN',   color:'#ef4444', icon:'💔', isTerminalGrade:true, isDefect:true },
-    { code:'PKG_DEFECT_REJECTED', label:'淘汰蛋', labelEn:'Rejected', labelLo:'ໄຂ່ຖືກປ່ຽນ', terminalCode:'REJECTED', color:'#6b7280', icon:'🚫', isTerminalGrade:true, isDefect:true },
-    { code:'PKG_DEFECT_RECHECK',  label:'待复检', labelEn:'Recheck',  labelLo:'ລໍຖ້າກວດ',   terminalCode:'RECHECK',  color:'#0891b2', icon:'🔄', isTerminalGrade:true, isDefect:true },
+    { code:'DIRTY',   label:'脏蛋',   labelEn:'Dirty',   labelLo:'ໄຂ່ສົກ',  terminalCode:'DIRTY',   color:'#f97316', icon:'💧', isTerminalGrade:true, isDefect:true },
+    { code:'CRACKED', label:'裂缝蛋', labelEn:'Cracked', labelLo:'ໄຂ່ຮ້າວ', terminalCode:'CRACKED', color:'#eab308', icon:'🥚', isTerminalGrade:true, isDefect:true },
+    { code:'BROKEN',  label:'破蛋',   labelEn:'Broken',  labelLo:'ໄຂ່ແຕກ',  terminalCode:'BROKEN',  color:'#ef4444', icon:'💔', isTerminalGrade:true, isDefect:true },
+    { code:'DAMAGED', label:'损坏蛋', labelEn:'Damaged', labelLo:'ໄຂ່ເສຍ',  terminalCode:'DAMAGED', color:'#6b7280', icon:'🚫', isTerminalGrade:true, isDefect:true },
   ],
   PKG_PACK_SPEC: [
     { code:'PKG_PACK_SPEC_1', label:'散装整提(纸托180枚/提)', qty:180, unit:'枚', icon:'📦', color:'#7c3aed', perBox:180 },
