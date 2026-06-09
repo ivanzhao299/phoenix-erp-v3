@@ -412,7 +412,7 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
                   </span>
                 </div>
               ) : (
-                <Link href={item.path!} className={`${styles.groupHeader} ${isThisActive ? styles.groupActive : ""}`}>
+                <Link href={item.path!} prefetch={false} className={`${styles.groupHeader} ${isThisActive ? styles.groupActive : ""}`}>
                   <item.Icon size={18} className={styles.menuIconSvg} />
                   <span className={styles.menuLabel}>{t('menu.' + item.id, item.label)}</span>
                 </Link>
@@ -453,6 +453,7 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
                       <Link
                         key={child.id}
                         href={child.path!}
+                        prefetch={false}
                         className={`${styles.subItem} ${active ? styles.subActive : ""}`}
                       >
                         {/* size=13 matches old frontend exactly */}
@@ -470,7 +471,7 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
 
       {/* Bottom */}
       {expanded_ && (
-        <Link href="/settings/profile" className={styles.profileLink}>
+        <Link href="/settings/profile" prefetch={false} className={styles.profileLink}>
           <Settings size={13} />
           <span>{t('layout.profile_link', '个人中心 / 修改密码')}</span>
         </Link>

@@ -70,6 +70,12 @@ async function bootstrap() {
     const { hydrateMenuRegistry } = await import('./common/guards/menu-registry.service');
     const ds: InstanceType<typeof DataSource> = app.get(DataSource);
     await hydrateMenuRegistry(ds.manager);
+    // G54：定期后台 reload（每 5min），让运行期新增菜单无需重启即被识别
+    //   （根除 ar-ledger 那类"新菜单建好但内存注册表是启动快照→403"问题）。
+    //   后台定时器，零请求热路径影响。
+    setInterval(() => {
+      hydrateMenuRegistry(ds.manager).catch(() => { /* 静默：下次再试 */ });
+    }, 5 * 60 * 1000).unref();
   } catch (e) {
     console.warn('[MenuRegistry] hydrate skipped:', (e as Error).message);
   }
