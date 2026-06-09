@@ -435,7 +435,7 @@ function CreateModal({
           justifyContent: 'flex-end',
           marginTop: 4
         }}>
-            <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border bg-bg-page text-sm text-text-muted cursor-pointer hover:bg-bg-muted transition-colors">
+            <button onClick={onClose} style={secondaryActionButton}>
               取消
             </button>
             <button onClick={handleSubmit} disabled={saving} className={`px-4 py-2 rounded-lg border-0 text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-indigo-300 dark:bg-indigo-700 cursor-not-allowed' : 'bg-indigo-500 hover:bg-indigo-600'}`}>

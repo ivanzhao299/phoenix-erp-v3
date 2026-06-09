@@ -59,6 +59,14 @@ ROLE_FINANCE_REVIEW_MANAGER：
 - `finance2/shareholder-funds/page.tsx`：+usePermission，门控新建/导入
 - 验证 Web tsc 0。
 
-## 七、登账（需后续）
-- 本地 dev 库补全迁移（farm_scopes 等已补 2 处，建议全量对齐）以便将来真实 E2E。
-- modal 按钮/输入框统一到 cockpit-styles 常量（设计系统收口阶段）。
+## 七、补充整改（G48，本次完成）
+1. **本地 dev 库全量对齐生产**：按生产 Deploy 口径，将 `apps/api/migrations/2026*.sql` 全部 114 个
+   迁移按文件名顺序在本地补跑 —— **OK=114 / FAIL=0**（全幂等）。本地 schema 已对齐生产。
+   登录从"字段不存在(42703)"变为干净 401（纯密码问题，schema 无错）。
+2. **modal 按钮全局化**：finance2 各 modal 的提交/取消按钮由本地 Tailwind 原子类
+   （bg-emerald-500 / border…bg-bg-page）收口为全局 `primaryActionButton` / `secondaryActionButton`：
+   - ar：2 提交 + 2 取消；ap：1 取消；shareholder-funds：2 取消；fund-transfers：1 取消。
+   - 表格内状态动作 chip（语义色 bg-emerald-50/blue-50）保留，非主按钮。
+   - Web tsc 0。
+
+> 仍待：liujie 本地密码非 phoenix@2026（无授权不重置）；如需真实 E2E 需你授权重置或给真实密码。

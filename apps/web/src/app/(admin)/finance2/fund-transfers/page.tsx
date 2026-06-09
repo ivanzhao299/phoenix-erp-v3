@@ -264,7 +264,7 @@ function CreateTransferModal({
         justifyContent: 'flex-end',
         marginTop: 6
       }}>
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border bg-bg-page text-sm text-text-muted cursor-pointer hover:bg-bg-muted transition-colors">
+          <button onClick={onClose} style={secondaryActionButton}>
             取消
           </button>
           <button onClick={submit} disabled={saving} className={`px-5 py-2 rounded-lg border-none text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-blue-300 dark:bg-blue-800 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>

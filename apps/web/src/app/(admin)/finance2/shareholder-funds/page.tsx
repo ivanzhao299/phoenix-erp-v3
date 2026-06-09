@@ -377,7 +377,7 @@ function CreateContributionModal({
         justifyContent: 'flex-end',
         marginTop: 20
       }}>
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border bg-bg-page text-sm text-text-muted cursor-pointer hover:bg-bg-muted transition-colors">取消</button>
+          <button onClick={onClose} style={secondaryActionButton}>取消</button>
           <button onClick={submit} disabled={saving} className={`px-5 py-2 rounded-lg border-none text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-violet-300 dark:bg-violet-800 cursor-not-allowed' : 'bg-violet-700 hover:bg-violet-800'}`}>
             {saving ? '创建中…' : '创建记录'}
           </button>
@@ -529,7 +529,7 @@ function CreateSettlementModal({
         gap: 10,
         justifyContent: 'flex-end'
       }}>
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border bg-bg-page text-sm text-text-muted cursor-pointer hover:bg-bg-muted transition-colors">取消</button>
+          <button onClick={onClose} style={secondaryActionButton}>取消</button>
           <button onClick={submit} disabled={saving} className={`px-5 py-2 rounded-lg border-none text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-blue-300 dark:bg-blue-800 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
             {saving ? '创建中…' : '创建'}
           </button>

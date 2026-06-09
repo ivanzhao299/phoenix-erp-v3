@@ -407,10 +407,10 @@ function CreateArModal({
           gap: 10,
           justifyContent: 'flex-end'
         }}>
-            <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border bg-bg-page text-sm text-text-muted cursor-pointer hover:bg-bg-muted transition-colors">
+            <button onClick={onClose} style={secondaryActionButton}>
               取消
             </button>
-            <button onClick={handleSubmit} disabled={saving} className={`px-4 py-2 rounded-lg border-0 text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-emerald-300 dark:bg-emerald-700 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
+            <button onClick={handleSubmit} disabled={saving} style={{ ...primaryActionButton, ...(saving ? { opacity: 0.6, cursor: 'not-allowed' } : {}) }}>
               {saving ? '创建中…' : '确认创建'}
             </button>
           </div>
@@ -603,10 +603,10 @@ function CreateReceiptModal({
           gap: 10,
           justifyContent: 'flex-end'
         }}>
-            <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border bg-bg-page text-sm text-text-muted cursor-pointer hover:bg-bg-muted transition-colors">
+            <button onClick={onClose} style={secondaryActionButton}>
               取消
             </button>
-            <button onClick={handleSubmit} disabled={saving} className={`px-4 py-2 rounded-lg border-0 text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-emerald-300 dark:bg-emerald-700 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
+            <button onClick={handleSubmit} disabled={saving} style={{ ...primaryActionButton, ...(saving ? { opacity: 0.6, cursor: 'not-allowed' } : {}) }}>
               {saving ? '处理中…' : '确认收款'}
             </button>
           </div>
