@@ -146,15 +146,16 @@ jobs:
             fi
           }
           # 基础 DDL（RBAC / 系统表 / 采购等）
-          for f in $(ls ddl/*.sql | sort); do run_migration "$f"; done
+          # G51：LC_ALL=C 保证排序字节序，与生产部署一致（避免 locale 差异致 seed 先于建表）。
+          for f in $(ls ddl/*.sql | LC_ALL=C sort); do run_migration "$f"; done
           # 基础业务 Schema（v3_schema_complete 建 inv_batches/mst_products 等34张表）
           # 修复（Phase C）：原 CI glob 仅 2026*，漏掉 v3_schema_complete.sql，
           # 导致后续 2026 迁移 ALTER 这些表时表不存在。此处补跑（幂等，全 IF NOT EXISTS）。
           if [ -f migrations/v3_schema_complete.sql ]; then
             run_migration "migrations/v3_schema_complete.sql"
           fi
-          # 增量迁移（所有 2026MMDD_* 前缀 SQL，幂等，按日期排序）
-          for f in $(ls migrations/2026*.sql 2>/dev/null | sort); do run_migration "$f"; done
+          # 增量迁移（所有 2026MMDD_* 前缀 SQL，幂等，按日期字节序排序 LC_ALL=C）
+          for f in $(ls migrations/2026*.sql 2>/dev/null | LC_ALL=C sort); do run_migration "$f"; done
           echo "✅ DDL migrations applied (任一失败 CI 已红灯)"
 
       - name: Start API
@@ -360,13 +361,16 @@ jobs:
               fi
             }
             # 基础 DDL
-            for f in $(ls apps/api/ddl/*.sql | sort); do run_db_migration "$f"; done
+            # G51：迁移排序强制 LC_ALL=C，与 CI/本地一致（字节序 . < _）。
+            #   生产服务器 locale 为 zh_CN/en_US.UTF-8 时，默认 sort 把 "X_seed.sql"
+            #   排在 "X.sql" 之前 → seed 先于建表跑 → "relation does not exist" 部署红灯。
+            for f in $(ls apps/api/ddl/*.sql | LC_ALL=C sort); do run_db_migration "$f"; done
             # 基础业务 Schema（v3_schema_complete 建 inv_batches/mst_products 等34张表，幂等）
             if [ -f apps/api/migrations/v3_schema_complete.sql ]; then
               run_db_migration "apps/api/migrations/v3_schema_complete.sql"
             fi
-            # 增量迁移（所有 2026MMDD_* 前缀 SQL，幂等，按日期排序）
-            for f in $(ls apps/api/migrations/2026*.sql 2>/dev/null | sort); do run_db_migration "$f"; done
+            # 增量迁移（所有 2026MMDD_* 前缀 SQL，幂等，按日期字节序排序 LC_ALL=C）
+            for f in $(ls apps/api/migrations/2026*.sql 2>/dev/null | LC_ALL=C sort); do run_db_migration "$f"; done
             echo "✅ DDL migrations applied (任一失败部署已红灯)"
 
             # ── 生产验证：Role Runtime Phase C 6 项检查（真实落库确认）──────
