@@ -22,7 +22,7 @@ const logger = new Logger('MenuRegistry');
 // G6 fallback：rbac.matrix.ts 已删除，menu_codes 列表内联到此（snapshot 2026-06-06）。
 // 业务方在主数据中心新增菜单时无需更新此列表；它仅是 sys_menu 不可用时的最后防穿越屏障。
 const FALLBACK_MENU_CODES: readonly string[] = [
-  'MENU_BREEDING', 'MENU_FARM_DATA', 'MENU_FARM_DAILY', 'MENU_IOT',
+  'MENU_BREEDING', 'MENU_FARM_DATA', 'MENU_FARM_DAILY', 'MENU_FARM_MASTER', 'MENU_IOT',
   'MENU_WMS_VIEW', 'MENU_WMS_INOUT', 'MENU_WMS_MASTER', 'MENU_INVENTORY',
   'MENU_WMS', 'MENU_WMS_INBOUND', 'MENU_WMS_OUTBOUND', 'MENU_PDA',
   'MENU_PROCUREMENT', 'MENU_PRC2', 'MENU_PRC2_MASTER', 'MENU_PRC2_PAYMENT',
