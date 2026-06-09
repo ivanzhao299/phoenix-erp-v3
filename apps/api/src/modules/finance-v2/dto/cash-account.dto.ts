@@ -51,6 +51,21 @@ export class UpdateCashAccountDto {
 
   @IsOptional() @IsString()
   remark?: string;
+
+  /**
+   * 期初余额修正（初始数据导入错误时用）。
+   * 改动后会按 期初 + Σ签名流水 重算当前余额并重建 balance_after 链。
+   */
+  @IsOptional() @IsNumber()
+  @Type(() => Number)
+  openingBalance?: number;
+}
+
+// ── 流水改挂账户（初始数据挂错账户时修正） ─────────────────────────────────
+
+export class ReassignTransactionDto {
+  @IsString()
+  targetAccountId: string;
 }
 
 // ── 查询筛选 ──────────────────────────────────────────────────────────────

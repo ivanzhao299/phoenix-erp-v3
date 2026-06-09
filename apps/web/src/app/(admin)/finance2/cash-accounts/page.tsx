@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/contexts/ToastContext';
 import u from "@/styles/uix-utils.module.css";
-import { Wallet, Plus, Search, RefreshCw, Lock, Unlock, X, TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react';
+import { Wallet, Plus, Search, RefreshCw, Lock, Unlock, X, TrendingUp, TrendingDown, DollarSign, Activity, Pencil, ArrowLeftRight } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission'; // G20-2 子 menu 按钮分流
@@ -329,25 +329,157 @@ function CreateAccountModal({
     </div>;
 }
 
+// ── Edit Account Modal（含期初余额修正） ──────────────────────────────────────
+
+function EditAccountModal({
+  account,
+  onClose,
+  onSaved
+}: {
+  account: CashAccount;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    accountName: account.account_name ?? '',
+    bankName: account.bank_name ?? '',
+    bankAccountNo: account.bank_account_no ?? '',
+    openingBalance: String(account.opening_balance ?? ''),
+    remark: account.remark ?? ''
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+  const openingChanged = String(account.opening_balance ?? '') !== form.openingBalance;
+  async function submit() {
+    if (!form.accountName.trim()) { setErr('请填写账户名称'); return; }
+    if (form.openingBalance !== '' && !Number.isFinite(Number(form.openingBalance))) {
+      setErr('期初余额必须为数字'); return;
+    }
+    setSaving(true);
+    setErr('');
+    try {
+      const body: Record<string, unknown> = {
+        accountName: form.accountName.trim(),
+        bankName: form.bankName.trim() || undefined,
+        bankAccountNo: form.bankAccountNo.trim() || undefined,
+        remark: form.remark.trim() || undefined
+      };
+      if (openingChanged && form.openingBalance !== '') body.openingBalance = Number(form.openingBalance);
+      const r = await fetch(`${API}/accounts/${account.id}`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify(body)
+      });
+      if (!r.ok) {
+        const d = await r.json();
+        throw new Error(d.message ?? '保存失败');
+      }
+      onSaved();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : '保存失败');
+    } finally {
+      setSaving(false);
+    }
+  }
+  return <div style={modalMask}>
+      <div style={modalPanel(480)} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <div className="text-text" style={{ fontWeight: 700, fontSize: 16 }}>编辑账户</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+            <X size={18} className="text-text-dim" />
+          </button>
+        </div>
+        <div className="text-text-muted" style={{ fontSize: 12, marginBottom: 16 }}>
+          {account.account_code} · {account.currency_code}
+        </div>
+
+        {err && <div className={`bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger ${u.mb14}`}>{err}</div>}
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {[{ label: '账户名称 *', key: 'accountName', placeholder: '账户名称' },
+            { label: '开户行', key: 'bankName', placeholder: '开户行' },
+            { label: '银行账号', key: 'bankAccountNo', placeholder: '银行账号' },
+            { label: '期初余额', key: 'openingBalance', placeholder: '0.00' }
+          ].map(f => <div key={f.key}>
+              <div className={`text-text-muted text-xs font-semibold ${u.mb4}`}>{f.label}</div>
+              <input value={(form as Record<string, string>)[f.key]} onChange={e => set(f.key, e.target.value)} placeholder={f.placeholder} className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full" style={{ boxSizing: 'border-box' }} />
+            </div>)}
+        </div>
+
+        {openingChanged && <div className="bg-warning/10 border border-warning/20 rounded-xl px-4 py-3 text-xs text-amber-800 dark:text-amber-300" style={{ marginTop: 12 }}>
+          修改期初余额后，将按「期初 + 全部流水」自动重算当前余额并重建余额台账（balance_after 链）。
+        </div>}
+
+        <div className={u.mt12}>
+          <div className={`text-text-muted text-xs font-semibold ${u.mb4}`}>备注</div>
+          <textarea value={form.remark} onChange={e => set('remark', e.target.value)} placeholder="可选" rows={2} className="px-3 py-1.5 rounded-lg text-sm border border-border bg-bg-page text-text placeholder:text-text-dim outline-none focus:border-emerald-400 w-full" style={{ resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border bg-bg-page text-text-muted text-sm cursor-pointer hover:bg-bg-muted transition-colors">取消</button>
+          <button onClick={submit} disabled={saving} className={`px-5 py-2 rounded-lg border-0 text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
+            {saving ? '保存中…' : '保存'}
+          </button>
+        </div>
+      </div>
+    </div>;
+}
+
 // ── Transaction Drawer ────────────────────────────────────────────────────────
 
 function TransactionDrawer({
   account,
+  accounts,
+  canEdit,
+  onChanged,
   onClose
 }: {
   account: CashAccount;
+  accounts: CashAccount[];
+  canEdit: boolean;
+  onChanged: () => void;
   onClose: () => void;
 }) {
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  useEffect(() => {
+  const [reassignId, setReassignId] = useState<string | null>(null);   // 正在改挂的流水
+  const [reassignTarget, setReassignTarget] = useState('');             // 目标账户 id
+  const [reassigning, setReassigning] = useState(false);
+  const loadTxns = useCallback(() => {
     setLoading(true);
-    fetch(`${API}/transactions?accountId=${account.id}&pageSize=50`, {
+    return fetch(`${API}/transactions?accountId=${account.id}&pageSize=50`, {
       headers: authHeaders()
     }).then(r => r.json()).then(d => {
       setTxns(d.items ?? []);
     }).finally(() => setLoading(false));
   }, [account.id]);
+  useEffect(() => { void loadTxns(); }, [loadTxns]);
+  // 同币种、非本账户、未关闭 → 可作为改挂目标
+  const reassignTargets = accounts.filter(a =>
+    a.id !== account.id && a.currency_code === account.currency_code && a.status !== 'CLOSED');
+  async function doReassign(txnId: string) {
+    if (!reassignTarget) { alert('请选择目标账户'); return; }
+    setReassigning(true);
+    try {
+      const r = await fetch(`${API}/transactions/${txnId}/reassign`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ targetAccountId: reassignTarget })
+      });
+      if (!r.ok) {
+        const d = await r.json();
+        alert(d.message ?? '改挂失败');
+        return;
+      }
+      setReassignId(null);
+      setReassignTarget('');
+      await loadTxns();
+      onChanged();
+    } finally {
+      setReassigning(false);
+    }
+  }
   return <div style={drawerMask}>
       <div className="bg-bg-card" style={{
       width: 520,
@@ -430,46 +562,62 @@ function TransactionDrawer({
       }}>
             {txns.map(t => <div key={t.id} className={t.direction === 'IN' ? 'bg-success/10 border border-green-200 dark:border-green-800' : 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800'} style={{
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+          flexDirection: 'column',
+          gap: 8,
           padding: '10px 12px',
           borderRadius: 10
         }}>
-                <div className={u.flex1}>
-                  <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              marginBottom: 2
-            }}>
-                    {t.direction === 'IN' ? <TrendingUp size={13} className="text-success" /> : <TrendingDown size={13} className="text-orange-600 dark:text-orange-400" />}
-                    <span className="text-text-muted" style={{
-                fontSize: 12,
-                fontWeight: 600
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <div className={u.flex1}>
+                    <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                marginBottom: 2
               }}>
-                      {SOURCE_TYPE_LABELS[t.source_type ?? ''] ?? t.source_type ?? '-'}
-                    </span>
-                    {t.source_no && <span className={`text-text-dim ${u.fs11}`}>{t.source_no}</span>}
+                      {t.direction === 'IN' ? <TrendingUp size={13} className="text-success" /> : <TrendingDown size={13} className="text-orange-600 dark:text-orange-400" />}
+                      <span className="text-text-muted" style={{
+                  fontSize: 12,
+                  fontWeight: 600
+                }}>
+                        {SOURCE_TYPE_LABELS[t.source_type ?? ''] ?? t.source_type ?? '-'}
+                      </span>
+                      {t.source_no && <span className={`text-text-dim ${u.fs11}`}>{t.source_no}</span>}
+                    </div>
+                    <div className={`text-text-muted ${u.fs11}`}>
+                      {new Date(t.txn_date).toLocaleString('zh-CN', {
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+                      {t.remark && ` · ${t.remark}`}
+                    </div>
                   </div>
-                  <div className={`text-text-muted ${u.fs11}`}>
-                    {new Date(t.txn_date).toLocaleString('zh-CN', {
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-                    {t.remark && ` · ${t.remark}`}
+                  <div className={u.tar}>
+                    <div style={{
+                fontWeight: 700,
+                fontSize: 14
+              }} className={t.direction === 'IN' ? 'text-success' : 'text-orange-600 dark:text-orange-400'}>
+                      {t.direction === 'IN' ? '+' : '-'}{fmt(t.amount)}
+                    </div>
+                    <div className={`text-text-dim ${u.fs11}`}>余 {fmt(t.balance_after)}</div>
                   </div>
                 </div>
-                <div className={u.tar}>
-                  <div style={{
-              fontWeight: 700,
-              fontSize: 14
-            }} className={t.direction === 'IN' ? 'text-success' : 'text-orange-600 dark:text-orange-400'}>
-                    {t.direction === 'IN' ? '+' : '-'}{fmt(t.amount)}
-                  </div>
-                  <div className={`text-text-dim ${u.fs11}`}>余 {fmt(t.balance_after)}</div>
-                </div>
+
+                {/* 改挂账户（初始数据挂错账户时修正） */}
+                {canEdit && (reassignId === t.id ? <div style={{ display: 'flex', gap: 6, alignItems: 'center', width: '100%' }}>
+                    <select value={reassignTarget} onChange={e => setReassignTarget(e.target.value)} className="px-2 py-1 rounded-lg text-xs border border-border bg-bg-page text-text outline-none" style={{ flex: 1, boxSizing: 'border-box' }}>
+                      <option value="">选择目标账户（同币种 {account.currency_code}）…</option>
+                      {reassignTargets.map(a => <option key={a.id} value={a.id}>{a.account_code} · {a.account_name}</option>)}
+                    </select>
+                    <button onClick={() => void doReassign(t.id)} disabled={reassigning || !reassignTarget} className={`px-3 py-1 rounded-lg text-xs font-semibold text-white border-0 ${reassigning || !reassignTarget ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'}`}>
+                      {reassigning ? '改挂中…' : '确认'}
+                    </button>
+                    <button onClick={() => { setReassignId(null); setReassignTarget(''); }} className="px-2 py-1 rounded-lg text-xs border border-border bg-bg-page text-text-muted cursor-pointer">取消</button>
+                  </div> : <button onClick={() => { setReassignId(t.id); setReassignTarget(''); }} className="flex items-center gap-1 self-start px-2 py-0.5 rounded text-[11px] font-medium text-text-muted border border-border bg-bg-page hover:bg-bg-muted cursor-pointer transition-colors">
+                    <ArrowLeftRight size={10} /> 改挂账户
+                  </button>)}
               </div>)}
           </div>}
       </div>
@@ -483,7 +631,7 @@ export default function CashAccountsPage() {
   //   新建账户 → MENU_FIN2_CASH_MASTER:C
   //   收/付款  → MENU_FIN2_CASH_TXN:C
   //   宋明光持 TXN:C 但不持 MASTER:C，可记账不可建账户
-  const { canCreate: canCreateAccount } = usePermission('MENU_FIN2_CASH_MASTER');
+  const { canCreate: canCreateAccount, canEdit: canEditAccount } = usePermission('MENU_FIN2_CASH_MASTER');
   const { canCreate: canCreateTxn }     = usePermission('MENU_FIN2_CASH_TXN');
   const [accounts, setAccounts] = useState<CashAccount[]>([]);
   const [summary, setSummary] = useState<AccountSummary | null>(null);
@@ -492,6 +640,7 @@ export default function CashAccountsPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('ACTIVE');
   const [showCreate, setShowCreate] = useState(false);
+  const [editAccount, setEditAccount] = useState<CashAccount | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<CashAccount | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
@@ -761,8 +910,19 @@ export default function CashAccountsPage() {
               {/* 操作按钮 */}
               <div onClick={e => e.stopPropagation()} style={{
           display: 'flex',
-          gap: 8
+          gap: 8,
+          flexWrap: 'wrap'
         }}>
+                {canEditAccount && acc.status !== 'CLOSED' && <button onClick={() => setEditAccount(acc)} className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-info/20 bg-info/10 text-blue-800 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
+                    <Pencil size={11} /> 编辑/期初
+                  </button>}
+                {canEditAccount && <button onClick={() => {
+            if (confirm(`重算账户「${acc.account_name}」余额？将按 期初 + 全部流水 重建余额台账。`)) {
+              void doAction(acc.id, 'recompute');
+            }
+          }} disabled={actionLoading === acc.id + 'recompute'} className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-violet-200 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 text-violet-800 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors disabled:opacity-50">
+                    <RefreshCw size={11} /> 重算余额
+                  </button>}
                 {acc.status === 'ACTIVE' && <button onClick={() => doAction(acc.id, 'freeze')} disabled={actionLoading === acc.id + 'freeze'} className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer border border-warning/20 bg-warning/10 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors disabled:opacity-50">
                     <Lock size={11} /> 冻结
                   </button>}
@@ -785,7 +945,12 @@ export default function CashAccountsPage() {
       void load();
     }} />}
 
-      {selectedAccount && <TransactionDrawer account={selectedAccount} onClose={() => setSelectedAccount(null)} />}
+      {editAccount && <EditAccountModal account={editAccount} onClose={() => setEditAccount(null)} onSaved={() => {
+      setEditAccount(null);
+      void load();
+    }} />}
+
+      {selectedAccount && <TransactionDrawer account={selectedAccount} accounts={accounts} canEdit={canEditAccount} onChanged={() => void load()} onClose={() => setSelectedAccount(null)} />}
 
       {/* 手工录流水模态 — 出纳日常 */}
       {txnModal && <ManualTxnModal direction={txnModal.direction} accounts={accounts} onClose={() => {

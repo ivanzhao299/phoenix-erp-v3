@@ -17,6 +17,7 @@ import {
   UpdateCashAccountDto,
   QueryCashAccountDto,
   QueryCashTransactionDto,
+  ReassignTransactionDto,
 } from '../dto/cash-account.dto';
 import {
   CreateFundTransferDto,
@@ -109,6 +110,18 @@ export class FinCashController {
     return this.accSvc.update(id, dto, this.scopedUser);
   }
 
+  /**
+   * POST /api/v2/finance/cash/accounts/:id/recompute
+   * 重算账户余额：按 期初 + Σ签名流水 重建 balance_after 链与 current_balance。
+   * 初始数据导入(直灌流水未更新余额)后用于对齐账实。
+   */
+  @Post('accounts/:id/recompute')
+  @RequireMenu(MENU_MASTER, 'E')
+  @HttpCode(HttpStatus.OK)
+  recomputeAccount(@Param('id') id: string) {
+    return this.accSvc.recalcBalance(id, this.scopedUser);
+  }
+
   /** POST /api/v2/finance/cash/accounts/:id/freeze */
   @Post('accounts/:id/freeze')
   @RequireMenu(MENU_MASTER, 'E')
@@ -162,6 +175,17 @@ export class FinCashController {
     const userId = req?.user?.userId || req?.user?.id;
     const username = req?.user?.username || 'unknown';
     return this.txnSvc.createManual(body, userId, username);
+  }
+
+  /**
+   * PATCH /api/v2/finance/cash/transactions/:id/reassign
+   * 流水改挂账户：把挂错账户的流水迁移到正确账户并重算两边余额。
+   * 属账户主档级修正，需 MENU_FIN2_CASH_MASTER:E。
+   */
+  @Patch('transactions/:id/reassign')
+  @RequireMenu(MENU_MASTER, 'E')
+  reassignTransaction(@Param('id') id: string, @Body() dto: ReassignTransactionDto) {
+    return this.accSvc.reassignTransaction(id, dto.targetAccountId, this.scopedUser);
   }
 
   // ════════════════════════════════════════════════════════════════════════
