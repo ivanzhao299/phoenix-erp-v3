@@ -29,7 +29,7 @@ export function MasterDataCenterStrip({ type }: { type: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    request<CenterStat[]>('/master-data/operations/centers')
+    request<CenterStat[]>('/master-data/operations/centers', { silent: true })  // G70：可选总览，无权限时静默隐藏(不弹错误toast)
       .then(centers => {
         if (cancelled) return;
         setStat(centers.flatMap(c => c.members).find(m => m.type === type) ?? null);

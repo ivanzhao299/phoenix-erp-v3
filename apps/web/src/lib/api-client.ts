@@ -93,12 +93,13 @@ export interface ApiError extends Error {
   subcode?: AuthSubcode;
 }
 
-function makeError(message: string, status?: number, code?: ApiError['code'], subcode?: AuthSubcode): ApiError {
+function makeError(message: string, status?: number, code?: ApiError['code'], subcode?: AuthSubcode, silent?: boolean): ApiError {
   const e = new Error(message) as ApiError;
   e.status = status; e.code = code; e.subcode = subcode;
   // G25-B：派发全局 api-error 事件，ToastContext 自动 show error toast
   //   401 已有专门 dispatchAuthExpired 处理（跳登录），这里不重复
-  if (typeof window !== 'undefined' && status !== 401) {
+  //   G70：silent=true 的请求（如可选总览 strip）不弹全局 toast，静默降级
+  if (typeof window !== 'undefined' && status !== 401 && !silent) {
     window.dispatchEvent(new CustomEvent('api-error', {
       detail: { message, status, code, subcode }
     }));
@@ -129,9 +130,9 @@ async function rawFetch(path: string, options: RequestInit, attempt: number, max
 
 async function request<T = unknown>(
   path: string,
-  options: RequestInit & { signal?: AbortSignal } = {}
+  options: RequestInit & { signal?: AbortSignal; silent?: boolean } = {}
 ): Promise<T> {
-  const { signal, ...fetchOptions } = options;
+  const { signal, silent, ...fetchOptions } = options;
   // 主动静默 refresh：若 token 即将到期就先续期再发请求（用户全程无感）
   // 跳过 refresh 端点自身避免递归
   if (!path.startsWith('/auth/refresh')) {
@@ -186,7 +187,7 @@ async function request<T = unknown>(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw makeError(err?.message || `请求失败 (HTTP ${res.status})`, res.status, res.status >= 500 ? 'SERVER' : undefined);
+    throw makeError(err?.message || `请求失败 (HTTP ${res.status})`, res.status, res.status >= 500 ? 'SERVER' : undefined, undefined, silent);
   }
 
   return res.json();

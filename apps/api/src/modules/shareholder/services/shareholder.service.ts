@@ -339,7 +339,10 @@ export class ShareholderService {
   // ── 股东驾驶舱（scope 驱动）──────────────────────────────────────────────
   /** 解析用户可见的项目编码集合：GROUP→全部；PROJECT→指定；COMPANY/SITE→匹配项目；无 scope→空 */
   async resolveAccessibleProjects(userId: string, roles: string[]): Promise<string[] | 'ALL'> {
-    if (roles?.includes('ROLE_ADMIN')) return 'ALL';
+    // G70：集团级财务领导角色对股东权益有全局可见权（集团财务监督本职），
+    //   无需逐项目配 shr_shareholder_scopes。修"集团财务总监看不见股东出资"。
+    const GROUP_FINANCE_ALL = ['ROLE_ADMIN', 'ROLE_FIN_CFO', 'ROLE_HQ_FINANCE'];
+    if (roles?.some(r => GROUP_FINANCE_ALL.includes(r))) return 'ALL';
     const scopes = await this.scopeRepo.find({ where: { userId, status: 'ACTIVE' } });
     if (scopes.length === 0) return [];
     if (scopes.some(s => s.scopeType === 'GROUP')) return 'ALL';
