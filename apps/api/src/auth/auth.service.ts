@@ -78,7 +78,12 @@ export class AuthService {
         perms_version: 1,
       };
       const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-      return { code: 200, token, user_info: payload };
+      const cookieToken = jwt.sign({
+        userId: payload.userId, sub: payload.sub, username: payload.username,
+        role: payload.role, roles: payload.roles, storeCode: payload.storeCode,
+        locale: payload.locale, perms_version: payload.perms_version,
+      }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+      return { code: 200, token, cookie_token: cookieToken, user_info: payload };
     }
 
     // 查用户 + 角色信息（关联 sys_user_role 和 sys_role）
@@ -281,9 +286,21 @@ export class AuthService {
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
+    // 瘦身 cookie token：仅供 Next.js 中间件做页面级鉴权（不含 permissions 大数组）。
+    // 背景：多角色用户（如刘杰 4 财务角色 / 78 权限）完整 JWT 超 4096B cookie 上限 →
+    //   浏览器丢弃 cookie → 中间件读不到 token → 登录后被弹回 /login。
+    //   完整 token 仍走 localStorage + Authorization 头，后端 MenuGuard 鉴权不受影响。
+    const cookieToken = jwt.sign({
+      userId: payload.userId, sub: payload.sub, username: payload.username,
+      role: payload.role, roles: payload.roles, roleType: payload.roleType,
+      userKind: payload.userKind, storeCode: payload.storeCode,
+      locale: payload.locale, perms_version: payload.perms_version,
+    }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
     return {
       code: 200,
       token,
+      cookie_token: cookieToken,
       user_info: payload,
     };
     } catch (err: any) {

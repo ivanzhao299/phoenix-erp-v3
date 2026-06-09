@@ -19,7 +19,7 @@ type AuthContextValue = {
   token: string | null;
   isLoggedIn: boolean;
   loading: boolean;
-  login: (tokenStr: string, userInfo: Record<string, unknown>) => void;
+  login: (tokenStr: string, userInfo: Record<string, unknown>, cookieToken?: string) => void;
   logout: () => void;
   hasPermission: (menuCode?: string | null, permCode?: string) => boolean;
   hasRole: (...roleCodes: string[]) => boolean;
@@ -128,12 +128,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setToken(t);
     setLoading(false);
     // 恢复中间件可读的 cookie（同步到 document.cookie，供 Next.js middleware 使用）
+    // 优先用瘦身 cookie token（避免多角色用户完整 JWT 超 cookie 上限被丢弃）。
     if (t) {
       try {
-        const payload = parseJwtPayload(t);
+        const ck = sessionStorage.getItem('phoenix_cookie_token')
+          || localStorage.getItem('phoenix_cookie_token') || t;
+        const payload = parseJwtPayload(ck);
         if (payload?.exp) {
           const maxAge = Math.max(0, payload.exp - Math.floor(Date.now() / 1000));
-          document.cookie = `phoenix_access_token=${t}; path=/; max-age=${maxAge}; SameSite=Lax`;
+          document.cookie = `phoenix_access_token=${ck}; path=/; max-age=${maxAge}; SameSite=Lax`;
         }
       } catch { /* ignore */ }
     }
@@ -177,7 +180,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch { /* ignore */ }
   };
 
-  const login = useCallback((tokenStr: string, userInfo: Record<string, unknown>) => {
+  const login = useCallback((tokenStr: string, userInfo: Record<string, unknown>, cookieToken?: string) => {
     // 同时写 sessionStorage + localStorage，保证刷新/路由切换/包装台标签页都能读到
     sessionStorage.setItem('phoenix_token', tokenStr);
     sessionStorage.setItem('phoenix_user', JSON.stringify(userInfo));
@@ -185,7 +188,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     sessionStorage.setItem('phoenix_session_version', SESSION_VERSION);
     localStorage.setItem('phoenix_token', tokenStr);
     localStorage.setItem('phoenix_user', JSON.stringify(userInfo));
-    _setCookieToken(tokenStr);
+    // 瘦身 cookie token：多角色用户完整 JWT 超 4096B cookie 上限会被浏览器丢弃 →
+    //   中间件读不到 token → 登录后弹回 /login。cookie 用瘦身版，API 仍用完整 token。
+    const ck = cookieToken || tokenStr;
+    if (cookieToken) {
+      sessionStorage.setItem('phoenix_cookie_token', cookieToken);
+      localStorage.setItem('phoenix_cookie_token', cookieToken);
+    }
+    _setCookieToken(ck);
     setToken(tokenStr);
     setUser(userInfo);
   }, []);
@@ -193,8 +203,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = useCallback((reason?: 'expired' | 'perms_changed' | 'logout') => {
     sessionStorage.removeItem('phoenix_token');
     sessionStorage.removeItem('phoenix_user');
+    sessionStorage.removeItem('phoenix_cookie_token');
     localStorage.removeItem('phoenix_token');
     localStorage.removeItem('phoenix_user');
+    localStorage.removeItem('phoenix_cookie_token');
     // 清除中间件 cookie
     document.cookie = 'phoenix_access_token=; path=/; max-age=0; SameSite=Lax';
     setToken(null);

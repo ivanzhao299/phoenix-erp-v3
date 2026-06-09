@@ -145,7 +145,7 @@ function MobileLoginInner() {
         roles: info?.roles || (info?.role ? [info.role] : []),
         name: info?.realNameZh || info?.username || u,
         permissions: Array.isArray(info?.permissions) ? info.permissions : []
-      });
+      }, data.cookie_token);
       try {
         localStorage.setItem(LAST_USER_KEY, u.trim());
       } catch {/* noop */}

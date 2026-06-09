@@ -301,7 +301,7 @@ function LoginInner() {
         roles: info?.roles || (info?.role ? [info.role] : []),
         name: info?.realNameZh || info?.username || u,
         permissions: Array.isArray(info?.permissions) ? info.permissions : []
-      });
+      }, data.cookie_token);
       // 记忆账户名（无密码），下次回填
       try {
         localStorage.setItem(LAST_USER_KEY, u.trim());
