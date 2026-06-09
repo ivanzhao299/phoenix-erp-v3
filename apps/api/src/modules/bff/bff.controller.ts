@@ -1774,10 +1774,10 @@ export class PackagingTerminalBffController {
     if (requested.includes('PKG_EGG_GRADE')) {
       const gradeRows: Array<{
         grade_code: string; grade_name: string; grade_name_lo: string | null;
-        sort_order: number; is_saleable: boolean; is_storable: boolean;
+        sort_order: number; is_saleable: boolean; is_storable: boolean; weight_range: string | null;
       }> = await this.safe(
         this.em.query(
-          `SELECT grade_code, grade_name, grade_name_lo, sort_order, is_saleable, is_storable
+          `SELECT grade_code, grade_name, grade_name_lo, sort_order, is_saleable, is_storable, weight_range
              FROM product_grades WHERE status='ACTIVE' ORDER BY sort_order, grade_code`,
         ),
         [] as any[],
@@ -1791,6 +1791,7 @@ export class PackagingTerminalBffController {
         isTerminalGrade: true,
         saleable:        r.is_saleable,
         storable:        r.is_storable,
+        weightRange:     r.weight_range || '',   // G67 透传重量段
         icon:            '🥚',
       }));
       requested = requested.filter(t => t !== 'PKG_EGG_GRADE');

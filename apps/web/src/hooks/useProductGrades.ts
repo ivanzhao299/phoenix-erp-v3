@@ -6,16 +6,17 @@ import request from '@/lib/api-client';
  * useProductGrades — 全局等级权威源 hook（2026-06-06 收口）
  * ════════════════════════════════════════════════════════════════════════
  * 数据源：/api/lookup/product-grades（product_grades 主数据表，仅 ACTIVE）
- *   · grade_code   — 现行等级码：XL/L/M/S/XS + DIRTY/CRACKED/BROKEN/DAMAGED（9 档）
- *   · grade_name   — 中文名：特大蛋 / 一号蛋(L) / 二号蛋(M) / 三号蛋(S) / 四号蛋(XS)
- *                    + 脏蛋 / 裂缝蛋 / 破蛋 / 损坏蛋
+ *   · grade_code   — 现行等级码（G67 统一到包装方案）：GRADE_1..5 + DIRTY/CRACKED/BROKEN/DAMAGED（9 档）
+ *   · grade_name   — 中文名：1号蛋 / 2号蛋 / 3号蛋 / 4号蛋 / 5号蛋（可售，带 weight_range 重量段）
+ *                    + 脏蛋 / 裂缝蛋 / 破蛋 / 损坏蛋（缺陷）
  *   · is_saleable  — 是否可销售（脏/裂/破/损为 false）
  *   · is_storable  — 是否可入库
  *
- * 替代历史多源：
+ * 替代历史多源（均已统一到 product_grades）：
  *   ✗ 硬编码 EGG_GRADES 0-5（已废）
- *   ✗ 旧等级方案 AA/A/B/C（特级/一级/二级/三级）— 在 product_grades 中已 DEPRECATED
- *   ✗ sys_dict.PKG_EGG_GRADE（整类 DEPRECATED，BFF 现已切到 product_grades 主数据）
+ *   ✗ 旧尺寸方案 XL/L/M/S/XS（特大/一号..四号）— G67 已 DEPRECATED
+ *   ✗ 旧等级方案 AA/A/B/C（特级/一级/二级/三级）— 已 DEPRECATED
+ *   ✗ sys_dict.PKG_EGG_GRADE（整类 DEPRECATED，BFF /terminal/dicts 现读 product_grades）
  *   ✗ 后端 validGrades 14 档混杂表（已改运行时拉 product_grades）
  *
  * 用法：

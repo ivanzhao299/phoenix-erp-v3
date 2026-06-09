@@ -9,12 +9,13 @@ export type DictMap = Record<string, DictItem[]>;
 
 // ── 硬编码兜底（API 失败时使用）────────────────────────────────────────────────
 export const FALLBACK_DICTS: DictMap = {
+  // G67：码对齐 product_grades（grade_code=GRADE_1..5，即 BFF terminalCode）。仅 API 失败兜底用。
   PKG_EGG_GRADE: [
-    { code:'PKG_EGG_GRADE_1', label:'1号蛋', labelEn:'Grade 1', labelLo:'ໄຂ່ຊັ້ນ 1', terminalCode:'GRADE_1', color:'#7c3aed', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'59-66g' },
-    { code:'PKG_EGG_GRADE_2', label:'2号蛋', labelEn:'Grade 2', labelLo:'ໄຂ່ຊັ້ນ 2', terminalCode:'GRADE_2', color:'#2563eb', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'53-59g' },
-    { code:'PKG_EGG_GRADE_3', label:'3号蛋', labelEn:'Grade 3', labelLo:'ໄຂ່ຊັ້ນ 3', terminalCode:'GRADE_3', color:'#059669', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'46-53g' },
-    { code:'PKG_EGG_GRADE_4', label:'4号蛋', labelEn:'Grade 4', labelLo:'ໄຂ່ຊັ້ນ 4', terminalCode:'GRADE_4', color:'#d97706', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'40-46g' },
-    { code:'PKG_EGG_GRADE_5', label:'5号蛋', labelEn:'Grade 5', labelLo:'ໄຂ່ຊັ້ນ 5', terminalCode:'GRADE_5', color:'#f97316', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'30-40g' },
+    { code:'GRADE_1', label:'1号蛋', labelEn:'Grade 1', labelLo:'ໄຂ່ຊັ້ນ 1', terminalCode:'GRADE_1', color:'#7c3aed', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'59-66g' },
+    { code:'GRADE_2', label:'2号蛋', labelEn:'Grade 2', labelLo:'ໄຂ່ຊັ້ນ 2', terminalCode:'GRADE_2', color:'#2563eb', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'53-59g' },
+    { code:'GRADE_3', label:'3号蛋', labelEn:'Grade 3', labelLo:'ໄຂ່ຊັ້ນ 3', terminalCode:'GRADE_3', color:'#059669', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'46-53g' },
+    { code:'GRADE_4', label:'4号蛋', labelEn:'Grade 4', labelLo:'ໄຂ່ຊັ້ນ 4', terminalCode:'GRADE_4', color:'#d97706', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'40-46g' },
+    { code:'GRADE_5', label:'5号蛋', labelEn:'Grade 5', labelLo:'ໄຂ່ຊັ້ນ 5', terminalCode:'GRADE_5', color:'#f97316', icon:'🥚', isTerminalGrade:true, saleable:true, weightRange:'30-40g' },
   ],
   PKG_EGG_DEFECT: [
     { code:'PKG_DEFECT_DIRTY',    label:'脏污蛋', labelEn:'Dirty',    labelLo:'ໄຂ່ສົກ',      terminalCode:'DIRTY',    color:'#f97316', icon:'💧', isTerminalGrade:true, isDefect:true },
