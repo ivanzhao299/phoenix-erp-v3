@@ -28,7 +28,7 @@ export default function DictPage() {
   const TYPE_LABEL = useMemo<Record<string,string>>(() => ({
     // 包装
     PKG_ANOMALY_REASON: t("dict.PKG_ANOMALY_REASON","包装异常原因"),
-    PKG_EGG_GRADE:      t("dict.PKG_EGG_GRADE","鸡蛋等级配置"),
+    PKG_EGG_GRADE:      t("dict.PKG_EGG_GRADE","鸡蛋等级（已弃用·见产品等级档案）"),
     PKG_EGG_DEFECT:     t("dict.PKG_EGG_DEFECT","蛋品缺陷类型"),
     PKG_PACK_LINE:      t("dict.PKG_PACK_LINE","包装产线"),
     PKG_PACK_SPEC:      t("dict.PKG_PACK_SPEC","包装规格配置"),

@@ -79,7 +79,7 @@ function classify(dictType: string): BizCategory {
 
 // ── 业务化标签覆盖：把 dict_type 翻译为业务语言 ──────────────────────
 const TYPE_LABEL_MAP: Record<string, string> = {
-  PKG_EGG_GRADE: "鸡蛋等级",
+  PKG_EGG_GRADE: "鸡蛋等级（已弃用·见等级档案）",
   PKG_ANOMALY_REASON: "包装异常原因",
   PKG_EGG_DEFECT: "蛋品缺陷类型",
   PKG_DEFECT: "包装缺陷",
