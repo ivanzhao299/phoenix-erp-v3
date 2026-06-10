@@ -107,7 +107,7 @@ export default function ApprovalFlowsPage() {
   }
   const filtered = filter ? rows.filter(r => r.status === filter) : rows;
   return <div>
-      <PageHeader title="流程配置中心" subtitle="审批流程定义 · 启用/停用 · 版本管理" breadcrumb={['系统设置', '流程配置']} actions={<>
+      <PageHeader title="流程配置中心" subtitle="审批流程定义 · 启用/停用 · 版本管理" breadcrumb={['审批中心', '流程配置']} actions={<>
             <Link href="/workflow/builder" className={s.btnPrimary}>新建流程</Link>
             <Link href="/settings/approval-rules" className={s.btnSecondary} style={{
         marginLeft: 8
