@@ -310,8 +310,10 @@ export default function UserManagementPage() {
   const [form, setForm] = useState({
     username: "", real_name_zh: "", store_code: "",
     password: "", newPassword: "", user_type: "REAL",
+    org_company: "", org_site: "",   // G76：组织绑定（数据范围唯一源）
   });
   const [selectedRoles, setSelectedRoles] = useState<UserRole[]>([]);
+  const [orgs, setOrgs] = useState<Array<{ org_code: string; org_name: string; org_type: string }>>([]);  // G76 组织树(公司+场站)
 
   // ── View mode ─────────────────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<"grouped" | "flat">("grouped");
@@ -323,6 +325,12 @@ export default function UserManagementPage() {
       const uRes = await fetch("/api/users", { headers: hdr() }).then(r => r.json());
       setUsers(uRes.data || []);
       setAllRoles(uRes.roles || []);
+      // G76：拉组织树(公司/场站)供"组织绑定"选择——数据范围唯一源
+      const oRes = await fetch("/api/org/organizations", { headers: hdr() }).then(r => r.json()).catch(() => ({}));
+      const orgRows = (oRes.data || [])
+        .map((o: any) => ({ org_code: o.orgCode ?? o.org_code, org_name: o.orgName ?? o.org_name, org_type: o.orgType ?? o.org_type }))
+        .filter((o: any) => o.org_code && ["COMPANY", "SITE"].includes(o.org_type));
+      setOrgs(orgRows);
     } finally { setLoading(false); }
   }, []);
 
@@ -424,7 +432,7 @@ export default function UserManagementPage() {
 
   const handleAddNew = () => {
     setEditUser(null);
-    setForm({ username: "", real_name_zh: "", store_code: "", password: "", newPassword: "", user_type: "REAL" });
+    setForm({ username: "", real_name_zh: "", store_code: "", password: "", newPassword: "", user_type: "REAL", org_company: "", org_site: "" });
     setSelectedRoles([]);
     setShowDrawer(true);
   };
@@ -432,7 +440,7 @@ export default function UserManagementPage() {
   const handleEdit = (u: UserRecord) => {
     if (u.username === "admin") { toast.error(t("ui.系统特权总控帐号已锁定拒绝面板编辑", "系统特权总控帐号已锁定，拒绝面板编辑")); return; }
     setEditUser(u);
-    setForm({ username: u.username, real_name_zh: u.real_name_zh || "", store_code: u.store_code || "", password: "", newPassword: "", user_type: u.user_type || "REAL" });
+    setForm({ username: u.username, real_name_zh: u.real_name_zh || "", store_code: u.store_code || "", password: "", newPassword: "", user_type: u.user_type || "REAL", org_company: "", org_site: "" });
     setSelectedRoles(u.roles_detail || []);
     setShowDrawer(true);
   };
@@ -444,11 +452,16 @@ export default function UserManagementPage() {
     setSubmitting(true);
     try {
       let res: { code?: number; data?: { id?: number }; msg?: string } = {};
+      // G76：组织绑定（数据范围唯一源）——公司必选则带；场站可选。仅选了才发(编辑时不动则不覆盖)
+      const orgBindings: Array<{ org_code: string; scope_level: string; is_primary: boolean }> = [];
+      if (form.org_company) orgBindings.push({ org_code: form.org_company, scope_level: "COMPANY", is_primary: true });
+      if (form.org_site)    orgBindings.push({ org_code: form.org_site, scope_level: "SITE", is_primary: !form.org_company });
       if (editUser) {
         // 更新基本信息
         res = await API(`/${editUser.id}`, {
           method: "PUT",
-          body: JSON.stringify({ real_name_zh: form.real_name_zh, store_code: form.store_code }),
+          body: JSON.stringify({ real_name_zh: form.real_name_zh, store_code: form.store_code,
+            ...(orgBindings.length ? { org_bindings: orgBindings } : {}) }),
         });
         // 更新角色列表（多角色）
         if (res.code === 200 && selectedRoles.length > 0) {
@@ -487,6 +500,7 @@ export default function UserManagementPage() {
             store_code: form.store_code, password: form.password,
             user_type: form.user_type,
             role: primaryRole?.role_code || "",
+            ...(orgBindings.length ? { org_bindings: orgBindings } : {}),
           }),
         });
         // 若新建成功且有多个角色，再设置完整角色列表
@@ -980,9 +994,36 @@ export default function UserManagementPage() {
             <label className={s.lbl}>{t("ui.姓名", "姓名")} <span style={{ color: "var(--status-danger)" }}>*</span></label>
             <input value={form.real_name_zh} onChange={e => f("real_name_zh", e.target.value)} placeholder="如 张三" className={s.inp}/>
           </div>
+          {/* G76：组织绑定 = 数据范围唯一源（替代门店代码的范围职责）*/}
+          <div className={s.formSection}>🏢 {t("ui.组织绑定", "组织绑定（决定可见数据范围）")}</div>
           <div className={s.field}>
-            <label className={s.lbl}>{t("ui.门店代码可选", "门店代码（可选）")}</label>
-            <input value={form.store_code} onChange={e => f("store_code", e.target.value)} placeholder="如 STORE-VTE-01 或留空" className={s.inp}/>
+            <label className={s.lbl}>{t("ui.所属公司", "所属公司")}
+              <span style={{ color: "var(--text-secondary)", fontWeight: 400, marginLeft: 4 }}>（决定数据隔离范围）</span></label>
+            <select value={form.org_company} onChange={e => f("org_company", e.target.value)} className={s.inp}>
+              <option value="">{editUser ? "（不修改现有绑定）" : t("ui.请选择公司", "请选择公司…")}</option>
+              {orgs.filter(o => o.org_type === "COMPANY").map(o => (
+                <option key={o.org_code} value={o.org_code}>{o.org_name}（{o.org_code}）</option>
+              ))}
+            </select>
+          </div>
+          <div className={s.field}>
+            <label className={s.lbl}>{t("ui.所属场站可选", "所属场站（可选，更细颗粒）")}</label>
+            <select value={form.org_site} onChange={e => f("org_site", e.target.value)} className={s.inp}>
+              <option value="">{t("ui.无整个公司", "（无 / 覆盖整个公司）")}</option>
+              {orgs.filter(o => o.org_type === "SITE").map(o => (
+                <option key={o.org_code} value={o.org_code}>{o.org_name}（{o.org_code}）</option>
+              ))}
+            </select>
+            <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 6 }}>
+              数据范围 = 所选公司/场站的组织子树。<b>不选则该用户看不到任何公司数据</b>（除非持管理员角色）。
+            </div>
+          </div>
+          <div className={s.field}>
+            <label className={s.lbl}>{t("ui.门店代码POS", "门店代码（POS 门店专用·可选）")}</label>
+            <input value={form.store_code} onChange={e => f("store_code", e.target.value)} placeholder="仅 POS 收银用，如 STORE-VTE-01；非门店留空" className={s.inp}/>
+            <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 6 }}>
+              ⚠️ 门店代码仅用于 POS 门店行级隔离，<b>不再决定公司数据范围</b>（范围看上方组织绑定）。
+            </div>
           </div>
 
           {/* Account type (new only) */}
