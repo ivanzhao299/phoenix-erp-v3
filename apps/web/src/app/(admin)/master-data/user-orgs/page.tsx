@@ -428,6 +428,7 @@ export default function UserOrgsPage() {
                 options={roles.map(r => ({ value: r, label: r }))}
                 emptyLabel="全部角色"
                 allowEmpty
+                filter
               />
             )}
           </div>

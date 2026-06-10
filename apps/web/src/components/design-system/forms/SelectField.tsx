@@ -17,15 +17,23 @@ export interface SelectFieldProps {
   disabled?: boolean;
   allowEmpty?: boolean;
   emptyLabel?: string;
+  /** 筛选场景：紧凑样式（字12 / bg-muted），与 SearchInput 一致。默认 false=表单样式 */
+  filter?: boolean;
 }
 
-export function SelectField({ value, onChange, options, placeholder = '请选择', disabled, allowEmpty = true, emptyLabel }: SelectFieldProps) {
+const filterSelectStyle: React.CSSProperties = {
+  width: '100%', padding: '8px 12px', fontSize: 12, borderRadius: 8,
+  background: 'var(--bg-muted)', border: '1px solid var(--border)',
+  color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box',
+};
+
+export function SelectField({ value, onChange, options, placeholder = '请选择', disabled, allowEmpty = true, emptyLabel, filter }: SelectFieldProps) {
   return (
     <select
       value={value}
       disabled={disabled}
       onChange={(e) => onChange(e.target.value)}
-      style={{ ...fieldInputStyle, opacity: disabled ? 0.6 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}
+      style={{ ...(filter ? filterSelectStyle : fieldInputStyle), opacity: disabled ? 0.6 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}
     >
       {allowEmpty && <option value="">{emptyLabel ?? placeholder}</option>}
       {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
