@@ -4,6 +4,7 @@ import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import request from '@/lib/api-client';
 import { usePermission } from '@/hooks/usePermission';
+import { dictTypeLabel } from '@/lib/dict-type-labels';
 import {
   RefreshCw, AlertTriangle, CheckCircle, Network, Building, BookOpen,
   ShieldCheck, Link2, GitPullRequestArrow, ExternalLink,
@@ -209,7 +210,7 @@ export default function GovernanceDashboardPage() {
                   background: `${color}0a`, border: `1px solid ${color}33`,
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 }}>
-                  <span style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--text-primary)' }}>{d.dictType}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-primary)' }}>{dictTypeLabel(d.dictType)}<span style={{ fontSize: 10, color: 'var(--text-secondary)', marginLeft: 6, fontFamily: 'monospace' }}>{d.dictType}</span></span>
                   <span style={{ fontSize: 11, color, fontWeight: 600 }}>
                     {d.status === 'MISSING' ? '缺失' : d.status === 'EMPTY' ? '失效' : `${d.activeCount} 条`}
                   </span>
@@ -219,7 +220,7 @@ export default function GovernanceDashboardPage() {
           </div>
           {dict.missingDictTypes.length > 0 && (
             <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 6, background: 'var(--status-danger-bg-faint)', fontSize: 12, color: 'var(--status-danger)' }}>
-              <strong>缺失字典（{dict.missingDictTypes.length}）：</strong> {dict.missingDictTypes.join('、')}
+              <strong>缺失字典（{dict.missingDictTypes.length}）：</strong> {dict.missingDictTypes.map(dictTypeLabel).join('、')}
             </div>
           )}
         </div>
