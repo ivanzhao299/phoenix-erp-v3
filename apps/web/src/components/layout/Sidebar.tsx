@@ -490,3 +490,23 @@ export function Sidebar({ pinned, hovered, onHoverEnter, onHoverLeave }: Sidebar
     </aside>
   );
 }
+
+/**
+ * 顶栏标题源：从侧边栏 MENU(中文 label)按路径反查最深匹配项。
+ * 杜绝顶栏回退英文路由名（/master-data/organizations → 组织架构，而非 organizations）。
+ * 单一来源：所有中心的顶栏标题与侧边栏一致，无需另维护 i18n key。
+ */
+export function pathTitle(pathname: string): string | undefined {
+  let best: { path: string; label: string } | undefined;
+  const consider = (path: string | undefined, label: string) => {
+    if (!path) return;
+    if (pathname === path || pathname.startsWith(path + "/")) {
+      if (!best || path.length > best.path.length) best = { path, label };
+    }
+  };
+  for (const item of MENU) {
+    consider(item.path, item.label);
+    for (const c of item.children ?? []) consider(c.path, c.label);
+  }
+  return best?.label;
+}

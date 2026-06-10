@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Sidebar } from "@/components/layout/Sidebar";
+import { Sidebar, pathTitle } from "@/components/layout/Sidebar";
 import {
   PanelLeftClose, PanelLeftOpen, Sun, Moon, LogOut, Languages
 } from "lucide-react";
@@ -158,7 +158,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!user) return null;
 
   const titleKey = TITLE_KEY_MAP[pathname];
-  const pageTitle = titleKey ? t(titleKey, pathname.split("/").pop() ?? "Phoenix ERP") : "Phoenix ERP";
+  // 顶栏标题优先取侧边栏中文 label(单一来源,杜绝露英文路由名); 再退 i18n 映射(空串而非英文段); 最后泛标题
+  const pageTitle = pathTitle(pathname) || (titleKey ? t(titleKey, "") : "") || "Phoenix ERP";
   const avatarChar = user.name?.[0]?.toUpperCase() ?? "A";
 
   const handleLogout = () => {
