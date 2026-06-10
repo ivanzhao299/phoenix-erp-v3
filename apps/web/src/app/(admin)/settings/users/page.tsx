@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import UserOrgBindingPanel from "@/components/settings/UserOrgBindingPanel";
+import { SelectField } from "@/components/design-system";
 
 const tok = () => (typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : "");
 const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${tok()}` });
@@ -317,6 +318,8 @@ export default function UserManagementPage() {
   // ── View mode ─────────────────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<"grouped" | "flat">("grouped");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  // 门店代码下拉选项：从组织架构 STORE 类型组织提取（非自由文本）
+  const [storeOpts, setStoreOpts] = useState<{ value: string; label: string }[]>([]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -326,6 +329,18 @@ export default function UserManagementPage() {
       setAllRoles(uRes.roles || []);
       // G80 Phase 2：组织绑定 / 数据范围由 UserOrgBindingPanel(/api/org/user-orgs) 接管，
       //   不再在此页预拉公司/场站列表。
+      // 门店代码下拉：从门店主数据 lookup 提取（POS 行级隔离用，非自由文本）
+      // 注：门店在 mst_stores（组织架构 sys_organizations 无 STORE 节点）
+      try {
+        const sRes = await fetch("/api/lookup/stores", { headers: hdr() }).then(r => r.json());
+        const list: any[] = Array.isArray(sRes) ? sRes : (sRes.data || sRes.items || []);
+        setStoreOpts(list
+          .filter((o: any) => (o.status ?? "ACTIVE") === "ACTIVE")
+          .map((o: any) => ({
+            value: o.storeCode ?? o.store_code,
+            label: `${o.storeName ?? o.store_name}（${o.storeCode ?? o.store_code}）`,
+          })));
+      } catch { /* 门店列表失败不阻塞用户列表 */ }
     } finally { setLoading(false); }
   }, []);
 
@@ -1006,9 +1021,15 @@ export default function UserManagementPage() {
           </div>
           <div className={s.field}>
             <label className={s.lbl}>{t("ui.门店代码POS", "门店代码（POS 门店专用·可选）")}</label>
-            <input value={form.store_code} onChange={e => f("store_code", e.target.value)} placeholder="仅 POS 收银用，如 STORE-VTE-01；非门店留空" className={s.inp}/>
+            <SelectField
+              value={form.store_code || ""}
+              onChange={v => f("store_code", v)}
+              options={[{ value: "ALL", label: "全部门店（ALL）" }, ...storeOpts]}
+              allowEmpty
+              emptyLabel="非门店用户（留空）"
+            />
             <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 6 }}>
-              ⚠️ 门店代码仅用于 POS 门店行级隔离，<b>不再决定公司数据范围</b>（范围看上方组织绑定）。
+              ⚠️ 门店代码仅用于 POS 门店行级隔离，<b>不再决定公司数据范围</b>（范围看上方组织绑定）。门店来自组织架构 STORE 类型组织。
             </div>
           </div>
 
