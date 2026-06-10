@@ -22,7 +22,7 @@ import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
-import { SearchInput } from "@/components/design-system";
+import { SearchInput, SelectField } from "@/components/design-system";
 
 // ── Auth helper ──────────────────────────────────────────────────────────────
 const tok = () =>
@@ -430,21 +430,13 @@ export default function UserOrgsPage() {
           <div className="px-3 pt-3 pb-2 flex flex-col gap-2">
             <SearchInput value={search} onChange={setSearch} placeholder="搜索姓名 / 账号…" />
             {roles.length > 0 && (
-              <select
+              <SelectField
                 value={roleFilter}
-                onChange={e => setRoleFilter(e.target.value)}
-                className={cn(
-                  "w-full px-3 py-2.5 text-sm rounded-lg cursor-pointer",
-                  "bg-bg-muted border border-border text-text-muted",
-                )}
-              >
-                <option value="">全部角色</option>
-                {roles.map(r => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
+                onChange={setRoleFilter}
+                options={roles.map(r => ({ value: r, label: r }))}
+                emptyLabel="全部角色"
+                allowEmpty
+              />
             )}
           </div>
 
