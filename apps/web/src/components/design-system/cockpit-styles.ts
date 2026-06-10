@@ -245,9 +245,12 @@ export const drawerMask: CSSProperties = {
   position: 'fixed',
   inset: 0,
   background: 'var(--overlay-mask)',
+  backdropFilter: 'blur(3px)',          // 毛玻璃（全局抽屉统一）
+  WebkitBackdropFilter: 'blur(3px)',
   zIndex: 10010,
   display: 'flex',
   justifyContent: 'flex-end',
+  animation: 'phx-fade-in .15s ease',
 };
 
 // ── Drawer 右侧滑出面板 ─────────────────────────────────

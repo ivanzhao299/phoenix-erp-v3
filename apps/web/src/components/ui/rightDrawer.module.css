@@ -10,7 +10,10 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.48);
+  background: var(--overlay-mask);
+  /* 毛玻璃（全局抽屉统一，对齐 cockpit drawerMask / DrawerV2） */
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   z-index: 10100;
   display: flex;
   justify-content: flex-end;
