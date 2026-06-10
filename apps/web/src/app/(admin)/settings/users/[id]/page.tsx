@@ -249,6 +249,7 @@ export default function UserDetailPage() {
         allRoles={allRoles}
         selected={selectedRoles}
         onChange={editable ? setSelectedRoles : () => { /* 只读 */ }}
+        maxHeight={560}
       />
       <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 8 }}>
         {t("ui.可为用户分配多个角色权限取各角色并集主角色用于显示", "可为用户分配多个角色，权限取各角色并集。主角色（★）用于显示")}

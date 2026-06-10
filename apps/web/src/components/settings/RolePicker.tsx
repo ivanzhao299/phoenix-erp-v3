@@ -45,10 +45,11 @@ export const TYPE_COLOR: Record<string, string> = {
 };
 
 // ── Multi-role picker component ─────────────────────────────────
-export function RolePicker({ allRoles, selected, onChange }: {
+export function RolePicker({ allRoles, selected, onChange, maxHeight = 280 }: {
   allRoles: RoleOption[];
   selected: UserRole[];
   onChange: (roles: UserRole[]) => void;
+  maxHeight?: number;
 }) {
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
@@ -165,7 +166,7 @@ export function RolePicker({ allRoles, selected, onChange }: {
       </div>
 
       {/* Role list grouped by type */}
-      <div style={{ maxHeight: 280, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ maxHeight, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
         {grouped.map(([type, roles]) => (
           <div key={type}>
             <div style={{ fontSize: 10, fontWeight: 700, color: TYPE_COLOR[type] ?? "var(--text-disabled)",
