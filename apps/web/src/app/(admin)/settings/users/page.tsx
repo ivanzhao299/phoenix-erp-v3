@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -9,12 +10,13 @@ import { usePermission } from "@/hooks/usePermission";
 import {
   Users, Shield, Plus, Lock, Unlock, Key, Edit2, UserCheck,
   FlaskConical, RefreshCw, Search, ChevronUp, ChevronDown,
-  ChevronsUpDown, Star, X as XIcon, Info, LayoutGrid, List, ChevronRight,
-  Eye, EyeOff,
+  ChevronsUpDown, Star, LayoutGrid, List, ChevronRight,
 } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
-import UserOrgBindingPanel from "@/components/settings/UserOrgBindingPanel";
-import { SelectField } from "@/components/design-system";
+import {
+  RolePicker, levelColor,
+  type UserRole, type RoleOption,
+} from "@/components/settings/RolePicker";
 
 const tok = () => (typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : "");
 const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${tok()}` });
@@ -22,12 +24,6 @@ const API = async (path: string, opts: RequestInit = {}) => {
   const r = await fetch("/api/users" + path, { ...opts, headers: { ...hdr(), ...(opts.headers as any || {}) } });
   return r.json();
 };
-
-// ── 角色级别颜色 ────────────────────────────────────────────────────────────────
-const LEVEL_COLOR: Record<number, string> = {
-  4: "var(--status-warning)", 3: "var(--status-special)", 2: "var(--color-accent)", 1: "var(--status-success)", 0: "var(--text-secondary)",
-};
-const levelColor = (lv: number) => LEVEL_COLOR[lv] ?? "var(--text-secondary)";
 
 function UserTypeBadge({ type }: { type: string }) {
   return type === "TEST" ? (
@@ -37,24 +33,6 @@ function UserTypeBadge({ type }: { type: string }) {
   );
 }
 
-// 角色优先级标签
-function LevelBadge({ level }: { level: number }) {
-  const col = levelColor(level);
-  return (
-    <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 8,
-      background: col + "22", color: col, border: `1px solid ${col}44`, marginLeft: 3 }}>
-      L{level}
-    </span>
-  );
-}
-
-interface UserRole {
-  role_code: string;
-  role_name_zh: string;
-  approval_level: number;
-  is_primary: boolean;
-  is_visible?: boolean;  // 前台是否显示该角色名（默认 true）
-}
 interface UserRecord {
   id: number;
   username: string;
@@ -66,26 +44,9 @@ interface UserRecord {
   user_type?: string;
   roles_detail?: UserRole[];
 }
-interface RoleOption {
-  role_code: string;
-  role_name_zh: string;
-  role_type: string;
-  approval_level: number;
-  description?: string;
-}
-
 type SortKey = "username" | "real_name_zh" | "role_name_zh" | "status";
 type SortDir = "asc" | "desc";
 const PAGE_SIZE_OPTIONS = [20, 50, 100];
-
-// ── Role type grouping color (for RolePicker) ────────────────────
-const TYPE_COLOR: Record<string, string> = {
-  SYSTEM: "var(--status-warning)", DECISION: "var(--status-special)", FINANCE: "var(--color-accent)",
-  MANAGEMENT: "var(--color-accent)", PRODUCTION: "var(--status-success)", QUALITY: "var(--status-success)",
-  PACKAGING: "var(--status-success)", WAREHOUSE: "var(--status-warning)", LOGISTICS: "var(--status-warning)",
-  PROCUREMENT: "var(--status-special)", STORE: "var(--color-accent)", SALES: "var(--color-accent)",
-  EXTERNAL: "var(--text-secondary)", custom: "var(--text-disabled)",
-};
 
 // ── Role type meta (order / label / color / emoji) ────────────────
 const ROLE_TYPE_META: Record<string, { order: number; label: string; color: string; emoji: string }> = {
@@ -107,180 +68,9 @@ const ROLE_TYPE_META: Record<string, { order: number; label: string; color: stri
 const TYPE_META_FALLBACK = { order: 98, label: "其他",      color: "var(--text-disabled)", emoji: "👤" };
 const NO_ROLE_META       = { order: 97, label: "未分配角色", color: "var(--status-danger)", emoji: "❓" };
 
-// ── Multi-role picker component ─────────────────────────────────
-function RolePicker({ allRoles, selected, onChange }: {
-  allRoles: RoleOption[];
-  selected: UserRole[];
-  onChange: (roles: UserRole[]) => void;
-}) {
-  const { t } = useLanguage();
-  const [search, setSearch] = useState("");
-
-  const grouped = useMemo(() => {
-    const q = search.toLowerCase();
-    const filtered = allRoles.filter(r =>
-      r.role_code.toLowerCase().includes(q) || r.role_name_zh.toLowerCase().includes(q)
-    );
-    const map = new Map<string, RoleOption[]>();
-    for (const r of filtered) {
-      const g = r.role_type || "custom";
-      if (!map.has(g)) map.set(g, []);
-      map.get(g)!.push(r);
-    }
-    return Array.from(map.entries()).sort((a, b) => {
-      const lvA = Math.max(...a[1].map(r => r.approval_level));
-      const lvB = Math.max(...b[1].map(r => r.approval_level));
-      return lvB - lvA;
-    });
-  }, [allRoles, search]);
-
-  const selectedSet = new Set(selected.map(r => r.role_code));
-  const primaryCode = selected.find(r => r.is_primary)?.role_code;
-
-  const toggle = (role: RoleOption) => {
-    if (selectedSet.has(role.role_code)) {
-      const next = selected.filter(r => r.role_code !== role.role_code);
-      // 如果删掉的是 primary，把剩余中 level 最高的设为 primary
-      if (role.role_code === primaryCode && next.length > 0) {
-        const maxLv = Math.max(...next.map(r => r.approval_level));
-        const newPrim = next.find(r => r.approval_level === maxLv)!;
-        onChange(next.map(r => ({ ...r, is_primary: r.role_code === newPrim.role_code })));
-      } else {
-        onChange(next);
-      }
-    } else {
-      const isFirst = selected.length === 0;
-      onChange([...selected, {
-        role_code: role.role_code,
-        role_name_zh: role.role_name_zh,
-        approval_level: role.approval_level,
-        is_primary: isFirst,
-      }]);
-    }
-  };
-
-  const setPrimary = (code: string) => {
-    onChange(selected.map(r => ({ ...r, is_primary: r.role_code === code })));
-  };
-
-  // 切换该角色"是否在前台显示角色名"（is_visible，纯显示，不影响权限）
-  const toggleVisible = (code: string) => {
-    onChange(selected.map(r =>
-      r.role_code === code ? { ...r, is_visible: r.is_visible === false ? true : false } : r
-    ));
-  };
-
-  return (
-    <div>
-      {/* Already selected tags */}
-      {selected.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-          {[...selected].sort((a, b) => b.approval_level - a.approval_level).map(r => {
-            const col = levelColor(r.approval_level);
-            return (
-              <div key={r.role_code} style={{ display: "flex", alignItems: "center", gap: 4,
-                padding: "4px 8px 4px 10px", borderRadius: 20,
-                background: col + "18", border: `1.5px solid ${col}44`,
-                fontSize: 12, color: col, fontWeight: 600,
-                opacity: r.is_visible === false ? 0.55 : 1,
-                textDecoration: r.is_visible === false ? "line-through" : "none" }}>
-                {r.is_primary && <Star size={10} style={{ fill: col }}/>}
-                {r.role_name_zh}
-                <LevelBadge level={r.approval_level}/>
-                {/* 👁 toggle 前台显示开关（不影响权限）*/}
-                <button type="button" onClick={() => toggleVisible(r.role_code)}
-                  title={r.is_visible === false
-                    ? t("ui.前台已隐藏点击恢复显示", "前台已隐藏，点击恢复显示")
-                    : t("ui.前台已显示点击隐藏不影响权限", "前台已显示，点击隐藏（不影响权限）")}
-                  style={{ background: "none", border: "none", cursor: "pointer", padding: "0 2px",
-                    color: col, opacity: 0.7, display: "inline-flex", alignItems: "center" }}>
-                  {r.is_visible === false ? <EyeOff size={11}/> : <Eye size={11}/>}
-                </button>
-                {!r.is_primary && selected.length > 1 && (
-                  <button type="button" onClick={() => setPrimary(r.role_code)}
-                    title={t("ui.设为主角色", "设为主角色")}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: "0 2px",
-                      color: col, opacity: 0.5, fontSize: 10, lineHeight: 1 }}>
-                    ★
-                  </button>
-                )}
-                <button type="button" onClick={() => toggle({ role_code: r.role_code, role_name_zh: r.role_name_zh,
-                    role_type: "", approval_level: r.approval_level, description: "" })}
-                  style={{ background: "none", border: "none", cursor: "pointer",
-                    padding: "0 2px", color: col, opacity: 0.7 }}>
-                  <XIcon size={10}/>
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Search */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8,
-        background: "var(--bg-page)", borderRadius: 8, padding: "6px 10px",
-        border: "1px solid var(--border)" }}>
-        <Search size={12} color="var(--text-secondary)"/>
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder={t("ui.搜索角色", "搜索角色...")}
-          style={{ border: "none", background: "transparent", outline: "none",
-            fontSize: 12, color: "var(--text-primary)", width: "100%" }}/>
-      </div>
-
-      {/* Role list grouped by type */}
-      <div style={{ maxHeight: 280, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
-        {grouped.map(([type, roles]) => (
-          <div key={type}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: TYPE_COLOR[type] ?? "var(--text-disabled)",
-              textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4,
-              padding: "2px 6px", background: (TYPE_COLOR[type] ?? "var(--text-disabled)") + "15",
-              borderRadius: 4, display: "inline-block" }}>
-              {type}
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-              {roles.map(r => {
-                const isSelected = selectedSet.has(r.role_code);
-                const col = levelColor(r.approval_level);
-                return (
-                  <button type="button" key={r.role_code} onClick={() => toggle(r)}
-                    title={`${r.role_code}${r.description ? " — " + r.description : ""}`}
-                    style={{
-                      padding: "4px 10px", borderRadius: 12, fontSize: 12, cursor: "pointer",
-                      fontWeight: isSelected ? 700 : 400,
-                      background: isSelected ? col + "22" : "var(--bg-page)",
-                      border: `1.5px solid ${isSelected ? col : "var(--border)"}`,
-                      color: isSelected ? col : "var(--text-secondary)",
-                      transition: "all 0.15s",
-                    }}>
-                    {isSelected && "✓ "}
-                    {r.role_name_zh}
-                    <LevelBadge level={r.approval_level}/>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-        {grouped.length === 0 && (
-          <div style={{ textAlign: "center", color: "var(--text-secondary)", fontSize: 12, padding: "16px 0" }}>
-            {t("common.no_data", "暂无数据")}
-          </div>
-        )}
-      </div>
-
-      {selected.length > 1 && (
-        <div style={{ marginTop: 8, fontSize: 11, color: "var(--text-secondary)",
-          display: "flex", alignItems: "center", gap: 4 }}>
-          <Info size={10}/>
-          {t("ui.星号角色为主角色点击角色旁星号切换", "★ 为主角色，点击角色旁 ★ 切换")}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function UserManagementPage() {
+  const router = useRouter();
   const toast = useToast();
   const { t } = useLanguage();
   const { canCreate, canEdit } = usePermission("MENU_SETTINGS_USER");
@@ -303,23 +93,20 @@ export default function UserManagementPage() {
   const [page,     setPage]     = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
-  // ── Drawer / Form ─────────────────────────────────────────────────────────────
+  // ── 新建抽屉 / Form（编辑已迁移至路由式全宽详情页 /settings/users/[id]）──────────
   const [showDrawer, setShowDrawer] = useState(false);
-  const [editUser,   setEditUser]   = useState<UserRecord | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirm,    setConfirm]    = useState<{ open: boolean; user?: UserRecord; nextStatus?: string }>({ open: false });
 
+  // 最小新建表单：账户名 / 姓名 / 密码 / 类型 / 主角色（组织 / 范围 / 门店在详情页继续补）
   const [form, setForm] = useState({
-    username: "", real_name_zh: "", store_code: "",
-    password: "", newPassword: "", user_type: "REAL",
+    username: "", real_name_zh: "", password: "", user_type: "REAL",
   });
   const [selectedRoles, setSelectedRoles] = useState<UserRole[]>([]);
 
   // ── View mode ─────────────────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<"grouped" | "flat">("grouped");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  // 门店代码下拉选项：从组织架构 STORE 类型组织提取（非自由文本）
-  const [storeOpts, setStoreOpts] = useState<{ value: string; label: string }[]>([]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -327,19 +114,7 @@ export default function UserManagementPage() {
       const uRes = await fetch("/api/users", { headers: hdr() }).then(r => r.json());
       setUsers(uRes.data || []);
       setAllRoles(uRes.roles || []);
-      // G80 Phase 2：组织绑定 / 数据范围由 UserOrgBindingPanel(/api/org/user-orgs) 接管，
-      //   不再在此页预拉公司/场站列表。
-      // 门店代码下拉：以组织架构 STORE 节点为准（单一来源；mst_stores 退为 POS 明细）
-      try {
-        const sRes = await fetch("/api/organizations/by-type?type=STORE", { headers: hdr() }).then(r => r.json());
-        const list: any[] = Array.isArray(sRes) ? sRes : (sRes.data || sRes.items || []);
-        setStoreOpts(list
-          .filter((o: any) => (o.status ?? "ACTIVE") === "ACTIVE")
-          .map((o: any) => ({
-            value: o.orgCode ?? o.org_code,
-            label: `${o.orgName ?? o.org_name}（${o.orgCode ?? o.org_code}）`,
-          })));
-      } catch { /* 门店列表失败不阻塞用户列表 */ }
+      // G80 Phase 2：组织绑定 / 数据范围由 UserOrgBindingPanel(/api/org/user-orgs) 接管。
     } finally { setLoading(false); }
   }, []);
 
@@ -440,86 +215,47 @@ export default function UserManagementPage() {
   const f = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
   const handleAddNew = () => {
-    setEditUser(null);
-    setForm({ username: "", real_name_zh: "", store_code: "", password: "", newPassword: "", user_type: "REAL" });
+    setForm({ username: "", real_name_zh: "", password: "", user_type: "REAL" });
     setSelectedRoles([]);
     setShowDrawer(true);
   };
 
+  // 编辑 = 跳转路由式全宽详情页（不再开侧抽屉）
   const handleEdit = (u: UserRecord) => {
     if (u.username === "admin") { toast.error(t("ui.系统特权总控帐号已锁定拒绝面板编辑", "系统特权总控帐号已锁定，拒绝面板编辑")); return; }
-    setEditUser(u);
-    setForm({ username: u.username, real_name_zh: u.real_name_zh || "", store_code: u.store_code || "", password: "", newPassword: "", user_type: u.user_type || "REAL" });
-    setSelectedRoles(u.roles_detail || []);
-    setShowDrawer(true);
+    router.push(`/settings/users/${u.id}`);
   };
 
+  // 最小新建：建账户 → 成功后跳详情页继续补组织 / 范围 / 门店
   const handleSubmit = async () => {
     if (!form.real_name_zh) { toast.error(t("ui.姓名为必填项", "姓名为必填项")); return; }
-    if (!editUser && !form.username) { toast.error(t("ui.账户名为必填项", "账户名为必填项")); return; }
-    if (!editUser && (!form.password || form.password.length < 8)) { toast.error(t("ui.新建用户密码至少8位", "新建用户密码至少 8 位")); return; }
+    if (!form.username) { toast.error(t("ui.账户名为必填项", "账户名为必填项")); return; }
+    if (!form.password || form.password.length < 8) { toast.error(t("ui.新建用户密码至少8位", "新建用户密码至少 8 位")); return; }
     setSubmitting(true);
     try {
-      let res: { code?: number; data?: { id?: number }; msg?: string } = {};
-      // G80 Phase 2：组织绑定 / 数据范围改由 UserOrgBindingPanel(/api/org/user-orgs) 一站式管理，
-      //   不再随用户基本信息提交 org_bindings。
-      if (editUser) {
-        // 更新基本信息
-        res = await API(`/${editUser.id}`, {
+      const primaryRole = selectedRoles.find(r => r.is_primary) ?? selectedRoles[0];
+      const res: { code?: number; data?: { id?: number }; msg?: string } = await API("", {
+        method: "POST",
+        body: JSON.stringify({
+          username: form.username, real_name_zh: form.real_name_zh,
+          password: form.password,
+          user_type: form.user_type,
+          role: primaryRole?.role_code || "",
+        }),
+      });
+      // 若新建成功且有多个角色，再设置完整角色列表
+      if (res.code === 200 && res.data?.id && selectedRoles.length > 1) {
+        await API(`/${res.data.id}/roles`, {
           method: "PUT",
-          body: JSON.stringify({ real_name_zh: form.real_name_zh, store_code: form.store_code }),
+          body: JSON.stringify({ roles: selectedRoles.map(r => ({ role_code: r.role_code, is_primary: r.is_primary })) }),
         });
-        // 更新角色列表（多角色）
-        if (res.code === 200 && selectedRoles.length > 0) {
-          const rolesRes = await API(`/${editUser.id}/roles`, {
-            method: "PUT",
-            body: JSON.stringify({ roles: selectedRoles.map(r => ({ role_code: r.role_code, is_primary: r.is_primary })) }),
-          });
-          if (rolesRes.code !== 200) toast.error(rolesRes.msg || t("ui.角色更新失败", "角色更新失败"));
-        } else if (res.code === 200 && selectedRoles.length === 0) {
-          // 清除所有角色（传空数组）
-          await API(`/${editUser.id}/roles`, { method: "PUT", body: JSON.stringify({ roles: [] }) });
-        }
-        // 同步角色显示开关（is_visible，纯前台显示控制，不影响权限）
-        if (res.code === 200 && selectedRoles.length > 0) {
-          const visItems = selectedRoles.map(r => ({
-            role_code: r.role_code,
-            is_visible: r.is_visible !== false,  // undefined / true → 显示；false → 隐藏
-          }));
-          await API(`/${editUser.id}/role-visibility`, {
-            method: "PUT",
-            body: JSON.stringify({ items: visItems }),
-          }).catch(() => { /* 显示开关失败不影响主流程 */ });
-        }
-        // 可选：重置密码
-        if (res.code === 200 && form.newPassword && form.newPassword.length >= 8) {
-          const pw = await API(`/${editUser.id}/password`, { method: "PUT", body: JSON.stringify({ password: form.newPassword }) });
-          if (pw.code !== 200) toast.error(pw.msg || t("ui.密码重置失败", "密码重置失败"));
-        }
-      } else {
-        // 新建用户
-        const primaryRole = selectedRoles.find(r => r.is_primary) ?? selectedRoles[0];
-        res = await API("", {
-          method: "POST",
-          body: JSON.stringify({
-            username: form.username, real_name_zh: form.real_name_zh,
-            store_code: form.store_code, password: form.password,
-            user_type: form.user_type,
-            role: primaryRole?.role_code || "",
-          }),
-        });
-        // 若新建成功且有多个角色，再设置完整角色列表
-        if (res.code === 200 && res.data?.id && selectedRoles.length > 1) {
-          await API(`/${res.data.id}/roles`, {
-            method: "PUT",
-            body: JSON.stringify({ roles: selectedRoles.map(r => ({ role_code: r.role_code, is_primary: r.is_primary })) }),
-          });
-        }
       }
       if (res.code === 200) {
         setShowDrawer(false);
-        loadData();
-        toast.success(editUser ? t("ui.修改成功", "修改成功") : t("ui.用户创建成功", "用户创建成功"));
+        toast.success(t("ui.用户创建成功", "用户创建成功"));
+        // 跳详情页继续补组织 / 数据范围 / 门店
+        if (res.data?.id) router.push(`/settings/users/${res.data.id}`);
+        else loadData();
       } else {
         toast.error(res.msg || t("ui.操作失败", "操作失败"));
       }
@@ -975,14 +711,14 @@ export default function UserManagementPage() {
         </div>
       )}
 
-      {/* Edit drawer */}
+      {/* 新建用户抽屉（最小新建：账户名 / 姓名 / 密码 / 类型 / 主角色；组织·范围·门店在详情页补） */}
       <RightDrawer open={showDrawer} onClose={() => setShowDrawer(false)}
-        title={editUser ? t("ui.编辑用户", "编辑用户") : t("ui.新建用户", "新建用户")} width="520px"
+        title={t("ui.新建用户", "新建用户")} width="520px"
         footer={
           <div className={s.drawerFooter}>
             <button type="button" onClick={() => setShowDrawer(false)} className={s.btnSecondary}>{t("common.cancel", "取消")}</button>
             <button type="button" onClick={handleSubmit} disabled={submitting} className={s.btnPrimaryGrad}>
-              {submitting ? t("ui.处理中", "处理中...") : (editUser ? t("common.save", "保存修改") : t("ui.创建用户", "创建用户"))}
+              {submitting ? t("ui.处理中", "处理中...") : t("ui.创建用户", "创建用户")}
             </button>
           </div>
         }>
@@ -990,63 +726,27 @@ export default function UserManagementPage() {
           {/* Basic Info */}
           <div className={s.formSection}><Users size={12}/>{t("ui.基本信息", "基本信息")}</div>
           <div className={s.field}>
-            <label className={s.lbl}>{t("ui.登录用户名", "登录用户名")} {!editUser && <span style={{ color: "var(--status-danger)" }}>*</span>}</label>
-            <input disabled={!!editUser} value={form.username} onChange={e => f("username", e.target.value)}
+            <label className={s.lbl}>{t("ui.登录用户名", "登录用户名")} <span style={{ color: "var(--status-danger)" }}>*</span></label>
+            <input value={form.username} onChange={e => f("username", e.target.value)}
               placeholder="字母+数字，如 store_mgr2" className={s.inp}
-              style={{ fontFamily: "monospace", opacity: editUser ? 0.6 : 1 }}/>
+              style={{ fontFamily: "monospace" }}/>
           </div>
           <div className={s.field}>
             <label className={s.lbl}>{t("ui.姓名", "姓名")} <span style={{ color: "var(--status-danger)" }}>*</span></label>
             <input value={form.real_name_zh} onChange={e => f("real_name_zh", e.target.value)} placeholder="如 张三" className={s.inp}/>
           </div>
-          {/* G80 Phase 2：组织与数据范围 = 多组织绑定 / 每组织数据范围 / 主组织（一站式） */}
-          <div className={s.formSection}>🏢 {t("ui.组织与数据范围", "组织与数据范围（决定可见数据范围）")}</div>
-          <div className={s.field}>
-            {editUser ? (
-              <UserOrgBindingPanel
-                userId={editUser.id}
-                canCreate={canCreate}
-                canEdit={canEdit}
-                canDelete={canEdit}
-              />
-            ) : (
-              <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6,
-                padding: "12px 14px", borderRadius: 8, background: "var(--bg-page)",
-                border: "1px dashed var(--border)" }}>
-                {t("ui.保存后可在此管理组织与数据范围",
-                  "保存用户后，重新打开「编辑」即可在此绑定多个组织、设置每组织数据范围与主组织。")}
-              </div>
-            )}
-          </div>
-          <div className={s.field}>
-            <label className={s.lbl}>{t("ui.门店代码POS", "门店代码（POS 门店专用·可选）")}</label>
-            <SelectField
-              value={form.store_code || ""}
-              onChange={v => f("store_code", v)}
-              options={[{ value: "ALL", label: "全部门店（ALL）" }, ...storeOpts]}
-              allowEmpty
-              emptyLabel="非门店用户（留空）"
-            />
-            <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 6 }}>
-              ⚠️ 门店代码仅用于 POS 门店行级隔离，<b>不再决定公司数据范围</b>（范围看上方组织绑定）。门店来自组织架构 STORE 类型组织。
-            </div>
-          </div>
 
-          {/* Account type (new only) */}
-          {!editUser && (
-            <>
-              <div className={s.formSection}><UserCheck size={12}/>{t("ui.账号类型", "账号类型")}</div>
-              <div className={s.field} style={{ display: "flex", gap: 10 }}>
-                {([["REAL", "✅ " + t("ui.正式员工", "正式员工"), "var(--status-success)", "color-mix(in srgb, var(--status-success) 14%, transparent)", "var(--status-success)"], ["TEST", "🧪 " + t("ui.测试账号", "测试账号"), "var(--status-special)", "color-mix(in srgb, var(--status-special) 12%, transparent)", "var(--status-special)"]] as const).map(([val, lbl, col, bg, bc]) => (
-                  <label key={val} style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8,
-                    border: `1.5px solid ${form.user_type === val ? bc : "var(--border)"}`, background: form.user_type === val ? bg : "var(--bg-card)",
-                    cursor: "pointer", fontSize: 13, fontWeight: 600, color: form.user_type === val ? col : "var(--text-secondary)", transition: "all 0.18s" }}>
-                    <input type="radio" name="user_type" value={val} checked={form.user_type === val} onChange={e => f("user_type", e.target.value)} style={{ accentColor: col }}/>{lbl}
-                  </label>
-                ))}
-              </div>
-            </>
-          )}
+          {/* Account type */}
+          <div className={s.formSection}><UserCheck size={12}/>{t("ui.账号类型", "账号类型")}</div>
+          <div className={s.field} style={{ display: "flex", gap: 10 }}>
+            {([["REAL", "✅ " + t("ui.正式员工", "正式员工"), "var(--status-success)", "color-mix(in srgb, var(--status-success) 14%, transparent)", "var(--status-success)"], ["TEST", "🧪 " + t("ui.测试账号", "测试账号"), "var(--status-special)", "color-mix(in srgb, var(--status-special) 12%, transparent)", "var(--status-special)"]] as const).map(([val, lbl, col, bg, bc]) => (
+              <label key={val} style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8,
+                border: `1.5px solid ${form.user_type === val ? bc : "var(--border)"}`, background: form.user_type === val ? bg : "var(--bg-card)",
+                cursor: "pointer", fontSize: 13, fontWeight: 600, color: form.user_type === val ? col : "var(--text-secondary)", transition: "all 0.18s" }}>
+                <input type="radio" name="user_type" value={val} checked={form.user_type === val} onChange={e => f("user_type", e.target.value)} style={{ accentColor: col }}/>{lbl}
+              </label>
+            ))}
+          </div>
 
           {/* Multi-role picker */}
           <div className={s.formSection}><Shield size={12}/>{t("ui.角色权限分配", "角色权限分配")}</div>
@@ -1070,34 +770,23 @@ export default function UserManagementPage() {
           </div>
 
           {/* Password */}
-          <div className={s.formSection} style={{ color: !editUser ? "var(--status-danger)" : form.newPassword ? "var(--status-warning)" : "var(--text-secondary)" }}>
-            <Key size={12}/>{editUser ? t("ui.重置密码可选", "重置密码（可选）") : t("ui.初始密码", "初始密码")}
+          <div className={s.formSection} style={{ color: "var(--status-danger)" }}>
+            <Key size={12}/>{t("ui.初始密码", "初始密码")}
           </div>
           <div className={s.field}>
-            {!editUser ? (
-              <>
-                <label className={s.lbl}>{t("ui.密码", "密码")} <span style={{ color: "var(--status-danger)" }}>*</span></label>
-                <input type="password" value={form.password} onChange={e => f("password", e.target.value)}
-                  placeholder={t("ui.至少8位含字母数字", "至少 8 位，含字母 + 数字")} className={s.inp}/>
-                <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 5 }}>
-                  ⚠️ {t("ui.请告知用户初始密码登录后可在个人中心修改", "请告知用户初始密码，登录后可在个人中心修改")}
-                </div>
-              </>
-            ) : (
-              <>
-                <label className={s.lbl}>{t("ui.新密码留空则不修改", "新密码（留空则不修改）")}</label>
-                <input type="password" value={form.newPassword} onChange={e => f("newPassword", e.target.value)}
-                  placeholder={t("ui.至少8位留空保持原密码", "至少 8 位；留空保持原密码")} className={s.inp}/>
-                <div style={{ fontSize: 11, marginTop: 5,
-                  color: form.newPassword && form.newPassword.length < 8 ? "var(--status-warning)" : form.newPassword ? "var(--status-success)" : "var(--text-secondary)" }}>
-                  {form.newPassword && form.newPassword.length < 8
-                    ? `⚠️ ${t("ui.密码长度不足8位", "密码长度不足 8 位")}`
-                    : form.newPassword
-                      ? `✓ ${t("ui.保存后将更新登录密码", "保存后将更新登录密码")}`
-                      : t("ui.留空则保持原密码不变", "留空则保持原密码不变")}
-                </div>
-              </>
-            )}
+            <label className={s.lbl}>{t("ui.密码", "密码")} <span style={{ color: "var(--status-danger)" }}>*</span></label>
+            <input type="password" value={form.password} onChange={e => f("password", e.target.value)}
+              placeholder={t("ui.至少8位含字母数字", "至少 8 位，含字母 + 数字")} className={s.inp}/>
+            <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 5 }}>
+              ⚠️ {t("ui.请告知用户初始密码登录后可在个人中心修改", "请告知用户初始密码，登录后可在个人中心修改")}
+            </div>
+          </div>
+
+          {/* 提示：保存后跳详情页补组织 / 范围 / 门店 */}
+          <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, marginTop: 6,
+            padding: "12px 14px", borderRadius: 8, background: "var(--bg-page)", border: "1px dashed var(--border)" }}>
+            {t("ui.创建成功后将进入用户详情页继续绑定组织数据范围与门店",
+              "创建成功后将进入「用户详情页」，可继续绑定多个组织、设置数据范围与 POS 门店。")}
           </div>
         </div>
       </RightDrawer>

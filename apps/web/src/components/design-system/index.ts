@@ -41,6 +41,8 @@ export { SearchInput } from './forms/SearchInput';
 export type { SearchInputProps } from './forms/SearchInput';
 export { Panel } from './layouts/Panel';
 export type { PanelProps } from './layouts/Panel';
+export { EntityWorkspace } from './templates/EntityWorkspace';
+export type { EntityWorkspaceProps, EntityTab } from './templates/EntityWorkspace';
 export { AmountInput, CurrencyInput } from './forms/AmountInput';
 export type { AmountInputProps } from './forms/AmountInput';
 export { DateRangePicker } from './forms/DateRangePicker';
