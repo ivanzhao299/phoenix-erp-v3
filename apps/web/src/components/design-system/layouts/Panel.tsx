@@ -34,7 +34,7 @@ export function Panel({
   return (
     <div style={{ ...cockpitCard, ...style }}>
       {(title != null || icon || extra) && (
-        <div style={{ ...cockpitCardHeader, borderBottom: '1px solid var(--border)' }}>
+        <div style={cockpitCardHeader}>
           {icon}
           {title != null && <span style={cockpitCardHeaderTitle}>{title}</span>}
           {extra && (

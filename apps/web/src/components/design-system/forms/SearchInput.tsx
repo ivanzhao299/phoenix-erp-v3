@@ -1,12 +1,11 @@
 'use client';
 import React from 'react';
 import { Search } from 'lucide-react';
-import { fieldInputStyle } from './FormField';
 
 /**
- * SearchInput — 全局搜索框（图标 + 输入，统一舒适尺寸）。
- * 各页搜索统一用它，禁止再自写 input + 图标定位（杜绝"字大框小/贴边"不一致）。
- * 样式取 design-system 标准 fieldInputStyle（padding 8/11、字 13.5、圆角 token）。
+ * SearchInput — 全局搜索框（图标 + 输入）。
+ * 各页搜索统一用它，禁止再自写 input + 图标定位（杜绝"字大框小/贴边/松紧不一"）。
+ * 样式与组织架构页左面板搜索框一致（字 12、padding 8、bg-muted、圆角 8、图标 12）。
  */
 export interface SearchInputProps {
   value: string;
@@ -19,10 +18,10 @@ export function SearchInput({ value, onChange, placeholder = '搜索…', autoFo
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       <Search
-        size={15}
+        size={12}
         style={{
-          position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)',
-          color: 'var(--text-disabled)', pointerEvents: 'none',
+          position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
+          color: 'var(--text-secondary)', pointerEvents: 'none',
         }}
       />
       <input
@@ -31,10 +30,12 @@ export function SearchInput({ value, onChange, placeholder = '搜索…', autoFo
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         style={{
-          ...fieldInputStyle,
-          paddingLeft: 34,    // 给左侧图标留位
-          paddingTop: 9,
-          paddingBottom: 9,   // 比 fieldInputStyle 略高，搜索框更舒展
+          width: '100%', padding: '8px 12px 8px 30px',
+          fontSize: 12, borderRadius: 8,
+          background: 'var(--bg-muted)',
+          border: '1px solid var(--border)',
+          color: 'var(--text-primary)',
+          outline: 'none', boxSizing: 'border-box',
         }}
       />
     </div>
