@@ -143,9 +143,23 @@
 9. 三个相关页统一帮助文案（指向本文档三层模型）。
 10. 全部相关页统一套 V2 全局组件，消除"裸奔/不一致"。
 
-### Phase 4 — 后端小整合（可选，收尾）
-11. 组织双端点择一为标准，另一标 deprecated。
-12. 用户管理逻辑收成单一 `UserManagementService`（auth + system-users 去交叠）。
+### Phase 4 — 后端收尾（评估结论：标边界，不合并）
+**核实结论**：后端是健康单套 V3，所谓"重复"实为**职责不同、各有消费方**，合并会破坏在用页面、收益低风险高，故**不合并、只标清边界**：
+11. 组织双端点：`/api/org/*`（管理视角，companies 页 + OrgMembersPanel 在用）vs `/api/organizations/*`（组织树 Runtime，组织架构页 + UserOrgBindingPanel 在用）—— 两 Controller 头部加边界注释，禁止再起第三套。**不合并**。
+12. 用户管理 `auth`(认证/权限聚合) vs `system-users`(CRUD) 是合理职责分离，**保留**。
+
+> 原则：不为"整齐"去重构一个健康后端。前端散落（真欠账）已由 P1–P3 收口。
+
+---
+
+## 执行记录（2026-06-10）
+
+| 阶段 | 内容 | commit | 验证 |
+|---|---|---|---|
+| P1 | 删 /master/orgs + /settings/permissions 重定向；Sidebar 去"菜单权限" | g80-p1 | web tsc 0 |
+| P2 | 抽 UserOrgBindingPanel；users+user-orgs 合并成"用户管理"一站式；user-orgs 重定向 | g80-p2 | web tsc 0 + 自测抽屉绑定面板 |
+| P3 | 三层数据范围模型在 用户管理/角色与权限/数据范围规则 三页点明互引 | g80-p3 | web tsc 0 |
+| P4 | 组织双端点标边界注释（评估后不合并）；用户管理职责分离保留 | g80-p4 | api tsc 0 |
 
 ---
 

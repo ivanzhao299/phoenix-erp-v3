@@ -4,6 +4,11 @@
  * 路由前缀：/api/organizations
  * 2026-05-31
  *
+ * ── 与 OrgController(/api/org) 的边界（G80 评估，2026-06-10）──
+ * 本控制器=组织树 Runtime 视角（MENU_ORG_VIEW，树/CRUD/启停，master-data/organizations
+ * 与 UserOrgBindingPanel 在用）；/api/org/*=管理视角（绑定/数据范围/成员）。
+ * 二者故意分离、不合并（详见 org.controller.ts 头注）。
+ *
  * 端点一览：
  *  GET  /api/organizations/tree            → 完整组织树（嵌套结构）
  *  GET  /api/organizations                 → 平铺列表

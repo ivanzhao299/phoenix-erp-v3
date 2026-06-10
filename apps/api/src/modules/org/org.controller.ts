@@ -3,6 +3,14 @@
  * RBAC-2 组织管理 API（16个端点）
  * 路由前缀：/api/org
  * 2026-05-25
+ *
+ * ── 与 OrganizationController(/api/organizations) 的边界（G80 评估，2026-06-10）──
+ * 二者**故意分离、各有消费方、不合并**（合并会破坏在用页面、收益低风险高）：
+ *   · 本控制器 /api/org/*：管理视角（MENU_SYS_ORG），含 用户-组织绑定 / 数据范围规则 /
+ *     额外授权 / 成员列表 / orgType 过滤列表（companies 页、OrgMembersPanel 在用）
+ *   · OrganizationController /api/organizations/*：组织树 Runtime 视角（MENU_ORG_VIEW），
+ *     提供嵌套树 / CRUD / 启停（master-data/organizations 页、UserOrgBindingPanel 在用）
+ * 新增组织相关接口前先判断归属，勿再起第三套。
  */
 import {
   Controller,
