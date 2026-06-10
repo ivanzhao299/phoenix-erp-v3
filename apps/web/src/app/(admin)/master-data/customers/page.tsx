@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
@@ -12,6 +13,7 @@ import { customerConfig } from "@/components/master-data/detail-configs";
  * UIX-7：点击客户编码 → 客户中心 detail drawer（订单/AR/审批/引用聚合）
  */
 export default function CustomerRuntimePage() {
+  const router = useRouter();
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
@@ -22,7 +24,7 @@ export default function CustomerRuntimePage() {
         title="客户"
         codeKey="customer_no"
         nameKey="customer_name"
-        onCodeClick={(code) => setDetailCode(code)}
+        onCodeClick={(code) => router.push("/master-data/customers/" + encodeURIComponent(code))}
         fields={[
           { key: "customer_name", label: "客户名称", required: true },
           { key: "customer_type", label: "客户类型", dictType: "SAL_CUSTOMER_TYPE" },  // G66 走字典(消除硬编码重复)
