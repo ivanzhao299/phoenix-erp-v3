@@ -325,12 +325,15 @@ export default function UserManagementPage() {
       const uRes = await fetch("/api/users", { headers: hdr() }).then(r => r.json());
       setUsers(uRes.data || []);
       setAllRoles(uRes.roles || []);
-      // G76：拉组织树(公司/场站)供"组织绑定"选择——数据范围唯一源
-      const oRes = await fetch("/api/org/organizations", { headers: hdr() }).then(r => r.json()).catch(() => ({}));
-      const orgRows = (oRes.data || [])
-        .map((o: any) => ({ org_code: o.orgCode ?? o.org_code, org_name: o.orgName ?? o.org_name, org_type: o.orgType ?? o.org_type }))
-        .filter((o: any) => o.org_code && ["COMPANY", "SITE"].includes(o.org_type));
-      setOrgs(orgRows);
+      // G76/G78：拉公司/场站供"组织绑定"选择——用轻权限 lookup 端点(任何登录用户可拉,
+      //   公司已 DataScope 隔离)，替代要 MENU_SYS_ORG 的 /api/org/organizations。
+      const [coRes, siRes] = await Promise.all([
+        fetch("/api/lookup/companies", { headers: hdr() }).then(r => r.json()).catch(() => ({})),
+        fetch("/api/lookup/sites", { headers: hdr() }).then(r => r.json()).catch(() => ({})),
+      ]);
+      const companies = (coRes.data || []).map((o: any) => ({ org_code: o.orgCode, org_name: o.orgName, org_type: "COMPANY" }));
+      const sites = (siRes.data || []).map((o: any) => ({ org_code: o.orgCode, org_name: o.orgName, org_type: "SITE" }));
+      setOrgs([...companies, ...sites].filter(o => o.org_code));
     } finally { setLoading(false); }
   }, []);
 
