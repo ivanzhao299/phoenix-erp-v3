@@ -22,6 +22,7 @@ import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
 import { dictTypeLabel as typeLabel } from "@/lib/dict-type-labels";
+import { secondaryActionButton } from "@/components/design-system/cockpit-styles";
 import s from '@/components/ui/admin-ui.module.css'; // G29-B
 
 interface DictRow {
@@ -174,8 +175,7 @@ export default function MdDictionariesPage() {
         subtitle="集团业务枚举的统一来源 · 按业务域组织 · 服务全模块表单与流程"
         breadcrumb={["主数据中心", "数据字典中心"]}
         actions={
-          <button onClick={load} disabled={loading}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', cursor: 'pointer', fontSize: 13 }}>
+          <button onClick={load} disabled={loading} style={secondaryActionButton}>
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> 刷新
           </button>
         }

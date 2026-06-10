@@ -5,6 +5,7 @@ import PageHeader from '@/components/PageHeader';
 import request from '@/lib/api-client';
 import { usePermission } from '@/hooks/usePermission';
 import { dictTypeLabel } from '@/lib/dict-type-labels';
+import { secondaryActionButton } from '@/components/design-system/cockpit-styles';
 import {
   RefreshCw, AlertTriangle, CheckCircle, Network, Building, BookOpen,
   ShieldCheck, Link2, GitPullRequestArrow, ExternalLink,
@@ -97,8 +98,7 @@ export default function GovernanceDashboardPage() {
         subtitle="6 维度治理评分 · 字典覆盖率 · 权限统计 · 引用阻断事件"
         breadcrumb={['主数据中心', '治理驾驶舱']}
         actions={
-          <button onClick={() => void load()} disabled={loading}
-            style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+          <button onClick={() => void load()} disabled={loading} style={secondaryActionButton}>
             <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
           </button>
         }

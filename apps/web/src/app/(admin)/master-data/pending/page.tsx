@@ -6,6 +6,7 @@ import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { usePermission } from "@/hooks/usePermission";
 import { EmptyState, LoadingSkeleton } from "@/components/design-system";
+import { secondaryActionButton } from "@/components/design-system/cockpit-styles";
 import request from "@/lib/api-client";
 
 /**
@@ -76,15 +77,7 @@ export default function MasterDataPendingPage() {
       alignItems: "center",
       marginBottom: 18
     }}>
-        <button onClick={load} disabled={loading} className="bg-bg-muted border border-border text-text-muted" style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "8px 16px",
-        borderRadius: 8,
-        fontSize: 13,
-        cursor: "pointer"
-      }}>
+        <button onClick={load} disabled={loading} style={secondaryActionButton}>
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> 刷新
         </button>
         <Link href="/workflow/tasks/todo" style={{

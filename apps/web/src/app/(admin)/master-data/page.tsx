@@ -12,6 +12,7 @@ import u from "@/styles/uix-utils.module.css";
 import { Network, Building, FolderKanban, ShieldCheck, Users, Globe, Store, Egg, Tag, Package, Layers, Warehouse, UserCheck, Car, Wallet, Banknote, BookOpen, CheckSquare, Activity, LayoutDashboard, RefreshCw, Briefcase } from "lucide-react";
 import request from "@/lib/api-client";
 import { MasterDataSearch } from "@/components/master-data/MasterDataSearch";
+import { secondaryActionButton } from "@/components/design-system/cockpit-styles";
 interface CenterStat {
   key: string;
   label: string;
@@ -223,17 +224,7 @@ export default function MasterDataHubPage() {
               Phoenix ERP 唯一可信主数据入口 · 6 大中心 · 19 个对象
             </div>
           </div>
-          <button onClick={() => void load()} disabled={loading} style={{
-          padding: '8px 14px',
-          borderRadius: 8,
-          border: '1px solid var(--border)',
-          background: 'var(--bg-card)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          fontSize: 13
-        }}>
+          <button onClick={() => void load()} disabled={loading} style={secondaryActionButton}>
             <RefreshCw size={13} style={{
             animation: loading ? 'spin 1s linear infinite' : 'none'
           }} /> 刷新

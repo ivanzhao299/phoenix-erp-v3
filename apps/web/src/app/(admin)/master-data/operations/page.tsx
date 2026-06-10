@@ -5,6 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
 import request from "@/lib/api-client";
 import { usePermission } from "@/hooks/usePermission";
+import { secondaryActionButton } from "@/components/design-system/cockpit-styles";
 import { RefreshCw, CheckSquare, AlertTriangle, Users, Copy, Lock, ExternalLink, Briefcase } from "lucide-react";
 
 /**
@@ -85,17 +86,7 @@ export default function OperationsPage() {
   } : null;
   if (!canView) return <div className={u.emptyPad40}>无权限访问主数据运营工作台</div>;
   return <div>
-      <PageHeader title="主数据运营工作台" subtitle="待审批 · 待补资料 · 重复风险 · 归档阻断 — 运营每日工作集中处理" breadcrumb={['主数据中心', '运营工作台']} actions={<button onClick={() => void load()} disabled={loading} style={{
-      padding: '6px 14px',
-      borderRadius: 8,
-      border: '1px solid var(--border)',
-      background: 'var(--bg-card)',
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 6,
-      fontSize: 13
-    }}>
+      <PageHeader title="主数据运营工作台" subtitle="待审批 · 待补资料 · 重复风险 · 归档阻断 — 运营每日工作集中处理" breadcrumb={['主数据中心', '运营工作台']} actions={<button onClick={() => void load()} disabled={loading} style={secondaryActionButton}>
             <RefreshCw size={13} style={{
         animation: loading ? 'spin 1s linear infinite' : 'none'
       }} /> 刷新
