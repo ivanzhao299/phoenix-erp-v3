@@ -13,6 +13,7 @@ import {
   Eye, EyeOff,
 } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
+import UserOrgBindingPanel from "@/components/settings/UserOrgBindingPanel";
 
 const tok = () => (typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : "");
 const hdr = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${tok()}` });
@@ -310,10 +311,8 @@ export default function UserManagementPage() {
   const [form, setForm] = useState({
     username: "", real_name_zh: "", store_code: "",
     password: "", newPassword: "", user_type: "REAL",
-    org_company: "", org_site: "",   // G76：组织绑定（数据范围唯一源）
   });
   const [selectedRoles, setSelectedRoles] = useState<UserRole[]>([]);
-  const [orgs, setOrgs] = useState<Array<{ org_code: string; org_name: string; org_type: string }>>([]);  // G76 组织树(公司+场站)
 
   // ── View mode ─────────────────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<"grouped" | "flat">("grouped");
@@ -325,15 +324,8 @@ export default function UserManagementPage() {
       const uRes = await fetch("/api/users", { headers: hdr() }).then(r => r.json());
       setUsers(uRes.data || []);
       setAllRoles(uRes.roles || []);
-      // G76/G78：拉公司/场站供"组织绑定"选择——用轻权限 lookup 端点(任何登录用户可拉,
-      //   公司已 DataScope 隔离)，替代要 MENU_SYS_ORG 的 /api/org/organizations。
-      const [coRes, siRes] = await Promise.all([
-        fetch("/api/lookup/companies", { headers: hdr() }).then(r => r.json()).catch(() => ({})),
-        fetch("/api/lookup/sites", { headers: hdr() }).then(r => r.json()).catch(() => ({})),
-      ]);
-      const companies = (coRes.data || []).map((o: any) => ({ org_code: o.orgCode, org_name: o.orgName, org_type: "COMPANY" }));
-      const sites = (siRes.data || []).map((o: any) => ({ org_code: o.orgCode, org_name: o.orgName, org_type: "SITE" }));
-      setOrgs([...companies, ...sites].filter(o => o.org_code));
+      // G80 Phase 2：组织绑定 / 数据范围由 UserOrgBindingPanel(/api/org/user-orgs) 接管，
+      //   不再在此页预拉公司/场站列表。
     } finally { setLoading(false); }
   }, []);
 
@@ -435,7 +427,7 @@ export default function UserManagementPage() {
 
   const handleAddNew = () => {
     setEditUser(null);
-    setForm({ username: "", real_name_zh: "", store_code: "", password: "", newPassword: "", user_type: "REAL", org_company: "", org_site: "" });
+    setForm({ username: "", real_name_zh: "", store_code: "", password: "", newPassword: "", user_type: "REAL" });
     setSelectedRoles([]);
     setShowDrawer(true);
   };
@@ -443,7 +435,7 @@ export default function UserManagementPage() {
   const handleEdit = (u: UserRecord) => {
     if (u.username === "admin") { toast.error(t("ui.系统特权总控帐号已锁定拒绝面板编辑", "系统特权总控帐号已锁定，拒绝面板编辑")); return; }
     setEditUser(u);
-    setForm({ username: u.username, real_name_zh: u.real_name_zh || "", store_code: u.store_code || "", password: "", newPassword: "", user_type: u.user_type || "REAL", org_company: "", org_site: "" });
+    setForm({ username: u.username, real_name_zh: u.real_name_zh || "", store_code: u.store_code || "", password: "", newPassword: "", user_type: u.user_type || "REAL" });
     setSelectedRoles(u.roles_detail || []);
     setShowDrawer(true);
   };
@@ -455,16 +447,13 @@ export default function UserManagementPage() {
     setSubmitting(true);
     try {
       let res: { code?: number; data?: { id?: number }; msg?: string } = {};
-      // G76：组织绑定（数据范围唯一源）——公司必选则带；场站可选。仅选了才发(编辑时不动则不覆盖)
-      const orgBindings: Array<{ org_code: string; scope_level: string; is_primary: boolean }> = [];
-      if (form.org_company) orgBindings.push({ org_code: form.org_company, scope_level: "COMPANY", is_primary: true });
-      if (form.org_site)    orgBindings.push({ org_code: form.org_site, scope_level: "SITE", is_primary: !form.org_company });
+      // G80 Phase 2：组织绑定 / 数据范围改由 UserOrgBindingPanel(/api/org/user-orgs) 一站式管理，
+      //   不再随用户基本信息提交 org_bindings。
       if (editUser) {
         // 更新基本信息
         res = await API(`/${editUser.id}`, {
           method: "PUT",
-          body: JSON.stringify({ real_name_zh: form.real_name_zh, store_code: form.store_code,
-            ...(orgBindings.length ? { org_bindings: orgBindings } : {}) }),
+          body: JSON.stringify({ real_name_zh: form.real_name_zh, store_code: form.store_code }),
         });
         // 更新角色列表（多角色）
         if (res.code === 200 && selectedRoles.length > 0) {
@@ -503,7 +492,6 @@ export default function UserManagementPage() {
             store_code: form.store_code, password: form.password,
             user_type: form.user_type,
             role: primaryRole?.role_code || "",
-            ...(orgBindings.length ? { org_bindings: orgBindings } : {}),
           }),
         });
         // 若新建成功且有多个角色，再设置完整角色列表
@@ -997,29 +985,24 @@ export default function UserManagementPage() {
             <label className={s.lbl}>{t("ui.姓名", "姓名")} <span style={{ color: "var(--status-danger)" }}>*</span></label>
             <input value={form.real_name_zh} onChange={e => f("real_name_zh", e.target.value)} placeholder="如 张三" className={s.inp}/>
           </div>
-          {/* G76：组织绑定 = 数据范围唯一源（替代门店代码的范围职责）*/}
-          <div className={s.formSection}>🏢 {t("ui.组织绑定", "组织绑定（决定可见数据范围）")}</div>
+          {/* G80 Phase 2：组织与数据范围 = 多组织绑定 / 每组织数据范围 / 主组织（一站式） */}
+          <div className={s.formSection}>🏢 {t("ui.组织与数据范围", "组织与数据范围（决定可见数据范围）")}</div>
           <div className={s.field}>
-            <label className={s.lbl}>{t("ui.所属公司", "所属公司")}
-              <span style={{ color: "var(--text-secondary)", fontWeight: 400, marginLeft: 4 }}>（决定数据隔离范围）</span></label>
-            <select value={form.org_company} onChange={e => f("org_company", e.target.value)} className={s.inp}>
-              <option value="">{editUser ? "（不修改现有绑定）" : t("ui.请选择公司", "请选择公司…")}</option>
-              {orgs.filter(o => o.org_type === "COMPANY").map(o => (
-                <option key={o.org_code} value={o.org_code}>{o.org_name}（{o.org_code}）</option>
-              ))}
-            </select>
-          </div>
-          <div className={s.field}>
-            <label className={s.lbl}>{t("ui.所属场站可选", "所属场站（可选，更细颗粒）")}</label>
-            <select value={form.org_site} onChange={e => f("org_site", e.target.value)} className={s.inp}>
-              <option value="">{t("ui.无整个公司", "（无 / 覆盖整个公司）")}</option>
-              {orgs.filter(o => o.org_type === "SITE").map(o => (
-                <option key={o.org_code} value={o.org_code}>{o.org_name}（{o.org_code}）</option>
-              ))}
-            </select>
-            <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 6 }}>
-              数据范围 = 所选公司/场站的组织子树。<b>不选则该用户看不到任何公司数据</b>（除非持管理员角色）。
-            </div>
+            {editUser ? (
+              <UserOrgBindingPanel
+                userId={editUser.id}
+                canCreate={canCreate}
+                canEdit={canEdit}
+                canDelete={canEdit}
+              />
+            ) : (
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6,
+                padding: "12px 14px", borderRadius: 8, background: "var(--bg-page)",
+                border: "1px dashed var(--border)" }}>
+                {t("ui.保存后可在此管理组织与数据范围",
+                  "保存用户后，重新打开「编辑」即可在此绑定多个组织、设置每组织数据范围与主组织。")}
+              </div>
+            )}
           </div>
           <div className={s.field}>
             <label className={s.lbl}>{t("ui.门店代码POS", "门店代码（POS 门店专用·可选）")}</label>

@@ -18,7 +18,7 @@ import {
   History, RefreshCw, TrendingDown, Banknote, Building, ShoppingBag,
   BarChart3, Minus, Network, Smartphone, ToggleRight, Zap,
   FolderKanban, Globe, Layers3, UploadCloud, Bell, Wallet,
-  Rocket, Server, ShieldAlert, Settings2, Users2, Landmark,
+  Rocket, Server, ShieldAlert, Settings2, Landmark,
 } from "lucide-react";
 import styles from "./sidebar.module.css";
 import { useBrand } from "@/contexts/BrandContext";
@@ -230,7 +230,7 @@ const MENU: MenuItem[] = [
     { id: "mdc-dict",       path: "/master-data/dictionaries",     Icon: BookOpen,        label: "数据字典中心", perm: "MENU_SETTINGS_DATA"   },
     { id: "mdc-pending",    path: "/master-data/pending",          Icon: Landmark,        label: "主数据待审批", perm: "MENU_MASTER_DATA"     },  // G3-B 审批
     { id: "mdc-quality",    path: "/master-data/quality",          Icon: ShieldCheck,     label: "数据质量中心", perm: "MENU_MD_QUALITY"      },  // G1 质量看板
-    { id: "mdc-user-orgs",  path: "/master-data/user-orgs",       Icon: Users2,          label: "用户组织权限", perm: "MENU_SYS_ORG"         },
+    // G80 Phase 2：用户组织权限已并入「系统设置 · 用户管理」(/settings/users)，此入口下线
   ]},
 
   // 10. 系统设置 — 用户/角色/权限/安全
