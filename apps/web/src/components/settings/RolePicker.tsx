@@ -170,11 +170,14 @@ export function RolePicker({ allRoles, selected, onChange, maxHeight = 280 }: {
         {grouped.map(([type, roles]) => {
           const groupCol = TYPE_COLOR[type] ?? "var(--text-disabled)";
           return (
-          <div key={type}>
+          // 每个角色分组整栏一个浅色块，区分上下各类别段
+          <div key={type} style={{
+            background: `color-mix(in srgb, ${groupCol} 7%, transparent)`,
+            border: `1px solid color-mix(in srgb, ${groupCol} 16%, transparent)`,
+            borderRadius: 8, padding: "8px 10px",
+          }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: groupCol,
-              textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4,
-              padding: "2px 6px", background: `color-mix(in srgb, ${groupCol} 14%, transparent)`,
-              borderRadius: 4, display: "inline-block" }}>
+              textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
               {type}
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
@@ -186,13 +189,11 @@ export function RolePicker({ allRoles, selected, onChange, maxHeight = 280 }: {
                     title={`${r.role_code}${r.description ? " — " + r.description : ""}`}
                     style={{
                       padding: "4px 10px", borderRadius: 12, fontSize: 12, cursor: "pointer",
-                      fontWeight: isSelected ? 700 : 500,
-                      // 未选中：按分组类别浅色填充（易区分）；选中：按角色级别色
-                      background: isSelected
-                        ? `color-mix(in srgb, ${col} 22%, var(--bg-card))`
-                        : `color-mix(in srgb, ${groupCol} 10%, var(--bg-card))`,
-                      border: `1.5px solid ${isSelected ? col : `color-mix(in srgb, ${groupCol} 32%, var(--border))`}`,
-                      color: isSelected ? col : "var(--text-primary)",
+                      fontWeight: isSelected ? 700 : 400,
+                      // 卡片本身保持中性；分组色块负责区分类别
+                      background: isSelected ? `color-mix(in srgb, ${col} 20%, var(--bg-card))` : "var(--bg-card)",
+                      border: `1.5px solid ${isSelected ? col : "var(--border)"}`,
+                      color: isSelected ? col : "var(--text-secondary)",
                       transition: "all 0.15s",
                     }}>
                     {isSelected && "✓ "}
