@@ -9,7 +9,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
+import { ClsService } from 'nestjs-cls';
 import { SysOrganizationEntity } from '../entities/sys-organization.entity';
 import { SysUserOrgEntity } from '../entities/sys-user-org.entity';
 import { SysUserProjectScopeEntity } from '../entities/sys-user-project-scope.entity';
@@ -37,12 +38,55 @@ export class OrgService {
     private readonly dataScopeService: DataScopeService,
     @InjectDataSource()
     private readonly ds: DataSource,
+    private readonly cls: ClsService, // G73 组织列表公司隔离
   ) {}
 
   // ── 组织树 CRUD ─────────────────────────────────────────────────────────────
 
+  /**
+   * G73：组织列表按公司隔离。
+   *   org 树仅 COMPANY 级有 company_code，子组织(部门/场站) company_code 为空、靠 parent_id
+   *   挂到公司——故用递归 CTE 取「用户可见公司的整棵子树」，避免简单 company_code 过滤
+   *   误删自家子组织、或放行 NULL 泄露他司子组织。
+   *   全局(isGlobal/ROLE_ADMIN)/内部调用(无 user)/解析失败 → 返回全部(不收窄)。
+   */
   async listOrgs(): Promise<SysOrganizationEntity[]> {
-    return this.orgRepo.find({ order: { level: 'ASC', orgCode: 'ASC' } });
+    const scope = await this.resolveOrgCompanyScope();
+    if (scope === 'ALL') {
+      return this.orgRepo.find({ order: { level: 'ASC', orgCode: 'ASC' } });
+    }
+    if (scope === 'DENY') return [];
+    const rows: Array<{ id: number }> = await this.ds.query(
+      `WITH RECURSIVE roots AS (
+         SELECT id FROM sys_organizations WHERE company_code = ANY($1)
+       ), subtree AS (
+         SELECT id FROM sys_organizations WHERE id IN (SELECT id FROM roots)
+         UNION
+         SELECT o.id FROM sys_organizations o JOIN subtree s ON o.parent_id = s.id
+       )
+       SELECT id FROM subtree`,
+      [scope],
+    );
+    const ids = rows.map(r => r.id);
+    if (!ids.length) return [];
+    return this.orgRepo.find({ where: { id: In(ids) }, order: { level: 'ASC', orgCode: 'ASC' } });
+  }
+
+  /** G73：解析当前用户对组织树的公司可见范围（'ALL' | 'DENY' | 公司码[]）。 */
+  private async resolveOrgCompanyScope(): Promise<'ALL' | 'DENY' | string[]> {
+    const user = this.cls.get('user') as Record<string, any> | undefined;
+    if (!user) return 'ALL';                                  // 内部调用无用户上下文
+    const userId = String(user.userId ?? user.id ?? user.sub ?? '');
+    if (!userId) return 'ALL';
+    const roles: string[] = Array.isArray(user.roles) ? user.roles : (user.role ? [user.role] : []);
+    try {
+      const s = await this.dataScopeService.resolve(userId, roles, 'MENU_SYS_ORG');
+      if (s.isGlobal) return 'ALL';
+      if (!s.allowedCompanyCodes.length) return 'DENY';
+      return s.allowedCompanyCodes;
+    } catch {
+      return 'ALL';                                           // 解析异常不阻断（与 G71 一致）
+    }
   }
 
   async getOrg(id: number): Promise<SysOrganizationEntity> {
