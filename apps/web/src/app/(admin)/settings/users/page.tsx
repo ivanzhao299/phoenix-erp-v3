@@ -329,16 +329,15 @@ export default function UserManagementPage() {
       setAllRoles(uRes.roles || []);
       // G80 Phase 2：组织绑定 / 数据范围由 UserOrgBindingPanel(/api/org/user-orgs) 接管，
       //   不再在此页预拉公司/场站列表。
-      // 门店代码下拉：从门店主数据 lookup 提取（POS 行级隔离用，非自由文本）
-      // 注：门店在 mst_stores（组织架构 sys_organizations 无 STORE 节点）
+      // 门店代码下拉：以组织架构 STORE 节点为准（单一来源；mst_stores 退为 POS 明细）
       try {
-        const sRes = await fetch("/api/lookup/stores", { headers: hdr() }).then(r => r.json());
+        const sRes = await fetch("/api/organizations/by-type?type=STORE", { headers: hdr() }).then(r => r.json());
         const list: any[] = Array.isArray(sRes) ? sRes : (sRes.data || sRes.items || []);
         setStoreOpts(list
           .filter((o: any) => (o.status ?? "ACTIVE") === "ACTIVE")
           .map((o: any) => ({
-            value: o.storeCode ?? o.store_code,
-            label: `${o.storeName ?? o.store_name}（${o.storeCode ?? o.store_code}）`,
+            value: o.orgCode ?? o.org_code,
+            label: `${o.orgName ?? o.org_name}（${o.orgCode ?? o.org_code}）`,
           })));
       } catch { /* 门店列表失败不阻塞用户列表 */ }
     } finally { setLoading(false); }

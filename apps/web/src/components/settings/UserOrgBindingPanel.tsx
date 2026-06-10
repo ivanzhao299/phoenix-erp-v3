@@ -50,6 +50,7 @@ type ScopeLevel = typeof SCOPE_LEVELS[number]["value"];
 
 const ORG_TYPE_LABEL: Record<string, string> = {
   GROUP:      "集团",
+  BU:         "事业群",
   COMPANY:    "公司",
   FACTORY:    "工厂",
   FARM:       "农场",
@@ -61,6 +62,7 @@ const ORG_TYPE_LABEL: Record<string, string> = {
   SITE:       "场站",
   REGION:     "区域",
   TEAM:       "班组",
+  VIRTUAL_ORGANIZATION: "虚拟组织",
   OTHER:      "其他",
 };
 
