@@ -429,15 +429,15 @@ export default function UserOrgsPage() {
           <div className="px-3 pt-3 pb-2 flex flex-col gap-2">
             <div className="relative">
               <Search
-                size={12}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-dim pointer-events-none"
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim pointer-events-none"
               />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="搜索姓名 / 账号…"
                 className={cn(
-                  "w-full pl-8 pr-3 py-1.5 text-sm rounded-lg outline-none",
+                  "w-full pl-9 pr-3 py-3 text-[13px] rounded-lg outline-none",
                   "bg-bg-muted border border-border text-text",
                   "placeholder:text-text-dim focus:border-brand/50 transition-colors",
                 )}
@@ -448,7 +448,7 @@ export default function UserOrgsPage() {
                 value={roleFilter}
                 onChange={e => setRoleFilter(e.target.value)}
                 className={cn(
-                  "w-full px-2.5 py-1.5 text-xs rounded-lg cursor-pointer",
+                  "w-full px-3 py-2.5 text-sm rounded-lg cursor-pointer",
                   "bg-bg-muted border border-border text-text-muted",
                 )}
               >
@@ -495,9 +495,9 @@ export default function UserOrgsPage() {
                       setActiveUser(isActive ? null : u)
                     }
                     className={cn(
-                      "w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl",
+                      "w-full text-left flex items-center gap-3 px-3 py-3 rounded-xl",
                       "transition-all cursor-pointer border",
-                      "mb-1 last:mb-0",
+                      "mb-1.5 last:mb-0",
                       isActive
                         ? "bg-brand/8 border-brand/30 shadow-sm"
                         : "border-transparent hover:bg-bg-muted/50",
@@ -516,16 +516,16 @@ export default function UserOrgsPage() {
                       {(u.realNameZh || u.username || "?")[0]}
                     </div>
                     {/* 信息 */}
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 flex flex-col gap-1">
                       <div
                         className={cn(
-                          "text-sm font-semibold truncate",
+                          "text-sm font-semibold truncate leading-none",
                           isActive ? "text-brand" : "text-text",
                         )}
                       >
                         {u.realNameZh || u.username}
                       </div>
-                      <div className="text-xs font-mono text-text-dim truncate">
+                      <div className="text-xs font-mono text-text-dim truncate leading-none">
                         {u.username}
                       </div>
                     </div>
