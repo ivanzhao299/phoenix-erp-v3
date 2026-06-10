@@ -9,7 +9,7 @@ import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
-import { primaryActionButton, inlineBadge } from "@/components/design-system/cockpit-styles";
+import { primaryActionButton, secondaryActionButton, inputField, inlineBadge } from "@/components/design-system/cockpit-styles";
 import { companyConfig } from "@/components/master-data/detail-configs";
 
 /**
@@ -107,23 +107,13 @@ export default function MdCompaniesPage() {
           transform: "translateY(-50%)",
           color: "var(--text-secondary)"
         }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索公司名称 / 编码..." className="bg-bg-muted border border-border text-text" style={{
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索公司名称 / 编码..." style={{
+          ...inputField,
           width: "100%",
-          padding: "7px 10px 7px 32px",
-          borderRadius: 7,
-          fontSize: 13,
-          outline: "none"
+          padding: "7px 10px 7px 32px"
         }} />
         </div>
-        <button onClick={load} className="bg-bg-muted border border-border text-text-muted" style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "7px 14px",
-        borderRadius: 7,
-        fontSize: 13,
-        cursor: "pointer"
-      }}>
+        <button onClick={load} style={secondaryActionButton}>
           <RefreshCw size={13} /> 刷新
         </button>
         <div className={u.flex1} />
