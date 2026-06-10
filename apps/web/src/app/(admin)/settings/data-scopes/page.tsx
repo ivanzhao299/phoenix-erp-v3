@@ -209,7 +209,7 @@ export default function DataScopesPage() {
   return <div>
       <PageHeader
         title="数据范围配置"
-        subtitle="角色 × 模块 × 范围等级（SELF / PROJECT / COMPANY / REGION / GROUP）三维数据可见性矩阵"
+        subtitle="数据可见性第2层·范围等级：角色 × 模块 → SELF / PROJECT / COMPANY / REGION / GROUP（第1层功能权限见「角色与权限」，第3层组织归属见「用户管理」）"
         breadcrumb={['系统设置', '数据范围']}
         actions={
           <button onClick={() => setShowCreate(true)} style={primaryActionButton}>

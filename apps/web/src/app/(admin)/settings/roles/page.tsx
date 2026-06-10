@@ -640,7 +640,7 @@ export default function RoleManagementPage() {
     flexDirection: "column",
     gap: "24px"
   }}>
-      <PageHeader title={t("ui.角色与权限管理", "角色与权限管理")} subtitle={t("ui.V3RBAC角色菜单CRUD三元组含岗位分离红线", "角色 × 菜单 × 操作权限三维管控（查/创/改/删/审/导），含岗位分离红线")} breadcrumb={[t("ui.系统设置", "系统设置"), t("ui.角色与权限", "角色与权限")]} actions={<div style={{
+      <PageHeader title={t("ui.角色与权限管理", "角色与权限管理")} subtitle={t("ui.V3RBAC角色菜单CRUD三元组含岗位分离红线", "数据可见性第1层·功能权限：角色 × 菜单 × 操作（查/创/改/删/审/导）+ 岗位分离红线（第2层范围见「数据范围规则」，第3层组织见「用户管理」）")} breadcrumb={[t("ui.系统设置", "系统设置"), t("ui.角色与权限", "角色与权限")]} actions={<div style={{
       display: "flex",
       gap: "8px"
     }}>

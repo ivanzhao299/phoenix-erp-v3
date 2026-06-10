@@ -533,7 +533,7 @@ export default function UserManagementPage() {
     <div className="animate-fade-in" style={{ paddingBottom: 60 }}>
       <PageHeader
         title={t("ui.用户与权限管理", "用户与权限管理")}
-        subtitle={t("ui.管理系统用户账号角色分配与账号状态", "管理系统用户账号、角色分配与账号状态")}
+        subtitle={t("ui.用户账号角色分配组织绑定数据范围一站式", "用户账号 · 多角色分配 · 组织绑定与数据范围（可见数据 = 功能权限 × 范围等级 × 组织归属，一站式管理）")}
         breadcrumb={[t("ui.系统设置", "系统设置"), t("ui.用户权限", "用户权限")]}
         actions={
           canCreate && (
