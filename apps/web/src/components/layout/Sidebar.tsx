@@ -236,9 +236,8 @@ const MENU: MenuItem[] = [
   // 10. 系统设置 — 用户/角色/权限/安全
   { id: "settings", Icon: Settings, label: "系统设置", perm: "MENU_SETTINGS_USER", children: [
     { id: "stg-users",       path: "/settings/users",         Icon: Users,       label: "用户管理",   perm: "MENU_SETTINGS_USER" },
-    { id: "stg-roles",       path: "/settings/roles",         Icon: Shield,      label: "角色权限",   perm: "MENU_SETTINGS_IT"   },
-    { id: "stg-perms",       path: "/settings/permissions",   Icon: ShieldCheck, label: "菜单权限",   perm: "MENU_SETTINGS_IT"   },
-    { id: "stg-data-scopes", path: "/settings/data-scopes",   Icon: ShieldCheck, label: "数据权限",   perm: "MENU_SYS_ORG"       },
+    { id: "stg-roles",       path: "/settings/roles",         Icon: Shield,      label: "角色与权限", perm: "MENU_SETTINGS_IT"   },
+    { id: "stg-data-scopes", path: "/settings/data-scopes",   Icon: ShieldCheck, label: "数据范围规则", perm: "MENU_SYS_ORG"       },
     { id: "stg-params",      path: "/settings/master-data",   Icon: Settings2,   label: "系统参数",   perm: "MENU_SETTINGS_IT"   },
     { id: "stg-security",    path: "/settings/security",      Icon: ShieldCheck, label: "安全策略",   perm: "MENU_SETTINGS_IT"   },
     { id: "stg-audit",       path: "/settings/audit-log",     Icon: ScrollText,  label: "审计日志",   perm: "MENU_SETTINGS_IT"   },
