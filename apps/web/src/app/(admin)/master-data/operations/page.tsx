@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
 import request from "@/lib/api-client";
+import { usePermission } from "@/hooks/usePermission";
 import { RefreshCw, CheckSquare, AlertTriangle, Users, Copy, Lock, ExternalLink, Briefcase } from "lucide-react";
 
 /**
@@ -58,6 +59,7 @@ const TYPE_LABEL: Record<string, string> = {
   dict: '字典'
 };
 export default function OperationsPage() {
+  const { canView } = usePermission("MENU_MASTER_DATA");  // G79：补权限门(原零检查·安全洞)
   const [todo, setTodo] = useState<Todo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -81,6 +83,7 @@ export default function OperationsPage() {
     duplicateTotal: todo.duplicateCodes.reduce((s, d) => s + d.count, 0),
     blockedTotal: todo.archiveBlocked.length
   } : null;
+  if (!canView) return <div className={u.emptyPad40}>无权限访问主数据运营工作台</div>;
   return <div>
       <PageHeader title="主数据运营工作台" subtitle="待审批 · 待补资料 · 重复风险 · 归档阻断 — 运营每日工作集中处理" breadcrumb={['主数据中心', '运营工作台']} actions={<button onClick={() => void load()} disabled={loading} style={{
       padding: '6px 14px',

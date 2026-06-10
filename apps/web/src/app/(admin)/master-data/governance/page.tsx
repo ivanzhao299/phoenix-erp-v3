@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from '@/components/PageHeader';
 import request from '@/lib/api-client';
+import { usePermission } from '@/hooks/usePermission';
 import {
   RefreshCw, AlertTriangle, CheckCircle, Network, Building, BookOpen,
   ShieldCheck, Link2, GitPullRequestArrow, ExternalLink,
@@ -56,6 +57,7 @@ function scoreColor(s: number): { bg: string; fg: string; label: string } {
 }
 
 export default function GovernanceDashboardPage() {
+  const { canView } = usePermission('MENU_MASTER_DATA');  // G79：补权限门(原零检查·安全洞)
   const [scores, setScores] = useState<Scores | null>(null);
   const [dict, setDict] = useState<DictCoverage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,6 +88,7 @@ export default function GovernanceDashboardPage() {
     { key: 'workflow_score',  label: '审批治理', icon: GitPullRequestArrow, score: scores.workflow_score, weight: 10, hint: `进行中 ${scores.details.workflow.pendingApprovals}；超时 ${scores.details.workflow.overdue3d}` },
   ] : [];
 
+  if (!canView) return <div className={u.emptyPad40}>无权限访问主数据治理驾驶舱</div>;
   return (
     <div>
       <PageHeader

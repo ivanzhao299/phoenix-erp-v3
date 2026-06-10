@@ -27,8 +27,7 @@ export default function SettingsPage() {
       title: t('ui.主数据与业务配置', '主数据与业务配置'),
       color: "var(--status-success)",
       items: [
-        { path:"/settings/products",     icon:<Package size={20}/>,      title:t('ui.商品档案', '商品档案'),     desc:t('ui.鲜蛋品级规格SKU双语维护', '鲜蛋品级·规格·SKU双语维护') },
-        { path:"/settings/dict",         icon:<Database size={20}/>,     title:t('ui.数据字典', '数据字典'),     desc:t('ui.枚举值单位税率基础参数', '枚举值·单位·税率基础参数') },
+        { path:"/master-data/dictionaries", icon:<Database size={20}/>,  title:t('ui.数据字典', '数据字典'),     desc:t('ui.枚举值单位税率基础参数主数据中心维护', '枚举值·单位·税率（统一在主数据中心维护）') },
         { path:"/settings/master-data",  icon:<FileText size={20}/>,     title:t('ui.主数据配置', '主数据配置'),   desc:t('ui.物料供应商基础数据同步', '物料·供应商基础数据同步') },
         { path:"/settings/store-stock",  icon:<ClipboardList size={20}/>,title:t('ui.门店库存配置', '门店库存配置'), desc:t('ui.门店SKU分配与安全库存', '门店 SKU 分配与安全库存') },
       ],

@@ -14,7 +14,7 @@ export default function MasterDataConfigPage() {
     title: t('ui.新品准入与批次追溯', '新品准入与批次追溯'),
     code: "MDM-011/014",
     desc: t('ui.配置新品试销期天数及跨部门会签流程', '配置新品试销期天数及跨部门会签流程。设定蛋品批次生成规则（养殖场+入库日期+序号），启用全局先进先出 (FIFO) 及临期预警阈值。'),
-    link: "/settings/products",
+    link: "/master-data/products",
     action: t('ui.进入商品主数据配置', '进入商品主数据配置'),
     color: "var(--color-primary)",
     tip: ""
