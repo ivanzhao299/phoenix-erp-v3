@@ -22,7 +22,7 @@ import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
-import { SearchInput, SelectField } from "@/components/design-system";
+import { SearchInput, SelectField, Panel } from "@/components/design-system";
 
 // ── Auth helper ──────────────────────────────────────────────────────────────
 const tok = () =>
@@ -406,26 +406,18 @@ export default function UserOrgsPage() {
         {/* ══════════════════════════════════════════════════════
             左栏：用户列表
         ══════════════════════════════════════════════════════ */}
-        <div className="rounded-2xl border border-border bg-bg-card shadow-card flex flex-col overflow-hidden">
-          {/* 标题栏 */}
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-            <Users size={14} className="text-brand flex-shrink-0" />
-            <span className="font-semibold text-sm text-text">用户列表</span>
-            <span className="ml-auto text-xs text-text-dim">
-              {filteredUsers.length} 人
-            </span>
-            <button
-              onClick={loadUsers}
-              title="刷新"
-              className="p-1 rounded text-text-dim hover:bg-bg-muted transition-colors cursor-pointer"
-            >
-              <RefreshCw
-                size={12}
-                className={usersLoading ? "animate-spin" : ""}
-              />
+        <Panel
+          title="用户列表"
+          icon={<Users size={14} style={{ color: "var(--color-primary)", flexShrink: 0 }} />}
+          extra={<>
+            <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>{filteredUsers.length} 人</span>
+            <button onClick={loadUsers} title="刷新" style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--text-secondary)", padding: 2, display: "flex" }}>
+              <RefreshCw size={12} className={usersLoading ? "animate-spin" : ""} />
             </button>
-          </div>
-
+          </>}
+          bodyPadding={false}
+          style={{ minHeight: 600 }}
+        >
           {/* 搜索 + 角色筛选 */}
           <div className="px-3 pt-3 pb-2 flex flex-col gap-2">
             <SearchInput value={search} onChange={setSearch} placeholder="搜索姓名 / 账号…" />
@@ -529,7 +521,7 @@ export default function UserOrgsPage() {
               })
             )}
           </div>
-        </div>
+        </Panel>
 
         {/* ══════════════════════════════════════════════════════
             右栏：组织权限面板

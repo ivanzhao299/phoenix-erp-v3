@@ -39,6 +39,8 @@ export { FormField, fieldInputStyle } from './forms/FormField';
 export type { FormFieldProps } from './forms/FormField';
 export { SearchInput } from './forms/SearchInput';
 export type { SearchInputProps } from './forms/SearchInput';
+export { Panel } from './layouts/Panel';
+export type { PanelProps } from './layouts/Panel';
 export { AmountInput, CurrencyInput } from './forms/AmountInput';
 export type { AmountInputProps } from './forms/AmountInput';
 export { DateRangePicker } from './forms/DateRangePicker';
