@@ -6,7 +6,7 @@ import { Building, Search, RefreshCw, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
-import s from "@/components/ui/admin-ui.module.css";
+import { DataTableV3 } from "@/components/design-system";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { primaryActionButton, secondaryActionButton, inputField, inlineBadge } from "@/components/design-system/cockpit-styles";
@@ -129,61 +129,23 @@ export default function MdCompaniesPage() {
         共 <span className={u.fw600}>{filtered.length}</span> 家公司
       </div>
 
-      {loading ? <div style={{
-      padding: 60,
-      textAlign: "center",
-      color: "var(--text-secondary)"
-    }}>加载中...</div> : error ? <div style={{
-      padding: 40,
-      textAlign: "center",
-      color: "var(--status-danger)"
-    }}>{error}</div> : <div className="bg-bg-muted border border-border" style={{
-      borderRadius: 10,
-      overflow: "auto"
-    }}>
-          <table className={s.table}>
-            <thead>
-              <tr>
-                {["公司编码", "公司名称", "类型", "上级", "描述"].map(h => <th key={h}>{h}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? <tr><td colSpan={5} className={u.emptyPad40}>
-                  暂无公司数据
-                  <div style={{
-                marginTop: 8,
-                fontSize: 12
-              }}>
-                    <Link href="/settings/organizations" style={{
-                  color: "var(--color-accent)"
-                }}>前往组织架构管理 →</Link>
-                  </div>
-                </td></tr> : filtered.map((o, i) => <tr key={o.id ?? i} className="border-b border-border/30" onMouseEnter={e => e.currentTarget.style.background = "rgba(148,163,184,0.08)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  <td style={{ fontFamily: "monospace" }}>
-                    {o.orgCode ? (
-                      <button
-                        type="button"
-                        onClick={() => setDetailCode(o.orgCode ?? null)}
-                        style={{ background: "transparent", border: "none", color: "var(--color-primary)", cursor: "pointer", padding: 0, fontFamily: "monospace", fontSize: "inherit", textDecoration: "underline" }}
-                      >{o.orgCode}</button>
-                    ) : "-"}
-                  </td>
-                  <td className="text-text">{o.orgName ?? "-"}</td>
-                  <td>
-                    <span style={inlineBadge('default')}>
-                      {o.orgType === "GROUP" ? "集团" : "公司"}
-                    </span>
-                  </td>
-                  <td className="text-text-muted">{o.parentName ?? "-"}</td>
-                  <td className="text-text-muted" style={{
-              maxWidth: 240,
-              overflow: "hidden",
-              textOverflow: "ellipsis"
-            }}>{o.description ?? "-"}</td>
-                </tr>)}
-            </tbody>
-          </table>
-        </div>}
+      {error ? <div style={{ padding: 40, textAlign: "center", color: "var(--status-danger)" }}>{error}</div> : (
+        <DataTableV3<OrgItem>
+          rows={filtered}
+          loading={loading}
+          rowKey={(o, i) => o.id ?? i}
+          emptyText="暂无公司数据（请前往组织架构管理添加）"
+          columns={[
+            { key: "orgCode", title: "公司编码", render: (o) => o.orgCode ? (
+              <button type="button" onClick={() => setDetailCode(o.orgCode ?? null)} style={{ background: "transparent", border: "none", color: "var(--color-primary)", cursor: "pointer", padding: 0, fontFamily: "monospace", fontSize: "inherit", textDecoration: "underline" }}>{o.orgCode}</button>
+            ) : "-" },
+            { key: "orgName", title: "公司名称", render: (o) => o.orgName ?? "-" },
+            { key: "orgType", title: "类型", render: (o) => <span style={inlineBadge('default')}>{o.orgType === "GROUP" ? "集团" : "公司"}</span> },
+            { key: "parentName", title: "上级", render: (o) => o.parentName ?? "-" },
+            { key: "description", title: "描述", render: (o) => <span style={{ display: "block", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-secondary)" }}>{o.description ?? "-"}</span> },
+          ]}
+        />
+      )}
       <MasterDataDetailDrawer
         open={detailCode !== null}
         code={detailCode}
