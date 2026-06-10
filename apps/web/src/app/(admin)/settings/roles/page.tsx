@@ -17,6 +17,7 @@
  * 权限码: V=查看 C=新增 E=编辑 D=删除 A=审批 X=导出 *=全部
  */
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -274,6 +275,7 @@ const apiPut = (path: string, body: Record<string, unknown>) => fetch(path, {
 // ─────────────────────────────────────────────────────────────────────────
 export default function RoleManagementPage() {
   const toast = useToast();
+  const router = useRouter();
   const {
     t
   } = useLanguage();
@@ -786,7 +788,7 @@ export default function RoleManagementPage() {
                     flexShrink: 0
                   }}>
                             <button type="button" className={s.btnIcon} title={t("ui.复制", "复制")} onClick={() => openCopy(role)}><Copy size={12} /></button>
-                            <button type="button" className={s.btnIcon} title={t("common.edit", "编辑")} onClick={() => openEdit(role)}><Edit2 size={12} /></button>
+                            <button type="button" className={s.btnIcon} title={t("common.edit", "编辑")} onClick={() => router.push(`/settings/roles/${encodeURIComponent(role.role_code)}`)}><Edit2 size={12} /></button>
                             {!isAdmin && <button type="button" className={s.btnIcon} title={t("common.delete", "删除")} onClick={() => setConfirmDel(role)} style={{
                       color: "var(--color-danger)"
                     }}>
