@@ -5,7 +5,7 @@ import { Clock, RefreshCw, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { usePermission } from "@/hooks/usePermission";
-import { EmptyState, LoadingSkeleton } from "@/components/design-system";
+import { EmptyState, LoadingSkeleton, DataTableV3 } from "@/components/design-system";
 import { secondaryActionButton } from "@/components/design-system/cockpit-styles";
 import request from "@/lib/api-client";
 
@@ -15,7 +15,6 @@ import request from "@/lib/api-client";
  * 实际审批在「审批中心」待办完成（Workflow 2.0）。
  */
 import u from "@/styles/uix-utils.module.css";
-import s from '@/components/ui/admin-ui.module.css'; // G29-B
 const TYPES = [{
   type: "customer",
   label: "客户",
@@ -136,42 +135,14 @@ export default function MasterDataPendingPage() {
             borderRadius: 10
           }}>{data[t.type].length} 待审批</span>
                 </div>
-                <div style={{
-          borderRadius: 10,
-          border: "1px solid var(--border)",
-          overflow: "hidden",
-          background: "var(--bg-card)"
-        }}>
-                  <table className={s.table}>
-                    <thead><tr style={{
-                background: "var(--bg-muted)",
-                color: "var(--text-secondary)"
-              }}>
-                      <th style={{
-                  textAlign: "left",
-                  padding: "9px 14px"
-                }}>编码</th>
-                      <th style={{
-                  textAlign: "left",
-                  padding: "9px 14px"
-                }}>名称</th>
-                    </tr></thead>
-                    <tbody>
-                      {data[t.type].map(r => <tr key={r[t.codeKey]} style={{
-                borderTop: "1px solid var(--border)"
-              }}>
-                          <td style={{
-                  padding: "9px 14px",
-                  fontFamily: "monospace",
-                  color: "var(--color-primary)"
-                }}>{r[t.codeKey]}</td>
-                          <td style={{
-                  padding: "9px 14px"
-                }}>{r[t.nameKey]}</td>
-                        </tr>)}
-                    </tbody>
-                  </table>
-                </div>
+                <DataTableV3
+                  rows={data[t.type]}
+                  rowKey={(r) => r[t.codeKey]}
+                  columns={[
+                    { key: t.codeKey, title: "编码", render: (r) => <span style={{ fontFamily: "monospace", color: "var(--color-primary)" }}>{r[t.codeKey]}</span> },
+                    { key: t.nameKey, title: "名称", render: (r) => r[t.nameKey] },
+                  ]}
+                />
               </div>)}
           </div>}
     </div>;

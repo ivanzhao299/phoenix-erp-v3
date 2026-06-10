@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ShieldCheck, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { usePermission } from "@/hooks/usePermission";
-import { EmptyState, LoadingSkeleton } from "@/components/design-system";
+import { EmptyState, LoadingSkeleton, DataTableV3 } from "@/components/design-system";
 import { secondaryActionButton } from "@/components/design-system/cockpit-styles";
 import request from "@/lib/api-client";
 
@@ -13,7 +13,6 @@ import request from "@/lib/api-client";
  * 检查重复客户/供应商、缺联系人/账户、未绑定账号股东等数据质量问题。
  */
 import u from "@/styles/uix-utils.module.css";
-import s from '@/components/ui/admin-ui.module.css'; // G29-B
 interface QualityCheck {
   key: string;
   label: string;
@@ -132,79 +131,19 @@ export default function MasterDataQualityPage() {
           </div>
 
           {/* 检查项清单 */}
-          <div style={{
-        borderRadius: 12,
-        border: "1px solid var(--border)",
-        overflow: "hidden",
-        background: "var(--bg-card)"
-      }}>
-            <table className={s.table} style={{ fontSize: 13.5 }}>
-              <thead>
-                <tr style={{
-              background: "var(--bg-muted)",
-              color: "var(--text-secondary)"
-            }}>
-                  <th style={{
-                textAlign: "left",
-                padding: "10px 16px"
-              }}>检查项</th>
-                  <th style={{
-                textAlign: "right",
-                padding: "10px 16px",
-                width: 120
-              }}>问题数量</th>
-                  <th style={{
-                textAlign: "center",
-                padding: "10px 16px",
-                width: 100
-              }}>状态</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.checks.map(c => <tr key={c.key} style={{
-              borderTop: "1px solid var(--border)"
-            }}>
-                    <td style={{
-                padding: "11px 16px",
-                color: "var(--text-primary)"
-              }}>{c.label}</td>
-                    <td style={{
-                padding: "11px 16px",
-                textAlign: "right",
-                fontWeight: 600,
-                color: c.count < 0 ? "var(--text-disabled)" : c.count > 0 ? "var(--status-danger)" : "var(--status-success)"
-              }}>
-                      {c.count < 0 ? "—" : c.count}
-                    </td>
-                    <td style={{
-                padding: "11px 16px",
-                textAlign: "center"
-              }}>
-                      {c.count < 0 ? <span style={{
-                  fontSize: 12,
-                  color: "var(--text-disabled)"
-                }}>不可用</span> : c.count > 0 ? <span style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  fontSize: 12,
-                  color: "var(--status-danger)"
-                }}>
-                          <AlertTriangle size={13} /> 需处理
-                        </span> : <span style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  fontSize: 12,
-                  color: "var(--status-success)"
-                }}>
-                          <CheckCircle2 size={13} /> 正常
-                        </span>}
-                    </td>
-                  </tr>)}
-              </tbody>
-            </table>
-          </div>
+          <DataTableV3
+            rows={data.checks}
+            rowKey={(c, i) => c.key ?? i}
+            columns={[
+              { key: "label", title: "检查项", render: (c) => c.label },
+              { key: "count", title: "问题数量", align: "right", render: (c) => <span style={{ fontWeight: 600, color: c.count < 0 ? "var(--text-disabled)" : c.count > 0 ? "var(--status-danger)" : "var(--status-success)" }}>{c.count < 0 ? "—" : c.count}</span> },
+              { key: "status", title: "状态", align: "center", render: (c) => c.count < 0
+                ? <span style={{ fontSize: 12, color: "var(--text-disabled)" }}>不可用</span>
+                : c.count > 0
+                  ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--status-danger)" }}><AlertTriangle size={13} /> 需处理</span>
+                  : <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--status-success)" }}><CheckCircle2 size={13} /> 正常</span> },
+            ]}
+          />
         </>}
     </div>;
 }
