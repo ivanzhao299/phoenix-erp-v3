@@ -167,11 +167,13 @@ export function RolePicker({ allRoles, selected, onChange, maxHeight = 280 }: {
 
       {/* Role list grouped by type */}
       <div style={{ maxHeight, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
-        {grouped.map(([type, roles]) => (
+        {grouped.map(([type, roles]) => {
+          const groupCol = TYPE_COLOR[type] ?? "var(--text-disabled)";
+          return (
           <div key={type}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: TYPE_COLOR[type] ?? "var(--text-disabled)",
+            <div style={{ fontSize: 10, fontWeight: 700, color: groupCol,
               textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4,
-              padding: "2px 6px", background: (TYPE_COLOR[type] ?? "var(--text-disabled)") + "15",
+              padding: "2px 6px", background: `color-mix(in srgb, ${groupCol} 14%, transparent)`,
               borderRadius: 4, display: "inline-block" }}>
               {type}
             </div>
@@ -184,10 +186,13 @@ export function RolePicker({ allRoles, selected, onChange, maxHeight = 280 }: {
                     title={`${r.role_code}${r.description ? " — " + r.description : ""}`}
                     style={{
                       padding: "4px 10px", borderRadius: 12, fontSize: 12, cursor: "pointer",
-                      fontWeight: isSelected ? 700 : 400,
-                      background: isSelected ? col + "22" : "var(--bg-page)",
-                      border: `1.5px solid ${isSelected ? col : "var(--border)"}`,
-                      color: isSelected ? col : "var(--text-secondary)",
+                      fontWeight: isSelected ? 700 : 500,
+                      // 未选中：按分组类别浅色填充（易区分）；选中：按角色级别色
+                      background: isSelected
+                        ? `color-mix(in srgb, ${col} 22%, var(--bg-card))`
+                        : `color-mix(in srgb, ${groupCol} 10%, var(--bg-card))`,
+                      border: `1.5px solid ${isSelected ? col : `color-mix(in srgb, ${groupCol} 32%, var(--border))`}`,
+                      color: isSelected ? col : "var(--text-primary)",
                       transition: "all 0.15s",
                     }}>
                     {isSelected && "✓ "}
@@ -198,7 +203,8 @@ export function RolePicker({ allRoles, selected, onChange, maxHeight = 280 }: {
               })}
             </div>
           </div>
-        ))}
+          );
+        })}
         {grouped.length === 0 && (
           <div style={{ textAlign: "center", color: "var(--text-secondary)", fontSize: 12, padding: "16px 0" }}>
             {t("common.no_data", "暂无数据")}
