@@ -23,6 +23,7 @@ import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
 import { SearchInput, SelectField, Panel, DataTableV3 } from "@/components/design-system";
+import { inlineBadge, badgeButton } from "@/components/design-system/cockpit-styles";
 import type { ColumnV3 } from "@/components/design-system";
 
 // ── Auth helper ──────────────────────────────────────────────────────────────
@@ -67,6 +68,9 @@ const ORG_TYPE_LABEL: Record<string, string> = {
   STORE:      "门店",
   DEPARTMENT: "部门",
   DEPT:       "部门",
+  SITE:       "场站",
+  REGION:     "区域",
+  TEAM:       "班组",
   OTHER:      "其他",
 };
 
@@ -731,7 +735,7 @@ export default function UserOrgsPage() {
                         key: "orgType",
                         title: "类型",
                         render: (uo: UserOrg) => (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-bg-muted text-text-muted border border-border">
+                          <span style={inlineBadge("default")}>
                             {ORG_TYPE_LABEL[uo.orgType] ?? uo.orgType}
                           </span>
                         ),
@@ -746,35 +750,21 @@ export default function UserOrgsPage() {
                             ) ?? SCOPE_LEVELS[2];
                           const isMutating = mutatingId === uo.id;
                           return canEdit ? (
-                            <select
+                            <SelectField
                               value={uo.dataScopeLevel}
                               disabled={isMutating}
-                              onChange={e =>
-                                handleUpdateScope(
-                                  uo,
-                                  e.target.value as ScopeLevel,
-                                )
+                              onChange={v =>
+                                handleUpdateScope(uo, v as ScopeLevel)
                               }
-                              className={cn(
-                                "text-xs px-2 py-1 rounded-lg border cursor-pointer",
-                                "bg-bg-page text-text outline-none",
-                                "disabled:opacity-50 disabled:cursor-not-allowed",
-                                SCOPE_COLOR[uo.dataScopeLevel],
-                              )}
-                            >
-                              {SCOPE_LEVELS.map(s => (
-                                <option key={s.value} value={s.value}>
-                                  {s.label}
-                                </option>
-                              ))}
-                            </select>
+                              options={SCOPE_LEVELS.map(s => ({
+                                value: s.value,
+                                label: s.label,
+                              }))}
+                              allowEmpty={false}
+                              filter
+                            />
                           ) : (
-                            <span
-                              className={cn(
-                                "text-xs px-2 py-0.5 rounded-full border font-semibold",
-                                SCOPE_COLOR[uo.dataScopeLevel],
-                              )}
-                            >
+                            <span style={inlineBadge("default")}>
                               {scopeItem.label}
                             </span>
                           );
@@ -792,17 +782,16 @@ export default function UserOrgsPage() {
                               title={
                                 uo.isPrimary ? "取消主组织" : "设为主组织"
                               }
-                              className={cn(
-                                "flex items-center gap-1 text-xs px-2 py-1 rounded-lg border",
-                                "transition-colors cursor-pointer disabled:opacity-50",
-                                uo.isPrimary
-                                  ? "text-warning bg-warning/10 border-warning/30 hover:bg-warning/20"
-                                  : "text-text-dim bg-bg-muted border-border hover:text-warning hover:bg-warning/10",
-                              )}
+                              style={{
+                                ...badgeButton(uo.isPrimary ? "warning" : "default"),
+                                ...(isMutating
+                                  ? { opacity: 0.5, cursor: "not-allowed" }
+                                  : {}),
+                              }}
                             >
                               {uo.isPrimary ? (
                                 <>
-                                  <Star size={11} className="fill-current" />
+                                  <Star size={11} style={{ fill: "currentColor" }} />
                                   主组织
                                 </>
                               ) : (
@@ -813,22 +802,8 @@ export default function UserOrgsPage() {
                               )}
                             </button>
                           ) : (
-                            <span
-                              className={cn(
-                                "flex items-center gap-1 text-xs",
-                                uo.isPrimary
-                                  ? "text-warning font-semibold"
-                                  : "text-text-dim",
-                              )}
-                            >
-                              {uo.isPrimary ? (
-                                <>
-                                  <Star size={11} className="fill-current" />
-                                  主组织
-                                </>
-                              ) : (
-                                "—"
-                              )}
+                            <span style={inlineBadge(uo.isPrimary ? "warning" : "default")}>
+                              {uo.isPrimary ? "主组织" : "—"}
                             </span>
                           );
                         },
@@ -842,12 +817,12 @@ export default function UserOrgsPage() {
                             <button
                               onClick={() => handleRemove(uo)}
                               disabled={isMutating}
-                              className={cn(
-                                "flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border",
-                                "border-danger/30 text-danger bg-danger/5",
-                                "hover:bg-danger/10 disabled:opacity-50",
-                                "transition-colors cursor-pointer",
-                              )}
+                              style={{
+                                ...badgeButton("danger"),
+                                ...(isMutating
+                                  ? { opacity: 0.5, cursor: "not-allowed" }
+                                  : {}),
+                              }}
                             >
                               {isMutating ? (
                                 <RefreshCw
@@ -860,7 +835,7 @@ export default function UserOrgsPage() {
                               移除
                             </button>
                           ) : (
-                            <span className="text-xs text-text-dim">—</span>
+                            <span style={inlineBadge("default")}>—</span>
                           );
                         },
                       },

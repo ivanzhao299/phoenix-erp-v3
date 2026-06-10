@@ -339,6 +339,32 @@ export const inlineBadge = (tone: 'default' | 'success' | 'warning' | 'danger' =
     'var(--text-secondary)',
 });
 
+// ── 行内可点徽章按钮（表格内"设为主 / 移除 / 切换"等紧凑操作） ──
+// 复用 inlineBadge 配色，加描边 + 按钮交互；表格单元格统一用它，禁止页面自写 rounded/bg/text 类。
+export const badgeButton = (tone: 'default' | 'success' | 'warning' | 'danger' = 'default'): CSSProperties => {
+  const b = inlineBadge(tone);
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    padding: '4px 10px',
+    borderRadius: 6,
+    fontSize: 12,
+    fontWeight: 500,
+    lineHeight: 1.4,
+    whiteSpace: 'nowrap',
+    cursor: 'pointer',
+    background: b.background,
+    color: b.color,
+    border: `1px solid ${
+      tone === 'success' ? 'var(--status-success)' :
+      tone === 'warning' ? 'var(--status-warning)' :
+      tone === 'danger'  ? 'var(--status-danger)'  :
+      'var(--border)'
+    }`,
+  };
+};
+
 // ── 全局 Pill Badge（"集团 / 启用 / 事业群"等业务徽章） ─
 // 统一 padding / 字号 / 圆角 / border 厚度 —— 颜色由调用方加 className 控制
 export const pillBadge: CSSProperties = {
