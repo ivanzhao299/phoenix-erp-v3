@@ -441,16 +441,18 @@ export class UsersBffController {
   /** POST /api/users — 新建用户（含初始角色）*/
   @Post()
   async createUser(@Body() body: any, @Req() req: any) {
-    const { username, real_name_zh, role, store_code, password, user_type } = body || {};
+    const { username, real_name_zh, role, store_code, password, user_type, org_bindings } = body || {};
     if (!username || !real_name_zh) return { code: 400, msg: '用户名和姓名为必填项' };
     if (!password || password.length < 8) return { code: 400, msg: '密码至少 8 位' };
     try {
       const bcrypt = await import('bcrypt');
       const password_hash = await bcrypt.hash(password, 10);
+      // G76：store_code 默认 null（不再 'ALL' 全局）——store_code 已降为 POS 行级专用；
+      //   数据范围唯一源 = 组织绑定 sys_user_orgs（下方原子写入）。
       const inserted = await this.em.query(
         `INSERT INTO sys_user (username, password_hash, real_name, store_code, status, locale, note, created_at, updated_at)
          VALUES ($1, $2, $3, $4, 1, 'zh-CN', $5, now(), now()) RETURNING user_id`,
-        [username, password_hash, real_name_zh, store_code || 'ALL', user_type === 'TEST' ? 'TEST' : null],
+        [username, password_hash, real_name_zh, store_code || null, user_type === 'TEST' ? 'TEST' : null],
       );
       const userId = inserted[0]?.user_id;
       if (role && userId) {
@@ -463,6 +465,10 @@ export class UsersBffController {
           );
         }
       }
+      // G76：原子写组织绑定（sys_user_orgs）→ 用户在创建时即挂到组织树，决定数据范围
+      if (Array.isArray(org_bindings) && userId) {
+        await this.writeUserOrgBindings(userId, org_bindings);
+      }
       return { code: 200, msg: `用户 ${username} 创建成功`, data: { id: userId } };
     } catch (e: any) {
       if (e?.code === '23505') return { code: 409, msg: `用户名 "${username}" 已存在` };
@@ -470,7 +476,7 @@ export class UsersBffController {
     }
   }
 
-  /** PUT /api/users/:id — 更新基本信息 */
+  /** PUT /api/users/:id — 更新基本信息（含组织绑定 org_bindings）*/
   @Put(':id')
   async updateUser(@Param('id') id: string, @Body() body: any) {
     try {
@@ -479,13 +485,46 @@ export class UsersBffController {
       let idx = 1;
       if (body.real_name_zh !== undefined) { fields.push(`real_name=$${idx++}`);  params.push(body.real_name_zh); }
       if (body.real_name    !== undefined) { fields.push(`real_name=$${idx++}`);  params.push(body.real_name); }
-      if (body.store_code   !== undefined) { fields.push(`store_code=$${idx++}`); params.push(body.store_code || 'ALL'); }
+      // G76：store_code 仅 POS 行级用；不再默认 'ALL'（空即空，范围由组织绑定决定）
+      if (body.store_code   !== undefined) { fields.push(`store_code=$${idx++}`); params.push(body.store_code || null); }
       if (body.locale       !== undefined) { fields.push(`locale=$${idx++}`);     params.push(body.locale); }
-      if (!fields.length) return { code: 400, msg: '无更新内容' };
-      params.push(id);
-      await this.em.query(`UPDATE sys_user SET ${fields.join(', ')}, updated_at=now() WHERE user_id=$${idx}`, params);
+      if (fields.length) {
+        params.push(id);
+        await this.em.query(`UPDATE sys_user SET ${fields.join(', ')}, updated_at=now() WHERE user_id=$${idx}`, params);
+      }
+      // G76：组织绑定（数据范围唯一源）—— 传 org_bindings 则整组替换
+      if (Array.isArray(body.org_bindings)) {
+        await this.em.query(`DELETE FROM sys_user_orgs WHERE user_id=$1`, [id]);
+        await this.writeUserOrgBindings(Number(id), body.org_bindings);
+        // 变更范围 → bump perms_version 强制重算（DataScope 缓存 30s，bump 立即失效）
+        await this.em.query(`UPDATE sys_user SET perms_version=COALESCE(perms_version,1)+1 WHERE user_id=$1`, [id]);
+      }
+      if (!fields.length && !Array.isArray(body.org_bindings)) return { code: 400, msg: '无更新内容' };
       return { code: 200, msg: '用户信息已更新' };
     } catch (e: any) { return { code: 500, msg: e?.message }; }
+  }
+
+  /**
+   * G76：写用户组织绑定（sys_user_orgs）。org_bindings: [{org_code, scope_level?, is_primary?}]。
+   *   按 org_code 解析 org_id；幂等（已存在则更新范围级别/主标）。数据范围唯一源。
+   */
+  private async writeUserOrgBindings(
+    userId: number,
+    bindings: Array<{ org_code?: string; scope_level?: string; is_primary?: boolean }>,
+  ): Promise<void> {
+    for (const b of bindings) {
+      if (!b?.org_code) continue;
+      const orgRow = await this.em.query(
+        `SELECT id FROM sys_organizations WHERE org_code=$1 AND status='ACTIVE' LIMIT 1`, [b.org_code],
+      );
+      if (!orgRow[0]) continue;
+      await this.em.query(
+        `INSERT INTO sys_user_orgs (user_id, org_id, is_primary, data_scope_level, org_code)
+         SELECT $1,$2,$3,$4,$5
+         WHERE NOT EXISTS (SELECT 1 FROM sys_user_orgs WHERE user_id=$1 AND org_id=$2)`,
+        [userId, orgRow[0].id, !!b.is_primary, b.scope_level || 'COMPANY', b.org_code],
+      );
+    }
   }
 
   /** PUT /api/users/:id/status — 启用/冻结 */

@@ -194,31 +194,12 @@ export class DataScopeService {
           }
         }
       }
-    } else {
-      // 兜底：无 sys_user_orgs 记录，从 CLS 读 storeCode
-      const user = this.cls.get('user') as Record<string, unknown> | undefined;
-      const storeCode: string = (user?.['storeCode'] as string | undefined) ?? '';
-      if (storeCode === 'ALL') {
-        // C1 修复（RBAC Hardening Phase 1）：
-        //   storeCode='ALL' 语义 = 跨公司全局访问，等同于 GROUP 范围
-        //   直接返回 isGlobal=true，避免空 companyCodes 导致数据全部拒绝
-        const ctx: DataScopeContext = {
-          isGlobal: true,
-          scopeLevel: 'GROUP',
-          allowedCompanyCodes: [],
-          allowedProjectCodes: [],
-          allowedWarehouseCodes: [],
-          allowedFarmCodes: [], // G4-E
-          allowedSiteCodes: [], // G5-D
-          userId,
-        };
-        this._setCache(cacheKey, ctx);
-        return ctx;
-      }
-      if (storeCode) {
-        storeCode.split(',').forEach((c) => companyCodes.add(c.trim()));
-      }
     }
+    // G76：store_code 已降级为 POS 门店行级隔离专用，**不再**作为 DataScope 公司范围回退。
+    //   无 sys_user_orgs 绑定的用户 → 空 companyCodes（= 拒绝全部，isGlobal=false）。
+    //   全局/跨公司访问只认：ROLE_ADMIN（见上 line ~79）或 sys_data_scopes 的 GROUP 规则，
+    //   或在组织树显式绑 GROUP/多公司节点；而**不再**靠 store_code='ALL' 静默全局。
+    //   —— 杜绝"新建用户默认 store_code='ALL' → 越权看所有公司"的安全洞（用户范围唯一源=组织绑定）。
 
     // 追加额外项目/仓库授权
     const extraProjects = await this.userProjRepo.find({ where: { userId: userIdNum } });
