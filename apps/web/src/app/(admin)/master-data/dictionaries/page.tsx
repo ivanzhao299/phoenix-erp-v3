@@ -78,50 +78,50 @@ function classify(dictType: string): BizCategory {
 }
 
 // ── 业务化标签覆盖：把 dict_type 翻译为业务语言 ──────────────────────
+// 全量 67 个 dict_type → 中文（与生产 sys_dict 对齐，2026-06-10 校准）。
+// 前台禁露英文裸码；漏网类型走 typeLabel() 的前缀兜底。
 const TYPE_LABEL_MAP: Record<string, string> = {
-  PKG_EGG_GRADE: "鸡蛋等级（已弃用·见等级档案）",
-  PKG_ANOMALY_REASON: "包装异常原因",
-  PKG_EGG_DEFECT: "蛋品缺陷类型",
-  PKG_DEFECT: "包装缺陷",
-  PKG_EXCEPTION_TYPE: "包装异常类型",
-  PKG_PACK_LINE: "包装线",
-  PKG_SHIFT: "班次",
-  SAL_RETURN_REASON: "退货原因",
-  SAL_VOID_REASON: "作废原因",
-  SAL_DISCOUNT_TYPE: "优惠类型",
-  SAL_ORDER_TYPE: "订单类型",
-  SAL_CHANNEL: "销售渠道",
-  SAL_FULFILLMENT_TYPE: "履约方式",
-  SAL_PRICE_TYPE: "价格类型",
-  SAL_SETTLEMENT_METHOD: "结算方式",
-  SAL_PAY_METHOD: "收款方式",
-  SAL_DELIVERY_EXCEPTION: "配送异常",
-  WMS_LOSS_REASON: "仓库报损原因",
-  WMS_TRANSFER_REASON: "调拨原因",
-  INV_STOCK_STATUS: "库存状态",
-  INV_INBOUND_TYPE: "入库类型",
-  INV_OUTBOUND_TYPE: "出库类型",
-  INV_TRANSFER_REASON: "调拨原因",
-  INV_LOSS_REASON: "库存损耗原因",
-  INV_COUNT_TYPE: "盘点类型",
-  FIN_PAYER_TYPE: "付款方类型",
-  FIN_FUND_NATURE: "资金性质",
-  FIN_EXPENSE_TYPE: "费用类型",
-  FIN_CONTRIBUTION_TYPE: "出资类型",
-  FIN_RECEIPT_METHOD: "收款方式",
-  PRC_PURCHASE_TYPE: "采购类型",
-  PRC_URGENCY: "紧急程度",
-  PRC_QUALITY_STATUS: "质量状态",
-  QA_DEFECT_TYPE: "质检缺陷类型",
-  QA_NC_DISPOSITION: "不合格品处置",
-  FARM_MEDICINE_TYPE: "用药分类",
-  FARM_DISEASE_TYPE: "疾病分类",
-  BRD_FLOCK_STATUS: "鸡群状态",
-  BRD_HOUSE_TYPE: "鸡舍类型",
-  STORE_LOSS_REASON: "门店损耗原因",
-  FEED_CATEGORY: "饲料品类",
-  APPROVAL_TYPE: "审批类型",
+  APR_MODULE_TYPE: "审批模块类型",
+  BRD_BREED: "品种", BRD_BREED_TYPE: "品种类型", BRD_CULLING_REASON: "淘汰原因",
+  BRD_FLOCK_STATUS: "鸡群状态", BRD_HOUSE_TYPE: "鸡舍类型", BRD_MORTALITY_REASON: "死亡原因",
+  BRD_SHIFT: "养殖班次", BRD_VACCINATE_METHOD: "免疫接种方式", BRD_VACCINE_TYPE: "疫苗类型",
+  BS_CUSTOMER_LEVEL: "客户等级", BS_PAYMENT_TERM: "付款条件",
+  CRM_ACTIVITY_TYPE: "营销活动类型", CRM_COUPON_LEVEL: "优惠券层级", CRM_COUPON_TYPE: "优惠券类型",
+  CRM_MEMBER_LEVEL: "会员等级", CRM_TARGET_GROUP: "目标客群",
+  FIN_CONTRIBUTION_TYPE: "出资类型", FIN_EXPENSE_TYPE: "费用类型", FIN_FUND_NATURE: "资金性质",
+  FIN_PAYER_TYPE: "付款方类型", FIN_RECEIPT_METHOD: "收款方式",
+  INV_COUNT_TYPE: "盘点类型", INV_INBOUND_TYPE: "入库类型", INV_LOSS_REASON: "库存损耗原因",
+  INV_OUTBOUND_DEST_TYPE: "出库目的地类型", INV_OUTBOUND_TYPE: "出库类型",
+  INV_STOCK_STATUS: "库存状态", INV_TRANSFER_REASON: "调拨原因",
+  PKG_ANOMALY_REASON: "包装异常原因", PKG_CUSTOM_LABEL: "自定义标签", PKG_DEFECT: "包装缺陷",
+  PKG_EGG_DEFECT: "蛋品缺陷类型", PKG_EXCEPTION_TYPE: "包装异常类型", PKG_PACK_LINE: "包装线",
+  PKG_PACK_SPEC: "包装规格", PKG_PRESORT_STANDARD: "预分级标准", PKG_QC_RESULT: "包装质检结果",
+  PKG_SHIFT: "包装班次",
+  PRC_PAYMENT_METHOD: "采购付款方式", PRC_PURCHASE_TYPE: "采购类型",
+  PRC_QUALITY_STATUS: "采购质量状态", PRC_URGENCY: "采购紧急度",
+  PRD_PRODUCT_GRADE: "产品等级（旧）", PRD_PRODUCT_TYPE: "产品类型",
+  QC_INSPECT_CATEGORY: "质检类别", QC_INSPECT_TYPE: "质检类型", QC_NC_SOURCE: "不合格来源",
+  QC_PRODUCT_CATEGORY: "质检产品类别", QC_TRACE_TYPE: "追溯类型",
+  SAL_CHANNEL: "销售渠道", SAL_CUSTOMER_TYPE: "客户类型", SAL_DELIVERY_EXCEPTION: "配送异常",
+  SAL_FULFILLMENT_TYPE: "履约方式", SAL_ORDER_TYPE: "订单类型", SAL_PAY_METHOD: "销售收款方式",
+  SAL_PRICE_TYPE: "价格类型", SAL_RETURN_REASON: "退货原因", SAL_SETTLEMENT_METHOD: "结算方式",
+  SYS_COUNTRY: "国家/地区", SYS_CURRENCY: "币种", SYS_ORG_LEVEL: "组织层级",
+  TRP_EXCEPTION_TYPE: "运输异常类型", TRP_RECEIPT_STATUS: "签收状态",
+  VET_USAGE: "用药方式",
+  WMS_INBOUND_TYPE: "入库类型（仓储）", WMS_OUTBOUND_TYPE: "出库类型（仓储）",
 };
+
+// 前缀域兜底：任何未登记类型也按业务域显示中文，绝不露英文裸码
+const PREFIX_DOMAIN: Record<string, string> = {
+  APR: "审批", APPROVAL: "审批", BRD: "养殖", BS: "商务", CRM: "会员营销", FIN: "财务",
+  INV: "库存", PKG: "包装", PRC: "采购", PRD: "产品", QC: "质检", QA: "质检", SAL: "销售",
+  SYS: "系统", TRP: "运输", VET: "兽医", WMS: "仓储", FARM: "养殖", STORE: "门店", FEED: "饲料",
+};
+function typeLabel(t: string): string {
+  if (TYPE_LABEL_MAP[t]) return TYPE_LABEL_MAP[t];
+  const domain = PREFIX_DOMAIN[(t.split("_")[0] || "")];
+  return domain ? `${domain}·${t.split("_").slice(1).join("")}` : t;
+}
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   ACTIVE:    { label: '启用',   color: 'var(--status-success)', bg: 'var(--status-success-bg-light)' },
@@ -189,7 +189,7 @@ export default function MdDictionariesPage() {
           (d.dict_code ?? '').toLowerCase().includes(kw) ||
           (d.dict_label_zh ?? '').toLowerCase().includes(kw) ||
           (d.dict_type ?? '').toLowerCase().includes(kw) ||
-          (TYPE_LABEL_MAP[d.dict_type ?? ''] ?? '').toLowerCase().includes(kw);
+          typeLabel(d.dict_type ?? '').toLowerCase().includes(kw);
         if (!ok) return false;
       }
       return true;
@@ -296,7 +296,7 @@ export default function MdDictionariesPage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {grouped.map(([type, rows]) => {
-            const bizLabel = TYPE_LABEL_MAP[type] ?? type;
+            const bizLabel = typeLabel(type);
             const cat = classify(type);
             return (
               <section key={type} style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-card)' }}>
@@ -310,9 +310,7 @@ export default function MdDictionariesPage() {
                   <thead>
                     <tr style={{ color: 'var(--text-secondary)' }}>
                       <th style={cellHeadStyle}>编码</th>
-                      <th style={cellHeadStyle}>中文标签</th>
-                      <th style={cellHeadStyle}>老挝语</th>
-                      <th style={cellHeadStyle}>英文</th>
+                      <th style={cellHeadStyle}>名称</th>
                       <th style={{ ...cellHeadStyle, textAlign: 'center', width: 60 }}>排序</th>
                       <th style={{ ...cellHeadStyle, textAlign: 'center', width: 80 }}>状态</th>
                     </tr>
@@ -322,10 +320,8 @@ export default function MdDictionariesPage() {
                       const st = STATUS_META[r.status ?? 'ACTIVE'] ?? STATUS_META.ACTIVE;
                       return (
                         <tr key={`${type}-${r.dict_code}`} style={{ borderTop: '1px solid var(--border)' }}>
-                          <td style={cellStyle}><code style={{ fontSize: 12, color: 'var(--color-primary)' }}>{r.dict_code}</code></td>
-                          <td style={cellStyle}>{r.dict_label_zh ?? '—'}</td>
-                          <td style={{ ...cellStyle, color: 'var(--text-secondary)' }}>{r.dict_label_lo ?? '—'}</td>
-                          <td style={{ ...cellStyle, color: 'var(--text-secondary)' }}>{r.dict_label_en ?? '—'}</td>
+                          <td style={cellStyle}><code style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{r.dict_code}</code></td>
+                          <td style={{ ...cellStyle, color: 'var(--text-primary)', fontWeight: 500 }}>{r.dict_label_zh ?? '—'}</td>
                           <td style={{ ...cellStyle, textAlign: 'center', color: 'var(--text-secondary)' }}>{r.sort_no ?? 0}</td>
                           <td style={{ ...cellStyle, textAlign: 'center' }}>
                             <span style={{ padding: '2px 8px', borderRadius: 100, fontSize: 11, fontWeight: 600, background: st.bg, color: st.color }}>{st.label}</span>
