@@ -23,7 +23,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Network, Plus, RefreshCw, ChevronRight, ChevronDown,
   Building2, Layers, Globe, Leaf, Users, Warehouse,
-  LayoutGrid, Info, Edit3, PowerOff, Power, Search,
+  LayoutGrid, Info, Edit3, PowerOff, Power,
   ArrowRight, Inbox, CheckCircle2, XCircle, AlertCircle,
   Activity, BarChart3, Check,
 } from "lucide-react";
@@ -33,6 +33,8 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { organizationConfig, companyConfig } from "@/components/master-data/detail-configs";
+import { OrgMembersPanel } from "@/components/master-data/OrgMembersPanel";
+import { SearchInput } from "@/components/design-system";
 import {
   COCKPIT, cockpitCard, cockpitCardBody, cockpitCardHeader, cockpitCardHeaderTitle,
   cockpitCardHeaderHint, kpiHeroNumber, kpiHeroLabel, propCell, propLabel, propValue,
@@ -350,6 +352,9 @@ export default function MdOrganizationsPage() {
   // UIX-9A — Detail drawer
   const [detailCode, setDetailCode]       = useState<string | null>(null);
 
+  // ORG-MERGE — Tab 切换（组织档案 / 成员 / 预留权限&活动）
+  const [activeTab, setActiveTab]         = useState<'info' | 'members'>('info');
+
   // UIX-PROD-2 — 响应式：窄屏（<1280）右栏折叠到顶部横排
   const [isNarrow, setIsNarrow]           = useState(false);
   useEffect(() => {
@@ -605,23 +610,7 @@ export default function MdOrganizationsPage() {
           {/* Search + Filter + Expand/collapse 合并成一个工具栏，去段间 border-b */}
           <div style={{ padding: '0 16px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {/* Search */}
-            <div style={{ position: 'relative' }}>
-              <Search size={12} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }} />
-              <input
-                value={treeSearch}
-                onChange={e => setTreeSearch(e.target.value)}
-                placeholder="搜索组织名称或编码…"
-                style={{
-                  width: '100%', padding: '8px 12px 8px 30px',
-                  fontSize: 12, borderRadius: 8,
-                  background: 'var(--bg-muted)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-primary)',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
+            <SearchInput value={treeSearch} onChange={setTreeSearch} placeholder="搜索组织名称或编码…" />
 
             {/* Filter pills */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -747,8 +736,34 @@ export default function MdOrganizationsPage() {
                 </button>
               </div>
 
-              {/* Detail body — 去掉内层"组织档案"圆角卡，直接 inline 在 detail panel 内 */}
+              {/* ORG-MERGE — Tab 切换 */}
+              <div style={{ display: 'flex', gap: 4, padding: '0 16px', borderBottom: '1px solid var(--border)' }}>
+                {[
+                  { key: 'info', label: '组织档案' },
+                  { key: 'members', label: '成员管理' },
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveTab(tab.key as 'info' | 'members')}
+                    style={{
+                      padding: '10px 16px', fontSize: 13, fontWeight: 600,
+                      background: 'transparent', border: 'none', cursor: 'pointer',
+                      color: activeTab === tab.key ? 'var(--color-primary)' : 'var(--text-secondary)',
+                      borderBottom: activeTab === tab.key ? '2px solid var(--color-primary)' : '2px solid transparent',
+                      marginBottom: -1,
+                    }}
+                  >{tab.label}</button>
+                ))}
+              </div>
+
+              {/* Detail body — 根据 Tab 切换 */}
               <div className="flex-1 overflow-y-auto">
+                {activeTab === 'members' ? (
+                  <div style={{ padding: 16 }}>
+                    <OrgMembersPanel orgId={selectedOrg.id} orgName={selectedOrg.orgName} />
+                  </div>
+                ) : (
                 <div>
                   {/* Section header: 与左栏"组织树"header 风格一致（cockpitCardHeader token） */}
                   <div style={cockpitCardHeader}>
@@ -812,6 +827,7 @@ export default function MdOrganizationsPage() {
                     </div>
                   )}
                 </div>
+                )}
               </div>
             </>
           ) : (

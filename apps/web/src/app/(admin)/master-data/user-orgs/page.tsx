@@ -22,7 +22,8 @@ import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
-import { SearchInput, SelectField, Panel } from "@/components/design-system";
+import { SearchInput, SelectField, Panel, DataTableV3 } from "@/components/design-system";
+import type { ColumnV3 } from "@/components/design-system";
 
 // ── Auth helper ──────────────────────────────────────────────────────────────
 const tok = () =>
@@ -529,7 +530,7 @@ export default function UserOrgsPage() {
         {/* ══════════════════════════════════════════════════════
             右栏：组织权限面板
         ══════════════════════════════════════════════════════ */}
-        <div className="rounded-2xl border border-border bg-bg-card shadow-card flex flex-col overflow-hidden">
+        <Panel bodyPadding={false} style={{ minHeight: 600 }}>
           {activeUser ? (
             <>
               {/* 面板 Header */}
@@ -702,190 +703,169 @@ export default function UserOrgsPage() {
                     )}
                   </div>
                 ) : (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border bg-bg-muted/40">
-                        {[
-                          "组织名称",
-                          "类型",
-                          "数据范围",
-                          "主组织",
-                          "操作",
-                        ].map(h => (
-                          <th
-                            key={h}
-                            className="px-4 py-2.5 text-left text-xs font-semibold text-text-muted whitespace-nowrap"
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {userOrgs.map((uo, i) => {
-                        const scopeItem =
-                          SCOPE_LEVELS.find(
-                            s => s.value === uo.dataScopeLevel,
-                          ) ?? SCOPE_LEVELS[2];
-                        const isMutating = mutatingId === uo.id;
-                        return (
-                          <tr
-                            key={uo.id}
-                            className={cn(
-                              "border-b border-border/30 hover:bg-bg-muted/20 transition-colors",
-                              i === userOrgs.length - 1 ? "border-b-0" : "",
-                              uo.isPrimary ? "bg-brand/3" : "",
-                            )}
-                          >
-                            {/* 组织名称 */}
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <Building2
-                                  size={13}
-                                  className="text-text-dim flex-shrink-0"
-                                />
-                                <div>
-                                  <div className="font-semibold text-text">
-                                    {uo.orgName}
-                                  </div>
-                                  <div className="text-xs font-mono text-text-dim">
-                                    {uo.orgCode}
-                                  </div>
-                                </div>
+                  <DataTableV3
+                    rows={userOrgs}
+                    rowKey={(uo: UserOrg) => uo.id}
+                    columns={[
+                      {
+                        key: "orgName",
+                        title: "组织名称",
+                        render: (uo: UserOrg) => (
+                          <div className="flex items-center gap-2">
+                            <Building2
+                              size={13}
+                              className="text-text-dim flex-shrink-0"
+                            />
+                            <div>
+                              <div className="font-semibold text-text">
+                                {uo.orgName}
                               </div>
-                            </td>
-
-                            {/* 类型 */}
-                            <td className="px-4 py-3">
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-bg-muted text-text-muted border border-border">
-                                {ORG_TYPE_LABEL[uo.orgType] ?? uo.orgType}
-                              </span>
-                            </td>
-
-                            {/* 数据范围等级 */}
-                            <td className="px-4 py-3">
-                              {canEdit ? (
-                                <select
-                                  value={uo.dataScopeLevel}
-                                  disabled={isMutating}
-                                  onChange={e =>
-                                    handleUpdateScope(
-                                      uo,
-                                      e.target.value as ScopeLevel,
-                                    )
-                                  }
-                                  className={cn(
-                                    "text-xs px-2 py-1 rounded-lg border cursor-pointer",
-                                    "bg-bg-page text-text outline-none",
-                                    "disabled:opacity-50 disabled:cursor-not-allowed",
-                                    SCOPE_COLOR[uo.dataScopeLevel],
-                                  )}
-                                >
-                                  {SCOPE_LEVELS.map(s => (
-                                    <option key={s.value} value={s.value}>
-                                      {s.label}（{s.value}）
-                                    </option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <span
-                                  className={cn(
-                                    "text-xs px-2 py-0.5 rounded-full border font-semibold",
-                                    SCOPE_COLOR[uo.dataScopeLevel],
-                                  )}
-                                >
-                                  {scopeItem.label}
-                                </span>
+                              <div className="text-xs font-mono text-text-dim">
+                                {uo.orgCode}
+                              </div>
+                            </div>
+                          </div>
+                        ),
+                      },
+                      {
+                        key: "orgType",
+                        title: "类型",
+                        render: (uo: UserOrg) => (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-bg-muted text-text-muted border border-border">
+                            {ORG_TYPE_LABEL[uo.orgType] ?? uo.orgType}
+                          </span>
+                        ),
+                      },
+                      {
+                        key: "dataScopeLevel",
+                        title: "数据范围",
+                        render: (uo: UserOrg) => {
+                          const scopeItem =
+                            SCOPE_LEVELS.find(
+                              s => s.value === uo.dataScopeLevel,
+                            ) ?? SCOPE_LEVELS[2];
+                          const isMutating = mutatingId === uo.id;
+                          return canEdit ? (
+                            <select
+                              value={uo.dataScopeLevel}
+                              disabled={isMutating}
+                              onChange={e =>
+                                handleUpdateScope(
+                                  uo,
+                                  e.target.value as ScopeLevel,
+                                )
+                              }
+                              className={cn(
+                                "text-xs px-2 py-1 rounded-lg border cursor-pointer",
+                                "bg-bg-page text-text outline-none",
+                                "disabled:opacity-50 disabled:cursor-not-allowed",
+                                SCOPE_COLOR[uo.dataScopeLevel],
                               )}
-                            </td>
-
-                            {/* 主组织 */}
-                            <td className="px-4 py-3">
-                              {canEdit ? (
-                                <button
-                                  onClick={() => handleTogglePrimary(uo)}
-                                  disabled={isMutating}
-                                  title={
-                                    uo.isPrimary
-                                      ? "取消主组织"
-                                      : "设为主组织"
-                                  }
-                                  className={cn(
-                                    "flex items-center gap-1 text-xs px-2 py-1 rounded-lg border",
-                                    "transition-colors cursor-pointer disabled:opacity-50",
-                                    uo.isPrimary
-                                      ? "text-warning bg-warning/10 border-warning/30 hover:bg-warning/20"
-                                      : "text-text-dim bg-bg-muted border-border hover:text-warning hover:bg-warning/10",
-                                  )}
-                                >
-                                  {uo.isPrimary ? (
-                                    <>
-                                      <Star size={11} className="fill-current" />
-                                      主组织
-                                    </>
-                                  ) : (
-                                    <>
-                                      <StarOff size={11} />
-                                      设为主
-                                    </>
-                                  )}
-                                </button>
-                              ) : (
-                                <span
-                                  className={cn(
-                                    "flex items-center gap-1 text-xs",
-                                    uo.isPrimary
-                                      ? "text-warning font-semibold"
-                                      : "text-text-dim",
-                                  )}
-                                >
-                                  {uo.isPrimary ? (
-                                    <>
-                                      <Star
-                                        size={11}
-                                        className="fill-current"
-                                      />
-                                      主组织
-                                    </>
-                                  ) : (
-                                    "—"
-                                  )}
-                                </span>
+                            >
+                              {SCOPE_LEVELS.map(s => (
+                                <option key={s.value} value={s.value}>
+                                  {s.label}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span
+                              className={cn(
+                                "text-xs px-2 py-0.5 rounded-full border font-semibold",
+                                SCOPE_COLOR[uo.dataScopeLevel],
                               )}
-                            </td>
-
-                            {/* 操作 */}
-                            <td className="px-4 py-3">
-                              {canDelete ? (
-                                <button
-                                  onClick={() => handleRemove(uo)}
-                                  disabled={isMutating}
-                                  className={cn(
-                                    "flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border",
-                                    "border-danger/30 text-danger bg-danger/5",
-                                    "hover:bg-danger/10 disabled:opacity-50",
-                                    "transition-colors cursor-pointer",
-                                  )}
-                                >
-                                  {isMutating ? (
-                                    <RefreshCw
-                                      size={11}
-                                      className="animate-spin"
-                                    />
-                                  ) : (
-                                    <Trash2 size={11} />
-                                  )}
-                                  移除
-                                </button>
-                              ) : (
-                                <span className="text-xs text-text-dim">—</span>
+                            >
+                              {scopeItem.label}
+                            </span>
+                          );
+                        },
+                      },
+                      {
+                        key: "isPrimary",
+                        title: "主组织",
+                        render: (uo: UserOrg) => {
+                          const isMutating = mutatingId === uo.id;
+                          return canEdit ? (
+                            <button
+                              onClick={() => handleTogglePrimary(uo)}
+                              disabled={isMutating}
+                              title={
+                                uo.isPrimary ? "取消主组织" : "设为主组织"
+                              }
+                              className={cn(
+                                "flex items-center gap-1 text-xs px-2 py-1 rounded-lg border",
+                                "transition-colors cursor-pointer disabled:opacity-50",
+                                uo.isPrimary
+                                  ? "text-warning bg-warning/10 border-warning/30 hover:bg-warning/20"
+                                  : "text-text-dim bg-bg-muted border-border hover:text-warning hover:bg-warning/10",
                               )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                            >
+                              {uo.isPrimary ? (
+                                <>
+                                  <Star size={11} className="fill-current" />
+                                  主组织
+                                </>
+                              ) : (
+                                <>
+                                  <StarOff size={11} />
+                                  设为主
+                                </>
+                              )}
+                            </button>
+                          ) : (
+                            <span
+                              className={cn(
+                                "flex items-center gap-1 text-xs",
+                                uo.isPrimary
+                                  ? "text-warning font-semibold"
+                                  : "text-text-dim",
+                              )}
+                            >
+                              {uo.isPrimary ? (
+                                <>
+                                  <Star size={11} className="fill-current" />
+                                  主组织
+                                </>
+                              ) : (
+                                "—"
+                              )}
+                            </span>
+                          );
+                        },
+                      },
+                      {
+                        key: "op",
+                        title: "操作",
+                        render: (uo: UserOrg) => {
+                          const isMutating = mutatingId === uo.id;
+                          return canDelete ? (
+                            <button
+                              onClick={() => handleRemove(uo)}
+                              disabled={isMutating}
+                              className={cn(
+                                "flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border",
+                                "border-danger/30 text-danger bg-danger/5",
+                                "hover:bg-danger/10 disabled:opacity-50",
+                                "transition-colors cursor-pointer",
+                              )}
+                            >
+                              {isMutating ? (
+                                <RefreshCw
+                                  size={11}
+                                  className="animate-spin"
+                                />
+                              ) : (
+                                <Trash2 size={11} />
+                              )}
+                              移除
+                            </button>
+                          ) : (
+                            <span className="text-xs text-text-dim">—</span>
+                          );
+                        },
+                      },
+                    ] as ColumnV3<UserOrg>[]}
+                  />
                 )}
               </div>
 
@@ -927,7 +907,7 @@ export default function UserOrgsPage() {
               </div>
             </div>
           )}
-        </div>
+        </Panel>
       </div>
     </div>
   );

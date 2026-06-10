@@ -5,6 +5,7 @@ import PageHeader from '@/components/PageHeader';
 import request from '@/lib/api-client';
 import { usePermission } from '@/hooks/usePermission';
 import { dictTypeLabel } from '@/lib/dict-type-labels';
+import { Panel } from '@/components/design-system';
 import { secondaryActionButton } from '@/components/design-system/cockpit-styles';
 import {
   RefreshCw, AlertTriangle, CheckCircle, Network, Building, BookOpen,
@@ -192,15 +193,18 @@ export default function GovernanceDashboardPage() {
 
       {/* 字典覆盖率明细 */}
       {dict && (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 20, marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <BookOpen size={16} />
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>字典覆盖率明细</h2>
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-secondary)' }}>
+        <Panel
+          title="字典覆盖率明细"
+          icon={<BookOpen size={16} />}
+          extra={
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
               {dict.activeDictTypes} / {dict.totalKnownDictTypes} 已植入活跃 ·
               覆盖率 {Math.round(dict.coverageRate * 100)}%
             </span>
-          </div>
+          }
+          bodyPadding={20}
+          style={{ marginBottom: 16 }}
+        >
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
             {dict.details.map(d => {
               const color = d.status === 'ACTIVE' ? 'var(--status-success)' : d.status === 'EMPTY' ? 'var(--status-warning)' : 'var(--status-danger)';
@@ -223,12 +227,11 @@ export default function GovernanceDashboardPage() {
               <strong>缺失字典（{dict.missingDictTypes.length}）：</strong> {dict.missingDictTypes.map(dictTypeLabel).join('、')}
             </div>
           )}
-        </div>
+        </Panel>
       )}
 
       {/* 入口链接 */}
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, marginBottom: 12 }}>相关治理入口</h2>
+      <Panel title="相关治理入口" bodyPadding={20}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
           {[
             { href: '/master-data/organizations', label: '组织架构', icon: Network },
@@ -252,7 +255,7 @@ export default function GovernanceDashboardPage() {
             );
           })}
         </div>
-      </div>
+      </Panel>
     </div>
   );
 }

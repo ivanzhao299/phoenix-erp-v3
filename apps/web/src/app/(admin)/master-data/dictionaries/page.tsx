@@ -14,13 +14,14 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  BookOpen, Search, RefreshCw, Network, Wallet, ShoppingCart,
+  BookOpen, RefreshCw, Network, Wallet, ShoppingCart,
   Warehouse, Factory, GitBranch, Layers, CheckCircle2, Clock,
   Snowflake, Database,
 } from "lucide-react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
+import { Panel, SearchInput } from "@/components/design-system";
 import { dictTypeLabel as typeLabel } from "@/lib/dict-type-labels";
 import { secondaryActionButton } from "@/components/design-system/cockpit-styles";
 import s from '@/components/ui/admin-ui.module.css'; // G29-B
@@ -221,11 +222,9 @@ export default function MdDictionariesPage() {
 
       {/* 搜索 + 列表头 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-        <div style={{ position: 'relative', flex: '0 0 320px' }}>
-          <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="搜索字典码 / 中文标签 / 业务名"
-            style={{ width: '100%', padding: '8px 12px 8px 32px', borderRadius: 8, fontSize: 13, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', outline: 'none' }} />
+        <div style={{ flex: '0 0 320px' }}>
+          <SearchInput value={search} onChange={setSearch}
+            placeholder="搜索字典码 / 中文标签 / 业务名" />
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
           共 <strong style={{ color: 'var(--text-primary)' }}>{filtered.length}</strong> 条 ·
@@ -256,13 +255,17 @@ export default function MdDictionariesPage() {
             const bizLabel = typeLabel(type);
             const cat = classify(type);
             return (
-              <section key={type} style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-card)' }}>
-                <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-muted)' }}>
-                  <cat.icon size={14} color={cat.accent} />
-                  <strong style={{ fontSize: 13, color: 'var(--text-primary)' }}>{bizLabel}</strong>
-                  <code style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{type}</code>
-                  <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-secondary)' }}>{rows.length} 项</span>
-                </header>
+              <Panel key={type}
+                icon={<cat.icon size={14} color={cat.accent} />}
+                title={
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    {bizLabel}
+                    <code style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{type}</code>
+                  </span>
+                }
+                extra={<span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{rows.length} 项</span>}
+                bodyPadding={false}
+              >
                 <table className={s.table}>
                   <thead>
                     <tr style={{ color: 'var(--text-secondary)' }}>
@@ -288,7 +291,7 @@ export default function MdDictionariesPage() {
                     })}
                   </tbody>
                 </table>
-              </section>
+              </Panel>
             );
           })}
         </div>

@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X, Link2, MoreHorizontal } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import DictSelect from "@/components/shared-selectors/DictSelect";  // G66 字段挂字典
-import { EmptyState, LoadingSkeleton } from "@/components/design-system";
+import { EmptyState, LoadingSkeleton, SelectField } from "@/components/design-system";
 import {
   primaryActionButton, secondaryActionButton, inputField, formLabel, inlineBadge,
   drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
@@ -123,11 +123,16 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
   return (
     <div>
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-          className="bg-bg-muted border border-border text-text" style={{ padding: "7px 12px", borderRadius: 7, fontSize: 13 }}>
-          <option value="">全部状态</option>
-          {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </select>
+        <div style={{ width: 150 }}>
+          <SelectField
+            value={filterStatus}
+            onChange={setFilterStatus}
+            options={Object.entries(STATUS_LABEL).map(([k, v]) => ({ value: k, label: v.label }))}
+            emptyLabel="全部状态"
+            allowEmpty
+            filter
+          />
+        </div>
         <button onClick={load} disabled={loading} className="bg-bg-muted border border-border text-text-muted"
           style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 7, fontSize: 13, cursor: "pointer" }}>
           <RefreshCw size={13} className={loading ? "animate-spin" : ""} /> 刷新
