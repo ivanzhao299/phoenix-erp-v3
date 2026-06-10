@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
+import { dictTypeLabel } from "@/lib/dict-type-labels";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
@@ -28,7 +29,6 @@ export default function DictPage() {
   const TYPE_LABEL = useMemo<Record<string,string>>(() => ({
     // 包装
     PKG_ANOMALY_REASON: t("dict.PKG_ANOMALY_REASON","包装异常原因"),
-    PKG_EGG_GRADE:      t("dict.PKG_EGG_GRADE","鸡蛋等级（已弃用·见产品等级档案）"),
     PKG_EGG_DEFECT:     t("dict.PKG_EGG_DEFECT","蛋品缺陷类型"),
     PKG_PACK_LINE:      t("dict.PKG_PACK_LINE","包装产线"),
     PKG_PACK_SPEC:      t("dict.PKG_PACK_SPEC","包装规格配置"),
@@ -173,8 +173,7 @@ export default function DictPage() {
     if (!edit && !form.dict_code.trim()) { toast.error(t("ui.字典代码不能为空","字典代码不能为空")); return; }
 
     let config_json: string|undefined;
-    if (form.dict_type==="PKG_EGG_GRADE") config_json = JSON.stringify({ code:form.cfg?.code||"", nameZh:form.label_zh, weightRange:form.cfg?.weightRange||"—", saleable:form.cfg?.saleable!==false, productCode:form.cfg?.productCode||"", nameEn:form.label_en, nameLo:form.label_lo });
-    else if (form.dict_type==="PKG_PACK_SPEC") config_json = JSON.stringify({ name:form.label_zh, capacity:Number(form.cfg?.capacity)||0, unit:form.cfg?.unit||"", requireBoxCode:form.cfg?.requireBoxCode!==false });
+    if (form.dict_type==="PKG_PACK_SPEC") config_json = JSON.stringify({ name:form.label_zh, capacity:Number(form.cfg?.capacity)||0, unit:form.cfg?.unit||"", requireBoxCode:form.cfg?.requireBoxCode!==false });
     else if (form.dict_type==="PKG_SHIFT") config_json = JSON.stringify({ timeRange:form.cfg?.timeRange||"" });
 
     const payload: Record<string, unknown> = { name:form.label_zh, dict_label_zh:form.label_zh, dict_label_lo:form.label_lo, dict_label_en:form.label_en, dict_type:form.dict_type, sort_no:Number(form.sort_no)||0, status:"ACTIVE", ...(config_json!==undefined?{config_json}:{}) };
@@ -204,7 +203,7 @@ export default function DictPage() {
   const fc = (k: string, v: unknown) => setForm(p=>({...p, cfg:{...p.cfg,[k]:v}}));
 
   const selColor = selected ? typeColor(selected) : "var(--color-accent)";
-  const selLabel = selected ? (TYPE_LABEL[selected]||selected) : "";
+  const selLabel = selected ? (TYPE_LABEL[selected]||dictTypeLabel(selected)) : "";
 
   return (
     <div className="animate-fade-in" style={{ display:"flex", flexDirection:"column", height:"100%" }}>
@@ -252,7 +251,7 @@ export default function DictPage() {
             )}
             {groups.map(([tp, items]) => {
               const color = typeColor(tp);
-              const label = TYPE_LABEL[tp]||tp;
+              const label = TYPE_LABEL[tp]||dictTypeLabel(tp);
               const isSel = tp === selected;
               return (
                 <button type="button" key={tp} onClick={()=>setSelected(tp)}
@@ -325,17 +324,15 @@ export default function DictPage() {
                 ) : (
                   <table className={s.table} style={{ tableLayout:"fixed" }}>
                     <colgroup>
-                      <col style={{ width:200 }}/>
-                      <col style={{ width:160 }}/>
-                      <col style={{ width:180 }}/>
-                      <col style={{ width:200 }}/>
+                      <col style={{ width:220 }}/>
+                      <col style={{ width:300 }}/>
                       <col style={{ width:64 }}/>
-                      <col style={{ width:72 }}/>
+                      <col style={{ width:80 }}/>
                       <col style={{ width:88 }}/>
                     </colgroup>
                     <thead>
                       <tr>
-                        {[t("ui.字典代码","字典代码"), t("ui.中文名称","中文名称"), t("ui.老挝语","老挝语"), t("ui.英文","英文"), t("ui.排序","排序"), t("common.status","状态"), t("common.operation","操作")].map(h=>(
+                        {[t("ui.字典代码","字典代码"), t("ui.名称","名称"), t("ui.排序","排序"), t("common.status","状态"), t("common.operation","操作")].map(h=>(
                           <th key={h}>{h}</th>
                         ))}
                       </tr>
@@ -349,8 +346,6 @@ export default function DictPage() {
                             </span>
                           </td>
                           <td className={u.fw600}>{r.dict_label_zh||r.name||"—"}</td>
-                          <td style={{ fontSize:12, opacity:r.dict_label_lo?1:0.35 }}>{r.dict_label_lo || t("ui.未填","未填")}</td>
-                          <td style={{ fontSize:12, opacity:r.dict_label_en?1:0.35 }}>{r.dict_label_en || t("ui.未填","未填")}</td>
                           <td style={{ fontWeight:600, fontSize:12 }}>{r.sort_no||0}</td>
                           <td>
                             <span className={`${s.badge} ${r.status==="ACTIVE"?s.badgeSuccess:s.badgeDanger}`}>
@@ -409,20 +404,10 @@ export default function DictPage() {
               style={{ fontFamily:"monospace", opacity:edit?0.6:1 }}/>
             {!edit && <div style={{ fontSize:11, color:"var(--text-secondary)", marginTop:4 }}>{t("ui.输入已有类型名可归入该分组输入新类型名自动创建新分组","输入已有类型名可归入该分组，输入新类型名自动创建新分组")}</div>}
           </div>
-          <div className={s.formSection}>{t("ui.多语言名称","多语言名称")}</div>
+          <div className={s.formSection}>{t("ui.名称","名称")}</div>
           <div className={s.field}>
-            <label className={s.lbl}>🇨🇳 {t("ui.中文名称","中文名称")} <span style={{color:"var(--status-danger)"}}>*</span></label>
+            <label className={s.lbl}>{t("ui.中文名称","中文名称")} <span style={{color:"var(--status-danger)"}}>*</span></label>
             <input value={form.label_zh} onChange={e=>f("label_zh",e.target.value)} placeholder="如 机器原因" className={s.inp}/>
-          </div>
-          <div className={s.fieldRow}>
-            <div>
-              <label className={s.lbl}>🇱🇦 {t("ui.老挝语","老挝语")}</label>
-              <input value={form.label_lo} onChange={e=>f("label_lo",e.target.value)} placeholder="如 ເຫດຜົນ" className={s.inp}/>
-            </div>
-            <div>
-              <label className={s.lbl}>🇬🇧 {t("ui.英文","英文")}</label>
-              <input value={form.label_en} onChange={e=>f("label_en",e.target.value)} placeholder="如 Machine Fault" className={s.inp}/>
-            </div>
           </div>
           <div className={s.field}>
             <label className={s.lbl}>🔢 {t("ui.排序值","排序值")}</label>
@@ -444,21 +429,6 @@ export default function DictPage() {
               />
               <div style={{ fontSize:11, color:"var(--text-secondary)", marginTop:4 }}>
                 {t("ui.班次时间格式说明","格式：HH:MM-HH:MM，如 08:00-14:00 或 22:00-06:00（跨夜）")}
-              </div>
-            </div>
-          </>}
-
-          {form.dict_type==="PKG_EGG_GRADE" && <>
-            <div style={{ height:1, background:"var(--border)", margin:"4px 0" }}/>
-            <div style={{ fontSize:12, fontWeight:700, color:"var(--text-secondary)" }}>{t("ui.扩展配置鸡蛋等级","扩展配置（鸡蛋等级）")}</div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-              <div><label style={{ display:"block", fontSize:12, marginBottom:4, color:"var(--text-primary)" }}>{t("ui.内部编码","内部编码")}</label><input value={form.cfg?.code||""} onChange={e=>fc("code",e.target.value)} className={s.inp}/></div>
-              <div><label style={{ display:"block", fontSize:12, marginBottom:4, color:"var(--text-primary)" }}>{t("ui.重量范围","重量范围")}</label><input value={form.cfg?.weightRange||""} onChange={e=>fc("weightRange",e.target.value)} placeholder={t("ui.重量范围示例","如 59-66g")} className={s.inp}/></div>
-              <div><label style={{ display:"block", fontSize:12, marginBottom:4, color:"var(--text-primary)" }}>{t("ui.关联产品号","关联产品号")}</label><input value={form.cfg?.productCode||""} onChange={e=>fc("productCode",e.target.value)} placeholder="PRD-EGG-1" className={s.inp}/></div>
-              <div style={{ display:"flex", alignItems:"flex-end", paddingBottom:6 }}>
-                <label style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, cursor:"pointer", color:"var(--text-primary)" }}>
-                  <input type="checkbox" checked={form.cfg?.saleable!==false} onChange={e=>fc("saleable",e.target.checked)}/> {t("ui.支持正常售卖","支持正常售卖")}
-                </label>
               </div>
             </div>
           </>}
