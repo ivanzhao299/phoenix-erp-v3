@@ -247,9 +247,11 @@ export default function UserOrgsPage() {
   }, [activeUser, loadUserOrgs]);
 
   // ── 过滤用户 ──────────────────────────────────────────────────────────────
-  const roles = useMemo(() => {
-    const set = new Set(users.map(u => u.role).filter(Boolean));
-    return Array.from(set);
+  // 角色筛选项：code→中文名（取自用户 roleNameZh），下拉显示中文而非英文角色码
+  const roleOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    users.forEach(u => { if (u.role) map.set(u.role, u.roleNameZh || u.role); });
+    return Array.from(map, ([value, label]) => ({ value, label }));
   }, [users]);
 
   const filteredUsers = useMemo(() =>
@@ -421,11 +423,11 @@ export default function UserOrgsPage() {
           {/* 搜索 + 角色筛选 */}
           <div className="px-3 pt-3 pb-2 flex flex-col gap-2">
             <SearchInput value={search} onChange={setSearch} placeholder="搜索姓名 / 账号…" />
-            {roles.length > 0 && (
+            {roleOptions.length > 0 && (
               <SelectField
                 value={roleFilter}
                 onChange={setRoleFilter}
-                options={roles.map(r => ({ value: r, label: r }))}
+                options={roleOptions}
                 emptyLabel="全部角色"
                 allowEmpty
                 filter
