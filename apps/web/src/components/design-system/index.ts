@@ -37,6 +37,8 @@ export type { DataTableV3Props, ColumnV3, DataTableV3Props as PresentationalTabl
 // forms
 export { FormField, fieldInputStyle } from './forms/FormField';
 export type { FormFieldProps } from './forms/FormField';
+export { SearchInput } from './forms/SearchInput';
+export type { SearchInputProps } from './forms/SearchInput';
 export { AmountInput, CurrencyInput } from './forms/AmountInput';
 export type { AmountInputProps } from './forms/AmountInput';
 export { DateRangePicker } from './forms/DateRangePicker';

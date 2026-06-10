@@ -22,6 +22,7 @@ import { usePermission } from "@/hooks/usePermission";
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
+import { SearchInput } from "@/components/design-system";
 
 // ── Auth helper ──────────────────────────────────────────────────────────────
 const tok = () =>
@@ -427,22 +428,7 @@ export default function UserOrgsPage() {
 
           {/* 搜索 + 角色筛选 */}
           <div className="px-3 pt-3 pb-2 flex flex-col gap-2">
-            <div className="relative">
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim pointer-events-none"
-              />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="搜索姓名 / 账号…"
-                className={cn(
-                  "w-full pl-9 pr-3 py-3 text-[13px] rounded-lg outline-none",
-                  "bg-bg-muted border border-border text-text",
-                  "placeholder:text-text-dim focus:border-brand/50 transition-colors",
-                )}
-              />
-            </div>
+            <SearchInput value={search} onChange={setSearch} placeholder="搜索姓名 / 账号…" />
             {roles.length > 0 && (
               <select
                 value={roleFilter}
