@@ -275,8 +275,8 @@ export default function MdDictionariesPage() {
           <strong style={{ color: 'var(--text-primary)', marginLeft: 4 }}>{grouped.length}</strong> 类
         </div>
         <div style={{ flex: 1 }} />
-        <Link href="/settings/dict" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, background: 'var(--text-secondary)', color: 'var(--text-on-dark)', fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>
-          字典管理 →
+        <Link href="/settings/dict" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, background: 'var(--color-primary)', color: 'var(--text-on-dark)', fontSize: 13, textDecoration: 'none', fontWeight: 600 }}>
+          ✎ 编辑字典 →
         </Link>
       </div>
 

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
+import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -208,13 +209,18 @@ export default function DictPage() {
   return (
     <div className="animate-fade-in" style={{ display:"flex", flexDirection:"column", height:"100%" }}>
       <PageHeader
-        title={t("ui.数据字典管理","数据字典管理")}
+        title={t("ui.数据字典编辑器","数据字典编辑器")}
         subtitle={t("ui.管理系统数据字典配置项","管理系统数据字典配置项")}
-        breadcrumb={[t("ui.系统设置","系统设置"), t("ui.数据字典","数据字典")]}
+        breadcrumb={[t("ui.主数据中心","主数据中心"), t("ui.数据字典","数据字典"), t("ui.编辑器","编辑器")]}
         actions={
-          <button type="button" onClick={()=>openNew()} className={s.btnPrimaryGrad}>
-            <Plus size={15}/> {t("ui.新建字典条目","新建字典条目")}
-          </button>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <Link href="/master-data/dictionaries" style={{ display:"flex", alignItems:"center", gap:4, padding:"7px 12px", borderRadius:8, border:"1px solid var(--border)", background:"var(--bg-card)", color:"var(--text-secondary)", fontSize:13, textDecoration:"none" }}>
+              ← {t("ui.字典中心","字典中心")}
+            </Link>
+            <button type="button" onClick={()=>openNew()} className={s.btnPrimaryGrad}>
+              <Plus size={15}/> {t("ui.新建字典条目","新建字典条目")}
+            </button>
+          </div>
         }
       />
 
