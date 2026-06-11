@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
-import { Plus, RefreshCw, FileText, CheckCircle, XCircle, Trash2, Send, Eye, Clock, AlertTriangle, ChevronLeft, ChevronRight, Pencil, DollarSign, CreditCard, PlayCircle } from "lucide-react";
+import Link from "next/link";
+import { Plus, RefreshCw, FileText, ClipboardCheck, Trash2, Send, Eye, Clock, AlertTriangle, ChevronLeft, ChevronRight, Pencil, DollarSign, CreditCard, PlayCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
@@ -241,10 +242,8 @@ export default function PaymentsPage() {
   const [detailData, setDetailData] = useState<Payment | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  // 操作弹窗
-  const [approveOpen, setApproveOpen] = useState(false);
+  // 操作弹窗（审批通过/驳回已收口至集团审批引擎，见 /workflow/todos）
   const [payOpen, setPayOpen] = useState(false);
-  const [rejectOpen, setRejectOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [actionTarget, setActionTarget] = useState<Payment | null>(null);
   const [actionComment, setActionComment] = useState("");
@@ -488,20 +487,10 @@ export default function PaymentsPage() {
   }
 
   // 操作弹窗
-  function openApprove(row: Payment) {
-    setActionTarget(row);
-    setActionComment("");
-    setApproveOpen(true);
-  }
   function openPay(row: Payment) {
     setActionTarget(row);
     setActionComment("");
     setPayOpen(true);
-  }
-  function openReject(row: Payment) {
-    setActionTarget(row);
-    setActionComment("");
-    setRejectOpen(true);
   }
   function openCancel(row: Payment) {
     setActionTarget(row);
@@ -524,9 +513,7 @@ export default function PaymentsPage() {
         throw new Error(e.message ?? "操作失败");
       }
       toast.success(msg);
-      setApproveOpen(false);
       setPayOpen(false);
-      setRejectOpen(false);
       setCancelOpen(false);
       load(page);
     } catch (e: unknown) {
@@ -695,17 +682,14 @@ export default function PaymentsPage() {
                             <Send size={13} />
                           </button>
                         </>}
-                      {row.status === "SUBMITTED" && <>
-                          <button className={s.btnIcon} title="审批通过" style={{
-                      borderColor: "var(--status-success)",
-                      color: "var(--status-success)"
-                    }} onClick={() => openApprove(row)}>
-                            <CheckCircle size={13} />
-                          </button>
-                          <button className={s.btnIconDanger} title="拒绝" onClick={() => openReject(row)}>
-                            <XCircle size={13} />
-                          </button>
-                        </>}
+                      {row.status === "SUBMITTED" && <Link href="/workflow/todos" className={s.btnIcon} title="审批请前往『工作流·待办』" style={{
+                      borderColor: "var(--status-info, var(--status-success))",
+                      color: "var(--status-info, var(--status-success))",
+                      display: "inline-flex",
+                      alignItems: "center"
+                    }}>
+                          <ClipboardCheck size={13} />
+                        </Link>}
                       {row.status === "APPROVED" && <button className={s.btnIcon} title="确认付款" style={{
                     borderColor: "var(--color-purple-500)",
                     color: "var(--color-purple-500)"
@@ -1290,24 +1274,7 @@ export default function PaymentsPage() {
         </div>}
 
       {/* ── 操作弹窗 ──────────────────────────────────────────────────────────── */}
-      <SimpleModal open={approveOpen} onClose={() => setApproveOpen(false)} title="审批通过">
-        <p style={{
-        fontSize: 13,
-        margin: "8px 0"
-      }}>确认审批通过 <strong>{actionTarget?.payNo}</strong>？</p>
-        <textarea className={s.textarea} rows={2} placeholder="审批意见（可选）" value={actionComment} onChange={e => setActionComment(e.target.value)} />
-        <div style={{
-        display: "flex",
-        gap: 8,
-        justifyContent: "flex-end",
-        marginTop: 12
-      }}>
-          <button type="button" className={s.btnSecondary} onClick={() => setApproveOpen(false)}>取消</button>
-          <button type="button" className={s.btnPrimary} disabled={actionSubmitting} onClick={() => execAction("approve", actionComment, "审批通过")}>
-            {actionSubmitting ? "处理中…" : "确认通过"}
-          </button>
-        </div>
-      </SimpleModal>
+      {/* 审批通过/驳回已收口至集团审批引擎，请前往『工作流·待办』(/workflow/todos) 处理 */}
 
       <SimpleModal open={payOpen} onClose={() => setPayOpen(false)} title="确认付款">
         <p style={{
@@ -1339,21 +1306,6 @@ export default function PaymentsPage() {
           background: "var(--color-purple-500)"
         }} onClick={() => execAction("pay", actionComment, "付款执行成功，应付已核销")}>
             {actionSubmitting ? "处理中…" : "确认付款"}
-          </button>
-        </div>
-      </SimpleModal>
-
-      <SimpleModal open={rejectOpen} onClose={() => setRejectOpen(false)} title="拒绝付款审批">
-        <textarea className={s.textarea} rows={3} placeholder="拒绝原因（必填）" value={actionComment} onChange={e => setActionComment(e.target.value)} />
-        <div style={{
-        display: "flex",
-        gap: 8,
-        justifyContent: "flex-end",
-        marginTop: 12
-      }}>
-          <button type="button" className={s.btnSecondary} onClick={() => setRejectOpen(false)}>取消</button>
-          <button type="button" className={s.btnDanger} disabled={actionSubmitting || !actionComment.trim()} onClick={() => execAction("cancel", actionComment, "已取消（审批拒绝）")}>
-            {actionSubmitting ? "处理中…" : "确认拒绝"}
           </button>
         </div>
       </SimpleModal>

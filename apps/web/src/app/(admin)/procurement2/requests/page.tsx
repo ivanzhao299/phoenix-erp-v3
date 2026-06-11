@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import u from "@/styles/uix-utils.module.css";
-import { Plus, RefreshCw, FileText, CheckCircle, XCircle, ChevronLeft, ChevronRight, Pencil, Trash2, Send, Eye, Clock, AlertTriangle, ArrowRight } from "lucide-react";
+import { Plus, RefreshCw, FileText, ClipboardCheck, ChevronLeft, ChevronRight, Pencil, Trash2, Send, Eye, Clock, ArrowRight } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
@@ -234,8 +235,7 @@ export default function PurchaseRequestsPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailData, setDetailData] = useState<PurchaseRequest | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [approveOpen, setApproveOpen] = useState(false);
-  const [rejectOpen, setRejectOpen] = useState(false);
+  // 审批通过/驳回已收口至集团审批引擎，见 /workflow/todos
   const [cancelOpen, setCancelOpen] = useState(false);
   const [actionTarget, setActionTarget] = useState<PurchaseRequest | null>(null);
   const [actionComment, setActionComment] = useState("");
@@ -477,17 +477,6 @@ export default function PurchaseRequestsPage() {
     }
   }
 
-  // 审批操作
-  function openApprove(row: PurchaseRequest) {
-    setActionTarget(row);
-    setActionComment("");
-    setApproveOpen(true);
-  }
-  function openReject(row: PurchaseRequest) {
-    setActionTarget(row);
-    setActionComment("");
-    setRejectOpen(true);
-  }
   function openCancel(row: PurchaseRequest) {
     setActionTarget(row);
     setActionComment("");
@@ -509,8 +498,6 @@ export default function PurchaseRequestsPage() {
         throw new Error(e.message ?? "操作失败");
       }
       toast.success(msg);
-      setApproveOpen(false);
-      setRejectOpen(false);
       setCancelOpen(false);
       load(page);
     } catch (e: unknown) {
@@ -719,17 +706,14 @@ export default function PurchaseRequestsPage() {
                             <Send size={13} />
                           </button>
                         </>}
-                      {row.status === "SUBMITTED" && <>
-                          <button className={s.btnIcon} title="批准" style={{
-                      borderColor: "var(--status-success)",
-                      color: "var(--status-success)"
-                    }} onClick={() => openApprove(row)}>
-                            <CheckCircle size={13} />
-                          </button>
-                          <button className={s.btnIconDanger} title="拒绝" onClick={() => openReject(row)}>
-                            <XCircle size={13} />
-                          </button>
-                        </>}
+                      {row.status === "SUBMITTED" && <Link href="/workflow/todos" className={s.btnIcon} title="审批请前往『工作流·待办』" style={{
+                      borderColor: "var(--status-info, var(--status-success))",
+                      color: "var(--status-info, var(--status-success))",
+                      display: "inline-flex",
+                      alignItems: "center"
+                    }}>
+                          <ClipboardCheck size={13} />
+                        </Link>}
                       {(row.status === "DRAFT" || row.status === "SUBMITTED") && <button className={s.btnIconDanger} title="取消" onClick={() => openCancel(row)}>
                           <Trash2 size={13} />
                         </button>}
@@ -1164,53 +1148,7 @@ export default function PurchaseRequestsPage() {
           </div> : null}
       </RightDrawer>
 
-      {/* ── 批准对话框 ─────────────────────────────────────────────────────────── */}
-      <SimpleModal open={approveOpen} onClose={() => setApproveOpen(false)} title="批准采购申请">
-        <p style={{
-        fontSize: 13,
-        margin: "8px 0"
-      }}>
-          确认批准 <strong>{actionTarget?.reqNo}</strong>？
-        </p>
-        <textarea className={s.textarea} rows={2} placeholder="审批意见（可选）" value={actionComment} onChange={e => setActionComment(e.target.value)} />
-        <div style={{
-        display: "flex",
-        gap: 8,
-        justifyContent: "flex-end",
-        marginTop: 12
-      }}>
-          <button type="button" className={s.btnSecondary} onClick={() => setApproveOpen(false)}>取消</button>
-          <button type="button" className={s.btnPrimary} disabled={actionSubmitting} onClick={() => execAction("approve", actionComment, "已批准")}>
-            {actionSubmitting ? "处理中…" : "确认批准"}
-          </button>
-        </div>
-      </SimpleModal>
-
-      {/* ── 拒绝对话框 ─────────────────────────────────────────────────────────── */}
-      <SimpleModal open={rejectOpen} onClose={() => setRejectOpen(false)} title="拒绝采购申请">
-        <p style={{
-        fontSize: 13,
-        margin: "8px 0",
-        display: "flex",
-        alignItems: "center",
-        gap: 6
-      }}>
-          <AlertTriangle size={14} color="var(--status-warning)" />
-          拒绝 <strong>{actionTarget?.reqNo}</strong>，请填写原因：
-        </p>
-        <textarea className={s.textarea} rows={3} placeholder="拒绝原因（必填）" value={actionComment} onChange={e => setActionComment(e.target.value)} />
-        <div style={{
-        display: "flex",
-        gap: 8,
-        justifyContent: "flex-end",
-        marginTop: 12
-      }}>
-          <button type="button" className={s.btnSecondary} onClick={() => setRejectOpen(false)}>取消</button>
-          <button type="button" className={s.btnDanger} disabled={actionSubmitting || !actionComment.trim()} onClick={() => execAction("reject", actionComment, "已拒绝")}>
-            {actionSubmitting ? "处理中…" : "确认拒绝"}
-          </button>
-        </div>
-      </SimpleModal>
+      {/* 审批通过/驳回已收口至集团审批引擎，请前往『工作流·待办』(/workflow/todos) 处理 */}
 
       {/* ── 取消对话框 ─────────────────────────────────────────────────────────── */}
       <SimpleModal open={cancelOpen} onClose={() => setCancelOpen(false)} title="取消采购申请">

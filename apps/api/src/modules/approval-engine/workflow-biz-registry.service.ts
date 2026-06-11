@@ -1,5 +1,8 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
+// G85-A：PO 审批通过 → 自动生成应付台账（onApproved 回调，类型安全复用实体）
+import { Prc2PurchaseOrderEntity } from '../procurement-v2/entities/prc2-purchase-order.entity';
+import { Prc2ApLedgerEntity } from '../procurement-v2/entities/prc2-ap-ledger.entity';
 
 // ── BizType 配置 ──────────────────────────────────────────────────────────────
 
@@ -45,6 +48,35 @@ export class WorkflowBizRegistryService implements OnModuleInit {
       approvedStatus:  'APPROVED',
       rejectedStatus:  'REJECTED',
       cancelledStatus: 'CANCELLED',
+      // G85-A：审批通过 → 自动生成应付台账（原本地 @deprecated approve() 的逻辑迁移至此，单一真相源）
+      onApproved: async (bizId: string, mgr: EntityManager) => {
+        const po = await mgr.findOne(Prc2PurchaseOrderEntity, { where: { id: bizId } });
+        if (!po) return;
+        const exist = await mgr.findOne(Prc2ApLedgerEntity, { where: { poId: bizId } });
+        if (exist) return; // 幂等：已有 AP 不重复生成
+        const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const prefix = `AP2-${today}-`;
+        await mgr.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [prefix]);
+        const row = await mgr.createQueryBuilder(Prc2ApLedgerEntity, 'a')
+          .select('MAX(a.apNo)', 'max')
+          .where('a.apNo LIKE :p', { p: `${prefix}%` })
+          .getRawOne<{ max: string | null }>();
+        let seq = 1;
+        if (row?.max) { const last = parseInt(row.max.slice(prefix.length), 10); if (!isNaN(last)) seq = last + 1; }
+        const apNo = `${prefix}${String(seq).padStart(5, '0')}`;
+        const totalAmt = Number(po.totalAmount);
+        const ap = mgr.create(Prc2ApLedgerEntity, {
+          apNo, poId: bizId, poNo: po.poNo,
+          supplierId: po.supplierId, supplierCode: po.supplierCode, supplierName: po.supplierName,
+          companyId: po.companyId, companyCode: po.companyCode, companyName: po.companyName,
+          projectId: po.projectId, projectCode: po.projectCode, projectName: po.projectName,
+          currencyCode: po.currencyCode,
+          amountOriginal: totalAmt, paidAmountOriginal: 0, balanceAmountOriginal: totalAmt,
+          exchangeRate: 1, amountBase: totalAmt, status: 'OPEN',
+          dueDate: po.payDeadline, createdBy: po.approvedBy ?? null,
+        });
+        await mgr.save(Prc2ApLedgerEntity, ap);
+      },
     });
 
     this.register('PAYMENT', {
