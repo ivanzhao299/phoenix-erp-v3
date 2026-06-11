@@ -5,6 +5,7 @@ import { Wallet, RefreshCw, AlertTriangle, CreditCard, CheckCircle, Clock, Ban }
 import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/design-system';
 import { CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
+import { currencySymbol } from '@/lib/currency';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -177,13 +178,13 @@ function PayModal({
           fontSize: 13,
           fontWeight: 700
         }}>
-            {reimb.currency_code} {fmt(reimb.reimb_amount_original)}
+            {currencySymbol(reimb.currency_code)}{fmt(reimb.reimb_amount_original)}
           </div>
           <div className="text-warning" style={{
           fontSize: 12,
           marginTop: 2
         }}>
-            CNY ¥{fmt(reimb.reimb_amount_base)}（基准货币）
+            ¥{fmt(reimb.reimb_amount_base)}（基准货币）
           </div>
         </div>
 
@@ -417,7 +418,7 @@ export default function ReimbursementsPage() {
                 <div className="text-text" style={{
               fontWeight: 800,
               fontSize: 15
-            }}>{item.currency_code} {fmt(item.reimb_amount_original)}</div>
+            }}>{currencySymbol(item.currency_code)}{fmt(item.reimb_amount_original)}</div>
                 <div className={`text-text-muted ${u.fs11}`}>{new Date(item.created_at).toLocaleDateString('zh-CN')}</div>
               </div>
               {/* 操作按钮 */}

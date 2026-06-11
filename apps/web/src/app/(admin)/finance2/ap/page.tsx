@@ -112,7 +112,7 @@ async function apiFetch<T>(url: string, opts?: RequestInit): Promise<T> {
 function fmtMoney(val: string | number | null | undefined, currency = 'CNY') {
   const n = Number(val ?? 0);
   const sym = currencySymbol(currency);
-  return `${currency} ${sym}${n.toLocaleString('zh-CN', {
+  return `${sym}${n.toLocaleString('zh-CN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   })}`;

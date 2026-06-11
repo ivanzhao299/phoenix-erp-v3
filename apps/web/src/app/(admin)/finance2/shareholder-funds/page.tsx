@@ -8,6 +8,7 @@ import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector, ShareholderSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { AttachmentUploader } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission';
+import { currencySymbol } from '@/lib/currency';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, inputFieldClass, formLabel,
@@ -486,7 +487,7 @@ function CreateSettlementModal({
           <div className="text-text-muted" style={{
           marginTop: 2
         }}>
-            未结余额：{contribution.currencyCode} {fmt(contribution.balanceAmountOriginal)}
+            未结余额：{currencySymbol(contribution.currencyCode)}{fmt(contribution.balanceAmountOriginal)}
           </div>
         </div>
         {err && <div className="bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger flex items-center gap-2 mb-3.5">
@@ -681,7 +682,7 @@ function ContributionDrawer({
                 <div style={{
               fontWeight: 800,
               fontSize: 16
-            }}>{contribution.currencyCode} {c.value}</div>
+            }}>{currencySymbol(contribution.currencyCode)}{c.value}</div>
               </div>)}
           </div>
           {contribution.expectedReturnDate && <div style={{
@@ -794,7 +795,7 @@ function ContributionDrawer({
               fontSize: 14,
               marginBottom: 4
             }}>
-                    {s.currencyCode} {fmt(s.amountOriginal)}
+                    {currencySymbol(s.currencyCode)}{fmt(s.amountOriginal)}
                   </div>
                   {s.cashAccountCode && <div className={`text-text-muted ${u.fs11}`}>现金账户：{s.cashAccountCode}</div>}
 
@@ -1196,7 +1197,7 @@ export default function ShareholderFundsPage() {
                       <div className="text-text" style={{
                 fontWeight: 700,
                 fontSize: 15
-              }}>{c.currencyCode} {fmt(c.amountOriginal)}</div>
+              }}>{currencySymbol(c.currencyCode)}{fmt(c.amountOriginal)}</div>
                     </div>
                     <div>
                       <div className={`text-text-dim ${u.fs10}`}>未结余额</div>
@@ -1204,7 +1205,7 @@ export default function ShareholderFundsPage() {
                 fontWeight: 700,
                 fontSize: 15
               }} className={Number(c.balanceAmountOriginal) > 0 ? 'text-danger' : 'text-emerald-600 dark:text-emerald-400'}>
-                        {c.currencyCode} {fmt(c.balanceAmountOriginal)}
+                        {currencySymbol(c.currencyCode)}{fmt(c.balanceAmountOriginal)}
                       </div>
                     </div>
                     {c.expectedReturnDate && <div>
@@ -1273,7 +1274,7 @@ export default function ShareholderFundsPage() {
                 fontWeight: 800,
                 fontSize: 16
               }}>
-                        {s.currencyCode} {fmt(s.amountOriginal)}
+                        {currencySymbol(s.currencyCode)}{fmt(s.amountOriginal)}
                       </div>
                     </div>
                   </div>;

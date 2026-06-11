@@ -6,6 +6,7 @@ import { ArrowLeftRight, Plus, Search, RefreshCw, X, CheckCircle, Clock, AlertCi
 import PageHeader from '@/components/PageHeader';
 import { CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { usePermission } from '@/hooks/usePermission';
+import { currencySymbol } from '@/lib/currency';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -222,7 +223,7 @@ function CreateTransferModal({
           </div>
 
           {fromAcc && <div className="bg-info/10 rounded-lg px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
-              当前余额：{fromAcc.currencyCode} {fmt(fromAcc.currentBalance)}
+              当前余额：{currencySymbol(fromAcc.currencyCode)}{fmt(fromAcc.currentBalance)}
             </div>}
 
           <div>
@@ -441,7 +442,7 @@ export default function FundTransfersPage() {
                   fontWeight: 800,
                   fontSize: 18
                 }}>
-                        {t.currencyCode} {fmt(t.amountOriginal)}
+                        {currencySymbol(t.currencyCode)}{fmt(t.amountOriginal)}
                       </div>
                     </div>
                   </div>
@@ -466,7 +467,7 @@ export default function FundTransfersPage() {
                   {t.status === 'PENDING_APPROVAL' && <button onClick={() => doAction(t.id, 'approve')} disabled={actionLoading === t.id + 'approve'} className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 disabled:opacity-50 transition-colors">
                       <CheckCircle size={12} /> 审批通过
                     </button>}
-                  {t.status === 'APPROVED' && <button onClick={() => doAction(t.id, 'execute', `确认执行转账 ${t.transferNo}？将实际划转 ${t.currencyCode} ${fmt(t.amountOriginal)}。`)} disabled={actionLoading === t.id + 'execute'} className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-emerald-200 dark:border-emerald-700 bg-success/10 text-emerald-900 dark:text-emerald-200 disabled:opacity-50 transition-colors">
+                  {t.status === 'APPROVED' && <button onClick={() => doAction(t.id, 'execute', `确认执行转账 ${t.transferNo}？将实际划转 ${currencySymbol(t.currencyCode)}${fmt(t.amountOriginal)}。`)} disabled={actionLoading === t.id + 'execute'} className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-emerald-200 dark:border-emerald-700 bg-success/10 text-emerald-900 dark:text-emerald-200 disabled:opacity-50 transition-colors">
                       <Play size={12} /> 执行转账
                     </button>}
                   <button onClick={() => doAction(t.id, 'cancel', `确认取消转账单 ${t.transferNo}？`)} disabled={actionLoading === t.id + 'cancel'} className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-danger/20 bg-danger/10 text-danger disabled:opacity-50 transition-colors">

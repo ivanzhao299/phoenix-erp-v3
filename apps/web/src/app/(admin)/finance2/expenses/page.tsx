@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission'; // G23-A 子 menu 分流
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector } from '@/components/shared-selectors/MasterDataSelectors';
+import { currencySymbol } from '@/lib/currency';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -328,7 +329,7 @@ function ExpenseDrawer({
         gap: '8px 16px',
         fontSize: 13
       }}>
-          {[['申请人', data.requester_name ?? '—'], ['公司', data.company_name ?? data.company_code], ['费用类型', EXPENSE_TYPES[data.expense_type] ?? data.expense_type], ['币种', data.currency_code], ['申请金额', `${data.currency_code} ${fmt(data.amount_original)}`], ['费用日期', data.expense_date ?? '—'], ['创建时间', new Date(data.created_at).toLocaleString('zh-CN')]].map(([k, v]) => <div key={k}><span className="text-text-muted">{k}：</span><span className={u.fw600}>{v}</span></div>)}
+          {[['申请人', data.requester_name ?? '—'], ['公司', data.company_name ?? data.company_code], ['费用类型', EXPENSE_TYPES[data.expense_type] ?? data.expense_type], ['币种', data.currency_code], ['申请金额', `${currencySymbol(data.currency_code)}${fmt(data.amount_original)}`], ['费用日期', data.expense_date ?? '—'], ['创建时间', new Date(data.created_at).toLocaleString('zh-CN')]].map(([k, v]) => <div key={k}><span className="text-text-muted">{k}：</span><span className={u.fw600}>{v}</span></div>)}
         </div>
         {data.description && <div className="text-text-muted" style={{
         marginTop: 10,
@@ -432,7 +433,7 @@ function ExpenseDrawer({
             fontSize: 13,
             fontWeight: 700
           }}>{r.reimb_no}</div>
-                <div className={`text-text-muted ${u.fs11}`}>¥ {fmt(r.reimb_amount_original)}</div>
+                <div className={`text-text-muted ${u.fs11}`}>{currencySymbol(data.currency_code)}{fmt(r.reimb_amount_original)}</div>
               </div>
               <StatusBadge status={r.status} />
             </div>)}
@@ -649,7 +650,7 @@ export default function ExpensesPage() {
               <div className="text-text" style={{
             fontWeight: 800,
             fontSize: 15
-          }}>{item.currency_code} {fmt(item.amount_original)}</div>
+          }}>{currencySymbol(item.currency_code)}{fmt(item.amount_original)}</div>
               <div className={`text-text-muted ${u.fs11}`}>{new Date(item.created_at).toLocaleDateString('zh-CN')}</div>
             </div>
             <ChevronRight size={14} className="text-text-dim" />
