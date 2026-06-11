@@ -27,6 +27,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import u from "@/styles/uix-utils.module.css";
+import { SupplierSelector } from '@/components/shared-selectors/MasterDataSelectors';
 const emptyForm = () => ({
   farmCode: '',
   house: '',
@@ -404,10 +405,10 @@ export default function FlockPage() {
                 {breedOptions.map(b => <option key={b} value={b}>{b}</option>)}
               </select>
             </div>
-            <div><label className={s.lbl}>{t('ui.引种来源种禽企业', '引种来源种禽企业')}</label><input value={form.source} onChange={e => setForm({
+            <div><label className={s.lbl}>{t('ui.引种来源种禽企业', '引种来源种禽企业')}</label><SupplierSelector value={form.source} onChange={v => setForm({
               ...form,
-              source: e.target.value
-            })} placeholder={t('ui.如XX育种公司', '如XX育种公司')} className={s.inp} /></div>
+              source: v
+            })} placeholder={t('ui.选择种禽供应商', '选择种禽供应商')} /></div>
           </div>
           <div className={s.fieldRow}>
             <div><label className={s.lbl}>{t('ui.入舍日龄(天)', '入舍日龄(天)')}</label><input type="number" onFocus={e => e.currentTarget.select()} value={form.placementAge} onChange={e => setForm({

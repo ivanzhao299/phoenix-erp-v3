@@ -356,6 +356,20 @@ export function FarmSelector(p: BaseProps) {
     }} />;
 }
 
+// ── 库存批次（inv_batches，唯一台账；仅列 qty_available>0 的批次）──────────────
+export function BatchSelector(p: BaseProps) {
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择批次'}
+    loader={async () => {
+      const list = await lookupArr<any>('/lookup/batches');
+      return (Array.isArray(list) ? list : [])
+        .map(b => ({
+          value: b.batch_no,
+          label: `${b.batch_no}｜${b.sku_code ?? b.product_code ?? ''} 可用${b.qty_available ?? ''}`,
+          raw: b,
+        }));
+    }} />;
+}
+
 // ── 鸡舍（brd_houses）— G25-A 字典完整化（D1 治理收口）
 //   houseType 走 sys_dict.BRD_HOUSE_TYPE 异步拉取 + 模块级 5min 缓存
 //   彻底删除 HOUSE_TYPE_ZH 硬编码 map；字典 seed 改动无需改前端

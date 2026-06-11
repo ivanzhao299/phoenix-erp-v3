@@ -8,6 +8,7 @@ import PageHeader from '@/components/PageHeader';
 import { StatusBadge } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission'; // G20-2 子 menu 按钮分流
 import { currencySymbol } from '@/lib/currency';
+import { CompanySelector } from '@/components/shared-selectors/MasterDataSelectors';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -236,6 +237,33 @@ function CreateAccountModal({
             {err}
           </div>}
 
+        {/* 公司：主数据下拉，名称自动带出只读 */}
+        <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 12,
+        marginBottom: 12
+      }}>
+          <div>
+            <div className={`text-text-muted text-xs font-semibold ${u.mb4}`}>公司 *</div>
+            <CompanySelector
+              value={form.companyCode}
+              onChange={v => set('companyCode', v)}
+              onPick={o => set('companyName', o?.label ?? '')}
+            />
+          </div>
+          <div>
+            <div className={`text-text-muted text-xs font-semibold ${u.mb4}`}>公司名称</div>
+            <input
+              value={form.companyName}
+              readOnly
+              placeholder="选择公司后自动带出"
+              className="px-3 py-1.5 rounded-lg text-sm border border-border text-text w-full"
+              style={{ boxSizing: 'border-box', background: 'var(--bg-muted)', cursor: 'not-allowed' }}
+            />
+          </div>
+        </div>
+
         <div style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
@@ -249,14 +277,6 @@ function CreateAccountModal({
           label: '账户名称 *',
           key: 'accountName',
           placeholder: '如：中行人民币基本户'
-        }, {
-          label: '公司编号 *',
-          key: 'companyCode',
-          placeholder: 'COMP001'
-        }, {
-          label: '公司名称',
-          key: 'companyName',
-          placeholder: '如：某某科技有限公司'
         }, {
           label: '货币代码 *',
           key: 'currencyCode',

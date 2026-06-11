@@ -27,8 +27,8 @@ export default function Page() {
   const FIELDS: FormField[] = [
     { key: "zone_code",      label: t("ui.库区编码", "库区编码"),     type: "text", required: true, placeholder: t("ui.如Z001", "如：Z-001") },
     { key: "zone_name",      label: t("ui.库区名称", "库区名称"),     type: "text", required: true },
-    { key: "warehouse_code", label: t("ui.所属仓库编码", "所属仓库编码"), type: "text" },
-    { key: "zone_type",      label: t("ui.库区类型", "库区类型"),     type: "text", placeholder: t("ui.如常温冷藏冷冻", "如：常温/冷藏/冷冻") },
+    { key: "warehouse_code", label: t("ui.所属仓库", "所属仓库"), type: "warehouse" },
+    { key: "zone_type",      label: t("ui.库区类型", "库区类型"),     type: "dict", dictType: "WMS_ZONE_TYPE" },
     { key: "temp_range",     label: t("ui.温区范围", "温区范围"),     type: "text", placeholder: t("ui.如04摄氏度", "如：0-4℃") },
     { key: "total_capacity", label: t("ui.总容量", "总容量"),       type: "number" },
     { key: "status", label: t("common.status", "状态"), type: "select", options: [

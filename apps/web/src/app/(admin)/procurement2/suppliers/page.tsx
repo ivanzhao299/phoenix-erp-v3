@@ -8,6 +8,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { CompanySelector, ProjectSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
 
 // ── 类型定义 ─────────────────────────────────────────────────────────────────
 interface Supplier {
@@ -800,18 +801,9 @@ export default function SuppliersPage() {
                 color: "var(--text-secondary)",
                 display: "block",
                 marginBottom: 4
-              }}>公司代码</label>
-                  <input value={form.ownerCompanyCode} onChange={e => setF("ownerCompanyCode", e.target.value)} placeholder="如 PHX_AGRI" style={{
-                width: "100%",
-                padding: "7px 10px",
-                background: "var(--bg-card)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-md)",
-                color: "var(--text-primary)",
-                fontSize: 13,
-                outline: "none",
-                boxSizing: "border-box"
-              }} />
+              }}>公司</label>
+                  {/* G4-B：归属公司走公司主数据(DataScope 自动过滤)，名称自动带出 */}
+                  <CompanySelector value={form.ownerCompanyCode} onChange={v => setF("ownerCompanyCode", v)} onPick={o => setF("ownerCompanyName", o?.label ?? "")} />
                 </div>
                 <div>
                   <label style={{
@@ -820,16 +812,17 @@ export default function SuppliersPage() {
                 display: "block",
                 marginBottom: 4
               }}>公司名称</label>
-                  <input value={form.ownerCompanyName} onChange={e => setF("ownerCompanyName", e.target.value)} placeholder="如 老挝凤凰农业发展有限公司" style={{
+                  <input value={form.ownerCompanyName} readOnly placeholder="由公司选择自动带出" style={{
                 width: "100%",
                 padding: "7px 10px",
-                background: "var(--bg-card)",
+                background: "var(--bg-muted)",
                 border: "1px solid var(--border)",
                 borderRadius: "var(--radius-md)",
-                color: "var(--text-primary)",
+                color: "var(--text-secondary)",
                 fontSize: 13,
                 outline: "none",
-                boxSizing: "border-box"
+                boxSizing: "border-box",
+                cursor: "not-allowed"
               }} />
                 </div>
               </div>
@@ -854,18 +847,9 @@ export default function SuppliersPage() {
                 color: "var(--text-secondary)",
                 display: "block",
                 marginBottom: 4
-              }}>项目编号</label>
-                  <input value={form.ownerProjectCode} onChange={e => setF("ownerProjectCode", e.target.value)} placeholder="如 VTE_FOOD_FACTORY" style={{
-                width: "100%",
-                padding: "7px 10px",
-                background: "var(--bg-card)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-md)",
-                color: "var(--text-primary)",
-                fontSize: 13,
-                outline: "none",
-                boxSizing: "border-box"
-              }} />
+              }}>项目</label>
+                  {/* G4-B：归属项目走项目主数据(仅 ACTIVE)，名称自动带出 */}
+                  <ProjectSelector value={form.ownerProjectCode} onChange={v => setF("ownerProjectCode", v)} onPick={o => setF("ownerProjectName", o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? "")} />
                 </div>
                 <div>
                   <label style={{
@@ -874,16 +858,17 @@ export default function SuppliersPage() {
                 display: "block",
                 marginBottom: 4
               }}>项目名称</label>
-                  <input value={form.ownerProjectName} onChange={e => setF("ownerProjectName", e.target.value)} placeholder="如 万象食品厂建设项目" style={{
+                  <input value={form.ownerProjectName} readOnly placeholder="由项目选择自动带出" style={{
                 width: "100%",
                 padding: "7px 10px",
-                background: "var(--bg-card)",
+                background: "var(--bg-muted)",
                 border: "1px solid var(--border)",
                 borderRadius: "var(--radius-md)",
-                color: "var(--text-primary)",
+                color: "var(--text-secondary)",
                 fontSize: 13,
                 outline: "none",
-                boxSizing: "border-box"
+                boxSizing: "border-box",
+                cursor: "not-allowed"
               }} />
                 </div>
               </div>

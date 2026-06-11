@@ -3,6 +3,10 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X, Link2, MoreHorizontal } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import DictSelect from "@/components/shared-selectors/DictSelect";  // G66 字段挂字典
+import {
+  CompanySelector, CustomerSelector, SupplierSelector, ProjectSelector,
+  WarehouseSelector, ZoneSelector, LocationSelector, SkuSelector, UserSelector, FarmSelector,
+} from "@/components/shared-selectors/MasterDataSelectors";  // G83 主数据档案选择器化
 import { EmptyState, LoadingSkeleton, SelectField } from "@/components/design-system";
 import {
   primaryActionButton, secondaryActionButton, inputField, formLabel, inlineBadge,
@@ -18,9 +22,13 @@ import request from "@/lib/api-client";
 
 export interface MdField {
   key: string; label: string; required?: boolean;
-  type?: "text" | "number" | "date" | "select";
+  type?: "text" | "number" | "date" | "select" | "readonly"
+    | "company" | "customer" | "supplier" | "project"
+    | "warehouse" | "zone" | "location" | "sku" | "user" | "farm";
   options?: { value: string; label: string }[];
-  dictType?: string;   // 预留：DictSelect 接入
+  dictType?: string;   // 字段挂字典 → DictSelect
+  onPickKeys?: Record<string, string>;   // 主数据自动带出：{ 目标key: raw字段名 }（onPick 有 ?? label 兜底）
+  filterBy?: { warehouseField?: string; zoneField?: string; companyField?: string };  // 级联过滤
   readOnlyOnEdit?: boolean;
 }
 
@@ -231,19 +239,46 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                 <label style={formLabel}>
                   {f.label}{f.required && <span style={{ color: "var(--status-danger)", marginLeft: 4 }}>*</span>}
                 </label>
-                {f.dictType ? (
-                  // G66：字段挂字典 → 走 DictSelect（仅 ACTIVE），消除硬编码 options 重复
-                  <DictSelect dictType={f.dictType} value={form[f.key] ?? ""}
-                    onChange={(v: string) => setForm({ ...form, [f.key]: v })} allowEmpty />
-                ) : f.type === "select" ? (
-                  <select value={form[f.key] ?? ""} onChange={e => setForm({ ...form, [f.key]: e.target.value })} style={inputField}>
-                    <option value="">请选择</option>
-                    {(f.options ?? []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                ) : (
-                  <input type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
-                    value={form[f.key] ?? ""} onChange={e => setForm({ ...form, [f.key]: e.target.value })} style={inputField} />
-                )}
+                {(() => {
+                  // G83：主数据选择器化 — onChange/onPick 均用函数式 setForm，避免选择器内 onChange→onPick 连续调用导致名称带出被覆盖
+                  const code = String(form[f.key] ?? "");
+                  const onChange = (v: string) => setForm(prev => ({ ...prev, [f.key]: v }));
+                  const onPick = (o: any) => {
+                    if (!f.onPickKeys) return;
+                    setForm(prev => {
+                      const next = { ...prev };
+                      Object.entries(f.onPickKeys!).forEach(([k, raw]) => { next[k] = o?.raw?.[raw] ?? o?.label ?? ""; });
+                      return next;
+                    });
+                  };
+                  const filterCompany = f.filterBy?.companyField ? String(form[f.filterBy.companyField] ?? "") : undefined;
+                  const filterWh = f.filterBy?.warehouseField ? String(form[f.filterBy.warehouseField] ?? "") : undefined;
+                  const filterZone = f.filterBy?.zoneField ? String(form[f.filterBy.zoneField] ?? "") : undefined;
+                  switch (f.type) {
+                    case "company":   return <CompanySelector value={code} onChange={onChange} onPick={onPick} />;
+                    case "customer":  return <CustomerSelector value={code} onChange={onChange} onPick={onPick} />;
+                    case "supplier":  return <SupplierSelector value={code} onChange={onChange} onPick={onPick} />;
+                    case "project":   return <ProjectSelector value={code} onChange={onChange} onPick={onPick} companyCode={filterCompany} />;
+                    case "warehouse": return <WarehouseSelector value={code} onChange={onChange} onPick={onPick} companyCode={filterCompany} />;
+                    case "zone":      return <ZoneSelector value={code} onChange={onChange} onPick={onPick} warehouseCode={filterWh} />;
+                    case "location":  return <LocationSelector value={code} onChange={onChange} onPick={onPick} warehouseCode={filterWh} zoneCode={filterZone} />;
+                    case "sku":       return <SkuSelector value={code} onChange={onChange} onPick={onPick} />;
+                    case "user":      return <UserSelector value={code} onChange={onChange} onPick={onPick} />;
+                    case "farm":      return <FarmSelector value={code} onChange={onChange} onPick={onPick} />;
+                  }
+                  if (f.dictType)
+                    // G66：字段挂字典 → 走 DictSelect（仅 ACTIVE），消除硬编码 options 重复
+                    return <DictSelect dictType={f.dictType} value={code} onChange={onChange} allowEmpty />;
+                  if (f.type === "select")
+                    return <select value={code} onChange={e => onChange(e.target.value)} style={inputField}>
+                      <option value="">请选择</option>
+                      {(f.options ?? []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>;
+                  if (f.type === "readonly")
+                    return <input type="text" value={code} readOnly style={{ ...inputField, background: "var(--bg-muted)", cursor: "not-allowed" }} />;
+                  return <input type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
+                    value={code} onChange={e => onChange(e.target.value)} style={inputField} />;
+                })()}
               </div>
             ))}
             <div style={drawerFooter}>

@@ -20,8 +20,8 @@ export default function ProjectRuntimePage() {
         onCodeClick={(code) => setDetailCode(code)}
         fields={[
           { key: "project_name", label: "项目名称", required: true },
-          { key: "company_code", label: "所属公司编码" },
-          { key: "site_code", label: "场区编码" },
+          { key: "company_code", label: "所属公司", type: "company", onPickKeys: { company_name: "org_name" } },
+          { key: "site_code", label: "场区", type: "farm" },
           { key: "project_type", label: "项目类型", type: "select", options: [
             { value: "LAYER_FARM", label: "蛋鸡养殖场" }, { value: "BROILER_FARM", label: "肉鸡养殖场" },
             { value: "SLAUGHTER", label: "屠宰加工厂" }, { value: "FOOD_FACTORY", label: "食品厂" },

@@ -20,6 +20,7 @@ import { useEffect, useState, ReactNode } from 'react';
 import { X, Link2 } from 'lucide-react';
 import request from '@/lib/api-client';
 import type { MasterDataConfig } from './detail-configs';
+import { drawerMask, drawerCloseButton } from '@/components/design-system/cockpit-styles';
 
 interface ReferenceItem { refTable: string; refDocType: string; refCount: number; }
 interface AuditItem { action: string; operator?: string; reason?: string; created_at: string; }
@@ -87,10 +88,7 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
   const titleText = info?.[config.nameKey] || code || '—';
 
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'var(--overlay-black-45)', zIndex: 10010, display: 'flex', justifyContent: 'flex-end' }}
-      onClick={onClose}
-    >
+    <div style={drawerMask} onClick={onClose}>
       <div
         style={{ width: 680, maxWidth: '95vw', background: 'var(--bg-card)', height: '100%', overflowY: 'auto', boxShadow: '0 0 40px var(--overlay-black-25)' }}
         onClick={(e) => e.stopPropagation()}
@@ -113,7 +111,7 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
               )}
             </div>
           </div>
-          <button type="button" onClick={onClose} aria-label="关闭" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4 }}>
+          <button type="button" onClick={onClose} aria-label="关闭" style={drawerCloseButton}>
             <X size={20} />
           </button>
         </header>

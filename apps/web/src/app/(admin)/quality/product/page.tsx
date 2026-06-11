@@ -25,10 +25,10 @@ export default function Page(){
   ];
   const FIELDS:FormField[]=[
     { key: "inspect_no", label: t("ui.质检单号","质检单号"), type: "text", placeholder: t("ui.留空自动生成","留空自动生成") },
-    { key: "batch_no", label: t("ui.关联批次号","关联批次号"), type: "text", required: true },
-    { key: "sku_code", label: t("ui.品级编码","品级编码"), type: "text" },
+    { key: "batch_no", label: t("ui.关联批次号","关联批次号"), type: "batch", required: true, onPickKeys: { sku_code: "sku_code" } },
+    { key: "sku_code", label: t("ui.品级编码","品级编码"), type: "sku", onPickKeys: { sku_name: "sku_name", spec_code: "spec_code", grade_code: "grade_code" } },
     { key: "result", label: t("ui.质检结论","质检结论"), type: "select", required: true, options: [{ label: t("ui.合格","合格"), value: "PASS"}, { label: t("ui.不合格","不合格"), value: "FAIL" }, { label: t("ui.有条件通过","有条件通过"), value: "CONDITIONAL" }] },
-    { key: "inspector", label: t("ui.质检员","质检员"), type: "text" },
+    { key: "inspector", label: t("ui.质检员","质检员"), type: "user" },
   ];
 
   const [o,sO]=useState(false);const [e,sE]=useState<Record<string,unknown>|null>(null);

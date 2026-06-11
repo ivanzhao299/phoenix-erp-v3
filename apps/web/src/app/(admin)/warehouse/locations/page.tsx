@@ -8,6 +8,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { MapPin, Plus, Edit2, Trash2, RefreshCw, Search, X, Check, BarChart2 } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { WarehouseSelector, ZoneSelector } from "@/components/shared-selectors/MasterDataSelectors";
 
 // ✅ V3 表: wms_locations
 // 字段: location_code, warehouse_code, zone_code, location_name, row_no, layer_no, capacity_qty, status, remark
@@ -575,16 +576,19 @@ export default function LocationsPage() {
               ...f,
               location_name: e.target.value
             }))} placeholder={t("ui.如A区1排1层", "如 A区1排1层")} style={inputStyle} /></div>
-              <div><label style={labelStyle}>{t("ui.仓库编码", "仓库编码")} <span style={{
+              <div><label style={labelStyle}>{t("ui.仓库", "仓库")} <span style={{
                 color: "var(--status-danger, var(--status-danger))"
-              }}>*</span></label><input value={String(form.warehouse_code ?? "")} onChange={e => setForm(f => ({
+              }}>*</span></label>
+                <WarehouseSelector value={String(form.warehouse_code ?? "")} onChange={v => setForm(f => ({
               ...f,
-              warehouse_code: e.target.value
-            }))} placeholder={t("ui.如WMSVTEMAIN", "如 WMS-VTE-MAIN")} style={inputStyle} /></div>
-              <div><label style={labelStyle}>{t("ui.库区", "库区")}</label><input value={String(form.zone_code ?? "")} onChange={e => setForm(f => ({
+              warehouse_code: v,
+              zone_code: "" // 切换仓库后清空库区，避免跨仓残留
+            }))} /></div>
+              <div><label style={labelStyle}>{t("ui.库区", "库区")}</label>
+                <ZoneSelector value={String(form.zone_code ?? "")} warehouseCode={String(form.warehouse_code ?? "")} onChange={v => setForm(f => ({
               ...f,
-              zone_code: e.target.value
-            }))} placeholder={t("ui.如AB冷库", "如 A / B / 冷库")} style={inputStyle} /></div>
+              zone_code: v
+            }))} /></div>
               <div><label style={labelStyle}>{t("common.status", "状态")}</label>
                 <select value={String(form.status ?? "EMPTY")} onChange={e => setForm(f => ({
               ...f,

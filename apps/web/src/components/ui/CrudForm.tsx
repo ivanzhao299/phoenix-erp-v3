@@ -12,6 +12,8 @@ import {
   StoreSelector, ChannelSelector, DriverSelector, VehicleSelector,
   // G4-E：生产/包装域
   FarmSelector, HouseSelector, FlockSelector, GradeSelector, SpecSelector, ShiftSelector,
+  // 库存批次
+  BatchSelector,
 } from "@/components/shared-selectors/MasterDataSelectors";
 import { AttachmentUploader } from "@/components/design-system";
 
@@ -31,6 +33,8 @@ export type FieldType =
   | "store" | "channel" | "driver" | "vehicle"
   // G4-E：生产/包装域
   | "farm" | "house" | "flock" | "grade" | "spec" | "shift"
+  // 库存批次（inv_batches）
+  | "batch"
   | "dict" | "attachment";
 
 export interface FormField {
@@ -258,6 +262,15 @@ export const CrudForm = memo(function CrudForm({
                 zoneCode={field.filterBy?.zoneField ? String(values[field.filterBy.zoneField] ?? "") : undefined} />
             ) : field.type === "sku" ? (
               <SkuSelector
+                value={String(values[field.key] ?? "")}
+                onChange={v => set(field.key, v)}
+                onPick={o => {
+                  Object.entries(field.onPickKeys ?? {}).forEach(([k, rawField]) => {
+                    set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");
+                  });
+                }} />
+            ) : field.type === "batch" ? (
+              <BatchSelector
                 value={String(values[field.key] ?? "")}
                 onChange={v => set(field.key, v)}
                 onPick={o => {

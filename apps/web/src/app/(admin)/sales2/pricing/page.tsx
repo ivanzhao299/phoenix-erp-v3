@@ -281,22 +281,23 @@ function PriceBooksTab() {
     required: true
   }, {
     key: "companyCode",
-    label: "公司编码",
-    type: "text",
-    required: true
+    label: "公司",
+    type: "company",
+    required: true,
+    onPickKeys: { companyName: "org_name" }
   }, {
     key: "companyName",
-    label: "公司名称",
-    type: "text"
+    label: "公司名称（自动带出）",
+    type: "readonly"
   }, {
     key: "channelCode",
-    label: "渠道编码（渠道价）",
-    type: "text",
+    label: "渠道（渠道价）",
+    type: "channel",
     placeholder: "留空=不限渠道"
   }, {
     key: "customerCode",
-    label: "客户编码（专属价）",
-    type: "text",
+    label: "客户（专属价）",
+    type: "customer",
     placeholder: "留空=非专属"
   }, {
     key: "priority",

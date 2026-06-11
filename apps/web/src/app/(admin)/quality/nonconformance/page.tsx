@@ -7,6 +7,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { crudApi } from "@/lib/api-client";
+import { UserSelector, BatchSelector } from "@/components/shared-selectors/MasterDataSelectors";
 import s from "@/components/ui/admin-ui.module.css";
 import u from "@/styles/uix-utils.module.css";
 const STATUS_CLS: Record<string, string> = {
@@ -298,7 +299,7 @@ export default function NonconformancePage() {
           {([{
           key: "batch_no",
           label: t("ui.关联批次号", "关联批次号"),
-          type: "text",
+          type: "batch",
           ph: t("ui.批次号示例", "如 BT-123456-A")
         }, {
           key: "source",
@@ -315,11 +316,6 @@ export default function NonconformancePage() {
           label: t("ui.不合格数量", "不合格数量"),
           type: "number",
           ph: ""
-        }, {
-          key: "handler",
-          label: t("ui.责任人", "责任人"),
-          type: "text",
-          ph: ""
         }] as {
           key: string;
           label: string;
@@ -332,7 +328,10 @@ export default function NonconformancePage() {
             display: "block",
             marginBottom: 6
           }}>{f.label}</label>
-              {f.type === "textarea" ? <textarea value={form[f.key as keyof Form]} onChange={e => setForm(p => ({
+              {f.type === "batch" ? <BatchSelector value={form[f.key as keyof Form]} onChange={v => setForm(p => ({
+            ...p,
+            [f.key]: v
+          }))} /> : f.type === "textarea" ? <textarea value={form[f.key as keyof Form]} onChange={e => setForm(p => ({
             ...p,
             [f.key]: e.target.value
           }))} rows={3} placeholder={f.ph} style={{
@@ -361,6 +360,18 @@ export default function NonconformancePage() {
             boxSizing: "border-box"
           }} />}
             </div>)}
+          <div>
+            <label style={{
+            fontSize: 13,
+            color: "var(--text-secondary)",
+            display: "block",
+            marginBottom: 6
+          }}>{t("ui.责任人", "责任人")}</label>
+            <UserSelector value={form.handler} onChange={v => setForm(p => ({
+            ...p,
+            handler: v
+          }))} />
+          </div>
           <div>
             <label style={{
             fontSize: 13,

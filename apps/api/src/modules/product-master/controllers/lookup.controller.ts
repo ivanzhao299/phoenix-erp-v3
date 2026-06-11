@@ -344,6 +344,25 @@ export class LookupController {
     return { code: 200, data: rows };
   }
 
+  /**
+   * GET /api/lookup/batches — 库存批次下拉
+   * 数据源 inv_batches（库存唯一台账），仅列还有可用量的批次（qty_available > 0）。
+   * 供质检等业务录入页面选批次；与其它 lookup 端点一致仅挂 AuthGuard，不强制 DataScope。
+   */
+  @Get('batches')
+  async batches() {
+    const rows = await this.em.query(
+      `SELECT batch_no AS "batch_no", sku_code AS "sku_code", product_code AS "product_code",
+              qty_available AS "qty_available", status, warehouse_code AS "warehouse_code",
+              store_code AS "store_code", expire_date AS "expire_date"
+         FROM inv_batches
+         WHERE qty_available > 0
+         ORDER BY expire_date NULLS LAST, batch_no
+         LIMIT 500`,
+    );
+    return { code: 200, data: rows };
+  }
+
   /** GET /api/lookup/dict/:dictType — 字典下拉（替代 /crud/sys_dict?dict_type=...） */
   @Get('dict/:dictType')
   async dict(@Param('dictType') dictType: string) {

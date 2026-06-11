@@ -273,18 +273,18 @@ function CustomersTab() {
     options: CUSTOMER_TYPES
   }, {
     key: "companyCode",
-    label: "公司编码",
-    type: "text",
+    label: "公司",
+    type: "company",
     required: true,
-    placeholder: "DataScope 归属"
+    onPickKeys: { companyName: "org_name" }
   }, {
     key: "companyName",
     label: "公司名称",
-    type: "text"
+    type: "readonly"
   }, {
     key: "channelCode",
-    label: "渠道编码",
-    type: "text"
+    label: "渠道",
+    type: "channel"
   }, {
     key: "regionCode",
     label: "区域编码",

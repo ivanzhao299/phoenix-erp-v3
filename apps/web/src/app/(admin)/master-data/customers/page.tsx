@@ -28,10 +28,10 @@ export default function CustomerRuntimePage() {
         fields={[
           { key: "customer_name", label: "客户名称", required: true },
           { key: "customer_type", label: "客户类型", dictType: "SAL_CUSTOMER_TYPE" },  // G66 走字典(消除硬编码重复)
-          { key: "company_code", label: "所属公司编码", required: true },
+          { key: "company_code", label: "所属公司", type: "company", required: true, onPickKeys: { company_name: "org_name" } },
           { key: "contact_name", label: "联系人" },
           { key: "contact_phone", label: "联系电话" },
-          { key: "region_code", label: "区域编码" },
+          { key: "region_code", label: "区域", dictType: "SAL_REGION" },
           { key: "credit_limit", label: "信用额度", type: "number" },
           { key: "payment_terms", label: "账期天数", type: "number" },
           { key: "delivery_address", label: "配送地址" },

@@ -30,18 +30,12 @@ export default function SupplierRuntimePage() {
           { key: "supplier_type", label: "供应商类型", type: "select", options: [
             { value: "LOCAL", label: "本地" }, { value: "OVERSEAS", label: "海外" }, { value: "AGENT", label: "代理" },
           ] },
-          { key: "country_code", label: "国家", type: "select", options: [
-            { value: "LA", label: "老挝" }, { value: "CN", label: "中国" }, { value: "TH", label: "泰国" },
-            { value: "VN", label: "越南" }, { value: "US", label: "美国" }, { value: "OTHER", label: "其他" },
-          ] },
+          { key: "country_code", label: "国家", dictType: "SYS_COUNTRY" },
           { key: "contact_name", label: "联系人" },
           { key: "contact_phone", label: "联系电话" },
           { key: "contact_email", label: "邮箱" },
           { key: "tax_no", label: "税号" },
-          { key: "default_currency", label: "默认币种", type: "select", options: [
-            { value: "CNY", label: "人民币" }, { value: "LAK", label: "老挝基普" }, { value: "THB", label: "泰铢" },
-            { value: "USD", label: "美元" }, { value: "VND", label: "越南盾" },
-          ] },
+          { key: "default_currency", label: "默认币种", dictType: "SYS_CURRENCY" },
           { key: "payment_terms", label: "结算账期(天)", type: "number" },
           { key: "address", label: "地址" },
           { key: "effective_date", label: "生效日期", type: "date" },

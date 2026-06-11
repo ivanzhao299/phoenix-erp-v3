@@ -27,10 +27,10 @@ export default function BackwardTracePage() {
   ];
 
   const FIELDS: FormField[] = [
-    { key: "batch_no",       label: t("ui.批次号","批次号"),     type: "text", required: true },
-    { key: "product_code",   label: t("ui.产品编码","产品编码"), type: "text" },
-    { key: "warehouse_code", label: t("ui.仓库编码","仓库编码"), type: "text" },
-    { key: "location_code",  label: t("ui.库位编码","库位编码"), type: "text" },
+    { key: "batch_no",       label: t("ui.批次号","批次号"),     type: "batch", required: true, onPickKeys: { product_code: "product_code", warehouse_code: "warehouse_code" } },
+    { key: "product_code",   label: t("ui.产品编码","产品编码"), type: "sku" },
+    { key: "warehouse_code", label: t("ui.仓库","仓库"), type: "warehouse" },
+    { key: "location_code",  label: t("ui.库位","库位"), type: "location", filterBy: { warehouseField: "warehouse_code" } },
     { key: "qty",            label: t("ui.总数量","总数量"),     type: "number" },
     { key: "qty_available",  label: t("ui.可用数量","可用数量"), type: "number" },
     { key: "expire_date",    label: t("ui.过期日期","过期日期"), type: "date" },

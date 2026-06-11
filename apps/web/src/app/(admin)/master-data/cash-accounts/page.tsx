@@ -24,13 +24,9 @@ export default function CashAccountRuntimePage() {
         onCodeClick={(code) => setDetailCode(code)}
         fields={[
           { key: "account_name", label: "账户名称", required: true },
-          { key: "company_code", label: "所属公司编码", required: true },
-          { key: "company_name", label: "所属公司名称" },
-          { key: "currency_code", label: "币种", required: true, type: "select", options: [
-            { value: "CNY", label: "人民币 CNY" }, { value: "USD", label: "美元 USD" },
-            { value: "EUR", label: "欧元 EUR" }, { value: "LAK", label: "老挝基普 LAK" },
-            { value: "THB", label: "泰铢 THB" },
-          ] },
+          { key: "company_code", label: "所属公司", required: true, type: "company", onPickKeys: { company_name: "org_name" } },
+          { key: "company_name", label: "所属公司名称（自动带出）", type: "readonly" },
+          { key: "currency_code", label: "币种", required: true, dictType: "SYS_CURRENCY" },
           { key: "account_type", label: "账户类型", required: true, type: "select", options: [
             { value: "BANK", label: "银行账户" }, { value: "CASH", label: "现金账户" },
             { value: "VIRTUAL", label: "虚拟账户" }, { value: "SHAREHOLDER", label: "股东账户" },
