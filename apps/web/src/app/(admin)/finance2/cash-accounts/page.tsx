@@ -843,11 +843,13 @@ export default function CashAccountsPage() {
       gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))',
       gap: 14
     }}>
-          {accounts.map(acc => <div key={acc.id} onClick={() => setSelectedAccount(acc)} className="bg-bg-card hover:shadow-card-hover transition-shadow cursor-pointer" style={{
+          {accounts.map(acc => <div key={acc.id} onClick={() => setSelectedAccount(acc)} className="bg-bg-card transition-shadow cursor-pointer" style={{
         borderRadius: 14,
-        border: `1.5px solid ${acc.status === 'FROZEN' ? 'var(--status-warning-bg-faint)' : acc.status === 'CLOSED' ? 'var(--slate-200)' : 'var(--status-info-bg-page)'}`,
+        // 边框改可见 var(--border)（冻结=warning强调），加基础阴影抬起卡片，避免融进背景
+        border: `1px solid ${acc.status === 'FROZEN' ? 'var(--status-warning)' : 'var(--border)'}`,
+        boxShadow: acc.status === 'CLOSED' ? 'none' : '0 1px 3px var(--overlay-black-08, rgba(15,23,42,0.06)), 0 4px 12px var(--overlay-black-08, rgba(15,23,42,0.05))',
         padding: '18px 20px',
-        opacity: acc.status === 'CLOSED' ? 0.65 : 1
+        opacity: acc.status === 'CLOSED' ? 0.6 : 1
       }}>
               {/* 顶部行 */}
               <div style={{
