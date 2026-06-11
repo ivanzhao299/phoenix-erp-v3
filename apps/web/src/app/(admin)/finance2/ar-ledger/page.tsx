@@ -7,6 +7,7 @@ import { RefreshCw, BookOpen } from 'lucide-react';
 import {
   inputField, kpiCard, tableContainer,
 } from '@/components/design-system/cockpit-styles';
+import { currencySymbol } from '@/lib/currency';
 
 /**
  * 应收总账（G41）— 刘杰（集团财务总监）
@@ -30,6 +31,9 @@ interface Totals {
 const fmt = (v: string | number | null) =>
   v == null || v === '' ? '—'
     : Number(v).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// 金额带币种符号（凡有资金必带货币单位，避免看错币种）
+const money = (v: string | number | null, code?: string | null) =>
+  v == null || v === '' ? '—' : `${currencySymbol(code)}${fmt(v)}`;
 
 export default function ArLedgerPage() {
   const [farms, setFarms] = useState<{ farmCode: string; farmName: string }[]>([]);
@@ -94,16 +98,20 @@ export default function ArLedgerPage() {
       {/* 合计 KPI（明细表配汇总） */}
       {totals && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12, marginBottom: 16 }}>
-          {[
-            { label: '期初余额合计', v: totals.openingAmount },
-            { label: '本期应收合计', v: totals.periodCharge },
-            { label: '本期已收合计', v: totals.periodReceived },
-            { label: '期末余额合计', v: totals.closingAmount },
-            { label: '期末本币合计(CNY)', v: totals.closingAmountBase },
-          ].map(k => (
+          {([
+            { label: '期初余额合计', v: totals.openingAmount, mixed: true },
+            { label: '本期应收合计', v: totals.periodCharge, mixed: true },
+            { label: '本期已收合计', v: totals.periodReceived, mixed: true },
+            { label: '期末余额合计', v: totals.closingAmount, mixed: true },
+            { label: '期末本币合计', v: totals.closingAmountBase, cny: true },
+          ] as { label: string; v: string; mixed?: boolean; cny?: boolean }[]).map(k => (
             <div key={k.label} style={{ ...kpiCard, padding: '14px 16px' }}>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>{k.label}</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>{fmt(k.v)}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                {k.label}
+                {k.mixed && <span title="多币种原币相加，仅作参考，不可直接比较" style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, background: 'var(--bg-muted)', color: 'var(--text-disabled)', whiteSpace: 'nowrap' }}>原币混合</span>}
+                {k.cny && <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, background: 'var(--status-success-bg-light)', color: 'var(--status-success)', whiteSpace: 'nowrap' }}>本币·可比</span>}
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>{k.cny ? currencySymbol('CNY') : ''}{fmt(k.v)}</div>
             </div>
           ))}
         </div>
@@ -131,11 +139,11 @@ export default function ArLedgerPage() {
                 <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>{r.counterpartyName}</td>
                 <td style={{ padding: '8px 12px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>{r.periodDate}</td>
                 <td style={{ padding: '8px 12px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>{r.currencyCode}</td>
-                <td style={{ padding: '8px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(r.openingAmount)}</td>
-                <td style={{ padding: '8px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: Number(r.periodCharge) ? 'var(--status-info, #2563eb)' : undefined }}>{fmt(r.periodCharge)}</td>
-                <td style={{ padding: '8px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: Number(r.periodReceived) ? 'var(--status-success, #16a34a)' : undefined }}>{fmt(r.periodReceived)}</td>
-                <td style={{ padding: '8px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{fmt(r.closingAmount)}</td>
-                <td style={{ padding: '8px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--text-secondary)' }}>{fmt(r.closingAmountBase)}</td>
+                <td style={{ padding: '8px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{money(r.openingAmount, r.currencyCode)}</td>
+                <td style={{ padding: '8px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: Number(r.periodCharge) ? 'var(--status-info, #2563eb)' : undefined }}>{money(r.periodCharge, r.currencyCode)}</td>
+                <td style={{ padding: '8px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: Number(r.periodReceived) ? 'var(--status-success, #16a34a)' : undefined }}>{money(r.periodReceived, r.currencyCode)}</td>
+                <td style={{ padding: '8px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{money(r.closingAmount, r.currencyCode)}</td>
+                <td style={{ padding: '8px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--text-secondary)' }}>{money(r.closingAmountBase, "CNY")}</td>
               </tr>
             ))}
           </tbody>
@@ -147,7 +155,7 @@ export default function ArLedgerPage() {
                 <td style={{ padding: '10px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(totals.periodCharge)}</td>
                 <td style={{ padding: '10px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(totals.periodReceived)}</td>
                 <td style={{ padding: '10px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(totals.closingAmount)}</td>
-                <td style={{ padding: '10px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(totals.closingAmountBase)}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{money(totals.closingAmountBase, "CNY")}</td>
               </tr>
             </tfoot>
           )}
