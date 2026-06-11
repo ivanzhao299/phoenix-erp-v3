@@ -162,25 +162,6 @@ const PURCHASE_TYPE_OPTS = [{
   label: "其他"
 }];
 const CURRENCY_OPTS = ["LAK", "CNY", "THB", "USD"];
-const COUNTRY_OPTS = [{
-  value: "LA",
-  label: "老挝"
-}, {
-  value: "CN",
-  label: "中国"
-}, {
-  value: "TH",
-  label: "泰国"
-}, {
-  value: "VN",
-  label: "越南"
-}, {
-  value: "US",
-  label: "美国"
-}, {
-  value: "OTHER",
-  label: "其他"
-}];
 const API_ORDERS = "/api/v2/procurement/orders";
 const API_REQUESTS = "/api/v2/procurement/requests";
 const emptyItem = (): OrderItem => ({
@@ -928,15 +909,11 @@ export default function PurchaseOrdersPage() {
           {fCrossBorder && <div className={s.fieldRow}>
               <div className={s.field}>
                 <label className={s.lbl}>来源国家</label>
-                <select className={s.inp} value={fOrigin} onChange={e => setFOrigin(e.target.value)}>
-                  {COUNTRY_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+                <DictSelect dictType="SYS_COUNTRY" value={fOrigin} onChange={setFOrigin} allowEmpty />
               </div>
               <div className={s.field}>
                 <label className={s.lbl}>目的国家</label>
-                <select className={s.inp} value={fDest} onChange={e => setFDest(e.target.value)}>
-                  {COUNTRY_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+                <DictSelect dictType="SYS_COUNTRY" value={fDest} onChange={setFDest} allowEmpty />
               </div>
             </div>}
 

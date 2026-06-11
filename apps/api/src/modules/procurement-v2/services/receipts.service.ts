@@ -5,6 +5,7 @@ import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeHelper } from '../../org/helpers/data-scope.helper';
+import { WmsService } from '../../wms/wms.service';   // G84 收货→库存统一入库
 import { format } from 'date-fns';
 
 import { Prc2ReceiptEntity }       from '../entities/prc2-receipt.entity';
@@ -16,19 +17,6 @@ import { Prc2ApprovalEntity }      from '../entities/prc2-approval.entity';
 
 import { CreateReceiptDto }        from '../dto/create-receipt.dto';
 import { QueryReceiptDto }         from '../dto/query-receipt.dto';
-
-// ── 库存接口预留（Phase 6 实现） ──────────────────────────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function reserveInbound(_items: {
-  poItemId?: string;
-  itemCode?: string;
-  itemName:  string;
-  actualQty: number;
-  unit?:     string;
-  warehouseCode?: string;
-}[]): Promise<void> {
-  // TODO Phase 6: 写入 inv_batches / inv_inbound_orders
-}
 
 // ── 并发安全编号生成 ──────────────────────────────────────────────────────────
 async function genNo(
@@ -63,6 +51,7 @@ export class ReceiptsService {
     @InjectDataSource() private ds: DataSource,
     private cls: ClsService,
     private scopeHelper: DataScopeHelper,
+    private wms: WmsService,   // G84 收货→库存统一入库
   ) {}
 
   // ── 内部工具 ──────────────────────────────────────────────────────────────
@@ -294,15 +283,16 @@ export class ReceiptsService {
         node: 'CONFIRM', action: 'CONFIRM', comment: dto.comment,
       });
 
-      // ── 9. 库存接口预留 ─────────────────────────────────────────────────
-      await reserveInbound(items.map(i => ({
-        poItemId:      i.poItemId,
-        itemCode:      i.itemCode,
-        itemName:      i.itemName,
-        actualQty:     Number(i.actualQty),
-        unit:          i.unit,
+      // ── 9. 库存入账（G84：统一经 WmsService 写 inv_batches/inv_ledger，守唯一写入口 #6 + 状态 AVAILABLE #7）──
+      await this.wms.inboundFromReceipt(mgr, {
+        refNo:         rcp.receiptNo,
         warehouseCode: rcp.warehouseCode,
-      })));
+        operator:      this.userId(),
+        items: items.map(i => ({
+          productCode: i.itemCode,
+          qty:         Number(i.actualQty),
+        })),
+      });
 
       return { ...rcp, status: 'CONFIRMED', confirmedAt: now };
     });

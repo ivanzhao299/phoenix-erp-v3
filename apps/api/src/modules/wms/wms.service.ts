@@ -200,6 +200,53 @@ export class WmsService {
     });
   }
 
+  /**
+   * G84 采购收货入库 — 供采购模块在其「收货确认」事务内调用，统一写 inv_batches/inv_ledger。
+   * 守护：库存唯一写入口（CLAUDE.md #6）；批次状态 AVAILABLE 取自 INV_STOCK_STATUS（#7）。
+   * 与调用方同一事务（传入 manager），保证收货确认与库存入账原子一致。
+   * 数量为整数（inv_batches.qty 为 INTEGER），按四舍五入入账；无物料编码/数量≤0 的行跳过（不写脏批次）。
+   */
+  async inboundFromReceipt(
+    manager: EntityManager,
+    ctx: {
+      refNo: string;             // 收货单号（→ inv_ledger.ref_no 可追溯）
+      warehouseCode?: string;
+      storeCode?: string;
+      operator?: string;
+      items: { productCode?: string; qty: number; batchNo?: string; locationCode?: string }[];
+    },
+  ): Promise<{ batchNos: string[]; skipped: number }> {
+    const storeCode = ctx.storeCode || 'ALL';
+    const operator = ctx.operator || 'SYS';
+    const warehouseCode = ctx.warehouseCode || 'WMS-VTE-MAIN';
+    const batchNos: string[] = [];
+    let skipped = 0;
+    for (let idx = 0; idx < ctx.items.length; idx++) {
+      const it = ctx.items[idx];
+      const qty = Math.round(Number(it.qty) || 0);
+      if (qty <= 0 || !it.productCode) { skipped++; continue; }
+      const batchNo = (it.batchNo || `${ctx.refNo}-${String(idx + 1).padStart(3, '0')}`).slice(0, 64);
+      const locationCode = (it.locationCode || 'INBOUND-DOCK').slice(0, 64);
+      await manager.query(
+        `INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, warehouse_code, location_code, store_code)
+         VALUES ($1, $2, $3::int, $3::int, 'AVAILABLE', $4, $5, $6)
+         ON CONFLICT (batch_no) DO UPDATE SET
+           qty = inv_batches.qty + EXCLUDED.qty,
+           qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty) + EXCLUDED.qty,
+           updated_at = now()`,
+        [batchNo, it.productCode, qty, warehouseCode, locationCode, storeCode],
+      );
+      await manager.query(
+        `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
+         VALUES ($1, 'INBOUND', $2::int, $3, $4, $5, $6)`,
+        [batchNo, qty, operator, storeCode, ctx.refNo,
+         `采购收货入库 product=${it.productCode} qty=${qty} wh=${warehouseCode}`],
+      );
+      batchNos.push(batchNo);
+    }
+    return { batchNos, skipped };
+  }
+
   // ─── 出库 (Outbound) ────────────────────────────────────────────────────────
   async getOutboundDashboard() {
     try {

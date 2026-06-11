@@ -5,6 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import { useToast } from "@/contexts/ToastContext";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
+import DictSelect from "@/components/shared-selectors/DictSelect";
 import { Search, RefreshCw, Plus, Eye, CheckCircle, Send, Truck, Package, X, AlertTriangle } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -65,6 +66,10 @@ const TYPE_LABELS: Record<string, string> = {
   DOMESTIC: "国内",
   CROSS_BORDER: "跨境",
   LOCAL: "本地"
+};
+const CUSTOMS_LABELS: Record<string, string> = {
+  CLEARING: "报关中",
+  CLEARED: "已清关"
 };
 function getToken() {
   return sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "";
@@ -366,7 +371,7 @@ export default function ShipmentsPage() {
                 <td className={u.fs12}>{row.originCountry || "—"} → {row.destinationCountry || "—"}</td>
                 <td className={u.fs12}>{row.departureDate || "—"}</td>
                 <td className={u.fs12}>{row.arrivalDate || "—"}</td>
-                <td className={u.fs12}>{row.customsRequired ? row.customsStatus || "待报关" : "不需要"}</td>
+                <td className={u.fs12}>{row.customsRequired ? (CUSTOMS_LABELS[row.customsStatus] ?? row.customsStatus ?? "待报关") || "待报关" : "不需要"}</td>
                 <td><span className={`${s.badge} ${STATUS_COLOR[row.status] ?? s.badgeNeutral}`}>{STATUS_LABELS[row.status] ?? row.status}</span></td>
                 <td style={{
               display: "flex",
@@ -482,17 +487,17 @@ export default function ShipmentsPage() {
             <div className={s.fieldRow}>
               <div className={s.field}>
                 <label className={s.lbl}>发货国</label>
-                <input className={s.inp} value={formData.originCountry ?? "CN"} onChange={e => setFormData(p => ({
+                <DictSelect dictType="SYS_COUNTRY" value={formData.originCountry ?? "CN"} onChange={v => setFormData(p => ({
                 ...p,
-                originCountry: e.target.value
-              }))} placeholder="CN" />
+                originCountry: v
+              }))} allowEmpty />
               </div>
               <div className={s.field}>
                 <label className={s.lbl}>目的国</label>
-                <input className={s.inp} value={formData.destinationCountry ?? "LA"} onChange={e => setFormData(p => ({
+                <DictSelect dictType="SYS_COUNTRY" value={formData.destinationCountry ?? "LA"} onChange={v => setFormData(p => ({
                 ...p,
-                destinationCountry: e.target.value
-              }))} placeholder="LA" />
+                destinationCountry: v
+              }))} allowEmpty />
               </div>
             </div>
             <div className={s.fieldRow}>
@@ -580,7 +585,7 @@ export default function ShipmentsPage() {
             <DetailRow label="发货日期" value={detail.departureDate || "—"} />
             <DetailRow label="到货日期" value={detail.arrivalDate || "—"} />
             <DetailRow label="报关单号" value={detail.customsDeclNo || "—"} />
-            <DetailRow label="报关状态" value={detail.customsRequired ? detail.customsStatus || "待报关" : "不需要"} />
+            <DetailRow label="报关状态" value={detail.customsRequired ? (CUSTOMS_LABELS[detail.customsStatus] ?? detail.customsStatus ?? "待报关") || "待报关" : "不需要"} />
             {(detail.receipts ?? []).length > 0 && <div style={{
           marginTop: 16
         }}>

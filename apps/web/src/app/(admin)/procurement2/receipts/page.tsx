@@ -690,6 +690,37 @@ export default function ReceiptsPage() {
                       </td>
                     </tr>)}
                 </tbody>
+                <tfoot>
+                  <tr style={{
+                  borderTop: "2px solid var(--border)"
+                }}>
+                    <td style={{
+                    textAlign: "right",
+                    padding: "6px 8px",
+                    fontSize: 12,
+                    fontWeight: 600
+                  }}>合计</td>
+                    <td style={{
+                    textAlign: "right",
+                    padding: "6px 8px",
+                    fontWeight: 700,
+                    fontVariantNumeric: "tabular-nums"
+                  }}>{formItems.reduce((sum, it) => sum + (Number(it.expectedQty) || 0), 0).toLocaleString("zh-CN")}</td>
+                    <td style={{
+                    textAlign: "right",
+                    padding: "6px 8px",
+                    fontWeight: 700,
+                    fontVariantNumeric: "tabular-nums"
+                  }}>{formItems.reduce((sum, it) => sum + (Number(it.actualQty) || 0), 0).toLocaleString("zh-CN")}</td>
+                    <td style={{
+                    textAlign: "right",
+                    padding: "6px 8px",
+                    fontWeight: 700,
+                    fontVariantNumeric: "tabular-nums"
+                  }}>{formItems.reduce((sum, it) => sum + (Number(it.rejectedQty) || 0), 0).toLocaleString("zh-CN")}</td>
+                    <td colSpan={3}></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>

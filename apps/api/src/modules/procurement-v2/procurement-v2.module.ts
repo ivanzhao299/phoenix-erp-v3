@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { WmsModule } from '../wms/wms.module';   // G84 收货→库存统一入库
 
 // ── Entities ────────────────────────────────────────────────────────────────
 import { Prc2SupplierEntity }           from './entities/prc2-supplier.entity';
@@ -67,6 +68,7 @@ import { ShareholderFundsService }   from './services/shareholder-funds.service'
       Prc2InitBatchEntity,
       Prc2InitBatchRowEntity,
     ]),
+    WmsModule,   // G84 收货确认→统一经 WmsService.inboundFromReceipt 写库存
   ],
   controllers: [
     ProcurementV2Controller,
