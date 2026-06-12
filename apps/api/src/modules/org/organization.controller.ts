@@ -25,6 +25,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -213,5 +214,22 @@ export class OrganizationController {
     if (!org) throw new NotFoundException(`Organization with code "${code}" not found`);
     const data = await this.orgService.updateOrg(org.id, { status: 'ACTIVE' });
     return { code: 200, data };
+  }
+
+  // ── DELETE /api/organizations/:code ──────────────────────────────────────────
+
+  /**
+   * G88 删除组织（硬删，需 'D' 操作位）。
+   * service 双守卫：有子节点不可删、有成员绑定不可删（提示先迁移/移除）。
+   */
+  @Delete(':code')
+  @RequireMenu('MENU_ORG_MANAGE', 'D')
+  @HttpCode(HttpStatus.OK)
+  async deleteOrg(@Param('code') code: string) {
+    const orgs = await this.orgService.listOrgs();
+    const org = orgs.find((o) => o.orgCode === code);
+    if (!org) throw new NotFoundException(`Organization with code "${code}" not found`);
+    await this.orgService.deleteOrg(org.id);
+    return { code: 200, message: 'deleted' };
   }
 }

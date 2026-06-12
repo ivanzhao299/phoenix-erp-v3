@@ -135,19 +135,30 @@ export function OrgMembersPanel({ orgId, orgName }: { orgId: number | null; orgN
       const res = await fetch(`/api/org/user-orgs/${m.userOrgId}`, {
         method: "PUT", headers: hdr(), body: JSON.stringify({ dataScopeLevel: level }),
       });
-      const json = await res.json();
-      if (json.code === 200) {
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.code === 200) {
         setMembers(prev => prev.map(p => p.userOrgId === m.userOrgId ? { ...p, dataScopeLevel: level } : p));
+        toast.success("数据范围已更新");
+      } else {
+        // G88：失败必须如实报错（原版静默吞掉）
+        toast.error(json.message ?? `更新失败（HTTP ${res.status}）`);
       }
     } catch { toast.error("更新失败"); }
   };
 
   const removeMember = async (m: OrgMember) => {
+    if (!window.confirm(`确定将「${m.realNameZh || m.username}」从该组织移除？\n（仅解除组织绑定，不会删除用户账号）`)) return;
     setAssigning(m.id);
     try {
-      await fetch(`/api/org/user-orgs/${m.userOrgId}`, { method: "DELETE", headers: hdr() });
-      toast.success("已移除");
-      if (orgId) await loadMembers(orgId);
+      const res = await fetch(`/api/org/user-orgs/${m.userOrgId}`, { method: "DELETE", headers: hdr() });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.code === 200) {
+        // G88：原版不校验响应、失败也弹"已移除"——配合后端字段错位形成"删不掉"假象，已修
+        toast.success("已移除");
+        if (orgId) await loadMembers(orgId);
+      } else {
+        toast.error(json.message ?? `移除失败（HTTP ${res.status}）`);
+      }
     } catch { toast.error("操作失败"); }
     finally { setAssigning(null); }
   };

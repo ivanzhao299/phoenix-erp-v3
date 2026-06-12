@@ -23,7 +23,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Network, Plus, RefreshCw, ChevronRight, ChevronDown,
   Building2, Layers, Globe, Leaf, Users, Warehouse,
-  LayoutGrid, Info, Edit3, PowerOff, Power,
+  LayoutGrid, Info, Edit3, PowerOff, Power, Trash2,
   ArrowRight, Inbox, CheckCircle2, XCircle, AlertCircle,
   Activity, BarChart3, Check,
 } from "lucide-react";
@@ -556,6 +556,33 @@ export default function MdOrganizationsPage() {
     }
   };
 
+  // ── G88 删除组织（硬删，二次确认；后端双守卫：有子节点/有成员绑定不可删）────────
+  const [deleting, setDeleting] = useState(false);
+  const handleDelete = async () => {
+    if (!selectedOrg || deleting) return;
+    const name = selectedOrg.orgShortName || selectedOrg.orgName;
+    if (!window.confirm(`确定删除组织「${name}」（${selectedOrg.orgCode}）？\n删除不可恢复；有子节点或成员绑定时将被拒绝。`)) return;
+    setDeleting(true);
+    try {
+      const res  = await fetch(`/api/organizations/${selectedOrg.orgCode}`, {
+        method: "DELETE", headers: authHdr(),
+      });
+      const json = await res.json();
+      if (json.code === 200) {
+        toast.success(`已删除组织「${name}」`);
+        const parentCode = selectedOrg.parentCode;
+        await load();
+        setSelectedCode(parentCode ?? null);
+      } else {
+        throw new Error(json.message ?? `HTTP ${res.status}`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "删除失败");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   // ── Tree count ───────────────────────────────────────────────────────────────
 
   const totalCount = flat.length;
@@ -733,6 +760,18 @@ export default function MdOrganizationsPage() {
                     : selectedOrg.status === 'ACTIVE'
                       ? <><PowerOff size={12} /> 停用</>
                       : <><Power size={12} /> 启用</>}
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  title="删除组织（有子节点或成员绑定时不可删）"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: 12, fontWeight: 600, borderRadius: 8,
+                    border: '1px solid var(--status-danger)', color: 'var(--status-danger)',
+                    background: 'transparent', cursor: 'pointer', opacity: deleting ? 0.5 : 1,
+                  }}
+                >
+                  {deleting ? <RefreshCw size={12} className="animate-spin" /> : <><Trash2 size={12} /> 删除</>}
                 </button>
               </div>
 

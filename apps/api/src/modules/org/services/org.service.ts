@@ -125,14 +125,95 @@ export class OrgService {
 
   async updateOrg(id: number, dto: UpdateOrgDto): Promise<SysOrganizationEntity> {
     const org = await this.getOrg(id);
-    Object.assign(org, dto);
-    return this.orgRepo.save(org);
+    const { parentCode, ...rest } = dto;
+    Object.assign(org, rest);
+
+    // ── G88 变更上级（原 Object.assign 不处理换父——树有两处分别按 parentId/parentCode 渲染，必须同步）──
+    let reparented = false;
+    if (parentCode !== undefined && parentCode !== '' && parentCode !== org.parentCode) {
+      const parent = await this.orgRepo.findOne({ where: { orgCode: parentCode } });
+      if (!parent) throw new BadRequestException(`上级组织「${parentCode}」不存在`);
+      if (Number(parent.id) === Number(org.id)) {
+        throw new BadRequestException('不能将组织设为自己的上级');
+      }
+      const descendants = await this.getDescendantIds(Number(org.id));
+      if (descendants.has(Number(parent.id))) {
+        throw new BadRequestException('不能将组织挂到其子孙节点下（会形成层级环）');
+      }
+      org.parentId = parent.id;
+      org.parentCode = parent.orgCode;
+      reparented = true;
+    }
+
+    const saved = await this.orgRepo.save(org);
+    if (reparented) await this.recomputeSubtree(Number(saved.id));
+    return this.getOrg(id);
+  }
+
+  /** G88：某节点的全部子孙 id（含自身）——换父防成环用 */
+  private async getDescendantIds(rootId: number): Promise<Set<number>> {
+    const rows: Array<{ id: string }> = await this.ds.query(
+      `WITH RECURSIVE subtree AS (
+         SELECT id FROM sys_organizations WHERE id = $1
+         UNION ALL
+         SELECT o.id FROM sys_organizations o JOIN subtree s ON o.parent_id = s.id
+       ) SELECT id FROM subtree`,
+      [rootId],
+    );
+    return new Set(rows.map((r) => Number(r.id)));
+  }
+
+  /** G88：换父后重算「本节点+全部子孙」的 level / path / company_code。
+   *  company_code 继承规则：COMPANY 节点保留自身；GROUP/BU 不挂公司；其余继承最近祖先公司——
+   *  这是 DataScope 公司隔离的依据（如门店换公司后，必须随之归入新公司的数据范围）。 */
+  private async recomputeSubtree(rootId: number): Promise<void> {
+    const all = await this.orgRepo.find();
+    const byId = new Map(all.map((o) => [Number(o.id), o]));
+    const childrenOf = new Map<number, SysOrganizationEntity[]>();
+    for (const o of all) {
+      if (o.parentId != null) {
+        const k = Number(o.parentId);
+        if (!childrenOf.has(k)) childrenOf.set(k, []);
+        childrenOf.get(k)!.push(o);
+      }
+    }
+    const root = byId.get(rootId);
+    if (!root) return;
+    const parent = root.parentId != null ? byId.get(Number(root.parentId)) : undefined;
+    const effCompanyOf = (n: SysOrganizationEntity | undefined): string | null => {
+      if (!n) return null;
+      if (n.orgType === 'COMPANY') return n.companyCode ?? n.orgCode;
+      return n.companyCode ?? null;
+    };
+    const queue: Array<{ node: SysOrganizationEntity; pLevel: number; pPath: string; pCompany: string | null }> = [
+      { node: root, pLevel: parent?.level ?? 0, pPath: parent?.path ?? '/', pCompany: effCompanyOf(parent) },
+    ];
+    const updated: SysOrganizationEntity[] = [];
+    while (queue.length > 0) {
+      const { node, pLevel, pPath, pCompany } = queue.shift()!;
+      node.level = pLevel + 1;
+      node.path = `${pPath}${node.orgCode}/`;
+      if (node.orgType !== 'COMPANY' && node.orgType !== 'GROUP' && node.orgType !== 'BU') {
+        node.companyCode = pCompany;
+      }
+      updated.push(node);
+      const eff = node.orgType === 'COMPANY' ? (node.companyCode ?? node.orgCode) : (node.companyCode ?? pCompany);
+      for (const c of childrenOf.get(Number(node.id)) ?? []) {
+        queue.push({ node: c, pLevel: node.level, pPath: node.path ?? '/', pCompany: eff });
+      }
+    }
+    await this.orgRepo.save(updated);
   }
 
   async deleteOrg(id: number): Promise<void> {
     const children = await this.orgRepo.find({ where: { parentId: id } });
     if (children.length > 0) {
-      throw new BadRequestException('Cannot delete org with children. Remove children first.');
+      throw new BadRequestException(`该组织下还有 ${children.length} 个子节点，请先迁移或删除子节点`);
+    }
+    // G88：有成员绑定不可删（防 sys_user_orgs 悬挂引用）
+    const memberCount = await this.userOrgRepo.count({ where: { orgId: id } });
+    if (memberCount > 0) {
+      throw new BadRequestException(`该组织下还有 ${memberCount} 名成员绑定，请先在「成员管理」中移除`);
     }
     await this.orgRepo.delete(id);
   }
@@ -237,17 +318,19 @@ export class OrgService {
 
   /** 获取某组织下的所有成员（含用户信息 + 数据范围等级） */
   async getOrgMembers(orgId: number): Promise<any[]> {
+    // G88：别名统一 camelCase（原 snake_case 导致前端 m.userOrgId=undefined →
+    //      移除/改数据范围实际请求 /user-orgs/undefined，静默失败）
     return this.ds.query(`
       SELECT
-        uo.id         AS user_org_id,
-        uo.is_primary,
-        uo.data_scope_level,
-        uo.created_at AS assigned_at,
-        u.user_id     AS id,
-        u.username,
-        u.real_name   AS real_name_zh,
-        u.store_code,
-        u.status      AS user_status,
+        uo.id         AS "userOrgId",
+        uo.is_primary AS "isPrimary",
+        uo.data_scope_level AS "dataScopeLevel",
+        uo.created_at AS "assignedAt",
+        u.user_id     AS "id",
+        u.username    AS "username",
+        u.real_name   AS "realNameZh",
+        u.store_code  AS "storeCode",
+        u.status      AS "userStatus",
         COALESCE(
           (SELECT r.role_code FROM sys_user_role ur
            JOIN sys_role r ON ur.role_id = r.role_id
@@ -255,7 +338,7 @@ export class OrgService {
           (SELECT r.role_code FROM sys_user_role ur
            JOIN sys_role r ON ur.role_id = r.role_id
            WHERE ur.user_id = u.user_id LIMIT 1)
-        ) AS role,
+        ) AS "role",
         COALESCE(
           (SELECT r.role_name_zh FROM sys_user_role ur
            JOIN sys_role r ON ur.role_id = r.role_id
@@ -263,7 +346,7 @@ export class OrgService {
           (SELECT r.role_name_zh FROM sys_user_role ur
            JOIN sys_role r ON ur.role_id = r.role_id
            WHERE ur.user_id = u.user_id LIMIT 1)
-        ) AS role_name_zh
+        ) AS "roleNameZh"
       FROM sys_user_orgs uo
       JOIN sys_user u ON u.user_id = uo.user_id
       WHERE uo.org_id = $1
