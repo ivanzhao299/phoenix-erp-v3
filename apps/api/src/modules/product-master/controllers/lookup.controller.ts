@@ -34,17 +34,21 @@ export class LookupController {
    * 不经 DataScopeGuard，故此处主动调 DataScopeService.resolve 取 allowedCompanyCodes。
    * 解析失败 → 兜底 isGlobal=true（不因解析异常把下拉清空）。
    */
-  private async resolveCompanyScope(): Promise<{ isGlobal: boolean; companyCodes: string[] }> {
+  private async resolveCompanyScope(): Promise<{ isGlobal: boolean; companyCodes: string[]; farmCodes: string[] }> {
     try {
       const user = this.cls.get('user') as Record<string, unknown> | undefined;
-      if (!user) return { isGlobal: true, companyCodes: [] };
+      if (!user) return { isGlobal: true, companyCodes: [], farmCodes: [] };
       const roles: string[] = (user['roles'] as string[] | undefined)
         ?? (user['role'] ? [user['role'] as string] : []);
       const userId = String(user['userId'] ?? user['id'] ?? '');
       const scope = await this.dataScope.resolve(userId, roles, 'MENU_MASTER_DATA');
-      return { isGlobal: !!scope.isGlobal, companyCodes: scope.allowedCompanyCodes ?? [] };
+      return {
+        isGlobal: !!scope.isGlobal,
+        companyCodes: scope.allowedCompanyCodes ?? [],
+        farmCodes: scope.allowedFarmCodes ?? [],   // G87 场授权清单
+      };
     } catch {
-      return { isGlobal: true, companyCodes: [] };
+      return { isGlobal: true, companyCodes: [], farmCodes: [] };
     }
   }
 
@@ -276,14 +280,21 @@ export class LookupController {
   /** GET /api/lookup/farms — 养殖场下拉（替代 /crud/brd_farms） */
   @Get('farms')
   async farms() {
-    const rows = await this.cached('farms', () => this.em.query(
+    const rows: Array<{ farmCode: string; companyCode: string | null }> = await this.cached('farms', () => this.em.query(
       `SELECT farm_code AS "farmCode", farm_name AS "farmName", location, status,
-              houses, capacity
+              houses, capacity, company_code AS "companyCode"
          FROM brd_farms
          WHERE status='ACTIVE'
          ORDER BY farm_code`,
     ));
-    return { code: 200, data: rows };
+    // G87 数据范围收窄：缓存存全量、出口按当前用户过滤（严禁在共享缓存内做按人过滤）。
+    //   ①有场授权清单 → 只看清单内的场；②公司维度收窄（场未挂公司 NULL 保留）。
+    const { isGlobal, companyCodes, farmCodes } = await this.resolveCompanyScope();
+    if (isGlobal) return { code: 200, data: rows };
+    let out = rows;
+    if (farmCodes.length > 0) out = out.filter(r => farmCodes.includes(r.farmCode));
+    if (companyCodes.length > 0) out = out.filter(r => !r.companyCode || companyCodes.includes(r.companyCode));
+    return { code: 200, data: out };
   }
 
   /** GET /api/lookup/houses?farmCode=&siteCode= — 鸡舍下拉

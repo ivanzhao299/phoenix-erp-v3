@@ -27,6 +27,10 @@ export class DataScopeHelper {
       projectField?: string;
       /** G85-C 仓库维度：传入字段名才启用；用户无仓库授权清单（空数组）时不限制（与公司维度的「空=拒绝」语义不同，避免未配仓库授权的用户被一刀切断） */
       warehouseField?: string;
+      /** G87 养殖场维度：收窄语义同仓库（有授权清单才过滤，行 NULL 保留） */
+      farmField?: string;
+      /** G87 场站维度：收窄语义同仓库 */
+      siteField?: string;
     },
   ): SelectQueryBuilder<T> {
     const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
@@ -59,6 +63,20 @@ export class DataScopeHelper {
       );
     }
 
+    // G87 养殖场 / 场站维度（可选启用）：收窄语义同仓库
+    if (opts.farmField && scope.allowedFarmCodes.length > 0) {
+      qb.andWhere(
+        `(${alias}.${opts.farmField} IN (:...ds_fc) OR ${alias}.${opts.farmField} IS NULL)`,
+        { ds_fc: scope.allowedFarmCodes },
+      );
+    }
+    if (opts.siteField && scope.allowedSiteCodes.length > 0) {
+      qb.andWhere(
+        `(${alias}.${opts.siteField} IN (:...ds_sc) OR ${alias}.${opts.siteField} IS NULL)`,
+        { ds_sc: scope.allowedSiteCodes },
+      );
+    }
+
     return qb;
   }
 
@@ -72,6 +90,9 @@ export class DataScopeHelper {
     opts: {
       companyAlias?: string;
       projectAlias?: string;
+      /** G87 养殖场/场站维度（raw SQL 列名）：收窄语义——有授权清单才过滤，NULL 行保留 */
+      farmAlias?: string;
+      siteAlias?: string;
     },
     paramOffset: number,
   ): { sql: string; params: unknown[] } {
@@ -94,6 +115,16 @@ export class DataScopeHelper {
     if (scope.scopeLevel === 'PROJECT' && scope.allowedProjectCodes.length > 0) {
       clauses.push(`${projectAlias} = ANY($${++idx})`);
       params.push(scope.allowedProjectCodes);
+    }
+
+    // G87 养殖场 / 场站维度（可选启用，收窄语义，NULL 行保留）
+    if (opts.farmAlias && scope.allowedFarmCodes.length > 0) {
+      clauses.push(`(${opts.farmAlias} = ANY($${++idx}) OR ${opts.farmAlias} IS NULL)`);
+      params.push(scope.allowedFarmCodes);
+    }
+    if (opts.siteAlias && scope.allowedSiteCodes.length > 0) {
+      clauses.push(`(${opts.siteAlias} = ANY($${++idx}) OR ${opts.siteAlias} IS NULL)`);
+      params.push(scope.allowedSiteCodes);
     }
 
     return {
