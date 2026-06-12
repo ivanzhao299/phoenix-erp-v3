@@ -244,21 +244,42 @@ export class ApprovalEngineService {
       const slaHours = rs.slaHours ?? 48;
       const dueAt = new Date(Date.now() + slaHours * 3600 * 1000);
 
-      for (const approver of resolved) {
+      // G85-A：角色类步骤（ROLE/COMPANY_ROLE/PROJECT_ROLE）建「单行、不钉死具体用户」，
+      //   approverUserId=null + 保留 approverRole → validateApprover 落到角色校验，
+      //   **持有该角色的任一用户均可审批**（resolved 仅用于"是否存在可审批人"校验 + 通知）。
+      //   原 per-user 多建行会导致 approveStep 只认第一行那个人，退化成单人审批 → 已修复。
+      const roleBasedTypes = ['ROLE', 'COMPANY_ROLE', 'PROJECT_ROLE'];
+      if (roleBasedTypes.includes(rs.approverType ?? 'ROLE')) {
         stepEntities.push(
           mgr.create(WfApprovalInstanceStepEntity, {
             instanceId:         savedInstance.id,
             stepNo:             rs.stepNo,
             approverType:       rs.approverType ?? 'ROLE',
             approverRole:       rs.approverRole      ?? null,
-            approverUserId:     approver.userId,
-            approverName:       approver.displayName,
+            approverUserId:     null,
             requiredRole:       rs.approverRole      ?? null,
             allowAdminOverride: rs.allowAdminOverride ?? false,
             status:             'PENDING',
             dueAt,
           }),
         );
+      } else {
+        for (const approver of resolved) {
+          stepEntities.push(
+            mgr.create(WfApprovalInstanceStepEntity, {
+              instanceId:         savedInstance.id,
+              stepNo:             rs.stepNo,
+              approverType:       rs.approverType ?? 'ROLE',
+              approverRole:       rs.approverRole      ?? null,
+              approverUserId:     approver.userId,
+              approverName:       approver.displayName,
+              requiredRole:       rs.approverRole      ?? null,
+              allowAdminOverride: rs.allowAdminOverride ?? false,
+              status:             'PENDING',
+              dueAt,
+            }),
+          );
+        }
       }
     }
     await mgr.save(WfApprovalInstanceStepEntity, stepEntities);
