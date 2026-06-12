@@ -279,7 +279,7 @@ BEGIN
     created_at, updated_at
   ) VALUES (
     'COMP-LAO-XINGCHI',
-    '老挝金三角特区星驰养鸡场', '老挝金三角特区星驰养鸡场', '星驰养鸡场',
+    '老挝东鹏星驰农业发展有限公司', '老挝东鹏星驰农业发展有限公司', '星驰农业',
     'COMPANY', v_bu_agri_id, 'BU-AGRI',
     'COMP-LAO-XINGCHI',
     3, '/ORG-GROUP/BU-AGRI/COMP-LAO-XINGCHI/', 'ACTIVE', 20,

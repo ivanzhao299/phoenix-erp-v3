@@ -121,7 +121,7 @@ WHERE NOT EXISTS (SELECT 1 FROM biz_projects WHERE project_code='PRJ_MENGSAI_ORG
 -- 3.7 PRJ_XINGCHI_LAYER 星驰养鸡项目
 INSERT INTO biz_projects (project_code, project_name, project_short_name, project_type, company_code, status, sort_order, remark)
 SELECT 'PRJ_XINGCHI_LAYER', '金三角特区星驰养鸡项目', '星驰', 'OPERATION', 'COMP-LAO-XINGCHI', 'DRAFT', 60,
-       '老挝金三角特区星驰养鸡场经营项目'
+       '星驰养鸡场（金三角特区）经营项目 · 公司：老挝东鹏星驰农业发展有限公司'
 WHERE NOT EXISTS (SELECT 1 FROM biz_projects WHERE project_code='PRJ_XINGCHI_LAYER');
 
 COMMIT;
