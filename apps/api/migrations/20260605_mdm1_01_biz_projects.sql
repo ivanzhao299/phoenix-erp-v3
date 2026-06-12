@@ -9,7 +9,9 @@
 --   项目废止用 status='INACTIVE' 或 deleted_at；不删除不重用 project_code。
 --
 -- 幂等：CREATE TABLE IF NOT EXISTS + NOT EXISTS seed 守卫。
--- 本 migration **未在生产 DB 执行**（按业务方要求）。
+-- 【勘误 2026-06-12 G85-C】本 migration 已于 2026-06-05 在生产执行（commit 737580a），
+--   生产 /api/biz/projects/active 有真实 ACTIVE 数据。原"未在生产执行"注释过时，
+--   曾误导 G85 审计产生 F6 误报，特此修正。
 -- ═════════════════════════════════════════════════════════════════════════════
 
 BEGIN;
