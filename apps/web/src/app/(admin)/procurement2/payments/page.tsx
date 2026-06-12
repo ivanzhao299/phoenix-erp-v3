@@ -805,9 +805,9 @@ export default function PaymentsPage() {
           </div>
           <div className={s.fieldRow}>
             <div className={s.field}>
-              <label className={s.lbl}>付款账户</label>
-              {/* G4-A：从资金账户主数据(仅ACTIVE)选择 */}
-              <CashAccountSelector value={formPayerAccount} onChange={setFormPayerAccount} />
+              <label className={s.lbl}>付款账户（按付款币种过滤）</label>
+              {/* G85-B：按币种过滤，后端执行付款时强校验 账户存在/同公司/同币种/ACTIVE/余额 */}
+              <CashAccountSelector value={formPayerAccount} onChange={setFormPayerAccount} currencyCode={formCurrency || undefined} />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>收款方（供应商）</label>

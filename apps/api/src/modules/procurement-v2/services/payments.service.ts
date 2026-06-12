@@ -20,6 +20,10 @@ import { QueryShareholderFundsDto }    from '../dto/query-shareholder-funds.dto'
 import { getMaskLevel, applyMask, applyMaskList, MaskFieldDef } from '../../../common/utils/mask.util';
 import { DataScopeHelper } from '../../org/helpers/data-scope.helper';
 import { DataScopeContext } from '../../org/services/data-scope.service';
+// G85-B 付款→资金账户/财务流水/股东出资（统一经 finance-v2 官方写入口）
+import { CashAccountsService } from '../../finance-v2/services/cash-accounts.service';
+import { CashTransactionsService } from '../../finance-v2/services/cash-transactions.service';
+import { ShareholderContributionsService } from '../../finance-v2/services/shareholder-contributions.service';
 
 // ── 并发安全编号生成 ─────────────────────────────────────────────────────────
 async function genNo(mgr: EntityManager, prefix: string, repo: { createQueryBuilder: Function }, alias: string, field: string): Promise<string> {
@@ -45,6 +49,9 @@ export class PaymentsService {
     private cls: ClsService,
     private scopeHelper: DataScopeHelper,
     private readonly approvalEngine: ApprovalEngineService,
+    private readonly cashAccounts: CashAccountsService,        // G85-B
+    private readonly cashTxns: CashTransactionsService,        // G85-B
+    private readonly shareholderContribs: ShareholderContributionsService,  // G85-B
   ) {}
 
   // ── 内部工具 ──────────────────────────────────────────────────────────────
@@ -315,6 +322,49 @@ export class PaymentsService {
       if (pay.status === 'PAID') throw new ConflictException('该付款单已执行，不可重复付款');
       if (pay.status !== 'APPROVED') throw new ConflictException(`当前状态 ${pay.status} 不允许执行付款`);
 
+      // ── G85-B 公司付款必经资金账户（主数据校验 + 行锁；股东代付不扣公司账户）──
+      const isShareholderPay = pay.isShareholderPayment || pay.payerType === 'SHAREHOLDER';
+      let cashAcc: {
+        id: string; account_code: string; account_name: string;
+        company_code: string; company_name: string | null;
+        currency_code: string; current_balance: string; status: string;
+      } | null = null;
+      if (!isShareholderPay) {
+        const accCode = (pay.payerAccount ?? '').trim();
+        if (!accCode) {
+          throw new BadRequestException('公司付款必须选择付款资金账户（从资金账户主数据中选择）');
+        }
+        const rows = await mgr.query(
+          `SELECT id, account_code, account_name, company_code, company_name,
+                  currency_code, current_balance, status
+             FROM fin_cash_accounts WHERE account_code = $1 FOR UPDATE`,
+          [accCode],
+        );
+        if (rows.length === 0) {
+          throw new BadRequestException(`付款账户「${accCode}」不存在——请从资金账户主数据中选择，禁止手填`);
+        }
+        cashAcc = rows[0];
+        if ((cashAcc!.status ?? 'ACTIVE') !== 'ACTIVE') {
+          throw new BadRequestException(`付款账户 ${accCode} 当前状态 ${cashAcc!.status}，不允许付款`);
+        }
+        if (cashAcc!.company_code !== pay.companyCode) {
+          throw new BadRequestException(
+            `付款账户属于公司 ${cashAcc!.company_code}，与付款单公司 ${pay.companyCode} 不一致——禁止跨公司扣款`,
+          );
+        }
+        if (cashAcc!.currency_code !== pay.currencyCode) {
+          throw new BadRequestException(
+            `付款账户币种 ${cashAcc!.currency_code} 与付款币种 ${pay.currencyCode} 不一致`,
+          );
+        }
+        const payAmt = Number(pay.amountOriginal);
+        if (Number(cashAcc!.current_balance) < payAmt - 0.005) {
+          throw new BadRequestException(
+            `付款账户余额不足：当前 ${cashAcc!.current_balance} ${cashAcc!.currency_code}，本次付款 ${payAmt}`,
+          );
+        }
+      }
+
       const allocs = await mgr.find(Prc2PaymentAllocationEntity, { where: { paymentId: id } });
 
       // ── 核销每条 AP ────────────────────────────────────────────────────────
@@ -348,6 +398,30 @@ export class PaymentsService {
 
       // ── 写审批日志 ──────────────────────────────────────────────────────────
       await this.writeLog(mgr, { bizType: 'PAYMENT', bizId: id, bizNo: pay.payNo, node: 'PAY', action: 'PAY', comment: dto.comment });
+
+      // ── G85-B 公司付款：扣资金账户 + 写财务流水（同事务，官方写入口）──────────
+      if (cashAcc) {
+        const qr = mgr.queryRunner!;
+        const payAmt = Number(pay.amountOriginal);
+        const newBalance = await this.cashAccounts.applyBalance(qr, cashAcc.id, -payAmt, this.userId());
+        await this.cashTxns.writeTransaction({
+          qr,
+          accountId:    cashAcc.id,
+          accountCode:  cashAcc.account_code,
+          accountName:  cashAcc.account_name,
+          companyCode:  cashAcc.company_code,
+          companyName:  cashAcc.company_name,
+          direction:    'OUT',
+          sourceType:   'AP_PAYMENT',
+          sourceId:     pay.id,
+          sourceNo:     pay.payNo,
+          currencyCode: pay.currencyCode,
+          amount:       payAmt,
+          balanceAfter: newBalance,
+          remark:       `采购付款 ${pay.payNo}（供应商 ${pay.payeeName ?? ''}）`,
+          createdBy:    this.userId(),
+        });
+      }
 
       // ── 股东资金：若股东代付则记录资金池 ─────────────────────────────────────
       if (pay.isShareholderPayment || pay.payerType === 'SHAREHOLDER') {
@@ -409,6 +483,27 @@ export class PaymentsService {
             createdBy:       this.userId(),
           });
         }
+
+        // ── G85-B 股东代付 → 财务侧股东出资台账（CONFIRMED，幂等；同事务）────
+        //    付款单已走采购审批链，不再重复走出资审批。
+        await this.shareholderContribs.createFromPayment(mgr.queryRunner!, {
+          paymentId:       pay.id,
+          payNo:           pay.payNo,
+          shareholderId:   pay.shareholderId ?? pay.payerId ?? null,
+          shareholderName: pay.shareholderName ?? pay.payerName ?? '未知股东',
+          companyCode:     pay.companyCode,
+          companyName:     pay.companyName,
+          projectCode:     pay.projectCode,
+          projectName:     pay.projectName,
+          fundNature:      pay.fundNature ?? 'ADVANCE',
+          currencyCode:    pay.currencyCode,
+          amountOriginal:  Number(pay.amountOriginal),
+          exchangeRate:    Number(pay.exchangeRate ?? 1),
+          amountBase:      Number(pay.amountBase ?? 0) || undefined,
+          baseCurrency:    pay.baseCurrency,
+          remark:          `采购股东代付 ${pay.payNo}`,
+          createdBy:       this.userId(),
+        });
       }
 
       return pay;

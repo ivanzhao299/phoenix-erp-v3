@@ -185,6 +185,51 @@ export class ShareholderContributionsService {
     return row;
   }
 
+  // ── 采购股东代付自动入账（G85-B：付款执行时同事务调用） ─────────────────────
+  //   付款单已走采购审批链（审核人→总裁），故直接 CONFIRMED，不重复走出资审批。
+  //   幂等：同一付款（source_type='PAYMENT' + source_id）只入一条。
+
+  async createFromPayment(qr: QueryRunner, p: {
+    paymentId: string; payNo: string;
+    shareholderId?: string | null; shareholderName: string;
+    companyCode: string; companyName?: string | null;
+    projectCode?: string | null; projectName?: string | null;
+    fundNature?: string | null;
+    currencyCode: string; amountOriginal: number; exchangeRate?: number; amountBase?: number;
+    baseCurrency?: string; remark?: string | null; createdBy?: string | null;
+  }): Promise<{ contributionNo: string } | { skipped: true }> {
+    const existing = await qr.query(
+      `SELECT id FROM fin_shareholder_contributions WHERE source_type = 'PAYMENT' AND source_id = $1`,
+      [p.paymentId],
+    );
+    if (existing.length > 0) return { skipped: true };
+    const rate = Number(p.exchangeRate ?? 1);
+    const amtOrig = Number(p.amountOriginal);
+    const amtBase = Number(p.amountBase ?? amtOrig * rate);
+    const contributionNo = await this.genContributionNo(qr);
+    await qr.query(
+      `INSERT INTO fin_shareholder_contributions
+         (contribution_no, shareholder_id, shareholder_name,
+          company_code, company_name, project_code, project_name,
+          source_type, source_id, source_no,
+          contribution_type, fund_nature,
+          currency_code, amount_original, exchange_rate, amount_base, base_currency,
+          settled_amount_original, settled_amount_base,
+          balance_amount_original, balance_amount_base,
+          status, remark, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,'PAYMENT',$8,$9,'PAYMENT_ON_BEHALF',$10,$11,$12,$13,$14,$15,0,0,$12,$14,'CONFIRMED',$16,$17)`,
+      [
+        contributionNo, p.shareholderId ?? null, p.shareholderName,
+        p.companyCode, p.companyName ?? null, p.projectCode ?? null, p.projectName ?? null,
+        p.paymentId, p.payNo,
+        p.fundNature ?? 'ADVANCE',
+        p.currencyCode, amtOrig, rate, amtBase, p.baseCurrency ?? 'CNY',
+        p.remark ?? null, p.createdBy ?? null,
+      ],
+    );
+    return { contributionNo };
+  }
+
   // ── 手工创建 ─────────────────────────────────────────────────────────────
 
   async createManual(dto: CreateShareholderContributionDto, user: any): Promise<FinShareholderContributionEntity> {
