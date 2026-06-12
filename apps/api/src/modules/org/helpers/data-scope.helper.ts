@@ -25,6 +25,8 @@ export class DataScopeHelper {
       alias: string;
       companyField?: string;
       projectField?: string;
+      /** G85-C 仓库维度：传入字段名才启用；用户无仓库授权清单（空数组）时不限制（与公司维度的「空=拒绝」语义不同，避免未配仓库授权的用户被一刀切断） */
+      warehouseField?: string;
     },
   ): SelectQueryBuilder<T> {
     const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
@@ -47,6 +49,14 @@ export class DataScopeHelper {
       qb.andWhere(`${alias}.${projectField} IN (:...ds_pc)`, {
         ds_pc: scope.allowedProjectCodes,
       });
+    }
+
+    // G85-C 仓库维度（可选启用）：有授权清单才过滤；保留 warehouse 为 NULL 的单据（无仓库归属的业务行不因此消失）
+    if (opts.warehouseField && scope.allowedWarehouseCodes.length > 0) {
+      qb.andWhere(
+        `(${alias}.${opts.warehouseField} IN (:...ds_wc) OR ${alias}.${opts.warehouseField} IS NULL)`,
+        { ds_wc: scope.allowedWarehouseCodes },
+      );
     }
 
     return qb;

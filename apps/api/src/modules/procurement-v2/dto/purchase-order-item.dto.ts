@@ -19,6 +19,18 @@ export class PurchaseOrderItemDto {
   @MaxLength(256)
   spec?: string;
 
+  /** G85-C SKU 带出：产品编码（成本按产品归集） */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  productCode?: string;
+
+  /** G85-C SKU 带出：等级编码（成本按等级归集） */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  gradeCode?: string;
+
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 4 })
   @IsPositive()

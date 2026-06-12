@@ -35,6 +35,13 @@ export class Prc2OrderItemEntity {
   @Column({ name: 'spec', type: 'text', nullable: true })
   spec: string;
 
+  // G85-C 物料 SKU 化补全：选 SKU 时带出，成本可按产品/等级归集
+  @Column({ name: 'product_code', type: 'varchar', length: 64, nullable: true })
+  productCode: string;
+
+  @Column({ name: 'grade_code', type: 'varchar', length: 64, nullable: true })
+  gradeCode: string;
+
   @Column({ name: 'qty', type: 'numeric', precision: 18, scale: 4, default: 0 })
   qty: number;
 

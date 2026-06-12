@@ -18,6 +18,8 @@ interface OrderItem {
   itemCode?: string;
   itemName: string;
   spec?: string;
+  productCode?: string;   // G85-C SKU 带出（成本按产品归集）
+  gradeCode?: string;     // G85-C SKU 带出（成本按等级归集）
   qty: number | string;
   unit?: string;
   unitPrice: number | string;
@@ -449,6 +451,8 @@ export default function PurchaseOrdersPage() {
           itemCode: it.itemCode?.trim() || undefined,
           itemName: it.itemName.trim(),
           spec: it.spec?.trim() || undefined,
+          productCode: it.productCode?.trim() || undefined,   // G85-C
+          gradeCode: it.gradeCode?.trim() || undefined,       // G85-C
           qty: parseFloat(String(it.qty)),
           unit: it.unit?.trim() || undefined,
           unitPrice: parseFloat(String(it.unitPrice)) || 0,
@@ -980,6 +984,8 @@ export default function PurchaseOrdersPage() {
                       <SkuSelector value={it.itemCode ?? ""} onChange={code => setItemField(idx, "itemCode", code)} onPick={o => {
                     setItemField(idx, "itemName", o?.raw?.sku_name ?? o?.raw?.product_name ?? "");
                     setItemField(idx, "spec", o?.raw?.spec_code ?? "");
+                    setItemField(idx, "productCode", o?.raw?.product_code ?? "");   // G85-C
+                    setItemField(idx, "gradeCode", o?.raw?.grade_code ?? "");       // G85-C
                   }} style={{
                     minWidth: 200,
                     fontSize: 12,

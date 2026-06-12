@@ -104,7 +104,7 @@ export class ReceiptsService {
     );
 
     // ── RBAC-2 数据范围过滤 ──────────────────────────────────────────────────
-    this.scopeHelper.applyToQb(qb, { alias: 'r' });
+    this.scopeHelper.applyToQb(qb, { alias: 'r', warehouseField: 'warehouseCode' });   // G85-C 补仓库维度
     // ────────────────────────────────────────────────────────────────────────
 
     const [items, total] = await qb.skip((page - 1) * pageSize).take(pageSize).getManyAndCount();

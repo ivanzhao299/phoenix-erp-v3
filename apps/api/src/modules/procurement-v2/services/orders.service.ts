@@ -160,6 +160,8 @@ export class OrdersService {
         itemCode:    it.itemCode,
         itemName:    it.itemName,
         spec:        it.spec,
+        productCode: it.productCode,   // G85-C SKU 带出
+        gradeCode:   it.gradeCode,     // G85-C SKU 带出
         qty:         it.qty,
         unit:        it.unit,
         unitPrice:   it.unitPrice,
