@@ -7,12 +7,19 @@
 --      「公司拥有的资源维度」——本迁移让 farm 维度归位。
 -- 回填依据：孟赛/东鹏蛋鸡场均属老挝凤凰农业（与 biz_projects 种子
 --      PRJ_MENGSAI_LAYER / PRJ_DONGPENG_LAYER 的 company_code 一致）。
+-- 守卫：brd_farms 仅存在于生产库（CI 测试库无此表，建表不在 ddl/v3_schema 清单
+--      内——参照 R3 迁移同款 to_regclass 守卫），表不存在则整体跳过。
 -- 幂等：ADD COLUMN IF NOT EXISTS；UPDATE 仅回填 NULL 行。
 -- ════════════════════════════════════════════════════════════════════════
 
-ALTER TABLE brd_farms ADD COLUMN IF NOT EXISTS company_code VARCHAR(64);
+DO $$
+BEGIN
+  IF to_regclass('public.brd_farms') IS NOT NULL THEN
+    ALTER TABLE brd_farms ADD COLUMN IF NOT EXISTS company_code VARCHAR(64);
 
-UPDATE brd_farms SET company_code = 'COMP-LAO-AGRI'
-WHERE farm_code IN ('FARM-MS', 'FARM-DP') AND company_code IS NULL;
+    UPDATE brd_farms SET company_code = 'COMP-LAO-AGRI'
+    WHERE farm_code IN ('FARM-MS', 'FARM-DP') AND company_code IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_brd_farms_company ON brd_farms (company_code) WHERE company_code IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_brd_farms_company ON brd_farms (company_code) WHERE company_code IS NOT NULL;
+  END IF;
+END $$;
