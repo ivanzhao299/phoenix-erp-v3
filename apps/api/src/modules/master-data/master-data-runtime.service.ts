@@ -42,10 +42,18 @@ const TYPES: Record<string, MdTypeConfig> = {
     writableCols: ['supplier_name','supplier_name_en','supplier_type','country_code','contact_name','contact_phone','contact_email','tax_no','default_currency','payment_terms','credit_days','address','remark','effective_date','expire_date'],
   },
   project: {
-    // FIX UAT-1 2026-06-04: 实际表名是 prc2_projects（早期错配为 shr_projects 表不存在）
-    table: 'prc2_projects', codeCol: 'project_code', nameCol: 'project_name',
+    // G86 2026-06-12：切换到统一项目主表 biz_projects（MDM-1 已于 06-05 在生产建表；
+    //   prc2_projects 为被取代的空表，前端 procurement2/projects 已重定向主数据中心）
+    table: 'biz_projects', codeCol: 'project_code', nameCol: 'project_name',
     prefix: 'PRJ', objectType: 'PROJECT', companyCol: 'company_code',
-    writableCols: ['project_name','company_code','site_code','project_type','remark','effective_date','expire_date'],
+    writableCols: ['project_name','project_short_name','company_code','project_type',
+                   'budget_amount','budget_currency','start_date','end_date','manager_name','remark'],
+  },
+  material: {
+    // G86 采购物料主数据（饲料/兽药/包材/配件/建材——采购的物品来源，区别于自家产品 SKU）
+    table: 'mst_materials', codeCol: 'material_code', nameCol: 'material_name',
+    prefix: 'MAT', objectType: 'MATERIAL',
+    writableCols: ['material_name','material_type','spec','unit','default_currency','remark'],
   },
   'cash-account': {
     table: 'fin_cash_accounts', codeCol: 'account_code', nameCol: 'account_name',

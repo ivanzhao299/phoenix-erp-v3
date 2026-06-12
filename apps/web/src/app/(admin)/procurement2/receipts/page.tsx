@@ -7,7 +7,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
 import { Search, RefreshCw, Plus, Eye, CheckCircle, X } from "lucide-react";
 import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字典
-import { WarehouseSelector, UserSelector, SkuSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
+import { WarehouseSelector, UserSelector, MaterialSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -594,7 +594,7 @@ export default function ReceiptsPage() {
                     <th style={{
                     ...thStyle,
                     minWidth: 180
-                  }}>物品名称 <span style={{
+                  }}>物料名称 <span style={{
                       color: "var(--color-danger)"
                     }}>*</span></th>
                     <th style={{
@@ -636,10 +636,11 @@ export default function ReceiptsPage() {
                       <td style={{
                     padding: "8px"
                   }}>
-                        {/* G4-B：物料从 SKU 主数据选择，自动带出 sku_code/name/spec/unit */}
-                        <SkuSelector value={item.itemCode ?? ""} onChange={code => setItemField(idx, "itemCode", code)} onPick={o => {
-                      setItemField(idx, "itemName", o?.raw?.sku_name ?? o?.raw?.product_name ?? "");
-                      setItemField(idx, "spec", o?.raw?.spec_code ?? "");
+                        {/* 物料主数据（mst_materials runtime）选择，自动带出 material_name/spec/unit */}
+                        <MaterialSelector value={item.itemCode ?? ""} onChange={code => setItemField(idx, "itemCode", code)} onPick={o => {
+                      setItemField(idx, "itemName", o?.raw?.material_name ?? o?.raw?.name ?? "");
+                      setItemField(idx, "spec", o?.raw?.spec ?? "");
+                      setItemField(idx, "unit", o?.raw?.unit ?? "");
                     }} style={{
                       fontSize: 13,
                       padding: "5px 8px"
@@ -799,7 +800,7 @@ export default function ReceiptsPage() {
                 <table className={s.table}>
                   <thead>
                     <tr>
-                      <th>物品</th>
+                      <th>物料</th>
                       <th className={u.tar}>应收</th>
                       <th className={u.tar}>实收</th>
                       <th className={u.tar}>拒收</th>

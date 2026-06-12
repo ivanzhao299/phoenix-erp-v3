@@ -9,6 +9,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
 import { CompanySelector, ProjectSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
+import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 数据字典统一组件
 
 // ── 类型定义 ─────────────────────────────────────────────────────────────────
 interface Supplier {
@@ -64,7 +65,7 @@ const SCOPE_OPTS = [{
   cls: "badgeWarning",
   accent: "var(--status-warning)"
 }];
-const CURRENCY_OPTS = ["LAK", "CNY", "THB", "USD", "VND"];
+// 字典化后 CURRENCY_OPTS 已下沉至 sys_dict(SYS_CURRENCY)；COUNTRY_OPTS 仅保留供顶部筛选器使用
 const COUNTRY_OPTS = [{
   value: "LA",
   label: "老挝 LA"
@@ -725,18 +726,8 @@ export default function SuppliersPage() {
               display: "block",
               marginBottom: 4
             }}>国家 <span className={s.textDanger}>*</span></label>
-              <select value={form.countryCode} onChange={e => setF("countryCode", e.target.value)} style={{
-              width: "100%",
-              padding: "7px 10px",
-              background: "var(--bg-card)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius-md)",
-              color: "var(--text-primary)",
-              fontSize: 13,
-              outline: "none"
-            }}>
-                {COUNTRY_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              {/* 字典化：国家枚举来自 sys_dict(SYS_COUNTRY)，替代硬编码 COUNTRY_OPTS */}
+              <DictSelect dictType="SYS_COUNTRY" value={form.countryCode} onChange={v => setF("countryCode", v)} allowEmpty />
             </div>
             <div>
               <label style={{
@@ -765,18 +756,8 @@ export default function SuppliersPage() {
               display: "block",
               marginBottom: 4
             }}>默认货币 <span className={s.textDanger}>*</span></label>
-              <select value={form.defaultCurrency} onChange={e => setF("defaultCurrency", e.target.value)} style={{
-              width: "100%",
-              padding: "7px 10px",
-              background: "var(--bg-card)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius-md)",
-              color: "var(--text-primary)",
-              fontSize: 13,
-              outline: "none"
-            }}>
-                {CURRENCY_OPTS.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              {/* 字典化：货币枚举来自 sys_dict(SYS_CURRENCY)，替代硬编码 CURRENCY_OPTS */}
+              <DictSelect dictType="SYS_CURRENCY" value={form.defaultCurrency} onChange={v => setF("defaultCurrency", v)} allowEmpty />
             </div>
           </div>
 

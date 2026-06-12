@@ -93,6 +93,7 @@ export interface ProjectSelectorProps extends BaseProps {
 export function ProjectSelector(p: ProjectSelectorProps) {
   const { companyCode, ...base } = p;
   return <ScopedSelect {...base} placeholder={base.placeholder ?? '请选择项目'}
+    reloadDeps={[companyCode]}   // G86：随公司切换重载过滤
     loader={async () => {
       const url = companyCode
         ? `/biz/projects/active?company_code=${encodeURIComponent(companyCode)}`
@@ -488,4 +489,20 @@ export function SkuSelector(p: BaseProps & { productCode?: string; gradeCode?: s
           raw: s,
         }));
     }} />;
+}
+
+// ── 采购物料（mst_materials Runtime，仅 ACTIVE）──────────────────────────────
+/**
+ * 采购物资（饲料/兽药/包材/配件/建材等），与自家产品 SKU 区分。
+ * value = material_code；onPick 回传 raw（material_code/material_name/material_type/spec/unit）。
+ * 兼容 runtime active 返回 {code,name} 简化形态与全行形态。
+ */
+export function MaterialSelector(p: BaseProps) {
+  return <ScopedSelect {...p} placeholder={p.placeholder ?? '请选择物料'}
+    loader={async () => (await lookupArr('/master-data/runtime/material/active')).map((r: any) => {
+      const code = r.material_code ?? r.code ?? '';
+      const name = r.material_name ?? r.name ?? code;
+      const spec = r.spec ?? '';
+      return { value: code, label: `${name}（${code}${spec ? ' · ' + spec : ''}）`, raw: r };
+    })} />;
 }

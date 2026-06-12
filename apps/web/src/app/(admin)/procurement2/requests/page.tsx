@@ -9,7 +9,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
 import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字典
-import { CompanySelector, ProjectSelector, SupplierSelector, WarehouseSelector, SkuSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
+import { CompanySelector, ProjectSelector, SupplierSelector, WarehouseSelector, MaterialSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 interface ReqItem {
@@ -385,7 +385,7 @@ export default function PurchaseRequestsPage() {
       return;
     }
     if (formItems.some(it => !it.itemName.trim())) {
-      toast.error("物品名称不能为空");
+      toast.error("物料名称不能为空");
       return;
     }
     if (formItems.some(it => !it.qty || parseFloat(String(it.qty)) <= 0)) {
@@ -868,7 +868,7 @@ export default function PurchaseRequestsPage() {
                 <tr style={{
                 background: "var(--bg-subtle,var(--bg-muted))"
               }}>
-                  <th style={thStyle}>物品名称 *</th>
+                  <th style={thStyle}>物料名称 *</th>
                   <th style={thStyle}>规格</th>
                   <th style={thStyle}>数量 *</th>
                   <th style={thStyle}>单位</th>
@@ -889,10 +889,11 @@ export default function PurchaseRequestsPage() {
                 borderBottom: "1px solid var(--border)"
               }}>
                     <td style={tdStyle}>
-                      {/* G4-B：物料从 SKU 主数据选择，自动带出 sku_code/name/spec/unit */}
-                      <SkuSelector value={it.itemCode ?? ""} onChange={code => setItemField(idx, "itemCode", code)} onPick={o => {
-                    setItemField(idx, "itemName", o?.raw?.sku_name ?? o?.raw?.product_name ?? "");
-                    setItemField(idx, "spec", o?.raw?.spec_code ?? "");
+                      {/* 物料主数据（mst_materials runtime）选择，自动带出 material_name/spec/unit */}
+                      <MaterialSelector value={it.itemCode ?? ""} onChange={code => setItemField(idx, "itemCode", code)} onPick={o => {
+                    setItemField(idx, "itemName", o?.raw?.material_name ?? o?.raw?.name ?? "");
+                    setItemField(idx, "spec", o?.raw?.spec ?? "");
+                    setItemField(idx, "unit", o?.raw?.unit ?? "");
                   }} style={{
                     minWidth: 200,
                     fontSize: 12,
@@ -904,7 +905,7 @@ export default function PurchaseRequestsPage() {
                     ...cellInpStyle,
                     width: 80,
                     background: "var(--bg-muted)"
-                  }} value={it.spec ?? ""} readOnly placeholder="由 SKU 自动带出" />
+                  }} value={it.spec ?? ""} readOnly placeholder="由物料自动带出" />
                     </td>
                     <td style={tdStyle}>
                       <input style={{
@@ -1068,7 +1069,7 @@ export default function PurchaseRequestsPage() {
                   <table className={s.table}>
                     <thead>
                       <tr>
-                        <th>物品名称</th>
+                        <th>物料名称</th>
                         <th>规格</th>
                         <th className={u.tar}>数量</th>
                         <th>单位</th>

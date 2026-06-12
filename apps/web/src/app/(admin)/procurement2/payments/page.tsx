@@ -9,7 +9,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
 import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 数据字典统一组件
-import { CompanySelector, CashAccountSelector, SupplierSelector, ShareholderSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-A 主数据选择器
+import { CompanySelector, CashAccountSelector, SupplierSelector, ShareholderSelector, ProjectSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-A 主数据选择器
 import { AttachmentUploader } from "@/components/design-system"; // G4-A 凭证上传
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
@@ -210,12 +210,6 @@ export default function PaymentsPage() {
   const [editing, setEditing] = useState<Payment | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // 主数据：项目列表（从 shr_projects 加载）
-  const [projects, setProjects] = useState<Array<{
-    project_code: string;
-    project_name: string;
-  }>>([]);
-
   // 表单字段
   const [formDate, setFormDate] = useState("");
   const [formCompCode, setFormCompCode] = useState("");
@@ -292,13 +286,6 @@ export default function PaymentsPage() {
   useEffect(() => {
     load(page);
   }, [page]); // eslint-disable-line
-
-  // 加载项目主数据（shr_projects），供付款单表单下拉选择，避免手工填写错误
-  useEffect(() => {
-    fetch("/api/generic-crud/shr_projects?limit=100", {
-      headers: hdr
-    }).then(r => r.json()).then(d => setProjects(d.data || [])).catch(() => {});
-  }, []); // eslint-disable-line
 
   // 打开新建
   function openNew() {
@@ -759,21 +746,11 @@ export default function PaymentsPage() {
             }} placeholder="由公司选择自动带出" />
             </div>
           </div>
-          {/* 项目：从 shr_projects 主数据下拉选择，选中后自动带出名称，避免手工输入出错 */}
+          {/* 项目：从项目主数据(biz_projects 统一源, 仅ACTIVE)选择，选中后自动带出名称，避免手工输入出错 */}
           <div className={s.fieldRow}>
             <div className={s.field}>
               <label className={s.lbl}>项目</label>
-              <select className={s.inp} value={formProjCode} onChange={e => {
-              const code = e.target.value;
-              const proj = projects.find(p => p.project_code === code);
-              setFormProjCode(code);
-              setFormProjName(proj?.project_name ?? "");
-            }}>
-                <option value="">-- 请选择项目 --</option>
-                {projects.map(p => <option key={p.project_code} value={p.project_code}>
-                    {p.project_name}（{p.project_code}）
-                  </option>)}
-              </select>
+              <ProjectSelector value={formProjCode} onChange={setFormProjCode} onPick={o => setFormProjName(o?.raw?.project_name ?? o?.label ?? "")} companyCode={formCompCode || undefined} />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>项目名称</label>

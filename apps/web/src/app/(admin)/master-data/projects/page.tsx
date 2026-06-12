@@ -19,24 +19,29 @@ export default function ProjectRuntimePage() {
         nameKey="project_name"
         onCodeClick={(code) => setDetailCode(code)}
         fields={[
+          // MDM-1：字段对齐 biz_projects 统一项目主表真实列
           { key: "project_name", label: "项目名称", required: true },
+          { key: "project_short_name", label: "项目简称" },
           { key: "company_code", label: "所属公司", type: "company", onPickKeys: { company_name: "org_name" } },
-          { key: "site_code", label: "场区", type: "farm" },
           { key: "project_type", label: "项目类型", type: "select", options: [
-            { value: "LAYER_FARM", label: "蛋鸡养殖场" }, { value: "BROILER_FARM", label: "肉鸡养殖场" },
-            { value: "SLAUGHTER", label: "屠宰加工厂" }, { value: "FOOD_FACTORY", label: "食品厂" },
-            { value: "ORGANIC_FERTILIZER", label: "有机肥生产厂" }, { value: "HATCHERY", label: "孵化场" },
-            { value: "FEED_MILL", label: "饲料厂" }, { value: "OTHER", label: "其他" },
+            { value: "INVESTMENT", label: "投资项目" },
+            { value: "OPERATION", label: "经营项目" },
+            { value: "COST_CENTER", label: "成本中心" },
+            { value: "PROFIT_CENTER", label: "利润中心" },
           ] },
-          { key: "effective_date", label: "生效日期", type: "date" },
-          { key: "expire_date", label: "失效日期", type: "date" },
+          { key: "budget_amount", label: "预算金额", type: "number" },
+          { key: "budget_currency", label: "预算币种", dictType: "SYS_CURRENCY" },
+          { key: "start_date", label: "开始日期", type: "date" },
+          { key: "end_date", label: "结束日期", type: "date" },
+          { key: "manager_name", label: "项目负责人" },
           { key: "remark", label: "备注" },
         ]}
         columns={[
           { key: "project_name", label: "项目名称" },
           { key: "company_code", label: "公司" },
-          { key: "site_code", label: "场区" },
           { key: "project_type", label: "类型" },
+          { key: "budget_amount", label: "预算金额" },
+          { key: "budget_currency", label: "币种" },
         ]}
       />
       <MasterDataDetailDrawer
