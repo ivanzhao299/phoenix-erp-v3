@@ -93,8 +93,10 @@ SELECT 'PRJ_MENGSAI_LAYER', '孟赛蛋鸡场经营项目', '孟赛蛋鸡', 'OPER
 WHERE NOT EXISTS (SELECT 1 FROM biz_projects WHERE project_code='PRJ_MENGSAI_LAYER');
 
 -- 3.2 PRJ_DONGPENG_LAYER 东鹏蛋鸡项目
+--   【G87-B 勘误 2026-06-12】东鹏属 老挝金三角兴驰农业（COMP-LAO-XINGCHI），原种子错写 AGRI；
+--   生产存量行由 20260612_g87b_dongpeng_company_fix.sql 纠正。
 INSERT INTO biz_projects (project_code, project_name, project_short_name, project_type, company_code, status, sort_order, remark)
-SELECT 'PRJ_DONGPENG_LAYER', '东鹏蛋鸡场经营项目', '东鹏蛋鸡', 'OPERATION', 'COMP-LAO-AGRI', 'ACTIVE', 20,
+SELECT 'PRJ_DONGPENG_LAYER', '东鹏蛋鸡场经营项目', '东鹏蛋鸡', 'OPERATION', 'COMP-LAO-XINGCHI', 'ACTIVE', 20,
        '东鹏蛋鸡养殖场（SITE-DONGPENG-LAYER）经营项目'
 WHERE NOT EXISTS (SELECT 1 FROM biz_projects WHERE project_code='PRJ_DONGPENG_LAYER');
 
