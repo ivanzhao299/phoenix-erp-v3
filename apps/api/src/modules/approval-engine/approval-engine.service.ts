@@ -1,5 +1,5 @@
 import {
-  Injectable, ConflictException, NotFoundException, ForbiddenException, BadRequestException, Inject, forwardRef,
+  Injectable, ConflictException, NotFoundException, ForbiddenException, BadRequestException, Inject, forwardRef, Logger,
 } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
@@ -314,7 +314,13 @@ export class ApprovalEngineService {
     userId: string,
     roles: string[],
   ): void {
-    if (step.allowAdminOverride && roles.includes('ROLE_ADMIN')) return;
+    if (step.allowAdminOverride && roles.includes('ROLE_ADMIN')) {
+      // G85-D 收紧留痕：override 越过正常审批人时必须可追溯（当前无任何规则启用此开关，纯防御）
+      new Logger('ApprovalEngine').warn(
+        `ADMIN-OVERRIDE used: userId=${userId} step=${step.id} instance=${step.instanceId} requiredRole=${step.approverRole ?? '-'}`,
+      );
+      return;
+    }
 
     const approverType = step.approverType ?? 'ROLE';
     const userSpecificTypes = ['USER', 'ORG_MANAGER', 'PROJECT_MANAGER', 'COMPANY_FINANCE', 'DIRECT_MANAGER'];
@@ -539,6 +545,16 @@ export class ApprovalEngineService {
   async getMyTodos(): Promise<any[]> {
     const { userId, roles } = this.currentUser();
 
+    // G85-D 待办 DataScope：非全局用户只看本公司范围实例（company_code 为 NULL 的全局单据保留）
+    const scope = this.cls.get('dataScope') as
+      { isGlobal?: boolean; allowedCompanyCodes?: string[] } | undefined;
+    const params: any[] = [roles, userId];
+    let scopeWhere = '';
+    if (scope && !scope.isGlobal && Array.isArray(scope.allowedCompanyCodes) && scope.allowedCompanyCodes.length > 0) {
+      params.push(scope.allowedCompanyCodes);
+      scopeWhere = `AND (i.company_code = ANY($${params.length}::varchar[]) OR i.company_code IS NULL)`;
+    }
+
     const rows = await this.ds.query(`
       SELECT
         s.id              AS step_id,
@@ -579,8 +595,9 @@ export class ApprovalEngineService {
           s.approver_role = ANY($1::varchar[])
           OR s.approver_user_id = $2
         )
+        ${scopeWhere}
       ORDER BY i.started_at ASC
-    `, [roles, userId]);
+    `, params);
 
     return rows;
   }

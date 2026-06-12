@@ -6,6 +6,7 @@ import { RefreshCw, TrendingUp, TrendingDown, DollarSign, Package, Truck, AlertT
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import request from "@/lib/api-client";
+import { currencySymbol } from "@/lib/currency";
 import s from "@/components/ui/admin-ui.module.css";
 
 // ── 类型定义 ─────────────────────────────────────────────────────────────────
@@ -41,6 +42,8 @@ interface ProjectCostRow {
   poAmount: number;
   paidAmount: number;
   balance: number;
+  budgetAmount: number | null;
+  budgetCurrency: string | null;
 }
 interface PaymentTrendRow {
   period: string;
@@ -404,11 +407,16 @@ export default function ProcurementDashboardPage() {
                 <th>项目</th><th>公司</th><th>货币</th>
                 <th className={u.tar}>采购订单数</th>
                 <th className={u.tar}>合同金额</th>
+                <th className={u.tar}>预算</th>
+                <th className={u.tar}>预算占用</th>
                 <th className={u.tar}>已付</th>
                 <th className={u.tar}>余额</th>
               </tr></thead>
               <tbody>
-                {projectCost.map((r, i) => <tr key={i}>
+                {projectCost.map((r, i) => {
+              const hasBudget = r.budgetAmount != null && r.budgetAmount > 0;
+              const usedPct = hasBudget ? r.poAmount / r.budgetAmount! * 100 : null;
+              return <tr key={i}>
                     <td>
                       <div className={u.fw500}>{r.projectName}</div>
                       <div style={{
@@ -420,6 +428,12 @@ export default function ProcurementDashboardPage() {
                     <td>{r.currencyCode}</td>
                     <td className={u.tar}>{fmt(r.poCount)}</td>
                     <td className={u.tar}>{fmt(r.poAmount, 2)}</td>
+                    <td className={u.tar}>{hasBudget ? `${currencySymbol(r.budgetCurrency)}${fmt(r.budgetAmount!, 2)}` : "—"}</td>
+                    <td style={{
+                textAlign: "right",
+                color: usedPct == null ? undefined : usedPct >= 100 ? "var(--status-danger)" : usedPct >= 80 ? "var(--status-warning)" : undefined,
+                fontWeight: usedPct != null && usedPct >= 80 ? 600 : undefined
+              }}>{usedPct == null ? "—" : `${fmt(usedPct, 1)}%`}</td>
                     <td style={{
                 textAlign: "right",
                 color: "var(--color-success)"
@@ -428,7 +442,8 @@ export default function ProcurementDashboardPage() {
                 textAlign: "right",
                 color: r.balance > 0 ? "var(--color-warning)" : undefined
               }}>{fmt(r.balance, 2)}</td>
-                  </tr>)}
+                  </tr>;
+            })}
               </tbody>
             </table>
           </div>}

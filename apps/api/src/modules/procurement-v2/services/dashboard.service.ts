@@ -166,9 +166,12 @@ export class DashboardService {
         COUNT(DISTINCT po.id)                               AS po_count,
         COALESCE(SUM(po.total_amount), 0)                  AS po_amount,
         COALESCE(SUM(ap.paid_amount_original), 0)          AS paid_amount,
-        COALESCE(SUM(ap.balance_amount_original), 0)       AS balance
+        COALESCE(SUM(ap.balance_amount_original), 0)       AS balance,
+        MAX(bp.budget_amount)                              AS budget_amount,
+        MAX(bp.budget_currency)                            AS budget_currency
       FROM prc2_purchase_orders po
       LEFT JOIN prc2_ap_ledger ap ON ap.po_id = po.id
+      LEFT JOIN biz_projects bp ON bp.project_code = po.project_code AND bp.deleted_at IS NULL
       WHERE po.status NOT IN ('CANCELLED')
         AND ($1::varchar IS NULL OR po.company_code = $1)
         AND ($2::varchar IS NULL OR po.project_code = $2)
@@ -190,6 +193,8 @@ export class DashboardService {
       poAmount:     Number(r.po_amount),
       paidAmount:   Number(r.paid_amount),
       balance:      Number(r.balance),
+      budgetAmount:   r.budget_amount != null ? Number(r.budget_amount) : null,
+      budgetCurrency: r.budget_currency ?? null,
     }));
   }
 
