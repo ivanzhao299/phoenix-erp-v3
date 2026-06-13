@@ -378,7 +378,7 @@ export default function PrcRequestPage() {
   const [urgency, setUrgency] = useState('NORMAL');
   const [currencyCode, setCurrencyCode] = useState('LAK');
   const [expectedDate, setExpectedDate] = useState(todayPlusDays(7));
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState('常规采购补货');   // G95-E：默认原因，可直接编辑
 
   // 明细行
   const [items, setItems] = useState<LineItem[]>([newLine()]);
@@ -430,7 +430,8 @@ export default function PrcRequestPage() {
       currencyCode,
       expectedDate: expectedDate || undefined,
       reason: reason.trim() || undefined,
-      items: items.map(r => ({
+      // G95-E：只取已填物品名的卡（误加的空卡自动忽略，不卡提交）
+      items: items.filter(r => r.itemName.trim()).map(r => ({
         itemName: r.itemName.trim(),
         spec: r.spec.trim() || undefined,
         qty: parseFloat(r.qty) || 1,
@@ -444,10 +445,11 @@ export default function PrcRequestPage() {
     if (!subject.trim()) return '请填写申请主题';
     if (!companyCode.trim()) return '请填写公司代码';
     if (!companyName.trim()) return '请填写公司名称';
-    const emptyItem = items.find(r => !r.itemName.trim());
-    if (emptyItem) return '请填写所有明细行的物品名称';
-    const badQty = items.find(r => !r.qty || parseFloat(r.qty) <= 0);
-    if (badQty) return '请填写所有明细行的数量（须大于0）';
+    // G95-E：只校验已填卡，空卡忽略
+    const filled = items.filter(r => r.itemName.trim());
+    if (filled.length === 0) return '请至少填写一条采购明细';
+    const badQty = filled.find(r => !r.qty || parseFloat(r.qty) <= 0);
+    if (badQty) return '已填明细的数量须大于 0';
     return '';
   }
 
@@ -537,7 +539,7 @@ export default function PrcRequestPage() {
     setUrgency('NORMAL');
     setCurrencyCode('LAK');
     setExpectedDate(todayPlusDays(7));
-    setReason('');
+    setReason('常规采购补货');   // G95-E：复位为默认原因
     setItems([newLine()]);
   }
 
