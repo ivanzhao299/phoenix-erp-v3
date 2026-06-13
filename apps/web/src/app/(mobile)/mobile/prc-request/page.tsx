@@ -7,6 +7,7 @@ import { ChevronLeft, RefreshCw, ClipboardList, Save, Send, Plus, Trash2, Sun, M
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
 import { getMobileToken, authHeader } from '@/lib/mobile-auth-token';
+import { mobileApi } from '@/lib/mobile-api';
 import { MobilePageSkeleton, SkeletonCard } from '@/components/mobile/MobileSkeleton';
 
 // ── 工具 ──────────────────────────────────────────────────────────────────────
@@ -129,6 +130,9 @@ function MaterialPicker(props: MaterialPickerProps) {
   // 新建表单状态
   const [creating, setCreating] = useState(false);
   const [newType, setNewType] = useState('OTHER');
+  // G101：物料类型走字典 PRC_MATERIAL_TYPE（兜底 MATERIAL_TYPE_OPTIONS，缓存共享）
+  const [matTypes, setMatTypes] = useState(MATERIAL_TYPE_OPTIONS);
+  useEffect(() => { mobileApi.getDict('PRC_MATERIAL_TYPE').then(d => { if (d.length) setMatTypes(d); }); }, []);
   const [newSpec, setNewSpec] = useState('');
   const [newUnit, setNewUnit] = useState('');
   const [saving, setSaving] = useState(false);
@@ -288,7 +292,7 @@ function MaterialPicker(props: MaterialPickerProps) {
                   value={newType}
                   onChange={e => setNewType(e.target.value)}
                 >
-                  {MATERIAL_TYPE_OPTIONS.map(o => (
+                  {matTypes.map(o => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
@@ -377,6 +381,20 @@ export default function PrcRequestPage() {
   const [purchaseType, setPurchaseType] = useState('MATERIAL');
   const [urgency, setUrgency] = useState('NORMAL');
   const [currencyCode, setCurrencyCode] = useState('LAK');
+
+  // G101 统一字典化：枚举改走 sys_dict（带硬编码兜底——dict 空/失败回退，零回归）
+  const [typeOpts, setTypeOpts] = useState([
+    { value: 'MATERIAL', label: '物料' }, { value: 'EQUIPMENT', label: '设备' },
+    { value: 'SERVICE', label: '服务' }, { value: 'FIXED_ASSET', label: '固定资产' }, { value: 'OTHER', label: '其他' }]);
+  const [urgencyOpts, setUrgencyOpts] = useState([
+    { value: 'NORMAL', label: '普通' }, { value: 'URGENT', label: '紧急' }, { value: 'CRITICAL', label: '非常紧急' }]);
+  const [currencyOpts, setCurrencyOpts] = useState([
+    { value: 'LAK', label: 'LAK' }, { value: 'CNY', label: 'CNY' }, { value: 'THB', label: 'THB' }, { value: 'USD', label: 'USD' }]);
+  useEffect(() => {
+    mobileApi.getDict('PRC_PURCHASE_TYPE').then(d => { if (d.length) setTypeOpts(d); });
+    mobileApi.getDict('PRC_URGENCY').then(d => { if (d.length) setUrgencyOpts(d); });
+    mobileApi.getDict('SYS_CURRENCY').then(d => { if (d.length) setCurrencyOpts(d); });
+  }, []);
   const [expectedDate, setExpectedDate] = useState(todayPlusDays(7));
   const [reason, setReason] = useState('常规采购补货');   // G95-E：默认原因，可直接编辑
 
@@ -808,19 +826,13 @@ export default function PrcRequestPage() {
                 <div>
                   <span style={labelSt}>采购类型</span>
                   <select style={inputSt} value={purchaseType} onChange={e => setPurchaseType(e.target.value)} disabled={readonly}>
-                    <option value="MATERIAL">物料</option>
-                    <option value="EQUIPMENT">设备</option>
-                    <option value="SERVICE">服务</option>
-                    <option value="FIXED_ASSET">固定资产</option>
-                    <option value="OTHER">其他</option>
+                    {typeOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
                 <div>
                   <span style={labelSt}>紧急程度</span>
                   <select style={inputSt} value={urgency} onChange={e => setUrgency(e.target.value)} disabled={readonly}>
-                    <option value="NORMAL">普通</option>
-                    <option value="URGENT">紧急</option>
-                    <option value="CRITICAL">非常紧急</option>
+                    {urgencyOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
               </div>
@@ -833,10 +845,7 @@ export default function PrcRequestPage() {
                 <div>
                   <span style={labelSt}>货币</span>
                   <select style={inputSt} value={currencyCode} onChange={e => setCurrencyCode(e.target.value)} disabled={readonly}>
-                    <option value="LAK">LAK</option>
-                    <option value="CNY">CNY</option>
-                    <option value="THB">THB</option>
-                    <option value="USD">USD</option>
+                    {currencyOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
                 <div>

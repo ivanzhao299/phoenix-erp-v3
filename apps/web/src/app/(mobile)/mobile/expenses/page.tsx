@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, RefreshCw, Plus, Receipt, Clock, CheckCircle, XCircle, Wallet, Send } from 'lucide-react';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { getMobileToken, authHeader } from '@/lib/mobile-auth-token';
+import { mobileApi } from '@/lib/mobile-api';
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -120,6 +121,10 @@ export default function MobileExpensesPage() {
   });
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState('');
+
+  // G101：费用类型走字典 FIN_EXPENSE_TYPE（兜底 EXPENSE_TYPES，零回归）
+  const [expTypeOpts, setExpTypeOpts] = useState(Object.entries(EXPENSE_TYPES).map(([value, label]) => ({ value, label })));
+  useEffect(() => { mobileApi.getDict('FIN_EXPENSE_TYPE').then(d => { if (d.length) setExpTypeOpts(d); }); }, []);
 
   // 选中的记录（查看详情）
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -587,7 +592,7 @@ export default function MobileExpensesPage() {
           color: text,
           fontSize: 14
         }}>
-              {Object.entries(EXPENSE_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              {expTypeOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
 

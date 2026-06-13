@@ -350,6 +350,18 @@ export const mobileApi = {
   getFeedHouses: () =>
     getCached('feedHouses', () => get<string[]>('/api/farm/feed/houses'), 5 * 60_000),
 
+  /**
+   * G101 字典下拉（统一字典化）：拉 sys_dict 某类型的 ACTIVE 项 → [{value,label}]。
+   *   value=dict_code（提交值），label=中文标签。10 分钟缓存（字典几乎不变）。
+   *   调用方应自带硬编码兜底：dict 为空/失败时回退，零回归。
+   */
+  getDict: (dictType: string): Promise<{ value: string; label: string }[]> =>
+    getCached(`dict:${dictType}`, () =>
+      get<Array<{ code: string; labelZh?: string; labelEn?: string }>>(`/api/lookup/dict/${dictType}`)
+        .then(rows => (rows ?? []).map(r => ({ value: r.code, label: r.labelZh || r.labelEn || r.code })))
+        .catch(() => []),
+      10 * 60_000),
+
   /** 鸡蛋库存快照 */
   getEggStock: () =>
     get<EggStockRow[]>('/api/farm/egg/stock'),

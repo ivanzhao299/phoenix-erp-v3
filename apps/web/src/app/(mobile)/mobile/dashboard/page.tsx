@@ -318,6 +318,12 @@ export default function MobileDashboardPage() {
   const {
     data: alertsRaw
   } = useSWR(showAlerts ? `alerts/${refreshKey}` : null, () => mobileApi.getOpenAlerts(), swrOpts);
+  // G101：告警类型标签走字典 IOT_ALERT_TYPE（合并硬编码 ALERT_LABELS 兜底——新告警类型也有可读名）
+  const { data: alertDict } = useSWR(showAlerts ? 'iotAlertDict' : null, () => mobileApi.getDict('IOT_ALERT_TYPE'), swrOpts);
+  const alertLabels = useMemo(
+    () => ({ ...ALERT_LABELS, ...Object.fromEntries((alertDict ?? []).map(d => [d.value, d.label])) }),
+    [alertDict],
+  );
   const {
     data: flocksRaw
   } = useSWR(showFarmFull ? `flocks/${refreshKey}` : null, () => mobileApi.getFlocks(), swrOpts);
@@ -1037,7 +1043,7 @@ export default function MobileDashboardPage() {
                 fontWeight: 600,
                 color: 'var(--status-danger)'
               }}>
-                        {ALERT_LABELS[a.alert_type] || a.alert_type}
+                        {alertLabels[a.alert_type] || a.alert_type}
                       </div>
                       <div style={{
                 fontSize: 11,
