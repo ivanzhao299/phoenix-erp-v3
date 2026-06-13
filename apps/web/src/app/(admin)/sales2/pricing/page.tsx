@@ -8,6 +8,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import s from "@/components/ui/admin-ui.module.css";
+import { inputField } from "@/components/design-system/cockpit-styles"; // G94 全局输入框唯一真相源
 const API = "/api/v2/sales/pricing";
 const MASTER_API = "/api/product-master";
 
@@ -718,17 +719,8 @@ function PriceItemsTab() {
     value: g.grade_code,
     label: `${g.grade_name} (${g.grade_code})`
   }))];
-  const inp: React.CSSProperties = {
-    height: 34,
-    border: "1px solid var(--border)",
-    borderRadius: "var(--radius)",
-    fontSize: 13,
-    padding: "0 10px",
-    background: "var(--bg-card)",
-    color: "var(--text-primary)",
-    width: "100%",
-    boxSizing: "border-box"
-  };
+  // G94：并入全局输入框唯一真相源（取代本页自定义 高34·0/10·13）
+  const inp: React.CSSProperties = inputField;
   const lbl: React.CSSProperties = {
     fontSize: 12,
     color: "var(--text-secondary)",

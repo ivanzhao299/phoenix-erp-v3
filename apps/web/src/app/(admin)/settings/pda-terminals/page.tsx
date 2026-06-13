@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
+import { inputField } from "@/components/design-system/cockpit-styles"; // G94 全局输入框唯一真相源
 interface PdaTerminal {
   id: number;
   name: string;
@@ -99,17 +100,8 @@ const EMPTY_FORM = {
   status: "active",
   notes: ""
 };
-const inp: React.CSSProperties = {
-  width: "100%",
-  boxSizing: "border-box",
-  background: "var(--bg-page)",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius-md)",
-  padding: "8px 12px",
-  color: "var(--text-primary)",
-  fontSize: 13,
-  outline: "none"
-};
+// G94：并入全局输入框唯一真相源（取代本页自定义 bg-page·8/12·13）
+const inp: React.CSSProperties = inputField;
 const lbl: React.CSSProperties = {
   fontSize: 12,
   color: "var(--text-secondary)",

@@ -11,6 +11,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字典
 import { CompanySelector, ProjectSelector, SupplierSelector, WarehouseSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
 import { MaterialPicker } from "@/components/shared-selectors/MaterialPicker"; // 可搜索 + 就地新建物料组合框
+import { tableInputCell } from "@/components/design-system/cockpit-styles"; // G94 全局表格输入 token
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 interface ReqItem {
@@ -176,16 +177,8 @@ const inlineSelect: React.CSSProperties = {
   ...inlineInput,
   flex: "0 0 auto"
 };
-const cellInpStyle: React.CSSProperties = {
-  width: "100%",
-  border: "1px solid var(--border)",
-  borderRadius: 4,
-  background: "var(--bg-input,var(--bg-card))",
-  color: "var(--text-primary)",
-  padding: "3px 6px",
-  fontSize: 12,
-  outline: "none"
-};
+// G94：并入全局表格输入 token（取代本页自定义 3/6·圆角4）
+const cellInpStyle: React.CSSProperties = tableInputCell;
 const thStyle: React.CSSProperties = {
   padding: "5px 6px",
   textAlign: "left",

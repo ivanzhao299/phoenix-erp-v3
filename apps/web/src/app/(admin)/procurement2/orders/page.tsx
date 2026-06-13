@@ -12,6 +12,7 @@ import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字
 import { CompanySelector, ProjectSelector, SupplierSelector, WarehouseSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
 import { MaterialPicker } from "@/components/shared-selectors/MaterialPicker"; // 可搜索 + 就地新建物料组合框
 import { AttachmentUploader } from "@/components/design-system"; // G4-B 合同附件
+import { tableInputCell } from "@/components/design-system/cockpit-styles"; // G94 全局表格输入 token
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 interface OrderItem {
@@ -213,16 +214,8 @@ const tdStyle: React.CSSProperties = {
   padding: "4px 6px",
   verticalAlign: "middle"
 };
-const cellInp: React.CSSProperties = {
-  width: "100%",
-  border: "1px solid var(--border)",
-  borderRadius: 4,
-  background: "var(--bg-card)",
-  color: "var(--text-primary)",
-  padding: "3px 6px",
-  fontSize: 12,
-  outline: "none"
-};
+// G94：并入全局表格输入 token（取代本页自定义 3/6·圆角4）
+const cellInp: React.CSSProperties = tableInputCell;
 
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 export default function PurchaseOrdersPage() {

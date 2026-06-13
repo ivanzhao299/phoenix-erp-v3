@@ -11,6 +11,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 数据字典统一组件
 import { CompanySelector, CashAccountSelector, SupplierSelector, ShareholderSelector, ProjectSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-A 主数据选择器
 import { AttachmentUploader } from "@/components/design-system"; // G4-A 凭证上传
+import { tableInputCell } from "@/components/design-system/cockpit-styles"; // G94 全局表格输入 token
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 interface ApLedger {
@@ -176,16 +177,8 @@ const tdStyle: React.CSSProperties = {
   verticalAlign: "middle",
   fontSize: 12
 };
-const cellInp: React.CSSProperties = {
-  width: "100%",
-  border: "1px solid var(--border)",
-  borderRadius: 4,
-  background: "var(--bg-input,var(--bg-card))",
-  color: "var(--text-primary)",
-  padding: "3px 6px",
-  fontSize: 12,
-  outline: "none"
-};
+// G94：并入全局表格输入 token（取代本页自定义 3/6·圆角4）
+const cellInp: React.CSSProperties = tableInputCell;
 
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 export default function PaymentsPage() {

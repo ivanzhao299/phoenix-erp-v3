@@ -8,6 +8,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { Search, RefreshCw, Plus, Eye, CheckCircle, X } from "lucide-react";
 import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字典
 import { WarehouseSelector, UserSelector, MaterialSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
+import { tableInputCell } from "@/components/design-system/cockpit-styles"; // G94 全局表格输入 token
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -338,17 +339,8 @@ export default function ReceiptsPage() {
   const removeItem = (idx: number) => setFormItems(prev => prev.filter((_, i) => i !== idx));
   const totalPages = Math.ceil(total / pageSize);
   // 明细单元格输入框（与全局 .inp 同档，企业级留白）
-  const cellInp: React.CSSProperties = {
-    padding: "8px 10px",
-    border: "1px solid var(--border)",
-    borderRadius: 6,
-    fontSize: 13,
-    background: "var(--bg-input)",
-    color: "var(--text-primary)",
-    width: "100%",
-    boxSizing: "border-box",
-    lineHeight: 1.5
-  };
+  // G94：并入全局表格输入 token（取代本页自定义）
+  const cellInp: React.CSSProperties = tableInputCell;
   // 表单分组容器与标题（带主色强调条，区块间距充足）
   const formBlock: React.CSSProperties = {
     marginBottom: 28
