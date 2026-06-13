@@ -124,6 +124,11 @@ export default function PrcRequestPage() {
   // 明细行
   const [items, setItems] = useState<LineItem[]>([newLine()]);
 
+  // 主数据下拉选项
+  const [companyOptions, setCompanyOptions] = useState<{ code: string; name: string }[]>([]);
+  const [projectOptions, setProjectOptions] = useState<{ code: string; name: string }[]>([]);
+  const [materialOptions, setMaterialOptions] = useState<{ code: string; name: string }[]>([]);
+
   // UI state
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -300,6 +305,57 @@ export default function PrcRequestPage() {
     if (!allowed || permLoading) return;
     if (tab === 'records') loadRecords();
   }, [tab, allowed, permLoading, loadRecords]);
+
+  // ── 主数据加载 ────────────────────────────────────────────────────────────
+  // 兼容解析：返回可能是 {code,data} / {data} / 裸数组
+  function parseList(json: any): any[] {
+    if (Array.isArray(json)) return json;
+    if (Array.isArray(json?.data)) return json.data;
+    if (Array.isArray(json?.items)) return json.items;
+    return [];
+  }
+
+  // 进页加载公司 + 物料
+  useEffect(() => {
+    if (!allowed || permLoading) return;
+    (async () => {
+      try {
+        const res = await fetch('/api/lookup/companies', { headers: authHeader() });
+        const list = parseList(await res.json().catch(() => ({})));
+        // G90 实测：/api/lookup/companies 返回 orgCode/orgName（非 company_code）
+        setCompanyOptions(list.map((r: any) => ({
+          code: r.orgCode ?? r.company_code ?? r.code ?? '',
+          name: r.orgName ?? r.orgNameCn ?? r.company_name ?? r.name ?? ''
+        })).filter((o: { code: string }) => o.code));
+      } catch { /* 静默 */ }
+    })();
+    (async () => {
+      try {
+        const res = await fetch('/api/master-data/runtime/material/active', { headers: authHeader() });
+        const list = parseList(await res.json().catch(() => ({})));
+        setMaterialOptions(list.map((r: any) => ({
+          code: r.material_code ?? r.code ?? '',
+          name: r.material_name ?? r.name ?? ''
+        })).filter((o: { name: string }) => o.name));
+      } catch { /* 静默 */ }
+    })();
+  }, [allowed, permLoading]);
+
+  // 项目随公司变化重拉
+  useEffect(() => {
+    if (!allowed || permLoading) return;
+    (async () => {
+      try {
+        const qs = companyCode ? `?company_code=${encodeURIComponent(companyCode)}` : '';
+        const res = await fetch(`/api/biz/projects/active${qs}`, { headers: authHeader() });
+        const list = parseList(await res.json().catch(() => ({})));
+        setProjectOptions(list.map((r: any) => ({
+          code: r.project_code ?? r.code ?? '',
+          name: r.project_name ?? r.name ?? ''
+        })).filter((o: { code: string }) => o.code));
+      } catch { /* 静默 */ }
+    })();
+  }, [allowed, permLoading, companyCode]);
   if (permLoading) return <MobilePageSkeleton title="发起采购申请" tabs={['发起申请', '申请记录']} onBack={() => router.back()} />;
   if (!allowed) return null;
 
@@ -454,34 +510,33 @@ export default function PrcRequestPage() {
                 <input style={inputSt} value={subject} onChange={e => setSubject(e.target.value)} placeholder="例：5月饲料补充采购" disabled={readonly} />
               </div>
 
-              <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 10
-          }}>
-                <div>
-                  <span style={labelSt}>公司代码 *</span>
-                  <input style={inputSt} value={companyCode} onChange={e => setCompanyCode(e.target.value)} placeholder="PHX_AGRI" disabled={readonly} />
-                </div>
-                <div>
-                  <span style={labelSt}>公司名称 *</span>
-                  <input style={inputSt} value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="金凤凰农业" disabled={readonly} />
-                </div>
+              <div>
+                <span style={labelSt}>公司 *</span>
+                <select style={inputSt} value={companyCode} onChange={e => {
+              const code = e.target.value;
+              const opt = companyOptions.find(o => o.code === code);
+              setCompanyCode(code);
+              setCompanyName(opt?.name ?? '');
+              // 切换公司清空已选项目
+              setProjectCode('');
+              setProjectName('');
+            }} disabled={readonly}>
+                  <option value="">请选择公司</option>
+                  {companyOptions.map(o => <option key={o.code} value={o.code}>{o.name || o.code}</option>)}
+                </select>
               </div>
 
-              <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 10
-          }}>
-                <div>
-                  <span style={labelSt}>项目代码</span>
-                  <input style={inputSt} value={projectCode} onChange={e => setProjectCode(e.target.value)} placeholder="可选" disabled={readonly} />
-                </div>
-                <div>
-                  <span style={labelSt}>项目名称</span>
-                  <input style={inputSt} value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="可选" disabled={readonly} />
-                </div>
+              <div>
+                <span style={labelSt}>项目</span>
+                <select style={inputSt} value={projectCode} onChange={e => {
+              const code = e.target.value;
+              const opt = projectOptions.find(o => o.code === code);
+              setProjectCode(code);
+              setProjectName(opt?.name ?? '');
+            }} disabled={readonly}>
+                  <option value="">（不指定项目）</option>
+                  {projectOptions.map(o => <option key={o.code} value={o.code}>{o.name || o.code}</option>)}
+                </select>
               </div>
 
               <div style={{
@@ -604,7 +659,17 @@ export default function PrcRequestPage() {
             }}>
                     <div>
                       <span style={labelSt}>物品名称 *</span>
-                      <input style={inputSt} value={row.itemName} onChange={e => updateItem(row.key, 'itemName', e.target.value)} placeholder="例：大豆粕" disabled={readonly} />
+                      {/* G90：有物料主数据用下拉（主数据治理）；主数据为空时降级手填（避免空下拉无法提单）。
+                          录入物料档案后下拉自动可用。 */}
+                      {materialOptions.length > 0 ? (
+                        <select style={inputSt} value={row.itemName} onChange={e => updateItem(row.key, 'itemName', e.target.value)} disabled={readonly}>
+                          <option value="">请选择物料</option>
+                          {materialOptions.map(o => <option key={o.code || o.name} value={o.name}>{o.name}</option>)}
+                          {row.itemName && !materialOptions.some(o => o.name === row.itemName) && <option value={row.itemName}>{row.itemName}</option>}
+                        </select>
+                      ) : (
+                        <input style={inputSt} value={row.itemName} onChange={e => updateItem(row.key, 'itemName', e.target.value)} placeholder="物料档案为空，可手填（建档后转下拉）" disabled={readonly} />
+                      )}
                     </div>
 
                     <div>

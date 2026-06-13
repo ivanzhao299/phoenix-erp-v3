@@ -174,6 +174,12 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     write: [],
     read:  [...MGMT],
   },
+
+  /** G90 费用报销：各业务角色提报本人费用，财务/管理层审核（页面已实现但首页无入口=孤儿，本次挂入） */
+  expenses: {
+    write: [R.ADMIN, R.FARM_MGR, R.VET, R.BREEDER, R.WMS_MGR, R.PKG_MGR, R.LOG_MGR, R.STORE_MGR, R.PRC_BUYER, R.PROJECT_MGR, R.FIN_ACCT],
+    read:  [R.CEO, R.REGION_MGR, R.FIN_CFO, R.AUDITOR],
+  },
 };
 
 // ── 辅助函数 ──────────────────────────────────────────────────────────────────

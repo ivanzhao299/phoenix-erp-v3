@@ -9,7 +9,7 @@ import { useBrand } from '@/contexts/BrandContext';
 import { canAccess } from '@/lib/mobile-roles';
 import { haptic } from '@/lib/haptic';
 import { approvalApi, notificationApi } from '@/lib/mobile-api';
-import { BarChart2, Package, ShieldCheck, Warehouse, Truck, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird, Egg, Sun, Moon, LineChart, PackageCheck, ClipboardList, Maximize2, Minimize2, ClipboardCheck as WorkflowIcon, Bell } from 'lucide-react';
+import { BarChart2, Package, ShieldCheck, Warehouse, Truck, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird, Egg, Sun, Moon, LineChart, PackageCheck, ClipboardList, Maximize2, Minimize2, ClipboardCheck as WorkflowIcon, Bell, Receipt } from 'lucide-react';
 import u from "@/styles/uix-utils.module.css";
 type NavCard = {
   icon: React.ReactNode;
@@ -189,6 +189,17 @@ const NAV_CARDS: NavCard[] = [{
   soon: false,
   pageKey: 'notifications',
   badgeKey: 'notifCount'
+}, {
+  // G90：费用报销入口（页面早已实现，原首页无入口=孤儿，本次挂入）
+  icon: <Receipt size={28} />,
+  titleZh: '费用报销',
+  titleEn: 'Expenses',
+  titleLo: 'ຄ່າໃຊ້ຈ່າຍ',
+  desc: '提报费用 · 查看报销进度',
+  color: 'var(--color-teal-600, var(--status-info))',
+  href: '/mobile/expenses',
+  soon: false,
+  pageKey: 'expenses'
 }];
 
 /** 全屏 API 能力检测（iOS Safari 不支持） */
