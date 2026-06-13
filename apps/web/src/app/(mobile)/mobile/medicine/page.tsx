@@ -15,7 +15,9 @@ function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-const DEFAULT_HOUSES = ['2号舍', '3号舍', '4号舍', '5号舍', '6号舍', '全场'];
+// G99：栋舍不再硬编码——出库栋舍从真实养殖场栋舍拉取（与 feed/egg 页同源 /api/farm/feed/houses）。
+//   「全场」(整场用药) 始终保留为首选项。
+const WHOLE_FARM = '全场';
 
 type Tab = 'stock' | 'inbound' | 'outbound';
 
@@ -48,6 +50,15 @@ export default function MedicinePage() {
 
   // 入库 / 出库 entries：{ medication_code → EntryRow }
   const [entries, setEntries] = useState<Record<string, EntryRow>>({});
+
+  // G99：真实栋舍（含「全场」首项）——取代硬编码 DEFAULT_HOUSES
+  const [houses, setHouses] = useState<string[]>([WHOLE_FARM]);
+  useEffect(() => {
+    if (!allowed) return;
+    mobileApi.getFeedHouses()
+      .then(hs => setHouses([WHOLE_FARM, ...(hs ?? []).filter(h => h && h !== WHOLE_FARM)]))
+      .catch(() => setHouses([WHOLE_FARM]));
+  }, [allowed]);
 
   const loadStock = useCallback(async () => {
     setLoading(true);
@@ -82,7 +93,7 @@ export default function MedicinePage() {
   if (permLoading || !allowed) return null;
 
   const getEntry = (code: string): EntryRow =>
-    entries[code] ?? { qty: 0, house_code: DEFAULT_HOUSES[0], note: '' };
+    entries[code] ?? { qty: 0, house_code: houses[0] ?? WHOLE_FARM, note: '' };
 
   const setEntry = (code: string, patch: Partial<EntryRow>) => {
     setEntries(p => ({ ...p, [code]: { ...getEntry(code), ...patch } }));
@@ -306,7 +317,7 @@ export default function MedicinePage() {
                             color: t.text, fontSize: 12, outline: 'none',
                           }}
                         >
-                          {DEFAULT_HOUSES.map(h => <option key={h} value={h}>{h}</option>)}
+                          {houses.map(h => <option key={h} value={h}>{h}</option>)}
                         </select>
                       </div>
                     )}
