@@ -757,7 +757,7 @@ export default function PaymentsPage() {
             }} allowEmpty={false} />
             </div>
             <div className={s.field}>
-              <label className={s.lbl}>付款人 *</label>
+              <label className={s.lbl}>付款人 * <span style={{ fontWeight: 400, fontSize: 11, color: "var(--text-muted)" }}>（出资/付款主体，非经办人）</span></label>
               {/* 付款人随付款方类型联动选择，名称由 onPick 自动带出（编码禁手填）。
                   公司→公司主数据；股东→股东主数据（与下方“股东代付”共用同一选中值）；
                   借款/内部往来无主数据源，保留文本录入。 */}
