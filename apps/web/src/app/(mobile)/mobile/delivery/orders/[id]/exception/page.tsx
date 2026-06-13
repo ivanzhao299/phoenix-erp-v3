@@ -1,7 +1,8 @@
 'use client';
-import { useState, use, Suspense } from 'react';
+import { useState, useEffect, use, Suspense } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter, useSearchParams } from 'next/navigation';
+import { mobileApi } from '@/lib/mobile-api';
 
 // ── 颜色常量 ──────────────────────────────────────────────────────────────────
 const C = {
@@ -16,11 +17,13 @@ const C = {
   red:     'var(--status-danger)',
 };
 
-const EXCEPTION_TYPES = [
+// 异常类型与 PC 新版（sales2/delivery）同源 sys_dict『SAL_DELIVERY_EXCEPTION』。
+// 下方为离线兜底，值须与 PC 字典一致（含 LATE 超时，剔除旧版漂移的 EXPIRED）。
+const EXCEPTION_TYPES_FALLBACK = [
   { value: 'SHORTAGE', label: '缺货' },
   { value: 'DAMAGED',  label: '破损' },
-  { value: 'REJECTED', label: '拒收' },
-  { value: 'EXPIRED',  label: '超期' },
+  { value: 'REJECTED', label: '客户拒收' },
+  { value: 'LATE',     label: '超时' },
   { value: 'OTHER',    label: '其他' },
 ];
 
@@ -47,7 +50,15 @@ function ExceptionForm({ id }: { id: string }) {
   const [receivedQty,    setReceivedQty]    = useState('');
   const [exceptionQty,   setExceptionQty]   = useState('');
   const [exceptionType,  setExceptionType]  = useState('SHORTAGE');
+  const [exceptionTypes, setExceptionTypes] = useState(EXCEPTION_TYPES_FALLBACK);
   const [remark,         setRemark]         = useState('');
+
+  // 拉 sys_dict『SAL_DELIVERY_EXCEPTION』，与 PC 新版同源；失败保留兜底
+  useEffect(() => {
+    mobileApi.getDict('SAL_DELIVERY_EXCEPTION').then(rows => {
+      if (rows && rows.length) setExceptionTypes(rows);
+    }).catch(() => {});
+  }, []);
   const [submitting,     setSubmitting]     = useState(false);
   const [error,          setError]          = useState('');
   const [success,        setSuccess]        = useState(false);
@@ -190,7 +201,7 @@ function ExceptionForm({ id }: { id: string }) {
           value={exceptionType}
           onChange={e => setExceptionType(e.target.value)}
         >
-          {EXCEPTION_TYPES.map(t => (
+          {exceptionTypes.map(t => (
             <option key={t.value} value={t.value}>{t.label}</option>
           ))}
         </select>

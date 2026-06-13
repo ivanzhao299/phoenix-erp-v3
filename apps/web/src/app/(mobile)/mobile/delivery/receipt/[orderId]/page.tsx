@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, use } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
+import { mobileApi } from '@/lib/mobile-api';
 const C = {
   bg: 'var(--brand-deep-1)',
   bg2: 'var(--brand-deep-2)',
@@ -16,7 +17,15 @@ const C = {
   red: 'var(--status-danger)',
   gray: 'var(--slate-500)'
 };
-const EXCEPTION_TYPES = ['缺货', '破损', '拒收', '超期', '其他'];
+// 异常类型与 PC 新版（sales2/delivery）同源 sys_dict『SAL_DELIVERY_EXCEPTION』；
+// 提交码值（非中文），离线兜底须与 PC 字典一致。
+const EXCEPTION_TYPES_FALLBACK = [
+  { value: 'SHORTAGE', label: '缺货' },
+  { value: 'DAMAGED',  label: '破损' },
+  { value: 'REJECTED', label: '客户拒收' },
+  { value: 'LATE',     label: '超时' },
+  { value: 'OTHER',    label: '其他' },
+];
 interface DeliveryItem {
   id: string;
   productCode: string;
@@ -123,8 +132,16 @@ export default function ReceiptPage({
   const [signedBy, setSignedBy] = useState('');
   const [receivedQty, setReceivedQty] = useState('');
   const [exceptionQty, setExceptionQty] = useState('0');
-  const [exceptionType, setExceptionType] = useState('缺货');
+  const [exceptionType, setExceptionType] = useState('SHORTAGE');
+  const [exceptionTypes, setExceptionTypes] = useState(EXCEPTION_TYPES_FALLBACK);
   const [remark, setRemark] = useState('');
+
+  // 拉 sys_dict『SAL_DELIVERY_EXCEPTION』，与 PC 新版同源；失败保留兜底
+  useEffect(() => {
+    mobileApi.getDict('SAL_DELIVERY_EXCEPTION').then(rows => {
+      if (rows && rows.length) setExceptionTypes(rows);
+    }).catch(() => {});
+  }, []);
   const [photos, setPhotos] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -421,7 +438,7 @@ export default function ReceiptPage({
             {parseInt(exceptionQty) > 0 && <div className={u.mb16}>
                 <label style={labelStyle}>异常原因</label>
                 <select value={exceptionType} onChange={e => setExceptionType(e.target.value)} style={selectStyle}>
-                  {EXCEPTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  {exceptionTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>}
 
