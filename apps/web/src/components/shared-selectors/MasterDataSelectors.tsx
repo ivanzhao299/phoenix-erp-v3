@@ -57,13 +57,16 @@ function ScopedSelect({
   const [opts, setOpts] = useState<Opt[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 定长依赖键：序列化 reloadDeps 成单一字符串，避免同一 JSX 槽位在不同 Selector
+  // （如付款人=公司↔股东）间复用 fiber 时依赖数组长度变化触发 React 警告。
+  const reloadKey = JSON.stringify(reloadDeps ?? []);
   useEffect(() => {
     let alive = true;
     setLoading(true);
     loader().then(list => { if (alive) setOpts(list); }).catch(() => { if (alive) setOpts([]); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, reloadDeps ?? []); // eslint-disable-line
+  }, [reloadKey]); // eslint-disable-line
 
   return (
     <select className={className} style={{ ...selStyle, ...style }} value={value} disabled={disabled || loading}
@@ -135,12 +138,16 @@ export function CompanySelector(p: BaseProps) {
  *   - 'id'：value = uuid，适用于 fin_fund_transfer / fin_reimbursement / fin_ar_receipt 这类 FK
  * currencyCode：可选过滤，仅显示该币种账户
  */
-export function CashAccountSelector(p: BaseProps & { valueField?: 'code' | 'id'; currencyCode?: string }) {
-  const { valueField = 'code', currencyCode, ...rest } = p;
+export function CashAccountSelector(p: BaseProps & { valueField?: 'code' | 'id'; currencyCode?: string; companyCode?: string }) {
+  const { valueField = 'code', currencyCode, companyCode, ...rest } = p;
   return <ScopedSelect {...rest} placeholder={p.placeholder ?? '请选择资金账户'}
+    reloadDeps={[currencyCode, companyCode]}
     loader={async () => {
-      // G5-B 切 /api/lookup/cash-accounts；支持 currency query 直接过滤
-      const url = currencyCode ? `/lookup/cash-accounts?currency=${encodeURIComponent(currencyCode)}` : '/lookup/cash-accounts';
+      // G5-B 切 /api/lookup/cash-accounts；支持 currency / company query 直接过滤
+      const qs = new URLSearchParams();
+      if (currencyCode) qs.set('currency', currencyCode);
+      if (companyCode)  qs.set('company',  companyCode);
+      const url = qs.toString() ? `/lookup/cash-accounts?${qs.toString()}` : '/lookup/cash-accounts';
       const list = await lookupArr<any>(url);
       return list
         .map(a => {

@@ -351,12 +351,14 @@ export class LookupController {
     return { code: 200, data: rows };
   }
 
-  /** GET /api/lookup/cash-accounts?currency= — 资金账户下拉（替代 /v2/finance/cash/accounts） */
+  /** GET /api/lookup/cash-accounts?currency=&company= — 资金账户下拉（替代 /v2/finance/cash/accounts）
+   *  G106-C：支持 company 过滤——付款单按所选公司收窄银行账户，杜绝用他司账户付款。 */
   @Get('cash-accounts')
-  async cashAccounts(@Query('currency') currency?: string) {
+  async cashAccounts(@Query('currency') currency?: string, @Query('company') company?: string) {
     const params: any[] = [];
     let where = `status='ACTIVE'`;
     if (currency) { params.push(currency); where += ` AND currency_code=$${params.length}`; }
+    if (company)  { params.push(company);  where += ` AND company_code=$${params.length}`; }
     const rows = await this.em.query(
       `SELECT account_code AS "accountCode", account_name AS "accountName",
               company_code AS "companyCode", currency_code AS "currencyCode",

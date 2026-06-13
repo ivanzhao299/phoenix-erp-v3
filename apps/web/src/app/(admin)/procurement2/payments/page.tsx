@@ -731,7 +731,13 @@ export default function PaymentsPage() {
           <div className={s.fieldRow}>
             <div className={s.field}>
               <label className={s.lbl}>公司</label>
-              <CompanySelector value={formCompCode} onChange={setFormCompCode} onPick={o => setFormCompName(o?.label ?? "")} />
+              {/* 换公司 → 清空按公司收窄的选择（股东付款人 / 付款账户），防 A 公司采购用 B 公司股东/账户付款 */}
+              <CompanySelector value={formCompCode} onChange={v => {
+              setFormCompCode(v);
+              setFormShareholderId(""); setFormShareholderName("");
+              if (formPayerType === "SHAREHOLDER") { setFormPayerName(""); setFormPayerCode(""); }
+              setFormPayerAccount("");
+            }} onPick={o => setFormCompName(o?.label ?? "")} />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>项目</label>
@@ -765,7 +771,7 @@ export default function PaymentsPage() {
                 <CompanySelector value={formPayerCode} onChange={setFormPayerCode}
                   onPick={o => setFormPayerName(o?.label ?? "")} />
               ) : formPayerType === "SHAREHOLDER" ? (
-                <ShareholderSelector value={formShareholderId}
+                <ShareholderSelector value={formShareholderId} companyCode={formCompCode || undefined}
                   onChange={v => { setFormShareholderId(v); setFormPayerCode(v); }}
                   onPick={o => {
                     const nm = o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.raw?.name ?? o?.label ?? "";
@@ -778,9 +784,10 @@ export default function PaymentsPage() {
           </div>
           <div className={s.fieldRow}>
             <div className={s.field}>
-              <label className={s.lbl}>付款账户（按付款币种过滤）</label>
-              {/* G85-B：按币种过滤，后端执行付款时强校验 账户存在/同公司/同币种/ACTIVE/余额 */}
-              <CashAccountSelector value={formPayerAccount} onChange={setFormPayerAccount} currencyCode={formCurrency || undefined} />
+              <label className={s.lbl}>付款账户（按公司 + 付款币种过滤）</label>
+              {/* G85-B：按币种过滤，后端执行付款时强校验 账户存在/同公司/同币种/ACTIVE/余额。
+                  G106-C：再按所选公司收窄——只列该公司的银行账户，杜绝用他司账户付款 */}
+              <CashAccountSelector value={formPayerAccount} onChange={setFormPayerAccount} currencyCode={formCurrency || undefined} companyCode={formCompCode || undefined} />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>收款方（供应商）</label>
@@ -842,7 +849,7 @@ export default function PaymentsPage() {
             <div className={s.field}>
               <label className={s.lbl}>股东</label>
               {/* G4-A：从股东主数据选择，自动带出姓名，禁止手填编码 */}
-              <ShareholderSelector value={formShareholderId} onChange={setFormShareholderId} onPick={o => setFormShareholderName(o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.label ?? "")} />
+              <ShareholderSelector value={formShareholderId} companyCode={formCompCode || undefined} onChange={setFormShareholderId} onPick={o => setFormShareholderName(o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.label ?? "")} />
             </div>
           ))}
 
