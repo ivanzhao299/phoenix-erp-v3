@@ -801,6 +801,7 @@ export default function PurchaseOrdersPage() {
               <input className={s.inp} value={fSubject} onChange={e => setFSubject(e.target.value)} placeholder="采购主题" />
             </div>
           </div>
+          {/* G95：公司/项目并排——选中即得，名称由 onPick 后台带出，去掉冗余只读名称框 */}
           <div className={s.fieldRow}>
             <div className={s.field}>
               <label className={s.lbl}>公司 *</label>
@@ -808,47 +809,20 @@ export default function PurchaseOrdersPage() {
               <CompanySelector value={fCompanyCode} onChange={setFCompanyCode} onPick={o => setFCompanyName(o?.label ?? "")} disabled={!!editing} />
             </div>
             <div className={s.field}>
-              <label className={s.lbl}>公司名称 *</label>
-              <input className={s.inp} value={fCompanyName} readOnly style={{
-              background: "var(--bg-muted)",
-              color: "var(--text-secondary)",
-              cursor: "not-allowed"
-            }} placeholder="由公司选择自动带出" />
-            </div>
-          </div>
-          <div className={s.fieldRow}>
-            <div className={s.field}>
               <label className={s.lbl}>项目</label>
               {/* G4-B：项目主数据(shr_projects)，自动带出名称 */}
               <ProjectSelector value={fProjectCode} onChange={setFProjectCode} onPick={o => setFProjectName(o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? "")} />
-            </div>
-            <div className={s.field}>
-              <label className={s.lbl}>项目名称</label>
-              <input className={s.inp} value={fProjectName} readOnly style={{
-              background: "var(--bg-muted)",
-              color: "var(--text-secondary)",
-              cursor: "not-allowed"
-            }} placeholder="由项目选择自动带出" />
             </div>
           </div>
 
           <div className={s.formSection} style={{
           marginTop: 20
         }}>供应商 & 采购属性</div>
-          <div className={s.fieldRow}>
-            <div className={s.field}>
-              <label className={s.lbl}>供应商 *</label>
-              {/* G4-B：供应商主数据(仅 ACTIVE)，自动带出名称 */}
-              <SupplierSelector value={fSupplierCode} onChange={setFSupplierCode} onPick={o => setFSupplierName(o?.raw?.name ?? o?.label ?? "")} />
-            </div>
-            <div className={s.field}>
-              <label className={s.lbl}>供应商名称 *</label>
-              <input className={s.inp} value={fSupplierName} readOnly style={{
-              background: "var(--bg-muted)",
-              color: "var(--text-secondary)",
-              cursor: "not-allowed"
-            }} placeholder="由供应商选择自动带出" />
-            </div>
+          {/* G95：供应商占整行——选中即得，名称由 onPick 后台带出，去掉冗余只读名称框 */}
+          <div className={s.field}>
+            <label className={s.lbl}>供应商 *</label>
+            {/* G4-B：供应商主数据(仅 ACTIVE)，自动带出名称 */}
+            <SupplierSelector value={fSupplierCode} onChange={setFSupplierCode} onPick={o => setFSupplierName(o?.raw?.name ?? o?.label ?? "")} />
           </div>
           <div className={s.fieldRow}>
             <div className={s.field}>

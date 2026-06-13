@@ -394,23 +394,6 @@ function CreateReturnDrawer({
             fontSize: 12,
             color: 'var(--text-secondary)',
             marginBottom: 4
-          }}>客户名称</div>
-            <input value={form.customerName} readOnly placeholder="由客户选择自动带出" style={{
-            width: '100%',
-            padding: '8px 10px',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            fontSize: 14,
-            boxSizing: 'border-box',
-            background: 'var(--bg-muted)',
-            color: 'var(--text-secondary)'
-          }} />
-          </div>
-          <div>
-            <div style={{
-            fontSize: 12,
-            color: 'var(--text-secondary)',
-            marginBottom: 4
           }}>退货类型 *</div>
             <select value={form.returnType} onChange={e => setForm(p => ({
             ...p,

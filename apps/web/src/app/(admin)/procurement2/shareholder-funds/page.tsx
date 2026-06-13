@@ -648,22 +648,12 @@ export default function ShareholderFundsPage() {
               ...prev, companyCode: v, shareholderId: "", shareholderName: "", projectCode: "", projectName: ""
             }))} onPick={o => setCreateForm(prev => ({ ...prev, companyName: o?.label ?? "" }))} />
           </label>
-          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span className={u.muted12}>公司名称</span>
-            <input value={createForm.companyName} readOnly placeholder="由公司选择自动带出"
-              className={inputFieldClass} style={{ background: "var(--bg-muted)", color: "var(--text-secondary)", cursor: "not-allowed" }} />
-          </label>
           {/* G39：股东按公司过滤（先选公司） */}
           <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span className={u.muted12}>股东 *</span>
             <ShareholderSelector companyCode={createForm.companyCode} disabled={!createForm.companyCode}
               value={createForm.shareholderId ?? ""} onChange={v => setCreateForm(prev => ({ ...prev, shareholderId: v }))}
               onPick={o => setCreateForm(prev => ({ ...prev, shareholderName: o?.raw?.name ?? o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.label ?? "" }))} />
-          </label>
-          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span className={u.muted12}>股东姓名</span>
-            <input value={createForm.shareholderName} readOnly placeholder={createForm.companyCode ? "由股东选择自动带出" : "请先选择公司"}
-              className={inputFieldClass} style={{ background: "var(--bg-muted)", color: "var(--text-secondary)", cursor: "not-allowed" }} />
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span className={u.muted12}>金额 *</span>
@@ -692,11 +682,6 @@ export default function ShareholderFundsPage() {
             ...prev,
             projectName: o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? ""
           }))} />
-          </label>
-          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span className={u.muted12}>项目名称</span>
-            <input value={createForm.projectName} readOnly placeholder="由项目选择自动带出"
-              className={inputFieldClass} style={{ background: "var(--bg-muted)", color: "var(--text-secondary)", cursor: "not-allowed" }} />
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span className={u.muted12}>发生日期</span>

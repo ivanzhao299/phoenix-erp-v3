@@ -762,6 +762,7 @@ export default function PurchaseRequestsPage() {
               <input className={s.inp} value={formSubject} onChange={e => setFormSubject(e.target.value)} placeholder="请输入采购主题" />
             </div>
           </div>
+          {/* G95：公司/项目并排——选择器选中即得，名称由 onPick 后台带出，去掉冗余只读名称框 */}
           <div className={s.fieldRow}>
             <div className={s.field}>
               <label className={s.lbl}>公司 *</label>
@@ -769,27 +770,9 @@ export default function PurchaseRequestsPage() {
               <CompanySelector value={formCompanyCode} onChange={setFormCompanyCode} onPick={o => setFormCompanyName(o?.label ?? "")} disabled={!!editing} />
             </div>
             <div className={s.field}>
-              <label className={s.lbl}>公司名称 *</label>
-              <input className={s.inp} value={formCompanyName} readOnly style={{
-              background: "var(--bg-muted)",
-              color: "var(--text-secondary)",
-              cursor: "not-allowed"
-            }} placeholder="由公司选择自动带出" />
-            </div>
-          </div>
-          <div className={s.fieldRow}>
-            <div className={s.field}>
               <label className={s.lbl}>项目</label>
               {/* G4-B：项目主数据(shr_projects)，仅 ACTIVE，自动带出项目名称 */}
               <ProjectSelector value={formProjectCode} onChange={setFormProjectCode} onPick={o => setFormProjectName(o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? "")} />
-            </div>
-            <div className={s.field}>
-              <label className={s.lbl}>项目名称</label>
-              <input className={s.inp} value={formProjectName} readOnly style={{
-              background: "var(--bg-muted)",
-              color: "var(--text-secondary)",
-              cursor: "not-allowed"
-            }} placeholder="由项目选择自动带出" />
             </div>
           </div>
 
@@ -1184,22 +1167,11 @@ export default function PurchaseRequestsPage() {
         flexDirection: "column",
         gap: 10
       }}>
-          <div className={s.fieldRow} style={{
-          gap: 8
-        }}>
-            <div className={s.field}>
-              <label className={s.lbl}>供应商 *</label>
-              {/* G4-B：供应商主数据(仅 ACTIVE)，自动带出名称 */}
-              <SupplierSelector value={convertSupplierCode} onChange={setConvertSupplierCode} onPick={o => setConvertSupplierName(o?.raw?.name ?? o?.label ?? "")} />
-            </div>
-            <div className={s.field}>
-              <label className={s.lbl}>供应商名称</label>
-              <input className={s.inp} value={convertSupplierName} readOnly style={{
-              background: "var(--bg-muted)",
-              color: "var(--text-secondary)",
-              cursor: "not-allowed"
-            }} placeholder="由供应商选择自动带出" />
-            </div>
+          {/* G95：供应商占整行——选中即得，名称由 onPick 后台带出，去掉冗余只读名称框 */}
+          <div className={s.field}>
+            <label className={s.lbl}>供应商 *</label>
+            {/* G4-B：供应商主数据(仅 ACTIVE)，自动带出名称 */}
+            <SupplierSelector value={convertSupplierCode} onChange={setConvertSupplierCode} onPick={o => setConvertSupplierName(o?.raw?.name ?? o?.label ?? "")} />
           </div>
           <div className={s.fieldRow} style={{
           gap: 8

@@ -322,25 +322,11 @@ function CreateContributionModal({
               onPick={o => set('companyName', o?.label ?? '')} />
           </div>
           <div>
-            <div style={formLabel}>公司名称</div>
-            <input className={inpClass} value={form.companyName} readOnly style={{
-            background: 'var(--bg-muted)',
-            cursor: 'not-allowed'
-          }} placeholder="由公司选择自动带出" />
-          </div>
-          <div>
             <div style={formLabel}>股东 <span className="text-red-500">*</span></div>
             {/* G39：先选公司 → 股东按 shr_project_equity 权威投资关系过滤 */}
             <ShareholderSelector companyCode={form.companyCode} disabled={!form.companyCode}
               value={form.shareholderCode} onChange={v => set('shareholderCode', v)}
               onPick={o => set('shareholderName', o?.raw?.name ?? o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.label ?? '')} />
-          </div>
-          <div>
-            <div style={formLabel}>股东姓名</div>
-            <input className={inpClass} value={form.shareholderName} readOnly style={{
-            background: 'var(--bg-muted)',
-            cursor: 'not-allowed'
-          }} placeholder={form.companyCode ? '由股东选择自动带出' : '请先选择公司'} />
           </div>
           <div>
             <div style={formLabel}>货币 <span className="text-red-500">*</span></div>

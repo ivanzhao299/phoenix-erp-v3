@@ -771,41 +771,11 @@ export default function SuppliersPage() {
             paddingBottom: 6,
             marginTop: 4
           }}>归属公司 <span className={s.textDanger}>*</span></div>
-              <div style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 10
-          }}>
-                <div>
-                  <label style={{
-                fontSize: 12,
-                color: "var(--text-secondary)",
-                display: "block",
-                marginBottom: 4
-              }}>公司</label>
-                  {/* G4-B：归属公司走公司主数据(DataScope 自动过滤)，名称自动带出 */}
-                  <CompanySelector value={form.ownerCompanyCode} onChange={v => setF("ownerCompanyCode", v)} onPick={o => setF("ownerCompanyName", o?.label ?? "")} />
-                </div>
-                <div>
-                  <label style={{
-                fontSize: 12,
-                color: "var(--text-secondary)",
-                display: "block",
-                marginBottom: 4
-              }}>公司名称</label>
-                  <input value={form.ownerCompanyName} readOnly placeholder="由公司选择自动带出" style={{
-                width: "100%",
-                padding: "7px 10px",
-                background: "var(--bg-muted)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-md)",
-                color: "var(--text-secondary)",
-                fontSize: 13,
-                outline: "none",
-                boxSizing: "border-box",
-                cursor: "not-allowed"
-              }} />
-                </div>
+              {/* G95：公司选中即得，名称由 onPick 后台带出，去掉冗余只读名称框 */}
+              <div>
+                <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>公司</label>
+                {/* G4-B：归属公司走公司主数据(DataScope 自动过滤)，名称自动带出 */}
+                <CompanySelector value={form.ownerCompanyCode} onChange={v => setF("ownerCompanyCode", v)} onPick={o => setF("ownerCompanyName", o?.label ?? "")} />
               </div>
             </>}
           {needOwnerProject && <>
@@ -817,41 +787,11 @@ export default function SuppliersPage() {
             paddingBottom: 6,
             marginTop: 4
           }}>归属项目 <span className={s.textDanger}>*</span></div>
-              <div style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 10
-          }}>
-                <div>
-                  <label style={{
-                fontSize: 12,
-                color: "var(--text-secondary)",
-                display: "block",
-                marginBottom: 4
-              }}>项目</label>
-                  {/* G4-B：归属项目走项目主数据(仅 ACTIVE)，名称自动带出 */}
-                  <ProjectSelector value={form.ownerProjectCode} onChange={v => setF("ownerProjectCode", v)} onPick={o => setF("ownerProjectName", o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? "")} />
-                </div>
-                <div>
-                  <label style={{
-                fontSize: 12,
-                color: "var(--text-secondary)",
-                display: "block",
-                marginBottom: 4
-              }}>项目名称</label>
-                  <input value={form.ownerProjectName} readOnly placeholder="由项目选择自动带出" style={{
-                width: "100%",
-                padding: "7px 10px",
-                background: "var(--bg-muted)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-md)",
-                color: "var(--text-secondary)",
-                fontSize: 13,
-                outline: "none",
-                boxSizing: "border-box",
-                cursor: "not-allowed"
-              }} />
-                </div>
+              {/* G95：项目选中即得，名称由 onPick 后台带出，去掉冗余只读名称框 */}
+              <div>
+                <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>项目</label>
+                {/* G4-B：归属项目走项目主数据(仅 ACTIVE)，名称自动带出 */}
+                <ProjectSelector value={form.ownerProjectCode} onChange={v => setF("ownerProjectCode", v)} onPick={o => setF("ownerProjectName", o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? "")} />
               </div>
             </>}
 

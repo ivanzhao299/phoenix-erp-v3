@@ -724,34 +724,15 @@ export default function PaymentsPage() {
               <DictSelect dictType="SYS_CURRENCY" value={formCurrency} onChange={setFormCurrency} allowEmpty={false} />
             </div>
           </div>
-          {/* G4-A：公司从主数据(org COMPANY)选择，自动带出名称，禁止手填 */}
+          {/* G95：公司/项目并排——选中即得，名称由 onPick 后台带出，去掉冗余只读名称框 */}
           <div className={s.fieldRow}>
             <div className={s.field}>
               <label className={s.lbl}>公司</label>
               <CompanySelector value={formCompCode} onChange={setFormCompCode} onPick={o => setFormCompName(o?.label ?? "")} />
             </div>
             <div className={s.field}>
-              <label className={s.lbl}>公司名称</label>
-              <input className={s.inp} value={formCompName} readOnly style={{
-              background: "var(--bg-muted)",
-              color: "var(--text-secondary)",
-              cursor: "not-allowed"
-            }} placeholder="由公司选择自动带出" />
-            </div>
-          </div>
-          {/* 项目：从项目主数据(biz_projects 统一源, 仅ACTIVE)选择，选中后自动带出名称，避免手工输入出错 */}
-          <div className={s.fieldRow}>
-            <div className={s.field}>
               <label className={s.lbl}>项目</label>
               <ProjectSelector value={formProjCode} onChange={setFormProjCode} onPick={o => setFormProjName(o?.raw?.project_name ?? o?.label ?? "")} companyCode={formCompCode || undefined} />
-            </div>
-            <div className={s.field}>
-              <label className={s.lbl}>项目名称</label>
-              <input className={s.inp} value={formProjName} readOnly style={{
-              background: "var(--bg-muted)",
-              color: "var(--text-secondary)",
-              cursor: "not-allowed"
-            }} placeholder="由项目选择自动填入" />
             </div>
           </div>
 
@@ -829,20 +810,11 @@ export default function PaymentsPage() {
               股东代付（自动记录股东资金池）
             </label>
           </div>
-          {formIsShareholder && <div className={s.fieldRow}>
-              <div className={s.field}>
-                <label className={s.lbl}>股东</label>
-                {/* G4-A：从股东主数据选择，自动带出姓名，禁止手填编码 */}
-                <ShareholderSelector value={formShareholderId} onChange={setFormShareholderId} onPick={o => setFormShareholderName(o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.label ?? "")} />
-              </div>
-              <div className={s.field}>
-                <label className={s.lbl}>股东姓名</label>
-                <input className={s.inp} value={formShareholderName} readOnly style={{
-              background: "var(--bg-muted)",
-              color: "var(--text-secondary)",
-              cursor: "not-allowed"
-            }} placeholder="由股东选择自动带出" />
-              </div>
+          {/* G95：股东占整行——选中即得，姓名由 onPick 后台带出，去掉冗余只读框 */}
+          {formIsShareholder && <div className={s.field}>
+              <label className={s.lbl}>股东</label>
+              {/* G4-A：从股东主数据选择，自动带出姓名，禁止手填编码 */}
+              <ShareholderSelector value={formShareholderId} onChange={setFormShareholderId} onPick={o => setFormShareholderName(o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.label ?? "")} />
             </div>}
 
           <div className={s.field}>
