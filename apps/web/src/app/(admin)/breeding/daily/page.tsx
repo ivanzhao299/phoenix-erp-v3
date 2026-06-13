@@ -107,11 +107,11 @@ export default function DailyPage() {
   const [flockByHouse, setFlockByHouse] = useState<Record<string, string>>({});
   const [farmCodeByHouse, setFarmCodeByHouse] = useState<Record<string, string>>({});
   const [formDate, setFormDate] = useState(today);
-  // 班次字典化：BRD_SHIFT，与后端 sys_dict 同步（既有 codes: MORNING/EVENING/NIGHT/DAY）
+  // 班次字典化：BRD_SHIFT（G102 统一为中文 早班/晚班）；字典为空时 fallback 同口径
   const { optionPairs: shiftOptions } = useDictOptions('BRD_SHIFT');
   const shiftRows = shiftOptions.length > 0
     ? shiftOptions.map((opt, i) => mkRow(i + 1, opt.value))
-    : [mkRow(1, 'BRD_SHIFT_MORNING'), mkRow(2, 'BRD_SHIFT_EVENING')];
+    : [mkRow(1, '早班'), mkRow(2, '晚班')];
   const [rows, setRows] = useState(shiftRows);
   // 字典加载完后同步 rows（首次加载从 fallback DAY/NIGHT 切到 dict 实际值）
   useEffect(() => {

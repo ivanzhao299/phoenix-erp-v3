@@ -24,12 +24,10 @@ function shiftDays(s: string, n: number) {
   const dt = new Date(y, m - 1, d + n);
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 }
+// G102：班次统一口径——早班/晚班（中文，与 BRD_SHIFT 字典一致）；中班已清理
 const SHIFTS = [{
   key: '早班',
   label: '早班'
-}, {
-  key: '中班',
-  label: '中班'
 }, {
   key: '晚班',
   label: '晚班'

@@ -19,11 +19,13 @@ WHERE p.role_id = r.role_id AND p.menu_id = m.menu_id
 DO $$
 BEGIN
   IF to_regclass('public.brd_flocks') IS NOT NULL
-     AND to_regclass('public.shr_project_equity') IS NOT NULL THEN
+     AND to_regclass('public.shr_project_equity') IS NOT NULL
+     AND to_regclass('public.shr_shareholders') IS NOT NULL
+     AND to_regclass('public.shr_projects') IS NOT NULL THEN
     INSERT INTO sys_user_orgs (user_id, org_id, is_primary, data_scope_level)
     SELECT DISTINCT sh.linked_user_id::bigint, o.id, false, 'COMPANY'
     FROM shr_project_equity pe
-    JOIN shr_shareholder sh ON sh.shareholder_code = pe.shareholder_code
+    JOIN shr_shareholders sh ON sh.shareholder_code = pe.shareholder_code
     JOIN shr_projects prj   ON prj.project_code   = pe.project_code
     JOIN sys_organizations o ON o.org_code = prj.company_code AND o.org_type = 'COMPANY'
     WHERE sh.linked_user_id IS NOT NULL
