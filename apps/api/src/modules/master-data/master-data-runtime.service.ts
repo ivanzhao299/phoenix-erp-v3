@@ -197,10 +197,111 @@ const BIZ_TYPE: Record<string, string> = {
   dict:            'MD_DICT_CREATE',
 };
 
-// G92：字段级变更审批统一 bizType（所有类型的关键字段编辑共用一条审批链；
-//   承载在独立 md_change_requests 表，审批通过后由 onApproved 应用变更回主表，
-//   原记录在通过前保持 ACTIVE 可被引用——不像「主表自身 status 转 PENDING」会临时下线）
+// G92：字段级变更审批统一 bizType（独立 md_change_requests 表承载）。
+//   G93 起默认走「规则自动审批网关」，此人工通道转为休眠（保留供未来按类型/字段开人工复核）。
 const FIELD_CHANGE_BIZ = 'MD_FIELD_CHANGE';
+
+// ════════════════════════════════════════════════════════════════════════
+// G93 主数据自动审批网关（2026-06-13，用户拍板：全自动无例外 / 名称+唯一键查重 / 当场退回列原因）
+// ────────────────────────────────────────────────────────────────────────
+// 提交即跑规则校验：①必填完备 ②查重（名称+关键唯一键）③格式规范 ④值域合法 ⑤引用存在。
+//   全过 → 自动通过、直接 ACTIVE（operator 标 AUTO）；任一不过 → 抛错列出全部原因，当场退回。
+//   新建时校验全字段；编辑时只校验「本次改动的字段」（容忍历史脏数据，不因未触碰的旧字段卡死编辑）。
+// ════════════════════════════════════════════════════════════════════════
+
+interface UniqueKey {
+  fields: string[];            // 组成唯一键的列（多列=组合唯一）
+  scopeByCompany?: boolean;    // 是否限定在同 company_code 范围内查重
+  skipEmpty?: boolean;         // 任一列为空则跳过该键（如税号/条码非必填）
+  label: string;               // 中文名（用于错误提示）
+}
+interface ValidationCfg {
+  required?: string[];         // 必填列（默认 [nameCol]）
+  unique?: UniqueKey[];        // 查重键
+}
+
+const VALIDATION: Record<string, ValidationCfg> = {
+  customer: {
+    required: ['customer_name', 'customer_type', 'company_code'],
+    unique: [{ fields: ['customer_name'], scopeByCompany: true, label: '客户名称' }],
+  },
+  supplier: {
+    required: ['supplier_name', 'supplier_type'],
+    unique: [
+      { fields: ['supplier_name'], label: '供应商名称' },
+      { fields: ['tax_no'], skipEmpty: true, label: '税号' },
+    ],
+  },
+  project: {
+    required: ['project_name', 'company_code'],
+    unique: [{ fields: ['project_name'], scopeByCompany: true, label: '项目名称' }],
+  },
+  material: {
+    required: ['material_name', 'material_type'],
+    unique: [{ fields: ['material_name'], label: '物料名称' }],
+  },
+  'cash-account': {
+    required: ['account_name', 'company_code', 'currency_code'],
+    unique: [
+      { fields: ['account_name'], scopeByCompany: true, label: '账户名称' },
+      { fields: ['bank_account_no'], skipEmpty: true, label: '银行账号' },
+    ],
+  },
+  'bank-account': {
+    required: ['bank_name', 'account_no', 'account_holder', 'currency_code'],
+    unique: [{ fields: ['account_no'], label: '银行账号' }],
+  },
+  product: {
+    required: ['product_name'],
+    unique: [{ fields: ['product_name'], label: '产品名称' }],
+  },
+  store: {
+    required: ['store_name', 'company_code'],
+    unique: [{ fields: ['store_name'], scopeByCompany: true, label: '门店名称' }],
+  },
+  warehouse: {
+    required: ['warehouse_name', 'company_code'],
+    unique: [{ fields: ['warehouse_name'], scopeByCompany: true, label: '仓库名称' }],
+  },
+  sku: {
+    required: ['sku_name'],
+    unique: [
+      { fields: ['sku_name'], label: 'SKU 名称' },
+      { fields: ['barcode'], skipEmpty: true, label: '条码' },
+    ],
+  },
+  grade: { required: ['grade_name'], unique: [{ fields: ['grade_name'], label: '等级名称' }] },
+  spec: { required: ['spec_name'], unique: [{ fields: ['spec_name'], label: '规格名称' }] },
+  driver: {
+    required: ['driver_name'],
+    unique: [
+      { fields: ['driver_name'], scopeByCompany: true, label: '司机姓名' },
+      { fields: ['phone'], skipEmpty: true, label: '司机电话' },
+    ],
+  },
+  vehicle: { required: ['plate_no'], unique: [{ fields: ['plate_no'], label: '车牌号' }] },
+  // organization/company：同名在不同上级下合法（财务部×N），不做名称查重，只校必填+格式
+  organization: { required: ['org_name', 'org_type'], unique: [] },
+  company: { required: ['org_name'], unique: [] },
+  // dict：另有 sys_dict DML 授权门槛，自动审批不介入查重
+  dict: { required: ['dict_label_zh'], unique: [] },
+};
+
+/** 列名 → 中文（错误提示用，保证前端全中文）；未命中回退列名 */
+const FIELD_LABELS: Record<string, string> = {
+  customer_name: '客户名称', customer_type: '客户类型', company_code: '归属公司', company_name: '公司名称',
+  contact_name: '联系人', contact_phone: '联系电话', contact_email: '联系邮箱', credit_limit: '信用额度',
+  payment_terms: '账期', supplier_name: '供应商名称', supplier_type: '供应商类型', tax_no: '税号',
+  default_currency: '默认币种', currency_code: '币种', budget_currency: '预算币种', credit_days: '账期天数',
+  project_name: '项目名称', budget_amount: '预算金额', material_name: '物料名称', material_type: '物料类型',
+  account_name: '账户名称', account_type: '账户类型', bank_account_no: '银行账号', account_no: '银行账号',
+  holder_code: '持有人', bank_name: '开户行', account_holder: '账户持有人', swift_code: 'SWIFT',
+  product_name: '产品名称', category_code: '类目', store_name: '门店名称', warehouse_name: '仓库名称',
+  sku_name: 'SKU 名称', barcode: '条码', grade_name: '等级名称', spec_name: '规格名称',
+  driver_name: '司机姓名', phone: '电话', plate_no: '车牌号', org_name: '组织名称', org_type: '组织类型',
+  dict_label_zh: '字典名称', manager: '负责人', manager_name: '负责人', manager_user_id: '负责人',
+};
+const zhField = (f: string) => FIELD_LABELS[f] ?? f;
 
 @Injectable()
 export class MasterDataRuntimeService {
@@ -220,6 +321,86 @@ export class MasterDataRuntimeService {
     const c = TYPES[type];
     if (!c) throw new BadRequestException(`未知主数据类型：${type}`);
     return c;
+  }
+
+  /** 校验某字典类型下是否存在该值（容错：查询异常一律放行，不阻断业务） */
+  private async isDictValue(dictType: string, val: string): Promise<boolean> {
+    try {
+      const [r] = await this.ds.query(
+        `SELECT 1 FROM sys_dict WHERE dict_type=$1 AND (dict_value=$2 OR dict_code=$2) LIMIT 1`,
+        [dictType, val],
+      );
+      return !!r;
+    } catch { return true; }
+  }
+
+  /**
+   * G93 自动审批校验网关。返回中文错误清单（空数组=全过=可自动通过）。
+   *   @param scope  仅校验这些列（编辑时=本次改动列，容忍历史脏数据）；undefined=校验全部（新建）。
+   *   @param selfCode  查重时排除自身编码（编辑场景）。
+   */
+  private async validate(
+    type: string, c: MdTypeConfig, record: Record<string, any>,
+    selfCode?: string, scope?: Set<string>,
+  ): Promise<string[]> {
+    const errors: string[] = [];
+    const v = VALIDATION[type];
+    const inScope = (f: string) => !scope || scope.has(f);
+    const nonEmpty = (x: any) => x != null && String(x).trim() !== '';
+
+    // ① 必填完备
+    const required = v?.required ?? [c.nameCol];
+    for (const f of required) {
+      if (!inScope(f)) continue;                         // 编辑未触碰则不强制
+      if (!nonEmpty(record[f])) errors.push(`必填项「${zhField(f)}」不能为空`);
+    }
+
+    // ② 查重（名称 + 关键唯一键）
+    for (const u of (v?.unique ?? [])) {
+      if (!u.fields.some(inScope)) continue;             // 该键涉及的列都没改 → 跳过
+      const vals = u.fields.map((f) => record[f]);
+      if (u.skipEmpty && vals.some((x) => !nonEmpty(x))) continue;
+      if (vals.every((x) => !nonEmpty(x))) continue;
+      const where: string[] = [`status <> 'ARCHIVED'`]; const params: any[] = [];
+      params.push(selfCode ?? '__none__'); where.push(`${c.codeCol} <> $${params.length}`);
+      for (const f of u.fields) { params.push(record[f]); where.push(`${f} = $${params.length}`); }
+      if (u.scopeByCompany && c.companyCol && nonEmpty(record[c.companyCol])) {
+        params.push(record[c.companyCol]); where.push(`${c.companyCol} = $${params.length}`);
+      }
+      try {
+        const [dup] = await this.ds.query(
+          `SELECT ${c.codeCol} AS code FROM ${c.table} WHERE ${where.join(' AND ')} LIMIT 1`, params);
+        if (dup) errors.push(`${u.label}「${u.fields.map((f) => record[f]).join('/')}」已存在（编码 ${dup.code}），不可重复`);
+      } catch { /* 查重失败不阻断 */ }
+    }
+
+    // ③ 格式规范（按列名启发式，仅校验范围内的非空值）
+    for (const f of Object.keys(record)) {
+      if (!inScope(f) || !nonEmpty(record[f])) continue;
+      const s = String(record[f]).trim();
+      if (f.includes('phone') && !/^[0-9+\-\s()]{6,20}$/.test(s)) errors.push(`「${zhField(f)}」格式不规范（应为 6~20 位电话）：${s}`);
+      if (f.includes('email') && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s)) errors.push(`「${zhField(f)}」邮箱格式不规范：${s}`);
+      if (f === 'swift_code' && !/^[A-Za-z0-9]{8}([A-Za-z0-9]{3})?$/.test(s)) errors.push(`SWIFT 格式不规范（应 8 或 11 位字母数字）：${s}`);
+    }
+
+    // ④ 值域合法（币种走字典）
+    for (const f of ['currency_code', 'default_currency', 'budget_currency']) {
+      if (!inScope(f) || !nonEmpty(record[f])) continue;
+      const s = String(record[f]).trim();
+      if (!(await this.isDictValue('SYS_CURRENCY', s))) errors.push(`「${zhField(f)}」不在币种字典中：${s}`);
+    }
+
+    // ⑤ 引用存在（归属公司必须存在且 ACTIVE；组织/公司自身表跳过避免自指）
+    if (c.companyCol && c.table !== 'sys_organizations' && inScope(c.companyCol) && nonEmpty(record[c.companyCol])) {
+      const cc = String(record[c.companyCol]).trim();
+      try {
+        const [org] = await this.ds.query(
+          `SELECT 1 FROM sys_organizations WHERE org_code=$1 AND status='ACTIVE' LIMIT 1`, [cc]);
+        if (!org) errors.push(`归属公司「${cc}」不存在或未生效`);
+      } catch { /* 引用校验失败不阻断 */ }
+    }
+
+    return errors;
   }
 
   /**
@@ -296,25 +477,27 @@ export class MasterDataRuntimeService {
   }
 
   /**
-   * 新增：自动编码 + 审计。
-   *   G92 类型级分流：approvalOnCreate≠false（财务/法人类）→ 初始 DRAFT（需提交审批才 ACTIVE）；
-   *                   approvalOnCreate===false（运营类）→ 初始 ACTIVE（免审批，建档即可用）。
+   * 新增（G93 自动审批）：自动编码 → 规则校验网关 → 全过即 ACTIVE，不过抛错列原因当场退回。
+   *   不再有 DRAFT/人工审批环节：建档即校验即生效，「随时新建、自动进名单」。
    */
   async create(type: string, dto: Record<string, any>, operator?: string): Promise<{ code: string; status: string }> {
     const c = this.cfg(type);
     const code = c.prefix ? await this.codeGen.next(c.prefix) : String(dto[c.codeCol] || '').trim();
     if (!code) throw new BadRequestException('编码不能为空');
 
-    const initStatus = c.approvalOnCreate === false ? 'ACTIVE' : 'DRAFT';
-    const cols = [c.codeCol, 'status']; const vals: any[] = [code, initStatus];
+    // 自动审批校验（新建校验全字段）
+    const errors = await this.validate(type, c, dto, code);
+    if (errors.length) throw new BadRequestException(`自动审批未通过：${errors.join('；')}`);
+
+    const cols = [c.codeCol, 'status']; const vals: any[] = [code, 'ACTIVE'];
     for (const col of c.writableCols) {
       if (dto[col] !== undefined) { cols.push(col); vals.push(dto[col]); }
     }
     const placeholders = vals.map((_, i) => `$${i + 1}`).join(',');
     await this.ds.query(`INSERT INTO ${c.table} (${cols.join(',')}) VALUES (${placeholders})`, vals);
 
-    await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'CREATE', after: { ...dto, status: initStatus }, operator });
-    return { code, status: initStatus };
+    await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'CREATE', after: { ...dto, status: 'ACTIVE', _autoApproved: true }, operator: operator ?? 'AUTO' });
+    return { code, status: 'ACTIVE' };
   }
 
   /**
@@ -328,6 +511,10 @@ export class MasterDataRuntimeService {
     if (!code) throw new BadRequestException('编码不能为空');
     const name = String(dto[c.nameCol] ?? '').trim();
     if (!name) throw new BadRequestException('名称不能为空');
+
+    // G93：就地快建也走自动审批校验（查重/必填/格式），不过当场退回
+    const errors = await this.validate(type, c, dto, code);
+    if (errors.length) throw new BadRequestException(`自动审批未通过：${errors.join('；')}`);
 
     const cols = [c.codeCol, 'status']; const vals: any[] = [code, 'ACTIVE'];
     for (const col of c.writableCols) {
@@ -371,77 +558,34 @@ export class MasterDataRuntimeService {
   }
 
   /**
-   * 编辑：列白名单更新 + 审计（G92 字段级分流）。
-   *   · 扩展字段（不在 keyFields）→ 立即落库，免审批。
-   *   · 关键字段（在 keyFields，且类型 governed、记录已 ACTIVE/FROZEN）→ 生成变更请求 +
-   *     启动 MD_FIELD_CHANGE 审批，不直接落库；审批通过后由 onApproved 应用，原值在通过前保持生效。
-   *   · 运营类（approvalOnCreate=false）/未配 keyFields / DRAFT·PENDING 态 → 全部直接落库（旧行为）。
-   *   返回 pendingChange=true 时附 changeRequestId/pendingFields/message，供前端提示。
+   * 编辑（G93 自动审批）：对本次改动的字段跑校验网关（查重/必填/格式/值域/引用），
+   *   全过 → 立即落库生效；不过 → 抛错列原因当场退回。只校验改动列，容忍历史脏数据。
+   *   （返回 pendingChange 字段保留以兼容前端；自动审批下恒为 false。）
    */
   async update(
     type: string, code: string, dto: Record<string, any>, operator?: string,
-  ): Promise<{ code: string; pendingChange: boolean; changeRequestId?: number; pendingFields?: string[]; message?: string }> {
+  ): Promise<{ code: string; pendingChange: boolean; message?: string }> {
     const c = this.cfg(type);
     const before = await this.get(type, code);
 
-    const keyFields = c.keyFields ?? [];
-    const governed = c.approvalOnCreate !== false && keyFields.length > 0;
-    const live = ['ACTIVE', 'FROZEN'].includes(String(before.status));
-
-    const keyChanges: Record<string, any> = {};
-    const extChanges: Record<string, any> = {};
+    // 计算真正变化的列
+    const changes: Record<string, any> = {};
     for (const col of c.writableCols) {
       if (dto[col] === undefined) continue;
-      if (this.eqVal(before[col], dto[col])) continue;           // 未变化跳过
-      if (governed && live && keyFields.includes(col)) keyChanges[col] = dto[col];
-      else extChanges[col] = dto[col];
+      if (this.eqVal(before[col], dto[col])) continue;
+      changes[col] = dto[col];
     }
+    const changedCols = Object.keys(changes);
+    if (!changedCols.length) return { code, pendingChange: false };
 
-    // 1) 扩展字段（及运营类/草稿态的一切变化）→ 立即落库
-    if (Object.keys(extChanges).length) {
-      await this.applyCols(c, code, extChanges);
-      await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before: this.pick(before, Object.keys(extChanges)), after: extChanges, operator });
-    }
+    // 自动审批校验：以「改动后整体记录」为输入、只校验改动列、查重排除自身
+    const merged = { ...before, ...changes };
+    const errors = await this.validate(type, c, merged, code, new Set(changedCols));
+    if (errors.length) throw new BadRequestException(`自动审批未通过：${errors.join('；')}`);
 
-    // 2) 关键字段变化 → 走变更审批
-    const keyCols = Object.keys(keyChanges);
-    if (!keyCols.length) return { code, pendingChange: false };
-
-    try {
-      let crId = 0;
-      await this.ds.transaction(async (mgr) => {
-        const [cr] = await mgr.query(
-          `INSERT INTO md_change_requests
-             (md_type, object_type, object_code, target_table, code_col, changes, before_snapshot, status, requested_by)
-           VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,'PENDING',$8)
-           RETURNING id`,
-          [type, c.objectType, code, c.table, c.codeCol,
-           JSON.stringify(keyChanges), JSON.stringify(this.pick(before, keyCols)), operator ?? null],
-        );
-        crId = Number(cr.id);
-        // 启动审批（引擎建实例 + 派审批人；通过后回写 md_change_requests.status + 触发 onApproved 应用变更）
-        await this.approval.startApproval({
-          bizType: FIELD_CHANGE_BIZ, bizId: String(crId), bizNo: `${c.objectType}/${code}`, amount: 0,
-          companyCode: before.company_code ?? undefined,
-          subject: `主数据变更审批：${before[c.nameCol] ?? code}（${keyCols.join('、')}）`,
-        }, mgr);
-      });
-      await this.audit.log({
-        objectType: c.objectType, objectCode: code, action: 'UPDATE',
-        before: this.pick(before, keyCols), after: { ...keyChanges, _pendingApproval: true, _changeRequestId: crId },
-        operator, reason: `关键字段变更提交审批：${keyCols.join('、')}`,
-      });
-      return {
-        code, pendingChange: true, changeRequestId: crId, pendingFields: keyCols,
-        message: `关键字段（${keyCols.join('、')}）变更已提交审批，通过后生效；原值在通过前保持有效。`,
-      };
-    } catch (e: any) {
-      // 降级：审批链未配置/启动失败 → 直接落库不丢失编辑，审计标注（事务已回滚，变更请求未残留）
-      this.logger.warn(`[MdRuntime] ${FIELD_CHANGE_BIZ} 启动失败，降级直接落库：${e?.message}`);
-      await this.applyCols(c, code, keyChanges);
-      await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before: this.pick(before, keyCols), after: { ...keyChanges, _degraded: true }, operator, reason: '关键字段变更（降级·审批不可用直接生效）' });
-      return { code, pendingChange: false };
-    }
+    await this.applyCols(c, code, changes);
+    await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before: this.pick(before, changedCols), after: { ...changes, _autoApproved: true }, operator: operator ?? 'AUTO' });
+    return { code, pendingChange: false };
   }
 
   /** 生命周期流转：submit/approve/reject/freeze/archive/restore */
@@ -450,34 +594,17 @@ export class MasterDataRuntimeService {
     const before = await this.get(type, code);
     const cur = before.status;
 
-    // ── G3-B：submit 接入 Workflow 2.0 审批引擎 ──────────────────────────────
+    // ── G93：submit 改为「自动审批」——跑校验网关，全过即 ACTIVE，不过抛错退回 ──────────
+    //   （取代 G3-B 的人工 Workflow 审批；遗留 DRAFT/REJECTED 记录提交时同样走自动审批）
     if (action === 'submit') {
       if (!['DRAFT', 'REJECTED'].includes(cur)) {
-        throw new BadRequestException(`当前状态 ${cur} 不允许提交审批`);
+        throw new BadRequestException(`当前状态 ${cur} 不允许提交`);
       }
-      const bizType = BIZ_TYPE[type];
-      if (bizType) {
-        try {
-          // 在事务内启动审批：引擎查规则 → 建实例 → 置 PENDING_APPROVAL + 分派审批人
-          // FIX UAT-P0-Phase1 2026-06-04: startApproval 只建审批实例，业务表 status 必须由本服务同步 UPDATE
-          await this.ds.transaction(async (mgr) => {
-            await this.approval.startApproval({
-              bizType, bizId: String(before.id), bizNo: code, amount: 0,
-              companyCode: before.company_code ?? undefined,
-              subject: `主数据新增审批：${before[c.nameCol] ?? code}`,
-            }, mgr);
-            await mgr.query(`UPDATE ${c.table} SET status = 'PENDING_APPROVAL', updated_at = NOW() WHERE ${c.codeCol} = $1`, [code]);
-          });
-          await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before: { status: cur }, after: { status: 'PENDING_APPROVAL' }, operator, reason: '提交审批（Workflow）' });
-          return { status: 'PENDING_APPROVAL' };
-        } catch (e: any) {
-          // 优雅降级：审批规则未配置时直接置 PENDING_APPROVAL，由主数据审批页人工审批，不阻断提交
-          this.logger.warn(`[MdRuntime] ${bizType} 启动 Workflow 失败，降级为直接待审批：${e?.message}`);
-          await this.ds.query(`UPDATE ${c.table} SET status = 'PENDING_APPROVAL', updated_at = NOW() WHERE ${c.codeCol} = $1`, [code]);
-          await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before: { status: cur }, after: { status: 'PENDING_APPROVAL' }, operator, reason: '提交审批（降级·无审批规则）' });
-          return { status: 'PENDING_APPROVAL' };
-        }
-      }
+      const errors = await this.validate(type, c, before, code);
+      if (errors.length) throw new BadRequestException(`自动审批未通过：${errors.join('；')}`);
+      await this.ds.query(`UPDATE ${c.table} SET status = 'ACTIVE', updated_at = NOW() WHERE ${c.codeCol} = $1`, [code]);
+      await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before: { status: cur }, after: { status: 'ACTIVE', _autoApproved: true }, operator: operator ?? 'AUTO', reason: '自动审批通过' });
+      return { status: 'ACTIVE' };
     }
 
     const MAP: Record<string, { from: string[]; to: string; audit: any }> = {
