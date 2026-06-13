@@ -91,6 +91,14 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
       database: process.env.DB_NAME || 'phoenix_erp',
       autoLoadEntities: true,
       synchronize: false, // 严格使用 DDL，禁用同步
+      // G89 性能：连接池扩容 + 连接获取超时。默认 max=10，BFF 驾驶舱一次 11 个
+      //   并行查询即打满导致排队；提到 20 给并行聚合留余量（PG 默认 max_connections=100）。
+      extra: {
+        max: parseInt(process.env.DB_POOL_MAX || '20', 10),
+        min: 2,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000,
+      },
     }),
     ScheduleModule.forRoot(),
     GenericCrudModule,
