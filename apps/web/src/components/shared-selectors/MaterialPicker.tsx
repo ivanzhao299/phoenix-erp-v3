@@ -36,7 +36,8 @@ interface MaterialPickerProps {
   style?: React.CSSProperties;
 }
 
-const MATERIAL_LOOKUP = '/master-data/runtime/material/active';
+// G91：读走开放 lookup 端点（仅 JWT，采购录入用户可拉）；runtime/active 受主数据权限门控会 403
+const MATERIAL_LOOKUP = '/lookup/materials';
 
 // 归一化 runtime 返回（兼容 {code,name} 简化形与全行形）
 function normalize(r: any): MaterialRow {

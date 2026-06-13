@@ -44,6 +44,7 @@ const TYPE_TO_MENU: Record<string, string> = {
   vehicle: 'MENU_MD_VEHICLE',
   'cash-account': 'MENU_MD_CASH_ACCOUNT',
   'bank-account': 'MENU_MD_BANK_ACCOUNT',
+  material: 'MENU_MD_MATERIAL',   // G91：原缺此映射→回退超级码 MENU_MASTER_DATA，持 MENU_MD_MATERIAL 者仍 403
   // 特殊：组织 / 公司 / 字典走各自专属域码
   organization: 'MENU_SYS_ORG',
   company: 'MENU_SYS_ORG',

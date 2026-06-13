@@ -175,6 +175,20 @@ export class LookupController {
     return { code: 200, data: rows };
   }
 
+  /** G91 物料下拉（仅 JWT，采购录入用户可拉——与主数据管理权限解耦；
+   *  原 MaterialPicker 误接 /master-data/runtime/material/active 受 MasterDataTypeGuard 门控→采购员 403）。 */
+  @Get('materials')
+  async materials() {
+    const rows = await this.em.query(
+      `SELECT material_code AS code, material_name AS name, material_type AS "materialType",
+              spec, unit, default_currency AS "defaultCurrency", status
+         FROM mst_materials
+         WHERE status='ACTIVE'
+         ORDER BY material_type, material_name`,
+    );
+    return { code: 200, data: rows };
+  }
+
   /**
    * GET /api/lookup/shareholders?companyCode= — 股东下拉
    * 替代 /api/shareholders（需 MENU_SHAREHOLDER_VIEW:V，出纳/财务录入用户拉不到 → 股东下拉空）。

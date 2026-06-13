@@ -590,7 +590,7 @@ export default function PrcRequestPage() {
     })();
     (async () => {
       try {
-        const res = await fetch('/api/master-data/runtime/material/active', { headers: authHeader() });
+        const res = await fetch('/api/lookup/materials', { headers: authHeader() });  // G91：开放端点，避免 runtime/active 的 403
         const list = parseList(await res.json().catch(() => ({})));
         setMaterialOptions(list.map((r: any) => ({
           code: r.material_code ?? r.code ?? '',
