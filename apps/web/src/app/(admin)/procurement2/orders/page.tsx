@@ -176,6 +176,13 @@ const emptyItem = (): OrderItem => ({
   unitPrice: "",
   amount: ""
 });
+// G95-D：与采购申请一致——默认多空行、记住上次公司/项目/供应商
+const blankRows = (n = 5): OrderItem[] => Array.from({ length: n }, emptyItem);
+const LAST_SCOPE_KEY = "prc_order_last_scope";
+const readLastScope = (): { companyCode?: string; companyName?: string; projectCode?: string; projectName?: string; supplierCode?: string; supplierName?: string } => {
+  try { return JSON.parse(localStorage.getItem(LAST_SCOPE_KEY) || "{}"); } catch { return {}; }
+};
+const writeLastScope = (v: Record<string, string>) => { try { localStorage.setItem(LAST_SCOPE_KEY, JSON.stringify(v)); } catch { /* ignore */ } };
 function fmtAmt(v?: number | string, currency = "LAK") {
   if (v === undefined || v === null || v === "") return "—";
   const n = typeof v === "string" ? parseFloat(v) : v;
@@ -324,12 +331,14 @@ export default function PurchaseOrdersPage() {
 
   function resetForm() {
     setFSubject("");
-    setFCompanyCode("");
-    setFCompanyName("");
-    setFProjectCode("");
-    setFProjectName("");
-    setFSupplierCode("");
-    setFSupplierName("");
+    // G95-D：预填上次公司/项目/供应商（连续建单多为同一组；可改）
+    const last = readLastScope();
+    setFCompanyCode(last.companyCode ?? "");
+    setFCompanyName(last.companyName ?? "");
+    setFProjectCode(last.projectCode ?? "");
+    setFProjectName(last.projectName ?? "");
+    setFSupplierCode(last.supplierCode ?? "");
+    setFSupplierName(last.supplierName ?? "");
     setFPurchaseType("MATERIAL");
     setFCurrencyCode("LAK");
     setFExpDate("");
@@ -341,7 +350,7 @@ export default function PurchaseOrdersPage() {
     setFContractUrl("");
     setFContractNote("");
     setFRemark("");
-    setFormItems([emptyItem()]);
+    setFormItems(blankRows());     // G95-D：默认 5 空行（明细是主体）
   }
   function openNew() {
     setEditing(null);
@@ -412,12 +421,14 @@ export default function PurchaseOrdersPage() {
       toast.error("请填写供应商代码");
       return;
     }
-    if (formItems.some(it => !it.itemName.trim())) {
-      toast.error("物料名称不能为空");
+    // G95-D：只取已填物料的行（默认多给的空行自动忽略，不卡提交）
+    const filledItems = formItems.filter(it => it.itemName.trim());
+    if (filledItems.length === 0) {
+      toast.error("请至少填写一行物料明细");
       return;
     }
-    if (formItems.some(it => !it.qty || parseFloat(String(it.qty)) <= 0)) {
-      toast.error("数量必须大于0");
+    if (filledItems.some(it => !it.qty || parseFloat(String(it.qty)) <= 0)) {
+      toast.error("已填物料的数量必须大于 0");
       return;
     }
     setSaving(true);
@@ -441,7 +452,7 @@ export default function PurchaseOrdersPage() {
         contractUrl: fContractUrl.trim() || undefined,
         contractNote: fContractNote.trim() || undefined,
         remark: fRemark.trim() || undefined,
-        items: formItems.map(it => ({
+        items: filledItems.map(it => ({
           itemCode: it.itemCode?.trim() || undefined,
           itemName: it.itemName.trim(),
           spec: it.spec?.trim() || undefined,
@@ -465,6 +476,8 @@ export default function PurchaseOrdersPage() {
         const e = await res.json().catch(() => ({}));
         throw new Error(e.message ?? "保存失败");
       }
+      // G95-D：记住本次公司/项目/供应商，下次新建默认带出
+      writeLastScope({ companyCode: fCompanyCode.trim(), companyName: fCompanyName.trim(), projectCode: fProjectCode.trim(), projectName: fProjectName.trim(), supplierCode: fSupplierCode.trim(), supplierName: fSupplierName.trim() });
       toast.success(editing ? "保存成功" : "采购订单已创建");
       setDrawerOpen(false);
       load(editing ? page : 1);
