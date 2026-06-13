@@ -242,6 +242,9 @@ export class DataScopeService {
   }
 
   private _setCache(key: string, ctx: DataScopeContext): void {
-    cache.set(key, { context: ctx, expireAt: Date.now() + 30_000 });
+    // G89-P2：30s→120s。组织绑定/数据范围规则变更频率极低（admin 偶发操作），
+    //   延长 TTL 减少高并发下每请求 2-5 次 scope 展开 SQL 的抖动；变更最多 2 分钟生效。
+    //   注：perms_version（jwt.strategy）仍 30s——那是权限变更的安全探针，保持灵敏。
+    cache.set(key, { context: ctx, expireAt: Date.now() + 120_000 });
   }
 }

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useCrud } from './useCrud';
+import { cachedGet, TTL } from '@/lib/request-cache'; // G89-P1 全表拉取去重+缓存
 
 type DictPair = { value: string; label: string };
 type DictEntry = Record<string, unknown>;
@@ -32,7 +33,9 @@ export const useDictOptions = (dictCode: string | string[]) => {
       setOptions(c.options); setCodeMap(c.codeMap); setOptionPairs(c.optionPairs);
       setLoading(false); return;
     }
-    fetchRecords({ limit: 1000 })
+    // G89-P1：所有 DictSelect 拉的都是同一张全表，常量 key 去重+缓存——
+    //   一个含 6 个 DictSelect 的表单从 6 次全表下载降为 1 次。
+    cachedGet<DictEntry[] | null>('crud:sys_dict:all1000', TTL.dict, () => fetchRecords({ limit: 1000 }))
       .then((dicts: DictEntry[] | null) => {
         const merged: string[]             = [];
         const cm:     Record<string,string>= {};

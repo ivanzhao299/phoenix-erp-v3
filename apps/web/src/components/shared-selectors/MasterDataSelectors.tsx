@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import request from '@/lib/api-client';
+import { cachedGet, TTL } from '@/lib/request-cache'; // G89-P1 主数据下拉缓存+去重
 import { fetchDictMap } from '@/lib/dict-cache'; // G25-A 字典异步缓存
 
 /**
@@ -23,10 +24,13 @@ interface Opt { value: string; label: string; raw?: any }
 
 // G16：兼容 /lookup/* 端点的 { code, data } 包装与原始数组两种格式
 async function lookupArr<T = any>(path: string): Promise<T[]> {
-  const j: any = await request<any>(path);
-  if (Array.isArray(j)) return j as T[];
-  if (Array.isArray(j?.data)) return j.data as T[];
-  return [];
+  // G89-P1：主数据下拉缓存 5min + 并发去重（同页多个相同选择器、切回页面均不再重复拉）
+  return cachedGet<T[]>(`lookup:${path}`, TTL.lookup, async () => {
+    const j: any = await request<any>(path);
+    if (Array.isArray(j)) return j as T[];
+    if (Array.isArray(j?.data)) return j.data as T[];
+    return [];
+  });
 }
 
 interface BaseProps {
