@@ -45,6 +45,12 @@ export class MasterDataRuntimeController {
     return this.rt.create(type, dto, this.operator(req));
   }
 
+  /** G91 就地快速新建（直接 ACTIVE，立即可被选择器引用） */
+  @Post(':type/quick')
+  createQuick(@Param('type') type: string, @Body() dto: Record<string, any>, @Req() req: any) {
+    return this.rt.createQuick(type, dto, this.operator(req));
+  }
+
   @Put(':type/:code')
   update(@Param('type') type: string, @Param('code') code: string, @Body() dto: Record<string, any>, @Req() req: any) {
     return this.rt.update(type, code, dto, this.operator(req));

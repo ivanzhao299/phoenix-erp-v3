@@ -9,7 +9,8 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
 import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字典
-import { CompanySelector, ProjectSelector, SupplierSelector, WarehouseSelector, MaterialSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
+import { CompanySelector, ProjectSelector, SupplierSelector, WarehouseSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
+import { MaterialPicker } from "@/components/shared-selectors/MaterialPicker"; // 可搜索 + 就地新建物料组合框
 import { AttachmentUploader } from "@/components/design-system"; // G4-B 合同附件
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
@@ -980,11 +981,11 @@ export default function PurchaseOrdersPage() {
                 borderBottom: "1px solid var(--border)"
               }}>
                     <td style={tdStyle}>
-                      {/* 物料主数据（mst_materials runtime）选择，自动带出 material_name/spec/unit */}
-                      <MaterialSelector value={it.itemCode ?? ""} onChange={code => setItemField(idx, "itemCode", code)} onPick={o => {
-                    setItemField(idx, "itemName", o?.raw?.material_name ?? o?.raw?.name ?? "");
-                    setItemField(idx, "spec", o?.raw?.spec ?? "");
-                    setItemField(idx, "unit", o?.raw?.unit ?? "");
+                      {/* 物料组合框：可搜索 + 找不到就地新建，自动带出 material_code/spec/unit */}
+                      <MaterialPicker value={it.itemName ?? ""} onChange={name => setItemField(idx, "itemName", name)} onPickRaw={m => {
+                    setItemField(idx, "itemCode", m?.material_code ?? "");
+                    setItemField(idx, "spec", m?.spec ?? "");
+                    setItemField(idx, "unit", m?.unit ?? "");
                   }} style={{
                     minWidth: 200,
                     fontSize: 12,

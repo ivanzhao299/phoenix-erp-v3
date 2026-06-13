@@ -92,6 +92,265 @@ function newLine(): LineItem {
   };
 }
 
+// 物料类型枚举（PRC_MATERIAL_TYPE 字典 8 类）
+const MATERIAL_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'FEED_RAW', label: '饲料原料' },
+  { value: 'VET_DRUG', label: '兽药疫苗' },
+  { value: 'PACKAGING', label: '包装材料' },
+  { value: 'EQUIPMENT', label: '设备及配件' },
+  { value: 'CONSTRUCTION', label: '建筑材料' },
+  { value: 'OFFICE', label: '办公易耗' },
+  { value: 'TOOL', label: '工具器具' },
+  { value: 'OTHER', label: '其他' }
+];
+
+// ── 物料选择器（手机内联：搜索 + 候选过滤 + 找不到就地新建） ──────────────────
+interface MaterialPickerProps {
+  value: string;
+  options: { code: string; name: string }[];
+  readonly: boolean;
+  inputSt: React.CSSProperties;
+  labelSt: React.CSSProperties;
+  isDark: boolean;
+  textSub: string;
+  text: string;
+  cardBg: string;
+  // 选中已有/新建后的物料名
+  onPick: (name: string) => void;
+  // 新建成功后把物料加入全局选项列表
+  onCreated: (opt: { code: string; name: string }) => void;
+}
+
+function MaterialPicker(props: MaterialPickerProps) {
+  const { value, options, readonly, inputSt, labelSt, isDark, textSub, text, cardBg, onPick, onCreated } = props;
+  // search = 输入框文本；初始同步 value
+  const [search, setSearch] = useState(value);
+  const [open, setOpen] = useState(false);
+  // 新建表单状态
+  const [creating, setCreating] = useState(false);
+  const [newType, setNewType] = useState('OTHER');
+  const [newSpec, setNewSpec] = useState('');
+  const [newUnit, setNewUnit] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  // value 外部变化时同步显示文本（如重置表单）
+  useEffect(() => {
+    setSearch(value);
+  }, [value]);
+
+  // 点击候选外区域收起
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setCreating(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  const kw = search.trim();
+  const filtered = kw
+    ? options.filter(o => o.name.toLowerCase().includes(kw.toLowerCase()))
+    : options;
+  const exactMatch = kw ? options.some(o => o.name === kw) : false;
+  const showCreate = kw.length > 0 && !exactMatch;
+
+  const pick = (name: string) => {
+    onPick(name);
+    setSearch(name);
+    setOpen(false);
+    setCreating(false);
+    setErr('');
+  };
+
+  const openCreate = () => {
+    setCreating(true);
+    setErr('');
+    // 类型默认推断：保持 OTHER，让用户改
+    setNewType('OTHER');
+    setNewSpec('');
+    setNewUnit('');
+  };
+
+  const submitCreate = async () => {
+    const name = kw;
+    if (!name) {
+      setErr('请输入物料名称');
+      return;
+    }
+    setSaving(true);
+    setErr('');
+    try {
+      const res = await fetch('/api/master-data/runtime/material/quick', {
+        method: 'POST',
+        headers: authHeader(),
+        body: JSON.stringify({
+          material_name: name,
+          material_type: newType || undefined,
+          spec: newSpec.trim() || undefined,
+          unit: newUnit.trim() || undefined
+        })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && (json.code || json.name)) {
+        const opt = { code: json.code ?? '', name: json.name ?? name };
+        onCreated(opt);
+        pick(opt.name);
+      } else {
+        setErr(json.message ?? json.msg ?? '新建失败，请重试');
+      }
+    } catch {
+      setErr('网络错误，请重试');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // 候选项 / 新建表单容器风格
+  const dropdownSt: React.CSSProperties = {
+    position: 'relative',
+    marginTop: 4,
+    background: cardBg,
+    border: `1px solid ${isDark ? 'var(--slate-700)' : 'var(--slate-200)'}`,
+    borderRadius: 10,
+    overflow: 'hidden',
+    maxHeight: 260,
+    overflowY: 'auto'
+  };
+
+  return (
+    <div ref={boxRef} style={{ position: 'relative' }}>
+      <input
+        style={inputSt}
+        value={search}
+        onChange={e => {
+          setSearch(e.target.value);
+          setOpen(true);
+          setCreating(false);
+        }}
+        onFocus={() => setOpen(true)}
+        placeholder="搜索或输入物料名称"
+        disabled={readonly}
+      />
+
+      {open && !readonly && (
+        <div style={dropdownSt}>
+          {filtered.length > 0 && filtered.map(o => (
+            <div
+              key={o.code || o.name}
+              onMouseDown={e => { e.preventDefault(); pick(o.name); }}
+              style={{
+                padding: '12px 14px',
+                fontSize: 15,
+                color: text,
+                cursor: 'pointer',
+                borderBottom: `1px solid ${isDark ? 'var(--slate-800)' : 'var(--slate-100)'}`
+              }}
+            >
+              {o.name}
+            </div>
+          ))}
+
+          {filtered.length === 0 && !showCreate && (
+            <div style={{ padding: '12px 14px', fontSize: 13, color: textSub }}>暂无物料，输入名称可新建</div>
+          )}
+
+          {showCreate && !creating && (
+            <div
+              onMouseDown={e => { e.preventDefault(); openCreate(); }}
+              style={{
+                padding: '12px 14px',
+                fontSize: 14,
+                fontWeight: 600,
+                color: 'var(--status-success)',
+                cursor: 'pointer'
+              }}
+            >
+              + 新建物料「{kw}」
+            </div>
+          )}
+
+          {showCreate && creating && (
+            <div
+              onMouseDown={e => e.stopPropagation()}
+              style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 700, color: text }}>新建物料：{kw}</div>
+              <div>
+                <span style={labelSt}>物料类型</span>
+                <select
+                  style={inputSt}
+                  value={newType}
+                  onChange={e => setNewType(e.target.value)}
+                >
+                  {MATERIAL_TYPE_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div>
+                  <span style={labelSt}>规格型号</span>
+                  <input style={inputSt} value={newSpec} onChange={e => setNewSpec(e.target.value)} placeholder="可选" />
+                </div>
+                <div>
+                  <span style={labelSt}>单位</span>
+                  <input style={inputSt} value={newUnit} onChange={e => setNewUnit(e.target.value)} placeholder="可选" />
+                </div>
+              </div>
+              {err && (
+                <div style={{ fontSize: 12, color: 'var(--status-danger)' }}>{err}</div>
+              )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onMouseDown={e => { e.preventDefault(); submitCreate(); }}
+                  disabled={saving}
+                  style={{
+                    flex: 1,
+                    padding: '11px 0',
+                    borderRadius: 10,
+                    border: 'none',
+                    background: 'var(--status-success)',
+                    color: 'var(--bg-card)',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    cursor: saving ? 'not-allowed' : 'pointer',
+                    opacity: saving ? 0.6 : 1
+                  }}
+                >
+                  {saving ? '保存中…' : '保存并选用'}
+                </button>
+                <button
+                  onMouseDown={e => { e.preventDefault(); setCreating(false); }}
+                  disabled={saving}
+                  style={{
+                    flex: 1,
+                    padding: '11px 0',
+                    borderRadius: 10,
+                    border: `1.5px solid ${isDark ? 'var(--gray-700)' : 'var(--gray-300)'}`,
+                    background: 'transparent',
+                    color: text,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 
 export default function PrcRequestPage() {
@@ -659,17 +918,20 @@ export default function PrcRequestPage() {
             }}>
                     <div>
                       <span style={labelSt}>物品名称 *</span>
-                      {/* G90：有物料主数据用下拉（主数据治理）；主数据为空时降级手填（避免空下拉无法提单）。
-                          录入物料档案后下拉自动可用。 */}
-                      {materialOptions.length > 0 ? (
-                        <select style={inputSt} value={row.itemName} onChange={e => updateItem(row.key, 'itemName', e.target.value)} disabled={readonly}>
-                          <option value="">请选择物料</option>
-                          {materialOptions.map(o => <option key={o.code || o.name} value={o.name}>{o.name}</option>)}
-                          {row.itemName && !materialOptions.some(o => o.name === row.itemName) && <option value={row.itemName}>{row.itemName}</option>}
-                        </select>
-                      ) : (
-                        <input style={inputSt} value={row.itemName} onChange={e => updateItem(row.key, 'itemName', e.target.value)} placeholder="物料档案为空，可手填（建档后转下拉）" disabled={readonly} />
-                      )}
+                      {/* G91：手机端物料选择 = 搜索 + 候选过滤 + 找不到就地新建（直存物料库，立即可选）。 */}
+                      <MaterialPicker
+                        value={row.itemName}
+                        options={materialOptions}
+                        readonly={readonly}
+                        inputSt={inputSt}
+                        labelSt={labelSt}
+                        isDark={isDark}
+                        textSub={t.textSub}
+                        text={t.text}
+                        cardBg={t.cardBg}
+                        onPick={name => updateItem(row.key, 'itemName', name)}
+                        onCreated={opt => setMaterialOptions(prev => prev.some(o => o.name === opt.name) ? prev : [...prev, opt])}
+                      />
                     </div>
 
                     <div>

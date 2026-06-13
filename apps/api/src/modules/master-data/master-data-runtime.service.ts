@@ -265,6 +265,29 @@ export class MasterDataRuntimeService {
     return { code };
   }
 
+  /**
+   * G91 就地快速新建（直接 ACTIVE，立即可用）——供「采购选物料时找不到→立即建档」等场景。
+   *   与 create() 同结构，仅状态 DRAFT→ACTIVE（跳审批，operational 主数据的便捷新增；
+   *   主数据中心仍可后续冻结/归档清理）。审计 action=CREATE_QUICK 留痕。
+   */
+  async createQuick(type: string, dto: Record<string, any>, operator?: string): Promise<{ code: string; name: string }> {
+    const c = this.cfg(type);
+    const code = c.prefix ? await this.codeGen.next(c.prefix) : String(dto[c.codeCol] || '').trim();
+    if (!code) throw new BadRequestException('编码不能为空');
+    const name = String(dto[c.nameCol] ?? '').trim();
+    if (!name) throw new BadRequestException('名称不能为空');
+
+    const cols = [c.codeCol, 'status']; const vals: any[] = [code, 'ACTIVE'];
+    for (const col of c.writableCols) {
+      if (dto[col] !== undefined) { cols.push(col); vals.push(dto[col]); }
+    }
+    const placeholders = vals.map((_, i) => `$${i + 1}`).join(',');
+    await this.ds.query(`INSERT INTO ${c.table} (${cols.join(',')}) VALUES (${placeholders})`, vals);
+
+    await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'CREATE', after: { ...dto, status: 'ACTIVE', _quick: true }, operator });
+    return { code, name };
+  }
+
   /** 编辑：列白名单更新 + 审计 */
   async update(type: string, code: string, dto: Record<string, any>, operator?: string): Promise<{ code: string }> {
     const c = this.cfg(type);
