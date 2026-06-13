@@ -22,8 +22,28 @@ import { EntityManager } from 'typeorm';
  */
 export interface OrgScope {
   isGlobal: boolean;
-  farmCode: string | null;   // LPH_ 开头才赋值
+  farmCode: string | null;   // LPH_ 开头才赋值（遗留单 storeCode；保留向后兼容场长写入）
   siteCode: string | null;   // SITE- 开头才赋值
+  // G98：公司维度（取代旧 storeCode 单 token 隔离）。农场归属公司——在公司有股/有岗者按公司看其农场每日数据。
+  //   来自 DataScopeGuard 写入 CLS 的 allowedCompanyCodes（brd_daily_logs/brd_flocks 已回填 company_code）。
+  companyCodes?: string[];
+}
+
+/**
+ * G98：把 OrgScope 转成 SQL 过滤片段（农场/站点/公司多维并集）。
+ *   非全局时按 (farm_code OR site_code OR company_code) 并集过滤——
+ *   场长(farm/site)行为不变；股东/高层(company)新可见其公司农场。无任何维度则不加过滤（保持旧行为）。
+ *   alias 用于列前缀（''=无前缀）。params 原地追加，返回**裸 OR 组**（如 `(farm_code=$2 OR company_code=ANY($3))`），
+ *   无任何维度或全局则返回空串；调用方自行用 ' AND ' 拼接或 push 进 where[]。
+ */
+export function scopeWhere(scope: OrgScope, params: any[], alias = ''): string {
+  if (scope.isGlobal) return '';
+  const ors: string[] = [];
+  if (scope.farmCode) { params.push(scope.farmCode); ors.push(`${alias}farm_code = $${params.length}`); }
+  if (scope.siteCode) { params.push(scope.siteCode); ors.push(`${alias}site_code = $${params.length}`); }
+  const companies = (scope.companyCodes ?? []).filter(Boolean);
+  if (companies.length) { params.push(companies); ors.push(`${alias}company_code = ANY($${params.length})`); }
+  return ors.length ? `(${ors.join(' OR ')})` : '';
 }
 
 /** 从 req.user 派生 OrgScope — farm/farm-feed 等 controller 共用 */
@@ -351,10 +371,8 @@ export class FarmService {
     const params: any[] = [date];
     const where: string[] = [`log_date = $1`, `eggs_by_grade IS NOT NULL`];
     if (houseCode) { params.push(houseCode); where.push(`house_code = $${params.length}`); }
-    if (!scope.isGlobal) {
-      if (scope.farmCode) { params.push(scope.farmCode); where.push(`farm_code = $${params.length}`); }
-      if (scope.siteCode) { params.push(scope.siteCode); where.push(`site_code = $${params.length}`); }
-    }
+    const ebScope = scopeWhere(scope, params);   // G98：农场/站点/公司多维并集
+    if (ebScope) where.push(ebScope);
 
     const rows: Array<{ eggs_by_grade: any }> = await this.entityManager.query(
       `SELECT eggs_by_grade FROM brd_daily_logs WHERE ${where.join(' AND ')}`,
@@ -378,10 +396,8 @@ export class FarmService {
     // ── 鸡群查询 ──────────────────────────────────────────────
     const flockParams: any[] = [];
     let flockWhere = `WHERE status IN ('LAYING','ACTIVE','laying','active')`;
-    if (!scope.isGlobal) {
-      if (scope.farmCode) { flockParams.push(scope.farmCode); flockWhere += ` AND farm_code = $${flockParams.length}`; }
-      if (scope.siteCode) { flockParams.push(scope.siteCode); flockWhere += ` AND site_code = $${flockParams.length}`; }
-    }
+    const flockScope = scopeWhere(scope, flockParams);   // G98：农场/站点/公司多维并集
+    if (flockScope) flockWhere += ` AND ${flockScope}`;
     const flocks = await this.entityManager.query(
       `SELECT flock_no, house_code, current_qty, initial_qty, placement_date, current_lay_rate
        FROM brd_flocks ${flockWhere} ORDER BY house_code`,
@@ -391,10 +407,8 @@ export class FarmService {
     // ── 日报查询 ──────────────────────────────────────────────
     const logParams: any[] = [date];
     let logWhere = `WHERE log_date = $1`;
-    if (!scope.isGlobal) {
-      if (scope.farmCode) { logParams.push(scope.farmCode); logWhere += ` AND farm_code = $${logParams.length}`; }
-      if (scope.siteCode) { logParams.push(scope.siteCode); logWhere += ` AND site_code = $${logParams.length}`; }
-    }
+    const logScope = scopeWhere(scope, logParams);   // G98：农场/站点/公司多维并集
+    if (logScope) logWhere += ` AND ${logScope}`;
     const logs = await this.entityManager.query(
       `SELECT
          COALESCE(house_code, flock_no) AS house_code,
@@ -508,10 +522,8 @@ export class FarmService {
     // flock 存栏数也按农场/场区过滤
     const flockParams: any[] = [];
     let flockWhere = `WHERE status IN ('LAYING','ACTIVE','laying','active')`;
-    if (!scope.isGlobal) {
-      if (scope.farmCode) { flockParams.push(scope.farmCode); flockWhere += ` AND farm_code = $${flockParams.length}`; }
-      if (scope.siteCode) { flockParams.push(scope.siteCode); flockWhere += ` AND site_code = $${flockParams.length}`; }
-    }
+    const flockScope = scopeWhere(scope, flockParams);   // G98：农场/站点/公司多维并集
+    if (flockScope) flockWhere += ` AND ${flockScope}`;
     const flockSum = await this.entityManager.query(
       `SELECT COALESCE(SUM(current_qty),0)::int AS total FROM brd_flocks ${flockWhere}`,
       flockParams,

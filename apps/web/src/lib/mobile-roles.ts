@@ -74,22 +74,22 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     read:  [R.CEO, R.WMS_MGR, R.LOG_MGR, R.AUDITOR, R.PRC_BUYER, R.FIN_COST],
   },
 
-  /** 死淘快录：现场/农场/兽医录入；管理层/区域督导/股东查看（G97：股东+高层看每日数据） */
+  /** 死淘快录：现场/农场/兽医录入；管理层/股东查看（G98：区域督导=销售督导，不在生产线，撤回） */
   mortality: {
     write: [R.ADMIN, R.FARM_MGR, R.VET, R.BREEDER],
-    read:  [R.CEO, R.QA_MGR, R.AUDITOR, R.REGION_MGR, R.SHAREHOLDER_VIEW],
+    read:  [R.CEO, R.QA_MGR, R.AUDITOR, R.SHAREHOLDER_VIEW],
   },
 
-  /** 产蛋录入：现场/农场/兽医录入；管理层/成本会计/区域督导/股东查看（产量数据是成本核算基础） */
+  /** 产蛋录入：现场/农场/兽医录入；管理层/成本会计/股东查看（产量数据是成本核算基础） */
   egglog: {
     write: [R.ADMIN, R.FARM_MGR, R.VET, R.BREEDER],
-    read:  [R.CEO, R.WMS_MGR, R.QA_MGR, R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.AUDITOR, R.REGION_MGR, R.SHAREHOLDER_VIEW],
+    read:  [R.CEO, R.WMS_MGR, R.QA_MGR, R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.AUDITOR, R.SHAREHOLDER_VIEW],
   },
 
-  /** 存栏日报：农场录入；管理层/区域督导/股东查看——按舍按日汇总存栏/产蛋/死淘，股东+高层看每日数据的主视图（G97） */
+  /** 存栏日报：农场录入；管理层/股东查看——按舍按日汇总存栏/产蛋/死淘，股东+高层看每日数据的主视图 */
   henreport: {
     write: [R.ADMIN, R.FARM_MGR],
-    read:  [R.CEO, R.VET, R.QA_MGR, R.WMS_MGR, R.BREEDER, R.AUDITOR, R.REGION_MGR, R.SHAREHOLDER_VIEW],
+    read:  [R.CEO, R.VET, R.QA_MGR, R.WMS_MGR, R.BREEDER, R.AUDITOR, R.SHAREHOLDER_VIEW],
   },
 
   /** 生产趋势：管理层 + 农场 + 财务 + 销售 + 区域督导 + 采购 + 物流（运力规划） + 养殖员（看自身产能） + 包装经理（排班依据） */

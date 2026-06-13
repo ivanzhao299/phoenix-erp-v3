@@ -1,4 +1,5 @@
 import { Controller, Post, Put, Get, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { ClsService } from 'nestjs-cls';
 import { FarmService, OrgScope, deriveOrgScope } from './farm.service';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
@@ -9,10 +10,25 @@ import { DataScopeGuard } from '../org/guards/data-scope.guard';
 @UseGuards(MenuGuard, DataScopeGuard)
 @RequireMenu('MENU_FARM_DATA', 'V')
 export class FarmController {
-  constructor(private readonly farmService: FarmService) {}
+  constructor(
+    private readonly farmService: FarmService,
+    private readonly cls: ClsService,
+  ) {}
 
-  /** 从 JWT 派生组织作用域 — G16-2 改用 deriveOrgScope，按前缀区分 farmCode/siteCode */
-  private getScope(req: any): OrgScope { return deriveOrgScope(req); }
+  /**
+   * 组织作用域：遗留 storeCode（farm/site，向后兼容场长）∪ G98 公司维度。
+   *   公司维度取自 DataScopeGuard 已写入 CLS 的 allowedCompanyCodes —— 在公司有股/有岗者按公司看其农场每日数据。
+   */
+  private getScope(req: any): OrgScope {
+    const base = deriveOrgScope(req); // { isGlobal, farmCode, siteCode }
+    const ds = this.cls.get('dataScope') as { isGlobal?: boolean; allowedCompanyCodes?: string[] } | undefined;
+    return {
+      isGlobal: base.isGlobal || !!ds?.isGlobal,
+      farmCode: base.farmCode,
+      siteCode: base.siteCode,
+      companyCodes: ds?.allowedCompanyCodes ?? [],
+    };
+  }
 
   // 2026-06-06 调整：日报录入应归 MENU_FARM_DAILY（业务字面对齐），不归
   // MENU_FARM_DATA（后者是养殖场/鸡舍/鸡群主数据维护权，业务录入用户不该有 E）。
