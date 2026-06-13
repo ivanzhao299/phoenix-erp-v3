@@ -1,5 +1,8 @@
 'use client';
 import React from 'react';
+// G94：输入框样式唯一真相源 —— 统一指向 cockpit-styles.inputField，
+//   消灭 FormField 自有的 fieldInputStyle 字面量与 inputField 打架（历史错位根因）。
+import { inputField } from '../cockpit-styles';
 
 /**
  * FormField — 统一表单字段容器：标签 / 必填星 / 说明 / 错误提示 / 只读·禁用态。
@@ -14,11 +17,8 @@ export interface FormFieldProps {
   className?: string;
 }
 
-export const fieldInputStyle: React.CSSProperties = {
-  width: '100%', padding: '8px 11px', borderRadius: 'var(--radius-md)',
-  border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)',
-  fontSize: 13.5, outline: 'none',
-};
+/** @deprecated 名称保留向后兼容；实体即 cockpit-styles.inputField（唯一真相源） */
+export const fieldInputStyle: React.CSSProperties = inputField;
 
 export function FormField({ label, required, hint, error, children, className = '' }: FormFieldProps) {
   return (

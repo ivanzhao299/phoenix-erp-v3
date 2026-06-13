@@ -51,8 +51,8 @@ export { SelectField, CompanySelector, ProjectSelector, StatusSelector } from '.
 export type { Option, SelectFieldProps } from './forms/SelectField';
 export { AttachmentUploader } from './forms/AttachmentUploader';
 export type { AttachmentUploaderProps } from './forms/AttachmentUploader';
-export { TextInput, SelectInput, DateInput, UserSelector, AttachmentField } from './forms/Inputs';
-export type { TextInputProps } from './forms/Inputs';
+export { TextInput, TextAreaInput, SelectInput, DateInput, UserSelector, AttachmentField } from './forms/Inputs';
+export type { TextInputProps, TextAreaInputProps } from './forms/Inputs';
 
 // dialogs
 export { ModalV2 } from './dialogs/ModalV2';

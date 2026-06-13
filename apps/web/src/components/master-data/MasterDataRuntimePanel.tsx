@@ -302,7 +302,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
             <div style={drawerFooter}>
               <button onClick={() => setEditing(null)} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>取消</button>
               <button onClick={save} disabled={saving} style={{ ...primaryActionButton, flex: 2, justifyContent: "center", opacity: saving ? 0.6 : 1 }}>
-                {saving ? "保存中…" : "保存草稿"}
+                {saving ? "保存中…" : "保存"}
               </button>
             </div>
           </div>

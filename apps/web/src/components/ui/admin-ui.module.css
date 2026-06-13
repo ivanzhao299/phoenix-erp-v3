@@ -9,14 +9,17 @@
 /* ══════════════════════════════════════════════════════
    一、输入控件
 ══════════════════════════════════════════════════════ */
+/* G94：静态度量对齐设计系统唯一真相源 cockpit-styles.inputField（8/11·圆角md·13.5·bg-card），
+   消灭「用 s.inp 的页面」与「用 inputField/TextInput 的页面」跨页错位；
+   .inp 额外保留 :focus 聚焦环 / :disabled / ::placeholder（内联 inputField 做不到的交互态）。 */
 .inp {
   width: 100%;
-  padding: 9px 12px;
+  padding: 8px 11px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-page);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 13.5px;
   font-family: inherit;
   box-sizing: border-box;
   line-height: 1.5;

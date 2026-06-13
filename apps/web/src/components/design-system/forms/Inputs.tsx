@@ -27,6 +27,26 @@ export function TextInput({ value, onChange, placeholder, type = 'text', disable
   );
 }
 
+/** TextAreaInput — 多行文本（G94 补齐缺失原子；消灭各页自写 <textarea style> 漂移） */
+export interface TextAreaInputProps {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  rows?: number;
+  disabled?: boolean;
+  readOnly?: boolean;
+}
+export function TextAreaInput({ value, onChange, placeholder, rows = 3, disabled, readOnly }: TextAreaInputProps) {
+  return (
+    <textarea
+      value={value} placeholder={placeholder} rows={rows} disabled={disabled} readOnly={readOnly}
+      onChange={(e) => onChange(e.target.value)}
+      style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 64, lineHeight: 1.5, fontFamily: 'inherit',
+        opacity: disabled ? 0.6 : 1, background: readOnly ? 'var(--bg-muted)' : 'var(--bg-card)' }}
+    />
+  );
+}
+
 /** SelectInput — 下拉（SelectField 的别名导出，统一命名） */
 export const SelectInput = SelectField;
 

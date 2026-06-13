@@ -212,17 +212,34 @@ export const secondaryActionButton: CSSProperties = {
 };
 
 // ── 输入框（input / textarea / select 共用） ──────────
+// G94：并入唯一真相源 —— 与 forms/FormField.fieldInputStyle 完全一致（8/11·圆角md·13.5），
+//   使「页面直接用 inputField 的 input」与「设计系统 TextInput/SelectField」在同一行不再错位。
+//   历史值（8/12·圆角8·14）是错位根因，已废弃。
 export const inputField: CSSProperties = {
   width: '100%',
-  padding: '8px 12px',
-  borderRadius: 8,
-  fontSize: 14,
+  padding: '8px 11px',
+  borderRadius: 'var(--radius-md)',
+  fontSize: 13.5,
   background: 'var(--bg-card)',
   border: '1px solid var(--border)',
   color: 'var(--text-primary)',
   outline: 'none',
   boxSizing: 'border-box',
   transition: 'border-color 0.12s',
+};
+
+// ── 表格行内编辑输入框（紧凑型，单一真相源；取代各页自定义 cellInp）──────────
+// G94：消灭 procurement2/orders·payments、sales2/pricing 等各自复制的 cellInp（3/6·圆角4）。
+export const tableInputCell: CSSProperties = {
+  width: '100%',
+  padding: '5px 8px',
+  borderRadius: 6,
+  fontSize: 12.5,
+  background: 'var(--bg-card)',
+  border: '1px solid var(--border)',
+  color: 'var(--text-primary)',
+  outline: 'none',
+  boxSizing: 'border-box',
 };
 
 // ── 输入框 className 版（抽屉/表单内与 DictSelect/Selector 视觉对齐）──────────
