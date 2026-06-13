@@ -150,6 +150,16 @@ const emptyItem = (): ReqItem => ({
   estimatedUnitPrice: "",
   estimatedAmount: ""
 });
+// G95-C：新建默认空行数（申请单主体是采购明细，多给几行）
+const blankRows = (n = 5): ReqItem[] => Array.from({ length: n }, emptyItem);
+// G95-C：申请原因默认文本（可直接编辑，不必每次手敲）
+const DEFAULT_REASON = "常规采购补货";
+// G95-C：记住上次选择的公司/项目（同一用户连续建单常是同公司同项目）
+const LAST_SCOPE_KEY = "prc_req_last_scope";
+const readLastScope = (): { companyCode?: string; companyName?: string; projectCode?: string; projectName?: string } => {
+  try { return JSON.parse(localStorage.getItem(LAST_SCOPE_KEY) || "{}"); } catch { return {}; }
+};
+const writeLastScope = (v: Record<string, string>) => { try { localStorage.setItem(LAST_SCOPE_KEY, JSON.stringify(v)); } catch { /* ignore */ } };
 function fmtAmt(v?: number | string, currency = "LAK") {
   if (v === undefined || v === null || v === "") return "—";
   const n = typeof v === "string" ? parseFloat(v) : v;
@@ -289,18 +299,20 @@ export default function PurchaseRequestsPage() {
   function openNew() {
     setEditing(null);
     setFormSubject("");
-    setFormCompanyCode("");
-    setFormCompanyName("");
-    setFormProjectCode("");
-    setFormProjectName("");
+    // G95-C：预填上次选择的公司/项目（连续建单多为同公司同项目；可改）
+    const last = readLastScope();
+    setFormCompanyCode(last.companyCode ?? "");
+    setFormCompanyName(last.companyName ?? "");
+    setFormProjectCode(last.projectCode ?? "");
+    setFormProjectName(last.projectName ?? "");
     setFormType("MATERIAL");
     setFormUrgency("NORMAL");
     setFormCurrency("LAK");
     setFormDept("");
     setFormExpDate("");
-    setFormReason("");
+    setFormReason(DEFAULT_REASON);     // G95-C：默认原因，可直接编辑
     setFormRemark("");
-    setFormItems([emptyItem()]);
+    setFormItems(blankRows());         // G95-C：默认 5 空行（明细是主体）
     setDrawerOpen(true);
   }
 
@@ -378,12 +390,14 @@ export default function PurchaseRequestsPage() {
       toast.error("请填写公司名称");
       return;
     }
-    if (formItems.some(it => !it.itemName.trim())) {
-      toast.error("物料名称不能为空");
+    // G95-C：只取已填物料的行（默认多给的空行自动忽略，不卡提交）
+    const filledItems = formItems.filter(it => it.itemName.trim());
+    if (filledItems.length === 0) {
+      toast.error("请至少填写一行物料明细");
       return;
     }
-    if (formItems.some(it => !it.qty || parseFloat(String(it.qty)) <= 0)) {
-      toast.error("数量必须大于 0");
+    if (filledItems.some(it => !it.qty || parseFloat(String(it.qty)) <= 0)) {
+      toast.error("已填物料的数量必须大于 0");
       return;
     }
     setSaving(true);
@@ -401,7 +415,7 @@ export default function PurchaseRequestsPage() {
         expectedDate: formExpDate || undefined,
         reason: formReason.trim() || undefined,
         remark: formRemark.trim() || undefined,
-        items: formItems.map(it => ({
+        items: filledItems.map(it => ({
           itemCode: it.itemCode?.trim() || undefined,
           itemName: it.itemName.trim(),
           spec: it.spec?.trim() || undefined,
@@ -424,6 +438,8 @@ export default function PurchaseRequestsPage() {
         const e = await res.json().catch(() => ({}));
         throw new Error(e.message ?? "保存失败");
       }
+      // G95-C：记住本次公司/项目，下次新建默认带出
+      writeLastScope({ companyCode: formCompanyCode.trim(), companyName: formCompanyName.trim(), projectCode: formProjectCode.trim(), projectName: formProjectName.trim() });
       toast.success(editing ? "保存成功" : "采购申请已创建");
       setDrawerOpen(false);
       load(editing ? page : 1);
@@ -804,13 +820,16 @@ export default function PurchaseRequestsPage() {
               <input type="date" className={s.inp} value={formExpDate} onChange={e => setFormExpDate(e.target.value)} />
             </div>
           </div>
-          <div className={s.field}>
-            <label className={s.lbl}>申请原因</label>
-            <textarea className={s.textarea} rows={2} value={formReason} onChange={e => setFormReason(e.target.value)} placeholder="请说明采购原因" />
-          </div>
-          <div className={s.field}>
-            <label className={s.lbl}>备注</label>
-            <textarea className={s.textarea} rows={1} value={formRemark} onChange={e => setFormRemark(e.target.value)} placeholder="选填：补充说明" />
+          {/* G95-C：原因/备注并排压缩占位（申请单主体是采购明细，不喧宾夺主）；原因带默认文本可直接编辑 */}
+          <div className={s.fieldRow}>
+            <div className={s.field}>
+              <label className={s.lbl}>申请原因</label>
+              <textarea className={s.textarea} rows={1} value={formReason} onChange={e => setFormReason(e.target.value)} placeholder="如：常规采购补货（可直接编辑）" />
+            </div>
+            <div className={s.field}>
+              <label className={s.lbl}>备注</label>
+              <textarea className={s.textarea} rows={1} value={formRemark} onChange={e => setFormRemark(e.target.value)} placeholder="选填：补充说明" />
+            </div>
           </div>
 
           {/* 明细行 */}
