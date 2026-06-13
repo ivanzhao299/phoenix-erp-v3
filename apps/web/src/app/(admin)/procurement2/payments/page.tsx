@@ -211,6 +211,7 @@ export default function PaymentsPage() {
   const [formProjName, setFormProjName] = useState("");
   const [formPayerType, setFormPayerType] = useState("COMPANY");
   const [formPayerName, setFormPayerName] = useState("");
+  const [formPayerCode, setFormPayerCode] = useState("");   // 付款人选择器(公司/股东)的 code，名称经 onPick 带入 formPayerName
   const [formPayerAccount, setFormPayerAccount] = useState("");
   const [formPayeeName, setFormPayeeName] = useState("");
   const [formCurrency, setFormCurrency] = useState("CNY");
@@ -291,6 +292,7 @@ export default function PaymentsPage() {
     setFormProjName("");
     setFormPayerType("COMPANY");
     setFormPayerName("");
+    setFormPayerCode("");
     setFormPayerAccount("");
     setFormPayeeName("");
     setFormCurrency("CNY");
@@ -316,6 +318,7 @@ export default function PaymentsPage() {
     setFormProjName(row.projectName ?? "");
     setFormPayerType(row.payerType ?? "COMPANY");
     setFormPayerName(row.payerName ?? "");
+    setFormPayerCode("");   // 行上只存名称无 code，选择器留空；名称已保留于 formPayerName，不重选则按原值提交
     setFormPayerAccount(row.payerAccount ?? "");
     setFormPayeeName(row.payeeName ?? "");
     setFormCurrency(row.currencyCode ?? "CNY");
@@ -747,11 +750,30 @@ export default function PaymentsPage() {
               <DictSelect dictType="FIN_PAYER_TYPE" value={formPayerType} onChange={v => {
               setFormPayerType(v);
               setFormIsShareholder(v === "SHAREHOLDER");
+              // 切换付款方类型 → 清空已选付款人，避免带着上一类型的名字
+              setFormPayerName("");
+              setFormPayerCode("");
+              if (v !== "SHAREHOLDER") { setFormShareholderId(""); setFormShareholderName(""); }
             }} allowEmpty={false} />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>付款人 *</label>
-              <input className={s.inp} value={formPayerName} onChange={e => setFormPayerName(e.target.value)} placeholder="付款人姓名/账户名" />
+              {/* 付款人随付款方类型联动选择，名称由 onPick 自动带出（编码禁手填）。
+                  公司→公司主数据；股东→股东主数据（与下方“股东代付”共用同一选中值）；
+                  借款/内部往来无主数据源，保留文本录入。 */}
+              {formPayerType === "COMPANY" ? (
+                <CompanySelector value={formPayerCode} onChange={setFormPayerCode}
+                  onPick={o => setFormPayerName(o?.label ?? "")} />
+              ) : formPayerType === "SHAREHOLDER" ? (
+                <ShareholderSelector value={formShareholderId}
+                  onChange={v => { setFormShareholderId(v); setFormPayerCode(v); }}
+                  onPick={o => {
+                    const nm = o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.raw?.name ?? o?.label ?? "";
+                    setFormShareholderName(nm); setFormPayerName(nm);
+                  }} />
+              ) : (
+                <input className={s.inp} value={formPayerName} onChange={e => setFormPayerName(e.target.value)} placeholder="付款人姓名/账户名（借款方/内部往来）" />
+              )}
             </div>
           </div>
           <div className={s.fieldRow}>
@@ -810,12 +832,19 @@ export default function PaymentsPage() {
               股东代付（自动记录股东资金池）
             </label>
           </div>
-          {/* G95：股东占整行——选中即得，姓名由 onPick 后台带出，去掉冗余只读框 */}
-          {formIsShareholder && <div className={s.field}>
+          {/* G95：股东占整行——选中即得，姓名由 onPick 后台带出，去掉冗余只读框。
+              付款方类型=股东时，股东已由上方“付款人”选定，此处不再重复选择。 */}
+          {formIsShareholder && (formPayerType === "SHAREHOLDER" ? (
+            <div className={s.field} style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              股东已由上方「付款人」选定{formShareholderName ? `：${formShareholderName}` : ""}
+            </div>
+          ) : (
+            <div className={s.field}>
               <label className={s.lbl}>股东</label>
               {/* G4-A：从股东主数据选择，自动带出姓名，禁止手填编码 */}
               <ShareholderSelector value={formShareholderId} onChange={setFormShareholderId} onPick={o => setFormShareholderName(o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.label ?? "")} />
-            </div>}
+            </div>
+          ))}
 
           <div className={s.field}>
             <label className={s.lbl}>备注</label>
