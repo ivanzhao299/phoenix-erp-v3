@@ -788,7 +788,7 @@ export default function PurchaseOrdersPage() {
         </div>}
 
       {/* ── 新建/编辑 抽屉 ─────────────────────────────────────────────────── */}
-      <RightDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editing ? `编辑：${editing.poNo}` : "新建采购订单"} width={760}>
+      <RightDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editing ? `编辑：${editing.poNo}` : "新建采购订单"} width="min(1180px, 96vw)">
         <div style={{
         padding: "0 4px 80px"
       }}>
@@ -806,12 +806,13 @@ export default function PurchaseOrdersPage() {
             <div className={s.field}>
               <label className={s.lbl}>公司 *</label>
               {/* G4-B：公司主数据，DataScope 自动过滤 */}
-              <CompanySelector value={fCompanyCode} onChange={setFCompanyCode} onPick={o => setFCompanyName(o?.label ?? "")} disabled={!!editing} />
+              {/* G95-B：换公司清空项目（项目属于公司，避免跨公司错挂） */}
+              <CompanySelector value={fCompanyCode} onChange={v => { setFCompanyCode(v); setFProjectCode(""); setFProjectName(""); }} onPick={o => setFCompanyName(o?.label ?? "")} disabled={!!editing} />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>项目</label>
-              {/* G4-B：项目主数据(shr_projects)，自动带出名称 */}
-              <ProjectSelector value={fProjectCode} onChange={setFProjectCode} onPick={o => setFProjectName(o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? "")} />
+              {/* G4-B：项目主数据；G95-B 按所属公司过滤（先选公司） */}
+              <ProjectSelector value={fProjectCode} onChange={setFProjectCode} onPick={o => setFProjectName(o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? "")} companyCode={fCompanyCode || undefined} />
             </div>
           </div>
 
@@ -889,11 +890,11 @@ export default function PurchaseOrdersPage() {
           </div>
           <div className={s.field}>
             <label className={s.lbl}>合同摘要</label>
-            <textarea className={s.textarea} rows={2} value={fContractNote} onChange={e => setFContractNote(e.target.value)} />
+            <textarea className={s.textarea} rows={2} value={fContractNote} onChange={e => setFContractNote(e.target.value)} placeholder="选填：合同关键条款摘要（金额/账期/交付等）" />
           </div>
           <div className={s.field}>
             <label className={s.lbl}>备注</label>
-            <textarea className={s.textarea} rows={1} value={fRemark} onChange={e => setFRemark(e.target.value)} />
+            <textarea className={s.textarea} rows={1} value={fRemark} onChange={e => setFRemark(e.target.value)} placeholder="选填：补充说明" />
           </div>
 
           {/* 明细行 */}

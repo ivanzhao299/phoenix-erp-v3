@@ -748,7 +748,7 @@ export default function PurchaseRequestsPage() {
         </div>}
 
       {/* ── 新建/编辑 抽屉 ─────────────────────────────────────────────────── */}
-      <RightDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editing ? `编辑申请：${editing.reqNo}` : "新建采购申请"} width={720}>
+      <RightDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editing ? `编辑申请：${editing.reqNo}` : "新建采购申请"} width="min(1180px, 96vw)">
         <div style={{
         padding: "0 4px 80px"
       }}>
@@ -767,12 +767,13 @@ export default function PurchaseRequestsPage() {
             <div className={s.field}>
               <label className={s.lbl}>公司 *</label>
               {/* G4-B：公司主数据(org_units COMPANY)，DataScope 自动过滤 */}
-              <CompanySelector value={formCompanyCode} onChange={setFormCompanyCode} onPick={o => setFormCompanyName(o?.label ?? "")} disabled={!!editing} />
+              {/* G95-B：换公司清空项目（项目属于公司，避免跨公司错挂） */}
+              <CompanySelector value={formCompanyCode} onChange={v => { setFormCompanyCode(v); setFormProjectCode(""); setFormProjectName(""); }} onPick={o => setFormCompanyName(o?.label ?? "")} disabled={!!editing} />
             </div>
             <div className={s.field}>
               <label className={s.lbl}>项目</label>
-              {/* G4-B：项目主数据(shr_projects)，仅 ACTIVE，自动带出项目名称 */}
-              <ProjectSelector value={formProjectCode} onChange={setFormProjectCode} onPick={o => setFormProjectName(o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? "")} />
+              {/* G4-B：项目主数据，仅 ACTIVE；G95-B 按所属公司过滤（先选公司） */}
+              <ProjectSelector value={formProjectCode} onChange={setFormProjectCode} onPick={o => setFormProjectName(o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? "")} companyCode={formCompanyCode || undefined} />
             </div>
           </div>
 
@@ -809,7 +810,7 @@ export default function PurchaseRequestsPage() {
           </div>
           <div className={s.field}>
             <label className={s.lbl}>备注</label>
-            <textarea className={s.textarea} rows={1} value={formRemark} onChange={e => setFormRemark(e.target.value)} />
+            <textarea className={s.textarea} rows={1} value={formRemark} onChange={e => setFormRemark(e.target.value)} placeholder="选填：补充说明" />
           </div>
 
           {/* 明细行 */}
