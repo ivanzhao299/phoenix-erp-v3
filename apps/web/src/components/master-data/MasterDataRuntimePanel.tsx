@@ -60,6 +60,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");   // G92：关键字段变更转审批等正向提示
   const [filterStatus, setFilterStatus] = useState("");
   const [editing, setEditing] = useState<Record<string, any> | null>(null);
   const [form, setForm] = useState<Record<string, any>>({});
@@ -99,11 +100,21 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
     for (const f of fields) {
       if (f.required && !form[f.key]) { setError(`请填写：${f.label}`); return; }
     }
-    setSaving(true); setError("");
+    setSaving(true); setError(""); setNotice("");
     try {
       const isNew = !editing?.[codeKey];
-      if (isNew) await request(`/master-data/runtime/${type}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-      else await request(`/master-data/runtime/${type}/${editing[codeKey]}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      if (isNew) {
+        await request(`/master-data/runtime/${type}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      } else {
+        // G92：编辑可能返回 pendingChange（关键字段变更转审批）——透出提示让用户知道原值在通过前保持
+        const resp = await request<{ pendingChange?: boolean; message?: string }>(
+          `/master-data/runtime/${type}/${editing[codeKey]}`,
+          { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) },
+        );
+        if (resp?.pendingChange) {
+          setNotice(resp.message || "关键字段变更已提交审批，通过后生效。");
+        }
+      }
       setEditing(null); await load();
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "保存失败"); }
     finally { setSaving(false); }
@@ -153,6 +164,13 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
       </div>
 
       {error && <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 14, background: "var(--status-danger-bg)", border: "1px solid var(--status-danger-border)", color: "var(--status-danger)", fontSize: 13 }}>{error}</div>}
+
+      {notice && (
+        <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 14, background: "var(--status-warning-bg)", border: "1px solid var(--status-warning-border)", color: "var(--status-warning)", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+          <Send size={14} /> {notice}
+          <button onClick={() => setNotice("")} style={{ marginLeft: "auto", background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 13 }}>✕</button>
+        </div>
+      )}
 
       <div style={{ borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden", background: "var(--bg-card)" }}>
         {loading ? <div style={{ padding: 16 }}><LoadingSkeleton variant="table" rows={6} /></div>

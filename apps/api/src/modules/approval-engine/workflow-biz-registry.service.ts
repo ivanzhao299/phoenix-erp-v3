@@ -344,6 +344,49 @@ export class WorkflowBizRegistryService implements OnModuleInit {
       onRejected: mdAuditHook('DICT', 'sys_dict', 'dict_code', 'REJECT'),
     });
 
+    // ── G92 主数据字段级变更审批：通过后把暂存变更应用回主表 ────────────────────
+    //   bizId = md_change_requests.id。承载在独立台账表，主表记录在审批期间保持原值/ACTIVE。
+    //   target_table/code_col 来自服务端 TYPES 白名单（非用户输入），列名再经正则校验防注入。
+    this.register('MD_FIELD_CHANGE', {
+      moduleCode:      'MENU_MASTER_DATA',
+      tableName:       'md_change_requests',
+      approvedStatus:  'APPROVED',
+      rejectedStatus:  'REJECTED',
+      cancelledStatus: 'CANCELLED',
+      onApproved: async (bizId: string, mgr: EntityManager) => {
+        const [cr] = await mgr.query(`SELECT * FROM md_change_requests WHERE id = $1`, [bizId]);
+        if (!cr || cr.applied_at) return;                       // 幂等：已应用则跳过
+        const changes: Record<string, any> = cr.changes || {};
+        const cols = Object.keys(changes).filter((k) => /^[a-z][a-z0-9_]*$/.test(k));
+        if (cols.length && cr.target_table && cr.code_col) {
+          const sets = cols.map((col, i) => `${col} = $${i + 1}`);
+          const vals = cols.map((col) => changes[col]);
+          vals.push(cr.object_code);
+          await mgr.query(
+            `UPDATE ${cr.target_table} SET ${sets.join(', ')}, updated_at = NOW() WHERE ${cr.code_col} = $${vals.length}`,
+            vals,
+          );
+        }
+        await mgr.query(`UPDATE md_change_requests SET applied_at = NOW() WHERE id = $1`, [bizId]);
+        await mgr.query(
+          `INSERT INTO mst_audit_trail (object_type, object_code, action, after_json, operator)
+           VALUES ($1,$2,'APPROVE_FIELD_CHANGE',$3,$4)`,
+          [cr.object_type, cr.object_code, JSON.stringify(changes), 'workflow'],
+        ).catch(() => { /* 审计失败不阻断 */ });
+      },
+      onRejected: async (bizId: string, mgr: EntityManager) => {
+        const [cr] = await mgr.query(
+          `SELECT object_type, object_code, changes FROM md_change_requests WHERE id = $1`, [bizId],
+        );
+        if (!cr) return;
+        await mgr.query(
+          `INSERT INTO mst_audit_trail (object_type, object_code, action, after_json, operator)
+           VALUES ($1,$2,'REJECT_FIELD_CHANGE',$3,$4)`,
+          [cr.object_type, cr.object_code, JSON.stringify(cr.changes ?? {}), 'workflow'],
+        ).catch(() => { /* 审计失败不阻断 */ });
+      },
+    });
+
     this.logger.log(
       `WorkflowBizRegistry initialized with ${this.registry.size} bizTypes: ${[...this.registry.keys()].join(', ')}`,
     );

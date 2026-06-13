@@ -28,6 +28,22 @@ interface MdTypeConfig {
   objectType: string;        // 审计 object_type
   writableCols: string[];    // 可写列白名单
   companyCol?: string;       // G71：公司隔离列名（有则按 DataScope.allowedCompanyCodes 过滤）
+  // ════ G92 主数据治理分层（2026-06-13，用户拍板）════
+  /**
+   * 类型级分流：新增是否走审批。
+   *   true（默认/省略）= 财务·法人类主数据 → 新建为 DRAFT，需提交审批才 ACTIVE。
+   *   false             = 运营类主数据（物料/SKU/等级/规格/司机/车辆）→ 新建直接 ACTIVE，免审批快建。
+   */
+  approvalOnCreate?: boolean;
+  /**
+   * 字段级分流：哪些「关键字段」的编辑需走审批（仅对 approvalOnCreate≠false 的类型生效）。
+   *   · 在 keyFields 内的字段被改 → 不直接落库，生成 md_change_requests + 启动 MD_FIELD_CHANGE 审批，
+   *     审批通过后才应用；原值在通过前保持生效（记录仍 ACTIVE 可被引用）。
+   *   · 不在 keyFields 内的「扩展字段」（联系人/电话/地址/备注等）→ 直接落库，免审批。
+   *   · 未配置（undefined）→ 该类型所有字段编辑均直接落库（保持旧行为）。
+   *   · 仅当记录已是 ACTIVE/FROZEN（已生效）时才门控；DRAFT/PENDING_APPROVAL（建档中）一律直接改。
+   */
+  keyFields?: string[];
 }
 
 const TYPES: Record<string, MdTypeConfig> = {
@@ -35,11 +51,15 @@ const TYPES: Record<string, MdTypeConfig> = {
     table: 'sal_customers', codeCol: 'customer_no', nameCol: 'customer_name',
     prefix: 'CUS', objectType: 'CUSTOMER', companyCol: 'company_code',
     writableCols: ['customer_name','customer_type','contact_name','contact_phone','region_code','channel_code','company_code','company_name','credit_limit','payment_terms','delivery_address','remark','effective_date','expire_date'],
+    // G92：法人/信用类 → 审批；关键字段=名称/类型/归属公司/信用额度/账期，扩展=联系人/电话/区域/渠道/地址/备注
+    keyFields: ['customer_name','customer_type','company_code','credit_limit','payment_terms'],
   },
   supplier: {
     table: 'prc2_suppliers', codeCol: 'supplier_code', nameCol: 'supplier_name',
     prefix: 'SUP', objectType: 'SUPPLIER',
     writableCols: ['supplier_name','supplier_name_en','supplier_type','country_code','contact_name','contact_phone','contact_email','tax_no','default_currency','payment_terms','credit_days','address','remark','effective_date','expire_date'],
+    // G92：关键字段=名称/类型/税号/币种/账期/账期天数，扩展=联系人/邮箱/电话/地址/国家/备注
+    keyFields: ['supplier_name','supplier_type','tax_no','default_currency','payment_terms','credit_days'],
   },
   project: {
     // G86 2026-06-12：切换到统一项目主表 biz_projects（MDM-1 已于 06-05 在生产建表；
@@ -48,17 +68,22 @@ const TYPES: Record<string, MdTypeConfig> = {
     prefix: 'PRJ', objectType: 'PROJECT', companyCol: 'company_code',
     writableCols: ['project_name','project_short_name','company_code','project_type',
                    'budget_amount','budget_currency','start_date','end_date','manager_name','remark'],
+    // G92：关键字段=名称/归属公司/预算金额/预算币种，扩展=简称/类型/起止日期/负责人/备注
+    keyFields: ['project_name','company_code','budget_amount','budget_currency'],
   },
   material: {
     // G86 采购物料主数据（饲料/兽药/包材/配件/建材——采购的物品来源，区别于自家产品 SKU）
     table: 'mst_materials', codeCol: 'material_code', nameCol: 'material_name',
     prefix: 'MAT', objectType: 'MATERIAL',
     writableCols: ['material_name','material_type','spec','unit','default_currency','remark'],
+    approvalOnCreate: false,   // G92：运营类 → 免审批快建（业务员选物料找不到可就地新增）
   },
   'cash-account': {
     table: 'fin_cash_accounts', codeCol: 'account_code', nameCol: 'account_name',
     prefix: 'CASH', objectType: 'CASH_ACCOUNT', companyCol: 'company_code',  // G5.5-C: 统一自动生成（CASH-00001）
     writableCols: ['account_name','company_code','company_name','currency_code','account_type','bank_name','bank_account_no','bank_acc_code','holder_code','remark','effective_date','expire_date'],
+    // G92：资金账户 → 审批；关键字段=账户名/归属公司/币种/账户类型/银行账号/持有人，扩展=开户行名/备注
+    keyFields: ['account_name','company_code','currency_code','account_type','bank_account_no','holder_code'],
   },
   // ════ G5.5-C 新增 9 类主数据（P0 + P1）════
   product: {
@@ -67,62 +92,79 @@ const TYPES: Record<string, MdTypeConfig> = {
     table: 'mst_products', codeCol: 'product_code', nameCol: 'product_name',
     prefix: 'PRD', objectType: 'PRODUCT',
     writableCols: ['product_name','product_name_zh','product_name_lo','category_code','unit_zh','unit_lo','shelf_life_days','price_retail','price_wholesale','has_grade','has_spec','image_url','specs'],
+    // G92：产品含零售/批发价 → 审批；关键字段=名称/类目/价格/分级开关，扩展=多语名/单位/保质期/图片/规格
+    keyFields: ['product_name','category_code','price_retail','price_wholesale','has_grade','has_spec'],
   },
   store: {
     table: 'mst_stores', codeCol: 'store_code', nameCol: 'store_name',
     prefix: 'STR', objectType: 'STORE', companyCol: 'company_code',
     writableCols: ['store_name','address','phone','company_code','manager','effective_date','expire_date','remark'],
+    // G92：门店为经营实体 → 审批；关键字段=名称/归属公司/店长，扩展=地址/电话/备注
+    keyFields: ['store_name','company_code','manager'],
   },
   'bank-account': {
     table: 'fin_bank_accounts', codeCol: 'bank_account_code', nameCol: 'bank_name',
     prefix: 'BANK', objectType: 'BANK_ACCOUNT', companyCol: 'company_code',
     writableCols: ['bank_name','bank_name_en','branch_name','account_no','account_holder','currency_code','country_code','swift_code','iban','company_code','effective_date','expire_date','remark'],
+    // G92：银行账户最敏感 → 审批；关键字段=行名/账号/户名/币种/归属公司/SWIFT/IBAN，扩展=支行/国家/备注
+    keyFields: ['bank_name','account_no','account_holder','currency_code','company_code','swift_code','iban'],
   },
   sku: {
     table: 'product_skus', codeCol: 'sku_code', nameCol: 'sku_name',
     prefix: 'SKU', objectType: 'SKU',
     writableCols: ['sku_name','product_code','product_name','grade_code','spec_code','barcode','effective_date','expire_date','remark'],
+    approvalOnCreate: false,   // G92：运营类 → 免审批快建
   },
   warehouse: {
     table: 'wms_warehouses', codeCol: 'warehouse_code', nameCol: 'warehouse_name',
     prefix: 'WH', objectType: 'WAREHOUSE', companyCol: 'company_code',
     writableCols: ['warehouse_name','warehouse_name_zh','type','company_code','manager','effective_date','expire_date','remark'],
+    // G92：仓库为基础设施实体 → 审批；关键字段=名称/类型/归属公司/管理员，扩展=中文名/备注
+    keyFields: ['warehouse_name','type','company_code','manager'],
   },
   grade: {
     // FIX UAT-1 2026-06-04: 表实际列含 grade_name_lo/is_saleable/is_storable；effective_date 由迁移补
     table: 'product_grades', codeCol: 'grade_code', nameCol: 'grade_name',
     prefix: 'GRD', objectType: 'GRADE',
     writableCols: ['grade_name','grade_name_lo','sort_order','is_saleable','is_storable','remark'],
+    approvalOnCreate: false,   // G92：运营类 → 免审批快建
   },
   spec: {
     // FIX UAT-1 2026-06-04: 实际列为 qty_per_unit/base_unit/display_unit（不是 unit_count/pack_type）
     table: 'packaging_specs', codeCol: 'spec_code', nameCol: 'spec_name',
     prefix: 'SPEC', objectType: 'SPEC',
     writableCols: ['spec_name','spec_name_lo','qty_per_unit','base_unit','display_unit','sort_order','remark'],
+    approvalOnCreate: false,   // G92：运营类 → 免审批快建
   },
   driver: {
     // FIX UAT-1 2026-06-04: PK 是 driver_code（不是 driver_name），且无 effective_date/expire_date 列
     table: 'sal_drivers', codeCol: 'driver_code', nameCol: 'driver_name',
     prefix: 'DRV', objectType: 'DRIVER', companyCol: 'company_code',
     writableCols: ['driver_name','phone','license_no','company_code','remark'],
+    approvalOnCreate: false,   // G92：运营类 → 免审批快建
   },
   vehicle: {
     // FIX UAT-1 2026-06-04: 无 effective_date/expire_date 列；vehicle_no 是 unique key 但不应在 writableCols
     table: 'sal_vehicles', codeCol: 'vehicle_no', nameCol: 'vehicle_no',
     objectType: 'VEHICLE', companyCol: 'company_code',
     writableCols: ['plate_no','vehicle_type','capacity','company_code','remark'],
+    approvalOnCreate: false,   // G92：运营类 → 免审批快建
   },
   // ════ G5.5-D 新增 3 类（治理收官）════
   organization: {
     table: 'sys_organizations', codeCol: 'org_code', nameCol: 'org_name',
     prefix: 'ORG', objectType: 'ORGANIZATION',
     writableCols: ['org_name','org_name_cn','org_short_name','parent_id','parent_code','org_type','level','company_code','project_code','warehouse_code','manager_user_id','manager_name','site_code','site_business_type','sort_order','effective_date','expire_date','remark'],
+    // G92：组织架构 → 审批；关键字段=名称/上级/类型/归属公司·项目·仓库/负责人/站点，扩展=简称/层级/排序/备注
+    keyFields: ['org_name','org_name_cn','parent_code','parent_id','org_type','company_code','project_code','warehouse_code','manager_user_id','site_code','site_business_type'],
   },
   company: {
     // 公司是 sys_organizations 的子集（org_type='COMPANY'）— 用 view 模式
     table: 'sys_organizations', codeCol: 'org_code', nameCol: 'org_name',
     prefix: 'COMP', objectType: 'COMPANY',
     writableCols: ['org_name','org_name_cn','org_short_name','parent_id','parent_code','company_code','manager_user_id','manager_name','effective_date','expire_date','remark'],
+    // G92：法人主体 → 审批；关键字段=名称/上级/法人代表，扩展=简称/备注
+    keyFields: ['org_name','org_name_cn','parent_code','parent_id','manager_user_id'],
   },
   dict: {
     table: 'sys_dict', codeCol: 'dict_code', nameCol: 'dict_label_zh',
@@ -154,6 +196,11 @@ const BIZ_TYPE: Record<string, string> = {
   company:         'MD_COMPANY_CREATE',
   dict:            'MD_DICT_CREATE',
 };
+
+// G92：字段级变更审批统一 bizType（所有类型的关键字段编辑共用一条审批链；
+//   承载在独立 md_change_requests 表，审批通过后由 onApproved 应用变更回主表，
+//   原记录在通过前保持 ACTIVE 可被引用——不像「主表自身 status 转 PENDING」会临时下线）
+const FIELD_CHANGE_BIZ = 'MD_FIELD_CHANGE';
 
 @Injectable()
 export class MasterDataRuntimeService {
@@ -248,21 +295,26 @@ export class MasterDataRuntimeService {
     return row;
   }
 
-  /** 新增：自动编码 + DRAFT + 审计 */
-  async create(type: string, dto: Record<string, any>, operator?: string): Promise<{ code: string }> {
+  /**
+   * 新增：自动编码 + 审计。
+   *   G92 类型级分流：approvalOnCreate≠false（财务/法人类）→ 初始 DRAFT（需提交审批才 ACTIVE）；
+   *                   approvalOnCreate===false（运营类）→ 初始 ACTIVE（免审批，建档即可用）。
+   */
+  async create(type: string, dto: Record<string, any>, operator?: string): Promise<{ code: string; status: string }> {
     const c = this.cfg(type);
     const code = c.prefix ? await this.codeGen.next(c.prefix) : String(dto[c.codeCol] || '').trim();
     if (!code) throw new BadRequestException('编码不能为空');
 
-    const cols = [c.codeCol, 'status']; const vals: any[] = [code, 'DRAFT'];
+    const initStatus = c.approvalOnCreate === false ? 'ACTIVE' : 'DRAFT';
+    const cols = [c.codeCol, 'status']; const vals: any[] = [code, initStatus];
     for (const col of c.writableCols) {
       if (dto[col] !== undefined) { cols.push(col); vals.push(dto[col]); }
     }
     const placeholders = vals.map((_, i) => `$${i + 1}`).join(',');
     await this.ds.query(`INSERT INTO ${c.table} (${cols.join(',')}) VALUES (${placeholders})`, vals);
 
-    await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'CREATE', after: dto, operator });
-    return { code };
+    await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'CREATE', after: { ...dto, status: initStatus }, operator });
+    return { code, status: initStatus };
   }
 
   /**
@@ -288,22 +340,108 @@ export class MasterDataRuntimeService {
     return { code, name };
   }
 
-  /** 编辑：列白名单更新 + 审计 */
-  async update(type: string, code: string, dto: Record<string, any>, operator?: string): Promise<{ code: string }> {
-    const c = this.cfg(type);
-    const before = await this.get(type, code);
-
-    const sets: string[] = []; const params: any[] = [];
-    for (const col of c.writableCols) {
-      if (dto[col] !== undefined) { params.push(dto[col]); sets.push(`${col} = $${params.length}`); }
+  /** 值规范化比较：null/'' 视同空；两侧均为非空数值则按数值比；否则按 trim 字符串（Date 取日期）比 */
+  private eqVal(oldV: any, newV: any): boolean {
+    const a = oldV == null ? '' : oldV;
+    const b = newV == null ? '' : newV;
+    const sa = (a instanceof Date ? a.toISOString().slice(0, 10) : String(a)).trim();
+    const sb = (b instanceof Date ? b.toISOString().slice(0, 10) : String(b)).trim();
+    if (sa !== '' && sb !== '') {
+      const fa = Number(sa), fb = Number(sb);
+      if (!Number.isNaN(fa) && !Number.isNaN(fb)) return fa === fb;
     }
-    if (sets.length === 0) return { code };
+    return sa === sb;
+  }
+
+  private pick(obj: Record<string, any>, keys: string[]): Record<string, any> {
+    const o: Record<string, any> = {};
+    for (const k of keys) o[k] = obj[k];
+    return o;
+  }
+
+  /** 直接落库一组列变更（内部复用：扩展字段 / 降级路径） */
+  private async applyCols(c: MdTypeConfig, code: string, changes: Record<string, any>): Promise<void> {
+    const cols = Object.keys(changes);
+    if (!cols.length) return;
+    const sets: string[] = []; const params: any[] = [];
+    for (const col of cols) { params.push(changes[col]); sets.push(`${col} = $${params.length}`); }
     sets.push(`updated_at = NOW()`);
     params.push(code);
     await this.ds.query(`UPDATE ${c.table} SET ${sets.join(', ')} WHERE ${c.codeCol} = $${params.length}`, params);
+  }
 
-    await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before, after: dto, operator });
-    return { code };
+  /**
+   * 编辑：列白名单更新 + 审计（G92 字段级分流）。
+   *   · 扩展字段（不在 keyFields）→ 立即落库，免审批。
+   *   · 关键字段（在 keyFields，且类型 governed、记录已 ACTIVE/FROZEN）→ 生成变更请求 +
+   *     启动 MD_FIELD_CHANGE 审批，不直接落库；审批通过后由 onApproved 应用，原值在通过前保持生效。
+   *   · 运营类（approvalOnCreate=false）/未配 keyFields / DRAFT·PENDING 态 → 全部直接落库（旧行为）。
+   *   返回 pendingChange=true 时附 changeRequestId/pendingFields/message，供前端提示。
+   */
+  async update(
+    type: string, code: string, dto: Record<string, any>, operator?: string,
+  ): Promise<{ code: string; pendingChange: boolean; changeRequestId?: number; pendingFields?: string[]; message?: string }> {
+    const c = this.cfg(type);
+    const before = await this.get(type, code);
+
+    const keyFields = c.keyFields ?? [];
+    const governed = c.approvalOnCreate !== false && keyFields.length > 0;
+    const live = ['ACTIVE', 'FROZEN'].includes(String(before.status));
+
+    const keyChanges: Record<string, any> = {};
+    const extChanges: Record<string, any> = {};
+    for (const col of c.writableCols) {
+      if (dto[col] === undefined) continue;
+      if (this.eqVal(before[col], dto[col])) continue;           // 未变化跳过
+      if (governed && live && keyFields.includes(col)) keyChanges[col] = dto[col];
+      else extChanges[col] = dto[col];
+    }
+
+    // 1) 扩展字段（及运营类/草稿态的一切变化）→ 立即落库
+    if (Object.keys(extChanges).length) {
+      await this.applyCols(c, code, extChanges);
+      await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before: this.pick(before, Object.keys(extChanges)), after: extChanges, operator });
+    }
+
+    // 2) 关键字段变化 → 走变更审批
+    const keyCols = Object.keys(keyChanges);
+    if (!keyCols.length) return { code, pendingChange: false };
+
+    try {
+      let crId = 0;
+      await this.ds.transaction(async (mgr) => {
+        const [cr] = await mgr.query(
+          `INSERT INTO md_change_requests
+             (md_type, object_type, object_code, target_table, code_col, changes, before_snapshot, status, requested_by)
+           VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,'PENDING',$8)
+           RETURNING id`,
+          [type, c.objectType, code, c.table, c.codeCol,
+           JSON.stringify(keyChanges), JSON.stringify(this.pick(before, keyCols)), operator ?? null],
+        );
+        crId = Number(cr.id);
+        // 启动审批（引擎建实例 + 派审批人；通过后回写 md_change_requests.status + 触发 onApproved 应用变更）
+        await this.approval.startApproval({
+          bizType: FIELD_CHANGE_BIZ, bizId: String(crId), bizNo: `${c.objectType}/${code}`, amount: 0,
+          companyCode: before.company_code ?? undefined,
+          subject: `主数据变更审批：${before[c.nameCol] ?? code}（${keyCols.join('、')}）`,
+        }, mgr);
+      });
+      await this.audit.log({
+        objectType: c.objectType, objectCode: code, action: 'UPDATE',
+        before: this.pick(before, keyCols), after: { ...keyChanges, _pendingApproval: true, _changeRequestId: crId },
+        operator, reason: `关键字段变更提交审批：${keyCols.join('、')}`,
+      });
+      return {
+        code, pendingChange: true, changeRequestId: crId, pendingFields: keyCols,
+        message: `关键字段（${keyCols.join('、')}）变更已提交审批，通过后生效；原值在通过前保持有效。`,
+      };
+    } catch (e: any) {
+      // 降级：审批链未配置/启动失败 → 直接落库不丢失编辑，审计标注（事务已回滚，变更请求未残留）
+      this.logger.warn(`[MdRuntime] ${FIELD_CHANGE_BIZ} 启动失败，降级直接落库：${e?.message}`);
+      await this.applyCols(c, code, keyChanges);
+      await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before: this.pick(before, keyCols), after: { ...keyChanges, _degraded: true }, operator, reason: '关键字段变更（降级·审批不可用直接生效）' });
+      return { code, pendingChange: false };
+    }
   }
 
   /** 生命周期流转：submit/approve/reject/freeze/archive/restore */
