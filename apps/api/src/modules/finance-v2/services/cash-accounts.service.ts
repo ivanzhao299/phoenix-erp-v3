@@ -292,6 +292,67 @@ export class CashAccountsService {
     return { ok: true, txnId, from: oldAccountCode, to: target.accountCode };
   }
 
+  /**
+   * G103：修改手工流水（金额/方向/日期/摘要）→ 重算账户余额链与 current_balance。
+   *   铁律：仅 source_type='MANUAL' 可改；AR/AP/付款等业务单据带出的流水必须回源单据修正（否则与源单脱账）。
+   */
+  async editManualTransaction(txnId: string, body: any, user: any) {
+    const rows = await this.ds.query(
+      `SELECT id, account_code, company_code, source_type FROM fin_cash_transactions WHERE id = $1`,
+      [txnId],
+    );
+    const txn = rows[0];
+    if (!txn) throw new NotFoundException(`流水 ${txnId} 不存在`);
+    if (txn.source_type !== 'MANUAL') {
+      throw new BadRequestException('仅「手工」流水可修改；业务单据（应收/应付/付款）带出的流水请回源单据修正');
+    }
+    this.assertOwnership(txn.company_code, user);
+
+    const sets: string[] = []; const params: any[] = [];
+    if (body.direction !== undefined) {
+      if (body.direction !== 'IN' && body.direction !== 'OUT') throw new BadRequestException('direction 必须为 IN 或 OUT');
+      params.push(body.direction); sets.push(`direction = $${params.length}`);
+    }
+    if (body.amount !== undefined) {
+      const amt = Number(body.amount);
+      if (!Number.isFinite(amt) || amt <= 0) throw new BadRequestException('amount 必须为正数');
+      params.push(amt); sets.push(`amount = $${params.length}`);
+    }
+    if (body.txn_date !== undefined && body.txn_date) {
+      params.push(new Date(body.txn_date).toISOString()); sets.push(`txn_date = $${params.length}`);
+    }
+    if (body.remark !== undefined) { params.push(String(body.remark)); sets.push(`remark = $${params.length}`); }
+    if (!sets.length) throw new BadRequestException('无可修改字段');
+
+    await this.ds.transaction(async (mgr) => {
+      params.push(txnId);
+      await mgr.query(`UPDATE fin_cash_transactions SET ${sets.join(', ')} WHERE id = $${params.length}`, params);
+      const acc = await mgr.query(`SELECT opening_balance FROM fin_cash_accounts WHERE account_code = $1`, [txn.account_code]);
+      await this.rebuildChain(mgr, txn.account_code, Number(acc[0]?.opening_balance ?? 0), user?.username ?? null);
+    });
+    return { ok: true, txnId };
+  }
+
+  /** G103：删除手工流水 → 重算账户余额链。铁律：仅 source_type='MANUAL'。 */
+  async deleteManualTransaction(txnId: string, user: any) {
+    const rows = await this.ds.query(
+      `SELECT id, account_code, company_code, source_type FROM fin_cash_transactions WHERE id = $1`,
+      [txnId],
+    );
+    const txn = rows[0];
+    if (!txn) throw new NotFoundException(`流水 ${txnId} 不存在`);
+    if (txn.source_type !== 'MANUAL') {
+      throw new BadRequestException('仅「手工」流水可删除；业务单据带出的流水请回源单据撤销');
+    }
+    this.assertOwnership(txn.company_code, user);
+    await this.ds.transaction(async (mgr) => {
+      await mgr.query(`DELETE FROM fin_cash_transactions WHERE id = $1`, [txnId]);
+      const acc = await mgr.query(`SELECT opening_balance FROM fin_cash_accounts WHERE account_code = $1`, [txn.account_code]);
+      await this.rebuildChain(mgr, txn.account_code, Number(acc[0]?.opening_balance ?? 0), user?.username ?? null);
+    });
+    return { ok: true, txnId };
+  }
+
   async freeze(id: string, user: any): Promise<FinCashAccountEntity> {
     const acc = await this.findById(id, user);
     if (acc.status !== 'ACTIVE') throw new BadRequestException(`账户当前状态 ${acc.status}，无法冻结`);

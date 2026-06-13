@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Param, Body, Query, Req,
+  Controller, Get, Post, Patch, Delete, Param, Body, Query, Req,
   UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
@@ -186,6 +186,26 @@ export class FinCashController {
   @RequireMenu(MENU_MASTER, 'E')
   reassignTransaction(@Param('id') id: string, @Body() dto: ReassignTransactionDto) {
     return this.accSvc.reassignTransaction(id, dto.targetAccountId, this.scopedUser);
+  }
+
+  /**
+   * PATCH /api/v2/finance/cash/transactions/:id  — 修改手工流水（金额/方向/日期/摘要）。
+   *   G103：仅 source_type='MANUAL' 可改，改后重算余额链。需 MENU_FIN2_CASH_TXN:E。
+   */
+  @Patch('transactions/:id')
+  @RequireMenu(MENU_TXN, 'E')
+  editTransaction(@Param('id') id: string, @Body() body: any) {
+    return this.accSvc.editManualTransaction(id, body, this.scopedUser);
+  }
+
+  /**
+   * DELETE /api/v2/finance/cash/transactions/:id  — 删除手工流水（修正错误录入）。
+   *   G103：仅 source_type='MANUAL' 可删，删后重算余额链。需 MENU_FIN2_CASH_TXN:D。
+   */
+  @Delete('transactions/:id')
+  @RequireMenu(MENU_TXN, 'D')
+  deleteTransaction(@Param('id') id: string) {
+    return this.accSvc.deleteManualTransaction(id, this.scopedUser);
   }
 
   // ════════════════════════════════════════════════════════════════════════
