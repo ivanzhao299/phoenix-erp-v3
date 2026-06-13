@@ -153,6 +153,12 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     read:  [R.CEO, R.REGION_MGR, R.AUDITOR],
   },
 
+  /** G96：采购员「转订单」工作台——把已批申请转成采购订单（采购员核心动作，采购员不用电脑故上手机） */
+  prc_order: {
+    write: [R.ADMIN, R.PRC_BUYER],
+    read:  [R.CEO, R.REGION_MGR, R.AUDITOR],
+  },
+
   /**
    * 移动端审批中心 — Workflow 2.0
    * 入口可见性由此控制，真正审批权限由后端 ApprovalEngine.validateApprover() 决定。

@@ -1,7 +1,18 @@
 import {
   IsString, IsOptional, IsBoolean, IsDateString, MaxLength,
+  IsArray, ValidateNested, IsNumber, Min,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+
+/** G96：转单逐项调价——按申请明细 id 覆盖估算单价（采购员议价后的真实单价） */
+export class ConvertItemPriceDto {
+  @IsString()
+  id: string;
+
+  @IsNumber()
+  @Min(0)
+  unitPrice: number;
+}
 
 /** 从已审批 PR 转 PO 的 DTO */
 export class ConvertRequestToOrderDto {
@@ -65,4 +76,11 @@ export class ConvertRequestToOrderDto {
   @IsOptional()
   @IsString()
   remark?: string;
+
+  /** G96：逐项调价覆盖（可选；不传则沿用申请估算价） */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ConvertItemPriceDto)
+  items?: ConvertItemPriceDto[];
 }

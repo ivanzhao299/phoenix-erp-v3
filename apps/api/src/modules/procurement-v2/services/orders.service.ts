@@ -372,22 +372,30 @@ export class OrdersService {
 
       const savedPo = await mgr.save(Prc2PurchaseOrderEntity, po);
 
-      // 复制 PR 明细为 PO 明细
+      // 复制 PR 明细为 PO 明细（G96：按明细 id 应用采购员议价后的单价覆盖）
       const reqItems = await mgr.find(Prc2RequestItemEntity, { where: { requestId: reqId } });
-      const poItemDtos = reqItems.map(ri => ({
-        itemCode:    ri.itemCode,
-        itemName:    ri.itemName,
-        spec:        ri.spec,
-        qty:         Number(ri.qty),
-        unit:        ri.unit,
-        unitPrice:   Number(ri.estimatedUnitPrice) || 0,
-        amount:      Number(ri.estimatedAmount)    || 0,
-        warehouseCode: ri.warehouseCode,
-        usageDesc:   ri.usageDesc,
-        projectId:   ri.projectId   ?? req.projectId,
-        projectCode: ri.projectCode ?? req.projectCode,
-        projectName: ri.projectName ?? req.projectName,
-      }));
+      const priceMap = new Map<string, number>(
+        (dto.items ?? []).map(i => [String(i.id), Number(i.unitPrice)]),
+      );
+      const poItemDtos = reqItems.map(ri => {
+        const overridden = priceMap.has(String(ri.id));
+        const qty = Number(ri.qty);
+        const unitPrice = overridden ? Number(priceMap.get(String(ri.id))) : (Number(ri.estimatedUnitPrice) || 0);
+        return {
+          itemCode:    ri.itemCode,
+          itemName:    ri.itemName,
+          spec:        ri.spec,
+          qty,
+          unit:        ri.unit,
+          unitPrice,
+          amount:      overridden ? qty * unitPrice : (Number(ri.estimatedAmount) || 0),
+          warehouseCode: ri.warehouseCode,
+          usageDesc:   ri.usageDesc,
+          projectId:   ri.projectId   ?? req.projectId,
+          projectCode: ri.projectCode ?? req.projectCode,
+          projectName: ri.projectName ?? req.projectName,
+        };
+      });
 
       const savedItems = poItemDtos.length > 0
         ? await this.saveItems(mgr, savedPo.id, poNo, poItemDtos as PurchaseOrderItemDto[], {

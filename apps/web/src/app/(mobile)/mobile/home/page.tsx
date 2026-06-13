@@ -9,7 +9,7 @@ import { useBrand } from '@/contexts/BrandContext';
 import { canAccess } from '@/lib/mobile-roles';
 import { haptic } from '@/lib/haptic';
 import { approvalApi, notificationApi } from '@/lib/mobile-api';
-import { BarChart2, Package, ShieldCheck, Warehouse, Truck, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird, Egg, Sun, Moon, LineChart, PackageCheck, ClipboardList, Maximize2, Minimize2, ClipboardCheck as WorkflowIcon, Bell, Receipt } from 'lucide-react';
+import { BarChart2, Package, ShieldCheck, Warehouse, Truck, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird, Egg, Sun, Moon, LineChart, PackageCheck, ClipboardList, Maximize2, Minimize2, ClipboardCheck as WorkflowIcon, Bell, Receipt, ShoppingCart } from 'lucide-react';
 import u from "@/styles/uix-utils.module.css";
 type NavCard = {
   icon: React.ReactNode;
@@ -165,6 +165,16 @@ const NAV_CARDS: NavCard[] = [{
   href: '/mobile/prc-request',
   soon: false,
   pageKey: 'prc_request'
+}, {
+  icon: <ShoppingCart size={28} />,
+  titleZh: '采购转订单',
+  titleEn: 'To Order',
+  titleLo: 'ສ້າງໃບສັ່ງຊື້',
+  desc: '已批申请 → 选供应商议价 → 转采购订单',
+  color: 'var(--status-success)',
+  href: '/mobile/prc-order',
+  soon: false,
+  pageKey: 'prc_order'
 },
 // ── Workflow 2.0 新增 ──────────────────────────────────────────────────────
 {
