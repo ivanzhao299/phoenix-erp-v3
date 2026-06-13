@@ -59,3 +59,6 @@ cache/
 
 # 生产真实 schema（fetch-prod-schema.sh 取回，本地验证用，不入库）
 scripts/.prod-schema.sql
+
+# 畅捷通探针 token 缓存（含敏感 token，严禁提交）
+scripts/.yonyou-*.json
