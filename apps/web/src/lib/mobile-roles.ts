@@ -46,6 +46,62 @@ export const R = {
   SHAREHOLDER_VIEW:    'ROLE_SHAREHOLDER_VIEW',
 } as const;
 
+// ── 角色码别名（真实 DB 角色码 → 矩阵规范码）──────────────────────────────────
+// 背景：sys_role 实际有 54 个角色码，而本矩阵历史上按"理想名"编写，大量真实角色
+//   （ROLE_FARMER / ROLE_FIN_AR / ROLE_SHAREHOLDER_FINANCE / ROLE_*_TREASURER …）
+//   不在矩阵里 → 这些用户登录手机端零卡片（白屏）。此表把真实码桥接到语义等价的
+//   规范码，使权限按职责正确落位。未列入者交由首页空状态兜底（提示联系管理员）。
+// ⚠️ 客户类角色（ROLE_CUSTOMER_*）刻意不桥接——他们不应使用员工版手机端。
+export const ROLE_ALIASES: Record<string, string> = {
+  // —— 养殖/生产现场 ——
+  ROLE_FARMER:                          R.BREEDER,
+  ROLE_MENGSAI_PRODUCTION_DATA_SUPERVISOR: R.FARM_MGR,
+  ROLE_PILOT_MANAGER:                   R.FARM_MGR,
+  // —— 品控 ——
+  ROLE_FARM_QC_INSPECTOR:               R.QA_MGR,
+  ROLE_QC_INSPECTOR:                    R.QA_MGR,
+  ROLE_QA_STAFF:                        R.QA_MGR,
+  // —— 包装/产线 ——
+  ROLE_LINE_SUPERVISOR:                 R.PKG_MGR,
+  ROLE_FACTORY_MGR:                     R.PKG_MGR,
+  ROLE_PDA_OP:                          R.PKG_OP,
+  // —— 仓储/物流 ——
+  ROLE_WH_CLERK:                        R.WMS_MGR,
+  ROLE_WMS_OP:                          R.WMS_MGR,
+  ROLE_FARM_SHIPPER:                    R.LOG_MGR,
+  // —— 经营高层（BU 总经理）——
+  ROLE_BU_AGRI_GM:                      R.CEO,
+  ROLE_BU_FOOD_GM:                      R.CEO,
+  // —— 销售 ——
+  ROLE_B2B_MGR:                         R.SALES_MGR,
+  // —— 财务（读级，与矩阵 FIN_* 一致：仅看生产数据/审批，不含敏感录入）——
+  ROLE_FIN_AR:                          R.FIN_ACCT,
+  ROLE_FINANCE_ANALYST:                 R.FIN_ACCT,
+  ROLE_FIN_ACCOUNT_MASTER_MGR:          R.FIN_ACCT,
+  ROLE_COST_ACCOUNTING_MANAGER:         R.FIN_COST,
+  ROLE_FINANCE_REVIEW_MANAGER:          R.FIN_CFO,
+  ROLE_HQ_FINANCE:                      R.GROUP_FINANCE,
+  // —— 资金/出纳 ——
+  ROLE_CASH:                            R.CASHIER,
+  ROLE_FARM_CASHIER:                    R.CASHIER,
+  ROLE_TREASURY_MANAGER:                R.CASHIER,
+  ROLE_MENGSAI_DONGPENG_TREASURER:      R.CASHIER,
+  // —— 股东 ——
+  ROLE_SHAREHOLDER_FINANCE:             R.SHAREHOLDER_VIEW,
+};
+
+/** 把用户角色集展开为"自身 + 别名"，去重；用于多角色门控 */
+export function expandRoles(roles: (string | null | undefined)[]): string[] {
+  const out = new Set<string>();
+  for (const r of roles) {
+    if (!r) continue;
+    out.add(r);
+    const alias = ROLE_ALIASES[r];
+    if (alias) out.add(alias);
+  }
+  return [...out];
+}
+
 // ── 管理类角色组（可登录手机端，至少可见每日看板） ────────────────────────────
 
 const MGMT = [
@@ -200,7 +256,7 @@ export function getAccessLevel(pageKey: string, role?: string | null): AccessLev
   return 'none';
 }
 
-/** 检查角色是否可以访问某页面（read 或 write 均算） */
+/** 检查角色是否可以访问某页面（read 或 write 均算）——单角色（兼容旧调用） */
 export function canAccess(pageKey: string, role?: string | null): boolean {
   return getAccessLevel(pageKey, role) !== 'none';
 }
@@ -210,7 +266,61 @@ export function canWrite(pageKey: string, role?: string | null): boolean {
   return getAccessLevel(pageKey, role) === 'write';
 }
 
-/** 某角色在首页应该看到的 card 列表 */
+// ── 统一手机端门控（JWT 动态权限 + 多角色矩阵 + 别名）─────────────────────────
+
+/** JWT permissions → 访问级别。菜单码约定：MOBILE_<PAGEKEY_UPPERCASE> */
+export function getMobileAccessFromJWT(
+  permissions: string[] | undefined | null,
+  pageKey: string,
+): AccessLevel {
+  if (!permissions || permissions.length === 0) return 'none';
+  if (permissions.includes('*')) return 'write';            // 超管通配
+  const entry = permissions.find(p => p.startsWith(`MOBILE_${pageKey.toUpperCase()}:`));
+  if (!entry) return 'none';
+  const codes = entry.split(':')[1] ?? '';
+  return (codes.includes('C') || codes.includes('E')) ? 'write' : 'read';
+}
+
+/** 多角色矩阵访问级别：取用户所有角色（含别名展开）中的最高级别 */
+export function getAccessLevelMulti(pageKey: string, roles: (string | null | undefined)[]): AccessLevel {
+  let best: AccessLevel = 'none';
+  for (const r of expandRoles(roles)) {
+    const lvl = getAccessLevel(pageKey, r);
+    if (lvl === 'write') return 'write';
+    if (lvl === 'read') best = 'read';
+  }
+  return best;
+}
+
+export interface MobileSubject {
+  role?: string | null;
+  roles?: string[] | null;
+  permissions?: string[] | null;
+}
+
+/**
+ * 手机端统一访问级别——单一权威入口（首页卡片 + 页面守卫共用）。
+ * 优先级：① JWT 动态权限(MOBILE_*) → ② 多角色硬编码矩阵(含别名)。
+ * 同时考虑 roles[] 全集与 role 主角色，杜绝"主角色未覆盖→白屏"。
+ */
+export function getMobileAccessLevel(pageKey: string, subject: MobileSubject): AccessLevel {
+  const jwt = getMobileAccessFromJWT(subject.permissions, pageKey);
+  if (jwt !== 'none') return jwt;
+  const all = [...(subject.roles ?? []), subject.role];
+  return getAccessLevelMulti(pageKey, all);
+}
+
+/** 手机端是否可访问（read/write 均算）——统一入口 */
+export function canAccessMobile(pageKey: string, subject: MobileSubject): boolean {
+  return getMobileAccessLevel(pageKey, subject) !== 'none';
+}
+
+/** 用户在首页应看到的 page 列表（统一入口，多角色+JWT） */
+export function getVisibleMobilePages(subject: MobileSubject): string[] {
+  return Object.keys(PAGE_PERMS).filter(page => canAccessMobile(page, subject));
+}
+
+/** 某角色在首页应该看到的 card 列表（单角色，兼容旧调用） */
 export function getVisiblePages(role?: string | null): string[] {
   if (!role) return [];
   return Object.keys(PAGE_PERMS).filter(page => canAccess(page, role));

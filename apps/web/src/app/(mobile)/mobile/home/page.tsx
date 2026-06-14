@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useBrand } from '@/contexts/BrandContext';
-import { canAccess } from '@/lib/mobile-roles';
+import { canAccessMobile } from '@/lib/mobile-roles';
 import { haptic } from '@/lib/haptic';
 import { approvalApi, notificationApi } from '@/lib/mobile-api';
 import { BarChart2, Package, ShieldCheck, Warehouse, Truck, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird, Egg, Sun, Moon, LineChart, PackageCheck, ClipboardList, Maximize2, Minimize2, ClipboardCheck as WorkflowIcon, Bell, Receipt, ShoppingCart } from 'lucide-react';
@@ -288,8 +288,12 @@ export default function MobileHomePage() {
     if (card.href) router.push(card.href);
   };
 
-  // 按角色过滤：有 pageKey 的卡片做权限检查，无 pageKey 的始终显示
-  const visibleCards = NAV_CARDS.filter(card => !card.pageKey || canAccess(card.pageKey, user?.role));
+  // 按权限过滤：有 pageKey 的卡片做统一门控（JWT 动态权限 + 多角色矩阵 + 别名），
+  // 无 pageKey 的始终显示。多角色：用 roles[] 全集而非单一主角色，杜绝"主角色未覆盖→白屏"。
+  const mobileSubject = { role: user?.role, roles: user?.roles, permissions: user?.permissions };
+  const visibleCards = NAV_CARDS.filter(card => !card.pageKey || canAccessMobile(card.pageKey, mobileSubject));
+  // 功能卡（带 pageKey 且通过权限）数量——为 0 说明该账号未分配任何手机端功能
+  const functionalCardCount = visibleCards.filter(c => c.pageKey).length;
   const badgeCounts: Record<string, number> = {
     todoCount,
     notifCount
@@ -525,6 +529,26 @@ export default function MobileHomePage() {
               {card.desc}
             </div>
           </button>)}
+
+        {/* 空状态：账号未分配任何手机端功能 → 给出可操作提示，不再白屏（问题3：把"角色未明确分配"显性化）*/}
+        {functionalCardCount === 0 && <div style={{
+        gridColumn: '1/-1',
+        marginTop: 24,
+        padding: '28px 20px',
+        borderRadius: 16,
+        background: t.sectionBg,
+        border: `1px dashed ${t.cardBorder}`,
+        textAlign: 'center'
+      }}>
+          <div style={{ fontSize: 36, marginBottom: 10 }}>🔒</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 6 }}>
+            尚未分配手机端功能
+          </div>
+          <div style={{ fontSize: 12, color: t.textFaint, lineHeight: 1.6 }}>
+            您的账号（{user?.roleNameZh || user?.role || '未知角色'}）暂未授权任何手机端功能卡片。<br />
+            请联系系统管理员，在「用户管理」中为该角色开通手机端权限。
+          </div>
+        </div>}
       </div>
 
       {/* 底部版权 */}
