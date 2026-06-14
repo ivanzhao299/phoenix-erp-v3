@@ -98,7 +98,8 @@ const TYPES: Record<string, MdTypeConfig> = {
   store: {
     table: 'mst_stores', codeCol: 'store_code', nameCol: 'store_name',
     prefix: 'STR', objectType: 'STORE', companyCol: 'company_code',
-    writableCols: ['store_name','address','phone','company_code','manager','effective_date','expire_date','remark'],
+    // G113：加 operation_type(经营类型,字典 STORE_OP_TYPE) + contact(联系人)
+    writableCols: ['store_name','address','phone','company_code','manager','contact','operation_type','effective_date','expire_date','remark'],
     // G92：门店为经营实体 → 审批；关键字段=名称/归属公司/店长，扩展=地址/电话/备注
     keyFields: ['store_name','company_code','manager'],
   },

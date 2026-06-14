@@ -24,7 +24,10 @@ export default function StoreRuntimePage() {
         fields={[
           { key: "store_name", label: "门店名称", required: true },
           { key: "company_code", label: "所属公司编码" },
-          { key: "manager", label: "店长（用户名）" },
+          // G113：经营类型走字典 STORE_OP_TYPE（厂家直营/代理商自营店/代理商合作店/加盟店/合作仓）
+          { key: "operation_type", label: "经营类型", type: "select", dictType: "STORE_OP_TYPE" },
+          { key: "manager", label: "主要负责人" },
+          { key: "contact", label: "联系人" },
           { key: "phone", label: "联系电话" },
           { key: "address", label: "地址" },
           { key: "effective_date", label: "生效日期", type: "date" },
@@ -34,7 +37,9 @@ export default function StoreRuntimePage() {
         columns={[
           { key: "store_name", label: "门店名称" },
           { key: "company_code", label: "公司" },
-          { key: "manager", label: "店长" },
+          { key: "operation_type", label: "经营类型" },
+          { key: "manager", label: "负责人" },
+          { key: "contact", label: "联系人" },
           { key: "phone", label: "电话" },
         ]}
       />
