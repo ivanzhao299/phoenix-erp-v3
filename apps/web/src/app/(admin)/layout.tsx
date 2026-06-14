@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Sidebar, pathTitle } from "@/components/layout/Sidebar";
+import { ImpersonationBanner } from "@/components/layout/ImpersonationBanner";
 import {
   PanelLeftClose, PanelLeftOpen, Sun, Moon, LogOut, Languages
 } from "lucide-react";
@@ -183,6 +184,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Main */}
       <main className={styles.main}>
+        {/* 影子模式横幅（impersonate 时显示，可一键退出）*/}
+        <ImpersonationBanner />
         {/* Header */}
         <header className={styles.header}>
           <div className={styles.headerLeft}>

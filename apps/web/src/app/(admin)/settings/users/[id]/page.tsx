@@ -7,7 +7,8 @@ import { Panel } from "@/components/design-system";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermission } from "@/hooks/usePermission";
-import { Users, Shield, Key, Lock, Unlock, Building2 } from "lucide-react";
+import { Users, Shield, Key, Lock, Unlock, Building2, Eye } from "lucide-react";
+import { enterImpersonation } from "@/lib/impersonate";
 import s from "@/components/ui/admin-ui.module.css";
 import UserOrgBindingPanel from "@/components/settings/UserOrgBindingPanel";
 import { RolePicker, levelColor, type UserRole, type RoleOption } from "@/components/settings/RolePicker";
@@ -319,6 +320,16 @@ export default function UserDetailPage() {
       {editable && (
         <button type="button" onClick={handleSave} disabled={submitting} className={s.btnPrimaryGrad}>
           {submitting ? t("ui.处理中", "处理中...") : t("common.save", "保存")}
+        </button>
+      )}
+      {!isAdmin && user.status === "ACTIVE" && (
+        <button type="button" className={s.btnSm} title={t("ui.以该用户身份查看真实界面影子模式", "以该用户身份查看真实界面（影子模式，仅测试/排障）")}
+          onClick={async () => {
+            if (!window.confirm(t("ui.确认以该用户身份查看", `确认以「${user.real_name_zh || user.username}」身份查看？\n将切换到影子模式，可随时退出。`))) return;
+            try { await enterImpersonation(user.username); }
+            catch (e: any) { toast.error(t("ui.影子登录失败", "影子登录失败") + ": " + (e.message || String(e))); }
+          }}>
+          <Eye size={12}/>{t("ui.以其身份查看", "以其身份查看")}
         </button>
       )}
       {!isAdmin && (
