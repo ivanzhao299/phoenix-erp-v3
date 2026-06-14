@@ -89,13 +89,22 @@ export class BusinessUnitService {
       const companyCodes = members.filter((m: any) => m.org_type === 'COMPANY').map((m: any) => m.org_code);
       let siteCount = 0, storeCount = 0;
       if (companyCodes.length) {
-        const rows = await this.ds.query(
-          `SELECT org_type, COUNT(*)::int cnt FROM sys_organizations
-            WHERE company_code = ANY($1) AND status='ACTIVE' AND org_type IN ('SITE','STORE')
-            GROUP BY org_type`, [companyCodes]);
-        for (const r of rows) {
-          if (r.org_type === 'SITE') siteCount = r.cnt;
-          if (r.org_type === 'STORE') storeCount = r.cnt;
+        // 按树路径统计成员公司下的场站/门店（不依赖 company_code——场站历史 company_code 多为空，
+        //   靠 parent_id 挂公司；路径 LIKE 公司 path 前缀更稳健）。
+        const compPaths: string[] = (await this.ds.query(
+          `SELECT path FROM sys_organizations WHERE org_code = ANY($1) AND path IS NOT NULL`,
+          [companyCodes],
+        )).map((r: any) => r.path);
+        if (compPaths.length) {
+          const conds = compPaths.map((_, i) => `path LIKE $${i + 1} || '%'`).join(' OR ');
+          const rows = await this.ds.query(
+            `SELECT org_type, COUNT(*)::int cnt FROM sys_organizations
+              WHERE status='ACTIVE' AND org_type IN ('SITE','STORE') AND (${conds})
+              GROUP BY org_type`, compPaths);
+          for (const r of rows) {
+            if (r.org_type === 'SITE') siteCount = r.cnt;
+            if (r.org_type === 'STORE') storeCount = r.cnt;
+          }
         }
       }
       out.push({
