@@ -96,6 +96,27 @@ export default function UserDetailPage() {
     if (!canEdit) { toast.error(t("ui.无编辑权限", "无编辑权限")); return; }
     if (user.username === "admin") { toast.error(t("ui.系统特权总控帐号已锁定拒绝面板编辑", "系统特权总控帐号已锁定，拒绝面板编辑")); return; }
     if (!form.real_name_zh) { toast.error(t("ui.姓名为必填项", "姓名为必填项")); return; }
+
+    // G119 SoD 授权前拦截：多角色组合若触发岗位分离红线则 BLOCK 阻止 / WARN 二次确认
+    if (selectedRoles.length > 0) {
+      try {
+        const sod = await fetch("/api/permissions/check-role-combo", {
+          method: "POST", headers: hdr(),
+          body: JSON.stringify({ role_codes: selectedRoles.map(r => r.role_code) }),
+        }).then(r => r.json());
+        const conflicts: Array<{ menu_a: string; menu_b: string; reason_zh: string; severity: string }> = sod?.data?.conflicts || [];
+        const blocks = conflicts.filter(c => c.severity === "BLOCK");
+        if (blocks.length > 0) {
+          toast.error(t("ui.角色组合触发BLOCK岗位分离冲突", "角色组合触发 BLOCK 级岗位分离冲突，无法保存：") + blocks.map(c => `${c.menu_a}↔${c.menu_b}`).join("、"));
+          return;
+        }
+        if (conflicts.length > 0) {
+          const ok = window.confirm(t("ui.角色组合WARN冲突确认", "该用户的角色组合存在岗位分离风险（WARN）：\n") + conflicts.map(c => `· ${c.reason_zh}`).join("\n") + "\n\n仍要保存吗？");
+          if (!ok) return;
+        }
+      } catch { /* SoD 校验异常不阻断主流程 */ }
+    }
+
     setSubmitting(true);
     try {
       // 更新基本信息

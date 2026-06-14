@@ -304,6 +304,21 @@ export default function RoleManagementPage() {
   const [showMatrix, setShowMatrix] = useState(false);
   const [matrixData, setMatrixData] = useState<MatrixData | null>(null);
 
+  // 「谁能干 X」反查
+  const [showWhoCan, setShowWhoCan] = useState(false);
+  const [wcMenu, setWcMenu] = useState("");
+  const [wcPerm, setWcPerm] = useState("A");
+  const [wcResult, setWcResult] = useState<{ roles: Array<{ role_code: string; role_name_zh: string; via: string }>; users: Array<{ username: string; real_name_zh: string | null }> } | null>(null);
+  const [wcLoading, setWcLoading] = useState(false);
+  const runWhoCan = async () => {
+    if (!wcMenu) { toast.error("请选择菜单"); return; }
+    setWcLoading(true); setWcResult(null);
+    try {
+      const r = await apiGet(`/api/permissions/who-can?menu=${encodeURIComponent(wcMenu)}&perm=${wcPerm}`);
+      setWcResult({ roles: r.data?.roles || [], users: r.data?.users || [] });
+    } catch (e: any) { toast.error("反查失败: " + (e.message || String(e))); } finally { setWcLoading(false); }
+  };
+
   // 已停用角色显示开关（默认隐藏 DEPRECATED）
   const [showDeprecated, setShowDeprecated] = useState(false);
   const deprecatedCount = useMemo(() => roles.filter(r => r.status === "DEPRECATED").length, [roles]);
@@ -673,6 +688,9 @@ export default function RoleManagementPage() {
             {deprecatedCount > 0 && <button type="button" className={s.btnSecondary} onClick={() => setShowDeprecated(v => !v)} title={t("ui.切换已停用角色显示", "切换已停用角色显示")}>
               {showDeprecated ? <EyeOff size={14} /> : <Eye size={14} />} {showDeprecated ? t("ui.隐藏已停用", "隐藏已停用") : `${t("ui.显示已停用", "显示已停用")} (${deprecatedCount})`}
             </button>}
+            <button type="button" className={s.btnSecondary} onClick={() => setShowWhoCan(true)}>
+              <Users size={14} /> {t("ui.谁能干X反查", "谁能干X")}
+            </button>
             <button type="button" className={s.btnSecondary} onClick={openMatrix}>
               <Grid size={14} /> {t("ui.权限矩阵全景", "权限矩阵全景")}
             </button>
@@ -1406,6 +1424,51 @@ export default function RoleManagementPage() {
             </div>
           </div>
         </div>}
+
+      {/* ── 「谁能干 X」反查 ──────────────────────────────────────────── */}
+      {showWhoCan && <div onClick={() => setShowWhoCan(false)} style={{ ...modalMask, backdropFilter: "blur(2px)", padding: 20 }}>
+        <div onClick={e => e.stopPropagation()} style={{ background: "var(--bg-card)", borderRadius: 12, width: "min(640px, 94vw)", maxHeight: "88vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 50px var(--overlay-black-30)" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className={`${s.cardTitle} ${u.flexRow}`}><Users size={18} /> {t("ui.谁能干X反查", "谁能干 X — 反查有权的角色与用户")}</div>
+            <button type="button" className={s.btnIcon} onClick={() => setShowWhoCan(false)}><X size={16} /></button>
+          </div>
+          <div style={{ padding: 20, overflow: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+              <div style={{ flex: 2, minWidth: 200 }}>
+                <label className={s.lbl}>{t("ui.菜单功能", "菜单 / 功能")}</label>
+                <select className={s.inp} value={wcMenu} onChange={e => setWcMenu(e.target.value)}>
+                  <option value="">{t("ui.请选择菜单", "请选择菜单…")}</option>
+                  {menuGroups.map(g => <optgroup key={g.domain} label={g.domain_label_zh}>
+                    {g.menus.map(m => <option key={m.menu_code} value={m.menu_code}>{m.menu_name_zh}</option>)}
+                  </optgroup>)}
+                </select>
+              </div>
+              <div style={{ flex: 1, minWidth: 110 }}>
+                <label className={s.lbl}>{t("ui.操作", "操作")}</label>
+                <select className={s.inp} value={wcPerm} onChange={e => setWcPerm(e.target.value)}>
+                  {PERM_CODE_ORDER.map(c => <option key={c} value={c}>{c} · {PERM_CODE_META[c].label}</option>)}
+                </select>
+              </div>
+              <button type="button" className={s.btnPrimaryGrad} onClick={runWhoCan} disabled={wcLoading}>{wcLoading ? t("ui.查询中", "查询中…") : t("ui.反查", "反查")}</button>
+            </div>
+            {wcResult && <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <div className={s.lbl} style={{ marginBottom: 6 }}><Shield size={12} style={{ verticalAlign: -2, marginRight: 4 }} />{t("ui.有权角色", "有权角色")} ({wcResult.roles.length})</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {wcResult.roles.length === 0 ? <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("ui.无", "无")}</span> : wcResult.roles.map(r => <span key={r.role_code} style={{ fontSize: 11, padding: "3px 9px", borderRadius: 12, background: "var(--status-special-bg-medium)", color: "var(--color-primary)" }}>{r.role_name_zh}<span style={{ opacity: 0.55, marginLeft: 4, fontSize: 9 }}>{r.via === "set" ? "权限集" : r.via === "direct" ? "直绑" : r.via}</span></span>)}
+                </div>
+              </div>
+              <div>
+                <div className={s.lbl} style={{ marginBottom: 6 }}><Users size={12} style={{ verticalAlign: -2, marginRight: 4 }} />{t("ui.有权在岗用户", "有权在岗用户")} ({wcResult.users.length})</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {wcResult.users.length === 0 ? <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("ui.无", "无")}</span> : wcResult.users.map(usr => <span key={usr.username} style={{ fontSize: 11, padding: "3px 9px", borderRadius: 12, background: "var(--bg-muted)", color: "var(--text-secondary)" }}>{usr.real_name_zh || usr.username}</span>)}
+                </div>
+              </div>
+              <div style={{ fontSize: 10, color: "var(--text-secondary)", opacity: 0.7 }}>{t("ui.反查含权限集近似不含deny", "※ 含权限集来源；为快速反查近似，未扣除 deny 覆盖")}</div>
+            </div>}
+          </div>
+        </div>
+      </div>}
 
       {/* ── 删除确认 ─────────────────────────────────────────────────── */}
       <ConfirmDialog open={!!confirmDel} title={`${t("common.delete", "删除")}${t("ui.角色", "角色")}：${confirmDel?.role_name_zh || ""}`} message={confirmDel ? `${(userCountByRole[confirmDel.role_code] || 0) > 0 ? `⚠️ ${t("ui.该角色仍有", "该角色仍有")} ${userCountByRole[confirmDel.role_code]} ${t("ui.个用户绑定删除后这些用户将失去对应权限建议先转移用户角色", "个用户绑定！删除后这些用户将失去对应权限。建议先转移用户角色。")}\n\n` : ""}${t("ui.确认删除角色", "确认删除角色")} [${confirmDel.role_code}]?` : ""} confirmLabel={confirmDel && (userCountByRole[confirmDel.role_code] || 0) > 0 ? `${t("ui.仍然删除影响", "仍然删除（影响")} ${userCountByRole[confirmDel.role_code]} ${t("ui.个用户", "个用户")}）` : t("ui.确认删除", "确认删除")} onConfirm={handleDelete} onCancel={() => setConfirmDel(null)} danger />

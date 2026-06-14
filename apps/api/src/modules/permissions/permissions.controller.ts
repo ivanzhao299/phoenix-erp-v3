@@ -114,6 +114,26 @@ export class PermissionsController {
   }
 
   /**
+   * GET /api/permissions/who-can?menu=MENU_X&perm=A
+   * 反查：有该菜单该操作权限的角色（直绑/权限集）+ 在岗用户。
+   */
+  @Get('who-can')
+  async whoCan(@Query('menu') menu: string, @Query('perm') perm: string) {
+    if (!menu) throw new BadRequestException('menu 必填');
+    return { code: 200, data: await this.svc.whoCan(menu, perm || 'V') };
+  }
+
+  /**
+   * POST /api/permissions/check-role-combo
+   * 角色组合 SoD 校验（授权前拦截）。body: { role_codes: string[] }
+   */
+  @Post('check-role-combo')
+  async checkRoleCombo(@Body() body: { role_codes: string[] }) {
+    if (!body || !Array.isArray(body.role_codes)) throw new BadRequestException('role_codes 必须是数组');
+    return { code: 200, data: await this.svc.checkRoleComboConflicts(body.role_codes) };
+  }
+
+  /**
    * PATCH /api/permissions/role/:code/status
    * 角色生命周期：停用(DEPRECATED)/恢复(ACTIVE)。软停用不删数据，从编辑页隐藏。
    * body: { status: 'ACTIVE' | 'DEPRECATED' }
