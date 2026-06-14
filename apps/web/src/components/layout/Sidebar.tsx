@@ -213,6 +213,7 @@ const MENU: MenuItem[] = [
   { id: "master-data", Icon: Database, label: "主数据中心", perm: "MENU_MASTER_DATA", children: [
     { id: "mdc-overview",   path: "/master-data",                  Icon: LayoutDashboard, label: "主数据概览",   perm: "MENU_MASTER_DATA"     },
     { id: "mdc-orgs",       path: "/master-data/organizations",    Icon: Network,         label: "组织架构",     perm: "MENU_SYS_ORG"         },
+    { id: "mdc-bu",         path: "/master-data/business-units",   Icon: Network,         label: "事业群",       perm: "MENU_SYS_ORG"         },
     { id: "mdc-companies",  path: "/master-data/companies",        Icon: Building,        label: "公司档案",     perm: "MENU_SYS_ORG"         },
     { id: "mdc-projects",   path: "/master-data/projects",         Icon: FolderKanban,    label: "项目档案",     perm: "MENU_MD_PROJECT",     superPerm: "MENU_MASTER_DATA" },
     { id: "mdc-customers",  path: "/master-data/customers",        Icon: Users,           label: "客户档案",     perm: "MENU_MD_CUSTOMER",    superPerm: "MENU_MASTER_DATA" },

@@ -62,6 +62,7 @@ import { MasterDataCenterModule } from './modules/master-data/master-data-center
 import { DataQualityModule } from './modules/data-quality/data-quality.module';
 // [G6] Business Analytics Center
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { BusinessUnitModule } from './modules/business-unit/business-unit.module';
 
 
 @Module({
@@ -130,6 +131,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     MasterDataCenterModule, // G1: 主数据中心（编码生成/审计/数据质量）
     DataQualityModule,      // G5: 数据质量中心（7 维度健康评分 + 告警聚合）
     AnalyticsModule,        // G6: 经营分析中心（8 个分析子中心聚合层）
+    BusinessUnitModule,     // G110/S5: 事业群业务维度（法人树⟂事业群解耦）
   ],
   controllers: [DebugController, HealthController],
   providers: [
