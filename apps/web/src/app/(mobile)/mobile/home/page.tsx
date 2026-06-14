@@ -9,7 +9,7 @@ import { useBrand } from '@/contexts/BrandContext';
 import { canAccessMobile } from '@/lib/mobile-roles';
 import { haptic } from '@/lib/haptic';
 import { approvalApi, notificationApi } from '@/lib/mobile-api';
-import { BarChart2, Package, ShieldCheck, Warehouse, Truck, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird, Egg, Sun, Moon, LineChart, PackageCheck, ClipboardList, Maximize2, Minimize2, ClipboardCheck as WorkflowIcon, Bell, Receipt, ShoppingCart } from 'lucide-react';
+import { BarChart2, Package, ShieldCheck, Warehouse, CheckSquare, LogOut, Monitor, Wheat, Skull, Bird, Egg, Sun, Moon, LineChart, PackageCheck, ClipboardList, Maximize2, Minimize2, ClipboardCheck as WorkflowIcon, Bell, Receipt, ShoppingCart } from 'lucide-react';
 import u from "@/styles/uix-utils.module.css";
 type NavCard = {
   icon: React.ReactNode;
@@ -86,16 +86,10 @@ const NAV_CARDS: NavCard[] = [{
   soon: false,
   pageKey: 'egg'
 }, {
-  icon: <Truck size={28} />,
-  titleZh: '销售出库',
-  titleEn: 'Sales',
-  titleLo: 'ການຂາຍ',
-  desc: '农场直销·出库开单',
-  color: 'var(--status-info)',
-  href: '/mobile/sales',
-  soon: false,
-  pageKey: 'sales'
-}, {
+  // G108-B 退役：农场直销(farm-sales)系 R1 停用僵尸——写已停、读0数据、销售统一走
+  //   销售管理(Sales V2)/POS。从手机首页移除入口；页面文件暂留(可恢复)，后端 getSales
+  //   已加 store_code 收口防泄漏。待 Sales V2 手机端就绪再上正式销售入口。
+  // icon: <Truck size={28} />, titleZh: '销售出库', href: '/mobile/sales', pageKey: 'sales'
   icon: <CheckSquare size={28} />,
   titleZh: '药品台账',
   titleEn: 'Medicine',

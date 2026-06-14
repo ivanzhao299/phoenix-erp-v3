@@ -42,8 +42,28 @@ export class FarmSalesService {
     );
   }
 
-  /** 查询农场销售订单列表（按日期，只读） */
-  async getSales(date: string) {
+  /**
+   * 查询农场销售订单列表（按日期，只读）。
+   * G108-B：按 store_code 收口数据范围——非全局用户仅见本场站(store_code)的农场直销，
+   *   杜绝跨公司/跨场站泄漏（ord_orders 旧表无 company_code，store_code 是唯一可用维度）。
+   *   全局口径与 farm 模块 deriveOrgScope 一致：ALL/ORG-GROUP/admin/含'*' → 全量。
+   */
+  async getSales(date: string, user?: any) {
+    const storeCode: string | undefined = user?.storeCode;
+    const isGlobal =
+      !storeCode ||
+      storeCode === 'ALL' ||
+      storeCode.startsWith('ORG-GROUP') ||
+      user?.username === 'admin' ||
+      (user?.permissions || []).includes('*');
+
+    const params: any[] = [date];
+    let scopeSql = '';
+    if (!isGlobal) {
+      params.push(storeCode);
+      scopeSql = ` AND o.store_code = $${params.length}`;
+    }
+
     return this.ds.query<any[]>(
       `SELECT o.order_no, o.order_date::text, o.customer_code, o.customer_name,
               o.total_amount, o.status, o.remark, o.created_by,
@@ -59,10 +79,10 @@ export class FarmSalesService {
        FROM ord_orders o
        JOIN ord_order_items i ON i.order_no = o.order_no
        WHERE o.order_type = 'FARM_SALE'
-         AND o.order_date = $1
+         AND o.order_date = $1${scopeSql}
        GROUP BY o.id
        ORDER BY o.id DESC`,
-      [date],
+      params,
     );
   }
 
