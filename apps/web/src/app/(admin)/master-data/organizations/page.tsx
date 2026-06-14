@@ -25,7 +25,6 @@ import {
   Building2, Layers, Globe, Leaf, Users, Warehouse,
   LayoutGrid, Info, Edit3, PowerOff, Power, Trash2,
   ArrowRight, Inbox, CheckCircle2, XCircle, AlertCircle,
-  Activity, BarChart3, Check,
 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -36,10 +35,9 @@ import { organizationConfig, companyConfig } from "@/components/master-data/deta
 import { OrgMembersPanel } from "@/components/master-data/OrgMembersPanel";
 import { SearchInput } from "@/components/design-system";
 import {
-  COCKPIT, cockpitCard, cockpitCardBody, cockpitCardHeader, cockpitCardHeaderTitle,
-  cockpitCardHeaderHint, kpiHeroNumber, kpiHeroLabel, propCell, propLabel, propValue,
-  kpiMiniNumber, kpiMiniLabel, scoreBadge, riskItem, listRow,
-  primaryActionButton, secondaryActionButton, inputField, formLabel, inlineBadge, pillBadge,
+  cockpitCardHeader, cockpitCardHeaderTitle,
+  cockpitCardHeaderHint, propCell, propLabel, propValue,
+  primaryActionButton, secondaryActionButton, inputField, formLabel, pillBadge,
 } from "@/components/design-system/cockpit-styles";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
@@ -593,9 +591,9 @@ export default function MdOrganizationsPage() {
   return (
     <div className="animate-fade-in flex flex-col gap-0" style={{ padding: "24px 32px" }}>
       <PageHeader
-        title="组织驾驶舱"
-        subtitle="集团 / 事业群 / 公司 / 场区 / 部门 — 组织运营态势 · 合规风险 · 层级治理"
-        breadcrumb={["主数据中心", "组织驾驶舱"]}
+        title="组织架构"
+        subtitle={`共 ${totalCount} 个组织 · 启用 ${activeCount} · 健康度 ${totalCount > 0 ? Math.round((activeCount / totalCount) * 100) : 0}% — 集团 / 公司 / 场区 / 部门（事业群已解耦为业务维度）`}
+        breadcrumb={["主数据中心", "组织架构"]}
         actions={
           <button type="button" onClick={openNew} style={primaryActionButton}>
             <Plus size={14} /> 新增组织
@@ -885,178 +883,6 @@ export default function MdOrganizationsPage() {
           )}
         </div>
 
-        {/* ── UIX-PROD-1/2: 驾驶舱栏（宽屏右侧 300 / 窄屏顶部横排） ───────── */}
-        <div style={{
-          display: 'flex',
-          flexDirection: isNarrow ? 'row' : 'column',
-          flexWrap: isNarrow ? 'wrap' : 'nowrap',
-          gap: 12,
-          width: isNarrow ? '100%' : 300,
-          flexShrink: 0,
-          order: isNarrow ? -1 : 0,
-        }}>
-          {/* 组织态势 — Hero 卡（UIX-PROD-2 共用 cockpit-styles） */}
-          <div style={{ ...cockpitCard, flex: isNarrow ? '1 1 280px' : '0 0 auto', minWidth: 0 }}>
-            <div style={cockpitCardHeader}>
-              <Activity size={14} style={{ color: 'var(--color-primary)' }} />
-              <span style={cockpitCardHeaderTitle}>组织态势</span>
-              <span style={cockpitCardHeaderHint}>实时</span>
-            </div>
-            <div style={cockpitCardBody}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
-                <span style={kpiHeroNumber}>{totalCount}</span>
-                <span style={kpiHeroLabel}>个组织在管</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
-                <CheckCircle2 size={12} style={{ color: 'var(--status-success)' }} />
-                <span>健康度 <strong style={{ color: 'var(--status-success)', fontSize: 13 }}>{totalCount > 0 ? Math.round((activeCount / totalCount) * 100) : 0}%</strong></span>
-              </div>
-              <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', background: 'var(--bg-muted)', marginBottom: 12 }}>
-                <div style={{ background: 'var(--status-success-bg, var(--status-success))', opacity: 0.85, width: `${totalCount > 0 ? (activeCount / totalCount) * 100 : 0}%`, height: '100%' }} />
-                <div style={{ background: 'var(--status-warning-bg, var(--status-warning))', opacity: 0.85, width: `${totalCount > 0 ? ((totalCount - activeCount) / totalCount) * 100 : 0}%`, height: '100%' }} />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                <div>
-                  <div style={kpiMiniNumber('success')}>{activeCount}</div>
-                  <div style={kpiMiniLabel}>已启用</div>
-                </div>
-                <div>
-                  <div style={kpiMiniNumber(totalCount - activeCount > 0 ? 'warning' : 'default')}>{totalCount - activeCount}</div>
-                  <div style={kpiMiniLabel}>已停用</div>
-                </div>
-                <div>
-                  <div style={kpiMiniNumber()}>{tree.length}</div>
-                  <div style={kpiMiniLabel}>顶级数</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 当前组织 KPI（共用 cockpit-styles 属性单元格风格） */}
-          {selectedOrg && (
-            <div style={{ ...cockpitCard, flex: isNarrow ? '1 1 260px' : '0 0 auto', minWidth: 0 }}>
-              <div style={cockpitCardHeader}>
-                <BarChart3 size={14} style={{ color: 'var(--status-info)' }} />
-                <span style={cockpitCardHeaderTitle}>当前组织</span>
-                <code style={{ ...cockpitCardHeaderHint, fontFamily: 'monospace' }}>{selectedOrg.orgCode}</code>
-              </div>
-              <div>
-                <CockpitProp label="直属下级" value={
-                  <span><strong style={{ fontSize: 14 }}>{flat.filter(o => o.parentId === selectedOrg.id).length}</strong> <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>个直属</span></span>
-                } />
-                <CockpitProp label="所属层级" value={
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 6, background: 'var(--bg-muted)', color: 'var(--color-primary)', fontSize: 11, fontWeight: 700 }}>{selectedOrg.level}</span>
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>L{selectedOrg.level}</span>
-                  </span>
-                } />
-                <CockpitProp label="负责人" value={
-                  selectedOrg.managerName
-                    ? <span>{selectedOrg.managerName}</span>
-                    : <span style={inlineBadge('warning')}>未指定</span>
-                } />
-                <CockpitProp label="组织类型" value={
-                  <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: 'var(--bg-muted)', color: 'var(--text-primary)' }}>
-                    {ORG_TYPE_CONFIG[selectedOrg.orgType]?.label ?? selectedOrg.orgType}
-                  </span>
-                } />
-              </div>
-            </div>
-          )}
-
-          {/* 合规风险 — 用 banner 风格突出问题 */}
-          {selectedOrg && (() => {
-            // wrapper 应用 flex 配合 isNarrow（包裹 div 由 IIFE 返回，下方 div 加 style）
-            const checks = [
-              { ok: !!selectedOrg.managerName, label: "负责人已指定", warn: "请指定负责人" },
-              { ok: selectedOrg.status === 'ACTIVE', label: "组织已启用", warn: "组织当前停用" },
-              { ok: selectedOrg.orgType !== 'COMPANY' || !!selectedOrg.companyCode, label: "公司编码完整", warn: "缺公司编码" },
-              { ok: !!selectedOrg.parentCode || selectedOrg.orgType === 'GROUP', label: "层级归属清晰", warn: "未指定上级" },
-            ];
-            const fails = checks.filter(c => !c.ok);
-            const score = Math.round((checks.length - fails.length) / checks.length * 100);
-            const passing = fails.length === 0;
-            return (
-              <div style={{ ...cockpitCard, flex: isNarrow ? '1 1 260px' : '0 0 auto', minWidth: 0 }}>
-                <div style={cockpitCardHeader}>
-                  {passing
-                    ? <CheckCircle2 size={14} style={{ color: 'var(--status-success)' }} />
-                    : <AlertCircle size={14} style={{ color: 'var(--status-warning)' }} />}
-                  <span style={cockpitCardHeaderTitle}>合规风险</span>
-                  <span style={scoreBadge(passing)}>{score} 分</span>
-                </div>
-                <div style={{ ...cockpitCardBody, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {checks.map((c, i) => (
-                    <div key={i} style={riskItem}>
-                      {c.ok
-                        ? <CheckCircle2 size={13} style={{ color: 'var(--status-success)', flexShrink: 0 }} />
-                        : <AlertCircle size={13} style={{ color: 'var(--status-warning)', flexShrink: 0 }} />}
-                      <span style={{ color: c.ok ? 'var(--text-secondary)' : 'var(--status-warning)', wordBreak: 'break-word' }}>
-                        {c.ok ? c.label : c.warn}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* 直属下级预览 — 第 4 卡（共用 listRow 样式） */}
-          {selectedOrg && (() => {
-            const children = flat
-              .filter(o => o.parentId === selectedOrg.id)
-              .sort((a, b) => a.sortOrder - b.sortOrder || a.orgCode.localeCompare(b.orgCode));
-            return (
-              <div style={{
-                ...cockpitCard,
-                flex: isNarrow ? '1 1 260px' : '1 1 auto',
-                minWidth: 0, minHeight: 0,
-                display: 'flex', flexDirection: 'column',
-              }}>
-                <div style={cockpitCardHeader}>
-                  <Network size={14} style={{ color: 'var(--color-primary)' }} />
-                  <span style={cockpitCardHeaderTitle}>直属下级</span>
-                  <span style={cockpitCardHeaderHint}>{children.length} 个</span>
-                </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: 6 }}>
-                  {children.length === 0 ? (
-                    <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: 12, padding: '24px 0' }}>该组织无下级</div>
-                  ) : (
-                    <>
-                      {children.slice(0, 12).map(c => {
-                        const cfg = ORG_TYPE_CONFIG[c.orgType] ?? ORG_TYPE_CONFIG.DEPARTMENT;
-                        return (
-                          <button
-                            key={c.id}
-                            onClick={() => setSelectedCode(c.orgCode)}
-                            style={listRow}
-                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-muted)'; }}
-                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                          >
-                            <cfg.Icon size={13} className="text-text-muted flex-shrink-0" />
-                            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {c.orgShortName || c.orgName}
-                            </span>
-                            <span style={{
-                              fontSize: 10, padding: '2px 6px', borderRadius: 4, flexShrink: 0,
-                              background: c.status === 'ACTIVE' ? 'var(--status-success-bg-light)' : 'var(--bg-muted)',
-                              color: c.status === 'ACTIVE' ? 'var(--status-success)' : 'var(--text-secondary)',
-                            }}>{cfg.label}</span>
-                          </button>
-                        );
-                      })}
-                      {children.length > 12 && (
-                        <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--text-secondary)', padding: '6px 0' }}>
-                          …还有 {children.length - 12} 个
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-        </div>
       </div>
 
       {/* ── Drawer: new / edit ──────────────────────────────────────────────── */}
@@ -1313,11 +1139,3 @@ function PropCell({ label, value, mono = false }: {
   );
 }
 
-function CockpitProp({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div style={propCell}>
-      <span style={propLabel}>{label}</span>
-      <span style={propValue}>{value}</span>
-    </div>
-  );
-}
