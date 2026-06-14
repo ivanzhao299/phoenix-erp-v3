@@ -39,7 +39,6 @@ export default function SettingsPage() {
         { path:"/settings/security",     icon:<Lock size={20}/>,         title:t('ui.安全策略', '安全策略'),     desc:t('ui.登录限制会话超时日志', '登录限制·会话超时·日志') },
         { path:"/settings/audit-log",    icon:<Activity size={20}/>,     title:t('ui.审计日志', '审计日志'),     desc:t('ui.全量操作日志追踪查询', '全量操作日志追踪查询') },
         { path:"/settings/approval-flows",icon:<GitMerge size={20}/>,   title:t('ui.审批流配置', '审批流配置'),   desc:t('ui.单据金额阈值与审批角色链', '单据金额阈值与审批角色链') },
-        { path:"/settings/permissions",  icon:<Shield size={20}/>,       title:t('ui.权限管理', '权限管理'),     desc:t('ui.细粒度功能权限控制', '细粒度功能权限控制') },
       ],
     },
     {
@@ -49,7 +48,7 @@ export default function SettingsPage() {
         { path:"/settings/pos-config",   icon:<Smartphone size={20}/>,   title:t('ui.POS终端', 'POS 终端'),     desc:t('ui.门店收银设备参数配置', '门店收银设备参数配置') },
         { path:"/settings/pda-terminals",icon:<Smartphone size={20}/>,   title:t('ui.PDA终端', 'PDA 终端'),     desc:t('ui.工业PDA设备注册管理', '工业 PDA 设备注册管理') },
         { path:"/settings/brand",        icon:<Settings size={20}/>,     title:t('ui.品牌设置', '品牌设置'),     desc:t('ui.系统名称Logo主题色', '系统名称·Logo·主题色') },
-        { path:"/settings/system-init",  icon:<Database size={20}/>,     title:t('ui.系统初始化', '系统初始化'),   desc:t('ui.超管专用初始化基础数据', '⚠️ 超管专用：初始化基础数据') },
+        { path:"/pilot-run",             icon:<Database size={20}/>,     title:t('ui.系统初始化', '系统初始化'),   desc:t('ui.超管专用初始化基础数据', '⚠️ 超管专用：初始化基础数据') },
       ],
     },
   ];
