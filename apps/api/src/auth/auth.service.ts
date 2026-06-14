@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
@@ -52,7 +52,12 @@ export class AuthService {
    * POST /api/auth/login
    * 完全兼容 V2.0 phoenix-backend/src/routes/auth.js 的返回格式
    */
-  async login(username: string, password: string, ip?: string) {
+  async login(
+    username: string,
+    password: string,
+    ip?: string,
+    opts?: { bypassPassword?: boolean; impersonatedBy?: { id: number; username: string } },
+  ) {
     try {
     // DEV-ONLY 快捷通道：在 DB 查询之前短路，不依赖 admin 是否在 sys_user 中
     //   条件：NODE_ENV !== 'production' && ENABLE_DEV_LOGIN=true && admin/admin123
@@ -157,7 +162,8 @@ export class AuthService {
       }
     }
 
-    if (!isPasswordValid) {
+    // opts.bypassPassword 仅供内部 impersonate 调用（HTTP 登录端点永不传入），跳过密码校验
+    if (!opts?.bypassPassword && !isPasswordValid) {
       throw new UnauthorizedException('密码错误');
     }
 
@@ -281,6 +287,8 @@ export class AuthService {
       // V3 完整方案：JWT 失效机制
       // JwtStrategy.validate 时对账 sys_user.perms_version；版本落后 → 401 强制重登
       perms_version: Number(user.perms_version) || 1,
+      // 影子登录标记（仅 impersonate 时存在）：前端据此显示"以 XXX 身份查看"横幅，可追溯
+      ...(opts?.impersonatedBy ? { impersonatedBy: opts.impersonatedBy } : {}),
     };
 
 
@@ -307,6 +315,35 @@ export class AuthService {
       this.logger.error(`[login] failed for user="${username}" — ${err?.message}`, err?.stack);
       throw err;
     }
+  }
+
+  /**
+   * POST /api/auth/impersonate — 影子登录（仅超管）
+   * 为目标用户签发与其真实登录完全一致的会话（权限/数据范围一致），
+   * 仅用于 QA/客服排障：以该用户身份查看真实界面、走真实流程。
+   * 安全：调用方必须是超管（控制器层校验）；token 带 impersonatedBy 标记；写审计。
+   */
+  async impersonate(targetUsername: string, adminUser: { userId: number; username: string }, ip?: string) {
+    const target = (targetUsername || '').trim();
+    if (!target) throw new BadRequestException('目标用户名必填');
+    if (target === adminUser.username) throw new BadRequestException('无需以自己的身份查看');
+    // 复用 login 全部解析逻辑（bypassPassword），保证权限/数据范围与真实登录一致
+    const session = await this.login(target, '', ip, {
+      bypassPassword: true,
+      impersonatedBy: { id: adminUser.userId, username: adminUser.username },
+    });
+    // 审计：谁、以谁身份、何时、来源 IP
+    this.logger.warn(`[IMPERSONATE] admin=${adminUser.username}(#${adminUser.userId}) → user=${target} ip=${ip || '-'}`);
+    try {
+      await this.userRepo.query(
+        `INSERT INTO sys_audit_log (user_id, user_name, action, entity_type, entity_id, ip_addr, created_at)
+         VALUES ($1, $2, 'IMPERSONATE', 'AUTH', $3, $4, NOW())`,
+        [adminUser.userId, adminUser.username, target, ip || null],
+      );
+    } catch (e: any) {
+      this.logger.warn(`[IMPERSONATE] audit log skipped: ${e?.message}`);
+    }
+    return session;
   }
 
   /**
