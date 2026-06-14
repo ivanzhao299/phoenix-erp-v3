@@ -129,6 +129,11 @@ export class GenericCrudController {
     if (table.startsWith('prc2_'))           return 'MENU_PRC2';
     if (table.startsWith('sal_'))            return 'MENU_SALES2';
     if (table.startsWith('pkg_'))            return 'MENU_PKG_OP';
+    // 门店 / POS 业务表（pos_sales/pos_sessions/store_receiving/store_losses/store_replenish_req…）
+    //   → 门店工作台菜单；店长持 MENU_STORE_MGR/MENU_POS_STORE，行级 store_code 隔离保证仅本店数据。
+    //   修复：原无此映射 → 门店工作台拉 pos_sales/store_receiving 报 403（店长自己工作台报权限错）。
+    if (table.startsWith('pos_'))            return 'MENU_POS_STORE';
+    if (table.startsWith('store_'))          return 'MENU_STORE_MGR';
     if (table.startsWith('mst_'))            return 'MENU_MASTER';
     return null;
   }
