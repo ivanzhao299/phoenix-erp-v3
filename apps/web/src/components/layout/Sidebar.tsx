@@ -239,6 +239,7 @@ const MENU: MenuItem[] = [
   { id: "settings", Icon: Settings, label: "系统设置", perm: "MENU_SETTINGS_USER", children: [
     { id: "stg-users",       path: "/settings/users",         Icon: Users,       label: "用户管理",   perm: "MENU_SETTINGS_USER" },
     { id: "stg-roles",       path: "/settings/roles",         Icon: Shield,      label: "角色与权限", perm: "MENU_SETTINGS_IT"   },
+    { id: "stg-psets",       path: "/settings/permission-sets", Icon: Layers,    label: "权限集",     perm: "MENU_SETTINGS_IT"   },
     { id: "stg-data-scopes", path: "/settings/data-scopes",   Icon: ShieldCheck, label: "数据范围规则", perm: "MENU_SYS_ORG"       },
     { id: "stg-params",      path: "/settings/master-data",   Icon: Settings2,   label: "系统参数",   perm: "MENU_SETTINGS_IT"   },
     { id: "stg-security",    path: "/settings/security",      Icon: ShieldCheck, label: "安全策略",   perm: "MENU_SETTINGS_IT"   },
