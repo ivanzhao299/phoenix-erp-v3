@@ -54,7 +54,7 @@ DELETE FROM sys_user_orgs
      'admin','zhaoyongwei','zhuzhaocun','gaoyang','liujie','liuhantao',
      'wanglejin','fanzhenhao','guodapeng','qiantao','xuefeng','tangzhiwen',
      'songmingguang','songlei','wangweihua','songshoujiang','xiejiling','linhong',
-     'chenling','alue','Bouavanh','zhuzhaoan','chenyifei','fuqiang','liushanjun',
+     'chenling','alue','bouavanh','zhuzhaoan','chenyifei','fuqiang','liushanjun',
      'zhuhuiran','langshipei','amei','xiaolan','xuegang','ajian'
    )
  );
@@ -92,7 +92,7 @@ FROM (VALUES
   -- 农业公司下属直营店 · 门店级
   ('chenling',      'STORE-MX-001',        'STORE',   true),
   ('alue',          'STORE-VTE-001',       'STORE',   true),
-  ('Bouavanh',      'STORE-BKX-001',       'STORE',   true),
+  ('bouavanh',      'STORE-BKX-001',       'STORE',   true),
   -- 老挝东鹏县星驰农业发展有限公司 · 公司级
   ('zhuzhaoan',     'COMP-LAO-XINGCHI',    'COMPANY', true),
   ('chenyifei',     'COMP-LAO-XINGCHI',    'COMPANY', true),
@@ -130,6 +130,6 @@ UPDATE sys_user SET perms_version = COALESCE(perms_version, 0) + 1, updated_at =
    'admin','zhaoyongwei','zhuzhaocun','gaoyang','liujie','liuhantao',
    'wanglejin','fanzhenhao','guodapeng','qiantao','xuefeng','tangzhiwen',
    'songmingguang','songlei','wangweihua','songshoujiang','xiejiling','linhong',
-   'chenling','alue','Bouavanh','zhuzhaoan','chenyifei','fuqiang','liushanjun',
+   'chenling','alue','bouavanh','zhuzhaoan','chenyifei','fuqiang','liushanjun',
    'zhuhuiran','langshipei','amei','xiaolan','xuegang','ajian'
  );
