@@ -241,6 +241,39 @@ export class PermissionsService {
     });
   }
 
+  // ── PATCH /api/permissions/role/:code/status  角色生命周期 ─────────────
+  /** 软停用 / 恢复角色。DEPRECATED 从编辑页隐藏但保留数据，可恢复。 */
+  async setRoleStatus(roleCode: string, status: string) {
+    const st = (status || '').toUpperCase();
+    if (!['ACTIVE', 'DEPRECATED'].includes(st)) {
+      throw new Error('status 必须是 ACTIVE 或 DEPRECATED');
+    }
+    if (roleCode === 'ROLE_ADMIN' && st === 'DEPRECATED') {
+      throw new Error('超管角色不可停用');
+    }
+    const exists = await this.dataSource.query(
+      `SELECT 1 FROM sys_role WHERE role_code = $1`, [roleCode]);
+    if (!exists.length) throw new Error(`角色 ${roleCode} 不存在`);
+    // 停用前拦截：仍有在岗用户持有则拒绝（避免误停用导致掉权）
+    if (st === 'DEPRECATED') {
+      const held = await this.dataSource.query(
+        `SELECT COUNT(*)::int AS n
+           FROM sys_user_role ur
+           JOIN sys_role r ON r.role_id = ur.role_id
+           JOIN sys_user u ON u.user_id = ur.user_id
+          WHERE r.role_code = $1 AND u.status = 1`, [roleCode]);
+      if (held[0]?.n > 0) {
+        throw new Error(`该角色仍有 ${held[0].n} 个在岗用户持有，请先转移后再停用`);
+      }
+    }
+    await this.dataSource.query(
+      `UPDATE sys_role
+          SET status = $1,
+              deprecated_at = CASE WHEN $1 = 'DEPRECATED' THEN NOW() ELSE NULL END
+        WHERE role_code = $2`, [st, roleCode]);
+    return { role_code: roleCode, status: st };
+  }
+
   // ── GET /api/permissions/stats  顶部统计 ──────────────────────────────
   async getStats() {
     const roleCount = await this.roleRepo.count();

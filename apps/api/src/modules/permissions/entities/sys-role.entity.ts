@@ -33,6 +33,13 @@ export class SysRoleEntity {
   @Column({ type: 'text', nullable: true })
   description: string;
 
+  /** 生命周期：ACTIVE 正常 / DEPRECATED 已停用（从编辑页隐藏，保留可恢复） */
+  @Column({ type: 'varchar', length: 16, default: 'ACTIVE' })
+  status: string;
+
+  @Column({ name: 'deprecated_at', type: 'timestamp', nullable: true })
+  deprecated_at: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   created_at: Date;
 }

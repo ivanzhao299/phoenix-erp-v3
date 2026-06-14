@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Put, Param, Query, Body,
+  Controller, Get, Post, Put, Patch, Param, Query, Body,
   UseGuards, BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -107,6 +107,21 @@ export class PermissionsController {
     }
     try {
       const data = await this.svc.setRolePermissions(code, body.perms);
+      return { code: 200, data };
+    } catch (e: any) {
+      throw new BadRequestException(e.message);
+    }
+  }
+
+  /**
+   * PATCH /api/permissions/role/:code/status
+   * 角色生命周期：停用(DEPRECATED)/恢复(ACTIVE)。软停用不删数据，从编辑页隐藏。
+   * body: { status: 'ACTIVE' | 'DEPRECATED' }
+   */
+  @Patch('role/:code/status')
+  async setRoleStatus(@Param('code') code: string, @Body() body: { status: string }) {
+    try {
+      const data = await this.svc.setRoleStatus(code, body?.status);
       return { code: 200, data };
     } catch (e: any) {
       throw new BadRequestException(e.message);

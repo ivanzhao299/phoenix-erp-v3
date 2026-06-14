@@ -23,7 +23,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Shield, Plus, Trash2, Edit2, Save, Copy, Grid, AlertTriangle, Users, Lock, X, ChevronDown, ChevronRight } from "lucide-react";
+import { Shield, Plus, Trash2, Edit2, Save, Copy, Grid, AlertTriangle, Users, Lock, X, ChevronDown, ChevronRight, Archive, ArchiveRestore, Eye, EyeOff } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { modalMask } from "@/components/design-system/cockpit-styles";
 
@@ -52,6 +52,7 @@ interface RoleRow {
   role_type: string;
   approval_level: number;
   description: string | null;
+  status: string; // ACTIVE | DEPRECATED
 }
 interface RolePerm {
   menu_code: string;
@@ -271,6 +272,11 @@ const apiPut = (path: string, body: Record<string, unknown>) => fetch(path, {
   headers: hdr(),
   body: JSON.stringify(body)
 }).then(r => r.json());
+const apiPatch = (path: string, body: Record<string, unknown>) => fetch(path, {
+  method: "PATCH",
+  headers: hdr(),
+  body: JSON.stringify(body)
+}).then(r => r.json());
 
 // ─────────────────────────────────────────────────────────────────────────
 export default function RoleManagementPage() {
@@ -298,6 +304,10 @@ export default function RoleManagementPage() {
   const [showMatrix, setShowMatrix] = useState(false);
   const [matrixData, setMatrixData] = useState<MatrixData | null>(null);
 
+  // 已停用角色显示开关（默认隐藏 DEPRECATED）
+  const [showDeprecated, setShowDeprecated] = useState(false);
+  const deprecatedCount = useMemo(() => roles.filter(r => r.status === "DEPRECATED").length, [roles]);
+
   // 分组折叠状态（默认全展开）
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const toggleGroup = (type: string) => setCollapsedGroups(prev => {
@@ -306,10 +316,11 @@ export default function RoleManagementPage() {
     return next;
   });
 
-  // 按 role_type 分组，组内按 approval_level 降序排列
+  // 按 role_type 分组，组内按 approval_level 降序排列（默认隐藏已停用角色）
   const roleGroups = useMemo(() => {
+    const visible = showDeprecated ? roles : roles.filter(r => r.status !== "DEPRECATED");
     const map = new Map<string, RoleRow[]>();
-    for (const role of roles) {
+    for (const role of visible) {
       const type = role.role_type || "COMMON";
       if (!map.has(type)) map.set(type, []);
       map.get(type)!.push(role);
@@ -324,7 +335,7 @@ export default function RoleManagementPage() {
       const ob = (ROLE_TYPE_META[b] ?? TYPE_META_FALLBACK).order;
       return oa - ob;
     });
-  }, [roles]);
+  }, [roles, showDeprecated]);
 
   // 表单
   const [editCode, setEditCode] = useState<string | null>(null); // 编辑模式时存原 role_code
@@ -358,7 +369,8 @@ export default function RoleManagementPage() {
         role_name_lo: d.role_name_lo,
         role_type: d.role_type || "COMMON",
         approval_level: d.approval_level ?? 0,
-        description: d.description
+        description: d.description,
+        status: (d.status as string) || "ACTIVE"
       }));
       setRoles(rows);
 
@@ -629,6 +641,18 @@ export default function RoleManagementPage() {
     }
   };
 
+  // 角色生命周期：停用 / 恢复
+  const setRoleStatus = async (role: RoleRow, status: "ACTIVE" | "DEPRECATED") => {
+    try {
+      const r = await apiPatch(`/api/permissions/role/${encodeURIComponent(role.role_code)}/status`, { status });
+      if (r.code && r.code !== 200) throw new Error(r.msg || r.message);
+      toast.success(status === "DEPRECATED" ? t("ui.角色已停用", "角色已停用") : t("ui.角色已恢复", "角色已恢复"));
+      loadAll();
+    } catch (e: any) {
+      toast.error((status === "DEPRECATED" ? t("ui.停用失败", "停用失败") : t("ui.恢复失败", "恢复失败")) + ": " + (e.message || String(e)));
+    }
+  };
+
   // 矩阵全景
   const openMatrix = async () => {
     setShowMatrix(true);
@@ -646,6 +670,9 @@ export default function RoleManagementPage() {
       display: "flex",
       gap: "8px"
     }}>
+            {deprecatedCount > 0 && <button type="button" className={s.btnSecondary} onClick={() => setShowDeprecated(v => !v)} title={t("ui.切换已停用角色显示", "切换已停用角色显示")}>
+              {showDeprecated ? <EyeOff size={14} /> : <Eye size={14} />} {showDeprecated ? t("ui.隐藏已停用", "隐藏已停用") : `${t("ui.显示已停用", "显示已停用")} (${deprecatedCount})`}
+            </button>}
             <button type="button" className={s.btnSecondary} onClick={openMatrix}>
               <Grid size={14} /> {t("ui.权限矩阵全景", "权限矩阵全景")}
             </button>
@@ -731,12 +758,14 @@ export default function RoleManagementPage() {
                   {groupRoles.map(role => {
               const userCnt = userCountByRole[role.role_code] || 0;
               const isAdmin = role.role_code === "ROLE_ADMIN";
+              const isDeprecated = role.status === "DEPRECATED";
               const desc = role.description?.trim();
               const fallback = ROLE_TYPE_DEFAULT_DESC[role.role_type];
               return <div key={role.role_code} className={s.card} style={{
                 display: "flex",
                 flexDirection: "column",
-                borderLeft: `3px solid ${meta.color}60`
+                borderLeft: `3px solid ${isDeprecated ? "var(--text-disabled)" : meta.color}60`,
+                opacity: isDeprecated ? 0.62 : 1
               }}>
                         {/* 卡片头 */}
                         <div style={{
@@ -777,9 +806,21 @@ export default function RoleManagementPage() {
                       fontSize: 10,
                       fontFamily: "monospace",
                       color: "var(--text-secondary)",
-                      marginTop: 2
+                      marginTop: 2,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5
                     }}>
-                              {role.role_code} · L{role.approval_level}
+                              <span>{role.role_code} · L{role.approval_level}</span>
+                              {isDeprecated && <span style={{
+                        fontFamily: "var(--font-sans)",
+                        fontSize: 9,
+                        fontWeight: 700,
+                        padding: "0 5px",
+                        borderRadius: 8,
+                        background: "var(--status-danger-bg, rgba(220,38,38,0.12))",
+                        color: "var(--status-danger)"
+                      }}>{t("ui.已停用", "已停用")}</span>}
                             </div>
                           </div>
                           <div style={{
@@ -789,6 +830,9 @@ export default function RoleManagementPage() {
                   }}>
                             <button type="button" className={s.btnIcon} title={t("ui.复制", "复制")} onClick={() => openCopy(role)}><Copy size={12} /></button>
                             <button type="button" className={s.btnIcon} title={t("common.edit", "编辑")} onClick={() => router.push(`/settings/roles/${encodeURIComponent(role.role_code)}`)}><Edit2 size={12} /></button>
+                            {!isAdmin && (isDeprecated
+                      ? <button type="button" className={s.btnIcon} title={t("ui.恢复角色", "恢复角色")} onClick={() => setRoleStatus(role, "ACTIVE")} style={{ color: "var(--status-success)" }}><ArchiveRestore size={12} /></button>
+                      : <button type="button" className={s.btnIcon} title={t("ui.停用角色", "停用角色（从编辑页隐藏，可恢复）")} onClick={() => setRoleStatus(role, "DEPRECATED")} style={{ color: "var(--status-warning)" }}><Archive size={12} /></button>)}
                             {!isAdmin && <button type="button" className={s.btnIcon} title={t("common.delete", "删除")} onClick={() => setConfirmDel(role)} style={{
                       color: "var(--color-danger)"
                     }}>
