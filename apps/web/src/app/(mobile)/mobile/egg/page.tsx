@@ -76,6 +76,7 @@ export default function EggPage() {
 
   // 动态栋舍/客户列表（从后端拉取，按农场隔离）
   const [houses, setHouses]       = useState<string[]>([]);
+  const [houseMap, setHouseMap]   = useState<Record<string, string>>({}); // G109 code→中文名
   const [customers, setCustomers] = useState<FarmCustomer[]>([]);
 
   // 入库：{ house → { grade → qty } }
@@ -119,9 +120,11 @@ export default function EggPage() {
 
   // 拉取栋舍和客户列表（组织隔离：农场用户只见本场数据）
   useEffect(() => {
-    mobileApi.getFeedHouses().then(data => {
-      setHouses(data);
-      if (data.length > 0) setSelectedHouse(h => h || data[0]);
+    mobileApi.getFeedHousesDetail().then(rows => {
+      const codes = rows.map(r => r.house_code);
+      setHouses(codes);
+      setHouseMap(Object.fromEntries(rows.map(r => [r.house_code, r.house_name || r.house_code])));
+      if (codes.length > 0) setSelectedHouse(h => h || codes[0]);
     }).catch(() => {});
     mobileApi.getFarmCustomers().then(data => {
       setCustomers(data);
@@ -394,7 +397,7 @@ export default function EggPage() {
                       color: selectedHouse === h ? 'var(--status-success)' : t.textSub,
                       cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
                     }}>
-                    {h}{houseTotal > 0 ? ` (${houseTotal})` : ''}
+                    {houseMap[h] || h}{houseTotal > 0 ? ` (${houseTotal})` : ''}
                   </button>
                 );
               })}

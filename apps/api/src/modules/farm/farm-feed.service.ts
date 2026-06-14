@@ -14,7 +14,7 @@ const DEFAULT_MATERIALS = [
 ];
 
 // 默认栋舍列表
-export const DEFAULT_HOUSES = ['2号舍', '3号舍', '4号舍', '5号舍', '6号舍', '施工队'];
+// G109：删除 DEFAULT_HOUSES 硬编码兜底（曾是第三套漂移名）——鸡舍唯一来源 brd_houses。
 
 @Injectable()
 export class FarmFeedService {
@@ -135,12 +135,16 @@ export class FarmFeedService {
       params.push(siteCode);
       where += ` AND site_code = $${params.length}`;
     }
+    // G109：返回 house_code + 中文 house_name（手机端显示中文名、以 code 为数据键）。
+    //   去掉 DEFAULT_HOUSES 硬编码兜底——无数据即返回空(提示去建鸡舍)，杜绝第三套漂移名。
     const rows = await this.em.query(
-      `SELECT house_code FROM brd_houses ${where} ORDER BY house_code`,
+      `SELECT house_code, house_name FROM brd_houses ${where} ORDER BY house_code`,
       params,
     );
-    // 兜底：如果 brd_houses 无数据，返回默认列表
-    const data: string[] = rows.length > 0 ? rows.map((r: any) => r.house_code) : DEFAULT_HOUSES;
+    const data = rows.map((r: any) => ({
+      house_code: r.house_code,
+      house_name: r.house_name || r.house_code,
+    }));
     return { code: 200, data };
   }
 

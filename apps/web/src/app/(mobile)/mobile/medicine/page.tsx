@@ -52,11 +52,17 @@ export default function MedicinePage() {
   const [entries, setEntries] = useState<Record<string, EntryRow>>({});
 
   // G99：真实栋舍（含「全场」首项）——取代硬编码 DEFAULT_HOUSES
+  // G109：以 code 为键，显示中文名（houseMap）
   const [houses, setHouses] = useState<string[]>([WHOLE_FARM]);
+  const [houseMap, setHouseMap] = useState<Record<string, string>>({ [WHOLE_FARM]: WHOLE_FARM });
   useEffect(() => {
     if (!allowed) return;
-    mobileApi.getFeedHouses()
-      .then(hs => setHouses([WHOLE_FARM, ...(hs ?? []).filter(h => h && h !== WHOLE_FARM)]))
+    mobileApi.getFeedHousesDetail()
+      .then(rows => {
+        const codes = rows.map(r => r.house_code).filter(h => h && h !== WHOLE_FARM);
+        setHouses([WHOLE_FARM, ...codes]);
+        setHouseMap({ [WHOLE_FARM]: WHOLE_FARM, ...Object.fromEntries(rows.map(r => [r.house_code, r.house_name || r.house_code])) });
+      })
       .catch(() => setHouses([WHOLE_FARM]));
   }, [allowed]);
 
@@ -317,7 +323,7 @@ export default function MedicinePage() {
                             color: t.text, fontSize: 12, outline: 'none',
                           }}
                         >
-                          {houses.map(h => <option key={h} value={h}>{h}</option>)}
+                          {houses.map(h => <option key={h} value={h}>{houseMap[h] || h}</option>)}
                         </select>
                       </div>
                     )}
@@ -359,7 +365,7 @@ export default function MedicinePage() {
                   <div style={{ fontSize: 12, color: t.textSub }}>{e.medication_name}</div>
                   <div style={{ fontSize: 10, color: t.textFaint }}>
                     {CHANGE_LABELS[e.change_type] ?? e.change_type}
-                    {e.house_code ? ` · ${e.house_code}` : ''}
+                    {e.house_code ? ` · ${houseMap[e.house_code] || e.house_code}` : ''}
                     {e.note ? ` · ${e.note}` : ''}
                   </div>
                 </div>

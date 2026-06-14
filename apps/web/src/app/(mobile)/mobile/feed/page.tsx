@@ -38,10 +38,12 @@ const ALERT_COLOR = {
 function MaterialCard({
   row,
   houses,
+  houseMap,
   onChange
 }: {
   row: FeedLedgerRow;
   houses: string[];
+  houseMap: Record<string, string>;
   onChange: (updated: Partial<FeedLedgerRow>) => void;
 }) {
   const {
@@ -207,7 +209,7 @@ function MaterialCard({
             color: t.textFaint,
             marginBottom: 3,
             textAlign: 'center'
-          }}>{house}</div>
+          }}>{houseMap[house] || house}</div>
                 <input type="number" inputMode="numeric" min="0" value={numInput(row.outbound_detail[house] ?? 0)} onChange={e => setOutbound(house, e.target.value)} placeholder="0" style={{
             ...inputStyle,
             textAlign: 'center'
@@ -279,6 +281,7 @@ export default function FeedLedgerPage() {
   const [date, setDate] = useState(today);
   const [rows, setRows] = useState<FeedLedgerRow[]>([]);
   const [houses, setHouses] = useState<string[]>([]);
+  const [houseMap, setHouseMap] = useState<Record<string, string>>({}); // G109 code→中文名
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -289,11 +292,12 @@ export default function FeedLedgerPage() {
     setError('');
     setSaved(false);
     try {
-      const [ledger, houseList] = await Promise.all([mobileApi.getFeedLedger(d), mobileApi.getFeedHouses()]);
+      const [ledger, houseList] = await Promise.all([mobileApi.getFeedLedger(d), mobileApi.getFeedHousesDetail()]);
       const arr = Array.isArray(ledger) ? ledger : (ledger as any)?.data ?? [];
       setRows(arr);
-      const hs = Array.isArray(houseList) ? houseList : (houseList as any)?.data ?? [];
-      setHouses(hs);
+      const detail = Array.isArray(houseList) ? houseList : (houseList as any)?.data ?? [];
+      setHouses(detail.map((r: any) => r.house_code));
+      setHouseMap(Object.fromEntries(detail.map((r: any) => [r.house_code, r.house_name || r.house_code])));
     } catch (e: any) {
       setError(e.message || '加载失败');
     } finally {
@@ -530,7 +534,7 @@ export default function FeedLedgerPage() {
         {loading ? <div>
             {[1, 2, 3, 4, 5].map(i => <SkeletonCard key={i} lines={3} />)}
           </div> : <>
-            {rows.map((row, idx) => <MaterialCard key={row.material_name} row={row} houses={houses} onChange={patch => updateRow(idx, patch)} />)}
+            {rows.map((row, idx) => <MaterialCard key={row.material_name} row={row} houses={houses} houseMap={houseMap} onChange={patch => updateRow(idx, patch)} />)}
             {rows.length === 0 && <MobileEmptyState icon="🌾" title="暂无饲料数据" desc="今日还没有饲料记录，可以尝试刷新" />}
           </>}
       </div>
