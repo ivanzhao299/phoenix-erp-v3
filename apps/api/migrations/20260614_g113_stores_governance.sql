@@ -34,6 +34,8 @@ BEGIN
   IF to_regclass('public.mst_stores') IS NOT NULL THEN
     ALTER TABLE mst_stores ADD COLUMN IF NOT EXISTS operation_type VARCHAR(32);
     ALTER TABLE mst_stores ADD COLUMN IF NOT EXISTS contact        VARCHAR(128);
+    -- 生产 mst_stores 历史无 region 列（本地有）→ 防御性补齐，消除 local≠prod 漂移
+    ALTER TABLE mst_stores ADD COLUMN IF NOT EXISTS region          VARCHAR(256);
   END IF;
 END $$;
 
