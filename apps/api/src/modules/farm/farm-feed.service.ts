@@ -142,10 +142,60 @@ export class FarmFeedService {
       params,
     );
     const data = rows.map((r: any) => ({
-      house_code: r.house_code,
-      house_name: r.house_name || r.house_code,
+      house_code:   r.house_code,
+      house_name:   r.house_name || r.house_code,
+      capacity:     r.capacity ?? null,
+      house_type:   r.house_type ?? null,
+      current_birds: r.current_birds ?? null,
     }));
     return { code: 200, data };
+  }
+
+  /**
+   * G109：场长在手机端新建本场鸡舍。
+   *   farm_code/site_code/company_code 由场长 scope **自动派生**（从同场已有鸡舍复制），
+   *   场长不可指定农场 → 杜绝跨场建舍、杜绝建出无映射的孤儿舍。
+   *   全局/admin 不走此快捷入口（应在 PC 端鸡舍管理显式指定农场）。
+   */
+  async createHouse(
+    body: { house_code?: string; house_name?: string; capacity?: number; house_type?: string },
+    scope: { isGlobal: boolean; farmCode: string | null; siteCode: string | null },
+  ) {
+    if (scope.isGlobal) {
+      throw new Error('集团/管理员请在 PC 端「鸡舍管理」创建并指定农场；手机端仅供场长建本场鸡舍。');
+    }
+    const code = (body.house_code || '').trim();
+    const name = (body.house_name || '').trim();
+    if (!code || !name) throw new Error('鸡舍编码和名称必填');
+
+    // 从同场已有鸡舍复制 farm/site/company（保证新舍映射与本场一致）
+    const siteOrFarm = scope.siteCode || scope.farmCode;
+    if (!siteOrFarm) throw new Error('无法确定您所属农场/场区，请联系管理员配置后再建鸡舍。');
+    const sib = await this.em.query(
+      `SELECT farm_code, farm_name, site_code, company_code
+         FROM brd_houses
+        WHERE (site_code = $1 OR farm_code = $1) AND status = 'ACTIVE'
+        ORDER BY house_code LIMIT 1`,
+      [siteOrFarm],
+    );
+    const s = sib[0] || {};
+    const farmCode    = s.farm_code    || scope.farmCode || null;
+    const siteCode    = s.site_code    || scope.siteCode || null;
+    const companyCode = s.company_code || null;
+    if (!farmCode && !siteCode) throw new Error('本场尚无任何鸡舍映射基准，请先在 PC 端建立首间鸡舍。');
+
+    const dup = await this.em.query(`SELECT 1 FROM brd_houses WHERE house_code = $1`, [code]);
+    if (dup.length) throw new Error(`鸡舍编码「${code}」已存在`);
+
+    await this.em.query(
+      `INSERT INTO brd_houses
+         (house_code, house_name, farm_code, farm_name, site_code, company_code,
+          house_type, capacity, current_birds, status, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,0,'ACTIVE',NOW())`,
+      [code, name, farmCode, s.farm_name || null, siteCode, companyCode,
+       body.house_type || '蛋鸡舍', Number(body.capacity) || 0],
+    );
+    return { code: 200, data: { house_code: code, farm_code: farmCode, site_code: siteCode, company_code: companyCode } };
   }
 
   // ── 工具 ──────────────────────────────────────────────────────────────────────

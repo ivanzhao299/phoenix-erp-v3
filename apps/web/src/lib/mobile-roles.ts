@@ -142,6 +142,12 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
     read:  [R.CEO, R.WMS_MGR, R.QA_MGR, R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.AUDITOR, R.SHAREHOLDER_VIEW],
   },
 
+  /** G109 鸡舍管理：场长建/改本场鸡舍（农场主数据，受 DataScope 限本场）；其余只读 */
+  henhouse: {
+    write: [R.ADMIN, R.FARM_MGR],
+    read:  [R.CEO, R.VET, R.QA_MGR, R.AUDITOR, R.SHAREHOLDER_VIEW],
+  },
+
   /** 存栏日报：农场录入；管理层/股东查看——按舍按日汇总存栏/产蛋/死淘，股东+高层看每日数据的主视图 */
   henreport: {
     write: [R.ADMIN, R.FARM_MGR],

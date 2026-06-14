@@ -120,6 +120,17 @@ const NAV_CARDS: NavCard[] = [{
   soon: false,
   pageKey: 'henreport'
 }, {
+  // G109 场长建本场鸡舍（卡片仅对有 write 权的角色显示）
+  icon: <Warehouse size={28} />,
+  titleZh: '鸡舍管理',
+  titleEn: 'Houses',
+  titleLo: 'ເລົ້າໄກ່',
+  desc: '建/查本场鸡舍信息',
+  color: 'var(--status-success)',
+  href: '/mobile/henhouse',
+  soon: false,
+  pageKey: 'henhouse'
+}, {
   icon: <Egg size={28} />,
   titleZh: '产蛋录入',
   titleEn: 'Egg Entry',

@@ -346,9 +346,9 @@ export const mobileApi = {
       body: JSON.stringify({ date, items }),
     }).then(r => r.json()),
 
-  /** G109 鸡舍列表明细（code+中文名，5 分钟缓存）——按当前用户农场/场区隔离 */
-  getFeedHousesDetail: (): Promise<Array<{ house_code: string; house_name: string }>> =>
-    getCached('feedHousesDetail', () => get<Array<{ house_code: string; house_name: string }>>('/api/farm/feed/houses'), 5 * 60_000)
+  /** G109 鸡舍列表明细（code+中文名+容量，5 分钟缓存）——按当前用户农场/场区隔离 */
+  getFeedHousesDetail: (): Promise<Array<{ house_code: string; house_name: string; capacity?: number | null; house_type?: string | null; current_birds?: number | null }>> =>
+    getCached('feedHousesDetail', () => get<Array<{ house_code: string; house_name: string; capacity?: number | null }>>('/api/farm/feed/houses'), 5 * 60_000)
       .then(rows => (Array.isArray(rows) ? rows : [])),
 
   /** 鸡舍 code 列表（向后兼容：以 code 为数据键的页面继续可用） */
@@ -359,6 +359,10 @@ export const mobileApi = {
   getFeedHouseMap: (): Promise<Record<string, string>> =>
     mobileApi.getFeedHousesDetail().then(rows =>
       Object.fromEntries(rows.map(r => [r.house_code, r.house_name || r.house_code]))),
+
+  /** G109 场长新建本场鸡舍（farm/site/company 后端按 scope 自动派生）。返回信封 {code,data,msg} */
+  createHouse: (body: { house_code: string; house_name: string; capacity?: number; house_type?: string }) =>
+    post<{ code: number; data?: { house_code: string }; msg?: string }>('/api/farm/feed/houses', body),
 
   /**
    * G101 字典下拉（统一字典化）：拉 sys_dict 某类型的 ACTIVE 项 → [{value,label}]。

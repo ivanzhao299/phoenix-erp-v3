@@ -46,4 +46,18 @@ export class FarmFeedController {
     if (scope.isGlobal) return this.feedService.getHouses();
     return this.feedService.getHouses(scope.farmCode || undefined, scope.siteCode || undefined);
   }
+
+  /**
+   * POST /api/farm/feed/houses — G109 场长新建本场鸡舍
+   *   farm/site/company 由场长 scope 自动派生（不可指定农场）。需 MENU_FARM_DATA:E。
+   */
+  @Post('houses')
+  @RequireMenu('MENU_FARM_DATA', 'E')
+  async createHouse(@Body() body: any, @Req() req: any) {
+    try {
+      return await this.feedService.createHouse(body, deriveOrgScope(req));
+    } catch (e: any) {
+      return { code: 400, msg: e?.message || '建鸡舍失败' };
+    }
+  }
 }
