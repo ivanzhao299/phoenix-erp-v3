@@ -108,3 +108,17 @@ BEGIN
   -- 7. 删 UAT 垃圾
   DELETE FROM mst_stores WHERE store_code='STR-00001';
 END $$;
+
+-- ── 8. 数据一致性：按 parent_id 回填空的 parent_code（历史遗留：门店等节点 parent_code 为空，
+--      组织树靠 parent_id 嵌套；回填后 parent_code 与 parent_id 一致，便于按编码消费）──────────
+DO $$
+BEGIN
+  IF to_regclass('public.sys_organizations') IS NOT NULL THEN
+    UPDATE sys_organizations s
+       SET parent_code = p.org_code, updated_at = NOW()
+      FROM sys_organizations p
+     WHERE s.parent_id = p.id
+       AND (s.parent_code IS NULL OR s.parent_code = '')
+       AND s.parent_id IS NOT NULL;
+  END IF;
+END $$;
