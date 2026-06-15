@@ -1,0 +1,465 @@
+"use client";
+
+// G149：付款单新建/编辑表单——从原列表页抽屉抽出为「整页表单」组件。
+//   · 新建：/procurement2/payments/new        → <PaymentForm />
+//   · 编辑：/procurement2/payments/[id]/edit   → <PaymentForm paymentId={id} />
+//   分区清晰、明细表带合计、AP 选择浮层、股东代付，不再受抽屉宽度限制。
+
+import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
+import u from "@/styles/uix-utils.module.css";
+import s from "@/components/ui/admin-ui.module.css";
+import { Plus, Trash2, CreditCard, DollarSign, Save, ArrowLeft } from "lucide-react";
+import { useToast } from "@/contexts/ToastContext";
+import { DictSelect } from "@/components/shared-selectors/DictSelect";
+import { CompanySelector, CashAccountSelector, SupplierSelector, ShareholderSelector, ProjectSelector } from "@/components/shared-selectors/MasterDataSelectors";
+import { AttachmentUploader } from "@/components/design-system";
+import { tableInputCell } from "@/components/design-system/cockpit-styles";
+
+// ── 类型 ──────────────────────────────────────────────────────────────────────
+interface ApLedger {
+  id: string;
+  apNo: string;
+  poNo?: string;
+  supplierName?: string;
+  currencyCode?: string;
+  amountOriginal: number;
+  paidAmountOriginal: number;
+  balanceAmountOriginal: number;
+  status: string;
+  dueDate?: string;
+  companyCode?: string;
+  projectCode?: string;
+}
+interface Allocation {
+  id?: string;
+  poId?: string;
+  poNo?: string;
+  apId?: string;
+  apNo?: string;
+  companyCode?: string;
+  companyName?: string;
+  projectCode?: string;
+  projectName?: string;
+  allocatedAmountOriginal: number | string;
+  allocatedAmountBase?: number | string;
+  remark?: string;
+}
+interface Payment {
+  id: string;
+  payNo: string;
+  paymentDate?: string;
+  companyCode?: string;
+  companyName?: string;
+  projectCode?: string;
+  projectName?: string;
+  payerType: string;
+  payerName: string;
+  payerAccount?: string;
+  payeeName?: string;
+  currencyCode: string;
+  amountOriginal: number | string;
+  exchangeRate: number | string;
+  amountBase?: number | string;
+  baseCurrency?: string;
+  paymentMethod?: string;
+  fundNature?: string;
+  isShareholderPayment?: boolean;
+  shareholderId?: string;
+  shareholderName?: string;
+  status: string;
+  voucherUrl?: string;
+  remark?: string;
+  allocations?: Allocation[];
+}
+
+const API_PAY = "/api/v2/procurement/payments";
+const emptyAlloc = (): Allocation => ({ allocatedAmountOriginal: "", allocatedAmountBase: "", poNo: "", apId: "", apNo: "" });
+function fmtDate(d?: string) { return d ? d.slice(0, 10) : "—"; }
+
+const thStyle: React.CSSProperties = { padding: "5px 8px", textAlign: "left", fontWeight: 600, fontSize: 11, color: "var(--text-secondary)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
+const tdStyle: React.CSSProperties = { padding: "5px 8px", verticalAlign: "middle", fontSize: 12 };
+const cellInp: React.CSSProperties = tableInputCell;
+
+export default function PaymentForm({ paymentId }: { paymentId?: string }) {
+  const router = useRouter();
+  const toast = useToast();
+  const editing = !!paymentId;
+
+  const [loading, setLoading] = useState(editing);
+  const [saving, setSaving] = useState(false);
+
+  // 表单字段
+  const [formDate, setFormDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [formCompCode, setFormCompCode] = useState("");
+  const [formCompName, setFormCompName] = useState("");
+  const [formProjCode, setFormProjCode] = useState("");
+  const [formProjName, setFormProjName] = useState("");
+  const [formPayerType, setFormPayerType] = useState("COMPANY");
+  const [formPayerName, setFormPayerName] = useState("");
+  const [formPayerCode, setFormPayerCode] = useState("");
+  const [formPayerAccount, setFormPayerAccount] = useState("");
+  const [formPayeeName, setFormPayeeName] = useState("");
+  const [formCurrency, setFormCurrency] = useState("CNY");
+  const [formExchangeRate, setFormExchangeRate] = useState("1");
+  const [formMethod, setFormMethod] = useState("BANK");
+  const [formNature, setFormNature] = useState("NORMAL");
+  const [formIsShareholder, setFormIsShareholder] = useState(false);
+  const [formShareholderId, setFormShareholderId] = useState("");
+  const [formShareholderName, setFormShareholderName] = useState("");
+  const [formVoucherUrl, setFormVoucherUrl] = useState("");
+  const [formRemark, setFormRemark] = useState("");
+  const [formAllocs, setFormAllocs] = useState<Allocation[]>([emptyAlloc()]);
+
+  // AP 选择浮层
+  const [apModalOpen, setApModalOpen] = useState(false);
+  const [apList, setApList] = useState<ApLedger[]>([]);
+  const [apAllocIdx, setApAllocIdx] = useState(0);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  const token = typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "" : "";
+  const hdr = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
+  // 编辑模式：按 id 载入
+  const loadForEdit = useCallback(async () => {
+    if (!paymentId) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_PAY}/${paymentId}`, { headers: hdr });
+      if (!res.ok) throw new Error(await res.text());
+      const row: Payment = await res.json();
+      setFormDate(row.paymentDate?.slice(0, 10) ?? "");
+      setFormCompCode(row.companyCode ?? "");
+      setFormCompName(row.companyName ?? "");
+      setFormProjCode(row.projectCode ?? "");
+      setFormProjName(row.projectName ?? "");
+      setFormPayerType(row.payerType ?? "COMPANY");
+      setFormPayerName(row.payerName ?? "");
+      setFormPayerCode("");
+      setFormPayerAccount(row.payerAccount ?? "");
+      setFormPayeeName(row.payeeName ?? "");
+      setFormCurrency(row.currencyCode ?? "CNY");
+      setFormExchangeRate(String(row.exchangeRate ?? "1"));
+      setFormMethod(row.paymentMethod ?? "BANK");
+      setFormNature(row.fundNature ?? "NORMAL");
+      setFormIsShareholder(row.isShareholderPayment ?? false);
+      setFormShareholderId(row.shareholderId ?? "");
+      setFormShareholderName(row.shareholderName ?? "");
+      setFormVoucherUrl(row.voucherUrl ?? "");
+      setFormRemark(row.remark ?? "");
+      setFormAllocs(row.allocations?.length ? row.allocations.map(a => ({ ...a })) : [emptyAlloc()]);
+    } catch {
+      toast.error("加载付款单失败");
+    } finally {
+      setLoading(false);
+    }
+  }, [paymentId]); // eslint-disable-line
+
+  useEffect(() => { if (paymentId) loadForEdit(); }, [paymentId, loadForEdit]);
+
+  // 分摊行操作
+  function setAllocField(idx: number, field: keyof Allocation, value: string) {
+    setFormAllocs(prev => prev.map((a, i) => i === idx ? { ...a, [field]: value } : a));
+  }
+  function addAllocRow() { setFormAllocs(p => [...p, emptyAlloc()]); }
+  function removeAllocRow(idx: number) { setFormAllocs(p => p.length > 1 ? p.filter((_, i) => i !== idx) : p); }
+  const totalAllocOriginal = formAllocs.reduce((sum, a) => sum + (parseFloat(String(a.allocatedAmountOriginal)) || 0), 0);
+
+  // AP 选择
+  async function openApModal(idx: number) {
+    setApAllocIdx(idx);
+    try {
+      const res = await fetch(`/api/v2/procurement/ap-ledger/open`, { headers: hdr });
+      if (res.ok) setApList(await res.json());
+    } catch { setApList([]); }
+    setApModalOpen(true);
+  }
+  function selectAp(ap: ApLedger) {
+    setFormAllocs(prev => prev.map((a, i) => i === apAllocIdx ? {
+      ...a, apId: ap.id, apNo: ap.apNo, poNo: ap.poNo ?? "", projectCode: ap.projectCode ?? "",
+      allocatedAmountOriginal: String(ap.balanceAmountOriginal),
+    } : a));
+    setApModalOpen(false);
+  }
+
+  // 保存
+  async function handleSave() {
+    if (!formDate) { toast.error("请选择付款日期"); return; }
+    if (!formPayerName.trim()) { toast.error("请填写付款人"); return; }
+    if (!formCurrency) { toast.error("请选择货币"); return; }
+    if (formAllocs.some(a => !a.allocatedAmountOriginal || parseFloat(String(a.allocatedAmountOriginal)) <= 0)) {
+      toast.error("每条分摊金额必须 > 0"); return;
+    }
+    setSaving(true);
+    try {
+      const rate = parseFloat(formExchangeRate) || 1;
+      const amountOriginal = Number(totalAllocOriginal.toFixed(2));
+      if (!(amountOriginal > 0)) { toast.error("付款金额必须大于 0，请先添加并填写分摊金额"); setSaving(false); return; }
+      const body = {
+        amountOriginal,
+        amountBase: Number((amountOriginal * rate).toFixed(2)),
+        paymentDate: formDate,
+        companyCode: formCompCode.trim() || undefined,
+        companyName: formCompName.trim() || undefined,
+        projectCode: formProjCode.trim() || undefined,
+        projectName: formProjName.trim() || undefined,
+        payerType: formPayerType,
+        payerName: formPayerName.trim(),
+        payerAccount: formPayerAccount.trim() || undefined,
+        payeeName: formPayeeName.trim() || undefined,
+        currencyCode: formCurrency,
+        exchangeRate: rate,
+        paymentMethod: formMethod,
+        fundNature: formNature,
+        isShareholderPayment: formIsShareholder,
+        shareholderId: formIsShareholder ? formShareholderId.trim() || undefined : undefined,
+        shareholderName: formIsShareholder ? formShareholderName.trim() || undefined : undefined,
+        voucherUrl: formVoucherUrl.trim() || undefined,
+        remark: formRemark.trim() || undefined,
+        allocations: formAllocs.map(a => ({
+          poId: a.poId || undefined,
+          poNo: a.poNo || undefined,
+          apId: a.apId || undefined,
+          apNo: a.apNo || undefined,
+          projectCode: a.projectCode || undefined,
+          projectName: a.projectName || undefined,
+          allocatedAmountOriginal: parseFloat(String(a.allocatedAmountOriginal)),
+          allocatedAmountBase: parseFloat(String(a.allocatedAmountOriginal)) * rate,
+          remark: a.remark || undefined,
+        })),
+      };
+      const url = editing ? `${API_PAY}/${paymentId}` : API_PAY;
+      const method = editing ? "PATCH" : "POST";
+      const res = await fetch(url, { method, headers: hdr, body: JSON.stringify(body) });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.message ?? "保存失败");
+      }
+      toast.success(editing ? "保存成功" : "付款单已创建");
+      router.push("/procurement2/payments");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <div className={u.emptyCenter}>加载中…</div>;
+
+  return (
+    <div style={{ maxWidth: 1080, margin: "0 auto", paddingBottom: 96 }}>
+      {/* 基础信息 */}
+      <div className={s.formSection}>基础信息</div>
+      <div className={s.fieldRow}>
+        <div className={s.field}>
+          <label className={s.lbl}>付款日期 *</label>
+          <input type="date" className={s.inp} value={formDate} onChange={e => setFormDate(e.target.value)} />
+        </div>
+        <div className={s.field}>
+          <label className={s.lbl}>货币 *</label>
+          <DictSelect dictType="SYS_CURRENCY" value={formCurrency} onChange={setFormCurrency} allowEmpty={false} />
+        </div>
+      </div>
+      <div className={s.fieldRow}>
+        <div className={s.field}>
+          <label className={s.lbl}>公司</label>
+          <CompanySelector value={formCompCode} onChange={v => {
+            setFormCompCode(v);
+            setFormShareholderId(""); setFormShareholderName("");
+            if (formPayerType === "SHAREHOLDER") { setFormPayerName(""); setFormPayerCode(""); }
+            setFormPayerAccount("");
+          }} onPick={o => setFormCompName(o?.label ?? "")} />
+        </div>
+        <div className={s.field}>
+          <label className={s.lbl}>项目</label>
+          <ProjectSelector value={formProjCode} onChange={setFormProjCode} onPick={o => setFormProjName(o?.raw?.project_name ?? o?.label ?? "")} companyCode={formCompCode || undefined} />
+        </div>
+      </div>
+
+      {/* 付款方信息 */}
+      <div className={s.formSection} style={{ marginTop: 20 }}>付款方信息</div>
+      <div className={s.fieldRow}>
+        <div className={s.field}>
+          <label className={s.lbl}>付款方类型</label>
+          <DictSelect dictType="FIN_PAYER_TYPE" value={formPayerType} onChange={v => {
+            setFormPayerType(v);
+            setFormIsShareholder(v === "SHAREHOLDER");
+            setFormPayerName(""); setFormPayerCode("");
+            if (v !== "SHAREHOLDER") { setFormShareholderId(""); setFormShareholderName(""); }
+          }} allowEmpty={false} />
+        </div>
+        <div className={s.field}>
+          <label className={s.lbl}>付款人 * <span style={{ fontWeight: 400, fontSize: 11, color: "var(--text-muted)" }}>（出资/付款主体，非经办人）</span></label>
+          {formPayerType === "COMPANY" ? (
+            <CompanySelector value={formPayerCode} onChange={setFormPayerCode} onPick={o => setFormPayerName(o?.label ?? "")} />
+          ) : formPayerType === "SHAREHOLDER" ? (
+            <ShareholderSelector value={formShareholderId} companyCode={formCompCode || undefined}
+              onChange={v => { setFormShareholderId(v); setFormPayerCode(v); }}
+              onPick={o => {
+                const nm = o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.raw?.name ?? o?.label ?? "";
+                setFormShareholderName(nm); setFormPayerName(nm);
+              }} />
+          ) : (
+            <input className={s.inp} value={formPayerName} onChange={e => setFormPayerName(e.target.value)} placeholder="付款人姓名/账户名（借款方/内部往来）" />
+          )}
+        </div>
+      </div>
+      <div className={s.fieldRow}>
+        <div className={s.field}>
+          <label className={s.lbl}>付款账户（按公司 + 付款币种过滤）</label>
+          <CashAccountSelector value={formPayerAccount} onChange={setFormPayerAccount} currencyCode={formCurrency || undefined} companyCode={formCompCode || undefined} />
+        </div>
+        <div className={s.field}>
+          <label className={s.lbl}>收款方（供应商）</label>
+          <SupplierSelector value={formPayeeName} onChange={setFormPayeeName} />
+        </div>
+      </div>
+
+      {/* 金额 & 方式 */}
+      <div className={s.formSection} style={{ marginTop: 20 }}>金额 &amp; 方式</div>
+      <div className={s.fieldRow}>
+        <div className={s.field}>
+          <label className={s.lbl}>汇率（对 CNY）</label>
+          <input type="number" step="0.0001" min="0" className={s.inp} value={formExchangeRate} onChange={e => setFormExchangeRate(e.target.value)} />
+        </div>
+        <div className={s.field}>
+          <label className={s.lbl}>付款方式</label>
+          <DictSelect dictType="PRC_PAYMENT_METHOD" value={formMethod} onChange={setFormMethod} allowEmpty={false} />
+        </div>
+      </div>
+      <div className={s.fieldRow}>
+        <div className={s.field}>
+          <label className={s.lbl}>资金性质</label>
+          <DictSelect dictType="FIN_FUND_NATURE" value={formNature} onChange={setFormNature} allowEmpty={false} />
+        </div>
+        <div className={s.field}>
+          <label className={s.lbl}>付款凭证</label>
+          <AttachmentUploader value={formVoucherUrl ? [formVoucherUrl] : []} onChange={urls => setFormVoucherUrl(urls[urls.length - 1] ?? "")} label="上传付款凭证（PDF/图片 ≤15MB）" />
+        </div>
+      </div>
+
+      {/* 股东代付 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "12px 0" }}>
+        <input type="checkbox" id="isShareholder" checked={formIsShareholder} onChange={e => setFormIsShareholder(e.target.checked)} />
+        <label htmlFor="isShareholder" style={{ fontSize: 13, cursor: "pointer" }}>股东代付（自动记录股东资金池）</label>
+      </div>
+      {formIsShareholder && (formPayerType === "SHAREHOLDER" ? (
+        <div className={s.field} style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          股东已由上方「付款人」选定{formShareholderName ? `：${formShareholderName}` : ""}
+        </div>
+      ) : (
+        <div className={s.field}>
+          <label className={s.lbl}>股东</label>
+          <ShareholderSelector value={formShareholderId} companyCode={formCompCode || undefined} onChange={setFormShareholderId} onPick={o => setFormShareholderName(o?.raw?.shareholderName ?? o?.raw?.shareholder_name ?? o?.label ?? "")} />
+        </div>
+      ))}
+
+      <div className={s.field}>
+        <label className={s.lbl}>备注</label>
+        <textarea className={s.textarea} rows={1} value={formRemark} onChange={e => setFormRemark(e.target.value)} />
+      </div>
+
+      {/* 分摊明细 */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, marginTop: 20 }}>
+        <span className={s.formSection} style={{ margin: 0 }}>应付分摊明细（{formAllocs.length} 行）</span>
+        <button type="button" className={s.btnSecondary} style={{ padding: "3px 10px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }} onClick={addAllocRow}><Plus size={12} /> 添加行</button>
+      </div>
+      <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 6 }}>
+        <table className={s.table} style={{ fontSize: 12 }}>
+          <thead>
+            <tr style={{ background: "var(--bg-subtle,var(--bg-muted))" }}>
+              <th style={thStyle}>应付单号</th>
+              <th style={thStyle}>采购订单号</th>
+              <th style={thStyle}>项目</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>分摊金额（{formCurrency}）</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>折算 CNY</th>
+              <th style={thStyle}>备注</th>
+              <th style={{ ...thStyle, width: 50 }}>应付单</th>
+              <th style={{ ...thStyle, width: 28 }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {formAllocs.map((alloc, idx) => (
+              <tr key={idx} style={{ borderBottom: "1px solid var(--border)" }}>
+                <td style={tdStyle}><input style={{ ...cellInp, background: "var(--bg-muted)", cursor: "default" }} value={alloc.apNo ?? ""} readOnly placeholder="—" /></td>
+                <td style={tdStyle}><input style={{ ...cellInp, width: 120 }} value={alloc.poNo ?? ""} onChange={e => setAllocField(idx, "poNo", e.target.value)} placeholder="PO2-..." /></td>
+                <td style={tdStyle}><input style={{ ...cellInp, width: 80 }} value={alloc.projectCode ?? ""} onChange={e => setAllocField(idx, "projectCode", e.target.value)} placeholder="项目" /></td>
+                <td style={tdStyle}><input style={{ ...cellInp, width: 100, textAlign: "right" }} type="number" min="0" value={alloc.allocatedAmountOriginal} onChange={e => setAllocField(idx, "allocatedAmountOriginal", e.target.value)} /></td>
+                <td style={{ ...tdStyle, textAlign: "right", color: "var(--text-secondary)" }}>
+                  {((parseFloat(String(alloc.allocatedAmountOriginal)) || 0) * (parseFloat(formExchangeRate) || 1)).toLocaleString("zh-CN", { maximumFractionDigits: 2 })}
+                </td>
+                <td style={tdStyle}><input style={{ ...cellInp, width: 80 }} value={alloc.remark ?? ""} onChange={e => setAllocField(idx, "remark", e.target.value)} placeholder="备注" /></td>
+                <td style={tdStyle}><button type="button" className={s.btnIcon} style={{ fontSize: 11, padding: "2px 6px" }} onClick={() => openApModal(idx)} title="从未核销应付账款选择"><CreditCard size={11} /></button></td>
+                <td style={tdStyle}><button type="button" style={{ border: "none", background: "none", cursor: "pointer", color: "var(--status-danger)" }} onClick={() => removeAllocRow(idx)}><Trash2 size={12} /></button></td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr style={{ borderTop: "2px solid var(--border)" }}>
+              <td colSpan={3} style={{ textAlign: "right", padding: "6px 8px", fontWeight: 600, fontSize: 12 }}>合计</td>
+              <td style={{ textAlign: "right", padding: "6px 8px", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                {formCurrency} {totalAllocOriginal.toLocaleString("zh-CN", { minimumFractionDigits: 2 })}
+              </td>
+              <td style={{ textAlign: "right", padding: "6px 8px", fontVariantNumeric: "tabular-nums", color: "var(--text-secondary)" }}>
+                CNY {(totalAllocOriginal * (parseFloat(formExchangeRate) || 1)).toLocaleString("zh-CN", { maximumFractionDigits: 2 })}
+              </td>
+              <td colSpan={3}></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* 底部固定操作条 */}
+      <div style={{
+        position: "sticky", bottom: 0, marginTop: 24, padding: "14px 0",
+        background: "var(--bg-page,var(--bg-card))", borderTop: "1px solid var(--border)",
+        display: "flex", gap: 10, justifyContent: "flex-end",
+      }}>
+        <button type="button" className={`${s.btnSecondary} ${u.flexRow}`} onClick={() => router.push("/procurement2/payments")}>
+          <ArrowLeft size={14} /> 返回
+        </button>
+        <button type="button" className={`${s.btnPrimary} ${u.flexRow}`} onClick={handleSave} disabled={saving}>
+          <Save size={14} /> {saving ? "保存中…" : editing ? "保存" : "保存草稿"}
+        </button>
+      </div>
+
+      {/* AP 选择浮层 */}
+      {mounted && apModalOpen && createPortal(
+        <div style={{ position: "fixed", inset: 0, background: "var(--overlay-black-50)", zIndex: 10250, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }} onClick={() => setApModalOpen(false)}>
+          <div style={{ background: "var(--bg-card)", borderRadius: 10, padding: 20, width: "min(960px, 96vw)", maxHeight: "82vh", overflow: "auto", boxShadow: "0 8px 32px var(--overlay-black-30)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>
+              <DollarSign size={15} style={{ verticalAlign: "middle", marginRight: 6 }} />选择未核销应付单
+            </div>
+            {apList.length === 0 ? <div style={{ textAlign: "center", padding: 24, color: "var(--text-secondary)" }}>暂无未核销应付单</div> : (
+              <table className={s.table}>
+                <thead>
+                  <tr>
+                    <th>应付单号</th><th>采购订单号</th><th>供应商</th><th>币种</th>
+                    <th className={u.tar}>应付</th><th className={u.tar}>余额</th><th>到期日</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {apList.map(ap => (
+                    <tr key={ap.id}>
+                      <td>{ap.apNo}</td>
+                      <td>{ap.poNo ?? "—"}</td>
+                      <td>{ap.supplierName ?? "—"}</td>
+                      <td>{ap.currencyCode ?? "—"}</td>
+                      <td className={u.tar}>{Number(ap.amountOriginal).toLocaleString()}</td>
+                      <td style={{ textAlign: "right", color: "var(--status-warning)", fontWeight: 600 }}>{Number(ap.balanceAmountOriginal).toLocaleString()}</td>
+                      <td>{fmtDate(ap.dueDate)}</td>
+                      <td style={{ textAlign: "center" }}>
+                        <button className={s.btnPrimary} style={{ padding: "5px 16px", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }} onClick={() => selectAp(ap)}>选择此单</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>, document.body)}
+    </div>
+  );
+}
