@@ -292,6 +292,8 @@ export default function PurchaseOrdersPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailData, setDetailData] = useState<PurchaseOrder | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  // G142 采购全流程日志（申请→订单→收货→付款 时间线）
+  const [procLog, setProcLog] = useState<{ time: string; docType: string; docNo: string; action: string; operator: string; comment: string }[]>([]);
 
   // 操作对话框（审批通过/驳回已收口至集团审批引擎，见 /workflow/todos）
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -511,11 +513,14 @@ export default function PurchaseOrdersPage() {
     setDetailData(row);
     setDetailOpen(true);
     setDetailLoading(true);
+    setProcLog([]);
     try {
-      const res = await fetch(`${API_ORDERS}/${row.id}`, {
-        headers: hdr
-      });
+      const [res, plRes] = await Promise.all([
+        fetch(`${API_ORDERS}/${row.id}`, { headers: hdr }),
+        fetch(`${API_ORDERS}/${row.id}/process-log`, { headers: hdr }).catch(() => null),
+      ]);
       if (res.ok) setDetailData(await res.json());
+      if (plRes && plRes.ok) { const pl = await plRes.json(); setProcLog(Array.isArray(pl?.timeline) ? pl.timeline : []); }
     } catch {/* ignore */} finally {
       setDetailLoading(false);
     }
@@ -1238,7 +1243,26 @@ export default function PurchaseOrdersPage() {
                 </div>
               </>}
 
-            {/* 审批日志 */}
+            {/* G142 全流程日志（申请→订单→收货→付款 一条时间线，跨单据） */}
+            {procLog.length > 0 && <>
+                <div className={s.formSection} style={{ marginTop: 20 }}>全流程日志</div>
+                <div style={{ position: "relative", paddingLeft: 18 }}>
+                  <div style={{ position: "absolute", left: 5, top: 4, bottom: 4, width: 2, background: "var(--border)" }} />
+                  {procLog.map((ev, i) => <div key={i} style={{ position: "relative", marginBottom: 12 }}>
+                    <div style={{ position: "absolute", left: -16, top: 4, width: 9, height: 9, borderRadius: "50%", background: "var(--color-accent)", border: "2px solid var(--bg-card)" }} />
+                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 8, fontSize: 13 }}>
+                      <span className={`${s.badge} ${s.badgeNeutral}`} style={{ fontSize: 11 }}>{ev.docType}</span>
+                      <span style={{ fontWeight: 600 }}>{ev.action}</span>
+                      <span style={{ color: "var(--text-secondary)" }}>{ev.docNo}</span>
+                      {ev.operator && <span style={{ color: "var(--text-secondary)" }}>· {ev.operator}</span>}
+                      <span style={{ marginLeft: "auto", color: "var(--text-disabled)", fontSize: 12 }}>{ev.time ? new Date(ev.time).toLocaleString("zh-CN") : ""}</span>
+                    </div>
+                    {ev.comment && <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>{ev.comment}</div>}
+                  </div>)}
+                </div>
+              </>}
+
+            {/* 审批日志（仅本单） */}
             {detailData.approvals && detailData.approvals.length > 0 && <>
                 <div className={s.formSection} style={{
             marginTop: 20

@@ -263,6 +263,61 @@ export class OrdersService {
     return { ...po, items, approvals, apLedger: ap ?? null };
   }
 
+  /**
+   * G142 采购全流程日志：以一张 PO 为主线，串起其上游采购申请、下游收货单、付款单，
+   * 把各单据在 prc2_approvals 里的动作日志 + 单据创建事件，合并成一条按时间排序的完整时间线。
+   */
+  async processLog(id: string) {
+    const po = await this.poRepo.findOne({ where: { id } });
+    if (!po) throw new NotFoundException(`采购订单不存在: ${id}`);
+    this.scopeHelper.assertOwnership({ companyCode: po.companyCode, projectCode: po.projectCode }, 'PO');
+
+    // 1) 收集链路上所有单据（含中文环节标签 + 创建时间）
+    const docs: Array<{ bizType: string; bizNo: string; label: string; createdAt: Date | null }> = [];
+    if (po.sourceReqNo) docs.push({ bizType: 'PR', bizNo: po.sourceReqNo, label: '采购申请', createdAt: null });
+    docs.push({ bizType: 'PO', bizNo: po.poNo, label: '采购订单', createdAt: (po as any).createdAt ?? null });
+    const receipts = await this.ds.query(
+      `SELECT receipt_no, created_at FROM prc2_receipts WHERE po_no = $1 ORDER BY created_at ASC`, [po.poNo]);
+    receipts.forEach((r: any) => docs.push({ bizType: 'RECEIPT', bizNo: r.receipt_no, label: '收货单', createdAt: r.created_at }));
+    const pays = await this.ds.query(
+      `SELECT DISTINCT p.pay_no, p.created_at FROM prc2_payments p
+         JOIN prc2_payment_allocations pa ON pa.payment_id = p.id
+        WHERE pa.po_no = $1 ORDER BY p.created_at ASC`, [po.poNo]).catch(() => []);
+    pays.forEach((p: any) => docs.push({ bizType: 'PAYMENT', bizNo: p.pay_no, label: '付款单', createdAt: p.created_at }));
+
+    // 2) 查所有这些单据的动作日志（prc2_approvals 一张表承载全部 bizType）
+    const bizNos = docs.map(d => d.bizNo);
+    const logs: any[] = bizNos.length ? await this.ds.query(
+      `SELECT biz_type, biz_no, approval_node, action, comment, approver_name, created_at
+         FROM prc2_approvals WHERE biz_no = ANY($1) ORDER BY created_at ASC`, [bizNos]) : [];
+
+    // 3) 合并：单据"创建"事件 + 动作日志 → 统一时间线
+    const ACTION_ZH: Record<string, string> = {
+      CREATE: '创建', SUBMIT: '提交审批', APPROVE: '审批通过', REJECT: '审批拒绝', CANCEL: '取消',
+      PAY: '执行付款', RECEIVE: '确认收货', CONFIRM: '确认', READY: '备货完成',
+      DISPATCH: '发运', CUSTOMS: '清关', ARRIVE: '到货',
+    };
+    const labelOf = (bt: string) => docs.find(d => d.bizType === bt)?.label ?? bt;
+    const timeline: Array<{ time: any; docType: string; docNo: string; action: string; operator: string; comment: string }> = [];
+    for (const d of docs) {
+      if (d.createdAt) timeline.push({ time: d.createdAt, docType: d.label, docNo: d.bizNo, action: '创建', operator: '', comment: '' });
+    }
+    for (const l of logs) {
+      timeline.push({
+        time: l.created_at, docType: labelOf(l.biz_type), docNo: l.biz_no,
+        action: ACTION_ZH[l.action] ?? l.action, operator: l.approver_name ?? '', comment: l.comment ?? '',
+      });
+    }
+    timeline.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+
+    return {
+      poNo: po.poNo,
+      subject: (po as any).subject ?? null,
+      documents: docs.map(d => ({ type: d.label, no: d.bizNo })),
+      timeline,
+    };
+  }
+
   /** 创建 PO（直接创建） */
   async create(dto: CreatePurchaseOrderDto) {
     return this.ds.transaction(async mgr => {
