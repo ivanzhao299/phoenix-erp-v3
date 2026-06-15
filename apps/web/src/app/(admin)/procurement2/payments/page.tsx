@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";   // G139：AP 选择层 portal 到 body，避免被抽屉(z-10100)盖住
 import u from "@/styles/uix-utils.module.css";
 import Link from "next/link";
 import { Plus, RefreshCw, FileText, ClipboardCheck, Trash2, Send, Eye, Clock, AlertTriangle, ChevronLeft, ChevronRight, Pencil, DollarSign, CreditCard, PlayCircle } from "lucide-react";
@@ -240,6 +241,8 @@ export default function PaymentsPage() {
   // AP 选择弹窗
   const [apModalOpen, setApModalOpen] = useState(false);
   const [apList, setApList] = useState<ApLedger[]>([]);
+  const [mounted, setMounted] = useState(false);   // G139：portal 守卫（SSR 无 document）
+  useEffect(() => { setMounted(true); }, []);
   const [apAllocIdx, setApAllocIdx] = useState(0);
   const token = typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "" : "";
   const hdr = {
@@ -1178,23 +1181,24 @@ export default function PaymentsPage() {
           </div> : null}
       </RightDrawer>
 
-      {/* ── AP 选择弹窗 ────────────────────────────────────────────────────────── */}
-      {apModalOpen && <div style={{
+      {/* ── AP 选择弹窗（G139：portal 到 body + z-10250，置于抽屉 z-10100 之上）──────── */}
+      {mounted && apModalOpen && createPortal(<div style={{
       position: "fixed",
       inset: 0,
       background: "var(--overlay-black-50)",
-      zIndex: 1100,
+      zIndex: 10250,
       display: "flex",
       alignItems: "center",
-      justifyContent: "center"
+      justifyContent: "center",
+      padding: 24
     }} onClick={() => setApModalOpen(false)}>
           <div style={{
         background: "var(--bg-card)",
         borderRadius: 10,
         padding: 20,
-        width: 640,
-        maxHeight: "70vh",
-        overflowY: "auto",
+        width: "min(960px, 96vw)",
+        maxHeight: "82vh",
+        overflow: "auto",
         boxShadow: "0 8px 32px var(--overlay-black-30)"
       }} onClick={e => e.stopPropagation()}>
             <div style={{
@@ -1239,17 +1243,19 @@ export default function PaymentsPage() {
                         {Number(ap.balanceAmountOriginal).toLocaleString()}
                       </td>
                       <td>{fmtDate(ap.dueDate)}</td>
-                      <td>
+                      <td style={{ textAlign: "center" }}>
                         <button className={s.btnPrimary} style={{
-                  padding: "2px 8px",
-                  fontSize: 11
-                }} onClick={() => selectAp(ap)}>选择</button>
+                  padding: "5px 16px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  whiteSpace: "nowrap"
+                }} onClick={() => selectAp(ap)}>选择此单</button>
                       </td>
                     </tr>)}
                 </tbody>
               </table>}
           </div>
-        </div>}
+        </div>, document.body)}
 
       {/* ── 操作弹窗 ──────────────────────────────────────────────────────────── */}
       {/* 审批通过/驳回已收口至集团审批引擎，请前往『工作流·待办』(/workflow/todos) 处理 */}
