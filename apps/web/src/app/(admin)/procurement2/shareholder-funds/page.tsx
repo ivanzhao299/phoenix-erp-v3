@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
+import PageHeader from "@/components/PageHeader"; // G157：统一全局页头
 import { useToast } from "@/contexts/ToastContext";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
@@ -342,6 +343,7 @@ export default function ShareholderFundsPage() {
   return <div style={{
     padding: 16
   }}>
+      <PageHeader title="股东资金" subtitle="股东出资 / 代付资金池" breadcrumb={["采购管理", "股东资金"]} />
       {/* Summary cards */}
       <SummaryCards summary={summary} />
 

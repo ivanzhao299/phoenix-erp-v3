@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import u from "@/styles/uix-utils.module.css";
+import PageHeader from "@/components/PageHeader"; // G157：统一全局页头
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
@@ -259,19 +260,9 @@ export default function InitPage() {
     padding: 24,
     maxWidth: 1200
   }}>
-      {/* 页头 */}
-      <div style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      marginBottom: 16
-    }}>
-        <h2 style={{
-        margin: 0,
-        fontSize: 18,
-        fontWeight: 600
-      }}>历史数据初始化</h2>
-        {isAdmin && <button onClick={() => setShowUpload(true)} style={{
+      {/* G157：裸 <h2> 页头 → 全局 PageHeader（上传按钮移到 actions） */}
+      <PageHeader title="历史数据初始化" subtitle="采购历史数据批量导入" breadcrumb={["采购管理", "历史初始化"]}
+        actions={isAdmin && <button onClick={() => setShowUpload(true)} style={{
         padding: "7px 16px",
         background: "var(--color-primary)",
         color: "var(--bg-card)",
@@ -282,8 +273,7 @@ export default function InitPage() {
         fontWeight: 600
       }}>
             + 上传初始化文件
-          </button>}
-      </div>
+          </button>} />
 
       {/* 模板下载区 */}
       <div style={{

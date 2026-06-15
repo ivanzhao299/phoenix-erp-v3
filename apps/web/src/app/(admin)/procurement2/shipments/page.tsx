@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
+import PageHeader from "@/components/PageHeader"; // G157：统一全局页头
 import { useToast } from "@/contexts/ToastContext";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
@@ -267,6 +268,7 @@ export default function ShipmentsPage() {
   return <div style={{
     padding: 16
   }}>
+      <PageHeader title="采购物流" subtitle="运单 / 在途跟踪" breadcrumb={["采购管理", "采购物流"]} />
       {/* Filter bar */}
       <div style={{
       display: "flex",
