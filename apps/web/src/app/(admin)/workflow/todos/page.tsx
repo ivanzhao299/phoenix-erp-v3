@@ -200,7 +200,8 @@ async function fetchTodos(params: {
   if (params.bizType) p.set("bizType", params.bizType);
   if (params.keyword) p.set("keyword", params.keyword);
   const res = await fetch(`/api/workflow/my-tasks?${p.toString()}`, {
-    headers: authHdr()
+    headers: authHdr(),
+    cache: "no-store"   // G150：禁浏览器缓存，避免审批后刷新仍读到旧待办列表
   });
   if (!res.ok) return {
     items: [],
@@ -212,7 +213,8 @@ async function fetchTodos(params: {
 }
 async function fetchDetail(instanceId: string): Promise<InstanceDetail | null> {
   const res = await fetch(`/api/approval/instances/${instanceId}`, {
-    headers: authHdr()
+    headers: authHdr(),
+    cache: "no-store"
   });
   if (!res.ok) return null;
   return res.json();
@@ -324,6 +326,9 @@ export default function ApprovalTodosPage() {
       } else {
         toast.success(r.finished ? "审批完成，单据已通过" : "已通过，等待下一级审批");
         setDrawerOpen(false);
+        // G150：乐观移除——点完即从列表消失，不等整页刷新；随后 load() 对账
+        //   （若本人恰是下一级审批人，会在 load() 后以新步骤正确重新出现）
+        setResp(prev => ({ ...prev, items: prev.items.filter(t => t.instanceId !== selected.instanceId), total: Math.max(0, prev.total - 1) }));
         load();
       }
     } catch {
@@ -346,6 +351,7 @@ export default function ApprovalTodosPage() {
       } else {
         toast.error("已拒绝，单据流程终止");
         setDrawerOpen(false);
+        setResp(prev => ({ ...prev, items: prev.items.filter(t => t.instanceId !== selected.instanceId), total: Math.max(0, prev.total - 1) }));
         load();
       }
     } catch {

@@ -171,11 +171,14 @@ export default function PaymentForm({ paymentId }: { paymentId?: string }) {
   async function openApModal(idx: number) {
     setApAllocIdx(idx);
     try {
-      const res = await fetch(`/api/v2/procurement/ap-ledger/open`, { headers: hdr });
+      const res = await fetch(`/api/v2/procurement/ap-ledger/open`, { headers: hdr, cache: "no-store" });
       if (res.ok) setApList(await res.json());
     } catch { setApList([]); }
     setApModalOpen(true);
   }
+  // G150：剔除其他分摊行已选过的应付单，避免同一张被重复分摊（选了即从可选列表移除）
+  const usedApIds = new Set(formAllocs.map((a, i) => (i !== apAllocIdx && a.apId ? String(a.apId) : "")).filter(Boolean));
+  const apListForPick = apList.filter(ap => !usedApIds.has(String(ap.id)));
   function selectAp(ap: ApLedger) {
     setFormAllocs(prev => prev.map((a, i) => i === apAllocIdx ? {
       ...a, apId: ap.id, apNo: ap.apNo, poNo: ap.poNo ?? "", projectCode: ap.projectCode ?? "",
@@ -432,7 +435,7 @@ export default function PaymentForm({ paymentId }: { paymentId?: string }) {
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>
               <DollarSign size={15} style={{ verticalAlign: "middle", marginRight: 6 }} />选择未核销应付单
             </div>
-            {apList.length === 0 ? <div style={{ textAlign: "center", padding: 24, color: "var(--text-secondary)" }}>暂无未核销应付单</div> : (
+            {apListForPick.length === 0 ? <div style={{ textAlign: "center", padding: 24, color: "var(--text-secondary)" }}>{apList.length === 0 ? "暂无未核销应付单" : "其余应付单已分摊完毕"}</div> : (
               <table className={s.table}>
                 <thead>
                   <tr>
@@ -441,7 +444,7 @@ export default function PaymentForm({ paymentId }: { paymentId?: string }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {apList.map(ap => (
+                  {apListForPick.map(ap => (
                     <tr key={ap.id}>
                       <td>{ap.apNo}</td>
                       <td>{ap.poNo ?? "—"}</td>
