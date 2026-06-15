@@ -1,8 +1,9 @@
 import 'dotenv/config';            // 必须在 AppModule 之前 — 否则 auth.service 文件级 const JWT_SECRET 在 ConfigModule 加载 .env 之前就取了 FALLBACK，与 jwt.strategy 的真实 secret 错配
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { friendlyValidationMessage } from './common/validation-message';   // G140：校验错误中文化
 import * as express from 'express';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
@@ -62,6 +63,8 @@ async function bootstrap() {
     transform: true,          // 自动类型转换（@Type 装饰器生效）
     forbidNonWhitelisted: false, // 不因额外字段直接报错（宽松模式）
     transformOptions: { enableImplicitConversion: true },
+    // G140：校验失败统一返回中文友好提示（取代 "amountOriginal must be a positive number" 这类生硬英文）
+    exceptionFactory: (errors) => new BadRequestException(friendlyValidationMessage(errors)),
   }));
 
   // ── G5-A++ MenuRegistry hydrate（启动期从 sys_menu 加载 menu_code 注册表） ──
