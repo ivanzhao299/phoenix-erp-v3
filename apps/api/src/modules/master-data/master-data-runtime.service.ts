@@ -199,8 +199,16 @@ const BIZ_TYPE: Record<string, string> = {
 };
 
 // G92：字段级变更审批统一 bizType（独立 md_change_requests 表承载）。
-//   G93 起默认走「规则自动审批网关」，此人工通道转为休眠（保留供未来按类型/字段开人工复核）。
+//   G93 起默认走「规则自动审批网关」；G126 起对下方「财务敏感字段白名单」重新启用人工复核通道。
 const FIELD_CHANGE_BIZ = 'MD_FIELD_CHANGE';
+
+// G126：财务敏感字段白名单——这些字段被改时**不**走 G93 自动落库，而转人工审批（复用 G92 通道）。
+//   Why：授信额度/账期/账期天数直接影响资金风险敞口，养殖/食品行业须财务复核签核后方可生效。
+//   其余字段仍走 G93 自动校验网关即时生效。仅对 live(ACTIVE/FROZEN) 记录生效；草稿态编辑不拦。
+const SENSITIVE_APPROVAL_FIELDS: Record<string, string[]> = {
+  customer: ['credit_limit', 'payment_terms'],
+  supplier: ['credit_days', 'payment_terms'],
+};
 
 // ════════════════════════════════════════════════════════════════════════
 // G93 主数据自动审批网关（2026-06-13，用户拍板：全自动无例外 / 名称+唯一键查重 / 当场退回列原因）
@@ -565,7 +573,7 @@ export class MasterDataRuntimeService {
    */
   async update(
     type: string, code: string, dto: Record<string, any>, operator?: string,
-  ): Promise<{ code: string; pendingChange: boolean; message?: string }> {
+  ): Promise<{ code: string; pendingChange: boolean; changeRequestId?: number; pendingFields?: string[]; message?: string }> {
     const c = this.cfg(type);
     const before = await this.get(type, code);
 
@@ -580,13 +588,67 @@ export class MasterDataRuntimeService {
     if (!changedCols.length) return { code, pendingChange: false };
 
     // 自动审批校验：以「改动后整体记录」为输入、只校验改动列、查重排除自身
+    //   （含敏感字段，保证转审批前格式/值域已正确，避免脏请求进审批队列）
     const merged = { ...before, ...changes };
     const errors = await this.validate(type, c, merged, code, new Set(changedCols));
     if (errors.length) throw new BadRequestException(`自动审批未通过：${errors.join('；')}`);
 
-    await this.applyCols(c, code, changes);
-    await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before: this.pick(before, changedCols), after: { ...changes, _autoApproved: true }, operator: operator ?? 'AUTO' });
-    return { code, pendingChange: false };
+    // G126：拆分「财务敏感字段」与「普通字段」。敏感字段仅对 live(ACTIVE/FROZEN) 记录拦截转审批。
+    const sensitive = SENSITIVE_APPROVAL_FIELDS[type] ?? [];
+    const live = ['ACTIVE', 'FROZEN'].includes(String(before.status));
+    const sensitiveChanges: Record<string, any> = {};
+    const normalChanges: Record<string, any> = {};
+    for (const col of changedCols) {
+      if (sensitive.includes(col) && live) sensitiveChanges[col] = changes[col];
+      else normalChanges[col] = changes[col];
+    }
+
+    // 1) 普通字段（及草稿态一切）→ G93 自动通过立即落库
+    if (Object.keys(normalChanges).length) {
+      await this.applyCols(c, code, normalChanges);
+      await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before: this.pick(before, Object.keys(normalChanges)), after: { ...normalChanges, _autoApproved: true }, operator: operator ?? 'AUTO' });
+    }
+
+    // 2) 财务敏感字段 → 走人工审批（复用 G92 md_change_requests + MD_FIELD_CHANGE 通道）
+    const sensCols = Object.keys(sensitiveChanges);
+    if (!sensCols.length) return { code, pendingChange: false };
+    const sensLabel = sensCols.map((k) => FIELD_LABELS[k] ?? k).join('、');
+
+    try {
+      let crId = 0;
+      await this.ds.transaction(async (mgr) => {
+        const [cr] = await mgr.query(
+          `INSERT INTO md_change_requests
+             (md_type, object_type, object_code, target_table, code_col, changes, before_snapshot, status, requested_by)
+           VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,'PENDING',$8)
+           RETURNING id`,
+          [type, c.objectType, code, c.table, c.codeCol,
+            JSON.stringify(sensitiveChanges), JSON.stringify(this.pick(before, sensCols)), operator ?? null],
+        );
+        crId = Number(cr.id);
+        // 启动审批（引擎建实例 + 派审批人；通过后回写 status + 触发 onApproved 把变更应用回主表）
+        await this.approval.startApproval({
+          bizType: FIELD_CHANGE_BIZ, bizId: String(crId), bizNo: `${c.objectType}/${code}`, amount: 0,
+          companyCode: before.company_code ?? undefined,
+          subject: `财务敏感字段变更审批：${before[c.nameCol] ?? code}（${sensLabel}）`,
+        }, mgr);
+      });
+      await this.audit.log({
+        objectType: c.objectType, objectCode: code, action: 'UPDATE',
+        before: this.pick(before, sensCols), after: { ...sensitiveChanges, _pendingApproval: true, _changeRequestId: crId },
+        operator, reason: `财务敏感字段变更提交审批：${sensLabel}`,
+      });
+      return {
+        code, pendingChange: true, changeRequestId: crId, pendingFields: sensCols,
+        message: `财务敏感字段（${sensLabel}）变更已提交审批，通过后生效；原值在通过前保持有效。`,
+      };
+    } catch (e: any) {
+      // 降级：审批链未配置/启动失败 → 直接落库不丢编辑，审计标注（事务已回滚，变更请求未残留）
+      this.logger.warn(`[MdRuntime] ${FIELD_CHANGE_BIZ} 启动失败，降级直接落库：${e?.message}`);
+      await this.applyCols(c, code, sensitiveChanges);
+      await this.audit.log({ objectType: c.objectType, objectCode: code, action: 'UPDATE', before: this.pick(before, sensCols), after: { ...sensitiveChanges, _degraded: true }, operator, reason: '财务敏感字段变更（降级·审批不可用直接生效）' });
+      return { code, pendingChange: false };
+    }
   }
 
   /** 生命周期流转：submit/approve/reject/freeze/archive/restore */
