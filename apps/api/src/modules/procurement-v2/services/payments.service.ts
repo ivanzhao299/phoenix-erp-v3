@@ -171,10 +171,25 @@ export class PaymentsService {
 
   // ── 创建 ──────────────────────────────────────────────────────────────────
 
+  /**
+   * G146：前端 ShareholderSelector 返回股东**编码**(SHR-...)，但 shareholder_id 列是 bigint(数字)。
+   *   直接插编码字符串 → PG 22P02 invalid_text_representation → "数据格式不正确"/保存失败（股东代付场景）。
+   *   此处把编码解析成数字 id；已是数字则原样；查不到则返回 undefined(存 null,靠 shareholder_name 标识)。
+   */
+  private async resolveShareholderId(mgr: EntityManager, raw?: string): Promise<string | undefined> {
+    if (raw === undefined || raw === null || raw === '') return undefined;
+    if (/^\d+$/.test(String(raw))) return String(raw);   // 已是纯数字 id
+    const rows = await mgr.query(
+      `SELECT id FROM shr_shareholders WHERE shareholder_code = $1 LIMIT 1`, [raw],
+    ).catch(() => []);
+    return rows[0]?.id != null ? String(rows[0].id) : undefined;
+  }
+
   async create(dto: CreatePaymentDto) {
     return this.ds.transaction(async mgr => {
       const payNo = await this.generatePayNo(mgr);
       const { totalOriginal, totalBase } = this.sumAllocations(dto.allocations);
+      const shareholderId = await this.resolveShareholderId(mgr, dto.shareholderId);   // G146
 
       const pay = mgr.create(Prc2PaymentEntity, {
         payNo,
@@ -201,7 +216,7 @@ export class PaymentsService {
         paymentMethod:        dto.paymentMethod,
         fundNature:           dto.fundNature,
         isShareholderPayment: dto.isShareholderPayment ?? false,
-        shareholderId:        dto.shareholderId,
+        shareholderId:        shareholderId,   // G146：已解析为数字 id（编码→id）
         shareholderName:      dto.shareholderName,
         voucherUrl:           dto.voucherUrl,
         remark:               dto.remark,
@@ -225,6 +240,8 @@ export class PaymentsService {
       if (!pay) throw new NotFoundException(`付款单 ID=${id} 不存在`);
       if (pay.status !== 'DRAFT') throw new ConflictException('仅 DRAFT 状态可编辑');
 
+      const resolvedShId = await this.resolveShareholderId(mgr, dto.shareholderId);   // G146 编码→数字id
+
       Object.assign(pay, {
         ...(dto.paymentDate          !== undefined && { paymentDate:          dto.paymentDate }),
         ...(dto.companyId            !== undefined && { companyId:            dto.companyId }),
@@ -247,7 +264,7 @@ export class PaymentsService {
         ...(dto.paymentMethod        !== undefined && { paymentMethod:        dto.paymentMethod }),
         ...(dto.fundNature           !== undefined && { fundNature:           dto.fundNature }),
         ...(dto.isShareholderPayment !== undefined && { isShareholderPayment: dto.isShareholderPayment }),
-        ...(dto.shareholderId        !== undefined && { shareholderId:        dto.shareholderId }),
+        ...(dto.shareholderId        !== undefined && { shareholderId:        resolvedShId ?? null }),
         ...(dto.shareholderName      !== undefined && { shareholderName:      dto.shareholderName }),
         ...(dto.voucherUrl           !== undefined && { voucherUrl:           dto.voucherUrl }),
         ...(dto.remark               !== undefined && { remark:               dto.remark }),
