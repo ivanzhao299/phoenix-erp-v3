@@ -44,6 +44,13 @@ interface MdTypeConfig {
    *   · 仅当记录已是 ACTIVE/FROZEN（已生效）时才门控；DRAFT/PENDING_APPROVAL（建档中）一律直接改。
    */
   keyFields?: string[];
+  /**
+   * G127：该类型的物理表**没有** effective_date / expire_date 生效期列（如 mst_materials /
+   *   mst_products / biz_projects 这类运营类主数据）。置 true 时 listActive() 跳过生效期过滤，
+   *   避免 SQL 引用不存在的列报错（表现为 /:type/active 返回 400，Selector 加载失败）。
+   *   Why：物料/规格/项目作为 Selector 数据源不需要按生效期窗口过滤，仅 status='ACTIVE' 即可。
+   */
+  noValidityPeriod?: boolean;
 }
 
 const TYPES: Record<string, MdTypeConfig> = {
@@ -64,7 +71,7 @@ const TYPES: Record<string, MdTypeConfig> = {
   project: {
     // G86 2026-06-12：切换到统一项目主表 biz_projects（MDM-1 已于 06-05 在生产建表；
     //   prc2_projects 为被取代的空表，前端 procurement2/projects 已重定向主数据中心）
-    table: 'biz_projects', codeCol: 'project_code', nameCol: 'project_name',
+    table: 'biz_projects', codeCol: 'project_code', nameCol: 'project_name', noValidityPeriod: true,  // G127：biz_projects 无生效期列
     prefix: 'PRJ', objectType: 'PROJECT', companyCol: 'company_code',
     writableCols: ['project_name','project_short_name','company_code','project_type',
                    'budget_amount','budget_currency','start_date','end_date','manager_name','remark'],
@@ -74,7 +81,7 @@ const TYPES: Record<string, MdTypeConfig> = {
   material: {
     // G86 采购物料主数据（饲料/兽药/包材/配件/建材——采购的物品来源，区别于自家产品 SKU）
     table: 'mst_materials', codeCol: 'material_code', nameCol: 'material_name',
-    prefix: 'MAT', objectType: 'MATERIAL',
+    prefix: 'MAT', objectType: 'MATERIAL', noValidityPeriod: true,  // G127：mst_materials 无生效期列
     writableCols: ['material_name','material_type','spec','unit','default_currency','remark'],
     approvalOnCreate: false,   // G92：运营类 → 免审批快建（业务员选物料找不到可就地新增）
   },
@@ -90,7 +97,7 @@ const TYPES: Record<string, MdTypeConfig> = {
     // FIX 2026-06-05: 真实表名是 mst_products（不是 product_master，后者根本不存在 → HTTP 500）
     // writableCols 按 mst_products 实际列校正（无 product_name_en/uom/default_grade/effective_date/expire_date/remark）
     table: 'mst_products', codeCol: 'product_code', nameCol: 'product_name',
-    prefix: 'PRD', objectType: 'PRODUCT',
+    prefix: 'PRD', objectType: 'PRODUCT', noValidityPeriod: true,  // G127：mst_products 无生效期列（见上行 FIX 注释）
     writableCols: ['product_name','product_name_zh','product_name_lo','category_code','unit_zh','unit_lo','shelf_life_days','price_retail','price_wholesale','has_grade','has_spec','image_url','specs'],
     // G92：产品含零售/批发价 → 审批；关键字段=名称/类目/价格/分级开关，扩展=多语名/单位/保质期/图片/规格
     keyFields: ['product_name','category_code','price_retail','price_wholesale','has_grade','has_spec'],
@@ -459,11 +466,15 @@ export class MasterDataRuntimeService {
     const allowed = await this.allowedCompanies(c);
     if (allowed === 'DENY') return [];
     if (allowed !== 'ALL') { params.push(allowed); companyClause = ` AND ${c.companyCol} = ANY($${params.length})`; }
+    // G127：表无生效期列的类型（material/spec/project）跳过 effective_date/expire_date 过滤，
+    //   否则 SQL 引用不存在的列报错 → /:type/active 返 400 → Selector 加载失败。
+    const validityClause = c.noValidityPeriod
+      ? ''
+      : ` AND (effective_date IS NULL OR effective_date <= CURRENT_DATE)
+          AND (expire_date    IS NULL OR expire_date    >= CURRENT_DATE)`;
     return this.ds.query(
       `SELECT ${c.codeCol} AS code, ${c.nameCol} AS name FROM ${c.table}
-        WHERE status = 'ACTIVE'
-          AND (effective_date IS NULL OR effective_date <= CURRENT_DATE)
-          AND (expire_date    IS NULL OR expire_date    >= CURRENT_DATE)${companyClause}
+        WHERE status = 'ACTIVE'${validityClause}${companyClause}
         ORDER BY ${c.nameCol}`,
       params,
     );

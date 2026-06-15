@@ -190,7 +190,9 @@ export default function ProcurementDashboardPage() {
       const safe = <T,>(p: Promise<T>, fb: T): Promise<T> => p.catch(() => fb);
       const [s1, s2, s3, s4, s5, s6, s7] = await Promise.all([request<any>(`${base}/summary?${qs}`),
       // 关键：失败则整页提示
-      safe(request<any[]>(`${base}/ap-aging?${qs}`), []), safe(request<any[]>(`${base}/project-cost?${qs}`), []), safe(request<any[]>(`${base}/payment-trend?${qs}`), []), safe(request<any[]>(`${base}/shareholder-summary?${qs}`), []), safe(request<any[]>(`${base}/shipment-status?${qs}`), []), safe(request<any[]>(`${base}/supplier-performance?${qs}`), [])]);
+      // G127：非关键 widget 统一 {silent:true}——缺权限(如股东资金需 MENU_PRC2_FUND)时 safe() 已置空容错，
+      //   不应再弹全局红 toast（采购专员看板原会因 shareholder-summary 403 弹「MENU_PERMISSION_DENIED」）
+      safe(request<any[]>(`${base}/ap-aging?${qs}`, { silent: true }), []), safe(request<any[]>(`${base}/project-cost?${qs}`, { silent: true }), []), safe(request<any[]>(`${base}/payment-trend?${qs}`, { silent: true }), []), safe(request<any[]>(`${base}/shareholder-summary?${qs}`, { silent: true }), []), safe(request<any[]>(`${base}/shipment-status?${qs}`, { silent: true }), []), safe(request<any[]>(`${base}/supplier-performance?${qs}`, { silent: true }), [])]);
       setSummary(s1);
       setAging(Array.isArray(s2) ? s2 : []);
       setProjectCost(Array.isArray(s3) ? s3 : []);
