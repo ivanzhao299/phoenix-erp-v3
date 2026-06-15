@@ -14,6 +14,14 @@ import { MaterialPicker } from "@/components/shared-selectors/MaterialPicker"; /
 import { AttachmentUploader } from "@/components/design-system"; // G4-B 合同附件
 import { tableInputCell } from "@/components/design-system/cockpit-styles"; // G94 全局表格输入 token
 
+// G134：合同附件支持多文件——contractUrl 列改存 JSON 数组字符串；兼容历史单 url 值。
+function parseContractUrls(raw?: string): string[] {
+  const s = (raw ?? "").trim();
+  if (!s) return [];
+  if (s.startsWith("[")) { try { const a = JSON.parse(s); return Array.isArray(a) ? a.filter(Boolean) : []; } catch { return []; } }
+  return [s];
+}
+
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 interface OrderItem {
   id?: string;
@@ -264,7 +272,7 @@ export default function PurchaseOrdersPage() {
   const [fOrigin, setFOrigin] = useState("");
   const [fDest, setFDest] = useState("LA");
   const [fContractNo, setFContractNo] = useState("");
-  const [fContractUrl, setFContractUrl] = useState("");
+  const [fContractUrls, setFContractUrls] = useState<string[]>([]);  // G134：多合同附件
   const [fContractNote, setFContractNote] = useState("");
   const [fRemark, setFRemark] = useState("");
   const [formItems, setFormItems] = useState<OrderItem[]>([emptyItem()]);
@@ -347,7 +355,7 @@ export default function PurchaseOrdersPage() {
     setFOrigin("CN");
     setFDest("LA");
     setFContractNo("");
-    setFContractUrl("");
+    setFContractUrls([]);
     setFContractNote("");
     setFRemark("");
     setFormItems(blankRows());     // G95-D：默认 5 空行（明细是主体）
@@ -372,7 +380,7 @@ export default function PurchaseOrdersPage() {
     setFPayDeadline(row.payDeadline ?? "");
     setFCrossBorder(row.crossBorderFlag ?? false);
     setFContractNo(row.contractNo ?? "");
-    setFContractUrl(row.contractUrl ?? "");
+    setFContractUrls(parseContractUrls(row.contractUrl));
     setFContractNote(row.contractNote ?? "");
     setFRemark(row.remark ?? "");
     try {
@@ -449,7 +457,7 @@ export default function PurchaseOrdersPage() {
         originCountry: fCrossBorder ? fOrigin : undefined,
         destinationCountry: fCrossBorder ? fDest : undefined,
         contractNo: fContractNo.trim() || undefined,
-        contractUrl: fContractUrl.trim() || undefined,
+        contractUrl: fContractUrls.length ? JSON.stringify(fContractUrls) : undefined,
         contractNote: fContractNote.trim() || undefined,
         remark: fRemark.trim() || undefined,
         items: filledItems.map(it => ({
@@ -898,7 +906,7 @@ export default function PurchaseOrdersPage() {
             <div className={s.field}>
               <label className={s.lbl}>合同附件</label>
               {/* G4-B：禁止 URL 文本框，使用统一附件上传组件 */}
-              <AttachmentUploader value={fContractUrl ? [fContractUrl] : []} onChange={urls => setFContractUrl(urls[urls.length - 1] ?? "")} label="上传合同附件（PDF/图片 ≤15MB）" />
+              <AttachmentUploader value={fContractUrls} onChange={setFContractUrls} label="上传合同/付款申请等附件（可多个，PDF/图片 ≤15MB）" />
             </div>
           </div>
           <div className={s.field}>

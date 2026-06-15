@@ -71,7 +71,7 @@ certbot --nginx -d ${DOMAIN} --non-interactive --agree-tos -m ${EMAIL} --redirec
 echo ""
 echo "==> 安装 ERP 正式 Nginx 配置"
 # 将仓库中的 vhost 配置复制到 nginx
-cp ${DEPLOY_PATH}/deploy/nginx/${DOMAIN}.conf /etc/nginx/sites-available/${DOMAIN}
+cp ${DEPLOY_PATH}/nginx/${DOMAIN}.conf /etc/nginx/sites-available/${DOMAIN}
 nginx -t && systemctl reload nginx
 
 echo ""

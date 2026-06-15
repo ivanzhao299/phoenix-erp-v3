@@ -22,28 +22,35 @@ export function AttachmentUploader({ value, onChange, readOnly, label = '上传�
     && (sessionStorage.getItem('phoenix_token') || localStorage.getItem('phoenix_token'))) || '';
   const base = apiBase ?? (process.env.NEXT_PUBLIC_API_BASE || '');
 
-  const upload = async (file: File) => {
+  // G134：支持一次多选 + 多次累加。批量内逐个串行上传，全部成功的 url 一次性合并进 value
+  //   （避免并行 onChange 各读到 stale value 互相覆盖，导致"只剩最后一个"）。
+  const MAX_MB = 15;   // 与应用层 FileInterceptor(15MB) + nginx(20m) 一致（原 10 与"≤15MB"标签不符）
+  const uploadFiles = async (files: File[]) => {
     setErr(''); setUploading(true);
+    const added: string[] = [];
+    const errs: string[] = [];
     try {
-      // G30：客户端预检大小，避免 nginx client_max_body_size 拦截返 500 HTML
-      const MAX_MB = 10;
-      if (file.size > MAX_MB * 1024 * 1024) {
-        setErr(`文件超出 ${MAX_MB}MB 上限（当前 ${(file.size / 1024 / 1024).toFixed(1)}MB），请压缩后重传`);
-        return;
+      for (const file of files) {
+        if (file.size > MAX_MB * 1024 * 1024) {
+          errs.push(`${file.name}：超出 ${MAX_MB}MB（${(file.size / 1024 / 1024).toFixed(1)}MB）`);
+          continue;
+        }
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch(`${base}/api/upload/contract`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : undefined, body: fd });
+        // G30：5xx 返 text/HTML，不强 JSON.parse（防 "Unexpected token 'I'" 报错）
+        const ct = res.headers.get('content-type') || '';
+        if (!res.ok) {
+          const detail = ct.includes('application/json') ? (await res.json().catch(() => ({})))?.message : await res.text().catch(() => '');
+          errs.push(`${file.name}：上传失败 (${res.status})${detail ? '，' + String(detail).slice(0, 80) : ''}`);
+          continue;
+        }
+        const json = ct.includes('application/json') ? await res.json() : {};
+        if (json?.url) added.push(json.url);
+        else errs.push(`${file.name}：服务端未返回 url`);
       }
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch(`${base}/api/upload/contract`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : undefined, body: fd });
-      // G30：5xx 返 text/HTML，不强 JSON.parse（防 "Unexpected token 'I', "Internal S"" 报错）
-      const ct = res.headers.get('content-type') || '';
-      if (!res.ok) {
-        const detail = ct.includes('application/json') ? (await res.json().catch(() => ({})))?.message : await res.text().catch(() => '');
-        setErr(`上传失败 (${res.status})${detail ? '：' + String(detail).slice(0, 120) : ''}`);
-        return;
-      }
-      const json = ct.includes('application/json') ? await res.json() : {};
-      if (json?.url) onChange([...value, json.url]);
-      else setErr(json?.message || '上传失败：服务端未返回 url');
+      if (added.length) onChange([...value, ...added]);
+      if (errs.length) setErr(errs.join('；'));
     } catch (e: any) { setErr(e?.message || '上传失败'); }
     finally { setUploading(false); }
   };
@@ -71,8 +78,9 @@ export function AttachmentUploader({ value, onChange, readOnly, label = '上传�
       {!readOnly && (
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border)', color: 'var(--text-secondary)', cursor: uploading ? 'wait' : 'pointer', fontSize: 13 }}>
           <Upload size={14} />{uploading ? '上传中…' : label}
-          <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" style={{ display: 'none' }} disabled={uploading}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ''; }} />
+          {/* G134：multiple 允许一次选多个；也可重复点击逐个累加 */}
+          <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" style={{ display: 'none' }} disabled={uploading}
+            onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) uploadFiles(fs); e.target.value = ''; }} />
         </label>
       )}
       {readOnly && value.length === 0 && <span style={{ fontSize: 13, color: 'var(--text-disabled)' }}>无附件</span>}
