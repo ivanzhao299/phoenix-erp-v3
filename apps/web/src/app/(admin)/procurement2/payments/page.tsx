@@ -385,7 +385,13 @@ export default function PaymentsPage() {
     setSaving(true);
     try {
       const rate = parseFloat(formExchangeRate) || 1;
+      // G140：付款总金额 = 各分摊合计（原 body 漏传 amountOriginal/amountBase → 后端校验"amountOriginal
+      //   must be a positive number"保存失败）。币种原值合计 + 按汇率折算本位币。
+      const amountOriginal = Number(totalAllocOriginal.toFixed(2));
+      if (!(amountOriginal > 0)) { toast.error("付款金额必须大于 0，请先添加并填写分摊金额"); setSaving(false); return; }
       const body = {
+        amountOriginal,
+        amountBase: Number((amountOriginal * rate).toFixed(2)),
         paymentDate: formDate,
         companyCode: formCompCode.trim() || undefined,
         companyName: formCompName.trim() || undefined,
