@@ -279,10 +279,12 @@ export default function WorkflowMetricsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
-    // G135：判定是否管理员（Web Push/VAPID 是服务器配置事项，仅对能处理的管理员显示告警）
+    // G137：VAPID/Web Push 是服务器运维配置，只有**字面系统管理员账号(admin)**才需处理。
+    //   原 G135 按 ROLE_ADMIN/'*' 判定 → 老板赵永伟也是 ROLE_ADMIN 超管 → 仍被红 banner 占满。
+    //   收紧为 username==='admin'：业务超管(CEO/老板)不再看到这条服务器配置告警。
     try {
       const su = JSON.parse(localStorage.getItem('phoenix_user') || '{}');
-      setIsAdmin((su.permissions || []).includes('*') || (su.roles || []).includes('ROLE_ADMIN'));
+      setIsAdmin(su.username === 'admin');
     } catch { /* ignore */ }
     try {
       const [ov, bn, od, es, ph] = await Promise.all([apiFetch<Overview>('/api/workflow/metrics/overview'), apiFetch<Bottleneck[]>('/api/workflow/metrics/bottlenecks'), apiFetch<OverdueTask[]>('/api/workflow/metrics/overdue-tasks'), apiFetch<EscalatedTask[]>('/api/workflow/metrics/escalated-tasks'), apiFetch<PushHealth>('/api/notifications/push/health').catch(() => null)]);

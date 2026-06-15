@@ -594,6 +594,8 @@ export class ApprovalEngineService {
         AND (
           s.approver_role = ANY($1::varchar[])
           OR s.approver_user_id = $2
+          -- G137：ROLE_ADMIN(老板/超管)兜底可见——allow_admin_override 步骤进其待办，便于越级/解卡审批
+          OR (s.allow_admin_override = true AND 'ROLE_ADMIN' = ANY($1::varchar[]))
         )
         ${scopeWhere}
       ORDER BY i.started_at ASC
@@ -680,7 +682,8 @@ export class ApprovalEngineService {
        JOIN wf_approval_instances i ON i.id = s.instance_id
        WHERE s.status='PENDING' AND i.status='PENDING'
          AND s.step_no = i.current_step_no
-         AND (s.approver_role = ANY($1::varchar[]) OR s.approver_user_id = $2)`,
+         AND (s.approver_role = ANY($1::varchar[]) OR s.approver_user_id = $2
+              OR (s.allow_admin_override = true AND 'ROLE_ADMIN' = ANY($1::varchar[])))`,
       [roles, userId],
     );
     return parseInt(rows[0]?.cnt ?? '0', 10);
