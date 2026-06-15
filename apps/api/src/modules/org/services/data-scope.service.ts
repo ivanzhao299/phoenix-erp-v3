@@ -144,6 +144,25 @@ export class DataScopeService {
       WHERE uo.user_id = $1
     `, [userIdNum]);
 
+    // G124 修复：isGlobal 原仅看 sys_data_scopes 角色规则，忽略了 sys_user_orgs 绑定的
+    //   data_scope_level。G114 给部门绑定(DEPT-HQ-*)显式授 GROUP 范围的用户(郭大鹏/刘杰/
+    //   刘汉涛/王乐金/范镇豪)，因角色无 GROUP 规则 → 非全局 + 部门展开无公司 → 公司级主数据
+    //   (客户/项目/资金账户)被 DENY 看空。绑定的 GROUP 范围是权威 per-user 授权 → 视为全局。
+    if (userOrgRows.some((r) => r.data_scope_level === 'GROUP')) {
+      const ctx: DataScopeContext = {
+        isGlobal: true,
+        scopeLevel: 'GROUP',
+        allowedCompanyCodes: [],
+        allowedProjectCodes: [],
+        allowedWarehouseCodes: [],
+        allowedFarmCodes: [],
+        allowedSiteCodes: [],
+        userId,
+      };
+      this._setCache(cacheKey, ctx);
+      return ctx;
+    }
+
     const companyCodes = new Set<string>();
     const projectCodes = new Set<string>();
     const warehouseCodes = new Set<string>();
