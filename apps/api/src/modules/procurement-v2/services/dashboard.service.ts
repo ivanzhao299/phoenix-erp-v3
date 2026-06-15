@@ -213,7 +213,9 @@ export class DashboardService {
         COALESCE(SUM(amount_original), 0)  AS amount_original,
         COALESCE(SUM(amount_base), 0)      AS amount_base
       FROM prc2_payments
-      WHERE status IN ('EXECUTED','CONFIRMED','APPROVED')
+      -- G153：付款趋势同 G152——只算真正执行付款(PAID)。原 EXECUTED/CONFIRMED/APPROVED 使
+      --   付款变 PAID 后趋势查不到任何数据(看板"付款趋势"恒为空)；G152 的 replace 因缩进差异漏改此处。
+      WHERE status = 'PAID'
         AND ($2::varchar IS NULL OR company_code = $2)
         AND ($3::date IS NULL OR payment_date >= $3::date)
         AND ($4::date IS NULL OR payment_date <= $4::date)

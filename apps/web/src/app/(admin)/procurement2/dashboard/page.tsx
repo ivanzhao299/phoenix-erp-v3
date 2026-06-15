@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import { RefreshCw, TrendingUp, TrendingDown, DollarSign, Package, Truck, AlertTriangle, Clock, Users, BarChart2 } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
+import { KpiCardV2, Panel } from "@/components/design-system"; // G153：统一全局卡片/容器(边界感)
 import { useToast } from "@/contexts/ToastContext";
 import request from "@/lib/api-client";
 import { currencySymbol } from "@/lib/currency";
@@ -90,64 +91,6 @@ function fmtCcy(n: number, ccy = "") {
 }
 
 // ── KPI 卡片 ─────────────────────────────────────────────────────────────────
-function KpiCard({
-  label,
-  value,
-  sub,
-  Icon,
-  color = "var(--color-primary)"
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  Icon: React.ElementType;
-  color?: string;
-}) {
-  return <div className={s.card} style={{
-    display: "flex",
-    alignItems: "center",
-    gap: 16,
-    padding: "18px 22px",
-    minWidth: 180,
-    minHeight: 112,
-    boxSizing: "border-box"
-  }}>
-      <div style={{
-      width: 46,
-      height: 46,
-      borderRadius: 12,
-      background: `${color}20`,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      flexShrink: 0
-    }}>
-        <Icon size={22} color={color} />
-      </div>
-      <div style={{
-      minWidth: 0
-    }}>
-        <div style={{
-        fontSize: 12,
-        color: "var(--color-text-3)",
-        marginBottom: 4
-      }}>{label}</div>
-        <div style={{
-        fontSize: 20,
-        fontWeight: 700,
-        color: "var(--color-text-1)",
-        lineHeight: 1.2,
-        wordBreak: "break-all"
-      }}>{value}</div>
-        {sub && <div style={{
-        fontSize: 11,
-        color: "var(--color-text-3)",
-        marginTop: 2
-      }}>{sub}</div>}
-      </div>
-    </div>;
-}
-
 // ── 状态颜色 ─────────────────────────────────────────────────────────────────
 const AGING_COLOR: Record<string, string> = {
   current: "var(--color-success)",
@@ -260,12 +203,12 @@ export default function ProcurementDashboardPage() {
       gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))",
       gap: 14
     }}>
-          <KpiCard label="采购订单数" value={fmt(summary.poCount)} sub={`合同金额 ${fmt(summary.poAmount, 2)}`} Icon={Package} color="var(--color-primary)" />
-          <KpiCard label="应付余额 (CNY)" value={fmt(summary.apOpenAmount, 2)} sub="待付账款" Icon={AlertTriangle} color="var(--color-danger)" />
-          <KpiCard label="已付金额 (CNY)" value={fmt(summary.paymentAmount, 2)} sub="付款合计" Icon={DollarSign} color="var(--color-success)" />
-          <KpiCard label="股东资金" value={fmt(summary.shareholderFundAmount, 2)} sub={`共 ${summary.shareholderFundCount} 笔`} Icon={Users} color="var(--color-purple-500)" />
-          <KpiCard label="在途运单" value={fmt(summary.shipmentInTransitCount)} sub={`运单总数 ${summary.shipmentTotalCount}`} Icon={Truck} color="var(--status-warning)" />
-          <KpiCard label="待审批" value={fmt(summary.pendingPoApprovalCount)} sub={`待审采购申请 ${summary.pendingPrCount}`} Icon={Clock} color="var(--color-warning)" />
+          <KpiCardV2 title="采购订单数" value={fmt(summary.poCount)} subValue={`合同金额 ${fmt(summary.poAmount, 2)}`} icon={Package} accentColor="blue" />
+          <KpiCardV2 title="应付余额 (CNY)" value={fmt(summary.apOpenAmount, 2)} subValue="待付账款" icon={AlertTriangle} accentColor="red" />
+          <KpiCardV2 title="已付金额 (CNY)" value={fmt(summary.paymentAmount, 2)} subValue="付款合计" icon={DollarSign} accentColor="green" />
+          <KpiCardV2 title="股东资金" value={fmt(summary.shareholderFundAmount, 2)} subValue={`共 ${summary.shareholderFundCount} 笔`} icon={Users} accentColor="violet" />
+          <KpiCardV2 title="在途运单" value={fmt(summary.shipmentInTransitCount)} subValue={`运单总数 ${summary.shipmentTotalCount}`} icon={Truck} accentColor="amber" />
+          <KpiCardV2 title="待审批" value={fmt(summary.pendingPoApprovalCount)} subValue={`待审采购申请 ${summary.pendingPrCount}`} icon={Clock} accentColor="cyan" />
         </div>}
 
       {/* ── Row: AP Aging + Shipment Status ── */}
@@ -275,17 +218,7 @@ export default function ProcurementDashboardPage() {
       gap: 16
     }}>
         {/* AP 账龄 */}
-        <div className={`${s.card} ${u.p18x20}`}>
-          <div style={{
-          fontSize: 14,
-          fontWeight: 600,
-          marginBottom: 14,
-          display: "flex",
-          alignItems: "center",
-          gap: 8
-        }}>
-            <TrendingDown size={16} color="var(--color-danger)" /> 应付账龄分布
-          </div>
+        <Panel title="应付账龄分布" icon={<TrendingDown size={15} color="var(--color-danger)" />}>
           {aging.length === 0 ? <div style={{
           textAlign: "center",
           color: "var(--color-text-3)",
@@ -317,20 +250,10 @@ export default function ProcurementDashboardPage() {
                   </tr>)}
               </tbody>
             </table>}
-        </div>
+        </Panel>
 
         {/* 运单状态 */}
-        <div className={`${s.card} ${u.p18x20}`}>
-          <div style={{
-          fontSize: 14,
-          fontWeight: 600,
-          marginBottom: 14,
-          display: "flex",
-          alignItems: "center",
-          gap: 8
-        }}>
-            <Truck size={16} color="var(--status-warning)" /> 运单状态分布
-          </div>
+        <Panel title="运单状态分布" icon={<Truck size={15} color="var(--status-warning)" />}>
           {shipment.length === 0 ? <div style={{
           textAlign: "center",
           color: "var(--color-text-3)",
@@ -347,21 +270,11 @@ export default function ProcurementDashboardPage() {
                   </tr>)}
               </tbody>
             </table>}
-        </div>
+        </Panel>
       </div>
 
       {/* ── 付款趋势 ── */}
-      <div className={`${s.card} ${u.p18x20}`}>
-        <div style={{
-        fontSize: 14,
-        fontWeight: 600,
-        marginBottom: 14,
-        display: "flex",
-        alignItems: "center",
-        gap: 8
-      }}>
-          <TrendingUp size={16} color="var(--color-primary)" /> 付款趋势
-        </div>
+      <Panel title="付款趋势" icon={<TrendingUp size={15} color="var(--color-primary)" />}>
         {payTrend.length === 0 ? <div style={{
         textAlign: "center",
         color: "var(--color-text-3)",
@@ -385,20 +298,10 @@ export default function ProcurementDashboardPage() {
               </tbody>
             </table>
           </div>}
-      </div>
+      </Panel>
 
       {/* ── 项目成本 ── */}
-      <div className={`${s.card} ${u.p18x20}`}>
-        <div style={{
-        fontSize: 14,
-        fontWeight: 600,
-        marginBottom: 14,
-        display: "flex",
-        alignItems: "center",
-        gap: 8
-      }}>
-          <BarChart2 size={16} color="var(--color-primary)" /> 项目成本归集
-        </div>
+      <Panel title="项目成本归集" icon={<BarChart2 size={15} color="var(--color-primary)" />}>
         {projectCost.length === 0 ? <div style={{
         textAlign: "center",
         color: "var(--color-text-3)",
@@ -449,7 +352,7 @@ export default function ProcurementDashboardPage() {
               </tbody>
             </table>
           </div>}
-      </div>
+      </Panel>
 
       {/* ── Row: 股东资金 + 供应商绩效 ── */}
       <div style={{
@@ -458,17 +361,7 @@ export default function ProcurementDashboardPage() {
       gap: 16
     }}>
         {/* 股东资金汇总 */}
-        <div className={`${s.card} ${u.p18x20}`}>
-          <div style={{
-          fontSize: 14,
-          fontWeight: 600,
-          marginBottom: 14,
-          display: "flex",
-          alignItems: "center",
-          gap: 8
-        }}>
-            <Users size={16} color="var(--color-purple-500)" /> 股东资金汇总
-          </div>
+        <Panel title="股东资金汇总" icon={<Users size={15} color="var(--color-purple-500)" />}>
           {shareholder.length === 0 ? <div style={{
           textAlign: "center",
           color: "var(--color-text-3)",
@@ -487,20 +380,10 @@ export default function ProcurementDashboardPage() {
                   </tr>)}
               </tbody>
             </table>}
-        </div>
+        </Panel>
 
         {/* 供应商绩效 */}
-        <div className={`${s.card} ${u.p18x20}`}>
-          <div style={{
-          fontSize: 14,
-          fontWeight: 600,
-          marginBottom: 14,
-          display: "flex",
-          alignItems: "center",
-          gap: 8
-        }}>
-            <BarChart2 size={16} color="var(--color-primary)" /> 供应商绩效 TOP 20
-          </div>
+        <Panel title="供应商绩效 TOP 20" icon={<BarChart2 size={15} color="var(--color-primary)" />}>
           {supplier.length === 0 ? <div style={{
           textAlign: "center",
           color: "var(--color-text-3)",
@@ -531,7 +414,7 @@ export default function ProcurementDashboardPage() {
                 </tbody>
               </table>
             </div>}
-        </div>
+        </Panel>
       </div>
     </div>;
 }
