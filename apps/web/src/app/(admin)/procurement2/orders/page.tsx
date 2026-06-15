@@ -213,6 +213,16 @@ function fmtAmt(v?: number | string, currency = "LAK") {
 function fmtDate(d?: string) {
   return d ? d.slice(0, 10) : "—";
 }
+// G154：操作列改「文字按钮」——企业级运营场景要直观清晰，禁纯图标(看不出含义)。
+const actBtn: React.CSSProperties = {
+  padding: "3px 10px", fontSize: 12, lineHeight: 1.6, borderRadius: 6, whiteSpace: "nowrap",
+  border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)",
+  cursor: "pointer",
+};
+const actBtnTone = (tone: "success" | "info" | "danger"): React.CSSProperties => {
+  const c = tone === "success" ? "var(--status-success)" : tone === "danger" ? "var(--status-danger)" : "var(--status-info, var(--color-primary))";
+  return { ...actBtn, borderColor: c, color: c };
+};
 const inlineInput: React.CSSProperties = {
   flex: "1 1 160px",
   padding: "8px 12px",
@@ -739,7 +749,8 @@ export default function PurchaseOrdersPage() {
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap"
               }}>{row.subject}</td>
-                  <td>{row.companyCode}</td>
+                  {/* G154：公司显示中文名（无名称才回退编码），中文界面不露英文编码 */}
+                  <td>{row.companyName || row.companyCode}</td>
                   <td style={{
                 maxWidth: 120,
                 overflow: "hidden",
@@ -766,34 +777,20 @@ export default function PurchaseOrdersPage() {
                   <td>
                     <div style={{
                   display: "flex",
-                  gap: 4,
+                  gap: 6,
                   flexWrap: "wrap"
                 }}>
-                      <button className={s.btnIcon} title="查看详情" onClick={() => openDetail(row)}>
-                        <Eye size={13} />
-                      </button>
+                      <button style={actBtn} onClick={() => openDetail(row)}>查看</button>
                       {row.status === "DRAFT" && <>
-                          <button className={s.btnIcon} title="编辑" onClick={() => openEdit(row)}>
-                            <Pencil size={13} />
-                          </button>
-                          <button className={s.btnIcon} title="提交审批" style={{
-                      borderColor: "var(--status-success)",
-                      color: "var(--status-success)"
-                    }} onClick={() => handleSubmit(row)}>
-                            <Send size={13} />
-                          </button>
+                          <button style={actBtn} onClick={() => openEdit(row)}>编辑</button>
+                          <button style={actBtnTone("success")} onClick={() => handleSubmit(row)}>提交审批</button>
                         </>}
-                      {(row.status === "SUBMITTED" || row.status === "PENDING_APPROVAL") && <Link href="/workflow/todos" className={s.btnIcon} title="审批请前往『工作流·待办』" style={{
-                      borderColor: "var(--status-info, var(--status-success))",
-                      color: "var(--status-info, var(--status-success))",
-                      display: "inline-flex",
-                      alignItems: "center"
-                    }}>
-                          <ClipboardCheck size={13} />
-                        </Link>}
-                      {(row.status === "DRAFT" || row.status === "SUBMITTED" || row.status === "PENDING_APPROVAL") && <button className={s.btnIconDanger} title="取消" onClick={() => openCancel(row)}>
-                          <Trash2 size={13} />
-                        </button>}
+                      {(row.status === "SUBMITTED" || row.status === "PENDING_APPROVAL") && (
+                        <Link href="/workflow/todos" style={{ ...actBtnTone("info"), display: "inline-flex", alignItems: "center", textDecoration: "none" }} title="审批请前往『工作流·待办』">前往审批</Link>
+                      )}
+                      {(row.status === "DRAFT" || row.status === "SUBMITTED" || row.status === "PENDING_APPROVAL") && (
+                        <button style={actBtnTone("danger")} onClick={() => openCancel(row)}>取消</button>
+                      )}
                     </div>
                   </td>
                 </tr>;
@@ -826,7 +823,9 @@ export default function PurchaseOrdersPage() {
 
       {/* ── 新建/编辑 抽屉 ─────────────────────────────────────────────────── */}
       <RightDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editing ? `编辑：${editing.poNo}` : "新建采购订单"} width="min(1180px, 96vw)">
-        <div style={{
+        {/* G154：性能——ui/RightDrawer 关闭时仍保持 DOM 挂载，这个含大量 Selector 的重表单若常驻
+            会让整页滚动/拖动卡顿。改为仅 open 时挂载，关闭即卸载，整页不再背着这坨离屏 DOM。 */}
+        {drawerOpen && <div style={{
         padding: "0 4px 80px"
       }}>
           <div className={s.formSection}>基础信息</div>
@@ -1078,7 +1077,7 @@ export default function PurchaseOrdersPage() {
               {saving ? "保存中…" : "保存草稿"}
             </button>
           </div>
-        </div>
+        </div>}
       </RightDrawer>
 
       {/* ── 详情抽屉 ─────────────────────────────────────────────────────────── */}
