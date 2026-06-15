@@ -594,8 +594,24 @@ export class ApprovalEngineService {
         AND (
           s.approver_role = ANY($1::varchar[])
           OR s.approver_user_id = $2
-          -- G137：ROLE_ADMIN(老板/超管)兜底可见——allow_admin_override 步骤进其待办，便于越级/解卡审批
-          OR (s.allow_admin_override = true AND 'ROLE_ADMIN' = ANY($1::varchar[]))
+          -- G137：ROLE_ADMIN(老板/超管)兜底可见 allow_admin_override 步骤；
+          -- G151：兜底改为「仅卡住才进超管待办」——日常步骤不再灌入超管待办(否则老板兼超管时
+          --   每一步都进他待办、还能一人连批两步破坏分离)。仅以下三种「卡住」情形才进：
+          --   ① 步骤已超期(is_overdue)；② 角色类步骤但该角色无在职持有人；③ 指派用户已停用。
+          OR (
+            s.allow_admin_override = true
+            AND 'ROLE_ADMIN' = ANY($1::varchar[])
+            AND (
+              s.is_overdue = true
+              OR (s.approver_role IS NOT NULL AND NOT EXISTS (
+                    SELECT 1 FROM sys_user u2
+                    JOIN sys_user_role ur2 ON ur2.user_id = u2.user_id
+                    JOIN sys_role r2 ON r2.role_id = ur2.role_id
+                    WHERE r2.role_code = s.approver_role AND u2.status = 1))
+              OR (s.approver_user_id IS NOT NULL AND NOT EXISTS (
+                    SELECT 1 FROM sys_user u3 WHERE u3.user_id = s.approver_user_id AND u3.status = 1))
+            )
+          )
         )
         ${scopeWhere}
       ORDER BY i.started_at ASC
