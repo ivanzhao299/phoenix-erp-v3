@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X, Link2, MoreHorizontal } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import DictSelect from "@/components/shared-selectors/DictSelect";  // G66 字段挂字典
@@ -82,6 +83,12 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
   const superMd = usePermission("MENU_MASTER_DATA");
   const canCreate = perType.canCreate || superMd.canCreate;
   const canEdit = perType.canEdit || superMd.canEdit;
+  // G131：支持业务单据页(如采购供应商档案)直达「新增」——?create=1 自动开新增抽屉，
+  //   存完后 returnTo 自动回跳来源页（采购员无需手动绕回）。
+  //   用 window.location 读 query（避免 useSearchParams 强制 Suspense 边界 / 整页 CSR bailout）。
+  const router = useRouter();
+  const [returnTo, setReturnTo] = useState("");
+  const [autoCreate, setAutoCreate] = useState(false);
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -105,6 +112,16 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
   }, [type, filterStatus]);
 
   useEffect(() => { load(); }, [load]);
+  // G131：挂载时读 query（?create=1 / returnTo）；create=1 且有权 → 自动打开「新增」抽屉
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    setReturnTo(sp.get("returnTo") || "");
+    setAutoCreate(sp.get("create") === "1");
+  }, []);
+  useEffect(() => {
+    if (autoCreate && canCreate) { setForm({}); setEditing({}); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoCreate, canCreate]);
 
   // G5.5-D：按需懒加载行的引用计数（避免一次性查询全部）
   const fetchRefCount = useCallback(async (code: string) => {
@@ -141,6 +158,10 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
         }
       }
       setEditing(null); await load();
+      // G131：从业务页直达新增的，新建成功后自动回跳来源页（带 created 标记供来源页刷新/提示）
+      if (isNew && returnTo) {
+        router.push(`${returnTo}${returnTo.includes("?") ? "&" : "?"}created=1`);
+      }
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "保存失败"); }
     finally { setSaving(false); }
   };

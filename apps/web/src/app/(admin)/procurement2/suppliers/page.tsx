@@ -378,14 +378,15 @@ export default function SuppliersPage() {
           animation: loading ? "spin 1s linear infinite" : "none"
         }} /> 刷新
             </button>
-            {/* G4-B：禁止采购页直接建供应商；导向 G3 主数据中心 */}
-            <a href="/master-data/suppliers" className={s.btnPrimary} style={{
+            {/* G4-B：采购页不就地建供应商，但 G131 提供直达入口——跳主数据中心并自动打开新增表单，
+                建档完成后 returnTo 自动回跳本页（采购员无需手动绕路） */}
+            <a href="/master-data/suppliers?create=1&returnTo=/procurement2/suppliers" className={s.btnPrimary} style={{
         display: "flex",
         alignItems: "center",
         gap: 6,
         textDecoration: "none"
       }}>
-              <Plus size={14} /> 前往主数据中心新增
+              <Plus size={14} /> 新增供应商
             </a>
           </div>} />
 
