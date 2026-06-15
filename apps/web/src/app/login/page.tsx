@@ -219,8 +219,8 @@ const ROLE_HOME: Record<string, string> = {
   // 成本会计 → 财务报表
   ROLE_B2B_MGR: "/sales2",
   // 大客总监 → 销售管理
-  ROLE_PRC_BUYER: "/procurement2",
-  // 采购专员 → 采购管理
+  ROLE_PRC_BUYER: "/procurement2/dashboard",
+  // 采购专员 → 采购看板（/procurement2 无根页，会 404）
   // 现场作业角色 → Terminal 作业台（PKG_OP 用 Terminal 而非普通包装页）
   ROLE_PKG_OP: "/terminal/packaging/dashboard",
   ROLE_QC_INSPECTOR: "/terminal/packaging/dashboard",
@@ -236,8 +236,8 @@ const ROLE_HOME: Record<string, string> = {
   ROLE_FINANCE_ANALYST: "/finance2/reports",               // 财务分析师 → 财务报表
   ROLE_FINANCE_REVIEW_MANAGER: "/finance2",                // 财务复核经理 → 财务中心
   ROLE_COST_ACCOUNTING_MANAGER: "/finance2/reports",       // 成本会计经理 → 财务报表
-  ROLE_TREASURY_MANAGER: "/finance2/cash",                 // 资金经理 → 现金管理
-  ROLE_CASH: "/finance2/cash",                             // 出纳 → 现金管理
+  ROLE_TREASURY_MANAGER: "/finance2/cash-accounts",        // 资金经理 → 资金账户（/finance2/cash 不存在）
+  ROLE_CASH: "/finance2/cash-accounts",                    // 出纳 → 资金账户
   ROLE_MASTER_DATA_APPROVER: "/master-data",               // 主数据审批人 → 主数据中心
 };
 function LoginInner() {

@@ -79,7 +79,9 @@ export default function HomePage() {
   const hasMasterPerm = hasPermission('MENU_MASTER');
   // G11：数据质量驾驶舱 + 高危告警 + 主数据健康度 只对持 MENU_DATA_QUALITY/MENU_MASTER 的角色显示
   const hasQualityPerm = hasPermission('MENU_DATA_QUALITY') || hasPermission('MENU_MD_QUALITY');
-  const hasCentersPerm = hasPermission('MENU_MD_CENTER') || hasMasterPerm;
+  // 对齐后端：/master-data/operations/centers 要求 MENU_MASTER_DATA（非 MENU_MASTER）。
+  //   原用 hasMasterPerm → 店长等持 MENU_MASTER 但无 MENU_MASTER_DATA 者发请求即 403 弹错。
+  const hasCentersPerm = hasPermission('MENU_MASTER_DATA') || hasPermission('MENU_MD_CENTER');
   // G18-4：移除"ops 用户直接 return DailyWorkPage"逻辑。
   //   home 始终展示企业 KPI 看板（hero + 概览），与 daily-work 划清边界。
   //   ops 用户看到的 SHORTCUTS 仅含他有权进入的业务中心，hero CTA 引导到 daily-work。
@@ -92,15 +94,16 @@ export default function HomePage() {
 
   useEffect(() => {
     // G11：按权限懒加载 — 无权用户不发对应请求
+    // 可选总览 widget：silent=true → 任何权限/数据问题静默降级，不弹全局 toast
     const requests: Promise<any>[] = [
-      request<{ data: WorkflowSummary }>('/workflow/tasks/summary').then(r => r.data).catch(() => null),
-      request<{ data: TodoTask[] }>('/workflow/tasks/todo?limit=6').then(r => r.data || []).catch(() => [] as TodoTask[]),
+      request<{ data: WorkflowSummary }>('/workflow/tasks/summary', { silent: true }).then(r => r.data).catch(() => null),
+      request<{ data: TodoTask[] }>('/workflow/tasks/todo?limit=6', { silent: true }).then(r => r.data || []).catch(() => [] as TodoTask[]),
     ];
     requests.push(hasQualityPerm
-      ? request<QualityScores>('/data-quality/scores').catch(() => null)
+      ? request<QualityScores>('/data-quality/scores', { silent: true }).catch(() => null)
       : Promise.resolve(null));
     requests.push(hasCentersPerm
-      ? request<CenterStat[]>('/master-data/operations/centers').catch(() => [])
+      ? request<CenterStat[]>('/master-data/operations/centers', { silent: true }).catch(() => [])
       : Promise.resolve([]));
 
     Promise.all(requests).then(([s, t, q, c]) => {
