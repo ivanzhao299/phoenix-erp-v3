@@ -65,9 +65,23 @@ function friendlyError(raw: string, title: string): string {
   return m || "加载失败";
 }
 
+// G130：主数据类型 → 专属菜单码（镜像后端 MasterDataTypeGuard 的 TYPE_TO_MENU）。
+//   按类型维护人(如供应商=ROLE_SUPPLIER_MASTER_MGR 持 MENU_MD_SUPPLIER:C,E)门控增/改按钮，
+//   而非超级码 MENU_MASTER_DATA——否则只有超管能看到「新增」按钮，G120 下放的按类型维护权被架空。
+const TYPE_TO_MENU: Record<string, string> = {
+  customer: "MENU_MD_CUSTOMER", supplier: "MENU_MD_SUPPLIER", project: "MENU_MD_PROJECT",
+  product: "MENU_MD_PRODUCT", grade: "MENU_MD_GRADE", spec: "MENU_MD_PACKAGING", sku: "MENU_MD_SKU",
+  warehouse: "MENU_MD_WAREHOUSE", store: "MENU_MD_STORE", driver: "MENU_MD_DRIVER", vehicle: "MENU_MD_VEHICLE",
+  "cash-account": "MENU_MD_CASH_ACCOUNT", "bank-account": "MENU_MD_BANK_ACCOUNT", material: "MENU_MD_MATERIAL",
+};
+
 export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
   const { type, title, codeKey, nameKey, fields, columns, objectType, onCodeClick } = props;
-  const { canCreate, canEdit } = usePermission("MENU_MASTER_DATA");
+  // G130：先按该类型专属菜单门控，再以超级码 MENU_MASTER_DATA 兜底（超管/总控仍可用）
+  const perType = usePermission(TYPE_TO_MENU[type] ?? "MENU_MASTER_DATA");
+  const superMd = usePermission("MENU_MASTER_DATA");
+  const canCreate = perType.canCreate || superMd.canCreate;
+  const canEdit = perType.canEdit || superMd.canEdit;
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
