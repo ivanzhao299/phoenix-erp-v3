@@ -272,12 +272,18 @@ export default function WorkflowMetricsPage() {
   const [overdueTasks, setOverdueTasks] = useState<OverdueTask[]>([]);
   const [escalatedTasks, setEscalatedTasks] = useState<EscalatedTask[]>([]);
   const [pushHealth, setPushHealth] = useState<PushHealth | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);   // G135：Web Push 配置告警仅管理员可见
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshingAt, setRefreshingAt] = useState<Date | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
+    // G135：判定是否管理员（Web Push/VAPID 是服务器配置事项，仅对能处理的管理员显示告警）
+    try {
+      const su = JSON.parse(localStorage.getItem('phoenix_user') || '{}');
+      setIsAdmin((su.permissions || []).includes('*') || (su.roles || []).includes('ROLE_ADMIN'));
+    } catch { /* ignore */ }
     try {
       const [ov, bn, od, es, ph] = await Promise.all([apiFetch<Overview>('/api/workflow/metrics/overview'), apiFetch<Bottleneck[]>('/api/workflow/metrics/bottlenecks'), apiFetch<OverdueTask[]>('/api/workflow/metrics/overdue-tasks'), apiFetch<EscalatedTask[]>('/api/workflow/metrics/escalated-tasks'), apiFetch<PushHealth>('/api/notifications/push/health').catch(() => null)]);
       setOverview(ov);
@@ -382,7 +388,9 @@ export default function WorkflowMetricsPage() {
         </div>}
 
       {/* ── Push 健康状态 ── */}
-      {pushHealth && <div className={u.mb24}>
+      {/* G135：Web Push 配置卡仅管理员可见——已配置时也只对管理员展示；非管理员(如审批人赵永伟)不再被
+          "未配置"红 banner 占满视线（VAPID 是服务器配置事项，他们无从处理） */}
+      {pushHealth && isAdmin && <div className={u.mb24}>
           <PushHealthCard health={pushHealth} />
         </div>}
 
