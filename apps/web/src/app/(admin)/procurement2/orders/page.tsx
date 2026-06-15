@@ -176,6 +176,9 @@ const PURCHASE_TYPE_OPTS = [{
   value: "SERVICE",
   label: "服务/外包"
 }, {
+  value: "CONSTRUCTION",       // G136：装修/工程类采购（与 PRC_PURCHASE_TYPE 字典对应）
+  label: "装修/工程"
+}, {
   value: "FIXED_ASSET",
   label: "固定资产"
 }, {
@@ -947,6 +950,10 @@ export default function PurchaseOrdersPage() {
               <Plus size={12} /> 添加行
             </button>
           </div>
+          {/* G136：单位建议项（含工程/服务类单位）——datalist 仅建议、仍可自由输入 */}
+          <datalist id="po-unit-options">
+            {["项", "次", "套", "式", "项目", "工程", "m²", "m³", "米", "工日", "人天", "月", "批", "件", "台", "套餐", "kg", "吨", "桶", "袋", "箱", "张", "瓶", "支", "盒"].map(u => <option key={u} value={u} />)}
+          </datalist>
           <div style={{
           overflowX: "auto",
           border: "1px solid var(--border)",
@@ -998,10 +1005,10 @@ export default function PurchaseOrdersPage() {
                     ...cellInp,
                     width: 70
                   }} type="number" min="0" value={it.qty} onChange={e => setItemField(idx, "qty", e.target.value)} /></td>
-                    <td style={tdStyle}><input style={{
+                    <td style={tdStyle}><input list="po-unit-options" style={{
                     ...cellInp,
                     width: 50
-                  }} value={it.unit ?? ""} onChange={e => setItemField(idx, "unit", e.target.value)} placeholder="kg" /></td>
+                  }} value={it.unit ?? ""} onChange={e => setItemField(idx, "unit", e.target.value)} placeholder="单位" /></td>
                     <td style={tdStyle}><input style={{
                     ...cellInp,
                     width: 90
