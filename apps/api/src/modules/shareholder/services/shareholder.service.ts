@@ -211,8 +211,16 @@ export class ShareholderService {
   }
 
   /** 实益出资结构（代持关系） */
-  listBeneficial(projectCode?: string) {
-    return this.beneficialRepo.find({ where: projectCode ? { projectCode } : {}, order: { projectCode: 'ASC' } });
+  // G138：受益所有人也按股东 scope 收窄——原无 user 过滤 → 股东可越权看全部公司
+  async listBeneficial(projectCode?: string, user?: { userId: string; roles: string[] }) {
+    const allowed = await this.scopeProjectIn(user);
+    let where: any = projectCode ? { projectCode } : {};
+    if (allowed !== null) {
+      const list = projectCode ? allowed.filter(c => c === projectCode) : allowed;
+      if (list.length === 0) return [];
+      where = { projectCode: In(list) };
+    }
+    return this.beneficialRepo.find({ where, order: { projectCode: 'ASC' } });
   }
 
   // ── 项目 ──────────────────────────────────────────────────────────────
@@ -263,9 +271,17 @@ export class ShareholderService {
   }
 
   // ── 股权结构 ──────────────────────────────────────────────────────────
-  listEquity(projectCode?: string) {
+  // G138：股权结构按股东 scope 收窄——原无 user 过滤 → 股东可越权看全部公司股权（宋雷实证泄漏 SHR-VTE-FOOD）
+  async listEquity(projectCode?: string, user?: { userId: string; roles: string[] }) {
+    const allowed = await this.scopeProjectIn(user);
+    let where: any = projectCode ? { projectCode } : {};
+    if (allowed !== null) {
+      const list = projectCode ? allowed.filter(c => c === projectCode) : allowed;
+      if (list.length === 0) return [];
+      where = { projectCode: In(list) };
+    }
     return this.equityRepo.find({
-      where: projectCode ? { projectCode } : {},
+      where,
       order: { projectCode: 'ASC', equityRatio: 'DESC' },
     });
   }
@@ -435,8 +451,16 @@ export class ShareholderService {
   }
 
   // ── 资本汇总只读桥接数据（Phase 2B-R2：项目总实缴 + 股东累计实缴 + 最近更新）──
-  async capitalSummary(projectCode?: string) {
-    const projects = await this.projectRepo.find({ where: projectCode ? { projectCode } : {} });
+  async capitalSummary(projectCode?: string, user?: { userId: string; roles: string[] }) {
+    // G138：资本汇总按股东 scope 收窄
+    const allowed = await this.scopeProjectIn(user);
+    let pWhere: any = projectCode ? { projectCode } : {};
+    if (allowed !== null) {
+      const list = projectCode ? allowed.filter(c => c === projectCode) : allowed;
+      if (list.length === 0) return { mode: 'READ_ONLY', note: '只读资本汇总；不生成凭证、不修改财务流水、不回写 Finance V2。', projects: [] };
+      pWhere = { projectCode: In(list) };
+    }
+    const projects = await this.projectRepo.find({ where: pWhere });
     const out = [];
     for (const p of projects) {
       const equity = await this.equityRepo.find({ where: { projectCode: p.projectCode } });
@@ -457,14 +481,25 @@ export class ShareholderService {
   }
 
   // ── Finance V2 只读桥接（Phase 2A：只读，不自动同步/改账/生成凭证）────────────
-  async financeBridge(projectCode?: string) {
+  async financeBridge(projectCode?: string, user?: { userId: string; roles: string[] }) {
+    // G138：Finance V2 桥接也按股东 scope 收窄——原无 user 过滤 → 股东可越权看全部公司股东资金
+    const allowed = await this.scopeProjectIn(user);
+    let projList: string[] | null = null;   // null=不限；[]=空(直接返回空)
+    if (allowed !== null) {
+      projList = projectCode ? allowed.filter(c => c === projectCode) : allowed;
+      if (projList.length === 0) {
+        return { mode: 'READ_ONLY', note: '只读 Finance V2 股东资金桥接（不写入、不改账）。', finRows: [], shrRows: [], shrTotal: 0, finTotal: 0 };
+      }
+    } else if (projectCode) {
+      projList = [projectCode];
+    }
     // 只读查看 Finance V2 股东资金记录（不写入、不改账）
     const finRows = await this.ds.query(
-      `SELECT * FROM fin_shareholder_contributions ${projectCode ? 'WHERE project_code = $1' : ''} ORDER BY id DESC LIMIT 200`,
-      projectCode ? [projectCode] : [],
+      `SELECT * FROM fin_shareholder_contributions ${projList ? 'WHERE project_code = ANY($1)' : ''} ORDER BY id DESC LIMIT 200`,
+      projList ? [projList] : [],
     ).catch(() => []);
     const shrRows = await this.contribRepo.find({
-      where: projectCode ? { projectCode } : {}, order: { createdAt: 'DESC' }, take: 200,
+      where: projList ? { projectCode: In(projList) } : {}, order: { createdAt: 'DESC' }, take: 200,
     });
     // UX Enhancement：只读对账聚合（不改账）。shr 侧只计 CONFIRMED；fin 侧尽力按 amount 字段求和。
     const shrTotal = shrRows
