@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import u from "@/styles/uix-utils.module.css";
-import { Plus, RefreshCw, FileText, ClipboardCheck, Trash2, Send, Eye, ChevronLeft, ChevronRight, Pencil, GitMerge, Clock } from "lucide-react";
+import { Plus, RefreshCw, ClipboardCheck, Trash2, Send, Eye, ChevronLeft, ChevronRight, Pencil, GitMerge, Clock } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
@@ -11,7 +11,7 @@ import s from "@/components/ui/admin-ui.module.css";
 import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字典
 import { CompanySelector, ProjectSelector, SupplierSelector, WarehouseSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
 import { MaterialPicker } from "@/components/shared-selectors/MaterialPicker"; // 可搜索 + 就地新建物料组合框
-import { AttachmentUploader } from "@/components/design-system"; // G4-B 合同附件
+import { AttachmentUploader, ModalV2 } from "@/components/design-system"; // G4-B 合同附件；G155 全局模态
 import { tableInputCell } from "@/components/design-system/cockpit-styles"; // G94 全局表格输入 token
 
 // G134：合同附件支持多文件——contractUrl 列改存 JSON 数组字符串；兼容历史单 url 值。
@@ -1403,50 +1403,8 @@ export default function PurchaseOrdersPage() {
 }
 
 // ── 辅助 ─────────────────────────────────────────────────────────────────────
-function SimpleModal({
-  open,
-  onClose,
-  title,
-  children
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
-  if (!open) return null;
-  return <div style={{
-    position: "fixed",
-    inset: 0,
-    background: "var(--overlay-black-50)",
-    zIndex: 1000,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center"
-  }} onClick={onClose}>
-      <div style={{
-      background: "var(--bg-card)",
-      borderRadius: 10,
-      padding: 20,
-      width: 480,
-      boxShadow: "0 8px 32px var(--overlay-black-30)",
-      maxHeight: "90vh",
-      overflowY: "auto"
-    }} onClick={e => e.stopPropagation()}>
-        <div style={{
-        fontWeight: 700,
-        fontSize: 15,
-        marginBottom: 4,
-        display: "flex",
-        alignItems: "center",
-        gap: 8
-      }}>
-          <FileText size={16} /> {title}
-        </div>
-        {children}
-      </div>
-    </div>;
-}
+// G155：本地手写 SimpleModal 下沉到全局 ModalV2（统一遮罩/头部/关闭/ESC/动画）。
+const SimpleModal = ModalV2;
 function actionLabel(a: string) {
   return ({
     SUBMIT: "提交",

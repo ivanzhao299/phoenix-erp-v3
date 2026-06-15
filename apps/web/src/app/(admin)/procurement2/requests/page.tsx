@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import u from "@/styles/uix-utils.module.css";
-import { Plus, RefreshCw, FileText, ClipboardCheck, ChevronLeft, ChevronRight, Pencil, Trash2, Send, Eye, Clock, ArrowRight } from "lucide-react";
+import { Plus, RefreshCw, ClipboardCheck, ChevronLeft, ChevronRight, Pencil, Trash2, Send, Eye, Clock, ArrowRight } from "lucide-react";
+import { ModalV2 } from "@/components/design-system"; // G155：统一全局模态，替代本地手写 SimpleModal
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
@@ -1230,48 +1231,8 @@ export default function PurchaseRequestsPage() {
 }
 
 // ── 辅助组件 ──────────────────────────────────────────────────────────────────
-function SimpleModal({
-  open,
-  onClose,
-  title,
-  children
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
-  if (!open) return null;
-  return <div style={{
-    position: "fixed",
-    inset: 0,
-    background: "var(--overlay-black-50)",
-    zIndex: 1000,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center"
-  }} onClick={onClose}>
-      <div style={{
-      background: "var(--bg-card)",
-      borderRadius: 10,
-      padding: 20,
-      width: 440,
-      boxShadow: "0 8px 32px var(--overlay-black-30)"
-    }} onClick={e => e.stopPropagation()}>
-        <div style={{
-        fontWeight: 700,
-        fontSize: 15,
-        marginBottom: 4,
-        display: "flex",
-        alignItems: "center",
-        gap: 8
-      }}>
-          <FileText size={16} /> {title}
-        </div>
-        {children}
-      </div>
-    </div>;
-}
+// G155：本地手写 SimpleModal 下沉到全局 ModalV2（统一遮罩/头部/关闭/ESC/动画）。
+const SimpleModal = ModalV2;
 function actionLabel(a: string) {
   return ({
     SUBMIT: "提交",
