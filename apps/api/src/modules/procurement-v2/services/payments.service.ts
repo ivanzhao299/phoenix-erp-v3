@@ -516,8 +516,13 @@ export class PaymentsService {
     return this.ds.transaction(async mgr => {
       const pay = await mgr.findOne(Prc2PaymentEntity, { where: { id } });
       if (!pay) throw new NotFoundException(`付款单 ID=${id} 不存在`);
+      // G144：仅"已执行付款(PAID)"不可取消；DRAFT/SUBMITTED/PENDING_APPROVAL/APPROVED（未实际出款）均可取消
+      //   —— 已审批但未付款的单据，业务上发现错误/改主意时应允许撤销，原仅允许 DRAFT/SUBMITTED 过严。
       if (pay.status === 'PAID') throw new ConflictException('已执行付款不允许取消');
-      if (!['DRAFT', 'SUBMITTED'].includes(pay.status)) throw new ConflictException(`当前状态 ${pay.status} 不允许取消`);
+      if (pay.status === 'CANCELLED') throw new ConflictException('该付款单已取消');
+      if (!['DRAFT', 'SUBMITTED', 'PENDING_APPROVAL', 'APPROVED'].includes(pay.status)) {
+        throw new ConflictException(`当前状态 ${pay.status} 不允许取消`);
+      }
       pay.status = 'CANCELLED';
       await mgr.save(Prc2PaymentEntity, pay);
       await this.writeLog(mgr, { bizType: 'PAYMENT', bizId: id, bizNo: pay.payNo, node: 'CANCEL', action: 'CANCEL', comment: dto.comment });
