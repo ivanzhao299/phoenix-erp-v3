@@ -284,7 +284,9 @@ export class PaymentsService {
         bizType:      'PAYMENT',
         bizId:        id,
         bizNo:        pay.payNo,
-        amount:       Number(pay.amountBase ?? pay.amountOriginal ?? 0),
+        // G145：?? 不拦 0——若 amountBase 存成 0 会让审批金额显示 0。改用 || 链优先取真实金额
+        //   （amountOriginal 由分摊派生、恒为正），避免赵永伟审批时看到金额 0。
+        amount:       Number(pay.amountBase) || Number(pay.amountOriginal) || 0,
         currencyCode: pay.currencyCode,
         companyCode:  pay.companyCode,
         companyName:  pay.companyName,

@@ -49,8 +49,10 @@ export class PaymentsController {
   @RequireMenu('MENU_PRC2_PAYMENT', 'A')
   approve(@Param('id') id: string, @Body() dto: ApprovePaymentDto) { return this.svc.approve(id, dto); }
 
+  // G145：执行付款(出款)是出纳/资金经理的职责，原要求 'A'(审批权)→ 刘汉涛(V,C,E)被拒。
+  //   改 'E'：申请→审批(独立人,'A')→执行(出纳,'E')；service.pay 已强制 status===APPROVED 保 SoD。
   @Post('payments/:id/pay')
-  @RequireMenu('MENU_PRC2_PAYMENT', 'A')
+  @RequireMenu('MENU_PRC2_PAYMENT', 'E')
   pay(@Param('id') id: string, @Body() dto: PayPaymentDto) { return this.svc.pay(id, dto); }
 
   @Post('payments/:id/cancel')
