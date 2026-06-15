@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Egg, Package, Archive, ShoppingCart, TrendingUp,
@@ -12,7 +13,23 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function DashboardPage() {
   const { t } = useLanguage();
+  const router = useRouter();
   const [initialData, setInitialData] = useState<Record<string, unknown>>({});
+
+  // 页面级守卫：集团总部经营驾驶舱仅 超管 / 持 MENU_FIN_AUDIT(CFO/CEO/审计) 可见。
+  //   其余角色直接 URL 访问 → 渲染前重定向到 /home（运营工作台），杜绝看到 CEO 画面。
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  useEffect(() => {
+    try {
+      const u = JSON.parse(sessionStorage.getItem('phoenix_user') || 'null');
+      const perms: string[] = u?.permissions || [];
+      const roles: string[] = u?.roles || (u?.role ? [u.role] : []);
+      const ok = perms.includes('*') || roles.includes('ROLE_ADMIN')
+        || perms.some((p: string) => p === 'MENU_FIN_AUDIT' || p.startsWith('MENU_FIN_AUDIT:'));
+      if (!ok) { router.replace('/home'); return; }
+      setAllowed(true);
+    } catch { router.replace('/home'); }
+  }, [router]);
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_API_BASE || '';
@@ -38,6 +55,9 @@ export default function DashboardPage() {
     { path: '/analytics',   label: t('ui.数据分析','数据分析'), desc: t('ui.BI 驾驶舱 / 报表','BI 驾驶舱 / 报表'),    color: 'var(--violet-500)', icon: <BarChart2 size={22} /> },
     { path: '/settings',    label: t('ui.系统设置','系统设置'), desc: t('ui.用户 / 权限 / 字典','用户 / 权限 / 字典'),   color: 'var(--slate-400)', icon: <Users size={22} /> },
   ];
+
+  // 守卫未通过（无权或正在重定向）→ 不渲染任何内容，避免 CEO 画面闪现
+  if (allowed !== true) return null;
 
   return (
     <div>
