@@ -54,8 +54,11 @@ export class CreatePaymentDto {
   @IsString()
   currencyCode: string;
 
-  @IsNumber() @IsPositive()
-  amountOriginal: number;
+  // G143：amountOriginal 不再必填——付款总金额由后端从各分摊金额合计派生（service.create 用
+  //   sumAllocations 的 totalOriginal，根本不读 dto.amountOriginal）。原 @IsPositive 必填使前端
+  //   未传（旧缓存）时在校验层就被拦，报"金额必须大于 0、必须是数字"。改可选，单一真相=分摊明细。
+  @IsOptional() @IsNumber() @IsPositive()
+  amountOriginal?: number;
 
   @IsNumber() @Min(0)
   exchangeRate: number;
