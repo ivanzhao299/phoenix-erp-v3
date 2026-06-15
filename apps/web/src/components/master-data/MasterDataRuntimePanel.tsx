@@ -54,6 +54,17 @@ const STATUS_LABEL: Record<string, { label: string; tone: StatusTone }> = {
   REJECTED:         { label: "已驳回",   tone: 'danger' },
 };
 
+// 把后端裸错误码译成面向用户的中文提示（避免页面直接甩 MENU_PERMISSION_DENIED 这类技术码）
+function friendlyError(raw: string, title: string): string {
+  const m = raw || "";
+  if (/MENU_PERMISSION_DENIED|forbidden|403/i.test(m)) {
+    return `您没有「${title}」的访问权限。如需开通，请联系系统管理员。`;
+  }
+  if (/unauthorized|401|登录/i.test(m)) return "登录已失效，请重新登录后再试。";
+  if (/network|fetch|timeout|超时/i.test(m)) return "网络异常或服务暂不可用，请稍后重试。";
+  return m || "加载失败";
+}
+
 export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
   const { type, title, codeKey, nameKey, fields, columns, objectType, onCodeClick } = props;
   const { canCreate, canEdit } = usePermission("MENU_MASTER_DATA");
@@ -75,7 +86,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
     try {
       const qs = filterStatus ? `?status=${filterStatus}` : "";
       setRows(await request<Record<string, any>[]>(`/master-data/runtime/${type}${qs}`));
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : "加载失败"); }
+    } catch (e: unknown) { setError(friendlyError(e instanceof Error ? e.message : "", title)); }
     finally { setLoading(false); }
   }, [type, filterStatus]);
 

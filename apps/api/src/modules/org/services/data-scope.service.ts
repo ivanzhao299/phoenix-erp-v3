@@ -211,6 +211,28 @@ export class DataScopeService {
               if (c.company_code) companyCodes.add(c.company_code);
             }
           }
+
+          // G125 修复：SITE/DEPT 等"公司之下"的节点 company_code 为 null，向上回溯到最近的
+          //   COMPANY 祖先，把所属公司加入范围。Why：仓库/客户/供应商等主数据**本身只有公司
+          //   维度**（无 site 列），场站/部门员工就是公司员工，对这类只到公司粒度的主数据，唯一
+          //   合理范围即公司级；且菜单权限是第一道闸（宋守江只有仓库主数据菜单，DataScope 仅在
+          //   已授权类型内做行过滤），故上卷安全。与上面"向下穿透"互补：向下治 BU/集团（公司之上），
+          //   向上治 SITE/DEPT（公司之下）。实证：宋守江(孟赛场仓储经理)仓库主数据 0→公司全量。
+          const ancestorCompany = await this.orgRepo.manager.query(`
+            WITH RECURSIVE up AS (
+              SELECT id, parent_id, company_code, org_type
+                FROM sys_organizations WHERE id = $1
+              UNION ALL
+              SELECT o.id, o.parent_id, o.company_code, o.org_type
+                FROM sys_organizations o JOIN up ON o.id = up.parent_id
+            )
+            SELECT company_code FROM up
+            WHERE company_code IS NOT NULL AND org_type = 'COMPANY'
+            LIMIT 1
+          `, [row.org_id]);
+          for (const c of ancestorCompany) {
+            if (c.company_code) companyCodes.add(c.company_code);
+          }
         }
       }
     }
