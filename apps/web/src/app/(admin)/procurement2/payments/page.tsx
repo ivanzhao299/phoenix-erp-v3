@@ -100,6 +100,10 @@ const STATUS_MAP: Record<string, {
     label: "待审批",
     cls: "badgeInfo"
   },
+  PENDING_APPROVAL: {       // G147：后端 submit 实际置此状态（原映射只有 SUBMITTED → 提交后显示裸英文+无操作）
+    label: "待审批",
+    cls: "badgeInfo"
+  },
   APPROVED: {
     label: "已审批",
     cls: "badgeWarning"
@@ -674,7 +678,7 @@ export default function PaymentsPage() {
                             <Send size={13} />
                           </button>
                         </>}
-                      {row.status === "SUBMITTED" && <Link href="/workflow/todos" className={s.btnIcon} title="审批请前往『工作流·待办』" style={{
+                      {(row.status === "SUBMITTED" || row.status === "PENDING_APPROVAL") && <Link href="/workflow/todos" className={s.btnIcon} title="审批请前往『工作流·待办』" style={{
                       borderColor: "var(--status-info, var(--status-success))",
                       color: "var(--status-info, var(--status-success))",
                       display: "inline-flex",
@@ -688,7 +692,7 @@ export default function PaymentsPage() {
                   }} onClick={() => openPay(row)}>
                           <PlayCircle size={13} />
                         </button>}
-                      {(row.status === "DRAFT" || row.status === "SUBMITTED") && <button className={s.btnIconDanger} title="取消" onClick={() => openCancel(row)}>
+                      {(row.status === "DRAFT" || row.status === "SUBMITTED" || row.status === "PENDING_APPROVAL" || row.status === "APPROVED") && <button className={s.btnIconDanger} title="取消" onClick={() => openCancel(row)}>
                           <Trash2 size={13} />
                         </button>}
                     </div>
