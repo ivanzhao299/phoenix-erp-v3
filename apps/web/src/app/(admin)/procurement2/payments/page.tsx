@@ -133,6 +133,18 @@ const PAYER_TYPE_OPTS: {
   value: "INTERNAL",
   label: "内部"
 }];
+// G148：付款方/付款方式枚举的中文映射——列表展示统一显示中文（与 FIN_PAYER_TYPE /
+//   PRC_PAYMENT_METHOD 字典一致）。英文枚举码保留在数据层，等做国际化时再切多语言。
+const PAYER_TYPE_LABEL: Record<string, string> = Object.fromEntries(
+  PAYER_TYPE_OPTS.map(t => [t.value, t.label])
+);
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  BANK: "银行转账",
+  TRANSFER: "转账",
+  CASH: "现金",
+  ALIPAY: "支付宝",
+  WECHAT: "微信"
+};
 // G4-A：PAY_METHOD_OPTS / FUND_NATURE_OPTS / CURRENCY_OPTS 已下沉至 sys_dict
 // (PRC_PAYMENT_METHOD / FIN_FUND_NATURE / SYS_CURRENCY)，通过 <DictSelect> 加载。
 const API_PAY = "/api/v2/procurement/payments";
@@ -639,7 +651,7 @@ export default function PaymentsPage() {
                   <td className={u.nowrap}>{fmtDate(row.paymentDate)}</td>
                   <td>{row.companyCode ?? "—"}</td>
                   <td className={u.fs11}>
-                    <span className={`${s.badge} ${s.badgeNeutral}`}>{row.payerType}</span>
+                    <span className={`${s.badge} ${s.badgeNeutral}`}>{PAYER_TYPE_LABEL[row.payerType] ?? row.payerType}</span>
                   </td>
                   <td>{row.payerName}</td>
                   <td>{row.currencyCode}</td>
@@ -653,7 +665,7 @@ export default function PaymentsPage() {
                   <td style={{
                 fontVariantNumeric: "tabular-nums"
               }}>{row.exchangeRate}</td>
-                  <td>{row.paymentMethod ?? "—"}</td>
+                  <td>{row.paymentMethod ? (PAYMENT_METHOD_LABEL[row.paymentMethod] ?? row.paymentMethod) : "—"}</td>
                   <td><span className={`${s.badge} ${s[st.cls]}`}>{st.label}</span></td>
                   <td className={u.tac}>
                     {row.isShareholderPayment && <span className={`${s.badge} ${s.badgeWarning}`}>股东</span>}
