@@ -23,9 +23,9 @@ export function ConfirmDialogV2({
   danger, loading, onConfirm, onCancel,
 }: ConfirmDialogV2Props) {
   const btn = (bg: string, fg: string, border?: string): React.CSSProperties => ({
-    padding: '8px 18px', borderRadius: 'var(--radius-md)', border: border || 'none',
-    background: bg, color: fg, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', fontSize: 13,
-    opacity: loading ? 0.6 : 1,
+    padding: '9px 22px', borderRadius: 10, border: border || 'none',
+    background: bg, color: fg, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', fontSize: 13.5,
+    opacity: loading ? 0.6 : 1, transition: 'filter .15s',
   });
   return (
     <ModalV2

@@ -77,7 +77,7 @@ const API_ORDERS = "/api/v2/procurement/orders";
 const emptyItem = (): OrderItem => ({
   itemName: "",
   qty: "",
-  unit: "kg",
+  unit: "",
   unitPrice: "",
   amount: ""
 });

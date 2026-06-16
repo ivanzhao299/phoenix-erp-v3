@@ -34,29 +34,30 @@ export function ModalV2({ open, title, width = 520, onClose, children, footer, c
     <div
       onClick={(e) => { if (closeOnBackdrop && e.target === e.currentTarget) onClose(); }}
       style={{
-        position: 'fixed', inset: 0, background: 'var(--overlay-black-45)', zIndex: 1000,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+        zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
         animation: 'phx-fade-in .15s ease',
       }}
     >
       <div
         style={{
-          background: 'var(--bg-card)', color: 'var(--text-primary)', borderRadius: 'var(--radius-lg)',
+          background: 'var(--bg-card)', color: 'var(--text-primary)', borderRadius: 16,
           width, maxWidth: '95vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column',
-          border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)', overflow: 'hidden',
+          border: '1px solid var(--border)', boxShadow: '0 24px 80px rgba(0,0,0,0.28), 0 8px 24px rgba(0,0,0,0.12)', overflow: 'hidden',
           animation: 'phx-zoom-in .18s var(--ease-spring, ease)',
         }}
       >
         {title && (
-          <div style={{ display: 'flex', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-primary)' }}>{title}</div>
-            <button onClick={onClose} style={{ marginLeft: 'auto', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex' }}>
+          <div style={{ display: 'flex', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{title}</div>
+            <button onClick={onClose} title="关闭" style={{ marginLeft: 'auto', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 8, background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)', transition: 'background .15s' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-muted)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
               <X size={18} />
             </button>
           </div>
         )}
-        <div style={{ padding: 18, overflowY: 'auto', flex: 1 }}>{children}</div>
-        {footer && <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '12px 18px', borderTop: '1px solid var(--border)' }}>{footer}</div>}
+        <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>{children}</div>
+        {footer && <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, padding: '16px 24px', borderTop: '1px solid var(--border)' }}>{footer}</div>}
       </div>
     </div>,
     document.body,

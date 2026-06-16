@@ -61,7 +61,7 @@ const API_BASE = "/api/v2/procurement/requests";
 const emptyItem = (): ReqItem => ({
   itemName: "",
   qty: "",
-  unit: "kg",
+  unit: "",
   estimatedUnitPrice: "",
   estimatedAmount: ""
 });
