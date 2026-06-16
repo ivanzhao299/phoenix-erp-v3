@@ -721,14 +721,19 @@ export default function ShareholderFundsPage() {
             currencyCode: v
           }))} allowEmpty={false} />
           </label>
+          {/* G164：CTA 加宽更舒展（原按钮太小） */}
           <button className={s.btnPrimary} onClick={handleCreate} disabled={submitting} style={{
-          marginTop: 8,
+          marginTop: 12,
+          width: "100%",
+          padding: "11px 18px",
+          fontSize: 14,
+          fontWeight: 600,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           gap: 6
         }}>
-            <Plus size={14} /> {submitting ? "保存中…" : "保存为草稿"}
+            <Plus size={15} /> {submitting ? "保存中…" : "保存为草稿"}
           </button>
         </div>}
       </RightDrawer>

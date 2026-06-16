@@ -1,10 +1,14 @@
 'use client';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 /**
  * ModalV2 — 居中模态（表单/详情用）。统一标题/关闭/暗色/ESC/点遮罩关闭。
  * 取代页面手写 overlay（position:fixed;inset:0）。
+ * G164：createPortal 到 document.body —— position:fixed 一旦有祖先含 transform/filter/
+ *   will-change（页面入场动画、卡片动画等）就会以该祖先为包含块，弹窗跑偏到页面下方不居中。
+ *   挂到 body 顶层即恒以视口为基准，居中稳定。
  */
 export interface ModalV2Props {
   open: boolean;
@@ -17,14 +21,16 @@ export interface ModalV2Props {
 }
 
 export function ModalV2({ open, title, width = 520, onClose, children, footer, closeOnBackdrop = true }: ModalV2Props) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
-  if (!open) return null;
-  return (
+  if (!open || !mounted) return null;
+  return createPortal(
     <div
       onClick={(e) => { if (closeOnBackdrop && e.target === e.currentTarget) onClose(); }}
       style={{
@@ -52,6 +58,7 @@ export function ModalV2({ open, title, width = 520, onClose, children, footer, c
         <div style={{ padding: 18, overflowY: 'auto', flex: 1 }}>{children}</div>
         {footer && <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '12px 18px', borderTop: '1px solid var(--border)' }}>{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
