@@ -195,24 +195,47 @@ export class ChanjetAuthService implements OnModuleInit {
     return json;
   }
 
-  /** 调用好业财业务 API */
-  async callApi<T = unknown>(module: string, action: string, body: Record<string, unknown> = {}, orgId?: string): Promise<T> {
-    const token = await this.getOpenToken(orgId);
-    const url = `https://openapi.chanjet.com/tplus/api/v2/${module}/${action}`;
+  /**
+   * 调用好业财业务 API（开放平台路径体系：/accounting/openapi/cc/...）。
+   * @param path  完整接口路径，如 `/accounting/openapi/cc/party/custvendor/query/{bookid}`
+   *              （{bookid} 用 listAccountBooks() 返回的 tenant.id 替换）
+   * @param opts  method 默认 POST；GET 用 query，POST 用 body
+   */
+  async callApi<T = unknown>(
+    path: string,
+    opts: { method?: 'GET' | 'POST'; query?: Record<string, string>; body?: Record<string, unknown>; orgId?: string } = {},
+  ): Promise<T> {
+    const token = await this.getOpenToken(opts.orgId);
+    let url = `https://openapi.chanjet.com${path}`;
+    if (opts.query && Object.keys(opts.query).length) {
+      url += `?${new URLSearchParams(opts.query).toString()}`;
+    }
+    const method = opts.method ?? 'POST';
+    this.log.debug(`${method} ${url}`);
 
-    this.log.debug(`POST ${url}`);
     const res = await fetch(url, {
-      method: 'POST',
+      method,
       headers: {
         'Content-Type': 'application/json',
         appKey: this.appKey,
         appSecret: this.appSecret,
         openToken: token,
       },
-      body: JSON.stringify(body),
+      ...(method === 'POST' ? { body: JSON.stringify(opts.body ?? {}) } : {}),
     });
-    const json = await res.json();
-    return json as T;
+    return (await res.json()) as T;
+  }
+
+  /**
+   * 查询当前企业下的账套列表（好业财 bookid 来源）。
+   * 返回数组，每项 tenant.id 即业务接口路径中的 {bookid}。
+   */
+  async listAccountBooks(orgId?: string): Promise<unknown> {
+    return this.callApi('/accounting/openapi/cc/book/findByEnterpriseId', {
+      method: 'GET',
+      query: { queryType: 'BINDING_TO_THIRD_PLATFORM' },
+      orgId,
+    });
   }
 
   /** 诊断：返回当前认证链状态 */

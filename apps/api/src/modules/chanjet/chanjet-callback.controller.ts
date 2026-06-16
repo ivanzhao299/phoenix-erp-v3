@@ -155,13 +155,13 @@ export class ChanjetCallbackController {
 
   /**
    * GET /api/chanjet/test-api
-   * 管理员手动调用好业财科目列表接口验证连通性。
+   * 管理员手动调用好业财账套列表接口验证连通性（全链路实证）。
    */
   @Get('test-api')
   @RequireMenu('MENU_SYSTEM', 'V')
   async testApi() {
     try {
-      const result = await this.auth.callApi('Account', 'Query', { pageIndex: 1, pageSize: 3 });
+      const result = await this.auth.listAccountBooks();
       return { success: true, result };
     } catch (e) {
       return { success: false, error: (e as Error).message };
