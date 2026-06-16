@@ -660,7 +660,7 @@ function SummaryTab({
     { label: '已结算', value: `¥ ${fmt(summary.settledAmountOriginal)}`, color: 'var(--status-success)' },
     { label: '未结余额', value: `¥ ${fmt(summary.balanceAmountOriginal)}`, color: 'var(--status-danger)' },
     { label: '已确认笔数', value: `${summary.confirmedContributions} 笔`, color: 'var(--color-accent)' },
-    { label: '待确认', value: `${summary.pendingConfirmations} 笔`, color: 'var(--status-warning)' },
+    { label: '待处理（含草稿）', value: `${summary.pendingConfirmations} 笔`, color: 'var(--status-warning)' },
   ];
   return <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginBottom: 24 }}>
@@ -763,7 +763,7 @@ export default function ShareholderFundsPage() {
         setSummary({
           totalContributions:    Number(t.total_count ?? 0),
           confirmedContributions: cntOf(['CONFIRMED', 'ACTIVE', 'SETTLED']),
-          pendingConfirmations:   cntOf(['PENDING_CONFIRM', 'PENDING_CONFIRMATION', 'PENDING', 'DRAFT']),
+          pendingConfirmations:   cntOf(['PENDING_CONFIRM', 'PENDING_CONFIRMATION', 'PENDING']) + cntOf(['DRAFT']),
           totalAmountOriginal:    Number(t.total_amount_original ?? 0),
           settledAmountOriginal:  Number(t.total_settled ?? 0),
           balanceAmountOriginal:  Number(t.total_balance ?? 0),
@@ -880,6 +880,9 @@ export default function ShareholderFundsPage() {
             {[{
               k: '',
               v: '全部'
+            }, {
+              k: 'DRAFT',
+              v: '草稿'
             }, {
               k: 'PENDING_CONFIRM',
               v: '待确认'

@@ -165,7 +165,7 @@ export class ShareholderContributionsService {
       ]),
     ]);
 
-    return { items, total: Number(countRow[0]?.total ?? 0), page, pageSize };
+    return { items: this.snakeToCamel(items), total: Number(countRow[0]?.total ?? 0), page, pageSize };
   }
 
   // ── 单条详情（含 settlements） ────────────────────────────────────────────
@@ -182,7 +182,11 @@ export class ShareholderContributionsService {
     );
     if (!row) throw new NotFoundException(`股东出资 ID=${id} 不存在`);
     this.assertOwnership(row.company_code, user);
-    return row;
+    const [camel] = this.snakeToCamel([row]);
+    if (Array.isArray(camel.settlements)) {
+      camel.settlements = this.snakeToCamel(camel.settlements as Record<string, unknown>[]);
+    }
+    return camel;
   }
 
   // ── 采购股东代付自动入账（G85-B：付款执行时同事务调用） ─────────────────────
@@ -567,5 +571,16 @@ export class ShareholderContributionsService {
       byType,
       byStatus,
     };
+  }
+
+  // raw SQL 返回 snake_case 列名，前端期望 camelCase → 统一转换
+  private snakeToCamel(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+    return rows.map(r => {
+      const o: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(r)) {
+        o[k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())] = v;
+      }
+      return o;
+    });
   }
 }
