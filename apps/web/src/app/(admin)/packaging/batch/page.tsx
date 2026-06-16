@@ -4,7 +4,7 @@ import u from "@/styles/uix-utils.module.css";
 /**
  * 成品批次生成 — V3 复刻 V2 phoenix-frontend BatchGeneration.jsx 三步向导
  */
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle, Package, Printer, RefreshCw } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
@@ -142,11 +142,11 @@ function BatchGenerationPage() {
     loadTasks();
   };
 
-  const STEP_LABELS = [
+  const STEP_LABELS = useMemo(() => [
     t("ui.锁定分级任务","锁定分级任务"),
     t("ui.校准等级清单","校准等级清单"),
     t("ui.落账并下发标签","落账并下发标签"),
-  ];
+  ], [t]);
 
   return (
     <div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useToast } from '@/contexts/ToastContext';
 import u from "@/styles/uix-utils.module.css";
 import { Wallet, Plus, Search, RefreshCw, Lock, Unlock, X, TrendingUp, TrendingDown, DollarSign, Activity, Pencil, ArrowLeftRight, Trash2 } from 'lucide-react';
@@ -515,8 +515,8 @@ function TransactionDrawer({
   }, [account.id]);
   useEffect(() => { void loadTxns(); }, [loadTxns]);
   // 同币种、非本账户、未关闭 → 可作为改挂目标
-  const reassignTargets = accounts.filter(a =>
-    a.id !== account.id && a.currency_code === account.currency_code && a.status !== 'CLOSED');
+  const reassignTargets = useMemo(() => accounts.filter(a =>
+    a.id !== account.id && a.currency_code === account.currency_code && a.status !== 'CLOSED'), [accounts, account.id, account.currency_code]);
   async function doReassign(txnId: string) {
     if (!reassignTarget) { alert('请选择目标账户'); return; }
     setReassigning(true);
@@ -800,13 +800,13 @@ export default function CashAccountsPage() {
     }
   }
   // 账户总余额跨币种，单一符号会误导(USD/THB 账户被当人民币)。按币种分组展示。
-  const totalBalanceDisplay = (() => {
+  const totalBalanceDisplay = useMemo(() => {
     const rows = (summary?.byCurrency ?? []).filter(r => Number(r.balance) !== 0 || Number(r.cnt) > 0);
     if (rows.length === 0) return fmt(summary?.totalBalance ?? 0);
     return rows
       .map(r => `${currencySymbol(r.currency_code)}${fmt(r.balance)}`)
       .join('  /  ');
-  })();
+  }, [summary]);
   return <div>
       <PageHeader title="资金账户中心" subtitle="资金账户管理 · 流水账本 · 转账审批" breadcrumb={['财务管理', '资金账户']} actions={
         <div style={{ display: 'flex', gap: 8 }}>
@@ -1097,11 +1097,11 @@ function ManualTxnModal({ direction, accounts, onClose, onCreated }: {
   // 账户很多 → 可搜索组合框（按账户名/编号/币种过滤），取代长下拉
   const [acctSearch, setAcctSearch] = useState('');
   const [acctOpen, setAcctOpen] = useState(false);
-  const activeAccounts = accounts.filter(a => a.status === 'ACTIVE');
-  const acctFiltered = acctSearch.trim()
+  const activeAccounts = useMemo(() => accounts.filter(a => a.status === 'ACTIVE'), [accounts]);
+  const acctFiltered = useMemo(() => acctSearch.trim()
     ? activeAccounts.filter(a => `${a.account_name} ${a.account_code} ${a.currency_code}`.toLowerCase().includes(acctSearch.trim().toLowerCase()))
-    : activeAccounts;
-  const selectedAcct = activeAccounts.find(a => a.account_code === accountCode);
+    : activeAccounts, [activeAccounts, acctSearch]);
+  const selectedAcct = useMemo(() => activeAccounts.find(a => a.account_code === accountCode), [activeAccounts, accountCode]);
 
   const label = direction === 'IN' ? '收款' : '付款';
   const color = direction === 'IN' ? 'var(--status-success)' : 'var(--status-danger)';

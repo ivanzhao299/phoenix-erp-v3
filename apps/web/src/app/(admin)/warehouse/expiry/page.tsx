@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -137,7 +137,7 @@ export default function ExpiryAlertPage() {
   }, [confirm]);
 
   // ✅ KPI 数组：用 cardCls/valCls 替代 color/bg hex 字符串
-  const KPI_COUNTS = [{
+  const KPI_COUNTS = useMemo(() => [{
     label: t("ui.3天到期", "3天到期"),
     val: alerts.filter(a => a.severity === 'critical').length,
     cardCls: s.statCardDanger,
@@ -157,7 +157,7 @@ export default function ExpiryAlertPage() {
     val: alerts.length,
     cardCls: s.statCardPrimary,
     valCls: s.statValue
-  }];
+  }], [alerts, t]);
   return <div className="animate-fade-in">
       <PageHeader title={t("ui.临期预警", "临期预警")} subtitle={t("ui.保质期即将到期批次预警管理FEFO先到期先出策略", "保质期即将到期批次预警管理（FEFO 先到期先出策略）")} breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.临期预警", "临期预警")]} actions={<button type="button" className={s.btnSecondary} onClick={loadAlerts} disabled={loading}>
             <RefreshCw size={14} style={{

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { AlertTriangle, CheckCircle, Clock, RefreshCw, Plus } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -73,15 +73,15 @@ export default function NonconformancePage() {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json"
   };
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     crudApi.list<NCRow>("qa_non_conformance", {
       limit: 200
     }).then(res => setData(res.data || [])).catch(() => {}).finally(() => setLoading(false));
-  };
+  }, []);
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
   const open = data.filter(r => (r.status || "").toUpperCase() !== "CLOSED").length;
   const closed = data.filter(r => (r.status || "").toUpperCase() === "CLOSED").length;
   const high = data.filter(r => r.severity === "HIGH" || r.severity === "CRITICAL").length;

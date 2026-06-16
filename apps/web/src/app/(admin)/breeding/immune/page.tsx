@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 interface ImmunePlan {
   id?: unknown;
   batchNo?: unknown;
@@ -285,11 +285,11 @@ export default function ImmunePage() {
     SCHEDULED: t('ui.已计划', '已计划'),
     DONE: t('status.done', '已完成')
   };
-  const filteredData = filter === 'all' ? plans : plans.filter(p => normStatus(p.status) === filter);
-  const overdueCnt = plans.filter(p => normStatus(p.status) === 'OVERDUE').length;
-  const pendingCnt = plans.filter(p => normStatus(p.status) === 'PENDING').length;
-  const scheduledCnt = plans.filter(p => normStatus(p.status) === 'SCHEDULED').length;
-  const doneCnt = plans.filter(p => normStatus(p.status) === 'DONE').length;
+  const filteredData = useMemo(() => filter === 'all' ? plans : plans.filter(p => normStatus(p.status) === filter), [plans, filter]);
+  const overdueCnt = useMemo(() => plans.filter(p => normStatus(p.status) === 'OVERDUE').length, [plans]);
+  const pendingCnt = useMemo(() => plans.filter(p => normStatus(p.status) === 'PENDING').length, [plans]);
+  const scheduledCnt = useMemo(() => plans.filter(p => normStatus(p.status) === 'SCHEDULED').length, [plans]);
+  const doneCnt = useMemo(() => plans.filter(p => normStatus(p.status) === 'DONE').length, [plans]);
   const columns = [{
     key: 'batchNo',
     title: t('ui.鸡群批次', '鸡群批次'),

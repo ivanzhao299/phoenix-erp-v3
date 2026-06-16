@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { RefreshCw, CheckCircle, Lock, AlertTriangle, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { usePermission } from "@/hooks/usePermission";
@@ -116,7 +116,7 @@ export default function CustomerCreditPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -135,11 +135,11 @@ export default function CustomerCreditPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
   if (!canView) {
     return (
@@ -150,9 +150,16 @@ export default function CustomerCreditPage() {
   }
 
   // 统计
-  const normalCount = customers.filter((c) => getCreditStatus(c).label === "正常").length;
-  const frozenCount = customers.filter((c) => getCreditStatus(c).label === "冻结").length;
-  const warnCount = customers.filter((c) => getCreditStatus(c).label === "预警").length;
+  const { normalCount, frozenCount, warnCount } = useMemo(() => {
+    let normal = 0, frozen = 0, warn = 0;
+    for (const c of customers) {
+      const label = getCreditStatus(c).label;
+      if (label === "正常") normal++;
+      else if (label === "冻结") frozen++;
+      else if (label === "预警") warn++;
+    }
+    return { normalCount: normal, frozenCount: frozen, warnCount: warn };
+  }, [customers]);
 
   return (
     <div>

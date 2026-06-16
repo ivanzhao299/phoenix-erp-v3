@@ -2,7 +2,7 @@
 
 import type { FarmRow } from '@/types';
 import u from "@/styles/uix-utils.module.css";
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 interface HouseCard {
   id: string | number;
   dbId?: unknown;
@@ -223,10 +223,10 @@ export default function HenHousePage() {
       loadData();
     }
   };
-  const filtered = farmFilter === 'all' ? housesList : housesList.filter(h => h.farmName === farmFilter);
-  const totalCurrent = housesList.reduce((s, h) => s + (Number(h.current) || 0), 0);
-  const normalCount = housesList.filter(h => h.status === 'normal').length;
-  const warnCount = housesList.filter(h => h.status === 'warning').length;
+  const filtered = useMemo(() => farmFilter === 'all' ? housesList : housesList.filter(h => h.farmName === farmFilter), [housesList, farmFilter]);
+  const totalCurrent = useMemo(() => housesList.reduce((s, h) => s + (Number(h.current) || 0), 0), [housesList]);
+  const normalCount = useMemo(() => housesList.filter(h => h.status === 'normal').length, [housesList]);
+  const warnCount = useMemo(() => housesList.filter(h => h.status === 'warning').length, [housesList]);
   const columns = [{
     key: 'name',
     title: t('ui.鸡舍', '鸡舍'),

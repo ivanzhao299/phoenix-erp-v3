@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from "next/navigation";
 import { ShoppingCart, Package, AlertTriangle, TrendingUp, RefreshCw } from "lucide-react";
@@ -70,7 +70,7 @@ export default function StorePage() {
     desc: t("ui.破损临期损耗记录", "破损·临期损耗记录"),
     color: "var(--status-danger)"
   }];
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     Promise.all([crudApi.list<PosSale>("pos_sales", {
       limit: 200
@@ -83,18 +83,18 @@ export default function StorePage() {
       setReceiving(r.data || []);
       setBatches(b.data || []);
     }).catch(() => {}).finally(() => setLoading(false));
-  };
+  }, []);
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
   const today = new Date().toISOString().slice(0, 10);
   const in7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
   const todaySales = useMemo(() => sales.filter(s => (s.created_at || "").slice(0, 10) === today), [sales, today]);
   // B1: 优先 net_amount (实收) 兜底 total_amount；旧 amount 字段 DB 不存在
-  const todayRevenue = todaySales.reduce((sum, s) => sum + (Number(s.net_amount) || Number(s.total_amount) || 0), 0);
-  const pendingRecv = receiving.filter(r => r.status === "PENDING").length;
-  const lowStock = batches.filter(b => Number(b.qty || 0) < 50).length;
-  const nearExpiry = batches.filter(b => b.expire_date && b.expire_date <= in7 && b.expire_date >= today).length;
+  const todayRevenue = useMemo(() => todaySales.reduce((sum, s) => sum + (Number(s.net_amount) || Number(s.total_amount) || 0), 0), [todaySales]);
+  const pendingRecv = useMemo(() => receiving.filter(r => r.status === "PENDING").length, [receiving]);
+  const lowStock = useMemo(() => batches.filter(b => Number(b.qty || 0) < 50).length, [batches]);
+  const nearExpiry = useMemo(() => batches.filter(b => b.expire_date && b.expire_date <= in7 && b.expire_date >= today).length, [batches, in7, today]);
   const kpis = [{
     label: t("ui.今日销售额", "今日销售额"),
     value: loading ? "…" : `¥${todayRevenue.toLocaleString()}`,

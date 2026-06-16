@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import u from "@/styles/uix-utils.module.css";
 import { inputField } from "@/components/design-system/cockpit-styles"; // G94 全局输入框唯一真相源
 interface PdaTerminal {
@@ -247,11 +247,11 @@ export default function PdaTerminalPage() {
       enabled_modules: p.enabled_modules.includes(id) ? p.enabled_modules.filter((m: string) => m !== id) : [...p.enabled_modules, id]
     }));
   };
-  const stats = {
+  const stats = useMemo(() => ({
     online: terminals.filter(t => t.online && t.status === "active").length,
     offline: terminals.filter(t => !t.online && t.status === "active").length,
     pending: terminals.filter(t => t.status === "pending").length
-  };
+  }), [terminals]);
   return <div className="animate-fade-in">
       <PageHeader title={t('ui.PDA终端管理', 'PDA 终端管理')} subtitle={t('ui.注册并管理所有PDA手持终端设备', '注册并管理所有 PDA 手持终端设备')} breadcrumb={[t('ui.系统设置', '系统设置'), t('ui.PDA终端管理', 'PDA终端管理')]} />
 

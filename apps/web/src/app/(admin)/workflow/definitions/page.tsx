@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -26,10 +26,10 @@ export default function WorkflowDefinitionsPage() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const template = useMemo(() => FLOW_TEMPLATES.find(item => item.key === selectedTemplate) || FLOW_TEMPLATES[0], [selectedTemplate]);
-  const load = () => workflowApi.definitions().then(res => setRows(res.data || []));
+  const load = useCallback(() => workflowApi.definitions().then(res => setRows(res.data || [])), []);
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
   function openFromTemplate(nextTemplate: WorkflowTemplate = FLOW_TEMPLATES[0]) {
     setSource(null);
     setSelectedTemplate(nextTemplate.key);

@@ -6,7 +6,7 @@
  * · 模块卡使用 bg-bg-card + accent token
  * · 告警条使用 bg-danger/10、bg-warning/10
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   TrendingDown, TrendingUp, Wallet, Users,
@@ -157,7 +157,7 @@ export default function Finance2DashboardPage() {
   const [loading,        setLoading]        = useState(true);
   const [error,          setError]          = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -201,7 +201,7 @@ export default function Finance2DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => { void load(); }, []);
 

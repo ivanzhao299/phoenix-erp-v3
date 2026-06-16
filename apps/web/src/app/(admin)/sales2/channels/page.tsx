@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import { RefreshCw, Store, Truck, UserCheck, ShoppingBag, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
@@ -100,7 +100,7 @@ export default function SalesChannelsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     setChannelsError(false);
@@ -139,11 +139,11 @@ export default function SalesChannelsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
   if (!canView) {
     return (

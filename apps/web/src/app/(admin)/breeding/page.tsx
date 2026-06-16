@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from "next/navigation";
 import { Home, Layers, Users, BookOpen, ClipboardList, Droplets, AlertTriangle, BarChart2, Trash2, Wifi, ArrowUpRight, Settings, Wheat, FileBarChart, Package } from "lucide-react";
@@ -121,7 +121,7 @@ export default function BreedingPage() {
     offlineDevices: 0
   });
   const [farmEnvMap, setFarmEnvMap] = useState<Record<string, FarmEnv>>({});
-  const loadData = async (cancelled?: {
+  const loadData = useCallback(async (cancelled?: {
     v: boolean;
   }) => {
     const today = new Date().toISOString().slice(0, 10);
@@ -315,7 +315,7 @@ export default function BreedingPage() {
       });
       setFarmEnvMap(final);
     });
-  };
+  }, [t]);
   useEffect(() => {
     const cancelled = {
       v: false
@@ -375,9 +375,11 @@ export default function BreedingPage() {
       toast.error(err instanceof Error ? err.message : t('ui.删除失败', '删除失败'));
     }
   };
-  const totalBirds = farms.reduce((s, f) => s + (Number(f.totalBirds) || 0), 0);
-  const withdrawalCount = alerts.filter(a => a.label === t('ui.停药期预警', '停药期预警')).length;
-  const immuneCount = alerts.filter(a => a.label === t('ui.免疫计划', '免疫计划')).length;
+  const totalBirds = useMemo(() => farms.reduce((s, f) => s + (Number(f.totalBirds) || 0), 0), [farms]);
+  const withdrawalLabel = t('ui.停药期预警', '停药期预警');
+  const immuneLabel = t('ui.免疫计划', '免疫计划');
+  const withdrawalCount = useMemo(() => alerts.filter(a => a.label === withdrawalLabel).length, [alerts, withdrawalLabel]);
+  const immuneCount = useMemo(() => alerts.filter(a => a.label === immuneLabel).length, [alerts, immuneLabel]);
   const statusColor = (type: string) => ({
     danger: "var(--status-danger)",
     warning: "var(--status-warning)",

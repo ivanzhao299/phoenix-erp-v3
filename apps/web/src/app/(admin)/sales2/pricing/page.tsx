@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import u from "@/styles/uix-utils.module.css";
 import { BookOpen, List, Zap, AlertTriangle, Plus, RefreshCw, Search, X, Info, Layers } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
@@ -565,14 +565,14 @@ function PriceItemsTab() {
   const [errorMsg, setErrorMsg] = useState("");
 
   // 动态 grade 和 spec 选项（从主数据 API 加载，fallback 旧值集）
-  const gradeOptions = master.grades.length > 0 ? master.grades.filter(g => g.status === "ACTIVE").map(g => ({
+  const gradeOptions = useMemo(() => master.grades.length > 0 ? master.grades.filter(g => g.status === "ACTIVE").map(g => ({
     value: g.grade_code,
     label: `${g.grade_name} (${g.grade_code})`
   })) : Object.entries(LEGACY_GRADE_NAMES).map(([v, l]) => ({
     value: v,
     label: l
-  }));
-  const specOptions = master.specs.length > 0 ? master.specs.filter(sp => sp.status === "ACTIVE").map(sp => ({
+  })), [master.grades]);
+  const specOptions = useMemo(() => master.specs.length > 0 ? master.specs.filter(sp => sp.status === "ACTIVE").map(sp => ({
     value: sp.spec_code,
     label: `${sp.spec_name} (${sp.spec_code})`
   })) : [{
@@ -584,7 +584,7 @@ function PriceItemsTab() {
   }, {
     value: "BOX360",
     label: "360枚/箱 (BOX360)"
-  }];
+  }], [master.specs]);
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -712,13 +712,13 @@ function PriceItemsTab() {
   const totalPages = Math.ceil(total / limit);
 
   // 用于筛选器 Grade 下拉
-  const allGradeOptions = [...Object.entries(LEGACY_GRADE_NAMES).map(([v, l]) => ({
+  const allGradeOptions = useMemo(() => [...Object.entries(LEGACY_GRADE_NAMES).map(([v, l]) => ({
     value: v,
     label: l
   })), ...master.grades.filter(g => !LEGACY_GRADE_NAMES[g.grade_code]).map(g => ({
     value: g.grade_code,
     label: `${g.grade_name} (${g.grade_code})`
-  }))];
+  }))], [master.grades]);
   // G94：并入全局输入框唯一真相源（取代本页自定义 高34·0/10·13）
   const inp: React.CSSProperties = inputField;
   const lbl: React.CSSProperties = {
@@ -1095,16 +1095,16 @@ function CurrentPricesTab() {
   useEffect(() => {
     load();
   }, [load]);
-  const filtered = gradeFilter ? rows.filter(r => (r.gradeCodeStd ?? r.gradeCode) === gradeFilter) : rows;
+  const filtered = useMemo(() => gradeFilter ? rows.filter(r => (r.gradeCodeStd ?? r.gradeCode) === gradeFilter) : rows, [rows, gradeFilter]);
 
   // 合并新旧 grade code 作为筛选器选项
-  const filterGradeOptions = [...master.grades.filter(g => g.status === "ACTIVE").map(g => ({
+  const filterGradeOptions = useMemo(() => [...master.grades.filter(g => g.status === "ACTIVE").map(g => ({
     value: g.grade_code,
     label: `${g.grade_name} (${g.grade_code})`
   })), ...Object.entries(LEGACY_GRADE_NAMES).filter(([v]) => !master.grades.find(g => g.grade_code === v)).map(([v, l]) => ({
     value: v,
     label: l
-  }))];
+  }))], [master.grades]);
   return <div>
       <div style={{
       display: "flex",

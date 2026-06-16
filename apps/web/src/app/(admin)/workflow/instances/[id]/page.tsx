@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
@@ -33,9 +33,9 @@ export default function WorkflowInstanceDetailPage() {
       setCanceling(false);
     }
   }
-  const tasks = data?.tasks || [];
-  const runningTasks = tasks.filter(task => String(task.status) === "TODO");
-  const insight = data ? buildInstanceInsight(data, tasks) : null;
+  const tasks = useMemo(() => data?.tasks || [], [data]);
+  const runningTasks = useMemo(() => tasks.filter(task => String(task.status) === "TODO"), [tasks]);
+  const insight = useMemo(() => data ? buildInstanceInsight(data, tasks) : null, [data, tasks]);
   return <div>
       <PageHeader title="流程详情" subtitle={data?.title || ""} breadcrumb={["工作流", "流程详情"]} />
       {data ? <div style={layoutStyle}>

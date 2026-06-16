@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
@@ -34,10 +34,10 @@ export default function WorkflowFormsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const template = useMemo(() => FORM_TEMPLATES.find(item => item.key === selectedTemplate) || FORM_TEMPLATES[0], [selectedTemplate]);
-  const load = () => workflowApi.forms().then(res => setRows(res.data || [])).catch(() => {});
+  const load = useCallback(() => workflowApi.forms().then(res => setRows(res.data || [])).catch(() => {}), []);
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
   function openFromTemplate(nextTemplate = FORM_TEMPLATES[0]) {
     setSelectedTemplate(nextTemplate.key);
     setForm({
