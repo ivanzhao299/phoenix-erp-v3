@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader"; // G157：统一全局页头
 import { actBtn, actBtnTone } from "../_shared/actionButtons"; // G159：操作列文字按钮
+import { ConfirmDialogV2 } from "@/components/design-system"; // G161：统一全局确认弹窗
 import { useToast } from "@/contexts/ToastContext";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
@@ -846,104 +847,29 @@ export default function ReceiptsPage() {
       </RightDrawer>
 
       {/* ── Confirm Modal ── */}
-      {confirmTarget && <div style={{
-      position: "fixed",
-      inset: 0,
-      background: "var(--overlay-black-50)",
-      zIndex: 1000,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center"
-    }} onClick={() => setConfirmTarget(null)}>
-          <div style={{
-        background: "var(--bg-card)",
-        borderRadius: 12,
-        padding: 24,
-        width: 400
-      }} onClick={e => e.stopPropagation()}>
-            <div style={{
-          fontWeight: 700,
-          fontSize: 16,
-          marginBottom: 8
-        }}>确认收货</div>
-            <div style={{
-          fontSize: 13,
-          color: "var(--text-secondary)",
-          marginBottom: 4
-        }}>收货单：{confirmTarget.receiptNo}</div>
-            <div style={{
-          fontSize: 12,
-          color: "var(--color-warning)",
-          marginBottom: 16,
-          padding: "8px 12px",
-          background: "var(--status-warning-bg-light)",
-          borderRadius: 6
-        }}>
-              确认后将自动更新采购订单已收数量及状态，不可撤销。
-            </div>
-            <div className={u.mb16}>
-              <label className={u.muted12}>备注（可选）</label>
-              <textarea className={s.textarea} rows={2} value={confirmComment} onChange={e => setConfirmComment(e.target.value)} style={{
-            marginTop: 4
-          }} />
-            </div>
-            <div style={{
-          display: "flex",
-          gap: 8,
-          justifyContent: "flex-end"
-        }}>
-              <button className={s.btnSecondary} onClick={() => setConfirmTarget(null)}>取消</button>
-              <button className={s.btnPrimary} onClick={handleConfirm} disabled={confirmSaving}>
-                {confirmSaving ? "确认中..." : "确认收货"}
-              </button>
-            </div>
+      {/* G161：自写 fixed overlay → 全局 ConfirmDialogV2 */}
+      <ConfirmDialogV2 open={!!confirmTarget} title="确认收货"
+        message={<>
+          <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 4 }}>收货单：{confirmTarget?.receiptNo}</div>
+          <div style={{ fontSize: 12, color: "var(--color-warning)", marginBottom: 16, padding: "8px 12px", background: "var(--status-warning-bg-light)", borderRadius: 6 }}>确认后将自动更新采购订单已收数量及状态，不可撤销。</div>
+          <div className={u.mb16}>
+            <label className={u.muted12}>备注（可选）</label>
+            <textarea className={s.textarea} rows={2} value={confirmComment} onChange={e => setConfirmComment(e.target.value)} style={{ marginTop: 4 }} />
           </div>
-        </div>}
+        </>}
+        confirmLabel={confirmSaving ? "确认中..." : "确认收货"} loading={confirmSaving}
+        onConfirm={handleConfirm} onCancel={() => setConfirmTarget(null)} />
 
-      {/* ── Cancel Modal ── */}
-      {cancelTarget && <div style={{
-      position: "fixed",
-      inset: 0,
-      background: "var(--overlay-black-50)",
-      zIndex: 1000,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center"
-    }} onClick={() => setCancelTarget(null)}>
-          <div style={{
-        background: "var(--bg-card)",
-        borderRadius: 12,
-        padding: 24,
-        width: 400
-      }} onClick={e => e.stopPropagation()}>
-            <div style={{
-          fontWeight: 700,
-          fontSize: 16,
-          marginBottom: 8
-        }}>取消收货单</div>
-            <div style={{
-          fontSize: 13,
-          color: "var(--text-secondary)",
-          marginBottom: 16
-        }}>收货单：{cancelTarget.receiptNo}</div>
-            <div className={u.mb16}>
-              <label className={u.muted12}>原因（可选）</label>
-              <textarea className={s.textarea} rows={2} value={cancelComment} onChange={e => setCancelComment(e.target.value)} style={{
-            marginTop: 4
-          }} />
-            </div>
-            <div style={{
-          display: "flex",
-          gap: 8,
-          justifyContent: "flex-end"
-        }}>
-              <button className={s.btnSecondary} onClick={() => setCancelTarget(null)}>返回</button>
-              <button className={s.btnDanger} onClick={handleCancel} disabled={cancelSaving}>
-                {cancelSaving ? "处理中..." : "确认取消"}
-              </button>
-            </div>
+      <ConfirmDialogV2 open={!!cancelTarget} title="取消收货单" danger cancelLabel="返回"
+        message={<>
+          <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16 }}>收货单：{cancelTarget?.receiptNo}</div>
+          <div className={u.mb16}>
+            <label className={u.muted12}>原因（可选）</label>
+            <textarea className={s.textarea} rows={2} value={cancelComment} onChange={e => setCancelComment(e.target.value)} style={{ marginTop: 4 }} />
           </div>
-        </div>}
+        </>}
+        confirmLabel={cancelSaving ? "处理中..." : "确认取消"} loading={cancelSaving}
+        onConfirm={handleCancel} onCancel={() => setCancelTarget(null)} />
     </div>;
 }
 function DRow({
