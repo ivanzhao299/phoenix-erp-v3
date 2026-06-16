@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 // P1-4 性能快修：xlsx 改为动态导入，不进入首屏 bundle，只在用户点击上传/下载时按需加载
 import { shareholderApi, ShrProject, ShrShareholder, SOURCE_TYPE_LABEL } from '@/lib/shareholder-api';
+import PageHeader from '@/components/PageHeader';
 import u from "@/styles/uix-utils.module.css";
 const th: React.CSSProperties = {
   textAlign: 'left',
@@ -142,12 +143,7 @@ export default function CapitalImportPage() {
       color: 'var(--color-primary)',
       fontSize: 13
     }}>← 返回资本流列表</Link>
-      <h1 style={{
-      fontSize: 20,
-      fontWeight: 700,
-      color: 'var(--color-primary)',
-      margin: '10px 0 8px'
-    }}>导入资本流（Excel / CSV）</h1>
+      <div style={{ marginTop: 10 }}><PageHeader title="导入资本流（Excel / CSV）" /></div>
       <p style={{
       color: 'var(--text-secondary)',
       fontSize: 12.5,

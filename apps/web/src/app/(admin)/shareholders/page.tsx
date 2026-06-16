@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import u from "@/styles/uix-utils.module.css";
+import PageHeader from '@/components/PageHeader';
 const CARDS = [{
   href: '/shareholders/dashboard',
   title: '股东驾驶舱',
@@ -29,16 +30,8 @@ const CARDS = [{
 }];
 export default function ShareholderHome() {
   return <div className={u.p24}>
-      <h1 style={{
-      fontSize: 22,
-      fontWeight: 700,
-      color: 'var(--color-primary)',
-      marginBottom: 4
-    }}>股东权益中心</h1>
-      <p style={{
-      color: 'var(--text-secondary)',
-      marginBottom: 20
-    }}>股东权益、实缴出资台账、实益出资结构、按项目授权的查看范围（实缴口径）</p>
+      <PageHeader title="股东权益中心" />
+      <p style={{ color: 'var(--text-secondary)', marginBottom: 20 }}>股东权益、实缴出资台账、实益出资结构、按项目授权的查看范围（实缴口径）</p>
       <div style={{
       display: 'grid',
       gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))',

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import u from "@/styles/uix-utils.module.css";
+import PageHeader from '@/components/PageHeader';
 import { shareholderApi, ShrProject, CapitalStats, ORG_CODE_LABEL, lbl } from '@/lib/shareholder-api';
 const EQ_LABEL: Record<string, string> = {
   CONFIRMED: '已确认股权',
@@ -30,17 +31,8 @@ export default function ShareholderDashboard() {
     shareholderApi.listProjects().then(p => setPmap(Object.fromEntries(p.map(x => [x.projectCode, x.projectName])))).catch(() => {});
   }, []);
   return <div className={u.p24}>
-      <h1 style={{
-      fontSize: 22,
-      fontWeight: 700,
-      color: 'var(--color-primary)',
-      marginBottom: 4
-    }}>股东驾驶舱</h1>
-      <p style={{
-      color: 'var(--text-secondary)',
-      fontSize: 13,
-      marginBottom: 18
-    }}>
+      <PageHeader title="股东驾驶舱" />
+      <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 18 }}>
         可见范围：<b>{scope === 'ALL' ? '全部项目' : scope === 'SCOPED' ? '按授权范围' : scope === 'NONE' ? '无授权' : scope}</b>
         {note && <span style={{
         color: 'var(--status-danger)',
