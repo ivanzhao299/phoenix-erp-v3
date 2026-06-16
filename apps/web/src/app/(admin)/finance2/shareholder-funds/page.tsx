@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { Users, Plus, Search, RefreshCw, X, CheckCircle, Clock, AlertCircle, Upload, ChevronRight, TrendingDown, DollarSign, ArrowDownLeft } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
@@ -740,22 +740,11 @@ export default function ShareholderFundsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedC, setSelectedC] = useState<Contribution | null>(null);
   const [importLoading, setImportLoading] = useState(false);
-  const loadContributions = useCallback(async () => {
-    setLoading(true);
+  const loadSummary = useCallback(async () => {
     try {
-      const params = new URLSearchParams();
-      if (keyword) params.set('keyword', keyword);
-      if (typeFilter) params.set('contributionType', typeFilter);
-      if (statusFilter) params.set('status', statusFilter);
-      params.set('pageSize', '100');
-      const [listRes, sumRes] = await Promise.all([fetch(`${API}/contributions?${params}`, {
+      const sumRes = await fetch(`${API}/contributions/summary`, {
         headers: authHeaders()
-      }).then(r => r.json()), fetch(`${API}/contributions/summary`, {
-        headers: authHeaders()
-      }).then(r => r.ok ? r.json() : null)]);   // G60 防御：非2xx 不把错误体当 summary
-      setContributions(listRes.items ?? []);
-      // G60：后端 contributions/summary 返回 {totals,byType,byStatus}，适配为前端 ShSummary 形状。
-      //   byShareholder / upcomingReturns 后端无对应源 → 空数组（页面对应区显示"暂无数据"）。
+      }).then(r => r.ok ? r.json() : null);
       const raw = sumRes as { totals?: Record<string, unknown>; byType?: Array<Record<string, unknown>>; byStatus?: Array<Record<string, unknown>> } | null;
       if (raw && raw.totals) {
         const t = raw.totals; const byStatus = raw.byStatus ?? [];
@@ -774,6 +763,20 @@ export default function ShareholderFundsPage() {
       } else {
         setSummary(null);
       }
+    } catch { /* summary 加载失败不阻塞列表 */ }
+  }, []);
+  const loadList = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (keyword) params.set('keyword', keyword);
+      if (typeFilter) params.set('contributionType', typeFilter);
+      if (statusFilter) params.set('status', statusFilter);
+      params.set('pageSize', '100');
+      const listRes = await fetch(`${API}/contributions?${params}`, {
+        headers: authHeaders()
+      }).then(r => r.json());
+      setContributions(listRes.items ?? []);
     } finally {
       setLoading(false);
     }
@@ -789,9 +792,18 @@ export default function ShareholderFundsPage() {
       setLoading(false);
     }
   }, []);
+  // summary 只在首次 + 写操作后加载，不跟随筛选条件
+  useEffect(() => { void loadSummary(); }, [loadSummary]);
+  // 列表请求防抖 300ms
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
-    if (tab === 'contributions' || tab === 'summary') void loadContributions();else void loadSettlements();
-  }, [tab, loadContributions, loadSettlements]);
+    if (tab === 'contributions') {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => void loadList(), 300);
+      return () => clearTimeout(debounceRef.current);
+    }
+    if (tab === 'settlements') void loadSettlements();
+  }, [tab, loadList, loadSettlements]);
   async function importFromPrc2() {
     if (!confirm('确认从 prc2_shareholder_funds 幂等导入股东资金？已导入的记录会被跳过。')) return;
     setImportLoading(true);
@@ -806,7 +818,7 @@ export default function ShareholderFundsPage() {
         failed?: number;
       };
       alert(`导入完成：成功 ${d.imported ?? 0}，跳过 ${d.skipped ?? 0}，失败 ${d.failed ?? 0}`);
-      void loadContributions();
+      void Promise.all([loadList(), loadSummary()]);
     } catch {
       alert('导入失败');
     } finally {
@@ -899,7 +911,7 @@ export default function ShareholderFundsPage() {
               <button key={k} onClick={() => setStatusFilter(k)} style={toolbarFilterPill(statusFilter === k)}>{v}</button>
             ))}
 
-            <button onClick={() => void loadContributions()} disabled={loading} style={secondaryActionButton}>
+            <button onClick={() => void Promise.all([loadList(), loadSummary()])} disabled={loading} style={secondaryActionButton}>
               <RefreshCw size={14} />
             </button>
           </div>
@@ -982,8 +994,8 @@ export default function ShareholderFundsPage() {
 
       {showCreate && <CreateContributionModal onClose={() => setShowCreate(false)} onCreated={() => {
       setShowCreate(false);
-      void loadContributions();
+      void Promise.all([loadList(), loadSummary()]);
     }} />}
-      {selectedC && <ContributionDrawer contribution={selectedC} onClose={() => setSelectedC(null)} onRefresh={() => void loadContributions()} />}
+      {selectedC && <ContributionDrawer contribution={selectedC} onClose={() => setSelectedC(null)} onRefresh={() => void Promise.all([loadList(), loadSummary()])} />}
     </div>;
 }
