@@ -637,7 +637,8 @@ export default function ShareholderFundsPage() {
 
       {/* 新建股东资金 */}
       <RightDrawer open={createOpen} onClose={() => setCreateOpen(false)} title="新建股东资金（手工登记）" width={480}>
-        <div style={{
+        {/* G158：表单仅 open 时挂载 */}
+        {createOpen && <div style={{
         padding: "0 24px 24px",
         display: "flex",
         flexDirection: "column",
@@ -730,7 +731,7 @@ export default function ShareholderFundsPage() {
         }}>
             <Plus size={14} /> {submitting ? "保存中…" : "保存为草稿"}
           </button>
-        </div>
+        </div>}
       </RightDrawer>
     </div>;
 }

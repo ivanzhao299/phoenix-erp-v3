@@ -501,7 +501,8 @@ export default function ReceiptsPage() {
 
       {/* ── New Receipt Drawer ── */}
       <RightDrawer open={formOpen} onClose={() => setFormOpen(false)} title="新建收货单" width={880}>
-        <div style={{
+        {/* G158：重表单仅 open 时挂载 */}
+        {formOpen && <div style={{
         padding: "8px 28px 28px"
       }}>
           <div style={formBlock}>
@@ -735,7 +736,7 @@ export default function ReceiptsPage() {
               {formSaving ? "保存中..." : "创建收货单"}
             </button>
           </div>
-        </div>
+        </div>}
       </RightDrawer>
 
       {/* ── Detail Drawer ── */}

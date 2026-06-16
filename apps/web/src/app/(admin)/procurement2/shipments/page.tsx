@@ -420,7 +420,8 @@ export default function ShipmentsPage() {
 
       {/* ── New Shipment Drawer ── */}
       <RightDrawer open={formOpen} onClose={() => setFormOpen(false)} title="新建物流运单" width={600}>
-        <div style={{
+        {/* G158：重表单仅 open 时挂载 */}
+        {formOpen && <div style={{
         padding: "0 24px 24px"
       }}>
           <div className={s.formSection}>
@@ -562,7 +563,7 @@ export default function ShipmentsPage() {
               {formSaving ? "保存中..." : "创建运单"}
             </button>
           </div>
-        </div>
+        </div>}
       </RightDrawer>
 
       {/* ── Detail Drawer ── */}

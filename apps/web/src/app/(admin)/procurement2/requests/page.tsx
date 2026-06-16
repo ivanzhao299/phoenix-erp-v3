@@ -766,7 +766,8 @@ export default function PurchaseRequestsPage() {
 
       {/* ── 新建/编辑 抽屉 ─────────────────────────────────────────────────── */}
       <RightDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editing ? `编辑申请：${editing.reqNo}` : "新建采购申请"} width="min(1180px, 96vw)">
-        <div style={{
+        {/* G158：性能——重表单仅 open 时挂载（ui/RightDrawer 关闭不卸载 DOM，常驻会拖慢整页） */}
+        {drawerOpen && <div style={{
         padding: "0 4px 80px"
       }}>
           {/* 基础信息 */}
@@ -985,7 +986,7 @@ export default function PurchaseRequestsPage() {
               {saving ? "保存中…" : "保存草稿"}
             </button>
           </div>
-        </div>
+        </div>}
       </RightDrawer>
 
       {/* ── 详情抽屉 ─────���───────────────────────────────────────────────────── */}
