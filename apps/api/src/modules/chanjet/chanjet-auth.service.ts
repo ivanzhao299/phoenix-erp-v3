@@ -82,13 +82,16 @@ export class ChanjetAuthService implements OnModuleInit {
     throw new Error(`authCode→certificate 失败: ${JSON.stringify(json).slice(0, 500)}`);
   }
 
-  /** AES/ECB/PKCS5Padding 解密畅捷通推送消息体 */
-  decryptMessage(encrypted: string): string {
+  /**
+   * AES/ECB/PKCS5Padding 解密畅捷通推送消息体。
+   * useRawKey=true: encryptMsg 格式，密钥 = 环境秘钥原始 UTF-8 字节（16字符）
+   * useRawKey=false: content 格式（旧），密钥 = MD5(消息秘钥)
+   */
+  decryptMessage(encrypted: string, useRawKey = false): string {
     if (!this.msgSecret) throw new Error('CHANJET_MSG_SECRET 未配置');
-    const key = crypto
-      .createHash('md5')
-      .update(this.msgSecret)
-      .digest();
+    const key = useRawKey
+      ? Buffer.from(this.msgSecret, 'utf8')
+      : crypto.createHash('md5').update(this.msgSecret).digest();
     const decipher = crypto.createDecipheriv('aes-128-ecb', key, null);
     decipher.setAutoPadding(true);
     let dec = decipher.update(encrypted, 'base64', 'utf8');

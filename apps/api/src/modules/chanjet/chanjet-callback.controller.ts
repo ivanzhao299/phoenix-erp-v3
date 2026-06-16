@@ -75,21 +75,35 @@ export class ChanjetCallbackController {
     }
 
     // ─── 路径 B：加密消息推送（APP_TICKET 等） ───
-    // 平台用 encryptMsg 或 content 字段发送加密内容
+    // encryptMsg: 新版格式，密钥 = 环境秘钥原始字节(useRawKey)
+    // content:    旧版格式，密钥 = MD5(消息秘钥)
+    const isEncryptMsg = !!body.encryptMsg;
     const content = (body.encryptMsg ?? body.content) as string | undefined;
     if (content) {
       let payload: Record<string, unknown>;
       try {
-        const decrypted = this.auth.decryptMessage(content);
+        const decrypted = this.auth.decryptMessage(content, isEncryptMsg);
         payload = JSON.parse(decrypted);
         this.log.log(`解密成功: ${JSON.stringify(payload).slice(0, 500)}`);
       } catch (e) {
-        this.log.warn(`解密失败，尝试明文解析: ${(e as Error).message}`);
-        try {
-          payload = typeof content === 'string' ? JSON.parse(content) : content as Record<string, unknown>;
-        } catch {
-          this.log.error('消息体既非加密也非合法 JSON');
-          return { result: 'success' };
+        // encryptMsg 解密失败时回退尝试另一种密钥
+        if (isEncryptMsg) {
+          try {
+            const decrypted = this.auth.decryptMessage(content, false);
+            payload = JSON.parse(decrypted);
+            this.log.log(`解密成功(回退MD5密钥): ${JSON.stringify(payload).slice(0, 500)}`);
+          } catch {
+            this.log.error(`encryptMsg 两种密钥均解密失败: ${(e as Error).message}`);
+            return { result: 'success' };
+          }
+        } else {
+          this.log.warn(`解密失败，尝试明文解析: ${(e as Error).message}`);
+          try {
+            payload = typeof content === 'string' ? JSON.parse(content) : content as Record<string, unknown>;
+          } catch {
+            this.log.error('消息体既非加密也非合法 JSON');
+            return { result: 'success' };
+          }
         }
       }
 
