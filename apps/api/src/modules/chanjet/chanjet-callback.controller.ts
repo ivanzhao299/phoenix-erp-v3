@@ -110,7 +110,8 @@ export class ChanjetCallbackController {
       const msgType = (payload.msgType ?? body.msgType ?? '') as string;
 
       if (msgType === 'APP_TICKET' || payload.appTicket) {
-        const ticket = (payload.appTicket ?? payload.ticket) as string;
+        const biz = payload.bizContent as Record<string, unknown> | undefined;
+        const ticket = (biz?.appTicket ?? payload.appTicket ?? payload.ticket) as string;
         if (ticket) {
           this.auth.setAppTicket(ticket);
           this.log.log('appTicket 已更新');
