@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import u from "@/styles/uix-utils.module.css";
-import { Plus, RefreshCw, ClipboardCheck, ChevronLeft, ChevronRight, Pencil, Trash2, Send, Eye, Clock, ArrowRight } from "lucide-react";
+import { Plus, RefreshCw, ChevronLeft, ChevronRight, Clock, Trash2 } from "lucide-react";
 import { ModalV2 } from "@/components/design-system"; // G155：统一全局模态，替代本地手写 SimpleModal
+import { actBtn, actBtnTone } from "../_shared/actionButtons"; // G159：操作列文字按钮
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
@@ -703,37 +704,14 @@ export default function PurchaseRequestsPage() {
                   gap: 4,
                   flexWrap: "wrap"
                 }}>
-                      <button className={s.btnIcon} title="查看详情" onClick={() => openDetail(row)}>
-                        <Eye size={13} />
-                      </button>
+                      <button style={actBtn} onClick={() => openDetail(row)}>查看</button>
                       {row.status === "DRAFT" && <>
-                          <button className={s.btnIcon} title="编辑" onClick={() => openEdit(row)}>
-                            <Pencil size={13} />
-                          </button>
-                          <button className={s.btnIcon} title="提交审批" style={{
-                      borderColor: "var(--status-success)",
-                      color: "var(--status-success)"
-                    }} onClick={() => handleSubmit(row)}>
-                            <Send size={13} />
-                          </button>
+                          <button style={actBtn} onClick={() => openEdit(row)}>编辑</button>
+                          <button style={actBtnTone("success")} onClick={() => handleSubmit(row)}>提交审批</button>
                         </>}
-                      {row.status === "SUBMITTED" && <Link href="/workflow/todos" className={s.btnIcon} title="审批请前往『工作流·待办』" style={{
-                      borderColor: "var(--status-info, var(--status-success))",
-                      color: "var(--status-info, var(--status-success))",
-                      display: "inline-flex",
-                      alignItems: "center"
-                    }}>
-                          <ClipboardCheck size={13} />
-                        </Link>}
-                      {(row.status === "DRAFT" || row.status === "SUBMITTED") && <button className={s.btnIconDanger} title="取消" onClick={() => openCancel(row)}>
-                          <Trash2 size={13} />
-                        </button>}
-                      {row.status === "APPROVED" && <button className={s.btnIcon} title="转采购订单" style={{
-                    borderColor: "var(--color-purple-500)",
-                    color: "var(--color-purple-500)"
-                  }} onClick={() => openConvert(row)}>
-                          <ArrowRight size={13} />
-                        </button>}
+                      {row.status === "SUBMITTED" && <Link href="/workflow/todos" style={{ ...actBtnTone("info"), display: "inline-flex", alignItems: "center", textDecoration: "none" }} title="审批请前往『工作流·待办』">前往审批</Link>}
+                      {(row.status === "DRAFT" || row.status === "SUBMITTED") && <button style={actBtnTone("danger")} onClick={() => openCancel(row)}>取消</button>}
+                      {row.status === "APPROVED" && <button style={actBtnTone("primary")} onClick={() => openConvert(row)}>转采购订单</button>}
                     </div>
                   </td>
                 </tr>;

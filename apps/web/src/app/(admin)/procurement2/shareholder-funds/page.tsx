@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader"; // G157：统一全局页头
+import { actBtn, actBtnTone } from "../_shared/actionButtons"; // G159：操作列文字按钮
 import { useToast } from "@/contexts/ToastContext";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
@@ -502,12 +503,8 @@ export default function ShareholderFundsPage() {
               display: "flex",
               gap: 4
             }}>
-                  <button className={s.btnIcon} title="查看详情" onClick={() => openDetail(row)}>
-                    <Eye size={13} />
-                  </button>
-                  {row.status === "DRAFT" && <button className={s.btnIcon} title="提交审批" onClick={() => handleSubmit(row.id)} disabled={submitting}>
-                      <Send size={13} />
-                    </button>}
+                  <button style={actBtn} onClick={() => openDetail(row)}>查看</button>
+                  {row.status === "DRAFT" && <button style={actBtnTone("success")} onClick={() => handleSubmit(row.id)} disabled={submitting}>提交审批</button>}
                 </td>
               </tr>)}
           </tbody>

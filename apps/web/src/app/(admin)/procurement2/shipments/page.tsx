@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader"; // G157：统一全局页头
+import { actBtn, actBtnTone } from "../_shared/actionButtons"; // G159：操作列文字按钮
 import { useToast } from "@/contexts/ToastContext";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
@@ -380,15 +381,11 @@ export default function ShipmentsPage() {
               gap: 4,
               flexWrap: "wrap"
             }}>
-                  <button className={s.btnIcon} title="查看详情" onClick={() => openDetail(row)}><Eye size={13} /></button>
-                  {(nextActions[row.status] ?? []).map(a => <button key={a.type} className={a.color === "danger" ? s.btnIconDanger : s.btnIcon} title={a.label} onClick={() => openAction(row, a.type)}>
-                      {a.type === "ready" && <Package size={13} />}
-                      {a.type === "dispatch" && <Send size={13} />}
-                      {a.type === "customs" && <AlertTriangle size={13} />}
-                      {a.type === "arrive" && <CheckCircle size={13} />}
-                      {a.type === "cancel" && <X size={13} />}
-                    </button>)}
-                  {["DRAFT", "READY"].includes(row.status) && <button className={s.btnIconDanger} title="取消" onClick={() => openAction(row, "cancel")}><X size={13} /></button>}
+                  <button style={actBtn} onClick={() => openDetail(row)}>查看</button>
+                  {(nextActions[row.status] ?? []).map(a => (
+                    <button key={a.type} style={a.color === "danger" ? actBtnTone("danger") : actBtnTone("primary")} onClick={() => openAction(row, a.type)}>{a.label}</button>
+                  ))}
+                  {["DRAFT", "READY"].includes(row.status) && <button style={actBtnTone("danger")} onClick={() => openAction(row, "cancel")}>取消</button>}
                 </td>
               </tr>)}
           </tbody>
