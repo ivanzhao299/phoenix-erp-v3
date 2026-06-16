@@ -10,6 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
 import { CompanySelector, ProjectSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
 import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 数据字典统一组件
+import { StatStripV2 } from "@/components/design-system"; // G160：统计条全局化
 
 // ── 类型定义 ─────────────────────────────────────────────────────────────────
 interface Supplier {
@@ -408,39 +409,15 @@ export default function SuppliersPage() {
         请在主数据中心完成新增/审批/资质上传。本页保留浏览、筛选、停用/启用、采购侧扩展信息编辑能力。
       </div>
 
-      {/* KPI 统计条 */}
-      <div style={{
-      display: "flex",
-      gap: 12,
-      marginBottom: 16,
-      flexWrap: "wrap"
-    }}>
-        {[{
+      {/* KPI 统计条（G160：全局 StatStripV2） */}
+      <StatStripV2 items={[{
         label: "供应商总数",
-        value: data.total,
-        accent: "var(--color-primary)"
+        value: String(data.total),
+        accent: true
       }, ...SCOPE_OPTS.map(o => ({
         label: o.label,
-        value: data.items.filter(i => i.sharedScope === o.value).length,
-        accent: o.accent
-      }))].map(k => <div key={k.label} style={{
-        background: "var(--bg-card)",
-        border: "1px solid var(--border)",
-        borderLeft: `3px solid ${k.accent}`,
-        borderRadius: "var(--radius-md)",
-        padding: "10px 16px",
-        display: "flex",
-        alignItems: "center",
-        gap: 10
-      }}>
-            <span style={{
-          fontSize: 20,
-          fontWeight: 800,
-          color: k.accent
-        }}>{k.value}</span>
-            <span className={u.muted12}>{k.label}</span>
-          </div>)}
-      </div>
+        value: String(data.items.filter(i => i.sharedScope === o.value).length)
+      }))]} />
 
       {/* 筛选栏 */}
       <div style={{

@@ -102,7 +102,9 @@ function NatureBadge({
   };
   return <span className={`${s.badge} ${colorMap[nature] ?? s.badgeNeutral}`}>{FUND_NATURE_LABELS[nature] ?? nature}</span>;
 }
-function StatusBadge({
+// G160：改名 FundStatusBadge，消除与全局 design-system StatusBadge 的重名遮蔽
+// （全局 StatusBadge 标签/配色无法与本页 FUND 状态完全一致，故保留本地实现）
+function FundStatusBadge({
   status
 }: {
   status: string;
@@ -498,7 +500,7 @@ export default function ShareholderFundsPage() {
             }}>{row.relatedPoNo || "—"}</td>
                 <td className={u.muted12}>{row.projectName || row.projectCode || "—"}</td>
                 <td className={u.fs12}>{row.occurredDate || "—"}</td>
-                <td><StatusBadge status={row.status} /></td>
+                <td><FundStatusBadge status={row.status} /></td>
                 <td style={{
               display: "flex",
               gap: 4
@@ -560,7 +562,7 @@ export default function ShareholderFundsPage() {
             flexWrap: "wrap"
           }}>
                 <NatureBadge nature={detail.fundNature} />
-                <StatusBadge status={detail.status} />
+                <FundStatusBadge status={detail.status} />
               </div>
             </div>
 

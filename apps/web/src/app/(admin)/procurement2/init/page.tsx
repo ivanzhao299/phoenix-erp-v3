@@ -6,6 +6,7 @@ import PageHeader from "@/components/PageHeader"; // G157：统一全局页头
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { ModalV2, ConfirmDialogV2, StatusBadge } from "@/components/design-system"; // G160：弹窗/确认框/徽章全局化
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 type BatchType = "HISTORICAL_PO" | "HISTORICAL_PAYMENT" | "HISTORICAL_SHAREHOLDER_FUND" | "HISTORICAL_RECEIPT";
@@ -45,13 +46,6 @@ const BATCH_TYPE_SLUG: Record<BatchType, string> = {
   HISTORICAL_PAYMENT: "historical-payment",
   HISTORICAL_SHAREHOLDER_FUND: "historical-shareholder-fund",
   HISTORICAL_RECEIPT: "historical-receipt"
-};
-const STATUS_COLORS: Record<string, string> = {
-  DRAFT: "var(--color-muted)",
-  VALIDATED: "var(--color-info)",
-  IMPORTED: "var(--color-success)",
-  FAILED: "var(--color-danger)",
-  CANCELLED: "var(--color-muted)"
 };
 const ROW_STATUS_COLORS: Record<string, string> = {
   PENDING: "var(--color-muted)",
@@ -94,6 +88,10 @@ export default function InitPage() {
   const [importing, setImporting] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [errorRows, setErrorRows] = useState<BatchRow[]>([]);
+
+  // G160：确认框（取代原生 confirm）
+  const [importConfirmOpen, setImportConfirmOpen] = useState(false);
+  const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
 
   // ── 拉取列表 ────────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -206,7 +204,6 @@ export default function InitPage() {
   // ── 执行导入 ────────────────────────────────────────────────────────────────
   const handleImport = async () => {
     if (!detailBatch) return;
-    if (!confirm("确认执行导入？此操作不可撤销，所有有效行将写入业务数据库。")) return;
     setImporting(true);
     try {
       const r = await fetch(`${BASE}/batches/${detailBatch.id}/import`, {
@@ -227,7 +224,6 @@ export default function InitPage() {
 
   // ── 取消批次 ────────────────────────────────────────────────────────────────
   const handleCancel = async (id: string) => {
-    if (!confirm("确认取消该批次？")) return;
     try {
       const r = await fetch(`${BASE}/batches/${id}/cancel`, {
         method: "POST",
@@ -410,16 +406,7 @@ export default function InitPage() {
               whiteSpace: "nowrap"
             }}>{b.fileName || "—"}</td>
                 <td>
-                  <span style={{
-                background: STATUS_COLORS[b.status] + "22",
-                color: STATUS_COLORS[b.status],
-                padding: "2px 8px",
-                borderRadius: 4,
-                fontSize: 12,
-                fontWeight: 600
-              }}>
-                    {b.status}
-                  </span>
+                  <StatusBadge status={b.status} label={b.status} />
                 </td>
                 <td className={u.tar}>{b.totalRows}</td>
                 <td style={{
@@ -450,7 +437,7 @@ export default function InitPage() {
                 }}>
                         导入
                       </button>}
-                    {isAdmin && ['DRAFT', 'VALIDATED', 'FAILED'].includes(b.status) && <button onClick={() => handleCancel(b.id)} style={{
+                    {isAdmin && ['DRAFT', 'VALIDATED', 'FAILED'].includes(b.status) && <button onClick={() => setCancelConfirmId(b.id)} style={{
                   padding: "3px 8px",
                   fontSize: 12,
                   border: "1px solid var(--border)",
@@ -497,29 +484,40 @@ export default function InitPage() {
           </button>
         </div>}
 
-      {/* ── 上传面板（Modal） ────────────────────────────────────────────────── */}
-      {showUpload && <div style={{
-      position: "fixed",
-      inset: 0,
-      background: "var(--overlay-black-50)",
-      zIndex: 200,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center"
-    }}>
-          <div style={{
+      {/* ── 上传面板（G160：全局 ModalV2） ────────────────────────────────────── */}
+      <ModalV2 open={showUpload} title="上传初始化文件" width={460} onClose={() => {
+        setShowUpload(false);
+        setUploadFile(null);
+        setUploadRemark("");
+      }} footer={<>
+            <button onClick={() => {
+        setShowUpload(false);
+        setUploadFile(null);
+        setUploadRemark("");
+      }} style={{
+        padding: "7px 16px",
+        border: "1px solid var(--border)",
+        borderRadius: 6,
+        cursor: "pointer",
+        fontSize: 13,
         background: "var(--bg-base)",
-        borderRadius: 10,
-        padding: 28,
-        width: 460,
-        boxShadow: "0 8px 32px var(--overlay-black-20)"
+        color: "var(--text-primary)"
       }}>
-            <h3 style={{
-          margin: "0 0 18px",
-          fontSize: 16,
-          fontWeight: 600
-        }}>上传初始化文件</h3>
-
+              取消
+            </button>
+            <button onClick={handleValidate} disabled={uploading} style={{
+        padding: "7px 16px",
+        background: "var(--color-primary)",
+        color: "var(--bg-card)",
+        border: "none",
+        borderRadius: 6,
+        cursor: uploading ? "wait" : "pointer",
+        fontSize: 13,
+        fontWeight: 600
+      }}>
+              {uploading ? "校验中…" : "上传并校验"}
+            </button>
+          </>}>
             <div className={u.mb14}>
               <label style={{
             fontSize: 13,
@@ -574,7 +572,6 @@ export default function InitPage() {
             </div>
 
             <div style={{
-          marginBottom: 10,
           padding: 10,
           background: "var(--bg-subtle)",
           borderRadius: 6,
@@ -583,59 +580,11 @@ export default function InitPage() {
         }}>
               上传后仅做格式校验，不写入业务数据。校验通过后可在详情中执行导入。
             </div>
+      </ModalV2>
 
-            <div style={{
-          display: "flex",
-          gap: 10,
-          justifyContent: "flex-end"
-        }}>
-              <button onClick={() => {
-            setShowUpload(false);
-            setUploadFile(null);
-            setUploadRemark("");
-          }} style={{
-            padding: "7px 16px",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            cursor: "pointer",
-            fontSize: 13,
-            background: "var(--bg-base)",
-            color: "var(--text-primary)"
-          }}>
-                取消
-              </button>
-              <button onClick={handleValidate} disabled={uploading} style={{
-            padding: "7px 16px",
-            background: "var(--color-primary)",
-            color: "var(--bg-card)",
-            border: "none",
-            borderRadius: 6,
-            cursor: uploading ? "wait" : "pointer",
-            fontSize: 13,
-            fontWeight: 600
-          }}>
-                {uploading ? "校验中…" : "上传并校验"}
-              </button>
-            </div>
-          </div>
-        </div>}
-
-      {/* ── 批次详情抽屉 ────────────────────────────────────────────────────── */}
-      {(detailBatch || loadingDetail) && <div style={{
-      position: "fixed",
-      inset: 0,
-      display: "flex",
-      zIndex: 150
-    }}>
+      {/* ── 批次详情（G160：全局 ModalV2） ──────────────────────────────────── */}
+      <ModalV2 open={!!(detailBatch || loadingDetail)} title="批次详情" width={760} onClose={() => setDetailBatch(null)}>
           <div style={{
-        flex: 1,
-        background: "var(--overlay-black-30)"
-      }} onClick={() => setDetailBatch(null)} />
-          <div style={{
-        width: 720,
-        background: "var(--bg-base)",
-        overflowY: "auto",
-        padding: 28,
         display: "flex",
         flexDirection: "column",
         gap: 16
@@ -664,16 +613,7 @@ export default function InitPage() {
                     {BATCH_TYPE_LABELS[detailBatch.batchType]} · {detailBatch.fileName}
                   </div>
                 </div>
-                <span style={{
-              background: STATUS_COLORS[detailBatch.status] + "22",
-              color: STATUS_COLORS[detailBatch.status],
-              padding: "3px 10px",
-              borderRadius: 5,
-              fontSize: 12,
-              fontWeight: 600
-            }}>
-                  {detailBatch.status}
-                </span>
+                <StatusBadge status={detailBatch.status} label={detailBatch.status} size="md" />
               </div>
 
               {/* 统计卡片 */}
@@ -718,7 +658,7 @@ export default function InitPage() {
             display: "flex",
             gap: 10
           }}>
-                  {['VALIDATED', 'FAILED'].includes(detailBatch.status) && <button onClick={handleImport} disabled={importing} style={{
+                  {['VALIDATED', 'FAILED'].includes(detailBatch.status) && <button onClick={() => setImportConfirmOpen(true)} disabled={importing} style={{
               padding: "7px 18px",
               background: "var(--color-primary)",
               color: "var(--bg-card)",
@@ -741,7 +681,7 @@ export default function InitPage() {
             }}>
                       查看错误行 ({detailBatch.failedRows})
                     </button>}
-                  {['VALIDATED', 'FAILED'].includes(detailBatch.status) && <button onClick={() => handleCancel(detailBatch.id)} style={{
+                  {['VALIDATED', 'FAILED'].includes(detailBatch.status) && <button onClick={() => setCancelConfirmId(detailBatch.id)} style={{
               padding: "7px 14px",
               border: "1px solid var(--border)",
               color: "var(--text-secondary)",
@@ -854,6 +794,21 @@ export default function InitPage() {
                 </div>}
             </>}
           </div>
-        </div>}
+      </ModalV2>
+
+      {/* ── G160：确认框（取代原生 confirm） ──────────────────────────────────── */}
+      <ConfirmDialogV2 open={importConfirmOpen} title="确认执行导入" danger loading={importing}
+        message="确认执行导入？此操作不可撤销，所有有效行将写入业务数据库。"
+        confirmLabel="执行导入" onCancel={() => setImportConfirmOpen(false)} onConfirm={async () => {
+          setImportConfirmOpen(false);
+          await handleImport();
+        }} />
+      <ConfirmDialogV2 open={!!cancelConfirmId} title="确认取消批次" danger
+        message="确认取消该批次？" confirmLabel="取消批次" cancelLabel="返回"
+        onCancel={() => setCancelConfirmId(null)} onConfirm={async () => {
+          const id = cancelConfirmId;
+          setCancelConfirmId(null);
+          if (id) await handleCancel(id);
+        }} />
     </div>;
 }
