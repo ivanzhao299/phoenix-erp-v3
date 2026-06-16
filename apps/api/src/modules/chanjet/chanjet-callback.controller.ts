@@ -181,6 +181,18 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * POST /api/chanjet/set-ticket
+   * 管理员手动注入 appTicket（容器重启后丢失时用）。
+   */
+  @Post('set-ticket')
+  @RequireMenu('MENU_SYSTEM', 'V')
+  setTicket(@Body() body: { appTicket: string }) {
+    if (!body.appTicket) return { success: false, error: 'appTicket 不能为空' };
+    this.auth.setAppTicket(body.appTicket);
+    return { success: true, ticketPreview: body.appTicket.slice(0, 20) + '…' };
+  }
+
+  /**
    * POST /api/chanjet/trigger-ticket
    * 管理员手动触发 appTicket 推送（需消息接收地址已配好）。
    */
@@ -192,6 +204,41 @@ export class ChanjetCallbackController {
       return { success: true, result };
     } catch (e) {
       return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * POST /api/chanjet/test-callback
+   * 管理员用已知密钥测试回调解密链路。
+   */
+  @Post('test-callback')
+  @RequireMenu('MENU_SYSTEM', 'V')
+  testCallback(@Body() body: Record<string, unknown>) {
+    const isEncryptMsg = !!body.encryptMsg;
+    const content = (body.encryptMsg ?? body.content) as string | undefined;
+    if (!content) return { success: false, error: '无 encryptMsg/content' };
+
+    const results: string[] = [];
+    try {
+      const dec = this.auth.decryptMessage(content, isEncryptMsg);
+      results.push(`rawKey解密: ${dec.slice(0, 200)}`);
+      const parsed = JSON.parse(dec);
+      const biz = parsed.bizContent as Record<string, unknown> | undefined;
+      const ticket = (biz?.appTicket ?? parsed.appTicket ?? parsed.ticket) as string;
+      results.push(`ticket=${ticket || '(空)'}`);
+      return { success: true, results };
+    } catch (e1) {
+      results.push(`rawKey失败: ${(e1 as Error).message}`);
+      if (isEncryptMsg) {
+        try {
+          const dec = this.auth.decryptMessage(content, false);
+          results.push(`md5Key解密: ${dec.slice(0, 200)}`);
+          return { success: true, results };
+        } catch (e2) {
+          results.push(`md5Key失败: ${(e2 as Error).message}`);
+        }
+      }
+      return { success: false, results };
     }
   }
 }
