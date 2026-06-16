@@ -4,6 +4,7 @@ import { map } from 'rxjs/operators';
 import * as jwt from 'jsonwebtoken';
 import { Public } from '../../common/guards/menu.guard';
 import { NotificationService } from './notification.service';
+import { PresenceService } from './presence.service';
 
 // 与 jwt.strategy 一致的开发回退密钥（生产必配 JWT_SECRET）
 const FALLBACK = 'DEV_ONLY_INSECURE_FALLBACK_KEY_DO_NOT_USE_IN_PROD';
@@ -29,7 +30,10 @@ function verifyUserId(token?: string): string | null {
  */
 @Controller()
 export class NotificationStreamController {
-  constructor(private readonly svc: NotificationService) {}
+  constructor(
+    private readonly svc: NotificationService,
+    private readonly presence: PresenceService,
+  ) {}
 
   @Public()
   @Sse('api/notifications/stream')
@@ -40,6 +44,12 @@ export class NotificationStreamController {
     }
     const connected$ = of({ data: { type: 'connected' } } as MessageEvent);
     const heartbeat$ = interval(25000).pipe(map(() => ({ data: { type: 'ping' } }) as MessageEvent));
-    return merge(connected$, this.svc.userStream(userId), heartbeat$);
+    const merged$ = merge(connected$, this.svc.userStream(userId), heartbeat$);
+    // G171：订阅=上线、退订(关连接)=下线 —— 在线用户基于此统计
+    return new Observable<MessageEvent>((subscriber) => {
+      this.presence.connect(userId);
+      const sub = merged$.subscribe(subscriber);
+      return () => { sub.unsubscribe(); this.presence.disconnect(userId); };
+    });
   }
 }
