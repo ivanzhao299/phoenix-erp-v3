@@ -650,23 +650,26 @@ function ContributionDrawer({
 // ── Summary Tab ───────────────────────────────────────────────────────────────
 
 function SummaryTab({
-  summary
+  summary,
+  onPendingClick
 }: {
   summary: ShSummary | null;
+  onPendingClick?: () => void;
 }) {
   if (!summary) return <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: 32 }}>加载中…</div>;
-  const statCards: { label: string; value: string; color: string }[] = [
+  const statCards: { label: string; value: string; color: string; clickable?: boolean }[] = [
     { label: '出资总额', value: `¥ ${fmt(summary.totalAmountOriginal)}`, color: 'var(--color-primary)' },
     { label: '已结算', value: `¥ ${fmt(summary.settledAmountOriginal)}`, color: 'var(--status-success)' },
     { label: '未结余额', value: `¥ ${fmt(summary.balanceAmountOriginal)}`, color: 'var(--status-danger)' },
     { label: '已确认笔数', value: `${summary.confirmedContributions} 笔`, color: 'var(--color-accent)' },
-    { label: '待处理（含草稿）', value: `${summary.pendingConfirmations} 笔`, color: 'var(--status-warning)' },
+    { label: '待处理（含草稿）', value: `${summary.pendingConfirmations} 笔`, color: 'var(--status-warning)', clickable: true },
   ];
   return <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginBottom: 24 }}>
         {statCards.map(c => (
-          <div key={c.label} style={kpiCard}>
-            <div style={statTileLabel}>{c.label}</div>
+          <div key={c.label} onClick={c.clickable ? onPendingClick : undefined}
+            style={{ ...kpiCard, ...(c.clickable ? { cursor: 'pointer' } : {}) }}>
+            <div style={statTileLabel}>{c.label}{c.clickable ? <span style={{ fontSize: 10, marginLeft: 4 }}>点击查看 →</span> : null}</div>
             <div style={{ fontSize: 20, lineHeight: 1.2, marginTop: 2, fontWeight: 800, color: c.color }}>{c.value}</div>
           </div>
         ))}
@@ -805,7 +808,7 @@ export default function ShareholderFundsPage() {
     if (tab === 'settlements') void loadSettlements();
   }, [tab, loadList, loadSettlements]);
   async function importFromPrc2() {
-    if (!confirm('确认从 prc2_shareholder_funds 幂等导入股东资金？已导入的记录会被跳过。')) return;
+    if (!confirm('确认从采购系统导入股东资金记录？已存在的记录将自动跳过，不会重复导入。')) return;
     setImportLoading(true);
     try {
       const r = await fetch(`${API}/import-from-prc2`, {
@@ -861,7 +864,7 @@ export default function ShareholderFundsPage() {
         ))}
       </div>
 
-      {tab === 'summary' && <SummaryTab summary={summary} />}
+      {tab === 'summary' && <SummaryTab summary={summary} onPendingClick={() => { setStatusFilter('PENDING'); setTab('contributions'); }} />}
 
       {tab === 'contributions' && <>
           {/* 筛选 工具栏 */}
@@ -893,11 +896,8 @@ export default function ShareholderFundsPage() {
               k: '',
               v: '全部'
             }, {
-              k: 'DRAFT',
-              v: '草稿'
-            }, {
-              k: 'PENDING_CONFIRM',
-              v: '待确认'
+              k: 'PENDING',
+              v: '待处理'
             }, {
               k: 'CONFIRMED',
               v: '已确认'

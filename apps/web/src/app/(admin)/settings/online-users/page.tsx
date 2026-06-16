@@ -1,7 +1,7 @@
 "use client";
 
 // G171：在线用户（管理员）——基于 SSE 长连接的实时在线状态。每 20s 刷新。
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
 import { RefreshCw, Users } from "lucide-react";
@@ -26,11 +26,11 @@ function fmtTime(ms?: number) {
 }
 function fmtDuration(sinceMs?: number) {
   if (!sinceMs) return "—";
-  const s = Math.max(0, Math.floor((Date.now() - sinceMs) / 1000));
-  if (s < 60) return `${s} 秒`;
-  if (s < 3600) return `${Math.floor(s / 60)} 分钟`;
-  if (s < 86400) return `${Math.floor(s / 3600)} 小时 ${Math.floor((s % 3600) / 60)} 分`;
-  return `${Math.floor(s / 86400)} 天`;
+  const sec = Math.max(0, Math.floor((Date.now() - sinceMs) / 1000));
+  if (sec < 60) return `${sec} 秒`;
+  if (sec < 3600) return `${Math.floor(sec / 60)} 分钟`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)} 小时 ${Math.floor((sec % 3600) / 60)} 分`;
+  return `${Math.floor(sec / 86400)} 天`;
 }
 
 export default function OnlineUsersPage() {
@@ -38,15 +38,23 @@ export default function OnlineUsersPage() {
   const [items, setItems] = useState<OnlineUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState('');
+  const shownErr = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     setLoading(true);
     try {
       const r = await request<{ total: number; items: OnlineUser[] }>("/system/online-users");
       setItems(r?.items ?? []);
       setTotal(r?.total ?? 0);
+      setErr('');
+      shownErr.current = false;
     } catch {
-      toast.error("加载失败（需管理员权限）");
+      if (!silent && !shownErr.current) {
+        toast.error("加载失败（需管理员权限）");
+        shownErr.current = true;
+      }
+      setErr('加载失败');
     } finally {
       setLoading(false);
     }
@@ -54,7 +62,7 @@ export default function OnlineUsersPage() {
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 20000);
+    const id = setInterval(() => load(true), 20000);
     return () => clearInterval(id);
   }, [load]);
 
@@ -62,7 +70,7 @@ export default function OnlineUsersPage() {
     <div className="animate-fade-in">
       <PageHeader title="在线用户" subtitle={`当前在线 ${total} 人 · 基于实时连接，每 20 秒刷新`} breadcrumb={["系统设置", "在线用户"]}
         actions={
-          <button type="button" className={`${s.btnSecondary} ${u.flexRow}`} onClick={load} disabled={loading}>
+          <button type="button" className={`${s.btnSecondary} ${u.flexRow}`} onClick={() => load()} disabled={loading}>
             <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} /> 刷新
           </button>
         } />

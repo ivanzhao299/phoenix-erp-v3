@@ -137,8 +137,13 @@ export class ShareholderContributionsService {
       params.push(dto.contributionType);
     }
     if (dto.status) {
-      sql += ` AND status = $${idx++}`;
-      params.push(dto.status);
+      if (dto.status === 'PENDING') {
+        sql += ` AND status = ANY($${idx++})`;
+        params.push(['DRAFT', 'PENDING_CONFIRM']);
+      } else {
+        sql += ` AND status = $${idx++}`;
+        params.push(dto.status);
+      }
     }
     if (dto.keyword) {
       sql += ` AND (shareholder_name ILIKE $${idx} OR contribution_no ILIKE $${idx} OR company_name ILIKE $${idx})`;

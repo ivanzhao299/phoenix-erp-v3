@@ -25,7 +25,7 @@ export class PresenceController {
     const rows: Array<{ user_id: string; username: string; real_name_zh: string; role_name_zh: string; store_code: string }> =
       await this.ds.query(
         `SELECT CAST(user_id AS VARCHAR) AS user_id, username, real_name_zh, role_name_zh, store_code
-           FROM sys_user WHERE user_id = ANY($1::varchar[])`,
+           FROM sys_user WHERE user_id = ANY($1::bigint[])`,
         [ids],
       );
     const byId = new Map(rows.map((r) => [r.user_id, r]));
