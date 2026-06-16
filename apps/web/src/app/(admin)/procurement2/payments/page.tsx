@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import Link from "next/link";
-import { Plus, RefreshCw, ClipboardCheck, Trash2, Send, Eye, Clock, AlertTriangle, ChevronLeft, ChevronRight, Pencil, PlayCircle } from "lucide-react";
+import { Plus, RefreshCw, Clock, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { ModalV2 } from "@/components/design-system"; // G155：统一全局模态，替代本地手写 SimpleModal
+import { actBtn, actBtnTone } from "../_shared/actionButtons"; // G159：操作列文字按钮
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
@@ -283,20 +284,20 @@ export default function PaymentsPage() {
                 <td>{row.paymentMethod ? (PAYMENT_METHOD_LABEL[row.paymentMethod] ?? row.paymentMethod) : "—"}</td>
                 <td><span className={`${s.badge} ${s[st.cls]}`}>{st.label}</span></td>
                 <td>
-                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                    <button className={s.btnIcon} title="查看详情" onClick={() => openDetail(row)}><Eye size={13} /></button>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <button style={actBtn} onClick={() => openDetail(row)}>查看</button>
                     {row.status === "DRAFT" && <>
-                      <Link href={`/procurement2/payments/${row.id}/edit`} className={s.btnIcon} title="编辑" style={{ display: "inline-flex", alignItems: "center" }}><Pencil size={13} /></Link>
-                      <button className={s.btnIcon} title="提交审批" style={{ borderColor: "var(--status-success)", color: "var(--status-success)" }} onClick={() => handleSubmit(row)}><Send size={13} /></button>
+                      <Link href={`/procurement2/payments/${row.id}/edit`} style={{ ...actBtn, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>编辑</Link>
+                      <button style={actBtnTone("success")} onClick={() => handleSubmit(row)}>提交审批</button>
                     </>}
                     {(row.status === "SUBMITTED" || row.status === "PENDING_APPROVAL") && (
-                      <Link href="/workflow/todos" className={s.btnIcon} title="审批请前往『工作流·待办』" style={{ borderColor: "var(--status-info, var(--status-success))", color: "var(--status-info, var(--status-success))", display: "inline-flex", alignItems: "center" }}><ClipboardCheck size={13} /></Link>
+                      <Link href="/workflow/todos" style={{ ...actBtnTone("info"), display: "inline-flex", alignItems: "center", textDecoration: "none" }} title="审批请前往『工作流·待办』">前往审批</Link>
                     )}
                     {row.status === "APPROVED" && (
-                      <button className={s.btnIcon} title="确认付款" style={{ borderColor: "var(--color-purple-500)", color: "var(--color-purple-500)" }} onClick={() => openPay(row)}><PlayCircle size={13} /></button>
+                      <button style={actBtnTone("primary")} onClick={() => openPay(row)}>确认付款</button>
                     )}
                     {(row.status === "DRAFT" || row.status === "SUBMITTED" || row.status === "PENDING_APPROVAL" || row.status === "APPROVED") && (
-                      <button className={s.btnIconDanger} title="取消" onClick={() => openCancel(row)}><Trash2 size={13} /></button>
+                      <button style={actBtnTone("danger")} onClick={() => openCancel(row)}>取消</button>
                     )}
                   </div>
                 </td>

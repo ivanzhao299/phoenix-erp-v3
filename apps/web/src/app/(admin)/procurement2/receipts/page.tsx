@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader"; // G157：统一全局页头
+import { actBtn, actBtnTone } from "../_shared/actionButtons"; // G159：操作列文字按钮
 import { useToast } from "@/contexts/ToastContext";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
@@ -461,15 +462,15 @@ export default function ReceiptsPage() {
               display: "flex",
               gap: 4
             }}>
-                  <button className={s.btnIcon} title="详情" onClick={() => openDetail(row)}><Eye size={13} /></button>
-                  {["DRAFT", "PARTIAL"].includes(row.status) && <button className={s.btnIcon} title="确认收货" onClick={() => {
+                  <button style={actBtn} onClick={() => openDetail(row)}>查看</button>
+                  {["DRAFT", "PARTIAL"].includes(row.status) && <button style={actBtnTone("success")} onClick={() => {
                 setConfirmTarget(row);
                 setConfirmComment("");
-              }}><CheckCircle size={13} /></button>}
-                  {["DRAFT", "PARTIAL"].includes(row.status) && <button className={s.btnIconDanger} title="取消" onClick={() => {
+              }}>确认收货</button>}
+                  {["DRAFT", "PARTIAL"].includes(row.status) && <button style={actBtnTone("danger")} onClick={() => {
                 setCancelTarget(row);
                 setCancelComment("");
-              }}><X size={13} /></button>}
+              }}>取消</button>}
                 </td>
               </tr>)}
           </tbody>
