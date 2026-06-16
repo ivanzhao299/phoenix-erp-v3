@@ -9,11 +9,11 @@ export class ChanjetCallbackController {
 
   constructor(private readonly auth: ChanjetAuthService) {}
 
-  /** GET /api/chanjet/callback — 畅捷通消息地址验证（返回 200） */
+  /** GET /api/chanjet/callback — 畅捷通消息地址验证 */
   @Public()
   @Get('callback')
   verifyCallback() {
-    return { code: 200, message: 'ok' };
+    return { result: 'success' };
   }
 
   /**
@@ -28,7 +28,7 @@ export class ChanjetCallbackController {
 
     if (!body.content) {
       this.log.warn('推送消息无 content 字段');
-      return { code: 200, message: 'ok' };
+      return { result: 'success' };
     }
 
     let payload: Record<string, unknown>;
@@ -42,7 +42,7 @@ export class ChanjetCallbackController {
         payload = typeof body.content === 'string' ? JSON.parse(body.content) : body.content as Record<string, unknown>;
       } catch {
         this.log.error('消息体既非加密也非合法 JSON');
-        return { code: 200, message: 'ok' };
+        return { result: 'success' };
       }
     }
 
@@ -56,7 +56,7 @@ export class ChanjetCallbackController {
       }
     }
 
-    return { code: 200, message: 'ok' };
+    return { result: 'success' };
   }
 
   /**
