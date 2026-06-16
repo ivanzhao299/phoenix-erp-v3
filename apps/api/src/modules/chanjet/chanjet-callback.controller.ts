@@ -75,7 +75,8 @@ export class ChanjetCallbackController {
     }
 
     // ─── 路径 B：加密消息推送（APP_TICKET 等） ───
-    const content = body.content as string | undefined;
+    // 平台用 encryptMsg 或 content 字段发送加密内容
+    const content = (body.encryptMsg ?? body.content) as string | undefined;
     if (content) {
       let payload: Record<string, unknown>;
       try {
