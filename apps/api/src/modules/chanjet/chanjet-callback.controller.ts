@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Logger, HttpCode } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, Logger, HttpCode } from '@nestjs/common';
 import { Public } from '../../common/guards/menu.guard';
 import { RequireMenu } from '../../common/guards/menu.guard';
 import { ChanjetAuthService } from './chanjet-auth.service';
@@ -9,50 +9,103 @@ export class ChanjetCallbackController {
 
   constructor(private readonly auth: ChanjetAuthService) {}
 
-  /** GET /api/chanjet/callback — 畅捷通消息地址验证 */
+  /**
+   * GET /api/chanjet/callback — 畅捷通消息地址验证 + 授权回调
+   * 授权回调可能以 GET + query params 形式到达（含 certificate/authCode）。
+   */
   @Public()
   @Get('callback')
-  verifyCallback() {
+  async verifyCallback(@Query() query: Record<string, string>) {
+    const keys = Object.keys(query);
+    if (keys.length > 0) {
+      this.log.log(`★ GET callback query: ${JSON.stringify(query).slice(0, 500)}`);
+      if (query.certificate) {
+        this.auth.setCertificate(query.certificate);
+        this.log.log(`★ certificate 从 GET query 捕获: ${query.certificate.slice(0, 40)}…`);
+      }
+      if (query.authCode) {
+        this.log.log(`★ authCode 从 GET query 收到: ${query.authCode.slice(0, 30)}…`);
+        try {
+          await this.auth.fetchCertificateByAuthCode(query.authCode);
+        } catch (e) {
+          this.log.warn(`GET authCode→certificate 失败: ${(e as Error).message}`);
+        }
+      }
+    }
     return { result: 'success' };
   }
 
   /**
    * POST /api/chanjet/callback
-   * 畅捷通开放平台消息推送回调（公开端点，无需 JWT）。
+   * 畅捷通开放平台消息推送 + 企业授权回调（公开端点，无需 JWT）。
+   * 同时处理：APP_TICKET / 企业授权（含 certificate/authCode）/ 其他消息。
    */
   @Public()
   @Post('callback')
   @HttpCode(200)
-  async handleCallback(@Body() body: { msgType?: string; content?: string; [key: string]: unknown }) {
-    this.log.log(`收到畅捷通推送: msgType=${body.msgType ?? '(无)'}`);
+  async handleCallback(@Body() body: Record<string, unknown>) {
+    this.log.log(`★ 收到畅捷通推送 keys=[${Object.keys(body).join(',')}] body=${JSON.stringify(body).slice(0, 800)}`);
 
-    if (!body.content) {
-      this.log.warn('推送消息无 content 字段');
-      return { result: 'success' };
+    // ─── 路径 A：企业授权回调（非加密，直接 JSON，可能含 certificate/authCode） ───
+    const deepGet = (obj: Record<string, unknown>, key: string): string | undefined => {
+      if (typeof obj[key] === 'string') return obj[key] as string;
+      for (const v of Object.values(obj)) {
+        if (v && typeof v === 'object' && !Array.isArray(v)) {
+          const found = deepGet(v as Record<string, unknown>, key);
+          if (found) return found;
+        }
+      }
+      return undefined;
+    };
+
+    const certificate = deepGet(body, 'certificate');
+    if (certificate) {
+      this.auth.setCertificate(certificate);
+      this.log.log(`★ certificate 已从回调捕获: ${certificate.slice(0, 40)}…`);
     }
 
-    let payload: Record<string, unknown>;
-    try {
-      const decrypted = this.auth.decryptMessage(body.content);
-      payload = JSON.parse(decrypted);
-      this.log.log(`解密成功: ${JSON.stringify(payload).slice(0, 200)}`);
-    } catch (e) {
-      this.log.warn(`解密失败，尝试明文解析: ${(e as Error).message}`);
+    const authCode = deepGet(body, 'authCode');
+    if (authCode) {
+      this.log.log(`★ authCode 已收到: ${authCode.slice(0, 30)}…`);
       try {
-        payload = typeof body.content === 'string' ? JSON.parse(body.content) : body.content as Record<string, unknown>;
-      } catch {
-        this.log.error('消息体既非加密也非合法 JSON');
-        return { result: 'success' };
+        await this.auth.fetchCertificateByAuthCode(authCode);
+      } catch (e) {
+        this.log.warn(`authCode→certificate 失败: ${(e as Error).message}`);
       }
     }
 
-    const msgType = (payload.msgType ?? body.msgType ?? '') as string;
+    // ─── 路径 B：加密消息推送（APP_TICKET 等） ───
+    const content = body.content as string | undefined;
+    if (content) {
+      let payload: Record<string, unknown>;
+      try {
+        const decrypted = this.auth.decryptMessage(content);
+        payload = JSON.parse(decrypted);
+        this.log.log(`解密成功: ${JSON.stringify(payload).slice(0, 500)}`);
+      } catch (e) {
+        this.log.warn(`解密失败，尝试明文解析: ${(e as Error).message}`);
+        try {
+          payload = typeof content === 'string' ? JSON.parse(content) : content as Record<string, unknown>;
+        } catch {
+          this.log.error('消息体既非加密也非合法 JSON');
+          return { result: 'success' };
+        }
+      }
 
-    if (msgType === 'APP_TICKET' || payload.appTicket) {
-      const ticket = (payload.appTicket ?? payload.ticket) as string;
-      if (ticket) {
-        this.auth.setAppTicket(ticket);
-        this.log.log('appTicket 已更新');
+      const msgType = (payload.msgType ?? body.msgType ?? '') as string;
+
+      if (msgType === 'APP_TICKET' || payload.appTicket) {
+        const ticket = (payload.appTicket ?? payload.ticket) as string;
+        if (ticket) {
+          this.auth.setAppTicket(ticket);
+          this.log.log('appTicket 已更新');
+        }
+      }
+
+      const payloadCert = deepGet(payload, 'certificate');
+      if (payloadCert) {
+        this.auth.setCertificate(payloadCert);
+        this.log.log(`★ certificate 已从加密消息捕获: ${payloadCert.slice(0, 40)}…`);
       }
     }
 
@@ -97,6 +150,18 @@ export class ChanjetCallbackController {
     } catch (e) {
       return { success: false, error: (e as Error).message };
     }
+  }
+
+  /**
+   * POST /api/chanjet/set-cert
+   * 管理员手动设置 certificate（从畅捷通控制台复制）。
+   */
+  @Post('set-cert')
+  @RequireMenu('MENU_SYSTEM', 'V')
+  setCert(@Body() body: { certificate: string }) {
+    if (!body.certificate) return { success: false, error: 'certificate 不能为空' };
+    this.auth.setCertificate(body.certificate);
+    return { success: true, certPreview: body.certificate.slice(0, 30) + '…' };
   }
 
   /**

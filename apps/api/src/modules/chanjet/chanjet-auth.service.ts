@@ -49,6 +49,39 @@ export class ChanjetAuthService implements OnModuleInit {
     this.log.log(`appTicket 已更新: ${ticket.slice(0, 20)}…`);
   }
 
+  setCertificate(cert: string) {
+    this.cert = cert;
+    this.log.log(`certificate 已更新: ${cert.slice(0, 30)}…`);
+  }
+
+  /** 用 authCode 换 certificate（企业授权回调场景） */
+  async fetchCertificateByAuthCode(authCode: string): Promise<string> {
+    const url = 'https://openapi.chanjet.com/auth/certificate';
+    const body = {
+      appKey: this.appKey,
+      appSecret: this.appSecret,
+      authCode,
+    };
+    this.log.log(`POST ${url} (authCode)`);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json() as Record<string, unknown>;
+    this.log.log(`certificate(authCode) 响应: ${JSON.stringify(json).slice(0, 500)}`);
+
+    const result = json.result as Record<string, unknown> | undefined;
+    const certificate = (result?.certificate ?? json.certificate
+      ?? (json.data as Record<string, unknown>)?.certificate
+      ?? (json.value as Record<string, unknown>)?.certificate) as string | undefined;
+    if (certificate) {
+      this.cert = certificate;
+      return certificate;
+    }
+    throw new Error(`authCode→certificate 失败: ${JSON.stringify(json).slice(0, 500)}`);
+  }
+
   /** AES/ECB/PKCS5Padding 解密畅捷通推送消息体 */
   decryptMessage(encrypted: string): string {
     if (!this.msgSecret) throw new Error('CHANJET_MSG_SECRET 未配置');
