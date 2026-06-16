@@ -1,5 +1,9 @@
-import { redirect } from "next/navigation";
+import { Metadata } from "next";
+
+export const metadata: Metadata = { title: "金凤凰 ERP" };
 
 export default function Home() {
-  redirect("/login");
+  return (
+    <meta httpEquiv="refresh" content="0;url=/login" />
+  );
 }
