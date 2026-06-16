@@ -59,20 +59,10 @@ export function AttachmentUploader({ value, onChange, readOnly, label = '上传�
     <div>
       {value.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: readOnly ? 0 : 8 }}>
-          {value.map((u, i) => {
-            const isImg = /\.(png|jpe?g|webp)$/i.test(u);
-            return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', fontSize: 12.5 }}>
-                {isImg ? <img src={u} alt={`附件${i + 1}`} style={{ width: 20, height: 20, objectFit: 'cover', borderRadius: 3 }} /> : <FileText size={14} style={{ color: 'var(--text-secondary)' }} />}
-                <a href={u} target="_blank" rel="noreferrer" style={{ color: 'var(--color-accent)' }}>附件{i + 1}</a>
-                {!readOnly && (
-                  <button onClick={() => onChange(value.filter((_, idx) => idx !== i))} style={{ border: 'none', background: 'none', color: 'var(--status-danger)', cursor: 'pointer', display: 'flex' }}>
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
-            );
-          })}
+          {value.map((u, i) => (
+            <AttachmentChip key={i} url={u} index={i} readOnly={readOnly}
+              onRemove={() => onChange(value.filter((_, idx) => idx !== i))} />
+          ))}
         </div>
       )}
       {!readOnly && (
@@ -85,6 +75,34 @@ export function AttachmentUploader({ value, onChange, readOnly, label = '上传�
       )}
       {readOnly && value.length === 0 && <span style={{ fontSize: 13, color: 'var(--text-disabled)' }}>无附件</span>}
       {err && <div style={{ fontSize: 12, color: 'var(--status-danger)', marginTop: 4 }}>{err}</div>}
+    </div>
+  );
+}
+
+// G169：已上传附件单项——图片显示 40px 缩略图(可点开大图)，加载失败/非图片回退 FileText
+//   图标；移除键改中性灰(原红色 X 被误当成"破图红叉")。改一次全站上传按钮受益。
+function AttachmentChip({ url, index, readOnly, onRemove }: {
+  url: string; index: number; readOnly?: boolean; onRemove: () => void;
+}) {
+  const looksImg = /\.(png|jpe?g|webp|gif|bmp)(\?|#|$)/i.test(url);
+  const [broken, setBroken] = useState(false);
+  const showImg = looksImg && !broken;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px 5px 5px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', fontSize: 12.5 }}>
+      {showImg ? (
+        <a href={url} target="_blank" rel="noreferrer" style={{ display: 'flex' }} title="点击查看大图">
+          <img src={url} alt={`附件${index + 1}`} onError={() => setBroken(true)}
+            style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)', display: 'block' }} />
+        </a>
+      ) : (
+        <FileText size={18} style={{ color: 'var(--text-secondary)' }} />
+      )}
+      <a href={url} target="_blank" rel="noreferrer" style={{ color: 'var(--color-accent)' }}>附件{index + 1}</a>
+      {!readOnly && (
+        <button onClick={onRemove} title="移除" style={{ border: 'none', background: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex' }}>
+          <X size={14} />
+        </button>
+      )}
     </div>
   );
 }
