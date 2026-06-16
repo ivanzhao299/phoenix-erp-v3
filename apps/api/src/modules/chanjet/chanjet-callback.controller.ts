@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Logger } from '@nestjs/common';
+import { Controller, Post, Body, Get, Logger, HttpCode } from '@nestjs/common';
 import { Public } from '../../common/guards/menu.guard';
 import { RequireMenu } from '../../common/guards/menu.guard';
 import { ChanjetAuthService } from './chanjet-auth.service';
@@ -9,14 +9,20 @@ export class ChanjetCallbackController {
 
   constructor(private readonly auth: ChanjetAuthService) {}
 
+  /** GET /api/chanjet/callback — 畅捷通消息地址验证（返回 200） */
+  @Public()
+  @Get('callback')
+  verifyCallback() {
+    return { code: 200, message: 'ok' };
+  }
+
   /**
    * POST /api/chanjet/callback
    * 畅捷通开放平台消息推送回调（公开端点，无需 JWT）。
-   * 畅捷通每 10 分钟推送一次 appTicket，以及业务消息。
-   * 消息体是 AES/ECB/PKCS5Padding 加密的 JSON。
    */
   @Public()
   @Post('callback')
+  @HttpCode(200)
   async handleCallback(@Body() body: { msgType?: string; content?: string; [key: string]: unknown }) {
     this.log.log(`收到畅捷通推送: msgType=${body.msgType ?? '(无)'}`);
 
