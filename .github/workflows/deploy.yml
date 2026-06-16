@@ -322,6 +322,20 @@ jobs:
             git pull --ff-only origin main
             echo "✅ Code synced"
 
+            # ── 畅捷通环境变量注入（从 GitHub Secrets，仅追加缺失项）────
+            inject_env() {
+              local key="$1" val="$2"
+              if [ -n "$val" ] && ! grep -q "^${key}=" .env 2>/dev/null; then
+                echo "${key}=${val}" >> .env
+                echo "  + ${key} injected"
+              fi
+            }
+            inject_env CHANJET_APP_KEY    '${{ secrets.CHANJET_APP_KEY }}'
+            inject_env CHANJET_APP_SECRET '${{ secrets.CHANJET_APP_SECRET }}'
+            inject_env CHANJET_ORG_ID     '${{ secrets.CHANJET_ORG_ID }}'
+            inject_env CHANJET_CERT       '${{ secrets.CHANJET_CERT }}'
+            inject_env CHANJET_MSG_SECRET '${{ secrets.CHANJET_MSG_SECRET }}'
+
             # ── 拉取新镜像前先清理旧镜像（只保留当前运行容器用到的）────────
             # 这一步在拉新镜像之前执行，确保拉取时磁盘有足够空间
             docker image prune -a -f 2>/dev/null || true

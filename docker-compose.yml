@@ -55,6 +55,11 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-https://erp.eggslao.com}
       LOG_LEVEL: ${LOG_LEVEL:-warn}
       PORT: 3100
+      CHANJET_APP_KEY: ${CHANJET_APP_KEY:-}
+      CHANJET_APP_SECRET: ${CHANJET_APP_SECRET:-}
+      CHANJET_ORG_ID: ${CHANJET_ORG_ID:-}
+      CHANJET_CERT: ${CHANJET_CERT:-}
+      CHANJET_MSG_SECRET: ${CHANJET_MSG_SECRET:-}
     volumes:
       - phoenix_uploads:/app/uploads   # 合同/单据文件持久化
     ports:
