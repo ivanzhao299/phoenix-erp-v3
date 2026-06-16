@@ -322,10 +322,18 @@ jobs:
             git pull --ff-only origin main
             echo "✅ Code synced"
 
-            # ── 畅捷通环境变量注入（从 GitHub Secrets，仅追加缺失项）────
+            # ── 畅捷通环境变量注入（从 GitHub Secrets，更新或追加）────
             inject_env() {
               local key="$1" val="$2"
-              if [ -n "$val" ] && ! grep -q "^${key}=" .env 2>/dev/null; then
+              if [ -z "$val" ]; then
+                # 空值：删除已有行（如 CHANJET_CERT 清空）
+                sed -i "/^${key}=/d" .env 2>/dev/null || true
+                return
+              fi
+              if grep -q "^${key}=" .env 2>/dev/null; then
+                sed -i "s|^${key}=.*|${key}=${val}|" .env
+                echo "  ~ ${key} updated"
+              else
                 echo "${key}=${val}" >> .env
                 echo "  + ${key} injected"
               fi
