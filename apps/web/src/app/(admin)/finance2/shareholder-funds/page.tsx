@@ -358,14 +358,14 @@ function CreateContributionModal({
           fontFamily: 'inherit'
         }} />
         </div>
+        {/* G168：CTA 加宽更舒展——两按钮撑满底部，创建按钮更大更突出（原 px-5 py-2 太小） */}
         <div style={{
         display: 'flex',
         gap: 10,
-        justifyContent: 'flex-end',
-        marginTop: 20
+        marginTop: 22
       }}>
-          <button onClick={onClose} style={secondaryActionButton}>取消</button>
-          <button onClick={submit} disabled={saving} className={`px-5 py-2 rounded-lg border-none text-sm font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-violet-300 dark:bg-violet-800 cursor-not-allowed' : 'bg-violet-700 hover:bg-violet-800'}`}>
+          <button onClick={onClose} style={{ ...secondaryActionButton, flex: 1, padding: '11px 18px', fontSize: 14 }}>取消</button>
+          <button onClick={submit} disabled={saving} style={{ flex: 2 }} className={`py-3 rounded-lg border-none text-[15px] font-semibold text-white cursor-pointer transition-colors ${saving ? 'bg-violet-300 dark:bg-violet-800 cursor-not-allowed' : 'bg-violet-700 hover:bg-violet-800'}`}>
             {saving ? '创建中…' : '创建记录'}
           </button>
         </div>
