@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
+import { ModalV2 } from "@/components/design-system/dialogs/ModalV2";
 import s from "@/components/ui/admin-ui.module.css";
 import { FormRenderer } from "@/components/workflow/FormRenderer";
 import { workflowApi } from "@/lib/workflow-api";
@@ -301,16 +302,10 @@ export default function WorkflowFormDesignerPage() {
         </section>
       </div>
 
-      {jsonOpen ? <div style={modalMaskStyle}>
-          <div className={s.card} style={modalStyle}>
-            <div style={toolbarStyle}>
-              <strong className={s.cardTitle}>高级 JSON 编辑</strong>
-              <button type="button" className={s.btnSecondary} onClick={() => setJsonOpen(false)}>关闭</button>
-            </div>
-            <textarea value={jsonDraft} onChange={e => setJsonDraft(e.target.value)} className={s.textarea} style={textareaStyle} spellCheck={false} />
-            <button type="button" className={s.btnPrimary} onClick={applyJson}>应用 JSON</button>
-          </div>
-        </div> : null}
+      <ModalV2 open={jsonOpen} onClose={() => setJsonOpen(false)} title="高级 JSON 编辑" width={900}
+        footer={<button type="button" className={s.btnPrimary} onClick={applyJson}>应用 JSON</button>}>
+        <textarea value={jsonDraft} onChange={e => setJsonDraft(e.target.value)} className={s.textarea} style={textareaStyle} spellCheck={false} />
+      </ModalV2>
     </div>;
 }
 function uniqueFieldKey(base: string, fields: Field[]) {
@@ -405,22 +400,6 @@ const hintStyle: React.CSSProperties = {
   color: "var(--text-secondary)",
   fontSize: 12,
   lineHeight: 1.6
-};
-const modalMaskStyle: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 1000,
-  background: "var(--overlay-black-30)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 24
-};
-const modalStyle: React.CSSProperties = {
-  width: "min(900px, 92vw)",
-  maxHeight: "88vh",
-  overflow: "auto",
-  padding: 16
 };
 const textareaStyle: React.CSSProperties = {
   minHeight: 440,

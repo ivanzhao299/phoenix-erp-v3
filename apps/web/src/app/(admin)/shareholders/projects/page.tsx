@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { shareholderApi, ShrProject, PROJECT_TYPE_LABEL, ORG_CODE_LABEL, lbl } from '@/lib/shareholder-api';
 import { SummaryBar, sum, yuan } from '../SummaryBar';
+import PageHeader from '@/components/PageHeader';
 import u from "@/styles/uix-utils.module.css";
 const CAP_LABEL: Record<string, string> = {
   PAID_IN_FULL: '已到位',
@@ -34,12 +35,7 @@ export default function ProjectsPage() {
     shareholderApi.listProjects().then(setRows).catch(e => setErr(e?.message || '加载失败')).finally(() => setLoading(false));
   }, []);
   return <div className={u.p24}>
-      <h1 style={{
-      fontSize: 20,
-      fontWeight: 700,
-      color: 'var(--color-primary)',
-      marginBottom: 16
-    }}>股东项目</h1>
+      <PageHeader title="股东项目" />
       {err && <div style={{
       color: 'var(--status-danger)',
       marginBottom: 12

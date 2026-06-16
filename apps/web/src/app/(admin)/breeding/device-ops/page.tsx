@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
+import { ModalV2 } from "@/components/design-system/dialogs/ModalV2";
 import { RefreshCw, Link2, Settings, ClipboardList, Wifi, WifiOff } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -187,36 +188,6 @@ const emptyEditForm = (): EditFormState => ({
   alert_config: {}
 });
 
-// ── Modal wrapper ─────────────────────────────────────────────────────────────
-function Modal({
-  children,
-  onClose
-}: {
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  return <div onClick={onClose} style={{
-    position: "fixed",
-    inset: 0,
-    background: "var(--overlay-black-45)",
-    zIndex: 1000,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center"
-  }}>
-      <div onClick={e => e.stopPropagation()} style={{
-      background: "var(--bg-card)",
-      borderRadius: 12,
-      padding: 28,
-      width: 540,
-      boxShadow: "0 20px 60px rgba(0,0,0,.28)",
-      maxHeight: "88vh",
-      overflowY: "auto"
-    }}>
-        {children}
-      </div>
-    </div>;
-}
 
 // ── Input style ───────────────────────────────────────────────────────────────
 const inp: React.CSSProperties = {
@@ -911,15 +882,7 @@ export default function DeviceOpsPage() {
         </div>}
 
       {/* ── Modal: 新建映射 ───────────────────────────────────────────────── */}
-      {showMapForm && <Modal onClose={() => {
-      setShowMapForm(false);
-      setMapForm(emptyMapForm());
-    }}>
-          <div style={{
-        fontWeight: 700,
-        fontSize: 16,
-        marginBottom: 20
-      }}>{t("ui.新建栏舍映射", "新建栏舍映射")}</div>
+      <ModalV2 open={showMapForm} onClose={() => { setShowMapForm(false); setMapForm(emptyMapForm()); }} title={t("ui.新建栏舍映射", "新建栏舍映射")} width={540}>
           <div style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
@@ -993,15 +956,10 @@ export default function DeviceOpsPage() {
         }}>{t("common.cancel", "取消")}</button>
             <button type="button" className={s.btnPrimary} disabled={saving} onClick={handleSaveMapping}>{saving ? t("common.saving", "保存中...") : t("ui.保存映射", "保存映射")}</button>
           </div>
-        </Modal>}
+      </ModalV2>
 
       {/* ── Modal: 编辑映射 ───────────────────────────────────────────────── */}
-      {editRow && <Modal onClose={() => setEditRow(null)}>
-          <div style={{
-        fontWeight: 700,
-        fontSize: 15,
-        marginBottom: 18
-      }}>{t("ui.修改", "修改映射")}: <code className={u.fs13}>{editRow.erp_house_code}</code></div>
+      <ModalV2 open={!!editRow} onClose={() => setEditRow(null)} title={`${t("ui.修改", "修改映射")}: ${editRow?.erp_house_code ?? ""}`} width={540}>
           <div style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
@@ -1143,17 +1101,10 @@ export default function DeviceOpsPage() {
             <button type="button" className={s.btnSecondary} onClick={() => setEditRow(null)}>{t("common.cancel", "取消")}</button>
             <button type="button" className={s.btnPrimary} disabled={saving} onClick={handleSaveEdit}>{saving ? t("common.saving", "保存中...") : t("ui.保存", "保存")}</button>
           </div>
-        </Modal>}
+      </ModalV2>
 
       {/* ── Modal: 编辑属性字典 ───────────────────────────────────────────── */}
-      {dictEditRow && <Modal onClose={() => setDictEditRow(null)}>
-          <div style={{
-        fontWeight: 700,
-        fontSize: 15,
-        marginBottom: 18
-      }}>
-            {t("ui.编辑属性", "编辑属性")}: {dictEditRow.name_zh} <code className={u.fs12}>({dictEditRow.property_code})</code>
-          </div>
+      <ModalV2 open={!!dictEditRow} onClose={() => setDictEditRow(null)} title={`${t("ui.编辑属性", "编辑属性")}: ${dictEditRow?.name_zh ?? ""} (${dictEditRow?.property_code ?? ""})`} width={540}>
           <div style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
@@ -1195,6 +1146,6 @@ export default function DeviceOpsPage() {
             <button type="button" className={s.btnSecondary} onClick={() => setDictEditRow(null)}>{t("common.cancel", "取消")}</button>
             <button type="button" className={s.btnPrimary} disabled={saving} onClick={handleSaveDictEdit}>{saving ? t("common.saving", "保存中...") : t("ui.保存", "保存")}</button>
           </div>
-        </Modal>}
+      </ModalV2>
     </div>;
 }

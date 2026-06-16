@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import u from "@/styles/uix-utils.module.css";
 import { crudApi } from "@/lib/api-client";
 import PageHeader from "@/components/PageHeader";
+import { ModalV2 } from "@/components/design-system/dialogs/ModalV2";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { MapPin, Plus, Edit2, Trash2, RefreshCw, Search, X, Check, BarChart2 } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
@@ -519,109 +520,31 @@ export default function LocationsPage() {
       </div>
 
       {/* 新增/编辑模态框 */}
-      {modal && <div style={{
-      position: "fixed",
-      inset: 0,
-      background: "var(--overlay-black-45)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 1000
-    }} onClick={e => e.target === e.currentTarget && closeModal()}>
-          <div style={{
-        background: "var(--bg-card, var(--bg-card))",
-        borderRadius: 16,
-        padding: "28px 32px",
-        width: 520,
-        maxHeight: "90vh",
-        overflowY: "auto",
-        boxShadow: "0 25px 50px var(--overlay-black-25)"
-      }}>
-            <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 20
-        }}>
-              <h2 style={{
-            fontSize: 17,
-            fontWeight: 700,
-            margin: 0
-          }}>{modal === "add" ? t("ui.新增库位", "新增库位") : t("ui.编辑库位", "编辑库位")}</h2>
-              <button type="button" onClick={closeModal} style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: "var(--text-secondary)",
-            padding: 4
-          }}><X size={18} /></button>
-            </div>
-            <div style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 14
-        }}>
-              <div style={{
-            gridColumn: "1/-1"
-          }}>
-                <label style={labelStyle}>{t("ui.库位编码", "库位编码")} <span style={{
-                color: "var(--status-danger, var(--status-danger))"
-              }}>*</span></label>
-                <input value={String(form.location_code ?? "")} onChange={e => setForm(f => ({
-              ...f,
-              location_code: e.target.value
-            }))} placeholder={t("ui.如LOCA0101", "如 LOC-A-01-01")} style={inputStyle} disabled={modal === "edit"} />
-              </div>
-              <div><label style={labelStyle}>{t("ui.库位名称", "库位名称")}</label><input value={String(form.location_name ?? "")} onChange={e => setForm(f => ({
-              ...f,
-              location_name: e.target.value
-            }))} placeholder={t("ui.如A区1排1层", "如 A区1排1层")} style={inputStyle} /></div>
-              <div><label style={labelStyle}>{t("ui.仓库", "仓库")} <span style={{
-                color: "var(--status-danger, var(--status-danger))"
-              }}>*</span></label>
-                <WarehouseSelector value={String(form.warehouse_code ?? "")} onChange={v => setForm(f => ({
-              ...f,
-              warehouse_code: v,
-              zone_code: "" // 切换仓库后清空库区，避免跨仓残留
-            }))} /></div>
-              <div><label style={labelStyle}>{t("ui.库区", "库区")}</label>
-                <ZoneSelector value={String(form.zone_code ?? "")} warehouseCode={String(form.warehouse_code ?? "")} onChange={v => setForm(f => ({
-              ...f,
-              zone_code: v
-            }))} /></div>
-              <div><label style={labelStyle}>{t("common.status", "状态")}</label>
-                <select value={String(form.status ?? "EMPTY")} onChange={e => setForm(f => ({
-              ...f,
-              status: e.target.value
-            }))} style={inputStyle}>
-                  {STATUS_OPTS.map(st => <option key={st} value={st}>{STATUS_LABEL[st]}（{st}）</option>)}
-                </select>
-              </div>
-              {/* B3 删除：wms_locations DB 无 row_no / layer_no 列 */}
-              <div><label style={labelStyle}>{t("ui.额定容量枚", "额定容量（枚）")}</label><input type="number" min={0} value={Number(form.capacity_qty ?? 0)} onChange={e => setForm(f => ({
-              ...f,
-              capacity_qty: e.target.value
-            }))} style={inputStyle} /></div>
-              {/* B3 删除：wms_locations DB 无 remark 列；如需备注 — 加 DB migration */}
-            </div>
-            <div style={{
-          display: "flex",
-          gap: 10,
-          justifyContent: "flex-end",
-          marginTop: 22
-        }}>
-              <button type="button" onClick={closeModal} className={s.btnSecondary} style={{
-            padding: "9px 20px"
-          }}>{t("common.cancel", "取消")}</button>
-              <button type="button" onClick={handleSave} disabled={saving || !form.location_code || !form.warehouse_code} className={s.btnPrimary} style={{
-            padding: "9px 22px",
-            opacity: saving ? 0.7 : 1
-          }}>
-                <Check size={14} />{saving ? t("ui.保存中", "保存中…") : t("common.save", "确认保存")}
-              </button>
-            </div>
+      <ModalV2 open={!!modal} onClose={closeModal} title={modal === "add" ? t("ui.新增库位", "新增库位") : t("ui.编辑库位", "编辑库位")} width={520}
+        footer={<>
+          <button type="button" onClick={closeModal} className={s.btnSecondary} style={{ padding: "9px 20px" }}>{t("common.cancel", "取消")}</button>
+          <button type="button" onClick={handleSave} disabled={saving || !form.location_code || !form.warehouse_code} className={s.btnPrimary} style={{ padding: "9px 22px", opacity: saving ? 0.7 : 1 }}>
+            <Check size={14} />{saving ? t("ui.保存中", "保存中…") : t("common.save", "确认保存")}
+          </button>
+        </>}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <div style={{ gridColumn: "1/-1" }}>
+            <label style={labelStyle}>{t("ui.库位编码", "库位编码")} <span style={{ color: "var(--status-danger)" }}>*</span></label>
+            <input value={String(form.location_code ?? "")} onChange={e => setForm(f => ({ ...f, location_code: e.target.value }))} placeholder={t("ui.如LOCA0101", "如 LOC-A-01-01")} style={inputStyle} disabled={modal === "edit"} />
           </div>
-        </div>}
+          <div><label style={labelStyle}>{t("ui.库位名称", "库位名称")}</label><input value={String(form.location_name ?? "")} onChange={e => setForm(f => ({ ...f, location_name: e.target.value }))} placeholder={t("ui.如A区1排1层", "如 A区1排1层")} style={inputStyle} /></div>
+          <div><label style={labelStyle}>{t("ui.仓库", "仓库")} <span style={{ color: "var(--status-danger)" }}>*</span></label>
+            <WarehouseSelector value={String(form.warehouse_code ?? "")} onChange={v => setForm(f => ({ ...f, warehouse_code: v, zone_code: "" }))} /></div>
+          <div><label style={labelStyle}>{t("ui.库区", "库区")}</label>
+            <ZoneSelector value={String(form.zone_code ?? "")} warehouseCode={String(form.warehouse_code ?? "")} onChange={v => setForm(f => ({ ...f, zone_code: v }))} /></div>
+          <div><label style={labelStyle}>{t("common.status", "状态")}</label>
+            <select value={String(form.status ?? "EMPTY")} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={inputStyle}>
+              {STATUS_OPTS.map(st => <option key={st} value={st}>{STATUS_LABEL[st]}（{st}）</option>)}
+            </select>
+          </div>
+          <div><label style={labelStyle}>{t("ui.额定容量枚", "额定容量（枚）")}</label><input type="number" min={0} value={Number(form.capacity_qty ?? 0)} onChange={e => setForm(f => ({ ...f, capacity_qty: e.target.value }))} style={inputStyle} /></div>
+        </div>
+      </ModalV2>
 
       <ConfirmDialog open={confirmOpen} title={t("ui.确认删除库位", "确认删除库位")} message={`${t("ui.将把库位标记为DELETED该操作不可通过界面撤销", "将把库位")}「${deleteTarget?.location_code ?? ""}」${t("ui.标记为DELETED该操作不可通过界面撤销", "标记为 DELETED，该操作不可通过界面撤销。")}`} onConfirm={confirmDelete} onCancel={() => {
       setConfirmOpen(false);

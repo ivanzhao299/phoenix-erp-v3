@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
+import PageHeader from '@/components/PageHeader';
 import { useProductGrades } from "@/hooks/useProductGrades"; // G20-1 等级走 product_grades
 import { KpiCard as GlobalKpiCard } from "@/components/ui/KpiCard";
 import { hexToAccent } from "@/lib/design-tokens";
@@ -475,7 +476,7 @@ function BatchesTab() {
       color: 'var(--gray-400)',
       padding: 40
     }}>加载中...</div> : <div className={u.scrollX}>
-          <table className={s.table}>
+          <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
             <thead>
               <tr>
                 {['批次号', '商品组合', '产品代码', '等级', '公司', '可用量', '总量', '状态', '生产日期', '到期日', '来源'].map(h => <th key={h}>{h}</th>)}
@@ -575,7 +576,7 @@ function ExpiringTab() {
       color: 'var(--gray-400)',
       padding: 40
     }}>加载中...</div> : <div className={u.scrollX}>
-          <table className={s.table}>
+          <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
             <thead>
               <tr>
                 {['批次号', '商品组合', '产品', '等级', '公司', '可用量', '到期日', '剩余天数', '状态'].map(h => <th key={h}>{h}</th>)}
@@ -858,7 +859,7 @@ function LossTab() {
         color: 'var(--gray-700)',
         marginBottom: 8
       }}>按损耗类型（近30天）</h4>
-          <table className={`${s.table} ${u.mb24}`}>
+          <table className={`${s.table} ${u.mb24}`} style={{ tableLayout: "fixed", width: "100%" }}>
             <thead>
               <tr>
                 {['损耗类型', '批次数', '合计损耗（枚）'].map(h => <th key={h}>{h}</th>)}
@@ -885,7 +886,7 @@ function LossTab() {
         color: 'var(--gray-700)',
         marginBottom: 8
       }}>按批次损耗排名（近30天）</h4>
-          <table className={s.table}>
+          <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
             <thead>
               <tr>
                 {['批次号', '商品组合', '产品代码', '合计损耗', '最后事件时间'].map(h => <th key={h}>{h}</th>)}
@@ -962,24 +963,7 @@ export default function InventoryPage() {
     background: 'var(--gray-50)',
     minHeight: '100vh'
   }}>
-      {/* 页头 */}
-      <div className={u.mb20}>
-        <h2 style={{
-        margin: 0,
-        fontSize: 20,
-        fontWeight: 700,
-        color: 'var(--gray-900)'
-      }}>
-          库存管理 — 鸡蛋库存
-        </h2>
-        <p style={{
-        margin: '4px 0 0',
-        fontSize: 13,
-        color: 'var(--gray-500)'
-      }}>
-          先进先出 · SKU 精确分配 · 到期预警 · 损耗分析
-        </p>
-      </div>
+      <PageHeader title="库存管理" subtitle="先进先出 · SKU 精确分配 · 到期预警 · 损耗分析" breadcrumb={['销售系统', '库存管理']} />
 
       {/* 仪表盘统计 */}
       {stats && <div style={{

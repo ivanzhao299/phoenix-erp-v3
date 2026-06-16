@@ -6,6 +6,7 @@ import { PageHeaderV2 } from '@/components/design-system';
 import { Plus, RefreshCw, Search, Truck, Users, Car, CheckCircle, Clock, AlertTriangle, Package, ChevronRight, X, MapPin, PlayCircle, StopCircle, Navigation, Flag, Ban } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import { ConfirmDialogV2, EmptyState, LoadingSkeleton } from '@/components/design-system'; // F4-B
+import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import { KpiCard } from '@/components/ui/KpiCard';
 import { hexToAccent, KPI_GRID } from '@/lib/design-tokens';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
@@ -1348,29 +1349,15 @@ export default function DeliveryPage() {
         </div>}
 
       {/* ══════════════════ 新建配送单 弹窗 ══════════════════ */}
-      {showCreate && <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'var(--overlay-mask)',
-      zIndex: 1000,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center'
-    }}>
-          <div style={{
-        width: 520,
-        background: 'var(--text-primary)',
-        borderRadius: 12,
-        padding: '28px 32px',
-        border: '1px solid var(--border)',
-        maxHeight: '80vh',
-        overflowY: 'auto'
-      }}>
-            <div style={{
-          fontWeight: 800,
-          fontSize: 16,
-          marginBottom: 20
-        }}>新建配送单</div>
+      <ModalV2 open={showCreate} onClose={() => { setShowCreate(false); setCreateErr(''); }} title="新建配送单" width={520}
+        footer={<>
+          <button onClick={() => { setShowCreate(false); setCreateErr(''); }} style={{
+            padding: '8px 18px', borderRadius: 6, background: 'var(--bg-muted)', border: '1px solid var(--border)', cursor: 'pointer', color: 'inherit', fontSize: 13
+          }}>取消</button>
+          <button disabled={createLoading} onClick={submitCreate} style={{
+            padding: '8px 18px', borderRadius: 6, background: 'var(--color-accent)', border: 'none', cursor: 'pointer', color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600, opacity: createLoading ? 0.6 : 1
+          }}>{createLoading ? '提交中…' : '确认新建'}</button>
+        </>}>
             <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -1523,65 +1510,21 @@ export default function DeliveryPage() {
           fontSize: 12,
           marginTop: 10
         }}>{createErr}</div>}
-            <div style={{
-          display: 'flex',
-          gap: 8,
-          marginTop: 20,
-          justifyContent: 'flex-end'
-        }}>
-              <button onClick={() => {
-            setShowCreate(false);
-            setCreateErr('');
-          }} style={{
-            padding: '8px 18px',
-            borderRadius: 6,
-            background: 'var(--bg-muted)',
-            border: '1px solid var(--border)',
-            cursor: 'pointer',
-            color: 'inherit',
-            fontSize: 13
-          }}>
-                取消
-              </button>
-              <button disabled={createLoading} onClick={submitCreate} style={{
-            padding: '8px 18px',
-            borderRadius: 6,
-            background: 'var(--color-accent)',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--text-on-dark)',
-            fontSize: 13,
-            fontWeight: 600,
-            opacity: createLoading ? 0.6 : 1
-          }}>
-                {createLoading ? '提交中…' : '确认新建'}
-              </button>
-            </div>
-          </div>
-        </div>}
+      </ModalV2>
 
       {/* ══════════════════ 签收 弹窗 ══════════════════ */}
-      {signingItem && <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'var(--overlay-mask)',
-      zIndex: 1000,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center'
-    }}>
-          <div style={{
-        width: 420,
-        background: 'var(--text-primary)',
-        borderRadius: 12,
-        padding: '28px 32px',
-        border: '1px solid var(--border)'
-      }}>
-            <div style={{
-          fontWeight: 800,
-          fontSize: 16,
-          marginBottom: 4
-        }}>客户签收</div>
+      <ModalV2 open={!!signingItem} onClose={() => { setSigningItem(null); setSignErr(''); }} title="客户签收" width={420}
+        footer={<>
+          <button onClick={() => { setSigningItem(null); setSignErr(''); }} style={{
+            padding: '8px 18px', borderRadius: 6, background: 'var(--bg-muted)', border: '1px solid var(--border)', cursor: 'pointer', color: 'inherit', fontSize: 13
+          }}>取消</button>
+          <button disabled={signLoading || !receivedQty} onClick={submitReceipt} style={{
+            padding: '8px 18px', borderRadius: 6, border: 'none', cursor: 'pointer',
+            background: signingMode === 'normal' ? 'var(--status-success)' : 'var(--status-danger)',
+            color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600, opacity: signLoading || !receivedQty ? 0.6 : 1
+          }}>{signLoading ? '提交中…' : '确认签收'}</button>
+        </>}>
+        {signingItem && <>
             <div style={{
           fontSize: 12,
           color: 'var(--text-secondary)',
@@ -1710,65 +1653,19 @@ export default function DeliveryPage() {
           fontSize: 12,
           marginTop: 10
         }}>{signErr}</div>}
-            <div style={{
-          display: 'flex',
-          gap: 8,
-          marginTop: 20,
-          justifyContent: 'flex-end'
-        }}>
-              <button onClick={() => {
-            setSigningItem(null);
-            setSignErr('');
-          }} style={{
-            padding: '8px 18px',
-            borderRadius: 6,
-            background: 'var(--bg-muted)',
-            border: '1px solid var(--border)',
-            cursor: 'pointer',
-            color: 'inherit',
-            fontSize: 13
-          }}>
-                取消
-              </button>
-              <button disabled={signLoading || !receivedQty} onClick={submitReceipt} style={{
-            padding: '8px 18px',
-            borderRadius: 6,
-            border: 'none',
-            cursor: 'pointer',
-            background: signingMode === 'normal' ? 'var(--status-success)' : 'var(--status-danger)',
-            color: 'var(--text-on-dark)',
-            fontSize: 13,
-            fontWeight: 600,
-            opacity: signLoading || !receivedQty ? 0.6 : 1
-          }}>
-                {signLoading ? '提交中…' : '确认签收'}
-              </button>
-            </div>
-          </div>
-        </div>}
+        </>}
+      </ModalV2>
 
       {/* ══════════════════ 新建司机 弹窗 ══════════════════ */}
-      {showDriverForm && <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'var(--overlay-mask)',
-      zIndex: 1000,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center'
-    }}>
-          <div style={{
-        width: 400,
-        background: 'var(--text-primary)',
-        borderRadius: 12,
-        padding: '28px 32px',
-        border: '1px solid var(--border)'
-      }}>
-            <div style={{
-          fontWeight: 800,
-          fontSize: 16,
-          marginBottom: 20
-        }}>新建司机</div>
+      <ModalV2 open={showDriverForm} onClose={() => { setShowDriverForm(false); setDriverErr(''); }} title="新建司机" width={400}
+        footer={<>
+          <button onClick={() => { setShowDriverForm(false); setDriverErr(''); }} style={{
+            padding: '8px 18px', borderRadius: 6, background: 'var(--bg-muted)', border: '1px solid var(--border)', cursor: 'pointer', color: 'inherit', fontSize: 13
+          }}>取消</button>
+          <button onClick={submitDriver} style={{
+            padding: '8px 18px', borderRadius: 6, background: 'var(--color-accent)', border: 'none', cursor: 'pointer', color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600
+          }}>保存</button>
+        </>}>
             <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -1816,64 +1713,18 @@ export default function DeliveryPage() {
           fontSize: 12,
           marginTop: 10
         }}>{driverErr}</div>}
-            <div style={{
-          display: 'flex',
-          gap: 8,
-          marginTop: 20,
-          justifyContent: 'flex-end'
-        }}>
-              <button onClick={() => {
-            setShowDriverForm(false);
-            setDriverErr('');
-          }} style={{
-            padding: '8px 18px',
-            borderRadius: 6,
-            background: 'var(--bg-muted)',
-            border: '1px solid var(--border)',
-            cursor: 'pointer',
-            color: 'inherit',
-            fontSize: 13
-          }}>
-                取消
-              </button>
-              <button onClick={submitDriver} style={{
-            padding: '8px 18px',
-            borderRadius: 6,
-            background: 'var(--color-accent)',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--text-on-dark)',
-            fontSize: 13,
-            fontWeight: 600
-          }}>
-                保存
-              </button>
-            </div>
-          </div>
-        </div>}
+      </ModalV2>
 
       {/* ══════════════════ 新建车辆 弹窗 ══════════════════ */}
-      {showVehicleForm && <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'var(--overlay-mask)',
-      zIndex: 1000,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center'
-    }}>
-          <div style={{
-        width: 400,
-        background: 'var(--text-primary)',
-        borderRadius: 12,
-        padding: '28px 32px',
-        border: '1px solid var(--border)'
-      }}>
-            <div style={{
-          fontWeight: 800,
-          fontSize: 16,
-          marginBottom: 20
-        }}>新建车辆</div>
+      <ModalV2 open={showVehicleForm} onClose={() => { setShowVehicleForm(false); setVehicleErr(''); }} title="新建车辆" width={400}
+        footer={<>
+          <button onClick={() => { setShowVehicleForm(false); setVehicleErr(''); }} style={{
+            padding: '8px 18px', borderRadius: 6, background: 'var(--bg-muted)', border: '1px solid var(--border)', cursor: 'pointer', color: 'inherit', fontSize: 13
+          }}>取消</button>
+          <button onClick={submitVehicle} style={{
+            padding: '8px 18px', borderRadius: 6, background: 'var(--color-accent)', border: 'none', cursor: 'pointer', color: 'var(--text-on-dark)', fontSize: 13, fontWeight: 600
+          }}>保存</button>
+        </>}>
             <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -1926,41 +1777,7 @@ export default function DeliveryPage() {
           fontSize: 12,
           marginTop: 10
         }}>{vehicleErr}</div>}
-            <div style={{
-          display: 'flex',
-          gap: 8,
-          marginTop: 20,
-          justifyContent: 'flex-end'
-        }}>
-              <button onClick={() => {
-            setShowVehicleForm(false);
-            setVehicleErr('');
-          }} style={{
-            padding: '8px 18px',
-            borderRadius: 6,
-            background: 'var(--bg-muted)',
-            border: '1px solid var(--border)',
-            cursor: 'pointer',
-            color: 'inherit',
-            fontSize: 13
-          }}>
-                取消
-              </button>
-              <button onClick={submitVehicle} style={{
-            padding: '8px 18px',
-            borderRadius: 6,
-            background: 'var(--color-accent)',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--text-on-dark)',
-            fontSize: 13,
-            fontWeight: 600
-          }}>
-                保存
-              </button>
-            </div>
-          </div>
-        </div>}
+      </ModalV2>
 
       <ConfirmDialogV2 open={cancelConfirm} title="取消配送单" danger confirmLabel="确认取消" message="确认取消此配送单？此操作不可撤销。" onConfirm={doCancelOrder} onCancel={() => setCancelConfirm(false)} />
     </div>;

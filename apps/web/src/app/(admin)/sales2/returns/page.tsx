@@ -4,9 +4,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { toast } from 'sonner'; // G29-A 评估：1700+ 行多 sub-component 共用 toast，迁移工作量大保留
 import s from "@/components/ui/admin-ui.module.css";
+import PageHeader from '@/components/PageHeader';
 import { KpiCard } from "@/components/ui/KpiCard";
 import { hexToAccent, KPI_GRID } from "@/lib/design-tokens";
 import { EmptyState, LoadingSkeleton } from '@/components/design-system'; // F4-B 统一空状态/加载态
+import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import { DictSelect } from '@/components/shared-selectors/DictSelect'; // G2 字典
 import { CompanySelector, CustomerSelector, SkuSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-C 主数据选择器
 
@@ -230,9 +232,11 @@ function Badge({
 // ── 创建退货抽屉 ──────────────────────────────────────────────────────────────
 
 function CreateReturnDrawer({
+  open,
   onClose,
   onCreated
 }: {
+  open: boolean;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -298,38 +302,11 @@ function CreateReturnDrawer({
       setLoading(false);
     }
   };
-  return <div style={{
-    position: 'fixed',
-    inset: 0,
-    background: 'var(--overlay-mask)',
-    zIndex: 100,
-    display: 'flex',
-    justifyContent: 'flex-end'
-  }}>
-      <div style={{
-      width: 640,
-      background: 'var(--bg-card)',
-      height: '100%',
-      overflowY: 'auto',
-      padding: 32
-    }}>
-        <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        marginBottom: 24
-      }}>
-          <h2 style={{
-          margin: 0,
-          fontSize: 20,
-          fontWeight: 700
-        }}>新建退货单</h2>
-          <button onClick={onClose} style={{
-          border: 'none',
-          background: 'none',
-          fontSize: 22,
-          cursor: 'pointer'
-        }}>×</button>
-        </div>
+  return <ModalV2 open={open} title="新建退货单" onClose={onClose} width={660}
+      footer={<>
+        <button onClick={onClose} style={{ padding: '8px 20px', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}>取消</button>
+        <button onClick={handleCreate} disabled={loading} style={{ padding: '8px 24px', background: 'var(--color-accent)', color: 'var(--text-on-dark)', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>{loading ? '创建中...' : '创建退货单'}</button>
+      </>}>
         {error && <div style={{
         background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)',
         color: 'var(--status-danger)',
@@ -566,35 +543,7 @@ function CreateReturnDrawer({
             </div>
           </div>)}
 
-        <div style={{
-        display: 'flex',
-        gap: 12,
-        marginTop: 24
-      }}>
-          <button onClick={onClose} style={{
-          flex: 1,
-          padding: '10px 0',
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-          cursor: 'pointer',
-          fontSize: 14
-        }}>取消</button>
-          <button onClick={handleCreate} disabled={loading} style={{
-          flex: 2,
-          padding: '10px 0',
-          background: 'var(--color-accent)',
-          color: 'var(--text-on-dark)',
-          border: 'none',
-          borderRadius: 8,
-          cursor: 'pointer',
-          fontSize: 14,
-          fontWeight: 600
-        }}>
-            {loading ? '创建中...' : '创建退货单'}
-          </button>
-        </div>
-      </div>
-    </div>;
+      </ModalV2>;
 }
 
 // ── 质检抽屉 ──────────────────────────────────────────────────────────────────
@@ -639,38 +588,11 @@ function InspectionDrawer({
       setLoading(false);
     }
   };
-  return <div style={{
-    position: 'fixed',
-    inset: 0,
-    background: 'var(--overlay-mask)',
-    zIndex: 100,
-    display: 'flex',
-    justifyContent: 'flex-end'
-  }}>
-      <div style={{
-      width: 600,
-      background: 'var(--bg-card)',
-      height: '100%',
-      overflowY: 'auto',
-      padding: 32
-    }}>
-        <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        marginBottom: 24
-      }}>
-          <h2 style={{
-          margin: 0,
-          fontSize: 18,
-          fontWeight: 700
-        }}>质检录入 — {order.return_no}</h2>
-          <button onClick={onClose} style={{
-          border: 'none',
-          background: 'none',
-          fontSize: 22,
-          cursor: 'pointer'
-        }}>×</button>
-        </div>
+  return <ModalV2 open={!!order} title={`质检录入 — ${order.return_no}`} onClose={onClose} width={620}
+      footer={<>
+        <button onClick={onClose} style={{ padding: '8px 20px', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer' }}>取消</button>
+        <button onClick={handleSubmit} disabled={loading} style={{ padding: '8px 24px', background: 'var(--status-special)', color: 'var(--text-on-dark)', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>{loading ? '提交中...' : '完成质检'}</button>
+      </>}>
         {error && <div style={{
         background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)',
         color: 'var(--status-danger)',
@@ -783,33 +705,7 @@ function InspectionDrawer({
                 {results[i].acceptedQty + results[i].damagedQty > Number(item.returned_qty) && ' ⚠ 超出申请数量！'}
               </div>}
           </div>)}
-        <div style={{
-        display: 'flex',
-        gap: 12,
-        marginTop: 24
-      }}>
-          <button onClick={onClose} style={{
-          flex: 1,
-          padding: '10px 0',
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-          cursor: 'pointer'
-        }}>取消</button>
-          <button onClick={handleSubmit} disabled={loading} style={{
-          flex: 2,
-          padding: '10px 0',
-          background: 'var(--status-special)',
-          color: 'var(--text-on-dark)',
-          border: 'none',
-          borderRadius: 8,
-          cursor: 'pointer',
-          fontWeight: 600
-        }}>
-            {loading ? '提交中...' : '完成质检'}
-          </button>
-        </div>
-      </div>
-    </div>;
+      </ModalV2>;
 }
 
 // ── 退货单列表标签 ────────────────────────────────────────────────────────────
@@ -931,7 +827,7 @@ function ReturnOrdersTab() {
       border: '1px solid var(--border)',
       overflow: 'hidden'
     }}>
-        <table className={s.table}>
+        <table className={s.table} style={{ tableLayout: "fixed", width: "100%" }}>
           <thead>
             <tr>
               {['退货单号', '类型', '客户', '金额', '状态', '创建时间', '操作'].map(h => <th key={h}>{h}</th>)}
@@ -1079,40 +975,9 @@ function ReturnOrdersTab() {
         </div>
       </div>
 
-      {/* 详情抽屉 */}
-      {detail && <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'var(--overlay-mask)',
-      zIndex: 100,
-      display: 'flex',
-      justifyContent: 'flex-end'
-    }}>
-          <div style={{
-        width: 640,
-        background: 'var(--bg-card)',
-        height: '100%',
-        overflowY: 'auto',
-        padding: 32
-      }}>
-            <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          marginBottom: 20
-        }}>
-              <h2 style={{
-            margin: 0,
-            fontSize: 18,
-            fontWeight: 700
-          }}>{detail.return_no}</h2>
-              <button onClick={() => setDetail(null)} style={{
-            border: 'none',
-            background: 'none',
-            fontSize: 22,
-            cursor: 'pointer'
-          }}>×</button>
-            </div>
-            <div style={{
+      {/* 详情弹窗 */}
+      <ModalV2 open={!!detail} title={detail?.return_no ?? ''} onClose={() => setDetail(null)} width={680}>
+        {detail && <><div style={{
           display: 'flex',
           gap: 8,
           marginBottom: 20
@@ -1252,13 +1117,13 @@ function ReturnOrdersTab() {
                   <div><span className={u.muted}>金额: </span>{fmt(item.amount)}</div>
                 </div>
               </div>)}
-          </div>
-        </div>}
+        </>}
+      </ModalV2>
 
-      {showCreate && <CreateReturnDrawer onClose={() => setShowCreate(false)} onCreated={() => {
+      <CreateReturnDrawer open={showCreate} onClose={() => setShowCreate(false)} onCreated={() => {
       setShowCreate(false);
       load();
-    }} />}
+    }} />
 
       {inspectOrder && <InspectionDrawer order={inspectOrder} onClose={() => setInspectOrder(null)} onDone={() => {
       setInspectOrder(null);
@@ -1749,20 +1614,7 @@ export default function SalesReturnsPage() {
     background: 'var(--bg-muted)',
     minHeight: '100vh'
   }}>
-      {/* 页头 */}
-      <div className={u.mb24}>
-        <h1 style={{
-        margin: 0,
-        fontSize: 26,
-        fontWeight: 800,
-        color: 'var(--text-primary)'
-      }}>销售退货管理</h1>
-        <p style={{
-        margin: '4px 0 0',
-        color: 'var(--text-disabled)',
-        fontSize: 14
-      }}>退货 · 质检 · 回库 · 应收信用单</p>
-      </div>
+      <PageHeader title="销售退货管理" breadcrumb={["销售管理", "退货管理"]} />
 
       {/* Dashboard 统计 */}
       {stats && <div style={{

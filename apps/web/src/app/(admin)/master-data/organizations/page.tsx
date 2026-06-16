@@ -34,6 +34,7 @@ import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetai
 import { organizationConfig, companyConfig } from "@/components/master-data/detail-configs";
 import { OrgMembersPanel } from "@/components/master-data/OrgMembersPanel";
 import { SearchInput } from "@/components/design-system";
+import { ConfirmDialogV2 } from "@/components/design-system/dialogs/ConfirmDialogV2";
 import {
   cockpitCardHeader, cockpitCardHeaderTitle,
   cockpitCardHeaderHint, propCell, propLabel, propValue,
@@ -556,10 +557,15 @@ export default function MdOrganizationsPage() {
 
   // ── G88 删除组织（硬删，二次确认；后端双守卫：有子节点/有成员绑定不可删）────────
   const [deleting, setDeleting] = useState(false);
-  const handleDelete = async () => {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const handleDelete = () => {
     if (!selectedOrg || deleting) return;
+    setConfirmDelete(true);
+  };
+  const doDelete = async () => {
+    setConfirmDelete(false);
+    if (!selectedOrg) return;
     const name = selectedOrg.orgShortName || selectedOrg.orgName;
-    if (!window.confirm(`确定删除组织「${name}」（${selectedOrg.orgCode}）？\n删除不可恢复；有子节点或成员绑定时将被拒绝。`)) return;
     setDeleting(true);
     try {
       const res  = await fetch(`/api/organizations/${selectedOrg.orgCode}`, {
@@ -1057,6 +1063,17 @@ export default function MdOrganizationsPage() {
         code={detailCode}
         config={selectedOrg?.orgType === "COMPANY" ? companyConfig : organizationConfig}
         onClose={() => setDetailCode(null)}
+      />
+
+      <ConfirmDialogV2
+        open={confirmDelete}
+        title="删除组织"
+        message={selectedOrg ? `确定删除组织「${selectedOrg.orgShortName || selectedOrg.orgName}」（${selectedOrg.orgCode}）？删除不可恢复；有子节点或成员绑定时将被拒绝。` : ''}
+        danger
+        confirmLabel="删除"
+        loading={deleting}
+        onConfirm={doDelete}
+        onCancel={() => setConfirmDelete(false)}
       />
     </div>
   );

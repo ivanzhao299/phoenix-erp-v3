@@ -9,6 +9,7 @@ import { StatusBadge } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission'; // G20-2 子 menu 按钮分流
 import { currencySymbol } from '@/lib/currency';
 import { CompanySelector } from '@/components/shared-selectors/MasterDataSelectors';
+import { ConfirmDialogV2 } from '@/components/design-system/dialogs/ConfirmDialogV2';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -474,6 +475,7 @@ function TransactionDrawer({
   const [editId, setEditId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ direction: 'IN' | 'OUT'; amount: string; txn_date: string; remark: string }>({ direction: 'IN', amount: '', txn_date: '', remark: '' });
   const [savingTxn, setSavingTxn] = useState(false);
+  const [pendingDeleteTxnId, setPendingDeleteTxnId] = useState<string | null>(null);
   async function doEditTxn(txnId: string) {
     const amt = Number(editForm.amount);
     if (!Number.isFinite(amt) || amt <= 0) { alert('金额必须为正数'); return; }
@@ -490,15 +492,18 @@ function TransactionDrawer({
       onChanged();
     } finally { setSavingTxn(false); }
   }
-  async function doDeleteTxn(txnId: string) {
-    if (!window.confirm('确认删除这条手工流水？删除后账户余额将自动重算，且不可恢复。')) return;
+  function doDeleteTxn(txnId: string) {
+    setPendingDeleteTxnId(txnId);
+  }
+  async function confirmDeleteTxn() {
+    if (!pendingDeleteTxnId) return;
     setSavingTxn(true);
     try {
-      const r = await fetch(`${API}/transactions/${txnId}`, { method: 'DELETE', headers: authHeaders() });
+      const r = await fetch(`${API}/transactions/${pendingDeleteTxnId}`, { method: 'DELETE', headers: authHeaders() });
       if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.message ?? '删除失败'); return; }
       await loadTxns();
       onChanged();
-    } finally { setSavingTxn(false); }
+    } finally { setSavingTxn(false); setPendingDeleteTxnId(null); }
   }
   const loadTxns = useCallback(() => {
     setLoading(true);
@@ -711,6 +716,16 @@ function TransactionDrawer({
               </div>)}
           </div>}
       </div>
+      <ConfirmDialogV2
+        open={!!pendingDeleteTxnId}
+        title="删除流水"
+        message="确认删除这条手工流水？删除后账户余额将自动重算，且不可恢复。"
+        danger
+        confirmLabel="删除"
+        loading={savingTxn}
+        onConfirm={confirmDeleteTxn}
+        onCancel={() => setPendingDeleteTxnId(null)}
+      />
     </div>;
 }
 

@@ -6,8 +6,8 @@
 //   分区清晰、明细表带合计、AP 选择浮层、股东代付，不再受抽屉宽度限制。
 
 import { useState, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { ModalV2 } from "@/components/design-system/dialogs/ModalV2";
 import u from "@/styles/uix-utils.module.css";
 import s from "@/components/ui/admin-ui.module.css";
 import { Plus, Trash2, CreditCard, DollarSign, Save, ArrowLeft } from "lucide-react";
@@ -116,8 +116,6 @@ export default function PaymentForm({ paymentId }: { paymentId?: string }) {
   const [apModalOpen, setApModalOpen] = useState(false);
   const [apList, setApList] = useState<ApLedger[]>([]);
   const [apAllocIdx, setApAllocIdx] = useState(0);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
 
   const token = typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "" : "";
   const hdr = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
@@ -429,40 +427,34 @@ export default function PaymentForm({ paymentId }: { paymentId?: string }) {
       </div>
 
       {/* AP 选择浮层 */}
-      {mounted && apModalOpen && createPortal(
-        <div style={{ position: "fixed", inset: 0, background: "var(--overlay-black-50)", zIndex: 10250, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }} onClick={() => setApModalOpen(false)}>
-          <div style={{ background: "var(--bg-card)", borderRadius: 10, padding: 20, width: "min(960px, 96vw)", maxHeight: "82vh", overflow: "auto", boxShadow: "0 8px 32px var(--overlay-black-30)" }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>
-              <DollarSign size={15} style={{ verticalAlign: "middle", marginRight: 6 }} />选择未核销应付单
-            </div>
-            {apListForPick.length === 0 ? <div style={{ textAlign: "center", padding: 24, color: "var(--text-secondary)" }}>{apList.length === 0 ? "暂无未核销应付单" : "其余应付单已分摊完毕"}</div> : (
-              <table className={s.table}>
-                <thead>
-                  <tr>
-                    <th>应付单号</th><th>采购订单号</th><th>供应商</th><th>币种</th>
-                    <th className={u.tar}>应付</th><th className={u.tar}>余额</th><th>到期日</th><th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {apListForPick.map(ap => (
-                    <tr key={ap.id}>
-                      <td>{ap.apNo}</td>
-                      <td>{ap.poNo ?? "—"}</td>
-                      <td>{ap.supplierName ?? "—"}</td>
-                      <td>{ap.currencyCode ?? "—"}</td>
-                      <td className={u.tar}>{Number(ap.amountOriginal).toLocaleString()}</td>
-                      <td style={{ textAlign: "right", color: "var(--status-warning)", fontWeight: 600 }}>{Number(ap.balanceAmountOriginal).toLocaleString()}</td>
-                      <td>{fmtDate(ap.dueDate)}</td>
-                      <td style={{ textAlign: "center" }}>
-                        <button className={s.btnPrimary} style={{ padding: "5px 16px", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }} onClick={() => selectAp(ap)}>选择此单</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>, document.body)}
+      <ModalV2 open={apModalOpen} onClose={() => setApModalOpen(false)} title="选择未核销应付单" width={960}>
+        {apListForPick.length === 0 ? <div style={{ textAlign: "center", padding: 24, color: "var(--text-secondary)" }}>{apList.length === 0 ? "暂无未核销应付单" : "其余应付单已分摊完毕"}</div> : (
+          <table className={s.table}>
+            <thead>
+              <tr>
+                <th>应付单号</th><th>采购订单号</th><th>供应商</th><th>币种</th>
+                <th className={u.tar}>应付</th><th className={u.tar}>余额</th><th>到期日</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {apListForPick.map(ap => (
+                <tr key={ap.id}>
+                  <td>{ap.apNo}</td>
+                  <td>{ap.poNo ?? "—"}</td>
+                  <td>{ap.supplierName ?? "—"}</td>
+                  <td>{ap.currencyCode ?? "—"}</td>
+                  <td className={u.tar}>{Number(ap.amountOriginal).toLocaleString()}</td>
+                  <td style={{ textAlign: "right", color: "var(--status-warning)", fontWeight: 600 }}>{Number(ap.balanceAmountOriginal).toLocaleString()}</td>
+                  <td>{fmtDate(ap.dueDate)}</td>
+                  <td style={{ textAlign: "center" }}>
+                    <button className={s.btnPrimary} style={{ padding: "5px 16px", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }} onClick={() => selectAp(ap)}>选择此单</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </ModalV2>
     </div>
   );
 }

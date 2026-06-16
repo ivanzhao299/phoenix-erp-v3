@@ -9,6 +9,7 @@ import { usePermission } from '@/hooks/usePermission'; // G23-A 子 menu 分流
 import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { currencySymbol } from '@/lib/currency';
+import { DrawerV2 } from '@/components/design-system/drawers/DrawerV2';
 
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
@@ -276,45 +277,10 @@ function ExpenseDrawer({
       setActing(false);
     }
   };
-  if (loading || !data) return <div className="bg-bg-card text-text-muted" style={{
-    position: 'fixed',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 520,
-    padding: 28,
-    boxShadow: '-2px 0 16px var(--overlay-black-10)',
-    zIndex: 500
-  }}>
-      <div>加载中...</div>
-    </div>;
-  return <div className="bg-bg-card" style={{
-    position: 'fixed',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 540,
-    padding: 28,
-    boxShadow: '-2px 0 20px var(--overlay-black-12)',
-    zIndex: 500,
-    overflowY: 'auto'
-  }}>
-      <div style={{
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 20
-    }}>
-        <div>
-          <div className="text-text" style={{
-          fontWeight: 800,
-          fontSize: 16
-        }}>{data.expense_no}</div>
-          <div style={{
-          marginTop: 4
-        }}><StatusBadge status={data.status} /></div>
-        </div>
-        <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-border bg-bg-page text-text-muted text-sm cursor-pointer hover:bg-bg-muted transition-colors">关闭</button>
+  return <DrawerV2 open title={loading || !data ? '费用详情' : data.expense_no} onClose={onClose} width={540}>
+      {loading || !data ? <div className="text-text-muted" style={{ padding: 28 }}>加载中...</div> : <>
+      <div style={{ marginBottom: 20 }}>
+        <StatusBadge status={data.status} />
       </div>
 
       {/* 基本信息 */}
@@ -438,7 +404,8 @@ function ExpenseDrawer({
               <StatusBadge status={r.status} />
             </div>)}
         </div>}
-    </div>;
+    </>}
+    </DrawerV2>;
 }
 
 // ── 主页面 ────────────────────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ import { WorkflowFormRenderer } from '@/components/workflow/WorkflowFormRenderer
 import type { FormSchema, UiSchema } from '@/components/workflow/WorkflowFormRenderer';
 import PageHeader from '@/components/PageHeader';
 import { useToast } from '@/contexts/ToastContext';
+import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import ui from "@/components/ui/admin-ui.module.css";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
@@ -666,28 +667,20 @@ export default function WorkflowFormRuntimePage() {
       </div>
 
       {/* ── 新建表单 Modal ── */}
-      {showCreate && <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'var(--overlay-black-45)',
-      zIndex: 1000,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center'
-    }}>
-          <div style={{
-        background: 'var(--bg-card)',
-        borderRadius: 18,
-        padding: 32,
-        width: 480,
-        boxShadow: '0 20px 60px var(--overlay-black-20)'
-      }}>
-            <h2 style={{
-          margin: '0 0 20px',
-          fontSize: 18,
-          fontWeight: 800,
-          color: 'var(--text-primary)'
-        }}>新建表单定义</h2>
+      <ModalV2 open={showCreate} title="新建表单定义" width={480} onClose={() => setShowCreate(false)}
+        footer={<>
+          <button onClick={() => setShowCreate(false)} style={{
+            flex: 1, padding: '10px', borderRadius: 10, border: '1.5px solid var(--border)',
+            background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 14, cursor: 'pointer'
+          }}>取消</button>
+          <button onClick={handleCreate} disabled={creating} style={{
+            flex: 1, padding: '10px', borderRadius: 10, border: 'none',
+            background: 'var(--status-special)', color: 'var(--text-on-dark)', fontSize: 14, fontWeight: 700, cursor: 'pointer'
+          }}>
+            {creating ? '创建中…' : '创建'}
+          </button>
+        </>}
+      >
             {createError && <div style={{
           background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)',
           color: 'var(--status-danger)',
@@ -737,70 +730,28 @@ export default function WorkflowFormRuntimePage() {
             [key]: e.target.value
           }))} placeholder={placeholder} />
               </div>)}
-            <div style={{
-          display: 'flex',
-          gap: 10,
-          marginTop: 20
-        }}>
-              <button onClick={() => setShowCreate(false)} style={{
-            flex: 1,
-            padding: '10px',
-            borderRadius: 10,
-            border: '1.5px solid var(--border)',
-            background: 'var(--bg-card)',
-            color: 'var(--text-secondary)',
-            fontSize: 14,
-            cursor: 'pointer'
-          }}>取消</button>
-              <button onClick={handleCreate} disabled={creating} style={{
-            flex: 1,
-            padding: '10px',
-            borderRadius: 10,
-            border: 'none',
-            background: 'var(--status-special)',
-            color: 'var(--text-on-dark)',
-            fontSize: 14,
-            fontWeight: 700,
-            cursor: 'pointer'
-          }}>
-                {creating ? '创建中…' : '创建'}
-              </button>
-            </div>
-          </div>
-        </div>}
+      </ModalV2>
 
       {/* ── 新建版本 Modal ── */}
-      {showVersion && selected && <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'var(--overlay-black-45)',
-      zIndex: 1000,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 24
-    }}>
-          <div style={{
-        background: 'var(--bg-card)',
-        borderRadius: 18,
-        padding: 32,
-        width: '90vw',
-        maxWidth: 900,
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        boxShadow: '0 20px 60px var(--overlay-black-20)'
-      }}>
-            <h2 style={{
-          margin: '0 0 4px',
-          fontSize: 18,
-          fontWeight: 800,
-          color: 'var(--text-primary)'
-        }}>新建表单版本</h2>
-            <p style={{
+      <ModalV2 open={showVersion && !!selected} title="新建表单版本" width={900} onClose={() => setShowVersion(false)}
+        footer={<>
+          <button onClick={() => setShowVersion(false)} style={{
+            flex: 1, padding: '10px', borderRadius: 10, border: '1.5px solid var(--border)',
+            background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 14, cursor: 'pointer'
+          }}>取消</button>
+          <button onClick={handleCreateVersion} disabled={savingVer} style={{
+            flex: 1, padding: '10px', borderRadius: 10, border: 'none',
+            background: 'var(--status-special)', color: 'var(--text-on-dark)', fontSize: 14, fontWeight: 700, cursor: 'pointer'
+          }}>
+            {savingVer ? '保存中…' : '保存为草稿'}
+          </button>
+        </>}
+      >
+            {selected && <p style={{
           margin: '0 0 20px',
           fontSize: 13,
           color: 'var(--text-secondary)'
-        }}>{selected.name} · 新版本将以 DRAFT 状态创建，发布后生效</p>
+        }}>{selected.name} · 新版本将以 DRAFT 状态创建，发布后生效</p>}
             {verError && <div style={{
           background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)',
           color: 'var(--status-danger)',
@@ -875,41 +826,10 @@ export default function WorkflowFormRuntimePage() {
               marginTop: 14,
               fontSize: 12,
               color: 'var(--status-warning)'
-            }}>⚠ JSON 解析失败，请检查格式</div>;
+            }}>JSON 解析失败，请检查格式</div>;
           }
         })()}
-
-            <div style={{
-          display: 'flex',
-          gap: 10,
-          marginTop: 24
-        }}>
-              <button onClick={() => setShowVersion(false)} style={{
-            flex: 1,
-            padding: '10px',
-            borderRadius: 10,
-            border: '1.5px solid var(--border)',
-            background: 'var(--bg-card)',
-            color: 'var(--text-secondary)',
-            fontSize: 14,
-            cursor: 'pointer'
-          }}>取消</button>
-              <button onClick={handleCreateVersion} disabled={savingVer} style={{
-            flex: 1,
-            padding: '10px',
-            borderRadius: 10,
-            border: 'none',
-            background: 'var(--status-special)',
-            color: 'var(--text-on-dark)',
-            fontSize: 14,
-            fontWeight: 700,
-            cursor: 'pointer'
-          }}>
-                {savingVer ? '保存中…' : '保存为草稿'}
-              </button>
-            </div>
-          </div>
-        </div>}
+      </ModalV2>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>;

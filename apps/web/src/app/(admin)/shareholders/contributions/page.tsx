@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { shareholderApi, ShrContribution, ShrProject, SOURCE_TYPE_LABEL, CONTRIB_STATUS_LABEL, lbl } from '@/lib/shareholder-api';
 import { SummaryBar, sum, yuan } from '../SummaryBar';
+import PageHeader from '@/components/PageHeader';
 import u from "@/styles/uix-utils.module.css";
 const th: React.CSSProperties = {
   textAlign: 'left',
@@ -32,12 +33,7 @@ export default function ContributionsPage() {
     shareholderApi.listContributions(sel || undefined).then(setRows).catch(e => setErr(e?.message));
   }, [sel]);
   return <div className={u.p24}>
-      <h1 style={{
-      fontSize: 20,
-      fontWeight: 700,
-      color: 'var(--color-primary)',
-      marginBottom: 12
-    }}>出资台账</h1>
+      <PageHeader title="出资台账" />
       <div className={u.mb14}>
         <label style={{
         marginRight: 8,

@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import PageHeader from "@/components/PageHeader";
 import { CompanySelector } from "@/components/shared-selectors/MasterDataSelectors";
+import { ConfirmDialogV2 } from "@/components/design-system/dialogs/ConfirmDialogV2";
 
 // ── 事业群（业务维度）管理 + 经营概览 ─────────────────────────────────────────
 // G110/S5：法人树 ⟂ 事业群解耦——事业群跨公司，由 biz_bu_membership 承载，不参与权限。
@@ -33,6 +34,7 @@ export default function BusinessUnitsPage() {
   const [loading, setLoading] = useState(true);
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [newCompany, setNewCompany] = useState("");
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,10 +52,12 @@ export default function BusinessUnitsPage() {
     if (j.code === 200) { setAddingTo(null); setNewCompany(""); await load(); }
     else alert(j.msg || j.data?.message || "添加失败");
   };
-  const removeMember = async (id: string) => {
-    if (!window.confirm("从该事业群移除此经营单元？")) return;
-    const j = await api(`/members/${id}`, { method: "DELETE" });
+  const removeMember = (id: string) => { setPendingRemoveId(id); };
+  const doRemoveMember = async () => {
+    if (!pendingRemoveId) return;
+    const j = await api(`/members/${pendingRemoveId}`, { method: "DELETE" });
     if (j.code === 200) await load();
+    setPendingRemoveId(null);
   };
 
   const TYPE_ZH: Record<string, string> = { COMPANY: "公司", SITE: "场站" };
@@ -124,6 +128,16 @@ export default function BusinessUnitsPage() {
         💡 事业群是「业务维度」，可横跨多家公司用于经营归类与汇总；权限隔离仍按公司/场站（DataScope），与此无关。
         一家公司也可按场站分归不同事业群（多业务线 P&L 拆分，后续可在此扩展场站级成员）。
       </div>
+
+      <ConfirmDialogV2
+        open={!!pendingRemoveId}
+        title="移除经营单元"
+        message="从该事业群移除此经营单元？"
+        danger
+        confirmLabel="移除"
+        onConfirm={doRemoveMember}
+        onCancel={() => setPendingRemoveId(null)}
+      />
     </div>
   );
 }
