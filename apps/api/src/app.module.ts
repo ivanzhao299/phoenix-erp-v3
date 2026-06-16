@@ -64,6 +64,8 @@ import { DataQualityModule } from './modules/data-quality/data-quality.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { BusinessUnitModule } from './modules/business-unit/business-unit.module';
 import { PermissionSetsModule } from './modules/permission-sets/permission-sets.module';
+// [Chanjet] 畅捷通好业财开放平台对接（webhook + token + API）
+import { ChanjetModule } from './modules/chanjet/chanjet.module';
 
 
 @Module({
@@ -134,6 +136,7 @@ import { PermissionSetsModule } from './modules/permission-sets/permission-sets.
     AnalyticsModule,        // G6: 经营分析中心（8 个分析子中心聚合层）
     BusinessUnitModule,     // G110/S5: 事业群业务维度（法人树⟂事业群解耦）
     PermissionSetsModule,   // G118: 权限集（PBAC 两层模型）CRUD
+    ChanjetModule,          // 畅捷通好业财对接（webhook 回调 + token 管理 + API 代理）
   ],
   controllers: [DebugController, HealthController],
   providers: [
