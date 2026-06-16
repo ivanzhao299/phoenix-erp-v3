@@ -4,6 +4,7 @@ import { SysNotificationEntity }     from './entities/sys-notification.entity';
 import { NotificationService }       from './notification.service';
 import { PushNotificationService }   from './push-notification.service';
 import { NotificationController }    from './notification.controller';
+import { NotificationStreamController } from './notification-stream.controller';      // G167: SSE 实时流
 import { NotificationDispatcherService } from './notification-dispatcher.service';   // V1: 规则引擎
 import { NotificationSchedulerService }  from './notification-scheduler.service';    // V1: cron
 import { NotificationConfigController }  from './notification-config.controller';    // V1: 配置 CRUD
@@ -11,7 +12,7 @@ import { NotificationConfigController }  from './notification-config.controller'
 @Global()
 @Module({
   imports:     [TypeOrmModule.forFeature([SysNotificationEntity])],
-  controllers: [NotificationController, NotificationConfigController],
+  controllers: [NotificationController, NotificationConfigController, NotificationStreamController],
   providers:   [
     NotificationService,
     PushNotificationService,

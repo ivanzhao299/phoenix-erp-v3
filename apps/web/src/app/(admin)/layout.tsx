@@ -7,6 +7,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Sidebar, pathTitle } from "@/components/layout/Sidebar";
 import { ImpersonationBanner } from "@/components/layout/ImpersonationBanner";
+import { ApprovalNotifier } from "@/components/layout/ApprovalNotifier"; // G167：审批信息中心（铃铛/红点/横幅/声音）
 import {
   PanelLeftClose, PanelLeftOpen, Sun, Moon, LogOut, Languages
 } from "lucide-react";
@@ -226,6 +227,9 @@ type="button"               className={`${styles.pinBtn} ${pinned ? styles.pinAc
             >
               {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
             </button>
+
+            {/* G167：审批信息中心 — 铃铛 + 红点未读数（新审批弹横幅 + 声音） */}
+            <ApprovalNotifier />
 
             {/* User info — 点击进入个人中心 /profile（主题切换迁移到个人中心，topbar 不再放）*/}
             <div
