@@ -315,39 +315,42 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
       </div>
 
       <div className={s.formSection} style={{
-        marginTop: 20
+        marginTop: 14
       }}>供应商 &amp; 采购属性</div>
-      {/* G95：供应商占整行——选中即得，名称由 onPick 后台带出，去掉冗余只读名称框 */}
-      <div className={s.field}>
-        <label className={s.lbl}>供应商 *</label>
-        {/* G4-B：供应商主数据(仅 ACTIVE)，自动带出名称 */}
-        <SupplierSelector value={fSupplierCode} onChange={setFSupplierCode} onPick={o => setFSupplierName(o?.raw?.name ?? o?.label ?? "")} />
-      </div>
+      {/* G166：紧凑化——供应商&采购属性改满 2 列 */}
       <div className={s.fieldRow}>
+        <div className={s.field}>
+          <label className={s.lbl}>供应商 *</label>
+          {/* G4-B：供应商主数据(仅 ACTIVE)，自动带出名称 */}
+          <SupplierSelector value={fSupplierCode} onChange={setFSupplierCode} onPick={o => setFSupplierName(o?.raw?.name ?? o?.label ?? "")} />
+        </div>
         <div className={s.field}>
           <label className={s.lbl}>采购类型</label>
           {/* G4-B：采购类型枚举来自 sys_dict(PRC_PURCHASE_TYPE) */}
           <DictSelect dictType="PRC_PURCHASE_TYPE" value={fPurchaseType} onChange={setFPurchaseType} allowEmpty={false} />
         </div>
+      </div>
+      <div className={s.fieldRow}>
         <div className={s.field}>
           <label className={s.lbl}>货币</label>
           {/* G4-B：货币枚举来自 sys_dict(SYS_CURRENCY) */}
           <DictSelect dictType="SYS_CURRENCY" value={fCurrencyCode} onChange={setFCurrencyCode} allowEmpty={false} />
         </div>
-      </div>
-      <div className={s.fieldRow}>
         <div className={s.field}>
           <label className={s.lbl}>期望到货日</label>
           <input type="date" className={s.inp} value={fExpDate} onChange={e => setFExpDate(e.target.value)} />
         </div>
+      </div>
+      <div className={s.fieldRow}>
         <div className={s.field}>
           <label className={s.lbl}>付款截止日</label>
           <input type="date" className={s.inp} value={fPayDeadline} onChange={e => setFPayDeadline(e.target.value)} />
         </div>
+        <div className={s.field} />
       </div>
 
       <div className={s.formSection} style={{
-        marginTop: 20
+        marginTop: 14
       }}>物流信息（可选）</div>
       <div className={s.field}>
         <label style={{
@@ -373,7 +376,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
       </div>}
 
       <div className={s.formSection} style={{
-        marginTop: 20
+        marginTop: 14
       }}>合同信息（可选）</div>
       <div className={s.fieldRow}>
         <div className={s.field}>
@@ -386,13 +389,16 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
           <AttachmentUploader value={fContractUrls} onChange={setFContractUrls} label="上传合同/付款申请等附件（可多个，PDF/图片 ≤15MB）" />
         </div>
       </div>
-      <div className={s.field}>
-        <label className={s.lbl}>合同摘要</label>
-        <textarea className={s.textarea} rows={2} value={fContractNote} onChange={e => setFContractNote(e.target.value)} placeholder="选填：合同关键条款摘要（金额/账期/交付等）" />
-      </div>
-      <div className={s.field}>
-        <label className={s.lbl}>备注</label>
-        <textarea className={s.textarea} rows={1} value={fRemark} onChange={e => setFRemark(e.target.value)} placeholder="选填：补充说明" />
+      {/* G166：合同摘要 + 备注 并排两列 */}
+      <div className={s.fieldRow}>
+        <div className={s.field}>
+          <label className={s.lbl}>合同摘要</label>
+          <textarea className={s.textarea} rows={2} value={fContractNote} onChange={e => setFContractNote(e.target.value)} placeholder="选填：合同关键条款摘要（金额/账期/交付等）" />
+        </div>
+        <div className={s.field}>
+          <label className={s.lbl}>备注</label>
+          <textarea className={s.textarea} rows={2} value={fRemark} onChange={e => setFRemark(e.target.value)} placeholder="选填：补充说明" />
+        </div>
       </div>
 
       {/* 明细行 */}
@@ -400,7 +406,7 @@ export default function OrderForm({ orderId }: { orderId?: string }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        marginTop: 20,
+        marginTop: 14,
         marginBottom: 8
       }}>
         <span className={s.formSection} style={{

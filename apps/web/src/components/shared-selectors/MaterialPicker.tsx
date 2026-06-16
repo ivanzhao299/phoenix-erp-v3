@@ -14,6 +14,7 @@
  * 供调用方自动带出 itemCode/spec/unit。
  */
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import request from '@/lib/api-client';
 import { cachedGet, invalidateCache, TTL } from '@/lib/request-cache';
 import { DictSelect } from './DictSelect';
@@ -65,8 +66,10 @@ const inputStyle: React.CSSProperties = {
   color: 'var(--text-primary)', fontSize: 13, outline: 'none',
 };
 
+// G166：下拉改 createPortal 到 body + position:fixed —— 原 absolute 下拉被明细表容器
+//   overflowX:auto(会令 overflow-y 也成 auto)裁切。portal 到顶层按输入框 rect 定位即不被裁。
 const panelStyle: React.CSSProperties = {
-  position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 50,
+  position: 'fixed', zIndex: 10300,
   maxHeight: 280, overflowY: 'auto', background: 'var(--bg-card)',
   border: '1px solid var(--border)', borderRadius: 8,
   boxShadow: '0 8px 28px rgba(0,0,0,0.18)', padding: 4,
@@ -96,6 +99,28 @@ export function MaterialPicker({
   const [nUnit, setNUnit] = useState('');
 
   const boxRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  useEffect(() => { setMounted(true); }, []);
+
+  // G166：按输入框 rect 定位 portal 下拉；open 时计算 + 滚动/缩放时跟随
+  const updateRect = useCallback(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setRect({ top: r.bottom + 4, left: r.left, width: r.width });
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    updateRect();
+    window.addEventListener('scroll', updateRect, true);
+    window.addEventListener('resize', updateRect);
+    return () => {
+      window.removeEventListener('scroll', updateRect, true);
+      window.removeEventListener('resize', updateRect);
+    };
+  }, [open, updateRect]);
 
   // 受控 value（外部 itemName）同步进输入框
   useEffect(() => { setQuery(value ?? ''); }, [value]);
@@ -110,9 +135,10 @@ export function MaterialPicker({
   // 点外部关闭
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
-        setOpen(false); setCreating(false);
-      }
+      const t = e.target as Node;
+      // G166：panel 已 portal 到 body（不在 boxRef 内），需同时放行 panelRef，否则点下拉/内联新建即关闭
+      if (boxRef.current?.contains(t) || panelRef.current?.contains(t)) return;
+      setOpen(false); setCreating(false);
     }
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
@@ -214,8 +240,8 @@ export function MaterialPicker({
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
       />
-      {open && !disabled && (
-        <div style={panelStyle}>
+      {open && !disabled && mounted && rect && createPortal(
+        <div ref={panelRef} style={{ ...panelStyle, top: rect.top, left: rect.left, width: rect.width }}>
           {filtered.length === 0 && !showCreate && (
             <div style={{ padding: '10px 12px', fontSize: 12.5, color: 'var(--text-secondary)' }}>
               暂无物料
@@ -297,7 +323,8 @@ export function MaterialPicker({
               </div>
             </div>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
