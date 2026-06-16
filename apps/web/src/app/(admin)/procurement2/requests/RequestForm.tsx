@@ -266,7 +266,7 @@ export default function RequestForm({ requestId }: { requestId?: string }) {
   if (loading) return <div className={u.emptyCenter}>加载中…</div>;
 
   return (
-    <div style={{ maxWidth: 1180, margin: "0 auto", paddingBottom: 96 }}>
+    <div style={{ maxWidth: 1080, margin: "0 auto", paddingBottom: 96 }}>{/* G164：与 OrderForm/PaymentForm 统一宽度 */}
       {/* 基础信息 */}
       <div className={s.formSection}>基础信息</div>
       <div className={s.fieldRow}>
