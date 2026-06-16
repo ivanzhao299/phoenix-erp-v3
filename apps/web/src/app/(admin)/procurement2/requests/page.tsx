@@ -3,17 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import u from "@/styles/uix-utils.module.css";
-import { Plus, RefreshCw, ChevronLeft, ChevronRight, Clock, Trash2 } from "lucide-react";
+import { Plus, RefreshCw, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { ModalV2 } from "@/components/design-system"; // G155：统一全局模态，替代本地手写 SimpleModal
 import { actBtn, actBtnTone } from "../_shared/actionButtons"; // G159：操作列文字按钮
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
-import { DictSelect } from "@/components/shared-selectors/DictSelect"; // G2 字典
-import { CompanySelector, ProjectSelector, SupplierSelector, WarehouseSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器
-import { MaterialPicker } from "@/components/shared-selectors/MaterialPicker"; // 可搜索 + 就地新建物料组合框
-import { tableInputCell } from "@/components/design-system/cockpit-styles"; // G94 全局表格输入 token
+import { SupplierSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-B 主数据选择器（转单弹窗用）
 
 // ── 类型定义 ──────────────────────────────────────────────────────────────────
 interface ReqItem {
@@ -143,25 +140,7 @@ const URGENCY_OPTS = [{
   value: "CRITICAL",
   label: "特急"
 }];
-const CURRENCY_OPTS = ["LAK", "CNY", "THB", "USD"];
 const API_BASE = "/api/v2/procurement/requests";
-const emptyItem = (): ReqItem => ({
-  itemName: "",
-  qty: "",
-  unit: "kg",
-  estimatedUnitPrice: "",
-  estimatedAmount: ""
-});
-// G95-C：新建默认空行数（申请单主体是采购明细，多给几行）
-const blankRows = (n = 5): ReqItem[] => Array.from({ length: n }, emptyItem);
-// G95-C：申请原因默认文本（可直接编辑，不必每次手敲）
-const DEFAULT_REASON = "常规采购补货";
-// G95-C：记住上次选择的公司/项目（同一用户连续建单常是同公司同项目）
-const LAST_SCOPE_KEY = "prc_req_last_scope";
-const readLastScope = (): { companyCode?: string; companyName?: string; projectCode?: string; projectName?: string } => {
-  try { return JSON.parse(localStorage.getItem(LAST_SCOPE_KEY) || "{}"); } catch { return {}; }
-};
-const writeLastScope = (v: Record<string, string>) => { try { localStorage.setItem(LAST_SCOPE_KEY, JSON.stringify(v)); } catch { /* ignore */ } };
 function fmtAmt(v?: number | string, currency = "LAK") {
   if (v === undefined || v === null || v === "") return "—";
   const n = typeof v === "string" ? parseFloat(v) : v;
@@ -189,21 +168,6 @@ const inlineSelect: React.CSSProperties = {
   ...inlineInput,
   flex: "0 0 auto"
 };
-// G94：并入全局表格输入 token（取代本页自定义 3/6·圆角4）
-const cellInpStyle: React.CSSProperties = tableInputCell;
-const thStyle: React.CSSProperties = {
-  padding: "5px 6px",
-  textAlign: "left",
-  fontWeight: 600,
-  fontSize: 11,
-  color: "var(--text-secondary)",
-  borderBottom: "1px solid var(--border)",
-  whiteSpace: "nowrap"
-};
-const tdStyle: React.CSSProperties = {
-  padding: "4px 6px",
-  verticalAlign: "middle"
-};
 
 // ── 主页面 ────────────────────────────────────────────────────────────────────
 export default function PurchaseRequestsPage() {
@@ -222,22 +186,6 @@ export default function PurchaseRequestsPage() {
   const [fKeyword, setFKeyword] = useState("");
   const [fDateFrom, setFDateFrom] = useState("");
   const [fDateTo, setFDateTo] = useState("");
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editing, setEditing] = useState<PurchaseRequest | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [formSubject, setFormSubject] = useState("");
-  const [formCompanyCode, setFormCompanyCode] = useState("");
-  const [formCompanyName, setFormCompanyName] = useState("");
-  const [formProjectCode, setFormProjectCode] = useState("");
-  const [formProjectName, setFormProjectName] = useState("");
-  const [formType, setFormType] = useState("MATERIAL");
-  const [formUrgency, setFormUrgency] = useState("NORMAL");
-  const [formCurrency, setFormCurrency] = useState("LAK");
-  const [formDept, setFormDept] = useState("");
-  const [formExpDate, setFormExpDate] = useState("");
-  const [formReason, setFormReason] = useState("");
-  const [formRemark, setFormRemark] = useState("");
-  const [formItems, setFormItems] = useState<ReqItem[]>([emptyItem()]);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailData, setDetailData] = useState<PurchaseRequest | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -296,162 +244,6 @@ export default function PurchaseRequestsPage() {
   useEffect(() => {
     load(page);
   }, [page]); // eslint-disable-line
-
-  // 打开新建
-  function openNew() {
-    setEditing(null);
-    setFormSubject("");
-    // G95-C：预填上次选择的公司/项目（连续建单多为同公司同项目；可改）
-    const last = readLastScope();
-    setFormCompanyCode(last.companyCode ?? "");
-    setFormCompanyName(last.companyName ?? "");
-    setFormProjectCode(last.projectCode ?? "");
-    setFormProjectName(last.projectName ?? "");
-    setFormType("MATERIAL");
-    setFormUrgency("NORMAL");
-    setFormCurrency("LAK");
-    setFormDept("");
-    setFormExpDate("");
-    setFormReason(DEFAULT_REASON);     // G95-C：默认原因，可直接编辑
-    setFormRemark("");
-    setFormItems(blankRows());         // G95-C：默认 5 空行（明细是主体）
-    setDrawerOpen(true);
-  }
-
-  // 打开编辑
-  async function openEdit(row: PurchaseRequest) {
-    setEditing(row);
-    setFormSubject(row.subject ?? "");
-    setFormCompanyCode(row.companyCode ?? "");
-    setFormCompanyName(row.companyName ?? "");
-    setFormProjectCode(row.projectCode ?? "");
-    setFormProjectName(row.projectName ?? "");
-    setFormType(row.purchaseType ?? "MATERIAL");
-    setFormUrgency(row.urgency ?? "NORMAL");
-    setFormCurrency(row.currencyCode ?? "LAK");
-    setFormDept(row.deptCode ?? "");
-    setFormExpDate(row.expectedDate ?? "");
-    setFormReason(row.reason ?? "");
-    setFormRemark(row.remark ?? "");
-    // 加载明细行
-    try {
-      const res = await fetch(`${API_BASE}/${row.id}`, {
-        headers: hdr
-      });
-      if (res.ok) {
-        const d: PurchaseRequest = await res.json();
-        setFormItems(d.items?.length ? d.items.map(i => ({
-          ...i
-        })) : [emptyItem()]);
-      } else {
-        setFormItems([emptyItem()]);
-      }
-    } catch {
-      setFormItems([emptyItem()]);
-    }
-    setDrawerOpen(true);
-  }
-
-  // 明细行
-  function setItemField(idx: number, field: keyof ReqItem, value: string) {
-    setFormItems(prev => {
-      const next = prev.map((it, i) => i === idx ? {
-        ...it,
-        [field]: value
-      } : it);
-      if (field === "qty" || field === "estimatedUnitPrice") {
-        const it = next[idx];
-        const qty = parseFloat(String(it.qty)) || 0;
-        const price = parseFloat(String(it.estimatedUnitPrice)) || 0;
-        next[idx] = {
-          ...it,
-          estimatedAmount: String(Math.round(qty * price * 100) / 100)
-        };
-      }
-      return next;
-    });
-  }
-  function addItemRow() {
-    setFormItems(prev => [...prev, emptyItem()]);
-  }
-  function removeItemRow(idx: number) {
-    setFormItems(prev => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
-  }
-
-  // 保存
-  async function handleSave() {
-    if (!formSubject.trim()) {
-      toast.error("请填写申请主题");
-      return;
-    }
-    if (!formCompanyCode.trim()) {
-      toast.error("请填写公司代码");
-      return;
-    }
-    if (!formCompanyName.trim()) {
-      toast.error("请填写公司名称");
-      return;
-    }
-    // G95-C：只取已填物料的行（默认多给的空行自动忽略，不卡提交）
-    const filledItems = formItems.filter(it => it.itemName.trim());
-    if (filledItems.length === 0) {
-      toast.error("请至少填写一行物料明细");
-      return;
-    }
-    if (filledItems.some(it => !it.qty || parseFloat(String(it.qty)) <= 0)) {
-      toast.error("已填物料的数量必须大于 0");
-      return;
-    }
-    setSaving(true);
-    try {
-      const body = {
-        subject: formSubject.trim(),
-        companyCode: formCompanyCode.trim(),
-        companyName: formCompanyName.trim(),
-        projectCode: formProjectCode.trim() || undefined,
-        projectName: formProjectName.trim() || undefined,
-        purchaseType: formType,
-        urgency: formUrgency,
-        currencyCode: formCurrency,
-        deptCode: formDept.trim() || undefined,
-        expectedDate: formExpDate || undefined,
-        reason: formReason.trim() || undefined,
-        remark: formRemark.trim() || undefined,
-        items: filledItems.map(it => ({
-          itemCode: it.itemCode?.trim() || undefined,
-          itemName: it.itemName.trim(),
-          spec: it.spec?.trim() || undefined,
-          qty: parseFloat(String(it.qty)),
-          unit: it.unit?.trim() || undefined,
-          estimatedUnitPrice: parseFloat(String(it.estimatedUnitPrice)) || 0,
-          estimatedAmount: parseFloat(String(it.estimatedAmount)) || 0,
-          warehouseCode: it.warehouseCode?.trim() || undefined,
-          usageDesc: it.usageDesc?.trim() || undefined
-        }))
-      };
-      const url = editing ? `${API_BASE}/${editing.id}` : API_BASE;
-      const method = editing ? "PATCH" : "POST";
-      const res = await fetch(url, {
-        method,
-        headers: hdr,
-        body: JSON.stringify(body)
-      });
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        throw new Error(e.message ?? "保存失败");
-      }
-      // G95-C：记住本次公司/项目，下次新建默认带出
-      writeLastScope({ companyCode: formCompanyCode.trim(), companyName: formCompanyName.trim(), projectCode: formProjectCode.trim(), projectName: formProjectName.trim() });
-      toast.success(editing ? "保存成功" : "采购申请已创建");
-      setDrawerOpen(false);
-      load(editing ? page : 1);
-      if (!editing) setPage(1);
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "保存失败");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   // 详情
   async function openDetail(row: PurchaseRequest) {
@@ -584,9 +376,9 @@ export default function PurchaseRequestsPage() {
           animation: loading ? "spin 1s linear infinite" : "none"
         }} /> 刷新
             </button>
-            <button type="button" className={`${s.btnPrimary} ${u.flexRow}`} onClick={openNew}>
+            <Link href="/procurement2/requests/new" className={`${s.btnPrimary} ${u.flexRow}`} style={{ textDecoration: "none" }}>
               <Plus size={14} /> 新建申请
-            </button>
+            </Link>
           </div>} />
 
       {/* 筛选栏 */}
@@ -706,7 +498,7 @@ export default function PurchaseRequestsPage() {
                 }}>
                       <button style={actBtn} onClick={() => openDetail(row)}>查看</button>
                       {row.status === "DRAFT" && <>
-                          <button style={actBtn} onClick={() => openEdit(row)}>编辑</button>
+                          <Link href={`/procurement2/requests/${row.id}/edit`} style={{ ...actBtn, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>编辑</Link>
                           <button style={actBtnTone("success")} onClick={() => handleSubmit(row)}>提交审批</button>
                         </>}
                       {row.status === "SUBMITTED" && <Link href="/workflow/todos" style={{ ...actBtnTone("info"), display: "inline-flex", alignItems: "center", textDecoration: "none" }} title="审批请前往『工作流·待办』">前往审批</Link>}
@@ -741,231 +533,6 @@ export default function PurchaseRequestsPage() {
             <ChevronRight size={14} />
           </button>
         </div>}
-
-      {/* ── 新建/编辑 抽屉 ─────────────────────────────────────────────────── */}
-      <RightDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editing ? `编辑申请：${editing.reqNo}` : "新建采购申请"} width="min(1180px, 96vw)">
-        {/* G158：性能——重表单仅 open 时挂载（ui/RightDrawer 关闭不卸载 DOM，常驻会拖慢整页） */}
-        {drawerOpen && <div style={{
-        padding: "0 4px 80px"
-      }}>
-          {/* 基础信息 */}
-          <div className={s.formSection}>基础信息</div>
-          <div className={s.fieldRow}>
-            <div className={s.field} style={{
-            gridColumn: "1 / -1"
-          }}>
-              <label className={s.lbl}>申请主题 *</label>
-              <input className={s.inp} value={formSubject} onChange={e => setFormSubject(e.target.value)} placeholder="请输入采购主题" />
-            </div>
-          </div>
-          {/* G95：公司/项目并排——选择器选中即得，名称由 onPick 后台带出，去掉冗余只读名称框 */}
-          <div className={s.fieldRow}>
-            <div className={s.field}>
-              <label className={s.lbl}>公司 *</label>
-              {/* G4-B：公司主数据(org_units COMPANY)，DataScope 自动过滤 */}
-              {/* G95-B：换公司清空项目（项目属于公司，避免跨公司错挂） */}
-              <CompanySelector value={formCompanyCode} onChange={v => { setFormCompanyCode(v); setFormProjectCode(""); setFormProjectName(""); }} onPick={o => setFormCompanyName(o?.label ?? "")} disabled={!!editing} />
-            </div>
-            <div className={s.field}>
-              <label className={s.lbl}>项目</label>
-              {/* G4-B：项目主数据，仅 ACTIVE；G95-B 按所属公司过滤（先选公司） */}
-              <ProjectSelector value={formProjectCode} onChange={setFormProjectCode} onPick={o => setFormProjectName(o?.raw?.project_name ?? o?.raw?.projectName ?? o?.label ?? "")} companyCode={formCompanyCode || undefined} />
-            </div>
-          </div>
-
-          {/* 采购属性 */}
-          <div className={s.formSection} style={{
-          marginTop: 20
-        }}>采购属性</div>
-          <div className={s.fieldRow}>
-            <div className={s.field}>
-              <label className={s.lbl}>采购类型</label>
-              {/* G4-B：采购类型枚举来自 sys_dict(PRC_PURCHASE_TYPE) */}
-              <DictSelect dictType="PRC_PURCHASE_TYPE" value={formType} onChange={setFormType} allowEmpty={false} />
-            </div>
-            <div className={s.field}>
-              <label className={s.lbl}>紧急程度</label>
-              {/* G4-B：紧急程度枚举来自 sys_dict(PRC_URGENCY) */}
-              <DictSelect dictType="PRC_URGENCY" value={formUrgency} onChange={setFormUrgency} allowEmpty={false} />
-            </div>
-          </div>
-          <div className={s.fieldRow}>
-            <div className={s.field}>
-              <label className={s.lbl}>货币</label>
-              {/* G4-B：货币枚举来自 sys_dict(SYS_CURRENCY) */}
-              <DictSelect dictType="SYS_CURRENCY" value={formCurrency} onChange={setFormCurrency} allowEmpty={false} />
-            </div>
-            <div className={s.field}>
-              <label className={s.lbl}>期望到货日</label>
-              <input type="date" className={s.inp} value={formExpDate} onChange={e => setFormExpDate(e.target.value)} />
-            </div>
-          </div>
-          {/* G95-C：原因/备注并排压缩占位（申请单主体是采购明细，不喧宾夺主）；原因带默认文本可直接编辑 */}
-          <div className={s.fieldRow}>
-            <div className={s.field}>
-              <label className={s.lbl}>申请原因</label>
-              <textarea className={s.textarea} rows={1} value={formReason} onChange={e => setFormReason(e.target.value)} placeholder="如：常规采购补货（可直接编辑）" />
-            </div>
-            <div className={s.field}>
-              <label className={s.lbl}>备注</label>
-              <textarea className={s.textarea} rows={1} value={formRemark} onChange={e => setFormRemark(e.target.value)} placeholder="选填：补充说明" />
-            </div>
-          </div>
-
-          {/* 明细行 */}
-          <div style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 8,
-          marginTop: 20
-        }}>
-            <span className={s.formSection} style={{
-            margin: 0
-          }}>
-              采购明细（{formItems.length} 行）
-            </span>
-            <button type="button" className={s.btnSecondary} style={{
-            padding: "3px 10px",
-            fontSize: 12,
-            display: "flex",
-            alignItems: "center",
-            gap: 4
-          }} onClick={addItemRow}>
-              <Plus size={12} /> 添加行
-            </button>
-          </div>
-          <div style={{
-          overflowX: "auto",
-          border: "1px solid var(--border)",
-          borderRadius: 6
-        }}>
-            <table className={s.table} style={{ fontSize: 12 }}>
-              <thead>
-                <tr style={{
-                background: "var(--bg-subtle,var(--bg-muted))"
-              }}>
-                  <th style={thStyle}>物料名称 *</th>
-                  <th style={thStyle}>规格</th>
-                  <th style={thStyle}>数量 *</th>
-                  <th style={thStyle}>单位</th>
-                  <th style={thStyle}>估算单价</th>
-                  <th style={{
-                  ...thStyle,
-                  textAlign: "right"
-                }}>小计</th>
-                  <th style={thStyle}>仓库</th>
-                  <th style={{
-                  ...thStyle,
-                  width: 28
-                }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {formItems.map((it, idx) => <tr key={idx} style={{
-                borderBottom: "1px solid var(--border)"
-              }}>
-                    <td style={tdStyle}>
-                      {/* 物料组合框：可搜索 + 找不到就地新建，自动带出 material_code/spec/unit */}
-                      <MaterialPicker value={it.itemName ?? ""} onChange={name => setItemField(idx, "itemName", name)} onPickRaw={m => {
-                    setItemField(idx, "itemCode", m?.material_code ?? "");
-                    setItemField(idx, "spec", m?.spec ?? "");
-                    setItemField(idx, "unit", m?.unit ?? "");
-                  }} style={{
-                    minWidth: 200,
-                    fontSize: 12,
-                    padding: "3px 6px"
-                  }} />
-                    </td>
-                    <td style={tdStyle}>
-                      <input style={{
-                    ...cellInpStyle,
-                    width: 80,
-                    background: "var(--bg-muted)"
-                  }} value={it.spec ?? ""} readOnly placeholder="由物料自动带出" />
-                    </td>
-                    <td style={tdStyle}>
-                      <input style={{
-                    ...cellInpStyle,
-                    width: 70
-                  }} type="number" min="0" value={it.qty} onChange={e => setItemField(idx, "qty", e.target.value)} />
-                    </td>
-                    <td style={tdStyle}>
-                      <input style={{
-                    ...cellInpStyle,
-                    width: 50
-                  }} value={it.unit ?? ""} onChange={e => setItemField(idx, "unit", e.target.value)} placeholder="kg" />
-                    </td>
-                    <td style={tdStyle}>
-                      <input style={{
-                    ...cellInpStyle,
-                    width: 90
-                  }} type="number" min="0" value={it.estimatedUnitPrice ?? ""} onChange={e => setItemField(idx, "estimatedUnitPrice", e.target.value)} />
-                    </td>
-                    <td style={{
-                  ...tdStyle,
-                  textAlign: "right",
-                  fontVariantNumeric: "tabular-nums",
-                  color: "var(--text-secondary)"
-                }}>
-                      {it.estimatedAmount ? Number(it.estimatedAmount).toLocaleString("zh-CN") : "—"}
-                    </td>
-                    <td style={tdStyle}>
-                      {/* G4-B：仓库主数据(wms_warehouses)，按当前公司过滤 */}
-                      <WarehouseSelector value={it.warehouseCode ?? ""} onChange={code => setItemField(idx, "warehouseCode", code)} companyCode={formCompanyCode} style={{
-                    minWidth: 150,
-                    fontSize: 12,
-                    padding: "3px 6px"
-                  }} />
-                    </td>
-                    <td style={tdStyle}>
-                      <button type="button" style={{
-                    border: "none",
-                    background: "none",
-                    cursor: "pointer",
-                    color: "var(--color-danger,var(--status-danger))",
-                    padding: "0 2px"
-                  }} onClick={() => removeItemRow(idx)} title="删除行">
-                        <Trash2 size={12} />
-                      </button>
-                    </td>
-                  </tr>)}
-              </tbody>
-              <tfoot>
-                <tr style={{
-                borderTop: "2px solid var(--border)"
-              }}>
-                  <td colSpan={5} style={{
-                  textAlign: "right",
-                  padding: "6px 8px",
-                  fontSize: 12,
-                  fontWeight: 600
-                }}>
-                    合计（{formCurrency}）
-                  </td>
-                  <td style={{
-                  textAlign: "right",
-                  padding: "6px 8px",
-                  fontWeight: 700,
-                  fontVariantNumeric: "tabular-nums"
-                }}>
-                    {formItems.reduce((s, it) => s + (parseFloat(String(it.estimatedAmount)) || 0), 0).toLocaleString("zh-CN")}
-                  </td>
-                  <td colSpan={2}></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-
-          {/* 抽屉底部按钮 */}
-          <div className={s.drawerFooter}>
-            <button type="button" className={s.btnSecondary} onClick={() => setDrawerOpen(false)}>取消</button>
-            <button type="button" className={s.btnPrimary} onClick={handleSave} disabled={saving}>
-              {saving ? "保存中…" : "保存草稿"}
-            </button>
-          </div>
-        </div>}
-      </RightDrawer>
 
       {/* ── 详情抽屉 ─────���───────────────────────────────────────────────────── */}
       <RightDrawer open={detailOpen} onClose={() => setDetailOpen(false)} title={detailData ? `申请详情：${detailData.reqNo}` : "详情"} width={660}>
