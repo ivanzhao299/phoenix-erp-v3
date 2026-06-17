@@ -27,6 +27,8 @@ export interface StartApprovalParams {
   projectName?: string;
   subject?: string;
   conditionOverrides?: Record<string, any>;
+  /** 未固化流程：发起人提交时指定的审批人 userId（开放式选人）。设置后走单步动态实例，不需预配规则。 */
+  pickedApproverId?: string;
 }
 
 @Injectable()
@@ -177,6 +179,11 @@ export class ApprovalEngineService {
     mgr: EntityManager,
   ): Promise<WfApprovalInstanceEntity | null> {
     const { userId } = this.currentUser();
+
+    // 未固化流程：发起人指定了审批人 → 建单步动态实例（不需预配规则）
+    if (params.pickedApproverId) {
+      return this.startDynamicApproval(params, mgr, userId);
+    }
 
     // 1. 查找匹配规则
     const rule = await this.resolveRule(
@@ -343,6 +350,95 @@ export class ApprovalEngineService {
     });
 
     return savedInstance;
+  }
+
+  /**
+   * 单步动态审批实例（开放式选人 / 未固化流程）：用发起人指定的审批人建一步 USER 实例，
+   * 不依赖预配审批规则。审批人资格在此用 resolveEligibleApprovers 权威校验（权限 ∩ 数据域 ∩ 非发起人）。
+   */
+  private async startDynamicApproval(
+    params: StartApprovalParams,
+    mgr: EntityManager,
+    starterUserId: string,
+  ): Promise<WfApprovalInstanceEntity> {
+    const moduleCode = params.moduleCode ?? this.bizRegistry.getModuleCode(params.bizType);
+
+    // 权威校验：所选人必须有该业务确认权 + 数据域覆盖 + 非发起人（前端下拉不可信）
+    const eligible = await this.assignmentResolver.resolveEligibleApprovers({
+      menuCode:      moduleCode,
+      requiredPerm:  'E',
+      companyCode:   params.companyCode,
+      projectCode:   params.projectCode,
+      excludeUserId: starterUserId || undefined,
+    });
+    const picked = eligible.find((e) => e.userId === String(params.pickedApproverId));
+    if (!picked) {
+      throw new BadRequestException('所选审批人无权审批该单据，或不在其数据域范围内');
+    }
+
+    // 幂等：已有实例则返回/拒绝
+    const existing = await mgr.findOne(WfApprovalInstanceEntity, {
+      where: { bizType: params.bizType, bizId: params.bizId },
+    });
+    if (existing) {
+      if (existing.status === 'PENDING') return existing;
+      throw new ConflictException(`该单据已有审批实例（状态：${existing.status}）`);
+    }
+
+    const instanceNo = await this.generateInstanceNo(mgr);
+    const instance = await mgr.save(
+      WfApprovalInstanceEntity,
+      mgr.create(WfApprovalInstanceEntity, {
+        instanceNo,
+        moduleCode,
+        bizType:       params.bizType,
+        bizId:         params.bizId,
+        bizNo:         params.bizNo,
+        ruleId:        null,
+        totalSteps:    1,
+        currentStepNo: 1,
+        status:        'PENDING',
+        startedBy:     starterUserId || null,
+        amount:        params.amount ?? null,
+        currencyCode:  params.currencyCode ?? null,
+        companyCode:   params.companyCode ?? null,
+        companyName:   params.companyName ?? null,
+        projectCode:   params.projectCode ?? null,
+        projectName:   params.projectName ?? null,
+        subject:       params.subject ?? null,
+      }),
+    );
+    await mgr.save(
+      WfApprovalInstanceStepEntity,
+      mgr.create(WfApprovalInstanceStepEntity, {
+        instanceId:         instance.id,
+        stepNo:             1,
+        approverType:       'USER',
+        approverUserId:     picked.userId,
+        approverName:       picked.displayName,
+        allowAdminOverride: false,
+        status:             'PENDING',
+        dueAt:              new Date(Date.now() + 48 * 3600 * 1000),
+      }),
+    );
+
+    // 审批人提示（g183 复用）+ 通知被指定的审批人
+    this.cls.set('approvalHint', { roleZh: picked.roleNameZh, names: [picked.displayName], stepNo: 1 });
+    setImmediate(() => {
+      this.notify
+        .onTaskCreated({
+          instanceId:     instance.id,
+          bizType:        params.bizType,
+          bizId:          params.bizId,
+          bizNo:          params.bizNo,
+          subject:        params.subject,
+          starterUserId:  starterUserId || undefined,
+          assigneeUserId: picked.userId,
+        })
+        .catch(() => {/* ignore */});
+    });
+
+    return instance;
   }
 
   // ── 严格角色校验（Phase B/C）────────────────────────────────────────────

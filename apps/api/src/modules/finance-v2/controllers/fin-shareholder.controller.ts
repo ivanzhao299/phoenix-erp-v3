@@ -97,8 +97,8 @@ export class FinShareholderController {
   @Post('contributions/:id/submit-confirm')
   @RequireMenu(MENU, 'E')
   @HttpCode(HttpStatus.OK)
-  submitConfirm(@Param('id') id: string) {
-    return this.contribSvc.submitConfirm(id, this.scopedUser);
+  submitConfirm(@Param('id') id: string, @Body() body?: { approverUserId?: string }) {
+    return this.contribSvc.submitConfirm(id, this.scopedUser, body?.approverUserId);
   }
 
   /** POST /api/v2/finance/shareholders/contributions/:id/confirm-direct */

@@ -373,7 +373,7 @@ export class ShareholderContributionsService {
 
   // ── 提交审批（DRAFT→PENDING_CONFIRM） ─────────────────────────────────────
 
-  async submitConfirm(id: string, user: any): Promise<FinShareholderContributionEntity> {
+  async submitConfirm(id: string, user: any, pickedApproverId?: string): Promise<FinShareholderContributionEntity> {
     return this.ds.transaction(async mgr => {
       const qr = mgr.queryRunner!;
       const row = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
@@ -404,12 +404,13 @@ export class ShareholderContributionsService {
           projectCode:  row.projectCode ?? undefined,
           projectName:  row.projectName ?? undefined,
           subject:      `${row.shareholderName} · ${row.contributionType}`,
+          pickedApproverId,
         }, mgr);
-      } catch {
-        // 无审批规则：停在 PENDING_CONFIRM 等他人确认（制单/审核分离），不再自动入账——
-        // 否则提交人会绕过他人复核自己入账。由另一持 MENU_FIN2_SHAREHOLDER:E 的
-        // 非创建者在台账「确认」完成 PENDING_CONFIRM→CONFIRMED。
-        void 0;
+      } catch (e) {
+        // 指定了审批人却失败（如所选人无权/不在数据域）→ 抛出让发起人改选；
+        // 未指定审批人的"无审批规则" → 停在 PENDING_CONFIRM 等他人确认（制单/审核分离，
+        // 不再自动入账），由另一持 MENU_FIN2_SHAREHOLDER:E 的非创建者在台账「确认」完成。
+        if (pickedApproverId) throw e;
       }
 
       const updated = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
