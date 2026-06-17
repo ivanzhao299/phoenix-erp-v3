@@ -208,6 +208,18 @@ export class FinCashController {
     return this.accSvc.deleteManualTransaction(id, this.scopedUser);
   }
 
+  /**
+   * POST /api/v2/finance/cash/transactions/bulk-delete — 批量删除无源单据流水（初始化对齐）。
+   *   放开"仅 MANUAL"铁律为"source_id 为空可删"（手工/期初/导入）；业务单据流水(有源单据)仍保护。
+   *   删后重算受影响账户余额链。需 MENU_FIN2_CASH_TXN:D。
+   */
+  @Post('transactions/bulk-delete')
+  @RequireMenu(MENU_TXN, 'D')
+  @HttpCode(HttpStatus.OK)
+  bulkDeleteTransactions(@Body() body: { ids: string[] }) {
+    return this.accSvc.bulkDeleteTransactions(body?.ids ?? [], this.scopedUser);
+  }
+
   // ════════════════════════════════════════════════════════════════════════
   // 资金转账
   // ════════════════════════════════════════════════════════════════════════
