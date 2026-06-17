@@ -9,6 +9,7 @@ import { MenuGuard } from './common/guards/menu.guard';
 import { StoreCodeInterceptor } from './common/interceptors/store-code.interceptor';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 import { OperationLogInterceptor } from './common/interceptors/operation-log.interceptor';
+import { ApprovalHintInterceptor } from './common/interceptors/approval-hint.interceptor';
 import { AuthExceptionFilter } from './common/filters/auth-exception.filter';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { JwtStrategy } from './auth/jwt.strategy';
@@ -151,6 +152,11 @@ import { ChanjetModule } from './modules/chanjet/chanjet.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: OperationLogInterceptor,
+    },
+    // 审批提交后注入「下一审批人」摘要到响应，前端统一提示"提交给谁审批"
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ApprovalHintInterceptor,
     },
     StoreCodeInterceptor,
     // 统一 401 响应结构（注入 subcode）— 先注册，优先处理 UnauthorizedException

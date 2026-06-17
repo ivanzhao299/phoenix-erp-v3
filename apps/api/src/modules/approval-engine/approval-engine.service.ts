@@ -61,6 +61,32 @@ export class ApprovalEngineService {
     };
   }
 
+  /**
+   * 把第一步审批人摘要存入 CLS（角色中文名 + 持有该角色的人姓名），供响应拦截器注入前端。
+   * 角色制审批下"下一审批人"是一个角色 + 可能多人，名字取 sys_user.real_name。
+   */
+  private async stashApprovalHint(
+    approverRole: string | null,
+    resolved: { displayName: string }[],
+    stepNo: number,
+    mgr: EntityManager,
+  ): Promise<void> {
+    try {
+      let roleZh: string | null = null;
+      if (approverRole) {
+        const r = await mgr.query(
+          `SELECT role_name_zh FROM sys_role WHERE role_code = $1 LIMIT 1`,
+          [approverRole],
+        );
+        roleZh = r?.[0]?.role_name_zh ?? approverRole;
+      }
+      const names = [...new Set(resolved.map((a) => a.displayName).filter(Boolean))];
+      this.cls.set('approvalHint', { roleZh, names, stepNo });
+    } catch {
+      /* 提示性信息，失败不影响主流程 */
+    }
+  }
+
   /** 生成实例编号 WF-YYYYMMDD-00001 */
   private async generateInstanceNo(mgr: EntityManager): Promise<string> {
     const today  = format(new Date(), 'yyyyMMdd');
@@ -238,6 +264,11 @@ export class ApprovalEngineService {
           { approverType: (rs.approverType ?? 'ROLE') as ApproverType, approverRole: rs.approverRole ?? undefined, bizContext: bizCtx },
           rs.stepNo,
         );
+      }
+
+      // 第一步审批人 → CLS，供 ApprovalHintInterceptor 注入响应，前端提示"提交给谁审批"
+      if (rs.stepNo === ruleSteps[0].stepNo) {
+        await this.stashApprovalHint(rs.approverRole ?? null, resolved, rs.stepNo, mgr);
       }
 
       // 计算 due_at：由 sla_hours 决定，默认 48h
