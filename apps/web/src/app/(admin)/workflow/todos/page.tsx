@@ -229,6 +229,22 @@ async function approveInstance(instanceId: string, comment: string) {
   });
   return res.json();
 }
+async function fetchReassignCandidates(instanceId: string): Promise<Array<{ userId: string; displayName: string; roleNameZh: string | null }>> {
+  const res = await fetch(`/api/approval/instances/${instanceId}/reassign-candidates`, {
+    headers: authHdr(),
+    cache: "no-store"
+  });
+  if (!res.ok) return [];
+  return res.json();
+}
+async function reassignInstance(instanceId: string, toUserId: string) {
+  const res = await fetch(`/api/approval/instances/${instanceId}/reassign`, {
+    method: "POST",
+    headers: authHdr(),
+    body: JSON.stringify({ toUserId })
+  });
+  return res.json();
+}
 async function rejectInstance(instanceId: string, comment: string) {
   const res = await fetch(`/api/approval/instances/${instanceId}/reject`, {
     method: "POST",
@@ -255,6 +271,11 @@ export default function ApprovalTodosPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // P2 转交审批
+  const [reassignMode, setReassignMode] = useState(false);
+  const [candidates, setCandidates] = useState<Array<{ userId: string; displayName: string; roleNameZh: string | null }>>([]);
+  const [pickedTo, setPickedTo] = useState("");
+  const [reassignLoading, setReassignLoading] = useState(false);
 
   // 筛选状态
   const [taskSource, setTaskSource] = useState("");
@@ -350,6 +371,36 @@ export default function ApprovalTodosPage() {
         toast.error(r.message || "操作失败");
       } else {
         toast.error("已拒绝，单据流程终止");
+        setDrawerOpen(false);
+        setResp(prev => ({ ...prev, items: prev.items.filter(t => t.instanceId !== selected.instanceId), total: Math.max(0, prev.total - 1) }));
+        load();
+      }
+    } catch {
+      toast.error("网络错误");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const openReassign = async () => {
+    if (!selected) return;
+    setPickedTo("");
+    setReassignMode(true);
+    setReassignLoading(true);
+    try {
+      setCandidates(await fetchReassignCandidates(selected.instanceId));
+    } catch { setCandidates([]); }
+    finally { setReassignLoading(false); }
+  };
+  const handleReassign = async () => {
+    if (!selected || !pickedTo) return;
+    setSubmitting(true);
+    try {
+      const r = await reassignInstance(selected.instanceId, pickedTo);
+      if (r.statusCode && r.statusCode >= 400) {
+        toast.error(r.message || "转交失败");
+      } else {
+        toast.success(`已转交给 ${r.toName ?? "审批人"}`);
+        setReassignMode(false);
         setDrawerOpen(false);
         setResp(prev => ({ ...prev, items: prev.items.filter(t => t.instanceId !== selected.instanceId), total: Math.max(0, prev.total - 1) }));
         load();
@@ -750,6 +801,25 @@ export default function ApprovalTodosPage() {
           width: "100%",
           marginBottom: 16
         }} />
+            {/* P2 转交候选区 */}
+            {reassignMode && <div style={{ marginBottom: 16, padding: 12, border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-muted)" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: "var(--text-primary)" }}>转交给（有确认权且数据域覆盖本单据的人）</div>
+              {reassignLoading ? <div style={{ fontSize: 12, color: "var(--text-secondary)", padding: 8 }}>加载候选人…</div>
+                : candidates.length === 0 ? <div style={{ fontSize: 12, color: "var(--status-warning)", padding: 8 }}>无可转交对象（无人同时具备确认权与本单据数据域）</div>
+                : <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 200, overflowY: "auto" }}>
+                    {candidates.map(c => (
+                      <label key={c.userId} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, cursor: "pointer", background: pickedTo === c.userId ? "color-mix(in srgb, var(--color-primary) 10%, transparent)" : "transparent" }}>
+                        <input type="radio" name="reassignTo" checked={pickedTo === c.userId} onChange={() => setPickedTo(c.userId)} />
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{c.displayName}</span>
+                        {c.roleNameZh && <span style={{ fontSize: 11, color: "var(--text-secondary)", marginLeft: "auto" }}>{c.roleNameZh}</span>}
+                      </label>
+                    ))}
+                  </div>}
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button className={`${s.btnSecondary} ${u.flex1}`} onClick={() => setReassignMode(false)} disabled={submitting}>取消</button>
+                <button className={s.btnPrimary} style={{ flex: 2 }} onClick={handleReassign} disabled={submitting || !pickedTo}>{submitting ? "转交中…" : "确认转交"}</button>
+              </div>
+            </div>}
             <div style={{
           display: "flex",
           gap: 12
@@ -758,6 +828,9 @@ export default function ApprovalTodosPage() {
                 <XCircle size={14} style={{
               marginRight: 6
             }} />拒绝
+              </button>
+              <button className={`${s.btnSecondary} ${u.flex1}`} onClick={openReassign} disabled={submitting}>
+                转交
               </button>
               <button className={s.btnPrimary} onClick={handleApprove} disabled={submitting} style={{
             flex: 2
