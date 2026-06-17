@@ -384,7 +384,8 @@ export class ShareholderContributionsService {
       const row = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
       if (!row) throw new NotFoundException(`股东出资 ID=${id} 不存在`);
       this.assertOwnership(row.companyCode, user);
-      this.assertNotSelfApproval(row.createdBy, '提交确认');
+      // 提交审批=创建者把自己的草稿"交出去"，是创建者本就该做的动作，不拦自审；
+      // 真正拦自审的是"确认入账"confirmDirect（自己批自己）。
       if (row.status !== 'DRAFT') {
         throw new ConflictException(`只有草稿状态才可提交（当前：${row.status}）`);
       }
@@ -410,11 +411,10 @@ export class ShareholderContributionsService {
           subject:      `${row.shareholderName} · ${row.contributionType}`,
         }, mgr);
       } catch {
-        // 无审批规则时自动确认
-        await qr.query(
-          `UPDATE fin_shareholder_contributions SET status = 'CONFIRMED', updated_by = $1, updated_at = now() WHERE id = $2`,
-          [this.username(), id],
-        );
+        // 无审批规则：停在 PENDING_CONFIRM 等他人确认（制单/审核分离），不再自动入账——
+        // 否则提交人会绕过他人复核自己入账。由另一持 MENU_FIN2_SHAREHOLDER:E 的
+        // 非创建者在台账「确认」完成 PENDING_CONFIRM→CONFIRMED。
+        void 0;
       }
 
       const updated = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });

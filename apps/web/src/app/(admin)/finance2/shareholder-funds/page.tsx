@@ -183,21 +183,23 @@ function TypeBadge({
 
 function CreateContributionModal({
   onClose,
-  onCreated
+  onCreated,
+  editing
 }: {
   onClose: () => void;
   onCreated: () => void;
+  editing?: Contribution | null;
 }) {
   const [form, setForm] = useState({
-    shareholderName: '',
-    shareholderCode: '',
-    companyCode: '',
-    companyName: '',
-    contributionType: 'LOAN',
-    currencyCode: 'CNY',
-    amountOriginal: '',
-    expectedReturnDate: '',
-    remark: '',
+    shareholderName: editing?.shareholderName ?? '',
+    shareholderCode: editing?.shareholderCode ?? '',
+    companyCode: editing?.companyCode ?? '',
+    companyName: editing?.companyName ?? '',
+    contributionType: editing?.contributionType ?? 'LOAN',
+    currencyCode: editing?.currencyCode ?? 'CNY',
+    amountOriginal: editing ? String(editing.amountOriginal) : '',
+    expectedReturnDate: editing?.expectedReturnDate ?? '',
+    remark: editing?.remark ?? '',
     voucherUrl: '' as string
   });
   const [saving, setSaving] = useState(false);
@@ -222,8 +224,8 @@ function CreateContributionModal({
     setSaving(true);
     setErr('');
     try {
-      const r = await fetch(`${API}/contributions`, {
-        method: 'POST',
+      const r = await fetch(editing ? `${API}/contributions/${editing.id}` : `${API}/contributions`, {
+        method: editing ? 'PATCH' : 'POST',
         headers: authHeaders(),
         body: JSON.stringify({
           shareholderName: form.shareholderName.trim(),
@@ -240,7 +242,7 @@ function CreateContributionModal({
       });
       if (!r.ok) {
         const d = await r.json();
-        throw new Error(d.message ?? '创建失败');
+        throw new Error(d.message ?? (editing ? '保存失败' : '创建失败'));
       }
       onCreated();
     } catch (e: unknown) {
@@ -256,9 +258,9 @@ function CreateContributionModal({
     fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', color: 'var(--text-on-dark)',
     background: saving ? 'var(--text-disabled)' : 'var(--color-primary)', opacity: saving ? 0.7 : 1,
   };
-  return <ModalV2 open title="新建股东资金记录" width={520} onClose={onClose} footer={<>
+  return <ModalV2 open title={editing ? '编辑股东资金记录' : '新建股东资金记录'} width={520} onClose={onClose} footer={<>
         <button onClick={onClose} style={cancelBtn}>取消</button>
-        <button onClick={submit} disabled={saving} style={submitBtn}>{saving ? '创建中…' : '创建记录'}</button>
+        <button onClick={submit} disabled={saving} style={submitBtn}>{saving ? '保存中…' : (editing ? '保存' : '创建记录')}</button>
       </>}>
         {err && <div style={{ color: 'var(--status-danger)', background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--status-danger) 20%, transparent)', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 14 }}>
             {err}
@@ -434,11 +436,13 @@ function CreateSettlementModal({
 function ContributionDrawer({
   contribution,
   onClose,
-  onRefresh
+  onRefresh,
+  onEdit
 }: {
   contribution: Contribution;
   onClose: () => void;
   onRefresh: () => void;
+  onEdit?: (c: Contribution) => void;
 }) {
   const [detail, setDetail] = useState<{
     settlements?: Settlement[];
@@ -569,32 +573,40 @@ function ContributionDrawer({
             </div>)}
         </div>
 
-        {/* 自审拦截提示（制单/审核分离）：自己建的待处理单，需他人确认 */}
-        {isOwnRecord && ['DRAFT', 'PENDING_CONFIRM'].includes(contribution.status) && (
+        {/* 自审提示：已提交待确认时，告诉创建者在等他人确认（制单/审核分离） */}
+        {isOwnRecord && contribution.status === 'PENDING_CONFIRM' && (
           <div style={{ fontSize: 12, color: 'var(--status-warning)', background: 'color-mix(in srgb, var(--status-warning) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--status-warning) 20%, transparent)', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
-            此记录由你创建，需由他人复核确认（制单 / 审核分离）
+            已提交，等待他人复核确认 —— 你不能确认自己创建的记录（制单 / 审核分离）
           </div>
         )}
         {/* 操作按钮 */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+          {/* 提交审批：创建者/有编辑权把草稿"交出去"等他人确认 */}
+          {dCanEdit && contribution.status === 'DRAFT' && <button onClick={() => doAction('submit-confirm')} disabled={!!actionLoading}
+            style={actionBtn('color-mix(in srgb, var(--color-accent) 10%, transparent)', 'var(--color-accent)', 'color-mix(in srgb, var(--color-accent) 30%, transparent)')}>
+              <AlertCircle size={12} /> 提交审批
+            </button>}
+          {/* 直接确认入账：仅他人可操作（自审拦截） */}
           {canConfirm && <button onClick={() => doAction('confirm-direct')} disabled={!!actionLoading}
             style={actionBtn('color-mix(in srgb, var(--status-success) 10%, transparent)', 'var(--status-success)', 'color-mix(in srgb, var(--status-success) 30%, transparent)')}>
               <CheckCircle size={12} /> 直接确认
             </button>}
-          {dCanEdit && !isOwnRecord && contribution.status === 'DRAFT' && <button onClick={() => doAction('submit-confirm')} disabled={!!actionLoading}
-            style={actionBtn('color-mix(in srgb, var(--color-accent) 10%, transparent)', 'var(--color-accent)', 'color-mix(in srgb, var(--color-accent) 30%, transparent)')}>
-              <AlertCircle size={12} /> 提交确认
+          {/* 编辑草稿：仅草稿可改 */}
+          {dCanEdit && contribution.status === 'DRAFT' && onEdit && <button onClick={() => { onClose(); onEdit(contribution); }} disabled={!!actionLoading}
+            style={actionBtn('color-mix(in srgb, var(--color-primary) 10%, transparent)', 'var(--color-primary)', 'color-mix(in srgb, var(--color-primary) 30%, transparent)')}>
+              <AlertCircle size={12} /> 编辑
             </button>}
           {canSettle && <button onClick={() => setShowSettle(true)}
             style={actionBtn('color-mix(in srgb, var(--color-primary) 10%, transparent)', 'var(--color-primary)', 'color-mix(in srgb, var(--color-primary) 30%, transparent)')}>
               <ArrowDownLeft size={12} /> 创建结算
             </button>}
           {canCancel && <button onClick={() => setConfirmDialog({
-              title: '取消股东资金记录', message: '确认取消该股东资金记录？取消后不可恢复。', danger: true,
+              title: contribution.status === 'DRAFT' ? '删除草稿' : '取消股东资金记录',
+              message: contribution.status === 'DRAFT' ? '确认删除该草稿？删除后不可恢复。' : '确认取消该股东资金记录？取消后不可恢复。', danger: true,
               onConfirm: () => { setConfirmDialog(null); void doAction('cancel', {}); },
             })} disabled={!!actionLoading}
             style={actionBtn('color-mix(in srgb, var(--status-danger) 10%, transparent)', 'var(--status-danger)', 'color-mix(in srgb, var(--status-danger) 30%, transparent)')}>
-              <X size={12} /> 取消
+              <X size={12} /> {contribution.status === 'DRAFT' ? '删除' : '取消'}
             </button>}
         </div>
 
@@ -787,6 +799,7 @@ export default function ShareholderFundsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedC, setSelectedC] = useState<Contribution | null>(null);
   const [pendingList, setPendingList] = useState<Contribution[]>([]);
+  const [editingC, setEditingC] = useState<Contribution | null>(null);
   const [importLoading, setImportLoading] = useState(false);
   const loadSummary = useCallback(async () => {
     try {
@@ -1054,6 +1067,10 @@ export default function ShareholderFundsPage() {
       setShowCreate(false);
       void Promise.all([loadList(), loadSummary()]);
     }} />}
-      {selectedC && <ContributionDrawer contribution={selectedC} onClose={() => setSelectedC(null)} onRefresh={() => void Promise.all([loadList(), loadSummary(), loadPending()])} />}
+      {selectedC && <ContributionDrawer contribution={selectedC} onClose={() => setSelectedC(null)} onEdit={(c) => setEditingC(c)} onRefresh={() => void Promise.all([loadList(), loadSummary(), loadPending()])} />}
+      {editingC && <CreateContributionModal editing={editingC} onClose={() => setEditingC(null)} onCreated={() => {
+        setEditingC(null);
+        void Promise.all([loadList(), loadSummary(), loadPending()]);
+      }} />}
     </div>;
 }
