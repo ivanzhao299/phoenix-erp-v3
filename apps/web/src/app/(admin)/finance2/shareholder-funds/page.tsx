@@ -458,6 +458,11 @@ function ContributionDrawer({
   const [actionLoading, setActionLoading] = useState('');
   const [actionErr, setActionErr] = useState('');
   const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; danger?: boolean; onConfirm: () => void } | null>(null);
+  // P1：提交审批时选审批人（候选 = 后端 eligible-approvers 权限∩数据域过滤）
+  const [pickMode, setPickMode] = useState(false);
+  const [approvers, setApprovers] = useState<Array<{ userId: string; displayName: string; roleNameZh: string | null }>>([]);
+  const [pickedId, setPickedId] = useState('');
+  const [pickLoading, setPickLoading] = useState(false);
   const loadDetail = useCallback(async () => {
     setLoading(true);
     try {
@@ -494,6 +499,19 @@ function ContributionDrawer({
     } finally {
       setActionLoading('');
     }
+  }
+  // 打开"选择审批人"——拉取该单据公司下、有股东资金确认权(E)的候选人
+  async function openPickApprover() {
+    setActionErr('');
+    setPickedId('');
+    setPickMode(true);
+    setPickLoading(true);
+    try {
+      const qs = new URLSearchParams({ menuCode: 'MENU_FIN2_SHAREHOLDER', requiredPerm: 'E', companyCode: contribution.companyCode });
+      const r = await fetch(`/api/approval/eligible-approvers?${qs}`, { headers: authHeaders() }).then(res => res.ok ? res.json() : []);
+      setApprovers(Array.isArray(r) ? r : []);
+    } catch { setApprovers([]); }
+    finally { setPickLoading(false); }
   }
   async function doSettleAction(settlementId: string, action: string) {
     setActionLoading(settlementId + action);
@@ -581,8 +599,8 @@ function ContributionDrawer({
         )}
         {/* 操作按钮 */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-          {/* 提交审批：创建者/有编辑权把草稿"交出去"等他人确认 */}
-          {dCanEdit && contribution.status === 'DRAFT' && <button onClick={() => doAction('submit-confirm')} disabled={!!actionLoading}
+          {/* 提交审批：创建者/有编辑权把草稿"交出去"，点击先选审批人 */}
+          {dCanEdit && contribution.status === 'DRAFT' && <button onClick={() => void openPickApprover()} disabled={!!actionLoading}
             style={actionBtn('color-mix(in srgb, var(--color-accent) 10%, transparent)', 'var(--color-accent)', 'color-mix(in srgb, var(--color-accent) 30%, transparent)')}>
               <AlertCircle size={12} /> 提交审批
             </button>}
@@ -671,6 +689,34 @@ function ContributionDrawer({
     }} />}
       <ConfirmDialogV2 open={!!confirmDialog} title={confirmDialog?.title} message={confirmDialog?.message ?? ''} danger={confirmDialog?.danger}
         loading={!!actionLoading} onConfirm={() => confirmDialog?.onConfirm()} onCancel={() => setConfirmDialog(null)} />
+
+      {/* P1：提交审批 → 选择审批人 */}
+      {pickMode && <ModalV2 open title="提交审批 · 选择审批人" width={460} onClose={() => setPickMode(false)} footer={<div style={{ display: 'flex', gap: 8, width: '100%' }}>
+            <button onClick={() => setPickMode(false)} style={{ ...secondaryActionButton, flex: 1 }}>取消</button>
+            <button onClick={() => { setPickMode(false); void doAction('submit-confirm', {}); }} style={{ ...secondaryActionButton, flex: 1.4 }}>不指定，提交待确认</button>
+            <button onClick={() => { if (!pickedId) return; setPickMode(false); void doAction('submit-confirm', { approverUserId: pickedId }); }} disabled={!pickedId}
+              style={{ flex: 1.6, padding: '10px 14px', borderRadius: 'var(--radius-md)', border: 'none', fontSize: 14, fontWeight: 600, color: 'var(--text-on-dark)', background: pickedId ? 'var(--color-primary)' : 'var(--text-disabled)', cursor: pickedId ? 'pointer' : 'not-allowed' }}>提交给所选</button>
+          </div>}>
+          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.6 }}>
+            选一位有确认权、且数据域覆盖本公司的审批人；提交后对方会收到待办通知。也可"不指定"，由任一有权同事确认。
+          </div>
+          {pickLoading ? <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-secondary)', fontSize: 13 }}>加载候选人…</div>
+            : approvers.length === 0 ? <div style={{ textAlign: 'center', padding: 20, color: 'var(--status-warning)', fontSize: 12.5, lineHeight: 1.6 }}>
+                无可选审批人（无人同时具备确认权与本公司数据域）。可点"不指定"提交，由有权同事确认。
+              </div>
+            : <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
+                {approvers.map(a => (
+                  <div key={a.userId} onClick={() => setPickedId(a.userId)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
+                      border: `1px solid ${pickedId === a.userId ? 'var(--color-primary)' : 'var(--border)'}`,
+                      background: pickedId === a.userId ? 'color-mix(in srgb, var(--color-primary) 8%, transparent)' : 'var(--bg-card)' }}>
+                    <span style={{ flexShrink: 0, width: 8, height: 8, borderRadius: 8, background: pickedId === a.userId ? 'var(--color-primary)' : 'var(--border)' }} />
+                    <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>{a.displayName}</span>
+                    {a.roleNameZh && <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-secondary)' }}>{a.roleNameZh}</span>}
+                  </div>
+                ))}
+              </div>}
+        </ModalV2>}
     </>;
 }
 
