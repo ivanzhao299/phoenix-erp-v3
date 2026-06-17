@@ -357,17 +357,12 @@ export class ShareholderContributionsService {
       }
 
       set('updated_by', this.username());
-      set('updated_at', 'now()');
-      // updated_at 是字面量不能作参数
-      // 重新处理：
-      const updatedAtIdx = fields.length;
-      fields[updatedAtIdx - 1] = 'updated_at = now()';
-      vals.pop();
 
-      if (fields.length === 0) return row;
-
+      // updated_at 用 SQL 字面量 now()（不占参数位）；WHERE id 用下一个参数位 $pidx。
+      // 原实现 set('updated_at','now()') 让 pidx 多自增 1、又 pop 掉值却不回退 pidx，
+      // 导致 WHERE id 的 $pidx 越界 → UPDATE 必失败（"保存失败"根因）。
       await qr.query(
-        `UPDATE fin_shareholder_contributions SET ${fields.join(', ')} WHERE id = $${pidx}`,
+        `UPDATE fin_shareholder_contributions SET ${fields.join(', ')}, updated_at = now() WHERE id = $${pidx}`,
         [...vals, id],
       );
 
