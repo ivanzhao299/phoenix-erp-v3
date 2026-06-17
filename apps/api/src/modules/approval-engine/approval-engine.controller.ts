@@ -77,6 +77,13 @@ export class ApprovalEngineController {
     return { code: 200, message: '已拒绝' };
   }
 
+  /** 转交候选人：实例自身 moduleCode/companyCode 解析合格审批人 */
+  @Get('instances/:id/reassign-candidates')
+  @RequireMenu('MENU_WORKFLOW', 'V')
+  async reassignCandidates(@Param('id') id: string) {
+    return this.engine.reassignCandidates(id);
+  }
+
   /** 转交审批：把当前步改派给另一合格审批人（发起人/当前审批人/ADMIN 可操作，后端再校验） */
   @Post('instances/:id/reassign')
   @RequireMenu('MENU_WORKFLOW', 'V')

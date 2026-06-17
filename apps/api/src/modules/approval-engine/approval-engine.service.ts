@@ -236,6 +236,19 @@ export class ApprovalEngineService {
     });
   }
 
+  /** 转交候选人：用实例自身的 moduleCode/companyCode 解析合格审批人（前端转交下拉用，无需前端拼 menuCode） */
+  async reassignCandidates(instanceId: string) {
+    const instance = await this.instanceRepo.findOne({ where: { id: instanceId } });
+    if (!instance) throw new NotFoundException('审批实例不存在');
+    return this.assignmentResolver.resolveEligibleApprovers({
+      menuCode:      instance.moduleCode ?? this.bizRegistry.getModuleCode(instance.bizType),
+      requiredPerm:  'E',
+      companyCode:   instance.companyCode ?? undefined,
+      projectCode:   instance.projectCode ?? undefined,
+      excludeUserId: instance.startedBy ?? undefined,
+    });
+  }
+
   async startApproval(
     params: StartApprovalParams,
     mgr: EntityManager,
