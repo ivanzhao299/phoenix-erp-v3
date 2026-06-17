@@ -44,7 +44,8 @@ export default function OnlineUsersPage() {
   const load = useCallback(async (silent = false) => {
     setLoading(true);
     try {
-      const r = await request<{ total: number; items: OnlineUser[] }>("/system/online-users");
+      // silent：失败不派发全局 toast（页面级 toast.error 已足够提示，避免 20s 轮询刷屏）
+      const r = await request<{ total: number; items: OnlineUser[] }>("/system/online-users", { silent: true });
       setItems(r?.items ?? []);
       setTotal(r?.total ?? 0);
       setErr('');
