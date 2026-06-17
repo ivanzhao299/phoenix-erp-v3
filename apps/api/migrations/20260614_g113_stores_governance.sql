@@ -39,7 +39,6 @@ BEGIN
   END IF;
 END $$;
 
-/* ════════ G193 数据 seed 冻结：门店改名/移公司/新建/回填属人工维护数据，迁移不再重跑覆盖 ════════
 -- ── 3~6. 门店改名/移公司/新建/回填 ─────────────────────────────────────────
 DO $$
 DECLARE
@@ -111,7 +110,6 @@ BEGIN
   -- 7. 删 UAT 垃圾
   DELETE FROM mst_stores WHERE store_code='STR-00001';
 END $$;
-   ════════ G193 冻结结束（§3~7 门店数据 seed 已停跑；§8 parent_code 一致性回填保留） ════════ */
 
 -- ── 8. 数据一致性：按 parent_id 回填空的 parent_code（历史遗留：门店等节点 parent_code 为空，
 --      组织树靠 parent_id 嵌套；回填后 parent_code 与 parent_id 一致，便于按编码消费）──────────
