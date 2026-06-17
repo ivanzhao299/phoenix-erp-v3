@@ -508,9 +508,12 @@ function ContributionDrawer({
       setActionLoading('');
     }
   }
-  const canConfirm = ['DRAFT', 'PENDING_CONFIRM'].includes(contribution.status);
-  const canSettle = ['CONFIRMED', 'PARTIALLY_SETTLED'].includes(contribution.status);
-  const canCancel = ['DRAFT', 'PENDING_CONFIRM'].includes(contribution.status);
+  // 确认/提交/取消/结算都是写操作，后端要求 MENU_FIN2_SHAREHOLDER:E（财务确认入账，
+  // 与出纳建单的 :C 分离）。无 :E 权限不显示按钮——避免无权用户点了再被后端 403 拒。
+  const { canEdit: dCanEdit } = usePermission('MENU_FIN2_SHAREHOLDER');
+  const canConfirm = dCanEdit && ['DRAFT', 'PENDING_CONFIRM'].includes(contribution.status);
+  const canSettle = dCanEdit && ['CONFIRMED', 'PARTIALLY_SETTLED'].includes(contribution.status);
+  const canCancel = dCanEdit && ['DRAFT', 'PENDING_CONFIRM'].includes(contribution.status);
   const actionBtn = (bg: string, fg: string, border: string): React.CSSProperties => ({
     display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px', borderRadius: 'var(--radius-md)',
     fontSize: 12, fontWeight: 600, cursor: actionLoading ? 'not-allowed' : 'pointer',
@@ -566,7 +569,7 @@ function ContributionDrawer({
             style={actionBtn('color-mix(in srgb, var(--status-success) 10%, transparent)', 'var(--status-success)', 'color-mix(in srgb, var(--status-success) 30%, transparent)')}>
               <CheckCircle size={12} /> 直接确认
             </button>}
-          {contribution.status === 'DRAFT' && <button onClick={() => doAction('submit-confirm')} disabled={!!actionLoading}
+          {dCanEdit && contribution.status === 'DRAFT' && <button onClick={() => doAction('submit-confirm')} disabled={!!actionLoading}
             style={actionBtn('color-mix(in srgb, var(--color-accent) 10%, transparent)', 'var(--color-accent)', 'color-mix(in srgb, var(--color-accent) 30%, transparent)')}>
               <AlertCircle size={12} /> 提交确认
             </button>}
@@ -651,29 +654,58 @@ function ContributionDrawer({
 
 function SummaryTab({
   summary,
-  onPendingClick
+  pending,
+  canConfirm,
+  onOpen,
+  onViewAll,
 }: {
   summary: ShSummary | null;
-  onPendingClick?: () => void;
+  pending: Contribution[];
+  canConfirm: boolean;
+  onOpen: (c: Contribution) => void;
+  onViewAll?: () => void;
 }) {
   if (!summary) return <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: 32 }}>加载中…</div>;
-  const statCards: { label: string; value: string; color: string; clickable?: boolean }[] = [
+  const statCards: { label: string; value: string; color: string }[] = [
     { label: '出资总额', value: `¥ ${fmt(summary.totalAmountOriginal)}`, color: 'var(--color-primary)' },
     { label: '已结算', value: `¥ ${fmt(summary.settledAmountOriginal)}`, color: 'var(--status-success)' },
     { label: '未结余额', value: `¥ ${fmt(summary.balanceAmountOriginal)}`, color: 'var(--status-danger)' },
     { label: '已确认笔数', value: `${summary.confirmedContributions} 笔`, color: 'var(--color-accent)' },
-    { label: '待处理（含草稿）', value: `${summary.pendingConfirmations} 笔`, color: 'var(--status-warning)', clickable: true },
+    { label: '待处理（含草稿）', value: `${summary.pendingConfirmations} 笔`, color: 'var(--status-warning)' },
   ];
   return <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginBottom: 24 }}>
         {statCards.map(c => (
-          <div key={c.label} onClick={c.clickable ? onPendingClick : undefined}
-            style={{ ...kpiCard, ...(c.clickable ? { cursor: 'pointer' } : {}) }}>
-            <div style={statTileLabel}>{c.label}{c.clickable ? <span style={{ fontSize: 10, marginLeft: 4 }}>点击查看 →</span> : null}</div>
+          <div key={c.label} style={kpiCard}>
+            <div style={statTileLabel}>{c.label}</div>
             <div style={{ fontSize: 20, lineHeight: 1.2, marginTop: 2, fontWeight: 800, color: c.color }}>{c.value}</div>
           </div>
         ))}
       </div>
+
+      {/* 待处理明细——就地可确认（替代原"卡片快捷链跳转"，确认入口直接在眼前） */}
+      {pending.length > 0 && <div style={{ ...tableContainer, padding: '16px 18px', marginBottom: 24, borderColor: 'var(--status-warning)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--status-warning)' }}>
+            待处理明细 · {pending.length} 笔（{canConfirm ? '点击记录即可确认入账' : '点击查看详情'}）
+          </div>
+          {onViewAll && <button onClick={onViewAll} style={{ ...secondaryActionButton, padding: '4px 12px', fontSize: 12 }}>在台账中查看 →</button>}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {pending.map(c => (
+            <div key={c.id} onClick={() => onOpen(c)} style={{ ...businessListCard('warning'), cursor: 'pointer' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{c.shareholderName}</span>
+                <TypeBadge type={c.contributionType} />
+                <LocalStatusBadge status={c.status} map={STATUS_CONFIG} />
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{c.contributionNo}</span>
+                <span style={{ marginLeft: 'auto', fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>{currencySymbol(c.currencyCode)}{fmt(c.amountOriginal)}</span>
+                <ChevronRight size={15} style={{ color: 'var(--text-secondary)' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
         <div style={{ ...tableContainer, padding: '16px 18px' }}>
@@ -742,6 +774,7 @@ export default function ShareholderFundsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [selectedC, setSelectedC] = useState<Contribution | null>(null);
+  const [pendingList, setPendingList] = useState<Contribution[]>([]);
   const [importLoading, setImportLoading] = useState(false);
   const loadSummary = useCallback(async () => {
     try {
@@ -767,6 +800,15 @@ export default function ShareholderFundsPage() {
         setSummary(null);
       }
     } catch { /* summary 加载失败不阻塞列表 */ }
+  }, []);
+  // 待处理明细（status=PENDING 经后端展开为 DRAFT+PENDING_CONFIRM）——汇总页就地展示+确认
+  const loadPending = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/contributions?status=PENDING&pageSize=100`, {
+        headers: authHeaders(),
+      }).then(r => (r.ok ? r.json() : { items: [] }));
+      setPendingList(res.items ?? []);
+    } catch { setPendingList([]); }
   }, []);
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -797,6 +839,8 @@ export default function ShareholderFundsPage() {
   }, []);
   // summary 只在首次 + 写操作后加载，不跟随筛选条件
   useEffect(() => { void loadSummary(); }, [loadSummary]);
+  // 进入汇总页时加载待处理明细（就地确认用）
+  useEffect(() => { if (tab === 'summary') void loadPending(); }, [tab, loadPending]);
   // 列表请求防抖 300ms
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
@@ -864,7 +908,9 @@ export default function ShareholderFundsPage() {
         ))}
       </div>
 
-      {tab === 'summary' && <SummaryTab summary={summary} onPendingClick={() => { setStatusFilter('PENDING'); setTab('contributions'); }} />}
+      {tab === 'summary' && <SummaryTab summary={summary} pending={pendingList} canConfirm={canWrite}
+        onOpen={(c) => setSelectedC(c)}
+        onViewAll={() => { setStatusFilter('PENDING'); setTab('contributions'); }} />}
 
       {tab === 'contributions' && <>
           {/* 筛选 工具栏 */}
@@ -996,6 +1042,6 @@ export default function ShareholderFundsPage() {
       setShowCreate(false);
       void Promise.all([loadList(), loadSummary()]);
     }} />}
-      {selectedC && <ContributionDrawer contribution={selectedC} onClose={() => setSelectedC(null)} onRefresh={() => void Promise.all([loadList(), loadSummary()])} />}
+      {selectedC && <ContributionDrawer contribution={selectedC} onClose={() => setSelectedC(null)} onRefresh={() => void Promise.all([loadList(), loadSummary(), loadPending()])} />}
     </div>;
 }
