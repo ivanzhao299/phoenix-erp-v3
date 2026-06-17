@@ -376,16 +376,36 @@ jobs:
             docker compose up -d --wait db
             echo "✅ DB healthy"
 
-            # ── DDL 迁移（幂等，SQL 失败时部署红灯）─────────────────────────
-            # 修复（Role Runtime Phase C）：显式捕获 psql 退出码 + ON_ERROR_STOP=1
-            # 不再让 SQL 错误被 `|| true` 吞掉，杜绝"迁移失败但部署成功"。
+            # ── G194 部署架构根治：迁移执行记录(schema_migrations) ──────────────
+            # 病根：原本每次全量重跑所有 2026*.sql(无记录)→ ①部署随迁移累积越来越慢
+            #   ②数据 seed 迁移每次重插，把生产删/改的组织/用户/客户/供应商/现金流水
+            #   又插回("删了又冒出来"根因)。
+            # 根治：建记录表，跑过的跳过、只跑新增；首次在【已初始化生产库】baseline
+            #   (把现有迁移标记为已执行、不重跑护现状)；【空库】则不 baseline、全跑初始化。
+            # SQL 经 stdin 喂给容器内 psql，避免多层引号转义。
+            DBQ() { echo "$1" | docker compose exec -T db sh -c 'psql -tAq -U "$POSTGRES_USER" -d "$POSTGRES_DB"' 2>/dev/null; }
+            DBQ "CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());" >/dev/null || true
+            if [ "$(DBQ 'SELECT count(*) FROM schema_migrations;' | tr -d '[:space:]')" = "0" ]; then
+              has_data=$(DBQ "SELECT CASE WHEN to_regclass('public.sys_user') IS NOT NULL AND EXISTS(SELECT 1 FROM sys_user) THEN 1 ELSE 0 END;" | tr -d '[:space:]')
+              if [ "$has_data" = "1" ]; then
+                echo "🔖 已初始化生产库首次引入迁移记录 → baseline 现有 2026 迁移为'已执行'(不重跑,护现状)"
+                for f in $(ls apps/api/migrations/2026*.sql 2>/dev/null | LC_ALL=C sort); do
+                  DBQ "INSERT INTO schema_migrations(filename) VALUES('$(basename "$f")') ON CONFLICT DO NOTHING;" >/dev/null
+                done
+                echo "🔖 baseline 完成：以后只跑新增迁移"
+              else
+                echo "🆕 空库：不 baseline，迁移将全跑以初始化"
+              fi
+            fi
+            # ── 迁移执行函数：track=1 走记录(增量,跑过即跳过)；track=0 每次跑(基础DDL,幂等)──
+            # set +e 包裹命令替换：dash 下 set -e 会在替换失败时吞掉错误详情(只剩 status 3)。
             run_db_migration() {
-              local f="$1"
-              echo "Applying $f..."
+              local f="$1"; local track="${2:-1}"; local fn=$(basename "$f")
+              if [ "$track" = "1" ] && [ "$(DBQ "SELECT 1 FROM schema_migrations WHERE filename='$fn';" | tr -d '[:space:]')" = "1" ]; then
+                echo "⏭️  已执行，跳过 $fn"; return
+              fi
+              echo "Applying $fn..."
               local output status
-              # 修复（Role Audit Recheck）：远程 shell（dash）下 set -e 会在命令替换
-              # 失败时立即退出，导致 $output 错误详情来不及打印（只剩 "exited status 3"）。
-              # 用 set +e 包裹命令替换，确保先捕获退出码并打印错误，再显式 exit 1 红灯。
               set +e
               output=$(docker compose exec -T db sh -c \
                 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
@@ -398,19 +418,17 @@ jobs:
                 echo "$output"
                 exit 1
               fi
+              [ "$track" = "1" ] && DBQ "INSERT INTO schema_migrations(filename) VALUES('$fn') ON CONFLICT DO NOTHING;" >/dev/null || true
             }
-            # 基础 DDL
-            # G51：迁移排序强制 LC_ALL=C，与 CI/本地一致（字节序 . < _）。
-            #   生产服务器 locale 为 zh_CN/en_US.UTF-8 时，默认 sort 把 "X_seed.sql"
-            #   排在 "X.sql" 之前 → seed 先于建表跑 → "relation does not exist" 部署红灯。
-            for f in $(ls apps/api/ddl/*.sql | LC_ALL=C sort); do run_db_migration "$f"; done
-            # 基础业务 Schema（v3_schema_complete 建 inv_batches/mst_products 等34张表，幂等）
+            # 基础 DDL（track=0 幂等每次跑；G51 LC_ALL=C 字节序排序避免 seed 先于建表）
+            for f in $(ls apps/api/ddl/*.sql | LC_ALL=C sort); do run_db_migration "$f" 0; done
+            # 基础业务 Schema（v3_schema_complete，track=0 幂等）
             if [ -f apps/api/migrations/v3_schema_complete.sql ]; then
-              run_db_migration "apps/api/migrations/v3_schema_complete.sql"
+              run_db_migration "apps/api/migrations/v3_schema_complete.sql" 0
             fi
-            # 增量迁移（所有 2026MMDD_* 前缀 SQL，幂等，按日期字节序排序 LC_ALL=C）
-            for f in $(ls apps/api/migrations/2026*.sql 2>/dev/null | LC_ALL=C sort); do run_db_migration "$f"; done
-            echo "✅ DDL migrations applied (任一失败部署已红灯)"
+            # 增量迁移（2026*，track=1 走记录：跑过跳过、只跑新增 → 部署提速 + 数据 seed 永不重插）
+            for f in $(ls apps/api/migrations/2026*.sql 2>/dev/null | LC_ALL=C sort); do run_db_migration "$f" 1; done
+            echo "✅ DDL migrations applied (schema_migrations 记录：只跑新增；任一失败部署已红灯)"
 
             # ── 生产验证：Role Runtime Phase C 6 项检查（真实落库确认）──────
             # 修复（Role Audit Recheck）：在生产库执行 check 脚本，任一 ❌ FAIL 红灯。
