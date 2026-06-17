@@ -45,6 +45,17 @@ export class ShareholderContributionsService {
     }
   }
 
+  // 制单/审核分离（SoD）：禁止确认自己创建的记录——必须由他人复核确认。
+  // 即使一人同时握有建单(:C)+确认(:E)权限，自己建的单也得换个人确认，杜绝自建自批。
+  private assertNotSelfApproval(createdBy: string | null, action: string) {
+    const me = this.username();
+    if (me && createdBy && String(createdBy) === String(me)) {
+      throw new ForbiddenException(
+        `不能${action}自己创建的股东出资记录——制单与审核须分离，请由他人复核确认`,
+      );
+    }
+  }
+
   private userCompanyCodes(user: any): string[] | null {
     if (user?.dataScope?.scopeAll) return null;
     return user?.dataScope?.companyCodes ?? [];
@@ -373,6 +384,7 @@ export class ShareholderContributionsService {
       const row = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
       if (!row) throw new NotFoundException(`股东出资 ID=${id} 不存在`);
       this.assertOwnership(row.companyCode, user);
+      this.assertNotSelfApproval(row.createdBy, '提交确认');
       if (row.status !== 'DRAFT') {
         throw new ConflictException(`只有草稿状态才可提交（当前：${row.status}）`);
       }
@@ -417,6 +429,7 @@ export class ShareholderContributionsService {
       const row = await mgr.findOne(FinShareholderContributionEntity, { where: { id } });
       if (!row) throw new NotFoundException(`股东出资 ID=${id} 不存在`);
       this.assertOwnership(row.companyCode, user);
+      this.assertNotSelfApproval(row.createdBy, '确认');
       if (!['DRAFT', 'PENDING_CONFIRM'].includes(row.status)) {
         throw new ConflictException(`当前状态 ${row.status} 不允许直接确认`);
       }

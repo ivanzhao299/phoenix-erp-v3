@@ -8,6 +8,7 @@ import { DictSelect } from '@/components/shared-selectors/DictSelect';
 import { CompanySelector, ShareholderSelector, CashAccountSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { AttachmentUploader, ModalV2, DrawerV2, ConfirmDialogV2 } from '@/components/design-system';
 import { usePermission } from '@/hooks/usePermission';
+import { useAuth } from '@/contexts/AuthContext';
 import { currencySymbol } from '@/lib/currency';
 
 import {
@@ -48,6 +49,7 @@ interface Contribution {
   balanceAmountOriginal: string | number;
   expectedReturnDate: string | null;
   status: string;
+  createdBy?: string | null;
   sourceType: string;
   remark: string | null;
   createdAt: string;
@@ -511,7 +513,11 @@ function ContributionDrawer({
   // 确认/提交/取消/结算都是写操作，后端要求 MENU_FIN2_SHAREHOLDER:E（财务确认入账，
   // 与出纳建单的 :C 分离）。无 :E 权限不显示按钮——避免无权用户点了再被后端 403 拒。
   const { canEdit: dCanEdit } = usePermission('MENU_FIN2_SHAREHOLDER');
-  const canConfirm = dCanEdit && ['DRAFT', 'PENDING_CONFIRM'].includes(contribution.status);
+  const { user: authUser } = useAuth();
+  // 制单/审核分离：自己创建的记录不能自己确认/提交（与后端 assertNotSelfApproval 对齐）。
+  // 取消是撤回自己的草稿，允许；仅确认/提交受自审拦截。
+  const isOwnRecord = !!authUser?.username && contribution.createdBy === authUser.username;
+  const canConfirm = dCanEdit && !isOwnRecord && ['DRAFT', 'PENDING_CONFIRM'].includes(contribution.status);
   const canSettle = dCanEdit && ['CONFIRMED', 'PARTIALLY_SETTLED'].includes(contribution.status);
   const canCancel = dCanEdit && ['DRAFT', 'PENDING_CONFIRM'].includes(contribution.status);
   const actionBtn = (bg: string, fg: string, border: string): React.CSSProperties => ({
@@ -563,13 +569,19 @@ function ContributionDrawer({
             </div>)}
         </div>
 
+        {/* 自审拦截提示（制单/审核分离）：自己建的待处理单，需他人确认 */}
+        {isOwnRecord && ['DRAFT', 'PENDING_CONFIRM'].includes(contribution.status) && (
+          <div style={{ fontSize: 12, color: 'var(--status-warning)', background: 'color-mix(in srgb, var(--status-warning) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--status-warning) 20%, transparent)', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
+            此记录由你创建，需由他人复核确认（制单 / 审核分离）
+          </div>
+        )}
         {/* 操作按钮 */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
           {canConfirm && <button onClick={() => doAction('confirm-direct')} disabled={!!actionLoading}
             style={actionBtn('color-mix(in srgb, var(--status-success) 10%, transparent)', 'var(--status-success)', 'color-mix(in srgb, var(--status-success) 30%, transparent)')}>
               <CheckCircle size={12} /> 直接确认
             </button>}
-          {dCanEdit && contribution.status === 'DRAFT' && <button onClick={() => doAction('submit-confirm')} disabled={!!actionLoading}
+          {dCanEdit && !isOwnRecord && contribution.status === 'DRAFT' && <button onClick={() => doAction('submit-confirm')} disabled={!!actionLoading}
             style={actionBtn('color-mix(in srgb, var(--color-accent) 10%, transparent)', 'var(--color-accent)', 'color-mix(in srgb, var(--color-accent) 30%, transparent)')}>
               <AlertCircle size={12} /> 提交确认
             </button>}
