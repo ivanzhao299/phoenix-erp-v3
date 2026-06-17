@@ -466,17 +466,24 @@ function ContributionDrawer({
   const loadDetail = useCallback(async () => {
     setLoading(true);
     try {
-      const [d, accs] = await Promise.all([fetch(`${API}/contributions/${contribution.id}`, {
+      const d = await fetch(`${API}/contributions/${contribution.id}`, {
         headers: authHeaders()
-      }).then(r => r.json()), fetch('/api/v2/finance/cash/accounts?status=ACTIVE&pageSize=100', {
-        headers: authHeaders()
-      }).then(r => r.json())]);
+      }).then(r => r.json());
       setDetail(d);
-      setCashAccounts(accs.items ?? []);
     } finally {
       setLoading(false);
     }
   }, [contribution.id]);
+  // 现金账户仅「创建结算」时才用到 → 懒加载，避免每次打开抽屉白拉 100 条拖慢加载
+  const ensureCashAccounts = useCallback(async () => {
+    if (cashAccounts.length > 0) return;
+    try {
+      const accs = await fetch('/api/v2/finance/cash/accounts?status=ACTIVE&pageSize=100', {
+        headers: authHeaders()
+      }).then(r => r.json());
+      setCashAccounts(accs.items ?? []);
+    } catch { /* 忽略 */ }
+  }, [cashAccounts.length]);
   useEffect(() => {
     void loadDetail();
   }, [loadDetail]);
@@ -614,7 +621,7 @@ function ContributionDrawer({
             style={actionBtn('color-mix(in srgb, var(--color-primary) 10%, transparent)', 'var(--color-primary)', 'color-mix(in srgb, var(--color-primary) 30%, transparent)')}>
               <AlertCircle size={12} /> 编辑
             </button>}
-          {canSettle && <button onClick={() => setShowSettle(true)}
+          {canSettle && <button onClick={() => { void ensureCashAccounts(); setShowSettle(true); }}
             style={actionBtn('color-mix(in srgb, var(--color-primary) 10%, transparent)', 'var(--color-primary)', 'color-mix(in srgb, var(--color-primary) 30%, transparent)')}>
               <ArrowDownLeft size={12} /> 创建结算
             </button>}
