@@ -282,11 +282,11 @@ export class AssignmentResolverService {
           WHERE u.status = 1 ${excludeClause}
             AND EXISTS (
               SELECT 1 FROM sys_user_role ur
-                JOIN sys_role r ON ur.role_id = r.role_id
-                JOIN sys_role_menu_permission rmp ON rmp.role_code = r.role_code
+                JOIN sys_role_menu_permission rmp ON rmp.role_id = ur.role_id
+                JOIN sys_menu m ON m.menu_id = rmp.menu_id
                WHERE ur.user_id = u.user_id
-                 AND rmp.menu_code = $1
-                 AND $2 = ANY(string_to_array(rmp.permissions, ','))
+                 AND m.menu_code = $1
+                 AND ($2 = ANY(string_to_array(rmp.perm_codes, ',')) OR rmp.perm_codes LIKE '%*%')
             )
           ORDER BY display_name`,
         params,
