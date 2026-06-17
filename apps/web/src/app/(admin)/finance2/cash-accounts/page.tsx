@@ -476,6 +476,12 @@ function TransactionDrawer({
   const [editForm, setEditForm] = useState<{ direction: 'IN' | 'OUT'; amount: string; txn_date: string; remark: string }>({ direction: 'IN', amount: '', txn_date: '', remark: '' });
   const [savingTxn, setSavingTxn] = useState(false);
   const [pendingDeleteTxnId, setPendingDeleteTxnId] = useState<string | null>(null);
+  // G189 批量删除（初始化对齐：删导入/手工/期初等无源流水）
+  const [selectedTxnIds, setSelectedTxnIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  function toggleTxnSel(id: string) {
+    setSelectedTxnIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
   async function doEditTxn(txnId: string) {
     const amt = Number(editForm.amount);
     if (!Number.isFinite(amt) || amt <= 0) { alert('金额必须为正数'); return; }
@@ -514,6 +520,24 @@ function TransactionDrawer({
     }).finally(() => setLoading(false));
   }, [account.id]);
   useEffect(() => { void loadTxns(); }, [loadTxns]);
+  async function doBulkDelete() {
+    if (selectedTxnIds.size === 0) return;
+    if (!confirm(`确认批量删除选中的 ${selectedTxnIds.size} 条流水？仅手工/期初/导入等无源单据流水会被删除；删后自动重算余额。此操作不可恢复。`)) return;
+    setBulkDeleting(true);
+    try {
+      const r = await fetch(`${API}/transactions/bulk-delete`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ ids: [...selectedTxnIds] }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { alert(d.message ?? '批量删除失败'); return; }
+      alert(`已删除 ${d.deleted ?? 0} 条流水，重算 ${d.accounts?.length ?? 0} 个账户余额`);
+      setSelectedTxnIds(new Set());
+      await loadTxns();
+      onChanged();
+    } catch { alert('批量删除失败'); }
+    finally { setBulkDeleting(false); }
+  }
   // 同币种、非本账户、未关闭 → 可作为改挂目标
   const reassignTargets = useMemo(() => accounts.filter(a =>
     a.id !== account.id && a.currency_code === account.currency_code && a.status !== 'CLOSED'), [accounts, account.id, account.currency_code]);
@@ -600,11 +624,17 @@ function TransactionDrawer({
           </div>
         </div>
 
-        <div className="text-text-muted" style={{
-        fontWeight: 600,
-        fontSize: 13,
-        marginBottom: 12
-      }}>最近 50 条流水</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <span className="text-text-muted" style={{ fontWeight: 600, fontSize: 13 }}>
+            最近 50 条流水{canDeleteTxn && selectedTxnIds.size > 0 ? ` · 已选 ${selectedTxnIds.size}` : ''}
+          </span>
+          {canDeleteTxn && selectedTxnIds.size > 0 && (
+            <button onClick={() => void doBulkDelete()} disabled={bulkDeleting}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: bulkDeleting ? 'not-allowed' : 'pointer', border: '1px solid var(--status-danger)', background: 'color-mix(in srgb, var(--status-danger) 10%, transparent)', color: 'var(--status-danger)' }}>
+              <Trash2 size={13} /> {bulkDeleting ? '删除中…' : `批量删除 (${selectedTxnIds.size})`}
+            </button>
+          )}
+        </div>
 
         {loading ? <div className="text-text-muted" style={{
         textAlign: 'center',
@@ -626,7 +656,8 @@ function TransactionDrawer({
           padding: '10px 12px',
           borderRadius: 10
         }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', width: '100%' }}>
+                  {canDeleteTxn && <input type="checkbox" checked={selectedTxnIds.has(t.id)} onChange={() => toggleTxnSel(t.id)} style={{ width: 15, height: 15, flexShrink: 0, cursor: 'pointer' }} />}
                   <div className={u.flex1}>
                     <div style={{
                 display: 'flex',
