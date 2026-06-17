@@ -174,6 +174,68 @@ export class ApprovalEngineService {
     return this.assignmentResolver.resolveEligibleApprovers({ ...query, excludeUserId: userId || undefined });
   }
 
+  /**
+   * 转交审批（P2）：把进行中实例的「当前步」改派给另一合格审批人。
+   * 仅 发起人 / 当前审批人 / ADMIN 可转交；转交对象经 resolveEligibleApprovers 权威校验
+   * （权限 ∩ 数据域 ∩ 非发起人）。改派后通知新审批人。
+   */
+  async reassignStep(instanceId: string, toUserId: string): Promise<{ ok: true; toName: string }> {
+    const { userId, roles } = this.currentUser();
+    return this.ds.transaction(async (mgr) => {
+      const instance = await mgr.findOne(WfApprovalInstanceEntity, { where: { id: instanceId } });
+      if (!instance) throw new NotFoundException('审批实例不存在');
+      if (instance.status !== 'PENDING') throw new BadRequestException(`实例当前状态 ${instance.status}，不可转交`);
+
+      const pendingSteps = await mgr.find(WfApprovalInstanceStepEntity, {
+        where: { instanceId, stepNo: instance.currentStepNo, status: 'PENDING' as any },
+      });
+      if (pendingSteps.length === 0) throw new BadRequestException('当前步无待审批节点');
+
+      // 权限：发起人 / 当前审批人 / ADMIN 可转交
+      const isStarter = String(instance.startedBy ?? '') === String(userId);
+      const isCurrentApprover = pendingSteps.some((s) => String(s.approverUserId ?? '') === String(userId));
+      if (!isStarter && !isCurrentApprover && !roles.includes('ROLE_ADMIN')) {
+        throw new ForbiddenException('只有发起人或当前审批人可转交审批');
+      }
+
+      // 转交对象权威校验（权限 ∩ 数据域 ∩ 非发起人）
+      const eligible = await this.assignmentResolver.resolveEligibleApprovers({
+        menuCode:      instance.moduleCode ?? this.bizRegistry.getModuleCode(instance.bizType),
+        requiredPerm:  'E',
+        companyCode:   instance.companyCode ?? undefined,
+        projectCode:   instance.projectCode ?? undefined,
+        excludeUserId: instance.startedBy ?? undefined,
+      });
+      const picked = eligible.find((e) => e.userId === String(toUserId));
+      if (!picked) throw new BadRequestException('转交对象无权审批该单据，或不在其数据域范围内');
+
+      // 改派当前步 → USER 型指向新审批人
+      for (const s of pendingSteps) {
+        s.approverType = 'USER';
+        s.approverUserId = picked.userId;
+        s.approverName = picked.displayName;
+      }
+      await mgr.save(WfApprovalInstanceStepEntity, pendingSteps);
+
+      // 通知新审批人
+      setImmediate(() => {
+        this.notify
+          .onTaskCreated({
+            instanceId:     instance.id,
+            bizType:        instance.bizType,
+            bizId:          instance.bizId,
+            bizNo:          instance.bizNo,
+            subject:        instance.subject ?? undefined,
+            starterUserId:  instance.startedBy ?? undefined,
+            assigneeUserId: picked.userId,
+          })
+          .catch(() => {/* ignore */});
+      });
+
+      return { ok: true, toName: picked.displayName };
+    });
+  }
+
   async startApproval(
     params: StartApprovalParams,
     mgr: EntityManager,
