@@ -155,8 +155,19 @@ jobs:
             run_migration "migrations/v3_schema_complete.sql"
           fi
           # 增量迁移（所有 2026MMDD_* 前缀 SQL，幂等，按日期字节序排序 LC_ALL=C）
-          for f in $(ls migrations/2026*.sql 2>/dev/null | LC_ALL=C sort); do run_migration "$f"; done
-          echo "✅ DDL migrations applied (任一失败 CI 已红灯)"
+          # G193 数据 seed 冻结：migrations/.seedfreeze 列出的"运行时数据 seed"迁移跳过不跑。
+          #   背景：deploy 每次全量重跑 2026*.sql，幂等 WHERE NOT EXISTS 会把用户在生产
+          #   删/改的 组织/用户/客户/供应商/现金流水 重新插回（"删了又冒出来"根因）。
+          #   这些迁移效果已在生产库，冻结=保护现状、不再覆盖人工维护的运行时数据。
+          #   ⚠️ 灾难恢复/重建空库时，需临时清空 .seedfreeze 让其全跑以重新导入基线。
+          for f in $(ls migrations/2026*.sql 2>/dev/null | LC_ALL=C sort); do
+            if [ -f migrations/.seedfreeze ] && grep -qxF "$(basename "$f")" migrations/.seedfreeze; then
+              echo "⏭️  跳过已冻结的数据 seed 迁移: $(basename "$f")"
+              continue
+            fi
+            run_migration "$f"
+          done
+          echo "✅ DDL migrations applied (任一失败 CI 已红灯；.seedfreeze 数据 seed 已跳过)"
 
       - name: Start API
         working-directory: apps/api
