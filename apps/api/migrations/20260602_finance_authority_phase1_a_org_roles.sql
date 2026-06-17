@@ -23,6 +23,7 @@ ALTER TABLE sys_organizations ADD CONSTRAINT chk_org_type CHECK (
   )
 );
 
+/* ════════ G193 数据 seed 冻结：财务中心/岗位组等组织节点属人工维护，迁移不再重跑覆盖 ════════
 -- ── 2. 集团财务中心（虚拟组织，挂在集团 ORG-GROUP 下）──────────────────────
 INSERT INTO sys_organizations
   (org_code, org_name, org_name_cn, org_short_name, org_type,
@@ -52,6 +53,7 @@ CROSS JOIN (VALUES
 WHERE fc.org_code = 'ORG-FINANCE-CENTER'
 ON CONFLICT (org_code) DO NOTHING;
 
+   ════════ G193 冻结结束（§2/§3 组织节点已停跑；§4 角色 seed 保留跟代码） ════════ */
 -- ── 4. 三个岗位角色 ───────────────────────────────────────────────────────
 INSERT INTO sys_role (role_code, role_name_zh, role_type, approval_level, description)
 VALUES
