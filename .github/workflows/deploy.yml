@@ -123,57 +123,10 @@ jobs:
       - name: Run DDL migrations
         working-directory: apps/api
         run: |
-          # ════════════════════════════════════════════════════════════════════
-          # G194 部署架构根治：迁移执行记录（schema_migrations）
-          #   病根：deploy 原本每次【全量重跑】所有 2026*.sql（无执行记录），靠幂等
-          #         WHERE NOT EXISTS 防重——导致 ① 部署随迁移累积越来越慢；② 数据 seed
-          #         迁移每次重插，把用户在生产删/改的 组织/用户/客户/供应商/现金流水
-          #         又插回（"删了又冒出来"根因）。
-          #   根治：建 schema_migrations 记录表，跑过的不再跑、只跑新增；首次在【已初始化
-          #         生产库】上 baseline（把现有迁移全标记为已执行、不重跑，护现状）；
-          #         【空库】则不 baseline、迁移全跑以初始化。从此：纯代码改动部署不碰这些
-          #         迁移、秒级提速；数据 seed 永不重插；新迁移仍按需跑一次。
-          # ════════════════════════════════════════════════════════════════════
-          PSQL() { PGPASSWORD=$DB_PASSWORD psql -v ON_ERROR_STOP=1 -h $DB_HOST -U $DB_USER -d $DB_NAME "$@"; }
-          PSQL -c "CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())" >/dev/null
-          if [ "$(PSQL -tAc "SELECT count(*) FROM schema_migrations")" = "0" ]; then
-            has_data=$(PSQL -tAc "SELECT CASE WHEN to_regclass('public.sys_user') IS NOT NULL AND EXISTS(SELECT 1 FROM sys_user) THEN 1 ELSE 0 END" 2>/dev/null || echo 0)
-            if [ "$has_data" = "1" ]; then
-              echo "🔖 已初始化生产库首次引入迁移记录 → baseline 现有 2026 迁移为'已执行'(不重跑，护现状)"
-              for f in $(ls migrations/2026*.sql 2>/dev/null | LC_ALL=C sort); do
-                PSQL -c "INSERT INTO schema_migrations(filename) VALUES('$(basename "$f")') ON CONFLICT DO NOTHING" >/dev/null
-              done
-              echo "🔖 baseline 完成：以后只跑新增迁移"
-            else
-              echo "🆕 空库：不 baseline，迁移将全跑以初始化"
-            fi
-          fi
-
-          # ── 迁移执行函数：第2参 track=1 走记录(增量迁移,跑过即跳过)；track=0 每次跑(基础DDL,幂等) ──
-          # 失败处理（Role Runtime Phase C）：ON_ERROR_STOP=1 显式捕获退出码，SQL 失败 CI 红灯不吞错。
-          run_migration() {
-            local f="$1"; local track="${2:-1}"; local fn=$(basename "$f")
-            if [ "$track" = "1" ] && [ "$(PSQL -tAc "SELECT 1 FROM schema_migrations WHERE filename='$fn'" 2>/dev/null)" = "1" ]; then
-              echo "⏭️  已执行，跳过 $fn"; return
-            fi
-            echo "Applying $fn..."
-            local output status
-            output=$(PSQL -f "$f" 2>&1); status=$?
-            echo "$output" | grep -v "^NOTICE\|already exists\|will create" || true
-            if [ $status -ne 0 ]; then
-              echo "::error::❌ Migration FAILED: $f"; echo "$output"; exit 1
-            fi
-            [ "$track" = "1" ] && PSQL -c "INSERT INTO schema_migrations(filename) VALUES('$fn') ON CONFLICT DO NOTHING" >/dev/null || true
-          }
-          # 基础 DDL（RBAC/系统表/采购等，建表幂等 IF NOT EXISTS，数量固定，track=0 每次跑）
-          # G51：LC_ALL=C 保证排序字节序，与生产部署一致（避免 locale 差异致 seed 先于建表）。
-          for f in $(ls ddl/*.sql | LC_ALL=C sort); do run_migration "$f" 0; done
-          # 基础业务 Schema（v3_schema_complete 建 inv_batches/mst_products 等34张表，track=0 幂等）
-          if [ -f migrations/v3_schema_complete.sql ]; then run_migration "migrations/v3_schema_complete.sql" 0; fi
-          # 增量迁移（2026MMDD_*，track=1 走记录：跑过的跳过、只跑新增；替代旧 .seedfreeze——
-          #   数据 seed 迁移已被 baseline 标记，永不重跑，不再把人工维护数据插回）
-          for f in $(ls migrations/2026*.sql 2>/dev/null | LC_ALL=C sort); do run_migration "$f" 1; done
-          echo "✅ Migrations applied（schema_migrations 记录：只跑新增；基础 DDL 幂等每次跑；任一失败 CI 已红灯）"
+          # 调用共享迁移脚本（scripts/db-migrate.sh，与生产部署【同一份】，杜绝两份重复脚本）。
+          # CI 用临时空库：脚本检测 schema_migrations 空 + 无业务数据 → 不 baseline、全跑做回归验证。
+          export PGHOST="$DB_HOST" PGPORT="$DB_PORT" PGUSER="$DB_USER" PGPASSWORD="$DB_PASSWORD" PGDATABASE="$DB_NAME"
+          MIG_MODE=ci MIG_DIR=. bash ../../scripts/db-migrate.sh
 
       - name: Start API
         working-directory: apps/api
@@ -376,59 +329,9 @@ jobs:
             docker compose up -d --wait db
             echo "✅ DB healthy"
 
-            # ── G194 部署架构根治：迁移执行记录(schema_migrations) ──────────────
-            # 病根：原本每次全量重跑所有 2026*.sql(无记录)→ ①部署随迁移累积越来越慢
-            #   ②数据 seed 迁移每次重插，把生产删/改的组织/用户/客户/供应商/现金流水
-            #   又插回("删了又冒出来"根因)。
-            # 根治：建记录表，跑过的跳过、只跑新增；首次在【已初始化生产库】baseline
-            #   (把现有迁移标记为已执行、不重跑护现状)；【空库】则不 baseline、全跑初始化。
-            # SQL 经 stdin 喂给容器内 psql，避免多层引号转义。
-            DBQ() { echo "$1" | docker compose exec -T db sh -c 'psql -tAq -U "$POSTGRES_USER" -d "$POSTGRES_DB"' 2>/dev/null; }
-            DBQ "CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());" >/dev/null || true
-            if [ "$(DBQ 'SELECT count(*) FROM schema_migrations;' | tr -d '[:space:]')" = "0" ]; then
-              has_data=$(DBQ "SELECT CASE WHEN to_regclass('public.sys_user') IS NOT NULL AND EXISTS(SELECT 1 FROM sys_user) THEN 1 ELSE 0 END;" | tr -d '[:space:]')
-              if [ "$has_data" = "1" ]; then
-                echo "🔖 已初始化生产库首次引入迁移记录 → baseline 现有 2026 迁移为'已执行'(不重跑,护现状)"
-                for f in $(ls apps/api/migrations/2026*.sql 2>/dev/null | LC_ALL=C sort); do
-                  DBQ "INSERT INTO schema_migrations(filename) VALUES('$(basename "$f")') ON CONFLICT DO NOTHING;" >/dev/null
-                done
-                echo "🔖 baseline 完成：以后只跑新增迁移"
-              else
-                echo "🆕 空库：不 baseline，迁移将全跑以初始化"
-              fi
-            fi
-            # ── 迁移执行函数：track=1 走记录(增量,跑过即跳过)；track=0 每次跑(基础DDL,幂等)──
-            # set +e 包裹命令替换：dash 下 set -e 会在替换失败时吞掉错误详情(只剩 status 3)。
-            run_db_migration() {
-              local f="$1"; local track="${2:-1}"; local fn=$(basename "$f")
-              if [ "$track" = "1" ] && [ "$(DBQ "SELECT 1 FROM schema_migrations WHERE filename='$fn';" | tr -d '[:space:]')" = "1" ]; then
-                echo "⏭️  已执行，跳过 $fn"; return
-              fi
-              echo "Applying $fn..."
-              local output status
-              set +e
-              output=$(docker compose exec -T db sh -c \
-                'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
-                < "$f" 2>&1)
-              status=$?
-              set -e
-              echo "$output" | grep -v "already exists\|NOTICE\|will create\|^$" || true
-              if [ $status -ne 0 ]; then
-                echo "::error::❌ DB Migration FAILED: $f"
-                echo "$output"
-                exit 1
-              fi
-              [ "$track" = "1" ] && DBQ "INSERT INTO schema_migrations(filename) VALUES('$fn') ON CONFLICT DO NOTHING;" >/dev/null || true
-            }
-            # 基础 DDL（track=0 幂等每次跑；G51 LC_ALL=C 字节序排序避免 seed 先于建表）
-            for f in $(ls apps/api/ddl/*.sql | LC_ALL=C sort); do run_db_migration "$f" 0; done
-            # 基础业务 Schema（v3_schema_complete，track=0 幂等）
-            if [ -f apps/api/migrations/v3_schema_complete.sql ]; then
-              run_db_migration "apps/api/migrations/v3_schema_complete.sql" 0
-            fi
-            # 增量迁移（2026*，track=1 走记录：跑过跳过、只跑新增 → 部署提速 + 数据 seed 永不重插）
-            for f in $(ls apps/api/migrations/2026*.sql 2>/dev/null | LC_ALL=C sort); do run_db_migration "$f" 1; done
-            echo "✅ DDL migrations applied (schema_migrations 记录：只跑新增；任一失败部署已红灯)"
+            # ── DB 迁移：调用共享脚本（与 CI 同一份 scripts/db-migrate.sh，杜绝两份重复）──
+            # 生产已初始化库：脚本检测 schema_migrations 已 baseline → 历史迁移全跳过、只跑新增。
+            MIG_MODE=prod MIG_DIR=apps/api bash scripts/db-migrate.sh
 
             # ── 生产验证：Role Runtime Phase C 6 项检查（真实落库确认）──────
             # 修复（Role Audit Recheck）：在生产库执行 check 脚本，任一 ❌ FAIL 红灯。
