@@ -164,6 +164,14 @@ export class ApprovalEngineService {
    *
    * 如果没有匹配规则 → 自动将业务状态改为 APPROVED（无需审批）并返回 null
    */
+  /** 候选审批人（端点用）：权限 ∩ 数据域过滤，自动排除发起人自己（自审分离） */
+  async listEligibleApprovers(query: {
+    menuCode: string; requiredPerm?: string; companyCode?: string; projectCode?: string;
+  }): Promise<Array<{ userId: string; displayName: string; roleNameZh: string | null }>> {
+    const { userId } = this.currentUser();
+    return this.assignmentResolver.resolveEligibleApprovers({ ...query, excludeUserId: userId || undefined });
+  }
+
   async startApproval(
     params: StartApprovalParams,
     mgr: EntityManager,

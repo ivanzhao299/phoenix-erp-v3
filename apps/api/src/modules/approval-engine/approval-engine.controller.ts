@@ -44,6 +44,18 @@ export class ApprovalEngineController {
     return this.engine.getInstanceByBiz(bizType, bizId);
   }
 
+  /** 候选审批人查询（开放式选人 / 转交用）：权限 ∩ 数据域过滤，排除发起人 */
+  @Get('eligible-approvers')
+  @RequireMenu('MENU_WORKFLOW', 'V')
+  async eligibleApprovers(
+    @Query('menuCode') menuCode: string,
+    @Query('requiredPerm') requiredPerm?: string,
+    @Query('companyCode') companyCode?: string,
+    @Query('projectCode') projectCode?: string,
+  ) {
+    return this.engine.listEligibleApprovers({ menuCode, requiredPerm, companyCode, projectCode });
+  }
+
   /** 审批通过 */
   @Post('instances/:id/approve')
   @RequireMenu('MENU_WORKFLOW', 'A')

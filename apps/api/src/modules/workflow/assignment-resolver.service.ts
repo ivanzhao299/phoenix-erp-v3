@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { DataScopeService } from '../org/services/data-scope.service';
 
 export type ApproverType =
   | 'ROLE'
@@ -36,7 +37,10 @@ export interface ResolvedApprover {
 
 @Injectable()
 export class AssignmentResolverService {
-  constructor(@InjectDataSource() private readonly ds: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly ds: DataSource,
+    private readonly dataScope: DataScopeService,
+  ) {}
 
   async resolveApprovers(input: AssignmentInput): Promise<ResolvedApprover[]> {
     const { approverType, approverRole, approverUserId, bizContext } = input;
@@ -239,5 +243,65 @@ export class AssignmentResolverService {
       projectCode:  input.bizContext?.projectCode,
       stepNo,
     });
+  }
+
+  /**
+   * 候选审批人查询（P0 原子能力，开放式选人 / 转交 / 未来智能引擎共用）。
+   * 返回 = 有 menuCode 的 requiredPerm 权限的 ACTIVE 用户 ∩ 数据域覆盖 companyCode。
+   * 后端权威校验入口：前端下拉仅展示，PICK/reassign 提交时必须再调本方法复核。
+   */
+  async resolveEligibleApprovers(input: {
+    menuCode: string;
+    requiredPerm?: string;
+    companyCode?: string;
+    projectCode?: string;
+    excludeUserId?: string;
+  }): Promise<Array<{ userId: string; displayName: string; roleNameZh: string | null }>> {
+    const { menuCode, requiredPerm = 'A', companyCode, excludeUserId } = input;
+    if (!menuCode) return [];
+
+    const params: unknown[] = [menuCode, requiredPerm];
+    let excludeClause = '';
+    if (excludeUserId) {
+      params.push(excludeUserId);
+      excludeClause = `AND u.user_id <> $${params.length}`;
+    }
+
+    // 1. 权限筛：持有「该菜单 requiredPerm 权限角色」的 ACTIVE 用户（权限位精确匹配，避免 LIKE 误命中）
+    const rows: Array<{ user_id: string; display_name: string; role_name_zh: string | null; role_codes: string | null }> =
+      await this.ds.query(
+        `SELECT u.user_id,
+                COALESCE(u.real_name, u.username) AS display_name,
+                (SELECT r2.role_name_zh FROM sys_user_role ur2
+                   JOIN sys_role r2 ON ur2.role_id = r2.role_id
+                  WHERE ur2.user_id = u.user_id AND ur2.is_primary = true LIMIT 1) AS role_name_zh,
+                (SELECT string_agg(DISTINCT r3.role_code, ',') FROM sys_user_role ur3
+                   JOIN sys_role r3 ON ur3.role_id = r3.role_id
+                  WHERE ur3.user_id = u.user_id) AS role_codes
+           FROM sys_user u
+          WHERE u.status = 1 ${excludeClause}
+            AND EXISTS (
+              SELECT 1 FROM sys_user_role ur
+                JOIN sys_role r ON ur.role_id = r.role_id
+                JOIN sys_role_menu_permission rmp ON rmp.role_code = r.role_code
+               WHERE ur.user_id = u.user_id
+                 AND rmp.menu_code = $1
+                 AND $2 = ANY(string_to_array(rmp.permissions, ','))
+            )
+          ORDER BY display_name`,
+        params,
+      );
+
+    // 2. 数据域筛：逐人用 DataScope 判断是否覆盖 companyCode（复用已测逻辑，含 isGlobal）
+    const out: Array<{ userId: string; displayName: string; roleNameZh: string | null }> = [];
+    for (const r of rows) {
+      if (companyCode) {
+        const roles = (r.role_codes ?? '').split(',').filter(Boolean);
+        const scope = await this.dataScope.resolve(String(r.user_id), roles, menuCode);
+        if (!scope.isGlobal && !scope.allowedCompanyCodes.includes(companyCode)) continue;
+      }
+      out.push({ userId: String(r.user_id), displayName: r.display_name, roleNameZh: r.role_name_zh });
+    }
+    return out;
   }
 }
