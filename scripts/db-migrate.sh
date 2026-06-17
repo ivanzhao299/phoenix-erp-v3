@@ -32,7 +32,12 @@ fi
 # ── 记录表 + 首次 baseline ──
 DBQ "CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());" >/dev/null || true
 if [ "$(DBQ 'SELECT count(*) FROM schema_migrations;' | tr -d '[:space:]')" = "0" ]; then
-  has_data=$(DBQ "SELECT CASE WHEN to_regclass('public.sys_user') IS NOT NULL AND EXISTS(SELECT 1 FROM sys_user) THEN 1 ELSE 0 END;" | tr -d '[:space:]')
+  # 判断"已初始化库(有 sys_user 且有数据)" vs "空库"。分两步——PG 的 AND 不短路，
+  # 直接 EXISTS(SELECT 1 FROM sys_user) 在表不存在时(空库)会在解析阶段就报 relation does not exist。
+  has_data=0
+  if [ "$(DBQ "SELECT to_regclass('public.sys_user') IS NOT NULL;" | tr -d '[:space:]')" = "t" ]; then
+    [ "$(DBQ "SELECT EXISTS(SELECT 1 FROM sys_user);" | tr -d '[:space:]')" = "t" ] && has_data=1
+  fi
   if [ "$has_data" = "1" ]; then
     echo "🔖 已初始化库首次引入迁移记录 → baseline 现有 2026 迁移为'已执行'(不重跑,护现状)"
     for f in $(ls "$DIR"/migrations/2026*.sql 2>/dev/null | LC_ALL=C sort); do
