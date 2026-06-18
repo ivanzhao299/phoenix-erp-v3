@@ -1,10 +1,11 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 /** 项目股权结构  shr_project_equity
  *  equity_ratio 按百分比保存（如 59.8）；unpaid_capital 为数据库计算列 */
 @Entity('shr_project_equity')
+@Index('idx_shr_equity_project', ['projectCode'])
 export class ShrProjectEquityEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

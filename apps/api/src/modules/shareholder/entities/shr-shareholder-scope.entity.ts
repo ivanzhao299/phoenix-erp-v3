@@ -1,10 +1,11 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 /** 股东查看范围  shr_shareholder_scopes
  *  股东查看权限按项目/公司/场区授权，不依赖单一 ROLE_SHAREHOLDER 大角色 */
 @Entity('shr_shareholder_scopes')
+@Index('idx_shr_scope_user', ['userId'])
 export class ShrShareholderScopeEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;
