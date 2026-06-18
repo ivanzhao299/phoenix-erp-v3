@@ -109,3 +109,27 @@
 - `.github/workflows/deploy.yml`（CI + 生产都调共享脚本）
 - 生产 `schema_migrations` 表已 baseline 169 条
 - 数据 seed 冻结（组织/用户/客户/供应商/现金流水不再被重插）
+
+---
+
+## 8. 落地状态（g195，2026-06-18 完成）
+
+| 阶段 | 交付 | 关键 commit | 验证 |
+|------|------|-------------|------|
+| **P1** | `apps/api/src/database/data-source.ts` + `migration:*` scripts | b54a898 → 2777d01（退 ts-node 修 lockfile） | tsc 0 errors |
+| **P2** | `scripts/bridge-schema-migrations-to-typeorm.sh`（dry-run + apply + 幂等 + 对账） | 63c660c | 本地 simulate 169→169 通过 |
+| **P3** | `scripts/db-migrate.sh` 末尾追加 `migration:run`（CI 实跑 / 生产 prod-fallback） | d1c8af4 → f0a9ce6（修 .bin shell wrapper） | CI/生产实跑日志 `No migrations are pending` |
+| **P3+** | `deploy.yml` 在 `api up` 后追加 `docker compose exec api typeorm migration:run` | e7a01b8 | 生产部署日志同上 |
+| **P4** | `apps/api/src/database/migrations/README.md` 团队 SOP | 4665201 | — |
+| **P5** | 3 道 CI 门禁（allowlist 冻结 + `down()` 启发检查 + entity diff warn-only） | 9749551 → bc414ba（diff 输出微调） | 4 用例自测 + CI 实跑触发 warning（暴露历史漂移） |
+| **P6** | CLAUDE.md SOP 更新 + 本文落地章节 | TBD | — |
+
+### 当前生效状态
+- 新 schema/数据迁移**唯一**落脚点：`apps/api/src/database/migrations/`
+- 两个旧裸 SQL 目录（顶级 + `apps/api/migrations/`）均 `.allowlist` 冻结，CI 拦截新增
+- 部署链自动跑 `typeorm migration:run`（CI + 生产两端均覆盖）
+- entity ↔ DB 漂移**已暴露**（P5 #3 warn-only）：需在 P6+ 阶段补齐漂移迁移后才能切真红灯
+
+### 已知遗留
+- P5 #3 entity diff 触发 PG 42P01：某个 entity 引用的表未在 169 baseline 中建。下一步：根据 CI warning 输出定位 entity，决定补迁移或下线该 entity。
+- 兼容期：生产 `db-migrate.sh` 阶段如果上次部署的 api 容器仍在跑，会触发 prod-fallback 真跑一次 typeorm migration:run（与 P3+ 步骤重复但 0 pending 时无副作用）。清理项：未来让 `db-migrate.sh` 的 prod 端永远跳过、专由 deploy.yml P3+ 步骤负责。

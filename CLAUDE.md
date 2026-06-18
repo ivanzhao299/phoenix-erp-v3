@@ -26,7 +26,10 @@
 phoenix-erp/
 ├── apps/api/        # NestJS 后端（modules/{finance-v2, procurement-v2, sales-v2, wms, ...}）
 ├── apps/web/        # Next.js 前端（app/(admin)/, app/(mobile)/, app/(terminal)/）
-├── migrations/      # SQL 迁移（YYYYMMDD_xxx.sql，幂等 NOT EXISTS）
+├── migrations/      # 顶级旧裸 SQL（46 条，G34 冻结，.allowlist 锁定）
+│                    # ⚠️ 新需求别加这里，也别加 apps/api/migrations/
+├── apps/api/migrations/                  # 169 条 baseline 裸 SQL，g195-P5 冻结
+├── apps/api/src/database/migrations/     # ✅ 新 schema/数据迁移落脚点（TypeORM TS）
 ├── docs/            # 各阶段治理报告（gN-x-...md），每个阶段一份
 ├── scripts/         # 运维 / UAT / dict 检查
 └── pnpm-workspace.yaml
@@ -70,13 +73,13 @@ pnpm lint
 | G4-D | 库存治理（仓库/库区/货位/状态/WarehouseScope/inv_batches 唯一台账） | ✅ `v3-g4d-inventory-governance` |
 | G4-E | 生产 & 包装治理 | 待启动 |
 
-每阶段产出物固定为：**一份 docs/g4x-*.md 报告 + 一份 migrations/20260604_g4x_*_seed.sql（若引入新 dict）+ 一次 commit + 一个 tag**。
+每阶段产出物固定为：**一份 docs/g4x-*.md 报告 + 一份 TS 迁移 `apps/api/src/database/migrations/<ts>-G4x*Seed.ts`（若引入新 dict，含 down()，g195 起）+ 一次 commit + 一个 tag**。
 
 ### G4-x 阶段标准 SOP（用户每次会复用这套流程）
 
 1. **审计**：列出 8 类单据裸字段，按 A 主数据 / B 字典 / C 自动带出 / D 附件 / E 备注 分类
 2. **改造**：P0 字段替换为 Selector / DictSelect / AttachmentUploader
-3. **新增字典**：若引入新 dict_type，写一份 `migrations/YYYYMMDD_g4x_*_dict_seed.sql`（**幂等 NOT EXISTS**）
+3. **新增字典**：若引入新 dict_type，跑 `cd apps/api && pnpm migration:create src/database/migrations/G4xDictSeed` 写 TS 迁移（含 `up()/down()`，幂等 ON CONFLICT/NOT EXISTS）
 4. **输出报告**：`docs/g4x-*.md`，固定章节：审计 → 主数据映射 → 字典映射 → DataScope 覆盖率 → 字段统计 → 8 题答 → 改动清单
 5. **验证**：API tsc 0 errors + Web tsc 0 errors + 真 scope-audit（见下文"踩坑")
 6. **提交 + 打 tag**：commit message 用 `feat: g4x <主题>`；tag 用 `v3-g4x-<主题>`
@@ -145,7 +148,7 @@ G4-D 后支持 11 种 FieldType：text / number / select / date / datetime / tex
 
 ### 3. 字典禁硬编码 `<select>`
 **Why**：枚举增加/翻译/排序变化时要满库改 select。
-**How**：枚举走 sys_dict + DictSelect。新增 dict_type 必须配 `migrations/YYYYMMDD_*_dict_seed.sql`（幂等 NOT EXISTS）。
+**How**：枚举走 sys_dict + DictSelect。新增 dict_type 必须配 TS 迁移 `apps/api/src/database/migrations/<ts>-*DictSeed.ts`（含 `up()/down()`，幂等 ON CONFLICT/NOT EXISTS）。
 
 ### 4. 凭证 / 合同 / 资质 / 照片禁 URL 文本框
 **Why**：用户复制 URL 不靠谱、不可控权限、易过期。
@@ -180,16 +183,23 @@ G4-D 后支持 11 种 FieldType：text / number / select / date / datetime / tex
 - 静默返回 stderr 错误但 exit code 0 → **空 stdout 会被误判为"PASS"**
 - 真 scope-audit 写法：用 `<input[^>]*field` 单字段窄正则 + 计数；或用 `onChange.*e\.target\.value` 抓"裸 input 写主数据字段"特征
 
-### post-commit hook 会自动推 origin/main
-- `git commit` 完会触发 hook → `git push origin main` → CI/CD
-- **不要**自己再加 `git push`
-- 如果要"只本地提交不推"需要先看 hook 决定怎么改（在 `.git/hooks/`）
+### post-commit hook 已停自动推（2026-06-10 起）
+- `git commit` 完只本地落，hook 提示 `📝 [post-commit] 已本地提交（自动推送已关闭）`
+- 推 main = 大节点，需用户拍板才 `git push origin main`
+- 若要恢复自动推：取消 `.git/hooks/post-commit` 里"原自动推送逻辑"段的注释
 
-### 新 mig 必须放 `apps/api/migrations/`（G36 锁定）
-- 生产 Deploy 跑 `apps/api/migrations/2026*.sql`，**不跑顶级 /migrations/**
-- 顶级 /migrations/ 自 G34 起冻结（46 个历史 SQL，由 `.allowlist` 锁定）
-- CI step "Lock top-level migrations/ allowlist (F5-1)" 会检测顶级目录变动 → 红灯
-- 写新 SQL 时记得用 `apps/api/migrations/YYYYMMDD_*.sql`
+### 新迁移走 TypeORM TS（g195 起）—— 裸 SQL 双目录都已冻结
+- ✅ **新 schema/数据迁移**：`apps/api/src/database/migrations/<ts>-PascalCase.ts`
+  - 创建：`cd apps/api && pnpm migration:create src/database/migrations/AddXxx`
+  - schema 变更：`pnpm migration:generate src/database/migrations/AddXxx`（entity diff 自动生成）
+  - 必须实现 `down()`（CI 门禁 #2 启发判定：含 await/queryRunner/.query/dropX/addX 等业务关键词）
+  - 部署链自动跑（g195-P3 / P3+）：
+    - CI：`scripts/db-migrate.sh` 末尾 → `./node_modules/.bin/typeorm migration:run`
+    - 生产：`deploy.yml` 在 `docker compose up -d --wait api` 后 `docker compose exec -T api ...`
+- ❌ **顶级 `migrations/`**：46 条历史，G34 冻结，`.allowlist` 锁定
+- ❌ **`apps/api/migrations/`**：169 条 baseline，g195-P5 冻结，`.allowlist` 锁定；已被 P2 桥接进 TypeORM `migrations` 表（视为"全已执行"）
+- CI 门禁：违反 allowlist / 缺 down() → 红灯
+- 蓝图：`docs/migration-tooling-roadmap.md`；规范：`apps/api/src/database/migrations/README.md`
 
 ### 中文 docx 文件经常无关变动
 - `docs/金凤凰ERP-生产初始化导入确认表-M5.docx` 会显示 modified 但不应入 commit
