@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import * as crypto from 'crypto';
 
 interface TokenEntry {
@@ -22,7 +23,7 @@ export class ChanjetAuthService implements OnModuleInit {
 
   constructor(private cfg: ConfigService) {}
 
-  onModuleInit() {
+  async onModuleInit() {
     this.appKey    = this.cfg.get('CHANJET_APP_KEY', '');
     this.appSecret = this.cfg.get('CHANJET_APP_SECRET', '');
     this.orgId     = this.cfg.get('CHANJET_ORG_ID', '');
@@ -31,8 +32,54 @@ export class ChanjetAuthService implements OnModuleInit {
 
     if (!this.appKey) {
       this.log.warn('CHANJET_APP_KEY 未配置，畅捷通对接禁用');
-    } else {
-      this.log.log(`畅捷通对接就绪 appKey=${this.appKey} orgId=${this.orgId}`);
+      return;
+    }
+
+    this.log.log(`畅捷通对接就绪 appKey=${this.appKey} orgId=${this.orgId}`);
+
+    // 容器启动自愈:appTicket 内存丢失,主动让平台 resend(异步,不阻塞 onModuleInit)
+    // ~10 min 内 platform 会推回新 ticket 到 /api/chanjet/callback
+    setImmediate(() => this.bootstrapAppTicket());
+  }
+
+  /** 启动时主动让平台 resend appTicket(覆盖容器重启场景) */
+  private async bootstrapAppTicket(): Promise<void> {
+    if (this.appTicket) return;  // 内存已有,跳过
+    try {
+      this.log.log('启动自愈:主动让平台 resend appTicket');
+      await this.triggerAppTicket();
+    } catch (err) {
+      this.log.warn(`启动自愈 triggerAppTicket 失败: ${(err as Error).message}`);
+    }
+  }
+
+  /** 定时 refresh openToken(每 4 天,token 有效 6 天留 2 天缓冲) */
+  @Cron('0 0 4 */4 * *', { name: 'chanjet-refresh-token' })
+  async cronRefreshToken(): Promise<void> {
+    if (!this.isConfigured() || !this.appTicket || !this.cert) return;
+    try {
+      this.tokenCache.clear();  // 清缓存强制重换
+      await this.getOpenToken();
+      this.log.log('cron: openToken 已 refresh');
+    } catch (err) {
+      this.log.warn(`cron refresh token 失败: ${(err as Error).message}`);
+    }
+  }
+
+  /** 定时健康检查(每天早 8 点,拉账套列表) */
+  @Cron(CronExpression.EVERY_DAY_AT_8AM, { name: 'chanjet-health-check' })
+  async cronHealthCheck(): Promise<void> {
+    if (!this.isConfigured()) return;
+    try {
+      const result = await this.listAccountBooks() as Record<string, unknown>;
+      const ok = result?.code === '200' || Array.isArray(result?.value);
+      if (ok) {
+        this.log.log('cron health check: 连接正常');
+      } else {
+        this.log.error(`cron health check: 异常 ${JSON.stringify(result).slice(0, 200)}`);
+      }
+    } catch (err) {
+      this.log.error(`cron health check 失败: ${(err as Error).message}`);
     }
   }
 
@@ -204,6 +251,7 @@ export class ChanjetAuthService implements OnModuleInit {
   async callApi<T = unknown>(
     path: string,
     opts: { method?: 'GET' | 'POST'; query?: Record<string, string>; body?: Record<string, unknown>; orgId?: string } = {},
+    _isRetry = false,
   ): Promise<T> {
     const token = await this.getOpenToken(opts.orgId);
     let url = `https://openapi.chanjet.com${path}`;
@@ -223,7 +271,17 @@ export class ChanjetAuthService implements OnModuleInit {
       },
       ...(method === 'POST' ? { body: JSON.stringify(opts.body ?? {}) } : {}),
     });
-    return (await res.json()) as T;
+    const json = await res.json() as Record<string, unknown>;
+
+    // 50107 = openToken 已失效(被 resend 作废 / 过期),清缓存重换重试一次
+    const code = (json.code ?? (json.error as Record<string, unknown>)?.code) as string | undefined;
+    if (!_isRetry && code === '50107') {
+      this.log.warn(`callApi 50107 token 失效,清缓存重试 path=${path}`);
+      this.tokenCache.delete(opts.orgId || this.orgId);
+      return this.callApi<T>(path, opts, true);
+    }
+
+    return json as T;
   }
 
   /**
