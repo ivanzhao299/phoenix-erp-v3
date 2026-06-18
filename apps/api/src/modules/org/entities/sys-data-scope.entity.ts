@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   Index,
+  Unique,
   CreateDateColumn,
 } from 'typeorm';
 
@@ -10,6 +11,7 @@ import {
 @Index('idx_data_scopes_role', ['roleCode'])
 @Index('idx_data_scopes_module', ['moduleCode'])
 @Index('idx_data_scopes_enabled', ['enabled'], { where: '"enabled" = TRUE' })
+@Unique('uq_data_scope_role_module', ['roleCode', 'moduleCode'])
 export class SysDataScopeEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;

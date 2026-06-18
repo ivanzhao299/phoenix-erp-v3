@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   Index,
+  Unique,
   CreateDateColumn,
 } from 'typeorm';
 
@@ -19,6 +20,7 @@ import {
 @Entity('sys_user_farm_scopes')
 @Index('idx_user_farm_scope_user', ['userId'])
 @Index('idx_user_farm_scope_farm', ['farmCode'])
+@Unique('uq_user_farm', ['userId', 'farmCode'])
 export class SysUserFarmScopeEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;

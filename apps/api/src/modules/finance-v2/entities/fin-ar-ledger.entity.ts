@@ -1,5 +1,5 @@
 import {
-  Entity, Column, Index, PrimaryGeneratedColumn,
+  Entity, Column, Index, Unique, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
@@ -14,6 +14,7 @@ import {
 @Entity('fin_ar_ledger')
 @Index('idx_fin_ar_ledger_farm_period', ['farmCode', 'periodDate'])
 @Index('idx_fin_ar_ledger_counterparty', ['counterpartyName'])
+@Unique('uq_fin_ar_ledger', ['farmCode', 'counterpartyName', 'periodDate'])
 export class FinArLedgerEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

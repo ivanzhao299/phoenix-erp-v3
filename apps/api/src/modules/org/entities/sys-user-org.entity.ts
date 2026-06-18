@@ -3,12 +3,14 @@ import {
   PrimaryGeneratedColumn,
   Column,
   Index,
+  Unique,
   CreateDateColumn,
 } from 'typeorm';
 
 @Entity('sys_user_orgs')
 @Index('idx_user_orgs_user', ['userId'])
 @Index('idx_user_orgs_org', ['orgId'])
+@Unique('uq_user_org', ['userId', 'orgId'])
 export class SysUserOrgEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: number;
