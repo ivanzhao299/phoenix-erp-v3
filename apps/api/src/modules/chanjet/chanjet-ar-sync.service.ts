@@ -106,12 +106,20 @@ export class ChanjetArSyncService implements OnModuleInit {
       query: { period },
     }) as unknown;
 
-    const rows = Array.isArray(resp) ? (resp as ChanjetArRow[]) : [];
-    if (!rows.length) {
+    const rawRows = Array.isArray(resp) ? (resp as ChanjetArRow[]) : [];
+    if (!rawRows.length) {
       const err = resp as Record<string, unknown> | undefined;
       this.log.warn(`好业财返回空或错误: ${JSON.stringify(err).slice(0, 200)}`);
       return { companyCode, bookid: map.bookid, period, fetched: 0, saved: 0, totalEndbalance: 0 };
     }
+
+    // 过滤掉好业财返回里自带的"合计"汇总行(subjectName='合计' 或 assistantCustomer=0 + 是汇总)
+    // 这些行不是真实往来单位,入库会重复计算
+    const rows = rawRows.filter(r =>
+      r.subjectName !== '合计' &&
+      !(r.subjectName ?? '').startsWith('合计') &&
+      r.assistantCustomerCode  // 真实往来单位必有 code
+    );
 
     // 写 PG(upsert by uq_chanjet_ar_v2)
     let saved = 0;
