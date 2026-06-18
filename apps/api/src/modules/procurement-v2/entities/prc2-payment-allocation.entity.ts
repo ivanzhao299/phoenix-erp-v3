@@ -1,11 +1,14 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 /** 付款分摊  prc2_payment_allocations
  *  说明：一笔付款可分摊到多张PO、多个项目 */
 @Entity('prc2_payment_allocations')
+@Index('idx_prc2_palloc_payment', ['paymentId'])
+@Index('idx_prc2_palloc_po', ['poId'], { where: '"po_id" IS NOT NULL' })
+@Index('idx_prc2_palloc_ap', ['apId'], { where: '"ap_id" IS NOT NULL' })
 export class Prc2PaymentAllocationEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

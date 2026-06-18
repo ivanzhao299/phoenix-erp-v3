@@ -1,8 +1,9 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn,
+  Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 @Entity('prc2_init_batches')
+@Index('idx_prc2_ibatch_status', ['status'])
 export class Prc2InitBatchEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

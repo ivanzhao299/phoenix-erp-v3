@@ -1,10 +1,17 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 /** 采购订单头表  prc2_purchase_orders */
 @Entity('prc2_purchase_orders')
+@Index('idx_prc2_po_status', ['status'])
+@Index('idx_prc2_po_company', ['companyCode'], { where: '"company_code" IS NOT NULL' })
+@Index('idx_prc2_po_project', ['projectCode'], { where: '"project_code" IS NOT NULL' })
+@Index('idx_prc2_po_supplier', ['supplierCode'], { where: '"supplier_code" IS NOT NULL' })
+@Index('idx_prc2_po_approval_status', ['approvalStatus'])
+@Index('idx_prc2_po_source_req', ['sourceRequestId'], { where: '"source_request_id" IS NOT NULL' })
+@Index('idx_prc2_po_contract_no', ['contractNo'])
 export class Prc2PurchaseOrderEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

@@ -1,11 +1,13 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 /** 收货明细  prc2_receipt_items
  *  说明：每行可归属不同项目（支持一批货物分配到多个工厂/项目场景） */
 @Entity('prc2_receipt_items')
+@Index('idx_prc2_rcpti_receipt_id', ['receiptId'])
+@Index('idx_prc2_rcpti_project', ['projectCode'], { where: '"project_code" IS NOT NULL' })
 export class Prc2ReceiptItemEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

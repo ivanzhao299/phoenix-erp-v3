@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn, Unique,
 } from 'typeorm';
 
@@ -7,6 +7,8 @@ import {
  *  唯一约束：(company_code, project_code) — 不同公司可有同编号项目 */
 @Unique('uq_prc2_projects_company_project', ['companyCode', 'projectCode'])
 @Entity('prc2_projects')
+@Index('idx_prc2_proj_status', ['status'])
+@Index('idx_prc2_proj_company', ['companyCode'], { where: '"company_code" IS NOT NULL' })
 export class Prc2ProjectEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;
