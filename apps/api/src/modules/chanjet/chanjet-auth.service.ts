@@ -1,12 +1,17 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
+import { SysChanjetStateEntity } from './sys-chanjet-state.entity';
 
 interface TokenEntry {
   openToken: string;
   expiresAt: number;
 }
+
+const SINGLETON_KEY = 'singleton';
 
 @Injectable()
 export class ChanjetAuthService implements OnModuleInit {
@@ -21,7 +26,11 @@ export class ChanjetAuthService implements OnModuleInit {
   private appTicket = '';
   private tokenCache = new Map<string, TokenEntry>();
 
-  constructor(private cfg: ConfigService) {}
+  constructor(
+    private cfg: ConfigService,
+    @InjectRepository(SysChanjetStateEntity)
+    private stateRepo: Repository<SysChanjetStateEntity>,
+  ) {}
 
   async onModuleInit() {
     this.appKey    = this.cfg.get('CHANJET_APP_KEY', '');
@@ -35,11 +44,43 @@ export class ChanjetAuthService implements OnModuleInit {
       return;
     }
 
+    // 从 PG 持久化层 load 上次状态(容器重启不丢)
+    try {
+      const state = await this.stateRepo.findOneBy({ key: SINGLETON_KEY });
+      if (state) {
+        if (state.appTicket) this.appTicket = state.appTicket;
+        if (state.certificate && !this.cert) this.cert = state.certificate;
+        if (state.tokens) {
+          for (const [org, entry] of Object.entries(state.tokens)) {
+            this.tokenCache.set(org, entry);
+          }
+        }
+        this.log.log(`从 PG 恢复鉴权状态 hasTicket=${!!this.appTicket} hasCert=${!!this.cert} tokens=${this.tokenCache.size}`);
+      }
+    } catch (err) {
+      this.log.warn(`从 PG load chanjet state 失败: ${(err as Error).message}`);
+    }
+
     this.log.log(`畅捷通对接就绪 appKey=${this.appKey} orgId=${this.orgId}`);
 
-    // 容器启动自愈:appTicket 内存丢失,主动让平台 resend(异步,不阻塞 onModuleInit)
-    // ~10 min 内 platform 会推回新 ticket 到 /api/chanjet/callback
+    // 容器启动自愈:仍无 appTicket → 主动让平台 resend(异步,不阻塞 onModuleInit)
     setImmediate(() => this.bootstrapAppTicket());
+  }
+
+  /** 持久化当前内存状态到 PG(upsert singleton 行) */
+  private async persistState(): Promise<void> {
+    try {
+      const tokens: Record<string, TokenEntry> = {};
+      for (const [org, entry] of this.tokenCache) tokens[org] = entry;
+      await this.stateRepo.save({
+        key: SINGLETON_KEY,
+        appTicket: this.appTicket || null,
+        certificate: this.cert || null,
+        tokens: Object.keys(tokens).length ? tokens : null,
+      });
+    } catch (err) {
+      this.log.warn(`持久化 chanjet state 失败: ${(err as Error).message}`);
+    }
   }
 
   /** 启动时主动让平台 resend appTicket(覆盖容器重启场景) */
@@ -94,11 +135,13 @@ export class ChanjetAuthService implements OnModuleInit {
   setAppTicket(ticket: string) {
     this.appTicket = ticket;
     this.log.log(`appTicket 已更新: ${ticket.slice(0, 20)}…`);
+    void this.persistState();
   }
 
   setCertificate(cert: string) {
     this.cert = cert;
     this.log.log(`certificate 已更新: ${cert.slice(0, 30)}…`);
+    void this.persistState();
   }
 
   /** 用 authCode 换 certificate（企业授权回调场景） */
@@ -222,6 +265,7 @@ export class ChanjetAuthService implements OnModuleInit {
       expiresAt: Date.now() + expiresIn * 1000,
     });
     this.log.log(`openToken 已缓存 orgId=${targetOrg}，有效 ${expiresIn}s`);
+    void this.persistState();
     return accessToken;
   }
 
