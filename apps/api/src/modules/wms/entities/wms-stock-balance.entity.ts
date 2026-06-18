@@ -1,7 +1,7 @@
-import { Entity, Column, PrimaryGeneratedColumn, VersionColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, VersionColumn, CreateDateColumn, UpdateDateColumn, Index, Unique } from 'typeorm';
 
 @Entity('wms_stock_balance')
-@Index(['warehouse_code', 'location_code', 'spec_code', 'batch_no'], { unique: true })
+@Unique('wms_stock_balance_warehouse_code_location_code_spec_code_ba_key', ['warehouse_code', 'location_code', 'spec_code', 'batch_no'])
 export class WmsStockBalanceEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

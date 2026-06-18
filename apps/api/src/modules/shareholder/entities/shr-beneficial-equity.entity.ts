@@ -1,5 +1,5 @@
 import {
-  Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn,
+  Entity, Column, Index, Unique, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 /** 实益出资结构  shr_beneficial_equity
@@ -7,6 +7,7 @@ import {
  *  与法定股权结构(shr_project_equity.equity_ratio) 分离，不互相覆盖。 */
 @Entity('shr_beneficial_equity')
 @Index('idx_shr_beneficial_project', ['projectCode'])
+@Unique('shr_beneficial_equity_project_code_nominee_shareholder_code_key', ['projectCode', 'nomineeShareholderCode', 'beneficialShareholderCode'])
 export class ShrBeneficialEquityEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

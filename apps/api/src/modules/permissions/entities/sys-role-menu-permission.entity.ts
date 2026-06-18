@@ -12,7 +12,7 @@ import { Entity, PrimaryGeneratedColumn, Column, Index, Unique } from 'typeorm';
  *   * = 全部
  */
 @Entity('sys_role_menu_permission')
-@Unique(['role_id', 'menu_id'])
+@Unique('sys_role_menu_permission_role_id_menu_id_key', ['role_id', 'menu_id'])
 @Index('idx_sys_role_menu_perm_role', ['role_id'])
 @Index('idx_sys_role_menu_perm_menu', ['menu_id'])
 export class SysRoleMenuPermissionEntity {
