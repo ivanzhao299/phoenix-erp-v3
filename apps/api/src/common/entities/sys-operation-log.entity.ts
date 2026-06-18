@@ -1,6 +1,7 @@
 import {
   Entity,
   Column,
+  Index,
   PrimaryGeneratedColumn,
   CreateDateColumn,
 } from 'typeorm';
@@ -9,8 +10,13 @@ import {
  * 操作日志（高敏感操作专用）
  * 表：sys_operation_logs
  * RBAC-1 安全加固 2026-05-25
+ * g196-A1 1.1：补 4 个 @Index 装饰器,与 20260530_create_missing_sys_tables.sql 对齐
  */
 @Entity('sys_operation_logs')
+@Index('idx_oplogs_user', ['userId', 'createdAt'])
+@Index('idx_oplogs_module', ['moduleCode', 'actionCode'])
+@Index('idx_oplogs_biz', ['bizType', 'bizId'], { where: '"biz_type" IS NOT NULL' })
+@Index('idx_oplogs_created', ['createdAt'])
 export class SysOperationLogEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;
