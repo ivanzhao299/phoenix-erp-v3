@@ -175,11 +175,31 @@ jobs:
             echo "$out" | tail -15
             echo "──── 生成的 diff 文件(若有)────"
             # typeorm migration:generate 在路径前加 timestamp:<timestamp>-<name>.ts
-            # 所以 glob 必须用 /tmp/*_p5_entity_diff*.ts(含 timestamp 前缀),不是 /tmp/_p5_entity_diff*.ts
             for diff_file in /tmp/*_p5_entity_diff*.ts; do
               [ -f "$diff_file" ] || continue
-              echo ">>> $diff_file"
-              head -200 "$diff_file"
+              total=$(wc -l < "$diff_file")
+              echo ">>> $diff_file (total $total 行)"
+              echo
+              echo "── 操作类别统计(up 段) ──"
+              # 只看 up() 段(去掉 down() 干扰),按 SQL 操作分桶
+              up_segment=$(awk '/public async up/,/public async down/' "$diff_file")
+              printf '%-30s %s\n' "DROP INDEX(entity 未声明索引)" "$(echo "$up_segment" | grep -cE 'DROP INDEX')"
+              printf '%-30s %s\n' "DROP CONSTRAINT *_fkey(entity 未声明 FK)" "$(echo "$up_segment" | grep -cE 'DROP CONSTRAINT.*_fkey')"
+              printf '%-30s %s\n' "DROP CONSTRAINT 其他" "$(echo "$up_segment" | grep -E 'DROP CONSTRAINT' | grep -cvE '_fkey')"
+              printf '%-30s %s\n' "ALTER COLUMN(列类型/约束变更)" "$(echo "$up_segment" | grep -cE 'ALTER COLUMN|ALTER TYPE')"
+              printf '%-30s %s\n' "ADD COLUMN(entity 新列未在 DB)" "$(echo "$up_segment" | grep -cE 'ADD COLUMN|ADD ')"
+              printf '%-30s %s\n' "DROP COLUMN(DB 旧列未在 entity)" "$(echo "$up_segment" | grep -cE 'DROP COLUMN')"
+              printf '%-30s %s\n' "RENAME(改名)" "$(echo "$up_segment" | grep -cE 'RENAME')"
+              printf '%-30s %s\n' "CREATE TABLE(entity 表未建)" "$(echo "$up_segment" | grep -cE '^.*CREATE TABLE')"
+              printf '%-30s %s\n' "DROP TABLE(DB 表 entity 未声明)" "$(echo "$up_segment" | grep -cE '^.*DROP TABLE')"
+              printf '%-30s %s\n' "CREATE INDEX(entity 新索引)" "$(echo "$up_segment" | grep -cE '^.*CREATE INDEX|CREATE UNIQUE INDEX')"
+              printf '%-30s %s\n' "ADD CONSTRAINT(entity 新 FK/约束)" "$(echo "$up_segment" | grep -cE 'ADD CONSTRAINT')"
+              echo
+              echo "── 真业务漂移行(剔除 DROP INDEX/_fkey 后的所有 up 段操作) ──"
+              echo "$up_segment" | grep -E 'await queryRunner' | grep -vE 'DROP INDEX|DROP CONSTRAINT.*_fkey' | head -120
+              echo
+              echo "── 完整 diff 文件(up 段全文,无截断,供分组分析) ──"
+              echo "$up_segment"
             done
             rm -f /tmp/*_p5_entity_diff*.ts 2>/dev/null
           fi
