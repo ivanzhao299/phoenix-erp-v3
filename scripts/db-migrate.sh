@@ -76,4 +76,32 @@ for f in $(ls "$DIR"/ddl/*.sql | LC_ALL=C sort); do run_migration "$f" 0; done
 # 增量迁移（2026*，走记录：跑过跳过、只跑新增 → 部署提速 + 数据 seed 永不重插）
 for f in $(ls "$DIR"/migrations/2026*.sql 2>/dev/null | LC_ALL=C sort); do run_migration "$f" 1; done
 
-echo "✅ Migrations applied (schema_migrations 记录：只跑新增；基础 DDL 幂等每次跑；任一失败已红灯)"
+echo "✅ 裸 SQL 迁移完成 (schema_migrations 记录：只跑新增；基础 DDL 幂等每次跑；任一失败已红灯)"
+
+# ── P3: TypeORM TS 迁移(migrations-ts/=apps/api/src/database/migrations/) ─────
+# 蓝图 docs/migration-tooling-roadmap.md:db-migrate.sh 末尾接管 TS 迁移。
+# 兼容期与裸 SQL 并存:旧 169 裸 SQL 上面跑完,新 TS 迁移在这里跑。
+# 当前 migrations-ts/ 为空 → 此步 0 pending,只是把执行链建好,P2 桥接已让 TypeORM
+# 认为 169 条历史全已执行。
+echo ""
+echo "── P3: TypeORM TS 迁移 ──"
+if [ "$MODE" = "ci" ]; then
+  # CI runner: cwd=apps/api(MIG_DIR=.), pnpm build 已跑过, typeorm CLI + dist 都在
+  if [ -f "$DIR/dist/database/data-source.js" ] && [ -x "$DIR/node_modules/.bin/typeorm" ]; then
+    ( cd "$DIR" && node ./node_modules/.bin/typeorm -d dist/database/data-source.js migration:run )
+    echo "✅ TS 迁移完成 (CI)"
+  else
+    echo "⚠️  TS 迁移跳过(CI): dist/database/data-source.js 或 typeorm CLI 缺失 — 检查 P1 配置是否生效"
+    exit 1
+  fi
+else
+  # 生产: deploy.yml 顺序是 db up → db-migrate.sh → api up,
+  #       db-migrate.sh 跑时 api 容器还没起 → 兼容期跳过,等 deploy.yml 后续起完
+  #       api 再用 docker compose exec 跑 migration:run(本步未来由 deploy.yml 接管)
+  if docker compose ps --services --filter status=running 2>/dev/null | grep -q '^api$'; then
+    docker compose exec -T api node ./node_modules/.bin/typeorm -d dist/database/data-source.js migration:run
+    echo "✅ TS 迁移完成 (生产)"
+  else
+    echo "ℹ️  api 容器未运行 → TS 迁移跳过(兼容期);migrations-ts/ 为空时无影响"
+  fi
+fi
