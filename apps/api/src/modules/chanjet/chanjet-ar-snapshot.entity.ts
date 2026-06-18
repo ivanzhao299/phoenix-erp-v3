@@ -4,12 +4,14 @@ import { Entity, Column, Index, Unique, PrimaryGeneratedColumn, CreateDateColumn
  * chanjet_ar_snapshot — 好业财应收统计表快照(只读好业财→写 PG)
  *
  * 来源:GET /accounting/gl/statistics/receive/{bookid}?period=YYYYMM
- * 唯一性:同账套+期间+往来单位+科目 = 一行(upsert)
- * 币种:好业财账套基础币种(报告里 baseCurrencyId=100001 三家账套均为 LAK)
+ * 唯一性:bookid+period+dept_code+往来单位+科目(同部门覆盖,跨部门并存)
+ * DataScope:通过 company_code 字段过滤(集团 isGlobal 看全部,其他按 allowedCompanyCodes)
+ * 币种:好业财 endbalance 字段返回的是本币 RMB;原币 LAK 待找好业财对应字段
  */
 @Entity('chanjet_ar_snapshot')
-@Unique('uq_chanjet_ar', ['bookid', 'period', 'assistantCustomerCode', 'subjectId'])
+@Unique('uq_chanjet_ar_v2', ['bookid', 'period', 'deptCode', 'assistantCustomerCode', 'subjectId'])
 @Index('idx_chanjet_ar_book_period', ['bookid', 'period'])
+@Index('idx_chanjet_ar_company_period', ['companyCode', 'period'])
 @Index('idx_chanjet_ar_synced_at', ['syncedAt'])
 export class ChanjetArSnapshotEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
@@ -17,6 +19,14 @@ export class ChanjetArSnapshotEntity {
 
   @Column({ name: 'bookid', type: 'varchar', length: 64 })
   bookid: string;
+
+  /** ERP 公司 code(DataScope 字段,通过 chanjet_book_company_map 映射) */
+  @Column({ name: 'company_code', type: 'varchar', length: 64, nullable: true })
+  companyCode: string | null;
+
+  /** 部门 code(占位,待好业财部门维度接口) */
+  @Column({ name: 'dept_code', type: 'varchar', length: 64, nullable: true })
+  deptCode: string | null;
 
   @Column({ name: 'period', type: 'varchar', length: 6 })
   period: string;
@@ -51,7 +61,7 @@ export class ChanjetArSnapshotEntity {
   @Column({ name: 'year_df_accumulate', type: 'numeric', precision: 18, scale: 2, default: 0 })
   yearDfAccumulate: string;
 
-  @Column({ name: 'currency', type: 'varchar', length: 8, default: 'LAK' })
+  @Column({ name: 'currency', type: 'varchar', length: 8, default: 'RMB' })
   currency: string;
 
   @Column({ name: 'raw_data', type: 'jsonb', nullable: true })

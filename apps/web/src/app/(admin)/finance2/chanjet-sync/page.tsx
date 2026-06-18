@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import PageHeader from '@/components/PageHeader';
 import request from '@/lib/api-client';
 import { RefreshCw, Cloud, Download } from 'lucide-react';
@@ -9,17 +9,22 @@ import { usePermission } from '@/hooks/usePermission';
 /**
  * 好业财应收同步页 — 铁律:只读好业财,写 PG chanjet_ar_snapshot
  * 权限:MENU_FIN2_AR(V 看,E 触发同步)
+ * 视角:公司维度(chanjet_book_company_map 维护映射);DataScope 自动限制非本公司不可见
  */
 
-const BOOKS = [
-  { id: '3533914511118750', name: '老挝凤凰农业发展有限公司' },
-  { id: '3537748712226818', name: '老挝东鹏县星驰农业发展有限公司' },
-  { id: '3539743721526654', name: '老挝凤凰食品集团有限公司' },
-];
+interface Company {
+  bookid: string;
+  bookName: string;
+  companyCode: string;
+  companyName: string;
+  syncEnabled: boolean;
+}
 
 interface Row {
   id: string;
   bookid: string;
+  companyCode: string | null;
+  deptCode: string | null;
   period: string;
   assistantCustomerCode: string | null;
   subjectName: string | null;
@@ -33,7 +38,7 @@ interface Row {
 
 interface SnapshotResp {
   success: boolean;
-  bookid?: string;
+  companyCode?: string;
   period?: string;
   count?: number;
   totalEndbalance?: number;
@@ -44,12 +49,12 @@ interface SnapshotResp {
 
 interface SyncResp {
   success: boolean;
+  companyCode?: string;
   bookid?: string;
   period?: string;
   fetched?: number;
   saved?: number;
   totalEndbalance?: number;
-  sampleRows?: Array<{ name: string | null; code: string | null; endbalance: number }>;
   error?: string;
 }
 
@@ -63,24 +68,31 @@ const defaultPeriod = `${today.getFullYear()}${String(today.getMonth() + 1).padS
 export default function ChanjetSyncPage() {
   const { canView, canEdit } = usePermission('MENU_FIN2_AR');
 
-  const [bookid, setBookid] = useState(BOOKS[0].id);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companyCode, setCompanyCode] = useState<string>('');
   const [period, setPeriod] = useState(defaultPeriod);
 
   const [rows, setRows] = useState<Row[]>([]);
-  const [count, setCount] = useState<number>(0);
-  const [totalEndbalance, setTotalEndbalance] = useState<number>(0);
-  const [currency, setCurrency] = useState<string>('LAK');
+  const [count, setCount] = useState(0);
+  const [totalEndbalance, setTotalEndbalance] = useState(0);
+  const [currency, setCurrency] = useState('RMB');
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
-  const [lastSync, setLastSync] = useState<string>('');
+  const [lastSync, setLastSync] = useState('');
+
+  useEffect(() => {
+    request<{ success: boolean; companies?: Company[] }>('/chanjet/companies')
+      .then(d => { if (d.success) setCompanies(d.companies || []); })
+      .catch(() => { /* 静默 */ });
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const data = await request<SnapshotResp>(
-        `/chanjet/ar-snapshot?bookid=${bookid}&period=${period}`,
-      );
+      const qs = new URLSearchParams({ period });
+      if (companyCode) qs.set('companyCode', companyCode);
+      const data = await request<SnapshotResp>(`/chanjet/ar-snapshot?${qs}`);
       if (!data.success) {
         setError(data.error || '读取失败');
         setRows([]); setCount(0); setTotalEndbalance(0);
@@ -88,7 +100,7 @@ export default function ChanjetSyncPage() {
         setRows(data.rows || []);
         setCount(data.count || 0);
         setTotalEndbalance(data.totalEndbalance || 0);
-        setCurrency(data.currency || 'LAK');
+        setCurrency(data.currency || 'RMB');
         if (data.rows && data.rows.length > 0) setLastSync(data.rows[0].syncedAt);
       }
     } catch (e) {
@@ -96,32 +108,26 @@ export default function ChanjetSyncPage() {
     } finally {
       setLoading(false);
     }
-  }, [bookid, period]);
+  }, [companyCode, period]);
 
   const sync = useCallback(async () => {
     if (!canEdit) return;
-    if (!/^\d{6}$/.test(period)) {
-      setError('期间格式: YYYYMM(如 202605)');
-      return;
-    }
+    if (!companyCode) { setError('请选具体公司再同步(集团视角不支持同步)'); return; }
+    if (!/^\d{6}$/.test(period)) { setError('期间格式: YYYYMM(如 202605)'); return; }
     setSyncing(true); setError('');
     try {
       const data = await request<SyncResp>('/chanjet/sync-ar', {
         method: 'POST',
-        body: JSON.stringify({ bookid, period, currency: 'LAK' }),
+        body: JSON.stringify({ companyCode, period, currency: 'RMB' }),
       });
-      if (!data.success) {
-        setError(data.error || '同步失败');
-      } else {
-        // 同步成功后自动 reload
-        await load();
-      }
+      if (!data.success) setError(data.error || '同步失败');
+      else await load();
     } catch (e) {
       setError((e as Error).message || '同步失败');
     } finally {
       setSyncing(false);
     }
-  }, [bookid, period, canEdit, load]);
+  }, [companyCode, period, canEdit, load]);
 
   if (!canView) {
     return (
@@ -134,19 +140,21 @@ export default function ChanjetSyncPage() {
 
   return (
     <div style={{ padding: 24, maxWidth: 1600 }}>
-      <PageHeader title="好业财应收同步" subtitle="只读好业财 → 写 PG 快照(chanjet_ar_snapshot)" />
+      <PageHeader title="好业财应收同步" subtitle="只读好业财 → 写 PG · 按公司视角 · DataScope 自动过滤" />
 
-      {/* 筛选条 */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'end', marginBottom: 16, flexWrap: 'wrap' }}>
         <div>
-          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>账套</label>
+          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>公司</label>
           <select
-            value={bookid}
-            onChange={e => setBookid(e.target.value)}
-            style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, minWidth: 280 }}
+            value={companyCode}
+            onChange={e => setCompanyCode(e.target.value)}
+            style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, minWidth: 320 }}
           >
-            {BOOKS.map(b => (
-              <option key={b.id} value={b.id}>{b.name}</option>
+            <option value="">集团 / 全部允许公司</option>
+            {companies.map(c => (
+              <option key={c.companyCode} value={c.companyCode}>
+                {c.companyName} ({c.companyCode}) ↔ {c.bookName}
+              </option>
             ))}
           </select>
         </div>
@@ -160,39 +168,26 @@ export default function ChanjetSyncPage() {
             style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, width: 120 }}
           />
         </div>
-        <button
-          onClick={load}
-          disabled={loading}
-          style={{
-            padding: '8px 16px', background: '#3b82f6', color: 'white',
-            border: 'none', borderRadius: 6, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 6,
-          }}
-        >
+        <button onClick={load} disabled={loading} style={{
+          padding: '8px 16px', background: '#3b82f6', color: 'white',
+          border: 'none', borderRadius: 6, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}>
           <Download size={16} /> {loading ? '加载中…' : '读取快照(PG)'}
         </button>
-        {canEdit && (
-          <button
-            onClick={sync}
-            disabled={syncing}
-            style={{
-              padding: '8px 16px', background: '#10b981', color: 'white',
-              border: 'none', borderRadius: 6, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}
-          >
+        {canEdit && companyCode && (
+          <button onClick={sync} disabled={syncing} style={{
+            padding: '8px 16px', background: '#10b981', color: 'white',
+            border: 'none', borderRadius: 6, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
             <Cloud size={16} /> {syncing ? '同步中…' : '同步好业财 → PG'}
           </button>
         )}
-        <button
-          onClick={load}
-          disabled={loading}
-          style={{
-            padding: '8px 12px', background: 'transparent', color: '#6b7280',
-            border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer',
-          }}
-          title="刷新"
-        >
+        <button onClick={load} disabled={loading} title="刷新" style={{
+          padding: '8px 12px', background: 'transparent', color: '#6b7280',
+          border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer',
+        }}>
           <RefreshCw size={16} />
         </button>
       </div>
@@ -203,7 +198,6 @@ export default function ChanjetSyncPage() {
         </div>
       )}
 
-      {/* 统计 */}
       <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ padding: 16, background: '#f9fafb', borderRadius: 8, minWidth: 180 }}>
           <div style={{ fontSize: 12, color: '#6b7280' }}>往来单位数</div>
@@ -221,12 +215,12 @@ export default function ChanjetSyncPage() {
         )}
       </div>
 
-      {/* 表格 */}
       <div style={{ overflowX: 'auto', border: '1px solid #e5e7eb', borderRadius: 8 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
           <thead style={{ background: '#f9fafb' }}>
             <tr>
-              <th style={{ padding: 12, textAlign: 'left', fontWeight: 500, color: '#6b7280' }}>往来单位</th>
+              <th style={{ padding: 12, textAlign: 'left', fontWeight: 500, color: '#6b7280' }}>公司</th>
+              <th style={{ padding: 12, textAlign: 'left', fontWeight: 500, color: '#6b7280' }}>结算往来单位</th>
               <th style={{ padding: 12, textAlign: 'left', fontWeight: 500, color: '#6b7280' }}>编码</th>
               <th style={{ padding: 12, textAlign: 'right', fontWeight: 500, color: '#6b7280' }}>期初余额</th>
               <th style={{ padding: 12, textAlign: 'right', fontWeight: 500, color: '#6b7280' }}>本期应收</th>
@@ -238,13 +232,14 @@ export default function ChanjetSyncPage() {
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} style={{ padding: 32, textAlign: 'center', color: '#9ca3af' }}>
-                  无数据。{canEdit ? '点"同步好业财 → PG"拉取。' : '请有 E 权限的用户先同步。'}
+                <td colSpan={8} style={{ padding: 32, textAlign: 'center', color: '#9ca3af' }}>
+                  无数据。{canEdit ? '选公司后点"同步好业财 → PG"拉取。' : '请有 E 权限的用户先同步。'}
                 </td>
               </tr>
             )}
             {rows.map(r => (
               <tr key={r.id} style={{ borderTop: '1px solid #f3f4f6' }}>
+                <td style={{ padding: 12, color: '#6b7280' }}>{r.companyCode || '—'}</td>
                 <td style={{ padding: 12 }}>{r.subjectName || '—'}</td>
                 <td style={{ padding: 12, color: '#6b7280' }}>{r.assistantCustomerCode || '—'}</td>
                 <td style={{ padding: 12, textAlign: 'right', fontFamily: 'monospace' }}>{fmt(r.initBalance)}</td>
@@ -259,8 +254,9 @@ export default function ChanjetSyncPage() {
       </div>
 
       <div style={{ marginTop: 16, padding: 12, background: '#fffbeb', borderRadius: 6, fontSize: 13, color: '#92400e' }}>
-        <strong>铁律</strong>：本页只读好业财（HTTP GET），写本地 PG 快照表（chanjet_ar_snapshot）。
-        不修改好业财数据。何时可写好业财由用户明示。
+        <strong>铁律</strong>：只读好业财（HTTP GET），写本地 PG 快照表（chanjet_ar_snapshot）。
+        按公司一对一对应（chanjet_book_company_map）。非本公司财务受 DataScope 限制不可见。
+        何时可写好业财由用户明示。
       </div>
     </div>
   );

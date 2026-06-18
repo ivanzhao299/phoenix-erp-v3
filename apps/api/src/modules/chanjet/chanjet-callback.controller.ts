@@ -198,20 +198,40 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/companies
+   * 列好业财 ↔ ERP 公司映射(前端下拉用)。
+   */
+  @Get('companies')
+  @RequireMenu('MENU_FIN2_AR', 'V')
+  async listCompanies() {
+    try {
+      const list = await this.arSync.listCompanies();
+      return { success: true, companies: list };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/sync-ar
-   * 触发好业财应收统计表同步到 PG(chanjet_ar_snapshot)。
-   * body: { bookid, period(YYYYMM), currency? }
+   * 按公司同步好业财应收统计表 → PG(chanjet_ar_snapshot)。
+   * body: { companyCode, period(YYYYMM), currency? }
+   * 服务端按 companyCode 查映射拿 bookid(单一真实源,禁名称匹配)。
    * 铁律:只读好业财,写 PG。鉴权 MENU_FIN2_AR E。
    */
   @Post('sync-ar')
   @RequireMenu('MENU_FIN2_AR', 'E')
-  async syncAr(@Body() body: { bookid: string; period: string; currency?: string }) {
-    if (!body.bookid) return { success: false, error: 'bookid 必填' };
+  async syncAr(@Body() body: { companyCode: string; period: string; currency?: string }) {
+    if (!body.companyCode) return { success: false, error: 'companyCode 必填' };
     if (!body.period || !/^\d{6}$/.test(body.period)) {
       return { success: false, error: 'period 必填,格式 YYYYMM' };
     }
     try {
-      const result = await this.arSync.syncArStatistics(body.bookid, body.period, body.currency || 'LAK');
+      const result = await this.arSync.syncByCompanyCode(
+        body.companyCode,
+        body.period,
+        body.currency || 'RMB',
+      );
       return { success: true, ...result };
     } catch (e) {
       return { success: false, error: (e as Error).message };
@@ -219,23 +239,25 @@ export class ChanjetCallbackController {
   }
 
   /**
-   * GET /api/chanjet/ar-snapshot?bookid=&period=
-   * 从 PG 读已同步的应收快照(只读)。
+   * GET /api/chanjet/ar-snapshot?companyCode=&period=
+   * 从 PG 读应收快照(按 DataScope 过滤)。
+   * - companyCode 传:必须在 allowedCompanyCodes 内
+   * - companyCode 空:集团视角(isGlobal 看全部,其他看 allowed 内)
    */
   @Get('ar-snapshot')
   @RequireMenu('MENU_FIN2_AR', 'V')
-  async arSnapshot(@Query('bookid') bookid: string, @Query('period') period: string) {
-    if (!bookid || !period) return { success: false, error: 'bookid 和 period 必填' };
+  async arSnapshot(@Query('companyCode') companyCode: string, @Query('period') period: string) {
+    if (!period) return { success: false, error: 'period 必填' };
     try {
-      const rows = await this.arSync.queryArSnapshot(bookid, period);
+      const rows = await this.arSync.queryByCompany(companyCode || undefined, period);
       const total = rows.reduce((s, r) => s + Number(r.endbalance), 0);
       return {
         success: true,
-        bookid,
+        companyCode: companyCode || '(集团/全部允许公司)',
         period,
         count: rows.length,
         totalEndbalance: total,
-        currency: rows[0]?.currency || 'LAK',
+        currency: rows[0]?.currency || 'RMB',
         rows,
       };
     } catch (e) {
