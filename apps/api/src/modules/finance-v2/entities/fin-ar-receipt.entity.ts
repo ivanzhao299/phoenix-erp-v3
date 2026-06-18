@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
@@ -16,6 +16,9 @@ import {
  * 一笔收款可通过 fin_ar_receipt_allocations 分摊到多个 AR。
  */
 @Entity('fin_ar_receipts')
+@Index('idx_fin_ar_receipts_company', ['companyCode', 'status'])
+@Index('idx_fin_ar_receipts_customer', ['customerCode'], { where: '"customer_code" IS NOT NULL' })
+// idx_fin_ar_rec_sal_cust 跳过:DB 列 sal_customer_id 在 entity 缺(g197 真业务漂移)
 export class FinArReceiptEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

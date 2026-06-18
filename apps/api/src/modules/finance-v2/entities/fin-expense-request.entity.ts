@@ -1,5 +1,5 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column,
+  Entity, PrimaryGeneratedColumn, Column, Index,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
@@ -16,6 +16,7 @@ import {
  *   DRAFT → CANCELLED
  */
 @Entity('fin_expense_requests')
+@Index('idx_fin_expense_company_status', ['companyCode', 'status'])
 export class FinExpenseRequestEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
@@ -12,6 +12,7 @@ import {
  * status:          DRAFT → PENDING_APPROVAL → APPROVED → SETTLED | CANCELLED
  */
 @Entity('fin_shareholder_settlements')
+@Index('idx_fin_sh_settle_contrib', ['contributionId', 'status'])
 export class FinShareholderSettlementEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

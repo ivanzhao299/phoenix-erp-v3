@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
@@ -27,6 +27,7 @@ import {
  *   - EXECUTED / CANCELLED 不可再变更
  */
 @Entity('fin_fund_transfers')
+@Index('idx_fin_fund_transfers_company', ['companyCode', 'status'])
 export class FinFundTransferEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;
