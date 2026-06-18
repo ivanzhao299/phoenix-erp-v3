@@ -138,6 +138,25 @@ G4-D 后支持 11 种 FieldType：text / number / select / date / datetime / tex
 
 ## 已就位的核心约定（必须遵守）
 
+### 0. entity 字段必须与 DB 列对齐（g197 铁律,2026-06-18 起）
+
+**项目混合模式现状**：service 有 1385 raw SQL 调用 + 424 ORM API 调用,**两种模式共存**。
+
+**Why**：entity ↔ DB 漂移是隐形地雷:
+- service 里任何 ORM API(`repo.find` / `repo.save` / `repo.findOne` / `createQueryBuilder` 等)命中 entity 声明但 DB 没建的字段 → **生产 500 报错 "column does not exist"**
+- 漂移最重 4 张表(sys_user/sal_customers/fin_cash_accounts/prc_purchase_orders)现状是 entity 装饰式(走 raw SQL),但其它表(shareholder/org/notification 等)真用 ORM API
+- 详见 [docs/g197-real-drift-investigation.md](docs/g197-real-drift-investigation.md)
+
+**How**：
+1. **新增 entity 字段前**:`\d <table>` 验证 DB 实存列(`/Applications/Postgres.app/Contents/Versions/latest/bin/psql -U mac -d phoenix_erp -c "\d <table>"`)
+2. **新增 ORM API 调用前**:确认目标 entity 字段在 DB 实存(否则用 raw query)
+3. **不允许写"装饰式 entity"**(entity 声明但 DB 没建的字段)
+4. **不允许新增"未来字段"**(等真要加再写迁移)
+
+**CI 门禁**(g197-I):`scripts/check-entity-drift-baseline.sh` 检查 entity↔DB 漂移总行数不超过 baseline,新 PR 让漂移增长 → 红灯。当前 baseline 见 `.github/entity-drift-baseline.txt`。
+
+**g197 装饰器对账战果**:DROP INDEX 192→18(-90%) / @Unique 命中 11/11 / @Check 命中 7/8 / FK 装饰器命中 4/14(typeorm 0.3 refresh bug)。
+
 ### 1. 主数据只用 ACTIVE
 **Why**：业务方禁用旧主数据后，相关单据不能再选到它。
 **How**：所有 Selector 都已经在 loader 里加了 `status='ACTIVE'` 过滤；不要绕过去直接调 `/crud/*` 拿全量。
