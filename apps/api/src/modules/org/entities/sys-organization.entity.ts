@@ -4,6 +4,8 @@ import {
   Column,
   Index,
   Check,
+  ManyToOne,
+  JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -31,6 +33,12 @@ export class SysOrganizationEntity {
 
   @Column({ name: 'parent_id', type: 'bigint', nullable: true })
   parentId: number | null;
+
+  // g197-D 探针: FK 装饰器,createForeignKeyConstraints:false 让 typeorm
+  // 不自动创建/重建 FK,只是识别现有 PG FK(sys_organizations_parent_id_fkey)
+  @ManyToOne(() => SysOrganizationEntity, { createForeignKeyConstraints: false })
+  @JoinColumn({ name: 'parent_id', referencedColumnName: 'id' })
+  parent?: SysOrganizationEntity;
 
   @Column({ name: 'org_type', type: 'varchar', length: 32 })
   orgType: 'GROUP' | 'BU' | 'COMPANY' | 'SITE' | 'FACTORY' | 'PROJECT' | 'WAREHOUSE' | 'STORE' | 'DEPARTMENT';
