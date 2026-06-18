@@ -115,6 +115,13 @@ jobs:
       - name: Verify TS migrations implement down() (g195-P5)
         run: bash scripts/check-ts-migration-down.sh apps/api/src/database/migrations
 
+      # g197-H 门禁: TS 迁移 up() 不得含业务数据 DML
+      # 防止 typeorm 自动迁移链(g195-P3/P3+)悄悄改业务数据
+      # 业务数据 seed 必须走运维脚本(scripts/),不进自动链
+      # 白名单:typeorm_metadata / schema_migrations / sys_dict* / sys_migrations_log
+      - name: Verify TS migrations no business data DML (g197-H)
+        run: bash scripts/check-ts-migration-no-data-dml.sh apps/api/src/database/migrations
+
       - name: Install system tools (psql + jq)
         run: |
           sudo apt-get update -qq
