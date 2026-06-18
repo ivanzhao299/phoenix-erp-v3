@@ -2,12 +2,16 @@ import { Controller, Post, Body, Get, Query, Logger, HttpCode } from '@nestjs/co
 import { Public } from '../../common/guards/menu.guard';
 import { RequireMenu } from '../../common/guards/menu.guard';
 import { ChanjetAuthService } from './chanjet-auth.service';
+import { ChanjetArSyncService } from './chanjet-ar-sync.service';
 
 @Controller('api/chanjet')
 export class ChanjetCallbackController {
   private readonly log = new Logger('ChanjetCallback');
 
-  constructor(private readonly auth: ChanjetAuthService) {}
+  constructor(
+    private readonly auth: ChanjetAuthService,
+    private readonly arSync: ChanjetArSyncService,
+  ) {}
 
   /**
    * GET /api/chanjet/callback — 畅捷通消息地址验证 + 授权回调
@@ -190,6 +194,52 @@ export class ChanjetCallbackController {
       return { success: true, bookid, query: rest, result };
     } catch (e) {
       return { success: false, bookid, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * POST /api/chanjet/sync-ar
+   * 触发好业财应收统计表同步到 PG(chanjet_ar_snapshot)。
+   * body: { bookid, period(YYYYMM), currency? }
+   * 铁律:只读好业财,写 PG。鉴权 MENU_FIN2_AR E。
+   */
+  @Post('sync-ar')
+  @RequireMenu('MENU_FIN2_AR', 'E')
+  async syncAr(@Body() body: { bookid: string; period: string; currency?: string }) {
+    if (!body.bookid) return { success: false, error: 'bookid 必填' };
+    if (!body.period || !/^\d{6}$/.test(body.period)) {
+      return { success: false, error: 'period 必填,格式 YYYYMM' };
+    }
+    try {
+      const result = await this.arSync.syncArStatistics(body.bookid, body.period, body.currency || 'LAK');
+      return { success: true, ...result };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * GET /api/chanjet/ar-snapshot?bookid=&period=
+   * 从 PG 读已同步的应收快照(只读)。
+   */
+  @Get('ar-snapshot')
+  @RequireMenu('MENU_FIN2_AR', 'V')
+  async arSnapshot(@Query('bookid') bookid: string, @Query('period') period: string) {
+    if (!bookid || !period) return { success: false, error: 'bookid 和 period 必填' };
+    try {
+      const rows = await this.arSync.queryArSnapshot(bookid, period);
+      const total = rows.reduce((s, r) => s + Number(r.endbalance), 0);
+      return {
+        success: true,
+        bookid,
+        period,
+        count: rows.length,
+        totalEndbalance: total,
+        currency: rows[0]?.currency || 'LAK',
+        rows,
+      };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
     }
   }
 
