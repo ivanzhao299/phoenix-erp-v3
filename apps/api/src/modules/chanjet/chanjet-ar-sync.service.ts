@@ -69,6 +69,16 @@ export class ChanjetArSyncService implements OnModuleInit {
 
   /** 列出所有(启用的)公司 ↔ 账套映射(给前端下拉用) */
   async listCompanies(): Promise<ChanjetBookCompanyMapEntity[]> {
+    // 懒补 seed:onModuleInit 可能在 mapRepo 准备好前抢跑被吞,这里兜底
+    try {
+      const existing = await this.mapRepo.count();
+      if (existing === 0) {
+        await this.mapRepo.insert(SEED_BOOK_COMPANY_MAP);
+        this.log.log(`listCompanies 触发懒 seed ${SEED_BOOK_COMPANY_MAP.length} 条映射`);
+      }
+    } catch (err) {
+      this.log.error(`listCompanies seed 失败: ${(err as Error).message}`);
+    }
     return this.mapRepo.find({
       where: { syncEnabled: true },
       order: { companyCode: 'ASC' },
