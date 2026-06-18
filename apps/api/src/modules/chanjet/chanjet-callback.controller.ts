@@ -169,6 +169,67 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET/POST /api/chanjet/call
+   * 通用 proxy:管理员手动 callApi 任意好业财路径(试错+查 API 文档用)。
+   *
+   * 用法(GET 查询):
+   *   GET /api/chanjet/call?path=/accounting/openapi/cc/book/findByEnterpriseId&method=GET
+   *   GET /api/chanjet/call?path=/accounting/openapi/cc/party/custvendor/query/{bookid}&bookid=3533914511118750&method=GET
+   *
+   * 用法(POST body):
+   *   POST /api/chanjet/call
+   *   { "path": "/accounting/openapi/cc/xxx", "method": "POST", "body": { ... }, "bookid": "xxx" }
+   *
+   * path 中 {bookid} 占位符会被 query.bookid 或 body.bookid 替换。
+   */
+  @Get('call')
+  @RequireMenu('MENU_SYSTEM', 'V')
+  async callGet(@Query() query: Record<string, string>) {
+    return this.doCall(query.path, {
+      method: (query.method as 'GET' | 'POST') || 'GET',
+      bookid: query.bookid,
+      queryStr: query.q,
+    });
+  }
+
+  @Post('call')
+  @RequireMenu('MENU_SYSTEM', 'V')
+  async callPost(@Body() body: { path: string; method?: 'GET' | 'POST'; bookid?: string; body?: Record<string, unknown>; query?: Record<string, string> }) {
+    return this.doCall(body.path, {
+      method: body.method || 'POST',
+      bookid: body.bookid,
+      body: body.body,
+      query: body.query,
+    });
+  }
+
+  private async doCall(
+    rawPath: string,
+    opts: { method: 'GET' | 'POST'; bookid?: string; body?: Record<string, unknown>; query?: Record<string, string>; queryStr?: string } = { method: 'GET' },
+  ) {
+    if (!rawPath) return { success: false, error: 'path 不能为空' };
+    const path = opts.bookid ? rawPath.replace('{bookid}', opts.bookid) : rawPath;
+    try {
+      // queryStr 是 "k1=v1&k2=v2" 简写形式,解析成 query map
+      const queryMap: Record<string, string> = opts.query || {};
+      if (opts.queryStr) {
+        for (const kv of opts.queryStr.split('&')) {
+          const [k, v] = kv.split('=');
+          if (k) queryMap[k] = v || '';
+        }
+      }
+      const result = await this.auth.callApi(path, {
+        method: opts.method,
+        query: queryMap,
+        body: opts.body,
+      });
+      return { success: true, path, result };
+    } catch (e) {
+      return { success: false, path, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/set-cert
    * 管理员手动设置 certificate（从畅捷通控制台复制）。
    */
