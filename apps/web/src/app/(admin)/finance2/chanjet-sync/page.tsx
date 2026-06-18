@@ -1,0 +1,267 @@
+'use client';
+
+import { useState, useCallback } from 'react';
+import PageHeader from '@/components/PageHeader';
+import request from '@/lib/api-client';
+import { RefreshCw, Cloud, Download } from 'lucide-react';
+import { usePermission } from '@/hooks/usePermission';
+
+/**
+ * 好业财应收同步页 — 铁律:只读好业财,写 PG chanjet_ar_snapshot
+ * 权限:MENU_FIN2_AR(V 看,E 触发同步)
+ */
+
+const BOOKS = [
+  { id: '3533914511118750', name: '老挝凤凰农业发展有限公司' },
+  { id: '3537748712226818', name: '老挝东鹏县星驰农业发展有限公司' },
+  { id: '3539743721526654', name: '老挝凤凰食品集团有限公司' },
+];
+
+interface Row {
+  id: string;
+  bookid: string;
+  period: string;
+  assistantCustomerCode: string | null;
+  subjectName: string | null;
+  initBalance: string;
+  currentPeriodJf: string;
+  currentPeriodDf: string;
+  endbalance: string;
+  currency: string;
+  syncedAt: string;
+}
+
+interface SnapshotResp {
+  success: boolean;
+  bookid?: string;
+  period?: string;
+  count?: number;
+  totalEndbalance?: number;
+  currency?: string;
+  rows?: Row[];
+  error?: string;
+}
+
+interface SyncResp {
+  success: boolean;
+  bookid?: string;
+  period?: string;
+  fetched?: number;
+  saved?: number;
+  totalEndbalance?: number;
+  sampleRows?: Array<{ name: string | null; code: string | null; endbalance: number }>;
+  error?: string;
+}
+
+const fmt = (v: string | number | null) =>
+  v == null || v === '' ? '—'
+    : Number(v).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const today = new Date();
+const defaultPeriod = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`;
+
+export default function ChanjetSyncPage() {
+  const { canView, canEdit } = usePermission('MENU_FIN2_AR');
+
+  const [bookid, setBookid] = useState(BOOKS[0].id);
+  const [period, setPeriod] = useState(defaultPeriod);
+
+  const [rows, setRows] = useState<Row[]>([]);
+  const [count, setCount] = useState<number>(0);
+  const [totalEndbalance, setTotalEndbalance] = useState<number>(0);
+  const [currency, setCurrency] = useState<string>('LAK');
+  const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState('');
+  const [lastSync, setLastSync] = useState<string>('');
+
+  const load = useCallback(async () => {
+    setLoading(true); setError('');
+    try {
+      const data = await request<SnapshotResp>(
+        `/chanjet/ar-snapshot?bookid=${bookid}&period=${period}`,
+      );
+      if (!data.success) {
+        setError(data.error || '读取失败');
+        setRows([]); setCount(0); setTotalEndbalance(0);
+      } else {
+        setRows(data.rows || []);
+        setCount(data.count || 0);
+        setTotalEndbalance(data.totalEndbalance || 0);
+        setCurrency(data.currency || 'LAK');
+        if (data.rows && data.rows.length > 0) setLastSync(data.rows[0].syncedAt);
+      }
+    } catch (e) {
+      setError((e as Error).message || '网络错误');
+    } finally {
+      setLoading(false);
+    }
+  }, [bookid, period]);
+
+  const sync = useCallback(async () => {
+    if (!canEdit) return;
+    if (!/^\d{6}$/.test(period)) {
+      setError('期间格式: YYYYMM(如 202605)');
+      return;
+    }
+    setSyncing(true); setError('');
+    try {
+      const data = await request<SyncResp>('/chanjet/sync-ar', {
+        method: 'POST',
+        body: JSON.stringify({ bookid, period, currency: 'LAK' }),
+      });
+      if (!data.success) {
+        setError(data.error || '同步失败');
+      } else {
+        // 同步成功后自动 reload
+        await load();
+      }
+    } catch (e) {
+      setError((e as Error).message || '同步失败');
+    } finally {
+      setSyncing(false);
+    }
+  }, [bookid, period, canEdit, load]);
+
+  if (!canView) {
+    return (
+      <div style={{ padding: 32 }}>
+        <PageHeader title="好业财应收同步" />
+        <div style={{ color: '#ef4444' }}>无权限访问(需 MENU_FIN2_AR:V)</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: 24, maxWidth: 1600 }}>
+      <PageHeader title="好业财应收同步" subtitle="只读好业财 → 写 PG 快照(chanjet_ar_snapshot)" />
+
+      {/* 筛选条 */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'end', marginBottom: 16, flexWrap: 'wrap' }}>
+        <div>
+          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>账套</label>
+          <select
+            value={bookid}
+            onChange={e => setBookid(e.target.value)}
+            style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, minWidth: 280 }}
+          >
+            {BOOKS.map(b => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>期间(YYYYMM)</label>
+          <input
+            type="text"
+            value={period}
+            onChange={e => setPeriod(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            placeholder="202605"
+            style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, width: 120 }}
+          />
+        </div>
+        <button
+          onClick={load}
+          disabled={loading}
+          style={{
+            padding: '8px 16px', background: '#3b82f6', color: 'white',
+            border: 'none', borderRadius: 6, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}
+        >
+          <Download size={16} /> {loading ? '加载中…' : '读取快照(PG)'}
+        </button>
+        {canEdit && (
+          <button
+            onClick={sync}
+            disabled={syncing}
+            style={{
+              padding: '8px 16px', background: '#10b981', color: 'white',
+              border: 'none', borderRadius: 6, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            <Cloud size={16} /> {syncing ? '同步中…' : '同步好业财 → PG'}
+          </button>
+        )}
+        <button
+          onClick={load}
+          disabled={loading}
+          style={{
+            padding: '8px 12px', background: 'transparent', color: '#6b7280',
+            border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer',
+          }}
+          title="刷新"
+        >
+          <RefreshCw size={16} />
+        </button>
+      </div>
+
+      {error && (
+        <div style={{ padding: 12, background: '#fef2f2', color: '#dc2626', borderRadius: 6, marginBottom: 16 }}>
+          {error}
+        </div>
+      )}
+
+      {/* 统计 */}
+      <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{ padding: 16, background: '#f9fafb', borderRadius: 8, minWidth: 180 }}>
+          <div style={{ fontSize: 12, color: '#6b7280' }}>往来单位数</div>
+          <div style={{ fontSize: 24, fontWeight: 600 }}>{count}</div>
+        </div>
+        <div style={{ padding: 16, background: '#f9fafb', borderRadius: 8, minWidth: 240 }}>
+          <div style={{ fontSize: 12, color: '#6b7280' }}>期末余额合计({currency})</div>
+          <div style={{ fontSize: 24, fontWeight: 600, color: '#059669' }}>{fmt(totalEndbalance)}</div>
+        </div>
+        {lastSync && (
+          <div style={{ padding: 16, background: '#f9fafb', borderRadius: 8, minWidth: 200 }}>
+            <div style={{ fontSize: 12, color: '#6b7280' }}>最后同步</div>
+            <div style={{ fontSize: 14, color: '#374151' }}>{new Date(lastSync).toLocaleString('zh-CN')}</div>
+          </div>
+        )}
+      </div>
+
+      {/* 表格 */}
+      <div style={{ overflowX: 'auto', border: '1px solid #e5e7eb', borderRadius: 8 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+          <thead style={{ background: '#f9fafb' }}>
+            <tr>
+              <th style={{ padding: 12, textAlign: 'left', fontWeight: 500, color: '#6b7280' }}>往来单位</th>
+              <th style={{ padding: 12, textAlign: 'left', fontWeight: 500, color: '#6b7280' }}>编码</th>
+              <th style={{ padding: 12, textAlign: 'right', fontWeight: 500, color: '#6b7280' }}>期初余额</th>
+              <th style={{ padding: 12, textAlign: 'right', fontWeight: 500, color: '#6b7280' }}>本期应收</th>
+              <th style={{ padding: 12, textAlign: 'right', fontWeight: 500, color: '#6b7280' }}>本期已收</th>
+              <th style={{ padding: 12, textAlign: 'right', fontWeight: 500, color: '#6b7280' }}>期末余额</th>
+              <th style={{ padding: 12, textAlign: 'left', fontWeight: 500, color: '#6b7280' }}>币种</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={7} style={{ padding: 32, textAlign: 'center', color: '#9ca3af' }}>
+                  无数据。{canEdit ? '点"同步好业财 → PG"拉取。' : '请有 E 权限的用户先同步。'}
+                </td>
+              </tr>
+            )}
+            {rows.map(r => (
+              <tr key={r.id} style={{ borderTop: '1px solid #f3f4f6' }}>
+                <td style={{ padding: 12 }}>{r.subjectName || '—'}</td>
+                <td style={{ padding: 12, color: '#6b7280' }}>{r.assistantCustomerCode || '—'}</td>
+                <td style={{ padding: 12, textAlign: 'right', fontFamily: 'monospace' }}>{fmt(r.initBalance)}</td>
+                <td style={{ padding: 12, textAlign: 'right', fontFamily: 'monospace' }}>{fmt(r.currentPeriodJf)}</td>
+                <td style={{ padding: 12, textAlign: 'right', fontFamily: 'monospace' }}>{fmt(r.currentPeriodDf)}</td>
+                <td style={{ padding: 12, textAlign: 'right', fontFamily: 'monospace', fontWeight: 500 }}>{fmt(r.endbalance)}</td>
+                <td style={{ padding: 12, color: '#6b7280' }}>{r.currency}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ marginTop: 16, padding: 12, background: '#fffbeb', borderRadius: 6, fontSize: 13, color: '#92400e' }}>
+        <strong>铁律</strong>：本页只读好业财（HTTP GET），写本地 PG 快照表（chanjet_ar_snapshot）。
+        不修改好业财数据。何时可写好业财由用户明示。
+      </div>
+    </div>
+  );
+}

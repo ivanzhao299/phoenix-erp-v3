@@ -164,6 +164,7 @@ const MENU: MenuItem[] = [
     { id: "f2-dash",      path: "/finance2",                    Icon: LayoutDashboard, label: "财务总览",   perm: "MENU_FIN2"            },
     { id: "f2-ar",        path: "/finance2/ar",                 Icon: TrendingUp,      label: "应收账款",   perm: "MENU_FIN2_AR"         },
     { id: "f2-ar-ledger", path: "/finance2/ar-ledger",          Icon: BookOpen,        label: "应收总账",   perm: "MENU_FIN2_AR_LEDGER"  },
+    { id: "f2-chanjet-sync", path: "/finance2/chanjet-sync",    Icon: BookOpen,        label: "好业财同步",  perm: "MENU_FIN2_AR"         },
     { id: "f2-ap",        path: "/finance2/ap",                 Icon: TrendingDown,    label: "应付账款",   perm: "MENU_FIN2_AP"         },
     { id: "f2-cash",      path: "/finance2/cash-accounts",      Icon: Wallet,          label: "资金账户",   perm: "MENU_FIN2_CASH"       },
     { id: "f2-fund",      path: "/finance2/fund-transfers",     Icon: ArrowLeftRight,  label: "资金调拨",   perm: "MENU_FIN2_CASH"       },
