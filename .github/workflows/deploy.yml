@@ -263,20 +263,28 @@ jobs:
   # 仅在 push to main 时运行
   # ────────────────────────────────────────────────────────────
   build-push:
-    name: Build & Push Images
+    name: Build & Push ${{ matrix.target }}
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    # g197-J: matrix 并行 API + Web,减串行等待(实测 5:00 → ~3:00,省 2 min)
+    # 注:cache scope=target 避免两个 matrix entry 互相 invalidate cache。
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: api
+            dockerfile: apps/api/Dockerfile
+            build_args: ""
+          - target: web
+            dockerfile: apps/web/Dockerfile
+            build_args: "API_TARGET=http://api:3100"
+
     permissions:
       contents: read
       packages: write
-
-    outputs:
-      api_image: ${{ steps.meta-api.outputs.tags }}
-      web_image: ${{ steps.meta-web.outputs.tags }}
-      sha_tag: sha-${{ github.sha }}
 
     steps:
       - uses: actions/checkout@v5
@@ -291,45 +299,25 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Extract metadata — API
-        id: meta-api
+      - name: Extract metadata
+        id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.IMAGE_PREFIX }}/api
+          images: ${{ env.IMAGE_PREFIX }}/${{ matrix.target }}
           tags: |
             type=raw,value=latest
 
-      - name: Extract metadata — Web
-        id: meta-web
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ env.IMAGE_PREFIX }}/web
-          tags: |
-            type=raw,value=latest
-
-      - name: Build & push API image
+      - name: Build & push ${{ matrix.target }} image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/api/Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: true
-          tags: ${{ steps.meta-api.outputs.tags }}
-          labels: ${{ steps.meta-api.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build & push Web image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/web/Dockerfile
-          push: true
-          tags: ${{ steps.meta-web.outputs.tags }}
-          labels: ${{ steps.meta-web.outputs.labels }}
-          build-args: |
-            API_TARGET=http://api:3100
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: ${{ matrix.build_args }}
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,scope=${{ matrix.target }},mode=max
 
   # ────────────────────────────────────────────────────────────
   # Job 3: SSH 部署到生产服务器
