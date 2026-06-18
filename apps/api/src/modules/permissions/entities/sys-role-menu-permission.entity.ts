@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, Unique } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Index, Unique } from 'typeorm';
 
 /**
  * sys_role_menu_permission — 角色×菜单×CRUD 三元组
@@ -13,6 +13,8 @@ import { Entity, PrimaryGeneratedColumn, Column, Unique } from 'typeorm';
  */
 @Entity('sys_role_menu_permission')
 @Unique(['role_id', 'menu_id'])
+@Index('idx_sys_role_menu_perm_role', ['role_id'])
+@Index('idx_sys_role_menu_perm_menu', ['menu_id'])
 export class SysRoleMenuPermissionEntity {
   @PrimaryGeneratedColumn({ name: 'perm_id', type: 'bigint' })
   perm_id: number;

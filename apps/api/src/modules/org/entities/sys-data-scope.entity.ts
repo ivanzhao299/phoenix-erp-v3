@@ -2,10 +2,14 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Index,
   CreateDateColumn,
 } from 'typeorm';
 
 @Entity('sys_data_scopes')
+@Index('idx_data_scopes_role', ['roleCode'])
+@Index('idx_data_scopes_module', ['moduleCode'])
+@Index('idx_data_scopes_enabled', ['enabled'], { where: '"enabled" = TRUE' })
 export class SysDataScopeEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;

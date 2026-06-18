@@ -1,10 +1,11 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
 /** 汇率表  sys_exchange_rates */
 @Entity('sys_exchange_rates')
+@Index('idx_sys_exrate_date', ['rateDate'])
 export class SysExchangeRateEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

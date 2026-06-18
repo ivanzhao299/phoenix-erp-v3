@@ -2,10 +2,12 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Index,
   CreateDateColumn,
 } from 'typeorm';
 
 @Entity('sys_user_warehouse_scopes')
+@Index('idx_user_wh_user', ['userId'])
 export class SysUserWarehouseScopeEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;

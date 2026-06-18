@@ -1,10 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn } from 'typeorm';
 
 /**
  * sys_role — 角色表（V3 RBAC 设计）
  * 对应 ddl/01_create_rbac_tables.sql
  */
 @Entity('sys_role')
+@Index('idx_sys_role_status', ['status'])
 export class SysRoleEntity {
   @PrimaryGeneratedColumn({ name: 'role_id', type: 'bigint' })
   role_id: number;

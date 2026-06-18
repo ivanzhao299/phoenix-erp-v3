@@ -1,10 +1,12 @@
-import { Entity, PrimaryColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryColumn, Column, Index, CreateDateColumn } from 'typeorm';
 
 /**
  * sys_user_role — 用户-角色关联表（多对多）
  * 复合主键：(user_id, role_id)
  */
 @Entity('sys_user_role')
+@Index('idx_sys_user_role_user', ['user_id'])
+@Index('idx_sys_user_role_role', ['role_id'])
 export class SysUserRoleEntity {
   @PrimaryColumn({ type: 'bigint' })
   user_id: number;

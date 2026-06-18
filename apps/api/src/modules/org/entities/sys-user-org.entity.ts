@@ -2,10 +2,13 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Index,
   CreateDateColumn,
 } from 'typeorm';
 
 @Entity('sys_user_orgs')
+@Index('idx_user_orgs_user', ['userId'])
+@Index('idx_user_orgs_org', ['orgId'])
 export class SysUserOrgEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: number;

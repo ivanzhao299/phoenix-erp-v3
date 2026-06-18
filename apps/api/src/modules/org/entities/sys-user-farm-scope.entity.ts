@@ -2,6 +2,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Index,
   CreateDateColumn,
 } from 'typeorm';
 
@@ -16,6 +17,8 @@ import {
  * DataScopeService.resolve() 在 allowedFarmCodes 中合并两者。
  */
 @Entity('sys_user_farm_scopes')
+@Index('idx_user_farm_scope_user', ['userId'])
+@Index('idx_user_farm_scope_farm', ['farmCode'])
 export class SysUserFarmScopeEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;
