@@ -340,6 +340,27 @@ export class ChanjetAuthService implements OnModuleInit {
     });
   }
 
+  /**
+   * 查询好业财应收统计表(凤凰鸡场应收总账数据源)。
+   * 接口: GET /accounting/gl/statistics/receive/{bookid}
+   *
+   * 已知 3 个账套 bookid:
+   *   3533914511118750 — 老挝凤凰农业发展有限公司
+   *   3537748712226818 — 老挝东鹏县星驰农业发展有限公司
+   *   3539743721526654 — 老挝凤凰食品集团有限公司
+   *
+   * @param bookid 账套 ID(tenant.id)
+   * @param opts   可选 query 参数(透传,字段名见好业财接口文档:
+   *               常见 startDate/endDate/partyCategory/department 等)
+   */
+  async getArStatistics(bookid: string, opts: Record<string, string> = {}): Promise<unknown> {
+    const path = `/accounting/gl/statistics/receive/${bookid}`;
+    return this.callApi(path, {
+      method: 'GET',
+      query: opts,
+    });
+  }
+
   /** 诊断：返回当前认证链状态 */
   diagnostics() {
     const tokens: Record<string, { expiresAt: string; valid: boolean }> = {};
