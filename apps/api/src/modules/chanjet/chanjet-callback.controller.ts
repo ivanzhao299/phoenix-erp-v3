@@ -178,10 +178,10 @@ export class ChanjetCallbackController {
    *   3539743721526654 — 老挝凤凰食品集团有限公司
    *
    * 其它 query 参数透传给好业财(字段名以文档为准)。
-   * 暂用 MENU_SYSTEM 鉴权;正式建议切 MENU_FIN_AR 类财务菜单。
+   * 鉴权:MENU_FIN2_AR(财务-应收应付,与刘杰应收总账同 menu)。
    */
   @Get('ar-statistics')
-  @RequireMenu('MENU_SYSTEM', 'V')
+  @RequireMenu('MENU_FIN2_AR', 'V')
   async arStatistics(@Query() q: Record<string, string>) {
     if (!q.bookid) return { success: false, error: 'bookid 必填' };
     const { bookid, ...rest } = q;
