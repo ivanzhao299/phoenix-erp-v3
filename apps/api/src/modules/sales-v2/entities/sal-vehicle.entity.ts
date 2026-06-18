@@ -1,7 +1,9 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 /** 车辆档案  sal_vehicles — Sales V2 Phase 4 */
 @Entity('sal_vehicles')
+@Index('idx_sal_vehicles_company', ['companyCode'])
+@Index('idx_sal_vehicles_status', ['status'])
 export class SalVehicleEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' }) id: string;
   @Column({ name: 'vehicle_no', type: 'varchar', length: 64, unique: true }) vehicleNo: string;

@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn, CreateDateColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn,
 } from 'typeorm';
 
 /**
@@ -11,6 +11,7 @@ import {
  * status:       ACTIVE / INACTIVE
  */
 @Entity('sal_channels')
+@Index('idx_sal_channels_company', ['companyCode'])
 export class SalChannelEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

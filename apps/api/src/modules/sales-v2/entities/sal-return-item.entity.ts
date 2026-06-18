@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn, CreateDateColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn,
 } from 'typeorm';
 
 /**
@@ -16,6 +16,9 @@ import {
  *   · accepted_qty 正常回库（inv_batches + inv_ledger SALE_RETURN）
  */
 @Entity('sal_return_items')
+@Index('idx_sal_return_items_return_ord', ['returnOrderId'])
+@Index('idx_sal_return_items_product', ['productCode'])
+@Index('idx_sal_return_items_sku_code', ['skuCode'], { where: '"sku_code" IS NOT NULL' })
 export class SalReturnItemEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

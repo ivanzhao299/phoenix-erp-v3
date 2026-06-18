@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
@@ -35,6 +35,11 @@ import {
  * credit_note_id: COMPLETED 时由 FinanceCreditNoteAdapter 写入 fin_ar_invoices.id
  */
 @Entity('sal_return_orders')
+@Index('idx_sal_return_orders_company', ['companyCode'])
+@Index('idx_sal_return_orders_status', ['status'])
+@Index('idx_sal_return_orders_customer', ['customerCode'])
+@Index('idx_sal_return_orders_sales_ord', ['salesOrderId'])
+@Index('idx_sal_return_orders_created', ['createdAt'])
 export class SalReturnOrderEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

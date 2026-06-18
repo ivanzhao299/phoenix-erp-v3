@@ -1,7 +1,11 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 /** 配送单明细  sal_delivery_order_items — Sales V2 Phase 4 */
 @Entity('sal_delivery_order_items')
+@Index('idx_sal_doi_delivery', ['deliveryOrderId'])
+@Index('idx_sal_doi_so', ['salesOrderId'])
+@Index('idx_sal_doi_status', ['status'])
+@Index('idx_sal_doi_customer', ['customerCode'])
 export class SalDeliveryOrderItemEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' }) id: string;
   @Column({ name: 'delivery_order_id', type: 'bigint' }) deliveryOrderId: string;

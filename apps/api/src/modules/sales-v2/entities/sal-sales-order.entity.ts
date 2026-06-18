@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
@@ -18,6 +18,13 @@ import {
  * wf_instance_id: Workflow 2.0 审批（低价/超信用时触发）
  */
 @Entity('sal_sales_orders')
+@Index('idx_sal_sales_orders_company', ['companyCode'])
+@Index('idx_sal_sales_orders_customer', ['customerCode'])
+@Index('idx_sal_sales_orders_status', ['status'])
+@Index('idx_sal_sales_orders_customer_code', ['customerCode'])
+@Index('idx_sal_sales_orders_company_status', ['companyCode', 'status'])
+@Index('idx_sal_sales_orders_created_at', ['createdAt'])
+@Index('idx_sal_so_credit_warning', ['creditWarning'])
 export class SalSalesOrderEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 /**
  * 配送单  sal_delivery_orders — Sales V2 Phase 4
@@ -8,6 +8,12 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateCol
  *   → PARTIALLY_SIGNED → COMPLETED | CANCELLED
  */
 @Entity('sal_delivery_orders')
+@Index('idx_sal_do_company', ['companyCode'])
+@Index('idx_sal_do_status', ['status'])
+@Index('idx_sal_do_wave_date', ['waveDate'])
+@Index('idx_sal_do_driver', ['driverId'])
+@Index('idx_sal_do_vehicle', ['vehicleId'])
+@Index('idx_sal_do_created_at', ['createdAt'])
 export class SalDeliveryOrderEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' }) id: string;
   @Column({ name: 'delivery_no', type: 'varchar', length: 64, unique: true }) deliveryNo: string;

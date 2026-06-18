@@ -1,7 +1,12 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
+import { Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
 
 /** 签收记录  sal_receipts — Sales V2 Phase 4 */
 @Entity('sal_receipts')
+@Index('idx_sal_rc_delivery', ['deliveryOrderId'])
+@Index('idx_sal_rc_item', ['deliveryItemId'])
+@Index('idx_sal_rc_so', ['salesOrderId'])
+@Index('idx_sal_rc_status', ['status'])
+@Index('idx_sal_rc_signed_at', ['signedAt'])
 export class SalReceiptEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' }) id: string;
   @Column({ name: 'receipt_no', type: 'varchar', length: 64, unique: true }) receiptNo: string;

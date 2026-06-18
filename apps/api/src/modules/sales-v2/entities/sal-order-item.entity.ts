@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn, CreateDateColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn,
 } from 'typeorm';
 
 /**
@@ -14,6 +14,10 @@ import {
  * unit_price:          向后兼容字段，始终写入 actual_unit_price 值
  */
 @Entity('sal_order_items')
+@Index('idx_sal_order_items_order', ['salesOrderId'])
+@Index('idx_sal_order_items_order_id', ['salesOrderId'])
+@Index('idx_sal_order_items_sku_code', ['skuCode'])
+@Index('idx_sal_order_items_alloc', ['allocatedBatchNo'], { where: '"allocated_batch_no" IS NOT NULL' })
 export class SalOrderItemEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

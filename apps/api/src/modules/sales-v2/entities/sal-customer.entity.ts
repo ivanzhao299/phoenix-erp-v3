@@ -1,5 +1,5 @@
 import {
-  Entity, Column, PrimaryGeneratedColumn,
+  Entity, Column, Index, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
@@ -23,6 +23,14 @@ import {
  * status:     ACTIVE / FROZEN / BLACKLIST
  */
 @Entity('sal_customers')
+@Index('idx_sal_customers_company', ['companyCode'])
+@Index('idx_sal_customers_type', ['customerType'])
+@Index('idx_sal_customers_status', ['status'])
+@Index('idx_sal_cust_credit_status', ['creditStatus'])
+@Index('idx_sal_cust_auto_frozen', ['autoFrozen'])
+@Index('idx_sal_cust_risk_level', ['riskLevel'])
+@Index('idx_sal_cust_last_overdue', ['lastOverdueAt'])
+@Index('idx_sal_cust_legacy_code', ['legacyCode'], { unique: true })
 export class SalCustomerEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;
