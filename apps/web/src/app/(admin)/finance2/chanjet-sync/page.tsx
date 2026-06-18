@@ -81,6 +81,17 @@ export default function ChanjetSyncPage() {
   const [error, setError] = useState('');
   const [lastSync, setLastSync] = useState('');
 
+  // 部门对账
+  const [deptDiff, setDeptDiff] = useState<{
+    chanjet: Array<{ id: string; code: string | null; name: string }>;
+    erp: Array<{ orgCode: string; orgName: string; parentCode: string | null }>;
+    both: Array<{ name: string; chanjetId: string; erpOrgCode: string }>;
+    chanjetOnly: Array<{ id: string; code: string | null; name: string }>;
+    erpOnly: Array<{ orgCode: string; orgName: string }>;
+  } | null>(null);
+  const [deptLoading, setDeptLoading] = useState(false);
+  const [deptError, setDeptError] = useState('');
+
   useEffect(() => {
     request<{ success: boolean; companies?: Company[] }>('/chanjet/companies')
       .then(d => { if (d.success) setCompanies(d.companies || []); })
@@ -257,6 +268,85 @@ export default function ChanjetSyncPage() {
         <strong>铁律</strong>：只读好业财（HTTP GET），写本地 PG 快照表（chanjet_ar_snapshot）。
         按公司一对一对应（chanjet_book_company_map）。非本公司财务受 DataScope 限制不可见。
         何时可写好业财由用户明示。
+      </div>
+
+      {/* 部门对账(选公司后) */}
+      <div style={{ marginTop: 32, padding: 16, border: '1px solid #e5e7eb', borderRadius: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>部门对账（好业财 ↔ ERP）</h3>
+          <button
+            onClick={async () => {
+              if (!companyCode) { setDeptError('请先选公司'); return; }
+              setDeptLoading(true); setDeptError('');
+              try {
+                const data = await request<{ success: boolean } & NonNullable<typeof deptDiff> & { error?: string }>(
+                  `/chanjet/departments-diff?companyCode=${companyCode}`,
+                );
+                if (!data.success) setDeptError(data.error || '对账失败');
+                else setDeptDiff({
+                  chanjet: data.chanjet, erp: data.erp,
+                  both: data.both, chanjetOnly: data.chanjetOnly, erpOnly: data.erpOnly,
+                });
+              } catch (e) {
+                setDeptError((e as Error).message);
+              } finally {
+                setDeptLoading(false);
+              }
+            }}
+            disabled={deptLoading || !companyCode}
+            style={{
+              padding: '6px 12px', background: '#6366f1', color: 'white',
+              border: 'none', borderRadius: 6, cursor: 'pointer',
+            }}
+          >
+            {deptLoading ? '对账中…' : '查看部门差异'}
+          </button>
+        </div>
+        {deptError && (
+          <div style={{ padding: 8, background: '#fef2f2', color: '#dc2626', borderRadius: 4, marginBottom: 8, fontSize: 13 }}>
+            {deptError}
+          </div>
+        )}
+        {!companyCode && !deptDiff && (
+          <div style={{ color: '#9ca3af', fontSize: 13 }}>请先选具体公司,点"查看部门差异"。</div>
+        )}
+        {deptDiff && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, fontSize: 13 }}>
+            <div style={{ padding: 12, background: '#ecfdf5', borderRadius: 6 }}>
+              <div style={{ fontWeight: 600, color: '#065f46', marginBottom: 8 }}>✓ 两边都有 ({deptDiff.both.length})</div>
+              {deptDiff.both.length === 0 ? <div style={{ color: '#6b7280' }}>—</div> :
+                deptDiff.both.slice(0, 30).map(d => (
+                  <div key={d.chanjetId} style={{ padding: '4px 0', borderBottom: '1px dashed #d1fae5' }}>
+                    <div>{d.name}</div>
+                    <div style={{ fontSize: 11, color: '#6b7280' }}>好业财#{d.chanjetId} ↔ ERP {d.erpOrgCode}</div>
+                  </div>
+                ))}
+            </div>
+            <div style={{ padding: 12, background: '#fef3c7', borderRadius: 6 }}>
+              <div style={{ fontWeight: 600, color: '#92400e', marginBottom: 8 }}>⚠ 只在好业财 ({deptDiff.chanjetOnly.length})</div>
+              {deptDiff.chanjetOnly.length === 0 ? <div style={{ color: '#6b7280' }}>—</div> :
+                deptDiff.chanjetOnly.slice(0, 30).map(d => (
+                  <div key={d.id} style={{ padding: '4px 0', borderBottom: '1px dashed #fde68a' }}>
+                    <div>{d.name}</div>
+                    <div style={{ fontSize: 11, color: '#6b7280' }}>好业财#{d.id} code={d.code || '—'}</div>
+                  </div>
+                ))}
+            </div>
+            <div style={{ padding: 12, background: '#fee2e2', borderRadius: 6 }}>
+              <div style={{ fontWeight: 600, color: '#991b1b', marginBottom: 8 }}>⚠ 只在 ERP ({deptDiff.erpOnly.length})</div>
+              {deptDiff.erpOnly.length === 0 ? <div style={{ color: '#6b7280' }}>—</div> :
+                deptDiff.erpOnly.slice(0, 30).map(d => (
+                  <div key={d.orgCode} style={{ padding: '4px 0', borderBottom: '1px dashed #fecaca' }}>
+                    <div>{d.orgName}</div>
+                    <div style={{ fontSize: 11, color: '#6b7280' }}>ERP {d.orgCode}</div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+        <div style={{ marginTop: 12, fontSize: 12, color: '#6b7280' }}>
+          匹配规则:按部门名称严格匹配。差异列出后,你可以决定:建映射表 / 在好业财补 / 在 ERP 补 / 维持差异。
+        </div>
       </div>
     </div>
   );

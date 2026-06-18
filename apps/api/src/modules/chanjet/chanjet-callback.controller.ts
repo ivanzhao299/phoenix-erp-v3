@@ -213,6 +213,23 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/departments-diff?companyCode=COMP-LAO-AGRI
+   * 部门对账:好业财 vs ERP 同公司下部门列表差异(审核用)。
+   * 铁律:只读两端,不写入。用户审核后再决定映射/补齐策略。
+   */
+  @Get('departments-diff')
+  @RequireMenu('MENU_FIN2_AR', 'V')
+  async departmentsDiff(@Query('companyCode') companyCode: string) {
+    if (!companyCode) return { success: false, error: 'companyCode 必填' };
+    try {
+      const diff = await this.arSync.diffDepartments(companyCode);
+      return { success: true, ...diff };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * POST /api/chanjet/sync-ar
    * 按公司同步好业财应收统计表 → PG(chanjet_ar_snapshot)。
    * body: { companyCode, period(YYYYMM), currency? }

@@ -67,6 +67,74 @@ export class ChanjetArSyncService implements OnModuleInit {
     }
   }
 
+  /**
+   * 部门对账:对比好业财与 ERP 同一公司下的部门列表。
+   *
+   * 好业财:GET /accounting/openapi/cc/department/list/{bookid}
+   * ERP:   sys_organizations WHERE org_type='DEPARTMENT' AND company_code=X
+   *
+   * 返回三类:both(两边都有,可能名不同) / chanjetOnly / erpOnly
+   * 用户审核后再决定:建映射表 / 在好业财补 / 在 ERP 补 / 维持差异
+   */
+  async diffDepartments(companyCode: string): Promise<{
+    companyCode: string;
+    chanjet: Array<{ id: string; code: string | null; name: string }>;
+    erp: Array<{ orgCode: string; orgName: string; parentCode: string | null }>;
+    both: Array<{ name: string; chanjetId: string; erpOrgCode: string }>;
+    chanjetOnly: Array<{ id: string; code: string | null; name: string }>;
+    erpOnly: Array<{ orgCode: string; orgName: string }>;
+  }> {
+    const map = await this.mapRepo.findOneBy({ companyCode });
+    if (!map) throw new Error(`公司 ${companyCode} 无映射`);
+
+    // 1. 拉好业财部门(只读)
+    type ChanjetDept = { id?: number; code?: string; name?: string; deptName?: string; deptCode?: string; [k: string]: unknown };
+    const chanjetResp = await this.chanjet.callApi(`/accounting/openapi/cc/department/list/${map.bookid}`, {
+      method: 'GET',
+    }) as unknown;
+    const chanjetRaw = Array.isArray(chanjetResp) ? (chanjetResp as ChanjetDept[])
+      : Array.isArray((chanjetResp as { result?: ChanjetDept[] })?.result) ? (chanjetResp as { result: ChanjetDept[] }).result
+      : [];
+    const chanjetDepts = chanjetRaw.map(d => ({
+      id: String(d.id ?? ''),
+      code: (d.code ?? d.deptCode ?? null) as string | null,
+      name: (d.name ?? d.deptName ?? '') as string,
+    }));
+
+    // 2. 拉 ERP 部门(sys_organizations org_type='DEPARTMENT' 挂在该公司下)
+    interface ErpDeptRow { org_code: string; org_name: string; parent_code: string | null }
+    const erpRaw = await this.mapRepo.manager.query<ErpDeptRow[]>(
+      `SELECT org_code, org_name, parent_code
+       FROM sys_organizations
+       WHERE org_type='DEPARTMENT' AND company_code=$1 AND status='ACTIVE'
+       ORDER BY org_code`,
+      [companyCode],
+    );
+    const erpDepts = (erpRaw || []).map(r => ({
+      orgCode: r.org_code,
+      orgName: r.org_name,
+      parentCode: r.parent_code,
+    }));
+
+    // 3. 对账:按 name 严格匹配(用户已说名称对齐;后续可加 code 模糊)
+    const erpByName = new Map(erpDepts.map(d => [d.orgName, d]));
+    const chanjetByName = new Map(chanjetDepts.map(d => [d.name, d]));
+    const both: Array<{ name: string; chanjetId: string; erpOrgCode: string }> = [];
+    const chanjetOnly: typeof chanjetDepts = [];
+    const erpOnly: Array<{ orgCode: string; orgName: string }> = [];
+
+    for (const cd of chanjetDepts) {
+      const e = erpByName.get(cd.name);
+      if (e) both.push({ name: cd.name, chanjetId: cd.id, erpOrgCode: e.orgCode });
+      else chanjetOnly.push(cd);
+    }
+    for (const ed of erpDepts) {
+      if (!chanjetByName.has(ed.orgName)) erpOnly.push({ orgCode: ed.orgCode, orgName: ed.orgName });
+    }
+
+    return { companyCode, chanjet: chanjetDepts, erp: erpDepts, both, chanjetOnly, erpOnly };
+  }
+
   /** 列出所有(启用的)公司 ↔ 账套映射(给前端下拉用) */
   async listCompanies(): Promise<ChanjetBookCompanyMapEntity[]> {
     // 懒补 seed:onModuleInit 可能在 mapRepo 准备好前抢跑被吞,这里兜底
