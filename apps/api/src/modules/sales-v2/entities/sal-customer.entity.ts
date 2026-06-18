@@ -30,7 +30,9 @@ import {
 @Index('idx_sal_cust_auto_frozen', ['autoFrozen'])
 @Index('idx_sal_cust_risk_level', ['riskLevel'])
 @Index('idx_sal_cust_last_overdue', ['lastOverdueAt'])
-@Index('idx_sal_cust_legacy_code', ['legacyCode'], { unique: true })
+// idx_sal_cust_legacy_code 跳过:DB 列 legacy_customer_code 在 entity 缺
+// (g197 真业务漂移; entity 现状里没有这字段, 加 @Index 会让 typeorm
+// metadata build 阶段炸 "column is missing in the entity")
 export class SalCustomerEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;
