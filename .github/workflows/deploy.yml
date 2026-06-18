@@ -360,7 +360,7 @@ jobs:
             # 跑过即 0 pending;P4 起新需求走 TS 迁移即可自动跑。
             # 失败 → set -e 红灯(prod schema 已部分改动需人工排查)。
             echo "── 执行 TypeORM TS 迁移(api 容器内) ──"
-            docker compose exec -T api node ./node_modules/.bin/typeorm \
+            docker compose exec -T api ./node_modules/.bin/typeorm \
               -d dist/database/data-source.js migration:run
             echo "✅ TS 迁移完成"
 

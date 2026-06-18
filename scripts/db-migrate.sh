@@ -88,7 +88,8 @@ echo "── P3: TypeORM TS 迁移 ──"
 if [ "$MODE" = "ci" ]; then
   # CI runner: cwd=apps/api(MIG_DIR=.), pnpm build 已跑过, typeorm CLI + dist 都在
   if [ -f "$DIR/dist/database/data-source.js" ] && [ -x "$DIR/node_modules/.bin/typeorm" ]; then
-    ( cd "$DIR" && node ./node_modules/.bin/typeorm -d dist/database/data-source.js migration:run )
+    # .bin/typeorm 是 shell wrapper(pnpm 模式),直接执行(不要加 node 前缀)
+    ( cd "$DIR" && ./node_modules/.bin/typeorm -d dist/database/data-source.js migration:run )
     echo "✅ TS 迁移完成 (CI)"
   else
     echo "⚠️  TS 迁移跳过(CI): dist/database/data-source.js 或 typeorm CLI 缺失 — 检查 P1 配置是否生效"
@@ -99,7 +100,7 @@ else
   #       db-migrate.sh 跑时 api 容器还没起 → 兼容期跳过,等 deploy.yml 后续起完
   #       api 再用 docker compose exec 跑 migration:run(本步未来由 deploy.yml 接管)
   if docker compose ps --services --filter status=running 2>/dev/null | grep -q '^api$'; then
-    docker compose exec -T api node ./node_modules/.bin/typeorm -d dist/database/data-source.js migration:run
+    docker compose exec -T api ./node_modules/.bin/typeorm -d dist/database/data-source.js migration:run
     echo "✅ TS 迁移完成 (生产)"
   else
     echo "ℹ️  api 容器未运行 → TS 迁移跳过(兼容期);migrations-ts/ 为空时无影响"
