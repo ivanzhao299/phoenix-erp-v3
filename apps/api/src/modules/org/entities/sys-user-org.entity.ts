@@ -5,8 +5,11 @@ import {
   Index,
   Unique,
   Check,
+  ManyToOne,
+  JoinColumn,
   CreateDateColumn,
 } from 'typeorm';
+import { SysOrganizationEntity } from './sys-organization.entity';
 
 @Entity('sys_user_orgs')
 @Index('idx_user_orgs_user', ['userId'])
@@ -23,6 +26,10 @@ export class SysUserOrgEntity {
 
   @Column({ name: 'org_id', type: 'bigint' })
   orgId: number;
+
+  @ManyToOne(() => SysOrganizationEntity)
+  @JoinColumn({ name: 'org_id', referencedColumnName: 'id', foreignKeyConstraintName: 'sys_user_orgs_org_id_fkey' })
+  org?: SysOrganizationEntity;
 
   @Column({ name: 'is_primary', type: 'boolean' })
   isPrimary: boolean;

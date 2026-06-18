@@ -1,4 +1,5 @@
-import { Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, Column, Index, ManyToOne, JoinColumn, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { SalDeliveryOrderEntity } from './sal-delivery-order.entity';
 
 /** 配送单明细  sal_delivery_order_items — Sales V2 Phase 4 */
 @Entity('sal_delivery_order_items')
@@ -9,6 +10,9 @@ import { Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn, Update
 export class SalDeliveryOrderItemEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' }) id: string;
   @Column({ name: 'delivery_order_id', type: 'bigint' }) deliveryOrderId: string;
+  @ManyToOne(() => SalDeliveryOrderEntity)
+  @JoinColumn({ name: 'delivery_order_id', referencedColumnName: 'id', foreignKeyConstraintName: 'sal_delivery_order_items_delivery_order_id_fkey' })
+  deliveryOrder?: SalDeliveryOrderEntity;
   @Column({ name: 'sales_order_id', type: 'bigint' }) salesOrderId: string;
   @Column({ name: 'sales_order_no', type: 'varchar', length: 64 }) salesOrderNo: string;
   @Column({ name: 'customer_code', type: 'varchar', length: 64, nullable: true }) customerCode: string | null;

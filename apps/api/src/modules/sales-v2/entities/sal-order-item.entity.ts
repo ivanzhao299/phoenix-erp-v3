@@ -1,6 +1,7 @@
 import {
-  Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn,
+  Entity, Column, Index, ManyToOne, JoinColumn, PrimaryGeneratedColumn, CreateDateColumn,
 } from 'typeorm';
+import { SalSalesOrderEntity } from './sal-sales-order.entity';
 
 /**
  * 销售订单明细  sal_order_items
@@ -24,6 +25,10 @@ export class SalOrderItemEntity {
 
   @Column({ name: 'sales_order_id', type: 'bigint' })
   salesOrderId: string;
+
+  @ManyToOne(() => SalSalesOrderEntity)
+  @JoinColumn({ name: 'sales_order_id', referencedColumnName: 'id', foreignKeyConstraintName: 'sal_order_items_sales_order_id_fkey' })
+  salesOrder?: SalSalesOrderEntity;
 
   @Column({ name: 'product_code', type: 'varchar', length: 64 })
   productCode: string;

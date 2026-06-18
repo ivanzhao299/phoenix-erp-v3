@@ -1,4 +1,6 @@
-import { Entity, PrimaryColumn, Column, Index, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryColumn, Column, Index, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
+import { SysUserEntity } from '../../../auth/entities/sys-user.entity';
+import { SysRoleEntity } from './sys-role.entity';
 
 /**
  * sys_user_role — 用户-角色关联表（多对多）
@@ -11,8 +13,16 @@ export class SysUserRoleEntity {
   @PrimaryColumn({ type: 'bigint' })
   user_id: number;
 
+  @ManyToOne(() => SysUserEntity)
+  @JoinColumn({ name: 'user_id', referencedColumnName: 'id', foreignKeyConstraintName: 'sys_user_role_user_id_fkey' })
+  user?: SysUserEntity;
+
   @PrimaryColumn({ type: 'bigint' })
   role_id: number;
+
+  @ManyToOne(() => SysRoleEntity)
+  @JoinColumn({ name: 'role_id', referencedColumnName: 'role_id', foreignKeyConstraintName: 'sys_user_role_role_id_fkey' })
+  role?: SysRoleEntity;
 
   /** 是否主角色（用户多角色时，主角色用于审批/单据归属判断） */
   @Column({ type: 'boolean', default: false })
@@ -23,4 +33,8 @@ export class SysUserRoleEntity {
 
   @Column({ type: 'bigint', nullable: true })
   granted_by: number;
+
+  @ManyToOne(() => SysUserEntity)
+  @JoinColumn({ name: 'granted_by', referencedColumnName: 'id', foreignKeyConstraintName: 'sys_user_role_granted_by_fkey' })
+  granter?: SysUserEntity;
 }

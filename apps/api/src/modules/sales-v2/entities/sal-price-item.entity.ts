@@ -1,6 +1,7 @@
 import {
-  Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn,
+  Entity, Column, Index, ManyToOne, JoinColumn, PrimaryGeneratedColumn, CreateDateColumn,
 } from 'typeorm';
+import { SalPriceBookEntity } from './sal-price-book.entity';
 
 /**
  * 价格明细  sal_price_items
@@ -24,6 +25,10 @@ export class SalPriceItemEntity {
 
   @Column({ name: 'price_book_id', type: 'bigint' })
   priceBookId: string;
+
+  @ManyToOne(() => SalPriceBookEntity)
+  @JoinColumn({ name: 'price_book_id', referencedColumnName: 'id', foreignKeyConstraintName: 'sal_price_items_price_book_id_fkey' })
+  priceBook?: SalPriceBookEntity;
 
   @Column({ name: 'product_code', type: 'varchar', length: 64 })
   productCode: string;

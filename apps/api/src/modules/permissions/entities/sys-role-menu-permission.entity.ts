@@ -1,4 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, Unique } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Index, ManyToOne, JoinColumn, Unique } from 'typeorm';
+import { SysRoleEntity } from './sys-role.entity';
+import { SysMenuEntity } from './sys-menu.entity';
 
 /**
  * sys_role_menu_permission — 角色×菜单×CRUD 三元组
@@ -22,8 +24,16 @@ export class SysRoleMenuPermissionEntity {
   @Column({ type: 'bigint' })
   role_id: number;
 
+  @ManyToOne(() => SysRoleEntity)
+  @JoinColumn({ name: 'role_id', referencedColumnName: 'role_id', foreignKeyConstraintName: 'sys_role_menu_permission_role_id_fkey' })
+  role?: SysRoleEntity;
+
   @Column({ type: 'bigint' })
   menu_id: number;
+
+  @ManyToOne(() => SysMenuEntity)
+  @JoinColumn({ name: 'menu_id', referencedColumnName: 'menu_id', foreignKeyConstraintName: 'sys_role_menu_permission_menu_id_fkey' })
+  menu?: SysMenuEntity;
 
   /** 逗号分隔的权限码集合，例如 "V,C,E" 或 "*" */
   @Column({ type: 'varchar', length: 32 })
