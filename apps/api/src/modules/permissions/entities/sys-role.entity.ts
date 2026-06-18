@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Index, Check, CreateDateColumn } from 'typeorm';
 
 /**
  * sys_role — 角色表（V3 RBAC 设计）
@@ -6,6 +6,7 @@ import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn } from 
  */
 @Entity('sys_role')
 @Index('idx_sys_role_status', ['status'])
+@Check('chk_sys_role_status', `status IN ('ACTIVE','DEPRECATED')`)
 export class SysRoleEntity {
   @PrimaryGeneratedColumn({ name: 'role_id', type: 'bigint' })
   role_id: number;

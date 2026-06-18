@@ -3,11 +3,13 @@ import {
   PrimaryGeneratedColumn,
   Column,
   Index,
+  Check,
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
 @Entity('sys_organizations')
+@Check('chk_org_type', `org_type IN ('GROUP','COMPANY','FACTORY','PROJECT','WAREHOUSE','STORE','DEPARTMENT','BU','SITE','VIRTUAL_ORGANIZATION')`)
 @Index('idx_orgs_parent', ['parentId'])
 @Index('idx_orgs_type', ['orgType'])
 @Index('idx_orgs_status', ['status'])

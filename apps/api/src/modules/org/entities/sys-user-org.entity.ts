@@ -4,6 +4,7 @@ import {
   Column,
   Index,
   Unique,
+  Check,
   CreateDateColumn,
 } from 'typeorm';
 
@@ -11,6 +12,8 @@ import {
 @Index('idx_user_orgs_user', ['userId'])
 @Index('idx_user_orgs_org', ['orgId'])
 @Unique('uq_user_org', ['userId', 'orgId'])
+@Check('chk_user_org_scope_level', `data_scope_level IN ('SELF','PROJECT','COMPANY','REGION','GROUP','BU','SITE','DEPARTMENT','STORE','WAREHOUSE')`)
+@Check('chk_user_org_role_scope', `role_scope IS NULL OR role_scope IN ('GROUP','BU','COMPANY','SITE','DEPARTMENT')`)
 export class SysUserOrgEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: number;

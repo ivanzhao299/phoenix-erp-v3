@@ -1,5 +1,5 @@
 import {
-  Entity, Column, Index, PrimaryGeneratedColumn,
+  Entity, Column, Index, Check, PrimaryGeneratedColumn,
   CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 
@@ -28,6 +28,7 @@ import {
  */
 @Entity('fin_fund_transfers')
 @Index('idx_fin_fund_transfers_company', ['companyCode', 'status'])
+@Check('chk_fin_transfer_diff_accounts', `from_account_id <> to_account_id`)
 export class FinFundTransferEntity {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;
