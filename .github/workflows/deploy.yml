@@ -90,6 +90,31 @@ jobs:
           fi
           echo "✅ 顶级 migrations/ 已锁定（46 个历史 SQL）"
 
+      # g195-P5 门禁 #1: apps/api/migrations/ 也冻结(只允许 g195-P2 baseline 的 169 条)
+      # 自此新 schema/数据迁移一律走 apps/api/src/database/migrations/(TS 迁移)。
+      # 历史裸 SQL 已被 P2 桥接进 TypeORM migrations 表,认作"已执行"不会重跑。
+      - name: Lock apps/api/migrations/ allowlist (g195-P5)
+        run: |
+          if [ ! -f apps/api/migrations/.allowlist ]; then
+            echo "::error::missing apps/api/migrations/.allowlist (g195-P5 治理基线缺失)"
+            exit 1
+          fi
+          actual=$(ls apps/api/migrations/ 2>/dev/null | grep -E '^2026.*\.sql$' | LC_ALL=C sort)
+          expected=$(LC_ALL=C sort apps/api/migrations/.allowlist)
+          if ! diff <(echo "$actual") <(echo "$expected") > /tmp/_p5_diff.log 2>&1; then
+            echo "::error::❌ apps/api/migrations/ 文件清单与 .allowlist 不符。新 schema/数据迁移必须放 apps/api/src/database/migrations/(TS 迁移)"
+            echo "见 apps/api/src/database/migrations/README.md 与 docs/migration-tooling-roadmap.md"
+            cat /tmp/_p5_diff.log
+            exit 1
+          fi
+          echo "✅ apps/api/migrations/ 已锁定(169 个 baseline 裸 SQL)"
+
+      # g195-P5 门禁 #2: TS 迁移必须实现 down()
+      # 防止"懒得写 down" → migration:revert 全线无效。
+      # 启发判定见 scripts/check-ts-migration-down.sh 顶部注释。
+      - name: Verify TS migrations implement down() (g195-P5)
+        run: bash scripts/check-ts-migration-down.sh apps/api/src/database/migrations
+
       - name: Install system tools (psql + jq)
         run: |
           sudo apt-get update -qq
@@ -127,6 +152,27 @@ jobs:
           # CI 用临时空库：脚本检测 schema_migrations 空 + 无业务数据 → 不 baseline、全跑做回归验证。
           export PGHOST="$DB_HOST" PGPORT="$DB_PORT" PGUSER="$DB_USER" PGPASSWORD="$DB_PASSWORD" PGDATABASE="$DB_NAME"
           MIG_MODE=ci MIG_DIR=. bash ../../scripts/db-migrate.sh
+
+      # g195-P5 门禁 #3: entity ↔ DB schema 同步检查(warn-only)
+      # 跑 migration:generate,有 diff 说明 entity 改了但没配套迁移。
+      # 当前 warn-only(::warning 不红灯) — 历史漂移大量存在,等 P6+ 团队补齐
+      # 漂移迁移后切真红灯(本 step 改为 exit 1)。
+      - name: Check entity ↔ DB schema sync (g195-P5, warn-only)
+        working-directory: apps/api
+        run: |
+          export PGHOST="$DB_HOST" PGPORT="$DB_PORT" PGUSER="$DB_USER" PGPASSWORD="$DB_PASSWORD" PGDATABASE="$DB_NAME"
+          rm -f /tmp/_p5_entity_diff*.ts 2>/dev/null
+          out=$(./node_modules/.bin/typeorm migration:generate -d dist/database/data-source.js /tmp/_p5_entity_diff 2>&1) || true
+          if echo "$out" | grep -q "No changes in database schema"; then
+            echo "✅ entity ↔ DB schema 已同步"
+          else
+            echo "::warning::⚠️ entity 改动可能未配套迁移(g195-P5 warn-only;P6+ 切真红灯)"
+            echo "──── migration:generate 输出 ────"
+            echo "$out" | tail -30
+            echo "─────────────────────────────────"
+            ls /tmp/_p5_entity_diff*.ts 2>/dev/null | head -3
+            rm -f /tmp/_p5_entity_diff*.ts 2>/dev/null
+          fi
 
       - name: Start API
         working-directory: apps/api
