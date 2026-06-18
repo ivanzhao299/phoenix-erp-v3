@@ -34,11 +34,15 @@ export class SysOrganizationEntity {
   @Column({ name: 'parent_id', type: 'bigint', nullable: true })
   parentId: number | null;
 
-  // g197-E 探针: 去掉 createForeignKeyConstraints:false,让 typeorm 默认
-  // 行为(创建+识别 FK)。期望命中现有 PG FK(sys_organizations_parent_id_fkey)。
-  // 若 typeorm 用 FK_<hash> 自动名不匹配,会出现 DROP+CREATE 同结构 refresh。
+  // g197-F 探针: @JoinColumn 加 foreignKeyConstraintName 显式指定 FK 名,
+  // 让 typeorm 比对时按 PG 实际名 sys_organizations_parent_id_fkey 匹配
+  // (typeorm 0.3.10+ 支持此选项)。
   @ManyToOne(() => SysOrganizationEntity)
-  @JoinColumn({ name: 'parent_id', referencedColumnName: 'id' })
+  @JoinColumn({
+    name: 'parent_id',
+    referencedColumnName: 'id',
+    foreignKeyConstraintName: 'sys_organizations_parent_id_fkey',
+  })
   parent?: SysOrganizationEntity;
 
   @Column({ name: 'org_type', type: 'varchar', length: 32 })
