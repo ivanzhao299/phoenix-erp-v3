@@ -1,10 +1,11 @@
-import { Controller, Post, Body, Get, Query, Logger, HttpCode } from '@nestjs/common';
-import { Public } from '../../common/guards/menu.guard';
-import { RequireMenu } from '../../common/guards/menu.guard';
+import { Controller, Post, Body, Get, Query, Logger, HttpCode, UseGuards } from '@nestjs/common';
+import { Public, MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { ChanjetAuthService } from './chanjet-auth.service';
 import { ChanjetArSyncService } from './chanjet-ar-sync.service';
 
 @Controller('api/chanjet')
+@UseGuards(MenuGuard, DataScopeGuard)
 export class ChanjetCallbackController {
   private readonly log = new Logger('ChanjetCallback');
 
