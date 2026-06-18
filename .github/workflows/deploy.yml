@@ -353,6 +353,17 @@ jobs:
 
             # ── 滚动重启容器 ─────────────────────────────────────────────
             docker compose up -d --no-deps --wait api
+
+            # ── g195-P3+: TypeORM TS 迁移真接管(api 容器内执行)─────────────
+            # db-migrate.sh 阶段 api 还没起所以跳过 TS 迁移,这里 api up 后才真跑。
+            # 兼容期:migrations-ts/(apps/api/src/database/migrations/)目前为空,
+            # 跑过即 0 pending;P4 起新需求走 TS 迁移即可自动跑。
+            # 失败 → set -e 红灯(prod schema 已部分改动需人工排查)。
+            echo "── 执行 TypeORM TS 迁移(api 容器内) ──"
+            docker compose exec -T api node ./node_modules/.bin/typeorm \
+              -d dist/database/data-source.js migration:run
+            echo "✅ TS 迁移完成"
+
             docker compose up -d --no-deps --wait web \
               || { docker compose logs web --tail 80; exit 1; }
 
