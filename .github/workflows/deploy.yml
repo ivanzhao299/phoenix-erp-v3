@@ -570,19 +570,26 @@ jobs:
             echo "  build_web=$BUILD_WEB  build_api=$BUILD_API  run_mig=$RUN_MIG"
             echo "════════════════════════════════════════════════"
 
-            # 首次部署兜底:确保 runtime-design-system.css alias 目录存在
-            mkdir -p /opt/phoenix/static-overrides
-            if [ ! -f /opt/phoenix/static-overrides/runtime-design-system.css ]; then
-              # 用仓库内默认占位版作种子(后续 fast-css 才能 scp 覆盖)
-              cp apps/web/public/runtime-design-system.css /opt/phoenix/static-overrides/ || true
-              chmod 644 /opt/phoenix/static-overrides/runtime-design-system.css
-              echo "✅ runtime-design-system.css 占位文件已创建"
-            fi
-
-            # ── 同步代码 ────────────────────────────────────────────────
+            # ── 同步代码(必须先 pull,否则下面 cp 仓库新文件会找不到)──
             git stash
             git pull --ff-only origin main
             echo "✅ Code synced"
+
+            # 首次部署兜底:确保 runtime-design-system.css alias 目录 + 种子文件存在
+            mkdir -p /opt/phoenix/static-overrides
+            if [ ! -f /opt/phoenix/static-overrides/runtime-design-system.css ]; then
+              # 用仓库内默认占位版作种子(后续 fast-css 才能 scp 覆盖)
+              if [ -f apps/web/public/runtime-design-system.css ]; then
+                cp apps/web/public/runtime-design-system.css /opt/phoenix/static-overrides/ \
+                  && chmod 644 /opt/phoenix/static-overrides/runtime-design-system.css \
+                  && echo "✅ runtime-design-system.css 占位文件已创建"
+              else
+                # 仓库还没这文件(罕见,旧分支):写一个空占位防 nginx 404
+                : > /opt/phoenix/static-overrides/runtime-design-system.css
+                chmod 644 /opt/phoenix/static-overrides/runtime-design-system.css
+                echo "⚠ 仓库无 runtime-design-system.css 源文件,写空占位"
+              fi
+            fi
 
             # ── 畅捷通环境变量注入(所有 mode 都做,廉价幂等)──────────
             inject_env() {
