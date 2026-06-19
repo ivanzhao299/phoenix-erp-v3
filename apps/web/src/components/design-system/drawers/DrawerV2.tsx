@@ -48,7 +48,8 @@ export function DrawerV2({ open, title, width = 560, onClose, children, footer, 
             </button>
           </div>
         )}
-        <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>{children}</div>
+        {/* ds-form: 锁住内部 input/select/textarea 字号 13.5px(globals.css) */}
+        <div className="ds-form" style={{ padding: 20, overflowY: 'auto', flex: 1 }}>{children}</div>
         {footer && <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '12px 20px', borderTop: '1px solid var(--border)' }}>{footer}</div>}
       </div>
     </div>
