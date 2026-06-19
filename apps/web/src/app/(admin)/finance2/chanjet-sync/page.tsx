@@ -6,12 +6,13 @@ import request from '@/lib/api-client';
 import { RefreshCw, Cloud, Download, BookOpen, CheckCircle2 } from 'lucide-react';
 import { usePermission } from '@/hooks/usePermission';
 
-// g200a 模板 token(2026-06-19)
+// g200a/c 模板 token(2026-06-19)
 import {
   primaryActionButton, secondaryActionButton, inputField,
   searchToolbar, tableContainer, tableHeaderCell, tableBodyCell,
   kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
   actionPill, inlineAlert, MONO_FONT,
+  actionGroupBox, moneyCell,
 } from '@/components/design-system/cockpit-styles';
 
 /**
@@ -390,7 +391,8 @@ export default function ChanjetSyncPage() {
         </table>
       </div>
 
-      <div style={{ marginTop: 16, padding: 12, background: '#fffbeb', borderRadius: 6, fontSize: 13, color: '#92400e' }}>
+      {/* 铁律横条 — g200c(2026-06-19):hex 浅黄 → inlineAlert('warning') */}
+      <div style={{ ...inlineAlert('warning'), marginTop: 16, lineHeight: 1.6 }}>
         <strong>铁律</strong>：只读好业财（HTTP GET），写本地 PG 快照表（chanjet_ar_snapshot）。
         按公司一对一对应（chanjet_book_company_map）。非本公司财务受 DataScope 限制不可见。
         何时可写好业财由用户明示。
@@ -398,119 +400,116 @@ export default function ChanjetSyncPage() {
 
       {/* g199-B 审核入账总账 */}
       {canViewLedger && (
-        <div id="ar-import-section" style={{ marginTop: 24, padding: 16, border: '1px solid #e5e7eb', borderRadius: 8 }}>
+        <div id="ar-import-section" style={{ ...actionGroupBox, marginTop: 24, padding: 16, background: 'var(--bg-card)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
-              <BookOpen size={16} style={{ verticalAlign: -2, marginRight: 6, color: '#0ea5e9' }} />
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>
+              <BookOpen size={16} style={{ verticalAlign: -2, marginRight: 6, color: 'var(--status-info)' }} />
               审核入账总账（chanjet_ar_snapshot → fin_ar_ledger）
             </h3>
-            <div style={{ fontSize: 12, color: '#6b7280' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
               铁律: 财务总监审核入账 · 同客户多科目自动聚合 · source=CHANJET_VERIFIED_YYYYMMDD
             </div>
           </div>
 
-          {importError && (
-            <div style={{ padding: 8, background: '#fef2f2', color: '#dc2626', borderRadius: 4, marginBottom: 8, fontSize: 13 }}>
-              {importError}
-            </div>
-          )}
+          {importError && <div style={{ ...inlineAlert('danger'), marginBottom: 8 }}>{importError}</div>}
 
           {!importPreview && !importError && (
-            <div style={{ color: '#9ca3af', fontSize: 13 }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
               先选公司+期间,点上方"预览入账总账"按钮查看差异;确认无误后由财务总监(MENU_FIN2_AR_LEDGER:E)入账。
             </div>
           )}
 
           {importPreview && (
             <div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 12, fontSize: 13 }}>
-                <div style={{ padding: 12, background: '#ecfdf5', borderRadius: 6 }}>
-                  <div style={{ color: '#065f46', fontWeight: 600 }}>新增 {importPreview.newRows.length}</div>
-                  <div style={{ fontSize: 11, color: '#6b7280' }}>fin_ar_ledger 中尚无</div>
+              {/* 4 状态卡 → kpiCardCompact(tone) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 12 }}>
+                <div style={kpiCardCompact('success')}>
+                  <div style={kpiCardCompactLabel}>新增 {importPreview.newRows.length}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>fin_ar_ledger 中尚无</div>
                 </div>
-                <div style={{ padding: 12, background: '#fef3c7', borderRadius: 6 }}>
-                  <div style={{ color: '#92400e', fontWeight: 600 }}>金额变动 {importPreview.changedRows.length}</div>
-                  <div style={{ fontSize: 11, color: '#6b7280' }}>期末与现存账不同</div>
+                <div style={kpiCardCompact('warning')}>
+                  <div style={kpiCardCompactLabel}>金额变动 {importPreview.changedRows.length}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>期末与现存账不同</div>
                 </div>
-                <div style={{ padding: 12, background: '#f3f4f6', borderRadius: 6 }}>
-                  <div style={{ color: '#374151', fontWeight: 600 }}>无差异 {importPreview.unchangedCount}</div>
-                  <div style={{ fontSize: 11, color: '#6b7280' }}>不会覆盖</div>
+                <div style={kpiCardCompact('default')}>
+                  <div style={kpiCardCompactLabel}>无差异 {importPreview.unchangedCount}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>不会覆盖</div>
                 </div>
-                <div style={{ padding: 12, background: '#eff6ff', borderRadius: 6 }}>
-                  <div style={{ color: '#1e3a8a', fontWeight: 600 }}>farm_code: {importPreview.farmCode}</div>
-                  <div style={{ fontSize: 11, color: '#6b7280' }}>期间日 {importPreview.periodDate}</div>
+                <div style={kpiCardCompact('info')}>
+                  <div style={kpiCardCompactLabel}>farm_code: {importPreview.farmCode}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>期间日 {importPreview.periodDate}</div>
                 </div>
               </div>
 
               {importPreview.newRows.length > 0 && (
                 <details open style={{ marginBottom: 8 }}>
-                  <summary style={{ cursor: 'pointer', fontWeight: 500, padding: 6, background: '#ecfdf5', borderRadius: 4 }}>
+                  <summary style={{ ...inlineAlert('success'), cursor: 'pointer', fontWeight: 500 }}>
                     新增 {importPreview.newRows.length} 行明细
                   </summary>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 6 }}>
-                    <thead style={{ background: '#f9fafb' }}>
-                      <tr>
-                        <th style={{ padding: 6, textAlign: 'left' }}>编码</th>
-                        <th style={{ padding: 6, textAlign: 'left' }}>客户</th>
-                        <th style={{ padding: 6, textAlign: 'right' }}>期末应收</th>
-                        <th style={{ padding: 6, textAlign: 'right' }}>本期应收</th>
-                        <th style={{ padding: 6, textAlign: 'right' }}>本期已收</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {importPreview.newRows.slice(0, 50).map(r => (
-                        <tr key={r.counterpartyName} style={{ borderTop: '1px solid #f3f4f6' }}>
-                          <td style={{ padding: 6, color: '#6b7280' }}>{r.counterpartyCode || '—'}</td>
-                          <td style={{ padding: 6 }}>{r.counterpartyName}</td>
-                          <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{fmt(r.closing)}</td>
-                          <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(r.charge)}</td>
-                          <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(r.received)}</td>
+                  <div style={{ ...tableContainer, marginTop: 6 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead>
+                        <tr>
+                          <th style={tableHeaderCell}>编码</th>
+                          <th style={tableHeaderCell}>客户</th>
+                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>期末应收</th>
+                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>本期应收</th>
+                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>本期已收</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {importPreview.newRows.slice(0, 50).map(r => (
+                          <tr key={r.counterpartyName}>
+                            <td style={{ ...tableBodyCell, color: 'var(--text-secondary)' }}>{r.counterpartyCode || '—'}</td>
+                            <td style={tableBodyCell}>{r.counterpartyName}</td>
+                            <td style={{ ...tableBodyCell, textAlign: 'right', ...moneyCell('default', 'sm') }}>{fmt(r.closing)}</td>
+                            <td style={{ ...tableBodyCell, textAlign: 'right', fontFamily: MONO_FONT }}>{fmt(r.charge)}</td>
+                            <td style={{ ...tableBodyCell, textAlign: 'right', fontFamily: MONO_FONT }}>{fmt(r.received)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </details>
               )}
 
               {importPreview.changedRows.length > 0 && (
                 <details open style={{ marginBottom: 8 }}>
-                  <summary style={{ cursor: 'pointer', fontWeight: 500, padding: 6, background: '#fef3c7', borderRadius: 4 }}>
+                  <summary style={{ ...inlineAlert('warning'), cursor: 'pointer', fontWeight: 500 }}>
                     金额变动 {importPreview.changedRows.length} 行(覆盖现存账)
                   </summary>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 6 }}>
-                    <thead style={{ background: '#f9fafb' }}>
-                      <tr>
-                        <th style={{ padding: 6, textAlign: 'left' }}>客户</th>
-                        <th style={{ padding: 6, textAlign: 'right' }}>原期末</th>
-                        <th style={{ padding: 6, textAlign: 'right' }}>新期末</th>
-                        <th style={{ padding: 6, textAlign: 'right' }}>差额</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {importPreview.changedRows.slice(0, 50).map(r => (
-                        <tr key={r.counterpartyName} style={{ borderTop: '1px solid #f3f4f6' }}>
-                          <td style={{ padding: 6 }}>{r.counterpartyName}</td>
-                          <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#6b7280' }}>{fmt(r.oldClosing)}</td>
-                          <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{fmt(r.newClosing)}</td>
-                          <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: Number(r.delta) > 0 ? '#dc2626' : '#059669' }}>
-                            {Number(r.delta) > 0 ? '+' : ''}{fmt(r.delta)}
-                          </td>
+                  <div style={{ ...tableContainer, marginTop: 6 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead>
+                        <tr>
+                          <th style={tableHeaderCell}>客户</th>
+                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>原期末</th>
+                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>新期末</th>
+                          <th style={{ ...tableHeaderCell, textAlign: 'right' }}>差额</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {importPreview.changedRows.slice(0, 50).map(r => (
+                          <tr key={r.counterpartyName}>
+                            <td style={tableBodyCell}>{r.counterpartyName}</td>
+                            <td style={{ ...tableBodyCell, textAlign: 'right', fontFamily: MONO_FONT, color: 'var(--text-secondary)' }}>{fmt(r.oldClosing)}</td>
+                            <td style={{ ...tableBodyCell, textAlign: 'right', ...moneyCell('default', 'sm') }}>{fmt(r.newClosing)}</td>
+                            <td style={{ ...tableBodyCell, textAlign: 'right', ...moneyCell(Number(r.delta) > 0 ? 'danger' : 'success', 'sm') }}>
+                              {Number(r.delta) > 0 ? '+' : ''}{fmt(r.delta)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </details>
               )}
 
-              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center' }}>
                 <button
                   onClick={() => doImport(true)}
                   disabled={importLoading || !canEditLedger || (importPreview.newRows.length === 0 && importPreview.changedRows.length === 0)}
-                  style={{
-                    padding: '8px 16px', background: '#6b7280', color: 'white',
-                    border: 'none', borderRadius: 6, cursor: importLoading ? 'wait' : 'pointer',
-                    opacity: !canEditLedger ? 0.5 : 1,
-                  }}
+                  style={{ ...secondaryActionButton, opacity: (!canEditLedger || importLoading) ? 0.5 : 1 }}
                   title={canEditLedger ? '不写库,只算最终入账数' : '需 MENU_FIN2_AR_LEDGER:E'}
                 >
                   试运行(不写库)
@@ -518,27 +517,18 @@ export default function ChanjetSyncPage() {
                 <button
                   onClick={() => doImport(false)}
                   disabled={importLoading || !canEditLedger || (importPreview.newRows.length === 0 && importPreview.changedRows.length === 0)}
-                  style={{
-                    padding: '8px 16px', background: '#0ea5e9', color: 'white',
-                    border: 'none', borderRadius: 6, cursor: importLoading ? 'wait' : 'pointer',
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    opacity: !canEditLedger ? 0.5 : 1,
-                  }}
+                  style={{ ...primaryActionButton, opacity: (!canEditLedger || importLoading) ? 0.5 : 1 }}
                   title={canEditLedger ? '写 fin_ar_ledger(可逆,按 uq upsert)' : '需 MENU_FIN2_AR_LEDGER:E'}
                 >
-                  <CheckCircle2 size={16} /> 正式入账 fin_ar_ledger
+                  <CheckCircle2 size={14} /> 正式入账 fin_ar_ledger
                 </button>
                 {!canEditLedger && (
-                  <span style={{ alignSelf: 'center', fontSize: 12, color: '#dc2626' }}>需财务总监(MENU_FIN2_AR_LEDGER:E)操作</span>
+                  <span style={{ fontSize: 12, color: 'var(--status-danger)' }}>需财务总监(MENU_FIN2_AR_LEDGER:E)操作</span>
                 )}
               </div>
 
               {importResult && (
-                <div style={{
-                  marginTop: 12, padding: 10, borderRadius: 6, fontSize: 13,
-                  background: importResult.success ? '#ecfdf5' : '#fef2f2',
-                  color: importResult.success ? '#065f46' : '#dc2626',
-                }}>
+                <div style={{ ...inlineAlert(importResult.success ? 'success' : 'danger'), marginTop: 12 }}>
                   {importResult.success
                     ? `✓ ${importResult.dryRun ? '试运行' : '入账'}完成: upserted=${importResult.upserted} skipped=${importResult.skipped} source=${importResult.source}`
                     : `✗ ${importResult.error}`}
@@ -550,9 +540,9 @@ export default function ChanjetSyncPage() {
       )}
 
       {/* 部门对账(顶部按钮触发,自动滚到这里) */}
-      <div id="dept-diff-section" style={{ marginTop: 24, padding: 16, border: '1px solid #e5e7eb', borderRadius: 8 }}>
+      <div id="dept-diff-section" style={{ ...actionGroupBox, marginTop: 24, padding: 16, background: 'var(--bg-card)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>部门对账（好业财 ↔ ERP）</h3>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>部门对账（好业财 ↔ ERP）</h3>
           <button
             onClick={async () => {
               if (!companyCode) { setDeptError('请先选具体公司(不能用集团视角)'); return; }
@@ -572,62 +562,51 @@ export default function ChanjetSyncPage() {
                 setDeptLoading(false);
               }
             }}
-            disabled={deptLoading}
-            style={{
-              padding: '8px 16px',
-              background: companyCode ? '#6366f1' : '#9ca3af',
-              color: 'white',
-              border: 'none', borderRadius: 6,
-              cursor: deptLoading ? 'wait' : 'pointer',
-              fontWeight: 500,
-            }}
+            disabled={deptLoading || !companyCode}
+            style={actionPill('info', deptLoading || !companyCode)}
           >
             {deptLoading ? '对账中…' : '查看部门差异'}
           </button>
         </div>
-        {deptError && (
-          <div style={{ padding: 8, background: '#fef2f2', color: '#dc2626', borderRadius: 4, marginBottom: 8, fontSize: 13 }}>
-            {deptError}
-          </div>
-        )}
+        {deptError && <div style={{ ...inlineAlert('danger'), marginBottom: 8 }}>{deptError}</div>}
         {!companyCode && !deptDiff && (
-          <div style={{ color: '#9ca3af', fontSize: 13 }}>请先选具体公司,点"查看部门差异"。</div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>请先选具体公司,点"查看部门差异"。</div>
         )}
         {deptDiff && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, fontSize: 13 }}>
-            <div style={{ padding: 12, background: '#ecfdf5', borderRadius: 6 }}>
-              <div style={{ fontWeight: 600, color: '#065f46', marginBottom: 8 }}>✓ 两边都有 ({deptDiff.both.length})</div>
-              {deptDiff.both.length === 0 ? <div style={{ color: '#6b7280' }}>—</div> :
+            <div style={{ ...inlineAlert('success'), flexDirection: 'column', alignItems: 'stretch', padding: 12 }}>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>✓ 两边都有 ({deptDiff.both.length})</div>
+              {deptDiff.both.length === 0 ? <div style={{ color: 'var(--text-secondary)' }}>—</div> :
                 deptDiff.both.slice(0, 30).map(d => (
-                  <div key={d.chanjetId} style={{ padding: '4px 0', borderBottom: '1px dashed #d1fae5' }}>
-                    <div>{d.name}</div>
-                    <div style={{ fontSize: 11, color: '#6b7280' }}>好业财#{d.chanjetId} ↔ ERP {d.erpOrgCode}</div>
+                  <div key={d.chanjetId} style={{ padding: '4px 0', borderBottom: '1px dashed color-mix(in srgb, var(--status-success) 30%, transparent)' }}>
+                    <div style={{ color: 'var(--text-primary)' }}>{d.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>好业财#{d.chanjetId} ↔ ERP {d.erpOrgCode}</div>
                   </div>
                 ))}
             </div>
-            <div style={{ padding: 12, background: '#fef3c7', borderRadius: 6 }}>
-              <div style={{ fontWeight: 600, color: '#92400e', marginBottom: 8 }}>⚠ 只在好业财 ({deptDiff.chanjetOnly.length})</div>
-              {deptDiff.chanjetOnly.length === 0 ? <div style={{ color: '#6b7280' }}>—</div> :
+            <div style={{ ...inlineAlert('warning'), flexDirection: 'column', alignItems: 'stretch', padding: 12 }}>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>⚠ 只在好业财 ({deptDiff.chanjetOnly.length})</div>
+              {deptDiff.chanjetOnly.length === 0 ? <div style={{ color: 'var(--text-secondary)' }}>—</div> :
                 deptDiff.chanjetOnly.slice(0, 30).map(d => (
-                  <div key={d.id} style={{ padding: '4px 0', borderBottom: '1px dashed #fde68a' }}>
-                    <div>{d.name}</div>
-                    <div style={{ fontSize: 11, color: '#6b7280' }}>好业财#{d.id} code={d.code || '—'}</div>
+                  <div key={d.id} style={{ padding: '4px 0', borderBottom: '1px dashed color-mix(in srgb, var(--status-warning) 30%, transparent)' }}>
+                    <div style={{ color: 'var(--text-primary)' }}>{d.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>好业财#{d.id} code={d.code || '—'}</div>
                   </div>
                 ))}
             </div>
-            <div style={{ padding: 12, background: '#fee2e2', borderRadius: 6 }}>
-              <div style={{ fontWeight: 600, color: '#991b1b', marginBottom: 8 }}>⚠ 只在 ERP ({deptDiff.erpOnly.length})</div>
-              {deptDiff.erpOnly.length === 0 ? <div style={{ color: '#6b7280' }}>—</div> :
+            <div style={{ ...inlineAlert('danger'), flexDirection: 'column', alignItems: 'stretch', padding: 12 }}>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>⚠ 只在 ERP ({deptDiff.erpOnly.length})</div>
+              {deptDiff.erpOnly.length === 0 ? <div style={{ color: 'var(--text-secondary)' }}>—</div> :
                 deptDiff.erpOnly.slice(0, 30).map(d => (
-                  <div key={d.orgCode} style={{ padding: '4px 0', borderBottom: '1px dashed #fecaca' }}>
-                    <div>{d.orgName}</div>
-                    <div style={{ fontSize: 11, color: '#6b7280' }}>ERP {d.orgCode}</div>
+                  <div key={d.orgCode} style={{ padding: '4px 0', borderBottom: '1px dashed color-mix(in srgb, var(--status-danger) 30%, transparent)' }}>
+                    <div style={{ color: 'var(--text-primary)' }}>{d.orgName}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ERP {d.orgCode}</div>
                   </div>
                 ))}
             </div>
           </div>
         )}
-        <div style={{ marginTop: 12, fontSize: 12, color: '#6b7280' }}>
+        <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-secondary)' }}>
           匹配规则:按部门名称严格匹配。差异列出后,你可以决定:建映射表 / 在好业财补 / 在 ERP 补 / 维持差异。
         </div>
       </div>

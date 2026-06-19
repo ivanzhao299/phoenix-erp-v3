@@ -436,8 +436,9 @@ function PriceBooksTab() {
                   <td className={u.muted}>{row.channel_code ?? "—"}</td>
                   <td className={u.muted}>{row.customer_code ?? "—"}</td>
                   <td className={u.tac}>{row.priority}</td>
-                  <td className={u.fs11}>{row.effective_from ?? "—"}</td>
-                  <td className={u.fs11}>{row.effective_to ?? "—"}</td>
+                  {/* g200c(2026-06-19):ISO 字符串 → 本地日期(yyyy-MM-dd) */}
+                  <td className={u.fs11}>{row.effective_from ? new Date(row.effective_from).toLocaleDateString("zh-CN") : "—"}</td>
+                  <td className={u.fs11}>{row.effective_to   ? new Date(row.effective_to).toLocaleDateString("zh-CN")   : "—"}</td>
                   <td><span className={`${s.badge} ${st.cls}`}>{st.label}</span></td>
                   <td>
                     <div style={{
