@@ -24,9 +24,9 @@ export class ChanjetArSnapshotEntity {
   @Column({ name: 'company_code', type: 'varchar', length: 64, nullable: true })
   companyCode: string | null;
 
-  /** 部门 code(占位,待好业财部门维度接口) */
-  @Column({ name: 'dept_code', type: 'varchar', length: 64, nullable: true })
-  deptCode: string | null;
+  /** 部门 code(占位,待好业财部门维度接口) — NOT NULL DEFAULT '' 让唯一约束真生效 */
+  @Column({ name: 'dept_code', type: 'varchar', length: 64, default: '' })
+  deptCode: string;
 
   @Column({ name: 'period', type: 'varchar', length: 6 })
   period: string;

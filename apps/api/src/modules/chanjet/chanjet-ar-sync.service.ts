@@ -188,8 +188,7 @@ export class ChanjetArSyncService implements OnModuleInit {
       r.assistantCustomerCode
     );
 
-    // 写 PG:幂等"全删全插"(deptCode 当前为 NULL,upsert 的 ON CONFLICT 因 NULL≠NULL 不去重)
-    // 同 bookid+period 的旧数据全部删除,再 bulk INSERT 新数据
+    // 写 PG:幂等"全删全插"。dept_code 写空串(NOT NULL),uq_chanjet_ar_v2 真生效防重复
     await this.arRepo.delete({ bookid: map.bookid, period });
 
     let saved = 0;
@@ -197,7 +196,7 @@ export class ChanjetArSyncService implements OnModuleInit {
       const entity: Partial<ChanjetArSnapshotEntity> = {
         bookid: map.bookid,
         companyCode: map.companyCode,
-        deptCode: null,
+        deptCode: '',
         period,
         assistantCustomerCode: r.assistantCustomerCode ?? null,
         assistantCustomerId: r.assistantCustomer ? String(r.assistantCustomer) : null,
