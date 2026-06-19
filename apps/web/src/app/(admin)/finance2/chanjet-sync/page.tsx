@@ -63,19 +63,23 @@ const fmt = (v: string | number | null) =>
     : Number(v).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const today = new Date();
-// YYYY-MM 给 <input type="month">,YYYYMM 给后端 API
-const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-const toApiPeriod = (m: string) => m.replace('-', '');
+const pad = (n: number) => String(n).padStart(2, '0');
+// YYYY-MM-DD 给 <input type="date">
+const defaultStartDate = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-01`;
+const defaultEndDate = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+// 后端 API 当前用 YYYYMM(好业财 period 单月接口),从截止日推
+const toApiPeriod = (yyyymmdd: string) => yyyymmdd.substring(0, 7).replace('-', '');
 
 export default function ChanjetSyncPage() {
   const { canView, canEdit } = usePermission('MENU_FIN2_AR');
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companyCode, setCompanyCode] = useState<string>('');
-  // 起止月份(与好业财后台报表同口径);后端按 endMonth 单月拉(好业财 endbalance 已是累计值)
-  const [startMonth, setStartMonth] = useState(defaultMonth);
-  const [endMonth, setEndMonth] = useState(defaultMonth);
-  const period = toApiPeriod(endMonth);
+  // 起止日(精确到日,与好业财后台报表同口径)
+  const [startDate, setStartDate] = useState(defaultStartDate);
+  const [endDate, setEndDate] = useState(defaultEndDate);
+  // 后端 API 当前用 period(YYYYMM)拉单月,取截止日的会计期间
+  const period = toApiPeriod(endDate);
   // 公司 code → 中文名映射(表格"公司"列显示中文)
   const companyNameByCode = new Map(companies.map(c => [c.companyCode, c.companyName]));
 
@@ -177,21 +181,21 @@ export default function ChanjetSyncPage() {
           </select>
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>起始月</label>
+          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>起始日</label>
           <input
-            type="month"
-            value={startMonth}
-            onChange={e => setStartMonth(e.target.value)}
-            style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, width: 150 }}
+            type="date"
+            value={startDate}
+            onChange={e => setStartDate(e.target.value)}
+            style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, width: 160 }}
           />
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>截止月</label>
+          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>截止日</label>
           <input
-            type="month"
-            value={endMonth}
-            onChange={e => setEndMonth(e.target.value)}
-            style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, width: 150 }}
+            type="date"
+            value={endDate}
+            onChange={e => setEndDate(e.target.value)}
+            style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, width: 160 }}
           />
         </div>
         <button onClick={load} disabled={loading} style={{
