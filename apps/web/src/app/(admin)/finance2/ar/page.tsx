@@ -12,6 +12,9 @@ import { CompanySelector, CustomerSelector, CashAccountSelector } from '@/compon
 import {
   primaryActionButton, secondaryActionButton, modalMask, modalPanel, inputField, formLabel,
   drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
+  // g200a 模板 token(2026-06-19)
+  MONO_FONT, actionPill, moneyCell, drawerHeroBox,
+  detailInfoBox, recordRow, inlineAlert, actionGroupBox,
   inlineBadge, pillBadge,
   searchToolbar, toolbarFilterPill, toolbarSearchInput,
   tableContainer, tableHeaderCell, tableBodyCell, tablePagination,
@@ -319,7 +322,7 @@ function CreateArModal({
       setSaving(false);
     }
   };
-  return <div style={modalMask}>
+  return <div style={modalMask} onClick={onClose}>
       <div style={modalPanel(480)} onClick={e => e.stopPropagation()}>
         <div style={{
         display: 'flex',
@@ -506,7 +509,7 @@ function CreateReceiptModal({
       setSaving(false);
     }
   };
-  return <div style={modalMask}>
+  return <div style={modalMask} onClick={onClose}>
       <div style={modalPanel(500)} onClick={e => e.stopPropagation()}>
         <div style={{
         display: 'flex',
@@ -660,179 +663,138 @@ function ArDetailDrawer({
     }
   };
   const canCancel = detail && !['RECEIVED', 'CANCELLED', 'WRITTEN_OFF'].includes(detail.status) && Number(detail.received_amount_original) === 0;
-  return <div style={drawerMask}>
-      <div className="bg-bg-card" style={{
-      width: 480,
-      maxWidth: '95vw',
-      height: '100%',
-      overflowY: 'auto',
-      boxShadow: '-8px 0 40px var(--overlay-black-12)',
-      padding: 28,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 16
-    }}>
-
-        <div className={u.flexBetween}>
-          <div className="text-text" style={{
-          fontWeight: 700,
-          fontSize: 16
-        }}>应收发票详情</div>
-          <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-0">
-            <X size={18} className="text-text-dim" />
+  /* g200a ArDetailDrawer 整体改造(2026-06-19):
+     - mask 点击关闭(全 finance2 抽屉一致体验)
+     - drawerPanel(480) + drawerHeader/drawerHeaderTitle/drawerCloseButton 替代自写头
+     - 基本信息块用克制灰底 + ar_no MONO 字体
+     - 3 金额卡放大字号 12→14,用 moneyCell + tone
+     - 收款核销记录卡用 txnRow 同款克制白底 + 左色条
+     - 录入收款 / 取消 按钮换 actionPill,字号统一 12 */
+  return <div style={drawerMask} onClick={onClose}>
+      <div style={drawerPanel(480)} onClick={e => e.stopPropagation()}>
+        <div style={drawerHeader}>
+          <div style={drawerHeaderTitle}>应收发票详情</div>
+          <button onClick={onClose} style={drawerCloseButton}>
+            <X size={18} />
           </button>
         </div>
 
-        {loading && <div className="text-text-muted" style={{
-        textAlign: 'center',
-        padding: 40
-      }}>加载中…</div>}
+        {loading && <div className="text-text-muted" style={{ textAlign: 'center', padding: 40 }}>加载中…</div>}
 
-        {!loading && detail && <>
-            {/* 基本信息 */}
-            <div className="bg-bg-muted" style={{
-          borderRadius: 10,
-          padding: 16
-        }}>
-              <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 10
-          }}>
-                <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-sm">
+        {!loading && detail && <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* 基本信息块 — token detailInfoBox */}
+            <div style={detailInfoBox}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ fontFamily: MONO_FONT, fontWeight: 700, fontSize: 13, color: 'var(--status-success)' }}>
                   {detail.ar_no}
                 </span>
-                <div style={{
-              display: 'flex',
-              gap: 6
-            }}>
+                <div style={{ display: 'flex', gap: 6 }}>
                   <SourceBadge type={detail.source_type} />
                   <StatusBadge status={detail.status} size="sm" />
                 </div>
               </div>
-              <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '6px 16px',
-            fontSize: 12
-          }}>
-                {[['客户', detail.customer_name], ['公司', detail.company_code], ['发票号', detail.invoice_no ?? '—'], ['发票日期', fmtDate(detail.invoice_date)], ['到期日', fmtDate(detail.due_date)], ['项目', detail.project_code ?? '—'], ['备注', detail.remark ?? '—']].map(([k, v]) => <div key={k}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
+                {[['客户', detail.customer_name], ['公司', detail.company_code], ['发票号', detail.invoice_no ?? '—'], ['发票日期', fmtDate(detail.invoice_date)], ['到期日', fmtDate(detail.due_date)], ['项目', detail.project_code ?? '—'], ['备注', detail.remark ?? '—']].map(([k, v]) => (
+                  <div key={k}>
                     <span className="text-text-muted">{k}：</span>
                     <span className={`text-text ${u.fw500}`}>{v}</span>
-                  </div>)}
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* 金额 */}
-            <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr 1fr',
-          gap: 10
-        }}>
-              {[{
-            label: '发票金额',
-            value: fmtMoney(detail.amount_original, detail.currency_code),
-            colorClass: 'text-text'
-          }, {
-            label: '已收金额',
-            value: fmtMoney(detail.received_amount_original, detail.currency_code),
-            colorClass: 'text-emerald-600 dark:text-emerald-400'
-          }, {
-            label: '待收余额',
-            value: fmtMoney(detail.balance_amount_original, detail.currency_code),
-            colorClass: Number(detail.balance_amount_original) > 0 ? 'text-danger' : 'text-text-muted'
-          }].map(item => <div key={item.label} className="bg-bg-page border border-border" style={{
-            borderRadius: 10,
-            padding: '10px 12px',
-            textAlign: 'center'
-          }}>
-                  <div className="text-text-muted" style={{
-              fontSize: 10,
-              marginBottom: 4
-            }}>{item.label}</div>
-                  <div className={`text-xs font-extrabold ${item.colorClass}`}>{item.value}</div>
-                </div>)}
+            {/* 3 金额卡 — moneyCell + tone,放大字号 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              {([
+                { label: '发票金额', value: fmtMoney(detail.amount_original,          detail.currency_code), tone: 'default' as const },
+                { label: '已收金额', value: fmtMoney(detail.received_amount_original, detail.currency_code), tone: 'success' as const },
+                { label: '待收余额', value: fmtMoney(detail.balance_amount_original,  detail.currency_code), tone: (Number(detail.balance_amount_original) > 0 ? 'danger' : 'default') as 'danger' | 'default' },
+              ]).map(item => (
+                <div key={item.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
+                  <div className="text-text-muted" style={{ fontSize: 11, marginBottom: 4 }}>{item.label}</div>
+                  <div style={{ ...moneyCell(item.tone, 'md'), display: 'block', textAlign: 'center' }}>{item.value}</div>
+                </div>
+              ))}
             </div>
 
-            {/* 账龄 */}
-            {detail.aging_bucket !== 'NOT_DUE' && <div className="bg-danger/10 border border-danger/20 rounded-lg px-3 py-2 text-xs text-danger flex items-center gap-1.5">
-                <AlertTriangle size={13} />
-                账龄：{AGING_MAP[detail.aging_bucket]?.label ?? detail.aging_bucket}
-              </div>}
+            {/* 账龄告警 — token inlineAlert('danger') */}
+            {detail.aging_bucket !== 'NOT_DUE' && (
+              <div style={inlineAlert('danger')}>
+                <AlertTriangle size={13} /> 账龄：{AGING_MAP[detail.aging_bucket]?.label ?? detail.aging_bucket}
+              </div>
+            )}
 
             {/* 收款核销记录 */}
             <div>
-              <div className="text-text-muted" style={{
-            fontSize: 13,
-            fontWeight: 600,
-            marginBottom: 8
-          }}>
+              <div className="text-text-muted" style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
                 收款核销记录（{detail.allocations.length} 条）
               </div>
-              {detail.allocations.length === 0 ? <div className="text-text-muted" style={{
-            textAlign: 'center',
-            padding: '12px 0',
-            fontSize: 12
-          }}>暂无收款记录</div> : detail.allocations.map(a => <div key={a.id} className="bg-success/10 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-2.5 text-xs mb-1.5">
-                  <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              marginBottom: 4
-            }}>
-                    <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">{a.receipt_no}</span>
-                    <span className="font-bold text-emerald-800 dark:text-emerald-200">
-                      {fmtMoney(a.allocated_amount_original, a.currency_code)}
-                    </span>
+              {detail.allocations.length === 0 ? (
+                <div className="text-text-muted" style={{ textAlign: 'center', padding: '12px 0', fontSize: 12 }}>暂无收款记录</div>
+              ) : detail.allocations.map(a => (
+                /* g200a:token recordRow('success') — 白底 + 左 3px success 色条 */
+                <div key={a.id} style={recordRow('success')}>
+                  <div>
+                    <div style={{ fontFamily: MONO_FONT, color: 'var(--status-success)', fontWeight: 600, marginBottom: 2 }}>{a.receipt_no}</div>
+                    <div className="text-text-muted" style={{ fontSize: 11 }}>
+                      {fmtDate(a.receipt_date)}
+                      {a.receipt_method && <span> · {a.receipt_method}</span>}
+                      {a.bank_ref && <span> · {a.bank_ref}</span>}
+                      <span style={{ marginLeft: 6 }}><StatusBadge status={a.receipt_status} size="sm" /></span>
+                    </div>
                   </div>
-                  <div className="text-text-muted">
-                    {fmtDate(a.receipt_date)}
-                    {a.receipt_method && <span> · {a.receipt_method}</span>}
-                    {a.bank_ref && <span> · {a.bank_ref}</span>}
-                    <span className="ml-1.5"><StatusBadge status={a.receipt_status} size="sm" /></span>
+                  <div style={moneyCell('success', 'md')}>
+                    {fmtMoney(a.allocated_amount_original, a.currency_code)}
                   </div>
-                </div>)}
+                </div>
+              ))}
             </div>
 
             {/* 录入收款 */}
-            {!['RECEIVED', 'CANCELLED', 'WRITTEN_OFF'].includes(detail.status) && Number(detail.balance_amount_original) > 0 && <div>
-                {!showReceipt ? <button onClick={() => setShowReceipt(true)} className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-700 bg-success/10 text-sm text-emerald-700 dark:text-emerald-300 cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors">
-                    <Receipt size={13} /> 录入收款
-                  </button> : <div className="bg-success/10 border border-emerald-200 dark:border-emerald-800 rounded-xl p-3.5">
+            {!['RECEIVED', 'CANCELLED', 'WRITTEN_OFF'].includes(detail.status) && Number(detail.balance_amount_original) > 0 && (
+              <div>
+                {!showReceipt ? (
+                  <button onClick={() => setShowReceipt(true)} style={actionPill('success')}>
+                    <Receipt size={11} /> 录入收款
+                  </button>
+                ) : (
+                  <div style={actionGroupBox}>
                     <CreateReceiptModal selectedAr={detail} onClose={() => setShowReceipt(false)} onCreated={() => {
-              setShowReceipt(false);
-              load();
-              onChanged();
-            }} />
-                  </div>}
-              </div>}
+                      setShowReceipt(false); load(); onChanged();
+                    }} />
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 取消 */}
-            {canCancel && <div className="border border-orange-200 dark:border-orange-800 rounded-xl p-3.5 bg-orange-50 dark:bg-orange-900/20">
-                {!showCancel ? <button onClick={() => setShowCancel(true)} className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-danger/20 bg-bg-card text-sm text-danger cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                    <Ban size={13} /> 取消此应收发票
-                  </button> : <div>
-                    <div className="text-xs font-semibold text-orange-700 dark:text-orange-300 mb-2">确认取消应收发票</div>
-                    <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} placeholder="取消原因（可选）" className="w-full h-14 px-2.5 py-2 rounded-lg border border-danger/20 bg-bg-page text-xs text-text resize-none outline-none box-border" />
-                    {cancelErr && <div className="text-xs text-danger mt-1">{cancelErr}</div>}
-                    <div style={{
-              display: 'flex',
-              gap: 8,
-              marginTop: 8
-            }}>
-                      <button onClick={() => {
-                setShowCancel(false);
-                setCancelErr('');
-              }} className="px-3.5 py-1.5 rounded-lg border border-border bg-bg-page text-xs text-text-muted cursor-pointer hover:bg-bg-muted transition-colors">
-                        放弃
-                      </button>
-                      <button onClick={handleCancel} disabled={cancelling} className={`px-3.5 py-1.5 rounded-lg border-0 text-xs font-semibold text-white transition-colors ${cancelling ? 'bg-red-300 dark:bg-red-800 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 cursor-pointer'}`}>
+            {canCancel && (
+              <div style={actionGroupBox}>
+                {!showCancel ? (
+                  <button onClick={() => setShowCancel(true)} style={actionPill('danger')}>
+                    <Ban size={11} /> 取消此应收发票
+                  </button>
+                ) : (
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--status-danger)', marginBottom: 8 }}>确认取消应收发票</div>
+                    <textarea
+                      value={cancelReason}
+                      onChange={e => setCancelReason(e.target.value)}
+                      placeholder="取消原因（可选）"
+                      style={{ ...inputField, height: 56, resize: 'none', fontFamily: 'inherit' }}
+                    />
+                    {cancelErr && <div style={{ fontSize: 12, color: 'var(--status-danger)', marginTop: 4 }}>{cancelErr}</div>}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
+                      <button onClick={() => { setShowCancel(false); setCancelErr(''); }} style={actionPill('default')}>放弃</button>
+                      <button onClick={handleCancel} disabled={cancelling} style={actionPill('danger', cancelling)}>
                         {cancelling ? '处理中…' : '确认取消'}
                       </button>
                     </div>
-                  </div>}
-              </div>}
-          </>}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>}
       </div>
 
       {/* 收款 Modal 浮在抽屉外层 */}

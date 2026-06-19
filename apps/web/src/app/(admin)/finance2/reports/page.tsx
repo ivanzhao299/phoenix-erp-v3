@@ -15,6 +15,8 @@ import {
   tableContainer, tablePagination, kpiCard,
   heroBanner, heroBannerTitle, heroBannerSubtitle, heroBannerKpi, heroTagChip,
   subTabBar, subTabItem, sectionTitle, statTile, statTileLabel, statTileValue,
+  // g200a 模板 token(2026-06-19)
+  inlineAlert,
 } from '@/components/design-system/cockpit-styles';
 // ── 工具 ──────────────────────────────────────────────────────────────────────
 
@@ -900,13 +902,9 @@ function ExpenseTab() {
               </div>
             ))}
           </div>
-          {reimbData.avgProcessingDays !== null && <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300" style={{
-        borderRadius: 10,
-        padding: '12px 16px',
-        fontSize: 13
-      }}>
-              ⏱ 平均报销处理时长：<strong>{reimbData.avgProcessingDays} 天</strong>
-            </div>}
+          {reimbData.avgProcessingDays !== null && <div style={{ ...inlineAlert('success'), fontSize: 13, padding: '12px 16px' }}>
+            ⏱ 平均报销处理时长：<strong>{reimbData.avgProcessingDays} 天</strong>
+          </div>}
         </>}
     </div>;
 }

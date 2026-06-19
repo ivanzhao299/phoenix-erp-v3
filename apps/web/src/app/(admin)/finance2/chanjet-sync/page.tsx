@@ -6,6 +6,14 @@ import request from '@/lib/api-client';
 import { RefreshCw, Cloud, Download, BookOpen, CheckCircle2 } from 'lucide-react';
 import { usePermission } from '@/hooks/usePermission';
 
+// g200a 模板 token(2026-06-19)
+import {
+  primaryActionButton, secondaryActionButton, inputField,
+  searchToolbar, tableContainer, tableHeaderCell, tableBodyCell,
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+  actionPill, inlineAlert, MONO_FONT,
+} from '@/components/design-system/cockpit-styles';
+
 /**
  * 好业财应收同步页 — 铁律:只读好业财,写 PG chanjet_ar_snapshot
  * 权限:MENU_FIN2_AR(V 看,E 触发同步)
@@ -266,27 +274,16 @@ export default function ChanjetSyncPage() {
             style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, width: 160 }}
           />
         </div>
-        <button onClick={load} disabled={loading} style={{
-          padding: '8px 16px', background: '#3b82f6', color: 'white',
-          border: 'none', borderRadius: 6, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', gap: 6,
-        }}>
-          <Download size={16} /> {loading ? '加载中…' : '读取快照(PG)'}
+        <button onClick={load} disabled={loading} style={{ ...primaryActionButton, opacity: loading ? 0.6 : 1 }}>
+          <Download size={14} /> {loading ? '加载中…' : '读取快照(PG)'}
         </button>
         {canEdit && companyCode && (
-          <button onClick={sync} disabled={syncing} style={{
-            padding: '8px 16px', background: '#10b981', color: 'white',
-            border: 'none', borderRadius: 6, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 6,
-          }}>
-            <Cloud size={16} /> {syncing ? '同步中…' : '同步好业财 → PG'}
+          <button onClick={sync} disabled={syncing} style={actionPill('success', syncing)}>
+            <Cloud size={14} /> {syncing ? '同步中…' : '同步好业财 → PG'}
           </button>
         )}
-        <button onClick={load} disabled={loading} title="刷新" style={{
-          padding: '8px 12px', background: 'transparent', color: '#6b7280',
-          border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer',
-        }}>
-          <RefreshCw size={16} />
+        <button onClick={load} disabled={loading} title="刷新" style={secondaryActionButton}>
+          <RefreshCw size={14} />
         </button>
         <button
           onClick={async () => {
@@ -309,14 +306,8 @@ export default function ChanjetSyncPage() {
               setDeptLoading(false);
             }
           }}
-          disabled={deptLoading}
-          style={{
-            padding: '8px 16px',
-            background: companyCode ? '#6366f1' : '#9ca3af',
-            color: 'white',
-            border: 'none', borderRadius: 6,
-            cursor: deptLoading ? 'wait' : 'pointer',
-          }}
+          disabled={deptLoading || !companyCode}
+          style={actionPill('info', deptLoading || !companyCode)}
         >
           {deptLoading ? '部门对账中…' : '部门对账'}
         </button>
@@ -325,39 +316,36 @@ export default function ChanjetSyncPage() {
             onClick={loadImportPreview}
             disabled={importLoading || !companyCode}
             title={!companyCode ? '请先选具体公司' : '预览入账总账差异'}
-            style={{
-              padding: '8px 16px',
-              background: companyCode ? '#0ea5e9' : '#9ca3af',
-              color: 'white',
-              border: 'none', borderRadius: 6,
-              cursor: importLoading ? 'wait' : (companyCode ? 'pointer' : 'not-allowed'),
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}
+            style={actionPill('info', importLoading || !companyCode)}
           >
-            <BookOpen size={16} /> {importLoading ? '预览中…' : '预览入账总账'}
+            <BookOpen size={14} /> {importLoading ? '预览中…' : '预览入账总账'}
           </button>
         )}
       </div>
 
       {error && (
-        <div style={{ padding: 12, background: '#fef2f2', color: '#dc2626', borderRadius: 6, marginBottom: 16 }}>
-          {error}
-        </div>
+        <div style={{ ...inlineAlert('danger'), marginBottom: 16 }}>{error}</div>
       )}
 
-      <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div style={{ padding: 16, background: '#f9fafb', borderRadius: 8, minWidth: 180 }}>
-          <div style={{ fontSize: 12, color: '#6b7280' }}>往来单位数</div>
-          <div style={{ fontSize: 24, fontWeight: 600 }}>{count}</div>
+      {/* g200a KPI 3 卡 — token kpiCardCompact */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        gap: 10,
+        marginBottom: 16,
+      }}>
+        <div style={kpiCardCompact('brand')}>
+          <div style={kpiCardCompactLabel}>往来单位数</div>
+          <div style={kpiCardCompactValue('brand')}>{count}</div>
         </div>
-        <div style={{ padding: 16, background: '#f9fafb', borderRadius: 8, minWidth: 240 }}>
-          <div style={{ fontSize: 12, color: '#6b7280' }}>期末余额合计({currency})</div>
-          <div style={{ fontSize: 24, fontWeight: 600, color: '#059669' }}>{fmt(totalEndbalance)}</div>
+        <div style={kpiCardCompact('success')}>
+          <div style={kpiCardCompactLabel}>期末余额合计({currency})</div>
+          <div style={kpiCardCompactValue('success')}>{fmt(totalEndbalance)}</div>
         </div>
         {lastSync && (
-          <div style={{ padding: 16, background: '#f9fafb', borderRadius: 8, minWidth: 200 }}>
-            <div style={{ fontSize: 12, color: '#6b7280' }}>最后同步</div>
-            <div style={{ fontSize: 14, color: '#374151' }}>{new Date(lastSync).toLocaleString('zh-CN')}</div>
+          <div style={kpiCardCompact('default')}>
+            <div style={kpiCardCompactLabel}>最后同步</div>
+            <div style={{ ...kpiCardCompactValue('default'), fontSize: 14, fontFamily: 'inherit' }}>{new Date(lastSync).toLocaleString('zh-CN')}</div>
           </div>
         )}
       </div>

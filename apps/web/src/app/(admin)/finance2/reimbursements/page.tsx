@@ -13,6 +13,9 @@ import {
   inlineBadge, pillBadge,
   searchToolbar, toolbarFilterPill,
   tableContainer,
+  // g200a 模板 token(2026-06-19)
+  MONO_FONT, kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+  actionPill, moneyCell, inlineAlert,
 } from '@/components/design-system/cockpit-styles';
 // ── 类型 ─────────────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -157,7 +160,7 @@ function PayModal({
     }
   };
   const selected = selectedAccRaw;
-  return <div style={modalMask}>
+  return <div style={modalMask} onClick={onClose}>
       <div style={modalPanel(420)} onClick={e => e.stopPropagation()}>
         <div className="text-text" style={{
         fontWeight: 800,
@@ -212,16 +215,10 @@ function PayModal({
         }} />
         </div>
 
-        {error && <div className={`bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger flex items-center gap-2 ${u.mb12}`}>
-            {error}
-          </div>}
-        <div style={{
-        display: 'flex',
-        gap: 10,
-        justifyContent: 'flex-end'
-      }}>
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border bg-bg-page text-text-muted text-sm cursor-pointer hover:bg-bg-muted transition-colors">取消</button>
-          <button onClick={() => void pay()} disabled={paying || !selectedAccount} className={`px-4 py-2 rounded-lg border-0 text-sm font-bold text-white cursor-pointer transition-colors ${paying || !selectedAccount ? 'bg-indigo-300 cursor-not-allowed opacity-50' : 'bg-indigo-500 hover:bg-indigo-600'}`}>
+        {error && <div style={{ ...inlineAlert('danger'), marginBottom: 12 }}>{error}</div>}
+        <div style={drawerFooter}>
+          <button onClick={onClose} style={secondaryActionButton}>取消</button>
+          <button onClick={() => void pay()} disabled={paying || !selectedAccount} style={{ ...primaryActionButton, opacity: (paying || !selectedAccount) ? 0.5 : 1, cursor: (paying || !selectedAccount) ? 'not-allowed' : 'pointer' }}>
             {paying ? '付款中...' : '确认付款'}
           </button>
         </div>
@@ -288,53 +285,27 @@ export default function ReimbursementsPage() {
             <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> 刷新
           </button>} />
 
-      {/* KPI 快览 */}
+      {/* g200a KPI 6 卡(2026-06-19):Tailwind 浅色背景 → kpiCardCompact token */}
       {summary && <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-      gap: 10,
-      marginBottom: 20
-    }}>
-          {[{
-        label: '报销总数',
-        value: String(summary.totalReimb),
-        accent: 'bg-indigo-50 dark:bg-indigo-950/40',
-        valueClass: 'text-indigo-600 dark:text-indigo-400'
-      }, {
-        label: '待付款',
-        value: String(summary.pendingReimb),
-        accent: 'bg-amber-50 dark:bg-amber-950/40',
-        valueClass: 'text-warning'
-      }, {
-        label: '已审批',
-        value: String(summary.approvedReimb),
-        accent: 'bg-emerald-50 dark:bg-emerald-950/40',
-        valueClass: 'text-emerald-600 dark:text-emerald-400'
-      }, {
-        label: '已付款',
-        value: String(summary.paidReimb),
-        accent: 'bg-indigo-50 dark:bg-indigo-950/40',
-        valueClass: 'text-indigo-600 dark:text-indigo-400'
-      }, {
-        label: '今日付款笔数',
-        value: String(summary.paidToday) + ' 笔',
-        accent: 'bg-emerald-50 dark:bg-emerald-950/40',
-        valueClass: 'text-emerald-600 dark:text-emerald-400'
-      }, {
-        label: '今日付款金额',
-        value: `¥ ${fmt(summary.paidAmountToday)}`,
-        accent: 'bg-emerald-50 dark:bg-emerald-950/40',
-        valueClass: 'text-emerald-600 dark:text-emerald-400'
-      }].map(c => <div key={c.label} className={`rounded-xl ${c.accent}`} style={{
-        padding: '12px 16px'
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+        gap: 10,
+        marginBottom: 20,
       }}>
-              <div className="text-text-muted" style={{
-          fontSize: 11,
-          marginBottom: 2
-        }}>{c.label}</div>
-              <div className={`font-extrabold ${c.valueClass} ${u.fs16}`}>{c.value}</div>
-            </div>)}
-        </div>}
+        {([
+          { label: '报销总数',      value: String(summary.totalReimb),                tone: 'brand'   as const },
+          { label: '待付款',        value: String(summary.pendingReimb),              tone: 'warning' as const },
+          { label: '已审批',        value: String(summary.approvedReimb),             tone: 'success' as const },
+          { label: '已付款',        value: String(summary.paidReimb),                 tone: 'brand'   as const },
+          { label: '今日付款笔数',  value: String(summary.paidToday) + ' 笔',         tone: 'success' as const },
+          { label: '今日付款金额',  value: `¥ ${fmt(summary.paidAmountToday)}`,       tone: 'success' as const },
+        ]).map(c => (
+          <div key={c.label} style={kpiCardCompact(c.tone)}>
+            <div style={kpiCardCompactLabel}>{c.label}</div>
+            <div style={kpiCardCompactValue(c.tone)}>{c.value}</div>
+          </div>
+        ))}
+      </div>}
 
       {/* 筛选 工具栏 */}
       <div style={searchToolbar}>
@@ -347,9 +318,9 @@ export default function ReimbursementsPage() {
         </select>
       </div>
 
-      {error && <div className={`bg-danger/10 border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger flex items-center gap-2 ${u.mb12}`}>
-          <AlertTriangle size={13} />{error}
-        </div>}
+      {error && <div style={{ ...inlineAlert('danger'), marginBottom: 12 }}>
+        <AlertTriangle size={13} />{error}
+      </div>}
 
       {/* 列表 */}
       <div style={tableContainer}>
@@ -433,10 +404,10 @@ export default function ReimbursementsPage() {
                 {['PENDING', 'APPROVED'].includes(item.status) && <button onClick={() => setPayTarget(item)} disabled={isActing} style={primaryActionButton}>
                     付款
                   </button>}
-                {item.status === 'PENDING' && <button onClick={() => void actionPost(item.id, 'approve-direct')} disabled={isActing} className="px-3 py-1 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-success/10 text-emerald-700 dark:text-emerald-400 text-xs font-bold cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-50">
+                {item.status === 'PENDING' && <button onClick={() => void actionPost(item.id, 'approve-direct')} disabled={isActing} style={actionPill('success', isActing)}>
                     直接审批
                   </button>}
-                {['PENDING', 'APPROVED'].includes(item.status) && <button onClick={() => void actionPost(item.id, 'cancel')} disabled={isActing} className="px-3 py-1 rounded-lg border border-danger/20 bg-danger/10 text-danger text-xs cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50">
+                {['PENDING', 'APPROVED'].includes(item.status) && <button onClick={() => void actionPost(item.id, 'cancel')} disabled={isActing} style={actionPill('danger', isActing)}>
                     取消
                   </button>}
               </div>
