@@ -12,6 +12,7 @@ import {
   TrendingDown, TrendingUp, Wallet, Users,
   PieChart, Receipt, ArrowRight, RefreshCw,
   DollarSign, ArrowLeftRight, Activity, AlertTriangle,
+  BookOpen, Scale, Cloud,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import { KpiCard } from '@/components/ui/KpiCard';
@@ -133,13 +134,17 @@ interface ModuleItem {
 }
 
 const MODULES: ModuleItem[] = [
-  { icon: TrendingDown,   title: '应付账款管理', path: '/finance2/ap',                accent: 'amber',  description: '供应商发票管理、付款核销、多币种、账龄分析。' },
   { icon: TrendingUp,     title: '应收账款管理', path: '/finance2/ar',                accent: 'green',  description: '客户发票、收款核销、账龄分析。' },
+  { icon: BookOpen,       title: '应收总账',     path: '/finance2/ar-ledger',         accent: 'green',  description: '集团应收往来余额台账 · 期初/本期/期末 · 多币种本币折算。' },
+  // g199 三大新页(2026-06-19)— 财务总监月末关账核心路径
+  { icon: Scale,          title: '应收三方对账', path: '/finance2/ar-reconciliation', accent: 'green',  description: '业务发票 ↔ ERP 总账 ↔ 好业财应收 · 按客户对齐 · 差异飘红。' },
+  { icon: Cloud,          title: '好业财同步',   path: '/finance2/chanjet-sync',      accent: 'blue',   description: '只读好业财→PG 快照 · 部门对账 · 审核入账 fin_ar_ledger(财务总监独占)。' },
+  { icon: TrendingDown,   title: '应付账款管理', path: '/finance2/ap',                accent: 'amber',  description: '供应商发票管理、付款核销、多币种、账龄分析。' },
   { icon: Wallet,         title: '资金账户管理', path: '/finance2/cash-accounts',     accent: 'blue',   description: '多账户余额管理、流水账本、转账审批。' },
-  { icon: ArrowLeftRight, title: '资金转账',     path: '/finance2/fund-transfers',    accent: 'cyan',   description: '账户间资金划转，5 阶段审批流程，事务安全保障。' },
-  { icon: Users,          title: '股东资金管理', path: '/finance2/shareholder-funds', accent: 'violet', description: '出资台账、结算审批（退回/抵扣/核销）、联动资金账户。' },
-  { icon: Receipt,        title: '费用申请',     path: '/finance2/expenses',          accent: 'indigo', description: '费用申请全流程审批，审批通过自动生成报销，付款联动资金账户。' },
-  { icon: ArrowLeftRight, title: '报销管理',     path: '/finance2/reimbursements',    accent: 'teal',   description: '报销台账，付款事务安全，自动扣减现金账户余额。' },
+  { icon: ArrowLeftRight, title: '资金转账',     path: '/finance2/fund-transfers',    accent: 'cyan',   description: '账户间资金划转,5 阶段审批流程,事务安全保障。' },
+  { icon: Users,          title: '股东资金管理', path: '/finance2/shareholder-funds', accent: 'violet', description: '出资台账、结算审批(退回/抵扣/核销)、联动资金账户。' },
+  { icon: Receipt,        title: '费用申请',     path: '/finance2/expenses',          accent: 'indigo', description: '费用申请全流程审批,审批通过自动生成报销,付款联动资金账户。' },
+  { icon: ArrowLeftRight, title: '报销管理',     path: '/finance2/reimbursements',    accent: 'teal',   description: '报销台账,付款事务安全,自动扣减现金账户余额。' },
   { icon: PieChart,       title: '经营报表',     path: '/finance2/reports',           accent: 'slate',  description: '12 只读聚合报表。账龄 · 资金日报 · 费用统计 · 可支配资金 · 项目财务。' },
 ];
 

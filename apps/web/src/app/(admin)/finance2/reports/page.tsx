@@ -257,13 +257,16 @@ function OverviewTab() {
   useEffect(() => {
     apiFetch<OverviewData>('/api/v2/finance/reports/overview').then(setData).finally(() => setLoading(false));
   }, []);
-  if (loading) return <Spinner />;
-  if (!data) return <Empty text="加载失败" />;
-  const netColor = data.netOperatingPosition >= 0 ? TOKENS.css.statusSuccess : TOKENS.css.statusDanger;
-  // G61：现金/可支配资金按币种（跨币种不可裸求和成单一 ¥）。
-  //   现金 = byCurrency；可支配 = 现金各币种 + CNY 行并入 (应收 − 应付 − 待报销)（本币口径）。
-  const cashRows = useMemo(() => (data.byCurrency ?? []).map(r => ({ ccy: r.currencyCode, amount: r.cashBalance })), [data.byCurrency]);
-  const cnyAdj = (data.arOpen ?? 0) - (data.apOpen ?? 0) - (data.reimbursementPendingAmount ?? 0);
+  // ⚠️ React #310 修复:hooks 必须在所有 early return 之前调用,顺序固定。
+  //    之前 useMemo 在 if (loading) return 之后 → 第一次 render(loading=true)只 3 个 hooks,
+  //    第二次(loading=false)5 个 hooks → 数量不一致崩页。
+  // G61:现金/可支配资金按币种(跨币种不可裸求和成单一 ¥)。
+  //    现金 = byCurrency;可支配 = 现金各币种 + CNY 行并入 (应收 − 应付 − 待报销)(本币口径)。
+  const cashRows = useMemo(
+    () => (data?.byCurrency ?? []).map(r => ({ ccy: r.currencyCode, amount: r.cashBalance })),
+    [data?.byCurrency],
+  );
+  const cnyAdj = (data?.arOpen ?? 0) - (data?.apOpen ?? 0) - (data?.reimbursementPendingAmount ?? 0);
   const disposableRows = useMemo(() => {
     const rows = cashRows.length > 0
       ? cashRows.map(r => ({ ccy: r.ccy, amount: r.amount + (r.ccy === 'CNY' ? cnyAdj : 0) }))
@@ -273,6 +276,10 @@ function OverviewTab() {
     }
     return rows;
   }, [cashRows, cnyAdj]);
+
+  if (loading) return <Spinner />;
+  if (!data) return <Empty text="加载失败" />;
+  const netColor = data.netOperatingPosition >= 0 ? TOKENS.css.statusSuccess : TOKENS.css.statusDanger;
   return <div>
       {/* 可支配资金 主 KPI（按币种） */}
       <div style={{ ...heroBanner, flexDirection: 'column', alignItems: 'stretch' }}>
@@ -931,11 +938,12 @@ function ShareholderTab() {
   useEffect(() => {
     apiFetch<ShSummaryData>('/api/v2/finance/reports/shareholder-summary').then(setData).finally(() => setLoading(false));
   }, []);
+  // React #310 修复:useMemo 必须在 early return 之前(同 OverviewTab)
+  const totalBal = useMemo(() => (data?.byShareholder ?? []).reduce((s, r) => s + r.balanceAmount, 0), [data?.byShareholder]);
+  const totalIn = useMemo(() => (data?.byShareholder ?? []).reduce((s, r) => s + r.totalAmount, 0), [data?.byShareholder]);
+  const totalSt = useMemo(() => (data?.byShareholder ?? []).reduce((s, r) => s + r.settledAmount, 0), [data?.byShareholder]);
   if (loading) return <Spinner />;
   if (!data) return <Empty text="加载失败" />;
-  const totalBal = useMemo(() => data.byShareholder.reduce((s, r) => s + r.balanceAmount, 0), [data.byShareholder]);
-  const totalIn = useMemo(() => data.byShareholder.reduce((s, r) => s + r.totalAmount, 0), [data.byShareholder]);
-  const totalSt = useMemo(() => data.byShareholder.reduce((s, r) => s + r.settledAmount, 0), [data.byShareholder]);
   return <div>
       <div style={{
       display: 'grid',

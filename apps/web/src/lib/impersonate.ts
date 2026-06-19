@@ -8,11 +8,17 @@ const ORIGIN_KEY = "phoenix_imp_origin";
 
 function applySession(token: string, userInfo: any, cookieToken?: string) {
   const ck = cookieToken || token;
+  // 与 login/page.tsx:302 对齐 — 后端 user_info payload 没 name 字段,
+  // 桌面登录页手动加 name = realNameZh || username,sidebar/顶栏头像按 name 首字渲染。
+  // 影子登录之前漏了这步 → user.name=undefined → fallback "A"(刘杰头像显示 "A" 而非"刘")
+  const enriched = userInfo && !userInfo.name
+    ? { ...userInfo, name: userInfo.realNameZh || userInfo.username || "" }
+    : userInfo;
   sessionStorage.setItem("phoenix_token", token);
-  sessionStorage.setItem("phoenix_user", JSON.stringify(userInfo));
+  sessionStorage.setItem("phoenix_user", JSON.stringify(enriched));
   sessionStorage.setItem("phoenix_cookie_token", ck);
   localStorage.setItem("phoenix_token", token);
-  localStorage.setItem("phoenix_user", JSON.stringify(userInfo));
+  localStorage.setItem("phoenix_user", JSON.stringify(enriched));
   localStorage.setItem("phoenix_cookie_token", ck);
   document.cookie = `phoenix_access_token=${ck}; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax`;
 }

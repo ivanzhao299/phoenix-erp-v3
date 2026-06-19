@@ -67,23 +67,34 @@ export class ArReconciliationService {
     const params = all ? [] : [codes];
 
     // 公司列表:从 chanjet_book_company_map(权威) + fin_ar_ledger / fin_ar_invoices 取并集
+    // g199-C 修 #3 (2026-06-19): 优先 chanjet_book_company_map 拿权威中文名,
+    //   只在其它表有但 map 无时 fallback;避免 UNION DISTINCT 因 name 不同(有的 NULL)
+    //   把同一 company_code 拆成多行。
     const companiesRaw = await this.ds.query(
-      `SELECT DISTINCT company_code AS "code", COALESCE(company_name, company_code) AS "name"
-       FROM (
-         SELECT company_code, company_name FROM chanjet_book_company_map WHERE sync_enabled = true
-         UNION ALL
-         SELECT company_code, NULL AS company_name FROM fin_ar_ledger WHERE company_code IS NOT NULL
-         UNION ALL
-         SELECT company_code, company_name FROM fin_ar_invoices WHERE company_code IS NOT NULL
-       ) u
-       ${all ? '' : 'WHERE company_code = ANY($1)'}
-       ORDER BY 1`,
+      `WITH all_codes AS (
+         SELECT DISTINCT company_code FROM chanjet_book_company_map WHERE sync_enabled = true AND company_code IS NOT NULL
+         UNION
+         SELECT DISTINCT company_code FROM fin_ar_ledger WHERE company_code IS NOT NULL
+         UNION
+         SELECT DISTINCT company_code FROM fin_ar_invoices WHERE company_code IS NOT NULL
+       )
+       SELECT
+         c.company_code AS "code",
+         COALESCE(
+           (SELECT m.company_name FROM chanjet_book_company_map m WHERE m.company_code = c.company_code LIMIT 1),
+           (SELECT i.company_name FROM fin_ar_invoices i WHERE i.company_code = c.company_code AND i.company_name IS NOT NULL LIMIT 1),
+           c.company_code
+         ) AS "name"
+       FROM all_codes c
+       ${all ? '' : 'WHERE c.company_code = ANY($1)'}
+       ORDER BY "code"`,
       params,
     );
 
-    // 期间:fin_ar_ledger.period_date 已是 date,用它(月初 YYYY-MM-01)做权威清单
+    // g199-C 修 #4 (2026-06-19): 期间下拉只展示月初(YYYY-MM-01),
+    //   把任何 period_date 截断到月初,DISTINCT 后排序,避免 OCR 录入零散日期混乱
     const periodsRaw = await this.ds.query(
-      `SELECT DISTINCT to_char(period_date,'YYYY-MM-DD') AS "p"
+      `SELECT DISTINCT to_char(date_trunc('month', period_date),'YYYY-MM-DD') AS "p"
        FROM fin_ar_ledger
        ${scopeCond}
        ORDER BY 1 DESC`,
@@ -157,6 +168,8 @@ export class ArReconciliationService {
       await this.ds.query(invSql, invParams);
 
     // ERP 总账:按 (company, customer, periodDate)
+    // g199-C 修 #4 (2026-06-19): 月初口径 — date_trunc 把 period_date 截断到月初再比对,
+    //   兼容历史 OCR 录入的零散日期(2026-06-07 等)与 g199-B 入账的标准月初(2026-06-01)
     const ledSql = `
       SELECT
         company_code  AS "companyCode",
@@ -165,7 +178,7 @@ export class ArReconciliationService {
         COALESCE(closing_amount_base, closing_amount, 0)::float AS "closing",
         source AS "source"
       FROM fin_ar_ledger
-      WHERE period_date = $1::date
+      WHERE date_trunc('month', period_date) = date_trunc('month', $1::date)
         ${scopedCompanies.length ? `AND company_code = ANY($2)` : ''}
     `;
     const ledParams: unknown[] = [periodDate];
