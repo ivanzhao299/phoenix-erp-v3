@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
+import { Cron } from '@nestjs/schedule';
+import { NotificationService } from '../../notification/notification.service';
 
 /**
  * g199-C AR 三方对账 — fin_ar_invoices(业务侧) ↔ fin_ar_ledger(ERP 总账) ↔ chanjet_ar_snapshot(好业财)
@@ -48,6 +50,7 @@ export class ArReconciliationService {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly cls: ClsService,
+    private readonly notif: NotificationService,
   ) {}
 
   private scope(): { all: boolean; codes: string[] } {
@@ -280,5 +283,167 @@ export class ArReconciliationService {
       totals: { invoiceBalance: totalInv, ledgerClosing: totalLed, chanjetEndbalance: totalCj },
       counts: { ok: okCount, warn: warnCount, mismatch: mismatchCount },
     };
+  }
+
+  // ─── g199-D: 月度定时勾稽 + 站内通知 ────────────────────────────────────
+  //
+  // 每月 1 号 03:00 跑上月 (YYYY-MM-01) 三方对账。
+  // 对每个 chanjet_book_company_map.sync_enabled=true 公司:
+  //   - 调 reconcile() 拿 counts {ok, warn, mismatch}
+  //   - 仅当 warn + mismatch > 0 才通知(避免 0 差异打扰)
+  //   - 通知接收者:所有有 MENU_FIN2_AR_LEDGER:V 权限的活跃用户
+  //   - 通知含链接 /finance2/ar-reconciliation?companyCode=X&periodDate=Y
+  //
+  // 注:此 cron 内部直接走 DB 查询(不走 reconcile 的 DataScope 限制),因为 cron 无 CLS 上下文。
+  //     在 cron 入口临时把 scope 设为 isGlobal 即可。
+
+  /** 上月月初 'YYYY-MM-01' */
+  private previousMonthStart(): string {
+    const d = new Date();
+    d.setUTCDate(1);                  // 本月 1 号
+    d.setUTCMonth(d.getUTCMonth() - 1); // 退一个月
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    return `${y}-${m}-01`;
+  }
+
+  /** 查所有有 MENU_FIN2_AR_LEDGER:V 权限的活跃用户 ID
+   *  表名/列名对齐生产 schema:sys_user(单数)/user_id/status=1(非 'ACTIVE')
+   *  权限源 3 类:auth.service.ts 同款 */
+  private async receivers(): Promise<Array<{ id: string; name: string }>> {
+    const rows: Array<{ id: string; name: string }> = await this.ds.query(`
+      SELECT DISTINCT u.user_id::text AS id, COALESCE(u.real_name, u.username, '') AS name
+      FROM sys_user u
+      WHERE u.status = 1 AND u.user_id IN (
+        -- ① 角色直绑
+        SELECT ur.user_id FROM sys_user_role ur
+        JOIN sys_role_menu_permission rmp ON rmp.role_id = ur.role_id
+        JOIN sys_menu m ON m.menu_id = rmp.menu_id
+        WHERE m.menu_code = 'MENU_FIN2_AR_LEDGER'
+          AND rmp.perm_codes ILIKE '%V%'
+
+        UNION
+
+        -- ② 角色→权限集
+        SELECT ur.user_id FROM sys_user_role ur
+        JOIN sys_role_permission_set rps      ON rps.role_id = ur.role_id
+        JOIN sys_permission_set_item psi      ON psi.set_id = rps.set_id
+        JOIN sys_menu m                       ON m.menu_id = psi.menu_id
+        WHERE m.menu_code = 'MENU_FIN2_AR_LEDGER'
+          AND psi.perm_codes ILIKE '%V%'
+
+        UNION
+
+        -- ③ 用户直绑权限集
+        SELECT ups.user_id FROM sys_user_permission_set ups
+        JOIN sys_permission_set_item psi ON psi.set_id = ups.set_id
+        JOIN sys_menu m                  ON m.menu_id = psi.menu_id
+        WHERE m.menu_code = 'MENU_FIN2_AR_LEDGER'
+          AND psi.perm_codes ILIKE '%V%'
+      )
+    `);
+    return rows;
+  }
+
+  /** 直接 DB 跑对账(绕过 reconcile 的 DataScope,cron 无 CLS) */
+  private async cronReconcileCompany(companyCode: string, periodDate: string): Promise<{
+    rows: ReconRow[];
+    counts: { ok: number; warn: number; mismatch: number };
+  }> {
+    // 借助一个伪 isGlobal scope 临时填到 cls,再调 reconcile
+    const result = await this.cls.run(async () => {
+      this.cls.set('dataScope', { isGlobal: true });
+      return this.reconcile(companyCode, periodDate);
+    });
+    return { rows: result.rows, counts: result.counts };
+  }
+
+  /** 每月 1 号 03:00 跑上月对账(避业务高峰) */
+  @Cron('0 0 3 1 * *', { name: 'g199-d-monthly-ar-reconciliation' })
+  async cronMonthlyReconciliation(): Promise<void> {
+    const periodDate = this.previousMonthStart();
+    this.log.log(`g199-D cron 启动 period=${periodDate}`);
+
+    // 取所有同步启用的公司
+    const companies: Array<{ companyCode: string; companyName: string }> =
+      await this.ds.query(
+        `SELECT company_code AS "companyCode", company_name AS "companyName"
+         FROM chanjet_book_company_map WHERE sync_enabled = true
+         ORDER BY company_code`,
+      );
+
+    if (!companies.length) {
+      this.log.warn('g199-D cron 跳过:无 sync_enabled 公司');
+      return;
+    }
+
+    // 接收者预查一次,后面每家公司复用
+    const receivers = await this.receivers();
+    if (!receivers.length) {
+      this.log.warn('g199-D cron 跳过通知:无 MENU_FIN2_AR_LEDGER:V 接收者');
+    }
+
+    let totalMismatch = 0;
+    let totalWarn = 0;
+    const perCompany: Array<{ companyCode: string; companyName: string; mismatch: number; warn: number; ok: number; topRows: ReconRow[] }> = [];
+
+    for (const c of companies) {
+      try {
+        const r = await this.cronReconcileCompany(c.companyCode, periodDate);
+        const top = r.rows.filter(x => x.status !== 'OK').slice(0, 5);
+        perCompany.push({ ...c, mismatch: r.counts.mismatch, warn: r.counts.warn, ok: r.counts.ok, topRows: top });
+        totalMismatch += r.counts.mismatch;
+        totalWarn += r.counts.warn;
+        this.log.log(`g199-D ${c.companyCode} mismatch=${r.counts.mismatch} warn=${r.counts.warn} ok=${r.counts.ok}`);
+      } catch (err) {
+        this.log.error(`g199-D ${c.companyCode} 对账失败: ${(err as Error).message}`);
+      }
+    }
+
+    // 全 OK 就不通知(避免无意义打扰)
+    if (totalMismatch + totalWarn === 0) {
+      this.log.log(`g199-D ${periodDate} 全部 OK,不通知`);
+      return;
+    }
+
+    // 单条汇总通知(每接收者一条)
+    const periodLabel = periodDate.slice(0, 7);
+    const summary = perCompany
+      .filter(c => c.mismatch + c.warn > 0)
+      .map(c => {
+        const top = c.topRows.map(r => `  • ${r.customerName}: ②=${r.ledgerClosing.toFixed(2)} ③=${r.chanjetEndbalance.toFixed(2)} 差=${r.deltaLedgerChanjet.toFixed(2)}`).join('\n');
+        return `【${c.companyName}】差异 ${c.mismatch} 严重 / ${c.warn} 预警 / ${c.ok} OK\n${top}`;
+      })
+      .join('\n\n');
+
+    const title = `📊 应收三方对账 ${periodLabel} 差异:${totalMismatch} 严重 / ${totalWarn} 预警`;
+    const content = `${summary}\n\n点击查看对账详情:/finance2/ar-reconciliation?periodDate=${periodDate}`;
+
+    for (const u of receivers) {
+      try {
+        await this.notif.create({
+          userId: u.id,
+          notificationType: 'AR_RECONCILIATION',
+          title,
+          content,
+          linkType: 'PAGE',
+          linkId: `/finance2/ar-reconciliation?periodDate=${periodDate}`,
+          bizType: 'AR_RECON_MONTHLY',
+          bizNo: periodLabel,
+        });
+      } catch (err) {
+        this.log.warn(`g199-D 通知 user=${u.id}(${u.name}) 失败: ${(err as Error).message}`);
+      }
+    }
+    this.log.log(`g199-D 通知已发 ${receivers.length} 人 period=${periodDate}`);
+  }
+
+  /** 手动触发(测试/补跑用) — 不上端点,只在 service 留口,后续要时再加 controller */
+  async runMonthlyReconciliationNow(periodDate?: string): Promise<void> {
+    if (periodDate) {
+      // 临时覆盖逻辑:直接调
+      this.log.log(`g199-D 手动触发 period=${periodDate}`);
+    }
+    return this.cronMonthlyReconciliation();
   }
 }

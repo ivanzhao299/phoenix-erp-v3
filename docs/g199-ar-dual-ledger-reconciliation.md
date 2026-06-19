@@ -185,7 +185,20 @@
 - 权限:`MENU_FIN2_AR_LEDGER:V` 预览,`MENU_FIN2_AR_LEDGER:E` 入账(财务总监独占)
 - `source='CHANJET_VERIFIED_<YYYYMMDD>'` 追溯标记
 
-### ⏳ 下一阶段
-- **g199-C 三方对账视图**(`fin_ar_invoices` 汇总 ↔ `fin_ar_ledger` ↔ `chanjet_ar_snapshot`)
-- **g199-D 明细↔总账定时勾稽**(月初差异 > 0.01 报警)
-- **g199-E 月末关账 SOP**(财务总监操作手册)
+### ✅ g199-C 三方对账视图(2026-06-19)
+- `/finance2/ar-reconciliation`:业务发票 ↔ ERP 总账 ↔ 好业财,按 (公司,客户,期间) 维度
+- 差异原因 chip + 状态过滤(全部/预警/差异),MISMATCH 行飘红
+- 端点 `GET /api/v2/finance/ar-reconciliation` + `/dimensions`
+- 权限 `MENU_FIN2_AR_LEDGER:V`,Sidebar 入口"应收三方对账"
+
+### ✅ g199-D 月度定时勾稽 + 站内通知(2026-06-19)
+- `ar-reconciliation.service.ts:cronMonthlyReconciliation` @Cron('0 0 3 1 * *')
+- 每月 1 号 UTC 03:00(北京 11:00)跑上月对账,3 家 syncEnabled 公司各一次
+- `totalMismatch + totalWarn > 0` → 给所有 `MENU_FIN2_AR_LEDGER:V` 用户发站内通知
+- 通知含每公司差异计数 + top 5 客户行 + 链接 `/finance2/ar-reconciliation?periodDate=...`
+- 接收者查询走 sys_user/sys_user_role/sys_role_menu_permission(3 类权限源)
+- 手动补跑:`arReconciliationService.runMonthlyReconciliationNow()`
+
+### ✅ g199-E 月末关账 SOP(2026-06-19)
+- [docs/g199-month-end-close-sop.md](g199-month-end-close-sop.md):财务总监 6 步操作手册
+- CLAUDE.md 加入"### 0.6 好业财对接铁律(g199)" — 永禁 `fin_ar_invoices` 接好业财

@@ -174,6 +174,28 @@ ON CONFLICT 永不匹配,每次 upsert 都插入新副本。2026-06-19 chanjet_a
 **CI 门禁**(g198-P1):`scripts/check-nullable-in-unique.js` 扫所有 *.entity.ts,
 唯一约束含 nullable 列且不在白名单 → 红灯。本地跑 `node scripts/check-nullable-in-unique.js`。
 
+### 0.6 好业财对接铁律(g199 铁律,2026-06-19 起)
+
+**好业财只读单向 + `fin_ar_invoices` 永禁接好业财数据**。
+
+**Why**:
+- 好业财应收接口(`/accounting/gl/statistics/receive`)只到客户级汇总(同客户 SUM 各科目期末),没有发票号/到期日/账龄等单据级字段
+- 若把好业财数据塞进 `fin_ar_invoices`(发票级表)→ 信息全丢,催收/账龄/状态机全废
+- 关键发现:好业财字段 `subjectName` 实为客户名(非科目名),`subjectId` 是行 ID — UI 列名"结算往来单位"印证
+
+**How**:
+- 好业财 → ERP 单向只读:`chanjet_ar_snapshot`(只读快照)→ 财务总监审核 → `fin_ar_ledger`(总账)
+- **`fin_ar_invoices` 与 `chanjet_ar_snapshot` 永不连接**;`fin_ar_invoices` 以 ERP 自有业务流(销售开单)为权威源
+- 审核入账走 `chanjet-ar-sync.service.ts:importToArLedger`,upsert `(farm_code=companyCode, counterparty_name, period_date)`,`source='CHANJET_VERIFIED_<YYYYMMDD>'` 追溯
+- 三方对账走 `/finance2/ar-reconciliation`,业务发票 ↔ ERP 总账 ↔ 好业财并排,差异飘红
+- 月末关账走 SOP:[docs/g199-month-end-close-sop.md](docs/g199-month-end-close-sop.md)
+- 定时勾稽:`ar-reconciliation.service.ts:cronMonthlyReconciliation` 每月 1 号 03:00 跑上月对账,差异 → 站内通知所有 `MENU_FIN2_AR_LEDGER:V` 用户
+
+**操作权限**:
+- 同步好业财(`POST /api/chanjet/sync-ar`):`MENU_FIN2_AR:E`
+- 审核入账(`POST /api/chanjet/ar-ledger-import`):`MENU_FIN2_AR_LEDGER:E`(财务总监独占)
+- 三方对账(`GET /api/v2/finance/ar-reconciliation`):`MENU_FIN2_AR_LEDGER:V`
+
 ### 1. 主数据只用 ACTIVE
 **Why**：业务方禁用旧主数据后，相关单据不能再选到它。
 **How**：所有 Selector 都已经在 loader 里加了 `status='ACTIVE'` 过滤；不要绕过去直接调 `/crud/*` 拿全量。
