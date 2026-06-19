@@ -284,6 +284,43 @@ export class ChanjetCallbackController {
   }
 
   /**
+   * GET /api/chanjet/ar-ledger-import-preview?companyCode=&period=
+   * g199-B 入账前预览:列差异(new/changed/unchanged 计数)。
+   * 鉴权:MENU_FIN2_AR_LEDGER V(财务总监才能预览)。
+   */
+  @Get('ar-ledger-import-preview')
+  @RequireMenu('MENU_FIN2_AR_LEDGER', 'V')
+  async previewArLedgerImport(@Query('companyCode') companyCode: string, @Query('period') period: string) {
+    if (!companyCode) return { success: false, error: 'companyCode 必填' };
+    if (!period || !/^\d{6}$/.test(period)) return { success: false, error: 'period 必填,YYYYMM' };
+    try {
+      const r = await this.arSync.previewImportToArLedger(companyCode, period);
+      return { success: true, ...r };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
+   * POST /api/chanjet/ar-ledger-import
+   * g199-B 审核入账:chanjet_ar_snapshot → fin_ar_ledger。
+   * body: { companyCode, period(YYYYMM), dryRun?, onlyCounterparties?: string[] }
+   * 鉴权:MENU_FIN2_AR_LEDGER E(财务总监独占)。
+   */
+  @Post('ar-ledger-import')
+  @RequireMenu('MENU_FIN2_AR_LEDGER', 'E')
+  async importArLedger(@Body() body: { companyCode: string; period: string; dryRun?: boolean; onlyCounterparties?: string[] }) {
+    if (!body.companyCode) return { success: false, error: 'companyCode 必填' };
+    if (!body.period || !/^\d{6}$/.test(body.period)) return { success: false, error: 'period 必填,YYYYMM' };
+    try {
+      const r = await this.arSync.importToArLedger(body.companyCode, body.period, !!body.dryRun, body.onlyCounterparties);
+      return { success: true, ...r };
+    } catch (e) {
+      return { success: false, error: (e as Error).message };
+    }
+  }
+
+  /**
    * GET/POST /api/chanjet/call
    * 通用 proxy:管理员手动 callApi 任意好业财路径(试错+查 API 文档用)。
    *

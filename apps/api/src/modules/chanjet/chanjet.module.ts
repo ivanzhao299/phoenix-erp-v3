@@ -6,6 +6,7 @@ import { ChanjetCallbackController } from './chanjet-callback.controller';
 import { SysChanjetStateEntity } from './sys-chanjet-state.entity';
 import { ChanjetArSnapshotEntity } from './chanjet-ar-snapshot.entity';
 import { ChanjetBookCompanyMapEntity } from './chanjet-book-company-map.entity';
+import { FinArLedgerEntity } from '../finance-v2/entities/fin-ar-ledger.entity';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { ChanjetBookCompanyMapEntity } from './chanjet-book-company-map.entity';
       SysChanjetStateEntity,
       ChanjetArSnapshotEntity,
       ChanjetBookCompanyMapEntity,
+      FinArLedgerEntity,
     ]),
   ],
   controllers: [ChanjetCallbackController],

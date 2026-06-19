@@ -5,6 +5,7 @@ import { ClsService } from 'nestjs-cls';
 import { ChanjetAuthService } from './chanjet-auth.service';
 import { ChanjetArSnapshotEntity } from './chanjet-ar-snapshot.entity';
 import { ChanjetBookCompanyMapEntity } from './chanjet-book-company-map.entity';
+import { FinArLedgerEntity } from '../finance-v2/entities/fin-ar-ledger.entity';
 
 interface ChanjetArRow {
   assistantCustomer?: number;
@@ -49,6 +50,8 @@ export class ChanjetArSyncService implements OnModuleInit {
     private readonly arRepo: Repository<ChanjetArSnapshotEntity>,
     @InjectRepository(ChanjetBookCompanyMapEntity)
     private readonly mapRepo: Repository<ChanjetBookCompanyMapEntity>,
+    @InjectRepository(FinArLedgerEntity)
+    private readonly ledgerRepo: Repository<FinArLedgerEntity>,
     private readonly cls: ClsService,
   ) {}
 
@@ -250,5 +253,179 @@ export class ChanjetArSyncService implements OnModuleInit {
       .where('ar.period = :period AND ar.company_code IN (:...codes)', { period, codes: allowed })
       .orderBy('ar.endbalance', 'DESC')
       .getMany();
+  }
+
+  // ─── g199-B: chanjet_ar_snapshot → fin_ar_ledger 审核入账 ────────────────
+  //
+  // 铁律:
+  //   1. 必经财务总监(MENU_FIN2_AR_LEDGER:E)
+  //   2. 入账记录 source='CHANJET_VERIFIED_<YYYYMMDD>' 可追溯
+  //   3. 按 (farm_code=companyCode, counterparty_name, period_date) upsert,
+  //      让 fin_ar_ledger 的 uq_fin_ar_ledger 真生效
+  //   4. base_currency='RMB',closing_amount_base=closing_amount(chanjet 已是本币)
+
+  /** period 'YYYYMM' → 'YYYY-MM-01' */
+  private periodToDate(period: string): string {
+    if (!/^\d{6}$/.test(period)) throw new Error(`period 格式应为 YYYYMM, got ${period}`);
+    return `${period.slice(0, 4)}-${period.slice(4, 6)}-01`;
+  }
+
+  /**
+   * 预览入账差异:不写库,只算 chanjet_ar_snapshot 行 vs 已有 fin_ar_ledger 行的差异。
+   * 返回三类:new(新增) / changed(金额变动) / unchanged(无差)
+   */
+  async previewImportToArLedger(companyCode: string, period: string): Promise<{
+    companyCode: string;
+    period: string;
+    periodDate: string;
+    farmCode: string;
+    newRows: Array<{ counterpartyCode: string; counterpartyName: string; closing: string; charge: string; received: string }>;
+    changedRows: Array<{ counterpartyCode: string; counterpartyName: string; oldClosing: string; newClosing: string; delta: string }>;
+    unchangedCount: number;
+  }> {
+    const map = await this.mapRepo.findOneBy({ companyCode });
+    if (!map) throw new Error(`公司 ${companyCode} 无好业财映射`);
+
+    const periodDate = this.periodToDate(period);
+    const farmCode = map.companyCode;
+
+    const snaps = await this.arRepo.find({ where: { companyCode, period } });
+    if (!snaps.length) {
+      return { companyCode, period, periodDate, farmCode, newRows: [], changedRows: [], unchangedCount: 0 };
+    }
+
+    // 同客户多科目要聚合(应收/预收/坏账等 → 净应收期末)
+    const aggByCust = new Map<string, { code: string; name: string; charge: number; received: number; closing: number }>();
+    for (const s of snaps) {
+      const key = s.assistantCustomerCode || '(空)';
+      const g = aggByCust.get(key) || { code: s.assistantCustomerCode || '', name: s.subjectName || s.assistantCustomerCode || '', charge: 0, received: 0, closing: 0 };
+      g.charge += Number(s.currentPeriodJf);
+      g.received += Number(s.currentPeriodDf);
+      g.closing += Number(s.endbalance);
+      aggByCust.set(key, g);
+    }
+
+    const existing = await this.ledgerRepo
+      .createQueryBuilder('l')
+      .where('l.farm_code = :farmCode AND l.period_date = :periodDate', { farmCode, periodDate })
+      .getMany();
+    const existingByName = new Map(existing.map(e => [e.counterpartyName, e]));
+
+    const newRows: Array<{ counterpartyCode: string; counterpartyName: string; closing: string; charge: string; received: string }> = [];
+    const changedRows: Array<{ counterpartyCode: string; counterpartyName: string; oldClosing: string; newClosing: string; delta: string }> = [];
+    let unchangedCount = 0;
+
+    for (const g of aggByCust.values()) {
+      const e = existingByName.get(g.name);
+      const newClosing = g.closing.toFixed(2);
+      if (!e) {
+        newRows.push({ counterpartyCode: g.code, counterpartyName: g.name, closing: newClosing, charge: g.charge.toFixed(2), received: g.received.toFixed(2) });
+      } else {
+        const delta = (Number(newClosing) - Number(e.closingAmount));
+        if (Math.abs(delta) > 0.005) {
+          changedRows.push({ counterpartyCode: g.code, counterpartyName: g.name, oldClosing: e.closingAmount, newClosing, delta: delta.toFixed(2) });
+        } else {
+          unchangedCount++;
+        }
+      }
+    }
+
+    return { companyCode, period, periodDate, farmCode, newRows, changedRows, unchangedCount };
+  }
+
+  /**
+   * 审核入账 chanjet_ar_snapshot → fin_ar_ledger。
+   * @param companyCode 公司
+   * @param period      'YYYYMM'
+   * @param dryRun      true 不写库(供二次确认)
+   * @param onlyKeys    可选:仅入账指定 counterpartyName 的行(前端勾选场景)
+   */
+  async importToArLedger(
+    companyCode: string,
+    period: string,
+    dryRun = false,
+    onlyKeys?: string[],
+  ): Promise<{
+    companyCode: string;
+    period: string;
+    periodDate: string;
+    farmCode: string;
+    dryRun: boolean;
+    upserted: number;
+    skipped: number;
+    source: string;
+  }> {
+    const map = await this.mapRepo.findOneBy({ companyCode });
+    if (!map) throw new Error(`公司 ${companyCode} 无好业财映射`);
+
+    const periodDate = this.periodToDate(period);
+    const farmCode = map.companyCode;
+    const farmName = map.companyName;
+
+    const snaps = await this.arRepo.find({ where: { companyCode, period } });
+    if (!snaps.length) {
+      throw new Error(`chanjet_ar_snapshot 无数据(公司=${companyCode} 期间=${period}),先去同步页拉一次`);
+    }
+
+    // 同客户多科目聚合(净应收)
+    const aggByCust = new Map<string, { code: string; name: string; init: number; charge: number; received: number; closing: number; yearJf: number; yearDf: number }>();
+    for (const s of snaps) {
+      const key = s.assistantCustomerCode || '(空)';
+      const g = aggByCust.get(key) || { code: s.assistantCustomerCode || '', name: s.subjectName || s.assistantCustomerCode || '', init: 0, charge: 0, received: 0, closing: 0, yearJf: 0, yearDf: 0 };
+      g.init += Number(s.initBalance);
+      g.charge += Number(s.currentPeriodJf);
+      g.received += Number(s.currentPeriodDf);
+      g.closing += Number(s.endbalance);
+      g.yearJf += Number(s.yearJfAccumulate);
+      g.yearDf += Number(s.yearDfAccumulate);
+      aggByCust.set(key, g);
+    }
+
+    const yyyymmdd = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const source = `CHANJET_VERIFIED_${yyyymmdd}`;
+    const remark = `好业财同步 bookid=${map.bookid} period=${period} importedAt=${new Date().toISOString()}`;
+
+    let upserted = 0;
+    let skipped = 0;
+    const keysFilter = onlyKeys && onlyKeys.length ? new Set(onlyKeys) : null;
+
+    if (!dryRun) {
+      // 按 uq_fin_ar_ledger (farm_code, counterparty_name, period_date) upsert
+      for (const g of aggByCust.values()) {
+        if (keysFilter && !keysFilter.has(g.name)) { skipped++; continue; }
+        await this.ledgerRepo.upsert(
+          {
+            farmCode,
+            farmName,
+            companyCode,
+            counterpartyCode: g.code || null,
+            counterpartyName: g.name,
+            periodDate,
+            currencyCode: 'RMB',
+            openingAmount: g.init.toFixed(2),
+            periodCharge: g.charge.toFixed(2),
+            periodReceived: g.received.toFixed(2),
+            closingAmount: g.closing.toFixed(2),
+            closingAmountBase: g.closing.toFixed(2), // chanjet 已是 RMB 本币,base = closing
+            baseCurrency: 'RMB',
+            source,
+            remark,
+          },
+          {
+            conflictPaths: ['farmCode', 'counterpartyName', 'periodDate'],
+            skipUpdateIfNoValuesChanged: false,
+          },
+        );
+        upserted++;
+      }
+    } else {
+      for (const g of aggByCust.values()) {
+        if (keysFilter && !keysFilter.has(g.name)) { skipped++; continue; }
+        upserted++;
+      }
+    }
+
+    this.log.log(`importToArLedger company=${companyCode} period=${period} upserted=${upserted} skipped=${skipped} dryRun=${dryRun}`);
+    return { companyCode, period, periodDate, farmCode, dryRun, upserted, skipped, source };
   }
 }

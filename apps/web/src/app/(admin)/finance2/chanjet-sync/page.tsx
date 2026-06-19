@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import PageHeader from '@/components/PageHeader';
 import request from '@/lib/api-client';
-import { RefreshCw, Cloud, Download } from 'lucide-react';
+import { RefreshCw, Cloud, Download, BookOpen, CheckCircle2 } from 'lucide-react';
 import { usePermission } from '@/hooks/usePermission';
 
 /**
@@ -70,8 +70,32 @@ const defaultEndDate = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pa
 // 后端 API 当前用 YYYYMM(好业财 period 单月接口),从截止日推
 const toApiPeriod = (yyyymmdd: string) => yyyymmdd.substring(0, 7).replace('-', '');
 
+interface ImportPreview {
+  companyCode: string;
+  period: string;
+  periodDate: string;
+  farmCode: string;
+  newRows: Array<{ counterpartyCode: string; counterpartyName: string; closing: string; charge: string; received: string }>;
+  changedRows: Array<{ counterpartyCode: string; counterpartyName: string; oldClosing: string; newClosing: string; delta: string }>;
+  unchangedCount: number;
+}
+
+interface ImportResult {
+  success: boolean;
+  companyCode?: string;
+  period?: string;
+  periodDate?: string;
+  farmCode?: string;
+  dryRun?: boolean;
+  upserted?: number;
+  skipped?: number;
+  source?: string;
+  error?: string;
+}
+
 export default function ChanjetSyncPage() {
   const { canView, canEdit } = usePermission('MENU_FIN2_AR');
+  const { canView: canViewLedger, canEdit: canEditLedger } = usePermission('MENU_FIN2_AR_LEDGER');
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companyCode, setCompanyCode] = useState<string>('');
@@ -91,6 +115,12 @@ export default function ChanjetSyncPage() {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
   const [lastSync, setLastSync] = useState('');
+
+  // g199-B 入账总账
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
   // 部门对账
   const [deptDiff, setDeptDiff] = useState<{
@@ -131,6 +161,44 @@ export default function ChanjetSyncPage() {
       setLoading(false);
     }
   }, [companyCode, period]);
+
+  const loadImportPreview = useCallback(async () => {
+    if (!companyCode) { setImportError('请先选具体公司'); return; }
+    if (!/^\d{6}$/.test(period)) { setImportError('期间格式 YYYYMM'); return; }
+    setImportLoading(true); setImportError(''); setImportResult(null);
+    try {
+      const d = await request<{ success: boolean; error?: string } & ImportPreview>(
+        `/chanjet/ar-ledger-import-preview?companyCode=${companyCode}&period=${period}`,
+      );
+      if (!d.success) { setImportError(d.error || '预览失败'); setImportPreview(null); }
+      else setImportPreview(d);
+      setTimeout(() => document.getElementById('ar-import-section')?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } catch (e) {
+      setImportError((e as Error).message);
+    } finally {
+      setImportLoading(false);
+    }
+  }, [companyCode, period]);
+
+  const doImport = useCallback(async (dryRun: boolean) => {
+    if (!canEditLedger) return;
+    if (!importPreview) return;
+    if (!confirm(`确认将 ${companyCode} 期间 ${period} 的好业财数据${dryRun ? '试运行' : '正式'}入账到 fin_ar_ledger?`)) return;
+    setImportLoading(true); setImportError(''); setImportResult(null);
+    try {
+      const d = await request<ImportResult>('/chanjet/ar-ledger-import', {
+        method: 'POST',
+        body: JSON.stringify({ companyCode, period, dryRun }),
+      });
+      setImportResult(d);
+      if (!d.success) setImportError(d.error || '入账失败');
+      else if (!dryRun) await loadImportPreview(); // 入账后刷新预览
+    } catch (e) {
+      setImportError((e as Error).message);
+    } finally {
+      setImportLoading(false);
+    }
+  }, [companyCode, period, canEditLedger, importPreview, loadImportPreview]);
 
   const sync = useCallback(async () => {
     if (!canEdit) return;
@@ -252,6 +320,23 @@ export default function ChanjetSyncPage() {
         >
           {deptLoading ? '部门对账中…' : '部门对账'}
         </button>
+        {canViewLedger && (
+          <button
+            onClick={loadImportPreview}
+            disabled={importLoading || !companyCode}
+            title={!companyCode ? '请先选具体公司' : '预览入账总账差异'}
+            style={{
+              padding: '8px 16px',
+              background: companyCode ? '#0ea5e9' : '#9ca3af',
+              color: 'white',
+              border: 'none', borderRadius: 6,
+              cursor: importLoading ? 'wait' : (companyCode ? 'pointer' : 'not-allowed'),
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            <BookOpen size={16} /> {importLoading ? '预览中…' : '预览入账总账'}
+          </button>
+        )}
       </div>
 
       {error && (
@@ -322,6 +407,159 @@ export default function ChanjetSyncPage() {
         按公司一对一对应（chanjet_book_company_map）。非本公司财务受 DataScope 限制不可见。
         何时可写好业财由用户明示。
       </div>
+
+      {/* g199-B 审核入账总账 */}
+      {canViewLedger && (
+        <div id="ar-import-section" style={{ marginTop: 24, padding: 16, border: '1px solid #e5e7eb', borderRadius: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+              <BookOpen size={16} style={{ verticalAlign: -2, marginRight: 6, color: '#0ea5e9' }} />
+              审核入账总账（chanjet_ar_snapshot → fin_ar_ledger）
+            </h3>
+            <div style={{ fontSize: 12, color: '#6b7280' }}>
+              铁律: 财务总监审核入账 · 同客户多科目自动聚合 · source=CHANJET_VERIFIED_YYYYMMDD
+            </div>
+          </div>
+
+          {importError && (
+            <div style={{ padding: 8, background: '#fef2f2', color: '#dc2626', borderRadius: 4, marginBottom: 8, fontSize: 13 }}>
+              {importError}
+            </div>
+          )}
+
+          {!importPreview && !importError && (
+            <div style={{ color: '#9ca3af', fontSize: 13 }}>
+              先选公司+期间,点上方"预览入账总账"按钮查看差异;确认无误后由财务总监(MENU_FIN2_AR_LEDGER:E)入账。
+            </div>
+          )}
+
+          {importPreview && (
+            <div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 12, fontSize: 13 }}>
+                <div style={{ padding: 12, background: '#ecfdf5', borderRadius: 6 }}>
+                  <div style={{ color: '#065f46', fontWeight: 600 }}>新增 {importPreview.newRows.length}</div>
+                  <div style={{ fontSize: 11, color: '#6b7280' }}>fin_ar_ledger 中尚无</div>
+                </div>
+                <div style={{ padding: 12, background: '#fef3c7', borderRadius: 6 }}>
+                  <div style={{ color: '#92400e', fontWeight: 600 }}>金额变动 {importPreview.changedRows.length}</div>
+                  <div style={{ fontSize: 11, color: '#6b7280' }}>期末与现存账不同</div>
+                </div>
+                <div style={{ padding: 12, background: '#f3f4f6', borderRadius: 6 }}>
+                  <div style={{ color: '#374151', fontWeight: 600 }}>无差异 {importPreview.unchangedCount}</div>
+                  <div style={{ fontSize: 11, color: '#6b7280' }}>不会覆盖</div>
+                </div>
+                <div style={{ padding: 12, background: '#eff6ff', borderRadius: 6 }}>
+                  <div style={{ color: '#1e3a8a', fontWeight: 600 }}>farm_code: {importPreview.farmCode}</div>
+                  <div style={{ fontSize: 11, color: '#6b7280' }}>期间日 {importPreview.periodDate}</div>
+                </div>
+              </div>
+
+              {importPreview.newRows.length > 0 && (
+                <details open style={{ marginBottom: 8 }}>
+                  <summary style={{ cursor: 'pointer', fontWeight: 500, padding: 6, background: '#ecfdf5', borderRadius: 4 }}>
+                    新增 {importPreview.newRows.length} 行明细
+                  </summary>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 6 }}>
+                    <thead style={{ background: '#f9fafb' }}>
+                      <tr>
+                        <th style={{ padding: 6, textAlign: 'left' }}>编码</th>
+                        <th style={{ padding: 6, textAlign: 'left' }}>客户</th>
+                        <th style={{ padding: 6, textAlign: 'right' }}>期末应收</th>
+                        <th style={{ padding: 6, textAlign: 'right' }}>本期应收</th>
+                        <th style={{ padding: 6, textAlign: 'right' }}>本期已收</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importPreview.newRows.slice(0, 50).map(r => (
+                        <tr key={r.counterpartyName} style={{ borderTop: '1px solid #f3f4f6' }}>
+                          <td style={{ padding: 6, color: '#6b7280' }}>{r.counterpartyCode || '—'}</td>
+                          <td style={{ padding: 6 }}>{r.counterpartyName}</td>
+                          <td style={{ padding: 6, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{fmt(r.closing)}</td>
+                          <td style={{ padding: 6, textAlign: 'right', fontFamily: 'monospace' }}>{fmt(r.charge)}</td>
+                          <td style={{ padding: 6, textAlign: 'right', fontFamily: 'monospace' }}>{fmt(r.received)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </details>
+              )}
+
+              {importPreview.changedRows.length > 0 && (
+                <details open style={{ marginBottom: 8 }}>
+                  <summary style={{ cursor: 'pointer', fontWeight: 500, padding: 6, background: '#fef3c7', borderRadius: 4 }}>
+                    金额变动 {importPreview.changedRows.length} 行(覆盖现存账)
+                  </summary>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 6 }}>
+                    <thead style={{ background: '#f9fafb' }}>
+                      <tr>
+                        <th style={{ padding: 6, textAlign: 'left' }}>客户</th>
+                        <th style={{ padding: 6, textAlign: 'right' }}>原期末</th>
+                        <th style={{ padding: 6, textAlign: 'right' }}>新期末</th>
+                        <th style={{ padding: 6, textAlign: 'right' }}>差额</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importPreview.changedRows.slice(0, 50).map(r => (
+                        <tr key={r.counterpartyName} style={{ borderTop: '1px solid #f3f4f6' }}>
+                          <td style={{ padding: 6 }}>{r.counterpartyName}</td>
+                          <td style={{ padding: 6, textAlign: 'right', fontFamily: 'monospace', color: '#6b7280' }}>{fmt(r.oldClosing)}</td>
+                          <td style={{ padding: 6, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{fmt(r.newClosing)}</td>
+                          <td style={{ padding: 6, textAlign: 'right', fontFamily: 'monospace', color: Number(r.delta) > 0 ? '#dc2626' : '#059669' }}>
+                            {Number(r.delta) > 0 ? '+' : ''}{fmt(r.delta)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </details>
+              )}
+
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button
+                  onClick={() => doImport(true)}
+                  disabled={importLoading || !canEditLedger || (importPreview.newRows.length === 0 && importPreview.changedRows.length === 0)}
+                  style={{
+                    padding: '8px 16px', background: '#6b7280', color: 'white',
+                    border: 'none', borderRadius: 6, cursor: importLoading ? 'wait' : 'pointer',
+                    opacity: !canEditLedger ? 0.5 : 1,
+                  }}
+                  title={canEditLedger ? '不写库,只算最终入账数' : '需 MENU_FIN2_AR_LEDGER:E'}
+                >
+                  试运行(不写库)
+                </button>
+                <button
+                  onClick={() => doImport(false)}
+                  disabled={importLoading || !canEditLedger || (importPreview.newRows.length === 0 && importPreview.changedRows.length === 0)}
+                  style={{
+                    padding: '8px 16px', background: '#0ea5e9', color: 'white',
+                    border: 'none', borderRadius: 6, cursor: importLoading ? 'wait' : 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    opacity: !canEditLedger ? 0.5 : 1,
+                  }}
+                  title={canEditLedger ? '写 fin_ar_ledger(可逆,按 uq upsert)' : '需 MENU_FIN2_AR_LEDGER:E'}
+                >
+                  <CheckCircle2 size={16} /> 正式入账 fin_ar_ledger
+                </button>
+                {!canEditLedger && (
+                  <span style={{ alignSelf: 'center', fontSize: 12, color: '#dc2626' }}>需财务总监(MENU_FIN2_AR_LEDGER:E)操作</span>
+                )}
+              </div>
+
+              {importResult && (
+                <div style={{
+                  marginTop: 12, padding: 10, borderRadius: 6, fontSize: 13,
+                  background: importResult.success ? '#ecfdf5' : '#fef2f2',
+                  color: importResult.success ? '#065f46' : '#dc2626',
+                }}>
+                  {importResult.success
+                    ? `✓ ${importResult.dryRun ? '试运行' : '入账'}完成: upserted=${importResult.upserted} skipped=${importResult.skipped} source=${importResult.source}`
+                    : `✗ ${importResult.error}`}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 部门对账(顶部按钮触发,自动滚到这里) */}
       <div id="dept-diff-section" style={{ marginTop: 24, padding: 16, border: '1px solid #e5e7eb', borderRadius: 8 }}>

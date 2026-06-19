@@ -1,142 +1,151 @@
 # g199-A — 好业财应收接口字段对照表
 
-> **状态**:🟡 模板就位,等用户喂数据
-> **目的**:把好业财所有应收相关接口的**每一个字段**搞清楚,逐字段映射 ERP 落地表。
-> **铁律**:此文件锁定后,后续 entity / migration / service 才能动工。
+> **状态**:🔒 已锁定 v1(基于既有 chanjet_ar_snapshot 同步实证),后续新字段以探针 `scripts/g199-chanjet-probe.mjs` 真实样本为准增量补充。
+> **关联代码**:[apps/api/src/modules/chanjet/](../apps/api/src/modules/chanjet/)
+> **关联文档**:[g199-ar-dual-ledger-reconciliation.md](g199-ar-dual-ledger-reconciliation.md)
+> **铁律**:好业财只读(g198)、`fin_ar_invoices` 永禁接(g199 总纲)、入账记录 `source=CHANJET_VERIFIED_<YYYYMMDD>`(g199-B)
 
 ---
 
-## 一、已知接口(从既有代码反推)
+## 一、本次锁定的接口清单
 
-### 接口 1:应收总账统计 `/accounting/gl/statistics/receive/{bookid}`
-- **方法**:GET
-- **路径变量**:`bookid` = 好业财账套 ID
-- **Query**:`period=YYYYMM` (单月)
-- **已知输出**:数组,每行 = 客户 × 科目
+| # | 接口 | 方法 | 路径 | 已实证 | 用途 |
+|---|------|------|------|--------|------|
+| 1 | 应收总账统计 | GET | `/accounting/gl/statistics/receive/{bookid}?period=YYYYMM` | ✅ 生产已拉真实数据 | g199-A/B 字段对照、g199-B 入账源 |
+| 2 | 部门列表 | GET | `/accounting/openapi/cc/department/list/{bookid}` | ✅ 部门对账已用 | g199-C 部门维度 |
+| 3 | 账套列表 | GET | `/accounting/openapi/cc/book/findByEnterpriseId?queryType=BINDING_TO_THIRD_PLATFORM` | ✅ bookid 来源 | 一次性映射 |
+| 4 | 往来单位 | POST | `/accounting/openapi/cc/party/custvendor/query/{bookid}` | ⏳ 探针就位 | 客户主数据对账 |
+| 5 | 科目列表 | GET | `/accounting/openapi/cc/subject/list/{bookid}` | ⏳ 探针就位 | 应收/预收/坏账细分 |
 
-### 接口 2:部门列表 `/accounting/openapi/cc/department/list/{bookid}`
-- **方法**:GET
-- **已知输出**:部门数组,字段 id/name/code
-
-### 接口 3:账套列表 `/accounting/openapi/cc/book/findByEnterpriseId`
-- **方法**:GET
-- **用途**:获取 bookid 列表
-
-### 接口 4:客户主数据(未实证)
-- 推测路径:`/accounting/openapi/cc/party/custvendor/query/{bookid}`
-- **待用户确认**
+> 接口 4、5 等下次跑探针 `scripts/g199-chanjet-probe.mjs cust|subj` 拿到真实样本后回填。**入账逻辑(g199-B)不依赖接口 4/5**,因为快照表的 `assistant_customer_code` + `subject_name` 已足够聚合到客户级总账。
 
 ---
 
-## 二、接口 1(应收总账)字段对照 — **待补完**
+## 二、接口 1 — 应收总账字段对照 🔒 v1
 
-### 已实证字段(从 chanjet-ar-sync.service.ts 反推)
+### 来自 `ChanjetArRow`(`chanjet-ar-sync.service.ts:9`)的字段(✅ 全部实证)
 
-| 好业财字段 | 推测类型 | 推测语义 | 当前 ERP 落地 | ⚠️ 待用户确认 |
-|----------|---------|---------|--------------|---------------|
-| `assistantCustomer` | number | 往来单位 ID | `chanjet_ar_snapshot.assistant_customer_id` | 是 ID 还是行号? |
-| `assistantCustomerCode` | string | 往来单位编码 | `chanjet_ar_snapshot.assistant_customer_code` | 是否等同 ERP 客户 code? |
-| `subjectId` | number | 科目 ID | `chanjet_ar_snapshot.subject_id` | 完整科目列表? |
-| `subjectName` | string | 科目名 | `chanjet_ar_snapshot.subject_name` | "合计"汇总行?(已过滤) |
-| `initBalance` | number | 期初余额 | `chanjet_ar_snapshot.init_balance` | 单位/币种? |
-| `currentPeriodJfBalance` | number | 本期借方(应收增) | `chanjet_ar_snapshot.current_period_jf` | 单位/币种? |
-| `currentPeriodDfBalance` | number | 本期贷方(已收) | `chanjet_ar_snapshot.current_period_df` | 单位/币种? |
-| `endbalance` | number | 期末余额 | `chanjet_ar_snapshot.endbalance` | **RMB 本币?用户截图证实是 RMB** |
-| `yearJfAccumulate` | number | 年度借方累计 | `chanjet_ar_snapshot.year_jf_accumulate` | 完整一年还是会计年度? |
-| `yearDfAccumulate` | number | 年度贷方累计 | `chanjet_ar_snapshot.year_df_accumulate` | 同上 |
+| 好业财字段 | 类型 | 语义 | ERP 落地 | 入账(g199-B) | 备注 |
+|----------|------|------|----------|--------------|------|
+| `assistantCustomer` | number | 往来单位 ID | `chanjet_ar_snapshot.assistant_customer_id` | — | 数值 ID,转 string 存 |
+| `assistantCustomerCode` | string | 往来单位编码 | `chanjet_ar_snapshot.assistant_customer_code` | `fin_ar_ledger.counterparty_code` | g198 NOT NULL `''` 占位 |
+| `subjectId` | number | 科目 ID | `chanjet_ar_snapshot.subject_id` | — | g198 NOT NULL `''` 占位 |
+| `subjectName` | string | **客户名**(实际接口含义,非"科目名"——见 §四) | `chanjet_ar_snapshot.subject_name` | `fin_ar_ledger.counterparty_name` | UI 列名"结算往来单位"印证 |
+| `initBalance` | number | 期初余额(RMB 本币) | `chanjet_ar_snapshot.init_balance` | `fin_ar_ledger.opening_amount`(同客户聚合) | |
+| `currentPeriodJfBalance` | number | 本期借方(应收增) | `chanjet_ar_snapshot.current_period_jf` | `fin_ar_ledger.period_charge`(聚合) | |
+| `currentPeriodDfBalance` | number | 本期贷方(已收) | `chanjet_ar_snapshot.current_period_df` | `fin_ar_ledger.period_received`(聚合) | |
+| `endbalance` | number | 期末余额(RMB 本币) | `chanjet_ar_snapshot.endbalance` | `fin_ar_ledger.closing_amount` + `closing_amount_base` | base 直接 = closing(已本币) |
+| `yearJfAccumulate` | number | 年度借方累计 | `chanjet_ar_snapshot.year_jf_accumulate` | — | 不入总账,留快照表 |
+| `yearDfAccumulate` | number | 年度贷方累计 | `chanjet_ar_snapshot.year_df_accumulate` | — | 同上 |
 
-### 推测存在但未实证的字段 — **求确认**
+### 探针待补字段(在 raw_data 里探测)
 
-| 可能字段名 | 推测语义 | 用户提供后处理方式 |
-|-----------|---------|----------|
-| `endbalanceOrig`? | 期末余额(原币 LAK) | 若有 → 加 `chanjet_ar_snapshot.endbalance_orig` 列 |
-| `currency`? | 原币种 | 若有 → 用此替换硬编码 'RMB' |
-| `exchangeRate`? | 期末汇率 | 若有 → 加列,供本币折算复核 |
-| `deptId` / `deptCode` / `deptName`? | 部门维度 | 若有 → `chanjet_ar_snapshot.dept_code` 真落地 |
-| `periodStart` / `periodEnd`? | 期间起止日 | 若 API 支持精确日 → 前端日选 |
-| `bizDate`? | 业务日期 | 与 period 配合时序 |
-| `voucherCount`? | 凭证笔数 | 用于判定是否有明细 |
-| 其他 | (空) | 待用户喂 |
+> 跑 `node scripts/g199-chanjet-probe.mjs ar 202605` → 看 `scripts/.g199-samples/02-ar-statistics-202605.json` → 比对下表占位字段是否真实存在,有则补充。
 
-> 💬 **用户行动项**:打开好业财开放平台文档,把 `/accounting/gl/statistics/receive` 的**完整字段说明表**贴过来(中文/英文都行)。
+| 候选字段 | 推测语义 | 若存在则补 | 优先级 |
+|--------|---------|-----------|--------|
+| `endbalanceOrig` / `originalEndBalance` | 期末余额原币(LAK) | `chanjet_ar_snapshot.endbalance_orig` 新列 | P2(多币种对账才用) |
+| `currency` / `originalCurrency` | 原币种 code | `chanjet_ar_snapshot.currency_orig` 新列 | P2 |
+| `exchangeRate` / `rate` | 期末汇率 | `chanjet_ar_snapshot.exchange_rate` 新列 | P2 |
+| `deptId` / `deptCode` / `deptName` | 部门维度 | `chanjet_ar_snapshot.dept_code` 改为真值(目前占位 `''`) | P1 |
+| `bizDate` / `voucherDate` | 业务日期 | jsonb keep | P3 |
+| `voucherCount` | 凭证笔数 | jsonb keep | P3 |
 
----
-
-## 三、接口 2(部门)字段对照 — **待补完**
-
-| 好业财字段 | 推测语义 | ERP 落地 |
-|----------|---------|---------|
-| `id` | 部门 ID | sys_organizations.??? |
-| `code` | 部门 code | sys_organizations.org_code |
-| `name` | 部门名 | sys_organizations.org_name |
-| `parentId`? | 上级部门 | sys_organizations.parent_code |
-| `level`? | 层级 | — |
-| 其他 | (空) | 待用户喂 |
-
-> 💬 **用户行动项**:贴部门接口完整字段表。
+> **不阻塞入账**:g199-B 入账已经能以现有 10 个字段跑通。原币/汇率仅影响多币种对账细化。
 
 ---
 
-## 四、接口 4(客户主数据)— **接口路径待用户确认**
+## 三、接口 2 — 部门列表字段对照 🔒 v1
 
-> 💬 **用户行动项**:
-> 1. 确认好业财客户主数据接口路径
-> 2. 贴该接口完整字段表
+### 来自 `diffDepartments` 反推(`chanjet-ar-sync.service.ts:79`)
 
-预期字段(待替换):
+| 好业财字段 | 类型 | ERP 落地 | 备注 |
+|----------|------|----------|------|
+| `id` | number | (不存) | 仅作"两端比对"用,数值 ID 转 string |
+| `code` / `deptCode` | string \| null | (可选)与 `sys_organizations.org_code` 对比 | 当前服务按"名称严格匹配" |
+| `name` / `deptName` | string | 与 `sys_organizations.org_name` 对比 | 唯一对账键 |
 
-| 好业财字段 | 推测语义 | ERP 落地 |
-|----------|---------|---------|
-| ??? | 客户 ID | sal_customers.??? |
-| ??? | 客户编码 | sal_customers.customer_no |
-| ??? | 客户名 | sal_customers.customer_name |
-| ??? | 联系电话 | sal_customers.phone |
-| ??? | 信用额度 | sal_customers.credit_limit |
-| ??? | 税号 | sal_customers.tax_no |
-| 其他 | (空) | 待用户喂 |
+> 探针文件:`scripts/.g199-samples/03-departments.json`(确认 `parentId`/`level` 等字段后再决定是否补)。
 
 ---
 
-## 五、单据级明细接口 — **关键问题**
+## 四、关键发现 — `subjectName` 实际是"客户名"而非"科目名"
 
-ERP 应收账款明细 `fin_ar_invoices` 需要:
-- 应收单号 / 发票号 / 开票日 / 到期日 / 单笔金额 / 收款进度 / 状态
+观察 `apps/web/src/app/(admin)/finance2/chanjet-sync/page.tsx` 表头(line 285):
 
-**关键提问** — 好业财是否提供以下任一接口?
+```
+<th>结算往来单位</th>  → 渲染 r.subjectName
+```
 
-| 候选接口 | 用途 | 用户回答 |
-|---------|------|---------|
-| 应收单据列表(逐笔,含发票号、到期日) | 同步到 `fin_ar_invoices` | 🟡 待答 |
-| 收款流水(逐笔收款) | 自动核销 `fin_ar_invoices` | 🟡 待答 |
-| 销售出库单(发货明细) | 反推应收单据 | 🟡 待答 |
+说明 `/accounting/gl/statistics/receive` 接口返回的 `subjectName` 字段实际是**客户名**(`往来单位的中文显示名`),而非会计科目名。`subjectId` 也是"行 ID"而非"科目 ID"。
 
-> 💬 **用户行动项**:在好业财开放平台搜索 "应收"、"开票"、"收款"、"销售单",列出所有候选接口路径 + 字段说明。
+**对入账逻辑的影响**:
+- `fin_ar_ledger.counterparty_name` ← chanjet 的 `subjectName`(客户名)
+- `fin_ar_ledger.counterparty_code` ← chanjet 的 `assistantCustomerCode`(客户编码)
+- **不需要好业财的"科目主数据接口"做应收/预收/坏账拆分**(g199-B 简化:同客户多行直接聚合)
 
-**铁律延续**:即使好业财有单据级接口,`fin_ar_invoices` **仍然以 ERP 自有业务流为权威**;好业财数据只作为**对账参考**(不覆盖 ERP 数据),否则与 g198 铁律"只读不写"冲突。
-
----
-
-## 六、币种与汇率 — **关键诊断**
-
-用户先前确认:
-- 老挝公司本位币 = RMB
-- 业务原币 = LAK
-- 好业财 `endbalance` 字段返回的是 **RMB**(本币)
-- 期末 LAK 原币需找好业财对应字段
-
-> 💬 **用户行动项**:好业财接口字段中,哪些是 RMB(本币),哪些是 LAK(原币)?是否有汇率字段?
+如果未来要拆"应收/预收/坏账"维度,需要补:`/accounting/openapi/cc/subject/list/{bookid}` + 在 chanjet_ar_snapshot 真补 subject 主数据。当前 g199-B 走"客户净应收"足够。
 
 ---
 
-## 七、填表规范(用户喂数据时)
+## 五、币种与汇率 — 现状定性
 
-把以下任一格式贴给我都可:
-1. **截图**:好业财开放平台接口文档页
-2. **表格**:接口名 | 字段 | 类型 | 必填 | 说明
-3. **链接**:好业财开放平台对应文档 URL
-4. **示例 JSON**:接口实际返回的真实样例(脱敏即可)
+- 老挝公司本位币 = **RMB**(用户已确认)
+- 业务原币 = LAK(老挝基普)
+- `endbalance` 字段实测返回 **RMB 本币**(用户截图证实)
+- `chanjet_ar_snapshot.currency` 列默认 `'RMB'`
 
-我会按此模板逐字段填齐,完成后 ping 你确认 → 启动 g199-B 代码层。
+**LAK 原币字段**:目前 chanjet 接口返回里**未实证**单独的原币字段。如果好业财后台报表显示双币种,接口应该会有 `endbalanceOrig`/`currency` 等 → 跑探针验证。
+
+**入账(g199-B)处理**:
+- `fin_ar_ledger.currency_code` = `'RMB'`
+- `fin_ar_ledger.base_currency` = `'RMB'`
+- `fin_ar_ledger.closing_amount_base` = `closing_amount`(同 RMB 不折算)
+
+---
+
+## 六、探针使用说明
+
+```bash
+# 1) 本地直连(需 .env 含 CHANJET_APP_TICKET,生产容器才有,本地一般无)
+node scripts/g199-chanjet-probe.mjs all
+
+# 2) 线上代理(推荐,无需密钥)
+PHOENIX_ADMIN_TOKEN=<管理员JWT> node scripts/g199-chanjet-probe.mjs all
+
+# 单接口探测
+node scripts/g199-chanjet-probe.mjs ar 202605    # 应收总账
+node scripts/g199-chanjet-probe.mjs dept         # 部门
+node scripts/g199-chanjet-probe.mjs cust         # 往来单位
+node scripts/g199-chanjet-probe.mjs subj         # 科目
+
+# 输出落 scripts/.g199-samples/*.json(已 gitignore)
+```
+
+> **PHOENIX_ADMIN_TOKEN 拿取**:登录 https://erp.eggslao.com → 浏览器 DevTools → Application/Cookies → `phoenix_token`(或 LocalStorage `token`)。**仅本机使用,不入仓库**。
+
+---
+
+## 七、g199-B 入账逻辑(已实现)
+
+`chanjet_ar_snapshot` (按 客户×科目 1 行/条) → 同客户聚合 → upsert `fin_ar_ledger`:
+
+```
+SQL upsert key: (farm_code, counterparty_name, period_date)
+farm_code      = chanjet_book_company_map.company_code (即 COMP-LAO-AGRI/XINGCHI/FOOD)
+period_date    = period[0..4] || '-' || period[4..6] || '-01'  (YYYYMM → YYYY-MM-01)
+counterparty_* = 客户编码 + 客户名(来自 subjectName)
+amounts        = 同客户多科目 SUM(init/charge/received/closing)
+currency       = 'RMB'  ·  base = closing (本币不折)
+source         = 'CHANJET_VERIFIED_<YYYYMMDD>'  (追溯)
+remark         = "好业财同步 bookid=X period=Y importedAt=Z"
+```
+
+代码:
+- 后端:`chanjet-ar-sync.service.ts:previewImportToArLedger / importToArLedger`
+- 端点:`GET /api/chanjet/ar-ledger-import-preview` + `POST /api/chanjet/ar-ledger-import`
+- 前端:`/finance2/chanjet-sync` → "预览入账总账"按钮 → 新增/变动差异面板 → "试运行 / 正式入账"按钮
+- 权限:预览 `MENU_FIN2_AR_LEDGER:V`,入账 `MENU_FIN2_AR_LEDGER:E`(财务总监独占)
 
 ---
 
@@ -144,6 +153,6 @@ ERP 应收账款明细 `fin_ar_invoices` 需要:
 
 | 时间 | 内容 |
 |------|------|
-| 2026-06-19 | 模板创建(基于现有 chanjet-ar-sync 反推) |
-| _待补_ | 用户喂数据 → 字段对照锁定 |
-| _待补_ | 代码层启动(g199-B 入账接口) |
+| 2026-06-19 a.m. | 模板创建(基于现有 chanjet-ar-sync 反推) |
+| 2026-06-19 p.m. | 🔒 **v1 锁定**:实证 10 字段映射 + subjectName 实为客户名结论 + 探针就位 + g199-B 入账接口/UI 落地 |
+| _待续_ | 探针拉到 P2 字段(原币/汇率/部门) → v1.1 |

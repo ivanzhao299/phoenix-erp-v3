@@ -171,6 +171,21 @@
 
 ---
 
-## 七、当前卡点
+## 七、进展(2026-06-19 p.m.)
 
-**等用户提供"清单第 1 项"(好业财应收总账接口字段说明)** → 启动 g199-A → 一锅推 g199-B/C/D/E。
+### ✅ g199-A 字段对照已锁定 v1
+- 实证 10 字段映射,关键发现 `subjectName` 实为客户名(非科目)
+- 探针就位 [scripts/g199-chanjet-probe.mjs](../scripts/g199-chanjet-probe.mjs)(双模式:本地直连 / 线上代理)
+- 待补字段(原币 LAK/汇率/部门)落 [g199-chanjet-api-field-mapping.md](g199-chanjet-api-field-mapping.md) §二 占位表,跑探针自动回填,**不阻塞入账**
+
+### ✅ g199-B 入账接口已实现
+- 后端 `previewImportToArLedger` + `importToArLedger`:同客户多科目聚合 → upsert `fin_ar_ledger`
+- 端点 `GET /api/chanjet/ar-ledger-import-preview` + `POST /api/chanjet/ar-ledger-import`
+- 前端 `/finance2/chanjet-sync` 加"审核入账总账"折叠面板:预览差异 / 试运行 / 正式入账
+- 权限:`MENU_FIN2_AR_LEDGER:V` 预览,`MENU_FIN2_AR_LEDGER:E` 入账(财务总监独占)
+- `source='CHANJET_VERIFIED_<YYYYMMDD>'` 追溯标记
+
+### ⏳ 下一阶段
+- **g199-C 三方对账视图**(`fin_ar_invoices` 汇总 ↔ `fin_ar_ledger` ↔ `chanjet_ar_snapshot`)
+- **g199-D 明细↔总账定时勾稽**(月初差异 > 0.01 报警)
+- **g199-E 月末关账 SOP**(财务总监操作手册)
