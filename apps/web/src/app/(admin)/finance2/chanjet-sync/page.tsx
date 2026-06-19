@@ -220,6 +220,38 @@ export default function ChanjetSyncPage() {
         }}>
           <RefreshCw size={16} />
         </button>
+        <button
+          onClick={async () => {
+            if (!companyCode) { setDeptError('请先选具体公司(不能用集团视角)'); return; }
+            setDeptLoading(true); setDeptError(''); setDeptDiff(null);
+            try {
+              const data = await request<{ success: boolean } & NonNullable<typeof deptDiff> & { error?: string }>(
+                `/chanjet/departments-diff?companyCode=${companyCode}`,
+              );
+              if (!data.success) setDeptError(data.error || '对账失败');
+              else setDeptDiff({
+                chanjet: data.chanjet, erp: data.erp,
+                both: data.both, chanjetOnly: data.chanjetOnly, erpOnly: data.erpOnly,
+              });
+              // 自动滚动到对账区
+              setTimeout(() => document.getElementById('dept-diff-section')?.scrollIntoView({ behavior: 'smooth' }), 100);
+            } catch (e) {
+              setDeptError((e as Error).message);
+            } finally {
+              setDeptLoading(false);
+            }
+          }}
+          disabled={deptLoading}
+          style={{
+            padding: '8px 16px',
+            background: companyCode ? '#6366f1' : '#9ca3af',
+            color: 'white',
+            border: 'none', borderRadius: 6,
+            cursor: deptLoading ? 'wait' : 'pointer',
+          }}
+        >
+          {deptLoading ? '部门对账中…' : '部门对账'}
+        </button>
       </div>
 
       {error && (
@@ -291,14 +323,14 @@ export default function ChanjetSyncPage() {
         何时可写好业财由用户明示。
       </div>
 
-      {/* 部门对账(选公司后) */}
-      <div style={{ marginTop: 32, padding: 16, border: '1px solid #e5e7eb', borderRadius: 8 }}>
+      {/* 部门对账(顶部按钮触发,自动滚到这里) */}
+      <div id="dept-diff-section" style={{ marginTop: 24, padding: 16, border: '1px solid #e5e7eb', borderRadius: 8 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>部门对账（好业财 ↔ ERP）</h3>
           <button
             onClick={async () => {
-              if (!companyCode) { setDeptError('请先选公司'); return; }
-              setDeptLoading(true); setDeptError('');
+              if (!companyCode) { setDeptError('请先选具体公司(不能用集团视角)'); return; }
+              setDeptLoading(true); setDeptError(''); setDeptDiff(null);
               try {
                 const data = await request<{ success: boolean } & NonNullable<typeof deptDiff> & { error?: string }>(
                   `/chanjet/departments-diff?companyCode=${companyCode}`,
@@ -314,10 +346,14 @@ export default function ChanjetSyncPage() {
                 setDeptLoading(false);
               }
             }}
-            disabled={deptLoading || !companyCode}
+            disabled={deptLoading}
             style={{
-              padding: '6px 12px', background: '#6366f1', color: 'white',
-              border: 'none', borderRadius: 6, cursor: 'pointer',
+              padding: '8px 16px',
+              background: companyCode ? '#6366f1' : '#9ca3af',
+              color: 'white',
+              border: 'none', borderRadius: 6,
+              cursor: deptLoading ? 'wait' : 'pointer',
+              fontWeight: 500,
             }}
           >
             {deptLoading ? '对账中…' : '查看部门差异'}

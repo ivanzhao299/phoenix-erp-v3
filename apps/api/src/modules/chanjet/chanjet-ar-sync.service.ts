@@ -182,14 +182,16 @@ export class ChanjetArSyncService implements OnModuleInit {
     }
 
     // 过滤掉好业财返回里自带的"合计"汇总行(subjectName='合计' 或 assistantCustomer=0 + 是汇总)
-    // 这些行不是真实往来单位,入库会重复计算
     const rows = rawRows.filter(r =>
       r.subjectName !== '合计' &&
       !(r.subjectName ?? '').startsWith('合计') &&
-      r.assistantCustomerCode  // 真实往来单位必有 code
+      r.assistantCustomerCode
     );
 
-    // 写 PG(upsert by uq_chanjet_ar_v2)
+    // 写 PG:幂等"全删全插"(deptCode 当前为 NULL,upsert 的 ON CONFLICT 因 NULL≠NULL 不去重)
+    // 同 bookid+period 的旧数据全部删除,再 bulk INSERT 新数据
+    await this.arRepo.delete({ bookid: map.bookid, period });
+
     let saved = 0;
     for (const r of rows) {
       const entity: Partial<ChanjetArSnapshotEntity> = {
@@ -211,10 +213,7 @@ export class ChanjetArSyncService implements OnModuleInit {
         rawData: r as Record<string, unknown>,
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await this.arRepo.upsert(entity as any, {
-        conflictPaths: ['bookid', 'period', 'deptCode', 'assistantCustomerCode', 'subjectId'],
-        skipUpdateIfNoValuesChanged: false,
-      });
+      await this.arRepo.insert(entity as any);
       saved++;
     }
 
