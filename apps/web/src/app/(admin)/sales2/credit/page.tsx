@@ -5,6 +5,8 @@ import PageHeader from "@/components/PageHeader";
 import { usePermission } from "@/hooks/usePermission";
 import { KpiCard as GlobalKpiCard } from "@/components/ui/KpiCard";
 import { hexToAccent } from "@/lib/design-tokens";
+// g200b 模板 token(2026-06-19)
+import { secondaryActionButton, inlineAlert } from "@/components/design-system/cockpit-styles";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -60,14 +62,15 @@ function getUsageRate(c: Customer): number {
 }
 
 function getCreditStatus(c: Customer): { label: string; color: string; bg: string } {
+  // g200b(2026-06-19):hex 写死颜色 → color-mix var(--status-*) 跟随主题
   if (c.status === "FROZEN" || c.risk_flag === "BLACKLIST") {
-    return { label: "冻结", color: "var(--status-danger)", bg: "#ef444420" };
+    return { label: "冻结", color: "var(--status-danger)",  bg: "color-mix(in srgb, var(--status-danger) 12%, transparent)" };
   }
   const rate = getUsageRate(c);
   if (rate > 0.8) {
-    return { label: "预警", color: "var(--status-warning)", bg: "#f59e0b20" };
+    return { label: "预警", color: "var(--status-warning)", bg: "color-mix(in srgb, var(--status-warning) 12%, transparent)" };
   }
-  return { label: "正常", color: "var(--status-success)", bg: "#10b98120" };
+  return {   label: "正常", color: "var(--status-success)", bg: "color-mix(in srgb, var(--status-success) 12%, transparent)" };
 }
 
 // ── 统计卡片 ──────────────────────────────────────────────────────────────────
@@ -167,11 +170,7 @@ export default function CustomerCreditPage() {
         title="信用管理"
         subtitle="客户信用额度 · 冻结状态 · 逾期预警 · 信用台账"
         actions={
-          <button
-            onClick={() => void load()}
-            disabled={loading}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border bg-bg-card text-sm text-text-muted hover:bg-bg-muted transition-colors cursor-pointer disabled:opacity-50"
-          >
+          <button onClick={() => void load()} disabled={loading} style={{ ...secondaryActionButton, opacity: loading ? 0.5 : 1 }}>
             <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
             刷新
           </button>
@@ -180,9 +179,8 @@ export default function CustomerCreditPage() {
 
       {/* 错误提示 */}
       {error && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
-          <AlertCircle size={16} />
-          {error}
+        <div style={{ ...inlineAlert('danger'), marginBottom: 16 }}>
+          <AlertCircle size={16} /> {error}
         </div>
       )}
 
