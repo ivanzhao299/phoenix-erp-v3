@@ -3,10 +3,13 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { RefreshCw, CheckCircle, Lock, AlertTriangle, AlertCircle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { usePermission } from "@/hooks/usePermission";
-import { KpiCard as GlobalKpiCard } from "@/components/ui/KpiCard";
-import { hexToAccent } from "@/lib/design-tokens";
 // g200b 模板 token(2026-06-19)
-import { secondaryActionButton, inlineAlert } from "@/components/design-system/cockpit-styles";
+import {
+  secondaryActionButton, inlineAlert,
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+  actionPill, moneyCell, MONO_FONT,
+  tableContainer, tableHeaderCell, tableBodyCell,
+} from "@/components/design-system/cockpit-styles";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -73,22 +76,31 @@ function getCreditStatus(c: Customer): { label: string; color: string; bg: strin
   return {   label: "正常", color: "var(--status-success)", bg: "color-mix(in srgb, var(--status-success) 12%, transparent)" };
 }
 
-// ── 统计卡片 ──────────────────────────────────────────────────────────────────
+// ── 统计卡片 — g200b(2026-06-19) kpiCardCompact 替代 GlobalKpiCard ──────────
+// GlobalKpiCard 右上图标盒 + 大字号与 g200a 的 cash-accounts/expenses 风格不一致。
 
 function StatCard({
   icon: Icon,
   title,
   value,
   sub,
-  color,
+  tone,
 }: {
   icon: React.ElementType;
   title: string;
   value: string | number;
   sub?: string;
-  color: string;
+  tone: 'success' | 'warning' | 'danger' | 'brand' | 'info' | 'default';
 }) {
-  return <GlobalKpiCard label={title} value={value} subValue={sub} icon={Icon} accentColor={hexToAccent(color)} />;
+  return (
+    <div style={kpiCardCompact(tone)}>
+      <div style={kpiCardCompactLabel}>
+        <Icon size={13} /> {title}
+      </div>
+      <div style={kpiCardCompactValue(tone)}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{sub}</div>}
+    </div>
+  );
 }
 
 // ── 进度条 ────────────────────────────────────────────────────────────────────
@@ -196,78 +208,51 @@ export default function CustomerCreditPage() {
         <>
           {/* 统计卡片 */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            <StatCard
-              icon={CheckCircle}
-              title="正常客户"
-              value={normalCount}
-              sub="信用使用率 ≤ 80%"
-              color="var(--status-success)"
-            />
-            <StatCard
-              icon={Lock}
-              title="冻结客户"
-              value={frozenCount}
-              sub="账户已冻结"
-              color="var(--status-danger)"
-            />
-            <StatCard
-              icon={AlertTriangle}
-              title="信用预警"
-              value={warnCount}
-              sub="信用使用率 > 80%"
-              color="var(--status-warning)"
-            />
+            <StatCard icon={CheckCircle}   title="正常客户" value={normalCount} sub="信用使用率 ≤ 80%" tone="success" />
+            <StatCard icon={Lock}          title="冻结客户" value={frozenCount} sub="账户已冻结"      tone="danger"  />
+            <StatCard icon={AlertTriangle} title="信用预警" value={warnCount}   sub="信用使用率 > 80%" tone="warning" />
           </div>
 
-          {/* 客户信用列表 */}
-          <div className="rounded-2xl border bg-bg-card border-border/30 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-border/30">
-              <span className="font-semibold text-sm text-text">
-                客户信用列表
-              </span>
+          {/* 客户信用列表 — g200b:回归 tableContainer + tableHeaderCell + tableBodyCell token */}
+          <div style={tableContainer}>
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+              客户信用列表 <span style={{ color: 'var(--text-secondary)', fontWeight: 400, marginLeft: 6 }}>({customers.length})</span>
             </div>
             {customers.length === 0 ? (
-              <div className="py-12 text-center text-sm text-text-dim">暂无数据</div>
+              <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>暂无数据</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr className="text-xs text-text-muted border-b border-border/30">
-                      <th className="text-left px-5 py-3 font-medium">客户名称</th>
-                      <th className="text-right px-5 py-3 font-medium">信用额度</th>
-                      <th className="text-right px-5 py-3 font-medium">已用额度</th>
-                      <th className="text-left px-5 py-3 font-medium w-48">使用率</th>
-                      <th className="text-left px-5 py-3 font-medium">状态</th>
+                    <tr>
+                      <th style={tableHeaderCell}>客户名称</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'right' }}>信用额度</th>
+                      <th style={{ ...tableHeaderCell, textAlign: 'right' }}>已用额度</th>
+                      <th style={{ ...tableHeaderCell, width: 200 }}>使用率</th>
+                      <th style={tableHeaderCell}>状态</th>
                     </tr>
                   </thead>
                   <tbody>
                     {customers.map((c) => {
                       const status = getCreditStatus(c);
                       const rate = getUsageRate(c);
+                      const tone: 'success' | 'warning' | 'danger' = status.label === '冻结' ? 'danger' : status.label === '预警' ? 'warning' : 'success';
                       return (
-                        <tr
-                          key={c.id}
-                          className="border-b border-border/30 hover:bg-bg-muted hover:bg-bg-muted/30 transition-colors"
-                        >
-                          <td className="px-5 py-3 font-medium text-text">
+                        <tr key={c.id}>
+                          <td style={{ ...tableBodyCell, fontWeight: 500 }}>
                             {c.customer_name ?? c.name ?? `客户${c.id}`}
                           </td>
-                          <td className="px-5 py-3 text-right text-text-muted">
+                          <td style={{ ...tableBodyCell, textAlign: 'right', fontFamily: MONO_FONT, color: 'var(--text-secondary)' }}>
                             {fmtMoney(c.credit_limit)}
                           </td>
-                          <td className="px-5 py-3 text-right text-text">
+                          <td style={{ ...tableBodyCell, textAlign: 'right', ...moneyCell('default', 'md'), padding: '12px 14px', borderBottom: '1px solid var(--border)' }}>
                             {fmtMoney(c.credit_used)}
                           </td>
-                          <td className="px-5 py-3 w-48">
+                          <td style={{ ...tableBodyCell, width: 200 }}>
                             <CreditBar rate={rate} />
                           </td>
-                          <td className="px-5 py-3">
-                            <span
-                              className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                              style={{ color: status.color, background: status.bg }}
-                            >
-                              {status.label}
-                            </span>
+                          <td style={tableBodyCell}>
+                            <span style={actionPill(tone)}>{status.label}</span>
                           </td>
                         </tr>
                       );
