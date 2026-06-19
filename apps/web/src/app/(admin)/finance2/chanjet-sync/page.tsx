@@ -63,14 +63,21 @@ const fmt = (v: string | number | null) =>
     : Number(v).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const today = new Date();
-const defaultPeriod = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`;
+// YYYY-MM 给 <input type="month">,YYYYMM 给后端 API
+const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+const toApiPeriod = (m: string) => m.replace('-', '');
 
 export default function ChanjetSyncPage() {
   const { canView, canEdit } = usePermission('MENU_FIN2_AR');
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companyCode, setCompanyCode] = useState<string>('');
-  const [period, setPeriod] = useState(defaultPeriod);
+  // 起止月份(与好业财后台报表同口径);后端按 endMonth 单月拉(好业财 endbalance 已是累计值)
+  const [startMonth, setStartMonth] = useState(defaultMonth);
+  const [endMonth, setEndMonth] = useState(defaultMonth);
+  const period = toApiPeriod(endMonth);
+  // 公司 code → 中文名映射(表格"公司"列显示中文)
+  const companyNameByCode = new Map(companies.map(c => [c.companyCode, c.companyName]));
 
   const [rows, setRows] = useState<Row[]>([]);
   const [count, setCount] = useState(0);
@@ -159,24 +166,32 @@ export default function ChanjetSyncPage() {
           <select
             value={companyCode}
             onChange={e => setCompanyCode(e.target.value)}
-            style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, minWidth: 320 }}
+            style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, minWidth: 220 }}
           >
             <option value="">集团 / 全部允许公司</option>
             {companies.map(c => (
               <option key={c.companyCode} value={c.companyCode}>
-                {c.companyName} ({c.companyCode}) ↔ {c.bookName}
+                {c.companyName}
               </option>
             ))}
           </select>
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>期间(YYYYMM)</label>
+          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>起始月</label>
           <input
-            type="text"
-            value={period}
-            onChange={e => setPeriod(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            placeholder="202605"
-            style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, width: 120 }}
+            type="month"
+            value={startMonth}
+            onChange={e => setStartMonth(e.target.value)}
+            style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, width: 150 }}
+          />
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>截止月</label>
+          <input
+            type="month"
+            value={endMonth}
+            onChange={e => setEndMonth(e.target.value)}
+            style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, width: 150 }}
           />
         </div>
         <button onClick={load} disabled={loading} style={{
@@ -250,7 +265,9 @@ export default function ChanjetSyncPage() {
             )}
             {rows.map(r => (
               <tr key={r.id} style={{ borderTop: '1px solid #f3f4f6' }}>
-                <td style={{ padding: 12, color: '#6b7280' }}>{r.companyCode || '—'}</td>
+                <td style={{ padding: 12, color: '#374151' }}>
+                  {r.companyCode ? (companyNameByCode.get(r.companyCode) || r.companyCode) : '—'}
+                </td>
                 <td style={{ padding: 12 }}>{r.subjectName || '—'}</td>
                 <td style={{ padding: 12, color: '#6b7280' }}>{r.assistantCustomerCode || '—'}</td>
                 <td style={{ padding: 12, textAlign: 'right', fontFamily: 'monospace' }}>{fmt(r.initBalance)}</td>
