@@ -157,6 +157,23 @@ G4-D 后支持 11 种 FieldType：text / number / select / date / datetime / tex
 
 **g197 装饰器对账战果**:DROP INDEX 192→18(-90%) / @Unique 命中 11/11 / @Check 命中 7/8 / FK 装饰器命中 4/14(typeorm 0.3 refresh bug)。
 
+### 0.5 唯一约束含 nullable 列必填占位(g198 铁律,2026-06-19 起)
+
+**Why**:PG `NULL ≠ NULL` 规则让 `@Unique([..., nullableCol, ...])` 对 NULL 行完全失效,
+ON CONFLICT 永不匹配,每次 upsert 都插入新副本。2026-06-19 chanjet_ar_snapshot
+就因 `dept_code/assistant_customer_code/subject_id` 三列 nullable,生产残留 32 行 × 2 副本
+(用户截图 64 行)。详见 [docs/g198-null-unique-residue-audit.md](docs/g198-null-unique-residue-audit.md)。
+
+**How**:
+- 多列 `@Unique([...])` 的所有约束列**必须 NOT NULL**(配 `default: ''` 占位)
+- 单列 `@Column({ unique: true })` 同理,除非业务真允许多 NULL(如手工 AP 无 PO 的 `po_id`),
+  这种例外必须在 entity 注释里写明理由,并加进 `.github/null-in-unique-allowlist.txt` 白名单
+- 写入路径(service)**禁向唯一约束列写 NULL**,用 `''` 或业务占位值
+- 替代方案:用 partial unique index `WHERE col IS NOT NULL`(允许"该列为 NULL 时不参与去重")
+
+**CI 门禁**(g198-P1):`scripts/check-nullable-in-unique.js` 扫所有 *.entity.ts,
+唯一约束含 nullable 列且不在白名单 → 红灯。本地跑 `node scripts/check-nullable-in-unique.js`。
+
 ### 1. 主数据只用 ACTIVE
 **Why**：业务方禁用旧主数据后，相关单据不能再选到它。
 **How**：所有 Selector 都已经在 loader 里加了 `status='ACTIVE'` 过滤；不要绕过去直接调 `/crud/*` 拿全量。

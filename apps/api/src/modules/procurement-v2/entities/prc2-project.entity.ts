@@ -17,8 +17,8 @@ export class Prc2ProjectEntity {
   @Column({ name: 'company_id', type: 'bigint', nullable: true })
   companyId: string;
 
-  /** 归属公司代码（查询/权限过滤字段） */
-  @Column({ name: 'company_code', type: 'varchar', length: 64, nullable: true })
+  /** 归属公司代码(查询/权限过滤字段;uq_prc2_projects_company_project 约束列,NOT NULL DEFAULT '' / g198) */
+  @Column({ name: 'company_code', type: 'varchar', length: 64, default: '' })
   companyCode: string;
 
   /** 归属公司名称快照 */

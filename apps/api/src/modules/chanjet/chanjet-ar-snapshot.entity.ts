@@ -31,14 +31,16 @@ export class ChanjetArSnapshotEntity {
   @Column({ name: 'period', type: 'varchar', length: 6 })
   period: string;
 
-  @Column({ name: 'assistant_customer_code', type: 'varchar', length: 64, nullable: true })
-  assistantCustomerCode: string | null;
+  /** uq_chanjet_ar_v2 约束列,NOT NULL DEFAULT '' 让唯一约束真生效(g198) */
+  @Column({ name: 'assistant_customer_code', type: 'varchar', length: 64, default: '' })
+  assistantCustomerCode: string;
 
   @Column({ name: 'assistant_customer_id', type: 'varchar', length: 64, nullable: true })
   assistantCustomerId: string | null;
 
-  @Column({ name: 'subject_id', type: 'varchar', length: 64, nullable: true })
-  subjectId: string | null;
+  /** uq_chanjet_ar_v2 约束列,NOT NULL DEFAULT ''(g198) */
+  @Column({ name: 'subject_id', type: 'varchar', length: 64, default: '' })
+  subjectId: string;
 
   @Column({ name: 'subject_name', type: 'varchar', length: 256, nullable: true })
   subjectName: string | null;

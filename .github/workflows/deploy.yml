@@ -148,6 +148,9 @@ jobs:
       - name: Type-check Web
         run: pnpm --filter web run typecheck
 
+      - name: Check nullable-in-unique constraints (g198)
+        run: node scripts/check-nullable-in-unique.js
+
       - name: Build API
         working-directory: apps/api
         run: pnpm build

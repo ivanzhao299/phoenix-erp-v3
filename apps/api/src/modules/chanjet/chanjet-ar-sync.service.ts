@@ -198,9 +198,10 @@ export class ChanjetArSyncService implements OnModuleInit {
         companyCode: map.companyCode,
         deptCode: '',
         period,
-        assistantCustomerCode: r.assistantCustomerCode ?? null,
+        // g198: 唯一约束列禁写 NULL,用 '' 占位让 uq 真生效
+        assistantCustomerCode: r.assistantCustomerCode ?? '',
         assistantCustomerId: r.assistantCustomer ? String(r.assistantCustomer) : null,
-        subjectId: r.subjectId ? String(r.subjectId) : null,
+        subjectId: r.subjectId ? String(r.subjectId) : '',
         subjectName: r.subjectName ?? null,
         initBalance: String(r.initBalance ?? 0),
         currentPeriodJf: String(r.currentPeriodJfBalance ?? 0),

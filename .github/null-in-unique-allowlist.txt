@@ -1,0 +1,11 @@
+# g198 — 唯一约束含 nullable 列白名单
+#
+# 写一行一条违规 key(scripts/check-nullable-in-unique.js 报错的 key 部分):
+#   <file>::<uniqueName>::<col>           # 多列 @Unique
+#   <file>::single::<propName>            # 单列 @Column({ unique:true, nullable:true })
+#
+# 仅允许"业务真允许多 NULL"的情况(如 prc2_ap_ledger.po_id 手工 AP 无 PO)。
+# 必须在 entity 注释里写明"允许多 NULL"理由,否则 review 时直接打回。
+
+# prc2_ap_ledger.po_id: 手工创建的 AP 无 PO 时 po_id=NULL,业务允许多 NULL 行
+apps/api/src/modules/procurement-v2/entities/prc2-ap-ledger.entity.ts::single::poId
