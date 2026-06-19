@@ -7,9 +7,17 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { Plus } from "lucide-react";
+import { Plus, ScanLine } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+// g200e 模板 token(2026-06-20)
+import {
+  primaryActionButton, actionPill, moneyCell, inputField,
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+  actionGroupBox,
+} from "@/components/design-system/cockpit-styles";
+
+type ActionTone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 
 // ✅ V3 表: wms_transfer
 // 字段: transfer_no, from_warehouse, to_warehouse, batch_no, qty, operator, reason, status, date
@@ -30,23 +38,12 @@ export default function TransferPage() {
     t
   } = useLanguage();
 
-  // ✅ 状态 → 全局 badge CSS 类
-  const STATUS_BADGE: Record<string, {
-    cls: string;
-    label: string;
-  }> = {
-    PENDING: {
-      cls: s.badgeWarning,
-      label: t("status.pending", "待确认")
-    },
-    DONE: {
-      cls: s.badgeSuccess,
-      label: t("status.done", "已完成")
-    },
-    CANCELLED: {
-      cls: s.badgeNeutral,
-      label: t("status.cancelled", "已取消")
-    }
+  // g200e:状态 tone → actionPill(tone),COMPLETED 兼容(DB 真实值)
+  const STATUS_BADGE: Record<string, { tone: ActionTone; label: string }> = {
+    PENDING:   { tone: "warning", label: t("status.pending",   "待确认") },
+    DONE:      { tone: "success", label: t("status.done",      "已完成") },
+    COMPLETED: { tone: "success", label: t("status.done",      "已完成") },
+    CANCELLED: { tone: "default", label: t("status.cancelled", "已取消") },
   };
 
   // G4-D：调拨单 — 调出/调入仓库、经办人 主数据化；调拨原因 → sys_dict(INV_TRANSFER_REASON)；交接附件统一上传
@@ -153,7 +150,7 @@ export default function TransferPage() {
     title: t("ui.数量", "数量"),
     width: 80,
     align: "right",
-    render: v => <b>{String(v ?? 0)}</b>
+    render: v => <span style={moneyCell("default", "md")}>{String(v ?? 0)}</span>
   }, {
     key: "reason",
     title: t("ui.调拨原因", "调拨原因"),
@@ -168,11 +165,8 @@ export default function TransferPage() {
     width: 90,
     align: "center",
     render: v => {
-      const cfg = STATUS_BADGE[String(v)] ?? {
-        cls: s.badgeNeutral,
-        label: String(v ?? "—")
-      };
-      return <span className={`${s.badge} ${cfg.cls}`}>{cfg.label}</span>;
+      const cfg = STATUS_BADGE[String(v)] ?? { tone: "default" as ActionTone, label: String(v ?? "—") };
+      return <span style={actionPill(cfg.tone)}>{cfg.label}</span>;
     }
   }];
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -269,49 +263,45 @@ export default function TransferPage() {
     setScanCode("");
   }, [scanCode, refresh]);
   return <div>
-      <PageHeader title={t("ui.库存调拨", "库存调拨")} subtitle={t("ui.库区间及仓店间库存调拨管理", "库区间及仓店间库存调拨管理")} breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.库存调拨", "库存调拨")]} actions={<button type="button" className={s.btnPrimary} onClick={openNew}>
+      <PageHeader
+        title={t("ui.库存调拨", "库存调拨")}
+        subtitle={t("ui.库区间及仓店间库存调拨管理", "库区间及仓店间库存调拨管理")}
+        breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.库存调拨", "库存调拨")]}
+        actions={
+          <button type="button" style={primaryActionButton} onClick={openNew}>
             <Plus size={14} />{t("ui.新建调拨单", "新建调拨单")}
-          </button>} />
+          </button>
+        }
+      />
 
-      {/* KPI 汇总 + 扫码区 */}
+      {/* g200e:KPI 2 卡 + 扫码区 — 老 statCard → kpiCardCompact / 扫码用 actionGroupBox + inputField */}
       <div style={{
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr 2fr",
-      gap: 14,
-      marginBottom: 20
-    }}>
-        <div className={`${s.statCard} ${s.statCardWarning}`}>
-          <div className={s.statLabel}>{t("ui.等待调入确认", "等待调入确认")}</div>
-          <div className={`${s.statValue} ${s.textWarning} ${u.fs24}`}>—</div>
-          <div className={s.statSub}>{t("status.pending", "待确认单")}</div>
-        </div>
-        <div className={`${s.statCard} ${s.statCardSuccess}`}>
-          <div className={s.statLabel}>{t("ui.本月已完成", "本月已完成")}</div>
-          <div className={`${s.statValue} ${s.textSuccess} ${u.fs24}`}>—</div>
-          <div className={s.statSub}>{t("ui.已完成单", "已完成单")}</div>
-        </div>
-        <div className={s.card} style={{
-        padding: "16px 20px",
-        display: "flex",
-        alignItems: "center",
-        gap: 16
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr 2fr",
+        gap: 12,
+        marginBottom: 20,
       }}>
-          <div style={{
-          fontSize: 13,
-          fontWeight: 600,
-          color: "var(--text-primary)",
-          whiteSpace: "nowrap"
-        }}>
-            📷 {t("ui.扫码快速确认调入", "扫码快速确认调入")}
+        <div style={kpiCardCompact("warning")}>
+          <div style={kpiCardCompactLabel}>{t("ui.等待调入确认", "等待调入确认")}</div>
+          <div style={kpiCardCompactValue("warning")}>—</div>
+          <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{t("status.pending", "待确认单")}</div>
+        </div>
+        <div style={kpiCardCompact("success")}>
+          <div style={kpiCardCompactLabel}>{t("ui.本月已完成", "本月已完成")}</div>
+          <div style={kpiCardCompactValue("success")}>—</div>
+          <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{t("ui.已完成单", "已完成单")}</div>
+        </div>
+        <div style={{ ...actionGroupBox, background: "var(--bg-card)", padding: 14, display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <ScanLine size={14} /> {t("ui.扫码快速确认调入", "扫码快速确认调入")}
           </div>
-          <input value={scanCode} onChange={e => setScanCode(e.target.value)} onKeyDown={handleScan} placeholder={t("ui.扫描调拨单号按回车确认", "扫描调拨单号 → 按回车确认")} style={{
-          flex: 1,
-          padding: "9px 14px",
-          borderRadius: 8,
-          fontSize: 13,
-          border: "1px solid var(--border)",
-          background: "var(--bg-page)"
-        }} />
+          <input
+            value={scanCode}
+            onChange={e => setScanCode(e.target.value)}
+            onKeyDown={handleScan}
+            placeholder={t("ui.扫描调拨单号按回车确认", "扫描调拨单号 → 按回车确认")}
+            style={{ ...inputField, flex: 1 }}
+          />
         </div>
       </div>
 

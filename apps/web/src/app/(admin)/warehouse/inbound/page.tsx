@@ -9,6 +9,10 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CheckSquare, Plus } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
+// g200e 模板 token(2026-06-20)
+import {
+  primaryActionButton, actionPill, toolbarFilterPill, moneyCell,
+} from "@/components/design-system/cockpit-styles";
 
 // ✅ V3 表: wms_inbound
 const TABLE = "wms_inbound";
@@ -44,12 +48,14 @@ export default function InboundPage() {
     RETURN:     t("ui.退货入库", "退货入库"),
   };
 
-  const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
-    PENDING:    { cls: s.badgeWarning, label: t("status.pending",   "待审核") },
-    PROCESSING: { cls: s.badgeWarning, label: t("ui.审核中",        "审核中") },
-    COMPLETED:  { cls: s.badgeSuccess, label: t("ui.已入库",        "已入库") },
-    DONE:       { cls: s.badgeSuccess, label: t("ui.已入库",        "已入库") },  // 历史数据兼容
-    CANCELLED:  { cls: s.badgeNeutral, label: t("status.cancelled", "已取消") },
+  // g200e:状态徽章用 actionPill(tone),替换 s.badgeXxx 老 css module
+  type BadgeTone = "warning" | "success" | "default" | "danger";
+  const STATUS_BADGE: Record<string, { tone: BadgeTone; label: string }> = {
+    PENDING:    { tone: "warning", label: t("status.pending",   "待审核") },
+    PROCESSING: { tone: "warning", label: t("ui.审核中",        "审核中") },
+    COMPLETED:  { tone: "success", label: t("ui.已入库",        "已入库") },
+    DONE:       { tone: "success", label: t("ui.已入库",        "已入库") },  // 历史数据兼容
+    CANCELLED:  { tone: "default", label: t("status.cancelled", "已取消") },
   };
 
   // G30：入库单"品目"业务模型修正
@@ -122,24 +128,24 @@ export default function InboundPage() {
     { key: "warehouse_code", title: t("ui.仓库",     "仓库"),      width: 120 },
     { key: "item",           title: t("ui.品目",     "品目"),      width: 150 },
     { key: "qty",            title: t("ui.数量",     "数量"),      width: 80, align: "right",
-      render: v => { const n = Number(v ?? 0); return <b className={n > 0 ? s.textSuccess : ""}>{n}</b>; } },
+      render: v => { const n = Number(v ?? 0); return <span style={moneyCell(n > 0 ? "success" : "default", "md")}>{n}</span>; } },
     { key: "status",         title: t("common.status", "状态"),    width: 90, align: "center",
       render: v => {
-        const cfg = STATUS_BADGE[String(v)] ?? { cls: s.badgeNeutral, label: String(v ?? "—") };
-        return <span className={`${s.badge} ${cfg.cls}`}>{cfg.label}</span>;
+        const cfg = STATUS_BADGE[String(v)] ?? { tone: "default" as BadgeTone, label: String(v ?? "—") };
+        return <span style={actionPill(cfg.tone)}>{cfg.label}</span>;
       }},
     { key: "operator",       title: t("ui.操作员",   "操作员"),    width: 90  },
-    { key: "_actions",       title: t("common.operation", "操作"), width: 140, align: "center",
+    { key: "_actions",       title: t("common.operation", "操作"), width: 180, align: "center",
       render: (_, row) => (
         <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-          <button type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>
+          <button type="button" style={actionPill("default")} onClick={() => openEdit(row)}>{t("common.edit", "编辑")}</button>
           {isManager() && row.status === "PENDING" && (
-            <button type="button" className={`${s.btnSuccess} ${s.btnSm}`} onClick={() => handleApprove(row)}>
+            <button type="button" style={actionPill("success")} onClick={() => handleApprove(row)}>
               <CheckSquare size={11} />{t("ui.审核", "审核")}
             </button>
           )}
           {isManager() && (
-            <button type="button" className={`${s.btnDanger} ${s.btnSm}`} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>
+            <button type="button" style={actionPill("danger")} onClick={() => handleDelete(row)}>{t("common.delete", "删除")}</button>
           )}
         </div>
       )
@@ -153,21 +159,16 @@ export default function InboundPage() {
         subtitle={t("ui.管理各类仓库入库单审核数据追踪", "管理各类仓库入库单 · 审核 · 数据追踪")}
         breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.入库管理", "入库管理")]}
         actions={
-          <button type="button" className={s.btnPrimary} onClick={openNew}>
+          <button type="button" style={primaryActionButton} onClick={openNew}>
             <Plus size={14} />{t("ui.新建入库单", "新建入库单")}
           </button>
         }
       />
 
-      {/* ✅ 过滤标签 — 使用全局 tabPill / tabPillActive（深色主题自适应）*/}
+      {/* g200e:过滤 tab pill 用 toolbarFilterPill token,替换 s.tabPill 老类 */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
         {SOURCE_TYPES.map(tp => (
-          <button
-            key={tp}
-            type="button"
-            onClick={() => setTypeFilter(tp)}
-            className={`${s.tabPill} ${typeFilter === tp ? s.tabPillActive : ""}`}
-          >
+          <button key={tp} type="button" onClick={() => setTypeFilter(tp)} style={toolbarFilterPill(typeFilter === tp)}>
             {tp === "" ? t("ui.全部", "全部") : SOURCE_LABEL[tp]}
           </button>
         ))}
