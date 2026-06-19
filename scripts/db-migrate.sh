@@ -96,13 +96,14 @@ if [ "$MODE" = "ci" ]; then
     exit 1
   fi
 else
-  # 生产: deploy.yml 顺序是 db up → db-migrate.sh → api up,
-  #       db-migrate.sh 跑时 api 容器还没起 → 兼容期跳过,等 deploy.yml 后续起完
-  #       api 再用 docker compose exec 跑 migration:run(本步未来由 deploy.yml 接管)
-  if docker compose ps --services --filter status=running 2>/dev/null | grep -q '^api$'; then
-    docker compose exec -T api ./node_modules/.bin/typeorm -d dist/database/data-source.js migration:run
-    echo "✅ TS 迁移完成 (生产)"
-  else
-    echo "ℹ️  api 容器未运行 → TS 迁移跳过(兼容期);migrations-ts/ 为空时无影响"
-  fi
+  # 生产: 这里**一律跳过** TS 迁移,完全交给 deploy.yml 在 api 重启之后跑。
+  #
+  # 历史 bug(2026-06-19): 这里曾用 `docker compose exec api typeorm migration:run`,
+  #   但 db-migrate.sh 跑在 `docker compose up -d --no-deps api` 之前,exec 进的是
+  #   **上次部署留下的旧容器**(旧 dist)!即使本次 commit 修了迁移,旧容器仍跑旧版本,
+  #   触发 uq 冲突等失败,导致 deploy 链条断在这里、新容器永远起不来。
+  #
+  # 正确做法: deploy.yml 已经在 `docker compose up -d --no-deps api` 之后
+  #   单独 exec api typeorm migration:run(此时 api 已是新镜像)。这里只跑 baseline。
+  echo "ℹ️  prod 模式: TS 迁移完全由 deploy.yml 在 api 重启后接管,这里跳过(避免旧容器跑新迁移)"
 fi
