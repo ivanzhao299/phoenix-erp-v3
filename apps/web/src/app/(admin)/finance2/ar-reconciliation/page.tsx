@@ -197,7 +197,7 @@ export default function ArReconciliationPage() {
           ].map((k, i) => (
             <div key={i} style={{ padding: '14px 16px', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
               <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>{k.label}</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: k.color, fontFamily: MONO }}>{fmt(k.v)}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: k.color, ...NUM_ALIGN }}>{fmt(k.v)}</div>
               <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 4 }}>{k.sub}</div>
             </div>
           ))}
@@ -245,15 +245,15 @@ export default function ArReconciliationPage() {
                     {r.customerCode && <div style={{ fontSize: 11, color: '#6b7280' }}>{r.customerCode}</div>}
                   </td>
                   <td style={tdRight()}>
-                    <div style={{ fontFamily: MONO }}>{fmt(r.invoiceBalance)}</div>
+                    <div style={NUM_ALIGN}>{fmt(r.invoiceBalance)}</div>
                     {r.invoiceCount > 0 && <div style={{ fontSize: 11, color: '#6b7280' }}>{r.invoiceCount} 笔</div>}
                   </td>
                   <td style={tdRight()}>
-                    <div style={{ fontFamily: MONO }}>{fmt(r.ledgerClosing)}</div>
+                    <div style={NUM_ALIGN}>{fmt(r.ledgerClosing)}</div>
                     {r.ledgerSource && <div style={{ fontSize: 10, color: '#6b7280' }}>{r.ledgerSource}</div>}
                   </td>
                   <td style={tdRight()}>
-                    <div style={{ fontFamily: MONO }}>{fmt(r.chanjetEndbalance)}</div>
+                    <div style={NUM_ALIGN}>{fmt(r.chanjetEndbalance)}</div>
                   </td>
                   <td style={{ ...tdRight(), color: Math.abs(r.deltaInvLedger) > 0.01 ? '#dc2626' : '#9ca3af' }}>
                     {fmt(r.deltaInvLedger)}
@@ -320,8 +320,11 @@ export default function ArReconciliationPage() {
 
 // g199c 参考页样式 token(2026-06-19):
 // - th 加 border-bottom(P2-A 修)+ fontSize 13(与 td 同号,避免梯度断层)
-// - monospace 字体栈明示(P3-B 修)— 全平台对齐,避免中文 fallback 难看
-const MONO = "'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace";
+// - 数字列用 fontVariantNumeric: 'tabular-nums'(P3-B v2):
+//   * 应收总账页早就这么写,比 monospace 优雅:数字等宽对齐,文本保留正常字体
+//   * monospace 会把整列变代码字体,中文也跟着丑
+//   * 全 finance2 应统一用 tabular-nums(不再用 'monospace' 字符串)
+const NUM_ALIGN: React.CSSProperties = { fontVariantNumeric: 'tabular-nums' };
 
 const th = (w: number, align: 'left' | 'right' | 'center' = 'center'): React.CSSProperties => ({
   padding: '10px 12px', textAlign: align, fontWeight: 500, color: '#6b7280',

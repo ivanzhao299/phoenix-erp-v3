@@ -46,10 +46,15 @@
 **痛点**: 顶栏装饰性下拉 12px OK,但业务的"公司"/"期间"也用 12px,有点小
 **建议**(可选): 业务 select 用 13.5px(与 td 同号),顶栏装饰 12px 保留
 
-### 🟢 P3-B monospace 字体未指定
+### 🟢 P3-B monospace → tabular-nums(v2 修正)
 **位置**: KPI 数值 + 表格数字列
-**现状**: `fontFamily: 'monospace'` 用系统默认 → mac Monaco / Win Consolas / 中文环境 fallback 可能不齐
-**建议**(可选): 指定明确字体栈 `'SF Mono', 'Menlo', 'Consolas', monospace`
+**v1 结论(已废弃)**: 指定明确 monospace 字体栈
+**v2 结论(正确做法,源于推广时发现 ar-ledger 早就这么写)**:
+  用 `fontVariantNumeric: 'tabular-nums'` —— 启用字体内的等宽数字 lookup,
+  **保留原字体外观**(中文/英文文本仍然漂亮),数字列对齐效果同样好。
+  monospace 会把整列变代码字体,中文 fallback 难看。
+**修法**: 全 finance2 内 `fontFamily: 'monospace'` 全部替换为 `fontVariantNumeric: 'tabular-nums'`
+**实测影响范围**: ar-reconciliation(4 处)/ chanjet-sync(10 处)/ ar(1 处)= 15 处
 
 ### 🟢 P3-C 表格行高 19.5px + padding 10/12 + 多差异原因 3 行堆叠
 **位置**: tbody td

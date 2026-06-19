@@ -1296,7 +1296,7 @@ export default function Finance2ArPage() {
                           <td className={`text-text-muted ${u.tar}`}>{row.currency_code}</td>
                           {['not_due', 'bucket_0_30', 'bucket_31_60', 'bucket_61_90', 'bucket_90_plus', 'total_balance'].map(k => <td key={k} style={{
                     textAlign: 'right',
-                    fontFamily: 'monospace',
+                    fontVariantNumeric: 'tabular-nums',
                     fontWeight: k === 'total_balance' ? 700 : 400
                   }} className={k === 'total_balance' ? 'text-text' : Number(row[k] ?? 0) > 0 && k !== 'not_due' ? 'text-danger' : 'text-text-muted'}>
                               {Number(row[k] ?? 0).toLocaleString('zh-CN', {

@@ -391,10 +391,10 @@ export default function ChanjetSyncPage() {
                 </td>
                 <td style={{ padding: 12 }}>{r.subjectName || '—'}</td>
                 <td style={{ padding: 12, color: '#6b7280' }}>{r.assistantCustomerCode || '—'}</td>
-                <td style={{ padding: 12, textAlign: 'right', fontFamily: 'monospace' }}>{fmt(r.initBalance)}</td>
-                <td style={{ padding: 12, textAlign: 'right', fontFamily: 'monospace' }}>{fmt(r.currentPeriodJf)}</td>
-                <td style={{ padding: 12, textAlign: 'right', fontFamily: 'monospace' }}>{fmt(r.currentPeriodDf)}</td>
-                <td style={{ padding: 12, textAlign: 'right', fontFamily: 'monospace', fontWeight: 500 }}>{fmt(r.endbalance)}</td>
+                <td style={{ padding: 12, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(r.initBalance)}</td>
+                <td style={{ padding: 12, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(r.currentPeriodJf)}</td>
+                <td style={{ padding: 12, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(r.currentPeriodDf)}</td>
+                <td style={{ padding: 12, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>{fmt(r.endbalance)}</td>
                 <td style={{ padding: 12, color: '#6b7280' }}>{r.currency}</td>
               </tr>
             ))}
@@ -474,9 +474,9 @@ export default function ChanjetSyncPage() {
                         <tr key={r.counterpartyName} style={{ borderTop: '1px solid #f3f4f6' }}>
                           <td style={{ padding: 6, color: '#6b7280' }}>{r.counterpartyCode || '—'}</td>
                           <td style={{ padding: 6 }}>{r.counterpartyName}</td>
-                          <td style={{ padding: 6, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{fmt(r.closing)}</td>
-                          <td style={{ padding: 6, textAlign: 'right', fontFamily: 'monospace' }}>{fmt(r.charge)}</td>
-                          <td style={{ padding: 6, textAlign: 'right', fontFamily: 'monospace' }}>{fmt(r.received)}</td>
+                          <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{fmt(r.closing)}</td>
+                          <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(r.charge)}</td>
+                          <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(r.received)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -502,9 +502,9 @@ export default function ChanjetSyncPage() {
                       {importPreview.changedRows.slice(0, 50).map(r => (
                         <tr key={r.counterpartyName} style={{ borderTop: '1px solid #f3f4f6' }}>
                           <td style={{ padding: 6 }}>{r.counterpartyName}</td>
-                          <td style={{ padding: 6, textAlign: 'right', fontFamily: 'monospace', color: '#6b7280' }}>{fmt(r.oldClosing)}</td>
-                          <td style={{ padding: 6, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{fmt(r.newClosing)}</td>
-                          <td style={{ padding: 6, textAlign: 'right', fontFamily: 'monospace', color: Number(r.delta) > 0 ? '#dc2626' : '#059669' }}>
+                          <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#6b7280' }}>{fmt(r.oldClosing)}</td>
+                          <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{fmt(r.newClosing)}</td>
+                          <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: Number(r.delta) > 0 ? '#dc2626' : '#059669' }}>
                             {Number(r.delta) > 0 ? '+' : ''}{fmt(r.delta)}
                           </td>
                         </tr>
