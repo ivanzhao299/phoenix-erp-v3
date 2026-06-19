@@ -915,10 +915,10 @@ export default function Finance2ApPage() {
                     </span>
                     <AgingBadge bucket={r.aging_bucket} />
                   </td>
-                  <td className={`text-text ${u.nowrap}`}>
+                  <td className={`text-text ${u.nowrap}`} style={{ fontVariantNumeric: 'tabular-nums' }}>
                     {fmtMoney(r.amount_original, r.currency_code)}
                   </td>
-                  <td className={`${Number(r.balance_amount_original) > 0 ? 'text-danger' : 'text-text-muted'} ${u.nowrap}`}>
+                  <td className={`${Number(r.balance_amount_original) > 0 ? 'text-danger' : 'text-text-muted'} ${u.nowrap}`} style={{ fontVariantNumeric: 'tabular-nums' }}>
                     {fmtMoney(r.balance_amount_original, r.currency_code)}
                   </td>
                   <td>

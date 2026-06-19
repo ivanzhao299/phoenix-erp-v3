@@ -176,13 +176,15 @@ function PayModal({
       }}>
           <div className="text-amber-800 dark:text-amber-300" style={{
           fontSize: 13,
-          fontWeight: 700
+          fontWeight: 700,
+          fontVariantNumeric: 'tabular-nums'
         }}>
             {currencySymbol(reimb.currency_code)}{fmt(reimb.reimb_amount_original)}
           </div>
           <div className="text-warning" style={{
           fontSize: 12,
-          marginTop: 2
+          marginTop: 2,
+          fontVariantNumeric: 'tabular-nums'
         }}>
             ¥{fmt(reimb.reimb_amount_base)}（基准货币）
           </div>
@@ -417,7 +419,8 @@ export default function ReimbursementsPage() {
           }}>
                 <div className="text-text" style={{
               fontWeight: 800,
-              fontSize: 15
+              fontSize: 15,
+              fontVariantNumeric: 'tabular-nums'
             }}>{currencySymbol(item.currency_code)}{fmt(item.reimb_amount_original)}</div>
                 <div className={`text-text-muted ${u.fs11}`}>{new Date(item.created_at).toLocaleDateString('zh-CN')}</div>
               </div>

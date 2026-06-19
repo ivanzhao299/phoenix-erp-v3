@@ -399,7 +399,7 @@ function ExpenseDrawer({
             fontSize: 13,
             fontWeight: 700
           }}>{r.reimb_no}</div>
-                <div className={`text-text-muted ${u.fs11}`}>{currencySymbol(data.currency_code)}{fmt(r.reimb_amount_original)}</div>
+                <div className={`text-text-muted ${u.fs11}`} style={{ fontVariantNumeric: 'tabular-nums' }}>{currencySymbol(data.currency_code)}{fmt(r.reimb_amount_original)}</div>
               </div>
               <StatusBadge status={r.status} />
             </div>)}
@@ -616,7 +616,8 @@ export default function ExpensesPage() {
         }}>
               <div className="text-text" style={{
             fontWeight: 800,
-            fontSize: 15
+            fontSize: 15,
+            fontVariantNumeric: 'tabular-nums'
           }}>{currencySymbol(item.currency_code)}{fmt(item.amount_original)}</div>
               <div className={`text-text-muted ${u.fs11}`}>{new Date(item.created_at).toLocaleDateString('zh-CN')}</div>
             </div>

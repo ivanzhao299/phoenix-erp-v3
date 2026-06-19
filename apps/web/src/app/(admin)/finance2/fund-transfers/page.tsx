@@ -440,7 +440,8 @@ export default function FundTransfersPage() {
               }}>
                       <div className="text-blue-700 dark:text-blue-300" style={{
                   fontWeight: 800,
-                  fontSize: 18
+                  fontSize: 18,
+                  fontVariantNumeric: 'tabular-nums'
                 }}>
                         {currencySymbol(t.currencyCode)}{fmt(t.amountOriginal)}
                       </div>
