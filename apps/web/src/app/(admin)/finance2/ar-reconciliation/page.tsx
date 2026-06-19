@@ -130,7 +130,7 @@ export default function ArReconciliationPage() {
           <select
             value={companyCode}
             onChange={e => setCompanyCode(e.target.value)}
-            style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, minWidth: 220 }}
+            style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, minWidth: 220, fontSize: 13 }}
           >
             <option value="">集团 / 全部允许公司</option>
             {companies.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
@@ -142,7 +142,7 @@ export default function ArReconciliationPage() {
             <select
               value={periodDate}
               onChange={e => setPeriodDate(e.target.value)}
-              style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, minWidth: 160 }}
+              style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, minWidth: 160, fontSize: 13 }}
             >
               {periods.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
@@ -197,7 +197,7 @@ export default function ArReconciliationPage() {
           ].map((k, i) => (
             <div key={i} style={{ padding: '14px 16px', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
               <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>{k.label}</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: k.color, fontFamily: 'monospace' }}>{fmt(k.v)}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: k.color, fontFamily: MONO }}>{fmt(k.v)}</div>
               <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 4 }}>{k.sub}</div>
             </div>
           ))}
@@ -207,7 +207,7 @@ export default function ArReconciliationPage() {
       {/* 对账表 */}
       <div style={{ overflowX: 'auto', border: '1px solid #e5e7eb', borderRadius: 8 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead style={{ background: '#f9fafb' }}>
+          <thead style={{ backgroundColor: '#f9fafb' }}>
             <tr>
               <th style={th(80)}>状态</th>
               <th style={th(140, 'left')}>公司</th>
@@ -245,15 +245,15 @@ export default function ArReconciliationPage() {
                     {r.customerCode && <div style={{ fontSize: 11, color: '#6b7280' }}>{r.customerCode}</div>}
                   </td>
                   <td style={tdRight()}>
-                    <div style={{ fontFamily: 'monospace' }}>{fmt(r.invoiceBalance)}</div>
+                    <div style={{ fontFamily: MONO }}>{fmt(r.invoiceBalance)}</div>
                     {r.invoiceCount > 0 && <div style={{ fontSize: 11, color: '#6b7280' }}>{r.invoiceCount} 笔</div>}
                   </td>
                   <td style={tdRight()}>
-                    <div style={{ fontFamily: 'monospace' }}>{fmt(r.ledgerClosing)}</div>
+                    <div style={{ fontFamily: MONO }}>{fmt(r.ledgerClosing)}</div>
                     {r.ledgerSource && <div style={{ fontSize: 10, color: '#6b7280' }}>{r.ledgerSource}</div>}
                   </td>
                   <td style={tdRight()}>
-                    <div style={{ fontFamily: 'monospace' }}>{fmt(r.chanjetEndbalance)}</div>
+                    <div style={{ fontFamily: MONO }}>{fmt(r.chanjetEndbalance)}</div>
                   </td>
                   <td style={{ ...tdRight(), color: Math.abs(r.deltaInvLedger) > 0.01 ? '#dc2626' : '#9ca3af' }}>
                     {fmt(r.deltaInvLedger)}
@@ -264,14 +264,28 @@ export default function ArReconciliationPage() {
                   <td style={tdLeft()}>
                     {r.diffReason.length === 0
                       ? <span style={{ color: '#9ca3af' }}>—</span>
-                      : <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          {r.diffReason.map((reason, idx) => (
-                            <span key={idx} style={{
-                              fontSize: 11, padding: '2px 6px', borderRadius: 4,
-                              background: '#fef3c7', color: '#92400e', alignSelf: 'flex-start',
-                            }}>{reason}</span>
-                          ))}
-                        </div>}
+                      : (() => {
+                          // g199c P2-B 修(2026-06-19): 默认显示首条决策信息,多条用 +N 浓缩 + title hover 展开。
+                          // 之前 3 条堆叠 11px 行高崩 + 字号比表格还小,扫读决策被遮蔽。
+                          const first = r.diffReason[0];
+                          const more = r.diffReason.length - 1;
+                          const allText = r.diffReason.join('\n');
+                          return (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <span title={allText} style={{
+                                fontSize: 12, padding: '3px 8px', borderRadius: 4,
+                                background: '#fef3c7', color: '#92400e', lineHeight: 1.4,
+                              }}>{first}</span>
+                              {more > 0 && (
+                                <span title={allText} style={{
+                                  fontSize: 11, padding: '2px 6px', borderRadius: 10,
+                                  background: 'transparent', color: '#92400e',
+                                  border: '1px solid #fcd34d', cursor: 'help',
+                                }}>+{more}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                   </td>
                 </tr>
               );
@@ -304,8 +318,15 @@ export default function ArReconciliationPage() {
   );
 }
 
+// g199c 参考页样式 token(2026-06-19):
+// - th 加 border-bottom(P2-A 修)+ fontSize 13(与 td 同号,避免梯度断层)
+// - monospace 字体栈明示(P3-B 修)— 全平台对齐,避免中文 fallback 难看
+const MONO = "'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace";
+
 const th = (w: number, align: 'left' | 'right' | 'center' = 'center'): React.CSSProperties => ({
   padding: '10px 12px', textAlign: align, fontWeight: 500, color: '#6b7280',
+  fontSize: 13,
+  borderBottom: '1px solid var(--border)',
   width: w, whiteSpace: 'nowrap',
 });
 const subTh: React.CSSProperties = { fontSize: 10, color: '#9ca3af', fontWeight: 400 };
