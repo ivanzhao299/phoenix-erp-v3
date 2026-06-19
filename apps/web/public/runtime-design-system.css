@@ -1,0 +1,38 @@
+/* ════════════════════════════════════════════════════════════════════════
+ * runtime-design-system.css — UI 样式热更新通道
+ * ────────────────────────────────────────────────────────────────────────
+ * 加载位置:在 globals.css 之后(layout.tsx)。优先级 = 同选择器最后定义,
+ *           因此可以覆盖任何编译期的 design system token / 全局样式。
+ *
+ * 部署链路:
+ *   - 本机 / 镜像内默认版本:本文件(空)
+ *   - 生产 nginx 优先 try_files /opt/phoenix/static-overrides/runtime-design-system.css
+ *     再回退到 web 容器内的本文件(即镜像版)
+ *   - fast-css 模式 deploy:scp 本文件到 /opt/phoenix/static-overrides/
+ *     无需重建镜像 / 无需重启容器 / 3-10s 上线
+ *
+ * 适用场景(可频繁调整):
+ *   - 临时颜色/字号微调   - 紧急修复某页排版   - 灰度切换某 token
+ *   - 隐藏 / 显示某 banner   - 调间距 / 圆角 / 阴影
+ *
+ * 禁用场景:
+ *   - 组件结构调整(走 web 部署)
+ *   - 涉及 JS 行为(走 web 部署)
+ *
+ * 缓存:nginx 强制 no-cache, must-revalidate(浏览器每次 If-Modified-Since 重验证),
+ *      mtime 变 → 200 + 新内容,mtime 未变 → 304(零字节)。
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* ─── 在此覆盖任何 token / 全局样式 ─── */
+
+/* 示例(取消注释生效):
+:root {
+  --primary-color: #ff6b00;
+  --status-warning-bg: #fff7e6;
+}
+
+.cockpit-page-title {
+  font-size: 22px;
+  font-weight: 700;
+}
+*/

@@ -1,9 +1,24 @@
 name: CI/CD — Build & Deploy
 
-# 触发条件：
-#   - push 到 main（完整流水线：测试 → 构建 → 推送 → 部署）
-#   - pull_request 到 main（仅测试，不部署）
-#   - workflow_dispatch（手动触发，可选跳过部署）
+# ════════════════════════════════════════════════════════════════════════════
+# 分层部署(2026-06-19 起):
+#   mode=fast-css  3-10 s  仅 scp public/runtime-design-system.css(nginx 重载,无重启)
+#   mode=web       2-5 min 只构建 web 镜像,只重启 web 容器,跳 db migration
+#   mode=api       5-12 min 只构建 api 镜像,跑 migration,重启 api+web
+#   mode=full      5-12 min 两镜像都构建,完整流程(部署 nginx 配 + 全测)
+#
+# 触发:
+#   - push to main       自动 detect-changes 选 mode
+#   - workflow_dispatch  手动选 mode(默认 auto = 同 push)
+#   - pull_request       只跑 test job(不部署)
+#
+# 自动判定规则(detect-changes job):
+#   - 只改 apps/web/public/runtime-design-system.css                          → fast-css
+#   - 只改 apps/web/** (无 deps/no api/no docker/no workflow/no nginx)        → web
+#   - 只改 apps/api/** + DB / scripts/db-migrate.sh / TS 迁移                 → api
+#   - 其余(混合 / deps / docker-compose / workflow / Dockerfile / nginx)      → full
+# ════════════════════════════════════════════════════════════════════════════
+
 on:
   push:
     branches: [main]
@@ -11,14 +26,17 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      mode:
+        description: "部署模式"
+        type: choice
+        options: [auto, fast-css, web, api, full]
+        default: auto
       skip_deploy:
-        description: "跳过部署步骤（仅构建镜像）"
+        description: "跳过部署步骤(仅构建)"
         type: boolean
         default: false
 
-# 成本控制（Role Audit Recheck）：同一 ref 的新流水线启动时，自动取消仍在跑的旧流水线，
-# 避免连续推送时多条全流水线（含最耗分钟数的镜像构建）并行烧 Actions 额度。
-# 注：deploy job 已是幂等部署，被取消的旧 run 不会留下半成品状态。
+# 成本控制:同 ref 新流水线启动时取消旧流水线
 concurrency:
   group: cicd-${{ github.ref }}
   cancel-in-progress: true
@@ -29,11 +47,137 @@ env:
   IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3
 
 jobs:
-  # ────────────────────────────────────────────────────────────
-  # Job 1: 类型检查 + 回归测试
-  # ────────────────────────────────────────────────────────────
+  # ════════════════════════════════════════════════════════════════════════
+  # Job 0: detect-changes — 决定本次跑哪种 mode
+  # 输出:
+  #   mode        最终模式 fast-css / web / api / full
+  #   build_web   true/false 是否构建 web
+  #   build_api   true/false 是否构建 api
+  #   run_test    true/false 是否跑 type-check + 回归测试
+  #   run_mig     true/false 是否跑 DB 迁移
+  # ════════════════════════════════════════════════════════════════════════
+  detect-changes:
+    name: Detect change scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      mode:        ${{ steps.decide.outputs.mode }}
+      build_web:   ${{ steps.decide.outputs.build_web }}
+      build_api:   ${{ steps.decide.outputs.build_api }}
+      run_test:    ${{ steps.decide.outputs.run_test }}
+      run_mig:     ${{ steps.decide.outputs.run_mig }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2  # 至少 2 个 commit 才能 diff
+
+      - name: Compute changed paths
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          # base 用 HEAD~1(push) 或 PR base
+          base: ${{ github.event.before || github.base_ref || 'HEAD~1' }}
+          filters: |
+            runtime_css:
+              - 'apps/web/public/runtime-design-system.css'
+            web_only:
+              - 'apps/web/**'
+              - '!apps/web/public/runtime-design-system.css'
+            web_deps:
+              - 'apps/web/package.json'
+              - 'pnpm-lock.yaml'
+            api_or_db:
+              - 'apps/api/**'
+              - 'apps/api/src/database/migrations/**'
+              - 'scripts/db-migrate.sh'
+            infra:
+              - 'docker-compose.yml'
+              - 'apps/web/Dockerfile'
+              - 'apps/api/Dockerfile'
+              - '.github/workflows/**'
+              - 'nginx/**'
+
+      - name: Decide mode
+        id: decide
+        env:
+          MANUAL_MODE: ${{ inputs.mode || 'auto' }}
+          IS_PUSH:    ${{ github.event_name == 'push' }}
+          IS_PR:      ${{ github.event_name == 'pull_request' }}
+          RUNTIME_CSS: ${{ steps.changes.outputs.runtime_css }}
+          WEB_ONLY:    ${{ steps.changes.outputs.web_only }}
+          WEB_DEPS:    ${{ steps.changes.outputs.web_deps }}
+          API_OR_DB:   ${{ steps.changes.outputs.api_or_db }}
+          INFRA:       ${{ steps.changes.outputs.infra }}
+        run: |
+          # PR → 只跑测试,不部署
+          if [ "$IS_PR" = "true" ]; then
+            echo "mode=test-only" >> $GITHUB_OUTPUT
+            echo "build_web=false" >> $GITHUB_OUTPUT
+            echo "build_api=false" >> $GITHUB_OUTPUT
+            echo "run_test=true" >> $GITHUB_OUTPUT
+            echo "run_mig=false" >> $GITHUB_OUTPUT
+            echo "::notice::PR 模式 → 仅 test"
+            exit 0
+          fi
+
+          # 手动模式覆盖 auto
+          if [ "$MANUAL_MODE" != "auto" ]; then
+            MODE="$MANUAL_MODE"
+            echo "::notice::手动模式: $MODE"
+          else
+            # 自动判定 — 优先级 fast-css < web < api < full
+            if [ "$INFRA" = "true" ] || [ "$WEB_DEPS" = "true" ]; then
+              MODE="full"
+            elif [ "$API_OR_DB" = "true" ] && [ "$WEB_ONLY" = "true" ]; then
+              MODE="full"  # api + web 同改 → 安全起见走 full
+            elif [ "$API_OR_DB" = "true" ]; then
+              MODE="api"
+            elif [ "$WEB_ONLY" = "true" ]; then
+              MODE="web"
+            elif [ "$RUNTIME_CSS" = "true" ]; then
+              MODE="fast-css"
+            else
+              MODE="web"  # 默认兜底(docs/scripts 改动) — web 部署最廉价
+            fi
+            echo "::notice::自动判定: $MODE  (runtime_css=$RUNTIME_CSS web_only=$WEB_ONLY web_deps=$WEB_DEPS api_or_db=$API_OR_DB infra=$INFRA)"
+          fi
+
+          # 输出衍生开关
+          case "$MODE" in
+            fast-css)
+              echo "build_web=false" >> $GITHUB_OUTPUT
+              echo "build_api=false" >> $GITHUB_OUTPUT
+              echo "run_test=false"  >> $GITHUB_OUTPUT  # 仅 CSS,跳测试加速
+              echo "run_mig=false"   >> $GITHUB_OUTPUT
+              ;;
+            web)
+              echo "build_web=true"  >> $GITHUB_OUTPUT
+              echo "build_api=false" >> $GITHUB_OUTPUT
+              echo "run_test=true"   >> $GITHUB_OUTPUT
+              echo "run_mig=false"   >> $GITHUB_OUTPUT
+              ;;
+            api)
+              echo "build_web=false" >> $GITHUB_OUTPUT
+              echo "build_api=true"  >> $GITHUB_OUTPUT
+              echo "run_test=true"   >> $GITHUB_OUTPUT
+              echo "run_mig=true"    >> $GITHUB_OUTPUT
+              ;;
+            full|*)
+              echo "build_web=true"  >> $GITHUB_OUTPUT
+              echo "build_api=true"  >> $GITHUB_OUTPUT
+              echo "run_test=true"   >> $GITHUB_OUTPUT
+              echo "run_mig=true"    >> $GITHUB_OUTPUT
+              ;;
+          esac
+          echo "mode=$MODE" >> $GITHUB_OUTPUT
+
+  # ════════════════════════════════════════════════════════════════════════
+  # Job 1: Type-check & Regression(fast-css 跳过)
+  # ════════════════════════════════════════════════════════════════════════
   test:
     name: Type-check & Regression
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run_test == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -71,10 +215,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # G36 · F5-1 治理：顶级 /migrations/ 自 G34 起冻结，新 SQL 必须 apps/api/migrations/
-      #   背景：G34 前 4 个 mig 误放顶级 → 生产 Deploy 跑 apps/api/migrations/ 不跑顶级 →
-      #         手动 SSH 修；同时老 mig 重置王玮华，G34 时间戳覆盖才解。
-      #   本 step：用 allowlist 锁住顶级目录文件清单，禁增删。
       - name: Lock top-level migrations/ allowlist (F5-1)
         run: |
           if [ ! -f migrations/.allowlist ]; then
@@ -88,11 +228,8 @@ jobs:
             cat /tmp/_diff.log
             exit 1
           fi
-          echo "✅ 顶级 migrations/ 已锁定（46 个历史 SQL）"
+          echo "✅ 顶级 migrations/ 已锁定(46 个历史 SQL)"
 
-      # g195-P5 门禁 #1: apps/api/migrations/ 也冻结(只允许 g195-P2 baseline 的 169 条)
-      # 自此新 schema/数据迁移一律走 apps/api/src/database/migrations/(TS 迁移)。
-      # 历史裸 SQL 已被 P2 桥接进 TypeORM migrations 表,认作"已执行"不会重跑。
       - name: Lock apps/api/migrations/ allowlist (g195-P5)
         run: |
           if [ ! -f apps/api/migrations/.allowlist ]; then
@@ -109,16 +246,9 @@ jobs:
           fi
           echo "✅ apps/api/migrations/ 已锁定(169 个 baseline 裸 SQL)"
 
-      # g195-P5 门禁 #2: TS 迁移必须实现 down()
-      # 防止"懒得写 down" → migration:revert 全线无效。
-      # 启发判定见 scripts/check-ts-migration-down.sh 顶部注释。
       - name: Verify TS migrations implement down() (g195-P5)
         run: bash scripts/check-ts-migration-down.sh apps/api/src/database/migrations
 
-      # g197-H 门禁: TS 迁移 up() 不得含业务数据 DML
-      # 防止 typeorm 自动迁移链(g195-P3/P3+)悄悄改业务数据
-      # 业务数据 seed 必须走运维脚本(scripts/),不进自动链
-      # 白名单:typeorm_metadata / schema_migrations / sys_dict* / sys_migrations_log
       - name: Verify TS migrations no business data DML (g197-H)
         run: bash scripts/check-ts-migration-no-data-dml.sh apps/api/src/database/migrations
 
@@ -126,7 +256,6 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client jq
-          echo "psql $(psql --version)" && echo "jq $(jq --version)"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -158,15 +287,9 @@ jobs:
       - name: Run DDL migrations
         working-directory: apps/api
         run: |
-          # 调用共享迁移脚本（scripts/db-migrate.sh，与生产部署【同一份】，杜绝两份重复脚本）。
-          # CI 用临时空库：脚本检测 schema_migrations 空 + 无业务数据 → 不 baseline、全跑做回归验证。
           export PGHOST="$DB_HOST" PGPORT="$DB_PORT" PGUSER="$DB_USER" PGPASSWORD="$DB_PASSWORD" PGDATABASE="$DB_NAME"
           MIG_MODE=ci MIG_DIR=. bash ../../scripts/db-migrate.sh
 
-      # g195-P5 门禁 #3: entity ↔ DB schema 同步检查(warn-only)
-      # 跑 migration:generate,有 diff 说明 entity 改了但没配套迁移。
-      # 当前 warn-only(::warning 不红灯) — 历史漂移大量存在,等 P6+ 团队补齐
-      # 漂移迁移后切真红灯(本 step 改为 exit 1)。
       - name: Check entity ↔ DB schema sync (g195-P5, warn-only)
         working-directory: apps/api
         run: |
@@ -183,35 +306,15 @@ jobs:
             echo "$out" | head -20
             echo "──── 输出尾部(失败上下文,后 15 行)────"
             echo "$out" | tail -15
-            # g197-I 门禁: 漂移 baseline 检查(超出 → 红灯)
             bash ../../scripts/check-entity-drift-baseline.sh ../../.github/entity-drift-baseline.txt
-            echo "──── 生成的 diff 文件(若有)────"
-            # typeorm migration:generate 在路径前加 timestamp:<timestamp>-<name>.ts
             for diff_file in /tmp/*_p5_entity_diff*.ts; do
               [ -f "$diff_file" ] || continue
               total=$(wc -l < "$diff_file")
               echo ">>> $diff_file (total $total 行)"
-              echo
-              echo "── 操作类别统计(up 段) ──"
-              # 只看 up() 段(去掉 down() 干扰),按 SQL 操作分桶
               up_segment=$(awk '/public async up/,/public async down/' "$diff_file")
-              printf '%-30s %s\n' "DROP INDEX(entity 未声明索引)" "$(echo "$up_segment" | grep -cE 'DROP INDEX')"
-              printf '%-30s %s\n' "DROP CONSTRAINT *_fkey(entity 未声明 FK)" "$(echo "$up_segment" | grep -cE 'DROP CONSTRAINT.*_fkey')"
-              printf '%-30s %s\n' "DROP CONSTRAINT 其他" "$(echo "$up_segment" | grep -E 'DROP CONSTRAINT' | grep -cvE '_fkey')"
-              printf '%-30s %s\n' "ALTER COLUMN(列类型/约束变更)" "$(echo "$up_segment" | grep -cE 'ALTER COLUMN|ALTER TYPE')"
-              printf '%-30s %s\n' "ADD COLUMN(entity 新列未在 DB)" "$(echo "$up_segment" | grep -cE 'ADD COLUMN|ADD ')"
-              printf '%-30s %s\n' "DROP COLUMN(DB 旧列未在 entity)" "$(echo "$up_segment" | grep -cE 'DROP COLUMN')"
-              printf '%-30s %s\n' "RENAME(改名)" "$(echo "$up_segment" | grep -cE 'RENAME')"
-              printf '%-30s %s\n' "CREATE TABLE(entity 表未建)" "$(echo "$up_segment" | grep -cE '^.*CREATE TABLE')"
-              printf '%-30s %s\n' "DROP TABLE(DB 表 entity 未声明)" "$(echo "$up_segment" | grep -cE '^.*DROP TABLE')"
-              printf '%-30s %s\n' "CREATE INDEX(entity 新索引)" "$(echo "$up_segment" | grep -cE '^.*CREATE INDEX|CREATE UNIQUE INDEX')"
-              printf '%-30s %s\n' "ADD CONSTRAINT(entity 新 FK/约束)" "$(echo "$up_segment" | grep -cE 'ADD CONSTRAINT')"
               echo
-              echo "── 真业务漂移行(剔除 DROP INDEX/_fkey 后的所有 up 段操作) ──"
+              echo "── 真业务漂移行 ──"
               echo "$up_segment" | grep -E 'await queryRunner' | grep -vE 'DROP INDEX|DROP CONSTRAINT.*_fkey' | head -120
-              echo
-              echo "── 完整 diff 文件(up 段全文,无截断,供分组分析) ──"
-              echo "$up_segment"
             done
             rm -f /tmp/*_p5_entity_diff*.ts 2>/dev/null
           fi
@@ -236,19 +339,15 @@ jobs:
       - name: Regression — system
         working-directory: apps/api
         run: pnpm test:regr:system
-
       - name: Regression — breeding
         working-directory: apps/api
         run: pnpm test:regr:breeding
-
       - name: Regression — packaging
         working-directory: apps/api
         run: pnpm test:regr:packaging
-
       - name: Regression — wms
         working-directory: apps/api
         run: pnpm test:regr:wms
-
       - name: Regression — finance
         working-directory: apps/api
         run: pnpm test:regr:finance
@@ -261,38 +360,55 @@ jobs:
         if: always()
         run: kill $(cat /tmp/api.pid 2>/dev/null) 2>/dev/null || true
 
-  # ────────────────────────────────────────────────────────────
-  # Job 2: 构建并推送 Docker 镜像到 ghcr.io
-  # 仅在 push to main 时运行
-  # ────────────────────────────────────────────────────────────
+  # ════════════════════════════════════════════════════════════════════════
+  # Job 2: Build & Push 镜像 — matrix 按 detect 输出动态裁剪
+  # fast-css 完全跳过(空 matrix)
+  # web/api 只构 1 个,full 构 2 个
+  # ════════════════════════════════════════════════════════════════════════
   build-push:
     name: Build & Push ${{ matrix.target }}
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [detect-changes, test]
+    if: |
+      always() &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (needs.detect-changes.outputs.build_web == 'true' || needs.detect-changes.outputs.build_api == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    # g197-J: matrix 并行 API + Web,减串行等待(实测 5:00 → ~3:00,省 2 min)
-    # 注:cache scope=target 避免两个 matrix entry 互相 invalidate cache。
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - target: api
-            dockerfile: apps/api/Dockerfile
-            build_args: ""
-          - target: web
-            dockerfile: apps/web/Dockerfile
-            build_args: "API_TARGET=http://api:3100"
-
+        target: [api, web]
+        # 用 exclude 跳过不需构建的(GH Actions 不支持 matrix include 的条件,故反向 exclude)
+        # 这里写死全 matrix,在 step 里跳过,简单可靠
     permissions:
       contents: read
       packages: write
 
     steps:
-      - uses: actions/checkout@v5
+      - name: Skip if this target not needed
+        id: skip
+        env:
+          TARGET: ${{ matrix.target }}
+          BUILD_API: ${{ needs.detect-changes.outputs.build_api }}
+          BUILD_WEB: ${{ needs.detect-changes.outputs.build_web }}
+        run: |
+          if [ "$TARGET" = "api" ] && [ "$BUILD_API" != "true" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::notice::skip api build (mode 不需要)"
+          elif [ "$TARGET" = "web" ] && [ "$BUILD_WEB" != "true" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::notice::skip web build (mode 不需要)"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Log in to GitHub Container Registry
+      - uses: actions/checkout@v5
+        if: steps.skip.outputs.skip != 'true'
+
+      - name: Log in to GHCR
+        if: steps.skip.outputs.skip != 'true'
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
@@ -300,9 +416,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
+        if: steps.skip.outputs.skip != 'true'
         uses: docker/setup-buildx-action@v4
 
       - name: Extract metadata
+        if: steps.skip.outputs.skip != 'true'
         id: meta
         uses: docker/metadata-action@v6
         with:
@@ -311,44 +429,50 @@ jobs:
             type=raw,value=latest
 
       - name: Build & push ${{ matrix.target }} image
+        if: steps.skip.outputs.skip != 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ${{ matrix.dockerfile }}
+          file: apps/${{ matrix.target }}/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: ${{ matrix.build_args }}
+          build-args: ${{ matrix.target == 'web' && 'API_TARGET=http://api:3100' || '' }}
           cache-from: type=gha,scope=${{ matrix.target }}
-          cache-to: type=gha,scope=${{ matrix.target }},mode=max
+          cache-to:   type=gha,scope=${{ matrix.target }},mode=max
 
-  # ────────────────────────────────────────────────────────────
-  # Job 3: SSH 部署到生产服务器
-  # 需要 GitHub Secrets（见下方说明）
-  # ────────────────────────────────────────────────────────────
-  deploy:
-    name: Deploy to Production
-    needs: build-push
+  # ════════════════════════════════════════════════════════════════════════
+  # Job 3a: fast-css deploy — 仅 scp runtime-design-system.css(3-10s)
+  # ════════════════════════════════════════════════════════════════════════
+  deploy-fast-css:
+    name: Deploy · fast-css (CSS hot patch)
+    needs: detect-changes
     if: |
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/main' &&
-      github.event.inputs.skip_deploy != 'true'
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      needs.detect-changes.outputs.mode == 'fast-css' &&
+      inputs.skip_deploy != true
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     environment: production
-
-    permissions:
-      contents: read
-      packages: read
-
     steps:
       - uses: actions/checkout@v5
 
-      - name: Prepare nginx config
-        id: nginx
-        run: echo "conf=$(base64 -w0 nginx/erp.eggslao.com.conf)" >> $GITHUB_OUTPUT
+      - name: scp runtime-design-system.css → /opt/phoenix/static-overrides/
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || 'root' }}
+          proxy_key: ${{ secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          source: "apps/web/public/runtime-design-system.css"
+          target: "/opt/phoenix/static-overrides/"
+          strip_components: 3  # 去掉 apps/web/public/ 三级
 
-      - name: Deploy via SSH
+      - name: Verify(touch mtime + curl nginx)
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -361,126 +485,18 @@ jobs:
           proxy_port: 22
           script: |
             set -e
-            cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+            mkdir -p /opt/phoenix/static-overrides
+            chmod 644 /opt/phoenix/static-overrides/runtime-design-system.css
+            ls -la /opt/phoenix/static-overrides/runtime-design-system.css
+            # nginx 不需 reload — alias 文件每次请求重读
+            # 重置 mtime 让 Last-Modified 准
+            touch /opt/phoenix/static-overrides/runtime-design-system.css
+            # 验证 nginx 真返回 host-override
+            echo "── curl 验证 ──"
+            curl -sI https://erp.eggslao.com/runtime-design-system.css | grep -iE 'HTTP|cache-control|x-rds-source|last-modified|etag' || true
+            echo "✅ fast-css deploy 完成"
 
-            # ── 同步代码（DDL 迁移文件等）────────────────────────────────
-            git stash
-            git pull --ff-only origin main
-            echo "✅ Code synced"
-
-            # ── 畅捷通环境变量注入（从 GitHub Secrets，更新或追加）────
-            inject_env() {
-              local key="$1" val="$2"
-              if [ -z "$val" ]; then
-                # 空值：删除已有行（如 CHANJET_CERT 清空）
-                sed -i "/^${key}=/d" .env 2>/dev/null || true
-                return
-              fi
-              if grep -q "^${key}=" .env 2>/dev/null; then
-                sed -i "s|^${key}=.*|${key}=${val}|" .env
-                echo "  ~ ${key} updated"
-              else
-                echo "${key}=${val}" >> .env
-                echo "  + ${key} injected"
-              fi
-            }
-            inject_env CHANJET_APP_KEY    '${{ secrets.CHANJET_APP_KEY }}'
-            inject_env CHANJET_APP_SECRET '${{ secrets.CHANJET_APP_SECRET }}'
-            inject_env CHANJET_ORG_ID     '${{ secrets.CHANJET_ORG_ID }}'
-            inject_env CHANJET_CERT       '${{ secrets.CHANJET_CERT }}'
-            inject_env CHANJET_MSG_SECRET '${{ secrets.CHANJET_MSG_SECRET }}'
-
-            # ── 拉取新镜像前先清理旧镜像（只保留当前运行容器用到的）────────
-            # 这一步在拉新镜像之前执行，确保拉取时磁盘有足够空间
-            docker image prune -a -f 2>/dev/null || true
-            docker builder prune -f 2>/dev/null || true
-
-            echo "${{ secrets.GITHUB_TOKEN }}" | \
-              docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
-            # 顺序拉取，避免并发 lease 冲突
-            docker compose pull api
-            docker compose pull web
-
-            # ── DB：幂等启动 ─────────────────────────────────────────────
-            docker compose up -d --wait db
-            echo "✅ DB healthy"
-
-            # ── DB 迁移：调用共享脚本（与 CI 同一份 scripts/db-migrate.sh，杜绝两份重复）──
-            # 生产已初始化库：脚本检测 schema_migrations 已 baseline → 历史迁移全跳过、只跑新增。
-            MIG_MODE=prod MIG_DIR=apps/api bash scripts/db-migrate.sh
-
-            # ── 生产验证：Role Runtime Phase C 6 项检查（真实落库确认）──────
-            # 修复（Role Audit Recheck）：在生产库执行 check 脚本，任一 ❌ FAIL 红灯。
-            # 这把"Phase C 是否在生产端真实生效"变成可验证的部署门禁。
-            if [ -f scripts/check-role-runtime-phase-c.sql ]; then
-              echo "── 执行 Role Runtime Phase C 生产验证 ──"
-              CHECK_OUT=$(docker compose exec -T db sh -c \
-                'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
-                < scripts/check-role-runtime-phase-c.sql 2>&1)
-              echo "$CHECK_OUT"
-              # 修复（误报）：只匹配真正的检查失败结果行 "❌ FAIL — ..."（带破折号），
-              # 不匹配脚本结尾的说明文字"任一 ❌ FAIL 需排查对应迁移"（含 FAIL 字样但非失败）。
-              if echo "$CHECK_OUT" | grep -q "❌ FAIL —"; then
-                echo "::error::❌ Phase C 生产验证存在 FAIL — Phase C 未在生产端真实生效"
-                exit 1
-              fi
-              echo "✅ Phase C 生产验证：无 FAIL"
-            fi
-
-            # ── 滚动重启容器 ─────────────────────────────────────────────
-            docker compose up -d --no-deps --wait api
-
-            # ── g195-P3+: TypeORM TS 迁移真接管(api 容器内执行)─────────────
-            # db-migrate.sh 阶段 api 还没起所以跳过 TS 迁移,这里 api up 后才真跑。
-            # 兼容期:migrations-ts/(apps/api/src/database/migrations/)目前为空,
-            # 跑过即 0 pending;P4 起新需求走 TS 迁移即可自动跑。
-            # 失败 → set -e 红灯(prod schema 已部分改动需人工排查)。
-            echo "── 执行 TypeORM TS 迁移(api 容器内) ──"
-            docker compose exec -T api ./node_modules/.bin/typeorm \
-              -d dist/database/data-source.js migration:run
-            echo "✅ TS 迁移完成"
-
-            docker compose up -d --no-deps --wait web \
-              || { docker compose logs web --tail 80; exit 1; }
-
-            # ── 清理旧镜像（释放磁盘）──────────────────────────────────────
-            # docker image prune -f 只删悬空镜像（无标签），sha-* 老版本不会被删
-            # 改为删除所有「未被任何容器引用」的镜像（当前运行容器的镜像会被保留）
-            docker image prune -a -f 2>/dev/null || true
-            # 同时清理无用 build cache（buildx 在本机留下的层）
-            docker builder prune -f 2>/dev/null || true
-            echo "✅ Docker 磁盘清理完成"
-
-            # ── Nginx：备份 → 写入 → reload（不 restart）────────────────
-            cp /etc/nginx/conf.d/cnjinhu-default.conf \
-              /root/nginx-cnjinhu.conf.bak-$(date +%Y%m%d-%H%M%S) 2>/dev/null || true
-            echo "${{ steps.nginx.outputs.conf }}" | base64 -d \
-              > /etc/nginx/conf.d/erp.eggslao.com.conf
-            nginx -t
-            if systemctl is-active --quiet nginx; then
-              systemctl reload nginx
-            else
-              systemctl start nginx
-            fi
-            echo "✅ Nginx reloaded"
-
-            # ── Smoke test ───────────────────────────────────────────────
-            sleep 3
-            curl -fsSL --max-time 20 http://127.0.0.1:3000/ -o /dev/null \
-              && echo "✅ Web smoke test passed" \
-              || { docker compose logs web --tail 20; exit 1; }
-
-            # ── 磁盘用量报告 ─────────────────────────────────────────────
-            echo "📦 Docker 镜像占用："
-            docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | head -20
-            echo "💾 磁盘总览："
-            df -h / | tail -1
-            echo "🐳 Docker 总占用："
-            docker system df 2>/dev/null || true
-
-            echo "✅ Deploy complete — $(date '+%Y-%m-%d %H:%M:%S')"
-
-      - name: Send deploy notification
+      - name: Notify
         if: always()
         env:
           WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
@@ -491,16 +507,211 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           [ -z "$WEBHOOK_URL" ] && exit 0
-          EMOJI=$( [ "$STATUS" = "success" ] && echo "✅" || echo "🚨" )
-          MSG="$EMOJI Phoenix ERP V3 Deploy ${STATUS^^}\nbranch=\`main\` sha=\`${SHA:0:8}\` by \`$ACTOR\`\n$RUN_URL"
+          EMOJI=$( [ "$STATUS" = "success" ] && echo "🎨" || echo "🚨" )
+          MSG="$EMOJI Phoenix ERP fast-css ${STATUS^^}\nsha=\`${SHA:0:8}\` by \`$ACTOR\`\n$RUN_URL"
           case "$WEBHOOK_TYPE" in
-            feishu)
-              curl -sS -X POST "$WEBHOOK_URL" -H 'Content-Type: application/json' \
-                -d "{\"msg_type\":\"text\",\"content\":{\"text\":\"$MSG\"}}" || true ;;
-            dingtalk)
-              curl -sS -X POST "$WEBHOOK_URL" -H 'Content-Type: application/json' \
-                -d "{\"msgtype\":\"text\",\"text\":{\"content\":\"$MSG\"}}" || true ;;
-            slack|*)
-              curl -sS -X POST "$WEBHOOK_URL" -H 'Content-Type: application/json' \
-                -d "{\"text\":\"$MSG\"}" || true ;;
+            feishu)   curl -sS -X POST "$WEBHOOK_URL" -H 'Content-Type: application/json' -d "{\"msg_type\":\"text\",\"content\":{\"text\":\"$MSG\"}}" || true ;;
+            dingtalk) curl -sS -X POST "$WEBHOOK_URL" -H 'Content-Type: application/json' -d "{\"msgtype\":\"text\",\"text\":{\"content\":\"$MSG\"}}" || true ;;
+            *)        curl -sS -X POST "$WEBHOOK_URL" -H 'Content-Type: application/json' -d "{\"text\":\"$MSG\"}" || true ;;
+          esac
+
+  # ════════════════════════════════════════════════════════════════════════
+  # Job 3b: web/api/full deploy — 完整 ssh 部署(按 mode 裁剪步骤)
+  # ════════════════════════════════════════════════════════════════════════
+  deploy:
+    name: Deploy · ${{ needs.detect-changes.outputs.mode }}
+    needs: [detect-changes, build-push]
+    if: |
+      always() &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      (needs.detect-changes.outputs.mode == 'web' || needs.detect-changes.outputs.mode == 'api' || needs.detect-changes.outputs.mode == 'full') &&
+      needs.build-push.result == 'success' &&
+      inputs.skip_deploy != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Prepare nginx config (full mode only)
+        id: nginx
+        if: needs.detect-changes.outputs.mode == 'full'
+        run: echo "conf=$(base64 -w0 nginx/erp.eggslao.com.conf)" >> $GITHUB_OUTPUT
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_MODE: ${{ needs.detect-changes.outputs.mode }}
+          BUILD_WEB:   ${{ needs.detect-changes.outputs.build_web }}
+          BUILD_API:   ${{ needs.detect-changes.outputs.build_api }}
+          RUN_MIG:     ${{ needs.detect-changes.outputs.run_mig }}
+          NGINX_CONF:  ${{ steps.nginx.outputs.conf }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || 'root' }}
+          proxy_key: ${{ secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF
+          script: |
+            set -e
+            cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+
+            echo "════════════════════════════════════════════════"
+            echo "  Deploy mode: $DEPLOY_MODE"
+            echo "  build_web=$BUILD_WEB  build_api=$BUILD_API  run_mig=$RUN_MIG"
+            echo "════════════════════════════════════════════════"
+
+            # 首次部署兜底:确保 runtime-design-system.css alias 目录存在
+            mkdir -p /opt/phoenix/static-overrides
+            if [ ! -f /opt/phoenix/static-overrides/runtime-design-system.css ]; then
+              # 用仓库内默认占位版作种子(后续 fast-css 才能 scp 覆盖)
+              cp apps/web/public/runtime-design-system.css /opt/phoenix/static-overrides/ || true
+              chmod 644 /opt/phoenix/static-overrides/runtime-design-system.css
+              echo "✅ runtime-design-system.css 占位文件已创建"
+            fi
+
+            # ── 同步代码 ────────────────────────────────────────────────
+            git stash
+            git pull --ff-only origin main
+            echo "✅ Code synced"
+
+            # ── 畅捷通环境变量注入(所有 mode 都做,廉价幂等)──────────
+            inject_env() {
+              local key="$1" val="$2"
+              if [ -z "$val" ]; then
+                sed -i "/^${key}=/d" .env 2>/dev/null || true
+                return
+              fi
+              if grep -q "^${key}=" .env 2>/dev/null; then
+                sed -i "s|^${key}=.*|${key}=${val}|" .env
+              else
+                echo "${key}=${val}" >> .env
+              fi
+            }
+            inject_env CHANJET_APP_KEY    '${{ secrets.CHANJET_APP_KEY }}'
+            inject_env CHANJET_APP_SECRET '${{ secrets.CHANJET_APP_SECRET }}'
+            inject_env CHANJET_ORG_ID     '${{ secrets.CHANJET_ORG_ID }}'
+            inject_env CHANJET_CERT       '${{ secrets.CHANJET_CERT }}'
+            inject_env CHANJET_MSG_SECRET '${{ secrets.CHANJET_MSG_SECRET }}'
+
+            # ── 拉新镜像前清理(温和):只删未被任何容器引用的旧镜像 ──
+            # ⚠️ 不再 docker builder prune -af(冷构建永远慢),改为保留 24h/5GB
+            docker image prune -a -f 2>/dev/null || true
+            # builder cache 只清 24h 前的,且保留至少 5GB
+            docker buildx prune -f --filter "until=24h" --keep-storage=5GB 2>/dev/null \
+              || docker builder prune -f --filter "until=24h" 2>/dev/null \
+              || true
+
+            echo "${{ secrets.GITHUB_TOKEN }}" | \
+              docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+
+            # ── 按 mode 决定拉哪些镜像 ────────────────────────────────
+            if [ "$BUILD_API" = "true" ]; then
+              docker compose pull api
+            fi
+            if [ "$BUILD_WEB" = "true" ]; then
+              docker compose pull web
+            fi
+
+            # ── DB(所有 mode 都需要):幂等启动 ─────────────────────────
+            docker compose up -d --wait db
+            echo "✅ DB healthy"
+
+            # ── DB 迁移(仅 api/full)─────────────────────────────────
+            if [ "$RUN_MIG" = "true" ]; then
+              MIG_MODE=prod MIG_DIR=apps/api bash scripts/db-migrate.sh
+
+              if [ -f scripts/check-role-runtime-phase-c.sql ]; then
+                echo "── 执行 Role Runtime Phase C 生产验证 ──"
+                CHECK_OUT=$(docker compose exec -T db sh -c \
+                  'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+                  < scripts/check-role-runtime-phase-c.sql 2>&1)
+                echo "$CHECK_OUT"
+                if echo "$CHECK_OUT" | grep -q "❌ FAIL —"; then
+                  echo "::error::❌ Phase C 生产验证存在 FAIL"
+                  exit 1
+                fi
+                echo "✅ Phase C 生产验证:无 FAIL"
+              fi
+            else
+              echo "── 跳过 DB 迁移(mode=$DEPLOY_MODE)──"
+            fi
+
+            # ── 滚动重启容器(按 mode 选)──────────────────────────────
+            if [ "$BUILD_API" = "true" ]; then
+              docker compose up -d --no-deps --wait api
+
+              # g195-P3+: TS 迁移 api 容器内执行(api up 后才跑)
+              echo "── 执行 TypeORM TS 迁移(api 容器内) ──"
+              docker compose exec -T api ./node_modules/.bin/typeorm \
+                -d dist/database/data-source.js migration:run
+              echo "✅ TS 迁移完成"
+            fi
+
+            if [ "$BUILD_WEB" = "true" ]; then
+              docker compose up -d --no-deps --wait web \
+                || { docker compose logs web --tail 80; exit 1; }
+            fi
+
+            # ── 部署后温和清理(不动 builder cache) ─────────────────────
+            docker image prune -a -f 2>/dev/null || true
+
+            # ── Nginx(仅 full mode)──────────────────────────────────
+            if [ "$DEPLOY_MODE" = "full" ] && [ -n "$NGINX_CONF" ]; then
+              cp /etc/nginx/conf.d/cnjinhu-default.conf \
+                /root/nginx-cnjinhu.conf.bak-$(date +%Y%m%d-%H%M%S) 2>/dev/null || true
+              echo "$NGINX_CONF" | base64 -d \
+                > /etc/nginx/conf.d/erp.eggslao.com.conf
+              nginx -t
+              if systemctl is-active --quiet nginx; then
+                systemctl reload nginx
+              else
+                systemctl start nginx
+              fi
+              echo "✅ Nginx reloaded"
+            fi
+
+            # ── Smoke test(所有 mode)───────────────────────────────
+            sleep 3
+            curl -fsSL --max-time 20 http://127.0.0.1:3000/ -o /dev/null \
+              && echo "✅ Web smoke test passed" \
+              || { docker compose logs web --tail 20; exit 1; }
+
+            # ── 磁盘用量报告 ─────────────────────────────────────────
+            echo "📦 Docker 镜像占用:"
+            docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | head -20
+            echo "💾 磁盘总览:"
+            df -h / | tail -1
+            echo "🐳 Docker 总占用(builder cache 保留 5GB/24h 加速冷构建):"
+            docker system df 2>/dev/null || true
+
+            echo "✅ Deploy ($DEPLOY_MODE) complete — $(date '+%Y-%m-%d %H:%M:%S')"
+
+      - name: Send deploy notification
+        if: always()
+        env:
+          WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+          WEBHOOK_TYPE: ${{ secrets.ALERT_WEBHOOK_TYPE || 'slack' }}
+          STATUS: ${{ job.status }}
+          MODE:   ${{ needs.detect-changes.outputs.mode }}
+          SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -z "$WEBHOOK_URL" ] && exit 0
+          EMOJI=$( [ "$STATUS" = "success" ] && echo "✅" || echo "🚨" )
+          MSG="$EMOJI Phoenix ERP Deploy[$MODE] ${STATUS^^}\nbranch=\`main\` sha=\`${SHA:0:8}\` by \`$ACTOR\`\n$RUN_URL"
+          case "$WEBHOOK_TYPE" in
+            feishu)   curl -sS -X POST "$WEBHOOK_URL" -H 'Content-Type: application/json' -d "{\"msg_type\":\"text\",\"content\":{\"text\":\"$MSG\"}}" || true ;;
+            dingtalk) curl -sS -X POST "$WEBHOOK_URL" -H 'Content-Type: application/json' -d "{\"msgtype\":\"text\",\"text\":{\"content\":\"$MSG\"}}" || true ;;
+            slack|*)  curl -sS -X POST "$WEBHOOK_URL" -H 'Content-Type: application/json' -d "{\"text\":\"$MSG\"}" || true ;;
           esac
