@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
+ * @allow-data-dml: 清 company_code NULL→'' 占位 + 去重(NOT NULL 前置必需)
+ *
  * g198-P0-2 — 修 prc2_projects.company_code nullable 让 uq_prc2_projects_company_project 真生效
  *
  * Why: @Unique('uq_prc2_projects_company_project', ['companyCode', 'projectCode'])

@@ -14,6 +14,12 @@
 #    - sys_dict / sys_dict_entries(字典 seed)
 #    - sys_migrations_log / typeorm_metadata(工具表)
 #
+#  文件级豁免(g198,2026-06-19 起):
+#    在文件前 30 行内含 /* @allow-data-dml: <reason> */ 或 // @allow-data-dml: <reason>
+#    则整文件跳过 DML 检查。
+#    适用场景:schema 改造前的"清 NULL 占位 + 去重"等数据修复迁移
+#    (这类 DML 是 DDL 的必要前置,不能拆,但又是合法的数据治理)。
+#
 #  违规模式判定:awk 抓 up() 函数体,grep 拦危险 DML;白名单豁免。
 #
 #  调用方:GitHub Actions(.github/workflows/deploy.yml),失败 exit 1。
@@ -25,6 +31,7 @@ DIR="${1:-apps/api/src/database/migrations}"
 shopt -s nullglob
 fail=0
 checked=0
+exempted=0
 
 # 拦截:这些表的 DML 一律禁(除非在白名单)
 DANGEROUS_DML='(INSERT[[:space:]]+INTO|UPDATE[[:space:]]+[a-zA-Z_]|DELETE[[:space:]]+FROM|TRUNCATE|MERGE[[:space:]]+INTO)'
@@ -32,8 +39,19 @@ DANGEROUS_DML='(INSERT[[:space:]]+INTO|UPDATE[[:space:]]+[a-zA-Z_]|DELETE[[:spac
 # 白名单:这些表允许 DML(工具表 + 字典)
 WHITELIST_TABLES='(typeorm_metadata|schema_migrations|sys_dict|sys_dict_entries|sys_migrations_log)'
 
+# 文件级豁免标记:头 30 行内出现 @allow-data-dml: 即整文件豁免
+EXEMPT_MARK='@allow-data-dml:'
+
 for f in "$DIR"/*.ts; do
   checked=$((checked + 1))
+
+  # g198: 文件头部豁免检查(在做任何 DML 扫描之前)
+  if head -30 "$f" | grep -q "$EXEMPT_MARK"; then
+    reason=$(head -30 "$f" | grep "$EXEMPT_MARK" | head -1 | sed -E "s/.*${EXEMPT_MARK}[[:space:]]*//; s/[[:space:]]*\*\/.*//" | head -c 120)
+    echo "🟡 $(basename "$f"): 豁免 DML 检查 — $reason"
+    exempted=$((exempted + 1))
+    continue
+  fi
 
   # 抽 up() 函数体(从 async up( 到 async down( 之前)
   up_segment=$(awk '
@@ -76,6 +94,10 @@ done
 if [ "$checked" = "0" ]; then
   echo "✅ TS 迁移目录尚空 — 无检查项(目录: $DIR)"
 elif [ "$fail" = "0" ]; then
-  echo "✅ 所有 $checked 条 TS 迁移 up() 无业务数据 DML"
+  if [ "$exempted" -gt 0 ]; then
+    echo "✅ $checked 条 TS 迁移检查通过($exempted 条文件级豁免)"
+  else
+    echo "✅ 所有 $checked 条 TS 迁移 up() 无业务数据 DML"
+  fi
 fi
 exit $fail

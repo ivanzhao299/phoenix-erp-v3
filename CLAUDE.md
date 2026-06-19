@@ -234,7 +234,15 @@ ON CONFLICT 永不匹配,每次 upsert 都插入新副本。2026-06-19 chanjet_a
     - 生产：`deploy.yml` 在 `docker compose up -d --wait api` 后 `docker compose exec -T api ...`
 - ❌ **顶级 `migrations/`**：46 条历史，G34 冻结，`.allowlist` 锁定
 - ❌ **`apps/api/migrations/`**：169 条 baseline，g195-P5 冻结，`.allowlist` 锁定；已被 P2 桥接进 TypeORM `migrations` 表（视为"全已执行"）
-- CI 门禁：违反 allowlist / 缺 down() → 红灯
+- CI 门禁：违反 allowlist / 缺 down() / **up() 含业务数据 DML** → 红灯
+  - g197-H 铁律:TS 迁移 up() **禁含 INSERT/UPDATE/DELETE/TRUNCATE/MERGE**(白名单:sys_dict / typeorm_metadata 等工具表)
+  - **数据修复迁移豁免**(g198,2026-06-19):若是 NOT NULL 改造前置的"清 NULL + 去重"等合法治理 DML,在文件头 30 行内加 `@allow-data-dml: <reason>` 标记整文件豁免。例:
+    ```ts
+    /**
+     * @allow-data-dml: 清 dept_code NULL→'' 占位 + 去重(NOT NULL 前置必需)
+     */
+    ```
+  - 业务数据 seed 仍走 `scripts/` 运维脚本,不走迁移链
 - 蓝图：`docs/migration-tooling-roadmap.md`；规范：`apps/api/src/database/migrations/README.md`
 
 ### 中文 docx 文件经常无关变动

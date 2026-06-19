@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
+ * @allow-data-dml: 清 dept_code NULL→'' 占位 + 去重(NOT NULL 前置必需)
+ *
  * 修 chanjet_ar_snapshot.dept_code = NULL 导致唯一约束失效 → 历史重复
  *
  * Why: uq_chanjet_ar_v2(bookid, period, dept_code, assistant_customer_code, subject_id)

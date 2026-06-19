@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
+ * @allow-data-dml: 清 NULL→'' 占位 + 去重(NOT NULL 前置必需)
+ *
  * g198-P0-1 — 收紧 chanjet_ar_snapshot 唯一约束剩余 nullable 列
  *
  * Why: 上一版只修 dept_code(1781835697682),但 uq_chanjet_ar_v2 还含
