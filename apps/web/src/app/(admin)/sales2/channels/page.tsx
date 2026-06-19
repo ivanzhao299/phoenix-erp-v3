@@ -5,8 +5,11 @@ import { RefreshCw, Store, Truck, UserCheck, ShoppingBag, AlertCircle } from "lu
 import PageHeader from "@/components/PageHeader";
 import { usePermission } from "@/hooks/usePermission";
 import s from "@/components/ui/admin-ui.module.css";
-// g200b 模板 token(2026-06-19)
-import { secondaryActionButton, inlineAlert } from "@/components/design-system/cockpit-styles";
+// g200b/d 模板 token(2026-06-19)
+import {
+  secondaryActionButton, inlineAlert,
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+} from "@/components/design-system/cockpit-styles";
 
 // ── 类型 ──────────────────────────────────────────────────────────────────────
 
@@ -59,35 +62,13 @@ async function apiFetch<T>(url: string): Promise<T> {
 
 // ── 渠道配置 ──────────────────────────────────────────────────────────────────
 
+// g200d(2026-06-19):color hex/var → tone enum,4 卡走 kpiCardCompact(tone)。
+// 按 [feedback_avoid_emoji_color_card]:禁用浅色背景图标盒 + hex 大数字。
 const CHANNEL_DEFS = [
-  {
-    type: "DIRECT",
-    label: "直营门店",
-    icon: Store,
-    color: "var(--color-accent)",
-    desc: "公司自营，直接面向消费者",
-  },
-  {
-    type: "DISTRIBUTOR",
-    label: "经销商",
-    icon: Truck,
-    color: "var(--status-success)",
-    desc: "区域代理，批发分销",
-  },
-  {
-    type: "AGENT",
-    label: "代理商",
-    icon: UserCheck,
-    color: "var(--status-warning)",
-    desc: "品牌代理，佣金模式",
-  },
-  {
-    type: "ECOMMERCE",
-    label: "电商",
-    icon: ShoppingBag,
-    color: "var(--color-purple-500)",
-    desc: "线上平台，第三方渠道",
-  },
+  { type: "DIRECT",      label: "直营门店", icon: Store,        tone: "info"    as const, desc: "公司自营，直接面向消费者", color: "var(--status-info)"    },
+  { type: "DISTRIBUTOR", label: "经销商",   icon: Truck,        tone: "success" as const, desc: "区域代理，批发分销",       color: "var(--status-success)" },
+  { type: "AGENT",       label: "代理商",   icon: UserCheck,    tone: "warning" as const, desc: "品牌代理，佣金模式",       color: "var(--status-warning)" },
+  { type: "ECOMMERCE",   label: "电商",     icon: ShoppingBag,  tone: "brand"   as const, desc: "线上平台，第三方渠道",     color: "var(--color-primary)"  },
 ] as const;
 
 type ChannelType = (typeof CHANNEL_DEFS)[number]["type"];
@@ -199,36 +180,27 @@ export default function SalesChannelsPage() {
 
       {!loading && (
         <>
-          {/* 渠道分类卡片（API不存在时为静态说明，有数据时显示统计） */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {CHANNEL_DEFS.map(({ type, label, icon: Icon, color, desc }) => {
+          {/* g200d(2026-06-19):4 渠道分类卡 emoji-color anti-pattern → kpiCardCompact(tone)。
+              白底 + 左 3px 色条 + 13px label + 20px MONO 数字。同 g200a 参考页风格。 */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))',
+            gap: 12,
+            marginBottom: 20,
+          }}>
+            {CHANNEL_DEFS.map(({ type, label, icon: Icon, tone, desc }) => {
               const count = countByType(type);
               return (
-                <div
-                  key={type}
-                  className="rounded-2xl border bg-bg-card border-border p-5 shadow-sm"
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: `${color}18` }}
-                    >
-                      <Icon size={20} color={color} />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-sm text-text">
-                        {label}
-                      </div>
-                      <div className="text-xs text-text-dim">{type}</div>
-                    </div>
+                <div key={type} style={kpiCardCompact(tone)}>
+                  <div style={kpiCardCompactLabel}>
+                    <Icon size={13} /> {label}
+                    <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-dim)', fontWeight: 400 }}>{type}</span>
                   </div>
-                  <div className="text-xs text-text-muted leading-relaxed mb-3">
-                    {desc}
-                  </div>
-                  <div className="text-2xl font-bold" style={{ color }}>
+                  <div style={kpiCardCompactValue(tone)}>
                     {count}
-                    <span className="text-sm font-normal text-text-dim ml-1">家</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 400, marginLeft: 4 }}>家</span>
                   </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{desc}</div>
                 </div>
               );
             })}
