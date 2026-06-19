@@ -59,16 +59,19 @@ function parseMd(file) {
 const all = readdirSync(DUMP_DIR).filter(f => f.endsWith('.md')).map(parseMd).filter(Boolean);
 console.log(`📦 解析 ${all.length} 个接口`);
 
-// 过滤:GET only + placeholder 只含 {bookid} + 不含其它业务 ID
+// 过滤:GET 全部 + POST 只筛 list/query/find/get 类(只读语义,无副作用)
+// 排除:含 {id}/{employee_id}/{userId} 等业务 ID 占位符的接口
 const RE_BIZID = /\{(?!bookid\b)[a-zA-Z_][a-zA-Z0-9_]*\}/;  // {bookid} 以外的任何 {xxx}
+const RE_READ_VERB = /\/(list|query|find|findBy|get|fuzzySearch|exactSearch|search|page|paging|info|details?|me|enum|status|count|check)\b/i;
 const probeable = all.filter(r => {
-  if (r.method !== 'GET') return false;
   if (RE_BIZID.test(r.path)) return false;
-  return true;
+  if (r.method === 'GET') return true;            // GET 全要
+  if (r.method === 'POST' && RE_READ_VERB.test(r.path)) return true;  // POST 只取读类
+  return false;
 });
 const skipped = all.length - probeable.length;
-console.log(`📊 可探测(GET only + 仅 bookid 占位符):${probeable.length} / ${all.length}`);
-console.log(`📊 跳过(POST/PUT/DELETE 或含业务 ID):${skipped}`);
+console.log(`📊 可探测(GET 全部 + POST 读类 + 仅 bookid 占位符):${probeable.length} / ${all.length}`);
+console.log(`📊 跳过(写类 POST/PUT/DELETE/远操作 或含业务 ID):${skipped}`);
 
 if (probeable.length === 0) {
   console.error('✗ 无可探测接口');
@@ -79,11 +82,16 @@ if (probeable.length === 0) {
 async function probeOne(r) {
   const url = `${PROD_BASE}/api/chanjet/call`;
   const path = r.path.replace('{bookid}', PROBE_BOOKID);
+  const proxyBody = {
+    path, method: r.method, bookid: PROBE_BOOKID,
+    // POST 类带最小分页 body,避免某些接口因缺 body 报"参数缺失"而非 50111
+    ...(r.method === 'POST' ? { body: { pageIndex: 1, pageSize: 1 } } : {}),
+  };
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}` },
-      body: JSON.stringify({ path, method: 'GET', bookid: PROBE_BOOKID }),
+      body: JSON.stringify(proxyBody),
       signal: AbortSignal.timeout(15000),
     });
     if (res.status === 401) {
