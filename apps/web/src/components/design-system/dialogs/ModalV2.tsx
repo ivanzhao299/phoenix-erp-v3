@@ -56,9 +56,7 @@ export function ModalV2({ open, title, width = 520, onClose, children, footer, c
             </button>
           </div>
         )}
-        {/* ds-form: 锁住内部 input/select/textarea 字号 13.5px,
-            消除裸 <input type=number/date>/<textarea> 与 Selector 视觉漂移(globals.css) */}
-        <div className="ds-form" style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>{children}</div>
+        <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>{children}</div>
         {footer && <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, padding: '16px 24px', borderTop: '1px solid var(--border)' }}>{footer}</div>}
       </div>
     </div>,
