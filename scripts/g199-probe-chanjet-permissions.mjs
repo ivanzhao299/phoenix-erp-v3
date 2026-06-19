@@ -98,9 +98,10 @@ async function probeOne(r) {
     if (code === null && (Array.isArray(result) || result?.value || result?.success === true)) {
       return { ...r, status: 'OK', code: 200, msg: 'success' };
     }
-    if (code === '50111') return { ...r, status: 'NO_PERM', code, msg: result?.error?.msg || '接口未开通' };
-    if (code === '50107') return { ...r, status: 'TOKEN_INVALID', code, msg: 'openToken 失效' };
-    if (code === '50000') return { ...r, status: 'NOT_FOUND', code, msg: '接口不存在/路径错' };
+    const codeStr = String(code);
+    if (codeStr === '50111') return { ...r, status: 'NO_PERM', code, msg: result?.msg || result?.error?.msg || '接口未开通' };
+    if (codeStr === '50107') return { ...r, status: 'TOKEN_INVALID', code, msg: 'openToken 失效' };
+    if (codeStr === '50000') return { ...r, status: 'NOT_FOUND', code, msg: '接口不存在/路径错' };
     // 其它 code 当作业务错(实际接口已开通但参数不对等)
     const msg = (result?.error?.msg || result?.message || JSON.stringify(result).slice(0, 80)).slice(0, 80);
     if (code && code !== '0') return { ...r, status: 'BIZ_ERR_OPEN', code, msg };
