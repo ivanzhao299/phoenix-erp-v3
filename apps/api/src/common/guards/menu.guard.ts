@@ -83,7 +83,13 @@ export class MenuGuard extends AuthGuard('jwt') implements CanActivate {
       throw new ForbiddenException('MENU_PERMISSION_NOT_REGISTERED');
     }
 
-    // 5. RBAC 检查（统一 util） — 主 menu 或 altMenus 任一 OR 通过即放行
+    // 5. ROLE_ADMIN 超管直通(2026-06-19 起):
+    //    避免 cookie_token 或精简 JWT 不含 permissions 时合法管理员被锁死。
+    //    保留 menu 注册检查(第 4 步),只跳过 perm 列表匹配。
+    if (Array.isArray(user.roles) && user.roles.includes('ROLE_ADMIN')) return true;
+    if (user.role === 'ROLE_ADMIN') return true;
+
+    // 6. RBAC 检查（统一 util） — 主 menu 或 altMenus 任一 OR 通过即放行
     if (hasPerm(user.permissions, requirement.menu, requirement.perm)) return true;
     if (requirement.altMenus && requirement.altMenus.length > 0) {
       for (const alt of requirement.altMenus) {
