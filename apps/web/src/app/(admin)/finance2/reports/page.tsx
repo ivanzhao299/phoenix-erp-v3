@@ -143,10 +143,12 @@ function Td({
   right?: boolean;
   bold?: boolean;
 }) {
+  // g199c 推广(2026-06-19):右对齐列默认数字列,加 tabular-nums 让金额对齐
   return <td className={bold ? 'text-text' : 'text-text-muted'} style={{
     textAlign: right ? 'right' : 'left',
     fontWeight: bold ? 700 : undefined,
-    whiteSpace: 'nowrap'
+    whiteSpace: 'nowrap',
+    ...(right ? { fontVariantNumeric: 'tabular-nums' as const } : {}),
   }}>{children}</td>;
 }
 function AgingBar({

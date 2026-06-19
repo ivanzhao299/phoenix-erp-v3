@@ -611,7 +611,8 @@ function TransactionDrawer({
           <div style={{
           fontSize: 28,
           fontWeight: 800,
-          letterSpacing: -1
+          letterSpacing: -1,
+          fontVariantNumeric: 'tabular-nums'
         }}>
             {currencySymbol(account.currency_code)}{fmt(account.current_balance)}
           </div>
@@ -687,11 +688,12 @@ function TransactionDrawer({
                   <div className={u.tar}>
                     <div style={{
                 fontWeight: 700,
-                fontSize: 14
+                fontSize: 14,
+                fontVariantNumeric: 'tabular-nums'
               }} className={t.direction === 'IN' ? 'text-success' : 'text-orange-600 dark:text-orange-400'}>
                       {t.direction === 'IN' ? '+' : '-'}{fmt(t.amount)}
                     </div>
-                    <div className={`text-text-dim ${u.fs11}`}>余 {fmt(t.balance_after)}</div>
+                    <div className={`text-text-dim ${u.fs11}`} style={{ fontVariantNumeric: 'tabular-nums' }}>余 {fmt(t.balance_after)}</div>
                   </div>
                 </div>
 
@@ -1031,7 +1033,8 @@ export default function CashAccountsPage() {
             }}>当前余额</div>
                   <div className="text-blue-800 dark:text-blue-300" style={{
               fontWeight: 800,
-              fontSize: 18
+              fontSize: 18,
+              fontVariantNumeric: 'tabular-nums'
             }}>
                     {currencySymbol(acc.currency_code)}{fmt(acc.current_balance)}
                   </div>
