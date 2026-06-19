@@ -16,24 +16,27 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  */
 export class FixChanjetArDeptCodeNotNull1781835697682 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // 1) NULL → ''
-    await queryRunner.query(`
-      UPDATE chanjet_ar_snapshot
-      SET dept_code = ''
-      WHERE dept_code IS NULL
-    `);
+    // ⚠ 顺序至关重要:先去重(NULL 当 '' 等价比较),再 UPDATE,最后 ALTER。
+    //   若先 UPDATE 后去重,会因 NULL→'' 瞬间触发 uq_chanjet_ar_v2 重复键冲突。
+    //   生产事故:2026-06-19 03:19 deploy 因顺序错卡此(详见 g198 报告)。
 
-    // 2) 按 5 字段去重:同 (bookid, period, dept_code, assistant_customer_code, subject_id)
-    //    只保留 id 最大(即最新)的行
+    // 1) 去重:用 COALESCE 把 NULL 视作 '',按 5 字段保留 MAX(id)
     await queryRunner.query(`
       DELETE FROM chanjet_ar_snapshot a
       USING chanjet_ar_snapshot b
       WHERE a.id < b.id
         AND a.bookid = b.bookid
         AND a.period = b.period
-        AND a.dept_code = b.dept_code
+        AND COALESCE(a.dept_code, '')             = COALESCE(b.dept_code, '')
         AND COALESCE(a.assistant_customer_code, '') = COALESCE(b.assistant_customer_code, '')
-        AND COALESCE(a.subject_id, '') = COALESCE(b.subject_id, '')
+        AND COALESCE(a.subject_id, '')            = COALESCE(b.subject_id, '')
+    `);
+
+    // 2) NULL → ''(此时已无重复,UPDATE 不会触发 uq 冲突)
+    await queryRunner.query(`
+      UPDATE chanjet_ar_snapshot
+      SET dept_code = ''
+      WHERE dept_code IS NULL
     `);
 
     // 3) ALTER 列 NOT NULL DEFAULT ''

@@ -15,13 +15,10 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  */
 export class FixChanjetArSnapshotRemainingNullableUq1781837624060 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`
-      UPDATE chanjet_ar_snapshot
-      SET assistant_customer_code = COALESCE(assistant_customer_code, ''),
-          subject_id              = COALESCE(subject_id, '')
-      WHERE assistant_customer_code IS NULL OR subject_id IS NULL
-    `);
+    // ⚠ 顺序:先去重(NULL 视作 '')→ UPDATE → ALTER。与上一迁移同模式。
+    //   此时 dept_code 已 NOT NULL(上一迁移已落),只对 customer/subject COALESCE。
 
+    // 1) 去重
     await queryRunner.query(`
       DELETE FROM chanjet_ar_snapshot a
       USING chanjet_ar_snapshot b
@@ -29,10 +26,19 @@ export class FixChanjetArSnapshotRemainingNullableUq1781837624060 implements Mig
         AND a.bookid = b.bookid
         AND a.period = b.period
         AND a.dept_code = b.dept_code
-        AND a.assistant_customer_code = b.assistant_customer_code
-        AND a.subject_id = b.subject_id
+        AND COALESCE(a.assistant_customer_code, '') = COALESCE(b.assistant_customer_code, '')
+        AND COALESCE(a.subject_id, '')              = COALESCE(b.subject_id, '')
     `);
 
+    // 2) NULL → ''
+    await queryRunner.query(`
+      UPDATE chanjet_ar_snapshot
+      SET assistant_customer_code = COALESCE(assistant_customer_code, ''),
+          subject_id              = COALESCE(subject_id, '')
+      WHERE assistant_customer_code IS NULL OR subject_id IS NULL
+    `);
+
+    // 3) ALTER
     await queryRunner.query(`
       ALTER TABLE chanjet_ar_snapshot
         ALTER COLUMN assistant_customer_code SET DEFAULT '',

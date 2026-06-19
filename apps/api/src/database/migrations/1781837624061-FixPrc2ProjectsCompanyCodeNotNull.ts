@@ -15,20 +15,22 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  */
 export class FixPrc2ProjectsCompanyCodeNotNull1781837624061 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // 1) NULL → ''(占位,与 chanjet 一致用 '' 而非 '__NA__')
-    await queryRunner.query(`
-      UPDATE prc2_projects
-      SET company_code = ''
-      WHERE company_code IS NULL
-    `);
+    // ⚠ 顺序:先去重(NULL 视作 '')→ UPDATE → ALTER。与 chanjet 同模式。
 
-    // 2) 去重:同 (company_code, project_code) 保留 MAX(id) 的行
+    // 1) 去重:COALESCE 把 NULL 当 ''
     await queryRunner.query(`
       DELETE FROM prc2_projects a
       USING prc2_projects b
       WHERE a.id < b.id
-        AND a.company_code = b.company_code
+        AND COALESCE(a.company_code, '') = COALESCE(b.company_code, '')
         AND a.project_code = b.project_code
+    `);
+
+    // 2) NULL → ''
+    await queryRunner.query(`
+      UPDATE prc2_projects
+      SET company_code = ''
+      WHERE company_code IS NULL
     `);
 
     // 3) ALTER NOT NULL DEFAULT ''
