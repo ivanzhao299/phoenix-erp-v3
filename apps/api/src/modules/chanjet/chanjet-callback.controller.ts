@@ -138,7 +138,7 @@ export class ChanjetCallbackController {
    * 管理员查看畅捷通认证链状态。
    */
   @Get('diagnostics')
-  @RequireMenu('MENU_SYSTEM', 'V')
+  @RequireMenu('MENU_SYS_CONFIG', 'V')
   diagnostics() {
     return this.auth.diagnostics();
   }
@@ -148,7 +148,7 @@ export class ChanjetCallbackController {
    * 管理员手动触发 token 获取测试。
    */
   @Get('test-token')
-  @RequireMenu('MENU_SYSTEM', 'V')
+  @RequireMenu('MENU_SYS_CONFIG', 'V')
   async testToken() {
     try {
       const token = await this.auth.getOpenToken();
@@ -163,7 +163,7 @@ export class ChanjetCallbackController {
    * 管理员手动调用好业财账套列表接口验证连通性（全链路实证）。
    */
   @Get('test-api')
-  @RequireMenu('MENU_SYSTEM', 'V')
+  @RequireMenu('MENU_SYS_CONFIG', 'V')
   async testApi() {
     try {
       const result = await this.auth.listAccountBooks();
@@ -335,7 +335,7 @@ export class ChanjetCallbackController {
    * path 中 {bookid} 占位符会被 query.bookid 或 body.bookid 替换。
    */
   @Get('call')
-  @RequireMenu('MENU_SYSTEM', 'V')
+  @RequireMenu('MENU_SYS_CONFIG', 'V')
   async callGet(@Query() query: Record<string, string>) {
     return this.doCall(query.path, {
       method: (query.method as 'GET' | 'POST') || 'GET',
@@ -345,7 +345,7 @@ export class ChanjetCallbackController {
   }
 
   @Post('call')
-  @RequireMenu('MENU_SYSTEM', 'V')
+  @RequireMenu('MENU_SYS_CONFIG', 'V')
   async callPost(@Body() body: { path: string; method?: 'GET' | 'POST'; bookid?: string; body?: Record<string, unknown>; query?: Record<string, string> }) {
     return this.doCall(body.path, {
       method: body.method || 'POST',
@@ -386,7 +386,7 @@ export class ChanjetCallbackController {
    * 管理员手动设置 certificate（从畅捷通控制台复制）。
    */
   @Post('set-cert')
-  @RequireMenu('MENU_SYSTEM', 'V')
+  @RequireMenu('MENU_SYS_CONFIG', 'V')
   setCert(@Body() body: { certificate: string }) {
     if (!body.certificate) return { success: false, error: 'certificate 不能为空' };
     this.auth.setCertificate(body.certificate);
@@ -398,7 +398,7 @@ export class ChanjetCallbackController {
    * 管理员手动注入 appTicket（容器重启后丢失时用）。
    */
   @Post('set-ticket')
-  @RequireMenu('MENU_SYSTEM', 'V')
+  @RequireMenu('MENU_SYS_CONFIG', 'V')
   setTicket(@Body() body: { appTicket: string }) {
     if (!body.appTicket) return { success: false, error: 'appTicket 不能为空' };
     this.auth.setAppTicket(body.appTicket);
@@ -410,7 +410,7 @@ export class ChanjetCallbackController {
    * 管理员手动触发 appTicket 推送（需消息接收地址已配好）。
    */
   @Post('trigger-ticket')
-  @RequireMenu('MENU_SYSTEM', 'V')
+  @RequireMenu('MENU_SYS_CONFIG', 'V')
   async triggerTicket() {
     try {
       const result = await this.auth.triggerAppTicket();
@@ -425,7 +425,7 @@ export class ChanjetCallbackController {
    * 管理员用已知密钥测试回调解密链路。
    */
   @Post('test-callback')
-  @RequireMenu('MENU_SYSTEM', 'V')
+  @RequireMenu('MENU_SYS_CONFIG', 'V')
   testCallback(@Body() body: Record<string, unknown>) {
     const isEncryptMsg = !!body.encryptMsg;
     const content = (body.encryptMsg ?? body.content) as string | undefined;
