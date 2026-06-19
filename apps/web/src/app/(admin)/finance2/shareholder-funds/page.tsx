@@ -578,7 +578,7 @@ function ContributionDrawer({
               { label: '未结余额', value: fmt(contribution.balanceAmountOriginal) },
             ].map(c => <div key={c.label}>
                 <div style={{ fontSize: 10, opacity: 0.8, marginBottom: 2 }}>{c.label}</div>
-                <div style={{ fontWeight: 800, fontSize: 16 }}>{currencySymbol(contribution.currencyCode)}{c.value}</div>
+                <div style={{ fontWeight: 800, fontSize: 16, fontVariantNumeric: 'tabular-nums' }}>{currencySymbol(contribution.currencyCode)}{c.value}</div>
               </div>)}
           </div>
           {contribution.expectedReturnDate && <div style={{ textAlign: 'center', marginTop: 10, fontSize: 11, opacity: 0.8 }}>
@@ -652,7 +652,7 @@ function ContributionDrawer({
                     <span style={{ padding: '1px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: `color-mix(in srgb, ${badgeColor} 14%, transparent)`, color: badgeColor }}>{sc.label}</span>
                   </div>
                   <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4, color: 'var(--color-primary)' }}>
-                    {currencySymbol(s.currencyCode)}{fmt(s.amountOriginal)}
+                    <span style={{ fontVariantNumeric: 'tabular-nums' }}>{currencySymbol(s.currencyCode)}{fmt(s.amountOriginal)}</span>
                   </div>
                   {s.cashAccountCode && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>现金账户：{s.cashAccountCode}</div>}
 
@@ -776,7 +776,7 @@ function SummaryTab({
                 <TypeBadge type={c.contributionType} />
                 <LocalStatusBadge status={c.status} map={STATUS_CONFIG} />
                 <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{c.contributionNo}</span>
-                <span style={{ marginLeft: 'auto', fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>{currencySymbol(c.currencyCode)}{fmt(c.amountOriginal)}</span>
+                <span style={{ marginLeft: 'auto', fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{currencySymbol(c.currencyCode)}{fmt(c.amountOriginal)}</span>
                 <ChevronRight size={15} style={{ color: 'var(--text-secondary)' }} />
               </div>
             </div>
@@ -795,7 +795,7 @@ function SummaryTab({
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{r.shareholder_name}</div>
                 <div className={u.fs11} style={{ color: 'var(--text-secondary)' }}>{r.cnt} 笔</div>
               </div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-primary)' }}>¥ {fmt(r.balance)}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-primary)', fontVariantNumeric: 'tabular-nums' }}>¥ {fmt(r.balance)}</div>
             </div>)}
         </div>
 
@@ -809,7 +809,7 @@ function SummaryTab({
                 <TypeBadge type={r.contribution_type} />
                 <span className={u.fs11} style={{ color: 'var(--text-secondary)' }}>{r.cnt} 笔</span>
               </div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)' }}>¥ {fmt(r.total)}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>¥ {fmt(r.total)}</div>
             </div>)}
         </div>
       </div>
@@ -827,7 +827,7 @@ function SummaryTab({
                   <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text-primary)' }}>{r.contribution_no}</div>
                   <div className={u.fs11} style={{ color: 'var(--text-secondary)' }}>{r.shareholder_name} · 到期：{r.expected_return_date}</div>
                 </div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--status-warning)' }}>¥ {fmt(r.balance_amount_original)}</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--status-warning)', fontVariantNumeric: 'tabular-nums' }}>¥ {fmt(r.balance_amount_original)}</div>
               </div>)}
           </div>
         </div>}
@@ -1108,7 +1108,7 @@ export default function ShareholderFundsPage() {
                         </div>
                       </div>
                       <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--color-primary)' }}>
-                        {currencySymbol(s.currencyCode)}{fmt(s.amountOriginal)}
+                        <span style={{ fontVariantNumeric: 'tabular-nums' }}>{currencySymbol(s.currencyCode)}{fmt(s.amountOriginal)}</span>
                       </div>
                     </div>
                   </div>;
