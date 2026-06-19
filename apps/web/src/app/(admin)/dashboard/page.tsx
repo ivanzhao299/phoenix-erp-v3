@@ -16,18 +16,30 @@ export default function DashboardPage() {
   const router = useRouter();
   const [initialData, setInitialData] = useState<Record<string, unknown>>({});
 
-  // 页面级守卫：集团总部经营驾驶舱仅 超管 / 持 MENU_FIN_AUDIT(CFO/CEO/审计) 可见。
-  //   其余角色直接 URL 访问 → 渲染前重定向到 /home（运营工作台），杜绝看到 CEO 画面。
+  // 页面级守卫(g199b #2 修 2026-06-19):
+  //   - 财务专职角色(CFO/总部财务/审核经理) → /finance2(财务驾驶舱有应收/应付/现金/股东 KPI)
+  //   - 超管 + CEO → 看本页(集团运营驾驶舱,养鸡/POS/库存)
+  //   - 仅有 MENU_FIN_AUDIT 但非以上角色 → 仍可看(审计/旁观)
+  //   - 其它 → /home(运营工作台)
+  //   修前刘杰看到本页全是养鸡/POS KPI 而无财务数字 → 因为他有 MENU_FIN_AUDIT 但没 ROLE_ADMIN,
+  //   旧守卫"or"语义放他进来。
   const [allowed, setAllowed] = useState<boolean | null>(null);
   useEffect(() => {
     try {
       const u = JSON.parse(sessionStorage.getItem('phoenix_user') || 'null');
       const perms: string[] = u?.permissions || [];
       const roles: string[] = u?.roles || (u?.role ? [u.role] : []);
-      const ok = perms.includes('*') || roles.includes('ROLE_ADMIN')
-        || perms.some((p: string) => p === 'MENU_FIN_AUDIT' || p.startsWith('MENU_FIN_AUDIT:'));
-      if (!ok) { router.replace('/home'); return; }
-      setAllowed(true);
+      const isAdmin = perms.includes('*') || roles.includes('ROLE_ADMIN');
+      const isCeo = roles.includes('ROLE_CEO');
+      const FIN_ROLES = ['ROLE_FIN_CFO', 'ROLE_HQ_FINANCE', 'ROLE_GROUP_FINANCE',
+                          'ROLE_FINANCE_REVIEW_MANAGER', 'ROLE_FACTORY_ACCOUNTANT'];
+      const isFinance = roles.some((r: string) => FIN_ROLES.includes(r));
+      const hasFinAudit = perms.some((p: string) => p === 'MENU_FIN_AUDIT' || p.startsWith('MENU_FIN_AUDIT:'));
+
+      if (isAdmin || isCeo) { setAllowed(true); return; }       // 超管/CEO 看本页
+      if (isFinance) { router.replace('/finance2'); return; }   // 财务角色 → 财务驾驶舱
+      if (hasFinAudit) { setAllowed(true); return; }            // 仅审计权限 留本页(看汇总)
+      router.replace('/home');                                   // 其它 → 运营工作台
     } catch { router.replace('/home'); }
   }, [router]);
 
