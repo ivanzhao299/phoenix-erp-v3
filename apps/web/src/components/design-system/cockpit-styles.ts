@@ -258,9 +258,14 @@ export const formLabel: CSSProperties = {
 };
 
 // ── Drawer / Modal mask（毛玻璃覆盖层；zIndex > sidebar 10001） ──
+// g200o-2: 显式 height/width 100vh/vw 锁视口 — 防御祖先 transform/animate-fade-in
+//          让 fixed 的 containing block 变成 ancestor,mask 被内容撑高(实测客户页 4291px)。
 export const drawerMask: CSSProperties = {
   position: 'fixed',
-  inset: 0,
+  top: 0,
+  left: 0,
+  width: '100vw',
+  height: '100vh',
   background: 'var(--overlay-mask)',
   backdropFilter: 'blur(3px)',          // 毛玻璃（全局抽屉统一）
   WebkitBackdropFilter: 'blur(3px)',
@@ -271,6 +276,7 @@ export const drawerMask: CSSProperties = {
 };
 
 // ── Drawer 右侧滑出面板 ─────────────────────────────────
+// 旧版(整面板单一滚动,内容超出 → footer 随滚消失);保留以避免破坏既存调用者。
 export const drawerPanel = (width: number = 460): CSSProperties => ({
   width,
   maxWidth: '95vw',
@@ -280,6 +286,66 @@ export const drawerPanel = (width: number = 460): CSSProperties => ({
   padding: 24,
   boxShadow: '0 0 40px var(--overlay-black-25)',
 });
+
+// g200o-2: 新版 flex 三段抽屉面板 — header 固定顶 / body 中间滚 / footer 固定底。
+// 适用所有"字段多/内容长"抽屉,避免内容把 footer 顶到看不见。
+// 配合 drawerBody / drawerFooterFlex 使用,panel 自身不再滚,scroll 隔离在 body。
+// height 用 100vh 强制锁定视口高 — 旧 height:100% 在 flex 容器里会被 body 反向撑开成内容高。
+export const drawerPanelFlex = (width: number = 460): CSSProperties => ({
+  width,
+  maxWidth: '95vw',
+  background: 'var(--bg-card)',
+  height: '100vh',
+  maxHeight: '100vh',
+  padding: 0,
+  boxShadow: '0 0 40px var(--overlay-black-25)',
+  display: 'flex',
+  flexDirection: 'column',
+  overflow: 'hidden',
+});
+
+// 抽屉中部可滚动 body(flex 三段中间段)。padding 与旧 drawerPanel 24 对齐。
+export const drawerBody: CSSProperties = {
+  flex: 1,
+  overflowY: 'auto',
+  padding: '20px 24px',
+};
+
+// g200o-2: 配 drawerPanelFlex 的 header/footer(自带横向 padding,无需外层 padding 24)
+export const drawerHeaderFlex: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '16px 24px',
+  borderBottom: '1px solid var(--border)',
+  flexShrink: 0,
+};
+export const drawerFooterFlex: CSSProperties = {
+  display: 'flex',
+  gap: 10,
+  padding: '14px 24px',
+  borderTop: '1px solid var(--border)',
+  flexShrink: 0,
+  background: 'var(--bg-card)',
+};
+
+// g200o-2: drawerHero 三件细节 token(替换 hero 块内 11/18/14px inline)
+export const drawerHeroLabel: CSSProperties = {
+  fontSize: 11,
+  color: 'var(--text-secondary)',
+  marginBottom: 4,
+};
+export const drawerHeroCodeValue: CSSProperties = {
+  fontSize: 18,
+  fontWeight: 700,
+  fontFamily: "'SF Mono', 'Menlo', 'Consolas', 'Courier New', monospace",
+  color: 'var(--color-primary)',
+};
+export const drawerHeroNameValue: CSSProperties = {
+  fontSize: 14,
+  fontWeight: 600,
+  color: 'var(--text-primary)',
+};
 
 // ── Drawer 顶部 header（title + 关闭按钮） ─────────────
 export const drawerHeader: CSSProperties = {

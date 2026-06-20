@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X, Link2, MoreHorizontal, Info } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
@@ -12,8 +13,8 @@ import {
 import { EmptyState, LoadingSkeleton, SelectField } from "@/components/design-system";
 import {
   primaryActionButton, secondaryActionButton, inputField, formLabel, inlineBadge,
-  drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
-  drawerHeroBox, inlineAlert,
+  drawerMask, drawerPanelFlex, drawerBody, drawerHeaderFlex, drawerHeaderTitle, drawerCloseButton, drawerFooterFlex,
+  drawerHeroBox, drawerHeroLabel, drawerHeroCodeValue, drawerHeroNameValue, inlineAlert,
 } from "@/components/design-system/cockpit-styles";
 import request from "@/lib/api-client";
 
@@ -305,24 +306,26 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
           )}
       </div>
 
-      {/* 新增/编辑抽屉 — 全局 drawer token */}
-      {editing !== null && (
+      {/* 新增/编辑抽屉 — g200o-2 flex 三段 + Portal 渲染到 body 顶层
+           (绕过 animate-fade-in 的 transform 让 fixed containing block 锚到祖先的问题) */}
+      {editing !== null && typeof document !== 'undefined' && createPortal(
         <div style={drawerMask} onClick={() => setEditing(null)}>
-          <div style={drawerPanel(480)} onClick={e => e.stopPropagation()}>
-            <div style={drawerHeader}>
+          <div style={drawerPanelFlex(480)} onClick={e => e.stopPropagation()}>
+            <div style={drawerHeaderFlex}>
               <h2 style={drawerHeaderTitle}>{editing[codeKey] ? `编辑${title}` : `新增${title}`}</h2>
               <button onClick={() => setEditing(null)} style={drawerCloseButton}><X size={20} /></button>
             </div>
-            {/* g200o:hero 块 — 编辑显示编码 + 名称;新增显示提示 */}
+            <div style={drawerBody}>
+            {/* g200o-1:hero 块 — 编辑显示编码 + 名称;新增显示 inlineAlert 提示 */}
             {editing[codeKey] ? (
               <div style={drawerHeroBox}>
                 <div>
-                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 4 }}>{title}编码</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily: "monospace", color: "var(--color-primary)" }}>{editing[codeKey]}</div>
+                  <div style={drawerHeroLabel}>{title}编码</div>
+                  <div style={drawerHeroCodeValue}>{editing[codeKey]}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 4 }}>名称</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{String(editing[nameKey] ?? form[nameKey] ?? "—")}</div>
+                  <div style={drawerHeroLabel}>名称</div>
+                  <div style={drawerHeroNameValue}>{String(editing[nameKey] ?? form[nameKey] ?? "—")}</div>
                 </div>
               </div>
             ) : (
@@ -378,14 +381,16 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                 })()}
               </div>
             ))}
-            <div style={drawerFooter}>
+            </div>
+            <div style={drawerFooterFlex}>
               <button onClick={() => setEditing(null)} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>取消</button>
               <button onClick={save} disabled={saving} style={{ ...primaryActionButton, flex: 2, justifyContent: "center", opacity: saving ? 0.6 : 1 }}>
                 {saving ? "保存中…" : "保存"}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
