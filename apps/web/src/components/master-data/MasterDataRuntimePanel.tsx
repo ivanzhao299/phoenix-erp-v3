@@ -1,9 +1,10 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X, Link2, MoreHorizontal } from "lucide-react";
+import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X, Link2, MoreHorizontal, Info } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
 import DictSelect from "@/components/shared-selectors/DictSelect";  // G66 字段挂字典
+import { useDictOptions } from "@/hooks/useDictOptions";  // g200o:列表 dict 转译
 import {
   CompanySelector, CustomerSelector, SupplierSelector, ProjectSelector,
   WarehouseSelector, ZoneSelector, LocationSelector, SkuSelector, UserSelector, FarmSelector,
@@ -12,6 +13,7 @@ import { EmptyState, LoadingSkeleton, SelectField } from "@/components/design-sy
 import {
   primaryActionButton, secondaryActionButton, inputField, formLabel, inlineBadge,
   drawerMask, drawerPanel, drawerHeader, drawerHeaderTitle, drawerCloseButton, drawerFooter,
+  drawerHeroBox, inlineAlert,
 } from "@/components/design-system/cockpit-styles";
 import request from "@/lib/api-client";
 
@@ -78,6 +80,15 @@ const TYPE_TO_MENU: Record<string, string> = {
 
 export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
   const { type, title, codeKey, nameKey, fields, columns, objectType, onCodeClick } = props;
+  // g200o:聚合 fields 中所有 dictType,列表 cell 用 codeMap 转译,避免 DB enum 暴露
+  const dictTypes = useMemo(() => Array.from(new Set(fields.filter(f => f.dictType).map(f => f.dictType!))), [fields]);
+  const { codeMap: dictCodeMap } = useDictOptions(dictTypes.length > 0 ? dictTypes : "");
+  // 列 key → field 反查(dict 转译用)
+  const fieldByKey = useMemo(() => {
+    const m: Record<string, MdField> = {};
+    fields.forEach(f => { m[f.key] = f; });
+    return m;
+  }, [fields]);
   // G130：先按该类型专属菜单门控，再以超级码 MENU_MASTER_DATA 兜底（超管/总控仍可用）
   const perType = usePermission(TYPE_TO_MENU[type] ?? "MENU_MASTER_DATA");
   const superMd = usePermission("MENU_MASTER_DATA");
@@ -250,7 +261,13 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                           >{r[codeKey]}</button>
                         ) : r[codeKey]}
                       </td>
-                      {columns.map(c => <td key={c.key} style={tdStyle} title={String(r[c.key] ?? "")}>{r[c.key] ?? "—"}</td>)}
+                      {columns.map(c => {
+                        const raw = r[c.key];
+                        const dt  = fieldByKey[c.key]?.dictType;
+                        // g200o:dict 字段查 codeMap 转中文,fallback 原值
+                        const shown = dt && raw != null && raw !== '' ? (dictCodeMap[String(raw)] ?? raw) : raw;
+                        return <td key={c.key} style={tdStyle} title={String(raw ?? "")}>{shown ?? "—"}</td>;
+                      })}
                       <td style={{ ...tdStyle, textAlign: "center" }}>
                         <span style={{ ...inlineBadge(st.tone), whiteSpace: "nowrap" }}>{st.label}</span>
                       </td>
@@ -296,8 +313,24 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
               <h2 style={drawerHeaderTitle}>{editing[codeKey] ? `编辑${title}` : `新增${title}`}</h2>
               <button onClick={() => setEditing(null)} style={drawerCloseButton}><X size={20} /></button>
             </div>
-            {editing[codeKey] && <div style={{ marginBottom: 14, fontSize: 12, color: "var(--text-secondary)" }}>编码：<span style={{ fontFamily: "monospace", color: "var(--color-primary)" }}>{editing[codeKey]}</span>（自动生成，不可修改）</div>}
-            {!editing[codeKey] && <div style={{ marginBottom: 14, fontSize: 12, color: "var(--text-secondary)" }}>编码将在保存时自动生成（不可手填）</div>}
+            {/* g200o:hero 块 — 编辑显示编码 + 名称;新增显示提示 */}
+            {editing[codeKey] ? (
+              <div style={drawerHeroBox}>
+                <div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 4 }}>{title}编码</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily: "monospace", color: "var(--color-primary)" }}>{editing[codeKey]}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 4 }}>名称</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{String(editing[nameKey] ?? form[nameKey] ?? "—")}</div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ ...inlineAlert("info"), marginBottom: 18 }}>
+                <Info size={14} />
+                <span>编码将在保存时自动生成,无需手填</span>
+              </div>
+            )}
             {fields.map(f => (
               <div key={f.key} style={{ marginBottom: 14 }}>
                 <label style={formLabel}>
