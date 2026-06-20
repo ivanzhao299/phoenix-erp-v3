@@ -19,10 +19,11 @@ import {
   CircleDollarSign, Receipt, CreditCard, Package, CheckCircle2,
   Zap, Bell, Target, ChevronRight,
   ClipboardList as ClipboardListIcon,
+  Bird, EggFried, LineChart, Wheat as WheatIcon, Droplets,
 } from "lucide-react";
 import request from "@/lib/api-client";
 import { useAuth } from "@/contexts/AuthContext";
-import { cockpitCard, inlineBadge } from "@/components/design-system/cockpit-styles";
+import { cockpitCard, inlineBadge, kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue } from "@/components/design-system/cockpit-styles";
 
 // ── 数据类型 ─────────────────────────────────────────
 interface WorkflowSummary { todo: number; ccUnread: number; overdueTodo: number; running: number; startedRunning: number; }
@@ -180,28 +181,24 @@ export default function HomePage() {
         showAlertBubble={hasQualityPerm}
       />
 
-      {/* G19-E / G20-2：养殖运营 KPI 卡片网格（HeroBanner 之下） */}
+      {/* g200m(2026-06-20):养殖 KPI 6 卡 emoji→lucide,自写卡 → kpiCardCompact(tone) */}
       {hasPermission('MENU_FARM_DATA') && farmKpi && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-          {[
-            { label: '当前总存栏', value: farmKpi.totalStock?.toLocaleString() ?? '—', unit: '羽', accent: '#3B82F6', icon: '🐔' },
-            { label: '今日产蛋', value: farmKpi.eggsToday?.toLocaleString() ?? '—', unit: '枚', accent: '#10B981', icon: '🥚' },
-            { label: '今日产蛋率', value: farmKpi.layRate != null ? farmKpi.layRate.toFixed(1) : '—', unit: '%', accent: '#10B981', icon: '📈' },
-            { label: '今日饲料消耗', value: farmKpi.feedToday != null ? farmKpi.feedToday.toFixed(0) : '—', unit: 'kg', accent: '#F59E0B', icon: '🌾' },
-            { label: '今日用水', value: farmKpi.waterToday != null ? farmKpi.waterToday.toFixed(1) : '—', unit: 'L', accent: '#06B6D4', icon: '💧' },
-            { label: '设备告警', value: farmKpi.alarmCount?.toString() ?? '0', unit: '条', accent: (farmKpi.alarmCount ?? 0) > 0 ? '#EF4444' : '#10B981', icon: '⚠️' },
-          ].map(k => (
-            <div key={k.label} style={{
-              background: 'var(--bg-card)', border: '1px solid var(--border)',
-              borderLeftWidth: 3, borderLeftStyle: 'solid', borderLeftColor: k.accent,
-              borderRadius: 10, padding: '14px 18px',
-            }}>
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontSize: 14 }}>{k.icon}</span> {k.label}
+          {([
+            { label: '当前总存栏', value: farmKpi.totalStock?.toLocaleString() ?? '—', unit: '羽', tone: 'info' as const, Icon: Bird },
+            { label: '今日产蛋', value: farmKpi.eggsToday?.toLocaleString() ?? '—', unit: '枚', tone: 'success' as const, Icon: EggFried },
+            { label: '今日产蛋率', value: farmKpi.layRate != null ? farmKpi.layRate.toFixed(1) : '—', unit: '%', tone: 'success' as const, Icon: LineChart },
+            { label: '今日饲料消耗', value: farmKpi.feedToday != null ? farmKpi.feedToday.toFixed(0) : '—', unit: 'kg', tone: 'warning' as const, Icon: WheatIcon },
+            { label: '今日用水', value: farmKpi.waterToday != null ? farmKpi.waterToday.toFixed(1) : '—', unit: 'L', tone: 'info' as const, Icon: Droplets },
+            { label: '设备告警', value: farmKpi.alarmCount?.toString() ?? '0', unit: '条', tone: ((farmKpi.alarmCount ?? 0) > 0 ? 'danger' : 'success') as 'danger' | 'success', Icon: AlertTriangle },
+          ]).map(k => (
+            <div key={k.label} style={kpiCardCompact(k.tone)}>
+              <div style={kpiCardCompactLabel}>
+                <k.Icon size={13} /> {k.label}
               </div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <div style={{ ...kpiCardCompactValue(k.tone), display: 'flex', alignItems: 'baseline', gap: 4 }}>
                 {k.value}
-                <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>{k.unit}</span>
+                <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)', fontFamily: 'inherit' }}>{k.unit}</span>
               </div>
             </div>
           ))}

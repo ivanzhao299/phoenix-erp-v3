@@ -6,6 +6,7 @@ import PageHeader from "@/components/PageHeader";
 import { Activity, Database, Cpu, Server, AlertTriangle, RefreshCw, CheckCircle, XCircle, Clock, TrendingUp, ShieldAlert } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, inlineAlert } from "@/components/design-system/cockpit-styles";
 type HealthStatus = "HEALTHY" | "DEGRADED" | "UNKNOWN";
 interface HealthSummary {
   status: HealthStatus;
@@ -146,52 +147,27 @@ export default function SystemHealthPage() {
   const overall: HealthStatus = summary?.status ?? "UNKNOWN";
   const overallColor = overall === "HEALTHY" ? "var(--status-success)" : overall === "DEGRADED" ? "var(--status-warning)" : "var(--gray-400)";
   return <div>
-      <PageHeader title="系统监控" subtitle={`生产运行状态 · 每 30 秒自动刷新 · 上次: ${lastRefresh || "—"}`} actions={<button onClick={fetchData} disabled={loading} style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 6,
-      padding: "8px 16px",
-      borderRadius: "var(--radius-md)",
-      background: "var(--primary)",
-      color: "var(--bg-card)",
-      border: "none",
-      cursor: loading ? "not-allowed" : "pointer",
-      fontSize: 13,
-      fontWeight: 600
-    }}>
-            <RefreshCw size={14} style={{
-        animation: loading ? "spin 1s linear infinite" : "none"
-      }} />
+      <PageHeader
+        title="系统监控"
+        subtitle={`生产运行状态 · 每 30 秒自动刷新 · 上次: ${lastRefresh || "—"}`}
+        actions={
+          <button onClick={fetchData} disabled={loading} style={{ ...primaryActionButton, opacity: loading ? 0.5 : 1, cursor: loading ? "not-allowed" : "pointer" }}>
+            <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
             刷新
-          </button>} />
+          </button>
+        }
+      />
 
-      {/* 整体状态横幅 */}
-      <div style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 12,
-      padding: "14px 20px",
-      marginBottom: 24,
-      background: `${overallColor}15`,
-      borderRadius: "var(--radius-lg)",
-      border: `1px solid ${overallColor}40`
-    }}>
-        {overall === "HEALTHY" ? <CheckCircle size={20} color={overallColor} /> : <AlertTriangle size={20} color={overallColor} />}
-        <span style={{
-        fontWeight: 700,
-        fontSize: 15,
-        color: overallColor
-      }}>
-          系统整体状态：
-        </span>
+      {/* g200l 整体状态横幅 — inlineAlert(tone) 替代 hex+15/40 自写 */}
+      <div style={{ ...inlineAlert(overall === "HEALTHY" ? "success" : overall === "DEGRADED" ? "warning" : "info"), marginBottom: 24, padding: "14px 20px" }}>
+        {overall === "HEALTHY" ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
+        <span style={{ fontWeight: 700, fontSize: 15 }}>系统整体状态：</span>
         <StatusBadge status={overall} />
-        {summary && <span style={{
-        fontSize: 12,
-        color: "var(--text-secondary)",
-        marginLeft: "auto"
-      }}>
+        {summary && (
+          <span style={{ fontSize: 12, color: "var(--text-secondary)", marginLeft: "auto" }}>
             最后检测：{new Date(summary.timestamp).toLocaleString("zh-CN")}
-          </span>}
+          </span>
+        )}
       </div>
 
       {/* 核心指标卡片 */}
