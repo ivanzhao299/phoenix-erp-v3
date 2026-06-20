@@ -3,12 +3,20 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import u from "@/styles/uix-utils.module.css";
 import { useRouter } from "next/navigation";
-import { Home, Layers, Users, BookOpen, ClipboardList, Droplets, AlertTriangle, BarChart2, Trash2, Wifi, ArrowUpRight, Settings, Wheat, FileBarChart, Package } from "lucide-react";
+import { Home, Layers, Users, BookOpen, ClipboardList, Droplets, AlertTriangle, BarChart2, Trash2, Wifi, ArrowUpRight, Settings, Wheat, FileBarChart, Package, Bird, Thermometer, Droplet, Wind } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import { useDialog } from "@/contexts/DialogContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import styles from "@/components/ui/admin-ui.module.css";
+// g200f 模板 token(2026-06-20)
+import {
+  primaryActionButton, secondaryActionButton, actionPill,
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+  actionGroupBox, detailInfoBox, MONO_FONT,
+} from "@/components/design-system/cockpit-styles";
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 const API = "";
 async function apiFetch(path: string) {
   const token = typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || localStorage.getItem("phoenix_token") || "" : "";
@@ -389,187 +397,64 @@ export default function BreedingPage() {
   return <div className="animate-fade-in">
       <PageHeader title={t('ui.养殖生产中心', '养殖生产中心')} subtitle={t('ui.实时监控所有养殖场运营状态', '实时监控所有养殖场运营状态')} breadcrumb={[t('ui.总部门户', '总部门户'), t('ui.养殖生产中心', '养殖生产中心')]} />
 
-      {/* Sub-nav pills */}
-      <div style={{
-      display: "flex",
-      gap: 6,
-      flexWrap: "wrap",
-      marginBottom: 24
-    }}>
-        {SUB_NAV.map(item => <button type="button" key={item.label} onClick={() => router.push(item.path)} className={`${item.active ? styles.btnPrimary : styles.btnSecondary} ${u.flexRow}`}>
+      {/* g200f Sub-nav pills — toolbarFilterPill 风格,统一 active 蓝/inactive 灰 */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 24 }}>
+        {SUB_NAV.map(item => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={() => router.push(item.path)}
+            style={{ ...(item.active ? primaryActionButton : secondaryActionButton), padding: "7px 14px", fontSize: 13 }}
+          >
             {item.icon}{item.label}
-          </button>)}
+          </button>
+        ))}
       </div>
 
-      {/* KPI Cards */}
+      {/* g200f KPI 7 卡 — kpiCardCompact(tone),emoji-color 风格清除 */}
       <div style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
-      gap: 16,
-      marginBottom: 24
-    }}>
-        {[{
-        title: t('ui.存栏总数', '存栏总数'),
-        value: totalBirds.toLocaleString(),
-        unit: t('ui.羽', '羽'),
-        accent: "var(--color-primary)",
-        icon: <Users size={22} />
-      }, {
-        title: t('ui.今日产蛋', '今日产蛋'),
-        value: todayEggs.toLocaleString(),
-        unit: t('ui.枚', '枚'),
-        accent: "var(--status-warning)",
-        icon: <Home size={22} />
-      }, {
-        title: t('ui.有效养殖场', '有效养殖场'),
-        value: String(farms.length),
-        unit: t('ui.个', '个'),
-        accent: "var(--status-success,var(--status-success))",
-        icon: <BarChart2 size={22} />
-      }, {
-        title: t('ui.今日死淘', '今日死淘'),
-        value: todayDeaths.toLocaleString(),
-        unit: t('ui.羽', '羽'),
-        accent: "var(--status-danger)",
-        icon: <AlertTriangle size={22} />
-      }, {
-        title: t('ui.停药期预警', '停药期预警'),
-        value: String(withdrawalCount),
-        unit: t('ui.批', '批'),
-        accent: "var(--status-special)",
-        icon: <Droplets size={22} />
-      }, {
-        title: t('ui.今日免疫任务', '今日免疫任务'),
-        value: String(immuneCount),
-        unit: t('ui.项', '项'),
-        accent: "var(--status-success)",
-        icon: <ClipboardList size={22} />
-      }].map(c => <div key={c.title} style={{
-        background: "var(--bg-card)",
-        borderRadius: "var(--radius-lg)",
-        padding: 20,
-        boxShadow: "var(--shadow-sm)",
-        border: "1px solid var(--border)",
-        borderLeft: `var(--card-accent-width) solid ${c.accent}`
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))",
+        gap: 12,
+        marginBottom: 24,
       }}>
-            <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start"
-        }}>
-              <p style={{
-            fontSize: 13,
-            color: "var(--text-secondary)",
-            fontWeight: 500,
-            marginBottom: 12
-          }}>{c.title}</p>
-              <div style={{
-            width: 44,
-            height: 44,
-            borderRadius: "var(--radius-md)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: `color-mix(in srgb,${c.accent} 12%,transparent)`,
-            color: c.accent
-          }}>
-                {c.icon}
+        {([
+          { title: t('ui.存栏总数',   '存栏总数'),   value: totalBirds.toLocaleString(),  unit: t('ui.羽', '羽'), tone: "brand"   as Tone, Icon: Users          },
+          { title: t('ui.今日产蛋',   '今日产蛋'),   value: todayEggs.toLocaleString(),   unit: t('ui.枚', '枚'), tone: "warning" as Tone, Icon: Wheat          },
+          { title: t('ui.有效养殖场', '有效养殖场'), value: String(farms.length),         unit: t('ui.个', '个'), tone: "success" as Tone, Icon: BarChart2      },
+          { title: t('ui.今日死淘',   '今日死淘'),   value: todayDeaths.toLocaleString(), unit: t('ui.羽', '羽'), tone: "danger"  as Tone, Icon: AlertTriangle  },
+          { title: t('ui.停药期预警', '停药期预警'), value: String(withdrawalCount),      unit: t('ui.批', '批'), tone: "info"    as Tone, Icon: Droplets       },
+          { title: t('ui.今日免疫任务', '今日免疫任务'), value: String(immuneCount),       unit: t('ui.项', '项'), tone: "success" as Tone, Icon: ClipboardList  },
+        ]).map(c => {
+          const Icon = c.Icon;
+          return (
+            <div key={c.title} style={kpiCardCompact(c.tone)}>
+              <div style={kpiCardCompactLabel}>
+                <Icon size={13} /> {c.title}
+              </div>
+              <div style={{ ...kpiCardCompactValue(c.tone), display: "flex", alignItems: "baseline", gap: 4 }}>
+                {c.value}
+                <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 400 }}>{c.unit}</span>
               </div>
             </div>
-            <div style={{
-          fontSize: 28,
-          fontWeight: 700,
-          lineHeight: 1,
-          color: c.accent
-        }}>{c.value}
-              <span style={{
-            fontSize: 14,
-            fontWeight: 500,
-            marginLeft: 4,
-            color: "var(--text-secondary)"
-          }}>{c.unit}</span>
-            </div>
-          </div>)}
+          );
+        })}
 
-        {/* 环境设备卡 */}
-        <div style={{
-        background: "var(--bg-card)",
-        borderRadius: "var(--radius-lg)",
-        padding: 20,
-        boxShadow: "var(--shadow-sm)",
-        border: "1px solid var(--border)",
-        borderLeft: "var(--card-accent-width) solid var(--color-accent)",
-        position: "relative"
-      }}>
-          <button type="button" onClick={() => router.push("/breeding/device-alerts")} title={t('ui.进入环境预警中心', '进入环境预警中心')} style={{
-          position: "absolute",
-          top: 12,
-          right: 12,
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          color: "var(--text-secondary)",
-          padding: 4,
-          borderRadius: 4
-        }}>
-            <ArrowUpRight size={15} />
+        {/* 环境设备特殊卡(2 数字 + 入口箭头) — 沿用 kpiCardCompact 但内嵌双值 */}
+        <div style={{ ...kpiCardCompact("info"), position: "relative" }}>
+          <button type="button" onClick={() => router.push("/breeding/device-alerts")} title={t('ui.进入环境预警中心', '进入环境预警中心')}
+            style={{ position: "absolute", top: 10, right: 10, background: "transparent", border: "none", cursor: "pointer", color: "var(--text-secondary)", padding: 4 }}>
+            <ArrowUpRight size={14} />
           </button>
-          <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start"
-        }}>
+          <div style={kpiCardCompactLabel}><Wifi size={13} /> {t('ui.环境设备', '环境设备')}</div>
+          <div style={{ display: "flex", gap: 16, marginTop: 2 }}>
             <div>
-              <p style={{
-              fontSize: 13,
-              color: "var(--text-secondary)",
-              fontWeight: 500,
-              marginBottom: 12
-            }}>{t('ui.环境设备', '环境设备')}</p>
-              <div style={{
-              display: "flex",
-              gap: 20
-            }}>
-                <div>
-                  <div style={{
-                  fontSize: 28,
-                  fontWeight: 700,
-                  lineHeight: 1,
-                  color: deviceStats.openAlerts > 0 ? "var(--status-warning)" : "var(--text-primary)"
-                }}>{deviceStats.openAlerts}</div>
-                  <div style={{
-                  fontSize: 12,
-                  color: "var(--text-secondary)",
-                  marginTop: 4
-                }}>{t('ui.未处理告警', '未处理告警')}</div>
-                </div>
-                <div>
-                  <div style={{
-                  fontSize: 28,
-                  fontWeight: 700,
-                  lineHeight: 1,
-                  color: deviceStats.offlineDevices > 0 ? "var(--status-danger)" : "var(--text-primary)"
-                }}>{deviceStats.offlineDevices}</div>
-                  <div style={{
-                  fontSize: 12,
-                  color: "var(--text-secondary)",
-                  marginTop: 4
-                }}>{t('ui.离线设备', '离线设备')}</div>
-                </div>
-              </div>
+              <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.15, fontFamily: MONO_FONT, color: deviceStats.openAlerts > 0 ? "var(--status-warning)" : "var(--text-primary)" }}>{deviceStats.openAlerts}</div>
+              <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>{t('ui.未处理告警', '未处理告警')}</div>
             </div>
-            <div style={{
-            width: 48,
-            height: 48,
-            borderRadius: "var(--radius-md)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "color-mix(in srgb,var(--color-accent) 12%,transparent)",
-            color: "var(--color-accent)",
-            flexShrink: 0
-          }}>
-              <Wifi size={22} />
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.15, fontFamily: MONO_FONT, color: deviceStats.offlineDevices > 0 ? "var(--status-danger)" : "var(--text-primary)" }}>{deviceStats.offlineDevices}</div>
+              <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>{t('ui.离线设备', '离线设备')}</div>
             </div>
           </div>
         </div>
@@ -621,16 +506,13 @@ export default function BreedingPage() {
             (e.currentTarget as HTMLElement).style.boxShadow = "none";
           }}>
                 <div style={{
-              width: 48,
-              height: 48,
-              borderRadius: "var(--radius-md)",
-              flexShrink: 0,
-              background: farm.status === "warning" ? "color-mix(in srgb, var(--status-danger) 10%, transparent)" : "color-mix(in srgb, var(--color-accent) 12%, transparent)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 20
-            }}>🐔</div>
+                  width: 44, height: 44, borderRadius: 8, flexShrink: 0,
+                  background: farm.status === "warning" ? "color-mix(in srgb, var(--status-danger) 10%, transparent)" : "color-mix(in srgb, var(--color-accent) 12%, transparent)",
+                  color: farm.status === "warning" ? "var(--status-danger)" : "var(--color-accent)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <Bird size={22} />
+                </div>
                 <div className={u.flex1}>
                   <div style={{
                 display: "flex",
@@ -643,15 +525,7 @@ export default function BreedingPage() {
                   fontSize: 15,
                   color: "var(--text-primary)"
                 }}>{farm.name}</span>
-                    <span style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  padding: "2px 8px",
-                  borderRadius: 12,
-                  background: farm.status === "warning" ? "color-mix(in srgb, var(--status-danger) 10%, transparent)" : "color-mix(in srgb, var(--status-success) 12%, transparent)",
-                  color: farm.status === "warning" ? "var(--status-danger)" : "var(--status-success)",
-                  border: `1px solid ${farm.status === "warning" ? "var(--status-danger)" : "var(--status-success)"}`
-                }}>
+                    <span style={actionPill(farm.status === "warning" ? "danger" : "success")}>
                       {farm.status === "warning" ? t('ui.需关注', '需关注') : t('ui.正常', '正常')}
                     </span>
                   </div>
@@ -665,27 +539,21 @@ export default function BreedingPage() {
                 fontSize: 11,
                 fontWeight: 600
               }}>
-                      {farmEnvMap[farm.id].temp != null && <span style={{
-                  background: "color-mix(in srgb, var(--status-warning) 12%, transparent)",
-                  padding: "3px 8px",
-                  borderRadius: 12,
-                  color: "var(--status-warning)",
-                  border: "1px solid color-mix(in srgb, var(--status-warning) 18%, transparent)"
-                }}>🌡️ {farmEnvMap[farm.id].temp}℃</span>}
-                      {farmEnvMap[farm.id].hum != null && <span style={{
-                  background: "color-mix(in srgb, var(--status-success) 12%, transparent)",
-                  padding: "3px 8px",
-                  borderRadius: 12,
-                  color: "var(--status-success)",
-                  border: "1px solid var(--status-success)"
-                }}>💧 {farmEnvMap[farm.id].hum}%</span>}
-                      {farmEnvMap[farm.id].co2 != null && <span style={{
-                  background: "var(--bg-page)",
-                  padding: "3px 8px",
-                  borderRadius: 12,
-                  color: "var(--text-secondary)",
-                  border: "1px solid var(--border)"
-                }}>☁️ {farmEnvMap[farm.id].co2} ppm</span>}
+                      {farmEnvMap[farm.id].temp != null && (
+                        <span style={{ ...actionPill("warning"), gap: 4 }}>
+                          <Thermometer size={11} /> {farmEnvMap[farm.id].temp}℃
+                        </span>
+                      )}
+                      {farmEnvMap[farm.id].hum != null && (
+                        <span style={{ ...actionPill("success"), gap: 4 }}>
+                          <Droplet size={11} /> {farmEnvMap[farm.id].hum}%
+                        </span>
+                      )}
+                      {farmEnvMap[farm.id].co2 != null && (
+                        <span style={{ ...actionPill("default"), gap: 4 }}>
+                          <Wind size={11} /> {farmEnvMap[farm.id].co2} ppm
+                        </span>
+                      )}
                     </div>}
                 </div>
                 <div style={{
@@ -711,21 +579,10 @@ export default function BreedingPage() {
               flexShrink: 0,
               marginLeft: 10
             }}>
-                  <button type="button" onClick={e => {
-                e.stopPropagation();
-                router.push('/master/farms');
-              }} className={styles.btnSecondary} title={t('ui.在主数据中编辑', '在主数据中编辑')} style={{
-                padding: 6,
-                display: "flex",
-                alignItems: "center"
-              }}>
+                  <button type="button" onClick={e => { e.stopPropagation(); router.push('/master/farms'); }} title={t('ui.在主数据中编辑', '在主数据中编辑')} style={{ ...actionPill("default"), padding: 6 }}>
                     <Settings size={14} />
                   </button>
-                  <button type="button" onClick={e => handleDelete(e, farm)} className={styles.btnDanger} style={{
-                padding: 6,
-                display: "flex",
-                alignItems: "center"
-              }}>
+                  <button type="button" onClick={e => handleDelete(e, farm)} style={{ ...actionPill("danger"), padding: 6 }}>
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -741,53 +598,30 @@ export default function BreedingPage() {
           marginBottom: 12,
           color: "var(--color-primary)"
         }}>{t('ui.今日预警任务', '今日预警任务')}</h3>
-          <div style={{
-          background: "var(--bg-card)",
-          borderRadius: "var(--radius-lg)",
-          border: "1px solid var(--border)",
-          overflow: "hidden"
-        }}>
-            {alerts.map((a, i) => <div key={a.id} style={{
-            padding: "14px 16px",
-            borderBottom: i < alerts.length - 1 ? "1px solid var(--border)" : "none"
-          }}>
-                <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 6
-            }}>
-                  <span style={{
-                fontSize: 11,
-                fontWeight: 700,
-                padding: "2px 8px",
-                borderRadius: 12,
-                background: `color-mix(in srgb,${statusColor(a.type)} 12%,transparent)`,
-                color: statusColor(a.type),
-                border: `1px solid color-mix(in srgb,${statusColor(a.type)} 30%,transparent)`
-              }}>
-                    {a.label}
-                  </span>
-                  <span style={{
-                fontSize: 12,
-                color: "var(--text-secondary)",
-                marginLeft: "auto"
-              }}>{a.time}</span>
+          {/* g200f 今日预警容器 — actionGroupBox(避免与顶部 KPI 同款卡片) */}
+          <div style={{ ...actionGroupBox, background: "var(--bg-card)", overflow: "hidden", padding: 0 }}>
+            {alerts.map((a, i) => {
+              const aTone: Tone =
+                a.type === "danger"  ? "danger"  :
+                a.type === "warning" ? "warning" :
+                a.type === "success" ? "success" :
+                a.type === "info"    ? "info"    : "default";
+              return (
+                <div key={a.id} style={{
+                  padding: "14px 16px",
+                  borderBottom: i < alerts.length - 1 ? "1px solid var(--border)" : "none",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <span style={actionPill(aTone)}>{a.label}</span>
+                    <span style={{ fontSize: 12, color: "var(--text-secondary)", marginLeft: "auto" }}>{a.time}</span>
+                  </div>
+                  <p style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.5, margin: 0 }}>{a.msg}</p>
                 </div>
-                <p style={{
-              fontSize: 13,
-              color: "var(--text-primary)",
-              lineHeight: 1.5
-            }}>{a.msg}</p>
-              </div>)}
+              );
+            })}
           </div>
-          <div style={{
-          marginTop: 16,
-          background: "var(--bg-card)",
-          borderRadius: "var(--radius-lg)",
-          border: "1px solid var(--border)",
-          padding: 16
-        }}>
+          {/* g200f 本周汇总 — detailInfoBox 风格,不重复 KPI 卡 */}
+          <div style={{ ...detailInfoBox, background: "var(--bg-card)", marginTop: 16, padding: 16 }}>
             <h4 style={{
             fontSize: 13,
             fontWeight: 700,

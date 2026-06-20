@@ -28,6 +28,8 @@ import { Plus, Edit2, Trash2 } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import u from "@/styles/uix-utils.module.css";
 import { SupplierSelector } from '@/components/shared-selectors/MasterDataSelectors';
+// g200f 模板 token(2026-06-20)
+import { primaryActionButton, secondaryActionButton, toolbarFilterPill } from '@/components/design-system/cockpit-styles';
 const emptyForm = () => ({
   farmCode: '',
   house: '',
@@ -79,6 +81,11 @@ export default function FlockPage() {
     RETIRED: {
       status: 'default',
       label: t('ui.已淘汰', '已淘汰')
+    },
+    /* g200f(2026-06-20):兼容 DB 历史值 ACTIVE → 产蛋期(LAYING 同义) */
+    ACTIVE: {
+      status: 'success',
+      label: t('ui.产蛋期', '产蛋期')
     }
   };
   const statusFilters = [{
@@ -285,7 +292,9 @@ export default function FlockPage() {
   }, {
     key: 'inDate',
     title: t('ui.进雏日期', '进雏日期'),
-    width: '100px'
+    width: '100px',
+    /* g200f:ISO 字符串 → 本地日期(yyyy/M/d) */
+    render: (v: unknown) => v ? new Date(String(v)).toLocaleDateString('zh-CN') : '—'
   }, {
     key: 'ageWeeks',
     title: t('ui.鸡龄', '鸡龄'),
@@ -323,7 +332,11 @@ export default function FlockPage() {
     key: 'eliminationDate',
     title: t('ui.预计淘汰日', '预计淘汰日'),
     width: '100px',
-    render: (_: unknown, row: FlockCard) => String(row._raw?.elimination_date || '—')
+    /* g200f:ISO 字符串 → 本地日期 */
+    render: (_: unknown, row: FlockCard) => {
+      const d = row._raw?.elimination_date;
+      return d ? new Date(String(d)).toLocaleDateString('zh-CN') : '—';
+    }
   }, {
     key: 'status',
     title: t('common.status', '状态'),
@@ -345,20 +358,26 @@ export default function FlockPage() {
       </div> : null
   }];
   return <div className="animate-fade-in">
-      <PageHeader title={t('ui.鸡群档案', '鸡群档案')} subtitle={`${t('ui.当前共', '当前共')} ${flocks.length} ${t('ui.个鸡群批次', '个鸡群批次')}`} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.鸡群档案', '鸡群档案')]} actions={canEditFlock && <button type="button" className={s.btnPrimary} onClick={() => {
-      setEditId(null);
-      setForm(emptyForm());
-      setShowDrawer(true);
-    }}>
-            <Plus size={15} />{t('ui.新建鸡群档案', '新建鸡群档案')}
-          </button>} />
+      <PageHeader
+        title={t('ui.鸡群档案', '鸡群档案')}
+        subtitle={`${t('ui.当前共', '当前共')} ${flocks.length} ${t('ui.个鸡群批次', '个鸡群批次')}`}
+        breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.鸡群档案', '鸡群档案')]}
+        actions={canEditFlock && (
+          <button type="button" style={primaryActionButton} onClick={() => { setEditId(null); setForm(emptyForm()); setShowDrawer(true); }}>
+            <Plus size={14} />{t('ui.新建鸡群档案', '新建鸡群档案')}
+          </button>
+        )}
+      />
 
-      <DataTable columns={columns} data={data} searchPlaceholder={t('ui.搜索批次号农场', '搜索批次号农场')} searchKeys={['batchNo', 'farmName', 'breed']} rowKey="id" filters={<div style={{
-      display: 'flex',
-      gap: 6
-    }}>
-          {statusFilters.map(f => <button type="button" key={f.key} className={`${s.tabPill} ${statusFilter === f.key ? s.tabPillActive : ""}`} onClick={() => setStatusFilter(f.key)}>{f.label}</button>)}
-        </div>} />
+      <DataTable columns={columns} data={data} searchPlaceholder={t('ui.搜索批次号农场', '搜索批次号农场')} searchKeys={['batchNo', 'farmName', 'breed']} rowKey="id" filters={
+        <div style={{ display: 'flex', gap: 6 }}>
+          {statusFilters.map(f => (
+            <button key={f.key} type="button" onClick={() => setStatusFilter(f.key)} style={toolbarFilterPill(statusFilter === f.key)}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+      } />
 
       <RightDrawer isOpen={showDrawer} onClose={() => {
       setShowDrawer(false);
@@ -484,13 +503,8 @@ export default function FlockPage() {
           gap: 10,
           marginTop: 8
         }}>
-            <button type="button" className={`${s.btnSecondary} ${u.flex1}`} onClick={() => {
-            setShowDrawer(false);
-            setEditId(null);
-          }}>{t('common.cancel', '取消')}</button>
-            <button type="button" className={s.btnPrimary} style={{
-            flex: 2
-          }} onClick={handleSubmit}>{editId ? t('ui.保存修改', '保存修改') : t('ui.确认建档', '确认建档')}</button>
+            <button type="button" style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }} onClick={() => { setShowDrawer(false); setEditId(null); }}>{t('common.cancel', '取消')}</button>
+            <button type="button" style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }} onClick={handleSubmit}>{editId ? t('ui.保存修改', '保存修改') : t('ui.确认建档', '确认建档')}</button>
           </div>
         </div>
       </RightDrawer>
