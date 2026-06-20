@@ -94,6 +94,17 @@ export class MasterDataOperationsService {
         { type: 'dict',    table: 'sys_dict',     codeCol: 'dict_code', href: '/master-data/dictionaries' },
       ],
     },
+    // W4 — 扩展治理(site / business-unit / shareholder 进治理图谱;只读统计,不暴露 CRUD 端点)
+    // user 拍板 #2:门店即 SITE-*-STORE,这里 SITE 子集含全 site_business_type
+    // user 拍板 #4:shareholder scope 走 shr_shareholder_scope,本 center 只展示档案行
+    {
+      key: 'extended-gov', label: '扩展治理',
+      members: [
+        { type: 'site',          table: 'sys_organizations',  codeCol: 'org_code',         href: '/master-data/sites',           filter: "org_type='SITE'" },
+        { type: 'business-unit', table: 'biz_business_units', codeCol: 'bu_code',          href: '/master-data/business-units' },
+        { type: 'shareholder',   table: 'shr_shareholders',   codeCol: 'shareholder_code', href: '/master-data/shareholders' },
+      ],
+    },
   ];
 
   /** 6 中心实时统计（运营首页用） */
@@ -157,6 +168,10 @@ export class MasterDataOperationsService {
       { type: 'vehicle',   sql: `SELECT vehicle_no AS code, plate_no AS name, status FROM sal_vehicles WHERE vehicle_no ILIKE $1 OR plate_no ILIKE $1 LIMIT 5`, href: '/master-data/vehicles' },
       { type: 'project',   sql: `SELECT project_code AS code, project_name AS name, status FROM shr_projects WHERE project_code ILIKE $1 OR project_name ILIKE $1 LIMIT 5`, href: '/master-data/projects' },
       { type: 'organization', sql: `SELECT org_code AS code, org_name AS name, status FROM sys_organizations WHERE org_code ILIKE $1 OR org_name ILIKE $1 LIMIT 5`, href: '/master-data/organizations' },
+      // W4 — 扩展治理 3 类(只读搜索;不暴露写入端点)
+      { type: 'site',          sql: `SELECT org_code AS code, org_name AS name, status FROM sys_organizations WHERE org_type='SITE' AND (org_code ILIKE $1 OR org_name ILIKE $1) LIMIT 5`, href: '/master-data/sites' },
+      { type: 'business-unit', sql: `SELECT bu_code AS code, bu_name AS name, status FROM biz_business_units WHERE bu_code ILIKE $1 OR bu_name ILIKE $1 LIMIT 5`, href: '/master-data/business-units' },
+      { type: 'shareholder',   sql: `SELECT shareholder_code AS code, shareholder_name AS name, status FROM shr_shareholders WHERE shareholder_code ILIKE $1 OR shareholder_name ILIKE $1 LIMIT 5`, href: '/master-data/shareholders' },
     ];
 
     const out: SearchResult[] = [];
