@@ -7,6 +7,10 @@ import { WorkflowDataView } from "@/components/workflow/WorkflowDataView";
 import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowTask } from "@/lib/workflow-api";
 import u from "@/styles/uix-utils.module.css";
+import {
+  primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill,
+  detailInfoBox,
+} from "@/components/design-system/cockpit-styles";
 export default function WorkflowTodoPage() {
   const [rows, setRows] = useState<WorkflowTask[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -119,7 +123,7 @@ export default function WorkflowTodoPage() {
                 <h3 className={s.cardTitle}>待处理</h3>
                 <p className={`${s.modalDesc} ${u.mt4}`}>共 {rows.length} 条待办</p>
               </div>
-              <Link href="/workflow/start" className={s.btnSecondary}>发起申请</Link>
+              <Link href="/workflow/start" style={secondaryActionButton}>发起申请</Link>
             </div>
 
             {rows.length ? <div style={taskListStyle}>
@@ -145,7 +149,7 @@ export default function WorkflowTodoPage() {
                   <h3 className={s.cardTitle}>{selected.title}</h3>
                   <p className={`${s.modalDesc} ${u.mt4}`}>{selected.definition_name || "工作流"} · {selected.node_name}</p>
                 </div>
-                <span className={`${s.badge} ${s.badgeInfo}`}>{statusText(selected.status)}</span>
+                <span style={actionPill('info')}>{statusText(selected.status)}</span>
               </div>
 
               <div className={`${s.infoGrid3} ${u.mb16}`}>
@@ -170,26 +174,26 @@ export default function WorkflowTodoPage() {
 
               {transferOpen ? <div style={transferPanelStyle}>
                   <div style={transferModeStyle}>
-                    <button type="button" className={`${s.tabPill} ${transferMode === "role" ? s.tabPillActive : ""}`} onClick={() => setTransferMode("role")}>
+                    <button type="button" onClick={() => setTransferMode("role")} style={toolbarFilterPill(transferMode === "role")}>
                       转给角色
                     </button>
-                    <button type="button" className={`${s.tabPill} ${transferMode === "user" ? s.tabPillActive : ""}`} onClick={() => setTransferMode("user")}>
+                    <button type="button" onClick={() => setTransferMode("user")} style={toolbarFilterPill(transferMode === "user")}>
                       转给用户
                     </button>
                   </div>
                   <input className={s.inp} value={transferTarget} onChange={e => setTransferTarget(e.target.value)} placeholder={transferMode === "role" ? "角色编码，如 ROLE_FIN_ACCT" : "用户 ID，如 1001"} />
                   <div style={transferActionsStyle}>
-                    <button type="button" className={s.btnSecondary} disabled={loading} onClick={() => setTransferOpen(false)}>取消转交</button>
-                    <button type="button" className={s.btnPrimary} disabled={loading} onClick={transfer}>{loading ? "转交中..." : "确认转交"}</button>
+                    <button type="button" style={secondaryActionButton} disabled={loading} onClick={() => setTransferOpen(false)}>取消转交</button>
+                    <button type="button" style={primaryActionButton} disabled={loading} onClick={transfer}>{loading ? "转交中..." : "确认转交"}</button>
                   </div>
                 </div> : null}
 
               <div style={footerStyle}>
-                <Link href={`/workflow/instances/${selected.instance_id}`} className={s.btnSecondary}>查看详情</Link>
-                <button type="button" className={s.btnSecondary} disabled={loading || !comment.trim()} onClick={saveComment}>补充意见</button>
-                <button type="button" className={s.btnSecondary} disabled={loading} onClick={() => setTransferOpen(open => !open)}>转交</button>
-                <button type="button" className={s.btnDanger} disabled={loading} onClick={() => act("reject")}>驳回</button>
-                <button type="button" className={s.btnPrimary} disabled={loading} onClick={() => act("approve")}>
+                <Link href={`/workflow/instances/${selected.instance_id}`} style={secondaryActionButton}>查看详情</Link>
+                <button type="button" style={secondaryActionButton} disabled={loading || !comment.trim()} onClick={saveComment}>补充意见</button>
+                <button type="button" style={secondaryActionButton} disabled={loading} onClick={() => setTransferOpen(open => !open)}>转交</button>
+                <button type="button" style={actionPill('danger')} disabled={loading} onClick={() => act("reject")}>驳回</button>
+                <button type="button" style={primaryActionButton} disabled={loading} onClick={() => act("approve")}>
                   {loading ? "处理中..." : "通过"}
                 </button>
               </div>
@@ -220,24 +224,24 @@ function ApprovalAssist({
   const insight = buildApprovalInsight(task);
   return <div style={assistPanelStyle}>
       <div style={assistCardStyle}>
-        <span className={s.badge}>审批关注</span>
+        <span style={actionPill('default')}>审批关注</span>
         <strong>{insight.title}</strong>
         <div style={assistListStyle}>
           {insight.focus.map(item => <span key={item}>{item}</span>)}
         </div>
       </div>
       <div style={assistCardStyle}>
-        <span className={s.badge}>系统提示</span>
+        <span style={actionPill('default')}>系统提示</span>
         <strong>{insight.riskLevel}</strong>
         <div style={assistListStyle}>
           {insight.risks.map(item => <span key={item}>{item}</span>)}
         </div>
       </div>
       <div style={assistCardStyle}>
-        <span className={s.badge}>意见模板</span>
+        <span style={actionPill('default')}>意见模板</span>
         <strong>可一键带入审批意见</strong>
         <div style={templateGridStyle}>
-          {insight.templates.map(item => <button key={item} type="button" className={`${s.btnSecondary} ${s.btnSm}`} onClick={() => onUseTemplate(item)}>
+          {insight.templates.map(item => <button key={item} type="button" onClick={() => onUseTemplate(item)} style={actionPill('default')}>
               {item}
             </button>)}
         </div>

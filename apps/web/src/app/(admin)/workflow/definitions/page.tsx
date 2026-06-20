@@ -5,6 +5,7 @@ import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi, type WorkflowDefinition } from "@/lib/workflow-api";
 import { WORKFLOW_TEMPLATES, type WorkflowTemplate } from "@/lib/workflow-templates";
 import u from "@/styles/uix-utils.module.css";
@@ -143,10 +144,10 @@ export default function WorkflowDefinitionsPage() {
             <p className={`${s.modalDesc} ${u.mt4}`}>大多数流程应先由管理员统一定义，业务人员只需要发起和审批。</p>
           </div>
           <div style={toolbarActionsStyle}>
-            <button type="button" className={s.btnSecondary} disabled={generating} onClick={generateIndustryTemplates}>
+            <button type="button" style={secondaryActionButton} disabled={generating} onClick={generateIndustryTemplates}>
               {generating ? "生成中..." : "AI生成行业模板"}
             </button>
-            <button type="button" className={s.btnPrimary} onClick={() => openFromTemplate()}>新增流程</button>
+            <button type="button" style={primaryActionButton} onClick={() => openFromTemplate()}>新增流程</button>
           </div>
         </div>
       </section>
@@ -175,8 +176,8 @@ export default function WorkflowDefinitionsPage() {
       </section>
 
       <RightDrawer open={drawerOpen} title={source ? "复制现有流程" : "新增流程"} width={640} onClose={() => setDrawerOpen(false)} footer={<div style={footerStyle}>
-            <button type="button" className={s.btnSecondary} onClick={() => setDrawerOpen(false)}>取消</button>
-            <button type="button" className={s.btnPrimary} disabled={loading} onClick={create}>{loading ? "创建中..." : "创建流程"}</button>
+            <button type="button" style={secondaryActionButton} onClick={() => setDrawerOpen(false)}>取消</button>
+            <button type="button" style={primaryActionButton} disabled={loading} onClick={create}>{loading ? "创建中..." : "创建流程"}</button>
           </div>}>
         <div style={drawerStackStyle}>
           <section>

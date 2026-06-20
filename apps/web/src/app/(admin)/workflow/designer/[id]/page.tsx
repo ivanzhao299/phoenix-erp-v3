@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { ModalV2 } from "@/components/design-system/dialogs/ModalV2";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi, type WorkflowForm } from "@/lib/workflow-api";
 import u from "@/styles/uix-utils.module.css";
 type NodeType = "start" | "approval" | "condition" | "cc" | "end";
@@ -754,8 +755,8 @@ export default function WorkflowDesignerPage() {
               <p className={`${s.modalDesc} ${u.mt4}`}>发布前先看一遍业务人员会经历什么。</p>
             </div>
             <div style={toolbarActionsStyle}>
-              <button type="button" className={s.btnSecondary} onClick={openJson}>高级 JSON</button>
-              <button type="button" className={s.btnPrimary} onClick={publish}>发布流程</button>
+              <button type="button" style={secondaryActionButton} onClick={openJson}>高级 JSON</button>
+              <button type="button" style={primaryActionButton} onClick={publish}>发布流程</button>
             </div>
           </div>
           {msg ? <div className={s.successBanner}>{msg}</div> : null}
@@ -952,13 +953,13 @@ export default function WorkflowDesignerPage() {
               }
             })} placeholder="判断值，如 10000" />
                 </> : null}
-              <button type="button" className={s.btnDanger} onClick={() => removeEdge(selectedEdge)}>删除规则</button>
+              <button type="button" style={actionPill('danger')} onClick={() => removeEdge(selectedEdge)}>删除规则</button>
             </div> : <div className={s.emptyState}><div className={s.emptyStateText}>暂无规则。</div></div>}
         </section>
       </div>
 
       <ModalV2 open={jsonOpen} onClose={() => setJsonOpen(false)} title="高级 JSON 编辑" width={900}
-        footer={<button type="button" className={s.btnPrimary} onClick={applyJson}>应用 JSON</button>}>
+        footer={<button type="button" style={primaryActionButton} onClick={applyJson}>应用 JSON</button>}>
         <textarea value={jsonDraft} onChange={e => setJsonDraft(e.target.value)} className={s.textarea} style={textareaStyle} spellCheck={false} />
       </ModalV2>
     </div>;

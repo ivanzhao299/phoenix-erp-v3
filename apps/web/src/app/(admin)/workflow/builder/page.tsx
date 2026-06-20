@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi, type WorkflowFormField } from "@/lib/workflow-api";
 import { WORKFLOW_TEMPLATES, type WorkflowTemplate } from "@/lib/workflow-templates";
 import u from "@/styles/uix-utils.module.css";
@@ -229,7 +230,7 @@ export default function WorkflowBuilderPage() {
     }
   }
   return <div>
-      <PageHeader title="流程搭建工作区" subtitle="按业务场景、表单字段、审批路线三步搭建流程，全程不用写代码" breadcrumb={["工作流", "流程搭建工作区"]} actions={<Link href="/workflow/definitions" className={s.btnSecondary}>流程列表</Link>} />
+      <PageHeader title="流程搭建工作区" subtitle="按业务场景、表单字段、审批路线三步搭建流程，全程不用写代码" breadcrumb={["工作流", "流程搭建工作区"]} actions={<Link href="/workflow/definitions" style={secondaryActionButton}>流程列表</Link>} />
 
       <section className={`${s.card} ${u.mb12}`}>
         <div className={s.cardBody} style={stepsHeaderStyle}>
@@ -331,7 +332,7 @@ function FormStep(props: {
               <option value="date">日期</option>
               <option value="datetime">日期时间</option>
             </select>
-            <button type="button" className={s.btnSecondary} onClick={props.onAddCustomField}>加入字段</button>
+            <button type="button" style={secondaryActionButton} onClick={props.onAddCustomField}>加入字段</button>
           </div>
         </div>
       </section>
@@ -343,7 +344,7 @@ function FormStep(props: {
               <h3 className={s.cardTitle}>表单预览</h3>
               <p className={`${s.modalDesc} ${u.mt4}`}>字段会按这个顺序出现在发起申请页面。</p>
             </div>
-            <button type="button" className={s.btnPrimary} onClick={props.onNext}>下一步：排审批</button>
+            <button type="button" style={primaryActionButton} onClick={props.onNext}>下一步：排审批</button>
           </div>
           <div style={fieldListStyle}>
             {props.fields.map(field => <div key={field.key} style={fieldItemStyle}>
@@ -384,7 +385,7 @@ function RouteStep(props: {
               <h3 className={s.cardTitle}>审批路线</h3>
               <p className={`${s.modalDesc} ${u.mt4}`}>像排队一样排审批步骤，从上到下依次流转。</p>
             </div>
-            <button type="button" className={s.btnSecondary} onClick={props.onAddStep}>添加一级审批</button>
+            <button type="button" style={secondaryActionButton} onClick={props.onAddStep}>添加一级审批</button>
           </div>
 
           <div style={approvalListStyle}>
@@ -422,10 +423,7 @@ function RouteStep(props: {
             {props.ccRole ? <RouteNode label="抄送备案" desc={roleLabel(props.roles, props.ccRole)} tone="cc" /> : null}
             <RouteNode label="流程完成" desc="自动归档，可在实例中追踪" tone="end" />
           </div>
-          <button type="button" className={s.btnPrimary} style={{
-          width: "100%",
-          marginTop: 16
-        }} disabled={props.busy} onClick={props.onBuild}>
+          <button type="button" disabled={props.busy} onClick={props.onBuild} style={{ ...primaryActionButton, width: "100%", marginTop: 16, justifyContent: "center" }}>
             {props.busy ? "正在生成..." : "一键生成并发布"}
           </button>
         </div>
@@ -470,9 +468,9 @@ function FinishStep({
             <Info label="表单 ID" value={String(result.formId)} />
           </div> : null}
         <div style={finishActionsStyle}>
-          {result ? <Link href={`/workflow/start?code=${result.code}`} className={s.btnPrimary}>马上发起试用</Link> : null}
-          {result ? <Link href={`/workflow/designer/${result.definitionId}`} className={s.btnSecondary}>高级微调</Link> : null}
-          <Link href="/workflow/definitions" className={s.btnSecondary}>回到流程列表</Link>
+          {result ? <Link href={`/workflow/start?code=${result.code}`} style={primaryActionButton}>马上发起试用</Link> : null}
+          {result ? <Link href={`/workflow/designer/${result.definitionId}`} style={secondaryActionButton}>高级微调</Link> : null}
+          <Link href="/workflow/definitions" style={secondaryActionButton}>回到流程列表</Link>
         </div>
       </div>
     </section>;

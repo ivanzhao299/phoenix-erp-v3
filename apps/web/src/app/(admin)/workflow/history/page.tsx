@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { CheckCircle, XCircle, Clock, RefreshCw, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -172,7 +173,7 @@ export default function ApprovalHistoryPage() {
                 {f.label}
               </button>)}
           </div>
-          <button className={s.btnSecondary} onClick={load} disabled={loading}>
+          <button style={secondaryActionButton} onClick={load} disabled={loading}>
             <RefreshCw size={14} style={{
             marginRight: 6
           }} />刷新
@@ -273,9 +274,7 @@ export default function ApprovalHistoryPage() {
             display: "flex",
             gap: 6
           }}>
-                <button className={s.btnSecondary} onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} style={{
-              padding: "4px 10px"
-            }}>
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} style={{ ...secondaryActionButton, padding: "4px 10px" }}>
                   <ChevronLeft size={14} />
                 </button>
                 <span style={{
@@ -285,9 +284,7 @@ export default function ApprovalHistoryPage() {
             }}>
                   {page} / {totalPages}
                 </span>
-                <button className={s.btnSecondary} onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} style={{
-              padding: "4px 10px"
-            }}>
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} style={{ ...secondaryActionButton, padding: "4px 10px" }}>
                   <ChevronRight size={14} />
                 </button>
               </div>

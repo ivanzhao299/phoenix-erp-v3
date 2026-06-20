@@ -6,6 +6,7 @@ import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { WorkflowFormRenderer } from "@/components/workflow/WorkflowFormRenderer";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
@@ -462,10 +463,7 @@ export default function ApprovalTodosPage() {
           <button className={`${s.btnSecondary} ${u.fs12}`} onClick={resetFilter}>
             重置
           </button>
-          <button className={s.btnSecondary} onClick={() => load()} disabled={loading} style={{
-          fontSize: 12,
-          marginLeft: "auto"
-        }}>
+          <button onClick={() => load()} disabled={loading} style={{ ...secondaryActionButton, fontSize: 12, marginLeft: "auto" }}>
             <RefreshCw size={13} style={{
             marginRight: 5
           }} />
@@ -817,24 +815,20 @@ export default function ApprovalTodosPage() {
                   </div>}
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                 <button className={`${s.btnSecondary} ${u.flex1}`} onClick={() => setReassignMode(false)} disabled={submitting}>取消</button>
-                <button className={s.btnPrimary} style={{ flex: 2 }} onClick={handleReassign} disabled={submitting || !pickedTo}>{submitting ? "转交中…" : "确认转交"}</button>
+                <button onClick={handleReassign} disabled={submitting || !pickedTo} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>{submitting ? "转交中…" : "确认转交"}</button>
               </div>
             </div>}
             <div style={{
           display: "flex",
           gap: 12
         }}>
-              <button className={`${s.btnDanger} ${u.flex1}`} onClick={handleReject} disabled={submitting}>
-                <XCircle size={14} style={{
-              marginRight: 6
-            }} />拒绝
+              <button onClick={handleReject} disabled={submitting} style={{ ...actionPill('danger'), flex: 1, justifyContent: "center" }}>
+                <XCircle size={14} style={{ marginRight: 6 }} />拒绝
               </button>
-              <button className={`${s.btnSecondary} ${u.flex1}`} onClick={openReassign} disabled={submitting}>
+              <button onClick={openReassign} disabled={submitting} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>
                 转交
               </button>
-              <button className={s.btnPrimary} onClick={handleApprove} disabled={submitting} style={{
-            flex: 2
-          }}>
+              <button onClick={handleApprove} disabled={submitting} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>
                 <CheckCircle size={14} style={{
               marginRight: 6
             }} />

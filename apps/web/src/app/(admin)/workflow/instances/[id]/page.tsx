@@ -7,6 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import { WorkflowDataView } from "@/components/workflow/WorkflowDataView";
 import { WorkflowTimeline } from "@/components/workflow/WorkflowTimeline";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi, type WorkflowInstance, type WorkflowTask } from "@/lib/workflow-api";
 import u from "@/styles/uix-utils.module.css";
 export default function WorkflowInstanceDetailPage() {
@@ -50,9 +51,9 @@ export default function WorkflowInstanceDetailPage() {
               </div>
 
               <div style={actionBarStyle}>
-                <Link href="/workflow/start" className={s.btnSecondary}>继续发起</Link>
-                <Link href="/workflow/tasks/todo" className={s.btnSecondary}>我的待办</Link>
-                {data.status === "RUNNING" ? <button type="button" className={s.btnDanger} disabled={canceling} onClick={cancel}>
+                <Link href="/workflow/start" style={secondaryActionButton}>继续发起</Link>
+                <Link href="/workflow/tasks/todo" style={secondaryActionButton}>我的待办</Link>
+                {data.status === "RUNNING" ? <button type="button" style={actionPill('danger')} disabled={canceling} onClick={cancel}>
                     {canceling ? "取消中..." : "取消流程"}
                   </button> : null}
               </div>

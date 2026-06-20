@@ -5,6 +5,7 @@ import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi, type WorkflowForm } from "@/lib/workflow-api";
 import { WORKFLOW_TEMPLATES } from "@/lib/workflow-templates";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -103,7 +104,7 @@ export default function WorkflowFormsPage() {
             <h3 className={s.cardTitle}>{t("workflow.form_list", "表单列表")}</h3>
             <p className={`${s.modalDesc} ${u.mt4}`}>{t("workflow.form_list_desc", "表单用于承载流程里的基础数据，发布后可绑定到审批流程。")}</p>
           </div>
-          <button type="button" className={s.btnPrimary} onClick={() => openFromTemplate()}>{t("workflow.new_form", "新增表单")}</button>
+          <button type="button" style={primaryActionButton} onClick={() => openFromTemplate()}>{t("workflow.new_form", "新增表单")}</button>
         </div>
       </section>
 
@@ -124,8 +125,8 @@ export default function WorkflowFormsPage() {
       </section>
 
       <RightDrawer open={drawerOpen} title={t("workflow.new_form", "新增表单")} width={620} onClose={() => setDrawerOpen(false)} footer={<div style={footerStyle}>
-            <button type="button" className={s.btnSecondary} onClick={() => setDrawerOpen(false)}>{t("common.cancel", "取消")}</button>
-            <button type="button" className={s.btnPrimary} disabled={loading} onClick={create}>{loading ? t("workflow.creating", "创建中...") : t("workflow.create_publish", "创建并发布表单")}</button>
+            <button type="button" style={secondaryActionButton} onClick={() => setDrawerOpen(false)}>{t("common.cancel", "取消")}</button>
+            <button type="button" style={primaryActionButton} disabled={loading} onClick={create}>{loading ? t("workflow.creating", "创建中...") : t("workflow.create_publish", "创建并发布表单")}</button>
           </div>}>
         <div style={drawerStackStyle}>
           <section>

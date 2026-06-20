@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { workflowApi, type WorkflowAnalytics } from "@/lib/workflow-api";
 import u from "@/styles/uix-utils.module.css";
 const DAY_OPTIONS = [7, 30, 90];
@@ -34,7 +35,7 @@ export default function WorkflowAnalyticsPage() {
   const maxBottleneckWait = useMemo(() => Math.max(1, ...(data?.bottlenecks || []).map(row => Number(row.avg_waiting_hours || 0))), [data]);
   const maxTrend = useMemo(() => Math.max(1, ...(data?.trend || []).map(row => Number(row.started || 0))), [data]);
   return <div>
-      <PageHeader title="流程驾驶舱" subtitle="从流程量、通过率、平均耗时和瓶颈节点观察 OA 运转效率" breadcrumb={["工作流", "流程驾驶舱"]} actions={<Link href="/workflow/monitor" className={s.btnSecondary}>流程督办</Link>} />
+      <PageHeader title="流程驾驶舱" subtitle="从流程量、通过率、平均耗时和瓶颈节点观察 OA 运转效率" breadcrumb={["工作流", "流程驾驶舱"]} actions={<Link href="/workflow/monitor" style={secondaryActionButton}>流程督办</Link>} />
 
       <section className={`${s.card} ${u.mb12}`}>
         <div className={s.cardBody} style={toolbarStyle}>
@@ -120,7 +121,7 @@ export default function WorkflowAnalyticsPage() {
               <h3 className={s.cardTitle} style={titleStyle}>发起趋势</h3>
               <p className={s.modalDesc} style={descStyle}>按日观察流程发起量，帮助判断业务高峰和人力配置。</p>
             </div>
-            <Link href="/workflow/instances" className={s.btnSecondary}>查看实例</Link>
+            <Link href="/workflow/instances" style={secondaryActionButton}>查看实例</Link>
           </div>
           {(data?.trend || []).length ? <div style={trendGridStyle}>
               {(data?.trend || []).map(row => <div key={row.day} style={trendItemStyle} title={`${formatDay(row.day)} 发起 ${row.started}`}>

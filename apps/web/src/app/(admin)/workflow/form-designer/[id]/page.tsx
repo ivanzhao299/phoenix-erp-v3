@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { ModalV2 } from "@/components/design-system/dialogs/ModalV2";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 import { FormRenderer } from "@/components/workflow/FormRenderer";
 import { workflowApi } from "@/lib/workflow-api";
 import { WORKFLOW_DATA_CATALOG, dataSourceLabel } from "@/lib/workflow-data-catalog";
@@ -180,8 +181,8 @@ export default function WorkflowFormDesignerPage() {
             display: "flex",
             gap: 8
           }}>
-              <button type="button" className={s.btnSecondary} onClick={openJson}>高级 JSON</button>
-              <button type="button" className={s.btnPrimary} onClick={publish}>发布表单</button>
+              <button type="button" style={secondaryActionButton} onClick={openJson}>高级 JSON</button>
+              <button type="button" style={primaryActionButton} onClick={publish}>发布表单</button>
             </div>
           </div>
           {msg ? <div className={s.successBanner}>{msg}</div> : null}
@@ -303,7 +304,7 @@ export default function WorkflowFormDesignerPage() {
       </div>
 
       <ModalV2 open={jsonOpen} onClose={() => setJsonOpen(false)} title="高级 JSON 编辑" width={900}
-        footer={<button type="button" className={s.btnPrimary} onClick={applyJson}>应用 JSON</button>}>
+        footer={<button type="button" style={primaryActionButton} onClick={applyJson}>应用 JSON</button>}>
         <textarea value={jsonDraft} onChange={e => setJsonDraft(e.target.value)} className={s.textarea} style={textareaStyle} spellCheck={false} />
       </ModalV2>
     </div>;

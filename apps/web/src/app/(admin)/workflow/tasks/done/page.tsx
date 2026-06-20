@@ -6,6 +6,14 @@ import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
 import { workflowApi, type WorkflowTask } from "@/lib/workflow-api";
 import u from "@/styles/uix-utils.module.css";
+import { secondaryActionButton, actionPill } from "@/components/design-system/cockpit-styles";
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
+function resultTone(result?: string): Tone {
+  if (result === "APPROVE") return "success";
+  if (result === "REJECT" || result === "CANCEL" || result === "CANCELED") return "danger";
+  return "default";
+}
 export default function WorkflowDonePage() {
   const [rows, setRows] = useState<WorkflowTask[]>([]);
   useEffect(() => {
@@ -21,7 +29,7 @@ export default function WorkflowDonePage() {
               <h3 className={s.cardTitle}>已处理任务</h3>
               <p className={`${s.modalDesc} ${u.mt4}`}>共 {rows.length} 条记录</p>
             </div>
-            <Link href="/workflow/tasks/todo" className={s.btnSecondary}>回到待办</Link>
+            <Link href="/workflow/tasks/todo" style={{ ...secondaryActionButton, textDecoration: "none" }}>回到待办</Link>
           </div>
         </div>
 
@@ -36,7 +44,7 @@ export default function WorkflowDonePage() {
                 </td>
                 <td>{row.node_name}</td>
                 <td>{row.starter_name || "-"}</td>
-                <td><span className={resultBadgeClass(row.action_result)}>{resultText(row.action_result)}</span></td>
+                <td><span style={actionPill(resultTone(row.action_result))}>{resultText(row.action_result)}</span></td>
                 <td>{formatDate(row.completed_at || row.created_at)}</td>
                 <td><Link href={`/workflow/instances/${row.instance_id}`}>查看详情</Link></td>
               </tr>)}</tbody>
