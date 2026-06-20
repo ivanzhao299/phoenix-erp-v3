@@ -6,8 +6,22 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { actionPill } from "@/components/design-system/cockpit-styles";
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
+/* g200k(2026-06-20):状态 + 原因 中文化,按 [feedback_hardcoded_english_to_chinese] */
+const STATUS_CFG: Record<string, { tone: Tone; label: string }> = {
+  DRAFT:     { tone: "warning", label: "草稿" },
+  CONFIRMED: { tone: "info",    label: "已确认" },
+  APPROVED:  { tone: "success", label: "已审核" },
+};
+const REASON_LABEL: Record<string, string> = {
+  EXPIRED: "过期",
+  DAMAGED: "损坏",
+  THEFT:   "盗失",
+  OTHER:   "其他",
+};
 
 // ✅ V3 表: store_losses
 const TABLE = "store_losses";
@@ -16,8 +30,11 @@ export default function Page() {
   const COLUMNS = [{ key: "store_code", title: t('ui.门店', '门店'), width: 100 },
       { key: "sku_code", title: t('ui.品级', '品级'), width: 110 },
       { key: "qty", title: t('ui.损耗数量', '损耗数量'), width: 80 },
-      { key: "reason", title: t('ui.原因', '原因'), width: 140 },
-      { key: "status", title: t('common.status', '状态'), width: 90 }];
+      { key: "reason", title: t('ui.原因', '原因'), width: 140, render: (v:unknown)=>REASON_LABEL[String(v)] ?? String(v ?? "—") },
+      { key: "status", title: t('common.status', '状态'), width: 90, render: (v:unknown)=>{
+        const cfg = STATUS_CFG[String(v)] ?? { tone: "default" as Tone, label: String(v ?? "—") };
+        return <span style={actionPill(cfg.tone)}>{cfg.label}</span>;
+      }}];
   const FIELDS: FormField[] = [
     { key: "store_code", label: t('ui.门店编码', '门店编码'), type: "text", required: true },
     { key: "sku_code", label: t('ui.品级编码', '品级编码'), type: "text", required: true },

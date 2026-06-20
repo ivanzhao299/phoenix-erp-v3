@@ -6,10 +6,17 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { actionPill } from "@/components/design-system/cockpit-styles";
 
-const STATUS_CLS: Record<string,string> = {"DRAFT":s.badgeWarning, "CLOSED":s.badgeSuccess, "APPROVED":s.badgeSuccess};
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
+/* g200k(2026-06-20):状态 tone + 中文 label,DB enum 不直接渲染英文,按
+   [feedback_hardcoded_english_to_chinese] 铁律 */
+const STATUS_CFG: Record<string, { tone: Tone; label: string }> = {
+  DRAFT:    { tone: "warning", label: "草稿" },
+  CLOSED:   { tone: "success", label: "已结算" },
+  APPROVED: { tone: "success", label: "已审核" },
+};
 
 // B2: daily_close 真实列 — cash_sales / qr_sales (不是 cash_amount / online_amount)
 //     状态枚举与 store.service.ts:24 对齐 DRAFT / CLOSED / APPROVED
@@ -24,7 +31,10 @@ export default function Page(){
       { key: "discount_total", title: t('ui.总折扣', '总折扣'), width: 90 },
       { key: "cash_diff", title: t('ui.现金差额', '现金差额'), width: 90 },
       { key: "operator", title: t('ui.操作员', '操作员'), width: 100 },
-      { key: "status", title: t('common.status', '状态'), width: 80, render:(v:unknown)=><span className={`${s.badge} ${STATUS_CLS[String(v)]??s.badgeNeutral}`}>{String(v)}</span>}];
+      { key: "status", title: t('common.status', '状态'), width: 90, render:(v:unknown)=>{
+        const cfg = STATUS_CFG[String(v)] ?? { tone: "default" as Tone, label: String(v ?? "—") };
+        return <span style={actionPill(cfg.tone)}>{cfg.label}</span>;
+      }}];
   const FIELDS:FormField[]=[  { key: "store_code", label: t('ui.门店编码', '门店编码'), type: "text", required: true },
     { key: "close_date", label: t('ui.结算日期', '结算日期'), type: "date", required: true },
     { key: "total_sales", label: t('ui.总销售额', '总销售额'), type: "number" },

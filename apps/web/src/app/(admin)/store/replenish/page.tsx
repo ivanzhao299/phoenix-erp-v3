@@ -6,10 +6,19 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { actionPill } from "@/components/design-system/cockpit-styles";
 
-const STATUS_CLS: Record<string,string> = {"PENDING":s.badgeWarning, "APPROVED":s.badgeInfo, "DELIVERED":s.badgeSuccess, "DONE":s.badgeSuccess, "REJECTED":s.badgeDanger, "CANCELLED":s.badgeNeutral};
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
+/* g200k(2026-06-20):状态 tone + 中文 label,按 [feedback_hardcoded_english_to_chinese] */
+const STATUS_CFG: Record<string, { tone: Tone; label: string }> = {
+  PENDING:   { tone: "warning", label: "待处理" },
+  APPROVED:  { tone: "info",    label: "已审批" },
+  DELIVERED: { tone: "success", label: "已配送" },
+  DONE:      { tone: "success", label: "已完成" },
+  REJECTED:  { tone: "danger",  label: "已驳回" },
+  CANCELLED: { tone: "default", label: "已取消" },
+};
 
 
 // ✅ V3 表: store_replenish_req
@@ -19,7 +28,10 @@ export default function Page() {
   const COLUMNS = [{ key: "store_code", title: t('ui.门店', '门店'), width: 100 },
       { key: "sku_code", title: t('ui.品级', '品级'), width: 110 },
       { key: "qty", title: t('ui.申请数量', '申请数量'), width: 80 },
-      { key: "status", title: t('common.status', '状态'), width: 90}];
+      { key: "status", title: t('common.status', '状态'), width: 90, render: (v:unknown)=>{
+        const cfg = STATUS_CFG[String(v)] ?? { tone: "default" as Tone, label: String(v ?? "—") };
+        return <span style={actionPill(cfg.tone)}>{cfg.label}</span>;
+      }}];
   const FIELDS: FormField[] = [
     { key: "store_code", label: t('ui.门店编码', '门店编码'), type: "text", required: true },
     { key: "sku_code", label: t('ui.品级编码', '品级编码'), type: "text", required: true },
