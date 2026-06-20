@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { EntityWorkspace, SelectField } from "@/components/design-system";
-import { inlineBadge } from "@/components/design-system/cockpit-styles";
+import { inlineBadge, primaryActionButton, secondaryActionButton, actionPill } from "@/components/design-system/cockpit-styles";
 import { Panel } from "@/components/design-system";
 import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -223,7 +223,7 @@ export default function UserDetailPage() {
           <div className={s.emptyState}>
             <Users size={40}/>
             <div className={s.emptyStateText}>{t("ui.未找到该用户", "未找到该用户")}</div>
-            <button type="button" onClick={() => router.push("/settings/users")} className={s.btnSecondary} style={{ marginTop: 12 }}>
+            <button type="button" onClick={() => router.push("/settings/users")} style={{ ...secondaryActionButton, marginTop: 12 }}>
               {t("common.back", "返回")}
             </button>
           </div>

@@ -7,6 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import { History, User, Clock, RefreshCw, Search, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 const tok = () => typeof window !== "undefined" ? sessionStorage.getItem("phoenix_token") || "" : "";
 const hdr = () => ({
   "Content-Type": "application/json",

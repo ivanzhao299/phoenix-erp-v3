@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { BarChart2, TrendingUp, TrendingDown, Package, PackageCheck, PackageMinus, ShoppingCart, AlertTriangle, RefreshCw, Activity, Egg } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill } from "@/components/design-system/cockpit-styles";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { type AccentColor } from "@/lib/design-tokens";
 import { QuickEntryCard } from "@/components/ui/QuickEntryCard";

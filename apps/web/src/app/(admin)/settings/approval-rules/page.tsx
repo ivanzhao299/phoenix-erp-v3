@@ -7,6 +7,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import { ConfirmDialogV2 } from "@/components/design-system";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -497,13 +498,13 @@ export default function ApprovalRulesPage() {
               <option value="true">已启用</option>
               <option value="false">已禁用</option>
             </select>
-            <button className={s.btnSecondary} onClick={load} disabled={loading}>
+            <button style={secondaryActionButton} onClick={load} disabled={loading}>
               <RefreshCw size={14} style={{
               marginRight: 6
             }} />刷新
             </button>
           </div>
-          <button className={s.btnPrimary} onClick={openCreate}>
+          <button style={primaryActionButton} onClick={openCreate}>
             <Plus size={14} style={{
             marginRight: 6
           }} />新建规则
@@ -999,9 +1000,7 @@ export default function ApprovalRulesPage() {
             <button className={`${s.btnSecondary} ${u.flex1}`} onClick={() => setDrawerOpen(false)}>
               取消
             </button>
-            <button className={s.btnPrimary} onClick={handleSave} disabled={saving} style={{
-            flex: 2
-          }}>
+            <button onClick={handleSave} disabled={saving} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>
               {saving ? "保存中…" : editing ? "保存修改" : "创建规则"}
             </button>
           </div>

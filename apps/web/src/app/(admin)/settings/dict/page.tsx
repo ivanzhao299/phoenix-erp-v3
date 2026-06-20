@@ -10,6 +10,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Plus, Edit2, Trash2, Save, Search } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 
 // TYPE_LABEL 在组件内通过 useTypeLabelMap() 动态生成，支持多语言
 
@@ -448,7 +449,7 @@ export default function DictPage() {
           </>}
 
           <div className={s.drawerFooter} style={{ marginTop:"auto", paddingTop:8, borderTop:"1px solid var(--border)" }}>
-            <button type="button" onClick={()=>{setOpen(false);setEdit(null);}} className={s.btnSecondary}>{t("common.cancel","取消")}</button>
+            <button type="button" onClick={()=>{setOpen(false);setEdit(null);}} style={secondaryActionButton}>{t("common.cancel","取消")}</button>
             <button type="button" onClick={handleSubmit} disabled={loading} className={s.btnPrimaryGrad}>
               {loading ? t("ui.保存中","保存中…") : <><Save size={15}/>{t("common.save","保存")}</>}
             </button>

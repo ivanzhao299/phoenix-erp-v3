@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/contexts/ToastContext";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -200,15 +201,9 @@ export default function NotificationsPage() {
           </div>
 
           <button className={`${s.btnPrimary} ${u.fs12}`} onClick={applyFilter}>搜索</button>
-          <button className={`${s.btnSecondary} ${u.fs12}`} onClick={resetFilter}>重置</button>
+          <button onClick={resetFilter} style={{ ...secondaryActionButton, fontSize: 12 }}>重置</button>
 
-          <button className={s.btnSecondary} onClick={handleMarkAllRead} style={{
-          fontSize: 12,
-          marginLeft: "auto",
-          display: "flex",
-          alignItems: "center",
-          gap: 5
-        }}>
+          <button onClick={handleMarkAllRead} style={{ ...secondaryActionButton, fontSize: 12, marginLeft: "auto" }}>
             <CheckCheck size={13} />全部已读
           </button>
           <button className={`${s.btnSecondary} ${u.fs12}`} onClick={() => load()} disabled={loading}>

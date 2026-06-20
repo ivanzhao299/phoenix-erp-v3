@@ -85,9 +85,10 @@ export default function DashboardPage() {
       <div style={{ marginTop: 32 }}>
         <p className={styles.sectionLabel}>{t('ui.快速导航','快速导航')}</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
+          {/* g200l(2026-06-20):去 emoji-color 风格,改白底 + 顶部 tone 色条 + 克制图标 */}
           {QUICK_LINKS.map(q => (
-            <Link key={q.path} href={q.path} className={styles.quickLink}>
-              <div style={{ color: q.color, flexShrink: 0, background: `${q.color}18`, borderRadius: 10, padding: 10 }}>
+            <Link key={q.path} href={q.path} className={styles.quickLink} style={{ borderTop: `3px solid ${q.color}` }}>
+              <div style={{ color: q.color, flexShrink: 0 }}>
                 {q.icon}
               </div>
               <div>

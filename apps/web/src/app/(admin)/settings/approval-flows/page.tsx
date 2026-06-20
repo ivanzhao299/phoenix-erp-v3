@@ -17,6 +17,7 @@ import Link from 'next/link';
 import PageHeader from '@/components/PageHeader';
 import request from '@/lib/api-client';
 import s from '@/components/ui/admin-ui.module.css';
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from '@/components/design-system/cockpit-styles';
 import u from "@/styles/uix-utils.module.css";
 interface DefinitionRow {
   id: number;
@@ -108,10 +109,8 @@ export default function ApprovalFlowsPage() {
   const filtered = filter ? rows.filter(r => r.status === filter) : rows;
   return <div>
       <PageHeader title="流程配置中心" subtitle="审批流程定义 · 启用/停用 · 版本管理" breadcrumb={['审批中心', '流程配置']} actions={<>
-            <Link href="/workflow/builder" className={s.btnPrimary}>新建流程</Link>
-            <Link href="/settings/approval-rules" className={s.btnSecondary} style={{
-        marginLeft: 8
-      }}>审批规则</Link>
+            <Link href="/workflow/builder" style={primaryActionButton}>新建流程</Link>
+            <Link href="/settings/approval-rules" style={{ ...secondaryActionButton, marginLeft: 8, textDecoration: "none" }}>审批规则</Link>
           </>} />
 
       {error && <section className={s.card} style={{
@@ -126,9 +125,7 @@ export default function ApprovalFlowsPage() {
           marginTop: 4,
           fontSize: 13
         }}>{error}</div>
-            <button type="button" className={s.btnSecondary} style={{
-          marginTop: 8
-        }} onClick={() => void load()}>重试</button>
+            <button type="button" onClick={() => void load()} style={{ ...secondaryActionButton, marginTop: 8 }}>重试</button>
           </div>
         </section>}
 
@@ -224,17 +221,10 @@ export default function ApprovalFlowsPage() {
                   display: 'flex',
                   gap: 8
                 }}>
-                        <Link href={`/workflow/designer/${row.id}`} className={s.btnSecondary} style={{
-                    padding: '4px 10px',
-                    fontSize: 12
-                  }}>设计</Link>
-                        {row.status === 'PUBLISHED' ? <button type="button" className={s.btnDanger} style={{
-                    padding: '4px 10px',
-                    fontSize: 12
-                  }} onClick={() => toggleStatus(row)}>停用</button> : <button type="button" className={s.btnPrimary} style={{
-                    padding: '4px 10px',
-                    fontSize: 12
-                  }} onClick={() => toggleStatus(row)}>启用</button>}
+                        <Link href={`/workflow/designer/${row.id}`} style={{ ...secondaryActionButton, padding: '4px 10px', fontSize: 12, textDecoration: "none" }}>设计</Link>
+                        {row.status === 'PUBLISHED'
+                          ? <button type="button" onClick={() => toggleStatus(row)} style={{ ...actionPill("danger"), padding: '4px 10px', fontSize: 12 }}>停用</button>
+                          : <button type="button" onClick={() => toggleStatus(row)} style={{ ...primaryActionButton, padding: '4px 10px', fontSize: 12 }}>启用</button>}
                       </div>
                     </td>
                   </tr>;

@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
 import { Layers, Plus, Trash2, Edit2, Save, Users, Shield, X, AlertTriangle } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill } from "@/components/design-system/cockpit-styles";
 
 interface SetRow {
   set_id: number; set_code: string; set_name_zh: string; description: string | null;
@@ -247,8 +248,8 @@ export default function PermissionSetsPage() {
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          <button type="button" className={s.btnSecondary} style={{ flex: 1 }} onClick={() => setShowDrawer(false)}>取消</button>
-          <button type="button" className={s.btnPrimaryGrad} style={{ flex: 2 }} onClick={handleSave} disabled={loading || !!codeErr}><Save size={14} /> {loading ? "保存中…" : "保存"}</button>
+          <button type="button" onClick={() => setShowDrawer(false)} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>取消</button>
+          <button type="button" onClick={handleSave} disabled={loading || !!codeErr} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}><Save size={14} /> {loading ? "保存中…" : "保存"}</button>
         </div>
       </div>
     </RightDrawer>

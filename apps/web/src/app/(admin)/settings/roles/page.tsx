@@ -25,7 +25,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Shield, Plus, Trash2, Edit2, Save, Copy, Grid, AlertTriangle, Users, Lock, X, ChevronDown, ChevronRight, Archive, ArchiveRestore, Eye, EyeOff } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
-import { modalMask } from "@/components/design-system/cockpit-styles";
+import { modalMask, primaryActionButton, secondaryActionButton, actionPill } from "@/components/design-system/cockpit-styles";
 
 // ── 类型定义 ─────────────────────────────────────────────────────────────
 import u from "@/styles/uix-utils.module.css";
@@ -685,13 +685,13 @@ export default function RoleManagementPage() {
       display: "flex",
       gap: "8px"
     }}>
-            {deprecatedCount > 0 && <button type="button" className={s.btnSecondary} onClick={() => setShowDeprecated(v => !v)} title={t("ui.切换已停用角色显示", "切换已停用角色显示")}>
+            {deprecatedCount > 0 && <button type="button" style={secondaryActionButton} onClick={() => setShowDeprecated(v => !v)} title={t("ui.切换已停用角色显示", "切换已停用角色显示")}>
               {showDeprecated ? <EyeOff size={14} /> : <Eye size={14} />} {showDeprecated ? t("ui.隐藏已停用", "隐藏已停用") : `${t("ui.显示已停用", "显示已停用")} (${deprecatedCount})`}
             </button>}
-            <button type="button" className={s.btnSecondary} onClick={() => setShowWhoCan(true)}>
+            <button type="button" style={secondaryActionButton} onClick={() => setShowWhoCan(true)}>
               <Users size={14} /> {t("ui.谁能干X反查", "谁能干X")}
             </button>
-            <button type="button" className={s.btnSecondary} onClick={openMatrix}>
+            <button type="button" style={secondaryActionButton} onClick={openMatrix}>
               <Grid size={14} /> {t("ui.权限矩阵全景", "权限矩阵全景")}
             </button>
             <button type="button" className={s.btnPrimaryGrad} onClick={openNew}>
