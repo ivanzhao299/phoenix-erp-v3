@@ -26,6 +26,7 @@ import {
   MONO_FONT, kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
   actionGroupBox, detailInfoBox, recordRow, inlineAlert,
   secondaryActionButton, moneyCell,
+  statTile, statTileLabel, statTileValue,
 } from "@/components/design-system/cockpit-styles";
 
 interface Zone {
@@ -289,22 +290,32 @@ export default function WarehouseDashboard() {
             )}
           </div>
 
-          {/* 本月汇总 — 4 个 kpiCardCompact 小卡 */}
-          <div>
+          {/* 本月汇总 — g200e 改造(2026-06-20):去除 kpiCardCompact 重复,改紧凑 label-value 列表
+              避免与顶部 KPI 同款,降低满屏卡片感。按 [feedback_one_kpi_style_per_page]。*/}
+          <div style={{ ...actionGroupBox, background: "var(--bg-card)", padding: 14 }}>
             <h4 style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: 0.5 }}>
               {t("ui.本月汇总", "本月汇总")}
             </h4>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 10,
-            }}>
-              {monthlyStats.map(item => (
-                <div key={item.label} style={kpiCardCompact(item.tone)}>
-                  <div style={kpiCardCompactLabel}>{item.label}</div>
-                  <div style={kpiCardCompactValue(item.tone)}>{item.value}</div>
-                </div>
-              ))}
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {monthlyStats.map((item, i) => {
+                const toneColor =
+                  item.tone === "success" ? "var(--status-success)" :
+                  item.tone === "danger"  ? "var(--status-danger)"  :
+                  item.tone === "warning" ? "var(--status-warning)" : "var(--text-primary)";
+                return (
+                  <div
+                    key={item.label}
+                    style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "8px 0",
+                      borderTop: i > 0 ? "1px solid var(--border)" : "none",
+                    }}
+                  >
+                    <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{item.label}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, fontFamily: MONO_FONT, color: toneColor }}>{item.value}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

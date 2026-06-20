@@ -10,6 +10,14 @@ import { MapPin, Plus, Edit2, Trash2, RefreshCw, Search, X, Check, BarChart2 } f
 import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { WarehouseSelector, ZoneSelector } from "@/components/shared-selectors/MasterDataSelectors";
+// g200e 模板 token(2026-06-20)
+import {
+  primaryActionButton, secondaryActionButton, actionPill, inputField, formLabel,
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+  actionGroupBox, drawerFooter,
+} from "@/components/design-system/cockpit-styles";
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 
 // ✅ V3 表: wms_locations
 // 字段: location_code, warehouse_code, zone_code, location_name, row_no, layer_no, capacity_qty, status, remark
@@ -230,92 +238,53 @@ export default function LocationsPage() {
     marginBottom: 4,
     fontWeight: 600
   };
+  const occupancyTone: Tone = stats.occupancyPct >= 85 ? "danger" : stats.occupancyPct >= 60 ? "warning" : "success";
   return <div>
-      <PageHeader title={t("ui.库位管理", "库位管理")} subtitle={`${t("ui.仓库货位档案维护", "仓库货位档案维护")} · ${t("common.total", "共")} ${active.length} ${t("ui.个库位", "个库位")}`} breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.库位管理", "库位管理")]} actions={<div style={{
-      display: "flex",
-      gap: 8
-    }}>
-            <button type="button" className={s.btnSecondary} onClick={load}><RefreshCw size={13} />{t("common.refresh", "刷新")}</button>
-            <button type="button" className={s.btnPrimary} onClick={openAdd}><Plus size={14} />{t("ui.新增库位", "新增库位")}</button>
-          </div>} />
-
-      {/* KPI 统计卡 */}
-      <div style={{
-      display: "grid",
-      gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
-      gap: 12,
-      marginBottom: 20
-    }}>
-        {/* 总体占用率 — 左边框颜色由 usageCardCls 决定 */}
-        <div className={`${s.card} ${usageCardCls(stats.occupancyPct)}`} style={{
-        padding: "16px 20px"
-      }}>
-          <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          marginBottom: 8
-        }}>
-            <div>
-              <div className={usageTextCls(stats.occupancyPct)} style={{
-              fontSize: 22,
-              fontWeight: 800
-            }}>{loading ? "…" : `${stats.occupancyPct}%`}</div>
-              <div style={{
-              fontSize: 12,
-              color: "var(--text-secondary)",
-              marginTop: 2
-            }}>{t("ui.总体占用率", "总体占用率")}</div>
-            </div>
-            <BarChart2 size={20} color="var(--text-secondary)" />
+      <PageHeader
+        title={t("ui.库位管理", "库位管理")}
+        subtitle={`${t("ui.仓库货位档案维护", "仓库货位档案维护")} · ${t("common.total", "共")} ${active.length} ${t("ui.个库位", "个库位")}`}
+        breadcrumb={[t("ui.仓储管理", "仓储管理"), t("ui.库位管理", "库位管理")]}
+        actions={
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" style={secondaryActionButton} onClick={load}><RefreshCw size={13} />{t("common.refresh", "刷新")}</button>
+            <button type="button" style={primaryActionButton} onClick={openAdd}><Plus size={14} />{t("ui.新增库位", "新增库位")}</button>
           </div>
-          <UsageBar pct={stats.occupancyPct} />
-          <div style={{
-          fontSize: 11,
-          color: "var(--text-secondary)",
-          marginTop: 6
-        }}>{stats.occupied} {t("ui.占用", "占用")} / {stats.total} {t("ui.总库位", "总库位")}</div>
-        </div>
-        {([{
-        label: t("ui.库位总数", "库位总数"),
-        val: stats.total,
-        cardCls: s.statCardPrimary,
-        valCls: ""
-      }, {
-        label: t("ui.空闲", "空闲"),
-        val: stats.empty,
-        cardCls: s.statCardSuccess,
-        valCls: s.textSuccess
-      }, {
-        label: t("ui.在用", "在用"),
-        val: stats.normal,
-        cardCls: s.statCardInfo,
-        valCls: s.textInfo
-      }, {
-        label: t("ui.锁定满", "锁定/满"),
-        val: stats.locked + stats.full,
-        cardCls: s.statCardWarning,
-        valCls: s.textWarning
-      }] as const).map(item => <div key={item.label} className={`${s.card} ${item.cardCls}`} style={{
-        padding: "16px 20px"
+        }
+      />
+
+      {/* g200e KPI 5 卡 — kpiCardCompact(tone),占用率特殊大卡(含进度条) + 4 类小卡 */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
+        gap: 12,
+        marginBottom: 20,
       }}>
-            <div className={`${item.valCls}`} style={{
-          fontSize: 22,
-          fontWeight: 800
-        }}>{loading ? "…" : (item as any).val}</div>
-            <div style={{
-          fontSize: 12,
-          color: "var(--text-secondary)",
-          marginTop: 2
-        }}>{item.label}</div>
-          </div>)}
+        {/* 总体占用率特殊大卡:kpiCardCompact + 进度条 */}
+        <div style={kpiCardCompact(occupancyTone)}>
+          <div style={kpiCardCompactLabel}>
+            <BarChart2 size={13} /> {t("ui.总体占用率", "总体占用率")}
+          </div>
+          <div style={kpiCardCompactValue(occupancyTone)}>{loading ? "…" : `${stats.occupancyPct}%`}</div>
+          <UsageBar pct={stats.occupancyPct} />
+          <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4 }}>
+            {stats.occupied} {t("ui.占用", "占用")} / {stats.total} {t("ui.总库位", "总库位")}
+          </div>
+        </div>
+        {([
+          { label: t("ui.库位总数", "库位总数"), val: stats.total,                  tone: "brand"   as Tone },
+          { label: t("ui.空闲",     "空闲"),     val: stats.empty,                  tone: "success" as Tone },
+          { label: t("ui.在用",     "在用"),     val: stats.normal,                 tone: "info"    as Tone },
+          { label: t("ui.锁定满",   "锁定/满"),  val: stats.locked + stats.full,   tone: "warning" as Tone },
+        ]).map(item => (
+          <div key={item.label} style={kpiCardCompact(item.tone)}>
+            <div style={kpiCardCompactLabel}>{item.label}</div>
+            <div style={kpiCardCompactValue(item.tone)}>{loading ? "…" : item.val}</div>
+          </div>
+        ))}
       </div>
 
-      {/* 库区使用率热力图 */}
-      {!loading && zoneSummary.length > 0 && <div className={s.card} style={{
-      padding: "18px 20px",
-      marginBottom: 20
-    }}>
+      {/* g200e 库区使用率分析 — actionGroupBox 容器(与顶部 KPI 区分,不重复卡片样式) */}
+      {!loading && zoneSummary.length > 0 && <div style={{ ...actionGroupBox, background: "var(--bg-card)", padding: "18px 20px", marginBottom: 20 }}>
           <div style={{
         fontSize: 13,
         fontWeight: 700,
@@ -414,11 +383,8 @@ export default function LocationsPage() {
         </select>
       </div>
 
-      {/* 数据表格 */}
-      <div className={s.card} style={{
-      overflow: "hidden",
-      padding: 0
-    }}>
+      {/* g200e 数据表格容器 — 用 actionGroupBox 而非 s.card,与上方区分 */}
+      <div style={{ ...actionGroupBox, background: "var(--bg-card)", overflow: "hidden", padding: 0 }}>
         <table className={s.table}>
           <thead>
             <tr>
@@ -472,8 +438,13 @@ export default function LocationsPage() {
                 }}>{t("ui.空闲", "空闲")}</span>}
                   </td>
                   <td>
-                    {/* ✅ STATUS_TEXT_CLS 替代 STATUS_COLOR + badge 类替代 inline span */}
-                    <span className={`${s.badge} ${STATUS_TEXT_CLS[row.status as Status] ? row.status === 'EMPTY' ? s.badgeSuccess : row.status === 'NORMAL' ? s.badgeInfo : row.status === 'LOCKED' ? s.badgeWarning : s.badgeDanger : s.badgeNeutral}`}>
+                    {/* g200e:badge → actionPill(tone) */}
+                    <span style={actionPill(
+                      row.status === "EMPTY"  ? "success" :
+                      row.status === "NORMAL" ? "info"    :
+                      row.status === "LOCKED" ? "warning" :
+                      row.status === "FULL"   ? "danger"  : "default"
+                    )}>
                       {STATUS_LABEL[row.status as Status] ?? String(row.status ?? "")}
                     </span>
                   </td>
@@ -488,21 +459,13 @@ export default function LocationsPage() {
                     {String(row.store_code ?? "—")}
                   </td>
                   <td>
-                    <div style={{
-                  display: "flex",
-                  gap: 6
-                }}>
-                      <button type="button" onClick={() => openEdit(row)} className={s.btnSecondary} style={{
-                    padding: "4px 10px",
-                    fontSize: 12
-                  }}><Edit2 size={12} />{t("common.edit", "编辑")}</button>
-                      <button type="button" onClick={() => {
-                    setDeleteTarget(row);
-                    setConfirmOpen(true);
-                  }} className={s.btnDanger} style={{
-                    padding: "4px 10px",
-                    fontSize: 12
-                  }}><Trash2 size={12} />{t("common.delete", "删除")}</button>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button type="button" onClick={() => openEdit(row)} style={actionPill("default")}>
+                        <Edit2 size={12} />{t("common.edit", "编辑")}
+                      </button>
+                      <button type="button" onClick={() => { setDeleteTarget(row); setConfirmOpen(true); }} style={actionPill("danger")}>
+                        <Trash2 size={12} />{t("common.delete", "删除")}
+                      </button>
                     </div>
                   </td>
                 </tr>;
@@ -519,14 +482,16 @@ export default function LocationsPage() {
         {t("common.total", "共显示")} {filtered.length} / {active.length} {t("ui.条", "条")}
       </div>
 
-      {/* 新增/编辑模态框 */}
+      {/* g200e 新增/编辑模态 — 底栏用 secondary/primaryActionButton token */}
       <ModalV2 open={!!modal} onClose={closeModal} title={modal === "add" ? t("ui.新增库位", "新增库位") : t("ui.编辑库位", "编辑库位")} width={520}
-        footer={<>
-          <button type="button" onClick={closeModal} className={s.btnSecondary} style={{ padding: "9px 20px" }}>{t("common.cancel", "取消")}</button>
-          <button type="button" onClick={handleSave} disabled={saving || !form.location_code || !form.warehouse_code} className={s.btnPrimary} style={{ padding: "9px 22px", opacity: saving ? 0.7 : 1 }}>
-            <Check size={14} />{saving ? t("ui.保存中", "保存中…") : t("common.save", "确认保存")}
-          </button>
-        </>}>
+        footer={
+          <>
+            <button type="button" onClick={closeModal} style={secondaryActionButton}>{t("common.cancel", "取消")}</button>
+            <button type="button" onClick={handleSave} disabled={saving || !form.location_code || !form.warehouse_code} style={{ ...primaryActionButton, opacity: saving ? 0.6 : 1, cursor: saving ? "not-allowed" : "pointer" }}>
+              <Check size={14} />{saving ? t("ui.保存中", "保存中…") : t("common.save", "确认保存")}
+            </button>
+          </>
+        }>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           <div style={{ gridColumn: "1/-1" }}>
             <label style={labelStyle}>{t("ui.库位编码", "库位编码")} <span style={{ color: "var(--status-danger)" }}>*</span></label>
