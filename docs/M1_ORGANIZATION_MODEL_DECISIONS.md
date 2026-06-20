@@ -52,7 +52,7 @@
 | 实体 | 影响 |
 |---|---|
 | `sys_organizations` | 加 BEFORE INSERT/UPDATE trigger 阻 `parent_id = id`；无新列、无新表 |
-| `sys_organization_type_rules`（W4 已建） | seed 中 DEPARTMENT 行的 `allowed_parent_types` 已含 `['COMPANY', 'SITE']` + 自嵌套；本决策不改 seed，只在 service 接入 type_rules（W6+）时扩规则集 |
+| `sys_organization_type_rules`（W4 已建） | seed 中 DEPARTMENT 行的 `allowed_parent_types` **当前为 `['COMPANY', 'SITE']`，未含 `'DEPARTMENT'` 自嵌套**（W4 migration `1782000000000-W4MasterDataFoundation.ts:81-86` 实际写入；本决策书首版表述有误，已勘误）。W6 type_rules service 接入**之前**必须独立 TS 迁移 UPDATE 该行 → `['COMPANY', 'SITE', 'DEPARTMENT']`，否则 service 启用时会拒绝深度 ≥ 2 的部门嵌套，与本决策"嵌套深度 ≤ 5"矛盾。该 seed UPDATE 由 Architect 在 W5/W6 范围内单独提案。 |
 | 现存数据 | 必须在 W5 跑一次"现存 sys_organizations 已成环"扫描；若发现真实环（基于历史经验**不应有**，但需扫一遍），由人工修复 |
 
 ### 1.4 业务影响
