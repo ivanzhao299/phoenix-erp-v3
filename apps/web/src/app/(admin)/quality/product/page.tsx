@@ -7,9 +7,10 @@ import { CrudForm, type FormField } from "@/components/ui/CrudForm";
 import PageHeader from "@/components/PageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
-import s from "@/components/ui/admin-ui.module.css";
+import { actionPill } from "@/components/design-system/cockpit-styles";
 
-const STATUS_CLS: Record<string,string> = {"PASS":s.badgeSuccess, "FAIL":s.badgeDanger, "PENDING":s.badgeWarning, "CONDITIONAL":s.badgeWarning};
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
+const RESULT_TONE: Record<string, Tone> = { PASS: "success", FAIL: "danger", PENDING: "warning", CONDITIONAL: "warning" };
 
 const TABLE="qa_product_inspections";
 
@@ -20,7 +21,7 @@ export default function Page(){
     { key: "inspect_no", title: t("ui.质检单号","质检单号"), width: 150 },
     { key: "batch_no", title: t("ui.批次号","批次号"), width: 150 },
     { key: "sku_code", title: t("ui.品级","品级"), width: 100 },
-    { key: "result", title: t("ui.结果","结果"), width: 90, render:(v:unknown)=><span className={`${s.badge} ${STATUS_CLS[String(v)]??s.badgeNeutral}`}>{String(v)}</span>},
+    { key: "result", title: t("ui.结果","结果"), width: 90, render:(v:unknown)=><span style={actionPill(RESULT_TONE[String(v)] ?? "default")}>{String(v)}</span> },
     { key: "inspector", title: t("ui.质检员","质检员"), width: 100 },
   ];
   const FIELDS:FormField[]=[

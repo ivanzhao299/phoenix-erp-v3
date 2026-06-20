@@ -8,6 +8,11 @@ import PageHeader from "@/components/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { crudApi } from "@/lib/api-client";
 import s from "@/components/ui/admin-ui.module.css";
+import {
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+} from "@/components/design-system/cockpit-styles";
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 interface Inspection {
   id: number;
   inspect_date?: string;
@@ -101,82 +106,29 @@ export default function QualityPage() {
   // 最近5条检验记录
   const recentInspections = useMemo(() => [...inspections].sort((a, b) => (b.inspect_date || b.created_at || "").localeCompare(a.inspect_date || a.created_at || "")).slice(0, 5), [inspections]);
   const isPassed = (i: Inspection) => getResult(i).includes("PASS");
-  const kpis = [{
-    label: t("ui.本月检验批次", "本月检验批次"),
-    value: loading ? "…" : inspections.length,
-    unit: t("ui.批", "批"),
-    accent: "var(--color-primary)",
-    icon: <ClipboardCheck size={20} />
-  }, {
-    label: t("ui.合格率", "合格率"),
-    value: loading ? "…" : passRate,
-    unit: "%",
-    accent: "var(--status-success)",
-    icon: <ShieldCheck size={20} />
-  }, {
-    label: t("ui.不合格批次", "不合格批次"),
-    value: loading ? "…" : failed,
-    unit: t("ui.批", "批"),
-    accent: "var(--status-danger)",
-    icon: <AlertTriangle size={20} />
-  }, {
-    label: t("ui.今日检验", "今日检验"),
-    value: loading ? "…" : todayCount,
-    unit: t("ui.次", "次"),
-    accent: "var(--status-info)",
-    icon: <TrendingUp size={20} />
-  }];
+  const kpis: { label: string; value: string | number; unit: string; tone: Tone; Icon: typeof ClipboardCheck }[] = [
+    { label: t("ui.本月检验批次", "本月检验批次"), value: loading ? "…" : inspections.length, unit: t("ui.批", "批"), tone: "brand",   Icon: ClipboardCheck },
+    { label: t("ui.合格率",       "合格率"),       value: loading ? "…" : passRate,           unit: "%",              tone: "success", Icon: ShieldCheck    },
+    { label: t("ui.不合格批次",   "不合格批次"),   value: loading ? "…" : failed,             unit: t("ui.批", "批"), tone: "danger",  Icon: AlertTriangle  },
+    { label: t("ui.今日检验",     "今日检验"),     value: loading ? "…" : todayCount,         unit: t("ui.次", "次"), tone: "info",    Icon: TrendingUp     },
+  ];
   return <div className="animate-fade-in">
       <PageHeader title={t("ui.品质追溯", "品质追溯")} subtitle={`${t("ui.全链路质量管控", "全链路质量管控")} · ${t("common.total", "共")} ${inspections.length} ${t("ui.条质检记录", "条质检记录")}`} breadcrumb={[t("ui.品质追溯", "品质追溯"), t("ui.质检总览", "质检总览")]} />
 
-      {/* KPI 卡片 */}
-      <div style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))",
-      gap: 14,
-      marginBottom: 24
-    }}>
-        {kpis.map(k => <div key={k.label} style={{
-        background: "var(--bg-card)",
-        border: "1px solid var(--border)",
-        borderLeft: `var(--card-accent-width) solid ${k.accent}`,
-        borderRadius: "var(--radius-lg)",
-        padding: "18px 20px",
-        boxShadow: "var(--shadow-sm)"
-      }}>
-            <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          marginBottom: 10
-        }}>
-              <p style={{
-            fontSize: 12,
-            color: "var(--text-secondary)",
-            fontWeight: 600
-          }}>{k.label}</p>
-              <div style={{
-            color: k.accent,
-            background: `color-mix(in srgb,${k.accent} 12%,transparent)`,
-            borderRadius: "var(--radius-md)",
-            padding: 8
-          }}>{k.icon}</div>
+      {/* g200g KPI 4 卡 — kpiCardCompact(tone) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12, marginBottom: 24 }}>
+        {kpis.map(k => {
+          const Icon = k.Icon;
+          return (
+            <div key={k.label} style={kpiCardCompact(k.tone)}>
+              <div style={kpiCardCompactLabel}><Icon size={13} /> {k.label}</div>
+              <div style={{ ...kpiCardCompactValue(k.tone), display: "flex", alignItems: "baseline", gap: 4 }}>
+                {String(k.value)}
+                <span style={{ fontSize: 12, fontWeight: 400, color: "var(--text-secondary)" }}>{k.unit}</span>
+              </div>
             </div>
-            <div style={{
-          fontSize: 28,
-          fontWeight: 800,
-          color: k.accent,
-          lineHeight: 1
-        }}>
-              {String(k.value)}
-              <span style={{
-            fontSize: 13,
-            fontWeight: 500,
-            marginLeft: 3,
-            color: "var(--text-secondary)"
-          }}>{k.unit}</span>
-            </div>
-          </div>)}
+          );
+        })}
       </div>
 
       <div style={{
