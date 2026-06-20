@@ -34,6 +34,8 @@ export interface MdField {
   onPickKeys?: Record<string, string>;   // 主数据自动带出：{ 目标key: raw字段名 }（onPick 有 ?? label 兜底）
   filterBy?: { warehouseField?: string; zoneField?: string; companyField?: string };  // 级联过滤
   readOnlyOnEdit?: boolean;
+  // g200p: 分组(同 group 字段渲染到同一 section);page 模式下按 group 切 Panel;drawer 模式无效
+  group?: string;
 }
 
 export interface MasterDataRuntimePanelProps {
@@ -46,6 +48,10 @@ export interface MasterDataRuntimePanelProps {
   objectType?: string;   // G5.5-D：用于引用关系查询（CUSTOMER/SUPPLIER/...）；默认按 type 推断
   /** UIX-7：点击编码触发详情 drawer（产品化 — 不传则编码列仅显示） */
   onCodeClick?: (code: string, row: Record<string, any>) => void;
+  /** g200p:编辑模式 — drawer(默认,字段少时用) / page(字段多于 8 时,路由到全屏页) */
+  mode?: "drawer" | "page";
+  /** g200p:page 模式下,新建/编辑跳转的路由前缀。默认 `/master-data/<type>s` */
+  pageRoutePrefix?: string;
 }
 
 type StatusTone = 'default' | 'success' | 'warning' | 'danger';
@@ -69,6 +75,51 @@ function friendlyError(raw: string, title: string): string {
   return m || "加载失败";
 }
 
+// g200p: 字段渲染抽公共函数 — 抽屉(RuntimePanel)和路由全屏页(MasterDataFormPage)共用
+export function renderMdFieldInput(
+  f: MdField,
+  form: Record<string, any>,
+  setForm: React.Dispatch<React.SetStateAction<Record<string, any>>>,
+): React.ReactNode {
+  // G83：主数据选择器化 — 函数式 setForm 防 onChange→onPick 顺序污染
+  const code = String(form[f.key] ?? "");
+  const onChange = (v: string) => setForm(prev => ({ ...prev, [f.key]: v }));
+  const onPick = (o: any) => {
+    if (!f.onPickKeys) return;
+    setForm(prev => {
+      const next = { ...prev };
+      Object.entries(f.onPickKeys!).forEach(([k, raw]) => { next[k] = o?.raw?.[raw] ?? o?.label ?? ""; });
+      return next;
+    });
+  };
+  const filterCompany = f.filterBy?.companyField ? String(form[f.filterBy.companyField] ?? "") : undefined;
+  const filterWh = f.filterBy?.warehouseField ? String(form[f.filterBy.warehouseField] ?? "") : undefined;
+  const filterZone = f.filterBy?.zoneField ? String(form[f.filterBy.zoneField] ?? "") : undefined;
+  switch (f.type) {
+    case "company":   return <CompanySelector value={code} onChange={onChange} onPick={onPick} />;
+    case "customer":  return <CustomerSelector value={code} onChange={onChange} onPick={onPick} />;
+    case "supplier":  return <SupplierSelector value={code} onChange={onChange} onPick={onPick} />;
+    case "project":   return <ProjectSelector value={code} onChange={onChange} onPick={onPick} companyCode={filterCompany} />;
+    case "warehouse": return <WarehouseSelector value={code} onChange={onChange} onPick={onPick} companyCode={filterCompany} />;
+    case "zone":      return <ZoneSelector value={code} onChange={onChange} onPick={onPick} warehouseCode={filterWh} />;
+    case "location":  return <LocationSelector value={code} onChange={onChange} onPick={onPick} warehouseCode={filterWh} zoneCode={filterZone} />;
+    case "sku":       return <SkuSelector value={code} onChange={onChange} onPick={onPick} />;
+    case "user":      return <UserSelector value={code} onChange={onChange} onPick={onPick} />;
+    case "farm":      return <FarmSelector value={code} onChange={onChange} onPick={onPick} />;
+  }
+  if (f.dictType)
+    return <DictSelect dictType={f.dictType} value={code} onChange={onChange} allowEmpty />;
+  if (f.type === "select")
+    return <select value={code} onChange={e => onChange(e.target.value)} style={inputField}>
+      <option value="">请选择</option>
+      {(f.options ?? []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+    </select>;
+  if (f.type === "readonly")
+    return <input type="text" value={code} readOnly style={{ ...inputField, background: "var(--bg-muted)", cursor: "not-allowed" }} />;
+  return <input type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
+    value={code} onChange={e => onChange(e.target.value)} style={inputField} />;
+}
+
 // G130：主数据类型 → 专属菜单码（镜像后端 MasterDataTypeGuard 的 TYPE_TO_MENU）。
 //   按类型维护人(如供应商=ROLE_SUPPLIER_MASTER_MGR 持 MENU_MD_SUPPLIER:C,E)门控增/改按钮，
 //   而非超级码 MENU_MASTER_DATA——否则只有超管能看到「新增」按钮，G120 下放的按类型维护权被架空。
@@ -80,7 +131,7 @@ const TYPE_TO_MENU: Record<string, string> = {
 };
 
 export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
-  const { type, title, codeKey, nameKey, fields, columns, objectType, onCodeClick } = props;
+  const { type, title, codeKey, nameKey, fields, columns, objectType, onCodeClick, mode = "drawer", pageRoutePrefix } = props;
   // g200o:聚合 fields 中所有 dictType,列表 cell 用 codeMap 转译,避免 DB enum 暴露
   const dictTypes = useMemo(() => Array.from(new Set(fields.filter(f => f.dictType).map(f => f.dictType!))), [fields]);
   const { codeMap: dictCodeMap } = useDictOptions(dictTypes.length > 0 ? dictTypes : "");
@@ -147,8 +198,16 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
     }
   }, [resolvedObjectType, refCounts]);
 
-  const openNew = () => { setForm({}); setEditing({}); };
-  const openEdit = (row: Record<string, any>) => { setForm({ ...row }); setEditing(row); };
+  // g200p: page 模式跳路由,drawer 模式开抽屉
+  const routePrefix = pageRoutePrefix ?? `/master-data/${type}s`;
+  const openNew = () => {
+    if (mode === "page") router.push(`${routePrefix}/new`);
+    else { setForm({}); setEditing({}); }
+  };
+  const openEdit = (row: Record<string, any>) => {
+    if (mode === "page") router.push(`${routePrefix}/${encodeURIComponent(row[codeKey])}/edit`);
+    else { setForm({ ...row }); setEditing(row); }
+  };
 
   const save = async () => {
     for (const f of fields) {
@@ -339,46 +398,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                 <label style={formLabel}>
                   {f.label}{f.required && <span style={{ color: "var(--status-danger)", marginLeft: 4 }}>*</span>}
                 </label>
-                {(() => {
-                  // G83：主数据选择器化 — onChange/onPick 均用函数式 setForm，避免选择器内 onChange→onPick 连续调用导致名称带出被覆盖
-                  const code = String(form[f.key] ?? "");
-                  const onChange = (v: string) => setForm(prev => ({ ...prev, [f.key]: v }));
-                  const onPick = (o: any) => {
-                    if (!f.onPickKeys) return;
-                    setForm(prev => {
-                      const next = { ...prev };
-                      Object.entries(f.onPickKeys!).forEach(([k, raw]) => { next[k] = o?.raw?.[raw] ?? o?.label ?? ""; });
-                      return next;
-                    });
-                  };
-                  const filterCompany = f.filterBy?.companyField ? String(form[f.filterBy.companyField] ?? "") : undefined;
-                  const filterWh = f.filterBy?.warehouseField ? String(form[f.filterBy.warehouseField] ?? "") : undefined;
-                  const filterZone = f.filterBy?.zoneField ? String(form[f.filterBy.zoneField] ?? "") : undefined;
-                  switch (f.type) {
-                    case "company":   return <CompanySelector value={code} onChange={onChange} onPick={onPick} />;
-                    case "customer":  return <CustomerSelector value={code} onChange={onChange} onPick={onPick} />;
-                    case "supplier":  return <SupplierSelector value={code} onChange={onChange} onPick={onPick} />;
-                    case "project":   return <ProjectSelector value={code} onChange={onChange} onPick={onPick} companyCode={filterCompany} />;
-                    case "warehouse": return <WarehouseSelector value={code} onChange={onChange} onPick={onPick} companyCode={filterCompany} />;
-                    case "zone":      return <ZoneSelector value={code} onChange={onChange} onPick={onPick} warehouseCode={filterWh} />;
-                    case "location":  return <LocationSelector value={code} onChange={onChange} onPick={onPick} warehouseCode={filterWh} zoneCode={filterZone} />;
-                    case "sku":       return <SkuSelector value={code} onChange={onChange} onPick={onPick} />;
-                    case "user":      return <UserSelector value={code} onChange={onChange} onPick={onPick} />;
-                    case "farm":      return <FarmSelector value={code} onChange={onChange} onPick={onPick} />;
-                  }
-                  if (f.dictType)
-                    // G66：字段挂字典 → 走 DictSelect（仅 ACTIVE），消除硬编码 options 重复
-                    return <DictSelect dictType={f.dictType} value={code} onChange={onChange} allowEmpty />;
-                  if (f.type === "select")
-                    return <select value={code} onChange={e => onChange(e.target.value)} style={inputField}>
-                      <option value="">请选择</option>
-                      {(f.options ?? []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>;
-                  if (f.type === "readonly")
-                    return <input type="text" value={code} readOnly style={{ ...inputField, background: "var(--bg-muted)", cursor: "not-allowed" }} />;
-                  return <input type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
-                    value={code} onChange={e => onChange(e.target.value)} style={inputField} />;
-                })()}
+                {renderMdFieldInput(f, form, setForm)}
               </div>
             ))}
             </div>
