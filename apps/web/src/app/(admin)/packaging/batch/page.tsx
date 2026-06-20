@@ -11,6 +11,7 @@ import PageHeader from '@/components/PageHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import s from '@/components/ui/admin-ui.module.css';
 import { EmptyState, LoadingSkeleton } from '@/components/design-system';
+import { actionPill, MONO_FONT } from '@/components/design-system/cockpit-styles';
 
 const tok = () => (typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') || '' : '');
 const hdr = () => ({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok() });
@@ -292,9 +293,9 @@ function BatchGenerationPage() {
                     <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 2 }}>{g.name}</div>
                     <div style={{ fontSize: 15, fontWeight: 800 }}>{g.qty.toLocaleString()} {t("ui.枚","枚")}</div>
                   </div>
-                  <span className={`${s.badge} ${s.badgeSuccess}`}>{t("ui.已入仓","已入仓")}</span>
+                  <span style={actionPill("success")}>{t("ui.已入仓","已入仓")}</span>
                 </div>
-                {g.batchNo && <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-secondary)', wordBreak: 'break-all', marginBottom: 10 }}>{g.batchNo}</div>}
+                {g.batchNo && <div style={{ fontSize: 11, fontFamily: MONO_FONT, color: 'var(--text-secondary)', wordBreak: 'break-all', marginBottom: 10 }}>{g.batchNo}</div>}
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button type="button" onClick={() => printLabel(g)}
                     style={{ flex: 1, padding: 8, fontSize: 12, border: '1px solid var(--color-primary)', color: 'var(--color-primary)',

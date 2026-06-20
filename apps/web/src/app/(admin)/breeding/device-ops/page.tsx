@@ -6,6 +6,7 @@ import PageHeader from "@/components/PageHeader";
 import { ModalV2 } from "@/components/design-system/dialogs/ModalV2";
 import { RefreshCw, Link2, Settings, ClipboardList, Wifi, WifiOff } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
+import { primaryActionButton, secondaryActionButton, actionPill } from "@/components/design-system/cockpit-styles";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useDialog } from "@/contexts/DialogContext";
 const API = "/api/farm-device";
@@ -546,13 +547,13 @@ export default function DeviceOpsPage() {
       display: "flex",
       gap: 8
     }}>
-            <button type="button" className={s.btnSecondary} onClick={handleSyncHouses} disabled={syncing || loading}>
+            <button type="button" style={secondaryActionButton} onClick={handleSyncHouses} disabled={syncing || loading}>
               <RefreshCw size={13} style={{
           animation: syncing ? "spin 1s linear infinite" : "none"
         }} />
               {t("ui.同步第三方栏舍", "同步第三方栏舍")}
             </button>
-            <button type="button" className={s.btnPrimary} onClick={() => {
+            <button type="button" style={primaryActionButton} onClick={() => {
         setMapForm(emptyMapForm());
         setShowMapForm(true);
       }}>
@@ -640,16 +641,10 @@ export default function DeviceOpsPage() {
               }}>{fmtDt(row.mapped_at)}</td>
                     <td>
                       <div className={s.tableActions}>
-                        <button type="button" className={s.btnSecondary} style={{
-                    fontSize: 12,
-                    padding: "3px 10px"
-                  }} onClick={() => handleOpenEdit(row)}>
+                        <button type="button" onClick={() => handleOpenEdit(row)} style={{ ...secondaryActionButton, fontSize: 12, padding: "3px 10px" }}>
                           {t("ui.修改", "修改")}
                         </button>
-                        <button type="button" className={s.btnDanger} style={{
-                    fontSize: 12,
-                    padding: "3px 10px"
-                  }} onClick={() => handleDeleteMapping(row)}>
+                        <button type="button" onClick={() => handleDeleteMapping(row)} style={{ ...actionPill('danger'), fontSize: 12, padding: "3px 10px" }}>
                           {t("ui.删除", "删除")}
                         </button>
                       </div>
@@ -664,7 +659,7 @@ export default function DeviceOpsPage() {
       {tab === "jobs" && <div className={s.card}>
           <div className={`${s.cardHeader} ${u.flexBetween}`}>
             <span className={s.cardTitle}>{t("ui.采集日志", "同步任务日志")}</span>
-            <button type="button" className={s.btnSecondary} onClick={loadJobs}><RefreshCw size={13} />{t("ui.刷新", "刷新")}</button>
+            <button type="button" style={secondaryActionButton} onClick={loadJobs}><RefreshCw size={13} />{t("ui.刷新", "刷新")}</button>
           </div>
           <div className={u.scrollX}>
             <table className={s.table}>
@@ -704,7 +699,7 @@ export default function DeviceOpsPage() {
       {tab === "devices" && <div className={s.card}>
           <div className={`${s.cardHeader} ${u.flexBetween}`}>
             <span className={s.cardTitle}>{t("ui.离线设备", "离线设备")} ({offlineDevices.length})</span>
-            <button type="button" className={s.btnSecondary} onClick={loadOffline}><RefreshCw size={13} />{t("ui.刷新", "刷新")}</button>
+            <button type="button" style={secondaryActionButton} onClick={loadOffline}><RefreshCw size={13} />{t("ui.刷新", "刷新")}</button>
           </div>
           <div className={u.scrollX}>
             <table className={s.table}>
@@ -746,7 +741,7 @@ export default function DeviceOpsPage() {
       {tab === "dict" && <div className={s.card}>
           <div className={`${s.cardHeader} ${u.flexBetween}`}>
             <span className={s.cardTitle}>{t("ui.属性字典", "传感器属性字典")} ({propDict.length})</span>
-            <button type="button" className={s.btnSecondary} onClick={loadDict}><RefreshCw size={13} />{t("ui.刷新", "刷新")}</button>
+            <button type="button" style={secondaryActionButton} onClick={loadDict}><RefreshCw size={13} />{t("ui.刷新", "刷新")}</button>
           </div>
           <div className={u.scrollX}>
             <table className={s.table}>
@@ -787,12 +782,7 @@ export default function DeviceOpsPage() {
                   background: row.trend_enabled ? "var(--color-accent)" : "var(--text-disabled)"
                 }} /></td>
                     <td>
-                      <button type="button" className={s.btnSecondary} style={{
-                  fontSize: 11,
-                  padding: "3px 8px"
-                }} onClick={() => setDictEditRow({
-                  ...row
-                })}>
+                      <button type="button" onClick={() => setDictEditRow({ ...row })} style={{ ...secondaryActionButton, fontSize: 11, padding: "3px 8px" }}>
                         {t("ui.编辑", "编辑")}
                       </button>
                     </td>
@@ -811,7 +801,7 @@ export default function DeviceOpsPage() {
           }} />
               <span className={s.cardTitle}>{t("ui.运维操作审计日志", "运维操作审计日志")}（最近 100 条）</span>
             </div>
-            <button type="button" className={s.btnSecondary} onClick={loadOpsLog}><RefreshCw size={13} />{t("ui.刷新", "刷新")}</button>
+            <button type="button" style={secondaryActionButton} onClick={loadOpsLog}><RefreshCw size={13} />{t("ui.刷新", "刷新")}</button>
           </div>
           {opsLog.length === 0 ? <div style={{
         padding: 60,
@@ -950,11 +940,11 @@ export default function DeviceOpsPage() {
         justifyContent: "flex-end",
         gap: 10
       }}>
-            <button type="button" className={s.btnSecondary} onClick={() => {
+            <button type="button" style={secondaryActionButton} onClick={() => {
           setShowMapForm(false);
           setMapForm(emptyMapForm());
         }}>{t("common.cancel", "取消")}</button>
-            <button type="button" className={s.btnPrimary} disabled={saving} onClick={handleSaveMapping}>{saving ? t("common.saving", "保存中...") : t("ui.保存映射", "保存映射")}</button>
+            <button type="button" style={primaryActionButton} disabled={saving} onClick={handleSaveMapping}>{saving ? t("common.saving", "保存中...") : t("ui.保存映射", "保存映射")}</button>
           </div>
       </ModalV2>
 
@@ -1098,8 +1088,8 @@ export default function DeviceOpsPage() {
         justifyContent: "flex-end",
         gap: 10
       }}>
-            <button type="button" className={s.btnSecondary} onClick={() => setEditRow(null)}>{t("common.cancel", "取消")}</button>
-            <button type="button" className={s.btnPrimary} disabled={saving} onClick={handleSaveEdit}>{saving ? t("common.saving", "保存中...") : t("ui.保存", "保存")}</button>
+            <button type="button" style={secondaryActionButton} onClick={() => setEditRow(null)}>{t("common.cancel", "取消")}</button>
+            <button type="button" style={primaryActionButton} disabled={saving} onClick={handleSaveEdit}>{saving ? t("common.saving", "保存中...") : t("ui.保存", "保存")}</button>
           </div>
       </ModalV2>
 
@@ -1143,8 +1133,8 @@ export default function DeviceOpsPage() {
         justifyContent: "flex-end",
         gap: 10
       }}>
-            <button type="button" className={s.btnSecondary} onClick={() => setDictEditRow(null)}>{t("common.cancel", "取消")}</button>
-            <button type="button" className={s.btnPrimary} disabled={saving} onClick={handleSaveDictEdit}>{saving ? t("common.saving", "保存中...") : t("ui.保存", "保存")}</button>
+            <button type="button" style={secondaryActionButton} onClick={() => setDictEditRow(null)}>{t("common.cancel", "取消")}</button>
+            <button type="button" style={primaryActionButton} disabled={saving} onClick={handleSaveDictEdit}>{saving ? t("common.saving", "保存中...") : t("ui.保存", "保存")}</button>
           </div>
       </ModalV2>
     </div>;

@@ -28,6 +28,12 @@ import { useToast } from '@/contexts/ToastContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Plus, CheckCircle, AlertTriangle, Edit2 } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
+import {
+  primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill, inlineAlert,
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+} from '@/components/design-system/cockpit-styles';
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 
 // A3 + C5: 状态枚举统一大写（V2 残留有小写 done/pending/overdue/scheduled 混存，已由
 // generic-crud.service.ts boot migration UPPER 统一）
@@ -357,85 +363,53 @@ export default function ImmunePage() {
     title: t('common.operation', '操作'),
     width: '120px',
     render: (_: unknown, row: ImmunePlan) => <div className={s.tableActions}>
-        {canEditImm && normStatus(row.status) === 'PENDING' && <button type="button" className={`${s.btn} ${s.btnSm}`} style={{
-        background: 'var(--status-success)',
-        color: 'var(--text-on-dark)',
-        border: 'none'
-      }} onClick={() => handleRecordVaccine(row)}><CheckCircle size={12} />{t('ui.执行', '执行')}</button>}
+        {canEditImm && normStatus(row.status) === 'PENDING' && (
+          <button type="button" onClick={() => handleRecordVaccine(row)} style={actionPill("success")}><CheckCircle size={12} />{t('ui.执行', '执行')}</button>
+        )}
         {canCreateImm && <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>}
       </div>
   }];
-  const KPI_CARDS = [{
-    label: t('ui.计划总数', '计划总数'),
-    val: `${plans.length}项`,
-    color: 'var(--color-primary)'
-  }, {
-    label: t('ui.待执行', '待执行'),
-    val: `${pendingCnt}项`,
-    color: 'var(--color-primary)'
-  }, {
-    label: t('ui.逾期未执行', '逾期未执行'),
-    val: `${overdueCnt}项`,
-    color: 'var(--status-danger)'
-  }, {
-    label: t('status.done', '已完成'),
-    val: `${doneCnt}项`,
-    color: 'var(--status-success)'
-  }];
+  const KPI_CARDS: { label: string; val: string; tone: Tone }[] = [
+    { label: t('ui.计划总数',   '计划总数'),   val: `${plans.length}项`, tone: 'brand'   },
+    { label: t('ui.待执行',     '待执行'),     val: `${pendingCnt}项`,   tone: 'warning' },
+    { label: t('ui.逾期未执行', '逾期未执行'), val: `${overdueCnt}项`,   tone: 'danger'  },
+    { label: t('status.done',   '已完成'),     val: `${doneCnt}项`,      tone: 'success' },
+  ];
   return <div className="animate-fade-in">
-      <PageHeader title={t('ui.免疫计划', '免疫计划')} subtitle={t('ui.管理所有鸡群的疫苗免疫计划与执行记录', '管理所有鸡群的疫苗免疫计划与执行记录')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.免疫计划', '免疫计划')]} actions={canCreateImm && <button type="button" className={s.btnPrimary} onClick={() => {
-      setEditId(null);
-      setForm({
-        ...EMPTY_FORM,
-        batchNo: flockOptions[0]?.code || '',
-        farmHouse: flockMap[flockOptions[0]?.code || '']?.house_code || '',
-        vaccine: vaccineOpts[0] || '',
-        method: vaccMethodOpts[0] || '',
-        dose: DOSE_BY_METHOD[vaccMethodOpts[0]] || ''
-      });
-      setShowDrawer(true);
-    }}>
-            <Plus size={15} />{t('ui.新增免疫计划', '新增免疫计划')}
-          </button>} />
+      <PageHeader title={t('ui.免疫计划', '免疫计划')} subtitle={t('ui.管理所有鸡群的疫苗免疫计划与执行记录', '管理所有鸡群的疫苗免疫计划与执行记录')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.免疫计划', '免疫计划')]}
+        actions={canCreateImm && (
+          <button type="button" onClick={() => { setEditId(null); setForm({ ...EMPTY_FORM, batchNo: flockOptions[0]?.code || '', farmHouse: flockMap[flockOptions[0]?.code || '']?.house_code || '', vaccine: vaccineOpts[0] || '', method: vaccMethodOpts[0] || '', dose: DOSE_BY_METHOD[vaccMethodOpts[0]] || '' }); setShowDrawer(true); }} style={primaryActionButton}>
+            <Plus size={14} />{t('ui.新增免疫计划', '新增免疫计划')}
+          </button>
+        )}
+      />
 
-      {overdueCnt > 0 && <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10,
-      padding: '12px 16px',
-      backgroundColor: 'color-mix(in srgb,var(--status-danger) 12%,transparent)',
-      border: '1px solid color-mix(in srgb,var(--status-danger) 40%,transparent)',
-      borderRadius: 'var(--radius-md)',
-      marginBottom: 16,
-      color: 'var(--status-danger)',
-      fontSize: 13,
-      fontWeight: 600
-    }}>
-          <AlertTriangle size={16} />{t('ui.注意有免疫计划逾期', `注意：有 ${overdueCnt} 项免疫计划已逾期未执行，请尽快安排！`)}
-        </div>}
+      {/* g200f 逾期警告 — inlineAlert('danger') */}
+      {overdueCnt > 0 && (
+        <div style={{ ...inlineAlert("danger"), marginBottom: 16, fontWeight: 600 }}>
+          <AlertTriangle size={14} />{t('ui.注意有免疫计划逾期', `注意：有 ${overdueCnt} 项免疫计划已逾期未执行，请尽快安排！`)}
+        </div>
+      )}
 
-      <div className={s.statsRow}>
-        {KPI_CARDS.map(c => <div key={c.label} className={s.statCard} style={{
-        borderLeftColor: c.color
-      }}>
-            <div className={s.statValue} style={{
-          color: c.color
-        }}>{c.val}</div>
-            <div className={s.statLabel}>{c.label}</div>
-          </div>)}
+      {/* g200f KPI 4 卡 — kpiCardCompact(tone) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12, marginBottom: 20 }}>
+        {KPI_CARDS.map(c => (
+          <div key={c.label} style={kpiCardCompact(c.tone)}>
+            <div style={kpiCardCompactLabel}>{c.label}</div>
+            <div style={kpiCardCompactValue(c.tone)}>{c.val}</div>
+          </div>
+        ))}
       </div>
 
-      <DataTable columns={columns} data={filteredData} searchPlaceholder={t('ui.搜索批次疫苗名称', '搜索批次疫苗名称')} searchKeys={['batchNo', 'farmHouse', 'vaccine']} rowKey="id" filters={<div style={{
-      display: 'flex',
-      gap: 6
-    }}>
-          {filterKeys.map(f => <button type="button" key={f} className={`${s.tabPill} ${filter === f ? s.tabPillActive : ""}`} onClick={() => setFilter(f)}>
-            {filterLabels[f]}{f === 'scheduled' && scheduledCnt > 0 && <span style={{
-          marginLeft: 4,
-          fontSize: 11
-        }}>({scheduledCnt})</span>}
-          </button>)}
-        </div>} />
+      <DataTable columns={columns} data={filteredData} searchPlaceholder={t('ui.搜索批次疫苗名称', '搜索批次疫苗名称')} searchKeys={['batchNo', 'farmHouse', 'vaccine']} rowKey="id" filters={
+        <div style={{ display: 'flex', gap: 6 }}>
+          {filterKeys.map(f => (
+            <button key={f} type="button" onClick={() => setFilter(f)} style={toolbarFilterPill(filter === f)}>
+              {filterLabels[f]}{f === 'scheduled' && scheduledCnt > 0 && <span style={{ marginLeft: 4, fontSize: 11 }}>({scheduledCnt})</span>}
+            </button>
+          ))}
+        </div>
+      } />
 
       <RightDrawer isOpen={showDrawer} onClose={() => {
       setShowDrawer(false);
@@ -555,13 +529,8 @@ export default function ImmunePage() {
           gap: 10,
           marginTop: 6
         }}>
-            <button type="button" className={`${s.btnSecondary} ${u.flex1}`} onClick={() => {
-            setShowDrawer(false);
-            setEditId(null);
-          }}>{t('common.cancel', '取消')}</button>
-            <button type="button" className={s.btnPrimary} style={{
-            flex: 2
-          }} onClick={handleSubmit}>{editId ? t('ui.保存修改', '保存修改') : t('ui.建立计划', '建立计划')}</button>
+            <button type="button" onClick={() => { setShowDrawer(false); setEditId(null); }} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>{t('common.cancel', '取消')}</button>
+            <button type="button" onClick={handleSubmit} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>{editId ? t('ui.保存修改', '保存修改') : t('ui.建立计划', '建立计划')}</button>
           </div>
         </div>
       </RightDrawer>

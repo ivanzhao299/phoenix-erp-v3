@@ -27,6 +27,12 @@ import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Plus, Edit2 } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
+import {
+  primaryActionButton, secondaryActionButton, toolbarFilterPill,
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+} from '@/components/design-system/cockpit-styles';
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 import u from "@/styles/uix-utils.module.css";
 const EMPTY_FORM = {
   batchNo: '',
@@ -209,19 +215,11 @@ export default function MedicinePage() {
   };
   const data = filter === 'all' ? records : records.filter(r => r.status === filter);
   const today = todayStr();
-  const KPI_CARDS = [{
-    label: t('ui.停药期内批次', '停药期内批次'),
-    val: `${records.filter(r => r.status === 'inWithdrawal').length} 个`,
-    color: 'var(--status-warning)'
-  }, {
-    label: t('ui.今日到期解禁', '今日到期解禁'),
-    val: `${records.filter(r => r.clearDate === today).length} 个`,
-    color: 'var(--status-success)'
-  }, {
-    label: t('ui.累计用药记录', '累计用药记录'),
-    val: `${records.length} 条`,
-    color: 'var(--color-primary)'
-  }];
+  const KPI_CARDS: { label: string; val: string; tone: Tone }[] = [
+    { label: t('ui.停药期内批次', '停药期内批次'), val: `${records.filter(r => r.status === 'inWithdrawal').length} 个`, tone: 'warning' },
+    { label: t('ui.今日到期解禁', '今日到期解禁'), val: `${records.filter(r => r.clearDate === today).length} 个`,    tone: 'success' },
+    { label: t('ui.累计用药记录', '累计用药记录'), val: `${records.length} 条`,                                       tone: 'brand'   },
+  ];
   const columns = [{
     key: 'batchNo',
     title: t('ui.鸡群批次', '鸡群批次'),
@@ -285,36 +283,31 @@ export default function MedicinePage() {
     render: (_: unknown, row: MedicineRecord) => canEdit ? <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button> : null
   }];
   return <div className="animate-fade-in">
-      <PageHeader title={t('ui.用药记录', '用药记录')} subtitle={t('ui.记录所有鸡群用药情况及停药期管理', '记录所有鸡群用药情况及停药期管理')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.用药记录', '用药记录')]} actions={canCreate && <button type="button" className={s.btnPrimary} onClick={() => {
-      setEditId(null);
-      setForm({
-        ...EMPTY_FORM,
-        farmHouse: flockOptions[0]?.code || ''
-      });
-      setShowDrawer(true);
-    }}>
-            <Plus size={15} />{t('ui.新增用药记录', '新增用药记录')}
-          </button>} />
+      <PageHeader title={t('ui.用药记录', '用药记录')} subtitle={t('ui.记录所有鸡群用药情况及停药期管理', '记录所有鸡群用药情况及停药期管理')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.用药记录', '用药记录')]}
+        actions={canCreate && (
+          <button type="button" onClick={() => { setEditId(null); setForm({ ...EMPTY_FORM, farmHouse: flockOptions[0]?.code || '' }); setShowDrawer(true); }} style={primaryActionButton}>
+            <Plus size={14} />{t('ui.新增用药记录', '新增用药记录')}
+          </button>
+        )}
+      />
 
-      <div className={s.statsRow} style={{
-      gridTemplateColumns: 'repeat(3,1fr)'
-    }}>
-        {KPI_CARDS.map(c => <div key={c.label} className={s.statCard} style={{
-        borderLeftColor: c.color
-      }}>
-            <div className={s.statValue} style={{
-          color: c.color
-        }}>{c.val}</div>
-            <div className={s.statLabel}>{c.label}</div>
-          </div>)}
+      {/* g200f KPI 3 卡 — kpiCardCompact(tone) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12, marginBottom: 20 }}>
+        {KPI_CARDS.map(c => (
+          <div key={c.label} style={kpiCardCompact(c.tone)}>
+            <div style={kpiCardCompactLabel}>{c.label}</div>
+            <div style={kpiCardCompactValue(c.tone)}>{c.val}</div>
+          </div>
+        ))}
       </div>
 
-      <DataTable columns={columns} data={data} searchPlaceholder={t('ui.搜索批次药品', '搜索批次药品')} searchKeys={['batchNo', 'farmHouse', 'medicine']} rowKey="id" filters={<div style={{
-      display: 'flex',
-      gap: 6
-    }}>
-          {filterKeys.map(f => <button type="button" key={f} className={`${s.tabPill} ${filter === f ? s.tabPillActive : ""}`} onClick={() => setFilter(f)}>{filterLabels[f]}</button>)}
-        </div>} />
+      <DataTable columns={columns} data={data} searchPlaceholder={t('ui.搜索批次药品', '搜索批次药品')} searchKeys={['batchNo', 'farmHouse', 'medicine']} rowKey="id" filters={
+        <div style={{ display: 'flex', gap: 6 }}>
+          {filterKeys.map(f => (
+            <button key={f} type="button" onClick={() => setFilter(f)} style={toolbarFilterPill(filter === f)}>{filterLabels[f]}</button>
+          ))}
+        </div>
+      } />
 
       <RightDrawer isOpen={showDrawer} onClose={() => {
       setShowDrawer(false);
@@ -374,13 +367,8 @@ export default function MedicinePage() {
           gap: 10,
           marginTop: 6
         }}>
-            <button type="button" className={`${s.btnSecondary} ${u.flex1}`} onClick={() => {
-            setShowDrawer(false);
-            setEditId(null);
-          }}>{t('common.cancel', '取消')}</button>
-            <button type="button" className={s.btnPrimary} style={{
-            flex: 2
-          }} onClick={handleSubmit}>{editId ? t('ui.保存修改', '保存修改') : t('ui.新增用药', '新增用药')}</button>
+            <button type="button" onClick={() => { setShowDrawer(false); setEditId(null); }} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>{t('common.cancel', '取消')}</button>
+            <button type="button" onClick={handleSubmit} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>{editId ? t('ui.保存修改', '保存修改') : t('ui.新增用药', '新增用药')}</button>
           </div>
         </div>
       </RightDrawer>

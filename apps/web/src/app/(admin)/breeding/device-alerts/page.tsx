@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { AlertTriangle, RefreshCw, Wifi, WifiOff } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
+import {
+  secondaryActionButton, toolbarFilterPill, inlineAlert,
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+} from "@/components/design-system/cockpit-styles";
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePolling } from '@/hooks/usePolling';
 
@@ -624,51 +630,34 @@ export default function DeviceAlertsPage() {
   // ── KPI cards ───────────────────────────────────────────────────────────────
 
   const freshCfg = FRESH[worstFreshness];
-  const KPI_CARDS = [{
-    label: "活跃告警",
-    val: loading ? "—" : String(summary?.totalAlarms ?? alarms.length),
-    sub: `${summary?.alarmHouses ?? affectedHouses.length} 栋鸡舍受影响`,
-    modifier: hasAlarm ? s.statCardDanger : s.statCardSuccess,
-    valColor: hasAlarm ? "var(--status-danger)" : "var(--status-success)"
-  }, {
-    label: "紧急 / 预警",
-    val: loading ? "—" : `${criticalCount} / ${warningCount}`,
-    sub: "按严重程度分类",
-    modifier: criticalCount > 0 ? s.statCardDanger : s.statCardWarning,
-    valColor: criticalCount > 0 ? "var(--status-danger)" : "var(--status-warning)"
-  }, {
-    label: "在线传感器",
-    val: loading ? "—" : String(summary?.onlineSensorCnt ?? "—"),
-    sub: `共 ${summary?.totalSensorCnt ?? 0} 个监测点`,
-    modifier: s.statCardPrimary,
-    valColor: "var(--color-primary)"
-  }, {
-    label: "数据状态",
-    val: loading ? "—" : freshCfg.label,
-    sub: lastUpdate ? `更新于 ${lastUpdate.toLocaleTimeString("zh-CN")}` : "—",
-    modifier: worstFreshness === "normal" ? s.statCardSuccess : worstFreshness === "stale" ? s.statCardDanger : s.statCardWarning,
-    valColor: freshCfg.color
-  }];
+  const KPI_CARDS: { label: string; val: string; sub: string; tone: Tone }[] = [
+    { label: "活跃告警",   val: loading ? "—" : String(summary?.totalAlarms ?? alarms.length),                                                    sub: `${summary?.alarmHouses ?? affectedHouses.length} 栋鸡舍受影响`,                                  tone: hasAlarm ? "danger" : "success" },
+    { label: "紧急 / 预警", val: loading ? "—" : `${criticalCount} / ${warningCount}`,                                                            sub: "按严重程度分类",                                                                                tone: criticalCount > 0 ? "danger" : "warning" },
+    { label: "在线传感器", val: loading ? "—" : String(summary?.onlineSensorCnt ?? "—"),                                                          sub: `共 ${summary?.totalSensorCnt ?? 0} 个监测点`,                                                    tone: "info" },
+    { label: "数据状态",   val: loading ? "—" : freshCfg.label,                                                                                   sub: lastUpdate ? `更新于 ${lastUpdate.toLocaleTimeString("zh-CN")}` : "—",                            tone: worstFreshness === "normal" ? "success" : worstFreshness === "stale" ? "danger" : "warning" },
+  ];
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return <div className="animate-fade-in">
-      <PageHeader title={t("ui.环境预警", "环境预警")} subtitle={t("ui.环境预警副标题", "实时环境异常告警列表（每 30 秒自动刷新）")} breadcrumb={[t("ui.养殖管理", "养殖管理"), t("ui.环境预警", "环境预警")]} actions={<button type="button" className={s.btnSecondary} onClick={fetchAlarms} disabled={loading}>
-            <RefreshCw size={14} style={{
-        animation: loading ? "spin 1s linear infinite" : "none"
-      }} />
+      <PageHeader title={t("ui.环境预警", "环境预警")} subtitle={t("ui.环境预警副标题", "实时环境异常告警列表（每 30 秒自动刷新）")} breadcrumb={[t("ui.养殖管理", "养殖管理"), t("ui.环境预警", "环境预警")]}
+        actions={
+          <button type="button" onClick={fetchAlarms} disabled={loading} style={{ ...secondaryActionButton, opacity: loading ? 0.5 : 1 }}>
+            <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
             {t("common.refresh", "刷新")}
-          </button>} />
+          </button>
+        }
+      />
 
-      {/* Zone A: KPI Strip */}
-      <div className={`${s.statsRow} ${u.mb24}`}>
-        {KPI_CARDS.map(c => <div key={c.label} className={`${s.statCard} ${c.modifier}`}>
-            <div className={s.statValue} style={{
-          color: c.valColor
-        }}>{c.val}</div>
-            <div className={s.statLabel}>{c.label}</div>
-            <div className={s.statSub}>{c.sub}</div>
-          </div>)}
+      {/* g200f KPI 4 卡 — kpiCardCompact(tone) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12, marginBottom: 24 }}>
+        {KPI_CARDS.map(c => (
+          <div key={c.label} style={kpiCardCompact(c.tone)}>
+            <div style={kpiCardCompactLabel}>{c.label}</div>
+            <div style={kpiCardCompactValue(c.tone)}>{c.val}</div>
+            <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{c.sub}</div>
+          </div>
+        ))}
       </div>
 
       {/* Error banner */}
@@ -751,7 +740,7 @@ export default function DeviceAlertsPage() {
               warning: `预警 (${warningCount})`,
               byHouse: "按鸡舍"
             };
-            return <button key={mode} type="button" className={filterMode === mode ? `${s.tabPill} ${s.tabPillActive}` : s.tabPill} onClick={() => setFilterMode(mode)}>
+            return <button key={mode} type="button" onClick={() => setFilterMode(mode)} style={toolbarFilterPill(filterMode === mode)}>
                   {labels[mode]}
                 </button>;
           })}

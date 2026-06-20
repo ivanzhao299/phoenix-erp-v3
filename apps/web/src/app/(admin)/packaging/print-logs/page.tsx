@@ -3,8 +3,15 @@
 import { useState, useCallback, useEffect } from "react";
 import u from "@/styles/uix-utils.module.css";
 import PageHeader from "@/components/PageHeader";
-import { Printer, RefreshCw, History } from "lucide-react";
+import { Printer, RefreshCw, History, AlertTriangle } from "lucide-react";
 import s from "@/components/ui/admin-ui.module.css";
+import {
+  primaryActionButton, inputField,
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+  detailInfoBox, actionGroupBox, inlineAlert,
+} from "@/components/design-system/cockpit-styles";
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 import { packagingApi, type PrintLogRow } from "@/lib/packaging-api";
 const TYPE_OPTIONS = [{
   value: "ALL",
@@ -70,108 +77,49 @@ export default function PrintLogsPage() {
   }}>
       <PageHeader title="补打日志" subtitle="查看正常打印及补打记录，补打含操作人和原因" breadcrumb={["分级包装", "补打日志"]} />
 
-      {/* 筛选栏 */}
-      <div className={`${s.card} ${u.mb20}`}>
-        <div className={s.cardBody}>
-          <div style={{
-          display: "flex",
-          gap: 12,
-          alignItems: "flex-end",
-          flexWrap: "wrap"
-        }}>
-            <div>
-              <div style={{
-              fontSize: 12,
-              color: "var(--text-secondary)",
-              marginBottom: 4
-            }}>开始日期</div>
-              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={s.inp} style={{
-              width: 150
-            }} />
-            </div>
-            <div>
-              <div style={{
-              fontSize: 12,
-              color: "var(--text-secondary)",
-              marginBottom: 4
-            }}>结束日期</div>
-              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className={s.inp} style={{
-              width: 150
-            }} />
-            </div>
-            <div>
-              <div style={{
-              fontSize: 12,
-              color: "var(--text-secondary)",
-              marginBottom: 4
-            }}>打印类型</div>
-              <select value={type} onChange={e => setType(e.target.value)} className={s.inp} style={{
-              width: 130
-            }}>
-                {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-            <button className={`${s.btn} ${s.btnPrimary} ${u.flexRow}`} onClick={load} disabled={loading}>
-              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-              {loading ? "查询中..." : "查询"}
-            </button>
+      {/* g200f 筛选栏 — actionGroupBox(非 KPI 风格) */}
+      <div style={{ ...actionGroupBox, background: "var(--bg-card)", marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>开始日期</div>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ ...inputField, width: 150 }} />
           </div>
+          <div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>结束日期</div>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ ...inputField, width: 150 }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>打印类型</div>
+            <select value={type} onChange={e => setType(e.target.value)} style={{ ...inputField, width: 130 }}>
+              {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <button onClick={load} disabled={loading} style={{ ...primaryActionButton, opacity: loading ? 0.5 : 1 }}>
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            {loading ? "查询中..." : "查询"}
+          </button>
         </div>
       </div>
 
-      {/* 汇总卡片 */}
-      <div style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(3, 1fr)",
-      gap: 16,
-      marginBottom: 20
-    }}>
-        {[{
-        label: "打印总次数",
-        value: totalCount,
-        color: "var(--color-primary)",
-        icon: <Printer size={20} />
-      }, {
-        label: "正常打印",
-        value: normalCount,
-        color: "var(--status-success)",
-        icon: <Printer size={20} />
-      }, {
-        label: "补打次数",
-        value: reprintCount,
-        color: "var(--status-warning)",
-        icon: <History size={20} />
-      }].map(c => <div key={c.label} className={s.card}>
-            <div className={s.cardBody} style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 16
-        }}>
-              <div style={{
-            color: c.color,
-            opacity: 0.8
-          }}>{c.icon}</div>
-              <div>
-                <div style={{
-              fontSize: 26,
-              fontWeight: 800,
-              color: c.color,
-              lineHeight: 1
-            }}>
-                  {c.value}
-                </div>
-                <div style={{
-              fontSize: 12,
-              color: "var(--text-secondary)",
-              marginTop: 3
-            }}>{c.label}</div>
-              </div>
+      {/* g200f KPI 3 卡 — kpiCardCompact(tone) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12, marginBottom: 20 }}>
+        {([
+          { label: "打印总次数", value: totalCount,   tone: "brand"   as Tone, Icon: Printer },
+          { label: "正常打印",   value: normalCount,  tone: "success" as Tone, Icon: Printer },
+          { label: "补打次数",   value: reprintCount, tone: "warning" as Tone, Icon: History },
+        ]).map(c => {
+          const Icon = c.Icon;
+          return (
+            <div key={c.label} style={kpiCardCompact(c.tone)}>
+              <div style={kpiCardCompactLabel}><Icon size={13} /> {c.label}</div>
+              <div style={kpiCardCompactValue(c.tone)}>{c.value}</div>
             </div>
-          </div>)}
+          );
+        })}
       </div>
 
-      {/* 表格 */}
-      <div className={s.card}>
+      {/* g200f 表格容器 — detailInfoBox */}
+      <div style={{ ...detailInfoBox, background: "var(--bg-card)", padding: 0 }}>
         <div className={s.cardHeader}>
           <span className={s.cardTitle}>打印记录</span>
           <span className={u.muted12}>
@@ -179,11 +127,7 @@ export default function PrintLogsPage() {
           </span>
         </div>
         <div className={u.scrollX}>
-          {err && <div style={{
-          padding: "20px 20px",
-          color: "var(--color-danger)",
-          fontSize: 13
-        }}>⚠️ {err}</div>}
+          {err && <div style={{ ...inlineAlert("danger"), margin: "16px 20px" }}><AlertTriangle size={13} /> {err}</div>}
           {!err && rows.length === 0 && !loading && <div style={{
           padding: "40px 20px",
           textAlign: "center",

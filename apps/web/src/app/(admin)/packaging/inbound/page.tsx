@@ -11,6 +11,12 @@ import s from "@/components/ui/admin-ui.module.css";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { HouseSelector, WarehouseSelector, UserSelector } from "@/components/shared-selectors/MasterDataSelectors"; // G4-E 主数据
 import u from "@/styles/uix-utils.module.css";
+import {
+  primaryActionButton, secondaryActionButton, actionPill,
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+} from "@/components/design-system/cockpit-styles";
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 const TABLE = "wms_inbound";
 type Row = Record<string, unknown>;
 interface FormState {
@@ -41,22 +47,10 @@ export default function InboundPage() {
   const {
     t
   } = useLanguage();
-  const STATUS_MAP: Record<string, {
-    label: string;
-    cls: string;
-  }> = {
-    PENDING: {
-      label: t("ui.待入库", "待入库"),
-      cls: s.badgeWarning
-    },
-    COMPLETED: {
-      label: t("ui.已完成", "已完成"),
-      cls: s.badgeSuccess
-    },
-    CANCELLED: {
-      label: t("ui.已取消", "已取消"),
-      cls: s.badgeNeutral
-    }
+  const STATUS_MAP: Record<string, { label: string; tone: Tone }> = {
+    PENDING:   { label: t("ui.待入库", "待入库"),   tone: "warning" },
+    COMPLETED: { label: t("ui.已完成", "已完成"),   tone: "success" },
+    CANCELLED: { label: t("ui.已取消", "已取消"),   tone: "default" },
   };
   const COLS: Column<Row>[] = [{
     key: "inbound_no",
@@ -101,11 +95,8 @@ export default function InboundPage() {
     width: 90,
     align: "center",
     render: v => {
-      const m = STATUS_MAP[String(v)] ?? {
-        label: String(v),
-        cls: s.badgeNeutral
-      };
-      return <span className={`${s.badge} ${m.cls}`}>{m.label}</span>;
+      const m = STATUS_MAP[String(v)] ?? { label: String(v), tone: "default" as Tone };
+      return <span style={actionPill(m.tone)}>{m.label}</span>;
     }
   }];
   const [open, setOpen] = useState(false);
@@ -266,41 +257,41 @@ export default function InboundPage() {
     }
   }, [delRow, refresh]);
   return <div>
-      <PageHeader title={t("ui.集蛋入库", "集蛋入库")} subtitle={t("ui.集蛋入库副标题", "登记每批集蛋入库记录，关联鸡舍、班次和库位")} breadcrumb={[t("ui.包装中心", "包装中心"), t("ui.集蛋入库", "集蛋入库")]} actions={<button type="button" className={s.btnPrimaryGrad} onClick={openNew}>
+      <PageHeader title={t("ui.集蛋入库", "集蛋入库")} subtitle={t("ui.集蛋入库副标题", "登记每批集蛋入库记录，关联鸡舍、班次和库位")} breadcrumb={[t("ui.包装中心", "包装中心"), t("ui.集蛋入库", "集蛋入库")]}
+        actions={
+          <button type="button" onClick={openNew} style={primaryActionButton}>
             <Plus size={14} /> {t("ui.新建入库单", "新建入库单")}
-          </button>} />
+          </button>
+        } />
 
-      {/* 统计条 */}
-      <div className={`${s.statsRow} ${u.mb16}`}>
-        {[{
-        icon: <Package size={16} />,
-        label: t("ui.今日入库批次", "今日入库批次"),
-        value: stats.today
-      }, {
-        icon: <Scale size={16} />,
-        label: t("ui.待确认", "待确认"),
-        value: stats.pending
-      }, {
-        icon: <Home size={16} />,
-        label: t("ui.来源鸡舍数", "来源鸡舍数"),
-        value: stats.houses
-      }].map(c => <div key={c.label} className={s.statCard}>
-            <div className={`${s.statLabel} ${u.flexRow}`}>
-              {c.icon} {c.label}
+      {/* g200f KPI 3 卡 — kpiCardCompact(tone) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12, marginBottom: 16 }}>
+        {([
+          { Icon: Package, label: t("ui.今日入库批次", "今日入库批次"), value: stats.today,   tone: "info"    as Tone },
+          { Icon: Scale,   label: t("ui.待确认",       "待确认"),       value: stats.pending, tone: "warning" as Tone },
+          { Icon: Home,    label: t("ui.来源鸡舍数",   "来源鸡舍数"),   value: stats.houses,  tone: "success" as Tone },
+        ]).map(c => {
+          const Icon = c.Icon;
+          return (
+            <div key={c.label} style={kpiCardCompact(c.tone)}>
+              <div style={kpiCardCompactLabel}><Icon size={13} /> {c.label}</div>
+              <div style={kpiCardCompactValue(c.tone)}>{c.value}</div>
             </div>
-            <div className={s.statValue}>{c.value}</div>
-          </div>)}
+          );
+        })}
       </div>
 
       <DataTable<Row> table={TABLE} columns={COLS} showActions onNew={openNew} onEdit={openEdit} onDelete={r => setDelRow(r)} refreshKey={rk} emptyText={t("ui.暂无入库记录", "暂无入库记录")} pageSize={30} />
 
       {/* 新建/编辑抽屉 */}
-      <RightDrawer open={open} title={editRow ? t("ui.编辑入库单", "编辑入库单") : t("ui.新建入库单", "新建入库单")} onClose={close} footer={<div className={s.drawerFooter}>
-            <button type="button" className={s.btnSecondary} onClick={close}>{t("common.cancel", "取消")}</button>
-            <button type="button" className={s.btnPrimaryGrad} onClick={handleSubmit} disabled={saving}>
-              {saving ? <><RefreshCw size={14} className="spin" /> {t("common.saving", "保存中...")}</> : t("ui.确认入库", "确认入库")}
-            </button>
-          </div>}>
+      <RightDrawer open={open} title={editRow ? t("ui.编辑入库单", "编辑入库单") : t("ui.新建入库单", "新建入库单")} onClose={close} footer={
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button type="button" onClick={close} style={secondaryActionButton}>{t("common.cancel", "取消")}</button>
+          <button type="button" onClick={handleSubmit} disabled={saving} style={{ ...primaryActionButton, opacity: saving ? 0.5 : 1 }}>
+            {saving ? <><RefreshCw size={13} className="spin" /> {t("common.saving", "保存中...")}</> : t("ui.确认入库", "确认入库")}
+          </button>
+        </div>
+      }>
         <div className={s.formSection}><Calendar size={13} /><span>{t("ui.基本信息", "基本信息")}</span></div>
         <div className={s.fieldRow}>
           <div>

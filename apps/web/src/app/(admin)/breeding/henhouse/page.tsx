@@ -33,6 +33,12 @@ import { useDialog } from '@/contexts/DialogContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Plus, Edit2, Trash2, Activity, Building2, Users, CheckCircle, AlertTriangle } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
+import {
+  primaryActionButton, secondaryActionButton, toolbarFilterPill,
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+} from '@/components/design-system/cockpit-styles';
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 const emptyForm = () => ({
   farmName: '',
   code: '',
@@ -333,93 +339,40 @@ export default function HenHousePage() {
       </div>
   }];
   const hasWarn = warnCount > 0;
-  const KPI_CARDS = [{
-    label: t('ui.鸡舍总数', '鸡舍总数'),
-    val: `${housesList.length}`,
-    sub: t('ui.栋已登记', '栋已登记'),
-    Icon: Building2,
-    cardCls: s.statCardPrimary,
-    valCls: '',
-    alarmBg: false
-  }, {
-    label: t('ui.总存栏', '总存栏'),
-    val: totalCurrent.toLocaleString(),
-    sub: t('ui.羽在栏', '羽在栏'),
-    Icon: Users,
-    cardCls: s.statCardPrimary,
-    valCls: '',
-    alarmBg: false
-  }, {
-    label: t('ui.正常鸡舍', '正常鸡舍'),
-    val: `${normalCount}`,
-    sub: `${t('ui.共', '共')} ${housesList.length} ${t('ui.栋正常运行', '栋正常运行')}`,
-    Icon: CheckCircle,
-    cardCls: s.statCardSuccess,
-    valCls: s.textSuccess,
-    alarmBg: false
-  }, {
-    label: t('ui.需关注', '需关注'),
-    val: `${warnCount}`,
-    sub: hasWarn ? t('ui.请检查超载鸡舍', '请检查超载鸡舍') : t('ui.全部正常', '全部正常'),
-    Icon: AlertTriangle,
-    cardCls: hasWarn ? s.statCardDanger : s.statCardSuccess,
-    valCls: hasWarn ? s.textDanger : s.textSuccess,
-    alarmBg: hasWarn
-  }];
+  const KPI_CARDS: { label: string; val: string; sub: string; Icon: typeof Building2; tone: Tone }[] = [
+    { label: t('ui.鸡舍总数', '鸡舍总数'), val: `${housesList.length}`,             sub: t('ui.栋已登记', '栋已登记'),                                                                  Icon: Building2,    tone: 'brand'   },
+    { label: t('ui.总存栏',   '总存栏'),   val: totalCurrent.toLocaleString(),       sub: t('ui.羽在栏',   '羽在栏'),                                                                    Icon: Users,        tone: 'info'    },
+    { label: t('ui.正常鸡舍', '正常鸡舍'), val: `${normalCount}`,                    sub: `${t('ui.共', '共')} ${housesList.length} ${t('ui.栋正常运行', '栋正常运行')}`,                Icon: CheckCircle,  tone: 'success' },
+    { label: t('ui.需关注',   '需关注'),   val: `${warnCount}`,                      sub: hasWarn ? t('ui.请检查超载鸡舍', '请检查超载鸡舍') : t('ui.全部正常', '全部正常'),             Icon: AlertTriangle, tone: hasWarn ? 'danger' : 'success' },
+  ];
   return <div className="animate-fade-in">
-      <PageHeader title={t('ui.鸡舍管理', '鸡舍管理')} subtitle={`${t('ui.共', '共')} ${housesList.length} ${t('ui.栋鸡舍', '栋鸡舍')}`} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.鸡舍管理', '鸡舍管理')]} actions={canEditHouse && <button type="button" className={s.btnPrimary} onClick={() => {
-      setEditId(null);
-      setEditRow(null);
-      setForm({
-        ...emptyForm(),
-        farmName: farmsList[0]?.farm_code || ''
-      });
-      setShowDrawer(true);
-    }}>
-            <Plus size={15} />{t('ui.新增鸡舍', '新增鸡舍')}
-          </button>} />
+      <PageHeader title={t('ui.鸡舍管理', '鸡舍管理')} subtitle={`${t('ui.共', '共')} ${housesList.length} ${t('ui.栋鸡舍', '栋鸡舍')}`} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.鸡舍管理', '鸡舍管理')]}
+        actions={canEditHouse && (
+          <button type="button" onClick={() => { setEditId(null); setEditRow(null); setForm({ ...emptyForm(), farmName: farmsList[0]?.farm_code || '' }); setShowDrawer(true); }} style={primaryActionButton}>
+            <Plus size={14} />{t('ui.新增鸡舍', '新增鸡舍')}
+          </button>
+        )}
+      />
 
-      {/* KPI 统计卡片 */}
-      <div className={s.statsRow}>
-        {KPI_CARDS.map(c => <div key={c.label} className={`${s.statCard} ${c.cardCls}`} style={c.alarmBg ? {
-        background: 'var(--status-danger-bg-faint)'
-      } : {}}>
-            <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          marginBottom: 6
-        }}>
-              <div className={`${s.statValue} ${c.valCls}`} style={{
-            fontSize: 28,
-            lineHeight: 1,
-            letterSpacing: '-0.5px'
-          }}>{c.val}</div>
-              <c.Icon size={15} style={{
-            color: 'var(--text-secondary)',
-            opacity: 0.4,
-            marginTop: 3,
-            flexShrink: 0
-          }} />
+      {/* g200f KPI 4 卡 — kpiCardCompact(tone) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12, marginBottom: 16 }}>
+        {KPI_CARDS.map(c => {
+          const Icon = c.Icon;
+          return (
+            <div key={c.label} style={kpiCardCompact(c.tone)}>
+              <div style={kpiCardCompactLabel}><Icon size={13} /> {c.label}</div>
+              <div style={kpiCardCompactValue(c.tone)}>{c.val}</div>
+              <div style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.sub}</div>
             </div>
-            <div className={s.statLabel} style={{
-          fontSize: 12,
-          marginBottom: 3
-        }}>{c.label}</div>
-            <div className={s.statSub} style={{
-          fontSize: 11,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis'
-        }}>{c.sub}</div>
-          </div>)}
+          );
+        })}
       </div>
 
       <DataTable columns={columns} data={filtered} searchPlaceholder={t('ui.搜索鸡舍编码名称', '搜索鸡舍编码名称')} searchKeys={['code', 'name', 'farmLabel']} rowKey="id" filters={<div className={s.toolbar} style={{
       gap: 6
     }}>
-          <button type="button" className={`${s.tabPill} ${farmFilter === 'all' ? s.tabPillActive : ""}`} onClick={() => setFarmFilter('all')}>{t('ui.全部农场', '全部农场')}</button>
-          {farmsList.map(f => <button type="button" key={f.farm_code as string} className={`${s.tabPill} ${farmFilter === f.farm_code ? s.tabPillActive : ""}`} onClick={() => setFarmFilter(f.farm_code as string)}>{f.farm_name as string}</button>)}
+          <button type="button" onClick={() => setFarmFilter('all')} style={toolbarFilterPill(farmFilter === 'all')}>{t('ui.全部农场', '全部农场')}</button>
+          {farmsList.map(f => <button key={f.farm_code as string} type="button" onClick={() => setFarmFilter(f.farm_code as string)} style={toolbarFilterPill(farmFilter === f.farm_code)}>{f.farm_name as string}</button>)}
         </div>} />
 
       <RightDrawer isOpen={showDrawer} onClose={() => {
@@ -524,14 +477,8 @@ export default function HenHousePage() {
           gap: 10,
           marginTop: 4
         }}>
-            <button type="button" className={`${s.btnSecondary} ${u.flex1}`} onClick={() => {
-            setShowDrawer(false);
-            setEditId(null);
-            setEditRow(null);
-          }}>{t('common.cancel', '取消')}</button>
-            <button type="button" className={s.btnPrimary} style={{
-            flex: 2
-          }} onClick={handleSave}>{editId ? t('ui.保存修改', '保存修改') : t('ui.确认注册', '确认注册')}</button>
+            <button type="button" onClick={() => { setShowDrawer(false); setEditId(null); setEditRow(null); }} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>{t('common.cancel', '取消')}</button>
+            <button type="button" onClick={handleSave} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>{editId ? t('ui.保存修改', '保存修改') : t('ui.确认注册', '确认注册')}</button>
           </div>
         </div>
       </RightDrawer>

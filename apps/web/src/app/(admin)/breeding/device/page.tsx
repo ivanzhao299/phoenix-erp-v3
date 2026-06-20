@@ -8,6 +8,12 @@ import { RefreshCw, WifiOff, AlertTriangle, ChevronRight, Clock, Activity, Home,
 import { useToast } from '@/contexts/ToastContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import s from '@/components/ui/admin-ui.module.css';
+import {
+  primaryActionButton,
+  kpiCardCompact, kpiCardCompactLabel, kpiCardCompactValue,
+} from '@/components/design-system/cockpit-styles';
+
+type Tone = "default" | "success" | "warning" | "danger" | "info" | "brand";
 interface IotSystem {
   code: string;
   name: string;
@@ -409,39 +415,12 @@ export default function DeviceOverviewPage() {
   const houses = data?.houses || [];
   const alarms = data?.recentAlarms || [];
   const hasAlarm = (sum.totalAlarms || 0) > 0;
-  const kpiCards = [{
-    label: t('ui.接入鸡舍', '接入鸡舍'),
-    value: `${sum.activeHouses || 0}`,
-    sub: `共 ${sum.totalHouses || 0} 栋已接入`,
-    Icon: Home,
-    cardCls: s.statCardPrimary,
-    valCls: "",
-    alarmBg: false
-  }, {
-    label: t('ui.当前告警', '当前告警'),
-    value: `${sum.totalAlarms || 0}`,
-    sub: `${sum.alarmHouses || 0} 栋鸡舍受影响`,
-    Icon: AlertTriangle,
-    cardCls: hasAlarm ? s.statCardDanger : s.statCardSuccess,
-    valCls: hasAlarm ? s.textDanger : s.textSuccess,
-    alarmBg: hasAlarm
-  }, {
-    label: t('ui.在线传感器', '在线传感器'),
-    value: `${sum.onlineSensorCnt || 0}`,
-    sub: `共 ${sum.totalSensorCnt || 0} 个监测点`,
-    Icon: Wifi,
-    cardCls: s.statCardPrimary,
-    valCls: "",
-    alarmBg: false
-  }, {
-    label: t('ui.运行中设备', '运行中设备'),
-    value: `${sum.onlineDeviceCnt || 0}`,
-    sub: `共 ${sum.totalDeviceCnt || 0} 台（风机/加热）`,
-    Icon: Activity,
-    cardCls: s.statCardSuccess,
-    valCls: s.textSuccess,
-    alarmBg: false
-  }];
+  const kpiCards: { label: string; value: string; sub: string; Icon: typeof Home; tone: Tone }[] = [
+    { label: t('ui.接入鸡舍',   '接入鸡舍'),   value: `${sum.activeHouses     || 0}`, sub: `共 ${sum.totalHouses   || 0} 栋已接入`,    Icon: Home,          tone: 'brand' },
+    { label: t('ui.当前告警',   '当前告警'),   value: `${sum.totalAlarms      || 0}`, sub: `${sum.alarmHouses      || 0} 栋鸡舍受影响`, Icon: AlertTriangle, tone: hasAlarm ? 'danger' : 'success' },
+    { label: t('ui.在线传感器', '在线传感器'), value: `${sum.onlineSensorCnt  || 0}`, sub: `共 ${sum.totalSensorCnt || 0} 个监测点`,    Icon: Wifi,          tone: 'info'  },
+    { label: t('ui.运行中设备', '运行中设备'), value: `${sum.onlineDeviceCnt  || 0}`, sub: `共 ${sum.totalDeviceCnt || 0} 台（风机/加热）`, Icon: Activity,     tone: 'success' },
+  ];
   return <div className="animate-fade-in">
       <PageHeader title={t('ui.设备监控总览', '设备监控总览')} subtitle={`${sum.activeHouses || 0} 栋已接入 · ${sum.totalAlarms || 0} 个活跃告警`} breadcrumb={[t('ui.养殖生产中心', '养殖生产中心'), t('ui.设备监控总览', '设备监控总览')]} actions={<div className={u.flexRow8}>
             {/* 自动刷新开关：label 只做布局，s.toggle 只包裹 input+track */}
@@ -469,52 +448,23 @@ export default function DeviceOverviewPage() {
       }}><Clock size={10} style={{
           marginRight: 2
         }} />{lastSync}</span>}
-            <button type="button" className={s.btnPrimary} onClick={handleSync} disabled={syncing} style={{
-        opacity: syncing ? 0.7 : 1,
-        cursor: syncing ? 'not-allowed' : 'pointer'
-      }}>
-              <RefreshCw size={14} style={{
-          animation: syncing ? 'spin 1s linear infinite' : 'none'
-        }} />{syncing ? t('ui.采集中', '采集中...') : t('ui.手动采集', '手动采集')}
+            <button type="button" onClick={handleSync} disabled={syncing} style={{ ...primaryActionButton, opacity: syncing ? 0.6 : 1, cursor: syncing ? 'not-allowed' : 'pointer' }}>
+              <RefreshCw size={13} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />{syncing ? t('ui.采集中', '采集中...') : t('ui.手动采集', '手动采集')}
             </button>
           </div>} />
 
-      {/* KPI 卡片 */}
-      <div className={`${s.kpiGrid} ${u.mb16}`}>
-        {kpiCards.map(c => <div key={c.label} className={`${s.statCard} ${c.cardCls}`} style={c.alarmBg ? {
-        background: 'var(--status-danger-bg-faint)'
-      } : {}}>
-            <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          marginBottom: 6
-        }}>
-              <div className={`${s.statValue} ${c.valCls}`} style={{
-            fontSize: 28,
-            lineHeight: 1,
-            letterSpacing: '-0.5px'
-          }}>
-                {c.value}
-              </div>
-              <c.Icon size={15} style={{
-            color: 'var(--text-secondary)',
-            opacity: 0.45,
-            marginTop: 3,
-            flexShrink: 0
-          }} />
+      {/* g200f KPI 4 卡 — kpiCardCompact(tone) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12, marginBottom: 16 }}>
+        {kpiCards.map(c => {
+          const Icon = c.Icon;
+          return (
+            <div key={c.label} style={kpiCardCompact(c.tone)}>
+              <div style={kpiCardCompactLabel}><Icon size={13} /> {c.label}</div>
+              <div style={kpiCardCompactValue(c.tone)}>{c.value}</div>
+              <div style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.sub}</div>
             </div>
-            <div className={s.statLabel} style={{
-          fontSize: 12,
-          marginBottom: 3
-        }}>{c.label}</div>
-            <div className={s.statSub} style={{
-          fontSize: 11,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis'
-        }}>{c.sub}</div>
-          </div>)}
+          );
+        })}
       </div>
 
       {/* 5大系统图例 */}
