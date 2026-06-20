@@ -37,7 +37,25 @@ W4 已落 `sys_organization_type_rules` 表 + 9 条 seed。本文件**修正** A
 评审 §2.2 的 SITE 子类化口径，并定下：
 - `sys_organizations.org_type` 真值收敛到 **6 类**：GROUP / BU / COMPANY / SITE / DEPARTMENT / PROJECT
 - STORE / FACTORY / WAREHOUSE 是 **`site_business_type` 子类**（不是 `org_type`）
-- W4 seed 中的 STORE / FACTORY / WAREHOUSE / WAREHOUSE 3 行 → M3 子文档给迁移路径（W5+ 合并到 SITE 行）
+- W4 seed 中的 STORE / FACTORY / WAREHOUSE 3 行 → M3 子文档给迁移路径（W5+ 合并到 SITE 行）
+- W4 seed 中 DEPARTMENT 行的 `allowed_parent_types` 当前为 `['COMPANY', 'SITE']`，**缺 `'DEPARTMENT'` 自嵌套**；W6 type_rules service 接入前必须独立 TS 迁移 UPDATE → 含 `'DEPARTMENT'`（详 §8.2 C-1 决策）
+
+### 0.2.1 C-1 ~ C-7 决策合入
+
+本文件 v2 已合入 Audit M1 评审 §6.2 提出的 7 项条件决策（详
+`docs/M1_ORGANIZATION_MODEL_DECISIONS.md`）：
+
+| 决策编号 | 主题 | 合入章节 |
+|---|---|---|
+| C-1 | DEPT 嵌套环检测约束 | §8.2 末段 |
+| C-2 | DataScope 5 步合并算法 | §11.5 末段 |
+| C-3 | scope 严格只看显式绑定 | §9.7（新增） |
+| C-4 | biz_projects.company_code 不可变（ACTIVE 后） | §4.1 末段 |
+| C-5 | PROJECT 必属唯一 COMPANY | §3.2 / §4.1 / §5.5 |
+| C-6 | mst_stores ↔ SITE status service 单点写 | §7.5 末段 |
+| C-7 | sys_organizations PROJECT/WAREHOUSE 占位行保留 + 只读化 + UPDATE 白名单 | §4.2 / §6.2 |
+
+变更明细见 `docs/M1_ORGANIZATION_MODEL_CHANGELOG.md`。
 
 ### 0.3 用户拍板 4 条的最终入模
 
@@ -45,7 +63,7 @@ W4 已落 `sys_organization_type_rules` 表 + 9 条 seed。本文件**修正** A
 |---|---|
 | #1 仓库 ≠ site；库存 / FIFO / 批次 / 库位用 `warehouse_code` | §6 仓库独立 canonical（`wms_warehouses`）；§5 SITE 子类 `WAREHOUSE` 仅作为"承载仓库的物理地点"，不是库存维度 |
 | #2 门店 = `SITE-*-STORE`；`mst_stores` 是兼容台账 | §7 门店主身份在 SITE；`mst_stores` 退化为业务档案（M5 退役清单） |
-| #3 鸡舍必属 site；`brd_houses.site_code` 加 FK | §5 SITE 子类 `FARM` 下挂 `brd_houses`，1 site : N houses，1 house : 1 site |
+| #3 鸡舍必属 site；`brd_houses.site_code` 加 FK | §5.2 SITE 子类 `FARM` 下挂 `brd_houses`，1 site : N houses，1 house : 1 site；`brd_houses.site_code` FK 约束 DDL 与回填脚本由 M3 子文档单独定稿 |
 | #4 shareholder scope 不并入 sys_user_scopes | §11 股东 scope 独立 `shr_shareholder_scope`；DataScope 输出可统一暴露 `allowedShareholderCodes`，底层表不合 |
 
 ---
@@ -189,6 +207,10 @@ GROUP-{NAME_SHORT}
 - 子节点允许：`SITE`、`DEPARTMENT`、`PROJECT`（树形挂载，但 PROJECT 还有 canonical `biz_projects`）
 - 不允许子节点：`BU`、`COMPANY`、`GROUP`（多级子公司另立扩展机制，详 §15.2）
 
+**与 PROJECT 的对偶约束（C-5 决策）**：每个 `biz_projects` 行**必属唯一 COMPANY**
+（`biz_projects.company_code` 单一值，NOT NULL）。跨法人经营 = 多 project 并存 +
+BU 横切汇总，**永禁**多法人合资 project 写入同一 project 行（详 §4.2）。
+
 ### 3.3 唯一编码规则
 
 ```
@@ -241,18 +263,56 @@ COMP-{COUNTRY_ISO}-{BUSINESS_FUNC}
 项目是**经营核算单元**：
 - 业务损益归集（"孟赛蛋鸡场项目本月利润"）
 - 股东出资归集（"该项目股东实缴 XXX"）
-- 跨公司 / 跨 site 的成本归集（一个项目可能横跨"蛋鸡场 + 屠宰场 + 食品工厂"）
+- 跨 site 的成本归集（一个项目可能横跨"蛋鸡场 + 屠宰场 + 食品工厂"——但**法人维度仍单一**）
 - 工作流 byProjectManager 审批人解析依据
 
 ⚠️ **唯一 canonical = `biz_projects`**。`shr_projects` 在 W6 退化为 `shr_project_attrs`（仅资本/股权附加字段，外键 biz_projects）；`prc2_projects` 在 W8 与 workflow.byProjectManager 同步切走。
 
+**`biz_projects.company_code` 不可变（C-4 决策）**：
+
+| 项目状态 | company_code 是否可改 |
+|---|---|
+| DRAFT | ✅ 可改（自由修正归属公司） |
+| PENDING_APPROVAL | ✅ 可改（审批人退回 DRAFT 后） |
+| ACTIVE | ❌ **永禁** |
+| FROZEN | ❌ **永禁** |
+| ARCHIVED | ❌ **永禁** |
+| REJECTED | ✅ 可改（重新提交前） |
+
+**业务重组标准做法**（如"孟赛蛋鸡场"从 COMP-LAO-AGRI 转 COMP-LAO-XINGCHI）：
+1. 旧项目 `PRJ_MENGSAI_LAYER` → `status='ARCHIVED'`（历史 AP/AR/Cash 流水的 company_code 保持原值，永不可改）
+2. 新建 `PRJ_MENGSAI_LAYER_V2`（或新命名）→ company_code = COMP-LAO-XINGCHI
+3. 历史报表合并：BI 层通过"项目族"维度关联（远期 §14.6 数据湖）
+
+W5 落 service update path 校验拒改 + W5 末 DB trigger 保险。
+
+**PROJECT 必属唯一 COMPANY（C-5 决策）**：`biz_projects.company_code` 单一值，
+**永禁**多法人合资 project。跨法人经营场景：
+- **多 project 并存**：每法人各建独立 project，分别核算
+- **BU 横切汇总**：通过 `biz_business_units` + `biz_bu_membership` 在 BU 层做合并报表
+
+W5 起 biz_projects 扩列方案中不为"多公司项目"留 schema 扩展位；超出范围
+需走扩展评审（§15.2）。
+
 ### 4.2 canonical 与父子
 
 - 物理表（canonical）：`biz_projects`
-- 物理表（org 树占位）：`sys_organizations`，`org_type='PROJECT'`（少数历史行，可保留也可在 M3 拆出，主权以 biz_projects 为准）
-- `biz_projects.company_code` NOT NULL → 必属一家公司
+- 物理表（org 树占位）：`sys_organizations`，`org_type='PROJECT'`（详 C-7 占位行决议见下）
+- `biz_projects.company_code` NOT NULL **且单一**（C-5 决策，详 §4.1）
 - 一个 project 可服务多个 SITE → via `biz_site_projects(site_code, project_code)` 桥表（W4-late / W5 新增）
 - 一个 SITE 可服务多个 project（同上桥表）
+- 但每个 project 自己仍只挂一个 company
+
+**sys_organizations(org_type='PROJECT') 占位行（C-7 决策）—— 保留 + 只读化**：
+
+| 项 | 决策 |
+|---|---|
+| 现存占位行 | **保留**（status='ACTIVE' / 'FROZEN' / 'ARCHIVED' 各自延续） |
+| 新建占位行（W6+） | **永禁**（type_rules service 接入后硬阻；W5 软警告） |
+| 占位行物理 DELETE | **永禁**（与 §12 删除策略一致） |
+| 占位行 UPDATE 白名单 | 仅允许改以下字段：`status` / `org_name` 中文别名 / `org_name_cn` / `org_short_name` / `manager_user_id` / `manager_name` / `remark` / `sort_order` |
+| 占位行 UPDATE 黑名单 | **禁改**：`org_code` / `parent_id` / `company_code` / `org_type` / `level` / `path`（这些一旦发布即不可变） |
+| canonical 主权 | 永远在 `biz_projects`；占位行仅作 org 树展示与 manager_user_id 追溯 |
 
 ### 4.3 唯一编码规则
 
@@ -320,6 +380,17 @@ SITE 是**所有物理运营发生地**的统一抽象，覆盖：
 
 > 子类列表本文件冻结；新增子类必须走"扩展评审"流程（§15.7）。
 
+**`brd_houses.site_code` FK 收口（用户拍板 #3，2026-06-20）**：
+
+- 一个鸡舍 **必属唯一一个** site_business_type ∈ {FARM, BROILER, HATCHERY} 的 SITE
+- 一个 SITE 可下挂 0~N 个 `brd_houses`（1 : N）
+- W5+ schema 改造：`brd_houses` 加 `site_code` 列（NOT NULL）+ FK → `sys_organizations(org_code)`（带"org_type=SITE AND site_business_type IN (FARM, BROILER, HATCHERY)"业务约束，service 层校验）
+- 历史 `brd_houses` 行通过 `farm_code → biz_site_aliases (alias_type='FARM_CODE') → site_code` 桥接回填
+- 鸡舍 `house_code` 不可随 SITE 改名而漂移（§5.4 编码规则中 SITE_SHORT 段允许与 SITE 当前名错位，但 house_code 一旦发布永不可重命名）
+- FK 约束的 DDL 与回填脚本由 M3 子文档单独定稿，本 wave 不动 schema
+
+C-1~C-7 决策书不直接覆盖拍板 #3，但本节明文承诺 W5+ M3 子文档完成 FK 落地。
+
 ### 5.3 canonical 与父子
 
 - 物理表：`sys_organizations`，`org_type='SITE'`，`site_business_type ∈ §5.2`
@@ -356,6 +427,11 @@ SITE-{LOCATION_SHORT}-{TYPE_SUFFIX}
 - 关系桥表：`biz_site_projects(site_code, project_code, weight_pct, is_primary)`
 - 单 site 项目快捷字段：`biz_projects.site_code`（W5 新增 nullable，与桥表权威关系：**桥表 is_primary=true 那一行权威**，`biz_projects.site_code` 是冗余冷字段）
 
+**与 C-5 决策一致**：`biz_site_projects` 桥表允许"多公司的 project 共用同一 site"
+（例：万象总仓同时服务 PRJ_VTE_AGRI 与 PRJ_VTE_FOOD），但每个 project 仍只挂
+一个 company。site × project 跨多公司是**允许的桥表组合**，project × company
+跨多公司是**禁止的写入**。
+
 ### 5.6 删除策略
 
 ❌ **永禁物理删除**。site 关闭即 `status='ARCHIVED'`。
@@ -386,9 +462,22 @@ SITE 子类（site_business_type）一旦发布**不可更改**——一个 FARM
 ### 6.2 canonical 与父子
 
 - 物理表：`wms_warehouses`（canonical）
-- 物理表（org 树占位）：`sys_organizations`，`org_type='WAREHOUSE'` 仅作为历史兼容；M3 子文档评估是否退役 org 树占位行
+- 物理表（org 树占位）：`sys_organizations`，`org_type='WAREHOUSE'`（详 C-7 占位行决议见下）
 - 父：site（W5+ 新增 `wms_warehouses.mapped_site_code` FK → `sys_organizations(org_code WHERE org_type=SITE)`）
 - 子：`wms_zones`（库区）→ `wms_locations`（货位）
+
+**sys_organizations(org_type='WAREHOUSE') 占位行（C-7 决策）—— 保留 + 只读化**：
+
+与 §4.2 PROJECT 占位行完全同口径：
+
+| 项 | 决策 |
+|---|---|
+| 现存占位行 | **保留**（status 各自延续） |
+| 新建占位行（W6+） | **永禁**（type_rules service 接入硬阻；W5 软警告）；新仓必须走 `wms_warehouses` canonical |
+| 占位行物理 DELETE | **永禁** |
+| 占位行 UPDATE 白名单 | 仅允许改：`status` / `org_name` / `org_name_cn` / `org_short_name` / `manager_user_id` / `manager_name` / `remark` / `sort_order` |
+| 占位行 UPDATE 黑名单 | **禁改**：`org_code` / `parent_id` / `company_code` / `org_type` / `level` / `path` / `warehouse_code` 关联 |
+| canonical 主权 | 永远在 `wms_warehouses`；库存 / FIFO / 批次 / 库位 100% 走 canonical（user 拍板 #1） |
 
 ### 6.3 唯一编码规则
 
@@ -476,7 +565,25 @@ SITE-{LOCATION_SHORT}-STORE-{SEQ?}
 | FROZEN | 装修 / 停业整顿 | ❌ | ✅ |
 | ARCHIVED | 永久关门 | ❌ | ✅ |
 
-`mst_stores` 行的 status 与 SITE.status **强制同步**（W5+ service 或 trigger 保证；本 wave 仅冻结规则）。
+`mst_stores` 行的 status 与 SITE.status **强制同步**。
+
+**同步责任分配（C-6 决策）—— service 单点写**：
+
+1. **主写入点**：`sys_organizations` 行（org_type=SITE, site_business_type=STORE）
+2. **mst_stores 直写 status 禁止**：
+   - 任何 status 变更（freeze / archive / restore）走 master-data-runtime 的
+     SITE 路径；service 在同事务内级联更新 mst_stores.status
+   - 任何 raw SQL / ORM API 直接 UPDATE `mst_stores.status` → PR review 阻拦
+3. **mst_stores 的非 status 字段**（store_name / operation_type / contact /
+   phone / manager）仍可独立 CRUD（运营档案语义），不触 SITE
+4. **不用 DB trigger**：DB trigger 难审计且会与 W6 service 改造产生竞争；
+   单点写在 service 层实现，配合 logger.info / sys_audit_log 落审计
+5. **责任分配**：
+   - 方案出稿：Architect（master-data-runtime/store 改造）
+   - 落地：Architect 主，ERP 复审 POS / 日结路径不会绕过
+   - 落地波次：W6（依赖 M3 子文档定稿）
+6. **W5 期间**：扫描现存 `mst_stores.status` 与 SITE.status 差异行，由
+   Architect / ERP 共同评估"以 SITE 为准回填"还是"以 mst_stores 为准升 SITE"
 
 ---
 
@@ -498,6 +605,24 @@ SITE-{LOCATION_SHORT}-STORE-{SEQ?}
 - `parent_id` → `COMPANY` 或 `SITE`（部门可以挂在公司层，也可挂在 site 内）
 - 子节点允许：嵌套 `DEPARTMENT`（多层部门：财务部 → 应收应付组 → 应收主管）
 - 不允许子节点：其他所有 org_type
+
+**嵌套环检测约束（C-1 决策）—— 三层防护**：
+
+1. **最大嵌套深度 = 5**（含根 COMPANY/SITE）。例：`COMPANY → 一级部门 → 二级
+   组 → 三级主管 → 四级文员` 已是极限；第 6 层服务侧拒。
+2. **应用层 ancestor 环检测**：service 在 `parent_id` 写入 / 更新前必须遍历
+   祖先链路，若链路含 self.id 立即拒绝并返回明确错误（哪个 id 闭环）。
+3. **DB 层自环 trigger**：BEFORE INSERT / UPDATE 拒绝 `parent_id = id`（最小
+   防线，与 service 双保险）。
+4. **service 接入波次**：W5 落 service ancestor 检测 + 自环 trigger；W6
+   type_rules service 接入时把"深度 ≤ 5 + 允许 parent 类型集"软警告 → 硬校验。
+5. **W4 seed 勘误**（C-1 落地前置）：`sys_organization_type_rules` 中
+   DEPARTMENT 行当前 `allowed_parent_types = ['COMPANY', 'SITE']`，**缺
+   `'DEPARTMENT'` 自嵌套**。W6 type_rules service 接入**之前**必须独立 TS
+   迁移 UPDATE 该行 → `['COMPANY', 'SITE', 'DEPARTMENT']`，否则 service 启用
+   时会拒绝深度 ≥ 2 的部门嵌套，与本约束矛盾。该 seed UPDATE 由 Architect
+   在 W5 / W6 范围内单独提案。
+6. **path 物化列 / 多列 CHECK CONSTRAINT** 等优化延 W6+ 评估，本决策不强制。
 
 ### 8.3 唯一编码规则
 
@@ -587,6 +712,34 @@ username:全集团唯一,小写 ASCII + 数字 + 下划线,≤ 32 字符
 | ARCHIVED | 永久离职 | ❌ | ✅ |
 
 ARCHIVED 后用户名**保留唯一占用**（不可被新员工复用），避免审计混淆。
+
+### 9.7 scope 继承策略（C-3 决策 —— 严格只看显式绑定）
+
+**核心规则**：用户的 scope 范围**只看 `sys_user_orgs` 表中显式绑定的行 +
+`sys_user_*_scopes` 4 张显式追加表**，**不沿 `sys_organizations.parent_id`
+向祖先方向隐式继承**。
+
+| 场景 | 含义 |
+|---|---|
+| 用户绑 DEPT-LAO-FIN（挂在 COMP-LAO-AGRI 下）| **不自动**获得 COMP-LAO-AGRI 的 company scope |
+| 用户绑 SITE-MENGSAI-LAYER（挂在 COMP-LAO-AGRI 下）| **不自动**获得 COMP-LAO-AGRI 的 company scope |
+| 想拿 COMPANY scope | 必须在 `sys_user_orgs` 显式建对应 org_type=COMPANY 的行 |
+| 唯一例外 | ROLE_ADMIN 持 perm `'*'`（C-2 Step 1 短路）|
+
+**理由**：
+- 合规审计：审计员问"用户 X 为什么能看到 COMP-LAO-AGRI 应付？" → 一表查
+  sys_user_orgs 即可回答；隐式继承需多层 parent_id 追溯
+- 最小授权：财务隔离 / 数据保护合规要求；隐式继承违背
+- service 一致性：W4 Review §3.4 已指出"service 各自选一种实现 → 同一用户在
+  不同模块看到不同范围"，统一选严格语义一锅煮死
+
+**UI 引导（前端责任）**：用户管理页绑 DEPT 时 UI 自动 prompt "是否同时绑该
+DEPT 所属 SITE / COMPANY？"，避免管理员漏配多绑。后端算法不感知 UI，严格只
+看绑定。
+
+**实施波次**：W5 落 service 严格语义检查 + 跑现存 sys_user_orgs 扫描出
+"只绑 DEPT 漏绑 COMPANY"用户清单交业务方；W7 sys_user_scopes 合表方案不引入
+任何祖先继承语义。
 
 ---
 
@@ -700,6 +853,60 @@ flowchart LR
 - 算法：service 层组装，物理表不动
 
 业务 service 直读 CLS `dataScope.allowedShareholderCodes`（W7+ DataScopeService 改造后），不感知底层来源差异。
+
+**DataScope 合并算法承诺（C-2 决策，W7 实施）**：
+
+DataScopeService.resolve(user) 输出统一 CLS 结构：
+```
+dataScope {
+  isGlobal: boolean,
+  allowedCompanyCodes: string[],
+  allowedProjectCodes: string[],
+  allowedSiteCodes: string[],
+  allowedWarehouseCodes: string[],
+  allowedShareholderCodes: string[],
+}
+```
+
+**5 步合并算法定型**（任何 service 私造算法 = PR 不予合入）：
+
+```
+Step 1. 短路: 若 user 持 perm '*' 或 username='admin'
+        → isGlobal = true; 其它字段不 resolve(返回 [])
+        → return 终止
+
+Step 2. 默认 scope_type:
+        遍历 user×role 找 sys_data_scopes(role_code, module_code)
+        → 得到该用户每个 module 的 default scope_type
+          (SELF / PROJECT / COMPANY / REGION / GROUP)
+        → 缓存为 defaultScopeByModule
+
+Step 3. user×org 展开:
+        遍历 sys_user_orgs(user_id, org_id, data_scope_level)
+        每行解出该 org 的 (company_code, project_code, site_code, warehouse_code)
+        按 data_scope_level 展开:
+          SELF       → 仅当前 org
+          PROJECT    → 同 project 下所有 org
+          COMPANY    → 同 company 下所有 org
+          REGION/GROUP → 见母规划 §3.3
+        若 data_scope_level 缺失 → 回退到 Step 2 defaultScopeByModule
+        ★ 严格 sys_user_orgs 显式行,不沿 parent_id 隐式继承(C-3 决策)
+
+Step 4. 显式追加(union):
+        sys_user_project_scopes  → allowedProjectCodes 取并集
+        sys_user_farm_scopes     → allowedSiteCodes 取并集(W7 合 sys_user_site_scopes)
+        sys_user_warehouse_scopes → allowedWarehouseCodes 取并集
+
+Step 5. shareholder 独立(user 拍板 #4):
+        if user.linked_user_id 命中 shr_shareholders.linked_user_id
+          → 该 shareholder + shr_shareholder_scope 关联的扩展
+        else
+          → 从 sys_user_role + 角色配置(若有)派生
+        ★ 不与 Step 4 union;allowedShareholderCodes 完全独立计算
+```
+
+**实施波次**：W5 落文档（本节）；W7 sys_user_scopes 合表 wave 实施
+DataScopeService 改造 + 兼容期保留旧字段名 ≥ 1 wave。
 
 ### 11.6 删除策略
 
