@@ -7,6 +7,7 @@
 | Status | Meaning |
 | --- | --- |
 | TODO | Task accepted but not started. |
+| dry-run-only | Orchestrator-only simulation; no Agent started and no code changes allowed. |
 | IN_PROGRESS | Agent is actively working. |
 | BLOCKED | Agent cannot proceed without decision/evidence. |
 | REVIEW | Output is ready for review. |
@@ -36,6 +37,7 @@
 | W5-P0-ADF-00 | Codex-Orchestrator | w5-ai-delivery-factory-setup | IN_PROGRESS | TBD | Low | No | Docs-only setup in progress | None | Complete docs and PR template |
 | W5-A1-CI-RUNTIME-GATE | A1-CI-Runtime-Gate | w5-a1-ci-runtime-gate | FAIL | TBD | P0 | No | A1 result: FAIL; use as later go-live repair sample only | Runtime/security blockers remain out of scope for Phase 2 | Do not fix in current task; wait for explicit repair dispatch |
 | ADF-P2-NL-DISPATCH-FLOW | Codex-Orchestrator | w5-codex-orchestrator | done | TBD | L1 | No | Natural language dispatch docs completed | None | Use a sample request to dry-run routing |
+| ADF-P2-DRYRUN-STORE-PAYMENT-001 | Codex-Orchestrator | w5-codex-orchestrator | dry-run-only | N/A | L5 | No | Output `docs/ops/NL_DISPATCH_DRY_RUN_STORE_PAYMENT_001.md`; Request ID `REQ-STORE-PAYMENT-UNIFIED-CODE-001` | User clarification required before formal spec | 等待用户确认澄清问题后，才允许生成正式 Requirement Spec 与 Agent 任务合同 |
 
 ## Current Ready Task
 

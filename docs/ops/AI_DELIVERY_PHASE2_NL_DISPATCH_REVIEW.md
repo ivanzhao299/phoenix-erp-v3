@@ -105,3 +105,32 @@ A1-CI-Runtime-Gate has produced a `FAIL` result. Phase 2 records this as a futur
 3. Update the task board with the dry-run task.
 4. Ask user approval before starting any L3+ Agent work.
 5. Use A1 FAIL as the first realistic sample only after user explicitly starts the repair flow.
+
+## 11. Dry Run: Store Payment Unified Code
+
+| Field | Value |
+| --- | --- |
+| Request ID | REQ-STORE-PAYMENT-UNIFIED-CODE-001 |
+| 输入自然语言 | 我想让老挝直营店统一使用公司收款码，不再让店员用个人收款码。顾客付款后，系统能自动生成收款记录，并且可以按门店、收款人、日期、支付方式查询。后续最好还能和 ERP 的销售订单、库存、财务收款对上。 |
+| 是否成功生成结构化需求 | Yes |
+| 风险等级 | L5 |
+| 是否触发 Agent 路由 | Yes, proposal-only: A2, A3, A4, A5, A6, A7. A1 not started in this dry run. |
+| 是否正确阻止自动开发 | Yes |
+| 是否正确要求人工确认 | Yes |
+| 输出文档 | `docs/ops/NL_DISPATCH_DRY_RUN_STORE_PAYMENT_001.md` |
+
+### Dry-Run Findings
+
+The Phase 2 flow successfully classified the request as high risk because it involves payment collection, finance records, POS/store operations, permissions, master data, possible third-party callbacks, gray rollout, rollback, and possible migration/schema impact.
+
+No Agent was started. No business code was changed. The output is limited to a dry-run requirement, routing proposal, task contract drafts, acceptance criteria, and task board entry.
+
+### Flow Gaps Found
+
+1. The task board status list did not previously define `dry-run-only`; this dry run uses it as a coordination status and should be added to the formal status glossary in a later cleanup.
+2. Payment-specific acceptance criteria may deserve a reusable library section if store payment requests become common.
+3. Agent proposal contracts are currently embedded in the dry-run document; a later automation step could split them into per-Agent draft files after user approval.
+
+### Next Recommendation
+
+Ask the user to answer the payment-channel, callback, store-code, pilot-store, POS-binding, currency, and Chanjet questions before generating a formal Requirement Spec or starting any Agent task.
