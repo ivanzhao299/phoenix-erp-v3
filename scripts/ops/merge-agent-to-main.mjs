@@ -5,24 +5,29 @@ import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import path from 'node:path';
 
-const args = process.argv.slice(2);
+const args = process.argv.slice(2).map((arg) => arg.replace(/^–+/, '--'));
 const targetBranch = args.find((arg) => !arg.startsWith('-'));
 const dryRun = args.includes('--dry-run');
 const allowCode = args.includes('--allow-code');
 const yes = args.includes('--yes');
+const schemaGateIndex = args.indexOf('--schema-gate');
+const schemaGateRequestId = schemaGateIndex >= 0 ? args[schemaGateIndex + 1] : null;
+const schemaGate = Boolean(schemaGateRequestId && !schemaGateRequestId.startsWith('-'));
 
 function usage(exitCode = 1) {
   console.log(`Usage:
   node scripts/ops/merge-agent-to-main.mjs <agent-branch> [--dry-run] [--allow-code] [--yes]
+  node scripts/ops/merge-agent-to-main.mjs <agent-branch> --schema-gate <request-id> [--dry-run] [--yes]
 
 Examples:
   node scripts/ops/merge-agent-to-main.mjs w5-codex-orchestrator --dry-run
   node scripts/ops/merge-agent-to-main.mjs w5-a5-data-readiness --yes
-  node scripts/ops/merge-agent-to-main.mjs w5-a3-backend-critical-path --allow-code --dry-run`);
+  node scripts/ops/merge-agent-to-main.mjs w5-a3-backend-critical-path --allow-code --dry-run
+  node scripts/ops/merge-agent-to-main.mjs w5-a3-backend-critical-path --schema-gate REQ-STORE-PAYMENT-UNIFIED-CODE-001 --dry-run`);
   process.exit(exitCode);
 }
 
-if (!targetBranch || args.includes('--help') || args.includes('-h')) {
+if (!targetBranch || args.includes('--help') || args.includes('-h') || (schemaGateIndex >= 0 && !schemaGate)) {
   usage(args.includes('--help') || args.includes('-h') ? 0 : 1);
 }
 
@@ -60,6 +65,10 @@ function ensureGitRepo() {
 function listChangedFiles(branch) {
   const output = runGit(['diff', '--name-only', `HEAD..${branch}`]);
   return output ? output.split('\n').filter(Boolean) : [];
+}
+
+function readFileFromBranch(branch, file) {
+  return runGit(['show', `${branch}:${file}`]);
 }
 
 function isAllowedOpsPath(file) {
@@ -110,6 +119,102 @@ function checkFreezeBoundaries(files) {
   if (disallowed.length > 0) {
     fail(`non-ops paths detected; default merge scope is docs/ops, scripts/ops, scripts/ci, .github:\n${disallowed.map((f) => `  - ${f}`).join('\n')}`);
   }
+}
+
+function isStorePaymentRelatedOpsDoc(file) {
+  return (
+    file.startsWith('docs/ops/') &&
+    /(STORE_PAYMENT|STORE-PAYMENT|UNIFIED_CODE|UNIFIED-CODE|REQ_STORE_PAYMENT|REQ-STORE-PAYMENT|A2_SCHEMA_SECURITY_REVIEW_STORE_PAYMENT_001_REPORT)/i.test(file)
+  );
+}
+
+function checkSchemaGatePath(file, requestId) {
+  if (requestId !== 'REQ-STORE-PAYMENT-UNIFIED-CODE-001') {
+    fail(`unsupported schema gate request id: ${requestId}`);
+  }
+
+  const exactMigration = 'apps/api/src/database/migrations/1782041418112-CreateStorePaymentTables.ts';
+  if (file === exactMigration) return;
+  if (file.startsWith('apps/api/src/modules/store-payment/')) return;
+  if (file === 'docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_SCHEMA_IMPLEMENTATION_S1_REPORT.md') return;
+  if (file === 'docs/ops/A2_SCHEMA_SECURITY_REVIEW_STORE_PAYMENT_001_REPORT.md') return;
+  if (isStorePaymentRelatedOpsDoc(file)) return;
+
+  fail(`path is not allowed in schema gate mode: ${file}`);
+}
+
+function checkSchemaGateFiles(files, requestId, branch) {
+  console.log('\nSchema Gate mode enabled.');
+  console.log(`Request ID: ${requestId}`);
+
+  for (const file of files) {
+    if (file.startsWith('apps/web/')) {
+      fail(`apps/web changes are forbidden in schema gate mode: ${file}`);
+    }
+    if (
+      file.startsWith('apps/api/src/modules/procurement/') ||
+      file.startsWith('apps/api/src/modules/sales/') ||
+      file.startsWith('apps/api/src/modules/finance/') ||
+      file.startsWith('apps/api/src/modules/chanjet/')
+    ) {
+      fail(`business module path is forbidden in schema gate mode: ${file}`);
+    }
+    if ((file.endsWith('.entity.ts') || file.includes('/entities/')) && !file.startsWith('apps/api/src/modules/store-payment/')) {
+      fail(`entity/schema path outside store-payment module is forbidden: ${file}`);
+    }
+    if (/fifo|store_code.*rename|customer.*fk|deploy/i.test(file)) {
+      fail(`high-risk path signal is forbidden in schema gate mode: ${file}`);
+    }
+    checkSchemaGatePath(file, requestId);
+  }
+
+  const migrationFiles = files.filter((file) => file.startsWith('apps/api/src/database/migrations/'));
+  const expectedMigration = 'apps/api/src/database/migrations/1782041418112-CreateStorePaymentTables.ts';
+  if (migrationFiles.length !== 1 || migrationFiles[0] !== expectedMigration) {
+    fail(`schema gate requires exactly one migration file: ${expectedMigration}`);
+  }
+
+  const migration = readFileFromBranch(branch, expectedMigration);
+  if (/drop\s+column/i.test(migration)) {
+    fail('migration contains DROP COLUMN');
+  }
+  if (/\binsert\s+into\b|\bupdate\s+[a-zA-Z0-9_".]+\b|\bdelete\s+from\b/i.test(migration)) {
+    fail('migration contains data DML: INSERT INTO / UPDATE / DELETE FROM');
+  }
+  if (!/\bdown\s*\(/.test(migration)) {
+    fail('migration must contain down()');
+  }
+
+  const allowedTables = new Set(['store_payment_accounts', 'store_payment_records']);
+  const tablePattern = /\b(?:create|drop)\s+table(?:\s+if\s+(?:not\s+)?exists)?\s+["`]?([a-zA-Z0-9_]+)/gi;
+  let match;
+  while ((match = tablePattern.exec(migration)) !== null) {
+    const tableName = match[1].replace(/["`]/g, '');
+    if (!allowedTables.has(tableName)) {
+      fail(`migration creates/drops a non-approved table: ${tableName}`);
+    }
+  }
+
+  const typeormTablePattern = /\b(?:createTable|dropTable)\s*\(\s*(?:new\s+Table\s*\(\s*\{\s*name:\s*)?['"`]([a-zA-Z0-9_]+)/gi;
+  while ((match = typeormTablePattern.exec(migration)) !== null) {
+    const tableName = match[1].replace(/["`]/g, '');
+    if (!allowedTables.has(tableName)) {
+      fail(`migration creates/drops a non-approved table: ${tableName}`);
+    }
+  }
+
+  const alterTablePattern = /\balter\s+table\s+["`]?([a-zA-Z0-9_]+)/gi;
+  while ((match = alterTablePattern.exec(migration)) !== null) {
+    const tableName = match[1].replace(/["`]/g, '');
+    if (!allowedTables.has(tableName)) {
+      fail(`migration alters a non-approved table: ${tableName}`);
+    }
+  }
+
+  console.log('Allowed schema paths verified.');
+  console.log('Migration safety checks passed.');
+  console.log('No migration executed.');
+  console.log('No database write executed.');
 }
 
 async function confirmMerge(branch) {
@@ -189,7 +294,11 @@ console.log(files.length ? files.map((file) => `  ${file}`).join('\n') : '  (no 
 console.log('\nDiff stat:');
 runGit(['diff', '--stat', `HEAD..${targetBranch}`], { stdio: 'inherit' });
 
-checkFreezeBoundaries(files);
+if (schemaGate) {
+  checkSchemaGateFiles(files, schemaGateRequestId, targetBranch);
+} else {
+  checkFreezeBoundaries(files);
+}
 
 console.log('\nFreeze boundary check: PASS');
 
