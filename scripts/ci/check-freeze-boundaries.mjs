@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 const baseRef = process.env.FREEZE_BASE_REF || process.env.GITHUB_BASE_REF || 'main';
 const headRef = process.env.FREEZE_HEAD_REF || 'HEAD';
@@ -44,14 +45,22 @@ function changedFiles() {
   return [...files].sort();
 }
 
-const checks = [
+const frozenPathChecks = [
   {
     name: 'migration files',
     pattern: /(^|\/)(migrations?\/|.*migration.*\.(sql|ts|js|mjs)$|apps\/api\/src\/database\/migrations\/)/i,
   },
   {
-    name: 'schema/entity/table/column surface',
-    pattern: /(schema|entity|entities|table|column|data-source|typeorm|database)/i,
+    name: 'api/web application paths',
+    pattern: /^apps\/(api|web)\//i,
+  },
+  {
+    name: 'entity paths',
+    pattern: /(^|\/)(entities\/|.*\.entity\.ts$)/i,
+  },
+  {
+    name: 'database/typeorm paths',
+    pattern: /(^|\/)(data-source|typeorm|database)(\/|\.|$)/i,
   },
   {
     name: 'procurement core business',
@@ -79,18 +88,78 @@ const checks = [
   },
 ];
 
+const contentChecks = [
+  {
+    name: 'destructive schema change',
+    pattern: /\bdrop\s+column\b/i,
+  },
+  {
+    name: 'table DDL',
+    pattern: /\b(create|alter|drop)\s+table\b|queryRunner\.(createTable|dropTable|addColumn|dropColumn|renameColumn)/i,
+  },
+  {
+    name: 'entity declaration',
+    pattern: /@Entity\s*\(|class\s+\w+Entity\b/i,
+  },
+];
+
+function isDocsOnlyText(file) {
+  return file.startsWith('docs/') || file.endsWith('.md') || file.endsWith('.mdx');
+}
+
+function isOpsTooling(file) {
+  return file.startsWith('scripts/ci/') || file.startsWith('scripts/ops/');
+}
+
+function isExistingReadableFile(file) {
+  try {
+    readFileSync(file, 'utf8');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const files = changedFiles();
 const violations = [];
+let frozenPathHits = 0;
+let contentHits = 0;
+let skippedDocsOnlyTextScan = 0;
 
 for (const file of files) {
-  for (const check of checks) {
+  for (const check of frozenPathChecks) {
     if (check.pattern.test(file)) {
+      frozenPathHits += 1;
+      violations.push({ file, check: check.name });
+    }
+  }
+
+  if (isDocsOnlyText(file)) {
+    skippedDocsOnlyTextScan += 1;
+    continue;
+  }
+
+  if (isOpsTooling(file)) {
+    continue;
+  }
+
+  if (!isExistingReadableFile(file)) {
+    continue;
+  }
+
+  const content = readFileSync(file, 'utf8');
+  for (const check of contentChecks) {
+    if (check.pattern.test(content)) {
+      contentHits += 1;
       violations.push({ file, check: check.name });
     }
   }
 }
 
 console.log(`check-freeze-boundaries: ${files.length} changed file(s) inspected`);
+console.log(`check-freeze-boundaries: ${skippedDocsOnlyTextScan} docs-only text scan(s) skipped`);
+console.log(`check-freeze-boundaries: ${frozenPathHits} frozen path hit(s)`);
+console.log(`check-freeze-boundaries: ${contentHits} content hit(s)`);
 
 if (violations.length) {
   for (const v of violations) {

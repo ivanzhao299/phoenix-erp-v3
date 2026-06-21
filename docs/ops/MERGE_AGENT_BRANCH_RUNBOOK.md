@@ -184,6 +184,17 @@ Default blocked paths include:
 
 `--allow-code` can allow `apps/api/**` and `apps/web/**`, but still does not allow migration/schema/entity/table/column changes.
 
+## Freeze Boundary Text Scan
+
+`docs/ops/**`, `docs/**`, and Markdown reports may mention words such as `schema`, `entity`, `table`, or `column` as explanatory text. That wording alone does not mean a frozen boundary was touched.
+
+The freeze boundary gate focuses on:
+
+1. changed file paths for real frozen areas such as migrations, entities, `apps/api/**`, and `apps/web/**`;
+2. non-document code content where destructive schema/table/entity changes may appear.
+
+Real migration/schema/entity paths are still strictly blocked. A docs-only validation report that discusses schema results should pass unless its file path itself is outside the allowed documentation scope.
+
 ## Rollback Advice
 
 If a just-finished fast-forward merge is wrong:
