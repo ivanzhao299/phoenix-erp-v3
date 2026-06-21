@@ -2,17 +2,18 @@
 
 ## 1. Scope
 
-This report is a rerun based on the rebased A1 branch after syncing with the latest main that contains `69cb7fd feat(schema): add store payment MVP tables`.
+This report is based on the latest validation after `8bbddc4 fix(ci): ignore docs-only wording in freeze boundary gate`.
 
-The previous A1 validation ran on an old HEAD and is superseded by this report.
+It supersedes the previous A1 HOLD report. The prior HOLD was caused by a docs-only report wording false positive in `check-freeze-boundaries.mjs`; that false positive is fixed in the current branch.
 
 ## 2. Execution Environment
 
 - Agent: A1-CI-Runtime-Gate
 - pwd: `/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate`
 - branch: `w5-a1-ci-runtime-gate`
-- current HEAD: `6405563 test(ops): validate store payment schema merge`
-- latest main commit included: yes, `69cb7fd feat(schema): add store payment MVP tables`
+- current HEAD before this report update: `5a3ef77 test(ops): rerun store payment schema validation after sync`
+- includes Store Payment schema commit: yes, `69cb7fd feat(schema): add store payment MVP tables`
+- includes freeze gate fix commit: yes, `8bbddc4 fix(ci): ignore docs-only wording in freeze boundary gate`
 - node: `v24.14.1`
 - date: `2026-06-21`
 
@@ -23,7 +24,7 @@ The previous A1 validation ran on an old HEAD and is superseded by this report.
 | `pwd` | PASS | `/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate` |
 | `git branch --show-current` | PASS | `w5-a1-ci-runtime-gate` |
 | `git status --short` | PASS | clean before report update |
-| `git log --oneline --decorate -10` | PASS | contains `6405563`, `964f30b`, and `69cb7fd` |
+| `git log --oneline --decorate -14` | PASS | contains `5a3ef77`, `8bbddc4`, and `69cb7fd` |
 
 ## 4. Schema File Existence
 
@@ -39,14 +40,15 @@ The previous A1 validation ran on an old HEAD and is superseded by this report.
 | # | Command | Result | Output summary |
 |---:|---|---:|---|
 | 1 | `node --check scripts/ops/merge-agent-to-main.mjs` | PASS | syntax check completed with exit 0 |
-| 2 | `node scripts/ci/check-freeze-boundaries.mjs` | FAIL | inspected 2 changed files; flagged `docs/ops/A1_POST_MERGE_SCHEMA_VALIDATION_STORE_PAYMENT_001_REPORT.md` as schema/entity/table/column surface |
-| 3 | `node scripts/ci/check-security-regression.mjs` | PASS | 0 changed source files inspected; no security regression signal |
-| 4 | `node scripts/ci/check-w5-closeout-gate.mjs` | FAIL | failed because freeze boundary static gate failed |
-| 5 | `node scripts/check-nullable-in-unique.js` | PASS | 0 violations, 1 allowlisted case |
-| 6 | `bash scripts/check-ts-migration-down.sh apps/api/src/database/migrations` | PASS | all 9 TS migrations have implemented `down()` |
-| 7 | `bash scripts/check-ts-migration-no-data-dml.sh apps/api/src/database/migrations` | PASS | 9 TS migrations passed, 4 file-level exemptions |
-| 8 | `pnpm --filter phoenix-erp-v3-nest exec tsc --noEmit` | PASS | API typecheck completed with exit 0 |
-| 9 | `pnpm --filter web exec tsc --noEmit` | PASS | Web typecheck completed with exit 0 |
+| 2 | `node --check scripts/ci/check-freeze-boundaries.mjs` | PASS | syntax check completed with exit 0 |
+| 3 | `node scripts/ci/check-freeze-boundaries.mjs` | PASS | inspected 2 changed files; skipped 2 docs-only text scans; 0 frozen path hits; 0 content hits |
+| 4 | `node scripts/ci/check-security-regression.mjs` | PASS | 0 changed source files inspected; no security regression signal |
+| 5 | `node scripts/ci/check-w5-closeout-gate.mjs` | PASS | W5 closeout static gates passed |
+| 6 | `node scripts/check-nullable-in-unique.js` | PASS | 0 violations, 1 allowlisted case |
+| 7 | `bash scripts/check-ts-migration-down.sh apps/api/src/database/migrations` | PASS | all 9 TS migrations have implemented `down()` |
+| 8 | `bash scripts/check-ts-migration-no-data-dml.sh apps/api/src/database/migrations` | PASS | 9 TS migrations passed, 4 file-level exemptions |
+| 9 | `pnpm --filter phoenix-erp-v3-nest exec tsc --noEmit` | PASS | API typecheck completed with exit 0 |
+| 10 | `pnpm --filter web exec tsc --noEmit` | PASS | Web typecheck completed with exit 0 |
 
 ## 6. Typecheck Results
 
@@ -72,22 +74,15 @@ The previous A1 validation ran on an old HEAD and is superseded by this report.
 
 This run did not modify `apps/api/**`, `apps/web/**`, migrations, schema/entity/table/column files, business logic, deployment files, or other Agent worktrees.
 
-Note: the freeze boundary script failed because it scans the branch-level changed file set and the report filename/content matches schema-related keywords. The only modified file in this run is this report under `docs/ops/**`.
-
 ## 10. Final Conclusion
 
-HOLD.
+PASS WITH CONDITIONS.
 
-Schema file existence, migration static safety checks, nullable unique check, API typecheck, and Web typecheck passed after the A1 rebase. However, the required command set is not fully green because:
-
-- `node scripts/ci/check-freeze-boundaries.mjs` failed on the A1 report file.
-- `node scripts/ci/check-w5-closeout-gate.mjs` failed because the freeze boundary gate failed.
-
-Because the user-defined PASS WITH CONDITIONS criterion requires all schema validation commands to pass, this run cannot be marked PASS WITH CONDITIONS.
+All requested schema validation commands passed after the freeze gate fix.
 
 ## 11. Conditions / Non-Coverage
 
-- This only validates static checks and typecheck for the schema merge state available in this worktree.
+- This only proves static checks and typecheck pass after the schema merge.
 - It does not mean migrations were executed.
 - It does not mean the database was upgraded.
 - It does not mean service/controller/frontend implementation exists.
@@ -95,6 +90,6 @@ Because the user-defined PASS WITH CONDITIONS criterion requires all schema vali
 
 ## 12. Recommendation
 
-Do not treat this A1 report as a fully green schema validation until the freeze-boundary behavior for docs-only A1 reports is clarified or the gate is rerun in a context where only the intended schema merge diff is inspected.
+Recommend merging the A1 report to main as a PASS WITH CONDITIONS validation artifact for REQ-STORE-PAYMENT-UNIFIED-CODE-001 schema merge.
 
-Recommended next status: HOLD, with A2/A3 follow-up allowed only after owner accepts that the freeze failure is docs-report-scope noise or after the gate is adjusted/rerun to avoid classifying A1 report text as schema boundary changes.
+Downstream A2/A3 work may proceed for service/controller/frontend design and implementation with the conditions above explicitly preserved.
