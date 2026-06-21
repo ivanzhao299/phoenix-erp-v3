@@ -1,0 +1,248 @@
+#!/usr/bin/env node
+
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { execFileSync, spawnSync } from 'node:child_process';
+
+const AGENTS = {
+  'Codex-Orchestrator': {
+    branch: 'w5-codex-orchestrator',
+    worktree: '/Users/mac/phoenix-erp-worktrees/codex-orchestrator',
+    prompt: 'docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md',
+  },
+  'A1-CI-Runtime-Gate': {
+    branch: 'w5-a1-ci-runtime-gate',
+    worktree: '/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate',
+    prompt: 'docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md',
+  },
+  'A2-Security-Regression-Gate': {
+    branch: 'w5-a2-security-regression-gate',
+    worktree: '/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate',
+    prompt: 'docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md',
+  },
+  'A3-Backend-Critical-Path': {
+    branch: 'w5-a3-backend-critical-path',
+    worktree: '/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path',
+    prompt: 'docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md',
+  },
+  'A4-Frontend-UAT-Smoke': {
+    branch: 'w5-a4-frontend-uat-smoke',
+    worktree: '/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke',
+    prompt: 'docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md',
+  },
+  'A5-Data-Readiness': {
+    branch: 'w5-a5-data-readiness',
+    worktree: '/Users/mac/phoenix-erp-worktrees/a5-data-readiness',
+    prompt: 'docs/ops/prompts/A5_DATA_READINESS_PROMPT.md',
+  },
+  'A6-Staging-Deploy-Runbook': {
+    branch: 'w5-a6-staging-deploy-runbook',
+    worktree: '/Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook',
+    prompt: 'docs/ops/prompts/A6_DEPLOY_RUNBOOK_PROMPT.md',
+  },
+  'A7-Final-QA-Gate': {
+    branch: 'w5-a7-final-qa-gate',
+    worktree: '/Users/mac/phoenix-erp-worktrees/a7-final-qa-gate',
+    prompt: 'docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md',
+  },
+};
+
+function usage(exitCode = 1) {
+  console.log(`Usage:
+  node scripts/ops/run-agent-task.mjs --agent <name> --worktree <path> --prompt <file> [--dry-run]
+
+Example:
+  node scripts/ops/run-agent-task.mjs \\
+    --agent A1-CI-Runtime-Gate \\
+    --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate \\
+    --prompt docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md \\
+    --dry-run`);
+  process.exit(exitCode);
+}
+
+function parseArgs(argv) {
+  const normalized = argv.map((arg) => arg.replace(/^–+/, '--'));
+  const values = {};
+  for (let i = 0; i < normalized.length; i += 1) {
+    const arg = normalized[i];
+    if (arg === '--dry-run') {
+      values.dryRun = true;
+      continue;
+    }
+    if (arg === '--help' || arg === '-h') {
+      usage(0);
+    }
+    if (arg.startsWith('--')) {
+      values[arg.slice(2)] = normalized[i + 1];
+      i += 1;
+    }
+  }
+  return values;
+}
+
+function fail(message) {
+  console.error(`ERROR: ${message}`);
+  process.exit(1);
+}
+
+function runGit(args, cwd) {
+  return execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+}
+
+function ensureGitRepo(worktree) {
+  try {
+    const inside = runGit(['rev-parse', '--is-inside-work-tree'], worktree);
+    if (inside !== 'true') {
+      fail(`${worktree} is not inside a git worktree`);
+    }
+  } catch (error) {
+    fail(`${worktree} is not a git repository: ${error.message}`);
+  }
+}
+
+function resolvePrompt(promptPath) {
+  const absolute = path.isAbsolute(promptPath) ? promptPath : path.resolve(process.cwd(), promptPath);
+  if (!existsSync(absolute)) {
+    fail(`prompt file does not exist: ${promptPath}`);
+  }
+  return absolute;
+}
+
+function findCodex() {
+  const result = spawnSync('which', ['codex'], {
+    encoding: 'utf8',
+  });
+  const cli = result.stdout.trim();
+  return cli || null;
+}
+
+function summarize(text, limit = 4000) {
+  if (!text) return '';
+  return text.length <= limit ? text : `${text.slice(0, limit)}\n...<truncated ${text.length - limit} chars>`;
+}
+
+function timestamp() {
+  return new Date().toISOString().replace(/[:.]/g, '-');
+}
+
+function writeRunLog(data) {
+  const runsDir = path.resolve(process.cwd(), 'docs/ops/runs');
+  mkdirSync(runsDir, { recursive: true });
+  const safeAgent = data.agent.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const file = path.join(runsDir, `${timestamp()}-${safeAgent}.md`);
+  const body = `# Codex CLI Agent Run
+
+| Field | Value |
+| --- | --- |
+| Agent | ${data.agent} |
+| Worktree | \`${data.worktree}\` |
+| Branch | \`${data.branch}\` |
+| Prompt | \`${data.prompt}\` |
+| Timestamp | ${data.createdAt} |
+| Dry run | ${data.dryRun ? 'Yes' : 'No'} |
+| Exit code | ${data.exitCode} |
+
+## Codex Command
+
+\`\`\`bash
+${data.command.join(' ')}
+\`\`\`
+
+## Stdout Summary
+
+\`\`\`text
+${summarize(data.stdout)}
+\`\`\`
+
+## Stderr Summary
+
+\`\`\`text
+${summarize(data.stderr)}
+\`\`\`
+`;
+  writeFileSync(file, body);
+  return file;
+}
+
+const args = parseArgs(process.argv.slice(2));
+if (!args.agent || !args.worktree || !args.prompt) {
+  usage(1);
+}
+
+const config = AGENTS[args.agent];
+if (!config) {
+  fail(`unknown agent: ${args.agent}`);
+}
+
+const worktree = path.resolve(args.worktree);
+if (worktree !== config.worktree) {
+  fail(`worktree mismatch for ${args.agent}; expected ${config.worktree}, got ${worktree}`);
+}
+if (!existsSync(worktree)) {
+  fail(`worktree does not exist: ${worktree}`);
+}
+
+ensureGitRepo(worktree);
+
+const branch = runGit(['branch', '--show-current'], worktree);
+if (branch !== config.branch) {
+  fail(`branch mismatch for ${args.agent}; expected ${config.branch}, got ${branch}`);
+}
+
+const status = runGit(['status', '--short'], worktree);
+if (status) {
+  fail(`worktree is not clean:\n${status}`);
+}
+
+const promptFile = resolvePrompt(args.prompt);
+const expectedPrompt = path.resolve(process.cwd(), config.prompt);
+if (promptFile !== expectedPrompt) {
+  fail(`prompt mismatch for ${args.agent}; expected ${config.prompt}, got ${args.prompt}`);
+}
+
+const prompt = readFileSync(promptFile, 'utf8');
+const command = ['codex', 'exec', '-C', worktree, '--sandbox', 'workspace-write', '-'];
+
+console.log(`Agent: ${args.agent}`);
+console.log(`Worktree: ${worktree}`);
+console.log(`Branch: ${branch}`);
+console.log(`Prompt: ${path.relative(process.cwd(), promptFile)}`);
+console.log(`Codex command: ${command.join(' ')}`);
+
+if (args.dryRun) {
+  console.log('Dry run: command not executed.');
+  process.exit(0);
+}
+
+const codexCli = findCodex();
+if (!codexCli) {
+  fail('codex CLI not found in PATH');
+}
+
+const result = spawnSync(codexCli, command.slice(1), {
+  input: prompt,
+  encoding: 'utf8',
+  cwd: process.cwd(),
+});
+
+const logFile = writeRunLog({
+  agent: args.agent,
+  worktree,
+  branch,
+  prompt: path.relative(process.cwd(), promptFile),
+  createdAt: new Date().toISOString(),
+  dryRun: false,
+  command: [codexCli, ...command.slice(1)],
+  exitCode: result.status ?? 1,
+  stdout: result.stdout ?? '',
+  stderr: result.stderr ?? '',
+});
+
+console.log(`Run log: ${logFile}`);
+if (result.stdout) process.stdout.write(result.stdout);
+if (result.stderr) process.stderr.write(result.stderr);
+process.exit(result.status ?? 1);
