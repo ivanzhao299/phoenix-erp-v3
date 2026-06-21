@@ -10,6 +10,7 @@
 | dry-run-only | Orchestrator-only simulation; no Agent started and no code changes allowed. |
 | intake-drafted | Orchestrator drafted requirement intake and proposal contracts; no Agent started. |
 | spec-frozen-draft | Orchestrator froze reviewable spec wording; no Agent started and Schema Gate still pending. |
+| schema-gate-proposal | Orchestrator drafted Schema Gate proposal package; no migration or code changes approved. |
 | IN_PROGRESS | Agent is actively working. |
 | BLOCKED | Agent cannot proceed without decision/evidence. |
 | REVIEW | Output is ready for review. |
@@ -42,6 +43,7 @@
 | ADF-P2-DRYRUN-STORE-PAYMENT-001 | Codex-Orchestrator | w5-codex-orchestrator | dry-run-only | N/A | L5 | No | Output `docs/ops/NL_DISPATCH_DRY_RUN_STORE_PAYMENT_001.md`; Request ID `REQ-STORE-PAYMENT-UNIFIED-CODE-001` | User clarification required before formal spec | 等待用户确认澄清问题后，才允许生成正式 Requirement Spec 与 Agent 任务合同 |
 | REQ-STORE-PAYMENT-UNIFIED-CODE-001-INTAKE | Codex-Orchestrator | w5-codex-orchestrator | intake-drafted | N/A | L5 | No | Outputs `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_SPEC.md` and `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_AGENT_CONTRACTS.md` | P0 clarification required; no Agent started | 等待用户回答 P0 澄清问题；未获批准前不得启动 A2-A7 |
 | REQ-STORE-PAYMENT-UNIFIED-CODE-001-SPEC-FREEZE | Codex-Orchestrator | w5-codex-orchestrator | spec-frozen-draft | N/A | L5 overall / MVP-1 L4 schema-gated | No | Outputs `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_SPEC.md`, `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_AGENT_CONTRACTS.md`, `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_SCHEMA_GATE_CHECKLIST.md` | Pilot store and A5 start approval pending | 等待用户指定试点门店，并批准是否启动 A5-Data-Readiness 只读核查。未批准前不得启动任何 Agent |
+| REQ-STORE-PAYMENT-UNIFIED-CODE-001-SCHEMA-GATE-PROPOSAL | Codex-Orchestrator | w5-codex-orchestrator | schema-gate-proposal | N/A | L5 overall / MVP-1 L4 schema-gated | No | Outputs `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_SCHEMA_GATE_PROPOSAL.md`, `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_DATA_MODEL_DRAFT.md`, `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_PERMISSION_MATRIX.md`, `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_STATE_MACHINE.md`, `docs/ops/AI_DELIVERY_SCHEMA_GATE_STORE_PAYMENT_001_REVIEW.md` | User approval required before schema implementation | 等待用户人工批准是否进入 schema implementation。未批准前不得创建 migration |
 
 ## Current Ready Task
 
