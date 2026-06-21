@@ -67,6 +67,7 @@ import { BusinessUnitModule } from './modules/business-unit/business-unit.module
 import { PermissionSetsModule } from './modules/permission-sets/permission-sets.module';
 // [Chanjet] 畅捷通好业财开放平台对接（webhook + token + API）
 import { ChanjetModule } from './modules/chanjet/chanjet.module';
+import { StorePaymentModule } from './modules/store-payment/store-payment.module';
 
 
 @Module({
@@ -138,6 +139,7 @@ import { ChanjetModule } from './modules/chanjet/chanjet.module';
     BusinessUnitModule,     // G110/S5: 事业群业务维度（法人树⟂事业群解耦）
     PermissionSetsModule,   // G118: 权限集（PBAC 两层模型）CRUD
     ChanjetModule,          // 畅捷通好业财对接（webhook 回调 + token 管理 + API 代理）
+    StorePaymentModule,     // Store Payment: 直营店缴款 runtime endpoints
   ],
   controllers: [DebugController, HealthController],
   providers: [
