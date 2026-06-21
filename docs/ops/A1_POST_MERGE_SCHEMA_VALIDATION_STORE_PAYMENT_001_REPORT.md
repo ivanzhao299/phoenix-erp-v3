@@ -1,103 +1,100 @@
 # A1 Post-Merge Schema Validation Report - STORE_PAYMENT_001
 
-## 1. Execution Environment
+## 1. Scope
+
+This report is a rerun based on the rebased A1 branch after syncing with the latest main that contains `69cb7fd feat(schema): add store payment MVP tables`.
+
+The previous A1 validation ran on an old HEAD and is superseded by this report.
+
+## 2. Execution Environment
 
 - Agent: A1-CI-Runtime-Gate
 - pwd: `/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate`
 - branch: `w5-a1-ci-runtime-gate`
+- current HEAD: `6405563 test(ops): validate store payment schema merge`
+- latest main commit included: yes, `69cb7fd feat(schema): add store payment MVP tables`
 - node: `v24.14.1`
-- pnpm: available via workspace install from prior A1 run
 - date: `2026-06-21`
 
-## 2. Current HEAD
+## 3. Preflight
 
-- Current A1 HEAD: `bfc2949 test(ops): run A1 CI runtime gate`
-- User-provided expected main HEAD: `69cb7fd feat(schema): add store payment MVP tables`
-- Observation: this A1 worktree is not at `69cb7fd` and this run did not merge main, per instruction.
+| Check | Result | Summary |
+|---|---:|---|
+| `pwd` | PASS | `/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate` |
+| `git branch --show-current` | PASS | `w5-a1-ci-runtime-gate` |
+| `git status --short` | PASS | clean before report update |
+| `git log --oneline --decorate -10` | PASS | contains `6405563`, `964f30b`, and `69cb7fd` |
 
-## 3. Validation Command List
-
-1. `pwd`
-2. `git branch --show-current`
-3. `git status --short`
-4. `git log --oneline --decorate -10`
-5. `test -f apps/api/src/database/migrations/1782041418112-CreateStorePaymentTables.ts`
-6. `test -f apps/api/src/modules/store-payment/entities/store-payment-account.entity.ts`
-7. `test -f apps/api/src/modules/store-payment/entities/store-payment-record.entity.ts`
-8. `test -f apps/api/src/modules/store-payment/dto/store-payment.dto.ts`
-9. `node --check scripts/ops/merge-agent-to-main.mjs`
-10. `node scripts/ci/check-freeze-boundaries.mjs`
-11. `node scripts/ci/check-security-regression.mjs`
-12. `node scripts/ci/check-w5-closeout-gate.mjs`
-13. `node scripts/check-nullable-in-unique.js`
-14. `bash scripts/check-ts-migration-down.sh apps/api/src/database/migrations`
-15. `bash scripts/check-ts-migration-no-data-dml.sh apps/api/src/database/migrations`
-16. `pnpm --filter phoenix-erp-v3-nest exec tsc --noEmit`
-17. `pnpm --filter web exec tsc --noEmit`
-
-## 4. Command Results
-
-| # | Command | Result | Summary |
-|---:|---|---:|---|
-| 1 | `pwd` | PASS | `/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate` |
-| 2 | `git branch --show-current` | PASS | `w5-a1-ci-runtime-gate` |
-| 3 | `git status --short` | PASS | clean before report creation |
-| 4 | `git log --oneline --decorate -10` | PASS | HEAD is `bfc2949`; expected `69cb7fd` is not present in this worktree history |
-| 9 | `node --check scripts/ops/merge-agent-to-main.mjs` | FAIL | `MODULE_NOT_FOUND`; script does not exist on current A1 branch |
-| 10 | `node scripts/ci/check-freeze-boundaries.mjs` | PASS | no frozen boundary touched |
-| 11 | `node scripts/ci/check-security-regression.mjs` | PASS | no security regression signal in changed source files |
-| 12 | `node scripts/ci/check-w5-closeout-gate.mjs` | PASS | W5 closeout static gates passed |
-| 13 | `node scripts/check-nullable-in-unique.js` | PASS | `0` violations, `1` allowlisted case |
-| 14 | `bash scripts/check-ts-migration-down.sh apps/api/src/database/migrations` | PASS | all 8 TS migrations have implemented `down()` |
-| 15 | `bash scripts/check-ts-migration-no-data-dml.sh apps/api/src/database/migrations` | PASS | 8 TS migrations passed; 4 file-level DML exemptions reported |
-| 16 | `pnpm --filter phoenix-erp-v3-nest exec tsc --noEmit` | PASS | API typecheck completed with 0 errors |
-| 17 | `pnpm --filter web exec tsc --noEmit` | PASS | Web typecheck completed with 0 errors |
-
-## 5. Schema File Existence
+## 4. Schema File Existence
 
 | File | Result |
 |---|---:|
-| `apps/api/src/database/migrations/1782041418112-CreateStorePaymentTables.ts` | MISSING |
-| `apps/api/src/modules/store-payment/entities/store-payment-account.entity.ts` | MISSING |
-| `apps/api/src/modules/store-payment/entities/store-payment-record.entity.ts` | MISSING |
-| `apps/api/src/modules/store-payment/dto/store-payment.dto.ts` | MISSING |
+| `apps/api/src/database/migrations/1782041418112-CreateStorePaymentTables.ts` | FOUND |
+| `apps/api/src/modules/store-payment/entities/store-payment-account.entity.ts` | FOUND |
+| `apps/api/src/modules/store-payment/entities/store-payment-record.entity.ts` | FOUND |
+| `apps/api/src/modules/store-payment/dto/store-payment.dto.ts` | FOUND |
 
-Conclusion: STORE_PAYMENT_001 schema merge cannot be validated in this A1 worktree because the expected post-merge files are absent from the current branch.
+## 5. Command Results
 
-## 6. API Typecheck Result
+| # | Command | Result | Output summary |
+|---:|---|---:|---|
+| 1 | `node --check scripts/ops/merge-agent-to-main.mjs` | PASS | syntax check completed with exit 0 |
+| 2 | `node scripts/ci/check-freeze-boundaries.mjs` | FAIL | inspected 2 changed files; flagged `docs/ops/A1_POST_MERGE_SCHEMA_VALIDATION_STORE_PAYMENT_001_REPORT.md` as schema/entity/table/column surface |
+| 3 | `node scripts/ci/check-security-regression.mjs` | PASS | 0 changed source files inspected; no security regression signal |
+| 4 | `node scripts/ci/check-w5-closeout-gate.mjs` | FAIL | failed because freeze boundary static gate failed |
+| 5 | `node scripts/check-nullable-in-unique.js` | PASS | 0 violations, 1 allowlisted case |
+| 6 | `bash scripts/check-ts-migration-down.sh apps/api/src/database/migrations` | PASS | all 9 TS migrations have implemented `down()` |
+| 7 | `bash scripts/check-ts-migration-no-data-dml.sh apps/api/src/database/migrations` | PASS | 9 TS migrations passed, 4 file-level exemptions |
+| 8 | `pnpm --filter phoenix-erp-v3-nest exec tsc --noEmit` | PASS | API typecheck completed with exit 0 |
+| 9 | `pnpm --filter web exec tsc --noEmit` | PASS | Web typecheck completed with exit 0 |
 
-PASS. `pnpm --filter phoenix-erp-v3-nest exec tsc --noEmit` exited 0.
+## 6. Typecheck Results
 
-## 7. Web Typecheck Result
+- API typecheck: PASS.
+- Web typecheck: PASS.
 
-PASS. `pnpm --filter web exec tsc --noEmit` exited 0.
+## 7. Migration Static Checks
 
-## 8. Migration Down Check Result
+- Migration down check: PASS. All 9 TS migrations implement `down()`.
+- Migration no-data-DML check: PASS. 9 TS migrations passed; 4 existing file-level DML exemptions were reported.
+- Nullable unique check: PASS. 0 violations, 1 allowlisted case.
 
-PASS. `bash scripts/check-ts-migration-down.sh apps/api/src/database/migrations` reported all 8 TS migrations have `down()` implemented.
+## 8. Runtime / Database / Deploy Safety
 
-## 9. Migration No-Data-DML Check Result
+- Migration executed: 否.
+- Database writes: 否.
+- Deployment executed: 否.
+- Other Agent started: 否.
 
-PASS. `bash scripts/check-ts-migration-no-data-dml.sh apps/api/src/database/migrations` reported 8 TS migrations passed with 4 file-level exemptions.
+## 9. Frozen Items
 
-## 10. Migration Execution
+是否触碰冻结项: 否.
 
-否. No migration was executed.
+This run did not modify `apps/api/**`, `apps/web/**`, migrations, schema/entity/table/column files, business logic, deployment files, or other Agent worktrees.
 
-## 11. Database Writes
+Note: the freeze boundary script failed because it scans the branch-level changed file set and the report filename/content matches schema-related keywords. The only modified file in this run is this report under `docs/ops/**`.
 
-否. No database write command was executed in this run.
+## 10. Final Conclusion
 
-## 12. Deployment
+HOLD.
 
-否. No deployment command was executed.
+Schema file existence, migration static safety checks, nullable unique check, API typecheck, and Web typecheck passed after the A1 rebase. However, the required command set is not fully green because:
 
-## 13. Frozen Items
+- `node scripts/ci/check-freeze-boundaries.mjs` failed on the A1 report file.
+- `node scripts/ci/check-w5-closeout-gate.mjs` failed because the freeze boundary gate failed.
 
-否. This run did not modify `apps/api/**`, `apps/web/**`, migrations, schema/entity/table/column files, business logic, deployment files, or other Agent worktrees.
+Because the user-defined PASS WITH CONDITIONS criterion requires all schema validation commands to pass, this run cannot be marked PASS WITH CONDITIONS.
 
-## 14. Recommendation
+## 11. Conditions / Non-Coverage
 
-NO for entering A2/A3 service/controller plan as a verified post-merge continuation from this A1 run.
+- This only validates static checks and typecheck for the schema merge state available in this worktree.
+- It does not mean migrations were executed.
+- It does not mean the database was upgraded.
+- It does not mean service/controller/frontend implementation exists.
+- A1 runtime/security blockers found in the earlier A1 runtime gate remain unresolved by this run.
 
-Reason: A1 did not contain main HEAD `69cb7fd`, and all four required STORE_PAYMENT_001 schema files were missing. Re-run this validation after the A1 worktree is updated to the post-merge main commit or after a dedicated validation worktree is created from `69cb7fd`.
+## 12. Recommendation
+
+Do not treat this A1 report as a fully green schema validation until the freeze-boundary behavior for docs-only A1 reports is clarified or the gate is rerun in a context where only the intended schema merge diff is inspected.
+
+Recommended next status: HOLD, with A2/A3 follow-up allowed only after owner accepts that the freeze failure is docs-report-scope noise or after the gate is adjusted/rerun to avoid classifying A1 report text as schema boundary changes.
