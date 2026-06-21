@@ -74,6 +74,38 @@
 | Required CI checks |  |
 | Merge restriction | No direct main merge |
 
+## 自然语言自动生成任务合同 / Natural Language Generated Contract
+
+Use this format when Codex-Orchestrator converts a plain-language request into an Agent task.
+
+| Field | Value |
+| --- | --- |
+| Request ID |  |
+| Source natural language |  |
+| Structured requirement |  |
+| Risk level | L0 / L1 / L2 / L3 / L4 / L5 |
+| Assigned Agent |  |
+| Allowed files |  |
+| Forbidden files |  |
+| Required checks |  |
+| Acceptance criteria |  |
+| Rollback plan |  |
+| Human approval required | Yes/No |
+| Auto-code allowed | Yes/No |
+| Output file |  |
+| PR rule | Draft PR / Ready PR / No PR / Report only |
+
+### Generation Rules
+
+1. Preserve the user wording exactly in `Source natural language`.
+2. `Structured requirement` must include in-scope and out-of-scope work.
+3. If risk is L3 or higher, mark `Human approval required` as `Yes` unless the task is read-only/docs-only.
+4. If risk is L4 or L5, mark `Auto-code allowed` as `No` by default.
+5. `Forbidden files` must include frozen areas from the current user instruction.
+6. `Required checks` must be measurable commands, reports, screenshots, logs, or review evidence.
+7. `Rollback plan` must be meaningful even for docs-only work, usually revert commit.
+8. `PR rule` must forbid direct main merge unless explicitly approved.
+
 ## 最终结论格式 / Final Conclusion Format
 
 ```text

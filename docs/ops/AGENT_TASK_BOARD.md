@@ -11,6 +11,7 @@
 | BLOCKED | Agent cannot proceed without decision/evidence. |
 | REVIEW | Output is ready for review. |
 | PASS | Task passed required checks. |
+| FAIL | Task failed required checks and remains unresolved. |
 | PASS_WITH_CI_CONDITIONS | Local/docs checks passed; CI or external evidence pending. |
 | HOLD | Task blocks release. |
 | ROLLBACK | Task requires rollback action. |
@@ -33,7 +34,8 @@
 | Task ID | Agent | Branch | Status | PR | Risk level | Frozen item touched | Verification result | Blockers | Next step |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | W5-P0-ADF-00 | Codex-Orchestrator | w5-ai-delivery-factory-setup | IN_PROGRESS | TBD | Low | No | Docs-only setup in progress | None | Complete docs and PR template |
-| W5-A1-CI-RUNTIME-GATE | A1-CI-Runtime-Gate | w5-a1-ci-runtime-gate | ready | TBD | P0 | No | Pending; expected output `docs/ops/A1_CI_RUNTIME_GATE_REPORT.md` | None | 等待用户在 A1-CI-Runtime-Gate 窗口启动正式任务 |
+| W5-A1-CI-RUNTIME-GATE | A1-CI-Runtime-Gate | w5-a1-ci-runtime-gate | FAIL | TBD | P0 | No | A1 result: FAIL; use as later go-live repair sample only | Runtime/security blockers remain out of scope for Phase 2 | Do not fix in current task; wait for explicit repair dispatch |
+| ADF-P2-NL-DISPATCH-FLOW | Codex-Orchestrator | w5-codex-orchestrator | done | TBD | L1 | No | Natural language dispatch docs completed | None | Use a sample request to dry-run routing |
 
 ## Current Ready Task
 
@@ -44,12 +46,25 @@
 | Branch | w5-a1-ci-runtime-gate |
 | Path | `/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate` |
 | Priority | P0 |
-| Status | ready |
+| Status | FAIL |
 | Goal | 执行 W5 closeout 13 项 CI / Runtime 条件，确认系统能否编译、测试、启动和通过安全运行时 smoke。 |
 | Allowed | CI、测试、启动、最小运行时修复。 |
 | Forbidden | migration、schema、业务流程、主数据迁移、生产部署。 |
 | Expected Output | `docs/ops/A1_CI_RUNTIME_GATE_REPORT.md` |
-| Next Action | 等待用户在 A1-CI-Runtime-Gate 窗口启动正式任务。 |
+| Result | A1 result: FAIL，作为后续上线修复样例，不在本轮处理。 |
+| Next Action | 等待用户显式启动 A1 修复或后续自然语言分发样例。 |
+
+## Phase 2 Task
+
+| Field | Value |
+| --- | --- |
+| Task ID | ADF-P2-NL-DISPATCH-FLOW |
+| Agent | Codex-Orchestrator |
+| Status | done |
+| Goal | 建立自然语言需求自动分发流程 |
+| Output | `docs/ops/NATURAL_LANGUAGE_DISPATCH_FLOW.md`; `docs/ops/ORCHESTRATOR_PROMPT.md`; `docs/ops/NATURAL_LANGUAGE_REQUEST_EXAMPLES.md` |
+| Frozen items touched | No |
+| A1 handling | A1 FAIL is recorded as a future sample and not fixed in this phase. |
 
 ## Update Rules
 

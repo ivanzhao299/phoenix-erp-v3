@@ -24,6 +24,17 @@
 | High | Auth/RBAC/DataScope, finance, master data, third-party interface, migration, deploy, core workflow. |
 | Critical | Production incident, data loss/corruption risk, security bypass, payment/accounting error, irreversible migration, production deploy/rollback. |
 
+## Natural Language Risk Levels
+
+| Level | Definition | Auto-development |
+| --- | --- | --- |
+| L0 | No-code coordination, read-only status, task board update. | No code. |
+| L1 | Docs, templates, isolated UI text. | Yes inside approved docs/UI copy scope. |
+| L2 | Low-risk UI/test change with no sensitive data or behavior change. | Yes inside explicit scope. |
+| L3 | Product behavior, login/menu/permission visibility, finance display, external diagnostics. | Limited; human approval before behavior changes. |
+| L4 | Master data, data shape, migration/schema/deploy-adjacent, financial data correctness. | No by default; human approval required. |
+| L5 | Production deploy/rollback, irreversible data repair, security bypass, accounting mutation. | No; GO/NO-GO required. |
+
 ## Routing Matrix
 
 | Trigger keywords or signals | Risk | Trigger Agents | Auto-fix allowed | Human confirmation | Migration allowed | Production deploy allowed | Forbidden actions |
@@ -38,6 +49,18 @@
 | staging, deploy, rollback, release, go-live, production | Critical | A6, A1, A7, Codex-Orchestrator | Docs/runbook only | Yes | No unless separately approved | Only after GO decision | Direct production deploy, deployment chain changes during freeze |
 | page, UI, UAT, smoke, screenshot, browser path | Medium | A4, A1 | Yes within approved UI scope | If financial/security/master data page | No | No | Hiding failed UAT evidence |
 | docs, template, governance, delivery process, runbook | Low/Medium | Codex-Orchestrator, A7 as reviewer | Yes | Optional unless release policy changes | No | No | Duplicating existing files without audit |
+
+## Natural Language Keyword Routing
+
+| Natural language keywords | Agents | Minimum risk | Required handling |
+| --- | --- | --- | --- |
+| 登录 / 权限 / 菜单 / 角色 / 看不到数据 | A2 + A3 + A4 | L3 | Clarify role, menu code, account, environment; no permission behavior change without approval. |
+| 财务 / 收款 / 付款 / 应收 / 应付 / 账套 | A3 + A5 + A2 | L3 | Clarify period, company, counterparty, evidence; no accounting/data mutation without approval. |
+| 主数据 / 公司 / 项目 / 养殖场 / 门店 / 仓库 | A5 first, read-only | L4 | Read-only baseline first; require approval before data import, workflow, or selector behavior changes. |
+| 用友 / 畅捷通 / webhook / callback / token | A2 + A3 + A6 | L3 | Treat secrets and signatures as sensitive; require approval before auth/sync changes. |
+| 页面 / 按钮 / 表格 / 显示 / 文案 | A4 | L1-L2 | Auto-development allowed only when no sensitive module behavior changes. |
+| 上线 / 部署 / 回滚 / 服务器 | A6 + A7 | L3 | Runbook/GO gate first; production deploy forbidden until explicit GO. |
+| migration / schema / 字段 / 表结构 | A5 + A1 + A7 | L4-L5 | Must ask for human confirmation before any implementation. |
 
 ## Dispatch Rules
 
