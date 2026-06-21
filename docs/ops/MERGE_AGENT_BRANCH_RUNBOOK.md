@@ -65,14 +65,26 @@ node scripts/ops/merge-agent-to-main.mjs w5-a2-security-regression-gate --yes
 3. `main` working tree is clean.
 4. Target branch exists.
 5. Prints current `main` HEAD and target branch HEAD.
-6. Prints diff file list and diff stat.
-7. Blocks frozen paths by default.
-8. Uses `git merge --ff-only`.
-9. Refuses ordinary merge commits.
-10. Runs available CI gate scripts after merge:
+6. Checks branch relationship before printing diff.
+7. Prints diff file list and diff stat only for fast-forward candidates.
+8. Blocks frozen paths by default.
+9. Uses `git merge --ff-only`.
+10. Refuses ordinary merge commits.
+11. Runs available CI gate scripts after merge:
    - `scripts/ci/check-freeze-boundaries.mjs`
    - `scripts/ci/check-security-regression.mjs`
    - `scripts/ci/check-w5-closeout-gate.mjs`
+
+## Branch Relationship Outcomes
+
+| Outcome | Meaning | Script behavior |
+| --- | --- | --- |
+| already at main HEAD | Target branch HEAD equals current `main` HEAD. | Prints `Target branch is already at main HEAD. Nothing to merge.` and exits 0. |
+| already merged into main | Target branch is an ancestor of `main`. | Prints `Target branch is already merged into main. Nothing to merge.` and exits 0 without printing a deletion diff. |
+| fast-forward candidate | `main` is an ancestor of target branch. | Prints diff/stat, runs freeze checks, then merges only with `git merge --ff-only` unless `--dry-run`. |
+| diverged from main | Neither branch is ancestor of the other. | Prints `Target branch has diverged from main. Refusing merge.` and exits 1 without printing a deletion diff. |
+
+Do not run `--yes` against already-merged old Agent branches. If the script says `already merged`, that is a clean no-op, not an error.
 
 ## Explicitly Forbidden Uses
 

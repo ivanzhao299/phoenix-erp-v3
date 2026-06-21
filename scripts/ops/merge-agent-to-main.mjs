@@ -131,6 +131,15 @@ function scriptExists(script) {
   }
 }
 
+function isAncestor(ancestor, descendant) {
+  try {
+    runGit(['merge-base', '--is-ancestor', ancestor, descendant]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 ensureGitRepo();
 
 const currentBranch = runGit(['branch', '--show-current']);
@@ -151,10 +160,30 @@ try {
 
 const mainHead = runGit(['rev-parse', '--short', 'HEAD']);
 const targetHead = runGit(['rev-parse', '--short', targetBranch]);
-const files = listChangedFiles(targetBranch);
 
 console.log(`Current main HEAD: ${mainHead}`);
 console.log(`Target branch HEAD (${targetBranch}): ${targetHead}`);
+
+if (mainHead === targetHead) {
+  console.log('\nTarget branch is already at main HEAD. Nothing to merge.');
+  process.exit(0);
+}
+
+const targetAlreadyMerged = isAncestor(targetBranch, 'HEAD');
+if (targetAlreadyMerged) {
+  console.log('\nTarget branch is already merged into main. Nothing to merge.');
+  process.exit(0);
+}
+
+const fastForwardCandidate = isAncestor('HEAD', targetBranch);
+if (!fastForwardCandidate) {
+  console.error('\nTarget branch has diverged from main. Refusing merge.');
+  console.error('Please resolve manually with rebase, cherry-pick, or a new branch.');
+  process.exit(1);
+}
+
+const files = listChangedFiles(targetBranch);
+
 console.log('\nDiff file list:');
 console.log(files.length ? files.map((file) => `  ${file}`).join('\n') : '  (no file changes)');
 console.log('\nDiff stat:');
@@ -163,12 +192,6 @@ runGit(['diff', '--stat', `HEAD..${targetBranch}`], { stdio: 'inherit' });
 checkFreezeBoundaries(files);
 
 console.log('\nFreeze boundary check: PASS');
-
-try {
-  runGit(['merge-base', '--is-ancestor', 'HEAD', targetBranch]);
-} catch {
-  fail('target branch is not a fast-forward from main; refusing non-ff merge');
-}
 
 if (dryRun) {
   console.log('\nDry run complete. No merge performed.');
