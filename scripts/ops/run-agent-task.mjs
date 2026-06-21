@@ -49,7 +49,7 @@ const AGENTS = {
 
 function usage(exitCode = 1) {
   console.log(`Usage:
-  node scripts/ops/run-agent-task.mjs --agent <name> --worktree <path> --prompt <file> [--dry-run]
+  node scripts/ops/run-agent-task.mjs --agent <name> --worktree <path> --prompt <file> [--request-spec <file>] [--task-contract <file>] [--assembled-prompt-output <file>] [--require-approval-token <token>] [--dry-run]
 
 Example:
   node scripts/ops/run-agent-task.mjs \\
@@ -107,7 +107,7 @@ function ensureGitRepo(worktree) {
 function resolvePrompt(promptPath) {
   const absolute = path.isAbsolute(promptPath) ? promptPath : path.resolve(process.cwd(), promptPath);
   if (!existsSync(absolute)) {
-    fail(`prompt file does not exist: ${promptPath}`);
+    fail(`file does not exist: ${promptPath}`);
   }
   return absolute;
 }
@@ -168,6 +168,53 @@ ${summarize(data.stderr)}
   return file;
 }
 
+function buildAssembledPrompt({ basePrompt, requestSpecPath, taskContractPath }) {
+  const parts = [
+    {
+      title: 'Base Agent Prompt',
+      body: basePrompt,
+    },
+  ];
+
+  if (requestSpecPath) {
+    parts.push({
+      title: 'Requirement Spec',
+      body: readFileSync(requestSpecPath, 'utf8'),
+    });
+  }
+
+  if (taskContractPath) {
+    parts.push({
+      title: 'Agent Task Contract',
+      body: readFileSync(taskContractPath, 'utf8'),
+    });
+  }
+
+  parts.push({
+    title: 'Execution Guardrails',
+    body: `1. Do not merge.
+2. Do not push.
+3. Do not deploy.
+4. Do not execute migrations.
+5. Do not write to any database.
+6. Do not modify the task board from inside the Agent task.
+7. Stop immediately if the task requires files outside the allowed contract.
+8. Stop immediately if migration/schema/entity/table/column changes are needed but not explicitly approved.
+9. Report PASS / FAIL / PASS WITH CONDITIONS with exact evidence.`,
+  });
+
+  return parts
+    .map((part) => `# ${part.title}\n\n${part.body.trim()}\n`)
+    .join('\n---\n\n');
+}
+
+function writeAssembledPrompt(outputPath, content) {
+  const absolute = path.isAbsolute(outputPath) ? outputPath : path.resolve(process.cwd(), outputPath);
+  mkdirSync(path.dirname(absolute), { recursive: true });
+  writeFileSync(absolute, content);
+  return absolute;
+}
+
 const args = parseArgs(process.argv.slice(2));
 if (!args.agent || !args.worktree || !args.prompt) {
   usage(1);
@@ -204,13 +251,35 @@ if (promptFile !== expectedPrompt) {
   fail(`prompt mismatch for ${args.agent}; expected ${config.prompt}, got ${args.prompt}`);
 }
 
-const prompt = readFileSync(promptFile, 'utf8');
+const requestSpecFile = args['request-spec'] ? resolvePrompt(args['request-spec']) : null;
+const taskContractFile = args['task-contract'] ? resolvePrompt(args['task-contract']) : null;
+const assembledPromptOutput = args['assembled-prompt-output'] ?? null;
+const hasDispatchPayload = Boolean(requestSpecFile || taskContractFile);
+
+if (!args.dryRun && hasDispatchPayload && args['require-approval-token'] !== 'APPROVE_AGENT_EXECUTION') {
+  fail('non-dry-run Agent execution with request spec or task contract requires --require-approval-token APPROVE_AGENT_EXECUTION');
+}
+
+const prompt = buildAssembledPrompt({
+  basePrompt: readFileSync(promptFile, 'utf8'),
+  requestSpecPath: requestSpecFile,
+  taskContractPath: taskContractFile,
+});
 const command = ['codex', 'exec', '-C', worktree, '--sandbox', 'workspace-write', '-'];
+
+let assembledPromptFile = null;
+if (assembledPromptOutput) {
+  assembledPromptFile = writeAssembledPrompt(assembledPromptOutput, prompt);
+}
 
 console.log(`Agent: ${args.agent}`);
 console.log(`Worktree: ${worktree}`);
 console.log(`Branch: ${branch}`);
 console.log(`Prompt: ${path.relative(process.cwd(), promptFile)}`);
+if (requestSpecFile) console.log(`Requirement spec: ${path.relative(process.cwd(), requestSpecFile)}`);
+if (taskContractFile) console.log(`Task contract: ${path.relative(process.cwd(), taskContractFile)}`);
+if (assembledPromptFile) console.log(`Assembled prompt: ${path.relative(process.cwd(), assembledPromptFile)}`);
+console.log(`Assembled prompt chars: ${prompt.length}`);
 console.log(`Codex command: ${command.join(' ')}`);
 
 if (args.dryRun) {
@@ -234,6 +303,7 @@ const logFile = writeRunLog({
   worktree,
   branch,
   prompt: path.relative(process.cwd(), promptFile),
+  assembledPrompt: assembledPromptFile ? path.relative(process.cwd(), assembledPromptFile) : '',
   createdAt: new Date().toISOString(),
   dryRun: false,
   command: [codexCli, ...command.slice(1)],
