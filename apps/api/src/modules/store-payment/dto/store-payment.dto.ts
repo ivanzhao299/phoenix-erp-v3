@@ -100,10 +100,54 @@ export class UpdateStorePaymentAccountDto {
   remark?: string;
 }
 
-export class CreateStorePaymentRecordDto {
+export class QueryStorePaymentAccountDto {
+  @IsOptional()
   @IsString()
   @MaxLength(64)
-  paymentNo: string;
+  companyCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  storeCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  currency?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  paymentMethod?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(STORE_PAYMENT_ACCOUNT_STATUSES)
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  keyword?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  pageSize?: number;
+}
+
+export class CreateStorePaymentRecordDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  paymentNo?: string;
 
   @IsString()
   @MaxLength(64)
@@ -117,7 +161,7 @@ export class CreateStorePaymentRecordDto {
   paymentAccountId: string;
 
   @IsNumber()
-  @Min(0)
+  @Min(0.01)
   @Type(() => Number)
   amount: number;
 
@@ -194,11 +238,28 @@ export class QueryStorePaymentRecordDto {
 }
 
 export class TransitionStorePaymentRecordDto {
+  @IsOptional()
   @IsString()
   @IsIn(STORE_PAYMENT_RECORD_STATUSES)
-  status: string;
+  status?: string;
 
   @IsOptional()
   @IsString()
   reason?: string;
+}
+
+export class ConfirmStorePaymentRecordDto {
+  @IsOptional()
+  @IsString()
+  comment?: string;
+}
+
+export class RejectStorePaymentRecordDto {
+  @IsString()
+  reason: string;
+}
+
+export class VoidStorePaymentRecordDto {
+  @IsString()
+  reason: string;
 }
