@@ -12,6 +12,7 @@
 | spec-frozen-draft | Orchestrator froze reviewable spec wording; no Agent started and Schema Gate still pending. |
 | schema-gate-proposal | Orchestrator drafted Schema Gate proposal package; no migration or code changes approved. |
 | implementation-plan-draft | Orchestrator drafted implementation plan documents; no migration, code, or Agent launch approved. |
+| backend-s2-package-draft | Orchestrator drafted Backend S2 task package; no Agent started and no code changed. |
 | IN_PROGRESS | Agent is actively working. |
 | BLOCKED | Agent cannot proceed without decision/evidence. |
 | REVIEW | Output is ready for review. |
@@ -47,6 +48,7 @@
 | REQ-STORE-PAYMENT-UNIFIED-CODE-001-SCHEMA-GATE-PROPOSAL | Codex-Orchestrator | w5-codex-orchestrator | schema-gate-proposal | N/A | L5 overall / MVP-1 L4 schema-gated | No | Outputs `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_SCHEMA_GATE_PROPOSAL.md`, `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_DATA_MODEL_DRAFT.md`, `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_PERMISSION_MATRIX.md`, `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_STATE_MACHINE.md`, `docs/ops/AI_DELIVERY_SCHEMA_GATE_STORE_PAYMENT_001_REVIEW.md` | User approval required before schema implementation | 等待用户人工批准是否进入 schema implementation。未批准前不得创建 migration |
 | REQ-STORE-PAYMENT-UNIFIED-CODE-001-IMPLEMENTATION-PLAN | Codex-Orchestrator | w5-codex-orchestrator | implementation-plan-draft | N/A | L5 overall / MVP-1 L4 schema-gated | No | Outputs `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_IMPLEMENTATION_PLAN.md`, `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_MIGRATION_DRAFT.md`, `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_API_DRAFT.md`, `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_FRONTEND_DRAFT.md`, `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_TEST_PLAN.md`, `docs/ops/AI_DELIVERY_IMPLEMENTATION_PLAN_STORE_PAYMENT_001_REVIEW.md` | User approval required before migration/schema implementation | 等待用户人工批准是否进入 schema implementation。未批准前不得创建 migration |
 | ADF-MERGE-SCRIPT-001 | Codex-Orchestrator | w5-codex-orchestrator | done | N/A | Low | No | Outputs `scripts/ops/merge-agent-to-main.mjs` and `docs/ops/MERGE_AGENT_BRANCH_RUNBOOK.md` | None | Use runbook from main repo when user approves Agent branch merge |
+| REQ-STORE-PAYMENT-001-BACKEND-S2-PACKAGE | Codex-Orchestrator | w5-codex-orchestrator | backend-s2-package-draft | N/A | L4 backend implementation planning | No | Output `docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_BACKEND_S2_TASK_PACKAGE.md` | User approval required before A3 start | 等待用户批准是否启动 A3-Backend-Critical-Path 进行 Backend S2 最小实现 |
 
 ## Current Ready Task
 
