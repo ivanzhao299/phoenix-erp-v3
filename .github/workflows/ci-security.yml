@@ -1,0 +1,45 @@
+name: AI Delivery CI Security
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, 'w5/**']
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-security-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  security:
+    name: Static Security And Freeze Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check frozen boundaries
+        env:
+          FREEZE_BASE_REF: ${{ github.base_ref || 'main' }}
+        run: node scripts/ci/check-freeze-boundaries.mjs
+
+      - name: Check security regression signals
+        env:
+          SECURITY_BASE_REF: ${{ github.base_ref || 'main' }}
+        run: node scripts/ci/check-security-regression.mjs
+
+      - name: Check nullable-in-unique constraints
+        run: node scripts/check-nullable-in-unique.js
+
+      - name: W5 closeout static gate
+        env:
+          FREEZE_BASE_REF: ${{ github.base_ref || 'main' }}
+          SECURITY_BASE_REF: ${{ github.base_ref || 'main' }}
+        run: node scripts/ci/check-w5-closeout-gate.mjs

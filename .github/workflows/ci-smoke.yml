@@ -1,0 +1,34 @@
+name: AI Delivery CI Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Smoke target: local, staging, or documented-only'
+        required: false
+        default: documented-only
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke-placeholder:
+    name: Smoke Placeholder
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Document smoke entrypoints
+        run: |
+          echo "Phase 1 keeps runtime smoke as manual/documented-only."
+          echo "Existing command: bash scripts/smoke-test.sh"
+          echo "API package command: pnpm --filter phoenix-erp-v3-nest test:smoke"
+          echo "TODO Phase 2: auth-smoke, notification-smoke, chanjet-smoke with controlled test services."
+
+      - name: Validate smoke script exists
+        run: test -f scripts/smoke-test.sh
