@@ -6,8 +6,8 @@ Agent capabilities are consumed by Agent Router before Orchestrator task generat
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Codex-Orchestrator | No | Yes | Yes | No | No | No | routing, planning, governance |
 | A1-CI-Runtime-Gate | No | Yes | Yes | No | No | Yes | CI, runtime, startup, typecheck |
-| A2-Security-Regression-Gate | No | Yes | Yes | No | No | Yes | Auth, RBAC, DataScope, audit, JWT, attachment ACL, Chanjet, finance, payment |
-| A3-Backend-Critical-Path | Yes | Yes | Yes | No | No | Yes | backend, API, service, controller, RBAC, DataScope, audit |
+| A2-Security-Regression-Gate | No | Yes | Yes | No | No | Yes | Auth, RBAC, DataScope, menu code, role authorization, protected attachment ACL, audit, JWT, sensitive logs, Chanjet, finance, payment |
+| A3-Backend-Critical-Path | Yes | Yes | Yes | No | No | Yes | backend, API, service, controller, module, menu code wiring, role authorization wiring, protected preview/download boundary, RBAC, DataScope, audit |
 | A4-Frontend-UAT-Smoke / A4-Frontend-UIUX-UAT | Yes | Yes | Yes | No | No | Yes | frontend-implementation, ui-ux-polish, responsive-layout, form-layout, table-list-ux, route-menu-visibility, permission-aware-ui, uat-smoke |
 | A5-Data-Readiness | No | Yes | Yes | No | No | Yes | data readiness, master data, baseline, pilot data, store/company/account/role/organization mapping, data validation |
 | A6-Staging-Deploy-Runbook | No | Yes | Yes | No | No | Yes | staging, runbook, rollback, health check |

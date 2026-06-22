@@ -1,0 +1,733 @@
+{
+  "request_id": "REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U",
+  "request_text": "推进 Store Payment 进入可试点状态：补齐菜单码和角色授权方案、附件 protected preview/download 方案、前端 UI/UX 和 UAT 页面计划、数据 readiness 检查、migration 执行前置清单、预发部署 runbook 和终验 Gate；按七 Agent 闭环分配任务，不改未授权业务代码，不执行 migration，不写数据库，不部署",
+  "risk_level": "MEDIUM",
+  "route_decision": "PLAN_READY",
+  "route_confidence": 0.96,
+  "route_plan": {
+    "request": "推进 Store Payment 进入可试点状态：补齐菜单码和角色授权方案、附件 protected preview/download 方案、前端 UI/UX 和 UAT 页面计划、数据 readiness 检查、migration 执行前置清单、预发部署 runbook 和终验 Gate；按七 Agent 闭环分配任务，不改未授权业务代码，不执行 migration，不写数据库，不部署",
+    "selected_agents": [
+      "A3-Backend-Critical-Path",
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A5-Data-Readiness",
+      "A4-Frontend-UAT-Smoke",
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ],
+    "confidence": 0.96,
+    "matched_keywords": {
+      "Codex-Orchestrator": [
+        "方案"
+      ],
+      "A1-CI-Runtime-Gate": [
+        "gate"
+      ],
+      "A2-Security-Regression-Gate": [
+        "菜单码",
+        "角色授权",
+        "角色",
+        "protected preview",
+        "payment"
+      ],
+      "A3-Backend-Critical-Path": [
+        "菜单码",
+        "角色授权",
+        "protected preview",
+        "附件 protected"
+      ],
+      "A4-Frontend-UAT-Smoke": [
+        "页面",
+        "前端",
+        "UI",
+        "UX",
+        "UAT",
+        "ui",
+        "ux",
+        "uat"
+      ],
+      "A5-Data-Readiness": [
+        "数据 readiness"
+      ],
+      "A6-Staging-Deploy-Runbook": [
+        "预发",
+        "部署 runbook"
+      ],
+      "A7-Final-QA-Gate": [
+        "终验"
+      ]
+    },
+    "risk_domains": [
+      "ci",
+      "runtime",
+      "startup",
+      "typecheck",
+      "auth",
+      "rbac",
+      "datascope",
+      "payment",
+      "finance",
+      "chanjet",
+      "audit",
+      "attachment-acl",
+      "backend",
+      "api",
+      "frontend-implementation",
+      "ui-ux-polish",
+      "responsive-layout",
+      "permission-aware-ui",
+      "uat-smoke",
+      "data-readiness",
+      "master-data",
+      "pilot-data",
+      "mapping",
+      "staging",
+      "rollback",
+      "deploy-readiness",
+      "final-qa",
+      "release-decision"
+    ],
+    "held_reasons": [],
+    "recommended_sequence": [
+      "A3-Backend-Critical-Path",
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A5-Data-Readiness",
+      "A4-Frontend-UAT-Smoke",
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ],
+    "parallel_groups": [
+      [
+        "A2-Security-Regression-Gate",
+        "A1-CI-Runtime-Gate",
+        "A5-Data-Readiness"
+      ],
+      [
+        "A3-Backend-Critical-Path"
+      ],
+      [
+        "A4-Frontend-UAT-Smoke"
+      ],
+      [
+        "A6-Staging-Deploy-Runbook",
+        "A7-Final-QA-Gate"
+      ]
+    ],
+    "fallback_action": "create task pool",
+    "route_decision": "PLAN_READY",
+    "requires_route_review": false,
+    "domains": {
+      "ci": true,
+      "security": true,
+      "dataReadiness": true,
+      "ui": true,
+      "backend": true,
+      "backendMentionedButNegated": false,
+      "deployPlan": true,
+      "finalGate": true,
+      "protectedAttachment": true,
+      "authorizationDesign": true
+    },
+    "agent_scores": {
+      "A1-CI-Runtime-Gate": 6,
+      "A2-Security-Regression-Gate": 8.5,
+      "A3-Backend-Critical-Path": 8,
+      "A4-Frontend-UAT-Smoke": 12,
+      "A5-Data-Readiness": 5.15,
+      "A6-Staging-Deploy-Runbook": 5,
+      "A7-Final-QA-Gate": 4
+    }
+  },
+  "mode": "closed-loop",
+  "dry_run": true,
+  "parallel": 3,
+  "selected_agents": [
+    "A3-Backend-Critical-Path",
+    "A2-Security-Regression-Gate",
+    "A1-CI-Runtime-Gate",
+    "A5-Data-Readiness",
+    "A4-Frontend-UAT-Smoke",
+    "A6-Staging-Deploy-Runbook",
+    "A7-Final-QA-Gate"
+  ],
+  "held_reasons": [],
+  "generated_files": {
+    "requirement_spec": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md",
+    "agent_route_plan": {
+      "request": "推进 Store Payment 进入可试点状态：补齐菜单码和角色授权方案、附件 protected preview/download 方案、前端 UI/UX 和 UAT 页面计划、数据 readiness 检查、migration 执行前置清单、预发部署 runbook 和终验 Gate；按七 Agent 闭环分配任务，不改未授权业务代码，不执行 migration，不写数据库，不部署",
+      "selected_agents": [
+        "A3-Backend-Critical-Path",
+        "A2-Security-Regression-Gate",
+        "A1-CI-Runtime-Gate",
+        "A5-Data-Readiness",
+        "A4-Frontend-UAT-Smoke",
+        "A6-Staging-Deploy-Runbook",
+        "A7-Final-QA-Gate"
+      ],
+      "confidence": 0.96,
+      "matched_keywords": {
+        "Codex-Orchestrator": [
+          "方案"
+        ],
+        "A1-CI-Runtime-Gate": [
+          "gate"
+        ],
+        "A2-Security-Regression-Gate": [
+          "菜单码",
+          "角色授权",
+          "角色",
+          "protected preview",
+          "payment"
+        ],
+        "A3-Backend-Critical-Path": [
+          "菜单码",
+          "角色授权",
+          "protected preview",
+          "附件 protected"
+        ],
+        "A4-Frontend-UAT-Smoke": [
+          "页面",
+          "前端",
+          "UI",
+          "UX",
+          "UAT",
+          "ui",
+          "ux",
+          "uat"
+        ],
+        "A5-Data-Readiness": [
+          "数据 readiness"
+        ],
+        "A6-Staging-Deploy-Runbook": [
+          "预发",
+          "部署 runbook"
+        ],
+        "A7-Final-QA-Gate": [
+          "终验"
+        ]
+      },
+      "risk_domains": [
+        "ci",
+        "runtime",
+        "startup",
+        "typecheck",
+        "auth",
+        "rbac",
+        "datascope",
+        "payment",
+        "finance",
+        "chanjet",
+        "audit",
+        "attachment-acl",
+        "backend",
+        "api",
+        "frontend-implementation",
+        "ui-ux-polish",
+        "responsive-layout",
+        "permission-aware-ui",
+        "uat-smoke",
+        "data-readiness",
+        "master-data",
+        "pilot-data",
+        "mapping",
+        "staging",
+        "rollback",
+        "deploy-readiness",
+        "final-qa",
+        "release-decision"
+      ],
+      "held_reasons": [],
+      "recommended_sequence": [
+        "A3-Backend-Critical-Path",
+        "A2-Security-Regression-Gate",
+        "A1-CI-Runtime-Gate",
+        "A5-Data-Readiness",
+        "A4-Frontend-UAT-Smoke",
+        "A6-Staging-Deploy-Runbook",
+        "A7-Final-QA-Gate"
+      ],
+      "parallel_groups": [
+        [
+          "A2-Security-Regression-Gate",
+          "A1-CI-Runtime-Gate",
+          "A5-Data-Readiness"
+        ],
+        [
+          "A3-Backend-Critical-Path"
+        ],
+        [
+          "A4-Frontend-UAT-Smoke"
+        ],
+        [
+          "A6-Staging-Deploy-Runbook",
+          "A7-Final-QA-Gate"
+        ]
+      ],
+      "fallback_action": "create task pool",
+      "route_decision": "PLAN_READY",
+      "requires_route_review": false,
+      "domains": {
+        "ci": true,
+        "security": true,
+        "dataReadiness": true,
+        "ui": true,
+        "backend": true,
+        "backendMentionedButNegated": false,
+        "deployPlan": true,
+        "finalGate": true,
+        "protectedAttachment": true,
+        "authorizationDesign": true
+      },
+      "agent_scores": {
+        "A1-CI-Runtime-Gate": 6,
+        "A2-Security-Regression-Gate": 8.5,
+        "A3-Backend-Critical-Path": 8,
+        "A4-Frontend-UAT-Smoke": 12,
+        "A5-Data-Readiness": 5.15,
+        "A6-Staging-Deploy-Runbook": 5,
+        "A7-Final-QA-Gate": 4
+      }
+    },
+    "agent_artifacts": [
+      {
+        "agent": "A3-Backend-Critical-Path",
+        "contract": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A3-Backend-Critical-Path.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A3-Backend-Critical-Path.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --prompt docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A3-Backend-Critical-Path.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A3-Backend-Critical-Path.md --dry-run"
+      },
+      {
+        "agent": "A2-Security-Regression-Gate",
+        "contract": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A2-Security-Regression-Gate.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A2-Security-Regression-Gate.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A2-Security-Regression-Gate --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --prompt docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A2-Security-Regression-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A2-Security-Regression-Gate.md --dry-run"
+      },
+      {
+        "agent": "A1-CI-Runtime-Gate",
+        "contract": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A1-CI-Runtime-Gate.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A1-CI-Runtime-Gate.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A1-CI-Runtime-Gate --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --prompt docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A1-CI-Runtime-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A1-CI-Runtime-Gate.md --dry-run"
+      },
+      {
+        "agent": "A5-Data-Readiness",
+        "contract": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A5-Data-Readiness.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A5-Data-Readiness.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A5-Data-Readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --prompt docs/ops/prompts/A5_DATA_READINESS_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A5-Data-Readiness.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A5-Data-Readiness.md --dry-run"
+      },
+      {
+        "agent": "A4-Frontend-UAT-Smoke",
+        "contract": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A4-Frontend-UAT-Smoke.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A4-Frontend-UAT-Smoke.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --prompt docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A4-Frontend-UAT-Smoke.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A4-Frontend-UAT-Smoke.md --dry-run"
+      },
+      {
+        "agent": "A6-Staging-Deploy-Runbook",
+        "contract": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A6-Staging-Deploy-Runbook.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A6-Staging-Deploy-Runbook.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A6-Staging-Deploy-Runbook --worktree /Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook --prompt docs/ops/prompts/A6_DEPLOY_RUNBOOK_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A6-Staging-Deploy-Runbook.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A6-Staging-Deploy-Runbook.md --dry-run"
+      },
+      {
+        "agent": "A7-Final-QA-Gate",
+        "contract": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A7-Final-QA-Gate.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A7-Final-QA-Gate.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A7-Final-QA-Gate --worktree /Users/mac/phoenix-erp-worktrees/a7-final-qa-gate --prompt docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A7-Final-QA-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A7-Final-QA-Gate.md --dry-run"
+      }
+    ],
+    "agent_queue": {
+      "tasks_file": "docs/ops/agent-queue/tasks.json",
+      "events_file": "docs/ops/agent-queue/events.jsonl",
+      "created_tasks": [
+        {
+          "task_id": "REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-01-A3",
+          "request_id": "REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U",
+          "title": "Closed-loop task for A3-Backend-Critical-Path",
+          "source_request": "推进 Store Payment 进入可试点状态：补齐菜单码和角色授权方案、附件 protected preview/download 方案、前端 UI/UX 和 UAT 页面计划、数据 readiness 检查、migration 执行前置清单、预发部署 runbook 和终验 Gate；按七 Agent 闭环分配任务，不改未授权业务代码，不执行 migration，不写数据库，不部署",
+          "agent": "A3-Backend-Critical-Path",
+          "status": "pending",
+          "priority": "P1",
+          "risk_level": "MEDIUM",
+          "allowed_paths": [
+            "docs/ops/**"
+          ],
+          "forbidden_paths": [
+            "apps/api/**",
+            "apps/web/**",
+            "apps/api/src/database/migrations/**",
+            "schema/entity/table/column",
+            "deploy",
+            "DB write"
+          ],
+          "prompt_file": "docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md",
+          "contract_file": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A3-Backend-Critical-Path.md",
+          "request_spec": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md",
+          "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
+          "branch": "w5-a3-backend-critical-path",
+          "dependencies": [],
+          "claimed_by": null,
+          "claimed_at": null,
+          "completed_at": null,
+          "result_file": null,
+          "next_agents": [],
+          "approval_required": true
+        },
+        {
+          "task_id": "REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-02-A2",
+          "request_id": "REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U",
+          "title": "Closed-loop task for A2-Security-Regression-Gate",
+          "source_request": "推进 Store Payment 进入可试点状态：补齐菜单码和角色授权方案、附件 protected preview/download 方案、前端 UI/UX 和 UAT 页面计划、数据 readiness 检查、migration 执行前置清单、预发部署 runbook 和终验 Gate；按七 Agent 闭环分配任务，不改未授权业务代码，不执行 migration，不写数据库，不部署",
+          "agent": "A2-Security-Regression-Gate",
+          "status": "pending",
+          "priority": "P0",
+          "risk_level": "MEDIUM",
+          "allowed_paths": [
+            "docs/ops/**"
+          ],
+          "forbidden_paths": [
+            "apps/api/**",
+            "apps/web/**",
+            "apps/api/src/database/migrations/**",
+            "schema/entity/table/column",
+            "deploy",
+            "DB write"
+          ],
+          "prompt_file": "docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md",
+          "contract_file": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A2-Security-Regression-Gate.md",
+          "request_spec": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md",
+          "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+          "branch": "w5-a2-security-regression-gate",
+          "dependencies": [],
+          "claimed_by": null,
+          "claimed_at": null,
+          "completed_at": null,
+          "result_file": null,
+          "next_agents": [],
+          "approval_required": true
+        },
+        {
+          "task_id": "REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-03-A1",
+          "request_id": "REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U",
+          "title": "Closed-loop task for A1-CI-Runtime-Gate",
+          "source_request": "推进 Store Payment 进入可试点状态：补齐菜单码和角色授权方案、附件 protected preview/download 方案、前端 UI/UX 和 UAT 页面计划、数据 readiness 检查、migration 执行前置清单、预发部署 runbook 和终验 Gate；按七 Agent 闭环分配任务，不改未授权业务代码，不执行 migration，不写数据库，不部署",
+          "agent": "A1-CI-Runtime-Gate",
+          "status": "pending",
+          "priority": "P0",
+          "risk_level": "MEDIUM",
+          "allowed_paths": [
+            "docs/ops/**"
+          ],
+          "forbidden_paths": [
+            "apps/api/**",
+            "apps/web/**",
+            "apps/api/src/database/migrations/**",
+            "schema/entity/table/column",
+            "deploy",
+            "DB write"
+          ],
+          "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+          "contract_file": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A1-CI-Runtime-Gate.md",
+          "request_spec": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md",
+          "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+          "branch": "w5-a1-ci-runtime-gate",
+          "dependencies": [],
+          "claimed_by": null,
+          "claimed_at": null,
+          "completed_at": null,
+          "result_file": null,
+          "next_agents": [],
+          "approval_required": true
+        },
+        {
+          "task_id": "REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-04-A5",
+          "request_id": "REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U",
+          "title": "Closed-loop task for A5-Data-Readiness",
+          "source_request": "推进 Store Payment 进入可试点状态：补齐菜单码和角色授权方案、附件 protected preview/download 方案、前端 UI/UX 和 UAT 页面计划、数据 readiness 检查、migration 执行前置清单、预发部署 runbook 和终验 Gate；按七 Agent 闭环分配任务，不改未授权业务代码，不执行 migration，不写数据库，不部署",
+          "agent": "A5-Data-Readiness",
+          "status": "pending",
+          "priority": "P1",
+          "risk_level": "MEDIUM",
+          "allowed_paths": [
+            "docs/ops/**"
+          ],
+          "forbidden_paths": [
+            "apps/api/**",
+            "apps/web/**",
+            "apps/api/src/database/migrations/**",
+            "schema/entity/table/column",
+            "deploy",
+            "DB write"
+          ],
+          "prompt_file": "docs/ops/prompts/A5_DATA_READINESS_PROMPT.md",
+          "contract_file": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A5-Data-Readiness.md",
+          "request_spec": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md",
+          "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
+          "branch": "w5-a5-data-readiness",
+          "dependencies": [],
+          "claimed_by": null,
+          "claimed_at": null,
+          "completed_at": null,
+          "result_file": null,
+          "next_agents": [],
+          "approval_required": true
+        },
+        {
+          "task_id": "REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-05-A4",
+          "request_id": "REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U",
+          "title": "Closed-loop task for A4-Frontend-UAT-Smoke",
+          "source_request": "推进 Store Payment 进入可试点状态：补齐菜单码和角色授权方案、附件 protected preview/download 方案、前端 UI/UX 和 UAT 页面计划、数据 readiness 检查、migration 执行前置清单、预发部署 runbook 和终验 Gate；按七 Agent 闭环分配任务，不改未授权业务代码，不执行 migration，不写数据库，不部署",
+          "agent": "A4-Frontend-UAT-Smoke",
+          "status": "pending",
+          "priority": "P1",
+          "risk_level": "MEDIUM",
+          "allowed_paths": [
+            "docs/ops/**"
+          ],
+          "forbidden_paths": [
+            "apps/api/**",
+            "apps/web/**",
+            "apps/api/src/database/migrations/**",
+            "schema/entity/table/column",
+            "deploy",
+            "DB write"
+          ],
+          "prompt_file": "docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md",
+          "contract_file": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A4-Frontend-UAT-Smoke.md",
+          "request_spec": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md",
+          "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
+          "branch": "w5-a4-frontend-uat-smoke",
+          "dependencies": [],
+          "claimed_by": null,
+          "claimed_at": null,
+          "completed_at": null,
+          "result_file": null,
+          "next_agents": [],
+          "approval_required": true
+        },
+        {
+          "task_id": "REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-06-A6",
+          "request_id": "REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U",
+          "title": "Closed-loop task for A6-Staging-Deploy-Runbook",
+          "source_request": "推进 Store Payment 进入可试点状态：补齐菜单码和角色授权方案、附件 protected preview/download 方案、前端 UI/UX 和 UAT 页面计划、数据 readiness 检查、migration 执行前置清单、预发部署 runbook 和终验 Gate；按七 Agent 闭环分配任务，不改未授权业务代码，不执行 migration，不写数据库，不部署",
+          "agent": "A6-Staging-Deploy-Runbook",
+          "status": "pending",
+          "priority": "P1",
+          "risk_level": "MEDIUM",
+          "allowed_paths": [
+            "docs/ops/**"
+          ],
+          "forbidden_paths": [
+            "apps/api/**",
+            "apps/web/**",
+            "apps/api/src/database/migrations/**",
+            "schema/entity/table/column",
+            "deploy",
+            "DB write"
+          ],
+          "prompt_file": "docs/ops/prompts/A6_DEPLOY_RUNBOOK_PROMPT.md",
+          "contract_file": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A6-Staging-Deploy-Runbook.md",
+          "request_spec": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md",
+          "worktree": "/Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook",
+          "branch": "w5-a6-staging-deploy-runbook",
+          "dependencies": [],
+          "claimed_by": null,
+          "claimed_at": null,
+          "completed_at": null,
+          "result_file": null,
+          "next_agents": [],
+          "approval_required": true
+        },
+        {
+          "task_id": "REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-07-A7",
+          "request_id": "REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U",
+          "title": "Closed-loop task for A7-Final-QA-Gate",
+          "source_request": "推进 Store Payment 进入可试点状态：补齐菜单码和角色授权方案、附件 protected preview/download 方案、前端 UI/UX 和 UAT 页面计划、数据 readiness 检查、migration 执行前置清单、预发部署 runbook 和终验 Gate；按七 Agent 闭环分配任务，不改未授权业务代码，不执行 migration，不写数据库，不部署",
+          "agent": "A7-Final-QA-Gate",
+          "status": "pending",
+          "priority": "P1",
+          "risk_level": "MEDIUM",
+          "allowed_paths": [
+            "docs/ops/**"
+          ],
+          "forbidden_paths": [
+            "apps/api/**",
+            "apps/web/**",
+            "apps/api/src/database/migrations/**",
+            "schema/entity/table/column",
+            "deploy",
+            "DB write"
+          ],
+          "prompt_file": "docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md",
+          "contract_file": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A7-Final-QA-Gate.md",
+          "request_spec": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md",
+          "worktree": "/Users/mac/phoenix-erp-worktrees/a7-final-qa-gate",
+          "branch": "w5-a7-final-qa-gate",
+          "dependencies": [],
+          "claimed_by": null,
+          "claimed_at": null,
+          "completed_at": null,
+          "result_file": null,
+          "next_agents": [],
+          "approval_required": true
+        }
+      ]
+    },
+    "orchestration_plan_json": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.json",
+    "orchestration_plan_md": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-orchestration-plan.md",
+    "execution_summary": "docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-execution-summary.md"
+  },
+  "worktree_checks": [
+    {
+      "agent": "A3-Backend-Critical-Path",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
+      "branch": "w5-a3-backend-critical-path",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a3-backend-critical-path",
+      "clean": true,
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+      "branch": "w5-a2-security-regression-gate",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a2-security-regression-gate",
+      "clean": true,
+      "needs_rebase": false,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+      "branch": "w5-a1-ci-runtime-gate",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a1-ci-runtime-gate",
+      "clean": true,
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
+      "branch": "w5-a5-data-readiness",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a5-data-readiness",
+      "clean": true,
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A4-Frontend-UAT-Smoke",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
+      "branch": "w5-a4-frontend-uat-smoke",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a4-frontend-uat-smoke",
+      "clean": true,
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A6-Staging-Deploy-Runbook",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook",
+      "branch": "w5-a6-staging-deploy-runbook",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a6-staging-deploy-runbook",
+      "clean": true,
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A7-Final-QA-Gate",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a7-final-qa-gate",
+      "branch": "w5-a7-final-qa-gate",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a7-final-qa-gate",
+      "clean": true,
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    }
+  ],
+  "worktree_warnings": [
+    "A3-Backend-Critical-Path: worktree may need rebase onto main",
+    "A1-CI-Runtime-Gate: worktree may need rebase onto main",
+    "A5-Data-Readiness: worktree may need rebase onto main",
+    "A4-Frontend-UAT-Smoke: worktree may need rebase onto main",
+    "A6-Staging-Deploy-Runbook: worktree may need rebase onto main",
+    "A7-Final-QA-Gate: worktree may need rebase onto main"
+  ],
+  "dispatch_groups": [
+    [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A5-Data-Readiness"
+    ],
+    [
+      "A3-Backend-Critical-Path"
+    ],
+    [
+      "A4-Frontend-UAT-Smoke"
+    ],
+    [
+      "A6-Staging-Deploy-Runbook",
+      "A7-Final-QA-Gate"
+    ]
+  ],
+  "approval_required": true,
+  "forbidden_actions": [
+    "merge",
+    "push",
+    "migration execution",
+    "database write",
+    "deploy"
+  ],
+  "next_commands": [
+    "node scripts/ops/run-agent-task.mjs --agent A3-Backend-Critical-Path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --prompt docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A3-Backend-Critical-Path.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A3-Backend-Critical-Path.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A2-Security-Regression-Gate --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --prompt docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A2-Security-Regression-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A2-Security-Regression-Gate.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A1-CI-Runtime-Gate --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --prompt docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A1-CI-Runtime-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A1-CI-Runtime-Gate.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A5-Data-Readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --prompt docs/ops/prompts/A5_DATA_READINESS_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A5-Data-Readiness.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A5-Data-Readiness.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A4-Frontend-UAT-Smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --prompt docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A4-Frontend-UAT-Smoke.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A4-Frontend-UAT-Smoke.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A6-Staging-Deploy-Runbook --worktree /Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook --prompt docs/ops/prompts/A6_DEPLOY_RUNBOOK_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A6-Staging-Deploy-Runbook.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A6-Staging-Deploy-Runbook.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A7-Final-QA-Gate --worktree /Users/mac/phoenix-erp-worktrees/a7-final-qa-gate --prompt docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-agent-contract-A7-Final-QA-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-234837-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UI-UX-U-assembled-prompt-A7-Final-QA-Gate.md --dry-run"
+  ],
+  "worker_start_commands": [
+    "node scripts/ops/agent-worker.mjs --agent A3-Backend-Critical-Path --claim-next --dry-run",
+    "node scripts/ops/agent-worker.mjs --agent A2-Security-Regression-Gate --claim-next --dry-run",
+    "node scripts/ops/agent-worker.mjs --agent A1-CI-Runtime-Gate --claim-next --dry-run",
+    "node scripts/ops/agent-worker.mjs --agent A5-Data-Readiness --claim-next --dry-run",
+    "node scripts/ops/agent-worker.mjs --agent A4-Frontend-UAT-Smoke --claim-next --dry-run",
+    "node scripts/ops/agent-worker.mjs --agent A6-Staging-Deploy-Runbook --claim-next --dry-run",
+    "node scripts/ops/agent-worker.mjs --agent A7-Final-QA-Gate --claim-next --dry-run"
+  ],
+  "safe_merge_commands": [
+    "node scripts/ops/agent-baseline-autopilot.mjs --agent A3-Backend-Critical-Path --branch w5-a3-backend-critical-path --worktree /Users/mac/phoenix-erp-worktrees/a3-backend-critical-path --max-retries 3 --dry-run",
+    "node scripts/ops/agent-baseline-autopilot.mjs --agent A2-Security-Regression-Gate --branch w5-a2-security-regression-gate --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --max-retries 3 --dry-run",
+    "node scripts/ops/agent-baseline-autopilot.mjs --agent A1-CI-Runtime-Gate --branch w5-a1-ci-runtime-gate --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --max-retries 3 --dry-run",
+    "node scripts/ops/agent-baseline-autopilot.mjs --agent A5-Data-Readiness --branch w5-a5-data-readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --max-retries 3 --dry-run",
+    "node scripts/ops/agent-baseline-autopilot.mjs --agent A4-Frontend-UAT-Smoke --branch w5-a4-frontend-uat-smoke --worktree /Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke --max-retries 3 --dry-run",
+    "node scripts/ops/agent-baseline-autopilot.mjs --agent A6-Staging-Deploy-Runbook --branch w5-a6-staging-deploy-runbook --worktree /Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook --max-retries 3 --dry-run",
+    "node scripts/ops/agent-baseline-autopilot.mjs --agent A7-Final-QA-Gate --branch w5-a7-final-qa-gate --worktree /Users/mac/phoenix-erp-worktrees/a7-final-qa-gate --max-retries 3 --dry-run"
+  ],
+  "baseline_autopilot_lifecycle": {
+    "will_run_after_agent_completion": true,
+    "user_manual_rebase_required": false,
+    "user_manual_merge_required": false,
+    "user_manual_docs_ops_runs_cleanup_required": false
+  },
+  "codex_actually_executed": false,
+  "approval_token_provided": false,
+  "approved_execution_result_json": null,
+  "approved_execution_summary_md": null
+}

@@ -123,9 +123,14 @@ function detectDomains(requestText) {
   const securityText = text.replace(/Store\s+Payment/gi, '');
   const securityLower = normalize(securityText);
   const ci = /ci|typecheck|测试|验证|编译|构建|启动|smoke|gate/.test(lower);
-  const security = /安全|权限|rbac|datascope|越权|jwt|审计|日志脱敏|附件权限|payment|支付|finance|财务|chanjet|畅捷通|用友/.test(
-    securityLower,
+  const protectedAttachment =
+    /protected\s+(attachment|preview|download)|attachment\s+(preview|download)|附件\s*protected|附件预览|附件下载/i.test(text);
+  const authorizationDesign = /菜单码|角色授权|权限\s*seed|权限\s*register|后端授权|menu\s+code|role\s+authorization|permission\s+(seed|register)/i.test(
+    text,
   );
+  const security = /安全|权限|rbac|datascope|越权|jwt|审计|日志脱敏|敏感日志|附件权限|附件\s*acl|附件访问控制|security\s+review|payment|支付|finance|财务|chanjet|畅捷通|用友/.test(
+    securityLower,
+  ) || protectedAttachment || authorizationDesign;
   const dataContext =
     /数据|主数据|门店|公司|账户|角色|组织|字典|基础数据|映射|store|company|account|role|organization|master\s+data|mapping|pilot/i.test(
       text,
@@ -139,7 +144,12 @@ function detectDomains(requestText) {
     /页面|前端|ui|ux|样式|美化|好看|清爽|现代化|布局|按钮|表格|表单|弹窗|抽屉|筛选|状态标签|颜色|间距|响应式|移动端|pc端|交互|用户体验|uat|frontend|style|polish|layout|button|table|form|modal|drawer|responsive|mobile|desktop/.test(
       lower,
     );
-  const backend = /后端|接口|api|service|controller|module|dto|appmodule|endpoint|确认接口|新增接口/.test(lower);
+  const backend =
+    /后端|接口|接口方案|后端边界|后端授权|api|api\s+draft|service|controller|module|dto|appmodule|endpoint|确认接口|新增接口/.test(
+      lower,
+    ) ||
+    protectedAttachment ||
+    authorizationDesign;
   const noBackend = /不改后端|不改后端接口|no\s+backend|do\s+not\s+modify\s+backend/.test(lower);
   const deployPlan =
     /预发|staging|部署\s*runbook|部署文档|回滚方案|环境矩阵|health\s+check|发布手册|deploy\s+runbook|deployment\s+runbook|rollback|release\s+runbook/.test(
@@ -155,6 +165,8 @@ function detectDomains(requestText) {
     backendMentionedButNegated: backend && noBackend,
     deployPlan,
     finalGate,
+    protectedAttachment,
+    authorizationDesign,
   };
 }
 

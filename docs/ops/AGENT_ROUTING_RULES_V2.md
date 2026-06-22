@@ -19,6 +19,18 @@ All natural language requests must pass `scripts/ops/agent-route-request.mjs` be
 | migration, schema, entity, table, column | HOLD | L5 | No parallel work; requires manual Schema Gate. |
 | production deploy, DB write, migration execution | HOLD | L5 | Human GO only. |
 
+## Store Payment Authorization / Protected Attachment Routing
+
+The following signals must route to `A3-Backend-Critical-Path` because they imply backend wiring, controller/service boundaries, permission registration, or protected attachment endpoints:
+
+菜单码, 角色授权, 权限 seed, 权限 register, 后端授权, protected preview, protected download, attachment preview, attachment download, 附件 protected, 附件预览, 附件下载, 接口方案, 后端边界, API draft, service, controller, module.
+
+The following signals must route to `A2-Security-Regression-Gate` because they imply permission, RBAC, protected attachment ACL, or overreach risk:
+
+权限, 菜单码, 角色授权, RBAC, DataScope, protected attachment, protected preview, protected download, 附件 ACL, 附件访问控制, 越权, 敏感日志, 安全审查, security review.
+
+If the request contains both menu/role authorization and protected preview/download attachment wording, Router must select both A2 and A3.
+
 ## Seven-Agent Dry-Run
 
 Requests that explicitly ask for all seven Agents, `seven-agent`, or `A1/A2/A5/A3/A4/A6/A7` route to all A1-A7 for planning only unless separately approved.

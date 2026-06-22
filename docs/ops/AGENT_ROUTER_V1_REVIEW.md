@@ -99,3 +99,7 @@ Orchestrator regression command selected `A2-Security-Regression-Gate`, `A1-CI-R
 - `user manual docs/ops/runs cleanup required: false`
 
 Codex CLI was not executed, no database was written, no deployment occurred, and no migration was created.
+
+## Store Payment Closed-loop Fix
+
+Store Payment closed-loop routing was tightened so menu code, role authorization, protected preview/download, protected attachment, API draft, service/controller/module, and attachment ACL wording routes to A2 and A3. This prevents closed-loop pilot-readiness tasks from selecting only A1/A4/A5/A6/A7 while missing backend and security review.
