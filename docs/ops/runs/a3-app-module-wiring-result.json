@@ -1,0 +1,61 @@
+{
+  "task_id": "REQ-STORE-PAYMENT-APP-MODULE-WIRING-001",
+  "agent": "A3-Backend-Critical-Path",
+  "worktree": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
+  "worktree_branch": "w5-a3-backend-critical-path",
+  "result_file": "docs/ops/examples/AGENT_RESULT_A3_APP_MODULE_WIRING_EXAMPLE.md",
+  "parsed_at": "2026-06-22T05:30:50.449Z",
+  "commit_hash": "a10a823cc68fd664ea58d0e1a0acee29a9f76d8e",
+  "changed_files": [
+    "apps/api/src/app.module.ts",
+    "docs/ops/A3_STORE_PAYMENT_APP_MODULE_WIRING_REPORT.md"
+  ],
+  "frozen_items_touched": true,
+  "business_code_changed": true,
+  "migration_added": false,
+  "migration_executed": false,
+  "database_written": false,
+  "deployed": false,
+  "verification_results": [
+    {
+      "command": "cd apps/api && ./node_modules/.bin/tsc --noEmit",
+      "result": "PASS",
+      "summary": "API typecheck passed."
+    },
+    {
+      "command": "cd apps/web && ./node_modules/.bin/tsc --noEmit",
+      "result": "PASS",
+      "summary": "Web typecheck passed in post-merge validation."
+    },
+    {
+      "command": "ALLOW_FREEZE_TOUCH=true node scripts/ci/check-freeze-boundaries.mjs",
+      "result": "PASS",
+      "summary": "Freeze touch was explicitly allowed for controlled `apps/api/src/app.module.ts` wiring."
+    },
+    {
+      "command": "ALLOW_SECURITY_TOUCH=true node scripts/ci/check-security-regression.mjs",
+      "result": "PASS",
+      "summary": "Static Chanjet signal was reviewed by A2 as an AppModule scan false positive."
+    },
+    {
+      "command": "ALLOW_FREEZE_TOUCH=true ALLOW_SECURITY_TOUCH=true node scripts/ci/check-w5-closeout-gate.mjs",
+      "result": "PASS",
+      "summary": "W5 closeout gate passed with approved allow flags."
+    }
+  ],
+  "conclusion": "PASS WITH CONDITIONS",
+  "recommend_next_agent": [
+    "A2-Security-Regression-Gate",
+    "A1-CI-Runtime-Gate"
+  ],
+  "conditions": [
+    "Menu code registration and role grants remain required before runtime access.",
+    "Migration has not been executed and DB may not contain S1 tables in runtime environments.",
+    "Protected attachment preview/download remains incomplete.",
+    "Frontend implementation is not complete.",
+    "`allowedSiteCodes` store scope and finance all-store permission semantics still need confirmation.",
+    "A1 previously found runtime/security blockers were not fixed in this run."
+  ],
+  "blockers": [],
+  "missing_fields": []
+}
