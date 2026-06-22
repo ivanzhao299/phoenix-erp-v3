@@ -147,3 +147,26 @@ node scripts/ops/run-agent-task.mjs \
   --assembled-prompt-output docs/ops/runs/store-payment-wiring-a3-assembled-prompt.md \
   --require-approval-token APPROVE_AGENT_EXECUTION
 ```
+
+## 13. Follow-Up Dispatch Plan Dry-Run
+
+After `parse-agent-result.mjs` and `decide-next-agent.mjs` generate a decision plan, the Orchestrator can dry-run every follow-up Agent prompt assembly with:
+
+```bash
+node scripts/ops/dispatch-follow-up-plan.mjs \
+  --plan docs/ops/runs/a3-app-module-wiring-next-agent-plan.json \
+  --output-dir docs/ops/runs \
+  --dry-run
+```
+
+The follow-up dispatch dry-run calls `run-agent-task.mjs --dry-run` for each follow-up item. It generates assembled prompts and a summary report, but it does not start Codex CLI execution.
+
+Follow-up dispatch defaults to dry-run because follow-up Agents may inspect code, produce reports, or eventually write approved changes. Real execution still requires a separate user approval and an explicit approval token. The dry-run runner must never pass `--require-approval-token`.
+
+Boundary:
+
+1. Follow-up dry-run may assemble prompts.
+2. Follow-up dry-run may validate worktree, branch, clean status, prompt file, and task contract file.
+3. Follow-up dry-run must not execute Codex CLI.
+4. Real Agent execution must be launched separately by the user-approved `run-agent-task.mjs` command.
+5. Migration, DB writes, deployment, merge, and push remain outside this automation.
