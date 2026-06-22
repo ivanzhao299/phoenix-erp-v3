@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 
@@ -12,7 +12,7 @@ function usage(exitCode = 1) {
   console.log(`Usage:
   node scripts/ops/agent-orchestrator.mjs \\
     (--request <text> | --request-file <file>) \\
-    [--mode supervised|plan-only|execute-approved] \\
+    [--mode supervised|plan-only|execute-approved|closed-loop] \\
     [--parallel <number>] \\
     [--dry-run] \\
     [--approval-token <token>] \\
@@ -423,9 +423,78 @@ ${stderr || ''}
   return path.relative(process.cwd(), file);
 }
 
+function queueFilePaths() {
+  const queueDir = path.resolve(process.cwd(), 'docs/ops/agent-queue');
+  return {
+    queueDir,
+    locksDir: path.join(queueDir, 'locks'),
+    tasksFile: path.join(queueDir, 'tasks.json'),
+    eventsFile: path.join(queueDir, 'events.jsonl'),
+  };
+}
+
+function ensureQueueFiles() {
+  const files = queueFilePaths();
+  mkdirSync(files.locksDir, { recursive: true });
+  if (!existsSync(files.tasksFile)) writeFileSync(files.tasksFile, '[]\n');
+  if (!existsSync(files.eventsFile)) writeFileSync(files.eventsFile, '');
+  return files;
+}
+
+function appendQueueTasks({ requestId, requestText, agentArtifacts, dispatchMap, signals, specPath }) {
+  const files = ensureQueueFiles();
+  const current = JSON.parse(readFileSync(files.tasksFile, 'utf8'));
+  const existingIds = new Set(current.map((task) => task.task_id));
+  const tasks = agentArtifacts.map((artifact, index) => {
+    const config = dispatchMap[artifact.agent];
+    const taskId = `${requestId}-${String(index + 1).padStart(2, '0')}-${artifact.agent.replace(/^A(\d)-.*/, 'A$1')}`;
+    return {
+      task_id: taskId,
+      request_id: requestId,
+      title: `Closed-loop task for ${artifact.agent}`,
+      source_request: requestText,
+      agent: artifact.agent,
+      status: 'pending',
+      priority: artifact.agent.includes('A2') || artifact.agent.includes('A1') ? 'P0' : 'P1',
+      risk_level: signals.riskLevel,
+      allowed_paths: ['docs/ops/**'],
+      forbidden_paths: ['apps/api/**', 'apps/web/**', 'apps/api/src/database/migrations/**', 'schema/entity/table/column', 'deploy', 'DB write'],
+      prompt_file: config.prompt_file,
+      contract_file: artifact.contract,
+      request_spec: path.relative(process.cwd(), specPath),
+      worktree: config.worktree_path,
+      branch: config.canonical_branch,
+      dependencies: [],
+      claimed_by: null,
+      claimed_at: null,
+      completed_at: null,
+      result_file: null,
+      next_agents: [],
+      approval_required: true,
+    };
+  });
+  const newTasks = tasks.filter((task) => !existingIds.has(task.task_id));
+  current.push(...newTasks);
+  writeFileSync(files.tasksFile, `${JSON.stringify(current, null, 2)}\n`);
+  appendFileSync(
+    files.eventsFile,
+    `${JSON.stringify({
+      at: new Date().toISOString(),
+      type: 'closed_loop_tasks_created',
+      request_id: requestId,
+      task_ids: newTasks.map((task) => task.task_id),
+    })}\n`,
+  );
+  return {
+    tasks_file: path.relative(process.cwd(), files.tasksFile),
+    events_file: path.relative(process.cwd(), files.eventsFile),
+    created_tasks: newTasks,
+  };
+}
+
 const args = parseArgs(process.argv.slice(2));
 if (!args.request && !args.requestFile) usage(1);
-if (!['supervised', 'plan-only', 'execute-approved'].includes(args.mode)) fail(`invalid mode: ${args.mode}`);
+if (!['supervised', 'plan-only', 'execute-approved', 'closed-loop'].includes(args.mode)) fail(`invalid mode: ${args.mode}`);
 args.dryRun = args.dryRun === true || args.mode !== 'execute-approved';
 if (args.parallel < 1) fail('--parallel must be >= 1');
 
@@ -506,6 +575,19 @@ for (const agent of selectedAgents) {
 }
 generatedFiles.agent_artifacts = agentArtifacts;
 
+let queueResult = null;
+if (args.mode === 'closed-loop') {
+  queueResult = appendQueueTasks({
+    requestId,
+    requestText,
+    agentArtifacts,
+    dispatchMap,
+    signals,
+    specPath,
+  });
+  generatedFiles.agent_queue = queueResult;
+}
+
 let codexActuallyExecuted = false;
 const heldReasons = [...signals.heldReasons];
 for (const check of worktreeChecks) {
@@ -579,6 +661,10 @@ const plan = {
   approval_required: approvalRequired,
   forbidden_actions: forbiddenActions,
   next_commands: heldReasons.length > 0 ? [] : nextCommands,
+  worker_start_commands:
+    args.mode === 'closed-loop' && heldReasons.length === 0
+      ? queueResult.created_tasks.map((task) => `node scripts/ops/agent-worker.mjs --agent ${task.agent} --claim-next --dry-run`)
+      : [],
   codex_actually_executed: codexActuallyExecuted,
   approval_token_provided: args.approvalToken === APPROVAL_TOKEN,
   approved_execution_result_json: args.mode === 'execute-approved' ? `${requestId}-approved-execution-result.json` : null,
@@ -660,6 +746,13 @@ console.log(`Dispatch groups: ${plan.dispatch_groups.map((group) => `[${group.jo
 console.log(`Plan: ${path.relative(process.cwd(), planJsonPath)}`);
 console.log(`Summary: ${path.relative(process.cwd(), summaryPath)}`);
 console.log(`Codex CLI executed: ${codexActuallyExecuted ? 'Yes' : 'No'}`);
+if (args.mode === 'closed-loop' && queueResult) {
+  console.log(`Task queue: ${queueResult.tasks_file}`);
+  console.log(`Created tasks: ${queueResult.created_tasks.map((task) => task.task_id).join(', ')}`);
+  console.log(
+    `Worker suggestions: ${queueResult.created_tasks.map((task) => `node scripts/ops/agent-worker.mjs --agent ${task.agent} --claim-next --dry-run`).join(' | ')}`,
+  );
+}
 if (heldReasons.length > 0) {
   console.log(`Held reasons: ${heldReasons.join('; ')}`);
 }

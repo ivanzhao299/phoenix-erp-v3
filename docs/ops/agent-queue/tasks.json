@@ -1,0 +1,68 @@
+[
+  {
+    "task_id": "REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-01-A2",
+    "request_id": "REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION",
+    "title": "Closed-loop task for A2-Security-Regression-Gate",
+    "source_request": "为 Store Payment 生成一份当前状态总览报告，并由 A2 做安全复核、A1 做验证，不改业务代码，不执行 migration，不部署",
+    "agent": "A2-Security-Regression-Gate",
+    "status": "pending",
+    "priority": "P0",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/**",
+      "apps/web/**",
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "deploy",
+      "DB write"
+    ],
+    "prompt_file": "docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md",
+    "contract_file": "docs/ops/runs/REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-agent-contract-A2-Security-Regression-Gate.md",
+    "request_spec": "docs/ops/runs/REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-requirement-spec.md",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+    "branch": "w5-a2-security-regression-gate",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [],
+    "approval_required": true
+  },
+  {
+    "task_id": "REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-02-A1",
+    "request_id": "REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION",
+    "title": "Closed-loop task for A1-CI-Runtime-Gate",
+    "source_request": "为 Store Payment 生成一份当前状态总览报告，并由 A2 做安全复核、A1 做验证，不改业务代码，不执行 migration，不部署",
+    "agent": "A1-CI-Runtime-Gate",
+    "status": "pending",
+    "priority": "P0",
+    "risk_level": "LOW/MEDIUM",
+    "allowed_paths": [
+      "docs/ops/**"
+    ],
+    "forbidden_paths": [
+      "apps/api/**",
+      "apps/web/**",
+      "apps/api/src/database/migrations/**",
+      "schema/entity/table/column",
+      "deploy",
+      "DB write"
+    ],
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "contract_file": "docs/ops/runs/REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-agent-contract-A1-CI-Runtime-Gate.md",
+    "request_spec": "docs/ops/runs/REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-requirement-spec.md",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "branch": "w5-a1-ci-runtime-gate",
+    "dependencies": [],
+    "claimed_by": null,
+    "claimed_at": null,
+    "completed_at": null,
+    "result_file": null,
+    "next_agents": [],
+    "approval_required": true
+  }
+]

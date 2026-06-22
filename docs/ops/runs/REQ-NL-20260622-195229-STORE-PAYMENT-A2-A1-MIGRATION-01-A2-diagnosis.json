@@ -1,0 +1,17 @@
+{
+  "task_id": "REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-01-A2",
+  "agent": "A2-Security-Regression-Gate",
+  "task_status": "pending",
+  "changed_files": [],
+  "touched_frozen_boundary": false,
+  "modified_business_code": false,
+  "added_migration_or_schema": false,
+  "high_risk_hits": [],
+  "tests_passed": false,
+  "recommendation": "HOLD",
+  "reasons": [
+    "task is not completed or result-json is missing"
+  ],
+  "dry_run": true,
+  "generated_at": "2026-06-22T11:52:58.806Z"
+}
