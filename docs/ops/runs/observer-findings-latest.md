@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-06-22T15:55:34.044Z |
-| Run files inspected | 327 |
+| Generated at | 2026-06-22T16:31:17.000Z |
+| Run files inspected | 331 |
 | Task count | 41 |
 | Findings count | 42 |
 | Highest severity | HIGH |
@@ -334,7 +334,7 @@
 ### OBS-0036 - MEDIUM - baseline
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/AGENT_TASK_BOARD.md; ?? docs/ops/OBSERVER_EVOLUTION_TASKS.md; ?? docs/ops/OBSERVER_FINDINGS_REPORT.md; ?? docs/ops/RESIDENT_OBSERVER_EVOLUTION_CENTER.md; ?? scripts/ops/agent-observer.mjs
+- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/AGENT_TASK_BOARD.md;  D evolution/evolution-state.json;  D evolution/failure-patterns.json;  D evolution/improvement-backlog.json;  D evolution/learning-log.json;  D ops/agent-orchestrator/runs/doctor-latest.json;  D ops/agent-orchestrator/runs/evolve-latest.json;  D ops/agent-orchestrator/runs/finalize-latest.json;  D ops/agent-orchestrator/runs/observe-latest.json;  D ops/agent-orchestrator/scripts/check-dispatch-status.mjs;  D ops/agent-orchestrator/scripts/evolution-planner.mjs;  D ops/agent-orchestrator/scripts/goal-to-queue.mjs;  D ops/agent-orchestrator/scripts/orchestratorctl.mjs;  M scripts/ops/agent-observer.mjs; ?? docs/ops/V3E_EVOLUTION_CENTER_MIGRATION_PLAN.md; ?? docs/ops/V3E_EVOLUTION_CENTER_REVIEW.md; ?? docs/ops/evolution/; ?? scripts/ops/agent-doctor.mjs; ?? scripts/ops/agent-evolution-planner.mjs; ?? scripts/ops/agent-finalize.mjs; ?? scripts/ops/agent-goal-to-queue.mjs
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
@@ -343,7 +343,7 @@
 ### OBS-0037 - MEDIUM - baseline
 
 - Affected Agent: A1-CI-Runtime-Gate
-- Evidence: A1-CI-Runtime-Gate worktree HEAD 318160f7 is behind main 9d17dcf8.
+- Evidence: A1-CI-Runtime-Gate worktree HEAD 318160f7 is behind main d3d6c4be.
 - Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
@@ -352,7 +352,7 @@
 ### OBS-0038 - MEDIUM - baseline
 
 - Affected Agent: A3-Backend-Critical-Path
-- Evidence: A3-Backend-Critical-Path worktree HEAD 924a4965 is behind main 9d17dcf8.
+- Evidence: A3-Backend-Critical-Path worktree HEAD 924a4965 is behind main d3d6c4be.
 - Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
@@ -361,7 +361,7 @@
 ### OBS-0039 - MEDIUM - baseline
 
 - Affected Agent: A4-Frontend-UAT-Smoke
-- Evidence: A4-Frontend-UAT-Smoke worktree HEAD 3fc2e089 is behind main 9d17dcf8.
+- Evidence: A4-Frontend-UAT-Smoke worktree HEAD 3fc2e089 is behind main d3d6c4be.
 - Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
@@ -370,7 +370,7 @@
 ### OBS-0040 - MEDIUM - baseline
 
 - Affected Agent: A5-Data-Readiness
-- Evidence: A5-Data-Readiness worktree HEAD 25f4329f is behind main 9d17dcf8.
+- Evidence: A5-Data-Readiness worktree HEAD 25f4329f is behind main d3d6c4be.
 - Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
@@ -379,7 +379,7 @@
 ### OBS-0041 - MEDIUM - baseline
 
 - Affected Agent: A6-Staging-Deploy-Runbook
-- Evidence: A6-Staging-Deploy-Runbook worktree HEAD 3fc2e089 is behind main 9d17dcf8.
+- Evidence: A6-Staging-Deploy-Runbook worktree HEAD 3fc2e089 is behind main d3d6c4be.
 - Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
@@ -388,7 +388,7 @@
 ### OBS-0042 - MEDIUM - baseline
 
 - Affected Agent: A7-Final-QA-Gate
-- Evidence: A7-Final-QA-Gate worktree HEAD 3fc2e089 is behind main 9d17dcf8.
+- Evidence: A7-Final-QA-Gate worktree HEAD 3fc2e089 is behind main d3d6c4be.
 - Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
 - Auto Fix Eligible: true
 - Requires Human Gate: false

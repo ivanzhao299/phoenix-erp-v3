@@ -1,0 +1,79 @@
+[
+  {
+    "pattern_id": "PATTERN-001",
+    "title": "Runtime plan artifact blocks finalize",
+    "description": "agent-run-plan.md runtime dirty repeatedly blocks integration or finalize.",
+    "occurrence": 5,
+    "severity": "MEDIUM",
+    "impact": "Finalize and integration can stall on generated runtime artifacts.",
+    "root_cause": "Runtime execution plans are treated like durable source artifacts.",
+    "evidence": ["agent-run-plan.md dirty state", "finalize or integration blocked by runtime plan file"],
+    "suggested_owner": "Codex-Orchestrator"
+  },
+  {
+    "pattern_id": "PATTERN-002",
+    "title": "Completed event missing for existing result",
+    "description": "Result artifact exists but completed event is absent from event stream.",
+    "occurrence": 4,
+    "severity": "MEDIUM",
+    "impact": "Queue and status readers disagree on whether work is complete.",
+    "root_cause": "Completion reconciliation trusts events only and does not backfill from result artifacts.",
+    "evidence": ["result exists but completed event missing"],
+    "suggested_owner": "Codex-Orchestrator"
+  },
+  {
+    "pattern_id": "PATTERN-003",
+    "title": "Agent report schema fields missing",
+    "description": "Agent reports miss fields required by parse / diagnose / decision, causing HOLD.",
+    "occurrence": 4,
+    "severity": "MEDIUM",
+    "impact": "Closed-loop decision cannot safely continue without normalized report fields.",
+    "root_cause": "Report schema compliance is not enforced before result parsing.",
+    "evidence": ["missing commit_hash", "missing verification_results", "missing recommend_next_agent"],
+    "suggested_owner": "A1-CI-Runtime-Gate or Codex-Orchestrator"
+  },
+  {
+    "pattern_id": "PATTERN-004",
+    "title": "Route plan misses required Agent",
+    "description": "Natural language routes miss required Agents such as A2/A3 for protected attachment or authorization signals.",
+    "occurrence": 6,
+    "severity": "HIGH",
+    "impact": "Security or backend implementation work can be skipped in closed-loop dispatch.",
+    "root_cause": "Router keyword and fail-down policy did not fully encode Phoenix-specific signals.",
+    "evidence": ["protected attachment did not trigger A2/A3", "menu code and role authorization did not trigger A2/A3"],
+    "suggested_owner": "Codex-Orchestrator"
+  },
+  {
+    "pattern_id": "PATTERN-005",
+    "title": "Queue bookkeeping conflict",
+    "description": "Queue JSON bookkeeping conflicts repeatedly during integration.",
+    "occurrence": 4,
+    "severity": "MEDIUM",
+    "impact": "Integration requires conflict handling and can delay safe merge.",
+    "root_cause": "Mutable queue JSON is used as both write model and read model.",
+    "evidence": ["docs/ops/agent-queue/tasks.json conflict", "docs/ops/agent-queue/events.jsonl conflict"],
+    "suggested_owner": "Codex-Orchestrator"
+  },
+  {
+    "pattern_id": "PATTERN-PHX-001",
+    "title": "A5 data readiness route omitted",
+    "description": "Natural language requests mentioning readiness, master data, store/company/account/role mapping can miss A5.",
+    "occurrence": 5,
+    "severity": "HIGH",
+    "impact": "Data readiness checks can be skipped before Store Payment pilot work.",
+    "root_cause": "Data readiness signals were not represented as mandatory A5 fail-down triggers.",
+    "evidence": ["A5 data readiness漏选", "readiness request selected A1/A2 but missed A5"],
+    "suggested_owner": "Codex-Orchestrator"
+  },
+  {
+    "pattern_id": "PATTERN-PHX-002",
+    "title": "User forced to manually sync baseline",
+    "description": "User was forced to manually rebase, merge, or clean docs/ops/runs between Agent tasks.",
+    "occurrence": 7,
+    "severity": "HIGH",
+    "impact": "Agent platform work leaks low-level lifecycle operations to the user.",
+    "root_cause": "Baseline sync lifecycle was not consistently attached to every Agent execution path.",
+    "evidence": ["manual rebase requested", "manual merge requested", "manual docs/ops/runs cleanup requested"],
+    "suggested_owner": "Codex-Orchestrator"
+  }
+]

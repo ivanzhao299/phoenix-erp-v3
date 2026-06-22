@@ -459,6 +459,45 @@ function evolutionTasks(findings) {
   return selected;
 }
 
+function patternForFinding(finding) {
+  const evidence = `${finding.category} ${finding.affected_agent} ${finding.evidence} ${finding.suggested_fix}`;
+  if (/A5|Data-Readiness|readiness|数据/.test(evidence)) return 'PATTERN-PHX-001';
+  if (/routing|route|漏派|protected|菜单码|角色授权|A2|A3/.test(evidence)) return 'PATTERN-004';
+  if (/baseline|manual|rebase|merge|runs|dirty/.test(evidence)) return 'PATTERN-PHX-002';
+  if (/report-schema|missing|verification_results|recommend_next_agent|commit_hash/.test(evidence)) return 'PATTERN-003';
+  if (/queue|tasks\.json|events\.jsonl|conflict/.test(evidence)) return 'PATTERN-005';
+  return null;
+}
+
+function improvementForPattern(patternId) {
+  return {
+    'PATTERN-PHX-001': 'IMPROVE-ROUTER-A5-READINESS',
+    'PATTERN-004': 'IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT',
+    'PATTERN-PHX-002': 'IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE',
+    'PATTERN-003': 'IMPROVE-REPORT-SCHEMA-COMPLIANCE',
+    'PATTERN-005': 'IMPROVE-QUEUE-CONFLICT-REDUCTION',
+  }[patternId] || null;
+}
+
+function evolutionSignals(findings) {
+  const patterns = new Map();
+  const improvements = new Map();
+  for (const finding of findings) {
+    const patternId = patternForFinding(finding);
+    if (!patternId) continue;
+    const improvementId = improvementForPattern(patternId);
+    patterns.set(patternId, (patterns.get(patternId) || 0) + 1);
+    if (improvementId) improvements.set(improvementId, (improvements.get(improvementId) || 0) + 1);
+  }
+  return {
+    suggested_evolution_patterns: [...patterns.entries()].map(([pattern_id, occurrence]) => ({ pattern_id, occurrence })),
+    suggested_improvements: [...improvements.entries()].map(([improvement_id, occurrence]) => ({ improvement_id, occurrence })),
+    repeated_pattern_candidates: [...patterns.entries()]
+      .filter(([, occurrence]) => occurrence >= 2)
+      .map(([pattern_id, occurrence]) => ({ pattern_id, occurrence })),
+  };
+}
+
 function writeStableDocs(summary, findings, tasks) {
   const findingReport = `# Observer Findings Report
 
@@ -515,10 +554,12 @@ function main() {
 
   const summary = summarize(findings, tasks, runFiles, dispatchMap);
   const evolution = evolutionTasks(findings);
+  const signals = evolutionSignals(findings);
   const payload = {
     summary,
     findings,
     evolution_tasks: evolution,
+    ...signals,
     observer_boundaries: {
       codex_cli_executed: false,
       business_code_modified: false,
@@ -542,6 +583,8 @@ function main() {
   console.log(`Baseline findings: ${summary.baseline_findings}`);
   console.log(`Report schema findings: ${summary.report_schema_findings}`);
   console.log(`Evolution tasks: ${evolution.length}`);
+  console.log(`Suggested evolution patterns: ${signals.suggested_evolution_patterns.length}`);
+  console.log(`Suggested improvements: ${signals.suggested_improvements.length}`);
   console.log('Codex CLI executed: No');
   console.log('Database written: No');
   console.log('Deployed: No');

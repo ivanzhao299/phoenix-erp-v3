@@ -4,14 +4,14 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const ROOT = process.cwd();
-const BACKLOG_FILE = 'evolution/improvement-backlog.json';
-const QUEUE_FILE = 'ops/agent-orchestrator/queue/tasks.json';
-const EVENTS_FILE = 'ops/agent-orchestrator/queue/events.jsonl';
+const BACKLOG_FILE = 'docs/ops/evolution/improvement-backlog.json';
+const TASKS_FILE = 'docs/ops/agent-queue/tasks.json';
+const EVENTS_FILE = 'docs/ops/agent-queue/events.jsonl';
 
 function usage(exitCode = 1) {
   console.log(`Usage:
-  node ops/agent-orchestrator/scripts/goal-to-queue.mjs --from-improvement <improvement_id> --dry-run
-  node ops/agent-orchestrator/scripts/goal-to-queue.mjs --from-improvement <improvement_id> --apply`);
+  node scripts/ops/agent-goal-to-queue.mjs --from-improvement <improvement_id> --dry-run
+  node scripts/ops/agent-goal-to-queue.mjs --from-improvement <improvement_id> --apply`);
   process.exit(exitCode);
 }
 
@@ -61,28 +61,37 @@ function writeJson(file, data) {
 }
 
 function appendEvent(event) {
-  const file = resolvePath(EVENTS_FILE);
-  mkdirSync(path.dirname(file), { recursive: true });
-  const previous = existsSync(file) ? readFileSync(file, 'utf8') : '';
-  writeFileSync(file, `${previous}${JSON.stringify(event)}\n`);
+  const resolved = resolvePath(EVENTS_FILE);
+  mkdirSync(path.dirname(resolved), { recursive: true });
+  const previous = existsSync(resolved) ? readFileSync(resolved, 'utf8') : '';
+  writeFileSync(resolved, `${previous}${JSON.stringify(event)}\n`);
+}
+
+function agentFor(improvement) {
+  const owner = improvement.owner_recommendation || '';
+  if (owner.includes('A1')) return 'A1-CI-Runtime-Gate';
+  if (owner.includes('A2')) return 'A2-Security-Regression-Gate';
+  if (owner.includes('A3')) return 'A3-Backend-Critical-Path';
+  if (owner.includes('A4')) return 'A4-Frontend-UAT-Smoke';
+  if (owner.includes('A5')) return 'A5-Data-Readiness';
+  return 'Codex-Orchestrator';
 }
 
 function taskFromImprovement(improvement) {
   return {
     task_id: `TASK-${improvement.improvement_id}`,
     source_improvement_id: improvement.improvement_id,
-    source_pattern_id: improvement.source_pattern_id,
     title: improvement.title,
-    status: 'READY',
-    priority: improvement.priority,
-    owner: improvement.owner_recommendation,
-    risk: improvement.risk,
+    agent: agentFor(improvement),
     allowed_paths: improvement.allowed_paths,
     forbidden_paths: improvement.forbidden_paths,
     validation_commands: improvement.validation_commands,
     acceptance_criteria: improvement.acceptance_criteria,
-    auto_fix_allowed: improvement.auto_fix_allowed,
+    risk: improvement.risk,
     requires_approval: improvement.requires_approval,
+    status: 'READY',
+    priority: improvement.priority,
+    source_pattern_id: improvement.source_pattern_id,
     created_at: new Date().toISOString(),
   };
 }
@@ -94,27 +103,27 @@ if (!improvement) {
   console.error(`Improvement not found: ${args.fromImprovement}`);
   process.exit(1);
 }
-
 const task = taskFromImprovement(improvement);
-console.log(`Goal to Queue mode: ${args.apply ? 'apply' : 'dry-run'}`);
+
+console.log(`Goal-to-Queue mode: ${args.apply ? 'apply' : 'dry-run'}`);
 console.log(`Improvement: ${improvement.improvement_id}`);
 console.log(`READY task: ${task.task_id}`);
-console.log(`Owner: ${task.owner}`);
+console.log(`Agent: ${task.agent}`);
 console.log(`Priority: ${task.priority}`);
 console.log(`Requires approval: ${task.requires_approval ? 'Yes' : 'No'}`);
 
 if (args.apply) {
-  const queue = readJson(QUEUE_FILE, []);
-  const exists = queue.some((item) => item.task_id === task.task_id);
-  const nextQueue = exists ? queue.map((item) => (item.task_id === task.task_id ? { ...item, ...task } : item)) : [...queue, task];
-  writeJson(QUEUE_FILE, nextQueue);
+  const tasks = readJson(TASKS_FILE, []);
+  const existing = tasks.find((item) => item.task_id === task.task_id);
+  const nextTasks = existing ? tasks.map((item) => (item.task_id === task.task_id ? { ...item, ...task } : item)) : [...tasks, task];
+  writeJson(TASKS_FILE, nextTasks);
   appendEvent({
     at: new Date().toISOString(),
     type: 'improvement_task_ready',
     task_id: task.task_id,
-    improvement_id: improvement.improvement_id,
+    source_improvement_id: improvement.improvement_id,
   });
-  console.log(`Applied queue file: ${QUEUE_FILE}`);
+  console.log(`Applied queue update: ${TASKS_FILE}`);
 } else {
   console.log('Dry-run only: no READY task written.');
   console.log(JSON.stringify(task, null, 2));
