@@ -1,0 +1,41 @@
+{
+  "source_task_id": "REQ-STORE-PAYMENT-APP-MODULE-WIRING-001",
+  "source_agent": "A3-Backend-Critical-Path",
+  "source_conclusion": "PASS WITH CONDITIONS",
+  "decision": "DISPATCH_PLAN_READY",
+  "approval_required": true,
+  "safety": {
+    "touched_frozen_boundary": true,
+    "modified_business_code": true,
+    "added_migration": false,
+    "executed_migration": false,
+    "wrote_database": false,
+    "deployed": false
+  },
+  "follow_up_dispatches": [
+    {
+      "follow_up_task_id": "REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP",
+      "next_agent": "A2-Security-Regression-Gate",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+      "branch": "w5-a2-security-regression-gate",
+      "prompt_file": "docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md",
+      "generated_contract_file": "docs/ops/runs/REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP.md",
+      "required_review_scope": "Read-only security review of changed files, RBAC, DataScope, audit, attachment ACL, sensitive logs, and any conditions from the source result.",
+      "required_output_report": "docs/ops/A2_REQ-STORE-PAYMENT-APP-MODULE-WIRING-001_FOLLOW_UP_REPORT.md",
+      "approval_required": true,
+      "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A2-Security-Regression-Gate --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --prompt docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md --task-contract docs/ops/runs/REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP.md --assembled-prompt-output docs/ops/runs/REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP-assembled-prompt.md --dry-run"
+    },
+    {
+      "follow_up_task_id": "REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A1-FOLLOWUP",
+      "next_agent": "A1-CI-Runtime-Gate",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+      "branch": "w5-a1-ci-runtime-gate",
+      "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+      "generated_contract_file": "docs/ops/runs/REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A1-FOLLOWUP.md",
+      "required_review_scope": "CI/runtime validation, typecheck/build gates, freeze/security/W5 closeout gate evidence, and post-merge validation if applicable.",
+      "required_output_report": "docs/ops/A1_REQ-STORE-PAYMENT-APP-MODULE-WIRING-001_FOLLOW_UP_REPORT.md",
+      "approval_required": true,
+      "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A1-CI-Runtime-Gate --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --prompt docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md --task-contract docs/ops/runs/REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A1-FOLLOWUP.md --assembled-prompt-output docs/ops/runs/REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A1-FOLLOWUP-assembled-prompt.md --dry-run"
+    }
+  ]
+}

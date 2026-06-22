@@ -1,0 +1,66 @@
+{
+  "Codex-Orchestrator": {
+    "agent_name": "Codex-Orchestrator",
+    "canonical_branch": "w5-codex-orchestrator",
+    "worktree_path": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator",
+    "prompt_file": "docs/ops/prompts/CODEX_ORCHESTRATOR_SYSTEM_PROMPT.md",
+    "default_role": "总控、需求理解、任务分发、验收汇总",
+    "allowed_execution_phase": "orchestration-only"
+  },
+  "A1-CI-Runtime-Gate": {
+    "agent_name": "A1-CI-Runtime-Gate",
+    "canonical_branch": "w5-a1-ci-runtime-gate",
+    "worktree_path": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+    "prompt_file": "docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md",
+    "default_role": "CI、typecheck、build、startup、post-merge validation",
+    "allowed_execution_phase": "validation-after-implementation-or-merge"
+  },
+  "A2-Security-Regression-Gate": {
+    "agent_name": "A2-Security-Regression-Gate",
+    "canonical_branch": "w5-a2-security-regression-gate",
+    "worktree_path": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+    "prompt_file": "docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md",
+    "default_role": "RBAC、DataScope、audit、JWT、附件 ACL、日志脱敏、安全回归",
+    "allowed_execution_phase": "security-review-after-code-or-sensitive-change"
+  },
+  "A3-Backend-Critical-Path": {
+    "agent_name": "A3-Backend-Critical-Path",
+    "canonical_branch": "w5-a3-backend-critical-path",
+    "worktree_path": "/Users/mac/phoenix-erp-worktrees/a3-backend-critical-path",
+    "prompt_file": "docs/ops/prompts/A3_BACKEND_TASK_PROMPT.md",
+    "default_role": "后端实现、controller/service/module、关键路径",
+    "allowed_execution_phase": "approved-backend-implementation"
+  },
+  "A4-Frontend-UAT-Smoke": {
+    "agent_name": "A4-Frontend-UAT-Smoke",
+    "canonical_branch": "w5-a4-frontend-uat-smoke",
+    "worktree_path": "/Users/mac/phoenix-erp-worktrees/a4-frontend-uat-smoke",
+    "prompt_file": "docs/ops/prompts/A4_FRONTEND_TASK_PROMPT.md",
+    "default_role": "前端页面、UAT smoke、截图、权限提示",
+    "allowed_execution_phase": "after-backend-security-validation"
+  },
+  "A5-Data-Readiness": {
+    "agent_name": "A5-Data-Readiness",
+    "canonical_branch": "w5-a5-data-readiness",
+    "worktree_path": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
+    "prompt_file": "docs/ops/prompts/A5_DATA_READINESS_PROMPT.md",
+    "default_role": "主数据、数据基线、灰度数据条件、只读核查",
+    "allowed_execution_phase": "read-only-data-readiness"
+  },
+  "A6-Staging-Deploy-Runbook": {
+    "agent_name": "A6-Staging-Deploy-Runbook",
+    "canonical_branch": "w5-a6-staging-deploy-runbook",
+    "worktree_path": "/Users/mac/phoenix-erp-worktrees/a6-staging-deploy-runbook",
+    "prompt_file": "docs/ops/prompts/A6_DEPLOY_RUNBOOK_PROMPT.md",
+    "default_role": "staging runbook、环境矩阵、回滚手册、health check",
+    "allowed_execution_phase": "deploy-runbook-only-before-go"
+  },
+  "A7-Final-QA-Gate": {
+    "agent_name": "A7-Final-QA-Gate",
+    "canonical_branch": "w5-a7-final-qa-gate",
+    "worktree_path": "/Users/mac/phoenix-erp-worktrees/a7-final-qa-gate",
+    "prompt_file": "docs/ops/prompts/A7_FINAL_QA_GATE_PROMPT.md",
+    "default_role": "最终只读验收、GO / GO WITH CONDITIONS / HOLD / ROLLBACK",
+    "allowed_execution_phase": "final-read-only-qa-gate"
+  }
+}
