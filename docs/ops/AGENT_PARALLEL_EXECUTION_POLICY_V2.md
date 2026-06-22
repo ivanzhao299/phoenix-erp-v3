@@ -15,6 +15,16 @@ A3 and A4 can only run in parallel when:
 3. A2 high-risk pre-review is complete when Auth/RBAC/DataScope/Finance/Payment/Chanjet is involved;
 4. user approval exists.
 
+## A4 UI/UX Parallel Rules
+
+1. A4 can run in parallel with A3 when:
+   - A3 changes `apps/api/**`;
+   - A4 changes `apps/web/**`;
+   - the API contract is frozen or aligned through mock / API draft.
+2. A4 can run in parallel with A1 for static validation planning, but real validation should run after A4 commits.
+3. A4 can run in parallel with A2 for UI permission-risk review, but permission-related code or menu display logic requires A2 post-review.
+4. A4 must not modify backend, migration, schema/entity/table/column, deployment, or database logic.
+
 ## Mandatory HOLD
 
 The platform must HOLD for:
