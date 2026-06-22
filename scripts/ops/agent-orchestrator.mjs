@@ -94,7 +94,9 @@ function classifyRequest(text) {
       lower,
     ) || (/执行.*migration|run\s+migration/.test(lower) && !/不执行.*migration|no\s+migration/.test(lower));
   const asksDeploy = /直接部署|部署上线|生产部署|deploy\s+to\s+prod|production\s+deploy|上线/.test(lower) && !/不部署|不执行部署|no deploy/.test(lower);
-  const asksDbWrite = /写库|database write|db write|直接写|执行.*数据库/.test(lower);
+  const asksDbWrite =
+    /写库|database write|db write|直接写|执行.*数据库/.test(lower) &&
+    !/不写库|不执行.*数据库|不写.*数据库|no\s+(database|db)\s+write|without\s+(database|db)\s+write/.test(lower);
 
   if (asksMigrationOrSchema) {
     heldReasons.push('migration/schema/entity/table/column request requires HOLD');
@@ -113,6 +115,9 @@ function classifyRequest(text) {
   const frontend = /frontend|前端|页面|按钮|表格|uat|smoke/.test(lower);
   const data = /主数据|baseline|readiness|数据准备|data readiness/.test(lower);
   const deployDocs = /runbook|部署文档|回滚文档|环境矩阵/.test(lower);
+  const allAgents =
+    /七个\s*agent|7\s*agent|seven-agent|seven agents|a1\/a2\/a5\/a3\/a4\/a6\/a7|a1.*a2.*a3.*a4.*a5.*a6.*a7/i.test(text) ||
+    (/a1/i.test(text) && /a2/i.test(text) && /a3/i.test(text) && /a4/i.test(text) && /a5/i.test(text) && /a6/i.test(text) && /a7/i.test(text));
 
   let riskLevel = 'LOW';
   if (frontend) riskLevel = 'MEDIUM';
@@ -131,6 +136,7 @@ function classifyRequest(text) {
     frontend,
     data,
     deployDocs,
+    allAgents,
     riskLevel,
     heldReasons,
   };
@@ -138,6 +144,17 @@ function classifyRequest(text) {
 
 function selectAgents(signals) {
   const agents = new Set();
+  if (signals.allAgents) {
+    return [
+      'A2-Security-Regression-Gate',
+      'A1-CI-Runtime-Gate',
+      'A5-Data-Readiness',
+      'A3-Backend-Critical-Path',
+      'A4-Frontend-UAT-Smoke',
+      'A6-Staging-Deploy-Runbook',
+      'A7-Final-QA-Gate',
+    ];
+  }
   if (signals.onlyA2A1) {
     return ['A2-Security-Regression-Gate', 'A1-CI-Runtime-Gate'];
   }
