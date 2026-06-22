@@ -90,11 +90,12 @@ function fail(message, extra = {}) {
 }
 
 function run(command, args, options = {}) {
-  return execFileSync(command, args, {
+  const output = execFileSync(command, args, {
     cwd: options.cwd || process.cwd(),
     encoding: 'utf8',
     stdio: options.stdio || ['ignore', 'pipe', 'pipe'],
-  }).trim();
+  });
+  return output ? output.trim() : '';
 }
 
 function safe(command, args, options = {}) {
