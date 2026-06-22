@@ -1,0 +1,40 @@
+{
+  "request_id": "REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS",
+  "mode": "execute-approved",
+  "approval_token_provided": true,
+  "codex_cli_executed": true,
+  "executed_agents": [
+    "A2-Security-Regression-Gate",
+    "A1-CI-Runtime-Gate"
+  ],
+  "skipped_agents": [],
+  "held_reasons": [],
+  "worktree_rebase_results": [
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "needs_rebase": false,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "needs_rebase": false,
+      "rebase_performed": false,
+      "errors": []
+    }
+  ],
+  "agent_exit_codes": {
+    "A2-Security-Regression-Gate": 0,
+    "A1-CI-Runtime-Gate": 0
+  },
+  "agent_log_files": {
+    "A2-Security-Regression-Gate": "docs/ops/runs/REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-approved-execution-A2-Security-Regression-Gate.log",
+    "A1-CI-Runtime-Gate": "docs/ops/runs/REQ-NL-20260622-210508-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-approved-execution-A1-CI-Runtime-Gate.log"
+  },
+  "generated_reports": [],
+  "migration_executed": false,
+  "database_written": false,
+  "deployed": false,
+  "merged": false,
+  "pushed": false
+}
