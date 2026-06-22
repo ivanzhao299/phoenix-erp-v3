@@ -15,6 +15,16 @@ const ROUTE_ORDER = [
   'A7-Final-QA-Gate',
   'Codex-Orchestrator',
 ];
+const AGENT_ALIASES = {
+  'A1-CI-Runtime-Gate': ['A1', 'A1-CI-Runtime-Gate', 'CI Runtime Gate', 'CI 验证', 'CI'],
+  'A2-Security-Regression-Gate': ['A2', 'A2-Security-Regression-Gate', '安全', '安全审查', '安全只读审查', 'Security Regression Gate'],
+  'A3-Backend-Critical-Path': ['A3', 'A3-Backend-Critical-Path', '后端', 'backend'],
+  'A4-Frontend-UAT-Smoke': ['A4', 'A4-Frontend-UAT-Smoke', 'A4-Frontend-UIUX-UAT', '前端', 'UI', 'UX', 'frontend'],
+  'A5-Data-Readiness': ['A5', 'A5 数据', 'A5-Data-Readiness', 'Data Readiness', '数据 readiness', '数据准备'],
+  'A6-Staging-Deploy-Runbook': ['A6', 'A6-Staging-Deploy-Runbook', '预发', 'runbook'],
+  'A7-Final-QA-Gate': ['A7', 'A7-Final-QA-Gate', '终验', 'Final QA Gate'],
+  'Codex-Orchestrator': ['Codex-Orchestrator', 'Orchestrator', '总控'],
+};
 
 function usage(exitCode = 1) {
   console.log(`Usage:
@@ -70,6 +80,79 @@ function negated(text, terms = []) {
 
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
+}
+
+function clauseAfter(text, markers) {
+  const clauses = [];
+  for (const marker of markers) {
+    const index = normalize(text).indexOf(normalize(marker));
+    if (index < 0) continue;
+    const tail = text.slice(index + marker.length);
+    clauses.push(tail.split(/[;；。.!?\n]/)[0] || tail);
+  }
+  return clauses;
+}
+
+function agentsMentioned(text) {
+  const result = [];
+  for (const [agent, aliases] of Object.entries(AGENT_ALIASES)) {
+    if (aliases.some((alias) => includesTerm(text, alias))) result.push(agent);
+  }
+  const compact = text.replace(/\s+/g, '');
+  if (/A1\/A2\/A5|A1、A2、A5|A1,A2,A5/i.test(compact)) result.push('A1-CI-Runtime-Gate', 'A2-Security-Regression-Gate', 'A5-Data-Readiness');
+  if (/A3\/A4|A3、A4|A3,A4/i.test(compact)) result.push('A3-Backend-Critical-Path', 'A4-Frontend-UAT-Smoke');
+  return unique(result);
+}
+
+function detectAgentConstraints(requestText) {
+  const text = String(requestText || '');
+  const lower = normalize(text);
+  const allowed = [];
+  const denied = [];
+  const hard = [];
+
+  for (const clause of clauseAfter(text, ['只允许', '仅允许', 'only allow', 'allow only'])) {
+    allowed.push(...agentsMentioned(clause));
+  }
+
+  for (const clause of clauseAfter(text, ['不允许', '禁止', '不要', '不得', 'disallow', 'exclude'])) {
+    denied.push(...agentsMentioned(clause));
+    if (/后端|backend|apps\/api|api/.test(normalize(clause))) denied.push('A3-Backend-Critical-Path');
+    if (/前端|frontend|apps\/web|ui|ux/.test(normalize(clause))) denied.push('A4-Frontend-UAT-Smoke');
+  }
+
+  if (/不改后端|不改后端接口|不修改后端|不修改\s*apps\/api|do not modify backend|no backend/.test(lower)) {
+    denied.push('A3-Backend-Critical-Path');
+  }
+  if (/不改前端|不修改前端|不修改\s*apps\/web|do not modify frontend|no frontend/.test(lower)) {
+    denied.push('A4-Frontend-UAT-Smoke');
+  }
+  if (/不改业务代码|不修改业务代码|no business code|do not modify business code/.test(lower)) {
+    denied.push('A3-Backend-Critical-Path', 'A4-Frontend-UAT-Smoke');
+    hard.push('no business code changes');
+  }
+  if (/不执行.*migration|不跑.*migration|不运行.*migration|no\s+migration|do\s+not\s+run\s+migration/.test(lower)) hard.push('no migration execution');
+  if (/不写库|不写.*数据库|no\s+(db|database)\s+write|do\s+not\s+write.*database/.test(lower)) hard.push('no database write');
+  if (/不部署|不执行部署|no\s+deploy|do\s+not\s+deploy/.test(lower)) hard.push('no deploy');
+  if (/不\s*push|不要\s*push|no\s+push|do\s+not\s+push/.test(lower)) hard.push('no push');
+  if (/不修改\s*apps\/api|不改\s*apps\/api/.test(lower)) {
+    denied.push('A3-Backend-Critical-Path');
+    hard.push('no apps/api changes');
+  }
+  if (/不修改\s*apps\/web|不改\s*apps\/web/.test(lower)) {
+    denied.push('A4-Frontend-UAT-Smoke');
+    hard.push('no apps/web changes');
+  }
+
+  const allowedAgents = unique(allowed);
+  const deniedAgents = unique(denied);
+  const conflicts = allowedAgents.filter((agent) => deniedAgents.includes(agent));
+  return {
+    allowed_agents: allowedAgents,
+    denied_agents: deniedAgents,
+    hard_constraints: unique(hard),
+    constraint_conflicts: conflicts.map((agent) => `Agent is both allowed and denied: ${agent}`),
+  };
 }
 
 function canonicalAgent(ruleKey, rule) {
@@ -241,6 +324,7 @@ export function routeRequest(requestText, options = {}) {
   const request = String(requestText || '').trim();
   const heldReasons = detectHeldReasons(request);
   const domains = detectDomains(request);
+  const constraints = detectAgentConstraints(request);
   const scoreByAgent = new Map();
   const matchedKeywords = {};
 
@@ -280,7 +364,25 @@ export function routeRequest(requestText, options = {}) {
     scoreByAgent.delete('Codex-Orchestrator');
   }
 
-  let selectedAgents = sortAgentsForRequest([...scoreByAgent.keys()], domains);
+  const selectedAgentsBeforeConstraints = sortAgentsForRequest([...scoreByAgent.keys()], domains);
+  let selectedAgents = selectedAgentsBeforeConstraints;
+  if (constraints.allowed_agents.length > 0) {
+    selectedAgents = selectedAgents.filter((agent) => constraints.allowed_agents.includes(agent));
+  }
+  if (constraints.denied_agents.length > 0) {
+    selectedAgents = selectedAgents.filter((agent) => !constraints.denied_agents.includes(agent));
+  }
+  if (
+    selectedAgents.length === 0 &&
+    selectedAgentsBeforeConstraints.length > 0 &&
+    constraints.denied_agents.length > 0 &&
+    constraints.allowed_agents.length === 0
+  ) {
+    selectedAgents = ['Codex-Orchestrator'];
+  }
+  if (constraints.constraint_conflicts.length > 0) {
+    heldReasons.push(...constraints.constraint_conflicts);
+  }
   if (heldReasons.length > 0) selectedAgents = [];
 
   const confidence = confidenceFor({ selectedAgents, matchedKeywords, heldReasons, domains });
@@ -296,6 +398,12 @@ export function routeRequest(requestText, options = {}) {
   return {
     request,
     selected_agents: selectedAgents,
+    selected_agents_before_constraints: selectedAgentsBeforeConstraints,
+    selected_agents_after_constraints: selectedAgents,
+    allowed_agents: constraints.allowed_agents,
+    denied_agents: constraints.denied_agents,
+    hard_constraints: constraints.hard_constraints,
+    constraint_conflicts: constraints.constraint_conflicts,
     confidence,
     matched_keywords: matchedKeywords,
     risk_domains: riskDomainsFor(selectedAgents, rules, heldReasons),
@@ -326,6 +434,28 @@ ${plan.request}
 ## Selected Agents
 
 ${plan.selected_agents.map((agent) => `- ${agent}`).join('\n') || '- None'}
+
+## Constraint Parsing
+
+### Allowed Agents
+
+${plan.allowed_agents.map((agent) => `- ${agent}`).join('\n') || '- None'}
+
+### Denied Agents
+
+${plan.denied_agents.map((agent) => `- ${agent}`).join('\n') || '- None'}
+
+### Hard Constraints
+
+${plan.hard_constraints.map((constraint) => `- ${constraint}`).join('\n') || '- None'}
+
+### Constraint Conflicts
+
+${plan.constraint_conflicts.map((conflict) => `- ${conflict}`).join('\n') || '- None'}
+
+### Selected Agents After Constraints
+
+${plan.selected_agents_after_constraints.map((agent) => `- ${agent}`).join('\n') || '- None'}
 
 ## Matched Keywords
 
