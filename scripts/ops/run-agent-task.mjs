@@ -144,6 +144,8 @@ function writeRunLog(data) {
 | Prompt | \`${data.prompt}\` |
 | Timestamp | ${data.createdAt} |
 | Dry run | ${data.dryRun ? 'Yes' : 'No'} |
+| Approval token provided | ${data.approvalTokenProvided ? 'Yes' : 'No'} |
+| Codex actually executed | ${data.codexActuallyExecuted ? 'Yes' : 'No'} |
 | Exit code | ${data.exitCode} |
 
 ## Codex Command
@@ -306,6 +308,8 @@ const logFile = writeRunLog({
   assembledPrompt: assembledPromptFile ? path.relative(process.cwd(), assembledPromptFile) : '',
   createdAt: new Date().toISOString(),
   dryRun: false,
+  approvalTokenProvided: args['require-approval-token'] === 'APPROVE_AGENT_EXECUTION',
+  codexActuallyExecuted: true,
   command: [codexCli, ...command.slice(1)],
   exitCode: result.status ?? 1,
   stdout: result.stdout ?? '',
