@@ -1,16 +1,16 @@
 {
   "summary": {
-    "generated_at": "2026-06-22T16:33:07.254Z",
+    "generated_at": "2026-06-22T17:03:40.898Z",
     "dry_run": true,
-    "run_files_inspected": 339,
-    "task_count": 41,
+    "run_files_inspected": 479,
+    "task_count": 55,
     "task_status_counts": {
-      "pending": 41
+      "pending": 55
     },
     "registered_agents": 8,
-    "findings_count": 42,
+    "findings_count": 34,
     "highest_severity": "HIGH",
-    "routing_findings": 18,
+    "routing_findings": 8,
     "baseline_findings": 7,
     "report_schema_findings": 4,
     "codex_cli_executed": false,
@@ -22,116 +22,6 @@
   "findings": [
     {
       "id": "OBS-0001",
-      "severity": "HIGH",
-      "category": "routing",
-      "affected_agent": "A3-Backend-Critical-Path",
-      "evidence": "docs/ops/runs/REQ-NL-20260622-184223-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-orchestration-plan.json: expected A3-Backend-Critical-Path, A2-Security-Regression-Gate, A1-CI-Runtime-Gate but selected A2-Security-Regression-Gate, A1-CI-Runtime-Gate",
-      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
-      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
-    },
-    {
-      "id": "OBS-0002",
-      "severity": "HIGH",
-      "category": "routing",
-      "affected_agent": "A3-Backend-Critical-Path",
-      "evidence": "docs/ops/runs/REQ-NL-20260622-184223-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-orchestration-plan.md: expected A3-Backend-Critical-Path, A2-Security-Regression-Gate, A1-CI-Runtime-Gate but selected A2-Security-Regression-Gate, A1-CI-Runtime-Gate",
-      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
-      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
-    },
-    {
-      "id": "OBS-0003",
-      "severity": "HIGH",
-      "category": "routing",
-      "affected_agent": "A3-Backend-Critical-Path",
-      "evidence": "docs/ops/runs/REQ-NL-20260622-193139-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-orchestration-plan.json: expected A3-Backend-Critical-Path, A2-Security-Regression-Gate, A1-CI-Runtime-Gate but selected A2-Security-Regression-Gate, A1-CI-Runtime-Gate",
-      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
-      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
-    },
-    {
-      "id": "OBS-0004",
-      "severity": "HIGH",
-      "category": "routing",
-      "affected_agent": "A3-Backend-Critical-Path",
-      "evidence": "docs/ops/runs/REQ-NL-20260622-193139-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-orchestration-plan.md: expected A3-Backend-Critical-Path, A2-Security-Regression-Gate, A1-CI-Runtime-Gate but selected A2-Security-Regression-Gate, A1-CI-Runtime-Gate",
-      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
-      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
-    },
-    {
-      "id": "OBS-0005",
-      "severity": "HIGH",
-      "category": "routing",
-      "affected_agent": "A3-Backend-Critical-Path",
-      "evidence": "docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-orchestration-plan.json: expected A3-Backend-Critical-Path, A2-Security-Regression-Gate, A1-CI-Runtime-Gate but selected A2-Security-Regression-Gate, A1-CI-Runtime-Gate",
-      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
-      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
-    },
-    {
-      "id": "OBS-0006",
-      "severity": "HIGH",
-      "category": "routing",
-      "affected_agent": "A3-Backend-Critical-Path",
-      "evidence": "docs/ops/runs/REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-orchestration-plan.md: expected A3-Backend-Critical-Path, A2-Security-Regression-Gate, A1-CI-Runtime-Gate but selected A2-Security-Regression-Gate, A1-CI-Runtime-Gate",
-      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
-      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
-    },
-    {
-      "id": "OBS-0007",
-      "severity": "HIGH",
-      "category": "routing",
-      "affected_agent": "A3-Backend-Critical-Path",
-      "evidence": "docs/ops/runs/REQ-NL-20260622-193726-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-orchestration-plan.json: expected A3-Backend-Critical-Path, A2-Security-Regression-Gate, A1-CI-Runtime-Gate but selected A2-Security-Regression-Gate, A1-CI-Runtime-Gate",
-      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
-      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
-    },
-    {
-      "id": "OBS-0008",
-      "severity": "HIGH",
-      "category": "routing",
-      "affected_agent": "A3-Backend-Critical-Path",
-      "evidence": "docs/ops/runs/REQ-NL-20260622-193726-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-orchestration-plan.md: expected A3-Backend-Critical-Path, A2-Security-Regression-Gate, A1-CI-Runtime-Gate but selected A2-Security-Regression-Gate, A1-CI-Runtime-Gate",
-      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
-      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
-    },
-    {
-      "id": "OBS-0009",
-      "severity": "HIGH",
-      "category": "routing",
-      "affected_agent": "A3-Backend-Critical-Path",
-      "evidence": "docs/ops/runs/REQ-NL-20260622-194339-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-orchestration-plan.json: expected A3-Backend-Critical-Path, A2-Security-Regression-Gate, A1-CI-Runtime-Gate but selected A2-Security-Regression-Gate, A1-CI-Runtime-Gate",
-      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
-      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
-    },
-    {
-      "id": "OBS-0010",
-      "severity": "HIGH",
-      "category": "routing",
-      "affected_agent": "A3-Backend-Critical-Path",
-      "evidence": "docs/ops/runs/REQ-NL-20260622-194339-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M-orchestration-plan.md: expected A3-Backend-Critical-Path, A2-Security-Regression-Gate, A1-CI-Runtime-Gate but selected A2-Security-Regression-Gate, A1-CI-Runtime-Gate",
-      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
-      "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
-    },
-    {
-      "id": "OBS-0011",
       "severity": "LOW",
       "category": "parallel-dispatch",
       "affected_agent": "A1/A2/A5",
@@ -142,7 +32,7 @@
       "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
     },
     {
-      "id": "OBS-0012",
+      "id": "OBS-0002",
       "severity": "LOW",
       "category": "parallel-dispatch",
       "affected_agent": "A1/A2/A5",
@@ -153,7 +43,7 @@
       "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
     },
     {
-      "id": "OBS-0013",
+      "id": "OBS-0003",
       "severity": "MEDIUM",
       "category": "routing",
       "affected_agent": "A5-Data-Readiness",
@@ -164,7 +54,7 @@
       "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
     },
     {
-      "id": "OBS-0014",
+      "id": "OBS-0004",
       "severity": "LOW",
       "category": "parallel-dispatch",
       "affected_agent": "A1/A2/A5",
@@ -175,7 +65,7 @@
       "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
     },
     {
-      "id": "OBS-0015",
+      "id": "OBS-0005",
       "severity": "MEDIUM",
       "category": "routing",
       "affected_agent": "A5-Data-Readiness",
@@ -186,7 +76,7 @@
       "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
     },
     {
-      "id": "OBS-0016",
+      "id": "OBS-0006",
       "severity": "LOW",
       "category": "parallel-dispatch",
       "affected_agent": "A1/A2/A5",
@@ -197,7 +87,7 @@
       "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
     },
     {
-      "id": "OBS-0017",
+      "id": "OBS-0007",
       "severity": "MEDIUM",
       "category": "routing",
       "affected_agent": "A5-Data-Readiness",
@@ -208,7 +98,7 @@
       "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
     },
     {
-      "id": "OBS-0018",
+      "id": "OBS-0008",
       "severity": "LOW",
       "category": "parallel-dispatch",
       "affected_agent": "A1/A2/A5",
@@ -219,7 +109,7 @@
       "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
     },
     {
-      "id": "OBS-0019",
+      "id": "OBS-0009",
       "severity": "MEDIUM",
       "category": "routing",
       "affected_agent": "A5-Data-Readiness",
@@ -230,7 +120,7 @@
       "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
     },
     {
-      "id": "OBS-0020",
+      "id": "OBS-0010",
       "severity": "LOW",
       "category": "parallel-dispatch",
       "affected_agent": "A1/A2/A5",
@@ -241,7 +131,7 @@
       "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
     },
     {
-      "id": "OBS-0021",
+      "id": "OBS-0011",
       "severity": "HIGH",
       "category": "routing",
       "affected_agent": "A3-Backend-Critical-Path, A2-Security-Regression-Gate",
@@ -252,7 +142,7 @@
       "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
     },
     {
-      "id": "OBS-0022",
+      "id": "OBS-0012",
       "severity": "LOW",
       "category": "parallel-dispatch",
       "affected_agent": "A1/A2/A5",
@@ -263,7 +153,7 @@
       "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
     },
     {
-      "id": "OBS-0023",
+      "id": "OBS-0013",
       "severity": "HIGH",
       "category": "routing",
       "affected_agent": "A3-Backend-Critical-Path, A2-Security-Regression-Gate",
@@ -274,7 +164,7 @@
       "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
     },
     {
-      "id": "OBS-0024",
+      "id": "OBS-0014",
       "severity": "LOW",
       "category": "parallel-dispatch",
       "affected_agent": "A1/A2/A5",
@@ -285,7 +175,29 @@
       "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
     },
     {
-      "id": "OBS-0025",
+      "id": "OBS-0015",
+      "severity": "LOW",
+      "category": "parallel-dispatch",
+      "affected_agent": "A1/A2/A5",
+      "evidence": "docs/ops/runs/REQ-NL-20260623-003531-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-orchestration-plan.json: readonly validation Agents are selected but not clearly grouped together.",
+      "suggested_fix": "Prefer A1/A2/A5 in one readonly-validation dispatch group when the request is docs-only or validation-only.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
+    },
+    {
+      "id": "OBS-0016",
+      "severity": "LOW",
+      "category": "parallel-dispatch",
+      "affected_agent": "A1/A2/A5",
+      "evidence": "docs/ops/runs/REQ-NL-20260623-003531-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-orchestration-plan.md: readonly validation Agents are selected but not clearly grouped together.",
+      "suggested_fix": "Prefer A1/A2/A5 in one readonly-validation dispatch group when the request is docs-only or validation-only.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
+    },
+    {
+      "id": "OBS-0017",
       "severity": "LOW",
       "category": "parallel-dispatch",
       "affected_agent": "A1/A2/A5",
@@ -296,7 +208,7 @@
       "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
     },
     {
-      "id": "OBS-0026",
+      "id": "OBS-0018",
       "severity": "LOW",
       "category": "parallel-dispatch",
       "affected_agent": "A1/A2/A5",
@@ -307,7 +219,7 @@
       "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
     },
     {
-      "id": "OBS-0027",
+      "id": "OBS-0019",
       "severity": "HIGH",
       "category": "routing",
       "affected_agent": "A3-Backend-Critical-Path, A2-Security-Regression-Gate",
@@ -318,7 +230,7 @@
       "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
     },
     {
-      "id": "OBS-0028",
+      "id": "OBS-0020",
       "severity": "LOW",
       "category": "parallel-dispatch",
       "affected_agent": "A1/A2/A5",
@@ -329,7 +241,7 @@
       "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
     },
     {
-      "id": "OBS-0029",
+      "id": "OBS-0021",
       "severity": "HIGH",
       "category": "routing",
       "affected_agent": "A3-Backend-Critical-Path, A2-Security-Regression-Gate",
@@ -340,7 +252,7 @@
       "recommended_next_task": "Create an ops-only router regression task for the missing Agent signals."
     },
     {
-      "id": "OBS-0030",
+      "id": "OBS-0022",
       "severity": "LOW",
       "category": "parallel-dispatch",
       "affected_agent": "A1/A2/A5",
@@ -351,7 +263,7 @@
       "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
     },
     {
-      "id": "OBS-0031",
+      "id": "OBS-0023",
       "severity": "LOW",
       "category": "parallel-dispatch",
       "affected_agent": "A1/A2/A5",
@@ -362,7 +274,7 @@
       "recommended_next_task": "Add a parallel-group regression fixture to agent-orchestrator."
     },
     {
-      "id": "OBS-0032",
+      "id": "OBS-0024",
       "severity": "HIGH",
       "category": "report-schema",
       "affected_agent": "A2-Security-Regression-Gate",
@@ -373,7 +285,7 @@
       "recommended_next_task": "Run normalize-agent-result for REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-01-A2."
     },
     {
-      "id": "OBS-0033",
+      "id": "OBS-0025",
       "severity": "HIGH",
       "category": "report-schema",
       "affected_agent": "A2-Security-Regression-Gate",
@@ -384,7 +296,7 @@
       "recommended_next_task": "Run normalize-agent-result for REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2."
     },
     {
-      "id": "OBS-0034",
+      "id": "OBS-0026",
       "severity": "HIGH",
       "category": "report-schema",
       "affected_agent": "A2-Security-Regression-Gate",
@@ -395,7 +307,7 @@
       "recommended_next_task": "Run normalize-agent-result for REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2."
     },
     {
-      "id": "OBS-0035",
+      "id": "OBS-0027",
       "severity": "MEDIUM",
       "category": "report-schema",
       "affected_agent": "A2-Security-Regression-Gate",
@@ -406,77 +318,77 @@
       "recommended_next_task": "Run normalize-agent-result for REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP."
     },
     {
-      "id": "OBS-0036",
+      "id": "OBS-0028",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "Codex-Orchestrator",
-      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M scripts/ops/agent-doctor.mjs;  M scripts/ops/agent-finalize.mjs",
+      "evidence": "/Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/runs/doctor-latest.json;  M docs/ops/runs/evolution-doctor-latest.json; ?? docs/ops/runs/2026-06-22T16-51-03-445Z-A2-Security-Regression-Gate.md; ?? docs/ops/runs/2026-06-22T16-59-44-013Z-A1-CI-Runtime-Gate.md; ?? docs/ops/runs/2026-06-22T17-02-24-635Z-A5-Data-Readiness.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A1-CI-Runtime-Gate.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A2-Security-Regression-Gate.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A5-Data-Readiness.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-approved-execution-result.json; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-approved-execution-summary.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A1-CI-Runtime-Gate.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A2-Security-Regression-Gate.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A5-Data-Readiness.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-execution-summary.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-orchestration-plan.json; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-orchestration-plan.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-requirement-spec.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A1-CI-Runtime-Gate.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A2-Security-Regression-Gate.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A5-Data-Readiness.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-approved-execution-result.json; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-approved-execution-summary.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A1-CI-Runtime-Gate.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A2-Security-Regression-Gate.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A5-Data-Readiness.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-execution-summary.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-orchestration-plan.json; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-orchestration-plan.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-requirement-spec.md",
       "suggested_fix": "Use baseline autopilot or HOLD if dirty files touch business code.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
       "recommended_next_task": "Baseline cleanup for Codex-Orchestrator."
     },
     {
-      "id": "OBS-0037",
+      "id": "OBS-0029",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A1-CI-Runtime-Gate",
-      "evidence": "A1-CI-Runtime-Gate worktree HEAD 318160f7 is behind main f0185705.",
+      "evidence": "A1-CI-Runtime-Gate worktree HEAD 89df2689 is behind main 8cbbe803.",
       "suggested_fix": "Baseline Autopilot should rebase this worktree before claim or merge.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
       "recommended_next_task": "Rebase A1-CI-Runtime-Gate with baseline autopilot."
     },
     {
-      "id": "OBS-0038",
+      "id": "OBS-0030",
+      "severity": "MEDIUM",
+      "category": "baseline",
+      "affected_agent": "A2-Security-Regression-Gate",
+      "evidence": "A2-Security-Regression-Gate worktree HEAD 6d8d32dc is behind main 8cbbe803.",
+      "suggested_fix": "Baseline Autopilot should rebase this worktree before claim or merge.",
+      "auto_fix_eligible": true,
+      "requires_human_gate": false,
+      "recommended_next_task": "Rebase A2-Security-Regression-Gate with baseline autopilot."
+    },
+    {
+      "id": "OBS-0031",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A3-Backend-Critical-Path",
-      "evidence": "A3-Backend-Critical-Path worktree HEAD 924a4965 is behind main f0185705.",
+      "evidence": "A3-Backend-Critical-Path worktree HEAD 476361e0 is behind main 8cbbe803.",
       "suggested_fix": "Baseline Autopilot should rebase this worktree before claim or merge.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
       "recommended_next_task": "Rebase A3-Backend-Critical-Path with baseline autopilot."
     },
     {
-      "id": "OBS-0039",
+      "id": "OBS-0032",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A4-Frontend-UAT-Smoke",
-      "evidence": "A4-Frontend-UAT-Smoke worktree HEAD 3fc2e089 is behind main f0185705.",
+      "evidence": "A4-Frontend-UAT-Smoke worktree HEAD 476361e0 is behind main 8cbbe803.",
       "suggested_fix": "Baseline Autopilot should rebase this worktree before claim or merge.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
       "recommended_next_task": "Rebase A4-Frontend-UAT-Smoke with baseline autopilot."
     },
     {
-      "id": "OBS-0040",
-      "severity": "MEDIUM",
-      "category": "baseline",
-      "affected_agent": "A5-Data-Readiness",
-      "evidence": "A5-Data-Readiness worktree HEAD 25f4329f is behind main f0185705.",
-      "suggested_fix": "Baseline Autopilot should rebase this worktree before claim or merge.",
-      "auto_fix_eligible": true,
-      "requires_human_gate": false,
-      "recommended_next_task": "Rebase A5-Data-Readiness with baseline autopilot."
-    },
-    {
-      "id": "OBS-0041",
+      "id": "OBS-0033",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A6-Staging-Deploy-Runbook",
-      "evidence": "A6-Staging-Deploy-Runbook worktree HEAD 3fc2e089 is behind main f0185705.",
+      "evidence": "A6-Staging-Deploy-Runbook worktree HEAD 3fc2e089 is behind main 8cbbe803.",
       "suggested_fix": "Baseline Autopilot should rebase this worktree before claim or merge.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
       "recommended_next_task": "Rebase A6-Staging-Deploy-Runbook with baseline autopilot."
     },
     {
-      "id": "OBS-0042",
+      "id": "OBS-0034",
       "severity": "MEDIUM",
       "category": "baseline",
       "affected_agent": "A7-Final-QA-Gate",
-      "evidence": "A7-Final-QA-Gate worktree HEAD 3fc2e089 is behind main f0185705.",
+      "evidence": "A7-Final-QA-Gate worktree HEAD 3fc2e089 is behind main 8cbbe803.",
       "suggested_fix": "Baseline Autopilot should rebase this worktree before claim or merge.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
@@ -486,9 +398,9 @@
   "evolution_tasks": [
     {
       "task_id": "OBSERVER-EVOLUTION-001",
-      "source_finding": "OBS-0001",
-      "severity": "HIGH",
-      "affected_agent": "A3-Backend-Critical-Path",
+      "source_finding": "OBS-0003",
+      "severity": "MEDIUM",
+      "affected_agent": "A5-Data-Readiness",
       "goal": "Create an ops-only router regression task for the missing Agent signals.",
       "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
       "auto_fix_eligible": true,
@@ -497,9 +409,9 @@
     },
     {
       "task_id": "OBSERVER-EVOLUTION-002",
-      "source_finding": "OBS-0002",
-      "severity": "HIGH",
-      "affected_agent": "A3-Backend-Critical-Path",
+      "source_finding": "OBS-0005",
+      "severity": "MEDIUM",
+      "affected_agent": "A5-Data-Readiness",
       "goal": "Create an ops-only router regression task for the missing Agent signals.",
       "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
       "auto_fix_eligible": true,
@@ -508,9 +420,9 @@
     },
     {
       "task_id": "OBSERVER-EVOLUTION-003",
-      "source_finding": "OBS-0003",
-      "severity": "HIGH",
-      "affected_agent": "A3-Backend-Critical-Path",
+      "source_finding": "OBS-0007",
+      "severity": "MEDIUM",
+      "affected_agent": "A5-Data-Readiness",
       "goal": "Create an ops-only router regression task for the missing Agent signals.",
       "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
       "auto_fix_eligible": true,
@@ -519,9 +431,9 @@
     },
     {
       "task_id": "OBSERVER-EVOLUTION-004",
-      "source_finding": "OBS-0004",
-      "severity": "HIGH",
-      "affected_agent": "A3-Backend-Critical-Path",
+      "source_finding": "OBS-0009",
+      "severity": "MEDIUM",
+      "affected_agent": "A5-Data-Readiness",
       "goal": "Create an ops-only router regression task for the missing Agent signals.",
       "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
       "auto_fix_eligible": true,
@@ -530,9 +442,9 @@
     },
     {
       "task_id": "OBSERVER-EVOLUTION-005",
-      "source_finding": "OBS-0005",
+      "source_finding": "OBS-0011",
       "severity": "HIGH",
-      "affected_agent": "A3-Backend-Critical-Path",
+      "affected_agent": "A3-Backend-Critical-Path, A2-Security-Regression-Gate",
       "goal": "Create an ops-only router regression task for the missing Agent signals.",
       "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
       "auto_fix_eligible": true,
@@ -541,9 +453,9 @@
     },
     {
       "task_id": "OBSERVER-EVOLUTION-006",
-      "source_finding": "OBS-0006",
+      "source_finding": "OBS-0013",
       "severity": "HIGH",
-      "affected_agent": "A3-Backend-Critical-Path",
+      "affected_agent": "A3-Backend-Critical-Path, A2-Security-Regression-Gate",
       "goal": "Create an ops-only router regression task for the missing Agent signals.",
       "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
       "auto_fix_eligible": true,
@@ -552,9 +464,9 @@
     },
     {
       "task_id": "OBSERVER-EVOLUTION-007",
-      "source_finding": "OBS-0007",
+      "source_finding": "OBS-0019",
       "severity": "HIGH",
-      "affected_agent": "A3-Backend-Critical-Path",
+      "affected_agent": "A3-Backend-Critical-Path, A2-Security-Regression-Gate",
       "goal": "Create an ops-only router regression task for the missing Agent signals.",
       "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
       "auto_fix_eligible": true,
@@ -563,9 +475,9 @@
     },
     {
       "task_id": "OBSERVER-EVOLUTION-008",
-      "source_finding": "OBS-0008",
+      "source_finding": "OBS-0021",
       "severity": "HIGH",
-      "affected_agent": "A3-Backend-Critical-Path",
+      "affected_agent": "A3-Backend-Critical-Path, A2-Security-Regression-Gate",
       "goal": "Create an ops-only router regression task for the missing Agent signals.",
       "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
       "auto_fix_eligible": true,
@@ -574,44 +486,44 @@
     },
     {
       "task_id": "OBSERVER-EVOLUTION-009",
-      "source_finding": "OBS-0009",
+      "source_finding": "OBS-0024",
       "severity": "HIGH",
-      "affected_agent": "A3-Backend-Critical-Path",
-      "goal": "Create an ops-only router regression task for the missing Agent signals.",
-      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "affected_agent": "A2-Security-Regression-Gate",
+      "goal": "Run normalize-agent-result for REQ-NL-20260622-195229-STORE-PAYMENT-A2-A1-MIGRATION-01-A2.",
+      "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
       "status": "proposed"
     },
     {
       "task_id": "OBSERVER-EVOLUTION-010",
-      "source_finding": "OBS-0010",
+      "source_finding": "OBS-0025",
       "severity": "HIGH",
-      "affected_agent": "A3-Backend-Critical-Path",
-      "goal": "Create an ops-only router regression task for the missing Agent signals.",
-      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "affected_agent": "A2-Security-Regression-Gate",
+      "goal": "Run normalize-agent-result for REQ-NL-20260622-202528-ERP-SEVEN-AGENT-A1-A2-A5-A3-A4-A6-A7-MIGRATION-01-A2.",
+      "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
       "status": "proposed"
     },
     {
       "task_id": "OBSERVER-EVOLUTION-011",
-      "source_finding": "OBS-0013",
-      "severity": "MEDIUM",
-      "affected_agent": "A5-Data-Readiness",
-      "goal": "Create an ops-only router regression task for the missing Agent signals.",
-      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "source_finding": "OBS-0026",
+      "severity": "HIGH",
+      "affected_agent": "A2-Security-Regression-Gate",
+      "goal": "Run normalize-agent-result for REQ-NL-20260622-205604-STORE-PAYMENT-PROTECTED-PREVIEW-DOWNLOAD-UAT-MIG-01-A2.",
+      "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
       "status": "proposed"
     },
     {
       "task_id": "OBSERVER-EVOLUTION-012",
-      "source_finding": "OBS-0015",
+      "source_finding": "OBS-0027",
       "severity": "MEDIUM",
-      "affected_agent": "A5-Data-Readiness",
-      "goal": "Create an ops-only router regression task for the missing Agent signals.",
-      "suggested_fix": "Re-run Agent Router against the source request and update routing rules or orchestration plan generation.",
+      "affected_agent": "A2-Security-Regression-Gate",
+      "goal": "Run normalize-agent-result for REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP.",
+      "suggested_fix": "Normalize this Agent result before using it for next-Agent decision or task board update.",
       "auto_fix_eligible": true,
       "requires_human_gate": false,
       "status": "proposed"
@@ -619,44 +531,44 @@
   ],
   "suggested_evolution_patterns": [
     {
-      "pattern_id": "PATTERN-004",
-      "occurrence": 14
+      "pattern_id": "PATTERN-PHX-001",
+      "occurrence": 25
     },
     {
-      "pattern_id": "PATTERN-PHX-001",
-      "occurrence": 23
+      "pattern_id": "PATTERN-004",
+      "occurrence": 5
     },
     {
       "pattern_id": "PATTERN-PHX-002",
-      "occurrence": 5
+      "occurrence": 4
     }
   ],
   "suggested_improvements": [
     {
-      "improvement_id": "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
-      "occurrence": 14
+      "improvement_id": "IMPROVE-ROUTER-A5-READINESS",
+      "occurrence": 25
     },
     {
-      "improvement_id": "IMPROVE-ROUTER-A5-READINESS",
-      "occurrence": 23
+      "improvement_id": "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
+      "occurrence": 5
     },
     {
       "improvement_id": "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
-      "occurrence": 5
+      "occurrence": 4
     }
   ],
   "repeated_pattern_candidates": [
     {
-      "pattern_id": "PATTERN-004",
-      "occurrence": 14
+      "pattern_id": "PATTERN-PHX-001",
+      "occurrence": 25
     },
     {
-      "pattern_id": "PATTERN-PHX-001",
-      "occurrence": 23
+      "pattern_id": "PATTERN-004",
+      "occurrence": 5
     },
     {
       "pattern_id": "PATTERN-PHX-002",
-      "occurrence": 5
+      "occurrence": 4
     }
   ],
   "observer_boundaries": {
