@@ -1,0 +1,46 @@
+{
+  "generated_at": "2026-06-22T16:17:31.214Z",
+  "mode": "apply",
+  "observe": {
+    "generated_at": "2026-06-22T16:17:31.165Z",
+    "mode": "apply",
+    "inspected_sources": [
+      "evolution/failure-patterns.json",
+      "evolution/learning-log.json",
+      "evolution/improvement-backlog.json",
+      "docs/ops/runs/**"
+    ],
+    "codex_cli_executed": false,
+    "business_code_modified": false,
+    "migration_executed": false,
+    "database_written": false,
+    "deployed": false
+  },
+  "planner_output": "Evolution Planner mode: apply\nRepeated patterns: 5\nExisting backlog: 5\nCandidates: 5\n- IMPROVE-RUNTIME-PLAN-ARTIFACT | P0 | agent-5 | Make agent-run-plan.md an ephemeral runtime artifact\n- IMPROVE-QUEUE-CONFLICT-REDUCTION | P0 | agent-5 | Reduce queue JSON conflicts with event-first read model\n- IMPROVE-003 | P1 | agent-5 | Improve Report schema missing next action\n- IMPROVE-004 | P1 | agent-5 | Improve Worktree baseline drift before claim\n- IMPROVE-COMPLETED-EVENT-BACKFILL | P1 | agent-5 or agent-3 | Backfill completed events from existing result artifacts\nApplied improvement backlog: evolution/improvement-backlog.json\nUpdated learning log: evolution/learning-log.json",
+  "top_improvement_candidates": [
+    {
+      "improvement_id": "IMPROVE-QUEUE-CONFLICT-REDUCTION",
+      "priority": "P0",
+      "title": "Reduce queue JSON conflicts with event-first read model",
+      "owner": "agent-5"
+    },
+    {
+      "improvement_id": "IMPROVE-RUNTIME-PLAN-ARTIFACT",
+      "priority": "P0",
+      "title": "Make agent-run-plan.md an ephemeral runtime artifact",
+      "owner": "agent-5"
+    },
+    {
+      "improvement_id": "IMPROVE-003",
+      "priority": "P1",
+      "title": "Improve Report schema missing next action",
+      "owner": "agent-5"
+    }
+  ],
+  "codex_cli_executed": false,
+  "business_code_modified": false,
+  "migration_executed": false,
+  "database_written": false,
+  "deployed": false,
+  "backlog_count_after": 5
+}

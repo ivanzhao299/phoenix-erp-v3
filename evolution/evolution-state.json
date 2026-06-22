@@ -1,0 +1,9 @@
+{
+  "version": "V3-E",
+  "last_planner_run_at": "2026-06-22T16:17:31.204Z",
+  "last_apply_at": "2026-06-22T16:17:31.204Z",
+  "open_improvement_count": 5,
+  "repeated_pattern_count": 5,
+  "highest_priority_improvement": "IMPROVE-QUEUE-CONFLICT-REDUCTION",
+  "backlog_stale": false
+}

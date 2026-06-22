@@ -1,0 +1,36 @@
+{
+  "generated_at": "2026-06-22T16:17:39.264Z",
+  "result": "GO",
+  "summary": "FINALIZE RESULT: GO",
+  "evolution_center": {
+    "open_improvement_count": 5,
+    "top_3_improvement_candidates": [
+      {
+        "improvement_id": "IMPROVE-QUEUE-CONFLICT-REDUCTION",
+        "priority": "P0",
+        "title": "Reduce queue JSON conflicts with event-first read model",
+        "owner": "agent-5"
+      },
+      {
+        "improvement_id": "IMPROVE-RUNTIME-PLAN-ARTIFACT",
+        "priority": "P0",
+        "title": "Make agent-run-plan.md an ephemeral runtime artifact",
+        "owner": "agent-5"
+      },
+      {
+        "improvement_id": "IMPROVE-003",
+        "priority": "P1",
+        "title": "Improve Report schema missing next action",
+        "owner": "agent-5"
+      }
+    ],
+    "repeated_pattern_count": 5,
+    "highest_priority_improvement": "IMPROVE-QUEUE-CONFLICT-REDUCTION",
+    "evolution_backlog_stale": false
+  },
+  "codex_cli_executed": false,
+  "business_code_modified": false,
+  "migration_executed": false,
+  "database_written": false,
+  "deployed": false
+}
