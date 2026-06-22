@@ -1,5 +1,7 @@
 # Agent Capability Matrix
 
+Agent capabilities are consumed by Agent Router before Orchestrator task generation. When natural language matches an Agent capability, Router owns selection and the Orchestrator uses the resulting `selected_agents` and `parallel_groups`.
+
 | Agent | Modify Code | Modify Docs | Execute Tests | Execute Migration | Deploy | Approval Required | Risk Domains |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Codex-Orchestrator | No | Yes | Yes | No | No | No | routing, planning, governance |
@@ -18,6 +20,7 @@
 3. No Agent can write databases automatically.
 4. A3/A4 code work requires explicit user approval and later A2/A1 gates.
 5. Migration/schema/entity/table/column requests are `HOLD`.
+6. If no Agent can be selected with sufficient confidence, Router must fail down to Codex-Orchestrator route-review or HOLD.
 
 ## A4 Capability Tags
 

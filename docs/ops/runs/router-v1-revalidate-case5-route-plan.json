@@ -1,0 +1,44 @@
+{
+  "request": "检查门店、公司、账户、角色映射是否满足试点条件",
+  "selected_agents": [
+    "A5-Data-Readiness"
+  ],
+  "confidence": 0.81,
+  "matched_keywords": {
+    "A5-Data-Readiness": [
+      "门店",
+      "角色映射"
+    ]
+  },
+  "risk_domains": [
+    "data-readiness",
+    "master-data",
+    "pilot-data",
+    "mapping"
+  ],
+  "held_reasons": [],
+  "recommended_sequence": [
+    "A5-Data-Readiness"
+  ],
+  "parallel_groups": [
+    [
+      "A5-Data-Readiness"
+    ]
+  ],
+  "fallback_action": "create task pool",
+  "route_decision": "PLAN_READY",
+  "requires_route_review": false,
+  "domains": {
+    "ci": false,
+    "security": false,
+    "dataReadiness": true,
+    "ui": false,
+    "backend": false,
+    "backendMentionedButNegated": false,
+    "deployPlan": false,
+    "finalGate": false
+  },
+  "agent_scores": {
+    "A5-Data-Readiness": 6.3
+  }
+}

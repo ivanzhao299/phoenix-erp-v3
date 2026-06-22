@@ -1,5 +1,9 @@
 # Agent Routing Rules V2
 
+## Mandatory Router Entry
+
+All natural language requests must pass `scripts/ops/agent-route-request.mjs` before `agent-orchestrator.mjs` creates a task pool. If Router returns `HOLD`, the Orchestrator must HOLD. If Router returns `selected_agents` or `parallel_groups`, the Orchestrator must use them and must not drop A4 or A5.
+
 ## Core Routing
 
 | Request Signal | Agents | Minimum Risk | Notes |

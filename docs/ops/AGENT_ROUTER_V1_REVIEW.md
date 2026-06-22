@@ -77,3 +77,25 @@ A4 is selected for page, frontend, UI, UX, style, polish, layout, form, table, b
 ## Next Recommendation
 
 Merge Router V1 to main, then make Agent Router the mandatory first step for all natural language delivery requests. Keep the legacy Orchestrator classifier only as a fallback during the transition.
+
+## Autonomous Baseline Revalidation
+
+After baseline autopilot became the default lifecycle hook, Router V1 was revalidated with the six required natural-language cases:
+
+| Case | Expected | Actual | Result |
+| --- | --- | --- | --- |
+| 1 | A2 + A1 + A5 | A2 + A1 + A5 | PASS |
+| 2 | A4 + A1 | A4 + A1 | PASS |
+| 3 | A3 + A2 + A1 | A3 + A2 + A1 | PASS |
+| 4 | HOLD with migration/schema/deploy/production | HOLD with migration/schema and deploy/production reasons | PASS |
+| 5 | A5 | A5 | PASS |
+| 6 | A6 + A7 | A6 + A7 | PASS |
+
+Orchestrator regression command selected `A2-Security-Regression-Gate`, `A1-CI-Runtime-Gate`, and `A5-Data-Readiness` before task generation. Output also confirmed:
+
+- `baseline autopilot will run after agent completion`
+- `user manual rebase required: false`
+- `user manual merge required: false`
+- `user manual docs/ops/runs cleanup required: false`
+
+Codex CLI was not executed, no database was written, no deployment occurred, and no migration was created.
