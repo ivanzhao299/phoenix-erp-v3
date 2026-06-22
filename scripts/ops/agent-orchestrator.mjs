@@ -3,6 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { routeRequest } from './agent-route-request.mjs';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
 const DISPATCH_MAP = 'docs/ops/AGENT_DISPATCH_MAP.json';
@@ -541,8 +542,18 @@ mkdirSync(outputDir, { recursive: true });
 const dispatchMap = JSON.parse(readFileSync(resolvePath(DISPATCH_MAP), 'utf8'));
 const requestId = `REQ-NL-${timestampForId()}-${slugify(requestText).toUpperCase()}`;
 const signals = classifyRequest(requestText);
-const selectedAgents = selectAgents(signals);
-const dispatchGroups = groupAgents(selectedAgents, args.parallel, signals);
+const routePlan = routeRequest(requestText);
+signals.heldReasons = [...new Set([...signals.heldReasons, ...(routePlan.held_reasons || [])])];
+const selectedAgents =
+  routePlan.route_decision === 'HOLD'
+    ? []
+    : routePlan.selected_agents?.length > 0
+      ? routePlan.selected_agents
+      : selectAgents(signals);
+const dispatchGroups =
+  routePlan.route_decision === 'PLAN_READY' && routePlan.parallel_groups?.length > 0
+    ? routePlan.parallel_groups
+    : groupAgents(selectedAgents, args.parallel, signals);
 const generatedFiles = {};
 const worktreeChecks = [];
 const worktreeWarnings = [];
@@ -573,6 +584,7 @@ const spec = makeSpec({ requestId, requestText, signals });
 const specPath = path.join(outputDir, `${requestId}-requirement-spec.md`);
 writeFileSync(specPath, spec);
 generatedFiles.requirement_spec = path.relative(process.cwd(), specPath);
+generatedFiles.agent_route_plan = routePlan;
 
 const agentArtifacts = [];
 for (const agent of selectedAgents) {
@@ -682,6 +694,9 @@ const plan = {
   request_id: requestId,
   request_text: requestText,
   risk_level: signals.riskLevel,
+  route_decision: routePlan.route_decision,
+  route_confidence: routePlan.confidence,
+  route_plan: routePlan,
   mode: args.mode,
   dry_run: Boolean(args.dryRun),
   parallel: args.parallel,

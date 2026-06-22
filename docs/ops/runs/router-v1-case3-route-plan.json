@@ -1,0 +1,72 @@
+{
+  "request": "新增 Store Payment 后端确认接口，并做 RBAC 和 DataScope 审查",
+  "selected_agents": [
+    "A3-Backend-Critical-Path",
+    "A2-Security-Regression-Gate",
+    "A1-CI-Runtime-Gate"
+  ],
+  "confidence": 0.96,
+  "matched_keywords": {
+    "A2-Security-Regression-Gate": [
+      "RBAC",
+      "DataScope",
+      "rbac",
+      "datascope",
+      "payment"
+    ],
+    "A3-Backend-Critical-Path": [
+      "后端",
+      "接口",
+      "确认接口"
+    ]
+  },
+  "risk_domains": [
+    "ci",
+    "runtime",
+    "startup",
+    "typecheck",
+    "auth",
+    "rbac",
+    "datascope",
+    "payment",
+    "finance",
+    "chanjet",
+    "audit",
+    "attachment-acl",
+    "backend",
+    "api"
+  ],
+  "held_reasons": [],
+  "recommended_sequence": [
+    "A3-Backend-Critical-Path",
+    "A2-Security-Regression-Gate",
+    "A1-CI-Runtime-Gate"
+  ],
+  "parallel_groups": [
+    [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate"
+    ],
+    [
+      "A3-Backend-Critical-Path"
+    ]
+  ],
+  "fallback_action": "create task pool",
+  "route_decision": "PLAN_READY",
+  "requires_route_review": false,
+  "domains": {
+    "ci": false,
+    "security": true,
+    "dataReadiness": false,
+    "ui": false,
+    "backend": true,
+    "backendMentionedButNegated": false,
+    "deployPlan": false,
+    "finalGate": false
+  },
+  "agent_scores": {
+    "A2-Security-Regression-Gate": 8.5,
+    "A3-Backend-Critical-Path": 7,
+    "A1-CI-Runtime-Gate": 2
+  }
+}

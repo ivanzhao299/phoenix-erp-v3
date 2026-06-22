@@ -1,0 +1,265 @@
+{
+  "request_id": "REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS",
+  "request_text": "对 Store Payment 试点 readiness 做只读安全复核、CI 验证和数据准备检查；只允许 A2 安全审查、A1 CI 验证、A5 数据 readiness，不改业务代码，不执行 migration，不写数据库，不部署",
+  "risk_level": "LOW/MEDIUM",
+  "route_decision": "PLAN_READY",
+  "route_confidence": 0.96,
+  "route_plan": {
+    "request": "对 Store Payment 试点 readiness 做只读安全复核、CI 验证和数据准备检查；只允许 A2 安全审查、A1 CI 验证、A5 数据 readiness，不改业务代码，不执行 migration，不写数据库，不部署",
+    "selected_agents": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A5-Data-Readiness"
+    ],
+    "confidence": 0.96,
+    "matched_keywords": {
+      "A1-CI-Runtime-Gate": [
+        "CI",
+        "验证",
+        "ci",
+        "A1"
+      ],
+      "A2-Security-Regression-Gate": [
+        "安全",
+        "payment",
+        "A2"
+      ],
+      "A5-Data-Readiness": [
+        "数据准备",
+        "数据 readiness",
+        "试点 readiness",
+        "A5",
+        "A5 数据"
+      ]
+    },
+    "risk_domains": [
+      "ci",
+      "runtime",
+      "startup",
+      "typecheck",
+      "auth",
+      "rbac",
+      "datascope",
+      "payment",
+      "finance",
+      "chanjet",
+      "audit",
+      "attachment-acl",
+      "data-readiness",
+      "master-data",
+      "pilot-data",
+      "mapping"
+    ],
+    "held_reasons": [],
+    "recommended_sequence": [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A5-Data-Readiness"
+    ],
+    "parallel_groups": [
+      [
+        "A2-Security-Regression-Gate",
+        "A1-CI-Runtime-Gate",
+        "A5-Data-Readiness"
+      ]
+    ],
+    "fallback_action": "create task pool",
+    "route_decision": "PLAN_READY",
+    "requires_route_review": false,
+    "domains": {
+      "ci": true,
+      "security": true,
+      "dataReadiness": true,
+      "ui": false,
+      "backend": false,
+      "backendMentionedButNegated": false,
+      "deployPlan": false,
+      "finalGate": false
+    },
+    "agent_scores": {
+      "A1-CI-Runtime-Gate": 9,
+      "A2-Security-Regression-Gate": 8.3,
+      "A5-Data-Readiness": 13.75
+    }
+  },
+  "mode": "supervised",
+  "dry_run": true,
+  "parallel": 3,
+  "selected_agents": [
+    "A2-Security-Regression-Gate",
+    "A1-CI-Runtime-Gate",
+    "A5-Data-Readiness"
+  ],
+  "held_reasons": [],
+  "generated_files": {
+    "requirement_spec": "docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-requirement-spec.md",
+    "agent_route_plan": {
+      "request": "对 Store Payment 试点 readiness 做只读安全复核、CI 验证和数据准备检查；只允许 A2 安全审查、A1 CI 验证、A5 数据 readiness，不改业务代码，不执行 migration，不写数据库，不部署",
+      "selected_agents": [
+        "A2-Security-Regression-Gate",
+        "A1-CI-Runtime-Gate",
+        "A5-Data-Readiness"
+      ],
+      "confidence": 0.96,
+      "matched_keywords": {
+        "A1-CI-Runtime-Gate": [
+          "CI",
+          "验证",
+          "ci",
+          "A1"
+        ],
+        "A2-Security-Regression-Gate": [
+          "安全",
+          "payment",
+          "A2"
+        ],
+        "A5-Data-Readiness": [
+          "数据准备",
+          "数据 readiness",
+          "试点 readiness",
+          "A5",
+          "A5 数据"
+        ]
+      },
+      "risk_domains": [
+        "ci",
+        "runtime",
+        "startup",
+        "typecheck",
+        "auth",
+        "rbac",
+        "datascope",
+        "payment",
+        "finance",
+        "chanjet",
+        "audit",
+        "attachment-acl",
+        "data-readiness",
+        "master-data",
+        "pilot-data",
+        "mapping"
+      ],
+      "held_reasons": [],
+      "recommended_sequence": [
+        "A2-Security-Regression-Gate",
+        "A1-CI-Runtime-Gate",
+        "A5-Data-Readiness"
+      ],
+      "parallel_groups": [
+        [
+          "A2-Security-Regression-Gate",
+          "A1-CI-Runtime-Gate",
+          "A5-Data-Readiness"
+        ]
+      ],
+      "fallback_action": "create task pool",
+      "route_decision": "PLAN_READY",
+      "requires_route_review": false,
+      "domains": {
+        "ci": true,
+        "security": true,
+        "dataReadiness": true,
+        "ui": false,
+        "backend": false,
+        "backendMentionedButNegated": false,
+        "deployPlan": false,
+        "finalGate": false
+      },
+      "agent_scores": {
+        "A1-CI-Runtime-Gate": 9,
+        "A2-Security-Regression-Gate": 8.3,
+        "A5-Data-Readiness": 13.75
+      }
+    },
+    "agent_artifacts": [
+      {
+        "agent": "A2-Security-Regression-Gate",
+        "contract": "docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A2-Security-Regression-Gate.md",
+        "assembled_prompt": "docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A2-Security-Regression-Gate.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A2-Security-Regression-Gate --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --prompt docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md --request-spec docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-requirement-spec.md --task-contract docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A2-Security-Regression-Gate.md --assembled-prompt-output docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A2-Security-Regression-Gate.md --dry-run"
+      },
+      {
+        "agent": "A1-CI-Runtime-Gate",
+        "contract": "docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A1-CI-Runtime-Gate.md",
+        "assembled_prompt": "docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A1-CI-Runtime-Gate.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A1-CI-Runtime-Gate --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --prompt docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md --request-spec docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-requirement-spec.md --task-contract docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A1-CI-Runtime-Gate.md --assembled-prompt-output docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A1-CI-Runtime-Gate.md --dry-run"
+      },
+      {
+        "agent": "A5-Data-Readiness",
+        "contract": "docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A5-Data-Readiness.md",
+        "assembled_prompt": "docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A5-Data-Readiness.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A5-Data-Readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --prompt docs/ops/prompts/A5_DATA_READINESS_PROMPT.md --request-spec docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-requirement-spec.md --task-contract docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A5-Data-Readiness.md --assembled-prompt-output docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A5-Data-Readiness.md --dry-run"
+      }
+    ],
+    "orchestration_plan_json": "docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-orchestration-plan.json",
+    "orchestration_plan_md": "docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-orchestration-plan.md",
+    "execution_summary": "docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-execution-summary.md"
+  },
+  "worktree_checks": [
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+      "branch": "w5-a2-security-regression-gate",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a2-security-regression-gate",
+      "clean": true,
+      "needs_rebase": false,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+      "branch": "w5-a1-ci-runtime-gate",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a1-ci-runtime-gate",
+      "clean": true,
+      "needs_rebase": false,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
+      "branch": "w5-a5-data-readiness",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a5-data-readiness",
+      "clean": true,
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    }
+  ],
+  "worktree_warnings": [
+    "A5-Data-Readiness: worktree may need rebase onto main"
+  ],
+  "dispatch_groups": [
+    [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A5-Data-Readiness"
+    ]
+  ],
+  "approval_required": true,
+  "forbidden_actions": [
+    "merge",
+    "push",
+    "migration execution",
+    "database write",
+    "deploy"
+  ],
+  "next_commands": [
+    "node scripts/ops/run-agent-task.mjs --agent A2-Security-Regression-Gate --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --prompt docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md --request-spec docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-requirement-spec.md --task-contract docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A2-Security-Regression-Gate.md --assembled-prompt-output docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A2-Security-Regression-Gate.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A1-CI-Runtime-Gate --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --prompt docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md --request-spec docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-requirement-spec.md --task-contract docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A1-CI-Runtime-Gate.md --assembled-prompt-output docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A1-CI-Runtime-Gate.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A5-Data-Readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --prompt docs/ops/prompts/A5_DATA_READINESS_PROMPT.md --request-spec docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-requirement-spec.md --task-contract docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-agent-contract-A5-Data-Readiness.md --assembled-prompt-output docs/ops/runs/router-v1-orchestrator/REQ-NL-20260622-214135-STORE-PAYMENT-READINESS-CI-A2-A1-CI-A5-READINESS-assembled-prompt-A5-Data-Readiness.md --dry-run"
+  ],
+  "worker_start_commands": [],
+  "safe_merge_commands": [],
+  "codex_actually_executed": false,
+  "approval_token_provided": false,
+  "approved_execution_result_json": null,
+  "approved_execution_summary_md": null
+}
