@@ -516,6 +516,7 @@ const generatedFiles = {};
 const worktreeChecks = [];
 const worktreeWarnings = [];
 const nextCommands = [];
+const safeMergeCommands = [];
 const forbiddenActions = ['merge', 'push', 'migration execution', 'database write', 'deploy'];
 const approvalRequired = signals.riskLevel !== 'LOW' || selectedAgents.some((agent) => agent !== 'Codex-Orchestrator');
 const executionResult = {
@@ -566,6 +567,7 @@ for (const agent of selectedAgents) {
     '--dry-run',
   ].join(' ');
   nextCommands.push(command);
+  safeMergeCommands.push(`cd /Users/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs ${config.canonical_branch} --dry-run`);
   agentArtifacts.push({
     agent,
     contract: path.relative(process.cwd(), contractPath),
@@ -665,6 +667,7 @@ const plan = {
     args.mode === 'closed-loop' && heldReasons.length === 0
       ? queueResult.created_tasks.map((task) => `node scripts/ops/agent-worker.mjs --agent ${task.agent} --claim-next --dry-run`)
       : [],
+  safe_merge_commands: ['closed-loop', 'execute-approved'].includes(args.mode) ? safeMergeCommands : [],
   codex_actually_executed: codexActuallyExecuted,
   approval_token_provided: args.approvalToken === APPROVAL_TOKEN,
   approved_execution_result_json: args.mode === 'execute-approved' ? `${requestId}-approved-execution-result.json` : null,
@@ -752,6 +755,9 @@ if (args.mode === 'closed-loop' && queueResult) {
   console.log(
     `Worker suggestions: ${queueResult.created_tasks.map((task) => `node scripts/ops/agent-worker.mjs --agent ${task.agent} --claim-next --dry-run`).join(' | ')}`,
   );
+}
+if (['closed-loop', 'execute-approved'].includes(args.mode)) {
+  console.log(`Safe merge commands: ${safeMergeCommands.join(' | ') || 'None'}`);
 }
 if (heldReasons.length > 0) {
   console.log(`Held reasons: ${heldReasons.join('; ')}`);

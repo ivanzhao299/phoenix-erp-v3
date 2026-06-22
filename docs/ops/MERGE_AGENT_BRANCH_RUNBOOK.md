@@ -6,6 +6,19 @@
 
 The script checks branch state, working tree cleanliness, changed files, freeze boundaries, fast-forward eligibility, and optional CI gate scripts. It does not push or deploy.
 
+## Preferred Daily Entry Point
+
+For normal Agent branch merges, prefer the higher-level sync wrapper:
+
+```bash
+cd /Users/mac/phoenix-erp
+node scripts/ops/agent-sync-and-merge.mjs <branch> --yes
+```
+
+`agent-sync-and-merge.mjs` handles generated `docs/ops/runs/**` artifacts, finds the Agent worktree, rebases it onto `main`, then calls this script as the lower-level safe fast-forward merge checker.
+
+Use `merge-agent-to-main.mjs` directly only when debugging the merge checker itself or when the sync wrapper explicitly tells you to inspect the lower-level merge step.
+
 ## Correct Input Location
 
 Run from macOS Terminal:

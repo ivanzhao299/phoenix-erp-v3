@@ -64,6 +64,7 @@ function checkWorktree(task) {
     exists: existsSync(task.worktree),
     branch: null,
     clean: false,
+    needsRebase: false,
     rebased: false,
     errors: [],
   };
@@ -78,6 +79,9 @@ function checkWorktree(task) {
   const status = safeGit(['status', '--short'], task.worktree).output;
   result.clean = status === '';
   if (!result.clean) result.errors.push(`dirty worktree: ${status}`);
+  const ancestor = safeGit(['merge-base', '--is-ancestor', task.branch, 'main'], task.worktree);
+  const reverse = safeGit(['merge-base', '--is-ancestor', 'main', task.branch], task.worktree);
+  result.needsRebase = ancestor.ok && !reverse.ok;
   return result;
 }
 
@@ -155,13 +159,21 @@ function runOne(args) {
   if (args.dryRun) {
     console.log(`Dry-run worker would claim and run: ${task.task_id}`);
     console.log(`Worktree check: ${check.errors.length ? `WARN ${check.errors.join('; ')}` : 'PASS'}`);
+    if (check.needsRebase) console.log('Dry-run: worktree is behind main and would be rebased before execution.');
     console.log(`Command: ${command.join(' ')}`);
     return 0;
   }
   if (args.approvalToken !== APPROVAL_TOKEN) fail('real worker execution requires --approval-token APPROVE_AGENT_EXECUTION');
   if (check.errors.length > 0) fail(`worktree check failed: ${check.errors.join('; ')}`);
-  const rebase = rebaseMain(task, false);
-  if (rebase.ok === false) fail(`git rebase main failed: ${rebase.error}`);
+  if (check.needsRebase) {
+    const rebase = rebaseMain(task, false);
+    if (rebase.ok === false) {
+      task.status = 'hold';
+      task.reason = `git rebase main failed: ${rebase.error}`;
+      writeTasks(tasks);
+      fail(`git rebase main failed; task moved to hold: ${rebase.error}`);
+    }
+  }
   task.status = 'running';
   task.claimed_by = args.agent;
   task.claimed_at = new Date().toISOString();
