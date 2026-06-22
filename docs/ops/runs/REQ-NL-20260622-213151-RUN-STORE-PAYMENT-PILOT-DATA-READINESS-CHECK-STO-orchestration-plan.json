@@ -1,0 +1,107 @@
+{
+  "request_id": "REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO",
+  "request_text": "Run Store Payment pilot data readiness check, store/company/account mapping validation, plus A2 security review and A1 CI validation. Do not modify business code, do not run migration, do not deploy.",
+  "risk_level": "LOW/MEDIUM",
+  "mode": "supervised",
+  "dry_run": true,
+  "parallel": 3,
+  "selected_agents": [
+    "A2-Security-Regression-Gate",
+    "A1-CI-Runtime-Gate",
+    "A5-Data-Readiness"
+  ],
+  "held_reasons": [],
+  "generated_files": {
+    "requirement_spec": "docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-requirement-spec.md",
+    "agent_artifacts": [
+      {
+        "agent": "A2-Security-Regression-Gate",
+        "contract": "docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-agent-contract-A2-Security-Regression-Gate.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-assembled-prompt-A2-Security-Regression-Gate.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A2-Security-Regression-Gate --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --prompt docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-agent-contract-A2-Security-Regression-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-assembled-prompt-A2-Security-Regression-Gate.md --dry-run"
+      },
+      {
+        "agent": "A1-CI-Runtime-Gate",
+        "contract": "docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-agent-contract-A1-CI-Runtime-Gate.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-assembled-prompt-A1-CI-Runtime-Gate.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A1-CI-Runtime-Gate --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --prompt docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-agent-contract-A1-CI-Runtime-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-assembled-prompt-A1-CI-Runtime-Gate.md --dry-run"
+      },
+      {
+        "agent": "A5-Data-Readiness",
+        "contract": "docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-agent-contract-A5-Data-Readiness.md",
+        "assembled_prompt": "docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-assembled-prompt-A5-Data-Readiness.md",
+        "run_agent_task_dry_run_command": "node scripts/ops/run-agent-task.mjs --agent A5-Data-Readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --prompt docs/ops/prompts/A5_DATA_READINESS_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-agent-contract-A5-Data-Readiness.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-assembled-prompt-A5-Data-Readiness.md --dry-run"
+      }
+    ],
+    "orchestration_plan_json": "docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-orchestration-plan.json",
+    "orchestration_plan_md": "docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-orchestration-plan.md",
+    "execution_summary": "docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-execution-summary.md"
+  },
+  "worktree_checks": [
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+      "branch": "w5-a2-security-regression-gate",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a2-security-regression-gate",
+      "clean": true,
+      "needs_rebase": false,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate",
+      "branch": "w5-a1-ci-runtime-gate",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a1-ci-runtime-gate",
+      "clean": true,
+      "needs_rebase": false,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A5-Data-Readiness",
+      "worktree": "/Users/mac/phoenix-erp-worktrees/a5-data-readiness",
+      "branch": "w5-a5-data-readiness",
+      "exists": true,
+      "is_git_repo": true,
+      "current_branch": "w5-a5-data-readiness",
+      "clean": true,
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    }
+  ],
+  "worktree_warnings": [
+    "A5-Data-Readiness: worktree may need rebase onto main"
+  ],
+  "dispatch_groups": [
+    [
+      "A2-Security-Regression-Gate",
+      "A1-CI-Runtime-Gate",
+      "A5-Data-Readiness"
+    ]
+  ],
+  "approval_required": true,
+  "forbidden_actions": [
+    "merge",
+    "push",
+    "migration execution",
+    "database write",
+    "deploy"
+  ],
+  "next_commands": [
+    "node scripts/ops/run-agent-task.mjs --agent A2-Security-Regression-Gate --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate --prompt docs/ops/prompts/A2_SECURITY_REVIEW_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-agent-contract-A2-Security-Regression-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-assembled-prompt-A2-Security-Regression-Gate.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A1-CI-Runtime-Gate --worktree /Users/mac/phoenix-erp-worktrees/a1-ci-runtime-gate --prompt docs/ops/prompts/A1_CI_RUNTIME_GATE_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-agent-contract-A1-CI-Runtime-Gate.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-assembled-prompt-A1-CI-Runtime-Gate.md --dry-run",
+    "node scripts/ops/run-agent-task.mjs --agent A5-Data-Readiness --worktree /Users/mac/phoenix-erp-worktrees/a5-data-readiness --prompt docs/ops/prompts/A5_DATA_READINESS_PROMPT.md --request-spec docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-requirement-spec.md --task-contract docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-agent-contract-A5-Data-Readiness.md --assembled-prompt-output docs/ops/runs/REQ-NL-20260622-213151-RUN-STORE-PAYMENT-PILOT-DATA-READINESS-CHECK-STO-assembled-prompt-A5-Data-Readiness.md --dry-run"
+  ],
+  "worker_start_commands": [],
+  "safe_merge_commands": [],
+  "codex_actually_executed": false,
+  "approval_token_provided": false,
+  "approved_execution_result_json": null,
+  "approved_execution_summary_md": null
+}

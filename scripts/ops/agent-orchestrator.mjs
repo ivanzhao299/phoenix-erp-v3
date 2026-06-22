@@ -92,7 +92,11 @@ function classifyRequest(text) {
   const asksMigrationOrSchema =
     /新增.*migration|创建.*migration|修改.*表结构|修改.*schema|修改.*entity|修改.*table|修改.*column|新增.*字段|新增.*表|schema\s+change|table\s+change|column\s+change/.test(
       lower,
-    ) || (/执行.*migration|run\s+migration/.test(lower) && !/不执行.*migration|no\s+migration/.test(lower));
+    ) ||
+    (/执行.*migration|run\s+migration/.test(lower) &&
+      !/不执行.*migration|不跑.*migration|不运行.*migration|no\s+migration|do\s+not\s+run\s+migration|don't\s+run\s+migration|not\s+run\s+migration/.test(
+        lower,
+      ));
   const asksDeploy = /直接部署|部署上线|生产部署|deploy\s+to\s+prod|production\s+deploy|上线/.test(lower) && !/不部署|不执行部署|no deploy/.test(lower);
   const asksDbWrite =
     /写库|database write|db write|直接写|执行.*数据库/.test(lower) &&
@@ -110,10 +114,17 @@ function classifyRequest(text) {
 
   const docsOnly = /docs\/ops|文档|报告|总览|整理/.test(lower) && /不改业务代码|docs\/ops only|只生成/.test(lower);
   const onlyA2A1 = /只允许.*a2.*a1|a2.*只读.*a1|a2.*安全.*a1.*验证/i.test(text);
+  const explicitA5 = /\bA5\b|A5\s*数据|A5-Data-Readiness|Data Readiness/i.test(text);
   const readOnly = /read-only|只读|复核|审查|review|验证|ci|typecheck|安全/.test(lower);
   const backend = /backend|后端|api|controller|service|module|appmodule|wiring/.test(lower);
   const frontend = /frontend|前端|页面|按钮|表格|uat|smoke/.test(lower);
-  const data = /主数据|baseline|readiness|数据准备|data readiness/.test(lower);
+  const dataContext =
+    /数据|主数据|门店|公司|账户|角色|组织|字典|基础数据|store|company|account|role|organization|master\s+data|pilot/i.test(text);
+  const dataReadiness =
+    /数据准备|数据检查|数据\s*readiness|主数据|门店映射|公司映射|账户映射|角色映射|字典|组织映射|基础数据|数据核查|数据就绪|试点\s*readiness|试点准备|data\s+readiness|master\s+data|store\s+mapping|company\s+mapping|account\s+mapping|role\s+mapping|organization\s+mapping|data\s+check|data\s+validation|pilot\s+readiness/i.test(text) ||
+    (/readiness/i.test(text) && dataContext) ||
+    explicitA5;
+  const data = /baseline|数据准备|data readiness/.test(lower) || dataReadiness;
   const deployDocs = /runbook|部署文档|回滚文档|环境矩阵/.test(lower);
   const allAgents =
     /七个\s*agent|7\s*agent|seven-agent|seven agents|a1\/a2\/a5\/a3\/a4\/a6\/a7|a1.*a2.*a3.*a4.*a5.*a6.*a7/i.test(text) ||
@@ -131,6 +142,7 @@ function classifyRequest(text) {
   return {
     docsOnly,
     onlyA2A1,
+    explicitA5,
     readOnly,
     backend,
     frontend,
@@ -156,7 +168,9 @@ function selectAgents(signals) {
     ];
   }
   if (signals.onlyA2A1) {
-    return ['A2-Security-Regression-Gate', 'A1-CI-Runtime-Gate'];
+    const selected = ['A2-Security-Regression-Gate', 'A1-CI-Runtime-Gate'];
+    if (signals.data || signals.explicitA5) selected.push('A5-Data-Readiness');
+    return selected;
   }
   if (signals.docsOnly) agents.add('Codex-Orchestrator');
   if (signals.backend) agents.add('A3-Backend-Critical-Path');

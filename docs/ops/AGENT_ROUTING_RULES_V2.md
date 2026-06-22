@@ -19,6 +19,18 @@
 
 Requests that explicitly ask for all seven Agents, `seven-agent`, or `A1/A2/A5/A3/A4/A6/A7` route to all A1-A7 for planning only unless separately approved.
 
+## A5 Data Readiness Keywords
+
+The following keywords route to `A5-Data-Readiness` when they refer to data readiness, pilot preparation, master data, or mapping checks:
+
+中文: 数据准备, 数据检查, 数据 readiness, readiness, 主数据, 门店, 门店映射, 公司映射, 账户映射, 角色映射, 字典, 组织, 组织映射, 基础数据, 数据核查, 数据就绪, 试点 readiness, 试点准备.
+
+English: data readiness, readiness, master data, store mapping, company mapping, account mapping, role mapping, organization mapping, data check, data validation, pilot readiness.
+
+Explicit Agent mentions also route to A5: `A5`, `A5 数据`, `A5-Data-Readiness`, `Data Readiness`.
+
+Avoidance rule: `CI readiness` alone does not force A5 unless data, master data, store, company, account, role, organization, mapping, or explicit A5 context is present.
+
 ## A4 UI/UX Keywords
 
 The following natural language keywords route primarily to A4:
