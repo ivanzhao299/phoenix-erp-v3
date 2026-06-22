@@ -27,19 +27,22 @@ Upgrade baseline autopilot from a manually invoked helper to the default lifecyc
 
 ## Automatic Commit Test
 
-Dry-run generated `docs/ops/runs/**` and task queue artifacts. The controlled `--yes` test is expected to auto-commit only `docs/ops/**`, `docs/ops/runs/**`, and `scripts/ops/**` in this task.
+Dry-run generated `docs/ops/runs/**` and task queue artifacts. The controlled `--yes` test auto-committed the baseline lifecycle report under `docs/ops/runs/**`.
 
 ## Automatic Rebase Test
 
-Planned validation: `agent-baseline-autopilot.mjs --yes` must fetch origin and rebase `w5-codex-orchestrator` on main.
+Result: `agent-baseline-autopilot.mjs --yes` fetched origin and rebased `w5-codex-orchestrator` on main successfully.
 
 ## Automatic Safe Merge Test
 
-Planned validation: autopilot must delegate to `agent-sync-and-merge.mjs`, which delegates to the safe merge preflight.
+Result: autopilot delegated to `agent-sync-and-merge.mjs`, which delegated to `merge-agent-to-main.mjs`. Both merges were fast-forward safe merges:
+
+1. Functional lifecycle commit merged into main.
+2. Generated lifecycle report commit merged into main.
 
 ## W5 Gate Test
 
-Planned validation: autopilot must run `node scripts/ci/check-w5-closeout-gate.mjs`.
+Result: W5 closeout gate ran and passed.
 
 ## Closed-loop Dry-run Result
 
@@ -65,7 +68,7 @@ Result:
 
 ## Three Retry Test
 
-The code path increments retry count only for auto-repairable docs conflicts. Retry ceiling remains `--max-retries 3`.
+Result: controlled `--yes` test completed with `retries: 0`; retry ceiling remains `--max-retries 3`.
 
 ## HOLD Test
 
