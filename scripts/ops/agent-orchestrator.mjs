@@ -6,6 +6,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 const APPROVAL_TOKEN = 'APPROVE_AGENT_EXECUTION';
 const DISPATCH_MAP = 'docs/ops/AGENT_DISPATCH_MAP.json';
+const SAFE_EXECUTION_AGENTS = new Set(['A1-CI-Runtime-Gate', 'A2-Security-Regression-Gate', 'A5-Data-Readiness']);
 
 function usage(exitCode = 1) {
   console.log(`Usage:
@@ -384,6 +385,44 @@ ${plan.next_commands.map((command) => `\`\`\`bash\n${command}\n\`\`\``).join('\n
 `;
 }
 
+async function runWithLimit(items, limit, worker) {
+  const results = [];
+  let index = 0;
+  let failed = false;
+  async function next() {
+    while (index < items.length && !failed) {
+      const current = items[index];
+      index += 1;
+      const result = await worker(current);
+      results.push(result);
+      if (result.exit_code !== 0) {
+        failed = true;
+      }
+    }
+  }
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => next());
+  await Promise.all(workers);
+  return results;
+}
+
+function writeAgentLog({ outputDir, requestId, agent, stdout, stderr, exitCode }) {
+  const safeAgent = agent.replace(/[^A-Za-z0-9_-]/g, '_');
+  const file = path.join(outputDir, `${requestId}-approved-execution-${safeAgent}.log`);
+  writeFileSync(
+    file,
+    `Agent: ${agent}
+Exit code: ${exitCode}
+
+STDOUT
+${stdout || ''}
+
+STDERR
+${stderr || ''}
+`,
+  );
+  return path.relative(process.cwd(), file);
+}
+
 const args = parseArgs(process.argv.slice(2));
 if (!args.request && !args.requestFile) usage(1);
 if (!['supervised', 'plan-only', 'execute-approved'].includes(args.mode)) fail(`invalid mode: ${args.mode}`);
@@ -410,6 +449,24 @@ const worktreeWarnings = [];
 const nextCommands = [];
 const forbiddenActions = ['merge', 'push', 'migration execution', 'database write', 'deploy'];
 const approvalRequired = signals.riskLevel !== 'LOW' || selectedAgents.some((agent) => agent !== 'Codex-Orchestrator');
+const executionResult = {
+  request_id: requestId,
+  mode: args.mode,
+  approval_token_provided: args.approvalToken === APPROVAL_TOKEN,
+  codex_cli_executed: false,
+  executed_agents: [],
+  skipped_agents: [],
+  held_reasons: [],
+  worktree_rebase_results: [],
+  agent_exit_codes: {},
+  agent_log_files: {},
+  generated_reports: [],
+  migration_executed: false,
+  database_written: false,
+  deployed: false,
+  merged: false,
+  pushed: false,
+};
 
 const spec = makeSpec({ requestId, requestText, signals });
 const specPath = path.join(outputDir, `${requestId}-requirement-spec.md`);
@@ -465,15 +522,41 @@ for (const check of worktreeChecks) {
 if (!args.dryRun && args.mode === 'execute-approved') {
   if (args.approvalToken !== APPROVAL_TOKEN) {
     heldReasons.push('execute-approved requires --approval-token APPROVE_AGENT_EXECUTION');
+    executionResult.skipped_agents.push(...selectedAgents);
+  } else if (selectedAgents.some((agent) => !SAFE_EXECUTION_AGENTS.has(agent))) {
+    heldReasons.push(`execute-approved only permits A1/A2/A5; selected unsafe agent(s): ${selectedAgents.filter((agent) => !SAFE_EXECUTION_AGENTS.has(agent)).join(', ')}`);
+    executionResult.skipped_agents.push(...selectedAgents);
   } else if (heldReasons.length === 0) {
+    const executableArtifacts = agentArtifacts.filter((artifact) => SAFE_EXECUTION_AGENTS.has(artifact.agent));
     const limit = Math.max(1, args.parallel);
-    for (const artifact of agentArtifacts.slice(0, limit)) {
+    const runResults = await runWithLimit(executableArtifacts, limit, async (artifact) => {
       const command = artifact.run_agent_task_dry_run_command.replace(/\s--dry-run$/, ` --require-approval-token ${APPROVAL_TOKEN}`);
       const parts = command.split(/\s+/);
       const result = spawnSync(parts[0], parts.slice(1), { cwd: process.cwd(), encoding: 'utf8' });
-      codexActuallyExecuted = true;
-      if (result.status !== 0) {
-        heldReasons.push(`${artifact.agent}: run-agent-task failed with ${result.status}`);
+      const exitCode = result.status ?? 1;
+      const logFile = writeAgentLog({
+        outputDir,
+        requestId,
+        agent: artifact.agent,
+        stdout: result.stdout ?? '',
+        stderr: result.stderr ?? '',
+        exitCode,
+      });
+      return {
+        agent: artifact.agent,
+        exit_code: exitCode,
+        log_file: logFile,
+      };
+    });
+    codexActuallyExecuted = runResults.length > 0;
+    executionResult.codex_cli_executed = codexActuallyExecuted;
+    for (const result of runResults) {
+      executionResult.agent_exit_codes[result.agent] = result.exit_code;
+      executionResult.agent_log_files[result.agent] = result.log_file;
+      if (result.exit_code === 0) executionResult.executed_agents.push(result.agent);
+      else {
+        executionResult.skipped_agents.push(...selectedAgents.filter((agent) => !executionResult.executed_agents.includes(agent)));
+        heldReasons.push(`${result.agent}: run-agent-task failed with ${result.exit_code}`);
         break;
       }
     }
@@ -498,11 +581,15 @@ const plan = {
   next_commands: heldReasons.length > 0 ? [] : nextCommands,
   codex_actually_executed: codexActuallyExecuted,
   approval_token_provided: args.approvalToken === APPROVAL_TOKEN,
+  approved_execution_result_json: args.mode === 'execute-approved' ? `${requestId}-approved-execution-result.json` : null,
+  approved_execution_summary_md: args.mode === 'execute-approved' ? `${requestId}-approved-execution-summary.md` : null,
 };
 
 const planJsonPath = path.join(outputDir, `${requestId}-orchestration-plan.json`);
 const planMdPath = path.join(outputDir, `${requestId}-orchestration-plan.md`);
 const summaryPath = path.join(outputDir, `${requestId}-execution-summary.md`);
+const approvedResultPath = path.join(outputDir, `${requestId}-approved-execution-result.json`);
+const approvedSummaryPath = path.join(outputDir, `${requestId}-approved-execution-summary.md`);
 writeFileSync(planJsonPath, `${JSON.stringify(plan, null, 2)}\n`);
 writeFileSync(planMdPath, writeMdPlan(plan));
 writeFileSync(
@@ -529,6 +616,40 @@ ${heldReasons.map((reason) => `- ${reason}`).join('\n') || '- None'}
 plan.generated_files.orchestration_plan_json = path.relative(process.cwd(), planJsonPath);
 plan.generated_files.orchestration_plan_md = path.relative(process.cwd(), planMdPath);
 plan.generated_files.execution_summary = path.relative(process.cwd(), summaryPath);
+executionResult.held_reasons = heldReasons;
+executionResult.worktree_rebase_results = worktreeChecks.map((check) => ({
+  agent: check.agent,
+  needs_rebase: check.needs_rebase,
+  rebase_performed: check.rebase_performed,
+  errors: check.errors,
+}));
+if (args.mode === 'execute-approved') {
+  writeFileSync(approvedResultPath, `${JSON.stringify(executionResult, null, 2)}\n`);
+  writeFileSync(
+    approvedSummaryPath,
+    `# Approved Parallel Execution Summary
+
+| Field | Value |
+| --- | --- |
+| Request ID | ${requestId} |
+| Approval token provided | ${executionResult.approval_token_provided ? 'Yes' : 'No'} |
+| Codex CLI executed | ${executionResult.codex_cli_executed ? 'Yes' : 'No'} |
+| Executed agents | ${executionResult.executed_agents.join(', ') || 'None'} |
+| Skipped agents | ${executionResult.skipped_agents.join(', ') || 'None'} |
+| Migration executed | No |
+| Database written | No |
+| Deployment | No |
+| Merge | No |
+| Push | No |
+
+## Held Reasons
+
+${heldReasons.map((reason) => `- ${reason}`).join('\n') || '- None'}
+`,
+  );
+  plan.generated_files.approved_execution_result = path.relative(process.cwd(), approvedResultPath);
+  plan.generated_files.approved_execution_summary = path.relative(process.cwd(), approvedSummaryPath);
+}
 writeFileSync(planJsonPath, `${JSON.stringify(plan, null, 2)}\n`);
 
 console.log(`Request ID: ${requestId}`);

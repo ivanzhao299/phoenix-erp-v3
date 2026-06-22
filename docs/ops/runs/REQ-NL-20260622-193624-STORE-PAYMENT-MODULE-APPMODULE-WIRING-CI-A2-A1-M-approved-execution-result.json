@@ -1,0 +1,36 @@
+{
+  "request_id": "REQ-NL-20260622-193624-STORE-PAYMENT-MODULE-APPMODULE-WIRING-CI-A2-A1-M",
+  "mode": "execute-approved",
+  "approval_token_provided": false,
+  "codex_cli_executed": false,
+  "executed_agents": [],
+  "skipped_agents": [
+    "A2-Security-Regression-Gate",
+    "A1-CI-Runtime-Gate"
+  ],
+  "held_reasons": [
+    "execute-approved requires --approval-token APPROVE_AGENT_EXECUTION"
+  ],
+  "worktree_rebase_results": [
+    {
+      "agent": "A2-Security-Regression-Gate",
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    },
+    {
+      "agent": "A1-CI-Runtime-Gate",
+      "needs_rebase": true,
+      "rebase_performed": false,
+      "errors": []
+    }
+  ],
+  "agent_exit_codes": {},
+  "agent_log_files": {},
+  "generated_reports": [],
+  "migration_executed": false,
+  "database_written": false,
+  "deployed": false,
+  "merged": false,
+  "pushed": false
+}
