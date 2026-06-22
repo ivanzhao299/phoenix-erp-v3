@@ -99,7 +99,17 @@ if (diagnosis?.modified_business_code && !['completed-with-a1-a2', 'a1-a2-passed
   reasons.push('business code requires A1/A2 pass before auto-merge');
 }
 
-const command = ['node', 'scripts/ops/agent-sync-and-merge.mjs', task.branch, '--dry-run'];
+const command = [
+  'node',
+  'scripts/ops/agent-baseline-autopilot.mjs',
+  '--agent',
+  task.agent,
+  '--branch',
+  task.branch,
+  '--max-retries',
+  '3',
+  '--dry-run',
+];
 let decision = 'AUTO_MERGE_DRY_RUN_READY';
 let result = null;
 

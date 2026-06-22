@@ -111,6 +111,22 @@ function commandForTask(task, dryRun, approvalToken) {
   return command;
 }
 
+function baselineAutopilotCommand(task, dryRun = true) {
+  return [
+    'node',
+    'scripts/ops/agent-baseline-autopilot.mjs',
+    '--agent',
+    task.agent,
+    '--branch',
+    task.branch,
+    '--worktree',
+    task.worktree,
+    '--max-retries',
+    '3',
+    dryRun ? '--dry-run' : '--yes',
+  ];
+}
+
 function writeWorkerLog(task, payload) {
   mkdirSync(RUN_DIR, { recursive: true });
   const file = path.join(RUN_DIR, `${task.task_id}-worker-log.md`);
@@ -167,6 +183,7 @@ function runOne(args) {
     console.log(`Worktree check: ${check.errors.length ? `WARN ${check.errors.join('; ')}` : 'PASS'}`);
     if (check.needsRebase) console.log('Dry-run: worktree is behind main and would be rebased before execution.');
     console.log(`Command: ${command.join(' ')}`);
+    console.log(`Baseline autopilot: ${baselineAutopilotCommand(task, true).join(' ')}`);
     return 0;
   }
   if (args.approvalToken !== APPROVAL_TOKEN) fail('real worker execution requires --approval-token APPROVE_AGENT_EXECUTION');
@@ -198,6 +215,7 @@ function runOne(args) {
   writeTasks(tasks);
   console.log(`${task.task_id} -> ${task.status}`);
   console.log(`Worker log: ${path.relative(process.cwd(), log)}`);
+  console.log(`Baseline autopilot: ${baselineAutopilotCommand(task, false).join(' ')}`);
   return result.status ?? 1;
 }
 

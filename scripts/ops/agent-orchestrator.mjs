@@ -610,7 +610,9 @@ for (const agent of selectedAgents) {
     '--dry-run',
   ].join(' ');
   nextCommands.push(command);
-  safeMergeCommands.push(`cd /Users/mac/phoenix-erp && node scripts/ops/agent-sync-and-merge.mjs ${config.canonical_branch} --dry-run`);
+  safeMergeCommands.push(
+    `node scripts/ops/agent-baseline-autopilot.mjs --agent ${agent} --branch ${config.canonical_branch} --worktree ${config.worktree_path} --max-retries 3 --dry-run`,
+  );
   agentArtifacts.push({
     agent,
     contract: path.relative(process.cwd(), contractPath),
