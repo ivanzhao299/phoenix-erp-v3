@@ -10,7 +10,7 @@ const RUN_DIR = 'docs/ops/runs';
 
 function usage(exitCode = 1) {
   console.log(`Usage:
-  node scripts/ops/agent-worker.mjs --agent <agent> [--claim-next] [--once] [--loop] [--dry-run] [--approval-token <token>]`);
+  node scripts/ops/agent-worker.mjs --agent <agent> [--claim-next] [--once] [--loop] [--dry-run] [--request-id <id>] [--task-id <id>] [--approval-token <token>]`);
   process.exit(exitCode);
 }
 
@@ -149,7 +149,13 @@ ${payload.stderr || ''}
 
 function runOne(args) {
   const tasks = readTasks();
-  const task = tasks.find((item) => item.agent === args.agent && ['pending', 'claimed'].includes(item.status));
+  const task = tasks.find(
+    (item) =>
+      item.agent === args.agent &&
+      ['pending', 'claimed'].includes(item.status) &&
+      (!args.requestId || item.request_id === args.requestId) &&
+      (!args.taskId || item.task_id === args.taskId),
+  );
   if (!task) {
     console.log(`No runnable task for ${args.agent}.`);
     return 0;
