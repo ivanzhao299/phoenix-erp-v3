@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-22T16:31:17.178Z",
+  "generated_at": "2026-06-22T16:33:07.436Z",
   "result": "GO",
   "open_improvement_count": 5,
   "top_3_improvement_candidates": [
@@ -10,15 +10,15 @@
       "owner": "Codex-Orchestrator"
     },
     {
+      "improvement_id": "IMPROVE-REPORT-SCHEMA-COMPLIANCE",
+      "priority": "P0",
+      "title": "Enforce Agent report schema compliance before decision",
+      "owner": "A1-CI-Runtime-Gate or Codex-Orchestrator"
+    },
+    {
       "improvement_id": "IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT",
       "priority": "P0",
       "title": "Harden A2/A3 routing for authorization and protected attachment",
-      "owner": "Codex-Orchestrator"
-    },
-    {
-      "improvement_id": "IMPROVE-ROUTER-A5-READINESS",
-      "priority": "P0",
-      "title": "Harden A5 data readiness routing",
       "owner": "Codex-Orchestrator"
     }
   ],
@@ -26,7 +26,7 @@
   "highest_priority_improvement": "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
   "evolution_backlog_stale": false,
   "forbidden_dirty_detected": false,
-  "git_status_short": "M docs/ops/AGENT_TASK_BOARD.md\n M docs/ops/OBSERVER_FINDINGS_REPORT.md\n M docs/ops/runs/observer-findings-latest.json\n M docs/ops/runs/observer-findings-latest.md\n D evolution/evolution-state.json\n D evolution/failure-patterns.json\n D evolution/improvement-backlog.json\n D evolution/learning-log.json\n D ops/agent-orchestrator/runs/doctor-latest.json\n D ops/agent-orchestrator/runs/evolve-latest.json\n D ops/agent-orchestrator/runs/finalize-latest.json\n D ops/agent-orchestrator/runs/observe-latest.json\n D ops/agent-orchestrator/scripts/check-dispatch-status.mjs\n D ops/agent-orchestrator/scripts/evolution-planner.mjs\n D ops/agent-orchestrator/scripts/goal-to-queue.mjs\n D ops/agent-orchestrator/scripts/orchestratorctl.mjs\n M scripts/ops/agent-observer.mjs\n?? docs/ops/V3E_EVOLUTION_CENTER_MIGRATION_PLAN.md\n?? docs/ops/V3E_EVOLUTION_CENTER_REVIEW.md\n?? docs/ops/evolution/\n?? docs/ops/runs/evolution-plan-latest.json\n?? docs/ops/runs/evolution-plan-latest.md\n?? scripts/ops/agent-doctor.mjs\n?? scripts/ops/agent-evolution-planner.mjs\n?? scripts/ops/agent-finalize.mjs\n?? scripts/ops/agent-goal-to-queue.mjs",
+  "git_status_short": "M docs/ops/OBSERVER_FINDINGS_REPORT.md\n M docs/ops/evolution/evolution-state.json\n M docs/ops/evolution/improvement-backlog.json\n M docs/ops/evolution/learning-log.json\n M docs/ops/runs/evolution-plan-latest.json\n M docs/ops/runs/evolution-plan-latest.md\n M docs/ops/runs/observer-findings-latest.json\n M docs/ops/runs/observer-findings-latest.md\n M scripts/ops/agent-doctor.mjs\n M scripts/ops/agent-finalize.mjs",
   "codex_cli_executed": false,
   "database_written": false,
   "deployed": false

@@ -10,6 +10,7 @@ const PATTERNS_FILE = 'docs/ops/evolution/failure-patterns.json';
 const STATE_FILE = 'docs/ops/evolution/evolution-state.json';
 const DOCTOR_JSON = 'docs/ops/runs/evolution-doctor-latest.json';
 const DOCTOR_MD = 'docs/ops/runs/evolution-doctor-latest.md';
+const DOCTOR_ALIAS_JSON = 'docs/ops/runs/doctor-latest.json';
 const PRIORITY_RANK = { P0: 4, P1: 3, P2: 2, P3: 1 };
 
 function resolvePath(file) {
@@ -109,6 +110,7 @@ ${report.top_3_improvement_candidates.map((item) => `- ${item.improvement_id} / 
 function main() {
   const report = buildDoctorReport();
   writeFile(DOCTOR_JSON, `${JSON.stringify(report, null, 2)}\n`);
+  writeFile(DOCTOR_ALIAS_JSON, `${JSON.stringify(report, null, 2)}\n`);
   writeFile(DOCTOR_MD, markdown(report));
   console.log(`Doctor result: ${report.result}`);
   console.log(`Open improvement count: ${report.open_improvement_count}`);

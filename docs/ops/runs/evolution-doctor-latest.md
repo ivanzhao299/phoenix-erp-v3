@@ -12,5 +12,5 @@
 ## Top 3 Improvement Candidates
 
 - IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE / P0 / Codex-Orchestrator: Attach baseline autopilot to every Agent lifecycle path
+- IMPROVE-REPORT-SCHEMA-COMPLIANCE / P0 / A1-CI-Runtime-Gate or Codex-Orchestrator: Enforce Agent report schema compliance before decision
 - IMPROVE-ROUTER-A2-A3-PROTECTED-ATTACHMENT / P0 / Codex-Orchestrator: Harden A2/A3 routing for authorization and protected attachment
-- IMPROVE-ROUTER-A5-READINESS / P0 / Codex-Orchestrator: Harden A5 data readiness routing

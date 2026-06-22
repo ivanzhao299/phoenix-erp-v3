@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-22T16:31:17.086Z",
+  "generated_at": "2026-06-22T16:33:07.345Z",
   "inputs": {
     "failure_patterns": "docs/ops/evolution/failure-patterns.json",
     "learning_log": "docs/ops/evolution/learning-log.json",
@@ -11,21 +11,22 @@
   },
   "repeated_pattern_count": 7,
   "signal_counts": {
-    "PATTERN-003": 3,
-    "PATTERN-004": 53,
-    "PATTERN-PHX-001": 138,
-    "PATTERN-PHX-002": 2
+    "PATTERN-003": 5,
+    "PATTERN-004": 54,
+    "PATTERN-PHX-001": 139,
+    "PATTERN-PHX-002": 7,
+    "PATTERN-005": 2
   },
-  "existing_backlog_count": 0,
-  "learning_log_count": 1,
+  "existing_backlog_count": 5,
+  "learning_log_count": 2,
   "previous_state": {
     "version": "PHOENIX-V3E",
-    "last_planner_run_at": null,
-    "last_apply_at": null,
-    "open_improvement_count": 0,
+    "last_planner_run_at": "2026-06-22T16:31:17.086Z",
+    "last_apply_at": "2026-06-22T16:31:17.086Z",
+    "open_improvement_count": 5,
     "repeated_pattern_count": 7,
-    "highest_priority_improvement": null,
-    "backlog_stale": true
+    "highest_priority_improvement": "IMPROVE-BASELINE-AUTOPILOT-LIFECYCLE",
+    "backlog_stale": false
   },
   "candidates": [
     {
@@ -72,7 +73,7 @@
       ],
       "auto_fix_allowed": true,
       "requires_approval": true,
-      "occurrence": 143,
+      "occurrence": 144,
       "severity": "HIGH"
     },
     {
@@ -119,7 +120,7 @@
       ],
       "auto_fix_allowed": true,
       "requires_approval": true,
-      "occurrence": 59,
+      "occurrence": 60,
       "severity": "HIGH"
     },
     {
@@ -166,7 +167,7 @@
       ],
       "auto_fix_allowed": true,
       "requires_approval": true,
-      "occurrence": 9,
+      "occurrence": 14,
       "severity": "HIGH"
     },
     {
@@ -176,7 +177,7 @@
       "root_cause": "Report schema compliance is not enforced before result parsing.",
       "proposed_solution": "Normalize and validate required report fields before parse, diagnose, decision, and task board updates.",
       "risk": "LOW/MEDIUM",
-      "priority": "P1",
+      "priority": "P0",
       "owner_recommendation": "A1-CI-Runtime-Gate or Codex-Orchestrator",
       "allowed_paths": [
         "scripts/ops/**",
@@ -213,7 +214,7 @@
       ],
       "auto_fix_allowed": true,
       "requires_approval": true,
-      "occurrence": 7,
+      "occurrence": 9,
       "severity": "MEDIUM"
     },
     {
@@ -260,7 +261,7 @@
       ],
       "auto_fix_allowed": false,
       "requires_approval": true,
-      "occurrence": 4,
+      "occurrence": 6,
       "severity": "MEDIUM"
     }
   ]

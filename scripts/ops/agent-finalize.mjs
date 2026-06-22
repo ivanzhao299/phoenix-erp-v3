@@ -14,6 +14,7 @@ const REQUIRED_JSON = [
 ];
 const FINALIZE_JSON = 'docs/ops/runs/evolution-finalize-latest.json';
 const FINALIZE_MD = 'docs/ops/runs/evolution-finalize-latest.md';
+const FINALIZE_ALIAS_JSON = 'docs/ops/runs/finalize-latest.json';
 
 function parseArgs(argv) {
   const normalized = argv.map((arg) => arg.replace(/^–+/, '--'));
@@ -136,6 +137,7 @@ const report = {
 };
 
 writeFile(FINALIZE_JSON, `${JSON.stringify(report, null, 2)}\n`);
+writeFile(FINALIZE_ALIAS_JSON, `${JSON.stringify(report, null, 2)}\n`);
 writeFile(FINALIZE_MD, markdown(report));
 console.log(`FINALIZE RESULT: ${finalizeResult}`);
 console.log(`W5 closeout gate: ${w5.ok ? 'PASS' : 'FAIL'}`);
