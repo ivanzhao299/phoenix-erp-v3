@@ -716,6 +716,12 @@ const plan = {
       ? queueResult.created_tasks.map((task) => `node scripts/ops/agent-worker.mjs --agent ${task.agent} --claim-next --dry-run`)
       : [],
   safe_merge_commands: ['closed-loop', 'execute-approved'].includes(args.mode) ? safeMergeCommands : [],
+  baseline_autopilot_lifecycle: {
+    will_run_after_agent_completion: true,
+    user_manual_rebase_required: false,
+    user_manual_merge_required: false,
+    user_manual_docs_ops_runs_cleanup_required: false,
+  },
   codex_actually_executed: codexActuallyExecuted,
   approval_token_provided: args.approvalToken === APPROVAL_TOKEN,
   approved_execution_result_json: args.mode === 'execute-approved' ? `${requestId}-approved-execution-result.json` : null,
@@ -797,6 +803,10 @@ console.log(`Dispatch groups: ${plan.dispatch_groups.map((group) => `[${group.jo
 console.log(`Plan: ${path.relative(process.cwd(), planJsonPath)}`);
 console.log(`Summary: ${path.relative(process.cwd(), summaryPath)}`);
 console.log(`Codex CLI executed: ${codexActuallyExecuted ? 'Yes' : 'No'}`);
+console.log('baseline autopilot will run after agent completion');
+console.log('user manual rebase required: false');
+console.log('user manual merge required: false');
+console.log('user manual docs/ops/runs cleanup required: false');
 if (args.mode === 'closed-loop' && queueResult) {
   console.log(`Task queue: ${queueResult.tasks_file}`);
   console.log(`Created tasks: ${queueResult.created_tasks.map((task) => task.task_id).join(', ')}`);

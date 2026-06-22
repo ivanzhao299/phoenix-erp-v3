@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
 
@@ -10,6 +10,8 @@ const RUN_ARTIFACT_COMMIT = 'docs(ops): record generated ops run artifacts';
 const OPS_ARTIFACT_COMMIT = 'docs(ops): record generated ops artifacts';
 const AUTOMATION_COMMIT = 'chore(ops): update automation tooling';
 const DEFAULT_AGENT_RESULT_COMMIT = 'chore(ops): record agent task output';
+const DISPATCH_MAP_FILE = 'docs/ops/AGENT_DISPATCH_MAP.json';
+let activeSummary = null;
 
 function usage(exitCode = 1) {
   console.log(`Usage:
@@ -82,11 +84,50 @@ function parseArgs(argv) {
 }
 
 function fail(message, extra = {}) {
+  if (activeSummary) {
+    activeSummary.status = 'HOLD';
+    activeSummary.hold_reason = message;
+    activeSummary.hold_context = extra;
+    writeLifecycleReport(activeSummary);
+  }
   console.error(`HOLD: ${message}`);
   for (const [key, value] of Object.entries(extra)) {
     if (value) console.error(`${key}: ${value}`);
   }
   process.exit(1);
+}
+
+function resolvePath(file, cwd = process.cwd()) {
+  return path.isAbsolute(file) ? file : path.resolve(cwd, file);
+}
+
+function loadDispatchMap() {
+  const file = resolvePath(DISPATCH_MAP_FILE);
+  if (!existsSync(file)) return {};
+  return JSON.parse(readFileSync(file, 'utf8'));
+}
+
+function inferArgs(args) {
+  const dispatchMap = loadDispatchMap();
+  const currentWorktree = process.cwd();
+  const currentBranch = safe('git', ['branch', '--show-current'], { cwd: currentWorktree });
+  const branch = args.branch || (currentBranch.ok ? currentBranch.output : null);
+  let agent = args.agent || null;
+  let worktree = args.worktree || null;
+
+  for (const [name, config] of Object.entries(dispatchMap)) {
+    if (!agent && branch && config.canonical_branch === branch) agent = name;
+    if (!agent && currentWorktree === config.worktree_path) agent = name;
+    if (!worktree && branch && config.canonical_branch === branch) worktree = config.worktree_path;
+    if (!worktree && agent === name) worktree = config.worktree_path;
+  }
+
+  return {
+    ...args,
+    agent,
+    branch,
+    worktree,
+  };
 }
 
 function run(command, args, options = {}) {
@@ -240,6 +281,87 @@ function retryGuard(summary, maxRetries, reason) {
   }
 }
 
+function reportPathFor(summary, ext) {
+  const root = summary.worktree || process.cwd();
+  const dir = path.resolve(root, 'docs/ops/runs');
+  mkdirSync(dir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const safeAgent = String(summary.agent || 'unknown-agent').replace(/[^A-Za-z0-9_-]/g, '_');
+  return path.join(dir, `${stamp}-${safeAgent}-baseline-lifecycle.${ext}`);
+}
+
+function writeLifecycleReport(summary) {
+  const jsonPath = summary.report_json || reportPathFor(summary, 'json');
+  const mdPath = summary.report_md || reportPathFor(summary, 'md');
+  summary.report_json = jsonPath;
+  summary.report_md = mdPath;
+  const jsonPayload = { ...summary };
+  delete jsonPayload.report_json;
+  delete jsonPayload.report_md;
+  writeFileSync(jsonPath, `${JSON.stringify(jsonPayload, null, 2)}\n`);
+  writeFileSync(
+    mdPath,
+    `# Agent Baseline Lifecycle Report
+
+| Field | Value |
+| --- | --- |
+| Status | ${summary.status || 'UNKNOWN'} |
+| Agent | ${summary.agent || 'N/A'} |
+| Branch | ${summary.branch || 'N/A'} |
+| Worktree | \`${summary.worktree || 'N/A'}\` |
+| Dry run | ${summary.dry_run ? 'Yes' : 'No'} |
+| Retries | ${summary.retries} / ${summary.max_retries} |
+| Rebase | ${summary.rebase} |
+| Merge | ${summary.merge} |
+| W5 gate | ${summary.gate} |
+| Push | ${summary.push} |
+| Deploy | ${summary.deploy} |
+| Migration executed | ${summary.migration_executed} |
+| Database written | ${summary.database_written} |
+| HOLD reason | ${summary.hold_reason || 'None'} |
+
+## Auto Commit Planned
+
+${(summary.auto_commit_planned || []).map((item) => `- ${item.label}: ${item.message} (${item.files.length} file(s))`).join('\n') || '- None'}
+
+## Auto Commits
+
+${(summary.auto_commits || []).map((item) => `- ${item.label}: ${item.message} (${item.files.length} file(s))`).join('\n') || '- None'}
+`,
+  );
+  return { jsonPath, mdPath };
+}
+
+function commitLifecycleReport(summary, report) {
+  if (summary.dry_run) return;
+  const root = summary.worktree;
+  if (!root) return;
+  const files = [path.relative(root, report.jsonPath), path.relative(root, report.mdPath)];
+  run('git', ['add', ...files], { cwd: root });
+  run('git', ['commit', '-m', 'docs(ops): record baseline lifecycle report'], { cwd: root, stdio: 'inherit' });
+  summary.auto_commits.push({
+    label: 'baseline lifecycle report',
+    message: 'docs(ops): record baseline lifecycle report',
+    files,
+  });
+}
+
+function safeMergeBranch(args, summary) {
+  const syncCommand = ['node', 'scripts/ops/agent-sync-and-merge.mjs', args.branch, args.dryRun ? '--dry-run' : '--yes'];
+  if (args.allowCode) syncCommand.push('--allow-code');
+  if (args.schemaGate) syncCommand.push('--schema-gate', args.schemaGate);
+  console.log(`Safe merge command: cd ${MAIN_ROOT} && ${syncCommand.join(' ')}`);
+  if (args.dryRun) {
+    summary.merge = 'dry-run: would call agent-sync-and-merge.mjs';
+    return;
+  }
+  const result = spawnSync(syncCommand[0], syncCommand.slice(1), { cwd: MAIN_ROOT, encoding: 'utf8' });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  if ((result.status ?? 1) !== 0) fail('safe merge failed', { exitCode: String(result.status ?? 1) });
+  summary.merge = 'completed';
+}
+
 function runGate(args, summary) {
   const gate = path.join(MAIN_ROOT, 'scripts/ci/check-w5-closeout-gate.mjs');
   if (!args.runGates) {
@@ -263,7 +385,7 @@ function runGate(args, summary) {
 }
 
 function main() {
-  const args = parseArgs(process.argv.slice(2));
+  const args = inferArgs(parseArgs(process.argv.slice(2)));
   if (!args.agent || !args.branch) usage(1);
   if (!existsSync(MAIN_ROOT)) fail(`main root not found: ${MAIN_ROOT}`);
   const mainInside = safe('git', ['rev-parse', '--is-inside-work-tree'], { cwd: MAIN_ROOT });
@@ -274,6 +396,8 @@ function main() {
   const summary = {
     agent: args.agent,
     branch: args.branch,
+    worktree: args.worktree || null,
+    status: 'RUNNING',
     dry_run: args.dryRun,
     max_retries: args.maxRetries,
     retries: 0,
@@ -287,6 +411,7 @@ function main() {
     migration_executed: 'No',
     database_written: 'No',
   };
+  activeSummary = summary;
 
   const mainBranch = run('git', ['branch', '--show-current'], { cwd: MAIN_ROOT });
   if (mainBranch !== 'main') fail(`main root must be on main, got ${mainBranch || '(detached)'}`);
@@ -299,6 +424,7 @@ function main() {
 
   const worktree = args.worktree || findWorktree(args.branch);
   if (!worktree) fail(`no worktree found for branch ${args.branch}`);
+  summary.worktree = worktree;
   if (!existsSync(worktree)) fail(`worktree path does not exist: ${worktree}`);
   const targetInside = safe('git', ['rev-parse', '--is-inside-work-tree'], { cwd: worktree });
   if (!targetInside.ok || targetInside.output !== 'true') fail('target worktree is not a git repository', { worktree });
@@ -347,19 +473,7 @@ function main() {
   }
 
   if (args.autoMerge) {
-    const syncCommand = ['node', 'scripts/ops/agent-sync-and-merge.mjs', args.branch, args.dryRun ? '--dry-run' : '--yes'];
-    if (args.allowCode) syncCommand.push('--allow-code');
-    if (args.schemaGate) syncCommand.push('--schema-gate', args.schemaGate);
-    console.log(`Safe merge command: cd ${MAIN_ROOT} && ${syncCommand.join(' ')}`);
-    if (args.dryRun) {
-      summary.merge = 'dry-run: would call agent-sync-and-merge.mjs';
-    } else {
-      const result = spawnSync(syncCommand[0], syncCommand.slice(1), { cwd: MAIN_ROOT, encoding: 'utf8' });
-      if (result.stdout) process.stdout.write(result.stdout);
-      if (result.stderr) process.stderr.write(result.stderr);
-      if ((result.status ?? 1) !== 0) fail('safe merge failed', { exitCode: String(result.status ?? 1) });
-      summary.merge = 'completed';
-    }
+    safeMergeBranch(args, summary);
   } else {
     summary.merge = 'skipped by --skip-auto-merge';
   }
@@ -368,9 +482,15 @@ function main() {
   console.log(args.dryRun ? '(dry-run: not checked after merge)' : run('git', ['status', '--short'], { cwd: MAIN_ROOT }) || '(clean)');
 
   runGate(args, summary);
+  summary.status = 'COMPLETED_MERGED';
+  const report = writeLifecycleReport(summary);
+  commitLifecycleReport(summary, report);
+  if (!args.dryRun && args.autoMerge) safeMergeBranch(args, summary);
 
   console.log('\nAutopilot summary:');
   console.log(JSON.stringify(summary, null, 2));
+  console.log(`Lifecycle report JSON: ${path.relative(process.cwd(), report.jsonPath)}`);
+  console.log(`Lifecycle report MD: ${path.relative(process.cwd(), report.mdPath)}`);
   console.log('Push executed: No');
   console.log('Deploy executed: No');
   console.log('Migration executed: No');

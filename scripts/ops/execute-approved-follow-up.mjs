@@ -196,6 +196,7 @@ const commandArgs = [
   assembledPrompt,
   '--require-approval-token',
   APPROVAL_TOKEN,
+  '--skip-baseline-autopilot',
 ];
 const command = `node ${commandArgs.join(' ')}`;
 
@@ -228,15 +229,40 @@ const result = spawnSync(process.execPath, commandArgs, {
   encoding: 'utf8',
 });
 
+const baselineArgs = [
+  'scripts/ops/agent-baseline-autopilot.mjs',
+  '--agent',
+  selected.next_agent,
+  '--branch',
+  selected.branch,
+  '--worktree',
+  selected.worktree,
+  '--max-retries',
+  '3',
+  '--yes',
+];
+let baselineResult = { status: 0, stdout: '', stderr: '' };
+if ((result.status ?? 1) === 0) {
+  baselineResult = spawnSync(process.execPath, baselineArgs, {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  });
+}
+
 const summaryPath = writeSummary({
   outputDir,
-  status: result.status === 0 ? 'EXECUTED' : 'FAILED',
-  reason: result.status === 0 ? 'run-agent-task completed' : 'run-agent-task failed',
+  status: result.status === 0 && baselineResult.status === 0 ? 'COMPLETED_MERGED' : 'FAILED',
+  reason:
+    result.status !== 0
+      ? 'run-agent-task failed'
+      : baselineResult.status !== 0
+        ? `baseline autopilot failed with ${baselineResult.status}`
+        : 'run-agent-task and baseline autopilot completed',
   item: selected,
-  command,
-  exitCode: result.status,
-  stdout: result.stdout ?? '',
-  stderr: result.stderr ?? '',
+  command: `${command}\nnode ${baselineArgs.join(' ')}`,
+  exitCode: baselineResult.status === 0 ? result.status : baselineResult.status,
+  stdout: `${result.stdout ?? ''}\n${baselineResult.stdout ?? ''}`,
+  stderr: `${result.stderr ?? ''}\n${baselineResult.stderr ?? ''}`,
   approvalTokenProvided: true,
   correctApprovalTokenUsed: true,
 });
@@ -245,4 +271,6 @@ console.log(`Audit: ${path.relative(process.cwd(), auditPath)}`);
 console.log(`Summary: ${path.relative(process.cwd(), summaryPath)}`);
 if (result.stdout) process.stdout.write(result.stdout);
 if (result.stderr) process.stderr.write(result.stderr);
-process.exit(result.status ?? 1);
+if (baselineResult.stdout) process.stdout.write(baselineResult.stdout);
+if (baselineResult.stderr) process.stderr.write(baselineResult.stderr);
+process.exit((result.status ?? 1) !== 0 ? result.status ?? 1 : baselineResult.status ?? 1);

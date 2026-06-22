@@ -49,7 +49,7 @@ const AGENTS = {
 
 function usage(exitCode = 1) {
   console.log(`Usage:
-  node scripts/ops/run-agent-task.mjs --agent <name> --worktree <path> --prompt <file> [--request-spec <file>] [--task-contract <file>] [--assembled-prompt-output <file>] [--require-approval-token <token>] [--dry-run]
+  node scripts/ops/run-agent-task.mjs --agent <name> --worktree <path> --prompt <file> [--request-spec <file>] [--task-contract <file>] [--assembled-prompt-output <file>] [--require-approval-token <token>] [--dry-run] [--skip-baseline-autopilot]
 
 Example:
   node scripts/ops/run-agent-task.mjs \\
@@ -69,6 +69,10 @@ function parseArgs(argv) {
       values.dryRun = true;
       continue;
     }
+    if (arg === '--skip-baseline-autopilot') {
+      values['skip-baseline-autopilot'] = true;
+      continue;
+    }
     if (arg === '--help' || arg === '-h') {
       usage(0);
     }
@@ -78,6 +82,28 @@ function parseArgs(argv) {
     }
   }
   return values;
+}
+
+function runBaselineAutopilot({ agent, branch, worktree }) {
+  const command = [
+    'scripts/ops/agent-baseline-autopilot.mjs',
+    '--agent',
+    agent,
+    '--branch',
+    branch,
+    '--worktree',
+    worktree,
+    '--max-retries',
+    '3',
+    '--yes',
+  ];
+  const result = spawnSync(process.execPath, command, { cwd: process.cwd(), encoding: 'utf8' });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  return {
+    command: `node ${command.join(' ')}`,
+    exitCode: result.status ?? 1,
+  };
 }
 
 function fail(message) {
@@ -286,6 +312,10 @@ console.log(`Codex command: ${command.join(' ')}`);
 
 if (args.dryRun) {
   console.log('Dry run: command not executed.');
+  console.log('baseline autopilot will run after agent completion');
+  console.log('user manual rebase required: false');
+  console.log('user manual merge required: false');
+  console.log('user manual docs/ops/runs cleanup required: false');
   process.exit(0);
 }
 
@@ -319,4 +349,14 @@ const logFile = writeRunLog({
 console.log(`Run log: ${logFile}`);
 if (result.stdout) process.stdout.write(result.stdout);
 if (result.stderr) process.stderr.write(result.stderr);
-process.exit(result.status ?? 1);
+let baselineExitCode = 0;
+if (!args['skip-baseline-autopilot']) {
+  console.log('Running baseline autopilot after agent completion...');
+  const baseline = runBaselineAutopilot({ agent: args.agent, branch, worktree });
+  baselineExitCode = baseline.exitCode;
+  console.log(`Baseline autopilot command: ${baseline.command}`);
+  console.log(`Baseline autopilot exit code: ${baseline.exitCode}`);
+} else {
+  console.log('Baseline autopilot skipped by caller; caller must run lifecycle hook.');
+}
+process.exit((result.status ?? 1) !== 0 ? result.status ?? 1 : baselineExitCode);

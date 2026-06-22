@@ -107,7 +107,7 @@ function commandForTask(task, dryRun, approvalToken) {
   if (task.contract_file) command.push('--task-contract', task.contract_file);
   command.push('--assembled-prompt-output', assembled);
   if (dryRun) command.push('--dry-run');
-  else command.push('--require-approval-token', approvalToken);
+  else command.push('--require-approval-token', approvalToken, '--skip-baseline-autopilot');
   return command;
 }
 
@@ -125,6 +125,17 @@ function baselineAutopilotCommand(task, dryRun = true) {
     '3',
     dryRun ? '--dry-run' : '--yes',
   ];
+}
+
+function runBaselineAutopilot(task) {
+  const command = baselineAutopilotCommand(task, false);
+  const result = spawnSync(command[0], command.slice(1), { cwd: process.cwd(), encoding: 'utf8' });
+  return {
+    command,
+    status: result.status ?? 1,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+  };
 }
 
 function writeWorkerLog(task, payload) {
@@ -183,6 +194,10 @@ function runOne(args) {
     console.log(`Worktree check: ${check.errors.length ? `WARN ${check.errors.join('; ')}` : 'PASS'}`);
     if (check.needsRebase) console.log('Dry-run: worktree is behind main and would be rebased before execution.');
     console.log(`Command: ${command.join(' ')}`);
+    console.log('baseline autopilot will run after agent completion');
+    console.log('user manual rebase required: false');
+    console.log('user manual merge required: false');
+    console.log('user manual docs/ops/runs cleanup required: false');
     console.log(`Baseline autopilot: ${baselineAutopilotCommand(task, true).join(' ')}`);
     return 0;
   }
@@ -212,10 +227,19 @@ function runOne(args) {
   task.result_file = path.relative(process.cwd(), log);
   task.status = (result.status ?? 1) === 0 ? 'completed' : 'failed';
   task.completed_at = new Date().toISOString();
+  if ((result.status ?? 1) === 0) {
+    const baseline = runBaselineAutopilot(task);
+    if (baseline.stdout) process.stdout.write(baseline.stdout);
+    if (baseline.stderr) process.stderr.write(baseline.stderr);
+    task.baseline_autopilot_exit_code = baseline.status;
+    task.baseline_autopilot_command = baseline.command.join(' ');
+    task.status = baseline.status === 0 ? 'COMPLETED_MERGED' : 'HOLD';
+    if (baseline.status !== 0) task.reason = `baseline autopilot failed with ${baseline.status}`;
+  }
   writeTasks(tasks);
   console.log(`${task.task_id} -> ${task.status}`);
   console.log(`Worker log: ${path.relative(process.cwd(), log)}`);
-  console.log(`Baseline autopilot: ${baselineAutopilotCommand(task, false).join(' ')}`);
+  if (task.baseline_autopilot_exit_code && task.baseline_autopilot_exit_code !== 0) return task.baseline_autopilot_exit_code;
   return result.status ?? 1;
 }
 
