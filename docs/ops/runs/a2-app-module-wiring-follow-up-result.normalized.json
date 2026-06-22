@@ -1,0 +1,78 @@
+{
+  "task_id": "REQ-STORE-PAYMENT-APP-MODULE-WIRING-001-A2-FOLLOWUP",
+  "agent": "A2-Security-Regression-Gate",
+  "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+  "worktree_branch": "w5-a2-security-regression-gate",
+  "result_file": "docs/ops/A2_REQ-STORE-PAYMENT-APP-MODULE-WIRING-001_FOLLOW_UP_REPORT.md",
+  "parsed_at": "2026-06-22T10:33:09.883Z",
+  "commit_hash": "e7f370c94faaacc8fec952a3bc75ecd4a80838bc",
+  "changed_files": [
+    "apps/api/src/app.module.ts"
+  ],
+  "frozen_items_touched": true,
+  "business_code_changed": true,
+  "migration_added": false,
+  "migration_executed": false,
+  "database_written": false,
+  "deployed": false,
+  "verification_results": [
+    {
+      "command": "read-only security review report",
+      "result": "PASS WITH CONDITIONS",
+      "summary": "No specific executable verification command was present; normalized as review_only evidence from source report.",
+      "review_only": true
+    }
+  ],
+  "conclusion": "PASS WITH CONDITIONS",
+  "recommend_next_agent": [
+    "A1-CI-Runtime-Gate"
+  ],
+  "conditions": [],
+  "blockers": [
+    "Track A1 blockers as separate approved work.",
+    "Do not treat this A2 result as closure for non-wiring runtime blockers."
+  ],
+  "missing_fields": [],
+  "next_agents": [
+    "A1-CI-Runtime-Gate"
+  ],
+  "normalized": true,
+  "normalized_at": "2026-06-22T10:33:52.698Z",
+  "normalization_source": {
+    "input_json": "docs/ops/runs/a2-app-module-wiring-follow-up-result.json",
+    "source_report": "docs/ops/A2_REQ-STORE-PAYMENT-APP-MODULE-WIRING-001_FOLLOW_UP_REPORT.md",
+    "worktree": "/Users/mac/phoenix-erp-worktrees/a2-security-regression-gate",
+    "dry_run": true
+  },
+  "normalization_evidence": [
+    {
+      "field": "commit_hash",
+      "value": "e7f370c94faaacc8fec952a3bc75ecd4a80838bc",
+      "source": "git log in worktree for docs/ops/A2_REQ-STORE-PAYMENT-APP-MODULE-WIRING-001_FOLLOW_UP_REPORT.md"
+    },
+    {
+      "field": "migration_added",
+      "value": false,
+      "source": "source report explicitly states no migration/schema/entity/table/column change or no migration added"
+    },
+    {
+      "field": "verification_results",
+      "value": [
+        {
+          "command": "read-only security review report",
+          "result": "PASS WITH CONDITIONS",
+          "summary": "No specific executable verification command was present; normalized as review_only evidence from source report.",
+          "review_only": true
+        }
+      ],
+      "source": "source report conclusion normalized as review_only verification result"
+    },
+    {
+      "field": "recommend_next_agent",
+      "value": [
+        "A1-CI-Runtime-Gate"
+      ],
+      "source": "A2 follow-up passed with conditions and source report references A1 validation/blockers; next gate is A1"
+    }
+  ]
+}

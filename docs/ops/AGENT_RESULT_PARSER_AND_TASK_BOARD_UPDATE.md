@@ -172,7 +172,21 @@ The parser and updater do not approve work. Humans must still approve:
 6. Deployment.
 7. GO / HOLD decisions.
 
-## 15. End-to-End Example
+## 15. HOLD Recovery Through Normalization
+
+If `parse-agent-result.mjs` reports `missing_fields`, `decide-next-agent.mjs` must return HOLD. The Orchestrator must not bypass HOLD by verbal approval or manual editing of the original Agent report.
+
+Allowed recovery path:
+
+1. Run `scripts/ops/normalize-agent-result.mjs` against the parser output and original source report.
+2. Normalize only fields that can be safely inferred from the source report, worktree git log/show, or existing input JSON.
+3. Preserve `normalization_evidence` in the normalized JSON.
+4. Leave any unsafe field in `missing_fields`.
+5. Run `decide-next-agent.mjs` against the normalized result.
+
+Normalization still does not execute Agents, modify task board, merge, push, deploy, execute migrations, or write databases.
+
+## 16. End-to-End Example
 
 ```bash
 node scripts/ops/parse-agent-result.mjs \

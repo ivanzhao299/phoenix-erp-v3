@@ -60,6 +60,8 @@ HOLD is mandatory when:
 5. `deployed` is true.
 6. The requested next Agent is not present in `AGENT_DISPATCH_MAP.json`.
 
+HOLD must not be skipped by manual instruction alone. If fields are missing because an older Agent report used a non-standard format, the recovery path is to generate a normalized result with `scripts/ops/normalize-agent-result.mjs`. The normalized result must include `normalization_evidence`, and any field that cannot be safely inferred must remain in `missing_fields`.
+
 ## 6. A2 Priority Rule
 
 A2 is prioritized when:
@@ -117,3 +119,23 @@ node scripts/ops/decide-next-agent.mjs \
 ```
 
 Expected result: a plan containing A2 and A1 follow-up dispatches, generated follow-up contract files, and dry-run `run-agent-task.mjs` commands. No Agent is executed.
+
+## 13. Normalized Result Example
+
+```bash
+node scripts/ops/normalize-agent-result.mjs \
+  --input-json docs/ops/runs/a2-app-module-wiring-follow-up-result.json \
+  --source-report docs/ops/A2_REQ-STORE-PAYMENT-APP-MODULE-WIRING-001_FOLLOW_UP_REPORT.md \
+  --worktree /Users/mac/phoenix-erp-worktrees/a2-security-regression-gate \
+  --output-json docs/ops/runs/a2-app-module-wiring-follow-up-result.normalized.json \
+  --output-md docs/ops/runs/a2-app-module-wiring-follow-up-result.normalized.md \
+  --dry-run
+
+node scripts/ops/decide-next-agent.mjs \
+  --result-json docs/ops/runs/a2-app-module-wiring-follow-up-result.normalized.json \
+  --output-plan docs/ops/runs/a2-app-module-wiring-next-agent-plan.normalized.json \
+  --output-contract-dir docs/ops/runs \
+  --dry-run
+```
+
+Expected result: if normalization safely clears `missing_fields`, the decision engine may return a follow-up plan. If not, it remains HOLD.
