@@ -52,6 +52,17 @@ The user must explicitly approve:
 7. Re-run A1 validation.
 8. Decide whether A3/A4 remain blocked or can open.
 
+## A2 / A1 Follow-up Results
+
+| Follow-up | Output | Result | Impact |
+| --- | --- | --- | --- |
+| A2 S1 security review | `docs/ops/A2_STORE_PAYMENT_PILOT_GATE_S1_REVIEW.md` | `PASS WITH CONDITIONS` | S1 may proceed as an approval package; A3/A4 remain closed. Runtime permission-bit alignment, `STORE-VTE-001` DataScope proof, protected attachment ACL, and separate migration approval remain required. |
+| A1 S1 validation | `docs/ops/A1_STORE_PAYMENT_PILOT_GATE_S1_VALIDATION.md` | `PASS WITH CONDITIONS` | S1 package docs exist; W5 gate, migration `down()`, migration no-data-DML, and freeze boundary gates passed; Store Payment migration hash captured. |
+
+Post-review decision remains: `READY_FOR_APPROVAL`.
+
+This decision still does not approve migration execution, seed/register execution, DB writes, deployment, push, or A3/A4 implementation.
+
 ## Non-actions In This Round
 
 This round did not:
@@ -64,4 +75,3 @@ This round did not:
 - Deploy.
 - Push.
 - Modify business code.
-
