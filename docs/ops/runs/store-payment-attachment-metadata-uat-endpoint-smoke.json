@@ -1,0 +1,44 @@
+{
+  "conclusion": "PASS",
+  "target": "local phoenix_erp / development API",
+  "statusEndpoint": {
+    "httpCode": 200,
+    "body": {
+      "fileId": "FILE-SP-UAT-001",
+      "originalName": "store-payment-proof-uat.pdf",
+      "mimeType": "application/pdf",
+      "sizeBytes": 466,
+      "status": "ACTIVE",
+      "visibility": "PROTECTED",
+      "moduleCode": "STORE_PAYMENT",
+      "ownerType": "STORE_PAYMENT_ACCOUNT",
+      "ownerId": "1",
+      "previewAvailable": true,
+      "downloadAvailable": true,
+      "accessStatus": "allowed",
+      "rawUrl": null
+    },
+    "rawUrlIsNull": true,
+    "storagePathLeaked": false,
+    "uploadsLeaked": false
+  },
+  "previewEndpoint": {
+    "httpCode": 200,
+    "contentType": "application/pdf",
+    "contentDisposition": "inline; filename=\"store-payment-proof-uat.pdf\"",
+    "bytes": 466,
+    "rawUrlLeaked": false
+  },
+  "downloadEndpoint": {
+    "httpCode": 200,
+    "contentType": "application/pdf",
+    "contentDisposition": "attachment; filename=\"store-payment-proof-uat.pdf\"",
+    "bytes": 466,
+    "rawUrlLeaked": false
+  },
+  "failClosed": {
+    "noAuthStatusCode": 401,
+    "missingFileStatusCode": 404
+  },
+  "failures": []
+}

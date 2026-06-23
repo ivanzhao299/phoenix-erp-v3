@@ -1,0 +1,20 @@
+     db      | db_user 
+-------------+---------
+ phoenix_erp | mac
+(1 row)
+
+     file_id     |        original_name        |    mime_type    | size_bytes |  module_code  |      owner_type       | owner_id | company_code  |  store_code   | uploaded_by | status | visibility | storage_path_present 
+-----------------+-----------------------------+-----------------+------------+---------------+-----------------------+----------+---------------+---------------+-------------+--------+------------+----------------------
+ FILE-SP-UAT-001 | store-payment-proof-uat.pdf | application/pdf |        466 | STORE_PAYMENT | STORE_PAYMENT_ACCOUNT | 1        | COMP-LAO-AGRI | STORE-VTE-001 | codex_uat   | ACTIVE | PROTECTED  | t
+(1 row)
+
+ id |      account_code       | company_code  |  store_code   | qr_attachment_id 
+----+-------------------------+---------------+---------------+------------------
+  1 | SP-VTE-BCEL-LAK-PENDING | COMP-LAO-AGRI | STORE-VTE-001 | FILE-SP-UAT-001
+(1 row)
+
+ file_metadata_rows 
+--------------------
+                  1
+(1 row)
+

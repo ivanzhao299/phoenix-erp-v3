@@ -1,5 +1,28 @@
 # Decision Log
 
+## 2026-06-23 - Store Payment Attachment Metadata UAT Data Setup
+
+Decision: GO WITH CONDITIONS.
+
+Rationale:
+
+- Local `phoenix_erp` now contains one non-sensitive Store Payment attachment metadata UAT row.
+- `FILE-SP-UAT-001` is associated with Store Payment account `id=1` as a QR attachment reference.
+- The local UAT file is a generated PDF containing only "UAT only / no real business data".
+- Protected status endpoint returned `accessStatus=allowed`, `previewAvailable=true`, `downloadAvailable=true`, and `rawUrl=null`.
+- Protected preview endpoint streamed the PDF through the backend.
+- Protected download endpoint streamed the PDF through the backend.
+- No-auth access failed closed with 401.
+- Missing file id failed closed with 404.
+
+Conditions:
+
+- This was a local UAT DB write only, not a remote production DB write.
+- API development startup emitted existing bootstrap / seed logs; no Store Payment production seed was executed by this Gate.
+- The local UAT file is excluded from git and must not be treated as production evidence.
+- A2 review is still required before production enablement.
+- No deploy, push, migration, cleanup, reset, or destructive operation was executed.
+
 ## 2026-06-23 - A4 Protected Preview / Download UI Draft Gate
 
 Decision: GO WITH CONDITIONS.

@@ -6,7 +6,7 @@ Last updated: 2026-06-23
 
 GO WITH CONDITIONS.
 
-Store Payment is ready for controlled UAT smoke, not production deployment. File Metadata / ACL foundation is now available, and Store Payment protected attachment proxy endpoints can stream only when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass. A4 has added controlled preview/download UI wiring, but buttons remain fail-closed unless backend status returns `accessStatus=allowed` with preview/download availability.
+Store Payment is ready for controlled attachment UAT smoke, not production deployment. File Metadata / ACL foundation is available, and Store Payment protected attachment proxy endpoints can stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass. A4 has added controlled preview/download UI wiring, and local UAT metadata now exists for one Store Payment account QR test file.
 
 ## Completed Facts
 
@@ -36,10 +36,16 @@ Store Payment is ready for controlled UAT smoke, not production deployment. File
 24. File Metadata / ACL Gate created `file_metadata` and added `FileAccessService`.
 25. Store Payment protected status / preview / download routes now use `file_metadata.file_id`.
 26. Existing upload module still returns `/uploads/contracts/...`; it must not be used as a frontend preview/download URL.
-27. Current `file_metadata` row count is 0; no seed was executed.
+27. Current `file_metadata` row count is 1 after local UAT metadata setup; no seed was executed.
 28. A4 protected preview/download UI draft is implemented.
 29. Frontend calls only Store Payment protected attachment endpoints for status / preview / download.
 30. Frontend remains fail-closed when metadata is missing, pending, disabled, denied, or rawUrl appears.
+31. Local `file_metadata` UAT row `FILE-SP-UAT-001` exists.
+32. `FILE-SP-UAT-001` is associated with Store Payment account `id=1`.
+33. `store_payment_accounts.id=1` has `qr_attachment_id=FILE-SP-UAT-001`.
+34. Protected status smoke passed for `FILE-SP-UAT-001`.
+35. Protected preview smoke passed for `FILE-SP-UAT-001`.
+36. Protected download smoke passed for `FILE-SP-UAT-001`.
 
 ## Frontend State
 
@@ -68,19 +74,19 @@ Store Payment is ready for controlled UAT smoke, not production deployment. File
 
 - proof preview: controlled UI ready, disabled unless backend status is allowed.
 - proof download: controlled UI ready, disabled unless backend status is allowed.
-- QR preview: metadata status visible, disabled until metadata and UI flow are complete.
-- QR download: metadata status visible, disabled until metadata and UI flow are complete.
+- QR preview: protected UAT ready for `FILE-SP-UAT-001`.
+- QR download: protected UAT ready for `FILE-SP-UAT-001`.
 - Raw URL exposure: forbidden.
 - `/uploads` path construction: forbidden.
 - `http(s)` attachment links: forbidden.
 - Store Payment attachment status endpoint: implemented.
 - Store Payment attachment preview/download: backend streaming implemented with ACL; usable only when metadata exists and checks pass.
 - denied access audit: structured log implemented.
-- frontend preview/download: controlled UI draft implemented; still requires metadata UAT and A2 review before real use.
+- frontend preview/download: protected UAT ready for the local metadata fixture; still not production-enabled.
 
 ## Current Conditions
 
-- Controlled UAT may verify page rendering, permission visibility, disabled attachment behavior, and status flow UI.
+- Controlled UAT may verify page rendering, permission visibility, disabled attachment behavior, status flow UI, and protected attachment preview/download against local metadata.
 - Frontend preview/download buttons are present but fail-closed by backend status.
 - Frontend preview/download must not be treated as fully available until file metadata UAT data exists and A2 reviews the UI path.
 - Staging deployment requires a separate A6 runbook Gate.
@@ -165,5 +171,34 @@ Implemented frontend behavior:
 
 Current condition:
 
-- Because `file_metadata` currently has 0 rows, controlled UAT should expect metadata missing / pending states.
-- Real preview/download remains conditional on metadata setup and backend status returning allowed.
+- Because `file_metadata` now has one local UAT row, controlled UAT can verify the protected QR attachment path while missing proof metadata should still show pending / missing states.
+- Real preview/download remains conditional on backend status returning allowed.
+
+## Attachment Metadata UAT Data Setup Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Local UAT data:
+
+- `file_id`: `FILE-SP-UAT-001`
+- file: `store-payment-proof-uat.pdf`
+- MIME: `application/pdf`
+- module: `STORE_PAYMENT`
+- owner: `STORE_PAYMENT_ACCOUNT:1`
+- company: `COMP-LAO-AGRI`
+- store: `STORE-VTE-001`
+- status: `ACTIVE`
+- visibility: `PROTECTED`
+
+Endpoint smoke:
+
+- status: PASS, `accessStatus=allowed`, `rawUrl=null`.
+- preview: PASS, backend streamed PDF with `Content-Disposition: inline`.
+- download: PASS, backend streamed PDF with `Content-Disposition: attachment`.
+- no-auth access: 401.
+- missing file id: 404.
+
+Important boundary:
+
+- The local test file is a non-sensitive UAT PDF stored under local upload roots and excluded from git.
+- This is local UAT data only, not production data.
