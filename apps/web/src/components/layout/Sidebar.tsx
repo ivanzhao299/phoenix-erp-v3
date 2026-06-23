@@ -149,6 +149,7 @@ const MENU: MenuItem[] = [
     { id: "s2-returns",     path: "/sales2/returns",     Icon: RefreshCw,       label: "退货管理",   perm: "MENU_SALES2_RETURN"    },
     { id: "s2-credit",      path: "/sales2/credit",      Icon: CreditCard,      label: "信用管理",   perm: "MENU_SALES2_CREDIT"    },
     { id: "s2-pos",         path: "/store-pos",          Icon: Banknote,        label: "直营店收银", perm: "MENU_STORE_POS"        },
+    { id: "s2-store-payment", path: "/store-payment",     Icon: Landmark,        label: "统一收款",   perm: "MENU_STORE_PAYMENT"    },
     { id: "s2-store-wb",    path: "/store",              Icon: Store,           label: "门店工作台", perm: "MENU_STORE_MGR"        },
     { id: "s2-store-recv",  path: "/store/receiving",    Icon: PackagePlus,     label: "收货验收",   perm: "MENU_STORE_MGR"        },
     { id: "s2-store-inv",   path: "/store/inventory",    Icon: Archive,         label: "门店库存",   perm: "MENU_STORE_MGR"        },
