@@ -249,13 +249,13 @@ function autoResolveDocsConflict(cwd, files, dryRun) {
 function maybeCommit(cwd, entries, message, args, summary, label) {
   if (entries.length === 0) return false;
   if (!args.autoCommit) fail(`${label} has changes and auto-commit is disabled`, { status: entries.map((entry) => entry.raw).join('\n') });
-  if (hasFrozenBoundary(entries)) {
+  if (hasFrozenBoundary(entries) && !args.schemaGate) {
     fail(`${label} touches migration/schema/entity/table/column boundary`, { status: entries.map((entry) => entry.raw).join('\n') });
   }
   if (hasBusinessCode(entries) && !args.allowCode) {
     fail(`${label} contains business code and --allow-code was not provided`, { status: entries.map((entry) => entry.raw).join('\n') });
   }
-  const unsupported = entries.filter((entry) => !(isOpsFile(entry.path) || (args.allowCode && (isApiFile(entry.path) || isWebFile(entry.path)))));
+  const unsupported = entries.filter((entry) => !(isOpsFile(entry.path) || (args.allowCode && (isApiFile(entry.path) || isWebFile(entry.path))) || (args.schemaGate && isMigrationOrSchemaFile(entry.path))));
   if (unsupported.length > 0) {
     fail(`${label} has unsupported dirty files`, {
       unsupported: unsupported.map((entry) => `${entry.raw} -> ${entry.path}`).join('\n'),

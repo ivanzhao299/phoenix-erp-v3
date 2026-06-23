@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-06-23",
   "active_module": "Store Payment",
-  "current_stage": "PROTECTED_STREAMING_GATE_CONDITIONAL",
+  "current_stage": "FILE_METADATA_ACL_READY",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "STORE_PAYMENT_FILE_METADATA_ACL_GATE",
+  "next_gate": "A4_ENABLE_PROTECTED_PREVIEW_DOWNLOAD_UI_DRAFT",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "disabled",
@@ -26,8 +26,12 @@
     "backend_gate": "GO_WITH_CONDITIONS",
     "uat_smoke": "PASS_WITH_CONDITIONS",
     "protected_attachment_gate": "GO_WITH_CONDITIONS_STATUS_ONLY",
-    "protected_attachment_streaming": "disabled_pending_file_metadata_acl",
+    "file_metadata_acl_gate": "GO_WITH_CONDITIONS",
+    "file_metadata_table": "created",
+    "file_metadata_rows": 0,
+    "protected_attachment_streaming": "backend_ready_when_file_metadata_exists",
     "protected_attachment_status_endpoint": "implemented",
-    "protected_attachment_preview_download": "denied_safe_not_implemented"
+    "protected_attachment_preview_download": "backend_streaming_implemented_with_acl",
+    "frontend_preview_download": "disabled_until_a4_gate"
   }
 }

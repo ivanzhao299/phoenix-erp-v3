@@ -4,13 +4,12 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-  NotImplementedException,
-  Logger,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataSource, EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
 import { SysOperationLogEntity } from '../../common/entities/sys-operation-log.entity';
+import { FileAccessService, ProtectedFileMode } from '../file/file-access.service';
 import { DataScopeContext } from '../org/services/data-scope.service';
 import {
   ConfirmStorePaymentRecordDto,
@@ -26,8 +25,6 @@ import { StorePaymentAccountEntity } from './entities/store-payment-account.enti
 import { StorePaymentRecordEntity } from './entities/store-payment-record.entity';
 
 type StorePaymentRecordStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'VOIDED';
-type StorePaymentAttachmentMode = 'preview' | 'download';
-
 interface RequestUser {
   userId?: string | number;
   id?: string | number;
@@ -55,8 +52,6 @@ const STORE_CODE_CANONICAL: Record<string, string> = Object.fromEntries(
 
 @Injectable()
 export class StorePaymentService {
-  private readonly logger = new Logger(StorePaymentService.name);
-
   constructor(
     @InjectRepository(StorePaymentAccountEntity)
     private readonly accountRepo: Repository<StorePaymentAccountEntity>,
@@ -67,6 +62,7 @@ export class StorePaymentService {
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly cls: ClsService,
+    private readonly fileAccessService: FileAccessService,
   ) {}
 
   async listAccounts(query: QueryStorePaymentAccountDto) {
@@ -275,6 +271,19 @@ export class StorePaymentService {
     const account = await this.accountRepo.findOne({ where: { id } });
     if (!account || account.deletedAt) throw new NotFoundException('STORE_PAYMENT_ACCOUNT_NOT_FOUND');
     this.assertAccountScope(account);
+    if (account.qrAttachmentId) {
+      return this.fileAccessService.getProtectedFileStatus(account.qrAttachmentId, this.toFileAccessPolicy({
+        objectType: 'STORE_PAYMENT_ACCOUNT_QR',
+        objectId: account.id,
+        companyCode: account.companyCode,
+        storeCode: account.storeCode,
+      })).catch(() => this.toAttachmentAccessPendingResponse({
+        objectType: 'STORE_PAYMENT_ACCOUNT_QR',
+        objectId: account.id,
+        attachmentBound: true,
+        reason: 'STORE_PAYMENT_QR_FILE_METADATA_PENDING',
+      }));
+    }
     return this.toAttachmentAccessPendingResponse({
       objectType: 'STORE_PAYMENT_ACCOUNT_QR',
       objectId: account.id,
@@ -286,6 +295,19 @@ export class StorePaymentService {
   async getRecordProofAttachmentAccess(id: string) {
     const record = await this.findRecordOrThrow(id);
     this.assertRecordScope(record);
+    if (record.proofAttachmentId) {
+      return this.fileAccessService.getProtectedFileStatus(record.proofAttachmentId, this.toFileAccessPolicy({
+        objectType: 'STORE_PAYMENT_RECORD_PROOF',
+        objectId: record.id,
+        companyCode: record.companyCode,
+        storeCode: record.storeCode,
+      })).catch(() => this.toAttachmentAccessPendingResponse({
+        objectType: 'STORE_PAYMENT_RECORD_PROOF',
+        objectId: record.id,
+        attachmentBound: true,
+        reason: 'STORE_PAYMENT_PROOF_FILE_METADATA_PENDING',
+      }));
+    }
     return this.toAttachmentAccessPendingResponse({
       objectType: 'STORE_PAYMENT_RECORD_PROOF',
       objectId: record.id,
@@ -297,32 +319,13 @@ export class StorePaymentService {
   async getStorePaymentAttachmentStatus(attachmentId: string) {
     const owner = await this.findStorePaymentAttachmentOwnerOrThrow(attachmentId);
     this.assertAttachmentOwnerScope(owner);
-    return this.toAttachmentAccessPendingResponse({
-      objectType: owner.objectType,
-      objectId: owner.objectId,
-      attachmentBound: true,
-      reason: 'STORE_PAYMENT_PROTECTED_ATTACHMENT_STREAMING_PENDING_FILE_ACL',
-    });
+    return this.fileAccessService.getProtectedFileStatus(attachmentId, this.toFileAccessPolicy(owner));
   }
 
-  async openStorePaymentAttachment(attachmentId: string, mode: StorePaymentAttachmentMode) {
+  async openStorePaymentAttachment(attachmentId: string, mode: ProtectedFileMode) {
     const owner = await this.findStorePaymentAttachmentOwnerOrThrow(attachmentId);
     this.assertAttachmentOwnerScope(owner);
-    this.logDeniedAttachmentAccess(owner, mode, 'STORE_PAYMENT_ATTACHMENT_STREAMING_NOT_AVAILABLE');
-    throw new NotImplementedException({
-      code: 'STORE_PAYMENT_ATTACHMENT_STREAMING_NOT_AVAILABLE',
-      message: 'Store Payment protected attachment streaming is not enabled because file metadata and ACL ownership are not available.',
-      objectType: owner.objectType,
-      objectId: owner.objectId,
-      attachmentBound: true,
-      previewAllowed: false,
-      previewStatus: 'access_pending',
-      downloadAllowed: false,
-      downloadStatus: 'access_pending',
-      rawUrl: null,
-      auditRequired: true,
-      auditStatus: 'structured_log_only_pending_file_acl',
-    });
+    return this.fileAccessService.openProtectedFile(attachmentId, this.toFileAccessPolicy(owner), mode);
   }
 
   async confirmRecord(id: string, dto: ConfirmStorePaymentRecordDto) {
@@ -549,26 +552,20 @@ export class StorePaymentService {
     throw new NotFoundException('STORE_PAYMENT_ATTACHMENT_NOT_FOUND');
   }
 
-  private logDeniedAttachmentAccess(owner: {
+  private toFileAccessPolicy(owner: {
     objectType: string;
     objectId: string;
-    objectNo: string;
-    storeCode: string;
     companyCode: string;
-  }, mode: StorePaymentAttachmentMode, reason: string) {
-    this.logger.warn({
-      event: 'STORE_PAYMENT_ATTACHMENT_ACCESS_DENIED',
-      reason,
-      mode,
-      objectType: owner.objectType,
-      objectId: owner.objectId,
-      objectNo: owner.objectNo,
+    storeCode: string;
+  }) {
+    return {
+      moduleCode: 'STORE_PAYMENT',
+      ownerType: owner.objectType === 'STORE_PAYMENT_ACCOUNT_QR' ? 'STORE_PAYMENT_ACCOUNT' : 'STORE_PAYMENT_RECORD',
+      ownerId: owner.objectId,
       companyCode: owner.companyCode,
       storeCode: owner.storeCode,
-      username: this.username(),
-      userId: this.userId(),
-      rawUrl: null,
-    });
+      requiredMenu: owner.objectType === 'STORE_PAYMENT_ACCOUNT_QR' ? 'MENU_STORE_PAYMENT_ACCOUNT' : 'MENU_STORE_PAYMENT',
+    };
   }
 
   private async findRecordOrThrow(id: string) {

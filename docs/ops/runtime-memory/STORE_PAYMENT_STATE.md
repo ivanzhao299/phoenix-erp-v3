@@ -6,7 +6,7 @@ Last updated: 2026-06-23
 
 GO WITH CONDITIONS.
 
-Store Payment is ready for controlled UAT smoke, not production deployment. The A3 protected attachment Gate has added controlled status / ownership checks, but real preview/download streaming remains disabled pending file metadata and ACL support.
+Store Payment is ready for controlled UAT smoke, not production deployment. File Metadata / ACL foundation is now available, and Store Payment protected attachment proxy endpoints can stream only when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass. Frontend preview/download remains disabled until a separate A4 Gate updates the UI.
 
 ## Completed Facts
 
@@ -33,7 +33,10 @@ Store Payment is ready for controlled UAT smoke, not production deployment. The 
 21. A3 protected attachment Gate added Store Payment attachment status / preview / download routes.
 22. Attachment status verifies Store Payment ownership, RBAC, and DataScope before returning controlled state.
 23. Preview/download routes verify ownership, RBAC, and DataScope, then return a denied-safe not-implemented response.
-24. Real streaming remains disabled because the existing upload module has no file metadata table, ACL, owner reference, or protected streaming capability.
+24. File Metadata / ACL Gate created `file_metadata` and added `FileAccessService`.
+25. Store Payment protected status / preview / download routes now use `file_metadata.file_id`.
+26. Existing upload module still returns `/uploads/contracts/...`; it must not be used as a frontend preview/download URL.
+27. Current `file_metadata` row count is 0; no seed was executed.
 
 ## Frontend State
 
@@ -68,13 +71,14 @@ Store Payment is ready for controlled UAT smoke, not production deployment. The 
 - `/uploads` path construction: forbidden.
 - `http(s)` attachment links: forbidden.
 - Store Payment attachment status endpoint: implemented.
-- Store Payment attachment preview/download: denied-safe skeleton only; no streaming.
-- denied access audit: structured log implemented; DB audit remains a condition until file metadata/ACL is introduced.
+- Store Payment attachment preview/download: backend streaming implemented with ACL; usable only when metadata exists and checks pass.
+- denied access audit: structured log implemented.
+- frontend preview/download: still disabled pending A4 UI Gate.
 
 ## Current Conditions
 
 - Controlled UAT may verify page rendering, permission visibility, disabled attachment behavior, and status flow UI.
-- Real protected streaming must not be enabled before file metadata / ACL ownership exists and a follow-up A3 + A2 Gate approves it.
+- Frontend preview/download must not be enabled before A4 updates the UI and A2 reviews that UI path.
 - Staging deployment requires a separate A6 runbook Gate.
 - Final GO / HOLD / ROLLBACK requires a separate A7 Gate.
 
@@ -83,9 +87,40 @@ Store Payment is ready for controlled UAT smoke, not production deployment. The 
 - No production deployment.
 - No push.
 - No remote production DB write.
-- No real attachment preview / download.
+- No frontend attachment preview / download yet.
 - No raw URL exposure.
 - No new non-Store Payment feature.
+
+## File Metadata / ACL Gate Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Implemented foundation:
+
+- `file_metadata` table.
+- `FileMetadataEntity`.
+- `FileAccessService`.
+- MIME whitelist.
+- path traversal protection.
+- upload-root path confinement.
+- RBAC check.
+- DataScope check.
+- owner/module reference check.
+- structured denied access log.
+- Store Payment protected status / preview / download proxy.
+
+DB state:
+
+- `file_metadata` table exists.
+- indexes exist.
+- row count: 0.
+- no seed executed.
+- no business data written.
+
+A4 state:
+
+- A4 may not enable preview/download automatically.
+- Next step is a separate A4 UI Gate to wire status / preview / download buttons against the protected endpoints.
 
 ## Protected Attachment Gate Result
 

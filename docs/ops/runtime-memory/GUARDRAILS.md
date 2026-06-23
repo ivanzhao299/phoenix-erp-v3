@@ -15,3 +15,6 @@ Last updated: 2026-06-23
 11. Do not return naked `/uploads` URLs for Store Payment proof / QR attachments.
 12. Do not open `http(s)` attachment links from the Store Payment frontend.
 13. No cleanup, reset, or destructive operation may run without explicit approval.
+14. File metadata `storage_path` is backend-only and must never be returned to the frontend.
+15. `file_metadata.file_id` is the only external attachment reference allowed for protected Store Payment preview/download.
+16. A4 may only enable preview/download after a dedicated UI Gate confirms protected endpoints and A2 approves the UI path.

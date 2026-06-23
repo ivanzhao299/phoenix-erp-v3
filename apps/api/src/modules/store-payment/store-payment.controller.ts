@@ -6,8 +6,10 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import {
@@ -83,14 +85,30 @@ export class StorePaymentController {
 
   @Get('attachments/:attachmentId/preview')
   @RequireMenu('MENU_STORE_PAYMENT', 'V')
-  previewAttachment(@Param('attachmentId') attachmentId: string) {
-    return this.service.openStorePaymentAttachment(attachmentId, 'preview');
+  async previewAttachment(@Param('attachmentId') attachmentId: string, @Res({ passthrough: true }) res: Response) {
+    const file = await this.service.openStorePaymentAttachment(attachmentId, 'preview');
+    res.set({
+      'Content-Type': file.mimeType,
+      'Content-Length': String(file.sizeBytes),
+      'Content-Disposition': file.disposition,
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    return file.stream;
   }
 
   @Get('attachments/:attachmentId/download')
   @RequireMenu('MENU_STORE_PAYMENT', 'V')
-  downloadAttachment(@Param('attachmentId') attachmentId: string) {
-    return this.service.openStorePaymentAttachment(attachmentId, 'download');
+  async downloadAttachment(@Param('attachmentId') attachmentId: string, @Res({ passthrough: true }) res: Response) {
+    const file = await this.service.openStorePaymentAttachment(attachmentId, 'download');
+    res.set({
+      'Content-Type': file.mimeType,
+      'Content-Length': String(file.sizeBytes),
+      'Content-Disposition': file.disposition,
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    return file.stream;
   }
 
   @Post('records/:id/confirm')

@@ -1,5 +1,23 @@
 # Decision Log
 
+## 2026-06-23 - Store Payment File Metadata / ACL Gate
+
+Decision: GO WITH CONDITIONS.
+
+Rationale:
+
+- `file_metadata` table was created in local `phoenix_erp`.
+- No seed was executed; current table row count is 0.
+- `FileAccessService` implements controlled metadata lookup, RBAC, DataScope, ownership checks, MIME whitelist, path traversal protection, upload-root path confinement, and structured denied logs.
+- Store Payment protected attachment routes now use file metadata and can stream only after metadata exists and checks pass.
+- Existing upload module still returns `/uploads/contracts/...`; that path remains forbidden for frontend preview/download.
+
+Conditions:
+
+- A4 preview/download UI remains disabled until a separate A4 Gate and A2 review.
+- A protected upload / metadata population workflow is still needed for real proof / QR files.
+- No production deploy, push, or remote production DB write was performed.
+
 ## 2026-06-23 - Store Payment A3 Protected Streaming Gate
 
 Decision: GO WITH CONDITIONS.

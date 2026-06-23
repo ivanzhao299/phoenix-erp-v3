@@ -129,12 +129,23 @@ function isStorePaymentRelatedOpsDoc(file) {
 }
 
 function checkSchemaGatePath(file, requestId) {
-  if (requestId !== 'REQ-STORE-PAYMENT-UNIFIED-CODE-001') {
+  const supported = new Set(['REQ-STORE-PAYMENT-UNIFIED-CODE-001', 'STORE_PAYMENT_FILE_METADATA_ACL_GATE']);
+  if (!supported.has(requestId)) {
     fail(`unsupported schema gate request id: ${requestId}`);
   }
 
-  const exactMigration = 'apps/api/src/database/migrations/1782041418112-CreateStorePaymentTables.ts';
+  const exactMigration = requestId === 'STORE_PAYMENT_FILE_METADATA_ACL_GATE'
+    ? 'apps/api/src/database/migrations/1782042418112-CreateFileMetadata.ts'
+    : 'apps/api/src/database/migrations/1782041418112-CreateStorePaymentTables.ts';
   if (file === exactMigration) return;
+  if (requestId === 'STORE_PAYMENT_FILE_METADATA_ACL_GATE') {
+    if (file.startsWith('apps/api/src/modules/file/')) return;
+    if (file.startsWith('apps/api/src/modules/store-payment/')) return;
+    if (file === 'apps/api/src/app.module.ts') return;
+    if (file.startsWith('docs/ops/')) return;
+    if (file.startsWith('scripts/ops/')) return;
+    fail(`path is not allowed in schema gate mode: ${file}`);
+  }
   if (file.startsWith('apps/api/src/modules/store-payment/')) return;
   if (file === 'docs/ops/REQ_STORE_PAYMENT_UNIFIED_CODE_001_SCHEMA_IMPLEMENTATION_S1_REPORT.md') return;
   if (file === 'docs/ops/A2_SCHEMA_SECURITY_REVIEW_STORE_PAYMENT_001_REPORT.md') return;
@@ -159,7 +170,11 @@ function checkSchemaGateFiles(files, requestId, branch) {
     ) {
       fail(`business module path is forbidden in schema gate mode: ${file}`);
     }
-    if ((file.endsWith('.entity.ts') || file.includes('/entities/')) && !file.startsWith('apps/api/src/modules/store-payment/')) {
+    if (
+      (file.endsWith('.entity.ts') || file.includes('/entities/')) &&
+      !file.startsWith('apps/api/src/modules/store-payment/') &&
+      !(requestId === 'STORE_PAYMENT_FILE_METADATA_ACL_GATE' && file.startsWith('apps/api/src/modules/file/'))
+    ) {
       fail(`entity/schema path outside store-payment module is forbidden: ${file}`);
     }
     if (/fifo|store_code.*rename|customer.*fk|deploy/i.test(file)) {
@@ -169,7 +184,9 @@ function checkSchemaGateFiles(files, requestId, branch) {
   }
 
   const migrationFiles = files.filter((file) => file.startsWith('apps/api/src/database/migrations/'));
-  const expectedMigration = 'apps/api/src/database/migrations/1782041418112-CreateStorePaymentTables.ts';
+  const expectedMigration = requestId === 'STORE_PAYMENT_FILE_METADATA_ACL_GATE'
+    ? 'apps/api/src/database/migrations/1782042418112-CreateFileMetadata.ts'
+    : 'apps/api/src/database/migrations/1782041418112-CreateStorePaymentTables.ts';
   if (migrationFiles.length !== 1 || migrationFiles[0] !== expectedMigration) {
     fail(`schema gate requires exactly one migration file: ${expectedMigration}`);
   }
@@ -185,7 +202,9 @@ function checkSchemaGateFiles(files, requestId, branch) {
     fail('migration must contain down()');
   }
 
-  const allowedTables = new Set(['store_payment_accounts', 'store_payment_records']);
+  const allowedTables = requestId === 'STORE_PAYMENT_FILE_METADATA_ACL_GATE'
+    ? new Set(['file_metadata'])
+    : new Set(['store_payment_accounts', 'store_payment_records']);
   const tablePattern = /\b(?:create|drop)\s+table(?:\s+if\s+(?:not\s+)?exists)?\s+["`]?([a-zA-Z0-9_]+)/gi;
   let match;
   while ((match = tablePattern.exec(migration)) !== null) {
