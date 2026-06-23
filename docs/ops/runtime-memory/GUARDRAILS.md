@@ -28,3 +28,6 @@ Last updated: 2026-06-23
 24. Production DB must not be reused as staging DB.
 25. Production file storage must not be reused as staging file storage.
 26. Production secrets must not be copied into GitHub `staging` secrets unless the user explicitly approves each secret reuse.
+27. The current production-side server is now treated as a remediation target, not as a mature stable production baseline.
+28. Remediation writes require backup/snapshot evidence, explicit scope, rollback notes, and user approval.
+29. Read-only server inventory may run, but DB writes, migration, cleanup, reset, service restart, deploy, nginx changes, env changes, and push remain forbidden until separately approved.

@@ -1,5 +1,24 @@
 # Decision Log
 
+## 2026-06-23 - Production Server Remediation Intake
+
+Decision: READY_FOR_REMEDIATION_PLAN.
+
+Rationale:
+
+- User reclassified the current server as a production-side pre-production / remediation target rather than a mature stable production baseline.
+- Public API health is reachable and reports production mode with DB connected.
+- SSH command-level read-only inventory timed out; remote OS/Docker/DB/process details remain unavailable.
+- Historical audit reports and Store Payment gates were reviewed from local docs.
+- A remediation backlog, roadmap, and first fix batch approval package were created.
+
+Conditions:
+
+- Backup/snapshot must be approved before any write.
+- DB write, migration, cleanup, reset, service restart, deploy, nginx/env change, and push remain forbidden until a dedicated Gate is approved.
+- A2 recommends backup before any remediation.
+- A5 remains HOLD for remote DB/data evidence until read-only DB inventory succeeds.
+
 ## 2026-06-23 - Server Card Intake And Staging Target Candidate
 
 Decision: STAGING_TARGET_CANDIDATE_READY.

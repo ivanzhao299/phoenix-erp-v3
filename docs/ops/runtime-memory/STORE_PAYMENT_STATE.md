@@ -329,6 +329,34 @@ Result:
 
 Current stage: `STORE_PAYMENT_STAGING_TARGET_CANDIDATE_READY`.
 
+## Production Server Remediation Intake
+
+Conclusion: READY_FOR_REMEDIATION_PLAN.
+
+Artifacts:
+
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_INTAKE_REPORT.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_BACKLOG.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_ROADMAP.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_FIRST_FIX_BATCH.md`
+
+Result:
+
+- User reclassified the current server as a production-side pre-production / remediation target.
+- Public API health is reachable and reports `env=production` with DB connected.
+- SSH read-only command inventory timed out during banner exchange, so OS/Docker/DB/process details remain unverified.
+- Historical docs and Store Payment gates were summarized.
+- P0 remediation issues: 8.
+- P1 remediation issues: 7.
+- First fix batch recommends backup/snapshot, DB backup, migration-state audit, data import diagnosis, master-data scan, RBAC/DataScope diagnosis, and upload/file-storage security diagnosis.
+- DB write executed: no.
+- migration executed: no.
+- service restart executed: no.
+- deploy executed: no.
+- push executed: no.
+
+Current stage: `PRODUCTION_SERVER_REMEDIATION_INTAKE_READY`.
+
 ## Current Conditions
 
 - Controlled UAT has verified page rendering, permission visibility, disabled attachment behavior, status flow UI, protected account QR attachment preview/download, and protected record proof preview/download against local metadata.

@@ -2,20 +2,19 @@
 
 Last updated: 2026-06-23
 
-1. `USER_APPROVES_STAGING_TARGET_DERIVED_FROM_SERVER_CARD`.
-2. `USER_APPROVES_SAME_HOST_STAGING_ISOLATION_OR_PROVIDES_SEPARATE_STAGING_HOST`.
-3. `USER_CONFIGURES_GITHUB_STAGING_SECRETS`.
-4. `USER_APPROVES_STAGING_WORKFLOW_RUN`.
-5. `STAGING_DEPLOY_EXECUTION_GATE`.
+1. `APPROVE_BACKUP_AND_SNAPSHOT`.
+2. `APPROVE_DB_BACKUP`.
+3. `APPROVE_MIGRATION_STATE_REPAIR_PLAN`.
+4. `APPROVE_MASTER_DATA_REMEDIATION_PLAN`.
+5. `APPROVE_PERMISSION_AND_MENU_REMEDIATION_PLAN`.
 
 ## Recommended Immediate Sequence
 
-1. Decide whether the production host may be used as a same-host staging candidate.
-2. If yes, approve strict isolation: `/opt/phoenix-erp-staging`, `phoenix_erp_staging`, and `/data/phoenix-erp-staging/files`.
-3. Configure GitHub Environment `staging` with approval reviewers.
-4. Provide `STAGING_*` secrets listed in `docs/ops/STORE_PAYMENT_GITHUB_STAGING_SECRETS_SETUP_FROM_SERVER_CARD.md`.
-5. Keep `/uploads` and raw URL exposure forbidden.
-6. Keep local UAT fixture data out of production release decisions unless explicitly approved.
+1. Approve or reject the first remediation batch in `docs/ops/PRODUCTION_SERVER_REMEDIATION_FIRST_FIX_BATCH.md`.
+2. Start with backup/snapshot before any database, file, deploy, or configuration write.
+3. Stabilize read-only SSH inventory so the server can be audited without manual Terminal work.
+4. Keep `/uploads` and raw URL exposure forbidden for Store Payment.
+5. Keep local UAT fixture data out of production-side remediation unless explicitly approved.
 
 ## Do Not Auto-Start
 
@@ -26,3 +25,6 @@ Last updated: 2026-06-23
 - Production DB writes.
 - Reusing production DB as staging DB.
 - Reusing production file storage as staging file storage.
+- DB writes before backup.
+- migration repair before migration-state audit.
+- service restart before rollback plan.

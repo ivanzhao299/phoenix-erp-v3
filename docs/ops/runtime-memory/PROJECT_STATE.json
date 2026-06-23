@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-06-23",
   "active_module": "Store Payment",
-  "current_stage": "STORE_PAYMENT_STAGING_TARGET_CANDIDATE_READY",
-  "active_decision": "WAITING_USER_APPROVAL_FOR_STAGING_TARGET_DERIVED_FROM_SERVER_CARD",
-  "next_gate": "USER_APPROVES_STAGING_TARGET_DERIVED_FROM_SERVER_CARD",
+  "current_stage": "PRODUCTION_SERVER_REMEDIATION_INTAKE_READY",
+  "active_decision": "WAITING_USER_APPROVAL_FOR_FIRST_FIX_BATCH",
+  "next_gate": "APPROVE_BACKUP_AND_SNAPSHOT",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -119,13 +119,28 @@
     "staging_candidate_db_name": "phoenix_erp_staging",
     "server_card_a2_review": "PASS_WITH_CONDITIONS",
     "server_card_a1_validation": "PASS_WITH_CONDITIONS",
-    "server_card_a5_review": "GO_WITH_CONDITIONS"
+    "server_card_a5_review": "GO_WITH_CONDITIONS",
+    "production_server_remediation_mode": "ACTIVE",
+    "production_server_classification": "PRE_PRODUCTION_REMEDIATION_TARGET",
+    "production_server_readonly_ssh_inventory": "UNAVAILABLE_SSH_TIMEOUT",
+    "production_public_health": "PASS_HTTP_200_ENV_PRODUCTION_DB_CONNECTED",
+    "production_remediation_intake": "READY_FOR_REMEDIATION_PLAN",
+    "production_remediation_p0_count": 8,
+    "production_remediation_p1_count": 7,
+    "production_remediation_a1_review": "PASS_WITH_CONDITIONS",
+    "production_remediation_a2_review": "PASS_WITH_CONDITIONS",
+    "production_remediation_a5_review": "HOLD_FOR_REMOTE_DATA_EVIDENCE",
+    "production_remediation_db_write": false,
+    "production_remediation_migration_executed": false,
+    "production_remediation_restart_executed": false,
+    "production_remediation_deploy_executed": false,
+    "production_remediation_push_executed": false
   },
   "next_actions": [
-    "USER_APPROVES_STAGING_TARGET_DERIVED_FROM_SERVER_CARD",
-    "USER_APPROVES_SAME_HOST_STAGING_ISOLATION_OR_PROVIDES_SEPARATE_STAGING_HOST",
-    "USER_CONFIGURES_GITHUB_STAGING_SECRETS",
-    "USER_APPROVES_STAGING_WORKFLOW_RUN",
-    "STAGING_DEPLOY_EXECUTION_GATE"
+    "APPROVE_BACKUP_AND_SNAPSHOT",
+    "APPROVE_DB_BACKUP",
+    "APPROVE_MIGRATION_STATE_REPAIR_PLAN",
+    "APPROVE_MASTER_DATA_REMEDIATION_PLAN",
+    "APPROVE_PERMISSION_AND_MENU_REMEDIATION_PLAN"
   ]
 }

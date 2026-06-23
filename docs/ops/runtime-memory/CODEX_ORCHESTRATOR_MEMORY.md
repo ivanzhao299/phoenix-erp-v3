@@ -5,9 +5,9 @@ Last updated: 2026-06-23
 ## Active Context
 
 - Active module: Store Payment
-- Current stage: STORE_PAYMENT_STAGING_TARGET_CANDIDATE_READY
-- Active decision: WAITING_USER_APPROVAL_FOR_STAGING_TARGET_DERIVED_FROM_SERVER_CARD
-- Next gate: USER_APPROVES_STAGING_TARGET_DERIVED_FROM_SERVER_CARD
+- Current stage: PRODUCTION_SERVER_REMEDIATION_INTAKE_READY
+- Active decision: WAITING_USER_APPROVAL_FOR_FIRST_FIX_BATCH
+- Next gate: APPROVE_BACKUP_AND_SNAPSHOT
 - Page entry: `/store-payment`
 - Menu entry: 销售管理 / 统一收款
 
@@ -51,6 +51,11 @@ Store Payment is ready for controlled pilot with conditions:
 - Candidate staging DB name: `phoenix_erp_staging`.
 - Production DB, production file storage, production deploy path, and production secrets must not be reused for staging.
 - Real staging execution still requires user approval, independent staging secrets, and GitHub `staging` environment configuration.
+- User has reclassified the current server as a production-side pre-production / remediation target rather than a mature stable production environment.
+- Remediation intake is complete as a docs-only phase.
+- Public API health is reachable and reports production mode with DB connected.
+- SSH command-level read-only inventory timed out and remains a P0 blocker before detailed server remediation.
+- Production-side remediation now waits for backup/snapshot approval.
 
 ## Current Hard Stops
 
@@ -60,4 +65,5 @@ Store Payment is ready for controlled pilot with conditions:
 - No migration unless a dedicated Gate is approved.
 - No staging deploy until a staging-only target is provided.
 - No same-host staging deploy until the user approves staging isolation derived from the production server card.
+- No production-side remediation write until backup/snapshot and a specific fix Gate are approved.
 - No raw URL exposure.
