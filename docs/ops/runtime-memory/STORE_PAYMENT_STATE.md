@@ -6,7 +6,7 @@ Last updated: 2026-06-23
 
 GO WITH CONDITIONS.
 
-Store Payment is ready for controlled attachment UAT smoke, not production deployment. File Metadata / ACL foundation is available, and Store Payment protected attachment proxy endpoints can stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass. A4 has added controlled preview/download UI wiring, and local UAT metadata now exists for one Store Payment account QR test file.
+Store Payment has passed controlled protected attachment UAT smoke for the pilot account QR file, not production deployment. File Metadata / ACL foundation is available, Store Payment protected attachment proxy endpoints stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass, and `/store-payment` now uses the protected endpoints for the pilot QR status / preview / download path.
 
 ## Completed Facts
 
@@ -46,6 +46,10 @@ Store Payment is ready for controlled attachment UAT smoke, not production deplo
 34. Protected status smoke passed for `FILE-SP-UAT-001`.
 35. Protected preview smoke passed for `FILE-SP-UAT-001`.
 36. Protected download smoke passed for `FILE-SP-UAT-001`.
+37. `/store-payment` page-level QR status UAT smoke passed for `FILE-SP-UAT-001`.
+38. `/store-payment` page-level QR preview UAT smoke passed through the protected endpoint.
+39. `/store-payment` page-level QR download UAT smoke passed through the protected endpoint.
+40. `/store-payment` did not display `rawUrl`, did not construct `/uploads`, and did not leak `storage_path`.
 
 ## Frontend State
 
@@ -74,20 +78,39 @@ Store Payment is ready for controlled attachment UAT smoke, not production deplo
 
 - proof preview: controlled UI ready, disabled unless backend status is allowed.
 - proof download: controlled UI ready, disabled unless backend status is allowed.
-- QR preview: protected UAT ready for `FILE-SP-UAT-001`.
-- QR download: protected UAT ready for `FILE-SP-UAT-001`.
+- QR preview: protected account QR UAT passed for `FILE-SP-UAT-001`.
+- QR download: protected account QR UAT passed for `FILE-SP-UAT-001`.
 - Raw URL exposure: forbidden.
 - `/uploads` path construction: forbidden.
 - `http(s)` attachment links: forbidden.
 - Store Payment attachment status endpoint: implemented.
 - Store Payment attachment preview/download: backend streaming implemented with ACL; usable only when metadata exists and checks pass.
 - denied access audit: structured log implemented.
-- frontend preview/download: protected UAT ready for the local metadata fixture; still not production-enabled.
+- frontend preview/download: protected account QR UAT passed for the local metadata fixture; still not production-enabled.
+
+## Protected Attachment UAT Smoke Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Page-level UAT evidence:
+
+- Page entry: `/store-payment`.
+- Test file: `FILE-SP-UAT-001`.
+- Associated object: `store_payment_accounts.id=1` via `qr_attachment_id`.
+- QR status request used `/store-payment/attachments/FILE-SP-UAT-001/status`.
+- QR preview request used `/store-payment/attachments/FILE-SP-UAT-001/preview`.
+- QR download request used `/store-payment/attachments/FILE-SP-UAT-001/download`.
+- rawUrl displayed: no.
+- `/uploads` used: no.
+- `storage_path` leaked: no.
+- missing metadata rows still fail closed with disabled preview/download buttons.
+
+Current stage: `STORE_PAYMENT_PROTECTED_ATTACHMENT_UAT_VERIFIED`.
 
 ## Current Conditions
 
-- Controlled UAT may verify page rendering, permission visibility, disabled attachment behavior, status flow UI, and protected attachment preview/download against local metadata.
-- Frontend preview/download buttons are present but fail-closed by backend status.
+- Controlled UAT has verified page rendering, permission visibility, disabled attachment behavior, status flow UI, and protected account QR attachment preview/download against local metadata.
+- Frontend preview/download buttons are present and remain controlled by backend status.
 - Frontend preview/download must not be treated as fully available until file metadata UAT data exists and A2 reviews the UI path.
 - Staging deployment requires a separate A6 runbook Gate.
 - Final GO / HOLD / ROLLBACK requires a separate A7 Gate.

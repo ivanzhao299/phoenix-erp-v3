@@ -1,5 +1,28 @@
 # Decision Log
 
+## 2026-06-23 - Store Payment Protected Attachment UAT Smoke
+
+Decision: GO WITH CONDITIONS.
+
+Rationale:
+
+- `/store-payment` loaded the pilot Store Payment account list.
+- `FILE-SP-UAT-001` was visible as the QR attachment for Store Payment account `id=1`.
+- QR status UI called `/store-payment/attachments/FILE-SP-UAT-001/status`.
+- QR preview UI called `/store-payment/attachments/FILE-SP-UAT-001/preview`.
+- QR download UI called `/store-payment/attachments/FILE-SP-UAT-001/download`.
+- Preview/download buttons were enabled only for the `ALLOWED` backend status row.
+- Other accounts without metadata remained fail-closed as `MISSING`.
+- The page did not display raw URL, did not construct `/uploads`, and did not leak `storage_path`.
+
+Conditions:
+
+- This smoke used local UAT metadata only.
+- No proof record fixture was created in this Gate.
+- No backend code was modified.
+- No migration, DB write, deploy, or push was executed by this Gate.
+- Production enablement still requires A6 staging runbook and A7 final QA / GO Gate.
+
 ## 2026-06-23 - Store Payment Attachment Metadata UAT Data Setup
 
 Decision: GO WITH CONDITIONS.

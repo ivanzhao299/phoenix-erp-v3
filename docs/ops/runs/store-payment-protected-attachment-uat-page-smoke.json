@@ -1,0 +1,54 @@
+{
+  "generated_at": "2026-06-23T06:06:01.116Z",
+  "page_entry": "/store-payment",
+  "file_id": "FILE-SP-UAT-001",
+  "selected_object": "store_payment_accounts.id=1 qr_attachment_id",
+  "qr_status_ui_pass": true,
+  "qr_preview_ui_pass": true,
+  "qr_download_ui_pass": true,
+  "protected_endpoint_used": true,
+  "status_endpoint_hit": true,
+  "preview_endpoint_hit": true,
+  "download_endpoint_hit": true,
+  "preview_button_visible": true,
+  "preview_button_disabled": false,
+  "download_button_visible": true,
+  "download_button_disabled": false,
+  "raw_url_displayed": false,
+  "uploads_path_used": false,
+  "storage_path_leaked": false,
+  "fail_closed_evidence": {
+    "raw_url_blocked_text_present": true,
+    "protected_endpoint_text_present": true,
+    "missing_or_pending_text_present": true,
+    "unsafe_requests": []
+  },
+  "endpoint_hits": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3000/store-payment/accounts/1/qr-attachment"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3000/store-payment/accounts/1/qr-attachment"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3000/store-payment/attachments/FILE-SP-UAT-001/status"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3000/store-payment/attachments/FILE-SP-UAT-001/status"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3000/store-payment/attachments/FILE-SP-UAT-001/preview"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3000/store-payment/attachments/FILE-SP-UAT-001/download"
+    }
+  ],
+  "errors": [],
+  "conclusion": "GO_WITH_CONDITIONS"
+}
