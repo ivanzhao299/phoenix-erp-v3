@@ -5,9 +5,9 @@ Last updated: 2026-06-23
 ## Active Context
 
 - Active module: Store Payment
-- Current stage: PRODUCTION_SERVER_REMEDIATION_R0_BACKUP_BASELINE_READY
-- Active decision: WAITING_USER_APPROVAL_FOR_R1_REMEDIATION
-- Next gate: APPROVE_MIGRATION_STATE_REPAIR_PLAN
+- Current stage: PRODUCTION_SERVER_REMEDIATION_R1_MIGRATION_AUDIT_READY
+- Active decision: WAITING_USER_APPROVAL_FOR_REMOTE_CODE_ALIGNMENT_AND_SCHEMA_REPAIR_PRECHECK
+- Next gate: APPROVE_REMOTE_CODE_ALIGNMENT_AND_SCHEMA_REPAIR_PRECHECK
 - Page entry: `/store-payment`
 - Menu entry: 销售管理 / 统一收款
 
@@ -61,7 +61,14 @@ Store Payment is ready for controlled pilot with conditions:
 - DB backup file: `phoenix_erp-20260623-211849.dump`.
 - SSH observability is restored but long sessions remain unstable.
 - Remote `file_metadata` is missing based on read-only diagnostic evidence.
-- Migration history, initialization import issues, master data, and RBAC/DataScope remain pending follow-up diagnostics.
+- R1 migration-state audit is complete with conditions.
+- Remote code is `main@87b5781`.
+- Remote Store Payment migration file exists and matches local hash.
+- Remote File Metadata migration file is missing.
+- Remote audited DB lacks `store_payment_accounts`, `store_payment_records`, and `file_metadata`.
+- `file_metadata` missing cause is classified as `CODE_NOT_DEPLOYED`.
+- Migration execution, DB write, deploy, restart, and push were not executed.
+- Initialization import issues, master data, and RBAC/DataScope remain pending follow-up diagnostics.
 
 ## Current Hard Stops
 
@@ -72,5 +79,5 @@ Store Payment is ready for controlled pilot with conditions:
 - No staging deploy until a staging-only target is provided.
 - No same-host staging deploy until the user approves staging isolation derived from the production server card.
 - No production-side remediation write until backup/snapshot and a specific fix Gate are approved.
-- No file_metadata/schema repair until migration-state audit is approved.
+- No file_metadata/schema repair until remote code alignment and schema repair precheck is approved.
 - No raw URL exposure.

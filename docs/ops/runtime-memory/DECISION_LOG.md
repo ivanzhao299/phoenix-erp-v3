@@ -1,5 +1,31 @@
 # Decision Log
 
+## 2026-06-23 - Production Server Remediation R1 Migration State Audit
+
+Decision: HOLD.
+
+Rationale:
+
+- R1 read-only audit completed using server-side evidence files under `/opt/phoenix-erp-backups/remediation-r1-migration-audit-20260623-220510`.
+- Remote code is `main@87b5781`.
+- Remote Store Payment migration file `1782041418112-CreateStorePaymentTables.ts` exists and matches local approved hash.
+- Remote File Metadata migration file `1782042418112-CreateFileMetadata.ts` is missing.
+- Audited DB lacks `store_payment_accounts`, `store_payment_records`, and `file_metadata`.
+- `file_metadata` missing cause is classified as `CODE_NOT_DEPLOYED`.
+- No migration, DB write, deploy, service restart, push, cleanup, reset, seed, nginx change, or env change was executed.
+
+Conditions:
+
+- Do not run migration until user approves remote code alignment and schema repair precheck.
+- Do not enter Store Payment remote business trial until Store Payment and File Metadata schema readiness are repaired and validated.
+- Keep protected attachment preview/download disabled on the production-side target until File Metadata, ACL, DataScope, and A2 checks pass.
+
+Next actions:
+
+1. `APPROVE_REMOTE_CODE_ALIGNMENT_AND_SCHEMA_REPAIR_PRECHECK`
+2. `APPROVE_STORE_PAYMENT_SCHEMA_MIGRATION_REPAIR_IF_STILL_ABSENT`
+3. `APPROVE_FILE_METADATA_MIGRATION_REPAIR`
+
 ## 2026-06-23 - Production Server Remediation R0 Backup And Observability
 
 Decision: GO WITH CONDITIONS.

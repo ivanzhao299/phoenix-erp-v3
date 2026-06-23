@@ -32,4 +32,6 @@ Last updated: 2026-06-23
 28. Remediation writes require backup/snapshot evidence, explicit scope, rollback notes, and user approval.
 29. Read-only server inventory may run, but DB writes, migration, cleanup, reset, service restart, deploy, nginx changes, env changes, and push remain forbidden until separately approved.
 30. R0 backup baseline exists at `/opt/phoenix-erp-backups/remediation-r0-20260623-211849`; use it as the current remediation freeze point.
-31. Missing `file_metadata` on the production-side target must not be fixed until migration-state audit and user approval.
+31. Missing `file_metadata` on the production-side target is classified as `CODE_NOT_DEPLOYED`; it must not be fixed until remote code alignment, schema repair precheck, and user approval.
+32. Store Payment remote schema is not ready because `store_payment_accounts`, `store_payment_records`, and `file_metadata` are absent in the audited DB.
+33. Do not execute Store Payment or File Metadata migration until a dedicated repair execution Gate is approved.

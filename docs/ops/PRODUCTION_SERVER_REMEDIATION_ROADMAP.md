@@ -19,21 +19,30 @@ Exit criteria:
 - Backup artifacts exist and are restorable in principle.
 - No remediation write begins before this Gate is approved.
 
-## R1 - Deployment Chain Cleanup
+## R1 - Migration State Audit
 
-1. Read-only server git/image audit.
-2. Align workflow and deploy scripts with explicit remediation gates.
-3. Confirm push-main production trigger remains gated.
-4. Draft rollback commands.
-5. Identify multiple deploy directories or stale releases.
+Status: completed with conditions.
+
+Evidence:
+
+1. Remote audit directory: `/opt/phoenix-erp-backups/remediation-r1-migration-audit-20260623-220510`.
+2. Remote code: `main@87b5781`.
+3. Store Payment migration file exists remotely and matches local hash.
+4. File Metadata migration file is missing remotely.
+5. Audited DB lacks `store_payment_accounts`, `store_payment_records`, and `file_metadata`.
+6. `file_metadata` missing cause is classified as `CODE_NOT_DEPLOYED`.
+7. No migration, DB write, deploy, restart, or push was executed.
 
 ## R2 - Database / Migration Repair
 
-1. Read-only `migrations` table audit.
-2. Compare migration table to `apps/api/src/database/migrations/**`.
-3. Identify partial/failed migrations.
-4. Verify Store Payment, file metadata, menu, role, master-data tables.
-5. Draft repair plan; no repair without user approval.
+1. Approve remote code alignment and schema repair precheck.
+2. Confirm remote deploy target and audited DB target are the intended remediation target.
+3. Confirm migration history semantics for Store Payment table migration.
+4. If approved, execute only Store Payment table migration when still absent.
+5. If approved, deploy or otherwise make available `1782042418112-CreateFileMetadata.ts`.
+6. If approved, execute only File Metadata migration.
+7. Run read-only validation for tables, columns, indexes, constraints, and migration history.
+8. Keep Store Payment business trial HOLD until menu, role, DataScope, and protected attachment metadata evidence pass.
 
 ## R3 - Master Data Cleanup
 
@@ -76,4 +85,3 @@ Exit criteria:
 3. A5 data readiness.
 4. A6 runbook update.
 5. A7 GO / GO WITH CONDITIONS / HOLD / ROLLBACK decision.
-

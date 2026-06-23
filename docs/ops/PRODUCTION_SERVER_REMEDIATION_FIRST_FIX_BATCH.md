@@ -35,10 +35,25 @@ This is an approval request package only. No backup, DB write, migration, deploy
 ## Updated Next Batch Recommendation
 
 1. Keep R0 backup as the freeze point.
-2. Run a dedicated migration-state audit using short server-side output files.
-3. Confirm whether `file_metadata` migration is absent, failed, or never deployed on the production-side target.
-4. Only after migration audit, request approval for a file metadata / Store Payment schema repair Gate if needed.
-5. Continue with master data and RBAC/DataScope diagnostics before any business UAT.
+2. Use R1 audit bundle `/opt/phoenix-erp-backups/remediation-r1-migration-audit-20260623-220510` as the current migration-state evidence bundle.
+3. Treat `file_metadata` missing cause as `CODE_NOT_DEPLOYED`: remote code lacks `1782042418112-CreateFileMetadata.ts`.
+4. Treat Store Payment remote schema as not ready: `store_payment_accounts` and `store_payment_records` were not found in the audited DB.
+5. Request approval for remote code alignment and schema repair precheck before any migration execution.
+6. Continue with master data and RBAC/DataScope diagnostics before any business UAT.
+
+## R1 Migration-State Audit Evidence
+
+| Item | Result |
+| --- | --- |
+| audit directory | `/opt/phoenix-erp-backups/remediation-r1-migration-audit-20260623-220510` |
+| remote branch | `main` |
+| remote commit | `87b5781` |
+| Store Payment migration file | present, hash matches local approved migration |
+| File Metadata migration file | missing |
+| Store Payment tables | missing in audited DB |
+| File Metadata table | missing in audited DB |
+| File Metadata missing cause | `CODE_NOT_DEPLOYED` |
+| DB write / migration / deploy / restart / push | not executed |
 
 ## Execution Boundaries For First Batch
 

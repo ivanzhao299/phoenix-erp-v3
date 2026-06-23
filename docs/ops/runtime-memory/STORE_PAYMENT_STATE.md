@@ -4,6 +4,14 @@ Last updated: 2026-06-23
 
 ## Current Decision
 
+HOLD for production-side remediation.
+
+R1 migration-state audit is complete with conditions. The remote remediation target is `main@87b5781`; it contains the Store Payment table migration file but does not contain the File Metadata migration file. The audited DB lacks `store_payment_accounts`, `store_payment_records`, and `file_metadata`. `file_metadata` missing cause is classified as `CODE_NOT_DEPLOYED`. No migration, DB write, deploy, restart, or push was executed.
+
+Next approved step required: `APPROVE_REMOTE_CODE_ALIGNMENT_AND_SCHEMA_REPAIR_PRECHECK`.
+
+## Prior Controlled Pilot Decision
+
 GO WITH CONDITIONS.
 
 Store Payment has passed controlled protected attachment UAT smoke for both the pilot account QR file and a Store Payment record proof fixture, not production deployment. File Metadata / ACL foundation is available, Store Payment protected attachment proxy endpoints stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass, and `/store-payment` now uses protected endpoints for QR and proof preview / download paths. A6 staging deploy runbook and A7 final QA Gate are complete. The staging deploy approval package, approval matrix, and business UAT scope are complete. The approved non-main branch push completed. The staging-only workflow/env/compose skeleton is now ready. The production server connection card has been sanitized and can produce a same-host staging candidate only with explicit isolation approval. Real staging execution still waits for user approval and GitHub `staging` environment secrets.
@@ -257,6 +265,45 @@ Result:
 - production deploy: no.
 - production migration: no.
 - production remote DB write: no.
+
+## Production Server Remediation R1 Migration State Audit
+
+Conclusion: HOLD.
+
+Reports:
+
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_MIGRATION_STATE_AUDIT_REPORT.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_MIGRATION_REPAIR_PLAN.md`
+
+Remote evidence:
+
+- audit directory: `/opt/phoenix-erp-backups/remediation-r1-migration-audit-20260623-220510`
+- remote branch: `main`
+- remote commit: `87b5781`
+- Store Payment migration file: present and hash-matched to local approved file.
+- File Metadata migration file: missing.
+- `store_payment_accounts`: missing in audited DB.
+- `store_payment_records`: missing in audited DB.
+- `file_metadata`: missing in audited DB.
+- `file_metadata` missing cause: `CODE_NOT_DEPLOYED`.
+
+Safety:
+
+- migration executed: no.
+- DB write: no.
+- deploy: no.
+- restart: no.
+- push: no.
+
+A1 / A2 / A5:
+
+- A1: PASS WITH CONDITIONS.
+- A2: PASS WITH CONDITIONS.
+- A5: HOLD.
+
+Next action:
+
+- Approve remote code alignment and schema repair precheck before any migration execution.
 
 HOLD reason:
 

@@ -1,0 +1,15 @@
+remote_branch=main
+remote_commit=87b5781
+store_payment_migration_file=present
+file_metadata_migration_file=missing
+store_payment_history_matches=2
+file_metadata_history_matches=0
+store_payment_accounts_table_present=no
+store_payment_records_table_present=no
+file_metadata_table_present=no
+file_metadata_missing_cause=CODE_NOT_DEPLOYED
+code_drift=yes
+migration_drift=yes
+schema_drift=yes
+history_drift=yes
+data_readiness_drift=yes
