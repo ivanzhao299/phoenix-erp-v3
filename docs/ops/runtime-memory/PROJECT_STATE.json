@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-06-23",
   "active_module": "Store Payment",
-  "current_stage": "STORE_PAYMENT_PROTECTED_ATTACHMENT_UAT_VERIFIED",
+  "current_stage": "STORE_PAYMENT_RECORD_PROOF_ATTACHMENT_UAT_VERIFIED",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "STORE_PAYMENT_RECORD_PROOF_ATTACHMENT_UAT_FIXTURE",
+  "next_gate": "A6_STAGING_DEPLOY_RUNBOOK",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -51,11 +51,20 @@
     "protected_attachment_qr_preview_ui": "PASS",
     "protected_attachment_qr_download_ui": "PASS",
     "protected_attachment_page_smoke": "PASS",
-    "protected_endpoint_used": true
+    "protected_endpoint_used": true,
+    "record_proof_attachment_uat_fixture": "GO_WITH_CONDITIONS",
+    "record_proof_file_id": "FILE-SP-PROOF-UAT-001",
+    "record_proof_payment_no": "SP-UAT-PROOF-001",
+    "record_proof_record_id": "1",
+    "record_proof_status_smoke": "PASS",
+    "record_proof_preview_smoke": "PASS",
+    "record_proof_download_smoke": "PASS",
+    "record_proof_page_smoke": "PASS",
+    "file_metadata_rows": 2
   },
   "next_actions": [
-    "STORE_PAYMENT_RECORD_PROOF_ATTACHMENT_UAT_FIXTURE",
     "A6_STAGING_DEPLOY_RUNBOOK",
-    "A7_FINAL_QA_GATE"
+    "A7_FINAL_QA_GATE",
+    "STORE_PAYMENT_CONTROLLED_PILOT_RELEASE_DECISION"
   ]
 }

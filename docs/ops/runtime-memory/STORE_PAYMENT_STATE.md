@@ -6,7 +6,7 @@ Last updated: 2026-06-23
 
 GO WITH CONDITIONS.
 
-Store Payment has passed controlled protected attachment UAT smoke for the pilot account QR file, not production deployment. File Metadata / ACL foundation is available, Store Payment protected attachment proxy endpoints stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass, and `/store-payment` now uses the protected endpoints for the pilot QR status / preview / download path.
+Store Payment has passed controlled protected attachment UAT smoke for both the pilot account QR file and a Store Payment record proof fixture, not production deployment. File Metadata / ACL foundation is available, Store Payment protected attachment proxy endpoints stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass, and `/store-payment` now uses protected endpoints for QR and proof preview / download paths.
 
 ## Completed Facts
 
@@ -50,6 +50,13 @@ Store Payment has passed controlled protected attachment UAT smoke for the pilot
 38. `/store-payment` page-level QR preview UAT smoke passed through the protected endpoint.
 39. `/store-payment` page-level QR download UAT smoke passed through the protected endpoint.
 40. `/store-payment` did not display `rawUrl`, did not construct `/uploads`, and did not leak `storage_path`.
+41. Local UAT record `SP-UAT-PROOF-001` exists in `store_payment_records`.
+42. `SP-UAT-PROOF-001` references proof file `FILE-SP-PROOF-UAT-001`.
+43. `FILE-SP-PROOF-UAT-001` exists in `file_metadata` as owner `STORE_PAYMENT_RECORD:1`.
+44. Record proof status endpoint smoke passed.
+45. Record proof preview endpoint smoke passed with backend protected PDF streaming.
+46. Record proof download endpoint smoke passed with backend protected PDF streaming.
+47. `/store-payment` detail drawer proof preview/download page smoke passed.
 
 ## Frontend State
 
@@ -80,6 +87,8 @@ Store Payment has passed controlled protected attachment UAT smoke for the pilot
 - proof download: controlled UI ready, disabled unless backend status is allowed.
 - QR preview: protected account QR UAT passed for `FILE-SP-UAT-001`.
 - QR download: protected account QR UAT passed for `FILE-SP-UAT-001`.
+- proof preview: protected record proof UAT passed for `FILE-SP-PROOF-UAT-001`.
+- proof download: protected record proof UAT passed for `FILE-SP-PROOF-UAT-001`.
 - Raw URL exposure: forbidden.
 - `/uploads` path construction: forbidden.
 - `http(s)` attachment links: forbidden.
@@ -107,9 +116,47 @@ Page-level UAT evidence:
 
 Current stage: `STORE_PAYMENT_PROTECTED_ATTACHMENT_UAT_VERIFIED`.
 
+## Record Proof Attachment UAT Fixture Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Local UAT data:
+
+- payment record: `SP-UAT-PROOF-001`
+- record id: `1`
+- file id: `FILE-SP-PROOF-UAT-001`
+- file: `store-payment-proof-record-uat.pdf`
+- MIME: `application/pdf`
+- module: `STORE_PAYMENT`
+- owner: `STORE_PAYMENT_RECORD:1`
+- company: `COMP-LAO-AGRI`
+- store: `STORE-VTE-001`
+- status: `ACTIVE`
+- visibility: `PROTECTED`
+
+Endpoint smoke:
+
+- status: PASS, `accessStatus=allowed`, `rawUrl=null`.
+- preview: PASS, backend streamed PDF with `Content-Disposition: inline`.
+- download: PASS, backend streamed PDF with `Content-Disposition: attachment`.
+- no-auth access: 401.
+- missing file id: 404.
+
+Page-level UAT evidence:
+
+- Record list displayed `SP-UAT-PROOF-001`.
+- Detail drawer loaded proof status through `/store-payment/records/1/proof-attachment`.
+- Preview used `/store-payment/attachments/FILE-SP-PROOF-UAT-001/preview`.
+- Download used `/store-payment/attachments/FILE-SP-PROOF-UAT-001/download`.
+- rawUrl displayed: no.
+- `/uploads` used: no.
+- `storage_path` leaked: no.
+
+Current stage: `STORE_PAYMENT_RECORD_PROOF_ATTACHMENT_UAT_VERIFIED`.
+
 ## Current Conditions
 
-- Controlled UAT has verified page rendering, permission visibility, disabled attachment behavior, status flow UI, and protected account QR attachment preview/download against local metadata.
+- Controlled UAT has verified page rendering, permission visibility, disabled attachment behavior, status flow UI, protected account QR attachment preview/download, and protected record proof preview/download against local metadata.
 - Frontend preview/download buttons are present and remain controlled by backend status.
 - Frontend preview/download must not be treated as fully available until file metadata UAT data exists and A2 reviews the UI path.
 - Staging deployment requires a separate A6 runbook Gate.

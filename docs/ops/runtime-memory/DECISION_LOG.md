@@ -1,5 +1,30 @@
 # Decision Log
 
+## 2026-06-23 - Store Payment Record Proof Attachment UAT Fixture
+
+Decision: GO WITH CONDITIONS.
+
+Rationale:
+
+- Local `phoenix_erp` contains one Store Payment UAT record `SP-UAT-PROOF-001`.
+- `SP-UAT-PROOF-001` references proof attachment `FILE-SP-PROOF-UAT-001`.
+- Local `file_metadata` contains `FILE-SP-PROOF-UAT-001` with owner `STORE_PAYMENT_RECORD:1`.
+- The proof file is a generated non-sensitive UAT PDF with no real payment, bank, or customer data.
+- Protected status endpoint returned `accessStatus=allowed`, `previewAvailable=true`, `downloadAvailable=true`, and `rawUrl=null`.
+- Protected preview endpoint streamed the PDF through the backend.
+- Protected download endpoint streamed the PDF through the backend.
+- No-auth access failed closed with 401.
+- Missing file id failed closed with 404.
+- `/store-payment` detail drawer used protected proof access and protected preview/download endpoints.
+
+Conditions:
+
+- This was a local UAT DB write only, not a remote production DB write.
+- API development startup emitted existing bootstrap / seed logs; no production deployment or push was executed.
+- The UAT proof PDF is non-sensitive local test data and must not be treated as production evidence.
+- Staging deployment still requires A6 runbook Gate.
+- Final pilot release still requires A7 final QA / GO Gate.
+
 ## 2026-06-23 - Store Payment Protected Attachment UAT Smoke
 
 Decision: GO WITH CONDITIONS.
