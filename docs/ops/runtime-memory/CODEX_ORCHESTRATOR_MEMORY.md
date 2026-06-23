@@ -5,9 +5,9 @@ Last updated: 2026-06-23
 ## Active Context
 
 - Active module: Store Payment
-- Current stage: STORE_PAYMENT_STAGING_DEPLOY_HOLD
-- Active decision: HOLD
-- Next gate: PROVIDE_STAGING_DEPLOY_TARGET
+- Current stage: STORE_PAYMENT_STAGING_TARGET_BOOTSTRAP_READY
+- Active decision: WAITING_STAGING_TARGET_INPUTS
+- Next gate: USER_PROVIDES_STAGING_TARGET
 - Page entry: `/store-payment`
 - Menu entry: 销售管理 / 统一收款
 
@@ -42,6 +42,9 @@ Store Payment is ready for controlled pilot with conditions:
 - The non-main branch `w5-codex-orchestrator` was pushed to origin at `0e71753c`.
 - Staging deploy was not executed because no staging target, staging DB, staging file storage, or staging workflow was discoverable.
 - `push main` was not executed because the repository production workflow deploys on `push main`.
+- A staging-only workflow skeleton now exists at `.github/workflows/staging-deploy.yml`.
+- Staging env and compose skeletons now exist.
+- Real staging execution still requires staging target inputs and GitHub `staging` environment secrets.
 
 ## Current Hard Stops
 

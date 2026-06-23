@@ -1,0 +1,211 @@
+name: Staging Deploy - Store Payment Controlled Pilot
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: "Branch to deploy to staging. Allowed: w5-codex-orchestrator or staging/*."
+        required: true
+        default: "w5-codex-orchestrator"
+      run_store_payment_migrations:
+        description: "Run approved Store Payment staging DB migration gate. Default false."
+        type: boolean
+        required: true
+        default: false
+      sync_store_payment_menu_roles:
+        description: "Run approved MENU_STORE_PAYMENT* menu/role sync gate. Default false."
+        type: boolean
+        required: true
+        default: false
+      create_store_payment_file_fixture:
+        description: "Create approved staging file_metadata/UAT fixture. Default false."
+        type: boolean
+        required: true
+        default: false
+      deploy_application:
+        description: "Deploy API/Web to staging after prechecks. Default false."
+        type: boolean
+        required: true
+        default: false
+
+concurrency:
+  group: staging-store-payment-${{ inputs.source_branch }}
+  cancel-in-progress: false
+
+env:
+  DEPLOY_ENV: staging
+
+jobs:
+  staging-preflight:
+    name: Staging preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    outputs:
+      source_branch: ${{ steps.guard.outputs.source_branch }}
+    steps:
+      - name: Guard staging environment
+        id: guard
+        env:
+          SOURCE_BRANCH: ${{ inputs.source_branch }}
+          DEPLOY_ENV: ${{ env.DEPLOY_ENV }}
+        run: |
+          set -euo pipefail
+          echo "Environment: ${DEPLOY_ENV}"
+          if [ "${DEPLOY_ENV}" != "staging" ]; then
+            echo "::error::This workflow may only run for staging."
+            exit 1
+          fi
+          case "${SOURCE_BRANCH}" in
+            w5-codex-orchestrator|staging/*)
+              echo "source_branch=${SOURCE_BRANCH}" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error::Only w5-codex-orchestrator or staging/* branches are allowed."
+              exit 1
+              ;;
+          esac
+
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.guard.outputs.source_branch }}
+
+      - name: Confirm staging secrets are configured
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          STAGING_DEPLOY_PATH: ${{ secrets.STAGING_DEPLOY_PATH }}
+          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          STAGING_FILE_STORAGE_PATH: ${{ secrets.STAGING_FILE_STORAGE_PATH }}
+          STAGING_API_ENV: ${{ secrets.STAGING_API_ENV }}
+          STAGING_WEB_ENV: ${{ secrets.STAGING_WEB_ENV }}
+        run: |
+          set -euo pipefail
+          echo "Environment: staging"
+          for key in \
+            STAGING_HOST \
+            STAGING_USER \
+            STAGING_SSH_KEY \
+            STAGING_DEPLOY_PATH \
+            STAGING_DATABASE_URL \
+            STAGING_FILE_STORAGE_PATH \
+            STAGING_API_ENV \
+            STAGING_WEB_ENV
+          do
+            if [ -z "${!key:-}" ]; then
+              echo "::error::Missing staging secret: ${key}"
+              exit 1
+            fi
+          done
+          echo "Staging secrets presence check passed. Secret values are not printed."
+
+      - name: Validate staging artifacts
+        run: |
+          set -euo pipefail
+          test -f docker-compose.staging.yml
+          test -f .env.staging.example
+          test -f docs/ops/STORE_PAYMENT_STAGING_TARGET_REQUIRED_INPUTS.md
+          echo "Staging deploy skeleton files exist."
+
+  staging-optional-gates:
+    name: Optional staging DB/menu/file gates
+    needs: staging-preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.staging-preflight.outputs.source_branch }}
+
+      - name: Store Payment migration gate boundary
+        if: inputs.run_store_payment_migrations == true
+        run: |
+          set -euo pipefail
+          echo "Environment: staging"
+          echo "Store Payment staging migration was requested."
+          echo "::error::Migration execution must use a separate approved DB Migration Gate with staging DB backup evidence."
+          exit 1
+
+      - name: Store Payment menu/role sync boundary
+        if: inputs.sync_store_payment_menu_roles == true
+        run: |
+          set -euo pipefail
+          echo "Environment: staging"
+          echo "MENU_STORE_PAYMENT* menu/role sync was requested."
+          echo "::error::Menu/role sync must use a separate approved access sync Gate with staging DB evidence."
+          exit 1
+
+      - name: Store Payment file fixture boundary
+        if: inputs.create_store_payment_file_fixture == true
+        run: |
+          set -euo pipefail
+          echo "Environment: staging"
+          echo "Store Payment file_metadata/UAT fixture creation was requested."
+          echo "::error::Fixture writes must use a separate approved staging fixture Gate."
+          exit 1
+
+      - name: Optional gates skipped
+        if: inputs.run_store_payment_migrations != true && inputs.sync_store_payment_menu_roles != true && inputs.create_store_payment_file_fixture != true
+        run: |
+          echo "Environment: staging"
+          echo "Optional DB/menu/file fixture gates are disabled by default and were skipped."
+
+  staging-deploy:
+    name: Deploy application to staging
+    needs: [staging-preflight, staging-optional-gates]
+    if: inputs.deploy_application == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.staging-preflight.outputs.source_branch }}
+
+      - name: Deploy to staging over SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          STAGING_DEPLOY_PATH: ${{ secrets.STAGING_DEPLOY_PATH }}
+          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          STAGING_FILE_STORAGE_PATH: ${{ secrets.STAGING_FILE_STORAGE_PATH }}
+          STAGING_API_ENV: ${{ secrets.STAGING_API_ENV }}
+          STAGING_WEB_ENV: ${{ secrets.STAGING_WEB_ENV }}
+          SOURCE_BRANCH: ${{ needs.staging-preflight.outputs.source_branch }}
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          envs: STAGING_DEPLOY_PATH,STAGING_DATABASE_URL,STAGING_FILE_STORAGE_PATH,STAGING_API_ENV,STAGING_WEB_ENV,SOURCE_BRANCH
+          script: |
+            set -euo pipefail
+            echo "Environment: staging"
+            cd "$STAGING_DEPLOY_PATH"
+            git fetch origin "$SOURCE_BRANCH"
+            git checkout "$SOURCE_BRANCH"
+            git pull --ff-only origin "$SOURCE_BRANCH"
+            printf '%s\n' "$STAGING_API_ENV" > .env.staging.api
+            printf '%s\n' "$STAGING_WEB_ENV" > .env.staging.web
+            export DATABASE_URL="$STAGING_DATABASE_URL"
+            export STAGING_FILE_STORAGE_PATH="$STAGING_FILE_STORAGE_PATH"
+            docker compose -f docker-compose.staging.yml pull api web
+            docker compose -f docker-compose.staging.yml up -d --no-deps --wait api web
+            docker compose -f docker-compose.staging.yml ps
+            curl -fsS http://127.0.0.1:${STAGING_API_PORT:-13100}/api/health
+            curl -fsS http://127.0.0.1:${STAGING_WEB_PORT:-13000}/ -o /dev/null
+            echo "Staging deploy completed. No production deploy was executed."
+
+  staging-documented-only:
+    name: Documented-only result
+    needs: [staging-preflight, staging-optional-gates]
+    if: inputs.deploy_application != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: staging
+    steps:
+      - name: Deployment intentionally skipped
+        run: |
+          echo "Environment: staging"
+          echo "deploy_application=false, so no staging deployment was executed."
+          echo "This workflow never listens to push main and never uses production secrets."

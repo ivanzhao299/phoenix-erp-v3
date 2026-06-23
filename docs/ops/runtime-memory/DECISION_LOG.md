@@ -1,5 +1,28 @@
 # Decision Log
 
+## 2026-06-23 - Store Payment Staging Target Bootstrap Gate
+
+Decision: READY_FOR_STAGING_TARGET_INPUTS.
+
+Rationale:
+
+- The prior staging deploy attempt held because no staging target/workflow/DB/file-storage configuration existed.
+- A staging-only workflow skeleton was added.
+- A staging env example was added.
+- A staging compose skeleton was added.
+- Required staging target inputs are now documented.
+- Staging deploy approval v2 is documented.
+- Migration/menu/fixture inputs default to false and fail closed unless separate Gates are approved.
+- Production workflow trigger logic was not modified.
+- No deploy, push main, remote DB write, staging migration, production migration, seed, cleanup, reset, or production trigger was executed.
+
+Next actions:
+
+1. `USER_PROVIDES_STAGING_TARGET`
+2. `USER_CONFIGURES_GITHUB_STAGING_SECRETS`
+3. `USER_APPROVES_STAGING_WORKFLOW_RUN`
+4. `STAGING_DEPLOY_EXECUTION_GATE`
+
 ## 2026-06-23 - Store Payment Staging Controlled Pilot Deploy
 
 Decision: HOLD.

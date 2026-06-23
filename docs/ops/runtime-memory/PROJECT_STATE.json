@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-06-23",
   "active_module": "Store Payment",
-  "current_stage": "STORE_PAYMENT_STAGING_DEPLOY_HOLD",
-  "active_decision": "HOLD",
-  "next_gate": "PROVIDE_STAGING_DEPLOY_TARGET",
+  "current_stage": "STORE_PAYMENT_STAGING_TARGET_BOOTSTRAP_READY",
+  "active_decision": "WAITING_STAGING_TARGET_INPUTS",
+  "next_gate": "USER_PROVIDES_STAGING_TARGET",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -97,12 +97,21 @@
     "store_payment_staging_smoke": "NOT_EXECUTED_STAGING_TARGET_MISSING",
     "a1_staging_precheck": "PASS_WITH_CONDITIONS",
     "a2_staging_precheck": "PASS_WITH_CONDITIONS_HOLD_FOR_DEPLOY",
-    "a5_staging_precheck": "HOLD_STAGING_DATA_TARGET_MISSING"
+    "a5_staging_precheck": "HOLD_STAGING_DATA_TARGET_MISSING",
+    "staging_target_bootstrap_gate": "READY_FOR_STAGING_TARGET_INPUTS",
+    "staging_only_workflow": "ADDED",
+    "staging_env_example": "ADDED",
+    "staging_compose": "ADDED",
+    "staging_required_inputs_doc": "ADDED",
+    "staging_approval_v2": "ADDED",
+    "staging_bootstrap_a2_review": "PASS_WITH_CONDITIONS",
+    "staging_bootstrap_a1_validation": "PASS_WITH_CONDITIONS",
+    "staging_bootstrap_a5_review": "GO_WITH_CONDITIONS"
   },
   "next_actions": [
-    "PROVIDE_STAGING_DEPLOY_TARGET",
-    "PROVIDE_STAGING_DB_CONNECTION",
-    "PROVIDE_STAGING_FILE_STORAGE_PATH",
-    "CONFIRM_STAGING_WORKFLOW_OR_MANUAL_RUNBOOK"
+    "USER_PROVIDES_STAGING_TARGET",
+    "USER_CONFIGURES_GITHUB_STAGING_SECRETS",
+    "USER_APPROVES_STAGING_WORKFLOW_RUN",
+    "STAGING_DEPLOY_EXECUTION_GATE"
   ]
 }

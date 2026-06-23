@@ -2,15 +2,15 @@
 
 Last updated: 2026-06-23
 
-1. `PROVIDE_STAGING_DEPLOY_TARGET`.
-2. `PROVIDE_STAGING_DB_CONNECTION`.
-3. `PROVIDE_STAGING_FILE_STORAGE_PATH`.
-4. `CONFIRM_STAGING_WORKFLOW_OR_MANUAL_RUNBOOK`.
+1. `USER_PROVIDES_STAGING_TARGET`.
+2. `USER_CONFIGURES_GITHUB_STAGING_SECRETS`.
+3. `USER_APPROVES_STAGING_WORKFLOW_RUN`.
+4. `STAGING_DEPLOY_EXECUTION_GATE`.
 
 ## Recommended Immediate Sequence
 
-1. Provide staging-only host/workflow details that do not use the production `push main` deploy path.
-2. Provide staging DB connection details and backup policy.
+1. Configure GitHub Environment `staging` with approval reviewers.
+2. Provide `STAGING_*` secrets listed in `docs/ops/STORE_PAYMENT_STAGING_TARGET_REQUIRED_INPUTS.md`.
 3. Keep `/uploads` and raw URL exposure forbidden.
 4. Keep local UAT fixture data out of production release decisions unless explicitly approved.
 

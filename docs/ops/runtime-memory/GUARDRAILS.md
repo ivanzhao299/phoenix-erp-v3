@@ -20,3 +20,6 @@ Last updated: 2026-06-23
 16. A4 may only enable preview/download after a dedicated UI Gate confirms protected endpoints and A2 approves the UI path.
 17. Store Payment frontend preview/download buttons must remain fail-closed unless backend protected status returns `accessStatus=allowed`.
 18. If `rawUrl` is ever present in a protected attachment response, the frontend must treat it as unsafe and disable access.
+19. Store Payment staging deploy must use `.github/workflows/staging-deploy.yml` or another explicitly approved staging-only path.
+20. Do not use `push main` as a staging deploy mechanism because the current production workflow deploys on `push main`.
+21. Staging migration, menu / role sync, and file fixture writes must remain disabled by default and require separate approved Gates.

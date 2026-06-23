@@ -6,7 +6,7 @@ Last updated: 2026-06-23
 
 GO WITH CONDITIONS.
 
-Store Payment has passed controlled protected attachment UAT smoke for both the pilot account QR file and a Store Payment record proof fixture, not production deployment. File Metadata / ACL foundation is available, Store Payment protected attachment proxy endpoints stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass, and `/store-payment` now uses protected endpoints for QR and proof preview / download paths. A6 staging deploy runbook and A7 final QA Gate are complete. The staging deploy approval package, approval matrix, and business UAT scope are complete. The approved non-main branch push completed, but staging deploy is HOLD because no staging-only target/workflow/DB/file-storage configuration is available and `push main` would trigger production deployment.
+Store Payment has passed controlled protected attachment UAT smoke for both the pilot account QR file and a Store Payment record proof fixture, not production deployment. File Metadata / ACL foundation is available, Store Payment protected attachment proxy endpoints stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass, and `/store-payment` now uses protected endpoints for QR and proof preview / download paths. A6 staging deploy runbook and A7 final QA Gate are complete. The staging deploy approval package, approval matrix, and business UAT scope are complete. The approved non-main branch push completed. The staging-only workflow/env/compose skeleton is now ready, but real staging execution still waits for staging target inputs and GitHub `staging` environment secrets.
 
 ## Completed Facts
 
@@ -264,6 +264,36 @@ HOLD reason:
 - Existing GitHub deploy workflow targets production on `push main`, so main push was blocked.
 
 Current stage: `STORE_PAYMENT_STAGING_DEPLOY_HOLD`.
+
+## Staging Target Bootstrap Gate Result
+
+Conclusion: READY_FOR_STAGING_TARGET_INPUTS.
+
+Artifacts:
+
+- `.github/workflows/staging-deploy.yml`
+- `.env.staging.example`
+- `docker-compose.staging.yml`
+- `deploy/staging/README.md`
+- `docs/ops/STORE_PAYMENT_STAGING_TARGET_REQUIRED_INPUTS.md`
+- `docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_V2.md`
+- `docs/ops/STORE_PAYMENT_STAGING_TARGET_BOOTSTRAP_GATE_REPORT.md`
+
+Result:
+
+- staging-only workflow skeleton added.
+- staging env example added.
+- staging compose skeleton added.
+- staging required inputs documented.
+- staging approval v2 documented.
+- deploy executed: no.
+- push main executed: no.
+- remote DB write executed: no.
+- staging migration executed: no.
+- production migration executed: no.
+- production triggered: no.
+
+Current stage: `STORE_PAYMENT_STAGING_TARGET_BOOTSTRAP_READY`.
 
 ## Current Conditions
 
