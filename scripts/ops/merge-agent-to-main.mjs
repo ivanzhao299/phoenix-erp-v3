@@ -10,6 +10,7 @@ const targetBranch = args.find((arg) => !arg.startsWith('-'));
 const dryRun = args.includes('--dry-run');
 const allowCode = args.includes('--allow-code');
 const yes = args.includes('--yes');
+const stagingBootstrap = args.includes('--staging-bootstrap');
 const schemaGateIndex = args.indexOf('--schema-gate');
 const schemaGateRequestId = schemaGateIndex >= 0 ? args[schemaGateIndex + 1] : null;
 const schemaGate = Boolean(schemaGateRequestId && !schemaGateRequestId.startsWith('-'));
@@ -18,12 +19,14 @@ function usage(exitCode = 1) {
   console.log(`Usage:
   node scripts/ops/merge-agent-to-main.mjs <agent-branch> [--dry-run] [--allow-code] [--yes]
   node scripts/ops/merge-agent-to-main.mjs <agent-branch> --schema-gate <request-id> [--dry-run] [--yes]
+  node scripts/ops/merge-agent-to-main.mjs <agent-branch> --staging-bootstrap [--dry-run] [--yes]
 
 Examples:
   node scripts/ops/merge-agent-to-main.mjs w5-codex-orchestrator --dry-run
   node scripts/ops/merge-agent-to-main.mjs w5-a5-data-readiness --yes
   node scripts/ops/merge-agent-to-main.mjs w5-a3-backend-critical-path --allow-code --dry-run
-  node scripts/ops/merge-agent-to-main.mjs w5-a3-backend-critical-path --schema-gate REQ-STORE-PAYMENT-UNIFIED-CODE-001 --dry-run`);
+  node scripts/ops/merge-agent-to-main.mjs w5-a3-backend-critical-path --schema-gate REQ-STORE-PAYMENT-UNIFIED-CODE-001 --dry-run
+  node scripts/ops/merge-agent-to-main.mjs w5-codex-orchestrator --staging-bootstrap --dry-run`);
   process.exit(exitCode);
 }
 
@@ -80,6 +83,18 @@ function isAllowedOpsPath(file) {
   );
 }
 
+function isAllowedStagingBootstrapPath(file) {
+  return (
+    file.startsWith('docs/ops/') ||
+    file.startsWith('scripts/ops/') ||
+    file.startsWith('scripts/ci/') ||
+    file === '.env.staging.example' ||
+    file === 'docker-compose.staging.yml' ||
+    file === '.github/workflows/staging-deploy.yml' ||
+    file.startsWith('deploy/staging/')
+  );
+}
+
 function isCodePath(file) {
   return file.startsWith('apps/api/') || file.startsWith('apps/web/');
 }
@@ -105,6 +120,14 @@ function hasFrozenSignal(file) {
 }
 
 function checkFreezeBoundaries(files) {
+  if (stagingBootstrap) {
+    console.log('\nStaging Bootstrap mode enabled.');
+    const disallowed = files.filter((file) => !isAllowedStagingBootstrapPath(file));
+    if (disallowed.length > 0) {
+      fail(`path is not allowed in staging bootstrap mode:\n${disallowed.map((f) => `  - ${f}`).join('\n')}`);
+    }
+  }
+
   const frozen = files.filter(hasFrozenSignal);
   if (frozen.length > 0) {
     fail(`frozen paths detected; refusing to merge:\n${frozen.map((f) => `  - ${f}`).join('\n')}`);
@@ -115,7 +138,10 @@ function checkFreezeBoundaries(files) {
     fail(`code paths detected; rerun with --allow-code only if user approved code merging:\n${codePaths.map((f) => `  - ${f}`).join('\n')}`);
   }
 
-  const disallowed = files.filter((file) => !isAllowedOpsPath(file) && !(allowCode && isCodePath(file)));
+  const disallowed = files.filter((file) => {
+    if (stagingBootstrap && isAllowedStagingBootstrapPath(file)) return false;
+    return !isAllowedOpsPath(file) && !(allowCode && isCodePath(file));
+  });
   if (disallowed.length > 0) {
     fail(`non-ops paths detected; default merge scope is docs/ops, scripts/ops, scripts/ci, .github:\n${disallowed.map((f) => `  - ${f}`).join('\n')}`);
   }

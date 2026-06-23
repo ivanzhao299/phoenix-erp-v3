@@ -9,12 +9,13 @@ const RUN_ARTIFACT_COMMIT = 'docs(ops): record generated ops run artifacts';
 
 function usage(exitCode = 1) {
   console.log(`Usage:
-  node scripts/ops/agent-sync-and-merge.mjs <branch> [--dry-run] [--yes] [--allow-code] [--schema-gate <request-id>] [--auto-commit-runs] [--skip-auto-commit-runs]
+  node scripts/ops/agent-sync-and-merge.mjs <branch> [--dry-run] [--yes] [--allow-code] [--schema-gate <request-id>] [--staging-bootstrap] [--auto-commit-runs] [--skip-auto-commit-runs]
 
 Examples:
   node scripts/ops/agent-sync-and-merge.mjs w5-codex-orchestrator --dry-run
   node scripts/ops/agent-sync-and-merge.mjs w5-codex-orchestrator --yes
-  node scripts/ops/agent-sync-and-merge.mjs w5-a3-backend-critical-path --schema-gate REQ-STORE-PAYMENT-UNIFIED-CODE-001 --dry-run`);
+  node scripts/ops/agent-sync-and-merge.mjs w5-a3-backend-critical-path --schema-gate REQ-STORE-PAYMENT-UNIFIED-CODE-001 --dry-run
+  node scripts/ops/agent-sync-and-merge.mjs w5-codex-orchestrator --staging-bootstrap --dry-run`);
   process.exit(exitCode);
 }
 
@@ -33,6 +34,7 @@ function parseArgs(argv) {
       values.yes = true;
       values.dryRun = false;
     } else if (arg === '--allow-code') values.allowCode = true;
+    else if (arg === '--staging-bootstrap') values.stagingBootstrap = true;
     else if (arg === '--auto-commit-runs') values.autoCommitRuns = true;
     else if (arg === '--skip-auto-commit-runs') values.autoCommitRuns = false;
     else if (arg === '--schema-gate') {
@@ -189,6 +191,7 @@ const mergeCommand = [
   args.dryRun ? '--dry-run' : '--yes',
 ];
 if (args.allowCode) mergeCommand.push('--allow-code');
+if (args.stagingBootstrap) mergeCommand.push('--staging-bootstrap');
 if (args.schemaGate) mergeCommand.push('--schema-gate', args.schemaGate);
 
 console.log(`Merge preflight command: ${mergeCommand.join(' ')}`);
