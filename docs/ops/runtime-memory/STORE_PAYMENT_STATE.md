@@ -6,7 +6,7 @@ Last updated: 2026-06-23
 
 GO WITH CONDITIONS.
 
-Store Payment is ready for controlled UAT smoke, not production deployment.
+Store Payment is ready for controlled UAT smoke, not production deployment. The A3 protected attachment Gate has added controlled status / ownership checks, but real preview/download streaming remains disabled pending file metadata and ACL support.
 
 ## Completed Facts
 
@@ -30,6 +30,10 @@ Store Payment is ready for controlled UAT smoke, not production deployment.
 18. DataScope alias handling is in place for `STORE-VTE-001` and `ST-VTE-001`.
 19. Store Payment action-bit alignment is V/E/X.
 20. A4 Frontend Gate completed `/store-payment`.
+21. A3 protected attachment Gate added Store Payment attachment status / preview / download routes.
+22. Attachment status verifies Store Payment ownership, RBAC, and DataScope before returning controlled state.
+23. Preview/download routes verify ownership, RBAC, and DataScope, then return a denied-safe not-implemented response.
+24. Real streaming remains disabled because the existing upload module has no file metadata table, ACL, owner reference, or protected streaming capability.
 
 ## Frontend State
 
@@ -63,11 +67,14 @@ Store Payment is ready for controlled UAT smoke, not production deployment.
 - Raw URL exposure: forbidden.
 - `/uploads` path construction: forbidden.
 - `http(s)` attachment links: forbidden.
+- Store Payment attachment status endpoint: implemented.
+- Store Payment attachment preview/download: denied-safe skeleton only; no streaming.
+- denied access audit: structured log implemented; DB audit remains a condition until file metadata/ACL is introduced.
 
 ## Current Conditions
 
 - Controlled UAT may verify page rendering, permission visibility, disabled attachment behavior, and status flow UI.
-- Real protected streaming must not be enabled before a dedicated A3 Gate and A2 review.
+- Real protected streaming must not be enabled before file metadata / ACL ownership exists and a follow-up A3 + A2 Gate approves it.
 - Staging deployment requires a separate A6 runbook Gate.
 - Final GO / HOLD / ROLLBACK requires a separate A7 Gate.
 
@@ -79,3 +86,21 @@ Store Payment is ready for controlled UAT smoke, not production deployment.
 - No real attachment preview / download.
 - No raw URL exposure.
 - No new non-Store Payment feature.
+
+## Protected Attachment Gate Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Implemented endpoints:
+
+- `GET /store-payment/attachments/:attachmentId/status`
+- `GET /store-payment/attachments/:attachmentId/preview`
+- `GET /store-payment/attachments/:attachmentId/download`
+
+Current behavior:
+
+- `status` returns controlled access-pending state after Store Payment ownership, RBAC, and DataScope checks.
+- `preview` and `download` perform the same checks, then reject with `STORE_PAYMENT_ATTACHMENT_STREAMING_NOT_AVAILABLE`.
+- `rawUrl` remains `null`.
+- `/uploads` and `http(s)` attachment IDs are rejected as unsafe.
+- A4 must keep preview/download disabled.

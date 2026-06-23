@@ -4,6 +4,8 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  NotImplementedException,
+  Logger,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { ClsService } from 'nestjs-cls';
@@ -24,6 +26,7 @@ import { StorePaymentAccountEntity } from './entities/store-payment-account.enti
 import { StorePaymentRecordEntity } from './entities/store-payment-record.entity';
 
 type StorePaymentRecordStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'VOIDED';
+type StorePaymentAttachmentMode = 'preview' | 'download';
 
 interface RequestUser {
   userId?: string | number;
@@ -52,6 +55,8 @@ const STORE_CODE_CANONICAL: Record<string, string> = Object.fromEntries(
 
 @Injectable()
 export class StorePaymentService {
+  private readonly logger = new Logger(StorePaymentService.name);
+
   constructor(
     @InjectRepository(StorePaymentAccountEntity)
     private readonly accountRepo: Repository<StorePaymentAccountEntity>,
@@ -289,6 +294,37 @@ export class StorePaymentService {
     });
   }
 
+  async getStorePaymentAttachmentStatus(attachmentId: string) {
+    const owner = await this.findStorePaymentAttachmentOwnerOrThrow(attachmentId);
+    this.assertAttachmentOwnerScope(owner);
+    return this.toAttachmentAccessPendingResponse({
+      objectType: owner.objectType,
+      objectId: owner.objectId,
+      attachmentBound: true,
+      reason: 'STORE_PAYMENT_PROTECTED_ATTACHMENT_STREAMING_PENDING_FILE_ACL',
+    });
+  }
+
+  async openStorePaymentAttachment(attachmentId: string, mode: StorePaymentAttachmentMode) {
+    const owner = await this.findStorePaymentAttachmentOwnerOrThrow(attachmentId);
+    this.assertAttachmentOwnerScope(owner);
+    this.logDeniedAttachmentAccess(owner, mode, 'STORE_PAYMENT_ATTACHMENT_STREAMING_NOT_AVAILABLE');
+    throw new NotImplementedException({
+      code: 'STORE_PAYMENT_ATTACHMENT_STREAMING_NOT_AVAILABLE',
+      message: 'Store Payment protected attachment streaming is not enabled because file metadata and ACL ownership are not available.',
+      objectType: owner.objectType,
+      objectId: owner.objectId,
+      attachmentBound: true,
+      previewAllowed: false,
+      previewStatus: 'access_pending',
+      downloadAllowed: false,
+      downloadStatus: 'access_pending',
+      rawUrl: null,
+      auditRequired: true,
+      auditStatus: 'structured_log_only_pending_file_acl',
+    });
+  }
+
   async confirmRecord(id: string, dto: ConfirmStorePaymentRecordDto) {
     return this.transitionRecord(id, 'CONFIRMED', dto.comment);
   }
@@ -448,6 +484,91 @@ export class StorePaymentService {
     ) {
       throw new BadRequestException('STORE_PAYMENT_ATTACHMENT_RAW_URL_FORBIDDEN');
     }
+  }
+
+  private validateProtectedAttachmentId(value: string) {
+    const normalized = value.trim();
+    if (!normalized) throw new BadRequestException('STORE_PAYMENT_ATTACHMENT_ID_REQUIRED');
+    const lowered = normalized.toLowerCase();
+    if (
+      normalized.includes('..') ||
+      normalized.includes('/') ||
+      normalized.includes('\\') ||
+      normalized.includes('\0') ||
+      lowered.startsWith('http://') ||
+      lowered.startsWith('https://') ||
+      lowered.startsWith('uploads') ||
+      lowered.startsWith('/uploads')
+    ) {
+      throw new BadRequestException('STORE_PAYMENT_ATTACHMENT_ID_UNSAFE');
+    }
+    return normalized;
+  }
+
+  private async findStorePaymentAttachmentOwnerOrThrow(attachmentId: string) {
+    const safeAttachmentId = this.validateProtectedAttachmentId(attachmentId);
+    const record = await this.recordRepo.findOne({ where: { proofAttachmentId: safeAttachmentId } });
+    if (record && !record.deletedAt) {
+      return {
+        objectType: 'STORE_PAYMENT_RECORD_PROOF',
+        objectId: record.id,
+        objectNo: record.paymentNo,
+        storeCode: record.storeCode,
+        companyCode: record.companyCode,
+        record,
+      };
+    }
+
+    const account = await this.accountRepo.findOne({ where: { qrAttachmentId: safeAttachmentId } });
+    if (account && !account.deletedAt) {
+      return {
+        objectType: 'STORE_PAYMENT_ACCOUNT_QR',
+        objectId: account.id,
+        objectNo: account.accountCode,
+        storeCode: account.storeCode,
+        companyCode: account.companyCode,
+        account,
+      };
+    }
+
+    throw new NotFoundException('STORE_PAYMENT_ATTACHMENT_NOT_FOUND');
+  }
+
+  private assertAttachmentOwnerScope(owner: {
+    record?: StorePaymentRecordEntity;
+    account?: StorePaymentAccountEntity;
+  }) {
+    if (owner.record) {
+      this.assertRecordScope(owner.record);
+      return;
+    }
+    if (owner.account) {
+      this.assertAccountScope(owner.account);
+      return;
+    }
+    throw new NotFoundException('STORE_PAYMENT_ATTACHMENT_NOT_FOUND');
+  }
+
+  private logDeniedAttachmentAccess(owner: {
+    objectType: string;
+    objectId: string;
+    objectNo: string;
+    storeCode: string;
+    companyCode: string;
+  }, mode: StorePaymentAttachmentMode, reason: string) {
+    this.logger.warn({
+      event: 'STORE_PAYMENT_ATTACHMENT_ACCESS_DENIED',
+      reason,
+      mode,
+      objectType: owner.objectType,
+      objectId: owner.objectId,
+      objectNo: owner.objectNo,
+      companyCode: owner.companyCode,
+      storeCode: owner.storeCode,
+      username: this.username(),
+      userId: this.userId(),
+      rawUrl: null,
+    });
   }
 
   private async findRecordOrThrow(id: string) {

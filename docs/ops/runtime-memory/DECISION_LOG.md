@@ -1,5 +1,22 @@
 # Decision Log
 
+## 2026-06-23 - Store Payment A3 Protected Streaming Gate
+
+Decision: GO WITH CONDITIONS.
+
+Rationale:
+
+- Store Payment ownership, RBAC, and DataScope checks were added for protected attachment status / preview / download routes.
+- The existing upload module only stores files under `/uploads/contracts` and returns a raw URL; it has no metadata table, ACL, owner/module reference, or protected streaming capability.
+- To avoid raw URL exposure and ACL bypass, real preview/download streaming remains disabled.
+- Preview/download routes now fail closed with `STORE_PAYMENT_ATTACHMENT_STREAMING_NOT_AVAILABLE` after ownership and scope checks.
+
+Conditions:
+
+- A4 must not enable preview/download UI yet.
+- A follow-up file metadata / ACL Gate is required before streaming can be enabled.
+- Denied access currently uses structured logging; DB audit can be added after metadata/ACL design is approved.
+
 ## 2026-06-23 - Store Payment Controlled UAT Ready
 
 Decision: GO WITH CONDITIONS.

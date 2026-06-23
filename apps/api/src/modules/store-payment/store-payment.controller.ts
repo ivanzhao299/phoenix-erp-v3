@@ -75,6 +75,24 @@ export class StorePaymentController {
     return this.service.getRecordProofAttachmentAccess(id);
   }
 
+  @Get('attachments/:attachmentId/status')
+  @RequireMenu('MENU_STORE_PAYMENT', 'V')
+  getAttachmentStatus(@Param('attachmentId') attachmentId: string) {
+    return this.service.getStorePaymentAttachmentStatus(attachmentId);
+  }
+
+  @Get('attachments/:attachmentId/preview')
+  @RequireMenu('MENU_STORE_PAYMENT', 'V')
+  previewAttachment(@Param('attachmentId') attachmentId: string) {
+    return this.service.openStorePaymentAttachment(attachmentId, 'preview');
+  }
+
+  @Get('attachments/:attachmentId/download')
+  @RequireMenu('MENU_STORE_PAYMENT', 'V')
+  downloadAttachment(@Param('attachmentId') attachmentId: string) {
+    return this.service.openStorePaymentAttachment(attachmentId, 'download');
+  }
+
   @Post('records/:id/confirm')
   @RequireMenu('MENU_STORE_PAYMENT_CONFIRM', 'E')
   confirmRecord(@Param('id') id: string, @Body() dto: ConfirmStorePaymentRecordDto) {

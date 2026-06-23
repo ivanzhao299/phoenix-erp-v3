@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-06-23",
   "active_module": "Store Payment",
-  "current_stage": "CONTROLLED_UAT_READY",
+  "current_stage": "PROTECTED_STREAMING_GATE_CONDITIONAL",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "STORE_PAYMENT_UAT_SMOKE",
+  "next_gate": "STORE_PAYMENT_FILE_METADATA_ACL_GATE",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "disabled",
@@ -24,6 +24,10 @@
     "pilot_accounts_state": "disabled_or_pending_placeholders",
     "frontend_gate": "GO_WITH_CONDITIONS",
     "backend_gate": "GO_WITH_CONDITIONS",
-    "uat_smoke": "PASS_WITH_CONDITIONS"
+    "uat_smoke": "PASS_WITH_CONDITIONS",
+    "protected_attachment_gate": "GO_WITH_CONDITIONS_STATUS_ONLY",
+    "protected_attachment_streaming": "disabled_pending_file_metadata_acl",
+    "protected_attachment_status_endpoint": "implemented",
+    "protected_attachment_preview_download": "denied_safe_not_implemented"
   }
 }
