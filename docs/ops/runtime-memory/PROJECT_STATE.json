@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-06-23",
   "active_module": "Store Payment",
-  "current_stage": "STORE_PAYMENT_STAGING_APPROVAL_READY",
-  "active_decision": "WAITING_USER_APPROVAL",
-  "next_gate": "USER_APPROVES_STAGING_DEPLOY_OR_NOT",
+  "current_stage": "STORE_PAYMENT_STAGING_DEPLOY_HOLD",
+  "active_decision": "HOLD",
+  "next_gate": "PROVIDE_STAGING_DEPLOY_TARGET",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -83,12 +83,26 @@
     "business_uat_scope": "READY_FOR_USER_APPROVAL",
     "staging_approval_a2_review": "PASS_WITH_CONDITIONS",
     "staging_approval_a1_validation": "PASS_WITH_CONDITIONS",
-    "staging_approval_a5_review": "GO_WITH_CONDITIONS"
+    "staging_approval_a5_review": "GO_WITH_CONDITIONS",
+    "staging_controlled_pilot_deploy": "HOLD",
+    "push_to_remote": "PASS_NON_MAIN_BRANCH",
+    "push_remote": "origin",
+    "push_branch": "w5-codex-orchestrator",
+    "push_commit": "0e71753c",
+    "staging_deploy_executed": false,
+    "staging_db_migration_executed": false,
+    "staging_menu_role_sync_executed": false,
+    "staging_file_storage_configured": false,
+    "protected_attachment_staging_smoke": "NOT_EXECUTED_STAGING_TARGET_MISSING",
+    "store_payment_staging_smoke": "NOT_EXECUTED_STAGING_TARGET_MISSING",
+    "a1_staging_precheck": "PASS_WITH_CONDITIONS",
+    "a2_staging_precheck": "PASS_WITH_CONDITIONS_HOLD_FOR_DEPLOY",
+    "a5_staging_precheck": "HOLD_STAGING_DATA_TARGET_MISSING"
   },
   "next_actions": [
-    "USER_APPROVES_PUSH_OR_NOT",
-    "USER_APPROVES_STAGING_DEPLOY_OR_NOT",
-    "USER_APPROVES_STAGING_DB_MIGRATION_OR_NOT",
-    "USER_APPROVES_BUSINESS_UAT_SCOPE_OR_NOT"
+    "PROVIDE_STAGING_DEPLOY_TARGET",
+    "PROVIDE_STAGING_DB_CONNECTION",
+    "PROVIDE_STAGING_FILE_STORAGE_PATH",
+    "CONFIRM_STAGING_WORKFLOW_OR_MANUAL_RUNBOOK"
   ]
 }

@@ -1,5 +1,25 @@
 # Decision Log
 
+## 2026-06-23 - Store Payment Staging Controlled Pilot Deploy
+
+Decision: HOLD.
+
+Rationale:
+
+- User approved Store Payment staging controlled pilot actions, including non-production push, staging deploy, staging DB migration, staging menu/role sync, staging file storage configuration, and UAT scope.
+- A1 precheck passed W5, API typecheck, Web typecheck, migration gates, and nullable unique gate.
+- The non-main branch `w5-codex-orchestrator` was pushed to `origin` at commit `0e71753c`.
+- The repository deployment workflow deploys only on `push main` and uses the `production` environment.
+- No staging-only target, staging DB connection, staging file storage path, or staging-specific workflow was discoverable.
+- To avoid accidental production deploy, `push main`, staging deploy, staging migration, menu/role sync, and file storage configuration were not executed.
+
+Next actions:
+
+1. `PROVIDE_STAGING_DEPLOY_TARGET`
+2. `PROVIDE_STAGING_DB_CONNECTION`
+3. `PROVIDE_STAGING_FILE_STORAGE_PATH`
+4. `CONFIRM_STAGING_WORKFLOW_OR_MANUAL_RUNBOOK`
+
 ## 2026-06-23 - Store Payment Staging Deploy Approval Prep
 
 Decision: READY_FOR_USER_APPROVAL.

@@ -6,7 +6,7 @@ Last updated: 2026-06-23
 
 GO WITH CONDITIONS.
 
-Store Payment has passed controlled protected attachment UAT smoke for both the pilot account QR file and a Store Payment record proof fixture, not production deployment. File Metadata / ACL foundation is available, Store Payment protected attachment proxy endpoints stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass, and `/store-payment` now uses protected endpoints for QR and proof preview / download paths. A6 staging deploy runbook and A7 final QA Gate are complete. The staging deploy approval package, approval matrix, and business UAT scope are complete. Current decision is WAITING_USER_APPROVAL; staging deploy, push, remote DB write, and production migration remain blocked until explicit approval.
+Store Payment has passed controlled protected attachment UAT smoke for both the pilot account QR file and a Store Payment record proof fixture, not production deployment. File Metadata / ACL foundation is available, Store Payment protected attachment proxy endpoints stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass, and `/store-payment` now uses protected endpoints for QR and proof preview / download paths. A6 staging deploy runbook and A7 final QA Gate are complete. The staging deploy approval package, approval matrix, and business UAT scope are complete. The approved non-main branch push completed, but staging deploy is HOLD because no staging-only target/workflow/DB/file-storage configuration is available and `push main` would trigger production deployment.
 
 ## Completed Facts
 
@@ -231,6 +231,39 @@ Result:
 - production migration executed: no.
 
 Current stage: `STORE_PAYMENT_STAGING_APPROVAL_READY`.
+
+## Staging Controlled Pilot Deploy Attempt
+
+Conclusion: HOLD.
+
+Report:
+
+- `docs/ops/STORE_PAYMENT_STAGING_CONTROLLED_PILOT_DEPLOY_REPORT.md`
+
+Business UAT guide:
+
+- `docs/ops/STORE_PAYMENT_STAGING_BUSINESS_UAT_GUIDE.md`
+
+Result:
+
+- push to remote: PASS, non-main branch `w5-codex-orchestrator`, commit `0e71753c`.
+- push to main: not executed.
+- staging deploy: not executed.
+- staging DB migration: not executed.
+- staging menu / role sync: not executed.
+- staging file storage configuration: not executed.
+- protected attachment staging smoke: not executed.
+- `/store-payment` staging smoke: not executed.
+- production deploy: no.
+- production migration: no.
+- production remote DB write: no.
+
+HOLD reason:
+
+- No staging-only deployment target, staging DB connection, staging file storage path, or staging-specific workflow was discoverable.
+- Existing GitHub deploy workflow targets production on `push main`, so main push was blocked.
+
+Current stage: `STORE_PAYMENT_STAGING_DEPLOY_HOLD`.
 
 ## Current Conditions
 

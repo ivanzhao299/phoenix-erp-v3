@@ -5,9 +5,9 @@ Last updated: 2026-06-23
 ## Active Context
 
 - Active module: Store Payment
-- Current stage: STORE_PAYMENT_STAGING_APPROVAL_READY
-- Active decision: WAITING_USER_APPROVAL
-- Next gate: USER_APPROVES_STAGING_DEPLOY_OR_NOT
+- Current stage: STORE_PAYMENT_STAGING_DEPLOY_HOLD
+- Active decision: HOLD
+- Next gate: PROVIDE_STAGING_DEPLOY_TARGET
 - Page entry: `/store-payment`
 - Menu entry: 销售管理 / 统一收款
 
@@ -39,7 +39,9 @@ Store Payment is ready for controlled pilot with conditions:
 - Staging deploy approval package is complete.
 - Approval matrix is complete.
 - Business UAT scope is complete.
-- Staging deploy has not been executed and still requires explicit user approval.
+- The non-main branch `w5-codex-orchestrator` was pushed to origin at `0e71753c`.
+- Staging deploy was not executed because no staging target, staging DB, staging file storage, or staging workflow was discoverable.
+- `push main` was not executed because the repository production workflow deploys on `push main`.
 
 ## Current Hard Stops
 
@@ -47,5 +49,5 @@ Store Payment is ready for controlled pilot with conditions:
 - No push.
 - No remote production DB write.
 - No migration unless a dedicated Gate is approved.
-- No staging deploy without explicit approval.
+- No staging deploy until a staging-only target is provided.
 - No raw URL exposure.
