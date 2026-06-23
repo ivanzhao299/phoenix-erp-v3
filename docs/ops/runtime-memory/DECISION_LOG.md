@@ -1,5 +1,24 @@
 # Decision Log
 
+## 2026-06-23 - A4 Protected Preview / Download UI Draft Gate
+
+Decision: GO WITH CONDITIONS.
+
+Rationale:
+
+- `/store-payment` now has controlled attachment status UI for proof attachments and QR attachment status.
+- Preview/download buttons are driven only by backend protected status.
+- Buttons remain disabled for missing metadata, access pending, denied, disabled, unsafe raw URL, or unavailable preview/download.
+- The UI calls only `/store-payment/attachments/:fileId/status|preview|download` when a controlled file id exists.
+- The UI does not show raw URL, build `/uploads` links, or open naked `http(s)` links.
+
+Conditions:
+
+- `file_metadata` currently has 0 rows, so UAT should expect metadata missing / pending states until a separate metadata UAT data setup Gate.
+- A2 review remains required before treating preview/download as UAT-passed.
+- Backend, DB, migration, deploy, and push were not touched.
+- Next gate: Store Payment attachment metadata UAT data setup.
+
 ## 2026-06-23 - Store Payment File Metadata / ACL Gate
 
 Decision: GO WITH CONDITIONS.

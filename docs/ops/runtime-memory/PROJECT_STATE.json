@@ -1,12 +1,12 @@
 {
   "last_updated": "2026-06-23",
   "active_module": "Store Payment",
-  "current_stage": "FILE_METADATA_ACL_READY",
+  "current_stage": "STORE_PAYMENT_ATTACHMENT_UI_CONDITIONAL",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "A4_ENABLE_PROTECTED_PREVIEW_DOWNLOAD_UI_DRAFT",
+  "next_gate": "STORE_PAYMENT_ATTACHMENT_METADATA_UAT_DATA_SETUP",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
-  "attachment_preview": "disabled",
+  "attachment_preview": "controlled_ui_ready_but_requires_metadata_uat",
   "raw_url_exposure": "forbidden",
   "deploy_status": "not_deployed",
   "push_status": "not_pushed",
@@ -32,6 +32,11 @@
     "protected_attachment_streaming": "backend_ready_when_file_metadata_exists",
     "protected_attachment_status_endpoint": "implemented",
     "protected_attachment_preview_download": "backend_streaming_implemented_with_acl",
-    "frontend_preview_download": "disabled_until_a4_gate"
+    "frontend_preview_download": "controlled_ui_ready_but_requires_metadata_uat",
+    "protected_attachment_ui_gate": "GO_WITH_CONDITIONS",
+    "protected_attachment_status_ui": "implemented",
+    "protected_attachment_preview_download_buttons": "fail_closed_by_backend_status",
+    "raw_url_exposure": "forbidden",
+    "uploads_path_exposure": "forbidden"
   }
 }

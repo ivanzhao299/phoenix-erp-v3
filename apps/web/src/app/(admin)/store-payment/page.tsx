@@ -42,6 +42,7 @@ type StorePaymentAccount = {
   accountName: string;
   companyCode: string;
   storeCode: string;
+  qrAttachmentId?: string | null;
   currency: string;
   paymentMethod: string;
   qrAttachmentBound: boolean;
@@ -60,6 +61,7 @@ type StorePaymentRecord = {
   currency: string;
   paymentMethod: string;
   paidAt: string;
+  proofAttachmentId?: string | null;
   proofAttachmentBound: boolean;
   proofPreviewAllowed: boolean;
   proofPreviewStatus: string;
@@ -82,6 +84,15 @@ type StorePaymentRecord = {
 type AttachmentAccess = {
   objectType?: string;
   objectId?: string;
+  fileId?: string;
+  originalName?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  status?: string;
+  visibility?: string;
+  previewAvailable?: boolean;
+  downloadAvailable?: boolean;
+  accessStatus?: string;
   attachmentBound?: boolean;
   previewAllowed?: boolean;
   previewStatus?: string;
@@ -127,6 +138,45 @@ const initialForm = (): NewRecordForm => ({
 const blockedRawRef = (value: string) => {
   const v = value.trim().toLowerCase();
   return v.startsWith("http://") || v.startsWith("https://") || v.startsWith("/uploads/") || v.startsWith("uploads/");
+};
+
+const protectedAttachmentPath = (attachmentId: string, action: "status" | "preview" | "download") =>
+  `/store-payment/attachments/${encodeURIComponent(attachmentId)}/${action}`;
+
+const normalizeAccessStatus = (access?: AttachmentAccess | null) => {
+  const value = (access?.accessStatus || access?.previewStatus || access?.downloadStatus || access?.status || "").toLowerCase();
+  if (access?.rawUrl) return "unsafe_raw_url";
+  if (!access?.attachmentBound && !access?.fileId) return "missing";
+  if (["allowed", "active"].includes(value)) return "allowed";
+  if (["denied", "forbidden"].includes(value)) return "denied";
+  if (["disabled", "inactive"].includes(value)) return "disabled";
+  if (["missing", "not_found"].includes(value)) return "missing";
+  return value || "access_pending";
+};
+
+const accessReasonText = (status: string, reason?: string) => {
+  if (reason) return reason;
+  const messages: Record<string, string> = {
+    allowed: "后端 ACL 已允许，可使用受控端点访问。",
+    access_pending: "附件预览待安全授权开通。",
+    disabled: "当前文件不可预览或下载。",
+    denied: "权限不足，无法访问附件。",
+    missing: "文件元数据未配置或文件不存在。",
+    unsafe_raw_url: "安全策略禁止裸链接访问。",
+  };
+  return messages[status] || "当前仅显示受控附件状态。";
+};
+
+const getToken = () => {
+  if (typeof window === "undefined") return "";
+  try {
+    const direct = sessionStorage.getItem("phoenix_token");
+    if (direct) return direct;
+    const user = JSON.parse(sessionStorage.getItem("phoenix_user") || "null");
+    return user?.token || "";
+  } catch {
+    return "";
+  }
 };
 
 const normalizeStoreDisplay = (storeCode?: string | null) => {
@@ -186,6 +236,8 @@ export default function StorePaymentPage() {
   const [form, setForm] = useState<NewRecordForm>(() => initialForm());
   const [selected, setSelected] = useState<StorePaymentRecord | null>(null);
   const [proofAccess, setProofAccess] = useState<AttachmentAccess | null>(null);
+  const [proofAccessLoading, setProofAccessLoading] = useState(false);
+  const [attachmentBusy, setAttachmentBusy] = useState<"preview" | "download" | "status" | "">("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -385,12 +437,88 @@ export default function StorePaymentPage() {
     }
   };
 
+  const loadProtectedAttachmentStatus = async (attachmentId?: string | null): Promise<AttachmentAccess> => {
+    if (!attachmentId?.trim()) {
+      return {
+        attachmentBound: false,
+        previewAvailable: false,
+        downloadAvailable: false,
+        accessStatus: "missing",
+        rawUrl: null,
+        reason: "文件元数据未配置",
+      };
+    }
+    if (blockedRawRef(attachmentId)) {
+      return {
+        fileId: attachmentId,
+        attachmentBound: true,
+        previewAvailable: false,
+        downloadAvailable: false,
+        accessStatus: "unsafe_raw_url",
+        rawUrl: null,
+        reason: "安全策略禁止裸链接访问",
+      };
+    }
+    const data = await apiRequest<AttachmentAccess>(protectedAttachmentPath(attachmentId, "status"), { silent: true });
+    return {
+      ...data,
+      fileId: data.fileId || attachmentId,
+      attachmentBound: true,
+      rawUrl: data.rawUrl ?? null,
+    };
+  };
+
+  const openProtectedAttachment = async (attachmentId: string | null | undefined, mode: "preview" | "download", access?: AttachmentAccess | null) => {
+    setError("");
+    setMessage("");
+    const status = normalizeAccessStatus(access);
+    const allowed = status === "allowed" && !access?.rawUrl && (mode === "preview" ? access?.previewAvailable : access?.downloadAvailable);
+    if (!attachmentId?.trim() || !allowed || blockedRawRef(attachmentId)) {
+      setError(accessReasonText(status, access?.reason));
+      return;
+    }
+    setAttachmentBusy(mode);
+    try {
+      const token = getToken();
+      const res = await fetch(`/api${protectedAttachmentPath(attachmentId, mode)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || `附件${mode === "preview" ? "预览" : "下载"}失败 (HTTP ${res.status})`);
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      if (mode === "preview") {
+        window.open(objectUrl, "_blank", "noopener,noreferrer");
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      } else {
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = access?.originalName || "store-payment-attachment";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "受控附件访问失败");
+    } finally {
+      setAttachmentBusy("");
+    }
+  };
+
   const openDetail = async (record: StorePaymentRecord) => {
     setSelected(record);
     setProofAccess(null);
+    setProofAccessLoading(true);
     try {
-      const access = await apiRequest<AttachmentAccess>(`/store-payment/records/${record.id}/proof-attachment`, { silent: true });
-      setProofAccess(access);
+      if (record.proofAttachmentId) {
+        setProofAccess(await loadProtectedAttachmentStatus(record.proofAttachmentId));
+      } else {
+        const access = await apiRequest<AttachmentAccess>(`/store-payment/records/${record.id}/proof-attachment`, { silent: true });
+        setProofAccess({ ...access, rawUrl: access.rawUrl ?? null });
+      }
     } catch {
       setProofAccess({
         attachmentBound: record.proofAttachmentBound,
@@ -401,7 +529,59 @@ export default function StorePaymentPage() {
         rawUrl: null,
         reason: "STORE_PAYMENT_PROOF_STATUS_UNAVAILABLE",
       });
+    } finally {
+      setProofAccessLoading(false);
     }
+  };
+
+  const renderAttachmentControls = (params: {
+    label: string;
+    attachmentId?: string | null;
+    access?: AttachmentAccess | null;
+    loading?: boolean;
+  }) => {
+    const status = normalizeAccessStatus(params.access || {
+      attachmentBound: !!params.attachmentId,
+      accessStatus: params.attachmentId ? "access_pending" : "missing",
+      rawUrl: null,
+    });
+    const hasUnsafeRawUrl = !!params.access?.rawUrl;
+    const previewEnabled = !hasUnsafeRawUrl && status === "allowed" && params.access?.previewAvailable === true && !!params.attachmentId;
+    const downloadEnabled = !hasUnsafeRawUrl && status === "allowed" && params.access?.downloadAvailable === true && !!params.attachmentId;
+    return (
+      <div className={styles.attachmentBox}>
+        <div className={styles.attachmentHeader}>
+          <span>{params.label}</span>
+          <StatusTag status={status.toUpperCase()} />
+        </div>
+        <div className={styles.attachmentText}>
+          {params.loading ? "正在查询受控附件状态..." : accessReasonText(status, params.access?.reason)}
+        </div>
+        <div className={styles.attachmentText}>
+          rawUrl: {hasUnsafeRawUrl ? "BLOCKED" : "null"} · endpoint: protected
+        </div>
+        <div className={styles.actions}>
+          <button
+            type="button"
+            className={s.btnSecondary}
+            disabled={!previewEnabled || attachmentBusy !== "" || params.loading}
+            onClick={() => openProtectedAttachment(params.attachmentId, "preview", params.access)}
+            title={previewEnabled ? "通过受控端点预览" : "附件预览待配置 / 暂不可用"}
+          >
+            <ShieldCheck size={14} /> {attachmentBusy === "preview" ? "预览中" : "受控预览"}
+          </button>
+          <button
+            type="button"
+            className={s.btnSecondary}
+            disabled={!downloadEnabled || attachmentBusy !== "" || params.loading}
+            onClick={() => openProtectedAttachment(params.attachmentId, "download", params.access)}
+            title={downloadEnabled ? "通过受控端点下载" : "附件下载待配置 / 暂不可用"}
+          >
+            <Lock size={14} /> {attachmentBusy === "download" ? "下载中" : "受控下载"}
+          </button>
+        </div>
+      </div>
+    );
   };
 
   const renderActions = (record: StorePaymentRecord) => {
@@ -466,7 +646,7 @@ export default function StorePaymentPage() {
       )}
 
       <div className={styles.safeNotice}>
-        <ShieldCheck size={14} /> 附件预览待安全授权开通。当前页面只记录 proof/QR 的受控状态，不展示裸 URL，不拼接 /uploads 路径，不打开下载链接。
+        <ShieldCheck size={14} /> 附件预览/下载只允许走 Store Payment 受控端点。没有 file_metadata 或后端 ACL 未返回 allowed 时，按钮保持禁用；页面不展示 rawUrl，不拼接 /uploads，不打开裸链接。
       </div>
 
       <div className={styles.summaryGrid}>
@@ -528,9 +708,12 @@ export default function StorePaymentPage() {
                     <td>{account.currency}</td>
                     <td>{account.paymentMethod}</td>
                     <td>
-                      <span className={`${styles.tag} ${styles.tagWarning}`}>
-                        <EyeOff size={12} /> QR preview disabled
-                      </span>
+                      <div className={styles.attachmentInline}>
+                        <span className={`${styles.tag} ${account.qrAttachmentId ? styles.tagWarning : styles.tagInfo}`}>
+                          <EyeOff size={12} /> {account.qrAttachmentId ? "QR status pending" : "QR metadata missing"}
+                        </span>
+                        <span className={styles.attachmentText}>preview/download disabled</span>
+                      </div>
                     </td>
                     <td><StatusTag status={account.isActive ? account.status : "PENDING_CONFIG"} /></td>
                     <td>{account.remark || "待财务补齐真实账户信息"}</td>
@@ -665,9 +848,12 @@ export default function StorePaymentPage() {
                     <td>{dateText(record.paidAt)}</td>
                     <td>{record.submittedBy || "-"}</td>
                     <td>
-                      <span className={`${styles.tag} ${styles.tagWarning}`}>
-                        <Lock size={12} /> preview/download disabled
-                      </span>
+                      <div className={styles.attachmentInline}>
+                        <span className={`${styles.tag} ${record.proofAttachmentId ? styles.tagWarning : styles.tagInfo}`}>
+                          <Lock size={12} /> {record.proofAttachmentId ? "status pending" : "metadata missing"}
+                        </span>
+                        <span className={styles.attachmentText}>受控端点决定按钮状态</span>
+                      </div>
                     </td>
                     <td><StatusTag status={record.status} /></td>
                     <td>{renderActions(record)}</td>
@@ -691,7 +877,7 @@ export default function StorePaymentPage() {
           </div>
           <div className={styles.detailItem}>
             <div className={styles.detailLabel}>附件路径</div>
-            <div className={styles.detailValue}>proof/QR 仅显示受控状态，preview/download disabled，不展示 rawUrl。</div>
+            <div className={styles.detailValue}>proof/QR 只调用 `/store-payment/attachments/:fileId/status|preview|download`；无 metadata 时稳定显示待配置，不展示 rawUrl。</div>
           </div>
           <div className={styles.detailItem}>
             <div className={styles.detailLabel}>DataScope 路径</div>
@@ -726,10 +912,18 @@ export default function StorePaymentPage() {
               <div className={`${styles.detailItem} ${styles.full}`}>
                 <div className={styles.detailLabel}>附件受控状态</div>
                 <div className={styles.detailValue}>
-                  <div><StatusTag status={(proofAccess?.previewStatus || selected.proofPreviewStatus || "access_pending").toUpperCase()} /> preview disabled</div>
-                  <div><StatusTag status={(proofAccess?.downloadStatus || selected.proofDownloadStatus || "access_pending").toUpperCase()} /> download disabled</div>
-                  <div>rawUrl: {proofAccess?.rawUrl ? "BLOCKED" : "null"}</div>
-                  <div>{proofAccess?.reason || "附件预览待安全授权开通，当前仅记录受控状态。"}</div>
+                  {renderAttachmentControls({
+                    label: "付款截图 proof",
+                    attachmentId: selected.proofAttachmentId,
+                    access: proofAccess || {
+                      attachmentBound: selected.proofAttachmentBound,
+                      previewAvailable: selected.proofPreviewAllowed,
+                      downloadAvailable: selected.proofDownloadAllowed,
+                      accessStatus: selected.proofPreviewStatus || "access_pending",
+                      rawUrl: null,
+                    },
+                    loading: proofAccessLoading,
+                  })}
                 </div>
               </div>
             </div>

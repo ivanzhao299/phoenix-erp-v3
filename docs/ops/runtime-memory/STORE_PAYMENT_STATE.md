@@ -6,7 +6,7 @@ Last updated: 2026-06-23
 
 GO WITH CONDITIONS.
 
-Store Payment is ready for controlled UAT smoke, not production deployment. File Metadata / ACL foundation is now available, and Store Payment protected attachment proxy endpoints can stream only when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass. Frontend preview/download remains disabled until a separate A4 Gate updates the UI.
+Store Payment is ready for controlled UAT smoke, not production deployment. File Metadata / ACL foundation is now available, and Store Payment protected attachment proxy endpoints can stream only when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass. A4 has added controlled preview/download UI wiring, but buttons remain fail-closed unless backend status returns `accessStatus=allowed` with preview/download availability.
 
 ## Completed Facts
 
@@ -37,6 +37,9 @@ Store Payment is ready for controlled UAT smoke, not production deployment. File
 25. Store Payment protected status / preview / download routes now use `file_metadata.file_id`.
 26. Existing upload module still returns `/uploads/contracts/...`; it must not be used as a frontend preview/download URL.
 27. Current `file_metadata` row count is 0; no seed was executed.
+28. A4 protected preview/download UI draft is implemented.
+29. Frontend calls only Store Payment protected attachment endpoints for status / preview / download.
+30. Frontend remains fail-closed when metadata is missing, pending, disabled, denied, or rawUrl appears.
 
 ## Frontend State
 
@@ -63,22 +66,23 @@ Store Payment is ready for controlled UAT smoke, not production deployment. File
 
 ## Attachment Safety State
 
-- proof preview: disabled.
-- proof download: disabled.
-- QR preview: disabled.
-- QR download: disabled.
+- proof preview: controlled UI ready, disabled unless backend status is allowed.
+- proof download: controlled UI ready, disabled unless backend status is allowed.
+- QR preview: metadata status visible, disabled until metadata and UI flow are complete.
+- QR download: metadata status visible, disabled until metadata and UI flow are complete.
 - Raw URL exposure: forbidden.
 - `/uploads` path construction: forbidden.
 - `http(s)` attachment links: forbidden.
 - Store Payment attachment status endpoint: implemented.
 - Store Payment attachment preview/download: backend streaming implemented with ACL; usable only when metadata exists and checks pass.
 - denied access audit: structured log implemented.
-- frontend preview/download: still disabled pending A4 UI Gate.
+- frontend preview/download: controlled UI draft implemented; still requires metadata UAT and A2 review before real use.
 
 ## Current Conditions
 
 - Controlled UAT may verify page rendering, permission visibility, disabled attachment behavior, and status flow UI.
-- Frontend preview/download must not be enabled before A4 updates the UI and A2 reviews that UI path.
+- Frontend preview/download buttons are present but fail-closed by backend status.
+- Frontend preview/download must not be treated as fully available until file metadata UAT data exists and A2 reviews the UI path.
 - Staging deployment requires a separate A6 runbook Gate.
 - Final GO / HOLD / ROLLBACK requires a separate A7 Gate.
 
@@ -88,6 +92,7 @@ Store Payment is ready for controlled UAT smoke, not production deployment. File
 - No push.
 - No remote production DB write.
 - No frontend attachment preview / download yet.
+- No production attachment preview / download yet.
 - No raw URL exposure.
 - No new non-Store Payment feature.
 
@@ -119,8 +124,8 @@ DB state:
 
 A4 state:
 
-- A4 may not enable preview/download automatically.
-- Next step is a separate A4 UI Gate to wire status / preview / download buttons against the protected endpoints.
+- A4 protected preview/download UI draft is complete.
+- Next step is Store Payment attachment metadata UAT data setup.
 
 ## Protected Attachment Gate Result
 
@@ -139,3 +144,26 @@ Current behavior:
 - `rawUrl` remains `null`.
 - `/uploads` and `http(s)` attachment IDs are rejected as unsafe.
 - A4 must keep preview/download disabled.
+
+## A4 Protected Preview / Download UI Draft Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Implemented frontend behavior:
+
+- proof attachment status display.
+- QR attachment status display.
+- protected status endpoint wiring when a `file_id` is available.
+- protected preview/download buttons.
+- loading state.
+- error state.
+- disabled / access_pending / denied / missing / unsafe raw URL messages.
+- no raw URL display.
+- no `/uploads` link construction.
+- no `http(s)` raw link opening.
+- blob/object URL handling only after protected endpoint succeeds.
+
+Current condition:
+
+- Because `file_metadata` currently has 0 rows, controlled UAT should expect metadata missing / pending states.
+- Real preview/download remains conditional on metadata setup and backend status returning allowed.

@@ -18,3 +18,5 @@ Last updated: 2026-06-23
 14. File metadata `storage_path` is backend-only and must never be returned to the frontend.
 15. `file_metadata.file_id` is the only external attachment reference allowed for protected Store Payment preview/download.
 16. A4 may only enable preview/download after a dedicated UI Gate confirms protected endpoints and A2 approves the UI path.
+17. Store Payment frontend preview/download buttons must remain fail-closed unless backend protected status returns `accessStatus=allowed`.
+18. If `rawUrl` is ever present in a protected attachment response, the frontend must treat it as unsafe and disable access.
