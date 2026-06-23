@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-06-23",
   "active_module": "Store Payment",
-  "current_stage": "PRODUCTION_SERVER_REMEDIATION_R1_MIGRATION_AUDIT_READY",
-  "active_decision": "WAITING_USER_APPROVAL_FOR_REMOTE_CODE_ALIGNMENT_AND_SCHEMA_REPAIR_PRECHECK",
-  "next_gate": "APPROVE_REMOTE_CODE_ALIGNMENT_AND_SCHEMA_REPAIR_PRECHECK",
+  "current_stage": "PRODUCTION_SERVER_REMEDIATION_R1_SCHEMA_REPAIR_PRECHECK_READY",
+  "active_decision": "WAITING_USER_APPROVAL_FOR_REMOTE_CODE_ALIGNMENT_EXECUTION",
+  "next_gate": "APPROVE_REMOTE_CODE_ALIGNMENT_EXECUTION_GATE",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -176,15 +176,37 @@
     "r1_db_write_executed": false,
     "r1_deploy_executed": false,
     "r1_restart_executed": false,
-    "r1_push_executed": false
+    "r1_push_executed": false,
+    "r1_schema_repair_precheck": "COMPLETED_WITH_CONDITIONS",
+    "r1_remote_code_alignment_precheck": "READY_FOR_REMOTE_CODE_ALIGNMENT_APPROVAL",
+    "r1_remote_code_alignment_required": true,
+    "r1_local_verified_commit": "7315bfb6",
+    "r1_remote_code_alignment_next_gate": "REMOTE_CODE_ALIGNMENT_EXECUTION_GATE",
+    "r1_store_payment_drift_classification": "HISTORY_TABLE_DRIFT",
+    "r1_store_payment_drift_requires_reconciliation_gate": true,
+    "r1_store_payment_drift_unresolved": [
+      "WRONG_DATABASE_TARGET",
+      "WRONG_SCHEMA_TARGET",
+      "TABLE_DROPPED_AFTER_MIGRATION",
+      "MANUAL_HISTORY_INSERT"
+    ],
+    "r1_file_metadata_repair_path": "CODE_ALIGNMENT_THEN_FILE_METADATA_MIGRATION_GATE",
+    "r1_fresh_ssh_probe": "FAILED_BANNER_TIMEOUT",
+    "r1_precheck_a1_validation": "PASS_WITH_CONDITIONS",
+    "r1_precheck_a2_review": "PASS_WITH_CONDITIONS",
+    "r1_precheck_a5_readiness": "HOLD",
+    "r1_precheck_db_write_executed": false,
+    "r1_precheck_migration_executed": false,
+    "r1_precheck_deploy_executed": false,
+    "r1_precheck_restart_executed": false,
+    "r1_precheck_push_executed": false
   },
   "next_actions": [
-    "APPROVE_REMOTE_CODE_ALIGNMENT_AND_SCHEMA_REPAIR_PRECHECK",
-    "APPROVE_STORE_PAYMENT_SCHEMA_MIGRATION_REPAIR_IF_STILL_ABSENT",
-    "APPROVE_FILE_METADATA_MIGRATION_REPAIR",
-    "APPROVE_INITIAL_DATA_IMPORT_REPAIR",
-    "APPROVE_MASTER_DATA_REMEDIATION_PLAN",
-    "APPROVE_PERMISSION_AND_MENU_REMEDIATION_PLAN",
-    "APPROVE_UPLOADS_FILE_SECURITY_REMEDIATION"
+    "APPROVE_REMOTE_CODE_ALIGNMENT_EXECUTION_GATE",
+    "APPROVE_STORE_PAYMENT_SCHEMA_DRIFT_RECONCILIATION_GATE",
+    "APPROVE_FILE_METADATA_MIGRATION_EXECUTION_GATE",
+    "APPROVE_STORE_PAYMENT_SCHEMA_REPAIR_EXECUTION_GATE",
+    "APPROVE_MENU_ROLE_DATASCOPE_REMOTE_SYNC_GATE",
+    "APPROVE_MASTER_DATA_REMEDIATION_GATE"
   ]
 }

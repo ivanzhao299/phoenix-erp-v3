@@ -8,7 +8,7 @@ HOLD for production-side remediation.
 
 R1 migration-state audit is complete with conditions. The remote remediation target is `main@87b5781`; it contains the Store Payment table migration file but does not contain the File Metadata migration file. The audited DB lacks `store_payment_accounts`, `store_payment_records`, and `file_metadata`. `file_metadata` missing cause is classified as `CODE_NOT_DEPLOYED`. No migration, DB write, deploy, restart, or push was executed.
 
-Next approved step required: `APPROVE_REMOTE_CODE_ALIGNMENT_AND_SCHEMA_REPAIR_PRECHECK`.
+Next approved step required: `APPROVE_REMOTE_CODE_ALIGNMENT_EXECUTION_GATE`.
 
 ## Prior Controlled Pilot Decision
 
@@ -304,6 +304,37 @@ A1 / A2 / A5:
 Next action:
 
 - Approve remote code alignment and schema repair precheck before any migration execution.
+
+## Production Server Remediation R1 Schema Repair Precheck
+
+Conclusion: READY_FOR_REMOTE_CODE_ALIGNMENT_APPROVAL.
+
+Reports:
+
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_REMOTE_CODE_ALIGNMENT_PRECHECK.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_STORE_PAYMENT_SCHEMA_DRIFT_PRECHECK.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_FILE_METADATA_REPAIR_PRECHECK.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_SCHEMA_REPAIR_SEQUENCE_PLAN.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_NEXT_GATE_RECOMMENDATION.md`
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R1_SCHEMA_REPAIR_PRECHECK_REPORT.md`
+
+Key decisions:
+
+- Remote code alignment is required before File Metadata migration repair.
+- File Metadata missing cause remains `CODE_NOT_DEPLOYED`.
+- Store Payment history/table drift is provisionally classified as `HISTORY_TABLE_DRIFT`.
+- Wrong DB target, wrong schema target, table dropped after migration, and manual migration history insertion remain possible and require the later drift reconciliation Gate.
+- Fresh SSH DB identity recheck failed with banner timeout; no DB write, migration, deploy, restart, or push was executed.
+
+A1 / A2 / A5:
+
+- A1: PASS WITH CONDITIONS.
+- A2: PASS WITH CONDITIONS.
+- A5: HOLD.
+
+Next action:
+
+- User approval for `REMOTE_CODE_ALIGNMENT_EXECUTION_GATE`.
 
 HOLD reason:
 

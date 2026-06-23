@@ -15,6 +15,7 @@ Date: 2026-06-23
 | P0-007 | Audit menu/RBAC/DataScope remote state | security | Remote grants unknown | Privilege bypass or missing trial access | Read-only menu/role/user scope scan | true | false | false | false | A2 + A5 | 7 | proposed |
 | P0-008 | Audit uploads/file exposure | attachment | Nginx exposes `/uploads/`; Store Payment forbids raw URL | File disclosure risk | Read-only upload tree and nginx exposure review | true | false | false | false | A2 + A6 | 8 | proposed |
 | P0-009 | Resolve missing `file_metadata` on target | attachment/database | R1 classifies missing cause as `CODE_NOT_DEPLOYED`; remote lacks `1782042418112-CreateFileMetadata.ts`, history match `0`, table missing | Store Payment protected streaming cannot be production-side ready | Approve remote code alignment + File Metadata migration repair Gate after precheck | true | false | true | false | A1 + A2 + A5 | 9 | ready-for-approval |
+| P0-010 | Align remote code before schema repair | deployment/database | R1 precheck confirms remote `main@87b5781` lacks File Metadata migration; local verified head is `7315bfb6` | Migration repair cannot follow reviewed path until remote code contains migration file | Approve `REMOTE_CODE_ALIGNMENT_EXECUTION_GATE`; do not bundle migration, deploy, restart, or DB write | true | false | false | false | A1 + A2 + A6 | 10 | ready-for-approval |
 
 ## P1 - Impacts Trial Quality
 

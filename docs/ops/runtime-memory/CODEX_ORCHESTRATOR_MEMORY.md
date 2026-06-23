@@ -5,9 +5,9 @@ Last updated: 2026-06-23
 ## Active Context
 
 - Active module: Store Payment
-- Current stage: PRODUCTION_SERVER_REMEDIATION_R1_MIGRATION_AUDIT_READY
-- Active decision: WAITING_USER_APPROVAL_FOR_REMOTE_CODE_ALIGNMENT_AND_SCHEMA_REPAIR_PRECHECK
-- Next gate: APPROVE_REMOTE_CODE_ALIGNMENT_AND_SCHEMA_REPAIR_PRECHECK
+- Current stage: PRODUCTION_SERVER_REMEDIATION_R1_SCHEMA_REPAIR_PRECHECK_READY
+- Active decision: WAITING_USER_APPROVAL_FOR_REMOTE_CODE_ALIGNMENT_EXECUTION
+- Next gate: APPROVE_REMOTE_CODE_ALIGNMENT_EXECUTION_GATE
 - Page entry: `/store-payment`
 - Menu entry: 销售管理 / 统一收款
 
@@ -67,6 +67,11 @@ Store Payment is ready for controlled pilot with conditions:
 - Remote File Metadata migration file is missing.
 - Remote audited DB lacks `store_payment_accounts`, `store_payment_records`, and `file_metadata`.
 - `file_metadata` missing cause is classified as `CODE_NOT_DEPLOYED`.
+- R1 schema repair precheck is complete with conditions.
+- Next recommended single Gate is `REMOTE_CODE_ALIGNMENT_EXECUTION_GATE`.
+- Store Payment history/table drift is provisionally classified as `HISTORY_TABLE_DRIFT`.
+- Wrong DB target, wrong schema target, table dropped after migration, and manual history insertion remain unresolved possibilities for the later drift reconciliation Gate.
+- Fresh SSH DB identity recheck failed with banner timeout after R1; use the R1 server-side evidence bundle and require DB identity checks in the drift reconciliation Gate.
 - Migration execution, DB write, deploy, restart, and push were not executed.
 - Initialization import issues, master data, and RBAC/DataScope remain pending follow-up diagnostics.
 
@@ -79,5 +84,5 @@ Store Payment is ready for controlled pilot with conditions:
 - No staging deploy until a staging-only target is provided.
 - No same-host staging deploy until the user approves staging isolation derived from the production server card.
 - No production-side remediation write until backup/snapshot and a specific fix Gate are approved.
-- No file_metadata/schema repair until remote code alignment and schema repair precheck is approved.
+- No file_metadata/schema repair until remote code alignment execution and schema drift reconciliation are approved.
 - No raw URL exposure.

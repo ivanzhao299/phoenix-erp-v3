@@ -2,20 +2,19 @@
 
 Last updated: 2026-06-23
 
-1. `APPROVE_REMOTE_CODE_ALIGNMENT_AND_SCHEMA_REPAIR_PRECHECK`.
-2. `APPROVE_STORE_PAYMENT_SCHEMA_MIGRATION_REPAIR_IF_STILL_ABSENT`.
-3. `APPROVE_FILE_METADATA_MIGRATION_REPAIR`.
-4. `APPROVE_INITIAL_DATA_IMPORT_REPAIR`.
-5. `APPROVE_MASTER_DATA_REMEDIATION_PLAN`.
-6. `APPROVE_PERMISSION_AND_MENU_REMEDIATION_PLAN`.
-7. `APPROVE_UPLOADS_FILE_SECURITY_REMEDIATION`.
+1. `APPROVE_REMOTE_CODE_ALIGNMENT_EXECUTION_GATE`.
+2. `APPROVE_STORE_PAYMENT_SCHEMA_DRIFT_RECONCILIATION_GATE`.
+3. `APPROVE_FILE_METADATA_MIGRATION_EXECUTION_GATE`.
+4. `APPROVE_STORE_PAYMENT_SCHEMA_REPAIR_EXECUTION_GATE`.
+5. `APPROVE_MENU_ROLE_DATASCOPE_REMOTE_SYNC_GATE`.
+6. `APPROVE_MASTER_DATA_REMEDIATION_GATE`.
 
 ## Recommended Immediate Sequence
 
-1. Approve the remote code alignment and schema repair precheck Gate.
-2. Confirm whether remote `main@87b5781` should be advanced to a commit containing `1782042418112-CreateFileMetadata.ts`.
-3. Confirm whether the audited DB target is the intended remediation DB before any migration execution.
-4. Run initialization import, master data, RBAC/DataScope, and uploads security diagnostics as separate Gates.
+1. Approve `REMOTE_CODE_ALIGNMENT_EXECUTION_GATE`.
+2. Align remote code to the user-approved commit containing `1782042418112-CreateFileMetadata.ts`; do not execute migration in that Gate.
+3. Run `STORE_PAYMENT_SCHEMA_DRIFT_RECONCILIATION_GATE` to recheck DB identity, schema/search_path, migration history, and cross-schema table presence.
+4. Only then consider `FILE_METADATA_MIGRATION_EXECUTION_GATE` and Store Payment schema repair.
 5. Keep `/uploads` and raw URL exposure forbidden for Store Payment.
 6. Keep local UAT fixture data out of production-side remediation unless explicitly approved.
 
@@ -29,6 +28,6 @@ Last updated: 2026-06-23
 - Reusing production DB as staging DB.
 - Reusing production file storage as staging file storage.
 - DB writes before backup.
-- migration repair before remote code alignment and schema repair precheck.
+- migration repair before remote code alignment execution and Store Payment drift reconciliation.
 - service restart before rollback plan.
 - file_metadata/schema repair before migration-state audit.

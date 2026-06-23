@@ -35,14 +35,13 @@ Evidence:
 
 ## R2 - Database / Migration Repair
 
-1. Approve remote code alignment and schema repair precheck.
-2. Confirm remote deploy target and audited DB target are the intended remediation target.
-3. Confirm migration history semantics for Store Payment table migration.
-4. If approved, execute only Store Payment table migration when still absent.
-5. If approved, deploy or otherwise make available `1782042418112-CreateFileMetadata.ts`.
-6. If approved, execute only File Metadata migration.
-7. Run read-only validation for tables, columns, indexes, constraints, and migration history.
-8. Keep Store Payment business trial HOLD until menu, role, DataScope, and protected attachment metadata evidence pass.
+1. Approve `REMOTE_CODE_ALIGNMENT_EXECUTION_GATE` as the next single Gate.
+2. Align remote code so `1782042418112-CreateFileMetadata.ts` exists; do not execute migration in that Gate.
+3. Run `STORE_PAYMENT_SCHEMA_DRIFT_RECONCILIATION_GATE` to confirm DB identity, schema/search_path, migration history semantics, and cross-schema table presence.
+4. If approved after reconciliation, execute only Store Payment table repair when still absent.
+5. If approved after code alignment, execute only File Metadata migration.
+6. Run read-only validation for tables, columns, indexes, constraints, and migration history.
+7. Keep Store Payment business trial HOLD until menu, role, DataScope, and protected attachment metadata evidence pass.
 
 ## R3 - Master Data Cleanup
 

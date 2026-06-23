@@ -1,5 +1,30 @@
 # Decision Log
 
+## 2026-06-23 - Production Server Remediation R1 Schema Repair Precheck
+
+Decision: READY_FOR_REMOTE_CODE_ALIGNMENT_APPROVAL.
+
+Rationale:
+
+- R1 evidence proves remote code is `main@87b5781`, Store Payment migration file exists remotely, and File Metadata migration file is missing remotely.
+- Local verified code contains `1782042418112-CreateFileMetadata.ts`.
+- Therefore `file_metadata` missing cause remains `CODE_NOT_DEPLOYED`, and the next low-risk repair step is code alignment, not migration execution.
+- R1 evidence also shows Store Payment migration history matches while `store_payment_accounts` and `store_payment_records` are missing. This is provisionally classified as `HISTORY_TABLE_DRIFT`.
+- Fresh SSH DB identity checks failed with banner timeout after R1, so wrong DB target, wrong schema target, manual history insertion, and table dropped after migration remain unresolved until the drift reconciliation Gate.
+- No git pull, checkout, reset, migration, DB write, deploy, restart, push, env/nginx/compose modification, cleanup, or reset was executed.
+
+Next actions:
+
+1. `APPROVE_REMOTE_CODE_ALIGNMENT_EXECUTION_GATE`
+2. `APPROVE_STORE_PAYMENT_SCHEMA_DRIFT_RECONCILIATION_GATE`
+3. `APPROVE_FILE_METADATA_MIGRATION_EXECUTION_GATE`
+
+Conditions:
+
+- Remote code alignment must not include migration or service restart unless separately approved.
+- Store Payment migration must not be blindly rerun.
+- File Metadata migration must wait until remote code contains the migration file.
+
 ## 2026-06-23 - Production Server Remediation R1 Migration State Audit
 
 Decision: HOLD.
