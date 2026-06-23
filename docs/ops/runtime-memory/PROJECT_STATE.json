@@ -1,0 +1,29 @@
+{
+  "last_updated": "2026-06-23",
+  "active_module": "Store Payment",
+  "current_stage": "CONTROLLED_UAT_READY",
+  "active_decision": "GO_WITH_CONDITIONS",
+  "next_gate": "STORE_PAYMENT_UAT_SMOKE",
+  "page_entry": "/store-payment",
+  "menu_entry": "销售管理 / 统一收款",
+  "attachment_preview": "disabled",
+  "raw_url_exposure": "forbidden",
+  "deploy_status": "not_deployed",
+  "push_status": "not_pushed",
+  "database_write_status": "no_remote_production_db_write",
+  "migration_status": "completed_for_store_payment_tables_only",
+  "store_payment": {
+    "canonical_store_code": "STORE-VTE-001",
+    "legacy_store_code_alias": "ST-VTE-001",
+    "store_name": "万象直营店",
+    "company_code": "COMP-LAO-AGRI",
+    "tables_ready": true,
+    "menu_codes_registered": true,
+    "role_grants_written": 23,
+    "pilot_accounts_initialized": 3,
+    "pilot_accounts_state": "disabled_or_pending_placeholders",
+    "frontend_gate": "GO_WITH_CONDITIONS",
+    "backend_gate": "GO_WITH_CONDITIONS",
+    "uat_smoke": "PASS_WITH_CONDITIONS"
+  }
+}
