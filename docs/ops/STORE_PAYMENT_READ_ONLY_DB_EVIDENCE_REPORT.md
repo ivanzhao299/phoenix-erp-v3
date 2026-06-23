@@ -262,5 +262,16 @@ Recommended next user decision:
 
 ## A2 / A1 Follow-up
 
-Status: queued for automatic A2 read-only security review and A1 validation after this evidence report.
+Status: completed.
+
+| Follow-up | Output | Conclusion | Gate impact |
+| --- | --- | --- | --- |
+| A2 read-only security review | `docs/ops/A2_STORE_PAYMENT_READ_ONLY_DB_EVIDENCE_REVIEW.md` | `HOLD` | A5 HOLD cannot be cleared from a security perspective; A3/A4 implementation gates remain closed. |
+| A1 validation | `docs/ops/A1_STORE_PAYMENT_READ_ONLY_DB_EVIDENCE_VALIDATION.md` | `PASS WITH CONDITIONS` | W5 closeout static gate passed; A5 HOLD remains not cleared. |
+
+A2 confirmed that the evidence report is security-acceptable as an artifact: it did not leak secrets and the DB evidence boundary was read-only. A2 also confirmed release blockers remain: Store Payment tables are absent, menu codes and role grants are absent, pilot user/store scope is mismatched or unproven, and proof/QR attachment ACL readiness is unproven.
+
+A1 confirmed the source report exists, required safety fields are present, W5 closeout static gate passed, and no forbidden code, migration, DB write, deploy, or push occurred.
+
+Final post-review conclusion: `HOLD`.
 
