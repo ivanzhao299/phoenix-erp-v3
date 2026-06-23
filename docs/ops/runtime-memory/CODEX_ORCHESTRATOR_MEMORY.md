@@ -5,9 +5,9 @@ Last updated: 2026-06-23
 ## Active Context
 
 - Active module: Store Payment
-- Current stage: PRODUCTION_SERVER_REMEDIATION_INTAKE_READY
-- Active decision: WAITING_USER_APPROVAL_FOR_FIRST_FIX_BATCH
-- Next gate: APPROVE_BACKUP_AND_SNAPSHOT
+- Current stage: PRODUCTION_SERVER_REMEDIATION_R0_BACKUP_BASELINE_READY
+- Active decision: WAITING_USER_APPROVAL_FOR_R1_REMEDIATION
+- Next gate: APPROVE_MIGRATION_STATE_REPAIR_PLAN
 - Page entry: `/store-payment`
 - Menu entry: 销售管理 / 统一收款
 
@@ -56,6 +56,12 @@ Store Payment is ready for controlled pilot with conditions:
 - Public API health is reachable and reports production mode with DB connected.
 - SSH command-level read-only inventory timed out and remains a P0 blocker before detailed server remediation.
 - Production-side remediation now waits for backup/snapshot approval.
+- R0 backup baseline is complete with conditions.
+- Backup directory: `/opt/phoenix-erp-backups/remediation-r0-20260623-211849`.
+- DB backup file: `phoenix_erp-20260623-211849.dump`.
+- SSH observability is restored but long sessions remain unstable.
+- Remote `file_metadata` is missing based on read-only diagnostic evidence.
+- Migration history, initialization import issues, master data, and RBAC/DataScope remain pending follow-up diagnostics.
 
 ## Current Hard Stops
 
@@ -66,4 +72,5 @@ Store Payment is ready for controlled pilot with conditions:
 - No staging deploy until a staging-only target is provided.
 - No same-host staging deploy until the user approves staging isolation derived from the production server card.
 - No production-side remediation write until backup/snapshot and a specific fix Gate are approved.
+- No file_metadata/schema repair until migration-state audit is approved.
 - No raw URL exposure.

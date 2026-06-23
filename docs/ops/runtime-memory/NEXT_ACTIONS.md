@@ -2,17 +2,17 @@
 
 Last updated: 2026-06-23
 
-1. `APPROVE_BACKUP_AND_SNAPSHOT`.
-2. `APPROVE_DB_BACKUP`.
-3. `APPROVE_MIGRATION_STATE_REPAIR_PLAN`.
-4. `APPROVE_MASTER_DATA_REMEDIATION_PLAN`.
-5. `APPROVE_PERMISSION_AND_MENU_REMEDIATION_PLAN`.
+1. `APPROVE_MIGRATION_STATE_REPAIR_PLAN`.
+2. `APPROVE_INITIAL_DATA_IMPORT_REPAIR`.
+3. `APPROVE_MASTER_DATA_REMEDIATION_PLAN`.
+4. `APPROVE_PERMISSION_AND_MENU_REMEDIATION_PLAN`.
+5. `APPROVE_UPLOADS_FILE_SECURITY_REMEDIATION`.
 
 ## Recommended Immediate Sequence
 
-1. Approve or reject the first remediation batch in `docs/ops/PRODUCTION_SERVER_REMEDIATION_FIRST_FIX_BATCH.md`.
-2. Start with backup/snapshot before any database, file, deploy, or configuration write.
-3. Stabilize read-only SSH inventory so the server can be audited without manual Terminal work.
+1. Approve the dedicated migration-state audit / repair planning Gate.
+2. Confirm whether missing `file_metadata` is expected or a failed/unapplied migration.
+3. Run initialization import, master data, RBAC/DataScope, and uploads security diagnostics as separate Gates.
 4. Keep `/uploads` and raw URL exposure forbidden for Store Payment.
 5. Keep local UAT fixture data out of production-side remediation unless explicitly approved.
 
@@ -28,3 +28,4 @@ Last updated: 2026-06-23
 - DB writes before backup.
 - migration repair before migration-state audit.
 - service restart before rollback plan.
+- file_metadata/schema repair before migration-state audit.

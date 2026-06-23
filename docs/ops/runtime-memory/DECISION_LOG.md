@@ -1,5 +1,24 @@
 # Decision Log
 
+## 2026-06-23 - Production Server Remediation R0 Backup And Observability
+
+Decision: GO WITH CONDITIONS.
+
+Rationale:
+
+- SSH was restored with longer timeout and explicit host alias, but long sessions remain unstable.
+- R0 backup directory was created at `/opt/phoenix-erp-backups/remediation-r0-20260623-211849`.
+- DB backup completed through `pg_dump` without printing credentials.
+- env, deploy, compose, nginx, uploads inventory, and server snapshots were recorded.
+- Read-only DB diagnostics found the production-side target lacks `file_metadata`.
+
+Conditions:
+
+- Migration history remains partially unknown.
+- Initialization import, master data, menu/role/DataScope diagnostics remain pending.
+- Missing `file_metadata` must not be repaired until migration-state audit and user approval.
+- No migration, business DB write, deploy, service restart, cleanup, reset, or push was executed.
+
 ## 2026-06-23 - Production Server Remediation Intake
 
 Decision: READY_FOR_REMEDIATION_PLAN.

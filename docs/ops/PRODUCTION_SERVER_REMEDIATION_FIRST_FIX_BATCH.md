@@ -17,6 +17,29 @@ This is an approval request package only. No backup, DB write, migration, deploy
 | 7 | Menu/role/DataScope difference diagnosis | RBAC and scope tables | Trial access depends on permissions | APPROVE_PERMISSION_AND_MENU_REMEDIATION_PLAN |
 | 8 | Uploads/file storage security diagnosis | uploads, file metadata, nginx | Store Payment attachment security depends on this | APPROVE_BACKUP_AND_SNAPSHOT |
 
+## R0 Execution Evidence
+
+| Item | Result |
+| --- | --- |
+| backup directory | `/opt/phoenix-erp-backups/remediation-r0-20260623-211849` |
+| DB backup | completed |
+| DB backup file | `phoenix_erp-20260623-211849.dump` |
+| DB backup size | 8,333,500 bytes |
+| env backup | completed into protected backup directory |
+| deploy / compose backup | completed where present |
+| nginx backup | completed |
+| uploads inventory | completed |
+| SSH observability | restored with conditions; long sessions remain unstable |
+| read-only DB diagnostics | partial; `file_metadata` missing caused first diagnostic failure |
+
+## Updated Next Batch Recommendation
+
+1. Keep R0 backup as the freeze point.
+2. Run a dedicated migration-state audit using short server-side output files.
+3. Confirm whether `file_metadata` migration is absent, failed, or never deployed on the production-side target.
+4. Only after migration audit, request approval for a file metadata / Store Payment schema repair Gate if needed.
+5. Continue with master data and RBAC/DataScope diagnostics before any business UAT.
+
 ## Execution Boundaries For First Batch
 
 Allowed after approval:
@@ -45,4 +68,3 @@ Still forbidden until separate approval:
 | A2 | Security/redaction/RBAC/file exposure review |
 | A5 | Data readiness and master-data diagnostics |
 | Codex-Orchestrator | Approval routing, task board, baseline lifecycle |
-

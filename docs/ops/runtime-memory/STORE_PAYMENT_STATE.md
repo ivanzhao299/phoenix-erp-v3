@@ -357,6 +357,34 @@ Result:
 
 Current stage: `PRODUCTION_SERVER_REMEDIATION_INTAKE_READY`.
 
+## Production Server Remediation R0 Backup And Observability
+
+Conclusion: GO WITH CONDITIONS.
+
+Report:
+
+- `docs/ops/PRODUCTION_SERVER_REMEDIATION_R0_BACKUP_AND_OBSERVABILITY_REPORT.md`
+
+Result:
+
+- SSH observability restored with conditions; long sessions remain unstable.
+- R0 backup directory: `/opt/phoenix-erp-backups/remediation-r0-20260623-211849`.
+- Server/process/docker/disk/git snapshots completed.
+- DB backup completed: `phoenix_erp-20260623-211849.dump`, 8,333,500 bytes.
+- env/deploy/nginx backups completed into protected backup directory.
+- uploads inventory completed.
+- DB read-only diagnostics partial.
+- Remote `file_metadata` missing was detected.
+- migration history remains partially unknown.
+- initialization import, master data, menu/role/DataScope diagnostics remain pending.
+- DB write executed: no.
+- migration executed: no.
+- deploy executed: no.
+- service restart executed: no.
+- push executed: no.
+
+Current stage: `PRODUCTION_SERVER_REMEDIATION_R0_BACKUP_BASELINE_READY`.
+
 ## Current Conditions
 
 - Controlled UAT has verified page rendering, permission visibility, disabled attachment behavior, status flow UI, protected account QR attachment preview/download, and protected record proof preview/download against local metadata.

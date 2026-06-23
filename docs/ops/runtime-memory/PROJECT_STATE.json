@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-06-23",
   "active_module": "Store Payment",
-  "current_stage": "PRODUCTION_SERVER_REMEDIATION_INTAKE_READY",
-  "active_decision": "WAITING_USER_APPROVAL_FOR_FIRST_FIX_BATCH",
-  "next_gate": "APPROVE_BACKUP_AND_SNAPSHOT",
+  "current_stage": "PRODUCTION_SERVER_REMEDIATION_R0_BACKUP_BASELINE_READY",
+  "active_decision": "WAITING_USER_APPROVAL_FOR_R1_REMEDIATION",
+  "next_gate": "APPROVE_MIGRATION_STATE_REPAIR_PLAN",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -134,13 +134,31 @@
     "production_remediation_migration_executed": false,
     "production_remediation_restart_executed": false,
     "production_remediation_deploy_executed": false,
-    "production_remediation_push_executed": false
+    "production_remediation_push_executed": false,
+    "r0_backup_and_observability": "GO_WITH_CONDITIONS",
+    "r0_backup_dir": "/opt/phoenix-erp-backups/remediation-r0-20260623-211849",
+    "r0_ssh_observability": "RESTORED_WITH_CONDITIONS",
+    "r0_server_snapshot": "COMPLETED",
+    "r0_db_backup": "PASS",
+    "r0_db_backup_file": "phoenix_erp-20260623-211849.dump",
+    "r0_db_backup_size_bytes": 8333500,
+    "r0_env_deploy_nginx_backup": "COMPLETED",
+    "r0_uploads_inventory": "COMPLETED",
+    "r0_db_readonly_diagnostics": "PARTIAL",
+    "r0_file_metadata_remote": "MISSING",
+    "r0_migration_state": "PARTIAL_UNKNOWN",
+    "r0_initial_import_diagnosis": "PENDING",
+    "r0_master_data_diagnosis": "PENDING",
+    "r0_menu_role_datascope_diagnosis": "PENDING",
+    "r0_a1_review": "PASS_WITH_CONDITIONS",
+    "r0_a2_review": "PASS_WITH_CONDITIONS",
+    "r0_a5_review": "GO_WITH_CONDITIONS"
   },
   "next_actions": [
-    "APPROVE_BACKUP_AND_SNAPSHOT",
-    "APPROVE_DB_BACKUP",
     "APPROVE_MIGRATION_STATE_REPAIR_PLAN",
+    "APPROVE_INITIAL_DATA_IMPORT_REPAIR",
     "APPROVE_MASTER_DATA_REMEDIATION_PLAN",
-    "APPROVE_PERMISSION_AND_MENU_REMEDIATION_PLAN"
+    "APPROVE_PERMISSION_AND_MENU_REMEDIATION_PLAN",
+    "APPROVE_UPLOADS_FILE_SECURITY_REMEDIATION"
   ]
 }

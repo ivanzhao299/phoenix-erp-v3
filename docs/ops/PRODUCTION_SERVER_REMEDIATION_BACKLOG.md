@@ -6,14 +6,15 @@ Date: 2026-06-23
 
 | issue_id | issue_title | module | evidence | risk | proposed_fix | requires_backup | requires_db_write | requires_migration | requires_service_restart | responsible_agent | recommended_order | status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| P0-001 | Establish trusted backup baseline | infra/db/files | Current backup state unknown | Cannot safely repair DB/files without recovery point | DB backup, app dir snapshot, env backup, uploads snapshot | true | false | false | false | A6 + A1 | 1 | proposed |
-| P0-002 | Restore server read-only observability | infra | SSH read-only inventory timed out | Actual state cannot be verified | Stabilize SSH/access path and rerun read-only inventory | false | false | false | false | Codex-Orchestrator + A6 | 2 | proposed |
-| P0-003 | Audit remote migration history | database | Prior migration problems reported; remote `migrations` unknown | DB drift or partial migration could break trial | Read-only migration table audit and migration artifact comparison | true | false | false | false | A1 + A5 | 3 | proposed |
-| P0-004 | Audit remote DB/schema readiness | database | Store Payment production-side table state unknown | Store Payment trial may fail or corrupt expectations | Read-only table/column/index/menu/role scan | true | false | false | false | A5 + A1 | 4 | proposed |
+| P0-001 | Establish trusted backup baseline | infra/db/files | R0 backup directory created; DB dump completed | Backup exists but restore has not been tested | Keep R0 as freeze point; next Gate may add restore validation | true | false | false | false | A6 + A1 | 1 | completed-with-conditions |
+| P0-002 | Restore server read-only observability | infra | SSH auth succeeded with longer timeout; long sessions remain unstable | Actual state collection can be interrupted | Use server-side evidence files and short pulls; investigate sshd/network latency later | false | false | false | false | Codex-Orchestrator + A6 | 2 | completed-with-conditions |
+| P0-003 | Audit remote migration history | database | R0 DB diagnostic partial; migration history not fully captured | DB drift or partial migration could break trial | Run dedicated migration-state audit using short, server-side output files | true | false | false | false | A1 + A5 | 3 | proposed |
+| P0-004 | Audit remote DB/schema readiness | database | `file_metadata` missing caused read-only diagnostic failure | Store Payment protected attachment trial cannot be considered ready | Run table/column/index scan and propose file_metadata remediation after migration audit | true | false | false | false | A5 + A1 | 4 | proposed |
 | P0-005 | Audit initialization import quality | master-data | User reports data migration/import issues | Dirty master data can invalidate pilot | Count and duplicate scans for company/store/org/user/role/core tables | true | false | false | false | A5 | 5 | proposed |
 | P0-006 | Freeze push-main production deploy path | deployment | Workflow deploys on `push main` | Accidental production redeploy | Require explicit GO; use remediation branches and approval gates | false | false | false | false | A6 + A7 | 6 | proposed |
 | P0-007 | Audit menu/RBAC/DataScope remote state | security | Remote grants unknown | Privilege bypass or missing trial access | Read-only menu/role/user scope scan | true | false | false | false | A2 + A5 | 7 | proposed |
 | P0-008 | Audit uploads/file exposure | attachment | Nginx exposes `/uploads/`; Store Payment forbids raw URL | File disclosure risk | Read-only upload tree and nginx exposure review | true | false | false | false | A2 + A6 | 8 | proposed |
+| P0-009 | Resolve missing `file_metadata` on target | attachment/database | R0 read-only diagnostic errored: relation `file_metadata` does not exist | Store Payment protected streaming cannot be production-side ready | After migration audit, prepare approved file_metadata schema repair Gate | true | false | true | false | A1 + A2 + A5 | 9 | new |
 
 ## P1 - Impacts Trial Quality
 
@@ -40,4 +41,3 @@ Date: 2026-06-23
 | issue_id | issue_title | module | evidence | risk | proposed_fix | requires_backup | requires_db_write | requires_migration | requires_service_restart | responsible_agent | recommended_order | status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | P3-001 | Improve public health remediation dashboard | ops | API health is available | Better visibility | Add docs/runbook for recurring checks | false | false | false | false | A1 | 19 | proposed |
-

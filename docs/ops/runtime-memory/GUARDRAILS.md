@@ -31,3 +31,5 @@ Last updated: 2026-06-23
 27. The current production-side server is now treated as a remediation target, not as a mature stable production baseline.
 28. Remediation writes require backup/snapshot evidence, explicit scope, rollback notes, and user approval.
 29. Read-only server inventory may run, but DB writes, migration, cleanup, reset, service restart, deploy, nginx changes, env changes, and push remain forbidden until separately approved.
+30. R0 backup baseline exists at `/opt/phoenix-erp-backups/remediation-r0-20260623-211849`; use it as the current remediation freeze point.
+31. Missing `file_metadata` on the production-side target must not be fixed until migration-state audit and user approval.
