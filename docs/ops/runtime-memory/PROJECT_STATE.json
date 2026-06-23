@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-06-23",
   "active_module": "Store Payment",
-  "current_stage": "STORE_PAYMENT_STAGING_RUNBOOK_READY",
+  "current_stage": "STORE_PAYMENT_CONTROLLED_PILOT_READY",
   "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "A7_FINAL_QA_GATE",
+  "next_gate": "USER_APPROVAL_FOR_STAGING_DEPLOY",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -67,11 +67,21 @@
     "a6_production_migration_executed": false,
     "a6_a2_review": "PASS_WITH_CONDITIONS",
     "a6_a1_validation": "PASS_WITH_CONDITIONS",
-    "a6_a5_review": "GO_WITH_CONDITIONS"
+    "a6_a5_review": "GO_WITH_CONDITIONS",
+    "a7_final_qa_gate": "GO_WITH_CONDITIONS",
+    "a7_a2_final_review": "PASS_WITH_CONDITIONS",
+    "a7_a1_final_validation": "PASS_WITH_CONDITIONS",
+    "a7_a5_final_readiness": "GO_WITH_CONDITIONS",
+    "controlled_pilot_allowed": true,
+    "staging_deploy_application_allowed": true,
+    "production_deploy_allowed": false,
+    "push_allowed": false,
+    "remote_db_write_allowed": false,
+    "production_migration_allowed": false
   },
   "next_actions": [
-    "A7_FINAL_QA_GATE",
-    "STORE_PAYMENT_CONTROLLED_PILOT_RELEASE_DECISION",
-    "用户批准后才执行 staging deploy"
+    "USER_APPROVAL_FOR_STAGING_DEPLOY",
+    "STAGING_DB_MIGRATION_AND_MENU_ROLE_SYNC_APPROVAL",
+    "CONTROLLED_PILOT_BUSINESS_UAT"
   ]
 }

@@ -6,7 +6,7 @@ Last updated: 2026-06-23
 
 GO WITH CONDITIONS.
 
-Store Payment has passed controlled protected attachment UAT smoke for both the pilot account QR file and a Store Payment record proof fixture, not production deployment. File Metadata / ACL foundation is available, Store Payment protected attachment proxy endpoints stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass, and `/store-payment` now uses protected endpoints for QR and proof preview / download paths. A6 staging deploy runbook is now ready; staging deploy is still not executed and still requires explicit user approval.
+Store Payment has passed controlled protected attachment UAT smoke for both the pilot account QR file and a Store Payment record proof fixture, not production deployment. File Metadata / ACL foundation is available, Store Payment protected attachment proxy endpoints stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass, and `/store-payment` now uses protected endpoints for QR and proof preview / download paths. A6 staging deploy runbook and A7 final QA Gate are complete. Controlled pilot readiness is GO WITH CONDITIONS; staging deploy, push, remote DB write, and production migration remain blocked until explicit approval.
 
 ## Completed Facts
 
@@ -179,6 +179,31 @@ Result:
 - A7 Final QA Gate is allowed as the next review Gate.
 
 Current stage: `STORE_PAYMENT_STAGING_RUNBOOK_READY`.
+
+## A7 Final QA Gate Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Reports:
+
+- `docs/ops/A7_STORE_PAYMENT_FINAL_QA_GATE_REPORT.md`
+- `docs/ops/STORE_PAYMENT_CONTROLLED_PILOT_RELEASE_DECISION.md`
+
+Result:
+
+- A7 Final QA Gate completed.
+- Missing input: none.
+- A2 final review: PASS WITH CONDITIONS.
+- A1 final validation: PASS WITH CONDITIONS.
+- A5 final readiness: GO WITH CONDITIONS.
+- Controlled pilot: allowed with conditions.
+- Staging deploy application: allowed.
+- Production deploy: not allowed.
+- Push: not allowed.
+- Remote DB write: not allowed.
+- Production migration: not allowed.
+
+Current stage: `STORE_PAYMENT_CONTROLLED_PILOT_READY`.
 
 ## Current Conditions
 

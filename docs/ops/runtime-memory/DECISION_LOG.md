@@ -1,5 +1,35 @@
 # Decision Log
 
+## 2026-06-23 - A7 Store Payment Final QA Gate
+
+Decision: GO WITH CONDITIONS.
+
+Rationale:
+
+- A7 input reports are all present.
+- Store Payment backend MVP, frontend page, menu / role readiness, protected attachment ACL, account QR UAT, record proof UAT, and A6 runbook are complete with conditions.
+- `rawUrl`, `/uploads`, and `storage_path` exposure remain blocked.
+- no-auth attachment access returns 401.
+- missing attachment access returns 404.
+- A2 final review is PASS WITH CONDITIONS.
+- A1 final validation is PASS WITH CONDITIONS.
+- A5 final readiness is GO WITH CONDITIONS.
+
+Conditions:
+
+- Controlled pilot is limited to local or separately approved staging environment.
+- Staging deploy requires explicit user approval.
+- Push requires explicit user approval.
+- Remote DB writes and production migration require explicit user approval.
+- Production deploy remains HOLD.
+- UAT fixtures must remain distinct from real business payment evidence.
+
+Next actions:
+
+1. `USER_APPROVAL_FOR_STAGING_DEPLOY`
+2. `STAGING_DB_MIGRATION_AND_MENU_ROLE_SYNC_APPROVAL`
+3. `CONTROLLED_PILOT_BUSINESS_UAT`
+
 ## 2026-06-23 - A6 Store Payment Staging Deploy Runbook
 
 Decision: GO WITH CONDITIONS.

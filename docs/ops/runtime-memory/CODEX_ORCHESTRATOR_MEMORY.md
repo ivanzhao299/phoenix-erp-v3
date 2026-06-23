@@ -5,9 +5,9 @@ Last updated: 2026-06-23
 ## Active Context
 
 - Active module: Store Payment
-- Current stage: STORE_PAYMENT_STAGING_RUNBOOK_READY
+- Current stage: STORE_PAYMENT_CONTROLLED_PILOT_READY
 - Active decision: GO_WITH_CONDITIONS
-- Next gate: A7_FINAL_QA_GATE
+- Next gate: USER_APPROVAL_FOR_STAGING_DEPLOY
 - Page entry: `/store-payment`
 - Menu entry: 销售管理 / 统一收款
 
@@ -23,7 +23,7 @@ Last updated: 2026-06-23
 
 ## Latest Store Payment Decision
 
-Store Payment is ready for A7 Final QA Gate with conditions:
+Store Payment is ready for controlled pilot with conditions:
 
 - Frontend page exists at `/store-payment`.
 - Store Payment menu exists under 销售管理 / 统一收款.
@@ -34,6 +34,8 @@ Store Payment is ready for A7 Final QA Gate with conditions:
 - Account QR protected attachment UAT passed.
 - Record proof protected attachment UAT passed.
 - A6 staging deploy runbook is complete.
+- A7 final QA Gate is complete.
+- Controlled pilot decision is GO WITH CONDITIONS.
 - Staging deploy has not been executed and still requires explicit user approval.
 
 ## Current Hard Stops
