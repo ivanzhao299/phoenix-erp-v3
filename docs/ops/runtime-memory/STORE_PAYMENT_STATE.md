@@ -6,7 +6,7 @@ Last updated: 2026-06-23
 
 GO WITH CONDITIONS.
 
-Store Payment has passed controlled protected attachment UAT smoke for both the pilot account QR file and a Store Payment record proof fixture, not production deployment. File Metadata / ACL foundation is available, Store Payment protected attachment proxy endpoints stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass, and `/store-payment` now uses protected endpoints for QR and proof preview / download paths. A6 staging deploy runbook and A7 final QA Gate are complete. The staging deploy approval package, approval matrix, and business UAT scope are complete. The approved non-main branch push completed. The staging-only workflow/env/compose skeleton is now ready, but real staging execution still waits for staging target inputs and GitHub `staging` environment secrets.
+Store Payment has passed controlled protected attachment UAT smoke for both the pilot account QR file and a Store Payment record proof fixture, not production deployment. File Metadata / ACL foundation is available, Store Payment protected attachment proxy endpoints stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass, and `/store-payment` now uses protected endpoints for QR and proof preview / download paths. A6 staging deploy runbook and A7 final QA Gate are complete. The staging deploy approval package, approval matrix, and business UAT scope are complete. The approved non-main branch push completed. The staging-only workflow/env/compose skeleton is now ready. The production server connection card has been sanitized and can produce a same-host staging candidate only with explicit isolation approval. Real staging execution still waits for user approval and GitHub `staging` environment secrets.
 
 ## Completed Facts
 
@@ -294,6 +294,40 @@ Result:
 - production triggered: no.
 
 Current stage: `STORE_PAYMENT_STAGING_TARGET_BOOTSTRAP_READY`.
+
+## Server Card Staging Target Intake
+
+Conclusion: STAGING_TARGET_CANDIDATE_READY.
+
+Artifacts:
+
+- `docs/ops/SERVER_CARD_INTAKE_SANITIZED_SUMMARY.md`
+- `docs/ops/STAGING_TARGET_DERIVATION_FROM_SERVER_CARD.md`
+- `docs/ops/STORE_PAYMENT_GITHUB_STAGING_SECRETS_SETUP_FROM_SERVER_CARD.md`
+- `docs/ops/STAGING_TARGET_USER_APPROVAL_REQUIRED.md`
+- `docs/ops/SERVER_CARD_STAGING_TARGET_INTAKE_REPORT.md`
+
+Result:
+
+- Server connection card received and sanitized.
+- The card is classified as production-oriented.
+- Same-host staging can be considered only as a candidate.
+- Candidate staging deploy path: `/opt/phoenix-erp-staging`.
+- Candidate staging DB: `phoenix_erp_staging`.
+- Candidate staging file storage: `/data/phoenix-erp-staging/files`.
+- Production DB reuse as staging DB: forbidden.
+- Production file storage reuse as staging file storage: forbidden.
+- Production deploy path reuse as staging deploy path: forbidden.
+- A2 review: PASS WITH CONDITIONS.
+- A1 validation: PASS WITH CONDITIONS.
+- A5 review: GO WITH CONDITIONS.
+- Deploy executed: no.
+- Push executed: no.
+- DB write executed: no.
+- Migration executed: no.
+- Production triggered: no.
+
+Current stage: `STORE_PAYMENT_STAGING_TARGET_CANDIDATE_READY`.
 
 ## Current Conditions
 

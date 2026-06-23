@@ -23,3 +23,8 @@ Last updated: 2026-06-23
 19. Store Payment staging deploy must use `.github/workflows/staging-deploy.yml` or another explicitly approved staging-only path.
 20. Do not use `push main` as a staging deploy mechanism because the current production workflow deploys on `push main`.
 21. Staging migration, menu / role sync, and file fixture writes must remain disabled by default and require separate approved Gates.
+22. The server connection card is production-oriented; it does not approve production deploy, production migration, production DB write, or staging deploy.
+23. Same-host staging may only proceed after explicit user approval and must use independent deploy path, compose project, DB, file storage, env, and logs.
+24. Production DB must not be reused as staging DB.
+25. Production file storage must not be reused as staging file storage.
+26. Production secrets must not be copied into GitHub `staging` secrets unless the user explicitly approves each secret reuse.

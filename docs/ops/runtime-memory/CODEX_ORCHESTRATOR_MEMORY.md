@@ -5,9 +5,9 @@ Last updated: 2026-06-23
 ## Active Context
 
 - Active module: Store Payment
-- Current stage: STORE_PAYMENT_STAGING_TARGET_BOOTSTRAP_READY
-- Active decision: WAITING_STAGING_TARGET_INPUTS
-- Next gate: USER_PROVIDES_STAGING_TARGET
+- Current stage: STORE_PAYMENT_STAGING_TARGET_CANDIDATE_READY
+- Active decision: WAITING_USER_APPROVAL_FOR_STAGING_TARGET_DERIVED_FROM_SERVER_CARD
+- Next gate: USER_APPROVES_STAGING_TARGET_DERIVED_FROM_SERVER_CARD
 - Page entry: `/store-payment`
 - Menu entry: 销售管理 / 统一收款
 
@@ -44,7 +44,13 @@ Store Payment is ready for controlled pilot with conditions:
 - `push main` was not executed because the repository production workflow deploys on `push main`.
 - A staging-only workflow skeleton now exists at `.github/workflows/staging-deploy.yml`.
 - Staging env and compose skeletons now exist.
-- Real staging execution still requires staging target inputs and GitHub `staging` environment secrets.
+- The provided server connection card was parsed as production-oriented and sanitized.
+- A same-host staging target candidate can be derived only with strict isolation and explicit user approval.
+- Candidate staging deploy path: `/opt/phoenix-erp-staging`.
+- Candidate staging file storage path: `/data/phoenix-erp-staging/files`.
+- Candidate staging DB name: `phoenix_erp_staging`.
+- Production DB, production file storage, production deploy path, and production secrets must not be reused for staging.
+- Real staging execution still requires user approval, independent staging secrets, and GitHub `staging` environment configuration.
 
 ## Current Hard Stops
 
@@ -53,4 +59,5 @@ Store Payment is ready for controlled pilot with conditions:
 - No remote production DB write.
 - No migration unless a dedicated Gate is approved.
 - No staging deploy until a staging-only target is provided.
+- No same-host staging deploy until the user approves staging isolation derived from the production server card.
 - No raw URL exposure.

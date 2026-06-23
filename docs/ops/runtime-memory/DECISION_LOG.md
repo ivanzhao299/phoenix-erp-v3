@@ -1,5 +1,26 @@
 # Decision Log
 
+## 2026-06-23 - Server Card Intake And Staging Target Candidate
+
+Decision: STAGING_TARGET_CANDIDATE_READY.
+
+Rationale:
+
+- The received server connection card was read and sanitized.
+- The card clearly describes the production Phoenix ERP host and deployment path.
+- The production host can be considered as a same-host staging candidate only if the user approves strict isolation.
+- Candidate staging isolation uses `/opt/phoenix-erp-staging`, `phoenix_erp_staging`, and `/data/phoenix-erp-staging/files`.
+- Production DB, production file storage, production deploy path, and production secrets remain forbidden for staging reuse.
+
+Conditions:
+
+- User must approve whether the production host may be used as a staging host candidate.
+- User must approve independent staging deploy path, DB, file storage, and GitHub `staging` secrets.
+- No deploy, push, migration, remote DB write, service restart, or production workflow trigger was executed.
+- A2 review: PASS WITH CONDITIONS.
+- A1 validation: PASS WITH CONDITIONS.
+- A5 review: GO WITH CONDITIONS.
+
 ## 2026-06-23 - Store Payment Staging Target Bootstrap Gate
 
 Decision: READY_FOR_STAGING_TARGET_INPUTS.
