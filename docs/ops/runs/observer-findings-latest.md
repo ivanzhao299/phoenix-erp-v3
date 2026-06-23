@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-06-22T17:03:40.898Z |
-| Run files inspected | 479 |
+| Generated at | 2026-06-23T00:36:54.361Z |
+| Run files inspected | 497 |
 | Task count | 55 |
 | Findings count | 34 |
 | Highest severity | HIGH |
@@ -262,7 +262,7 @@
 ### OBS-0028 - MEDIUM - baseline
 
 - Affected Agent: Codex-Orchestrator
-- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/runs/doctor-latest.json;  M docs/ops/runs/evolution-doctor-latest.json; ?? docs/ops/runs/2026-06-22T16-51-03-445Z-A2-Security-Regression-Gate.md; ?? docs/ops/runs/2026-06-22T16-59-44-013Z-A1-CI-Runtime-Gate.md; ?? docs/ops/runs/2026-06-22T17-02-24-635Z-A5-Data-Readiness.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A1-CI-Runtime-Gate.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A2-Security-Regression-Gate.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A5-Data-Readiness.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-approved-execution-result.json; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-approved-execution-summary.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A1-CI-Runtime-Gate.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A2-Security-Regression-Gate.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A5-Data-Readiness.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-execution-summary.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-orchestration-plan.json; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-orchestration-plan.md; ?? docs/ops/runs/REQ-NL-20260623-004740-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-requirement-spec.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A1-CI-Runtime-Gate.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A2-Security-Regression-Gate.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-agent-contract-A5-Data-Readiness.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-approved-execution-result.json; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-approved-execution-summary.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A1-CI-Runtime-Gate.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A2-Security-Regression-Gate.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-assembled-prompt-A5-Data-Readiness.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-execution-summary.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-orchestration-plan.json; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-orchestration-plan.md; ?? docs/ops/runs/REQ-NL-20260623-004746-STORE-PAYMENT-READINESS-A2-A1-CI-A5-READINESS-A3-requirement-spec.md
+- Evidence: /Users/mac/phoenix-erp-worktrees/codex-orchestrator dirty status: M docs/ops/runs/doctor-latest.json;  M docs/ops/runs/evolution-doctor-latest.json; ?? docs/ops/runs/2026-06-23T00-31-20-705Z-A5-Data-Readiness.md; ?? docs/ops/runs/2026-06-23T00-34-16-169Z-A2-Security-Regression-Gate.md; ?? docs/ops/runs/2026-06-23T00-36-23-940Z-A1-CI-Runtime-Gate.md; ?? docs/ops/runs/STORE_PAYMENT_A5_HOLD_CLEARANCE_A1_ASSEMBLED_PROMPT.md; ?? docs/ops/runs/STORE_PAYMENT_A5_HOLD_CLEARANCE_A1_CONTRACT.md; ?? docs/ops/runs/STORE_PAYMENT_A5_HOLD_CLEARANCE_A2_ASSEMBLED_PROMPT.md; ?? docs/ops/runs/STORE_PAYMENT_A5_HOLD_CLEARANCE_A2_CONTRACT.md; ?? docs/ops/runs/STORE_PAYMENT_A5_HOLD_CLEARANCE_A5_ASSEMBLED_PROMPT.md; ?? docs/ops/runs/STORE_PAYMENT_A5_HOLD_CLEARANCE_A5_CONTRACT.md; ?? docs/ops/runs/STORE_PAYMENT_A5_HOLD_CLEARANCE_REQUIREMENT_SPEC.md
 - Suggested Fix: Use baseline autopilot or HOLD if dirty files touch business code.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
@@ -270,44 +270,44 @@
 
 ### OBS-0029 - MEDIUM - baseline
 
-- Affected Agent: A1-CI-Runtime-Gate
-- Evidence: A1-CI-Runtime-Gate worktree HEAD 89df2689 is behind main 8cbbe803.
-- Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
-- Auto Fix Eligible: true
-- Requires Human Gate: false
-- Recommended Next Task: Rebase A1-CI-Runtime-Gate with baseline autopilot.
-
-### OBS-0030 - MEDIUM - baseline
-
 - Affected Agent: A2-Security-Regression-Gate
-- Evidence: A2-Security-Regression-Gate worktree HEAD 6d8d32dc is behind main 8cbbe803.
+- Evidence: A2-Security-Regression-Gate worktree HEAD 7d530f2b is behind main 8fc1548b.
 - Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
 - Recommended Next Task: Rebase A2-Security-Regression-Gate with baseline autopilot.
 
-### OBS-0031 - MEDIUM - baseline
+### OBS-0030 - MEDIUM - baseline
 
 - Affected Agent: A3-Backend-Critical-Path
-- Evidence: A3-Backend-Critical-Path worktree HEAD 476361e0 is behind main 8cbbe803.
+- Evidence: A3-Backend-Critical-Path worktree HEAD 476361e0 is behind main 8fc1548b.
 - Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
 - Recommended Next Task: Rebase A3-Backend-Critical-Path with baseline autopilot.
 
-### OBS-0032 - MEDIUM - baseline
+### OBS-0031 - MEDIUM - baseline
 
 - Affected Agent: A4-Frontend-UAT-Smoke
-- Evidence: A4-Frontend-UAT-Smoke worktree HEAD 476361e0 is behind main 8cbbe803.
+- Evidence: A4-Frontend-UAT-Smoke worktree HEAD 476361e0 is behind main 8fc1548b.
 - Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
 - Recommended Next Task: Rebase A4-Frontend-UAT-Smoke with baseline autopilot.
 
+### OBS-0032 - MEDIUM - baseline
+
+- Affected Agent: A5-Data-Readiness
+- Evidence: A5-Data-Readiness worktree HEAD f3b7d954 is behind main 8fc1548b.
+- Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
+- Auto Fix Eligible: true
+- Requires Human Gate: false
+- Recommended Next Task: Rebase A5-Data-Readiness with baseline autopilot.
+
 ### OBS-0033 - MEDIUM - baseline
 
 - Affected Agent: A6-Staging-Deploy-Runbook
-- Evidence: A6-Staging-Deploy-Runbook worktree HEAD 3fc2e089 is behind main 8cbbe803.
+- Evidence: A6-Staging-Deploy-Runbook worktree HEAD 3fc2e089 is behind main 8fc1548b.
 - Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
@@ -316,7 +316,7 @@
 ### OBS-0034 - MEDIUM - baseline
 
 - Affected Agent: A7-Final-QA-Gate
-- Evidence: A7-Final-QA-Gate worktree HEAD 3fc2e089 is behind main 8cbbe803.
+- Evidence: A7-Final-QA-Gate worktree HEAD 3fc2e089 is behind main 8fc1548b.
 - Suggested Fix: Baseline Autopilot should rebase this worktree before claim or merge.
 - Auto Fix Eligible: true
 - Requires Human Gate: false
