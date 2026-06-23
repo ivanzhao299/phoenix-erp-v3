@@ -1,9 +1,9 @@
 {
   "last_updated": "2026-06-23",
   "active_module": "Store Payment",
-  "current_stage": "STORE_PAYMENT_CONTROLLED_PILOT_READY",
-  "active_decision": "GO_WITH_CONDITIONS",
-  "next_gate": "USER_APPROVAL_FOR_STAGING_DEPLOY",
+  "current_stage": "STORE_PAYMENT_STAGING_APPROVAL_READY",
+  "active_decision": "WAITING_USER_APPROVAL",
+  "next_gate": "USER_APPROVES_STAGING_DEPLOY_OR_NOT",
   "page_entry": "/store-payment",
   "menu_entry": "销售管理 / 统一收款",
   "attachment_preview": "protected_account_qr_uat_passed",
@@ -77,11 +77,18 @@
     "production_deploy_allowed": false,
     "push_allowed": false,
     "remote_db_write_allowed": false,
-    "production_migration_allowed": false
+    "production_migration_allowed": false,
+    "staging_deploy_approval_package": "READY_FOR_USER_APPROVAL",
+    "staging_deploy_approval_matrix": "READY_FOR_USER_APPROVAL",
+    "business_uat_scope": "READY_FOR_USER_APPROVAL",
+    "staging_approval_a2_review": "PASS_WITH_CONDITIONS",
+    "staging_approval_a1_validation": "PASS_WITH_CONDITIONS",
+    "staging_approval_a5_review": "GO_WITH_CONDITIONS"
   },
   "next_actions": [
-    "USER_APPROVAL_FOR_STAGING_DEPLOY",
-    "STAGING_DB_MIGRATION_AND_MENU_ROLE_SYNC_APPROVAL",
-    "CONTROLLED_PILOT_BUSINESS_UAT"
+    "USER_APPROVES_PUSH_OR_NOT",
+    "USER_APPROVES_STAGING_DEPLOY_OR_NOT",
+    "USER_APPROVES_STAGING_DB_MIGRATION_OR_NOT",
+    "USER_APPROVES_BUSINESS_UAT_SCOPE_OR_NOT"
   ]
 }

@@ -6,7 +6,7 @@ Last updated: 2026-06-23
 
 GO WITH CONDITIONS.
 
-Store Payment has passed controlled protected attachment UAT smoke for both the pilot account QR file and a Store Payment record proof fixture, not production deployment. File Metadata / ACL foundation is available, Store Payment protected attachment proxy endpoints stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass, and `/store-payment` now uses protected endpoints for QR and proof preview / download paths. A6 staging deploy runbook and A7 final QA Gate are complete. Controlled pilot readiness is GO WITH CONDITIONS; staging deploy, push, remote DB write, and production migration remain blocked until explicit approval.
+Store Payment has passed controlled protected attachment UAT smoke for both the pilot account QR file and a Store Payment record proof fixture, not production deployment. File Metadata / ACL foundation is available, Store Payment protected attachment proxy endpoints stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass, and `/store-payment` now uses protected endpoints for QR and proof preview / download paths. A6 staging deploy runbook and A7 final QA Gate are complete. The staging deploy approval package, approval matrix, and business UAT scope are complete. Current decision is WAITING_USER_APPROVAL; staging deploy, push, remote DB write, and production migration remain blocked until explicit approval.
 
 ## Completed Facts
 
@@ -204,6 +204,33 @@ Result:
 - Production migration: not allowed.
 
 Current stage: `STORE_PAYMENT_CONTROLLED_PILOT_READY`.
+
+## Staging Deploy Approval Prep Result
+
+Conclusion: READY_FOR_USER_APPROVAL.
+
+Reports:
+
+- `docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_PACKAGE.md`
+- `docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_MATRIX.md`
+- `docs/ops/STORE_PAYMENT_BUSINESS_UAT_SCOPE.md`
+- `docs/ops/STORE_PAYMENT_STAGING_DEPLOY_APPROVAL_PREP_REPORT.md`
+
+Result:
+
+- staging deploy approval package completed.
+- approval matrix completed.
+- business UAT scope completed.
+- A2 review: PASS WITH CONDITIONS.
+- A1 validation: PASS WITH CONDITIONS.
+- A5 review: GO WITH CONDITIONS.
+- deploy executed: no.
+- push executed: no.
+- remote DB write executed: no.
+- staging migration executed: no.
+- production migration executed: no.
+
+Current stage: `STORE_PAYMENT_STAGING_APPROVAL_READY`.
 
 ## Current Conditions
 

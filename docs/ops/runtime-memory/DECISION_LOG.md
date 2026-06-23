@@ -1,5 +1,26 @@
 # Decision Log
 
+## 2026-06-23 - Store Payment Staging Deploy Approval Prep
+
+Decision: READY_FOR_USER_APPROVAL.
+
+Rationale:
+
+- Staging deploy approval package is complete.
+- Approval matrix is complete.
+- Business UAT scope is complete.
+- A2 review is PASS WITH CONDITIONS.
+- A1 validation is PASS WITH CONDITIONS.
+- A5 review is GO WITH CONDITIONS.
+- This Gate did not deploy, push, write remote DB, execute staging migration, execute production migration, seed, cleanup, reset, or modify business code.
+
+Next approvals:
+
+1. `USER_APPROVES_PUSH_OR_NOT`
+2. `USER_APPROVES_STAGING_DEPLOY_OR_NOT`
+3. `USER_APPROVES_STAGING_DB_MIGRATION_OR_NOT`
+4. `USER_APPROVES_BUSINESS_UAT_SCOPE_OR_NOT`
+
 ## 2026-06-23 - A7 Store Payment Final QA Gate
 
 Decision: GO WITH CONDITIONS.

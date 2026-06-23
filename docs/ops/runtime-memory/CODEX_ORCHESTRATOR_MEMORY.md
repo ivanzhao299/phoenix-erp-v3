@@ -5,9 +5,9 @@ Last updated: 2026-06-23
 ## Active Context
 
 - Active module: Store Payment
-- Current stage: STORE_PAYMENT_CONTROLLED_PILOT_READY
-- Active decision: GO_WITH_CONDITIONS
-- Next gate: USER_APPROVAL_FOR_STAGING_DEPLOY
+- Current stage: STORE_PAYMENT_STAGING_APPROVAL_READY
+- Active decision: WAITING_USER_APPROVAL
+- Next gate: USER_APPROVES_STAGING_DEPLOY_OR_NOT
 - Page entry: `/store-payment`
 - Menu entry: 销售管理 / 统一收款
 
@@ -36,6 +36,9 @@ Store Payment is ready for controlled pilot with conditions:
 - A6 staging deploy runbook is complete.
 - A7 final QA Gate is complete.
 - Controlled pilot decision is GO WITH CONDITIONS.
+- Staging deploy approval package is complete.
+- Approval matrix is complete.
+- Business UAT scope is complete.
 - Staging deploy has not been executed and still requires explicit user approval.
 
 ## Current Hard Stops
