@@ -6,7 +6,7 @@ Last updated: 2026-06-23
 
 GO WITH CONDITIONS.
 
-Store Payment has passed controlled protected attachment UAT smoke for both the pilot account QR file and a Store Payment record proof fixture, not production deployment. File Metadata / ACL foundation is available, Store Payment protected attachment proxy endpoints stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass, and `/store-payment` now uses protected endpoints for QR and proof preview / download paths.
+Store Payment has passed controlled protected attachment UAT smoke for both the pilot account QR file and a Store Payment record proof fixture, not production deployment. File Metadata / ACL foundation is available, Store Payment protected attachment proxy endpoints stream when a valid `file_metadata.file_id` exists and ownership / RBAC / DataScope pass, and `/store-payment` now uses protected endpoints for QR and proof preview / download paths. A6 staging deploy runbook is now ready; staging deploy is still not executed and still requires explicit user approval.
 
 ## Completed Facts
 
@@ -153,6 +153,32 @@ Page-level UAT evidence:
 - `storage_path` leaked: no.
 
 Current stage: `STORE_PAYMENT_RECORD_PROOF_ATTACHMENT_UAT_VERIFIED`.
+
+## A6 Staging Deploy Runbook Result
+
+Conclusion: GO WITH CONDITIONS.
+
+Runbook:
+
+- `docs/ops/A6_STORE_PAYMENT_STAGING_DEPLOY_RUNBOOK.md`
+
+Report:
+
+- `docs/ops/A6_STORE_PAYMENT_STAGING_DEPLOY_RUNBOOK_REPORT.md`
+
+Result:
+
+- A6 staging deploy runbook completed.
+- staging deploy executed: no.
+- push executed: no.
+- remote DB write executed: no.
+- production migration executed: no.
+- A2 runbook review: PASS WITH CONDITIONS.
+- A1 runbook validation: PASS WITH CONDITIONS.
+- A5 staging data review: GO WITH CONDITIONS.
+- A7 Final QA Gate is allowed as the next review Gate.
+
+Current stage: `STORE_PAYMENT_STAGING_RUNBOOK_READY`.
 
 ## Current Conditions
 

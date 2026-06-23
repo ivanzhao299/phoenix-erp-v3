@@ -5,9 +5,9 @@ Last updated: 2026-06-23
 ## Active Context
 
 - Active module: Store Payment
-- Current stage: CONTROLLED_UAT_READY
+- Current stage: STORE_PAYMENT_STAGING_RUNBOOK_READY
 - Active decision: GO_WITH_CONDITIONS
-- Next gate: STORE_PAYMENT_UAT_SMOKE
+- Next gate: A7_FINAL_QA_GATE
 - Page entry: `/store-payment`
 - Menu entry: 销售管理 / 统一收款
 
@@ -23,14 +23,18 @@ Last updated: 2026-06-23
 
 ## Latest Store Payment Decision
 
-Store Payment is ready for controlled UAT smoke with conditions:
+Store Payment is ready for A7 Final QA Gate with conditions:
 
 - Frontend page exists at `/store-payment`.
 - Store Payment menu exists under 销售管理 / 统一收款.
 - Permission buttons are controlled by `MENU_STORE_PAYMENT*` and V/E/X action bits.
-- proof / QR preview and download remain disabled.
+- proof / QR preview and download use protected Store Payment endpoints when approved metadata, ownership, RBAC, and DataScope checks pass.
 - The page does not show raw URLs or build `/uploads` links.
 - Store code canonical display is `STORE-VTE-001 / 万象直营店`; `ST-VTE-001` is legacy alias only.
+- Account QR protected attachment UAT passed.
+- Record proof protected attachment UAT passed.
+- A6 staging deploy runbook is complete.
+- Staging deploy has not been executed and still requires explicit user approval.
 
 ## Current Hard Stops
 
@@ -38,5 +42,5 @@ Store Payment is ready for controlled UAT smoke with conditions:
 - No push.
 - No remote production DB write.
 - No migration unless a dedicated Gate is approved.
-- No real attachment preview/download.
+- No staging deploy without explicit approval.
 - No raw URL exposure.

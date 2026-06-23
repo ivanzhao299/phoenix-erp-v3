@@ -1,5 +1,25 @@
 # Decision Log
 
+## 2026-06-23 - A6 Store Payment Staging Deploy Runbook
+
+Decision: GO WITH CONDITIONS.
+
+Rationale:
+
+- Store Payment account QR attachment UAT has passed through protected endpoints.
+- Store Payment record proof attachment UAT has passed through protected endpoints.
+- `rawUrl`, `/uploads`, and `storage_path` remain blocked from Store Payment frontend exposure.
+- A6 staging deploy runbook now defines environment prerequisites, precheck checklist, draft deployment steps, post-deployment validation, rollback plan, and A7 input conditions.
+- No staging deployment, push, remote DB write, production migration, seed, cleanup, or reset was executed.
+
+Conditions:
+
+- Staging deploy requires explicit user approval.
+- Staging DB backup, env, migration state, menu / role sync, store scope, file storage, and UAT fixture policy must be confirmed before deployment.
+- A2 must review staging security evidence before final GO.
+- A5 must confirm staging data prerequisites before pilot release.
+- A7 Final QA Gate is the next allowed review Gate.
+
 ## 2026-06-23 - Store Payment Record Proof Attachment UAT Fixture
 
 Decision: GO WITH CONDITIONS.
