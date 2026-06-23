@@ -74,7 +74,32 @@ Reason: Store Payment tables are absent. Menu/role/data/account/attachment valid
 
 ## A2 / A1 Precheck
 
-Status: queued for automatic A2 read-only security precheck and A1 static validation.
+| Precheck | Output | Result | Summary |
+| --- | --- | --- | --- |
+| A2 read-only security precheck | `docs/ops/A2_STORE_PAYMENT_S1_APPROVAL_PRECHECK_REPORT.md` | `PASS WITH CONDITIONS` | The approval matrix is acceptable as a precheck artifact. Migration may enter only one separate execution request after explicit approval. Menu registration, role grants, alias/normalization, protected attachment backend work, A4 frontend work, deployment, and push remain out of scope. A2 requires permission-bit alignment, Store Payment DataScope proof, protected attachment ACL review, and no broad fallback grants. |
+| A1 static gate precheck | `docs/ops/A1_STORE_PAYMENT_S1_APPROVAL_PRECHECK_REPORT.md` | `PASS WITH CONDITIONS` | Required source docs exist. Migration `down()`, migration no-data-DML, nullable unique, W5 closeout, and freeze boundary gates passed. Store Payment migration hash remains `703c39d6f819e1d8f2db807092f6ee58f02d75e1cf4258cc46fda572b4a5076d`. |
 
-Final decision remains `READY_FOR_SINGLE_GATE_APPROVAL` unless A2/A1 downgrade it.
+## Final Precheck Decision
 
+Decision: `READY_FOR_SINGLE_GATE_APPROVAL`
+
+The S1 approval matrix is complete enough to ask the user for the first real execution Gate, but only as a single-action request.
+
+Recommended first real execution Gate:
+
+`S1-APP-001 Store Payment migration execution gate`
+
+The first execution request must include:
+
+1. Target environment.
+2. Exact migration file and hash.
+3. Backup and restore owner.
+4. Execution window.
+5. Rollback owner and rollback command boundary.
+6. Immediate A1/A2 precheck commands.
+7. Post-execution A5 read-only catalog evidence.
+8. No bundled menu registration, role grants, store-code normalization, protected attachment implementation, A4 frontend implementation, deployment, or push.
+
+A3 Backend Gate remains blocked.
+
+A4 Frontend Gate remains blocked.
