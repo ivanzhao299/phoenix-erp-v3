@@ -11,6 +11,7 @@ Last updated: 2026-06-24
 6. `APPROVE_ACTION_BIT_LEGACY_CLEANUP_PLAN`.
    - Local Store Payment runtime already uses target `E` for write actions; remaining cleanup is a narrow future DB Gate to remove temporary Store Payment-only `C/A` grants after runtime verification.
 7. `HOLD_MANUAL_REVIEW_REQUIRED_SCOPE_ITEMS`.
+   - Manual scope cleanup is ready for business review: users 296, 299, and 1460 remain excluded; no automatic global/store scope grant is allowed.
 8. `HOLD_UNRESOLVED_UPLOADS_MANUAL_REVIEW`.
 9. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN`.
 10. `APPROVE_A1_RUNTIME_SECURITY_FIX_IMPLEMENTATION`.
