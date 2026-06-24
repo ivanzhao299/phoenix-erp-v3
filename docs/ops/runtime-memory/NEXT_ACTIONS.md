@@ -9,6 +9,7 @@ Last updated: 2026-06-24
    - Fresh read-only evidence confirms production-side Store Payment account and record tables are empty; next write must be a narrow disabled/pending account-placeholder Gate only.
 5. `APPROVE_MASTER_DATA_REMEDIATION_PLAN`.
 6. `APPROVE_ACTION_BIT_LEGACY_CLEANUP_PLAN`.
+   - Local Store Payment runtime already uses target `E` for write actions; remaining cleanup is a narrow future DB Gate to remove temporary Store Payment-only `C/A` grants after runtime verification.
 7. `HOLD_MANUAL_REVIEW_REQUIRED_SCOPE_ITEMS`.
 8. `HOLD_UNRESOLVED_UPLOADS_MANUAL_REVIEW`.
 9. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN`.
