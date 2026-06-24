@@ -8,7 +8,9 @@ Last updated: 2026-06-24
 4. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS`.
    - Fresh read-only evidence confirms production-side Store Payment account and record tables are empty; next write must be a narrow disabled/pending account-placeholder Gate only.
 5. `APPROVE_STORE_PAYMENT_ACCOUNT_PLACEHOLDER_WRITE_EXECUTION`.
-   - Candidate SQL and rollback SQL are prepared for exactly three disabled/inactive placeholder accounts under `STORE-VTE-001 / COMP-LAO-AGRI`. Execution is HOLD until user explicitly approves production DB write and the immediate read-only precheck succeeds.
+   - Candidate SQL and rollback SQL are prepared for exactly three disabled/inactive placeholder accounts under `STORE-VTE-001 / COMP-LAO-AGRI`.
+   - Latest short-probe precheck confirmed `accounts=0`, `records=0`, `menus=5`, `STORE-VTE-001/COMP-LAO-AGRI ACTIVE`, and `grants=11`.
+   - Execution remains HOLD until the user explicitly approves production DB write.
 6. `APPROVE_MASTER_DATA_REMEDIATION_PLAN`.
    - Master-data repair plan is now docs-complete: keep `STORE-VTE-001 / COMP-LAO-AGRI` canonical, keep `ST-VTE-001` as Store Payment legacy alias only, and do not perform broad auto-rewrites.
 7. `APPROVE_ACTION_BIT_LEGACY_CLEANUP_PLAN`.
