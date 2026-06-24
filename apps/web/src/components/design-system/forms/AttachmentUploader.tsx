@@ -4,7 +4,7 @@ import { Upload, X, FileText } from 'lucide-react';
 
 /**
  * AttachmentUploader — 统一多附件上传（基于现有 /api/upload/contract 通道）。
- * value: string[]（已上传 url 列表）；onChange 返回新列表。审批后 readOnly 只读。
+ * value: string[]（受控 fileId 或历史附件引用列表）；onChange 返回新列表。审批后 readOnly 只读。
  */
 export interface AttachmentUploaderProps {
   value: string[];
@@ -46,8 +46,9 @@ export function AttachmentUploader({ value, onChange, readOnly, label = '上传�
           continue;
         }
         const json = ct.includes('application/json') ? await res.json() : {};
-        if (json?.url) added.push(json.url);
-        else errs.push(`${file.name}：服务端未返回 url`);
+        if (json?.fileId) added.push(String(json.fileId));
+        else if (json?.url) added.push(String(json.url));
+        else errs.push(`${file.name}：服务端未返回受控 fileId`);
       }
       if (added.length) onChange([...value, ...added]);
       if (errs.length) setErr(errs.join('；'));
@@ -79,25 +80,38 @@ export function AttachmentUploader({ value, onChange, readOnly, label = '上传�
   );
 }
 
-// G169：已上传附件单项——图片显示 40px 缩略图(可点开大图)，加载失败/非图片回退 FileText
-//   图标；移除键改中性灰(原红色 X 被误当成"破图红叉")。改一次全站上传按钮受益。
+function isUnsafeAttachmentRef(ref: string) {
+  const value = ref.trim().toLowerCase();
+  return value.startsWith('/uploads/') || value.startsWith('uploads/') || value.startsWith('http://') || value.startsWith('https://');
+}
+
+function isProtectedFileRef(ref: string) {
+  return /^FILE-[A-Za-z0-9._:-]+$/.test(ref.trim());
+}
+
+// G169：已上传附件单项。新上传返回受控 fileId；历史裸 URL 只显示为禁用引用，不再渲染可点击裸链接。
 function AttachmentChip({ url, index, readOnly, onRemove }: {
   url: string; index: number; readOnly?: boolean; onRemove: () => void;
 }) {
-  const looksImg = /\.(png|jpe?g|webp|gif|bmp)(\?|#|$)/i.test(url);
-  const [broken, setBroken] = useState(false);
-  const showImg = looksImg && !broken;
+  const unsafe = isUnsafeAttachmentRef(url);
+  const protectedRef = isProtectedFileRef(url);
+  const displayName = protectedRef ? url : `附件${index + 1}`;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px 5px 5px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', fontSize: 12.5 }}>
-      {showImg ? (
-        <a href={url} target="_blank" rel="noreferrer" style={{ display: 'flex' }} title="点击查看大图">
-          <img src={url} alt={`附件${index + 1}`} onError={() => setBroken(true)}
-            style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)', display: 'block' }} />
-        </a>
-      ) : (
-        <FileText size={18} style={{ color: 'var(--text-secondary)' }} />
-      )}
-      <a href={url} target="_blank" rel="noreferrer" style={{ color: 'var(--color-accent)' }}>附件{index + 1}</a>
+      <FileText size={18} style={{ color: unsafe ? 'var(--status-warning)' : 'var(--text-secondary)' }} />
+      <span
+        title={unsafe ? '历史裸链接已被安全策略禁用' : (protectedRef ? '受控附件引用，需通过模块受控端点访问' : displayName)}
+        style={{
+          color: unsafe ? 'var(--status-warning)' : 'var(--color-accent)',
+          maxWidth: 220,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {unsafe ? '历史附件链接已禁用' : displayName}
+      </span>
+      {protectedRef && <span style={{ color: 'var(--text-tertiary)' }}>受控</span>}
       {!readOnly && (
         <button onClick={onRemove} title="移除" style={{ border: 'none', background: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex' }}>
           <X size={14} />

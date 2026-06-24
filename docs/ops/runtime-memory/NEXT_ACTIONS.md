@@ -20,6 +20,7 @@ Last updated: 2026-06-24
 
 1. Use Agent Inbox for short commands instead of long prompt copy/paste.
 2. Start `APPROVE_LEGACY_UPLOAD_RUNTIME_VERIFICATION_GATE` as read-only first; do not upload test files unless separately approved.
+   - Local compatibility fix is complete: generic upload UI now accepts protected `fileId` and blocks raw `/uploads` or `http(s)` links.
 3. Refresh `APPROVE_DEPLOY_CHAIN_HARDENING_DRY_RUN` remote evidence after SSH command-level stability improves; local manifest is already documented.
 4. Refresh `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REFRESH_OR_EXECUTION_PLAN` with SSH concurrency 1 before any execution manifest.
 5. Keep `PRD-P0-002 A1_RUNTIME_SECURITY_FIX_IMPLEMENTATION` in GO WITH CONDITIONS and rerun full A1 closeout after deploy-chain and runtime verification gates.
