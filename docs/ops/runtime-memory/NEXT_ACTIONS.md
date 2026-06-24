@@ -18,6 +18,7 @@ Last updated: 2026-06-24
    - Manual scope cleanup is ready for business review: users 296, 299, and 1460 remain excluded; no automatic global/store scope grant is allowed.
    - Decision matrix is prepared under `APPROVE_MANUAL_SCOPE_USER_DECISIONS`.
 9. `HOLD_UNRESOLVED_UPLOADS_MANUAL_REVIEW`.
+   - Manual review matrix is prepared under `APPROVE_UNRESOLVED_UPLOADS_MANUAL_REVIEW_DECISIONS`; 59 files remain fail-closed and must not be auto-claimed.
 10. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN`.
 11. `APPROVE_A1_RUNTIME_SECURITY_FIX_IMPLEMENTATION`.
 12. `APPROVE_DEPLOY_CHAIN_HARDENING_DRY_RUN`.

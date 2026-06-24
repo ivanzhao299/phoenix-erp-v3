@@ -1,0 +1,5 @@
+timestamp=20260624-173017
+mode=manual-review-package
+branch=codex/prod-readiness-remediation
+head=6897f6b0b66abae60c5e45ad2d2f2e17bd7f0fad
+source=docs/ops/runs/restore-ssh-and-metadata-claim-dry-run-20260624-111145/metadata_claim_dry_run_rows.json
