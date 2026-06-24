@@ -1,0 +1,7 @@
+perm_id:bigint
+role_id:bigint
+menu_id:bigint
+perm_codes:character varying
+deny_codes:character varying
+scope_type:character varying
+scope_value:character varying

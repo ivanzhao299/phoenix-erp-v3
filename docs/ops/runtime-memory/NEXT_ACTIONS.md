@@ -6,6 +6,7 @@ Last updated: 2026-06-24
 2. `USER_WRITES_SHORT_INTENT_TO_AGENT_INBOX`.
 3. `AGENT_EXPANDS_CONTEXT_FROM_RUNTIME_MEMORY`.
 4. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS`.
+   - Fresh read-only evidence confirms production-side Store Payment account and record tables are empty; next write must be a narrow disabled/pending account-placeholder Gate only.
 5. `APPROVE_MASTER_DATA_REMEDIATION_PLAN`.
 6. `APPROVE_ACTION_BIT_LEGACY_CLEANUP_PLAN`.
 7. `HOLD_MANUAL_REVIEW_REQUIRED_SCOPE_ITEMS`.
