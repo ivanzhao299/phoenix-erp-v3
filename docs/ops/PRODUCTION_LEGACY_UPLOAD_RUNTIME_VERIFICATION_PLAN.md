@@ -18,7 +18,7 @@ The source-level legacy upload hardening exists, but the production-side running
 
 | Area | Status |
 | --- | --- |
-| Source upload response | Updated to return `fileId`, `rawUrl: null`, `url: null` |
+| Source upload response | Updated to return `fileId`, `rawUrl: null`, compatibility `url=fileId` |
 | Runtime deploy/restart | Not executed in the source hardening Gate |
 | Public Nginx `/uploads` | Hardened to 403 |
 | Internal API static `/uploads` | Still returns 200 by prior evidence |

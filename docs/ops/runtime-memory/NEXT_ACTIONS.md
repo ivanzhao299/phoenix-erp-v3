@@ -23,7 +23,7 @@ Last updated: 2026-06-24
 11. `APPROVE_A1_RUNTIME_SECURITY_FIX_IMPLEMENTATION`.
 12. `APPROVE_DEPLOY_CHAIN_HARDENING_DRY_RUN`.
 13. `APPROVE_LEGACY_UPLOAD_RUNTIME_VERIFICATION_GATE`.
-   - Completed as read-only runtime-static verification: production API dist includes `fileId`, `rawUrl: null`, `url: null`, and `LEGACY_PENDING`. Remaining write probe requires separate approval.
+   - Completed as read-only runtime-static verification; follow-up compatibility fix changes upload response `url` to protected `fileId` while keeping `rawUrl: null` and `LEGACY_PENDING`. Remaining authenticated write probe requires separate approval after deploy.
 14. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REFRESH_OR_EXECUTION_PLAN`.
 15. `APPROVE_STORE_PAYMENT_REMOTE_UAT_FIXTURE_SETUP`.
    - Remote Store Payment runtime shell is verified, but business UAT is HOLD because account, record, and Store Payment file metadata row counts are `0`.

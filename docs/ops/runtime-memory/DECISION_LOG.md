@@ -530,7 +530,7 @@ Artifacts:
 Rationale:
 
 - `POST /api/upload/contract` source code now writes `file_metadata`.
-- The updated response returns `fileId`, safe metadata, `rawUrl: null`, and `url: null`.
+- The updated response returns `fileId`, safe metadata, `rawUrl: null`, and compatibility `url=fileId`.
 - The updated response does not return `/uploads/contracts/...` and does not expose `storage_path`.
 - Missing owner data is fail-closed as `LEGACY_UPLOAD / LEGACY_PENDING / PENDING / PROTECTED`.
 - No generic protected file endpoint exists yet, so the response does not fake `/files/:fileId/status`.

@@ -150,7 +150,7 @@ Store Payment is ready for controlled pilot with conditions:
 - File Metadata migration Gate completed with GO WITH CONDITIONS.
 - Fresh SSH DB identity recheck failed with banner timeout after R1; use the R1 server-side evidence bundle and require DB identity checks in the drift reconciliation Gate.
 - Uploads / file security precheck completed: confirmed P0 direct legacy `/uploads/contracts` file exposure; no file delete, DB write, Nginx change, deploy, restart, or push was executed.
-- Legacy upload-to-file_metadata Gate completed with conditions in source code: `POST /api/upload/contract` now writes `file_metadata` and returns `fileId`, `rawUrl: null`, and `url: null` instead of a naked `/uploads/contracts/...` path.
+- Legacy upload-to-file_metadata Gate completed with conditions in source code: `POST /api/upload/contract` writes `file_metadata` and returns `fileId`, `rawUrl: null`, and compatibility `url=fileId` instead of a naked `/uploads/contracts/...` path.
 - Runtime deployment/restart was not executed in the legacy upload metadata Gate; production-side runtime proof is still pending a separately approved deploy/restart or runtime verification Gate.
 - Remote SSH smoke for the legacy upload metadata Gate failed during banner exchange; do not claim remote row-count increase from this Gate.
 - Runtime metadata rows written by the legacy upload metadata Gate: 0.

@@ -206,7 +206,7 @@ Conclusion: GO WITH CONDITIONS.
 Facts:
 
 - `POST /api/upload/contract` source code now writes `file_metadata`.
-- The new response returns `fileId`, safe metadata, `rawUrl: null`, `previewUrl: null`, `downloadUrl: null`, and `url: null`.
+- The new response returns `fileId`, safe metadata, `rawUrl: null`, `previewUrl: null`, `downloadUrl: null`, and compatibility `url=fileId`.
 - The new response does not return `/uploads/contracts/...`.
 - `storage_path` is stored only in `file_metadata` and is not returned.
 - Missing module / owner input is stored as `LEGACY_UPLOAD / LEGACY_PENDING / LEGACY_PENDING` with `status=PENDING` and `visibility=PROTECTED`.
@@ -353,7 +353,7 @@ Store Payment has passed controlled protected attachment UAT smoke for both the 
 23. Preview/download routes verify ownership, RBAC, and DataScope, then return a denied-safe not-implemented response.
 24. File Metadata / ACL Gate created `file_metadata` and added `FileAccessService`.
 25. Store Payment protected status / preview / download routes now use `file_metadata.file_id`.
-26. Existing upload module source has been changed to return `fileId` + protected metadata with `rawUrl: null` and `url: null`; production runtime proof still requires a later approved deploy/restart or runtime verification Gate.
+26. Existing upload module source has been changed to return `fileId` + protected metadata with `rawUrl: null` and compatibility `url=fileId`; production runtime proof still requires CI/CD deploy verification.
 27. Current `file_metadata` row count is 1 after local UAT metadata setup; no seed was executed.
 28. A4 protected preview/download UI draft is implemented.
 29. Frontend calls only Store Payment protected attachment endpoints for status / preview / download.

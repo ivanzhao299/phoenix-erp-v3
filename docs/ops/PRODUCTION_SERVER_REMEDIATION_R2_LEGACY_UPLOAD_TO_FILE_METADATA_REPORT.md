@@ -64,11 +64,12 @@ The endpoint still stores the binary under the existing upload directory for com
   "protectedStatusEndpoint": null,
   "protectedEndpointStatus": "generic_protected_file_endpoint_not_available",
   "deprecatedLegacyPath": false,
-  "url": null
+  "url": "FILE-LEGACY-...",
+  "legacyUrlCompat": true
 }
 ```
 
-Storage path remains DB-only and is not returned.
+Storage path remains DB-only and is not returned. The compatibility `url` field is a protected `FILE-*` reference, not a URL.
 
 ## File Metadata Write
 
@@ -133,6 +134,7 @@ Recommended follow-up: a generic protected file endpoint Gate or module-specific
 | --- | --- |
 | Upload response no longer returns `/uploads` in updated source | PASS |
 | Upload response has `rawUrl: null` | PASS |
+| Upload response compatibility `url` is protected `FILE-*`, not naked URL | PASS |
 | Upload response does not include `storage_path` / `storagePath` | PASS for response; DB write still stores `storagePath` internally |
 | `file_metadata` write code path exists | PASS |
 | `file_metadata` runtime row count increased | NOT EXECUTED; no deploy/restart approved and remote SSH unavailable |
@@ -162,6 +164,7 @@ PASS WITH CONDITIONS.
 
 - New response does not include naked `/uploads`.
 - New response sets `rawUrl: null`.
+- Compatibility `url` now contains the protected `fileId` for old frontend bundles and cached clients; it is not a path or external link.
 - `storage_path` is DB-only and is not returned.
 - Missing owner is fail-closed as `LEGACY_PENDING` + `PENDING` + `PROTECTED`.
 - Store Payment protected endpoint code was not changed.
@@ -224,4 +227,3 @@ Goal:
 Alternative if access control is more urgent:
 
 `APPROVE_MENU_ROLE_DATASCOPE_REMOTE_AUDIT`
-

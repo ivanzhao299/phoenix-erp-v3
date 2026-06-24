@@ -41,7 +41,7 @@ export class UploadController {
   /**
    * POST /api/upload/contract
    * 上传采购合同或单据（PDF / 图片）
-   * 返回 file_metadata 受控引用；兼容字段 url 保留为 null。
+   * 返回 file_metadata 受控引用；兼容字段 url 返回 fileId，不返回裸文件路径。
    */
   @Post('contract')
   @UseInterceptors(
@@ -122,8 +122,9 @@ export class UploadController {
       protectedStatusEndpoint: null,
       protectedEndpointStatus: 'generic_protected_file_endpoint_not_available',
       deprecatedLegacyPath: false,
-      url: null,
-      message: 'File uploaded as protected metadata; use a protected endpoint after module ownership is assigned.',
+      url: metadata.fileId,
+      legacyUrlCompat: true,
+      message: 'File uploaded as protected metadata; compatibility url contains fileId, not a raw URL.',
     };
   }
 

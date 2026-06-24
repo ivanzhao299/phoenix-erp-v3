@@ -35,7 +35,7 @@ No secret values are intentionally recorded.
 | Running API image captured | `PASS` | Remote API image ID recorded from `phoenix-v3-api`. |
 | Running upload controller contains `fileId` | `PASS` | `/app/dist/modules/upload/upload.controller.js` contains `fileId`. |
 | Running upload controller returns `rawUrl: null` | `PASS` | Runtime dist grep shows `rawUrl: null`. |
-| Running upload controller returns `url: null` | `PASS` | Runtime dist grep shows `url: null`. |
+| Running upload controller returns compatibility `url` as protected `FILE-*` | `SUPERSEDED BY FIX` | Follow-up fix changes `url` from `null` to protected `fileId` to support old frontend clients without returning naked `/uploads`. |
 | Running upload controller marks legacy owner as `LEGACY_PENDING` | `PASS` | Runtime dist grep shows `LEGACY_PENDING`. |
 | Running upload controller keeps `deprecatedLegacyPath: false` | `PASS` | Runtime dist grep shows `deprecatedLegacyPath: false`. |
 | API static `/uploads` mount still present | `CONDITION` | `/app/dist/main.js` still contains `app.useStaticAssets(uploadsDir, { prefix: '/uploads' })`. Public Nginx/API behavior currently returns `404` for tested paths, but static mount remains a hardening follow-up. |
@@ -58,7 +58,7 @@ Conclusion: `PASS WITH CONDITIONS`
 Passing:
 
 1. Running upload controller code contains the hardened response shape.
-2. Runtime dist evidence shows `rawUrl: null` and `url: null`.
+2. Runtime dist evidence originally showed `rawUrl: null` and `url: null`; follow-up compatibility fix keeps `rawUrl: null` and sets `url` to protected `FILE-*`.
 3. Runtime dist evidence shows legacy owner fallback remains fail-closed as `LEGACY_PENDING`.
 4. Public `/uploads` probes did not expose raw files or directory listing.
 5. Local generic frontend components no longer render raw upload references as clickable links.

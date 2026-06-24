@@ -6,7 +6,7 @@ Date: 2026-06-24
 
 This batch addresses the local code portion of `PRD-P0-004 Legacy upload runtime verification gate`.
 
-The previous backend hardening changed `POST /api/upload/contract` to return a protected `fileId` with `rawUrl: null` and `url: null`. The local frontend upload components still expected `json.url` and rendered attachment references as clickable links. That created two risks:
+The previous backend hardening changed `POST /api/upload/contract` to return a protected `fileId` with `rawUrl: null` and initially `url: null`. The follow-up compatibility fix now returns `url=fileId` while keeping `rawUrl: null`. Local frontend upload components accept `json.fileId`, and generic attachment display is fail-closed for raw links. The original risks were:
 
 1. New hardened upload responses could be treated as failed uploads because `url` is now intentionally null.
 2. Historical `/uploads` or absolute URL values could still be rendered as clickable raw links in generic upload UI.
