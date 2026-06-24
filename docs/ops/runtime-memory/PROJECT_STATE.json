@@ -136,7 +136,7 @@
     "production_p0_002_api_typecheck": "PASS",
     "production_p0_002_api_jest": "PASS",
     "production_p0_002_dev_login_failfast": "PASS",
-    "production_p0_003_deploy_chain_hardening_dry_run": "HOLD_WITH_CONDITIONS_REMOTE_REFRESH_FAILED",
+    "production_p0_003_deploy_chain_hardening_dry_run": "HOLD_WITH_CONDITIONS_SSH_EVIDENCE_CHANNEL_BLOCKED",
     "production_p0_003_push_main_hold": true,
     "production_p0_003_production_deploy_hold": true,
     "production_next_recommended_gate": "APPROVE_LEGACY_UPLOAD_RUNTIME_VERIFICATION_GATE",

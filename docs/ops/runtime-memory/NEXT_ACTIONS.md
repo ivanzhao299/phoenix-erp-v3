@@ -31,6 +31,8 @@ Last updated: 2026-06-24
    - P1-006 fixed local `/store-payment` route guarding and confirmed production JWT fallback is off; cookie flags still require a credentialed login smoke after deployment.
 17. `APPROVE_ROLLBACK_RESTORE_VALIDATION_FIX_GATE`.
    - P1-007 captured current runtime image IDs, but rollback readiness remains HOLD until `/opt/phoenix-erp` git ownership/safe-directory inspection, backup location, compose path, and previous known-good image evidence are proven under an A6 gate.
+18. `REPAIR_PRODUCTION_SSH_EVIDENCE_CHANNEL_OR_APPROVE_ALTERNATE_EVIDENCE`.
+   - Latest `PRD-P0-003` remote refresh retry after commit `8833269c` still failed with SSH banner exchange timeout / no-output hangs. Deploy-chain governance remains HOLD until remote checkout, Nginx diff, backup artifacts, compose path, and rollback evidence can be refreshed reliably.
 
 ## Recommended Immediate Sequence
 
@@ -40,7 +42,7 @@ Last updated: 2026-06-24
 3. Keep `APPROVE_LEGACY_UPLOAD_RUNTIME_VERIFICATION_GATE` as GO WITH CONDITIONS.
    - Local compatibility fix is complete: generic upload UI now accepts protected `fileId` and blocks raw `/uploads` or `http(s)` links.
    - Production runtime-static evidence now shows the running API returns the hardened upload shape. Do not run the upload write probe unless separately approved.
-4. Refresh `APPROVE_DEPLOY_CHAIN_HARDENING_DRY_RUN` remote evidence after SSH command-level stability improves; local manifest is already documented.
+4. Refresh `APPROVE_DEPLOY_CHAIN_HARDENING_DRY_RUN` remote evidence only after SSH command-level stability improves or an alternate trusted evidence channel is approved; latest retry still failed.
 5. Refresh `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REFRESH_OR_EXECUTION_PLAN` with SSH concurrency 1 before any execution manifest.
 6. Keep `PRD-P0-002 A1_RUNTIME_SECURITY_FIX_IMPLEMENTATION` in GO WITH CONDITIONS and rerun full A1 closeout after deploy-chain and runtime verification gates.
 7. Keep master data remediation separate from initial import repair.

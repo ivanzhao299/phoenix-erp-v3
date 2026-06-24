@@ -1,0 +1,3 @@
+--- identity ---
+Connection timed out during banner exchange
+Connection to 47.236.122.224 port 22 timed out
