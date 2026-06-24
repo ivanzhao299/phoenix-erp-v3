@@ -21,6 +21,8 @@ Last updated: 2026-06-24
 13. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REFRESH_OR_EXECUTION_PLAN`.
 14. `APPROVE_STORE_PAYMENT_REMOTE_UAT_FIXTURE_SETUP`.
    - Remote Store Payment runtime shell is verified, but business UAT is HOLD because account, record, and Store Payment file metadata row counts are `0`.
+15. `APPROVE_AUTH_COOKIE_CREDENTIAL_SMOKE`.
+   - P1-006 fixed local `/store-payment` route guarding and confirmed production JWT fallback is off; cookie flags still require a credentialed login smoke after deployment.
 
 ## Recommended Immediate Sequence
 

@@ -1,0 +1,3 @@
+timestamp=20260624-171117
+mode=read-only
+host=erp.eggslao.com

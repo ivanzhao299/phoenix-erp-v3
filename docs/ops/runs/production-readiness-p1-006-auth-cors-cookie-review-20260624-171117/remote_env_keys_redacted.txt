@@ -1,0 +1,5 @@
+--- api env keys redacted ---
+Connection closed by 47.236.122.224 port 22
+--- web env keys redacted ---
+Connection timed out during banner exchange
+Connection to 47.236.122.224 port 22 timed out

@@ -52,6 +52,7 @@ const GUARDED_PREFIXES = [
   '/workflow',
   '/uat',
   '/system',
+  '/store-payment',
 ];
 
 /** 超级管理员专属路由（需要 ROLE_ADMIN 或 ROLE_SYSOPS） */

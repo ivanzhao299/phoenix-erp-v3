@@ -1,0 +1,54 @@
+--- apps/api/src/main.ts auth/cors/security refs ---
+14:  if (isProd && process.env.ENABLE_DEV_LOGIN === 'true') {
+15:    console.error('[SEC-CRITICAL] ENABLE_DEV_LOGIN=true is forbidden in production.');
+37:    app.getHttpAdapter().getInstance().set('trust proxy', 1);
+41:  const allowedOrigins = process.env.CORS_ORIGINS
+42:    ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
+45:  app.enableCors({
+56:    res.setHeader('X-Content-Type-Options', 'nosniff');
+57:    res.setHeader('X-Frame-Options', 'DENY');
+60:      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+--- apps/api/src/auth/jwt.strategy.ts jwt fail-fast refs ---
+1:import { Injectable, UnauthorizedException } from '@nestjs/common';
+33:    const jwtSecret = configService.get<string>('JWT_SECRET');
+34:    const isProd = (process.env.NODE_ENV || 'development') === 'production';
+38:      throw new Error('[SEC-CRITICAL] JWT_SECRET 未配置或使用默认值，生产环境禁止启动！请设置环境变量 JWT_SECRET。');
+41:      console.warn('[SEC-WARN] JWT_SECRET 未设置，当前使用开发临时密钥。生产部署前必须设置！');
+44:    // 双密钥并行：主 secret 失败时回退到 JWT_SECRET_PREV
+48:    const prevSecret = configService.get<string>('JWT_SECRET_PREV') || '';
+80:      throw new UnauthorizedException({ statusCode: 401, subcode: 'INVALID_TOKEN', message: '登录凭证无效' });
+105:        throw new UnauthorizedException({ statusCode: 401, subcode: 'PERMS_CHANGED', message: '权限刚刚更新，请重新登录' });
+--- apps/api/src/health.controller.ts jwt health refs ---
+25:   *   - jwt.loaded == false        → JWT_SECRET 未配置（dev fallback 不算）
+26:   *   - jwt.rotation_active 持续 24h+ → 提醒删除 JWT_SECRET_PREV
+30:    const jwtSecretEnv = process.env.JWT_SECRET || '';
+31:    const jwtSecretPrev = process.env.JWT_SECRET_PREV || '';
+53:        rotation_active: !!jwtSecretPrev,
+59:        jwt_fallback_in_use: jwtSecretEnv === '' || jwtSecretEnv === FALLBACK_SECRET,
+60:        is_production: isProd,
+61:        warning: isProd && !jwtLoaded ? 'CRITICAL: JWT_SECRET not configured in production' : null,
+73:   *   - phoenix_jwt_loaded                  : 0 / 1 (real key configured)
+74:   *   - phoenix_jwt_rotation_active         : 0 / 1 (有 JWT_SECRET_PREV)
+107:    const jwtLoaded = !!process.env.JWT_SECRET && process.env.JWT_SECRET !== FALLBACK_SECRET;
+108:    const rotationActive = !!process.env.JWT_SECRET_PREV;
+109:    push('phoenix_jwt_loaded', 'JWT_SECRET configured with real key (1=yes)', 'gauge', [[null, jwtLoaded ? 1 : 0]]);
+110:    push('phoenix_jwt_rotation_active', 'Whether JWT_SECRET_PREV is set (rotation in progress)', 'gauge', [[null, rotationActive ? 1 : 0]]);
+--- apps/web/src/middleware.ts route guard refs ---
+18:const TOKEN_COOKIE = 'phoenix_access_token';
+32:const GUARDED_PREFIXES = [
+55:  '/store-payment',
+69:  return GUARDED_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/'));
+77:function parseJwtPayload(token: string): Record<string, any> | null {
+101:    const token = request.cookies.get(TOKEN_COOKIE)?.value;
+104:      return NextResponse.redirect(new URL(dest, request.url));
+110:      const p = parseJwtPayload(token);
+115:    return NextResponse.redirect(new URL(dest, request.url));
+123:    return NextResponse.redirect(loginUrl);
+137:  const token = request.cookies.get(TOKEN_COOKIE)?.value;
+145:    return NextResponse.redirect(loginUrl);
+149:  const payload = parseJwtPayload(token);
+155:    return NextResponse.redirect(loginUrl);
+164:    return NextResponse.redirect(loginUrl);
+175:      return NextResponse.redirect(homeUrl);
+--- apps/web/src/lib/impersonate.ts cookie write refs ---
+23:  document.cookie = `phoenix_access_token=${ck}; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax`;
