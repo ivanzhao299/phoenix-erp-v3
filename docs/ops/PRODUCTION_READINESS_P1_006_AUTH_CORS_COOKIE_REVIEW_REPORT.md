@@ -10,7 +10,7 @@ Conclusion: `GO WITH CONDITIONS`
 
 Review production auth, CORS, security headers, cookie/session behavior, and unauthenticated access boundaries using local code inspection and remote read-only evidence.
 
-This task also fixed one local frontend routing guard gap discovered during the audit: `/store-payment` was not included in the Next.js middleware guarded prefixes.
+This task also fixed one local frontend routing guard gap discovered during the audit: `/store-payment` was not included in the Next.js middleware guarded prefixes. A page-level token guard was also added so the Store Payment client page fails closed even if middleware or static cache behavior lags behind a deploy.
 
 ## Evidence Directory
 
@@ -30,6 +30,7 @@ No secret values are intentionally recorded. Remote environment evidence stores 
 ## Modified Files
 
 - `apps/web/src/middleware.ts`
+- `apps/web/src/app/(admin)/store-payment/page.tsx`
 - `docs/ops/PRODUCTION_READINESS_P1_006_AUTH_CORS_COOKIE_REVIEW_REPORT.md`
 - `docs/ops/PHOENIX_ERP_PRODUCTION_READINESS_TASK_LIST.md`
 - `docs/ops/runtime-memory/NEXT_ACTIONS.md`
@@ -77,10 +78,13 @@ Impact:
 Fix:
 
 - Added `/store-payment` to `GUARDED_PREFIXES`.
+- Added a Store Payment page-level token check. Until a token is confirmed, the page renders only a login-check notice and redirects to `/login?return=/store-payment`; it does not render account lists, payment records, buttons, attachment controls, or business UI details.
+- `getToken()` now checks both session storage and local storage, matching the rest of the web app token behavior.
 
 Expected result after web deployment:
 
 - Unauthenticated `/store-payment` access redirects to `/login` with a return path, consistent with other admin modules.
+- Even if middleware caching or deployment timing temporarily serves the page shell, the client page remains fail-closed and avoids rendering business UI without a token.
 
 ## A1 Validation
 
@@ -101,7 +105,8 @@ Passing:
 2. Unauthenticated API access is fail-closed.
 3. Security headers are present.
 4. Store Payment page shell route is now guarded locally.
-5. No secret values were printed in the report.
+5. Store Payment client page now also fails closed when no token is present.
+6. No secret values were printed in the report.
 
 Conditions:
 

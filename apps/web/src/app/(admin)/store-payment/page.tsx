@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Banknote,
@@ -171,8 +172,12 @@ const getToken = () => {
   try {
     const direct = sessionStorage.getItem("phoenix_token");
     if (direct) return direct;
+    const local = localStorage.getItem("phoenix_token");
+    if (local) return local;
     const user = JSON.parse(sessionStorage.getItem("phoenix_user") || "null");
-    return user?.token || "";
+    if (user?.token) return user.token;
+    const localUser = JSON.parse(localStorage.getItem("phoenix_user") || "null");
+    return localUser?.token || "";
   } catch {
     return "";
   }
@@ -271,12 +276,15 @@ function PermissionNote({ label, ok }: { label: string; ok: boolean }) {
 }
 
 export default function StorePaymentPage() {
+  const router = useRouter();
   const accountPerm = usePermission(MENU_ACCOUNT);
   const recordPerm = usePermission(MENU_RECORD);
   const confirmPerm = usePermission(MENU_CONFIRM);
   const voidPerm = usePermission(MENU_VOID);
   const exportPerm = usePermission(MENU_EXPORT);
 
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
   const [accounts, setAccounts] = useState<StorePaymentAccount[]>([]);
   const [records, setRecords] = useState<StorePaymentRecord[]>([]);
   const [accountQrAccess, setAccountQrAccess] = useState<Record<string, AttachmentAccess>>({});
@@ -404,8 +412,21 @@ export default function StorePaymentPage() {
   }, [loadAccounts, loadRecords]);
 
   useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      setAuthenticated(false);
+      setAuthChecked(true);
+      router.replace(`/login?return=${encodeURIComponent("/store-payment")}`);
+      return;
+    }
+    setAuthenticated(true);
+    setAuthChecked(true);
+  }, [router]);
+
+  useEffect(() => {
+    if (!authenticated) return;
     refresh();
-  }, [refresh]);
+  }, [authenticated, refresh]);
 
   useEffect(() => {
     const account = activeAccounts[0];
@@ -664,6 +685,21 @@ export default function StorePaymentPage() {
       </div>
     );
   };
+
+  if (!authChecked || !authenticated) {
+    return (
+      <div className={styles.shell}>
+        <PageHeader
+          title="统一收款管理"
+          subtitle="正在校验登录状态"
+          breadcrumb={["销售管理", "直营店", "统一收款"]}
+        />
+        <div className={styles.safeNotice}>
+          <Lock size={14} /> 正在跳转到登录页，未登录状态不会渲染统一收款业务数据。
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.shell}>
