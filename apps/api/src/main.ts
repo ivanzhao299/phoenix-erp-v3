@@ -10,6 +10,7 @@ import { mkdirSync } from 'fs';
 
 async function bootstrap() {
   const isProd = process.env.NODE_ENV === 'production';
+  // Keep this guard before Nest app creation so a bad production env fails closed.
   if (isProd && process.env.ENABLE_DEV_LOGIN === 'true') {
     console.error('[SEC-CRITICAL] ENABLE_DEV_LOGIN=true is forbidden in production.');
     process.exit(1);
