@@ -7,43 +7,47 @@ Last updated: 2026-06-24
 3. `AGENT_EXPANDS_CONTEXT_FROM_RUNTIME_MEMORY`.
 4. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS`.
    - Fresh read-only evidence confirms production-side Store Payment account and record tables are empty; next write must be a narrow disabled/pending account-placeholder Gate only.
-5. `APPROVE_MASTER_DATA_REMEDIATION_PLAN`.
+5. `APPROVE_STORE_PAYMENT_ACCOUNT_PLACEHOLDER_WRITE_EXECUTION`.
+   - Candidate SQL and rollback SQL are prepared for exactly three disabled/inactive placeholder accounts under `STORE-VTE-001 / COMP-LAO-AGRI`. Execution is HOLD until user explicitly approves production DB write and the immediate read-only precheck succeeds.
+6. `APPROVE_MASTER_DATA_REMEDIATION_PLAN`.
    - Master-data repair plan is now docs-complete: keep `STORE-VTE-001 / COMP-LAO-AGRI` canonical, keep `ST-VTE-001` as Store Payment legacy alias only, and do not perform broad auto-rewrites.
-6. `APPROVE_ACTION_BIT_LEGACY_CLEANUP_PLAN`.
+7. `APPROVE_ACTION_BIT_LEGACY_CLEANUP_PLAN`.
    - Local Store Payment runtime already uses target `E` for write actions; remaining cleanup is a narrow future DB Gate to remove temporary Store Payment-only `C/A` grants after runtime verification.
-7. `HOLD_MANUAL_REVIEW_REQUIRED_SCOPE_ITEMS`.
+8. `HOLD_MANUAL_REVIEW_REQUIRED_SCOPE_ITEMS`.
    - Manual scope cleanup is ready for business review: users 296, 299, and 1460 remain excluded; no automatic global/store scope grant is allowed.
-8. `HOLD_UNRESOLVED_UPLOADS_MANUAL_REVIEW`.
-9. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN`.
-10. `APPROVE_A1_RUNTIME_SECURITY_FIX_IMPLEMENTATION`.
-11. `APPROVE_DEPLOY_CHAIN_HARDENING_DRY_RUN`.
-12. `APPROVE_LEGACY_UPLOAD_RUNTIME_VERIFICATION_GATE`.
+9. `HOLD_UNRESOLVED_UPLOADS_MANUAL_REVIEW`.
+10. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN`.
+11. `APPROVE_A1_RUNTIME_SECURITY_FIX_IMPLEMENTATION`.
+12. `APPROVE_DEPLOY_CHAIN_HARDENING_DRY_RUN`.
+13. `APPROVE_LEGACY_UPLOAD_RUNTIME_VERIFICATION_GATE`.
    - Completed as read-only runtime-static verification: production API dist includes `fileId`, `rawUrl: null`, `url: null`, and `LEGACY_PENDING`. Remaining write probe requires separate approval.
-13. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REFRESH_OR_EXECUTION_PLAN`.
-14. `APPROVE_STORE_PAYMENT_REMOTE_UAT_FIXTURE_SETUP`.
+14. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REFRESH_OR_EXECUTION_PLAN`.
+15. `APPROVE_STORE_PAYMENT_REMOTE_UAT_FIXTURE_SETUP`.
    - Remote Store Payment runtime shell is verified, but business UAT is HOLD because account, record, and Store Payment file metadata row counts are `0`.
-15. `APPROVE_AUTH_COOKIE_CREDENTIAL_SMOKE`.
+16. `APPROVE_AUTH_COOKIE_CREDENTIAL_SMOKE`.
    - P1-006 fixed local `/store-payment` route guarding and confirmed production JWT fallback is off; cookie flags still require a credentialed login smoke after deployment.
-16. `APPROVE_ROLLBACK_RESTORE_VALIDATION_FIX_GATE`.
+17. `APPROVE_ROLLBACK_RESTORE_VALIDATION_FIX_GATE`.
    - P1-007 captured current runtime image IDs, but rollback readiness remains HOLD until `/opt/phoenix-erp` git ownership/safe-directory inspection, backup location, compose path, and previous known-good image evidence are proven under an A6 gate.
 
 ## Recommended Immediate Sequence
 
 1. Use Agent Inbox for short commands instead of long prompt copy/paste.
-2. Keep `APPROVE_LEGACY_UPLOAD_RUNTIME_VERIFICATION_GATE` as GO WITH CONDITIONS.
+2. Review `APPROVE_STORE_PAYMENT_ACCOUNT_PLACEHOLDER_WRITE_EXECUTION`.
+   - This is the next narrow production DB write candidate: three disabled/inactive Store Payment account placeholders only, with rollback SQL. Do not execute without explicit approval.
+3. Keep `APPROVE_LEGACY_UPLOAD_RUNTIME_VERIFICATION_GATE` as GO WITH CONDITIONS.
    - Local compatibility fix is complete: generic upload UI now accepts protected `fileId` and blocks raw `/uploads` or `http(s)` links.
    - Production runtime-static evidence now shows the running API returns the hardened upload shape. Do not run the upload write probe unless separately approved.
-3. Refresh `APPROVE_DEPLOY_CHAIN_HARDENING_DRY_RUN` remote evidence after SSH command-level stability improves; local manifest is already documented.
-4. Refresh `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REFRESH_OR_EXECUTION_PLAN` with SSH concurrency 1 before any execution manifest.
-5. Keep `PRD-P0-002 A1_RUNTIME_SECURITY_FIX_IMPLEMENTATION` in GO WITH CONDITIONS and rerun full A1 closeout after deploy-chain and runtime verification gates.
-6. Keep master data remediation separate from initial import repair.
+4. Refresh `APPROVE_DEPLOY_CHAIN_HARDENING_DRY_RUN` remote evidence after SSH command-level stability improves; local manifest is already documented.
+5. Refresh `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REFRESH_OR_EXECUTION_PLAN` with SSH concurrency 1 before any execution manifest.
+6. Keep `PRD-P0-002 A1_RUNTIME_SECURITY_FIX_IMPLEMENTATION` in GO WITH CONDITIONS and rerun full A1 closeout after deploy-chain and runtime verification gates.
+7. Keep master data remediation separate from initial import repair.
    - P1-004 is closed as GO WITH CONDITIONS unless a future formal alias mapping Schema Gate is requested.
-7. Prepare `APPROVE_ACTION_BIT_LEGACY_CLEANUP_PLAN` to remove Store Payment-only `C/A` compatibility after runtime action-bit alignment.
-8. Keep MANUAL_REVIEW_REQUIRED users out of automatic repair.
-9. Keep the 59 unresolved historical files out of scope until manual review or broader owner evidence exists.
-10. Keep `/uploads` and raw URL exposure forbidden for Store Payment and legacy upload responses.
-11. Do not enter Store Payment remote business UAT until a narrow UAT fixture/data setup Gate is approved and re-smoked.
-12. Do not claim rollback/restore readiness until P1-007 owner-correct git status, backup evidence, compose evidence, and rollback/restore dry-run plan are complete.
+8. Prepare `APPROVE_ACTION_BIT_LEGACY_CLEANUP_PLAN` to remove Store Payment-only `C/A` compatibility after runtime action-bit alignment.
+9. Keep MANUAL_REVIEW_REQUIRED users out of automatic repair.
+10. Keep the 59 unresolved historical files out of scope until manual review or broader owner evidence exists.
+11. Keep `/uploads` and raw URL exposure forbidden for Store Payment and legacy upload responses.
+12. Do not enter Store Payment remote business UAT until a narrow UAT fixture/data setup Gate is approved and re-smoked.
+13. Do not claim rollback/restore readiness until P1-007 owner-correct git status, backup evidence, compose evidence, and rollback/restore dry-run plan are complete.
 
 ## Do Not Auto-Start
 
