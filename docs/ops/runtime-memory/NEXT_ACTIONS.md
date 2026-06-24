@@ -19,6 +19,8 @@ Last updated: 2026-06-24
 11. `APPROVE_DEPLOY_CHAIN_HARDENING_DRY_RUN`.
 12. `APPROVE_LEGACY_UPLOAD_RUNTIME_VERIFICATION_GATE`.
 13. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REFRESH_OR_EXECUTION_PLAN`.
+14. `APPROVE_STORE_PAYMENT_REMOTE_UAT_FIXTURE_SETUP`.
+   - Remote Store Payment runtime shell is verified, but business UAT is HOLD because account, record, and Store Payment file metadata row counts are `0`.
 
 ## Recommended Immediate Sequence
 
@@ -34,6 +36,7 @@ Last updated: 2026-06-24
 8. Keep MANUAL_REVIEW_REQUIRED users out of automatic repair.
 9. Keep the 59 unresolved historical files out of scope until manual review or broader owner evidence exists.
 10. Keep `/uploads` and raw URL exposure forbidden for Store Payment and legacy upload responses.
+11. Do not enter Store Payment remote business UAT until a narrow UAT fixture/data setup Gate is approved and re-smoked.
 
 ## Do Not Auto-Start
 

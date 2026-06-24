@@ -1,0 +1,4 @@
+timestamp=20260624-170743
+host=erp.eggslao.com
+ssh_target=ops@47.236.122.224
+mode=read-only

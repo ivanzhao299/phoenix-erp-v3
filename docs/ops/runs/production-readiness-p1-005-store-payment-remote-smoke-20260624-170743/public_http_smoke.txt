@@ -1,0 +1,84 @@
+--- public health ---
+HTTP/1.1 200 Connection established
+
+HTTP/2 200 
+server: nginx
+date: Wed, 24 Jun 2026 09:07:45 GMT
+content-type: application/json; charset=utf-8
+content-length: 395
+x-powered-by: Express
+vary: Origin, Accept-Encoding
+access-control-allow-credentials: true
+x-content-type-options: nosniff
+x-frame-options: DENY
+x-xss-protection: 1; mode=block
+strict-transport-security: max-age=31536000; includeSubDomains
+etag: W/"18b-uQEw7brY8MBMbKwVNW8MWB2o5Ak"
+strict-transport-security: max-age=63072000; includeSubDomains
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+
+{"status":"OK","service":"Phoenix ERP V3 API","timestamp":"2026-06-24T09:07:45.320Z","uptime":2772,"boot_at":"2026-06-24T08:21:35.291Z","env":"production","node_version":"v20.20.2","jwt":{"loaded":true,"fingerprint":"...317f","rotation_active":false,"expires_in":"8h","clock_tolerance_sec":60},"db":{"connected":true},"security":{"jwt_fallback_in_use":false,"is_production":true,"warning":null}}--- public root ---
+HTTP/1.1 200 Connection established
+
+HTTP/2 307 
+server: nginx
+date: Wed, 24 Jun 2026 09:07:46 GMT
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+location: /login
+strict-transport-security: max-age=63072000; includeSubDomains
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+
+--- public store-payment ---
+HTTP/1.1 200 Connection established
+
+HTTP/2 200 
+server: nginx
+date: Wed, 24 Jun 2026 09:07:47 GMT
+content-type: text/html; charset=utf-8
+content-length: 15528
+vary: Accept-Encoding
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding
+x-nextjs-cache: HIT
+x-nextjs-prerender: 1
+x-nextjs-prerender: 1
+x-nextjs-stale-time: 300
+cache-control: s-maxage=31536000
+etag: "22jxqi04x0bxm"
+strict-transport-security: max-age=63072000; includeSubDomains
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+
+--- uploads exposure ---
+HTTP/1.1 200 Connection established
+
+HTTP/2 404 
+server: nginx
+date: Wed, 24 Jun 2026 09:07:49 GMT
+content-type: application/json; charset=utf-8
+content-length: 83
+x-powered-by: Express
+vary: Origin
+access-control-allow-credentials: true
+x-content-type-options: nosniff
+x-frame-options: DENY
+x-xss-protection: 1; mode=block
+strict-transport-security: max-age=31536000; includeSubDomains
+etag: W/"53-iyuA2l6we9zcwwx+5O4ObG5RmCM"
+
+--- store payment api unauth accounts ---
+curl: (35) LibreSSL SSL_connect: SSL_ERROR_SYSCALL in connection to erp.eggslao.com:443 
+HTTP/1.1 200 Connection established
+
+--- store payment api unauth records ---
+curl: (35) LibreSSL SSL_connect: SSL_ERROR_SYSCALL in connection to erp.eggslao.com:443 
+HTTP/1.1 200 Connection established
+

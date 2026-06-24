@@ -1,0 +1,17 @@
+--- remote docker status ---
+Connection timed out during banner exchange
+Connection to 47.236.122.224 port 22 timed out
+--- remote db read-only probe ---
+table|store_payment_accounts|store_payment_accounts
+table|store_payment_records|store_payment_records
+table|file_metadata|file_metadata
+count|store_payment_accounts|0
+count|store_payment_records|0
+count|file_metadata_store_payment|0
+menu|MENU_STORE_PAYMENT_ACCOUNT|1
+menu|MENU_STORE_PAYMENT|1
+menu|MENU_STORE_PAYMENT_CONFIRM|1
+menu|MENU_STORE_PAYMENT_VOID|1
+menu|MENU_STORE_PAYMENT_EXPORT|1
+store|STORE_VTE_001|1
+org|COMP_LAO_AGRI|1
