@@ -8,6 +8,7 @@ Last updated: 2026-06-24
 4. `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DIAGNOSIS`.
    - Fresh read-only evidence confirms production-side Store Payment account and record tables are empty; next write must be a narrow disabled/pending account-placeholder Gate only.
 5. `APPROVE_MASTER_DATA_REMEDIATION_PLAN`.
+   - Master-data repair plan is now docs-complete: keep `STORE-VTE-001 / COMP-LAO-AGRI` canonical, keep `ST-VTE-001` as Store Payment legacy alias only, and do not perform broad auto-rewrites.
 6. `APPROVE_ACTION_BIT_LEGACY_CLEANUP_PLAN`.
    - Local Store Payment runtime already uses target `E` for write actions; remaining cleanup is a narrow future DB Gate to remove temporary Store Payment-only `C/A` grants after runtime verification.
 7. `HOLD_MANUAL_REVIEW_REQUIRED_SCOPE_ITEMS`.
@@ -28,6 +29,7 @@ Last updated: 2026-06-24
 4. Refresh `APPROVE_INITIAL_DATA_IMPORT_REPAIR_DRY_RUN_REFRESH_OR_EXECUTION_PLAN` with SSH concurrency 1 before any execution manifest.
 5. Keep `PRD-P0-002 A1_RUNTIME_SECURITY_FIX_IMPLEMENTATION` in GO WITH CONDITIONS and rerun full A1 closeout after deploy-chain and runtime verification gates.
 6. Keep master data remediation separate from initial import repair.
+   - P1-004 is closed as GO WITH CONDITIONS unless a future formal alias mapping Schema Gate is requested.
 7. Prepare `APPROVE_ACTION_BIT_LEGACY_CLEANUP_PLAN` to remove Store Payment-only `C/A` compatibility after runtime action-bit alignment.
 8. Keep MANUAL_REVIEW_REQUIRED users out of automatic repair.
 9. Keep the 59 unresolved historical files out of scope until manual review or broader owner evidence exists.
